@@ -719,6 +719,20 @@ def test_assert_improved_raises_when_no_scorers_were_compared():
         result.assert_improved(["missing"])
 
 
+def test_assert_improved_rejects_an_empty_scorer_list():
+    comparison = _compare_paired_values(
+        "score", np.arange(20, dtype=float), np.arange(20, dtype=float) + 1, value_type="numeric"
+    )
+    result = ComparisonResult("candidate", "baseline", scorers={"score": comparison})
+
+    with pytest.raises(MlflowException, match="must not be empty") as exc_info:
+        result.assert_improved(scorers=[])
+
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+    result.assert_improved()
+    result.assert_improved(scorers=None)
+
+
 @pytest.mark.parametrize(
     ("candidate_scorers", "expected_candidate_scorers"),
     [

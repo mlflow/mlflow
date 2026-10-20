@@ -123,9 +123,14 @@ class ComparisonResult:
 
         Args:
             scorers: Names of the scorers to check. Defaults to all compared scorers, in which
-                case ``AssertionError`` is also raised when no scorers were compared.
+                case ``AssertionError`` is also raised when no scorers were compared. An
+                empty list is rejected, since it would check nothing.
             alpha: Significance level.
         """
+        if scorers is not None and not scorers:
+            raise MlflowException.invalid_parameter_value(
+                "`scorers` must not be empty. Pass `None` to check every compared scorer."
+            )
         if scorers is None and not self.scorers:
             raise AssertionError(
                 f"No scorers were compared between candidate run {self.candidate_run_id} and "
