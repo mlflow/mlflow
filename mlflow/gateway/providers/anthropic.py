@@ -97,13 +97,24 @@ def _extract_anthropic_passthrough_token_usage(result: dict[str, Any]) -> dict[s
     return _normalize_anthropic_input_tokens(token_usage)
 
 
+def _collect_anthropic_input_usage(source: dict[str, Any], usage: dict[str, int]) -> None:
+    """Copy the input and cache token counts that `source` reports into `usage`."""
+    if (input_tokens := source.get("input_tokens")) is not None:
+        usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
+    if (cached := source.get("cache_read_input_tokens")) is not None:
+        usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
+    if (created := source.get("cache_creation_input_tokens")) is not None:
+        usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
+
+
 def _extract_anthropic_streaming_token_usage(chunk: bytes) -> dict[str, int]:
     """
     Extract token usage from an Anthropic Messages streaming chunk.
 
     Anthropic streaming format:
     - message_start event: {"message": {"usage": {"input_tokens": X, ...}}}
-    - message_delta event: {"usage": {"output_tokens": Y}}
+    - message_delta event: {"usage": {"output_tokens": Y}}; the usage is cumulative, and with
+      server tools it also carries the final input and cache token counts
 
     Returns:
         A dictionary with token usage found in this chunk.
@@ -116,14 +127,13 @@ def _extract_anthropic_streaming_token_usage(chunk: bytes) -> dict[str, int]:
                 "type": "message_start",
                 "message": {"usage": dict(msg_usage)},
             }:
-                if (input_tokens := msg_usage.get("input_tokens")) is not None:
-                    usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
-                if (cached := msg_usage.get("cache_read_input_tokens")) is not None:
-                    usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
-                if (created := msg_usage.get("cache_creation_input_tokens")) is not None:
-                    usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
-            case {"type": "message_delta", "usage": {"output_tokens": int(output_tokens)}}:
-                usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
+                _collect_anthropic_input_usage(msg_usage, usage)
+            case {"type": "message_delta", "usage": dict(delta_usage)}:
+                # The usage of message_delta is cumulative and replaces the one from
+                # message_start: with server tools it holds the final input and cache counts.
+                _collect_anthropic_input_usage(delta_usage, usage)
+                if isinstance(output_tokens := delta_usage.get("output_tokens"), int):
+                    usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
     # Anthropic's input_tokens excludes cache tokens; normalize to include them.
     return _normalize_anthropic_input_tokens(usage) or usage
 
@@ -737,9 +747,17 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
             resp.update(metadata)
             if resp["type"] == "message_delta":
-                # Capture output_tokens from message_delta
+                # message_delta usage is cumulative: take output_tokens, and the final input and
+                # cache counts, which with server tools only arrive here
                 if delta_usage := resp.get("usage"):
                     usage_data["output_tokens"] = delta_usage.get("output_tokens")
+                    for key in (
+                        "input_tokens",
+                        "cache_read_input_tokens",
+                        "cache_creation_input_tokens",
+                    ):
+                        if (value := delta_usage.get(key)) is not None:
+                            usage_data[key] = value
                 # Include accumulated usage in the response
                 resp["_usage_data"] = usage_data
                 yield AnthropicAdapter.model_to_chat_streaming(resp, self.config)

@@ -1745,6 +1745,60 @@ def test_anthropic_extract_streaming_full_stream_with_cached_tokens():
     }
 
 
+def test_anthropic_extract_streaming_token_usage_message_delta_final_counts():
+    # With server tools, message_delta carries the final cumulative input and cache counts
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    accumulated_usage = {}
+    chunk1 = (
+        b"event: message_start\n"
+        b'data: {"type":"message_start","message":{"id":"msg_123",'
+        b'"usage":{"input_tokens":10,"cache_read_input_tokens":0,'
+        b'"cache_creation_input_tokens":0,"output_tokens":1}}}\n'
+    )
+    accumulated_usage.update(provider._extract_streaming_token_usage(chunk1))
+
+    chunk2 = (
+        b"event: message_delta\n"
+        b'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},'
+        b'"usage":{"input_tokens":120,"cache_read_input_tokens":100,'
+        b'"cache_creation_input_tokens":20,"output_tokens":50}}\n'
+    )
+    accumulated_usage.update(provider._extract_streaming_token_usage(chunk2))
+
+    # input_tokens (120) excludes the cache tokens: 120 + 100 + 20
+    assert accumulated_usage == {
+        "input_tokens": 240,
+        "output_tokens": 50,
+        "cache_read_input_tokens": 100,
+        "cache_creation_input_tokens": 20,
+    }
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_usage_takes_final_counts_from_message_delta():
+    resp = chat_stream_response()
+    delta_index = next(
+        i for i, line in enumerate(resp) if line.startswith(b'data: {"type": "message_delta"')
+    )
+    resp[delta_index] = (
+        b'data: {"type": "message_delta", "delta": {"stop_reason": "end_turn", '
+        b'"stop_sequence":null}, "usage":{"input_tokens": 120, "cache_read_input_tokens": 100, '
+        b'"cache_creation_input_tokens": 20, "output_tokens": 15}}\n'
+    )
+
+    with mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)):
+        provider = AnthropicProvider(EndpointConfig(**chat_config()))
+        response = provider.chat_stream(chat.RequestPayload(**chat_payload(stream=True)))
+        chunks = [jsonable_encoder(chunk) async for chunk in response]
+
+    usage = chunks[-1]["usage"]
+    # input_tokens (120) excludes the cache tokens: 120 + 100 + 20
+    assert usage["prompt_tokens"] == 240
+    assert usage["completion_tokens"] == 15
+    assert usage["total_tokens"] == 255
+    assert usage["prompt_tokens_details"]["cached_tokens"] == 100
+
+
 def test_anthropic_adapter_build_chat_usage_with_cached_tokens():
     usage_data = {
         "input_tokens": 50,
