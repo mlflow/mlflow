@@ -750,7 +750,12 @@ jobs:
               exit 1
             fi
           done
-      - name: Triage issue
+      # Fixed up front so the trace can be found by its session after the run.
+      - id: session
+        name: Generate session ID
+        run: echo "id=$(cat /proc/sys/kernel/random/uuid)" >> "$GITHUB_OUTPUT"
+      - id: triage
+        name: Triage issue
         env:
           ANTHROPIC_BASE_URL: http://localhost:8080/anthropic
           ANTHROPIC_AUTH_TOKEN: placeholder
@@ -761,6 +766,7 @@ jobs:
           AGENT_BROWSER_ARGS: --no-sandbox
           AGENT_BROWSER_SCREENSHOT_DIR: /tmp/triage-out/media
           MODEL: ${{ inputs.model || 'databricks-claude-opus-5-5' }}
+          SESSION_ID: ${{ steps.session.outputs.id }}
           ISSUE_PATH: ${{ runner.temp }}/issue-context/issue-context.json
           TRIAGE_ACTION: ${{ needs.issue.outputs.action }}
           PR_DISABLED: ${{ needs.issue.outputs.pr_enabled != 'true' }}
@@ -796,6 +802,7 @@ jobs:
           timeout 30m srt --settings .claude/sandbox/srt.json -- \
             "${relay[@]}" env -u NO_PROXY -u no_proxy claude \
             --model "$MODEL" \
+            --session-id "$SESSION_ID" \
             --effort high \
             --max-budget-usd 5 \
             --permission-mode auto \
@@ -861,6 +868,59 @@ jobs:
           if-no-files-found: error
           overwrite: true
           retention-days: 1
+      - name: Tag trace with triage outcome
+        if: always() && steps.telemetry.outcome == 'success'
+        continue-on-error: true
+        env:
+          TOKEN: ${{ steps.telemetry.outputs.token }}
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          TRACE_LOCATION: ${{ vars.TRIAGE_MLFLOW_TRACE_LOCATION }}
+          WAREHOUSE_ID: ${{ vars.TRIAGE_SQL_WAREHOUSE_ID }}
+          SESSION_ID: ${{ steps.session.outputs.id }}
+          ACTION: ${{ needs.issue.outputs.action }}
+          TYPE: ${{ needs.label.outputs.type }}
+          STATUS: ${{ steps.triage.outcome }}
+          DRY_RUN: ${{ needs.issue.outputs.dry_run }}
+        run: |
+          IFS=. read -r catalog schema prefix <<< "$TRACE_LOCATION"
+          search=$(jq -nc --arg catalog "$catalog" --arg schema "$schema" --arg prefix "$prefix" \
+            --arg session "$SESSION_ID" --arg warehouse "$WAREHOUSE_ID" '{
+              locations: [{type: "UC_TABLE_PREFIX", uc_table_prefix: {catalog_name: $catalog, schema_name: $schema, table_prefix: $prefix}}],
+              filter: "metadata.`mlflow.trace.session` = '\''\($session)'\''",
+              max_results: 2,
+              sql_warehouse_id: $warehouse
+            }')
+          # Spans can take a few minutes to be ingested after the agent exits.
+          ids='[]'
+          for _ in $(seq 1 20); do
+            ids=$(curl -sS --fail-with-body --max-time 30 --oauth2-bearer "$TOKEN" \
+              -H "Content-Type: application/json" --data-binary "$search" \
+              "$DATABRICKS_HOST/api/4.0/mlflow/traces/search" | jq -c '[.trace_infos[]?.trace_id]') || ids='[]'
+            [ "$ids" != '[]' ] && break
+            sleep 15
+          done
+          # The agent can export its own spans with this session ID, so tag only an unambiguous match.
+          if [ "$(jq length <<< "$ids")" -ne 1 ]; then
+            echo "::warning::Expected one trace for session $SESSION_ID, found $ids"
+            exit 0
+          fi
+          trace_id=$(jq -r '.[0]' <<< "$ids")
+          # The payload is agent output and unvalidated here, so keep only a well-formed label as the verdict.
+          payload=$(jq -c objects "$RUNNER_TEMP/triage-report/payload.json" 2>/dev/null) || payload='{}'
+          tags=$(jq -nc --argjson p "${payload:-"{}"}" '{
+            "triage.action": env.ACTION,
+            "triage.type": env.TYPE,
+            "triage.status": env.STATUS,
+            "triage.dry_run": env.DRY_RUN,
+            "triage.verdict": (($p.label | strings | select(test("^triage: [a-z-]+$")) | ltrimstr("triage: ")) // ""),
+            "triage.pr_created": ($p | has("pull_request") | tostring)
+          } | with_entries(select(.value != ""))')
+          jq -c 'to_entries[]' <<< "$tags" | while read -r tag; do
+            curl -sS --fail-with-body --max-time 30 --oauth2-bearer "$TOKEN" -X PATCH \
+              -H "Content-Type: application/json" --data-binary "$tag" \
+              "$DATABRICKS_HOST/api/4.0/mlflow/traces/$TRACE_LOCATION/$trace_id/tags" > /dev/null
+          done
+          echo "Tagged trace \`$trace_id\` with \`$tags\`" >> "$GITHUB_STEP_SUMMARY"
       - name: Stop gateway proxy
         if: always()
         run: |
