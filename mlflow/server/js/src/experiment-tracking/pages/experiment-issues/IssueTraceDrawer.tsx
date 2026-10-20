@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useRef } from 'react';
+import React, { useCallback, useMemo, useRef, type ReactNode } from 'react';
+import { GenericSkeleton } from '@databricks/design-system';
 import {
   convertTraceInfoV3ToRunEvalEntry,
   GenAiEvaluationTracesReviewModal,
@@ -6,11 +7,68 @@ import {
   type AssessmentInfo,
   type EvalTraceComparisonEntry,
 } from '../../../shared/web-shared/genai-traces-table';
-import type { ModelTraceInfoV3 } from '../../../shared/web-shared/model-trace-explorer';
+import {
+  ModelTraceExplorerContextProvider,
+  ModelTraceExplorerPreferencesProvider,
+  shouldEnableModelTraceExplorerCustomTraceView,
+  type ModelTraceInfoV3,
+} from '../../../shared/web-shared/model-trace-explorer';
+import { AssistantAwareDrawer } from '../../../common/components/AssistantAwareDrawer';
 import { useSearchParams } from '../../../common/utils/RoutingUtils';
 import { SELECTED_ISSUE_SPAN_ID_PARAM } from '../../constants';
 import { getTrace } from '../../utils/TraceUtils';
+import { ExportTracesToDatasetModal } from '../experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
+import { AddToReviewQueueDropdown } from '../experiment-review-queue/AddToReviewQueueDropdown';
 import { getAddressableTraceId } from './issueEvidence.utils';
+
+// Custom View pulls in @a2ui (ESM-only) transitively via ExperimentCustomViewProvider.
+// Lazy-load it so the Issues tab doesn't carry @a2ui on its static module graph
+// (mirrors the V3 and V4 traces pages).
+const LazyExperimentCustomViewProvider = React.lazy(() =>
+  import('../../components/experiment-page/components/traces-v3/ExperimentCustomViewProvider').then((module) => ({
+    default: module.ExperimentCustomViewProvider,
+  })),
+);
+
+/**
+ * The contexts the trace drawer's own controls read, which a traces table would otherwise supply.
+ *
+ * The drawer is a shared component whose header and span tree reach for host-provided behavior:
+ * display-metric preferences, the Add to dataset modal, the review-queue picker and the experiment's
+ * saved custom views. Their defaults are inert -- no-op setters and a modal renderer that returns
+ * nothing -- so a host that omits them gets controls that render and do nothing rather than controls
+ * that stay hidden. Mounted above the detail pane, not inside the drawer, so a preference set while
+ * reading one trace survives closing the drawer and opening another, as it does on the Traces tab.
+ */
+export const IssueTraceDrawerProviders = ({
+  experimentId,
+  children,
+}: {
+  experimentId: string;
+  children: ReactNode;
+}) => {
+  const content = shouldEnableModelTraceExplorerCustomTraceView() ? (
+    <React.Suspense fallback={<GenericSkeleton css={{ flex: 1, margin: 16 }} />}>
+      <LazyExperimentCustomViewProvider key={experimentId} experimentId={experimentId}>
+        {children}
+      </LazyExperimentCustomViewProvider>
+    </React.Suspense>
+  ) : (
+    children
+  );
+
+  return (
+    <ModelTraceExplorerPreferencesProvider>
+      <ModelTraceExplorerContextProvider
+        renderExportTracesToDatasetsModal={ExportTracesToDatasetModal}
+        renderAddToReviewQueueDropdown={AddToReviewQueueDropdown}
+        DrawerComponent={AssistantAwareDrawer}
+      >
+        {content}
+      </ModelTraceExplorerContextProvider>
+    </ModelTraceExplorerPreferencesProvider>
+  );
+};
 
 /**
  * The drawer's assessment editing is driven by the assessment columns a traces *table* aggregates

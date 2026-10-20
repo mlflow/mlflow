@@ -23,6 +23,7 @@ import { markDetectIssuesGuidanceSeen } from '../../../shared/web-shared/genai-t
 import { ExperimentIssuesEmptyState } from './ExperimentIssuesEmptyState';
 import { useDetectionTraceIds, useLatestIssueDetection } from './useIssueDetection';
 import { useExperimentIssue, useExperimentIssues, useHasExperimentIssues } from './useExperimentIssues';
+import { IssueTraceDrawerProviders } from './IssueTraceDrawer';
 
 const CenteredState = ({ children }: { children: ReactNode }) => (
   <div
@@ -437,7 +438,11 @@ const ExperimentIssuesPage = () => {
     );
   }
   if (!experimentId) return null;
-  return <ExperimentIssuesContent key={`${workspace}:${experimentId}`} experimentId={experimentId} />;
+  return (
+    <IssueTraceDrawerProviders experimentId={experimentId}>
+      <ExperimentIssuesContent key={`${workspace}:${experimentId}`} experimentId={experimentId} />
+    </IssueTraceDrawerProviders>
+  );
 };
 
 export default ExperimentIssuesPage;
