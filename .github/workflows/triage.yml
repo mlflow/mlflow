@@ -914,7 +914,7 @@ jobs:
             "triage.status": env.STATUS,
             "triage.dry_run": env.DRY_RUN,
             "triage.verdict": (($p.label | strings | select(test("^triage: [a-z-]+$")) | ltrimstr("triage: ")) // ""),
-            "triage.pr_proposed": ($p | has("pull_request") | tostring)
+            "triage.pr_created": ($p | has("pull_request") | tostring)
           } | with_entries(select(.value != ""))')
           jq -c 'to_entries[]' <<< "$tags" | while read -r tag; do
             curl -sS --fail-with-body --max-time 30 --oauth2-bearer "$TOKEN" -X PATCH \
