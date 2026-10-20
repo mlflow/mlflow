@@ -1415,6 +1415,18 @@ def test_stderr_reader_without_a_readable_stream_starts_no_writer():
     assert not any(t.name == "local-job-stderr-writer" for t in threading.enumerate())
 
 
+def test_stderr_reader_does_not_split_a_character_in_a_long_line(pipe_reader, capfd, monkeypatch):
+    monkeypatch.setattr(local_executor, "_FORWARD_MAX_LINE_BYTES", 4)
+    start, write, close_writer = pipe_reader
+    reader = start(job_id="j1")
+    # Each character is 3 bytes, so a cut after 4 bytes falls inside the second one.
+    write("界界界".encode())
+    close_writer()
+    reader.close()
+
+    assert capfd.readouterr().err.splitlines() == ["[job j1] 界", "[job j1] 界", "[job j1] 界"]
+
+
 def test_local_executor_bounds_captured_stderr_tail(executor):
     # A job that floods stderr before crashing must surface only a bounded tail so
     # the server never holds the full stderr in memory.

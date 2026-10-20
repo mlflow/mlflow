@@ -51,6 +51,15 @@ _FORWARD_MAX_QUEUED_LINES = 1000
 _FORWARD_MAX_QUEUED_BYTES = 1024 * 1024
 
 
+def _utf8_boundary(data: bytearray, cut: int) -> int:
+    """Move ``cut`` back to the start of the UTF-8 character that it falls inside, if any."""
+    # Continuation bytes look like 0b10xxxxxx, and a character has at most 3 of them.
+    for start in range(cut, max(cut - 4, 0), -1):
+        if data[start] & 0xC0 != 0x80:
+            return start
+    return cut
+
+
 def _stderr_writer() -> Callable[[bytes], None] | None:
     """A function that writes bytes to this process's stderr, or None if there is none."""
     stderr = sys.stderr
@@ -89,10 +98,12 @@ class _BoundedStderrReader:
 
     Each complete line read is also forwarded to this process's stderr, prefixed with
     ``[job <job_id>]``, so what a job logs reaches the server log even when the job
-    succeeds. A line is forwarded once it is complete, or in pieces of
-    ``_FORWARD_MAX_LINE_BYTES`` if it has no newline yet. A separate writer thread does
-    the writing, so a slow or blocked stderr never slows the drain: when the writer
-    falls behind, lines are dropped, and a note where they are missing says how many.
+    succeeds. A line is forwarded once it is complete, or in pieces of at most
+    ``_FORWARD_MAX_LINE_BYTES``, cut between UTF-8 characters, if it has no newline yet.
+    A separate writer thread does the writing, so a slow or blocked stderr never slows
+    the drain: when the writer falls behind, lines are dropped, and a note where they are
+    missing says how many. If stderr stays blocked, the writer outlives its job, holding
+    the lines still queued, until stderr takes them.
     Unlike a job that inherits the server's stderr, output is delayed until a line is
     complete, a newline is added to a last line that has none, and what a descendant
     writes after the reader stops is lost.
@@ -205,9 +216,10 @@ class _BoundedStderrReader:
         while True:
             end = self._partial_line.find(b"\n") + 1
             if not end:
-                if len(self._partial_line) < _FORWARD_MAX_LINE_BYTES:
+                # Wait for a byte past the cut, to tell whether the cut splits a character.
+                if len(self._partial_line) <= _FORWARD_MAX_LINE_BYTES:
                     return
-                end = _FORWARD_MAX_LINE_BYTES
+                end = _utf8_boundary(self._partial_line, _FORWARD_MAX_LINE_BYTES)
             self._enqueue(bytes(self._partial_line[:end]))
             del self._partial_line[:end]
 
