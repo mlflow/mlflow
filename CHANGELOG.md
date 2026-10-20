@@ -13,10 +13,6 @@ Bug fixes:
 - [Tracking] Reseed sampler and forward batch settings on `MlflowSparkStudy` executors (#26714, @iyashk)
 - [Tracking] Fix `MlflowStorage` marking Optuna trials finished before their values are saved (#26713, @iyashk)
 
-Small bug fixes and documentation updates:
-
-#26911, @joshuawong-db
-
 ## 3.17.1 (2026-10-13)
 
 MLflow 3.17.1 is a patch release that contains some minor feature enhancements, bug fixes, and documentation updates.
