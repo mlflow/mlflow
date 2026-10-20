@@ -9,6 +9,11 @@ interface DatasetRecordDetailFooterProps {
   status: SaveStatus;
   /** Error text shown when status = 'error'. */
   errorMessage?: string;
+  /**
+   * True when the editors differ from their baseline. Gates the discard button: create mode
+   * seeds the editors with defaults, so `status` is 'dirty' from mount with nothing to revert.
+   */
+  isDirty: boolean;
   onSave: () => void;
   onDiscard: () => void;
   /** Primary-button label. Defaults to "Save"; create-mode callers pass "Add record". */
@@ -90,13 +95,15 @@ const StatusText = ({ status, errorMessage }: { status: SaveStatus; errorMessage
 export const DatasetRecordDetailFooter = ({
   status,
   errorMessage,
+  isDirty,
   onSave,
   onDiscard,
   saveLabel,
 }: DatasetRecordDetailFooterProps) => {
   const { theme } = useDesignSystemTheme();
   const canSave = status === 'dirty' || status === 'error';
-  const canDiscard = status === 'dirty' || status === 'invalid' || status === 'empty-inputs' || status === 'error';
+  const canDiscard =
+    isDirty && (status === 'dirty' || status === 'invalid' || status === 'empty-inputs' || status === 'error');
 
   return (
     <AssistantAwareActionBar

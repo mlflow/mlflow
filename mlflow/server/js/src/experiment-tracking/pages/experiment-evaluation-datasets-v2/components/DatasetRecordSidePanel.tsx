@@ -412,6 +412,7 @@ export const DatasetRecordSidePanel = ({
         <DatasetRecordDetailFooter
           status={active.status}
           errorMessage={active.errorMessage}
+          isDirty={active.isDirty}
           onSave={active.save}
           onDiscard={active.discard}
           saveLabel={
