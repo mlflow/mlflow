@@ -1,4 +1,4 @@
-import { describe, expect, jest, test } from '@jest/globals';
+import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { useState } from 'react';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -7,6 +7,12 @@ import { TracesTableView, type TracesTableViewProps } from './TracesTableView';
 import { makeTrace } from './test-utils/mockTraces';
 import { renderWithProviders } from './test-utils/renderWithProviders';
 import type { SessionComparisonRow } from './types';
+import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
+
+jest.mock('../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
+  shouldEnableNewEvalRunsUi: jest.fn(() => false),
+}));
 
 const baseProps = (over: Partial<TracesTableViewProps> = {}): TracesTableViewProps => ({
   viewState: 'ready',
@@ -128,6 +134,10 @@ const SessionComparisonHarness = ({
 };
 
 describe('controlled session comparison rows', () => {
+  afterEach(() => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
+  });
+
   test.each([
     {
       firstRun: 'Baseline',
@@ -268,6 +278,28 @@ describe('controlled session comparison rows', () => {
       'aria-expanded',
       'false',
     );
+  });
+
+  test('totals each run’s session duration on its summary row with the new eval runs UI', async () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+    await renderWithProviders(
+      <TracesTableView
+        {...baseProps({
+          traces: [sessionBaselineFirst, sessionBaselineLast, sessionCandidate],
+          visibleColumns: ['session', 'duration'],
+          isGroupedBySession: true,
+          comparisonRows: sessionComparisonRows,
+          expandedComparisonGroups: new Set(['matched-session']),
+        })}
+      />,
+    );
+    // Each fixture turn takes 1.2s: the baseline ran two turns, the candidate one.
+    expect(
+      within(screen.getByRole('row', { name: 'Baseline session baseline-session' })).getByText('2.4s'),
+    ).toBeVisible();
+    expect(
+      within(screen.getByRole('row', { name: 'Candidate session candidate-session' })).getByText('1.2s'),
+    ).toBeVisible();
   });
 
   test('keeps multiple shared-identity session groups and their run traces open independently', async () => {
