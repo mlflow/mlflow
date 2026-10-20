@@ -920,6 +920,7 @@ mlflow.genai.agent_server.server.AgentServer
 mlflow.genai.agent_server.set_request_headers
 mlflow.genai.agent_server.setup_mlflow_git_based_version_tracking
 mlflow.genai.agent_server.stream
+mlflow.genai.compare_evaluations
 mlflow.genai.create_dataset
 mlflow.genai.create_labeling_session
 mlflow.genai.create_mcp_access_endpoint

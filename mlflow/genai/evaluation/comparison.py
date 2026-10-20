@@ -582,7 +582,7 @@ def compare_evaluations(
         baseline_run_id: ID of the evaluation run to compare against.
         greater_is_better: Per-scorer direction overrides, keyed by scorer name. Scorers not
             listed are assumed to be better when higher. Only affects
-            :py:meth:`ComparisonResult.assert_improved`; ``diff`` is always
+            ``ComparisonResult.assert_improved()``; ``diff`` is always
             candidate - baseline.
         confidence_level: Confidence level of the bootstrap confidence interval.
         log_results: If True, log the comparison to the candidate run: metrics
