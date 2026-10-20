@@ -47,6 +47,7 @@ from mlflow.genai.discovery.entities import (
     _ConversationAnalysis,
     _IdentifiedIssue,
 )
+from mlflow.genai.discovery.evidence import generate_trace_evidence
 from mlflow.genai.discovery.extraction import (
     collect_session_rationales,
     extract_execution_paths_for_session,
@@ -186,24 +187,50 @@ def _annotate_issue_traces(
             categories=categories,
         )
 
-        try:
-            response = _call_llm(
-                model,
-                [
-                    {"role": "system", "content": TRACE_ANNOTATION_SYSTEM_PROMPT},
-                    {"role": "user", "content": user_content},
-                ],
-                token_counter=token_counter,
-            )
-            annotation = (response.choices[0].message.content or "").strip()
-        except Exception:
-            _logger.debug(
-                "Failed to generate annotation for trace %s", item.trace_id, exc_info=True
-            )
-            annotation = (
-                f"This trace was flagged for issue '{item.issue.name}'. "
-                f"Triage rationale: {item.triage_rationale or '(not available)'}"
-            )
+        evidence = None
+        annotation = ""
+        if trace is not None:
+            # A span-anchored walkthrough is what the Issues tab can navigate, so it is tried
+            # first. Generation and validation are both fallible, and either way the summary
+            # it produced is still the best prose available for the reference's rationale.
+            try:
+                evidence, annotation = generate_trace_evidence(
+                    issue_name=item.issue.name,
+                    issue_description=item.issue.description or "",
+                    root_causes="; ".join(item.issue.root_causes or []),
+                    trace=trace,
+                    trace_content=trace_content,
+                    triage_rationale=item.triage_rationale,
+                    categories=categories,
+                    model=model,
+                    token_counter=token_counter,
+                )
+            except Exception:
+                _logger.debug(
+                    "Failed to generate evidence for trace %s", item.trace_id, exc_info=True
+                )
+
+        if not annotation:
+            # Prose only. Reached when the trace is unavailable or evidence generation failed,
+            # and still records that this trace exhibits the issue.
+            try:
+                response = _call_llm(
+                    model,
+                    [
+                        {"role": "system", "content": TRACE_ANNOTATION_SYSTEM_PROMPT},
+                        {"role": "user", "content": user_content},
+                    ],
+                    token_counter=token_counter,
+                )
+                annotation = (response.choices[0].message.content or "").strip()
+            except Exception:
+                _logger.debug(
+                    "Failed to generate annotation for trace %s", item.trace_id, exc_info=True
+                )
+                annotation = (
+                    f"This trace was flagged for issue '{item.issue.name}'. "
+                    f"Triage rationale: {item.triage_rationale or '(not available)'}"
+                )
 
         metadata = {TraceMetadataKey.TRACE_SESSION: item.session_id} if item.session_id else None
         try:
@@ -212,6 +239,7 @@ def _annotate_issue_traces(
                 issue_id=item.issue.issue_id,
                 issue_name=item.issue.name,
                 source=source,
+                evidence=evidence,
                 rationale=annotation,
                 metadata=metadata,
             )
