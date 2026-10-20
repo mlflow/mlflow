@@ -3354,7 +3354,10 @@ def test_review_queue_question_lock_holds_in_workspace_store(workspace_tracking_
         assert updated.users == ["alice"]
 
 
-def test_extended_issue_fields_and_paging_are_workspace_scoped(workspace_tracking_store):
+@pytest.mark.parametrize(
+    "order_by", [None, ["name ASC"], ["status ASC", "severity DESC", "last_seen_timestamp DESC"]]
+)
+def test_extended_issue_fields_and_paging_are_workspace_scoped(workspace_tracking_store, order_by):
     store = workspace_tracking_store
     with WorkspaceContext("team-a"):
         experiment_id = store.create_experiment("extended-issues")
@@ -3367,7 +3370,9 @@ def test_extended_issue_fields_and_paging_are_workspace_scoped(workspace_trackin
                 categories=["Cost", " COST "],
                 metadata={"private": "value"},
             )
-        page = store.search_issues(categories=[" cOsT "], include_total_count=True, max_results=1)
+        page = store.search_issues(
+            categories=[" cOsT "], include_total_count=True, max_results=1, order_by=order_by
+        )
         assert page.total_count == 2
         assert page.token
         run = store.create_run(experiment_id, "user", 1, [], "run")
@@ -3379,6 +3384,7 @@ def test_extended_issue_fields_and_paging_are_workspace_scoped(workspace_trackin
         with pytest.raises(MlflowException, match="page token"):
             store.search_issues(
                 categories=["cost"],
+                order_by=order_by,
                 include_total_count=True,
                 max_results=1,
                 page_token=page.token,
@@ -3390,7 +3396,11 @@ def test_extended_issue_fields_and_paging_are_workspace_scoped(workspace_trackin
     with WorkspaceContext("team-a"):
         assert store.get_issue("iss-team-a-0").metadata == {"private": "value"}
         second = store.search_issues(
-            categories=["COST"], include_total_count=True, max_results=1, page_token=page.token
+            categories=["COST"],
+            include_total_count=True,
+            max_results=1,
+            page_token=page.token,
+            order_by=order_by,
         )
         assert second.total_count == 2
         assert second[0].issue_id != page[0].issue_id

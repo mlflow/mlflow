@@ -1,9 +1,13 @@
 import { ImageIcon, Spinner, Tooltip } from '@databricks/design-system';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { getArtifactLocationUrl } from '@mlflow/mlflow/src/common/utils/ArtifactUtils';
+import { getArtifactBlob, getArtifactLocationUrl } from '@mlflow/mlflow/src/common/utils/ArtifactUtils';
 import type { ImageEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
-import { useState, useEffect } from 'react';
+import {
+  fetchArtifactPreferPresigned,
+  fetchRunArtifactPreferPresigned,
+} from '@mlflow/mlflow/src/experiment-tracking/utils/PresignedArtifactUtils';
+import { useState, useEffect, useCallback } from 'react';
 import { Typography } from '@databricks/design-system';
 import { ImagePreviewGroup, Image } from '../../../../../shared/building_blocks/Image';
 import { RunColorPill } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/components/RunColorPill';
@@ -73,73 +77,232 @@ export const ImageGridRunHeader = ({
 };
 
 type ImagePlotProps = {
-  imageUrl: string;
-  compressedImageUrl: string;
+  imageUrl?: string;
+  compressedImageUrl?: string;
+  imageError?: boolean;
+  previewError?: boolean;
   imageSize?: number;
   maxImageSize?: number;
+  onPreviewVisibleChange?: (visible: boolean) => void;
 };
 
-export const ImagePlot = ({ imageUrl, compressedImageUrl, imageSize, maxImageSize }: ImagePlotProps) => {
+export const ImagePlot = ({
+  imageUrl,
+  compressedImageUrl,
+  imageError = false,
+  previewError = false,
+  imageSize,
+  maxImageSize,
+  onPreviewVisibleChange,
+}: ImagePlotProps) => {
   const [previewVisible, setPreviewVisible] = useState(false);
   const { theme } = useDesignSystemTheme();
 
   const [imageLoading, setImageLoading] = useState(true);
+  const [imageLoadFailed, setImageLoadFailed] = useState(false);
 
   useEffect(() => {
     // Load the image in the memory (should reuse the same request) in order to get the loading state
     setImageLoading(true);
+    setImageLoadFailed(false);
+    if (!compressedImageUrl) return;
     const img = new window.Image();
     img.onload = () => setImageLoading(false);
-    img.onerror = () => setImageLoading(false);
+    img.onerror = () => {
+      setImageLoading(false);
+      setImageLoadFailed(true);
+    };
     img.src = compressedImageUrl;
     return () => {
+      img.onload = null;
+      img.onerror = null;
       img.src = '';
     };
   }, [compressedImageUrl]);
 
+  useEffect(() => {
+    if (previewError) setPreviewVisible(false);
+  }, [previewError]);
+
   return (
-    <div css={{ width: imageSize || '100%', height: imageSize || '100%' }}>
-      <div css={{ display: 'contents' }}>
-        {compressedImageUrl === undefined || imageLoading ? (
-          <div
-            css={{
-              width: '100%',
-              backgroundColor: theme.colors.backgroundSecondary,
-              display: 'flex',
-              aspectRatio: '1',
-              justifyContent: 'center',
-              alignItems: 'center',
+    <div
+      aria-busy={!imageError && !imageLoadFailed && (compressedImageUrl === undefined || imageLoading)}
+      style={{
+        width: imageSize || '100%',
+        height: imageSize || '100%',
+        maxWidth: maxImageSize,
+        maxHeight: maxImageSize,
+        aspectRatio: '1',
+      }}
+      css={{
+        backgroundColor: theme.colors.backgroundSecondary,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        position: 'relative',
+        '.rc-image': { cursor: 'pointer' },
+      }}
+    >
+      {imageError || imageLoadFailed ? (
+        <Typography.Text color="info">
+          <ImageIcon />{' '}
+          <FormattedMessage
+            defaultMessage="Image unavailable"
+            description="Image grid > error displayed in a cell when its image cannot be loaded"
+          />
+        </Typography.Text>
+      ) : compressedImageUrl === undefined || imageLoading ? (
+        <Spinner />
+      ) : (
+        <>
+          <ImagePreviewGroup
+            visible={previewVisible}
+            onVisibleChange={(visible) => {
+              setPreviewVisible(visible);
+              onPreviewVisibleChange?.(visible);
             }}
           >
-            <Spinner />
-          </div>
-        ) : (
-          <div
-            css={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: imageSize || '100%',
-              aspectRatio: '1',
-              maxWidth: maxImageSize,
-              maxHeight: maxImageSize,
-              backgroundColor: theme.colors.backgroundSecondary,
-              '.rc-image': {
-                cursor: 'pointer',
-              },
-            }}
-          >
-            <ImagePreviewGroup visible={previewVisible} onVisibleChange={setPreviewVisible}>
-              <Image
-                src={compressedImageUrl}
-                preview={{ src: imageUrl }}
-                style={{ maxWidth: maxImageSize || '100%', maxHeight: maxImageSize || '100%' }}
+            <Image
+              src={compressedImageUrl}
+              preview={previewError ? false : { src: imageUrl ?? compressedImageUrl }}
+              style={{ maxWidth: maxImageSize || '100%', maxHeight: maxImageSize || '100%' }}
+            />
+          </ImagePreviewGroup>
+          {previewError && (
+            <Typography.Text
+              color="info"
+              css={{
+                position: 'absolute',
+                bottom: 0,
+                width: '100%',
+                textAlign: 'center',
+                whiteSpace: 'normal',
+                backgroundColor: theme.colors.backgroundSecondary,
+              }}
+            >
+              <FormattedMessage
+                defaultMessage="Full-size image unavailable"
+                description="Image grid > error displayed in a cell when its full-size preview cannot be loaded"
               />
-            </ImagePreviewGroup>
-          </div>
-        )}
-      </div>
+            </Typography.Text>
+          )}
+        </>
+      )}
     </div>
+  );
+};
+
+/** Fetch the thumbnail immediately and the original only when its preview opens. */
+export const ArtifactImagePlot = ({
+  filepath,
+  compressedFilepath,
+  fetchImage,
+  imageSize,
+  maxImageSize,
+}: {
+  filepath: string;
+  compressedFilepath: string;
+  fetchImage: (path: string) => Promise<Blob>;
+  imageSize?: number;
+  maxImageSize?: number;
+}) => {
+  const [compressedImageUrl, setCompressedImageUrl] = useState<string>();
+  const [imageUrl, setImageUrl] = useState<string>();
+  const [previewRequested, setPreviewRequested] = useState(false);
+  const [thumbnailError, setThumbnailError] = useState(false);
+  const [previewError, setPreviewError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let url: string | undefined;
+    setCompressedImageUrl(undefined);
+    setThumbnailError(false);
+    fetchImage(compressedFilepath)
+      .then((blob) => {
+        if (cancelled) return;
+        url = URL.createObjectURL(blob);
+        setCompressedImageUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) setThumbnailError(true);
+      });
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [compressedFilepath, fetchImage]);
+
+  useEffect(() => {
+    if (!previewRequested || filepath === compressedFilepath) return;
+    let cancelled = false;
+    let url: string | undefined;
+    setImageUrl(undefined);
+    setPreviewError(false);
+    fetchImage(filepath)
+      .then((blob) => {
+        if (cancelled) return;
+        url = URL.createObjectURL(blob);
+        setImageUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) setPreviewError(true);
+      });
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [compressedFilepath, fetchImage, filepath, previewRequested]);
+
+  return (
+    <ImagePlot
+      compressedImageUrl={compressedImageUrl}
+      imageUrl={imageUrl ?? compressedImageUrl}
+      imageError={thumbnailError}
+      previewError={previewError}
+      imageSize={imageSize}
+      maxImageSize={maxImageSize}
+      onPreviewVisibleChange={(visible) => {
+        if (visible) setPreviewRequested(true);
+      }}
+    />
+  );
+};
+
+export const RunArtifactImagePlot = ({
+  runUuid,
+  filepath,
+  compressedFilepath,
+  artifactRootUri,
+  imageSize,
+  maxImageSize,
+}: {
+  runUuid: string;
+  filepath: string;
+  compressedFilepath: string;
+  artifactRootUri?: string;
+  imageSize?: number;
+  maxImageSize?: number;
+}) => {
+  const fetchImage = useCallback(
+    (path: string) => {
+      const legacyArtifactLocation = getArtifactLocationUrl(path, runUuid);
+      return artifactRootUri
+        ? fetchArtifactPreferPresigned({ runUuid, path, artifactRootUri }, legacyArtifactLocation, getArtifactBlob)
+        : fetchRunArtifactPreferPresigned(runUuid, path, legacyArtifactLocation, getArtifactBlob);
+    },
+    [artifactRootUri, runUuid],
+  );
+
+  return (
+    <ArtifactImagePlot
+      key={JSON.stringify([runUuid, artifactRootUri, filepath, compressedFilepath])}
+      filepath={filepath}
+      compressedFilepath={compressedFilepath}
+      fetchImage={fetchImage}
+      imageSize={imageSize}
+      maxImageSize={maxImageSize}
+    />
   );
 };
 
@@ -148,11 +311,13 @@ export const ImagePlotWithHistory = ({
   imageSize,
   step,
   runUuid,
+  artifactRootUri,
 }: {
   metadataByStep: Record<number, ImageEntity>;
   imageSize?: number;
   step: number;
   runUuid: string;
+  artifactRootUri?: string;
 }) => {
   const { theme } = useDesignSystemTheme();
 
@@ -180,9 +345,11 @@ export const ImagePlotWithHistory = ({
     );
   }
   return (
-    <ImagePlot
-      imageUrl={getArtifactLocationUrl(metadataByStep[step].filepath, runUuid)}
-      compressedImageUrl={getArtifactLocationUrl(metadataByStep[step].compressed_filepath, runUuid)}
+    <RunArtifactImagePlot
+      runUuid={runUuid}
+      filepath={metadataByStep[step].filepath}
+      compressedFilepath={metadataByStep[step].compressed_filepath}
+      artifactRootUri={artifactRootUri}
       imageSize={imageSize}
     />
   );

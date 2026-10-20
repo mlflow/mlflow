@@ -5,10 +5,13 @@ import { FormattedMessage } from 'react-intl';
 import { PageNotFoundView } from '../../../common/components/PageNotFoundView';
 import { shouldEnableExperimentIssuesTab } from '../../../common/utils/FeatureUtils';
 import { useParams, useSearchParams } from '../../../common/utils/RoutingUtils';
+
 import { useActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
 import { IssueDetectionModal } from '../../components/experiment-page/components/traces-v3/IssueDetectionModal';
 import { JobStatus, isJobComplete } from '../../components/run-page/hooks/useFetchJobStatus';
-import { SELECTED_ISSUE_ID_PARAM } from '../../constants';
+import type { Issue } from '../../components/run-page/hooks/useSearchIssuesQuery';
+import { SELECTED_EVALUATION_ID_PARAM } from '../../../shared/web-shared/genai-traces-table';
+import { SELECTED_ISSUE_ID_PARAM, SELECTED_ISSUE_SPAN_ID_PARAM } from '../../constants';
 import { SERVER_FEATURE_KEYS, useFeatureEnabled, useServerInfo } from '../../hooks/useServerInfo';
 import { ExperimentIssueDetail } from './ExperimentIssueDetail';
 import { ExperimentIssueRow } from './ExperimentIssueRow';
@@ -20,6 +23,7 @@ import { markDetectIssuesGuidanceSeen } from '../../../shared/web-shared/genai-t
 import { ExperimentIssuesEmptyState } from './ExperimentIssuesEmptyState';
 import { useDetectionTraceIds, useLatestIssueDetection } from './useIssueDetection';
 import { useExperimentIssue, useExperimentIssues, useHasExperimentIssues } from './useExperimentIssues';
+import { IssueTraceDrawerProviders } from './IssueTraceDrawer';
 
 const CenteredState = ({ children }: { children: ReactNode }) => (
   <div
@@ -80,7 +84,13 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
   const { theme } = useDesignSystemTheme();
   const controls = useIssueListControls();
   const search = useExperimentIssues(experimentId, controls.filters);
-  const issues = useMemo(() => search.data?.pages.flatMap((page) => page.issues ?? []) ?? [], [search.data]);
+  const issues = useMemo(() => {
+    // Later pages update an Issue's data while keeping its first-seen position, so loading more
+    // does not reshuffle existing rows. Refreshing the list establishes a new sort order.
+    const byId = new Map<string, Issue>();
+    search.data?.pages.forEach((page) => page.issues?.forEach((issue) => byId.set(issue.issue_id, issue)));
+    return Array.from(byId.values());
+  }, [search.data]);
   const hasRestrictiveFilters = Boolean(
     controls.filters.name ||
     controls.filters.statuses.length ||
@@ -108,6 +118,8 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
       setParams(
         (current) => {
           current.set(SELECTED_ISSUE_ID_PARAM, firstIssueId);
+          current.delete(SELECTED_EVALUATION_ID_PARAM);
+          current.delete(SELECTED_ISSUE_SPAN_ID_PARAM);
           return current;
         },
         { replace: true },
@@ -125,6 +137,8 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
         (current) => {
           if (firstIssueId) current.set(SELECTED_ISSUE_ID_PARAM, firstIssueId);
           else current.delete(SELECTED_ISSUE_ID_PARAM);
+          current.delete(SELECTED_EVALUATION_ID_PARAM);
+          current.delete(SELECTED_ISSUE_SPAN_ID_PARAM);
           return current;
         },
         { replace: true },
@@ -132,9 +146,26 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
     }
   }, [search.isLoading, search.error, controls.filters.name, issues, selectedId, firstIssueId, setParams]);
 
+  // A trace selection travels in the URL, next to the selected Issue, so a copied link reopens
+  // the same trace on the same span.
+  const viewTrace = (linkableTraceId: string, spanId?: string) =>
+    setParams((current) => {
+      current.set(SELECTED_EVALUATION_ID_PARAM, linkableTraceId);
+      if (spanId) {
+        current.set(SELECTED_ISSUE_SPAN_ID_PARAM, spanId);
+      } else {
+        current.delete(SELECTED_ISSUE_SPAN_ID_PARAM);
+      }
+      return current;
+    });
+
   const selectIssue = (issueId: string) =>
     setParams((current) => {
       current.set(SELECTED_ISSUE_ID_PARAM, issueId);
+      // Another Issue's evidence names other traces, so a trace left open from the previous one
+      // would keep its drawer mounted over a selection the new Issue does not contain.
+      current.delete(SELECTED_EVALUATION_ID_PARAM);
+      current.delete(SELECTED_ISSUE_SPAN_ID_PARAM);
       return current;
     });
   const total = search.data?.pages[0]?.total_count;
@@ -276,7 +307,7 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
       <TableSkeleton lines={5} />
     </div>
   ) : detail.data ? (
-    <ExperimentIssueDetail key={selectedId} issue={detail.data} />
+    <ExperimentIssueDetail key={selectedId} issue={detail.data} onViewTrace={viewTrace} />
   ) : undefined;
   return (
     <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, height: '100%' }}>
@@ -407,7 +438,11 @@ const ExperimentIssuesPage = () => {
     );
   }
   if (!experimentId) return null;
-  return <ExperimentIssuesContent key={`${workspace}:${experimentId}`} experimentId={experimentId} />;
+  return (
+    <IssueTraceDrawerProviders experimentId={experimentId}>
+      <ExperimentIssuesContent key={`${workspace}:${experimentId}`} experimentId={experimentId} />
+    </IssueTraceDrawerProviders>
+  );
 };
 
 export default ExperimentIssuesPage;
