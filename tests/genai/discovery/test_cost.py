@@ -1,23 +1,19 @@
 import json
+import random
+import statistics
 from unittest import mock
 
 import mlflow
 from mlflow.entities.span import SpanType
-from mlflow.genai.discovery.cost import (
-    ANOMALY_SIGMA,
-    EXCLUDED_FEW_PEERS,
-    EXCLUDED_NO_COST,
+from mlflow.genai.discovery.utils import (
     analyze_cost_anomalies,
     get_agent_label,
 )
 
 
-def _trace(*, name, cost_usd=None, tool_calls=0):
+def _trace(*, name, cost_usd=None):
     @mlflow.trace(name=name, span_type=SpanType.AGENT)
     def _run():
-        for index in range(tool_calls):
-            with mlflow.start_span(name=f"tool_{index}", span_type=SpanType.TOOL) as span:
-                span.set_outputs({"result": "ok"})
         return "done"
 
     _run()
@@ -27,116 +23,135 @@ def _trace(*, name, cost_usd=None, tool_calls=0):
     return trace
 
 
+def _sample(name, costs):
+    return [_trace(name=name, cost_usd=cost) for cost in costs]
+
+
+def _ordinary_costs(count, seed=3, spread=0.5):
+    # Agent spend is right-skewed, so the healthy case is lognormal rather than uniform.
+    rng = random.Random(seed)
+    return [rng.lognormvariate(0, spread) * 0.02 for _ in range(count)]
+
+
 def test_the_agent_label_comes_from_the_trace_name():
     assert get_agent_label(_trace(name="summarizer", cost_usd=0.01)) == "summarizer"
 
 
-def test_spend_is_baselined_within_a_label_not_across_the_experiment():
-    # A summarizer that is simply more expensive than a retriever is not an anomaly: each
-    # label is compared against its own peers.
-    traces = [_trace(name="retriever", cost_usd=0.01) for _ in range(6)]
-    traces += [_trace(name="summarizer", cost_usd=2.00) for _ in range(6)]
-
-    analysis = analyze_cost_anomalies(traces)
-
-    assert set(analysis.baselines) == {"retriever", "summarizer"}
-    assert analysis.anomalies == []
+def test_an_ordinary_spread_of_spend_files_nothing():
+    # The question this module exists to answer correctly: a sample always has a most
+    # expensive trace, and that alone is not an anomaly.
+    assert analyze_cost_anomalies(_sample("agent", _ordinary_costs(20))) == []
 
 
-def test_a_trace_anomalous_for_its_own_label_is_flagged():
-    traces = [_trace(name="retriever", cost_usd=0.010 + index * 0.0005) for index in range(8)]
-    traces.append(_trace(name="retriever", cost_usd=0.90, tool_calls=12))
+def test_a_wide_but_ordinary_spread_still_files_nothing():
+    # A workload whose spend naturally varies raises its own bar rather than reporting its
+    # own tail as a finding.
+    assert analyze_cost_anomalies(_sample("agent", _ordinary_costs(20, spread=1.2))) == []
 
-    analysis = analyze_cost_anomalies(traces)
 
-    assert [anomaly.cost_usd for anomaly in analysis.anomalies] == [0.90]
-    anomaly = analysis.anomalies[0]
-    assert anomaly.sigma >= ANOMALY_SIGMA
+def test_a_runaway_trace_is_flagged_against_its_peers():
+    costs = _ordinary_costs(19)
+    runaway = statistics.median(costs) * 40
+    traces = _sample("agent", [*costs, runaway])
+
+    anomalies = analyze_cost_anomalies(traces)
+
+    assert len(anomalies) == 1
+    assert anomalies[0].cost_usd == runaway
+    assert anomalies[0].label == "agent"
+    assert anomalies[0].peer_count == 20
     # The finding says what the spend is compared against, or it is not actionable.
-    assert "against a typical" in anomaly.describe()
-    assert anomaly.label == "retriever"
+    description = anomalies[0].describe()
+    assert "the typical" in description
+    assert "20 priced traces" in description
 
 
-def test_spend_above_baseline_but_below_the_threshold_is_not_a_finding():
-    traces = [_trace(name="agent", cost_usd=0.010 + index * 0.001) for index in range(8)]
-    traces.append(_trace(name="agent", cost_usd=0.0205))
+def test_a_trace_expensive_only_for_a_tight_workload_is_still_an_anomaly():
+    # 8x the typical trace is not a large multiple in absolute terms, but it is far outside
+    # a workload whose spend barely varies -- the bar adapts to the sample.
+    costs = _ordinary_costs(19, spread=0.1)
+    traces = _sample("agent", [*costs, statistics.median(costs) * 8])
 
-    analysis = analyze_cost_anomalies(traces)
-
-    assert analysis.anomalies == []
-
-
-def test_a_single_expensive_trace_does_not_raise_its_own_baseline():
-    # Left in its own baseline, one outlier inflates both the mean and the deviation it is
-    # then measured against, and at this sample size could not reach the threshold at all.
-    traces = [_trace(name="agent", cost_usd=0.010 + index * 0.0004) for index in range(8)]
-    traces.append(_trace(name="agent", cost_usd=0.80))
-
-    analysis = analyze_cost_anomalies(traces)
-
-    anomaly = analysis.anomalies[0]
-    assert anomaly.baseline.peer_count == 8
-    assert anomaly.baseline.median_usd < 0.02
-    assert anomaly.sigma >= ANOMALY_SIGMA
+    assert len(analyze_cost_anomalies(traces)) == 1
 
 
-def test_a_label_with_too_few_peers_is_excluded_not_compared():
-    traces = [_trace(name="rare", cost_usd=0.01), _trace(name="rare", cost_usd=5.00)]
+def test_spend_is_compared_within_a_label_not_across_the_experiment():
+    # A summarizer that simply costs more than a retriever is not an anomaly.
+    traces = _sample("retriever", _ordinary_costs(12, seed=1))
+    traces += _sample("summarizer", [cost * 100 for cost in _ordinary_costs(12, seed=2)])
 
-    analysis = analyze_cost_anomalies(traces)
-
-    assert analysis.baselines == {}
-    assert analysis.anomalies == []
-    assert set(analysis.excluded.values()) == {EXCLUDED_FEW_PEERS}
-    assert "fewer than" in analysis.describe_limits()
+    assert analyze_cost_anomalies(traces) == []
 
 
-def test_missing_cost_is_excluded_rather_than_treated_as_zero_spend():
-    # Were the unpriced traces counted as $0, the one real cost would look anomalous.
-    traces = [_trace(name="agent") for _ in range(6)]
+def test_a_runaway_is_found_in_the_label_it_belongs_to():
+    cheap = _ordinary_costs(12, seed=1)
+    traces = _sample("retriever", cheap)
+    traces += _sample("summarizer", [cost * 100 for cost in _ordinary_costs(12, seed=2)])
+    traces += _sample("retriever", [statistics.median(cheap) * 50])
+
+    anomalies = analyze_cost_anomalies(traces)
+
+    assert [anomaly.label for anomaly in anomalies] == ["retriever"]
+
+
+def test_a_sample_too_small_to_judge_files_nothing():
+    traces = _sample("agent", [0.01, 0.01, 0.01, 0.80])
+
+    assert analyze_cost_anomalies(traces) == []
+
+
+def test_a_group_where_most_traces_qualify_is_a_distribution_not_an_outlier():
+    # Half the sample an order of magnitude above the other half is two populations, not ten
+    # anomalies, so nothing is reported rather than everything.
+    traces = _sample("agent", [0.01] * 10 + [5.00] * 10)
+
+    assert analyze_cost_anomalies(traces) == []
+
+
+def test_identical_spend_has_no_outlier_to_find():
+    assert analyze_cost_anomalies(_sample("agent", [0.02] * 12)) == []
+
+
+def test_missing_cost_is_excluded_rather_than_read_as_zero_spend():
+    # Were unpriced traces counted as $0, the one real cost would look anomalous.
+    traces = [_trace(name="agent") for _ in range(12)]
     traces.append(_trace(name="agent", cost_usd=0.50))
 
-    analysis = analyze_cost_anomalies(traces)
-
-    assert analysis.anomalies == []
-    assert list(analysis.excluded.values()).count(EXCLUDED_NO_COST) == 6
-    assert "no recorded cost" in analysis.describe_limits()
+    assert analyze_cost_anomalies(traces) == []
 
 
-def test_the_same_problem_in_a_different_sample_quotes_a_different_baseline():
-    # Guards the dedup rule that figures never decide identity: both runs find the same
-    # mechanism, and neither baseline is the issue's identity.
-    cheap = [_trace(name="agent", cost_usd=0.010) for _ in range(8)]
-    cheap.append(_trace(name="agent", cost_usd=0.80))
-    pricey = [_trace(name="agent", cost_usd=0.100) for _ in range(8)]
-    pricey.append(_trace(name="agent", cost_usd=8.00))
+def test_small_labels_are_pooled_rather_than_compared_against_themselves():
+    # Four agents of three traces each: no label can be judged alone, but pooled they give a
+    # conservative comparison that still catches a runaway.
+    traces = []
+    for index in range(4):
+        traces += _sample(f"agent_{index}", [0.010, 0.011, 0.012])
+    traces += _sample("agent_0", [4.00])
 
-    first = analyze_cost_anomalies(cheap).anomalies[0]
-    second = analyze_cost_anomalies(pricey).anomalies[0]
+    anomalies = analyze_cost_anomalies(traces)
 
-    assert first.baseline.median_usd != second.baseline.median_usd
-    assert first.describe() != second.describe()
+    assert [anomaly.label for anomaly in anomalies] == ["(mixed agents)"]
 
 
 def test_an_empty_sample_produces_no_findings():
-    analysis = analyze_cost_anomalies([])
-
-    assert analysis.baselines == {}
-    assert analysis.anomalies == []
-    assert analysis.describe_limits() == ""
+    assert analyze_cost_anomalies([]) == []
 
 
 def test_a_trace_whose_cost_cannot_be_read_is_excluded_not_fatal():
-    traces = [mock.MagicMock(spec="Trace") for _ in range(3)]
+    traces = [mock.MagicMock(spec="Trace") for _ in range(12)]
 
-    analysis = analyze_cost_anomalies(traces)
-
-    assert analysis.anomalies == []
-    assert len(analysis.excluded) == 3
-    assert set(analysis.excluded.values()) == {EXCLUDED_NO_COST}
+    assert analyze_cost_anomalies(traces) == []
 
 
 # ---- cost findings reaching triage ----
+
+
+def _runaway_sample():
+    costs = _ordinary_costs(19)
+    traces = _sample("agent", costs)
+    expensive = _trace(name="agent", cost_usd=statistics.median(costs) * 40)
+    traces.append(expensive)
+    return traces, expensive
 
 
 def test_a_cost_only_anomaly_becomes_a_finding_on_an_otherwise_passing_trace():
@@ -144,20 +159,19 @@ def test_a_cost_only_anomaly_becomes_a_finding_on_an_otherwise_passing_trace():
     from mlflow.genai.discovery.entities import _TriageResult
     from mlflow.genai.discovery.pipeline import _merge_cost_findings
 
-    traces = [_trace(name="agent", cost_usd=0.010 + i * 0.0004) for i in range(8)]
-    expensive = _trace(name="agent", cost_usd=0.80)
-    traces.append(expensive)
-    analysis = analyze_cost_anomalies(traces)
+    traces, expensive = _runaway_sample()
     # Triage found nothing: the trace answered the user and returned OK.
     triage = _TriageResult(failing_traces=[], rationale_map={}, categories_map={})
 
-    added = _merge_cost_findings(triage, analysis, {t.info.trace_id: t for t in traces})
+    added = _merge_cost_findings(
+        triage, analyze_cost_anomalies(traces), {t.info.trace_id: t for t in traces}
+    )
 
     assert added == 1
     assert [t.info.trace_id for t in triage.failing_traces] == [expensive.info.trace_id]
     rationale = triage.rationale_map[expensive.info.trace_id]
     assert rationale.startswith("[cost anomaly]")
-    assert "against a typical" in rationale
+    assert "the typical" in rationale
     assert triage.categories_map[expensive.info.trace_id] == [CATEGORY_COST]
 
 
@@ -165,17 +179,16 @@ def test_a_quality_failure_keeps_its_rationale_when_cost_is_added():
     from mlflow.genai.discovery.entities import _TriageResult
     from mlflow.genai.discovery.pipeline import _merge_cost_findings
 
-    traces = [_trace(name="agent", cost_usd=0.010 + i * 0.0004) for i in range(8)]
-    expensive = _trace(name="agent", cost_usd=0.80)
-    traces.append(expensive)
-    analysis = analyze_cost_anomalies(traces)
+    traces, expensive = _runaway_sample()
     triage = _TriageResult(
         failing_traces=[expensive],
         rationale_map={expensive.info.trace_id: "answered the wrong question"},
         categories_map={expensive.info.trace_id: ["correctness"]},
     )
 
-    added = _merge_cost_findings(triage, analysis, {t.info.trace_id: t for t in traces})
+    added = _merge_cost_findings(
+        triage, analyze_cost_anomalies(traces), {t.info.trace_id: t for t in traces}
+    )
 
     assert added == 0
     assert len(triage.failing_traces) == 1

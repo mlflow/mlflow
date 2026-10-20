@@ -39,6 +39,37 @@ class _TriageResult:
 
 
 @dataclass
+class CostAnomaly:
+    """
+    One trace whose spend is anomalous for the sample it was drawn from.
+
+    Args:
+        trace_id: The trace this describes.
+        label: The agent label whose peers it was compared against.
+        cost_usd: What the trace cost.
+        typical_usd: The median spend of its comparison group.
+        peer_count: How many priced traces the comparison group held.
+        deviations: How far above typical the spend sits, in robust deviations of
+            log spend. Reported so a reader can tell a clear outlier from a marginal one.
+    """
+
+    trace_id: str
+    label: str
+    cost_usd: float
+    typical_usd: float
+    peer_count: int
+    deviations: float
+
+    def describe(self) -> str:
+        """The anomaly as one clause, stating what the spend is compared against."""
+        multiple = self.cost_usd / self.typical_usd if self.typical_usd > 0 else float("inf")
+        return (
+            f"${self.cost_usd:.4f}, {multiple:.0f}x the typical ${self.typical_usd:.4f} "
+            f"for {self.label!r} across {self.peer_count} priced traces"
+        )
+
+
+@dataclass
 class DiscoverIssuesResult:
     issues: list[Issue]
     triage_run_id: str

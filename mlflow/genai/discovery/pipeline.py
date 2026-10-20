@@ -33,8 +33,8 @@ from mlflow.genai.discovery.constants import (
     TRACE_ANNOTATION_SYSTEM_PROMPT,
     build_satisfaction_instructions,
 )
-from mlflow.genai.discovery.cost import analyze_cost_anomalies
 from mlflow.genai.discovery.entities import (
+    CostAnomaly,
     DiscoverIssuesResult,
     Issue,
     _ConversationAnalysis,
@@ -49,6 +49,7 @@ from mlflow.genai.discovery.extraction import (
 )
 from mlflow.genai.discovery.sampling import sample_traces
 from mlflow.genai.discovery.utils import (
+    analyze_cost_anomalies,
     build_summary,
     collect_affected_trace_ids,
     compute_latency_percentiles,
@@ -620,7 +621,7 @@ def build_issue_discovery_scorer(
 
 def _merge_cost_findings(
     triage,
-    cost_analysis,
+    cost_anomalies: list[CostAnomaly],
     trace_lookup: dict[str, Trace],
 ) -> int:
     """
@@ -632,19 +633,15 @@ def _merge_cost_findings(
     deterministic rationale -- the observed spend, what it is compared against, and the driver
     -- so it groups and reports through the same path as every other finding.
 
-    A trace whose usage information is incomplete never reaches here: it is excluded while
-    baselining and disclosed in the run's log, because its cost figure is not a sound basis
-    for a finding.
+    An unpriced trace never reaches here: it is excluded while grouping and disclosed in the
+    run's log, because a missing cost is not a cheap trace.
 
     Returns:
         How many traces this added to the failing set.
     """
-    if cost_analysis is None:
-        return 0
-
     already_failing = {trace.info.trace_id for trace in triage.failing_traces}
     added = 0
-    for anomaly in cost_analysis.anomalies:
+    for anomaly in cost_anomalies:
         trace = trace_lookup.get(anomaly.trace_id)
         if trace is None:
             continue
@@ -819,23 +816,19 @@ def discover_issues(
     scorer_names = [s.name for s in scorers]
     triage = extract_failing_traces(scored_traces, scorer_names)
 
-    # Cost is baselined per agent label over the same sample, because it is the one category
-    # a per-trace judge cannot reach. Priced separately from the detector's own spend, which
-    # `token_counter` owns.
-    cost_analysis = analyze_cost_anomalies(scored_traces) if CATEGORY_COST in categories else None
-    if cost_analysis and (cost_limits := cost_analysis.describe_limits()):
-        # Disclosed rather than dropped: a sample the baselines could not price is a limit of
-        # the analysis, not evidence that those traces are fine.
-        _logger.info("%s", cost_limits)
+    # Cost is judged across the sample, because it is the one category a per-trace judge
+    # cannot reach. This is the traced application's spend; the detector's own is owned by
+    # `token_counter`.
+    cost_anomalies = analyze_cost_anomalies(scored_traces) if CATEGORY_COST in categories else []
 
     cost_findings = _merge_cost_findings(
         triage,
-        cost_analysis,
+        cost_anomalies,
         {safe_trace_id(trace, position): trace for position, trace in enumerate(scored_traces)},
     )
     if cost_findings:
         _logger.info(
-            "%d traces were flagged for cost alone, against their own agent label's baseline",
+            "%d traces were flagged for cost alone, as outliers against their own peers",
             cost_findings,
         )
 
