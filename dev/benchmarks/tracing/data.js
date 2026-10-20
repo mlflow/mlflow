@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792515023557,
+  "lastUpdate": 1792522841273,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "HumairAK@users.noreply.github.com",
-            "name": "Humair Khan",
-            "username": "HumairAK"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "c077f73c826674c7a39fed2d35a29668dcc10d03",
-          "message": "Fix Kubernetes auth token extraction for `kubernetes-client` 36+ (#24687)\n\nSigned-off-by: Humair Khan <HumairAK@users.noreply.github.com>",
-          "timestamp": "2026-07-28T14:17:04Z",
-          "tree_id": "071e75933bcbca0c868833bb7a12c3fa7db931d4",
-          "url": "https://github.com/mlflow/mlflow/commit/c077f73c826674c7a39fed2d35a29668dcc10d03"
-        },
-        "date": 1785248457312,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 38.97094610000522,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 30.692352727273274,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 25.934857666667693,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 29.053682555556293,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 28.20960846296335,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 7.052282400002241,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 6.094061499998323,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dbasunag@redhat.com",
+            "name": "Debarati Basu-Nag",
+            "username": "dbasunag"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8fe044b525fa5523caa3e3ca66ce33b9f5eb5089",
+          "message": "fix: Prefer MCP access endpoints over server.json remotes during tool refresh (#26719)\n\nSigned-off-by: Debarati Basu-Nag <dbasunag@redhat.com>",
+          "timestamp": "2026-10-20T18:57:12Z",
+          "tree_id": "607f3d836e137df4dfff136f97ee195e6aaed32e",
+          "url": "https://github.com/mlflow/mlflow/commit/8fe044b525fa5523caa3e3ca66ce33b9f5eb5089"
+        },
+        "date": 1792522838186,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 34.504770599999546,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 4.812363871794518,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 3.856391744318298,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 3.9017377663039037,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.133932000000241,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.54571528571546,
             "unit": "ms"
           }
         ]
