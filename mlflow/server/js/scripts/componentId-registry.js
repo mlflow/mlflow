@@ -911,11 +911,16 @@ module.exports = {
 
   // -- mlflow.eval_run_details --
   "mlflow.eval_run_details.breadcrumb.evaluation_runs": "",
+  "mlflow.eval_run_details.overview.agent_digest_tooltip": "",
   "mlflow.eval_run_details.overview.dataset_link": "",
   "mlflow.eval_run_details.overview.dataset_tooltip": "",
+  "mlflow.eval_run_details.overview.logged_model_link": "",
+  "mlflow.eval_run_details.overview.logged_model_tooltip": "",
   "mlflow.eval_run_details.overview.prompt_link": "",
   "mlflow.eval_run_details.overview.prompt_tooltip": "",
+  "mlflow.eval_run_details.overview.scorer_digest_tooltip": "",
   "mlflow.eval_run_details.overview.scorer_link": "",
+  "mlflow.eval_run_details.overview.scorers_digest_tooltip": "",
   "mlflow.eval_run_details.overview.tag": "",
   "mlflow.eval_run_details.overview.tag_tooltip": "",
   "mlflow.eval_run_details.run_stats.total_cost.info": "",

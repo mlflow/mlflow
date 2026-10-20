@@ -7,6 +7,7 @@ import {
   TableClockIcon,
   TableIcon,
   Tag,
+  Tooltip,
   TruncationTooltip,
   Typography,
   UserIcon,
@@ -20,6 +21,8 @@ import { PROMPT_VERSION_QUERY_PARAM } from '../prompts/utils';
 import { SELECTED_SCORER_NAME_QUERY_PARAM_KEY } from '../experiment-scorers/hooks/useSelectedScorerName';
 import { getEvaluationDatasetId } from './datasetLineage';
 import type { RegisteredScorerReference } from './scorerLineage';
+import { formatShortDigest, type EvalRunAgentLineage, type EvalRunScorersDigest } from './evalRunLineage';
+import { useGetLoggedModelQuery } from '../../hooks/logged-models/useGetLoggedModelQuery';
 
 export interface RunDetailsStats {
   traces?: number;
@@ -48,6 +51,10 @@ export interface RunDetailsSidebarProps {
   stats: RunDetailsStats;
   scorers: RunDetailsScorer[];
   tags: { key: string; value: string }[];
+  /** Lineage `mlflow.genai.evaluate` records on the run. */
+  scorersDigest?: EvalRunScorersDigest;
+  agent?: EvalRunAgentLineage;
+  gitCommit?: string;
 }
 
 export interface RunDetailsScorer {
@@ -55,6 +62,8 @@ export interface RunDetailsScorer {
   displayName: string;
   /** The registered scorer behind every assessment with this name, when there is one. */
   scorerReference?: RegisteredScorerReference;
+  /** The scorer's definition digest (`sha256:<hex>`), when all of its assessments agree. */
+  digest?: string;
 }
 
 export interface RunDetailsPrompt {
@@ -103,11 +112,167 @@ export const DetailRow = ({ label, children }: DetailRowProps) => {
   );
 };
 
-const TruncatedSidebarText = ({ text }: { text: string }) => (
-  <span style={TRUNCATED_TEXT_LAYOUT_STYLE} title={text}>
+const TruncatedSidebarText = ({ text, title = text }: { text: string; title?: string }) => (
+  <span style={TRUNCATED_TEXT_LAYOUT_STYLE} title={title}>
     <Typography.Text size="md">{text}</Typography.Text>
   </span>
 );
+
+const ScorersDigestTooltipContent = ({ scorersDigest }: { scorersDigest: EvalRunScorersDigest }) => {
+  const { theme } = useDesignSystemTheme();
+  if (!scorersDigest.digest) {
+    return (
+      <FormattedMessage
+        defaultMessage="No scorers digest. MLflow could not read any scorer in this run."
+        description="Tooltip on the eval run scorers heading when no scorer definition could be hashed"
+      />
+    );
+  }
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, overflowWrap: 'anywhere' }}>
+      <span>
+        <FormattedMessage
+          defaultMessage="Scorers digest: {digest}"
+          description="Eval run detail: digest identifying the scorer definitions used by the run"
+          values={{ digest: scorersDigest.digest }}
+        />
+      </span>
+      <span>
+        {scorersDigest.coverage === 'partial' ? (
+          <FormattedMessage
+            defaultMessage="A fingerprint of {hashed} of {total} scorers in this run. MLflow could not read the others."
+            description="Eval run detail: the scorers digest covers only the scorers whose definition could be hashed"
+            values={{ hashed: scorersDigest.hashed, total: scorersDigest.total }}
+          />
+        ) : (
+          <FormattedMessage
+            defaultMessage="A fingerprint of all scorers in this run."
+            description="Tooltip explaining what the eval run scorers digest identifies"
+          />
+        )}
+      </span>
+    </div>
+  );
+};
+
+const AgentFunctionSidebarValue = ({ agentFunction, digest }: { agentFunction: string; digest?: string }) => {
+  if (!digest) {
+    return <TruncatedSidebarText text={agentFunction} />;
+  }
+  return (
+    <Tooltip
+      componentId="mlflow.eval_run_details.overview.agent_digest_tooltip"
+      content={
+        <span css={{ overflowWrap: 'anywhere' }}>
+          <FormattedMessage
+            defaultMessage="{agentFunction} (source digest: {digest})"
+            description="Eval run detail: tooltip on the evaluated agent function with the digest of its source code"
+            values={{ agentFunction, digest }}
+          />
+        </span>
+      }
+    >
+      <span style={TRUNCATED_TEXT_LAYOUT_STYLE}>
+        <Typography.Text size="md">{agentFunction}</Typography.Text>
+      </span>
+    </Tooltip>
+  );
+};
+
+const GIT_SHORT_COMMIT_LENGTH = 7;
+
+const LoggedModelSidebarValue = ({ experimentId, loggedModelId }: { experimentId: string; loggedModelId: string }) => {
+  const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+  const { data } = useGetLoggedModelQuery({ loggedModelId });
+  const modelName = data?.info?.name ?? loggedModelId;
+
+  return (
+    <Link
+      componentId="mlflow.eval_run_details.overview.logged_model_link"
+      to={Routes.getExperimentLoggedModelDetailsPageRoute(experimentId, loggedModelId)}
+      target="_blank"
+      aria-label={intl.formatMessage(
+        {
+          defaultMessage: 'View logged model {modelName}',
+          description: 'Accessible label for a link that opens the logged model of an evaluation run',
+        },
+        { modelName },
+      )}
+      css={{
+        ...linkValueCss,
+        gap: theme.spacing.xs,
+        color: theme.colors.actionTertiaryTextDefault,
+      }}
+    >
+      <TruncationTooltip componentId="mlflow.eval_run_details.overview.logged_model_tooltip">
+        <span style={TRUNCATED_TEXT_LAYOUT_STYLE}>{modelName}</span>
+      </TruncationTooltip>
+      <NewWindowIcon aria-hidden="true" css={{ flexShrink: 0 }} />
+    </Link>
+  );
+};
+
+const AgentSidebarSection = ({ experimentId, agent }: { experimentId: string; agent: EvalRunAgentLineage }) => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+      <Typography.Text bold size="lg">
+        <FormattedMessage
+          defaultMessage="Agent"
+          description="Heading for the evaluated agent section in the evaluation run sidebar"
+        />
+      </Typography.Text>
+      {agent.function && (
+        <DetailRow
+          label={<FormattedMessage defaultMessage="Function" description="Eval run detail: evaluated agent function" />}
+        >
+          <AgentFunctionSidebarValue agentFunction={agent.function} digest={agent.digest} />
+        </DetailRow>
+      )}
+      {agent.uri && (
+        <DetailRow
+          label={
+            <FormattedMessage
+              defaultMessage="URI"
+              description="Eval run detail: URI of the evaluated serving endpoint or app"
+            />
+          }
+        >
+          <TruncatedSidebarText text={agent.uri} />
+        </DetailRow>
+      )}
+      {agent.digest && !agent.function && (
+        <DetailRow
+          label={
+            <FormattedMessage
+              defaultMessage="Source digest"
+              description="Eval run detail: digest of the evaluated agent function source code"
+            />
+          }
+        >
+          <Tooltip componentId="mlflow.eval_run_details.overview.agent_digest_tooltip" content={agent.digest}>
+            <span>
+              <Typography.Text size="md">{formatShortDigest(agent.digest)}</Typography.Text>
+            </span>
+          </Tooltip>
+        </DetailRow>
+      )}
+      {agent.loggedModelId && (
+        <DetailRow
+          label={
+            <FormattedMessage
+              defaultMessage="Logged model"
+              description="Eval run detail: logged model linked to the evaluation run"
+            />
+          }
+        >
+          <LoggedModelSidebarValue experimentId={experimentId} loggedModelId={agent.loggedModelId} />
+        </DetailRow>
+      )}
+    </div>
+  );
+};
 
 const linkValueCss = {
   display: 'inline-flex',
@@ -277,6 +442,9 @@ export const RunDetailsSidebar = ({
   stats,
   scorers,
   tags,
+  scorersDigest,
+  agent,
+  gitCommit,
 }: RunDetailsSidebarProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -393,7 +561,21 @@ export const RunDetailsSidebar = ({
             <Typography.Text size="md">{EM_DASH}</Typography.Text>
           )}
         </DetailRow>
+        {gitCommit && (
+          <DetailRow
+            label={
+              <FormattedMessage
+                defaultMessage="Git commit"
+                description="Eval run detail: git commit of the run's code"
+              />
+            }
+          >
+            <TruncatedSidebarText text={gitCommit.slice(0, GIT_SHORT_COMMIT_LENGTH)} title={gitCommit} />
+          </DetailRow>
+        )}
       </div>
+
+      {agent && <AgentSidebarSection experimentId={experimentId} agent={agent} />}
 
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
         <Typography.Text bold size="lg">
@@ -457,15 +639,46 @@ export const RunDetailsSidebar = ({
 
       {scorers.length > 0 && (
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-          <Typography.Text bold size="lg">
-            <FormattedMessage
-              defaultMessage="Scorers ({count})"
-              description="Heading for the list of scorers in the evaluation run sidebar, with a count"
-              values={{ count: scorers.length }}
-            />
-          </Typography.Text>
+          {scorersDigest ? (
+            <Tooltip
+              componentId="mlflow.eval_run_details.overview.scorers_digest_tooltip"
+              content={<ScorersDigestTooltipContent scorersDigest={scorersDigest} />}
+            >
+              <span css={{ alignSelf: 'flex-start' }}>
+                <Typography.Text bold size="lg">
+                  <FormattedMessage
+                    defaultMessage="Scorers ({count})"
+                    description="Heading for the list of scorers in the evaluation run sidebar, with a count"
+                    values={{ count: scorers.length }}
+                  />
+                </Typography.Text>
+              </span>
+            </Tooltip>
+          ) : (
+            <Typography.Text bold size="lg">
+              <FormattedMessage
+                defaultMessage="Scorers ({count})"
+                description="Heading for the list of scorers in the evaluation run sidebar, with a count"
+                values={{ count: scorers.length }}
+              />
+            </Typography.Text>
+          )}
           {scorers.map((scorer) => (
-            <ScorerSidebarItem key={scorer.name} experimentId={experimentId} scorer={scorer} />
+            <div
+              key={scorer.name}
+              css={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.sm }}
+            >
+              <ScorerSidebarItem experimentId={experimentId} scorer={scorer} />
+              {scorer.digest && (
+                <Tooltip componentId="mlflow.eval_run_details.overview.scorer_digest_tooltip" content={scorer.digest}>
+                  <span css={{ flexShrink: 0 }}>
+                    <Typography.Text size="sm" color="secondary">
+                      {formatShortDigest(scorer.digest)}
+                    </Typography.Text>
+                  </span>
+                </Tooltip>
+              )}
+            </div>
           ))}
         </div>
       )}

@@ -195,6 +195,10 @@
     "defaultMessage": "Max",
     "description": "Column title for the column displaying the maximum metric values for a metric"
   },
+  "+iRLlh": {
+    "defaultMessage": "No scorers digest. MLflow could not read any scorer in this run.",
+    "description": "Tooltip on the eval run scorers heading when no scorer definition could be hashed"
+  },
   "+jTk/P": {
     "defaultMessage": "Show less",
     "description": "MCP server package show less env vars button"
@@ -466,6 +470,10 @@
   "/g45Xz": {
     "defaultMessage": "Share and manage machine learning models.",
     "description": "Default text for model registry onboarding on the model list page"
+  },
+  "/gLx1m": {
+    "defaultMessage": "Git commit",
+    "description": "Eval run detail: git commit of the run's code"
   },
   "/gqx4n": {
     "defaultMessage": "The safety LLM judge returns a binary rating and a written rationale on whether the generated response has harmful or toxic content.",
@@ -3967,6 +3975,10 @@
     "defaultMessage": "Assertions",
     "description": "Assertions column header"
   },
+  "C36xdr": {
+    "defaultMessage": "Source digest",
+    "description": "Eval run detail: digest of the evaluated agent function source code"
+  },
   "C4y1fv": {
     "defaultMessage": "-∞",
     "description": "Label displaying negative infinity symbol displayed on a plot UI element"
@@ -4842,6 +4854,10 @@
   "FYxQgz": {
     "defaultMessage": "Key",
     "description": "Add new key-value tag modal > Key input label"
+  },
+  "FZ1Eaq": {
+    "defaultMessage": "Agent",
+    "description": "Heading for the evaluated agent section in the evaluation run sidebar"
   },
   "FZL3HX": {
     "defaultMessage": "When enabled, all requests to this endpoint will be logged as traces. This allows you to monitor usage, debug issues, and analyze performance.",
@@ -6018,6 +6034,10 @@
   "JYVQuV": {
     "defaultMessage": "Run ID",
     "description": "Run page > Overview > Run ID section label"
+  },
+  "JYhD7y": {
+    "defaultMessage": "Logged model",
+    "description": "Eval run detail: logged model linked to the evaluation run"
   },
   "JYz7tl": {
     "defaultMessage": "Failed to load MCP server",
@@ -7483,6 +7503,10 @@
     "defaultMessage": "Regression",
     "description": "Label for experiments focused on regression modeling"
   },
+  "OWlBCs": {
+    "defaultMessage": "{agentFunction} (source digest: {digest})",
+    "description": "Eval run detail: tooltip on the evaluated agent function with the digest of its source code"
+  },
   "OXcY79": {
     "defaultMessage": "Profile",
     "description": "Label for the profile field in the V2 evaluation dataset metadata modal"
@@ -8487,6 +8511,10 @@
     "defaultMessage": "Optional. Override where archived trace payloads are stored for this workspace. Leave blank to use the server default.",
     "description": "Hint for workspace trace archival location field"
   },
+  "S9zlYt": {
+    "defaultMessage": "A fingerprint of {hashed} of {total} scorers in this run. MLflow could not read the others.",
+    "description": "Eval run detail: the scorers digest covers only the scorers whose definition could be hashed"
+  },
   "SAFAXp": {
     "defaultMessage": "Only run on traces matching this filter; leave blank to run on all. Uses MLflow {link}.",
     "description": "Hint text for filter string input"
@@ -8967,6 +8995,10 @@
     "defaultMessage": "This trace is very large, and may cause UI slowness when attempting to render. You can click the button below to attempt to display it anyway.",
     "description": "Body text explaining issues with rendering large traces."
   },
+  "TxtCFX": {
+    "defaultMessage": "A fingerprint of all scorers in this run.",
+    "description": "Tooltip explaining what the eval run scorers digest identifies"
+  },
   "U+0wfV": {
     "defaultMessage": "Trace name",
     "description": "Column selector label for the trace-name column"
@@ -9214,6 +9246,10 @@
   "UrEJHe": {
     "defaultMessage": "Pass",
     "description": "Label for an assessment with a 'pass' value"
+  },
+  "UskbJ8": {
+    "defaultMessage": "View logged model {modelName}",
+    "description": "Accessible label for a link that opens the logged model of an evaluation run"
   },
   "UsvDLH": {
     "defaultMessage": "Select a workspace",
@@ -12435,6 +12471,10 @@
     "defaultMessage": "Webhooks",
     "description": "Sidebar link: Settings > Webhooks"
   },
+  "g6PJid": {
+    "defaultMessage": "Function",
+    "description": "Eval run detail: evaluated agent function"
+  },
   "g6nof1": {
     "defaultMessage": "AI Gateway",
     "description": "Model dropdown group for AI Gateway endpoints"
@@ -12870,6 +12910,10 @@
   "hNmwSr": {
     "defaultMessage": "General",
     "description": "Settings content section title: general"
+  },
+  "hOUOL8": {
+    "defaultMessage": "Scorers digest: {digest}",
+    "description": "Eval run detail: digest identifying the scorer definitions used by the run"
   },
   "hP8kyS": {
     "defaultMessage": "Delete ({count})",
@@ -17886,6 +17930,10 @@
   "yvtWjM": {
     "defaultMessage": "Last updated",
     "description": "Metadata label for the dataset record last-update time"
+  },
+  "yxVRPD": {
+    "defaultMessage": "URI",
+    "description": "Eval run detail: URI of the evaluated serving endpoint or app"
   },
   "yyjAgE": {
     "defaultMessage": "Output for the trace",

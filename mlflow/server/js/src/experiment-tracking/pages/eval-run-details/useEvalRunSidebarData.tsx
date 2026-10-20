@@ -14,7 +14,13 @@ import { filterTracesByAssessmentSourceRunId } from '@databricks/web-shared/gena
 import { useGetRunQuery } from '../../components/run-page/hooks/useGetRunQuery';
 import { aggregateEvalRunSidebarTraceStats } from './evalRunConfigurationData';
 import { buildEvalRunTraceFilter } from './useEvalRunTracesV4Controller';
-import { getConsistentScorerReference } from './scorerLineage';
+import { getConsistentScorerDigest, getConsistentScorerReference } from './scorerLineage';
+import {
+  EVAL_RUN_SCORERS_DIGEST_TAG,
+  getEvalRunAgentLineage,
+  getEvalRunGitCommit,
+  parseEvalRunScorersDigest,
+} from './evalRunLineage';
 import { parseLinkedPromptsFromRunTags } from '../prompts/utils';
 import type { RunDetailsScorer, RunDetailsSidebarProps, RunDetailsStats } from './RunDetailsSidebar';
 
@@ -74,6 +80,7 @@ export const useEvalRunSidebarData = ({ experimentId, runUuid }: UseEvalRunSideb
             name: assessmentInfo.name,
             displayName: assessmentInfo.displayName,
             scorerReference: getConsistentScorerReference(traceInfos, assessmentInfo.name),
+            digest: getConsistentScorerDigest(traceInfos, assessmentInfo.name),
           }))
         : [],
     [fetchedTraces, intl, traceInfos],
@@ -89,6 +96,7 @@ export const useEvalRunSidebarData = ({ experimentId, runUuid }: UseEvalRunSideb
     );
     const tags = runTags.filter((tag) => !tag.key.startsWith('mlflow.'));
     const prompts = parseLinkedPromptsFromRunTags(Object.fromEntries(runTags.map((tag) => [tag.key, tag])));
+    const tagValues: Record<string, string> = Object.fromEntries(runTags.map((tag) => [tag.key, tag.value]));
 
     return {
       experimentId,
@@ -98,6 +106,9 @@ export const useEvalRunSidebarData = ({ experimentId, runUuid }: UseEvalRunSideb
       prompts,
       endpoint: findValue(run?.data?.params, ENDPOINT_KEYS) ?? findValue(run?.data?.tags, ENDPOINT_KEYS) ?? undefined,
       tags,
+      scorersDigest: parseEvalRunScorersDigest(tagValues[EVAL_RUN_SCORERS_DIGEST_TAG]),
+      agent: getEvalRunAgentLineage(tagValues, run?.inputs?.modelInputs?.[0]?.modelId ?? undefined),
+      gitCommit: getEvalRunGitCommit(tagValues),
     };
   }, [experimentId, run]);
 
