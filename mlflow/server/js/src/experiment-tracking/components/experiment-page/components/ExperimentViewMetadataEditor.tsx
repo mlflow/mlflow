@@ -12,7 +12,8 @@ import {
   Tooltip,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useResizeObserver } from '@databricks/web-shared/hooks';
 import { useDispatch, useSelector } from 'react-redux';
 import { getExperiments, getExperimentTags } from '../../../reducers/Reducers';
 import { NOTE_CONTENT_TAG } from '../../../utils/NoteUtils';
@@ -358,6 +359,17 @@ export const ExperimentViewMetadataEditor = ({
 
   const sanitizedContent = getSanitizedHtmlContent(effectiveNote);
   const hasContent = sanitizedContent && sanitizedContent.trim().length > 0;
+
+  // With the one-line preview, the expand button only shows when the line actually cuts off text.
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [contentOverflows, setContentOverflows] = useState(false);
+  const contentWidth = useResizeObserver({ ref: contentRef })?.width;
+  useLayoutEffect(() => {
+    const element = contentRef.current;
+    if (!collapseToSingleLine || !element || isExpanded) return;
+    setContentOverflows(element.scrollHeight > element.clientHeight + 1);
+  }, [collapseToSingleLine, sanitizedContent, isExpanded, contentWidth]);
+  const showExpandToggle = !collapseToSingleLine || isExpanded || contentOverflows;
   const getIcon = useCallback(
     (name: string) => {
       return (
@@ -434,6 +446,7 @@ export const ExperimentViewMetadataEditor = ({
             }}
           >
             <div
+              ref={contentRef}
               // eslint-disable-next-line react/no-danger
               dangerouslySetInnerHTML={{ __html: sanitizedContent }}
             />
@@ -447,7 +460,7 @@ export const ExperimentViewMetadataEditor = ({
               style={{ padding: `0px ${theme.spacing.sm}px` }}
             />
           )}
-          {isExpanded ? (
+          {!showExpandToggle ? null : isExpanded ? (
             <Button
               componentId="mlflow.experiment.metadata_editor.collapse_button"
               icon={<ChevronUpIcon />}
