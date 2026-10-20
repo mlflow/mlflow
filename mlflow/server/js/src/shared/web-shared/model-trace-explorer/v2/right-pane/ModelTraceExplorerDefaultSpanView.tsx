@@ -253,13 +253,36 @@ export function ModelTraceExplorerDefaultSpanView({
     );
   };
 
+  // PydanticAI agent spans take `message_history` and `user_prompt` arguments, which are
+  // already shown as chat messages when parsed from the inputs or from the run's new messages.
+  const isRenderedPydanticAIInputField = (key: string) => {
+    if (activeSpan.chatMessageFormat !== 'pydantic_ai') {
+      return false;
+    }
+    if (key === 'message_history') {
+      return inputHasTopLevelChatPayload;
+    }
+    if (key === 'user_prompt') {
+      return (
+        !inputHasTopLevelChatPayload &&
+        inputChatMessages.some(
+          (message) => message.role === 'user' && message.content === activeSpan.inputs?.user_prompt,
+        )
+      );
+    }
+    return false;
+  };
+
   const filterNonChatFields = (
     section: 'inputs' | 'outputs',
     fields: typeof inputList,
     skipAnonymousTopLevelField = false,
   ) =>
     fields.filter(
-      ({ key }) => !(skipAnonymousTopLevelField && key === '') && !CHAT_FIELD_KEYS[section].has(key.toLowerCase()),
+      ({ key }) =>
+        !(skipAnonymousTopLevelField && key === '') &&
+        !CHAT_FIELD_KEYS[section].has(key.toLowerCase()) &&
+        !(section === 'inputs' && isRenderedPydanticAIInputField(key)),
     );
 
   const renderNonChatFields = (
