@@ -26,6 +26,7 @@ import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { Global, keyframes } from '@emotion/react';
 import { useAssistant } from '@mlflow/mlflow/src/assistant';
 
+import { CREATE_CUSTOM_VIEW_QUERY_PARAM } from '../constants';
 import { shouldEnableModelTraceExplorerCustomTraceView } from '../FeatureUtils';
 import { ModelTraceExplorerCustomViewSelector } from './ModelTraceExplorerCustomViewSelector';
 import { isTraceCostType } from '../ModelTraceExplorerCostHoverCard';
@@ -42,7 +43,7 @@ import type { ModelTraceInfoV3 } from './ModelTrace.types';
 import { getTraceCost, getTraceTokenUsage } from './ModelTraceExplorer.utils';
 import { CostMetadataItem, TokenUsageMetadataItem } from './right-pane/ModelTraceExplorerRightPaneHeader';
 import { useCopyController } from '../../copy/useCopyController';
-import { useLocation } from '../RoutingUtils';
+import { useLocation, useNavigate } from '../RoutingUtils';
 
 const CUSTOM_VIEW_INITIAL_WIDTH = '50vw';
 const MIN_DRAWER_WIDTH = 480;
@@ -164,7 +165,10 @@ export const ModelTraceExplorerDrawer = ({
   const isCustomViewEnabled = enableCustomTraceView && Boolean(openCustomViewAssistant);
   const [traceExplorerDisplayMode, setTraceExplorerDisplayMode] = useState<ModelTraceExplorerDisplayMode>('default');
   const canCreateCustomView =
-    isCustomViewEnabled && Boolean(customViewDefinition?.canPersist) && !customViewDefinition?.hasReachedViewLimit;
+    isCustomViewEnabled &&
+    Boolean(customViewDefinition?.isLoaded) &&
+    Boolean(customViewDefinition?.canPersist) &&
+    !customViewDefinition?.hasReachedViewLimit;
   const handleCreateCustomView = useCallback(() => {
     if (!canCreateCustomView) {
       return;
@@ -172,6 +176,30 @@ export const ModelTraceExplorerDrawer = ({
     customViewDefinition?.startNewView('');
     setTraceExplorerDisplayMode('custom');
   }, [canCreateCustomView, customViewDefinition]);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const createCustomViewRequested = new URLSearchParams(location.search).get(CREATE_CUSTOM_VIEW_QUERY_PARAM) === 'true';
+  const createCustomViewIntentHandledRef = useRef(false);
+  useEffect(() => {
+    if (!createCustomViewRequested) {
+      createCustomViewIntentHandledRef.current = false;
+      return;
+    }
+    if (!canCreateCustomView || createCustomViewIntentHandledRef.current) {
+      return;
+    }
+
+    createCustomViewIntentHandledRef.current = true;
+    handleCreateCustomView();
+
+    const nextSearchParams = new URLSearchParams(location.search);
+    nextSearchParams.delete(CREATE_CUSTOM_VIEW_QUERY_PARAM);
+    const nextSearch = nextSearchParams.toString();
+    navigate(
+      { pathname: location.pathname, search: nextSearch ? `?${nextSearch}` : '', hash: location.hash },
+      { replace: true },
+    );
+  }, [canCreateCustomView, createCustomViewRequested, handleCreateCustomView, location, navigate]);
   const snapDrawerLeft = enableCustomTraceView && Boolean(isAssistantPanelOpen) && !isFullscreen;
   // Non-modal whenever the drawer snaps beside a host-repositioned assistant, OR
   // whenever the live assistant panel is open (OSS: AssistantAwareDrawer flips the

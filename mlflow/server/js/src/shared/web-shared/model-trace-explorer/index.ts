@@ -39,6 +39,7 @@ export {
   MLFLOW_GIT_BRANCH_KEY,
   MLFLOW_GIT_COMMIT_KEY,
   SELECTED_TRACE_ID_QUERY_PARAM,
+  CREATE_CUSTOM_VIEW_QUERY_PARAM,
   ASSESSMENT_SESSION_METADATA_KEY,
   SPAN_ATTRIBUTE_MODEL_KEY,
   SPAN_ATTRIBUTE_COST_KEY,
@@ -91,6 +92,7 @@ export {
   type RenderExportTracesToDatasetsModalParams,
   type DrawerComponentType,
 } from './ModelTraceExplorerContext';
+export type { ModelTraceExplorerDisplayMode } from './v2/ModelTraceExplorerContext';
 export { ModelTraceExplorerDrawer, type ModelTraceExplorerDrawerProps } from './ModelTraceExplorerDrawerEntrypoint';
 export { formatCostUSD } from './CostUtils';
 export { SimplifiedAssessmentView } from './right-pane/SimplifiedAssessmentView';

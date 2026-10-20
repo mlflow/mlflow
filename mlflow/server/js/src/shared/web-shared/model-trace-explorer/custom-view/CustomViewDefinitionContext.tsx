@@ -222,7 +222,12 @@ export const useCustomViewDefinitionState = (
     return persisted ? !isViewRenderable(persisted) : false;
   }, [activeViewId, persistedViews]);
 
-  const hasReachedViewLimit = persistedViews.length >= MAX_CUSTOM_VIEWS_PER_EXPERIMENT;
+  // Loaded source views are authoritative until the session diverges. Using them
+  // here closes the render before the adoption effect updates persistedViews, so
+  // creation cannot briefly open past the limit after an asynchronous load.
+  const persistedViewCountForLimit =
+    isLoaded && !hasLocalEditsRef.current ? initialViews.length : persistedViews.length;
+  const hasReachedViewLimit = persistedViewCountForLimit >= MAX_CUSTOM_VIEWS_PER_EXPERIMENT;
 
   const draftViewIds = useMemo(() => {
     const ids = new Set<string>();
