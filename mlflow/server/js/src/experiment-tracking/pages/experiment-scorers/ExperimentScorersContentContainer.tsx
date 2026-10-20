@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Alert,
   useDesignSystemTheme,
   ParagraphSkeleton,
   PlusIcon,
@@ -83,9 +84,35 @@ const ExperimentScorersContentContainer: React.FC<ExperimentScorersContentContai
     );
   }
 
+  // A link can name a judge registered in another experiment, which this page doesn't list.
+  const selectedScorerNotFoundAlert =
+    selectedScorerName && !scorers.some((scorer) => scorer.name === selectedScorerName) ? (
+      <Alert
+        componentId="mlflow.experiment-scorers.selected-scorer-not-found"
+        type="info"
+        closable={false}
+        css={{ marginBottom: theme.spacing.sm }}
+        message={
+          <FormattedMessage
+            defaultMessage="The judge “{name}” isn't registered in this experiment."
+            description="Shown on the judges page when a link names a judge that this experiment doesn't have"
+            values={{ name: selectedScorerName }}
+          />
+        }
+      />
+    ) : null;
+
   // Show empty state when there are no scorers
   if (shouldShowEmptyState) {
-    return (
+    return selectedScorerNotFoundAlert ? (
+      <div css={{ display: 'flex', flexDirection: 'column', height: '100%', padding: theme.spacing.sm }}>
+        {selectedScorerNotFoundAlert}
+        <ScorerEmptyStateRenderer
+          onAddLLMScorerClick={handleNewLLMScorerClick}
+          onAddCustomCodeScorerClick={handleNewCustomCodeScorerClick}
+        />
+      </div>
+    ) : (
       <ScorerEmptyStateRenderer
         onAddLLMScorerClick={handleNewLLMScorerClick}
         onAddCustomCodeScorerClick={handleNewCustomCodeScorerClick}
@@ -136,6 +163,7 @@ const ExperimentScorersContentContainer: React.FC<ExperimentScorersContentContai
         </SplitButton>
       </div>
       <Spacer size="sm" />
+      {selectedScorerNotFoundAlert}
       {/* Content area */}
       <div
         css={{

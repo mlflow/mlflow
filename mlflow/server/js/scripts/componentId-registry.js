@@ -1094,6 +1094,7 @@ module.exports = {
   "mlflow.experiment-scorers.new-scorer-button": "",
   "mlflow.experiment-scorers.output-type-select": "",
   "mlflow.experiment-scorers.scorer-status-tag": "",
+  "mlflow.experiment-scorers.selected-scorer-not-found": "",
   "mlflow.experiment-scorers.switch-to-endpoint-link": "",
   "mlflow.experiment-scorers.switch-to-manual-link": "",
   "mlflow.experiment-scorers.traces-view-create-judge": "",

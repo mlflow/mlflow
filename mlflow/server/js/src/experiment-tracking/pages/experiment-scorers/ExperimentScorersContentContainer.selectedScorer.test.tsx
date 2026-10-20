@@ -20,9 +20,9 @@ jest.mock('./ScorerCardContainer', () => ({
 }));
 jest.mock('./ScorerModalRenderer', () => ({ __esModule: true, default: () => null }));
 
-const renderPage = (url: string) => {
+const renderPage = (url: string, scorerNames = ['quality', 'tone']) => {
   jest.mocked(useGetScheduledScorers).mockReturnValue({
-    data: { scheduledScorers: [{ name: 'quality' }, { name: 'tone' }] },
+    data: { scheduledScorers: scorerNames.map((name) => ({ name })) },
     isLoading: false,
     isError: false,
     error: null,
@@ -51,6 +51,22 @@ describe('ExperimentScorersContentContainer linked scorer', () => {
 
     expect(screen.getByTestId('scorer-card-quality')).toHaveTextContent('expanded');
     expect(screen.getByTestId('scorer-card-tone')).toHaveTextContent('default');
+    expect(screen.queryByText(/isn't registered in this experiment/)).not.toBeInTheDocument();
+  });
+
+  test("flag on: says so when the linked scorer isn't registered in this experiment", () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+    renderPage('/experiments/exp-1/judges?selectedScorerName=safety');
+
+    expect(screen.getByText("The judge “safety” isn't registered in this experiment.")).toBeInTheDocument();
+    expect(screen.getByTestId('scorer-card-quality')).toHaveTextContent('default');
+  });
+
+  test('flag on: says so above the empty state when the experiment has no judges', () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+    renderPage('/experiments/exp-1/judges?selectedScorerName=safety', []);
+
+    expect(screen.getByText("The judge “safety” isn't registered in this experiment.")).toBeInTheDocument();
   });
 
   test('flag off: ignores the link and leaves every card as before', () => {
@@ -59,5 +75,12 @@ describe('ExperimentScorersContentContainer linked scorer', () => {
 
     expect(screen.getByTestId('scorer-card-quality')).toHaveTextContent('default');
     expect(screen.getByTestId('scorer-card-tone')).toHaveTextContent('default');
+  });
+
+  test('flag off: shows no message for a scorer the experiment does not have', () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
+    renderPage('/experiments/exp-1/judges?selectedScorerName=safety');
+
+    expect(screen.queryByText(/isn't registered in this experiment/)).not.toBeInTheDocument();
   });
 });

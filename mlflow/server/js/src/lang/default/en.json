@@ -2271,6 +2271,10 @@
     "defaultMessage": "No parameters recorded",
     "description": "Run page > Overview > Parameters table > No parameters recorded"
   },
+  "6W8zAs": {
+    "defaultMessage": "The judge “{name}” isn't registered in this experiment.",
+    "description": "Shown on the judges page when a link names a judge that this experiment doesn't have"
+  },
   "6WQ9yl": {
     "defaultMessage": "Unable to load experiment judges",
     "description": "Error message when experiment judges page fails to load"
