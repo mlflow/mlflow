@@ -271,7 +271,8 @@ def analyze_cost_anomalies(
 
     if unpriced:
         _logger.info(
-            "%d traces were left out of cost analysis because they record no cost", unpriced
+            "%d traces were left out of cost analysis because they record no positive cost",
+            unpriced,
         )
     return sorted(anomalies, key=lambda anomaly: anomaly.cost_usd, reverse=True)
 

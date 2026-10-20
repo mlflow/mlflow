@@ -142,3 +142,34 @@ def test_an_errored_assessment_rationale_is_not_used_as_evidence(make_trace):
     combined = collect_session_rationales(session, {}, "satisfaction", session_traces=session)
 
     assert "judge crashed" not in combined
+
+
+def test_session_feedback_on_a_passing_first_turn_reaches_the_analysis(make_trace):
+    # Guards the integration, not just the collector: the collector grew a `session_traces`
+    # parameter, and `_build_analyses` is the production caller that has to supply it.
+    from mlflow.genai.discovery.pipeline import _build_analyses
+
+    first = make_trace(session_id="sess-3")
+    second = make_trace(session_id="sess-3")
+    _add_feedback(
+        first,
+        "satisfaction",
+        False,
+        rationale="the assistant never resolved the booking",
+        metadata={"mlflow.trace.session": "sess-3"},
+    )
+    session = _refetch([first, second])
+
+    analyses, session_groups = _build_analyses(
+        session,
+        {second.info.trace_id: "turn two returned nothing"},
+        {},
+        "satisfaction",
+    )
+
+    assert len(analyses) == 1
+    assert "[session feedback] the assistant never resolved the booking" in (
+        analyses[0].rationale_summary
+    )
+    assert "turn two returned nothing" in analyses[0].rationale_summary
+    assert len(session_groups["sess-3"]) == 2

@@ -266,7 +266,8 @@ def _build_analyses(
     human feedback, and span errors into a single ConversationAnalysis.
 
     Args:
-        triage_traces: All traces from the triage phase (passing and failing).
+        triage_traces: All traces from the triage phase (passing and failing), re-fetched so
+            they carry the assessments written during evaluation.
         rationale_map: Mapping of trace_id to triage rationale for failing traces.
         categories_map: Mapping of trace_id to category tags from structured output.
         scorer_name: Name of the triage scorer, used to look up human feedback.
@@ -285,7 +286,11 @@ def _build_analyses(
         ]
         if not session_failing:
             continue
-        combined_rationale = collect_session_rationales(session_failing, rationale_map, scorer_name)
+        # The whole session, not just its failing turns: conversation-scoped feedback is often
+        # recorded on the first turn, which may itself have passed.
+        combined_rationale = collect_session_rationales(
+            session_failing, rationale_map, scorer_name, session_traces=session_traces
+        )
         if not combined_rationale:
             continue
         exec_path = extract_execution_paths_for_session(session_failing)
@@ -857,7 +862,7 @@ def discover_issues(
     # ---- Phase 2: Build analyses ----
     update_status_details({"stage": "Analyzing results..."})
     analyses, session_groups = _build_analyses(
-        triage_traces,
+        scored_traces,
         triage.rationale_map,
         triage.categories_map,
         scorer_name,
@@ -888,7 +893,7 @@ def discover_issues(
         for trace in traces_in_session:
             trace_to_session[trace.info.trace_id] = session_id
 
-    trace_lookup = {trace.info.trace_id: trace for trace in triage_traces}
+    trace_lookup = {trace.info.trace_id: trace for trace in scored_traces}
     session_first_trace: dict[str, str] | None = None
     if use_conversation:
         session_first_trace = {
