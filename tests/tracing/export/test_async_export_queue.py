@@ -225,3 +225,51 @@ def test_flush_waits_for_in_progress_flush():
     assert not first_flush_thread.is_alive()
     assert not second_flush_thread.is_alive()
     assert completed_when_second_flush_returns == [3]
+
+
+def test_task_handle_suppresses_instrumentation():
+    from opentelemetry import context as otel_context
+
+    observed_suppression = []
+
+    def check_suppression():
+        observed_suppression.append(
+            otel_context.get_value(otel_context._SUPPRESS_INSTRUMENTATION_KEY)
+        )
+
+    task = Task(handler=check_suppression, args=())
+    assert otel_context.get_value(otel_context._SUPPRESS_INSTRUMENTATION_KEY) is None
+    task.handle()
+    assert observed_suppression == [True]
+    assert otel_context.get_value(otel_context._SUPPRESS_INSTRUMENTATION_KEY) is None
+
+
+def test_async_queue_worker_suppresses_instrumentation():
+    from opentelemetry import context as otel_context
+
+    observed_suppression = []
+
+    def check_suppression():
+        observed_suppression.append(
+            otel_context.get_value(otel_context._SUPPRESS_INSTRUMENTATION_KEY)
+        )
+
+    queue = AsyncTraceExportQueue()
+    task = Task(handler=check_suppression, args=())
+    queue.put(task)
+    queue.flush(terminate=True)
+
+    assert observed_suppression == [True]
+    assert otel_context.get_value(otel_context._SUPPRESS_INSTRUMENTATION_KEY) is None
+
+
+def test_task_handle_detaches_suppression_on_exception():
+    from opentelemetry import context as otel_context
+
+    def failing_handler():
+        assert otel_context.get_value(otel_context._SUPPRESS_INSTRUMENTATION_KEY) is True
+        raise RuntimeError("boom")
+
+    task = Task(handler=failing_handler, args=())
+    task.handle()
+    assert otel_context.get_value(otel_context._SUPPRESS_INSTRUMENTATION_KEY) is None

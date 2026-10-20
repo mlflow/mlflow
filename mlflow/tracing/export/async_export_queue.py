@@ -8,6 +8,8 @@ from queue import Empty, Queue
 from queue import Full as queue_Full
 from typing import Any, Callable, Sequence
 
+from opentelemetry import context as otel_context
+
 from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE,
     MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS,
@@ -26,6 +28,9 @@ class Task:
 
     def handle(self) -> None:
         """Handle the task execution. This method must not raise any exception."""
+        token = otel_context.attach(
+            otel_context.set_value(otel_context._SUPPRESS_INSTRUMENTATION_KEY, True)
+        )
         try:
             self.handler(*self.args)
         except Exception as e:
@@ -33,6 +38,8 @@ class Task:
                 f"{self.error_msg} Error: {e}.",
                 exc_info=_logger.isEnabledFor(logging.DEBUG),
             )
+        finally:
+            otel_context.detach(token)
 
 
 class AsyncTraceExportQueue:
