@@ -413,7 +413,9 @@ export const DatasetRecordSidePanel = ({
           status={active.status}
           errorMessage={active.errorMessage}
           onSave={active.save}
-          onDiscard={active.discard}
+          // In create mode there is nothing to revert to — the editors are seeded with defaults —
+          // so Cancel closes the panel (via the guarded `onClose`, which prompts when dirty).
+          onDiscard={mode === 'create' ? onClose : active.discard}
           saveLabel={
             mode === 'create' ? (
               <FormattedMessage
