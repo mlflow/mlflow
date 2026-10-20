@@ -15,6 +15,9 @@ LLM_MAX_TOKENS = 8192
 # Text truncation limits
 RATIONALE_TRUNCATION_LIMIT = 800
 TRACE_CONTENT_TRUNCATION = 1000
+# Per-span content offered to evidence generation. Smaller than the trace-level bound because
+# a walkthrough is shown many spans and needs each one's identity to survive the budget.
+SPAN_CONTENT_TRUNCATION = 400
 
 
 DEFAULT_MODEL = "openai:/gpt-5-mini"
@@ -433,6 +436,40 @@ DEDUP_ISSUES_PROMPT_TEMPLATE = (
     "- description: a unified description of the shared symptom\n"
     "- root_cause: the common root cause across all issues in the group\n\n"
     "Issues:\n{issue_list}"
+)
+
+
+# ---- Evidence generation prompt ----
+
+EVIDENCE_GENERATION_SYSTEM_PROMPT = (
+    "You are writing the evidence walkthrough for one trace that exhibits a known issue.\n\n"
+    "You will be given the issue, the trace's summary, the trace's spans with their IDs and "
+    "bounded content, and the triage judge's rationale.\n\n"
+    "Produce a short causal walkthrough: what the input required, what a step actually did, "
+    "and why the output therefore failed. Rules:\n"
+    "- Cite ONLY span_id values from the provided span list, copied exactly. Never invent an "
+    "ID and never cite a span name instead.\n"
+    "- One step per span worth opening, in causal order. Two or three steps is usually right; "
+    "do not add a step that repeats another.\n"
+    "- Each step's `text` makes ONE claim in one or two short sentences and leads with the "
+    "conclusion. Quote only the smallest useful excerpt from that span; never copy an entire "
+    "request or response.\n"
+    "- Each step's `highlights` must be EXACT substrings of that same step's `text`, "
+    "character for character. They are found by searching the text, so a paraphrase "
+    "emphasizes nothing and the step is discarded.\n"
+    "- Set `highlight_tone` to 'error' for a failure, hallucination or extreme cost/latency; "
+    "'warning' for an elevated but non-failing condition; 'success' for correct behavior that "
+    "the walkthrough needs in order to make sense.\n"
+    "- Set `mono` to true only for preformatted text such as a payload or stack trace.\n"
+    "- Do not add a step title, a span name, a span kind or a locator; the reader derives "
+    "those from `span_id`.\n"
+    "- `primary_span_id` is the one span to open first and MUST be cited by one of your "
+    "steps. Omit it when no single span is the locus, as for a trace-wide latency or cost "
+    "finding.\n"
+    "- The `summary` is one or two sentences on why THIS trace demonstrates the issue. It is "
+    "shown to readers that cannot display the steps, so it must stand alone.\n"
+    "- Describe only what the trace shows. If the spans do not record the content needed to "
+    "support a step, leave that step out rather than inferring it.\n"
 )
 
 

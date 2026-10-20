@@ -39,88 +39,12 @@ class _TriageResult:
 
 
 @dataclass
-class DetectionCoverage:
-    """
-    What a detection run actually inspected, and what it could not judge.
-
-    A failure rate is only meaningful against the number of traces a verdict was reached on,
-    so the denominator is recorded rather than implied. A run that completed without being
-    able to assess its sample is not a clean scan, which :attr:`is_conclusive` distinguishes.
-
-    Args:
-        requested_sample_size: The bound the caller asked for.
-        traces_returned: Traces the search actually returned.
-        traces_inspected: Traces the pipeline scored.
-        traces_judged: Traces a scorer reached a pass or fail verdict on.
-        traces_failing: Traces judged failing.
-        traces_unclassified: Traces a scorer returned no value for.
-        traces_scorer_error: Traces whose scorer errored.
-        filter_string: The filter the sample was drawn with, if any.
-        order_by: The ordering the sample was drawn with, if any.
-        earliest_timestamp_ms: Oldest trace in the sample.
-        latest_timestamp_ms: Newest trace in the sample.
-        cost_limits: What the cost analysis could not cover.
-    """
-
-    requested_sample_size: int = 0
-    traces_returned: int = 0
-    traces_inspected: int = 0
-    traces_judged: int = 0
-    traces_failing: int = 0
-    traces_unclassified: int = 0
-    traces_scorer_error: int = 0
-    filter_string: str | None = None
-    order_by: list[str] | None = None
-    earliest_timestamp_ms: int | None = None
-    latest_timestamp_ms: int | None = None
-    cost_limits: str = ""
-
-    @property
-    def failure_rate(self) -> float | None:
-        """Failing traces over traces actually judged, or None when nothing was judged."""
-        if not self.traces_judged:
-            return None
-        return self.traces_failing / self.traces_judged
-
-    @property
-    def is_conclusive(self) -> bool:
-        """
-        Whether the run judged enough of its sample to call an absence of findings a result.
-
-        False when nothing was judged, or when every trace was either unjudgeable or hit a
-        scorer error -- in which case "no issues found" would describe the analysis, not the
-        application.
-        """
-        return self.traces_judged > 0
-
-    def describe(self) -> str:
-        """The coverage as the disclosure clause a report ends with."""
-        parts = [
-            f"Inspected {self.traces_inspected} of {self.traces_returned} traces returned",
-        ]
-        if self.requested_sample_size:
-            parts.append(f"against a requested sample of {self.requested_sample_size}")
-        detail = [f"{self.traces_judged} judged"]
-        if self.traces_unclassified:
-            detail.append(f"{self.traces_unclassified} unclassified")
-        if self.traces_scorer_error:
-            detail.append(f"{self.traces_scorer_error} with scorer errors")
-        summary = f"{'; '.join(parts)} ({', '.join(detail)})."
-        if self.filter_string:
-            summary += f" Filter: {self.filter_string}."
-        if self.cost_limits:
-            summary += f" {self.cost_limits}"
-        return summary
-
-
-@dataclass
 class DiscoverIssuesResult:
     issues: list[Issue]
     triage_run_id: str
     summary: str
     total_traces_analyzed: int
     total_cost_usd: float | None = None
-    coverage: DetectionCoverage | None = None
 
 
 @dataclass

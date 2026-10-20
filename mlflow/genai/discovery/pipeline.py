@@ -35,12 +35,12 @@ from mlflow.genai.discovery.constants import (
 )
 from mlflow.genai.discovery.cost import analyze_cost_anomalies
 from mlflow.genai.discovery.entities import (
-    DetectionCoverage,
     DiscoverIssuesResult,
     Issue,
     _ConversationAnalysis,
     _IdentifiedIssue,
 )
+from mlflow.genai.discovery.evidence import generate_trace_evidence
 from mlflow.genai.discovery.extraction import (
     collect_session_rationales,
     extract_execution_paths_for_session,
@@ -181,24 +181,50 @@ def _annotate_issue_traces(
             categories=categories,
         )
 
-        try:
-            response = _call_llm(
-                model,
-                [
-                    {"role": "system", "content": TRACE_ANNOTATION_SYSTEM_PROMPT},
-                    {"role": "user", "content": user_content},
-                ],
-                token_counter=token_counter,
-            )
-            annotation = (response.choices[0].message.content or "").strip()
-        except Exception:
-            _logger.debug(
-                "Failed to generate annotation for trace %s", item.trace_id, exc_info=True
-            )
-            annotation = (
-                f"This trace was flagged for issue '{item.issue.name}'. "
-                f"Triage rationale: {item.triage_rationale or '(not available)'}"
-            )
+        evidence = None
+        annotation = ""
+        if trace is not None:
+            # A span-anchored walkthrough is what the Issues tab can navigate, so it is tried
+            # first. Generation and validation are both fallible, and either way the summary
+            # it produced is still the best prose available for the reference's rationale.
+            try:
+                evidence, annotation = generate_trace_evidence(
+                    issue_name=item.issue.name,
+                    issue_description=item.issue.description or "",
+                    root_causes="; ".join(item.issue.root_causes or []),
+                    trace=trace,
+                    trace_content=trace_content,
+                    triage_rationale=item.triage_rationale,
+                    categories=categories,
+                    model=model,
+                    token_counter=token_counter,
+                )
+            except Exception:
+                _logger.debug(
+                    "Failed to generate evidence for trace %s", item.trace_id, exc_info=True
+                )
+
+        if not annotation:
+            # Prose only. Reached when the trace is unavailable or evidence generation failed,
+            # and still records that this trace exhibits the issue.
+            try:
+                response = _call_llm(
+                    model,
+                    [
+                        {"role": "system", "content": TRACE_ANNOTATION_SYSTEM_PROMPT},
+                        {"role": "user", "content": user_content},
+                    ],
+                    token_counter=token_counter,
+                )
+                annotation = (response.choices[0].message.content or "").strip()
+            except Exception:
+                _logger.debug(
+                    "Failed to generate annotation for trace %s", item.trace_id, exc_info=True
+                )
+                annotation = (
+                    f"This trace was flagged for issue '{item.issue.name}'. "
+                    f"Triage rationale: {item.triage_rationale or '(not available)'}"
+                )
 
         metadata = {TraceMetadataKey.TRACE_SESSION: item.session_id} if item.session_id else None
         try:
@@ -207,6 +233,7 @@ def _annotate_issue_traces(
                 issue_id=item.issue.issue_id,
                 issue_name=item.issue.name,
                 source=source,
+                evidence=evidence,
                 rationale=annotation,
                 metadata=metadata,
             )
@@ -606,8 +633,8 @@ def _merge_cost_findings(
     -- so it groups and reports through the same path as every other finding.
 
     A trace whose usage information is incomplete never reaches here: it is excluded while
-    baselining and disclosed as a coverage limit, because its cost figure is not a sound
-    basis for a finding.
+    baselining and disclosed in the run's log, because its cost figure is not a sound basis
+    for a finding.
 
     Returns:
         How many traces this added to the failing set.
@@ -637,46 +664,6 @@ def _merge_cost_findings(
         if CATEGORY_COST not in categories:
             categories.append(CATEGORY_COST)
     return added
-
-
-def _build_coverage(
-    *,
-    triage_traces: list[Trace],
-    requested_sample_size: int,
-    filter_string: str | None,
-    triage,
-    cost_limits: str,
-) -> DetectionCoverage:
-    """
-    Record what the run inspected and what it could not judge.
-
-    The denominator matters: a failure rate quoted against the whole sample implies verdicts
-    the run never reached, so judged traces are counted separately from the unjudgeable ones.
-    """
-    # The time range is disclosure, not a verdict: a trace whose info cannot be read should
-    # narrow the window rather than fail the run that was about to report its coverage.
-    timestamps = []
-    for trace in triage_traces:
-        try:
-            if timestamp := trace.info.timestamp_ms:
-                timestamps.append(timestamp)
-        except Exception:
-            continue
-    unjudged = len(triage.scorer_error_trace_ids) + len(triage.unclassified_trace_ids)
-
-    return DetectionCoverage(
-        requested_sample_size=requested_sample_size,
-        traces_returned=len(triage_traces),
-        traces_inspected=len(triage_traces),
-        traces_judged=max(len(triage_traces) - unjudged, 0),
-        traces_failing=len(triage.failing_traces),
-        traces_unclassified=len(triage.unclassified_trace_ids),
-        traces_scorer_error=len(triage.scorer_error_trace_ids),
-        filter_string=filter_string,
-        earliest_timestamp_ms=min(timestamps) if timestamps else None,
-        latest_timestamp_ms=max(timestamps) if timestamps else None,
-        cost_limits=cost_limits,
-    )
 
 
 @record_usage_event(DiscoverIssuesEvent)
@@ -836,15 +823,10 @@ def discover_issues(
     # a per-trace judge cannot reach. Priced separately from the detector's own spend, which
     # `token_counter` owns.
     cost_analysis = analyze_cost_anomalies(scored_traces) if CATEGORY_COST in categories else None
-    cost_limits = cost_analysis.describe_limits() if cost_analysis else ""
-
-    coverage = _build_coverage(
-        triage_traces=triage_traces,
-        requested_sample_size=sample_size,
-        filter_string=filter_string,
-        triage=triage,
-        cost_limits=cost_limits,
-    )
+    if cost_analysis and (cost_limits := cost_analysis.describe_limits()):
+        # Disclosed rather than dropped: a sample the baselines could not price is a limit of
+        # the analysis, not evidence that those traces are fine.
+        _logger.info("%s", cost_limits)
 
     cost_findings = _merge_cost_findings(
         triage,
@@ -856,7 +838,6 @@ def discover_issues(
             "%d traces were flagged for cost alone, against their own agent label's baseline",
             cost_findings,
         )
-        coverage.traces_failing = len(triage.failing_traces)
 
     if triage.scorer_error_trace_ids:
         _logger.warning(
@@ -875,10 +856,9 @@ def discover_issues(
         return DiscoverIssuesResult(
             issues=[],
             triage_run_id=triage_eval.run_id,
-            summary=build_summary([], len(triage_traces), coverage=coverage),
+            summary=build_summary([], len(triage_traces)),
             total_traces_analyzed=len(triage_traces),
             total_cost_usd=token_counter.cost_usd,
-            coverage=coverage,
         )
 
     # ---- Phase 2: Build analyses ----
@@ -901,10 +881,9 @@ def discover_issues(
         return DiscoverIssuesResult(
             issues=[],
             triage_run_id=triage_eval.run_id,
-            summary=build_summary([], len(triage_traces), coverage=coverage),
+            summary=build_summary([], len(triage_traces)),
             total_traces_analyzed=len(triage_traces),
             total_cost_usd=token_counter.cost_usd,
-            coverage=coverage,
         )
 
     # ---- Phase 4: Build issues & annotate ----
@@ -936,7 +915,7 @@ def discover_issues(
     )
 
     update_status_details({"stage": "Generating summary..."})
-    summary = build_summary(issues, len(triage_traces), coverage=coverage)
+    summary = build_summary(issues, len(triage_traces))
     _logger.info("Done. Found %d issues across %d traces.", len(issues), len(triage_traces))
 
     result = DiscoverIssuesResult(
@@ -945,7 +924,6 @@ def discover_issues(
         summary=summary,
         total_traces_analyzed=len(triage_traces),
         total_cost_usd=token_counter.cost_usd,
-        coverage=coverage,
     )
 
     # Log artifacts to the triage run

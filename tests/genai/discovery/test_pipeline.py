@@ -1356,3 +1356,103 @@ def test_dedup_issues_llm_failure_returns_original():
     with patch("mlflow.genai.discovery.pipeline._call_llm", side_effect=Exception("API error")):
         result = _dedup_issues(issues)
     assert result == issues
+
+
+# ---- structured evidence on annotations ----
+
+
+def _evidence_trace():
+    import mlflow as _mlflow
+    from mlflow.entities.span import SpanType
+
+    @_mlflow.trace(name="agent", span_type=SpanType.AGENT)
+    def _run():
+        with _mlflow.start_span(name="retrieve", span_type=SpanType.RETRIEVER) as span:
+            span.set_outputs({"documents": []})
+        with _mlflow.start_span(name="generate", span_type=SpanType.LLM) as span:
+            span.set_outputs({"text": "You have 45 days."})
+        return "You have 45 days."
+
+    _run()
+    return _mlflow.get_trace(_mlflow.get_last_active_trace_id())
+
+
+def test_annotate_traces_stores_a_span_anchored_walkthrough():
+    trace = _evidence_trace()
+    retrieve = next(s.span_id for s in trace.data.spans if s.name == "retrieve")
+    issues = [
+        _make_issue(
+            name="Answers from an empty context",
+            description="The agent answers when retrieval returned nothing",
+            root_causes=["retrieve_documents returns no documents"],
+        )
+    ]
+    generated = json.dumps({
+        "summary": "Retrieval returned nothing and the agent answered anyway.",
+        "steps": [
+            {
+                "span_id": retrieve,
+                "text": "Retrieval returned 0 documents for the refund question.",
+                "highlights": ["0 documents"],
+                "highlight_tone": "error",
+            }
+        ],
+        "primary_span_id": retrieve,
+    })
+
+    with (
+        patch(
+            "mlflow.genai.discovery.evidence._call_llm",
+            return_value=_make_litellm_response(generated),
+        ),
+        patch("mlflow.genai.discovery.pipeline.mlflow.log_issue") as mock_log_issue,
+    ):
+        _annotate_issue_traces(
+            issues,
+            {issues[0].issue_id: [trace.info.trace_id]},
+            {trace.info.trace_id: "answered from an empty context"},
+            {trace.info.trace_id: trace},
+            "openai:/gpt-5-mini",
+        )
+
+    evidence = mock_log_issue.call_args.kwargs["evidence"]
+    assert evidence is not None
+    assert [step.span_id for step in evidence.steps] == [retrieve]
+    assert evidence.primary_span_id == retrieve
+    # The summary doubles as the rationale, so a reader without the schema still sees it.
+    assert mock_log_issue.call_args.kwargs["rationale"] == evidence.summary
+
+
+def test_annotate_traces_falls_back_to_prose_when_evidence_generation_fails():
+    trace = _evidence_trace()
+    issues = [
+        _make_issue(
+            name="Answers from an empty context",
+            description="The agent answers when retrieval returned nothing",
+            root_causes=["retrieve_documents returns no documents"],
+        )
+    ]
+
+    with (
+        patch(
+            "mlflow.genai.discovery.evidence._call_llm",
+            side_effect=Exception("evidence model unavailable"),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline._call_llm",
+            return_value=_make_litellm_response("The agent answered from an empty context."),
+        ),
+        patch("mlflow.genai.discovery.pipeline.mlflow.log_issue") as mock_log_issue,
+    ):
+        _annotate_issue_traces(
+            issues,
+            {issues[0].issue_id: [trace.info.trace_id]},
+            {trace.info.trace_id: "answered from an empty context"},
+            {trace.info.trace_id: trace},
+            "openai:/gpt-5-mini",
+        )
+
+    # The finding is still recorded; only its navigability is lost.
+    mock_log_issue.assert_called_once()
+    assert mock_log_issue.call_args.kwargs["evidence"] is None
+    assert "empty context" in mock_log_issue.call_args.kwargs["rationale"]

@@ -101,7 +101,7 @@ class CostAnalysis:
         return [anomaly.trace_id for anomaly in self.anomalies]
 
     def describe_limits(self) -> str:
-        """What the cost analysis could not cover, for a coverage report."""
+        """What the cost analysis could not cover, for the run's log."""
         if not self.excluded:
             return ""
         counts: dict[str, int] = {}

@@ -1,9 +1,7 @@
 import mlflow
 from mlflow.entities.assessment import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
-from mlflow.genai.discovery.entities import DetectionCoverage
 from mlflow.genai.discovery.extraction import collect_session_rationales, extract_failing_traces
-from mlflow.genai.discovery.utils import build_summary
 
 _SOURCE = AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="test")
 
@@ -77,7 +75,7 @@ def test_a_passing_trace_is_neither_errored_nor_unclassified(make_trace):
     assert result.unclassified_trace_ids == []
 
 
-def test_an_all_judge_error_run_is_not_reported_as_a_clean_scan(make_trace):
+def test_an_all_judge_error_run_is_classified_as_errored_not_passing(make_trace):
     traces = [make_trace() for _ in range(3)]
     for trace in traces:
         _add_feedback(
@@ -88,36 +86,11 @@ def test_an_all_judge_error_run_is_not_reported_as_a_clean_scan(make_trace):
         )
 
     result = extract_failing_traces(_refetch(traces), "satisfaction")
-    coverage = DetectionCoverage(
-        traces_returned=3,
-        traces_inspected=3,
-        traces_judged=3 - len(result.scorer_error_trace_ids),
-        traces_scorer_error=len(result.scorer_error_trace_ids),
-    )
 
-    assert coverage.is_conclusive is False
-    assert coverage.failure_rate is None
-    summary = build_summary([], 3, coverage=coverage)
-    assert "could not judge any of them" in summary
-    assert "No issues found" not in summary
-
-
-def test_a_failure_rate_is_quoted_against_the_traces_actually_judged():
-    coverage = DetectionCoverage(
-        traces_returned=10,
-        traces_inspected=10,
-        traces_judged=4,
-        traces_failing=2,
-        traces_unclassified=3,
-        traces_scorer_error=3,
-    )
-
-    # 2 of 4 judged, not 2 of 10 inspected.
-    assert coverage.failure_rate == 0.5
-    description = coverage.describe()
-    assert "4 judged" in description
-    assert "3 unclassified" in description
-    assert "3 with scorer errors" in description
+    # Not one of these traces passed; every one of them went unjudged.
+    assert result.failing_traces == []
+    assert len(result.scorer_error_trace_ids) == 3
+    assert result.unclassified_trace_ids == []
 
 
 def test_session_scoped_feedback_is_read_from_the_session_not_the_failing_turn(make_trace):
