@@ -55,12 +55,10 @@ class DetectionCoverage:
         traces_failing: Traces judged failing.
         traces_unclassified: Traces a scorer returned no value for.
         traces_scorer_error: Traces whose scorer errored.
-        traces_thin: Traces missing the content a quality judgment needs.
         filter_string: The filter the sample was drawn with, if any.
         order_by: The ordering the sample was drawn with, if any.
         earliest_timestamp_ms: Oldest trace in the sample.
         latest_timestamp_ms: Newest trace in the sample.
-        data_gaps: Reason code to how many traces exhibited it.
         cost_limits: What the cost analysis could not cover.
     """
 
@@ -71,12 +69,10 @@ class DetectionCoverage:
     traces_failing: int = 0
     traces_unclassified: int = 0
     traces_scorer_error: int = 0
-    traces_thin: int = 0
     filter_string: str | None = None
     order_by: list[str] | None = None
     earliest_timestamp_ms: int | None = None
     latest_timestamp_ms: int | None = None
-    data_gaps: dict[str, int] = field(default_factory=dict)
     cost_limits: str = ""
 
     @property
@@ -109,8 +105,6 @@ class DetectionCoverage:
             detail.append(f"{self.traces_unclassified} unclassified")
         if self.traces_scorer_error:
             detail.append(f"{self.traces_scorer_error} with scorer errors")
-        if self.traces_thin:
-            detail.append(f"{self.traces_thin} missing content needed to judge quality")
         summary = f"{'; '.join(parts)} ({', '.join(detail)})."
         if self.filter_string:
             summary += f" Filter: {self.filter_string}."

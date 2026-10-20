@@ -34,12 +34,6 @@ from mlflow.genai.discovery.constants import (
     build_satisfaction_instructions,
 )
 from mlflow.genai.discovery.cost import analyze_cost_anomalies
-from mlflow.genai.discovery.coverage import (
-    GAP_CACHE_USAGE_MISSING,
-    TraceDataAdequacy,
-    _safe_trace_id,
-    assess_sample_data_adequacy,
-)
 from mlflow.genai.discovery.entities import (
     DetectionCoverage,
     DiscoverIssuesResult,
@@ -63,6 +57,7 @@ from mlflow.genai.discovery.utils import (
     get_session_id,
     group_traces_by_session,
     log_discovery_artifacts,
+    safe_trace_id,
     verify_scorer,
 )
 from mlflow.genai.judges.make_judge import make_judge
@@ -600,7 +595,6 @@ def _merge_cost_findings(
     triage,
     cost_analysis,
     trace_lookup: dict[str, Trace],
-    adequacy: dict[str, TraceDataAdequacy],
 ) -> int:
     """
     Carry cost anomalies into triage so a trace that only costs too much is still a finding.
@@ -611,8 +605,9 @@ def _merge_cost_findings(
     deterministic rationale -- the observed spend, what it is compared against, and the driver
     -- so it groups and reports through the same path as every other finding.
 
-    A trace whose usage information is incomplete is left out: its cost figure is not a
-    sound basis for a finding, and it is already disclosed as a coverage limit.
+    A trace whose usage information is incomplete never reaches here: it is excluded while
+    baselining and disclosed as a coverage limit, because its cost figure is not a sound
+    basis for a finding.
 
     Returns:
         How many traces this added to the failing set.
@@ -625,9 +620,6 @@ def _merge_cost_findings(
     for anomaly in cost_analysis.anomalies:
         trace = trace_lookup.get(anomaly.trace_id)
         if trace is None:
-            continue
-        entry = adequacy.get(anomaly.trace_id)
-        if entry is not None and not entry.cost_judgeable:
             continue
         rationale = f"[cost anomaly] spend is {anomaly.describe()}"
         if anomaly.trace_id in already_failing:
@@ -653,7 +645,6 @@ def _build_coverage(
     requested_sample_size: int,
     filter_string: str | None,
     triage,
-    adequacy: dict[str, TraceDataAdequacy],
     cost_limits: str,
 ) -> DetectionCoverage:
     """
@@ -673,14 +664,6 @@ def _build_coverage(
             continue
     unjudged = len(triage.scorer_error_trace_ids) + len(triage.unclassified_trace_ids)
 
-    gap_counts: dict[str, int] = {}
-    thin = 0
-    for entry in adequacy.values():
-        if not entry.quality_judgeable:
-            thin += 1
-        for gap in entry.gaps:
-            gap_counts[gap] = gap_counts.get(gap, 0) + 1
-
     return DetectionCoverage(
         requested_sample_size=requested_sample_size,
         traces_returned=len(triage_traces),
@@ -689,11 +672,9 @@ def _build_coverage(
         traces_failing=len(triage.failing_traces),
         traces_unclassified=len(triage.unclassified_trace_ids),
         traces_scorer_error=len(triage.scorer_error_trace_ids),
-        traces_thin=thin,
         filter_string=filter_string,
         earliest_timestamp_ms=min(timestamps) if timestamps else None,
         latest_timestamp_ms=max(timestamps) if timestamps else None,
-        data_gaps=gap_counts,
         cost_limits=cost_limits,
     )
 
@@ -851,13 +832,9 @@ def discover_issues(
     scorer_names = [s.name for s in scorers]
     triage = extract_failing_traces(scored_traces, scorer_names)
 
-    # What the sample can actually support a judgment about. Computed from recorded content
-    # only -- no extra fetches -- and kept out of the pass/fail split so a trace that is
-    # merely unjudgeable is never counted as a pass.
-    adequacy = assess_sample_data_adequacy(scored_traces)
-
-    # Cost is baselined per agent label over the same sample. Priced separately from the
-    # detector's own spend, which `token_counter` owns.
+    # Cost is baselined per agent label over the same sample, because it is the one category
+    # a per-trace judge cannot reach. Priced separately from the detector's own spend, which
+    # `token_counter` owns.
     cost_analysis = analyze_cost_anomalies(scored_traces) if CATEGORY_COST in categories else None
     cost_limits = cost_analysis.describe_limits() if cost_analysis else ""
 
@@ -866,15 +843,13 @@ def discover_issues(
         requested_sample_size=sample_size,
         filter_string=filter_string,
         triage=triage,
-        adequacy=adequacy,
         cost_limits=cost_limits,
     )
 
     cost_findings = _merge_cost_findings(
         triage,
         cost_analysis,
-        {_safe_trace_id(trace, position): trace for position, trace in enumerate(scored_traces)},
-        adequacy,
+        {safe_trace_id(trace, position): trace for position, trace in enumerate(scored_traces)},
     )
     if cost_findings:
         _logger.info(
@@ -890,14 +865,6 @@ def discover_issues(
             len(triage.scorer_error_trace_ids),
             len(triage_traces),
         )
-    if coverage.traces_thin:
-        _logger.info(
-            "%d/%d traces are missing content a quality judgment needs: %s",
-            coverage.traces_thin,
-            len(triage_traces),
-            ", ".join(gap for gap in coverage.data_gaps if gap != GAP_CACHE_USAGE_MISSING),
-        )
-
     _logger.info(
         "Triage complete: %d/%d traces unsatisfactory",
         len(triage.failing_traces),

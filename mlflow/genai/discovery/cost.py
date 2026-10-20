@@ -1,10 +1,20 @@
 """
 Cost anomalies, measured against an agent's own baseline.
 
-Cost is the one category where the expensive traces are usually not the issue: a retrieval
-agent and a summarizer have different normal spend, so an experiment-wide average hides both.
-This module baselines spend per agent label and flags only traces that are anomalous for
-*their own* label, then attributes the extra spend to what the flagged traces do differently.
+Cost is the one category the triage judge cannot reach. Every other category is decided from
+one trace's content, but "expensive" only means anything relative to the agent's other traces
+-- a retrieval agent and a summarizer have different normal spend, so an experiment-wide
+average hides both -- and a judge scoring one trace at a time has no view of the sample. The
+arithmetic therefore lives here, and the finding it produces joins the others at clustering.
+
+What counts as *how bad* is deliberately not decided here: a flagged trace enters triage as a
+failing trace, and the cluster summariser assigns severity with the same rubric it applies to
+every other finding.
+
+Only a recorded ``total_cost`` is compared; missing usage is never read as zero spend. Where
+a provider folds cache reads into prompt tokens the recorded cost overstates a cached request,
+but every trace in a label is priced the same way, so the error largely cancels within the
+comparison that is actually made.
 
 This is the cost of the traced application. The cost of running detection itself is tracked
 separately by ``_TokenCounter`` and never enters these baselines.
@@ -16,9 +26,8 @@ import logging
 import math
 from dataclasses import dataclass, field
 
-from mlflow.entities.span import SpanType
 from mlflow.entities.trace import Trace
-from mlflow.genai.discovery.coverage import _safe_trace_id
+from mlflow.genai.discovery.utils import safe_trace_id
 from mlflow.tracing.constant import TraceTagKey
 
 _logger = logging.getLogger(__name__)
@@ -29,35 +38,10 @@ MIN_BASELINE_PEERS = 5
 # Standard deviations above the label's mean at which spend is called anomalous, per the
 # category rubric's "roughly three standard deviations" guidance.
 ANOMALY_SIGMA = 3.0
-# Spend above the label's baseline but below the anomaly threshold is reported as low severity
-# rather than ignored, starting at this many standard deviations.
-ELEVATED_SIGMA = 1.5
-# A driver this many times the label's typical call count is treated as the extra work.
-DRIVER_RATIO = 2.0
-# Repeating one identical call this many times reads as a retry or loop rather than fixed
-# extra work, which is what separates an unbounded driver from a bounded one.
-REPEAT_LOOP_THRESHOLD = 3
 
 # Reason codes for traces a baseline could not price.
 EXCLUDED_NO_COST = "no_cost_recorded"
 EXCLUDED_FEW_PEERS = "too_few_same_label_peers"
-
-
-@dataclass
-class CostDriver:
-    """
-    What a flagged trace does that its baseline does not.
-
-    Args:
-        description: The driver as a human-readable comparison, e.g. "22 tool calls against a
-            typical 5".
-        is_bounded: Whether the extra work is a fixed amount per trace. An unbounded driver --
-            an uncapped retry or tool-call loop -- has a worst case the sampled traces do not
-            bound, which the severity rubric treats as high.
-    """
-
-    description: str
-    is_bounded: bool
 
 
 @dataclass
@@ -88,38 +72,13 @@ class CostAnomaly:
     cost_usd: float
     baseline: CostBaseline
     sigma: float
-    drivers: list[CostDriver] = field(default_factory=list)
-
-    @property
-    def is_anomalous(self) -> bool:
-        return self.sigma >= ANOMALY_SIGMA
-
-    @property
-    def has_unbounded_driver(self) -> bool:
-        return any(not driver.is_bounded for driver in self.drivers)
-
-    @property
-    def severity(self) -> str:
-        """
-        Severity per the category rubric.
-
-        High when the driver is unbounded (an uncapped retry or loop, whose worst case the
-        sample does not bound), medium when it is a fixed amount of extra work, and low when
-        spend is above the label's baseline but below the anomaly threshold.
-        """
-        if not self.is_anomalous:
-            return "low"
-        return "high" if self.has_unbounded_driver else "medium"
 
     def describe(self) -> str:
-        """The anomaly as one sentence, stating what the spend is compared against."""
-        comparison = (
+        """The anomaly as one clause, stating what the spend is compared against."""
+        return (
             f"${self.cost_usd:.4f} against a typical ${self.baseline.median_usd:.4f} "
-            f"for {self.label!r}"
+            f"for {self.label!r} ({self.baseline.peer_count} peers)"
         )
-        if not self.drivers:
-            return comparison
-        return f"{comparison}; {'; '.join(driver.description for driver in self.drivers)}"
 
 
 @dataclass
@@ -130,13 +89,11 @@ class CostAnalysis:
     Args:
         baselines: Per-label baselines that met the minimum peer count.
         anomalies: Traces at or above the anomaly threshold for their label.
-        elevated: Traces above their label's baseline but below the threshold.
         excluded: Trace ID to reason code for traces no baseline could price.
     """
 
     baselines: dict[str, CostBaseline] = field(default_factory=dict)
     anomalies: list[CostAnomaly] = field(default_factory=list)
-    elevated: list[CostAnomaly] = field(default_factory=list)
     excluded: dict[str, str] = field(default_factory=dict)
 
     @property
@@ -147,13 +104,18 @@ class CostAnalysis:
         """What the cost analysis could not cover, for a coverage report."""
         if not self.excluded:
             return ""
-        no_cost = sum(1 for reason in self.excluded.values() if reason == EXCLUDED_NO_COST)
-        few_peers = sum(1 for reason in self.excluded.values() if reason == EXCLUDED_FEW_PEERS)
-        parts = []
-        if no_cost:
-            parts.append(f"{no_cost} with no recorded cost")
-        if few_peers:
-            parts.append(f"{few_peers} whose agent label had fewer than {MIN_BASELINE_PEERS} peers")
+        counts: dict[str, int] = {}
+        for reason in self.excluded.values():
+            counts[reason] = counts.get(reason, 0) + 1
+        phrasing = {
+            EXCLUDED_NO_COST: "with no recorded cost",
+            EXCLUDED_FEW_PEERS: f"whose agent label had fewer than {MIN_BASELINE_PEERS} peers",
+        }
+        parts = [
+            f"{count} {phrasing.get(reason, reason)}"
+            for reason, count in sorted(counts.items())
+            if count
+        ]
         return f"Cost analysis skipped {', '.join(parts)}."
 
 
@@ -210,71 +172,6 @@ def _baseline_from(label: str, costs: list[float]) -> CostBaseline:
     )
 
 
-def _call_counts(trace: Trace) -> dict[str, int]:
-    """Calls per span type, which is the unit a cost driver is quoted in."""
-    counts: dict[str, int] = {}
-    for span in trace.data.spans or []:
-        counts[span.span_type] = counts.get(span.span_type, 0) + 1
-    return counts
-
-
-def _repeated_call_names(trace: Trace) -> dict[str, int]:
-    """How many times each span name repeats, which is how a retry or loop shows up."""
-    names: dict[str, int] = {}
-    for span in trace.data.spans or []:
-        if span.span_type in (SpanType.TOOL, SpanType.RETRIEVER, SpanType.LLM, SpanType.CHAT_MODEL):
-            names[span.name] = names.get(span.name, 0) + 1
-    return {name: count for name, count in names.items() if count > 1}
-
-
-def _attribute_drivers(trace: Trace, peers: list[Trace]) -> list[CostDriver]:
-    """
-    What the flagged trace does more of than its peers.
-
-    A driver is only reported when it can be quantified against the baseline, because a cost
-    finding that does not say what the trace is expensive *compared to* is not actionable.
-    """
-    drivers: list[CostDriver] = []
-    trace_counts = _call_counts(trace)
-
-    # Typical call count per span type across the peers, so the comparison is against the
-    # label's own normal rather than an absolute number.
-    peer_counts: dict[str, list[int]] = {}
-    for peer in peers:
-        for span_type, count in _call_counts(peer).items():
-            peer_counts.setdefault(span_type, []).append(count)
-
-    for span_type, count in sorted(trace_counts.items()):
-        typical_values = peer_counts.get(span_type, [])
-        typical = _median(typical_values) if typical_values else 0.0
-        if typical <= 0:
-            continue
-        if count >= typical * DRIVER_RATIO and count - typical >= 1:
-            label = span_type.lower().replace("_", " ")
-            drivers.append(
-                CostDriver(
-                    description=(f"{count} {label} calls against a typical {typical:.0f}"),
-                    # Extra calls spread across distinct operations are a fixed amount of
-                    # additional work; a repeated identical call is a retry or loop, which the
-                    # sample does not bound.
-                    is_bounded=True,
-                )
-            )
-
-    # A repeated identical call overrides the bounded reading: its worst case is whatever the
-    # loop does next, not what this sample happened to spend.
-    for name, repeats in sorted(_repeated_call_names(trace).items()):
-        if repeats >= REPEAT_LOOP_THRESHOLD:
-            drivers.append(
-                CostDriver(
-                    description=f"repeats {name!r} {repeats} times",
-                    is_bounded=False,
-                )
-            )
-
-    return drivers
-
-
 def analyze_cost_anomalies(
     traces: list[Trace],
     *,
@@ -284,19 +181,19 @@ def analyze_cost_anomalies(
     Flag traces whose spend is anomalous against their own agent label's baseline.
 
     Args:
-        traces: The sampled traces. Only recorded cost and span structure are read.
+        traces: The sampled traces. Only recorded cost and usage are read.
         min_peers: How many same-label traces a baseline needs. Labels below this are
             reported as excluded rather than compared against a meaningless baseline.
 
     Returns:
-        A :class:`CostAnalysis` with per-label baselines, the anomalies and their drivers, and
-        the traces no baseline could price. Missing usage is never treated as zero spend.
+        A :class:`CostAnalysis` with per-label baselines, the anomalies, and the traces no
+        baseline could price. Missing usage is never treated as zero spend.
     """
     analysis = CostAnalysis()
 
-    by_label: dict[str, list[tuple[Trace, float]]] = {}
+    by_label: dict[str, list[tuple[str, float]]] = {}
     for position, trace in enumerate(traces):
-        trace_id = _safe_trace_id(trace, position)
+        trace_id = safe_trace_id(trace, position)
         try:
             cost = _trace_cost(trace)
             label = get_agent_label(trace)
@@ -309,46 +206,35 @@ def analyze_cost_anomalies(
         if cost is None:
             analysis.excluded[trace_id] = EXCLUDED_NO_COST
             continue
-        by_label.setdefault(label, []).append((trace, cost))
+        by_label.setdefault(label, []).append((trace_id, cost))
 
     for label, entries in sorted(by_label.items(), key=lambda item: str(item[0])):
         if len(entries) < min_peers:
-            for trace, _ in entries:
-                analysis.excluded[trace.info.trace_id] = EXCLUDED_FEW_PEERS
+            for trace_id, _ in entries:
+                analysis.excluded[trace_id] = EXCLUDED_FEW_PEERS
             continue
 
         costs = [cost for _, cost in entries]
         analysis.baselines[label] = _baseline_from(label, costs)
 
-        for trace, cost in entries:
+        for trace_id, cost in entries:
             # Baseline the candidate against the *other* traces carrying its label. Leaving it
             # in would let one expensive trace raise the mean and the deviation it is then
             # measured against -- with a sample this size a lone outlier could not reach the
             # threshold at all, so the anomaly would hide itself.
-            peer_entries = [
-                (peer, peer_cost)
-                for peer, peer_cost in entries
-                if peer.info.trace_id != trace.info.trace_id
-            ]
-            peer_baseline = _baseline_from(label, [peer_cost for _, peer_cost in peer_entries])
+            peer_costs = [peer_cost for peer_id, peer_cost in entries if peer_id != trace_id]
+            peer_baseline = _baseline_from(label, peer_costs)
             sigma = peer_baseline.sigma_above(cost)
-            if sigma < ELEVATED_SIGMA:
+            if sigma < ANOMALY_SIGMA:
                 continue
-            anomaly = CostAnomaly(
-                trace_id=trace.info.trace_id,
-                label=label,
-                cost_usd=cost,
-                baseline=peer_baseline,
-                sigma=sigma,
-                drivers=(
-                    _attribute_drivers(trace, [peer for peer, _ in peer_entries])
-                    if sigma >= ANOMALY_SIGMA
-                    else []
-                ),
+            analysis.anomalies.append(
+                CostAnomaly(
+                    trace_id=trace_id,
+                    label=label,
+                    cost_usd=cost,
+                    baseline=peer_baseline,
+                    sigma=sigma,
+                )
             )
-            if anomaly.is_anomalous:
-                analysis.anomalies.append(anomaly)
-            else:
-                analysis.elevated.append(anomaly)
 
     return analysis

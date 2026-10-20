@@ -22,6 +22,20 @@ from mlflow.tracing.provider import trace_disabled
 _logger = logging.getLogger(__name__)
 
 
+def safe_trace_id(trace: Trace, position: int) -> str:
+    """
+    A trace's ID, or a positional stand-in when even that cannot be read.
+
+    Falling back rather than raising keeps the trace counted: dropping it would shrink the
+    denominator a failure rate is quoted against, which is the thing coverage reporting exists
+    to protect.
+    """
+    try:
+        return trace.info.trace_id
+    except Exception:
+        return f"(unreadable trace at position {position})"
+
+
 def get_session_id(trace: Trace) -> str | None:
     return (trace.info.trace_metadata or {}).get(TraceMetadataKey.TRACE_SESSION)
 
