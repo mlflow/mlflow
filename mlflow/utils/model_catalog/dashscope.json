@@ -807,7 +807,8 @@
       "pricing": {
         "input_per_million_tokens": 2.5,
         "output_per_million_tokens": 7.5,
-        "cache_read_per_million_tokens": 0.5
+        "cache_read_per_million_tokens": 0.5,
+        "cache_write_per_million_tokens": 3.125
       },
       "capabilities": {
         "function_calling": true,
@@ -816,7 +817,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-31"
+      "last_updated_at": "2026-10-20"
     },
     "qwen3.7-plus": {
       "mode": "chat",
