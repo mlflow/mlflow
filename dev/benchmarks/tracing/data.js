@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792504230200,
+  "lastUpdate": 1792515023557,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "76001552+joelrobin18@users.noreply.github.com",
-            "name": "Joel Robin P",
-            "username": "joelrobin18"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3f0c34e9acc183e0653d1d411c94b63faefbe2f1",
-          "message": "Support per-endpoint budget policies in the AI Gateway (#24370)\n\nSigned-off-by: joelrobin18 <joelrobin1818@gmail.com>\nSigned-off-by: joelrobin18 <76001552+joelrobin18@users.noreply.github.com>",
-          "timestamp": "2026-07-28T09:12:04Z",
-          "tree_id": "798b3122a247933be8713d24442eaf298e744d90",
-          "url": "https://github.com/mlflow/mlflow/commit/3f0c34e9acc183e0653d1d411c94b63faefbe2f1"
-        },
-        "date": 1785230158375,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 45.72200394999939,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 28.045361205881015,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 24.52982137704885,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 28.334677529411252,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 27.62348664814727,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 9.106753599999706,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 18.837471800003414,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "79597212+bardenr@users.noreply.github.com",
+            "name": "Ryan Barden",
+            "username": "bardenr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "43615f0da5a9475f0813ee2fb15f42068a5ff2cb",
+          "message": "Include allowed actions in Skill Registry responses (#26900)\n\nSigned-off-by: Ryan Barden <rbarden@redhat.com>\nCo-authored-by: Codex <noreply@openai.com>",
+          "timestamp": "2026-10-20T16:46:34Z",
+          "tree_id": "612b812a1cbe8e68f926d264971b4b77741db6a4",
+          "url": "https://github.com/mlflow/mlflow/commit/43615f0da5a9475f0813ee2fb15f42068a5ff2cb"
+        },
+        "date": 1792515019281,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 43.506856149998896,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 5.548620337838455,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 4.906317668712222,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 4.973303284768556,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.256670427585661,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 6.094061499998323,
             "unit": "ms"
           }
         ]
