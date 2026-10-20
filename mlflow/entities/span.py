@@ -12,10 +12,23 @@ from opentelemetry.proto.trace.v1.trace_pb2 import Status as OTelProtoStatus
 from opentelemetry.sdk.resources import Resource as _OTelResource
 from opentelemetry.sdk.trace import Event as OTelEvent
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
-from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
-from opentelemetry.trace import Span as OTelSpan
-from opentelemetry.trace import Status as OTelStatus
-from opentelemetry.trace import StatusCode as OTelStatusCode
+from opentelemetry.trace import (
+    NonRecordingSpan,
+    SpanContext,
+    TraceFlags,
+)
+from opentelemetry.trace import (
+    Span as OTelSpan,
+)
+from opentelemetry.trace import (
+    SpanKind as OTelSpanKind,
+)
+from opentelemetry.trace import (
+    Status as OTelStatus,
+)
+from opentelemetry.trace import (
+    StatusCode as OTelStatusCode,
+)
 
 import mlflow
 from mlflow.entities.link import Link
@@ -67,6 +80,33 @@ def _link_from_otel_link(otel_link, source_trace_id: str | None) -> Link:
         span_id=f"{otel_link.context.span_id:016x}",
         attributes=dict(otel_link.attributes) if otel_link.attributes else None,
     )
+
+
+_PROTO_SPAN_KIND_TO_OTEL_SPAN_KIND: dict[int, OTelSpanKind] = {
+    OTelProtoSpan.SPAN_KIND_INTERNAL: OTelSpanKind.INTERNAL,
+    OTelProtoSpan.SPAN_KIND_SERVER: OTelSpanKind.SERVER,
+    OTelProtoSpan.SPAN_KIND_CLIENT: OTelSpanKind.CLIENT,
+    OTelProtoSpan.SPAN_KIND_PRODUCER: OTelSpanKind.PRODUCER,
+    OTelProtoSpan.SPAN_KIND_CONSUMER: OTelSpanKind.CONSUMER,
+}
+
+_OTEL_SPAN_KIND_TO_PROTO_SPAN_KIND: dict[OTelSpanKind, int] = {
+    OTelSpanKind.INTERNAL: OTelProtoSpan.SPAN_KIND_INTERNAL,
+    OTelSpanKind.SERVER: OTelProtoSpan.SPAN_KIND_SERVER,
+    OTelSpanKind.CLIENT: OTelProtoSpan.SPAN_KIND_CLIENT,
+    OTelSpanKind.PRODUCER: OTelProtoSpan.SPAN_KIND_PRODUCER,
+    OTelSpanKind.CONSUMER: OTelProtoSpan.SPAN_KIND_CONSUMER,
+}
+
+_OTEL_SPAN_KIND_TO_PROTO_SPAN_KIND_NAME: dict[OTelSpanKind, str] = {
+    kind: OTelProtoSpan.SpanKind.Name(proto_val)
+    for kind, proto_val in _OTEL_SPAN_KIND_TO_PROTO_SPAN_KIND.items()
+}
+
+_NAME_TO_OTEL_SPAN_KIND: dict[str, OTelSpanKind] = {
+    **{name: kind for kind, name in _OTEL_SPAN_KIND_TO_PROTO_SPAN_KIND_NAME.items()},
+    **{kind.name: kind for kind in OTelSpanKind},
+}
 
 
 # Not using enum as we want to allow custom span type string.
@@ -187,6 +227,11 @@ class Span:
     def status(self) -> SpanStatus:
         """The status of the span."""
         return SpanStatus.from_otel_status(self._span.status)
+
+    @property
+    def kind(self) -> OTelSpanKind:
+        """The OpenTelemetry span kind (e.g., INTERNAL, SERVER, CLIENT)."""
+        return self._span.kind
 
     @property
     def inputs(self) -> Any:
@@ -366,6 +411,9 @@ class Span:
             if self._span.parent
             else None,
             "name": self.name,
+            "kind": _OTEL_SPAN_KIND_TO_PROTO_SPAN_KIND_NAME.get(
+                self._span.kind, "SPAN_KIND_INTERNAL"
+            ),
             "start_time_unix_nano": self.start_time_ns,
             "end_time_unix_nano": self.end_time_ns,
             "events": [
@@ -449,12 +497,16 @@ class Span:
             end_time_ns = data.get("end_time_unix_nano")
             end_time_ns = int(end_time_ns) if end_time_ns else None
 
+            kind_str = data.get("kind")
+            otel_kind = _NAME_TO_OTEL_SPAN_KIND.get(kind_str, OTelSpanKind.INTERNAL)
+
             otel_span = OTelReadableSpan(
                 name=data["name"],
                 context=build_otel_context(otel_trace_id, span_id),
                 parent=build_otel_context(otel_trace_id, parent_id) if parent_id else None,
                 start_time=int(data["start_time_unix_nano"]),
                 end_time=end_time_ns,
+                kind=otel_kind,
                 attributes=data["attributes"],
                 status=status.to_otel_status(),
                 # Setting an empty resource explicitly. Otherwise OTel create a new Resource by
@@ -494,12 +546,16 @@ class Span:
         span_id = decode_id(data["context"]["span_id"])
         parent_id = decode_id(data["parent_id"]) if data["parent_id"] else None
 
+        kind_str = data.get("kind")
+        otel_kind = _NAME_TO_OTEL_SPAN_KIND.get(kind_str, OTelSpanKind.INTERNAL)
+
         otel_span = OTelReadableSpan(
             name=data["name"],
             context=build_otel_context(trace_id, span_id),
             parent=build_otel_context(trace_id, parent_id) if parent_id else None,
             start_time=data["start_time"],
             end_time=data["end_time"],
+            kind=otel_kind,
             attributes=data["attributes"],
             status=SpanStatus(data["status_code"], data["status_message"]).to_otel_status(),
             # Setting an empty resource explicitly. Otherwise OTel create a new Resource by
@@ -590,12 +646,17 @@ class Span:
         for link in links:
             link.trace_id = _normalize_link_trace_id(link.trace_id, request_id)
 
+        otel_kind = _PROTO_SPAN_KIND_TO_OTEL_SPAN_KIND.get(
+            otel_proto_span.kind, OTelSpanKind.INTERNAL
+        )
+
         otel_span = OTelReadableSpan(
             name=otel_proto_span.name,
             context=build_otel_context(trace_id, span_id),
             parent=build_otel_context(trace_id, parent_id) if parent_id else None,
             start_time=otel_proto_span.start_time_unix_nano,
             end_time=otel_proto_span.end_time_unix_nano,
+            kind=otel_kind,
             # we need to dump the attribute value to be consistent with span.set_attribute behavior
             attributes={
                 **serialized_attributes,
@@ -633,6 +694,9 @@ class Span:
         otel_span.span_id = bytes.fromhex(self.span_id)
 
         otel_span.name = self.name
+        otel_span.kind = _OTEL_SPAN_KIND_TO_PROTO_SPAN_KIND.get(
+            self._span.kind, OTelProtoSpan.SPAN_KIND_INTERNAL
+        )
         otel_span.start_time_unix_nano = self.start_time_ns
         if self.end_time_ns:
             otel_span.end_time_unix_nano = self.end_time_ns
@@ -1551,6 +1615,10 @@ class NoOpSpan(Span):
 
     @property
     def status(self):
+        return None
+
+    @property
+    def kind(self):
         return None
 
     @property

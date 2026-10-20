@@ -12,6 +12,7 @@ from opentelemetry.proto.trace.v1.trace_pb2 import Status as OTelProtoStatus
 from opentelemetry.sdk.resources import Resource as OTelResource
 from opentelemetry.sdk.trace import Event as OTelEvent
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+from opentelemetry.trace import SpanKind as OTelSpanKind
 from opentelemetry.trace import Status as OTelStatus
 from opentelemetry.trace import StatusCode as OTelStatusCode
 
@@ -749,6 +750,139 @@ def test_otel_roundtrip_conversion(sample_otel_span_for_conversion):
         assert rt_event.name == orig_event.name
         assert rt_event.timestamp == orig_event.timestamp
         assert rt_event.attributes == orig_event.attributes
+
+    # Verify span kind is preserved
+    assert roundtrip_span.kind == mlflow_span.kind
+
+
+@pytest.mark.parametrize(
+    ("proto_kind", "expected_otel_kind"),
+    [
+        (OTelProtoSpan.SPAN_KIND_INTERNAL, OTelSpanKind.INTERNAL),
+        (OTelProtoSpan.SPAN_KIND_SERVER, OTelSpanKind.SERVER),
+        (OTelProtoSpan.SPAN_KIND_CLIENT, OTelSpanKind.CLIENT),
+        (OTelProtoSpan.SPAN_KIND_PRODUCER, OTelSpanKind.PRODUCER),
+        (OTelProtoSpan.SPAN_KIND_CONSUMER, OTelSpanKind.CONSUMER),
+        (OTelProtoSpan.SPAN_KIND_UNSPECIFIED, OTelSpanKind.INTERNAL),
+    ],
+)
+def test_span_kind_from_otel_proto_and_roundtrip(proto_kind, expected_otel_kind):
+    otel_proto = OTelProtoSpan()
+    otel_proto.trace_id = bytes.fromhex("12345678901234567890123456789012")
+    otel_proto.span_id = bytes.fromhex("1234567890123456")
+    otel_proto.name = "test_kind_span"
+    otel_proto.start_time_unix_nano = 1000000000
+    otel_proto.end_time_unix_nano = 2000000000
+    otel_proto.kind = proto_kind
+
+    mlflow_span = Span.from_otel_proto(otel_proto)
+    assert mlflow_span.kind == expected_otel_kind
+
+    # Roundtrip back to proto
+    proto_roundtrip = mlflow_span.to_otel_proto()
+    expected_proto_kind = (
+        OTelProtoSpan.SPAN_KIND_INTERNAL
+        if proto_kind == OTelProtoSpan.SPAN_KIND_UNSPECIFIED
+        else proto_kind
+    )
+    assert proto_roundtrip.kind == expected_proto_kind
+
+
+@pytest.mark.parametrize(
+    "otel_kind",
+    [
+        OTelSpanKind.INTERNAL,
+        OTelSpanKind.SERVER,
+        OTelSpanKind.CLIENT,
+        OTelSpanKind.PRODUCER,
+        OTelSpanKind.CONSUMER,
+    ],
+)
+def test_span_kind_dict_roundtrip(otel_kind):
+    readable_span = OTelReadableSpan(
+        name="test_span",
+        context=build_otel_context(0x12345678901234567890123456789012, 0x1234567890123456),
+        start_time=1000000000,
+        end_time=2000000000,
+        kind=otel_kind,
+        attributes={"mlflow.traceRequestId": "tr-12345678901234567890123456789012"},
+        status=OTelStatus(OTelStatusCode.OK),
+    )
+    span = Span(readable_span)
+    assert span.kind == otel_kind
+
+    span_dict = span.to_dict()
+    assert "kind" in span_dict
+    assert span_dict["kind"] == f"SPAN_KIND_{otel_kind.name}"
+
+    # Test from_dict
+    restored_span = Span.from_dict(span_dict)
+    assert restored_span.kind == otel_kind
+    assert restored_span.to_otel_proto().kind == getattr(
+        OTelProtoSpan, f"SPAN_KIND_{otel_kind.name}"
+    )
+
+    # Test from_dict_v2
+    span_v2_dict = {
+        "name": span_dict["name"],
+        "context": {
+            "trace_id": "0x12345678901234567890123456789012",
+            "span_id": "0x1234567890123456",
+        },
+        "parent_id": None,
+        "start_time": 1000000000,
+        "end_time": 2000000000,
+        "status_code": "OK",
+        "status_message": "",
+        "attributes": span_dict["attributes"],
+        "events": [],
+        "kind": span_dict["kind"],
+    }
+    restored_v2 = Span.from_dict_v2(span_v2_dict)
+    assert restored_v2.kind == otel_kind
+
+    # Test LazySpan
+    lazy_span = LazySpan(span_dict)
+    assert lazy_span.kind == otel_kind
+
+
+def test_span_from_dict_backwards_compatibility_missing_kind():
+    readable_span = OTelReadableSpan(
+        name="legacy_span",
+        context=build_otel_context(0x12345678901234567890123456789012, 0x1234567890123456),
+        start_time=1000000000,
+        end_time=2000000000,
+        attributes={"mlflow.traceRequestId": "tr-12345678901234567890123456789012"},
+        status=OTelStatus(OTelStatusCode.OK),
+    )
+    span = Span(readable_span)
+    span_dict = span.to_dict()
+    span_dict.pop("kind")
+
+    restored_v3 = Span.from_dict(span_dict)
+    assert restored_v3.kind == OTelSpanKind.INTERNAL
+
+    span_v2_dict = {
+        "name": "legacy_span",
+        "context": {
+            "trace_id": "0x12345678901234567890123456789012",
+            "span_id": "0x1234567890123456",
+        },
+        "parent_id": None,
+        "start_time": 1000000000,
+        "end_time": 2000000000,
+        "status_code": "OK",
+        "status_message": "",
+        "attributes": {"mlflow.traceRequestId": "tr-12345678901234567890123456789012"},
+        "events": [],
+    }
+    span_v2 = Span.from_dict_v2(span_v2_dict)
+    assert span_v2.kind == OTelSpanKind.INTERNAL
+
+
+def test_noop_span_kind():
+    noop = NoOpSpan()
+    assert noop.kind is None
 
 
 def test_resource_to_otel_proto():
