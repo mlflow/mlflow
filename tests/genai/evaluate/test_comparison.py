@@ -10,15 +10,14 @@ from scipy import stats
 import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.exceptions import MlflowException
-from mlflow.genai.evaluation.comparison import (
-    ComparisonResult,
-    ScorerComparison,
-    _compare_paired_values,
-    _comparison_key,
-)
+from mlflow.genai.evaluation.comparison import ComparisonResult, ScorerComparison
+from mlflow.genai.evaluation.comparison.paired_comparison import _compare_paired_values
+from mlflow.genai.evaluation.comparison.utils import _comparison_key
 from mlflow.genai.evaluation.context import NoneContext, _set_context
 from mlflow.genai.scorers import scorer
 from mlflow.tracking.client import MlflowClient
+
+_COMPARISON_PACKAGE = "mlflow.genai.evaluation.comparison"
 
 
 @pytest.fixture(autouse=True)
@@ -175,7 +174,7 @@ def test_bootstrap_falls_back_to_percentile_when_bca_is_degenerate():
 
     with (
         mock.patch("scipy.stats.bootstrap", side_effect=degenerate_bca) as mock_bootstrap,
-        mock.patch("mlflow.genai.evaluation.comparison._logger.warning") as mock_warning,
+        mock.patch(f"{_COMPARISON_PACKAGE}.significance_tests._logger.warning") as mock_warning,
     ):
         result = _compare_paired_values("score", baseline, candidate, value_type="numeric")
 
@@ -344,7 +343,7 @@ def test_signed_rank_method_is_pinned_on_the_number_of_nonzero_deltas(
 def test_insufficient_pairs(n: int):
     values = np.arange(n, dtype=float)
 
-    with mock.patch("mlflow.genai.evaluation.comparison._logger.warning") as mock_warning:
+    with mock.patch(f"{_COMPARISON_PACKAGE}.paired_comparison._logger.warning") as mock_warning:
         result = _compare_paired_values("score", values, values + 1, value_type="numeric")
 
     assert result == ScorerComparison(scorer="score", status="insufficient_pairs", n_paired=n)
@@ -355,7 +354,7 @@ def test_insufficient_pairs(n: int):
 def test_small_samples_warn(n: int):
     values = np.arange(n, dtype=float)
 
-    with mock.patch("mlflow.genai.evaluation.comparison._logger.warning") as mock_warning:
+    with mock.patch(f"{_COMPARISON_PACKAGE}.paired_comparison._logger.warning") as mock_warning:
         result = _compare_paired_values("score", values, values + 1, value_type="numeric")
 
     assert result.status == "ok"
@@ -439,7 +438,7 @@ def test_compare_evaluations_warns_about_no_match_and_duplicate_rows_separately(
     baseline_run_id = _evaluate([*rows, rows[0]], scorers=[score])
     candidate_run_id = _evaluate([*rows, extra_row], scorers=[score])
 
-    with mock.patch("mlflow.genai.evaluation.comparison._logger.warning") as mock_warning:
+    with mock.patch(f"{_COMPARISON_PACKAGE}.utils._logger.warning") as mock_warning:
         result = mlflow.genai.compare_evaluations(
             candidate_run_id, baseline_run_id, log_results=False
         )
@@ -477,7 +476,7 @@ def test_compare_evaluations_warns_when_inputs_hash_by_memory_address():
     baseline_run_id = run()
     candidate_run_id = run()
 
-    with mock.patch("mlflow.genai.evaluation.comparison._logger.warning") as mock_warning:
+    with mock.patch(f"{_COMPARISON_PACKAGE}.utils._logger.warning") as mock_warning:
         result = mlflow.genai.compare_evaluations(
             candidate_run_id, baseline_run_id, log_results=False
         )
@@ -735,7 +734,7 @@ def test_compare_evaluations_warns_when_no_scorers_in_common(
     baseline_run_id = _evaluate(rows, scorers=[score])
     candidate_run_id = _evaluate(rows, scorers=candidate_scorers)
 
-    with mock.patch("mlflow.genai.evaluation.comparison._logger.warning") as mock_warning:
+    with mock.patch(f"{_COMPARISON_PACKAGE}.comparison._logger.warning") as mock_warning:
         result = mlflow.genai.compare_evaluations(
             candidate_run_id, baseline_run_id, log_results=False
         )
