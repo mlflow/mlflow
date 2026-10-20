@@ -1051,6 +1051,7 @@ module.exports = {
   // -- mlflow.experiment-review-queue --
   "mlflow.experiment-review-queue.delete-queue-confirm": "",
   "mlflow.experiment-review-queue.empty-state-new-queue": "",
+  "mlflow.experiment-review-queue.focused-review.custom-view-selector": "",
 
   // -- mlflow.experiment-scorers --
   "mlflow.experiment-scorers.add-variable-button": "",

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import React, { lazy, useMemo, useState } from 'react';
 
 import {
   Alert,
@@ -20,6 +20,7 @@ import {
   ModelTraceExplorer,
   ModelTraceExplorerPreferencesProvider,
   useGetTracesById,
+  type ModelTraceExplorerDisplayMode,
 } from '@databricks/web-shared/model-trace-explorer';
 import { GenAIMarkdownRenderer } from '../../../shared/web-shared/genai-markdown-renderer';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -37,6 +38,14 @@ import type { ReviewQueueItem, ReviewStatus } from './types';
 import { MARKDOWN_RENDER_SIZE_LIMIT } from '../../../shared/web-shared/model-trace-explorer/constants';
 
 const CID = 'mlflow.experiment-review-queue.focused-review';
+
+// Custom views pull in @a2ui (ESM-only); keep them off the review page's static module graph.
+const LazyReviewQueueCustomViewSelector = lazy(() =>
+  import('./ReviewQueueCustomViewContent').then((module) => ({ default: module.ReviewQueueCustomViewSelector })),
+);
+const LazyReviewQueueCustomViewRenderer = lazy(() =>
+  import('./ReviewQueueCustomViewContent').then((module) => ({ default: module.ReviewQueueCustomViewRenderer })),
+);
 
 /** Try to parse `raw` as JSON; returns the pretty-printed string + a flag. */
 const tryParseJson = (raw: string): { text: string; isJson: boolean } => {
@@ -142,6 +151,9 @@ export const FocusedReview = ({
   completedBy,
   isSettingStatus,
   canReview,
+  traceViewDisplayMode = 'default',
+  onTraceViewDisplayModeChange,
+  onCreateCustomView,
   onAssignSelf,
   isAssigningSelf,
   onBack,
@@ -157,6 +169,12 @@ export const FocusedReview = ({
   isSettingStatus: boolean;
   /** Whether the reviewer may submit reviews; when false the inputs/actions are view-only. */
   canReview: boolean;
+  /** Selected trace-content view, owned by the host so it survives item navigation. */
+  traceViewDisplayMode?: ModelTraceExplorerDisplayMode;
+  /** Enables the saved custom-view picker when set. */
+  onTraceViewDisplayModeChange?: (mode: ModelTraceExplorerDisplayMode) => void;
+  /** Opens custom-view authoring for this trace; omitted when the user can't create views. */
+  onCreateCustomView?: () => void;
   /** Self-assign action; shown to a manager viewing a queue they aren't in. */
   onAssignSelf?: () => void;
   isAssigningSelf?: boolean;
@@ -185,6 +203,7 @@ export const FocusedReview = ({
   const requestPreview = trace?.info?.request_preview;
   const responsePreview = trace?.info?.response_preview;
   const hasIO = Boolean(requestPreview || responsePreview);
+  const showCustomView = Boolean(onTraceViewDisplayModeChange) && traceViewDisplayMode === 'custom';
 
   // Prefill the widgets from the trace's existing assessments; edits overlay
   // the prefill so the query result never clobbers what the reviewer typed.
@@ -450,17 +469,38 @@ export const FocusedReview = ({
             flexDirection: 'column',
           }}
         >
-          <div css={{ padding: `${theme.spacing.sm}px ${theme.spacing.md}px 0 0`, flexShrink: 0, textAlign: 'right' }}>
-            <Typography.Link
-              componentId={`${CID}.view-full-trace`}
-              disabled={!trace}
-              onClick={() => setShowFullTrace(true)}
-            >
-              <FormattedMessage
-                defaultMessage="View full trace"
-                description="Review focused view: open the full trace explorer"
-              />
-            </Typography.Link>
+          <div
+            css={{
+              padding: `${theme.spacing.sm}px ${theme.spacing.md}px 0`,
+              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: theme.spacing.sm,
+            }}
+          >
+            {onTraceViewDisplayModeChange && (
+              <React.Suspense fallback={null}>
+                <LazyReviewQueueCustomViewSelector
+                  value={traceViewDisplayMode}
+                  onValueChange={onTraceViewDisplayModeChange}
+                  isCustomViewEnabled
+                  // The authoring deep link targets THIS trace, so only offer it once the trace loaded.
+                  onCreateCustomView={trace ? onCreateCustomView : undefined}
+                />
+              </React.Suspense>
+            )}
+            <div css={{ marginLeft: 'auto' }}>
+              <Typography.Link
+                componentId={`${CID}.view-full-trace`}
+                disabled={!trace}
+                onClick={() => setShowFullTrace(true)}
+              >
+                <FormattedMessage
+                  defaultMessage="View full trace"
+                  description="Review focused view: open the full trace explorer"
+                />
+              </Typography.Link>
+            </div>
           </div>
           <div
             css={{
@@ -474,6 +514,21 @@ export const FocusedReview = ({
           >
             {traceLoading ? (
               <TableSkeleton lines={8} />
+            ) : showCustomView ? (
+              trace ? (
+                <React.Suspense fallback={<TableSkeleton lines={8} />}>
+                  <LazyReviewQueueCustomViewRenderer modelTrace={trace} enableFeedback={canReview} />
+                </React.Suspense>
+              ) : (
+                <Empty
+                  description={
+                    <FormattedMessage
+                      defaultMessage="The full trace could not be loaded for this custom view."
+                      description="Review focused view: custom view unavailable because the trace failed to load"
+                    />
+                  }
+                />
+              )
             ) : !hasIO ? (
               <Empty
                 description={
