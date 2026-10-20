@@ -879,7 +879,8 @@ export const ModelTraceExplorerCustomView = ({
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm, height: '100%', minHeight: 0 }}>
-      {activeView && (
+      {/* Every toolbar action needs persistence; read-only hosts would otherwise get an empty padded row. */}
+      {activeView && cv.canPersist && (
         <div
           css={{
             display: 'flex',

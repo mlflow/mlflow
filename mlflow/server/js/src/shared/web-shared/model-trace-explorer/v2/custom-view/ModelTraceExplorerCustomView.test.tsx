@@ -285,6 +285,15 @@ describe('ModelTraceExplorerCustomView in a read-only host', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: /name-v1/ })).toBeInTheDocument());
   });
 
+  it('does not render an empty toolbar row above a saved view', async () => {
+    renderStandaloneCustomViewRenderer(rootSpanFieldView, MOCK_TRACE);
+
+    const title = await screen.findByRole('heading', { level: 2 });
+    const scroller = title.parentElement?.parentElement;
+    const customViewRoot = scroller?.parentElement;
+    expect(customViewRoot?.firstElementChild).toBe(scroller);
+  });
+
   it('renders a saved root-span field binding from the full model trace', async () => {
     renderStandaloneCustomViewRenderer(rootSpanFieldView, MOCK_TRACE);
 
