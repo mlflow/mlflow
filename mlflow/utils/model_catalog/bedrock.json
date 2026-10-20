@@ -5169,7 +5169,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-05-11"
+      "deprecation_date": "2027-03-22",
+      "last_updated_at": "2026-10-20"
     },
     "global.amazon.nova-2-lite-v1:0": {
       "mode": "chat",
@@ -6054,7 +6055,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-10"
+      "deprecation_date": "2027-03-22",
+      "last_updated_at": "2026-10-20"
     },
     "global.twelvelabs.pegasus-1-5-v1:0": {
       "mode": "chat",
@@ -8626,7 +8628,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-05-11"
+      "deprecation_date": "2027-03-22",
+      "last_updated_at": "2026-10-20"
     },
     "twelvelabs.pegasus-1-5-v1:0": {
       "mode": "chat",
@@ -12952,7 +12955,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-05-11"
+      "deprecation_date": "2027-03-22",
+      "last_updated_at": "2026-10-20"
     },
     "us.twelvelabs.pegasus-1-5-v1:0": {
       "mode": "chat",
@@ -12996,7 +13000,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2027-03-09",
+      "last_updated_at": "2026-10-20"
     },
     "us.writer.palmyra-x5-v1:0": {
       "mode": "chat",
@@ -13016,7 +13021,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-12"
+      "deprecation_date": "2027-03-21",
+      "last_updated_at": "2026-10-20"
     },
     "us.xai.grok-4.6": {
       "mode": "chat",
@@ -13175,7 +13181,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2027-03-09",
+      "last_updated_at": "2026-10-20"
     },
     "writer.palmyra-x5-v1:0": {
       "mode": "chat",
@@ -13195,7 +13202,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-12"
+      "deprecation_date": "2027-03-21",
+      "last_updated_at": "2026-10-20"
     },
     "xai.grok-4.7": {
       "mode": "chat",
