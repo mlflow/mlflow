@@ -15,6 +15,8 @@ import { createListFromObject, normalizeConversation } from '../ModelTraceExplor
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
 import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceExplorerFieldRenderer';
+import { ModelTraceExplorerIssueEvidence } from '../../ModelTraceExplorerIssueBanner';
+import { useModelTraceExplorerContext } from '../ModelTraceExplorerContext';
 import { ModelTraceExplorerChatSections } from './ModelTraceExplorerChatSections';
 import { ModelTraceExplorerChatTool } from './ModelTraceExplorerChatTool';
 import { ModelTraceExplorerConversation } from './ModelTraceExplorerConversation';
@@ -116,6 +118,7 @@ export function ModelTraceExplorerDefaultSpanView({
   defaultRenderMode: ModelTraceExplorerRenderMode;
 }): React.ReactElement | null {
   const { theme } = useDesignSystemTheme();
+  const { experimentId } = useModelTraceExplorerContext();
   const [sectionRenderModes, setSectionRenderModes] = useState<
     Record<'inputs' | 'outputs', ModelTraceExplorerSectionRenderMode>
   >({
@@ -337,6 +340,7 @@ export function ModelTraceExplorerDefaultSpanView({
       }}
       data-testid="model-trace-explorer-default-span-view"
     >
+      {activeSpan && <ModelTraceExplorerIssueEvidence activeSpan={activeSpan} experimentId={experimentId} />}
       {containsTools && (
         <ModelTraceExplorerCollapsibleSection
           withBorder
