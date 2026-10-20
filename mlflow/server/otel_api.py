@@ -73,7 +73,7 @@ _KNOWN_SERVICE_NAMES = frozenset({
     "qwen-code",
 })
 
-# Span ID fields that need hex→base64 conversion in OTLP JSON payloads.
+# Span and link ID fields that need hex→base64 conversion in OTLP JSON payloads.
 # OTLP JSON uses lowercase hex for these fields, but protobuf's JSON mapping
 # (google.protobuf.json_format.Parse) expects base64 for `bytes` fields.
 _OTLP_HEX_ID_FIELDS = ("traceId", "spanId", "parentSpanId")
@@ -95,9 +95,13 @@ def _convert_otlp_json_ids_to_base64(body: bytes) -> bytes:
     for resource_span in data.get("resourceSpans", []):
         for scope_span in resource_span.get("scopeSpans", []):
             for span in scope_span.get("spans", []):
-                for field in _OTLP_HEX_ID_FIELDS:
-                    if hex_val := span.get(field):
-                        span[field] = base64.b64encode(bytes.fromhex(hex_val)).decode("ascii")
+                objects = [span]
+                if links := span.get("links"):
+                    objects.extend(link for link in links if isinstance(link, dict))
+                for obj in objects:
+                    for field in _OTLP_HEX_ID_FIELDS:
+                        if hex_val := obj.get(field):
+                            obj[field] = base64.b64encode(bytes.fromhex(hex_val)).decode("ascii")
     return json.dumps(data).encode("utf-8")
 
 
