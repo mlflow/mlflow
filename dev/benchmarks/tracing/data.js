@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792479952561,
+  "lastUpdate": 1792487898796,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "37624318+DaoDaoNoCode@users.noreply.github.com",
-            "name": "Juntao Wang",
-            "username": "DaoDaoNoCode"
-          },
-          "committer": {
-            "email": "31463517+B-Step62@users.noreply.github.com",
-            "name": "Yuki Watanabe",
-            "username": "B-Step62"
-          },
-          "distinct": true,
-          "id": "6135259c681e4d01cdd55923db8c51a967576148",
-          "message": "Add MCP Registry UI follow-up improvements (#24657)\n\nSigned-off-by: Juntao Wang <37624318+DaoDaoNoCode@users.noreply.github.com>",
-          "timestamp": "2026-07-27T13:06:27-07:00",
-          "tree_id": "5c7a2b25288a0bbeefd0f32738a77b2596b3c459",
-          "url": "https://github.com/mlflow/mlflow/commit/6135259c681e4d01cdd55923db8c51a967576148"
-        },
-        "date": 1785182867122,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 42.0445366999985,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 16.707917571425565,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 22.869775360656146,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 22.63522766037555,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 26.162425068966595,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 54.32980119999797,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.862723400010509,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "christophechieu@gmail.com",
+            "name": "chris-chieu",
+            "username": "chris-chieu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a2ce5fedf3ed68d34fb33e47fc51267978783633",
+          "message": "Warn and keep traces when genai.evaluate cannot resolve mlflow.eval.requestId (#26769)\n\nSigned-off-by: chris-chieu <231568648+chris-chieu@users.noreply.github.com>\nSigned-off-by: Haoji Tang <haoji.tang@databricks.com>\nCo-authored-by: chris-chieu <231568648+chris-chieu@users.noreply.github.com>\nCo-authored-by: Haoji Tang <haoji.tang@databricks.com>\nCo-authored-by: Isaac <no-reply@databricks.com>",
+          "timestamp": "2026-10-20T09:14:06Z",
+          "tree_id": "c60ec6f164fe1e19f065e9e8aff99845284f552c",
+          "url": "https://github.com/mlflow/mlflow/commit/a2ce5fedf3ed68d34fb33e47fc51267978783633"
+        },
+        "date": 1792487895231,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 68.86528865000088,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 5.541852027396636,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 4.949028575949826,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 4.9448406187503124,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.413907356163931,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 5.555701666667782,
             "unit": "ms"
           }
         ]
