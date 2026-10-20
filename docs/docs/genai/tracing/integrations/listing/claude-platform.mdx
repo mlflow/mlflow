@@ -4,8 +4,10 @@ description: Send OpenTelemetry traces of Claude Messages API requests and Claud
 sidebar_position: 8.5
 sidebar_label: Claude Platform
 keywords: [claude platform, claude managed agents, anthropic, claude, tracing, opentelemetry, mlflow]
+image: /images/llms/anthropic/claude-platform-trace.png
 ---
 
+import ImageBox from "@site/src/components/ImageBox";
 import { APILink } from "@site/src/components/APILink";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
@@ -16,6 +18,8 @@ import TileCard from "@site/src/components/TileCard";
 import { Users, BookOpen, Scale } from "lucide-react";
 
 # Tracing Claude Platform
+
+<ImageBox src="/images/llms/anthropic/claude-platform-trace.png" alt="Claude Platform trace in the MLflow UI" />
 
 [MLflow Tracing](/genai/tracing) supports the native [OpenTelemetry export](https://platform.claude.com/docs/en/manage-claude/opentelemetry) of the [Claude Platform](https://platform.claude.com), Anthropic's first-party API for the Messages API and [Claude Managed Agents](https://platform.claude.com/docs/en/managed-agents/overview). Because the spans follow the [OpenTelemetry GenAI semantic conventions](/genai/tracing/opentelemetry/genai-semconv), MLflow recognizes them through its [OpenTelemetry integration](/genai/tracing/opentelemetry) without any extra setup.
 
@@ -91,6 +95,8 @@ You need the admin role in your Claude Console organization to add a destination
    | **Request headers**   | `x-mlflow-experiment-id` with the experiment ID from step 3.                                                                     |
    | **Content mode**      | **Full content**, to see prompts and responses in MLflow. With **Metadata only**, spans have timing, status, and token usage.    |
    | **Workspaces**        | The workspaces whose requests you want to trace.                                                                                 |
+
+   <ImageBox src="/images/llms/anthropic/claude-platform-destination.png" alt="Claude Console destination form with the MLflow experiment ID header and Full content mode" width="70%" />
 
 3. Click **Add destination**.
 4. In the destination's **More actions** menu, click **Test**. Check that an `anthropic.test` span arrives in your MLflow experiment.
