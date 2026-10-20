@@ -875,7 +875,6 @@ jobs:
           TOKEN: ${{ steps.telemetry.outputs.token }}
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
           TRACE_LOCATION: ${{ vars.TRIAGE_MLFLOW_TRACE_LOCATION }}
-          # The service principal cannot list SQL warehouses, so the search's warehouse is configured.
           WAREHOUSE_ID: ${{ vars.TRIAGE_SQL_WAREHOUSE_ID }}
           SESSION_ID: ${{ steps.session.outputs.id }}
           ACTION: ${{ needs.issue.outputs.action }}
