@@ -1,5 +1,6 @@
 import asyncio
 import gzip
+import json
 import threading
 from abc import ABC
 from unittest import mock
@@ -720,3 +721,32 @@ def test_otlp_prometheus_metrics(monkeypatch):
 
     assert delta(before, after, "spans") == 10
     assert delta(before, after, "spans_per_req_sum") == 10
+
+
+@pytest.mark.parametrize(
+    ("content_type", "expected_media_type", "expected_body"),
+    [
+        ("application/x-protobuf", "application/x-protobuf", b""),
+        ("application/json", "application/json", b"{}"),
+        ("application/json; charset=utf-8", "application/json", b"{}"),
+    ],
+)
+def test_otlp_response_encoding_matches_request(
+    monkeypatch, content_type, expected_media_type, expected_body
+):
+    monkeypatch.setattr("mlflow.server.otel_api._get_tracking_store", lambda: _make_store()())
+    if content_type.startswith("application/json"):
+        span = {"traceId": "0" * 32, "spanId": "01" * 8, "name": "span"}
+        content = json.dumps({"resourceSpans": [{"scopeSpans": [{"spans": [span]}]}]})
+    else:
+        content = _build_otlp_payload()
+
+    resp = _make_test_client().post(
+        OTLP_TRACES_PATH,
+        content=content,
+        headers={"Content-Type": content_type, "X-MLflow-Experiment-Id": "1"},
+    )
+
+    assert resp.status_code == 200
+    assert resp.headers["content-type"] == expected_media_type
+    assert resp.content == expected_body

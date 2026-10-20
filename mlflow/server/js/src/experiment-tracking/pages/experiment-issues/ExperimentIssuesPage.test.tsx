@@ -175,6 +175,25 @@ describe('Experiment Issues', () => {
     expect(screen.getByLabelText('Current URL')).toHaveTextContent('selectedIssueId=iss-b');
     expect(screen.getByLabelText('Current URL')).toHaveTextContent('issueSearch=Wrong');
   });
+  test('keeps a deep-linked trace open on the issue it was shared with', async () => {
+    renderPage('?selectedIssueId=iss-a&selectedEvaluationId=tr-1&selectedIssueSpanId=span-1');
+
+    // The drawer opens over the issue, so the link reopens exactly what was shared.
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByLabelText('Current URL')).toHaveTextContent('selectedEvaluationId=tr-1');
+    expect(screen.getByLabelText('Current URL')).toHaveTextContent('selectedIssueSpanId=span-1');
+  });
+  test('drops a trace left in the URL when the selection moves to another issue', async () => {
+    // No selected issue, so the page picks the first one itself. A trace from elsewhere is not
+    // part of that issue's evidence, and its drawer must not open over it.
+    renderPage('?selectedEvaluationId=tr-1&selectedIssueSpanId=span-1');
+
+    expect(await screen.findByText('Description for iss-a')).toBeInTheDocument();
+    expect(screen.getByLabelText('Current URL')).toHaveTextContent('selectedIssueId=iss-a');
+    expect(screen.getByLabelText('Current URL')).not.toHaveTextContent('selectedEvaluationId');
+    expect(screen.getByLabelText('Current URL')).not.toHaveTextContent('selectedIssueSpanId');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
   test.each(['latest', 'older'])('refreshes Issues once when the %s tracked run completes', async (whichRun) => {
     issues = [];
     latestRun = {
@@ -217,6 +236,9 @@ describe('Experiment Issues', () => {
     });
     expect(invalidate.mock.calls.filter(([key]) => Array.isArray(key) && key[0] === 'SEARCH_ISSUES')).toHaveLength(1);
     invalidate.mockRestore();
+    // Selecting the detected issue starts loading its evidence traces. Let that land here, so the
+    // next test's request handlers only ever see the requests that test made.
+    await waitFor(() => expect(client.isFetching()).toBe(0));
   });
   test.each(['', '?selectedIssueId=iss-a'])(
     'does not load Issues or detection data from a direct link when the flag is disabled (%s)',
@@ -274,6 +296,24 @@ describe('Experiment Issues', () => {
     );
     expect(searches[searches.length - 1]['page_token']).toBeUndefined();
     expect(await screen.findByRole('button', { name: /Later match/ })).toBeInTheDocument();
+  });
+  test('merges repeated IDs if an already seen Issue moves past the cursor', async () => {
+    server.use(
+      rest.post('*/ajax-api/3.0/mlflow/issues/search', async (req, res, ctx) => {
+        const body = await req.json();
+        return res(
+          ctx.json(
+            body.page_token
+              ? { issues: [makeIssue('iss-a', 'Updated title'), makeIssue('iss-b')], total_count: 2 }
+              : { issues: [makeIssue('iss-a')], total_count: 2, next_page_token: 'opaque-cursor' },
+          ),
+        );
+      }),
+    );
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: 'Load more' }));
+    await screen.findByRole('button', { name: /Updated title/ });
+    expect(screen.getAllByTestId('experiment-issue-row')).toHaveLength(2);
   });
   test('searches beyond the loaded page in SQL', async () => {
     responsePageSize = 2;
@@ -569,7 +609,7 @@ describe('Experiment Issues', () => {
     expect(row).toHaveAccessibleDescription(/./);
     expect(within(row).queryByRole('button')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /About category/ })).not.toBeInTheDocument();
-    const chip = within(screen.getByTestId('experiment-issue-detail')).getByTestId('issue-category-tag');
+    const chip = within(await screen.findByTestId('experiment-issue-detail')).getByTestId('issue-category-tag');
     await userEvent.hover(chip);
     expect(await screen.findByRole('tooltip')).toHaveTextContent(/./);
     await userEvent.keyboard('{Escape}');

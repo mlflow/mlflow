@@ -3,12 +3,23 @@ import type { ReactNode } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import {
   InfoTooltip,
+  NewWindowIcon,
+  TableClockIcon,
+  TableIcon,
   Tag,
   TruncationTooltip,
   Typography,
   UserIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
+import { Link } from '../../../common/utils/RoutingUtils';
+import Routes from '../../routes';
+import { ExperimentPageTabName } from '../../constants';
+import { DEFAULT_INLINE_DATASET_NAME } from '../../types';
+import { PROMPT_VERSION_QUERY_PARAM } from '../prompts/utils';
+import { SELECTED_SCORER_NAME_QUERY_PARAM_KEY } from '../experiment-scorers/hooks/useSelectedScorerName';
+import { getEvaluationDatasetId } from './datasetLineage';
+import type { RegisteredScorerReference } from './scorerLineage';
 
 export interface RunDetailsStats {
   traces?: number;
@@ -32,6 +43,8 @@ export interface RunDetailsSidebarProps {
     sourceType?: string | null;
   };
   endpoint?: string;
+  /** Prompt versions the run is linked to, from its `mlflow.linkedPrompts` tag. */
+  prompts?: RunDetailsPrompt[];
   stats: RunDetailsStats;
   scorers: RunDetailsScorer[];
   tags: { key: string; value: string }[];
@@ -40,6 +53,13 @@ export interface RunDetailsSidebarProps {
 export interface RunDetailsScorer {
   name: string;
   displayName: string;
+  /** The registered scorer behind every assessment with this name, when there is one. */
+  scorerReference?: RegisteredScorerReference;
+}
+
+export interface RunDetailsPrompt {
+  name: string;
+  version: string;
 }
 
 export interface DetailRowProps {
@@ -89,31 +109,171 @@ const TruncatedSidebarText = ({ text }: { text: string }) => (
   </span>
 );
 
-const ScorerSidebarValue = ({ name }: { name: string }) => {
+const linkValueCss = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minWidth: 0,
+  maxWidth: '100%',
+} as const;
+
+const DatasetSidebarValue = ({ name, isLink, isUnnamed }: { name: string; isLink: boolean; isUnnamed: boolean }) => {
+  const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+  const displayText = isUnnamed
+    ? intl.formatMessage({
+        defaultMessage: 'Unnamed dataset',
+        description: 'Eval run detail sidebar: label for a dataset logged without a meaningful name',
+      })
+    : name;
+  return (
+    <span
+      css={{
+        ...linkValueCss,
+        justifyContent: 'flex-end',
+        gap: theme.spacing.xs,
+        color: isLink ? theme.colors.actionTertiaryTextDefault : theme.colors.textPrimary,
+      }}
+    >
+      {isUnnamed ? (
+        <TableClockIcon aria-hidden="true" css={{ flexShrink: 0 }} />
+      ) : (
+        <TableIcon aria-hidden="true" css={{ flexShrink: 0 }} />
+      )}
+      <TruncationTooltip componentId="mlflow.eval_run_details.overview.dataset_tooltip">
+        <span style={TRUNCATED_TEXT_LAYOUT_STYLE}>{displayText}</span>
+      </TruncationTooltip>
+      {isLink && <NewWindowIcon aria-hidden="true" css={{ flexShrink: 0 }} />}
+    </span>
+  );
+};
+
+const DatasetSidebarLink = ({
+  experimentId,
+  dataset,
+}: {
+  experimentId: string;
+  dataset: NonNullable<RunDetailsSidebarProps['dataset']>;
+}) => {
+  const intl = useIntl();
+  const isUnnamed = !dataset.name || dataset.name === DEFAULT_INLINE_DATASET_NAME;
+  const datasetId = getEvaluationDatasetId(dataset.source);
+  if (!datasetId) {
+    return <DatasetSidebarValue name={dataset.name ?? ''} isLink={false} isUnnamed={isUnnamed} />;
+  }
+  return (
+    <Link
+      componentId="mlflow.eval_run_details.overview.dataset_link"
+      to={Routes.getExperimentPageDatasetDetailRoute(experimentId, datasetId)}
+      target="_blank"
+      aria-label={intl.formatMessage(
+        {
+          defaultMessage: 'View dataset {datasetName}',
+          description: 'Accessible label for a link that opens the evaluation dataset an evaluation run used',
+        },
+        { datasetName: dataset.name ?? datasetId },
+      )}
+      css={{ display: 'inline-flex', maxWidth: '100%' }}
+    >
+      <DatasetSidebarValue name={dataset.name ?? ''} isLink isUnnamed={isUnnamed} />
+    </Link>
+  );
+};
+
+const ScorerSidebarValue = ({ name, isLink = false }: { name: string; isLink?: boolean }) => {
   const { theme } = useDesignSystemTheme();
   return (
     <span
       css={{
-        display: 'inline-flex',
-        alignItems: 'center',
+        ...linkValueCss,
         gap: theme.spacing.xs,
-        minWidth: 0,
-        maxWidth: '100%',
-        color: theme.colors.textPrimary,
+        color: isLink ? theme.colors.actionTertiaryTextDefault : theme.colors.textPrimary,
       }}
     >
       <span style={TRUNCATED_TEXT_LAYOUT_STYLE} title={name}>
         {name}
       </span>
+      {isLink && <NewWindowIcon aria-hidden="true" css={{ flexShrink: 0 }} />}
     </span>
   );
 };
 
+const ScorerSidebarItem = ({ experimentId, scorer }: { experimentId: string; scorer: RunDetailsScorer }) => {
+  const intl = useIntl();
+  if (!scorer.scorerReference) {
+    return <ScorerSidebarValue name={scorer.displayName} />;
+  }
+  const searchParams = new URLSearchParams({
+    [SELECTED_SCORER_NAME_QUERY_PARAM_KEY]: scorer.scorerReference.scorerName,
+  });
+  return (
+    <Link
+      componentId="mlflow.eval_run_details.overview.scorer_link"
+      to={{
+        pathname: Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Judges),
+        search: searchParams.toString(),
+      }}
+      target="_blank"
+      aria-label={intl.formatMessage(
+        {
+          defaultMessage: 'View scorer {scorerName}',
+          description:
+            'Accessible label for a link that opens the registered scorer behind an evaluation run assessment',
+        },
+        { scorerName: scorer.displayName },
+      )}
+      css={{ display: 'inline-flex', maxWidth: '100%' }}
+    >
+      <ScorerSidebarValue name={scorer.displayName} isLink />
+    </Link>
+  );
+};
+
+const PromptSidebarLink = ({ experimentId, prompt }: { experimentId: string; prompt: RunDetailsPrompt }) => {
+  const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+  const searchParams = new URLSearchParams({ [PROMPT_VERSION_QUERY_PARAM]: prompt.version });
+  return (
+    <Link
+      componentId="mlflow.eval_run_details.overview.prompt_link"
+      to={{
+        pathname: Routes.getPromptDetailsPageRoute(encodeURIComponent(prompt.name), experimentId),
+        search: searchParams.toString(),
+      }}
+      target="_blank"
+      aria-label={intl.formatMessage(
+        {
+          defaultMessage: 'View prompt {promptName} version {promptVersion}',
+          description: 'Accessible label for a link that opens the prompt version an evaluation run is linked to',
+        },
+        { promptName: prompt.name, promptVersion: prompt.version },
+      )}
+      css={{
+        ...linkValueCss,
+        gap: theme.spacing.xs,
+        color: theme.colors.actionTertiaryTextDefault,
+      }}
+    >
+      <TruncationTooltip componentId="mlflow.eval_run_details.overview.prompt_tooltip">
+        <span style={TRUNCATED_TEXT_LAYOUT_STYLE}>
+          <FormattedMessage
+            defaultMessage="{promptName} (v{promptVersion})"
+            description="Eval run detail sidebar: a linked prompt and its version"
+            values={{ promptName: prompt.name, promptVersion: prompt.version }}
+          />
+        </span>
+      </TruncationTooltip>
+      <NewWindowIcon aria-hidden="true" css={{ flexShrink: 0 }} />
+    </Link>
+  );
+};
+
 export const RunDetailsSidebar = ({
+  experimentId,
   createdBy,
   createdAt,
   dataset,
   endpoint,
+  prompts,
   stats,
   scorers,
   tags,
@@ -171,8 +331,22 @@ export const RunDetailsSidebar = ({
         <DetailRow
           label={<FormattedMessage defaultMessage="Dataset" description="Eval run detail: evaluated dataset name" />}
         >
-          {dataset?.name ? (
-            <TruncatedSidebarText text={dataset.name} />
+          {dataset ? (
+            <DatasetSidebarLink experimentId={experimentId} dataset={dataset} />
+          ) : (
+            <Typography.Text size="md">{EM_DASH}</Typography.Text>
+          )}
+        </DetailRow>
+        <DetailRow
+          label={
+            <FormattedMessage
+              defaultMessage="Dataset digest"
+              description="Eval run detail: digest identifying the evaluated dataset contents"
+            />
+          }
+        >
+          {dataset?.digest ? (
+            <TruncatedSidebarText text={dataset.digest} />
           ) : (
             <Typography.Text size="md">{EM_DASH}</Typography.Text>
           )}
@@ -194,6 +368,31 @@ export const RunDetailsSidebar = ({
             <TruncatedSidebarText text={endpoint} />
           </DetailRow>
         )}
+        <DetailRow
+          label={<FormattedMessage defaultMessage="Prompt" description="Eval run detail: prompt used by the run" />}
+        >
+          {prompts?.length ? (
+            <div
+              css={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-end',
+                gap: theme.spacing.xs,
+                minWidth: 0,
+              }}
+            >
+              {prompts.map((prompt) => (
+                <PromptSidebarLink
+                  key={`${prompt.name}:${prompt.version}`}
+                  experimentId={experimentId}
+                  prompt={prompt}
+                />
+              ))}
+            </div>
+          ) : (
+            <Typography.Text size="md">{EM_DASH}</Typography.Text>
+          )}
+        </DetailRow>
       </div>
 
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
@@ -266,7 +465,7 @@ export const RunDetailsSidebar = ({
             />
           </Typography.Text>
           {scorers.map((scorer) => (
-            <ScorerSidebarValue key={scorer.name} name={scorer.displayName} />
+            <ScorerSidebarItem key={scorer.name} experimentId={experimentId} scorer={scorer} />
           ))}
         </div>
       )}

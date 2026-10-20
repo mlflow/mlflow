@@ -11,6 +11,7 @@ import {
   waitForRoutesToBeRendered,
 } from '../../../common/utils/RoutingTestUtils';
 
+import Routes from '../../routes';
 import { RunDetailsSidebar, type RunDetailsScorer, type RunDetailsSidebarProps } from './RunDetailsSidebar';
 
 const tags = Array.from({ length: 12 }, (_, index) => ({
@@ -63,8 +64,9 @@ describe('RunDetailsSidebar layout', () => {
     await renderSidebar({ stats: {} });
 
     expect(screen.queryByText('0')).not.toBeInTheDocument();
-    // Includes the Dataset and Dataset source type rows, which show a dash when no dataset is present.
-    expect(screen.getAllByText('—')).toHaveLength(6);
+    // Includes the Dataset, Dataset digest, Dataset source type and Prompt rows, which show a dash when the run
+    // has no dataset or linked prompt.
+    expect(screen.getAllByText('—')).toHaveLength(8);
   });
 
   it('preserves zero usage and displays costs below one cent', async () => {
@@ -165,5 +167,61 @@ describe('RunDetailsSidebar layout', () => {
 
     expect(screen.getByText('eval-set')).toBeInTheDocument();
     expect(screen.getByText('code')).toBeInTheDocument();
+  });
+
+  it('shows the dataset digest and labels a default-named dataset as unnamed', async () => {
+    await renderSidebar({ dataset: { name: 'dataset', sourceType: 'code', digest: 'abc123' } });
+
+    expect(screen.getByText('abc123')).toBeInTheDocument();
+    expect(screen.getByText('Unnamed dataset')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /View dataset/ })).not.toBeInTheDocument();
+  });
+
+  it('links a dataset logged from an evaluation dataset to its page', async () => {
+    await renderSidebar({
+      dataset: {
+        name: 'golden-set',
+        sourceType: 'mlflow_evaluation_dataset',
+        digest: 'abc123',
+        source: JSON.stringify({ dataset_id: 'd-123' }),
+      },
+    });
+
+    const link = screen.getByRole('link', { name: 'View dataset golden-set' });
+    expect(link).toHaveAttribute('href', Routes.getExperimentPageDatasetDetailRoute('exp-123', 'd-123'));
+    expect(link).toHaveAttribute('target', '_blank');
+  });
+
+  it('links each linked prompt to its exact version', async () => {
+    await renderSidebar({
+      prompts: [
+        { name: 'support prompt', version: '2' },
+        { name: 'router', version: '5' },
+      ],
+    });
+
+    const link = screen.getByRole('link', { name: 'View prompt support prompt version 2' });
+    expect(link).toHaveTextContent('support prompt (v2)');
+    expect(link).toHaveAttribute(
+      'href',
+      `${Routes.getPromptDetailsPageRoute(encodeURIComponent('support prompt'), 'exp-123')}?promptVersion=2`,
+    );
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(screen.getByRole('link', { name: 'View prompt router version 5' })).toBeInTheDocument();
+  });
+
+  it('links a scorer to the registered scorer that produced its assessments', async () => {
+    await renderSidebar({
+      scorers: [
+        createScorer({ name: 'quality', displayName: 'Quality', scorerReference: { scorerName: 'quality/v2' } }),
+        createScorer({ name: 'tone', displayName: 'Tone' }),
+      ],
+    });
+
+    const link = screen.getByRole('link', { name: 'View scorer Quality' });
+    expect(link).toHaveAttribute('href', '/experiments/exp-123/judges?selectedScorerName=quality%2Fv2');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(screen.getByText('Tone')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'View scorer Tone' })).not.toBeInTheDocument();
   });
 });

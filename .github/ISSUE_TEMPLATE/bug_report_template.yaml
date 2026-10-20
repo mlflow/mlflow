@@ -67,6 +67,13 @@ body:
       required: true
   - type: textarea
     attributes:
+      label: How would a user encounter this bug during normal use?
+      description: |
+        Explain how a normal user workflow produces the exact inputs, configuration, and state that trigger your reproduction. Identify anything you manually constructed, modified, or mocked. State whether you observed this workflow fail or are describing a hypothetical scenario. If you cannot describe a normal-use path, this may be a hardening suggestion rather than a bug.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
       label: Tracking information
       description: |
         For bugs related to the tracking features (e.g. mlflow should log a run in my database but it doesn't), please insert the following code in your python script / notebook where you encountered the bug and run it:
