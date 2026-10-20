@@ -283,19 +283,6 @@ MLflow reads the token usage from the `gen_ai.usage.*` attributes of the Claude 
 
 The SDK span and the API spans of a request all carry its token usage. MLflow counts only the outermost span with token usage in each branch of the trace, so the tokens of a request aren't counted twice.
 
-## Troubleshooting
-
-The Claude Console shows the last delivery error when you hover over **Failing** in the **Delivery** column of the destination.
-
-| Error                      | Likely cause                                                                                                                                      |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| HTTP error (status 401)    | The MLflow server has authentication enabled and the `Authorization` header is missing or wrong.                                                  |
-| HTTP error (status 403)    | The hostname isn't in the `--allowed-hosts` option of the MLflow server, or the user doesn't have permission on the experiment.                   |
-| HTTP error (status 404)    | The **OTLP endpoint URL** ends with `/v1/traces`, or the experiment ID in the `x-mlflow-experiment-id` header doesn't exist.                      |
-| HTTP error (status 422)    | The `x-mlflow-experiment-id` header is missing.                                                                                                   |
-| Spans have no prompts      | The content mode of the destination or the SDK is **Metadata only**. Change it to **Full content** (`content` in the SDK).                        |
-| Each request appears twice | Both MLflow's Anthropic autolog and the Claude SDK trace the same client. Disable one of them, for example with `ANTHROPIC_OPEN_TELEMETRY=false`. |
-
 ## Next steps
 
 <TilesGrid>
