@@ -285,7 +285,7 @@ def test_async_logging_queue_pickle():
             for val in range(0, 10)
         ]
 
-        # Pickle while workers are blocked â€” consumer state is deterministically empty.
+        # Pickle while workers are blocked — consumer state is deterministically empty.
         buffer = io.BytesIO()
         pickle.dump(async_logging_queue, buffer)
 
