@@ -1289,6 +1289,14 @@ jobs:
             --body-file "$RUNNER_TEMP/pr-body.md")
           echo "Opened $pr_url" >> "$GITHUB_STEP_SUMMARY"
           echo "number=${pr_url##*/}" >> "$GITHUB_OUTPUT"
+      - name: Request autoformat
+        if: steps.open.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.open.outputs.number }}
+        run: |
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body '/autoformat'
       - name: Comment on issue
         if: steps.open.outcome == 'success'
         env:
