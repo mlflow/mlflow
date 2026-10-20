@@ -7,8 +7,8 @@ import { APILink } from "@site/src/components/APILink";
 
 # Comparing Evaluation Runs
 
-:::info
-`mlflow.genai.compare_evaluations` is experimental and may change in a future release.
+:::info[Experimental Feature]
+`mlflow.genai.compare_evaluations` is experimental in MLflow 3.18.0. The API and behavior may change in future releases. Feedback is welcome in a [GitHub issue](https://github.com/mlflow/mlflow/issues/new/choose).
 :::
 
 <APILink fn="mlflow.genai.evaluate" /> reduces each scorer to an aggregate such as the mean. Comparing two runs by their means says nothing about noise: with LLM judges and evaluation sets of a few hundred rows, a 3-point gain is often within run-to-run variation.
