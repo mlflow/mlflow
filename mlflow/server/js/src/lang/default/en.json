@@ -1847,10 +1847,6 @@
     "defaultMessage": "No issues found",
     "description": "Issue detection run details > Issues tab > Empty state title"
   },
-  "4mB25c": {
-    "defaultMessage": "Removing tags requires the Manage permission on this skill.",
-    "description": "Error when a user without delete permission removes skill tags"
-  },
   "4mxOPT": {
     "defaultMessage": "Estimated cost",
     "description": "Accessible label for evaluation run estimated cost information"
@@ -13686,6 +13682,10 @@
   "jueuhC": {
     "defaultMessage": "This file is stored but too large to preview here. Pull the skill to read it.",
     "description": "Skill file preview message for a large file"
+  },
+  "jvLj7U": {
+    "defaultMessage": "Removing version tags requires the Manage permission on this skill.",
+    "description": "Error when a user without delete permission removes skill version tags"
   },
   "jwALGI": {
     "defaultMessage": "Cancel",
