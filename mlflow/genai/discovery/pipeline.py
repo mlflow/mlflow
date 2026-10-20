@@ -23,6 +23,7 @@ from mlflow.genai.discovery.clustering import (
     summarize_cluster,
 )
 from mlflow.genai.discovery.constants import (
+    CATEGORY_COST,
     CATEGORY_LATENCY,
     DEDUP_ISSUES_PROMPT_TEMPLATE,
     DEFAULT_CATEGORIES,
@@ -32,7 +33,14 @@ from mlflow.genai.discovery.constants import (
     TRACE_ANNOTATION_SYSTEM_PROMPT,
     build_satisfaction_instructions,
 )
+from mlflow.genai.discovery.cost import analyze_cost_anomalies
+from mlflow.genai.discovery.coverage import (
+    GAP_CACHE_USAGE_MISSING,
+    TraceDataAdequacy,
+    assess_sample_data_adequacy,
+)
 from mlflow.genai.discovery.entities import (
+    DetectionCoverage,
     DiscoverIssuesResult,
     Issue,
     _ConversationAnalysis,
@@ -588,6 +596,100 @@ def build_issue_discovery_scorer(
 
 
 @record_usage_event(DiscoverIssuesEvent)
+def _merge_cost_findings(
+    triage,
+    cost_analysis,
+    trace_lookup: dict[str, Trace],
+    adequacy: dict[str, TraceDataAdequacy],
+) -> int:
+    """
+    Carry cost anomalies into triage so a trace that only costs too much is still a finding.
+
+    A trace can achieve the user's goal, return ``OK``, and still spend many times what its
+    own agent label normally does. Triage judges output quality, so such a trace passes and
+    the anomaly would never reach clustering. Each anomaly is added as a failing trace with a
+    deterministic rationale -- the observed spend, what it is compared against, and the driver
+    -- so it groups and reports through the same path as every other finding.
+
+    A trace whose usage information is incomplete is left out: its cost figure is not a
+    sound basis for a finding, and it is already disclosed as a coverage limit.
+
+    Returns:
+        How many traces this added to the failing set.
+    """
+    if cost_analysis is None:
+        return 0
+
+    already_failing = {trace.info.trace_id for trace in triage.failing_traces}
+    added = 0
+    for anomaly in cost_analysis.anomalies:
+        trace = trace_lookup.get(anomaly.trace_id)
+        if trace is None:
+            continue
+        entry = adequacy.get(anomaly.trace_id)
+        if entry is not None and not entry.cost_judgeable:
+            continue
+        rationale = f"[cost anomaly] spend is {anomaly.describe()}"
+        if anomaly.trace_id in already_failing:
+            # The trace already failed on quality; append the cost signal so clustering sees
+            # both, rather than replacing the quality rationale with it.
+            existing = triage.rationale_map.get(anomaly.trace_id, "")
+            triage.rationale_map[anomaly.trace_id] = (
+                f"{existing}; {rationale}" if existing else rationale
+            )
+        else:
+            triage.failing_traces.append(trace)
+            triage.rationale_map[anomaly.trace_id] = rationale
+            added += 1
+        categories = triage.categories_map.setdefault(anomaly.trace_id, [])
+        if CATEGORY_COST not in categories:
+            categories.append(CATEGORY_COST)
+    return added
+
+
+def _build_coverage(
+    *,
+    triage_traces: list[Trace],
+    requested_sample_size: int,
+    filter_string: str | None,
+    triage,
+    adequacy: dict[str, TraceDataAdequacy],
+    cost_limits: str,
+) -> DetectionCoverage:
+    """
+    Record what the run inspected and what it could not judge.
+
+    The denominator matters: a failure rate quoted against the whole sample implies verdicts
+    the run never reached, so judged traces are counted separately from the unjudgeable ones.
+    """
+    timestamps = [trace.info.timestamp_ms for trace in triage_traces if trace.info.timestamp_ms]
+    unjudged = len(triage.scorer_error_trace_ids) + len(triage.unclassified_trace_ids)
+
+    gap_counts: dict[str, int] = {}
+    thin = 0
+    for entry in adequacy.values():
+        if not entry.quality_judgeable:
+            thin += 1
+        for gap in entry.gaps:
+            gap_counts[gap] = gap_counts.get(gap, 0) + 1
+
+    return DetectionCoverage(
+        requested_sample_size=requested_sample_size,
+        traces_returned=len(triage_traces),
+        traces_inspected=len(triage_traces),
+        traces_judged=max(len(triage_traces) - unjudged, 0),
+        traces_failing=len(triage.failing_traces),
+        traces_unclassified=len(triage.unclassified_trace_ids),
+        traces_scorer_error=len(triage.scorer_error_trace_ids),
+        traces_thin=thin,
+        filter_string=filter_string,
+        earliest_timestamp_ms=min(timestamps) if timestamps else None,
+        latest_timestamp_ms=max(timestamps) if timestamps else None,
+        data_gaps=gap_counts,
+        cost_limits=cost_limits,
+    )
+
+
 def discover_issues(
     experiment_id: str | None = None,
     traces: list[Trace] | None = None,
@@ -740,6 +842,53 @@ def discover_issues(
     scorer_names = [s.name for s in scorers]
     triage = extract_failing_traces(scored_traces, scorer_names)
 
+    # What the sample can actually support a judgment about. Computed from recorded content
+    # only -- no extra fetches -- and kept out of the pass/fail split so a trace that is
+    # merely unjudgeable is never counted as a pass.
+    adequacy = assess_sample_data_adequacy(scored_traces)
+
+    # Cost is baselined per agent label over the same sample. Priced separately from the
+    # detector's own spend, which `token_counter` owns.
+    cost_analysis = analyze_cost_anomalies(scored_traces) if CATEGORY_COST in categories else None
+    cost_limits = cost_analysis.describe_limits() if cost_analysis else ""
+
+    coverage = _build_coverage(
+        triage_traces=triage_traces,
+        requested_sample_size=sample_size,
+        filter_string=filter_string,
+        triage=triage,
+        adequacy=adequacy,
+        cost_limits=cost_limits,
+    )
+
+    cost_findings = _merge_cost_findings(
+        triage,
+        cost_analysis,
+        {trace.info.trace_id: trace for trace in scored_traces},
+        adequacy,
+    )
+    if cost_findings:
+        _logger.info(
+            "%d traces were flagged for cost alone, against their own agent label's baseline",
+            cost_findings,
+        )
+        coverage.traces_failing = len(triage.failing_traces)
+
+    if triage.scorer_error_trace_ids:
+        _logger.warning(
+            "%d/%d traces could not be judged because their scorer errored; they are reported "
+            "as a scorer problem rather than as passing traces",
+            len(triage.scorer_error_trace_ids),
+            len(triage_traces),
+        )
+    if coverage.traces_thin:
+        _logger.info(
+            "%d/%d traces are missing content a quality judgment needs: %s",
+            coverage.traces_thin,
+            len(triage_traces),
+            ", ".join(gap for gap in coverage.data_gaps if gap != GAP_CACHE_USAGE_MISSING),
+        )
+
     _logger.info(
         "Triage complete: %d/%d traces unsatisfactory",
         len(triage.failing_traces),
@@ -750,9 +899,10 @@ def discover_issues(
         return DiscoverIssuesResult(
             issues=[],
             triage_run_id=triage_eval.run_id,
-            summary=build_summary([], len(triage_traces)),
+            summary=build_summary([], len(triage_traces), coverage=coverage),
             total_traces_analyzed=len(triage_traces),
             total_cost_usd=token_counter.cost_usd,
+            coverage=coverage,
         )
 
     # ---- Phase 2: Build analyses ----
@@ -775,9 +925,10 @@ def discover_issues(
         return DiscoverIssuesResult(
             issues=[],
             triage_run_id=triage_eval.run_id,
-            summary=build_summary([], len(triage_traces)),
+            summary=build_summary([], len(triage_traces), coverage=coverage),
             total_traces_analyzed=len(triage_traces),
             total_cost_usd=token_counter.cost_usd,
+            coverage=coverage,
         )
 
     # ---- Phase 4: Build issues & annotate ----
@@ -809,7 +960,7 @@ def discover_issues(
     )
 
     update_status_details({"stage": "Generating summary..."})
-    summary = build_summary(issues, len(triage_traces))
+    summary = build_summary(issues, len(triage_traces), coverage=coverage)
     _logger.info("Done. Found %d issues across %d traces.", len(issues), len(triage_traces))
 
     result = DiscoverIssuesResult(
@@ -818,6 +969,7 @@ def discover_issues(
         summary=summary,
         total_traces_analyzed=len(triage_traces),
         total_cost_usd=token_counter.cost_usd,
+        coverage=coverage,
     )
 
     # Log artifacts to the triage run

@@ -9,7 +9,12 @@ from mlflow.entities.trace import Trace
 from mlflow.genai.discovery.constants import (
     TRACE_CONTENT_TRUNCATION,
 )
-from mlflow.genai.discovery.entities import Issue, _ConversationAnalysis, _IdentifiedIssue
+from mlflow.genai.discovery.entities import (
+    DetectionCoverage,
+    Issue,
+    _ConversationAnalysis,
+    _IdentifiedIssue,
+)
 from mlflow.genai.scorers.base import Scorer
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.provider import trace_disabled
@@ -121,9 +126,27 @@ def compute_latency_percentiles(traces: list[Trace]) -> dict[str, float | int] |
     }
 
 
-def build_summary(issues: list[Issue], total_traces: int) -> str:
+def build_summary(
+    issues: list[Issue],
+    total_traces: int,
+    coverage: "DetectionCoverage | None" = None,
+) -> str:
+    """
+    The run's report, with the sample it is entitled to speak for.
+
+    An empty result is only reported as "no issues found" when the run actually judged part of
+    its sample. A completed run whose every trace was unjudgeable -- thin payloads, or a judge
+    that errored throughout -- says so instead, because describing that as a clean scan would
+    attribute the analysis's own failure to the application.
+    """
     if not issues:
-        return f"Analyzed {total_traces} traces. No issues found."
+        if coverage is not None and not coverage.is_conclusive:
+            return (
+                f"Analyzed {total_traces} traces but could not judge any of them, so this run "
+                f"establishes nothing about the application. {coverage.describe()}"
+            )
+        headline = f"Analyzed {total_traces} traces. No issues found."
+        return f"{headline}\n\n{coverage.describe()}" if coverage is not None else headline
 
     lines = [
         f"Analyzed **{total_traces}** traces. Found **{len(issues)}** issues:\n",
@@ -137,6 +160,15 @@ def build_summary(issues: list[Issue], total_traces: int) -> str:
             f"**Root causes:** {root_causes}\n\n"
             f"**Categories:** {categories}\n"
         )
+    if coverage is not None:
+        rate = coverage.failure_rate
+        # Quote the rate against the traces a verdict was reached on, not the whole sample.
+        if rate is not None:
+            lines.append(
+                f"**Failing:** {coverage.traces_failing} of {coverage.traces_judged} judged "
+                f"({rate:.0%})\n"
+            )
+        lines.append(f"**Coverage:** {coverage.describe()}\n")
     return "\n".join(lines)
 
 

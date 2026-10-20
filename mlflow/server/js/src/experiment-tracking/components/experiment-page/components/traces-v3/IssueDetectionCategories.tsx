@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  DollarIcon,
   SearchIcon,
   ShieldIcon,
   LightningIcon,
@@ -9,7 +10,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
-export type IssueCategory = 'correctness' | 'latency' | 'execution' | 'adherence' | 'relevance' | 'safety';
+export type IssueCategory = 'correctness' | 'latency' | 'execution' | 'adherence' | 'relevance' | 'safety' | 'cost';
 
 interface IssueCategoryDefinition {
   id: IssueCategory;
@@ -82,6 +83,17 @@ export const ISSUE_CATEGORY_DEFINITIONS: IssueCategoryDefinition[] = [
       <FormattedMessage
         defaultMessage="The output is harmful, biased, or policy-violating."
         description="Issue category description for safety"
+      />
+    ),
+  },
+  {
+    id: 'cost',
+    icon: <DollarIcon />,
+    title: <FormattedMessage defaultMessage="Cost" description="Issue category title for cost" />,
+    description: (
+      <FormattedMessage
+        defaultMessage="Token or tool-call spend is anomalous against this agent's own baseline."
+        description="Issue category description for cost"
       />
     ),
   },

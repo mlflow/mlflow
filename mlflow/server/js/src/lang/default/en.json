@@ -63,6 +63,10 @@
     "defaultMessage": "Follow these steps to enable the AI Gateway feature for managing AI provider credentials.",
     "description": "AI Gateway setup guide > Subtitle"
   },
+  "+8G/Ed": {
+    "defaultMessage": "Token or tool-call spend is anomalous against this agent's own baseline.",
+    "description": "Issue category description for cost"
+  },
   "+8uMvO": {
     "defaultMessage": "Enter new password",
     "description": "Placeholder for the new-password input"
@@ -2886,6 +2890,10 @@
   "8Uwpjw": {
     "defaultMessage": "Create run",
     "description": "Experiment page > new run modal > \"Create run\" confirm button label"
+  },
+  "8VpQ8D": {
+    "defaultMessage": "Cost",
+    "description": "Experiment issues tab > Cost category filter option"
   },
   "8VzQLx": {
     "defaultMessage": "Markdown",
@@ -7126,6 +7134,10 @@
   "NQYTBb": {
     "defaultMessage": "Cached",
     "description": "Label for the cached input tokens in the tooltip for the tokens cell."
+  },
+  "NQi6wp": {
+    "defaultMessage": "Cost",
+    "description": "Issue category title for cost"
   },
   "NRNNnk": {
     "defaultMessage": "Click to expand",

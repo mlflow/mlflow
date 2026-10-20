@@ -29,6 +29,7 @@ CATEGORY_EXECUTION = "execution"
 CATEGORY_ADHERENCE = "adherence"
 CATEGORY_RELEVANCE = "relevance"
 CATEGORY_SAFETY = "safety"
+CATEGORY_COST = "cost"
 
 DEFAULT_CATEGORY_DESCRIPTIONS = {
     CATEGORY_CORRECTNESS: "Output is factually accurate and grounded in provided data",
@@ -40,6 +41,10 @@ DEFAULT_CATEGORY_DESCRIPTIONS = {
         "and leaves the user satisfied with the interaction"
     ),
     CATEGORY_SAFETY: "Response avoids harmful, sensitive, or inappropriate content",
+    CATEGORY_COST: (
+        "Token or tool-call spend is anomalous against this agent's own baseline, "
+        "not against the experiment as a whole"
+    ),
 }
 DEFAULT_CATEGORIES = list(DEFAULT_CATEGORY_DESCRIPTIONS)
 
@@ -129,6 +134,22 @@ In your rationale, explain:
 """
 
 
+INSUFFICIENT_DATA_INSTRUCTIONS = """
+BEFORE JUDGING, CHECK THE CONTENT IS ACTUALLY THERE: a trace can be structurally complete \
+and still record none of the signal this judgment depends on. Treat the data as insufficient \
+when the meaningful payload was truncated or replaced with a placeholder, for example:
+  - a retrieval or tool output that is a count or size ("20 matches", "14 docs") instead of \
+the retrieved text or rows
+  - a model step with no prompt or no completion, or with the message content elided
+  - an input or output that is an opaque object dump rather than the real request and response
+If the data needed for this judgment is missing, say so explicitly in your rationale, name \
+what was missing, and do NOT invent a failure from it. Judging a content-free trace produces \
+confident-sounding findings that nothing in the trace supports, which is worse than reporting \
+that the instrumentation is inadequate. If only some steps are thin, judge what is present \
+and say which part you could not assess.
+"""
+
+
 TRACE_QUALITY_INSTRUCTIONS = """\
 You are evaluating whether an AI application produced a correct response.
 
@@ -176,6 +197,11 @@ CATEGORIES_INSTRUCTIONS = """\
 The following issue categories are the ONLY valid categories for this evaluation:
 {categories}
 
+When an existing assessment is part of the evidence, read its rationale before interpreting \
+its value: a label such as "no" is ambiguous without the criterion it was scored against. An \
+assessment that records an error means the scorer failed, not that the trace failed -- exclude \
+it from the verdict.
+
 For the "passed" key in your result, return "true" if the user's goals were achieved \
 efficiently, "false" otherwise.
 
@@ -213,8 +239,10 @@ def build_satisfaction_instructions(
 
     if not use_conversation:
         trace_instructions = TRACE_QUALITY_INSTRUCTIONS.replace("{latency_check}", latency_check)
-        return trace_instructions + CATEGORIES_INSTRUCTIONS.format(
-            categories=_format_category_list(categories)
+        return (
+            trace_instructions
+            + INSUFFICIENT_DATA_INSTRUCTIONS
+            + CATEGORIES_INSTRUCTIONS.format(categories=_format_category_list(categories))
         )
 
     preamble = SATISFACTION_INSTRUCTIONS_PREAMBLE.format(context_noun="conversation")
@@ -243,6 +271,7 @@ def build_satisfaction_instructions(
     return (
         preamble
         + body
+        + INSUFFICIENT_DATA_INSTRUCTIONS
         + CATEGORIES_INSTRUCTIONS.format(categories=_format_category_list(categories))
     )
 
@@ -304,6 +333,21 @@ CLUSTER_SUMMARY_SYSTEM_PROMPT_BASE = (
     f"- A severity level from: {', '.join(str(level) for level in IssueSeverity)}. "
     "Use medium or high only if the analyses clearly share the same failure "
     "pattern. Use not_an_issue if they do NOT belong together or represent no real issue.\n"
+    "\nSEVERITY CRITERIA:\n"
+    "- high: causes complete failure (ERROR status) or severe quality degradation across "
+    "multiple traces; ANY safety issue; or a cost anomaly whose driver is unbounded, such as "
+    "an uncapped retry or tool-call loop whose worst case is not bounded by what the sampled "
+    "traces happened to spend\n"
+    "- medium: degraded but functional output, intermittent failures, or a cost anomaly whose "
+    "driver is a fixed amount of extra work per trace\n"
+    "- low: minor quality issues, cosmetic problems, latency slightly above target, or spend "
+    "above the agent's baseline but below the anomaly threshold\n"
+    "\nWRITE A STABLE DESCRIPTION: the description defines the problem, not this run's "
+    "observation of it. State the affected component or behavior, the concrete failure mode, "
+    "the trigger when known, and the impact. Do NOT include trace or span IDs, trace counts, "
+    "percentages, sample sizes, analysis windows, or discovery narration such as 'we found' "
+    "or 'observed in'. Those belong to the detection evidence. The same description must read "
+    "correctly whether the issue was seen in one trace or a million.\n"
 )
 
 CLUSTER_SUMMARY_CATEGORIES_INSTRUCTION_WITH_LIST = (
@@ -378,6 +422,11 @@ DEDUP_ISSUES_PROMPT_TEMPLATE = (
     "- Related but distinct (e.g. two different tools both returning incorrect data)\n"
     "- In the same category but with different root causes\n"
     "- Similar in symptom but clearly triggered by different execution paths\n\n"
+    "Neither wording nor numbers decide it. Differently phrased findings can be the same "
+    "issue, and a shared category does not make two issues one. A cost or latency finding "
+    "quotes a baseline computed from the traces this run happened to sample, so two "
+    "descriptions of the same problem will cite different baselines, thresholds and "
+    "magnitudes. Compare the mechanism the spend or the delay comes from, not the figures.\n\n"
     "For each group of duplicate issues, provide:\n"
     "- name: a consolidated title in the format 'Issue: <short description>' (3-8 words), "
     "e.g. 'Issue: Incomplete response details'\n"
