@@ -39,9 +39,10 @@ pytorch:
       ">= 1.8": ["transformers"]
       # transformers 5.10.x references torch.float8_e8m0fnu at import time, which
       # only exists in torch >= 2.7, so importing any model fails on older torch.
-      # Fixed (guarded) in transformers 5.11.0, so exclude only the broken 5.10
-      # line and keep testing newer transformers on torch 2.5/2.6.
-      ">= 2.5, < 2.7": ["transformers!=5.10.*"]
+      # Fixed (guarded) in transformers 5.11.0. Transformers 5.19.0 also breaks
+      # imports on torch 2.5/2.6 CPU:
+      # https://github.com/huggingface/transformers/issues/49380
+      ">= 2.5, < 2.7": ["transformers<5.19,!=5.10.*"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py
 
@@ -1093,6 +1094,9 @@ sentence_transformers:
     minimum: "3.2.0"
     maximum: "6.1.0"
     requirements:
+      # sentence-transformers<5.2 requires transformers<5, which requires huggingface-hub<1.
+      # datasets>=5.1 requires huggingface-hub>=1.31.
+      "< 5.2": ["datasets<5.1"]
       ">= 0.0.0": [
           "pyspark",
           "torch>1.6",

@@ -1,6 +1,7 @@
 import type { RouteHandle } from '../common/utils/RoutingUtils';
 import { createLazyRouteElement, DEFAULT_ASSISTANT_PROMPTS } from '../common/utils/RoutingUtils';
 
+import { shouldEnableNewEvalRunsUi } from '../common/utils/FeatureUtils';
 import { PageId, RoutePaths } from './routes';
 
 const getPromptPagesRouteDefs = () => {
@@ -161,6 +162,20 @@ const getExperimentPageRouteDefs = () => {
             ],
           } satisfies RouteHandle,
         },
+        // Registered only with the new evaluation runs UI, so the flag-off router keeps sending this path to
+        // the issue detection run page's `/evaluation-runs/:runUuid/*` route.
+        ...(shouldEnableNewEvalRunsUi()
+          ? [
+              {
+                path: RoutePaths.experimentPageTabEvaluationRunDetails,
+                pageId: PageId.experimentPageTabEvaluationRunDetails,
+                element: createLazyRouteElement(() => import('./pages/eval-run-details/EvalRunDetailsPage')),
+                handle: {
+                  getPageTitle: (params) => `Eval Run ${params['runUuid']} - Experiment ${params['experimentId']}`,
+                } satisfies RouteHandle,
+              },
+            ]
+          : []),
         {
           path: RoutePaths.experimentPageTabScorers,
           pageId: PageId.experimentPageTabScorers,
@@ -180,6 +195,14 @@ const getExperimentPageRouteDefs = () => {
           element: createLazyRouteElement(() => import('./pages/experiment-review-queue/ExperimentReviewQueuePage')),
           handle: {
             getPageTitle: (params) => `Review - Experiment ${params['experimentId']}`,
+          } satisfies RouteHandle,
+        },
+        {
+          path: RoutePaths.experimentPageTabIssues,
+          pageId: PageId.experimentPageTabIssues,
+          element: createLazyRouteElement(() => import('./pages/experiment-issues/ExperimentIssuesPage')),
+          handle: {
+            getPageTitle: (params) => `Issues - Experiment ${params['experimentId']}`,
           } satisfies RouteHandle,
         },
         {

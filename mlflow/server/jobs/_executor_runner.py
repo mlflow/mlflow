@@ -2,8 +2,9 @@
 
 Launched in place of the Huey ``_job_runner`` when
 ``MLFLOW_SERVER_JOB_EXECUTION_ENGINE=executor``. A scheduler loop claims PENDING jobs from the
-job store and runs each in its own worker thread through the configured ``AbstractJobExecutor``
-backend (``LocalJobExecutor`` by default), then records the terminal state back to the store.
+job store and runs each in its own worker thread through the ``AbstractJobExecutor`` backend the
+job was assigned at submission (``LocalJobExecutor`` by default; custom scorer jobs can be routed
+to a separate backend), then records the terminal state back to the store.
 
 Concurrency is bounded per job function by a semaphore sized to that function's ``max_workers``,
 so one job type cannot starve another and the scheduler thread never blocks on a running job.
@@ -41,7 +42,10 @@ from mlflow.server.jobs.executor import (
     JobExecutionContext,
     JobResult,
 )
-from mlflow.server.jobs.executor_registry import get_executor_registry
+from mlflow.server.jobs.executor_registry import (
+    _get_configured_backend_names,
+    get_executor_registry,
+)
 from mlflow.server.jobs.lock_manager import JobLock, JobLockManager
 from mlflow.store.jobs.abstract_store import AbstractJobStore, JobUpdateStatus
 from mlflow.utils.workspace_context import ServerWorkspaceContext
@@ -145,29 +149,30 @@ class _LeaseRenewer:
             )
 
 
-def _select_executor() -> AbstractJobExecutor:
-    """Resolve the executor backend named by ``MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND``.
+def _select_executors() -> dict[str, AbstractJobExecutor]:
+    """Resolve every configured executor backend, keyed by backend name.
 
-    Defaults to ``local`` (``LocalJobExecutor``); a configured plugin backend is honored too.
-
-    TODO (follow-up): select the backend per job at submit time via a job-executor router
-    (matching the job against the configured executor) rather than a single process-wide
-    backend, so different job types can target different executors.
+    That is the default backend plus, when it differs, the backend custom scorer jobs are routed to
+    (``MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND``). The default backend is always included.
     """
-    backend = MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()
-    return get_executor_registry().get(backend)
+    registry = get_executor_registry()
+    return {name: registry.get(name) for name in _get_configured_backend_names()}
 
 
-def _job_backend_mismatch(job: Job, active_backend: str) -> bool:
-    """Whether ``job`` was assigned an executor backend this runner does not serve.
+def _job_backend(job: Job) -> str:
+    """The executor backend a job runs on: the one assigned at submission, else the default.
 
-    The runner serves one backend at a time (``active_backend``). If a job was submitted against a
-    different backend, running it here would silently reroute it, so callers fail it closed
-    instead. ``executor_backend`` is unset (None) on every job until per-job backend persistence
-    lands, so this is inert today; it exists so the persisted backend becomes authoritative the
-    moment jobs start recording it.
+    Jobs submitted on the Huey engine, or before per-job backends were recorded, have no assigned
+    backend and run on the default.
     """
-    return job.executor_backend is not None and job.executor_backend != active_backend
+    return job.executor_backend or MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()
+
+
+def _unserved_backend_message(backend: str, served: dict[str, AbstractJobExecutor]) -> str:
+    served_names = ", ".join(repr(name) for name in sorted(served))
+    return (
+        f"Job was submitted to executor backend {backend!r} but this runner serves {served_names}."
+    )
 
 
 def _build_execution_context(job: Job) -> JobExecutionContext:
@@ -283,7 +288,7 @@ def _execute_claimed_job(
     if job_store.get_job(job.job_id).status == JobStatus.CANCELED:
         return None
 
-    backend = MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()
+    backend = _job_backend(job)
     _logger.info(f"Executor engine running job {job.job_id} ({job.job_name}) on backend {backend}")
 
     # Renew the lease across both submission and the wait, starting BEFORE submission. submit_job
@@ -331,6 +336,9 @@ class _InFlightJob:
 
     workspace: str | None
     thread: threading.Thread
+    # The executor running this job (the backend it was assigned at submission), so cancellations
+    # are forwarded to the right backend.
+    executor: AbstractJobExecutor
     # Set once the job has reached the executor. Cancellation is forwarded only after this, since
     # there is no backend job to cancel before submission.
     submitted: bool = False
@@ -355,6 +363,11 @@ class _JobScheduler:
     the thread-local request ContextVar. ``WorkspaceContext`` must not be used here: it also mutates
     the process-global ``MLFLOW_WORKSPACE`` env, which concurrent workers in different workspaces
     would race on. The store resolves the ContextVar first (see ``get_request_workspace``).
+
+    Each claimed job runs on the executor backend it was assigned at submission (see
+    ``_job_backend``). ``executors`` maps backend name to executor; when omitted, ``executor``
+    serves the default backend alone. A job assigned a backend this scheduler does not serve is
+    failed closed.
     """
 
     def __init__(
@@ -362,6 +375,7 @@ class _JobScheduler:
         job_store: AbstractJobStore,
         executor: AbstractJobExecutor,
         lease_duration: float | None,
+        executors: dict[str, AbstractJobExecutor] | None = None,
     ) -> None:
         if lease_duration is not None and lease_duration < _MIN_JOB_LEASE_TTL:
             raise MlflowException(
@@ -371,7 +385,9 @@ class _JobScheduler:
                 f"MLFLOW_SERVER_JOB_LEASE_TTL to a larger value."
             )
         self._job_store = job_store
-        self._executor = executor
+        self._executors = (
+            dict(executors) if executors else {MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get(): executor}
+        )
         self._lease_duration = lease_duration
         # Coordinates exclusive-job locks (job_locks table) so that, across replicas, only one
         # job per exclusive key runs at a time.
@@ -460,7 +476,7 @@ class _JobScheduler:
                 # Stop the still-running job so it cannot keep performing side effects after the
                 # caller cancelled it. The worker's wait_for_job then returns and _record_result
                 # skips the already-CANCELED row.
-                self._executor.cancel_job(job_id)
+                handle.executor.cancel_job(job_id)
             except Exception:
                 # Leave cancel_forwarded false so the next tick retries rather than letting the
                 # canceled job run to normal completion. Log every failure: a repeated failure may
@@ -539,18 +555,17 @@ class _JobScheduler:
                         # A concurrent worker claimed it first, or its status changed.
                         sem.release()
                         continue
-                    active_backend = MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()
-                    if _job_backend_mismatch(job, active_backend):
-                        # Fail closed rather than run the job on a backend it was not submitted to.
-                        # This also subsumes the cancellation case: a mismatched job is failed here
-                        # before any backend work is submitted, so there is nothing to route a
-                        # cancel to. (Inert today; executor_backend is always None.)
+                    backend = _job_backend(job)
+                    job_executor = self._executors.get(backend)
+                    if job_executor is None:
+                        # Fail closed rather than run the job on a backend it was not assigned to
+                        # (e.g. the backends were reconfigured after it was submitted). It is failed
+                        # before any backend work is submitted, so there is nothing to cancel.
                         sem.release()
                         self._fail_claimed_job(
                             job.job_id,
                             workspace,
-                            f"Job was submitted to executor backend {job.executor_backend!r} but "
-                            f"this runner serves {active_backend!r}.",
+                            _unserved_backend_message(backend, self._executors),
                         )
                         continue
                     # Acquire the exclusive lock AFTER claiming, so the lock always references a
@@ -584,7 +599,7 @@ class _JobScheduler:
                             self._cancel_exclusivity_conflict(job, lock_key)
                             continue
                     try:
-                        started = self._start_worker(job, workspace, sem, job_lock)
+                        started = self._start_worker(job, workspace, sem, job_lock, job_executor)
                     except Exception:
                         # _start_worker owns releasing the slot and lock on the failure paths it
                         # handles; this guards the unexpected case so neither leaks if it raises.
@@ -670,8 +685,9 @@ class _JobScheduler:
         workspace: str | None,
         sem: threading.Semaphore,
         job_lock: JobLock | None,
+        executor: AbstractJobExecutor,
     ) -> bool:
-        """Start the worker thread for a claimed job. Returns whether it started.
+        """Start the worker thread for a claimed job on ``executor``. Returns whether it started.
 
         If the thread cannot be started (e.g. the OS thread limit is hit), the claim's effects are
         undone — the slot and any exclusive lock are released and the job is failed — so nothing is
@@ -679,13 +695,13 @@ class _JobScheduler:
         """
         thread = threading.Thread(
             target=self._run_worker,
-            args=(job, workspace, sem),
+            args=(job, workspace, sem, executor),
             name=f"mlflow-executor-job-{job.job_id}",
             daemon=True,
         )
         with self._in_flight_lock:
             self._in_flight[job.job_id] = _InFlightJob(
-                workspace=workspace, thread=thread, job_lock=job_lock
+                workspace=workspace, thread=thread, executor=executor, job_lock=job_lock
             )
         try:
             thread.start()
@@ -699,7 +715,13 @@ class _JobScheduler:
             return False
         return True
 
-    def _run_worker(self, job: Job, workspace: str | None, sem: threading.Semaphore) -> None:
+    def _run_worker(
+        self,
+        job: Job,
+        workspace: str | None,
+        sem: threading.Semaphore,
+        executor: AbstractJobExecutor,
+    ) -> None:
         needs_recovery = False
         lock_released = False
 
@@ -727,7 +749,7 @@ class _JobScheduler:
             with ServerWorkspaceContext(workspace):
                 _execute_claimed_job(
                     self._job_store,
-                    self._executor,
+                    executor,
                     job,
                     on_submitted=lambda: self._mark_submitted(job.job_id),
                     lease_duration=self._lease_duration,
@@ -842,13 +864,14 @@ def run_executor_loop(
     executor: AbstractJobExecutor,
     stop_event: threading.Event | None = None,
     poll_interval: float = _POLL_INTERVAL,
+    executors: dict[str, AbstractJobExecutor] | None = None,
 ) -> None:
     """Run the executor claim loop until ``stop_event`` is set.
 
-    ``executor`` must already be started; the caller (``main``) owns ``start_executor()`` /
-    ``stop_executor()``. Keeping lifecycle out of this loop lets the caller start and stop several
-    configured backends independently, once more than one backend can be configured at a time,
-    rather than tying it to this single-executor claim loop.
+    ``executor`` is the default backend's executor. ``executors`` maps every served backend name to
+    its executor (see ``_JobScheduler``); when omitted, ``executor`` serves the default backend
+    alone. All executors must already be started; the caller (``main``) owns ``start_executor()`` /
+    ``stop_executor()`` for each.
     """
     from mlflow.server.handlers import _get_job_store
 
@@ -860,10 +883,10 @@ def run_executor_loop(
     # store error here must not crash the runner (same reasoning as the tick loop below): log it
     # and proceed to claim PENDING jobs; the next launch's recovery retries the reset.
     try:
-        _recover_orphaned_executor_jobs(job_store, executor)
+        _recover_orphaned_executor_jobs(job_store, executor, executors=executors)
     except Exception:
         _logger.exception("Executor job recovery failed at startup; continuing.")
-    scheduler = _JobScheduler(job_store, executor, lease_duration)
+    scheduler = _JobScheduler(job_store, executor, lease_duration, executors=executors)
     try:
         while not stop_event.is_set():
             try:
@@ -885,14 +908,19 @@ def run_executor_loop(
 
 
 def _recover_orphaned_executor_jobs(
-    job_store: AbstractJobStore, executor: AbstractJobExecutor
+    job_store: AbstractJobStore,
+    executor: AbstractJobExecutor,
+    executors: dict[str, AbstractJobExecutor] | None = None,
 ) -> None:
     """Recover jobs left unfinished by a previous server generation.
 
     Only jobs created before this server launch are touched, so it never races jobs submitted to
-    the running server. Each job is put to the executor via ``recover_jobs`` and the returned
-    action is honored: ``requeue`` resets it to PENDING for the scheduler to re-claim, ``fail``
-    marks it FAILED, and ``reattach`` leaves it RUNNING because the executor is still monitoring it.
+    the running server. Each job is put to the executor of the backend it was assigned (see
+    ``_job_backend``; ``executors`` maps backend name to executor, defaulting to ``executor`` for
+    the default backend) via ``recover_jobs``, and the returned action is honored: ``requeue``
+    resets it to PENDING for the scheduler to re-claim, ``fail`` marks it FAILED, and ``reattach``
+    leaves it RUNNING because the executor is still monitoring it. A job assigned a backend this
+    runner does not serve is failed closed.
 
     NOTE: with the in-tree ``LocalJobExecutor`` this always resolves to ``requeue`` (its only
     action), and its kill/reap step is a no-op here because a fresh runner has no in-memory record
@@ -924,7 +952,7 @@ def _recover_orphaned_executor_jobs(
 
     # Collect the orphaned jobs first, keeping each job's workspace so the store transitions below
     # run in the right workspace context. recover_jobs itself is workspace-agnostic (it acts on
-    # backend job ids), so it is called once for all of them.
+    # backend job ids), so it is called once per backend for all of that backend's orphans.
     orphaned: list[tuple[Job, str | None]] = []
     _for_each_unfinished_job(
         job_store,
@@ -935,20 +963,29 @@ def _recover_orphaned_executor_jobs(
     if not orphaned:
         return
 
-    try:
-        recovery_by_id = {
-            result.job_id: result
-            for result in executor.recover_jobs([job.job_id for job, _ in orphaned])
-        }
-    except Exception:
-        # A failure asking the executor how to recover must not strand every orphan. Fall back to
-        # requeue (the reset-to-PENDING the runner did before recovery routed through the executor)
-        # so the scheduler re-claims them on a later tick.
-        _logger.exception("executor.recover_jobs failed; requeuing all orphaned jobs")
-        recovery_by_id = {}
-    active_backend = MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()
+    served = dict(executors) if executors else {MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get(): executor}
+    job_ids_by_backend: dict[str, list[str]] = {}
+    for job, _ in orphaned:
+        job_ids_by_backend.setdefault(_job_backend(job), []).append(job.job_id)
+
+    recovery_by_id = {}
+    for backend, job_ids in job_ids_by_backend.items():
+        if (backend_executor := served.get(backend)) is None:
+            continue  # Failed closed below.
+        try:
+            recovery_by_id.update({
+                result.job_id: result for result in backend_executor.recover_jobs(job_ids)
+            })
+        except Exception:
+            # A failure asking the executor how to recover must not strand its orphans. Fall back
+            # to requeue (the reset-to-PENDING the runner did before recovery routed through the
+            # executor) so the scheduler re-claims them on a later tick.
+            _logger.exception(
+                "recover_jobs failed for executor backend %r; requeuing its orphaned jobs", backend
+            )
 
     for job, workspace in orphaned:
+        backend = _job_backend(job)
         result = recovery_by_id.get(job.job_id)
         action = result.action if result is not None else "requeue"
         with ServerWorkspaceContext(workspace):
@@ -957,14 +994,9 @@ def _recover_orphaned_executor_jobs(
             # key. A lock left by a crashed holder is reclaimed through normal acquisition instead;
             # a recovered job reacquires its own preserved lock when it is re-claimed.
             try:
-                if _job_backend_mismatch(job, active_backend):
-                    # Fail closed rather than requeue onto a backend the job was not submitted to.
-                    # (Inert today; executor_backend is always None.)
-                    job_store.fail_job(
-                        job.job_id,
-                        f"Job was submitted to executor backend {job.executor_backend!r} but this "
-                        f"runner serves {active_backend!r}.",
-                    )
+                if backend not in served:
+                    # Fail closed rather than requeue onto a backend the job was not assigned to.
+                    job_store.fail_job(job.job_id, _unserved_backend_message(backend, served))
                 elif action == "fail":
                     job_store.fail_job(
                         job.job_id,
@@ -1001,35 +1033,40 @@ def main() -> None:
     # Periodic tasks (e.g. the online scoring scheduler) still run on Huey.
     _launch_periodic_tasks_consumer()
 
-    # Own the executor lifecycle here rather than inside the claim loop, so that when more than
-    # one backend can be configured at a time (e.g. a custom-scorer backend alongside the default)
-    # main() can start and stop each configured executor independently. Resolving and starting the
-    # executor both run inside the try so any failure there (the runner re-validates the backend
-    # registry independently of the parent) still triggers cleanup and the SIGTERM below.
-    executor: AbstractJobExecutor | None = None
+    # Own the executor lifecycle here rather than inside the claim loop, starting and stopping each
+    # configured backend (the default, plus a separate custom-scorer backend when one is set)
+    # independently. Resolving and starting the executors run inside the try so any failure there
+    # (the runner re-validates the backend registry independently of the parent) still triggers
+    # cleanup and the SIGTERM below.
+    started: list[tuple[str, AbstractJobExecutor]] = []
     fatal_exit = False
     try:
-        executor = _select_executor()
-        executor.start_executor()
+        executors = _select_executors()
+        for name, executor in executors.items():
+            # Recorded before starting so a backend whose start fails part way is still stopped.
+            started.append((name, executor))
+            executor.start_executor()
+        default_backend = MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()
         _logger.info(
             "Started executor-backed job runner "
-            f"(backend={MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()})"
+            f"(default backend={default_backend}, backends={sorted(executors)})"
         )
-        run_executor_loop(executor)
+        run_executor_loop(executors[default_backend], executors=executors)
     except Exception:
         # (KeyboardInterrupt/SystemExit are intentionally not caught: a clean shutdown signal
         # should propagate normally rather than be reported as an unexpected exit.)
         _logger.exception("Executor job runner exited unexpectedly; terminating process.")
         fatal_exit = True
     finally:
-        # Guard stop_executor so a failure here (e.g. a half-initialized backend when
-        # start_executor raised) cannot skip the SIGTERM below — that signal is the only thing
-        # that tears the process down, since the periodic-tasks consumer thread is non-daemon.
-        if executor is not None:
+        # Guard each stop_executor so a failure (e.g. a half-initialized backend when
+        # start_executor raised) cannot skip the others or the SIGTERM below: that signal is the
+        # only thing that tears the process down, since the periodic-tasks consumer thread is
+        # non-daemon. Backends that were never started are not stopped.
+        for name, executor in started:
             try:
                 executor.stop_executor()
             except Exception:
-                _logger.exception("Failed to stop executor during shutdown.")
+                _logger.exception("Failed to stop executor backend %r during shutdown.", name)
     if fatal_exit:
         # A non-daemon thread (the periodic-tasks consumer) keeps this process alive, so an
         # unhandled exit from the loop — e.g. a startup failure — would otherwise leave a live

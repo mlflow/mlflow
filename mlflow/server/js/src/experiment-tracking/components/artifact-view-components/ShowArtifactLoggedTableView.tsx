@@ -17,20 +17,21 @@ import {
 } from '@databricks/design-system';
 import { isArray, isObject, isUndefined } from 'lodash';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { getArtifactContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { getArtifactBlob, getArtifactContent } from '../../../common/utils/ArtifactUtils';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SortingState, PaginationState } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel, getSortedRowModel, getPaginationRowModel } from '@tanstack/react-table';
 import React from 'react';
 import { parseJSONSafe } from '@mlflow/mlflow/src/common/utils/TagUtils';
 import type { ArtifactLogTableImageObject } from '@mlflow/mlflow/src/experiment-tracking/types';
 import { LOG_TABLE_IMAGE_COLUMN_TYPE } from '@mlflow/mlflow/src/experiment-tracking/constants';
-import { ImagePlot } from '../runs-charts/components/charts/ImageGridPlot.common';
+import { ArtifactImagePlot } from '../runs-charts/components/charts/ImageGridPlot.common';
 import { ToggleIconButton } from '../../../common/components/ToggleIconButton';
 import { ShowArtifactLoggedTableViewDataPreview } from './ShowArtifactLoggedTableViewDataPreview';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 import { fetchArtifactUnified } from './utils/fetchArtifactUnified';
+import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 
 const MAX_ROW_HEIGHT = 160;
 const MIN_COLUMN_WIDTH = 100;
@@ -46,7 +47,56 @@ const DEFAULT_PAGINATION_COMPONENT_HEIGHT = 48;
 const sanitizeColumnId = (columnName: string, columnIndex: number) =>
   columnName === '' ? `column-${columnIndex + 1}` : String(columnName);
 
-const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[][] }; runUuid: string }) => {
+const LoggedTableArtifactImage = ({
+  runUuid,
+  filepath,
+  compressedFilepath,
+  maxImageSize,
+  artifactRootUri,
+  isLoggedModelsMode,
+  loggedModelId,
+}: {
+  runUuid: string;
+  filepath: string;
+  compressedFilepath: string;
+  maxImageSize: number;
+  artifactRootUri?: string;
+  isLoggedModelsMode?: boolean;
+  loggedModelId?: string;
+}) => {
+  const fetchImage = useCallback(
+    (path: string) =>
+      fetchArtifactUnified(
+        { runUuid, path, artifactRootUri, isLoggedModelsMode, loggedModelId },
+        getArtifactBlob,
+      ) as Promise<Blob>,
+    [artifactRootUri, isLoggedModelsMode, loggedModelId, runUuid],
+  );
+
+  return (
+    <ArtifactImagePlot
+      key={JSON.stringify([runUuid, loggedModelId, isLoggedModelsMode, artifactRootUri, filepath, compressedFilepath])}
+      filepath={filepath}
+      compressedFilepath={compressedFilepath}
+      fetchImage={fetchImage}
+      maxImageSize={maxImageSize}
+    />
+  );
+};
+
+const LoggedTable = ({
+  data,
+  runUuid,
+  artifactRootUri,
+  isLoggedModelsMode,
+  loggedModelId,
+}: {
+  data: { columns: string[]; data: any[][] };
+  runUuid: string;
+  artifactRootUri?: string;
+  isLoggedModelsMode?: boolean;
+  loggedModelId?: string;
+}) => {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [isCompactView, setIsCompactView] = useState(false);
   const intl = useIntl();
@@ -131,13 +181,15 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
                 try {
                   const parsedRowValue = JSON.parse(row.getValue());
                   const { filepath, compressed_filepath } = parsedRowValue as ArtifactLogTableImageObject;
-                  const imageUrl = getArtifactLocationUrl(filepath, runUuid);
-                  const compressedImageUrl = getArtifactLocationUrl(compressed_filepath, runUuid);
                   return (
-                    <ImagePlot
-                      imageUrl={imageUrl}
-                      compressedImageUrl={compressedImageUrl}
+                    <LoggedTableArtifactImage
+                      runUuid={runUuid}
+                      filepath={filepath}
+                      compressedFilepath={compressed_filepath}
                       maxImageSize={MAX_IMAGE_SIZE}
+                      artifactRootUri={artifactRootUri}
+                      isLoggedModelsMode={isLoggedModelsMode}
+                      loggedModelId={loggedModelId}
                     />
                   );
                 } catch {
@@ -154,7 +206,7 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
             minSize: MIN_COLUMN_WIDTH,
           };
         }),
-    [columns, MAX_IMAGE_SIZE, imageColumns, runUuid, hiddenColumns],
+    [columns, MAX_IMAGE_SIZE, imageColumns, runUuid, hiddenColumns, artifactRootUri, isLoggedModelsMode, loggedModelId],
   );
   const tableData = useMemo(
     () =>
@@ -388,26 +440,19 @@ type ShowArtifactLoggedTableViewProps = {
 
 export const ShowArtifactLoggedTableView = React.memo(
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
-  ({
-    runUuid,
-    path,
-    isLoggedModelsMode,
-    loggedModelId,
-    experimentId,
-    entityTags,
-  }: ShowArtifactLoggedTableViewProps) => {
+  ({ runUuid, path, isLoggedModelsMode, loggedModelId, artifactRootUri }: ShowArtifactLoggedTableViewProps) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error>();
     const [curPath, setCurPath] = useState<string | undefined>(undefined);
     const [text, setText] = useState<string>('');
 
     useEffect(() => {
+      let cancelled = false;
       setLoading(true);
-      fetchArtifactUnified(
-        { runUuid, path, isLoggedModelsMode, loggedModelId, experimentId, entityTags },
-        getArtifactContent,
-      )
+      setError(undefined);
+      fetchArtifactUnified({ runUuid, path, artifactRootUri, isLoggedModelsMode, loggedModelId }, getArtifactContent)
         .then((value) => {
+          if (cancelled) return;
           setLoading(false);
           // Check if value is stringified JSON
           if (value && typeof value === 'string') {
@@ -418,11 +463,15 @@ export const ShowArtifactLoggedTableView = React.memo(
           }
         })
         .catch((error: Error) => {
+          if (cancelled) return;
           setError(error);
           setLoading(false);
         });
       setCurPath(path);
-    }, [path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags]);
+      return () => {
+        cancelled = true;
+      };
+    }, [path, runUuid, isLoggedModelsMode, loggedModelId, artifactRootUri]);
 
     const data = useMemo<{
       columns: string[];
@@ -466,7 +515,7 @@ export const ShowArtifactLoggedTableView = React.memo(
       );
     }
     if (error) {
-      return renderErrorState(error.message);
+      return <ArtifactViewErrorState error={error} description={error instanceof Error ? error.message : undefined} />;
     } else if (text) {
       if (!data) {
         return renderErrorState(
@@ -476,7 +525,15 @@ export const ShowArtifactLoggedTableView = React.memo(
           />,
         );
       }
-      return <LoggedTable data={data} runUuid={runUuid} />;
+      return (
+        <LoggedTable
+          data={data}
+          runUuid={runUuid}
+          artifactRootUri={artifactRootUri}
+          isLoggedModelsMode={isLoggedModelsMode}
+          loggedModelId={loggedModelId}
+        />
+      );
     }
     return renderErrorState(null);
   },

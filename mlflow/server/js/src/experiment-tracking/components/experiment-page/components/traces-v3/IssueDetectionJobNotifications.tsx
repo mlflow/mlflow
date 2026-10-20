@@ -11,6 +11,7 @@ import { getPreservedQueryString } from '../../../../pages/experiment-page-tabs/
 
 export interface SubmittedIssueDetectionJob {
   experimentId: string;
+  workspace?: string | null;
   jobId: string;
   runId: string;
   traceCount: number;
@@ -22,7 +23,8 @@ type StoredSubmittedIssueDetectionJob = Omit<SubmittedIssueDetectionJob, 'experi
 export const ISSUE_DETECTION_SUBMITTED_JOBS_STORAGE_KEY = 'mlflow.issueDetection.submittedJobs';
 const ISSUE_DETECTION_TRACKED_EXPERIMENTS_STORAGE_KEY = 'mlflow.issueDetection.trackedExperiments';
 const ISSUE_DETECTION_JOB_STORAGE_COMPONENT = 'IssueDetectionJobWatcher';
-const ISSUE_DETECTION_JOB_SUBMITTED_EVENT = 'mlflow.issueDetection.jobSubmitted';
+export const ISSUE_DETECTION_JOB_SUBMITTED_EVENT = 'mlflow.issueDetection.jobSubmitted';
+export const ISSUE_DETECTION_JOB_COMPLETED_EVENT = 'mlflow.issueDetection.jobCompleted';
 const ISSUE_DETECTION_JOB_TTL_MS = 60 * 60 * 1000;
 
 const getSubmittedJobStore = (experimentId: string) =>
@@ -88,12 +90,15 @@ const setTrackedExperimentIds = (experimentIds: string[]) => {
 };
 
 const setSubmittedIssueDetectionJobsForExperiment = (experimentId: string, jobs: SubmittedIssueDetectionJob[]) => {
-  const storedJobs = jobs.map<StoredSubmittedIssueDetectionJob>(({ jobId, runId, traceCount, submittedAtMs }) => ({
-    jobId,
-    runId,
-    traceCount,
-    submittedAtMs,
-  }));
+  const storedJobs = jobs.map<StoredSubmittedIssueDetectionJob>(
+    ({ jobId, runId, traceCount, submittedAtMs, workspace }) => ({
+      jobId,
+      runId,
+      traceCount,
+      submittedAtMs,
+      workspace,
+    }),
+  );
   getSubmittedJobStore(experimentId).setItem(ISSUE_DETECTION_SUBMITTED_JOBS_STORAGE_KEY, JSON.stringify(storedJobs));
 
   const trackedExperimentIds = getTrackedExperimentIds();
@@ -315,6 +320,7 @@ export const IssueDetectionJobNotifications = () => {
       const { experimentId, jobId, runId } = trackedJob;
       if (!notifiedCompletionJobIdsRef.current.has(jobId)) {
         notifiedCompletionJobIdsRef.current.add(jobId);
+        window.dispatchEvent(new CustomEvent(ISSUE_DETECTION_JOB_COMPLETED_EVENT, { detail: trackedJob }));
         const completedKey = `issue-detection-completed-${jobId}`;
         if (status === JobStatus.SUCCEEDED) {
           const jobResult =

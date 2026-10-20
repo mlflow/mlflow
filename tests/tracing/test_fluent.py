@@ -43,6 +43,7 @@ from mlflow.tracing.constant import (
     TraceMetadataKey,
     TraceTagKey,
 )
+from mlflow.tracing.context import get_configured_trace_metadata
 from mlflow.tracing.destination import MlflowExperiment
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.fluent import start_span_no_context
@@ -52,6 +53,7 @@ from mlflow.tracing.provider import (
     safe_set_span_in_context,
     set_destination,
 )
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -1880,6 +1882,47 @@ def test_update_current_trace_with_metadata():
         assert traces[0].info.trace_metadata[k] == v
 
 
+def test_update_current_trace_with_string_session_id():
+    with mlflow.start_span("test_span"):
+        mlflow.update_current_trace(session_id="session-123")
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
+    assert trace.info.trace_metadata[TraceMetadataKey.TRACE_SESSION] == "session-123"
+
+
+def test_update_current_trace_with_hierarchical_session_id():
+    with mlflow.start_span("test_span"):
+        mlflow.update_current_trace(session_id=["trip-2", "ep-2", "dom-2", "turn-5"])
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
+    assert (
+        trace.info.trace_metadata[TraceMetadataKey.TRACE_SESSION]
+        == '["trip-2","ep-2","dom-2","turn-5"]'
+    )
+
+
+def test_update_current_trace_with_non_ascii_hierarchical_session_id():
+    with mlflow.start_span("test_span"):
+        mlflow.update_current_trace(session_id=["trïp", "épisode"])
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
+    assert trace.info.trace_metadata[TraceMetadataKey.TRACE_SESSION] == '["trïp","épisode"]'
+
+
+def test_update_current_trace_passes_through_non_list_session_id():
+    with mlflow.start_span("test_span") as span:
+        mlflow.update_current_trace(session_id=123)
+        with InMemoryTraceManager.get_instance().get_trace(span.trace_id) as trace:
+            assert trace.info.trace_metadata[TraceMetadataKey.TRACE_SESSION] == 123
+
+
+@pytest.mark.parametrize("session_id", [[], ["trip-2", 2]])
+def test_update_current_trace_invalid_session_id(session_id):
+    with mlflow.start_span("test_span"):
+        with pytest.raises(MlflowException, match=r"must be a string or a non-empty list"):
+            mlflow.update_current_trace(session_id=session_id)
+
+
 @skip_when_testing_trace_sdk
 def test_update_current_trace_with_model_id():
     with mlflow.start_span("test_span"):
@@ -3208,6 +3251,26 @@ def test_tracing_context_session_id_and_user_nesting():
     assert trace.info.request_metadata["mlflow.trace.session"] == "inner-sess"
     # Outer user is inherited
     assert trace.info.request_metadata["mlflow.trace.user"] == "outer-user"
+
+
+def test_tracing_context_hierarchical_session_id():
+    with mlflow.tracing.context(session_id=["trip-2", "ep-2"]):
+        my_func()
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
+    assert trace.info.request_metadata["mlflow.trace.session"] == '["trip-2","ep-2"]'
+
+
+def test_tracing_context_passes_through_non_list_session_id():
+    with mlflow.tracing.context(session_id=123):
+        assert get_configured_trace_metadata() == {TraceMetadataKey.TRACE_SESSION: 123}
+
+
+@pytest.mark.parametrize("session_id", [[], ["trip-2", 2]])
+def test_tracing_context_invalid_session_id(session_id):
+    with pytest.raises(MlflowException, match=r"must be a string or a non-empty list"):
+        with mlflow.tracing.context(session_id=session_id):
+            pass
 
 
 def test_tracing_context_nesting_merges():

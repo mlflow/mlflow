@@ -76,11 +76,15 @@ from mlflow.entities.trace_metrics import MetricAggregation, MetricViewType
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent, WebhookStatus
 from mlflow.environment_variables import (
+    MLFLOW_ARTIFACTS_PRESIGNED_ONLY,
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
     MLFLOW_ENABLE_AI_GATEWAY,
+    MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD,
+    MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS,
+    MLFLOW_SERVER_INFO_TRACKING_AUTH,
 )
 from mlflow.exceptions import (
     MlflowException,
@@ -103,6 +107,7 @@ from mlflow.genai.scorers.scorer_utils import (
     DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR,
     custom_scorer_execution_blocked,
 )
+from mlflow.genai.skill_content.archive import MAX_ARCHIVE_ENTRIES, get_max_decompressed_size
 from mlflow.models import Model
 from mlflow.prompt.constants import (
     _PROMPT_SOURCE_PLACEHOLDERS,
@@ -329,6 +334,10 @@ from mlflow.protos.webhooks_pb2 import (
     UpdateWebhook,
     WebhookService,
 )
+from mlflow.server.artifact_transfer import (
+    reject_proxied_artifact_download,
+    reject_proxied_artifact_upload,
+)
 from mlflow.server.validation import _validate_content_type
 from mlflow.server.workspace_helpers import (
     _get_workspace_store,
@@ -387,6 +396,7 @@ from mlflow.utils import workspace_context
 from mlflow.utils.crypto import CRYPTO_KEK_PASSPHRASE_ENV_VAR
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import local_file_uri_to_path
+from mlflow.utils.issue_utils import validate_issue_fields
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.mlflow_tags import (
     MLFLOW_CUSTOM_VIEW_TAG_PREFIX,
@@ -407,18 +417,25 @@ from mlflow.utils.providers import (
     get_provider_config_response,
 )
 from mlflow.utils.server_info import (
+    SERVER_INFO_ARTIFACT_SERVING_ENABLED,
+    SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY,
     SERVER_INFO_FEATURES_ENABLED,
+    SERVER_INFO_MODEL_ARTIFACT_PRESIGNED_DOWNLOADS_SUPPORTED,
     SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
     SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
     SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED,
     SERVER_INFO_PRESIGNED_UPLOAD_RUN_ID_SUPPORTED,
+    SERVER_INFO_SKILL_CONTENT_MAX_FILES,
+    SERVER_INFO_SKILL_CONTENT_MAX_SIZE,
     SERVER_INFO_STORE_TYPE,
     SERVER_INFO_TRACE_ARCHIVAL_ENABLED,
+    SERVER_INFO_TRACKING_AUTH,
     SERVER_INFO_WORKSPACES_ENABLED,
 )
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import (
+    append_to_uri_path,
     get_uri_scheme,
     is_local_uri,
     validate_path_is_safe,
@@ -1433,6 +1450,23 @@ def _disable_if_artifacts_only(func):
     return wrapper
 
 
+def _disable_if_artifacts_presigned_only(*, upload=False, allow_presigned=False):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            if allow_presigned and request.args.get("presigned") == "true":
+                return func(*args, **kwargs)
+            if upload:
+                reject_proxied_artifact_upload()
+            else:
+                reject_proxied_artifact_download()
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
 def _disable_if_gateway_disabled(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -1783,6 +1817,7 @@ def _delete_workspace_handler(workspace_name: str):
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_artifacts_presigned_only()
 def get_artifact_handler():
     run_id = request.args.get("run_id") or request.args.get("run_uuid")
     path = request.args["path"]
@@ -2678,6 +2713,7 @@ def create_promptlab_run_handler():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_artifacts_presigned_only(upload=True)
 def upload_artifact_handler():
     args = request.args
     run_uuid = args.get("run_uuid")
@@ -3473,12 +3509,25 @@ def _is_prompt(name: str) -> bool:
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_artifacts_presigned_only(allow_presigned=True)
 def get_model_version_artifact_handler():
     name = request.args.get("name")
     version = request.args.get("version")
     path = request.args["path"]
     path = validate_path_is_safe(path)
     artifact_uri = _get_model_registry_store().get_model_version_download_uri(name, version)
+    if request.args.get("presigned") == "true" and RunsArtifactRepository.is_runs_uri(artifact_uri):
+        run_id, source_path = RunsArtifactRepository.parse_runs_uri(artifact_uri)
+        if urllib.parse.urlparse(artifact_uri).netloc:
+            raise MlflowException.invalid_parameter_value(
+                "Run artifact sources cannot include a host."
+            )
+        source_path = validate_path_is_safe(source_path or "")
+        # Use the workspace-scoped store directly: model-version READ is sufficient,
+        # even when the caller cannot read the source run through the tracking API.
+        run_root = _get_tracking_store().get_run(run_id).info.artifact_uri
+        artifact_uri = append_to_uri_path(run_root, source_path)
+        validate_artifact_uri_host(artifact_uri)
     if _is_servable_proxied_run_artifact_root(artifact_uri):
         artifact_repo = _get_artifact_repo_mlflow_artifacts()
         artifact_path = _get_proxied_run_artifact_destination_path(
@@ -3490,6 +3539,14 @@ def get_model_version_artifact_handler():
         artifact_repo = _get_artifact_repository_for_uri(artifact_uri)
         artifact_path = path
 
+    if request.args.get("presigned") == "true":
+        # This route already checks model-version READ permission, independently of
+        # access to the source run. Signing must retain that authorization boundary.
+        _validate_support_presigned_download(artifact_repo)
+        presigned = artifact_repo.get_download_presigned_url(
+            artifact_path, expiration=MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS.get()
+        )
+        return jsonify(presigned.to_dict())
     return _send_artifact(artifact_repo, artifact_path)
 
 
@@ -3984,6 +4041,7 @@ def _get_workspace_scoped_repo_path_if_enabled(artifact_path: str | None) -> str
 
 @catch_mlflow_exception
 @_disable_unless_serve_artifacts
+@_disable_if_artifacts_presigned_only()
 def _download_artifact(artifact_path):
     """
     A request handler for `GET /mlflow-artifacts/artifacts/<artifact_path>` to download an artifact
@@ -4005,14 +4063,26 @@ def _download_artifact(artifact_path):
         raise
 
 
+def _reject_skill_artifact_mutation(artifact_path: str) -> None:
+    from mlflow.store.tracking.skill_registry.artifact_paths import is_skill_upload_namespace
+
+    if is_skill_upload_namespace(artifact_path):
+        raise MlflowException(
+            "Skill upload content is immutable; register a new version instead",
+            error_code=PERMISSION_DENIED,
+        )
+
+
 @catch_mlflow_exception
 @_disable_unless_serve_artifacts
+@_disable_if_artifacts_presigned_only(upload=True)
 def _upload_artifact(artifact_path):
     """
     A request handler for `PUT /mlflow-artifacts/artifacts/<artifact_path>` to upload an artifact
     to `artifact_path` (a relative path from the root artifact directory).
     """
     artifact_path = validate_path_is_safe(artifact_path)
+    _reject_skill_artifact_mutation(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
     head, tail = posixpath.split(artifact_path)
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
@@ -4061,6 +4131,7 @@ def _delete_artifact_mlflow_artifacts(artifact_path):
     `path` (a relative path from the root artifact directory).
     """
     artifact_path = validate_path_is_safe(artifact_path)
+    _reject_skill_artifact_mutation(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
     _get_request_message(DeleteArtifact())
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
@@ -4265,6 +4336,7 @@ def _create_multipart_upload_artifact(artifact_path):
     to `artifact_path` (a relative path from the root artifact directory).
     """
     artifact_path = validate_path_is_safe(artifact_path)
+    _reject_skill_artifact_mutation(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
 
     request_message = _get_request_message(
@@ -4274,8 +4346,9 @@ def _create_multipart_upload_artifact(artifact_path):
             "num_parts": [_assert_intlike],
         },
     )
-    path = request_message.path
+    path = validate_path_is_safe(request_message.path)
     num_parts = request_message.num_parts
+    _reject_skill_artifact_mutation(posixpath.join(artifact_path, path))
 
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     _validate_support_multipart_upload(artifact_repo)
@@ -4299,6 +4372,7 @@ def _complete_multipart_upload_artifact(artifact_path):
     to `artifact_path` (a relative path from the root artifact directory).
     """
     artifact_path = validate_path_is_safe(artifact_path)
+    _reject_skill_artifact_mutation(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
 
     request_message = _get_request_message(
@@ -4309,9 +4383,10 @@ def _complete_multipart_upload_artifact(artifact_path):
             "parts": [_assert_required],
         },
     )
-    path = request_message.path
+    path = validate_path_is_safe(request_message.path)
     upload_id = request_message.upload_id
     parts = [MultipartUploadPart.from_proto(part) for part in request_message.parts]
+    _reject_skill_artifact_mutation(posixpath.join(artifact_path, path))
 
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     _validate_support_multipart_upload(artifact_repo)
@@ -4333,6 +4408,7 @@ def _abort_multipart_upload_artifact(artifact_path):
     to `artifact_path` (a relative path from the root artifact directory).
     """
     artifact_path = validate_path_is_safe(artifact_path)
+    _reject_skill_artifact_mutation(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
 
     request_message = _get_request_message(
@@ -4342,8 +4418,9 @@ def _abort_multipart_upload_artifact(artifact_path):
             "upload_id": [_assert_string],
         },
     )
-    path = request_message.path
+    path = validate_path_is_safe(request_message.path)
     upload_id = request_message.upload_id
+    _reject_skill_artifact_mutation(posixpath.join(artifact_path, path))
 
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     _validate_support_multipart_upload(artifact_repo)
@@ -5000,6 +5077,16 @@ def _delete_assessment(trace_id, assessment_id):
     return _wrap_response(response_message)
 
 
+def _validate_issue_last_seen_timestamp(value):
+    # Protobuf JSON also accepts decimal strings for int64 fields.
+    if isinstance(value, str):
+        try:
+            value = int(value)
+        except ValueError:
+            pass
+    validate_issue_fields(last_seen_timestamp=value)
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _create_issue():
@@ -5012,7 +5099,21 @@ def _create_issue():
             "name": [_assert_required, _assert_string],
             "description": [_assert_required, _assert_string],
             "experiment_id": [_assert_required, _assert_string],
+            "status": [_assert_string],
+            "severity": [_assert_string],
+            "root_causes": [_assert_array, _assert_item_type_string],
+            "source_run_id": [_assert_string],
+            "created_by": [_assert_string],
+            "categories": [_assert_array, _assert_item_type_string],
+            "issue_id": [_assert_string],
+            "last_seen_timestamp": [_validate_issue_last_seen_timestamp],
+            "metadata": [lambda value: validate_issue_fields(metadata=value)],
         },
+    )
+
+    validate_issue_fields(
+        status=request_message.status if request_message.HasField("status") else None,
+        severity=request_message.severity if request_message.HasField("severity") else None,
     )
 
     # Build kwargs for create_issue
@@ -5023,7 +5124,7 @@ def _create_issue():
         "source_run_id": request_message.source_run_id or None,
         "root_causes": list(request_message.root_causes) or None,
         "categories": list(request_message.categories) or None,
-        "created_by": request_message.created_by or None,
+        "created_by": _get_request_username() or request_message.created_by or None,
     }
 
     if request_message.HasField("status"):
@@ -5031,6 +5132,11 @@ def _create_issue():
     if request_message.HasField("severity"):
         create_kwargs["severity"] = IssueSeverity(request_message.severity)
 
+    for field in ("issue_id", "last_seen_timestamp"):
+        if request_message.HasField(field):
+            create_kwargs[field] = getattr(request_message, field)
+    if request_message.metadata:
+        create_kwargs["metadata"] = dict(request_message.metadata)
     created_issue = _get_tracking_store().create_issue(**create_kwargs)
 
     response_message = CreateIssue.Response(issue=created_issue.to_proto())
@@ -5046,8 +5152,22 @@ def _update_issue(issue_id):
     request_message = _get_request_message(
         UpdateIssue(),
         schema={
-            "issue_id": [_assert_required],
+            "issue_id": [_assert_required, _assert_string],
+            "name": [_assert_string],
+            "description": [_assert_string],
+            "status": [_assert_string],
+            "severity": [_assert_string],
+            "categories": [_assert_array, _assert_item_type_string],
+            "last_seen_timestamp": [_validate_issue_last_seen_timestamp],
+            "last_updated_by": [_assert_string],
+            "metadata": [lambda value: validate_issue_fields(metadata=value)],
+            "delete_metadata_keys": [_assert_array, _assert_item_type_string],
         },
+    )
+
+    validate_issue_fields(
+        status=request_message.status if request_message.HasField("status") else None,
+        severity=request_message.severity if request_message.HasField("severity") else None,
     )
 
     status = IssueStatus(request_message.status) if request_message.HasField("status") else None
@@ -5055,12 +5175,26 @@ def _update_issue(issue_id):
         IssueSeverity(request_message.severity) if request_message.HasField("severity") else None
     )
 
+    options = {}
+    if _get_normalized_request_json().get("categories") is not None:
+        options["categories"] = list(request_message.categories)
+    if request_message.HasField("last_seen_timestamp"):
+        options["last_seen_timestamp"] = request_message.last_seen_timestamp
+    if actor := _get_request_username() or request_message.last_updated_by:
+        options["last_updated_by"] = actor
+    if request_message.metadata:
+        options["metadata"] = dict(request_message.metadata)
+    if request_message.delete_metadata_keys:
+        options["delete_metadata_keys"] = list(request_message.delete_metadata_keys)
     updated_issue = _get_tracking_store().update_issue(
         issue_id=issue_id,
         status=status,
-        name=request_message.name or None,
-        description=request_message.description or None,
+        name=request_message.name if request_message.HasField("name") else None,
+        description=request_message.description
+        if request_message.HasField("description")
+        else None,
         severity=severity,
+        **options,
     )
 
     response_message = UpdateIssue.Response(issue=updated_issue.to_proto())
@@ -5085,7 +5219,23 @@ def _search_issues():
     """
     A request handler for `POST /mlflow/issues/search` to search for issues.
     """
-    request_message = _get_request_message(SearchIssues())
+    request_message = _get_request_message(
+        SearchIssues(),
+        schema={
+            "experiment_id": [_assert_string],
+            "filter_string": [_assert_string],
+            "max_results": [_assert_intlike],
+            "page_token": [_assert_string],
+            "include_trace_count": [_assert_bool],
+            "name": [_assert_string],
+            "statuses": [_assert_array, _assert_item_type_string],
+            "severities": [_assert_array, _assert_item_type_string],
+            "categories": [_assert_array, _assert_item_type_string],
+            "order_by": [_assert_array, _assert_item_type_string],
+            "include_total_count": [_assert_bool],
+            "view": [_assert_string],
+        },
+    )
 
     # Build kwargs for search_issues
     search_kwargs = {
@@ -5100,11 +5250,19 @@ def _search_issues():
     if request_message.HasField("include_trace_count"):
         search_kwargs["include_trace_count"] = request_message.include_trace_count
 
+    for field in ("name", "view", "include_total_count"):
+        if request_message.HasField(field):
+            search_kwargs[field] = getattr(request_message, field)
+    for field in ("statuses", "severities", "categories", "order_by"):
+        if values := list(getattr(request_message, field)):
+            search_kwargs[field] = values
     issues = _get_tracking_store().search_issues(**search_kwargs)
 
     issue_protos = [issue.to_proto() for issue in issues]
     response_message = SearchIssues.Response(
-        issues=issue_protos, next_page_token=issues.token or ""
+        issues=issue_protos,
+        next_page_token=issues.token or "",
+        total_count=issues.total_count if request_message.include_total_count else None,
     )
     return _wrap_response(response_message)
 
@@ -5899,6 +6057,7 @@ def _deprecated_search_traces_v2():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_artifacts_presigned_only(allow_presigned=True)
 def get_logged_model_artifact_handler(model_id: str):
     artifact_file_path = request.args.get("artifact_file_path")
     if not artifact_file_path:
@@ -5920,6 +6079,12 @@ def get_logged_model_artifact_handler(model_id: str):
         artifact_repo = _get_artifact_repository_for_uri(logged_model.artifact_location)
         artifact_path = artifact_file_path
 
+    if request.args.get("presigned") == "true":
+        _validate_support_presigned_download(artifact_repo)
+        presigned = artifact_repo.get_download_presigned_url(
+            artifact_path, expiration=MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS.get()
+        )
+        return jsonify(presigned.to_dict())
     return _send_artifact(artifact_repo, artifact_path)
 
 
@@ -7463,39 +7628,66 @@ def build_server_info_payload() -> dict[str, Any]:
     # This JSON is returned with no login, including when basic auth is on.
     # Clients use it to learn how the server is set up before they authenticate.
     # Do not add secrets, credentials, tenant data, or internal addresses.
+    from mlflow.server import ARTIFACTS_ONLY_ENV_VAR
     from mlflow.store.tracking.file_store import FileStore
     from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
-    store = _get_tracking_store()
+    # The limits a skill upload is checked against, so a client can refuse an oversized folder
+    # before packaging it. A malformed limit setting leaves them out rather than failing the
+    # whole response, which every client reads at startup.
     try:
-        trace_archival_config = get_trace_archival_server_config()
+        skill_content_limits = {
+            SERVER_INFO_SKILL_CONTENT_MAX_SIZE: get_max_decompressed_size(),
+            SERVER_INFO_SKILL_CONTENT_MAX_FILES: MAX_ARCHIVE_ENTRIES,
+        }
     except Exception:
         _logger.warning(
-            "Failed to load trace archival config while serving server-info; "
-            + "defaulting to disabled.",
+            "Invalid skill content size limit while serving server-info; leaving it out.",
             exc_info=True,
         )
-        trace_archival_config = None
-    trace_archival_enabled = bool(
-        trace_archival_config
-        and trace_archival_config.enabled
-        and _store_supports_trace_archival(store)
-    )
+        skill_content_limits = {}
 
-    if isinstance(store, FileStore):
-        store_type = "FileStore"
-    elif isinstance(store, SqlAlchemyStore):
-        store_type = "SqlStore"
-    else:
+    if os.environ.get(ARTIFACTS_ONLY_ENV_VAR):
         store_type = None
+        trace_archival_enabled = False
+    else:
+        store = _get_tracking_store()
+        try:
+            trace_archival_config = get_trace_archival_server_config()
+        except Exception:
+            _logger.warning(
+                "Failed to load trace archival config while serving server-info; "
+                + "defaulting to disabled.",
+                exc_info=True,
+            )
+            trace_archival_config = None
+        trace_archival_enabled = bool(
+            trace_archival_config
+            and trace_archival_config.enabled
+            and _store_supports_trace_archival(store)
+        )
+
+        if isinstance(store, FileStore):
+            store_type = "FileStore"
+        elif isinstance(store, SqlAlchemyStore):
+            store_type = "SqlStore"
+        else:
+            store_type = None
 
     multipart_uploads_enabled = False
     multipart_downloads_enabled = False
     if _is_serving_proxied_artifacts():
         try:
             artifact_repo = _get_artifact_repo_mlflow_artifacts()
-            multipart_uploads_enabled = isinstance(artifact_repo, MultipartUploadMixin)
-            multipart_downloads_enabled = isinstance(artifact_repo, MultipartDownloadMixin)
+            # Multipart transfers use presigned URLs that clients access directly, bypassing the
+            # proxy, so they're only advertised when the server operator opts in.
+            multipart_uploads_enabled = MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD.get() and isinstance(
+                artifact_repo, MultipartUploadMixin
+            )
+            multipart_downloads_enabled = (
+                MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD.get()
+                and isinstance(artifact_repo, MultipartDownloadMixin)
+            )
         except Exception:
             _logger.debug(
                 "Failed to resolve artifact repo for multipart capability advertisement; "
@@ -7509,12 +7701,20 @@ def build_server_info_payload() -> dict[str, Any]:
         SERVER_INFO_TRACE_ARCHIVAL_ENABLED: trace_archival_enabled,
         SERVER_INFO_MULTIPART_UPLOADS_ENABLED: multipart_uploads_enabled,
         SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED: multipart_downloads_enabled,
+        # Whether the server proxies artifact storage (`--serve-artifacts`), which content the
+        # server stores itself, such as uploaded skills, requires. Unlike the multipart flags, it
+        # doesn't depend on the artifact repository's capabilities.
+        SERVER_INFO_ARTIFACT_SERVING_ENABLED: _is_serving_proxied_artifacts(),
+        **skill_content_limits,
         # These advertise request-contract support; repository support is checked per resource.
         SERVER_INFO_PRESIGNED_UPLOAD_RUN_ID_SUPPORTED: True,
         SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED: True,
+        SERVER_INFO_MODEL_ARTIFACT_PRESIGNED_DOWNLOADS_SUPPORTED: True,
         SERVER_INFO_FEATURES_ENABLED: {
             "gateway": MLFLOW_ENABLE_AI_GATEWAY.get(),
         },
+        SERVER_INFO_TRACKING_AUTH: MLFLOW_SERVER_INFO_TRACKING_AUTH.get() or "",
+        SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY: MLFLOW_ARTIFACTS_PRESIGNED_ONLY.get(),
     }
 
 

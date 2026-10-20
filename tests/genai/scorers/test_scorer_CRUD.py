@@ -12,6 +12,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Guidelines, Scorer, scorer
 from mlflow.genai.scorers.base import (
     SCORER_BACKEND_DATABRICKS,
+    SCORER_CANONICAL_RESOURCE_TYPE_DATABRICKS,
     ScorerSamplingConfig,
     ScorerStatus,
 )
@@ -117,58 +118,82 @@ def test_mlflow_backend_scorer_operations():
         mlflow.delete_experiment(experiment_id)
 
 
-def test_databricks_backend_list_and_get_use_databricks_agents():
-    # Mock the scheduled scorer responses
-    mock_scheduled_scorer = Mock()
-    mock_scheduled_scorer.scorer = Guidelines(
+def test_databricks_backend_list_and_get_use_scheduled_scorer_configs():
+    scorer = Guidelines(
         name="test_databricks_scorer",
         guidelines=["Be concise"],
         model="databricks:/judge",
     )
-    mock_scheduled_scorer.sample_rate = 0.5
-    mock_scheduled_scorer.filter_string = "test_filter"
+    scorer_key = DatabricksStore._scorer_resource_key(scorer.name)
+    expected_resource_name = f"experiments/exp_123/scorers/{scorer_key}/versions/4"
 
     with (
         patch("mlflow.genai.scorers.registry._get_scorer_store") as mock_get_store,
         patch("mlflow.genai.scorers.registry._get_store") as mock_tracking_store,
-        patch(
-            "mlflow.genai.scorers.registry.DatabricksStore.list_scheduled_scorers",
-            return_value=[mock_scheduled_scorer],
-        ) as mock_list,
-        patch(
-            "mlflow.genai.scorers.registry.DatabricksStore.get_scheduled_scorer",
-            return_value=mock_scheduled_scorer,
-        ) as mock_get,
+        patch("mlflow.genai.scorers.registry.get_databricks_host_creds", return_value="creds"),
         patch("mlflow.genai.scorers.registry.http_request") as mock_http,
     ):
-        mock_store = DatabricksStore()
-        mock_get_store.return_value = mock_store
+        mock_http.return_value = _scheduled_scorers_response([
+            _scorer_config(scorer, version=4, sample_rate=0.5, filter_string="test_filter")
+        ])
+        mock_get_store.return_value = DatabricksStore()
         mock_tracking_store.return_value.get_experiment.return_value = Mock(
             experiment_id="exp_123",
             lifecycle_stage=LifecycleStage.ACTIVE,
         )
 
         scorers = list_scorers(experiment_id="exp_123")
-        assert scorers[0].name == "test_databricks_scorer"
-        assert scorers[0]._sampling_config == ScorerSamplingConfig(
-            sample_rate=0.5, filter_string="test_filter"
-        )
-        assert scorers[0]._experiment_id == "exp_123"
-        assert scorers[0].scorer_version is None
-        assert scorers[0].canonical_resource_name is None
-        assert scorers[0].canonical_resource_name_type is None
-        assert len(scorers) == 1
-        mock_list.assert_called_once_with("exp_123")
         mock_tracking_store.return_value.get_experiment.assert_called_once_with("exp_123")
+        mock_tracking_store.return_value.get_experiment.reset_mock()
 
         retrieved_scorer = get_scorer(name="test_databricks_scorer", experiment_id="exp_123")
-        assert retrieved_scorer.name == "test_databricks_scorer"
-        assert retrieved_scorer.scorer_version is None
-        assert retrieved_scorer.canonical_resource_name is None
-        assert retrieved_scorer.canonical_resource_name_type is None
-        mock_get.assert_called_once_with("test_databricks_scorer", "exp_123")
+        # Like the versioned path, loading a single scorer doesn't check the experiment state.
+        mock_tracking_store.return_value.get_experiment.assert_not_called()
 
-        mock_http.assert_not_called()
+    assert len(scorers) == 1
+    for loaded in (scorers[0], retrieved_scorer):
+        assert loaded.name == "test_databricks_scorer"
+        assert loaded._sampling_config == ScorerSamplingConfig(
+            sample_rate=0.5, filter_string="test_filter"
+        )
+        assert loaded._experiment_id == "exp_123"
+        assert loaded.scorer_version == 4
+        assert loaded.canonical_resource_name == expected_resource_name
+        assert loaded.canonical_resource_name_type == SCORER_CANONICAL_RESOURCE_TYPE_DATABRICKS
+    assert [call.kwargs["method"] for call in mock_http.call_args_list] == ["GET", "GET"]
+    assert {call.kwargs["endpoint"] for call in mock_http.call_args_list} == {
+        "/api/2.0/managed-evals/scheduled-scorers/exp_123"
+    }
+
+
+@pytest.mark.parametrize("operation", ["list_scorers", "get_scorer"])
+def test_databricks_backend_current_scorer_without_version_has_no_resource_metadata(operation):
+    scorer = Guidelines(name="test_databricks_scorer", guidelines=["v1"], model="databricks:/judge")
+    config = _scorer_config(scorer)
+    config.pop("scorer_version")
+    config.pop("sample_rate")
+    store = DatabricksStore(tracking_uri="databricks")
+
+    with (
+        patch("mlflow.genai.scorers.registry._get_store") as mock_tracking_store,
+        patch("mlflow.genai.scorers.registry.get_databricks_host_creds", return_value="creds"),
+        patch("mlflow.genai.scorers.registry.http_request") as mock_http,
+    ):
+        mock_http.return_value = _scheduled_scorers_response([config])
+        mock_tracking_store.return_value.get_experiment.return_value = Mock(
+            experiment_id="exp_123",
+            lifecycle_stage=LifecycleStage.ACTIVE,
+        )
+        if operation == "list_scorers":
+            [loaded] = store.list_scorers("exp_123")
+        else:
+            loaded = store.get_scorer("exp_123", scorer.name)
+
+    assert loaded.scorer_version is None
+    assert loaded.canonical_resource_name is None
+    assert loaded.canonical_resource_name_type is None
+    assert loaded.sample_rate is None
+    assert loaded.status == ScorerStatus.STOPPED
 
 
 def test_mlflow_tracking_store_hydrate_clears_canonical_resource_metadata():
@@ -556,22 +581,28 @@ def test_databricks_backend_schedule_update_uses_explicit_or_active_experiment(
         mock_active_experiment.assert_not_called()
 
 
-@pytest.mark.parametrize(
-    ("operation", "kwargs", "agents_method"),
-    [
-        ("get_scorer", {}, "get_scheduled_scorer"),
-        ("delete_scorer", {"version": "all"}, "delete_scheduled_scorer"),
-    ],
-)
-def test_databricks_backend_agents_missing_scorer_uses_oss_error(operation, kwargs, agents_method):
+def test_databricks_backend_agents_missing_scorer_uses_oss_error():
     store = DatabricksStore(tracking_uri="databricks")
     with patch.object(
         DatabricksStore,
-        agents_method,
+        "delete_scheduled_scorer",
         side_effect=ValueError("No registered scorer found with name 'missing'"),
     ):
         with pytest.raises(MlflowException, match="Scorer with name 'missing' not found") as error:
-            getattr(store, operation)("exp_123", "missing", **kwargs)
+            store.delete_scorer("exp_123", "missing", version="all")
+
+    assert error.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_databricks_backend_get_latest_missing_scorer_uses_oss_error():
+    with (
+        patch("mlflow.genai.scorers.registry.get_databricks_host_creds", return_value="creds"),
+        patch("mlflow.genai.scorers.registry.http_request") as mock_http,
+    ):
+        mock_http.return_value = _scheduled_scorers_response([])
+        store = DatabricksStore(tracking_uri="databricks")
+        with pytest.raises(MlflowException, match="Scorer with name 'missing' not found") as error:
+            store.get_scorer("exp_123", "missing")
 
     assert error.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
@@ -628,7 +659,7 @@ def test_databricks_backend_list_scorers_rejects_deleted_experiment():
     )
     with (
         patch("mlflow.genai.scorers.registry._get_store", return_value=tracking_store),
-        patch.object(DatabricksStore, "list_scheduled_scorers", return_value=[]) as mock_list,
+        patch.object(DatabricksStore, "_list_current_scorer_configs", return_value=[]) as mock_list,
         pytest.raises(MlflowException, match="must be in the 'active' state") as error,
     ):
         DatabricksStore(tracking_uri="databricks").list_scorers("exp_123")

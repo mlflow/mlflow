@@ -881,6 +881,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   id: 'eval-monitor/scorers/custom/tutorial',
                   label: 'Tutorial: Develop code-based scorers',
                 },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/custom/job-containers',
+                  label: 'Run in Job Containers (Experimental)',
+                },
               ],
               collapsed: false,
             },
@@ -1315,6 +1320,29 @@ const sidebarsGenAI: SidebarsConfig = {
       link: {
         type: 'doc',
         id: 'flavors/index',
+      },
+    },
+    {
+      type: 'category',
+      label: 'Skill Registry',
+      className: 'sidebar-top-level-category',
+      items: [
+        {
+          type: 'doc',
+          id: 'skill-registry/register-and-import-skills',
+        },
+        {
+          type: 'doc',
+          id: 'skill-registry/manage-versions-and-aliases',
+        },
+        {
+          type: 'doc',
+          id: 'skill-registry/pull-skills',
+        },
+      ],
+      link: {
+        type: 'doc',
+        id: 'skill-registry/index',
       },
     },
     {

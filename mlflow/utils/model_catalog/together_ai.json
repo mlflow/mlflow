@@ -529,7 +529,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-22"
+      "last_updated_at": "2026-10-14"
     },
     "Qwen/Qwen3.7-Plus": {
       "mode": "chat",
@@ -815,7 +815,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-09"
+      "deprecation_date": "2026-10-22",
+      "last_updated_at": "2026-10-14"
     },
     "deepseek-ai/DeepSeek-V4-Pro": {
       "mode": "chat",
@@ -876,6 +877,26 @@
         "response_schema": true
       },
       "last_updated_at": "2026-09-17"
+    },
+    "deepseek-ai/DeepSeek-V4.1-Flash-1017": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_tokens": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 1.2,
+        "cache_read_per_million_tokens": 0.006
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-19"
     },
     "deepseek-ai/deepseek-coder-33b-instruct": {
       "mode": "chat",
@@ -1078,7 +1099,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-31"
+      "deprecation_date": "2026-10-22",
+      "last_updated_at": "2026-10-14"
     },
     "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free": {
       "mode": "chat",
@@ -1278,6 +1300,26 @@
         "response_schema": false
       },
       "last_updated_at": "2026-08-31"
+    },
+    "meta-models/Muse-Spark-Open-816B-A42B": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_tokens": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 4.25,
+        "cache_read_per_million_tokens": 0.15
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-16"
     },
     "mistralai/Ministral-3-14B-Instruct-2512": {
       "mode": "chat",
@@ -1490,9 +1532,9 @@
         "max_tokens": 1048576
       },
       "pricing": {
-        "input_per_million_tokens": 2.7,
-        "output_per_million_tokens": 13.5,
-        "cache_read_per_million_tokens": 0.27
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 15.0,
+        "cache_read_per_million_tokens": 0.3
       },
       "capabilities": {
         "function_calling": true,
@@ -1501,7 +1543,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-07"
+      "last_updated_at": "2026-10-14"
     },
     "nvidia/Llama-3.1-Nemotron-70B-Instruct-HF": {
       "mode": "chat",
@@ -1521,6 +1563,26 @@
         "response_schema": false
       },
       "last_updated_at": "2026-09-24"
+    },
+    "nvidia/NVIDIA-Nemotron-3.5-Super-VL": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_tokens": 262144
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.5,
+        "cache_read_per_million_tokens": 0.02
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-16"
     },
     "nvidia/NVIDIA-Nemotron-Nano-9B-v2": {
       "mode": "chat",
@@ -1617,6 +1679,26 @@
         "response_schema": false
       },
       "last_updated_at": "2026-08-26"
+    },
+    "reflection/Beam-1.0-501B-A23B": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_tokens": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.4,
+        "output_per_million_tokens": 1.2,
+        "cache_read_per_million_tokens": 0.04
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-19"
     },
     "thinkingmachines/Inkling": {
       "mode": "chat",
@@ -1789,8 +1871,7 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.042,
-        "output_per_million_tokens": 0.0,
-        "cache_read_per_million_tokens": 0.042
+        "output_per_million_tokens": 0.0
       },
       "capabilities": {
         "function_calling": false,
@@ -1799,7 +1880,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-24"
+      "last_updated_at": "2026-10-13"
     },
     "togethercomputer/CodeLlama-34b-Instruct": {
       "mode": "chat",

@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 import pytest
-from flask import Response, request
+from flask import Response, g, request
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from werkzeug.exceptions import RequestedRangeNotSatisfiable
 
@@ -172,10 +172,12 @@ from mlflow.server.handlers import (
     STATIC_PREFIX_ENV_VAR,
     ModelRegistryStoreRegistryWrapper,
     TrackingStoreRegistryWrapper,
+    _abort_multipart_upload_artifact,
     _batch_get_trace_infos,
     _batch_get_traces,
     _calculate_trace_filter_correlation,
     _cancel_prompt_optimization_job,
+    _complete_multipart_upload_artifact,
     _convert_path_parameter_to_flask_format,
     _create_artifact_file_response,
     _create_dataset_handler,
@@ -183,6 +185,7 @@ from mlflow.server.handlers import (
     _create_gateway_secret,
     _create_issue,
     _create_model_version,
+    _create_multipart_upload_artifact,
     _create_presigned_download_url,
     _create_presigned_upload_url,
     _create_prompt_optimization_job,
@@ -279,6 +282,7 @@ from mlflow.server.handlers import (
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
+    MultipartDownloadMixin,
     PresignedUploadMixin,
 )
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
@@ -290,6 +294,7 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
+from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore as RegistryStore
 from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.telemetry.schemas import Record, Status
@@ -300,10 +305,15 @@ from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION, MLFLOW_CUSTOM_VIE
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds
 from mlflow.utils.server_info import (
+    SERVER_INFO_ARTIFACT_SERVING_ENABLED,
+    SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY,
+    SERVER_INFO_MODEL_ARTIFACT_PRESIGNED_DOWNLOADS_SUPPORTED,
     SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
     SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
     SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED,
     SERVER_INFO_PRESIGNED_UPLOAD_RUN_ID_SUPPORTED,
+    SERVER_INFO_SKILL_CONTENT_MAX_FILES,
+    SERVER_INFO_SKILL_CONTENT_MAX_SIZE,
     SERVER_INFO_STORE_TYPE,
     SERVER_INFO_TRACE_ARCHIVAL_ENABLED,
     SERVER_INFO_WORKSPACES_ENABLED,
@@ -479,6 +489,17 @@ def test_server_info():
         assert data[SERVER_INFO_TRACE_ARCHIVAL_ENABLED] is False
         assert data[SERVER_INFO_PRESIGNED_UPLOAD_RUN_ID_SUPPORTED] is True
         assert data[SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED] is True
+        assert data[SERVER_INFO_MODEL_ARTIFACT_PRESIGNED_DOWNLOADS_SUPPORTED] is True
+
+
+def test_server_info_advertises_configured_tracking_auth(monkeypatch):
+    monkeypatch.delenv("MLFLOW_SERVER_INFO_TRACKING_AUTH", raising=False)
+    monkeypatch.setenv("MLFLOW_TRACKING_AUTH", "server-outbound-provider")
+    with app.test_client() as c:
+        assert c.get("/api/3.0/mlflow/server-info").get_json()["tracking_auth"] == ""
+
+        monkeypatch.setenv("MLFLOW_SERVER_INFO_TRACKING_AUTH", "kubernetes")
+        assert c.get("/api/3.0/mlflow/server-info").get_json()["tracking_auth"] == "kubernetes"
 
 
 def test_server_info_trace_archival_enabled(monkeypatch):
@@ -530,9 +551,22 @@ def test_server_info_multipart_capabilities_disabled_by_default():
         data = response.get_json()
         assert data[SERVER_INFO_MULTIPART_UPLOADS_ENABLED] is False
         assert data[SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED] is False
+        assert data[SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY] is False
 
 
-def test_server_info_multipart_capabilities_with_multipart_backend(monkeypatch):
+def test_server_info_advertises_presigned_only_mode(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_PRESIGNED_ONLY", "true")
+
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/server-info")
+
+    assert response.status_code == 200
+    assert response.get_json()[SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY] is True
+
+
+def test_server_info_artifacts_only_skips_tracking_store_and_advertises_artifact_capabilities(
+    monkeypatch,
+):
     from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin, MultipartUploadMixin
 
     class _FakeMultipartArtifactRepo(MultipartUploadMixin, MultipartDownloadMixin):
@@ -548,6 +582,69 @@ def test_server_info_multipart_capabilities_with_multipart_backend(monkeypatch):
         def get_download_presigned_url(self, artifact_path, expiration=300):
             raise NotImplementedError
 
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "true")
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", "true")
+    monkeypatch.setenv(ARTIFACTS_ONLY_ENV_VAR, "true")
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_PRESIGNED_ONLY", "true")
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_get_tracking_store,
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
+            return_value=_FakeMultipartArtifactRepo(),
+        ) as mock_get_artifact_repo,
+        app.test_client() as client,
+    ):
+        response = client.get("/api/3.0/mlflow/server-info")
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data[SERVER_INFO_STORE_TYPE] is None
+    assert data[SERVER_INFO_TRACE_ARCHIVAL_ENABLED] is False
+    assert data[SERVER_INFO_MULTIPART_UPLOADS_ENABLED] is True
+    assert data[SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED] is True
+    assert data[SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY] is True
+    mock_get_tracking_store.assert_not_called()
+    mock_get_artifact_repo.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("upload_env", "download_env", "expected_uploads", "expected_downloads"),
+    [
+        (None, None, False, False),
+        ("true", None, True, False),
+        (None, "true", False, True),
+        ("true", "true", True, True),
+        ("false", "false", False, False),
+    ],
+)
+def test_server_info_multipart_capabilities_with_multipart_backend(
+    monkeypatch, upload_env, download_env, expected_uploads, expected_downloads
+):
+    from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin, MultipartUploadMixin
+
+    class _FakeMultipartArtifactRepo(MultipartUploadMixin, MultipartDownloadMixin):
+        def create_multipart_upload(self, local_file, num_parts, artifact_path=None):
+            raise NotImplementedError
+
+        def complete_multipart_upload(self, local_file, upload_id, parts, artifact_path=None):
+            raise NotImplementedError
+
+        def abort_multipart_upload(self, local_file, upload_id, artifact_path=None):
+            raise NotImplementedError
+
+        def get_download_presigned_url(self, artifact_path, expiration=300):
+            raise NotImplementedError
+
+    for name, value in [
+        ("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", upload_env),
+        ("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", download_env),
+    ]:
+        if value is None:
+            monkeypatch.delenv(name, raising=False)
+        else:
+            monkeypatch.setenv(name, value)
     monkeypatch.setattr("mlflow.server.handlers._is_serving_proxied_artifacts", lambda: True)
     monkeypatch.setattr(
         "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
@@ -558,11 +655,13 @@ def test_server_info_multipart_capabilities_with_multipart_backend(monkeypatch):
         response = c.get("/api/3.0/mlflow/server-info")
         assert response.status_code == 200
         data = response.get_json()
-        assert data[SERVER_INFO_MULTIPART_UPLOADS_ENABLED] is True
-        assert data[SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED] is True
+        assert data[SERVER_INFO_MULTIPART_UPLOADS_ENABLED] is expected_uploads
+        assert data[SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED] is expected_downloads
 
 
 def test_server_info_multipart_capabilities_with_local_backend(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "true")
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", "true")
     monkeypatch.setattr("mlflow.server.handlers._is_serving_proxied_artifacts", lambda: True)
     monkeypatch.setattr(
         "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
@@ -575,6 +674,52 @@ def test_server_info_multipart_capabilities_with_local_backend(monkeypatch):
         data = response.get_json()
         assert data[SERVER_INFO_MULTIPART_UPLOADS_ENABLED] is False
         assert data[SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED] is False
+
+
+def test_server_info_artifact_serving_disabled_by_default():
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/server-info")
+        assert response.status_code == 200
+        assert response.get_json()[SERVER_INFO_ARTIFACT_SERVING_ENABLED] is False
+
+
+def test_server_info_artifact_serving_does_not_depend_on_multipart_support(monkeypatch):
+    monkeypatch.setattr("mlflow.server.handlers._is_serving_proxied_artifacts", lambda: True)
+    # A local artifact repository supports no multipart operations.
+    monkeypatch.setattr(
+        "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
+        lambda: mock.Mock(spec=[]),
+    )
+
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/server-info")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data[SERVER_INFO_ARTIFACT_SERVING_ENABLED] is True
+        assert data[SERVER_INFO_MULTIPART_UPLOADS_ENABLED] is False
+
+
+def test_server_info_reports_skill_content_limits(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SKILL_CONTENT_MAX_DECOMPRESSED_SIZE", str(5 * 1024 * 1024))
+
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/server-info")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data[SERVER_INFO_SKILL_CONTENT_MAX_SIZE] == 5 * 1024 * 1024
+        assert data[SERVER_INFO_SKILL_CONTENT_MAX_FILES] == 10_000
+
+
+def test_server_info_omits_skill_content_limits_when_misconfigured(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SKILL_CONTENT_MAX_DECOMPRESSED_SIZE", "25MB")
+
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/server-info")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert SERVER_INFO_SKILL_CONTENT_MAX_SIZE not in data
+        assert SERVER_INFO_SKILL_CONTENT_MAX_FILES not in data
+        assert data[SERVER_INFO_STORE_TYPE] == "SqlStore"
 
 
 def test_server_info_multipart_capabilities_handles_repo_error(monkeypatch):
@@ -6843,6 +6988,255 @@ def test_send_artifact_falls_back_to_download_when_local_path_unavailable(tmp_pa
     mock_artifact_repo.download_artifacts.assert_called_once_with(artifact_path, dst_path=mock.ANY)
 
 
+@pytest.mark.parametrize("presigned_only", [False, True])
+@pytest.mark.parametrize("proxied", [False, True])
+def test_model_version_presigned_download_uses_registry_authorization(
+    monkeypatch, enable_serve_artifacts, presigned_only, proxied
+):
+    from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin
+
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_PRESIGNED_ONLY", str(presigned_only).lower())
+    monkeypatch.setenv("MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS", "30")
+    repo = mock.MagicMock(spec=MultipartDownloadMixin)
+    repo.get_download_presigned_url.return_value = PresignedDownloadUrlResponse(
+        url="https://storage.example/model", headers={"x-storage": "required"}, file_size=12
+    )
+    root = "mlflow-artifacts:/models/MyModel/1" if proxied else "s3://bucket/models/MyModel/1"
+    with (
+        app.test_request_context(
+            query_string={"name": "MyModel", "version": "1", "path": "MLmodel", "presigned": "true"}
+        ),
+        mock.patch("mlflow.server.handlers._get_model_registry_store") as registry,
+        mock.patch("mlflow.server.handlers._get_tracking_store") as tracking,
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repository_for_uri", return_value=repo
+        ) as direct_repo,
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts", return_value=repo
+        ) as proxy_repo,
+        mock.patch("mlflow.server.handlers._send_artifact") as send_artifact,
+    ):
+        registry.return_value.get_model_version_download_uri.return_value = root
+        response = get_model_version_artifact_handler()
+    assert response.status_code == 200
+    assert response.get_json() == {
+        "url": "https://storage.example/model",
+        "headers": {"x-storage": "required"},
+        "file_size": 12,
+    }
+    registry.assert_called_once()
+    registry.return_value.get_model_version_download_uri.assert_called_once_with("MyModel", "1")
+    repo.get_download_presigned_url.assert_called_once_with(
+        "models/MyModel/1/MLmodel" if proxied else "MLmodel", expiration=30
+    )
+    if proxied:
+        proxy_repo.assert_called_once()
+        direct_repo.assert_not_called()
+    else:
+        direct_repo.assert_called_once_with(root)
+        proxy_repo.assert_not_called()
+    tracking.assert_not_called()
+    send_artifact.assert_not_called()
+
+
+@pytest.mark.parametrize("presigned_only", [False, True])
+@pytest.mark.parametrize("proxied", [False, True])
+@pytest.mark.parametrize("workspace", [None, "team-red"])
+def test_model_version_signing_resolves_runs_source(
+    monkeypatch, enable_serve_artifacts, presigned_only, proxied, workspace, tmp_path
+):
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_PRESIGNED_ONLY", str(presigned_only).lower())
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", str(workspace is not None).lower())
+    monkeypatch.setenv("MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS", "30")
+    registry = RegistryStore(f"sqlite:///{tmp_path / 'registry.db'}")
+    run_id = "a" * 32
+    # The SQL registry retains this URI rather than resolving it when the version is created.
+    with WorkspaceContext(workspace):
+        registry.create_registered_model("RunsModel")
+        registry.create_model_version("RunsModel", f"runs:/{run_id}/model", run_id)
+        assert registry.get_model_version_download_uri("RunsModel", "1") == f"runs:/{run_id}/model"
+        root = f"mlflow-artifacts:/12/{run_id}/artifacts" if proxied else "s3://bucket/artifacts"
+        repo = mock.MagicMock(spec=MultipartDownloadMixin)
+        repo.get_download_presigned_url.return_value = PresignedDownloadUrlResponse(
+            url="https://storage.example/signed", headers={}, file_size=12
+        )
+        with (
+            app.test_request_context(
+                query_string={
+                    "name": "RunsModel",
+                    "version": "1",
+                    "path": "MLmodel",
+                    "presigned": "true",
+                }
+            ),
+            mock.patch(
+                "mlflow.server.handlers._get_model_registry_store", return_value=registry
+            ) as get_registry,
+            mock.patch("mlflow.server.handlers._get_tracking_store") as tracking,
+            mock.patch(
+                "mlflow.server.handlers._get_artifact_repository_for_uri", return_value=repo
+            ) as direct,
+            mock.patch(
+                "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts", return_value=repo
+            ) as proxy,
+            mock.patch("mlflow.server.handlers._send_artifact") as send,
+        ):
+            tracking.return_value.get_run.return_value = SimpleNamespace(
+                info=SimpleNamespace(artifact_uri=root)
+            )
+            response = get_model_version_artifact_handler()
+        assert response.status_code == 200
+        assert response.get_json()["url"] == "https://storage.example/signed"
+        get_registry.assert_called_once()
+        tracking.assert_called_once()
+        tracking.return_value.get_run.assert_called_once_with(run_id)
+        if proxied:
+            prefix = f"workspaces/{workspace}/" if workspace else ""
+            repo.get_download_presigned_url.assert_called_once_with(
+                f"{prefix}12/{run_id}/artifacts/model/MLmodel", expiration=30
+            )
+            proxy.assert_called_once()
+            direct.assert_not_called()
+        else:
+            direct.assert_called_once_with("s3://bucket/artifacts/model")
+            proxy.assert_not_called()
+            repo.get_download_presigned_url.assert_called_once_with("MLmodel", expiration=30)
+        send.assert_not_called()
+
+
+@pytest.mark.parametrize("root", ["hdfs://internal:8020/artifacts", "ftp://internal/artifacts"])
+def test_model_version_runs_source_retains_storage_host_validation(root, enable_serve_artifacts):
+    with (
+        app.test_request_context(
+            query_string={"name": "Model", "version": "1", "path": "MLmodel", "presigned": "true"}
+        ),
+        mock.patch("mlflow.server.handlers._get_model_registry_store") as registry,
+        mock.patch("mlflow.server.handlers._get_tracking_store") as tracking,
+        mock.patch("mlflow.server.handlers.get_artifact_repository") as get_repo,
+    ):
+        registry.return_value.get_model_version_download_uri.return_value = "runs:/run1/model"
+        tracking.return_value.get_run.return_value = SimpleNamespace(
+            info=SimpleNamespace(artifact_uri=root)
+        )
+        response = get_model_version_artifact_handler()
+    assert response.status_code == 400
+    registry.assert_called_once()
+    tracking.return_value.get_run.assert_called_once_with("run1")
+    get_repo.assert_not_called()
+
+
+@pytest.mark.parametrize("proxied", [False, True])
+@pytest.mark.parametrize("presigned_only", [False, True])
+def test_logged_model_presigned_request_never_streams_bytes(
+    monkeypatch, enable_serve_artifacts, proxied, presigned_only
+):
+    from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin
+
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_PRESIGNED_ONLY", str(presigned_only).lower())
+    monkeypatch.setenv("MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS", "30")
+    repo = mock.MagicMock(spec=MultipartDownloadMixin)
+    repo.get_download_presigned_url.return_value = PresignedDownloadUrlResponse(
+        url="https://storage.example/model", headers={}
+    )
+    root = (
+        "mlflow-artifacts:/12/models/m-1/artifacts"
+        if proxied
+        else "s3://bucket/models/m-1/artifacts"
+    )
+    with (
+        app.test_request_context(
+            query_string={"artifact_file_path": "MLmodel", "presigned": "true"}
+        ),
+        mock.patch("mlflow.server.handlers._get_tracking_store") as tracking,
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repository_for_uri", return_value=repo
+        ) as direct_repo,
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts", return_value=repo
+        ) as proxy_repo,
+        mock.patch("mlflow.server.handlers._send_artifact") as send_artifact,
+    ):
+        tracking.return_value.get_logged_model.return_value.artifact_location = root
+        response = get_logged_model_artifact_handler("m-1")
+    assert response.status_code == 200
+    assert response.get_json() == {"url": "https://storage.example/model", "headers": {}}
+    tracking.assert_called_once()
+    tracking.return_value.get_logged_model.assert_called_once_with("m-1")
+    repo.get_download_presigned_url.assert_called_once_with(
+        "12/models/m-1/artifacts/MLmodel" if proxied else "MLmodel", expiration=30
+    )
+    if proxied:
+        proxy_repo.assert_called_once()
+        direct_repo.assert_not_called()
+    else:
+        direct_repo.assert_called_once_with(root)
+        proxy_repo.assert_not_called()
+    send_artifact.assert_not_called()
+
+
+def test_model_version_presigned_request_cannot_fall_back_to_serving_bytes(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_PRESIGNED_ONLY", "true")
+    with (
+        app.test_request_context(
+            query_string={"name": "MyModel", "version": "1", "path": "MLmodel", "presigned": "true"}
+        ),
+        mock.patch("mlflow.server.handlers._get_model_registry_store") as registry,
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repository_for_uri",
+            return_value=mock.Mock(spec=LocalArtifactRepository),
+        ) as get_repo,
+        mock.patch("mlflow.server.handlers._send_artifact") as send_artifact,
+    ):
+        registry.return_value.get_model_version_download_uri.return_value = "file:///models"
+        response = get_model_version_artifact_handler()
+    assert response.status_code == 501
+    registry.assert_called_once()
+    get_repo.assert_called_once_with("file:///models")
+    send_artifact.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("handler", "args", "method"),
+    [
+        (get_artifact_handler, (), "GET"),
+        (get_model_version_artifact_handler, (), "GET"),
+        (get_logged_model_artifact_handler, ("model-1",), "GET"),
+        (_download_artifact, ("model.pkl",), "GET"),
+        (_upload_artifact, ("model.pkl",), "PUT"),
+        (upload_artifact_handler, (), "POST"),
+    ],
+)
+def test_presigned_only_rejects_at_endpoint_boundary(
+    monkeypatch, enable_serve_artifacts, handler, args, method
+):
+    from mlflow.version import VERSION
+
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_PRESIGNED_ONLY", "true")
+    with (
+        app.test_request_context(method=method, data=b"artifact bytes"),
+        mock.patch("mlflow.server.handlers._get_tracking_store") as tracking_store,
+        mock.patch("mlflow.server.handlers._get_model_registry_store") as registry_store,
+        mock.patch("mlflow.server.handlers._get_artifact_repo") as run_repo,
+        mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as proxy_repo,
+        mock.patch("mlflow.server.handlers.get_artifact_repository") as artifact_repo,
+    ):
+        response = handler(*args)
+
+    assert response.status_code == 403
+    body = response.get_json()
+    assert body["error_code"] == "PERMISSION_DENIED"
+    assert "Upgrade your MLflow client" in body["message"]
+    assert VERSION in body["message"]
+    assert ("downloaded" if method == "GET" else "uploaded") in body["message"]
+    assert body["artifacts_presigned_only"] is True
+    assert "reload the page" in body["message"]
+    tracking_store.assert_not_called()
+    registry_store.assert_not_called()
+    run_repo.assert_not_called()
+    proxy_repo.assert_not_called()
+    artifact_repo.assert_not_called()
+
+
 def test_create_artifact_file_response_uses_local_path_mimetype_and_artifact_name(tmp_path):
     test_file = tmp_path / "payload.html"
     test_file.write_text("<html><body>ok</body></html>")
@@ -6977,6 +7371,20 @@ def test_download_artifact_uses_local_path_fast_path(enable_serve_artifacts, tmp
     mock_tmp_dir.assert_not_called()
 
 
+def test_download_artifact_rejects_proxied_transfer_in_presigned_only_mode(
+    enable_serve_artifacts, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_PRESIGNED_ONLY", "true")
+
+    with app.test_request_context(method="GET"):
+        response = _download_artifact("model.pkl")
+
+    assert response.status_code == 403
+    body = response.get_json()
+    assert body["error_code"] == "PERMISSION_DENIED"
+    assert "Upgrade your MLflow client" in body["message"]
+
+
 def test_upload_artifact_uses_stream_upload_when_mixin_supported(enable_serve_artifacts):
     artifact_path = "nested/model.pkl"
     test_data = b"streamed artifact"
@@ -6999,6 +7407,20 @@ def test_upload_artifact_uses_stream_upload_when_mixin_supported(enable_serve_ar
     assert response.status_code == 200
 
 
+def test_upload_artifact_rejects_proxied_transfer_in_presigned_only_mode(
+    enable_serve_artifacts, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_PRESIGNED_ONLY", "true")
+
+    with app.test_request_context(method="PUT", data=b"proxied upload"):
+        response = _upload_artifact("model.pkl")
+
+    assert response.status_code == 403
+    body = response.get_json()
+    assert body["error_code"] == "PERMISSION_DENIED"
+    assert "Upgrade your MLflow client" in body["message"]
+
+
 def test_upload_artifact_falls_back_to_log_artifact_without_mixin(enable_serve_artifacts):
     artifact_path = "nested/model.pkl"
     test_data = b"streamed artifact"
@@ -7019,6 +7441,42 @@ def test_upload_artifact_falls_back_to_log_artifact_without_mixin(enable_serve_a
     assert args[0].endswith("model.pkl")
     assert kwargs["artifact_path"] == "nested"
     assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    ("handler", "method"),
+    [(_upload_artifact, "PUT"), (_delete_artifact_mlflow_artifacts, "DELETE")],
+)
+@pytest.mark.parametrize(
+    "path",
+    ["skills/private/token/SKILL.md", "%2e/workspaces/team-a/skills/private/token/SKILL.md"],
+)
+def test_skill_content_cannot_be_mutated_through_flask_artifact_handlers(
+    enable_serve_artifacts, handler, method, path
+):
+    with (
+        app.test_request_context(method=method, data=b"changed"),
+        mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as get_repo,
+    ):
+        response = handler(path)
+    assert response.status_code == 403
+    get_repo.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "handler",
+    [
+        _create_multipart_upload_artifact,
+        _complete_multipart_upload_artifact,
+        _abort_multipart_upload_artifact,
+    ],
+)
+def test_skill_content_cannot_be_mutated_through_multipart_artifact_handlers(
+    enable_serve_artifacts, handler
+):
+    with app.test_request_context(method="POST"):
+        response = handler("skills/private/token")
+    assert response.status_code == 403
 
 
 def test_download_artifact_streams_in_chunks(enable_serve_artifacts, tmp_path):
@@ -8324,6 +8782,26 @@ def test_upload_artifact_handler_applies_workspace_scoping(monkeypatch):
         assert logged_path.startswith("workspaces/team-purple/")
 
 
+def test_upload_artifact_handler_rejects_proxied_transfer_in_presigned_only_mode(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_PRESIGNED_ONLY", "true")
+
+    with (
+        app.test_request_context(
+            method="POST",
+            query_string={"run_uuid": "run1", "path": "output.txt"},
+            data=b"proxied upload",
+        ),
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+    ):
+        response = upload_artifact_handler()
+
+    assert response.status_code == 403
+    body = response.get_json()
+    assert body["error_code"] == "PERMISSION_DENIED"
+    assert "Upgrade your MLflow client" in body["message"]
+    mock_store.assert_not_called()
+
+
 def test_list_artifacts_for_proxied_run_artifact_root_applies_workspace_scoping(monkeypatch):
     from mlflow.store.artifact.artifact_repo import ArtifactRepository
 
@@ -9099,6 +9577,7 @@ def test_create_issue_with_all_fields():
     )
 
     with (
+        app.test_request_context(json={}),
         mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
         mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
     ):
@@ -9144,6 +9623,7 @@ def test_create_issue_without_optional_fields():
     )
 
     with (
+        app.test_request_context(json={}),
         mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
         mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
     ):
@@ -9178,6 +9658,7 @@ def test_create_issue_with_default_status():
     )
 
     with (
+        app.test_request_context(json={}),
         mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
         mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
     ):
@@ -9254,6 +9735,7 @@ def test_update_issue():
     )
 
     with (
+        app.test_request_context(json={}),
         mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
         mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
     ):
@@ -9474,6 +9956,7 @@ def test_create_issue_with_empty_lists():
     )
 
     with (
+        app.test_request_context(json={}),
         mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
         mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
     ):
@@ -11226,3 +11709,194 @@ def test_update_gateway_secret_rejects_model_list_in_auth_config(
     assert response.status_code == 400
     assert "auth_config must not contain 'model_list'" in json.loads(response.get_data())["message"]
     mock_tracking_store.update_gateway_secret.assert_not_called()
+
+
+def test_issue_handlers_extended_fields_and_authenticated_actor():
+    issue = Issue("iss-test", "0", "Title", "", IssueStatus.PENDING, 1, 1)
+    with (
+        app.test_request_context(
+            json={
+                "experiment_id": "0",
+                "name": "Title",
+                "description": "Details",
+                "issue_id": "iss-test",
+                "metadata": {"keep": "value"},
+                "last_seen_timestamp": "0",
+                "created_by": "untrusted",
+            }
+        ),
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+    ):
+        g.mlflow_authenticated_user = "authenticated"
+        mock_store.return_value.create_issue.return_value = issue
+        assert _create_issue().status_code == 200
+        kwargs = mock_store.return_value.create_issue.call_args.kwargs
+        assert kwargs["created_by"] == "authenticated"
+        assert kwargs["issue_id"] == "iss-test"
+        assert kwargs["metadata"] == {"keep": "value"}
+        assert kwargs["last_seen_timestamp"] == 0
+    with (
+        app.test_request_context(
+            json={
+                "issue_id": "iss-test",
+                "categories": [],
+                "description": "",
+                "metadata": {"new": "value"},
+                "delete_metadata_keys": ["owner"],
+                "last_updated_by": "untrusted",
+            }
+        ),
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+    ):
+        g.mlflow_authenticated_user = "editor"
+        mock_store.return_value.update_issue.return_value = issue
+        assert _update_issue("iss-test").status_code == 200
+        mock_store.return_value.update_issue.assert_called_once_with(
+            issue_id="iss-test",
+            status=None,
+            name=None,
+            description="",
+            severity=None,
+            categories=[],
+            last_updated_by="editor",
+            metadata={"new": "value"},
+            delete_metadata_keys=["owner"],
+        )
+
+
+def test_search_issues_extended_fields_and_total():
+    with (
+        app.test_request_context(
+            json={
+                "experiment_id": "0",
+                "name": "latency",
+                "statuses": ["pending", "resolved"],
+                "severities": ["high"],
+                "categories": ["cost"],
+                "order_by": ["status ASC"],
+                "view": "basic",
+                "include_total_count": True,
+            }
+        ),
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+    ):
+        mock_store.return_value.search_issues.return_value = PagedList([], None, total_count=0)
+        response = _search_issues()
+        assert json.loads(response.get_data())["total_count"] == 0
+        mock_store.return_value.search_issues.assert_called_once_with(
+            experiment_id="0",
+            filter_string=None,
+            page_token=None,
+            name="latency",
+            statuses=["pending", "resolved"],
+            severities=["high"],
+            categories=["cost"],
+            order_by=["status ASC"],
+            view="basic",
+            include_total_count=True,
+        )
+
+
+@pytest.mark.parametrize("status", ["unknown", ""])
+def test_issue_invalid_status_returns_400(status):
+    with app.test_request_context(
+        json={"experiment_id": "0", "name": "Title", "description": "Details", "status": status}
+    ):
+        response = _create_issue()
+        assert response.status_code == 400
+        assert json.loads(response.get_data())["error_code"] == "INVALID_PARAMETER_VALUE"
+
+
+@pytest.mark.parametrize(
+    ("operation", "invalid_fields"),
+    [
+        ("create", {"categories": "cost"}),
+        ("create", {"categories": ["cost", 1]}),
+        ("create", {"metadata": {"key": 1}}),
+        ("create", {"metadata": []}),
+        ("create", {"last_seen_timestamp": "invalid"}),
+        ("create", {"last_seen_timestamp": []}),
+        ("create", {"last_seen_timestamp": True}),
+        ("create", {"last_seen_timestamp": 1.5}),
+        ("create", {"last_seen_timestamp": 2**63}),
+        ("create", {"root_causes": ["cause", 1]}),
+        ("create", {"source_run_id": {}}),
+        ("update", {"categories": "cost"}),
+        ("update", {"categories": ["cost", 1]}),
+        ("update", {"metadata": {"key": 1}}),
+        ("update", {"metadata": {"valid": "value", "invalid": False}}),
+        ("update", {"metadata": []}),
+        ("update", {"delete_metadata_keys": "owner"}),
+        ("update", {"delete_metadata_keys": ["owner", 1]}),
+        ("update", {"last_seen_timestamp": "invalid"}),
+        ("update", {"last_seen_timestamp": {}}),
+        ("update", {"last_seen_timestamp": True}),
+        ("update", {"last_seen_timestamp": -1}),
+        ("update", {"name": []}),
+        ("update", {"description": {}}),
+        ("update", {"status": 1}),
+        ("search", {"statuses": "pending"}),
+        ("search", {"statuses": ["pending", 1]}),
+        ("search", {"severities": "high"}),
+        ("search", {"categories": "cost"}),
+        ("search", {"order_by": "name ASC"}),
+        ("search", {"include_total_count": "true"}),
+        ("search", {"include_trace_count": "true"}),
+        ("search", {"name": []}),
+        ("search", {"max_results": "invalid"}),
+    ],
+)
+def test_issue_handlers_reject_malformed_fields_before_store_access(operation, invalid_fields):
+    payload = {
+        "experiment_id": "0",
+        "issue_id": "iss-test",
+        "name": "Changed",
+        "description": "Details",
+        **invalid_fields,
+    }
+    with (
+        app.test_request_context(method="PATCH" if operation == "update" else "POST", json=payload),
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+    ):
+        match operation:
+            case "create":
+                response = _create_issue()
+            case "update":
+                response = _update_issue("iss-test")
+            case "search":
+                response = _search_issues()
+        assert response.status_code == 400
+        assert json.loads(response.get_data())["error_code"] == "INVALID_PARAMETER_VALUE"
+        mock_store.assert_not_called()
+
+
+@pytest.mark.parametrize("operation", ["create", "update"])
+@pytest.mark.parametrize("timestamp", [0, "0", 2**63 - 1, str(2**63 - 1), None])
+def test_issue_handlers_accept_int64_timestamps_and_omitted_optional_fields(operation, timestamp):
+    issue = Issue("iss-test", "0", "Title", "Details", IssueStatus.PENDING, 1, 1)
+    payload = {
+        "experiment_id": "0",
+        "issue_id": "iss-test",
+        "name": "Title",
+        "description": "Details",
+        "last_seen_timestamp": timestamp,
+        "metadata": None,
+        "categories": None,
+        "unknown_field": "ignored",
+    }
+    with (
+        app.test_request_context(method="PATCH" if operation == "update" else "POST", json=payload),
+        mock.patch(
+            "mlflow.server.handlers._get_tracking_store",
+            **{f"return_value.{operation}_issue.return_value": issue},
+        ) as mock_store,
+    ):
+        method = getattr(mock_store.return_value, f"{operation}_issue")
+        response = _create_issue() if operation == "create" else _update_issue("iss-test")
+        assert response.status_code == 200
+        method.assert_called_once()
+        if timestamp is None:
+            assert "last_seen_timestamp" not in method.call_args.kwargs
+        else:
+            assert method.call_args.kwargs["last_seen_timestamp"] == int(timestamp)
+        assert "metadata" not in method.call_args.kwargs
