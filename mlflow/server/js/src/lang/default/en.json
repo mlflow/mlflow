@@ -17683,10 +17683,6 @@
     "defaultMessage": "Prompt Caching",
     "description": "Filter option for prompt caching support"
   },
-  "y2Mv2a": {
-    "defaultMessage": "A detection run takes a while. Cancel only if it seems to have stopped making progress.",
-    "description": "Experiment issues tab > Guidance on when cancelling issue detection is appropriate"
-  },
   "y2oQyU": {
     "defaultMessage": "Model name",
     "description": "Header title for the model name column in the logged model list table"

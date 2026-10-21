@@ -84,7 +84,6 @@ export const ExperimentIssuesDetectionProgress = ({
         <CancelIssueDetectionButton
           componentId="mlflow.experiment-issues.detection-progress.cancel"
           onCancel={onCancelDetection}
-          isWhenToCancelShownOnPage
         />
         <Button
           componentId="mlflow.experiment-issues.detection-progress.go-to-traces"

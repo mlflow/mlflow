@@ -23,6 +23,15 @@ describe('ExperimentIssuesDetectionProgress', () => {
     expect(status).toHaveTextContent('you can leave this page and return later');
   });
 
+  test('keeps a spinner on the cancel button while the run goes', () => {
+    renderPanel(jest.fn<() => Promise<void>>());
+
+    // The spinner reports the run, not the cancel request, so the button spins and still works.
+    const cancel = screen.getByRole('button', { name: 'Cancel detection' });
+    expect(cancel).toBeEnabled();
+    expect(cancel.querySelector('[role="img"], svg')).not.toBeNull();
+  });
+
   test('cancels only after the dialog is confirmed', async () => {
     const onCancelDetection = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
     renderPanel(onCancelDetection);
@@ -34,7 +43,11 @@ describe('ExperimentIssuesDetectionProgress', () => {
     expect(onCancelDetection).not.toHaveBeenCalled();
 
     await userEvent.click(screen.getByRole('button', { name: 'Cancel detection' }));
-    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel detection' }));
+    const dialog = screen.getByRole('dialog');
+    // The dialog says what cancelling costs; when to cancel is already on the page.
+    expect(dialog).toHaveTextContent('Cancelling discards the analysis done so far');
+    expect(dialog).not.toHaveTextContent('Cancel only if it seems to have stopped');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel detection' }));
     expect(onCancelDetection).toHaveBeenCalledTimes(1);
   });
 
