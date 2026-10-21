@@ -339,4 +339,103 @@ describe('EvalRunTracesV4Table', () => {
       expect(screen.queryByRole('button', { name: /assessment charts/ })).not.toBeInTheDocument();
     });
   });
+
+  describe('session-level feedback', () => {
+    const sessionTurn = (id: string, assessments: ReturnType<typeof makeFeedbackAssessment>[] = []) =>
+      makeRunTrace(id, { trace_metadata: { 'mlflow.trace.session': 's1' }, assessments });
+    const sessionJudge = makeFeedbackAssessment('completeness', 'complete-yes', {
+      metadata: { 'mlflow.assessment.sourceRunId': RUN_UUID, 'mlflow.trace.session': 's1' },
+    });
+
+    test('flat: shows session feedback in its own column on the trace it is attached to', async () => {
+      state.traces = [sessionTurn('tr-turn-2'), sessionTurn('tr-turn-1', [sessionJudge])];
+      renderTable();
+
+      expect(await screen.findByRole('columnheader', { name: /completeness/ })).toBeInTheDocument();
+      const attachmentRow = (await findTraceRow('tr-turn-1')).closest('[role="row"]') as HTMLElement;
+      expect(within(attachmentRow).getByText('complete-yes')).toBeInTheDocument();
+      const otherRow = (await findTraceRow('tr-turn-2')).closest('[role="row"]') as HTMLElement;
+      expect(within(otherRow).queryByText('complete-yes')).not.toBeInTheDocument();
+    });
+
+    test('grouped: shows session feedback once, on the session row', async () => {
+      state.traces = [sessionTurn('tr-turn-2'), sessionTurn('tr-turn-1', [sessionJudge])];
+      renderTable(`${RUN_URL}?groupBy=session`);
+
+      expect(await screen.findByRole('columnheader', { name: /completeness/ })).toBeInTheDocument();
+      const sessionRow = await screen.findByRole('row', { name: /Select session s1/ });
+      expect(within(sessionRow).getByText('complete-yes')).toBeInTheDocument();
+      expect(screen.getAllByText('complete-yes')).toHaveLength(1);
+    });
+
+    test('summarizes a session judge over the sessions in its header, without counting other turns as missing', async () => {
+      const judgeOf = (sessionId: string, value: string) =>
+        makeFeedbackAssessment('session_completeness', value, {
+          metadata: { 'mlflow.assessment.sourceRunId': RUN_UUID, 'mlflow.trace.session': sessionId },
+        });
+      const turn = (id: string, sessionId: string, assessments: ReturnType<typeof makeFeedbackAssessment>[] = []) =>
+        makeRunTrace(id, { trace_metadata: { 'mlflow.trace.session': sessionId }, assessments });
+      state.traces = [
+        turn('tr-s1-1', 's1', [judgeOf('s1', 'yes')]),
+        turn('tr-s1-2', 's1'),
+        turn('tr-s1-3', 's1'),
+        turn('tr-s2-1', 's2', [judgeOf('s2', 'no')]),
+        turn('tr-s2-2', 's2'),
+      ];
+      renderTable();
+
+      const header = await screen.findByRole('columnheader', { name: /^session_completeness PASS 50% / });
+      expect(header).not.toHaveTextContent(/null/);
+      expect(within(header).getByRole('progressbar', { name: 'Pass' })).toHaveAttribute('aria-valuenow', '50');
+    });
+
+    test("filters on a session judge's header bar to the turn that carries the failing judgement", async () => {
+      const judgeOf = (sessionId: string, value: string) =>
+        makeFeedbackAssessment('session_completeness', value, {
+          metadata: { 'mlflow.assessment.sourceRunId': RUN_UUID, 'mlflow.trace.session': sessionId },
+        });
+      const turn = (id: string, sessionId: string, assessments: ReturnType<typeof makeFeedbackAssessment>[] = []) =>
+        makeRunTrace(id, { trace_metadata: { 'mlflow.trace.session': sessionId }, assessments });
+      state.traces = [
+        turn('tr-s1-1', 's1', [judgeOf('s1', 'yes')]),
+        turn('tr-s1-2', 's1'),
+        turn('tr-s2-1', 's2', [judgeOf('s2', 'no')]),
+        turn('tr-s2-2', 's2'),
+      ];
+      renderTable();
+
+      const header = await screen.findByRole('columnheader', { name: /^session_completeness PASS 50% / });
+      await userEvent.click(within(header).getByRole('progressbar', { name: 'Fail' }));
+      expect(await findTraceRow('tr-s2-1')).toBeInTheDocument();
+      await waitFor(() => expect(screen.queryByText(/tr-s1-1/)).not.toBeInTheDocument());
+      expect(screen.queryByText(/tr-s2-2/)).not.toBeInTheDocument();
+    });
+
+    test("keeps a session judge's column when a header filter leaves only turns without it", async () => {
+      const ofSession = (sessionId: string) => ({
+        metadata: { 'mlflow.assessment.sourceRunId': RUN_UUID, 'mlflow.trace.session': sessionId },
+      });
+      const ofRun = { metadata: { 'mlflow.assessment.sourceRunId': RUN_UUID } };
+      state.traces = [
+        makeRunTrace('tr-s1-1', {
+          trace_metadata: { 'mlflow.trace.session': 's1' },
+          assessments: [
+            makeFeedbackAssessment('session_completeness', 'yes', ofSession('s1')),
+            makeFeedbackAssessment('correctness', 'yes', ofRun),
+          ],
+        }),
+        makeRunTrace('tr-s1-2', {
+          trace_metadata: { 'mlflow.trace.session': 's1' },
+          assessments: [makeFeedbackAssessment('correctness', 'no', ofRun)],
+        }),
+      ];
+      renderTable();
+
+      const header = await screen.findByRole('columnheader', { name: /^Correctness PASS 50% / });
+      await userEvent.click(within(header).getByRole('progressbar', { name: 'Fail' }));
+      expect(await findTraceRow('tr-s1-2')).toBeInTheDocument();
+      await waitFor(() => expect(screen.queryByText(/tr-s1-1/)).not.toBeInTheDocument());
+      expect(screen.getByRole('columnheader', { name: /^session_completeness PASS 100%/ })).toBeInTheDocument();
+    });
+  });
 });

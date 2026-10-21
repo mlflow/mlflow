@@ -292,7 +292,13 @@ export const useEvalRunTracesV4Controller = ({
     hasSessionOnPage,
     defaultHiddenColumns: EVAL_RUN_DEFAULT_HIDDEN_COLUMNS,
   });
-  const assessments = useTracesV4AssessmentColumns(persistenceId, page.traces, { seededNames: seededAssessmentNames });
+  // Session-level feedback (for example a conversation-completeness judge) gets its own columns:
+  // once per session row when grouped, and on the trace it is attached to otherwise.
+  const assessments = useTracesV4AssessmentColumns(persistenceId, page.traces, {
+    seededNames: seededAssessmentNames,
+    includeSessionAssessments: true,
+    isGroupedBySession,
+  });
   const columnSizing = useTracesV4ColumnSizing(persistenceId);
   const bulk = useBulkTraceSelection(page.traces);
 

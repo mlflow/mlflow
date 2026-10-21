@@ -33,7 +33,10 @@ import { useTracesV4Density } from '../../components/experiment-page/components/
 import { useTracesV4Notifications } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4Notifications';
 import { useTracesV4TraceActions } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4TraceActions';
 import { useTracesV4UnifiedSearch } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4UnifiedSearch';
-import { isAssessmentColumnId } from '../../components/experiment-page/components/traces-v4/utils/assessmentColumns';
+import {
+  getSessionAssessmentNames,
+  isAssessmentColumnId,
+} from '../../components/experiment-page/components/traces-v4/utils/assessmentColumns';
 import { useTracesV4ToolbarSlots } from '../../components/experiment-page/components/traces-v4/components/TracesV4Toolbar';
 import { TracesV4DeleteModal } from '../../components/experiment-page/components/traces-v4/components/TracesV4DeleteModal';
 import { makeTracesV4ErrorDescription } from '../../components/experiment-page/components/traces-v4/components/TracesV4States';
@@ -101,12 +104,8 @@ export const EvalRunTracesV4Table = ({
 
   const persistenceId = `${experimentId}.${runUuid}`;
   const assessmentSummaries = useEvalRunAssessmentAggregates({ experimentId, runUuid });
-  // Session-level scorers have no trace column.
   const seededAssessmentNames = useMemo(
-    () =>
-      assessmentSummaries.scorers
-        .filter((scorer) => !scorer.assessmentInfo.isSessionLevelAssessment)
-        .map((scorer) => scorer.name),
+    () => assessmentSummaries.scorers.map((scorer) => scorer.name),
     [assessmentSummaries.scorers],
   );
   const controller = useEvalRunTracesV4Controller({ experimentId, runUuid, seededAssessmentNames });
@@ -210,7 +209,14 @@ export const EvalRunTracesV4Table = ({
   // Assessments lead the default order so scores are on the first screen. A drag in the column selector
   // reorders this view until the run changes.
   const defaultColumnOrder = useMemo(
-    () => buildEvalRunTableColumnOrder(columns.columnOrder, assessments.visibleIds, page.traces),
+    () =>
+      buildEvalRunTableColumnOrder(
+        columns.columnOrder,
+        assessments.visibleIds,
+        page.traces,
+        // Session-level judges are feedback too, so they sit with the other feedback columns.
+        getSessionAssessmentNames(page.traces),
+      ),
     [assessments.visibleIds, columns.columnOrder, page.traces],
   );
   const [reorderedColumns, setReorderedColumns] = useState<string[]>();
