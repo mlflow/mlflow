@@ -46,7 +46,7 @@ MLFLOW_ISSUE_DETECTION_JOB_ID = "mlflow.issueDetection.jobId"
 # The ID of the job that is running the UI-triggered mlflow.genai.evaluate flow
 MLFLOW_GENAI_EVALUATE_JOB_ID = "mlflow.genaiEvaluate.jobId"
 
-# JSON-encoded quality thresholds passed to mlflow.genai.evaluate
+# JSON-encoded quality criteria passed to mlflow.genai.evaluate
 MLFLOW_GENAI_EVALUATE_QUALITY_THRESHOLDS = "mlflow.genaiEvaluate.qualityThresholds"
 # Lineage of a mlflow.genai.evaluate run. These tag formats are experimental and may change.
 # A different digest means the definition changed, but the same digest doesn't guarantee the same

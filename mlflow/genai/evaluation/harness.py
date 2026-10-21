@@ -79,7 +79,7 @@ from mlflow.genai.evaluation.utils import (
     validate_tags,
 )
 from mlflow.genai.scorers.aggregation import compute_aggregated_metrics
-from mlflow.genai.scorers.base import QualityThreshold, Scorer
+from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.utils.trace_utils import (
     _does_store_support_trace_linking,
     batch_link_traces_to_run,
@@ -668,7 +668,7 @@ def run(
     scorers=None,
     run_id: str | None = None,
     dataset: Any | None = None,
-    quality_thresholds: dict[str, QualityThreshold] | None = None,
+    extra_aggregations: dict[str, list[str]] | None = None,
 ) -> EvaluationResult:
     """
     Runs GenAI evaluation harness to the given dataset.
@@ -768,7 +768,7 @@ def run(
 
     # Aggregate metrics and log to MLflow run
     aggregated_metrics = compute_aggregated_metrics(
-        eval_results, scorers=scorers, quality_thresholds=quality_thresholds
+        eval_results, scorers=scorers, extra_aggregations=extra_aggregations
     )
     mlflow.log_metrics(aggregated_metrics, dataset=dataset)
 

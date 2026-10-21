@@ -9,7 +9,7 @@ from mlflow.genai.scorers.aggregation import (
     _cast_assessment_value_to_float,
     compute_aggregated_metrics,
 )
-from mlflow.genai.scorers.base import QualityThreshold, Scorer
+from mlflow.genai.scorers.base import Scorer
 
 _EVAL_ITEM = EvalItem(
     request_id="dummy_request_id",
@@ -136,17 +136,13 @@ def test_non_aggregatable_output_warns_agent(value):
     )
 
 
-def test_compute_aggregated_metrics_includes_quality_threshold_aggregation():
+def test_compute_aggregated_metrics_includes_extra_aggregations():
     scorers = [
         Scorer(name="default"),
         Scorer(name="explicit", aggregations=["max"]),
         Scorer(name="already_computed", aggregations=["mean"]),
     ]
-    quality_thresholds = {
-        "default": QualityThreshold(at_least=0.5, aggregation="min"),
-        "explicit": QualityThreshold(at_most=0.9, aggregation="p90"),
-        "already_computed": QualityThreshold(at_least=0.5),
-    }
+    extra_aggregations = {"default": ["min"], "explicit": ["p90"], "already_computed": ["mean"]}
     eval_results = [
         EvalResult(
             eval_item=_EVAL_ITEM,
@@ -159,7 +155,7 @@ def test_compute_aggregated_metrics_includes_quality_threshold_aggregation():
         for value in [0.2, 0.8]
     ]
 
-    result = compute_aggregated_metrics(eval_results, scorers, quality_thresholds)
+    result = compute_aggregated_metrics(eval_results, scorers, extra_aggregations)
 
     assert result == {
         "default/mean": pytest.approx(0.5),
@@ -174,7 +170,7 @@ def test_compute_aggregated_metrics_includes_quality_threshold_aggregation():
 
 def test_compute_aggregated_metrics_matches_scorer_name_containing_slash():
     scorers = [Scorer(name="team/latency"), Scorer(name="correctness", aggregations=["min"])]
-    quality_thresholds = {"team/latency": QualityThreshold(at_most=2, aggregation="max")}
+    extra_aggregations = {"team/latency": ["max"]}
     eval_results = [
         EvalResult(
             eval_item=_EVAL_ITEM,
@@ -187,7 +183,7 @@ def test_compute_aggregated_metrics_matches_scorer_name_containing_slash():
         for value in [1.0, 3.0]
     ]
 
-    result = compute_aggregated_metrics(eval_results, scorers, quality_thresholds)
+    result = compute_aggregated_metrics(eval_results, scorers, extra_aggregations)
 
     assert result == {
         "team/latency/mean": pytest.approx(2.0),

@@ -20,10 +20,11 @@ from mlflow.genai.evaluation.lineage import (
     get_dataset_entity_from_attrs,
     log_lineage_tags,
 )
-from mlflow.genai.evaluation.quality_thresholds import (
-    build_quality_threshold_rules,
-    build_quality_thresholds_tag,
-    warn_on_unmeasured_quality_thresholds,
+from mlflow.genai.evaluation.quality_criteria import (
+    build_quality_criteria_tag,
+    get_extra_aggregations,
+    parse_quality_criteria,
+    warn_on_unmeasured_quality_criteria,
 )
 from mlflow.genai.evaluation.session_utils import validate_session_level_evaluation_inputs
 from mlflow.genai.evaluation.utils import (
@@ -31,7 +32,7 @@ from mlflow.genai.evaluation.utils import (
     _get_eval_data_size_and_fields,
 )
 from mlflow.genai.scorers import Scorer
-from mlflow.genai.scorers.base import QualityThreshold, flatten_scorers
+from mlflow.genai.scorers.base import flatten_scorers
 from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
 from mlflow.genai.simulators import ConversationSimulator
@@ -73,7 +74,7 @@ def evaluate(
     scorers: list[Scorer],
     predict_fn: Callable[..., Any] | None = None,
     model_id: str | None = None,
-    quality_thresholds: dict[str, QualityThreshold] | None = None,
+    quality_criteria: str | None = None,
 ) -> "EvaluationResult":
     """
     Evaluate the performance of a generative AI model/application using specified
@@ -299,23 +300,24 @@ def evaluate(
             to associate with the evaluation results. Can be also set globally via the
             :py:func:`mlflow.set_active_model` function.
 
-        quality_thresholds: *Experimental (added in MLflow 3.17.2)* This parameter may
-            change or be removed in a future release. A dict that maps a scorer name to the
-            :py:class:`~mlflow.genai.scorers.QualityThreshold` its run-level metric must
-            clear. The run counts as passing only when every scorer with a threshold clears
-            it. Each key must be the name of exactly one scorer in ``scorers``. The
-            thresholds are recorded on the evaluation run; they don't change how rows are
-            scored.
+        quality_criteria: *Experimental (added in MLflow 3.17.2)* This parameter may
+            change or be removed in a future release. The run-level metrics that the
+            evaluation run must clear, in a syntax like trace search filters: conditions joined by
+            ``AND``, each comparing a metric with ``>=`` or ``<=``. A bare scorer name checks
+            the scorer's mean. To check another aggregation, write
+            ``<scorer name>/<aggregation>`` in backticks, where the aggregation is one of
+            ``min``, ``max``, ``mean``, ``median``, ``variance``, or ``p90``. Each scorer name
+            must match exactly one scorer in ``scorers``. The run counts as passing only when
+            every condition holds. The criteria are recorded on the evaluation run; they
+            don't change how rows are scored.
 
             .. code-block:: python
-
-                from mlflow.genai.scorers import Correctness, QualityThreshold
 
                 mlflow.genai.evaluate(
                     data=data,
                     predict_fn=predict_fn,
-                    scorers=[Correctness()],
-                    quality_thresholds={"correctness": QualityThreshold(at_least=0.9)},
+                    scorers=[Correctness(), latency],
+                    quality_criteria="correctness >= 0.9 AND `latency/p90` <= 2",
                 )
 
     Returns:
@@ -330,13 +332,13 @@ def evaluate(
         This function is not thread-safe. Please do not use it in multi-threaded
         environments.
     """
-    result, _ = _run_harness(data, scorers, predict_fn, model_id, quality_thresholds)
+    result, _ = _run_harness(data, scorers, predict_fn, model_id, quality_criteria)
     return result
 
 
 @record_usage_event(GenAIEvaluateEvent)
 def _run_harness(
-    data, scorers, predict_fn, model_id, quality_thresholds=None
+    data, scorers, predict_fn, model_id, quality_criteria=None
 ) -> tuple["EvaluationResult", dict[str, Any]]:
     """
     Internal harness for running evaluation.
@@ -350,9 +352,9 @@ def _run_harness(
     from mlflow.genai.evaluation import harness
 
     scorers = validate_scorers(scorers)
-    # Validate before the run starts so a bad threshold doesn't leave an empty run behind.
-    quality_threshold_rules = build_quality_threshold_rules(scorers, quality_thresholds)
-    quality_thresholds_tag = build_quality_thresholds_tag(quality_threshold_rules)
+    # Validate before the run starts so bad quality criteria don't leave an empty run behind.
+    quality_criteria_rules = parse_quality_criteria(scorers, quality_criteria)
+    quality_criteria_tag = build_quality_criteria_tag(quality_criteria_rules)
     # Lineage records the user's function; `predict_fn` is wrapped or cleared for simulation below.
     original_predict_fn = predict_fn
 
@@ -474,21 +476,21 @@ def _run_harness(
         if run.data.tags.get(MLFLOW_RUN_TYPE) is None:
             MlflowClient().set_tag(run_id, MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_GENAI_EVALUATE)
         log_lineage_tags(run_id, scorers, original_predict_fn)
-        # NB: Record the thresholds before the harness runs, so a run that fails partway still
-        # shows the bar it was evaluated against (its thresholds read as incomplete). The tags
+        # NB: Record the quality criteria before the harness runs, so a run that fails partway still
+        # shows the bar it was evaluated against (its criteria read as incomplete). The tags
         # are read from the store rather than `run.data.tags` because a reused active run can
         # predate a tag written by an earlier `evaluate` on the same run.
         client = MlflowClient()
-        if quality_thresholds_tag is not None:
+        if quality_criteria_tag is not None:
             # Synchronous, so the stale-tag check of a later `evaluate` on this run sees it.
             client.set_tag(
                 run_id,
                 MLFLOW_GENAI_EVALUATE_QUALITY_THRESHOLDS,
-                quality_thresholds_tag,
+                quality_criteria_tag,
                 synchronous=True,
             )
         elif MLFLOW_GENAI_EVALUATE_QUALITY_THRESHOLDS in client.get_run(run_id).data.tags:
-            # This call sets no thresholds, so a tag from an earlier `evaluate` on this run
+            # This call sets no quality criteria, so a tag from an earlier `evaluate` on this run
             # would judge the new metrics against a stale bar.
             client.delete_tag(run_id, MLFLOW_GENAI_EVALUATE_QUALITY_THRESHOLDS)
 
@@ -498,9 +500,9 @@ def _run_harness(
             scorers=scorers,
             run_id=run_id,
             dataset=mlflow_dataset if is_managed_dataset or dataset_entity is not None else None,
-            quality_thresholds=quality_thresholds,
+            extra_aggregations=get_extra_aggregations(quality_criteria_rules),
         )
-        warn_on_unmeasured_quality_thresholds(quality_threshold_rules, result.metrics)
+        warn_on_unmeasured_quality_criteria(quality_criteria_rules, result.metrics)
 
     try:
         display_evaluation_output(run_id)

@@ -8,7 +8,7 @@ import numpy as np
 from mlflow.entities.assessment import Feedback
 from mlflow.genai.evaluation.entities import EvalResult
 from mlflow.genai.judges.builtin import CategoricalRating
-from mlflow.genai.scorers.base import AggregationFunc, QualityThreshold, Scorer
+from mlflow.genai.scorers.base import AggregationFunc, Scorer
 
 _logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ _AGGREGATE_FUNCTIONS = {
 def compute_aggregated_metrics(
     eval_results: list[EvalResult],
     scorers: list[Scorer],
-    quality_thresholds: dict[str, QualityThreshold] | None = None,
+    extra_aggregations: dict[str, list[str]] | None = None,
 ) -> dict[str, float]:
     """
     Generates the aggregated per-run metrics from the evaluation result for each row.
@@ -34,8 +34,8 @@ def compute_aggregated_metrics(
     Args:
         eval_results: List of EvalResult objects
         scorers: List of scorers
-        quality_thresholds: Quality thresholds by scorer name. The aggregation each one is
-            checked against is computed even when it isn't in the scorer's ``aggregations``.
+        extra_aggregations: Aggregations to compute by scorer name, on top of the scorer's own
+            ``aggregations``.
 
     Returns:
         Dictionary of aggregated metrics (metric name -> aggregated value)
@@ -49,16 +49,15 @@ def compute_aggregated_metrics(
                 if value is not None:  # Exclude None from aggregation
                     assessment_values[assessment.name].append(value)
 
-    quality_thresholds = quality_thresholds or {}
+    extra_aggregations = extra_aggregations or {}
     # List all aggregations to compute for each scorer
     scorer_aggregations = {}
     for scorer in scorers:
         # Default to computing the mean only
         aggregations = list(scorer.aggregations) if scorer.aggregations is not None else ["mean"]
-        # Always compute the aggregation a quality threshold is checked against.
-        if (threshold := quality_thresholds.get(scorer.name)) is not None:
-            if threshold.aggregation not in aggregations:
-                aggregations.append(threshold.aggregation)
+        aggregations += [
+            agg for agg in extra_aggregations.get(scorer.name, []) if agg not in aggregations
+        ]
         scorer_aggregations[scorer.name] = aggregations
 
     # Compute aggregates
