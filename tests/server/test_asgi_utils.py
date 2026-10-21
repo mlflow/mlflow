@@ -46,6 +46,12 @@ def test_get_server_self_url_appends_static_prefix(monkeypatch):
     assert get_server_self_url(_request(("127.0.0.1", 5000))) == "http://127.0.0.1:5000/mlflow"
 
 
+def test_get_server_self_url_uses_https_when_the_listener_terminates_tls(monkeypatch):
+    monkeypatch.setenv("_MLFLOW_SERVER_TLS_LISTENER", "true")
+
+    assert get_server_self_url(_request(("127.0.0.1", 5000))) == "https://127.0.0.1:5000"
+
+
 @pytest.mark.parametrize("server", [None, ("/tmp/mlflow.sock", None)])
 def test_get_server_self_url_is_none_without_a_server_address(server):
     assert get_server_self_url(_request(server)) is None

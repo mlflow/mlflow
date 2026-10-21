@@ -3,7 +3,11 @@
 import base64
 import contextvars
 import logging
-from typing import ClassVar
+import urllib.parse
+from typing import Any, ClassVar
+
+import aiohttp
+from packaging.version import Version
 
 from mlflow.assistant.config import get_config_user
 from mlflow.assistant.providers.openai_compatible import OpenAICompatibleProvider
@@ -87,6 +91,20 @@ class MlflowGatewayProvider(OpenAICompatibleProvider):
         if host_header := _server_host_header.get():
             headers["Host"] = host_header
         return headers
+
+    def _request_kwargs(self, chat_url: str) -> dict[str, Any]:
+        # On a server that terminates TLS itself the self-call is HTTPS to the server's own
+        # address, whose certificate names the host clients connect to, not that address. Verify
+        # it against the inbound Host name, which the client's own connection already matched;
+        # the destination stays pinned, so a name the certificate does not carry only fails the
+        # handshake. ``server_hostname`` exists since aiohttp 3.9.
+        host_header = _server_host_header.get()
+        if not chat_url.startswith("https://") or not host_header:
+            return {}
+        if Version(aiohttp.__version__) < Version("3.9"):
+            return {}
+        hostname = urllib.parse.urlsplit(f"//{host_header}").hostname
+        return {"server_hostname": hostname} if hostname else {}
 
     @staticmethod
     def _list_endpoints():

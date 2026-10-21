@@ -25,7 +25,10 @@ from mlflow.assistant.providers.base import (
     ProviderNotConfiguredError,
 )
 from mlflow.assistant.types import Event, Message, ToolUseBlock
-from mlflow.environment_variables import _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN
+from mlflow.environment_variables import (
+    _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
+    _MLFLOW_SERVER_TLS_LISTENER,
+)
 from mlflow.gateway.constants import MLFLOW_GATEWAY_AUTH_HEADER
 from mlflow.server.assistant.api import (
     _BLOCK_REMOTE_ACCESS_ERROR_MSG,
@@ -1225,16 +1228,21 @@ async def test_stream_tracking_uri_includes_static_prefix(monkeypatch):
     assert provider.captured["tracking_uri"] == "http://localhost:5000/myprefix"
 
 
-def test_stream_gateway_provider_calls_the_server_itself_not_the_client_host(monkeypatch):
+@pytest.mark.parametrize("tls_listener", [False, True])
+def test_stream_gateway_provider_calls_the_server_itself_not_the_client_host(
+    monkeypatch, tls_listener
+):
     """The gateway provider sends the server's internal gateway token with its chat call, so
     that call must go to the server's own address even when the caller spoofs the Host header
     (GHSA-98p3-crmr-mxcx). The tracking URI handed to the provider still follows the Host header.
     """
     monkeypatch.setenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, "internal-secret")
+    if tls_listener:
+        monkeypatch.setenv(_MLFLOW_SERVER_TLS_LISTENER.name, "true")
     app = FastAPI()
     app.include_router(assistant_router)
     provider = MlflowGatewayProvider()
-    calls: list[tuple[str, dict[str, str]]] = []
+    calls: list[tuple[str, dict[str, str], dict[str, Any]]] = []
 
     class _Rejected:
         status = 500
@@ -1243,8 +1251,8 @@ def test_stream_gateway_provider_calls_the_server_itself_not_the_client_host(mon
             return "unreachable"
 
     class _FakePost:
-        def __init__(self, url, headers):
-            calls.append((url, headers))
+        def __init__(self, url, kwargs):
+            calls.append((url, kwargs.get("headers") or {}, kwargs))
 
         async def __aenter__(self):
             return _Rejected()
@@ -1261,7 +1269,7 @@ def test_stream_gateway_provider_calls_the_server_itself_not_the_client_host(mon
         patch.object(MlflowGatewayProvider, "list_models", return_value=["chat-endpoint"]),
         patch(
             "aiohttp.ClientSession.post",
-            new=lambda self, url, **kwargs: _FakePost(url, kwargs.get("headers") or {}),
+            new=lambda self, url, **kwargs: _FakePost(url, kwargs),
         ),
     ):
         client = TestClient(app, base_url="http://127.0.0.1:5000")
@@ -1269,13 +1277,16 @@ def test_stream_gateway_provider_calls_the_server_itself_not_the_client_host(mon
         response = client.get(r.json()["stream_url"], headers={"Host": "10.attacker.example:8080"})
 
     assert response.status_code == 200
-    ((url, headers),) = calls
-    assert url == "http://127.0.0.1:5000/gateway/mlflow/v1/chat/completions"
+    ((url, headers, kwargs),) = calls
+    scheme = "https" if tls_listener else "http"
+    assert url == f"{scheme}://127.0.0.1:5000/gateway/mlflow/v1/chat/completions"
     credential = base64.b64encode(b"alice:internal-secret").decode("ascii")
     assert headers[MLFLOW_GATEWAY_AUTH_HEADER] == f"Basic {credential}"
     # The destination is what matters. The Host header is the inbound request's own, which the
     # server's Host allowlist already admitted, so a custom --allowed-hosts keeps admitting it.
     assert headers["Host"] == "10.attacker.example:8080"
+    # On a TLS listener the certificate is verified against that inbound name, not the address.
+    assert kwargs.get("server_hostname") == ("10.attacker.example" if tls_listener else None)
 
 
 @pytest.mark.asyncio

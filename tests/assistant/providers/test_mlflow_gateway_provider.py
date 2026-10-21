@@ -134,6 +134,33 @@ def test_auth_headers_omit_host_header_without_a_bound_one(reset_server_url):
     assert "Host" not in _gateway_provider()._auth_headers(None)
 
 
+def test_request_kwargs_verify_tls_against_the_bound_host_name(reset_server_url):
+    # On a TLS listener the HTTPS self-call goes to the server's address, whose certificate
+    # names the host clients connect to; verify it against the inbound Host name.
+    set_server_url("https://127.0.0.1:5000", host_header="mlflow.internal:5000")
+
+    kwargs = _gateway_provider()._request_kwargs(
+        "https://127.0.0.1:5000/gateway/mlflow/v1/chat/completions"
+    )
+
+    assert kwargs == {"server_hostname": "mlflow.internal"}
+
+
+@pytest.mark.parametrize(
+    ("url", "host_header"),
+    [
+        ("http://127.0.0.1:5000", "mlflow.internal:5000"),
+        ("https://127.0.0.1:5000", None),
+    ],
+)
+def test_request_kwargs_empty_for_plain_http_or_without_a_bound_host(
+    reset_server_url, url, host_header
+):
+    set_server_url(url, host_header=host_header)
+
+    assert _gateway_provider()._request_kwargs(f"{url}/gateway/mlflow/v1/chat/completions") == {}
+
+
 def test_check_connection_raises_when_no_backend_probe():
     # The provider has no backend listing strategy, so check_connection
     # must surface that explicitly rather than silently returning OK —

@@ -5,6 +5,8 @@ import os
 
 from starlette.requests import Request as StarletteRequest
 
+from mlflow.environment_variables import _MLFLOW_SERVER_TLS_LISTENER
+
 
 def get_routed_asgi_path(request: StarletteRequest) -> str:
     """Return the routed ASGI path for a FastAPI request.
@@ -65,7 +67,9 @@ def get_server_self_url(request: StarletteRequest) -> str | None:
     never the client-supplied ``Host`` header, so a self-call that carries server-internal
     credentials (the MLflow Assistant's gateway provider authenticates with the internal gateway
     token) cannot be pointed at a host of the caller's choosing. The call goes to the server
-    socket directly, over plain HTTP, bypassing any TLS-terminating proxy in front of the server.
+    socket directly, bypassing any TLS-terminating proxy in front of the server: plain HTTP, or
+    HTTPS when uvicorn terminates TLS itself (``_MLFLOW_SERVER_TLS_LISTENER``, set by
+    ``mlflow server`` from its ``--uvicorn-opts``).
     """
     # Imported lazily to keep this module's own import graph light.
     from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR
@@ -75,5 +79,6 @@ def get_server_self_url(request: StarletteRequest) -> str | None:
     if not (isinstance(server, (tuple, list)) and len(server) == 2 and server[0] and server[1]):
         return None
     host, port = server
+    scheme = "https" if _MLFLOW_SERVER_TLS_LISTENER.get() else "http"
     static_prefix = os.environ.get(STATIC_PREFIX_ENV_VAR, "").rstrip("/")
-    return f"http://{_self_call_host(str(host))}:{int(port)}{static_prefix}"
+    return f"{scheme}://{_self_call_host(str(host))}:{int(port)}{static_prefix}"

@@ -25,6 +25,7 @@ from mlflow.environment_variables import (
     _MLFLOW_IN_JOB_EXECUTOR,
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     _MLFLOW_SERVER_BOOT_ID,
+    _MLFLOW_SERVER_TLS_LISTENER,
     _MLFLOW_SGI_NAME,
     MLFLOW_ARTIFACTS_PRESIGNED_ONLY,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
@@ -335,6 +336,19 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers, app_name):
 _UVICORN_LOG_CONFIG = Path(__file__).parent / "uvicorn_log_config.yaml"
 
 
+def _uvicorn_opts_enable_tls(uvicorn_opts: str | None) -> bool:
+    """Whether ``--uvicorn-opts`` makes uvicorn terminate TLS itself.
+
+    Uvicorn serves HTTPS as soon as either ``--ssl-keyfile`` or ``--ssl-certfile`` is given.
+    """
+    opts = shlex.split(uvicorn_opts) if uvicorn_opts else []
+    return any(
+        opt == flag or opt.startswith(f"{flag}=")
+        for opt in opts
+        for flag in ("--ssl-keyfile", "--ssl-certfile")
+    )
+
+
 def _build_uvicorn_command(
     uvicorn_opts, host, port, workers, app_name, env_file=None, is_factory=False
 ):
@@ -541,6 +555,10 @@ def _run_server(
         full_command = _build_uvicorn_command(
             uvicorn_opts, host, port, workers or 4, app, env_file, is_factory
         )
+        if _uvicorn_opts_enable_tls(uvicorn_opts):
+            # Server self-calls (e.g. the Assistant's gateway provider) must then speak HTTPS to
+            # the listener; see mlflow.server.asgi_utils.get_server_self_url.
+            env_map[_MLFLOW_SERVER_TLS_LISTENER.name] = "true"
     elif using_waitress:
         # Use waitress if explicitly requested
         warnings.warn(
