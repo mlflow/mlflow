@@ -105,7 +105,7 @@ from mlflow.genai.review_queues.validation import validate_item_ids_for_attach
 from mlflow.genai.scorers.scorer_utils import (
     DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR,
     custom_scorer_execution_blocked,
-    custom_scorer_without_source_error,
+    custom_scorer_without_source_error_message,
     find_custom_scorer_without_source,
 )
 from mlflow.genai.skill_content.archive import MAX_ARCHIVE_ENTRIES, get_max_decompressed_size
@@ -6258,7 +6258,9 @@ def _validate_serialized_scorer_payload(serialized_scorer: str) -> None:
         )
     # Such a custom scorer can never run.
     if (name := find_custom_scorer_without_source(serialized_data)) is not None:
-        raise MlflowException.invalid_parameter_value(custom_scorer_without_source_error(name))
+        raise MlflowException.invalid_parameter_value(
+            custom_scorer_without_source_error_message(name)
+        )
     _validate_third_party_scorer_data(serialized_data)
 
 

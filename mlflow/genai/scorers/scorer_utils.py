@@ -436,7 +436,7 @@ def find_custom_scorer_without_source(obj: Any) -> str | None:
     return None
 
 
-def custom_scorer_without_source_error(name: str) -> str:
+def custom_scorer_without_source_error_message(name: str) -> str:
     return (
         f"Scorer '{name or '<unnamed>'}' has no source code: the body of its function is empty "
         "or could not be read. Common causes: a lambda (use `def` instead), a body with only a "

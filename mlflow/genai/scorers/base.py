@@ -39,7 +39,7 @@ from mlflow.genai.scorers.scorer_utils import (
     THIRD_PARTY_SCORER_REGISTRATION_NOT_SUPPORTED_ON_DATABRICKS_ERROR,
     _obj_has_call_source,
     _parse_serialized_scorer,
-    custom_scorer_without_source_error,
+    custom_scorer_without_source_error_message,
     extract_function_body,
 )
 from mlflow.telemetry.events import ScorerCallEvent
@@ -1556,7 +1556,7 @@ class Scorer(BaseModel):
                 call_source = None
         if not (call_source or "").strip():
             raise MlflowException.invalid_parameter_value(
-                custom_scorer_without_source_error(self.name)
+                custom_scorer_without_source_error_message(self.name)
             )
 
     def _check_can_be_registered(self, error_message: str | None = None) -> None:

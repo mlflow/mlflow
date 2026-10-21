@@ -1,7 +1,6 @@
 import importlib
 import json
 import linecache
-import types
 from unittest.mock import Mock, patch
 
 import pytest
@@ -1131,9 +1130,12 @@ def _docstring_only_scorer():
 
 
 def _exec_scorer():
-    # Like a function defined with `exec` or in a REPL, `inspect` cannot read this one's source.
-    code = compile("def from_exec(outputs):\n    return 1\n", "<generated>", "exec")
-    return scorer(types.FunctionType(code.co_consts[0], {}))
+    # Like a function defined with `exec` or in a REPL, its code names no file `inspect` can read.
+    def from_exec(outputs):
+        return 1
+
+    from_exec.__code__ = from_exec.__code__.replace(co_filename="<exec>")
+    return scorer(from_exec)
 
 
 @pytest.mark.parametrize(

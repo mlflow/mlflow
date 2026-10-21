@@ -106,7 +106,7 @@ from mlflow.genai.scorers.scorer_utils import (
     build_gateway_model,
     container_scoring_enabled,
     custom_scorer_execution_blocked,
-    custom_scorer_without_source_error,
+    custom_scorer_without_source_error_message,
     extract_endpoint_ref,
     extract_model_from_serialized_scorer,
     has_empty_call_source,
@@ -3456,7 +3456,7 @@ class SqlAlchemyStore(
             )
         if has_empty_call_source(serialized_data):
             raise MlflowException(
-                custom_scorer_without_source_error(scorer_name), INVALID_PARAMETER_VALUE
+                custom_scorer_without_source_error_message(scorer_name), INVALID_PARAMETER_VALUE
             )
         # Online scoring jobs run custom scorers in job containers one at a time, so a custom
         # scorer in an ensemble cannot run there (the jobs skip it).
