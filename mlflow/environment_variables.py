@@ -1839,10 +1839,11 @@ MLFLOW_JOB_EXTRA_LABELS = _EnvironmentVariable("MLFLOW_JOB_EXTRA_LABELS", str, N
 
 #: Whether the server may run custom scorers defined with the ``@scorer`` decorator. A custom
 #: scorer carries its function source in its serialized form, and that source is executed (via
-#: ``exec()``) on the tracking server when the scorer is deserialized to run — i.e. it runs
-#: arbitrary user-provided code in the server process. This is off by default: the server does
-#: not yet run that code inside an isolation boundary, so custom scorer jobs are rejected unless
-#: an operator who explicitly accepts that trust boundary sets this to ``True``.
+#: ``exec()``) when the scorer runs, so it is arbitrary user-provided code. The server's web and
+#: scheduler processes never run it: only job processes do, on the server host, unless
+#: ``MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND`` (for example ``docker``) runs it in a job
+#: container. This is off by default, so custom scorer jobs are rejected unless an operator who
+#: trusts everyone who can register scorers on the server sets this to ``True``.
 #: (default: ``False``)
 MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS = _BooleanEnvironmentVariable(
     "MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", False
