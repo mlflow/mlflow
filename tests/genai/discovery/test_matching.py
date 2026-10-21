@@ -250,3 +250,37 @@ def test_a_refresh_that_fails_falls_back_to_filing_the_finding():
     # Losing the match costs a duplicate; losing the finding costs the user the problem.
     assert len(issues) == 1
     assert issues[0].name == "Still worth reporting"
+
+
+def test_two_findings_that_re_find_one_issue_both_contribute_their_traces():
+    # Within-run dedup merges findings it judges identical, but two distinct findings can still
+    # each match one broader stored issue. The issue is refreshed once and carries both sets of
+    # traces; a plain assignment would have left the first finding's traces unannotated.
+    from mlflow.genai.discovery.pipeline import _build_issues
+    from mlflow.tracing.client import TracingClient
+
+    exp_id = mlflow.set_experiment("b7-collide").experiment_id
+    client = TracingClient()
+    existing = client._create_issue(
+        experiment_id=exp_id,
+        name="Policy answers are unusable",
+        description="Broad.",
+        severity="medium",
+        categories=["relevance"],
+    )
+
+    analyses = [
+        mock.MagicMock(example_trace_ids=["tr-a"]),
+        mock.MagicMock(example_trace_ids=["tr-b"]),
+    ]
+    findings = [_finding("Omits the detail"), _finding("Wrong policy cited")]
+    outcome = MatchOutcome(matched={0: existing.issue_id, 1: existing.issue_id})
+
+    with mock.patch(
+        "mlflow.genai.discovery.pipeline.collect_affected_trace_ids",
+        side_effect=[["tr-a"], ["tr-b"]],
+    ):
+        issues, issue_trace_ids = _build_issues(findings, analyses, exp_id, "run-x", outcome)
+
+    assert [issue.issue_id for issue in issues] == [existing.issue_id]
+    assert sorted(issue_trace_ids[existing.issue_id]) == ["tr-a", "tr-b"]

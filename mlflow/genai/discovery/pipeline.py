@@ -638,8 +638,17 @@ def _build_issues(
                     exc_info=True,
                 )
             else:
-                issues.append(issue)
-                issue_trace_ids[issue.issue_id] = affected_trace_ids
+                # Several findings in one run can re-find one Issue: it is refreshed once and
+                # carries all of their traces, rather than the last assignment winning and the
+                # earlier findings' traces going unannotated.
+                if issue.issue_id in issue_trace_ids:
+                    known = issue_trace_ids[issue.issue_id]
+                    issue_trace_ids[issue.issue_id] = known + [
+                        trace_id for trace_id in affected_trace_ids if trace_id not in known
+                    ]
+                else:
+                    issues.append(issue)
+                    issue_trace_ids[issue.issue_id] = affected_trace_ids
                 continue
         issue = client._create_issue(
             experiment_id=exp_id,
