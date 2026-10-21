@@ -56,6 +56,8 @@ const EVAL_RUN_DEFAULT_HIDDEN_COLUMNS: ReadonlySet<TraceColumnId> = new Set(['st
 interface UseEvalRunTracesV4ControllerParams {
   experimentId: string;
   runUuid: string;
+  /** The run's scorers, so their columns stay when a filter leaves no trace on the page carrying them. */
+  seededAssessmentNames?: readonly string[];
 }
 
 export interface UseEvalRunTracesV4ControllerResult {
@@ -111,6 +113,7 @@ export const buildEvalRunTraceFilter = ({
 export const useEvalRunTracesV4Controller = ({
   experimentId,
   runUuid,
+  seededAssessmentNames,
 }: UseEvalRunTracesV4ControllerParams): UseEvalRunTracesV4ControllerResult => {
   const url = useEvalRunTracesV4UrlState();
   const queryClient = useQueryClient();
@@ -289,7 +292,7 @@ export const useEvalRunTracesV4Controller = ({
     hasSessionOnPage,
     defaultHiddenColumns: EVAL_RUN_DEFAULT_HIDDEN_COLUMNS,
   });
-  const assessments = useTracesV4AssessmentColumns(persistenceId, page.traces);
+  const assessments = useTracesV4AssessmentColumns(persistenceId, page.traces, { seededNames: seededAssessmentNames });
   const columnSizing = useTracesV4ColumnSizing(persistenceId);
   const bulk = useBulkTraceSelection(page.traces);
 

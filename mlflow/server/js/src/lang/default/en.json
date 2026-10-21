@@ -3459,6 +3459,10 @@
     "defaultMessage": "Add tags",
     "description": "Tag assignment modal > Title of the add tags modal"
   },
+  "AGn2fU": {
+    "defaultMessage": "Expand assessment charts",
+    "description": "Accessible label for expanding the score charts in the evaluation run table headers"
+  },
   "AHaom4": {
     "defaultMessage": "No assessments available",
     "description": "Message shown when there are no assessments to display"
@@ -11831,6 +11835,10 @@
     "defaultMessage": "Show all runs",
     "description": "Experiment page > compare runs tab > chart header > move down option"
   },
+  "e8Fk1j": {
+    "defaultMessage": "Compared to <baselineLink>evaluation baseline run</baselineLink>.",
+    "description": "Tooltip explaining that a scorer delta is relative to the baseline evaluation run"
+  },
   "e9b27m": {
     "defaultMessage": "Inputs: {fields}",
     "description": "Experiment issues tab > Legacy evidence step > Span's input fields"
@@ -12854,6 +12862,10 @@
   "hKQs4I": {
     "defaultMessage": "{count, plural, one {1 session selected} other {# sessions selected}}",
     "description": "Label for the number of sessions selected"
+  },
+  "hM5jQV": {
+    "defaultMessage": "Open evaluation baseline run in a new tab",
+    "description": "Accessible label for opening the baseline evaluation run from a scorer tooltip"
   },
   "hM97ET": {
     "defaultMessage": "Events",
@@ -14342,6 +14354,10 @@
   "mIk1MU": {
     "defaultMessage": "Create Model",
     "description": "Title text for creating model in the model registry"
+  },
+  "mJvdRR": {
+    "defaultMessage": "<baselineLink>Evaluation baseline run</baselineLink> does not have this scorer.",
+    "description": "Tooltip shown when the baseline evaluation run has no saved metric for a scorer"
   },
   "mKV9T/": {
     "defaultMessage": "of",
@@ -15946,6 +15962,10 @@
   "rksffW": {
     "defaultMessage": "Saving…",
     "description": "Status text shown in the dataset record drawer while a save is in flight"
+  },
+  "rlxFiB": {
+    "defaultMessage": "Collapse assessment charts",
+    "description": "Accessible label for collapsing the score charts in the evaluation run table headers"
   },
   "rmAWZX": {
     "defaultMessage": "just now",

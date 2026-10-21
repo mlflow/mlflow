@@ -67,8 +67,10 @@ export interface AssessmentColumnSelection {
 export const computeAssessmentColumns = (
   traces: ModelTraceInfoV3[],
   overrides: Record<string, boolean>,
+  { seededNames = [] }: { seededNames?: readonly string[] } = {},
 ): AssessmentColumnSelection => {
-  const names = new Set<string>();
+  // Seeded names are candidates even when no trace on the page carries them.
+  const names = new Set<string>(seededNames);
   for (const trace of traces) {
     for (const assessment of trace.assessments ?? []) {
       if (isDisplayableTraceAssessment(assessment)) {
