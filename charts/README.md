@@ -33,7 +33,14 @@ helm install mlflow oci://ghcr.io/mlflow/charts/mlflow \
 ```
 
 Available versions are listed under the [mlflow organization packages](https://github.com/orgs/mlflow/packages).
-New chart versions are published by the MLflow release automation.
+Each stable MLflow release publishes its chart after the Docker images succeed.
+Chart version and `appVersion` both match the MLflow version: chart `X.Y.Z`
+defaults to `ghcr.io/mlflow/mlflow:vX.Y.Z-full`. Release candidates do not publish charts.
+
+Release-aligned versions replace the original `0.1.x` chart numbering. Existing
+`0.1.x` artifacts remain available, but version constraints pinned to `0.1.x`
+must be updated to receive new releases. Check the available versions before installing;
+older MLflow releases may not have a corresponding chart.
 
 ### From a local checkout
 
@@ -254,6 +261,15 @@ helm install mlflow ./charts \
 ```
 
 ## Upgrading
+
+Choose the published MLflow version to deploy:
+
+```bash
+helm upgrade mlflow oci://ghcr.io/mlflow/charts/mlflow \
+  --version <version> --namespace mlflow -f my-values.yaml
+```
+
+From a local checkout:
 
 ```bash
 helm upgrade mlflow ./charts --namespace mlflow -f my-values.yaml

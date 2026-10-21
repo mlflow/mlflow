@@ -1,6 +1,7 @@
 import logging
 import re
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable
+from typing import NamedTuple
 from urllib.parse import quote, unquote
 
 from sqlalchemy import and_, or_, select, text
@@ -37,6 +38,7 @@ from mlflow.server.auth.entities import (
     WorkspacePermission,
 )
 from mlflow.server.auth.permissions import (
+    DENY,
     MANAGE,
     RESOURCE_TYPE_EXPERIMENT,
     RESOURCE_TYPE_GATEWAY_ENDPOINT,
@@ -46,8 +48,12 @@ from mlflow.server.auth.permissions import (
     RESOURCE_TYPE_REGISTERED_MODEL,
     RESOURCE_TYPE_SCORER,
     RESOURCE_TYPE_WORKSPACE,
+    SKILL_REGISTRY_RESOURCE_TYPES,
     Permission,
+    _format_skill_registry_resource_key,
+    _parse_skill_registry_resource_key,
     _validate_permission_for_resource_type,
+    _validate_resource_pattern,
     _validate_resource_type,
     get_permission,
     max_permission,
@@ -94,6 +100,18 @@ _RETAINED_LEGACY_PERMISSION_TABLES: tuple[str, ...] = (
     "gateway_model_definition_permissions",
     "workspace_permissions",
 )
+
+
+class RoleGrantRow(NamedTuple):
+    """One role-based grant row, detached from the ORM session.
+
+    A plain tuple deliberately: the fold runs outside the store, so nothing it receives
+    should be a live SQLAlchemy instance.
+    """
+
+    resource_type: str
+    resource_pattern: str
+    permission: str
 
 
 class SqlAlchemyStore:
@@ -377,6 +395,50 @@ class SqlAlchemyStore:
     # CRUD methods below remain only as tombstones backing the deprecated REST
     # surface; remove them when the deprecated handlers are dropped.
 
+    @staticmethod
+    def _validate_resource_pattern(resource_type: str, resource_pattern: str) -> str:
+        if resource_type in SKILL_REGISTRY_RESOURCE_TYPES and resource_pattern != "*":
+            organization, name = _parse_skill_registry_resource_key(resource_pattern)
+            return _format_skill_registry_resource_key(organization, name)
+        return resource_pattern
+
+    def grant_user_permissions(
+        self,
+        username: str,
+        grants: Iterable[tuple[str, str, str]],
+    ) -> None:
+        """Upsert a batch of user grants in one auth-store transaction."""
+        with self.ManagedSessionMaker(read_only=False) as session:
+            user = self._get_user(session, username=username)
+            workspace_name = self._get_active_workspace_name()
+            role = self._get_or_create_synthetic_user_role(session, user.id, workspace_name)
+            for resource_type, resource_pattern, permission in grants:
+                self._reject_workspace_resource_type(resource_type)
+                _validate_resource_pattern(resource_pattern, resource_type)
+                _validate_permission_for_resource_type(permission, resource_type)
+                resource_pattern = self._validate_resource_pattern(resource_type, resource_pattern)
+                existing = (
+                    session
+                    .query(SqlRolePermission)
+                    .filter(
+                        SqlRolePermission.role_id == role.id,
+                        SqlRolePermission.resource_type == resource_type,
+                        SqlRolePermission.resource_pattern == resource_pattern,
+                    )
+                    .first()
+                )
+                if existing is None:
+                    session.add(
+                        SqlRolePermission(
+                            role_id=role.id,
+                            resource_type=resource_type,
+                            resource_pattern=resource_pattern,
+                            permission=permission,
+                        )
+                    )
+                else:
+                    existing.permission = permission
+
     def grant_user_permission(
         self,
         username: str,
@@ -388,7 +450,12 @@ class SqlAlchemyStore:
         Upsert a ``permission`` grant on ``(resource_type, resource_pattern)`` for
         ``username`` via their synthetic role in the active workspace.
         """
+        # Grain is validated at every write boundary, not just the role API: a pattern the type
+        # does not declare would be stored and then silently ignored by the fold, so an operator
+        # would get a success for a per-id DENY that protects nothing.
+        _validate_resource_pattern(resource_pattern, resource_type)
         _validate_permission_for_resource_type(permission, resource_type)
+        resource_pattern = self._validate_resource_pattern(resource_type, resource_pattern)
         with self.ManagedSessionMaker(read_only=False) as session:
             user = self._get_user(session, username=username)
             workspace_name = self._get_active_workspace_name()
@@ -438,7 +505,9 @@ class SqlAlchemyStore:
         ``create_*_permission`` contract).
         """
         self._reject_workspace_resource_type(resource_type)
+        _validate_resource_pattern(resource_pattern, resource_type)
         _validate_permission_for_resource_type(permission, resource_type)
+        resource_pattern = self._validate_resource_pattern(resource_type, resource_pattern)
         duplicate_message = (
             f"Permission for user={username} on "
             f"resource_type={resource_type}, resource_id={resource_pattern} already exists."
@@ -487,6 +556,7 @@ class SqlAlchemyStore:
         """
         self._reject_workspace_resource_type(resource_type)
         _validate_resource_type(resource_type)
+        resource_pattern = self._validate_resource_pattern(resource_type, resource_pattern)
         not_found_message = (
             f"Permission for user={username} on "
             f"resource_type={resource_type}, resource_id={resource_pattern} not found."
@@ -532,6 +602,8 @@ class SqlAlchemyStore:
         workspace — for resources whose pattern can collide across workspaces
         (e.g. registered-model names). Admin-created roles are never touched.
         """
+        _validate_resource_type(resource_type)
+        resource_pattern = self._validate_resource_pattern(resource_type, resource_pattern)
         with self.ManagedSessionMaker(read_only=False) as session:
             workspace = self._get_active_workspace_name() if workspace_scoped else None
             role_ids = self._synthetic_role_ids(session, workspace=workspace)
@@ -556,6 +628,9 @@ class SqlAlchemyStore:
         ``(resource_type, new_pattern)``. Used for resources whose pattern is the
         primary key and can change (e.g. registered-model rename).
         """
+        _validate_resource_type(resource_type)
+        old_pattern = self._validate_resource_pattern(resource_type, old_pattern)
+        new_pattern = self._validate_resource_pattern(resource_type, new_pattern)
         with self.ManagedSessionMaker(read_only=False) as session:
             workspace = self._get_active_workspace_name() if workspace_scoped else None
             role_ids = self._synthetic_role_ids(session, workspace=workspace)
@@ -1884,13 +1959,8 @@ class SqlAlchemyStore:
         permission: str,
     ) -> RolePermission:
         _validate_permission_for_resource_type(permission, resource_type)
-        # Workspace-scope and type-wildcard grants only support the "*" pattern. Any
-        # other pattern would be silently ignored by the resolver, so reject it up front.
-        if resource_type == RESOURCE_TYPE_WORKSPACE and resource_pattern != "*":
-            raise MlflowException.invalid_parameter_value(
-                f"resource_type='{resource_type}' requires resource_pattern='*'. "
-                f"Got resource_pattern='{resource_pattern}'."
-            )
+        resource_pattern = self._validate_resource_pattern(resource_type, resource_pattern)
+        _validate_resource_pattern(resource_pattern, resource_type)
         with self.ManagedSessionMaker(read_only=False) as session:
             self._get_role(session, role_id)
             try:
@@ -2092,6 +2162,8 @@ class SqlAlchemyStore:
                 return None
 
             best_permission_name: str | None = None
+            denied = False
+            workspace_admin = False
             for role in roles:
                 for rp in role.permissions:
                     # (workspace, *) folds into resource-type queries only for
@@ -2099,6 +2171,7 @@ class SqlAlchemyStore:
                     # create" signal and folds only for workspace-tier queries.
                     if rp.resource_type == RESOURCE_TYPE_WORKSPACE and rp.resource_pattern == "*":
                         if resource_type == RESOURCE_TYPE_WORKSPACE or rp.permission == MANAGE.name:
+                            workspace_admin = workspace_admin or rp.permission == MANAGE.name
                             best_permission_name = (
                                 max_permission(best_permission_name, rp.permission)
                                 if best_permission_name is not None
@@ -2109,12 +2182,22 @@ class SqlAlchemyStore:
                     if rp.resource_type != resource_type:
                         continue
                     if rp.resource_pattern in ("*", resource_id):
+                        # DENY is below every positive level, so folding it with
+                        # ``max_permission`` would silently lift it to the positive grant
+                        # beside it. Track it separately, as ``fold_grants_for_key`` does.
+                        if rp.permission == DENY.name:
+                            denied = True
+                            continue
                         best_permission_name = (
                             max_permission(best_permission_name, rp.permission)
                             if best_permission_name is not None
                             else rp.permission
                         )
 
+            # A workspace admin is not restrictable, so that precedes DENY -- the same
+            # ordering ``resolve_permissions`` applies.
+            if denied and not workspace_admin:
+                return DENY
             if best_permission_name is None:
                 return None
             return get_permission(best_permission_name)
@@ -2173,6 +2256,36 @@ class SqlAlchemyStore:
         """
         with self.ManagedSessionMaker() as session:
             return workspace in self._workspace_admin_workspaces(session, user_id)
+
+    def list_grants(
+        self, user_id: int, workspace: str, resource_types: "Collection[str]"
+    ) -> list["RoleGrantRow"]:
+        """
+        The user's role-based grants in ``workspace`` for ``resource_types``, plus the
+        workspace-wide grants (which can apply to any type).
+        """
+        types = set(resource_types)
+        for resource_type in types:
+            _validate_resource_type(resource_type)
+        types.add(RESOURCE_TYPE_WORKSPACE)
+        with self.ManagedSessionMaker() as session:
+            rows = (
+                session
+                .query(
+                    SqlRolePermission.resource_type,
+                    SqlRolePermission.resource_pattern,
+                    SqlRolePermission.permission,
+                )
+                .join(SqlRole, SqlRole.id == SqlRolePermission.role_id)
+                .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
+                .filter(
+                    SqlUserRoleAssignment.user_id == user_id,
+                    SqlRole.workspace == workspace,
+                    SqlRolePermission.resource_type.in_(types),
+                )
+                .all()
+            )
+            return [RoleGrantRow(rtype, pattern, permission) for rtype, pattern, permission in rows]
 
     def list_role_grants_for_user_in_workspace(
         self, user_id: int, workspace: str, resource_type: str

@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "3.16.2.dev0"
+version = "3.17.3.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -59,6 +59,7 @@ dependencies = [
   "pyarrow<26,>=4.0.0",
   "pydantic<3,>=2.0.0",
   "python-dotenv<2,>=0.19.0",
+  "python-multipart<1,>=0.0.18",
   "pyyaml<7,>=5.1",
   "requests<3,>=2.17.3",
   "scikit-learn<2",
@@ -90,7 +91,7 @@ extras = [
   "kubernetes",
   "prometheus-flask-exporter",
 ]
-db = ["PyMySQL", "psycopg2-binary", "pymssql"]
+db = ["PyMySQL", "psycopg2-binary", "psycopg[binary]", "pymssql"]
 databricks = [
   "azure-storage-file-datalake>12",
   "google-cloud-storage>=1.30.0",
@@ -120,7 +121,7 @@ sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]
 jfrog = ["mlflow-jfrog-plugin"]
 kubernetes = ["kubernetes"]
-langchain = ["langchain>=1.0.0,<=1.3.17"]
+langchain = ["langchain>=1.0.0,<=1.4.3"]
 auth = ["Flask-WTF<2"]
 
 [project.urls]
@@ -179,7 +180,7 @@ dev = [
   "mlflow-test-plugin",
 ]
 lint = [
-  "ruff==0.16.4",
+  "ruff==0.16.8",
   "pre-commit==4.6.1",
   "toml==0.10.2",
   "types-toml",
@@ -256,9 +257,7 @@ docs = [
 
 [tool.uv]
 exclude-newer = "P7D"
-# TODO: Remove `sqlalchemy = false` once SQLAlchemy 2.1.0 (released 2026-09-24) clears the 7-day
-# cooldown, so the `database` CI job exercises the psycopg v3 default driver.
-exclude-newer-package = { torch = false, torchvision = false, sqlalchemy = false }
+exclude-newer-package = { torch = false, torchvision = false }
 required-version = ">=0.12.16"
 constraint-dependencies = [
   # xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
@@ -302,7 +301,7 @@ explicit = true
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-required-version = "0.16.4"
+required-version = "0.16.8"
 force-exclude = true
 extend-include = ["*.ipynb"]
 extension = { mdx = "markdown" }
@@ -506,6 +505,10 @@ tpe = "tpe"                        # Tree-structured Parzen Estimator (hyperopt/
 TPE = "TPE"                        # Tree-structured Parzen Estimator (hyperopt/optuna)
 indx = "indx"                      # intentional shorthand for index
 Tru = "Tru"                        # TruLens library name prefix
+Ded = "Ded"                        # "ANDed", i.e. combined with a logical AND
+
+[tool.typos.default.extend-identifiers]
+ttest_rel = "ttest_rel" # scipy.stats.ttest_rel (paired t-test)
 
 # https://github.com/crate-ci/typos/blob/master/docs/reference.md
 [tool.typos.files]

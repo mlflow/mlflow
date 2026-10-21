@@ -168,6 +168,27 @@ beforeEach(() => {
 });
 
 describe('processTranscript', () => {
+  let originalUser: string | undefined;
+  let originalUsername: string | undefined;
+
+  beforeEach(() => {
+    originalUser = process.env.USER;
+    originalUsername = process.env.USERNAME;
+  });
+
+  afterEach(() => {
+    if (originalUser === undefined) {
+      delete process.env.USER;
+    } else {
+      process.env.USER = originalUser;
+    }
+    if (originalUsername === undefined) {
+      delete process.env.USERNAME;
+    } else {
+      process.env.USERNAME = originalUsername;
+    }
+  });
+
   // --------------------------------------------------------------------------
   // Basic span hierarchy
   // --------------------------------------------------------------------------
@@ -300,23 +321,44 @@ describe('processTranscript', () => {
   });
 
   describe('token usage', () => {
-    it('preserves cache tokens as separate fields and excludes cache from total', async () => {
-      await processTranscript(resolve(FIXTURES_DIR, 'with-usage.jsonl'), 'test-session-usage');
+    it.each([
+      { cacheTokens: {}, expectedInput: 10 },
+      {
+        cacheTokens: { cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
+        expectedInput: 10,
+      },
+      { cacheTokens: { cache_read_input_tokens: 40 }, expectedInput: 50 },
+      { cacheTokens: { cache_creation_input_tokens: 100 }, expectedInput: 110 },
+      {
+        cacheTokens: { cache_read_input_tokens: 40, cache_creation_input_tokens: 100 },
+        expectedInput: 150,
+      },
+    ])(
+      'includes cache tokens in input and total usage: $cacheTokens',
+      async ({ cacheTokens, expectedInput }) => {
+        const tmpDir = mkdtempSync(resolve(tmpdir(), 'cc-test-'));
+        const transcriptPath = resolve(tmpDir, 'cache.jsonl');
+        const entries = readFileSync(resolve(FIXTURES_DIR, 'with-usage.jsonl'), 'utf8')
+          .trim()
+          .split('\n')
+          .map((line) => JSON.parse(line) as TranscriptEntry);
+        entries[1].message!.usage = { input_tokens: 10, output_tokens: 25, ...cacheTokens };
+        writeFileSync(transcriptPath, entries.map((entry) => JSON.stringify(entry)).join('\n'));
+        await processTranscript(transcriptPath, 'test-session-usage');
 
-      const llms = getSpansByType('LLM');
-      expect(llms).toHaveLength(1);
+        const llms = getSpansByType('LLM');
+        expect(llms).toHaveLength(1);
 
-      const tokenUsage = llms[0].attributes['mlflow.chat.tokenUsage'];
-      expect(tokenUsage).toBeDefined();
-      // input_tokens stays as the non-cached input the API reports.
-      expect(tokenUsage.input_tokens).toBe(10);
-      expect(tokenUsage.output_tokens).toBe(25);
-      // total = input + output, cache excluded (matches mlflow.anthropic.autolog).
-      expect(tokenUsage.total_tokens).toBe(35);
-      // Cache fields are surfaced as separate optional keys.
-      expect(tokenUsage.cache_read_input_tokens).toBe(40);
-      expect(tokenUsage.cache_creation_input_tokens).toBe(100);
-    });
+        const tokenUsage = llms[0].attributes['mlflow.chat.tokenUsage'];
+        expect(tokenUsage).toBeDefined();
+        expect(tokenUsage).toEqual({
+          input_tokens: expectedInput,
+          output_tokens: 25,
+          total_tokens: expectedInput + 25,
+          ...cacheTokens,
+        });
+      },
+    );
 
     it('omits cache token keys when the API does not report them', async () => {
       const tmpDir = mkdtempSync(resolve(tmpdir(), 'cc-test-'));
@@ -356,7 +398,7 @@ describe('processTranscript', () => {
       const usageKey = 'mlflow.chat.tokenUsage';
       const usageField = (field: string) =>
         llms.map((llm) => Number(llm.attributes[usageKey][field]));
-      expect(usageField('input_tokens')).toEqual(Array(3).fill(10));
+      expect(usageField('input_tokens')).toEqual(Array(3).fill(150));
       expect(usageField('output_tokens')).toEqual(Array(3).fill(25));
       expect(llms[2].endTimeNs! - llms[2].startTimeNs!).toBe(2_500_000_000);
       const root = getSpansByName('claude_code_conversation')[0];
@@ -377,8 +419,20 @@ describe('processTranscript', () => {
     });
 
     it('sets trace user from environment', async () => {
+      process.env.USER = 'known-user';
+      process.env.USERNAME = 'windows-user';
+
       await processTranscript(resolve(FIXTURES_DIR, 'basic.jsonl'), 'test-session-123');
-      expect(mockTraceInfo.traceMetadata['mlflow.trace.user']).toBe(process.env.USER ?? '');
+      expect(mockTraceInfo.traceMetadata['mlflow.trace.user']).toBe('known-user');
+    });
+
+    it('sets trace user from USERNAME when USER is unset', async () => {
+      delete process.env.USER;
+      process.env.USERNAME = 'windows-user';
+
+      await processTranscript(resolve(FIXTURES_DIR, 'basic.jsonl'), 'test-session-123');
+
+      expect(mockTraceInfo.traceMetadata['mlflow.trace.user']).toBe('windows-user');
     });
 
     it('sets working directory', async () => {

@@ -701,6 +701,26 @@
       },
       "last_updated_at": "2026-09-18"
     },
+    "nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1049000,
+        "max_tokens": 943718
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.75,
+        "cache_read_per_million_tokens": 0.02
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-16"
+    },
     "openai/gpt-oss-120b": {
       "mode": "chat",
       "context_window": {
@@ -793,12 +813,12 @@
       },
       "capabilities": {
         "function_calling": true,
-        "vision": false,
+        "vision": true,
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-18"
+      "last_updated_at": "2026-10-02"
     }
   }
 }

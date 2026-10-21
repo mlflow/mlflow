@@ -1,3 +1,4 @@
+import os
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
@@ -84,6 +85,16 @@ def store(tmp_path: Path, db_uri: str) -> SqlAlchemyStore:
 @pytest.fixture(autouse=True)
 def enable_rollups(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv(MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.name, "true")
+
+
+@pytest.fixture(params=["sqlite", "postgresql"])
+def maintenance_store(request, tmp_path):
+    if request.param == "sqlite":
+        return request.getfixturevalue("store")
+    uri = os.environ.get("MLFLOW_ROLLUP_TEST_POSTGRES_URI")
+    if not uri:
+        pytest.skip("Set MLFLOW_ROLLUP_TEST_POSTGRES_URI to a disposable PostgreSQL database")
+    return SqlAlchemyStore(uri, (tmp_path / "artifacts").as_uri())
 
 
 def _day_of(timestamp_ms: int):
@@ -540,6 +551,152 @@ def test_open_span_on_another_day_defers_span_cost_partition(store: SqlAlchemySt
     assert stats.span_cost.deferred == 1
     assert _count(store, SqlSpanCostDailyRollup) == 0
     assert _count(store, SqlTraceRollupRebuild, rollup_family=RollupFamily.SPAN_COST.value) == 1
+
+
+@pytest.mark.parametrize("span_state", ["open", "recent", "at_cutoff"])
+def test_partition_eligibility_checks_costless_spans_on_other_days(maintenance_store, span_state):
+    store = maintenance_store
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    trace_id = _new_trace(store, exp_id, DAY_A_MS)
+    _add_feedback(store, trace_id)
+    cutoff_ms = FUTURE_NOW_MS - ROLLUP_ELIGIBILITY_LAG_MS
+    end_ns = {
+        "open": None,
+        "recent": cutoff_ms * 1_000_000 + 1,
+        "at_cutoff": cutoff_ms * 1_000_000,
+    }[span_state]
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.add_all([
+            SqlSpan(
+                trace_id=trace_id,
+                experiment_id=int(exp_id),
+                span_id="cost",
+                status="OK",
+                start_time_unix_nano=DAY_A_MS * 1_000_000,
+                end_time_unix_nano=(DAY_A_MS + 10) * 1_000_000,
+                total_cost=0.0,
+                content="{}",
+            ),
+            SqlSpan(
+                trace_id=trace_id,
+                experiment_id=int(exp_id),
+                span_id="costless-other-day",
+                status="UNSET",
+                start_time_unix_nano=DAY_B_MS * 1_000_000,
+                end_time_unix_nano=end_ns,
+                content="{}",
+            ),
+        ])
+    with store.ManagedSessionMaker() as session:
+        for family in RollupFamily:
+            assert trace_rollups._partition_state(
+                session,
+                family,
+                int(exp_id),
+                DAY_A_MS // MS_PER_DAY,
+                cutoff_ms,
+                cutoff_ms // MS_PER_DAY,
+            ) == (span_state == "at_cutoff", True)
+
+
+def test_span_cost_aggregates_match_independent_oracle_with_null_dimensions(maintenance_store):
+    store = maintenance_store
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    trace_id = _new_trace(store, exp_id, DAY_A_MS)
+    inputs = [
+        ("model-a", "provider-a", 0.0, 0.5, 0.5),
+        ("model-a", None, 0.25, None, 0.25),
+        (None, "provider-a", None, 0.75, 0.75),
+        (None, None, 1.0, None, None),
+        ("model-b", "provider-b", None, None, None),
+    ]
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.add_all([
+            SqlSpan(
+                trace_id=trace_id,
+                experiment_id=int(exp_id),
+                span_id=str(i),
+                status="OK",
+                start_time_unix_nano=DAY_A_MS * 1_000_000,
+                end_time_unix_nano=(DAY_A_MS + 10) * 1_000_000,
+                model_name=model,
+                model_provider=provider,
+                input_cost=input_cost,
+                output_cost=output_cost,
+                total_cost=total_cost,
+                content="{}",
+            )
+            for i, (model, provider, input_cost, output_cost, total_cost) in enumerate(inputs)
+        ])
+    expected = {}
+    for model, provider, *costs in inputs:
+        groups = [(GroupingSet.GLOBAL.value, None, None)]
+        if model is not None:
+            groups.append((GroupingSet.MODEL.value, model, None))
+        if provider is not None:
+            groups.append((GroupingSet.PROVIDER.value, None, provider))
+        if model is not None and provider is not None:
+            groups.append((GroupingSet.MODEL_PROVIDER.value, model, provider))
+        for group in groups:
+            for metric, cost in zip(
+                [SpanMetricKey.INPUT_COST, SpanMetricKey.OUTPUT_COST, SpanMetricKey.TOTAL_COST],
+                costs,
+                strict=True,
+            ):
+                if cost is not None:
+                    expected.setdefault((*group, metric), []).append(cost)
+    with store.ManagedSessionMaker() as session:
+        rows = trace_rollups._aggregate_span_cost(session, int(exp_id), DAY_A_MS // MS_PER_DAY)
+    actual = {
+        (row.grouping_set, row.model_name, row.model_provider, row.metric_name): row for row in rows
+    }
+    assert actual.keys() == expected.keys()
+    for key, values in expected.items():
+        row = actual[key]
+        assert row.sample_count == len(values)
+        assert (row.sum_value, row.min_value, row.max_value) == pytest.approx((
+            sum(values),
+            min(values),
+            max(values),
+        ))
+
+
+@pytest.mark.parametrize("family", list(RollupFamily))
+def test_day_discovery_seeks_over_duplicates_gaps_and_queued_days(maintenance_store, family):
+    store = maintenance_store
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    for i, day_offset in enumerate([0, 0, 3, 5, 6]):
+        timestamp_ms = DAY_A_MS + day_offset * MS_PER_DAY
+        trace_id = _new_trace(store, exp_id, timestamp_ms)
+        _add_feedback(store, trace_id)
+        with store.ManagedSessionMaker(read_only=False) as session:
+            session.add(
+                SqlSpan(
+                    trace_id=trace_id,
+                    experiment_id=int(exp_id),
+                    span_id=str(i),
+                    status="OK",
+                    start_time_unix_nano=timestamp_ms * 1_000_000,
+                    end_time_unix_nano=(timestamp_ms + 10) * 1_000_000,
+                    total_cost=0.0,
+                    content="{}",
+                )
+            )
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.query(SqlTraceRollupRebuild).filter_by(experiment_id=int(exp_id)).delete()
+    _enqueue_entry(store, family, exp_id, DAY_A_MS + 3 * MS_PER_DAY)
+    candidates, overflow = trace_rollups._new_candidates_for_experiment(
+        store.ManagedSessionMaker,
+        family,
+        int(exp_id),
+        (FUTURE_NOW_MS - ROLLUP_ELIGIBILITY_LAG_MS) // MS_PER_DAY,
+        2,
+    )
+    assert candidates == [
+        (family, (int(exp_id), DAY_A_MS // MS_PER_DAY)),
+        (family, (int(exp_id), DAY_A_MS // MS_PER_DAY + 5)),
+    ]
+    assert overflow
 
 
 def test_emptied_partition_removes_rollups_and_queue_entry(store: SqlAlchemyStore):
@@ -1063,10 +1220,11 @@ def test_steady_state_discovery_filters_on_raw_timestamp_boundaries(store: SqlAl
         event.remove(store.engine, "before_cursor_execute", capture_select)
 
     assert candidates == [(RollupFamily.TRACE_METRIC, (int(exp_id), DAY_B_MS // MS_PER_DAY))]
-    assert len(statements) == 2
+    assert len(statements) == 3
     for statement in statements:
         assert "TRACE_INFO.TIMESTAMP_MS <" in statement
         assert "TRACE_INFO.TIMESTAMP_MS >=" in statement
+        assert "GROUP BY" not in statement
 
 
 def test_queued_rebuild_precedes_new_partition_across_families(store: SqlAlchemyStore):

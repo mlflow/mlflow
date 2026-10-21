@@ -109,6 +109,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/observe-with-traces/custom-views',
+                  label: 'Custom Trace Views',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/search-traces',
                   label: 'Search Traces',
                 },
@@ -505,6 +510,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/typesafe',
+                  label: 'TypeSafe AI',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/xai-grok',
                   label: 'xAI / Grok',
                 },
@@ -691,6 +701,11 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
+          id: 'eval-monitor/comparing-evaluation-runs',
+          label: 'Comparing Evaluation Runs',
+        },
+        {
+          type: 'doc',
           id: 'eval-monitor/automatic-evaluations/index',
           label: 'Automatic Evaluation',
         },
@@ -840,6 +855,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   id: 'eval-monitor/scorers/llm-judge/custom-judges/create-custom-judge',
                   label: 'Create a Custom Judge',
                 },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/custom-judges/typesafe',
+                  label: 'TypeSafe Judge Models',
+                },
               ],
               collapsed: false,
             },
@@ -860,6 +880,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'eval-monitor/scorers/custom/tutorial',
                   label: 'Tutorial: Develop code-based scorers',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/custom/job-containers',
+                  label: 'Run in Job Containers (Experimental)',
                 },
               ],
               collapsed: false,
@@ -1295,6 +1320,29 @@ const sidebarsGenAI: SidebarsConfig = {
       link: {
         type: 'doc',
         id: 'flavors/index',
+      },
+    },
+    {
+      type: 'category',
+      label: 'Skill Registry',
+      className: 'sidebar-top-level-category',
+      items: [
+        {
+          type: 'doc',
+          id: 'skill-registry/register-and-import-skills',
+        },
+        {
+          type: 'doc',
+          id: 'skill-registry/manage-versions-and-aliases',
+        },
+        {
+          type: 'doc',
+          id: 'skill-registry/pull-skills',
+        },
+      ],
+      link: {
+        type: 'doc',
+        id: 'skill-registry/index',
       },
     },
     {

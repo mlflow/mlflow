@@ -1,4 +1,6 @@
 import copy
+import json
+import re
 import socket
 import time
 from unittest.mock import patch
@@ -15,6 +17,8 @@ from mlflow.utils.validation import (
     _find_destination_keys,
     _is_numeric,
     _parse_trace_archival_duration_config,
+    _validate_alias_name,
+    _validate_alias_name_reserved,
     _validate_batch_log_data,
     _validate_batch_log_limits,
     _validate_db_type_string,
@@ -24,11 +28,9 @@ from mlflow.utils.validation import (
     _validate_gateway_api_base,
     _validate_gateway_secret_auth_config,
     _validate_gateway_secret_value,
+    _validate_icon_url,
     _validate_list_param,
-    _validate_mcp_icon_url,
     _validate_metric_name,
-    _validate_model_alias_name,
-    _validate_model_alias_name_reserved,
     _validate_model_name,
     _validate_model_renaming,
     _validate_param_name,
@@ -63,6 +65,9 @@ BAD_METRIC_OR_PARAM_NAMES = [
     "\\",
     "./",
     "/./",
+    "\n",
+    "foo\n",
+    "\n\n",
 ]
 
 GOOD_ALIAS_NAMES = [
@@ -95,6 +100,8 @@ BAD_ALIAS_NAMES = [
     "a" * 256,
     None,
     "$dgs",
+    "\n",
+    "foo\n",
 ]
 
 
@@ -166,12 +173,8 @@ def test_validate_metric_name_good(metric_name):
 
 
 def _bad_parameter_pattern(name):
-    if name == "\\":
-        return r"Invalid value \"\\\\\" for parameter"  # Manually handle the backslash case
-    elif name == "*****":
-        return r"Invalid value \"\*\*\*\*\*\" for parameter"
-    else:
-        return f'Invalid value "{name}" for parameter'
+    # Messages use json.dumps(value); escape for pytest match regex.
+    return f"Invalid value {re.escape(json.dumps(name))} for parameter"
 
 
 @pytest.mark.parametrize("metric_name", BAD_METRIC_OR_PARAM_NAMES)
@@ -222,22 +225,42 @@ def test_validate_tag_name_bad(tag_name):
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        "\n",
+        "foo\n",
+        "\n\n",
+        "a\n",
+    ],
+)
+@pytest.mark.parametrize(
+    "validator",
+    [_validate_param_name, _validate_metric_name, _validate_tag_name],
+    ids=["param", "metric", "tag"],
+)
+def test_validate_name_rejects_trailing_newline(validator, name):
+    with pytest.raises(MlflowException, match=r"Invalid value") as e:
+        validator(name)
+    assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
 @pytest.mark.parametrize("alias_name", GOOD_ALIAS_NAMES)
-def test_validate_model_alias_name_good(alias_name):
-    _validate_model_alias_name(alias_name)
+def test_validate_alias_name_good(alias_name):
+    _validate_alias_name(alias_name)
 
 
 @pytest.mark.parametrize("alias_name", BAD_ALIAS_NAMES)
-def test_validate_model_alias_name_bad(alias_name):
+def test_validate_alias_name_bad(alias_name):
     with pytest.raises(MlflowException, match="alias name") as e:
-        _validate_model_alias_name(alias_name)
+        _validate_alias_name(alias_name)
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
 @pytest.mark.parametrize("alias_name", ["latest", "LATEST", "Latest", "v123", "V1"])
-def test_validate_model_alias_name_reserved(alias_name):
+def test_validate_alias_name_reserved(alias_name):
     with pytest.raises(MlflowException, match="reserved") as e:
-        _validate_model_alias_name_reserved(alias_name)
+        _validate_alias_name_reserved(alias_name)
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
@@ -260,7 +283,7 @@ def test_validate_run_id_good(run_id):
     _validate_run_id(run_id)
 
 
-@pytest.mark.parametrize("run_id", ["a/bc" * 8, "", "a" * 400, "*" * 5])
+@pytest.mark.parametrize("run_id", ["a/bc" * 8, "", "a" * 400, "*" * 5, "abc\n", "a" * 10 + "\n"])
 def test_validate_run_id_bad(run_id):
     with pytest.raises(MlflowException, match=_bad_parameter_pattern(run_id)) as e:
         _validate_run_id(run_id)
@@ -359,12 +382,14 @@ def test_validate_experiment_artifact_location_bad(location):
         _validate_experiment_artifact_location(location)
 
 
-@pytest.mark.parametrize("experiment_name", ["validstring", b"test byte string".decode("utf-8")])
+@pytest.mark.parametrize(
+    "experiment_name", ["validstring", " valid name ", b"test byte string".decode("utf-8")]
+)
 def test_validate_experiment_name_good(experiment_name):
     _validate_experiment_name(experiment_name)
 
 
-@pytest.mark.parametrize("experiment_name", ["", 12, 12.7, None, {}, []])
+@pytest.mark.parametrize("experiment_name", ["", " ", "\t\n", "\u2003", 12, 12.7, None, {}, []])
 def test_validate_experiment_name_bad(experiment_name):
     with pytest.raises(MlflowException, match="Invalid experiment name"):
         _validate_experiment_name(experiment_name)
@@ -698,25 +723,25 @@ def test_validate_public_https_url_rejects_if_any_resolved_address_is_private():
             _validate_public_https_url("https://internal.corp/icon.png", field_name="Icon URL")
 
 
-def test_validate_mcp_icon_url_allowlist_accepts_exact_match(monkeypatch):
+def test_validate_icon_url_allowlist_accepts_exact_match(monkeypatch):
     monkeypatch.setenv("MLFLOW_ICON_URL_ALLOWED_DOMAINS", "example.com")
     with patch(
         "mlflow.utils.validation.socket.getaddrinfo",
         side_effect=_mock_getaddrinfo_by_host({"example.com": "8.8.8.8"}),
     ):
-        _validate_mcp_icon_url("https://example.com/icon.png")
+        _validate_icon_url("https://example.com/icon.png")
 
 
-def test_validate_mcp_icon_url_allowlist_accepts_wildcard_match(monkeypatch):
+def test_validate_icon_url_allowlist_accepts_wildcard_match(monkeypatch):
     monkeypatch.setenv("MLFLOW_ICON_URL_ALLOWED_DOMAINS", "*.example.com")
     with patch(
         "mlflow.utils.validation.socket.getaddrinfo",
         side_effect=_mock_getaddrinfo_by_host({"cdn.example.com": "8.8.8.8"}),
     ):
-        _validate_mcp_icon_url("https://cdn.example.com/icon.png")
+        _validate_icon_url("https://cdn.example.com/icon.png")
 
 
-def test_validate_mcp_icon_url_allowlist_rejects_unlisted_host(monkeypatch):
+def test_validate_icon_url_allowlist_rejects_unlisted_host(monkeypatch):
     monkeypatch.setenv(
         "MLFLOW_ICON_URL_ALLOWED_DOMAINS",
         "assets.example.com,*.cdn.example.com",
@@ -726,49 +751,49 @@ def test_validate_mcp_icon_url_allowlist_rejects_unlisted_host(monkeypatch):
         side_effect=_mock_getaddrinfo_by_host({"evil.example.com": "8.8.8.8"}),
     ):
         with pytest.raises(MlflowException, match="not in the allowed domain list"):
-            _validate_mcp_icon_url("https://evil.example.com/icon.png")
+            _validate_icon_url("https://evil.example.com/icon.png")
 
 
-def test_validate_mcp_icon_url_allow_private_ips_accepts_localhost(monkeypatch):
+def test_validate_icon_url_allow_private_ips_accepts_localhost(monkeypatch):
     monkeypatch.setenv("MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS", "true")
-    _validate_mcp_icon_url("https://localhost/icon.png")
+    _validate_icon_url("https://localhost/icon.png")
 
 
-def test_validate_mcp_icon_url_allowed_schemes_accepts_public_http(monkeypatch):
+def test_validate_icon_url_allowed_schemes_accepts_public_http(monkeypatch):
     monkeypatch.setenv("MLFLOW_ICON_URL_ALLOWED_SCHEMES", "http,https")
     with patch(
         "mlflow.utils.validation.socket.getaddrinfo",
         side_effect=_mock_getaddrinfo("8.8.8.8"),
     ):
-        _validate_mcp_icon_url("http://example.com/icon.png")
+        _validate_icon_url("http://example.com/icon.png")
 
 
-def test_validate_mcp_icon_url_allow_private_ips_does_not_bypass_allowlist(monkeypatch):
+def test_validate_icon_url_allow_private_ips_does_not_bypass_allowlist(monkeypatch):
     monkeypatch.setenv("MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS", "true")
     monkeypatch.setenv("MLFLOW_ICON_URL_ALLOWED_DOMAINS", "assets.example.com")
     with pytest.raises(MlflowException, match="allowed domain list"):
-        _validate_mcp_icon_url("https://localhost/icon.png")
+        _validate_icon_url("https://localhost/icon.png")
 
 
-def test_validate_mcp_icon_url_allow_private_ips_and_allowlist_accepts_localhost(monkeypatch):
+def test_validate_icon_url_allow_private_ips_and_allowlist_accepts_localhost(monkeypatch):
     monkeypatch.setenv("MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS", "true")
     monkeypatch.setenv("MLFLOW_ICON_URL_ALLOWED_DOMAINS", "localhost")
-    _validate_mcp_icon_url("https://localhost/icon.png")
+    _validate_icon_url("https://localhost/icon.png")
 
 
-def test_validate_mcp_icon_url_allowed_schemes_keeps_basic_shape_checks(monkeypatch):
+def test_validate_icon_url_allowed_schemes_keeps_basic_shape_checks(monkeypatch):
     monkeypatch.setenv("MLFLOW_ICON_URL_ALLOWED_SCHEMES", "http,https")
     with pytest.raises(MlflowException, match="must not include embedded credentials"):
-        _validate_mcp_icon_url("http://user:pass@example.com/icon.png")
+        _validate_icon_url("http://user:pass@example.com/icon.png")
 
 
-def test_validate_mcp_icon_url_rejects_hostname_resolving_to_private_ip():
+def test_validate_icon_url_rejects_hostname_resolving_to_private_ip():
     with patch(
         "mlflow.utils.validation.socket.getaddrinfo",
         side_effect=_mock_getaddrinfo("10.0.0.1"),
     ):
         with pytest.raises(MlflowException, match="must not resolve to a non-public"):
-            _validate_mcp_icon_url("https://internal.corp/icon.png")
+            _validate_icon_url("https://internal.corp/icon.png")
 
 
 @pytest.mark.parametrize("invalid_name", ["my/model", "model:v1", "name/with:both"])

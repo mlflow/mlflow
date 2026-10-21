@@ -11,6 +11,7 @@ from unittest import mock
 
 import pytest
 from pyspark.sql import SparkSession
+from sqlalchemy.engine import make_url
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -24,6 +25,7 @@ from mlflow.utils.file_utils import (
     get_parent_dir,
     get_total_file_size,
     local_file_uri_to_path,
+    path_to_local_sqlite_uri,
     remove_on_error,
 )
 from mlflow.utils.os import is_windows
@@ -160,6 +162,13 @@ def test_handle_readonly_on_windows(tmp_path):
 )
 def test_local_file_uri_to_path_on_windows(input_uri, expected_path):
     assert local_file_uri_to_path(input_uri) == expected_path
+
+
+@pytest.mark.parametrize("dirname", ["a+b", "a%2Bb", "a#b", "a b"])
+def test_path_to_local_sqlite_uri_preserves_literal_path(tmp_path, dirname):
+    db_path = tmp_path / dirname / "mlflow.db"
+    uri = path_to_local_sqlite_uri(db_path)
+    assert Path(make_url(uri).database) == db_path
 
 
 def test_shutil_copytree_without_file_permissions(tmp_path):
@@ -478,3 +487,22 @@ def test_remove_on_error_logs_nothing_for_nonexistent_path(tmp_path, file_utils_
             raise ValueError("root cause")
 
     assert file_utils_caplog.records == []
+
+
+@pytest.mark.parametrize("verify", [None, True, False])
+def test_download_file_using_http_uri_tls_verification(tmp_path, verify):
+    destination = tmp_path / "artifact"
+    with mock.patch("mlflow.utils.file_utils.cloud_storage_http_request") as request:
+        request.return_value.__enter__.return_value.iter_content.return_value = [b"content"]
+        kwargs = {} if verify is None else {"verify": verify}
+        file_utils.download_file_using_http_uri(
+            "https://storage.example/artifact", destination, **kwargs
+        )
+    request.assert_called_once_with(
+        "get",
+        "https://storage.example/artifact",
+        stream=True,
+        headers={},
+        verify=True if verify is None else verify,
+    )
+    assert destination.read_bytes() == b"content"

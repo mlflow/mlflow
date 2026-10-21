@@ -84,6 +84,11 @@ export interface TracesTableViewProps {
   searchInputRef?: RefObject<InputRef>;
   searchPlaceholder?: string;
   searchSuffix?: React.ReactNode;
+  /** Consumer-owned search experience, rendered in place of the standard search input. */
+  searchControl?: React.ReactNode;
+  /** Let a consumer search containing filter pills fill the available toolbar width. */
+  expandSearch?: boolean;
+  searchMinimumWidth?: number;
   onSearchSubmit?: () => void;
   leftControls?: React.ReactNode;
   rightControls?: React.ReactNode;
@@ -101,6 +106,9 @@ export interface TracesTableViewProps {
   traceCount?: number;
   traceTotal?: number;
   isTraceCountLoading?: boolean;
+  /** Grouped-by-session footer count, shown ahead of the trace count (see `TracesPaginationBar`). */
+  sessionCount?: number;
+  sessionTotal?: number;
   /** Hide the whole pagination bar — grouped-by-session mode when the one big page holds everything. */
   hidePagination?: boolean;
   /** Hide just the page-size selector — grouped mode fetches one large page, so it's moot. */
@@ -147,6 +155,9 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
     searchInputRef,
     searchPlaceholder,
     searchSuffix,
+    searchControl,
+    expandSearch,
+    searchMinimumWidth,
     onSearchSubmit,
     onClearFilters,
     onRetry,
@@ -172,6 +183,8 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
       count={props.traceCount}
       total={props.traceTotal}
       isCountLoading={props.isTraceCountLoading}
+      sessionCount={props.sessionCount}
+      sessionTotal={props.sessionTotal}
       hidePageSizeSelector={props.hidePageSizeSelector}
     />
   );
@@ -259,6 +272,9 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
         searchInputRef={searchInputRef}
         searchPlaceholder={searchPlaceholder}
         searchSuffix={searchSuffix}
+        searchControl={searchControl}
+        expandSearch={expandSearch}
+        searchMinimumWidth={searchMinimumWidth}
         onSearchSubmit={onSearchSubmit}
         leftControls={leftControls}
         rightControls={rightControls}

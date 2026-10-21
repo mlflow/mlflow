@@ -53,9 +53,10 @@ def _create_table(
     a     b     c
     d     e     f
     """
+    columns = zip(*rows) if rows else [[] for _ in headers]
     column_widths = [
-        max(len(max(col, key=len)), len(header) + 2, min_column_width)
-        for col, header in zip(zip(*rows), headers)
+        max(max((len(cell) for cell in col), default=0), len(header) + 2, min_column_width)
+        for col, header in zip(columns, headers)
     ]
     aligned_rows = [
         column_sep.join(header.ljust(width) for header, width in zip(headers, column_widths)),

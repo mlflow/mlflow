@@ -265,6 +265,21 @@ async def test_chat_tool_calling_omits_function_call_id():
     assert function_call["args"] == {"location": "Singapore"}
 
 
+@pytest.mark.parametrize("tool_call_id", ["call_002", None])
+@pytest.mark.asyncio
+async def test_chat_tool_message_with_unmatched_tool_call_id_returns_422(tool_call_id):
+    provider = _make_provider()
+    payload = _tool_calling_second_turn_payload()
+    if tool_call_id is None:
+        del payload["messages"][2]["tool_call_id"]
+    else:
+        payload["messages"][2]["tool_call_id"] = tool_call_id
+
+    with pytest.raises(AIGatewayException, match="does not match any tool call") as exc_info:
+        await provider.chat(chat.RequestPayload(**payload))
+    assert exc_info.value.status_code == 422
+
+
 @pytest.mark.asyncio
 async def test_chat_tool_calling_preserves_thought_signature():
     provider = _make_provider()
@@ -288,6 +303,36 @@ async def test_chat_tool_calling_preserves_thought_signature():
     assert "id" not in function_call
     assert "thoughtSignature" not in function_call
     assert part["thoughtSignature"] == "opaque_thought_sig_token"
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.asyncio
+async def test_chat_tool_choice(stream):
+    provider = _make_provider()
+    payload = _tool_calling_second_turn_payload()
+    payload["messages"] = payload["messages"][:1]
+    payload["stream"] = stream
+    payload["tool_choice"] = {"type": "function", "function": {"name": "get_weather"}}
+    response = _chat_response()
+    mock_response = (
+        MockAsyncStreamingResponse([f"data: {json.dumps(response)}\n\n".encode()])
+        if stream
+        else MockAsyncResponse(response)
+    )
+    mock_client = mock_http_client(mock_response)
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        request = chat.RequestPayload(**payload)
+        if stream:
+            chunks = [chunk async for chunk in provider.chat_stream(request)]
+            assert chunks
+        else:
+            await provider.chat(request)
+
+    mock_client.post.assert_called_once()
+    sent_payload = mock_client.post.call_args.kwargs["json"]
+    assert sent_payload["toolConfig"] == {
+        "functionCallingConfig": {"mode": "ANY", "allowedFunctionNames": ["get_weather"]}
+    }
 
 
 @pytest.mark.asyncio
@@ -381,12 +426,8 @@ async def test_chat_parallel_tool_calls_omit_all_function_call_ids():
         for part in c.get("parts", [])
         if "functionCall" in part
     ]
-    function_responses = [
-        part["functionResponse"]
-        for c in contents
-        for part in c.get("parts", [])
-        if "functionResponse" in part
-    ]
+    # Both responses go back in the final user turn, one part per parallel call.
+    function_responses = [part["functionResponse"] for part in contents[-1]["parts"]]
     assert len(function_calls) == 2
     assert len(function_responses) == 2
     assert all("id" not in fc for fc in function_calls)

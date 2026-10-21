@@ -48,6 +48,8 @@ import { KeyValueViewer } from '../../custom-view/catalog-primitives/KeyValueVie
 import { Markdown } from '../../custom-view/catalog-primitives/Markdown';
 import { StatCard } from '../../custom-view/catalog-primitives/StatCard';
 import { Text } from '../../custom-view/catalog-primitives/Text';
+import { TraceAudio } from '../../custom-view/catalog-primitives/TraceAudio';
+import { TraceImage } from '../../custom-view/catalog-primitives/TraceImage';
 import type { AgentNode } from '../../custom-view/agent/buildAgentPrompt';
 import { validateAndPrepareMessages, validateTemplate } from '../../custom-view/agent/validateA2uiMessages';
 import { resolveTemplate } from '../../custom-view/resolveTemplate';
@@ -154,6 +156,8 @@ export const ModelTraceExplorerCustomView = ({
           Icon,
           StatCard,
           Markdown,
+          TraceImage,
+          TraceAudio,
           AssessmentBoard,
           AssessmentCard,
           KeyValueViewer,

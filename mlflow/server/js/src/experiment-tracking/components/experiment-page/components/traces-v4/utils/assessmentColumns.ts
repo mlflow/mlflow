@@ -5,6 +5,7 @@ import {
   type IssueReferenceAssessment,
   type ModelTraceInfoV3,
   getAssessmentValue,
+  isExpectationAssessment,
 } from '@databricks/web-shared/model-trace-explorer';
 // Not re-exported from the OSS barrel — import from its module.
 import { NOTES_ASSESSMENT_NAME } from '@databricks/web-shared/model-trace-explorer/assessments-pane/AssessmentsPaneNotesSection';
@@ -115,3 +116,41 @@ export const pickCellAssessment = (trace: ModelTraceInfoV3, name: string): Asses
     }
     return best && (best.create_time ?? '') >= (assessment.create_time ?? '') ? best : assessment;
   }, undefined);
+
+/** Whether an assessment would get a column, so filter suggestions offer the same names. */
+export const isAssessmentColumnEligible = (assessment: Assessment): boolean => isDisplayableTraceAssessment(assessment);
+
+/** How an assessment's loaded values compare: as numbers (every value is a number) or as text. */
+export type AssessmentValueKind = 'numeric' | 'other';
+
+/** Key for an assessment's value kind; feedback and expectations with the same name are kept apart. */
+export const assessmentValueKindKey = (field: 'feedback' | 'expectation', name: string): string => `${field}:${name}`;
+
+/**
+ * Classify the displayable assessments on `traces` by the type of their values: `numeric` when every
+ * loaded value is a number, `other` as soon as one isn't (a string or a boolean). Errored or empty
+ * values are skipped: they're stored as null and match no filter, so they say nothing about the type.
+ */
+export const classifyAssessmentValueKinds = (traces: ModelTraceInfoV3[]): Map<string, AssessmentValueKind> => {
+  const kinds = new Map<string, AssessmentValueKind>();
+  for (const trace of traces) {
+    for (const assessment of trace.assessments ?? []) {
+      if (!isDisplayableTraceAssessment(assessment)) {
+        continue;
+      }
+      const key = assessmentValueKindKey(
+        isExpectationAssessment(assessment) ? 'expectation' : 'feedback',
+        assessment.assessment_name,
+      );
+      const value = getAssessmentValue(assessment);
+      if (value === null || value === undefined) {
+        continue;
+      }
+      const kind: AssessmentValueKind = typeof value === 'number' ? 'numeric' : 'other';
+      if (kinds.get(key) !== 'other') {
+        kinds.set(key, kind);
+      }
+    }
+  }
+  return kinds;
+};

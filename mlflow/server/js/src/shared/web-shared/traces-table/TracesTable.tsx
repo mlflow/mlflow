@@ -49,6 +49,7 @@ import type {
 import { getVisibleColumnDefs, type TracesTableMeta } from './columns';
 import { getContentColumnMaxSizes } from './getColumnMaxSizes';
 import { TraceColumnHeader } from './TraceColumnHeader';
+import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
 
 // No-op sort handlers for non-sortable columns (their header menu omits the sort items anyway).
 const noop = () => {};
@@ -541,7 +542,17 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
       previewLineClamp > 1 && isPreviewColumnVisible
         ? theme.general.heightSm + theme.spacing.md + (previewLineClamp - 2) * previewLineHeight
         : undefined;
-    const dataRowStyle: CSSProperties = rowMinHeight ? { ...rowWidthStyle, minHeight: rowMinHeight } : rowWidthStyle;
+    const baseDataRowStyle: CSSProperties = rowMinHeight
+      ? { ...rowWidthStyle, minHeight: rowMinHeight }
+      : rowWidthStyle;
+    // Each row checkbox cell carries the design system's inline z-index (zIndexBase), which paints it over
+    // the sticky header once the row scrolls under it, so a click on select-all lands on that row's
+    // checkbox. Isolating each body row keeps that z-index inside the row.
+    const isolateBodyRows = shouldEnableNewEvalRunsUi();
+    const dataRowStyle: CSSProperties = isolateBodyRows
+      ? { ...baseDataRowStyle, isolation: 'isolate' }
+      : baseDataRowStyle;
+    const sessionRowStyle: CSSProperties = isolateBodyRows ? { ...rowWidthStyle, isolation: 'isolate' } : rowWidthStyle;
 
     // 8px activation distance: a pointerdown/up without moving 8px is a click (header sort fires); only
     // a real drag starts a reorder. This is the primary guard against sort-clicks becoming drags.
@@ -610,6 +621,9 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
       // eslint-disable-next-line react-hooks/exhaustive-deps
       [table, columns],
     );
+
+    // Above the isolated body rows and the sticky session rows (see `isolateBodyRows`).
+    const headerRowStyle = isolateBodyRows ? { ...rowWidthStyle, zIndex: 2 } : rowWidthStyle;
 
     // Header-row overrides: align its contents and set the header's bottom border.
     const headerRowCss = {
@@ -773,7 +787,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
               css={{ flex: 1 }}
               someRowsSelected={isAllOnPageSelected || isSomeOnPageSelected}
             >
-              <TableRow isHeader css={headerRowCss} style={rowWidthStyle}>
+              <TableRow isHeader css={headerRowCss} style={headerRowStyle}>
                 <TableRowSelectCell
                   componentId={`${COMPONENT_ID}.row-select-all`}
                   checked={isAllOnPageSelected}
@@ -862,7 +876,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                         <Fragment key={sessionId}>
                           <TableRow
                             isHeader
-                            style={rowWidthStyle}
+                            style={sessionRowStyle}
                             css={{
                               cursor: onSessionSelected ? 'pointer' : undefined,
                               ...rowPaddingCss,
@@ -977,7 +991,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
             css={{ flex: 1 }}
             someRowsSelected={isAllOnPageSelected || isSomeOnPageSelected}
           >
-            <TableRow isHeader css={headerRowCss} style={rowWidthStyle}>
+            <TableRow isHeader css={headerRowCss} style={headerRowStyle}>
               <TableRowSelectCell
                 componentId={`${COMPONENT_ID}.row-select-all`}
                 checked={isAllOnPageSelected}
@@ -1061,7 +1075,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                       <Fragment key={sessionId}>
                         <TableRow
                           isHeader
-                          style={rowWidthStyle}
+                          style={sessionRowStyle}
                           css={{
                             cursor: onSessionSelected ? 'pointer' : undefined,
                             ...rowPaddingCss,

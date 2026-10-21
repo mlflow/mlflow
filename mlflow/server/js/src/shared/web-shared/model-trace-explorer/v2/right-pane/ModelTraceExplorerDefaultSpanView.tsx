@@ -15,9 +15,13 @@ import { createListFromObject, normalizeConversation } from '../ModelTraceExplor
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
 import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceExplorerFieldRenderer';
+import { ModelTraceExplorerIssueEvidence } from '../../ModelTraceExplorerIssueBanner';
+import { useModelTraceExplorerContext } from '../ModelTraceExplorerContext';
 import { ModelTraceExplorerChatSections } from './ModelTraceExplorerChatSections';
 import { ModelTraceExplorerChatTool } from './ModelTraceExplorerChatTool';
 import { ModelTraceExplorerConversation } from './ModelTraceExplorerConversation';
+import { DecisionAnswers, DecisionInputs } from './DecisionView';
+import { resolveDecision } from './decision-utils';
 
 type ModelTraceExplorerSectionRenderMode = 'pretty' | Extract<ModelTraceExplorerRenderMode, 'json' | 'yaml'>;
 
@@ -114,6 +118,7 @@ export function ModelTraceExplorerDefaultSpanView({
   defaultRenderMode: ModelTraceExplorerRenderMode;
 }): React.ReactElement | null {
   const { theme } = useDesignSystemTheme();
+  const { experimentId } = useModelTraceExplorerContext();
   const [sectionRenderModes, setSectionRenderModes] = useState<
     Record<'inputs' | 'outputs', ModelTraceExplorerSectionRenderMode>
   >({
@@ -132,6 +137,7 @@ export function ModelTraceExplorerDefaultSpanView({
   );
   const outputChatMessages = outputChatMessagesResult.messages;
   const outputHasTopLevelChatPayload = outputChatMessagesResult.hasTopLevelChatPayload;
+  const decision = useMemo(() => resolveDecision(activeSpan), [activeSpan]);
 
   if (isNil(activeSpan)) {
     return null;
@@ -221,22 +227,31 @@ export function ModelTraceExplorerDefaultSpanView({
     </DropdownMenu.Root>
   );
 
-  const renderPrettyFields = (section: 'inputs' | 'outputs', fields: typeof inputList) => (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-      {fields.map(({ key, value }, index) => (
-        <ModelTraceExplorerFieldRenderer
-          key={key || index}
-          title={key}
-          data={value}
-          renderMode="default"
-          assessments={activeSpan?.assessments}
-          searchFilter={searchFilter}
-          activeMatch={activeMatch}
-          containsActiveMatch={isActiveMatchSpan && activeMatch?.section === section && activeMatch.key === key}
-        />
-      ))}
-    </div>
-  );
+  const renderPrettyFields = (section: 'inputs' | 'outputs', fields: typeof inputList) => {
+    if (!searchFilter && decision) {
+      if (section === 'outputs') {
+        return <DecisionAnswers decision={decision} />;
+      }
+      return <DecisionInputs decision={decision} fields={fields} assessments={activeSpan.assessments} />;
+    }
+
+    return (
+      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+        {fields.map(({ key, value }, index) => (
+          <ModelTraceExplorerFieldRenderer
+            key={key || index}
+            title={key}
+            data={value}
+            renderMode="default"
+            assessments={activeSpan?.assessments}
+            searchFilter={searchFilter}
+            activeMatch={activeMatch}
+            containsActiveMatch={isActiveMatchSpan && activeMatch?.section === section && activeMatch.key === key}
+          />
+        ))}
+      </div>
+    );
+  };
 
   const filterNonChatFields = (
     section: 'inputs' | 'outputs',
@@ -258,6 +273,10 @@ export function ModelTraceExplorerDefaultSpanView({
 
   const renderSectionPayload = (section: 'inputs' | 'outputs', data: unknown) => {
     if (sectionRenderModes[section] === 'pretty') {
+      if (decision && !searchFilter) {
+        return renderPrettyFields(section, section === 'inputs' ? inputList : outputList);
+      }
+
       if (section === 'inputs' && inputChatMessages.length > 0) {
         return (
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
@@ -321,6 +340,7 @@ export function ModelTraceExplorerDefaultSpanView({
       }}
       data-testid="model-trace-explorer-default-span-view"
     >
+      {activeSpan && <ModelTraceExplorerIssueEvidence activeSpan={activeSpan} experimentId={experimentId} />}
       {containsTools && (
         <ModelTraceExplorerCollapsibleSection
           withBorder

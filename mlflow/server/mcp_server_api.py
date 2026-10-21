@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING, Any, Literal
 
 from fastapi import APIRouter, Query, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import Response
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -26,12 +25,13 @@ from mlflow.entities.mcp_server import (
 from mlflow.entities.mcp_server_version import ConnectOptionSettings, MCPServerVersion
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, RESOURCE_ALREADY_EXISTS, ErrorCode
+from mlflow.server.mlflow_response import mlflow_exception_response
 from mlflow.utils.validation import (
-    _MAX_MCP_ICONS_PER_LIST,
     _MAX_MCP_TOOLS_PER_LIST,
+    _MAX_REGISTRY_ICONS_PER_LIST,
     _strip_mcp_icon_response_fields,
-    _validate_mcp_icon_mime_type,
-    _validate_mcp_icon_url,
+    _validate_icon_mime_type,
+    _validate_icon_url,
 )
 
 if TYPE_CHECKING:
@@ -84,13 +84,13 @@ class MCPIconRequestPayload(_BaseMCPIconPayload):
     @field_validator("src")
     @classmethod
     def _validate_src(cls, value: str) -> str:
-        _validate_mcp_icon_url(value)
+        _validate_icon_url(value)
         return value
 
     @field_validator("mimeType")
     @classmethod
     def _validate_mime_type(cls, value: str | None) -> str | None:
-        _validate_mcp_icon_mime_type(value)
+        _validate_icon_mime_type(value)
         return None if value is None else value.strip().lower()
 
 
@@ -121,7 +121,7 @@ class ServerJSONPayload(BaseModel):
     title: str | None = None
     description: str | None = None
     icons: list[MCPIconRequestPayload] | None = Field(
-        default=None, max_length=_MAX_MCP_ICONS_PER_LIST
+        default=None, max_length=_MAX_REGISTRY_ICONS_PER_LIST
     )
     packages: list[ServerJSONPackagePayload] | None = None
     remotes: list[ServerJSONRemotePayload] | None = None
@@ -165,7 +165,7 @@ class MCPToolRequestPayload(BaseModel):
     outputSchema: dict[str, Any] | None = None
     annotations: dict[str, Any] | None = None
     icons: list[MCPIconRequestPayload] | None = Field(
-        default=None, max_length=_MAX_MCP_ICONS_PER_LIST
+        default=None, max_length=_MAX_REGISTRY_ICONS_PER_LIST
     )
     execution: dict[str, Any] | None = None
 
@@ -185,7 +185,7 @@ class CreateMCPServerRequest(BaseModel):
     name: str
     description: str | None = None
     icons: list[MCPIconRequestPayload] | None = Field(
-        default=None, max_length=_MAX_MCP_ICONS_PER_LIST
+        default=None, max_length=_MAX_REGISTRY_ICONS_PER_LIST
     )
 
 
@@ -193,7 +193,7 @@ class UpdateMCPServerRequest(BaseModel):
     display_name: str | None = None
     description: str | None = None
     icons: list[MCPIconRequestPayload] | None = Field(
-        default=None, max_length=_MAX_MCP_ICONS_PER_LIST
+        default=None, max_length=_MAX_REGISTRY_ICONS_PER_LIST
     )
 
     @model_validator(mode="before")
@@ -473,13 +473,6 @@ def _parse_transport_type(value: str) -> MCPRemoteTransportType:
         ) from None
 
 
-def _mlflow_error_response(e: MlflowException) -> JSONResponse:
-    return JSONResponse(
-        status_code=e.get_http_status_code(),
-        content=json.loads(e.serialize_as_json()),
-    )
-
-
 def _format_validation_errors(exc: RequestValidationError) -> str:
     messages = []
     for error in exc.errors():
@@ -490,11 +483,12 @@ def _format_validation_errors(exc: RequestValidationError) -> str:
     return "; ".join(messages)
 
 
-def _request_validation_error_response(exc: RequestValidationError) -> JSONResponse:
-    return _mlflow_error_response(
+def _request_validation_error_response(exc: RequestValidationError) -> Response:
+    return mlflow_exception_response(
         MlflowException.invalid_parameter_value(
             f"Invalid request: {_format_validation_errors(exc)}"
-        )
+        ),
+        handler_name="_request_validation_error_response",
     )
 
 

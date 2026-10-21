@@ -13,14 +13,14 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from functools import lru_cache, reduce
 from pathlib import PurePath
-from typing import Any, Iterable, TypedDict, TypeVar
+from typing import Any, Iterable, Literal, TypedDict, TypeVar
 from urllib.parse import urlparse
 
 import sqlalchemy
 import sqlalchemy.orm
 from sqlalchemy import and_, case, exists, func, or_, select, sql
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from sqlalchemy.orm import Query, Session, aliased, joinedload, selectinload
+from sqlalchemy.orm import Query, Session, aliased, defer, joinedload, selectinload
 from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.selectable import Select, Subquery
 
@@ -90,14 +90,22 @@ from mlflow.genai.judges.instructions_judge import (
     EXPECTATIONS_FIELD,
     InstructionsJudge,
 )
-from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.base import (
+    Scorer,
+    SerializedScorer,
+    _is_decorator_scorer,
+    _serialized_scorer_is_custom_code,
+)
 from mlflow.genai.scorers.online.entities import (
     CompletedSession,
     OnlineScorer,
     OnlineScoringConfig,
 )
 from mlflow.genai.scorers.scorer_utils import (
+    _signature_param_names,
     build_gateway_model,
+    container_scoring_enabled,
+    custom_scorer_execution_blocked,
     extract_endpoint_ref,
     extract_model_from_serialized_scorer,
     is_gateway_model,
@@ -116,7 +124,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.analytics import trace_correlation
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.db.db_types import MSSQL, MYSQL
+from mlflow.store.db.db_types import MSSQL, MYSQL, SQLITE
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
     MAX_RESULTS_QUERY_TRACE_METRICS,
@@ -144,6 +152,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlInput,
     SqlInputTag,
     SqlIssue,
+    SqlIssueCategory,
     SqlLabelSchema,
     SqlLatestMetric,
     SqlLoggedModel,
@@ -174,6 +183,10 @@ from mlflow.store.tracking.gateway.sqlalchemy_mixin import SqlAlchemyGatewayStor
 from mlflow.store.tracking.mcp_server_registry.sqlalchemy_mixin import (
     SqlAlchemyMCPServerRegistryMixin,
 )
+from mlflow.store.tracking.skill_registry.sqlalchemy_mixin import (
+    SqlAlchemySkillRegistryMixin,
+)
+from mlflow.store.tracking.sqlalchemy_store_upsert_utils import _bulk_upsert
 from mlflow.store.tracking.utils.sql_trace_metrics_utils import (
     query_metrics,
     validate_query_trace_metrics_params,
@@ -257,6 +270,15 @@ from mlflow.tracing.utils.artifact_utils import (
 from mlflow.tracing.utils.truncation import _get_truncated_preview
 from mlflow.utils import chunk_list
 from mlflow.utils.file_utils import local_file_uri_to_path
+from mlflow.utils.issue_utils import (
+    issue_category_hash,
+    issue_keyset_token,
+    issue_page_position,
+    issue_page_token,
+    issue_query_fingerprint,
+    validate_issue_fields,
+    validate_issue_search,
+)
 from mlflow.utils.mlflow_tags import (
     MLFLOW_ARTIFACT_LOCATION,
     MLFLOW_DATASET_CONTEXT,
@@ -283,6 +305,8 @@ from mlflow.utils.uri import (
     resolve_uri_if_local,
 )
 from mlflow.utils.validation import (
+    _parse_experiment_id,
+    _parse_experiment_ids,
     _resolve_experiment_ids_and_locations,
     _validate_batch_log_data,
     _validate_batch_log_limits,
@@ -300,6 +324,7 @@ from mlflow.utils.validation import (
     _validate_trace_archival_retention_string,
     _validate_trace_tag,
 )
+from mlflow.utils.workspace_context import get_request_workspace
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 _T = TypeVar("_T")
@@ -336,7 +361,12 @@ class DatasetFilter(TypedDict, total=False):
     dataset_digest: str
 
 
-class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMixin, AbstractStore):
+class SqlAlchemyStore(
+    SqlAlchemySkillRegistryMixin,
+    SqlAlchemyMCPServerRegistryMixin,
+    SqlAlchemyGatewayStoreMixin,
+    AbstractStore,
+):
     """
     SQLAlchemy compliant backend store for tracking meta data for MLflow entities. MLflow
     supports the database dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
@@ -459,7 +489,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         """
         Return a query for ``model``. Workspace-aware subclasses override this to enforce scoping.
         """
-
         return session.query(model)
 
     @staticmethod
@@ -782,7 +811,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         stages = LifecycleStage.view_type_to_stages(view_type)
         query_options = self._get_eager_experiment_query_options() if eager else []
 
-        experiment_id_int = self._parse_experiment_id(experiment_id)
+        experiment_id_int = _parse_experiment_id(experiment_id)
 
         experiment = (
             self
@@ -827,16 +856,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             )
             .all()
         ]
-
-    @staticmethod
-    def _parse_experiment_id(experiment_id: str) -> int:
-        try:
-            return int(experiment_id)
-        except (ValueError, TypeError):
-            raise MlflowException(
-                f"Invalid experiment ID '{experiment_id}'. Experiment ID must be a valid integer.",
-                INVALID_PARAMETER_VALUE,
-            )
 
     def _filter_entity_ids(
         self, session, entity_type: EntityAssociationType, entity_ids: list[str]
@@ -957,13 +976,14 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             # Rollup tables deliberately have no experiment foreign key. Remove their rows in the
             # same transaction so backends that reuse integer experiment ids (notably SQLite)
             # cannot expose aggregates or rebuild state from the deleted experiment.
+            experiment_id_int = _parse_experiment_id(experiment_id)
             for model in (
                 SqlTraceRollupRebuild,
                 SqlTraceMetricDailyRollup,
                 SqlSpanCostDailyRollup,
                 SqlAssessmentDailyRollup,
             ):
-                session.query(model).filter(model.experiment_id == int(experiment_id)).delete(
+                session.query(model).filter(model.experiment_id == experiment_id_int).delete(
                     synchronize_session=False
                 )
             session.delete(experiment)
@@ -1026,7 +1046,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         return (
             self
             ._get_query(session, SqlRun)
-            .filter(SqlRun.experiment_id == int(experiment_id))
+            .filter(SqlRun.experiment_id == _parse_experiment_id(experiment_id))
             .all()
         )
 
@@ -2011,7 +2031,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         """
 
         MAX_DATASET_SUMMARIES_RESULTS = 1000
-        experiment_ids = [int(e) for e in experiment_ids]
+        experiment_ids = _parse_experiment_ids(experiment_ids)
         with self.ManagedSessionMaker() as session:
             experiment_ids = self._filter_experiment_ids(session, experiment_ids)
             # Note that the join with the input tag table is a left join. This is required so if an
@@ -2166,7 +2186,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             filtered_tags = (
                 session
                 .query(SqlExperimentTag)
-                .filter_by(experiment_id=int(experiment_id), key=key)
+                .filter_by(experiment_id=_parse_experiment_id(experiment_id), key=key)
                 .all()
             )
             if len(filtered_tags) == 0:
@@ -2356,7 +2376,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 stmt = stmt.outerjoin(j)
 
             offset = SearchUtils.parse_start_offset_from_page_token(page_token)
-            experiment_ids = [int(e) for e in experiment_ids]
+            experiment_ids = _parse_experiment_ids(experiment_ids)
             experiment_ids = self._filter_experiment_ids(session, experiment_ids)
             stmt = (
                 stmt
@@ -3040,13 +3060,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         # rejects the comparison ("operator does not exist:
         # integer = character varying"). Coerce with the same error contract
         # as ``_get_experiment``.
-        try:
-            experiment_ids = [int(experiment_id) for experiment_id in experiment_ids]
-        except (ValueError, TypeError):
-            raise MlflowException(
-                "Invalid experiment IDs: experiment IDs must be valid integers.",
-                INVALID_PARAMETER_VALUE,
-            )
+        experiment_ids = _parse_experiment_ids(experiment_ids)
         with self.ManagedSessionMaker() as session:
             scorer_ids: list[str] = []
             for chunk_start in range(0, len(experiment_ids), self._ID_CHUNK_SIZE):
@@ -3110,7 +3124,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
     def filter_active_experiment_ids(self, experiment_ids: list[str]) -> list[str]:
         if not experiment_ids:
             return []
-        parsed_ids = [self._parse_experiment_id(e) for e in experiment_ids]
+        parsed_ids = _parse_experiment_ids(experiment_ids)
         with self.ManagedSessionMaker() as session:
             active_ids: list[str] = []
             for chunk_start in range(0, len(parsed_ids), self._ID_CHUNK_SIZE):
@@ -3392,6 +3406,70 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
             return [config.to_mlflow_entity() for config in results]
 
+    @staticmethod
+    def _validate_online_judge(scorer_name: str, serialized_scorer: str) -> None:
+        serialized_data = json.loads(serialized_scorer)
+        model = extract_model_from_serialized_scorer(serialized_data)
+        if not is_gateway_model(model):
+            raise MlflowException(
+                f"Scorer '{scorer_name}' does not use a gateway model. "
+                "Automatic evaluation is only supported for scorers that use "
+                "gateway models.",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        # Check if scorer requires expectations (ground truth data)
+        try:
+            scorer_obj = Scorer.model_validate_json(serialized_scorer)
+        except Exception:
+            # Deserialization should not fail for valid registered scorers. If it does,
+            # fail open (skip validation) to avoid blocking users in case this is an
+            # internal issue.
+            scorer_obj = None
+
+        if (
+            isinstance(scorer_obj, InstructionsJudge)
+            and EXPECTATIONS_FIELD in scorer_obj.get_input_fields()
+        ):
+            raise MlflowException(
+                f"Scorer '{scorer_name}' requires expectations, but scorers with "
+                "expectations are not currently supported for automatic evaluation.",
+                INVALID_PARAMETER_VALUE,
+            )
+
+    @staticmethod
+    def _validate_online_custom_scorer(scorer_name: str, serialized_data: dict[str, Any]) -> None:
+        if not container_scoring_enabled():
+            raise MlflowException(
+                f"Scorer '{scorer_name}' is a custom scorer, and online scoring runs custom "
+                "scorers only in job containers. To run them, an operator must set the "
+                "environment variable 'MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND' to 'docker'.",
+                INVALID_PARAMETER_VALUE,
+            )
+        if custom_scorer_execution_blocked(serialized_data):
+            raise MlflowException(
+                f"Scorer '{scorer_name}' is a custom scorer, and custom scorers are disabled on "
+                "this server. To run them, an operator must set the environment variable "
+                "'MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS' to 'true'.",
+                INVALID_PARAMETER_VALUE,
+            )
+        # Online scoring jobs run custom scorers in job containers one at a time, so a custom
+        # scorer in an ensemble cannot run there (the jobs skip it).
+        serialized = SerializedScorer.from_dict(serialized_data)
+        if not _is_decorator_scorer(serialized):
+            raise MlflowException(
+                f"Scorer '{scorer_name}' is not a single custom scorer (for example, it is an "
+                "ensemble that includes custom scorers). Automatic evaluation supports custom "
+                "scorers only on their own.",
+                INVALID_PARAMETER_VALUE,
+            )
+        if EXPECTATIONS_FIELD.name in _signature_param_names(serialized.call_signature):
+            raise MlflowException(
+                f"Scorer '{scorer_name}' requires expectations, but scorers with "
+                "expectations are not currently supported for automatic evaluation.",
+                INVALID_PARAMETER_VALUE,
+            )
+
     def upsert_online_scoring_config(
         self,
         experiment_id: str,
@@ -3415,7 +3493,10 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             MlflowException: If sample_rate is not a number, if sample_rate is outside
                 the range [0.0, 1.0], if filter_string is not a string, if the
                 filter_string syntax is invalid, if the scorer is not found, or if the
-                scorer does not use a gateway model.
+                scorer does not use a gateway model. When online scoring runs custom scorers
+                in job containers, a custom scorer is accepted instead, unless custom scorers
+                are disabled on the server or it is not a single custom scorer (for example,
+                an ensemble that includes one).
         """
         if not isinstance(sample_rate, (int, float)):
             raise MlflowException.invalid_parameter_value(
@@ -3464,34 +3545,15 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             )
             if latest_version is not None and sample_rate > 0:
                 serialized_data = json.loads(latest_version.serialized_scorer)
-
-                model = extract_model_from_serialized_scorer(serialized_data)
-                if not is_gateway_model(model):
-                    raise MlflowException(
-                        f"Scorer '{scorer_name}' does not use a gateway model. "
-                        "Automatic evaluation is only supported for scorers that use "
-                        "gateway models.",
-                        INVALID_PARAMETER_VALUE,
-                    )
-
-                # Check if scorer requires expectations (ground truth data)
-                try:
-                    scorer_obj = Scorer.model_validate_json(latest_version.serialized_scorer)
-                except Exception:
-                    # Deserialization should not fail for valid registered scorers. If it does,
-                    # fail open (skip validation) to avoid blocking users in case this is an
-                    # internal issue.
-                    scorer_obj = None
-
+                # Without job containers, a custom scorer gets the judge checks, so it keeps the
+                # "does not use a gateway model" error on servers that do not run custom scorers.
                 if (
-                    isinstance(scorer_obj, InstructionsJudge)
-                    and EXPECTATIONS_FIELD in scorer_obj.get_input_fields()
+                    _serialized_scorer_is_custom_code(serialized_data)
+                    and container_scoring_enabled()
                 ):
-                    raise MlflowException(
-                        f"Scorer '{scorer_name}' requires expectations, but scorers with "
-                        "expectations are not currently supported for automatic evaluation.",
-                        INVALID_PARAMETER_VALUE,
-                    )
+                    self._validate_online_custom_scorer(scorer_name, serialized_data)
+                else:
+                    self._validate_online_judge(scorer_name, latest_version.serialized_scorer)
 
             # Delete existing online configs for this scorer
             session.query(SqlOnlineScoringConfig).filter(
@@ -3503,7 +3565,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 online_scoring_config_id=uuid.uuid4().hex,
                 scorer_id=scorer.scorer_id,
                 sample_rate=sample_rate,
-                experiment_id=int(experiment_id),
+                experiment_id=_parse_experiment_id(experiment_id),
                 filter_string=filter_string,
             )
             session.add(config)
@@ -3515,8 +3577,9 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         """
         Get all active online scorers across all experiments.
 
-        Active online scorers are those with a sample_rate greater than zero.
-        Gateway endpoint IDs in the serialized scorers are resolved to endpoint names.
+        Active online scorers are those with a sample_rate greater than zero whose latest version
+        online scoring can run. Gateway endpoint IDs in the serialized scorers are resolved to
+        endpoint names.
 
         Returns:
             List of OnlineScorer entities with name, experiment_id, serialized_scorer,
@@ -3555,13 +3618,26 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 .all()
             )
 
-            # Filter to only include scorers whose max version uses a gateway model
+            # Filter to only include scorers whose max version uses a gateway model, or that are
+            # custom scorers when online scoring runs them in job containers
             gateway_results = []
             for config, scorer, version in results:
                 serialized_data = json.loads(version.serialized_scorer)
                 model = extract_model_from_serialized_scorer(serialized_data)
                 if is_gateway_model(model):
                     gateway_results.append((config, scorer, version))
+                elif _serialized_scorer_is_custom_code(serialized_data):
+                    # The latest version can be registered, or the server's settings changed,
+                    # after the config was enabled, so the checks made then are made again.
+                    try:
+                        self._validate_online_custom_scorer(scorer.scorer_name, serialized_data)
+                    except MlflowException as e:
+                        _logger.warning(
+                            f"Skipping online scorer '{scorer.scorer_name}' in experiment "
+                            f"{config.experiment_id}: {e.message}"
+                        )
+                    else:
+                        gateway_results.append((config, scorer, version))
 
             # Resolve gateway endpoint IDs to names
             return [
@@ -3721,7 +3797,21 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         for comp in comparisons:
             comp_func = SearchUtils.get_sql_comparison_func(comp.op, dialect)
             if comp.entity.type == EntityType.ATTRIBUTE:
-                attr_filters.append(comp_func(getattr(SqlLoggedModel, comp.entity.key), comp.value))
+                value = comp.value
+                if comp.entity.key == "status":
+                    if comp.op not in ("=", "!=", "IN", "NOT IN"):
+                        raise MlflowException.invalid_parameter_value(
+                            f"Invalid comparison operator for status: {comp.op}"
+                        )
+                    values = value if comp.op in ("IN", "NOT IN") else (value,)
+                    try:
+                        statuses = [LoggedModelStatus(status).to_int() for status in values]
+                    except ValueError as e:
+                        raise MlflowException.invalid_parameter_value(
+                            f"Unknown model status in filter: {value!r}"
+                        ) from e
+                    value = statuses if comp.op in ("IN", "NOT IN") else statuses[0]
+                attr_filters.append(comp_func(getattr(SqlLoggedModel, comp.entity.key), value))
             elif comp.entity.type == EntityType.METRIC:
                 has_metric_filters = True
                 metric_filters = [
@@ -3730,8 +3820,17 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 ]
                 if dataset_filters:
                     metric_filters.append(sqlalchemy.or_(*dataset_filters))
+                # Select distinct model IDs rather than whole metric rows. A model
+                # can log the same metric at several steps, runs or datasets, and
+                # joining those rows would duplicate the model before OFFSET/LIMIT
+                # is applied, so a page could hold fewer models than requested and
+                # pagination could stop while matches remain.
                 non_attr_filters.append(
-                    session.query(SqlLoggedModelMetric).filter(*metric_filters).subquery()
+                    session
+                    .query(SqlLoggedModelMetric.model_id)
+                    .filter(*metric_filters)
+                    .distinct()
+                    .subquery()
                 )
             elif comp.entity.type == EntityType.PARAM:
                 non_attr_filters.append(
@@ -3769,7 +3868,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             )
             models = models.join(subquery)
 
-        experiment_ids = [int(e) for e in experiment_ids]
+        experiment_ids = _parse_experiment_ids(experiment_ids)
         return models.filter(
             SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED,
             SqlLoggedModel.experiment_id.in_(experiment_ids),
@@ -4360,7 +4459,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             session_id ASC).
         """
         with self.ManagedSessionMaker() as session:
-            experiment_id_int = self._parse_experiment_id(experiment_id)
+            experiment_id_int = _parse_experiment_id(experiment_id)
 
             experiment_ids = self._filter_experiment_ids(session, [experiment_id_int])
             if not experiment_ids:
@@ -4629,7 +4728,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             # statements. Establish their shared snapshot before the first database read.
             configure_rollup_read_snapshot(session, self.db_type)
             experiment_ids_int = self._filter_experiment_ids(
-                session, [int(exp_id) for exp_id in experiment_ids]
+                session, _parse_experiment_ids(experiment_ids)
             )
 
             def raw_query():
@@ -4796,10 +4895,11 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         Returns:
             The number of traces deleted.
         """
+        experiment_id_int = _parse_experiment_id(experiment_id)
         deleted_db_backed_count = 0
         selected_archived_traces: list[_TraceDeleteSelection] = []
         with self.ManagedSessionMaker(read_only=False) as session:
-            filters = [SqlTraceInfo.experiment_id == int(experiment_id)]
+            filters = [SqlTraceInfo.experiment_id == experiment_id_int]
             if max_timestamp_millis is not None:
                 filters.append(SqlTraceInfo.timestamp_ms <= max_timestamp_millis)
             if trace_ids:
@@ -4827,7 +4927,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
             if use_rollups:
                 self._enqueue_rollup_rebuilds_for_trace_delete(
-                    session, int(experiment_id), selected_trace_ids
+                    session, experiment_id_int, selected_trace_ids
                 )
                 selected_trace_ids = self._lock_trace_ids_for_delete(session, selected_trace_ids)
                 if not selected_trace_ids:
@@ -4866,7 +4966,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
         with self.ManagedSessionMaker(read_only=False) as session:
             self._enqueue_rollup_rebuilds_for_trace_delete(
-                session, int(experiment_id), deleted_archived_trace_ids
+                session, experiment_id_int, deleted_archived_trace_ids
             )
             deleted_archived_count = (
                 session
@@ -5534,7 +5634,9 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         """
 
         with self.ManagedSessionMaker() as session:
-            experiment_ids = self._filter_experiment_ids(session, [int(e) for e in experiment_ids])
+            experiment_ids = self._filter_experiment_ids(
+                session, _parse_experiment_ids(experiment_ids)
+            )
             # Keep IDs as integers when filtering trace_info.experiment_id. psycopg v3
             # rejects VARCHAR parameters compared with this INTEGER column.
 
@@ -5758,7 +5860,13 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     # Get cost for span metrics
                     span_cost = span_attributes.get(SpanAttributeKey.LLM_COST)
 
-                content_json = json.dumps(span_dict, cls=TraceJSONEncoder)
+                # Keep non-ASCII text unescaped so `trace.text` / `span.content` LIKE filters
+                # can match it: stored as a \uXXXX escape, it never matches the text users type.
+                # MSSQL keeps the escaped form: its `spans.content` column is a non-Unicode
+                # VARCHAR, which would replace characters outside its code page with "?".
+                content_json = json.dumps(
+                    span_dict, cls=TraceJSONEncoder, ensure_ascii=self.db_type == MSSQL
+                )
 
                 model_name = bounded_model_dimension(
                     _try_parse_json_string(span_attributes.get(SpanAttributeKey.MODEL))
@@ -6458,7 +6566,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         unique_trace_ids = list(trace_id_order)
         experiment_id_chunks: list[list[int] | None] = [None]
         if experiment_ids is not None:
-            parsed_ids = list(dict.fromkeys(self._parse_experiment_id(e) for e in experiment_ids))
+            parsed_ids = list(dict.fromkeys(_parse_experiment_ids(experiment_ids)))
             experiment_id_chunks = [
                 parsed_ids[i : i + self._TRACE_BATCH_QUERY_ID_CHUNK_SIZE]
                 for i in range(0, len(parsed_ids), self._TRACE_BATCH_QUERY_ID_CHUNK_SIZE)
@@ -8636,6 +8744,10 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         source_run_id: str | None = None,
         categories: list[str] | None = None,
         created_by: str | None = None,
+        *,
+        issue_id: str | None = None,
+        last_seen_timestamp: int | None = None,
+        metadata: dict[str, str] | None = None,
     ) -> Issue:
         """
         Create a new issue in the database.
@@ -8650,16 +8762,39 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             source_run_id: Optional run ID that discovered this issue.
             categories: Optional list of categories for the issue.
             created_by: Optional identifier for who created this issue.
+            issue_id: Optional iss-* ID (at most 36 characters); reuse returns a conflict.
+            last_seen_timestamp: Latest observation in milliseconds; defaults to creation time.
+            metadata: String metadata map (at most 100 entries).
 
         Returns:
             The created Issue entity.
         """
+        validate_issue_fields(
+            name=name,
+            status=status,
+            severity=severity,
+            categories=categories,
+            metadata=metadata,
+            last_seen_timestamp=last_seen_timestamp,
+            issue_id=issue_id,
+            created_by=created_by,
+        )
+        status = IssueStatus(status)
+        severity = IssueSeverity(severity) if severity is not None else None
         with self.ManagedSessionMaker(read_only=False) as session:
             # Verify experiment exists
             self._get_experiment(session, experiment_id, ViewType.ACTIVE_ONLY)
 
             # Generate issue ID
-            issue_id = f"iss-{uuid.uuid4().hex}"
+            issue_id = issue_id or f"iss-{uuid.uuid4().hex}"
+            if self._get_query(session, SqlIssue).filter(SqlIssue.issue_id == issue_id).first():
+                raise MlflowException("Issue ID already exists", RESOURCE_ALREADY_EXISTS)
+            if source_run_id is not None:
+                source_run = self._get_run(session, source_run_id)
+                if str(source_run.experiment_id) != str(experiment_id):
+                    raise MlflowException.invalid_parameter_value(
+                        "Source run must belong to the Issue experiment"
+                    )
 
             # Get current timestamp
             current_time = get_current_time_millis()
@@ -8671,7 +8806,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             # Create SqlIssue record
             sql_issue = SqlIssue(
                 issue_id=issue_id,
-                experiment_id=int(experiment_id),
+                experiment_id=_parse_experiment_id(experiment_id),
                 name=name,
                 description=description,
                 status=status.value,
@@ -8682,9 +8817,28 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 created_timestamp=current_time,
                 last_updated_timestamp=current_time,
                 created_by=created_by,
+                last_seen_timestamp=last_seen_timestamp
+                if last_seen_timestamp is not None
+                else current_time,
+                last_updated_by=created_by,
+                issue_metadata=json.dumps(metadata) if metadata else None,
+                issue_categories=[
+                    SqlIssueCategory(category=category, category_hash=category_hash)
+                    for category_hash, category in {
+                        issue_category_hash(category): category for category in categories or []
+                    }.items()
+                ],
             )
 
             session.add(sql_issue)
+            try:
+                session.flush()
+            except IntegrityError as e:
+                if any(
+                    term in str(e.orig).lower() for term in ("unique", "duplicate", "primary key")
+                ):
+                    raise MlflowException("Issue ID already exists", RESOURCE_ALREADY_EXISTS) from e
+                raise
 
             # Return Issue entity
             return sql_issue.to_mlflow_entity()
@@ -8719,6 +8873,12 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         name: str | None = None,
         description: str | None = None,
         severity: IssueSeverity | None = None,
+        *,
+        categories: list[str] | None = None,
+        last_seen_timestamp: int | None = None,
+        last_updated_by: str | None = None,
+        metadata: dict[str, str] | None = None,
+        delete_metadata_keys: list[str] | None = None,
     ) -> Issue:
         """
         Update an existing issue.
@@ -8729,14 +8889,52 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             name: Optional new name for the issue.
             description: Optional new description.
             severity: Optional new severity level.
+            categories: Replacement categories; [] clears them and None leaves them unchanged.
+            last_seen_timestamp: Latest observation in milliseconds; never moves backwards.
+            last_updated_by: Update actor, overridden by the authenticated HTTP user when available.
+            metadata: Entries to merge with existing metadata.
+            delete_metadata_keys: Metadata keys to remove; cannot overlap metadata updates.
 
         Returns:
             The updated Issue entity.
         """
+        validate_issue_fields(
+            name=name,
+            status=status,
+            severity=severity,
+            categories=categories,
+            metadata=metadata,
+            last_seen_timestamp=last_seen_timestamp,
+            delete_metadata_keys=delete_metadata_keys,
+            last_updated_by=last_updated_by,
+        )
         with self.ManagedSessionMaker(read_only=False) as session:
+            if self.db_type == SQLITE:
+                # SQLite ignores FOR UPDATE. Start a write transaction before reading maps so
+                # concurrent per-key patches cannot overwrite each other's unrelated entries.
+                # If the workspace-scoped query misses, the same scoped read below raises before
+                # applying any changes.
+                scoped_ids = (
+                    self
+                    ._get_query(session, SqlIssue)
+                    .filter(SqlIssue.issue_id == issue_id)
+                    .with_entities(SqlIssue.issue_id)
+                )
+                session.execute(
+                    sqlalchemy
+                    .update(SqlIssue)
+                    .where(SqlIssue.issue_id.in_(scoped_ids))
+                    .values(last_updated_timestamp=SqlIssue.last_updated_timestamp)
+                    .execution_options(synchronize_session=False)
+                )
             # Fetch the existing issue
             sql_issue = (
-                self._get_query(session, SqlIssue).filter(SqlIssue.issue_id == issue_id).first()
+                self
+                ._get_query(session, SqlIssue)
+                .filter(SqlIssue.issue_id == issue_id)
+                .with_hint(SqlIssue, "WITH (UPDLOCK, ROWLOCK)", dialect_name="mssql")
+                .with_for_update(of=SqlIssue)
+                .first()
             )
             if not sql_issue:
                 raise MlflowException(
@@ -8746,14 +8944,46 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
             # Update fields if provided
             if status is not None:
-                sql_issue.status = status.value
+                sql_issue.status = IssueStatus(status).value
             if name is not None:
                 sql_issue.name = name
             if description is not None:
                 sql_issue.description = description
             if severity is not None:
-                sql_issue.severity = severity.value
+                sql_issue.severity = IssueSeverity(severity).value
 
+            if categories is not None:
+                sql_issue.categories = (
+                    json.dumps(list(dict.fromkeys(categories))) if categories else None
+                )
+                # Keep searchable categories and the legacy JSON representation in one transaction.
+                existing = {entry.category_hash: entry for entry in sql_issue.issue_categories}
+                indexed_categories = []
+                for category_hash, category in {
+                    issue_category_hash(category): category for category in categories
+                }.items():
+                    entry = existing.get(category_hash) or SqlIssueCategory(
+                        category_hash=category_hash
+                    )
+                    entry.category = category
+                    indexed_categories.append(entry)
+                sql_issue.issue_categories = indexed_categories
+            if last_seen_timestamp is not None:
+                sql_issue.last_seen_timestamp = max(
+                    sql_issue.last_seen_timestamp
+                    if sql_issue.last_seen_timestamp is not None
+                    else sql_issue.created_timestamp,
+                    last_seen_timestamp,
+                )
+            if last_updated_by is not None:
+                sql_issue.last_updated_by = last_updated_by
+            if metadata is not None or delete_metadata_keys:
+                merged = json.loads(sql_issue.issue_metadata) if sql_issue.issue_metadata else {}
+                merged.update(metadata or {})
+                for key in delete_metadata_keys or []:
+                    merged.pop(key, None)
+                validate_issue_fields(metadata=merged)
+                sql_issue.issue_metadata = json.dumps(merged)
             # Update last_updated_timestamp
             sql_issue.last_updated_timestamp = get_current_time_millis()
 
@@ -8768,6 +8998,14 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         max_results: int | None = None,
         page_token: str | None = None,
         include_trace_count: bool = False,
+        *,
+        name: str | None = None,
+        statuses: list[str] | None = None,
+        severities: list[str] | None = None,
+        categories: list[str] | None = None,
+        order_by: list[str] | None = None,
+        include_total_count: bool = False,
+        view: Literal["basic", "full"] | None = None,
     ) -> PagedList[Issue]:
         """
         Search for issues matching the given filters.
@@ -8784,6 +9022,19 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             max_results: Maximum number of results to return.
             page_token: Token for pagination.
             include_trace_count: Whether to include the count of traces impacted by each issue.
+            name: Case-insensitive literal substring of the name (not a wildcard pattern).
+            statuses: Accepted status values, ORed within the list.
+            severities: Accepted severity values, ORed within the list.
+            categories: Match any category, ignoring case and surrounding whitespace.
+                Different filter fields are ANDed.
+            order_by: Field and optional ASC/DESC; supports name, status, severity and timestamps.
+                Issue ID breaks ties. Explicit ordering uses a cursor over the last row's sort
+                values, so inserts or removals before it do not shift subsequent pages.
+                This is a live list, not a snapshot: edits to sort/filter fields can move rows
+                across the cursor. Omit to retain the legacy severity/count/creation ordering.
+            include_total_count: Return the matching count before pagination in total_count.
+            view: "basic" returns an empty description and omits root_causes and metadata.
+                The default is "full".
 
         Returns:
             A PagedList of Issue entities.
@@ -8792,8 +9043,36 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         if max_results is None:
             max_results = SEARCH_ISSUES_DEFAULT_MAX_RESULTS
 
+        validate_issue_search(name, statuses, severities, order_by)
+        validate_issue_fields(categories=categories)
+        for value in statuses or []:
+            validate_issue_fields(status=value)
+        for value in severities or []:
+            validate_issue_fields(severity=value)
+        if view not in (None, "basic", "full"):
+            raise MlflowException.invalid_parameter_value("view must be basic or full")
+        enhanced = (
+            any(
+                value is not None
+                for value in (name, statuses, severities, categories, order_by, view)
+            )
+            or include_total_count
+        )
+        fingerprint = issue_query_fingerprint(
+            workspace=get_request_workspace(),
+            experiment_id=experiment_id,
+            filter_string=filter_string,
+            name=name,
+            statuses=sorted(set(statuses or [])),
+            severities=sorted(set(severities or [])),
+            categories=sorted({issue_category_hash(category) for category in categories or []}),
+            order_by=order_by or [],
+            include_trace_count=include_trace_count,
+            include_total_count=include_total_count,
+            view=view,
+        )
         with self.ManagedSessionMaker() as session:
-            offset = SearchTraceUtils.parse_start_offset_from_page_token(page_token)
+            position = issue_page_position(page_token, fingerprint, allow_legacy=not enhanced)
 
             query = self._get_query(session, SqlIssue)
 
@@ -8814,8 +9093,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     .group_by(SqlIssue.issue_id)
                 )
 
-            if experiment_id:
-                query = query.filter(SqlIssue.experiment_id == int(experiment_id))
+            if experiment_id is not None:
+                query = query.filter(SqlIssue.experiment_id == _parse_experiment_id(experiment_id))
 
             if filter_string:
                 parsed_filters = SearchIssuesUtils.parse_search_filter(filter_string)
@@ -8823,6 +9102,26 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     parsed_filters, self._get_dialect()
                 )
                 query = query.filter(*filter_clauses)
+
+            if name is not None:
+                escaped = name.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+                if self.db_type == MSSQL:
+                    escaped = escaped.replace("[", "\\[")
+                query = query.filter(SqlIssue.name.ilike(f"%{escaped}%", escape="\\"))
+            if statuses:
+                query = query.filter(SqlIssue.status.in_(statuses))
+            if severities:
+                query = query.filter(SqlIssue.severity.in_(severities))
+            if categories:
+                query = query.filter(
+                    exists().where(
+                        SqlIssueCategory.issue_id == SqlIssue.issue_id,
+                        SqlIssueCategory.category_hash.in_([
+                            issue_category_hash(category) for category in categories
+                        ]),
+                    )
+                )
+            total_count = query.count() if include_total_count else None
 
             # IssueSeverity enum is ordered from lowest to highest severity
             severity_priorities = {severity.value: severity._rank for severity in IssueSeverity}
@@ -8839,25 +9138,103 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 SqlIssue.created_timestamp.desc(),
                 SqlIssue.issue_id.desc(),
             ])
+            sort_columns = []
+            if order_by:
+                sortable = {
+                    "name": func.lower(SqlIssue.name),
+                    "status": case(
+                        {"pending": 0, "rejected": 1, "resolved": 2}, value=SqlIssue.status, else_=3
+                    ),
+                    "severity": severity_order,
+                    "created_timestamp": SqlIssue.created_timestamp,
+                    "last_updated_timestamp": SqlIssue.last_updated_timestamp,
+                    "last_seen_timestamp": func.coalesce(
+                        SqlIssue.last_seen_timestamp, SqlIssue.created_timestamp
+                    ),
+                }
+                order_clauses = []
+                for order in order_by:
+                    parts = order.split()
+                    if (
+                        not 1 <= len(parts) <= 2
+                        or parts[0] not in sortable
+                        or (len(parts) == 2 and parts[1].upper() not in ("ASC", "DESC"))
+                    ):
+                        raise MlflowException.invalid_parameter_value(
+                            f"Invalid issue order_by: {order!r}"
+                        )
+                    column = sortable[parts[0]]
+                    descending = len(parts) == 2 and parts[1].upper() == "DESC"
+                    sort_columns.append((column, descending))
+                sort_columns.append((SqlIssue.issue_id, True))
+                order_clauses = [
+                    column.desc() if descending else column.asc()
+                    for column, descending in sort_columns
+                ]
+            if position.values is not None:
+                value_types = [
+                    str if order.split()[0] == "name" else int for order in order_by or []
+                ] + [str]
+                if (
+                    not sort_columns
+                    or len(position.values) != len(value_types)
+                    or any(
+                        type(value) is not expected
+                        for value, expected in zip(position.values, value_types)
+                    )
+                ):
+                    raise MlflowException.invalid_parameter_value("Invalid issue page token")
+                equal_prefix = []
+                after_cursor = []
+                for (column, descending), value in zip(sort_columns, position.values):
+                    after_cursor.append(
+                        and_(*equal_prefix, column < value if descending else column > value)
+                    )
+                    equal_prefix.append(column == value)
+                query = query.filter(or_(*after_cursor))
+            if sort_columns:
+                # Read the effective keys from SQL (including LOWER/COALESCE/CASE), not from
+                # the entity or the anchor row on a later request; the anchor may be deleted.
+                query = query.add_columns(*(column for column, _ in sort_columns))
             query = query.order_by(*order_clauses)
+            if view == "basic":
+                query = query.options(
+                    defer(SqlIssue.description),
+                    defer(SqlIssue.root_causes),
+                    defer(SqlIssue.issue_metadata),
+                )
 
-            query = query.offset(offset).limit(max_results + 1)
+            query = query.offset(position.offset).limit(max_results + 1)
 
             results = query.all()
             has_next_page = len(results) > max_results
-            next_token = (
-                SearchTraceUtils.create_page_token(offset + max_results) if has_next_page else None
-            )
+            next_token = None
+            if has_next_page:
+                if sort_columns:
+                    next_token = issue_keyset_token(
+                        list(results[max_results - 1][-len(sort_columns) :]), fingerprint
+                    )
+                elif enhanced:
+                    next_token = issue_page_token(position.offset + max_results, fingerprint)
+                else:
+                    next_token = SearchTraceUtils.create_page_token(position.offset + max_results)
+            if sort_columns:
+                # Sort keys follow the optional trace count: (SqlIssue, trace_count, *sort_keys)
+                # when requested, otherwise (SqlIssue, *sort_keys).
+                results = [(row[0], row[1]) if include_trace_count else row[0] for row in results]
 
             if include_trace_count:
                 issues = [
-                    sql_issue.to_mlflow_entity(trace_count=trace_count)
+                    sql_issue.to_mlflow_entity(trace_count=trace_count, basic=view == "basic")
                     for sql_issue, trace_count in results[:max_results]
                 ]
             else:
-                issues = [sql_issue.to_mlflow_entity() for sql_issue in results[:max_results]]
+                issues = [
+                    sql_issue.to_mlflow_entity(basic=view == "basic")
+                    for sql_issue in results[:max_results]
+                ]
 
-            return PagedList(issues, token=next_token)
+            return PagedList(issues, token=next_token, total_count=total_count)
 
     # ===================================================================================
     # Helper Methods for Secrets & Endpoints
@@ -10173,7 +10550,7 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
     for f in parsed_filters:
         type_ = f["type"]
         key = f["key"]
-        comparator = f["comparator"]
+        comparator = f["comparator"].upper()
         value = f["value"]
         if type_ == "attribute":
             if key == "experiment_id":
@@ -10186,9 +10563,9 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
                         f"Invalid comparator for experiment_id: {comparator}"
                     )
                 value = (
-                    tuple(SqlAlchemyStore._parse_experiment_id(v) for v in value)
+                    tuple(_parse_experiment_id(v) for v in value)
                     if isinstance(value, tuple)
-                    else SqlAlchemyStore._parse_experiment_id(value)
+                    else _parse_experiment_id(value)
                 )
             else:
                 if SearchExperimentsUtils.is_string_attribute(
@@ -10370,8 +10747,15 @@ def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
                 f"Ordering by reserved metadata '{key}' is not supported because it is "
                 "represented by multiple columns."
             )
-        if SearchTraceUtils.is_attribute(key_type, key, "="):
+        needs_null_ordering = True
+        if SearchTraceUtils.is_attribute(key_type, key, "=") and key == "end_time_ms":
+            order_value = SqlTraceInfo.timestamp_ms + func.coalesce(
+                SqlTraceInfo.execution_time_ms, 0
+            )
+            needs_null_ordering = False
+        elif SearchTraceUtils.is_attribute(key_type, key, "="):
             order_value = getattr(SqlTraceInfo, key)
+            needs_null_ordering = order_value.nullable
         elif SearchTraceUtils.is_tag(key_type, "=") and key == TraceTagKey.TRACE_NAME:
             order_value = SqlTraceInfo.trace_name
         elif (
@@ -10394,9 +10778,10 @@ def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
             ordering_joins.append(subquery)
             order_value = subquery.c.value
 
-        case = sql.case((order_value.is_(None), 1), else_=0).label(f"clause_{clause_id}")
-        clauses.append(case.name)
-        select_clauses.append(case)
+        if needs_null_ordering:
+            case = sql.case((order_value.is_(None), 1), else_=0).label(f"clause_{clause_id}")
+            clauses.append(case.name)
+            select_clauses.append(case)
         select_clauses.append(order_value)
 
         if (key_type, key) in observed_order_by_clauses:
@@ -10767,9 +11152,11 @@ def _get_search_datasets_filter_clauses(parsed_filters, dialect):
         value = f["value"]
 
         if type_ == "attribute":
-            if SearchEvaluationDatasetsUtils.is_string_attribute(
-                type_, key, comparator
-            ) and comparator not in ("=", "!=", "LIKE", "ILIKE"):
+            if (
+                SearchEvaluationDatasetsUtils.is_string_attribute(type_, key, comparator)
+                and comparator not in ("=", "!=", "LIKE", "ILIKE")
+                and not (key == "name" and comparator == "IN")
+            ):
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid comparator for string attribute: {comparator}"
                 )
@@ -10921,76 +11308,3 @@ class _TraceAggregate:
 # re-fetch before retrying. 10 attempts reduces span drops in high-concurrency
 # scenarios without significant backend load increase (log_spans runs async).
 _LOG_SPANS_MAX_TRACE_CREATE_RETRIES = 10
-
-
-def _bulk_upsert(session: Session, model_class: type, rows: list[dict[str, Any]]) -> None:
-    """Bulk upsert rows using dialect-specific INSERT ON CONFLICT.
-
-    Rows are inserted in batches to stay within database limits (e.g., SQLite's
-    SQLITE_MAX_VARIABLE_NUMBER on older versions, MySQL's max_allowed_packet).
-
-    Falls back to per-row session.merge() for unsupported dialects (e.g., MSSQL).
-    """
-    if not rows:
-        return
-
-    dialect = session.bind.dialect.name
-    table = model_class.__table__
-    pk_columns = [col.name for col in table.primary_key.columns]
-    # Only update columns present in the inserted rows. Updating omitted columns
-    # references missing insert aliases on MySQL (`new.<col>`) and can overwrite
-    # columns that are intentionally absent from the incoming rows.
-    provided_columns = set.intersection(*(set(row) for row in rows))
-    update_columns = [
-        c.name
-        for c in table.columns
-        if c.name not in pk_columns and not c.computed and c.name in provided_columns
-    ]
-
-    batch_size = 100
-    for i in range(0, len(rows), batch_size):
-        batch = rows[i : i + batch_size]
-        _upsert_batch(session, model_class, table, batch, pk_columns, update_columns, dialect)
-
-
-def _upsert_batch(
-    session: Session,
-    model_class: type,
-    table: sqlalchemy.Table,
-    rows: list[dict[str, Any]],
-    pk_columns: list[str],
-    update_columns: list[str],
-    dialect: str,
-) -> None:
-    match dialect:
-        case "sqlite" | "postgresql":
-            if dialect == "sqlite":
-                from sqlalchemy.dialects.sqlite import insert
-            else:
-                from sqlalchemy.dialects.postgresql import insert
-
-            stmt = insert(table).values(rows)
-            if update_columns:
-                stmt = stmt.on_conflict_do_update(
-                    index_elements=pk_columns,
-                    set_={col: stmt.excluded[col] for col in update_columns},
-                )
-            else:
-                stmt = stmt.on_conflict_do_nothing()
-            session.execute(stmt)
-        case "mysql":
-            from sqlalchemy.dialects.mysql import insert
-
-            stmt = insert(table).values(rows)
-            if update_columns:
-                stmt = stmt.on_duplicate_key_update({
-                    col: stmt.inserted[col] for col in update_columns
-                })
-            else:
-                # No-op update on PK to silently skip duplicates
-                stmt = stmt.on_duplicate_key_update({pk_columns[0]: stmt.inserted[pk_columns[0]]})
-            session.execute(stmt)
-        case _:
-            # Fallback for MSSQL and other dialects
-            for row in rows:
-                session.merge(model_class(**row))

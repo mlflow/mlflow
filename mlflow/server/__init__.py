@@ -18,10 +18,13 @@ from flask import Flask, Response, send_from_directory
 from packaging.version import Version
 
 from mlflow.environment_variables import (
+    _MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY,
     _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED,
+    _MLFLOW_IN_JOB_EXECUTOR,
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     _MLFLOW_SERVER_BOOT_ID,
     _MLFLOW_SGI_NAME,
+    MLFLOW_ARTIFACTS_PRESIGNED_ONLY,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
     MLFLOW_SQL_TRACE_ROLLUPS_ENABLED,
@@ -350,6 +353,7 @@ def _run_server(
     default_artifact_root,
     serve_artifacts,
     artifacts_only,
+    artifacts_presigned_only=False,
     artifacts_destination,
     host,
     port,
@@ -388,6 +392,8 @@ def _run_server(
         env_map[SERVE_ARTIFACTS_ENV_VAR] = "true"
     if artifacts_only:
         env_map[ARTIFACTS_ONLY_ENV_VAR] = "true"
+    if artifacts_presigned_only:
+        env_map[MLFLOW_ARTIFACTS_PRESIGNED_ONLY.name] = "true"
     if artifacts_destination:
         env_map[ARTIFACTS_DESTINATION_ENV_VAR] = artifacts_destination
     if static_prefix:
@@ -407,6 +413,11 @@ def _run_server(
     # A per-boot id shared by all worker processes, used to distinguish sandbox containers of
     # this server generation from orphans left by a previous one during startup cleanup.
     env_map[_MLFLOW_SERVER_BOOT_ID.name] = uuid.uuid4().hex
+
+    # This marker permits reconstructing custom scorer code, which the server process must never
+    # do. It is meant to be set only inside job-executor subprocesses, so force it off for the
+    # server workers in case it is present in the ambient environment.
+    env_map[_MLFLOW_IN_JOB_EXECUTOR.name] = "false"
 
     # Determine which server we're using (only one should be true)
     using_gunicorn = gunicorn_opts is not None
@@ -511,10 +522,20 @@ def _run_server(
 
                 validate_and_resolve_sql_trace_rollup_schedule()
 
-    if app_name == "basic-auth" and job_execution_enabled:
-        # Generate the token here (before forking uvicorn workers) so that all
-        # worker processes and job subprocesses share the same token.
+    if app_name == "basic-auth":
+        # Generate the token here (before forking uvicorn workers) so that all worker processes
+        # and job subprocesses share the same token. Server-internal callers of the in-server
+        # gateway (job workers, and the MLflow Assistant's gateway provider) authenticate their
+        # own requests with it, so it must exist on any auth-enabled server, independent of
+        # whether job execution is available.
         env_map[_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name] = secrets.token_hex(32)
+
+        # Key for signing and verifying MLflow Assistant delegation credentials. Generated here so
+        # all worker processes share it, but deliberately excluded from the job runner env below so
+        # that code running in a job subprocess (e.g. a user-supplied scorer) cannot mint one. A
+        # delegation credential is honored on any route, so its signing key must stay inside the
+        # server workers that mint and verify it, never reaching an untrusted subprocess.
+        env_map[_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY.name] = secrets.token_hex(32)
 
     if job_execution_enabled:
         # The `HUEY_STORAGE_PATH_ENV_VAR` is used by both MLflow server handler workers and
@@ -548,7 +569,7 @@ def _run_server(
         from mlflow.environment_variables import MLFLOW_GATEWAY_URI, MLFLOW_TRACKING_URI
         from mlflow.server.jobs.utils import _launch_job_execution_runner
 
-        server_uri = f"http://{host}:{port}"
+        server_uri = f"http://{host}:{port}{static_prefix or ''}"
         job_env = {
             **env_map,
             # Periodic services initialize the primary store once from the supported public
@@ -561,6 +582,11 @@ def _run_server(
         }
         if default_artifact_root:
             job_env["MLFLOW_DEFAULT_ARTIFACT_ROOT"] = default_artifact_root
+        # Withhold the Assistant delegation signing key from the job runner (and thus from any
+        # user-supplied code a job runs): only the server workers that mint and verify delegation
+        # credentials may hold it. Job subprocesses authenticate their own gateway calls with the
+        # internal gateway token instead.
+        job_env.pop(_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY.name, None)
         # Set gateway URI for job workers if not already set. Jobs may call
         # _get_tracking_store() which overwrites MLFLOW_TRACKING_URI with the backend
         # store URI (e.g., sqlite://). MLFLOW_GATEWAY_URI preserves the HTTP URI for
