@@ -42,7 +42,7 @@ from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.environment import _PythonEnv
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.process import _exec_cmd
-from mlflow.utils.workspace_context import WorkspaceContext
+from mlflow.utils.workspace_context import ServerWorkspaceContext
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 if TYPE_CHECKING:
@@ -510,7 +510,9 @@ def _exec_job(
     """
     from mlflow.server.handlers import _get_job_store
 
-    workspace_ctx = WorkspaceContext(workspace) if workspace else nullcontext()
+    # Huey runs jobs on threads of one consumer process, so the job's workspace is set only for
+    # this thread: setting MLFLOW_WORKSPACE would change it for the other threads' jobs too.
+    workspace_ctx = ServerWorkspaceContext(workspace) if workspace else nullcontext()
     with workspace_ctx:
         job_store = _get_job_store()
 
@@ -897,7 +899,7 @@ def _workspace_contexts_for_recovery() -> list[ContextManager[str | None]]:
     from mlflow.server.workspace_helpers import _get_workspace_store  # avoid circular import
 
     store = _get_workspace_store()
-    return [WorkspaceContext(workspace.name) for workspace in store.list_workspaces()]
+    return [ServerWorkspaceContext(workspace.name) for workspace in store.list_workspaces()]
 
 
 def _for_each_unfinished_job(
