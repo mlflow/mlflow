@@ -13,8 +13,8 @@ function hasUiChanges(files) {
   return files.some(({ filename }) => UI_FILE.test(filename) && !filename.includes(".test."));
 }
 
-// Release PRs (version bumps, changelogs, ML package versions) used to be filed by mlflow-app[bot]
-// and skipped by the bot check below. Org members now file them from `release/*` branches.
+// Release PRs (version bumps, changelogs, ML package versions) are filed by org members from
+// `release/*` branches and don't need the contributor checks.
 function isMemberReleasePr(pr) {
   return ["MEMBER", "OWNER"].includes(pr.author_association) && pr.head.ref.startsWith("release/");
 }
