@@ -6884,6 +6884,50 @@ def test_log_spans_then_start_trace_preserves_preview(store: SqlAlchemyStore):
     assert "Hi" in trace_info.response_preview
 
 
+def test_start_trace_replaces_nul_in_preview(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_start_trace_nul_preview")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1000,
+        execution_duration=1000,
+        state=TraceState.OK,
+        request_preview="file contents: \x00",
+        response_preview="ok\x00",
+    )
+    store.start_trace(trace_info)
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.request_preview == "file contents: \ufffd"
+    assert trace_info.response_preview == "ok\ufffd"
+
+
+def test_log_spans_replaces_nul_in_preview(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_log_spans_nul_preview")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    span = create_test_span(
+        trace_id=trace_id,
+        name="llm_call",
+        span_id=111,
+        status=trace_api.StatusCode.OK,
+        start_ns=1_000_000_000,
+        end_ns=2_000_000_000,
+        trace_num=12345,
+        attributes={
+            "mlflow.spanInputs": {"messages": [{"role": "user", "content": "file contents: \x00"}]},
+            "mlflow.spanOutputs": {
+                "choices": [{"message": {"role": "assistant", "content": "ok\x00"}}]
+            },
+        },
+    )
+    store.log_spans(experiment_id, [span])
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.request_preview == "file contents: \ufffd"
+    assert trace_info.response_preview == "ok\ufffd"
+
+
 @pytest.mark.skipif(
     mlflow.get_tracking_uri().startswith("mysql"),
     reason="MySQL does not support concurrent log_spans calls for now",
