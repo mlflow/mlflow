@@ -14,6 +14,7 @@ from mlflow.genai.scorers.deepeval import (
     AnswerRelevancy,
     ExactMatch,
     KnowledgeRetention,
+    TurnRelevancy,
     get_scorer,
 )
 from mlflow.telemetry.client import TelemetryClient
@@ -163,6 +164,17 @@ def test_multi_turn_metric_is_session_level_scorer(mock_deepeval_model):
 
         answer_relevancy = AnswerRelevancy()
         assert answer_relevancy.is_session_level_scorer is False
+
+
+def test_conversational_metric_keeps_session_level(mock_deepeval_model):
+    with patch(
+        "mlflow.genai.scorers.deepeval.create_deepeval_model", return_value=mock_deepeval_model
+    ):
+        scorer = TurnRelevancy(session_level="episode")
+
+    assert scorer.session_level == "episode"
+    assert "session_level" not in scorer._metric_kwargs
+    scorer._validate_session_level()
 
 
 def test_multi_turn_metric_requires_session_parameter(mock_deepeval_model):

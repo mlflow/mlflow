@@ -684,7 +684,7 @@
     "accounts/fireworks/models/deepseek-r1": {
       "mode": "chat",
       "context_window": {
-        "max_input": 128000,
+        "max_input": 163840,
         "max_output": 20480,
         "max_tokens": 20480
       },
@@ -699,12 +699,12 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-14"
     },
     "accounts/fireworks/models/deepseek-r1-0528": {
       "mode": "chat",
       "context_window": {
-        "max_input": 160000,
+        "max_input": 163840,
         "max_output": 160000,
         "max_tokens": 160000
       },
@@ -719,7 +719,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-14"
     },
     "accounts/fireworks/models/deepseek-r1-0528-distill-qwen3-8b": {
       "mode": "chat",
@@ -744,7 +744,7 @@
     "accounts/fireworks/models/deepseek-r1-basic": {
       "mode": "chat",
       "context_window": {
-        "max_input": 128000,
+        "max_input": 163840,
         "max_output": 20480,
         "max_tokens": 20480
       },
@@ -759,7 +759,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-14"
     },
     "accounts/fireworks/models/deepseek-r1-distill-llama-70b": {
       "mode": "chat",
@@ -924,7 +924,7 @@
     "accounts/fireworks/models/deepseek-v3": {
       "mode": "chat",
       "context_window": {
-        "max_input": 128000,
+        "max_input": 131072,
         "max_output": 8192,
         "max_tokens": 8192
       },
@@ -939,7 +939,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-14"
     },
     "accounts/fireworks/models/deepseek-v3-0324": {
       "mode": "chat",
@@ -1157,14 +1157,14 @@
         "max_tokens": 393216
       },
       "pricing": {
-        "input_per_million_tokens": 0.22,
-        "output_per_million_tokens": 0.66,
-        "cache_read_per_million_tokens": 0.007,
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 1.2,
+        "cache_read_per_million_tokens": 0.006,
         "service_tiers": {
           "priority": {
-            "input_per_million_tokens": 0.275,
-            "output_per_million_tokens": 0.825,
-            "cache_read_per_million_tokens": 0.00875
+            "input_per_million_tokens": 0.375,
+            "output_per_million_tokens": 1.5,
+            "cache_read_per_million_tokens": 0.0075
           }
         }
       },
@@ -1175,7 +1175,63 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-15"
+      "last_updated_at": "2026-10-02"
+    },
+    "accounts/fireworks/models/deepseek-v4p1-flash-1017": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 393216,
+        "max_tokens": 393216
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 1.2,
+        "cache_read_per_million_tokens": 0.006,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.375,
+            "output_per_million_tokens": 1.5,
+            "cache_read_per_million_tokens": 0.0075
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-20"
+    },
+    "accounts/fireworks/models/deepseek-v4p1-flash-1017-us": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 393216,
+        "max_tokens": 393216
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.45,
+        "output_per_million_tokens": 1.8,
+        "cache_read_per_million_tokens": 0.009,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.5625,
+            "output_per_million_tokens": 2.25,
+            "cache_read_per_million_tokens": 0.01125
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-21"
     },
     "accounts/fireworks/models/devstral-small-2505": {
       "mode": "chat",
@@ -1285,7 +1341,14 @@
       "pricing": {
         "input_per_million_tokens": 3.0,
         "output_per_million_tokens": 15.0,
-        "cache_read_per_million_tokens": 0.3
+        "cache_read_per_million_tokens": 0.3,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 3.75,
+            "output_per_million_tokens": 18.75,
+            "cache_read_per_million_tokens": 0.375
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1294,12 +1357,12 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-24"
+      "last_updated_at": "2026-10-01"
     },
     "accounts/fireworks/models/ernie-4p5-21b-a3b-pt": {
       "mode": "chat",
       "context_window": {
-        "max_input": 4096,
+        "max_input": 131072,
         "max_output": 4096,
         "max_tokens": 4096
       },
@@ -1314,12 +1377,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-14"
     },
     "accounts/fireworks/models/ernie-4p5-300b-a47b-pt": {
       "mode": "chat",
       "context_window": {
-        "max_input": 4096,
+        "max_input": 131072,
         "max_output": 4096,
         "max_tokens": 4096
       },
@@ -1334,7 +1397,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-14"
     },
     "accounts/fireworks/models/fare-20b": {
       "mode": "chat",
@@ -1679,7 +1742,7 @@
     "accounts/fireworks/models/glm-4p5": {
       "mode": "chat",
       "context_window": {
-        "max_input": 128000,
+        "max_input": 131072,
         "max_output": 96000,
         "max_tokens": 96000
       },
@@ -1694,12 +1757,12 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-14"
     },
     "accounts/fireworks/models/glm-4p5-air": {
       "mode": "chat",
       "context_window": {
-        "max_input": 128000,
+        "max_input": 131072,
         "max_output": 96000,
         "max_tokens": 96000
       },
@@ -1714,7 +1777,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-14"
     },
     "accounts/fireworks/models/glm-4p5v": {
       "mode": "chat",
@@ -1739,7 +1802,7 @@
     "accounts/fireworks/models/glm-4p6": {
       "mode": "chat",
       "context_window": {
-        "max_input": 202800,
+        "max_input": 202752,
         "max_output": 202800,
         "max_tokens": 202800
       },
@@ -1754,12 +1817,12 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-14"
     },
     "accounts/fireworks/models/glm-4p7": {
       "mode": "chat",
       "context_window": {
-        "max_input": 202800,
+        "max_input": 202752,
         "max_output": 202800,
         "max_tokens": 202800
       },
@@ -1775,12 +1838,12 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-14"
     },
     "accounts/fireworks/models/glm-5p1": {
       "mode": "chat",
       "context_window": {
-        "max_input": 202800,
+        "max_input": 202752,
         "max_output": 131072,
         "max_tokens": 131072
       },
@@ -1796,7 +1859,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-22"
+      "last_updated_at": "2026-10-14"
     },
     "accounts/fireworks/models/glm-5p2": {
       "mode": "chat",
@@ -1908,7 +1971,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-15"
+      "deprecation_date": "2026-11-07",
+      "last_updated_at": "2026-10-20"
     },
     "accounts/fireworks/models/gpt-oss-20b": {
       "mode": "chat",
@@ -2000,7 +2064,14 @@
       "pricing": {
         "input_per_million_tokens": 1.0,
         "output_per_million_tokens": 4.05,
-        "cache_read_per_million_tokens": 0.17
+        "cache_read_per_million_tokens": 0.17,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 1.0,
+            "output_per_million_tokens": 4.05,
+            "cache_read_per_million_tokens": 0.17
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -2009,7 +2080,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-04"
+      "deprecation_date": "2026-11-07",
+      "last_updated_at": "2026-10-20"
     },
     "accounts/fireworks/models/internvl3-38b": {
       "mode": "chat",
@@ -2581,7 +2653,7 @@
     "accounts/fireworks/models/llama-v3p1-405b-instruct": {
       "mode": "chat",
       "context_window": {
-        "max_input": 128000,
+        "max_input": 131072,
         "max_output": 16384,
         "max_tokens": 16384
       },
@@ -2596,7 +2668,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-14"
     },
     "accounts/fireworks/models/llama-v3p1-405b-instruct-long": {
       "mode": "chat",
@@ -2661,7 +2733,7 @@
     "accounts/fireworks/models/llama-v3p1-8b-instruct": {
       "mode": "chat",
       "context_window": {
-        "max_input": 16384,
+        "max_input": 131072,
         "max_output": 16384,
         "max_tokens": 16384
       },
@@ -2676,7 +2748,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-14"
     },
     "accounts/fireworks/models/llama-v3p1-nemotron-70b-instruct": {
       "mode": "chat",
@@ -2701,7 +2773,7 @@
     "accounts/fireworks/models/llama-v3p2-11b-vision-instruct": {
       "mode": "chat",
       "context_window": {
-        "max_input": 16384,
+        "max_input": 131072,
         "max_output": 16384,
         "max_tokens": 16384
       },
@@ -2716,7 +2788,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-14"
     },
     "accounts/fireworks/models/llama-v3p2-1b": {
       "mode": "chat",
@@ -2741,7 +2813,7 @@
     "accounts/fireworks/models/llama-v3p2-1b-instruct": {
       "mode": "chat",
       "context_window": {
-        "max_input": 16384,
+        "max_input": 131072,
         "max_output": 16384,
         "max_tokens": 16384
       },
@@ -2756,7 +2828,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-14"
     },
     "accounts/fireworks/models/llama-v3p2-3b": {
       "mode": "chat",
@@ -2781,7 +2853,7 @@
     "accounts/fireworks/models/llama-v3p2-3b-instruct": {
       "mode": "chat",
       "context_window": {
-        "max_input": 16384,
+        "max_input": 131072,
         "max_output": 16384,
         "max_tokens": 16384
       },
@@ -2796,12 +2868,12 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-14"
     },
     "accounts/fireworks/models/llama-v3p2-90b-vision-instruct": {
       "mode": "chat",
       "context_window": {
-        "max_input": 16384,
+        "max_input": 131072,
         "max_output": 16384,
         "max_tokens": 16384
       },
@@ -2816,7 +2888,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-14"
     },
     "accounts/fireworks/models/llama-v3p3-70b-instruct": {
       "mode": "chat",
@@ -2941,7 +3013,7 @@
     "accounts/fireworks/models/minimax-m2": {
       "mode": "chat",
       "context_window": {
-        "max_input": 4096,
+        "max_input": 196608,
         "max_output": 4096,
         "max_tokens": 4096
       },
@@ -2956,12 +3028,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-14"
     },
     "accounts/fireworks/models/minimax-m2p1": {
       "mode": "chat",
       "context_window": {
-        "max_input": 204800,
+        "max_input": 196608,
         "max_output": 204800,
         "max_tokens": 204800
       },
@@ -2977,7 +3049,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-14"
     },
     "accounts/fireworks/models/minimax-m2p7": {
       "mode": "chat",
@@ -3034,6 +3106,34 @@
         "response_schema": true
       },
       "last_updated_at": "2026-09-22"
+    },
+    "accounts/fireworks/models/minimax-m3p1-flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576,
+        "max_tokens": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.6,
+        "cache_read_per_million_tokens": 0.015,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.225,
+            "output_per_million_tokens": 0.9,
+            "cache_read_per_million_tokens": 0.0225
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-20"
     },
     "accounts/fireworks/models/ministral-3-14b-instruct-2512": {
       "mode": "chat",
@@ -3417,6 +3517,32 @@
       "deprecation_date": "2026-09-25",
       "last_updated_at": "2026-09-24"
     },
+    "accounts/fireworks/models/muse-spark-open": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 4.25,
+        "cache_read_per_million_tokens": 0.15,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 1.875,
+            "output_per_million_tokens": 6.375,
+            "cache_read_per_million_tokens": 0.225
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-21"
+    },
     "accounts/fireworks/models/mythomax-l2-13b": {
       "mode": "chat",
       "context_window": {
@@ -3447,7 +3573,14 @@
       "pricing": {
         "input_per_million_tokens": 0.6,
         "output_per_million_tokens": 2.4,
-        "cache_read_per_million_tokens": 0.12
+        "cache_read_per_million_tokens": 0.12,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.75,
+            "output_per_million_tokens": 3.0,
+            "cache_read_per_million_tokens": 0.15
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -3456,7 +3589,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "deprecation_date": "2026-11-07",
+      "last_updated_at": "2026-10-20"
     },
     "accounts/fireworks/models/nemotron-lightning-3p5-30b-a3b": {
       "mode": "chat",
@@ -3468,7 +3602,14 @@
       "pricing": {
         "input_per_million_tokens": 0.05,
         "output_per_million_tokens": 0.2,
-        "cache_read_per_million_tokens": 0.01
+        "cache_read_per_million_tokens": 0.01,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.0625,
+            "output_per_million_tokens": 0.25,
+            "cache_read_per_million_tokens": 0.0125
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -3477,12 +3618,13 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "deprecation_date": "2026-11-07",
+      "last_updated_at": "2026-10-20"
     },
     "accounts/fireworks/models/nemotron-nano-v2-12b-vl": {
       "mode": "chat",
       "context_window": {
-        "max_input": 4096,
+        "max_input": 131072,
         "max_output": 4096,
         "max_tokens": 4096
       },
@@ -3497,7 +3639,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-14"
     },
     "accounts/fireworks/models/nous-capybara-7b-v1p9": {
       "mode": "chat",
@@ -3622,7 +3764,7 @@
     "accounts/fireworks/models/nvidia-nemotron-nano-12b-v2": {
       "mode": "chat",
       "context_window": {
-        "max_input": 131072,
+        "max_input": 128000,
         "max_output": 131072,
         "max_tokens": 131072
       },
@@ -3637,12 +3779,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-14"
     },
     "accounts/fireworks/models/nvidia-nemotron-nano-9b-v2": {
       "mode": "chat",
       "context_window": {
-        "max_input": 131072,
+        "max_input": 128000,
         "max_output": 131072,
         "max_tokens": 131072
       },
@@ -3657,7 +3799,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-14"
     },
     "accounts/fireworks/models/openchat-3p5-0106-7b": {
       "mode": "chat",
@@ -5022,7 +5164,7 @@
     "accounts/fireworks/models/qwen3-coder-480b-instruct-bf16": {
       "mode": "chat",
       "context_window": {
-        "max_input": 4096,
+        "max_input": 262144,
         "max_output": 4096,
         "max_tokens": 4096
       },
@@ -5037,7 +5179,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-14"
     },
     "accounts/fireworks/models/qwen3-embedding-0p6b": {
       "mode": "embedding",
@@ -5242,7 +5384,7 @@
     "accounts/fireworks/models/qwen3-vl-8b-instruct": {
       "mode": "chat",
       "context_window": {
-        "max_input": 4096,
+        "max_input": 262144,
         "max_output": 4096,
         "max_tokens": 4096
       },
@@ -5257,7 +5399,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-14"
     },
     "accounts/fireworks/models/qwen3p7-plus": {
       "mode": "chat",
@@ -5646,6 +5788,28 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "accounts/fireworks/routers/auto": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-29"
+    },
+    "accounts/fireworks/routers/auto-instant": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-29"
+    },
     "accounts/fireworks/routers/deepseek-v4p1-flash-us": {
       "mode": "chat",
       "context_window": {
@@ -5673,6 +5837,17 @@
         "response_schema": true
       },
       "last_updated_at": "2026-09-28"
+    },
+    "accounts/fireworks/routers/firerouter": {
+      "mode": "chat",
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-29"
     },
     "accounts/fireworks/routers/glm-5p1-fast": {
       "mode": "chat",
@@ -5768,7 +5943,14 @@
       "pricing": {
         "input_per_million_tokens": 0.225,
         "output_per_million_tokens": 0.75,
-        "cache_read_per_million_tokens": 0.045
+        "cache_read_per_million_tokens": 0.045,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.28125,
+            "output_per_million_tokens": 0.9375,
+            "cache_read_per_million_tokens": 0.05625
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -5777,7 +5959,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-25"
+      "deprecation_date": "2026-11-07",
+      "last_updated_at": "2026-10-21"
     },
     "accounts/fireworks/routers/glm-5p3-us": {
       "mode": "chat",
@@ -5789,7 +5972,14 @@
       "pricing": {
         "input_per_million_tokens": 2.1,
         "output_per_million_tokens": 6.6,
-        "cache_read_per_million_tokens": 0.39
+        "cache_read_per_million_tokens": 0.39,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 2.625,
+            "output_per_million_tokens": 8.25,
+            "cache_read_per_million_tokens": 0.4875
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -5798,7 +5988,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-25"
+      "last_updated_at": "2026-10-01"
     },
     "accounts/fireworks/routers/kimi-k2p6-fast": {
       "mode": "chat",
@@ -6027,14 +6217,14 @@
         "max_tokens": 393216
       },
       "pricing": {
-        "input_per_million_tokens": 0.22,
-        "output_per_million_tokens": 0.66,
-        "cache_read_per_million_tokens": 0.007,
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 1.2,
+        "cache_read_per_million_tokens": 0.006,
         "service_tiers": {
           "priority": {
-            "input_per_million_tokens": 0.275,
-            "output_per_million_tokens": 0.825,
-            "cache_read_per_million_tokens": 0.00875
+            "input_per_million_tokens": 0.375,
+            "output_per_million_tokens": 1.5,
+            "cache_read_per_million_tokens": 0.0075
           }
         }
       },
@@ -6045,7 +6235,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-15"
+      "last_updated_at": "2026-10-02"
     },
     "deepseek-v4p1-flash-us": {
       "mode": "chat",
@@ -6078,7 +6268,7 @@
     "glm-4p7": {
       "mode": "chat",
       "context_window": {
-        "max_input": 202800,
+        "max_input": 202752,
         "max_output": 202800,
         "max_tokens": 202800
       },
@@ -6094,12 +6284,12 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-14"
     },
     "glm-5p1": {
       "mode": "chat",
       "context_window": {
-        "max_input": 202800,
+        "max_input": 202752,
         "max_output": 131072,
         "max_tokens": 131072
       },
@@ -6115,7 +6305,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-22"
+      "last_updated_at": "2026-10-14"
     },
     "glm-5p1-fast": {
       "mode": "chat",
@@ -6295,7 +6485,14 @@
       "pricing": {
         "input_per_million_tokens": 0.225,
         "output_per_million_tokens": 0.75,
-        "cache_read_per_million_tokens": 0.045
+        "cache_read_per_million_tokens": 0.045,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.28125,
+            "output_per_million_tokens": 0.9375,
+            "cache_read_per_million_tokens": 0.05625
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -6304,7 +6501,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-25"
+      "deprecation_date": "2026-11-07",
+      "last_updated_at": "2026-10-21"
     },
     "glm-5p3-us": {
       "mode": "chat",
@@ -6316,7 +6514,14 @@
       "pricing": {
         "input_per_million_tokens": 2.1,
         "output_per_million_tokens": 6.6,
-        "cache_read_per_million_tokens": 0.39
+        "cache_read_per_million_tokens": 0.39,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 2.625,
+            "output_per_million_tokens": 8.25,
+            "cache_read_per_million_tokens": 0.4875
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -6325,7 +6530,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-25"
+      "last_updated_at": "2026-10-01"
     },
     "gpt-oss-120b": {
       "mode": "chat",
@@ -6353,7 +6558,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-15"
+      "deprecation_date": "2026-11-07",
+      "last_updated_at": "2026-10-20"
     },
     "gpt-oss-20b": {
       "mode": "chat",
@@ -6577,7 +6783,7 @@
     "minimax-m2p1": {
       "mode": "chat",
       "context_window": {
-        "max_input": 204800,
+        "max_input": 196608,
         "max_output": 204800,
         "max_tokens": 204800
       },
@@ -6593,7 +6799,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-14"
     },
     "minimax-m2p7": {
       "mode": "chat",
@@ -6683,7 +6889,14 @@
       "pricing": {
         "input_per_million_tokens": 0.6,
         "output_per_million_tokens": 2.4,
-        "cache_read_per_million_tokens": 0.12
+        "cache_read_per_million_tokens": 0.12,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.75,
+            "output_per_million_tokens": 3.0,
+            "cache_read_per_million_tokens": 0.15
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -6692,7 +6905,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "deprecation_date": "2026-11-07",
+      "last_updated_at": "2026-10-20"
     },
     "nemotron-lightning-3p5-30b-a3b": {
       "mode": "chat",
@@ -6704,7 +6918,14 @@
       "pricing": {
         "input_per_million_tokens": 0.05,
         "output_per_million_tokens": 0.2,
-        "cache_read_per_million_tokens": 0.01
+        "cache_read_per_million_tokens": 0.01,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.0625,
+            "output_per_million_tokens": 0.25,
+            "cache_read_per_million_tokens": 0.0125
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -6713,7 +6934,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "deprecation_date": "2026-11-07",
+      "last_updated_at": "2026-10-20"
     },
     "qwen3p7-plus": {
       "mode": "chat",

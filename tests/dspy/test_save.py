@@ -375,6 +375,13 @@ def test_save_chat_model_with_string_output(dummy_model):
     assert response["choices"][0]["message"]["content"] == "4"
 
 
+def test_save_model_with_invalid_task(tmp_path):
+    with pytest.raises(MlflowException, match="Invalid task: llm/v1/unknown at"):
+        mlflow.dspy.save_model(
+            dspy.Predict("question -> answer"), tmp_path / "model", task="llm/v1/unknown"
+        )
+
+
 def test_serve_chat_model(dummy_model):
     class CoT(dspy.Module):
         def __init__(self):

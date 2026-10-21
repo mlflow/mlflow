@@ -292,6 +292,28 @@ class AuthServiceClient:
     def add_role_permission(
         self, role_id: int, resource_type: str, resource_pattern: str, permission: str
     ) -> RolePermission:
+        """Grant ``permission`` on resources of ``resource_type`` matching ``resource_pattern``.
+
+        Args:
+            role_id: The role to add the permission to.
+            resource_type: One of the container types -- ``experiment``, ``registered_model``,
+                ``prompt``, ``scorer``, ``gateway_secret``, ``gateway_endpoint``,
+                ``gateway_model_definition``, ``mcp_server`` -- or ``workspace``, or one of the
+                sub-resource tiers: ``run``, ``trace``, ``assessment``, ``logged_model``,
+                ``review_queue``, ``registered_model_version``, ``prompt_version``,
+                ``scorer_version``, ``mcp_server_version``.
+            resource_pattern: A resource id or name, or ``"*"`` for every resource of the type.
+                ``workspace`` and the sub-resource tiers accept only ``"*"``; a specific id on
+                those is rejected, because a per-id grant would be honoured on a point route and
+                silently lapse in a search.
+            permission: ``READ``, ``USE``, ``EDIT``, ``MANAGE``, or ``DENY``. ``DENY`` is an
+                explicit-deny override that wins over any positive grant it is folded with, and
+                applies at the tier it is granted on. ``workspace`` accepts only ``USE`` and
+                ``MANAGE``.
+
+        Returns:
+            The created :py:class:`RolePermission`.
+        """
         resp = self._request(
             ADD_ROLE_PERMISSION,
             "POST",

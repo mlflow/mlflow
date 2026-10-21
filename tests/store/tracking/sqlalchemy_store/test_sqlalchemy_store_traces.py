@@ -400,6 +400,9 @@ def store_with_traces(store):
             ["execution_time DESC", "timestamp ASC"],
             ["tr-3", "tr-4", "tr-0", "tr-2", "tr-1"],
         ),
+        # Order by end time (timestamp + execution_time)
+        (["end_time"], ["tr-1", "tr-2", "tr-0", "tr-3", "tr-4"]),
+        (["end_time_ms DESC"], ["tr-4", "tr-3", "tr-2", "tr-0", "tr-1"]),
         # Order by experiment ID
         (["experiment_id"], ["tr-4", "tr-3", "tr-2", "tr-1", "tr-0"]),
         # Order by status
@@ -427,6 +430,51 @@ def test_search_traces_order_by(store_with_traces, order_by, expected_ids):
     )
     actual_ids = [trace_info.trace_id for trace_info in trace_infos]
     assert actual_ids == expected_ids
+
+
+@pytest.mark.parametrize(
+    ("order_by", "needs_null_ordering"),
+    [
+        ("timestamp ASC", False),
+        ("timestamp DESC", False),
+        ("experiment_id", False),
+        ("status", False),
+        ("execution_time DESC", True),
+        ("end_time DESC", False),
+        ("name", True),
+        ("tag.nonexistent", True),
+        ("run_id", True),
+    ],
+)
+def test_search_traces_order_by_null_handling(store, order_by, needs_null_ordering):
+    with store.ManagedSessionMaker() as session:
+        selects, clauses, joins = sqlalchemy_store_module._get_orderby_clauses_for_search_traces(
+            [order_by], session
+        )
+        query = session.query(SqlTraceInfo, *selects)
+        for join in joins:
+            query = query.outerjoin(join, SqlTraceInfo.request_id == join.c.request_id)
+        statement = str(query.order_by(*clauses).statement.compile(dialect=postgresql.dialect()))
+
+    assert ("CASE WHEN" in statement) == needs_null_ordering
+    assert statement.endswith("trace_info.request_id ASC") or statement.endswith(
+        "trace_info.request_id"
+    )
+    if order_by.startswith("timestamp"):
+        direction = " DESC" if order_by.endswith("DESC") else ""
+        assert f"ORDER BY trace_info.timestamp_ms{direction}, trace_info.request_id" in statement
+
+
+@pytest.mark.parametrize("direction", ["ASC", "DESC"])
+def test_search_traces_order_by_nullable_attribute(store, direction):
+    exp_id = store.create_experiment("nullable-ordering")
+    _create_trace(store, "tr-missing", exp_id, execution_duration=None)
+    _create_trace(store, "tr-fast", exp_id, execution_duration=1)
+    _create_trace(store, "tr-slow", exp_id, execution_duration=2)
+
+    traces, _ = store.search_traces([exp_id], order_by=[f"execution_time {direction}"])
+    ordered_ids = ["tr-fast", "tr-slow"] if direction == "ASC" else ["tr-slow", "tr-fast"]
+    assert [trace.trace_id for trace in traces] == [*ordered_ids, "tr-missing"]
 
 
 @pytest.mark.parametrize(
@@ -665,7 +713,8 @@ def test_search_traces_pagination(store_with_traces):
     assert token is None
 
 
-def test_search_traces_pagination_tie_breaker(store):
+@pytest.mark.parametrize("order_by", [None, ["timestamp DESC"]])
+def test_search_traces_pagination_tie_breaker(store, order_by):
     # This test is for ensuring the tie breaker for ordering traces with the same timestamp
     # works correctly.
     exp1 = store.create_experiment("exp1")
@@ -682,13 +731,13 @@ def test_search_traces_pagination_tie_breaker(store):
     for rid in trace_ids:
         _create_trace(store, rid, exp1, request_time=1)
 
-    traces, token = store.search_traces([exp1], max_results=3)
+    traces, token = store.search_traces([exp1], max_results=3, order_by=order_by)
     assert [t.trace_id for t in traces] == ["tr-5", "tr-6", "tr-7"]
-    traces, token = store.search_traces([exp1], max_results=3, page_token=token)
+    traces, token = store.search_traces([exp1], max_results=3, page_token=token, order_by=order_by)
     assert [t.trace_id for t in traces] == ["tr-8", "tr-9", "tr-0"]
-    traces, token = store.search_traces([exp1], max_results=3, page_token=token)
+    traces, token = store.search_traces([exp1], max_results=3, page_token=token, order_by=order_by)
     assert [t.trace_id for t in traces] == ["tr-1", "tr-2", "tr-3"]
-    traces, token = store.search_traces([exp1], max_results=3, page_token=token)
+    traces, token = store.search_traces([exp1], max_results=3, page_token=token, order_by=order_by)
     assert [t.trace_id for t in traces] == ["tr-4"]
 
 
@@ -6833,6 +6882,50 @@ def test_log_spans_then_start_trace_preserves_preview(store: SqlAlchemyStore):
     assert trace_info.response_preview is not None
     assert "Hello" in trace_info.request_preview
     assert "Hi" in trace_info.response_preview
+
+
+def test_start_trace_replaces_nul_in_preview(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_start_trace_nul_preview")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1000,
+        execution_duration=1000,
+        state=TraceState.OK,
+        request_preview="file contents: \x00",
+        response_preview="ok\x00",
+    )
+    store.start_trace(trace_info)
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.request_preview == "file contents: \ufffd"
+    assert trace_info.response_preview == "ok\ufffd"
+
+
+def test_log_spans_replaces_nul_in_preview(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_log_spans_nul_preview")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    span = create_test_span(
+        trace_id=trace_id,
+        name="llm_call",
+        span_id=111,
+        status=trace_api.StatusCode.OK,
+        start_ns=1_000_000_000,
+        end_ns=2_000_000_000,
+        trace_num=12345,
+        attributes={
+            "mlflow.spanInputs": {"messages": [{"role": "user", "content": "file contents: \x00"}]},
+            "mlflow.spanOutputs": {
+                "choices": [{"message": {"role": "assistant", "content": "ok\x00"}}]
+            },
+        },
+    )
+    store.log_spans(experiment_id, [span])
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.request_preview == "file contents: \ufffd"
+    assert trace_info.response_preview == "ok\ufffd"
 
 
 @pytest.mark.skipif(

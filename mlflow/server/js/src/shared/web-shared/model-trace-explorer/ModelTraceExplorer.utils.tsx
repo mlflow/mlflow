@@ -443,6 +443,51 @@ export function searchTreeBySpanId(
   return undefined;
 }
 
+/**
+ * Drops the leading output messages that repeat the trailing input messages. This covers
+ * frameworks that echo the whole input as a prefix of the output (e.g. LangGraph state) as
+ * well as those that only repeat the last turn (e.g. PydanticAI's new_messages()).
+ */
+export const removeOverlappingInputMessages = (
+  outputMessages: ModelTraceChatMessage[],
+  inputMessages: ModelTraceChatMessage[],
+): ModelTraceChatMessage[] => {
+  const maxOverlap = Math.min(outputMessages.length, inputMessages.length);
+  for (let overlap = maxOverlap; overlap > 0; overlap--) {
+    const inputTail = inputMessages.slice(inputMessages.length - overlap);
+    const matches = inputTail.every(
+      (message, index) => JSON.stringify(message) === JSON.stringify(outputMessages[index]),
+    );
+    if (matches) {
+      return outputMessages.slice(overlap);
+    }
+  }
+  return outputMessages;
+};
+
+/**
+ * Agent-level system prompts (e.g. PydanticAI `Agent(system_prompt=...)`) are recorded only in
+ * the first model request, which is part of the run's new messages rather than the inputs.
+ * Move such leading system messages ahead of the input transcript so the conversation reads in
+ * order and the overlap with the outputs lines up.
+ */
+export const hoistLeadingSystemMessages = (
+  inputMessages: ModelTraceChatMessage[],
+  outputMessages: ModelTraceChatMessage[],
+): ModelTraceChatMessage[] => {
+  if (inputMessages.some((message) => message.role === 'system')) {
+    return inputMessages;
+  }
+  const leadingSystemMessages: ModelTraceChatMessage[] = [];
+  for (const message of outputMessages) {
+    if (message.role !== 'system') {
+      break;
+    }
+    leadingSystemMessages.push(message);
+  }
+  return leadingSystemMessages.length > 0 ? leadingSystemMessages.concat(inputMessages) : inputMessages;
+};
+
 const getChatMessagesFromSpan = (
   messagesAttributeValue: any,
   inputs: any,
@@ -463,9 +508,11 @@ const getChatMessagesFromSpan = (
   const messagesFromInputs = normalizeConversation(inputs, messageFormat) ?? [];
   const messagesFromOutputs = normalizeConversation(outputs, messageFormat) ?? [];
 
-  // PydanticAI's new_messages() returns complete conversation including user prompt
+  // PydanticAI's new_messages() starts with the user prompt that the inputs already end with,
+  // so drop that overlap before joining the two halves of the conversation.
   if (messageFormat === 'pydantic_ai' && messagesFromOutputs.length > 0) {
-    return messagesFromInputs.length > 0 ? messagesFromInputs.concat(messagesFromOutputs) : messagesFromOutputs;
+    const inputMessages = hoistLeadingSystemMessages(messagesFromInputs, messagesFromOutputs);
+    return inputMessages.concat(removeOverlappingInputMessages(messagesFromOutputs, inputMessages));
   }
 
   // For VoltAgent format, synthesize messages from child spans (tool executions)

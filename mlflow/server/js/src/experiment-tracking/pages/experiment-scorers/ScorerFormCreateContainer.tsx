@@ -41,6 +41,10 @@ const ScorerFormCreateContainer: React.FC<ScorerFormCreateContainerProps> = ({
       model: '',
       disableMonitoring: false,
       isInstructionsJudge: true, // Custom template is an instructions judge
+      // Default to Boolean rather than letting the backend fall back to `str`: a bool verdict
+      // runs on both chat and TypeSafe/Jev (System One) models, whereas `str` only works on
+      // chat models. Users can still switch to Categorical or another output type.
+      outputTypeKind: 'bool',
       evaluationScope: initialScope ?? ScorerEvaluationScope.TRACES,
     },
   });

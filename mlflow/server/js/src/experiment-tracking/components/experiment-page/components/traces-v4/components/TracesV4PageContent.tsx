@@ -3,24 +3,19 @@ import { type InputRef, ColumnSplitIcon, useDesignSystemTheme } from '@databrick
 import { useIntl, FormattedMessage } from 'react-intl';
 import {
   createTraceV4LongIdentifier,
-  ModelTraceExplorerContextProvider,
+  SESSION_ID_METADATA_KEY,
   type ModelTraceInfoV3,
 } from '@databricks/web-shared/model-trace-explorer';
-import {
-  doesTraceSupportV4API,
-  GenAITracesTableProvider,
-  MLFLOW_SOURCE_RUN_KEY,
-  RunName,
-} from '@databricks/web-shared/genai-traces-table';
+import { doesTraceSupportV4API, MLFLOW_SOURCE_RUN_KEY, RunName } from '@databricks/web-shared/genai-traces-table';
 import {
   EMPTY_FILTER_MODEL,
   TRACE_COLUMN_IDS,
   TracesErrorAlert,
-  TracesTableView,
   type SessionHrefGetter,
   type SessionSelectionHandler,
   type TraceColumnId,
   type TraceHrefGetter,
+  type TracesTableViewProps,
   type TracesTableViewState,
 } from '@databricks/web-shared/traces-table';
 import { useDeleteTracesMutation } from '@mlflow/mlflow/src/experiment-tracking/components/evaluations/hooks/useDeleteTraces';
@@ -28,8 +23,12 @@ import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/Assis
 import { AssistantAwareActionBar } from '@mlflow/mlflow/src/common/components/AssistantAwareActionBar';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import { useNavigate, useSearchParams, useLocation } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
-import { shouldEnableIssueDetection } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
-import { SELECTED_TRACE_ID_QUERY_PARAM } from '@mlflow/mlflow/src/experiment-tracking/constants';
+import { shouldEnableIssueDetection, shouldEnableNewEvalRunsUi } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import {
+  SELECTED_TRACE_ID_QUERY_PARAM,
+  TRACE_DRAWER_SESSION_ID_QUERY_PARAM,
+  TRACE_DRAWER_VIEW_MODE_QUERY_PARAM,
+} from '@mlflow/mlflow/src/experiment-tracking/constants';
 // Reuse the generic (branding-free) "/" hotkey hook from datasets-v2.
 import { useSlashFocusSearch } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets-v2/hooks/useSlashFocusSearch';
 import { isAssessmentColumnId } from '../utils/assessmentColumns';
@@ -38,7 +37,10 @@ import { useTracesV4Controller } from '../hooks/useTracesV4Controller';
 import { useTracesV4Density } from '../hooks/useTracesV4Density';
 import { useTracesV4Notifications } from '../hooks/useTracesV4Notifications';
 import { useTracesV4TraceActions } from '../hooks/useTracesV4TraceActions';
-import { TracesV4TraceDrawer } from './TracesV4TraceDrawer';
+import { useTracesV4UnifiedSearch } from '../hooks/useTracesV4UnifiedSearch';
+import { useTracesV4DrawerSessionUrlState } from '../hooks/useTracesV4DrawerSessionUrlState';
+import { TracesV4TableSurface } from './TracesV4TableSurface';
+import type { TracesV4TraceDrawerSession } from './TracesV4TraceDrawer';
 import { useTracesV4ToolbarSlots } from './TracesV4Toolbar';
 import { TracesV4DeleteModal } from './TracesV4DeleteModal';
 import { makeTracesV4ErrorDescription } from './TracesV4States';
@@ -46,10 +48,21 @@ import { TracesV4EmptyState } from './TracesV4EmptyState';
 import { IssueDetectionModal } from '../../traces-v3/IssueDetectionModal';
 import { TracesV4SavedViewsButton, useTracesV4SavedViews } from './TracesV4SavedViews';
 import { type TraceColumnHeaderAction } from '@databricks/web-shared/traces-table';
+import { useExperimentPageRevampContext } from '../../../../../pages/experiment-page-tabs/ExperimentPageRevampContext';
 
 interface TracesV4PageContentProps {
   experimentId: string;
 }
+
+// Drawer parameters a session link drops: the destination opens the session's own drawer state.
+const SESSION_LINK_DROPPED_PARAMS = [
+  'traceId',
+  'spanId',
+  'selectedEvaluationId',
+  SELECTED_TRACE_ID_QUERY_PARAM,
+  TRACE_DRAWER_VIEW_MODE_QUERY_PARAM,
+  TRACE_DRAWER_SESSION_ID_QUERY_PARAM,
+];
 
 const PREVIEW_LINE_CLAMP_BY_DENSITY = {
   small: 1,
@@ -68,6 +81,7 @@ const isStandardColumnId = (id: string): id is TraceColumnId => (TRACE_COLUMN_ID
  */
 export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) => {
   const { theme } = useDesignSystemTheme();
+  const { enabled: revampEnabled } = useExperimentPageRevampContext();
   const intl = useIntl();
   const navigate = useNavigate();
   const { pathname, search, hash } = useLocation();
@@ -247,29 +261,105 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     [pathname, search, hash],
   );
 
+  // With the new evaluation runs UI, sessions open in the trace drawer next to the table, so its
+  // filters, sort and grouping stay in place.
+  const sessionDrawerEnabled = shouldEnableNewEvalRunsUi();
+  const drawerSession = useTracesV4DrawerSessionUrlState();
+  // Read only by the session drawer's links, so the link builder doesn't change with the URL otherwise.
+  const sessionLinkSearch = sessionDrawerEnabled ? search : '';
+
   // The session cell's only product coupling: build the single-chat-session route (matching v1),
   // deep-linking the current trace via `?selectedTraceId` so the destination opens on that trace.
+  // With the session drawer, the link also carries the table's parameters; the route sends it back
+  // here with the session open in the drawer.
   const getSessionHref = useCallback<SessionHrefGetter>(
     ({ trace, sessionId }) => {
       const baseUrl = Routes.getExperimentPageTabSingleChatSessionRoute(experimentId, sessionId);
+      if (sessionDrawerEnabled) {
+        const searchParams = new URLSearchParams(sessionLinkSearch);
+        SESSION_LINK_DROPPED_PARAMS.forEach((param) => searchParams.delete(param));
+        if (trace.trace_id) {
+          searchParams.set(SELECTED_TRACE_ID_QUERY_PARAM, trace.trace_id);
+        }
+        const query = searchParams.toString();
+        return query ? `${baseUrl}?${query}` : baseUrl;
+      }
       return trace.trace_id
         ? `${baseUrl}?${new URLSearchParams({ [SELECTED_TRACE_ID_QUERY_PARAM]: trace.trace_id }).toString()}`
         : baseUrl;
     },
-    [experimentId],
+    [experimentId, sessionLinkSearch, sessionDrawerEnabled],
   );
 
   // Clicking a grouped session header row navigates to its single-chat-session view (same route the
-  // session cell links to).
+  // session cell links to), or opens the session in the drawer with the new evaluation runs UI.
+  const { openSession } = drawerSession;
   const handleSessionSelected = useCallback<SessionSelectionHandler>(
     (session) => {
+      if (sessionDrawerEnabled) {
+        openSession(
+          session.sessionId,
+          doesTraceSupportV4API(session.trace) ? createTraceV4LongIdentifier(session.trace) : session.trace.trace_id,
+        );
+        return;
+      }
       const href = getSessionHref(session);
       if (href) {
         navigate(href);
       }
     },
-    [getSessionHref, navigate],
+    [getSessionHref, navigate, openSession, sessionDrawerEnabled],
   );
+
+  // Sessions on this page in table order, each with its first trace, for the drawer's session arrows.
+  const sessionsOnPage = useMemo(() => {
+    if (!sessionDrawerEnabled) {
+      return [];
+    }
+    const firstTraceBySession = new Map<string, string>();
+    for (const trace of page.traces) {
+      const sessionId = trace.trace_metadata?.[SESSION_ID_METADATA_KEY];
+      if (sessionId && !firstTraceBySession.has(sessionId)) {
+        firstTraceBySession.set(
+          sessionId,
+          doesTraceSupportV4API(trace) ? createTraceV4LongIdentifier(trace) : trace.trace_id,
+        );
+      }
+    }
+    return Array.from(firstTraceBySession, ([sessionId, traceId]) => ({ sessionId, traceId }));
+  }, [page.traces, sessionDrawerEnabled]);
+  const {
+    sessionId: drawerSessionId,
+    viewMode: drawerViewMode,
+    showSessionTrace,
+    showSession,
+    selectTrace: selectDrawerTrace,
+    closeDrawer: closeSessionDrawer,
+  } = drawerSession;
+  const drawerSessionProps = useMemo<TracesV4TraceDrawerSession | undefined>(() => {
+    if (!sessionDrawerEnabled || !drawerSessionId) {
+      return undefined;
+    }
+    const index = sessionsOnPage.findIndex((session) => session.sessionId === drawerSessionId);
+    const previous = index > 0 ? sessionsOnPage[index - 1] : undefined;
+    const next = index >= 0 && index < sessionsOnPage.length - 1 ? sessionsOnPage[index + 1] : undefined;
+    return {
+      sessionId: drawerSessionId,
+      viewMode: drawerViewMode,
+      onViewTrace: showSessionTrace,
+      onBackToSession: showSession,
+      onPreviousSession: previous ? () => openSession(previous.sessionId, previous.traceId) : undefined,
+      onNextSession: next ? () => openSession(next.sessionId, next.traceId) : undefined,
+    };
+  }, [
+    drawerSessionId,
+    drawerViewMode,
+    openSession,
+    sessionDrawerEnabled,
+    sessionsOnPage,
+    showSession,
+    showSessionTrace,
+  ]);
   const renderRunName = useCallback(
     (trace: ModelTraceInfoV3) => {
       const runUuid = trace.trace_metadata?.[MLFLOW_SOURCE_RUN_KEY];
@@ -327,9 +417,22 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     [page.traces],
   );
 
-  const toolbarSlots = useTracesV4ToolbarSlots({
+  // The new evaluation runs UI replaces the search box and the Filters button with one search that
+  // shows the applied filters as pills and turns typed queries into filters.
+  const unifiedSearchEnabled = shouldEnableNewEvalRunsUi();
+  const unifiedSearch = useTracesV4UnifiedSearch({
     filterModel,
-    onFilterChange: controller.setFilterModel,
+    setFilterModel: controller.setFilterModel,
+    tagFilters: url.tagFilters,
+    setTagFilters: url.setTagFilters,
+    searchInput,
+  });
+
+  const toolbarSlots = useTracesV4ToolbarSlots({
+    filterModel: unifiedSearchEnabled ? unifiedSearch.searchFilterModel : filterModel,
+    onFilterChange: unifiedSearchEnabled ? unifiedSearch.setSearchFilters : controller.setFilterModel,
+    hideFilterButton: unifiedSearchEnabled,
+    ...(unifiedSearchEnabled ? { traces: page.traces } : {}),
     onClearFilters: clearAllFilters,
     activeFilterCount: controller.activeFilterCount,
     visibleColumns: columns.visibleColumns,
@@ -363,135 +466,151 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     ? 'error'
     : !page.isFetching && flags.isEmptyPageBeyondFirst
       ? 'no-more-results'
-      : !page.isFetching && flags.hasNoTracesAtAll
+      : !page.isFetching && flags.hasNoTracesInRange
         ? 'empty'
         : !page.isFetching && flags.hasNoSearchResults
           ? 'no-results'
           : 'ready';
 
-  const content = (
-    // The two providers expose the shared trace-action building blocks (drawer add-to-dataset
-    // and the dataset modal) to the drawer and Actions menu.
-    <ModelTraceExplorerContextProvider
-      renderExportTracesToDatasetsModal={actions.renderExportTracesToDatasetsModal}
-      renderAddToReviewQueueDropdown={actions.AddToReviewQueueDropdown}
-      DrawerComponent={AssistantAwareDrawer}
-    >
-      <GenAITracesTableProvider
-        experimentId={experimentId}
-        getTrace={actions.getTrace}
-        isGroupedBySession={controller.isGroupedBySession}
-      >
-        {/* Vertical-fill column for the tab. Horizontal scroll stays inside the table (TracesTable's
-            own `<Table scrollable>`), so the toolbar and pagination bar keep to the visible width
-            without a second scroll container of our own (ML-68750/68769) — the toolbar instead
-            collapses its control labels to fit (see TracesToolbarResponsive). The negative bottom
-            margin bleeds the pinned pagination bar into the shared content wrapper's 8px bottom
-            padding, aligning it with the sidebar. */}
-        <div
-          css={{
-            display: 'flex',
-            flexDirection: 'column',
-            flex: 1,
-            minHeight: 0,
-            gap: theme.spacing.md,
-            paddingTop: theme.spacing.md,
-            paddingLeft: theme.spacing.md,
-            marginBottom: -theme.spacing.sm,
-          }}
-        >
-          <TracesTableView
-            viewState={viewState}
-            // Table
-            traces={page.traces}
-            visibleColumns={columns.visibleColumns}
-            extraColumns={extraColumns}
-            columnHeaderActions={columnHeaderActions}
-            columnOrder={columnOrder.columnOrder}
-            initialColumnSizing={columnSizing.columnSizing}
-            onColumnSizingSettled={columnSizing.setColumnSizing}
-            isLoading={page.isFetching}
-            isFetching={page.isFetching}
-            skeletonRowCount={url.pageSize}
-            onTraceSelected={handleTraceSelected}
-            selectedTraceId={url.traceId}
-            selectedForBulk={bulk.selected}
-            isAllOnPageSelected={bulk.isAllVisibleChecked}
-            isSomeOnPageSelected={bulk.isSomeVisibleChecked}
-            onToggleBulkRow={bulk.toggle}
-            // Session-level select needs the whole session's traces; when a grouped page spans
-            // multiple pages the off-page traces aren't loaded, so disable it (mirrors universe).
-            onToggleBulkRows={
-              controller.isGroupedBySession && (page.hasNext || page.hasPrev) ? undefined : bulk.toggleMany
-            }
-            onToggleBulkAll={bulk.toggleAll}
-            sort={url.sort}
-            dir={url.dir}
-            onSort={url.setSort}
-            previewLineClamp={PREVIEW_LINE_CLAMP_BY_DENSITY[density]}
-            getTraceHref={getTraceHref}
-            getSessionHref={getSessionHref}
-            onSessionSelected={handleSessionSelected}
-            onFilterByTag={controller.onFilterByTag}
-            renderRunName={renderRunName}
-            onHideColumn={handleHideColumn}
-            isGroupedBySession={controller.isGroupedBySession}
-            // Session-level aggregates (e.g. token totals) may be incomplete when off-page traces
-            // exist — suppress them for the same reason onToggleBulkRows is disabled above.
-            sessionsMayBeIncomplete={controller.isGroupedBySession && (page.hasNext || page.hasPrev)}
-            onReorderColumn={columnOrder.reorderColumn}
-            // Toolbar slots (built by useTracesV4ToolbarSlots) + banner slot
-            searchValue={searchInput.input}
-            onSearchChange={searchInput.setInput}
-            onSearchClear={searchInput.clear}
-            onSearchSubmit={searchInput.submit}
-            searchInputRef={searchInputRef}
-            leftControls={toolbarSlots.leftControls}
-            rightControls={toolbarSlots.rightControls}
-            bannerSlot={
-              <>
-                {actions.runJudges?.JudgesStatusBanner}
-                {showErrorAlert && (
-                  <TracesErrorAlert
-                    error={page.error}
-                    onRetry={page.refetch}
-                    getErrorDescription={getErrorDescription}
-                  />
-                )}
-              </>
-            }
-            // Pagination
-            pageIndex={url.pageIndex}
-            pageSize={url.pageSize}
-            onPageChange={controller.goToPage}
-            onPageSizeChange={url.setPageSize}
-            hasNext={page.hasNext}
-            hasPrev={page.hasPrev}
-            // Grouped mode fetches one big page: hide the page-size selector always, and hide the whole
-            // bar when that page holds everything (no prev/next to offer).
-            hidePagination={controller.isGroupedBySession && !page.hasNext && !page.hasPrev}
-            hidePageSizeSelector={controller.isGroupedBySession}
-            // "{n} of {total}" footer count (bottom-left).
-            traceCount={page.traces.length}
-            traceTotal={controller.traceCount.totalCount}
-            isTraceCountLoading={controller.traceCount.isTotalLoading}
-            // Reserve the pinned pagination bar's height with the floating-obstruction store so the
-            // Assistant FAB rises above it instead of overlapping the prev/next/page-size controls.
-            PaginationBarWrapper={AssistantAwareActionBar}
-            // States
-            onClearFilters={clearFilters}
-            onRetry={page.refetch}
-            error={page.error}
-            getErrorDescription={getErrorDescription}
-            customEmptyState={
-              // Short-circuits before the viewState switch (keeping toolbar + banner). Gated on the
-              // resolved `empty` state, not `hasNoTracesAtAll` alone, so error / no-results /
-              // no-more-results still flow through the switch — a trace-id-search miss lands on
-              // `no-results`, and a first-load error on `error`, not the quickstart.
-              viewState === 'empty' ? <TracesV4EmptyState experimentId={experimentId} /> : undefined
-            }
-          />
+  const tableViewProps: TracesTableViewProps = {
+    viewState,
+    // Table
+    traces: page.traces,
+    visibleColumns: columns.visibleColumns,
+    extraColumns,
+    columnHeaderActions,
+    columnOrder: columnOrder.columnOrder,
+    initialColumnSizing: columnSizing.columnSizing,
+    onColumnSizingSettled: columnSizing.setColumnSizing,
+    isLoading: page.isFetching,
+    isFetching: page.isFetching,
+    skeletonRowCount: url.pageSize,
+    onTraceSelected: handleTraceSelected,
+    selectedTraceId: url.traceId,
+    selectedForBulk: bulk.selected,
+    isAllOnPageSelected: bulk.isAllVisibleChecked,
+    isSomeOnPageSelected: bulk.isSomeVisibleChecked,
+    onToggleBulkRow: bulk.toggle,
+    // Session-level select needs the whole session's traces; when a grouped page spans
+    // multiple pages the off-page traces aren't loaded, so disable it (mirrors universe).
+    onToggleBulkRows: controller.isGroupedBySession && (page.hasNext || page.hasPrev) ? undefined : bulk.toggleMany,
+    onToggleBulkAll: bulk.toggleAll,
+    sort: url.sort,
+    dir: url.dir,
+    onSort: url.setSort,
+    previewLineClamp: PREVIEW_LINE_CLAMP_BY_DENSITY[density],
+    getTraceHref,
+    getSessionHref,
+    onSessionSelected: handleSessionSelected,
+    onFilterByTag: controller.onFilterByTag,
+    renderRunName,
+    onHideColumn: handleHideColumn,
+    isGroupedBySession: controller.isGroupedBySession,
+    // Session-level aggregates (e.g. token totals) may be incomplete when off-page traces
+    // exist — suppress them for the same reason onToggleBulkRows is disabled above.
+    sessionsMayBeIncomplete: controller.isGroupedBySession && (page.hasNext || page.hasPrev),
+    onReorderColumn: columnOrder.reorderColumn,
+    // Toolbar slots (built by useTracesV4ToolbarSlots) + banner slot
+    searchValue: searchInput.input,
+    onSearchChange: searchInput.setInput,
+    onSearchClear: searchInput.clear,
+    onSearchSubmit: searchInput.submit,
+    searchInputRef,
+    ...(unifiedSearchEnabled
+      ? {
+          expandSearch: true,
+          searchMinimumWidth: unifiedSearch.searchMinimumWidth,
+          searchControl: unifiedSearch.renderSearchControl({
+            renderFilterEditor: toolbarSlots.renderFilterEditor,
+            traces: page.traces,
+            inputRef: searchInputRef,
+            resetKey: experimentId,
+          }),
+        }
+      : {}),
+    leftControls: toolbarSlots.leftControls,
+    rightControls: toolbarSlots.rightControls,
+    bannerSlot: (
+      <>
+        {actions.runJudges?.JudgesStatusBanner}
+        {showErrorAlert && (
+          <TracesErrorAlert error={page.error} onRetry={page.refetch} getErrorDescription={getErrorDescription} />
+        )}
+      </>
+    ),
+    // Pagination
+    pageIndex: url.pageIndex,
+    pageSize: url.pageSize,
+    onPageChange: controller.goToPage,
+    onPageSizeChange: url.setPageSize,
+    hasNext: page.hasNext,
+    hasPrev: page.hasPrev,
+    // Grouped mode fetches one big page, so the page-size selector is moot. The bar itself stays
+    // even when that page holds everything: it carries the session count.
+    hidePageSizeSelector: controller.isGroupedBySession,
+    // "{n} of {total}" footer count (bottom-left), led by the session count when grouped by session.
+    traceCount: controller.traceCount.currentCount,
+    traceTotal: controller.traceCount.totalCount,
+    sessionCount: controller.traceCount.sessions?.currentCount,
+    sessionTotal: controller.traceCount.sessions?.totalCount,
+    isTraceCountLoading: controller.traceCount.isTotalLoading,
+    // Reserve the pinned pagination bar's height with the floating-obstruction store so the
+    // Assistant FAB rises above it instead of overlapping the prev/next/page-size controls.
+    PaginationBarWrapper: AssistantAwareActionBar,
+    // States
+    onClearFilters: clearFilters,
+    onRetry: page.refetch,
+    error: page.error,
+    getErrorDescription,
+    customEmptyState:
+      // Short-circuits before the viewState switch (keeping toolbar + banner). Gated on the
+      // resolved `empty` state, not `hasNoTracesInRange` alone, so error / no-results /
+      // no-more-results still flow through the switch — a trace-id-search miss lands on
+      // `no-results`, and a first-load error on `error`, not the quickstart.
+      viewState === 'empty' ? (
+        <TracesV4EmptyState
+          kind={controller.emptyStateKind}
+          timeLabel={controller.timeLabel}
+          onViewAll={() => controller.setTimeRange({ timeLabel: 'ALL' })}
+        />
+      ) : undefined,
+  };
 
+  return (
+    // The two providers expose the shared trace-action building blocks (drawer add-to-dataset
+    // and the dataset modal) to the drawer and Actions menu. The negative bottom margin bleeds the
+    // pinned pagination bar into the shared content wrapper's 8px bottom padding, aligning it with the
+    // sidebar.
+    <TracesV4TableSurface
+      providerProps={{
+        modelTraceExplorer: {
+          renderExportTracesToDatasetsModal: actions.renderExportTracesToDatasetsModal,
+          renderAddToReviewQueueDropdown: actions.AddToReviewQueueDropdown,
+          DrawerComponent: AssistantAwareDrawer,
+        },
+        genAITracesTable: {
+          experimentId,
+          getTrace: actions.getTrace,
+          isGroupedBySession: controller.isGroupedBySession,
+        },
+      }}
+      tableViewProps={tableViewProps}
+      drawerProps={{
+        traceId: url.traceId,
+        onClose: sessionDrawerEnabled ? closeSessionDrawer : closeDrawer,
+        experimentId,
+        traces: page.traces,
+        onSelectTrace: sessionDrawerEnabled ? selectDrawerTrace : url.setTraceId,
+        runJudgeConfiguration: actions.runJudges?.runJudgeConfiguration,
+        ...(drawerSessionProps ? { session: drawerSessionProps } : {}),
+      }}
+      layoutProps={{
+        paddingTop: revampEnabled ? 0 : theme.spacing.md,
+        paddingLeft: revampEnabled ? 0 : theme.spacing.md,
+        marginBottom: -theme.spacing.sm,
+      }}
+      overlaySlots={{
+        deleteModal: (
           <TracesV4DeleteModal
             open={deleteOpen}
             count={pendingDeleteIds.length}
@@ -500,34 +619,25 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
             onConfirm={confirmDelete}
             onCancel={cancelDelete}
           />
+        ),
+        actionModals: (
+          <>
+            {actions.runJudges?.RunJudgesModal}
+            {actions.editTags.EditTagsModal}
 
-          <TracesV4TraceDrawer
-            traceId={url.traceId}
-            onClose={closeDrawer}
-            experimentId={experimentId}
-            traces={page.traces}
-            onSelectTrace={url.setTraceId}
-            runJudgeConfiguration={actions.runJudges?.runJudgeConfiguration}
-          />
-
-          {actions.runJudges?.RunJudgesModal}
-          {actions.editTags.EditTagsModal}
-
-          {isIssueDetectionOpen && (
-            <IssueDetectionModal
-              key={experimentId}
-              onClose={() => setIsIssueDetectionOpen(false)}
-              experimentId={experimentId}
-              initialSelectedTraceIds={selectedTraceIds}
-              availableTraceIds={availableTraceIds}
-            />
-          )}
-
-          {notificationContainer}
-        </div>
-      </GenAITracesTableProvider>
-    </ModelTraceExplorerContextProvider>
+            {isIssueDetectionOpen && (
+              <IssueDetectionModal
+                key={experimentId}
+                onClose={() => setIsIssueDetectionOpen(false)}
+                experimentId={experimentId}
+                initialSelectedTraceIds={selectedTraceIds}
+                availableTraceIds={availableTraceIds}
+              />
+            )}
+          </>
+        ),
+        notificationContainer,
+      }}
+    />
   );
-
-  return content;
 };

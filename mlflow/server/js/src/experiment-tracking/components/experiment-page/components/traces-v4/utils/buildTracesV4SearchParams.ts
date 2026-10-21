@@ -1,4 +1,5 @@
 import { type SortDirection, type TraceColumnId } from '@databricks/web-shared/traces-table';
+import { shouldEnableNewEvalRunsUi } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { isV4TraceId, parseV4TraceId } from '@databricks/web-shared/model-trace-explorer';
 
 /** A canonical trace-id token, e.g. `tr-1234…`. Matched case-insensitively for the indexed fast path. */
@@ -115,8 +116,9 @@ export const buildFilter = ({ searchQuery, timeRange, extraClauses }: BuildFilte
 };
 
 /**
- * Build the `order_by` array for the search API. The server only supports ordering by
- * `timestamp` (start time) and `execution_time` (duration); every other column returns
+ * Build the `order_by` array for the search API. The server supports ordering by trace attributes:
+ * `timestamp` (start time), `execution_time` (duration) and, with the new eval runs UI, `status`
+ * (state). Tokens, cost and assessment values aren't sortable server-side; every other column returns
  * `undefined` so the caller falls back to the server's default ordering rather than emitting an
  * `order_by` the backend would reject.
  */
@@ -127,6 +129,9 @@ export const buildOrderBy = (sort: TraceColumnId, dir: SortDirection): string[] 
       return [`timestamp ${direction}`];
     case 'duration':
       return [`execution_time ${direction}`];
+    case 'state':
+      // The new evaluation runs UI also sorts by state, which the search API orders as `status`.
+      return shouldEnableNewEvalRunsUi() ? [`status ${direction}`] : undefined;
     default:
       return undefined;
   }

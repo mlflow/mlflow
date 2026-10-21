@@ -15,6 +15,7 @@ from packaging.version import Version
 import mlflow
 from mlflow import entities
 from mlflow.entities import (
+    LoggedModelStatus,
     Metric,
     Param,
     RunStatus,
@@ -4079,10 +4080,76 @@ def test_search_logged_models_quoted_value_that_looks_like_a_tuple(store: SqlAlc
     assert [m.model_id for m in models] == [model.model_id]
 
 
+@pytest.mark.parametrize(
+    ("filter_string", "expected_names"),
+    [
+        ("status = 'READY'", ["ready"]),
+        ("status = 'PENDING'", ["pending"]),
+        ("status != 'READY'", ["failed", "pending"]),
+        ("status IN ('READY', 'FAILED')", ["failed", "ready"]),
+        ("status NOT IN ('PENDING', 'FAILED')", ["ready"]),
+    ],
+)
+def test_search_logged_models_status_filter(store: SqlAlchemyStore, filter_string, expected_names):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    for status in (LoggedModelStatus.PENDING, LoggedModelStatus.READY, LoggedModelStatus.FAILED):
+        model = store.create_logged_model(experiment_id=exp_id, name=status.value.lower())
+        if status != LoggedModelStatus.PENDING:
+            store.finalize_logged_model(model.model_id, status)
+
+    result = store.search_logged_models(experiment_ids=[exp_id], filter_string=filter_string)
+    assert sorted(model.name for model in result) == expected_names
+
+
+@pytest.mark.parametrize(
+    "filter_string",
+    [
+        "status = 'UNKNOWN'",
+        "status != 'UNKNOWN'",
+        "status IN ('READY', 'UNKNOWN')",
+        "status NOT IN ('UNKNOWN')",
+        "status = '2'",
+        "status LIKE 'READY'",
+        "status ILIKE 'ready'",
+    ],
+)
+def test_search_logged_models_invalid_status_filter(store: SqlAlchemyStore, filter_string):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    with pytest.raises(MlflowException, match="status") as exc_info:
+        store.search_logged_models(experiment_ids=[exp_id], filter_string=filter_string)
+    assert exc_info.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
 def test_search_logged_models_invalid_operator_lists_applicable_operators(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     with pytest.raises(MlflowException, match=re.escape("Expected one of ('<', '<=', '>', '>=',")):
         store.search_logged_models(experiment_ids=[exp_id], filter_string="metrics.loss LIKE 'x'")
+
+
+@pytest.mark.parametrize(
+    "filter_string",
+    [
+        "name like 'model-%'",
+        "name ilike 'MODEL-%'",
+        "name in ('model-a', 'other')",
+        "name not in ('other')",
+        "params.lr like '0.%'",
+        "tags.team in ('ml')",
+    ],
+)
+def test_search_logged_models_accepts_lowercase_operators(
+    store: SqlAlchemyStore, filter_string: str
+):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model = store.create_logged_model(
+        experiment_id=exp_id,
+        name="model-a",
+        params=[LoggedModelParameter("lr", "0.01")],
+        tags=[LoggedModelTag("team", "ml")],
+    )
+
+    models = store.search_logged_models(experiment_ids=[exp_id], filter_string=filter_string)
+    assert [m.model_id for m in models] == [model.model_id]
 
 
 def test_search_logged_models_order_by_metric_paginates_tied_dataset_metrics(

@@ -825,6 +825,12 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                     "secret": True,
                     "required": True,
                 },
+                {
+                    "name": "api_base",
+                    "description": "TypeSafe API Base URL (defaults to https://api.typesafe.ai/v1)",
+                    "secret": False,
+                    "required": False,
+                },
             ],
         },
     },

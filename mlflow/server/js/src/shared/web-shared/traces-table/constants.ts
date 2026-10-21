@@ -1,3 +1,4 @@
+import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
 import type { SortDirection, TraceColumnId } from './types';
 
 /** Page-size options offered in the pagination bar. */
@@ -43,11 +44,17 @@ export const isTraceColumnId = (id: string): id is TraceColumnId => TRACE_COLUMN
  */
 export const SORTABLE_TRACE_COLUMNS: readonly TraceColumnId[] = ['start_time', 'duration'];
 
-const SORTABLE_TRACE_COLUMN_SET = new Set<string>(SORTABLE_TRACE_COLUMNS);
+/** With the new evaluation runs UI, traces also sort by state (the search API orders by `status`). */
+const SORTABLE_TRACE_COLUMNS_WITH_STATE: readonly TraceColumnId[] = [...SORTABLE_TRACE_COLUMNS, 'state'];
+
+/** The sortable columns for the current UI: `SORTABLE_TRACE_COLUMNS`, plus state with the new eval runs UI. */
+export const getSortableTraceColumns = (): readonly TraceColumnId[] =>
+  shouldEnableNewEvalRunsUi() ? SORTABLE_TRACE_COLUMNS_WITH_STATE : SORTABLE_TRACE_COLUMNS;
 
 /** Narrows an arbitrary id to a server-sortable `TraceColumnId`. Shared so the table and any consumer
- * order-by/URL builder agree on what's sortable (both derive from `SORTABLE_TRACE_COLUMNS`). */
-export const isSortableTraceColumn = (id: string): id is TraceColumnId => SORTABLE_TRACE_COLUMN_SET.has(id);
+ * order-by/URL builder agree on what's sortable (both derive from `getSortableTraceColumns`). */
+export const isSortableTraceColumn = (id: string): id is TraceColumnId =>
+  (getSortableTraceColumns() as readonly string[]).includes(id);
 
 /** Default sort: newest traces first. */
 export const DEFAULT_SORT_COLUMN: TraceColumnId = 'start_time';
