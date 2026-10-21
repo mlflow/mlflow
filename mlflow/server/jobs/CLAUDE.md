@@ -2,7 +2,7 @@
 
 ## Keep the job containers docs up to date
 
-[`docs/docs/genai/eval-monitor/scorers/custom/job-containers.mdx`](../../../docs/docs/genai/eval-monitor/scorers/custom/job-containers.mdx) tells users how the code in this directory behaves when it runs code-based scorers in job containers. When a change affects any of the following, update that page in the same PR:
+[`docs/docs/self-hosting/job-containers.mdx`](../../../docs/docs/self-hosting/job-containers.mdx) tells users how the code in this directory behaves when it runs code-based scorers in job containers. When a change affects any of the following, update that page in the same PR:
 
 - The settings it documents (`MLFLOW_SERVER_JOB_EXECUTION_ENGINE`, `MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND`, `MLFLOW_JOB_IMAGE`, `MLFLOW_JOBS_DOCKER_HOST`, `MLFLOW_JOB_RESOURCE_LIMITS_<job name>`, `MLFLOW_SERVER_JOB_DEFAULT_TIMEOUT`), including their defaults and limits.
 - The default job image and how it is built.
