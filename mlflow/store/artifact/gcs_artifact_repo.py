@@ -250,7 +250,15 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin, MultipartD
             # google-cloud-storage raises AttributeError for credentials that cannot sign (user,
             # Compute Engine / GKE metadata, or anonymous credentials) and GoogleAuthError when
             # remote signing through IAM fails. Both mean this server cannot presign, so answer 501
-            # and let the client use the Tracking Server instead.
+            # and let the client use the Tracking Server instead. The exception is an error that
+            # explicitly marks itself retryable (e.g. a RefreshError for a transient token refresh
+            # failure): that is a temporary outage, not a missing capability, so let it propagate
+            # as an ordinary server error. TransportError is deliberately treated as unsupported:
+            # impersonated credentials raise it both when the IAM `signBlob` retries are exhausted
+            # and when the call is permanently denied (e.g. a missing Token Creator role), and the
+            # two cannot be told apart.
+            if getattr(e, "retryable", False):
+                raise
             raise _UnsupportedPresignedDownloadException() from e
         return PresignedDownloadUrlResponse(url=url, headers={}, file_size=blob.size)
 

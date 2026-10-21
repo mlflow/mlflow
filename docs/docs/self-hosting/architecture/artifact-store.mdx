@@ -344,6 +344,9 @@ credentials must be able to sign:
 
 If the credentials cannot sign, the Tracking Server responds to presigned download requests with HTTP 501
 (`NOT_IMPLEMENTED`) and the UI falls back to downloading the artifact through the Tracking Server.
+Failing to sign through the IAM `signBlob` API, such as when impersonated Google credentials lack permission to sign,
+also results in HTTP 501. Only transient failures that google-auth marks as retryable, such as a temporary failure to
+refresh the access token, are reported as ordinary server errors.
 
 With [proxied artifact access](/self-hosting/architecture/tracking-server#tracking-server-artifact-store), the Tracking
 Server advertises presigned downloads to the Python client (the `multipart_downloads_enabled` field of `/server-info`)

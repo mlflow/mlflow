@@ -8,7 +8,7 @@ import pytest
 import requests
 from google.auth import compute_engine, crypt, impersonated_credentials
 from google.auth.credentials import AnonymousCredentials
-from google.auth.exceptions import DefaultCredentialsError, TransportError
+from google.auth.exceptions import DefaultCredentialsError, RefreshError, TransportError
 from google.cloud import storage as gcs_storage
 from google.cloud.storage import client as gcs_client
 from google.oauth2 import credentials as user_credentials
@@ -787,6 +787,35 @@ def test_get_download_presigned_url_raises_not_implemented_when_remote_signing_f
         repo.get_download_presigned_url("model.pkl")
 
     assert exc_info.value.__cause__ is error
+
+
+def test_get_download_presigned_url_raises_not_implemented_for_non_retryable_error(mock_client):
+    # e.g. impersonated credentials whose source credentials can no longer be refreshed
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock_client)
+    mock_blob = mock_client.bucket.return_value.get_blob.return_value
+    error = RefreshError("invalid_grant: Bad Request")
+    mock_blob.generate_signed_url.side_effect = error
+
+    with pytest.raises(
+        _UnsupportedPresignedDownloadException,
+        match=_UnsupportedPresignedDownloadException.MESSAGE,
+    ) as exc_info:
+        repo.get_download_presigned_url("model.pkl")
+
+    assert exc_info.value.__cause__ is error
+
+
+def test_get_download_presigned_url_propagates_retryable_signing_errors(mock_client):
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock_client)
+    mock_blob = mock_client.bucket.return_value.get_blob.return_value
+    error = RefreshError("Unable to refresh the access token", retryable=True)
+    mock_blob.generate_signed_url.side_effect = error
+
+    with pytest.raises(RefreshError, match="Unable to refresh") as exc_info:
+        repo.get_download_presigned_url("model.pkl")
+
+    assert exc_info.value is error
+    assert not isinstance(exc_info.value, _UnsupportedPresignedDownloadException)
 
 
 def test_get_download_presigned_url_propagates_other_signing_errors(mock_client):
