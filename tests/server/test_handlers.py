@@ -6233,9 +6233,14 @@ def test_invoke_scorer_deduplicates_trace_ids(mock_tracking_store):
 
 
 def test_invoke_registered_scorer_resolves_exact_version(mock_tracking_store):
-    serialized_scorer = json.dumps(Completeness(name="test_judge").model_dump())
-    registered_scorer = mock.MagicMock(serialized_scorer=serialized_scorer)
-    mock_tracking_store.get_scorer.return_value = registered_scorer
+    stored_scorer = json.dumps(Completeness(name="test_judge").model_dump())
+    mock_tracking_store.get_scorer.return_value = ScorerVersion(
+        experiment_id="exp-123",
+        scorer_name="test_judge",
+        scorer_version=2,
+        serialized_scorer=stored_scorer,
+        creation_time=0,
+    )
     # The requested traces must belong to the authorized experiment (GHSA-6c27 trace-binding).
     mock_tracking_store.batch_get_trace_infos.return_value = [
         TraceInfo(
@@ -6254,7 +6259,8 @@ def test_invoke_registered_scorer_resolves_exact_version(mock_tracking_store):
                 "/ajax-api/3.0/mlflow/scorer/invoke",
                 json={
                     "experiment_id": "exp-123",
-                    "serialized_scorer": serialized_scorer,
+                    # What the client sent differs from the stored version, which is what runs.
+                    "serialized_scorer": json.dumps({"name": "test_judge"}),
                     "scorer_name": "test_judge",
                     "scorer_version": 2,
                     "trace_ids": ["trace1"],
@@ -6264,6 +6270,137 @@ def test_invoke_registered_scorer_resolves_exact_version(mock_tracking_store):
     assert response.status_code == 200, response.get_json()
     mock_tracking_store.get_scorer.assert_called_once_with("exp-123", "test_judge", 2)
     assert mock_submit.call_args.kwargs["params"]["scorer_version"] == 2
+    assert mock_submit.call_args.kwargs["params"]["serialized_scorer"] == stored_scorer
+
+
+# As on MySQL or SQL Server, the store's lookup can ignore case, trailing spaces or accents, and
+# return a scorer whose stored name differs from the requested `judge`.
+_JUDGE_FOUND_UNDER_ANOTHER_NAME = pytest.mark.parametrize(
+    "stored_name", ["Judge", "judge ", "judgé"]
+)
+
+
+@_JUDGE_FOUND_UNDER_ANOTHER_NAME
+def test_invoke_registered_scorer_rejects_a_scorer_found_under_another_name(
+    mock_tracking_store, stored_name
+):
+    mock_tracking_store.get_scorer.return_value = ScorerVersion(
+        experiment_id="exp-123",
+        scorer_name=stored_name,
+        scorer_version=1,
+        serialized_scorer=json.dumps(Completeness(name=stored_name).model_dump()),
+        creation_time=0,
+    )
+    mock_tracking_store.batch_get_trace_infos.return_value = [
+        TraceInfo(
+            trace_id="trace1",
+            trace_location=EntityTraceLocation.from_experiment_id("exp-123"),
+            request_time=0,
+            state=TraceState.OK,
+        )
+    ]
+
+    with mock.patch("mlflow.server.jobs.submit_job") as mock_submit, app.test_client() as c:
+        mock_submit.return_value.job_id = "test-job-123"
+        response = c.post(
+            "/ajax-api/3.0/mlflow/scorer/invoke",
+            json={
+                "experiment_id": "exp-123",
+                "serialized_scorer": json.dumps({"name": "judge"}),
+                "scorer_name": "judge",
+                "scorer_version": 1,
+                "trace_ids": ["trace1"],
+            },
+        )
+
+    assert response.status_code == 404
+    assert response.get_json()["error_code"] == "RESOURCE_DOES_NOT_EXIST"
+    assert "Scorer with name 'judge' and version 1 not found" in response.get_json()["message"]
+    mock_tracking_store.get_scorer.assert_called_once_with("exp-123", "judge", 1)
+    mock_submit.assert_not_called()
+
+
+def test_invoke_registered_scorer_with_a_real_store(db_uri):
+    from mlflow.tracking._tracking_service.utils import _get_store
+
+    mlflow.set_tracking_uri(db_uri)
+    experiment_id = mlflow.set_experiment("invoke-registered").experiment_id
+    with mlflow.start_span(name="t") as span:
+        span.set_outputs({"answer": "a"})
+    store = _get_store()
+    stored_scorer = json.dumps(Completeness(name="test_judge").model_dump())
+    store.register_scorer(experiment_id, "test_judge", stored_scorer)
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit,
+        app.test_client() as c,
+    ):
+        mock_submit.return_value.job_id = "job-1"
+        response = c.post(
+            "/ajax-api/3.0/mlflow/scorer/invoke",
+            json={
+                "experiment_id": experiment_id,
+                "serialized_scorer": json.dumps({"name": "test_judge"}),
+                "scorer_name": "test_judge",
+                "scorer_version": 1,
+                "trace_ids": [span.trace_id],
+            },
+        )
+
+    assert response.status_code == 200, response.get_json()
+    params = mock_submit.call_args.kwargs["params"]
+    assert params["scorer_version"] == 1
+    # The whole stored scorer, not the one the client sent.
+    assert json.loads(params["serialized_scorer"]) == json.loads(stored_scorer)
+
+
+@pytest.mark.parametrize("custom_scorers_enabled", [True, False])
+def test_invoke_registered_decorator_scorer_checks_the_stored_payload(
+    mock_tracking_store, monkeypatch, custom_scorers_enabled
+):
+    if custom_scorers_enabled:
+        monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    else:
+        monkeypatch.delenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", raising=False)
+    stored_scorer = json.dumps({
+        "name": "s",
+        "mlflow_version": mlflow.__version__,
+        "serialization_version": 1,
+        "call_source": "return len(outputs) > 0",
+        "call_signature": "(outputs)",
+        "original_func_name": "s",
+    })
+    mock_tracking_store.get_scorer.return_value = ScorerVersion(
+        experiment_id="exp-123",
+        scorer_name="s",
+        scorer_version=1,
+        serialized_scorer=stored_scorer,
+        creation_time=0,
+    )
+
+    with (
+        mock.patch("mlflow.genai.scorers.job.get_trace_batches_for_scorer", return_value=[]),
+        mock.patch("mlflow.server.jobs.submit_job"),
+        app.test_client() as c,
+    ):
+        response = c.post(
+            "/ajax-api/3.0/mlflow/scorer/invoke",
+            json={
+                # The inline payload names no code; only the stored one does.
+                "experiment_id": "exp-123",
+                "serialized_scorer": json.dumps({"name": "s"}),
+                "scorer_name": "s",
+                "scorer_version": 1,
+                "trace_ids": ["trace1"],
+            },
+        )
+
+    if custom_scorers_enabled:
+        assert response.status_code == 200, response.get_json()
+    else:
+        assert response.status_code == 400
+        assert "custom" in response.get_json()["message"].lower()
 
 
 def test_invoke_scorer_requires_name_and_version_together():
@@ -6449,7 +6586,10 @@ def test_invoke_scorer_allows_decorator_scorer_when_flag_enabled(mock_tracking_s
 
 def test_invoke_scorer_rejects_stored_third_party_destination_kwargs(mock_tracking_store):
     # A scorer registered before this validation existed must not run either.
-    mock_tracking_store.get_scorer.return_value = mock.MagicMock(
+    mock_tracking_store.get_scorer.return_value = ScorerVersion(
+        experiment_id="exp-123",
+        scorer_name="poc",
+        scorer_version=1,
         serialized_scorer=json.dumps({
             "name": "poc",
             "third_party_scorer_data": {
@@ -6459,7 +6599,8 @@ def test_invoke_scorer_rejects_stored_third_party_destination_kwargs(mock_tracki
                 "model": "openai:/gpt-4o",
                 "kwargs": {"api_base": "http://169.254.169.254/", "api_key": "canary"},
             },
-        })
+        }),
+        creation_time=0,
     )
 
     with (
@@ -10821,8 +10962,12 @@ def test_invoke_genai_evaluate_handler_resolves_exact_scorer_version(
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
 
     canonical_scorer = json.dumps(Completeness(name="registered-judge").model_dump())
-    mock_tracking_store.get_scorer.return_value = mock.MagicMock(
-        serialized_scorer=canonical_scorer, scorer_version=4
+    mock_tracking_store.get_scorer.return_value = ScorerVersion(
+        experiment_id="exp-123",
+        scorer_name="registered-judge",
+        scorer_version=4,
+        serialized_scorer=canonical_scorer,
+        creation_time=0,
     )
     mock_run = mock.MagicMock()
     mock_run.info.run_id = "run-genai-1"
@@ -10849,6 +10994,47 @@ def test_invoke_genai_evaluate_handler_resolves_exact_scorer_version(
     mock_tracking_store.get_scorer.assert_called_once_with("exp-123", "registered-judge", 3)
     assert mock_submit_job.call_args.kwargs["params"]["serialized_scorers"] == [canonical_scorer]
     assert mock_submit_job.call_args.kwargs["params"]["scorer_versions"] == [4]
+
+
+@_JUDGE_FOUND_UNDER_ANOTHER_NAME
+def test_invoke_genai_evaluate_handler_rejects_a_scorer_found_under_another_name(
+    monkeypatch, mock_tracking_store, stored_name
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    mock_tracking_store.get_scorer.return_value = ScorerVersion(
+        experiment_id="exp-123",
+        scorer_name=stored_name,
+        scorer_version=1,
+        serialized_scorer=json.dumps(Completeness(name=stored_name).model_dump()),
+        creation_time=0,
+    )
+    mock_run = mock.MagicMock()
+    mock_run.info.run_id = "run-genai-1"
+    mock_client = mock.MagicMock()
+    mock_client.create_run.return_value = mock_run
+
+    with (
+        mock.patch(
+            "mlflow.server.jobs.submit_job", return_value=_make_genai_evaluate_job()
+        ) as mock_submit_job,
+        mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/ajax-api/3.0/mlflow/genai/evaluate/invoke",
+            json={
+                "experiment_id": "exp-123",
+                "trace_ids": ["trace-1"],
+                "serialized_scorers": [json.dumps({"name": "inline"}), '{"name": "judge"}'],
+                "scorer_versions": [None, 1],
+            },
+        )
+
+    assert resp.status_code == 404
+    assert resp.get_json()["error_code"] == "RESOURCE_DOES_NOT_EXIST"
+    assert "Scorer with name 'judge' and version 1 not found" in resp.get_json()["message"]
+    mock_tracking_store.get_scorer.assert_called_once_with("exp-123", "judge", 1)
+    mock_submit_job.assert_not_called()
 
 
 def test_invoke_genai_evaluate_handler_rejects_decorator_scorer(monkeypatch, mock_tracking_store):
@@ -10901,8 +11087,12 @@ def test_invoke_genai_evaluate_handler_rejects_third_party_destination_kwargs(
         },
     })
     if stored:
-        mock_tracking_store.get_scorer.return_value = mock.MagicMock(
-            serialized_scorer=poc_scorer, scorer_version=1
+        mock_tracking_store.get_scorer.return_value = ScorerVersion(
+            experiment_id="exp-123",
+            scorer_name="poc",
+            scorer_version=1,
+            serialized_scorer=poc_scorer,
+            creation_time=0,
         )
         request_json = {
             "experiment_id": "exp-123",
