@@ -8,8 +8,13 @@ import { useCreateSecret } from '../../../../../gateway/hooks/useCreateSecret';
 import { useEndpointsQuery } from '../../../../../gateway/hooks/useEndpointsQuery';
 import { useModelsQuery } from '../../../../../gateway/hooks/useModelsQuery';
 import { useApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration';
+import { useIssueDetectionSettings } from '../../../../pages/experiment-issues/useIssueDetectionSettings';
+import { defaultIssueDetectionSettings } from '../../../../pages/experiment-issues/issueDetectionSettings';
 
 jest.mock('./hooks/useInvokeIssueDetection');
+jest.mock('../../../../pages/experiment-issues/useIssueDetectionSettings', () => ({
+  useIssueDetectionSettings: jest.fn(),
+}));
 jest.mock('../../../../../gateway/hooks/useCreateSecret');
 jest.mock('../../../../../gateway/hooks/useEndpointsQuery', () => ({
   useEndpointsQuery: jest.fn(),
@@ -58,9 +63,13 @@ describe('IssueDetectionModal', () => {
     await userEvent.click(screen.getByTestId('model-option-anthropic-claude-opus-4-8'));
   };
 
+  const mockSettings = (settings = defaultIssueDetectionSettings()) =>
+    jest.mocked(useIssueDetectionSettings).mockReturnValue({ data: settings } as any);
+
   beforeEach(() => {
     jest.clearAllMocks();
     clearSubmittedIssueDetectionJob();
+    mockSettings();
     jest.mocked(useEndpointsQuery).mockReturnValue({ data: [], isLoading: false, refetch: jest.fn() } as any);
     jest.mocked(useModelsQuery).mockImplementation(
       ({ provider } = {}) =>
@@ -232,7 +241,7 @@ describe('IssueDetectionModal', () => {
     expect(screen.queryByTestId('api-key-view')).not.toBeInTheDocument();
   });
 
-  test('submits all categories and the saved secret for direct providers', async () => {
+  test('submits every category by default, with the saved secret for direct providers', async () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
 
     await userEvent.click(screen.getByText('Run Analysis').closest('button')!);
@@ -245,6 +254,77 @@ describe('IssueDetectionModal', () => {
           model: 'gpt-5.6-sol',
           secret_id: 'secret-123',
           endpoint_name: undefined,
+        }),
+        expect.any(Object),
+      );
+    });
+  });
+
+  test("submits only the experiment's selected focus areas", async () => {
+    // The settings exist to narrow a run; a modal that kept sending every category would make
+    // saving them look like it worked while changing nothing.
+    mockSettings({
+      instructions: '',
+      categories: {
+        correctness: true,
+        latency: false,
+        execution: false,
+        adherence: false,
+        relevance: false,
+        safety: true,
+        cost: false,
+      },
+    });
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
+
+    await userEvent.click(screen.getByText('Run Analysis').closest('button')!);
+
+    await waitFor(() => {
+      expect(mockInvokeIssueDetection).toHaveBeenCalledWith(
+        expect.objectContaining({ categories: ['correctness', 'safety'] }),
+        expect.any(Object),
+      );
+    });
+  });
+
+  test("submits the experiment's saved detection priorities", async () => {
+    mockSettings({ ...defaultIssueDetectionSettings(), instructions: 'Only report high severity issues.' });
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
+
+    await userEvent.click(screen.getByText('Run Analysis').closest('button')!);
+
+    await waitFor(() => {
+      expect(mockInvokeIssueDetection).toHaveBeenCalledWith(
+        expect.objectContaining({ instructions: 'Only report high severity issues.' }),
+        expect.any(Object),
+      );
+    });
+  });
+
+  test('sends no priorities when the experiment has none, rather than an empty string', async () => {
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
+
+    await userEvent.click(screen.getByText('Run Analysis').closest('button')!);
+
+    await waitFor(() => {
+      expect(mockInvokeIssueDetection).toHaveBeenCalledWith(
+        expect.objectContaining({ instructions: undefined }),
+        expect.any(Object),
+      );
+    });
+  });
+
+  test('settings that have not loaded yet still submit a usable run', async () => {
+    jest.mocked(useIssueDetectionSettings).mockReturnValue({ data: undefined } as any);
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
+
+    await userEvent.click(screen.getByText('Run Analysis').closest('button')!);
+
+    await waitFor(() => {
+      expect(mockInvokeIssueDetection).toHaveBeenCalledWith(
+        expect.objectContaining({
+          categories: ['correctness', 'latency', 'execution', 'adherence', 'relevance', 'safety', 'cost'],
+          instructions: undefined,
         }),
         expect.any(Object),
       );
