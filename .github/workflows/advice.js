@@ -1,7 +1,6 @@
 const ACTIVITY_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 const MAX_REPOS_TO_DISPLAY = 10;
 
-const MEMBER_ASSOCIATIONS = ["MEMBER", "OWNER", "COLLABORATOR"];
 const UI_FILE = /^mlflow\/server\/js\/src\/.+\.(tsx|jsx|ts|js|css|scss|less)$/;
 const MEDIA =
   /!\[[^\]]*\]\([^)]+\)|<(img|video)\b|https:\/\/github\.com\/user-attachments\/|https?:\/\/\S+\.(png|jpe?g|gif|webp|mp4|mov|webm)\b/i;
@@ -15,9 +14,9 @@ function hasUiChanges(files) {
 }
 
 // Release PRs (version bumps, changelogs, ML package versions) used to be filed by mlflow-app[bot]
-// and skipped by the bot check below. Maintainers now file them from `release/*` branches.
-function isMaintainerReleasePr(pr) {
-  return MEMBER_ASSOCIATIONS.includes(pr.author_association) && pr.head.ref.startsWith("release/");
+// and skipped by the bot check below. Org members now file them from `release/*` branches.
+function isMemberReleasePr(pr) {
+  return ["MEMBER", "OWNER"].includes(pr.author_association) && pr.head.ref.startsWith("release/");
 }
 
 function hasVisibleMedia(body) {
@@ -122,9 +121,10 @@ module.exports = async ({ context, github }) => {
 
   if (!installCommentExists) {
     let activitySection = "";
+    const memberAssociations = ["MEMBER", "OWNER", "COLLABORATOR"];
     if (
       user.type !== "Bot" &&
-      !MEMBER_ASSOCIATIONS.includes(context.payload.pull_request.author_association)
+      !memberAssociations.includes(context.payload.pull_request.author_association)
     ) {
       try {
         activitySection = await getRecentActivitySection(github, user.login);
@@ -163,8 +163,8 @@ ${activitySection}
     });
   }
 
-  // Exit early if the PR author is a bot or a maintainer filing a release PR
-  if (user.type === "Bot" || isMaintainerReleasePr(context.payload.pull_request)) {
+  // Exit early if the PR author is a bot or an org member filing a release PR
+  if (user.type === "Bot" || isMemberReleasePr(context.payload.pull_request)) {
     return;
   }
 
