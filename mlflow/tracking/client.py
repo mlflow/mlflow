@@ -6960,16 +6960,29 @@ class MlflowClient:
         mcp_server_access_headers: Mapping[str, str] | None = None,
         dry_run: bool = False,
     ) -> MCPServerVersion:
-        from mlflow.genai.mcp_tool_discovery import discover_tools_for_server_json
+        from mlflow.genai.mcp_tool_discovery import discover_tools_for_version
 
         current = self.get_mcp_server_version(name=name, version=version)
-        discovered_tools = discover_tools_for_server_json(
+        discovered_tools = discover_tools_for_version(
             server_json=current.server_json,
+            version=version,
+            access_endpoints=self._search_all_mcp_access_endpoints(server_name=name),
             headers=mcp_server_access_headers,
         )
         if dry_run:
             return replace(current, tools=discovered_tools)
         return self.update_mcp_server_version(name=name, version=version, tools=discovered_tools)
+
+    def _search_all_mcp_access_endpoints(self, server_name: str) -> list[MCPAccessEndpoint]:
+        endpoints: list[MCPAccessEndpoint] = []
+        page_token: str | None = None
+        queried_tokens: set[str | None] = set()
+        while page_token not in queried_tokens:
+            queried_tokens.add(page_token)
+            page = self.search_mcp_access_endpoints(server_name=server_name, page_token=page_token)
+            endpoints.extend(page)
+            page_token = page.token or None
+        return endpoints
 
     def delete_mcp_server_version(self, name: str, version: str) -> None:
         self._tracking_client.store.delete_mcp_server_version(name=name, version=version)
