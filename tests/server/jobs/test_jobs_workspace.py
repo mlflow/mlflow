@@ -197,12 +197,12 @@ def test_create_job_initializes_metadata_as_none(tmp_path: Path):
     assert fetched_job.scoped_permissions is None
 
 
-def test_exec_job_sets_the_workspace_only_for_its_thread(monkeypatch, tmp_path: Path):
+def test_exec_job_sets_the_workspace_only_for_its_thread(monkeypatch, db_uri):
     # Huey runs jobs on threads of one consumer process. If a job set its workspace in
     # MLFLOW_WORKSPACE, a concurrent job from another workspace could read it.
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
     monkeypatch.delenv(MLFLOW_WORKSPACE.name, raising=False)
-    store = WorkspaceAwareSqlAlchemyJobStore(f"sqlite:///{tmp_path / 'exec-job.db'}")
+    store = WorkspaceAwareSqlAlchemyJobStore(db_uri)
     with ServerWorkspaceContext("team-a"):
         job = store.create_job("basic_job_fun", json.dumps({"x": 1, "y": 2}))
     seen = []
