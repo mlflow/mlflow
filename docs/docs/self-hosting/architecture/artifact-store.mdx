@@ -372,3 +372,6 @@ credentials must be able to sign:
 
 If the credentials cannot sign, or the storage does not support presigned uploads, the Tracking Server responds with
 HTTP 501 (`NOT_IMPLEMENTED`) and the client should upload the artifact through the Tracking Server instead.
+Failing to sign through the IAM `signBlob` API, such as when impersonated Google credentials lack permission to sign,
+also results in HTTP 501. Only transient failures that google-auth marks as retryable, such as a temporary failure to
+refresh the access token, are reported as ordinary server errors.
