@@ -642,6 +642,55 @@ describe('ModelTraceExplorerRightPane', () => {
     expect(screen.queryByText('_new_messages_serialized')).not.toBeInTheDocument();
   });
 
+  it('keeps multimodal PydanticAI history visible after hiding the raw field', () => {
+    const imageUrl = 'https://example.com/a.png';
+    const span = normalizeNewSpanData(
+      {
+        ...DEFAULT_SPAN,
+        name: 'Agent.run',
+        attributes: {
+          'mlflow.spanType': JSON.stringify('AGENT'),
+          'mlflow.spanInputs': JSON.stringify({
+            user_prompt: 'What color is it?',
+            message_history: [
+              {
+                kind: 'request',
+                parts: [
+                  { part_kind: 'user-prompt', content: ['Describe this image', { kind: 'image-url', url: imageUrl }] },
+                ],
+              },
+              { kind: 'response', parts: [{ part_kind: 'text', content: 'A cat.' }] },
+            ],
+          }),
+          'mlflow.spanOutputs': JSON.stringify({
+            output: 'Orange.',
+            _new_messages_serialized: [
+              { kind: 'request', parts: [{ part_kind: 'user-prompt', content: 'What color is it?' }] },
+              { kind: 'response', parts: [{ part_kind: 'text', content: 'Orange.' }] },
+            ],
+          }),
+          'mlflow.message.format': JSON.stringify('pydantic_ai'),
+        },
+      },
+      0,
+      0,
+      [],
+      {},
+      'pydantic-ai-trace',
+    );
+
+    render(<ModelTraceExplorerContentTab activeSpan={span} searchFilter="" activeMatch={null} />, {
+      wrapper: Wrapper,
+    });
+
+    expect(screen.getByText(/Describe this image/)).toBeInTheDocument();
+    expect(document.querySelector(`img[src="${imageUrl}"]`)).not.toBeNull();
+    expect(screen.getAllByText('A cat.')).toHaveLength(1);
+    expect(screen.getAllByText('What color is it?')).toHaveLength(1);
+    expect(screen.queryByText('message_history')).not.toBeInTheDocument();
+    expect(screen.queryByText('user_prompt')).not.toBeInTheDocument();
+  });
+
   it('keeps hidden PydanticAI input fields visible while a search filter is active', () => {
     const userPrompt = 'Explain MLflow GenAI Platform in 3-4 sentences.';
     const span = normalizeNewSpanData(

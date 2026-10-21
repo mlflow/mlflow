@@ -256,8 +256,11 @@ export function ModelTraceExplorerDefaultSpanView({
       return inputHasTopLevelChatPayload;
     }
     if (section === 'inputs' && key === 'user_prompt') {
-      return inputChatMessages.some(
-        (message) => message.role === 'user' && message.content === activeSpan.inputs?.user_prompt,
+      // Compare the normalized form so multimodal prompts (text plus image parts) also match.
+      const promptMessage = normalizeConversation({ user_prompt: activeSpan.inputs?.user_prompt }, 'pydantic_ai')?.[0];
+      return (
+        !isNil(promptMessage) &&
+        inputChatMessages.some((message) => JSON.stringify(message) === JSON.stringify(promptMessage))
       );
     }
     if (section === 'outputs' && key === '_new_messages_serialized') {

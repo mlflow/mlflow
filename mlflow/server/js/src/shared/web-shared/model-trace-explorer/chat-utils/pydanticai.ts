@@ -1,6 +1,6 @@
 import { has, isArray, isNil, isObject, isString } from 'lodash';
 
-import type { ModelTraceChatMessage, ModelTraceToolCall } from '../ModelTrace.types';
+import type { ModelTraceChatMessage, ModelTraceContentType, ModelTraceToolCall } from '../ModelTrace.types';
 import { prettyPrintChatMessage } from '../ModelTraceExplorer.utils';
 
 // Request part types
@@ -11,7 +11,8 @@ type SystemPromptPart = {
 
 type UserPromptPart = {
   part_kind: 'user-prompt';
-  content: string;
+  // A plain string, or a sequence of strings and URL/binary content items (ImageUrl, AudioUrl, ...).
+  content: string | any[];
 };
 
 type ToolReturnPart = {
@@ -110,6 +111,33 @@ const normalizePydanticAIToolCall = (part: ToolCallPart | BuiltinToolCallPart): 
   };
 };
 
+/**
+ * Convert PydanticAI user content (a string or a sequence of strings and URL/binary items) into
+ * the content parts the chat renderer understands. Strings become text parts and `ImageUrl`
+ * becomes an image part; other media is shown as a labelled link so nothing is silently dropped.
+ */
+const normalizeUserContent = (content: string | any[]): ModelTraceContentType => {
+  if (isString(content)) {
+    return content;
+  }
+  return content.map((item) => {
+    if (isString(item)) {
+      return { type: 'text' as const, text: item };
+    }
+    if (isObject(item) && (item as any).kind === 'image-url' && isString((item as any).url)) {
+      return { type: 'image_url' as const, image_url: { url: (item as any).url } };
+    }
+    if (isObject(item) && isString((item as any).kind) && isString((item as any).url)) {
+      const label = (item as any).kind.replace(/-url$/, '');
+      return { type: 'text' as const, text: `[${label}: ${(item as any).url}]` };
+    }
+    if (isObject(item) && (item as any).kind === 'binary') {
+      return { type: 'text' as const, text: `[binary: ${(item as any).media_type ?? 'unknown media type'}]` };
+    }
+    return { type: 'text' as const, text: JSON.stringify(item) };
+  });
+};
+
 const normalizeModelRequest = (request: PydanticAIModelRequest): ModelTraceChatMessage[] => {
   const messages: ModelTraceChatMessage[] = [];
 
@@ -126,7 +154,7 @@ const normalizeModelRequest = (request: PydanticAIModelRequest): ModelTraceChatM
       case 'user-prompt': {
         const message = prettyPrintChatMessage({
           role: 'user',
-          content: part.content,
+          content: normalizeUserContent(part.content),
         });
         if (message) messages.push(message);
         break;
@@ -225,8 +253,8 @@ export const normalizePydanticAIChatInput = (obj: unknown): ModelTraceChatMessag
     }
 
     const userPrompt = (obj as any).user_prompt;
-    if (isString(userPrompt)) {
-      const message = prettyPrintChatMessage({ role: 'user', content: userPrompt });
+    if (isString(userPrompt) || isArray(userPrompt)) {
+      const message = prettyPrintChatMessage({ role: 'user', content: normalizeUserContent(userPrompt) });
       if (message) messages.push(message);
     }
 

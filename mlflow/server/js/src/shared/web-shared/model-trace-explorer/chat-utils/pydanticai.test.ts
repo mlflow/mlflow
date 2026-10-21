@@ -253,16 +253,59 @@ describe('PydanticAI message normalization', () => {
       expect(result).toEqual([{ role: 'user', content: 'Hello there' }]);
     });
 
-    it('should keep only the history when user_prompt is not a string', () => {
+    it('should render a multimodal user_prompt as text and image content', () => {
       const inputWithPartsPrompt = {
-        user_prompt: [{ kind: 'image-url', url: 'https://example.com/a.png' }],
+        user_prompt: ['Describe this image', { kind: 'image-url', url: 'https://example.com/a.png' }],
         message_history: [MOCK_PYDANTIC_AI_REQUEST, MOCK_PYDANTIC_AI_RESPONSE],
       };
 
       const result = normalizeConversation(inputWithPartsPrompt, 'pydantic_ai');
 
-      expect(result).toHaveLength(3);
-      expect(result![2].role).toBe('assistant');
+      expect(result).toHaveLength(4);
+      expect(result![3].role).toBe('user');
+      expect(result![3].content).toBe('Describe this image\n\n![](https://example.com/a.png)');
+    });
+
+    it('should render multimodal user prompts inside message_history', () => {
+      const history = {
+        message_history: [
+          {
+            kind: 'request',
+            parts: [
+              {
+                part_kind: 'user-prompt',
+                content: ['Describe this image', { kind: 'image-url', url: 'https://example.com/a.png' }],
+              },
+            ],
+          },
+          { kind: 'response', parts: [{ part_kind: 'text', content: 'A cat.' }] },
+        ],
+      };
+
+      const result = normalizeConversation(history, 'pydantic_ai');
+
+      expect(result).toHaveLength(2);
+      expect(result![0].content).toBe('Describe this image\n\n![](https://example.com/a.png)');
+      expect(result![1].content).toBe('A cat.');
+    });
+
+    it('should label non-image media and binary content instead of dropping it', () => {
+      const request = {
+        kind: 'request',
+        parts: [
+          {
+            part_kind: 'user-prompt',
+            content: [
+              { kind: 'document-url', url: 'https://example.com/a.pdf' },
+              { kind: 'binary', media_type: 'audio/wav', data: 'AAAA' },
+            ],
+          },
+        ],
+      };
+
+      const result = normalizeConversation(request, 'pydantic_ai');
+
+      expect(result![0].content).toBe('[document: https://example.com/a.pdf]\n\n[binary: audio/wav]');
     });
 
     it('should handle response with thinking parts', () => {
