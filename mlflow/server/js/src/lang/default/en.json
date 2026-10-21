@@ -835,6 +835,10 @@
     "defaultMessage": "LLM judge feedback",
     "description": "Label for the button to add LLM judge feedback to the trace"
   },
+  "1+lSBz": {
+    "defaultMessage": "Add",
+    "description": "Issue detection settings modal > Label of the button that confirms a custom category"
+  },
   "1/M8+x": {
     "defaultMessage": "X-axis:",
     "description": "Label text for x-axis in scatter plot comparison in MLflow"
@@ -1922,6 +1926,10 @@
   "4jGsM0": {
     "defaultMessage": "In progress",
     "description": "Running trace status in the trace drawer header"
+  },
+  "4kMW++": {
+    "defaultMessage": "Cancel",
+    "description": "Issue detection settings modal > Label of the button that discards the changes"
   },
   "4kSYNV": {
     "defaultMessage": "No issues found",
@@ -3086,6 +3094,10 @@
   "8eVxXM": {
     "defaultMessage": "Cancel",
     "description": "Cancel delete webhook button"
+  },
+  "8f/ZDJ": {
+    "defaultMessage": "That focus area already exists.",
+    "description": "Issue detection settings modal > Error shown when the typed custom category is already present"
   },
   "8f4/Zi": {
     "defaultMessage": "Search logged models using a simplified version of the SQL {whereBold} clause.",
@@ -6571,6 +6583,10 @@
     "defaultMessage": "Pairwise review question",
     "description": "Accessible label for the pairwise review question banner"
   },
+  "KQLYyN": {
+    "defaultMessage": "For example:{lineBreak}- Treat authentication failures as high severity{lineBreak}- Only report high and medium severity issues{lineBreak}- Ignore cosmetic output formatting issues",
+    "description": "Issue detection settings modal > Placeholder examples for the priorities field"
+  },
   "KQMhjY": {
     "defaultMessage": "Status:",
     "description": "MCP compare metadata status label"
@@ -7207,6 +7223,10 @@
     "defaultMessage": "Create",
     "description": "Create button text for creating model in the model registry"
   },
+  "MbP3d7": {
+    "defaultMessage": "Could not save these settings. Try again.",
+    "description": "Issue detection settings modal > Error shown when saving the settings failed"
+  },
   "Mc6Dhy": {
     "defaultMessage": "5",
     "description": "Label for 5 first runs visible in run count selector within runs compare configuration modal"
@@ -7427,6 +7447,10 @@
     "defaultMessage": "Description",
     "description": "Label for issue description section"
   },
+  "NIUj2T": {
+    "defaultMessage": "Save",
+    "description": "Issue detection settings modal > Label of the button that saves the settings"
+  },
   "NIX2/p": {
     "defaultMessage": "Edit tags",
     "description": "Bulk action that edits the tags on the single selected trace"
@@ -7482,6 +7506,10 @@
   "NRNNnk": {
     "defaultMessage": "Click to expand",
     "description": "Tooltip for expandable session cell"
+  },
+  "NRaZER": {
+    "defaultMessage": "Applied every run, when deciding what to flag and how severe it is. Leave empty to use the defaults.",
+    "description": "Issue detection settings modal > Hint explaining what the priorities field affects"
   },
   "NRjlue": {
     "defaultMessage": "Save",
@@ -7979,6 +8007,10 @@
     "defaultMessage": "Workspace Manager",
     "description": "Admin page title shown when the URL is scoped to a single workspace via ?workspace=…"
   },
+  "P0rc5O": {
+    "defaultMessage": "Issue detection settings",
+    "description": "Experiment issues tab > Label of the button that opens the detection settings"
+  },
   "P1Bmq/": {
     "defaultMessage": "Search skills",
     "description": "Placeholder for Skill Registry free-text search"
@@ -8254,6 +8286,10 @@
   "PymnbL": {
     "defaultMessage": "User",
     "description": "Header for the traces table user column"
+  },
+  "PzC7IZ": {
+    "defaultMessage": "Focus areas",
+    "description": "Issue detection settings modal > Title of the category selection section"
   },
   "PzytKT": {
     "defaultMessage": "Always show parents of matched spans, regardless of filter conditions",
@@ -12267,6 +12303,10 @@
     "defaultMessage": "Flag for review",
     "description": "Bulk action that assigns the selected traces to a review queue"
   },
+  "diS6Td": {
+    "defaultMessage": "With no focus area selected, detection considers all of them.",
+    "description": "Issue detection settings modal > Hint shown when every focus area has been deselected"
+  },
   "dkv7sq": {
     "defaultMessage": "Beta",
     "description": "Skill Registry beta feature tag"
@@ -13259,6 +13299,10 @@
     "defaultMessage": "Model",
     "description": "Experiment page > runs table > models column > default label for no specific model"
   },
+  "gipwIc": {
+    "defaultMessage": "Detection priorities",
+    "description": "Issue detection settings modal > Label of the free-text priorities field"
+  },
   "gjMj0f": {
     "defaultMessage": "The SQL query timed out. Please retry, and if the problem persists, try selecting a larger SQL warehouse.",
     "description": "Traces empty state > SQL warehouse timeout error description with CTA to select larger warehouse"
@@ -13707,6 +13751,10 @@
     "defaultMessage": "Type something to use full text search",
     "description": "Trace typeahead search placeholder"
   },
+  "i1E6C1": {
+    "defaultMessage": "Custom focus area",
+    "description": "Issue detection settings modal > Label of the custom category text field"
+  },
   "i1Hj20": {
     "defaultMessage": "{count, plural, =1 {1 hour} other {# hours}} ago",
     "description": "Time duration in hours"
@@ -14022,6 +14070,10 @@
   "iruFlr": {
     "defaultMessage": "Running the judge from the UI is only supported with {supportedProvider} endpoints, but the current model uses the {currentProvider} provider",
     "description": "Tooltip message when model provider is not supported. supportedProvider is the required provider type, currentProvider is what the model currently uses."
+  },
+  "itl1u5": {
+    "defaultMessage": "Custom focus area",
+    "description": "Issue detection settings modal > Label of the button that reveals the custom category field"
   },
   "itlAT2": {
     "defaultMessage": "This experiment has reached the maximum of {max} saved views. Delete a view before saving a new one.",
@@ -16711,6 +16763,10 @@
     "defaultMessage": "just now",
     "description": "Evaluation review > assessments > tooltip > just now"
   },
+  "rnAWO4": {
+    "defaultMessage": "Remove custom focus area {category}",
+    "description": "Issue detection settings modal > Label of the button that deletes a custom category"
+  },
   "rnQSs1": {
     "defaultMessage": "Line chart",
     "description": "Accessible label for the line chart toggle in the eval-runs chart"
@@ -18114,6 +18170,10 @@
   "wq+WyH": {
     "defaultMessage": "Prompt content is required",
     "description": "A validation state for the prompt content in the prompt creation modal"
+  },
+  "wq16NO": {
+    "defaultMessage": "Cancel",
+    "description": "Issue detection settings modal > Label of the button that abandons a custom category"
   },
   "wqv2gd": {
     "defaultMessage": "Redact or mask flagged content, then allow the request to continue.",
