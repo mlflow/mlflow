@@ -335,6 +335,7 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
       {(hasShownIssues.current || (!isEmptyState && !isResolvingEmptyState)) && (
         <div css={{ flexShrink: 0, paddingBottom: theme.spacing.md, borderBottom: `1px solid ${theme.colors.border}` }}>
           <ExperimentIssuesActionBar
+            experimentId={experimentId}
             controls={controls}
             searchInput={controls.search.input}
             onSearchInputChange={controls.search.setInput}
@@ -406,6 +407,7 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
       ) : isEmptyState ? (
         <CenteredState>
           <ExperimentIssuesEmptyState
+            experimentId={experimentId}
             hasCompletedDetectionRuns={detection.status === JobStatus.SUCCEEDED}
             isCleanScan={cleanScan}
             hasTimedOutDetectionRun={detection.status === JobStatus.TIMEOUT}

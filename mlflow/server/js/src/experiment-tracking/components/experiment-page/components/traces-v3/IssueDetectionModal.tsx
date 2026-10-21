@@ -17,7 +17,8 @@ import { useCreateSecret } from '../../../../../gateway/hooks/useCreateSecret';
 import { SelectTracesModal } from '../../../SelectTracesModal';
 import { useEndpointsQuery } from '../../../../../gateway/hooks/useEndpointsQuery';
 import { useApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration';
-import { ALL_ISSUE_CATEGORIES } from './IssueDetectionCategories';
+import { useIssueDetectionSettings } from '../../../../pages/experiment-issues/useIssueDetectionSettings';
+import { selectedDetectionCategories } from '../../../../pages/experiment-issues/issueDetectionSettings';
 import { useInvokeIssueDetection } from './hooks/useInvokeIssueDetection';
 import { recordSubmittedIssueDetectionJob } from './IssueDetectionJobNotifications';
 import { estimateIssueDetectionCostUsd, formatEstimatedCostUsd } from './issueDetectionCostEstimate';
@@ -67,6 +68,10 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   const [isSelectTracesModalOpen, setIsSelectTracesModalOpen] = useState(false);
 
   const { data: endpoints, isLoading: isLoadingEndpoints } = useEndpointsQuery();
+
+  // Read here rather than taking them as props, so every entry point into detection -- the
+  // Issues tab and both Traces tabs -- honours the same saved settings.
+  const { data: detectionSettings } = useIssueDetectionSettings(experimentId ?? '', Boolean(experimentId));
 
   // Default to the first gateway endpoint, else the first core provider
   useEffect(() => {
@@ -130,7 +135,8 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
       {
         experimentId,
         traceIds: selectedTraceIds,
-        categories: ALL_ISSUE_CATEGORIES,
+        categories: selectedDetectionCategories(detectionSettings),
+        instructions: detectionSettings?.instructions || undefined,
         provider: selection.provider,
         model: selection.model,
         secret_id: selection.mode === 'direct' ? (secretIdOverride ?? existingSecrets[0]?.secret_id) : undefined,

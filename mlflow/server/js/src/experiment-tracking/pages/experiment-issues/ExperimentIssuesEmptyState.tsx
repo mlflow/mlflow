@@ -12,6 +12,7 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import { IssueDetectionIllustration } from './IssueDetectionIllustration';
+import { IssueDetectionSettingsControl } from './IssueDetectionSettingsControl';
 
 const IssueDetectionExampleBubbles = () => {
   const { theme } = useDesignSystemTheme();
@@ -139,6 +140,7 @@ const IssueDetectionExampleBubbles = () => {
 };
 
 export interface ExperimentIssuesEmptyStateProps {
+  experimentId: string;
   hasCompletedDetectionRuns: boolean;
   isCleanScan?: boolean;
   hasTimedOutDetectionRun: boolean;
@@ -149,6 +151,7 @@ export interface ExperimentIssuesEmptyStateProps {
 }
 
 export const ExperimentIssuesEmptyState = ({
+  experimentId,
   hasCompletedDetectionRuns,
   isCleanScan = false,
   hasTimedOutDetectionRun,
@@ -225,18 +228,23 @@ export const ExperimentIssuesEmptyState = ({
       button={
         <div css={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: theme.spacing.sm }}>
           {detectionEnabled && (
-            <Button
-              componentId="mlflow.experiment-issues.empty-state.run-detection"
-              type="primary"
-              icon={<SparkleIcon />}
-              loading={isDetecting}
-              disabled={isDetecting}
-              aria-busy={isDetecting}
-              aria-label={buttonText}
-              onClick={onRunIssueDetection}
-            >
-              {buttonText}
-            </Button>
+            // The action bar that normally carries the settings is hidden in the empty state,
+            // and this is where they matter most: before the first scan has run.
+            <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+              <Button
+                componentId="mlflow.experiment-issues.empty-state.run-detection"
+                type="primary"
+                icon={<SparkleIcon />}
+                loading={isDetecting}
+                disabled={isDetecting}
+                aria-busy={isDetecting}
+                aria-label={buttonText}
+                onClick={onRunIssueDetection}
+              >
+                {buttonText}
+              </Button>
+              <IssueDetectionSettingsControl experimentId={experimentId} />
+            </div>
           )}
           <Typography.Link
             componentId="mlflow.experiment-issues.empty-state.learn-how"
