@@ -1,3 +1,6 @@
+import json
+from unittest import mock
+
 import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
@@ -99,3 +102,54 @@ def test_gateway_timing_header_present_for_prefixed_route(monkeypatch):
 
     response = client.post("/myprefix/gateway/mlflow/v1/chat/completions", json={})
     assert MLFLOW_GATEWAY_DURATION_HEADER in response.headers
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("static_prefix", ["", "/mlflow"])
+@pytest.mark.parametrize("trailing_slash", ["", "/"])
+@pytest.mark.parametrize("root_path", ["", "/proxy"])
+async def test_presigned_only_upload_rejected_without_reading_body(
+    monkeypatch, static_prefix, trailing_slash, root_path
+):
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_PRESIGNED_ONLY", "true")
+    monkeypatch.setenv("MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE", "true")
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, static_prefix)
+    app = create_fastapi_app()
+    receive = mock.AsyncMock(side_effect=AssertionError("Upload body must not be read"))
+    send = mock.AsyncMock()
+    path = f"{root_path}{static_prefix}/ajax-api/2.0/mlflow/upload-artifact{trailing_slash}"
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": path,
+        "raw_path": path.encode(),
+        "query_string": b"run_uuid=run1&path=model",
+        "root_path": root_path,
+        "headers": [(b"host", b"localhost"), (b"content-length", b"1000000000")],
+        "server": ("localhost", 5000),
+        "client": ("127.0.0.1", 12345),
+    }
+    await app(scope, receive, send)
+    receive.assert_not_called()
+    messages = [call.args[0] for call in send.call_args_list]
+    assert messages[0]["type"] == "http.response.start"
+    assert messages[0]["status"] == 403
+    body = json.loads(b"".join(m.get("body", b"") for m in messages[1:]))
+    assert body["artifacts_presigned_only"] is True
+    assert body["error_code"] == "PERMISSION_DENIED"
+    assert "directly to storage" in body["message"]
+
+
+def test_upload_still_reaches_flask_when_presigned_only_is_disabled(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_PRESIGNED_ONLY", "false")
+    monkeypatch.setenv("MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE", "true")
+    with mock.patch("mlflow.server.upload_artifact_handler", return_value="uploaded") as upload:
+        response = TestClient(create_fastapi_app()).post(
+            "/ajax-api/2.0/mlflow/upload-artifact?run_uuid=run1&path=model", content=b"model"
+        )
+    assert response.status_code == 200
+    assert response.text == "uploaded"
+    upload.assert_called_once()

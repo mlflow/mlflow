@@ -199,6 +199,10 @@
     "defaultMessage": "Max",
     "description": "Column title for the column displaying the maximum metric values for a metric"
   },
+  "+iRLlh": {
+    "defaultMessage": "No scorers digest. MLflow could not read any scorer in this run.",
+    "description": "Tooltip on the eval run scorers heading when no scorer definition could be hashed"
+  },
   "+jTk/P": {
     "defaultMessage": "Show less",
     "description": "MCP server package show less env vars button"
@@ -474,6 +478,10 @@
   "/g45Xz": {
     "defaultMessage": "Share and manage machine learning models.",
     "description": "Default text for model registry onboarding on the model list page"
+  },
+  "/gLx1m": {
+    "defaultMessage": "Git commit",
+    "description": "Eval run detail: git commit of the run's code"
   },
   "/gqx4n": {
     "defaultMessage": "The safety LLM judge returns a binary rating and a written rationale on whether the generated response has harmful or toxic content.",
@@ -875,6 +883,10 @@
     "defaultMessage": "Questions are locked once the queue has traces attached.",
     "description": "Queue settings: questions frozen hint"
   },
+  "1G2CPT": {
+    "defaultMessage": "View prompt {promptName} version {promptVersion}",
+    "description": "Accessible label for a link that opens the prompt version an evaluation run is linked to"
+  },
   "1IExHV": {
     "defaultMessage": "Delete",
     "description": "Confirm-button text for the V2 dataset records bulk-delete modal"
@@ -1123,6 +1135,10 @@
     "defaultMessage": "Output tokens",
     "description": "Label for output token usage"
   },
+  "2IZ7j4": {
+    "defaultMessage": "Trace",
+    "description": "Experiment issues tab > Evidence card > Fallback trace name"
+  },
   "2Im7IU": {
     "defaultMessage": "Move to pending",
     "description": "Button to move an issue back to pending status"
@@ -1166,6 +1182,10 @@
   "2OrFCG": {
     "defaultMessage": "Created at",
     "description": "Column header for created timestamp in the evaluation runs table"
+  },
+  "2QproO": {
+    "defaultMessage": "Open trace",
+    "description": "Experiment issues tab > Evidence card > Opens the full trace"
   },
   "2ROAqe": {
     "defaultMessage": "Record {id}",
@@ -1290,6 +1310,10 @@
   "2kbhHk": {
     "defaultMessage": "A ZIP source must be an http(s) URL.",
     "description": "Validation error for a non-HTTP skill ZIP source"
+  },
+  "2lbqQU": {
+    "defaultMessage": "Source type",
+    "description": "Label for the source type in a dataset hover card"
   },
   "2mRfvl": {
     "defaultMessage": "Request error",
@@ -1727,6 +1751,10 @@
     "defaultMessage": "Traces",
     "description": "Region label wrapping the traces table"
   },
+  "4LicHM": {
+    "defaultMessage": "+{count} more",
+    "description": "Experiment issues tab > Legacy evidence step > Count of hidden span input fields"
+  },
   "4M9wXl": {
     "defaultMessage": "Retry",
     "description": "Experiment Issues read retry action"
@@ -1783,6 +1811,10 @@
     "defaultMessage": "Install for",
     "description": "Label for the agent selector in the skill pull instructions"
   },
+  "4UrSLV": {
+    "defaultMessage": "Session assessments",
+    "description": "Title for the session-level assessments pane"
+  },
   "4V8wtm": {
     "defaultMessage": "After your script runs, open the MLflow UI to review the recorded traces.",
     "description": "Introductory text for viewing traces in the MLflow UI"
@@ -1814,6 +1846,10 @@
   "4b6A7E": {
     "defaultMessage": "Undo",
     "description": "Experiment page > shared view > undo button on the override confirmation toast"
+  },
+  "4cAopc": {
+    "defaultMessage": "Open issue details in a new tab",
+    "description": "Tooltip for opening the issue details page in a new browser tab"
   },
   "4cnExh": {
     "defaultMessage": "{count, plural, one {# reviewer} other {# reviewers}} selected",
@@ -1850,10 +1886,6 @@
   "4kSYNV": {
     "defaultMessage": "No issues found",
     "description": "Issue detection run details > Issues tab > Empty state title"
-  },
-  "4mB25c": {
-    "defaultMessage": "Removing tags requires the Manage permission on this skill.",
-    "description": "Error when a user without delete permission removes skill tags"
   },
   "4mxOPT": {
     "defaultMessage": "Estimated cost",
@@ -2243,6 +2275,14 @@
     "defaultMessage": "Search for a field",
     "description": "Placeholder for search input in schema table"
   },
+  "6CJkC/": {
+    "defaultMessage": "No affected traces are recorded for this issue.",
+    "description": "Experiment issues tab > Evidence section > Shown when the issue names no affected traces"
+  },
+  "6DzJXb": {
+    "defaultMessage": "View span",
+    "description": "Experiment issues tab > Evidence step > Opens the span supporting this step"
+  },
   "6HiT14": {
     "defaultMessage": "Detect issues",
     "description": "Button to detect issues in traces"
@@ -2306,6 +2346,10 @@
   "6UqPlE": {
     "defaultMessage": "No parameters recorded",
     "description": "Run page > Overview > Parameters table > No parameters recorded"
+  },
+  "6W8zAs": {
+    "defaultMessage": "The judge “{name}” isn't registered in this experiment.",
+    "description": "Shown on the judges page when a link names a judge that this experiment doesn't have"
   },
   "6WQ9yl": {
     "defaultMessage": "Unable to load experiment judges",
@@ -3507,6 +3551,10 @@
     "defaultMessage": "Add tags",
     "description": "Tag assignment modal > Title of the add tags modal"
   },
+  "AGn2fU": {
+    "defaultMessage": "Expand assessment charts",
+    "description": "Accessible label for expanding the score charts in the evaluation run table headers"
+  },
   "AHaom4": {
     "defaultMessage": "No assessments available",
     "description": "Message shown when there are no assessments to display"
@@ -3570,6 +3618,10 @@
   "AXxmFE": {
     "defaultMessage": "Send your first trace to MLflow in just a minute",
     "description": "First trace onboarding title"
+  },
+  "AaDw3+": {
+    "defaultMessage": "Turn display settings",
+    "description": "Accessible label for session turn display settings button"
   },
   "AanBxl": {
     "defaultMessage": "my-endpoint",
@@ -3742,6 +3794,10 @@
   "B80MC6": {
     "defaultMessage": "Contour Plot",
     "description": "Tab pane title for contour plots on the compare runs page"
+  },
+  "B81vC6": {
+    "defaultMessage": "Duration",
+    "description": "Session turn metric option"
   },
   "B8RvlZ": {
     "defaultMessage": "Comparing version {baseline} with version {compared}",
@@ -4031,6 +4087,10 @@
     "defaultMessage": "Assertions",
     "description": "Assertions column header"
   },
+  "C36xdr": {
+    "defaultMessage": "Source digest",
+    "description": "Eval run detail: digest of the evaluated agent function source code"
+  },
   "C4y1fv": {
     "defaultMessage": "-∞",
     "description": "Label displaying negative infinity symbol displayed on a plot UI element"
@@ -4310,6 +4370,10 @@
   "D2svqS": {
     "defaultMessage": "overall error rate",
     "description": "Subtitle for overall tool error rate"
+  },
+  "D5v8Rw": {
+    "defaultMessage": "Evidence",
+    "description": "Experiment issues tab > Issue detail > Evidence section heading"
   },
   "D6gLbL": {
     "defaultMessage": "Enter workspace description",
@@ -4915,6 +4979,10 @@
     "defaultMessage": "Key",
     "description": "Add new key-value tag modal > Key input label"
   },
+  "FZ1Eaq": {
+    "defaultMessage": "Agent",
+    "description": "Heading for the evaluated agent section in the evaluation run sidebar"
+  },
   "FZL3HX": {
     "defaultMessage": "When enabled, all requests to this endpoint will be logged as traces. This allows you to monitor usage, debug issues, and analyze performance.",
     "description": "Tooltip explaining what usage tracking does"
@@ -5115,6 +5183,10 @@
     "defaultMessage": "Date created",
     "description": "Eval run detail: when the run was created"
   },
+  "G9oKch": {
+    "defaultMessage": "Prompt",
+    "description": "Eval run detail: prompt used by the run"
+  },
   "GA0YXz": {
     "defaultMessage": "CLI",
     "description": "CLI format of the skill pull instructions"
@@ -5190,6 +5262,10 @@
   "GRaplV": {
     "defaultMessage": "Context sufficiency",
     "description": "Evaluation results > known type of evaluation result assessment > context sufficiency assessment. Used to indicate if the retrieved context is sufficient to generate the expected response. Label displayed if user provided custom value, e.g. \"Context Sufficiency: mostly sufficient\""
+  },
+  "GRodhL": {
+    "defaultMessage": "Expand evidence for {traceName}",
+    "description": "Experiment issues tab > Evidence card > Expand evidence"
   },
   "GU5EuF": {
     "defaultMessage": "You do not have permission to view these issues",
@@ -5607,6 +5683,10 @@
     "defaultMessage": "Add record",
     "description": "Primary button text for adding a new dataset record on the V2 dataset records page"
   },
+  "HnTIOq": {
+    "defaultMessage": "Session",
+    "description": "Title for the trace drawer when it shows a session"
+  },
   "HoCtWl": {
     "defaultMessage": "Are you sure you want to delete {name} and all of its versions? This action cannot be undone.",
     "description": "Confirmation for hard-deleting a skill and its versions"
@@ -5750,6 +5830,10 @@
   "IHyeUr": {
     "defaultMessage": "Stage",
     "description": "Label name for stage metadata in model version page"
+  },
+  "IIw/Vg": {
+    "defaultMessage": "This trace reported an error with no message recorded.",
+    "description": "Experiment issues tab > Legacy evidence step > Trace's error had no details"
   },
   "IJ+hiP": {
     "defaultMessage": "Prompt tag deleted",
@@ -6103,6 +6187,10 @@
     "defaultMessage": "Run ID",
     "description": "Run page > Overview > Run ID section label"
   },
+  "JYhD7y": {
+    "defaultMessage": "Logged model",
+    "description": "Eval run detail: logged model linked to the evaluation run"
+  },
   "JYz7tl": {
     "defaultMessage": "Failed to load MCP server",
     "description": "MCP server detail page error title"
@@ -6223,6 +6311,10 @@
     "defaultMessage": "Hugging Face",
     "description": "Experiment dataset drawer > source type > Hugging Face source type label"
   },
+  "JwYyw9": {
+    "defaultMessage": "Timestamp",
+    "description": "Session turn metric option"
+  },
   "JwhonN": {
     "defaultMessage": "Authentication method",
     "description": "Label for auth mode selector"
@@ -6270,6 +6362,10 @@
   "K5rmCE": {
     "defaultMessage": "S3",
     "description": "Experiment dataset drawer > source type > S3 source type label"
+  },
+  "K6T5Xt": {
+    "defaultMessage": "Error: {value}",
+    "description": "Experiment issues tab > Legacy evidence step > Trace or span's error"
   },
   "K7sH7k": {
     "defaultMessage": "Experiment renamed",
@@ -7135,6 +7231,10 @@
     "defaultMessage": "Filter key",
     "description": "Aria label for the trace filter key input"
   },
+  "N4vqNW": {
+    "defaultMessage": "The traces behind this issue could not be loaded.",
+    "description": "Experiment issues tab > Evidence section > Shown when the affected traces could not be fetched"
+  },
   "N53jAt": {
     "defaultMessage": "Create custom code judge",
     "description": "Title for new custom code judge modal"
@@ -7262,6 +7362,10 @@
   "NRjlue": {
     "defaultMessage": "Save",
     "description": "Button label to save the current custom trace view"
+  },
+  "NTJ25q": {
+    "defaultMessage": "{promptName} (v{promptVersion})",
+    "description": "Eval run detail sidebar: a linked prompt and its version"
   },
   "NU5iHM": {
     "defaultMessage": "Value",
@@ -7599,6 +7703,10 @@
     "defaultMessage": "Regression",
     "description": "Label for experiments focused on regression modeling"
   },
+  "OWlBCs": {
+    "defaultMessage": "{agentFunction} (source digest: {digest})",
+    "description": "Eval run detail: tooltip on the evaluated agent function with the digest of its source code"
+  },
   "OXcY79": {
     "defaultMessage": "Profile",
     "description": "Label for the profile field in the V2 evaluation dataset metadata modal"
@@ -7795,6 +7903,10 @@
     "defaultMessage": "About run locally",
     "description": "Aria label for packages subsection help popover"
   },
+  "PIIRft": {
+    "defaultMessage": "Retry",
+    "description": "Experiment issues tab > Evidence section > Retries the affected trace search"
+  },
   "PIPzZY": {
     "defaultMessage": "General",
     "description": "Sidebar link: Settings > General"
@@ -7879,6 +7991,10 @@
     "defaultMessage": "Run",
     "description": "Field group heading in the evaluation runs filter field picker"
   },
+  "PUtV09": {
+    "defaultMessage": "No conversation turns found in this session.",
+    "description": "Empty state in the V4 session drawer"
+  },
   "PX5Nlz": {
     "defaultMessage": "Clear selection",
     "description": "Clear model selection"
@@ -7922,6 +8038,10 @@
   "PewjIJ": {
     "defaultMessage": "GenAI apps & agents",
     "description": "Label for experiments focused on generative AI model development"
+  },
+  "Pg4SI9": {
+    "defaultMessage": "View dataset {datasetName}",
+    "description": "Accessible label for a link that opens the evaluation dataset an evaluation run used"
   },
   "Pgxfhl": {
     "defaultMessage": "Role",
@@ -8219,6 +8339,10 @@
     "defaultMessage": "Hide all runs",
     "description": "Menu option for revealing all hidden runs in the experiment view runs compare mode"
   },
+  "QjVLIz": {
+    "defaultMessage": "Retry",
+    "description": "Button to retry loading a session in the V4 trace drawer"
+  },
   "QnZkGt": {
     "defaultMessage": "Not configured",
     "description": "Summary not configured"
@@ -8330,6 +8454,10 @@
   "R6dCZ5": {
     "defaultMessage": "View your traces",
     "description": "Step 3 title for traces onboarding"
+  },
+  "R7h+T3": {
+    "defaultMessage": "Back to session",
+    "description": "Action to return from a full trace to its session conversation"
   },
   "R7s1xC": {
     "defaultMessage": "Provider is required",
@@ -8606,6 +8734,10 @@
   "S8TR/J": {
     "defaultMessage": "Optional. Override where archived trace payloads are stored for this workspace. Leave blank to use the server default.",
     "description": "Hint for workspace trace archival location field"
+  },
+  "S9zlYt": {
+    "defaultMessage": "A fingerprint of {hashed} of {total} scorers in this run. MLflow could not read the others.",
+    "description": "Eval run detail: the scorers digest covers only the scorers whose definition could be hashed"
   },
   "SAFAXp": {
     "defaultMessage": "Only run on traces matching this filter; leave blank to run on all. Uses MLflow {link}.",
@@ -9011,6 +9143,10 @@
     "defaultMessage": "Traces",
     "description": "Label for the traces tab on the logged model details page"
   },
+  "TeTu42": {
+    "defaultMessage": "Full-size image unavailable",
+    "description": "Image grid > error displayed in a cell when its full-size preview cannot be loaded"
+  },
   "TeUXPe": {
     "defaultMessage": "Open trace {traceId} — {column}",
     "description": "Aria label for a clickable traces-table cell that opens the trace detail drawer"
@@ -9102,6 +9238,10 @@
   "TvjS47": {
     "defaultMessage": "This trace is very large, and may cause UI slowness when attempting to render. You can click the button below to attempt to display it anyway.",
     "description": "Body text explaining issues with rendering large traces."
+  },
+  "TxtCFX": {
+    "defaultMessage": "A fingerprint of all scorers in this run.",
+    "description": "Tooltip explaining what the eval run scorers digest identifies"
   },
   "U+0wfV": {
     "defaultMessage": "Trace name",
@@ -9343,6 +9483,10 @@
     "defaultMessage": "Unassign",
     "description": "Review queue: button that removes the selected traces from the queue (the traces themselves are not deleted)"
   },
+  "UonXG6": {
+    "defaultMessage": "View scorer {scorerName}",
+    "description": "Accessible label for a link that opens the registered scorer behind an evaluation run assessment"
+  },
   "UpVskF": {
     "defaultMessage": "Expectations",
     "description": "Header for the dataset record expectations column"
@@ -9358,6 +9502,10 @@
   "UrEJHe": {
     "defaultMessage": "Pass",
     "description": "Label for an assessment with a 'pass' value"
+  },
+  "UskbJ8": {
+    "defaultMessage": "View logged model {modelName}",
+    "description": "Accessible label for a link that opens the logged model of an evaluation run"
   },
   "UsvDLH": {
     "defaultMessage": "Select a workspace",
@@ -9594,6 +9742,10 @@
   "VYfxMp": {
     "defaultMessage": "{hours}h ago",
     "description": "Review queue table: date-added cell, hours ago"
+  },
+  "VYlxnd": {
+    "defaultMessage": "Collapse evidence for {traceName}",
+    "description": "Experiment issues tab > Evidence card > Collapse evidence"
   },
   "VZRc73": {
     "defaultMessage": "Using the list of logged table artifacts, select at least one to start comparing results.",
@@ -9911,6 +10063,10 @@
     "defaultMessage": "Run name",
     "description": "Header for the traces table run-name column"
   },
+  "WatQf0": {
+    "defaultMessage": "Image unavailable",
+    "description": "Image grid > error displayed in a cell when its image cannot be loaded"
+  },
   "Wbpp7P": {
     "defaultMessage": "Create a role to assign permissions to users.",
     "description": "Empty state description for roles table"
@@ -10026,10 +10182,6 @@
   "WvHAEg": {
     "defaultMessage": "Input an artifact location (optional)",
     "description": "Input placeholder to enter artifact location for create experiment"
-  },
-  "WwEvmi": {
-    "defaultMessage": "Last seen {time}",
-    "description": "Experiment Issue last observation timestamp"
   },
   "WwFre9": {
     "defaultMessage": "New queue",
@@ -10443,6 +10595,10 @@
     "defaultMessage": "Metric",
     "description": "Column title for the column displaying the metric names for a run"
   },
+  "YJVvRW": {
+    "defaultMessage": "Refresh session",
+    "description": "Action to refresh all turns in the open trace session"
+  },
   "YKE3h7": {
     "defaultMessage": "Define custom instructions for LLM-based evaluation. {learnMore}",
     "description": "Hint text for Instructions section with documentation link"
@@ -10850,6 +11006,10 @@
   "Zqj4VA": {
     "defaultMessage": "New run name",
     "description": "Experiment page > new run modal > run name input label"
+  },
+  "ZrE17j": {
+    "defaultMessage": "Request: {value}",
+    "description": "Experiment issues tab > Legacy evidence step > Trace's request preview"
   },
   "ZstVNI": {
     "defaultMessage": "Outputs",
@@ -11407,6 +11567,10 @@
     "defaultMessage": "State",
     "description": "Trace filter field: run state"
   },
+  "bxdjTE": {
+    "defaultMessage": "{count, plural, one {Issue detected: {issueName}} other {# issues detected}}",
+    "description": "Tooltip for an issue indicator on a trace span tree node"
+  },
   "by+x8N": {
     "defaultMessage": "Type",
     "description": "Run page > Overview > Experiment ID section label"
@@ -11591,6 +11755,10 @@
     "defaultMessage": "Something went wrong",
     "description": "Generic title used when a dataset action surfaces an unexpected error"
   },
+  "cV8FpL": {
+    "defaultMessage": "Trace from session",
+    "description": "Context shown above a trace opened from a session conversation"
+  },
   "cVnOIo": {
     "defaultMessage": "Save",
     "description": "Confirm button label on the name-custom-view modal"
@@ -11762,6 +11930,10 @@
   "d72zLS": {
     "defaultMessage": "Toggle session grouping",
     "description": "Tooltip for the group by session button in the traces table toolbar"
+  },
+  "d8CXjO": {
+    "defaultMessage": "Digest",
+    "description": "Label for the digest in a dataset hover card"
   },
   "d8I3cy": {
     "defaultMessage": "Show only visible",
@@ -12011,10 +12183,6 @@
     "defaultMessage": "Grounded",
     "description": "Evaluation results > retrieval grounded assessment > positive value label. Displayed if evaluation result is considered as grounded."
   },
-  "e53BsC": {
-    "defaultMessage": "Dataset source type: {sourceType}",
-    "description": "Dataset cell tooltip row showing the dataset's source type"
-  },
   "e5r+Np": {
     "defaultMessage": "The SQL query timed out. Please retry, and if the problem persists, try selecting a larger SQL warehouse.",
     "description": "V4 traces > SQL warehouse timeout error description with CTA to select a larger warehouse"
@@ -12034,6 +12202,14 @@
   "e7K2T3": {
     "defaultMessage": "Show all runs",
     "description": "Experiment page > compare runs tab > chart header > move down option"
+  },
+  "e8Fk1j": {
+    "defaultMessage": "Compared to <baselineLink>evaluation baseline run</baselineLink>.",
+    "description": "Tooltip explaining that a scorer delta is relative to the baseline evaluation run"
+  },
+  "e9b27m": {
+    "defaultMessage": "Inputs: {fields}",
+    "description": "Experiment issues tab > Legacy evidence step > Span's input fields"
   },
   "e9qVjz": {
     "defaultMessage": "Cancel",
@@ -12330,6 +12506,10 @@
   "f0MCzt": {
     "defaultMessage": "Mark resolved",
     "description": "Experiment issue resolve action"
+  },
+  "f3Ck6m": {
+    "defaultMessage": "Total tokens",
+    "description": "Session turn metric option"
   },
   "f3LAjV": {
     "defaultMessage": "Select ({count})",
@@ -12642,6 +12822,10 @@
   "g5myH8": {
     "defaultMessage": "Webhooks",
     "description": "Sidebar link: Settings > Webhooks"
+  },
+  "g6PJid": {
+    "defaultMessage": "Function",
+    "description": "Eval run detail: evaluated agent function"
   },
   "g6nof1": {
     "defaultMessage": "AI Gateway",
@@ -13079,6 +13263,10 @@
     "defaultMessage": "{count, plural, one {1 session selected} other {# sessions selected}}",
     "description": "Label for the number of sessions selected"
   },
+  "hM5jQV": {
+    "defaultMessage": "Open evaluation baseline run in a new tab",
+    "description": "Accessible label for opening the baseline evaluation run from a scorer tooltip"
+  },
   "hM97ET": {
     "defaultMessage": "Events",
     "description": "Webhook events field label"
@@ -13090,6 +13278,10 @@
   "hNmwSr": {
     "defaultMessage": "General",
     "description": "Settings content section title: general"
+  },
+  "hOUOL8": {
+    "defaultMessage": "Scorers digest: {digest}",
+    "description": "Eval run detail: digest identifying the scorer definitions used by the run"
   },
   "hP8kyS": {
     "defaultMessage": "Delete ({count})",
@@ -13258,6 +13450,10 @@
   "hvKJ+r": {
     "defaultMessage": "Close",
     "description": "Button to close the assistant panel on remote servers"
+  },
+  "hvYszt": {
+    "defaultMessage": "More affected traces could not be loaded.",
+    "description": "Experiment issues tab > Evidence section > Shown when a later page of traces fails"
   },
   "hwSDOP": {
     "defaultMessage": "Previous",
@@ -13555,6 +13751,10 @@
     "defaultMessage": "Evaluating {isTraces, select, true {traces} other {sessions}}...",
     "description": "Status text while evaluating traces or sessions"
   },
+  "igH0+2": {
+    "defaultMessage": "Response: {value}",
+    "description": "Experiment issues tab > Legacy evidence step > Trace's response preview"
+  },
   "igK5Su": {
     "defaultMessage": "Error",
     "description": "Experiment page > traces table > status label > error"
@@ -13582,6 +13782,10 @@
   "imKpxw": {
     "defaultMessage": "ID",
     "description": "Label for the ID section"
+  },
+  "inPe9q": {
+    "defaultMessage": "Unnamed dataset",
+    "description": "Eval run detail sidebar: label for a dataset logged without a meaningful name"
   },
   "ioD6Ho": {
     "defaultMessage": "Dark",
@@ -13726,6 +13930,10 @@
   "jClVwe": {
     "defaultMessage": "Point the OTLP exporter at this MLflow server by setting these environment variables. See the <a>OpenTelemetry export docs</a> for the full reference.",
     "description": "Step 1 description for OpenTelemetry traces onboarding"
+  },
+  "jEOQQ/": {
+    "defaultMessage": "Session",
+    "description": "Title for the session conversation pane"
   },
   "jFk49l": {
     "defaultMessage": "Quick-start with a popular model below, or create an endpoint from 60+ providers and all their supported models.",
@@ -13931,6 +14139,10 @@
     "defaultMessage": "This file is stored but too large to preview here. Pull the skill to read it.",
     "description": "Skill file preview message for a large file"
   },
+  "jvLj7U": {
+    "defaultMessage": "Removing version tags requires the Manage permission on this skill.",
+    "description": "Error when a user without delete permission removes skill version tags"
+  },
   "jwALGI": {
     "defaultMessage": "Cancel",
     "description": "Experiment page > artifact compare view > \"add new row\" modal cancel button label"
@@ -14082,6 +14294,10 @@
   "kIlkgf": {
     "defaultMessage": "Search runs using a simplified version of the SQL {whereBold} clause.",
     "description": "Tooltip string to explain how to search runs from the experiments table"
+  },
+  "kIn9yR": {
+    "defaultMessage": "{count, plural, one {# turn} other {# turns}}",
+    "description": "Turn count shown beside the turns pane title"
   },
   "kItpVi": {
     "defaultMessage": "About response formats",
@@ -14266,6 +14482,10 @@
   "lA8QO2": {
     "defaultMessage": "Edit tags",
     "description": "Label for the edit tags button in the registered prompts table"
+  },
+  "lAX0eA": {
+    "defaultMessage": "Failed to load session",
+    "description": "Title shown in the V4 session drawer when the session fails to load"
   },
   "lCQfQM": {
     "defaultMessage": "Agent response <highlight>violated policy</highlight>",
@@ -14499,6 +14719,10 @@
     "defaultMessage": "Metadata",
     "description": "Section label for metadata columns in the traces table column selector"
   },
+  "lzsFry": {
+    "defaultMessage": "Dataset digest",
+    "description": "Eval run detail: digest identifying the evaluated dataset contents"
+  },
   "m/gY3l": {
     "defaultMessage": "Viewing version {version}",
     "description": "Skill version detail heading"
@@ -14567,6 +14791,10 @@
     "defaultMessage": "New prompt",
     "description": "Option to save the playground messages as a brand-new prompt in the save modal"
   },
+  "mFQ3Pf": {
+    "defaultMessage": "No evidence details were recorded for this trace.",
+    "description": "Experiment issues tab > Evidence card > No assessment or legacy evidence"
+  },
   "mGUpJv": {
     "defaultMessage": "Failed to create record",
     "description": "Generic fallback save-error text for the dataset record side panel (create mode)"
@@ -14586,6 +14814,10 @@
   "mIk1MU": {
     "defaultMessage": "Create Model",
     "description": "Title text for creating model in the model registry"
+  },
+  "mJvdRR": {
+    "defaultMessage": "<baselineLink>Evaluation baseline run</baselineLink> does not have this scorer.",
+    "description": "Tooltip shown when the baseline evaluation run has no saved metric for a scorer"
   },
   "mKV9T/": {
     "defaultMessage": "of",
@@ -14758,6 +14990,10 @@
   "mqDCNl": {
     "defaultMessage": "Unable to parse JSON file. The file should contain an object with 'columns' and 'data' keys.",
     "description": "An error message displayed when the logged table JSON file is malformed or does not contain 'columns' and 'data' keys"
+  },
+  "mqFRJb": {
+    "defaultMessage": "Evidence details could not be loaded for this trace.",
+    "description": "Experiment issues tab > Legacy evidence step > Trace details couldn't be loaded"
   },
   "mqTFL+": {
     "defaultMessage": "Cancel",
@@ -15391,6 +15627,10 @@
     "defaultMessage": "No group by columns selected",
     "description": "Experiment page > artifact compare view > empty state for no group by columns selected > title"
   },
+  "oxy7iI": {
+    "defaultMessage": "Display metric types",
+    "description": "Session turn settings submenu for visible metrics"
+  },
   "oy2LTl": {
     "defaultMessage": "Filter",
     "description": "Label for the span filters popover in the trace explorer."
@@ -15510,6 +15750,10 @@
   "pGmDzQ": {
     "defaultMessage": "This skill may have been deleted or the URL may be incorrect.",
     "description": "Description when a Skill cannot be loaded"
+  },
+  "pIgQXZ": {
+    "defaultMessage": "View dataset",
+    "description": "Link in the dataset hover card that opens the evaluation dataset"
   },
   "pJ57zV": {
     "defaultMessage": "Link to \"{name}\" copied — anyone with access can open this view.",
@@ -15786,6 +16030,10 @@
   "qJEdUj": {
     "defaultMessage": "Cancel",
     "description": "Cancel button in the select sessions modal"
+  },
+  "qJY7OW": {
+    "defaultMessage": "Turn {turnNumber}",
+    "description": "Label for a turn in the session navigation pane"
   },
   "qKGnLV": {
     "defaultMessage": "Model Config:",
@@ -16215,6 +16463,10 @@
     "defaultMessage": "Saving…",
     "description": "Status text shown in the dataset record drawer while a save is in flight"
   },
+  "rlxFiB": {
+    "defaultMessage": "Collapse assessment charts",
+    "description": "Accessible label for collapsing the score charts in the evaluation run table headers"
+  },
   "rmAWZX": {
     "defaultMessage": "just now",
     "description": "Evaluation review > assessments > tooltip > just now"
@@ -16242,6 +16494,10 @@
   "ruFdDg": {
     "defaultMessage": "Output",
     "description": "Traces table output column name"
+  },
+  "rvGJHj": {
+    "defaultMessage": "Estimated LLM cost",
+    "description": "Session turn metric option"
   },
   "rvRhzv": {
     "defaultMessage": "Masked Key:",
@@ -16418,6 +16674,10 @@
   "sOQcFW": {
     "defaultMessage": "None",
     "description": "Label for the button disabling grouping in the logged model list page"
+  },
+  "sOhO4e": {
+    "defaultMessage": "Show {count} more",
+    "description": "Experiment issues tab > Evidence section > Loads the next page of evidence cards"
   },
   "sPjG+W": {
     "defaultMessage": "Assistant unavailable",
@@ -16867,6 +17127,10 @@
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt template input label"
   },
+  "uCvU1I": {
+    "defaultMessage": "This span reported an error with no message or exception recorded.",
+    "description": "Experiment issues tab > Legacy evidence step > Span's error had no details"
+  },
   "uDwMEr": {
     "defaultMessage": "Unavailable",
     "description": "Label for a registry entity without any version"
@@ -17146,6 +17410,10 @@
   "vHNP+J": {
     "defaultMessage": "Add tags",
     "description": "Button text to add tags to a trace in the experiment traces table"
+  },
+  "vHgCMH": {
+    "defaultMessage": "No evidence details were recorded for this trace.",
+    "description": "Experiment issues tab > Legacy evidence step > Trace has no displayable details"
   },
   "vK1v9d": {
     "defaultMessage": "datasets used",
@@ -17687,6 +17955,10 @@
     "defaultMessage": "Are you sure you want to delete the prompt version?",
     "description": "A content for the delete prompt version confirmation modal"
   },
+  "x353Vr": {
+    "defaultMessage": "{count} total tokens",
+    "description": "Tooltip for a session turn token count"
+  },
   "x5IuGA": {
     "defaultMessage": "Loaded {name} v{version}",
     "description": "Success toast shown on the playground after loading a prompt version that did not include stored settings"
@@ -17934,6 +18206,10 @@
   "xnr5KT": {
     "defaultMessage": "No events found",
     "description": "Empty state for the events tab in the model trace explorer. Events are logs of arbitrary things (e.g. exceptions) that occur during the execution of a span, and can be user-defined."
+  },
+  "xoNwg8": {
+    "defaultMessage": "Turns",
+    "description": "Header for turns in the trace session drawer"
   },
   "xpNkK7": {
     "defaultMessage": "Hide raw tools JSON",
@@ -18194,6 +18470,10 @@
   "yvtWjM": {
     "defaultMessage": "Last updated",
     "description": "Metadata label for the dataset record last-update time"
+  },
+  "yxVRPD": {
+    "defaultMessage": "URI",
+    "description": "Eval run detail: URI of the evaluated serving endpoint or app"
   },
   "yyjAgE": {
     "defaultMessage": "Output for the trace",

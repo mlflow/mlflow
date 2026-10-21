@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type InputRef, ColumnSplitIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { useIntl, FormattedMessage } from 'react-intl';
-import { createTraceV4LongIdentifier, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import {
+  createTraceV4LongIdentifier,
+  SESSION_ID_METADATA_KEY,
+  type ModelTraceInfoV3,
+} from '@databricks/web-shared/model-trace-explorer';
 import { doesTraceSupportV4API, MLFLOW_SOURCE_RUN_KEY, RunName } from '@databricks/web-shared/genai-traces-table';
 import {
   EMPTY_FILTER_MODEL,
@@ -20,7 +24,11 @@ import { AssistantAwareActionBar } from '@mlflow/mlflow/src/common/components/As
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import { useNavigate, useSearchParams, useLocation } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { shouldEnableIssueDetection, shouldEnableNewEvalRunsUi } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
-import { SELECTED_TRACE_ID_QUERY_PARAM } from '@mlflow/mlflow/src/experiment-tracking/constants';
+import {
+  SELECTED_TRACE_ID_QUERY_PARAM,
+  TRACE_DRAWER_SESSION_ID_QUERY_PARAM,
+  TRACE_DRAWER_VIEW_MODE_QUERY_PARAM,
+} from '@mlflow/mlflow/src/experiment-tracking/constants';
 // Reuse the generic (branding-free) "/" hotkey hook from datasets-v2.
 import { useSlashFocusSearch } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets-v2/hooks/useSlashFocusSearch';
 import { isAssessmentColumnId } from '../utils/assessmentColumns';
@@ -30,7 +38,9 @@ import { useTracesV4Density } from '../hooks/useTracesV4Density';
 import { useTracesV4Notifications } from '../hooks/useTracesV4Notifications';
 import { useTracesV4TraceActions } from '../hooks/useTracesV4TraceActions';
 import { useTracesV4UnifiedSearch } from '../hooks/useTracesV4UnifiedSearch';
+import { useTracesV4DrawerSessionUrlState } from '../hooks/useTracesV4DrawerSessionUrlState';
 import { TracesV4TableSurface } from './TracesV4TableSurface';
+import type { TracesV4TraceDrawerSession } from './TracesV4TraceDrawer';
 import { useTracesV4ToolbarSlots } from './TracesV4Toolbar';
 import { TracesV4DeleteModal } from './TracesV4DeleteModal';
 import { makeTracesV4ErrorDescription } from './TracesV4States';
@@ -43,6 +53,16 @@ import { useExperimentPageRevampContext } from '../../../../../pages/experiment-
 interface TracesV4PageContentProps {
   experimentId: string;
 }
+
+// Drawer parameters a session link drops: the destination opens the session's own drawer state.
+const SESSION_LINK_DROPPED_PARAMS = [
+  'traceId',
+  'spanId',
+  'selectedEvaluationId',
+  SELECTED_TRACE_ID_QUERY_PARAM,
+  TRACE_DRAWER_VIEW_MODE_QUERY_PARAM,
+  TRACE_DRAWER_SESSION_ID_QUERY_PARAM,
+];
 
 const PREVIEW_LINE_CLAMP_BY_DENSITY = {
   small: 1,
@@ -241,29 +261,105 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     [pathname, search, hash],
   );
 
+  // With the new evaluation runs UI, sessions open in the trace drawer next to the table, so its
+  // filters, sort and grouping stay in place.
+  const sessionDrawerEnabled = shouldEnableNewEvalRunsUi();
+  const drawerSession = useTracesV4DrawerSessionUrlState();
+  // Read only by the session drawer's links, so the link builder doesn't change with the URL otherwise.
+  const sessionLinkSearch = sessionDrawerEnabled ? search : '';
+
   // The session cell's only product coupling: build the single-chat-session route (matching v1),
   // deep-linking the current trace via `?selectedTraceId` so the destination opens on that trace.
+  // With the session drawer, the link also carries the table's parameters; the route sends it back
+  // here with the session open in the drawer.
   const getSessionHref = useCallback<SessionHrefGetter>(
     ({ trace, sessionId }) => {
       const baseUrl = Routes.getExperimentPageTabSingleChatSessionRoute(experimentId, sessionId);
+      if (sessionDrawerEnabled) {
+        const searchParams = new URLSearchParams(sessionLinkSearch);
+        SESSION_LINK_DROPPED_PARAMS.forEach((param) => searchParams.delete(param));
+        if (trace.trace_id) {
+          searchParams.set(SELECTED_TRACE_ID_QUERY_PARAM, trace.trace_id);
+        }
+        const query = searchParams.toString();
+        return query ? `${baseUrl}?${query}` : baseUrl;
+      }
       return trace.trace_id
         ? `${baseUrl}?${new URLSearchParams({ [SELECTED_TRACE_ID_QUERY_PARAM]: trace.trace_id }).toString()}`
         : baseUrl;
     },
-    [experimentId],
+    [experimentId, sessionLinkSearch, sessionDrawerEnabled],
   );
 
   // Clicking a grouped session header row navigates to its single-chat-session view (same route the
-  // session cell links to).
+  // session cell links to), or opens the session in the drawer with the new evaluation runs UI.
+  const { openSession } = drawerSession;
   const handleSessionSelected = useCallback<SessionSelectionHandler>(
     (session) => {
+      if (sessionDrawerEnabled) {
+        openSession(
+          session.sessionId,
+          doesTraceSupportV4API(session.trace) ? createTraceV4LongIdentifier(session.trace) : session.trace.trace_id,
+        );
+        return;
+      }
       const href = getSessionHref(session);
       if (href) {
         navigate(href);
       }
     },
-    [getSessionHref, navigate],
+    [getSessionHref, navigate, openSession, sessionDrawerEnabled],
   );
+
+  // Sessions on this page in table order, each with its first trace, for the drawer's session arrows.
+  const sessionsOnPage = useMemo(() => {
+    if (!sessionDrawerEnabled) {
+      return [];
+    }
+    const firstTraceBySession = new Map<string, string>();
+    for (const trace of page.traces) {
+      const sessionId = trace.trace_metadata?.[SESSION_ID_METADATA_KEY];
+      if (sessionId && !firstTraceBySession.has(sessionId)) {
+        firstTraceBySession.set(
+          sessionId,
+          doesTraceSupportV4API(trace) ? createTraceV4LongIdentifier(trace) : trace.trace_id,
+        );
+      }
+    }
+    return Array.from(firstTraceBySession, ([sessionId, traceId]) => ({ sessionId, traceId }));
+  }, [page.traces, sessionDrawerEnabled]);
+  const {
+    sessionId: drawerSessionId,
+    viewMode: drawerViewMode,
+    showSessionTrace,
+    showSession,
+    selectTrace: selectDrawerTrace,
+    closeDrawer: closeSessionDrawer,
+  } = drawerSession;
+  const drawerSessionProps = useMemo<TracesV4TraceDrawerSession | undefined>(() => {
+    if (!sessionDrawerEnabled || !drawerSessionId) {
+      return undefined;
+    }
+    const index = sessionsOnPage.findIndex((session) => session.sessionId === drawerSessionId);
+    const previous = index > 0 ? sessionsOnPage[index - 1] : undefined;
+    const next = index >= 0 && index < sessionsOnPage.length - 1 ? sessionsOnPage[index + 1] : undefined;
+    return {
+      sessionId: drawerSessionId,
+      viewMode: drawerViewMode,
+      onViewTrace: showSessionTrace,
+      onBackToSession: showSession,
+      onPreviousSession: previous ? () => openSession(previous.sessionId, previous.traceId) : undefined,
+      onNextSession: next ? () => openSession(next.sessionId, next.traceId) : undefined,
+    };
+  }, [
+    drawerSessionId,
+    drawerViewMode,
+    openSession,
+    sessionDrawerEnabled,
+    sessionsOnPage,
+    showSession,
+    showSessionTrace,
+  ]);
   const renderRunName = useCallback(
     (trace: ModelTraceInfoV3) => {
       const runUuid = trace.trace_metadata?.[MLFLOW_SOURCE_RUN_KEY];
@@ -501,11 +597,12 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
       tableViewProps={tableViewProps}
       drawerProps={{
         traceId: url.traceId,
-        onClose: closeDrawer,
+        onClose: sessionDrawerEnabled ? closeSessionDrawer : closeDrawer,
         experimentId,
         traces: page.traces,
-        onSelectTrace: url.setTraceId,
+        onSelectTrace: sessionDrawerEnabled ? selectDrawerTrace : url.setTraceId,
         runJudgeConfiguration: actions.runJudges?.runJudgeConfiguration,
+        ...(drawerSessionProps ? { session: drawerSessionProps } : {}),
       }}
       layoutProps={{
         paddingTop: revampEnabled ? 0 : theme.spacing.md,

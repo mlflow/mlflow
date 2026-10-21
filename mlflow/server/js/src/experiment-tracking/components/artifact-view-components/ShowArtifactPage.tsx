@@ -37,7 +37,6 @@ import { Empty, Spacer } from '@databricks/design-system';
 import { LazyShowArtifactAudioView } from './LazyShowArtifactAudioView';
 import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 import { LazyShowArtifactVideoView } from './LazyShowArtifactVideoView';
-import type { KeyValueEntity } from '../../../common/types';
 import { LazyShowArtifactMarkdownView } from './LazyShowArtifactMarkdownView';
 
 const MAX_PREVIEW_ARTIFACT_SIZE_MB = 50;
@@ -51,20 +50,18 @@ type ShowArtifactPageProps = {
   runTags?: any;
   modelVersions?: any[];
   showArtifactLoggedTableView?: boolean;
-  entityTags?: Partial<KeyValueEntity>[];
 } & LoggedModelArtifactViewerProps;
 
 class ShowArtifactPage extends Component<ShowArtifactPageProps> {
   render() {
     if (this.props.path) {
-      const { loggedModelId, isLoggedModelsMode, path, runUuid, experimentId, entityTags } = this.props;
+      const { artifactRootUri, loggedModelId, isLoggedModelsMode, path, runUuid } = this.props;
       const commonArtifactProps = {
+        artifactRootUri,
         loggedModelId,
         isLoggedModelsMode,
         path,
         runUuid,
-        experimentId,
-        entityTags,
       };
 
       const normalizedExtension = getExtension(this.props.path);
@@ -92,7 +89,6 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
               path={this.props.path}
               artifactRootUri={this.props.artifactRootUri}
               registeredModelLink={registeredModelLink}
-              experimentId={this.props.experimentId}
             />
           );
         }
@@ -106,6 +102,7 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
         } else if (MARKDOWN_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return (
             <LazyShowArtifactMarkdownView
+              artifactRootUri={artifactRootUri}
               loggedModelId={loggedModelId}
               isLoggedModelsMode={isLoggedModelsMode}
               path={path}

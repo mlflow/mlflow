@@ -16,6 +16,7 @@ import { getActiveChildIndex, SPAN_ROW_HEIGHT, TimelineTreeZIndex } from './Time
 import { TimelineTreeHierarchyBars } from './TimelineTreeHierarchyBars';
 import { TimelineTreeSpanTooltip } from './TimelineTreeSpanTooltip';
 import { type ModelTraceSpanNode } from '../ModelTrace.types';
+import { ModelTraceExplorerIssueIndicator } from '../../ModelTraceExplorerIssueBanner';
 import { getSpanExceptionCount } from '../ModelTraceExplorer.utils';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import { useGatewayTraceLink } from '../../hooks/useGatewayTraceLink';
@@ -276,6 +277,7 @@ export const TimelineTreeNode = ({
                         {node.title}
                       </Typography.Text>
                     </div>
+                    <ModelTraceExplorerIssueIndicator span={node} />
                     {gatewayTraceHref && (
                       <Tooltip
                         content="View linked gateway trace"

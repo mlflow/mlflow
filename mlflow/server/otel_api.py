@@ -19,6 +19,7 @@ import time
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
 from google.protobuf.json_format import Error as ProtoJsonError
+from google.protobuf.json_format import MessageToDict
 from google.protobuf.json_format import Parse as ParseJsonProto
 from google.protobuf.message import DecodeError
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
@@ -94,9 +95,12 @@ def _convert_otlp_json_ids_to_base64(body: bytes) -> bytes:
     for resource_span in data.get("resourceSpans", []):
         for scope_span in resource_span.get("scopeSpans", []):
             for span in scope_span.get("spans", []):
-                for field in _OTLP_HEX_ID_FIELDS:
-                    if hex_val := span.get(field):
-                        span[field] = base64.b64encode(bytes.fromhex(hex_val)).decode("ascii")
+                for span_or_link in [span, *(span.get("links") or [])]:
+                    for field in _OTLP_HEX_ID_FIELDS:
+                        if hex_val := span_or_link.get(field):
+                            span_or_link[field] = base64.b64encode(bytes.fromhex(hex_val)).decode(
+                                "ascii"
+                            )
     return json.dumps(data).encode("utf-8")
 
 
@@ -121,7 +125,7 @@ async def export_traces(
     """
     Export trace spans to MLflow via the OpenTelemetry protocol.
 
-    This endpoint accepts OTLP/HTTP protobuf trace export requests.
+    This endpoint accepts OTLP/HTTP protobuf and JSON trace export requests.
     Protobuf format reference: https://opentelemetry.io/docs/specs/otlp/#binary-protobuf-encoding
 
     Note: All spans in the batch are persisted in a single log_spans() call. If that
@@ -129,7 +133,7 @@ async def export_traces(
     supported; clients that need per-trace error isolation should batch by trace.
 
     Args:
-        request: OTel ExportTraceServiceRequest in protobuf format
+        request: OTel ExportTraceServiceRequest in protobuf or JSON format
         x_mlflow_experiment_id: Required header containing the experiment ID
         x_mlflow_run_id: Optional header containing the run ID to associate with ingested traces
         content_type: Content-Type header from the request
@@ -138,7 +142,7 @@ async def export_traces(
         x_mlflow_workspace: Optional workspace header if using MLflow workspaces
 
     Returns:
-        FastAPI Response with ExportTraceServiceResponse in protobuf format
+        FastAPI Response with ExportTraceServiceResponse, encoded to match the request
 
     Raises:
         HTTPException: If the request is invalid or span logging fails
@@ -290,8 +294,11 @@ async def export_traces(
 
                 _record_event(TracesReceivedByServerEvent, event_params)
 
-        # Return protobuf response as per OTLP specification
+        # Per the OTLP spec, the response must use the same encoding as the request:
+        # https://opentelemetry.io/docs/specs/otlp/#otlphttp-response
         response_message = ExportTraceServiceResponse()
+        if media_type == "application/json":
+            return JSONResponse(content=MessageToDict(response_message), status_code=200)
         response_bytes = response_message.SerializeToString()
         return Response(
             content=response_bytes,

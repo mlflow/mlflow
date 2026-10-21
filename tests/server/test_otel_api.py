@@ -1,5 +1,7 @@
 import asyncio
+import base64
 import gzip
+import json
 import threading
 from abc import ABC
 from unittest import mock
@@ -15,9 +17,10 @@ from mlflow.entities import Workspace
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
-from mlflow.server.fastapi_app import add_fastapi_workspace_middleware
+from mlflow.server.fastapi_app import add_fastapi_workspace_middleware, create_fastapi_app
 from mlflow.server.otel_api import otel_router
 from mlflow.store.tracking.abstract_store import AbstractStore
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH, _set_otel_proto_anyvalue
 from mlflow.utils import workspace_context
 from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
@@ -409,6 +412,102 @@ def test_otlp_resource_attributes_preserved(monkeypatch):
     assert res["telemetry.sdk.name"] == "opentelemetry"
 
 
+@pytest.mark.parametrize("content_type", ["application/json", "application/json; charset=utf-8"])
+@pytest.mark.parametrize("compressed", [False, True])
+def test_otlp_json_span_links_preserved(monkeypatch, db_uri, tmp_path, content_type, compressed):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    store = SqlAlchemyStore(db_uri, tmp_path.as_uri())
+    experiment_id = store.create_experiment("otlp-json-links")
+    monkeypatch.setattr("mlflow.server.otel_api._get_tracking_store", lambda: store)
+    monkeypatch.setattr("mlflow.server.handlers._tracking_store", store)
+    client = TestClient(create_fastapi_app(), base_url="http://localhost")
+
+    trace_id = "0af7651916cd43dd8448eb211c80319c"
+    span_id = "b7ad6b7169203331"
+    linked_trace_id = "1234567890abcdef1234567890abcdef"
+    linked_span_id = "1234567890abcdef"
+    span = {
+        "traceId": trace_id,
+        "spanId": span_id,
+        "name": "span-with-links",
+        "startTimeUnixNano": "1000000000",
+        "endTimeUnixNano": "2000000000",
+        "links": [
+            {
+                "traceId": linked_trace_id,
+                "spanId": linked_span_id,
+                "attributes": [{"key": "relationship", "value": {"stringValue": "follows"}}],
+            },
+            {"traceId": trace_id.upper(), "spanId": "ABCDEF0123456789"},
+        ],
+    }
+    content = json.dumps({"resourceSpans": [{"scopeSpans": [{"spans": [span]}]}]}).encode()
+    headers = {"Content-Type": content_type, "X-MLflow-Experiment-Id": experiment_id}
+    if compressed:
+        content = gzip.compress(content)
+        headers["Content-Encoding"] = "gzip"
+
+    response = client.post(OTLP_TRACES_PATH, content=content, headers=headers)
+
+    assert response.status_code == 200
+    trace = store.get_trace(f"tr-{trace_id}")
+    stored_span = trace.data.spans[0]
+    assert stored_span.trace_id == f"tr-{trace_id}"
+    assert stored_span.span_id == span_id
+    assert [link.to_dict() for link in stored_span.links] == [
+        {
+            "trace_id": f"tr-{linked_trace_id}",
+            "span_id": linked_span_id,
+            "attributes": {"relationship": "follows"},
+        },
+        {"trace_id": f"tr-{trace_id}", "span_id": "abcdef0123456789", "attributes": None},
+    ]
+    response = client.get("/api/3.0/mlflow/traces/batchGet", params={"trace_ids": f"tr-{trace_id}"})
+    assert response.status_code == 200
+    response_links = response.json()["traces"][0]["spans"][0]["links"]
+    assert [
+        (base64.b64decode(link["trace_id"]).hex(), base64.b64decode(link["span_id"]).hex())
+        for link in response_links
+    ] == [
+        (linked_trace_id, linked_span_id),
+        (trace_id, "abcdef0123456789"),
+    ]
+
+
+@pytest.mark.parametrize("field", ["traceId", "spanId"])
+def test_otlp_json_invalid_link_id(monkeypatch, field):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    span = {
+        "traceId": "0af7651916cd43dd8448eb211c80319c",
+        "spanId": "b7ad6b7169203331",
+        "name": "invalid-link",
+        "links": [{"traceId": "1234567890abcdef1234567890abcdef", "spanId": "1234567890abcdef"}],
+    }
+    span["links"][0][field] = "not-hex"
+    response = _make_test_client().post(
+        OTLP_TRACES_PATH,
+        json={"resourceSpans": [{"scopeSpans": [{"spans": [span]}]}]},
+        headers={"X-MLflow-Experiment-Id": "1"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid OpenTelemetry format"
+
+
+@pytest.mark.parametrize("links", [None, []])
+def test_otlp_json_without_links(monkeypatch, links):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    monkeypatch.setattr("mlflow.server.otel_api._get_tracking_store", lambda: _make_store()())
+    span = {"traceId": "0" * 32, "spanId": "01" * 8, "name": "span", "links": links}
+    response = _make_test_client().post(
+        OTLP_TRACES_PATH,
+        json={"resourceSpans": [{"scopeSpans": [{"spans": [span]}]}]},
+        headers={"X-MLflow-Experiment-Id": "1"},
+    )
+
+    assert response.status_code == 200
+
+
 def _make_asgi_app():
     app = FastAPI()
     add_fastapi_workspace_middleware(app)
@@ -720,3 +819,32 @@ def test_otlp_prometheus_metrics(monkeypatch):
 
     assert delta(before, after, "spans") == 10
     assert delta(before, after, "spans_per_req_sum") == 10
+
+
+@pytest.mark.parametrize(
+    ("content_type", "expected_media_type", "expected_body"),
+    [
+        ("application/x-protobuf", "application/x-protobuf", b""),
+        ("application/json", "application/json", b"{}"),
+        ("application/json; charset=utf-8", "application/json", b"{}"),
+    ],
+)
+def test_otlp_response_encoding_matches_request(
+    monkeypatch, content_type, expected_media_type, expected_body
+):
+    monkeypatch.setattr("mlflow.server.otel_api._get_tracking_store", lambda: _make_store()())
+    if content_type.startswith("application/json"):
+        span = {"traceId": "0" * 32, "spanId": "01" * 8, "name": "span"}
+        content = json.dumps({"resourceSpans": [{"scopeSpans": [{"spans": [span]}]}]})
+    else:
+        content = _build_otlp_payload()
+
+    resp = _make_test_client().post(
+        OTLP_TRACES_PATH,
+        content=content,
+        headers={"Content-Type": content_type, "X-MLflow-Experiment-Id": "1"},
+    )
+
+    assert resp.status_code == 200
+    assert resp.headers["content-type"] == expected_media_type
+    assert resp.content == expected_body

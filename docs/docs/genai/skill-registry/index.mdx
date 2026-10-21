@@ -1,0 +1,244 @@
+---
+title: Skill Registry
+description: Register, version, and share agent skills with MLflow Skill Registry. Upload local skills or register content from Git, OCI, and ZIP sources.
+---
+
+import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import { GitBranch, Search, Download, FolderOpen } from "lucide-react";
+
+# Skill Registry
+
+:::warning[Experimental]
+
+Skill Registry is experimental. APIs and behavior may change in future releases.
+
+:::
+
+**MLflow Skill Registry** provides a centralized catalog for registering, versioning, and sharing [agent skills](https://agentskills.io). A skill contains a `SKILL.md` file with instructions and can include supporting files, such as scripts and reference documents. Register skills so users can discover them, track their versions, and download them for use with their agents.
+
+You can upload a local directory or register content from Git, an OCI registry, or a ZIP URL. Uploaded content is stored as MLflow artifacts. For external sources, the registry records where to fetch the content.
+
+## Key Benefits
+
+<FeatureHighlights features={[
+  {
+    icon: FolderOpen,
+    title: "Centralized Catalog",
+    description: "Keep your organization's skills in one catalog, with descriptions, tags, and source information."
+  },
+  {
+    icon: GitBranch,
+    title: "Version Control",
+    description: "Track changes with numbered versions. Manage draft, active, and deprecated versions, and assign aliases such as production."
+  },
+  {
+    icon: Search,
+    title: "Skill Discovery",
+    description: "Search registered skills by name, organization, status, source type, or tags. Import multiple skills from a Git repository."
+  },
+  {
+    icon: Download,
+    title: "Use with Your Agents",
+    description: "Download skills by version or alias. Get CLI and Python instructions for placing files where your agent loads skills."
+  },
+]} />
+
+## Getting Started
+
+### 1. Register a Skill
+
+:::tip[What is SKILL.md?]
+
+`SKILL.md` contains the skill's instructions and YAML frontmatter that declares its name. Create a directory named `code-review` and save this example as `code-review/SKILL.md`:
+
+```markdown
+---
+name: code-review
+description: Review code changes for correctness and maintainability.
+---
+
+# Code review
+
+Read the proposed changes and their tests. Identify bugs, explain their impact,
+and suggest focused fixes. Reference the affected files in your findings.
+```
+
+:::
+
+<Tabs>
+  <TabItem value="ui" label="UI" default>
+    <div class="flex-column">
+      <div style={{ width: "70%", margin: "20px" }}>
+        ![Create Skill with a Local Folder](/images/llms/skill-registry/register-skill-ui.png)
+      </div>
+
+      1. Run `mlflow server` in your terminal to start the MLflow UI.
+      2. Navigate to **Skills** in the sidebar.
+      3. Click **Create skill**.
+      4. Select **Upload a folder** and choose the `code-review` directory.
+      5. Review the name read from `SKILL.md`.
+      6. Click **Create** to register the skill.
+    </div>
+
+  </TabItem>
+  <TabItem value="python" label="Python">
+    <div class="flex-column">
+      Set `MLFLOW_TRACKING_URI` to your running MLflow server before using the Python API.
+
+      Use <APILink fn="mlflow.genai.register_skill" /> to inspect and upload the directory:
+
+      ```python
+      import mlflow
+
+      version = mlflow.genai.register_skill(source="./code-review")
+      print(f"Registered '{version.name}' version {version.version}")
+      ```
+    </div>
+
+  </TabItem>
+  <TabItem value="cli" label="CLI">
+    <div class="flex-column">
+      Set `MLFLOW_TRACKING_URI` to your running MLflow server before using the CLI.
+
+      ```bash
+      mlflow skills register --source ./code-review
+      ```
+    </div>
+
+  </TabItem>
+</Tabs>
+
+Registration creates the parent skill if needed and defaults to `active` status. The first version is `1`; each subsequent single-skill registration creates a new integer version.
+
+### 2. Browse Registered Skills
+
+<Tabs>
+  <TabItem value="ui" label="UI" default>
+    <div class="flex-column">
+      ![Skill Registry Catalog](/images/llms/skill-registry/skill-registry-list.png)
+
+      The **Skills** page displays the registered catalog. Search by name or filter by organization, status, and source type. Open a skill to inspect its versions, source, tags, and aliases.
+    </div>
+
+  </TabItem>
+  <TabItem value="python" label="Python">
+    <div class="flex-column">
+      Use <APILink fn="mlflow.genai.search_skills" /> to find registered skills:
+
+      ```python
+      import mlflow
+
+      skills = mlflow.genai.search_skills()
+      for skill in skills:
+          print(f"{skill.name}: {skill.description}")
+
+      active_skills = mlflow.genai.search_skills(filter_string="status = 'active'")
+      ```
+    </div>
+
+  </TabItem>
+  <TabItem value="cli" label="CLI">
+    <div class="flex-column">
+      ```bash
+      mlflow skills search --filter-string "status = 'active'" --output json
+      ```
+    </div>
+
+  </TabItem>
+</Tabs>
+
+### 3. Pull a Skill
+
+Pulling downloads a registered skill's files into a local directory.
+
+<Tabs>
+  <TabItem value="ui" label="UI" default>
+    <div class="flex-column">
+      <div style={{ width: "70%", margin: "20px" }}>
+        ![Skill Pull Instructions](/images/llms/skill-registry/use-skill.png)
+      </div>
+
+      1. Click **Use** on a skill.
+      2. Choose your agent under **Install for**.
+      3. Select **CLI** or **Python** and copy the pull command.
+      4. Run the command in your environment to download the skill.
+    </div>
+
+  </TabItem>
+  <TabItem value="python" label="Python">
+    <div class="flex-column">
+      Use <APILink fn="mlflow.genai.pull" /> to download a specific version:
+
+      ```python
+      import mlflow
+
+      path = mlflow.genai.pull("skills:/code-review/1", destination="./downloaded-review")
+      print(path)
+      ```
+    </div>
+
+  </TabItem>
+  <TabItem value="cli" label="CLI">
+    <div class="flex-column">
+      ```bash
+      mlflow skills pull skills:/code-review/1 --destination ./downloaded-review
+      ```
+    </div>
+
+  </TabItem>
+</Tabs>
+
+The destination must be absent or an empty directory. Pulling downloads files; it does not execute the skill. Use a per-skill subdirectory, such as `.claude/skills/code-review`, as the destination to make the files available to your agent.
+
+## Concepts
+
+### Entity Model
+
+| Entity           | Description                                                                                                                 |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| **Skill**        | The parent entry, identified by name and optional organization within a workspace. Holds metadata, tags, and aliases.       |
+| **SkillVersion** | A numbered version with a source, optional content digest, status, and version tags. Content changes require a new version. |
+| **Alias**        | A name such as `production` that points to a version. The reserved `latest` alias resolves dynamically.                     |
+
+### Skill Naming Convention
+
+Skill names use 1–64 lowercase ASCII letters, digits, and hyphens. A name cannot start or end with a hyphen or contain consecutive hyphens.
+
+An optional organization groups skills under a namespace:
+
+```text
+code-review
+@acme/code-review
+```
+
+These identify different skills. In Python calls, pass `organization="acme"` separately from `name="code-review"`. In skill URIs, use `skills:/@acme/code-review`.
+
+### Status Lifecycle
+
+Each skill version has a status:
+
+```text
+draft ⇄ active ⇄ deprecated
+  │                    │
+  └───→ deleted ←──────┘
+```
+
+- **Draft**: The version is being prepared. It can still be pulled by version or alias.
+- **Active**: The version is ready for use. Latest resolution prefers active versions.
+- **Deprecated**: The version remains accessible but should be replaced.
+- **Deleted**: The version is no longer available for normal reads or pulls.
+
+### Access Control
+
+When workspaces are enabled, skill identities and permissions are scoped to the active workspace. With MLflow authentication, `READ` permits reading and pulling skills, `EDIT` permits registering versions and updating metadata, and `MANAGE` permits deleting skills and versions. An organization name does not itself grant access.
+
+Access to an external source is checked separately using the pulling user's credentials.
+
+## Next Steps
+
+- [Register and Import Skills](/genai/skill-registry/register-and-import-skills) — local uploads, external sources, and Git repository imports
+- [Manage Versions and Aliases](/genai/skill-registry/manage-versions-and-aliases) — versioning, status lifecycle, aliases, and tags
+- [Pull Skills](/genai/skill-registry/pull-skills) — pull instructions, version selection, and content verification
