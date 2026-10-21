@@ -17907,6 +17907,10 @@
     "defaultMessage": "Points:",
     "description": "Label for the toggle button to toggle to show points or not for the metric experiment run"
   },
+  "z++2eH": {
+    "defaultMessage": "Failed to cancel issue detection: {error}",
+    "description": "Experiment issues tab > Error shown when cancelling issue detection fails"
+  },
   "z+0t/R": {
     "defaultMessage": "You need to define at least one input variable",
     "description": "Experiment page > new run modal > invalid state - no input variables defined"

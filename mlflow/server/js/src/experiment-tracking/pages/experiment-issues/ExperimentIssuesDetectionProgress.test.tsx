@@ -1,7 +1,8 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import userEvent from '@testing-library/user-event';
 
-import { renderWithDesignSystem, screen, within } from '../../../common/utils/TestUtils.react18';
+import { renderWithDesignSystem, screen, waitFor, within } from '../../../common/utils/TestUtils.react18';
+import Utils from '../../../common/utils/Utils';
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 import { ExperimentIssuesDetectionProgress } from './ExperimentIssuesDetectionProgress';
 
@@ -49,6 +50,29 @@ describe('ExperimentIssuesDetectionProgress', () => {
     expect(dialog).not.toHaveTextContent('Cancel only if it seems to have stopped');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel detection' }));
     expect(onCancelDetection).toHaveBeenCalledTimes(1);
+  });
+
+  test('keeps the dialog open and reports a cancellation that failed', async () => {
+    // The run is still going after a failed cancel, so closing the dialog would leave the user
+    // to infer the failure from detection never stopping.
+    const onCancelDetection = jest
+      .fn<() => Promise<void>>()
+      .mockRejectedValueOnce(new Error('Not the job owner'))
+      .mockResolvedValueOnce(undefined);
+    const logError = jest.spyOn(Utils, 'logErrorAndNotifyUser').mockImplementation(() => {});
+    renderPanel(onCancelDetection);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel detection' }));
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel detection' }));
+
+    expect(logError).toHaveBeenCalledWith(expect.stringContaining('Not the job owner'));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    // Still retryable.
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel detection' }));
+    expect(onCancelDetection).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    logError.mockRestore();
   });
 
   test('offers no cancel while the run is still being created', () => {

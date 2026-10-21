@@ -110,16 +110,18 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
   const traces = useDetectionTraceIds(experimentId, showDetection);
   const isDetectionButtonLoading = isDetecting || (showDetection && traces.isFetching);
   const { cancelJobAsync } = useCancelJob();
-  // Left undefined until a job exists: there is nothing to cancel while the run is still being
-  // created, and the button disables itself rather than failing the request.
-  const onCancelDetection = detection.jobId
-    ? async () => {
-        // The run is passed so the hook terminates it too: the server cancels the job
-        // without touching the run it belongs to, which would otherwise stay RUNNING.
-        await cancelJobAsync({ jobId: detection.jobId as string, runUuid: detection.run?.info.run_id });
-        await detection.refetch();
-      }
-    : undefined;
+  // Gated on a run actually being in flight, not merely on a job ID existing: a completed run
+  // keeps its job ID, so gating on that alone would offer to cancel a terminal job whenever the
+  // button went busy again -- which it does while the modal loads traces for the next run.
+  const onCancelDetection =
+    isDetecting && detection.jobId
+      ? async () => {
+          // The run is passed so the hook terminates it too: the server cancels the job
+          // without touching the run it belongs to, which would otherwise stay RUNNING.
+          await cancelJobAsync({ jobId: detection.jobId as string, runUuid: detection.run?.info.run_id });
+          await detection.refetch();
+        }
+      : undefined;
   const [params, setParams] = useSearchParams();
   const requestedIssueId = params.get(SELECTED_ISSUE_ID_PARAM) ?? undefined;
   const firstIssueId = issues[0]?.issue_id;

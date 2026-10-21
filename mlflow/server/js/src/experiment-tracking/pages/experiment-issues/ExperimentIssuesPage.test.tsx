@@ -666,6 +666,26 @@ describe('Experiment Issues', () => {
     await screen.findByRole('button', { name: 'Detect issues in traces' });
     expect(screen.queryByText('Detect Issues in Your Traces')).not.toBeInTheDocument();
   });
+  test('does not offer to cancel the previous run while the next one is being set up', async () => {
+    // A finished run keeps its job ID. Opening the modal makes the button busy again while
+    // traces load, and gating cancel on the job ID alone would offer to cancel that dead job.
+    latestRun = {
+      info: { run_id: 'run-done', status: 'FINISHED' },
+      data: { tags: [{ key: 'mlflow.issueDetection.jobId', value: 'job-1' }] },
+    };
+    jobStatus = 'SUCCEEDED';
+    server.use(
+      rest.post('*/ajax-api/3.0/mlflow/traces/search', (_req, res, ctx) =>
+        res(ctx.delay(400), ctx.json({ traces: [{ trace_id: 'tr-1' }] })),
+      ),
+    );
+    renderPage();
+    await screen.findByText('Description for iss-a');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Detect issues in traces' }));
+
+    expect(screen.queryByRole('button', { name: 'Cancel detection' })).not.toBeInTheDocument();
+  });
   test('spins rather than offering to cancel a run that does not exist yet', async () => {
     // Between opening the modal and the submit returning a job there is nothing to cancel, so
     // the detect button spins instead of offering an action that would have no target.

@@ -1,6 +1,8 @@
 import { Button, Modal, Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useState } from 'react';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
+
+import Utils from '../../../common/utils/Utils';
 
 export interface CancelIssueDetectionButtonProps {
   componentId: string;
@@ -16,6 +18,7 @@ export interface CancelIssueDetectionButtonProps {
  */
 export const CancelIssueDetectionButton = ({ componentId, onCancel, size }: CancelIssueDetectionButtonProps) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
 
@@ -26,9 +29,21 @@ export const CancelIssueDetectionButton = ({ componentId, onCancel, size }: Canc
     setIsCancelling(true);
     try {
       await onCancel();
+      setIsConfirmOpen(false);
+    } catch (error) {
+      // The run is still going, so the dialog stays open to be retried rather than closing on
+      // a failure the user would otherwise only notice by the detection never stopping.
+      Utils.logErrorAndNotifyUser(
+        intl.formatMessage(
+          {
+            defaultMessage: 'Failed to cancel issue detection: {error}',
+            description: 'Experiment issues tab > Error shown when cancelling issue detection fails',
+          },
+          { error: error instanceof Error ? error.message : String(error) },
+        ),
+      );
     } finally {
       setIsCancelling(false);
-      setIsConfirmOpen(false);
     }
   };
 
