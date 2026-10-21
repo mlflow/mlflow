@@ -40,6 +40,7 @@ def select_executor_backend(
             f"{custom_backend!r} executor backend that runs code-based scorers on this server "
             "(MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND) cannot run it, and the server does not "
             "run code-based scorers anywhere else, so the job was not started. Remove the "
-            "code-based scorers from the job, or run them with mlflow.genai.evaluate() instead."
+            "code-based scorers from the job, or call mlflow.genai.evaluate() in your own Python "
+            "environment, which runs the scorers there instead of on the server."
         )
     return custom_backend
