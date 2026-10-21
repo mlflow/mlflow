@@ -37,7 +37,6 @@ from mlflow.server.constants import (
     ARTIFACTS_DESTINATION_ENV_VAR,
     ARTIFACTS_ONLY_ENV_VAR,
     BACKEND_STORE_URI_ENV_VAR,
-    EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE,
     HUEY_STORAGE_PATH_ENV_VAR,
     PROMETHEUS_EXPORTER_ENV_VAR,
     READ_REPLICA_BACKEND_STORE_URI_ENV_VAR,
@@ -62,6 +61,7 @@ from mlflow.server.handlers import (
     post_ui_telemetry_handler,
     upload_artifact_handler,
 )
+from mlflow.server.jobs.executor import EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE
 from mlflow.server.workspace_helpers import (
     workspace_before_request_handler,
     workspace_teardown_request_handler,
@@ -398,7 +398,7 @@ def _stop_server_if_job_runner_exits(
     threading.Thread(
         target=_watch_job_runner,
         args=(job_runner_proc, server_proc, shutting_down, runner_failed),
-        name="MLflow-job-runner-watcher",
+        name="job-runner-watcher",
         daemon=True,
     ).start()
     return runner_failed

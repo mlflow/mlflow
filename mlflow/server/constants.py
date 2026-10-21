@@ -77,7 +77,3 @@ SECRETS_CACHE_TTL_ENV_VAR = "MLFLOW_SERVER_SECRETS_CACHE_TTL"
 
 # Maximum number of entries in server-side secrets cache (default 1000 entries)
 SECRETS_CACHE_MAX_SIZE_ENV_VAR = "MLFLOW_SERVER_SECRETS_CACHE_MAX_SIZE"
-
-# Exit code of the executor-engine job runner when it stops because of an error (for example when
-# it cannot prepare the docker job image). `mlflow server` stops when its job runner exits with it.
-EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE = 70

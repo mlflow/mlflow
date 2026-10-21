@@ -17,10 +17,14 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import TEMPORARILY_UNAVAILABLE
-from mlflow.server.constants import EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE
 from mlflow.server.jobs import _ALLOWED_JOB_NAME_LIST, _SUPPORTED_JOB_FUNCTION_LIST, job, submit_job
 from mlflow.server.jobs import _executor_runner as runner
-from mlflow.server.jobs.executor import JobExecutorConfig, JobRecoveryResult, JobResult
+from mlflow.server.jobs.executor import (
+    EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE,
+    JobExecutorConfig,
+    JobRecoveryResult,
+    JobResult,
+)
 from mlflow.server.jobs.executor_registry import (
     get_executor_registry,
     shutdown_executor_registry,

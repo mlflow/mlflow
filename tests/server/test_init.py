@@ -18,7 +18,7 @@ from mlflow.environment_variables import (
     MLFLOW_FLASK_SERVER_SECRET_KEY,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.server.constants import EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE
+from mlflow.server.jobs.executor import EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE
 from mlflow.store.tracking.dbmodels.models import SqlTraceMetricDailyRollup
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils import find_free_port
