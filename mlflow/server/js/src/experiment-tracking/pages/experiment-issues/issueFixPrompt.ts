@@ -58,6 +58,10 @@ export interface IssueFixPromptOptions {
  * The diagnosis-and-verification discipline is deferred to the `fix-agent-issue` skill rather than
  * restated here, so this prompt stays about the issue and the skill stays the one place that
  * defines how a fix is made.
+ *
+ * The prompt does not tell the agent how to re-read the issue itself, only its traces: there is no
+ * `mlflow issues` CLI yet, and the issue's text is inlined here instead. Add that once one exists,
+ * so the agent can follow status and later references rather than only what was copied.
  */
 export const buildIssueFixPrompt = (
   experimentId: string,
