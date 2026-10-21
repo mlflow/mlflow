@@ -41,18 +41,27 @@ export const IssueProposedFixSection = ({ experimentId, issue }: IssueProposedFi
   const promptId = `issue-fix-prompt-${issue.issue_id}`;
   const [isExpanded, setIsExpanded] = useState(false);
   const { pathname, search, hash } = useLocation();
-  // Absolute, and hash-routed, so the link in the agent's pull request opens from anywhere.
-  const issueUrl = `${window.location.origin}/#${pathname}${search}${hash}`;
-  const { traceInfos } = useIssueEvidenceTraces(experimentId, issue.issue_id);
+  // Resolved against the document's base, which carries the server's `--static-prefix`: an origin
+  // plus the hash route would drop that prefix and point the agent at an unserved path.
+  const issueUrl = new URL(`#${pathname}${search}${hash}`, document.baseURI).toString();
+  // Same query as the Evidence section above, so its loading and error states are this section's
+  // too -- including the retry it already offers, which is why this one does not repeat it.
+  const { traceInfos, isLoading, isError, hasNextPage } = useIssueEvidenceTraces(experimentId, issue.issue_id);
   const traceIds = useMemo(
     () => traceInfos.map((trace) => trace.trace_id).filter((traceId): traceId is string => Boolean(traceId)),
     [traceInfos],
   );
   const prompt = buildIssueFixPrompt(experimentId, issue, issueUrl, {
     traceIds,
+    // `GetIssue` returns no trace count, so this is usually undefined and the prompt says
+    // "and more not listed here" rather than inventing a total from the page in memory.
     totalTraceCount: issue.trace_count,
+    hasMoreTraces: Boolean(hasNextPage),
   });
   const { copied, copy } = useCopyController(prompt);
+  // An unresolved lookup reads as "no traces", which would hand the agent a prompt with nothing
+  // to inspect. A lookup that resolved to nothing is fine -- that prompt is honest.
+  const tracesUnavailable = isLoading || isError;
 
   return (
     <section
@@ -87,6 +96,7 @@ export const IssueProposedFixSection = ({ experimentId, issue }: IssueProposedFi
           <Button
             componentId="mlflow.experiment-issues.detail.proposed-fix.copy"
             size="small"
+            disabled={tracesUnavailable}
             icon={copied ? <CheckIcon /> : <CopyIcon />}
             onClick={copy}
           >

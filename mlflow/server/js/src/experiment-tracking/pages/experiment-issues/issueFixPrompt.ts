@@ -25,23 +25,29 @@ const issueDetailsBlock = (lines: string[]) =>
 ${escapeIssueDetails(lines.join('\n'))}
 </${ISSUE_DETAILS_TAG}>`;
 
-const traceIdLines = (traceIds: string[], totalCount: number) => {
+const traceIdLines = (traceIds: string[], totalCount: number | undefined, hasMore: boolean) => {
   const shown = traceIds.slice(0, FIX_PROMPT_TRACE_LIMIT);
-  const remaining = Math.max(totalCount - shown.length, 0);
-  return [
-    ...shown.map((traceId) => `- ${traceId}`),
-    ...(remaining > 0 ? [`- ...and ${remaining} more on the issue`] : []),
-  ];
+  const lines = shown.map((traceId) => `- ${traceId}`);
+  if (totalCount !== undefined) {
+    const remaining = Math.max(totalCount - shown.length, 0);
+    return remaining > 0 ? [...lines, `- ...and ${remaining} more on the issue`] : lines;
+  }
+  // Nothing to count against, so say only what is true: there are more, not how many more.
+  const unlisted = hasMore || traceIds.length > shown.length;
+  return unlisted ? [...lines, '- ...and more not listed here'] : lines;
 };
 
 export interface IssueFixPromptOptions {
   /** Affected trace IDs already loaded for this issue; a prefix of them is listed in the prompt. */
   traceIds: string[];
   /**
-   * How many traces the issue affects in total, which can exceed `traceIds` when only a page of
-   * them has been loaded. Defaults to the number given.
+   * How many traces the issue affects in total, when that is known. Left undefined when it is not
+   * -- `GetIssue` returns no trace count, only `SearchIssues` does -- in which case the prompt
+   * stops short of claiming a total rather than passing a loaded page off as one.
    */
   totalTraceCount?: number;
+  /** Whether more affected traces exist beyond `traceIds`, used when no total is known. */
+  hasMoreTraces?: boolean;
 }
 
 /**
@@ -67,10 +73,9 @@ export const buildIssueFixPrompt = (
   experimentId: string,
   issue: Issue,
   issueUrl: string,
-  { traceIds, totalTraceCount }: IssueFixPromptOptions,
+  { traceIds, totalTraceCount, hasMoreTraces = false }: IssueFixPromptOptions,
 ): string => {
   const categories = issue.categories ?? [];
-  const total = totalTraceCount ?? traceIds.length;
 
   return `${FIX_PROMPT_INTRO}
 
@@ -81,11 +86,11 @@ ${issue.source_run_id ? `Detection run ID: ${issue.source_run_id}\n` : ''}${issu
     ...(issue.severity ? [`Severity: ${issue.severity}`] : []),
     ...(categories.length > 0 ? [`Categories: ${categories.join(', ')}`] : []),
     ...(issue.description ? [`Description: ${issue.description}`] : []),
-    `Affected trace IDs (${total} total):`,
-    ...traceIdLines(traceIds, total),
+    totalTraceCount === undefined ? 'Affected trace IDs:' : `Affected trace IDs (${totalTraceCount} total):`,
+    ...traceIdLines(traceIds, totalTraceCount, hasMoreTraces),
   ])}
 
-You are running as a coding agent in the repository connected to this experiment. Use the MLflow CLI configured on this machine to inspect the traces: \`mlflow traces get --trace-id <ID>\` writes one to a file, and each affected trace carries an issue assessment named ${issue.issue_id} holding the evidence for it. The \`analyze-mlflow-trace\` and \`retrieving-mlflow-traces\` skills cover reading them. If the MLflow skills are not available, install them from https://github.com/mlflow/skills before investigating.
+You are running as a coding agent in the repository connected to this experiment. Use the MLflow CLI configured on this machine to inspect the traces: \`mlflow traces get --trace-id <ID> > trace.json\` prints one as JSON, worth redirecting because a trace can be large, and each affected trace carries an issue assessment named ${issue.issue_id} holding the evidence for it. The \`analyze-mlflow-trace\` and \`retrieving-mlflow-traces\` skills cover reading them. If the MLflow skills are not available, install them from https://github.com/mlflow/skills before investigating.
 
 ${fixPromptOutro(issueUrl)}`;
 };
