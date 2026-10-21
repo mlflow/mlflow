@@ -6243,7 +6243,8 @@ def test_invoke_registered_scorer_with_a_real_store(db_uri):
     assert response.status_code == 200, response.get_json()
     params = mock_submit.call_args.kwargs["params"]
     assert params["scorer_version"] == 1
-    assert json.loads(params["serialized_scorer"])["name"] == "test_judge"
+    # The whole stored scorer, not the one the client sent.
+    assert json.loads(params["serialized_scorer"]) == json.loads(stored_scorer)
 
 
 @pytest.mark.parametrize("custom_scorers_enabled", [True, False])

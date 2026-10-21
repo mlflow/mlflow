@@ -3524,6 +3524,12 @@ def _registered_scorer_names_in_evaluate_request(body: dict[str, Any]) -> list[s
     scorer_versions = body.get("scorer_versions")
     if not isinstance(serialized_scorers, list) or not isinstance(scorer_versions, list):
         return []
+    if len(serialized_scorers) != len(scorer_versions):
+        # Unpaired entries would skip their checks. The handler rejects this with the same error,
+        # but only after the request is authorized.
+        raise MlflowException.invalid_parameter_value(
+            "scorer_versions must have the same length as serialized_scorers"
+        )
     names = []
     for serialized_scorer, scorer_version in zip(serialized_scorers, scorer_versions):
         if scorer_version is None:

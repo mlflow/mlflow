@@ -8781,6 +8781,64 @@ def test_genai_evaluate_invoke_respects_a_deny_on_the_registered_scorer(client, 
         assert resp.status_code != 403, resp.text
 
 
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [
+        (
+            {
+                "serialized_scorers": ['{"name": "a"}', '{"name": "b"}'],
+                "scorer_versions": [1, None],
+            },
+            ["a"],
+        ),
+        ({"serialized_scorers": ['{"name": "a"}'], "scorer_versions": [None]}, []),
+        ({"serialized_scorers": ['{"name": "a"}']}, []),
+        # The handler rejects a value that is not a list.
+        ({"serialized_scorers": ['{"name": "a"}'], "scorer_versions": None}, []),
+        ({"serialized_scorers": ["not json"], "scorer_versions": [1]}, None),
+    ],
+)
+def test_registered_scorer_names_in_evaluate_request(body, expected):
+    assert auth_module._registered_scorer_names_in_evaluate_request(body) == expected
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"serialized_scorers": ['{"name": "a"}'], "scorer_versions": [None, 1]},
+        {"serialized_scorers": ['{"name": "a"}', '{"name": "b"}'], "scorer_versions": [1]},
+    ],
+)
+def test_registered_scorer_names_in_evaluate_request_rejects_unpaired_lists(body):
+    # A registered scorer the lists do not pair up would otherwise skip its checks.
+    with pytest.raises(MlflowException, match="must have the same length"):
+        auth_module._registered_scorer_names_in_evaluate_request(body)
+
+
+def test_genai_evaluate_invoke_rejects_unpaired_scorer_lists(client):
+    base = client.tracking_uri
+    user, user_pw = create_user(base)
+    exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "evaluate-unpaired"},
+        auth=(user, user_pw),
+    ).json()["experiment_id"]
+
+    resp = requests.post(
+        f"{base}/ajax-api/3.0/mlflow/genai/evaluate/invoke",
+        json={
+            "experiment_id": exp_id,
+            "trace_ids": ["tr-1"],
+            "serialized_scorers": ['{"name": "inline"}', '{"name": "judge"}'],
+            "scorer_versions": [None],
+        },
+        auth=(user, user_pw),
+    )
+
+    assert resp.status_code == 400
+    assert "must have the same length" in resp.text
+
+
 def test_genai_evaluate_invoke_denies_a_registered_scorer_without_a_name(client):
     base = client.tracking_uri
     user, user_pw = create_user(base)
