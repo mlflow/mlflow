@@ -31,6 +31,18 @@ describe('computeAssessmentColumns', () => {
     });
   });
 
+  test('a seeded name is a column even when absent from the page, and an opt-out still hides it', () => {
+    const traces = [traceWith('t1', [makeFeedbackAssessment('relevance', 'yes')])];
+    expect(computeAssessmentColumns(traces, {}, { seededNames: ['safety'] })).toEqual({
+      candidateNames: ['relevance', 'safety'],
+      visibleNames: ['relevance', 'safety'],
+    });
+    expect(computeAssessmentColumns(traces, { safety: false }, { seededNames: ['safety'] })).toEqual({
+      candidateNames: ['relevance', 'safety'],
+      visibleNames: ['relevance'],
+    });
+  });
+
   test('an opted-in name is a visible column even when absent from the page', () => {
     const traces = [traceWith('t1', [makeFeedbackAssessment('relevance', 'yes')])];
     expect(computeAssessmentColumns(traces, { safety: true })).toEqual({

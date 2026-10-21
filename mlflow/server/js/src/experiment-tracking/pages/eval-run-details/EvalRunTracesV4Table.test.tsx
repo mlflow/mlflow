@@ -295,6 +295,25 @@ describe('EvalRunTracesV4Table', () => {
       );
     });
 
+    test("keeps a scorer's column when a header filter leaves no trace on the page carrying it", async () => {
+      state.traces = [
+        makeRunTrace('tr-000', {
+          assessments: [
+            makeFeedbackAssessment('correctness', 'yes', ofRun),
+            makeFeedbackAssessment('relevance', 4, ofRun),
+          ],
+        }),
+        makeRunTrace('tr-002', { assessments: [makeFeedbackAssessment('correctness', 'no', ofRun)] }),
+      ];
+      renderTable();
+
+      const header = await screen.findByRole('columnheader', { name: /^Correctness PASS 50% / });
+      await userEvent.click(within(header).getByRole('progressbar', { name: 'Fail' }));
+      expect(await findTraceRow('tr-002')).toBeInTheDocument();
+      await waitFor(() => expect(screen.queryByText(/tr-000/)).not.toBeInTheDocument());
+      expect(screen.getByRole('columnheader', { name: /^relevance AVG 4/ })).toBeInTheDocument();
+    });
+
     test('collapses and expands the header charts', async () => {
       state.traces = summaryTraces();
       renderTable();

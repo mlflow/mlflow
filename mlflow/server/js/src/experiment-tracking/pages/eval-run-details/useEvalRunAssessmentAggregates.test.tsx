@@ -142,7 +142,8 @@ describe('useEvalRunAssessmentAggregates', () => {
     const { result } = renderAggregates();
 
     await waitFor(() => expect(result.current.scorers).toHaveLength(1));
-    expect(state.calls).toHaveLength(3);
+    expect(state.calls).toHaveLength(2);
+    expect(AGGREGATE_TRACE_LIMIT).toBe(500);
     expect(result.current.scorers[0].aggregates.currentCounts?.get('yes')).toBe(AGGREGATE_TRACE_LIMIT);
   });
 

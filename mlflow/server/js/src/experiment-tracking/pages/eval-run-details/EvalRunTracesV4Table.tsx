@@ -100,10 +100,18 @@ export const EvalRunTracesV4Table = ({
   const { notify, notificationContainer } = useTracesV4Notifications();
 
   const persistenceId = `${experimentId}.${runUuid}`;
-  const controller = useEvalRunTracesV4Controller({ experimentId, runUuid });
+  const assessmentSummaries = useEvalRunAssessmentAggregates({ experimentId, runUuid });
+  // Session-level scorers have no trace column.
+  const seededAssessmentNames = useMemo(
+    () =>
+      assessmentSummaries.scorers
+        .filter((scorer) => !scorer.assessmentInfo.isSessionLevelAssessment)
+        .map((scorer) => scorer.name),
+    [assessmentSummaries.scorers],
+  );
+  const controller = useEvalRunTracesV4Controller({ experimentId, runUuid, seededAssessmentNames });
   const { url, page, columns, assessments, columnSizing, bulk, searchInput, filterModel, flags } = controller;
   const { density, setDensity } = useTracesV4Density(persistenceId);
-  const assessmentSummaries = useEvalRunAssessmentAggregates({ experimentId, runUuid });
   // Edits, judge runs and deletes change the scores, so they reload the header summaries with the rows.
   const { refetch: refetchPage } = page;
   const { refetch: refetchAssessmentSummaries } = assessmentSummaries;

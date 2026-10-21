@@ -17,10 +17,13 @@ import { getAssessmentAggregates } from '@databricks/web-shared/genai-traces-tab
 import { filterTracesByAssessmentSourceRunId } from '@databricks/web-shared/genai-traces-table/utils/TraceUtils';
 import type { ModelTraceInfoV3, ModelTraceSearchLocation } from '@databricks/web-shared/model-trace-explorer';
 import { useQuery } from '@databricks/web-shared/query-client';
-import { buildEvalRunTraceFilter } from './useEvalRunTracesV4Controller';
+import { ASSESSMENT_FILTER_SCAN_LIMIT, buildEvalRunTraceFilter } from './useEvalRunTracesV4Controller';
 
-/** The header summaries cover at most this many of the run's traces. */
-export const AGGREGATE_TRACE_LIMIT = 1000;
+/**
+ * The header summaries cover at most this many of the run's traces: the traces a header filter scans, so a
+ * bar's count matches what clicking it lists.
+ */
+export const AGGREGATE_TRACE_LIMIT = ASSESSMENT_FILTER_SCAN_LIMIT;
 
 export interface EvalRunAssessmentAggregate {
   name: string;
