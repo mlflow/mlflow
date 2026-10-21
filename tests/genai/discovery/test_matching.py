@@ -284,3 +284,56 @@ def test_two_findings_that_re_find_one_issue_both_contribute_their_traces():
 
     assert [issue.issue_id for issue in issues] == [existing.issue_id]
     assert sorted(issue_trace_ids[existing.issue_id]) == ["tr-a", "tr-b"]
+
+
+def test_an_issue_resolved_while_matching_is_not_refreshed_into():
+    # Matching takes a model call. If someone resolves the issue in that window, refreshing it
+    # would bury a regression in the issue they had just closed -- the outcome that excluding
+    # resolved issues from the candidate list exists to prevent.
+    from mlflow.genai.discovery.pipeline import _build_issues
+    from mlflow.tracing.client import TracingClient
+
+    exp_id = mlflow.set_experiment("b7-resolved-race").experiment_id
+    client = TracingClient()
+    target = client._create_issue(
+        experiment_id=exp_id,
+        name="Refund falsely confirmed",
+        description="Agent reports a refund the tool never completed.",
+        severity="high",
+        categories=["correctness"],
+    )
+    # Matched while it was still pending; resolved before publication reaches it.
+    outcome = MatchOutcome(matched={0: target.issue_id})
+    client._update_issue(issue_id=target.issue_id, status=IssueStatus.RESOLVED)
+
+    with mlflow.start_run() as run:
+        issues, _ = _build_issues(
+            [_finding("Refund falsely confirmed")], [], exp_id, run.info.run_id, outcome
+        )
+
+    assert [issue.issue_id for issue in issues] != [target.issue_id]
+    assert issues[0].source_run_id == run.info.run_id
+    # The closed issue is left exactly as the user left it.
+    assert client._get_issue(target.issue_id).status == IssueStatus.RESOLVED
+    assert len(list(client._search_issues(experiment_id=exp_id))) == 2
+
+
+def test_one_bad_entry_does_not_discard_the_good_ones():
+    # A response can be partly wrong. Dropping the whole thing would file duplicates of issues
+    # the matcher identified correctly, so each entry is judged on its own: the unusable one is
+    # ignored and the rest stand.
+    findings = [_finding("Refund falsely confirmed"), _finding("Language ignored")]
+    candidates = [
+        _existing("iss-refund", "Refund completion falsely confirmed"),
+        _existing("iss-lang", "Requested language ignored"),
+    ]
+
+    with _matcher({
+        "matches": [
+            {"finding_index": 0, "issue_id": "iss-refund"},
+            {"finding_index": 1, "issue_id": "iss-never-offered"},
+        ]
+    }):
+        outcome = match_findings_to_existing_issues(findings, candidates)
+
+    assert outcome.matched == {0: "iss-refund"}

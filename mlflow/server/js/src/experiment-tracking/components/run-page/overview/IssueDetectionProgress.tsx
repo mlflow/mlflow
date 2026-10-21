@@ -106,7 +106,10 @@ export const IssueDetectionProgress = ({
     pollingEnabled: !jobComplete,
   });
 
-  const identifiedIssues = issues.length;
+  // The run's own result, not a query by `source_run_id`: an issue this run re-found keeps the
+  // source run that first filed it, so counting by that ID reports zero for a run whose findings
+  // were all already known. The result counts what the run published, matched issues included.
+  const identifiedIssues = result?.issues ?? issues.length;
 
   useEffect(() => {
     if (isJobSucceeded && runUuid) {

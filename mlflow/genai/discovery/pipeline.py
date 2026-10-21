@@ -49,6 +49,7 @@ from mlflow.genai.discovery.extraction import (
     extract_failure_labels,
 )
 from mlflow.genai.discovery.matching import (
+    MATCHABLE_STATUSES,
     MatchOutcome,
     match_findings_to_existing_issues,
     read_match_candidates,
@@ -591,6 +592,10 @@ def _cluster_and_identify(
     )
 
 
+class _MatchNoLongerValid(Exception):
+    """The matched issue stopped being matchable between the candidate read and the write."""
+
+
 def _build_issues(
     identified: list[_IdentifiedIssue],
     analyses: list[_ConversationAnalysis],
@@ -620,15 +625,29 @@ def _build_issues(
         name = ident.name.removeprefix("Issue: ").removeprefix("issue: ")
         if matched_id := (match_outcome.issue_id_for(index) if match_outcome else None):
             try:
+                # Re-read rather than trust the candidate: matching takes a model call, and the
+                # issue can be resolved in that window. Refreshing it then would bury a
+                # regression in the issue someone had just closed, which is the outcome
+                # excluding resolved issues from the candidates exists to prevent.
+                current = client._get_issue(matched_id)
+                if current.status not in MATCHABLE_STATUSES:
+                    _logger.info(
+                        "Issue %s became %s while matching; reporting the finding as new",
+                        matched_id,
+                        current.status,
+                    )
+                    raise _MatchNoLongerValid
                 issue = client._update_issue(
                     issue_id=matched_id,
                     # Monotonic: a run over older traces must not drag the issue's last-seen
                     # time backwards past what a later run already recorded.
                     last_seen_timestamp=max(
                         get_current_time_millis(),
-                        client._get_issue(matched_id).last_seen_timestamp or 0,
+                        current.last_seen_timestamp or 0,
                     ),
                 )
+            except _MatchNoLongerValid:
+                pass
             except Exception:
                 # Losing the match costs a duplicate; losing the finding costs the user the
                 # problem, so it falls through and is filed.
