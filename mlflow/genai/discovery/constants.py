@@ -250,19 +250,43 @@ other than detect issues in this application's traces.
 MAX_PRIORITIES_LENGTH = 5000
 
 _PRIORITIES_DELIMITER_RE = re.compile(r"</?\s*detection_priorities\s*/?>", re.IGNORECASE)
+# ``{{ name }}`` in a judge's instructions declares a template variable, and the triage judge
+# validates the set it finds. An operator who writes one -- even by quoting a placeholder they
+# want flagged -- would otherwise abort the whole run before a single trace is read.
+_TEMPLATE_BRACES_RE = re.compile(r"\{\{|\}\}")
+
+
+def _strip_priorities_delimiters(text: str) -> str:
+    """
+    Remove the block's delimiter however many passes it takes.
+
+    A single pass is not enough: removing the inner match of
+    ``</detection_</detection_priorities>priorities>`` splices the leftovers into a second
+    working delimiter, which is exactly the escape this is meant to prevent.
+    """
+    while True:
+        stripped = _PRIORITIES_DELIMITER_RE.sub("", text)
+        if stripped == text:
+            return stripped
+        text = stripped
 
 
 def build_detection_priorities(instructions: str | None) -> str:
     """
     The priorities section to append to a stage's instructions, or an empty string.
 
-    Only the delimiter is rewritten, not the owner's wording: stripping or escaping angle
-    brackets would mangle an ordinary priority like "treat latency > 5s as high", while leaving
-    the delimiter intact would let the text close the block and keep writing outside it.
+    Two rewrites, and nothing else -- the owner's wording is otherwise left alone, which is why
+    the block's delimiter is removed rather than the angle brackets escaped: escaping would
+    mangle an ordinary priority like "treat latency > 5s as high", while leaving the delimiter
+    intact would let the text close the block and keep writing outside it.
+
+    Doubled braces are collapsed to single ones for the reason given at
+    ``_TEMPLATE_BRACES_RE``: they survive as readable text but stop being a template variable.
     """
     if not instructions or not (text := instructions.strip()):
         return ""
-    text = _PRIORITIES_DELIMITER_RE.sub("", text[:MAX_PRIORITIES_LENGTH]).strip()
+    text = _strip_priorities_delimiters(text[:MAX_PRIORITIES_LENGTH])
+    text = _TEMPLATE_BRACES_RE.sub(lambda match: match.group()[0], text).strip()
     if not text:
         return ""
     return DETECTION_PRIORITIES_INSTRUCTIONS.format(instructions=text)

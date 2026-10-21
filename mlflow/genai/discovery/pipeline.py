@@ -508,6 +508,7 @@ def _merge_singleton_issues(
     max_issues: int,
     categories: list[str],
     token_counter: _TokenCounter | None = None,
+    instructions: str | None = None,
 ) -> list[_IdentifiedIssue]:
     singletons = [i for i in identified if len(i.example_indices) == 1]
     multi_member = [i for i in identified if len(i.example_indices) > 1]
@@ -522,6 +523,7 @@ def _merge_singleton_issues(
         max_issues,
         categories=categories,
         token_counter=token_counter,
+        instructions=instructions,
     )
     return multi_member + merged
 
@@ -591,6 +593,7 @@ def _cluster_and_identify(
         max_issues,
         categories=categories,
         token_counter=token_counter,
+        instructions=instructions,
     )
 
 

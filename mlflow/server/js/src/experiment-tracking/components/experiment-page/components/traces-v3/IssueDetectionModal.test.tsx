@@ -64,7 +64,7 @@ describe('IssueDetectionModal', () => {
   };
 
   const mockSettings = (settings = defaultIssueDetectionSettings()) =>
-    jest.mocked(useIssueDetectionSettings).mockReturnValue({ data: settings } as any);
+    jest.mocked(useIssueDetectionSettings).mockReturnValue({ data: settings, isLoading: false, error: null } as any);
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -314,9 +314,29 @@ describe('IssueDetectionModal', () => {
     });
   });
 
-  test('settings that have not loaded yet still submit a usable run', async () => {
-    jest.mocked(useIssueDetectionSettings).mockReturnValue({ data: undefined } as any);
+  test('analysis cannot start while the settings are still loading', async () => {
+    // Reported in review: submitting here would silently use the defaults and drop the saved
+    // priorities -- an expensive run whose results ignore the experiment's configuration.
+    jest.mocked(useIssueDetectionSettings).mockReturnValue({ data: undefined, isLoading: true, error: null } as any);
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
+
+    expect(screen.getByText('Run Analysis').closest('button')).toBeDisabled();
+    expect(mockInvokeIssueDetection).not.toHaveBeenCalled();
+  });
+
+  test('settings that failed to load say so rather than quietly using the defaults', async () => {
+    // Blocking on a tag read would strand a feature that worked before settings existed, so
+    // the run is still allowed -- but not silently.
+    jest
+      .mocked(useIssueDetectionSettings)
+      .mockReturnValue({ data: undefined, isLoading: false, error: new Error('nope') } as any);
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
+
+    expect(
+      screen.getByText(
+        "This experiment's issue detection settings could not be read, so this run will use the defaults: all focus areas and no saved priorities.",
+      ),
+    ).toBeInTheDocument();
 
     await userEvent.click(screen.getByText('Run Analysis').closest('button')!);
 
