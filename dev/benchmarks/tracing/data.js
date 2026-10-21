@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792545390857,
+  "lastUpdate": 1792551965647,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "198982749+Copilot@users.noreply.github.com",
-            "name": "Copilot",
-            "username": "Copilot"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "be138ab3087174b41959d0218696d4394a9440b3",
-          "message": "Fix experiment GC cascades for traces and logged models (#24351)\n\nSigned-off-by: mprahl <mprahl@users.noreply.github.com>\nCo-authored-by: mprahl <mprahl@users.noreply.github.com>",
-          "timestamp": "2026-07-28T18:37:32Z",
-          "tree_id": "432c45fcedb717206c560a9832c68d47bc0ad7d2",
-          "url": "https://github.com/mlflow/mlflow/commit/be138ab3087174b41959d0218696d4394a9440b3"
-        },
-        "date": 1785264077393,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 39.52431960000169,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 21.55424667647059,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 24.184220696427975,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 25.140602696429276,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 29.15764934482639,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 6.846405199996752,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 8.279938399999764,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "54176945+AbdulAliMamnun@users.noreply.github.com",
+            "name": "Abdul Ali Mamnun",
+            "username": "AbdulAliMamnun"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "89a974bc4f27a341a9a6f44df7ea49b0670c1bd5",
+          "message": "Add `mlflow.genai.compare_evaluations` for paired statistical comparison of evaluation runs (#26396)\n\nSigned-off-by: Abdul Ali Mamnun <aamamnun@gmail.com>\nCo-authored-by: Claude Fable 5.1 <noreply@anthropic.com>",
+          "timestamp": "2026-10-21T03:02:33Z",
+          "tree_id": "092994efb30589769115f403d3bf68afb0d37713",
+          "url": "https://github.com/mlflow/mlflow/commit/89a974bc4f27a341a9a6f44df7ea49b0670c1bd5"
+        },
+        "date": 1792551963324,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 59.82682799999779,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 7.732779566038222,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.7778644033612805,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.85636135593132,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 7.579950327271945,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 42.39280600000086,
             "unit": "ms"
           }
         ]
