@@ -5856,6 +5856,147 @@ def test_online_scoring_config_endpoints_reject_unauthorized_user(client, monkey
         assert response.status_code == 200
 
 
+def _register_online_scorer(tracking_uri, experiment_id, name, auth):
+    scorer_id = _send_rest_tracking_post_request(
+        tracking_uri,
+        "/api/3.0/mlflow/scorers/register",
+        json_payload={
+            "experiment_id": experiment_id,
+            "name": name,
+            "serialized_scorer": json.dumps({"name": name, "type": "pyfunc"}),
+        },
+        auth=auth,
+    ).json()["scorer_id"]
+    # sample_rate=0.0 skips the handler's gateway model check on the scorer.
+    seeded = requests.put(
+        url=tracking_uri + "/api/3.0/mlflow/scorers/online-config",
+        json={"experiment_id": experiment_id, "name": name, "sample_rate": 0.0},
+        auth=auth,
+    )
+    assert seeded.status_code == 200
+    return scorer_id
+
+
+def _put_online_config(tracking_uri, experiment_id, name, sample_rate, auth, prefix="api"):
+    return requests.put(
+        url=f"{tracking_uri}/{prefix}/3.0/mlflow/scorers/online-config",
+        json={"experiment_id": experiment_id, "name": name, "sample_rate": sample_rate},
+        auth=auth,
+    ).status_code
+
+
+def _get_online_configs(tracking_uri, scorer_ids, auth, prefix="api"):
+    return requests.get(
+        url=f"{tracking_uri}/{prefix}/3.0/mlflow/scorers/online-configs",
+        params={"scorer_ids": scorer_ids},
+        auth=auth,
+    ).status_code
+
+
+@pytest.mark.parametrize("prefix", ["api", "ajax-api"])
+def test_online_scoring_config_endpoints_honor_a_scorer_deny(client, monkeypatch, prefix):
+    owner, owner_pw = create_user(client.tracking_uri)
+    editor, editor_pw = create_user(client.tracking_uri)
+    uri = client.tracking_uri
+    auth = (editor, editor_pw)
+    with User(owner, owner_pw, monkeypatch):
+        experiment_id = client.create_experiment(f"online_scoring_scorer_deny_{prefix}")
+    denied_id = _register_online_scorer(uri, experiment_id, "denied", (owner, owner_pw))
+    allowed_id = _register_online_scorer(uri, experiment_id, "allowed", (owner, owner_pw))
+    _grant_experiment_permission(
+        uri, experiment_id, editor, "EDIT", auth=(ADMIN_USERNAME, ADMIN_PASSWORD)
+    )
+
+    # EDIT on the experiment is enough while the scorer carries no grant of its own, and a READ
+    # grant on the scorer does not take that away: only a DENY does.
+    grant_role_permission(
+        uri, editor, "scorer", auth_module.store._scorer_pattern(experiment_id, "allowed"), "READ"
+    )
+    for name, scorer_id in (("denied", denied_id), ("allowed", allowed_id)):
+        assert _put_online_config(uri, experiment_id, name, 0.0, auth, prefix) == 200
+        assert _get_online_configs(uri, [scorer_id], auth, prefix) == 200
+
+    grant_role_permission(
+        uri, editor, "scorer", auth_module.store._scorer_pattern(experiment_id, "denied"), "DENY"
+    )
+
+    # The DENY stops turning the scorer off and on, and reading its config...
+    assert _put_online_config(uri, experiment_id, "denied", 0.0, auth, prefix) == 403
+    assert _put_online_config(uri, experiment_id, "denied", 1.0, auth, prefix) == 403
+    assert _get_online_configs(uri, [denied_id], auth, prefix) == 403
+    # ...including in a request that also names a scorer the caller may read...
+    assert _get_online_configs(uri, [allowed_id, denied_id], auth, prefix) == 403
+    # ...but not for the other scorer in the same experiment.
+    assert _put_online_config(uri, experiment_id, "allowed", 0.0, auth, prefix) == 200
+    assert _get_online_configs(uri, [allowed_id], auth, prefix) == 200
+
+
+@pytest.mark.parametrize("prefix", ["api", "ajax-api"])
+def test_online_scoring_config_endpoints_honor_a_scorer_version_deny(client, monkeypatch, prefix):
+    owner, owner_pw = create_user(client.tracking_uri)
+    editor, editor_pw = create_user(client.tracking_uri)
+    uri = client.tracking_uri
+    auth = (editor, editor_pw)
+    with User(owner, owner_pw, monkeypatch):
+        experiment_id = client.create_experiment(f"online_scoring_version_deny_{prefix}")
+    scorer_id = _register_online_scorer(uri, experiment_id, "target", (owner, owner_pw))
+    _grant_experiment_permission(
+        uri, experiment_id, editor, "EDIT", auth=(ADMIN_USERNAME, ADMIN_PASSWORD)
+    )
+    assert _put_online_config(uri, experiment_id, "target", 0.0, auth, prefix) == 200
+    assert _get_online_configs(uri, [scorer_id], auth, prefix) == 200
+
+    grant_role_permission(uri, editor, "scorer_version", "*", "DENY")
+
+    assert _put_online_config(uri, experiment_id, "target", 0.0, auth, prefix) == 403
+    assert _put_online_config(uri, experiment_id, "target", 1.0, auth, prefix) == 403
+    assert _get_online_configs(uri, [scorer_id], auth, prefix) == 403
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_online_scoring_configs_of_a_deleted_experiment_are_gated_not_rejected(client, monkeypatch):
+    owner, owner_pw = create_user(client.tracking_uri)
+    other, other_pw = create_user(client.tracking_uri)
+    uri = client.tracking_uri
+    with User(owner, owner_pw, monkeypatch):
+        experiment_id = client.create_experiment("online_scoring_deleted_experiment")
+    scorer_id = _register_online_scorer(uri, experiment_id, "target", (owner, owner_pw))
+    # With no default permission, only the owner can read the experiment.
+    with User(owner, owner_pw, monkeypatch):
+        client.delete_experiment(experiment_id)
+
+    # The gate decides from permissions only, whatever state the experiment is in.
+    assert _get_online_configs(uri, [scorer_id], (owner, owner_pw)) == 200
+    assert _get_online_configs(uri, [scorer_id], (other, other_pw)) == 403
+
+
+def test_online_scoring_config_of_a_scorer_with_no_versions_left_stays_readable(
+    client, monkeypatch
+):
+    owner, owner_pw = create_user(client.tracking_uri)
+    reader, reader_pw = create_user(client.tracking_uri)
+    uri = client.tracking_uri
+    with User(owner, owner_pw, monkeypatch):
+        experiment_id = client.create_experiment("online_scoring_no_versions")
+    scorer_id = _register_online_scorer(uri, experiment_id, "target", (owner, owner_pw))
+    # Deleting the only version by number keeps the scorer, and its config, in place.
+    deleted = requests.delete(
+        f"{uri}/api/3.0/mlflow/scorers/delete",
+        json={"experiment_id": experiment_id, "name": "target", "version": 1},
+        auth=(owner, owner_pw),
+    )
+    assert deleted.status_code == 200
+    _grant_experiment_permission(
+        uri, experiment_id, reader, "READ", auth=(ADMIN_USERNAME, ADMIN_PASSWORD)
+    )
+
+    assert _get_online_configs(uri, [scorer_id], (reader, reader_pw)) == 200
+
+
 def test_list_users(client):
     username1, password1 = create_user(client.tracking_uri)
     username2, _password2 = create_user(client.tracking_uri)
