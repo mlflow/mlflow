@@ -12,7 +12,7 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import {
   ALL_ISSUE_CATEGORIES,
@@ -46,6 +46,16 @@ export const IssueDetectionSettingsControl = ({ experimentId }: IssueDetectionSe
   const [draft, setDraft] = useState<IssueDetectionSettings>(defaultIssueDetectionSettings);
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategory, setNewCategory] = useState('');
+  const newCategoryRow = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // The field opens below the modal's fold, so without this the caret lands somewhere the
+    // user cannot see and they type blind into a box they have to go looking for.
+    if (isAddingCategory) {
+      // Optional call: jsdom has no `scrollIntoView`, and this is a nicety, not a behaviour.
+      newCategoryRow.current?.scrollIntoView?.({ block: 'nearest' });
+    }
+  }, [isAddingCategory]);
 
   const customCategories = Object.keys(draft.categories).filter((category) => !isBuiltInCategory(category));
   const trimmedNewCategory = newCategory.trim();
@@ -204,11 +214,14 @@ export const IssueDetectionSettingsControl = ({ experimentId }: IssueDetectionSe
                   { category },
                 );
                 return (
-                  <div key={category} css={{ position: 'relative', display: 'inline-flex' }}>
+                  // The remove button sits beside the toggle rather than on top of its right
+                  // edge: `ToggleButton` sets its own padding, so reserving room inside the
+                  // chip with a `css` override loses to the component's own rule and the icon
+                  // lands on the last letter of the label.
+                  <div key={category} css={{ display: 'inline-flex', alignItems: 'center' }}>
                     <ToggleButton
                       componentId={`${COMPONENT_ID}.custom-focus-area.toggle`}
                       pressed={Boolean(draft.categories[category])}
-                      css={{ paddingRight: theme.spacing.lg + theme.spacing.md }}
                       onPressedChange={(selected) => toggleCategory(category, selected)}
                     >
                       {category}
@@ -219,7 +232,6 @@ export const IssueDetectionSettingsControl = ({ experimentId }: IssueDetectionSe
                       size="small"
                       type="tertiary"
                       aria-label={removeLabel}
-                      css={{ position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs }}
                       onClick={() => removeCategory(category)}
                     />
                   </div>
@@ -253,7 +265,7 @@ export const IssueDetectionSettingsControl = ({ experimentId }: IssueDetectionSe
             )}
 
             {isAddingCategory && (
-              <div css={{ display: 'flex', alignItems: 'flex-end', gap: theme.spacing.sm }}>
+              <div ref={newCategoryRow} css={{ display: 'flex', alignItems: 'flex-end', gap: theme.spacing.sm }}>
                 <div css={{ display: 'flex', flex: 1, flexDirection: 'column', gap: theme.spacing.xs }}>
                   <FormUI.Label htmlFor={`${COMPONENT_ID}.custom-focus-area.input`}>
                     {intl.formatMessage({
@@ -264,6 +276,7 @@ export const IssueDetectionSettingsControl = ({ experimentId }: IssueDetectionSe
                   <Input
                     id={`${COMPONENT_ID}.custom-focus-area.input`}
                     componentId={`${COMPONENT_ID}.custom-focus-area.input`}
+                    autoFocus
                     maxLength={MAX_CATEGORY_LENGTH}
                     value={newCategory}
                     onChange={(event) => setNewCategory(event.target.value)}
