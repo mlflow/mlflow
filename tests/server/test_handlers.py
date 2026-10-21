@@ -227,6 +227,7 @@ from mlflow.server.handlers import (
     _get_trace_artifact_repo,
     _get_workspace_handler,
     _get_workspace_scoped_repo_path_if_enabled,
+    _invoke_scorer_handler,
     _link_prompts_to_trace,
     _list_artifacts_for_proxied_run_artifact_root,
     _list_scorer_versions,
@@ -3762,6 +3763,48 @@ def test_register_scorer(mock_get_request_message, mock_tracking_store):
         "serialized_scorer": serialized_scorer,
         "creation_time": 1234567890,
     }
+
+
+@pytest.mark.parametrize(
+    ("serialized", "name"),
+    [
+        ({"name": "my_scorer", "call_source": "", "call_signature": "(outputs)"}, "my_scorer"),
+        (
+            {
+                "name": "ens",
+                "ensemble_scorer_data": {"scorers": [{"name": "inner", "call_source": ""}]},
+            },
+            "inner",
+        ),
+    ],
+)
+def test_register_scorer_rejects_custom_scorer_without_source(
+    mock_get_request_message, mock_tracking_store, monkeypatch, serialized, name
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    mock_get_request_message.return_value = RegisterScorer(
+        experiment_id="123", name="my_scorer", serialized_scorer=json.dumps(serialized)
+    )
+    resp = _register_scorer()
+    assert resp.status_code == 400
+    assert f"Scorer '{name}' has no source code" in resp.get_json()["message"]
+    mock_tracking_store.register_scorer.assert_not_called()
+
+
+def test_invoke_scorer_rejects_custom_scorer_without_source(mock_tracking_store, monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    serialized = {"name": "my_scorer", "call_source": "", "call_signature": "(outputs)"}
+    with app.test_request_context(
+        method="POST",
+        json={
+            "experiment_id": "123",
+            "serialized_scorer": json.dumps(serialized),
+            "trace_ids": ["tr-1"],
+        },
+    ):
+        resp = _invoke_scorer_handler()
+    assert resp.status_code == 400
+    assert "Scorer 'my_scorer' has no source code" in resp.get_json()["message"]
 
 
 def test_register_scorer_rejects_decorator_scorer(mock_get_request_message, mock_tracking_store):
