@@ -13,8 +13,8 @@ function hasUiChanges(files) {
   return files.some(({ filename }) => UI_FILE.test(filename) && !filename.includes(".test."));
 }
 
-// Release PRs (version bumps, changelogs, ML package versions) are filed by org members from
-// `release/*` branches and don't need these checks.
+// Release PRs (version bumps, changelogs) are filed by org members from `release/*` branches
+// and don't need these checks.
 function isMemberReleasePr(pr) {
   return ["MEMBER", "OWNER"].includes(pr.author_association) && pr.head.ref.startsWith("release/");
 }
