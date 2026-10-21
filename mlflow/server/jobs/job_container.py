@@ -400,10 +400,12 @@ def _format_memory(num_bytes: int) -> str:
     return str(num_bytes)
 
 
-def _out_of_memory_note(container, job_name: str, memory: int) -> str:
-    """A sentence for the error message if Docker reports that ``container`` ran out of memory.
+def _out_of_memory(container, job_name: str | None, memory: int | None) -> tuple[bool, str | None]:
+    """Whether Docker reports that ``container`` ran out of memory, and a message that explains it.
 
-    Empty if it does not, or if the container's state cannot be read.
+    ``(False, None)`` if it did not, or if the container's state cannot be read. ``job_name`` and
+    ``memory`` (the container's memory limit in bytes) are ``None`` when they are not known; the
+    message then leaves out the setting to change and the limit.
     """
     try:
         # The container's attributes are from when it started; reload them to see its final state.
@@ -411,17 +413,26 @@ def _out_of_memory_note(container, job_name: str, memory: int) -> str:
         oom_killed = container.attrs["State"]["OOMKilled"]
     except Exception:
         _logger.debug("Could not read the state of the container for %s", job_name, exc_info=True)
-        return ""
+        return False, None
     if not oom_killed:
-        return ""
-    return (
-        " Docker reports that the container was stopped because it ran out of memory (its memory "
-        f"limit is {_format_memory(memory)}). If the scorer needs more memory, raise the limit "
-        f"with MLFLOW_JOB_RESOURCE_LIMITS_{job_name}, for example "
-        f'{{"memory": "{_format_memory(2 * memory)}"}}. The setting is a JSON object that '
-        "replaces any earlier value of the variable, so keep other limits you set in it, such as "
-        '"cpu". This does not help if the host itself is low on memory.'
-    )
+        return False, None
+    message = "Docker reports that the container was stopped because it ran out of memory"
+    if memory is not None:
+        message += f" (its memory limit is {_format_memory(memory)})"
+    message += "."
+    if job_name is not None:
+        example = (
+            f', for example {{"memory": "{_format_memory(2 * memory)}"}}'
+            if memory is not None
+            else ""
+        )
+        message += (
+            " If the scorer needs more memory, raise the limit with "
+            f"MLFLOW_JOB_RESOURCE_LIMITS_{job_name}{example}. The setting is a JSON object that "
+            "replaces any earlier value of the variable, so keep other limits you set in it, such "
+            'as "cpu". This does not help if the host itself is low on memory.'
+        )
+    return True, message
 
 
 def job_result_from_container(
@@ -430,38 +441,43 @@ def job_result_from_container(
     output_dir: Path,
     job_id: str,
     plan: DockerJobPlan,
-    job_name: str,
-    memory: int,
+    job_name: str | None,
+    memory: int | None,
 ) -> JobResult:
     """The result of a job whose container exited: its untrusted result, checked and finalized.
 
     ``job_name`` and ``memory`` (the container's memory limit in bytes) are used to explain a
-    failure when Docker reports that the container ran out of memory.
+    failure when Docker reports that the container ran out of memory. Either can be ``None`` when
+    it is not known, and the explanation then leaves it out.
     """
     result_path = output_dir / _RESULT_FILE
     if not os.path.lexists(result_path):
-        out_of_memory = _out_of_memory_note(container, job_name, memory)
+        out_of_memory, note = _out_of_memory(container, job_name, memory)
         logs = _log_tail(container)
+        summary = (
+            f"The container for job {job_id!r} exited with code {exit_code} without writing a "
+            "result."
+        )
+        if out_of_memory:
+            summary = f"{summary} {note}"
         return JobResult(
-            status=JobStatus.FAILED,
-            error_message=(
-                f"The container for job {job_id!r} exited with code {exit_code} without "
-                f"writing a result.{out_of_memory} Container logs:\n{logs}"
-            ),
+            status=JobStatus.FAILED, error_message=f"{summary} Container logs:\n{logs}"
         )
 
     try:
         subprocess_result = _load_result(result_path)
     except MlflowException as e:
         # For example a result file cut short when the container ran out of memory.
+        out_of_memory, note = _out_of_memory(container, job_name, memory)
         return JobResult(
             status=JobStatus.FAILED,
-            error_message=e.message + _out_of_memory_note(container, job_name, memory),
+            error_message=f"{e.message} {note}" if out_of_memory else e.message,
         )
     if not subprocess_result.succeeded:
         error = subprocess_result.error
-        if out_of_memory := _out_of_memory_note(container, job_name, memory):
-            error = f"{error}{out_of_memory}" if error else out_of_memory.lstrip()
+        out_of_memory, note = _out_of_memory(container, job_name, memory)
+        if out_of_memory:
+            error = f"{error} {note}" if error else note
         return JobResult(
             status=JobStatus.FAILED,
             error_message=error,

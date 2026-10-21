@@ -1,5 +1,6 @@
 import json
 import os
+from unittest import mock
 
 import docker
 import pytest
@@ -171,6 +172,46 @@ def test_unreadable_container_state_keeps_the_plain_message(tmp_path, monkeypatc
     assert result.status == JobStatus.FAILED
     assert "without writing a result. Container logs:" in result.error_message
     assert "memory" not in result.error_message
+
+
+@pytest.mark.parametrize(
+    ("job_name", "memory", "expected"),
+    [
+        (
+            "invoke_scorer",
+            256 * 1024**2,
+            "Docker reports that the container was stopped because it ran out of memory (its "
+            "memory limit is 256Mi). If the scorer needs more memory, raise the limit with "
+            'MLFLOW_JOB_RESOURCE_LIMITS_invoke_scorer, for example {"memory": "512Mi"}.',
+        ),
+        (
+            "invoke_scorer",
+            None,
+            "Docker reports that the container was stopped because it ran out of memory. If the "
+            "scorer needs more memory, raise the limit with "
+            "MLFLOW_JOB_RESOURCE_LIMITS_invoke_scorer.",
+        ),
+        (
+            None,
+            256 * 1024**2,
+            "Docker reports that the container was stopped because it ran out of memory (its "
+            "memory limit is 256Mi).",
+        ),
+    ],
+)
+def test_out_of_memory_message_leaves_out_what_is_not_known(job_name, memory, expected):
+    container = mock.Mock(attrs={"State": {"OOMKilled": True}})
+
+    out_of_memory, message = jc._out_of_memory(container, job_name, memory)
+
+    assert out_of_memory
+    assert message.startswith(expected)
+
+
+def test_out_of_memory_is_false_without_a_message_when_docker_does_not_report_it():
+    container = mock.Mock(attrs={"State": {"OOMKilled": False}})
+
+    assert jc._out_of_memory(container, "invoke_scorer", 1024**3) == (False, None)
 
 
 @pytest.mark.parametrize(
