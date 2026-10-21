@@ -306,7 +306,8 @@ def evaluate(
             ``AND``, each comparing a metric with ``>=`` or ``<=``. A bare scorer name checks
             the scorer's mean. To check another aggregation, write
             ``<scorer name>/<aggregation>`` in backticks, where the aggregation is one of
-            ``min``, ``max``, ``mean``, ``median``, ``variance``, or ``p90``. Each scorer name
+            ``min``, ``max``, ``mean``, ``median``, ``variance``, or ``p90``. ``OR`` isn't
+            supported, and each metric can have only one condition. Each scorer name
             must match exactly one scorer in ``scorers``. The run counts as passing only when
             every condition holds. The criteria are recorded on the evaluation run; they
             don't change how rows are scored.
