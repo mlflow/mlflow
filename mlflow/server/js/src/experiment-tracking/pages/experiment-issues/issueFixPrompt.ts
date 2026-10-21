@@ -29,13 +29,21 @@ const traceIdLines = (traceIds: string[], totalCount: number | undefined, hasMor
   const shown = traceIds.slice(0, FIX_PROMPT_TRACE_LIMIT);
   const lines = shown.map((traceId) => `- ${traceId}`);
   if (totalCount !== undefined) {
-    const remaining = Math.max(totalCount - shown.length, 0);
+    const remaining = effectiveTotal(traceIds, totalCount) - shown.length;
     return remaining > 0 ? [...lines, `- ...and ${remaining} more on the issue`] : lines;
   }
   // Nothing to count against, so say only what is true: there are more, not how many more.
   const unlisted = hasMore || traceIds.length > shown.length;
   return unlisted ? [...lines, '- ...and more not listed here'] : lines;
 };
+
+/**
+ * How many traces to speak for: the reported total, unless more have actually been loaded than it
+ * accounts for. A count read earlier goes stale when a later detection run adds references, and
+ * subtracting the listed ten from a smaller stale total would drop the overflow line and claim
+ * nothing more exists.
+ */
+const effectiveTotal = (traceIds: string[], totalCount: number) => Math.max(totalCount, traceIds.length);
 
 export interface IssueFixPromptOptions {
   /** Affected trace IDs already loaded for this issue; a prefix of them is listed in the prompt. */
@@ -86,7 +94,9 @@ ${issue.source_run_id ? `Detection run ID: ${issue.source_run_id}\n` : ''}${issu
     ...(issue.severity ? [`Severity: ${issue.severity}`] : []),
     ...(categories.length > 0 ? [`Categories: ${categories.join(', ')}`] : []),
     ...(issue.description ? [`Description: ${issue.description}`] : []),
-    totalTraceCount === undefined ? 'Affected trace IDs:' : `Affected trace IDs (${totalTraceCount} total):`,
+    totalTraceCount === undefined
+      ? 'Affected trace IDs:'
+      : `Affected trace IDs (${effectiveTotal(traceIds, totalTraceCount)} total):`,
     ...traceIdLines(traceIds, totalTraceCount, hasMoreTraces),
   ])}
 
