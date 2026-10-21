@@ -20,6 +20,12 @@ from mlflow.genai.evaluation.lineage import (
     get_dataset_entity_from_attrs,
     log_lineage_tags,
 )
+from mlflow.genai.evaluation.quality_criteria import (
+    build_quality_criteria_tag,
+    get_extra_aggregations,
+    parse_quality_criteria,
+    warn_on_unmeasured_quality_criteria,
+)
 from mlflow.genai.evaluation.session_utils import validate_session_level_evaluation_inputs
 from mlflow.genai.evaluation.utils import (
     _convert_to_eval_set,
@@ -49,7 +55,11 @@ from mlflow.tracing.utils.copy import copy_trace_to_experiment
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import _get_experiment_id, _set_active_model
 from mlflow.utils.databricks_utils import invoke_databricks_app
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_GENAI_EVALUATE
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_GENAI_EVALUATE_QUALITY_THRESHOLDS,
+    MLFLOW_RUN_TYPE,
+    MLFLOW_RUN_TYPE_GENAI_EVALUATE,
+)
 
 if TYPE_CHECKING:
     from mlflow.genai.evaluation.entities import EvaluationResult
@@ -64,6 +74,7 @@ def evaluate(
     scorers: list[Scorer],
     predict_fn: Callable[..., Any] | None = None,
     model_id: str | None = None,
+    quality_criteria: str | None = None,
 ) -> "EvaluationResult":
     """
     Evaluate the performance of a generative AI model/application using specified
@@ -289,6 +300,27 @@ def evaluate(
             to associate with the evaluation results. Can be also set globally via the
             :py:func:`mlflow.set_active_model` function.
 
+        quality_criteria: *Experimental (added in MLflow 3.17.2)* This parameter may
+            change or be removed in a future release. The run-level metrics that the
+            evaluation run must clear, in a syntax like trace search filters: conditions joined by
+            ``AND``, each comparing a metric with ``>=`` or ``<=``. A bare scorer name checks
+            the scorer's mean. To check another aggregation, write
+            ``<scorer name>/<aggregation>`` in backticks, where the aggregation is one of
+            ``min``, ``max``, ``mean``, ``median``, ``variance``, or ``p90``. ``OR`` isn't
+            supported, and each metric can have only one condition. Each scorer name
+            must match exactly one scorer in ``scorers``. The run counts as passing only when
+            every condition holds. The criteria are recorded on the evaluation run; they
+            don't change how rows are scored.
+
+            .. code-block:: python
+
+                mlflow.genai.evaluate(
+                    data=data,
+                    predict_fn=predict_fn,
+                    scorers=[Correctness(), latency],
+                    quality_criteria="correctness >= 0.9 AND `latency/p90` <= 2",
+                )
+
     Returns:
         An :py:class:`mlflow.genai.evaluation.entities.EvaluationResult` object.
 
@@ -301,12 +333,14 @@ def evaluate(
         This function is not thread-safe. Please do not use it in multi-threaded
         environments.
     """
-    result, _ = _run_harness(data, scorers, predict_fn, model_id)
+    result, _ = _run_harness(data, scorers, predict_fn, model_id, quality_criteria)
     return result
 
 
 @record_usage_event(GenAIEvaluateEvent)
-def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult", dict[str, Any]]:
+def _run_harness(
+    data, scorers, predict_fn, model_id, quality_criteria=None
+) -> tuple["EvaluationResult", dict[str, Any]]:
     """
     Internal harness for running evaluation.
 
@@ -319,6 +353,9 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
     from mlflow.genai.evaluation import harness
 
     scorers = validate_scorers(scorers)
+    # Validate before the run starts so bad quality criteria don't leave an empty run behind.
+    quality_criteria_rules = parse_quality_criteria(scorers, quality_criteria)
+    quality_criteria_tag = build_quality_criteria_tag(quality_criteria_rules)
     # Lineage records the user's function; `predict_fn` is wrapped or cleared for simulation below.
     original_predict_fn = predict_fn
 
@@ -440,6 +477,23 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
         if run.data.tags.get(MLFLOW_RUN_TYPE) is None:
             MlflowClient().set_tag(run_id, MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_GENAI_EVALUATE)
         log_lineage_tags(run_id, scorers, original_predict_fn)
+        # NB: Record the quality criteria before the harness runs, so a run that fails partway still
+        # shows the bar it was evaluated against (its criteria read as incomplete). The tags
+        # are read from the store rather than `run.data.tags` because a reused active run can
+        # predate a tag written by an earlier `evaluate` on the same run.
+        client = MlflowClient()
+        if quality_criteria_tag is not None:
+            # Synchronous, so the stale-tag check of a later `evaluate` on this run sees it.
+            client.set_tag(
+                run_id,
+                MLFLOW_GENAI_EVALUATE_QUALITY_THRESHOLDS,
+                quality_criteria_tag,
+                synchronous=True,
+            )
+        elif MLFLOW_GENAI_EVALUATE_QUALITY_THRESHOLDS in client.get_run(run_id).data.tags:
+            # This call sets no quality criteria, so a tag from an earlier `evaluate` on this run
+            # would judge the new metrics against a stale bar.
+            client.delete_tag(run_id, MLFLOW_GENAI_EVALUATE_QUALITY_THRESHOLDS)
 
         result = harness.run(
             predict_fn=predict_fn,
@@ -447,7 +501,9 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
             scorers=scorers,
             run_id=run_id,
             dataset=mlflow_dataset if is_managed_dataset or dataset_entity is not None else None,
+            extra_aggregations=get_extra_aggregations(quality_criteria_rules),
         )
+        warn_on_unmeasured_quality_criteria(quality_criteria_rules, result.metrics)
 
     try:
         display_evaluation_output(run_id)

@@ -668,6 +668,7 @@ def run(
     scorers=None,
     run_id: str | None = None,
     dataset: Any | None = None,
+    extra_aggregations: dict[str, list[str]] | None = None,
 ) -> EvaluationResult:
     """
     Runs GenAI evaluation harness to the given dataset.
@@ -770,7 +771,9 @@ def run(
     _log_scorer_failure_summary(scorer_stats)
 
     # Aggregate metrics and log to MLflow run
-    aggregated_metrics = compute_aggregated_metrics(eval_results, scorers=scorers)
+    aggregated_metrics = compute_aggregated_metrics(
+        eval_results, scorers=scorers, extra_aggregations=extra_aggregations
+    )
     mlflow.log_metrics(aggregated_metrics, dataset=dataset)
 
     try:
