@@ -532,6 +532,7 @@ def _cluster_and_identify(
     max_issues: int,
     categories: list[str],
     token_counter: _TokenCounter | None = None,
+    instructions: str | None = None,
 ) -> list[_IdentifiedIssue]:
     """Cluster analyses into identified issues via LLM-based labeling and grouping."""
     labels, label_to_analysis = extract_failure_labels(
@@ -562,6 +563,7 @@ def _cluster_and_identify(
             label_to_analysis=label_to_analysis,
             categories=categories,
             token_counter=token_counter,
+            instructions=instructions,
         )
 
     max_workers = min(MLFLOW_GENAI_EVAL_MAX_WORKERS.get(), len(cluster_groups))
@@ -730,18 +732,22 @@ def build_issue_discovery_scorer(
     model: str | None = None,
     use_conversation: bool = True,
     latency_stats: dict[str, float] | None = None,
+    instructions: str | None = None,
 ) -> Scorer:
     model = model or DEFAULT_MODEL
     categories = categories if categories is not None else DEFAULT_CATEGORIES
 
     include_timing = use_conversation and CATEGORY_LATENCY in categories
 
-    instructions = build_satisfaction_instructions(
-        use_conversation=use_conversation, categories=categories, latency_stats=latency_stats
+    judge_instructions = build_satisfaction_instructions(
+        use_conversation=use_conversation,
+        categories=categories,
+        latency_stats=latency_stats,
+        instructions=instructions,
     )
     return make_judge(
         name=DEFAULT_SCORER_NAME,
-        instructions=instructions,
+        instructions=judge_instructions,
         model=model,
         feedback_value_type=dict[str, str],
         include_timing_in_conversation=include_timing,
@@ -813,6 +819,7 @@ def discover_issues(
     filter_string: str | None = None,
     run_id: str | None = None,
     categories: list[str] = DEFAULT_CATEGORIES,
+    instructions: str | None = None,
 ) -> DiscoverIssuesResult:
     """
     Discover quality and operational issues in traces.
@@ -841,6 +848,9 @@ def discover_issues(
             Ignored when ``traces`` is provided.
         run_id: Run ID to attach issues to. If not provided, a new run will be created.
         categories: Issue categories to search for.
+        instructions: Free-text detection priorities saved on the experiment, applied to the
+            stages that decide what to flag and how severe it is. Steers the run; it cannot
+            redefine the task.
 
     Returns:
         A :class:`DiscoverIssuesResult` with discovered issues, run IDs,
@@ -907,6 +917,7 @@ def discover_issues(
             model=model,
             use_conversation=use_conversation,
             latency_stats=latency_stats,
+            instructions=instructions,
         )
         scorers = [default_scorer]
 
@@ -1029,7 +1040,12 @@ def discover_issues(
     # ---- Phase 3: Cluster & identify ----
     update_status_details({"stage": "Clustering issues..."})
     identified = _cluster_and_identify(
-        analyses, model, max_issues, categories=categories, token_counter=token_counter
+        analyses,
+        model,
+        max_issues,
+        categories=categories,
+        token_counter=token_counter,
+        instructions=instructions,
     )
 
     if not identified:
