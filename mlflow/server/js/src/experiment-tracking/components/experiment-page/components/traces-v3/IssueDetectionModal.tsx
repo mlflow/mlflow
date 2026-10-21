@@ -71,7 +71,17 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
 
   // Read here rather than taking them as props, so every entry point into detection -- the
   // Issues tab and both Traces tabs -- honours the same saved settings.
-  const { data: detectionSettings } = useIssueDetectionSettings(experimentId ?? '', Boolean(experimentId));
+  const {
+    data: detectionSettings,
+    isLoading: isLoadingDetectionSettings,
+    error: detectionSettingsError,
+  } = useIssueDetectionSettings(experimentId ?? '', Boolean(experimentId));
+  // A run submitted before the settings arrive would silently use the defaults and drop the
+  // saved priorities, which is worse than waiting: it is an expensive run whose results
+  // quietly ignore the experiment's configuration.
+  const isWaitingForDetectionSettings = Boolean(
+    experimentId && isLoadingDetectionSettings && !detectionSettings && !detectionSettingsError,
+  );
 
   // Default to the first gateway endpoint, else the first core provider
   useEffect(() => {
@@ -124,6 +134,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
 
   const isFormValid =
     selectedTraceIds.length > 0 &&
+    !isWaitingForDetectionSettings &&
     Boolean(
       selection && (selection.mode === 'endpoint' ? selection.endpointName : selection.provider && selection.model),
     );
@@ -288,6 +299,22 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
           )}
         </div>
       </div>
+      {detectionSettingsError && (
+        // Blocking the run on a tag read would strand a feature that worked before settings
+        // existed; running without saying so would hide that the configuration was ignored.
+        <Alert
+          componentId="mlflow.traces.issue-detection-modal.settings-unavailable"
+          type="warning"
+          css={{ marginTop: theme.spacing.md }}
+          message={intl.formatMessage({
+            defaultMessage:
+              "This experiment's issue detection settings could not be read, so this run will use the defaults: all focus areas and no saved priorities.",
+            description:
+              'Warning in the issue detection modal shown when the saved detection settings could not be loaded',
+          })}
+          closable={false}
+        />
+      )}
       {showLowTraceWarning && (
         <div
           data-testid="low-trace-warning"

@@ -9431,6 +9431,10 @@
     "defaultMessage": "A fingerprint of all scorers in this run.",
     "description": "Tooltip explaining what the eval run scorers digest identifies"
   },
+  "Tyh+hX": {
+    "defaultMessage": "This experiment's issue detection settings could not be read, so this run will use the defaults: all focus areas and no saved priorities.",
+    "description": "Warning in the issue detection modal shown when the saved detection settings could not be loaded"
+  },
   "U+0wfV": {
     "defaultMessage": "Trace name",
     "description": "Column selector label for the trace-name column"
