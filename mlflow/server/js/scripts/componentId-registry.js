@@ -1018,6 +1018,7 @@ module.exports = {
   "mlflow.experiment-evaluation-monitoring.trace-info-hover-request-time": "",
 
   // -- mlflow.experiment-issues --
+  "mlflow.experiment-issues.cancel-detection": "",
   "mlflow.experiment-issues.detail.category": "",
   "mlflow.experiment-issues.detail.status": "",
   "mlflow.experiment-issues.detail.status.reject": "",

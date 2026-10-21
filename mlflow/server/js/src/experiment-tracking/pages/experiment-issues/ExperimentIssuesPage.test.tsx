@@ -528,7 +528,8 @@ describe('Experiment Issues', () => {
           expect(await screen.findByText('Detecting issues...')).toBeInTheDocument();
           expect(screen.queryByRole('button', { name: buttonName })).not.toBeInTheDocument();
         } else {
-          expect(await screen.findByRole('button', { name: buttonName, busy: true })).toBeDisabled();
+          expect(await screen.findByRole('button', { name: 'Cancel detection' })).toBeEnabled();
+          expect(screen.queryByRole('button', { name: buttonName })).not.toBeInTheDocument();
         }
       };
       await expectInProgress();
@@ -537,9 +538,6 @@ describe('Experiment Issues', () => {
       first.unmount();
       const { client } = renderPage();
       await expectInProgress();
-      if (!empty) {
-        await userEvent.click(screen.getByRole('button', { name: buttonName }));
-      }
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
       jobStatus = 'FAILED';
       await act(async () => {
@@ -668,6 +666,17 @@ describe('Experiment Issues', () => {
     await screen.findByRole('button', { name: 'Detect issues in traces' });
     expect(screen.queryByText('Detect Issues in Your Traces')).not.toBeInTheDocument();
   });
+  test('spins rather than offering to cancel a run that does not exist yet', async () => {
+    // Between opening the modal and the submit returning a job there is nothing to cancel, so
+    // the detect button spins instead of offering an action that would have no target.
+    renderPage();
+    await screen.findByText('Description for iss-a');
+    await userEvent.click(screen.getByRole('button', { name: 'Detect issues in traces' }));
+    await screen.findByRole('dialog');
+
+    expect(screen.queryByRole('button', { name: 'Cancel detection' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Detect issues in traces' })).toBeInTheDocument();
+  });
   test('discovers a newly submitted job without navigating away', async () => {
     renderPage();
     await screen.findByText('Description for iss-a');
@@ -677,7 +686,9 @@ describe('Experiment Issues', () => {
     };
     jobStatus = 'RUNNING';
     act(() => recordSubmittedIssueDetectionJob({ experimentId: '1', jobId: 'job-1', runId: 'run-1', traceCount: 2 }));
-    expect(await screen.findByRole('button', { name: 'Detect issues in traces', busy: true })).toBeDisabled();
+    // The run exists, so the action becomes cancelling it rather than starting another.
+    expect(await screen.findByRole('button', { name: 'Cancel detection' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Detect issues in traces' })).not.toBeInTheDocument();
   });
   test('keeps the button spinning while job status is unavailable, including permission failures', async () => {
     latestRun = {
@@ -690,11 +701,12 @@ describe('Experiment Issues', () => {
       ),
     );
     renderPage();
-    const detectButton = await screen.findByRole('button', { name: 'Detect issues in traces', busy: true });
-    expect(detectButton).toBeDisabled();
+    // A status that cannot be read leaves the run in progress -- and is the case the cancel
+    // affordance exists for, since the run may have died without reporting it.
+    expect(await screen.findByRole('button', { name: 'Cancel detection' })).toBeEnabled();
     await screen.findByText('Unable to update detection progress');
-    expect(detectButton).toHaveAttribute('aria-busy', 'true');
-    expect(detectButton).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Cancel detection' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Detect issues in traces' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retry status' })).toBeEnabled();
   });
   test('retries failed job polling and refreshes issues on completion', async () => {
@@ -871,12 +883,15 @@ describe('Experiment Issues', () => {
       };
       jobStatus = 'RUNNING';
       const { client } = renderPage();
-      const detectButton = await screen.findByRole('button', { name: 'Detect issues in traces', busy: true });
+      expect(await screen.findByRole('button', { name: 'Cancel detection' })).toBeEnabled();
       await waitFor(() => expect(client.isFetching(['FETCH_JOB_STATUS', 'job-1'])).toBe(0));
       jobStatus = status;
       await act(async () => {
         await client.invalidateQueries(['FETCH_JOB_STATUS', 'job-1']);
       });
+      // A terminal run hands the action back to starting the next one.
+      expect(screen.queryByRole('button', { name: 'Cancel detection' })).not.toBeInTheDocument();
+      const detectButton = await screen.findByRole('button', { name: 'Detect issues in traces' });
       expect(detectButton).toHaveAttribute('aria-busy', 'false');
       expect(detectButton).toBeEnabled();
       expect(screen.queryByRole('link', { name: 'View detection run' })).not.toBeInTheDocument();

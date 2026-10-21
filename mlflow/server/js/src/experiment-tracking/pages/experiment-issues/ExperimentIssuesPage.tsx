@@ -335,6 +335,7 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
             isDetecting={isDetectionButtonLoading}
             detectionEnabled={detectionEnabled}
             onRunDetection={startDetection}
+            onCancelDetection={onCancelDetection}
           />
         </div>
       )}
