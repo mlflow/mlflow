@@ -177,6 +177,7 @@ def recluster_singletons(
     max_issues: int,
     categories: list[str],
     token_counter: _TokenCounter | None = None,
+    instructions: str | None = None,
 ) -> list[_IdentifiedIssue]:
     """
     Re-cluster singleton issues via a second LLM pass to find better groupings.
@@ -189,6 +190,9 @@ def recluster_singletons(
         max_issues: Maximum number of groups to produce.
         categories: List of valid category names to filter extracted categories.
         token_counter: Optional token counter for tracking LLM usage.
+        instructions: The experiment's saved detection priorities. The summary produced here
+            replaces the per-singleton ones, so omitting them would quietly undo the
+            priorities for merged issues only.
 
     Returns:
         List of issues after re-clustering (merged or original singletons).
@@ -211,7 +215,12 @@ def recluster_singletons(
         # Each singleton has exactly one analysis index in example_indices
         merged_indices = [singletons[group_idx].example_indices[0] for group_idx in group]
         merged_issue = summarize_cluster(
-            merged_indices, analyses, model, categories=categories, token_counter=token_counter
+            merged_indices,
+            analyses,
+            model,
+            categories=categories,
+            token_counter=token_counter,
+            instructions=instructions,
         )
         if merged_issue.severity >= IssueSeverity.LOW:
             result.append(merged_issue)
