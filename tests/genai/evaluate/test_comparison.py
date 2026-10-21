@@ -592,7 +592,7 @@ def test_compare_evaluations_insufficient_pairs():
     baseline_run_id = _evaluate(_rows([0.1, 0.2, 0.3]))
     candidate_run_id = _evaluate(_rows([0.9]))
 
-    result = mlflow.genai.compare_evaluations(candidate_run_id, baseline_run_id)
+    result = mlflow.genai.compare_evaluations(candidate_run_id, baseline_run_id, log_results=True)
 
     comparison = result.scorers["score"]
     assert comparison.status == "insufficient_pairs"
@@ -613,7 +613,7 @@ def test_compare_evaluations_logs_results_to_candidate_run():
     baseline_run_id = _evaluate(_rows(baseline_scores))
     candidate_run_id = _evaluate(_rows(candidate_scores))
 
-    result = mlflow.genai.compare_evaluations(candidate_run_id, baseline_run_id)
+    result = mlflow.genai.compare_evaluations(candidate_run_id, baseline_run_id, log_results=True)
 
     short_id = baseline_run_id[:8]
     metrics = MlflowClient().get_run(candidate_run_id).data.metrics
@@ -640,8 +640,12 @@ def test_compare_evaluations_keeps_results_of_multiple_baselines():
     second_baseline_run_id = _evaluate(_rows([0.5, 0.5, 0.6, 0.9, 0.85, 1.0]))
     candidate_run_id = _evaluate(_rows([0.6, 0.7, 0.8, 0.9, 1.0, 1.1]))
 
-    first = mlflow.genai.compare_evaluations(candidate_run_id, first_baseline_run_id)
-    second = mlflow.genai.compare_evaluations(candidate_run_id, second_baseline_run_id)
+    first = mlflow.genai.compare_evaluations(
+        candidate_run_id, first_baseline_run_id, log_results=True
+    )
+    second = mlflow.genai.compare_evaluations(
+        candidate_run_id, second_baseline_run_id, log_results=True
+    )
 
     metrics = MlflowClient().get_run(candidate_run_id).data.metrics
     first_key = _comparison_key(first_baseline_run_id, "score", "diff")

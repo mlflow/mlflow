@@ -26,7 +26,7 @@ def compare_evaluations(
     *,
     greater_is_better: dict[str, bool] | None = None,
     confidence_level: float = 0.95,
-    log_results: bool = True,
+    log_results: bool = False,
 ) -> ComparisonResult:
     """
     Compare two :py:func:`mlflow.genai.evaluate` runs with paired statistical tests.
@@ -69,7 +69,8 @@ def compare_evaluations(
             ``compare/<baseline_short_id>/<scorer>/{diff,ci_low,ci_high,p_value,effect_size,
             n_paired}`` and one ``compare/<baseline_short_id>.json`` artifact containing the
             full baseline run ID. ``<baseline_short_id>`` is the first 8 characters of the
-            baseline run ID.
+            baseline run ID. Off by default, since every compared scorer adds six metrics to
+            the run.
 
     Returns:
         A :py:class:`ComparisonResult <mlflow.genai.evaluation.comparison.ComparisonResult>`.
