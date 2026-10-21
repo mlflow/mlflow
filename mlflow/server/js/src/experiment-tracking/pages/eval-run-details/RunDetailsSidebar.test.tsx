@@ -329,7 +329,9 @@ describe('RunDetailsSidebar evaluation lineage', () => {
     const user = userEvent.setup();
     server.use(
       rest.get('*/ajax-api/2.0/mlflow/logged-models/m-123', (_req, res, ctx) =>
-        res(ctx.json({ model: { info: { model_id: 'm-123', name: 'support-agent-model' } } })),
+        res(
+          ctx.json({ model: { info: { model_id: 'm-123', experiment_id: 'exp-model', name: 'support-agent-model' } } }),
+        ),
       ),
     );
     await renderSidebar({
@@ -349,7 +351,8 @@ describe('RunDetailsSidebar evaluation lineage', () => {
     expect(await screen.findByRole('tooltip')).toHaveTextContent('my_pkg.agent.predict (source digest: sha256:agent)');
     expect(screen.getByTitle('0123456789abcdef')).toHaveTextContent('0123456');
     const modelLink = await screen.findByRole('link', { name: 'View logged model support-agent-model' });
-    expect(modelLink).toHaveAttribute('href', expect.stringContaining('m-123'));
+    // The model may come from another experiment than the evaluation run's.
+    expect(modelLink).toHaveAttribute('href', expect.stringContaining('/experiments/exp-model/models/m-123'));
     expect(modelLink).toHaveAttribute('target', '_blank');
   });
 

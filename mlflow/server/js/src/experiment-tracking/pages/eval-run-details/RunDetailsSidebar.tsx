@@ -190,7 +190,7 @@ const LoggedModelSidebarValue = ({ experimentId, loggedModelId }: { experimentId
   return (
     <Link
       componentId="mlflow.eval_run_details.overview.logged_model_link"
-      to={Routes.getExperimentLoggedModelDetailsPageRoute(experimentId, loggedModelId)}
+      to={Routes.getExperimentLoggedModelDetailsPageRoute(data?.info?.experiment_id ?? experimentId, loggedModelId)}
       target="_blank"
       aria-label={intl.formatMessage(
         {
