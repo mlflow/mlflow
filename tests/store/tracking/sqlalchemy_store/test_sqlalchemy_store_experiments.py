@@ -348,6 +348,8 @@ def test_search_experiments_filter_by_attribute(store: SqlAlchemyStore):
     assert [e.name for e in experiments] == ["a"]
     experiments = store.search_experiments(filter_string="attribute.`name` != 'a'")
     assert [e.name for e in experiments] == ["Abc", "ab", "Default"]
+    experiments = store.search_experiments(filter_string="attributes.name = 'a'")
+    assert [e.name for e in experiments] == ["a"]
     experiments = store.search_experiments(filter_string="name LIKE 'a%'")
     assert [e.name for e in experiments] == ["ab", "a"]
     experiments = store.search_experiments(filter_string="name ILIKE 'a%'")

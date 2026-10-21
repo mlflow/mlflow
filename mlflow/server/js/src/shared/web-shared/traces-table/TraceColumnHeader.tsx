@@ -118,6 +118,8 @@ export interface TraceColumnHeaderProps {
   onSortDescending: () => void;
   onHide?: () => void;
   action?: TraceColumnHeaderAction;
+  /** `'rich'` renders the label as a block that fills the header and overlays the menu trigger. */
+  headerVariant?: 'standard' | 'rich';
 }
 
 /**
@@ -134,6 +136,7 @@ export const TraceColumnHeader = ({
   onSortDescending,
   onHide,
   action,
+  headerVariant = 'standard',
 }: TraceColumnHeaderProps): JSX.Element => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -181,6 +184,7 @@ export const TraceColumnHeader = ({
         gap: theme.spacing.xs,
         width: '100%',
         minWidth: 0,
+        position: headerVariant === 'rich' ? 'relative' : undefined,
       }}
     >
       {columnIcon && (
@@ -196,9 +200,13 @@ export const TraceColumnHeader = ({
           {columnIcon}
         </span>
       )}
-      <Typography.Text bold size="sm" color="secondary" ellipsis css={{ minWidth: 0, flex: '0 1 auto' }}>
-        {label}
-      </Typography.Text>
+      {headerVariant === 'rich' ? (
+        <div css={{ minWidth: 0, flex: '1 1 auto' }}>{label}</div>
+      ) : (
+        <Typography.Text bold size="sm" color="secondary" ellipsis css={{ minWidth: 0, flex: '0 1 auto' }}>
+          {label}
+        </Typography.Text>
+      )}
       {sortable && sortDirection !== 'none' && (
         // Clicking the active-sort icon flips direction, so reversing sort doesn't need the menu.
         <span css={{ flexShrink: 0 }}>
@@ -221,7 +229,15 @@ export const TraceColumnHeader = ({
       {showMenu && (
         <span
           className="traces-table-header-menu-trigger"
-          css={{ display: 'inline-flex', flexShrink: 0, opacity: 0, transition: 'opacity 0.1s ease' }}
+          css={{
+            display: 'inline-flex',
+            flexShrink: 0,
+            opacity: 0,
+            transition: 'opacity 0.1s ease',
+            ...(headerVariant === 'rich'
+              ? { position: 'absolute', top: 0, right: 0, backgroundColor: theme.colors.backgroundPrimary }
+              : {}),
+          }}
         >
           <TraceColumnHeaderMenu
             sortable={sortable}

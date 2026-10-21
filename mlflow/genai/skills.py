@@ -111,10 +111,6 @@ def register_skill(
             directories are uploaded atomically through an HTTP tracking server serving
             artifacts; the server chooses their artifact location. ``MlflowSource`` and
             existing MLflow artifact URIs are response-side values and cannot be registered.
-            Local directories with a ``.git`` file or directory at the skill root are
-            rejected. Use ``GitSource`` to register committed content by reference, which
-            requires repository access when pulling, or copy the skill files to a directory
-            without Git metadata to upload a snapshot, including uncommitted changes.
         name: The skill's name. Defaults to the name declared in ``SKILL.md``.
         organization: An optional organization to scope the skill.
         status: Initial version status, either ``active`` (default) or ``draft``.

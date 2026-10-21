@@ -2940,7 +2940,6 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2027-09-02",
       "last_updated_at": "2026-10-19"
     },
     "gemini-3.8-flash-cyber": {
@@ -3029,8 +3028,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2027-10-13",
-      "last_updated_at": "2026-10-19"
+      "last_updated_at": "2026-10-20"
     },
     "gemini-4-argon-cyber-permissive": {
       "mode": "chat",
@@ -3214,11 +3212,6 @@
             "output_per_million_tokens": 3.75,
             "cache_read_per_million_tokens": 0.075
           },
-          "flex": {
-            "input_per_million_tokens": 0.75,
-            "output_per_million_tokens": 3.75,
-            "cache_read_per_million_tokens": 0.075
-          },
           "priority": {
             "input_per_million_tokens": 2.7,
             "output_per_million_tokens": 13.5,
@@ -3245,7 +3238,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-15"
+      "last_updated_at": "2026-10-21"
     },
     "gemini-omni-1.1-flash": {
       "mode": "chat",

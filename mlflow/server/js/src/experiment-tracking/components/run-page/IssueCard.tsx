@@ -30,7 +30,7 @@ interface IssueCardProps {
   onSelect: () => void;
 }
 
-const STATUS_TAG_CONFIG: Record<IssueStatus, { color: TagColors; label: MessageDescriptor }> = {
+export const STATUS_TAG_CONFIG: Record<IssueStatus, { color: TagColors; label: MessageDescriptor }> = {
   pending: {
     color: 'lemon',
     label: defineMessage({ defaultMessage: 'Pending', description: 'Issue status tag label for pending issues' }),
@@ -45,7 +45,7 @@ const STATUS_TAG_CONFIG: Record<IssueStatus, { color: TagColors; label: MessageD
   },
 };
 
-const SEVERITY_TAG_CONFIG: Record<IssueSeverity, { color: TagColors; label: MessageDescriptor }> = {
+export const SEVERITY_TAG_CONFIG: Record<IssueSeverity, { color: TagColors; label: MessageDescriptor }> = {
   not_an_issue: {
     color: 'charcoal',
     label: defineMessage({ defaultMessage: 'Not an issue', description: 'Issue severity tag label for not an issue' }),
