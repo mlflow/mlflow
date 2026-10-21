@@ -47,6 +47,7 @@ from mlflow.entities import (
     Param,
     RunStatus,
     RunTag,
+    ScorerVersion,
     ViewType,
     Workspace,
     WorkspaceDeletionMode,
@@ -106,6 +107,8 @@ from mlflow.genai.review_queues.validation import validate_item_ids_for_attach
 from mlflow.genai.scorers.scorer_utils import (
     DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR,
     custom_scorer_execution_blocked,
+    custom_scorer_without_source_error_message,
+    find_custom_scorer_without_source,
 )
 from mlflow.genai.skill_content.archive import MAX_ARCHIVE_ENTRIES, get_max_decompressed_size
 from mlflow.models import Model
@@ -5801,6 +5804,26 @@ def _invoke_issue_detection_handler():
     return jsonify({"job_id": job.job_id, "run_id": run_id})
 
 
+def _get_registered_scorer(
+    tracking_store: AbstractTrackingStore, experiment_id: str, name: str, version: int
+) -> ScorerVersion:
+    """The registered scorer named exactly ``name``, which is the scorer the permission checks
+    were made for.
+
+    MySQL and SQL Server compare names without case by default, and can also ignore trailing
+    spaces or accents, so the store can return a scorer whose name differs from ``name``. That is
+    treated as not found.
+    """
+    registered_scorer = tracking_store.get_scorer(experiment_id, name, version)
+    if registered_scorer.scorer_name != name:
+        raise MlflowException(
+            f"Scorer with name '{name}' and version {version} not found for experiment "
+            f"{experiment_id}.",
+            RESOURCE_DOES_NOT_EXIST,
+        )
+    return registered_scorer
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _invoke_genai_evaluate_handler():
@@ -5863,8 +5886,11 @@ def _invoke_genai_evaluate_handler():
             raise MlflowException.invalid_parameter_value(
                 "A registered scorer must contain a valid name"
             ) from e
-        registered_scorer = tracking_store.get_scorer(experiment_id, scorer_name, scorer_version)
-        serialized_scorers[index] = registered_scorer.serialized_scorer
+        registered_scorer = _get_registered_scorer(
+            tracking_store, experiment_id, scorer_name, scorer_version
+        )
+        # The stored JSON; the entity's `serialized_scorer` property is the parsed object.
+        serialized_scorers[index] = registered_scorer._serialized_scorer
         scorer_versions[index] = registered_scorer.scorer_version
 
     # The job deserializes and runs these scorers, so validate the final payloads (inline and
@@ -6297,7 +6323,8 @@ def _validate_serialized_scorer_payload(serialized_scorer: str) -> None:
     Decorator scorers carry a `call_source` field that is executed via exec() when the scorer
     is deserialized. Reconstructing them server-side is blocked unless the operator opts in with
     `MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS`; the check is recursive, so a decorator nested inside an
-    ensemble is caught too (see `custom_scorer_execution_blocked`). Third-party scorer kwargs that
+    ensemble is caught too (see `custom_scorer_execution_blocked`). Decorator scorers with empty
+    source code, which can never run, are rejected too. Third-party scorer kwargs that
     would steer the judge's outbound requests are always rejected, independent of that flag.
     Applied to caller payloads and to registered scorers fetched from the store, since rows
     written before these checks existed can carry the same fields.
@@ -6309,6 +6336,11 @@ def _validate_serialized_scorer_payload(serialized_scorer: str) -> None:
     if custom_scorer_execution_blocked(serialized_data):
         raise MlflowException.invalid_parameter_value(
             DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
+        )
+    # Such a custom scorer can never run.
+    if (name := find_custom_scorer_without_source(serialized_data)) is not None:
+        raise MlflowException.invalid_parameter_value(
+            custom_scorer_without_source_error_message(name)
         )
     _validate_third_party_scorer_data(serialized_data)
 
@@ -7827,8 +7859,12 @@ def _invoke_scorer_handler():
 
     tracking_store = _get_tracking_store()
     if scorer_name is not None:
-        registered_scorer = tracking_store.get_scorer(experiment_id, scorer_name, scorer_version)
-        serialized_scorer = registered_scorer.serialized_scorer
+        registered_scorer = _get_registered_scorer(
+            tracking_store, experiment_id, scorer_name, scorer_version
+        )
+        # The stored JSON; the entity's `serialized_scorer` property is the parsed object.
+        serialized_scorer = registered_scorer._serialized_scorer
+        scorer_version = registered_scorer.scorer_version
         _validate_serialized_scorer_payload(serialized_scorer)
 
     scorer = Scorer.model_validate_json(serialized_scorer)

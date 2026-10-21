@@ -837,6 +837,11 @@ module.exports = {
   "mlflow.eval-run.traces.selected-trace-error": "",
   "mlflow.eval-run.traces.selected-trace-error.retry": "",
 
+  // -- mlflow.eval-run-traces-v4 --
+  "mlflow.eval-run-traces-v4.baseline-delta": "",
+  "mlflow.eval-run-traces-v4.baseline-delta.open-baseline": "",
+  "mlflow.eval-run-traces-v4.toggle-assessment-charts": "",
+
   // -- mlflow.eval-runs --
   "mlflow.eval-runs.actions-button": "",
   "mlflow.eval-runs.actions.compare": "",
@@ -911,11 +916,16 @@ module.exports = {
 
   // -- mlflow.eval_run_details --
   "mlflow.eval_run_details.breadcrumb.evaluation_runs": "",
+  "mlflow.eval_run_details.overview.agent_digest_tooltip": "",
   "mlflow.eval_run_details.overview.dataset_link": "",
   "mlflow.eval_run_details.overview.dataset_tooltip": "",
+  "mlflow.eval_run_details.overview.logged_model_link": "",
+  "mlflow.eval_run_details.overview.logged_model_tooltip": "",
   "mlflow.eval_run_details.overview.prompt_link": "",
   "mlflow.eval_run_details.overview.prompt_tooltip": "",
+  "mlflow.eval_run_details.overview.scorer_digest_tooltip": "",
   "mlflow.eval_run_details.overview.scorer_link": "",
+  "mlflow.eval_run_details.overview.scorers_digest_tooltip": "",
   "mlflow.eval_run_details.overview.tag": "",
   "mlflow.eval_run_details.overview.tag_tooltip": "",
   "mlflow.eval_run_details.run_stats.total_cost.info": "",
@@ -2365,6 +2375,20 @@ module.exports = {
   "mlflow.traces-v4.saved_views.delete_confirm": "",
   "mlflow.traces-v4.saved_views.trigger": "",
   "mlflow.traces-v4.search.typeahead": "",
+  "mlflow.traces-v4.session-copy-id": "",
+  "mlflow.traces-v4.session-drawer.session-id": "",
+  "mlflow.traces-v4.session-drawer.session-id-tooltip": "",
+  "mlflow.traces-v4.session-id-tooltip": "",
+  "mlflow.traces-v4.session-load-error.retry": "",
+  "mlflow.traces-v4.session-refresh": "",
+  "mlflow.traces-v4.session-toggle-turn-metric": "",
+  "mlflow.traces-v4.session-turn-metric-tooltip": "",
+  "mlflow.traces-v4.session-turn-settings": "",
+  "mlflow.traces-v4.session-turn-settings-tooltip": "",
+  "mlflow.traces-v4.session-view-trace": "",
+  "mlflow.traces-v4.trace-context.back-to-session": "",
+  "mlflow.traces-v4.trace-context.session-id": "",
+  "mlflow.traces-v4.trace-context.session-id-tooltip": "",
 
   // -- mlflow.unified-search --
   "mlflow.unified-search.add-filter": "",

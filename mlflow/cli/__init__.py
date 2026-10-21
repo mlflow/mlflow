@@ -804,8 +804,8 @@ def server(
             secrets_cache_ttl=secrets_cache_ttl,
             secrets_cache_max_size=secrets_cache_max_size,
         )
-    except ShellCommandException:
-        eprint("Running the mlflow server failed. Please see the logs above for details.")
+    except ShellCommandException as e:
+        eprint(f"Running the mlflow server failed: {e} Please see the logs above for details.")
         sys.exit(1)
 
 
