@@ -70,7 +70,7 @@ module.exports = async ({ github, context, core }) => {
   if (!isTriageBotPr && ["mlflow-app[bot]", "dependabot[bot]"].includes(authorLogin)) {
     return;
   }
-  // Release PRs (version bumps, changelogs) are filed by org members from `release/*` branches
+  // Release PRs (e.g. version bumps, changelogs) are filed by org members from `release/*` branches
   // and don't need a maintainer approval.
   if (
     ["MEMBER", "OWNER"].includes(pr?.author_association) &&
