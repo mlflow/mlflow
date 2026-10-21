@@ -36,6 +36,9 @@ import { TracesV4DeleteModal } from './TracesV4DeleteModal';
 import { makeTracesV4ErrorDescription } from './TracesV4States';
 import { TracesV4EmptyState } from './TracesV4EmptyState';
 import { IssueDetectionModal } from '../../traces-v3/IssueDetectionModal';
+import { useLatestIssueDetection } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-issues/useIssueDetection';
+import { useCancelJob } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useCancelJob';
+import { isJobComplete } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useFetchJobStatus';
 import { TracesV4SavedViewsButton, useTracesV4SavedViews } from './TracesV4SavedViews';
 import { type TraceColumnHeaderAction } from '@databricks/web-shared/traces-table';
 import { useExperimentPageRevampContext } from '../../../../../pages/experiment-page-tabs/ExperimentPageRevampContext';
@@ -70,6 +73,24 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
   useSlashFocusSearch(searchInputRef);
 
   const controller = useTracesV4Controller({ experimentId });
+
+  // A detection in flight, so this toolbar can report and end it rather than quietly starting a
+  // second run on the same experiment.
+  const detection = useLatestIssueDetection(experimentId);
+  const { cancelJobAsync } = useCancelJob();
+  const isDetecting = Boolean(detection.run) && !isJobComplete(detection.status);
+  const issueDetectionInProgress = isDetecting
+    ? {
+        // No job yet means the run is still being created, so there is nothing to cancel.
+        isStarting: !detection.jobId,
+        onCancel: detection.jobId
+          ? async () => {
+              await cancelJobAsync({ jobId: detection.jobId as string, runUuid: detection.run?.info.run_id });
+              await detection.refetch();
+            }
+          : undefined,
+      }
+    : undefined;
   const {
     url,
     page,
@@ -358,6 +379,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     actions,
     selectedTraceInfos,
     onDetectIssues: () => setIsIssueDetectionOpen(true),
+    inProgressIssueDetection: issueDetectionInProgress,
     savedViewsButton: <TracesV4SavedViewsButton experimentId={experimentId} savedViews={savedViews} />,
     isGroupedBySession: controller.isGroupedBySession,
     onToggleSessionGrouping: url.setIsGroupedBySession,

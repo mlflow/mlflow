@@ -2326,6 +2326,7 @@ module.exports = {
   "mlflow.traces-v4.assessment-cell.error": "",
   "mlflow.traces-v4.bulk-delete-confirm-modal": "",
   "mlflow.traces-v4.bulk-delete-error": "",
+  "mlflow.traces-v4.cancel-issue-detection-button": "",
   "mlflow.traces-v4.column-selector.item.cost": "",
   "mlflow.traces-v4.column-selector.item.duration": "",
   "mlflow.traces-v4.column-selector.item.input": "",
