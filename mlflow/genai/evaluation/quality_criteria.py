@@ -10,7 +10,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from mlflow.exceptions import MlflowException
-from mlflow.genai.scorers.aggregation import _AGGREGATE_FUNCTIONS
 from mlflow.genai.scorers.base import Scorer
 from mlflow.utils.validation import MAX_TAG_VAL_LENGTH
 
@@ -83,6 +82,9 @@ def parse_quality_criteria(
 
 
 def _parse_condition(match: re.Match[str], name_counts: Counter) -> QualityCriteriaRule:
+    # Lazy import: `aggregation` needs numpy, which mlflow-skinny doesn't install.
+    from mlflow.genai.scorers.aggregation import _AGGREGATE_FUNCTIONS
+
     condition = match.group().strip()
     if not math.isfinite(threshold := float(match["threshold"])):
         raise MlflowException.invalid_parameter_value(
