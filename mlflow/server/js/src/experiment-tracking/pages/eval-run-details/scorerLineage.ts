@@ -4,6 +4,8 @@ import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explor
 // mlflow/tracing/constant.py); keep these keys in sync with it.
 const SCORER_NAME_METADATA_KEY = 'mlflow.assessment.scorerName';
 const SCORER_VERSION_METADATA_KEY = 'mlflow.assessment.scorerVersion';
+// Written by `mlflow.genai.evaluate` on every scorer's feedback, registered or not.
+const SCORER_DIGEST_METADATA_KEY = 'mlflow.assessment.scorerDigest';
 
 export interface RegisteredScorerReference {
   scorerName: string;
@@ -50,5 +52,18 @@ export const getConsistentScorerReference = (
       reference?.scorerName === firstReference.scorerName && reference.scorerVersion === firstReference.scorerVersion,
   )
     ? firstReference
+    : undefined;
+};
+
+/** The scorer definition digest (`sha256:<hex>`), when every assessment named `assessmentName` reports the same one. */
+export const getConsistentScorerDigest = (traces: ModelTraceInfoV3[], assessmentName: string): string | undefined => {
+  const digests = traces.flatMap((trace) =>
+    (trace.assessments ?? [])
+      .filter((assessment) => assessment.assessment_name === assessmentName)
+      .map((assessment) => assessment.metadata?.[SCORER_DIGEST_METADATA_KEY]),
+  );
+  const [firstDigest] = digests;
+  return typeof firstDigest === 'string' && firstDigest !== '' && digests.every((digest) => digest === firstDigest)
+    ? firstDigest
     : undefined;
 };
