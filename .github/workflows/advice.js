@@ -14,7 +14,7 @@ function hasUiChanges(files) {
 }
 
 // Release PRs (version bumps, changelogs, ML package versions) are filed by org members from
-// `release/*` branches and don't need the contributor checks.
+// `release/*` branches and don't need these checks.
 function isMemberReleasePr(pr) {
   return ["MEMBER", "OWNER"].includes(pr.author_association) && pr.head.ref.startsWith("release/");
 }
