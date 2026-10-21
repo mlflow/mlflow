@@ -4966,6 +4966,12 @@ BEFORE_REQUEST_VALIDATORS = {
     # ``_invoke_issue_detection_handler`` isn't mistakenly invoked as a before-request
     # validator (which would run the endpoint's side effects — creating runs and
     # submitting jobs — a second time, before the real handler runs).
+    #
+    # Being filtered out here does NOT leave a route unauthorized, and this condition must
+    # be read together with the ``update`` blocks below, which give those routes explicit
+    # validators -- ``/mlflow/issues/invoke`` is gated by
+    # ``validate_can_invoke_issue_detection``. ``test_no_new_ungated_routes`` fails if any
+    # route reaches no authorization decision, so a gap here cannot pass CI silently.
     and handler in BEFORE_REQUEST_HANDLERS.values()
 }
 
