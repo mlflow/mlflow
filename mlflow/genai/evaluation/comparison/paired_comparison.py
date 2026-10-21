@@ -3,6 +3,7 @@
 import logging
 from typing import TYPE_CHECKING, Literal
 
+from mlflow.genai.evaluation.comparison.entities import ScorerComparison
 from mlflow.genai.evaluation.comparison.significance_tests import (
     _bootstrap_mean_ci,
     _mcnemar,
@@ -13,8 +14,6 @@ from mlflow.genai.evaluation.comparison.significance_tests import (
 # science libraries are only imported inside the functions that use them.
 if TYPE_CHECKING:
     import numpy as np
-
-    from mlflow.genai.evaluation.comparison.comparison import ScorerComparison
 
 _logger = logging.getLogger(__name__)
 
@@ -33,12 +32,9 @@ def _compare_paired_values(
     value_type: Literal["binary", "numeric"],
     greater_is_better: bool = True,
     confidence_level: float = 0.95,
-) -> "ScorerComparison":
+) -> ScorerComparison:
     import numpy as np
     from scipy import stats
-
-    # `comparison` imports this module, so the result type is imported here to avoid a cycle.
-    from mlflow.genai.evaluation.comparison.comparison import ScorerComparison
 
     n_paired = len(baseline)
     if n_paired < _MIN_PAIRS:

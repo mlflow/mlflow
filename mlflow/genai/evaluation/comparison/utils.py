@@ -7,18 +7,16 @@ import logging
 import math
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.metric import Metric
 from mlflow.entities.trace import Trace
+from mlflow.genai.evaluation.comparison.entities import ComparisonResult
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.time import get_current_time_millis
-
-if TYPE_CHECKING:
-    from mlflow.genai.evaluation.comparison.comparison import ComparisonResult
 
 _logger = logging.getLogger(__name__)
 
@@ -209,7 +207,7 @@ def _warn_unpaired_rows(pairing: _Pairing) -> None:
     )
 
 
-def _log_comparison(result: "ComparisonResult") -> None:
+def _log_comparison(result: ComparisonResult) -> None:
     client = MlflowClient()
     timestamp = get_current_time_millis()
     metrics = []
