@@ -7479,6 +7479,56 @@ def test_skill_content_cannot_be_mutated_through_multipart_artifact_handlers(
     assert response.status_code == 403
 
 
+@pytest.mark.parametrize(
+    ("handler", "payload"),
+    [
+        (_create_multipart_upload_artifact, {"path": "/tmp/src/model.bin", "num_parts": 1}),
+        (
+            _complete_multipart_upload_artifact,
+            {
+                "path": "/tmp/src/model.bin",
+                "upload_id": "u",
+                "parts": [{"part_number": 1, "etag": "e"}],
+            },
+        ),
+        (_abort_multipart_upload_artifact, {"path": "/tmp/src/model.bin", "upload_id": "u"}),
+        (_create_multipart_upload_artifact, {"path": "C:\\src\\model.bin", "num_parts": 1}),
+        (
+            _complete_multipart_upload_artifact,
+            {
+                "path": "C:\\src\\model.bin",
+                "upload_id": "u",
+                "parts": [{"part_number": 1, "etag": "e"}],
+            },
+        ),
+        (_abort_multipart_upload_artifact, {"path": "C:\\src\\model.bin", "upload_id": "u"}),
+    ],
+)
+def test_multipart_artifact_handlers_accept_absolute_path(enable_serve_artifacts, handler, payload):
+    from mlflow.entities.multipart_upload import CreateMultipartUploadResponse
+
+    repo = mock.MagicMock()
+    repo.create_multipart_upload.return_value = CreateMultipartUploadResponse(
+        upload_id="u", credentials=[]
+    )
+    with (
+        mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts", return_value=repo),
+        mock.patch("mlflow.server.handlers._validate_support_multipart_upload"),
+    ):
+        with app.test_request_context(method="POST", json=payload):
+            response = handler("0/run/artifacts")
+            assert response.status_code == 200
+
+    for method_name in (
+        "create_multipart_upload",
+        "complete_multipart_upload",
+        "abort_multipart_upload",
+    ):
+        method = getattr(repo, method_name)
+        if method.called:
+            assert method.call_args[0][0] == "model.bin"
+
+
 def test_download_artifact_streams_in_chunks(enable_serve_artifacts, tmp_path):
     # Create a test file with binary data larger than the chunk size (2MB + 1000 bytes)
     test_file_size = ARTIFACT_STREAM_CHUNK_SIZE * 2 + 1000
