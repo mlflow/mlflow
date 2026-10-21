@@ -1,6 +1,7 @@
 """MLflow AI Gateway preset of the OpenAI-compatible assistant provider."""
 
 import base64
+import contextvars
 import logging
 from typing import ClassVar
 
@@ -10,6 +11,28 @@ from mlflow.environment_variables import _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN
 from mlflow.gateway.constants import MLFLOW_GATEWAY_AUTH_HEADER
 
 _logger = logging.getLogger(__name__)
+
+# Where the in-server gateway is called, bound per request by the Assistant API. The URL comes
+# from the server's own address (``mlflow.server.asgi_utils.get_server_self_url``): the chat
+# call carries the server-internal gateway token, so it must never go to the request-derived
+# tracking URI, whose host the caller controls through the ``Host`` header
+# (GHSA-98p3-crmr-mxcx). The Host header value is the inbound request's own, so the server's
+# Host allowlist judges the self-call exactly as it judged the request that triggered it; the
+# server's address itself need not be listed under a custom ``--allowed-hosts``.
+_server_url: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "mlflow_gateway_provider_server_url", default=None
+)
+_server_host_header: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "mlflow_gateway_provider_server_host_header", default=None
+)
+
+
+def set_server_url(url: str | None, host_header: str | None = None) -> None:
+    """Bind, for the current context, the URL at which the in-server gateway is reached and the
+    Host header value the call presents (the inbound request's own, already validated).
+    """
+    _server_url.set(url)
+    _server_host_header.set(host_header)
 
 
 class MlflowGatewayProvider(OpenAICompatibleProvider):
@@ -21,14 +44,16 @@ class MlflowGatewayProvider(OpenAICompatibleProvider):
     GATEWAY_PROVIDER_NAME: ClassVar[str] = "mlflow_gateway"
 
     @staticmethod
-    def _build_chat_url(_base_url: str | None, tracking_uri: str) -> str | None:
-        """The in-server MLflow Gateway is reachable through the same MLflow
-        server, so the chat URL is derived from the tracking URI instead of
-        a separate base_url stored in config.
+    def _build_chat_url(_base_url: str | None, _tracking_uri: str) -> str | None:
+        """The in-server MLflow Gateway is reachable through this server itself, so the chat URL
+        comes from the server's own address bound with ``set_server_url``: not from a base_url
+        stored in config, and not from the tracking URI, which derives from the client's Host
+        header.
         """
-        if not tracking_uri:
+        server_url = _server_url.get()
+        if not server_url:
             return None
-        return f"{tracking_uri.rstrip('/')}/gateway/mlflow/v1/chat/completions"
+        return f"{server_url.rstrip('/')}/gateway/mlflow/v1/chat/completions"
 
     def __init__(self) -> None:
         super().__init__(
@@ -59,6 +84,8 @@ class MlflowGatewayProvider(OpenAICompatibleProvider):
         if token and username:
             credential = base64.b64encode(f"{username}:{token}".encode()).decode("ascii")
             headers[MLFLOW_GATEWAY_AUTH_HEADER] = f"Basic {credential}"
+        if host_header := _server_host_header.get():
+            headers["Host"] = host_header
         return headers
 
     @staticmethod

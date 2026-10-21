@@ -6,6 +6,7 @@ import pytest
 
 from mlflow.assistant.config import set_config_user
 from mlflow.assistant.providers import MlflowGatewayProvider, list_providers
+from mlflow.assistant.providers.mlflow_gateway import set_server_url
 from mlflow.gateway.constants import MLFLOW_GATEWAY_AUTH_HEADER
 
 
@@ -96,6 +97,41 @@ def test_auth_headers_omit_gateway_token_without_user(monkeypatch, reset_config_
     set_config_user(None)
 
     assert MLFLOW_GATEWAY_AUTH_HEADER not in _gateway_provider()._auth_headers(None)
+
+
+@pytest.fixture
+def reset_server_url():
+    set_server_url(None)
+    yield
+    set_server_url(None)
+
+
+def test_chat_url_comes_from_the_bound_server_url_not_the_tracking_uri(reset_server_url):
+    # The chat call carries the internal gateway token, so it goes to the server's own address;
+    # the tracking URI derives from the client's Host header (GHSA-98p3-crmr-mxcx).
+    set_server_url("http://127.0.0.1:5000")
+
+    chat_url = MlflowGatewayProvider._build_chat_url(None, "http://10.attacker.example:8080")
+
+    assert chat_url == "http://127.0.0.1:5000/gateway/mlflow/v1/chat/completions"
+
+
+def test_chat_url_is_unresolved_without_a_bound_server_url(reset_server_url):
+    assert MlflowGatewayProvider._build_chat_url(None, "http://10.attacker.example:8080") is None
+
+
+def test_auth_headers_present_the_bound_host_header(reset_server_url):
+    # The self-call reaches the server at its own address but presents the Host header of the
+    # request that triggered it, which the server's Host allowlist has already admitted.
+    set_server_url("http://127.0.0.1:5000", host_header="mlflow.internal:5000")
+
+    assert _gateway_provider()._auth_headers(None)["Host"] == "mlflow.internal:5000"
+
+
+def test_auth_headers_omit_host_header_without_a_bound_one(reset_server_url):
+    set_server_url("http://127.0.0.1:5000")
+
+    assert "Host" not in _gateway_provider()._auth_headers(None)
 
 
 def test_check_connection_raises_when_no_backend_probe():
