@@ -282,7 +282,7 @@ export function ModelTraceExplorerDefaultSpanView({
       ({ key }) =>
         !(skipAnonymousTopLevelField && key === '') &&
         !CHAT_FIELD_KEYS[section].has(key.toLowerCase()) &&
-        !(section === 'inputs' && isRenderedPydanticAIInputField(key)),
+        !(section === 'inputs' && !searchFilter && isRenderedPydanticAIInputField(key)),
     );
 
   const renderNonChatFields = (
