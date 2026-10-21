@@ -298,16 +298,37 @@ async def _lifespan(app: FastAPI):
     except Exception:
         _logger.warning("Assistant session cleanup failed", exc_info=True)
 
+    sandboxed = assistant_sandbox_enabled()
+    if sandboxed and shutil.which("docker") is None:
+        # MLFLOW_ENABLE_ASSISTANT_SANDBOX=true forces the sandbox on, even without Docker.
+        _logger.warning(
+            "MLFLOW_ENABLE_ASSISTANT_SANDBOX=true requires the MLflow Assistant to run its tools "
+            "in a Docker sandbox, but no `docker` executable was found, so its turns will fail "
+            "until Docker is installed."
+        )
+    elif sandboxed:
+        # The sandbox keeps the assistant's tools off the host, but not off the network, so say what
+        # it does not cover: an operator could otherwise take it for a network boundary.
+        _logger.warning(
+            "The MLflow Assistant runs its tools and coding-agent CLIs (claude, codex) in a Docker "
+            "sandbox, but the sandbox does not limit network access: code in it can reach the "
+            "server host (through host.docker.internal), other containers (including other "
+            "sessions' sandboxes), other hosts on the network, and cloud metadata endpoints. "
+            "MLFLOW_SANDBOX_EGRESS_PROXY, if set, steers only clients that honor proxy settings, "
+            "and requests to the server host bypass it. To limit what the sandbox can reach, add "
+            "host-level firewall rules that allow only what the Assistant needs, such as the model "
+            "provider's API and the MLflow server."
+        )
     # Remote mode but no sandbox means the assistant runs its work on the host; surface that once
     # at startup rather than silently, since it is a weaker isolation posture for a shared server.
-    if MLFLOW_ENABLE_REMOTE_ASSISTANT.get() and not assistant_sandbox_enabled():
+    elif MLFLOW_ENABLE_REMOTE_ASSISTANT.get():
         _logger.warning(
             "The MLflow Assistant is in remote mode but the Docker sandbox is not active "
             "(no `docker` executable found, or MLFLOW_ENABLE_ASSISTANT_SANDBOX=false); the "
             "assistant will run its Bash tool on the server host. Install Docker, or set "
             "MLFLOW_ENABLE_ASSISTANT_SANDBOX=true to require the sandbox."
         )
-    elif auth_plugin_active() and not assistant_sandbox_enabled():
+    elif auth_plugin_active():
         _logger.info(
             "Auth is enabled but the MLflow Assistant sandbox is not active, so local users' "
             "Assistant tools, including non-admins', run on the server host. Set "

@@ -95,6 +95,76 @@ async def test_lifespan_warns_when_remote_but_not_sandboxed(monkeypatch, caplog)
     )
 
 
+async def _startup_warnings(monkeypatch, caplog, *, remote, sandbox, docker):
+    """The WARNING messages the lifespan logs for this Assistant setup."""
+    for name, value in [
+        ("MLFLOW_ENABLE_REMOTE_ASSISTANT", remote),
+        ("MLFLOW_ENABLE_ASSISTANT_SANDBOX", sandbox),
+    ]:
+        if value is None:
+            monkeypatch.delenv(name, raising=False)
+        else:
+            monkeypatch.setenv(name, value)
+    docker_path = "/usr/bin/docker" if docker else None
+    with (
+        # The lifespan and the sandbox check both look for the docker executable.
+        mock.patch("mlflow.server.fastapi_app.shutil.which", return_value=docker_path),
+        mock.patch("mlflow.assistant.providers.base.shutil.which", return_value=docker_path),
+        mock.patch("mlflow.server.sandbox.reap_orphaned_sandbox_containers"),
+        mock.patch("mlflow.server.assistant.session.reap_stale_sandbox_homes"),
+        caplog.at_level("WARNING"),
+    ):
+        async with fastapi_app._lifespan(mock.MagicMock()):
+            pass
+    return [r.message for r in caplog.records if r.levelname == "WARNING"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("remote", "sandbox"),
+    [
+        # Remote mode with Docker present turns the sandbox on.
+        ("true", None),
+        ("false", "true"),
+    ],
+)
+async def test_lifespan_warns_that_the_sandbox_does_not_limit_network_access(
+    monkeypatch, caplog, remote, sandbox
+):
+    warnings = await _startup_warnings(
+        monkeypatch, caplog, remote=remote, sandbox=sandbox, docker=True
+    )
+
+    [message] = warnings
+    assert "the sandbox does not limit network access" in message
+    assert "host.docker.internal" in message
+    assert "other sessions' sandboxes" in message
+    assert "cloud metadata endpoints" in message
+    assert "requests to the server host bypass it" in message
+    assert "host-level firewall rules" in message
+
+
+@pytest.mark.asyncio
+async def test_lifespan_warns_that_a_forced_sandbox_has_no_docker(monkeypatch, caplog):
+    warnings = await _startup_warnings(
+        monkeypatch, caplog, remote="true", sandbox="true", docker=False
+    )
+
+    [message] = warnings
+    assert "no `docker` executable was found, so its turns will fail" in message
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("remote", "sandbox"), [(None, None), ("false", "false")])
+async def test_lifespan_does_not_warn_without_the_sandbox_or_remote_mode(
+    monkeypatch, caplog, remote, sandbox
+):
+    assert (
+        await _startup_warnings(monkeypatch, caplog, remote=remote, sandbox=sandbox, docker=True)
+        == []
+    )
+
+
 @pytest.mark.asyncio
 async def test_lifespan_reaps_expired_sessions_even_if_home_reap_fails(reap_sessions):
     with (
