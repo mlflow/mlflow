@@ -139,6 +139,11 @@ const sidebarsSelfHosting: SidebarsConfig = {
     },
     {
       type: 'doc',
+      id: 'job-containers',
+      label: 'Code-based Scorers in Job Containers (Experimental)',
+    },
+    {
+      type: 'doc',
       id: 'migration',
       label: 'Upgrade',
     },
