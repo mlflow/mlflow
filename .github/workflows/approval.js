@@ -70,6 +70,14 @@ module.exports = async ({ github, context, core }) => {
   if (!isTriageBotPr && ["mlflow-app[bot]", "dependabot[bot]"].includes(authorLogin)) {
     return;
   }
+  // Release PRs (version bumps, changelogs, ML package versions) used to be filed by
+  // mlflow-app[bot]. Org members now file them from `release/*` branches.
+  if (
+    ["MEMBER", "OWNER"].includes(pr?.author_association) &&
+    pr?.head?.ref?.startsWith("release/")
+  ) {
+    return;
+  }
 
   const maintainers = await getMaintainers({ github, context });
   const reviews = await github.paginate(github.rest.pulls.listReviews, {
