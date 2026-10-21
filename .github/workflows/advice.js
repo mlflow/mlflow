@@ -14,8 +14,8 @@ function hasUiChanges(files) {
   return files.some(({ filename }) => UI_FILE.test(filename) && !filename.includes(".test."));
 }
 
-// Post-release version bumps (`release/dev-version-*`) touch `src/common/constants.tsx` but have
-// nothing to screenshot. They used to be filed by mlflow-app[bot] and skipped by the bot check.
+// Release PRs (version bumps, changelogs, ML package versions) used to be filed by mlflow-app[bot]
+// and skipped by the bot check below. Maintainers now file them from `release/*` branches.
 function isMaintainerReleasePr(pr) {
   return MEMBER_ASSOCIATIONS.includes(pr.author_association) && pr.head.ref.startsWith("release/");
 }
@@ -163,8 +163,8 @@ ${activitySection}
     });
   }
 
-  // Exit early if the PR author is a bot
-  if (user.type === "Bot") {
+  // Exit early if the PR author is a bot or a maintainer filing a release PR
+  if (user.type === "Bot" || isMaintainerReleasePr(context.payload.pull_request)) {
     return;
   }
 
@@ -196,7 +196,7 @@ ${activitySection}
     );
   }
 
-  if (!hasVisibleMedia(body) && !isMaintainerReleasePr(context.payload.pull_request)) {
+  if (!hasVisibleMedia(body)) {
     try {
       const files = await github.paginate(github.rest.pulls.listFiles, {
         owner,
