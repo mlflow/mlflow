@@ -701,6 +701,11 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
+          id: 'eval-monitor/comparing-evaluation-runs',
+          label: 'Comparing Evaluation Runs',
+        },
+        {
+          type: 'doc',
           id: 'eval-monitor/automatic-evaluations/index',
           label: 'Automatic Evaluation',
         },
@@ -1315,6 +1320,29 @@ const sidebarsGenAI: SidebarsConfig = {
       link: {
         type: 'doc',
         id: 'flavors/index',
+      },
+    },
+    {
+      type: 'category',
+      label: 'Skill Registry',
+      className: 'sidebar-top-level-category',
+      items: [
+        {
+          type: 'doc',
+          id: 'skill-registry/register-and-import-skills',
+        },
+        {
+          type: 'doc',
+          id: 'skill-registry/manage-versions-and-aliases',
+        },
+        {
+          type: 'doc',
+          id: 'skill-registry/pull-skills',
+        },
+      ],
+      link: {
+        type: 'doc',
+        id: 'skill-registry/index',
       },
     },
     {

@@ -95,6 +95,8 @@ class _DockerJob:
     deadline: float
     timeout: float
     plan: DockerJobPlan | None = None
+    job_name: str | None = None
+    memory: int | None = None
     container_id: str | None = None
     cancel_requested: bool = False
     starting: bool = False
@@ -259,6 +261,8 @@ class DockerJobExecutor(AbstractJobExecutor):
         fn_meta = _load_function(fn_fullname)._job_fn_metadata
         write_transient_error_classes(input_dir, fn_meta.transient_error_classes)
         memory, nano_cpus = _resource_limits(job_name, fn_meta.resource_limits)
+        job.job_name = job_name
+        job.memory = memory
         environment = job_container_environment(job.plan)
 
         with self._lock:
@@ -372,6 +376,8 @@ class DockerJobExecutor(AbstractJobExecutor):
             Path(job.workdir.name, "output"),
             job_id,
             job.plan,
+            job.job_name,
+            job.memory,
         )
 
     def _raise_if_stopped(self, job_id: str) -> None:

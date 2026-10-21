@@ -63,11 +63,11 @@ export const useSkillMetadataEditors = ({
   const saveTags = async (version: number | undefined, currentTags: KeyValueEntity[], newTags: KeyValueEntity[]) => {
     const { addedOrModifiedTags, deletedTags } = diffCurrentAndNewTags(currentTags, newTags);
     // Checked up front so a save never applies the additions and then fails on the removals.
-    if (deletedTags.length > 0 && !canDelete) {
+    if (version != null && deletedTags.length > 0 && !canDelete) {
       throw new Error(
         intl.formatMessage({
-          defaultMessage: 'Removing tags requires the Manage permission on this skill.',
-          description: 'Error when a user without delete permission removes skill tags',
+          defaultMessage: 'Removing version tags requires the Manage permission on this skill.',
+          description: 'Error when a user without delete permission removes skill version tags',
         }),
       );
     }

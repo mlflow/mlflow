@@ -10,6 +10,10 @@ from mlflow.utils.environment import _PythonEnv
 
 _MIN_JOB_LEASE_TTL = 0.6
 
+# Exit code of the executor-engine job runner when it stops because of an error (for example when
+# it cannot prepare the docker job image). `mlflow server` stops when its job runner exits with it.
+EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE = 70
+
 
 @dataclass
 class JobExecutorConfig:

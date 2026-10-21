@@ -226,6 +226,7 @@ def test_user_is_admin(monkeypatch):
 def _caller(host: str, username: str | None):
     return types.SimpleNamespace(
         client=types.SimpleNamespace(host=host),
+        headers={},
         state=types.SimpleNamespace(assistant_username=username),
     )
 

@@ -1,4 +1,4 @@
-import { Breadcrumb, LinkIcon, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { Breadcrumb, LinkIcon, Tag, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
 import { CopyButton } from '../../../shared/building_blocks/CopyButton';
 import { Link, matchPath, useLocation, useParams } from '../../../common/utils/RoutingUtils';
@@ -8,7 +8,7 @@ import { ExperimentPageTabName } from '../../constants';
 import Routes, { RoutePaths } from '../../routes';
 import { getTabDisplayName } from '../../components/experiment-page/components/header/ExperimentViewHeader.utils';
 import { useGetExperimentPageActiveTabByRoute } from '../../components/experiment-page/hooks/useGetExperimentPageActiveTabByRoute';
-import { useExperimentBreadcrumbTitle } from './ExperimentPageRevampContext';
+import { useExperimentBreadcrumbStatus, useExperimentBreadcrumbTitle } from './ExperimentPageRevampContext';
 
 const breadcrumbLabelCss = {
   display: 'inline-flex',
@@ -47,6 +47,9 @@ const getBreadcrumbDescriptor = (
   if (matchPath(RoutePaths.experimentPageTabTraceDetail, pathname)) {
     return { parentTab: ExperimentPageTabName.Traces };
   }
+  if (matchPath(RoutePaths.experimentPageTabEvaluationRunDetails, pathname)) {
+    return { parentTab: ExperimentPageTabName.EvaluationRuns, leafId: params['runUuid'] };
+  }
   if (matchPath(RoutePaths.experimentPageTabPromptDetails, pathname)) {
     return { parentTab: ExperimentPageTabName.Prompts, leafId: params['promptName'] };
   }
@@ -61,7 +64,7 @@ export const ExperimentPageBreadcrumbs = ({ experiment }: ExperimentPageBreadcru
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const { pathname } = useLocation();
-  const params = useParams<'datasetId' | 'promptName' | 'sessionId'>();
+  const params = useParams<'datasetId' | 'promptName' | 'runUuid' | 'sessionId'>();
   const { tabName } = useGetExperimentPageActiveTabByRoute();
   const publishedTitle = useExperimentBreadcrumbTitle();
   const descriptor = getBreadcrumbDescriptor(pathname, tabName, params);
@@ -71,6 +74,7 @@ export const ExperimentPageBreadcrumbs = ({ experiment }: ExperimentPageBreadcru
       ? publishedTitle
       : undefined;
   const experimentName = experiment.name.split('/').pop() ?? experiment.name;
+  const runStatus = useExperimentBreadcrumbStatus();
 
   return (
     <div
@@ -138,6 +142,13 @@ export const ExperimentPageBreadcrumbs = ({ experiment }: ExperimentPageBreadcru
             )}
           </Breadcrumb>
         </nav>
+        {runStatus && (
+          <div css={{ flexShrink: 0 }}>
+            <Tag componentId="mlflow.eval_run_details.status_tag" color="lemon">
+              {runStatus}
+            </Tag>
+          </div>
+        )}
       </div>
       <div css={{ flexShrink: 0 }}>
         <CopyButton

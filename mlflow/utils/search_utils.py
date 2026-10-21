@@ -1124,7 +1124,7 @@ class SearchExperimentsUtils(SearchUtils):
             identifier = cls._ATTRIBUTE_IDENTIFIER
         else:
             entity_type, key = tokens
-            valid_entity_types = ("attribute", "tag", "tags")
+            valid_entity_types = ("attribute", "attributes", "tag", "tags")
             if entity_type not in valid_entity_types:
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid entity type '{entity_type}'. "

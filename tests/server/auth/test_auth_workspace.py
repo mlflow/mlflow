@@ -7048,6 +7048,67 @@ def test_scorer_point_routes_unchanged_without_a_version_grant(workspace_permiss
     assert _run_scorer_point_route("validate_can_delete_scorer", "1", "s1") is True
 
 
+def _run_online_config_routes(monkeypatch, scorer_name):
+    """Run the online scoring config update and read rules for a scorer in experiment "1"."""
+    scorers = {"id-blocked": "blocked", "id-allowed": "allowed"}
+    scorer_id = next(i for i, name in scorers.items() if name == scorer_name)
+    tracking_store = auth_module._get_tracking_store()
+    monkeypatch.setattr(
+        tracking_store,
+        "get_online_scoring_configs",
+        lambda ids: [SimpleNamespace(experiment_id="1", scorer_id=i) for i in ids],
+        raising=False,
+    )
+    monkeypatch.setattr(
+        tracking_store,
+        "list_scorers_across_experiments",
+        lambda experiment_ids: [
+            SimpleNamespace(scorer_id=i, scorer_name=name) for i, name in scorers.items()
+        ],
+        raising=False,
+    )
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/scorers/online-config",
+        method="PUT",
+        json={"experiment_id": "1", "name": scorer_name, "sample_rate": 1.0},
+    ):
+        update = auth_module.validate_can_update_online_scoring_config()
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/scorers/online-configs", query_string={"scorer_ids": scorer_id}
+    ):
+        read = auth_module.validate_can_read_online_scoring_configs()
+    return update, read
+
+
+def test_online_config_routes_honor_a_scorer_deny(workspace_permission_setup, monkeypatch):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("experiment", "*", EDIT.name), ("scorer", "1/blocked", DENY.name)],
+    )
+
+    assert _run_online_config_routes(monkeypatch, "blocked") == (False, False)
+    assert _run_online_config_routes(monkeypatch, "allowed") == (True, True)
+
+
+def test_online_config_routes_honor_a_scorer_version_deny(workspace_permission_setup, monkeypatch):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("experiment", "*", EDIT.name), ("scorer_version", "*", DENY.name)],
+    )
+
+    assert _run_online_config_routes(monkeypatch, "allowed") == (False, False)
+
+
 def _run_queue_by_name(monkeypatch, experiment_id, queue_users):
     queue = SimpleNamespace(
         experiment_id=experiment_id, users=list(queue_users), created_by=None, queue_type="CUSTOM"
@@ -7679,15 +7740,21 @@ def test_get_assessment_inherits_the_experiment(workspace_permission_setup, monk
     assert _run_get_assessment(monkeypatch, "exp-1") is True
 
 
-def _run_model_version_artifact(name="model-xyz", version="3"):
+def _run_model_version_artifact(name="model-xyz", version="3", presigned=False):
     with auth_module.app.test_request_context(
         "/model-versions/get-artifact",
-        query_string={"name": name, "version": version, "path": "MLmodel"},
+        query_string={
+            "name": name,
+            "version": version,
+            "path": "MLmodel",
+            "presigned": str(presigned).lower(),
+        },
     ):
         return auth_module.validate_can_read_model_version_artifact()
 
 
-def test_model_version_artifact_honors_a_version_deny(workspace_permission_setup):
+@pytest.mark.parametrize("presigned", [False, True])
+def test_model_version_artifact_honors_a_version_deny(workspace_permission_setup, presigned):
     """The artifact IS the version's content -- the handler streams
     get_model_version_download_uri(name, version) -- yet the route whose entire subject is a
     version resolved only the registered model.
@@ -7705,17 +7772,20 @@ def test_model_version_artifact_honors_a_version_deny(workspace_permission_setup
         ],
     )
 
-    assert _run_model_version_artifact() is False
+    assert _run_model_version_artifact(presigned=presigned) is False
 
 
-def test_model_version_artifact_unchanged_without_a_version_grant(workspace_permission_setup):
+@pytest.mark.parametrize("presigned", [False, True])
+def test_model_version_artifact_unchanged_without_a_version_grant(
+    workspace_permission_setup, presigned
+):
     # No version grant: the registered model tier decides, exactly as before.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
     _grant(store, username, "team-a", [("registered_model", "*", READ.name)])
 
-    assert _run_model_version_artifact() is True
+    assert _run_model_version_artifact(presigned=presigned) is True
 
 
 def _run_search_traces(filter_string, order_by=None):

@@ -567,10 +567,12 @@ jobs:
         with:
           name: issue-context-${{ github.run_id }}
           path: ${{ runner.temp }}/issue-context
-      # Independent setup, run together.
+      # TODO: Restore parallel setup once the runner fix is deployed to hosted runners.
+      # https://github.com/actions/runner/issues/4789
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-node
+      # Install system packages and CLIs in parallel.
       - parallel:
-          - uses: ./.github/actions/setup-python
-          - uses: ./.github/actions/setup-node
           - name: Install system packages
             run: |
               sudo apt-get update
@@ -750,7 +752,12 @@ jobs:
               exit 1
             fi
           done
-      - name: Triage issue
+      # Fixed up front so the trace can be found by its session after the run.
+      - id: session
+        name: Generate session ID
+        run: echo "id=$(cat /proc/sys/kernel/random/uuid)" >> "$GITHUB_OUTPUT"
+      - id: triage
+        name: Triage issue
         env:
           ANTHROPIC_BASE_URL: http://localhost:8080/anthropic
           ANTHROPIC_AUTH_TOKEN: placeholder
@@ -761,6 +768,7 @@ jobs:
           AGENT_BROWSER_ARGS: --no-sandbox
           AGENT_BROWSER_SCREENSHOT_DIR: /tmp/triage-out/media
           MODEL: ${{ inputs.model || 'databricks-claude-opus-5-5' }}
+          SESSION_ID: ${{ steps.session.outputs.id }}
           ISSUE_PATH: ${{ runner.temp }}/issue-context/issue-context.json
           TRIAGE_ACTION: ${{ needs.issue.outputs.action }}
           PR_DISABLED: ${{ needs.issue.outputs.pr_enabled != 'true' }}
@@ -796,6 +804,7 @@ jobs:
           timeout 30m srt --settings .claude/sandbox/srt.json -- \
             "${relay[@]}" env -u NO_PROXY -u no_proxy claude \
             --model "$MODEL" \
+            --session-id "$SESSION_ID" \
             --effort high \
             --max-budget-usd 5 \
             --permission-mode auto \
@@ -815,7 +824,7 @@ jobs:
           import stat
           from pathlib import Path
 
-          stage = Path(os.environ["RUNNER_TEMP"]) / "triage-report"
+          stage = Path(os.environ["RUNNER_TEMP"]) / "triage-out"
           stage.mkdir(mode=0o700)
           flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
 
@@ -856,11 +865,64 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: triage-report-${{ github.run_id }}
-          path: ${{ runner.temp }}/triage-report
+          name: triage-out-${{ github.run_id }}
+          path: ${{ runner.temp }}/triage-out
           if-no-files-found: error
           overwrite: true
           retention-days: 1
+      - name: Tag trace with triage outcome
+        if: always() && steps.telemetry.outcome == 'success'
+        continue-on-error: true
+        env:
+          TOKEN: ${{ steps.telemetry.outputs.token }}
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          TRACE_LOCATION: ${{ vars.TRIAGE_MLFLOW_TRACE_LOCATION }}
+          WAREHOUSE_ID: ${{ vars.TRIAGE_SQL_WAREHOUSE_ID }}
+          SESSION_ID: ${{ steps.session.outputs.id }}
+          ACTION: ${{ needs.issue.outputs.action }}
+          TYPE: ${{ needs.label.outputs.type }}
+          STATUS: ${{ steps.triage.outcome }}
+          DRY_RUN: ${{ needs.issue.outputs.dry_run }}
+        run: |
+          IFS=. read -r catalog schema prefix <<< "$TRACE_LOCATION"
+          search=$(jq -nc --arg catalog "$catalog" --arg schema "$schema" --arg prefix "$prefix" \
+            --arg session "$SESSION_ID" --arg warehouse "$WAREHOUSE_ID" '{
+              locations: [{type: "UC_TABLE_PREFIX", uc_table_prefix: {catalog_name: $catalog, schema_name: $schema, table_prefix: $prefix}}],
+              filter: "metadata.`mlflow.trace.session` = '\''\($session)'\''",
+              max_results: 2,
+              sql_warehouse_id: $warehouse
+            }')
+          # Spans can take a few minutes to be ingested after the agent exits.
+          ids='[]'
+          for _ in $(seq 1 20); do
+            ids=$(curl -sS --fail-with-body --max-time 30 --oauth2-bearer "$TOKEN" \
+              -H "Content-Type: application/json" --data-binary "$search" \
+              "$DATABRICKS_HOST/api/4.0/mlflow/traces/search" | jq -c '[.trace_infos[]?.trace_id]') || ids='[]'
+            [ "$ids" != '[]' ] && break
+            sleep 15
+          done
+          # The agent can export its own spans with this session ID, so tag only an unambiguous match.
+          if [ "$(jq length <<< "$ids")" -ne 1 ]; then
+            echo "::warning::Expected one trace for session $SESSION_ID, found $ids"
+            exit 0
+          fi
+          trace_id=$(jq -r '.[0]' <<< "$ids")
+          # The payload is agent output and unvalidated here, so keep only a well-formed label as the verdict.
+          payload=$(jq -c objects "$RUNNER_TEMP/triage-report/payload.json" 2>/dev/null) || payload='{}'
+          tags=$(jq -nc --argjson p "${payload:-"{}"}" '{
+            "triage.action": env.ACTION,
+            "triage.type": env.TYPE,
+            "triage.status": env.STATUS,
+            "triage.dry_run": env.DRY_RUN,
+            "triage.verdict": (($p.label | strings | select(test("^triage: [a-z-]+$")) | ltrimstr("triage: ")) // ""),
+            "triage.pr_created": ($p | has("pull_request") | tostring)
+          } | with_entries(select(.value != ""))')
+          jq -c 'to_entries[]' <<< "$tags" | while read -r tag; do
+            curl -sS --fail-with-body --max-time 30 --oauth2-bearer "$TOKEN" -X PATCH \
+              -H "Content-Type: application/json" --data-binary "$tag" \
+              "$DATABRICKS_HOST/api/4.0/mlflow/traces/$TRACE_LOCATION/$trace_id/tags" > /dev/null
+          done
+          echo "Tagged trace \`$trace_id\` with \`$tags\`" >> "$GITHUB_STEP_SUMMARY"
       - name: Stop gateway proxy
         if: always()
         run: |
@@ -891,7 +953,7 @@ jobs:
       PAYLOAD_SCHEMA: .claude/skills/triage/bug/${{ needs.issue.outputs.action }}.schema.yml
       TRIAGE_NOTICE: |-
         > [!NOTE]
-        > [Automated triage](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}). Please verify the findings.
+        > [Automated triage](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}). Please verify the findings. Maintainers can comment `/triage <instructions>` to direct the agent (e.g. `/triage open a PR with the first option`).
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -901,7 +963,7 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         if: needs.triage.result == 'success'
         with:
-          name: triage-report-${{ github.run_id }}
+          name: triage-out-${{ github.run_id }}
           path: /tmp/triage-out
       - name: Validate triage payload
         if: needs.triage.result == 'success'
@@ -976,6 +1038,46 @@ jobs:
           mv "$RUNNER_TEMP/sanitized-triage-payload.json" "$PAYLOAD_PATH"
           uvx check-jsonschema@0.37.4 \
             --schemafile "$PAYLOAD_SCHEMA" "$PAYLOAD_PATH"
+      - name: Preview and update issue title
+        if: needs.triage.result == 'success' && needs.issue.outputs.action == 'init'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
+          ORIGINAL_TITLE: ${{ needs.issue.outputs.title }}
+          PAYLOAD_PATH: /tmp/triage-out/payload.json
+          SHOULD_POST: ${{ needs.issue.outputs.dry_run == 'false' }}
+        run: |
+          if ! jq -e 'has("issue_title")' "$PAYLOAD_PATH" > /dev/null; then
+            exit 0
+          fi
+          jq -j .issue_title "$PAYLOAD_PATH" |
+            node .claude/skills/triage/scripts/sanitize.js output > "$RUNNER_TEMP/issue-title.txt"
+          jq -en --rawfile title "$RUNNER_TEMP/issue-title.txt" \
+            '$title | (length > 0 and length <= 120 and test("[^\\s]") and (test("[\\r\\n]") | not))' \
+            > /dev/null
+          proposed_title=$(cat "$RUNNER_TEMP/issue-title.txt")
+          {
+            echo "### Issue title proposal"
+            echo
+            jq -nr --arg title "$proposed_title" '"Title: <code>\($title | @html)</code>"'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$SHOULD_POST" != true ]; then
+            echo "Title not updated (dry run)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          current_issue=$(gh api "repos/$REPO/issues/$ISSUE_NUMBER")
+          if ! jq -e --arg original "$ORIGINAL_TITLE" '.title == $original' \
+            <<< "$current_issue" > /dev/null; then
+            echo "Title not updated: it changed while triage was running." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [ "$proposed_title" = "$ORIGINAL_TITLE" ]; then
+            echo "Title already matches the proposal." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --title "$proposed_title"
+          echo "Issue title updated." >> "$GITHUB_STEP_SUMMARY"
       - name: Preview and post triage response
         id: post
         if: needs.triage.result == 'success'
@@ -1026,16 +1128,17 @@ jobs:
           body=$(gh api "repos/$REPO/issues/comments/$COMMENT_ID" --jq .body)
           if [[ "$body" == *"$marker"* ]]; then
             gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH \
-              -f body="Automated triage did not complete. [Follow the workflow run]($RUN_URL). $marker"
+              -f body="Automated triage failed, possibly due to a transient error. Select **Re-run failed jobs** in the [workflow run]($RUN_URL) to retry. $marker"
           fi
   create_pr:
     needs: [issue, label, triage, post_triage]
-    # Branch from the default branch only, so the PR's base matches the commit triage ran on.
+    # Dry runs validate proposals on any branch; live runs publish from the default branch only.
     if: >-
       needs.issue.outputs.pr_enabled == 'true' &&
       needs.triage.result == 'success' &&
       needs.post_triage.result == 'success' &&
-      github.ref_name == github.event.repository.default_branch
+      (needs.issue.outputs.dry_run == 'true' ||
+       github.ref_name == github.event.repository.default_branch)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -1052,7 +1155,7 @@ jobs:
       - uses: ./.github/actions/setup-python
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: triage-report-${{ github.run_id }}
+          name: triage-out-${{ github.run_id }}
           path: /tmp/triage-out
       - name: Check proposed fix
         id: check
@@ -1186,6 +1289,14 @@ jobs:
             --body-file "$RUNNER_TEMP/pr-body.md")
           echo "Opened $pr_url" >> "$GITHUB_STEP_SUMMARY"
           echo "number=${pr_url##*/}" >> "$GITHUB_OUTPUT"
+      - name: Request autoformat
+        if: steps.open.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.open.outputs.number }}
+        run: |
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body '/autoformat'
       - name: Comment on issue
         if: steps.open.outcome == 'success'
         env:

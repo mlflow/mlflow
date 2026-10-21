@@ -663,6 +663,59 @@ async def test_bedrock_converse_chat_stream():
     mock_client.converse_stream.assert_called_once()
 
 
+_CACHE_USAGE = {
+    "inputTokens": 20,
+    "outputTokens": 5,
+    "totalTokens": 25,
+    "cacheReadInputTokens": 2000,
+    "cacheWriteInputTokens": 300,
+}
+
+
+def _assert_cache_usage(usage):
+    assert usage["prompt_tokens"] == 2320
+    assert usage["completion_tokens"] == 5
+    assert usage["total_tokens"] == 2325
+    assert usage["prompt_tokens_details"]["cached_tokens"] == 2000
+    assert usage["cache_creation_input_tokens"] == 300
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_chat_cache_tokens():
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    response = _converse_response()
+    response["usage"] = _CACHE_USAGE
+    mock_client.converse.return_value = response
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}])
+        result = jsonable_encoder(await provider.chat(payload))
+
+    _assert_cache_usage(result["usage"])
+    mock_client.converse.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_chat_stream_cache_tokens():
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    mock_client.converse_stream.return_value = {
+        "stream": iter([
+            {"contentBlockDelta": {"delta": {"text": "Hello"}}},
+            {"messageStop": {"stopReason": "end_turn"}},
+            {"metadata": {"usage": _CACHE_USAGE}},
+        ])
+    }
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}])
+        chunks = [jsonable_encoder(chunk) async for chunk in provider.chat_stream(payload)]
+
+    _assert_cache_usage(chunks[-1]["usage"])
+    mock_client.converse_stream.assert_called_once()
+
+
 def _tool_stream_events(*blocks):
     events = [{"messageStart": {"role": "assistant"}}]
     for i, block in enumerate(blocks):

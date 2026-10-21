@@ -576,11 +576,7 @@ class AmazonBedrockProvider(BaseProvider):
                     finish_reason=finish_reason,
                 )
             ],
-            usage=chat.ChatUsage(
-                prompt_tokens=usage.get("inputTokens"),
-                completion_tokens=usage.get("outputTokens"),
-                total_tokens=usage.get("totalTokens"),
-            ),
+            usage=self._build_chat_usage(usage),
         )
 
     # ---- API methods ----
@@ -597,6 +593,39 @@ class AmazonBedrockProvider(BaseProvider):
 
     def _get_token_auth_headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.bedrock_config.aws_config.aws_bearer_token}"}
+
+    @staticmethod
+    def _build_chat_usage(usage: dict[str, Any]) -> chat.ChatUsage:
+        # With prompt caching, Converse reports `inputTokens` as the non-cached input only.
+        # Fold the cache counts back in so `prompt_tokens` is the full input, as for the other
+        # providers, and cost calculation works.
+        # Ref: https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html#prompt-caching-converse
+        input_tokens = usage.get("inputTokens")
+        output_tokens = usage.get("outputTokens")
+        cache_read = usage.get("cacheReadInputTokens")
+        cache_write = usage.get("cacheWriteInputTokens")
+
+        prompt_tokens = input_tokens
+        if prompt_tokens is not None:
+            prompt_tokens += (cache_read or 0) + (cache_write or 0)
+
+        total_tokens = usage.get("totalTokens")
+        if prompt_tokens is not None and output_tokens is not None:
+            total_tokens = prompt_tokens + output_tokens
+
+        prompt_tokens_details = None
+        if cache_read is not None:
+            prompt_tokens_details = chat.PromptTokensDetails(cached_tokens=cache_read)
+        extra = {}
+        if cache_write is not None:
+            extra["cache_creation_input_tokens"] = cache_write
+        return chat.ChatUsage(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=output_tokens,
+            total_tokens=total_tokens,
+            prompt_tokens_details=prompt_tokens_details,
+            **extra,
+        )
 
     def _make_stream_chunk(
         self,
@@ -686,11 +715,7 @@ class AmazonBedrockProvider(BaseProvider):
             if usage := event["metadata"].get("usage", {}):
                 return self._make_stream_chunk(
                     delta=chat.StreamDelta(role=None, content=None),
-                    usage=chat.ChatUsage(
-                        prompt_tokens=usage.get("inputTokens"),
-                        completion_tokens=usage.get("outputTokens"),
-                        total_tokens=usage.get("totalTokens"),
-                    ),
+                    usage=self._build_chat_usage(usage),
                 )
         return None
 

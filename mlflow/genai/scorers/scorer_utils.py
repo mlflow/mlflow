@@ -410,6 +410,43 @@ def _obj_has_call_source(obj: Any) -> bool:
     return False
 
 
+def has_empty_call_source(serialized_data: dict[str, Any]) -> bool:
+    """Whether a serialized custom ``@scorer`` (not an ensemble of them) has empty source code."""
+    call_source = serialized_data.get("call_source")
+    return isinstance(call_source, str) and not call_source.strip()
+
+
+def find_custom_scorer_without_source(obj: Any) -> str | None:
+    """Return the name of a custom ``@scorer`` in ``obj`` whose stored source code is empty.
+
+    ``obj`` is a parsed serialized scorer. Ensembles are searched too. Returns None if every custom
+    scorer has source code. A custom scorer gets empty source code when its function body cannot be
+    read, for example because its file changed after it was imported.
+    """
+    if isinstance(obj, dict):
+        if has_empty_call_source(obj):
+            return str(obj.get("name") or obj.get("original_func_name") or "")
+        for value in obj.values():
+            if (name := find_custom_scorer_without_source(value)) is not None:
+                return name
+    elif isinstance(obj, list):
+        for item in obj:
+            if (name := find_custom_scorer_without_source(item)) is not None:
+                return name
+    return None
+
+
+def custom_scorer_without_source_error_message(name: str) -> str:
+    return (
+        f"Scorer '{name or '<unnamed>'}' has no source code: the body of its function is empty "
+        "or could not be read. Common causes: a lambda (use `def` instead), a body with only a "
+        "docstring (add the scoring code), an `async def` function (not supported), or a "
+        "function defined with `exec`, in a REPL, or in a file that changed after it was "
+        "imported (define it in a file or notebook cell, and register it before you change "
+        "the file)."
+    )
+
+
 def _parse_serialized_scorer(serialized_scorer: str) -> dict[str, Any]:
     """Parse a serialized scorer, raising on malformed input rather than swallowing it."""
     try:
