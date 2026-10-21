@@ -923,6 +923,8 @@ def test_otlp_json_encoding(mlflow_server: str):
         timeout=10,
     )
     assert response.status_code == 200
+    assert response.headers["content-type"] == "application/json"
+    assert response.json() == {}
 
     traces = mlflow.search_traces(locations=[experiment_id], include_spans=True, return_type="list")
     assert len(traces) == 1

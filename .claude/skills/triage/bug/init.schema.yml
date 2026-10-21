@@ -7,6 +7,12 @@ required:
   - label
   - comment
 properties:
+  issue_title:
+    description: Optional descriptive replacement for a blank, template-only, or vague issue title.
+    type: string
+    pattern: '^[^\r\n]+$'
+    minLength: 1
+    maxLength: 120
   label:
     description: Bug triage outcome label.
     type: string

@@ -22,6 +22,7 @@ from mlflow.data import numpy_dataset
 from mlflow.entities import Metric, ViewType, Workspace
 from mlflow.entities.logged_model import LoggedModelParameter, LoggedModelTag
 from mlflow.environment_variables import (
+    MLFLOW_ARTIFACTS_PRESIGNED_ONLY,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_TRACE_ARCHIVAL_CONFIG,
     MLFLOW_WORKSPACE_STORE_URI,
@@ -39,6 +40,7 @@ from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.workspace.sqlalchemy_store import SqlAlchemyStore as WorkspaceSqlAlchemyStore
 from mlflow.utils.os import is_windows
+from mlflow.utils.process import ShellCommandException
 from mlflow.utils.rest_utils import augmented_raise_for_status
 from mlflow.utils.time import get_current_time_millis
 
@@ -67,6 +69,19 @@ def test_mlflow_server_command(command):
             assert resp.text == "OK"
         finally:
             kill_process_tree(process.pid)
+
+
+def test_server_reports_why_it_failed():
+    with mock.patch(
+        "mlflow.server._run_server",
+        side_effect=ShellCommandException("The server process exited with code 3."),
+    ):
+        result = CliRunner().invoke(server)
+
+    assert result.exit_code == 1
+    assert "Running the mlflow server failed: The server process exited with code 3." in (
+        result.output
+    )
 
 
 def test_server_static_prefix_validation():
@@ -117,6 +132,7 @@ def test_server_uvicorn_options():
             default_artifact_root=mock.ANY,
             serve_artifacts=mock.ANY,
             artifacts_only=mock.ANY,
+            artifacts_presigned_only=mock.ANY,
             artifacts_destination=mock.ANY,
             host="127.0.0.1",
             port=5000,
@@ -142,6 +158,7 @@ def test_server_uvicorn_options():
             default_artifact_root=mock.ANY,
             serve_artifacts=mock.ANY,
             artifacts_only=mock.ANY,
+            artifacts_presigned_only=mock.ANY,
             artifacts_destination=mock.ANY,
             host="127.0.0.1",
             port=5000,
@@ -170,6 +187,7 @@ def test_server_dev_mode():
             default_artifact_root=mock.ANY,
             serve_artifacts=mock.ANY,
             artifacts_only=mock.ANY,
+            artifacts_presigned_only=mock.ANY,
             artifacts_destination=mock.ANY,
             host="127.0.0.1",
             port=5000,
@@ -198,6 +216,7 @@ def test_server_gunicorn_options():
             default_artifact_root=mock.ANY,
             serve_artifacts=mock.ANY,
             artifacts_only=mock.ANY,
+            artifacts_presigned_only=mock.ANY,
             artifacts_destination=mock.ANY,
             host="127.0.0.1",
             port=5000,
@@ -273,6 +292,42 @@ def test_server_mlflow_artifacts_options(monkeypatch, tmp_path):
         with mock.patch("mlflow.server._run_server") as run_server_mock:
             runner.invoke(server, ["--artifacts-only"])
             run_server_mock.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("args", "env_value", "expected"),
+    [(["--artifacts-presigned-only"], None, True), ([], "false", False), ([], "true", True)],
+)
+def test_server_resolves_presigned_only_configuration(monkeypatch, args, env_value, expected):
+    if env_value is not None:
+        monkeypatch.setenv(MLFLOW_ARTIFACTS_PRESIGNED_ONLY.name, env_value)
+
+    with (
+        mock.patch(
+            "mlflow.cli.artifacts_presigned_only_config_validation"
+        ) as mock_presigned_validation,
+        mock.patch(
+            "mlflow.server.handlers.initialize_backend_stores"
+        ) as mock_initialize_backend_stores,
+        mock.patch("mlflow.server._run_server") as run_server_mock,
+    ):
+        result = CliRunner().invoke(server, args)
+
+    assert result.exit_code == 0, result.output
+    mock_presigned_validation.assert_called_once()
+    assert mock_presigned_validation.call_args.args[0] is expected
+    mock_initialize_backend_stores.assert_called_once()
+    assert run_server_mock.call_args.kwargs["artifacts_presigned_only"] is expected
+
+
+def test_server_rejects_presigned_only_when_artifact_serving_is_disabled():
+    result = CliRunner().invoke(
+        server,
+        ["--artifacts-only", "--no-serve-artifacts", "--artifacts-presigned-only"],
+    )
+
+    assert result.exit_code == 2
+    assert "--no-serve-artifacts is not supported" in result.output
 
 
 def test_server_artifacts_only_with_workspaces_initializes_only_workspace_store(
@@ -694,13 +749,16 @@ def test_server_trace_archival_config_rejects_invalid_max_traces_per_pass(tmp_pa
     assert "'trace_archival.max_traces_per_pass' must be a positive integer" in result.output
 
 
-def test_server_trace_archival_config_requires_archival_capable_tracking_store(tmp_path):
+def test_server_trace_archival_config_requires_archival_capable_tracking_store(
+    tmp_path, monkeypatch
+):
     handlers._tracking_store = None
     handlers._model_registry_store = None
     backend_uri = f"sqlite:///{tmp_path / 'backend.db'}"
     artifact_root = (tmp_path / "artifacts").as_uri()
     config_path = _write_trace_archival_config(tmp_path)
     mock_tracking_store = mock.Mock(supports_trace_archival=False)
+    monkeypatch.setenv(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, str(config_path))
 
     with (
         mock.patch("mlflow.server._run_server") as run_server_mock,

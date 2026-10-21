@@ -122,6 +122,10 @@ When you register a server version without explicitly providing tools, MLflow co
 
 If a server's tools change after registration, you can re-discover them using the Python SDK. The UI also provides an **Auto-discover tools** button on the version detail page that displays the equivalent Python snippet to run.
 
+When refreshing tools, MLflow uses an access endpoint that resolves to the requested version, whether it targets the version directly or through an alias. MLflow connects using that endpoint's URL and transport. If access endpoints are configured but none resolves to the requested version, the refresh fails without contacting `server_json.remotes`.
+
+If no access endpoints are configured, MLflow uses the first remote with a non-empty URL and supported transport. It does not try later remotes if discovery fails. Headers passed to the refresh method are used for discovery in either case.
+
 Use <APILink fn="mlflow.genai.refresh_mcp_server_version_tools" />:
 
 ```python

@@ -26,6 +26,7 @@ import {
   IssueDetectionModelDropdown,
   type IssueDetectionModelSelection,
 } from './IssueDetectionModelDropdown';
+import { useActiveWorkspace } from '../../../../../workspaces/utils/WorkspaceUtils';
 import heroImg from '../../../../../common/static/issue-detection-empty.svg';
 
 interface IssueDetectionModalProps {
@@ -52,6 +53,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const workspace = useActiveWorkspace();
 
   // Without an explicit table selection, default to the most recent traces
   const [selectedTraceIds, setSelectedTraceIds] = useState<string[]>(() => {
@@ -137,13 +139,14 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
       {
         onSuccess: (response) => {
           const traceCount = selectedTraceIds.length;
-          onClose();
           recordSubmittedIssueDetectionJob({
+            workspace,
             experimentId,
             jobId: response.job_id,
             runId: response.run_id,
             traceCount,
           });
+          onClose();
         },
       },
     );

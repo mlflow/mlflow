@@ -30,10 +30,9 @@ const TracesTabStub = () => {
   return <div data-testid="traces-tab-stub">{location.search}</div>;
 };
 
-// Mock useLocalStorage to prevent guidance popovers from showing in tests
-jest.mock('@databricks/web-shared/hooks/useLocalStorage', () => ({
-  useLocalStorage: jest.fn(() => [true, jest.fn()]), // Return true to indicate guidance has been seen
-}));
+beforeEach(() => {
+  localStorage.setItem('mlflow.detectIssues.guidanceShown_v1', 'true');
+});
 
 // Mock useGetExperimentQuery
 const mockUseGetExperimentQuery = jest.fn();
