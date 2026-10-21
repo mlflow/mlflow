@@ -104,12 +104,8 @@ export const EvalRunTracesV4Table = ({
 
   const persistenceId = `${experimentId}.${runUuid}`;
   const assessmentSummaries = useEvalRunAssessmentAggregates({ experimentId, runUuid });
-  // Session-level scorers have no trace column.
   const seededAssessmentNames = useMemo(
-    () =>
-      assessmentSummaries.scorers
-        .filter((scorer) => !scorer.assessmentInfo.isSessionLevelAssessment)
-        .map((scorer) => scorer.name),
+    () => assessmentSummaries.scorers.map((scorer) => scorer.name),
     [assessmentSummaries.scorers],
   );
   const controller = useEvalRunTracesV4Controller({ experimentId, runUuid, seededAssessmentNames });

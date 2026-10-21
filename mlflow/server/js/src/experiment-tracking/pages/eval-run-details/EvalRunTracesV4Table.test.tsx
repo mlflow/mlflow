@@ -388,5 +388,32 @@ describe('EvalRunTracesV4Table', () => {
       expect(header).not.toHaveTextContent(/null/);
       expect(within(header).getByRole('progressbar', { name: 'Pass' })).toHaveAttribute('aria-valuenow', '50');
     });
+
+    test("keeps a session judge's column when a header filter leaves only turns without it", async () => {
+      const ofSession = (sessionId: string) => ({
+        metadata: { 'mlflow.assessment.sourceRunId': RUN_UUID, 'mlflow.trace.session': sessionId },
+      });
+      const ofRun = { metadata: { 'mlflow.assessment.sourceRunId': RUN_UUID } };
+      state.traces = [
+        makeRunTrace('tr-s1-1', {
+          trace_metadata: { 'mlflow.trace.session': 's1' },
+          assessments: [
+            makeFeedbackAssessment('session_completeness', 'yes', ofSession('s1')),
+            makeFeedbackAssessment('correctness', 'yes', ofRun),
+          ],
+        }),
+        makeRunTrace('tr-s1-2', {
+          trace_metadata: { 'mlflow.trace.session': 's1' },
+          assessments: [makeFeedbackAssessment('correctness', 'no', ofRun)],
+        }),
+      ];
+      renderTable();
+
+      const header = await screen.findByRole('columnheader', { name: /^Correctness PASS 50% / });
+      await userEvent.click(within(header).getByRole('progressbar', { name: 'Fail' }));
+      expect(await findTraceRow('tr-s1-2')).toBeInTheDocument();
+      await waitFor(() => expect(screen.queryByText(/tr-s1-1/)).not.toBeInTheDocument());
+      expect(screen.getByRole('columnheader', { name: /^session_completeness PASS 100%/ })).toBeInTheDocument();
+    });
   });
 });
