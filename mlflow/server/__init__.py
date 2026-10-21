@@ -63,6 +63,7 @@ from mlflow.server.handlers import (
     upload_artifact_handler,
 )
 from mlflow.server.jobs.executor import EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE
+from mlflow.server.jobs.executor_registry import warm_executor_registry_in_background
 from mlflow.server.workspace_helpers import (
     workspace_before_request_handler,
     workspace_teardown_request_handler,
@@ -94,6 +95,33 @@ if is_running_as_server:
 
 app.before_request(workspace_before_request_handler)
 app.teardown_request(workspace_teardown_request_handler)
+
+_executor_registry_warm_lock = threading.Lock()
+_executor_registry_warm_started = False
+
+
+@app.before_request
+def _warm_executor_registry_on_first_request():
+    """Check the job executor backends on a gunicorn or waitress worker's first request.
+
+    uvicorn workers do this when they start (the FastAPI lifespan). gunicorn and waitress serve
+    this Flask app, which has no startup hook, so their workers do it here, once, in a background
+    thread. See ``warm_executor_registry_in_background``.
+    """
+    global _executor_registry_warm_started
+    if _executor_registry_warm_started:
+        return
+    with _executor_registry_warm_lock:
+        if _executor_registry_warm_started:
+            return
+        _executor_registry_warm_started = True
+    if _MLFLOW_SGI_NAME.get() not in ("gunicorn", "waitress"):
+        return
+    try:
+        warm_executor_registry_in_background()
+    except Exception:
+        _logger.warning("Could not start checking the job executor backends", exc_info=True)
+
 
 for http_path, handler, methods in handlers.get_endpoints():
     app.add_url_rule(http_path, handler.__name__, handler, methods=methods)
