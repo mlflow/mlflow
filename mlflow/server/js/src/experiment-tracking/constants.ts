@@ -126,6 +126,8 @@ export const MLFLOW_MODEL_METRIC_NAME = 'Model metrics';
 export const EXPERIMENT_PAGE_VIEW_STATE_SHARE_URL_PARAM_KEY = 'viewStateShareKey';
 export const EXPERIMENT_PAGE_VIEW_STATE_SHARE_TAG_PREFIX = 'mlflow.sharedViewState.';
 export const SELECTED_TRACE_ID_QUERY_PARAM = 'selectedTraceId';
+export const TRACE_DRAWER_VIEW_MODE_QUERY_PARAM = 'traceDrawerView';
+export const TRACE_DRAWER_SESSION_ID_QUERY_PARAM = 'traceDrawerSessionId';
 export const SELECTED_ISSUE_ID_PARAM = 'selectedIssueId';
 /**
  * The span an Issue's evidence sends the reader to, alongside the trace the shared drawer reads

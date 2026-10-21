@@ -56,6 +56,9 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_GENAI_EVALUATE_DATASET_IDENTITY,
     MLFLOW_GENAI_EVALUATE_SCORERS_DIGEST,
 )
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_GENAI_EVALUATE_QUALITY_THRESHOLDS as QUALITY_THRESHOLDS_TAG,
+)
 
 from tests.helper_functions import get_safe_port
 from tests.tracing.helper import (
@@ -429,6 +432,108 @@ def test_evaluate_passed_respects_scorer_pass_if(server_config):
     )
     assert not failing.passed
     assert "confidence" in failing.reason
+
+
+def test_evaluate_logs_quality_criteria_run_tag(server_config):
+    @scorer
+    def is_good(outputs) -> bool:
+        return outputs == "good"
+
+    @scorer
+    def length(outputs) -> int:
+        return len(outputs)
+
+    @scorer
+    def unthresholded(outputs) -> bool:
+        return True
+
+    result = mlflow.genai.evaluate(
+        data=[{"inputs": {"q": "x"}, "outputs": "good"}, {"inputs": {"q": "y"}, "outputs": "bad"}],
+        scorers=[is_good, length, unthresholded],
+        quality_criteria="is_good >= 0.5 AND `length/max` <= 10",
+    )
+
+    payload = json.loads(mlflow.get_run(result.run_id).data.tags[QUALITY_THRESHOLDS_TAG])
+    assert [(r["metricKey"], r["comparator"], r["threshold"]) for r in payload["rules"]] == [
+        ("is_good/mean", "GTE", 0.5),
+        ("length/max", "LTE", 10.0),
+    ]
+    assert result.metrics["is_good/mean"] == 0.5
+    assert result.metrics["length/max"] == 4
+
+
+def test_evaluate_warns_when_quality_criteria_metric_is_missing():
+    @scorer
+    def label(outputs) -> str:
+        return "great"
+
+    with mock.patch("mlflow.genai.evaluation.quality_criteria._logger.warning") as mock_warning:
+        mlflow.genai.evaluate(
+            data=[{"inputs": {"q": "x"}, "outputs": "good"}],
+            scorers=[label],
+            quality_criteria="label >= 0.5",
+        )
+
+    mock_warning.assert_called_once()
+    assert "this evaluation produced no 'label/mean' metric" in mock_warning.call_args[0][0]
+
+
+def test_evaluate_clears_quality_criteria_tag_on_reused_run(server_config):
+    @scorer
+    def is_good(outputs) -> bool:
+        return outputs == "good"
+
+    with mlflow.start_run() as run:
+        first = mlflow.genai.evaluate(
+            data=[{"inputs": {"q": "x"}, "outputs": "good"}],
+            scorers=[is_good],
+            quality_criteria="is_good >= 0.9",
+        )
+        assert QUALITY_THRESHOLDS_TAG in mlflow.get_run(run.info.run_id).data.tags
+
+        second = mlflow.genai.evaluate(
+            data=[{"inputs": {"q": "x"}, "outputs": "good"}], scorers=[is_good]
+        )
+
+    assert first.run_id == second.run_id == run.info.run_id
+    # The second evaluation sets no quality criteria, so the tag from the first is gone
+    # rather than judging the new metrics against a stale bar.
+    assert QUALITY_THRESHOLDS_TAG not in mlflow.get_run(run.info.run_id).data.tags
+
+
+def test_evaluate_without_quality_criteria_logs_no_tag(server_config):
+    @scorer
+    def is_good(outputs) -> bool:
+        return True
+
+    result = mlflow.genai.evaluate(
+        data=[{"inputs": {"q": "x"}, "outputs": "good"}], scorers=[is_good]
+    )
+
+    assert QUALITY_THRESHOLDS_TAG not in mlflow.get_run(result.run_id).data.tags
+
+
+@pytest.mark.parametrize(
+    ("threshold_name", "match"),
+    [("dup", "matches more than one scorer"), ("typo", "doesn't match any scorer")],
+)
+def test_evaluate_rejects_invalid_quality_criteria_before_starting_run(threshold_name, match):
+    @scorer(name="dup")
+    def first(outputs) -> bool:
+        return True
+
+    @scorer(name="dup")
+    def second(outputs) -> bool:
+        return True
+
+    with pytest.raises(MlflowException, match=match):
+        mlflow.genai.evaluate(
+            data=[{"inputs": {"q": "x"}, "outputs": "good"}],
+            scorers=[first, second],
+            quality_criteria=f"{threshold_name} >= 0.5",
+        )
+
+    assert mlflow.search_runs(output_format="list") == []
 
 
 def test_evaluate_numeric_value_without_pass_if_fails_loudly(server_config):

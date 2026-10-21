@@ -39,12 +39,16 @@ const trace = (traceId: string, assessments: ReturnType<typeof feedback>[]) =>
     assessments,
   }) as unknown as ModelTraceInfoV3;
 
-const renderSidebarHook = (runTags: { key: string; value: string }[], traces: ModelTraceInfoV3[]) => {
+const renderSidebarHook = (
+  runTags: { key: string; value: string }[],
+  traces: ModelTraceInfoV3[],
+  modelInputs: { modelId: string }[] = [],
+) => {
   jest.mocked(useGetRunQuery).mockReturnValue({
     data: {
       info: { userId: 'me', startTime: '0' },
       data: { tags: runTags, params: [] },
-      inputs: { datasetInputs: [] },
+      inputs: { datasetInputs: [], modelInputs },
     },
     loading: false,
   } as unknown as ReturnType<typeof useGetRunQuery>);
@@ -89,5 +93,64 @@ describe('useEvalRunSidebarData lineage', () => {
     );
     expect(scorersByName['quality']).toEqual({ scorerName: 'quality', scorerVersion: 2 });
     expect(scorersByName['tone']).toBeUndefined();
+  });
+});
+
+describe('useEvalRunSidebarData evaluation lineage', () => {
+  test('reads the agent, git commit and scorers digest from the run, and the logged model from its inputs', async () => {
+    const { result } = renderSidebarHook(
+      [
+        { key: 'mlflow.genaiEvaluate.agent.function', value: 'my_pkg.agent.predict' },
+        { key: 'mlflow.genaiEvaluate.agent.digest', value: 'sha256:agent' },
+        {
+          key: 'mlflow.genaiEvaluate.scorersDigest',
+          value: JSON.stringify({ digest: 'sha256:s', hashed: 1, total: 2 }),
+        },
+        { key: 'mlflow.source.git.commit', value: '0123456789abcdef' },
+      ],
+      [],
+      [{ modelId: 'm-123' }],
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.sidebarProps.agent).toEqual({
+      function: 'my_pkg.agent.predict',
+      uri: undefined,
+      digest: 'sha256:agent',
+      loggedModelId: 'm-123',
+    });
+    expect(result.current.sidebarProps.gitCommit).toBe('0123456789abcdef');
+    expect(result.current.sidebarProps.scorersDigest).toEqual({
+      digest: 'sha256:s',
+      hashed: 1,
+      total: 2,
+      coverage: 'partial',
+    });
+  });
+
+  test('has no lineage for a run without the tags', async () => {
+    const { result } = renderSidebarHook([{ key: 'team', value: 'a' }], []);
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.sidebarProps.agent).toBeUndefined();
+    expect(result.current.sidebarProps.gitCommit).toBeUndefined();
+    expect(result.current.sidebarProps.scorersDigest).toBeUndefined();
+  });
+
+  test('gives each scorer the definition digest its feedback reports', async () => {
+    const { result } = renderSidebarHook(
+      [],
+      [
+        trace('tr-1', [feedback('quality', { 'mlflow.assessment.scorerDigest': 'sha256:q' }), feedback('tone')]),
+        trace('tr-2', [feedback('quality', { 'mlflow.assessment.scorerDigest': 'sha256:q' })]),
+      ],
+    );
+
+    await waitFor(() => expect(result.current.sidebarProps.scorers).toHaveLength(2));
+    const digestsByName = Object.fromEntries(
+      result.current.sidebarProps.scorers.map((scorer) => [scorer.name, scorer.digest]),
+    );
+    expect(digestsByName['quality']).toBe('sha256:q');
+    expect(digestsByName['tone']).toBeUndefined();
   });
 });

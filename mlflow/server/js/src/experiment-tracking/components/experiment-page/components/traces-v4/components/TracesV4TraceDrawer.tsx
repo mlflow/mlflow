@@ -1,10 +1,14 @@
 import {
   ApplyDesignSystemContextOverrides,
   GenericSkeleton,
+  SpeechBubbleIcon,
+  Tag,
+  Tooltip,
   Typography,
   useDesignSystemTheme,
   DangerIcon,
 } from '@databricks/design-system';
+import { useEffect, useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import {
   createTraceV4LongIdentifier,
@@ -20,14 +24,32 @@ import {
 import { useQueryClient } from '@databricks/web-shared/query-client';
 import {
   convertTraceInfoV3ToRunEvalEntry,
+  createTraceLocationForExperiment,
   doesTraceSupportV4API,
   getTraceV4QueryKey,
   invalidateMlflowSearchTracesCache,
+  useSearchMlflowTraces,
 } from '@databricks/web-shared/genai-traces-table';
+import { useRegisterAssistantContext } from '@mlflow/mlflow/src/assistant';
+import { getChatSessionsFilter } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-chat-sessions/utils';
 // Not re-exported from the genai-traces-table barrel in OSS — import from its module.
 import { EvaluationsReviewDetailsHeader } from '@databricks/web-shared/genai-traces-table/components/EvaluationsReviewDetails';
 import { useGetTrace } from '../hooks/useGetTrace';
 import type { TracesV4TraceActions } from '../hooks/useTracesV4TraceActions';
+import { TracesV4SessionDrawerBody } from './TracesV4SessionDrawerContent';
+
+/** A session opened in the drawer: its conversation, or one of its traces with a way back. */
+export interface TracesV4TraceDrawerSession {
+  sessionId: string;
+  viewMode: 'trace' | 'session';
+  /** Shows one of the session's traces (by its URL id) in the drawer. */
+  onViewTrace: (traceId: string) => void;
+  /** Returns from a trace to the session's conversation. */
+  onBackToSession: () => void;
+  /** Moves to the previous or next session on the page; omitted when there is none. */
+  onPreviousSession?: () => void;
+  onNextSession?: () => void;
+}
 
 export interface TracesV4TraceDrawerProps {
   /** Long id (`trace:/<catalog.schema>/<id>`) of the open trace, or undefined when the drawer is closed. */
@@ -40,7 +62,11 @@ export interface TracesV4TraceDrawerProps {
   onSelectTrace: (traceId: string) => void;
   /** Optional in-explorer run-judges config (enables "Run judge" from within a span's assessments). */
   runJudgeConfiguration?: NonNullable<TracesV4TraceActions['runJudges']>['runJudgeConfiguration'];
+  /** Opens the drawer on a session instead of a single trace. Omit for trace-only drawers. */
+  session?: TracesV4TraceDrawerSession;
 }
+
+const SESSION_ID_PREVIEW_LENGTH = 8;
 
 /** The id the URL uses for a trace: the V4 long id for UC-backed traces, the bare id otherwise. */
 const idOf = (trace: ModelTraceInfoV3): string =>
@@ -63,8 +89,11 @@ export const TracesV4TraceDrawer = ({
   traces,
   onSelectTrace,
   runJudgeConfiguration,
+  session,
 }: TracesV4TraceDrawerProps) => {
   const { theme } = useDesignSystemTheme();
+  // A session's turns in order (URL ids), reported by `SessionTurnsLoader` while one of its traces is open.
+  const [sessionTurnIds, setSessionTurnIds] = useState<string[]>();
 
   // Depends only on props (`traces`, `traceId`), so it's safe to compute before the hooks below and
   // feed the clicked row's timing into `useGetTrace` for time-hint derivation. `undefined` for a
@@ -98,20 +127,57 @@ export const TracesV4TraceDrawer = ({
     },
   });
 
+  if (session?.viewMode === 'session') {
+    return (
+      <ModelTraceExplorerDrawer
+        handleClose={onClose}
+        selectPreviousEval={session.onPreviousSession ?? (() => {})}
+        selectNextEval={session.onNextSession ?? (() => {})}
+        isPreviousAvailable={Boolean(session.onPreviousSession)}
+        isNextAvailable={Boolean(session.onNextSession)}
+        renderModalTitle={() => <Typography.Text bold>{session.sessionId}</Typography.Text>}
+        headerTitle={<SessionDrawerTitle sessionId={session.sessionId} />}
+        isLoading={false}
+        experimentId={experimentId}
+      >
+        <TracesV4SessionDrawerBody
+          experimentId={experimentId}
+          sessionId={session.sessionId}
+          selectedTraceId={traceId}
+          onViewTrace={(traceInfo) => session.onViewTrace(idOf(traceInfo))}
+        />
+      </ModelTraceExplorerDrawer>
+    );
+  }
+
   // Only mount once a trace is selected.
   if (!traceId) {
     return null;
   }
 
-  const isPreviousAvailable = currentIndex > 0;
-  const isNextAvailable = currentIndex >= 0 && currentIndex < traces.length - 1;
+  // A trace opened from a session moves between the session's turns, as on the session page.
+  const turnIndex = session && sessionTurnIds ? sessionTurnIds.indexOf(traceId) : -1;
+  const isPreviousAvailable = session ? turnIndex > 0 : currentIndex > 0;
+  const isNextAvailable = session
+    ? turnIndex >= 0 && sessionTurnIds !== undefined && turnIndex < sessionTurnIds.length - 1
+    : currentIndex >= 0 && currentIndex < traces.length - 1;
   const selectPreviousEval = () => {
-    if (isPreviousAvailable) {
+    if (!isPreviousAvailable) {
+      return;
+    }
+    if (session && sessionTurnIds) {
+      session.onViewTrace(sessionTurnIds[turnIndex - 1]);
+    } else {
       onSelectTrace(idOf(traces[currentIndex - 1]));
     }
   };
   const selectNextEval = () => {
-    if (isNextAvailable) {
+    if (!isNextAvailable) {
+      return;
+    }
+    if (session && sessionTurnIds) {
+      session.onViewTrace(sessionTurnIds[turnIndex + 1]);
+    } else {
       onSelectTrace(idOf(traces[currentIndex + 1]));
     }
   };
@@ -122,7 +188,7 @@ export const TracesV4TraceDrawer = ({
       return <TraceLoadError traceId={traceId} />;
     }
     if (traceData) {
-      return (
+      const explorer = (
         <div css={{ height: '100%', marginLeft: -theme.spacing.lg, marginRight: -theme.spacing.lg }}>
           <ModelTraceExplorerPreferencesProvider>
             <ModelTraceExplorerUpdateTraceContextProvider
@@ -133,9 +199,28 @@ export const TracesV4TraceDrawer = ({
               // (has a trace identity); a resolved-but-unidentifiable trace (no location) offers no edit.
               onEditTags={isV3ModelTraceInfo(traceData.info) ? showTagAssignmentModal : undefined}
             >
-              <ModelTraceExplorer modelTrace={traceData} />
+              {/* A session's trace opens with its assessments showing, as on the session page. */}
+              <ModelTraceExplorer
+                modelTrace={traceData}
+                {...(session ? { collapseAssessmentPane: 'force-open' as const } : {})}
+              />
             </ModelTraceExplorerUpdateTraceContextProvider>
           </ModelTraceExplorerPreferencesProvider>
+        </div>
+      );
+      if (!session) {
+        return explorer;
+      }
+      return (
+        <div css={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <SessionTurnsLoader
+            experimentId={experimentId}
+            sessionId={session.sessionId}
+            traceId={traceId}
+            onTurnsLoaded={setSessionTurnIds}
+          />
+          <SessionTraceBanner sessionId={session.sessionId} onBackToSession={session.onBackToSession} />
+          <div css={{ flex: 1, minHeight: 0 }}>{explorer}</div>
         </div>
       );
     }
@@ -188,6 +273,100 @@ export const TracesV4TraceDrawer = ({
         {TagAssignmentModal}
       </ApplyDesignSystemContextOverrides>
     </>
+  );
+};
+
+/** Drawer title for a session: "Session" and its id, which the full id shows on hover. */
+const SessionDrawerTitle = ({ sessionId }: { sessionId: string }) => (
+  <>
+    <Typography.Text css={{ whiteSpace: 'nowrap' }}>
+      <FormattedMessage defaultMessage="Session" description="Title for the trace drawer when it shows a session" />
+    </Typography.Text>
+    <Tooltip componentId="mlflow.traces-v4.session-drawer.session-id-tooltip" content={sessionId}>
+      <Tag componentId="mlflow.traces-v4.session-drawer.session-id" color="default" css={{ margin: 0, maxWidth: 160 }}>
+        <Typography.Text size="sm" color="secondary" ellipsis css={{ fontFamily: 'monospace' }}>
+          {sessionId}
+        </Typography.Text>
+      </Tag>
+    </Tooltip>
+  </>
+);
+
+/**
+ * Loads the turns of the session a trace was opened from, so the drawer's previous/next buttons move between
+ * them, and tells the assistant which session and trace are open. Renders nothing.
+ */
+const SessionTurnsLoader = ({
+  experimentId,
+  sessionId,
+  traceId,
+  onTurnsLoaded,
+}: {
+  experimentId: string;
+  sessionId: string;
+  traceId: string;
+  onTurnsLoaded: (turnIds: string[]) => void;
+}) => {
+  const locations = useMemo(() => [createTraceLocationForExperiment(experimentId)], [experimentId]);
+  const filters = useMemo(() => getChatSessionsFilter({ sessionId }), [sessionId]);
+  const { data: traceInfos } = useSearchMlflowTraces({ locations, filters });
+  useEffect(() => {
+    if (traceInfos) {
+      onTurnsLoaded(
+        [...traceInfos].sort((left, right) => Date.parse(left.request_time) - Date.parse(right.request_time)).map(idOf),
+      );
+    }
+  }, [traceInfos, onTurnsLoaded]);
+  useRegisterAssistantContext('sessionId', sessionId);
+  useRegisterAssistantContext('traceId', traceId);
+  return null;
+};
+
+/** Context shown above a trace opened from a session's conversation, with a way back to it. */
+const SessionTraceBanner = ({ sessionId, onBackToSession }: { sessionId: string; onBackToSession: () => void }) => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div
+      css={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: theme.spacing.xs,
+        minWidth: 0,
+        paddingBottom: theme.spacing.sm,
+      }}
+    >
+      <SpeechBubbleIcon css={{ flexShrink: 0 }} />
+      <Typography.Text size="sm" color="secondary" css={{ whiteSpace: 'nowrap' }}>
+        <FormattedMessage
+          defaultMessage="Trace from session"
+          description="Context shown above a trace opened from a session conversation"
+        />
+      </Typography.Text>
+      <Tooltip componentId="mlflow.traces-v4.trace-context.session-id-tooltip" content={sessionId}>
+        <Tag componentId="mlflow.traces-v4.trace-context.session-id" color="default" css={{ margin: 0, maxWidth: 96 }}>
+          <Typography.Text size="sm" color="secondary" css={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+            {sessionId.slice(0, SESSION_ID_PREVIEW_LENGTH)}
+          </Typography.Text>
+        </Tag>
+      </Tooltip>
+      <Typography.Text size="sm" color="secondary">
+        ·
+      </Typography.Text>
+      <Typography.Link
+        componentId="mlflow.traces-v4.trace-context.back-to-session"
+        href="#"
+        css={{ fontSize: theme.typography.fontSizeSm, whiteSpace: 'nowrap' }}
+        onClick={(event) => {
+          event.preventDefault();
+          onBackToSession();
+        }}
+      >
+        <FormattedMessage
+          defaultMessage="Back to session"
+          description="Action to return from a full trace to its session conversation"
+        />
+      </Typography.Link>
+    </div>
   );
 };
 

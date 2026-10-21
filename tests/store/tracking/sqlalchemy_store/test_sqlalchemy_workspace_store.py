@@ -3464,3 +3464,30 @@ def test_get_query_scopes_skill_registry_models_to_active_workspace(
             with workspace_tracking_store.ManagedSessionMaker() as session:
                 rows = workspace_tracking_store._get_query(session, model).all()
                 assert [getattr(row, workspace_attribute) for row in rows] == [workspace]
+
+
+# ---------------------------------------------------------------------------
+# MCP access endpoint workspace isolation
+# ---------------------------------------------------------------------------
+
+
+def _mcp_server_json(name: str, version: str) -> dict[str, str]:
+    return {"name": name, "version": version, "title": f"Test {name}"}
+
+
+@pytest.mark.parametrize("workspaces_enabled", [True], indirect=True)
+def test_search_mcp_access_endpoints_is_workspace_scoped(store):
+    name = "io.github.test/workspace-endpoints"
+    with WorkspaceContext("team-a"):
+        store.create_mcp_server_version(_mcp_server_json(name, "1.0.0"))
+        store.create_mcp_access_endpoint(name, "https://team-a.example.com", server_version="1.0.0")
+
+    with WorkspaceContext("team-b"):
+        store.create_mcp_server_version(_mcp_server_json(name, "1.0.0"))
+        endpoint = store.create_mcp_access_endpoint(
+            name, "https://team-b.example.com", server_version="1.0.0"
+        )
+        endpoints = store.search_mcp_access_endpoints(server_name=name)
+
+    assert [e.id for e in endpoints] == [endpoint.id]
+    assert [e.url for e in endpoints] == ["https://team-b.example.com"]

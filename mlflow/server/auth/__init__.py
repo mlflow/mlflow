@@ -2747,13 +2747,38 @@ def validate_can_manage_scorer_permission():
     return _get_permission_from_scorer_permission_request().can_manage
 
 
+def _scorer_not_denied_requirements(experiment_id: str, name: str) -> "list[Requirement]":
+    # Not-denied, as for registering or invoking a scorer: these checks add a veto on the
+    # scorer and its versions to the experiment check, so a scorer READ grant does not stop an
+    # experiment editor, but a DENY does.
+    return [
+        Requirement(
+            RESOURCE_TYPE_SCORER, store._scorer_pattern(experiment_id, name), ACTION_NOT_DENIED
+        ),
+        Requirement(RESOURCE_TYPE_SCORER_VERSION, "*", ACTION_NOT_DENIED),
+    ]
+
+
 def validate_can_update_online_scoring_config():
-    body = request.get_json(silent=True) or {}
-    experiment_id = body.get("experiment_id")
-    if not experiment_id:
+    """Turning automatic evaluation on or off decides whether a stored scorer runs, so a DENY on
+    the scorer or its versions also applies, as for registering a version.
+    """
+    # Parse the body as the handler does, so a double-encoded body is read the same way.
+    body = _get_normalized_request_json(request)
+    if not isinstance(body, dict):
         return False
-    username = authenticate_request().username
-    return _get_experiment_permission(experiment_id, username).can_update
+    experiment_id = body.get("experiment_id")
+    name = body.get("name")
+    if not experiment_id or not isinstance(name, str):
+        return False
+    return authorize(
+        authenticate_request().username,
+        (RESOURCE_TYPE_EXPERIMENT, experiment_id),
+        [
+            Requirement(RESOURCE_TYPE_EXPERIMENT, experiment_id, "update"),
+            *_scorer_not_denied_requirements(experiment_id, name),
+        ],
+    )
 
 
 def validate_can_read_online_scoring_configs():
@@ -2768,11 +2793,33 @@ def validate_can_read_online_scoring_configs():
     if not scorer_ids:
         return True
     username = authenticate_request().username
-    configs = _get_tracking_store().get_online_scoring_configs(scorer_ids)
-    for config in configs:
-        if not _get_experiment_permission(config.experiment_id, username).can_read:
-            return False
-    return True
+    tracking_store = _get_tracking_store()
+    configs = tracking_store.get_online_scoring_configs(scorer_ids)
+    # The experiment check comes first, so a caller who cannot read the experiments gets no
+    # further lookups.
+    if not all(
+        _get_experiment_permission(config.experiment_id, username).can_read for config in configs
+    ):
+        return False
+    # A config names its scorer only by ID, while the scorer's grants are keyed by name. This
+    # lookup skips the experiments' lifecycle checks, so a deleted experiment is not an error
+    # here. It returns only scorers that still have a version: one with none left has no code
+    # to protect, so the experiment check alone decides for its config.
+    scorer_names = {
+        scorer_version.scorer_id: scorer_version.scorer_name
+        for scorer_version in tracking_store.list_scorers_across_experiments(
+            sorted({config.experiment_id for config in configs})
+        )
+    }
+    return all(
+        authorize(
+            username,
+            (RESOURCE_TYPE_EXPERIMENT, config.experiment_id),
+            _scorer_not_denied_requirements(config.experiment_id, scorer_names[config.scorer_id]),
+        )
+        for config in configs
+        if config.scorer_id in scorer_names
+    )
 
 
 def sender_is_admin():
@@ -3513,8 +3560,60 @@ def validate_can_invoke_issue_detection():
     return _get_gateway_secret_permission(secret_id).can_use
 
 
+def _registered_scorer_names_in_evaluate_request(body: dict[str, Any]) -> list[str] | None:
+    """The scorer names a GenAI evaluate request loads from the store, read as the handler does.
+
+    An entry whose ``scorer_versions`` value is not null is a registered scorer, looked up by the
+    ``name`` in its ``serialized_scorers`` entry. Returns None when such an entry has no readable
+    name, so the request is denied rather than authorized without that scorer's checks.
+    """
+    serialized_scorers = body.get("serialized_scorers")
+    scorer_versions = body.get("scorer_versions")
+    if not isinstance(serialized_scorers, list) or not isinstance(scorer_versions, list):
+        return []
+    if len(serialized_scorers) != len(scorer_versions):
+        # Unpaired entries would skip their checks. The handler rejects this with the same error,
+        # but only after the request is authorized.
+        raise MlflowException.invalid_parameter_value(
+            "scorer_versions must have the same length as serialized_scorers"
+        )
+    names = []
+    for serialized_scorer, scorer_version in zip(serialized_scorers, scorer_versions):
+        if scorer_version is None:
+            continue
+        try:
+            name = json.loads(serialized_scorer)["name"]
+        except (json.JSONDecodeError, KeyError, TypeError):
+            return None
+        if not isinstance(name, str) or not name:
+            return None
+        names.append(name)
+    return names
+
+
 def validate_can_invoke_genai_evaluate():
-    return _authorize_create_in_experiment(_get_request_param("experiment_id"), RESOURCE_TYPE_RUN)
+    experiment_id = _get_request_param("experiment_id")
+    body = request.get_json(silent=True)
+    names = _registered_scorer_names_in_evaluate_request(body if isinstance(body, dict) else {})
+    if names is None:
+        return False
+    # The job runs every registered scorer the request names, so a DENY on one vetoes the
+    # request, as for invoking a registered scorer. Unlike invoke, inline scorers get no
+    # scorer-version check here: the UI sends only inline scorers, and adding that veto would
+    # newly deny those requests.
+    extra = []
+    for name in dict.fromkeys(names):
+        scorer = (RESOURCE_TYPE_SCORER, store._scorer_pattern(experiment_id, name))
+        extra.append(Requirement(*scorer, ACTION_NOT_DENIED))
+        extra.append(
+            Requirement(
+                RESOURCE_TYPE_SCORER_VERSION,
+                "*",
+                ACTION_NOT_DENIED,
+                fallback_if_no_grant=(scorer,),
+            )
+        )
+    return _authorize_create_in_experiment(experiment_id, RESOURCE_TYPE_RUN, extra)
 
 
 def _validate_can_use_model_definitions(

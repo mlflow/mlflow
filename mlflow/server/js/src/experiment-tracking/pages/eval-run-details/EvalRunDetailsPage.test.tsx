@@ -5,8 +5,9 @@ import { IntlProvider } from 'react-intl';
 import { setupTestRouter, testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
 import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
 import { MlflowRunStatus } from '../../../graphql/__generated__/graphql';
-import EvalRunDetailsPage from './EvalRunDetailsPage';
+import EvalRunDetailsPage, { getEvalRunScores } from './EvalRunDetailsPage';
 import { useEvalRunProgress } from './useEvalRunProgress';
+import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { ExperimentPageRevampProvider } from '../experiment-page-tabs/ExperimentPageRevampContext';
 
 jest.mock('../../../common/utils/FeatureUtils', () => ({
@@ -14,6 +15,20 @@ jest.mock('../../../common/utils/FeatureUtils', () => ({
   shouldEnableNewEvalRunsUi: jest.fn(() => false),
 }));
 jest.mock('./useEvalRunProgress', () => ({ useEvalRunProgress: jest.fn() }));
+jest.mock('../../hooks/useExperimentQuery', () => ({ useGetExperimentQuery: jest.fn() }));
+jest.mock('../experiment-evaluation-runs/hooks/useEvalRunsBaseline', () => ({
+  ...jest.requireActual<typeof import('../experiment-evaluation-runs/hooks/useEvalRunsBaseline')>(
+    '../experiment-evaluation-runs/hooks/useEvalRunsBaseline',
+  ),
+  useGetEvalRunsBaseline: (runUuid?: string) => ({
+    data: runUuid
+      ? {
+          info: { runUuid, experimentId: '123', lifecycleStage: 'active', runName: 'Baseline run' },
+          data: { metrics: [{ key: 'safety/mean', value: 0.5 }], params: [], tags: [] },
+        }
+      : undefined,
+  }),
+}));
 jest.mock('../../components/evaluations/RunViewEvaluationsTab', () => ({
   RunViewEvaluationsTab: ({ runTags }: { runTags?: Record<string, unknown> }) => (
     <div data-testid="eval-results-table">run-tags:{runTags ? 'present' : 'absent'}</div>
@@ -24,9 +39,20 @@ jest.mock('./EvalRunTracesSidebar', () => ({
   EvalRunTracesSidebar: () => <div role="region" aria-label="Run sidebar" />,
 }));
 jest.mock('./EvalRunTracesV4Table', () => ({
-  EvalRunTracesV4Table: ({ runUuid }: { runUuid: string }) => (
+  EvalRunTracesV4Table: ({
+    runUuid,
+    baselineRunUuid,
+    currentScores,
+    baselineScores,
+  }: {
+    runUuid: string;
+    baselineRunUuid?: string;
+    currentScores?: Record<string, number>;
+    baselineScores?: Record<string, number>;
+  }) => (
     <div role="table" aria-label="Evaluation run traces" data-testid="eval-results-v4">
-      run:{runUuid}
+      run:{runUuid} baseline:{baselineRunUuid ?? 'none'} currentSafety:{currentScores?.['safety'] ?? 'none'}{' '}
+      baselineSafety:{baselineScores?.['safety'] ?? 'none'}
     </div>
   ),
 }));
@@ -49,9 +75,15 @@ const baseProgress: Progress = {
   status: MlflowRunStatus.RUNNING,
   runName: 'my-eval-run',
   experiment: undefined,
+  runMetrics: [],
   runTags: {},
   isFinished: false,
 };
+
+const mockBaselineTag = (value?: string) =>
+  jest.mocked(useGetExperimentQuery).mockReturnValue({
+    data: value ? { tags: [{ key: 'mlflow.evaluation.baselineRunId', value }] } : undefined,
+  } as unknown as ReturnType<typeof useGetExperimentQuery>);
 
 describe('EvalRunDetailsPage', () => {
   const { history } = setupTestRouter();
@@ -59,6 +91,7 @@ describe('EvalRunDetailsPage', () => {
   beforeEach(() => {
     jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
     jest.mocked(useEvalRunProgress).mockReturnValue(baseProgress);
+    mockBaselineTag(undefined);
   });
 
   const renderAt = (entry: string, revampEnabled = false) => {
@@ -172,6 +205,46 @@ describe('EvalRunDetailsPage', () => {
 
     expect(await screen.findByText(/Run ID missing-run does not exist/)).toBeInTheDocument();
     expect(screen.queryByTestId('eval-results-v4')).not.toBeInTheDocument();
+  });
+
+  test("passes the experiment's baseline run and both runs' saved scores to the traces table", async () => {
+    mockBaselineTag('baseline-1');
+    jest.mocked(useEvalRunProgress).mockReturnValue({
+      ...baseProgress,
+      // The run query's copy of the experiment can be stale; the experiment query's tag wins.
+      experiment: { tags: [{ key: 'mlflow.evaluation.baselineRunId', value: 'stale-1' }] } as Progress['experiment'],
+      runMetrics: [{ key: 'safety/mean', value: 0.583333 }],
+    });
+    renderAt('/experiments/123/evaluation-runs/run-1/details');
+
+    const table = await screen.findByTestId('eval-results-v4');
+    expect(table).toHaveTextContent('baseline:baseline-1');
+    expect(table).toHaveTextContent('currentSafety:0.583333');
+    expect(table).toHaveTextContent('baselineSafety:0.5');
+  });
+
+  test('shows no baseline on the baseline run itself', async () => {
+    mockBaselineTag('run-1');
+    jest
+      .mocked(useEvalRunProgress)
+      .mockReturnValue({ ...baseProgress, runMetrics: [{ key: 'safety/mean', value: 0.583333 }] });
+    renderAt('/experiments/123/evaluation-runs/run-1/details');
+
+    const table = await screen.findByTestId('eval-results-v4');
+    expect(table).toHaveTextContent('baseline:none');
+    expect(table).toHaveTextContent('currentSafety:0.583333');
+  });
+
+  test('keys saved scores by metric name and by scorer name for the default mean', () => {
+    expect(
+      getEvalRunScores([
+        { key: 'safety/mean', value: 0.5 },
+        { key: 'relevance/mean', value: 3 },
+        { key: 'relevance', value: 4 },
+        { key: 'not_a_number', value: Number.NaN },
+        { key: null, value: 1 },
+      ]),
+    ).toEqual({ 'safety/mean': 0.5, safety: 0.5, 'relevance/mean': 3, relevance: 4 });
   });
 
   test('shows an error instead of an empty run when the run fails to load', async () => {

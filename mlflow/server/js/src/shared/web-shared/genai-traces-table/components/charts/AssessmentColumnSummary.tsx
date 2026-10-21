@@ -27,6 +27,9 @@ export const AssessmentColumnSummary = React.memo(
     currentRunDisplayName,
     compareToRunDisplayName,
     collapsedHeader,
+    categoricalChartLayout,
+    displayScoreOverride,
+    baselineDeltaPill,
   }: {
     theme: ThemeType;
     intl: IntlShape;
@@ -42,6 +45,12 @@ export const AssessmentColumnSummary = React.memo(
     currentRunDisplayName?: string;
     compareToRunDisplayName?: string;
     collapsedHeader?: boolean;
+    /** Layout of the categorical chart; defaults to the stacked layout. */
+    categoricalChartLayout?: 'stacked' | 'inline';
+    /** Shown instead of the score computed from the aggregates. */
+    displayScoreOverride?: string;
+    /** Shown after the score, e.g. the change from a baseline run. */
+    baselineDeltaPill?: React.ReactNode;
   }) => {
     const dtypeAggregateLabel = useMemo(() => {
       if (assessmentInfo.dtype === 'pass-fail') {
@@ -118,8 +127,9 @@ export const AssessmentColumnSummary = React.memo(
                 fontWeight: theme.typography.typographyBoldFontWeight,
               }}
             >
-              {displayScore}
+              {displayScoreOverride ?? displayScore}
             </div>
+            {baselineDeltaPill}
             {/* Diff score */}
             {!isNil(displayScoreChange) && compareToRunDisplayName && (
               <Tag
@@ -147,6 +157,7 @@ export const AssessmentColumnSummary = React.memo(
               toggleAssessmentFilter={toggleAssessmentFilter}
               currentRunDisplayName={currentRunDisplayName}
               compareToRunDisplayName={compareToRunDisplayName}
+              layout={categoricalChartLayout}
             />
           ))}
       </div>
