@@ -389,6 +389,41 @@ describe('PydanticAI message normalization', () => {
       });
     });
 
+    it('should render a retry prompt without a tool call as user feedback', () => {
+      const request = {
+        kind: 'request',
+        parts: [{ part_kind: 'retry-prompt', content: 'Output must be valid JSON', tool_call_id: null }],
+      };
+
+      const result = normalizeConversation(request, 'pydantic_ai');
+
+      expect(result).toHaveLength(1);
+      expect(result![0].role).toBe('user');
+      expect(result![0].content).toBe('Output must be valid JSON\n\nFix the errors and try again.');
+    });
+
+    it('should render a retry prompt for a tool call as a tool message with validation details', () => {
+      const request = {
+        kind: 'request',
+        parts: [
+          {
+            part_kind: 'retry-prompt',
+            content: [{ type: 'missing', loc: ['city'], msg: 'Field required' }],
+            tool_name: 'get_weather',
+            tool_call_id: 'call_1',
+          },
+        ],
+      };
+
+      const result = normalizeConversation(request, 'pydantic_ai');
+
+      expect(result).toHaveLength(1);
+      expect(result![0].role).toBe('tool');
+      expect(result![0].tool_call_id).toBe('call_1');
+      expect(result![0].content).toContain('Validation feedback:');
+      expect(result![0].content).toContain('Field required');
+    });
+
     it('should return null for non-PydanticAI messages', () => {
       const invalidInput = {
         some_field: 'some_value',

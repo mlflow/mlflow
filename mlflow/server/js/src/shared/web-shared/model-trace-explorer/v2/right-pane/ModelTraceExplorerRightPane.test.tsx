@@ -563,6 +563,85 @@ describe('ModelTraceExplorerRightPane', () => {
     expect(screen.queryByText('user_prompt')).not.toBeInTheDocument();
   });
 
+  it('shows a PydanticAI system prompt first and the user prompt once', () => {
+    const systemPrompt = 'Be concise.';
+    const userPrompt = 'What is MLflow?';
+    const span = normalizeNewSpanData(
+      {
+        ...DEFAULT_SPAN,
+        name: 'Agent.run',
+        attributes: {
+          'mlflow.spanType': JSON.stringify('AGENT'),
+          'mlflow.spanInputs': JSON.stringify({ user_prompt: userPrompt }),
+          'mlflow.spanOutputs': JSON.stringify({
+            output: 'A platform.',
+            _new_messages_serialized: [
+              {
+                kind: 'request',
+                parts: [
+                  { part_kind: 'system-prompt', content: systemPrompt },
+                  { part_kind: 'user-prompt', content: userPrompt },
+                ],
+              },
+              { kind: 'response', parts: [{ part_kind: 'text', content: 'A platform.' }] },
+            ],
+          }),
+          'mlflow.message.format': JSON.stringify('pydantic_ai'),
+        },
+      },
+      0,
+      0,
+      [],
+      {},
+      'pydantic-ai-trace',
+    );
+
+    render(<ModelTraceExplorerContentTab activeSpan={span} searchFilter="" activeMatch={null} />, {
+      wrapper: Wrapper,
+    });
+
+    expect(screen.getAllByText(systemPrompt)).toHaveLength(1);
+    expect(screen.getAllByText(userPrompt)).toHaveLength(1);
+    expect(screen.getAllByText('A platform.')).toHaveLength(1);
+    expect(screen.queryByText('user_prompt')).not.toBeInTheDocument();
+    expect(screen.queryByText('_new_messages_serialized')).not.toBeInTheDocument();
+  });
+
+  it('keeps PydanticAI retry feedback visible in pretty mode', () => {
+    const span = normalizeNewSpanData(
+      {
+        ...DEFAULT_SPAN,
+        name: 'Agent.run',
+        attributes: {
+          'mlflow.spanType': JSON.stringify('AGENT'),
+          'mlflow.spanInputs': JSON.stringify({ user_prompt: 'Give me JSON' }),
+          'mlflow.spanOutputs': JSON.stringify({
+            output: '{"ok": true}',
+            _new_messages_serialized: [
+              { kind: 'request', parts: [{ part_kind: 'user-prompt', content: 'Give me JSON' }] },
+              { kind: 'response', parts: [{ part_kind: 'text', content: 'not json' }] },
+              { kind: 'request', parts: [{ part_kind: 'retry-prompt', content: 'Output must be valid JSON' }] },
+              { kind: 'response', parts: [{ part_kind: 'text', content: '{"ok": true}' }] },
+            ],
+          }),
+          'mlflow.message.format': JSON.stringify('pydantic_ai'),
+        },
+      },
+      0,
+      0,
+      [],
+      {},
+      'pydantic-ai-trace',
+    );
+
+    render(<ModelTraceExplorerContentTab activeSpan={span} searchFilter="" activeMatch={null} />, {
+      wrapper: Wrapper,
+    });
+
+    expect(screen.getByText(/Output must be valid JSON/)).toBeInTheDocument();
+    expect(screen.queryByText('_new_messages_serialized')).not.toBeInTheDocument();
+  });
+
   it('keeps hidden PydanticAI input fields visible while a search filter is active', () => {
     const userPrompt = 'Explain MLflow GenAI Platform in 3-4 sentences.';
     const span = normalizeNewSpanData(

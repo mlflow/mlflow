@@ -26,7 +26,15 @@ type BuiltinToolReturnPart = {
   tool_call_id: string;
 };
 
-type ModelRequestPart = SystemPromptPart | UserPromptPart | ToolReturnPart | BuiltinToolReturnPart;
+// Sent back to the model when output validation or a tool call fails; the model retries.
+type RetryPromptPart = {
+  part_kind: 'retry-prompt';
+  content: string | any[];
+  tool_name?: string | null;
+  tool_call_id?: string | null;
+};
+
+type ModelRequestPart = SystemPromptPart | UserPromptPart | ToolReturnPart | BuiltinToolReturnPart | RetryPromptPart;
 
 // Response part types
 type TextPart = {
@@ -131,6 +139,18 @@ const normalizeModelRequest = (request: PydanticAIModelRequest): ModelTraceChatM
           content: contentStr,
           tool_call_id: part.tool_call_id,
         });
+        if (message) messages.push(message);
+        break;
+      }
+      case 'retry-prompt': {
+        // Mirror the text PydanticAI sends to the model so the transcript shows why it retried.
+        const feedback = isString(part.content)
+          ? part.content
+          : `Validation feedback:\n${JSON.stringify(part.content, null, 2)}`;
+        const content = `${feedback}\n\nFix the errors and try again.`;
+        const message = prettyPrintChatMessage(
+          part.tool_call_id ? { role: 'tool', content, tool_call_id: part.tool_call_id } : { role: 'user', content },
+        );
         if (message) messages.push(message);
         break;
       }

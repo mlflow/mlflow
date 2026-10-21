@@ -13,6 +13,7 @@ import {
 } from '../ModelTrace.types';
 import {
   createListFromObject,
+  hoistLeadingSystemMessages,
   normalizeConversation,
   removeOverlappingInputMessages,
 } from '../ModelTraceExplorer.utils';
@@ -52,7 +53,11 @@ const getInputChatMessages = (
     return { messages: [], hasTopLevelChatPayload: false };
   }
 
-  const inputMessages = normalizeConversation(activeSpan.inputs, activeSpan.chatMessageFormat) ?? [];
+  let inputMessages = normalizeConversation(activeSpan.inputs, activeSpan.chatMessageFormat) ?? [];
+  if (activeSpan.chatMessageFormat === 'pydantic_ai') {
+    const outputMessages = normalizeConversation(activeSpan.outputs, activeSpan.chatMessageFormat) ?? [];
+    inputMessages = hoistLeadingSystemMessages(inputMessages, outputMessages);
+  }
   if (inputMessages.length > 0) {
     return { messages: inputMessages, hasTopLevelChatPayload: true };
   }
