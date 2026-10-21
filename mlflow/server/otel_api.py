@@ -39,6 +39,7 @@ from mlflow.server.otlp_metrics import (
 )
 from mlflow.telemetry.events import TraceSource, TracesReceivedByServerEvent
 from mlflow.telemetry.track import _record_event
+from mlflow.tracing.otel.translation import strip_otlp_double_encoding
 from mlflow.tracing.utils import dump_span_attribute_value
 from mlflow.tracing.utils.otlp import (
     MLFLOW_EXPERIMENT_ID_HEADER,
@@ -215,6 +216,9 @@ async def export_traces(
                 for otel_proto_span in scope_span.spans:
                     try:
                         mlflow_span = Span.from_otel_proto(otel_proto_span, resource=resource)
+                        mlflow_span._span._attributes = strip_otlp_double_encoding(
+                            mlflow_span._span._attributes
+                        )
 
                         # Propagate service.name onto root spans so it's visible
                         # in the UI. Per the OTel resource spec, resource attrs
