@@ -10,6 +10,7 @@ import threading
 import time
 import uuid
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from functools import lru_cache, reduce
 from pathlib import PurePath
@@ -81,6 +82,7 @@ from mlflow.entities.trace_metrics import (
 )
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.environment_variables import MLFLOW_TRACE_DELETE_MAX_WORKERS
 from mlflow.exceptions import (
     MlflowException,
     MlflowTraceArchivalMalformedTrace,
@@ -299,6 +301,7 @@ from mlflow.utils.search_utils import (
     SearchUtils,
 )
 from mlflow.utils.string_utils import is_string_type
+from mlflow.utils.thread_utils import map_with_context
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import (
     append_to_uri_path,
@@ -5156,11 +5159,9 @@ class SqlAlchemyStore(
     def _delete_archived_trace_payloads(
         self, selected_traces: list[_TraceDeleteSelection]
     ) -> list[str]:
-        deleted_trace_ids = []
-        for selected_trace in selected_traces:
+        def delete_payload(selected_trace: _TraceDeleteSelection) -> str | None:
             if selected_trace.archived_artifact_uri is None:
-                deleted_trace_ids.append(selected_trace.trace_id)
-                continue
+                return selected_trace.trace_id
             try:
                 get_artifact_repository(selected_trace.archived_artifact_uri).delete_artifacts(
                     TRACE_ARCHIVAL_FILENAME
@@ -5173,9 +5174,20 @@ class SqlAlchemyStore(
                         selected_trace.trace_id,
                         exc_info=True,
                     )
-                    continue
-            deleted_trace_ids.append(selected_trace.trace_id)
-        return deleted_trace_ids
+                    return None
+            return selected_trace.trace_id
+
+        if len(selected_traces) <= 1:
+            deleted_trace_ids = [delete_payload(trace) for trace in selected_traces]
+        else:
+            with ThreadPoolExecutor(
+                max_workers=min(MLFLOW_TRACE_DELETE_MAX_WORKERS.get(), len(selected_traces)),
+                thread_name_prefix="mlflow-trace-delete",
+            ) as executor:
+                deleted_trace_ids = list(
+                    map_with_context(executor, delete_payload, selected_traces)
+                )
+        return [trace_id for trace_id in deleted_trace_ids if trace_id is not None]
 
     def create_assessment(self, assessment: Assessment) -> Assessment:
         """
