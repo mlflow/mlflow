@@ -103,6 +103,7 @@ def summarize_cluster(
     categories: list[str],
     label_to_analysis: list[int] | None = None,
     token_counter: _TokenCounter | None = None,
+    instructions: str | None = None,
 ) -> _IdentifiedIssue:
     """
     Summarize a cluster of analyses into a single identified issue.
@@ -119,6 +120,8 @@ def summarize_cluster(
         label_to_analysis: Mapping from label index to analysis index.
             When ``None``, label indices are used as analysis indices directly.
         token_counter: Optional token counter for tracking LLM usage.
+        instructions: The experiment's saved detection priorities, which steer severity and
+            what is worth reporting.
 
     Returns:
         An ``_IdentifiedIssue`` with synthesized fields and analysis indices.
@@ -140,7 +143,7 @@ def summarize_cluster(
         parts.append(entry)
     analyses_text = "\n\n".join(parts)
 
-    system_prompt = build_cluster_summary_prompt(categories=categories)
+    system_prompt = build_cluster_summary_prompt(categories=categories, instructions=instructions)
     response = _call_llm(
         model,
         [
