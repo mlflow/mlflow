@@ -7,7 +7,7 @@ const ISSUE_DETAILS_TAG = 'issue_details';
 
 const FIX_PROMPT_INTRO = `Fix this detected MLflow issue in the repository connected to this experiment.
 
-Inspect the affected traces and the repository before changing code. Then carry the fix through end to end: make one focused change for this issue in the working tree, add or update tests, and run them to validate the change. Don't stop at proposing a fix or describing one.
+Use the fix-agent-issue skill. Inspect the affected traces and the repository before changing code. Then carry the fix through end to end: make one focused change for this issue in the working tree, add or update tests, and run them to validate the change. Don't stop at proposing a fix or describing one.
 
 Don't push or open a pull request until the developer has reviewed your change and asks you to.
 
@@ -54,6 +54,10 @@ export interface IssueFixPromptOptions {
  *
  * Deprecated `root_causes` are left out, as the issue detail pane leaves them out: the description
  * carries the diagnosis. The agent gets the traces, which is better evidence than a stale field.
+ *
+ * The diagnosis-and-verification discipline is deferred to the `fix-agent-issue` skill rather than
+ * restated here, so this prompt stays about the issue and the skill stays the one place that
+ * defines how a fix is made.
  */
 export const buildIssueFixPrompt = (
   experimentId: string,
@@ -77,7 +81,7 @@ ${issue.source_run_id ? `Detection run ID: ${issue.source_run_id}\n` : ''}${issu
     ...traceIdLines(traceIds, total),
   ])}
 
-You are running as a coding agent in the repository connected to this experiment. Use the MLflow CLI configured on this machine to inspect the traces: \`mlflow traces get --trace-id <ID>\` writes one to a file, and each affected trace carries an issue assessment named ${issue.issue_id} holding the evidence for it. The \`analyze-mlflow-trace\` and \`retrieving-mlflow-traces\` skills cover both; if the MLflow skills are not available, install them from https://github.com/mlflow/skills before investigating.
+You are running as a coding agent in the repository connected to this experiment. Use the MLflow CLI configured on this machine to inspect the traces: \`mlflow traces get --trace-id <ID>\` writes one to a file, and each affected trace carries an issue assessment named ${issue.issue_id} holding the evidence for it. The \`analyze-mlflow-trace\` and \`retrieving-mlflow-traces\` skills cover reading them. If the MLflow skills are not available, install them from https://github.com/mlflow/skills before investigating.
 
 ${fixPromptOutro(issueUrl)}`;
 };
