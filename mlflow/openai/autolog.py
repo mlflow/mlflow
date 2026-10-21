@@ -529,16 +529,77 @@ def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
             return "".join(text_parts)
         return content
 
+    tool_calls: dict[int, dict[str, Any]] = {}
+    for chunk in chunks:
+        if not getattr(chunk, "choices", None):
+            continue
+        delta = chunk.choices[0].delta
+        chunk_tool_calls = getattr(delta, "tool_calls", None)
+        if not chunk_tool_calls and isinstance(delta, dict):
+            chunk_tool_calls = delta.get("tool_calls")
+        if not chunk_tool_calls:
+            continue
+
+        for tool_call in chunk_tool_calls:
+            tc_index = (
+                tool_call.get("index", 0)
+                if isinstance(tool_call, dict)
+                else getattr(tool_call, "index", 0)
+            )
+            merged = tool_calls.setdefault(
+                tc_index,
+                {"id": None, "type": "function", "function": {"name": "", "arguments": ""}},
+            )
+            tc_id = (
+                tool_call.get("id")
+                if isinstance(tool_call, dict)
+                else getattr(tool_call, "id", None)
+            )
+            if tc_id:
+                merged["id"] = tc_id
+            tc_type = (
+                tool_call.get("type")
+                if isinstance(tool_call, dict)
+                else getattr(tool_call, "type", None)
+            )
+            if tc_type:
+                merged["type"] = tc_type
+            fn = (
+                tool_call.get("function")
+                if isinstance(tool_call, dict)
+                else getattr(tool_call, "function", None)
+            )
+            if fn:
+                fn_name = fn.get("name") if isinstance(fn, dict) else getattr(fn, "name", None)
+                if fn_name:
+                    merged["function"]["name"] = fn_name
+                fn_args = (
+                    fn.get("arguments") if isinstance(fn, dict) else getattr(fn, "arguments", None)
+                )
+                if fn_args:
+                    merged["function"]["arguments"] += fn_args
+
+    raw_content = "".join(map(_extract_content, chunks))
+    content = raw_content or (None if tool_calls else raw_content)
+    reconstructed_tool_calls = [tool_calls[i] for i in sorted(tool_calls)] or None
+
     message = ChatCompletionMessage(
-        role="assistant", content="".join(map(_extract_content, chunks))
+        role="assistant",
+        content=content,
+        tool_calls=reconstructed_tool_calls,
     )
 
-    # Extract metadata from the last chunk
+    # Extract metadata from the last chunk.
+    # With `stream_options={"include_usage": True}`, the last chunk has no choices,
+    # so we search in reverse order for the last chunk containing a finish_reason.
     last_chunk = chunks[-1]
     finish_reason = "stop"
-    if choices := getattr(last_chunk, "choices", None):
-        if chunk_choice := choices[0]:
-            finish_reason = getattr(chunk_choice, "finish_reason") or finish_reason
+    for chunk in reversed(chunks):
+        if choices := getattr(chunk, "choices", None):
+            if chunk_choice := choices[0]:
+                if reason := getattr(chunk_choice, "finish_reason", None):
+                    finish_reason = reason
+                    break
 
     choice = Choice(index=0, message=message, finish_reason=finish_reason)
 
@@ -550,7 +611,7 @@ def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
         model=last_chunk.model,
         object="chat.completion",
         system_fingerprint=last_chunk.system_fingerprint,
-        usage=last_chunk.usage,
+        usage=_get_completion_stream_usage(chunks),
     )
 
 

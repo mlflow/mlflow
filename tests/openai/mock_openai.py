@@ -14,6 +14,7 @@ LIST_CONTENT = "LIST_CONTENT"
 AZURE_ANNOTATIONS = "AZURE_ANNOTATIONS"
 EMPTY_STREAM = "EMPTY_STREAM"
 ERROR_MID_STREAM = "ERROR_MID_STREAM"
+STREAM_TOOL_CALLS = "STREAM_TOOL_CALLS"
 
 app = fastapi.FastAPI()
 
@@ -182,6 +183,79 @@ async def chat_response_stream_with_list_content(include_usage: bool = False):
     )
 
 
+async def chat_response_stream_tool_calls(include_usage: bool = False):
+    yield {
+        "id": "chatcmpl-stream-tc-e2e",
+        "object": "chat.completion.chunk",
+        "created": 1677652288,
+        "model": "gpt-4o-mini",
+        "choices": [
+            {
+                "index": 0,
+                "delta": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "index": 0,
+                            "id": "call_stream_123",
+                            "type": "function",
+                            "function": {"name": "get_weather", "arguments": ""},
+                        }
+                    ],
+                },
+                "finish_reason": None,
+            }
+        ],
+    }
+    yield {
+        "id": "chatcmpl-stream-tc-e2e",
+        "object": "chat.completion.chunk",
+        "created": 1677652288,
+        "model": "gpt-4o-mini",
+        "choices": [
+            {
+                "index": 0,
+                "delta": {
+                    "tool_calls": [
+                        {
+                            "index": 0,
+                            "function": {"arguments": '{"city": "London"}'},
+                        }
+                    ],
+                },
+                "finish_reason": None,
+            }
+        ],
+    }
+    yield {
+        "id": "chatcmpl-stream-tc-e2e",
+        "object": "chat.completion.chunk",
+        "created": 1677652288,
+        "model": "gpt-4o-mini",
+        "choices": [
+            {
+                "index": 0,
+                "delta": {},
+                "finish_reason": "tool_calls",
+            }
+        ],
+    }
+    if include_usage:
+        yield {
+            "id": "chatcmpl-stream-tc-e2e",
+            "object": "chat.completion.chunk",
+            "created": 1677652288,
+            "model": "gpt-4o-mini",
+            "choices": [],
+            "usage": {
+                "prompt_tokens": 12,
+                "completion_tokens": 18,
+                "total_tokens": 30,
+            },
+        }
+
+
 @app.post("/chat/completions", response_model_exclude_unset=True)
 async def chat(payload: ChatCompletionRequest):
     if payload.stream:
@@ -209,6 +283,13 @@ async def chat(payload: ChatCompletionRequest):
             content = (
                 f"data: {json.dumps(d)}\n\n"
                 async for d in chat_response_stream_with_list_content(
+                    include_usage=(payload.stream_options or {}).get("include_usage", False)
+                )
+            )
+        elif STREAM_TOOL_CALLS == payload.messages[0].content:
+            content = (
+                f"data: {json.dumps(d)}\n\n"
+                async for d in chat_response_stream_tool_calls(
                     include_usage=(payload.stream_options or {}).get("include_usage", False)
                 )
             )

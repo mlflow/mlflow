@@ -18,7 +18,7 @@ import mlflow
 from mlflow.entities import SpanLogLevel
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
-from mlflow.openai.autolog import _get_span_type
+from mlflow.openai.autolog import _get_span_type, _reconstruct_completion_from_stream
 from mlflow.openai.utils.chat_schema import _parse_tools, _parse_usage
 from mlflow.tracing.constant import (
     STREAM_CHUNK_EVENT_VALUE_KEY,
@@ -35,6 +35,7 @@ from tests.openai.mock_openai import (
     EMPTY_STREAM,
     ERROR_MID_STREAM,
     LIST_CONTENT,
+    STREAM_TOOL_CALLS,
 )
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
 
@@ -1556,3 +1557,232 @@ async def test_chat_completions_autolog_streaming_with_cached_tokens(
         TokenUsageKey.TOTAL_TOKENS: 70,
         **expected_cache_usage,
     }
+
+
+def test_reconstruct_completion_from_stream_tool_calls_and_finish_reason():
+    from openai.types.chat.chat_completion_chunk import (
+        ChatCompletionChunk,
+        Choice,
+        ChoiceDelta,
+        ChoiceDeltaToolCall,
+        ChoiceDeltaToolCallFunction,
+    )
+    from openai.types.completion_usage import CompletionUsage
+
+    chunks = [
+        ChatCompletionChunk(
+            id="chatcmpl-stream-tc",
+            created=1677652288,
+            model="gpt-4o",
+            object="chat.completion.chunk",
+            choices=[
+                Choice(
+                    index=0,
+                    delta=ChoiceDelta(
+                        role="assistant",
+                        content=None,
+                        tool_calls=[
+                            ChoiceDeltaToolCall(
+                                index=0,
+                                id="call_weather_1",
+                                type="function",
+                                function=ChoiceDeltaToolCallFunction(
+                                    name="get_weather", arguments=""
+                                ),
+                            )
+                        ],
+                    ),
+                    finish_reason=None,
+                )
+            ],
+        ),
+        ChatCompletionChunk(
+            id="chatcmpl-stream-tc",
+            created=1677652288,
+            model="gpt-4o",
+            object="chat.completion.chunk",
+            choices=[
+                Choice(
+                    index=0,
+                    delta=ChoiceDelta(
+                        tool_calls=[
+                            ChoiceDeltaToolCall(
+                                index=0,
+                                function=ChoiceDeltaToolCallFunction(arguments='{"city": "'),
+                            )
+                        ],
+                    ),
+                    finish_reason=None,
+                )
+            ],
+        ),
+        ChatCompletionChunk(
+            id="chatcmpl-stream-tc",
+            created=1677652288,
+            model="gpt-4o",
+            object="chat.completion.chunk",
+            choices=[
+                Choice(
+                    index=0,
+                    delta=ChoiceDelta(
+                        tool_calls=[
+                            ChoiceDeltaToolCall(
+                                index=0,
+                                function=ChoiceDeltaToolCallFunction(arguments='Paris"}'),
+                            ),
+                            ChoiceDeltaToolCall(
+                                index=1,
+                                id="call_time_2",
+                                type="function",
+                                function=ChoiceDeltaToolCallFunction(
+                                    name="get_time", arguments='{"tz": "UTC"}'
+                                ),
+                            ),
+                        ],
+                    ),
+                    finish_reason=None,
+                )
+            ],
+        ),
+        ChatCompletionChunk(
+            id="chatcmpl-stream-tc",
+            created=1677652288,
+            model="gpt-4o",
+            object="chat.completion.chunk",
+            choices=[
+                Choice(
+                    index=0,
+                    delta=ChoiceDelta(),
+                    finish_reason="tool_calls",
+                )
+            ],
+        ),
+        ChatCompletionChunk(
+            id="chatcmpl-stream-tc",
+            created=1677652288,
+            model="gpt-4o",
+            object="chat.completion.chunk",
+            choices=[],
+            usage=CompletionUsage(prompt_tokens=15, completion_tokens=25, total_tokens=40),
+        ),
+    ]
+
+    completion = _reconstruct_completion_from_stream(chunks)
+    assert completion is not None
+    assert completion.id == "chatcmpl-stream-tc"
+    assert len(completion.choices) == 1
+    choice = completion.choices[0]
+    assert choice.finish_reason == "tool_calls"
+    assert choice.message.content is None
+    assert choice.message.role == "assistant"
+    assert len(choice.message.tool_calls) == 2
+
+    tc0 = choice.message.tool_calls[0]
+    assert tc0.id == "call_weather_1"
+    assert tc0.type == "function"
+    assert tc0.function.name == "get_weather"
+    assert tc0.function.arguments == '{"city": "Paris"}'
+
+    tc1 = choice.message.tool_calls[1]
+    assert tc1.id == "call_time_2"
+    assert tc1.type == "function"
+    assert tc1.function.name == "get_time"
+    assert tc1.function.arguments == '{"tz": "UTC"}'
+
+    assert completion.usage.total_tokens == 40
+
+
+def test_reconstruct_completion_from_stream_tool_calls_with_text_content():
+    from openai.types.chat.chat_completion_chunk import (
+        ChatCompletionChunk,
+        Choice,
+        ChoiceDelta,
+        ChoiceDeltaToolCall,
+        ChoiceDeltaToolCallFunction,
+    )
+
+    chunks = [
+        ChatCompletionChunk(
+            id="chatcmpl-stream-tc-text",
+            created=1677652288,
+            model="gpt-4o",
+            object="chat.completion.chunk",
+            choices=[
+                Choice(
+                    index=0,
+                    delta=ChoiceDelta(
+                        role="assistant",
+                        content="Checking the weather now. ",
+                        tool_calls=[
+                            ChoiceDeltaToolCall(
+                                index=0,
+                                id="call_weather_1",
+                                type="function",
+                                function=ChoiceDeltaToolCallFunction(
+                                    name="get_weather", arguments=""
+                                ),
+                            )
+                        ],
+                    ),
+                    finish_reason=None,
+                )
+            ],
+        ),
+        ChatCompletionChunk(
+            id="chatcmpl-stream-tc-text",
+            created=1677652288,
+            model="gpt-4o",
+            object="chat.completion.chunk",
+            choices=[
+                Choice(
+                    index=0,
+                    delta=ChoiceDelta(
+                        content=None,
+                        tool_calls=[
+                            ChoiceDeltaToolCall(
+                                index=0,
+                                function=ChoiceDeltaToolCallFunction(arguments='{"city": "Tokyo"}'),
+                            )
+                        ],
+                    ),
+                    finish_reason="tool_calls",
+                )
+            ],
+        ),
+    ]
+
+    completion = _reconstruct_completion_from_stream(chunks)
+    assert completion is not None
+    choice = completion.choices[0]
+    assert choice.finish_reason == "tool_calls"
+    assert choice.message.content == "Checking the weather now. "
+    assert len(choice.message.tool_calls) == 1
+    assert choice.message.tool_calls[0].function.arguments == '{"city": "Tokyo"}'
+
+
+@pytest.mark.asyncio
+async def test_chat_completions_autolog_streaming_tool_calls(client):
+    mlflow.openai.autolog()
+    stream = client.chat.completions.create(
+        messages=[{"role": "user", "content": STREAM_TOOL_CALLS}],
+        model="gpt-4o-mini",
+        stream=True,
+        stream_options={"include_usage": True},
+    )
+    if client._is_async:
+        async for _ in await stream:
+            pass
+    else:
+        for _ in stream:
+            pass
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    assert span.outputs is not None
+    choice = span.outputs["choices"][0]
+    assert choice["finish_reason"] == "tool_calls"
+    assert choice["message"]["content"] is None
+    assert len(choice["message"]["tool_calls"]) == 1
+    assert choice["message"]["tool_calls"][0]["function"]["name"] == "get_weather"
+    assert choice["message"]["tool_calls"][0]["function"]["arguments"] == '{"city": "London"}'
