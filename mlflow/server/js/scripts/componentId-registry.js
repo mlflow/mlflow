@@ -1020,6 +1020,8 @@ module.exports = {
   // -- mlflow.experiment-issues --
   "mlflow.experiment-issues.cancel-detection": "",
   "mlflow.experiment-issues.detail.category": "",
+  "mlflow.experiment-issues.detail.proposed-fix.copy": "",
+  "mlflow.experiment-issues.detail.proposed-fix.toggle": "",
   "mlflow.experiment-issues.detail.status": "",
   "mlflow.experiment-issues.detail.status.reject": "",
   "mlflow.experiment-issues.detail.status.reopen": "",

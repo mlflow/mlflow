@@ -17,6 +17,7 @@ import { IssueDetailSectionTitle } from './IssueDetailSectionTitle';
 import { IssueDetailColumn } from './IssueDetailColumn';
 import { useTriageExperimentIssue } from './useExperimentIssues';
 import { IssueEvidenceSection } from './IssueEvidenceSection';
+import { IssueProposedFixSection } from './IssueProposedFixSection';
 import { Link } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
 
@@ -187,6 +188,7 @@ export const ExperimentIssueDetail = ({
       )}
       <ExperimentIssueDescription description={issue.description ?? ''} />
       <IssueEvidenceSection experimentId={issue.experiment_id} issueId={issue.issue_id} onViewTrace={onViewTrace} />
+      <IssueProposedFixSection experimentId={issue.experiment_id} issue={issue} />
     </IssueDetailColumn>
   );
 };

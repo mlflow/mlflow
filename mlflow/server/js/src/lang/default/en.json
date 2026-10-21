@@ -7871,6 +7871,10 @@
     "defaultMessage": "Welcome to MLflow",
     "description": "Workspace landing page title"
   },
+  "PuoR9y": {
+    "defaultMessage": "Copy the prompt below to fix this issue with your coding agent.",
+    "description": "Experiment issues tab > Issue detail > Fix this issue section > Explains what the prompt below is for"
+  },
   "Pv88gx": {
     "defaultMessage": "Model",
     "description": "Column header for the model powering issue detection"
@@ -9050,6 +9054,10 @@
   "UEDu0c": {
     "defaultMessage": "MLflow UI automatically fetches metric histories for active runs and updates the metrics plot with a {interval} second interval.",
     "description": "Helpful tooltip message to explain the automatic metrics plot update"
+  },
+  "UFEaLl": {
+    "defaultMessage": "Show less",
+    "description": "Experiment issues tab > Issue detail > Fix this issue > Collapses the fix prompt"
   },
   "UGAKJp": {
     "defaultMessage": "X-axis:",
@@ -10530,6 +10538,10 @@
   "ZMaqXx": {
     "defaultMessage": "Or use coding agents/code snippets",
     "description": "Divider label separating the primary UI evaluation flow from the code-based alternatives"
+  },
+  "ZMqKjp": {
+    "defaultMessage": "Show more",
+    "description": "Experiment issues tab > Issue detail > Fix this issue > Expands the whole fix prompt"
   },
   "ZNYFUr": {
     "defaultMessage": "Adheres to guidelines",
@@ -12286,6 +12298,10 @@
   "fdfi96": {
     "defaultMessage": "Create judge",
     "description": "Button to create a new judge"
+  },
+  "fdp7Ls": {
+    "defaultMessage": "Copy",
+    "description": "Experiment issues tab > Issue detail > Fix this issue > Copies the fix prompt"
   },
   "ffHGW/": {
     "defaultMessage": "Permissions for this user are temporarily unavailable.",
@@ -14355,6 +14371,10 @@
     "defaultMessage": "Create Model",
     "description": "Title text for creating model in the model registry"
   },
+  "mJtCCq": {
+    "defaultMessage": "Fix this issue",
+    "description": "Experiment issues tab > Issue detail > Heading of the section with a prompt that fixes the issue"
+  },
   "mKV9T/": {
     "defaultMessage": "of",
     "description": "Connector between dict and value type"
@@ -15954,6 +15974,10 @@
   "rksffW": {
     "defaultMessage": "Saving…",
     "description": "Status text shown in the dataset record drawer while a save is in flight"
+  },
+  "rlx1L8": {
+    "defaultMessage": "Copied",
+    "description": "Experiment issues tab > Issue detail > Fix this issue > Shown after the fix prompt was copied"
   },
   "rmAWZX": {
     "defaultMessage": "just now",
