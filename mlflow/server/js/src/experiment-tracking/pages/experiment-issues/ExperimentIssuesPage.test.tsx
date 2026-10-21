@@ -216,7 +216,8 @@ describe('Experiment Issues', () => {
       submittedAtMs: Date.now(),
     });
     const { client } = renderPage('', true);
-    await screen.findByRole('button', { name: 'Run issue detection', busy: true });
+    // While a run is in flight the page shows the progress panel in place of the empty state.
+    await screen.findByText('Detecting issues...');
     await waitFor(() => expect(client.isFetching()).toBe(0));
     const invalidate = jest.spyOn(client, 'invalidateQueries');
     issues = [makeIssue('iss-detected', 'Detected by job')];
@@ -485,15 +486,17 @@ describe('Experiment Issues', () => {
       };
       jobStatus = status;
       const { client } = renderPage();
-      const detectButton = await screen.findByRole('button', { name: 'Run issue detection', busy: true });
+      await screen.findByText('Detecting issues...');
       await waitFor(() =>
         expect(client.getQueryData(['FETCH_JOB_STATUS', 'job-1'])).toEqual(expect.objectContaining({ status })),
       );
-      expect(detectButton).toBeDisabled();
-      expect(screen.queryByText('Detecting issues')).not.toBeInTheDocument();
+      // The page now owns the run in progress rather than sending the user to the run page.
+      expect(screen.getByText('Detecting issues...')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Cancel detection' })).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Go to Traces' })).toBeInTheDocument();
       expect(screen.queryByRole('link', { name: 'View detection run' })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Cancel detection' })).not.toBeInTheDocument();
-      await userEvent.click(detectButton);
+      // The panel offers no way to start a second run while one is in flight.
+      expect(screen.queryByRole('button', { name: 'Run issue detection' })).not.toBeInTheDocument();
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
       issues = [makeIssue('iss-detected', 'Detected by job')];
       jobStatus = 'SUCCEEDED';
@@ -503,7 +506,7 @@ describe('Experiment Issues', () => {
       });
       expect(await screen.findByRole('button', { name: /Detected by job/ })).toBeInTheDocument();
       expect(screen.queryByText('Issue detection completed')).not.toBeInTheDocument();
-      expect(screen.queryByText('Detecting issues')).not.toBeInTheDocument();
+      expect(screen.queryByText('Detecting issues...')).not.toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Detect issues in traces' })).toHaveAttribute('aria-busy', 'false');
       expect(screen.getByRole('button', { name: 'Detect issues in traces' })).toBeEnabled();
     },
@@ -518,14 +521,25 @@ describe('Experiment Issues', () => {
       const first = renderPage();
       await screen.findByRole('button', { name: buttonName, busy: false });
       act(() => recordSubmittedIssueDetectionJob({ experimentId: '1', runId: 'run-1', jobId: 'job-1', traceCount: 2 }));
-      expect(screen.getByRole('button', { name: buttonName, busy: true })).toBeDisabled();
+      // An empty list hands the whole area to the progress panel; a populated one keeps its
+      // toolbar button and shows the run as busy there.
+      const expectInProgress = async () => {
+        if (empty) {
+          expect(await screen.findByText('Detecting issues...')).toBeInTheDocument();
+          expect(screen.queryByRole('button', { name: buttonName })).not.toBeInTheDocument();
+        } else {
+          expect(await screen.findByRole('button', { name: buttonName, busy: true })).toBeDisabled();
+        }
+      };
+      await expectInProgress();
       await waitFor(() => expect(first.client.isFetching()).toBe(0));
-      expect(screen.getByRole('button', { name: buttonName })).toBeDisabled();
+      await expectInProgress();
       first.unmount();
       const { client } = renderPage();
-      const button = await screen.findByRole('button', { name: buttonName, busy: true });
-      expect(button).toBeDisabled();
-      await userEvent.click(button);
+      await expectInProgress();
+      if (!empty) {
+        await userEvent.click(screen.getByRole('button', { name: buttonName }));
+      }
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
       jobStatus = 'FAILED';
       await act(async () => {
@@ -691,14 +705,15 @@ describe('Experiment Issues', () => {
     };
     jobStatus = 'RUNNING';
     const { client } = renderPage();
-    const detectButton = await screen.findByRole('button', { name: 'Run issue detection', busy: true });
+    await screen.findByText('Detecting issues...');
     await waitFor(() => expect(client.isFetching(['FETCH_JOB_STATUS', 'job-1'])).toBe(0));
     server.use(rest.get('*/ajax-api/3.0/mlflow/jobs/job-1', (_req, res, ctx) => res(ctx.status(500))));
     await act(async () => {
       await client.invalidateQueries(['FETCH_JOB_STATUS', 'job-1']);
     });
     await screen.findByText('Unable to update detection progress');
-    expect(detectButton).toBeDisabled();
+    // A failing status poll leaves the run in progress, so the panel stays put.
+    expect(screen.getByText('Detecting issues...')).toBeInTheDocument();
     issues = [makeIssue('iss-recovered', 'Found after retry')];
     latestRun.info.status = 'FINISHED';
     server.use(
@@ -725,7 +740,7 @@ describe('Experiment Issues', () => {
         server.use(rest.get('*/ajax-api/3.0/mlflow/jobs/job-1', (_req, res, ctx) => res(ctx.status(403))));
       }
       const { client } = renderPage();
-      const detectButton = await screen.findByRole('button', { name: 'Run issue detection', busy: true });
+      await screen.findByText('Detecting issues...');
       if (cachedJob) {
         await waitFor(() => expect(client.isFetching(['FETCH_JOB_STATUS', 'job-1'])).toBe(0));
         server.use(rest.get('*/ajax-api/3.0/mlflow/jobs/job-1', (_req, res, ctx) => res(ctx.status(500))));

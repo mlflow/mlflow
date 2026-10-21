@@ -9,6 +9,7 @@ import { useParams, useSearchParams } from '../../../common/utils/RoutingUtils';
 import { useActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
 import { IssueDetectionModal } from '../../components/experiment-page/components/traces-v3/IssueDetectionModal';
 import { JobStatus, isJobComplete } from '../../components/run-page/hooks/useFetchJobStatus';
+import { useCancelJob } from '../../components/run-page/hooks/useCancelJob';
 import type { Issue } from '../../components/run-page/hooks/useSearchIssuesQuery';
 import { SELECTED_EVALUATION_ID_PARAM } from '../../../shared/web-shared/genai-traces-table';
 import { SELECTED_ISSUE_ID_PARAM, SELECTED_ISSUE_SPAN_ID_PARAM } from '../../constants';
@@ -20,6 +21,7 @@ import { useIssueListControls } from './useExperimentIssuesListControls';
 import { ExperimentIssuesActionBar } from './ExperimentIssuesActionBar';
 import { IssueSplitPane } from './IssueSplitPane';
 import { markDetectIssuesGuidanceSeen } from '../../../shared/web-shared/genai-traces-table/components/DetectIssuesButton';
+import { ExperimentIssuesDetectionProgress } from './ExperimentIssuesDetectionProgress';
 import { ExperimentIssuesEmptyState } from './ExperimentIssuesEmptyState';
 import { useDetectionTraceIds, useLatestIssueDetection } from './useIssueDetection';
 import { useExperimentIssue, useExperimentIssues, useHasExperimentIssues } from './useExperimentIssues';
@@ -107,6 +109,17 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
   const [showDetection, setShowDetection] = useState(false);
   const traces = useDetectionTraceIds(experimentId, showDetection);
   const isDetectionButtonLoading = isDetecting || (showDetection && traces.isFetching);
+  const { cancelJobAsync } = useCancelJob();
+  // Left undefined until a job exists: there is nothing to cancel while the run is still being
+  // created, and the button disables itself rather than failing the request.
+  const onCancelDetection = detection.jobId
+    ? async () => {
+        // The run is passed so the hook terminates it too: the server cancels the job
+        // without touching the run it belongs to, which would otherwise stay RUNNING.
+        await cancelJobAsync({ jobId: detection.jobId as string, runUuid: detection.run?.info.run_id });
+        await detection.refetch();
+      }
+    : undefined;
   const [params, setParams] = useSearchParams();
   const requestedIssueId = params.get(SELECTED_ISSUE_ID_PARAM) ?? undefined;
   const firstIssueId = issues[0]?.issue_id;
@@ -377,6 +390,10 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
       )}
       {isResolvingEmptyState ? (
         <TableSkeleton lines={5} />
+      ) : isEmptyState && isDetecting ? (
+        <CenteredState>
+          <ExperimentIssuesDetectionProgress experimentId={experimentId} onCancelDetection={onCancelDetection} />
+        </CenteredState>
       ) : isEmptyState ? (
         <CenteredState>
           <ExperimentIssuesEmptyState
