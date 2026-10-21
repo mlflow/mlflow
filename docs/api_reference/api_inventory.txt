@@ -485,6 +485,15 @@ mlflow.entities.Issue.from_dictionary
 mlflow.entities.Issue.from_proto
 mlflow.entities.Issue.to_dictionary
 mlflow.entities.Issue.to_proto
+mlflow.entities.IssueEvidence
+mlflow.entities.IssueEvidence.from_assessment
+mlflow.entities.IssueEvidence.from_metadata_value
+mlflow.entities.IssueEvidence.to_metadata
+mlflow.entities.IssueEvidence.to_metadata_value
+mlflow.entities.IssueEvidence.validate_spans
+mlflow.entities.IssueEvidenceStep
+mlflow.entities.IssueEvidenceStep.from_dict
+mlflow.entities.IssueEvidenceStep.to_dict
 mlflow.entities.IssueReference
 mlflow.entities.IssueReference.from_dictionary
 mlflow.entities.IssueReference.from_proto
@@ -756,6 +765,8 @@ mlflow.entities.input_tag.InputTag
 mlflow.entities.issue.Issue
 mlflow.entities.issue.IssueSeverity
 mlflow.entities.issue.IssueStatus
+mlflow.entities.issue_evidence.IssueEvidence
+mlflow.entities.issue_evidence.IssueEvidenceStep
 mlflow.entities.lifecycle_stage.LifecycleStage
 mlflow.entities.link.Link
 mlflow.entities.logged_model.LoggedModel

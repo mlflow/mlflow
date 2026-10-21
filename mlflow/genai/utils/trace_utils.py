@@ -909,6 +909,7 @@ def clean_up_extra_traces(
     eval_start_time: int,
     experiment_id: str,
     input_trace_ids: set[str] | None = None,
+    keep_untagged_run_traces: bool = False,
 ) -> None:
     """
     Clean up noisy traces generated outside predict function.
@@ -924,12 +925,21 @@ def clean_up_extra_traces(
         experiment_id: The experiment ID of the evaluation run.
         input_trace_ids: Set of trace IDs that were passed in the input DataFrame.
             These traces should never be deleted.
+        keep_untagged_run_traces: If True, do not delete traces that were created during
+            the evaluation run but lack ``mlflow.eval.requestId``. Use this when a
+            ``predict_fn`` row missed the eval tag so the failure is missing assessments
+            rather than deleted traces.
     """
     try:
         extra_trace_ids = [
             trace.info.trace_id
             for trace in traces
-            if not _should_keep_trace(trace, eval_start_time, input_trace_ids)
+            if not _should_keep_trace(
+                trace,
+                eval_start_time,
+                input_trace_ids,
+                keep_untagged_run_traces=keep_untagged_run_traces,
+            )
         ]
         if extra_trace_ids:
             _logger.debug(
@@ -955,6 +965,7 @@ def _should_keep_trace(
     trace: Trace,
     eval_start_time: int,
     input_trace_ids: set[str] | None = None,
+    keep_untagged_run_traces: bool = False,
 ) -> bool:
     # Never delete traces that were explicitly passed in the input DataFrame.
     if input_trace_ids and trace.info.trace_id in input_trace_ids:
@@ -972,7 +983,9 @@ def _should_keep_trace(
         return True
 
     # Otherwise, only keep traces from the prediction function.
-    return TraceTagKey.EVAL_REQUEST_ID in trace.info.tags
+    if TraceTagKey.EVAL_REQUEST_ID in trace.info.tags:
+        return True
+    return keep_untagged_run_traces
 
 
 def construct_eval_result_df(

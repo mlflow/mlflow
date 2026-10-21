@@ -8398,7 +8398,7 @@ def _get_skill_registry_validator(
             return False
         operation = _SKILL_ROUTE_OPERATIONS.get(route.endpoint)
         if operation == "search":
-            request.state.skill_identity_scope = skill_search_permission_scope(username)
+            request.state.skill_identity_scope = skill_search_permission_scope(username, request)
             return True
         if operation == "create":
             body = await _skill_auth_body(request)
@@ -8462,6 +8462,7 @@ def validate_can_register_skill(
 
 def skill_search_permission_scope(
     username: str,
+    request: StarletteRequest | None = None,
 ) -> tuple[list[tuple[str, str]] | None, list[tuple[str, str]]]:
     """Build pre-pagination allow and deny identity filters for Skill search."""
     user = store.get_user(username)
@@ -8473,17 +8474,26 @@ def skill_search_permission_scope(
 
     grants = store.list_grants(user.id, workspace_name, {RESOURCE_TYPE_SKILL})
     if any(is_workspace_admin_grant(grant) for grant in grants):
+        if request is not None:
+            request.state.skill_permission_resolver = lambda resource_id: MANAGE
         return None, []
 
-    def can_read(resource_id: str) -> bool:
+    absent = _absent_permission(workspace_name)
+    default_permission = auth_config.default_permission
+
+    def permission_for(resource_id: str) -> Permission:
         permission = fold_grants_for_key(grants, GrantLoadKey(RESOURCE_TYPE_SKILL, resource_id))
         if permission is None:
-            permission = _absent_permission(workspace_name)
+            permission = absent
         elif not permission.denied:
-            permission = floor_positive_permission(permission, auth_config.default_permission)
-        return permission.can_read
+            permission = floor_positive_permission(permission, default_permission)
+        return permission
 
-    baseline_read = can_read("*")
+    if request is not None:
+        # Use the same grant snapshot for search visibility and response actions.
+        request.state.skill_permission_resolver = permission_for
+
+    baseline_read = permission_for("*").can_read
     identities = {
         _parse_skill_registry_resource_key(grant.resource_pattern)
         for grant in grants
@@ -8492,7 +8502,7 @@ def skill_search_permission_scope(
     exceptions = sorted(
         identity
         for identity in identities
-        if can_read(_format_skill_registry_resource_key(*identity)) != baseline_read
+        if permission_for(_format_skill_registry_resource_key(*identity)).can_read != baseline_read
     )
     return (None, exceptions) if baseline_read else (exceptions, [])
 
@@ -9065,6 +9075,26 @@ def _find_fastapi_after_request_handler(
     )
 
 
+def _add_skill_allowed_actions(skill: dict[str, Any], username: str) -> None:
+    permission = _get_skill_permission(skill.get("organization", ""), skill["name"], username)
+    skill["allowed_actions"] = _permission_to_allowed_actions(permission)
+
+
+def _filter_get_skill(username: str, body: bytes, request: StarletteRequest) -> bytes:
+    data = json.loads(body)
+    _add_skill_allowed_actions(data, username)
+    return json.dumps(data).encode()
+
+
+def _filter_search_skills(username: str, body: bytes, request: StarletteRequest) -> bytes:
+    data = json.loads(body)
+    for skill in data["skills"]:
+        identity = _format_skill_registry_resource_key(skill.get("organization", ""), skill["name"])
+        permission = request.state.skill_permission_resolver(identity)
+        skill["allowed_actions"] = _permission_to_allowed_actions(permission)
+    return json.dumps(data).encode()
+
+
 def _filter_get_mcp_server(username: str, body: bytes, request: StarletteRequest) -> bytes:
     data = json.loads(body)
     if name := data.get("name"):
@@ -9112,6 +9142,12 @@ FASTAPI_ENDPOINT_RESPONSE_FILTERS: dict[
     Callable[..., Any],
     Callable[[str, bytes, StarletteRequest], bytes],
 ] = {
+    _skill_registry_api.create_skill: _filter_get_skill,
+    _skill_registry_api.get_skill: _filter_get_skill,
+    _skill_registry_api.get_organization_skill: _filter_get_skill,
+    _skill_registry_api.update_skill: _filter_get_skill,
+    _skill_registry_api.update_organization_skill: _filter_get_skill,
+    _skill_registry_api.search_skills: _filter_search_skills,
     _search_mcp_servers_endpoint: _filter_search_mcp_servers,
     _search_all_access_endpoints_endpoint: _filter_search_mcp_endpoints,
     _get_mcp_server_endpoint: _filter_get_mcp_server,

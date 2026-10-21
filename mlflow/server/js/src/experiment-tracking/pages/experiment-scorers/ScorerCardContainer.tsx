@@ -14,10 +14,16 @@ import { useRegisterAssistantContext } from '@mlflow/mlflow/src/assistant';
 interface ScorerCardContainerProps {
   scorer: ScheduledScorer;
   experimentId: string;
+  /** Open the card on first render, for a link that points at this scorer. */
+  initiallyExpanded?: boolean;
 }
 
-const ScorerCardContainer: React.FC<ScorerCardContainerProps> = ({ scorer, experimentId }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+const ScorerCardContainer: React.FC<ScorerCardContainerProps> = ({
+  scorer,
+  experimentId,
+  initiallyExpanded = false,
+}) => {
+  const [isExpanded, setIsExpanded] = useState(initiallyExpanded);
   const [activeModal, setActiveModal] = useState<'delete' | 'edit' | null>(null);
 
   // Register scorer context when card is expanded

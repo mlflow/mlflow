@@ -3354,7 +3354,10 @@ def test_review_queue_question_lock_holds_in_workspace_store(workspace_tracking_
         assert updated.users == ["alice"]
 
 
-def test_extended_issue_fields_and_paging_are_workspace_scoped(workspace_tracking_store):
+@pytest.mark.parametrize(
+    "order_by", [None, ["name ASC"], ["status ASC", "severity DESC", "last_seen_timestamp DESC"]]
+)
+def test_extended_issue_fields_and_paging_are_workspace_scoped(workspace_tracking_store, order_by):
     store = workspace_tracking_store
     with WorkspaceContext("team-a"):
         experiment_id = store.create_experiment("extended-issues")
@@ -3367,7 +3370,9 @@ def test_extended_issue_fields_and_paging_are_workspace_scoped(workspace_trackin
                 categories=["Cost", " COST "],
                 metadata={"private": "value"},
             )
-        page = store.search_issues(categories=[" cOsT "], include_total_count=True, max_results=1)
+        page = store.search_issues(
+            categories=[" cOsT "], include_total_count=True, max_results=1, order_by=order_by
+        )
         assert page.total_count == 2
         assert page.token
         run = store.create_run(experiment_id, "user", 1, [], "run")
@@ -3379,6 +3384,7 @@ def test_extended_issue_fields_and_paging_are_workspace_scoped(workspace_trackin
         with pytest.raises(MlflowException, match="page token"):
             store.search_issues(
                 categories=["cost"],
+                order_by=order_by,
                 include_total_count=True,
                 max_results=1,
                 page_token=page.token,
@@ -3390,7 +3396,11 @@ def test_extended_issue_fields_and_paging_are_workspace_scoped(workspace_trackin
     with WorkspaceContext("team-a"):
         assert store.get_issue("iss-team-a-0").metadata == {"private": "value"}
         second = store.search_issues(
-            categories=["COST"], include_total_count=True, max_results=1, page_token=page.token
+            categories=["COST"],
+            include_total_count=True,
+            max_results=1,
+            page_token=page.token,
+            order_by=order_by,
         )
         assert second.total_count == 2
         assert second[0].issue_id != page[0].issue_id
@@ -3454,3 +3464,30 @@ def test_get_query_scopes_skill_registry_models_to_active_workspace(
             with workspace_tracking_store.ManagedSessionMaker() as session:
                 rows = workspace_tracking_store._get_query(session, model).all()
                 assert [getattr(row, workspace_attribute) for row in rows] == [workspace]
+
+
+# ---------------------------------------------------------------------------
+# MCP access endpoint workspace isolation
+# ---------------------------------------------------------------------------
+
+
+def _mcp_server_json(name: str, version: str) -> dict[str, str]:
+    return {"name": name, "version": version, "title": f"Test {name}"}
+
+
+@pytest.mark.parametrize("workspaces_enabled", [True], indirect=True)
+def test_search_mcp_access_endpoints_is_workspace_scoped(store):
+    name = "io.github.test/workspace-endpoints"
+    with WorkspaceContext("team-a"):
+        store.create_mcp_server_version(_mcp_server_json(name, "1.0.0"))
+        store.create_mcp_access_endpoint(name, "https://team-a.example.com", server_version="1.0.0")
+
+    with WorkspaceContext("team-b"):
+        store.create_mcp_server_version(_mcp_server_json(name, "1.0.0"))
+        endpoint = store.create_mcp_access_endpoint(
+            name, "https://team-b.example.com", server_version="1.0.0"
+        )
+        endpoints = store.search_mcp_access_endpoints(server_name=name)
+
+    assert [e.id for e in endpoints] == [endpoint.id]
+    assert [e.url for e in endpoints] == ["https://team-b.example.com"]
