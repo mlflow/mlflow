@@ -199,7 +199,9 @@ describe('EvalRunComparisonTracesV4Table', () => {
 
     await waitFor(() => expect(new URLSearchParams(lastSearch).get('selectedEvaluationId')).toBe(traceId('c1')));
     expect(new URLSearchParams(lastSearch).get('compareRuns')).toBe('candidate');
-  });
+    // Opening the trace drawer over the full comparison table can pass 20s on loaded CI runners; a
+    // per-test timeout avoids the lint-forbidden global jest.setTimeout.
+  }, 60000);
 
   test('narrows the rows to the search and offers to clear it when nothing matches', async () => {
     renderTable(`${COMPARE_URL}&comparisonQ=nothing%20matches`);
