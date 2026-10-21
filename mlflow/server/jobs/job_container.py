@@ -412,7 +412,7 @@ def _out_of_memory(container, job_name: str | None, memory: int | None) -> tuple
         container.reload()
         oom_killed = container.attrs["State"]["OOMKilled"]
     except Exception:
-        _logger.debug("Could not read the state of the container for %s", job_name, exc_info=True)
+        _logger.debug("Could not read the state of container %s", container.id, exc_info=True)
         return False, None
     if not oom_killed:
         return False, None
@@ -469,10 +469,11 @@ def job_result_from_container(
     except MlflowException as e:
         # For example a result file cut short when the container ran out of memory.
         out_of_memory, note = _out_of_memory(container, job_name, memory)
-        return JobResult(
-            status=JobStatus.FAILED,
-            error_message=f"{e.message} {note}" if out_of_memory else e.message,
-        )
+        error = e.message
+        if out_of_memory:
+            # Some of these messages end with a JSON parse error, which has no closing period.
+            error = f"{error} {note}" if error.endswith(".") else f"{error}. {note}"
+        return JobResult(status=JobStatus.FAILED, error_message=error)
     if not subprocess_result.succeeded:
         error = subprocess_result.error
         out_of_memory, note = _out_of_memory(container, job_name, memory)

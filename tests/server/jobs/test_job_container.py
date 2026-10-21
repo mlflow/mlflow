@@ -1,6 +1,5 @@
 import json
 import os
-from unittest import mock
 
 import docker
 import pytest
@@ -136,6 +135,8 @@ def test_out_of_memory_is_named_when_a_partial_result_was_written(tmp_path):
     result = _run(FakeClient(on_wait), tmp_path)
 
     assert result.status == JobStatus.FAILED
+    assert result.error_message.startswith("The job container wrote a malformed result: ")
+    assert "(char 14). Docker reports that the container" in result.error_message
     assert "ran out of memory (its memory limit is 1Gi)" in result.error_message
 
 
@@ -174,42 +175,43 @@ def test_unreadable_container_state_keeps_the_plain_message(tmp_path, monkeypatc
     assert "memory" not in result.error_message
 
 
+_OUT_OF_MEMORY = "Docker reports that the container was stopped because it ran out of memory"
+_SETTING_ADVICE = (
+    ". The setting is a JSON object that replaces any earlier value of the variable, so keep other "
+    'limits you set in it, such as "cpu". This does not help if the host itself is low on memory.'
+)
+
+
 @pytest.mark.parametrize(
     ("job_name", "memory", "expected"),
     [
         (
             "invoke_scorer",
             256 * 1024**2,
-            "Docker reports that the container was stopped because it ran out of memory (its "
-            "memory limit is 256Mi). If the scorer needs more memory, raise the limit with "
-            'MLFLOW_JOB_RESOURCE_LIMITS_invoke_scorer, for example {"memory": "512Mi"}.',
+            f"{_OUT_OF_MEMORY} (its memory limit is 256Mi). If the scorer needs more memory, raise "
+            'the limit with MLFLOW_JOB_RESOURCE_LIMITS_invoke_scorer, for example {"memory": '
+            f'"512Mi"}}{_SETTING_ADVICE}',
         ),
         (
             "invoke_scorer",
             None,
-            "Docker reports that the container was stopped because it ran out of memory. If the "
-            "scorer needs more memory, raise the limit with "
-            "MLFLOW_JOB_RESOURCE_LIMITS_invoke_scorer.",
+            f"{_OUT_OF_MEMORY}. If the scorer needs more memory, raise the limit with "
+            f"MLFLOW_JOB_RESOURCE_LIMITS_invoke_scorer{_SETTING_ADVICE}",
         ),
-        (
-            None,
-            256 * 1024**2,
-            "Docker reports that the container was stopped because it ran out of memory (its "
-            "memory limit is 256Mi).",
-        ),
+        (None, 256 * 1024**2, f"{_OUT_OF_MEMORY} (its memory limit is 256Mi)."),
+        (None, None, f"{_OUT_OF_MEMORY}."),
     ],
 )
 def test_out_of_memory_message_leaves_out_what_is_not_known(job_name, memory, expected):
-    container = mock.Mock(attrs={"State": {"OOMKilled": True}})
+    container = FakeContainer(FakeClient(_killed_for_memory), {})
+    container.oom_killed = True
 
-    out_of_memory, message = jc._out_of_memory(container, job_name, memory)
-
-    assert out_of_memory
-    assert message.startswith(expected)
+    assert jc._out_of_memory(container, job_name, memory) == (True, expected)
+    assert container.reloads == 1
 
 
 def test_out_of_memory_is_false_without_a_message_when_docker_does_not_report_it():
-    container = mock.Mock(attrs={"State": {"OOMKilled": False}})
+    container = FakeContainer(FakeClient(_killed_for_memory), {})
 
     assert jc._out_of_memory(container, "invoke_scorer", 1024**3) == (False, None)
 
