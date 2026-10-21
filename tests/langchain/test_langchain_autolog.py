@@ -614,7 +614,7 @@ def test_langchain_autolog_callback_injection_in_invoke(invoke_arg, config, asyn
     assert traces[0].info.status == "OK"
     assert traces[0].data.spans[0].name == "RunnableSequence"
     assert traces[0].data.spans[0].inputs == input
-    assert traces[0].data.spans[0].outputs == [{"role": "user", "content": "What is MLflow?"}]
+    assert traces[0].data.spans[0].outputs == '[{"role": "user", "content": "What is MLflow?"}]'
     # Original callback should not be mutated
     handlers = _extract_callback_handlers(config)
     assert handlers == original_handlers
@@ -656,7 +656,7 @@ async def test_langchain_autolog_callback_injection_in_ainvoke(
     assert traces[0].info.status == "OK"
     assert traces[0].data.spans[0].name == "RunnableSequence"
     assert traces[0].data.spans[0].inputs == input
-    assert traces[0].data.spans[0].outputs == [{"role": "user", "content": "What is MLflow?"}]
+    assert traces[0].data.spans[0].outputs == '[{"role": "user", "content": "What is MLflow?"}]'
 
     # Original callback should not be mutated
     handlers = _extract_callback_handlers(config)
@@ -702,7 +702,7 @@ def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config, async
         assert trace.info.status == "OK"
         assert trace.data.spans[0].name == "RunnableSequence"
         assert trace.data.spans[0].inputs == input
-        assert trace.data.spans[0].outputs == [{"role": "user", "content": "What is MLflow?"}]
+        assert trace.data.spans[0].outputs == '[{"role": "user", "content": "What is MLflow?"}]'
 
     # Original callback should not be mutated
     handlers = _extract_callback_handlers(config)
@@ -774,7 +774,7 @@ async def test_langchain_autolog_callback_injection_in_abatch(
         assert trace.info.status == "OK"
         assert trace.data.spans[0].name == "RunnableSequence"
         assert trace.data.spans[0].inputs == input
-        assert trace.data.spans[0].outputs == [{"role": "user", "content": "What is MLflow?"}]
+        assert trace.data.spans[0].outputs == '[{"role": "user", "content": "What is MLflow?"}]'
 
     # Original callback should not be mutated
     handlers = _extract_callback_handlers(config)
