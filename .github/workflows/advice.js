@@ -1,6 +1,7 @@
 const ACTIVITY_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 const MAX_REPOS_TO_DISPLAY = 10;
 
+const MEMBER_ASSOCIATIONS = ["MEMBER", "OWNER", "COLLABORATOR"];
 const UI_FILE = /^mlflow\/server\/js\/src\/.+\.(tsx|jsx|ts|js|css|scss|less)$/;
 const MEDIA =
   /!\[[^\]]*\]\([^)]+\)|<(img|video)\b|https:\/\/github\.com\/user-attachments\/|https?:\/\/\S+\.(png|jpe?g|gif|webp|mp4|mov|webm)\b/i;
@@ -11,6 +12,12 @@ function sleep(ms) {
 
 function hasUiChanges(files) {
   return files.some(({ filename }) => UI_FILE.test(filename) && !filename.includes(".test."));
+}
+
+// Post-release version bumps (`release/dev-version-*`) touch `src/common/constants.tsx` but have
+// nothing to screenshot. They used to be filed by mlflow-app[bot] and skipped by the bot check.
+function isMaintainerReleasePr(pr) {
+  return MEMBER_ASSOCIATIONS.includes(pr.author_association) && pr.head.ref.startsWith("release/");
 }
 
 function hasVisibleMedia(body) {
@@ -115,10 +122,9 @@ module.exports = async ({ context, github }) => {
 
   if (!installCommentExists) {
     let activitySection = "";
-    const memberAssociations = ["MEMBER", "OWNER", "COLLABORATOR"];
     if (
       user.type !== "Bot" &&
-      !memberAssociations.includes(context.payload.pull_request.author_association)
+      !MEMBER_ASSOCIATIONS.includes(context.payload.pull_request.author_association)
     ) {
       try {
         activitySection = await getRecentActivitySection(github, user.login);
@@ -190,7 +196,7 @@ ${activitySection}
     );
   }
 
-  if (!hasVisibleMedia(body)) {
+  if (!hasVisibleMedia(body) && !isMaintainerReleasePr(context.payload.pull_request)) {
     try {
       const files = await github.paginate(github.rest.pulls.listFiles, {
         owner,
