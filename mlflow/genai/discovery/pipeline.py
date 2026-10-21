@@ -808,6 +808,13 @@ def discover_issues(
     Returns:
         A :class:`DiscoverIssuesResult` with discovered issues, run IDs,
         and a summary report.
+
+    Raises:
+        CandidateReadError: If the issues this experiment already carries could not be read.
+            Deliberately fatal: publishing without that list would report every finding as new
+            and file a duplicate of everything already known, so the run fails instead. The job
+            wrapper marks the run FAILED and re-raises, which is the outcome a caller wants --
+            a detection run that could not be deduplicated is not a result worth keeping.
     """
     from mlflow.server.jobs.progress import update_status_details
 

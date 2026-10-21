@@ -189,6 +189,9 @@ def test_a_repeat_run_refreshes_the_issue_instead_of_filing_another():
     # One row, not two: the tab shows the problem once however often detection runs.
     stored = client._search_issues(experiment_id=exp_id)
     assert len(list(stored)) == 1
+    # And the refresh happened: a no-op update returning the issue unchanged would satisfy
+    # everything above while leaving the issue looking stale.
+    assert client._get_issue(first.issue_id).last_seen_timestamp > (first.last_seen_timestamp or 0)
 
 
 def test_a_refreshed_issue_keeps_the_triage_and_wording_a_user_gave_it():
@@ -238,16 +241,49 @@ def test_a_refresh_that_fails_falls_back_to_filing_the_finding():
     from mlflow.tracing.client import TracingClient
 
     exp_id = mlflow.set_experiment("b7-refresh-fails").experiment_id
-    outcome = MatchOutcome(matched={0: "iss-gone"})
+    client = TracingClient()
+    # A real, matchable issue, so the status re-read succeeds and it is the *write* that fails.
+    # Pointing the match at a missing ID would exercise the lookup instead.
+    target = client._create_issue(
+        experiment_id=exp_id,
+        name="Known problem",
+        description="Stored.",
+        severity="medium",
+        categories=["relevance"],
+    )
+    outcome = MatchOutcome(matched={0: target.issue_id})
     with (
         mlflow.start_run() as run,
-        mock.patch.object(TracingClient, "_update_issue", side_effect=RuntimeError("vanished")),
+        mock.patch.object(
+            TracingClient, "_update_issue", side_effect=RuntimeError("write failed")
+        ) as update,
     ):
         issues, _ = _build_issues(
             [_finding("Still worth reporting")], [], exp_id, run.info.run_id, outcome
         )
 
+    update.assert_called_once()
     # Losing the match costs a duplicate; losing the finding costs the user the problem.
+    assert len(issues) == 1
+    assert issues[0].name == "Still worth reporting"
+    assert issues[0].issue_id != target.issue_id
+
+
+def test_a_match_to_a_missing_issue_also_falls_back():
+    # The lookup failing is a different path from the write failing, and both must keep the
+    # finding rather than drop it.
+    from mlflow.genai.discovery.pipeline import _build_issues
+
+    exp_id = mlflow.set_experiment("b7-missing-target").experiment_id
+    with mlflow.start_run() as run:
+        issues, _ = _build_issues(
+            [_finding("Still worth reporting")],
+            [],
+            exp_id,
+            run.info.run_id,
+            MatchOutcome(matched={0: "iss-gone"}),
+        )
+
     assert len(issues) == 1
     assert issues[0].name == "Still worth reporting"
 
