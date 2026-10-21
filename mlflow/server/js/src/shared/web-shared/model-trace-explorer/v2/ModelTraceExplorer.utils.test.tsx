@@ -681,6 +681,65 @@ describe('normalizeNewSpanData', () => {
     expect(normalized.chatTools).toEqual(MOCK_OPENAI_CHAT_INPUT.tools);
   });
 
+  it('orders a PydanticAI first turn with a system prompt and does not repeat the user prompt', () => {
+    const span = {
+      ...MOCK_CHAT_TOOL_CALL_SPAN,
+      name: 'Agent.run',
+      attributes: {
+        'mlflow.spanType': JSON.stringify('AGENT'),
+        'mlflow.spanInputs': JSON.stringify({ user_prompt: 'What is MLflow?' }),
+        'mlflow.spanOutputs': JSON.stringify({
+          output: 'A platform.',
+          _new_messages_serialized: [
+            {
+              kind: 'request',
+              parts: [
+                { part_kind: 'system-prompt', content: 'Be concise.' },
+                { part_kind: 'user-prompt', content: 'What is MLflow?' },
+              ],
+            },
+            { kind: 'response', parts: [{ part_kind: 'text', content: 'A platform.' }] },
+          ],
+        }),
+        'mlflow.message.format': JSON.stringify('pydantic_ai'),
+      },
+    };
+
+    const normalized = normalizeNewSpanData(span, 0, 0, [], {}, '');
+
+    expect(normalized.chatMessages?.map((message) => [message.role, message.content])).toEqual([
+      ['system', 'Be concise.'],
+      ['user', 'What is MLflow?'],
+      ['assistant', 'A platform.'],
+    ]);
+  });
+
+  it('keeps PydanticAI retry feedback in the conversation', () => {
+    const span = {
+      ...MOCK_CHAT_TOOL_CALL_SPAN,
+      name: 'Agent.run',
+      attributes: {
+        'mlflow.spanType': JSON.stringify('AGENT'),
+        'mlflow.spanInputs': JSON.stringify({ user_prompt: 'Give me JSON' }),
+        'mlflow.spanOutputs': JSON.stringify({
+          output: '{"ok": true}',
+          _new_messages_serialized: [
+            { kind: 'request', parts: [{ part_kind: 'user-prompt', content: 'Give me JSON' }] },
+            { kind: 'response', parts: [{ part_kind: 'text', content: 'not json' }] },
+            { kind: 'request', parts: [{ part_kind: 'retry-prompt', content: 'Output must be valid JSON' }] },
+            { kind: 'response', parts: [{ part_kind: 'text', content: '{"ok": true}' }] },
+          ],
+        }),
+        'mlflow.message.format': JSON.stringify('pydantic_ai'),
+      },
+    };
+
+    const normalized = normalizeNewSpanData(span, 0, 0, [], {}, '');
+
+    expect(normalized.chatMessages?.map((message) => message.role)).toEqual(['user', 'assistant', 'user', 'assistant']);
+    expect(normalized.chatMessages?.[2].content).toContain('Output must be valid JSON');
+  });
+
   it('keeps a large int64-range numeric-string attribute as-is in the displayed attributes', () => {
     // 2051281657916407550 is well beyond IEEE-754 double precision; JSON.parse would otherwise
     // silently round it, corrupting the value shown on the Attributes tab.
