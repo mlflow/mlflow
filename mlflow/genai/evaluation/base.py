@@ -300,7 +300,7 @@ def evaluate(
             to associate with the evaluation results. Can be also set globally via the
             :py:func:`mlflow.set_active_model` function.
 
-        quality_criteria: *Experimental (added in MLflow 3.17.2)* This parameter may
+        quality_criteria: *Experimental (added in MLflow 3.18.0)* This parameter may
             change or be removed in a future release. The run-level metrics that the
             evaluation run must clear, in a syntax like trace search filters: conditions joined by
             ``AND``, each comparing a metric with ``>=`` or ``<=``. A bare scorer name checks
