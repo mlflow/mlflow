@@ -432,10 +432,18 @@ describe('PydanticAI message normalization', () => {
       });
     });
 
-    it('should render a retry prompt without a tool call as user feedback', () => {
+    it('should render an output-validation retry prompt as user feedback', () => {
+      // PydanticAI assigns a tool_call_id even when the retry is not tied to a tool call.
       const request = {
         kind: 'request',
-        parts: [{ part_kind: 'retry-prompt', content: 'Output must be valid JSON', tool_call_id: null }],
+        parts: [
+          {
+            part_kind: 'retry-prompt',
+            content: 'Output must be valid JSON',
+            tool_name: null,
+            tool_call_id: 'pyd_ai_1',
+          },
+        ],
       };
 
       const result = normalizeConversation(request, 'pydantic_ai');

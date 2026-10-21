@@ -176,8 +176,11 @@ const normalizeModelRequest = (request: PydanticAIModelRequest): ModelTraceChatM
           ? part.content
           : `Validation feedback:\n${JSON.stringify(part.content, null, 2)}`;
         const content = `${feedback}\n\nFix the errors and try again.`;
+        // PydanticAI always assigns a tool_call_id; only retries tied to a tool call carry a tool_name.
         const message = prettyPrintChatMessage(
-          part.tool_call_id ? { role: 'tool', content, tool_call_id: part.tool_call_id } : { role: 'user', content },
+          part.tool_name && part.tool_call_id
+            ? { role: 'tool', content, tool_call_id: part.tool_call_id }
+            : { role: 'user', content },
         );
         if (message) messages.push(message);
         break;
