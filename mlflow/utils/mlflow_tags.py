@@ -47,7 +47,7 @@ MLFLOW_ISSUE_DETECTION_JOB_ID = "mlflow.issueDetection.jobId"
 MLFLOW_GENAI_EVALUATE_JOB_ID = "mlflow.genaiEvaluate.jobId"
 
 # JSON-encoded quality criteria passed to mlflow.genai.evaluate
-MLFLOW_GENAI_EVALUATE_QUALITY_THRESHOLDS = "mlflow.genaiEvaluate.qualityThresholds"
+MLFLOW_GENAI_EVALUATE_QUALITY_CRITERIA = "mlflow.genaiEvaluate.qualityCriteria"
 # Lineage of a mlflow.genai.evaluate run. These tag formats are experimental and may change.
 # A different digest means the definition changed, but the same digest doesn't guarantee the same
 # behavior: the code and state that a definition calls aren't hashed.

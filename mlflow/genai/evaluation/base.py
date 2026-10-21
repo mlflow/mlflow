@@ -56,7 +56,7 @@ from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import _get_experiment_id, _set_active_model
 from mlflow.utils.databricks_utils import invoke_databricks_app
 from mlflow.utils.mlflow_tags import (
-    MLFLOW_GENAI_EVALUATE_QUALITY_THRESHOLDS,
+    MLFLOW_GENAI_EVALUATE_QUALITY_CRITERIA,
     MLFLOW_RUN_TYPE,
     MLFLOW_RUN_TYPE_GENAI_EVALUATE,
 )
@@ -486,14 +486,14 @@ def _run_harness(
             # Synchronous, so the stale-tag check of a later `evaluate` on this run sees it.
             client.set_tag(
                 run_id,
-                MLFLOW_GENAI_EVALUATE_QUALITY_THRESHOLDS,
+                MLFLOW_GENAI_EVALUATE_QUALITY_CRITERIA,
                 quality_criteria_tag,
                 synchronous=True,
             )
-        elif MLFLOW_GENAI_EVALUATE_QUALITY_THRESHOLDS in client.get_run(run_id).data.tags:
+        elif MLFLOW_GENAI_EVALUATE_QUALITY_CRITERIA in client.get_run(run_id).data.tags:
             # This call sets no quality criteria, so a tag from an earlier `evaluate` on this run
             # would judge the new metrics against a stale bar.
-            client.delete_tag(run_id, MLFLOW_GENAI_EVALUATE_QUALITY_THRESHOLDS)
+            client.delete_tag(run_id, MLFLOW_GENAI_EVALUATE_QUALITY_CRITERIA)
 
         result = harness.run(
             predict_fn=predict_fn,
