@@ -415,8 +415,10 @@ CLUSTER_LABELS_PROMPT_TEMPLATE = (
 
 # ---- Issue deduplication prompt ----
 
-DEDUP_ISSUES_PROMPT_TEMPLATE = (
-    "You are deduplicating a list of discovered issues from an AI application.\n\n"
+# The test for "same issue", shared by within-run deduplication and cross-run matching. One rule in
+# one place: a finding merged into a sibling this run must be the same finding that matches a stored
+# Issue next run, or the two passes would disagree about what counts as already reported.
+SAME_ISSUE_RULE = (
     "Merge two issues only when they describe the SAME underlying problem: "
     "the same observable symptom AND the same root cause, even if worded differently. "
     "A shared category or vague similarity is NOT sufficient — look for the same "
@@ -430,12 +432,37 @@ DEDUP_ISSUES_PROMPT_TEMPLATE = (
     "quotes a baseline computed from the traces this run happened to sample, so two "
     "descriptions of the same problem will cite different baselines, thresholds and "
     "magnitudes. Compare the mechanism the spend or the delay comes from, not the figures.\n\n"
-    "For each group of duplicate issues, provide:\n"
+)
+
+DEDUP_ISSUES_PROMPT_TEMPLATE = (
+    "You are deduplicating a list of discovered issues from an AI application.\n\n"
+    + SAME_ISSUE_RULE
+    + "For each group of duplicate issues, provide:\n"
     "- name: a consolidated title in the format 'Issue: <short description>' (3-8 words), "
     "e.g. 'Issue: Incomplete response details'\n"
     "- description: a unified description of the shared symptom\n"
     "- root_cause: the common root cause across all issues in the group\n\n"
     "Issues:\n{issue_list}"
+)
+# How many stored Issues are offered to the matcher at once. Bounded because the candidate list
+# grows with the experiment's history while the prompt budget does not, and because an unbounded
+# list would make every run's cost scale with every run before it.
+MAX_MATCH_CANDIDATES = 50
+
+CROSS_RUN_MATCH_PROMPT_TEMPLATE = (
+    "You are deciding which of this application's already-reported issues a new finding is, "
+    "if any.\n\n"
+    + SAME_ISSUE_RULE
+    + "The already-reported issues were found by earlier runs over different traces, so expect "
+    "different wording, different severities and different sampled figures for the same "
+    "problem. Match on the mechanism.\n\n"
+    "A finding that matches nothing is new. Say so rather than forcing it onto the nearest "
+    "entry: a wrong match hides a real problem under an unrelated one, which is worse than "
+    "reporting one issue twice.\n\n"
+    "For each new finding, return its index and either the ID of the already-reported issue it "
+    "is, or null.\n\n"
+    "Already-reported issues:\n{existing_list}\n\n"
+    "New findings:\n{finding_list}"
 )
 
 

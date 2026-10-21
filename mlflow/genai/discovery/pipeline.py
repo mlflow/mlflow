@@ -48,6 +48,11 @@ from mlflow.genai.discovery.extraction import (
     extract_failing_traces,
     extract_failure_labels,
 )
+from mlflow.genai.discovery.matching import (
+    MatchOutcome,
+    match_findings_to_existing_issues,
+    read_match_candidates,
+)
 from mlflow.genai.discovery.sampling import sample_traces
 from mlflow.genai.discovery.utils import (
     analyze_cost_anomalies,
@@ -69,6 +74,7 @@ from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_ISSUE_DETECTION
+from mlflow.utils.time import get_current_time_millis
 
 _logger = logging.getLogger(__name__)
 
@@ -590,9 +596,15 @@ def _build_issues(
     analyses: list[_ConversationAnalysis],
     exp_id: str,
     source_run_id: str,
+    match_outcome: MatchOutcome | None = None,
 ) -> tuple[list[Issue], dict[str, list[str]]]:
     """
     Convert identified issues into Issue entities.
+
+    A finding matched to an issue this experiment already carries refreshes that issue rather
+    than filing a second one: its last-seen time moves forward and this run's traces are
+    annotated against it. The user's triage is left alone -- a rejected issue stays rejected,
+    and the name and description someone edited are not overwritten by this run's wording.
 
     Returns:
         A tuple of (issues, issue_trace_ids) where issue_trace_ids maps
@@ -600,12 +612,36 @@ def _build_issues(
     """
     from mlflow.tracing.client import TracingClient
 
+    client = TracingClient()
     issues: list[Issue] = []
     issue_trace_ids: dict[str, list[str]] = {}
-    for ident in identified:
+    for index, ident in enumerate(identified):
         affected_trace_ids = collect_affected_trace_ids(ident, analyses)
         name = ident.name.removeprefix("Issue: ").removeprefix("issue: ")
-        issue = TracingClient()._create_issue(
+        if matched_id := (match_outcome.issue_id_for(index) if match_outcome else None):
+            try:
+                issue = client._update_issue(
+                    issue_id=matched_id,
+                    # Monotonic: a run over older traces must not drag the issue's last-seen
+                    # time backwards past what a later run already recorded.
+                    last_seen_timestamp=max(
+                        get_current_time_millis(),
+                        client._get_issue(matched_id).last_seen_timestamp or 0,
+                    ),
+                )
+            except Exception:
+                # Losing the match costs a duplicate; losing the finding costs the user the
+                # problem, so it falls through and is filed.
+                _logger.warning(
+                    "Could not refresh already-reported issue %s; reporting the finding as new",
+                    matched_id,
+                    exc_info=True,
+                )
+            else:
+                issues.append(issue)
+                issue_trace_ids[issue.issue_id] = affected_trace_ids
+                continue
+        issue = client._create_issue(
             experiment_id=exp_id,
             name=name,
             description=ident.description,
@@ -933,9 +969,26 @@ def discover_issues(
             total_cost_usd=token_counter.cost_usd,
         )
 
-    # ---- Phase 4: Build issues & annotate ----
+    # ---- Phase 4: Match against what is already reported, then build issues & annotate ----
+    update_status_details({"stage": "Checking already-reported issues..."})
+    # Read before publishing, and fail rather than publish against an unread list: treating a
+    # failed read as "nothing reported yet" would file a duplicate of every known issue.
+    candidates = read_match_candidates(exp_id)
+    match_outcome = match_findings_to_existing_issues(
+        identified, candidates, model=model, token_counter=token_counter
+    )
+    if match_outcome.already_reported:
+        _logger.info(
+            "%d of %d findings were already reported, out of %d issues considered",
+            match_outcome.already_reported,
+            len(identified),
+            match_outcome.candidates_considered,
+        )
+
     update_status_details({"stage": "Annotating issues..."})
-    issues, issue_trace_ids = _build_issues(identified, analyses, exp_id, triage_eval.run_id)
+    issues, issue_trace_ids = _build_issues(
+        identified, analyses, exp_id, triage_eval.run_id, match_outcome
+    )
 
     trace_to_session: dict[str, str] = {}
     for session_id, traces_in_session in session_groups.items():
