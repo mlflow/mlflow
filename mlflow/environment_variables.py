@@ -1802,11 +1802,12 @@ MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND = _EnvironmentVariable(
 #: Executor backend used for custom scorer jobs, such as ``docker`` (experimental) to run them in a
 #: container without network access. Requires the executor job-execution engine
 #: (``MLFLOW_SERVER_JOB_EXECUTION_ENGINE=executor``). A custom scorer job the backend does not
-#: support stays on ``MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND``; the ``docker`` backend runs only
-#: on-demand scorer runs made only of custom ``@scorer`` scorers. With the ``docker`` backend,
-#: online scoring jobs also run custom ``@scorer`` scorers in job containers, one batch at a time,
-#: and automatic evaluation accepts custom scorers (but not ensembles that include them). The
-#: online jobs themselves stay on the default backend. Validated at startup. Note this
+#: support is refused, so custom scorer code never runs on the default backend; the ``docker``
+#: backend runs only on-demand scorer runs made only of custom ``@scorer`` scorers. With the
+#: ``docker`` backend, online scoring jobs also run custom ``@scorer`` scorers in job containers,
+#: one batch at a time, and automatic evaluation accepts custom scorers (but not ensembles that
+#: include them). The online jobs themselves stay on the default backend. Validated at startup.
+#: Note this
 #: only selects *where* a custom scorer runs -- running one at all still requires
 #: ``MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS`` to be enabled (it is off by default), otherwise custom
 #: scorer jobs are rejected regardless of this backend.
