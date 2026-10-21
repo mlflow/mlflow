@@ -162,7 +162,9 @@ class AbstractJobExecutor(ABC):
         """Whether this executor can run a job with the given job function name and parameters.
 
         Consulted when routing a custom scorer job to a separate custom-scorer backend: a job that
-        backend does not support runs on the default backend instead. Defaults to ``True``.
+        backend does not support is refused, except an online scoring job, which runs on the
+        default backend (see ``mlflow.server.jobs.router.select_executor_backend``). Defaults to
+        ``True``.
         """
         return True
 
