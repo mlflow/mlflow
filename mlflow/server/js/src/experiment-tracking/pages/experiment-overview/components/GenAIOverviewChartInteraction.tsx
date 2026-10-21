@@ -74,6 +74,7 @@ const normalizeRange = ({ startIndex, endIndex }: GenAIOverviewChartRange): GenA
 });
 
 const resolvePointIndex = (activeIndex: unknown, pointCount: number) => {
+  if (activeIndex == null) return undefined;
   const index = Number(activeIndex);
   return Number.isInteger(index) && index >= 0 && index < pointCount ? index : undefined;
 };

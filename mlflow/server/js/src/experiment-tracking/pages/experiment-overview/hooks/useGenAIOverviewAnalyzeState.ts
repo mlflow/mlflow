@@ -8,6 +8,7 @@ import { useExperimentEvaluationRunsData } from '../../../components/experiment-
 import type { Issue } from '../../../components/run-page/hooks/useSearchIssuesQuery';
 import { SEARCH_ISSUES_QUERY_KEY } from '../../../components/run-page/hooks/useSearchIssuesQuery';
 import { useMonitoringConfig } from '../../../hooks/useMonitoringConfig';
+import { useServerInfo } from '../../../hooks/useServerInfo';
 import { generateTimeBuckets } from '../utils/chartUtils';
 import { createGenAIOverviewTimeRange } from '../utils/timeUtils';
 
@@ -19,12 +20,10 @@ const COMPLETED_ISSUE_DETECTION_RUN_FILTER =
 
 interface SearchIssuesResponse {
   issues?: Issue[];
-  total_count?: number;
 }
 
 interface GenAIOverviewIssuesResult {
   issues: Issue[];
-  totalCount: number;
 }
 
 export const fetchGenAIOverviewIssues = async (
@@ -39,7 +38,6 @@ export const fetchGenAIOverviewIssues = async (
       statuses: ['pending', 'resolved'],
       severities: ['low', 'medium', 'high'],
       order_by: ['created_timestamp DESC'],
-      include_total_count: true,
       max_results: ISSUE_SEARCH_PAGE_SIZE,
       view: 'basic',
     },
@@ -47,7 +45,6 @@ export const fetchGenAIOverviewIssues = async (
 
   return {
     issues: response.issues ?? [],
-    totalCount: response.total_count ?? response.issues?.length ?? 0,
   };
 };
 
@@ -84,7 +81,6 @@ export const resolveGenAIOverviewAnalyzeState = ({
   isLoading,
   error,
   issues,
-  issueCount,
   startTimeMs,
   endTimeMs,
   recentIssueStartTimeMs,
@@ -93,7 +89,6 @@ export const resolveGenAIOverviewAnalyzeState = ({
   isLoading: boolean;
   error: unknown;
   issues: Issue[];
-  issueCount: number;
   startTimeMs: number;
   endTimeMs: number;
   recentIssueStartTimeMs: number;
@@ -118,23 +113,26 @@ export const resolveGenAIOverviewAnalyzeState = ({
     activityPoint[severity] += 1;
     activityPoint.count += 1;
   }
+  const activity = [...activityByTimestamp.values()];
 
   return {
     status: 'completed',
     runUuid: latestCompletedRun.info.runUuid,
     latestRunCompletedAtMs: getIssueDetectionRunCompletionTime(latestCompletedRun),
-    issueCount,
+    issueCount: activity.reduce((count, point) => count + point.count, 0),
     issuesCreatedInLastSevenDays,
-    activity: [...activityByTimestamp.values()],
+    activity,
   };
 };
 
 export const useGenAIOverviewAnalyzeState = (experimentId: string, useRollingSevenDayRange = true) => {
   const workspace = useActiveWorkspace();
   const { dateNow } = useMonitoringConfig();
+  const { data: serverInfo, isLoading: isLoadingServerInfo } = useServerInfo();
   const [legacyTimeRange] = useState(() => createGenAIOverviewTimeRange(new Date(), false));
   const rollingTimeRange = useMemo(() => createGenAIOverviewTimeRange(dateNow, true), [dateNow]);
   const timeRange = useRollingSevenDayRange ? rollingTimeRange : legacyTimeRange;
+  const canSearchIssues = serverInfo?.store_type === 'SqlStore';
   const latestCompletedRun = useExperimentEvaluationRunsData({
     experimentId,
     enabled: Boolean(experimentId),
@@ -143,7 +141,7 @@ export const useGenAIOverviewAnalyzeState = (experimentId: string, useRollingSev
   const overviewIssues = useQuery<GenAIOverviewIssuesResult, Error>({
     queryKey: [SEARCH_ISSUES_QUERY_KEY, 'overview', workspace, experimentId],
     queryFn: ({ signal }) => fetchGenAIOverviewIssues(experimentId, signal),
-    enabled: Boolean(experimentId),
+    enabled: Boolean(experimentId) && canSearchIssues,
     refetchOnWindowFocus: false,
     retry: false,
   });
@@ -152,15 +150,16 @@ export const useGenAIOverviewAnalyzeState = (experimentId: string, useRollingSev
     () =>
       resolveGenAIOverviewAnalyzeState({
         latestCompletedRun: latestCompletedRun.data[0],
-        isLoading: latestCompletedRun.isLoading || overviewIssues.isLoading,
-        error: latestCompletedRun.error ?? overviewIssues.error,
-        issues: overviewIssues.data?.issues ?? [],
-        issueCount: overviewIssues.data?.totalCount ?? 0,
+        isLoading: latestCompletedRun.isLoading || isLoadingServerInfo || (canSearchIssues && overviewIssues.isLoading),
+        error: latestCompletedRun.error ?? (canSearchIssues ? overviewIssues.error : null),
+        issues: canSearchIssues ? (overviewIssues.data?.issues ?? []) : [],
         startTimeMs: timeRange.startTimeMs,
         endTimeMs: timeRange.endTimeMs,
         recentIssueStartTimeMs: rollingTimeRange.startTimeMs,
       }),
     [
+      canSearchIssues,
+      isLoadingServerInfo,
       latestCompletedRun.data,
       latestCompletedRun.error,
       latestCompletedRun.isLoading,
@@ -173,9 +172,15 @@ export const useGenAIOverviewAnalyzeState = (experimentId: string, useRollingSev
     ],
   );
 
+  const { refetch: refetchLatestCompletedRun } = latestCompletedRun;
+  const { refetch: refetchOverviewIssues } = overviewIssues;
   const refetchState = useCallback(async () => {
-    await Promise.all([latestCompletedRun.refetch(), overviewIssues.refetch()]);
-  }, [latestCompletedRun, overviewIssues]);
+    if (canSearchIssues) {
+      await Promise.all([refetchLatestCompletedRun(), refetchOverviewIssues()]);
+    } else {
+      await refetchLatestCompletedRun();
+    }
+  }, [canSearchIssues, refetchLatestCompletedRun, refetchOverviewIssues]);
 
   return { state, refetch: refetchState };
 };

@@ -49,7 +49,6 @@ const resolveState = (overrides: Partial<Parameters<typeof resolveGenAIOverviewA
     isLoading: false,
     error: null,
     issues: [],
-    issueCount: 0,
     startTimeMs,
     endTimeMs,
     recentIssueStartTimeMs: startTimeMs,
@@ -69,13 +68,12 @@ describe('resolveGenAIOverviewAnalyzeState', () => {
     expect(resolveState(overrides)).toMatchObject({ status: expectedStatus });
   });
 
-  test('uses the experiment issue count and buckets issues by their creation date', () => {
+  test('counts issues in the displayed range and buckets them by creation date', () => {
     const latestRun = createRun('FINISHED', startTimeMs, startTimeMs + DAY_IN_MILLISECONDS);
 
     expect(
       resolveState({
         latestCompletedRun: latestRun,
-        issueCount: 7,
         issues: [
           createIssue('high', startTimeMs, 'high'),
           createIssue('unclassified', startTimeMs + DAY_IN_MILLISECONDS),
@@ -87,7 +85,7 @@ describe('resolveGenAIOverviewAnalyzeState', () => {
       status: 'completed',
       runUuid: 'run-1',
       latestRunCompletedAtMs: startTimeMs + DAY_IN_MILLISECONDS,
-      issueCount: 7,
+      issueCount: 2,
       issuesCreatedInLastSevenDays: 2,
       activity: [
         { timestampMs: startTimeMs, count: 1, high: 1, medium: 0, low: 0 },
@@ -102,10 +100,9 @@ describe('resolveGenAIOverviewAnalyzeState', () => {
       resolveState({
         latestCompletedRun: createRun('FINISHED'),
         issues: [createIssue('recent', endTimeMs + DAY_IN_MILLISECONDS, 'medium')],
-        issueCount: 1,
       }),
     ).toMatchObject({
-      issueCount: 1,
+      issueCount: 0,
       issuesCreatedInLastSevenDays: 1,
       activity: expect.not.arrayContaining([expect.objectContaining({ count: 1 })]),
     });
@@ -113,11 +110,11 @@ describe('resolveGenAIOverviewAnalyzeState', () => {
 });
 
 describe('fetchGenAIOverviewIssues', () => {
-  test('loads experiment-wide visible issues and their server-side total in one request', async () => {
+  test('loads experiment-wide visible issues in one request', async () => {
     const issue = createIssue('issue-1', startTimeMs, 'high');
-    mockFetchAPI.mockResolvedValue({ issues: [issue], total_count: 7 });
+    mockFetchAPI.mockResolvedValue({ issues: [issue] });
 
-    await expect(fetchGenAIOverviewIssues('experiment-1')).resolves.toEqual({ issues: [issue], totalCount: 7 });
+    await expect(fetchGenAIOverviewIssues('experiment-1')).resolves.toEqual({ issues: [issue] });
     expect(mockFetchAPI).toHaveBeenCalledTimes(1);
     const [, request] = mockFetchAPI.mock.calls[0];
     expect(request).toEqual({
@@ -128,7 +125,6 @@ describe('fetchGenAIOverviewIssues', () => {
         statuses: ['pending', 'resolved'],
         severities: ['low', 'medium', 'high'],
         order_by: ['created_timestamp DESC'],
-        include_total_count: true,
         max_results: 1000,
         view: 'basic',
       },

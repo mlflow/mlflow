@@ -275,13 +275,16 @@ export const ExperimentGenAIJourneyOverviewPage = () => {
               : undefined
         : undefined;
   const analyzeCardState = useMemo<GenAIOverviewStageStatus>(() => {
-    if (analyzeState.status === 'loading') return { status: 'loading' };
-    if (analyzeState.status === 'completed') {
-      return { status: 'ready', totalCount: analyzeState.issueCount, activity: analyzeState.activity };
+    switch (analyzeState.status) {
+      case 'loading':
+        return { status: 'loading' };
+      case 'completed':
+        return { status: 'ready', totalCount: analyzeState.issueCount, activity: analyzeState.activity };
+      case 'never-run':
+        return { status: 'empty', activity: [] };
+      case 'error':
+        return { status: 'error' };
     }
-    if (analyzeState.status === 'never-run') return { status: 'empty', activity: [] };
-    if (analyzeState.status === 'error') return { status: 'error' };
-    return { status: 'unavailable' };
   }, [analyzeState]);
   const evalCardState = useMemo<GenAIOverviewStageStatus>(() => {
     if (evalState.status === 'loading') return { status: 'loading' };
@@ -696,14 +699,11 @@ export const ExperimentGenAIJourneyOverviewPage = () => {
                   }
                   recommended={primaryStage === 'analyze'}
                   activityChart={
-                    analyzeState.status === 'completed' ? (
+                    analyzeState.status === 'completed' && latestIssueDetectionRunRoute ? (
                       <GenAIOverviewIssueSeverityChart
                         activity={analyzeState.activity}
                         onAskAssistant={canUseAssistant ? setPromptChartContext : undefined}
-                        issuesRoute={
-                          latestIssueDetectionRunRoute ??
-                          Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.EvaluationRuns)
-                        }
+                        issuesRoute={latestIssueDetectionRunRoute}
                       />
                     ) : undefined
                   }
