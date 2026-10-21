@@ -119,6 +119,12 @@ def test_parse_rejects_condition_matching_duplicate_scorer_names():
         parse_quality_criteria(scorers, "a >= 0.5")
 
 
+@pytest.mark.parametrize("quality_criteria", ["a >= 0 AND a <= 1", "a >= 0.5 AND `a/mean` <= 1"])
+def test_parse_rejects_two_conditions_on_one_metric(quality_criteria):
+    with pytest.raises(MlflowException, match="more than one condition on 'a/mean'"):
+        parse_quality_criteria([_make_scorer("a")], quality_criteria)
+
+
 def test_parse_allows_duplicate_names_without_criteria():
     scorers = [_make_scorer("a"), _make_scorer("a"), _make_scorer("b")]
     [rule] = _parse(scorers, "b >= 0.5")

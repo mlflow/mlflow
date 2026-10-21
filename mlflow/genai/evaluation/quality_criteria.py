@@ -73,7 +73,13 @@ def parse_quality_criteria(
     while True:
         if not (match := _CONDITION.match(quality_criteria, pos)):
             raise _invalid_syntax(quality_criteria, pos)
-        rules.append(_parse_condition(match, name_counts))
+        rule = _parse_condition(match, name_counts)
+        if any(r.metric_key == rule.metric_key for r in rules):
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid quality criteria: more than one condition on {rule.metric_key!r}. "
+                "Set one condition per metric."
+            )
+        rules.append(rule)
         if (pos := match.end()) == len(quality_criteria):
             return rules
         if not (match := _AND.match(quality_criteria, pos)):
