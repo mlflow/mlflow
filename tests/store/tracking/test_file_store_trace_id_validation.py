@@ -10,8 +10,9 @@ from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils.time import get_current_time_millis
 
 # Templates for trace ids that resolve outside <experiment>/traces: an absolute path, a
-# dot-dot path to the same target, the traces folder itself, its parent, and a child
-# followed by "..".
+# dot-dot path to the same target, the traces folder itself, its parent, a child followed
+# by "..", and names that Windows normalizes to "." or ".." by stripping trailing spaces
+# and periods.
 _ESCAPING_TRACE_ID_TEMPLATES = [
     "{target}",
     "{target_relpath}",
@@ -19,6 +20,10 @@ _ESCAPING_TRACE_ID_TEMPLATES = [
     ".",
     "",
     "tr-seed/..",
+    ".. ",
+    ". ",
+    "...",
+    " ..",
 ]
 
 
@@ -98,6 +103,16 @@ def test_start_trace_rejects_trace_ids_that_escape_the_traces_dir(
     assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
     assert not outside.exists()
     assert not traces_dir.exists()
+
+
+@pytest.mark.parametrize("trace_id", ["tr-seed.", "tr-seed "])
+def test_trace_ids_with_trailing_periods_or_spaces_are_rejected(store: FileStore, trace_id: str):
+    exp_id = store.create_experiment("exp")
+
+    with pytest.raises(MlflowException, match="parameter 'trace_id'"):
+        store.start_trace(_trace_info(exp_id, trace_id))
+    with pytest.raises(MlflowException, match="parameter 'trace_id'"):
+        store.delete_traces(exp_id, trace_ids=[trace_id])
 
 
 def test_start_and_delete_trace_with_a_plain_trace_id(store: FileStore, tmp_path: Path):

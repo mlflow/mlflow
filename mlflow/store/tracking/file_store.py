@@ -140,8 +140,10 @@ def _default_root_dir():
 def _validate_trace_id(trace_id: str) -> None:
     # A trace id names a directory directly under an experiment's traces folder, so anything that
     # resolves elsewhere (an absolute path, a path separator, "." or "..") must be rejected before
-    # it reaches `mkdir` or `shutil.rmtree`.
-    if trace_id in ("", ".", "..") or os.path.basename(trace_id) != trace_id:
+    # it reaches `mkdir` or `shutil.rmtree`. Windows strips trailing spaces and periods from path
+    # components, which turns ids such as ".. " back into "..", so ids that normalization would
+    # alter are rejected too.
+    if not trace_id or trace_id.rstrip(" .") != trace_id or os.path.basename(trace_id) != trace_id:
         raise MlflowException(
             invalid_value("trace_id", trace_id, "must be a single path component"),
             error_code=INVALID_PARAMETER_VALUE,
