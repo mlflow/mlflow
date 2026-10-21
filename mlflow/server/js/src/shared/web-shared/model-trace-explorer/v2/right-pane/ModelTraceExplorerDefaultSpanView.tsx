@@ -11,7 +11,11 @@ import {
   type ModelTraceSpanNode,
   type SearchMatch,
 } from '../ModelTrace.types';
-import { createListFromObject, normalizeConversation } from '../ModelTraceExplorer.utils';
+import {
+  createListFromObject,
+  normalizeConversation,
+  removeOverlappingInputMessages,
+} from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
 import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceExplorerFieldRenderer';
@@ -41,24 +45,6 @@ const getInitialSectionRenderMode = (
 
 const stringifySectionData = (data: unknown) => JSON.stringify(data ?? null, null, 2);
 
-const areChatMessagesEquivalent = (first: ModelTraceChatMessage, second: ModelTraceChatMessage): boolean => {
-  return JSON.stringify(first) === JSON.stringify(second);
-};
-
-const removeInputMessagesPrefix = (
-  outputMessages: ModelTraceChatMessage[],
-  inputMessages: ModelTraceChatMessage[],
-): ModelTraceChatMessage[] => {
-  if (
-    outputMessages.length >= inputMessages.length &&
-    inputMessages.every((message, index) => areChatMessagesEquivalent(message, outputMessages[index]))
-  ) {
-    return outputMessages.slice(inputMessages.length);
-  }
-
-  return outputMessages;
-};
-
 const getInputChatMessages = (
   activeSpan: ModelTraceSpanNode | undefined,
 ): { messages: ModelTraceChatMessage[]; hasTopLevelChatPayload: boolean } => {
@@ -86,7 +72,7 @@ const getOutputChatMessages = (
   }
 
   const outputMessages = normalizeConversation(activeSpan.outputs, activeSpan.chatMessageFormat) ?? [];
-  const outputOnlyMessages = removeInputMessagesPrefix(outputMessages, inputChatMessages);
+  const outputOnlyMessages = removeOverlappingInputMessages(outputMessages, inputChatMessages);
   if (outputOnlyMessages.length > 0) {
     return { messages: outputOnlyMessages, hasTopLevelChatPayload: true };
   }
@@ -253,22 +239,24 @@ export function ModelTraceExplorerDefaultSpanView({
     );
   };
 
-  // PydanticAI agent spans take `message_history` and `user_prompt` arguments, which are
-  // already shown as chat messages when parsed from the inputs or from the run's new messages.
-  const isRenderedPydanticAIInputField = (key: string) => {
+  // PydanticAI agent spans take `message_history` and `user_prompt` arguments and return the
+  // run's new messages under `_new_messages_serialized`. Each is already part of the chat
+  // transcript when that transcript was parsed from the same section, so hide the raw field
+  // rather than showing the same content twice.
+  const isRenderedPydanticAIField = (section: 'inputs' | 'outputs', key: string) => {
     if (activeSpan.chatMessageFormat !== 'pydantic_ai') {
       return false;
     }
-    if (key === 'message_history') {
+    if (section === 'inputs' && key === 'message_history') {
       return inputHasTopLevelChatPayload;
     }
-    if (key === 'user_prompt') {
-      return (
-        !inputHasTopLevelChatPayload &&
-        inputChatMessages.some(
-          (message) => message.role === 'user' && message.content === activeSpan.inputs?.user_prompt,
-        )
+    if (section === 'inputs' && key === 'user_prompt') {
+      return inputChatMessages.some(
+        (message) => message.role === 'user' && message.content === activeSpan.inputs?.user_prompt,
       );
+    }
+    if (section === 'outputs' && key === '_new_messages_serialized') {
+      return outputHasTopLevelChatPayload;
     }
     return false;
   };
@@ -282,7 +270,7 @@ export function ModelTraceExplorerDefaultSpanView({
       ({ key }) =>
         !(skipAnonymousTopLevelField && key === '') &&
         !CHAT_FIELD_KEYS[section].has(key.toLowerCase()) &&
-        !(section === 'inputs' && !searchFilter && isRenderedPydanticAIInputField(key)),
+        !(!searchFilter && isRenderedPydanticAIField(section, key)),
     );
 
   const renderNonChatFields = (

@@ -188,11 +188,13 @@ export const normalizePydanticAIChatInput = (obj: unknown): ModelTraceChatMessag
     return null;
   }
 
-  if (isObject(obj) && has(obj, 'message_history')) {
-    const messageHistory = (obj as any).message_history;
-    if (isArray(messageHistory) && messageHistory.length > 0) {
-      const messages: ModelTraceChatMessage[] = [];
+  // Agent.run inputs: `message_history` holds prior turns and `user_prompt` is the new turn.
+  // Append the prompt so the input transcript is the full conversation sent to the model.
+  if (isObject(obj) && (has(obj, 'message_history') || has(obj, 'user_prompt'))) {
+    const messages: ModelTraceChatMessage[] = [];
 
+    const messageHistory = (obj as any).message_history;
+    if (isArray(messageHistory)) {
       for (const item of messageHistory) {
         if (isPydanticAIModelRequest(item)) {
           messages.push(...normalizeModelRequest(item));
@@ -200,8 +202,16 @@ export const normalizePydanticAIChatInput = (obj: unknown): ModelTraceChatMessag
           messages.push(...normalizeModelResponse(item));
         }
       }
+    }
 
-      return messages.length > 0 ? messages : null;
+    const userPrompt = (obj as any).user_prompt;
+    if (isString(userPrompt)) {
+      const message = prettyPrintChatMessage({ role: 'user', content: userPrompt });
+      if (message) messages.push(message);
+    }
+
+    if (messages.length > 0) {
+      return messages;
     }
   }
 

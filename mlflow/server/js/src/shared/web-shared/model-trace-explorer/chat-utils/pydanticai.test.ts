@@ -238,10 +238,30 @@ describe('PydanticAI message normalization', () => {
       const result = normalizeConversation(inputWithMessageHistory, 'pydantic_ai');
 
       expect(result).not.toBeNull();
-      expect(result).toHaveLength(3); // system + user + assistant from message_history
+      expect(result).toHaveLength(4); // system + user + assistant from message_history, then user_prompt
 
       expect(result![0].role).toBe('system');
       expect(result![1].role).toBe('user');
+      expect(result![2].role).toBe('assistant');
+      expect(result![3].role).toBe('user');
+      expect(result![3].content).toBe('I am doing well thank you.');
+    });
+
+    it('should normalize a first-turn input that only has user_prompt', () => {
+      const result = normalizeConversation({ user_prompt: 'Hello there' }, 'pydantic_ai');
+
+      expect(result).toEqual([{ role: 'user', content: 'Hello there' }]);
+    });
+
+    it('should keep only the history when user_prompt is not a string', () => {
+      const inputWithPartsPrompt = {
+        user_prompt: [{ kind: 'image-url', url: 'https://example.com/a.png' }],
+        message_history: [MOCK_PYDANTIC_AI_REQUEST, MOCK_PYDANTIC_AI_RESPONSE],
+      };
+
+      const result = normalizeConversation(inputWithPartsPrompt, 'pydantic_ai');
+
+      expect(result).toHaveLength(3);
       expect(result![2].role).toBe('assistant');
     });
 
