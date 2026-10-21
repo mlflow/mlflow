@@ -1,4 +1,5 @@
 # Follow https://github.com/mlflow/mlflow/blob/HEAD/.github/ISSUE_TEMPLATE/ui_bug_report_template.yaml when filing an issue, as your local checkout may have an older template.
+# Please wait for a maintainer to apply the `ready` label before opening a PR for this issue.
 name: UI Bug Report
 description: Create a report to help us reproduce and correct the UI bug
 labels: ["bug", "area/uiux"]
