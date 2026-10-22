@@ -1034,6 +1034,7 @@ module.exports = {
   "mlflow.experiment-evaluation-monitoring.trace-info-hover-request-time": "",
 
   // -- mlflow.experiment-issues --
+  "mlflow.experiment-issues.cancel-detection": "",
   "mlflow.experiment-issues.detail.category": "",
   "mlflow.experiment-issues.detail.status": "",
   "mlflow.experiment-issues.detail.status.reject": "",
@@ -1041,6 +1042,8 @@ module.exports = {
   "mlflow.experiment-issues.detail.status.resolve": "",
   "mlflow.experiment-issues.detect": "",
   "mlflow.experiment-issues.detection-error": "",
+  "mlflow.experiment-issues.detection-progress.cancel": "",
+  "mlflow.experiment-issues.detection-progress.go-to-traces": "",
   "mlflow.experiment-issues.empty-state.learn-how": "",
   "mlflow.experiment-issues.empty-state.run-detection": "",
   "mlflow.experiment-issues.evidence.expand-toggle": "",
@@ -2375,6 +2378,7 @@ module.exports = {
   "mlflow.traces-v4.assessment-cell.error": "",
   "mlflow.traces-v4.bulk-delete-confirm-modal": "",
   "mlflow.traces-v4.bulk-delete-error": "",
+  "mlflow.traces-v4.cancel-issue-detection-button": "",
   "mlflow.traces-v4.column-selector.item.cost": "",
   "mlflow.traces-v4.column-selector.item.duration": "",
   "mlflow.traces-v4.column-selector.item.input": "",

@@ -1123,6 +1123,10 @@
     "defaultMessage": "Aliases allow you to assign a mutable, named reference to a particular model version. <link>Learn more</link>",
     "description": "Explanation of registered model aliases"
   },
+  "2GG56d": {
+    "defaultMessage": "Go to Traces",
+    "description": "Experiment issues tab > In-progress issue detection action to go to the traces tab"
+  },
   "2Hf+yU": {
     "defaultMessage": "Time (wall)",
     "description": "Label for a radio button that configures the x-axis on a line chart. This option is for the absolute time that the metrics were logged."
@@ -1366,6 +1370,10 @@
   "2rfZ/+": {
     "defaultMessage": "Endpoint",
     "description": "Label for the endpoint-selection section in the run evaluation modal"
+  },
+  "2rtsN+": {
+    "defaultMessage": "Keep running",
+    "description": "Experiment issues tab > Dialog action leaving the issue detection running"
   },
   "2tQXw0": {
     "defaultMessage": "Key name cannot be changed.",
@@ -3967,6 +3975,10 @@
     "defaultMessage": "Human judge",
     "description": "Label for human judge in the tooltip for the assessment in the evaluation metrics."
   },
+  "BdfS6s": {
+    "defaultMessage": "Cancel issue detection",
+    "description": "Experiment issues tab > Title of the dialog confirming cancellation of issue detection"
+  },
   "BduLHx": {
     "defaultMessage": "Failed to refresh traces",
     "description": "Title of the traces refresh-error alert"
@@ -4759,6 +4771,10 @@
     "defaultMessage": "The Python SDK reads the skill locally, so it can infer the name and record a digest.",
     "description": "Explanation of the skill registration Python example"
   },
+  "EUf1+6": {
+    "defaultMessage": "Cancelling discards the analysis done so far. Any issues already recorded are kept.",
+    "description": "Experiment issues tab > Explanation of what cancelling issue detection discards"
+  },
   "EWf8NH": {
     "defaultMessage": "Learn more",
     "description": "Documentation link text"
@@ -5402,6 +5418,10 @@
   "Gs+blV": {
     "defaultMessage": "Last modified",
     "description": "Column title for last modified timestamp for a model in the registered model page"
+  },
+  "GsoLRR": {
+    "defaultMessage": "Scanning your traces for issues. This can take a while.",
+    "description": "Experiment issues tab > In-progress issue detection state description"
   },
   "Gxl8pl": {
     "defaultMessage": "Version",
@@ -10827,6 +10847,10 @@
     "defaultMessage": "Move down",
     "description": "Experiment page > compare runs tab > chart header > move down option"
   },
+  "Z7NXJF": {
+    "defaultMessage": "If it has stopped making progress, cancel to start a new detection.",
+    "description": "Experiment issues tab > In-progress issue detection guidance on when to cancel"
+  },
   "ZAqdq9": {
     "defaultMessage": "Edit API key",
     "description": "Gateway > API key details drawer > Edit API key button aria label"
@@ -11414,6 +11438,10 @@
   "bKSd3c": {
     "defaultMessage": "An unknown error occurred.",
     "description": "Generic message for an unknown error"
+  },
+  "bMUODD": {
+    "defaultMessage": "Cancel detection",
+    "description": "Experiment issues tab > Action to cancel the issue detection in progress"
   },
   "bO0wxq": {
     "defaultMessage": "Advanced settings",
@@ -13947,6 +13975,10 @@
     "defaultMessage": "Session",
     "description": "Title for the session conversation pane"
   },
+  "jEsL5g": {
+    "defaultMessage": "Detecting issues...",
+    "description": "Experiment issues tab > In-progress issue detection state title"
+  },
   "jFk49l": {
     "defaultMessage": "Quick-start with a popular model below, or create an endpoint from 60+ providers and all their supported models.",
     "description": "Gateway > Endpoints > Quick start call to action"
@@ -14606,6 +14638,10 @@
   "lTrmPI": {
     "defaultMessage": "No matching data found for the available runs.",
     "description": "Experiment tracking > runs charts > parallel coordinates chart preview > no data found description"
+  },
+  "lUy8rP": {
+    "defaultMessage": "Detection runs on the server, so you can leave this page and return later.",
+    "description": "Experiment issues tab > In-progress issue detection guidance about leaving the page"
   },
   "lVtl/C": {
     "defaultMessage": "Copy SKILL.md",
@@ -18499,6 +18535,10 @@
     "defaultMessage": "Points:",
     "description": "Label for the toggle button to toggle to show points or not for the metric experiment run"
   },
+  "z++2eH": {
+    "defaultMessage": "Failed to cancel issue detection: {error}",
+    "description": "Experiment issues tab > Error shown when cancelling issue detection fails"
+  },
   "z+0t/R": {
     "defaultMessage": "You need to define at least one input variable",
     "description": "Experiment page > new run modal > invalid state - no input variables defined"
@@ -18798,6 +18838,10 @@
   "zwO8+l": {
     "defaultMessage": "20",
     "description": "Label for 20 first runs visible in run count selector within runs compare configuration modal"
+  },
+  "zwOxO2": {
+    "defaultMessage": "Cancel detection",
+    "description": "Experiment issues tab > Dialog action confirming that issue detection should be cancelled"
   },
   "zwktEP": {
     "defaultMessage": "No data available for the selected time range",
