@@ -2307,6 +2307,10 @@ module.exports = {
   // -- mlflow.telemetry --
   "mlflow.telemetry.info_alert.documentation_link": "",
 
+  // -- mlflow.trace-comparison --
+  "mlflow.trace-comparison.review": "",
+  "mlflow.trace-comparison.review-tooltip": "",
+
   // -- mlflow.trace-explorer --
   "mlflow.trace-explorer.comparison.baseline-id-tooltip": "",
   "mlflow.trace-explorer.comparison.baseline-run": "",
@@ -2420,6 +2424,10 @@ module.exports = {
   "mlflow.traces-v4.group-by-session": "",
   "mlflow.traces-v4.group-by-session.tooltip": "",
   "mlflow.traces-v4.notifications.close": "",
+  "mlflow.traces-v4.pairwise-review.card": "",
+  "mlflow.traces-v4.pairwise-review.question": "",
+  "mlflow.traces-v4.pairwise-review.rationale": "",
+  "mlflow.traces-v4.pairwise-score.value": "",
   "mlflow.traces-v4.refresh-date-button": "",
   "mlflow.traces-v4.refresh-date-button.tooltip": "",
   "mlflow.traces-v4.save_view.link": "",
@@ -2622,6 +2630,8 @@ module.exports = {
   "shared.model-trace-explorer.span-model-badge": "",
   "shared.model-trace-explorer.span-name-tag": "",
   "shared.model-trace-explorer.span-name-tooltip": "",
+  "shared.model-trace-explorer.span-tree-toggle": "",
+  "shared.model-trace-explorer.span-tree-toggle-tooltip": "",
   "shared.model-trace-explorer.summary-view.collapse-intermediate-nodes": "",
   "shared.model-trace-explorer.summary-view.expand-intermediate-nodes": "",
   "shared.model-trace-explorer.summary-view.render-mode": "",
