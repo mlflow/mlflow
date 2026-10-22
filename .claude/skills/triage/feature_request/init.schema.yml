@@ -40,7 +40,9 @@ properties:
 
       <small, medium, or large, with a brief reason and the main changes with code permalinks>
 
-      <if a prototype was attempted: 1–2 sentences on the result and blockers, without code listings>
+      <if a prototype was attempted: 1–2 sentences on the result and blockers>
+
+      <for a small change: the core change in a fenced diff code block; state whether it was tried>
 
       ### Impact on existing features
 

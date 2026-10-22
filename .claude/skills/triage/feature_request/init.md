@@ -27,8 +27,9 @@ For a small, clear request, try a tiny prototype only to refine the estimate and
 implementation issues. Keep source changes under `mlflow/` and scratch examples under
 `$out_dir/work`. Use a lightweight example command or browser interaction to check the
 prototype within the runtime budget. Stop if design decisions or substantial work are needed.
-Report the result and blockers in 1–2 sentences under Implementation effort; omit code
-listings and only call it working if verification succeeded.
+Report the result and blockers in 1–2 sentences under Implementation effort, and only
+call it working if verification succeeded. When the change is small, include the core
+change in a fenced `diff` code block. Keep the diff focused and state whether it was tried.
 
 ## Response
 
