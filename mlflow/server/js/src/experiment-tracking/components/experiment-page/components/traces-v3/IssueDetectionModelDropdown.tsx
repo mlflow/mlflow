@@ -209,10 +209,18 @@ export const IssueDetectionModelDropdown = ({
   endpoints,
   value,
   onChange,
+  disabled = false,
+  contentZIndex,
 }: {
   endpoints: Endpoint[];
   value: IssueDetectionModelSelection;
   onChange: (value: IssueDetectionModelSelection) => void;
+  disabled?: boolean;
+  /**
+   * Lifts the portaled option list above a host that raises its own stacking context (a modal
+   * that sets `zIndex`). Left unset, the design system's default applies.
+   */
+  contentZIndex?: number;
 }) => {
   const { theme } = useDesignSystemTheme();
   const { refetch: refetchEndpoints } = useEndpointsQuery();
@@ -255,6 +263,7 @@ export const IssueDetectionModelDropdown = ({
         <button
           type="button"
           data-testid="model-dropdown-trigger"
+          disabled={disabled}
           css={{
             display: 'flex',
             alignItems: 'center',
@@ -265,11 +274,14 @@ export const IssueDetectionModelDropdown = ({
             textAlign: 'left',
             border: `1px solid ${theme.colors.border}`,
             borderRadius: theme.borders.borderRadiusMd,
-            cursor: 'pointer',
-            '&:hover': {
-              backgroundColor: theme.colors.actionTertiaryBackgroundHover,
-              borderColor: theme.colors.actionDefaultBorderHover,
-            },
+            cursor: disabled ? 'not-allowed' : 'pointer',
+            color: disabled ? theme.colors.actionDisabledText : undefined,
+            '&:hover': disabled
+              ? undefined
+              : {
+                  backgroundColor: theme.colors.actionTertiaryBackgroundHover,
+                  borderColor: theme.colors.actionDefaultBorderHover,
+                },
           }}
         >
           {triggerLogo && <ProviderLogo src={triggerLogo} srcDark={triggerLogoDark} />}
@@ -288,7 +300,7 @@ export const IssueDetectionModelDropdown = ({
         sideOffset={4}
         collisionPadding={16}
         avoidCollisions={false}
-        style={{ padding: 0, minWidth: 260 }}
+        style={{ padding: 0, minWidth: 260, ...(contentZIndex === undefined ? {} : { zIndex: contentZIndex }) }}
       >
         <div
           css={{
