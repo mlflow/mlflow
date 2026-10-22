@@ -128,8 +128,8 @@ describe('IssueDetectionSettingsControl', () => {
     render();
     await openSettings();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Custom focus area' }));
-    await userEvent.type(screen.getByRole('textbox', { name: 'Custom focus area' }), 'pii leakage');
+    await userEvent.click(screen.getByRole('button', { name: 'Custom category' }));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Custom category' }), 'pii leakage');
     await userEvent.click(screen.getByRole('button', { name: 'Add' }));
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -141,11 +141,12 @@ describe('IssueDetectionSettingsControl', () => {
     render();
     await openSettings();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Custom focus area' }));
-    await userEvent.type(screen.getByRole('textbox', { name: 'Custom focus area' }), 'Correctness');
+    await userEvent.click(screen.getByRole('button', { name: 'Custom category' }));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Custom category' }), 'Correctness');
 
-    expect(await screen.findByText('That focus area already exists.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled();
+    // Disabled with no message, matching the managed product rather than explaining it.
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled());
+    expect(screen.queryByText(/already exists/)).not.toBeInTheDocument();
   });
 
   test('a focus area name containing a template variable is rejected', async () => {
@@ -155,10 +156,10 @@ describe('IssueDetectionSettingsControl', () => {
     render();
     await openSettings();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Custom focus area' }));
-    await userEvent.type(screen.getByRole('textbox', { name: 'Custom focus area' }), 'Unresolved {{ name }}');
+    await userEvent.click(screen.getByRole('button', { name: 'Custom category' }));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Custom category' }), 'Unresolved {{ name }}');
 
-    expect(await screen.findByText('A focus area name cannot contain {{ }}.')).toBeInTheDocument();
+    expect(await screen.findByText('A category name cannot contain {{ }}.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled();
   });
 
@@ -172,7 +173,7 @@ describe('IssueDetectionSettingsControl', () => {
     render();
     await openSettings();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Remove custom focus area pii leakage' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Remove custom category pii leakage' }));
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(written).toHaveLength(1));
@@ -199,7 +200,7 @@ describe('IssueDetectionSettingsControl', () => {
     await userEvent.type(priorities, 'Worth keeping.');
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-    expect(await screen.findByText('Could not save these settings. Try again.')).toBeInTheDocument();
+    expect(await screen.findByText('Could not save issue detection settings. Try again.')).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: /Detection priorities/ })).toHaveValue('Worth keeping.');
   });
 });

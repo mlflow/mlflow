@@ -3095,10 +3095,6 @@
     "defaultMessage": "Cancel",
     "description": "Cancel delete webhook button"
   },
-  "8f/ZDJ": {
-    "defaultMessage": "That focus area already exists.",
-    "description": "Issue detection settings modal > Error shown when the typed custom category is already present"
-  },
   "8f4/Zi": {
     "defaultMessage": "Search logged models using a simplified version of the SQL {whereBold} clause.",
     "description": "Tooltip string to explain how to search logged models from the listing page"
@@ -3262,6 +3258,10 @@
   "9CqEWy": {
     "defaultMessage": "Load more",
     "description": "Load more button text to load more experiment runs"
+  },
+  "9E4rZq": {
+    "defaultMessage": "Could not save issue detection settings. Try again.",
+    "description": "Issue detection settings modal > Error shown when saving the settings failed"
   },
   "9EibEs": {
     "defaultMessage": "Metadata:",
@@ -3890,10 +3890,6 @@
   "BB6In/": {
     "defaultMessage": "Tags",
     "description": "Header for the tags column in the experiments table"
-  },
-  "BCopKw": {
-    "defaultMessage": "A focus area name cannot contain {braces}.",
-    "description": "Issue detection settings modal > Error shown when the typed custom category contains doubled braces"
   },
   "BCpX6U": {
     "defaultMessage": "Registered models",
@@ -7227,10 +7223,6 @@
     "defaultMessage": "Create",
     "description": "Create button text for creating model in the model registry"
   },
-  "MbP3d7": {
-    "defaultMessage": "Could not save these settings. Try again.",
-    "description": "Issue detection settings modal > Error shown when saving the settings failed"
-  },
   "Mc6Dhy": {
     "defaultMessage": "5",
     "description": "Label for 5 first runs visible in run count selector within runs compare configuration modal"
@@ -7510,10 +7502,6 @@
   "NRNNnk": {
     "defaultMessage": "Click to expand",
     "description": "Tooltip for expandable session cell"
-  },
-  "NRaZER": {
-    "defaultMessage": "Applied every run, when deciding what to flag and how severe it is. Leave empty to use the defaults.",
-    "description": "Issue detection settings modal > Hint explaining what the priorities field affects"
   },
   "NRjlue": {
     "defaultMessage": "Save",
@@ -8718,6 +8706,10 @@
   "RQad6L": {
     "defaultMessage": "Capture inputs, tool calls, latency, and cost to understand how your agent behaves.",
     "description": "Trace step description"
+  },
+  "RRg+Om": {
+    "defaultMessage": "Custom category",
+    "description": "Issue detection settings modal > Label of the button that reveals the custom category field"
   },
   "RRvtnM": {
     "defaultMessage": "Did the conversation avoid causing user frustration?",
@@ -10958,6 +10950,10 @@
   "YrlNKi": {
     "defaultMessage": "Follow these steps to create a custom code judge using your own code. {link}",
     "description": "Brief instructions for custom code judge creation"
+  },
+  "Yu4tEi": {
+    "defaultMessage": "Custom category",
+    "description": "Issue detection settings modal > Label of the custom category text field"
   },
   "YuYnxd": {
     "defaultMessage": "Delete",
@@ -13763,10 +13759,6 @@
     "defaultMessage": "Type something to use full text search",
     "description": "Trace typeahead search placeholder"
   },
-  "i1E6C1": {
-    "defaultMessage": "Custom focus area",
-    "description": "Issue detection settings modal > Label of the custom category text field"
-  },
   "i1Hj20": {
     "defaultMessage": "{count, plural, =1 {1 hour} other {# hours}} ago",
     "description": "Time duration in hours"
@@ -14082,10 +14074,6 @@
   "iruFlr": {
     "defaultMessage": "Running the judge from the UI is only supported with {supportedProvider} endpoints, but the current model uses the {currentProvider} provider",
     "description": "Tooltip message when model provider is not supported. supportedProvider is the required provider type, currentProvider is what the model currently uses."
-  },
-  "itl1u5": {
-    "defaultMessage": "Custom focus area",
-    "description": "Issue detection settings modal > Label of the button that reveals the custom category field"
   },
   "itlAT2": {
     "defaultMessage": "This experiment has reached the maximum of {max} saved views. Delete a view before saving a new one.",
@@ -15619,6 +15607,10 @@
     "defaultMessage": "Prompt Name",
     "description": "Header for prompt name column in linked prompts table on logged model details page"
   },
+  "nptZ+J": {
+    "defaultMessage": "Remove custom category {category}",
+    "description": "Issue detection settings modal > Label of the button that deletes a custom category"
+  },
   "nqpJx0": {
     "defaultMessage": "Time",
     "description": "Column selector label for the start-time column"
@@ -16775,10 +16767,6 @@
     "defaultMessage": "just now",
     "description": "Evaluation review > assessments > tooltip > just now"
   },
-  "rnAWO4": {
-    "defaultMessage": "Remove custom focus area {category}",
-    "description": "Issue detection settings modal > Label of the button that deletes a custom category"
-  },
   "rnQSs1": {
     "defaultMessage": "Line chart",
     "description": "Accessible label for the line chart toggle in the eval-runs chart"
@@ -17606,6 +17594,10 @@
   "uq6CTI": {
     "defaultMessage": "No profile available",
     "description": "Text for no profile available in the experiment run dataset drawer"
+  },
+  "uqr+Me": {
+    "defaultMessage": "A category name cannot contain {braces}.",
+    "description": "Issue detection settings modal > Error shown when the typed custom category contains doubled braces"
   },
   "urvfNd": {
     "defaultMessage": "Cancel",
