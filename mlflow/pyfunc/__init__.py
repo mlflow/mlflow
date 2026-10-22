@@ -428,6 +428,7 @@ from mlflow.environment_variables import (
     _MLFLOW_IN_CAPTURE_MODULE_PROCESS,
     _MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT,
     _MLFLOW_TESTING,
+    MLFLOW_DISABLE_PYFUNC_LOADER_MODULE,
     MLFLOW_DISABLE_SCHEMA_DETAILS,
     MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF,
     MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR,
@@ -1109,7 +1110,18 @@ def load_model(
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                 release without warning.
+
+    PyFunc model loading is enabled by default. Set
+    ``MLFLOW_DISABLE_PYFUNC_LOADER_MODULE=true`` to prevent imports of code specified by a
+    model artifact. This setting also prevents trusted PyFunc models from loading.
     """
+
+    if MLFLOW_DISABLE_PYFUNC_LOADER_MODULE.get():
+        raise MlflowException(
+            "PyFunc model loading via loader_module is disabled because importing code from "
+            "untrusted model artifacts can execute arbitrary code. Set "
+            "MLFLOW_DISABLE_PYFUNC_LOADER_MODULE=false to enable it for trusted models."
+        )
 
     lineage_header_info = None
     if (
