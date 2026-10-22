@@ -33,7 +33,7 @@ change in a fenced `diff` code block. Keep the diff focused and state whether it
 
 ## Response
 
-Read [init.schema.yml](init.schema.yml). Pick one `outcome` from its descriptions and
+Read [init.schema.yml](init.schema.yml). Pick one `verdict` from its descriptions and
 write `comment` using its report template. Do not add a triage label; the workflow already
 applies `enhancement`. Omit boilerplate about not running tests or not proposing a PR.
 Follow the [shared guidance for issue titles](../output.md#optional-issue-title).

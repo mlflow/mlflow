@@ -4,7 +4,7 @@ description: Implementation effort, impact on existing features, and checks need
 type: object
 additionalProperties: false
 required:
-  - outcome
+  - verdict
   - comment
 properties:
   issue_title:
@@ -13,7 +13,7 @@ properties:
     pattern: '^[^\r\n]+$'
     minLength: 1
     maxLength: 120
-  outcome:
+  verdict:
     type: string
     oneOf:
       - const: triaged
@@ -29,12 +29,12 @@ properties:
   comment:
     description: |
       Markdown comment for initial feature triage. Replace placeholders and omit
-      sections with nothing to say, except the outcome. Omit boilerplate about tests
+      sections with nothing to say, except the verdict. Omit boilerplate about tests
       not run or PRs not proposed.
 
       ### Summary
 
-      **<outcome>**: <the requested behavior and triage in one or two sentences>.
+      **<verdict>**: <the requested behavior and triage in one or two sentences>.
 
       ### Implementation effort
 
