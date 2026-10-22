@@ -39,6 +39,9 @@ properties:
 
       <small, medium, or large, with a brief reason and the main changes with code permalinks>
 
+      <if a cheap proof of concept was attempted: what it revealed about effort or
+      implementation issues, the verification command and result, and remaining unknowns>
+
       ### Impact on existing features
 
       <the main effects on existing behavior or compatibility>
