@@ -15,7 +15,9 @@ import type { CSSObject, Theme } from '@emotion/react';
 import { defineMessages, FormattedMessage, type IntlShape, useIntl } from '@databricks/i18n';
 import { CopyActionButton } from '../copy/CopyActionButton';
 import { getTimeAgoStrings } from '../browse/TimeAgo';
-import { formatCostUSD } from '../model-trace-explorer/CostUtils';
+import { formatCostUSD, formatEstimatedCostUSD } from '../model-trace-explorer/CostUtils';
+import { estimatedCostMessages } from '../model-trace-explorer/EstimatedCostValue';
+import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
 import {
   createTraceV4LongIdentifier,
   getTraceCost,
@@ -677,6 +679,7 @@ export const SessionTokensCell: React.MemoExoticComponent<(props: { traces: Mode
 /** Total cost in USD in a tag, with an input/output breakdown on hover. */
 export const TraceCostCell: React.MemoExoticComponent<(props: { trace: ModelTraceInfoV3 }) => JSX.Element> = memo(
   function TraceCostCell({ trace }: { trace: ModelTraceInfoV3 }) {
+    const intl = useIntl();
     // Guard against undefined from unparseable cost metadata (see TraceTokensCell).
     const cost = getTraceCost(trace) ?? {};
     if (cost.total_cost === undefined || cost.total_cost === null) {
@@ -686,6 +689,34 @@ export const TraceCostCell: React.MemoExoticComponent<(props: { trace: ModelTrac
       cost.input_cost !== undefined ? `Input ${formatCostUSD(cost.input_cost)}` : undefined,
       cost.output_cost !== undefined ? `Output ${formatCostUSD(cost.output_cost)}` : undefined,
     ].filter(Boolean);
+    if (shouldEnableNewEvalRunsUi()) {
+      // The new eval runs UI marks pricing-table costs as estimated: a ≈ prefix and an explanation in the tooltip.
+      // The breakdown keeps plain values so it reads "Input $X · Output $Y".
+      const estimatedExplanation = intl.formatMessage(estimatedCostMessages.tooltip);
+      return (
+        <Tooltip
+          componentId={`${COMPONENT_ID}.cell.cost-tooltip`}
+          content={
+            parts.length > 0 ? (
+              <div css={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <WrappedTooltipText>{parts.join(' · ')}</WrappedTooltipText>
+                <WrappedTooltipText>{estimatedExplanation}</WrappedTooltipText>
+              </div>
+            ) : (
+              <WrappedTooltipText>{estimatedExplanation}</WrappedTooltipText>
+            )
+          }
+          maxWidth={CELL_OVERLAY_MAX_WIDTH}
+        >
+          <span
+            css={truncateCss}
+            aria-label={intl.formatMessage(estimatedCostMessages.ariaLabel, { cost: formatCostUSD(cost.total_cost) })}
+          >
+            {formatEstimatedCostUSD(cost.total_cost)}
+          </span>
+        </Tooltip>
+      );
+    }
     const content = <span css={truncateCss}>{formatCostUSD(cost.total_cost)}</span>;
     if (parts.length === 0) {
       return content;

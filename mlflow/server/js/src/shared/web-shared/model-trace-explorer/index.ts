@@ -92,7 +92,8 @@ export {
   type DrawerComponentType,
 } from './ModelTraceExplorerContext';
 export { ModelTraceExplorerDrawer, type ModelTraceExplorerDrawerProps } from './ModelTraceExplorerDrawerEntrypoint';
-export { formatCostUSD } from './CostUtils';
+export { formatCostUSD, formatEstimatedCostUSD, ESTIMATED_COST_PREFIX } from './CostUtils';
+export { EstimatedCostValue, estimatedCostMessages, type EstimatedCostValueProps } from './EstimatedCostValue';
 export { SimplifiedAssessmentView } from './right-pane/SimplifiedAssessmentView';
 export {
   getIssueReferenceFromAssessment,

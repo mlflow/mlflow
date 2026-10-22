@@ -27,6 +27,7 @@ import { ModelTraceExplorerChatTool } from './ModelTraceExplorerChatTool';
 import { ModelTraceExplorerConversation } from './ModelTraceExplorerConversation';
 import { DecisionAnswers, DecisionInputs } from './DecisionView';
 import { resolveDecision } from './decision-utils';
+import { shouldEnableNewEvalRunsUi } from '../../../../../common/utils/FeatureUtils';
 
 type ModelTraceExplorerSectionRenderMode = 'pretty' | Extract<ModelTraceExplorerRenderMode, 'json' | 'yaml'>;
 
@@ -356,6 +357,7 @@ export function ModelTraceExplorerDefaultSpanView({
         paddingLeft: theme.spacing.md + theme.spacing.xs,
         paddingRight: theme.spacing.md + theme.spacing.xs,
         paddingTop: theme.spacing.sm,
+        ...(shouldEnableNewEvalRunsUi() ? { paddingBottom: theme.spacing.xl } : {}),
       }}
       data-testid="model-trace-explorer-default-span-view"
     >
