@@ -354,12 +354,29 @@ def _add_code_from_conf_to_system_path(local_path, conf, code_key=FLAVOR_CONFIG_
     """
     assert isinstance(conf, dict), "`conf` argument must be a dict."
 
+    # Loaders call this before importing module names read from the model (e.g. a pyfunc
+    # `loader_module` or a Keras `keras_module`). If the model directory is under a `sys.path`
+    # entry such as the current directory, a dotted name can import the model's own files.
+    if not _is_model_code_loading_allowed() and _is_on_python_path(local_path):
+        raise MlflowException(
+            f"Loading the model at '{local_path}' is disallowed because it is inside a directory "
+            "on the Python path (such as the current directory), so files in the model can be "
+            "imported and run. Move the model to a directory that is not on the Python path or, "
+            "if you trust this model, set environment variable "
+            f"'{MLFLOW_ALLOW_MODEL_CODE_EXECUTION.name}' to 'true'."
+        )
+
     if code_key in conf and conf[code_key]:
         # The code directory comes from the model artifact; once it is on `sys.path`, any
         # module name read from the model (e.g. a pyfunc `loader_module`) can resolve to it.
         _check_model_code_loading_allowed("a model with a code directory")
         code_path = os.path.join(local_path, conf[code_key])
         _add_code_to_system_path(code_path)
+
+
+def _is_on_python_path(path) -> bool:
+    path = Path(path).resolve()
+    return any(path.is_relative_to(Path(entry or os.getcwd()).resolve()) for entry in sys.path)
 
 
 def _is_in_databricks_managed_environment() -> bool:

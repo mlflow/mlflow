@@ -161,6 +161,7 @@ When set to `false`, MLflow raises an error instead of loading:
 - a model saved with `pickle` or `cloudpickle` (use a pickle-free saving option when logging the model),
 - a model logged with a code directory (`code_paths` or `infer_code_paths=True`), because that code is added to the Python path and can run when modules are imported,
 - a [Models From Code](/ml/model/models-from-code) model, because loading it runs the model's Python file.
+- a model stored inside a directory on the Python path (such as the current directory), because module names read from the model could import the model's own files. Move the model to another directory, or load it by run or model URI.
 
 Saving a model with `infer_code_paths=True` also raises an error, because inferring code paths requires loading the model. Pass `code_paths` explicitly instead.
 

@@ -212,6 +212,27 @@ def test_load_model_refuses_code_directory_when_model_code_execution_disallowed(
     assert sys.path == sys_path
 
 
+def test_load_model_refuses_model_on_python_path_when_model_code_execution_disallowed(
+    tmp_path, monkeypatch
+):
+    # Without a code directory, a dotted `loader_module` can still import the model's own files
+    # when the model directory is under a `sys.path` entry, such as the current directory.
+    model_name = f"crafted_model_{os.getpid()}"
+    marker = tmp_path / "marker"
+    model_dir = tmp_path / model_name
+    model_dir.mkdir()
+    (model_dir / "evil.py").write_text(f"open({str(marker)!r}, 'w').close()\n")
+    (model_dir / "MLmodel").write_text(
+        f"flavors:\n  python_function:\n    loader_module: {model_name}.evil\n"
+    )
+
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with pytest.raises(MlflowException, match="on the Python path"):
+        mlflow.pyfunc.load_model(str(model_dir))
+    assert not marker.exists()
+
+
 def test_load_model_from_code_refused_when_model_code_execution_disallowed(tmp_path, monkeypatch):
     marker = tmp_path / "marker"
     code_file = tmp_path / "model.py"
