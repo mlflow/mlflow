@@ -552,6 +552,8 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: read
+      issues: read
+      pull-requests: read
     cache-mode: read
     env:
       AGENT_BROWSER_SOCKET_DIR: /tmp/triage-agent-browser
@@ -759,6 +761,7 @@ jobs:
       - id: triage
         name: Triage issue
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANTHROPIC_BASE_URL: http://localhost:8080/anthropic
           ANTHROPIC_AUTH_TOKEN: placeholder
           ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
