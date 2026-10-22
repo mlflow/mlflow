@@ -5812,8 +5812,8 @@ def _get_registered_scorer(
     were made for.
 
     MySQL and SQL Server compare names without case by default, and can also ignore trailing
-    spaces or accents, so the store can return a scorer whose name differs from ``name``. That is
-    treated as not found.
+    spaces or accents. The SQLAlchemy store already treats such a match as not found; this check
+    keeps the same guarantee for other tracking stores.
     """
     registered_scorer = tracking_store.get_scorer(experiment_id, name, version)
     if registered_scorer.scorer_name != name:
