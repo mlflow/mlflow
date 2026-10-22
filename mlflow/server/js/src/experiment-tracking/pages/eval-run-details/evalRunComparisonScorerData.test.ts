@@ -4,7 +4,7 @@ import {
   buildEvalRunComparisonScorers,
   buildEvalRunComparisonScorerRows,
   type EvalRunComparisonScorerRun,
-} from './evalRunComparisonScorers';
+} from './evalRunComparisonScorerData';
 import { createComparisonTrace } from './evalRunComparisonTestUtils';
 
 const intl = createIntl({ locale: 'en' });
@@ -66,6 +66,33 @@ describe('buildEvalRunComparisonScorers', () => {
       { displayScore: '—', value: undefined },
       { displayScore: '—', value: undefined },
     ]);
+  });
+
+  test('summarizes a session-level scorer over the sessions, not every turn', () => {
+    // Two sessions of two turns; the session judge sits on each session's first turn.
+    const traces = [0, 1, 2, 3].map((index) => createComparisonTrace('run', { correctness: true }, index));
+    for (const [index, value] of [
+      [0, 'none'],
+      [2, 'high'],
+    ] as const) {
+      traces[index].assessments?.push({
+        ...traces[index].assessments[0],
+        assessment_id: `session-${index}`,
+        assessment_name: 'frustration',
+        feedback: { value },
+        metadata: { 'mlflow.trace.session': `session-${index}` },
+      });
+    }
+    const frustration = buildEvalRunComparisonScorers(intl, traces).find(
+      ({ assessmentInfo }) => assessmentInfo.name === 'frustration',
+    );
+    expect(frustration?.valueCounts).toEqual(
+      expect.arrayContaining([
+        { value: 'none', count: 1 },
+        { value: 'high', count: 1 },
+      ]),
+    );
+    expect(frustration?.valueCounts).toHaveLength(2);
   });
 
   test('returns no scorers for an empty trace set', () => {

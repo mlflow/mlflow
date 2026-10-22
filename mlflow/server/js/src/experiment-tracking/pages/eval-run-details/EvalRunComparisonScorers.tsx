@@ -28,7 +28,7 @@ import {
   buildEvalRunComparisonScorerRows,
   type EvalRunComparisonScorerCell,
   type EvalRunComparisonScorerRun,
-} from './evalRunComparisonScorers';
+} from './evalRunComparisonScorerData';
 
 type SortDirection = 'asc' | 'desc';
 

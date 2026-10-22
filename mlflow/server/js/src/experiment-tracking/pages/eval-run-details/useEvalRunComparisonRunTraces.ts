@@ -10,6 +10,7 @@ import {
 import { filterTracesByAssessmentSourceRunId } from '@databricks/web-shared/genai-traces-table/utils/TraceUtils';
 import type { EvalComparisonRunWithTraces } from './evalRunComparisonData';
 import { buildEvalRunTraceFilter } from './useEvalRunTracesV4Controller';
+import { useArrayMemo } from '../../../common/hooks/useArrayMemo';
 
 /** Searches each compared run's traces on the experiment, one query per run, as on the single-run page. */
 export const useEvalRunComparisonRunTraces = ({
@@ -40,18 +41,15 @@ export const useEvalRunComparisonRunTraces = ({
 
   const isLoading = !disabled && queryResults.some((result) => result.isLoading);
   const isFetching = !disabled && queryResults.some((result) => result.isFetching);
-  const failedRunUuids = useMemo(
-    () => activeRunUuids.filter((_, index) => queryResults[index]?.isError),
-    [activeRunUuids, queryResults],
-  );
+  // useQueries returns new results on every render in tanstack v4, so the memos below key on stable values.
+  const failedRunUuids = useArrayMemo(activeRunUuids.filter((_, index) => queryResults[index]?.isError));
   // Cached results stay usable during a refetch, including successful searches with no traces.
-  const readyRunUuids = useMemo(
-    () =>
-      activeRunUuids.filter((_, index) => queryResults[index]?.isSuccess && queryResults[index]?.data !== undefined),
-    [activeRunUuids, queryResults],
+  const readyRunUuids = useArrayMemo(
+    activeRunUuids.filter((_, index) => queryResults[index]?.isSuccess && queryResults[index]?.data !== undefined),
   );
+  const traceData = useArrayMemo(queryResults.map(({ data }) => data));
   const isDataReady = !disabled && queryResults.length === runUuids.length && readyRunUuids.length === runUuids.length;
-  const fetchedTraceCounts = useMemo(() => queryResults.map((result) => result.data?.length ?? 0), [queryResults]);
+  const fetchedTraceCounts = useMemo(() => traceData.map((data) => data?.length ?? 0), [traceData]);
   const refetch = useCallback(async () => {
     await Promise.all(queryResults.map((result) => result.refetch({ cancelRefetch: false })));
   }, [queryResults]);
@@ -60,9 +58,9 @@ export const useEvalRunComparisonRunTraces = ({
       runUuids.map((runUuid, index) => ({
         runUuid,
         // A trace linked to several runs keeps only the assessments this run produced.
-        traceInfos: filterTracesByAssessmentSourceRunId(queryResults[index]?.data ?? [], runUuid) ?? [],
+        traceInfos: filterTracesByAssessmentSourceRunId(traceData[index] ?? [], runUuid) ?? [],
       })),
-    [runUuids, queryResults],
+    [runUuids, traceData],
   );
 
   return {

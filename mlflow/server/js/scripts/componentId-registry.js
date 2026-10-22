@@ -943,7 +943,6 @@ module.exports = {
   "mlflow.eval_run_details.compare.insight": "",
   "mlflow.eval_run_details.compare.insight.assistant": "",
   "mlflow.eval_run_details.compare.insight.scorer": "",
-  "mlflow.eval_run_details.compare.insight.scorer_details": "",
   "mlflow.eval_run_details.compare.retry": "",
   "mlflow.eval_run_details.compare.run_link": "",
   "mlflow.eval_run_details.compare.scorers.breakdown": "",

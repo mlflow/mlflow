@@ -6,7 +6,7 @@ import { createIntl } from 'react-intl';
 import { QueryClient } from '@databricks/web-shared/query-client';
 import { EvalRunComparisonTestProviders } from './EvalRunComparisonTestProviders';
 import { EvalRunComparisonScorers, type EvalRunComparisonScorersProps } from './EvalRunComparisonScorers';
-import { buildEvalRunComparisonScorers, type EvalRunComparisonScorerRun } from './evalRunComparisonScorers';
+import { buildEvalRunComparisonScorers, type EvalRunComparisonScorerRun } from './evalRunComparisonScorerData';
 import { createComparisonTrace } from './evalRunComparisonTestUtils';
 import { ScorerScoreBreakdown } from './ScorersGrid';
 
