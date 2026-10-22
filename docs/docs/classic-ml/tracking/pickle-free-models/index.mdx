@@ -164,7 +164,7 @@ When set to `false`, MLflow raises an error instead of loading:
 
 Only set it to `true` for models from sources you trust. The default is `true` for backward compatibility.
 
-`MLFLOW_ALLOW_PICKLE_DESERIALIZATION` is deprecated. Setting it to `false` has the same effect as setting `MLFLOW_ALLOW_UNSAFE_MODEL_LOADING` to `false`.
+`MLFLOW_ALLOW_UNSAFE_MODEL_LOADING` was introduced in MLflow 3.18.0 and replaces `MLFLOW_ALLOW_PICKLE_DESERIALIZATION`, which is now deprecated. The old variable still works for backward compatibility: setting it to `false` has the same effect as setting `MLFLOW_ALLOW_UNSAFE_MODEL_LOADING` to `false`. In MLflow versions before 3.18.0, use `MLFLOW_ALLOW_PICKLE_DESERIALIZATION=false`, which only refuses `pickle` and `cloudpickle` models.
 
 :::note[PyTorch `pt2` models]
 `torch.export.load` internally deserializes parts of a `.pt2` archive with `torch.load(weights_only=False)`. When `MLFLOW_ALLOW_UNSAFE_MODEL_LOADING=false`, MLflow therefore verifies before loading that every record in the archive is accepted by torch's restricted `weights_only` unpickler (tensors and primitive containers only), and refuses the model otherwise. This verification requires `torch` >= 2.10 (older versions have known `weights_only` unpickler vulnerabilities); on older versions, loading a `pt2` model with the flag set to `false` raises an error asking you to upgrade `torch` or enable the flag.
