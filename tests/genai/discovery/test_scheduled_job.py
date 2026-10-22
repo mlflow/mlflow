@@ -126,7 +126,10 @@ def test_a_successful_occurrence_records_a_run_and_advances_the_watermark(client
     assert tags[MLFLOW_RUN_TYPE] == MLFLOW_RUN_TYPE_ISSUE_DETECTION
     assert tags[MLFLOW_ISSUE_DETECTION_TRIGGER] == "schedule"
     assert tags["categories"] == "correctness,cost"
-    assert tags["total_traces"] == 2
+    assert tags["total_traces"] == "2"
+    # Tags go to create_run, which stores values verbatim: a non-string value is a TypeError at
+    # run creation, not a cosmetic difference.
+    assert all(isinstance(value, str) for value in tags.values())
 
     discover.assert_called_once()
     assert discover.call_args.kwargs["categories"] == CATEGORIES
