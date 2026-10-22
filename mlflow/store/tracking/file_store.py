@@ -123,6 +123,7 @@ from mlflow.utils.validation import (
     _validate_param_name,
     _validate_run_id,
     _validate_tag_name,
+    invalid_value,
 )
 from mlflow.utils.yaml_utils import overwrite_yaml, read_yaml, write_yaml
 
@@ -134,6 +135,19 @@ _logger = logging.getLogger(__name__)
 
 def _default_root_dir():
     return MLFLOW_TRACKING_DIR.get() or os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
+
+
+def _validate_trace_id(trace_id: str) -> None:
+    # A trace id names a directory directly under an experiment's traces folder, so anything that
+    # resolves elsewhere (an absolute path, a path separator, "." or "..") must be rejected before
+    # it reaches `mkdir` or `shutil.rmtree`. Windows strips trailing spaces and periods from path
+    # components, which turns ids such as ".. " back into "..", so ids that normalization would
+    # alter are rejected too.
+    if not trace_id or trace_id.rstrip(" .") != trace_id or os.path.basename(trace_id) != trace_id:
+        raise MlflowException(
+            invalid_value("trace_id", trace_id, "must be a single path component"),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
 
 def _read_persisted_experiment_dict(experiment_dict):
@@ -1763,6 +1777,7 @@ class FileStore(AbstractStore):
             The created TraceInfo object from the backend.
         """
         _validate_experiment_id(trace_info.experiment_id)
+        _validate_trace_id(trace_info.trace_id)
         experiment_dir = self._get_experiment_path(
             trace_info.experiment_id, view_type=ViewType.ACTIVE_ONLY, assert_exists=True
         )
@@ -2176,6 +2191,8 @@ class FileStore(AbstractStore):
                 shutil.rmtree(trace_path)
             return deleted_traces
         if trace_ids:
+            for trace_id in trace_ids:
+                _validate_trace_id(trace_id)
             for trace_id in trace_ids:
                 trace_path = os.path.join(traces_path, trace_id)
                 # Do not throw if the trace doesn't exist
