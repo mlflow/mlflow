@@ -303,9 +303,7 @@ def test_server_resolves_presigned_only_configuration(monkeypatch, args, env_val
         monkeypatch.setenv(MLFLOW_ARTIFACTS_PRESIGNED_ONLY.name, env_value)
 
     with (
-        mock.patch(
-            "mlflow.cli.artifacts_presigned_only_config_validation"
-        ) as mock_presigned_validation,
+        mock.patch("mlflow.cli.artifacts_presigned_config_validation") as mock_presigned_validation,
         mock.patch(
             "mlflow.server.handlers.initialize_backend_stores"
         ) as mock_initialize_backend_stores,

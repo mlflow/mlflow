@@ -6,7 +6,8 @@ the internet. Data moves through bind-mounted files instead: before the run the 
 job's inputs (for example the traces to score) to a read-only input directory, the container writes
 its result to an output directory, and the host then validates the result and records it (for
 example by logging assessments). Only jobs that can be split this way are supported (see
-``supports_job``); other custom scorer jobs stay on the default backend.
+``supports_job``); other custom scorer jobs are refused, except online scoring jobs, which
+run on the default backend and start job containers of their own.
 
 Limits of this mode:
 
@@ -75,7 +76,8 @@ _JOB_PLANNERS = {
     "invoke_scorer": "mlflow.genai.scorers.job._plan_invoke_scorer_job_for_docker",
 }
 # Optional per job type check of a job's parameters, for job types that this backend can run only
-# for some parameters. A job it rejects runs on the default backend instead.
+# for some parameters. A custom scorer job it rejects is refused, except an online scoring job (see
+# ``select_executor_backend``).
 _JOB_SUPPORT_CHECKS = {
     "invoke_scorer": "mlflow.genai.scorers.job._docker_supports_invoke_scorer_params",
 }

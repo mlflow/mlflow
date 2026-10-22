@@ -398,6 +398,16 @@ def _scorer_job_param_names() -> _ScorerJobParamNames:
     )
 
 
+def is_online_scoring_job(job_name: str) -> bool:
+    """Whether ``job_name`` is an online scoring job.
+
+    Online scoring jobs run custom scorers only in job containers they start themselves (see
+    ``mlflow.genai.scorers.online.container_scoring``), and skip them when job containers are not
+    enabled, so they never run custom scorer code in the job's own process.
+    """
+    return job_name in _scorer_job_param_names().online
+
+
 def _obj_has_call_source(obj: Any) -> bool:
     # Recurse so a decorator sub-scorer nested in an ensemble (under
     # ``ensemble_scorer_data["scorers"]``) is detected, not only a top-level scorer.

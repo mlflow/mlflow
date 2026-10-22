@@ -55,7 +55,9 @@ from mlflow.server.auth.permissions import (
     _validate_permission_for_resource_type,
     _validate_resource_pattern,
     _validate_resource_type,
+    canonical_resource_id,
     get_permission,
+    matches,
     max_permission,
 )
 from mlflow.store.db.utils import (
@@ -400,7 +402,7 @@ class SqlAlchemyStore:
         if resource_type in SKILL_REGISTRY_RESOURCE_TYPES and resource_pattern != "*":
             organization, name = _parse_skill_registry_resource_key(resource_pattern)
             return _format_skill_registry_resource_key(organization, name)
-        return resource_pattern
+        return canonical_resource_id(resource_type, resource_pattern)
 
     def grant_user_permissions(
         self,
@@ -656,6 +658,7 @@ class SqlAlchemyStore:
         self, experiment_id: str, username: str, permission: str
     ) -> ExperimentPermission:
         _validate_permission_for_resource_type(permission, RESOURCE_TYPE_EXPERIMENT)
+        experiment_id = canonical_resource_id(RESOURCE_TYPE_EXPERIMENT, experiment_id)
         with self.ManagedSessionMaker(read_only=False) as session:
             user = self._get_user(session, username=username)
             workspace_name = self._get_active_workspace_name()
@@ -698,6 +701,7 @@ class SqlAlchemyStore:
     def _get_experiment_permission_row(
         self, session, experiment_id: str, username: str
     ) -> tuple[SqlUser, SqlRolePermission]:
+        experiment_id = canonical_resource_id(RESOURCE_TYPE_EXPERIMENT, experiment_id)
         user = self._get_user(session, username=username)
         workspace_name = self._get_active_workspace_name()
         role = (
@@ -1211,6 +1215,7 @@ class SqlAlchemyStore:
         # URL-encode the name component so the pattern ``<experiment_id>/<name>``
         # is unambiguous; the migration (``e5f6a7b8c9d0``) uses the same
         # encoding, so post-migration and live grants line up.
+        experiment_id = canonical_resource_id(RESOURCE_TYPE_EXPERIMENT, experiment_id)
         return f"{experiment_id}/{quote(scorer_name, safe='')}"
 
     def create_scorer_permission(
@@ -2181,7 +2186,7 @@ class SqlAlchemyStore:
                     # Resource-type-specific permission.
                     if rp.resource_type != resource_type:
                         continue
-                    if rp.resource_pattern in ("*", resource_id):
+                    if matches(rp.resource_pattern, resource_type, resource_id):
                         # DENY is below every positive level, so folding it with
                         # ``max_permission`` would silently lift it to the positive grant
                         # beside it. Track it separately, as ``fold_grants_for_key`` does.

@@ -90,7 +90,7 @@ def test_issue_contract_migration_preserves_existing_issues(tmp_path, previous_r
                 created_by="author",
             )
         )
-    command.upgrade(config, "8b6ad64cb8f5")
+    command.upgrade(config, "head")
     store = SqlAlchemyStore(db_url, str(tmp_path / "artifacts"))
     issue = store.get_issue("iss-old")
     assert issue.last_seen_timestamp == 100
