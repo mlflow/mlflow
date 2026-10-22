@@ -55,7 +55,7 @@ from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils.server_cli_utils import (
     artifacts_only_config_validation,
-    artifacts_presigned_only_config_validation,
+    artifacts_presigned_config_validation,
     assert_server_workspace_env_unset,
     resolve_default_artifact_root,
 )
@@ -694,7 +694,7 @@ def server(
         workspace_store_uri=workspace_store_uri,
         trace_archival_config_path=str(trace_archival_config) if trace_archival_config else None,
     )
-    artifacts_presigned_only_config_validation(
+    artifacts_presigned_config_validation(
         artifacts_presigned_only,
         serve_artifacts=serve_artifacts,
         artifacts_destination=artifacts_destination,
