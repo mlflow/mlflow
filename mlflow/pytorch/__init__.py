@@ -68,7 +68,7 @@ from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _copy_extra_files,
     _get_flavor_configuration,
-    _is_unsafe_model_loading_allowed,
+    _is_pickle_loading_allowed,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
 )
@@ -701,7 +701,7 @@ def save_model(
 
 
 def _load_by_pickle_check(is_loading_state_dict: bool):
-    if not _is_unsafe_model_loading_allowed():
+    if not _is_pickle_loading_allowed():
         if is_loading_state_dict:
             raise MlflowException(
                 "Deserializing model using pickle is disallowed, but this state dict is saved "
@@ -970,7 +970,7 @@ def _load_model(path, device=None, **kwargs):
                     "The model is exported by `torch.export` API. To load the model, "
                     "`torch` package version must be >= 2.4"
                 )
-            if not _is_unsafe_model_loading_allowed():
+            if not _is_pickle_loading_allowed():
                 _validate_pt2_archive_is_pickle_free(model_path)
             pytorch_model = torch.export.load(model_path, **kwargs).module()
         else:

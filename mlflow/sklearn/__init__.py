@@ -80,7 +80,7 @@ from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _copy_extra_files,
     _get_flavor_configuration,
-    _is_unsafe_model_loading_allowed,
+    _is_pickle_loading_allowed,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
 )
@@ -546,7 +546,7 @@ def _load_model_from_local_file(path, serialization_format, skops_trusted_types=
     # so the flag is a real safety control rather than one the skops format silently bypasses.
     # The is_in_databricks_* carve-outs are pre-existing and shared with the pickle/cloudpickle
     # paths: those managed runtimes permit model deserialization regardless of the flag.
-    if not _is_unsafe_model_loading_allowed():
+    if not _is_pickle_loading_allowed():
         raise MlflowException(
             "Deserializing this model is disallowed because 'MLFLOW_ALLOW_UNSAFE_MODEL_LOADING' "
             "is not set to 'true'. Loading a model can execute arbitrary code from the model "

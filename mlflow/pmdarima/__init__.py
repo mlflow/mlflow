@@ -93,7 +93,7 @@ from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _copy_extra_files,
     _get_flavor_configuration,
-    _is_unsafe_model_loading_allowed,
+    _is_pickle_loading_allowed,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
 )
@@ -531,7 +531,7 @@ def _save_model(model, path):
 
 
 def _load_model(path):
-    if not _is_unsafe_model_loading_allowed():
+    if not _is_pickle_loading_allowed():
         raise MlflowException(
             "Deserializing model using pickle is disallowed, but this model is saved "
             "in pickle format. The workaround is to set environment variable "

@@ -276,6 +276,14 @@ def _validate_infer_and_copy_code_paths(
             raise MlflowException(
                 "If 'infer_code_path' is set to True, 'code_paths' param cannot be set."
             )
+        # Inference loads the model in a subprocess. The model code checks would refuse that
+        # load, and the model would be silently saved without its code.
+        if not _is_model_code_loading_allowed():
+            raise MlflowException(
+                "'infer_code_paths=True' is not supported when environment variable "
+                f"'{MLFLOW_ALLOW_UNSAFE_MODEL_LOADING.name}' is 'false', because inferring code "
+                "paths requires loading the model. Pass 'code_paths' explicitly instead."
+            )
         return _infer_and_copy_code_paths(flavor, path, default_subpath)
     else:
         return _validate_and_copy_code_paths(code_paths, path, default_subpath)
@@ -349,16 +357,20 @@ def _add_code_from_conf_to_system_path(local_path, conf, code_key=FLAVOR_CONFIG_
     if code_key in conf and conf[code_key]:
         # The code directory comes from the model artifact; once it is on `sys.path`, any
         # module name read from the model (e.g. a pyfunc `loader_module`) can resolve to it.
-        _check_unsafe_model_loading_allowed("a model with a code directory")
+        _check_model_code_loading_allowed("a model with a code directory")
         code_path = os.path.join(local_path, conf[code_key])
         _add_code_to_system_path(code_path)
 
 
-def _is_unsafe_model_loading_allowed(allow_in_databricks: bool = True) -> bool:
+def _is_in_databricks_managed_environment() -> bool:
+    return is_in_databricks_runtime() or is_in_databricks_model_serving_environment()
+
+
+def _is_pickle_loading_allowed(allow_in_databricks: bool = True) -> bool:
     """
-    Returns whether models that run code supplied by the model (pickle artifacts, code
-    directories, models from code) may be loaded. Both ``MLFLOW_ALLOW_UNSAFE_MODEL_LOADING``
-    and the deprecated ``MLFLOW_ALLOW_PICKLE_DESERIALIZATION`` must allow it.
+    Returns whether pickle or cloudpickle model artifacts may be loaded. Both
+    ``MLFLOW_ALLOW_UNSAFE_MODEL_LOADING`` and the deprecated
+    ``MLFLOW_ALLOW_PICKLE_DESERIALIZATION`` must allow it.
     """
     if MLFLOW_ALLOW_PICKLE_DESERIALIZATION.defined:
         warnings.warn(
@@ -370,13 +382,17 @@ def _is_unsafe_model_loading_allowed(allow_in_databricks: bool = True) -> bool:
         )
     if MLFLOW_ALLOW_UNSAFE_MODEL_LOADING.get() and MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get():
         return True
-    return allow_in_databricks and (
-        is_in_databricks_runtime() or is_in_databricks_model_serving_environment()
-    )
+    return allow_in_databricks and _is_in_databricks_managed_environment()
 
 
-def _check_unsafe_model_loading_allowed(model_description: str) -> None:
-    if not _is_unsafe_model_loading_allowed():
+def _is_model_code_loading_allowed() -> bool:
+    # Only the new variable gates model code (code directories, models from code), so that
+    # `MLFLOW_ALLOW_PICKLE_DESERIALIZATION=false` keeps refusing only pickle, as before.
+    return MLFLOW_ALLOW_UNSAFE_MODEL_LOADING.get() or _is_in_databricks_managed_environment()
+
+
+def _check_model_code_loading_allowed(model_description: str) -> None:
+    if not _is_model_code_loading_allowed():
         raise MlflowException(
             f"Loading {model_description} is disallowed because it runs code supplied by the "
             "model. If you trust this model, set environment variable "

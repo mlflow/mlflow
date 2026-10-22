@@ -94,9 +94,9 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
 from mlflow.utils.model_utils import (
-    _check_unsafe_model_loading_allowed,
+    _check_model_code_loading_allowed,
     _get_flavor_configuration,
-    _is_unsafe_model_loading_allowed,
+    _is_pickle_loading_allowed,
     _validate_infer_and_copy_code_paths,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
@@ -1393,7 +1393,7 @@ def _load_context_model_and_signature(model_path: str, model_config: dict[str, A
     signature = mlflow.models.Model.load(model_path).signature
 
     if MODEL_CODE_PATH in pyfunc_config:
-        _check_unsafe_model_loading_allowed("a model from code")
+        _check_model_code_loading_allowed("a model from code")
         conf_model_code_path = pyfunc_config.get(MODEL_CODE_PATH)
         model_code_path = os.path.join(model_path, os.path.basename(conf_model_code_path))
         python_model = _load_model_code_path(model_code_path, model_config)
@@ -1401,7 +1401,7 @@ def _load_context_model_and_signature(model_path: str, model_config: dict[str, A
         if callable(python_model):
             python_model = _FunctionPythonModel(python_model, signature=signature)
     else:
-        if not _is_unsafe_model_loading_allowed():
+        if not _is_pickle_loading_allowed():
             raise MlflowException(
                 "Deserializing model using pickle is disallowed, but this model is saved "
                 "in cloudpickle format. The recommended way is to save the model as "

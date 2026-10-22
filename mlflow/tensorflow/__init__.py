@@ -67,7 +67,7 @@ from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _copy_extra_files,
     _get_flavor_configuration,
-    _is_unsafe_model_loading_allowed,
+    _is_pickle_loading_allowed,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
 )
@@ -545,7 +545,7 @@ def _load_custom_objects(path, file_name):
         if os.path.isfile(os.path.join(path, file_name)):
             custom_objects_path = os.path.join(path, file_name)
     if custom_objects_path is not None:
-        if not _is_unsafe_model_loading_allowed():
+        if not _is_pickle_loading_allowed():
             raise MlflowException(
                 "Deserializing custom objects using cloudpickle is disallowed, but this model "
                 "was saved with custom objects in pickle format. To address this issue, you need "

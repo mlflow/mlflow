@@ -90,9 +90,9 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
-    _check_unsafe_model_loading_allowed,
+    _check_model_code_loading_allowed,
     _get_flavor_configuration,
-    _is_unsafe_model_loading_allowed,
+    _is_pickle_loading_allowed,
     _validate_and_copy_code_paths,
     _validate_and_copy_file_to_directory,
     _validate_and_get_model_config_from_file,
@@ -875,7 +875,7 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
     # also save them inside the pyfunc flavor. For backwards compatibility of previous models,
     # we need to check both places.
     if MODEL_CODE_PATH in pyfunc_flavor_conf or MODEL_CODE_PATH in flavor_conf:
-        _check_unsafe_model_loading_allowed("a model from code")
+        _check_model_code_loading_allowed("a model from code")
         model_config = pyfunc_flavor_conf.get(MODEL_CONFIG, flavor_conf.get(MODEL_CONFIG, None))
         if isinstance(model_config, str):
             config_path = os.path.join(
@@ -900,7 +900,7 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
             # after loading the mode to avoid the schema being used in the next model loading
             _clear_dependencies_schemas()
     else:
-        if not _is_unsafe_model_loading_allowed():
+        if not _is_pickle_loading_allowed():
             raise MlflowException(
                 "Deserializing model using pickle is disallowed, but this model is saved "
                 "in cloudpickle format. To address this issue, you need to set environment "

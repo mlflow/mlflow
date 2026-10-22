@@ -1922,8 +1922,8 @@ _MLFLOW_ENABLE_UC_TRACE_UPSELL = _BooleanEnvironmentVariable("_MLFLOW_ENABLE_UC_
 
 
 #: (Deprecated, use ``MLFLOW_ALLOW_UNSAFE_MODEL_LOADING``) Specifies whether to allow unsafe
-#: pickle deserialization for loading model. Setting it to ``false`` has the same effect as
-#: setting ``MLFLOW_ALLOW_UNSAFE_MODEL_LOADING`` to ``false``.
+#: pickle deserialization for loading model. Setting it to ``false`` refuses only pickle and
+#: cloudpickle models.
 MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
     "MLFLOW_ALLOW_PICKLE_DESERIALIZATION", True
 )

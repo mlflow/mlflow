@@ -11,7 +11,7 @@ import pandas as pd
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import EvaluationArtifact
 from mlflow.utils.annotations import developer_stable
-from mlflow.utils.model_utils import _is_unsafe_model_loading_allowed
+from mlflow.utils.model_utils import _is_pickle_loading_allowed
 from mlflow.utils.proto_json_utils import NumpyEncoder
 
 
@@ -89,7 +89,7 @@ class PickleEvaluationArtifact(EvaluationArtifact):
             pickle.dump(self._content, f)
 
     def _load_content_from_file(self, local_artifact_path):
-        if not _is_unsafe_model_loading_allowed(allow_in_databricks=False):
+        if not _is_pickle_loading_allowed(allow_in_databricks=False):
             raise MlflowException(
                 "Deserializing evaluation artifacts using pickle is disallowed. "
                 "Set environment variable 'MLFLOW_ALLOW_UNSAFE_MODEL_LOADING' to 'true' "

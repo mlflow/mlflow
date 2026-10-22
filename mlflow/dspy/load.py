@@ -20,7 +20,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
-    _is_unsafe_model_loading_allowed,
+    _is_pickle_loading_allowed,
 )
 
 _DEFAULT_MODEL_PATH = "data/model.pkl"
@@ -52,7 +52,7 @@ def _load_model(model_uri, dst_path=None):
     model_path = flavor_conf.get("model_path", _DEFAULT_MODEL_PATH)
     task = flavor_conf.get("inference_task")
 
-    allow_pickle = _is_unsafe_model_loading_allowed()
+    allow_pickle = _is_pickle_loading_allowed()
 
     # Raise BEFORE mutating sys.path so a denied load has no global side effects.
     if model_path.endswith(".pkl") and not allow_pickle:

@@ -44,7 +44,7 @@ from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _copy_extra_files,
     _get_flavor_configuration,
-    _is_unsafe_model_loading_allowed,
+    _is_pickle_loading_allowed,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
 )
@@ -312,7 +312,7 @@ def load_model(model_uri, model=None, dst_path=None, **kwargs):
     """
     # Both `paddle.jit.load` (legacy IR format) and `paddle.Model.load` unpickle
     # files from the model artifact.
-    if not _is_unsafe_model_loading_allowed():
+    if not _is_pickle_loading_allowed():
         raise MlflowException(
             "Deserializing model using pickle is disallowed, but loading a paddle model "
             "may deserialize pickle data. The workaround is to set environment variable "

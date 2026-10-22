@@ -42,7 +42,7 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
-    _check_unsafe_model_loading_allowed,
+    _check_model_code_loading_allowed,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_copy_file_to_directory,
@@ -508,7 +508,7 @@ def _load_llama_model(path, flavor_conf):
     # Handle model-from-code
     pyfunc_flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=pyfunc.FLAVOR_NAME)
     if model_code_path := pyfunc_flavor_conf.get(MODEL_CODE_PATH):
-        _check_unsafe_model_loading_allowed("a model from code")
+        _check_model_code_loading_allowed("a model from code")
         # TODO: The code path saved in the MLModel file is the local absolute path to the code
         # file when it is saved. We should update the relative path in artifact directory.
         model_code_path = os.path.join(path, os.path.basename(model_code_path))
