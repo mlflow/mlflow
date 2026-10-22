@@ -18,7 +18,11 @@ import {
   ALL_ISSUE_CATEGORIES,
   ISSUE_CATEGORY_DEFINITIONS,
 } from '../../components/experiment-page/components/traces-v3/IssueDetectionCategories';
-import { defaultIssueDetectionSettings, type IssueDetectionSettings } from './issueDetectionSettings';
+import {
+  defaultIssueDetectionSettings,
+  noFocusAreaSelected,
+  type IssueDetectionSettings,
+} from './issueDetectionSettings';
 import { useIssueDetectionSettings } from './useIssueDetectionSettings';
 
 const COMPONENT_ID = 'mlflow.experiment-issues.detection-settings';
@@ -62,7 +66,7 @@ export const IssueDetectionSettingsControl = ({ experimentId }: IssueDetectionSe
   const isDuplicateCategory = Object.keys(draft.categories).some(
     (category) => category.toLowerCase() === trimmedNewCategory.toLowerCase(),
   );
-  const nothingSelected = !Object.values(draft.categories).some(Boolean);
+  const nothingSelected = noFocusAreaSelected(draft);
 
   const open = useCallback(() => {
     // The draft starts from what is saved, so cancelling leaves the experiment untouched.

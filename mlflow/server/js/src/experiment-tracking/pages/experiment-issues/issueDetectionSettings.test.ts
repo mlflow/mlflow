@@ -3,6 +3,7 @@ import { MLFLOW_ISSUE_DETECTION_PRIORITIES_TAG } from '../../constants';
 import { ALL_ISSUE_CATEGORIES } from '../../components/experiment-page/components/traces-v3/IssueDetectionCategories';
 import {
   defaultIssueDetectionSettings,
+  noFocusAreaSelected,
   readIssueDetectionSettingsFromTags,
   selectedDetectionCategories,
 } from './issueDetectionSettings';
@@ -95,5 +96,45 @@ describe('selectedDetectionCategories', () => {
 
   test('settings that have not loaded yet still produce a usable run', () => {
     expect(selectedDetectionCategories(undefined)).toEqual([...ALL_ISSUE_CATEGORIES]);
+  });
+});
+
+describe('noFocusAreaSelected', () => {
+  const allOff = Object.fromEntries(ALL_ISSUE_CATEGORIES.map((category) => [category, false]));
+
+  test('is true only when nothing at all is selected', () => {
+    expect(noFocusAreaSelected(readIssueDetectionSettingsFromTags(tag({ instructions: '', categories: allOff })))).toBe(
+      true,
+    );
+    expect(noFocusAreaSelected(defaultIssueDetectionSettings())).toBe(false);
+    expect(
+      noFocusAreaSelected(
+        readIssueDetectionSettingsFromTags(tag({ instructions: '', categories: { ...allOff, safety: true } })),
+      ),
+    ).toBe(false);
+  });
+
+  test('settings that have not loaded are not an all-deselected state', () => {
+    // Otherwise every run would open claiming the experiment had deselected everything.
+    expect(noFocusAreaSelected(undefined)).toBe(false);
+  });
+
+  test('is exactly the condition under which stored and sent differ', () => {
+    // The relationship the helper exists to let callers disclose: whenever this is true the
+    // run is given categories the tag does not list, and whenever it is false it is not.
+    const cases = [
+      { instructions: '', categories: allOff },
+      { instructions: '', categories: { ...allOff, safety: true } },
+      { instructions: '', categories: { ...allOff, 'pii leakage': true } },
+      { instructions: '', categories: {} },
+    ];
+    for (const stored of cases) {
+      const settings = readIssueDetectionSettingsFromTags(tag(stored));
+      const storedSelection = Object.entries(settings.categories)
+        .filter(([, selected]) => selected)
+        .map(([category]) => category);
+      const sent = selectedDetectionCategories(settings);
+      expect(noFocusAreaSelected(settings)).toBe(sent.join() !== storedSelection.join());
+    }
   });
 });

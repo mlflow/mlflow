@@ -18,7 +18,10 @@ import { SelectTracesModal } from '../../../SelectTracesModal';
 import { useEndpointsQuery } from '../../../../../gateway/hooks/useEndpointsQuery';
 import { useApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration';
 import { useIssueDetectionSettings } from '../../../../pages/experiment-issues/useIssueDetectionSettings';
-import { selectedDetectionCategories } from '../../../../pages/experiment-issues/issueDetectionSettings';
+import {
+  noFocusAreaSelected,
+  selectedDetectionCategories,
+} from '../../../../pages/experiment-issues/issueDetectionSettings';
 import { useInvokeIssueDetection } from './hooks/useInvokeIssueDetection';
 import { recordSubmittedIssueDetectionJob } from './IssueDetectionJobNotifications';
 import { estimateIssueDetectionCostUsd, formatEstimatedCostUsd } from './issueDetectionCostEstimate';
@@ -82,6 +85,10 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   const isWaitingForDetectionSettings = Boolean(
     experimentId && isLoadingDetectionSettings && !detectionSettings && !detectionSettingsError,
   );
+  // The one case where what is stored and what is sent differ, so it is disclosed here as well
+  // as in the settings modal: this is where the run is actually started, and someone who saved
+  // the setting a week ago is not looking at that modal now.
+  const savedSettingsSelectNothing = noFocusAreaSelected(detectionSettings);
 
   // Default to the first gateway endpoint, else the first core provider
   useEffect(() => {
@@ -299,6 +306,19 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
           )}
         </div>
       </div>
+      {savedSettingsSelectNothing && (
+        <Alert
+          componentId="mlflow.traces.issue-detection-modal.no-focus-area-selected"
+          type="info"
+          css={{ marginTop: theme.spacing.md }}
+          message={intl.formatMessage({
+            defaultMessage:
+              "This experiment's issue detection settings have no focus area selected, so this run considers all of them.",
+            description: 'Note in the issue detection modal shown when the saved settings deselect every focus area',
+          })}
+          closable={false}
+        />
+      )}
       {detectionSettingsError && (
         // Blocking the run on a tag read would strand a feature that worked before settings
         // existed; running without saying so would hide that the configuration was ignored.

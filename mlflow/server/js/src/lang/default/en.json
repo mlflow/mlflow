@@ -13619,6 +13619,10 @@
     "defaultMessage": "Pick your language and follow the steps.",
     "description": "Description above the manual setup steps in the traces empty state"
   },
+  "hevxNa": {
+    "defaultMessage": "This experiment's issue detection settings have no focus area selected, so this run considers all of them.",
+    "description": "Note in the issue detection modal shown when the saved settings deselect every focus area"
+  },
   "hg+bcy": {
     "defaultMessage": "Enable telemetry",
     "description": "Enable telemetry settings title"
