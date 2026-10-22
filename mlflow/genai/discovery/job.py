@@ -1,12 +1,33 @@
+import logging
+from typing import Any
+
+import mlflow
 from mlflow.client import MlflowClient
 from mlflow.entities.run_status import RunStatus
 from mlflow.environment_variables import MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS
 from mlflow.exceptions import MlflowException
+from mlflow.genai.discovery.checkpoint import (
+    MAX_SCHEDULED_SAMPLE_SIZE,
+    CheckpointTrace,
+    SampleWindow,
+    advance_checkpoint,
+    write_detection_checkpoint,
+)
+from mlflow.genai.discovery.constants import DEFAULT_MODEL
 from mlflow.genai.discovery.pipeline import discover_issues
+from mlflow.genai.discovery.sampling import sample_traces
 from mlflow.server.jobs import job
 from mlflow.store.tracking import MAX_TRACE_LINKS_PER_REQUEST
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_ISSUE_DETECTION_TRIGGER,
+    MLFLOW_ISSUE_DETECTION_TRIGGER_SCHEDULE,
+    MLFLOW_RUN_TYPE,
+    MLFLOW_RUN_TYPE_ISSUE_DETECTION,
+)
 from mlflow.utils.providers import _CORE_PROVIDER_ENV_VARS
+
+_logger = logging.getLogger(__name__)
 
 
 def _fetch_provider_credentials(
@@ -42,21 +63,41 @@ def _fetch_provider_credentials(
     return credentials
 
 
-@job(name="invoke_issue_detection", max_workers=MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS.get())
-def invoke_issue_detection_job(
+def _newest_trace_matching(experiment_id: str, filter_string: str) -> CheckpointTrace | None:
+    """
+    The newest trace matching ``filter_string``, or ``None`` when nothing matches.
+
+    This is what the watermark advances to, so it is read directly rather than taken from the
+    sample: the sample is random and drops whole sessions, and a watermark taken from it would
+    leave the traces it skipped to be re-covered by the next occurrence.
+    """
+    traces = mlflow.search_traces(
+        experiment_ids=[experiment_id],
+        filter_string=filter_string,
+        order_by=["timestamp_ms DESC"],
+        max_results=1,
+        return_type="list",
+    )
+    if not traces:
+        return None
+    return CheckpointTrace(trace_id=traces[0].info.trace_id, time_ms=traces[0].info.request_time)
+
+
+def _detect_issues_into_run(
+    client: MlflowClient,
     experiment_id: str,
     trace_ids: list[str],
     categories: list[str],
     run_id: str,
-    model: str | None = None,
+    model: str | None,
     instructions: str | None = None,
-):
+) -> dict[str, Any]:
     """
-    Job function to run issue detection on traces.
+    Link the traces to the run, analyze them, and finish the run either way.
 
-    Note: Provider credentials should be passed via environment variables set by submit_job().
+    Shared by the manual and the scheduled path so both record a detection run the same way; they
+    differ only in how they arrived at ``trace_ids``.
     """
-    client = MlflowClient()
     try:
         # Cannot link more than MAX_TRACE_LINKS_PER_REQUEST traces to a run in a single request
         for i in range(0, len(trace_ids), MAX_TRACE_LINKS_PER_REQUEST):
@@ -82,3 +123,102 @@ def invoke_issue_detection_job(
     except Exception:
         client.set_terminated(run_id, RunStatus.to_string(RunStatus.FAILED))
         raise
+
+
+@job(name="invoke_issue_detection", max_workers=MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS.get())
+def invoke_issue_detection_job(
+    experiment_id: str,
+    trace_ids: list[str],
+    categories: list[str],
+    run_id: str,
+    model: str | None = None,
+    instructions: str | None = None,
+):
+    """
+    Job function to run issue detection on traces.
+
+    Note: Provider credentials should be passed via environment variables set by submit_job().
+    """
+    return _detect_issues_into_run(
+        MlflowClient(), experiment_id, trace_ids, categories, run_id, model, instructions
+    )
+
+
+@job(
+    name="scheduled_issue_detection",
+    max_workers=MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS.get(),
+    # One scheduled run per experiment at a time, so two occurrences can never publish findings
+    # for the same experiment concurrently.
+    exclusive=["experiment_id"],
+)
+def run_scheduled_issue_detection_job(
+    experiment_id: str,
+    window_lower_bound_ms: int,
+    window_upper_bound_ms: int,
+    categories: list[str],
+    trace_filter: str = "",
+    model: str | None = None,
+) -> dict[str, Any]:
+    """
+    Run one scheduled occurrence over the traces in its window.
+
+    Unlike the manual path, which is handed the traces a user selected and a run created up front,
+    this samples its own traces and creates the run only once it knows there is something to
+    analyze -- an occurrence over a quiet window should leave no empty run behind.
+
+    The watermark advances only after the run finishes, and to the newest trace in the *window*
+    rather than the newest trace sampled: traces this occurrence was entitled to see and did not
+    sample are not carried forward for a second look. A failed run leaves the watermark alone, so
+    the next occurrence covers this window again.
+
+    Note: Provider credentials come from the server's own environment. A schedule fires with no
+    user session, so there is nobody to supply them at submit time.
+    """
+    window = SampleWindow(lower_bound_ms=window_lower_bound_ms, now_ms=window_upper_bound_ms)
+    filter_string = " AND ".join(filter(None, [window.to_filter_clause(), trace_filter]))
+
+    newest = _newest_trace_matching(experiment_id, filter_string)
+    if newest is None:
+        _logger.info(
+            "Scheduled issue detection found no traces for experiment %s in %s; "
+            "leaving its watermark where it is",
+            experiment_id,
+            filter_string,
+        )
+        return {"traces_in_window": 0}
+
+    traces = sample_traces(
+        MAX_SCHEDULED_SAMPLE_SIZE,
+        search_kwargs={"experiment_ids": [experiment_id], "filter_string": filter_string},
+    )
+    if not traces:
+        _logger.info(
+            "Scheduled issue detection sampled no traces for experiment %s in %s",
+            experiment_id,
+            filter_string,
+        )
+        return {"traces_in_window": 0}
+
+    client = MlflowClient()
+    run = client.create_run(
+        experiment_id=experiment_id,
+        tags={
+            MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_ISSUE_DETECTION,
+            MLFLOW_ISSUE_DETECTION_TRIGGER: MLFLOW_ISSUE_DETECTION_TRIGGER_SCHEDULE,
+            "categories": ",".join(categories),
+            "model": model or DEFAULT_MODEL,
+            "total_traces": len(traces),
+        },
+    )
+    result = _detect_issues_into_run(
+        client,
+        experiment_id,
+        [trace.info.trace_id for trace in traces],
+        categories,
+        run.info.run_id,
+        model,
+    )
+    # Only now that the run has finished does the window count as covered.
+    if checkpoint := advance_checkpoint(newest, run_id=run.info.run_id):
+        write_detection_checkpoint(client, experiment_id, checkpoint)
+    return result | {"traces_in_window": len(traces), "run_id": run.info.run_id}
