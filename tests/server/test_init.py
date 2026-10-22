@@ -645,6 +645,36 @@ def test_run_server_skips_admin_bootstrap_for_default_app(mock_exec_cmd, monkeyp
     assert _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED.name not in mock_exec_cmd.call_args.kwargs["extra_env"]
 
 
+@pytest.mark.parametrize(
+    ("sgi", "warms"), [("gunicorn", True), ("waitress", True), ("uvicorn", False)]
+)
+def test_flask_app_checks_the_job_executor_backends_on_the_first_request(monkeypatch, sgi, warms):
+    monkeypatch.setenv("_MLFLOW_SGI_NAME", sgi)
+    monkeypatch.setattr(server, "_executor_registry_warm_started", False)
+    warm = mock.Mock()
+    monkeypatch.setattr(server, "warm_executor_registry_in_background", warm)
+
+    with server.app.test_client() as client:
+        client.get("/health")
+        client.get("/health")
+
+    # Once per worker, and only for the servers that use the Flask app directly.
+    assert warm.call_count == (1 if warms else 0)
+
+
+def test_flask_app_serves_the_request_when_the_job_executor_check_cannot_start(monkeypatch):
+    monkeypatch.setenv("_MLFLOW_SGI_NAME", "gunicorn")
+    monkeypatch.setattr(server, "_executor_registry_warm_started", False)
+    monkeypatch.setattr(
+        server,
+        "warm_executor_registry_in_background",
+        mock.Mock(side_effect=RuntimeError("can't start new thread")),
+    )
+
+    with server.app.test_client() as client:
+        assert client.get("/health").status_code == 200
+
+
 def _process(*, returncode, running=True):
     """A ``subprocess.Popen`` stand-in for the job runner watcher."""
     proc = mock.Mock()

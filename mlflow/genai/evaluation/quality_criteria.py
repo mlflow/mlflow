@@ -94,7 +94,7 @@ def _parse_condition(match: re.Match[str], name_counts: Counter) -> QualityCrite
     condition = match.group().strip()
     if not math.isfinite(threshold := float(match["threshold"])):
         raise MlflowException.invalid_parameter_value(
-            f"Invalid condition {condition!r}: the threshold must be a finite number."
+            f"Invalid condition {condition!r}: the value must be a finite number."
         )
     if (comparator := match["comparator"]) not in _COMPARATORS:
         raise MlflowException.invalid_parameter_value(

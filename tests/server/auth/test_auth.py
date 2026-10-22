@@ -9433,3 +9433,63 @@ def test_search_logged_models_pagination_survives_filtering(client, monkeypatch)
     # Only readable rows, each served exactly once.
     served = [name for _, names in pages for name in names]
     assert served == ["a1", "a3"]
+
+
+def test_a_deny_holds_for_every_spelling_of_the_experiment_id(client, monkeypatch):
+    # The tracking store reads the experiment ID with int(), so these all name the same
+    # experiment, and a grant on it must apply to each of them.
+    owner, owner_pw = create_user(client.tracking_uri)
+    with User(owner, owner_pw, monkeypatch):
+        experiment_id = client.create_experiment("experiment-id-spellings")
+    response = _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/3.0/mlflow/scorers/register",
+        json_payload={
+            "experiment_id": experiment_id,
+            "name": "denied_scorer",
+            "serialized_scorer": '{"name": "denied_scorer", "type": "pyfunc"}',
+        },
+        auth=(owner, owner_pw),
+    )
+    response.raise_for_status()
+    spellings = [experiment_id, f"0{experiment_id}", f" {experiment_id}", f"+{experiment_id}"]
+
+    # A user without grants gets the default READ for every spelling, so each one reaches the
+    # same experiment and scorer, and the 403s below come from the grants.
+    reader, reader_pw = create_user(client.tracking_uri)
+    for spelling in spellings:
+        response = requests.get(
+            url=client.tracking_uri + "/api/3.0/mlflow/scorers/get",
+            params={"experiment_id": spelling, "name": "denied_scorer"},
+            auth=(reader, reader_pw),
+        )
+        assert response.status_code == 200, spelling
+        response = requests.get(
+            url=client.tracking_uri + "/api/2.0/mlflow/experiments/get",
+            params={"experiment_id": spelling},
+            auth=(reader, reader_pw),
+        )
+        assert response.status_code == 200, spelling
+
+    scorer_denied, scorer_denied_pw = create_user(client.tracking_uri)
+    pattern = auth_module.store._scorer_pattern(experiment_id, "denied_scorer")
+    grant_role_permission(client.tracking_uri, scorer_denied, "scorer", pattern, "DENY")
+    for spelling in spellings:
+        response = requests.get(
+            url=client.tracking_uri + "/api/3.0/mlflow/scorers/get",
+            params={"experiment_id": spelling, "name": "denied_scorer"},
+            auth=(scorer_denied, scorer_denied_pw),
+        )
+        assert response.status_code == 403, spelling
+
+    experiment_denied, experiment_denied_pw = create_user(client.tracking_uri)
+    grant_role_permission(
+        client.tracking_uri, experiment_denied, "experiment", experiment_id, "DENY"
+    )
+    for spelling in spellings:
+        response = requests.get(
+            url=client.tracking_uri + "/api/2.0/mlflow/experiments/get",
+            params={"experiment_id": spelling},
+            auth=(experiment_denied, experiment_denied_pw),
+        )
+        assert response.status_code == 403, spelling

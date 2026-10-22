@@ -677,6 +677,37 @@ def test_server_info_multipart_capabilities_with_local_backend(monkeypatch):
         assert data[SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED] is False
 
 
+@pytest.mark.parametrize(
+    ("extra_args", "supported"),
+    [
+        ({"SSECustomerAlgorithm": "AES256", "SSECustomerKey": "customer-key"}, False),
+        ({"ServerSideEncryption": "AES256"}, True),
+    ],
+)
+def test_server_info_presigned_capabilities_with_s3_encryption(monkeypatch, extra_args, supported):
+    monkeypatch.setenv("MLFLOW_S3_UPLOAD_EXTRA_ARGS", json.dumps(extra_args))
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "true")
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", "true")
+    monkeypatch.setattr("mlflow.server.handlers._is_serving_proxied_artifacts", lambda: True)
+    with (
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
+            return_value=S3ArtifactRepository("s3://bucket"),
+        ) as get_repo,
+        app.test_client() as client,
+    ):
+        response = client.get("/api/3.0/mlflow/server-info")
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data[SERVER_INFO_MULTIPART_UPLOADS_ENABLED] is supported
+    assert data[SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED] is supported
+    assert data[SERVER_INFO_PRESIGNED_UPLOAD_RUN_ID_SUPPORTED] is supported
+    assert data[SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED] is supported
+    assert data[SERVER_INFO_MODEL_ARTIFACT_PRESIGNED_DOWNLOADS_SUPPORTED] is supported
+    get_repo.assert_called_once()
+
+
 def test_server_info_artifact_serving_disabled_by_default():
     with app.test_client() as c:
         response = c.get("/api/3.0/mlflow/server-info")
@@ -1980,6 +2011,32 @@ def test_get_presigned_download_url_success(enable_serve_artifacts, monkeypatch)
     assert data["headers"] == {"x-custom-header": "value"}
     assert data["file_size"] == 1024
     assert artifact_repo.artifact_path == "workspaces/team-a/run_id/artifacts/model.pkl"
+
+
+def test_get_presigned_download_url_with_sse_customer_key_returns_generic_error(
+    enable_serve_artifacts, monkeypatch, caplog
+):
+    monkeypatch.setenv(
+        "MLFLOW_S3_UPLOAD_EXTRA_ARGS",
+        json.dumps({"SSECustomerKey": "customer-key"}),
+    )
+    with (
+        app.test_request_context(method="GET"),
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
+            return_value=S3ArtifactRepository("s3://bucket/root"),
+        ) as get_repo,
+    ):
+        response = _get_presigned_download_url("model.pkl")
+
+    assert response.status_code == 501
+    body = json.loads(response.get_data())
+    assert body["error_code"] == "NOT_IMPLEMENTED"
+    assert body["message"] == "Presigned artifact transfers are unavailable."
+    assert "SSECustomerKey" not in response.get_data(as_text=True)
+    assert "SSECustomerKey" in caplog.text
+    assert "customer-key" not in caplog.text
+    get_repo.assert_called_once()
 
 
 def test_get_presigned_download_url_applies_workspace_scoping(enable_serve_artifacts, monkeypatch):
@@ -7661,6 +7718,34 @@ def test_skill_content_cannot_be_mutated_through_multipart_artifact_handlers(
     with app.test_request_context(method="POST"):
         response = handler("skills/private/token")
     assert response.status_code == 403
+
+
+def test_create_multipart_upload_with_unsupported_checksum_returns_generic_error(
+    enable_serve_artifacts, monkeypatch, caplog
+):
+    monkeypatch.setenv("MLFLOW_S3_UPLOAD_EXTRA_ARGS", '{"ChecksumAlgorithm": "SHA256"}')
+    with (
+        app.test_request_context(method="POST"),
+        mock.patch(
+            "mlflow.server.handlers._get_request_message",
+            return_value=SimpleNamespace(path="model.pkl", num_parts=1),
+        ) as get_message,
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
+            return_value=S3ArtifactRepository("s3://bucket/root"),
+        ) as get_repo,
+    ):
+        response = _create_multipart_upload_artifact("run/artifacts")
+
+    assert response.status_code == 501
+    body = json.loads(response.get_data())
+    assert body["error_code"] == "NOT_IMPLEMENTED"
+    assert body["message"] == "Presigned artifact transfers are unavailable."
+    assert "ChecksumAlgorithm" not in response.get_data(as_text=True)
+    assert "ChecksumAlgorithm" in caplog.text
+    assert "SHA256" not in caplog.text
+    get_message.assert_called_once()
+    get_repo.assert_called_once()
 
 
 def test_download_artifact_streams_in_chunks(enable_serve_artifacts, tmp_path):

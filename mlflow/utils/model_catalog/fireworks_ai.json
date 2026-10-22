@@ -3525,16 +3525,23 @@
       "pricing": {
         "input_per_million_tokens": 1.25,
         "output_per_million_tokens": 4.25,
-        "cache_read_per_million_tokens": 0.15
+        "cache_read_per_million_tokens": 0.15,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 1.875,
+            "output_per_million_tokens": 6.375,
+            "cache_read_per_million_tokens": 0.225
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-16"
+      "last_updated_at": "2026-10-21"
     },
     "accounts/fireworks/models/mythomax-l2-13b": {
       "mode": "chat",
