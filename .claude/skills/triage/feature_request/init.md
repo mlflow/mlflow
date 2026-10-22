@@ -22,19 +22,11 @@ or user value.
 
 ## Optional proof of concept
 
-When the effort is small and the intended behavior is clear, attempt the smallest working
-proof of concept to refine the effort estimate and uncover implementation issues. Skip
-the attempt if it would add little to the assessment. Stay within the shared runtime
-budget. You may change code under `mlflow/`
-and `tests/` or write a standalone example under `$out_dir/work`. Exercise the requested
-behavior with a focused command, test, or browser interaction. Avoid expanding it into a
-complete implementation. Stop if it needs unresolved design decisions or substantially
-more work than expected, and report the blocker.
-
-Briefly report what the attempt revealed about effort, impact, or blockers, together with
-the verification command and observed result. Include a short code snippet only when it
-helps explain a finding. State what remains incomplete; only call it working if
-verification succeeded. Keep the assessment useful even when the attempt fails.
+For a small, clear request, try a tiny prototype only to refine the estimate and find
+implementation issues. Keep changes under `mlflow/`, `tests/`, or `$out_dir/work` and stay
+within the runtime budget. Stop if design decisions or substantial work are needed.
+Report the result and blockers in 1–2 sentences under Implementation effort; omit code
+listings and only call it working if verification succeeded.
 
 ## Response
 
