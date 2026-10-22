@@ -1334,6 +1334,10 @@ MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS = _EnvironmentVariable(
     "MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS", int, 10
 )
 
+#: Maximum number of worker threads for deleting archived trace payloads. Must be positive.
+#: (default: ``8``)
+MLFLOW_TRACE_DELETE_MAX_WORKERS = _EnvironmentVariable("MLFLOW_TRACE_DELETE_MAX_WORKERS", int, 8)
+
 #: Maximum number of export tasks to queue for async trace logging.
 #: When the queue is full, new export tasks will be dropped.
 #: (default: ``1000``)
