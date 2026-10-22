@@ -16,15 +16,15 @@ properties:
   verdict:
     type: string
     oneOf:
-      - const: triaged
+      - const: "triage: triaged"
         description: The request is clear enough to estimate implementation effort and impact.
-      - const: already-supported
+      - const: "triage: already-supported"
         description: The requested behavior is available at the current checkout.
-      - const: needs-info
+      - const: "triage: needs-info"
         description: The request lacks enough information to understand the intended behavior.
-      - const: needs-design
+      - const: "triage: needs-design"
         description: Maintainers need to resolve design choices or trade-offs.
-      - const: skipped
+      - const: "triage: skipped"
         description: Triage needs resources the sandbox lacks.
   comment:
     description: |
