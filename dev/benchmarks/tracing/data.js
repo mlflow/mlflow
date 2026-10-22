@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792615121478,
+  "lastUpdate": 1792637600049,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "joshua.wong@databricks.com",
-            "name": "joshuawong-db",
-            "username": "joshuawong-db"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c5be75fb9727a9fd4b07f33a4f5832dc7379a483",
-          "message": "[fix/CI] Align `runs.status` constraint metadata (#24890)\n\nSigned-off-by: Joshua Wong <joshua.wong@databricks.com>",
-          "timestamp": "2026-08-05T12:23:15+08:00",
-          "tree_id": "7fe3fb00dac064c43a6386a57ab08dcbc16c5b56",
-          "url": "https://github.com/mlflow/mlflow/commit/c5be75fb9727a9fd4b07f33a4f5832dc7379a483"
-        },
-        "date": 1785903872770,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 45.9440045000008,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 6.720486372548927,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 5.64979231205729,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 6.373258956897205,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 5.990392031007829,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 27.181927199998768,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 6.59243771428513,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "191841109+mlflow-app[bot]@users.noreply.github.com",
+            "name": "mlflow-app[bot]",
+            "username": "mlflow-app[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4e01b05ad9033e02b799bf458c61b68551673dc4",
+          "message": "Map Anthropic `refusal` and `model_context_window_exceeded` stop reasons to OpenAI finish reasons in AI Gateway (#26995)\n\nSigned-off-by: mlflow-app[bot] <191841109+mlflow-app[bot]@users.noreply.github.com>\nCo-authored-by: mlflow-app[bot] <191841109+mlflow-app[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-22T02:49:02Z",
+          "tree_id": "17e567136aae6a5c3a4d815fe9ff3608f24222f1",
+          "url": "https://github.com/mlflow/mlflow/commit/4e01b05ad9033e02b799bf458c61b68551673dc4"
+        },
+        "date": 1792637597355,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 79.31476725000124,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 5.5995115945940395,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 4.929477950617501,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 4.9757907672959005,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.357072164384192,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 5.977091833334687,
             "unit": "ms"
           }
         ]
