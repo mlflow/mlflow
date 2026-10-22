@@ -7,6 +7,7 @@ import {
   noIssueDetectionSchedule,
   saveIssueDetectionSchedule,
   type IssueDetectionSchedule,
+  type IssueDetectionScheduleModel,
   type IssueDetectionScheduleSetting,
   type IssueDetectionScheduleUpdate,
   type ScheduleTraceFilter,
@@ -31,6 +32,8 @@ export interface UseIssueDetectionScheduleResult {
   setting: IssueDetectionScheduleSetting;
   /** Current trace filter clauses (persisted independently of pause) for prefilling the modal. */
   traceFilters: ScheduleTraceFilter[];
+  /** The stored model selection, or undefined on a schedule that names none. */
+  model: IssueDetectionScheduleModel | undefined;
   isLoading: boolean;
   isUpdating: boolean;
   error: Error | null;
@@ -89,6 +92,7 @@ export const useIssueDetectionSchedule = ({
   return {
     setting: schedule?.setting ?? noIssueDetectionSchedule().setting,
     traceFilters: schedule?.traceFilters ?? [],
+    model: schedule?.model,
     isLoading,
     isUpdating: mutation.isLoading,
     error: error ?? (mutation.error instanceof Error ? mutation.error : null),

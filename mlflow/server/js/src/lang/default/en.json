@@ -1007,6 +1007,10 @@
     "defaultMessage": "Version",
     "description": "Column title text for model version in model version table"
   },
+  "1gnrjt": {
+    "defaultMessage": "Back",
+    "description": "Experiment issues tab > Schedule modal button that leaves the API key step"
+  },
   "1hI96w": {
     "defaultMessage": "Showing only visible runs",
     "description": "Experiment page > compare runs > parallel chart > header > indicator for only visible runs shown"
@@ -2138,6 +2142,10 @@
   "5UrahG": {
     "defaultMessage": "Viewing version {version}",
     "description": "Title of the prompt details page for a given version"
+  },
+  "5WRWlN": {
+    "defaultMessage": "Model",
+    "description": "Experiment issues tab > Schedule modal label for the model scheduled runs analyze with"
   },
   "5WkkxY": {
     "defaultMessage": "Turn issues into a regression test and catch them before you ship.",
@@ -4511,6 +4519,10 @@
     "defaultMessage": "GenAI",
     "description": "Label for GenAI workflow type option"
   },
+  "DCfOND": {
+    "defaultMessage": "One last step to schedule issue detection",
+    "description": "Experiment issues tab > Schedule modal headline of the API key step"
+  },
   "DCfRbl": {
     "defaultMessage": "Prompts",
     "description": "Feature card title for prompts"
@@ -6190,6 +6202,10 @@
   "J2IXIT": {
     "defaultMessage": "Create Guardrail",
     "description": "Title for create guardrail modal"
+  },
+  "J2Lytp": {
+    "defaultMessage": "{provider} needs an API key. Paste it once and MLflow saves it securely in AI Gateway, where every scheduled run reads it.",
+    "description": "Experiment issues tab > Schedule modal explanation of the API key step"
   },
   "J2XCE/": {
     "defaultMessage": "Specify sequences that signal the model to stop generating text.",
@@ -8819,6 +8835,10 @@
     "defaultMessage": "Model",
     "description": "Label for model name in span details"
   },
+  "RiVnNf": {
+    "defaultMessage": "Continue and save",
+    "description": "Experiment issues tab > Schedule modal button that saves the API key and then the schedule"
+  },
   "RiZy19": {
     "defaultMessage": "Remove filter",
     "description": "Usage overview > filter row > remove row button aria label"
@@ -10022,10 +10042,6 @@
   "Vjha2S": {
     "defaultMessage": "Guardrails",
     "description": "Tab label for endpoint guardrails"
-  },
-  "VjyzrL": {
-    "defaultMessage": "Each run samples this experiment's recent traces, sends their content to the detection model using the credentials configured on the MLflow server, and files what it finds in Issues. That spend recurs on this cadence. Trace content is written by your application and its users, so it is untrusted input to the model.",
-    "description": "Experiment issues tab > Schedule modal notice explaining that a scheduled detection run analyzes untrusted trace content unattended using the server credentials"
   },
   "Vk+30L": {
     "defaultMessage": "Edit tags",
@@ -13571,6 +13587,10 @@
     "defaultMessage": "Run name",
     "description": "Column selector label for the run-name column"
   },
+  "hENHAL": {
+    "defaultMessage": "Each run samples this experiment's recent traces, sends their content to the model chosen above using the credential saved for it, and files what it finds in Issues. That spend recurs on this cadence. Trace content is written by your application and its users, so it is untrusted input to the model.",
+    "description": "Experiment issues tab > Schedule modal notice explaining that a scheduled detection run analyzes untrusted trace content unattended using the credential saved for the chosen model"
+  },
   "hFKR7V": {
     "defaultMessage": "Group traces by session",
     "description": "Accessible label for the group by session button in the V4 traces table toolbar"
@@ -17014,6 +17034,10 @@
   "sEheG0": {
     "defaultMessage": "Key Name",
     "description": "Key name label"
+  },
+  "sFgb6D": {
+    "defaultMessage": "API key",
+    "description": "Experiment issues tab > Schedule modal placeholder of the API key input"
   },
   "sFqnju": {
     "defaultMessage": "Trace ID",

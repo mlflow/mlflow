@@ -31,6 +31,17 @@ export interface ScheduleTraceFilter {
   value: string;
 }
 
+/**
+ * The model a scheduled run analyzes with: either an AI Gateway endpoint or a provider's model
+ * directly. Stored with the cadence so the dispatcher knows what to run against; the credential is
+ * not stored, and is resolved from the provider at each fire time.
+ */
+export interface IssueDetectionScheduleModel {
+  provider?: string;
+  model?: string;
+  endpointName?: string;
+}
+
 /** The cadences offered. Hourly fires on the hour, daily at 09:00, weekly on Monday at 09:00. */
 export type IssueDetectionScheduleFrequency = 'hourly' | 'daily' | 'weekly';
 
@@ -54,12 +65,15 @@ export interface IssueDetectionSchedule {
   /** The cadence the schedule keeps while paused, so turning it back on restores it. */
   cadence: IssueDetectionScheduleFrequency | undefined;
   traceFilters: ScheduleTraceFilter[];
+  /** Undefined on a schedule saved before a model could be chosen: the server default applies. */
+  model: IssueDetectionScheduleModel | undefined;
 }
 
 export const noIssueDetectionSchedule = (): IssueDetectionSchedule => ({
   setting: 'off',
   cadence: undefined,
   traceFilters: [],
+  model: undefined,
 });
 
 interface ExperimentTag {
@@ -95,6 +109,20 @@ const parseTraceFilter = (entry: unknown): ScheduleTraceFilter | undefined => {
   return { field, operator: '=', key, value };
 };
 
+const parseScheduleModel = (entry: unknown): IssueDetectionScheduleModel | undefined => {
+  if (!isRecord(entry)) {
+    return undefined;
+  }
+  const { provider, model, endpointName } = entry;
+  if (typeof endpointName === 'string' && endpointName.length > 0) {
+    return { endpointName };
+  }
+  if (typeof provider === 'string' && provider.length > 0 && typeof model === 'string' && model.length > 0) {
+    return { provider, model };
+  }
+  return undefined;
+};
+
 export const parseScheduleTraceFilters = (raw: string | null | undefined): ScheduleTraceFilter[] => {
   const parsed = parseJson(raw);
   if (!Array.isArray(parsed)) {
@@ -125,7 +153,12 @@ export const readIssueDetectionScheduleFromTags = (
   }
   const cadence = isFrequency(parsed['cadence']) ? parsed['cadence'] : undefined;
   const paused = parsed['paused'] === true;
-  return { setting: !cadence || paused ? 'off' : cadence, cadence, traceFilters };
+  return {
+    setting: !cadence || paused ? 'off' : cadence,
+    cadence,
+    traceFilters,
+    model: parseScheduleModel(parsed['model']),
+  };
 };
 
 export const loadIssueDetectionSchedule = async (experimentId: string): Promise<IssueDetectionSchedule> => {
@@ -144,6 +177,7 @@ const resolveTimezone = (): string => Intl.DateTimeFormat().resolvedOptions().ti
 export interface IssueDetectionScheduleUpdate {
   setting: IssueDetectionScheduleSetting;
   traceFilters: ScheduleTraceFilter[];
+  model?: IssueDetectionScheduleModel;
 }
 
 /**
@@ -160,11 +194,13 @@ export interface IssueDetectionScheduleUpdate {
  */
 export const saveIssueDetectionSchedule = async (
   experimentId: string,
-  { setting, traceFilters }: IssueDetectionScheduleUpdate,
+  { setting, traceFilters, model }: IssueDetectionScheduleUpdate,
   current?: IssueDetectionSchedule,
 ): Promise<IssueDetectionSchedule> => {
   const normalized = normalizeTraceFilters(traceFilters);
   const cadence = setting === 'off' ? current?.cadence : setting;
+  // Like the cadence, the model is kept while paused so turning the schedule back on restores it.
+  const savedModel = model ?? current?.model;
   await MlflowService.setExperimentTag({
     experiment_id: experimentId,
     key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG,
@@ -175,6 +211,7 @@ export const saveIssueDetectionSchedule = async (
       // 09:00 where it was saved rather than drifting to the server's zone.
       timezone: resolveTimezone(),
       paused: setting === 'off',
+      ...(savedModel ? { model: savedModel } : {}),
     }),
   });
   await MlflowService.setExperimentTag({
@@ -182,5 +219,5 @@ export const saveIssueDetectionSchedule = async (
     key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG,
     value: JSON.stringify(normalized),
   });
-  return { setting, cadence, traceFilters: normalized };
+  return { setting, cadence, traceFilters: normalized, model: savedModel };
 };
