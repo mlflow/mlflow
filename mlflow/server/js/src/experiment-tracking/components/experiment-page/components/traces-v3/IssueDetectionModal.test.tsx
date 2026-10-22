@@ -324,6 +324,47 @@ describe('IssueDetectionModal', () => {
     expect(mockInvokeIssueDetection).not.toHaveBeenCalled();
   });
 
+  test('saved settings that select nothing disclose the fallback where the run is started', async () => {
+    // Raised in review: the stored value and the sent value differ in this one case, and the
+    // settings modal is not open when someone launches a run a week after saving.
+    mockSettings({
+      instructions: '',
+      categories: {
+        correctness: false,
+        latency: false,
+        execution: false,
+        adherence: false,
+        relevance: false,
+        safety: false,
+        cost: false,
+      },
+    });
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
+
+    expect(
+      screen.getByText(
+        "This experiment's issue detection settings have no focus area selected, so this run considers all of them.",
+      ),
+    ).toBeInTheDocument();
+
+    await userEvent.click(screen.getByText('Run Analysis').closest('button')!);
+
+    await waitFor(() => {
+      expect(mockInvokeIssueDetection).toHaveBeenCalledWith(
+        expect.objectContaining({
+          categories: ['correctness', 'latency', 'execution', 'adherence', 'relevance', 'safety', 'cost'],
+        }),
+        expect.any(Object),
+      );
+    });
+  });
+
+  test('ordinary settings do not claim a fallback that is not happening', async () => {
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
+
+    expect(screen.queryByText(/no focus area selected/)).not.toBeInTheDocument();
+  });
+
   test('settings that failed to load say so rather than quietly using the defaults', async () => {
     // Blocking on a tag read would strand a feature that worked before settings existed, so
     // the run is still allowed -- but not silently.

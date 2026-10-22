@@ -96,12 +96,24 @@ export const saveIssueDetectionSettings = async (
   return normalized;
 };
 
+/** Whether the settings restrict detection to nothing at all, which no run can honour literally. */
+export const noFocusAreaSelected = (settings: IssueDetectionSettings | undefined): boolean =>
+  Boolean(settings) && !Object.values(settings?.categories ?? {}).some(Boolean);
+
 /**
  * The categories a detection run should be given.
  *
- * Deselecting everything would otherwise ask for a run that can report nothing, so it falls
- * back to every built-in category. The settings modal says as much while nothing is selected,
- * rather than letting the fallback be a surprise.
+ * **The stored value and the sent value can differ in exactly one case**: settings with every
+ * focus area deselected are sent as every built-in category. An all-deselected state is kept
+ * storable -- a tag written by hand or by another client can hold it, and the reader has to
+ * mean something by it -- but it cannot be sent as-is, because a run with no categories can
+ * report nothing.
+ *
+ * This is a resolution rather than an override. "Detect none of these" and "detect all of
+ * these" encode the same intent, "do not restrict by category", since restricting to the empty
+ * set is not a thing detection can usefully do. Both surfaces that can produce or launch that
+ * state say so before the run starts: the settings modal while nothing is selected, and the
+ * detection modal when the saved settings select nothing (see ``noFocusAreaSelected``).
  */
 export const selectedDetectionCategories = (settings: IssueDetectionSettings | undefined): string[] => {
   const selected = Object.entries(settings?.categories ?? {})
