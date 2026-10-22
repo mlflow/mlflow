@@ -7,7 +7,7 @@ Identify the user's goal, the requested behavior, and the affected MLflow compon
 Check the current code and relevant documentation for existing support or a practical
 workaround. Verify existing support with a small usage example when useful; do not
 classify a missing feature as a reproduced bug.
-Do not write or run tests during initial triage; suggest relevant tests as future checks.
+Do not write or run tests during initial triage.
 
 ## Cost and impact
 
@@ -15,10 +15,10 @@ Keep the triage brief and limited to three things:
 
 - Implementation effort: small, medium, or large, with the main changes and supporting code permalinks.
 - Impact on existing features: the concrete behavior or compatibility risks found in the code.
-- Checks needed: the key unresolved decisions and tests or manual checks before proceeding.
+- Open questions: unresolved requirements, design decisions, or uncertainties that could change the implementation approach or effort estimate. Omit the section when none remain.
 
-Mention uncertainty when it affects the conclusion, and distinguish checks performed
-from checks still needed. Do not add separate estimates for operational cost, maintenance,
+Mention uncertainty when it affects the conclusion, and distinguish verified findings
+from assumptions. Do not add separate estimates for operational cost, maintenance,
 or user value.
 
 ## Optional proof of concept

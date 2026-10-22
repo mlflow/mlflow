@@ -1,6 +1,6 @@
 $schema: https://json-schema.org/draft/2020-12/schema
 title: Feature Request Triage Payload
-description: Implementation effort, impact on existing features, and checks needed before proceeding.
+description: Implementation effort, impact on existing features, and open questions before proceeding.
 type: object
 additionalProperties: false
 required:
@@ -48,10 +48,10 @@ properties:
 
       <the main effects on existing behavior or compatibility>
 
-      ### Checks needed
+      ### Open questions
 
-      <key open decisions and suggested tests or manual checks; distinguish checks
-      performed from those still needed>
+      <unresolved requirements, design decisions, or uncertainties that could change the
+      implementation approach or effort estimate; omit this section when none remain>
     type: string
     minLength: 1
     maxLength: 5000
