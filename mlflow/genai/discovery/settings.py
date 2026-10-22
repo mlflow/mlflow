@@ -5,9 +5,8 @@ so until now nothing on the server had to read the tag. A scheduled run has no b
 them, so it reads the tag itself and interprets it the way the tab does -- including the two
 defaulting rules below -- so a schedule and a manual run analyze an experiment the same way.
 
-Only the category selection is read here, because that is all a scheduled run can act on today:
-the free-text priorities reach the pipeline through an argument the manual path supplies, and
-wiring them in is a separate change.
+Both halves of the tag are read: the category selection and the owner's free-text priorities,
+which reach the pipeline through the same argument a manual run supplies.
 """
 
 from __future__ import annotations
@@ -30,9 +29,11 @@ class DetectionSettings:
 
     Args:
         categories: The categories a run should look for, already defaulted -- never empty.
+        instructions: The owner's free-text detection priorities, or ``""`` when none are saved.
     """
 
     categories: tuple[str, ...]
+    instructions: str = ""
 
 
 def default_detection_settings() -> DetectionSettings:
@@ -50,6 +51,10 @@ def parse_detection_settings(raw_value: str | None) -> DetectionSettings:
       after the owner last saved, not a decision they made.
     - A selection that comes out empty means every category, which is what the tab runs when
       nothing is ticked.
+
+    The free-text priorities are passed on as they were written. They are capped and wrapped in
+    their delimited block by the prompt builder, the same way a manual run's are, so there is
+    nothing to validate here that is not validated there.
     """
     if not raw_value:
         return default_detection_settings()
@@ -63,15 +68,19 @@ def parse_detection_settings(raw_value: str | None) -> DetectionSettings:
     if not isinstance(parsed, dict):
         return default_detection_settings()
 
+    instructions = parsed.get("instructions")
+    instructions = instructions if isinstance(instructions, str) else ""
     raw_categories = parsed.get("categories")
     if not isinstance(raw_categories, dict):
-        return default_detection_settings()
+        return DetectionSettings(categories=tuple(DEFAULT_CATEGORIES), instructions=instructions)
     selected = dict.fromkeys(DEFAULT_CATEGORIES, True)
     for category, is_selected in raw_categories.items():
         if isinstance(category, str) and category.strip() and isinstance(is_selected, bool):
             selected[category.strip()] = is_selected
     categories = tuple(category for category, is_selected in selected.items() if is_selected)
-    return DetectionSettings(categories=categories or tuple(DEFAULT_CATEGORIES))
+    return DetectionSettings(
+        categories=categories or tuple(DEFAULT_CATEGORIES), instructions=instructions
+    )
 
 
 def read_detection_settings(experiment: Experiment) -> DetectionSettings:

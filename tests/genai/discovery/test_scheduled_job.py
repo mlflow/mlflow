@@ -221,3 +221,49 @@ def test_the_default_model_is_recorded_when_the_schedule_names_none(client):
     from mlflow.genai.discovery.constants import DEFAULT_MODEL
 
     assert client.create_run.call_args.kwargs["tags"]["model"] == DEFAULT_MODEL
+
+
+def test_the_experiments_saved_priorities_reach_the_pipeline(client):
+    with (
+        mock.patch("mlflow.genai.discovery.job.MlflowClient", return_value=client),
+        mock.patch(
+            "mlflow.genai.discovery.job._newest_trace_matching",
+            return_value=CheckpointTrace(trace_id="tr", time_ms=WINDOW_UPPER_MS),
+        ),
+        mock.patch("mlflow.genai.discovery.job.sample_traces", return_value=[_trace("tr")]),
+        mock.patch(
+            "mlflow.genai.discovery.job.discover_issues", return_value=_result()
+        ) as discover,
+    ):
+        run_scheduled_issue_detection_job(
+            experiment_id="exp-1",
+            window_lower_bound_ms=WINDOW_LOWER_MS,
+            window_upper_bound_ms=WINDOW_UPPER_MS,
+            categories=CATEGORIES,
+            instructions="watch the checkout flow",
+        )
+
+    # A scheduled run steers the judge the same way a manual run with the same settings would.
+    assert discover.call_args.kwargs["instructions"] == "watch the checkout flow"
+
+
+def test_an_experiment_with_no_saved_priorities_steers_nothing(client):
+    with (
+        mock.patch("mlflow.genai.discovery.job.MlflowClient", return_value=client),
+        mock.patch(
+            "mlflow.genai.discovery.job._newest_trace_matching",
+            return_value=CheckpointTrace(trace_id="tr", time_ms=WINDOW_UPPER_MS),
+        ),
+        mock.patch("mlflow.genai.discovery.job.sample_traces", return_value=[_trace("tr")]),
+        mock.patch(
+            "mlflow.genai.discovery.job.discover_issues", return_value=_result()
+        ) as discover,
+    ):
+        run_scheduled_issue_detection_job(
+            experiment_id="exp-1",
+            window_lower_bound_ms=WINDOW_LOWER_MS,
+            window_upper_bound_ms=WINDOW_UPPER_MS,
+            categories=CATEGORIES,
+        )
+
+    assert discover.call_args.kwargs["instructions"] is None

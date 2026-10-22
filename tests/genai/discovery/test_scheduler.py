@@ -10,6 +10,7 @@ from mlflow.genai.discovery.checkpoint import (
     STALE_WATERMARK_CAP_MS,
     DetectionCheckpoint,
 )
+from mlflow.genai.discovery.constants import DEFAULT_CATEGORIES
 from mlflow.genai.discovery.schedule import (
     DetectionCadence,
     DetectionSchedule,
@@ -219,6 +220,18 @@ def test_the_experiments_saved_categories_reach_the_job(store, dispatch):
     params = dispatch(ONE_PM_MS + HOUR_MS).call_args.kwargs["params"]
     assert "cost" not in params["categories"]
     assert "correctness" in params["categories"]
+    assert params["instructions"] == "watch the checkout flow"
+
+
+def test_an_experiment_with_no_saved_priorities_sends_none(store, dispatch):
+    _experiment_with(
+        store, "bare", **_schedule_tags(DetectionSchedule(cadence=DetectionCadence.HOURLY))
+    )
+    dispatch(ONE_PM_MS)
+
+    params = dispatch(ONE_PM_MS + HOUR_MS).call_args.kwargs["params"]
+    assert params["instructions"] == ""
+    assert set(params["categories"]) == set(DEFAULT_CATEGORIES)
 
 
 def test_a_schedule_tag_this_server_cannot_read_is_skipped(store, dispatch):
