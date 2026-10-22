@@ -16,8 +16,8 @@ properties:
   verdict:
     type: string
     oneOf:
-      - const: "triage: actionable"
-        description: The request is clear enough to outline an implementation with no unresolved design decisions.
+      - const: "triage: feasible"
+        description: The feature appears implementable with a concrete approach and no unresolved design decisions.
       - const: "triage: already-supported"
         description: The requested behavior is available at the current checkout.
       - const: "triage: needs-info"
