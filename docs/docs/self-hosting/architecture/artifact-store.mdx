@@ -270,6 +270,10 @@ byte-stream endpoints return HTTP 403 with instructions to install a compatible 
 version or newer. Listing and deleting artifacts remain available through the Tracking Server. The server validates
 at startup that the artifact destination supports
 both presigned multipart uploads and downloads. Currently, only S3 compatible storage is supported.
+S3 presigned transfers cannot be used with `SSECustomerKey` in `MLFLOW_S3_UPLOAD_EXTRA_ARGS`
+because they would expose the customer key to clients. The server rejects this combination at startup;
+this also applies when `MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD` or
+`MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD` is enabled. Remove `SSECustomerKey` to use presigned transfers.
 
 Compatible clients use presigned transfers for artifacts of every size in this mode, even when the optional
 `MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD` and `MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD` client settings are disabled.
