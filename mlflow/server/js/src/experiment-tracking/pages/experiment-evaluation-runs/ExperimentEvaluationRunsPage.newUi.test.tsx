@@ -126,7 +126,9 @@ describe('ExperimentEvaluationRunsPage new eval runs UI', () => {
     // The URL search param is leak bait: the new UI would treat it as an active filter.
     renderPage({ queryClient, initialEntry: '/experiments/exp-1/evaluation-runs?evalRunsSearchFilter=run' });
 
-    expect(await queryKeysAfterLoad(queryClient)).toEqual([['SEARCH_RUNS', 'exp-1', '', false]]);
+    expect(await queryKeysAfterLoad(queryClient)).toEqual([
+      ['SEARCH_RUNS', 'exp-1', '', ['attributes.start_time DESC'], false],
+    ]);
   });
 
   test('flag on: an active search adds the unfiltered-count query', async () => {
