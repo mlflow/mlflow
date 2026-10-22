@@ -50,6 +50,8 @@ def upgrade() -> None:
     # the EXISTS subquery keeps the work in the database so we don't pull rows into
     # Python or build IN-lists that can blow past SQLite's variable limit on large
     # auth stores.
+    # `key` is a reserved word in T-SQL, so SQL Server rejects it unquoted.
+    key_column = conn.dialect.identifier_preparer.quote("key")
     conn.execute(
         text(
             "UPDATE role_permissions SET resource_type = 'prompt' "
@@ -59,7 +61,7 @@ def upgrade() -> None:
             "  WHERE r.id = role_permissions.role_id "
             "  AND rmt.workspace = r.workspace "
             "  AND rmt.name = role_permissions.resource_pattern "
-            "  AND rmt.key = :key AND LOWER(rmt.value) = 'true'"
+            f"  AND rmt.{key_column} = :key AND LOWER(rmt.value) = 'true'"
             ")"
         ),
         {"key": _IS_PROMPT_TAG_KEY},

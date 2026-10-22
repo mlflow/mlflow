@@ -47,11 +47,24 @@ def upgrade() -> None:
         )
 
     conn = op.get_bind()
-    inspector = sa.inspect(conn)
-    unique_constraints = inspector.get_unique_constraints("registered_model_permissions")
-    has_unique_name_user = any(
-        constraint.get("name") == "unique_name_user" for constraint in unique_constraints
-    )
+    if conn.dialect.name == "mssql":
+        # SQLAlchemy's MSSQL dialect does not implement `Inspector.get_unique_constraints`.
+        has_unique_name_user = (
+            conn.execute(
+                sa.text(
+                    "SELECT 1 FROM sys.key_constraints "
+                    "WHERE type = 'UQ' AND name = 'unique_name_user' "
+                    "AND parent_object_id = OBJECT_ID('registered_model_permissions')"
+                )
+            ).first()
+            is not None
+        )
+    else:
+        inspector = sa.inspect(conn)
+        unique_constraints = inspector.get_unique_constraints("registered_model_permissions")
+        has_unique_name_user = any(
+            constraint.get("name") == "unique_name_user" for constraint in unique_constraints
+        )
 
     with op.batch_alter_table("registered_model_permissions", recreate="auto") as batch_op:
         if has_unique_name_user:

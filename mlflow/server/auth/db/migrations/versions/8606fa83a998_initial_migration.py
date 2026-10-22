@@ -40,7 +40,8 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("permission", sa.String(length=255), nullable=True),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"], name="fk_user_id"),
+        # MySQL and SQL Server require foreign key names to be unique per database or schema.
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], name="fk_user_id_reg_model"),
         sa.UniqueConstraint("name", "user_id", name="unique_name_user"),
     )
 
