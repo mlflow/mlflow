@@ -16,6 +16,9 @@ from mlflow.gateway.constants import MLFLOW_GATEWAY_AUTH_HEADER
 
 _logger = logging.getLogger(__name__)
 
+# aiohttp's ``server_hostname`` request argument exists since 3.9.
+_AIOHTTP_VERSION = Version(aiohttp.__version__)
+
 # Where the in-server gateway is called, bound per request by the Assistant API. The URL comes
 # from the server's own address (``mlflow.server.asgi_utils.get_server_self_url``): the chat
 # call carries the server-internal gateway token, so it must never go to the request-derived
@@ -97,11 +100,11 @@ class MlflowGatewayProvider(OpenAICompatibleProvider):
         # address, whose certificate names the host clients connect to, not that address. Verify
         # it against the inbound Host name, which the client's own connection already matched;
         # the destination stays pinned, so a name the certificate does not carry only fails the
-        # handshake. ``server_hostname`` exists since aiohttp 3.9.
+        # handshake.
         host_header = _server_host_header.get()
         if not chat_url.startswith("https://") or not host_header:
             return {}
-        if Version(aiohttp.__version__) < Version("3.9"):
+        if _AIOHTTP_VERSION < Version("3.9"):
             return {}
         hostname = urllib.parse.urlsplit(f"//{host_header}").hostname
         return {"server_hostname": hostname} if hostname else {}
