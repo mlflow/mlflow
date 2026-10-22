@@ -106,8 +106,10 @@ from mlflow.genai.scorers.scorer_utils import (
     build_gateway_model,
     container_scoring_enabled,
     custom_scorer_execution_blocked,
+    custom_scorer_without_source_error_message,
     extract_endpoint_ref,
     extract_model_from_serialized_scorer,
+    has_empty_call_source,
     is_gateway_model,
     update_model_in_serialized_scorer,
     validate_scorer_model,
@@ -267,7 +269,7 @@ from mlflow.tracing.utils import (
 from mlflow.tracing.utils.artifact_utils import (
     get_archive_uri_for_trace,
 )
-from mlflow.tracing.utils.truncation import _get_truncated_preview
+from mlflow.tracing.utils.truncation import _get_truncated_preview, _replace_nul
 from mlflow.utils import chunk_list
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.issue_utils import (
@@ -3453,6 +3455,10 @@ class SqlAlchemyStore(
                 "'MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS' to 'true'.",
                 INVALID_PARAMETER_VALUE,
             )
+        if has_empty_call_source(serialized_data):
+            raise MlflowException(
+                custom_scorer_without_source_error_message(scorer_name), INVALID_PARAMETER_VALUE
+            )
         # Online scoring jobs run custom scorers in job containers one at a time, so a custom
         # scorer in an ensemble cannot run there (the jobs skip it).
         serialized = SerializedScorer.from_dict(serialized_data)
@@ -3495,8 +3501,9 @@ class SqlAlchemyStore(
                 filter_string syntax is invalid, if the scorer is not found, or if the
                 scorer does not use a gateway model. When online scoring runs custom scorers
                 in job containers, a custom scorer is accepted instead, unless custom scorers
-                are disabled on the server or it is not a single custom scorer (for example,
-                an ensemble that includes one).
+                are disabled on the server, it has no source code, it is not a single custom
+                scorer (for example, an ensemble that includes one), or it requires
+                expectations.
         """
         if not isinstance(sample_rate, (int, float)):
             raise MlflowException.invalid_parameter_value(
@@ -4004,8 +4011,8 @@ class SqlAlchemyStore(
                 execution_time_ms=trace_info.execution_duration,
                 status=trace_info.state.value,
                 client_request_id=trace_info.client_request_id,
-                request_preview=trace_info.request_preview,
-                response_preview=trace_info.response_preview,
+                request_preview=_replace_nul(trace_info.request_preview),
+                response_preview=_replace_nul(trace_info.response_preview),
                 trace_name=trace_name,
                 **analytics_columns,
             )
@@ -4170,9 +4177,9 @@ class SqlAlchemyStore(
                 for column, value in analytics_columns.items():
                     setattr(db_sql_trace_info, column, value)
                 if trace_info.request_preview is not None:
-                    db_sql_trace_info.request_preview = trace_info.request_preview
+                    db_sql_trace_info.request_preview = _replace_nul(trace_info.request_preview)
                 if trace_info.response_preview is not None:
-                    db_sql_trace_info.response_preview = trace_info.response_preview
+                    db_sql_trace_info.response_preview = _replace_nul(trace_info.response_preview)
 
                 for tag in tags:
                     session.merge(tag)

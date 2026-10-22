@@ -8,15 +8,15 @@ privileges, read-only root filesystem, non-root user, memory / CPU / PID caps) a
 the container lifecycle (build image, run, wait with timeout, always clean up) live
 here so there is one place to audit and tighten the sandbox security posture.
 
-Network posture: sandbox containers run on a dedicated bridge network (isolating them from
-other containers on the host) with an added ``host.docker.internal`` route so a command can
-reach an MLflow tracking server on the host. An optional egress proxy
-(``MLFLOW_SANDBOX_EGRESS_PROXY``) steers HTTP(S) egress from cooperating clients through an
-operator-controlled chokepoint. Neither is a hard egress boundary: the container has network
-access, so code that opens raw sockets or ignores the proxy env (e.g. Node's fetch, which does
-not read ``HTTP_PROXY`` by default) can still reach other hosts, including the cloud metadata
-endpoint. A true egress boundary requires host-level firewalling. The sandbox is off by default
-and gated behind an experimental flag.
+Network posture: sandbox containers run on a dedicated bridge network (separating them from
+containers on other Docker networks, but not from each other) with an added
+``host.docker.internal`` route so a command can reach an MLflow tracking server on the host.
+An optional egress proxy (``MLFLOW_SANDBOX_EGRESS_PROXY``) steers HTTP(S) egress from
+cooperating clients through an operator-controlled chokepoint. Neither is a hard egress
+boundary: the container has network access, so code that opens raw sockets or ignores the proxy
+env (e.g. Node's fetch, which does not read ``HTTP_PROXY`` by default) can still reach other
+hosts, including the cloud metadata endpoint. A true egress boundary requires host-level
+firewalling. The sandbox is off by default and gated behind an experimental flag.
 """
 
 import logging
@@ -102,8 +102,9 @@ def sandbox_container_labels() -> dict[str, str]:
     return labels
 
 
-# Dedicated bridge network for sandbox containers, so they are isolated from other containers
-# on the host's default bridge (they can still reach the host via host.docker.internal).
+# Dedicated bridge network for sandbox containers, so they are separated from containers on the
+# host's default bridge. All sandboxes share it, and they can still reach the host via
+# host.docker.internal.
 SANDBOX_NETWORK_NAME = "mlflow-sandbox"
 # Hosts a sandboxed command reaches directly instead of through the egress proxy: the MLflow
 # tracking host and loopback. The metadata endpoint is deliberately NOT here, so a

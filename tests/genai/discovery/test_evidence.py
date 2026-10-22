@@ -1,3 +1,5 @@
+import pytest
+
 import mlflow
 from mlflow.entities.span import SpanType
 from mlflow.genai.discovery.evidence import (
@@ -206,3 +208,23 @@ def test_a_missing_summary_falls_back_to_the_callers_prose():
 
     assert evidence is not None
     assert evidence.summary == "Answered from an empty context."
+
+
+@pytest.mark.parametrize("model", [_GeneratedStep, _GeneratedEvidence])
+def test_every_generated_field_is_required_for_strict_structured_output(model):
+    # Reported in review. OpenAI's strict mode requires every property to appear in the
+    # schema's `required` list, and a pydantic `default=` quietly removes it -- so an
+    # "optional" field makes the whole request invalid, the generator exhausts its retries,
+    # and evidence degrades to prose. Absence has to be expressed as a nullable type instead.
+    schema = model.model_json_schema()
+
+    assert set(schema["properties"]) == set(schema.get("required", []))
+
+
+def test_an_absent_primary_span_is_expressible_as_null():
+    # The other half of the contract above: making the field required must not make it
+    # mandatory to name a span, or trace-wide cost and latency findings become unexpressible.
+    schema = _GeneratedEvidence.model_json_schema()["properties"]["primary_span_id"]
+
+    assert {"type": "null"} in schema["anyOf"]
+    assert _GeneratedEvidence(summary="s", steps=[], primary_span_id=None).primary_span_id is None

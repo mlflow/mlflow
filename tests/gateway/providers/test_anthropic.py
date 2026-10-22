@@ -1854,7 +1854,39 @@ def test_chat_finish_reason_tool_use_is_tool_calls():
 
 @pytest.mark.parametrize(
     ("stop_reason", "expected"),
-    [("tool_use", "tool_calls"), ("max_tokens", "length"), ("end_turn", "stop")],
+    [
+        ("end_turn", "stop"),
+        ("max_tokens", "length"),
+        ("model_context_window_exceeded", "length"),
+        ("refusal", "content_filter"),
+    ],
+)
+def test_chat_finish_reason(stop_reason, expected):
+    resp = {
+        "id": "msg_1",
+        "type": "message",
+        "role": "assistant",
+        "model": "claude-sonnet-5",
+        "content": [{"type": "text", "text": "hi"}],
+        "stop_reason": stop_reason,
+        "stop_sequence": None,
+        "usage": {"input_tokens": 1, "output_tokens": 1},
+    }
+
+    result = AnthropicAdapter.model_to_chat(resp, EndpointConfig(**chat_config()))
+
+    assert result.choices[0].finish_reason == expected
+
+
+@pytest.mark.parametrize(
+    ("stop_reason", "expected"),
+    [
+        ("tool_use", "tool_calls"),
+        ("max_tokens", "length"),
+        ("model_context_window_exceeded", "length"),
+        ("refusal", "content_filter"),
+        ("end_turn", "stop"),
+    ],
 )
 def test_chat_stream_finish_reason(stop_reason, expected):
     resp = {

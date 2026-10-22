@@ -605,4 +605,63 @@ describe('ExperimentViewMetadataEditor', () => {
 
     expect(screen.queryByTestId('experiment-metadata-editor-edit-button')).not.toBeInTheDocument();
   });
+
+  describe('one-line preview', () => {
+    const expandButtonSelector = '[data-component-id="mlflow.experiment.metadata_editor.expand_button"]';
+    const collapseButtonSelector = '[data-component-id="mlflow.experiment.metadata_editor.collapse_button"]';
+
+    // jsdom has no layout, so stub the clamped content's size: 20px tall when it fits on one line.
+    const mockContentHeight = (scrollHeight: number) => {
+      const scroll = jest.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(scrollHeight);
+      const client = jest.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(20);
+      return () => {
+        scroll.mockRestore();
+        client.mockRestore();
+      };
+    };
+
+    const renderEditor = (props: { collapseToSingleLine?: boolean }) =>
+      renderWithDesignSystem(
+        <ExperimentViewMetadataEditor
+          experiment={defaultExperiment}
+          editing={false}
+          setEditing={jest.fn()}
+          defaultValue="Existing description"
+          {...props}
+        />,
+      );
+
+    test('hides the expand button when the description fits on one line', () => {
+      const restore = mockContentHeight(20);
+      try {
+        const { container } = renderEditor({ collapseToSingleLine: true });
+        expect(screen.getByText('Existing description')).toBeInTheDocument();
+        expect(container.querySelector(expandButtonSelector)).not.toBeInTheDocument();
+      } finally {
+        restore();
+      }
+    });
+
+    test('shows the expand button when the description is cut off, and collapses it again', async () => {
+      const restore = mockContentHeight(60);
+      try {
+        const { container } = renderEditor({ collapseToSingleLine: true });
+        await userEvent.click(container.querySelector(expandButtonSelector) as HTMLElement);
+        await userEvent.click(container.querySelector(collapseButtonSelector) as HTMLElement);
+        expect(container.querySelector(expandButtonSelector)).toBeInTheDocument();
+      } finally {
+        restore();
+      }
+    });
+
+    test('keeps the expand button without the one-line preview', () => {
+      const restore = mockContentHeight(20);
+      try {
+        const { container } = renderEditor({});
+        expect(container.querySelector(expandButtonSelector)).toBeInTheDocument();
+      } finally {
+        restore();
+      }
+    });
+  });
 });

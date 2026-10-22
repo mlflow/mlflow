@@ -105,6 +105,8 @@ export interface ModelTraceExplorerDrawerProps {
   isLoading?: boolean;
   experimentId?: string;
   traceInfo?: ModelTraceInfoV3;
+  /** Replaces the "Trace" title and the trace id tag, e.g. with a session's title. */
+  headerTitle?: React.ReactNode;
   renderManagedAddToDatasetDropdown?: (params: {
     children: React.ReactNode;
     onOpenChange: (open: boolean) => void;
@@ -122,6 +124,7 @@ export const ModelTraceExplorerDrawer = ({
   isLoading,
   experimentId,
   traceInfo,
+  headerTitle,
   renderManagedAddToDatasetDropdown,
 }: ModelTraceExplorerDrawerProps): JSX.Element => {
   const { getPrefixedClassName, theme } = useDesignSystemTheme();
@@ -678,40 +681,44 @@ export const ModelTraceExplorerDrawer = ({
                 flex: '1 1 auto',
               }}
             >
-              <Typography.Text css={{ whiteSpace: 'nowrap' }}>
-                <FormattedMessage defaultMessage="Trace" description="Title for the trace details drawer" />
-              </Typography.Text>
-              {displayedTraceId && traceInfo && (
-                <Tooltip
-                  componentId="mlflow.evaluations_review.modal.trace-id-tooltip"
-                  content={traceIdTooltipMessage}
-                  open={traceIdTooltipOpen}
-                  onOpenChange={handleTraceIdTooltipOpenChange}
-                  maxWidth={400}
-                >
-                  <Tag
-                    componentId="mlflow.evaluations_review.modal.trace-id"
-                    color="default"
-                    onClick={copyTraceId}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        copyTraceId();
-                      }
-                    }}
-                    role="button"
-                    tabIndex={0}
-                    css={{ cursor: 'pointer', margin: 0, maxWidth: 96 }}
-                  >
-                    <Typography.Text
-                      size="sm"
-                      color="secondary"
-                      css={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}
+              {headerTitle ?? (
+                <>
+                  <Typography.Text css={{ whiteSpace: 'nowrap' }}>
+                    <FormattedMessage defaultMessage="Trace" description="Title for the trace details drawer" />
+                  </Typography.Text>
+                  {displayedTraceId && traceInfo && (
+                    <Tooltip
+                      componentId="mlflow.evaluations_review.modal.trace-id-tooltip"
+                      content={traceIdTooltipMessage}
+                      open={traceIdTooltipOpen}
+                      onOpenChange={handleTraceIdTooltipOpenChange}
+                      maxWidth={400}
                     >
-                      {displayedTraceId}
-                    </Typography.Text>
-                  </Tag>
-                </Tooltip>
+                      <Tag
+                        componentId="mlflow.evaluations_review.modal.trace-id"
+                        color="default"
+                        onClick={copyTraceId}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            copyTraceId();
+                          }
+                        }}
+                        role="button"
+                        tabIndex={0}
+                        css={{ cursor: 'pointer', margin: 0, maxWidth: 96 }}
+                      >
+                        <Typography.Text
+                          size="sm"
+                          color="secondary"
+                          css={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}
+                        >
+                          {displayedTraceId}
+                        </Typography.Text>
+                      </Tag>
+                    </Tooltip>
+                  )}
+                </>
               )}
               {showTraceMetadata && traceStatus && (
                 <>

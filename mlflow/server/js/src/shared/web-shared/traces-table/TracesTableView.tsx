@@ -75,6 +75,8 @@ export interface TracesTableViewProps {
   sessionsMayBeIncomplete?: boolean;
   /** Maximum lines shown by input and output previews before truncation. Defaults to one line. */
   previewLineClamp?: number;
+  /** Control rendered over the bottom edge of the table header row. */
+  headerBottomOverlay?: React.ReactNode;
   onReorderColumn?: (activeColumn: string, targetColumn: string) => void;
 
   // Toolbar passthrough.
@@ -228,6 +230,7 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
       isGroupedBySession={props.isGroupedBySession}
       sessionsMayBeIncomplete={props.sessionsMayBeIncomplete}
       previewLineClamp={props.previewLineClamp}
+      headerBottomOverlay={props.headerBottomOverlay}
       onReorderColumn={props.onReorderColumn}
     />
   );

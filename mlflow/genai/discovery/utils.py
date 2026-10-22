@@ -244,17 +244,21 @@ def analyze_cost_anomalies(
     and a judge scoring one trace at a time cannot see them.
 
     Traces are grouped by agent label so a summarizer is not compared against a retriever,
-    but only groups with enough priced peers are analyzed on their own; the rest are pooled,
-    where their combined spread makes the test conservative rather than arbitrary. A trace
-    with no recorded cost is excluded, never read as zero spend.
+    and a label without enough priced peers is not judged at all. Pooling such labels together
+    was tried and removed: it reports whichever label happens to be the most expensive in the
+    sample, so two ordinary traces of a costlier agent are flagged purely because the other
+    agents in the sample are cheap, and adding same-agent peers makes the finding vanish
+    without those traces changing. An unjudged label is the honest outcome -- "expensive" has
+    no meaning without comparable peers. A trace with no recorded cost is excluded, never read
+    as zero spend.
 
     Args:
         traces: The sampled traces. Only recorded cost is read.
         deviations: Robust deviations above typical required to call spend anomalous.
-        min_sample: Priced traces a group needs before it is analyzed on its own.
+        min_sample: Priced traces a label needs before its spend is judged.
 
     Returns:
-        The anomalies, most expensive first. Empty when the sample is too small to judge,
+        The anomalies, most expensive first. Empty when no label has enough priced peers,
         when spend is uniformly spread, or when so much of it qualifies that the spread is
         the distribution rather than an outlier in it.
     """
@@ -276,17 +280,19 @@ def analyze_cost_anomalies(
             continue
         by_label.setdefault(label, []).append((trace_id, cost))
 
-    own_groups = {label: priced for label, priced in by_label.items() if len(priced) >= min_sample}
-    pooled = [
-        entry for label, priced in by_label.items() if label not in own_groups for entry in priced
-    ]
+    judged = {label: priced for label, priced in by_label.items() if len(priced) >= min_sample}
 
     anomalies: list[CostAnomaly] = []
-    for label, priced in sorted(own_groups.items(), key=lambda item: str(item[0])):
+    for label, priced in sorted(judged.items(), key=lambda item: str(item[0])):
         anomalies.extend(_anomalies_in_group(label, priced, deviations))
-    if len(pooled) >= min_sample:
-        anomalies.extend(_anomalies_in_group("(mixed agents)", pooled, deviations))
 
+    if skipped := {label: len(priced) for label, priced in by_label.items() if label not in judged}:
+        _logger.info(
+            "Cost was not judged for %d agent label(s) with fewer than %d priced traces: %s",
+            len(skipped),
+            min_sample,
+            ", ".join(f"{label!r} ({count})" for label, count in sorted(skipped.items())),
+        )
     if unpriced:
         _logger.info(
             "%d traces were left out of cost analysis because they record no positive cost",

@@ -61,10 +61,31 @@ class _GeneratedStep(pydantic.BaseModel):
             "elevated but non-failing condition; 'success' for correct or expected behavior."
         )
     )
+    # No default, deliberately. A pydantic default keeps the field out of the schema's
+    # ``required`` list, and OpenAI's strict structured-output mode requires every property to
+    # be listed there -- so a default here makes the request invalid rather than optional, the
+    # generator exhausts its retries, and evidence silently falls back to prose.
     mono: bool = pydantic.Field(
-        default=False,
-        description="True only when text is preformatted, such as a payload or stack trace.",
+        description=(
+            "True only when text is preformatted, such as a payload or stack trace; "
+            "false otherwise."
+        ),
     )
+
+    @pydantic.model_validator(mode="before")
+    @classmethod
+    def _tolerate_omitted_mono(cls, data):
+        """
+        Accept a step that leaves ``mono`` out, without giving the field a schema default.
+
+        Strict mode obliges the model to send every property, so this is unreachable there.
+        It matters for a provider that ignores strict mode: the field has to stay in
+        ``required`` to keep the request valid, but a response missing a presentational flag
+        should not cost the reader the whole walkthrough.
+        """
+        if isinstance(data, dict) and "mono" not in data:
+            return {**data, "mono": False}
+        return data
 
 
 class _GeneratedEvidence(pydantic.BaseModel):
@@ -77,10 +98,11 @@ class _GeneratedEvidence(pydantic.BaseModel):
             "output therefore failed. One step per span worth opening."
         )
     )
+    # Required but nullable, for the reason given at ``mono``: the field must be present in
+    # the response, and absence is expressed as an explicit null rather than omission.
     primary_span_id: str | None = pydantic.Field(
-        default=None,
         description=(
-            "The one span to open first, which must be cited by a step. Omit when no single "
+            "The one span to open first, which must be cited by a step. Null when no single "
             "span is the meaningful locus, such as a trace-wide latency or cost finding."
         ),
     )
