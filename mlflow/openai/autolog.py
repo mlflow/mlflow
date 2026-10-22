@@ -568,9 +568,15 @@ def _reconstruct_response_from_stream(chunks: list[Any]) -> Any:
 
 def _is_responses_final_event(chunk: Any) -> bool:
     try:
-        from openai.types.responses import ResponseCompletedEvent
+        from openai.types.responses import (
+            ResponseCompletedEvent,
+            ResponseFailedEvent,
+            ResponseIncompleteEvent,
+        )
 
-        return isinstance(chunk, ResponseCompletedEvent)
+        return isinstance(
+            chunk, (ResponseCompletedEvent, ResponseIncompleteEvent, ResponseFailedEvent)
+        )
     except ImportError:
         return False
 

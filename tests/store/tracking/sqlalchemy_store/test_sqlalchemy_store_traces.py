@@ -39,6 +39,7 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.workspace import TraceArchivalConfig, Workspace
 from mlflow.environment_variables import (
     MLFLOW_TRACE_ARCHIVAL_CONFIG,
+    MLFLOW_TRACE_DELETE_MAX_WORKERS,
 )
 from mlflow.exceptions import (
     MlflowException,
@@ -64,6 +65,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceTag,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _TraceArchiveCandidate
+from mlflow.store.tracking.utils.trace_archival import _TraceDeleteSelection
 from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA,
@@ -78,12 +80,18 @@ from mlflow.tracing.constant import (
     TraceSizeStatsKey,
     TraceTagKey,
 )
+from mlflow.tracing.otel.otel_archival import TRACE_ARCHIVAL_FILENAME
 from mlflow.tracing.utils import TraceJSONEncoder, dump_span_attribute_value
 from mlflow.utils.file_utils import TempDir, local_file_uri_to_path
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import append_to_uri_path
-from mlflow.utils.workspace_context import WorkspaceContext
+from mlflow.utils.workspace_context import (
+    ServerWorkspaceContext,
+    WorkspaceContext,
+    get_request_workspace,
+    is_request_workspace_resolved,
+)
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME, WORKSPACES_DIR_NAME
 
 from tests.store.tracking.sqlalchemy_store.conftest import (
@@ -400,6 +408,9 @@ def store_with_traces(store):
             ["execution_time DESC", "timestamp ASC"],
             ["tr-3", "tr-4", "tr-0", "tr-2", "tr-1"],
         ),
+        # Order by end time (timestamp + execution_time)
+        (["end_time"], ["tr-1", "tr-2", "tr-0", "tr-3", "tr-4"]),
+        (["end_time_ms DESC"], ["tr-4", "tr-3", "tr-2", "tr-0", "tr-1"]),
         # Order by experiment ID
         (["experiment_id"], ["tr-4", "tr-3", "tr-2", "tr-1", "tr-0"]),
         # Order by status
@@ -437,6 +448,7 @@ def test_search_traces_order_by(store_with_traces, order_by, expected_ids):
         ("experiment_id", False),
         ("status", False),
         ("execution_time DESC", True),
+        ("end_time DESC", False),
         ("name", True),
         ("tag.nonexistent", True),
         ("run_id", True),
@@ -6880,6 +6892,50 @@ def test_log_spans_then_start_trace_preserves_preview(store: SqlAlchemyStore):
     assert "Hi" in trace_info.response_preview
 
 
+def test_start_trace_replaces_nul_in_preview(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_start_trace_nul_preview")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1000,
+        execution_duration=1000,
+        state=TraceState.OK,
+        request_preview="file contents: \x00",
+        response_preview="ok\x00",
+    )
+    store.start_trace(trace_info)
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.request_preview == "file contents: \ufffd"
+    assert trace_info.response_preview == "ok\ufffd"
+
+
+def test_log_spans_replaces_nul_in_preview(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_log_spans_nul_preview")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    span = create_test_span(
+        trace_id=trace_id,
+        name="llm_call",
+        span_id=111,
+        status=trace_api.StatusCode.OK,
+        start_ns=1_000_000_000,
+        end_ns=2_000_000_000,
+        trace_num=12345,
+        attributes={
+            "mlflow.spanInputs": {"messages": [{"role": "user", "content": "file contents: \x00"}]},
+            "mlflow.spanOutputs": {
+                "choices": [{"message": {"role": "assistant", "content": "ok\x00"}}]
+            },
+        },
+    )
+    store.log_spans(experiment_id, [span])
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.request_preview == "file contents: \ufffd"
+    assert trace_info.response_preview == "ok\ufffd"
+
+
 @pytest.mark.skipif(
     mlflow.get_tracking_uri().startswith("mysql"),
     reason="MySQL does not support concurrent log_spans calls for now",
@@ -10824,6 +10880,168 @@ def test_delete_traces_cleans_up_archived_payloads(store: SqlAlchemyStore):
 
         assert store.delete_traces(exp_id, trace_ids=[trace_id]) == 1
         assert not archive_payload_path.exists()
+
+
+@pytest.mark.parametrize("max_workers", [None, 1, 2, 20])
+def test_delete_traces_cleans_up_archived_payloads_concurrently(
+    store: SqlAlchemyStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, max_workers: int | None
+):
+    exp_id = store.create_experiment("archive-delete-concurrently")
+    trace_ids = [f"tr-concurrent-delete-{index}" for index in range(6)]
+    now_millis = 26 * 24 * 60 * 60 * 1000
+    request_time = now_millis - 2 * 24 * 60 * 60 * 1000
+    for index, trace_id in enumerate(trace_ids):
+        _create_trace(store, trace_id, exp_id, request_time=request_time)
+        store.log_spans(
+            exp_id,
+            [
+                create_test_span(
+                    trace_id,
+                    span_id=index + 1,
+                    start_ns=request_time * 1_000_000,
+                    end_ns=(request_time + 1_000) * 1_000_000,
+                )
+            ],
+        )
+    archive_root = tmp_path / "archive"
+    archive_root.mkdir()
+    assert _archive_traces(
+        store,
+        default_trace_archival_location=archive_root.as_uri(),
+        default_retention="1d",
+        now_millis=now_millis,
+    ) == len(trace_ids)
+
+    active_deletes = 0
+    peak_deletes = 0
+    worker_contexts = []
+    lock = threading.Lock()
+
+    def slow_delete(artifact_path):
+        nonlocal active_deletes, peak_deletes
+        with lock:
+            active_deletes += 1
+            peak_deletes = max(peak_deletes, active_deletes)
+            worker_contexts.append((get_request_workspace(), is_request_workspace_resolved()))
+        try:
+            time.sleep(0.05)
+        finally:
+            with lock:
+                active_deletes -= 1
+
+    cleanup_repo = mock.Mock(
+        spec=ArtifactRepository, delete_artifacts=mock.Mock(side_effect=slow_delete)
+    )
+    expected_workspace = get_request_workspace()
+    with (
+        monkeypatch.context() as patch,
+        ServerWorkspaceContext(expected_workspace),
+        mock.patch(
+            "mlflow.store.tracking.sqlalchemy_store.get_artifact_repository",
+            return_value=cleanup_repo,
+        ) as get_repo,
+    ):
+        patch.delenv("MLFLOW_WORKSPACE", raising=False)
+        patch.delenv(MLFLOW_TRACE_DELETE_MAX_WORKERS.name, raising=False)
+        if max_workers is not None:
+            patch.setenv(MLFLOW_TRACE_DELETE_MAX_WORKERS.name, str(max_workers))
+        assert store.delete_traces(exp_id, trace_ids=trace_ids) == len(trace_ids)
+        assert get_repo.call_count == len(trace_ids)
+
+    expected_limit = min(max_workers if max_workers is not None else 8, len(trace_ids))
+    assert 1 <= peak_deletes <= expected_limit
+    if expected_limit > 1:
+        assert peak_deletes > 1
+    assert active_deletes == 0
+    assert worker_contexts == [(expected_workspace, True)] * len(trace_ids)
+    cleanup_repo.delete_artifacts.assert_has_calls(
+        [mock.call(TRACE_ARCHIVAL_FILENAME)] * len(trace_ids)
+    )
+    with store.ManagedSessionMaker() as session:
+        assert session.query(SqlTraceInfo).filter_by(experiment_id=int(exp_id)).count() == 0
+
+
+@pytest.mark.parametrize(
+    ("trace_count", "max_workers", "expected_workers"),
+    [
+        (0, None, None),
+        (1, None, None),
+        (2, None, 2),
+        (12, None, 8),
+        (4, 1, 1),
+        (4, 2, 2),
+        (4, 20, 4),
+    ],
+)
+def test_delete_archived_trace_payloads_limits_workers(
+    store: SqlAlchemyStore,
+    monkeypatch: pytest.MonkeyPatch,
+    trace_count,
+    max_workers,
+    expected_workers,
+):
+    monkeypatch.delenv(MLFLOW_TRACE_DELETE_MAX_WORKERS.name, raising=False)
+    if max_workers is not None:
+        monkeypatch.setenv(MLFLOW_TRACE_DELETE_MAX_WORKERS.name, str(max_workers))
+    selections = [_TraceDeleteSelection(trace_id=f"tr-{index}") for index in range(trace_count)]
+    with mock.patch.object(
+        sqlalchemy_store_module, "ThreadPoolExecutor", wraps=ThreadPoolExecutor
+    ) as pool:
+        assert store._delete_archived_trace_payloads(selections) == [
+            selection.trace_id for selection in selections
+        ]
+    if expected_workers is None:
+        pool.assert_not_called()
+    else:
+        pool.assert_called_once()
+        assert pool.call_args.kwargs["max_workers"] == expected_workers
+
+
+def test_delete_archived_trace_payloads_keeps_order_and_continues_after_errors(
+    store: SqlAlchemyStore, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    monkeypatch.setenv(MLFLOW_TRACE_DELETE_MAX_WORKERS.name, "4")
+    fast_deleted = threading.Event()
+
+    def delete_slow(artifact_path):
+        assert fast_deleted.wait(timeout=5)
+
+    repositories = {
+        "file:///archive/slow": mock.Mock(delete_artifacts=mock.Mock(side_effect=delete_slow)),
+        "file:///archive/missing": mock.Mock(
+            delete_artifacts=mock.Mock(side_effect=FileNotFoundError("payload already deleted"))
+        ),
+        "file:///archive/failed": mock.Mock(
+            delete_artifacts=mock.Mock(side_effect=PermissionError("access denied"))
+        ),
+        "file:///archive/fast": mock.Mock(
+            delete_artifacts=mock.Mock(side_effect=lambda artifact_path: fast_deleted.set())
+        ),
+    }
+    selections = [
+        _TraceDeleteSelection(trace_id="tr-slow", archived_artifact_uri="file:///archive/slow"),
+        _TraceDeleteSelection(
+            trace_id="tr-missing", archived_artifact_uri="file:///archive/missing"
+        ),
+        _TraceDeleteSelection(trace_id="tr-failed", archived_artifact_uri="file:///archive/failed"),
+        _TraceDeleteSelection(trace_id="tr-fast", archived_artifact_uri="file:///archive/fast"),
+        _TraceDeleteSelection(trace_id="tr-no-payload"),
+    ]
+    with mock.patch(
+        "mlflow.store.tracking.sqlalchemy_store.get_artifact_repository",
+        side_effect=repositories.__getitem__,
+    ) as get_repo:
+        assert store._delete_archived_trace_payloads(selections) == [
+            "tr-slow",
+            "tr-missing",
+            "tr-fast",
+            "tr-no-payload",
+        ]
+    get_repo.assert_has_calls([mock.call(uri) for uri in repositories], any_order=True)
+    assert get_repo.call_count == len(repositories)
+    for repo in repositories.values():
+        repo.delete_artifacts.assert_called_once_with(TRACE_ARCHIVAL_FILENAME)
+    assert "Failed to clean up archived payload for trace tr-failed" in caplog.text
 
 
 def test_delete_traces_removes_db_backed_rows_before_archived_payload_cleanup(

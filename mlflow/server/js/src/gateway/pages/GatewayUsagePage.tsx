@@ -22,7 +22,11 @@ import { MonitoringConfigProvider } from '../../experiment-tracking/hooks/useMon
 import { useMonitoringFiltersTimeRange } from '../../experiment-tracking/hooks/useMonitoringFilters';
 import { TracesV3DateSelector } from '../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3DateSelector';
 import type { TableFilter } from '@databricks/web-shared/genai-traces-table';
-import { ExperimentViewTracesStatusLabels, FilterOperator } from '@databricks/web-shared/genai-traces-table';
+import {
+  CUSTOM_METADATA_COLUMN_ID,
+  ExperimentViewTracesStatusLabels,
+  FilterOperator,
+} from '@databricks/web-shared/genai-traces-table';
 import { MetricsFilter } from '../../common/components/MetricsFilter';
 import {
   translateToMetricsFilters,
@@ -156,7 +160,13 @@ export const GatewayUsagePage = () => {
 
   const tableFilters = useMemo((): TableFilter[] | undefined => {
     if (!selectedUserId) return undefined;
-    return [{ column: 'user', operator: FilterOperator.EQUALS, value: selectedUserId }];
+    return [
+      {
+        column: `${CUSTOM_METADATA_COLUMN_ID}:${AUTH_USER_ID_METADATA_KEY}`,
+        operator: FilterOperator.EQUALS,
+        value: selectedUserId,
+      },
+    ];
   }, [selectedUserId]);
 
   // URL filter strings (column::operator::value) appended to chart-tooltip

@@ -48,11 +48,16 @@ from mlflow.server.auth.permissions import (
     RESOURCE_TYPE_REGISTERED_MODEL,
     RESOURCE_TYPE_SCORER,
     RESOURCE_TYPE_WORKSPACE,
+    SKILL_REGISTRY_RESOURCE_TYPES,
     Permission,
+    _format_skill_registry_resource_key,
+    _parse_skill_registry_resource_key,
     _validate_permission_for_resource_type,
     _validate_resource_pattern,
     _validate_resource_type,
+    canonical_resource_id,
     get_permission,
+    matches,
     max_permission,
 )
 from mlflow.store.db.utils import (
@@ -392,6 +397,50 @@ class SqlAlchemyStore:
     # CRUD methods below remain only as tombstones backing the deprecated REST
     # surface; remove them when the deprecated handlers are dropped.
 
+    @staticmethod
+    def _validate_resource_pattern(resource_type: str, resource_pattern: str) -> str:
+        if resource_type in SKILL_REGISTRY_RESOURCE_TYPES and resource_pattern != "*":
+            organization, name = _parse_skill_registry_resource_key(resource_pattern)
+            return _format_skill_registry_resource_key(organization, name)
+        return canonical_resource_id(resource_type, resource_pattern)
+
+    def grant_user_permissions(
+        self,
+        username: str,
+        grants: Iterable[tuple[str, str, str]],
+    ) -> None:
+        """Upsert a batch of user grants in one auth-store transaction."""
+        with self.ManagedSessionMaker(read_only=False) as session:
+            user = self._get_user(session, username=username)
+            workspace_name = self._get_active_workspace_name()
+            role = self._get_or_create_synthetic_user_role(session, user.id, workspace_name)
+            for resource_type, resource_pattern, permission in grants:
+                self._reject_workspace_resource_type(resource_type)
+                _validate_resource_pattern(resource_pattern, resource_type)
+                _validate_permission_for_resource_type(permission, resource_type)
+                resource_pattern = self._validate_resource_pattern(resource_type, resource_pattern)
+                existing = (
+                    session
+                    .query(SqlRolePermission)
+                    .filter(
+                        SqlRolePermission.role_id == role.id,
+                        SqlRolePermission.resource_type == resource_type,
+                        SqlRolePermission.resource_pattern == resource_pattern,
+                    )
+                    .first()
+                )
+                if existing is None:
+                    session.add(
+                        SqlRolePermission(
+                            role_id=role.id,
+                            resource_type=resource_type,
+                            resource_pattern=resource_pattern,
+                            permission=permission,
+                        )
+                    )
+                else:
+                    existing.permission = permission
+
     def grant_user_permission(
         self,
         username: str,
@@ -408,6 +457,7 @@ class SqlAlchemyStore:
         # would get a success for a per-id DENY that protects nothing.
         _validate_resource_pattern(resource_pattern, resource_type)
         _validate_permission_for_resource_type(permission, resource_type)
+        resource_pattern = self._validate_resource_pattern(resource_type, resource_pattern)
         with self.ManagedSessionMaker(read_only=False) as session:
             user = self._get_user(session, username=username)
             workspace_name = self._get_active_workspace_name()
@@ -459,6 +509,7 @@ class SqlAlchemyStore:
         self._reject_workspace_resource_type(resource_type)
         _validate_resource_pattern(resource_pattern, resource_type)
         _validate_permission_for_resource_type(permission, resource_type)
+        resource_pattern = self._validate_resource_pattern(resource_type, resource_pattern)
         duplicate_message = (
             f"Permission for user={username} on "
             f"resource_type={resource_type}, resource_id={resource_pattern} already exists."
@@ -507,6 +558,7 @@ class SqlAlchemyStore:
         """
         self._reject_workspace_resource_type(resource_type)
         _validate_resource_type(resource_type)
+        resource_pattern = self._validate_resource_pattern(resource_type, resource_pattern)
         not_found_message = (
             f"Permission for user={username} on "
             f"resource_type={resource_type}, resource_id={resource_pattern} not found."
@@ -552,6 +604,8 @@ class SqlAlchemyStore:
         workspace — for resources whose pattern can collide across workspaces
         (e.g. registered-model names). Admin-created roles are never touched.
         """
+        _validate_resource_type(resource_type)
+        resource_pattern = self._validate_resource_pattern(resource_type, resource_pattern)
         with self.ManagedSessionMaker(read_only=False) as session:
             workspace = self._get_active_workspace_name() if workspace_scoped else None
             role_ids = self._synthetic_role_ids(session, workspace=workspace)
@@ -576,6 +630,9 @@ class SqlAlchemyStore:
         ``(resource_type, new_pattern)``. Used for resources whose pattern is the
         primary key and can change (e.g. registered-model rename).
         """
+        _validate_resource_type(resource_type)
+        old_pattern = self._validate_resource_pattern(resource_type, old_pattern)
+        new_pattern = self._validate_resource_pattern(resource_type, new_pattern)
         with self.ManagedSessionMaker(read_only=False) as session:
             workspace = self._get_active_workspace_name() if workspace_scoped else None
             role_ids = self._synthetic_role_ids(session, workspace=workspace)
@@ -601,6 +658,7 @@ class SqlAlchemyStore:
         self, experiment_id: str, username: str, permission: str
     ) -> ExperimentPermission:
         _validate_permission_for_resource_type(permission, RESOURCE_TYPE_EXPERIMENT)
+        experiment_id = canonical_resource_id(RESOURCE_TYPE_EXPERIMENT, experiment_id)
         with self.ManagedSessionMaker(read_only=False) as session:
             user = self._get_user(session, username=username)
             workspace_name = self._get_active_workspace_name()
@@ -643,6 +701,7 @@ class SqlAlchemyStore:
     def _get_experiment_permission_row(
         self, session, experiment_id: str, username: str
     ) -> tuple[SqlUser, SqlRolePermission]:
+        experiment_id = canonical_resource_id(RESOURCE_TYPE_EXPERIMENT, experiment_id)
         user = self._get_user(session, username=username)
         workspace_name = self._get_active_workspace_name()
         role = (
@@ -1156,6 +1215,7 @@ class SqlAlchemyStore:
         # URL-encode the name component so the pattern ``<experiment_id>/<name>``
         # is unambiguous; the migration (``e5f6a7b8c9d0``) uses the same
         # encoding, so post-migration and live grants line up.
+        experiment_id = canonical_resource_id(RESOURCE_TYPE_EXPERIMENT, experiment_id)
         return f"{experiment_id}/{quote(scorer_name, safe='')}"
 
     def create_scorer_permission(
@@ -1904,10 +1964,7 @@ class SqlAlchemyStore:
         permission: str,
     ) -> RolePermission:
         _validate_permission_for_resource_type(permission, resource_type)
-        # A pattern the type's grain does not allow would be silently ignored by the
-        # resolver, so reject it up front. This covers the workspace slot (wildcard only)
-        # and every sub-resource type (also wildcard only, until search-filter push-down
-        # can enforce a per-id child grant in list paths as well as point routes).
+        resource_pattern = self._validate_resource_pattern(resource_type, resource_pattern)
         _validate_resource_pattern(resource_pattern, resource_type)
         with self.ManagedSessionMaker(read_only=False) as session:
             self._get_role(session, role_id)
@@ -2129,7 +2186,7 @@ class SqlAlchemyStore:
                     # Resource-type-specific permission.
                     if rp.resource_type != resource_type:
                         continue
-                    if rp.resource_pattern in ("*", resource_id):
+                    if matches(rp.resource_pattern, resource_type, resource_id):
                         # DENY is below every positive level, so folding it with
                         # ``max_permission`` would silently lift it to the positive grant
                         # beside it. Track it separately, as ``fold_grants_for_key`` does.

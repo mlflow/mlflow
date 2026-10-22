@@ -1821,6 +1821,22 @@ def test_should_keep_trace_deletes_non_input_traces_after_eval_start():
     assert result is False
 
 
+def test_should_keep_trace_keeps_untagged_run_traces_when_requested():
+    trace_info = create_test_trace_info(
+        trace_id="tr-extra-456",
+        request_time=2000,
+    )
+    trace = Trace(info=trace_info, data=TraceData(spans=[]))
+
+    result = _should_keep_trace(
+        trace,
+        eval_start_time=1000,
+        input_trace_ids={"tr-input-123"},
+        keep_untagged_run_traces=True,
+    )
+    assert result is True
+
+
 def test_clean_up_extra_traces_preserves_input_traces():
     experiment_id = mlflow.set_experiment("test_experiment").experiment_id
 
@@ -1845,6 +1861,24 @@ def test_clean_up_extra_traces_preserves_input_traces():
     remaining_trace_ids = {t.info.trace_id for t in remaining_traces}
     assert trace1.info.trace_id in remaining_trace_ids
     assert trace2.info.trace_id in remaining_trace_ids
+
+
+def test_clean_up_extra_traces_keeps_untagged_run_traces_when_requested():
+    experiment_id = mlflow.set_experiment("cleanup_keep_untagged").experiment_id
+    with mlflow.start_span(name="untagged_run_trace") as span:
+        span.set_inputs({"question": "test"})
+        span.set_outputs({"answer": "answer"})
+    trace = mlflow.get_trace(span.trace_id)
+
+    clean_up_extra_traces(
+        [trace],
+        eval_start_time=0,
+        experiment_id=experiment_id,
+        keep_untagged_run_traces=True,
+    )
+
+    remaining_traces = get_traces()
+    assert {t.info.trace_id for t in remaining_traces} == {trace.info.trace_id}
 
 
 def test_clean_up_extra_traces_uses_correct_experiment_id():

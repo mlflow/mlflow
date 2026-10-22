@@ -1,3 +1,13 @@
+from mlflow.entities import (
+    GitSource,
+    MlflowSource,
+    OCISource,
+    Skill,
+    SkillSourceType,
+    SkillStatus,
+    SkillVersion,
+    ZipSource,
+)
 from mlflow.genai import (
     datasets,
     judges,
@@ -13,7 +23,7 @@ from mlflow.genai.datasets import (
     search_datasets,
     set_dataset_tags,
 )
-from mlflow.genai.evaluation import evaluate, to_predict_fn
+from mlflow.genai.evaluation import compare_evaluations, evaluate, to_predict_fn
 from mlflow.genai.git_versioning import disable_git_model_versioning, enable_git_model_versioning
 from mlflow.genai.judges import make_judge
 from mlflow.genai.labeling import (
@@ -79,11 +89,18 @@ from mlflow.genai.scorers import (
     scorer,
 )
 from mlflow.genai.simulators import ConversationSimulator
+from mlflow.genai.skills import import_skills, pull, register_skill, search_skills
+from mlflow.tracing.utils.session_hierarchy import set_session_hierarchy
 
 __all__ = [
+    "import_skills",
+    "pull",
+    "register_skill",
+    "search_skills",
     "datasets",
     "test_agent",
     "evaluate",
+    "compare_evaluations",
     "to_predict_fn",
     "Scorer",
     "scorer",
@@ -94,6 +111,7 @@ __all__ = [
     "judges",
     "make_judge",
     "scorers",
+    "set_session_hierarchy",
     "EvaluationDatasetVersion",
     "create_dataset",
     "delete_dataset",
@@ -154,4 +172,13 @@ __all__ = [
     "delete_mcp_server_version_tag",
     "set_mcp_server_alias",
     "delete_mcp_server_alias",
+    # skill registry entities
+    "Skill",
+    "SkillVersion",
+    "SkillStatus",
+    "SkillSourceType",
+    "GitSource",
+    "MlflowSource",
+    "OCISource",
+    "ZipSource",
 ]

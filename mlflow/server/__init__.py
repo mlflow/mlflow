@@ -4,9 +4,11 @@ import os
 import secrets
 import shlex
 import signal
+import subprocess
 import sys
 import tempfile
 import textwrap
+import threading
 import types
 import uuid
 import warnings
@@ -24,6 +26,7 @@ from mlflow.environment_variables import (
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     _MLFLOW_SERVER_BOOT_ID,
     _MLFLOW_SGI_NAME,
+    MLFLOW_ARTIFACTS_PRESIGNED_ONLY,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
     MLFLOW_SQL_TRACE_ROLLUPS_ENABLED,
@@ -59,6 +62,8 @@ from mlflow.server.handlers import (
     post_ui_telemetry_handler,
     upload_artifact_handler,
 )
+from mlflow.server.jobs.executor import EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE
+from mlflow.server.jobs.executor_registry import warm_executor_registry_in_background
 from mlflow.server.workspace_helpers import (
     workspace_before_request_handler,
     workspace_teardown_request_handler,
@@ -66,7 +71,7 @@ from mlflow.server.workspace_helpers import (
 from mlflow.utils import get_installed_version
 from mlflow.utils.os import is_windows
 from mlflow.utils.plugins import get_entry_points
-from mlflow.utils.process import _exec_cmd
+from mlflow.utils.process import ShellCommandException, _exec_cmd
 from mlflow.version import VERSION
 
 REL_STATIC_DIR = "js/build"
@@ -90,6 +95,33 @@ if is_running_as_server:
 
 app.before_request(workspace_before_request_handler)
 app.teardown_request(workspace_teardown_request_handler)
+
+_executor_registry_warm_lock = threading.Lock()
+_executor_registry_warm_started = False
+
+
+@app.before_request
+def _warm_executor_registry_on_first_request():
+    """Check the job executor backends on a gunicorn or waitress worker's first request.
+
+    uvicorn workers do this when they start (the FastAPI lifespan). gunicorn and waitress serve
+    this Flask app, which has no startup hook, so their workers do it here, once, in a background
+    thread. See ``warm_executor_registry_in_background``.
+    """
+    global _executor_registry_warm_started
+    if _executor_registry_warm_started:
+        return
+    with _executor_registry_warm_lock:
+        if _executor_registry_warm_started:
+            return
+        _executor_registry_warm_started = True
+    if _MLFLOW_SGI_NAME.get() not in ("gunicorn", "waitress"):
+        return
+    try:
+        warm_executor_registry_in_background()
+    except Exception:
+        _logger.warning("Could not start checking the job executor backends", exc_info=True)
+
 
 for http_path, handler, methods in handlers.get_endpoints():
     app.add_url_rule(http_path, handler.__name__, handler, methods=methods)
@@ -344,6 +376,63 @@ def _bootstrap_basic_auth() -> None:
     bootstrap_admin_user()
 
 
+# How long the server gets to stop after the job runner failed, before it is killed. The server
+# waits for open connections (for example streaming responses) without a time limit of its own.
+_SERVER_STOP_TIMEOUT_SECONDS = 30
+
+# Windows has no SIGKILL.
+_SIGKILL = getattr(signal, "SIGKILL", None)
+
+
+def _watch_job_runner(
+    job_runner_proc, server_proc, shutting_down: threading.Event, runner_failed: threading.Event
+) -> None:
+    """Wait for the job runner, and stop the server if the runner failed while the server runs.
+
+    The runner failed when it exits with ``EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE``, or is killed with
+    SIGKILL (for example by the out-of-memory killer). Other exits, such as a SIGTERM, are also how
+    the runner stops when the server stops, so they are not treated as failures.
+    """
+    returncode = job_runner_proc.wait()
+    if returncode == EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE:
+        reason = f"exited with code {returncode}. See the job runner's error above"
+    elif _SIGKILL is not None and returncode == -_SIGKILL:
+        reason = "was killed with SIGKILL, for example by the out-of-memory killer"
+    else:
+        return
+    if shutting_down.is_set() or server_proc.poll() is not None:
+        return
+    _logger.error("The job runner %s. No jobs can run, so the server is stopping.", reason)
+    runner_failed.set()
+    server_proc.terminate()
+    try:
+        server_proc.wait(timeout=_SERVER_STOP_TIMEOUT_SECONDS)
+    except subprocess.TimeoutExpired:
+        _logger.error(
+            "The server did not stop within %s seconds; killing it.", _SERVER_STOP_TIMEOUT_SECONDS
+        )
+        server_proc.kill()
+
+
+def _stop_server_if_job_runner_exits(
+    job_runner_proc, server_proc, shutting_down: threading.Event
+) -> threading.Event:
+    """Stop the server when the job runner fails while the server is still running.
+
+    Nothing restarts the job runner, so a server whose runner failed would keep serving requests
+    while no job runs. Stopping it makes the failure visible, and lets a process manager restart
+    the server. Returns an event that is set when the runner failed.
+    """
+    runner_failed = threading.Event()
+    threading.Thread(
+        target=_watch_job_runner,
+        args=(job_runner_proc, server_proc, shutting_down, runner_failed),
+        name="job-runner-watcher",
+        daemon=True,
+    ).start()
+    return runner_failed
+
+
 def _run_server(
     *,
     file_store_path,
@@ -352,6 +441,7 @@ def _run_server(
     default_artifact_root,
     serve_artifacts,
     artifacts_only,
+    artifacts_presigned_only=False,
     artifacts_destination,
     host,
     port,
@@ -390,6 +480,8 @@ def _run_server(
         env_map[SERVE_ARTIFACTS_ENV_VAR] = "true"
     if artifacts_only:
         env_map[ARTIFACTS_ONLY_ENV_VAR] = "true"
+    if artifacts_presigned_only:
+        env_map[MLFLOW_ARTIFACTS_PRESIGNED_ONLY.name] = "true"
     if artifacts_destination:
         env_map[ARTIFACTS_DESTINATION_ENV_VAR] = artifacts_destination
     if static_prefix:
@@ -485,6 +577,7 @@ def _run_server(
 
     # Check if job execution can be enabled (requirements met)
     job_execution_enabled = False
+    job_execution_engine = None
     if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
         from mlflow.server.jobs.utils import _check_requirements
 
@@ -509,7 +602,7 @@ def _run_server(
             validate_executor_config()
             # Validate the engine selection before the server is spawned below, so an
             # invalid value fails fast instead of leaving an unmanaged server running.
-            get_job_execution_engine()
+            job_execution_engine = get_job_execution_engine()
 
             if MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.get():
                 from mlflow.tracing.trace_rollup_service import (
@@ -549,8 +642,11 @@ def _run_server(
         synchronous=False,
     )
 
+    shutting_down = threading.Event()
+
     def _forward_signal(signum, _frame):
         """Forward signals to the child server process to enable graceful shutdown."""
+        shutting_down.set()
         if server_proc.poll() is not None:
             return
         try:
@@ -561,9 +657,13 @@ def _run_server(
     signal.signal(signal.SIGTERM, _forward_signal)
     signal.signal(signal.SIGINT, _forward_signal)
 
+    job_runner_failed = None
     if job_execution_enabled:
         from mlflow.environment_variables import MLFLOW_GATEWAY_URI, MLFLOW_TRACKING_URI
-        from mlflow.server.jobs.utils import _launch_job_execution_runner
+        from mlflow.server.jobs.utils import (
+            _EXECUTOR_JOB_EXECUTION_ENGINE,
+            _launch_job_execution_runner,
+        )
 
         server_uri = f"http://{host}:{port}{static_prefix or ''}"
         job_env = {
@@ -589,6 +689,16 @@ def _run_server(
         # gateway routing (e.g., judge LLM calls via /gateway/mlflow/v1/).
         if not MLFLOW_GATEWAY_URI.is_set():
             job_env[MLFLOW_GATEWAY_URI.name] = server_uri
-        _launch_job_execution_runner(job_env, server_proc.pid)
+        job_runner_proc = _launch_job_execution_runner(job_env, server_proc.pid)
+        # The executor engine's runner exits when it cannot start, for example when it cannot
+        # prepare the docker job image; the default engine's runner does not exit on its own.
+        if job_execution_engine == _EXECUTOR_JOB_EXECUTION_ENGINE:
+            job_runner_failed = _stop_server_if_job_runner_exits(
+                job_runner_proc, server_proc, shutting_down
+            )
 
-    server_proc.wait()
+    returncode = server_proc.wait()
+    if job_runner_failed is not None and job_runner_failed.is_set():
+        raise ShellCommandException("The job runner failed, so the server stopped.")
+    if returncode != 0 and not shutting_down.is_set():
+        raise ShellCommandException(f"The server process exited with code {returncode}.")

@@ -8,11 +8,7 @@
 import React, { Component } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { Pagination, Spinner } from '@databricks/design-system';
-import {
-  getArtifactBytesContent,
-  getArtifactLocationUrl,
-  getLoggedModelArtifactLocationUrl,
-} from '../../../common/utils/ArtifactUtils';
+import { getArtifactBytesContent } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactPdfView.css';
 import Utils from '../../../common/utils/Utils';
 import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
@@ -27,7 +23,7 @@ setupReactPDFWorker(pdfjs);
 type Props = {
   runUuid: string;
   path: string;
-  getArtifact: FetchArtifactUnifiedFn;
+  getArtifact: FetchArtifactUnifiedFn<ArrayBuffer>;
 } & LoggedModelArtifactViewerProps;
 
 type State = any;
@@ -41,23 +37,30 @@ class ShowArtifactPdfView extends Component<Props, State> {
     numPages: 1,
   };
 
+  private artifactRequestId = 0;
+
+  componentWillUnmount() {
+    this.artifactRequestId += 1;
+  }
+
   static defaultProps = {
     getArtifact: fetchArtifactUnified,
   };
 
   /** Fetches artifacts and updates component state with the result */
   fetchPdf() {
-    const { path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags } = this.props;
+    const requestId = ++this.artifactRequestId;
+    const { artifactRootUri, path, runUuid, isLoggedModelsMode, loggedModelId } = this.props;
+    this.setState({ loading: true, error: undefined, pdfData: undefined, currentPage: 1, numPages: 1 });
 
     this.props
-      .getArtifact?.(
-        { path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags },
-        getArtifactBytesContent,
-      )
+      .getArtifact?.({ artifactRootUri, path, runUuid, isLoggedModelsMode, loggedModelId }, getArtifactBytesContent)
       .then((artifactPdfData: any) => {
-        this.setState({ pdfData: { data: artifactPdfData }, loading: false });
+        if (requestId !== this.artifactRequestId) return;
+        this.setState({ pdfData: { data: artifactPdfData }, error: undefined, loading: false });
       })
       .catch((error: any) => {
+        if (requestId !== this.artifactRequestId) return;
         this.setState({ error: error, loading: false });
       });
   }
@@ -69,6 +72,7 @@ class ShowArtifactPdfView extends Component<Props, State> {
   resetPDFState() {
     this.setState({
       pdfData: undefined,
+      error: undefined,
       loading: true,
       currentPage: 1,
       numPages: 1,
@@ -76,7 +80,13 @@ class ShowArtifactPdfView extends Component<Props, State> {
   }
 
   componentDidUpdate(prevProps: Props) {
-    if (this.props.path !== prevProps.path || this.props.runUuid !== prevProps.runUuid) {
+    if (
+      this.props.path !== prevProps.path ||
+      this.props.runUuid !== prevProps.runUuid ||
+      this.props.artifactRootUri !== prevProps.artifactRootUri ||
+      this.props.isLoggedModelsMode !== prevProps.isLoggedModelsMode ||
+      this.props.loggedModelId !== prevProps.loggedModelId
+    ) {
       this.resetPDFState();
       this.fetchPdf();
     }
@@ -138,7 +148,7 @@ class ShowArtifactPdfView extends Component<Props, State> {
       return <ArtifactViewSkeleton className="artifact-pdf-view-loading" />;
     }
     if (this.state.error) {
-      return <ArtifactViewErrorState className="artifact-pdf-view-error" />;
+      return <ArtifactViewErrorState error={this.state.error} className="artifact-pdf-view-error" />;
     } else {
       return <div className="mlflow-pdf-outer-container">{this.renderPdf()}</div>;
     }

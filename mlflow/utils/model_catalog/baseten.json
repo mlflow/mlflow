@@ -130,6 +130,48 @@
       },
       "last_updated_at": "2026-10-02"
     },
+    "deepseek-ai/DeepSeek-V4.1-Flash-1017": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 262144,
+        "max_tokens": 262144
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 1.2,
+        "cache_read_per_million_tokens": 0.007
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-19"
+    },
+    "deepseek-ai/DeepSeek-V4.1-Flash-1017-Fast": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 262144,
+        "max_tokens": 262144
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.6,
+        "output_per_million_tokens": 2.4,
+        "cache_read_per_million_tokens": 0.014
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-19"
+    },
     "deepseek-ai/DeepSeek-V4.1-Flash-Fast": {
       "mode": "chat",
       "context_window": {
@@ -150,6 +192,27 @@
         "response_schema": true
       },
       "last_updated_at": "2026-10-09"
+    },
+    "meta-models/muse-spark-open": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576,
+        "max_tokens": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 4.25,
+        "cache_read_per_million_tokens": 0.15
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-16"
     },
     "moonshotai/Kimi-K2-Instruct-0905": {
       "mode": "chat",
@@ -280,6 +343,27 @@
       },
       "last_updated_at": "2026-09-23"
     },
+    "nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576,
+        "max_tokens": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.2,
+        "output_per_million_tokens": 0.5,
+        "cache_read_per_million_tokens": 0.04
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-16"
+    },
     "nvidia/Nemotron-120B-A12B": {
       "mode": "chat",
       "pricing": {
@@ -315,6 +399,27 @@
         "response_schema": true
       },
       "last_updated_at": "2026-09-23"
+    },
+    "reflection/Beam-1.0": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 131072,
+        "max_tokens": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.4,
+        "output_per_million_tokens": 1.2,
+        "cache_read_per_million_tokens": 0.04
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-21"
     },
     "thinkingmachines/inkling": {
       "mode": "chat",

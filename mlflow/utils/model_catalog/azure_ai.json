@@ -721,6 +721,28 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "MAI-Code-1.1-Flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 256000,
+        "max_output": 64000,
+        "max_tokens": 64000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.2,
+        "output_per_million_tokens": 1.2,
+        "cache_read_per_million_tokens": 0.02
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "deprecation_date": "2026-12-09",
+      "last_updated_at": "2026-10-21"
+    },
     "MAI-Cyber-1-Flash": {
       "mode": "chat",
       "context_window": {
@@ -1338,6 +1360,37 @@
       "deprecation_date": "2027-12-05",
       "last_updated_at": "2026-09-18"
     },
+    "claude-fable-5-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 10.0,
+        "output_per_million_tokens": 50.0,
+        "cache_read_per_million_tokens": 0.25,
+        "cache_write_per_million_tokens": 12.5,
+        "cache_write_1hr_per_million_tokens": 20.0,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2027-12-05",
+      "last_updated_at": "2026-10-14"
+    },
     "claude-haiku-4-5": {
       "mode": "chat",
       "context_window": {
@@ -1602,6 +1655,37 @@
       },
       "deprecation_date": "2027-09-18",
       "last_updated_at": "2026-10-07"
+    },
+    "claude-opus-5-5-fast": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 8.0,
+        "output_per_million_tokens": 40.0,
+        "cache_read_per_million_tokens": 0.4,
+        "cache_write_per_million_tokens": 10.0,
+        "cache_write_1hr_per_million_tokens": 16.0,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.02,
+            "search_context_size_low": 0.02,
+            "search_context_size_medium": 0.02
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2027-10-01",
+      "last_updated_at": "2026-10-16"
     },
     "claude-sonnet-4-5": {
       "mode": "chat",
@@ -2587,8 +2671,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2026-12-02",
-      "last_updated_at": "2026-09-10"
+      "deprecation_date": "2027-05-18",
+      "last_updated_at": "2026-10-16"
     },
     "gpt-image-2": {
       "mode": "image_generation",
@@ -3049,7 +3133,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-12-09",
+      "last_updated_at": "2026-10-19"
     },
     "mistral-large": {
       "mode": "chat",
@@ -3149,7 +3234,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-12-09",
+      "last_updated_at": "2026-10-19"
     },
     "mistral-medium-3-5": {
       "mode": "chat",
@@ -3229,7 +3315,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-12-09",
+      "last_updated_at": "2026-10-19"
     },
     "model-router": {
       "mode": "chat",

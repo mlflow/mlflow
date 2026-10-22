@@ -88,7 +88,7 @@ class Issue(_MlflowObject):
     """Severity level indicator."""
 
     root_causes: list[str] | None = None
-    """Analysis of the root causes of the issue."""
+    """Deprecated: use description and trace evidence for causal explanation."""
 
     source_run_id: str | None = None
     """MLflow run ID that discovered this issue."""
@@ -102,9 +102,18 @@ class Issue(_MlflowObject):
     trace_count: int | None = None
     """Number of traces impacted by this issue. Only populated when explicitly requested."""
 
+    last_seen_timestamp: int | None = None
+    """Most recent observation in milliseconds; user edits do not change it."""
+
+    last_updated_by: str | None = None
+    """Actor responsible for the last update."""
+
+    metadata: dict[str, str] | None = None
+    """Application metadata, updated per key."""
+
     def to_dictionary(self) -> dict[str, Any]:
         """Convert Issue to dictionary representation."""
-        return {
+        result = {
             "issue_id": self.issue_id,
             "experiment_id": self.experiment_id,
             "name": self.name,
@@ -119,6 +128,14 @@ class Issue(_MlflowObject):
             "created_by": self.created_by,
             "trace_count": self.trace_count,
         }
+        for key in (
+            "last_seen_timestamp",
+            "last_updated_by",
+            "metadata",
+        ):
+            if (value := getattr(self, key)) is not None:
+                result[key] = value
+        return result
 
     @classmethod
     def from_dictionary(cls, issue_dict: dict[str, Any]) -> Issue:
@@ -139,6 +156,9 @@ class Issue(_MlflowObject):
             categories=issue_dict.get("categories"),
             created_by=issue_dict.get("created_by"),
             trace_count=issue_dict.get("trace_count"),
+            last_seen_timestamp=issue_dict.get("last_seen_timestamp"),
+            last_updated_by=issue_dict.get("last_updated_by"),
+            metadata=issue_dict.get("metadata"),
         )
 
     def to_proto(self) -> ProtoIssue:
@@ -165,6 +185,10 @@ class Issue(_MlflowObject):
         if self.trace_count is not None:
             proto_issue.trace_count = self.trace_count
 
+        for key in ("last_seen_timestamp", "last_updated_by"):
+            if (value := getattr(self, key)) is not None:
+                setattr(proto_issue, key, value)
+        proto_issue.metadata.update(self.metadata or {})
         return proto_issue
 
     @classmethod
@@ -184,4 +208,9 @@ class Issue(_MlflowObject):
             categories=list(proto.categories) or None,
             created_by=proto.created_by or None,
             trace_count=proto.trace_count if proto.HasField("trace_count") else None,
+            last_seen_timestamp=(
+                proto.last_seen_timestamp if proto.HasField("last_seen_timestamp") else None
+            ),
+            last_updated_by=proto.last_updated_by or None,
+            metadata=dict(proto.metadata) or None,
         )

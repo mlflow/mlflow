@@ -1,3 +1,5 @@
+# Follow https://github.com/mlflow/mlflow/blob/HEAD/.github/ISSUE_TEMPLATE/doc_fix_template.yaml when filing an issue, as your local checkout may have an older template.
+# Please wait for a maintainer to apply the `ready` label before opening a PR for this issue.
 name: Documentation Fix
 description: Use this template for proposing documentation fixes/improvements.
 labels: ["bug", "area/docs"]
