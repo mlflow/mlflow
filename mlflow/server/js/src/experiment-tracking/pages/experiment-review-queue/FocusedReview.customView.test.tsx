@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
+import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 import type { ModelTraceExplorerDisplayMode } from '@databricks/web-shared/model-trace-explorer';
 import {
   CustomViewDefinitionProvider,
@@ -127,12 +128,14 @@ const renderFocusedReview = ({
   render(
     <IntlProvider locale="en">
       <DesignSystemProvider>
-        <FocusedReviewHost
-          views={views}
-          canReview={canReview}
-          initialDisplayMode={initialDisplayMode}
-          onCreateCustomView={onCreateCustomView}
-        />
+        <QueryClientProvider client={new QueryClient()}>
+          <FocusedReviewHost
+            views={views}
+            canReview={canReview}
+            initialDisplayMode={initialDisplayMode}
+            onCreateCustomView={onCreateCustomView}
+          />
+        </QueryClientProvider>
       </DesignSystemProvider>
     </IntlProvider>,
   );

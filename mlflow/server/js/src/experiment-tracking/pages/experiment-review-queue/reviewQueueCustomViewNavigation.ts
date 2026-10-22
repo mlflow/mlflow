@@ -22,7 +22,8 @@ export interface ReviewQueueCreateCustomViewUrlParams {
 
 /**
  * Builds a hash-router URL for the Traces page that opens the selected trace and asks
- * the drawer to enter its existing custom-view creation flow.
+ * the drawer to enter its existing custom-view creation flow. Fragment-relative, so it
+ * keeps the server's `--static-prefix` path when resolved against the current page.
  */
 export const getReviewQueueCreateCustomViewUrl = ({
   experimentId,
@@ -39,5 +40,5 @@ export const getReviewQueueCreateCustomViewUrl = ({
   searchParams.set(CREATE_CUSTOM_VIEW_QUERY_PARAM, 'true');
 
   const path = Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Traces);
-  return `/#${path}?${searchParams.toString()}`;
+  return `#${path}?${searchParams.toString()}`;
 };

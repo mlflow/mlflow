@@ -189,7 +189,7 @@ describe('ExperimentReviewQueuePage saved custom views', () => {
     expect(target).toBe('_blank');
     expect(features).toBe('noopener,noreferrer');
     const [path, query] = String(url).split('?');
-    expect(path).toBe('/#/experiments/exp-1/traces');
+    expect(path).toBe('#/experiments/exp-1/traces');
     const params = new URLSearchParams(query);
     expect(params.get('selectedEvaluationId')).toBe('tr-1');
     expect(params.get('createCustomView')).toBe('true');

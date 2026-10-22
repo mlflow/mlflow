@@ -14,7 +14,7 @@ describe('getReviewQueueCreateCustomViewUrl', () => {
     });
 
     const [path, query] = url.split('?');
-    expect(path).toBe('/#/experiments/experiment-1/traces');
+    expect(path).toBe('#/experiments/experiment-1/traces');
     const params = new URLSearchParams(query);
     expect(params.get('selectedEvaluationId')).toBe('tr-123');
     expect(params.get(CREATE_CUSTOM_VIEW_QUERY_PARAM)).toBe('true');
@@ -24,5 +24,13 @@ describe('getReviewQueueCreateCustomViewUrl', () => {
     expect(params.has('startReview')).toBe(false);
     expect(params.has('spanId')).toBe(false);
     expect(params.has('traceId')).toBe(false);
+  });
+
+  test('keeps a static-prefix deployment path when opened from the current page', () => {
+    const url = getReviewQueueCreateCustomViewUrl({ experimentId: '1', traceId: 'tr-1', currentSearch: '' });
+
+    expect(new URL(url, 'http://host/mlflow/#/experiments/1/review-queue').href).toMatch(
+      /^http:\/\/host\/mlflow\/#\/experiments\/1\/traces\?/,
+    );
   });
 });
