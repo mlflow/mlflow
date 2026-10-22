@@ -7,7 +7,7 @@ import pytest
 from mlflow.entities.span import Span, SpanType
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.otel.translation import (
-    sanitize_attributes,
+    strip_otlp_double_encoding,
     translate_loaded_span,
     translate_span_type_from_otel,
     translate_span_when_storing,
@@ -668,8 +668,10 @@ def test_translate_inputs_outputs_edge_cases(
         ),
     ],
 )
-def test_sanitize_attributes(attributes: dict[str, Any], expected_attributes: dict[str, Any]):
-    result = sanitize_attributes(attributes)
+def test_strip_otlp_double_encoding(
+    attributes: dict[str, Any], expected_attributes: dict[str, Any]
+):
+    result = strip_otlp_double_encoding(attributes)
     assert result == expected_attributes
 
 
@@ -1085,8 +1087,10 @@ def test_update_token_usage_without_cached_tokens():
 def _translate_claude_code_span(attributes, events=None):
     span = mock.Mock(spec=Span)
     span.parent_id = "parent_123"
+    # Mirror the OTLP ingest path: from_otel_proto encodes each value once, then the
+    # endpoint strips the extra layer before the store translates the span.
     span.to_dict.return_value = {
-        "attributes": {k: json.dumps(v) for k, v in attributes.items()},
+        "attributes": strip_otlp_double_encoding({k: json.dumps(v) for k, v in attributes.items()}),
         "events": events or [],
     }
     return translate_span_when_storing(span)["attributes"]

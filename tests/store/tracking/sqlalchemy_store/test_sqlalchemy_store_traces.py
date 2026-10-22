@@ -3974,6 +3974,19 @@ async def test_log_spans(store: SqlAlchemyStore, is_async: bool):
         )
 
 
+@pytest.mark.parametrize("output", ["hello", '"quoted"', '{"a": 1}', "[1, 2]"])
+def test_log_spans_preserves_json_looking_string_outputs(store: SqlAlchemyStore, output: str):
+    experiment_id = store.create_experiment("test_json_looking_string_outputs")
+    trace_id = "tr-json-string-outputs"
+    span = create_test_span_with_content(trace_id, inputs=output, outputs=output)
+
+    store.log_spans(experiment_id, [span])
+
+    stored_span = store.get_trace(trace_id).data.spans[0]
+    assert stored_span.inputs == output
+    assert stored_span.outputs == output
+
+
 @pytest.mark.asyncio
 async def test_log_spans_async_offloads_to_worker_thread(store: SqlAlchemyStore):
     event_loop_ident = threading.get_ident()
