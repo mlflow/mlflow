@@ -3,11 +3,14 @@ from types import SimpleNamespace
 from unittest import mock
 
 import pytest
+from packaging.version import Version
 
 from mlflow.assistant.config import set_config_user
 from mlflow.assistant.providers import MlflowGatewayProvider, list_providers
+from mlflow.assistant.providers.base import ProviderNotConfiguredError
 from mlflow.assistant.providers.mlflow_gateway import set_server_url
 from mlflow.gateway.constants import MLFLOW_GATEWAY_AUTH_HEADER
+from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
 
 def _gateway_provider():
@@ -159,6 +162,34 @@ def test_request_kwargs_empty_for_plain_http_or_without_a_bound_host(
     set_server_url(url, host_header=host_header)
 
     assert _gateway_provider()._request_kwargs(f"{url}/gateway/mlflow/v1/chat/completions") == {}
+
+
+def test_auth_headers_present_the_bound_workspace_header(reset_server_url):
+    # The self-call carries the inbound request's workspace header, so the gateway resolves the
+    # same (non-default) workspace instead of falling back to the default one.
+    set_server_url("http://127.0.0.1:5000", workspace_header="team-a")
+
+    assert _gateway_provider()._auth_headers(None)[WORKSPACE_HEADER_NAME] == "team-a"
+
+
+def test_auth_headers_omit_workspace_header_without_a_bound_one(reset_server_url):
+    set_server_url("http://127.0.0.1:5000", host_header="mlflow.internal:5000")
+
+    assert WORKSPACE_HEADER_NAME not in _gateway_provider()._auth_headers(None)
+
+
+def test_request_kwargs_reject_tls_self_call_on_old_aiohttp(monkeypatch, reset_server_url):
+    # Before aiohttp 3.9 there is no way to verify the certificate against the inbound host name
+    # while connecting to the server's address, so refuse clearly instead of failing the handshake.
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.mlflow_gateway._AIOHTTP_VERSION", Version("3.8.6")
+    )
+    set_server_url("https://127.0.0.1:5000", host_header="mlflow.internal:5000")
+
+    with pytest.raises(ProviderNotConfiguredError, match="aiohttp>=3.9"):
+        _gateway_provider()._request_kwargs(
+            "https://127.0.0.1:5000/gateway/mlflow/v1/chat/completions"
+        )
 
 
 def test_check_connection_raises_when_no_backend_probe():

@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.testclient import TestClient
+from packaging.version import Version
 from starlette.requests import Request
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
@@ -43,6 +44,7 @@ from mlflow.server.assistant.api import (
 )
 from mlflow.server.assistant.session import SESSION_DIR, SessionManager, save_process_pid
 from mlflow.utils.os import is_windows
+from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
 
 class MockProvider(AssistantProvider):
@@ -1274,7 +1276,10 @@ def test_stream_gateway_provider_calls_the_server_itself_not_the_client_host(
     ):
         client = TestClient(app, base_url="http://127.0.0.1:5000")
         r = client.post("/ajax-api/3.0/mlflow/assistant/message", json={"message": "Hi"})
-        response = client.get(r.json()["stream_url"], headers={"Host": "10.attacker.example:8080"})
+        response = client.get(
+            r.json()["stream_url"],
+            headers={"Host": "10.attacker.example:8080", WORKSPACE_HEADER_NAME: "team-a"},
+        )
 
     assert response.status_code == 200
     ((url, headers, kwargs),) = calls
@@ -1287,6 +1292,34 @@ def test_stream_gateway_provider_calls_the_server_itself_not_the_client_host(
     assert headers["Host"] == "10.attacker.example:8080"
     # On a TLS listener the certificate is verified against that inbound name, not the address.
     assert kwargs.get("server_hostname") == ("10.attacker.example" if tls_listener else None)
+    # The inbound workspace header rides along, so the gateway resolves the same workspace.
+    assert headers[WORKSPACE_HEADER_NAME] == "team-a"
+
+
+def test_stream_gateway_provider_reports_old_aiohttp_on_a_tls_listener(monkeypatch):
+    monkeypatch.setenv(_MLFLOW_SERVER_TLS_LISTENER.name, "true")
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.mlflow_gateway._AIOHTTP_VERSION", Version("3.8.6")
+    )
+    app = FastAPI()
+    app.include_router(assistant_router)
+    provider = MlflowGatewayProvider()
+
+    with (
+        patch("mlflow.server.assistant.api.list_providers", return_value=[provider]),
+        patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider),
+        patch("mlflow.server.assistant.api._is_localhost", return_value=True),
+        patch("mlflow.server.assistant.api.ensure_assistant_gateway_use_permission"),
+        patch.object(MlflowGatewayProvider, "list_models", return_value=["chat-endpoint"]),
+        patch("aiohttp.ClientSession.post", side_effect=AssertionError("must not be called")),
+    ):
+        client = TestClient(app, base_url="http://127.0.0.1:5000")
+        r = client.post("/ajax-api/3.0/mlflow/assistant/message", json={"message": "Hi"})
+        response = client.get(r.json()["stream_url"])
+
+    assert response.status_code == 200
+    assert "event: error" in response.text
+    assert "aiohttp>=3.9" in response.text
 
 
 @pytest.mark.asyncio

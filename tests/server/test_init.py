@@ -224,16 +224,20 @@ def test_run_server(mock_exec_cmd, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    ("uvicorn_opts", "expected"),
+    ("uvicorn_opts", "inherited", "expected"),
     [
-        ("--ssl-keyfile key.pem --ssl-certfile cert.pem", "true"),
-        (None, None),
+        ("--ssl-keyfile key.pem --ssl-certfile cert.pem", None, "true"),
+        (None, None, "false"),
+        # A marker inherited from a parent server must not leak into a child without TLS.
+        (None, "true", "false"),
     ],
 )
 def test_run_server_marks_a_tls_listener_for_workers(
-    mock_exec_cmd, monkeypatch, uvicorn_opts, expected
+    mock_exec_cmd, monkeypatch, uvicorn_opts, inherited, expected
 ):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
+    if inherited is not None:
+        monkeypatch.setenv(_MLFLOW_SERVER_TLS_LISTENER.name, inherited)
     with mock.patch("sys.platform", return_value="linux"):
         server._run_server(
             file_store_path="",
@@ -248,7 +252,7 @@ def test_run_server_marks_a_tls_listener_for_workers(
         )
 
     extra_env = mock_exec_cmd.call_args.kwargs["extra_env"]
-    assert extra_env.get(_MLFLOW_SERVER_TLS_LISTENER.name) == expected
+    assert extra_env[_MLFLOW_SERVER_TLS_LISTENER.name] == expected
 
 
 def test_run_server_rejects_invalid_enabled_rollup_schedule(mock_exec_cmd, monkeypatch):

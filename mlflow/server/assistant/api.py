@@ -61,6 +61,7 @@ from mlflow.server.assistant.session import (
     terminate_session_process,
 )
 from mlflow.server.handlers import _add_static_prefix
+from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
 _logger = logging.getLogger(__name__)
 
@@ -661,8 +662,13 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
             # so that call goes to the server's own address. The tracking URI above derives from
             # the client's Host header, which a caller could point at a host they control. The
             # call still presents this request's Host header, which the server's Host allowlist
-            # has already admitted.
-            set_server_url(get_server_self_url(request), host_header=request.headers.get("host"))
+            # has already admitted, and its workspace header, so the gateway resolves the same
+            # workspace as this request.
+            set_server_url(
+                get_server_self_url(request),
+                host_header=request.headers.get("host"),
+                workspace_header=request.headers.get(WORKSPACE_HEADER_NAME),
+            )
             # The in-server gateway enforces a per-endpoint USE permission. The Assistant's
             # managed endpoints are created outside the HTTP route that would grant it, so
             # authorize this caller for them before the turn calls the gateway.

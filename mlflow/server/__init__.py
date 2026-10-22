@@ -555,10 +555,6 @@ def _run_server(
         full_command = _build_uvicorn_command(
             uvicorn_opts, host, port, workers or 4, app, env_file, is_factory
         )
-        if _uvicorn_opts_enable_tls(uvicorn_opts):
-            # Server self-calls (e.g. the Assistant's gateway provider) must then speak HTTPS to
-            # the listener; see mlflow.server.asgi_utils.get_server_self_url.
-            env_map[_MLFLOW_SERVER_TLS_LISTENER.name] = "true"
     elif using_waitress:
         # Use waitress if explicitly requested
         warnings.warn(
@@ -652,6 +648,14 @@ def _run_server(
             if os.path.exists("/dev/shm")
             else tempfile.mkdtemp()
         )
+
+    # Whether server self-calls (e.g. the Assistant's gateway provider) must speak HTTPS to the
+    # listener; see mlflow.server.asgi_utils.get_server_self_url. Written for every launch this
+    # command owns, so a value inherited from the environment (a parent server that terminates
+    # TLS) cannot make a child server without TLS call itself over HTTPS.
+    env_map[_MLFLOW_SERVER_TLS_LISTENER.name] = (
+        "true" if using_uvicorn and _uvicorn_opts_enable_tls(uvicorn_opts) else "false"
+    )
 
     server_proc = _exec_cmd(
         full_command,
