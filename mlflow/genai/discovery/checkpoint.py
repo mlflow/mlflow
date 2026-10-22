@@ -7,9 +7,8 @@ import math
 import time
 from dataclasses import dataclass
 
+from mlflow.client import MlflowClient
 from mlflow.entities.experiment import Experiment
-from mlflow.entities.experiment_tag import ExperimentTag
-from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.utils.mlflow_tags import MLFLOW_ISSUE_DETECTION_CHECKPOINT
 
 # Schema version of the envelope stored in the ``mlflow.issueDetection.checkpoint`` experiment
@@ -134,12 +133,17 @@ def read_detection_checkpoint(experiment: Experiment) -> DetectionCheckpoint | N
 
 
 def write_detection_checkpoint(
-    store: AbstractStore, experiment_id: str, checkpoint: DetectionCheckpoint
+    client: MlflowClient, experiment_id: str, checkpoint: DetectionCheckpoint
 ) -> None:
-    """Persist the checkpoint tag. Only the scheduled sampling path calls this."""
-    store.set_experiment_tag(
-        experiment_id,
-        ExperimentTag(MLFLOW_ISSUE_DETECTION_CHECKPOINT, checkpoint.to_json()),
+    """
+    Persist the checkpoint tag. Only the scheduled run calls this.
+
+    It takes a client rather than a tracking store because the writer is the detection job, which
+    runs in its own subprocess and reaches the tracking server over its configured URI. The
+    schedule's dispatch state is written by the dispatcher instead, which runs next to the store.
+    """
+    client.set_experiment_tag(
+        experiment_id, MLFLOW_ISSUE_DETECTION_CHECKPOINT, checkpoint.to_json()
     )
 
 

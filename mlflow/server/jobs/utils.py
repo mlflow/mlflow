@@ -1135,6 +1135,23 @@ def register_periodic_tasks(huey_instance) -> None:
         "no-ops when trace archival is disabled or unconfigured)"
     )
 
+    @huey_instance.periodic_task(crontab(minute="*/1"))
+    # Prevent concurrent execution if a pass takes longer than 1 minute.
+    @huey_instance.lock_task("issue-detection-scheduler-lock")
+    def issue_detection_scheduler():
+        """Runs every minute and submits detection for each schedule whose fire time arrived."""
+        from mlflow.genai.discovery.scheduler import run_issue_detection_scheduler
+
+        try:
+            run_issue_detection_scheduler()
+        except Exception as e:
+            _logger.exception(f"Issue detection scheduler failed: {e!r}")
+
+    _logger.info(
+        "Registered issue_detection_scheduler periodic task (polls every 1 minute and "
+        "no-ops when no experiment has a detection schedule)"
+    )
+
     from mlflow.tracing.trace_rollup_service import (
         run_sql_trace_rollup_scheduler,
         validate_and_resolve_sql_trace_rollup_schedule,
