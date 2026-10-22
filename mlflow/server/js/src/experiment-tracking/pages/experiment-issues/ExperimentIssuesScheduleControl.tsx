@@ -561,40 +561,46 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
           {view === 'main' && (
             <>
-              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                <Typography.Text color="secondary">{cadenceRowLabel}</Typography.Text>
-                <SimpleSelect
-                  id={`${COMPONENT_ID}.modal.cadence`}
-                  componentId={`${COMPONENT_ID}.modal.cadence`}
-                  label={cadenceRowLabel}
-                  value={cadence}
-                  onChange={({ target }) => {
-                    if (isScheduleSetting(target.value)) {
-                      setCadence(target.value);
-                    }
-                  }}
-                  // The select's options popover defaults below the modal; lift it above the modal's zIndex.
-                  contentProps={{ style: { zIndex: theme.options.zIndexBase + 40 } }}
-                >
-                  {SETTING_OPTIONS.map((option) => (
-                    <SimpleSelectOption key={option} value={option}>
-                      {optionLabels[option]}
-                    </SimpleSelectOption>
-                  ))}
-                </SimpleSelect>
-              </div>
-              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                <Typography.Text color="secondary">{modelRowLabel}</Typography.Text>
-                {selection && (
-                  <IssueDetectionModelDropdown
-                    endpoints={endpoints}
-                    value={selection}
-                    onChange={setSelection}
-                    disabled={filtersDisabled}
-                    // The modal raises its own stacking context, which the option list defaults below.
-                    contentZIndex={theme.options.zIndexBase + 40}
-                  />
-                )}
+              {/* Cadence and model share a row: both say how a run happens, and the picker's two-line
+                  trigger is tall enough that stacking them pushed everything else down a notch. */}
+              <div css={{ display: 'flex', gap: theme.spacing.md, alignItems: 'flex-start' }}>
+                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                  <Typography.Text color="secondary">{cadenceRowLabel}</Typography.Text>
+                  <SimpleSelect
+                    id={`${COMPONENT_ID}.modal.cadence`}
+                    componentId={`${COMPONENT_ID}.modal.cadence`}
+                    label={cadenceRowLabel}
+                    value={cadence}
+                    width={140}
+                    onChange={({ target }) => {
+                      if (isScheduleSetting(target.value)) {
+                        setCadence(target.value);
+                      }
+                    }}
+                    // The select's options popover defaults below the modal; lift it above the modal's zIndex.
+                    contentProps={{ style: { zIndex: theme.options.zIndexBase + 40 } }}
+                  >
+                    {SETTING_OPTIONS.map((option) => (
+                      <SimpleSelectOption key={option} value={option}>
+                        {optionLabels[option]}
+                      </SimpleSelectOption>
+                    ))}
+                  </SimpleSelect>
+                </div>
+                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, flex: 1, minWidth: 0 }}>
+                  <Typography.Text color="secondary">{modelRowLabel}</Typography.Text>
+                  {selection && (
+                    <IssueDetectionModelDropdown
+                      endpoints={endpoints}
+                      value={selection}
+                      onChange={setSelection}
+                      disabled={filtersDisabled}
+                      // The modal raises its own stacking context, which this control's option list
+                      // and its "Create endpoint" modal would otherwise render below.
+                      overlayZIndex={theme.options.zIndexBase + 40}
+                    />
+                  )}
+                </div>
               </div>
               <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
                 <Typography.Text color="secondary">{filterSectionLabel}</Typography.Text>

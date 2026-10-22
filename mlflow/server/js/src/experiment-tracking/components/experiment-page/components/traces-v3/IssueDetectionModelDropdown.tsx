@@ -210,17 +210,18 @@ export const IssueDetectionModelDropdown = ({
   value,
   onChange,
   disabled = false,
-  contentZIndex,
+  overlayZIndex,
 }: {
   endpoints: Endpoint[];
   value: IssueDetectionModelSelection;
   onChange: (value: IssueDetectionModelSelection) => void;
   disabled?: boolean;
   /**
-   * Lifts the portaled option list above a host that raises its own stacking context (a modal
-   * that sets `zIndex`). Left unset, the design system's default applies.
+   * Lifts this control's overlays -- the option list and the "Create endpoint" modal it can open --
+   * above a host that raises its own stacking context (a modal that sets `zIndex`), which would
+   * otherwise render over them. Left unset, the design system's defaults apply.
    */
-  contentZIndex?: number;
+  overlayZIndex?: number;
 }) => {
   const { theme } = useDesignSystemTheme();
   const { refetch: refetchEndpoints } = useEndpointsQuery();
@@ -300,7 +301,7 @@ export const IssueDetectionModelDropdown = ({
         sideOffset={4}
         collisionPadding={16}
         avoidCollisions={false}
-        style={{ padding: 0, minWidth: 260, ...(contentZIndex === undefined ? {} : { zIndex: contentZIndex }) }}
+        style={{ padding: 0, minWidth: 260, ...(overlayZIndex === undefined ? {} : { zIndex: overlayZIndex }) }}
       >
         <div
           css={{
@@ -336,6 +337,7 @@ export const IssueDetectionModelDropdown = ({
       {isCreateModalOpen && (
         <CreateEndpointModal
           open={isCreateModalOpen}
+          zIndex={overlayZIndex}
           onClose={() => setIsCreateModalOpen(false)}
           onSuccess={(endpoint) => {
             refetchEndpoints();
