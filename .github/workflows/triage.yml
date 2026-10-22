@@ -908,14 +908,14 @@ jobs:
             exit 0
           fi
           trace_id=$(jq -r '.[0]' <<< "$ids")
-          # The payload is agent output and unvalidated here, so keep only a well-formed label as the verdict.
+          # The payload is agent output and unvalidated here, so keep only a well-formed verdict.
           payload=$(jq -c objects "$RUNNER_TEMP/triage-report/payload.json" 2>/dev/null) || payload='{}'
           tags=$(jq -nc --argjson p "${payload:-"{}"}" '{
             "triage.action": env.ACTION,
             "triage.type": env.TYPE,
             "triage.status": env.STATUS,
             "triage.dry_run": env.DRY_RUN,
-            "triage.verdict": (($p.label | strings | select(test("^triage: [a-z-]+$")) | ltrimstr("triage: ")) // ""),
+            "triage.verdict": (($p.verdict | strings | select(test("^[a-z-]+$"))) // ""),
             "triage.pr_created": ($p | has("pull_request") | tostring)
           } | with_entries(select(.value != ""))')
           jq -c 'to_entries[]' <<< "$tags" | while read -r tag; do
@@ -1089,10 +1089,8 @@ jobs:
           COMMENT_ID: ${{ needs.start_triage.outputs.comment_id }}
           PAYLOAD_PATH: /tmp/triage-out/payload.json
           SHOULD_POST: ${{ needs.issue.outputs.dry_run == 'false' }}
-          ACTION: ${{ needs.issue.outputs.action }}
-          TRIAGE_TYPE: ${{ needs.label.outputs.type }}
         run: |
-          triage_label=$(jq -r '.label // .verdict // empty' "$PAYLOAD_PATH")
+          triage_label=$(jq -r '.verdict // empty | "triage: \(.)"' "$PAYLOAD_PATH")
           comment=$(jq -r --arg notice "$TRIAGE_NOTICE" \
             --arg marker "<!-- mlflow-triage-run:$GITHUB_RUN_ID -->" \
             '"\($marker)\n\n\($notice)\n\n\(.comment)"' "$PAYLOAD_PATH")
@@ -1107,7 +1105,7 @@ jobs:
             echo "$state"
             echo
             if [ -n "$triage_label" ]; then
-              jq -nr --arg label "$triage_label" '"Label: <code>\($label | @html)</code>"'
+              jq -nr --arg triage_label "$triage_label" '"Label: <code>\($triage_label | @html)</code>"'
               echo
             fi
             jq -nr --arg comment "$comment" '"<pre>\($comment | @html)</pre>"'
@@ -1117,15 +1115,6 @@ jobs:
           fi
           gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -f body="$comment" > /dev/null
           if [ -n "$triage_label" ]; then
-            if [ "$ACTION" = init ] && [ "$TRIAGE_TYPE" = feature_request ]; then
-              existing_labels=$(gh api --paginate "repos/$REPO/labels?per_page=100" --jq '.[].name')
-              if ! grep -Fx -- "$triage_label" <<< "$existing_labels" > /dev/null; then
-                gh api "repos/$REPO/labels" --method POST \
-                  -f name="$triage_label" \
-                  -f color=ededed \
-                  -f description="Automated feature-request triage verdict" > /dev/null
-              fi
-            fi
             gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label "$triage_label"
           fi
       - name: Update unfinished triage status

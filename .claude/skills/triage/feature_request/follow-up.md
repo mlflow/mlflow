@@ -21,5 +21,5 @@ workflows in the browser as described in [runtime.md](../runtime.md).
 
 Read [follow-up.schema.yml](follow-up.schema.yml). Write a concise, free-form `comment`
 addressing the request, including changes to the triage or implementation results
-and verification. Do not repeat the original report or include a `label`. Include
+and verification. Do not repeat the original report or include a `verdict`. Include
 `pull_request` only with a verified `fix.patch` that meets the shared requirements.
