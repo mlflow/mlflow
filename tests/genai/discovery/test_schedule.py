@@ -9,11 +9,13 @@ from mlflow.entities.experiment import Experiment
 from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.genai.discovery.checkpoint import FIRST_RUN_LOOKBACK_MS
 from mlflow.genai.discovery.schedule import (
+    MAX_MODEL_IDENTIFIER_LENGTH,
     MAX_TRACE_FILTERS,
     SCHEDULE_VERSION,
     DetectionCadence,
     DetectionSchedule,
     DetectionScheduleState,
+    ScheduleModel,
     ScheduleTraceFilter,
     claim_first_occurrence,
     claim_occurrence,
@@ -411,3 +413,97 @@ def test_availability_needs_jobs_periodic_tasks_and_a_sql_backend(
     ) as check_requirements:
         assert scheduled_detection_available() is expected
     assert check_requirements.called is (job_execution and periodic_tasks)
+
+
+def test_a_model_round_trips_through_the_schedule_envelope():
+    schedule = DetectionSchedule(
+        cadence=DetectionCadence.DAILY,
+        model=ScheduleModel(provider="openai", model="gpt-5.6-sol"),
+    )
+    assert parse_detection_schedule(schedule.to_json()) == schedule
+
+
+def test_an_endpoint_round_trips_through_the_schedule_envelope():
+    schedule = DetectionSchedule(
+        cadence=DetectionCadence.DAILY, model=ScheduleModel(endpoint_name="prod-gateway")
+    )
+    assert parse_detection_schedule(schedule.to_json()).model == ScheduleModel(
+        endpoint_name="prod-gateway"
+    )
+
+
+def test_a_schedule_with_no_model_serializes_without_the_field():
+    serialized = json.loads(DetectionSchedule(cadence=DetectionCadence.DAILY).to_json())
+    assert "model" not in serialized
+
+
+@pytest.mark.parametrize(
+    ("provider", "model", "expected"),
+    [
+        ("openai", "gpt-5.6-sol", "openai:/gpt-5.6-sol"),
+        # The manual path lowercases the provider before building the URI; so does this.
+        ("OpenAI", "gpt-5.6-sol", "openai:/gpt-5.6-sol"),
+        ("openrouter", "meta-llama/llama-4", "openrouter:/meta-llama/llama-4"),
+    ],
+)
+def test_the_model_uri_matches_what_the_manual_path_builds(
+    provider: str, model: str, expected: str
+):
+    assert ScheduleModel(provider=provider, model=model).to_model_uri() == expected
+
+
+def test_an_endpoint_takes_precedence_over_a_provider_in_the_same_envelope():
+    # Both halves stored (the picker keeps a provider around while an endpoint is selected): the
+    # endpoint is what was chosen, so it is what runs.
+    parsed = parse_detection_schedule(
+        json.dumps({
+            "version": SCHEDULE_VERSION,
+            "cadence": "daily",
+            "model": {"endpointName": "prod-gateway", "provider": "openai", "model": "gpt-5.6-sol"},
+        })
+    )
+    assert parsed.model.to_model_uri() == "gateway:/prod-gateway"
+
+
+@pytest.mark.parametrize(
+    "model_value",
+    [
+        None,
+        {},
+        "openai:/gpt-5.6-sol",
+        ["openai", "gpt-5.6-sol"],
+        {"provider": "openai"},
+        {"model": "gpt-5.6-sol"},
+        {"provider": "openai", "model": ""},
+        {"provider": "", "model": "gpt-5.6-sol"},
+        {"provider": "openai", "model": "   "},
+        {"provider": 7, "model": "gpt-5.6-sol"},
+        {"provider": True, "model": "gpt-5.6-sol"},
+        # Whitespace or control characters would make a model URI nothing names.
+        {"provider": "openai", "model": "gpt 5.6"},
+        {"provider": "open ai", "model": "gpt-5.6-sol"},
+        {"provider": "openai", "model": "a" * (MAX_MODEL_IDENTIFIER_LENGTH + 1)},
+        {"endpointName": ""},
+        {"endpointName": "prod gateway"},
+        {"endpointName": 7},
+    ],
+)
+def test_an_unusable_model_reads_as_no_model_rather_than_failing_the_schedule(model_value: object):
+    parsed = parse_detection_schedule(
+        json.dumps({"version": SCHEDULE_VERSION, "cadence": "daily", "model": model_value})
+    )
+    # The schedule still fires -- on the server's default model -- rather than silently stopping.
+    assert parsed is not None
+    assert parsed.cadence is DetectionCadence.DAILY
+    assert parsed.model is None
+
+
+def test_surrounding_whitespace_is_trimmed_from_a_stored_identifier():
+    parsed = parse_detection_schedule(
+        json.dumps({
+            "version": SCHEDULE_VERSION,
+            "cadence": "daily",
+            "model": {"provider": " openai ", "model": "gpt-5.6-sol\n"},
+        })
+    )
+    assert parsed.model == ScheduleModel(provider="openai", model="gpt-5.6-sol")
