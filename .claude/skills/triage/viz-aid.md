@@ -4,22 +4,21 @@ Add an explanatory diagram when the verdict is `triage: reproduced` or `triage: 
 unless screenshots or recordings already show the symptom. Make it after the reproduction and
 any fix are verified, and skip it if fewer than 10 minutes of the run remain.
 
-1. **Takeaway:** Choose one finding the reader should understand. State it in a short,
-   plain-language headline that makes sense without reading the issue.
-2. **Mechanism:** Identify the events, values, or resources the reader must relate to
-   understand why the failure occurs. Choose the visual relationship first, then the shapes.
-   Make the failure visible through position, order, connections, or scale. Use only
-   verified values and names, and mark steps that were not measured as illustrative.
-3. **Size:** Design the figure 800px wide, the width GitHub shows it at, and keep every label
-   at least 14px. Never break an identifier, path, or ID mid-token.
-4. **Theme:** Always use a dark theme. Keep secondary text at least as light as `#9da7b3` so
-   it stays readable on the dark background.
+1. **Takeaway:** Pick one finding and state it in a plain-language headline of at most two lines
+   that makes sense without the issue. Keep the conditions the evidence attaches to it (which
+   input, environment, or threshold) instead of broadening it.
+2. **Mechanism:** Make the cause visible in the drawing: relate the events, values, or resources
+   through position, order, connections, or scale. Every value, name, and claim, footnotes
+   included, must match the verified findings. Label unmeasured steps as illustrative where
+   they appear.
+3. **Legibility:** Design 800px wide with every label at least 14px; never wrap inside an
+   identifier, path, or ID. Use a dark theme and set every text color explicitly (`fill` for SVG
+   text). Text that explains the failure uses the main text color; only secondary labels may be
+   dimmer, down to `#9da7b3`.
 
-Create a self-contained HTML file with CSS and inline SVG under `$out_dir/work`. Include
-`<meta charset="utf-8">`, set text colors explicitly (including `fill` for SVG text) so labels
-contrast with their background, escape any text copied from the issue, and load or send
-nothing. Open it with `file://` in its own `agent-browser` session (`--session viz`), set the
-viewport to 800px wide at device scale factor 2, and screenshot just the figure element into
-`$out_dir/media`. Check the screenshot for clipped or overlapping text and close the session.
-Cite the screenshot in the Summary, right after the verdict line, with alt text that states
-the takeaway.
+Create a self-contained HTML file with CSS and inline SVG under `$out_dir/work`: include
+`<meta charset="utf-8">`, escape text copied from the issue, and load or send nothing. Open it
+via `file://` in its own `agent-browser` session (`--session viz`) with an 800px-wide viewport at
+device scale factor 2, screenshot just the figure element into `$out_dir/media`, look at it and
+fix clipped or overlapping text, then close the session. Cite the screenshot in the Summary,
+right after the verdict line, with alt text that states the takeaway.
