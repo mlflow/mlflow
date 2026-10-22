@@ -3891,6 +3891,10 @@
     "defaultMessage": "Tags",
     "description": "Header for the tags column in the experiments table"
   },
+  "BCopKw": {
+    "defaultMessage": "A focus area name cannot contain {braces}.",
+    "description": "Issue detection settings modal > Error shown when the typed custom category contains doubled braces"
+  },
   "BCpX6U": {
     "defaultMessage": "Registered models",
     "description": "Run page > Overview > Run models section label"

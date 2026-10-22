@@ -217,10 +217,18 @@ Example: "correctness, execution"
 
 
 def _format_category_list(categories: list[str]) -> str:
+    """
+    The category list as it appears in a prompt.
+
+    A custom category is operator-authored text heading for a judge's instructions, so it goes
+    through the same brace neutralization as the free-text priorities: the name is looked up and
+    stored verbatim, and only its rendered form here is rewritten.
+    """
     parts = []
     for cat in categories:
         desc = DEFAULT_CATEGORY_DESCRIPTIONS.get(cat)
-        parts.append(f"{cat} ({desc})" if desc else cat)
+        label = neutralize_template_braces(cat)
+        parts.append(f"{label} ({desc})" if desc else label)
     return ", ".join(parts)
 
 
@@ -251,9 +259,19 @@ MAX_PRIORITIES_LENGTH = 5000
 
 _PRIORITIES_DELIMITER_RE = re.compile(r"</?\s*detection_priorities\s*/?>", re.IGNORECASE)
 # ``{{ name }}`` in a judge's instructions declares a template variable, and the triage judge
-# validates the set it finds. An operator who writes one -- even by quoting a placeholder they
-# want flagged -- would otherwise abort the whole run before a single trace is read.
+# validates the set it finds. Any operator-authored text that reaches those instructions can
+# therefore abort the whole run before a single trace is read -- free-text priorities and
+# custom category names alike.
 _TEMPLATE_BRACES_RE = re.compile(r"\{\{|\}\}")
+
+
+def neutralize_template_braces(text: str) -> str:
+    """
+    Collapse doubled braces so operator text cannot declare a judge template variable.
+
+    The wording survives and reads the same to the model; it simply stops being a variable.
+    """
+    return _TEMPLATE_BRACES_RE.sub(lambda match: match.group()[0], text)
 
 
 def _strip_priorities_delimiters(text: str) -> str:
@@ -286,7 +304,7 @@ def build_detection_priorities(instructions: str | None) -> str:
     if not instructions or not (text := instructions.strip()):
         return ""
     text = _strip_priorities_delimiters(text[:MAX_PRIORITIES_LENGTH])
-    text = _TEMPLATE_BRACES_RE.sub(lambda match: match.group()[0], text).strip()
+    text = neutralize_template_braces(text).strip()
     if not text:
         return ""
     return DETECTION_PRIORITIES_INSTRUCTIONS.format(instructions=text)

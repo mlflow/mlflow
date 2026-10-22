@@ -165,3 +165,38 @@ def test_a_merged_singleton_summary_still_carries_the_priorities():
         )
 
     assert summarize.call_args.kwargs["instructions"] == "Authentication failures are always high."
+
+
+def test_a_custom_category_name_cannot_abort_the_run_either():
+    # Reported in review: priorities were not the only operator-authored text reaching the
+    # judge's instructions. A custom focus area goes through the same template parsing, so a
+    # doubled brace in its *name* took the run down before any trace was read.
+    categories = ["correctness", "Unresolved {{ customer_name }} placeholders"]
+
+    for use_conversation in (True, False):
+        build_issue_discovery_scorer(categories=categories, use_conversation=use_conversation)
+
+    rendered = build_satisfaction_instructions(
+        use_conversation=False, categories=categories, instructions=None
+    )
+    # Still legible to the model, just no longer a variable declaration. Asserted against the
+    # category name rather than the whole prompt, which legitimately carries the stage's own
+    # ``{{ inputs }}`` placeholder.
+    assert "Unresolved { customer_name } placeholders" in rendered
+    assert "{{ customer_name }}" not in rendered
+
+
+def test_the_severity_stage_survives_a_braced_category_name_too():
+    categories = ["correctness", "Unresolved {{ customer_name }} placeholders"]
+
+    prompt = build_cluster_summary_prompt(categories)
+
+    assert "Unresolved { customer_name } placeholders" in prompt
+    assert "{{ customer_name }}" not in prompt
+
+
+def test_neutralizing_braces_leaves_ordinary_names_alone():
+    from mlflow.genai.discovery.constants import neutralize_template_braces
+
+    for text in ("correctness", "pii leakage", "cost > baseline", "a {single} brace"):
+        assert neutralize_template_braces(text) == text
