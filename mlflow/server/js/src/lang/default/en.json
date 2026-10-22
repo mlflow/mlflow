@@ -835,10 +835,6 @@
     "defaultMessage": "LLM judge feedback",
     "description": "Label for the button to add LLM judge feedback to the trace"
   },
-  "1+lSBz": {
-    "defaultMessage": "Add",
-    "description": "Issue detection settings modal > Label of the button that confirms a custom category"
-  },
   "1/M8+x": {
     "defaultMessage": "X-axis:",
     "description": "Label text for x-axis in scatter plot comparison in MLflow"
@@ -987,6 +983,10 @@
     "defaultMessage": "No dataset",
     "description": "Label for the ungrouped metrics column group in the logged model column selector"
   },
+  "1btee7": {
+    "defaultMessage": "Remove custom category {category}",
+    "description": "Issue detection settings modal > Remove custom category button label"
+  },
   "1dpbMP": {
     "defaultMessage": "Delete {count, plural, one {# Endpoint} other {# Endpoints}}",
     "description": "Gateway > Bulk delete endpoints modal > Title"
@@ -1002,6 +1002,10 @@
   "1hI96w": {
     "defaultMessage": "Showing only visible runs",
     "description": "Experiment page > compare runs > parallel chart > header > indicator for only visible runs shown"
+  },
+  "1hoVpT": {
+    "defaultMessage": "Save",
+    "description": "Issue detection settings modal > Save button"
   },
   "1htGxF": {
     "defaultMessage": "Cancel",
@@ -1926,10 +1930,6 @@
   "4jGsM0": {
     "defaultMessage": "In progress",
     "description": "Running trace status in the trace drawer header"
-  },
-  "4kMW++": {
-    "defaultMessage": "Cancel",
-    "description": "Issue detection settings modal > Label of the button that discards the changes"
   },
   "4kSYNV": {
     "defaultMessage": "No issues found",
@@ -3003,6 +3003,10 @@
     "defaultMessage": "Predicate",
     "description": "Predicate decision answer type"
   },
+  "8I6VaG": {
+    "defaultMessage": "For example:{lineBreak}- Treat authentication failures as high severity{lineBreak}- Only report high and medium severity issues{lineBreak}- Ignore cosmetic output formatting issues",
+    "description": "Issue detection settings modal > Detection instructions placeholder"
+  },
   "8I9ipd": {
     "defaultMessage": "The provided value is not valid JSON",
     "description": "Error message for invalid JSON in an assessment edit form"
@@ -3258,10 +3262,6 @@
   "9CqEWy": {
     "defaultMessage": "Load more",
     "description": "Load more button text to load more experiment runs"
-  },
-  "9E4rZq": {
-    "defaultMessage": "Could not save issue detection settings. Try again.",
-    "description": "Issue detection settings modal > Error shown when saving the settings failed"
   },
   "9EibEs": {
     "defaultMessage": "Metadata:",
@@ -6583,10 +6583,6 @@
     "defaultMessage": "Pairwise review question",
     "description": "Accessible label for the pairwise review question banner"
   },
-  "KQLYyN": {
-    "defaultMessage": "For example:{lineBreak}- Treat authentication failures as high severity{lineBreak}- Only report high and medium severity issues{lineBreak}- Ignore cosmetic output formatting issues",
-    "description": "Issue detection settings modal > Placeholder examples for the priorities field"
-  },
   "KQMhjY": {
     "defaultMessage": "Status:",
     "description": "MCP compare metadata status label"
@@ -7311,6 +7307,10 @@
     "defaultMessage": "Expectation (ground truth)",
     "description": "Review question answer type: expectation"
   },
+  "Mt1xf7": {
+    "defaultMessage": "Issue detection settings",
+    "description": "Issues page > Accessible label and tooltip for the issue detection settings button"
+  },
   "Mtj9Ay": {
     "defaultMessage": "Edit description",
     "description": "Run page > Overview > Description section > Edit button label"
@@ -7322,6 +7322,10 @@
   "MxiIan": {
     "defaultMessage": "Add message",
     "description": "Button to insert a new chat message row"
+  },
+  "MylJBR": {
+    "defaultMessage": "Custom category",
+    "description": "Issue detection settings modal > Custom category field label"
   },
   "Myqag6": {
     "defaultMessage": "View details",
@@ -7378,6 +7382,10 @@
   "N5IyPh": {
     "defaultMessage": "Click on a stage to choose when this guardrail runs.",
     "description": "Stage help text"
+  },
+  "N6DzXF": {
+    "defaultMessage": "Could not save issue detection settings. Try again.",
+    "description": "Issue detection settings modal > Save error"
   },
   "N79Rdb": {
     "defaultMessage": "{count, plural, =1 {1 month} other {# months}} ago",
@@ -7442,10 +7450,6 @@
   "NHlNLj": {
     "defaultMessage": "Description",
     "description": "Label for issue description section"
-  },
-  "NIUj2T": {
-    "defaultMessage": "Save",
-    "description": "Issue detection settings modal > Label of the button that saves the settings"
   },
   "NIX2/p": {
     "defaultMessage": "Edit tags",
@@ -7999,10 +8003,6 @@
     "defaultMessage": "Workspace Manager",
     "description": "Admin page title shown when the URL is scoped to a single workspace via ?workspace=…"
   },
-  "P0rc5O": {
-    "defaultMessage": "Issue detection settings",
-    "description": "Experiment issues tab > Label of the button that opens the detection settings"
-  },
   "P1Bmq/": {
     "defaultMessage": "Search skills",
     "description": "Placeholder for Skill Registry free-text search"
@@ -8278,10 +8278,6 @@
   "PymnbL": {
     "defaultMessage": "User",
     "description": "Header for the traces table user column"
-  },
-  "PzC7IZ": {
-    "defaultMessage": "Focus areas",
-    "description": "Issue detection settings modal > Title of the category selection section"
   },
   "PzytKT": {
     "defaultMessage": "Always show parents of matched spans, regardless of filter conditions",
@@ -8706,10 +8702,6 @@
   "RQad6L": {
     "defaultMessage": "Capture inputs, tool calls, latency, and cost to understand how your agent behaves.",
     "description": "Trace step description"
-  },
-  "RRg+Om": {
-    "defaultMessage": "Custom category",
-    "description": "Issue detection settings modal > Label of the button that reveals the custom category field"
   },
   "RRvtnM": {
     "defaultMessage": "Did the conversation avoid causing user frustration?",
@@ -9947,6 +9939,10 @@
     "defaultMessage": "Using the list of logged table artifacts, select at least one to start comparing results.",
     "description": "Experiment page > artifact compare view > table select dropdown tooltip"
   },
+  "Va0iq8": {
+    "defaultMessage": "Focus areas",
+    "description": "Issue detection settings modal > Focus areas section title"
+  },
   "Vadurt": {
     "defaultMessage": "Issues by severity. Use arrow keys to select a day.",
     "description": "Accessible label for the interactive issue activity chart"
@@ -10018,6 +10014,10 @@
   "VpFZR/": {
     "defaultMessage": "Cancel",
     "description": "A label for the cancel button in the delete prompt version modal"
+  },
+  "VqLpmy": {
+    "defaultMessage": "Detection priorities",
+    "description": "Issue detection settings modal > Detection priorities field label"
   },
   "VqSjYH": {
     "defaultMessage": "MLflow documentation",
@@ -10951,10 +10951,6 @@
     "defaultMessage": "Follow these steps to create a custom code judge using your own code. {link}",
     "description": "Brief instructions for custom code judge creation"
   },
-  "Yu4tEi": {
-    "defaultMessage": "Custom category",
-    "description": "Issue detection settings modal > Label of the custom category text field"
-  },
   "YuYnxd": {
     "defaultMessage": "Delete",
     "description": "Text for delete button on the experiment view page header"
@@ -11722,6 +11718,10 @@
   "bi26D5": {
     "defaultMessage": "Run ID:",
     "description": "Text for run ID header in the main table in the model comparison page"
+  },
+  "bi5wmr": {
+    "defaultMessage": "Custom category",
+    "description": "Issue detection settings modal > Add custom category button"
   },
   "biGssA": {
     "defaultMessage": "Assessments",
@@ -13303,10 +13303,6 @@
     "defaultMessage": "Model",
     "description": "Experiment page > runs table > models column > default label for no specific model"
   },
-  "gipwIc": {
-    "defaultMessage": "Detection priorities",
-    "description": "Issue detection settings modal > Label of the free-text priorities field"
-  },
   "gjMj0f": {
     "defaultMessage": "The SQL query timed out. Please retry, and if the problem persists, try selecting a larger SQL warehouse.",
     "description": "Traces empty state > SQL warehouse timeout error description with CTA to select larger warehouse"
@@ -14438,6 +14434,10 @@
   "k/fDlw": {
     "defaultMessage": "Optimize",
     "description": "A label for a button to display the modal with instructions to optimize the prompt"
+  },
+  "k/gR2N": {
+    "defaultMessage": "Cancel",
+    "description": "Issue detection settings modal > Cancel button"
   },
   "k0CEIu": {
     "defaultMessage": "OpenAI Chat Completions",
@@ -15607,10 +15607,6 @@
     "defaultMessage": "Prompt Name",
     "description": "Header for prompt name column in linked prompts table on logged model details page"
   },
-  "nptZ+J": {
-    "defaultMessage": "Remove custom category {category}",
-    "description": "Issue detection settings modal > Label of the button that deletes a custom category"
-  },
   "nqpJx0": {
     "defaultMessage": "Time",
     "description": "Column selector label for the start-time column"
@@ -15618,6 +15614,10 @@
   "nrIEMg": {
     "defaultMessage": "No servers found",
     "description": "Empty state when MCP server search returns no results"
+  },
+  "ns5GSR": {
+    "defaultMessage": "Issue detection settings",
+    "description": "Issue detection settings modal > Title"
   },
   "nugZSE": {
     "defaultMessage": "Show less",
@@ -16778,6 +16778,10 @@
   "rs7Iic": {
     "defaultMessage": "Tags",
     "description": "Run page > Overview > Run tags section label"
+  },
+  "rsWoSh": {
+    "defaultMessage": "Cancel",
+    "description": "Issue detection settings modal > Cancel custom category button"
   },
   "rstugP": {
     "defaultMessage": "Max Tokens",
@@ -18175,10 +18179,6 @@
     "defaultMessage": "Prompt content is required",
     "description": "A validation state for the prompt content in the prompt creation modal"
   },
-  "wq16NO": {
-    "defaultMessage": "Cancel",
-    "description": "Issue detection settings modal > Label of the button that abandons a custom category"
-  },
   "wqv2gd": {
     "defaultMessage": "Redact or mask flagged content, then allow the request to continue.",
     "description": "Sanitize action description"
@@ -18338,6 +18338,10 @@
   "xEr8Gl": {
     "defaultMessage": "Set spending limits and control costs across your endpoints.",
     "description": "Empty state message for budgets list"
+  },
+  "xFz7AM": {
+    "defaultMessage": "Add",
+    "description": "Issue detection settings modal > Confirm custom category button"
   },
   "xIP8WW": {
     "defaultMessage": "Are you sure you want to delete these runs?",
