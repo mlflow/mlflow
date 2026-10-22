@@ -23,6 +23,7 @@ from mlflow.genai.discovery.checkpoint import (
 )
 from mlflow.genai.discovery.schedule import (
     DetectionSchedule,
+    ScheduleModel,
     claim_first_occurrence,
     claim_occurrence,
     due_occurrence_ms,
@@ -84,8 +85,47 @@ def _scheduled_experiments(store: AbstractStore) -> list[Experiment]:
     return experiments
 
 
+def _provider_credentials(store: AbstractStore, model: ScheduleModel | None) -> dict[str, str]:
+    """
+    The credential environment a scheduled run needs for its chosen model.
+
+    Resolved from the provider at each fire time rather than from a secret id stored with the
+    schedule, so rotating a key keeps the schedule running. An AI Gateway endpoint needs nothing
+    here: it carries its own credentials server-side.
+
+    Returns an empty mapping when there is no stored secret to use, which leaves the run on the
+    credentials in the server's own environment -- what every scheduled run used before a model
+    could be chosen. The occurrence is still dispatched either way: a run that fails visibly for
+    want of a key is easier to act on than a schedule that quietly stops firing.
+    """
+    from mlflow.genai.discovery.job import _fetch_provider_credentials
+
+    if model is None or model.endpoint_name or not model.provider:
+        return {}
+    if not hasattr(store, "list_secret_infos"):
+        return {}
+    provider = model.provider.lower()
+    try:
+        secrets = store.list_secret_infos(provider=provider)
+        if not secrets:
+            return {}
+        # Neither dialog offers a choice between several keys for one provider, so the most
+        # recently touched one wins: saving a replacement is how a key gets rotated, and a
+        # schedule should pick that up rather than stay on the one it was created with.
+        newest = max(secrets, key=lambda secret: secret.last_updated_at or secret.created_at or 0)
+        return _fetch_provider_credentials(store, provider, newest.secret_id)
+    except Exception:
+        _logger.warning(
+            "Could not resolve a stored %s credential for scheduled issue detection; the run "
+            "will fall back to the credentials in this server's environment",
+            provider,
+            exc_info=True,
+        )
+        return {}
+
+
 def _submit_occurrence(
-    experiment: Experiment, schedule: DetectionSchedule, fire_time_ms: int
+    store: AbstractStore, experiment: Experiment, schedule: DetectionSchedule, fire_time_ms: int
 ) -> str:
     from mlflow.genai.discovery.job import run_scheduled_issue_detection_job
     from mlflow.server.jobs import submit_job
@@ -107,7 +147,9 @@ def _submit_occurrence(
             "categories": list(settings.categories),
             "instructions": settings.instructions,
             "trace_filter": schedule.to_filter_string(),
+            "model": schedule.model.to_model_uri() if schedule.model else None,
         },
+        extra_envs=_provider_credentials(store, schedule.model),
     )
     return submitted.job_id
 
@@ -134,7 +176,7 @@ def _dispatch_if_due(store: AbstractStore, experiment: Experiment, now_ms: int) 
     write_detection_schedule_state(
         store, experiment.experiment_id, claim_occurrence(state, fire_time_ms, now_ms)
     )
-    job_id = _submit_occurrence(experiment, schedule, fire_time_ms)
+    job_id = _submit_occurrence(store, experiment, schedule, fire_time_ms)
     _logger.info(
         "Submitted scheduled issue detection job %s for experiment %s (%s occurrence at %d)",
         job_id,

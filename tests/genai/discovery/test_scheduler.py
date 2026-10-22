@@ -15,6 +15,7 @@ from mlflow.genai.discovery.schedule import (
     DetectionCadence,
     DetectionSchedule,
     DetectionScheduleState,
+    ScheduleModel,
     ScheduleTraceFilter,
     parse_detection_schedule_state,
 )
@@ -365,3 +366,140 @@ def test_a_failing_pass_does_not_bring_down_the_periodic_task_consumer():
         huey.periodic_tasks["issue_detection_scheduler"]()
 
     scheduler.assert_called_once()
+
+
+def test_the_schedule_model_is_what_the_job_is_asked_to_run(store, dispatch):
+    _experiment_with(
+        store,
+        "with-model",
+        **_schedule_tags(
+            DetectionSchedule(
+                cadence=DetectionCadence.HOURLY,
+                model=ScheduleModel(provider="anthropic", model="claude-opus-4-8"),
+            )
+        ),
+    )
+    dispatch(ONE_PM_MS)
+
+    submit_job = dispatch(ONE_PM_MS + HOUR_MS)
+    assert submit_job.call_args.kwargs["params"]["model"] == "anthropic:/claude-opus-4-8"
+
+
+def test_a_gateway_endpoint_is_passed_as_a_gateway_model_uri(store, dispatch):
+    _experiment_with(
+        store,
+        "with-endpoint",
+        **_schedule_tags(
+            DetectionSchedule(
+                cadence=DetectionCadence.HOURLY, model=ScheduleModel(endpoint_name="prod-gateway")
+            )
+        ),
+    )
+    dispatch(ONE_PM_MS)
+
+    submit_job = dispatch(ONE_PM_MS + HOUR_MS)
+    kwargs = submit_job.call_args.kwargs
+    assert kwargs["params"]["model"] == "gateway:/prod-gateway"
+    # An endpoint carries its own credentials server-side, so none are handed to the job.
+    assert kwargs["extra_envs"] == {}
+
+
+def test_a_schedule_naming_no_model_leaves_the_job_on_the_server_default(store, dispatch):
+    _experiment_with(
+        store, "no-model", **_schedule_tags(DetectionSchedule(cadence=DetectionCadence.HOURLY))
+    )
+    dispatch(ONE_PM_MS)
+
+    submit_job = dispatch(ONE_PM_MS + HOUR_MS)
+    kwargs = submit_job.call_args.kwargs
+    assert kwargs["params"]["model"] is None
+    assert kwargs["extra_envs"] == {}
+
+
+def test_the_stored_key_for_the_schedules_provider_is_handed_to_the_job(store, dispatch):
+    store.create_gateway_secret(
+        secret_name="openai-key", secret_value={"api_key": "sk-stored"}, provider="openai"
+    )
+    _experiment_with(
+        store,
+        "with-key",
+        **_schedule_tags(
+            DetectionSchedule(
+                cadence=DetectionCadence.HOURLY,
+                model=ScheduleModel(provider="openai", model="gpt-5.6-sol"),
+            )
+        ),
+    )
+    dispatch(ONE_PM_MS)
+
+    submit_job = dispatch(ONE_PM_MS + HOUR_MS)
+    assert submit_job.call_args.kwargs["extra_envs"] == {"OPENAI_API_KEY": "sk-stored"}
+
+
+def test_a_key_stored_for_another_provider_is_not_used(store, dispatch):
+    store.create_gateway_secret(
+        secret_name="anthropic-key", secret_value={"api_key": "sk-anthropic"}, provider="anthropic"
+    )
+    _experiment_with(
+        store,
+        "other-provider",
+        **_schedule_tags(
+            DetectionSchedule(
+                cadence=DetectionCadence.HOURLY,
+                model=ScheduleModel(provider="openai", model="gpt-5.6-sol"),
+            )
+        ),
+    )
+    dispatch(ONE_PM_MS)
+
+    submit_job = dispatch(ONE_PM_MS + HOUR_MS)
+    # Nothing is stored for OpenAI, so the run falls back to the server's own environment rather
+    # than being handed another provider's key.
+    assert submit_job.call_args.kwargs["extra_envs"] == {}
+
+
+def test_an_unresolvable_credential_still_dispatches_the_occurrence(store, dispatch):
+    _experiment_with(
+        store,
+        "unknown-provider",
+        **_schedule_tags(
+            DetectionSchedule(
+                cadence=DetectionCadence.HOURLY,
+                model=ScheduleModel(provider="not-a-provider", model="m"),
+            )
+        ),
+    )
+    dispatch(ONE_PM_MS)
+
+    submit_job = dispatch(ONE_PM_MS + HOUR_MS)
+    submit_job.assert_called_once()
+    assert submit_job.call_args.kwargs["extra_envs"] == {}
+
+
+def test_the_most_recently_saved_key_for_the_provider_is_the_one_used(store, dispatch):
+    # Stamped explicitly: two keys saved in the same millisecond would leave "most recent"
+    # decided by insertion order rather than by time.
+    with mock.patch(
+        "mlflow.store.tracking.gateway.sqlalchemy_mixin.get_current_time_millis",
+        side_effect=[ONE_PM_MS - HOUR_MS, ONE_PM_MS],
+    ):
+        store.create_gateway_secret(
+            secret_name="openai-old", secret_value={"api_key": "sk-old"}, provider="openai"
+        )
+        store.create_gateway_secret(
+            secret_name="openai-new", secret_value={"api_key": "sk-rotated"}, provider="openai"
+        )
+    _experiment_with(
+        store,
+        "rotated-key",
+        **_schedule_tags(
+            DetectionSchedule(
+                cadence=DetectionCadence.HOURLY,
+                model=ScheduleModel(provider="openai", model="gpt-5.6-sol"),
+            )
+        ),
+    )
+    dispatch(ONE_PM_MS)
+
+    submit_job = dispatch(ONE_PM_MS + HOUR_MS)
+    assert submit_job.call_args.kwargs["extra_envs"] == {"OPENAI_API_KEY": "sk-rotated"}
