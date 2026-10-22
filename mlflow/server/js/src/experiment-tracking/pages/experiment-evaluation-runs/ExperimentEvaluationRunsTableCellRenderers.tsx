@@ -638,7 +638,7 @@ export const KeyedValueCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
     }
     const displayValue = formatEvalRunsNumericValue(average);
     return (
-      <span css={{ display: 'inline-flex', alignItems: 'center' }}>
+      <span css={{ display: 'inline-flex', alignItems: 'center' }} title={String(average)}>
         <FormattedMessage
           defaultMessage="<label>avg</label> <value>{average}</value>"
           description="Average metric value of a group of evaluation runs"
@@ -662,7 +662,8 @@ export const KeyedValueCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
 
   const displayValue = metricKey !== undefined && typeof value === 'number' ? formatEvalRunsNumericValue(value) : value;
 
-  return <span title={displayValue === undefined ? undefined : String(displayValue)}>{displayValue ?? '-'}</span>;
+  // The cell rounds metrics; the title keeps the full value.
+  return <span title={value === undefined ? undefined : String(value)}>{displayValue ?? '-'}</span>;
 };
 
 export const SortableHeaderCell = ({

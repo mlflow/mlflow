@@ -57,6 +57,51 @@ export const parseEvalRunScorersDigest = (value: string | undefined): EvalRunSco
   };
 };
 
+// Group-by keys for lineage values. They use the tag grouping mode. The agent key is not a real tag,
+// because its value comes from the URI tag or, for a local function, the function tag.
+export const EVAL_RUN_SCORERS_GROUP_BY_KEY = EVAL_RUN_SCORERS_DIGEST_TAG;
+export const EVAL_RUN_AGENT_GROUP_BY_KEY = 'mlflow.genaiEvaluate.agent';
+
+const PARTIAL_SCORERS_GROUP_VALUE_PATTERN = /^(\S+) partial:(\d+)\/(\d+)$/;
+
+/**
+ * A partial digest covers only the scorers that could be hashed, so `[A]` and `[A, unhashable B]` have the
+ * same digest. Adding the counts keeps partial runs out of the groups of complete runs.
+ */
+const getScorersGroupValue = (scorersDigest: EvalRunScorersDigest | undefined): string | null => {
+  if (!scorersDigest?.digest) {
+    return null;
+  }
+  return scorersDigest.coverage === 'partial'
+    ? `${scorersDigest.digest} partial:${scorersDigest.hashed}/${scorersDigest.total}`
+    : scorersDigest.digest;
+};
+
+/** Splits a "Scorers" group value into its digest and, for a partial digest, its counts. */
+export const parseScorersGroupValue = (value: string): { digest: string; hashed?: number; total?: number } => {
+  const match = value.match(PARTIAL_SCORERS_GROUP_VALUE_PATTERN);
+  return match ? { digest: match[1], hashed: Number(match[2]), total: Number(match[3]) } : { digest: value };
+};
+
+/** The group value of a lineage group-by key, or `undefined` when the key is not a lineage key. */
+export const getEvalRunLineageGroupValue = (
+  groupByKey: string,
+  getTag: (key: string) => string | undefined,
+): string | null | undefined => {
+  switch (groupByKey) {
+    case EVAL_RUN_SCORERS_GROUP_BY_KEY:
+      return getScorersGroupValue(parseEvalRunScorersDigest(getTag(EVAL_RUN_SCORERS_DIGEST_TAG)));
+    case EVAL_RUN_AGENT_GROUP_BY_KEY:
+      return (
+        asNonEmptyString(getTag(EVAL_RUN_AGENT_URI_TAG)) ??
+        asNonEmptyString(getTag(EVAL_RUN_AGENT_FUNCTION_TAG)) ??
+        null
+      );
+    default:
+      return undefined;
+  }
+};
+
 export const getEvalRunAgentLineage = (
   tags: Record<string, string | undefined>,
   loggedModelId?: string,
