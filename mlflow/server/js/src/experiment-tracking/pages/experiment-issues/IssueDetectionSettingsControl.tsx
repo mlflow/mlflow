@@ -52,14 +52,18 @@ export const IssueDetectionSettingsControl = ({ experimentId }: IssueDetectionSe
   const [newCategory, setNewCategory] = useState('');
   const newCategoryRow = useRef<HTMLDivElement>(null);
 
+  const hasTemplateBraces = /\{\{|\}\}/.test(newCategory.trim());
+
   useEffect(() => {
     // The field opens below the modal's fold, so without this the caret lands somewhere the
-    // user cannot see and they type blind into a box they have to go looking for.
+    // user cannot see and they type blind into a box they have to go looking for. Re-run when
+    // the validation message appears, because it makes the row taller and would otherwise push
+    // itself -- and the Add button -- back out of view.
     if (isAddingCategory) {
       // Optional call: jsdom has no `scrollIntoView`, and this is a nicety, not a behaviour.
       newCategoryRow.current?.scrollIntoView?.({ block: 'nearest' });
     }
-  }, [isAddingCategory]);
+  }, [isAddingCategory, hasTemplateBraces]);
 
   const customCategories = Object.keys(draft.categories).filter((category) => !isBuiltInCategory(category));
   const trimmedNewCategory = newCategory.trim();
@@ -70,7 +74,6 @@ export const IssueDetectionSettingsControl = ({ experimentId }: IssueDetectionSe
   // instructions. The server rewrites it rather than failing, which means the name it judges
   // against would no longer be the name stored here -- so the name is rejected at the source
   // instead of being silently altered later.
-  const hasTemplateBraces = /\{\{|\}\}/.test(trimmedNewCategory);
   const isUnusableCategory = isDuplicateCategory || hasTemplateBraces;
   const nothingSelected = noFocusAreaSelected(draft);
 
@@ -130,8 +133,9 @@ export const IssueDetectionSettingsControl = ({ experimentId }: IssueDetectionSe
           componentId={`${COMPONENT_ID}.open`}
           icon={<GearIcon />}
           aria-label={settingsLabel}
-          loading={isLoading}
-          disabled={Boolean(loadError)}
+          // No per-experiment write check: OSS has no equivalent of the managed experiment ACL,
+          // the same reasoning as `useCanEditExperimentCustomViews`.
+          disabled={isLoading || Boolean(loadError)}
           onClick={open}
         />
       </Tooltip>
@@ -152,12 +156,12 @@ export const IssueDetectionSettingsControl = ({ experimentId }: IssueDetectionSe
         onCancel={close}
       >
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
-          {save.error && (
+          {(loadError || save.error) && (
             <Alert
               componentId={`${COMPONENT_ID}.save-error`}
               type="error"
               message={intl.formatMessage({
-                defaultMessage: 'Could not save these settings. Try again.',
+                defaultMessage: 'Could not save issue detection settings. Try again.',
                 description: 'Issue detection settings modal > Error shown when saving the settings failed',
               })}
               closable={false}
@@ -171,13 +175,6 @@ export const IssueDetectionSettingsControl = ({ experimentId }: IssueDetectionSe
                 description: 'Issue detection settings modal > Label of the free-text priorities field',
               })}
             </FormUI.Label>
-            <FormUI.Hint>
-              {intl.formatMessage({
-                defaultMessage:
-                  'Applied every run, when deciding what to flag and how severe it is. Leave empty to use the defaults.',
-                description: 'Issue detection settings modal > Hint explaining what the priorities field affects',
-              })}
-            </FormUI.Hint>
             <Input.TextArea
               id={`${COMPONENT_ID}.instructions`}
               componentId={`${COMPONENT_ID}.instructions`}
@@ -218,32 +215,34 @@ export const IssueDetectionSettingsControl = ({ experimentId }: IssueDetectionSe
               {customCategories.map((category) => {
                 const removeLabel = intl.formatMessage(
                   {
-                    defaultMessage: 'Remove custom focus area {category}',
+                    defaultMessage: 'Remove custom category {category}',
                     description: 'Issue detection settings modal > Label of the button that deletes a custom category',
                   },
                   { category },
                 );
                 return (
-                  // The remove button sits beside the toggle rather than on top of its right
-                  // edge: `ToggleButton` sets its own padding, so reserving room inside the
-                  // chip with a `css` override loses to the component's own rule and the icon
-                  // lands on the last letter of the label.
-                  <div key={category} css={{ display: 'inline-flex', alignItems: 'center' }}>
+                  <div key={category} css={{ position: 'relative', display: 'inline-flex' }}>
                     <ToggleButton
                       componentId={`${COMPONENT_ID}.custom-focus-area.toggle`}
                       pressed={Boolean(draft.categories[category])}
+                      // Inline rather than `css`: `ToggleButton` sets its own padding, and an
+                      // emotion override loses to it, which puts the remove icon on the label.
+                      style={{ paddingRight: 40 }}
                       onPressedChange={(selected) => toggleCategory(category, selected)}
                     >
                       {category}
                     </ToggleButton>
-                    <Button
-                      componentId={`${COMPONENT_ID}.custom-focus-area.remove`}
-                      icon={<CloseIcon />}
-                      size="small"
-                      type="tertiary"
-                      aria-label={removeLabel}
-                      onClick={() => removeCategory(category)}
-                    />
+                    <Tooltip componentId={`${COMPONENT_ID}.custom-focus-area.remove-tooltip`} content={removeLabel}>
+                      <Button
+                        componentId={`${COMPONENT_ID}.custom-focus-area.remove`}
+                        icon={<CloseIcon />}
+                        size="small"
+                        type="tertiary"
+                        aria-label={removeLabel}
+                        style={{ position: 'absolute', top: 4, right: 4 }}
+                        onClick={() => removeCategory(category)}
+                      />
+                    </Tooltip>
                   </div>
                 );
               })}
@@ -255,7 +254,7 @@ export const IssueDetectionSettingsControl = ({ experimentId }: IssueDetectionSe
                   onClick={() => setIsAddingCategory(true)}
                 >
                   {intl.formatMessage({
-                    defaultMessage: 'Custom focus area',
+                    defaultMessage: 'Custom category',
                     description:
                       'Issue detection settings modal > Label of the button that reveals the custom category field',
                   })}
@@ -264,8 +263,9 @@ export const IssueDetectionSettingsControl = ({ experimentId }: IssueDetectionSe
             </div>
 
             {nothingSelected && (
-              // The run would have nothing to report against, so it uses every area instead.
-              // Saying so here keeps that from looking like the settings were ignored.
+              // Not in the managed product. Added because the stored value and the value a run
+              // is sent differ in exactly this case, and review asked for that to be visible
+              // rather than discovered from the network request.
               <FormUI.Hint>
                 {intl.formatMessage({
                   defaultMessage: 'With no focus area selected, detection considers all of them.',
@@ -279,7 +279,7 @@ export const IssueDetectionSettingsControl = ({ experimentId }: IssueDetectionSe
                 <div css={{ display: 'flex', flex: 1, flexDirection: 'column', gap: theme.spacing.xs }}>
                   <FormUI.Label htmlFor={`${COMPONENT_ID}.custom-focus-area.input`}>
                     {intl.formatMessage({
-                      defaultMessage: 'Custom focus area',
+                      defaultMessage: 'Custom category',
                       description: 'Issue detection settings modal > Label of the custom category text field',
                     })}
                   </FormUI.Label>
@@ -297,25 +297,20 @@ export const IssueDetectionSettingsControl = ({ experimentId }: IssueDetectionSe
                       }
                     }}
                   />
-                  {trimmedNewCategory && isUnusableCategory && (
+                  {trimmedNewCategory && hasTemplateBraces && (
+                    // Not in the managed product. A duplicate name only disables Add, as there;
+                    // this one needs saying, because the name would otherwise be rewritten
+                    // server-side and judged under a spelling that is not the one stored.
                     <FormUI.Message
                       type="error"
-                      message={
-                        isDuplicateCategory
-                          ? intl.formatMessage({
-                              defaultMessage: 'That focus area already exists.',
-                              description:
-                                'Issue detection settings modal > Error shown when the typed custom category is already present',
-                            })
-                          : intl.formatMessage(
-                              {
-                                defaultMessage: 'A focus area name cannot contain {braces}.',
-                                description:
-                                  'Issue detection settings modal > Error shown when the typed custom category contains doubled braces',
-                              },
-                              { braces: '{{ }}' },
-                            )
-                      }
+                      message={intl.formatMessage(
+                        {
+                          defaultMessage: 'A category name cannot contain {braces}.',
+                          description:
+                            'Issue detection settings modal > Error shown when the typed custom category contains doubled braces',
+                        },
+                        { braces: '{{ }}' },
+                      )}
                     />
                   )}
                 </div>
