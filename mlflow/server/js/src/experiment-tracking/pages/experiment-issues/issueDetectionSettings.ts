@@ -1,18 +1,9 @@
+import { MlflowService } from '../../sdk/MlflowService';
 import { MLFLOW_ISSUE_DETECTION_PRIORITIES_TAG } from '../../constants';
 import { ALL_ISSUE_CATEGORIES } from '../../components/experiment-page/components/traces-v3/IssueDetectionCategories';
-import { MlflowService } from '../../sdk/MlflowService';
 
-/**
- * What an experiment's owner has decided detection should look for.
- *
- * Persisted as one JSON experiment tag rather than its own resource: the whole value is read
- * and written together, it is small, and it belongs to the experiment's lifetime, so it needs
- * no schema of its own.
- */
 export interface IssueDetectionSettings {
-  /** Free text, applied by the stages that decide what to flag and how severe it is. */
   instructions: string;
-  /** Category id to whether detection should look for it, including the owner's own ids. */
   categories: Record<string, boolean>;
 }
 
@@ -21,38 +12,30 @@ interface ExperimentTag {
   value?: string | null;
 }
 
-const allCategoriesSelected = (): Record<string, boolean> =>
-  Object.fromEntries(ALL_ISSUE_CATEGORIES.map((category) => [category, true]));
+const DEFAULT_CATEGORIES: Record<string, boolean> = Object.fromEntries(
+  ALL_ISSUE_CATEGORIES.map((category) => [category, true]),
+);
 
 export const defaultIssueDetectionSettings = (): IssueDetectionSettings => ({
   instructions: '',
-  categories: allCategoriesSelected(),
+  categories: { ...DEFAULT_CATEGORIES },
 });
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-/** Keeps only entries that could have come from the form, so a hand-edited tag cannot widen the shape. */
-const readCategories = (value: unknown): Record<string, boolean> => {
+const normalizeCategories = (value: unknown): Record<string, boolean> => {
   if (!isRecord(value)) {
     return {};
   }
   return Object.fromEntries(
     Object.entries(value).flatMap(([category, selected]) => {
-      const trimmed = category.trim();
-      return trimmed && typeof selected === 'boolean' ? [[trimmed, selected]] : [];
+      const normalizedCategory = category.trim();
+      return normalizedCategory && typeof selected === 'boolean' ? [[normalizedCategory, selected]] : [];
     }),
   );
 };
 
-/**
- * The saved settings, or the defaults when the experiment has none.
- *
- * A built-in category the tag does not mention is treated as selected, not as deselected: the
- * tag records the owner's decisions, and a category added to the product after they last saved
- * is not a decision they made. Turning everything off stays expressible, because doing so
- * writes every built-in explicitly false.
- */
 export const readIssueDetectionSettingsFromTags = (
   tags: readonly ExperimentTag[] | undefined | null,
 ): IssueDetectionSettings => {
@@ -60,6 +43,7 @@ export const readIssueDetectionSettingsFromTags = (
   if (!raw) {
     return defaultIssueDetectionSettings();
   }
+
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!isRecord(parsed)) {
@@ -67,10 +51,12 @@ export const readIssueDetectionSettingsFromTags = (
     }
     return {
       instructions: typeof parsed['instructions'] === 'string' ? parsed['instructions'] : '',
-      categories: { ...allCategoriesSelected(), ...readCategories(parsed['categories']) },
+      // Merged over the defaults rather than taken as-is: a built-in the tag does not mention
+      // is a category added after the owner last saved, not a decision they made. Turning
+      // everything off stays expressible, because that writes every built-in explicitly false.
+      categories: { ...DEFAULT_CATEGORIES, ...normalizeCategories(parsed['categories']) },
     };
   } catch {
-    // A tag that is not the JSON we wrote tells us nothing about what the owner wanted.
     return defaultIssueDetectionSettings();
   }
 };
@@ -84,9 +70,9 @@ export const saveIssueDetectionSettings = async (
   experimentId: string,
   settings: IssueDetectionSettings,
 ): Promise<IssueDetectionSettings> => {
-  const normalized: IssueDetectionSettings = {
+  const normalized = {
     instructions: settings.instructions.trim(),
-    categories: readCategories(settings.categories),
+    categories: normalizeCategories(settings.categories),
   };
   await MlflowService.setExperimentTag({
     experiment_id: experimentId,
@@ -102,6 +88,10 @@ export const noFocusAreaSelected = (settings: IssueDetectionSettings | undefined
 
 /**
  * The categories a detection run should be given.
+ *
+ * Replaces the upstream prompt builder: detection runs server-side here, so settings travel as
+ * a category list and free-text priorities on the invoke request rather than being spliced into
+ * a prompt in the browser.
  *
  * **The stored value and the sent value can differ in exactly one case**: settings with every
  * focus area deselected are sent as every built-in category. An all-deselected state is kept

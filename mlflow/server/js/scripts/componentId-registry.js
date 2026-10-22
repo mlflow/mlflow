@@ -1671,6 +1671,13 @@ module.exports = {
   "mlflow.issue-detection.completed": "",
   "mlflow.issue-detection.endpoint-link": "",
 
+  // -- mlflow.issue-detection-settings --
+  "mlflow.issue-detection-settings.custom-category.remove": "",
+  "mlflow.issue-detection-settings.custom-category.remove-tooltip": "",
+  "mlflow.issue-detection-settings.custom-category.toggle": "",
+  "mlflow.issue-detection-settings.focus-area.toggle": "",
+  "mlflow.issue-detection-settings.focus-area.tooltip": "",
+
   // -- mlflow.issues --
   "mlflow.issues.cancel-button": "",
   "mlflow.issues.category-tag": "",

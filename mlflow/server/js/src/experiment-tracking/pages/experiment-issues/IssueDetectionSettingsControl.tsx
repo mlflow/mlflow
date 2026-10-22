@@ -15,115 +15,114 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import {
-  ALL_ISSUE_CATEGORIES,
-  ISSUE_CATEGORY_DEFINITIONS,
-} from '../../components/experiment-page/components/traces-v3/IssueDetectionCategories';
-import {
   defaultIssueDetectionSettings,
   noFocusAreaSelected,
   type IssueDetectionSettings,
 } from './issueDetectionSettings';
 import { useIssueDetectionSettings } from './useIssueDetectionSettings';
+import {
+  ALL_ISSUE_CATEGORIES,
+  ISSUE_CATEGORY_DEFINITIONS,
+} from '../../components/experiment-page/components/traces-v3/IssueDetectionCategories';
 
 const COMPONENT_ID = 'mlflow.experiment-issues.detection-settings';
 
-/** Kept in step with the server's own cap, so the form cannot save text the run would truncate. */
-const MAX_INSTRUCTIONS_LENGTH = 5000;
-const MAX_CATEGORY_LENGTH = 80;
-
+/** No OSS equivalent of the helper used upstream; the built-in ids are the list itself. */
 const isBuiltInCategory = (category: string) => ALL_ISSUE_CATEGORIES.some((id) => id === category);
 
 export interface IssueDetectionSettingsControlProps {
   experimentId: string;
 }
 
-/**
- * What detection should look for on this experiment: free-text priorities and the set of
- * focus areas, saved on the experiment so every later run uses them.
- */
 export const IssueDetectionSettingsControl = ({ experimentId }: IssueDetectionSettingsControlProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const { data: settings, isLoading, error: loadError, save } = useIssueDetectionSettings(experimentId);
+  const {
+    data: settings,
+    isLoading: isLoadingSettings,
+    error: loadError,
+    save: saveMutation,
+  } = useIssueDetectionSettings(experimentId);
 
   const [isOpen, setIsOpen] = useState(false);
   const [draft, setDraft] = useState<IssueDetectionSettings>(defaultIssueDetectionSettings);
-  const [isAddingCategory, setIsAddingCategory] = useState(false);
-  const [newCategory, setNewCategory] = useState('');
-  const newCategoryRow = useRef<HTMLDivElement>(null);
-
-  const hasTemplateBraces = /\{\{|\}\}/.test(newCategory.trim());
+  const [isAddingCustomCategory, setIsAddingCustomCategory] = useState(false);
+  const [customCategory, setCustomCategory] = useState('');
+  const customCategoryRow = useRef<HTMLDivElement>(null);
+  const customCategories = Object.keys(draft.categories).filter((category) => !isBuiltInCategory(category));
+  const normalizedCustomCategory = customCategory.trim();
+  const isCustomCategoryTaken = Object.keys(draft.categories).some(
+    (category) => category.toLowerCase() === normalizedCustomCategory.toLowerCase(),
+  );
+  // Added for OSS. A doubled brace here declares a template variable in the judge's
+  // instructions. The server neutralizes it rather than failing, which means the name it judges
+  // against would no longer be the name stored here -- so it is refused at the source.
+  const hasTemplateBraces = /\{\{|\}\}/.test(normalizedCustomCategory);
+  const isCustomCategoryUnusable = isCustomCategoryTaken || hasTemplateBraces;
 
   useEffect(() => {
-    // The field opens below the modal's fold, so without this the caret lands somewhere the
-    // user cannot see and they type blind into a box they have to go looking for. Re-run when
-    // the validation message appears, because it makes the row taller and would otherwise push
-    // itself -- and the Add button -- back out of view.
-    if (isAddingCategory) {
+    // Added for OSS. The field opens below the modal's fold, so without this the caret lands
+    // somewhere the user cannot see. Re-runs when the validation message appears, because it
+    // makes the row taller and would otherwise push itself -- and Add -- back out of view.
+    if (isAddingCustomCategory) {
       // Optional call: jsdom has no `scrollIntoView`, and this is a nicety, not a behaviour.
-      newCategoryRow.current?.scrollIntoView?.({ block: 'nearest' });
+      customCategoryRow.current?.scrollIntoView?.({ block: 'nearest' });
     }
-  }, [isAddingCategory, hasTemplateBraces]);
-
-  const customCategories = Object.keys(draft.categories).filter((category) => !isBuiltInCategory(category));
-  const trimmedNewCategory = newCategory.trim();
-  const isDuplicateCategory = Object.keys(draft.categories).some(
-    (category) => category.toLowerCase() === trimmedNewCategory.toLowerCase(),
-  );
-  // A doubled brace in a category name would declare a template variable in the judge's
-  // instructions. The server rewrites it rather than failing, which means the name it judges
-  // against would no longer be the name stored here -- so the name is rejected at the source
-  // instead of being silently altered later.
-  const isUnusableCategory = isDuplicateCategory || hasTemplateBraces;
-  const nothingSelected = noFocusAreaSelected(draft);
+  }, [isAddingCustomCategory, hasTemplateBraces]);
 
   const open = useCallback(() => {
-    // The draft starts from what is saved, so cancelling leaves the experiment untouched.
     setDraft(settings ?? defaultIssueDetectionSettings());
-    setIsAddingCategory(false);
-    setNewCategory('');
-    save.reset();
+    setIsAddingCustomCategory(false);
+    setCustomCategory('');
+    saveMutation.reset();
     setIsOpen(true);
-  }, [save, settings]);
+  }, [saveMutation, settings]);
 
   const close = useCallback(() => {
-    if (!save.isLoading) {
+    if (!saveMutation.isLoading) {
       setIsOpen(false);
     }
-  }, [save.isLoading]);
+  }, [saveMutation.isLoading]);
 
   const toggleCategory = useCallback((category: string, selected: boolean) => {
-    setDraft((current) => ({ ...current, categories: { ...current.categories, [category]: selected } }));
+    setDraft((current) => ({
+      ...current,
+      categories: { ...current.categories, [category]: selected },
+    }));
   }, []);
 
-  const addCategory = useCallback(() => {
-    if (!trimmedNewCategory || isUnusableCategory) {
+  const addCustomCategory = useCallback(() => {
+    if (!normalizedCustomCategory || isCustomCategoryUnusable) {
       return;
     }
-    setDraft((current) => ({ ...current, categories: { ...current.categories, [trimmedNewCategory]: true } }));
-    setNewCategory('');
-    setIsAddingCategory(false);
-  }, [isUnusableCategory, trimmedNewCategory]);
+    setDraft((current) => ({
+      ...current,
+      categories: { ...current.categories, [normalizedCustomCategory]: true },
+    }));
+    setCustomCategory('');
+    setIsAddingCustomCategory(false);
+  }, [isCustomCategoryUnusable, normalizedCustomCategory]);
 
-  const removeCategory = useCallback((category: string) => {
+  const removeCustomCategory = useCallback((category: string) => {
     setDraft((current) => {
-      const { [category]: _removed, ...categories } = current.categories;
+      const categories = { ...current.categories };
+      delete categories[category];
       return { ...current, categories };
     });
   }, []);
 
-  const submit = useCallback(async () => {
+  const save = useCallback(async () => {
     try {
-      await save.mutateAsync(draft);
+      await saveMutation.mutateAsync(draft);
       setIsOpen(false);
     } catch {
-      // Reported in the modal, which stays open so the draft can be retried rather than retyped.
+      // The mutation error is rendered in the modal so the draft remains available for retry.
     }
-  }, [draft, save]);
+  }, [draft, saveMutation]);
 
   const settingsLabel = intl.formatMessage({
     defaultMessage: 'Issue detection settings',
-    description: 'Experiment issues tab > Label of the button that opens the detection settings',
+    description: 'Issues page > Accessible label and tooltip for the issue detection settings button',
   });
 
   return (
@@ -133,59 +132,59 @@ export const IssueDetectionSettingsControl = ({ experimentId }: IssueDetectionSe
           componentId={`${COMPONENT_ID}.open`}
           icon={<GearIcon />}
           aria-label={settingsLabel}
-          // No per-experiment write check: OSS has no equivalent of the managed experiment ACL,
-          // the same reasoning as `useCanEditExperimentCustomViews`.
-          disabled={isLoading || Boolean(loadError)}
+          disabled={isLoadingSettings || Boolean(loadError)}
           onClick={open}
         />
       </Tooltip>
       <Modal
         componentId={`${COMPONENT_ID}.modal`}
         visible={isOpen}
-        title={settingsLabel}
+        title={intl.formatMessage({
+          defaultMessage: 'Issue detection settings',
+          description: 'Issue detection settings modal > Title',
+        })}
         okText={intl.formatMessage({
           defaultMessage: 'Save',
-          description: 'Issue detection settings modal > Label of the button that saves the settings',
+          description: 'Issue detection settings modal > Save button',
         })}
         cancelText={intl.formatMessage({
           defaultMessage: 'Cancel',
-          description: 'Issue detection settings modal > Label of the button that discards the changes',
+          description: 'Issue detection settings modal > Cancel button',
         })}
-        confirmLoading={save.isLoading}
-        onOk={() => void submit()}
+        confirmLoading={saveMutation.isLoading}
+        onOk={() => void save()}
         onCancel={close}
       >
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
-          {(loadError || save.error) && (
+          {(loadError || saveMutation.error) && (
             <Alert
-              componentId={`${COMPONENT_ID}.save-error`}
+              componentId={`${COMPONENT_ID}.error`}
               type="error"
               message={intl.formatMessage({
                 defaultMessage: 'Could not save issue detection settings. Try again.',
-                description: 'Issue detection settings modal > Error shown when saving the settings failed',
+                description: 'Issue detection settings modal > Save error',
               })}
               closable={false}
             />
           )}
-
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
             <FormUI.Label htmlFor={`${COMPONENT_ID}.instructions`}>
               {intl.formatMessage({
                 defaultMessage: 'Detection priorities',
-                description: 'Issue detection settings modal > Label of the free-text priorities field',
+                description: 'Issue detection settings modal > Detection priorities field label',
               })}
             </FormUI.Label>
             <Input.TextArea
               id={`${COMPONENT_ID}.instructions`}
               componentId={`${COMPONENT_ID}.instructions`}
               rows={6}
-              maxLength={MAX_INSTRUCTIONS_LENGTH}
+              maxLength={5000}
               value={draft.instructions}
               placeholder={intl.formatMessage(
                 {
                   defaultMessage:
                     'For example:{lineBreak}- Treat authentication failures as high severity{lineBreak}- Only report high and medium severity issues{lineBreak}- Ignore cosmetic output formatting issues',
-                  description: 'Issue detection settings modal > Placeholder examples for the priorities field',
+                  description: 'Issue detection settings modal > Detection instructions placeholder',
                 },
                 { lineBreak: '\n' },
               )}
@@ -197,14 +196,18 @@ export const IssueDetectionSettingsControl = ({ experimentId }: IssueDetectionSe
             <Typography.Title level={4} withoutMargins>
               {intl.formatMessage({
                 defaultMessage: 'Focus areas',
-                description: 'Issue detection settings modal > Title of the category selection section',
+                description: 'Issue detection settings modal > Focus areas section title',
               })}
             </Typography.Title>
             <div css={{ display: 'flex', flexWrap: 'wrap', gap: theme.spacing.sm }}>
               {ISSUE_CATEGORY_DEFINITIONS.map(({ id, title, description }) => (
-                <Tooltip key={id} componentId={`${COMPONENT_ID}.focus-area.tooltip`} content={description}>
+                <Tooltip
+                  key={id}
+                  componentId="mlflow.issue-detection-settings.focus-area.tooltip"
+                  content={description}
+                >
                   <ToggleButton
-                    componentId={`${COMPONENT_ID}.focus-area.toggle`}
+                    componentId="mlflow.issue-detection-settings.focus-area.toggle"
                     pressed={Boolean(draft.categories[id])}
                     onPressedChange={(selected) => toggleCategory(id, selected)}
                   >
@@ -213,94 +216,93 @@ export const IssueDetectionSettingsControl = ({ experimentId }: IssueDetectionSe
                 </Tooltip>
               ))}
               {customCategories.map((category) => {
-                const removeLabel = intl.formatMessage(
+                const removeCategoryLabel = intl.formatMessage(
                   {
                     defaultMessage: 'Remove custom category {category}',
-                    description: 'Issue detection settings modal > Label of the button that deletes a custom category',
+                    description: 'Issue detection settings modal > Remove custom category button label',
                   },
                   { category },
                 );
                 return (
                   <div key={category} css={{ position: 'relative', display: 'inline-flex' }}>
                     <ToggleButton
-                      componentId={`${COMPONENT_ID}.custom-focus-area.toggle`}
+                      componentId="mlflow.issue-detection-settings.custom-category.toggle"
                       pressed={Boolean(draft.categories[category])}
-                      // Inline rather than `css`: `ToggleButton` sets its own padding, and an
-                      // emotion override loses to it, which puts the remove icon on the label.
                       style={{ paddingRight: 40 }}
                       onPressedChange={(selected) => toggleCategory(category, selected)}
                     >
                       {category}
                     </ToggleButton>
-                    <Tooltip componentId={`${COMPONENT_ID}.custom-focus-area.remove-tooltip`} content={removeLabel}>
+                    <Tooltip
+                      componentId="mlflow.issue-detection-settings.custom-category.remove-tooltip"
+                      content={removeCategoryLabel}
+                    >
                       <Button
-                        componentId={`${COMPONENT_ID}.custom-focus-area.remove`}
+                        componentId="mlflow.issue-detection-settings.custom-category.remove"
                         icon={<CloseIcon />}
                         size="small"
                         type="tertiary"
-                        aria-label={removeLabel}
+                        aria-label={removeCategoryLabel}
                         style={{ position: 'absolute', top: 4, right: 4 }}
-                        onClick={() => removeCategory(category)}
+                        onClick={() => removeCustomCategory(category)}
                       />
                     </Tooltip>
                   </div>
                 );
               })}
-              {!isAddingCategory && (
+              {noFocusAreaSelected(draft) && (
+                // Added for OSS. Deselecting everything is the one case where the stored settings
+                // and what a run is sent differ, and review asked for that to be visible rather
+                // than discovered from the network request.
+                <FormUI.Hint>
+                  {intl.formatMessage({
+                    defaultMessage: 'With no focus area selected, detection considers all of them.',
+                    description:
+                      'Issue detection settings modal > Hint shown when every focus area has been deselected',
+                  })}
+                </FormUI.Hint>
+              )}
+              {!isAddingCustomCategory && (
                 <Button
-                  componentId={`${COMPONENT_ID}.custom-focus-area.open`}
+                  componentId={`${COMPONENT_ID}.custom_category.open`}
                   type="tertiary"
                   icon={<PlusIcon />}
-                  onClick={() => setIsAddingCategory(true)}
+                  onClick={() => setIsAddingCustomCategory(true)}
                 >
                   {intl.formatMessage({
                     defaultMessage: 'Custom category',
-                    description:
-                      'Issue detection settings modal > Label of the button that reveals the custom category field',
+                    description: 'Issue detection settings modal > Add custom category button',
                   })}
                 </Button>
               )}
             </div>
-
-            {nothingSelected && (
-              // Not in the managed product. Added because the stored value and the value a run
-              // is sent differ in exactly this case, and review asked for that to be visible
-              // rather than discovered from the network request.
-              <FormUI.Hint>
-                {intl.formatMessage({
-                  defaultMessage: 'With no focus area selected, detection considers all of them.',
-                  description: 'Issue detection settings modal > Hint shown when every focus area has been deselected',
-                })}
-              </FormUI.Hint>
-            )}
-
-            {isAddingCategory && (
-              <div ref={newCategoryRow} css={{ display: 'flex', alignItems: 'flex-end', gap: theme.spacing.sm }}>
+            {isAddingCustomCategory && (
+              <div ref={customCategoryRow} css={{ display: 'flex', alignItems: 'flex-end', gap: theme.spacing.sm }}>
                 <div css={{ display: 'flex', flex: 1, flexDirection: 'column', gap: theme.spacing.xs }}>
-                  <FormUI.Label htmlFor={`${COMPONENT_ID}.custom-focus-area.input`}>
+                  <FormUI.Label htmlFor={`${COMPONENT_ID}.custom_category.input`}>
                     {intl.formatMessage({
                       defaultMessage: 'Custom category',
-                      description: 'Issue detection settings modal > Label of the custom category text field',
+                      description: 'Issue detection settings modal > Custom category field label',
                     })}
                   </FormUI.Label>
                   <Input
-                    id={`${COMPONENT_ID}.custom-focus-area.input`}
-                    componentId={`${COMPONENT_ID}.custom-focus-area.input`}
+                    id={`${COMPONENT_ID}.custom_category.input`}
+                    componentId={`${COMPONENT_ID}.custom_category.input`}
                     autoFocus
-                    maxLength={MAX_CATEGORY_LENGTH}
-                    value={newCategory}
-                    onChange={(event) => setNewCategory(event.target.value)}
+                    maxLength={80}
+                    value={customCategory}
+                    onChange={(event) => setCustomCategory(event.target.value)}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter') {
                         event.preventDefault();
-                        addCategory();
+                        addCustomCategory();
                       }
                     }}
                   />
-                  {trimmedNewCategory && hasTemplateBraces && (
-                    // Not in the managed product. A duplicate name only disables Add, as there;
-                    // this one needs saying, because the name would otherwise be rewritten
-                    // server-side and judged under a spelling that is not the one stored.
+                  {normalizedCustomCategory && hasTemplateBraces && (
+                    // Added for OSS. A taken name only disables Add, as upstream; this one
+                    // needs saying, because the name would otherwise be neutralized server-side
+                    // and judged under a spelling that is not the one stored.
                     <FormUI.Message
                       type="error"
                       message={intl.formatMessage(
@@ -315,26 +317,26 @@ export const IssueDetectionSettingsControl = ({ experimentId }: IssueDetectionSe
                   )}
                 </div>
                 <Button
-                  componentId={`${COMPONENT_ID}.custom-focus-area.add`}
+                  componentId={`${COMPONENT_ID}.custom_category.add`}
                   type="primary"
-                  disabled={!trimmedNewCategory || isUnusableCategory}
-                  onClick={addCategory}
+                  disabled={!normalizedCustomCategory || isCustomCategoryUnusable}
+                  onClick={addCustomCategory}
                 >
                   {intl.formatMessage({
                     defaultMessage: 'Add',
-                    description: 'Issue detection settings modal > Label of the button that confirms a custom category',
+                    description: 'Issue detection settings modal > Confirm custom category button',
                   })}
                 </Button>
                 <Button
-                  componentId={`${COMPONENT_ID}.custom-focus-area.cancel`}
+                  componentId={`${COMPONENT_ID}.custom_category.cancel`}
                   onClick={() => {
-                    setNewCategory('');
-                    setIsAddingCategory(false);
+                    setCustomCategory('');
+                    setIsAddingCustomCategory(false);
                   }}
                 >
                   {intl.formatMessage({
                     defaultMessage: 'Cancel',
-                    description: 'Issue detection settings modal > Label of the button that abandons a custom category',
+                    description: 'Issue detection settings modal > Cancel custom category button',
                   })}
                 </Button>
               </div>
