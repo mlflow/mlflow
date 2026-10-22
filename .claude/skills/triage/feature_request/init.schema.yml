@@ -1,0 +1,52 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+title: Feature Request Triage Payload
+description: Implementation effort, impact on existing features, and checks needed before proceeding.
+type: object
+additionalProperties: false
+required:
+  - outcome
+  - comment
+properties:
+  issue_title:
+    description: Optional descriptive replacement for a blank, template-only, or vague issue title.
+    type: string
+    pattern: '^[^\r\n]+$'
+    minLength: 1
+    maxLength: 120
+  outcome:
+    type: string
+    oneOf:
+      - const: assessed
+        description: The request is clear enough to assess implementation effort and impact.
+      - const: already-supported
+        description: The requested behavior is available at the current checkout.
+      - const: needs-info
+        description: The request lacks enough information to assess the intended behavior.
+      - const: needs-design
+        description: Maintainers need to resolve design choices or trade-offs.
+      - const: skipped
+        description: Assessment needs resources the sandbox lacks.
+  comment:
+    description: |
+      Markdown comment for initial feature assessment. Replace placeholders and omit
+      sections with nothing to say, except the outcome.
+
+      ### Summary
+
+      **<outcome>**: <the requested behavior and assessment in one or two sentences>.
+
+      ### Implementation effort
+
+      <small, medium, or large, with a brief reason and the main changes with code permalinks>
+
+      ### Impact on existing features
+
+      <the main effects on existing behavior or compatibility>
+
+      ### Checks needed
+
+      <key open decisions and tests or manual checks; distinguish checks performed from
+      those still needed. Contributors should wait for a maintainer's ready label before a PR.>
+    type: string
+    minLength: 1
+    maxLength: 5000

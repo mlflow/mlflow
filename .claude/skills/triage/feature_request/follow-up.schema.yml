@@ -1,0 +1,36 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+title: Feature Request Triage Follow-up Payload
+description: Updated assessment or a verified implementation requested by a maintainer.
+type: object
+additionalProperties: false
+required:
+  - comment
+properties:
+  comment:
+    description: |
+      Address the maintainer's request with updated effort, impact on existing features,
+      unresolved decisions, and checks needed, or summarize implementation and verification
+      results. Distinguish verified findings from assumptions and proposed checks. Do not
+      repeat unchanged parts of the report or claim a proposed PR is open.
+    type: string
+    minLength: 1
+    maxLength: 5000
+  pull_request:
+    description: A PR proposal for fix.patch after a maintainer requests implementation and it is verified.
+    type: object
+    additionalProperties: false
+    required:
+      - title
+      - body
+    properties:
+      title:
+        description: One-line PR title.
+        type: string
+        pattern: '^[^\r\n]+$'
+        minLength: 1
+        maxLength: 120
+      body:
+        description: PR body following .github/pull_request_template.md.
+        type: string
+        minLength: 1
+        maxLength: 20000

@@ -24,11 +24,16 @@ rename the issue yourself.
 
 ## Optional pull request
 
+Initial feature request triage is assessment-only: do not implement the feature, write
+`fix.patch`, or include `pull_request` in its payload. A maintainer follow-up can request
+an implementation and PR under the rules below.
+
 Propose a pull request only when all of these hold:
 
 - The `PR_DISABLED` environment variable is not `true`.
-- The bug reproduces at the current checkout.
-- The fix is verified against the reproduction and relevant tests and leaves no design choice or trade-off unresolved.
+- For a bug, it reproduces at the current checkout and the fix is verified against the reproduction and relevant tests.
+- For a feature request follow-up, the maintainer requests an implementation, the behavior is not already supported, and the implementation is verified against a concrete usage example and relevant tests.
+- The change leaves no design choice or trade-off unresolved.
 - Every changed file is under `mlflow/` or `tests/`.
 
 Also apply the PR eligibility rules in the selected action. If any requirement is unmet,
@@ -50,11 +55,13 @@ git diff HEAD --stat
 The last command must list only the files in the patch. Then add `pull_request` to the payload
 using `pull_request` from the selected action's payload schema.
 
-For visible UI fixes, include a before/after comparison in the PR body.
+For visible UI changes, include a before/after comparison in the PR body.
 Stack screenshots vertically with **Before** above **After**, rather than
 side-by-side. Capture the broken behavior before applying the fix and the
 fixed behavior with the same data, page state, and viewport. Label the captures **Before**
 and **After**, save them under `$out_dir/media`, and cite their exact paths as described below.
+For a feature request, show the existing workflow or limitation before the change and the
+requested behavior after it.
 
 ## Media
 

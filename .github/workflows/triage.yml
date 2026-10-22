@@ -518,7 +518,7 @@ jobs:
     needs: [issue, label, safety]
     if: >-
       needs.safety.outputs.decision == 'safe' &&
-      needs.label.outputs.type == 'bug'
+      contains(fromJSON('["bug", "feature_request"]'), needs.label.outputs.type)
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
@@ -771,6 +771,7 @@ jobs:
           SESSION_ID: ${{ steps.session.outputs.id }}
           ISSUE_PATH: ${{ runner.temp }}/issue-context/issue-context.json
           TRIAGE_ACTION: ${{ needs.issue.outputs.action }}
+          TRIAGE_TYPE: ${{ needs.label.outputs.type }}
           PR_DISABLED: ${{ needs.issue.outputs.pr_enabled != 'true' }}
           # OpenTelemetry export through the telemetry proxy. Spans need the enhanced telemetry beta;
           # logs carry per-call cost and the final response; metrics carry session counters. The OTEL_LOG_* flags include prompt,
@@ -950,7 +951,7 @@ jobs:
     permissions:
       issues: write
     env:
-      PAYLOAD_SCHEMA: .claude/skills/triage/bug/${{ needs.issue.outputs.action }}.schema.yml
+      PAYLOAD_SCHEMA: .claude/skills/triage/${{ needs.label.outputs.type }}/${{ needs.issue.outputs.action }}.schema.yml
       TRIAGE_NOTICE: |-
         > [!NOTE]
         > [Automated triage](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}). Please verify the findings. Maintainers can comment `/triage <instructions>` to direct the agent (e.g. `/triage open a PR with the first option`).
@@ -1135,6 +1136,7 @@ jobs:
     # Dry runs validate proposals on any branch; live runs publish from the default branch only.
     if: >-
       needs.issue.outputs.pr_enabled == 'true' &&
+      (needs.label.outputs.type == 'bug' || needs.issue.outputs.action == 'follow-up') &&
       needs.triage.result == 'success' &&
       needs.post_triage.result == 'success' &&
       (needs.issue.outputs.dry_run == 'true' ||
@@ -1146,7 +1148,7 @@ jobs:
       issues: write
       pull-requests: read
     env:
-      PAYLOAD_SCHEMA: .claude/skills/triage/bug/${{ needs.issue.outputs.action }}.schema.yml
+      PAYLOAD_SCHEMA: .claude/skills/triage/${{ needs.label.outputs.type }}/${{ needs.issue.outputs.action }}.schema.yml
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
