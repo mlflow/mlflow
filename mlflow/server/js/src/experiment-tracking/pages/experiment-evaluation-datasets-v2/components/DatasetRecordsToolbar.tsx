@@ -22,6 +22,8 @@ export interface DatasetRecordsToolbarProps {
   onAddRecord: () => void;
   /** Slot for additional toolbar controls (column selector, etc.). */
   trailingControls?: React.ReactNode;
+  /** Additional action rendered before Add record. */
+  beforeAddRecordControl?: React.ReactNode;
   /** Forwarded to the search Input so callers can focus it (e.g. via the "/" hotkey). */
   searchInputRef?: RefObject<InputRef>;
   /** Number of currently bulk-selected rows. When > 0, the inline selection group appears. */
@@ -41,6 +43,7 @@ export const DatasetRecordsToolbar = ({
   lastRefreshTime,
   onAddRecord,
   trailingControls,
+  beforeAddRecordControl,
   searchInputRef,
   selectionCount,
   onBulkDelete,
@@ -118,6 +121,7 @@ export const DatasetRecordsToolbar = ({
         </div>
       )}
       <div css={{ flex: 1 }} />
+      {beforeAddRecordControl}
       <Button
         componentId="mlflow.eval-datasets-v2.records.add-record"
         type="primary"

@@ -627,6 +627,10 @@
     "defaultMessage": "Staging",
     "description": "Column title for staging phase version in the registered model page"
   },
+  "0AdLp7": {
+    "defaultMessage": "Results ({count})",
+    "description": "Pill showing how many evaluation results an evaluation run has"
+  },
   "0Bee6A": {
     "defaultMessage": "No retrieval logged",
     "description": "Evaluation review > retrieval section > no values"
@@ -738,6 +742,10 @@
   "0dgkrc": {
     "defaultMessage": "Resolved",
     "description": "Experiment issues tab > Resolved issue status label"
+  },
+  "0e2z8+": {
+    "defaultMessage": "Close",
+    "description": "Aria label for closing the evaluation runs side panel"
   },
   "0eoz8L": {
     "defaultMessage": "Hour",
@@ -2002,6 +2010,10 @@
   "5DOwjl": {
     "defaultMessage": "Default view",
     "description": "Label for the saved views dropdown in the traces toolbar when no saved view is active (the default, unfiltered state)"
+  },
+  "5DuosT": {
+    "defaultMessage": "{status, select, SCHEDULED {Scheduled} FAILED {Failed} FINISHED {Finished} RUNNING {Running} KILLED {Killed} other {Unknown}}",
+    "description": "Human-readable status of an evaluation run"
   },
   "5EY1X7": {
     "defaultMessage": "Small trace samples and weaker models can miss real issues. Ways to improve coverage:",
@@ -3307,6 +3319,10 @@
     "defaultMessage": "Register",
     "description": "Confirmation text to register the model"
   },
+  "9WGrgp": {
+    "defaultMessage": "Evaluation Runs",
+    "description": "Button opening a panel of evaluation runs that use the current dataset"
+  },
   "9X+gjj": {
     "defaultMessage": "Cancel",
     "description": "Cancel button on the dataset record side-panel footer — discards in-progress changes"
@@ -3666,6 +3682,10 @@
   "AfYWI/": {
     "defaultMessage": "Tool call: {name}",
     "description": "Accessible label for an expandable assistant tool-call card"
+  },
+  "AgXTXU": {
+    "defaultMessage": "oldest first",
+    "description": "Ascending creation date sort direction"
   },
   "AgjhWE": {
     "defaultMessage": "See less",
@@ -5167,6 +5187,10 @@
     "defaultMessage": "Delete ({count})",
     "description": "Gateway > API keys list > Delete button with count"
   },
+  "G3I2Os": {
+    "defaultMessage": "Filter by evaluation name",
+    "description": "Aria label for filtering evaluation runs by name in the dataset side panel"
+  },
   "G3W8le": {
     "defaultMessage": "No access endpoints configured for this server.",
     "description": "Empty state message for access endpoints subsection"
@@ -5214,6 +5238,10 @@
   "GAJL1v": {
     "defaultMessage": "Input and output schema for your model. <link>Learn more</link>",
     "description": "Input and output params of the model that is registered from the experiment run"
+  },
+  "GBKcqK": {
+    "defaultMessage": "Load more",
+    "description": "Button loading more evaluation runs that use the current dataset"
   },
   "GBjD/m": {
     "defaultMessage": "Cancel",
@@ -5954,6 +5982,10 @@
   "Ia/nT7": {
     "defaultMessage": "Goal",
     "description": "Label for the simulation goal metadata in chat session metrics"
+  },
+  "IaPIuz": {
+    "defaultMessage": "Sort: Created",
+    "description": "Button for sorting evaluation runs by creation date"
   },
   "Id2mFI": {
     "defaultMessage": "The request was invalid.",
@@ -8071,6 +8103,10 @@
     "defaultMessage": "GenAI apps & agents",
     "description": "Label for experiments focused on generative AI model development"
   },
+  "Pg/hTg": {
+    "defaultMessage": "Filter by name",
+    "description": "Placeholder for filtering evaluation runs by name in the dataset side panel"
+  },
   "Pg4SI9": {
     "defaultMessage": "View dataset {datasetName}",
     "description": "Accessible label for a link that opens the evaluation dataset an evaluation run used"
@@ -8090,6 +8126,10 @@
   "PmPV+3": {
     "defaultMessage": "Models",
     "description": "Label for the versions tab in the MLflow experiment navbar"
+  },
+  "PnSwIQ": {
+    "defaultMessage": "newest first",
+    "description": "Descending creation date sort direction"
   },
   "Pne4Lp": {
     "defaultMessage": "Maximum of {max} sessions can be selected",
@@ -8154,6 +8194,10 @@
   "PymnbL": {
     "defaultMessage": "User",
     "description": "Header for the traces table user column"
+  },
+  "PzRXSn": {
+    "defaultMessage": "Sort by created, {direction}",
+    "description": "Accessible label for sorting evaluation runs by creation date in the dataset side panel"
   },
   "PzytKT": {
     "defaultMessage": "Always show parents of matched spans, regardless of filter conditions",
@@ -10127,6 +10171,10 @@
     "defaultMessage": "Digest: {digest}",
     "description": "Experiment dataset drawer > digest > label and value"
   },
+  "WeW6JB": {
+    "defaultMessage": "No evaluation runs use this dataset yet",
+    "description": "Empty state when no evaluation runs use the current dataset"
+  },
   "WfY+Gj": {
     "defaultMessage": "Delete prompt version",
     "description": "A header for the delete prompt version modal"
@@ -11067,6 +11115,10 @@
     "defaultMessage": "No tables selected",
     "description": "Experiment page > artifact compare view > empty state for no tables selected > title"
   },
+  "Zvmhug": {
+    "defaultMessage": "Run ID {runId}",
+    "description": "Identifier metadata for an evaluation run"
+  },
   "ZwAzmu": {
     "defaultMessage": "Create Model",
     "description": "Create button to register a new model"
@@ -11999,6 +12051,10 @@
     "defaultMessage": "Source run",
     "description": "Label for the source run name of a logged model on the logged model details page"
   },
+  "d9723o": {
+    "defaultMessage": "Runs that use {datasetName}",
+    "description": "Subtitle identifying the dataset used by the listed evaluation runs"
+  },
   "d9VE8L": {
     "defaultMessage": "Discover issues automatically",
     "description": "Experiment issues tab > Empty state title before detection has been run"
@@ -12606,6 +12662,10 @@
   "fCT8Fj": {
     "defaultMessage": "Saved to this experiment. Anyone with access can open this view from the link or the Views list.",
     "description": "Confirmation shown after saving an experiment view, explaining that the link opens the saved view"
+  },
+  "fEmW0O": {
+    "defaultMessage": "Couldn't load evaluation runs",
+    "description": "Error shown when evaluation runs using a dataset cannot be loaded"
   },
   "fFntmt": {
     "defaultMessage": "Actions ({numRuns})",
@@ -13815,6 +13875,10 @@
     "defaultMessage": "Error",
     "description": "Experiment page > traces table > status label > error"
   },
+  "ihnJGr": {
+    "defaultMessage": "No evaluation runs match this name",
+    "description": "Empty state when no evaluation runs match the panel's name filter"
+  },
   "ijHH2H": {
     "defaultMessage": "Failed to duplicate some endpoints. Please try again.",
     "description": "Gateway > Endpoints list > Duplicate error message"
@@ -13879,6 +13943,10 @@
     "defaultMessage": "Image unavailable",
     "description": "Fallback shown when a custom trace view image binding is missing or invalid"
   },
+  "iuQHj+": {
+    "defaultMessage": "Evaluation Runs",
+    "description": "Accessible label for the evaluation runs side panel"
+  },
   "ivRq5S": {
     "defaultMessage": "Send Feedback",
     "description": "Text for provide feedback button on experiment view page header"
@@ -13902,6 +13970,10 @@
   "izt2q6": {
     "defaultMessage": "Cancel",
     "description": "Cancel-button text for the V2 evaluation dataset delete modal on the detail page"
+  },
+  "izuF84": {
+    "defaultMessage": "Evaluation Runs",
+    "description": "Title of the evaluation runs side panel"
   },
   "j/BF11": {
     "defaultMessage": "Connect to the tracking server",
@@ -14531,6 +14603,10 @@
     "defaultMessage": "No matching questions",
     "description": "Review queue: no questions match the search"
   },
+  "l1ybrI": {
+    "defaultMessage": "Duration {duration}",
+    "description": "Duration metadata for an evaluation run"
+  },
   "l4qL6Q": {
     "defaultMessage": "Load more",
     "description": "Experiment Issues next page action"
@@ -15155,6 +15231,10 @@
     "defaultMessage": "A view named \"{name}\" already exists. Choose a different name.",
     "description": "Error toast shown when saving a traces view whose name is already taken"
   },
+  "n5pZ2D": {
+    "defaultMessage": "Created {date}",
+    "description": "Creation date metadata for an evaluation run"
+  },
   "n6SrIn": {
     "defaultMessage": "Edit history",
     "description": "Title of a modal that shows the edit history of an assessment"
@@ -15234,6 +15314,10 @@
   "nIkC92": {
     "defaultMessage": "Issue ID copied",
     "description": "Tooltip after issue ID was copied"
+  },
+  "nJtz4Y": {
+    "defaultMessage": "No results recorded",
+    "description": "Tooltip shown when an evaluation run has no result metrics"
   },
   "nJxDSh": {
     "defaultMessage": "Inputs",
@@ -16595,6 +16679,10 @@
     "defaultMessage": "Custom view",
     "description": "Label for the custom view tab in the model trace explorer"
   },
+  "s08zyd": {
+    "defaultMessage": "View in evaluation runs tab",
+    "description": "Button navigating to the evaluation runs page filtered to the current dataset"
+  },
   "s29iQg": {
     "defaultMessage": "Session",
     "description": "Usage overview > metrics filter > session column option label"
@@ -17414,6 +17502,10 @@
   "v+uGcN": {
     "defaultMessage": "Allow multiple selections (multi-select)",
     "description": "Categorical multi-select checkbox"
+  },
+  "v+y77T": {
+    "defaultMessage": "Loading evaluation runs",
+    "description": "Accessible label shown while loading runs that use a dataset"
   },
   "v/njcq": {
     "defaultMessage": "Comparing",

@@ -832,6 +832,17 @@ module.exports = {
   "mlflow.eval-datasets-v2.side-panel.discard-prompt": "",
   "mlflow.eval-datasets-v2.side-panel.source-trace-link": "",
   "mlflow.eval-datasets-v2.trace-modal": "",
+  "mlflow.eval-datasets-v2.used-by-runs.close": "",
+  "mlflow.eval-datasets-v2.used-by-runs.created-sort": "",
+  "mlflow.eval-datasets-v2.used-by-runs.error": "",
+  "mlflow.eval-datasets-v2.used-by-runs.load-more": "",
+  "mlflow.eval-datasets-v2.used-by-runs.name-filter": "",
+  "mlflow.eval-datasets-v2.used-by-runs.open": "",
+  "mlflow.eval-datasets-v2.used-by-runs.results": "",
+  "mlflow.eval-datasets-v2.used-by-runs.results-tooltip": "",
+  "mlflow.eval-datasets-v2.used-by-runs.run-link": "",
+  "mlflow.eval-datasets-v2.used-by-runs.status-tooltip": "",
+  "mlflow.eval-datasets-v2.used-by-runs.view-all": "",
 
   // -- mlflow.eval-run --
   "mlflow.eval-run.traces.selected-trace-error": "",
