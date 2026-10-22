@@ -548,11 +548,11 @@ def _load_model_from_local_file(path, serialization_format, skops_trusted_types=
     # paths: those managed runtimes permit model deserialization regardless of the flag.
     if not _is_pickle_loading_allowed():
         raise MlflowException(
-            "Deserializing this model is disallowed because 'MLFLOW_ALLOW_UNSAFE_MODEL_LOADING' "
+            "Deserializing this model is disallowed because 'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' "
             "is not set to 'true'. Loading a model can execute arbitrary code from the model "
             "artifact, including models saved in the 'skops' format, whose trusted-types "
             "allow-list is read from the model itself. Only load models from trusted sources; set "
-            "'MLFLOW_ALLOW_UNSAFE_MODEL_LOADING' to 'true' to allow loading."
+            "'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' to 'true' to allow loading."
         )
 
     if serialization_format == SERIALIZATION_FORMAT_SKOPS:

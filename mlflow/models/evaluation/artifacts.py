@@ -92,7 +92,7 @@ class PickleEvaluationArtifact(EvaluationArtifact):
         if not _is_pickle_loading_allowed(allow_in_databricks=False):
             raise MlflowException(
                 "Deserializing evaluation artifacts using pickle is disallowed. "
-                "Set environment variable 'MLFLOW_ALLOW_UNSAFE_MODEL_LOADING' to 'true' "
+                "Set environment variable 'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' to 'true' "
                 "to allow deserializing evaluation artifacts using pickle."
             )
         with open(local_artifact_path, "rb") as f:

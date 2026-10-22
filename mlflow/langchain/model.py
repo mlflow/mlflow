@@ -904,7 +904,7 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
             raise MlflowException(
                 "Deserializing model using pickle is disallowed, but this model is saved "
                 "in cloudpickle format. To address this issue, you need to set environment "
-                "variable 'MLFLOW_ALLOW_UNSAFE_MODEL_LOADING' to 'true'; or save the model as "
+                "variable 'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' to 'true'; or save the model as "
                 "models-from-code artifacts, you can refer to documentation at "
                 "https://mlflow.org/docs/latest/ml/model/models-from-code/#examples-and-patterns "
                 "for example code."

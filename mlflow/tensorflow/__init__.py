@@ -549,7 +549,7 @@ def _load_custom_objects(path, file_name):
             raise MlflowException(
                 "Deserializing custom objects using cloudpickle is disallowed, but this model "
                 "was saved with custom objects in pickle format. To address this issue, you need "
-                "to set environment variable 'MLFLOW_ALLOW_UNSAFE_MODEL_LOADING' to 'true'."
+                "to set environment variable 'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' to 'true'."
             )
         import cloudpickle
 

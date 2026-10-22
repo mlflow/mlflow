@@ -59,7 +59,7 @@ def _load_model(model_uri, dst_path=None):
         raise MlflowException(
             "Deserializing model using pickle is disallowed, but this model is saved "
             "in pickle format. To address this issue, you need to set environment variable "
-            "'MLFLOW_ALLOW_UNSAFE_MODEL_LOADING' to 'true', or save the model with "
+            "'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' to 'true', or save the model with "
             "'use_dspy_model_save=True' like "
             "`mlflow.dspy.save_model(model, path, use_dspy_model_save=True)`."
         )
@@ -76,10 +76,10 @@ def _load_model(model_uri, dst_path=None):
             if not allow_pickle:
                 raise MlflowException(
                     f"Failed to load DSPy model: {e}. Note: the environment variable "
-                    "'MLFLOW_ALLOW_UNSAFE_MODEL_LOADING' is currently set to 'false', "
+                    "'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' is currently set to 'false', "
                     "which disables pickle-based deserialization. If the failure above "
                     "is due to disabled pickle deserialization, set "
-                    "'MLFLOW_ALLOW_UNSAFE_MODEL_LOADING' to 'true' to allow loading "
+                    "'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' to 'true' to allow loading "
                     "pickle-based models."
                 ) from e
             raise

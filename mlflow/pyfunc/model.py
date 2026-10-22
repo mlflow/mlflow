@@ -1408,7 +1408,7 @@ def _load_context_model_and_signature(model_path: str, model_config: dict[str, A
                 "models-from-code artifacts, see "
                 "https://mlflow.org/docs/latest/ml/model/models-from-code/ for details. "
                 "Another workaround is to set environment "
-                "variable 'MLFLOW_ALLOW_UNSAFE_MODEL_LOADING' to 'true' to allow "
+                "variable 'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' to 'true' to allow "
                 "deserializing model using pickle."
             )
         python_model_cloudpickle_version = pyfunc_config.get(CONFIG_KEY_CLOUDPICKLE_VERSION, None)

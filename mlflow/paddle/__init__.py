@@ -316,7 +316,7 @@ def load_model(model_uri, model=None, dst_path=None, **kwargs):
         raise MlflowException(
             "Deserializing model using pickle is disallowed, but loading a paddle model "
             "may deserialize pickle data. The workaround is to set environment variable "
-            "'MLFLOW_ALLOW_UNSAFE_MODEL_LOADING' to 'true'."
+            "'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' to 'true'."
         )
     import paddle
 

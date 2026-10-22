@@ -310,7 +310,7 @@ def _load_model(path):
         raise MlflowException(
             "Deserializing model using pickle is disallowed, but this model is saved "
             "in pickle format. The workaround is to set environment variable "
-            "'MLFLOW_ALLOW_UNSAFE_MODEL_LOADING' to 'true'."
+            "'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' to 'true'."
         )
     import statsmodels.iolib.api as smio
 
