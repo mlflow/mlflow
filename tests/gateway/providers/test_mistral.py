@@ -478,3 +478,86 @@ async def test_chat_stream_includes_usage_from_final_chunk():
     assert chunks[-1].usage.prompt_tokens == 12
     assert chunks[-1].usage.completion_tokens == 34
     assert chunks[-1].usage.total_tokens == 46
+
+
+@pytest.mark.asyncio
+async def test_chat_surfaces_cached_tokens_and_passes_prompt_cache_key():
+    provider = MistralProvider(EndpointConfig(**chat_config()))
+    resp = {
+        "id": "chatcmpl-abc123",
+        "object": "chat.completion",
+        "created": 1677858242,
+        "model": "mistral-large-latest",
+        "usage": {
+            "prompt_tokens": 128,
+            "completion_tokens": 5,
+            "total_tokens": 133,
+            "prompt_tokens_details": {"cached_tokens": 64},
+        },
+        "choices": [
+            {
+                "message": {"role": "assistant", "content": "Hi"},
+                "finish_reason": "stop",
+                "index": 0,
+            }
+        ],
+    }
+
+    with mock.patch(TARGET, return_value=MockAsyncResponse(resp)) as mock_post:
+        payload = {
+            "messages": [{"role": "user", "content": "Hello"}],
+            "prompt_cache_key": "my-cache-key",
+        }
+        response = await provider.chat(chat.RequestPayload(**payload))
+
+    assert mock_post.call_args.kwargs["json"]["prompt_cache_key"] == "my-cache-key"
+    assert response.usage.prompt_tokens == 128
+    assert response.usage.prompt_tokens_details.cached_tokens == 64
+    assert provider._extract_token_usage(response)["cache_read_input_tokens"] == 64
+
+
+@pytest.mark.asyncio
+async def test_chat_without_prompt_tokens_details_omits_it_from_usage():
+    provider = MistralProvider(EndpointConfig(**chat_config()))
+    resp = {
+        "id": "chatcmpl-abc123",
+        "object": "chat.completion",
+        "created": 1677858242,
+        "model": "mistral-large-latest",
+        "usage": {"prompt_tokens": 13, "completion_tokens": 50, "total_tokens": 63},
+        "choices": [
+            {
+                "message": {"role": "assistant", "content": "Hi"},
+                "finish_reason": "stop",
+                "index": 0,
+            }
+        ],
+    }
+
+    with mock.patch(TARGET, return_value=MockAsyncResponse(resp)):
+        response = await provider.chat(
+            chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}])
+        )
+
+    assert response.usage.prompt_tokens_details is None
+    assert "prompt_tokens_details" not in response.usage.model_dump()
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_surfaces_cached_tokens_from_final_chunk():
+    provider = MistralProvider(EndpointConfig(**chat_config()))
+    resp = [
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1677858242,'
+        b'"model":"mistral-large-latest","choices":[{"index":0,"finish_reason":"stop",'
+        b'"delta":{"content":""}}],'
+        b'"usage":{"prompt_tokens":128,"completion_tokens":5,"total_tokens":133,'
+        b'"prompt_tokens_details":{"cached_tokens":64}}}\n\n',
+        b"data: [DONE]\n\n",
+    ]
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        payload = {"messages": [{"role": "user", "content": "Hello"}]}
+        chunks = [c async for c in provider.chat_stream(chat.RequestPayload(**payload))]
+
+    assert chunks[-1].usage.prompt_tokens_details.cached_tokens == 64
