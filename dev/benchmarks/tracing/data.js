@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792683320056,
+  "lastUpdate": 1792704426946,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "82044803+serena-ruan@users.noreply.github.com",
-            "name": "Serena Ruan",
-            "username": "serena-ruan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3d57b4606ceb4b5da185c22945d48796a006f7d5",
-          "message": "Cap `mcp<2` for pydantic-ai <2.0.0 cross-version tests (#24927)\n\nSigned-off-by: Serena Ruan <serena.rxy@gmail.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
-          "timestamp": "2026-08-06T13:02:35+08:00",
-          "tree_id": "b3789d94e1b118b132cba1da58b2e6d020983400",
-          "url": "https://github.com/mlflow/mlflow/commit/3d57b4606ceb4b5da185c22945d48796a006f7d5"
-        },
-        "date": 1785992633584,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 43.13129125000046,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 6.320054109089959,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 5.532830321917841,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 6.320940355932547,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 5.849157716535122,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 20.000596599996356,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 11.743354200001477,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mprahl@users.noreply.github.com",
+            "name": "Matthew Prahl",
+            "username": "mprahl"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2ebac867d36a742accd886742c73e05fd58328b0",
+          "message": "Add `MLFLOW_DISABLE_PYFUNC_LOADER_MODULE` opt-in guard (#27027)\n\nSigned-off-by: mprahl <mprahl@users.noreply.github.com>",
+          "timestamp": "2026-10-22T21:22:59Z",
+          "tree_id": "feb275f4b71c9296fe1c8a6dfcbf74b7bc3f7820",
+          "url": "https://github.com/mlflow/mlflow/commit/2ebac867d36a742accd886742c73e05fd58328b0"
+        },
+        "date": 1792704423922,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 52.66163530000085,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 7.664113672727395,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.894132466101877,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 7.093750380950528,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 7.523295802198535,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 27.348167600001716,
             "unit": "ms"
           }
         ]
