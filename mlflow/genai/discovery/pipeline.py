@@ -12,6 +12,7 @@ import pydantic
 import mlflow
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.issue import IssueSeverity
+from mlflow.entities.issue_evidence import IssueEvidence
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
     MLFLOW_GENAI_DISCOVERY_TRIAGE_SAMPLE_SIZE,
@@ -227,19 +228,42 @@ def _annotate_issue_traces(
                 )
 
         metadata = {TraceMetadataKey.TRACE_SESSION: item.session_id} if item.session_id else None
-        try:
+
+        def _log(with_evidence: IssueEvidence | None) -> None:
             mlflow.log_issue(
                 trace_id=item.trace_id,
                 issue_id=item.issue.issue_id,
                 issue_name=item.issue.name,
                 source=source,
-                evidence=evidence,
+                evidence=with_evidence,
                 rationale=annotation,
                 metadata=metadata,
             )
+
+        try:
+            _log(evidence)
         except Exception:
-            _logger.debug("Failed to log issue for trace %s", item.trace_id, exc_info=True)
-            return None
+            if evidence is None:
+                _logger.debug("Failed to log issue for trace %s", item.trace_id, exc_info=True)
+                return None
+            # Structured evidence is the only part of the reference big enough to be refused:
+            # the assessment metadata column holds 65,535 bytes and nothing bounds the step
+            # count that produced it. Dropping the walkthrough costs the reader a span-anchored
+            # explanation; dropping the reference costs them the fact that this trace exhibits
+            # the issue at all, which is the whole point of annotating it. So retry once
+            # without it, and say so rather than leaving a silent gap between what was
+            # generated and what was stored.
+            _logger.warning(
+                "Could not store structured evidence for trace %s; recording the issue "
+                "reference with its summary only",
+                item.trace_id,
+                exc_info=True,
+            )
+            try:
+                _log(None)
+            except Exception:
+                _logger.debug("Failed to log issue for trace %s", item.trace_id, exc_info=True)
+                return None
         return annotation
 
     max_workers = min(MLFLOW_GENAI_EVAL_MAX_WORKERS.get(), len(work_items))
@@ -846,10 +870,27 @@ def discover_issues(
         )
 
     if triage.scorer_error_trace_ids:
+        # The messages are included because the count alone does not say whether this was a
+        # rate limit, a bad key or a malformed trace -- and that is the difference between
+        # rerunning the detection and fixing something first. Bounded so one broken scorer
+        # cannot flood the run's log with the same line.
+        sampled = "; ".join(
+            f"{trace_id}: {triage.scorer_errors[trace_id]}"
+            for trace_id in triage.scorer_error_trace_ids[:3]
+            if trace_id in triage.scorer_errors
+        )
         _logger.warning(
-            "%d/%d traces could not be judged because their scorer errored; they are reported "
-            "as a scorer problem rather than as passing traces",
+            "%d/%d traces could not be judged because their scorer errored, so they are "
+            "excluded from trace-quality classification rather than counted as passing%s",
             len(triage.scorer_error_trace_ids),
+            len(triage_traces),
+            f". First errors -- {sampled}" if sampled else "",
+        )
+    if triage.unclassified_trace_ids:
+        _logger.warning(
+            "%d/%d traces were left unclassified because their scorer returned no value, so "
+            "neither pass nor fail was established and they support no conclusion either way",
+            len(triage.unclassified_trace_ids),
             len(triage_traces),
         )
     _logger.info(

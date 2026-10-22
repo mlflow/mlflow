@@ -155,11 +155,16 @@ def _is_session_scoped(assessment) -> bool:
 
 def extract_assessment_rationale(trace: Trace, scorer_name: str, *, session_scoped=None) -> str:
     """
-    The first usable rationale among a trace's assessments for one scorer.
+    The most recent usable rationale among a trace's assessments for one scorer.
 
     An assessment carrying an error is skipped: the scorer failed, so its rationale describes
     that failure rather than the trace. The rationale is what is read rather than the value,
     because a bare label such as ``"no"`` is ambiguous without the scorer's criterion.
+
+    The newest is taken rather than the first found, because re-evaluating a session leaves
+    several assessments from the same scorer on the same trace. Taking whichever came back
+    first let a superseded verdict -- including a passing one from before the regression --
+    describe the session that is being analyzed now.
 
     Args:
         trace: The trace to read.
@@ -167,15 +172,19 @@ def extract_assessment_rationale(trace: Trace, scorer_name: str, *, session_scop
         session_scoped: When True, return only conversation-scoped rationales; when False,
             only per-turn ones. ``None`` reads both.
     """
-    assessments = trace.search_assessments(scorer_name, type="feedback")
-    for assessment in assessments:
-        if getattr(assessment, "error", None) is not None:
-            continue
-        if session_scoped is not None and _is_session_scoped(assessment) != session_scoped:
-            continue
-        if assessment.rationale:
-            return assessment.rationale
-    return ""
+    usable = [
+        assessment
+        for assessment in trace.search_assessments(scorer_name, type="feedback")
+        if getattr(assessment, "error", None) is None
+        and assessment.rationale
+        and (session_scoped is None or _is_session_scoped(assessment) == session_scoped)
+    ]
+    if not usable:
+        return ""
+    # An assessment with no recorded time sorts oldest: it cannot be shown to supersede one
+    # that is timestamped, and preferring it would reintroduce the arbitrary pick.
+    newest = max(usable, key=lambda assessment: getattr(assessment, "create_time_ms", None) or 0)
+    return newest.rationale
 
 
 def collect_session_rationales(

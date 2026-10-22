@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 import pydantic
@@ -24,10 +25,16 @@ class _TriageResult:
         rationale_map: Trace ID to the combined rationale of its failing scorers.
         categories_map: Trace ID to the category tags triage assigned.
         scorer_error_trace_ids: Traces whose scorer itself errored. The scorer failed, not
-            the trace, so these are reported as a scorer problem and excluded from
-            trace-quality classification.
+            the trace, so these are excluded from trace-quality classification rather than
+            counted as passing.
         unclassified_trace_ids: Traces a scorer returned no value for, so neither pass nor
             fail was established.
+        scorer_errors: Trace ID to the scorer's error message, for the traces in
+            ``scorer_error_trace_ids``.
+
+    The last three are surfaced in the run's log and nowhere else today. They are the input a
+    coverage report would need -- how much of the sample the run is actually entitled to draw
+    conclusions from -- but that surface is deferred, so nothing reads them programmatically.
     """
 
     failing_traces: list[Trace]
@@ -36,6 +43,19 @@ class _TriageResult:
     scorer_error_trace_ids: list[str] = field(default_factory=list)
     unclassified_trace_ids: list[str] = field(default_factory=list)
     scorer_errors: dict[str, str] = field(default_factory=dict)
+
+
+def _format_usd(value: float) -> str:
+    """
+    A dollar figure that keeps two significant digits however small it is.
+
+    Four decimals is right for ordinary spend but silently flattens cheap traces: a $0.0000014
+    anomaly against a $0.000001 baseline renders as "$0.0000 ... the typical $0.0000", which
+    reaches the clustering prompt as two identical figures and reads as no anomaly at all.
+    """
+    if not math.isfinite(value) or value <= 0:
+        return f"${value:.4f}"
+    return f"${value:.{max(4, -math.floor(math.log10(value)) + 1)}f}"
 
 
 @dataclass
@@ -64,9 +84,12 @@ class CostAnomaly:
     def describe(self) -> str:
         """The anomaly as one clause, stating what the spend is compared against."""
         multiple = self.cost_usd / self.typical_usd if self.typical_usd > 0 else float("inf")
+        # A fixed multiple is rounded too, so a 1.4x anomaly does not read as "1x the typical".
+        multiple_text = f"{multiple:.0f}" if multiple >= 10 else f"{multiple:.1f}"
         return (
-            f"${self.cost_usd:.4f}, {multiple:.0f}x the typical ${self.typical_usd:.4f} "
-            f"for {self.label!r} across {self.peer_count} priced traces"
+            f"{_format_usd(self.cost_usd)}, {multiple_text}x the typical "
+            f"{_format_usd(self.typical_usd)} for {self.label!r} across "
+            f"{self.peer_count} priced traces"
         )
 
 
@@ -77,6 +100,40 @@ class DiscoverIssuesResult:
     summary: str
     total_traces_analyzed: int
     total_cost_usd: float | None = None
+
+
+_SIGNAL_SEPARATOR = "; "
+
+
+def _share_budget(text: str, limit: int) -> str:
+    """
+    ``text`` trimmed to ``limit`` characters, keeping the head of every ``; ``-joined signal.
+
+    Signals are trimmed from the longest down, so short ones survive whole and the budget is
+    spent on them only as far as they need it. Returned joined the way it arrived, so callers
+    and prompts see the same shape as before.
+    """
+    if len(text) <= limit:
+        return text
+    signals = text.split(_SIGNAL_SEPARATOR)
+    if len(signals) == 1:
+        return text[:limit]
+
+    # Every signal needs room for itself plus the separators between them.
+    budget = limit - len(_SIGNAL_SEPARATOR) * (len(signals) - 1)
+    if budget <= 0:
+        return text[:limit]
+
+    kept = [0] * len(signals)
+    remaining = budget
+    # Hand out the budget in equal rounds: a signal shorter than its share takes only what it
+    # needs and leaves the rest, so one long signal cannot starve the others.
+    for index in sorted(range(len(signals)), key=lambda i: len(signals[i])):
+        share = remaining // max(1, len(signals) - sum(1 for k in kept if k))
+        take = min(len(signals[index]), max(share, 0))
+        kept[index] = take
+        remaining -= take
+    return _SIGNAL_SEPARATOR.join(signal[:take] for signal, take in zip(signals, kept) if take > 0)
 
 
 @dataclass
@@ -98,7 +155,16 @@ class _ConversationAnalysis:
 
     @property
     def rationale_summary(self) -> str:
-        return self.full_rationale[:RATIONALE_TRUNCATION_LIMIT]
+        """
+        The rationale trimmed to what the labeling and summarization prompts will carry.
+
+        Each ``; ``-joined signal keeps a share of the budget rather than the whole string
+        being cut at one point. A blind prefix cut silently dropped whichever signal came
+        last: a long session feedback hid the turn's own triage rationale, and appended cost
+        facts ("$0.40 against a $0.01 baseline") vanished behind a long quality rationale,
+        leaving the clustering input with the ``cost`` category and no figures to cluster on.
+        """
+        return _share_budget(self.full_rationale, RATIONALE_TRUNCATION_LIMIT)
 
 
 class _IdentifiedIssue(pydantic.BaseModel):

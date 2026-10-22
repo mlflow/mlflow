@@ -133,17 +133,62 @@ def test_missing_cost_is_excluded_rather_than_read_as_zero_spend():
     assert analyze_cost_anomalies(traces) == []
 
 
-def test_small_labels_are_pooled_rather_than_compared_against_themselves():
-    # Four agents of three traces each: no label can be judged alone, but pooled they give a
-    # conservative comparison that still catches a runaway.
+def test_a_label_without_enough_priced_peers_is_not_judged():
+    # Four agents of three traces each, one carrying a runaway. Nothing is reported: no label
+    # has the peers to judge it. This test previously asserted the opposite -- that the labels
+    # were pooled and the runaway found -- which worked only because every label here costs
+    # about the same. See the test below for the case that breaks.
     traces = []
     for index in range(4):
         traces += _sample(f"agent_{index}", [0.010, 0.011, 0.012])
     traces += _sample("agent_0", [4.00])
 
+    assert analyze_cost_anomalies(traces) == []
+
+
+def test_an_ordinary_trace_of_a_costlier_agent_is_not_an_anomaly():
+    # Reported in review. Pooling undersampled labels compares a trace against whatever other
+    # agents happen to be in the sample, so these two perfectly ordinary reasoner traces were
+    # reported at "75x the typical" purely because the other four agents are cheap.
+    traces = []
+    for label in ("retriever", "classifier", "formatter", "router"):
+        traces += _sample(label, [0.010 + i * 0.001 for i in range(8)])
+    reasoner = _sample("reasoner", [1.00, 1.05])
+
+    assert analyze_cost_anomalies(traces + reasoner) == []
+
+    # The decisive part: giving those same two traces ordinary same-agent peers used to remove
+    # the findings. A verdict that flips on the rest of the sample was not about these traces.
+    peers = _sample("reasoner", [0.95 + i * 0.01 for i in range(8)])
+    assert analyze_cost_anomalies(traces + reasoner + peers) == []
+
+
+def test_a_runaway_is_still_caught_once_its_own_label_has_peers():
+    # The flip side of skipping undersampled labels: detection must survive for a label that
+    # does have peers, or the fix above would have turned the feature off.
+    traces = _sample("agent", [0.010 + i * 0.0005 for i in range(19)])
+    traces += _sample("agent", [0.40])
+
     anomalies = analyze_cost_anomalies(traces)
 
-    assert [anomaly.label for anomaly in anomalies] == ["(mixed agents)"]
+    assert [anomaly.label for anomaly in anomalies] == ["agent"]
+    assert anomalies[0].cost_usd == 0.40
+
+
+def test_the_anomalous_fraction_cutoff_is_exclusive_at_ten_percent():
+    # Reported in review: the 10% cutoff boundary was untested. Two qualifying traces among 19
+    # exceed it (2 > 1.9) and are suppressed; one more ordinary trace brings it to 2 > 2.0,
+    # which is false, so both appear. Pinned so the boundary cannot move unnoticed.
+    base = [0.010 + i * 0.0005 for i in range(17)]
+    runaways = [0.40, 0.42]
+
+    nineteen = _sample("agent", base) + _sample("agent", runaways)
+    assert len(nineteen) == 19
+    assert analyze_cost_anomalies(nineteen) == []
+
+    twenty = nineteen + _sample("agent", [0.011])
+    assert len(twenty) == 20
+    assert len(analyze_cost_anomalies(twenty)) == 2
 
 
 def test_an_empty_sample_produces_no_findings():
