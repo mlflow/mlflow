@@ -20,6 +20,8 @@ export type TraceTableColumn = ColumnDef<ModelTraceInfoV3> & {
   renderSessionCell?: SessionCellRenderer;
   /** Plain-text column name for the menu trigger's a11y label when the header is JSX instead of a string. */
   labelText?: string;
+  /** `'rich'` lets a consumer render a block header (such as a score summary) instead of a one-line label. */
+  headerVariant?: 'standard' | 'rich';
 };
 
 /**
