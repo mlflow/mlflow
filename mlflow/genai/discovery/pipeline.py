@@ -12,6 +12,7 @@ import pydantic
 import mlflow
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.issue import IssueSeverity
+from mlflow.entities.issue_evidence import IssueEvidence
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
     MLFLOW_GENAI_DISCOVERY_TRIAGE_SAMPLE_SIZE,
@@ -23,6 +24,7 @@ from mlflow.genai.discovery.clustering import (
     summarize_cluster,
 )
 from mlflow.genai.discovery.constants import (
+    CATEGORY_COST,
     CATEGORY_LATENCY,
     DEDUP_ISSUES_PROMPT_TEMPLATE,
     DEFAULT_CATEGORIES,
@@ -33,11 +35,13 @@ from mlflow.genai.discovery.constants import (
     build_satisfaction_instructions,
 )
 from mlflow.genai.discovery.entities import (
+    CostAnomaly,
     DiscoverIssuesResult,
     Issue,
     _ConversationAnalysis,
     _IdentifiedIssue,
 )
+from mlflow.genai.discovery.evidence import generate_trace_evidence
 from mlflow.genai.discovery.extraction import (
     collect_session_rationales,
     extract_execution_paths_for_session,
@@ -46,6 +50,7 @@ from mlflow.genai.discovery.extraction import (
 )
 from mlflow.genai.discovery.sampling import sample_traces
 from mlflow.genai.discovery.utils import (
+    analyze_cost_anomalies,
     build_summary,
     collect_affected_trace_ids,
     compute_latency_percentiles,
@@ -177,38 +182,88 @@ def _annotate_issue_traces(
             categories=categories,
         )
 
-        try:
-            response = _call_llm(
-                model,
-                [
-                    {"role": "system", "content": TRACE_ANNOTATION_SYSTEM_PROMPT},
-                    {"role": "user", "content": user_content},
-                ],
-                token_counter=token_counter,
-            )
-            annotation = (response.choices[0].message.content or "").strip()
-        except Exception:
-            _logger.debug(
-                "Failed to generate annotation for trace %s", item.trace_id, exc_info=True
-            )
-            annotation = (
-                f"This trace was flagged for issue '{item.issue.name}'. "
-                f"Triage rationale: {item.triage_rationale or '(not available)'}"
-            )
+        evidence = None
+        annotation = ""
+        if trace is not None:
+            # A span-anchored walkthrough is what the Issues tab can navigate, so it is tried
+            # first. Generation and validation are both fallible, and either way the summary
+            # it produced is still the best prose available for the reference's rationale.
+            try:
+                evidence, annotation = generate_trace_evidence(
+                    issue_name=item.issue.name,
+                    issue_description=item.issue.description or "",
+                    root_causes="; ".join(item.issue.root_causes or []),
+                    trace=trace,
+                    trace_content=trace_content,
+                    triage_rationale=item.triage_rationale,
+                    categories=categories,
+                    model=model,
+                    token_counter=token_counter,
+                )
+            except Exception:
+                _logger.debug(
+                    "Failed to generate evidence for trace %s", item.trace_id, exc_info=True
+                )
+
+        if not annotation:
+            # Prose only. Reached when the trace is unavailable or evidence generation failed,
+            # and still records that this trace exhibits the issue.
+            try:
+                response = _call_llm(
+                    model,
+                    [
+                        {"role": "system", "content": TRACE_ANNOTATION_SYSTEM_PROMPT},
+                        {"role": "user", "content": user_content},
+                    ],
+                    token_counter=token_counter,
+                )
+                annotation = (response.choices[0].message.content or "").strip()
+            except Exception:
+                _logger.debug(
+                    "Failed to generate annotation for trace %s", item.trace_id, exc_info=True
+                )
+                annotation = (
+                    f"This trace was flagged for issue '{item.issue.name}'. "
+                    f"Triage rationale: {item.triage_rationale or '(not available)'}"
+                )
 
         metadata = {TraceMetadataKey.TRACE_SESSION: item.session_id} if item.session_id else None
-        try:
+
+        def _log(with_evidence: IssueEvidence | None) -> None:
             mlflow.log_issue(
                 trace_id=item.trace_id,
                 issue_id=item.issue.issue_id,
                 issue_name=item.issue.name,
                 source=source,
+                evidence=with_evidence,
                 rationale=annotation,
                 metadata=metadata,
             )
+
+        try:
+            _log(evidence)
         except Exception:
-            _logger.debug("Failed to log issue for trace %s", item.trace_id, exc_info=True)
-            return None
+            if evidence is None:
+                _logger.debug("Failed to log issue for trace %s", item.trace_id, exc_info=True)
+                return None
+            # Structured evidence is the only part of the reference big enough to be refused:
+            # the assessment metadata column holds 65,535 bytes and nothing bounds the step
+            # count that produced it. Dropping the walkthrough costs the reader a span-anchored
+            # explanation; dropping the reference costs them the fact that this trace exhibits
+            # the issue at all, which is the whole point of annotating it. So retry once
+            # without it, and say so rather than leaving a silent gap between what was
+            # generated and what was stored.
+            _logger.warning(
+                "Could not store structured evidence for trace %s; recording the issue "
+                "reference with its summary only",
+                item.trace_id,
+                exc_info=True,
+            )
+            try:
+                _log(None)
+            except Exception:
+                _logger.debug("Failed to log issue for trace %s", item.trace_id, exc_info=True)
+                return None
         return annotation
 
     max_workers = min(MLFLOW_GENAI_EVAL_MAX_WORKERS.get(), len(work_items))
@@ -234,7 +289,8 @@ def _build_analyses(
     human feedback, and span errors into a single ConversationAnalysis.
 
     Args:
-        triage_traces: All traces from the triage phase (passing and failing).
+        triage_traces: All traces from the triage phase (passing and failing), re-fetched so
+            they carry the assessments written during evaluation.
         rationale_map: Mapping of trace_id to triage rationale for failing traces.
         categories_map: Mapping of trace_id to category tags from structured output.
         scorer_name: Name of the triage scorer, used to look up human feedback.
@@ -253,7 +309,11 @@ def _build_analyses(
         ]
         if not session_failing:
             continue
-        combined_rationale = collect_session_rationales(session_failing, rationale_map, scorer_name)
+        # The whole session, not just its failing turns: conversation-scoped feedback is often
+        # recorded on the first turn, which may itself have passed.
+        combined_rationale = collect_session_rationales(
+            session_failing, rationale_map, scorer_name, session_traces=session_traces
+        )
         if not combined_rationale:
             continue
         exec_path = extract_execution_paths_for_session(session_failing)
@@ -587,6 +647,61 @@ def build_issue_discovery_scorer(
     )
 
 
+def _lookup_by_trace_id(traces: list[Trace]) -> dict[str, Trace]:
+    """Traces by ID, skipping any whose ID cannot be read rather than keying them positionally."""
+    lookup = {}
+    for trace in traces:
+        try:
+            lookup[trace.info.trace_id] = trace
+        except Exception:
+            continue
+    return lookup
+
+
+def _merge_cost_findings(
+    triage,
+    cost_anomalies: list[CostAnomaly],
+    trace_lookup: dict[str, Trace],
+) -> int:
+    """
+    Carry cost anomalies into triage so a trace that only costs too much is still a finding.
+
+    A trace can achieve the user's goal, return ``OK``, and still spend many times what its
+    own agent label normally does. Triage judges output quality, so such a trace passes and
+    the anomaly would never reach clustering. Each anomaly is added as a failing trace with a
+    deterministic rationale -- the observed spend, what it is compared against, and the driver
+    -- so it groups and reports through the same path as every other finding.
+
+    An unpriced trace never reaches here: it is excluded while grouping and disclosed in the
+    run's log, because a missing cost is not a cheap trace.
+
+    Returns:
+        How many traces this added to the failing set.
+    """
+    already_failing = {trace.info.trace_id for trace in triage.failing_traces}
+    added = 0
+    for anomaly in cost_anomalies:
+        trace = trace_lookup.get(anomaly.trace_id)
+        if trace is None:
+            continue
+        rationale = f"[cost anomaly] spend is {anomaly.describe()}"
+        if anomaly.trace_id in already_failing:
+            # The trace already failed on quality; append the cost signal so clustering sees
+            # both, rather than replacing the quality rationale with it.
+            existing = triage.rationale_map.get(anomaly.trace_id, "")
+            triage.rationale_map[anomaly.trace_id] = (
+                f"{existing}; {rationale}" if existing else rationale
+            )
+        else:
+            triage.failing_traces.append(trace)
+            triage.rationale_map[anomaly.trace_id] = rationale
+            added += 1
+        categories = triage.categories_map.setdefault(anomaly.trace_id, [])
+        if CATEGORY_COST not in categories:
+            categories.append(CATEGORY_COST)
+    return added
+
+
 @record_usage_event(DiscoverIssuesEvent)
 def discover_issues(
     experiment_id: str | None = None,
@@ -740,6 +855,44 @@ def discover_issues(
     scorer_names = [s.name for s in scorers]
     triage = extract_failing_traces(scored_traces, scorer_names)
 
+    # Cost is judged across the sample, because it is the one category a per-trace judge
+    # cannot reach. This is the traced application's spend; the detector's own is owned by
+    # `token_counter`.
+    cost_anomalies = analyze_cost_anomalies(scored_traces) if CATEGORY_COST in categories else []
+
+    # Keyed on the real trace ID: an anomaly only ever carries one, because a trace whose ID
+    # could not be read was excluded while grouping.
+    cost_findings = _merge_cost_findings(triage, cost_anomalies, _lookup_by_trace_id(scored_traces))
+    if cost_findings:
+        _logger.info(
+            "%d traces were flagged for cost alone, as outliers against their own peers",
+            cost_findings,
+        )
+
+    if triage.scorer_error_trace_ids:
+        # The messages are included because the count alone does not say whether this was a
+        # rate limit, a bad key or a malformed trace -- and that is the difference between
+        # rerunning the detection and fixing something first. Bounded so one broken scorer
+        # cannot flood the run's log with the same line.
+        sampled = "; ".join(
+            f"{trace_id}: {triage.scorer_errors[trace_id]}"
+            for trace_id in triage.scorer_error_trace_ids[:3]
+            if trace_id in triage.scorer_errors
+        )
+        _logger.warning(
+            "%d/%d traces could not be judged because their scorer errored, so they are "
+            "excluded from trace-quality classification rather than counted as passing%s",
+            len(triage.scorer_error_trace_ids),
+            len(triage_traces),
+            f". First errors -- {sampled}" if sampled else "",
+        )
+    if triage.unclassified_trace_ids:
+        _logger.warning(
+            "%d/%d traces were left unclassified because their scorer returned no value, so "
+            "neither pass nor fail was established and they support no conclusion either way",
+            len(triage.unclassified_trace_ids),
+            len(triage_traces),
+        )
     _logger.info(
         "Triage complete: %d/%d traces unsatisfactory",
         len(triage.failing_traces),
@@ -758,7 +911,7 @@ def discover_issues(
     # ---- Phase 2: Build analyses ----
     update_status_details({"stage": "Analyzing results..."})
     analyses, session_groups = _build_analyses(
-        triage_traces,
+        scored_traces,
         triage.rationale_map,
         triage.categories_map,
         scorer_name,
@@ -789,7 +942,7 @@ def discover_issues(
         for trace in traces_in_session:
             trace_to_session[trace.info.trace_id] = session_id
 
-    trace_lookup = {trace.info.trace_id: trace for trace in triage_traces}
+    trace_lookup = {trace.info.trace_id: trace for trace in scored_traces}
     session_first_trace: dict[str, str] | None = None
     if use_conversation:
         session_first_trace = {

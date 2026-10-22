@@ -2971,6 +2971,10 @@
     "defaultMessage": "Create run",
     "description": "Experiment page > new run modal > \"Create run\" confirm button label"
   },
+  "8VpQ8D": {
+    "defaultMessage": "Cost",
+    "description": "Experiment issues tab > Cost category filter option"
+  },
   "8VzQLx": {
     "defaultMessage": "Markdown",
     "description": "Tooltip content for a button that changes the render mode of the prompt to markdown"
@@ -5607,6 +5611,10 @@
     "defaultMessage": "Create your first experiment to start tracking ML workflows.",
     "description": "Home page experiments empty state description"
   },
+  "HcfqOz": {
+    "defaultMessage": "The agent's token or tool-call spend is anomalous against its own baseline.",
+    "description": "Issue category description for cost"
+  },
   "HdEgbb": {
     "defaultMessage": "Error",
     "description": "Error status in the evaluations table."
@@ -7354,6 +7362,10 @@
   "NQYTBb": {
     "defaultMessage": "Cached",
     "description": "Label for the cached input tokens in the tooltip for the tokens cell."
+  },
+  "NQi6wp": {
+    "defaultMessage": "Cost",
+    "description": "Issue category title for cost"
   },
   "NRNNnk": {
     "defaultMessage": "Click to expand",
