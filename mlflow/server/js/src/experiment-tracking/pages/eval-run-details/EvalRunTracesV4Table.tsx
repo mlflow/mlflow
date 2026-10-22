@@ -118,7 +118,7 @@ export const EvalRunTracesV4Table = ({
     refetchPage();
     refetchAssessmentSummaries();
   }, [refetchPage, refetchAssessmentSummaries]);
-  const actions = useTracesV4TraceActions(experimentId, page.traces, refetchTracesAndSummaries);
+  const actions = useTracesV4TraceActions(experimentId, page.traces, refetchTracesAndSummaries, notify);
 
   // Header summaries: the scorer's rate or value over the run, with a chart for pass/fail scores. A chart
   // click toggles a filter on that value.

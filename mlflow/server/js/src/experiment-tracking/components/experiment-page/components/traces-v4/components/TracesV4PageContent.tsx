@@ -427,7 +427,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     return actions;
   }, [customColumns.tags, customColumns.metadata, intl]);
 
-  const actions = useTracesV4TraceActions(experimentId, page.traces, page.refetch);
+  const actions = useTracesV4TraceActions(experimentId, page.traces, page.refetch, notify);
   // With the new eval runs UI, the drawer opens fullscreen within the experiment page (falling back
   // to this tab's content) while the MLflow Assistant is open, so it sits beside the Assistant panel.
   const isNewEvalRunsUi = shouldEnableNewEvalRunsUi();
