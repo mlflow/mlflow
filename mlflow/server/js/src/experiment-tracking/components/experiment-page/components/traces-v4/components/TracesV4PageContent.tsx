@@ -105,8 +105,15 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
         isStarting: !detection.jobId,
         onCancel: detection.jobId
           ? async () => {
-              await cancelJobAsync({ jobId: detection.jobId as string, runUuid: detection.run?.info.run_id });
-              await detection.refetch();
+              try {
+                await cancelJobAsync({ jobId: detection.jobId as string, runUuid: detection.run?.info.run_id });
+              } finally {
+                // Refreshed even when the cancel fails. "Already finalized" means the job
+                // reached a terminal state that this client never saw -- a failed status read
+                // stops polling -- so the refresh is exactly what unblocks the toolbar, and
+                // skipping it on error left Traces stuck until a page reload.
+                await detection.refetch();
+              }
             }
           : undefined,
       }
