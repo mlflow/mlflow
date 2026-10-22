@@ -4575,10 +4575,6 @@
     "defaultMessage": "Permission denied",
     "description": "Title for Skill detail permission-denied state"
   },
-  "DUcwbU": {
-    "defaultMessage": "Source run",
-    "description": "Experiment Issue source run link"
-  },
   "DUnrWL": {
     "defaultMessage": "Run Name:",
     "description": "Row title for the run name on the experiment compare runs page"
