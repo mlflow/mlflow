@@ -1855,6 +1855,10 @@
     "defaultMessage": "A skill named \"{name}\" is already registered.",
     "description": "Error when a new skill's name belongs to an existing skill"
   },
+  "4QIQ0J": {
+    "defaultMessage": "Search syntax help",
+    "description": "Accessible label for the evaluation runs search syntax help"
+  },
   "4Qft47": {
     "defaultMessage": "{nodeCount, plural, =0 {} one {# node} other {# nodes}}",
     "description": "Count of selected nodes displayed in the node level metric charts node selector"
@@ -4387,6 +4391,10 @@
     "defaultMessage": "Does the response follow per-example guidelines from expectations?",
     "description": "Hint for ExpectationsGuidelines template"
   },
+  "Cb5dKw": {
+    "defaultMessage": "Agent",
+    "description": "Group evaluation runs by the evaluated agent"
+  },
   "CbG0s1": {
     "defaultMessage": "Estimated cost: {value}. {explanation}",
     "description": "Tooltip for span cost in the timeline tree, including the estimation explanation"
@@ -5362,6 +5370,10 @@
   "GBKcqK": {
     "defaultMessage": "Load more",
     "description": "Button loading more evaluation runs that use the current dataset"
+  },
+  "GBhVdM": {
+    "defaultMessage": "{digest} (partial: {hashed} of {total})",
+    "description": "Value of an evaluation-runs \"Scorers\" group whose digest covers only the scorers that could be hashed"
   },
   "GBjD/m": {
     "defaultMessage": "Cancel",
@@ -8526,6 +8538,10 @@
   "QXUMWA": {
     "defaultMessage": "Expand run details",
     "description": "Footer control to expand the evaluation run sidebar"
+  },
+  "QYLyqS": {
+    "defaultMessage": "Scorers",
+    "description": "Group evaluation runs by the scorer definitions they used"
   },
   "QZXOSm": {
     "defaultMessage": "Frequency Penalty",
@@ -13211,6 +13227,10 @@
     "defaultMessage": "Minutes",
     "description": "Trace archival retention unit option for minutes"
   },
+  "gKdOIq": {
+    "defaultMessage": "Agent",
+    "description": "Label of an evaluation-runs group whose runs evaluated the same agent"
+  },
   "gLj8lU": {
     "defaultMessage": "<strong>{length}</strong> matching {length, plural, =0 {runs} =1 {run} other {runs}}",
     "description": "Message for displaying how many runs match search criteria on experiment page"
@@ -13922,6 +13942,10 @@
   "iLFoPb": {
     "defaultMessage": "State",
     "description": "Filtering label to filter experiments based on state of active or deleted"
+  },
+  "iLGwvo": {
+    "defaultMessage": "Scorers",
+    "description": "Label of an evaluation-runs group whose runs used the same scorers"
   },
   "iMkfJ6": {
     "defaultMessage": "Attributes",
@@ -15722,6 +15746,10 @@
   "nvjkTA": {
     "defaultMessage": "False",
     "description": "False assessment label"
+  },
+  "nwZTpl": {
+    "defaultMessage": "Type part of a run name to search by name, or enter a filter expression.",
+    "description": "Evaluation runs search help: the search box takes run names and filter expressions"
   },
   "nxzK82": {
     "defaultMessage": "Select or type an assessment",

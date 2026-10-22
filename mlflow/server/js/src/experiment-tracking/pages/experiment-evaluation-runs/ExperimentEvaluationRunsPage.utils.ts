@@ -3,6 +3,7 @@ import type { RunsGroupByConfig } from '../../components/experiment-page/utils/e
 import type { RunGroupByGroupingValue } from '../../components/experiment-page/utils/experimentPage.row-types';
 import { RunGroupingMode } from '../../components/experiment-page/utils/experimentPage.row-types';
 import { getParentRunTagName } from '../../actions';
+import { getEvalRunLineageGroupValue } from '../eval-run-details/evalRunLineage';
 
 export type ExperimentEvaluationRunsGroupData = {
   groupKey: string;
@@ -47,11 +48,12 @@ const getGroupValues = (run: RunEntity, groupBy: RunsGroupByConfig): RunGroupByG
         });
         break;
       case RunGroupingMode.Tag:
-        const tag = run.data?.tags?.find((t) => t.key === groupByKey.groupByData);
+        const getTag = (key: string) => run.data?.tags?.find((t) => t.key === key)?.value;
+        const lineageValue = getEvalRunLineageGroupValue(groupByKey.groupByData, getTag);
         values.push({
           mode: RunGroupingMode.Tag,
           groupByData: groupByKey.groupByData,
-          value: tag?.value ?? null,
+          value: lineageValue !== undefined ? lineageValue : (getTag(groupByKey.groupByData) ?? null),
         });
         break;
       default:

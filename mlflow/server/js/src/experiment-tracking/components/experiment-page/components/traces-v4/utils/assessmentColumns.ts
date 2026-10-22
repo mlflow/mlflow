@@ -168,6 +168,30 @@ export const pickCellAssessment = (trace: ModelTraceInfoV3, name: string): Asses
   }, undefined);
 
 /**
+ * The source type shared by every assessment a column's cells show (judge, human or code), or undefined when
+ * the sources differ or the column has no source. Session columns pick the session's assessment, like their cells.
+ */
+export const getAssessmentColumnSourceType = (
+  traces: ModelTraceInfoV3[],
+  name: string,
+  { isSessionAssessment = false }: { isSessionAssessment?: boolean } = {},
+): string | undefined => {
+  let sourceType: string | undefined;
+  for (const trace of traces) {
+    const assessment = isSessionAssessment ? pickSessionCellAssessment([trace], name) : pickCellAssessment(trace, name);
+    if (!assessment) {
+      continue;
+    }
+    const current = assessment.source?.source_type;
+    if (current === undefined || (sourceType !== undefined && current !== sourceType)) {
+      return undefined;
+    }
+    sourceType = current;
+  }
+  return sourceType;
+};
+
+/**
  * Feedback that filters and filter suggestions can match: trace- and session-level, like the columns of the
  * evaluation run view. Its callers only run there or with the new eval runs UI on; trace cells still use
  * `isDisplayableTraceAssessment`.

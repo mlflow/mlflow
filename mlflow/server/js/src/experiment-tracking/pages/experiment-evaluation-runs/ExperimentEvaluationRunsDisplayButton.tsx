@@ -23,6 +23,13 @@ import {
   RunGroupingMode,
 } from '../../components/experiment-page/utils/experimentPage.row-types';
 import { isUserFacingTag } from '@mlflow/mlflow/src/common/utils/TagUtils';
+import {
+  EVAL_RUN_AGENT_FUNCTION_TAG,
+  EVAL_RUN_AGENT_GROUP_BY_KEY,
+  EVAL_RUN_AGENT_URI_TAG,
+  EVAL_RUN_SCORERS_DIGEST_TAG,
+  EVAL_RUN_SCORERS_GROUP_BY_KEY,
+} from '../eval-run-details/evalRunLineage';
 import { EVAL_RUNS_COLUMN_LABELS, EvalRunsTableColumnId } from './ExperimentEvaluationRunsTable.constants';
 import { parseEvalRunsTableKeyedColumnKey } from './ExperimentEvaluationRunsTable.utils';
 import { EvalRunsColumnsMenu } from './EvalRunsColumnsButton';
@@ -83,10 +90,12 @@ export const ExperimentEvaluationRunsDisplayButton = ({
   const sorting = controlledSorting ?? urlSorting;
   const setSorting = controlledSetSorting ?? setUrlSorting;
 
-  const { uniqueParams, uniqueTags, hasDatasets } = useMemo(() => {
+  const { uniqueParams, uniqueTags, hasDatasets, hasScorersDigest, hasAgent } = useMemo(() => {
     const uniqueParams = new Set<string>();
     const uniqueTags = new Set<string>();
     let hasDatasets = false;
+    let hasScorersDigest = false;
+    let hasAgent = false;
 
     for (const run of runs) {
       hasDatasets ||= (run.inputs?.datasetInputs?.length ?? 0) > 0;
@@ -97,15 +106,19 @@ export const ExperimentEvaluationRunsDisplayButton = ({
         if (isUserFacingTag(tag.key)) {
           uniqueTags.add(tag.key);
         }
+        hasScorersDigest ||= tag.key === EVAL_RUN_SCORERS_DIGEST_TAG;
+        hasAgent ||= tag.key === EVAL_RUN_AGENT_URI_TAG || tag.key === EVAL_RUN_AGENT_FUNCTION_TAG;
       }
     }
 
-    return { uniqueParams, uniqueTags, hasDatasets };
+    return { uniqueParams, uniqueTags, hasDatasets, hasScorersDigest, hasAgent };
   }, [runs]);
+  const hasAttributes = hasDatasets || hasScorersDigest || hasAgent;
 
   const sortOptions = useMemo(() => {
     const knownSortableColumns = [
       EvalRunsTableColumnId.runName,
+      EvalRunsTableColumnId.status,
       EvalRunsTableColumnId.createdAt,
       EvalRunsTableColumnId.dataset,
       EvalRunsTableColumnId.datasetVersion,
@@ -122,7 +135,7 @@ export const ExperimentEvaluationRunsDisplayButton = ({
   const activeSort = sorting[0];
   const activeSortLabel = activeSort ? getColumnLabel(intl, activeSort.id) : undefined;
   const activeGroupCount = groupByConfig?.groupByKeys?.length ?? 0;
-  const hasGroupableKeys = hasDatasets || uniqueParams.size > 0 || uniqueTags.size > 0;
+  const hasGroupableKeys = hasAttributes || uniqueParams.size > 0 || uniqueTags.size > 0;
   const displayLabel = intl.formatMessage({
     defaultMessage: 'Display',
     description: 'Label for the evaluation-runs display options toolbar button',
@@ -288,21 +301,40 @@ export const ExperimentEvaluationRunsDisplayButton = ({
                 />
               </DropdownMenu.Item>
             )}
-            {hasDatasets && (
+            {hasAttributes && (
               <>
                 <DropdownMenu.Label>
                   <FormattedMessage defaultMessage="Attributes" description="Evaluation-runs group-by attributes" />
                 </DropdownMenu.Label>
-                {renderGroupByOption(
-                  RunGroupingMode.Dataset,
-                  'dataset',
-                  <FormattedMessage defaultMessage="Dataset" description="Group evaluation runs by dataset" />,
-                )}
+                {hasDatasets &&
+                  renderGroupByOption(
+                    RunGroupingMode.Dataset,
+                    'dataset',
+                    <FormattedMessage defaultMessage="Dataset" description="Group evaluation runs by dataset" />,
+                  )}
+                {hasScorersDigest &&
+                  renderGroupByOption(
+                    RunGroupingMode.Tag,
+                    EVAL_RUN_SCORERS_GROUP_BY_KEY,
+                    <FormattedMessage
+                      defaultMessage="Scorers"
+                      description="Group evaluation runs by the scorer definitions they used"
+                    />,
+                  )}
+                {hasAgent &&
+                  renderGroupByOption(
+                    RunGroupingMode.Tag,
+                    EVAL_RUN_AGENT_GROUP_BY_KEY,
+                    <FormattedMessage
+                      defaultMessage="Agent"
+                      description="Group evaluation runs by the evaluated agent"
+                    />,
+                  )}
               </>
             )}
             {uniqueParams.size > 0 && (
               <>
-                {hasDatasets && <DropdownMenu.Separator />}
+                {hasAttributes && <DropdownMenu.Separator />}
                 <DropdownMenu.Label>
                   <FormattedMessage defaultMessage="Parameters" description="Evaluation-runs group-by parameters" />
                 </DropdownMenu.Label>
@@ -311,7 +343,7 @@ export const ExperimentEvaluationRunsDisplayButton = ({
             )}
             {uniqueTags.size > 0 && (
               <>
-                {(hasDatasets || uniqueParams.size > 0) && <DropdownMenu.Separator />}
+                {(hasAttributes || uniqueParams.size > 0) && <DropdownMenu.Separator />}
                 <DropdownMenu.Label>
                   <FormattedMessage defaultMessage="Tags" description="Evaluation-runs group-by tags" />
                 </DropdownMenu.Label>
