@@ -18,6 +18,11 @@ let experimentTags: SavedTag[];
 let written: SavedTag[];
 let saveFails: boolean;
 let scheduledDetectionEnabled: boolean;
+let gatewayEndpoints: { name: string }[];
+let gatewaySecrets: { secret_id: string; secret_name: string; provider: string }[];
+/** What the server reports about a credential of its own for the selected provider. */
+let envCredentialsAvailable: boolean | undefined;
+let createdSecrets: { secret_name: string; provider?: string; secret_value: Record<string, string> }[];
 
 const server = setupServer(
   rest.get('*/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) =>
@@ -38,6 +43,28 @@ const server = setupServer(
     const body = (await req.json()) as SavedTag;
     written.push({ key: body.key, value: body.value });
     return res(ctx.json({}));
+  }),
+  rest.get('*/ajax-api/3.0/mlflow/gateway/endpoints/list', (_req, res, ctx) =>
+    res(ctx.json({ endpoints: gatewayEndpoints })),
+  ),
+  rest.get('*/ajax-api/3.0/mlflow/gateway/secrets/list', (_req, res, ctx) =>
+    res(ctx.json({ secrets: gatewaySecrets })),
+  ),
+  rest.get('*/ajax-api/3.0/mlflow/gateway/provider-config', (_req, res, ctx) =>
+    res(
+      ctx.json({
+        auth_modes: [],
+        default_mode: 'api_key',
+        ...(envCredentialsAvailable === undefined ? {} : { env_credentials_available: envCredentialsAvailable }),
+      }),
+    ),
+  ),
+  rest.post('*/ajax-api/3.0/mlflow/gateway/secrets/create', async (req, res, ctx) => {
+    const body = (await req.json()) as (typeof createdSecrets)[number];
+    createdSecrets.push(body);
+    const secret = { secret_id: 'sec-new', secret_name: body.secret_name, provider: body.provider ?? '' };
+    gatewaySecrets = [...gatewaySecrets, secret];
+    return res(ctx.json({ secret }));
   }),
 );
 
@@ -98,6 +125,12 @@ describe('ExperimentIssuesScheduleControl', () => {
     written = [];
     saveFails = false;
     scheduledDetectionEnabled = true;
+    gatewayEndpoints = [];
+    gatewaySecrets = [];
+    createdSecrets = [];
+    // The default server here already has a credential of its own, which is what keeps the
+    // schedule tests about cadence and filters rather than about keys.
+    envCredentialsAvailable = true;
   });
 
   test('labels the trigger "Schedule detection" when off and shows the cadence when scheduled', async () => {
@@ -333,5 +366,172 @@ describe('ExperimentIssuesScheduleControl', () => {
     // pointerEventsCheck is off so hover reaches the disabled button; the tooltip states the reason.
     await user.hover(await screen.findByRole('button', { name: /schedule detection/i }));
     expect(await screen.findByRole('tooltip')).toHaveTextContent(/cannot run scheduled detection/i);
+  });
+
+  test('saves the model the picker is left on, defaulting to the first provider', async () => {
+    const user = setup();
+    render();
+    await openModal(user);
+    expect(await screen.findByTestId('model-dropdown-trigger')).toHaveTextContent('OpenAI');
+    await chooseCadence(user, 'Daily');
+    await approveUnattendedRun(user);
+    await save(user);
+
+    await waitFor(() => expect(savedSchedule()['model']).toEqual({ provider: 'openai', model: 'gpt-5.6-sol' }));
+  });
+
+  test('defaults to the first AI Gateway endpoint when the server has one, as the ad-hoc dialog does', async () => {
+    gatewayEndpoints = [{ name: 'prod-gateway' }];
+    const user = setup();
+    render();
+    await openModal(user);
+    expect(await screen.findByTestId('model-dropdown-trigger')).toHaveTextContent('prod-gateway');
+    await chooseCadence(user, 'Daily');
+    await approveUnattendedRun(user);
+    await save(user);
+
+    await waitFor(() => expect(savedSchedule()['model']).toEqual({ endpointName: 'prod-gateway' }));
+  });
+
+  test('prefills the picker from the stored model', async () => {
+    experimentTags = [
+      {
+        key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG,
+        value: JSON.stringify({
+          version: ISSUE_DETECTION_SCHEDULE_VERSION,
+          cadence: 'daily',
+          timezone: 'UTC',
+          paused: false,
+          model: { provider: 'anthropic', model: 'claude-opus-4-8' },
+        }),
+      },
+    ];
+    const user = setup();
+    render();
+    await openModal(user, /scheduled: daily/i);
+
+    const trigger = await screen.findByTestId('model-dropdown-trigger');
+    expect(trigger).toHaveTextContent('Anthropic');
+    expect(trigger).toHaveTextContent('claude-opus-4-8');
+  });
+
+  test('keeps the stored model when the schedule is turned off, so turning it back on restores it', async () => {
+    experimentTags = [
+      {
+        key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG,
+        value: JSON.stringify({
+          version: ISSUE_DETECTION_SCHEDULE_VERSION,
+          cadence: 'daily',
+          timezone: 'UTC',
+          paused: false,
+          model: { provider: 'anthropic', model: 'claude-opus-4-8' },
+        }),
+      },
+    ];
+    const user = setup();
+    render();
+    await openModal(user, /scheduled: daily/i);
+    await chooseCadence(user, 'Off');
+    await save(user);
+
+    await waitFor(() => expect(savedSchedule()['paused']).toBe(true));
+    expect(savedSchedule()['model']).toEqual({ provider: 'anthropic', model: 'claude-opus-4-8' });
+  });
+
+  test('asks for an API key before saving when neither the server nor AI Gateway has one', async () => {
+    envCredentialsAvailable = false;
+    const user = setup();
+    render();
+    await openModal(user);
+    await chooseCadence(user, 'Daily');
+    await approveUnattendedRun(user);
+    await save(user);
+
+    expect(await screen.findByTestId('schedule-api-key-view')).toBeInTheDocument();
+    expect(await screen.findByText(/OpenAI needs an API key/)).toBeInTheDocument();
+    // Nothing is stored until the key is in place.
+    expect(written).toEqual([]);
+
+    await user.type(await screen.findByTestId('schedule-api-key-input'), 'sk-test-key');
+    await user.click(await screen.findByRole('button', { name: /continue and save/i }));
+
+    await waitFor(() => expect(savedSchedule()['cadence']).toBe('daily'));
+    expect(createdSecrets).toEqual([
+      { secret_name: expect.any(String), provider: 'openai', secret_value: { api_key: 'sk-test-key' } },
+    ]);
+    // The key is referenced by provider, not stored in the schedule, so rotating it keeps running.
+    expect(savedSchedule()['model']).toEqual({ provider: 'openai', model: 'gpt-5.6-sol' });
+  });
+
+  test('does not ask for a key when AI Gateway already holds one for the provider', async () => {
+    envCredentialsAvailable = false;
+    gatewaySecrets = [{ secret_id: 'sec-1', secret_name: 'openai-key', provider: 'openai' }];
+    const user = setup();
+    render();
+    await openModal(user);
+    await chooseCadence(user, 'Daily');
+    await approveUnattendedRun(user);
+    await save(user);
+
+    await waitFor(() => expect(savedSchedule()['cadence']).toBe('daily'));
+    expect(screen.queryByTestId('schedule-api-key-view')).not.toBeInTheDocument();
+  });
+
+  test('does not ask for a key for an AI Gateway endpoint, which carries its own credentials', async () => {
+    envCredentialsAvailable = false;
+    gatewayEndpoints = [{ name: 'prod-gateway' }];
+    const user = setup();
+    render();
+    await openModal(user);
+    await chooseCadence(user, 'Daily');
+    await approveUnattendedRun(user);
+    await save(user);
+
+    await waitFor(() => expect(savedSchedule()['model']).toEqual({ endpointName: 'prod-gateway' }));
+    expect(screen.queryByTestId('schedule-api-key-view')).not.toBeInTheDocument();
+  });
+
+  test('turning a schedule off needs no key, since nothing will run', async () => {
+    envCredentialsAvailable = false;
+    experimentTags = [scheduleTag('daily')];
+    const user = setup();
+    render();
+    await openModal(user, /scheduled: daily/i);
+    await chooseCadence(user, 'Off');
+    await save(user);
+
+    await waitFor(() => expect(savedSchedule()['paused']).toBe(true));
+    expect(screen.queryByTestId('schedule-api-key-view')).not.toBeInTheDocument();
+  });
+
+  test('saves without asking for a key when the server does not report whether it has one', async () => {
+    // An older server, or one whose gateway cannot be reached: a schedule that could be saved
+    // before this step existed must not become unsavable because the check cannot answer.
+    envCredentialsAvailable = undefined;
+    const user = setup();
+    render();
+    await openModal(user);
+    await chooseCadence(user, 'Daily');
+    await approveUnattendedRun(user);
+    await save(user);
+
+    await waitFor(() => expect(savedSchedule()['cadence']).toBe('daily'));
+    expect(screen.queryByTestId('schedule-api-key-view')).not.toBeInTheDocument();
+  });
+
+  test('the API key step can be left without losing the schedule draft', async () => {
+    envCredentialsAvailable = false;
+    const user = setup();
+    render();
+    await openModal(user);
+    await chooseCadence(user, 'Daily');
+    await approveUnattendedRun(user);
+    await save(user);
+
+    expect(await screen.findByTestId('schedule-api-key-view')).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: 'Back' }));
+
+    expect(await screen.findByRole('combobox', { name: /cadence/i })).toHaveTextContent('Daily');
+    expect(await screen.findByRole('checkbox', { name: UNATTENDED_RUN_APPROVAL })).toBeChecked();
   });
 });

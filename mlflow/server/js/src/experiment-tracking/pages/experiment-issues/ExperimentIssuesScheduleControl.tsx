@@ -15,9 +15,22 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useIntl } from 'react-intl';
-import type { ScheduleTraceFilter, ScheduleTraceFilterField } from './issueDetectionSchedule';
+import { generateRandomName } from '../../../common/utils/NameUtils';
+import { useApiKeyConfiguration } from '../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration';
+import { useCreateSecret } from '../../../gateway/hooks/useCreateSecret';
+import { useEndpointsQuery } from '../../../gateway/hooks/useEndpointsQuery';
+import {
+  ISSUE_DETECTION_PROVIDERS,
+  IssueDetectionModelDropdown,
+  type IssueDetectionModelSelection,
+} from '../../components/experiment-page/components/traces-v3/IssueDetectionModelDropdown';
+import type {
+  IssueDetectionScheduleModel,
+  ScheduleTraceFilter,
+  ScheduleTraceFilterField,
+} from './issueDetectionSchedule';
 import {
   useIssueDetectionSchedule,
   useScheduledDetectionAvailable,
@@ -31,6 +44,16 @@ const SETTING_OPTIONS: IssueDetectionScheduleSetting[] = ['off', 'weekly', 'dail
 
 const isScheduleSetting = (value: string): value is IssueDetectionScheduleSetting =>
   SETTING_OPTIONS.some((option) => option === value);
+
+/** The modal's two steps: the schedule itself, and the API key the chosen provider needs. */
+type ModalView = 'main' | 'apiKey';
+
+/**
+ * Width of the model picker, matching the one in the ad-hoc detection dialog: that modal is 520
+ * wide with 32 of padding each side, and its picker takes half of what is left. Picked over
+ * filling the row so the two dialogs present the same control at the same size.
+ */
+const MODEL_PICKER_WIDTH = 220;
 
 // The filterable namespaces (Field dropdown) and the only operator offered today. Kept as constants
 // so the row mirrors the traces-tab filter shape (Field | Key | Operator | Value) while the operator
@@ -191,6 +214,29 @@ const emptyFilterRow = (): ScheduleTraceFilter => ({
   value: '',
 });
 
+/** The picker's selection in the shape the schedule stores: an endpoint, or a provider's model. */
+const toStoredModel = (selection: IssueDetectionModelSelection): IssueDetectionScheduleModel =>
+  selection.mode === 'endpoint' && selection.endpointName
+    ? { endpointName: selection.endpointName }
+    : { provider: selection.provider, model: selection.model };
+
+/** The stored selection put back into the picker's shape, for prefilling the modal. */
+const toSelection = (model: IssueDetectionScheduleModel | undefined): IssueDetectionModelSelection | undefined => {
+  const fallbackProvider = ISSUE_DETECTION_PROVIDERS[0];
+  if (model?.endpointName) {
+    return {
+      mode: 'endpoint',
+      endpointName: model.endpointName,
+      provider: fallbackProvider.id,
+      model: fallbackProvider.defaultModel,
+    };
+  }
+  if (model?.provider && model.model) {
+    return { mode: 'direct', provider: model.provider, model: model.model };
+  }
+  return undefined;
+};
+
 /**
  * Toolbar control that turns automatic (scheduled) issue detection on/off, picks its cadence, and
  * optionally scopes each run to traces matching one or more key=value clauses over request metadata
@@ -203,13 +249,33 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
   // Replaces upstream's experiment-ACL check: OSS has no per-experiment write permission for
   // tags, but it does have servers that cannot run a schedule at all.
   const scheduledDetectionAvailable = useScheduledDetectionAvailable();
-  const { setting, traceFilters, isLoading, isUpdating, setSetting } = useIssueDetectionSchedule({
+  const { setting, traceFilters, model, isLoading, isUpdating, setSetting } = useIssueDetectionSchedule({
     experimentId,
   });
 
   const [open, setOpen] = useState(false);
   const [cadence, setCadence] = useState<IssueDetectionScheduleSetting>('off');
   const [filters, setFilters] = useState<ScheduleTraceFilter[]>([]);
+  // The model the scheduled runs will use. Null until the stored selection (or the default) is
+  // resolved, which needs the endpoint list.
+  const [selection, setSelection] = useState<IssueDetectionModelSelection | null>(null);
+  // 'apiKey' is the step shown when the chosen provider has no credential to run with. Saving a
+  // schedule is not a run, so unlike the ad-hoc dialog -- which learns this from the server
+  // rejecting a submission -- this is checked before the schedule is stored.
+  const [view, setView] = useState<ModalView>('main');
+  const [apiKeyDraft, setApiKeyDraft] = useState('');
+
+  const { data: endpoints, isLoading: isLoadingEndpoints } = useEndpointsQuery();
+  const { hasExistingSecrets, isLoadingSecrets, envCredentialsAvailable, isLoadingProviderConfig, secretsError } =
+    useApiKeyConfiguration({
+      provider: selection?.mode === 'direct' ? selection.provider : ISSUE_DETECTION_PROVIDERS[0].id,
+    });
+  const {
+    mutate: createSecret,
+    isLoading: isCreatingSecret,
+    error: createSecretError,
+    reset: resetCreateSecret,
+  } = useCreateSecret();
   // True after a Save whose writes failed. Local (not the hook's `error`, which also covers load
   // failures) so it only reflects the in-modal save attempt, and it keeps the modal open for retry.
   const [saveFailed, setSaveFailed] = useState(false);
@@ -273,9 +339,33 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     setFilters(traceFilters.map((filter) => ({ ...filter })));
     setSaveFailed(false);
     setApprovedUnattendedRun(false);
+    setSelection(toSelection(model) ?? null);
+    setView('main');
+    setApiKeyDraft('');
+    resetCreateSecret();
     setOpen(true);
-  }, [setting, traceFilters]);
+  }, [setting, traceFilters, model, resetCreateSecret]);
   const closeModal = useCallback(() => setOpen(false), []);
+
+  // A schedule that names no model (or one saved before a model could be chosen) falls back to the
+  // same default the ad-hoc dialog uses: the first AI Gateway endpoint, else the first provider.
+  // Done in an effect so a modal opened before the endpoint list arrives still lands on it.
+  useEffect(() => {
+    if (!open || selection || isLoadingEndpoints) {
+      return;
+    }
+    const provider = ISSUE_DETECTION_PROVIDERS[0];
+    setSelection(
+      endpoints.length > 0
+        ? {
+            mode: 'endpoint',
+            endpointName: endpoints[0].name,
+            provider: provider.id,
+            model: provider.defaultModel,
+          }
+        : { mode: 'direct', provider: provider.id, model: provider.defaultModel },
+    );
+  }, [open, selection, isLoadingEndpoints, endpoints]);
 
   const changeFilter = useCallback(
     (index: number, next: ScheduleTraceFilter) =>
@@ -288,7 +378,7 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
 
   const addFilter = useCallback(() => setFilters((prev) => [...prev, emptyFilterRow()]), []);
 
-  const handleSave = useCallback(async () => {
+  const persistSchedule = useCallback(async () => {
     // Blank-key rows are dropped; the hook/persistence also normalize, but trimming here keeps the
     // saved model clean.
     const cleaned = filters
@@ -303,12 +393,57 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     try {
       // Await the writes and only close on success. On failure keep the modal open with the draft
       // intact so the user can retry without re-entering the cadence/filters.
-      await setSetting({ setting: cadence, traceFilters: cleaned });
+      await setSetting({
+        setting: cadence,
+        traceFilters: cleaned,
+        model: selection ? toStoredModel(selection) : undefined,
+      });
       setOpen(false);
     } catch {
       setSaveFailed(true);
     }
-  }, [cadence, filters, setSetting]);
+  }, [cadence, filters, selection, setSetting]);
+
+  // Prompting for a key before these answer would ask for one the server may already have.
+  const isCheckingCredentials = isLoadingSecrets || isLoadingProviderConfig;
+  // Only act on a conclusive answer. A server that does not report its environment credentials, or
+  // one whose gateway could not be reached, leaves this unknown -- and a schedule that could be
+  // saved before this step existed must not become unsavable because a capability check failed.
+  const credentialStateKnown = envCredentialsAvailable !== undefined && !secretsError;
+  // Whether the chosen model can run at all. An AI Gateway endpoint carries its own credentials;
+  // a provider's model needs either a key saved in AI Gateway or one in the server's environment.
+  // Only asked of a schedule that will actually fire: turning one off needs no credential.
+  const needsApiKey =
+    cadence !== 'off' &&
+    selection?.mode === 'direct' &&
+    credentialStateKnown &&
+    !hasExistingSecrets &&
+    !envCredentialsAvailable;
+
+  const handleSave = useCallback(() => {
+    if (needsApiKey) {
+      setView('apiKey');
+      return;
+    }
+    return persistSchedule();
+  }, [needsApiKey, persistSchedule]);
+
+  // The key is saved in AI Gateway, not in the schedule: the dispatcher resolves a credential for
+  // the provider at each fire time, so rotating the key later keeps the schedule running.
+  const handleContinueAndSave = useCallback(() => {
+    const trimmedKey = apiKeyDraft.trim();
+    if (!selection || !trimmedKey) {
+      return;
+    }
+    createSecret(
+      {
+        secret_name: generateRandomName(selection.provider),
+        secret_value: { api_key: trimmedKey },
+        provider: selection.provider,
+      },
+      { onSuccess: () => persistSchedule() },
+    );
+  }, [apiKeyDraft, selection, createSecret, persistSchedule]);
 
   // A schedule only runs on a server with the job system and its periodic tasks enabled, behind a
   // SQL backend store. Rather than hide the control, keep it visible but disabled with a tooltip
@@ -334,12 +469,18 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     defaultMessage: 'Cadence',
     description: 'Experiment issues tab > Schedule modal label for the run cadence',
   });
+  const modelRowLabel = intl.formatMessage({
+    defaultMessage: 'Model',
+    description: 'Experiment issues tab > Schedule modal label for the model scheduled runs analyze with',
+  });
   const filterSectionLabel = intl.formatMessage({
     defaultMessage: 'Additional trace filters (optional)',
     description: 'Experiment issues tab > Schedule modal label for the optional trace filters',
   });
   const filtersDisabled = cadence === 'off';
   const needsApproval = cadence !== 'off' && !approvedUnattendedRun;
+  const selectedProviderName =
+    ISSUE_DETECTION_PROVIDERS.find((provider) => provider.id === selection?.provider)?.name ?? selection?.provider;
 
   return (
     <>
@@ -356,31 +497,65 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
       <Modal
         componentId={`${COMPONENT_ID}.modal`}
         visible={open}
-        onCancel={closeModal}
+        onCancel={isUpdating || isCreatingSecret ? undefined : closeModal}
         footer={
           <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             {/* Upstream's "View run history" link sits here. It opens the managed scheduler's own
                 run history, which OSS has no equivalent of yet, so the footer holds only the
                 buttons for now. */}
             <div css={{ marginLeft: 'auto' }}>
-              <Button componentId={`${COMPONENT_ID}.modal.footer.cancel`} onClick={closeModal}>
-                {intl.formatMessage({
-                  defaultMessage: 'Cancel',
-                  description: 'Experiment issues tab > Schedule modal cancel button',
-                })}
-              </Button>
-              <Button
-                componentId={`${COMPONENT_ID}.modal.footer.save`}
-                type="primary"
-                loading={isUpdating}
-                disabled={needsApproval}
-                onClick={handleSave}
-              >
-                {intl.formatMessage({
-                  defaultMessage: 'Save',
-                  description: 'Experiment issues tab > Schedule modal confirm button',
-                })}
-              </Button>
+              {view === 'apiKey' ? (
+                <>
+                  <Button
+                    componentId={`${COMPONENT_ID}.modal.footer.api-key-back`}
+                    onClick={() => {
+                      resetCreateSecret();
+                      setView('main');
+                    }}
+                  >
+                    {intl.formatMessage({
+                      defaultMessage: 'Back',
+                      description: 'Experiment issues tab > Schedule modal button that leaves the API key step',
+                    })}
+                  </Button>
+                  <Button
+                    componentId={`${COMPONENT_ID}.modal.footer.api-key-continue`}
+                    type="primary"
+                    loading={isCreatingSecret || isUpdating}
+                    disabled={!apiKeyDraft.trim()}
+                    onClick={handleContinueAndSave}
+                  >
+                    {intl.formatMessage({
+                      defaultMessage: 'Continue and save',
+                      description:
+                        'Experiment issues tab > Schedule modal button that saves the API key and then the schedule',
+                    })}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button componentId={`${COMPONENT_ID}.modal.footer.cancel`} onClick={closeModal}>
+                    {intl.formatMessage({
+                      defaultMessage: 'Cancel',
+                      description: 'Experiment issues tab > Schedule modal cancel button',
+                    })}
+                  </Button>
+                  <Button
+                    componentId={`${COMPONENT_ID}.modal.footer.save`}
+                    type="primary"
+                    loading={isUpdating}
+                    // Also held while the credential check is in flight, so Save cannot ask for a
+                    // key before the answer that says whether one is needed has arrived.
+                    disabled={needsApproval || isCheckingCredentials}
+                    onClick={handleSave}
+                  >
+                    {intl.formatMessage({
+                      defaultMessage: 'Save',
+                      description: 'Experiment issues tab > Schedule modal confirm button',
+                    })}
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         }
@@ -391,83 +566,139 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
         zIndex={theme.options.zIndexBase + 20}
       >
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-            <Typography.Text color="secondary">{cadenceRowLabel}</Typography.Text>
-            <SimpleSelect
-              id={`${COMPONENT_ID}.modal.cadence`}
-              componentId={`${COMPONENT_ID}.modal.cadence`}
-              label={cadenceRowLabel}
-              value={cadence}
-              onChange={({ target }) => {
-                if (isScheduleSetting(target.value)) {
-                  setCadence(target.value);
-                }
-              }}
-              // The select's options popover defaults below the modal; lift it above the modal's zIndex.
-              contentProps={{ style: { zIndex: theme.options.zIndexBase + 40 } }}
+          {view === 'main' && (
+            <>
+              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                <Typography.Text color="secondary">{cadenceRowLabel}</Typography.Text>
+                <SimpleSelect
+                  id={`${COMPONENT_ID}.modal.cadence`}
+                  componentId={`${COMPONENT_ID}.modal.cadence`}
+                  label={cadenceRowLabel}
+                  value={cadence}
+                  onChange={({ target }) => {
+                    if (isScheduleSetting(target.value)) {
+                      setCadence(target.value);
+                    }
+                  }}
+                  // The select's options popover defaults below the modal; lift it above the modal's zIndex.
+                  contentProps={{ style: { zIndex: theme.options.zIndexBase + 40 } }}
+                >
+                  {SETTING_OPTIONS.map((option) => (
+                    <SimpleSelectOption key={option} value={option}>
+                      {optionLabels[option]}
+                    </SimpleSelectOption>
+                  ))}
+                </SimpleSelect>
+              </div>
+              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                <Typography.Text color="secondary">{modelRowLabel}</Typography.Text>
+                {selection && (
+                  <div css={{ width: MODEL_PICKER_WIDTH }}>
+                    <IssueDetectionModelDropdown
+                      endpoints={endpoints}
+                      value={selection}
+                      onChange={setSelection}
+                      disabled={filtersDisabled}
+                      // The modal raises its own stacking context, which this control's option list
+                      // and its "Create endpoint" modal would otherwise render below.
+                      overlayZIndex={theme.options.zIndexBase + 40}
+                    />
+                  </div>
+                )}
+              </div>
+              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+                <Typography.Text color="secondary">{filterSectionLabel}</Typography.Text>
+                {filters.map((filter, index) => (
+                  <TraceFilterRow
+                    key={index}
+                    index={index}
+                    filter={filter}
+                    disabled={filtersDisabled}
+                    onChange={changeFilter}
+                    onRemove={removeFilter}
+                  />
+                ))}
+                <div>
+                  <Button
+                    componentId={`${COMPONENT_ID}.modal.filter-add`}
+                    icon={<PlusIcon />}
+                    disabled={filtersDisabled}
+                    onClick={addFilter}
+                  >
+                    {intl.formatMessage({
+                      defaultMessage: 'Add filter',
+                      description:
+                        'Experiment issues tab > Schedule modal button that adds another trace filter clause',
+                    })}
+                  </Button>
+                </div>
+              </div>
+              {cadence !== 'off' && (
+                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+                  <Alert
+                    componentId={`${COMPONENT_ID}.modal.unattended-run-notice`}
+                    type="info"
+                    closable={false}
+                    message={intl.formatMessage({
+                      defaultMessage: 'Scheduled runs analyze traces with nobody watching',
+                      description:
+                        'Experiment issues tab > Schedule modal notice title about what an unattended scheduled detection run does',
+                    })}
+                    description={intl.formatMessage({
+                      defaultMessage:
+                        "Each run samples this experiment's recent traces, sends their content to the model chosen above using the credential saved for it, and files what it finds in Issues. That spend recurs on this cadence. Trace content is written by your application and its users, so it is untrusted input to the model.",
+                      description:
+                        'Experiment issues tab > Schedule modal notice explaining that a scheduled detection run analyzes untrusted trace content unattended using the credential saved for the chosen model',
+                    })}
+                  />
+                  <Checkbox
+                    componentId={`${COMPONENT_ID}.modal.approve-unattended-run`}
+                    isChecked={approvedUnattendedRun}
+                    onChange={setApprovedUnattendedRun}
+                  >
+                    {intl.formatMessage({
+                      defaultMessage: 'I understand that scheduled runs analyze traces and spend unattended',
+                      description:
+                        'Experiment issues tab > Schedule modal checkbox the owner must tick before saving a schedule',
+                    })}
+                  </Checkbox>
+                </div>
+              )}
+            </>
+          )}
+          {view === 'apiKey' && (
+            <div
+              data-testid="schedule-api-key-view"
+              css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}
             >
-              {SETTING_OPTIONS.map((option) => (
-                <SimpleSelectOption key={option} value={option}>
-                  {optionLabels[option]}
-                </SimpleSelectOption>
-              ))}
-            </SimpleSelect>
-          </div>
-          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-            <Typography.Text color="secondary">{filterSectionLabel}</Typography.Text>
-            {filters.map((filter, index) => (
-              <TraceFilterRow
-                key={index}
-                index={index}
-                filter={filter}
-                disabled={filtersDisabled}
-                onChange={changeFilter}
-                onRemove={removeFilter}
-              />
-            ))}
-            <div>
-              <Button
-                componentId={`${COMPONENT_ID}.modal.filter-add`}
-                icon={<PlusIcon />}
-                disabled={filtersDisabled}
-                onClick={addFilter}
-              >
+              <Typography.Text bold>
                 {intl.formatMessage({
-                  defaultMessage: 'Add filter',
-                  description: 'Experiment issues tab > Schedule modal button that adds another trace filter clause',
+                  defaultMessage: 'One last step to schedule issue detection',
+                  description: 'Experiment issues tab > Schedule modal headline of the API key step',
                 })}
-              </Button>
-            </div>
-          </div>
-          {cadence !== 'off' && (
-            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-              <Alert
-                componentId={`${COMPONENT_ID}.modal.unattended-run-notice`}
-                type="info"
-                closable={false}
-                message={intl.formatMessage({
-                  defaultMessage: 'Scheduled runs analyze traces with nobody watching',
-                  description:
-                    'Experiment issues tab > Schedule modal notice title about what an unattended scheduled detection run does',
-                })}
-                description={intl.formatMessage({
-                  defaultMessage:
-                    "Each run samples this experiment's recent traces, sends their content to the detection model using the credentials configured on the MLflow server, and files what it finds in Issues. That spend recurs on this cadence. Trace content is written by your application and its users, so it is untrusted input to the model.",
-                  description:
-                    'Experiment issues tab > Schedule modal notice explaining that a scheduled detection run analyzes untrusted trace content unattended using the server credentials',
+              </Typography.Text>
+              <Typography.Text color="secondary">
+                {intl.formatMessage(
+                  {
+                    defaultMessage:
+                      '{provider} needs an API key. Paste it once and MLflow saves it securely in AI Gateway, where every scheduled run reads it.',
+                    description: 'Experiment issues tab > Schedule modal explanation of the API key step',
+                  },
+                  { provider: selectedProviderName },
+                )}
+              </Typography.Text>
+              <Input
+                componentId={`${COMPONENT_ID}.modal.api-key`}
+                data-testid="schedule-api-key-input"
+                type="password"
+                value={apiKeyDraft}
+                onChange={({ target }) => setApiKeyDraft(target.value)}
+                placeholder={intl.formatMessage({
+                  defaultMessage: 'API key',
+                  description: 'Experiment issues tab > Schedule modal placeholder of the API key input',
                 })}
               />
-              <Checkbox
-                componentId={`${COMPONENT_ID}.modal.approve-unattended-run`}
-                isChecked={approvedUnattendedRun}
-                onChange={setApprovedUnattendedRun}
-              >
-                {intl.formatMessage({
-                  defaultMessage: 'I understand that scheduled runs analyze traces and spend unattended',
-                  description:
-                    'Experiment issues tab > Schedule modal checkbox the owner must tick before saving a schedule',
-                })}
-              </Checkbox>
+              {createSecretError && <FormUI.Message type="error" message={createSecretError.message} />}
             </div>
           )}
           {saveFailed && (
