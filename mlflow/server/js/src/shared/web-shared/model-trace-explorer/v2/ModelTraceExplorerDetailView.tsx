@@ -8,7 +8,7 @@ import { ResizableBox } from 'react-resizable';
 
 import type { ModelTrace, ModelTraceSpanNode } from './ModelTrace.types';
 import type { ModelTraceExplorerTab as SharedModelTraceExplorerTab } from '../ModelTrace.types';
-import { getIconTypeForSpan } from './ModelTraceExplorer.utils';
+import { getIconTypeForSpan, getModelTraceTimelineRange } from './ModelTraceExplorer.utils';
 import { ModelTraceExplorerIcon } from './ModelTraceExplorerIcon';
 import { useModelTraceExplorerContext } from './ModelTraceExplorerContext';
 import type { ModelTraceExplorerResizablePaneRef } from './ModelTraceExplorerResizablePane';
@@ -145,6 +145,7 @@ export const ModelTraceExplorerDetailView = ({
     topLevelNodes,
     selectedNode: viewStateSelectedNode,
     setSelectedNode: setViewStateSelectedNode,
+    comparisonNodeMap,
   } = useModelTraceExplorerViewState();
 
   const activeLayoutConfig = isGraphExpanded ? EXPANDED_WORKFLOW_LAYOUT_CONFIG : DEFAULT_WORKFLOW_LAYOUT_CONFIG;
@@ -309,6 +310,7 @@ export const ModelTraceExplorerDetailView = ({
     setSelectedNodeAndTab: setSearchSelectedNodeAndTab,
     setExpandedKeys,
     modelTraceInfo,
+    comparisonNodeMap,
   });
 
   useEffect(() => {
@@ -349,16 +351,10 @@ export const ModelTraceExplorerDetailView = ({
     return Math.max(LEFT_PANE_HEADER_MIN_WIDTH_PX, minWidthForSpans);
   }, [filteredTreeNodes, theme.spacing.lg]);
 
-  const { traceStartTime, traceEndTime } = useMemo(() => {
-    if (!topLevelNodes || topLevelNodes.length === 0) {
-      return { traceStartTime: 0, traceEndTime: 0 };
-    }
-
-    const traceStartTime = Math.min(...topLevelNodes.map((node) => node.start));
-    const traceEndTime = Math.max(...topLevelNodes.map((node) => node.end));
-
-    return { traceStartTime, traceEndTime };
-  }, [topLevelNodes]);
+  const { traceStartTime, traceEndTime } = useMemo(
+    () => getModelTraceTimelineRange(topLevelNodes, comparisonNodeMap),
+    [topLevelNodes, comparisonNodeMap],
+  );
 
   const graphCanvasContent = hasGraph ? (
     <div

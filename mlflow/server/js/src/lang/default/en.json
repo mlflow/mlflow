@@ -791,6 +791,10 @@
     "defaultMessage": "No endpoints found",
     "description": "Empty state title when filter returns no results"
   },
+  "0st1m4": {
+    "defaultMessage": "Events",
+    "description": "Label for the span events tab."
+  },
   "0tU5gv": {
     "defaultMessage": "Cancel",
     "description": "Cancel text to cancel the flow to copy the model"
@@ -874,6 +878,10 @@
   "1CPknH": {
     "defaultMessage": "When the trace was created",
     "description": "Tooltip description for the Request Time column in the traces table"
+  },
+  "1DAglI": {
+    "defaultMessage": "Compare traces",
+    "description": "Bulk action that compares exactly two selected traces in the trace drawer"
   },
   "1DKoiD": {
     "defaultMessage": "Suggestions",
@@ -1207,6 +1215,10 @@
     "defaultMessage": "X axis",
     "description": "Label for X axis in Contour chart configurator in compare runs chart config modal"
   },
+  "2WFEvy": {
+    "defaultMessage": "Comparing traces from Runs",
+    "description": "Context shown in an evaluation run trace comparison header"
+  },
   "2WOIGG": {
     "defaultMessage": "Prompt created",
     "description": "Webhook event label"
@@ -1394,6 +1406,10 @@
   "2xOenV": {
     "defaultMessage": "Description",
     "description": "Header for the description column in the Skill Registry table"
+  },
+  "2xzJhw": {
+    "defaultMessage": "Model: {modelName}",
+    "description": "Tooltip for an unchanged model name in a trace comparison"
   },
   "2yONCo": {
     "defaultMessage": "Skills",
@@ -2259,6 +2275,10 @@
     "defaultMessage": "No data found for trace ID: {traceId}",
     "description": "Body shown in the V4 trace drawer when a trace has no data"
   },
+  "66SAEx": {
+    "defaultMessage": "Swap baseline and candidate",
+    "description": "Accessible label for reversing the trace comparison order"
+  },
   "67wL4+": {
     "defaultMessage": "This version is no longer available.",
     "description": "Skill detail message when the selected version is missing or deleted"
@@ -2395,6 +2415,10 @@
     "defaultMessage": "Select a file to preview",
     "description": "Label to suggests users to select a file to preview the output"
   },
+  "6bbrZO": {
+    "defaultMessage": "Compare baseline trace {baselineTraceId} with candidate trace {candidateTraceId}. Highlight differences in their span structure, inputs, outputs, attributes, duration, token usage, and estimated cost.",
+    "description": "Prompt sent to the assistant for comparing two traces"
+  },
   "6bmLqb": {
     "defaultMessage": "Load model",
     "description": "Code comment which states how to load the model"
@@ -2455,6 +2479,10 @@
     "defaultMessage": "Test",
     "description": "Test webhook button"
   },
+  "6oKqWI": {
+    "defaultMessage": "Both runs reference the same trace.",
+    "description": "Tooltip explaining the same trace badge in a trace comparison header"
+  },
   "6sFPJF": {
     "defaultMessage": "Learn more",
     "description": "Link text for production monitoring documentation"
@@ -2470,6 +2498,10 @@
   "6tR8R9": {
     "defaultMessage": "View Sessions in Traces tab →",
     "description": "Link from the legacy Sessions page to the equivalent view in the Traces tab"
+  },
+  "6uTK7/": {
+    "defaultMessage": "{removed} removed lines and {added} added lines",
+    "description": "Accessible label for line difference counts on a trace comparison tab"
   },
   "6vII7y": {
     "defaultMessage": "Cancel",
@@ -4183,6 +4215,10 @@
     "defaultMessage": "Skills you can read will appear here once they are registered.",
     "description": "Empty state description for a Skill Registry page without skills"
   },
+  "CGB0NE": {
+    "defaultMessage": "Click to Expand",
+    "description": "Hint next to an unchanged comparison section chevron that the section can be expanded"
+  },
   "CHQQ0K": {
     "defaultMessage": "Find",
     "description": "Visible label for finding content in a trace"
@@ -4330,6 +4366,10 @@
   "ClYb2e": {
     "defaultMessage": "Count",
     "description": "Label for the count in the tooltip for the numeric aggregate chart."
+  },
+  "CoJvIT": {
+    "defaultMessage": "Attributes",
+    "description": "Label for the span attributes tab."
   },
   "CpLnGS": {
     "defaultMessage": "Metrics",
@@ -4515,6 +4555,10 @@
     "defaultMessage": "Expand assertion text",
     "description": "Aria label for the chevron that expands a long assertion text"
   },
+  "DVqrmC": {
+    "defaultMessage": "Tokens",
+    "description": "Trace comparison metric label"
+  },
   "DXkWqG": {
     "defaultMessage": "Assessment",
     "description": "Accessible label for the monitoring assessment selector"
@@ -4550,6 +4594,10 @@
   "DgLM4K": {
     "defaultMessage": "The output is factually inaccurate or grounded incorrectly.",
     "description": "Issue category description for correctness"
+  },
+  "DgRIri": {
+    "defaultMessage": "Swap baseline and candidate",
+    "description": "Tooltip for reversing the trace comparison order"
   },
   "Dgou/C": {
     "defaultMessage": "Error",
@@ -5170,6 +5218,10 @@
   "G1TBVx": {
     "defaultMessage": "Loading version...",
     "description": "Loading state for Skill version detail"
+  },
+  "G1XTXP": {
+    "defaultMessage": "Duration",
+    "description": "Trace comparison metric label"
   },
   "G2zMpZ": {
     "defaultMessage": "Delete ({count})",
@@ -6606,6 +6658,10 @@
   "KpFPCX": {
     "defaultMessage": "Settings",
     "description": "Subsection header listing model settings stored with the selected prompt version on the playground prompt-registry picker modal"
+  },
+  "KqFU/V": {
+    "defaultMessage": "Comparing traces",
+    "description": "Context shown in a trace comparison header"
   },
   "KqReh3": {
     "defaultMessage": "Error stack trace",
@@ -8639,6 +8695,10 @@
     "defaultMessage": "Refreshing…",
     "description": "Trace refresh action in progress"
   },
+  "RcrnKk": {
+    "defaultMessage": "Candidate",
+    "description": "Trace comparison metric column"
+  },
   "ReQ01f": {
     "defaultMessage": "Do retrieved documents contain all necessary information?",
     "description": "Hint for RetrievalSufficiency template"
@@ -9023,6 +9083,10 @@
     "defaultMessage": "Is the summary faithful, complete, and concise?",
     "description": "Hint for Summarization template"
   },
+  "SxTbG4": {
+    "defaultMessage": "Candidate: missing",
+    "description": "Label for an absent candidate value in a trace comparison diff"
+  },
   "SymYki": {
     "defaultMessage": "About icons",
     "description": "Aria label for icons help popover in create MCP server modal"
@@ -9070,6 +9134,10 @@
   "T7b0ai": {
     "defaultMessage": "Register and catalog skills for your organization.",
     "description": "Empty state description for an empty Skill Registry"
+  },
+  "TAQHxC": {
+    "defaultMessage": "{traceId}",
+    "description": "Baseline trace identifier in the trace comparison header"
   },
   "TBX+Gs": {
     "defaultMessage": "Add/Edit tags",
@@ -9774,6 +9842,10 @@
   "VTePPP": {
     "defaultMessage": "Create your first experiment",
     "description": "Home page experiments empty state title"
+  },
+  "VUqt8S": {
+    "defaultMessage": "{label}: {value}",
+    "description": "Tooltip for an unchanged span metric in a trace comparison"
   },
   "VVoQ5V": {
     "defaultMessage": "Structured output (JSON schema)",
@@ -11435,6 +11507,10 @@
     "defaultMessage": "Draft",
     "description": "Draft status option in create MCP server modal"
   },
+  "bBCk2J": {
+    "defaultMessage": "{label}: {baseline} → {candidate}; change {change}",
+    "description": "Tooltip for a baseline and candidate span metric comparison"
+  },
   "bCdY2j": {
     "defaultMessage": "Add \"{label}\"",
     "description": "Evaluation review > assessments > add new custom value element"
@@ -11554,6 +11630,10 @@
   "bdVsGZ": {
     "defaultMessage": "Collapse description",
     "description": "Aria label for button that collapses a long description"
+  },
+  "bep48I": {
+    "defaultMessage": "{traceId}",
+    "description": "Candidate trace identifier in the trace comparison header"
   },
   "bgk51B": {
     "defaultMessage": "Give every tool a function name",
@@ -12751,6 +12831,10 @@
     "defaultMessage": "Experiment ID",
     "description": "Run page > Overview > experiment ID section label"
   },
+  "fgvfcZ": {
+    "defaultMessage": "Baseline: missing",
+    "description": "Label for an absent baseline value in a trace comparison diff"
+  },
   "fh1apj": {
     "defaultMessage": "View name",
     "description": "Placeholder for the name input when saving a traces view"
@@ -13031,6 +13115,10 @@
     "defaultMessage": "Show less",
     "description": "Show less tools button"
   },
+  "gTuFoi": {
+    "defaultMessage": "Baseline",
+    "description": "Trace comparison metric column"
+  },
   "gUdmaJ": {
     "defaultMessage": "Schema",
     "description": "Title text for the schema section on the model versions view page"
@@ -13198,6 +13286,10 @@
   "gupgRi": {
     "defaultMessage": "State",
     "description": "Traces table state column name"
+  },
+  "gxkVQo": {
+    "defaultMessage": "Estimated cost",
+    "description": "Trace comparison metric label"
   },
   "gy4ziK": {
     "defaultMessage": "Assign reviewers who should answer this queue's questions. They'll find it under “Feedback requested”.",
@@ -14311,6 +14403,10 @@
     "defaultMessage": "Create webhook",
     "description": "Create webhook button"
   },
+  "k7j09i": {
+    "defaultMessage": "Analyze traces",
+    "description": "Button label for asking the assistant to compare two traces"
+  },
   "k9M+N6": {
     "defaultMessage": "No assistant provider is available. Configure one in Settings.",
     "description": "Callout shown when no assistant provider could serve the chat"
@@ -15358,6 +15454,10 @@
   "nfu62H": {
     "defaultMessage": "Running",
     "description": "Run status filter value"
+  },
+  "ng29fW": {
+    "defaultMessage": "Change",
+    "description": "Trace comparison metric column"
   },
   "nhqO2Z": {
     "defaultMessage": "Save",
@@ -17179,6 +17279,10 @@
     "defaultMessage": "Name",
     "description": "Header for the name column in the registered prompts table"
   },
+  "u0JbBm": {
+    "defaultMessage": "Model: {baselineModelName} → {candidateModelName}",
+    "description": "Tooltip for baseline and candidate model names in a trace comparison"
+  },
   "u13xKF": {
     "defaultMessage": "Custom judge",
     "description": "LLM judge option for creating a custom judge"
@@ -18475,6 +18579,10 @@
     "defaultMessage": "State",
     "description": "Column label for state"
   },
+  "yTdnBI": {
+    "defaultMessage": "Debug",
+    "description": "Group label for trace debugging bulk actions in the V4 traces toolbar"
+  },
   "yWRwlk": {
     "defaultMessage": "Traces show you how your LLM calls behave: what they cost, how they perform, and where things go wrong. Get started in a few minutes.",
     "description": "Subtitle for the empty state when no traces are recorded"
@@ -18842,6 +18950,10 @@
   "ziIhFQ": {
     "defaultMessage": "Loaded {allRuns} {allRuns, plural, =1 {run} other {runs}}, including {childRuns} child {childRuns, plural, =1 {run} other {runs}}",
     "description": "Experiment page > loaded more runs notification > loaded both parent and child runs"
+  },
+  "ziiwk7": {
+    "defaultMessage": "Same trace",
+    "description": "Badge shown when both sides of a trace comparison reference the same trace"
   },
   "zjXq2X": {
     "defaultMessage": "The model will be registered as a new version of {selectedModel}.",
