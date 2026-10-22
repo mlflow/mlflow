@@ -33,7 +33,6 @@ from mlflow.data.numpy_dataset import from_numpy
 from mlflow.data.pandas_dataset import from_pandas
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.input_tag import InputTag
-from mlflow.environment_variables import MLFLOW_ALLOW_PICKLE_DESERIALIZATION
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -58,7 +57,6 @@ from mlflow.utils.autologging_utils import (
 )
 from mlflow.utils.data_utils import is_polars_dataframe
 from mlflow.utils.databricks_utils import (
-    is_in_databricks_model_serving_environment,
     is_in_databricks_runtime,
 )
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
@@ -82,6 +80,7 @@ from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _copy_extra_files,
     _get_flavor_configuration,
+    _is_unsafe_model_loading_allowed,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
 )
@@ -547,17 +546,13 @@ def _load_model_from_local_file(path, serialization_format, skops_trusted_types=
     # so the flag is a real safety control rather than one the skops format silently bypasses.
     # The is_in_databricks_* carve-outs are pre-existing and shared with the pickle/cloudpickle
     # paths: those managed runtimes permit model deserialization regardless of the flag.
-    if (
-        not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get()
-        and not is_in_databricks_runtime()
-        and not is_in_databricks_model_serving_environment()
-    ):
+    if not _is_unsafe_model_loading_allowed():
         raise MlflowException(
-            "Deserializing this model is disallowed because 'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' "
+            "Deserializing this model is disallowed because 'MLFLOW_ALLOW_UNSAFE_MODEL_LOADING' "
             "is not set to 'true'. Loading a model can execute arbitrary code from the model "
             "artifact, including models saved in the 'skops' format, whose trusted-types "
             "allow-list is read from the model itself. Only load models from trusted sources; set "
-            "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true' to allow loading."
+            "'MLFLOW_ALLOW_UNSAFE_MODEL_LOADING' to 'true' to allow loading."
         )
 
     if serialization_format == SERIALIZATION_FORMAT_SKOPS:

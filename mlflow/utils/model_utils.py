@@ -4,11 +4,16 @@ import logging
 import os
 import shutil
 import sys
+import warnings
 from pathlib import Path
 from typing import Any
 
 import yaml
 
+from mlflow.environment_variables import (
+    MLFLOW_ALLOW_PICKLE_DESERIALIZATION,
+    MLFLOW_ALLOW_UNSAFE_MODEL_LOADING,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -22,7 +27,10 @@ from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import get_parent_module
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.databricks_utils import (
+    is_in_databricks_model_serving_environment,
+    is_in_databricks_runtime,
+)
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
 from mlflow.utils.requirements_utils import _capture_imported_modules
 from mlflow.utils.uri import append_to_uri_path
@@ -339,8 +347,41 @@ def _add_code_from_conf_to_system_path(local_path, conf, code_key=FLAVOR_CONFIG_
     assert isinstance(conf, dict), "`conf` argument must be a dict."
 
     if code_key in conf and conf[code_key]:
+        # The code directory comes from the model artifact; once it is on `sys.path`, any
+        # module name read from the model (e.g. a pyfunc `loader_module`) can resolve to it.
+        _check_unsafe_model_loading_allowed("a model with a code directory")
         code_path = os.path.join(local_path, conf[code_key])
         _add_code_to_system_path(code_path)
+
+
+def _is_unsafe_model_loading_allowed(allow_in_databricks: bool = True) -> bool:
+    """
+    Returns whether models that run code supplied by the model (pickle artifacts, code
+    directories, models from code) may be loaded. Both ``MLFLOW_ALLOW_UNSAFE_MODEL_LOADING``
+    and the deprecated ``MLFLOW_ALLOW_PICKLE_DESERIALIZATION`` must allow it.
+    """
+    if MLFLOW_ALLOW_PICKLE_DESERIALIZATION.defined:
+        warnings.warn(
+            f"Environment variable {MLFLOW_ALLOW_PICKLE_DESERIALIZATION.name} is deprecated and "
+            f"will be removed in a future release. Use {MLFLOW_ALLOW_UNSAFE_MODEL_LOADING.name} "
+            "instead.",
+            FutureWarning,
+            stacklevel=2,
+        )
+    if MLFLOW_ALLOW_UNSAFE_MODEL_LOADING.get() and MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get():
+        return True
+    return allow_in_databricks and (
+        is_in_databricks_runtime() or is_in_databricks_model_serving_environment()
+    )
+
+
+def _check_unsafe_model_loading_allowed(model_description: str) -> None:
+    if not _is_unsafe_model_loading_allowed():
+        raise MlflowException(
+            f"Loading {model_description} is disallowed because it runs code supplied by the "
+            "model. If you trust this model, set environment variable "
+            f"'{MLFLOW_ALLOW_UNSAFE_MODEL_LOADING.name}' to 'true' to load it."
+        )
 
 
 def _validate_onnx_session_options(onnx_session_options):

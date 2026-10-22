@@ -11,20 +11,16 @@ from mlflow.dspy.save import (
     _MODEL_DATA_PATH,
 )
 from mlflow.dspy.wrapper import DspyChatModelWrapper, DspyModelWrapper
-from mlflow.environment_variables import MLFLOW_ALLOW_PICKLE_DESERIALIZATION
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.dependencies_schemas import _get_dependencies_schema_from_model
 from mlflow.models.model import _update_active_model_id_based_on_mlflow_model
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.databricks_utils import (
-    is_in_databricks_model_serving_environment,
-    is_in_databricks_runtime,
-)
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
+    _is_unsafe_model_loading_allowed,
 )
 
 _DEFAULT_MODEL_PATH = "data/model.pkl"
@@ -56,18 +52,14 @@ def _load_model(model_uri, dst_path=None):
     model_path = flavor_conf.get("model_path", _DEFAULT_MODEL_PATH)
     task = flavor_conf.get("inference_task")
 
-    allow_pickle = (
-        MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get()
-        or is_in_databricks_runtime()
-        or is_in_databricks_model_serving_environment()
-    )
+    allow_pickle = _is_unsafe_model_loading_allowed()
 
     # Raise BEFORE mutating sys.path so a denied load has no global side effects.
     if model_path.endswith(".pkl") and not allow_pickle:
         raise MlflowException(
             "Deserializing model using pickle is disallowed, but this model is saved "
             "in pickle format. To address this issue, you need to set environment variable "
-            "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true', or save the model with "
+            "'MLFLOW_ALLOW_UNSAFE_MODEL_LOADING' to 'true', or save the model with "
             "'use_dspy_model_save=True' like "
             "`mlflow.dspy.save_model(model, path, use_dspy_model_save=True)`."
         )
@@ -84,10 +76,10 @@ def _load_model(model_uri, dst_path=None):
             if not allow_pickle:
                 raise MlflowException(
                     f"Failed to load DSPy model: {e}. Note: the environment variable "
-                    "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' is currently set to 'false', "
+                    "'MLFLOW_ALLOW_UNSAFE_MODEL_LOADING' is currently set to 'false', "
                     "which disables pickle-based deserialization. If the failure above "
                     "is due to disabled pickle deserialization, set "
-                    "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true' to allow loading "
+                    "'MLFLOW_ALLOW_UNSAFE_MODEL_LOADING' to 'true' to allow loading "
                     "pickle-based models."
                 ) from e
             raise

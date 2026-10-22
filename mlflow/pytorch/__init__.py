@@ -30,7 +30,6 @@ from packaging.version import Version
 import mlflow
 from mlflow import pyfunc
 from mlflow.environment_variables import (
-    MLFLOW_ALLOW_PICKLE_DESERIALIZATION,
     MLFLOW_DEFAULT_PREDICTION_DEVICE,
 )
 from mlflow.exceptions import MlflowException
@@ -46,7 +45,6 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 from mlflow.utils.checkpoint_utils import download_checkpoint_artifact
 from mlflow.utils.databricks_utils import (
-    is_in_databricks_model_serving_environment,
     is_in_databricks_runtime,
 )
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
@@ -70,6 +68,7 @@ from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _copy_extra_files,
     _get_flavor_configuration,
+    _is_unsafe_model_loading_allowed,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
 )
@@ -701,21 +700,13 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-def _is_pickle_deserialization_allowed() -> bool:
-    return (
-        MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get()
-        or is_in_databricks_runtime()
-        or is_in_databricks_model_serving_environment()
-    )
-
-
 def _load_by_pickle_check(is_loading_state_dict: bool):
-    if not _is_pickle_deserialization_allowed():
+    if not _is_unsafe_model_loading_allowed():
         if is_loading_state_dict:
             raise MlflowException(
                 "Deserializing model using pickle is disallowed, but this state dict is saved "
                 "in pickle format. You can set environment variable "
-                "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true' to allow deserializing state "
+                "'MLFLOW_ALLOW_UNSAFE_MODEL_LOADING' to 'true' to allow deserializing state "
                 "dict using pickle."
             )
         raise MlflowException(
@@ -724,7 +715,7 @@ def _load_by_pickle_check(is_loading_state_dict: bool):
             "serialization_format='pt2' like "
             "`mlflow.pytorch.save_model(model, path, serialization_format='pt2')`, "
             "or you can set environment variable "
-            "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true' to allow deserializing model "
+            "'MLFLOW_ALLOW_UNSAFE_MODEL_LOADING' to 'true' to allow deserializing model "
             "using pickle."
         )
 
@@ -852,7 +843,7 @@ def _validate_pt2_archive_is_pickle_free(model_path: str) -> None:
             "Deserializing model using pickle is disallowed, and the installed `torch` "
             f"version ({torch.__version__}) cannot safely verify that a model saved with "
             "serialization_format='pt2' is free of pickle payloads. Upgrade to `torch` >= 2.10, "
-            "or set environment variable 'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true' to "
+            "or set environment variable 'MLFLOW_ALLOW_UNSAFE_MODEL_LOADING' to 'true' to "
             "allow deserializing the model using pickle."
         )
 
@@ -863,7 +854,7 @@ def _validate_pt2_archive_is_pickle_free(model_path: str) -> None:
             "models saved by `mlflow.pytorch.save_model(..., serialization_format='pt2')` "
             "whose weights, constants and example inputs are tensors or primitive containers "
             "can be loaded. You can set environment variable "
-            "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true' to allow deserializing the model "
+            "'MLFLOW_ALLOW_UNSAFE_MODEL_LOADING' to 'true' to allow deserializing the model "
             "using pickle."
         )
 
@@ -979,7 +970,7 @@ def _load_model(path, device=None, **kwargs):
                     "The model is exported by `torch.export` API. To load the model, "
                     "`torch` package version must be >= 2.4"
                 )
-            if not _is_pickle_deserialization_allowed():
+            if not _is_unsafe_model_loading_allowed():
                 _validate_pt2_archive_is_pickle_free(model_path)
             pytorch_model = torch.export.load(model_path, **kwargs).module()
         else:

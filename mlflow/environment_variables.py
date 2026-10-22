@@ -1921,9 +1921,19 @@ MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH = _BooleanEnvironmentVariable(
 _MLFLOW_ENABLE_UC_TRACE_UPSELL = _BooleanEnvironmentVariable("_MLFLOW_ENABLE_UC_TRACE_UPSELL", True)
 
 
-#: Specifies whether to allow unsafe pickle deserialization for loading model
+#: (Deprecated, use ``MLFLOW_ALLOW_UNSAFE_MODEL_LOADING``) Specifies whether to allow unsafe
+#: pickle deserialization for loading model. Setting it to ``false`` has the same effect as
+#: setting ``MLFLOW_ALLOW_UNSAFE_MODEL_LOADING`` to ``false``.
 MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
     "MLFLOW_ALLOW_PICKLE_DESERIALIZATION", True
+)
+
+#: Specifies whether to allow loading models that run code supplied by the model: pickle or
+#: cloudpickle artifacts, code directories logged with ``code_paths``, and models from code.
+#: Set it to ``false`` to refuse such models. Only set it to ``true`` for models you trust.
+#: (default: ``True``)
+MLFLOW_ALLOW_UNSAFE_MODEL_LOADING = _BooleanEnvironmentVariable(
+    "MLFLOW_ALLOW_UNSAFE_MODEL_LOADING", True
 )
 
 

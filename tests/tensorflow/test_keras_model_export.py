@@ -325,8 +325,8 @@ def test_load_model_with_custom_objects_disallows_pickle_deserialization(
     # Loading must then fail when pickle deserialization is disabled.
     mlflow.tensorflow.save_model(model, path=model_path, custom_objects={"dummy": object()})
 
-    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
-    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+    monkeypatch.setenv("MLFLOW_ALLOW_UNSAFE_MODEL_LOADING", "false")
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_UNSAFE_MODEL_LOADING"):
         mlflow.tensorflow.load_model(model_path)
 
 

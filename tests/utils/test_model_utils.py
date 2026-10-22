@@ -126,3 +126,87 @@ def test_env_var_tracker(monkeypatch):
     with env_var_tracker() as env:
         os.environ.get("API_KEY")
         assert env == set()
+
+
+@pytest.mark.parametrize(
+    ("unsafe", "pickle", "expected"),
+    [
+        (None, None, True),
+        ("false", None, False),
+        (None, "false", False),
+        ("true", "false", False),
+        ("false", "true", False),
+        ("true", "true", True),
+    ],
+)
+def test_is_unsafe_model_loading_allowed(monkeypatch, unsafe, pickle, expected):
+    for name, value in [
+        ("MLFLOW_ALLOW_UNSAFE_MODEL_LOADING", unsafe),
+        ("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", pickle),
+    ]:
+        if value is None:
+            monkeypatch.delenv(name, raising=False)
+        else:
+            monkeypatch.setenv(name, value)
+    assert mlflow_model_utils._is_unsafe_model_loading_allowed() is expected
+
+
+def test_is_unsafe_model_loading_allowed_warns_on_deprecated_env_var(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "true")
+    with pytest.warns(FutureWarning, match="MLFLOW_ALLOW_UNSAFE_MODEL_LOADING"):
+        assert mlflow_model_utils._is_unsafe_model_loading_allowed()
+
+
+@pytest.mark.parametrize(
+    "databricks_env_fn", ["is_in_databricks_runtime", "is_in_databricks_model_serving_environment"]
+)
+def test_is_unsafe_model_loading_allowed_in_databricks(monkeypatch, databricks_env_fn):
+    monkeypatch.setenv("MLFLOW_ALLOW_UNSAFE_MODEL_LOADING", "false")
+    with mock.patch(f"mlflow.utils.model_utils.{databricks_env_fn}", return_value=True):
+        assert mlflow_model_utils._is_unsafe_model_loading_allowed()
+        assert not mlflow_model_utils._is_unsafe_model_loading_allowed(allow_in_databricks=False)
+
+
+@pytest.mark.parametrize(
+    "env_var", ["MLFLOW_ALLOW_UNSAFE_MODEL_LOADING", "MLFLOW_ALLOW_PICKLE_DESERIALIZATION"]
+)
+def test_load_model_refuses_code_directory_when_unsafe_loading_disallowed(
+    tmp_path, monkeypatch, env_var
+):
+    # A crafted model whose `loader_module` resolves to a module shipped in its own code dir.
+    module_name = f"crafted_loader_{os.getpid()}"
+    marker = tmp_path / "marker"
+    model_dir = tmp_path / "model"
+    (model_dir / "code").mkdir(parents=True)
+    (model_dir / "code" / f"{module_name}.py").write_text(
+        f"open({str(marker)!r}, 'w').close()\ndef _load_pyfunc(path): pass\n"
+    )
+    (model_dir / "MLmodel").write_text(
+        f"flavors:\n  python_function:\n    loader_module: {module_name}\n    code: code\n"
+    )
+
+    monkeypatch.setenv(env_var, "false")
+    sys_path = list(sys.path)
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_UNSAFE_MODEL_LOADING"):
+        mlflow.pyfunc.load_model(str(model_dir))
+    assert not marker.exists()
+    assert sys.path == sys_path
+
+
+def test_load_model_from_code_refused_when_unsafe_loading_disallowed(tmp_path, monkeypatch):
+    marker = tmp_path / "marker"
+    code_file = tmp_path / "model.py"
+    code_file.write_text(
+        "import mlflow\n"
+        f"open({str(marker)!r}, 'w').close()\n"
+        "mlflow.models.set_model(lambda model_input: model_input)\n"
+    )
+    model_dir = tmp_path / "model"
+    monkeypatch.setenv("MLFLOW_ALLOW_UNSAFE_MODEL_LOADING", "false")
+    # Saving runs the user's own code, so it stays allowed.
+    mlflow.pyfunc.save_model(model_dir, python_model=str(code_file), pip_requirements=["mlflow"])
+    marker.unlink()
+
+    with pytest.raises(MlflowException, match="a model from code"):
+        mlflow.pyfunc.load_model(str(model_dir))
+    assert not marker.exists()
