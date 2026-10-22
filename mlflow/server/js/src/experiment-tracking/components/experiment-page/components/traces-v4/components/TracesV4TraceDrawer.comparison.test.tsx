@@ -221,6 +221,40 @@ describe('TracesV4TraceDrawer trace comparison', () => {
   }, 20000);
 });
 
+const renderReviewWithPageClose = () => {
+  // Close the drawer the way the Traces page does, so the real URL update is covered.
+  const DrawerWithPageClose = () => {
+    const url = useTracesV4UrlState();
+    return (
+      <TracesV4TraceDrawer
+        traceId={CANDIDATE_LONG_ID}
+        onClose={() => url.setTraceId(undefined)}
+        experimentId={EXPERIMENT_ID}
+        traces={[BASELINE_TRACE, CANDIDATE_TRACE]}
+        onSelectTrace={() => {}}
+      />
+    );
+  };
+  return renderTracesV4Page({
+    initialUrl: `${comparisonUrl({ [PAIRWISE_REVIEW_MODE_PARAM]: 'true' })}&traceId=${encodeURIComponent(
+      CANDIDATE_LONG_ID,
+    )}`,
+    routes: [
+      {
+        path: PATH,
+        element: (
+          <>
+            <LocationSpy />
+            <DrawerWithPageClose />
+          </>
+        ),
+      },
+    ],
+    history,
+    experimentId: EXPERIMENT_ID,
+  });
+};
+
 describe('TracesV4TraceDrawer pairwise review', () => {
   test('opens pairwise review in full screen from the comparison header', async () => {
     jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
@@ -306,40 +340,33 @@ describe('TracesV4TraceDrawer pairwise review', () => {
     }
   }, 20000);
 
+  test('saves an edited comment when Escape closes the drawer', async () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+    const user = userEvent.setup();
+    renderReviewWithPageClose();
+
+    const drawer = await findDrawer();
+    await within(drawer).findByText('Which run is better?');
+    await waitFor(() => expect(within(drawer).getByRole('radio', { name: /000/ })).toBeEnabled());
+    await user.keyboard('1');
+    await waitFor(() => expect(createdAssessments).toHaveLength(2));
+    await waitFor(() => expect(within(drawer).getByRole('textbox', { name: 'Comment' })).toBeEnabled());
+
+    await user.type(within(drawer).getByRole('textbox', { name: 'Comment' }), 'late comment');
+    await user.keyboard('{Escape}');
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() => expect(createdAssessments).toHaveLength(4));
+    expect(createdAssessments.slice(2).map(({ assessment }) => assessment['rationale'])).toEqual([
+      'late comment',
+      'late comment',
+    ]);
+  }, 20000);
+
   test('clears pairwise review from the URL when the drawer closes', async () => {
     jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
     const user = userEvent.setup();
-    // Close the drawer the way the Traces page does, so the real URL update is covered.
-    const DrawerWithPageClose = () => {
-      const url = useTracesV4UrlState();
-      return (
-        <TracesV4TraceDrawer
-          traceId={CANDIDATE_LONG_ID}
-          onClose={() => url.setTraceId(undefined)}
-          experimentId={EXPERIMENT_ID}
-          traces={[BASELINE_TRACE, CANDIDATE_TRACE]}
-          onSelectTrace={() => {}}
-        />
-      );
-    };
-    renderTracesV4Page({
-      initialUrl: `${comparisonUrl({ [PAIRWISE_REVIEW_MODE_PARAM]: 'true' })}&traceId=${encodeURIComponent(
-        CANDIDATE_LONG_ID,
-      )}`,
-      routes: [
-        {
-          path: PATH,
-          element: (
-            <>
-              <LocationSpy />
-              <DrawerWithPageClose />
-            </>
-          ),
-        },
-      ],
-      history,
-      experimentId: EXPERIMENT_ID,
-    });
+    renderReviewWithPageClose();
 
     const drawer = await findDrawer();
     await within(drawer).findByText('Which run is better?');

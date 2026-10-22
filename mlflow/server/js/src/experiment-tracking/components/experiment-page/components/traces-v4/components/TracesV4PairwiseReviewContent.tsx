@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   Card,
@@ -108,11 +108,14 @@ export const TracesV4PairwiseReviewContent = ({
     description: 'Accessible label for the comment in pairwise trace review',
   });
 
+  // The comment most recently sent to be saved, so closing review doesn't save it a second time.
+  const requestedRationaleRef = useRef<string>();
   const persistReview = useCallback(
     async (winnerTraceId: string, nextRationale: string) => {
       if (!baselineTraceInfo || !candidateTraceInfo) {
         return;
       }
+      requestedRationaleRef.current = nextRationale;
       const baselineWins = winnerTraceId === baselineTraceId;
       await savePairwiseReview({
         baseline: {
@@ -137,14 +140,23 @@ export const TracesV4PairwiseReviewContent = ({
       if (!baselineTraceInfo || !candidateTraceInfo || isReviewLocked || nextSelectedTraceId === selectedTraceId) {
         return;
       }
-      const previousSelectedTraceId = selectedTraceId;
       setSelectedTraceId(nextSelectedTraceId);
+      // On failure show what is stored: the earlier choice, or none if only one trace was saved.
       void persistReview(nextSelectedTraceId, rationale).catch(() => {
-        setSelectedTraceId(previousSelectedTraceId);
+        setSelectedTraceId(undefined);
       });
     },
     [baselineTraceInfo, candidateTraceInfo, isReviewLocked, persistReview, rationale, selectedTraceId],
   );
+
+  // Escape closes the drawer without blurring the comment, so save an edited comment when review unmounts.
+  const savePendingCommentRef = useRef<() => void>();
+  savePendingCommentRef.current = () => {
+    if (selectedTraceId && isReviewerResolved && rationale !== (requestedRationaleRef.current ?? lastSavedRationale)) {
+      void persistReview(selectedTraceId, rationale).catch(() => undefined);
+    }
+  };
+  useEffect(() => () => savePendingCommentRef.current?.(), []);
 
   useEffect(() => {
     const handleWinnerShortcut = (event: KeyboardEvent) => {

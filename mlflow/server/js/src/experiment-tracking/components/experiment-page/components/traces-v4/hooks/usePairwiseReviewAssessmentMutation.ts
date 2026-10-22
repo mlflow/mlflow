@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef } from 'react';
 import { useIntl } from 'react-intl';
 
 import { NetworkRequestError } from '@databricks/web-shared/errors';
@@ -17,7 +18,11 @@ import {
   type ModelTrace,
   type ModelTraceInfoV3,
 } from '@databricks/web-shared/model-trace-explorer';
-import { createAssessment as createAssessmentV3 } from '@databricks/web-shared/model-trace-explorer/api';
+import {
+  createAssessment as createAssessmentV3,
+  fetchTraceInfoV3,
+  type FetchTraceInfoV3Response,
+} from '@databricks/web-shared/model-trace-explorer/api';
 import { useMutation, useQueryClient } from '@databricks/web-shared/query-client';
 import { useCurrentUserQuery } from '@mlflow/mlflow/src/account/hooks';
 
@@ -47,6 +52,7 @@ export interface SavedPairwiseReview {
 
 const PAIRWISE_ASSESSMENT_MAX_ATTEMPTS = 3;
 const PAIRWISE_ASSESSMENT_RETRY_DELAY_MS = 200;
+const CURRENT_USER_RETRY_DELAY_MS = 2000;
 
 const isTransientAssessmentError = (error: unknown): boolean => {
   if (error instanceof TypeError) {
@@ -123,18 +129,58 @@ const addAssessmentToSearchCache = (cached: unknown, assessment: Assessment): un
   return cached;
 };
 
+// The trace as stored now. Each write overrides the preference that is current on the server, not one that a
+// stale cache, an overlapping save or a write whose response was lost has already replaced.
+const fetchLatestTraceInfo = async (traceInfo: ModelTraceInfoV3): Promise<ModelTraceInfoV3> => {
+  if (shouldUseTracesV4API() && doesTraceSupportV4API(traceInfo)) {
+    return TracesServiceV4.getTraceInfoV4({ traceId: traceInfo.trace_id, traceLocation: traceInfo.trace_location });
+  }
+  const response: FetchTraceInfoV3Response = await fetchTraceInfoV3({ traceId: traceInfo.trace_id });
+  const latestTraceInfo = response.trace?.trace_info;
+  return latestTraceInfo && isV3ModelTraceInfo(latestTraceInfo) ? latestTraceInfo : traceInfo;
+};
+
 export const usePairwiseReviewAssessmentMutation = () => {
   const intl = useIntl();
   const queryClient = useQueryClient();
-  const { data: currentUser, isLoading: isLoadingCurrentUser } = useCurrentUserQuery();
-  // A server with auth enabled knows the signed-in user. Without auth, `/users/current` fails and the
-  // review is attributed to the same placeholder user as the trace explorer's other assessment writes.
-  const sourceId = currentUser?.user?.username || getUser() || '';
+  const {
+    data: currentUser,
+    error: currentUserError,
+    errorUpdatedAt: currentUserErrorUpdatedAt,
+    refetch: refetchCurrentUser,
+  } = useCurrentUserQuery();
+  // A server with auth enabled knows the signed-in user. Without auth it has no `/users/current` (404), and the
+  // review is attributed to the same placeholder user as the trace explorer's other assessment writes. Any other
+  // failure keeps voting locked and retries, so a signed-in reviewer is never saved as the shared placeholder.
+  const isAuthUnavailable = currentUserError instanceof NetworkRequestError && currentUserError.status === 404;
+  const isReviewerResolved = Boolean(currentUser) || isAuthUnavailable;
+  const sourceId = currentUser?.user?.username || (isReviewerResolved ? getUser() : '') || '';
+  useEffect(() => {
+    if (!currentUserError || isAuthUnavailable) {
+      return undefined;
+    }
+    const timer = setTimeout(() => void refetchCurrentUser(), CURRENT_USER_RETRY_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [currentUserError, currentUserErrorUpdatedAt, isAuthUnavailable, refetchCurrentUser]);
+
+  const cacheAssessment = (assessment: Assessment) => {
+    queryClient.setQueriesData<ModelTrace | null | undefined>(
+      { queryKey: getTraceV4QueryKey(assessment.trace_id).slice(0, 2) },
+      (trace) => addAssessmentToCachedTrace(trace, assessment),
+    );
+    queryClient.setQueriesData<ModelTrace | null | undefined>({ queryKey: ['getTrace'] }, (trace) =>
+      addAssessmentToCachedTrace(trace, assessment),
+    );
+    queryClient.setQueriesData<unknown>({ queryKey: [SEARCH_MLFLOW_TRACES_QUERY_KEY] }, (cached: unknown) =>
+      addAssessmentToSearchCache(cached, assessment),
+    );
+  };
 
   const mutation = useMutation<SavedPairwiseReview, Error, SavePairwiseReviewParams>({
     mutationFn: async ({ baseline, candidate, rationale }) => {
-      const createAssessment = ({ traceInfo, opponentTraceId, score }: PairwiseReviewAssessmentInput) => {
-        const previousAssessment = findPairwiseScoreAssessment({ trace: traceInfo, opponentTraceId, sourceId });
+      const createAssessment = async ({ traceInfo, opponentTraceId, score }: PairwiseReviewAssessmentInput) => {
+        const latestTraceInfo = await fetchLatestTraceInfo(traceInfo);
+        const previousAssessment = findPairwiseScoreAssessment({ trace: latestTraceInfo, opponentTraceId, sourceId });
         const assessment: Omit<FeedbackAssessment, 'assessment_id' | 'create_time' | 'last_update_time'> = {
           assessment_name: PAIRWISE_PREFERENCE_ASSESSMENT_NAME,
           trace_id: traceInfo.trace_id,
@@ -156,26 +202,26 @@ export const usePairwiseReviewAssessmentMutation = () => {
         return createAssessmentV3({ payload: { assessment } }).then((response) => response.assessment);
       };
 
-      const [baselineAssessment, candidateAssessment] = await Promise.all([
+      const [baselineResult, candidateResult] = await Promise.allSettled([
         retryPairwiseAssessmentWrite(() => createAssessment(baseline)),
         retryPairwiseAssessmentWrite(() => createAssessment(candidate)),
       ]);
-      return { baselineAssessment, candidateAssessment };
-    },
-    onSuccess: ({ baselineAssessment, candidateAssessment }) => {
-      for (const assessment of [baselineAssessment, candidateAssessment]) {
-        queryClient.setQueriesData<ModelTrace | null | undefined>(
-          { queryKey: getTraceV4QueryKey(assessment.trace_id).slice(0, 2) },
-          (trace) => addAssessmentToCachedTrace(trace, assessment),
-        );
-        queryClient.setQueriesData<ModelTrace | null | undefined>({ queryKey: ['getTrace'] }, (trace) =>
-          addAssessmentToCachedTrace(trace, assessment),
-        );
-        queryClient.setQueriesData<unknown>({ queryKey: [SEARCH_MLFLOW_TRACES_QUERY_KEY] }, (cached: unknown) =>
-          addAssessmentToSearchCache(cached, assessment),
-        );
+      // Show whichever side was saved even if the other failed, so the review reflects what is stored.
+      for (const result of [baselineResult, candidateResult]) {
+        if (result.status === 'fulfilled') {
+          cacheAssessment(result.value);
+        }
       }
-      // The traces table caches each page as a `{ trace_infos }` response, which the patch above doesn't
+      if (baselineResult.status === 'rejected') {
+        throw baselineResult.reason;
+      }
+      if (candidateResult.status === 'rejected') {
+        throw candidateResult.reason;
+      }
+      return { baselineAssessment: baselineResult.value, candidateAssessment: candidateResult.value };
+    },
+    onSettled: () => {
+      // The traces table caches each page as a `{ trace_infos }` response, which `cacheAssessment` doesn't
       // touch, so refetch it like the trace explorer's other assessment writes do.
       void queryClient.invalidateQueries({ queryKey: [SEARCH_MLFLOW_TRACES_QUERY_KEY] });
     },
@@ -192,11 +238,23 @@ export const usePairwiseReviewAssessmentMutation = () => {
     },
   });
 
+  // Saves run one at a time, so a comment saved on blur and a winner chosen by the same click don't both
+  // override the same preference.
+  const { mutateAsync } = mutation;
+  const saveQueueRef = useRef<Promise<unknown>>(Promise.resolve());
+  const savePairwiseReview = useCallback(
+    (params: SavePairwiseReviewParams) => {
+      const save = saveQueueRef.current.then(() => mutateAsync(params));
+      saveQueueRef.current = save.catch(() => undefined);
+      return save;
+    },
+    [mutateAsync],
+  );
+
   return {
-    savePairwiseReview: mutation.mutateAsync,
+    savePairwiseReview,
     isSavingPairwiseReview: mutation.isLoading,
     reviewerSourceId: sourceId,
-    // Saving before `/users/current` settles would attribute the review to the placeholder user.
-    isReviewerResolved: !isLoadingCurrentUser,
+    isReviewerResolved,
   };
 };
