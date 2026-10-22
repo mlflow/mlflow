@@ -90,8 +90,14 @@ other host secrets are not.
 
 ## Egress
 
-Sandbox containers run on a dedicated bridge network, isolating them from other containers
-on the host, and can still reach the tracking server on the host via `host.docker.internal`.
+Sandbox containers run on a dedicated bridge network, which separates them from containers on
+other Docker networks, and can still reach the tracking server on the host via
+`host.docker.internal`. This does not limit what a sandbox can reach: every session's sandbox
+shares this network, so sandboxes can reach each other, and through `host.docker.internal` a
+sandbox can reach services that listen on the host's network interfaces, including ports that
+other containers publish. When the sandbox is enabled, the server logs a warning at startup
+that says so.
+
 If that dedicated network cannot be created or accessed (a restricted Docker setup), the sandbox
 logs a warning and falls back to Docker's default `bridge` network so it still runs — but on the
 shared default bridge that isolation from other containers is reduced.
