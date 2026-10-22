@@ -882,9 +882,9 @@ const sidebarsGenAI: SidebarsConfig = {
                   label: 'Tutorial: Develop code-based scorers',
                 },
                 {
-                  type: 'doc',
-                  id: 'eval-monitor/scorers/custom/job-containers',
+                  type: 'link',
                   label: 'Run in Job Containers (Experimental)',
+                  href: '/self-hosting/job-containers',
                 },
               ],
               collapsed: false,
