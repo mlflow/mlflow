@@ -7,7 +7,7 @@ import {
   type EvalRunComparisonSnapshot,
 } from './evalRunComparisonData';
 import { aggregateEvalRunConfigurationTraces, type EvalRunConfigurationTraceStats } from './evalRunConfigurationData';
-import { buildEvalRunComparisonScorers, type EvalRunComparisonScorerRun } from './evalRunComparisonScorers';
+import { buildEvalRunComparisonScorers, type EvalRunComparisonScorerRun } from './evalRunComparisonScorerData';
 import { useEvalRunComparisonRunTraces } from './useEvalRunComparisonRunTraces';
 
 export interface EvalRunConfigurationTraceData {

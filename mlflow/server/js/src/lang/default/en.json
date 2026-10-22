@@ -571,6 +571,10 @@
     "defaultMessage": "Show exceptions",
     "description": "Checkbox label for a setting that enables showing spans with exceptions in the trace explorer regardless of filter conditions."
   },
+  "/w2nKT": {
+    "defaultMessage": "{run} has the highest average passing rate across the {count, plural, one {# success-rate scorer} other {# success-rate scorers}} shared by all selected runs.",
+    "description": "Qualified comparison leader based on equally weighted common success-rate scorers"
+  },
   "/w5HDz": {
     "defaultMessage": "Create webhook",
     "description": "Create webhook modal title"
@@ -5479,6 +5483,10 @@
     "defaultMessage": "Expand evidence for {traceName}",
     "description": "Experiment issues tab > Evidence card > Expand evidence"
   },
+  "GTjaTV": {
+    "defaultMessage": "Compared with baseline {baseline}, {run} improves on {improved} and regresses on {regressed} of {count, plural, one {# shared success-rate scorer} other {# shared success-rate scorers}}, with {unchanged} unchanged.",
+    "description": "Deterministic baseline-relative scorer comparison summary"
+  },
   "GU5EuF": {
     "defaultMessage": "You do not have permission to view these issues",
     "description": "Experiment Issues permission error"
@@ -7471,10 +7479,6 @@
     "defaultMessage": "Webhooks",
     "description": "Webhooks settings section title"
   },
-  "MvyDc5": {
-    "defaultMessage": "{run} has the highest average passing rate across the {count} success-rate scorers shared by all selected runs.",
-    "description": "Qualified comparison leader based on equally weighted common success-rate scorers"
-  },
   "MxiIan": {
     "defaultMessage": "Add message",
     "description": "Button to insert a new chat message row"
@@ -7878,10 +7882,6 @@
   "O9Awk8": {
     "defaultMessage": "Failed to invoke webhook",
     "description": "Message informing the user that the webhook test failed to invoke"
-  },
-  "O9ejlw": {
-    "defaultMessage": "Compared with baseline {baseline}, {run} improves on {improved} and regresses on {regressed} shared success-rate scorers, with {unchanged} unchanged.",
-    "description": "Deterministic baseline-relative scorer comparison summary"
   },
   "O9r1RR": {
     "defaultMessage": "Start Time:",
@@ -12202,6 +12202,10 @@
   "cWTq78": {
     "defaultMessage": "Transport Type:",
     "description": "MCP registry endpoint modal transport label"
+  },
+  "cX321S": {
+    "defaultMessage": "Compared with baseline {baseline}, {run} shares no success-rate scorers with it.",
+    "description": "Baseline-relative comparison summary when the runs share only numeric scorers"
   },
   "cXNimy": {
     "defaultMessage": "Runtime hint",

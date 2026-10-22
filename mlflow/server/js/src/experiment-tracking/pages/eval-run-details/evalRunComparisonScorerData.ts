@@ -53,8 +53,22 @@ export const buildEvalRunComparisonScorers = (
   const entries = traceInfos.map((trace) => convertTraceInfoV3ToRunEvalEntry(trace));
   const evalResults = entries.map((currentRunValue) => ({ currentRunValue }));
   // Classify each run independently: a type change must not turn another run's numeric score into a category.
-  return getAssessmentInfos(intl, entries, []).map((assessmentInfo) => {
-    const aggregates = getEvalRunComparisonAssessmentAggregates(assessmentInfo, evalResults);
+  return getAssessmentInfos(intl, entries, []).map((runAssessmentInfo) => {
+    // A session-level scorer is logged on one turn per session, so it's summarized over those turns, as in the
+    // run page's column headers; the session's other turns aren't missing a value.
+    const summarizedResults = runAssessmentInfo.isSessionLevelAssessment
+      ? evalResults.filter(
+          ({ currentRunValue }) => (currentRunValue.responseAssessmentsByName[runAssessmentInfo.name]?.length ?? 0) > 0,
+        )
+      : evalResults;
+    const assessmentInfo = runAssessmentInfo.isSessionLevelAssessment
+      ? (getAssessmentInfos(
+          intl,
+          summarizedResults.map(({ currentRunValue }) => currentRunValue),
+          [],
+        ).find((info) => info.name === runAssessmentInfo.name) ?? runAssessmentInfo)
+      : runAssessmentInfo;
+    const aggregates = getEvalRunComparisonAssessmentAggregates(assessmentInfo, summarizedResults);
     const { displayScore } = getDisplayOverallScoreAndChange(intl, assessmentInfo, aggregates);
     const valueCounts = Array.from(aggregates.currentCounts ?? [])
       .map(([value, count]) => ({ value, count }))

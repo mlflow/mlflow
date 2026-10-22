@@ -77,6 +77,7 @@ describe('comparison Overview', () => {
   test('summarizes the comparison without AI and opens the Assistant with the selected run IDs', async () => {
     const { changeSelection } = renderOverview({ compareRunUuids: ['candidate', 'third'] });
     const summary = await screen.findByText(/improves on 0 and regresses on 1/);
+    expect(summary).toHaveTextContent('regresses on 1 of 1 shared success-rate scorer, with 0 unchanged.');
     expect(summary).toHaveTextContent('Run candidate');
     expect(summary).toHaveTextContent('Run third');
     expect(screen.queryByRole('button', { name: 'Generate summary' })).not.toBeInTheDocument();
@@ -107,7 +108,7 @@ describe('comparison Overview', () => {
     renderOverview();
     const summary = await screen.findByText(/Compared with baseline/);
     expect(summary).toHaveTextContent('Largest changes:');
-    const pill = within(summary).getByText('quality ↓-100%');
+    const pill = within(summary).getByText('quality -100%');
     await userEvent.hover(pill);
     expect(await screen.findByRole('tooltip')).toHaveTextContent('Absolute difference: -100 percentage points.');
   });
@@ -123,10 +124,30 @@ describe('comparison Overview', () => {
       }),
     );
     renderOverview();
-    expect(await screen.findByText(/1 numeric scorer changed/, { exact: false })).toHaveTextContent(
-      'direction is not rated as better or worse',
-    );
+    const summary = await screen.findByText(/1 numeric scorer changed/, { exact: false });
+    expect(summary).toHaveTextContent('direction is not rated as better or worse');
+    expect(summary).toHaveTextContent('shares no success-rate scorers with it.');
+    expect(summary).not.toHaveTextContent('improves on');
     expect(screen.getByText(/no clear overall leader/, { exact: false })).toBeInTheDocument();
+  });
+
+  test('lists pass-rate changes before numeric changes, which use a different unit', async () => {
+    server.use(
+      rest.post('*/ajax-api/3.0/mlflow/traces/search', async (req, res, ctx) => {
+        const { filter } = await req.json<{ filter: string }>();
+        const runUuid = runUuidOf(filter);
+        const isBaseline = runUuid === 'baseline';
+        return res(
+          ctx.json({
+            traces: [createComparisonTrace(runUuid, { quality: isBaseline, latency: isBaseline ? 10 : 30 })],
+          }),
+        );
+      }),
+    );
+    renderOverview();
+    expect(await screen.findByText(/Compared with baseline/)).toHaveTextContent(
+      'Largest changes: quality -100%, latency +200%.',
+    );
   });
 
   test('excludes assessments attributed to a different run from the summary', async () => {

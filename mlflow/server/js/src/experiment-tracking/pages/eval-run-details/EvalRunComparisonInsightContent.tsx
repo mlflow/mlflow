@@ -1,6 +1,6 @@
 import { Fragment } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { RunColorPill } from '../../components/experiment-page/components/RunColorPill';
 import { useGetExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { EvalRunComparisonDelta, getEvalRunComparisonRelativeChangePercent } from './EvalRunComparisonDelta';
@@ -89,14 +89,9 @@ const ComparisonDeltaPill = ({ delta }: ComparisonDeltaPillProps) => {
       percentagePoints={delta.unit === 'percentagePoints'}
       absoluteDifference={description}
       componentId="mlflow.eval_run_details.compare.insight.scorer"
+      color={delta.direction === 'improved' ? 'teal' : delta.direction === 'regressed' ? 'coral' : 'default'}
     >
-      <Tag
-        componentId="mlflow.eval_run_details.compare.insight.scorer_details"
-        color={delta.direction === 'improved' ? 'teal' : delta.direction === 'regressed' ? 'coral' : 'default'}
-      >
-        {delta.name} {delta.delta > 0 ? '↑' : delta.delta < 0 ? '↓' : ''}
-        {formattedChange}
-      </Tag>
+      {delta.name} {formattedChange}
     </EvalRunComparisonDelta>
   );
 };
@@ -124,9 +119,12 @@ export const EvalRunComparisonInsightContent = ({ snapshot }: EvalRunComparisonI
           return null;
         }
         const changes = snapshot.deltas.filter((delta) => delta.runUuid === run.runUuid);
+        const successRateCount = comparison.improved + comparison.regressed + comparison.unchanged;
         const highlights = [...changes]
           .filter((delta) => delta.delta !== 0)
+          // Pass-rate changes (percentage points) come before numeric changes (relative percent): the units differ.
           .sort((a, b) => {
+            if (a.unit !== b.unit) return a.unit === 'percentagePoints' ? -1 : 1;
             const aChange =
               a.unit === 'percentagePoints'
                 ? a.delta
@@ -153,17 +151,29 @@ export const EvalRunComparisonInsightContent = ({ snapshot }: EvalRunComparisonI
               />
             ) : (
               <>
-                <FormattedMessage
-                  defaultMessage="Compared with baseline {baseline}, {run} improves on {improved} and regresses on {regressed} shared success-rate scorers, with {unchanged} unchanged."
-                  description="Deterministic baseline-relative scorer comparison summary"
-                  values={{
-                    baseline: <ComparisonRunReference run={baseline} />,
-                    run: <ComparisonRunReference run={run} />,
-                    improved: comparison.improved,
-                    regressed: comparison.regressed,
-                    unchanged: comparison.unchanged,
-                  }}
-                />{' '}
+                {successRateCount > 0 ? (
+                  <FormattedMessage
+                    defaultMessage="Compared with baseline {baseline}, {run} improves on {improved} and regresses on {regressed} of {count, plural, one {# shared success-rate scorer} other {# shared success-rate scorers}}, with {unchanged} unchanged."
+                    description="Deterministic baseline-relative scorer comparison summary"
+                    values={{
+                      baseline: <ComparisonRunReference run={baseline} />,
+                      run: <ComparisonRunReference run={run} />,
+                      improved: comparison.improved,
+                      regressed: comparison.regressed,
+                      unchanged: comparison.unchanged,
+                      count: successRateCount,
+                    }}
+                  />
+                ) : (
+                  <FormattedMessage
+                    defaultMessage="Compared with baseline {baseline}, {run} shares no success-rate scorers with it."
+                    description="Baseline-relative comparison summary when the runs share only numeric scorers"
+                    values={{
+                      baseline: <ComparisonRunReference run={baseline} />,
+                      run: <ComparisonRunReference run={run} />,
+                    }}
+                  />
+                )}{' '}
                 {comparison.numericChanges > 0 && (
                   <FormattedMessage
                     defaultMessage="{count, plural, one {# numeric scorer changed} other {# numeric scorers changed}}; direction is not rated as better or worse."
@@ -195,7 +205,7 @@ export const EvalRunComparisonInsightContent = ({ snapshot }: EvalRunComparisonI
       })}
       {leader ? (
         <FormattedMessage
-          defaultMessage="{run} has the highest average passing rate across the {count} success-rate scorers shared by all selected runs."
+          defaultMessage="{run} has the highest average passing rate across the {count, plural, one {# success-rate scorer} other {# success-rate scorers}} shared by all selected runs."
           description="Qualified comparison leader based on equally weighted common success-rate scorers"
           values={{ run: <ComparisonRunReference run={leader} />, count: snapshot.commonSuccessScorerCount }}
         />

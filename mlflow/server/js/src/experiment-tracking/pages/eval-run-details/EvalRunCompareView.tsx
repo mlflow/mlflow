@@ -35,11 +35,13 @@ export const EvalRunCompareView = ({ experimentId, baselineRunUuid, compareRunUu
         compareRunUuids={compareRunUuids}
         onSelectBaseline={onSelectBaseline}
       />
-      <EvalRunComparisonOverviewTab
-        experimentId={experimentId}
-        baselineRunUuid={baselineRunUuid}
-        compareRunUuids={compareRunUuids}
-      />
+      <div css={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+        <EvalRunComparisonOverviewTab
+          experimentId={experimentId}
+          baselineRunUuid={baselineRunUuid}
+          compareRunUuids={compareRunUuids}
+        />
+      </div>
     </div>
   );
 };
