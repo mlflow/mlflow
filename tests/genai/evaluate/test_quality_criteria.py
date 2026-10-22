@@ -90,7 +90,7 @@ def test_parse_rejects_unsupported_comparators(comparator):
         parse_quality_criteria([_make_scorer("a")], f"a {comparator} 0.5")
 
 
-def test_parse_rejects_non_finite_threshold():
+def test_parse_rejects_non_finite_value():
     with pytest.raises(MlflowException, match="must be a finite number"):
         parse_quality_criteria([_make_scorer("a")], "a >= 1e999")
 
