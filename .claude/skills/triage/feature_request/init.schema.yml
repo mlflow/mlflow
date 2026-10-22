@@ -29,7 +29,8 @@ properties:
   comment:
     description: |
       Markdown comment for initial feature assessment. Replace placeholders and omit
-      sections with nothing to say, except the outcome.
+      sections with nothing to say, except the outcome. Omit boilerplate about tests
+      not run or PRs not proposed.
 
       ### Summary
 
@@ -47,8 +48,8 @@ properties:
 
       ### Checks needed
 
-      <key open decisions and tests or manual checks; distinguish checks performed from
-      those still needed. Contributors should wait for a maintainer's ready label before a PR.>
+      <key open decisions and suggested tests or manual checks; distinguish checks
+      performed from those still needed>
     type: string
     minLength: 1
     maxLength: 5000
