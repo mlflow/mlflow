@@ -11,7 +11,7 @@ import pydantic
 
 import mlflow
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
-from mlflow.entities.issue import IssueSeverity
+from mlflow.entities.issue import Issue, IssueSeverity
 from mlflow.entities.issue_evidence import IssueEvidence
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
@@ -681,11 +681,36 @@ def _build_issues(
         issues.append(issue)
         issue_trace_ids[issue.issue_id] = affected_trace_ids
 
-    issues.sort(
-        key=lambda i: i.severity,
-        reverse=True,
-    )
+    issues.sort(key=_severity_sort_key, reverse=True)
     return issues, issue_trace_ids
+
+
+# Declaration order is the severity order, so the index is the rank.
+_SEVERITY_RANK = {severity.value: rank for rank, severity in enumerate(IssueSeverity)}
+# Below every known severity, so an issue whose severity cannot be read sorts last. An absent
+# severity is not evidence of a severe issue.
+_UNKNOWN_SEVERITY_RANK = -1
+
+
+def _severity_sort_key(issue: Issue) -> int:
+    """
+    Rank for ordering issues by severity, most severe first under ``reverse=True``.
+
+    Ranked explicitly rather than by comparing the field, for two reasons the review surfaced.
+
+    ``Issue`` keeps whatever severity it was given, so a row read back from the store holds a
+    plain string rather than an :class:`IssueSeverity`. ``IssueSeverity.__lt__`` returns
+    ``NotImplemented`` for a non-member, and the enum subclasses ``str``, so Python fell back
+    to string comparison -- which is alphabetical. ``"high" < "low"`` is true, so the most
+    severe issues sorted to the *bottom* of the list.
+
+    The column is also nullable, so a single untyped row raised ``TypeError`` from this sort.
+    It runs after every database write but before evidence annotation, so the run published
+    its issues and then lost all of their trace annotations.
+    """
+    if issue.severity is None:
+        return _UNKNOWN_SEVERITY_RANK
+    return _SEVERITY_RANK.get(str(issue.severity), _UNKNOWN_SEVERITY_RANK)
 
 
 def build_issue_discovery_scorer(

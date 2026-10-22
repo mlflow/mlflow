@@ -5,12 +5,15 @@ import pytest
 
 import mlflow
 from mlflow.entities.issue import Issue, IssueStatus
-from mlflow.genai.discovery.constants import SAME_ISSUE_RULE
+from mlflow.genai.discovery.constants import MAX_MATCH_CANDIDATES, SAME_ISSUE_RULE
 from mlflow.genai.discovery.entities import _IdentifiedIssue
 from mlflow.genai.discovery.matching import (
     MATCHABLE_STATUSES,
     CandidateReadError,
     MatchOutcome,
+    _format_existing,
+    _Match,
+    _Matches,
     match_findings_to_existing_issues,
     read_match_candidates,
 )
@@ -373,3 +376,59 @@ def test_one_bad_entry_does_not_discard_the_good_ones():
         outcome = match_findings_to_existing_issues(findings, candidates)
 
     assert outcome.matched == {0: "iss-refund"}
+
+
+@pytest.mark.parametrize("model", [_Match, _Matches])
+def test_every_matcher_field_is_required_for_strict_structured_output(model):
+    # Reported in review. OpenAI's strict mode requires every property to appear in the
+    # schema's `required` list, and a pydantic default quietly removes it -- so the request is
+    # rejected, the matcher takes its error path, and every finding is published as new. Which
+    # is the one outcome this whole module exists to prevent.
+    schema = model.model_json_schema()
+
+    assert set(schema["properties"]) == set(schema.get("required", []))
+
+
+def test_a_new_finding_is_still_expressible_once_issue_id_is_required():
+    # The other half: required must not mean "must name an issue", or nothing can be new.
+    assert {"type": "null"} in _Match.model_json_schema()["properties"]["issue_id"]["anyOf"]
+    assert _Match(finding_index=0, issue_id=None).issue_id is None
+
+
+def test_an_omitted_matches_key_reads_as_nothing_matched():
+    # "Nothing matched" is the answer most likely to arrive as an omission from a provider
+    # that ignores strict mode, and reading it as a failure would duplicate every finding.
+    assert _Matches(**{}).matches == []
+
+
+def test_long_stored_text_cannot_push_the_matcher_past_a_context_window():
+    # Reported in review: the candidate *count* was capped but the text per candidate was not,
+    # and both come from user-controlled columns. Fifty 60 KB descriptions rendered to ~3.1M
+    # characters -- past every model's context -- so the request failed and the error path
+    # published a duplicate of every finding.
+    candidates = [
+        _existing(
+            f"iss-{index}",
+            "Refund falsely confirmed",
+            description="x" * 60_000,
+            root_causes=["y" * 2_000],
+        )
+        for index in range(MAX_MATCH_CANDIDATES)
+    ]
+
+    rendered = _format_existing(candidates)
+
+    # Roughly 16K tokens at 4 chars/token, against a 200K-token floor for supported models.
+    assert len(rendered) < 100_000
+    # Each candidate is still identifiable and marked as clipped, so the matcher can decide.
+    assert rendered.count("iss-0 ") == 1
+    assert "..." in rendered
+
+
+def test_clipping_leaves_ordinary_text_untouched():
+    # The clip must not alter text that already fits, or every stored description would arrive
+    # at the matcher with a trailing ellipsis it has to reason about.
+    rendered = _format_existing([_existing("iss-1", "Refund falsely confirmed")])
+
+    assert "..." not in rendered
+    assert "stored desc" in rendered

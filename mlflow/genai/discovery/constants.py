@@ -448,6 +448,14 @@ DEDUP_ISSUES_PROMPT_TEMPLATE = (
 # grows with the experiment's history while the prompt budget does not, and because an unbounded
 # list would make every run's cost scale with every run before it.
 MAX_MATCH_CANDIDATES = 50
+# Characters of each candidate's free text the matcher is shown. The candidate *count* was
+# bounded but the text per candidate was not, and both come from user-controlled columns: fifty
+# 60 KB descriptions render to roughly 3.1M characters, far past any model's context, so the
+# request fails and the error path publishes a duplicate of every finding. Deciding "is this the
+# same issue" needs the gist of a description, not all of it, so clipping costs nothing a longer
+# string would have bought -- and it keeps the worst case at roughly 65K characters.
+MAX_MATCH_TEXT_CHARS = 600
+MAX_MATCH_NAME_CHARS = 200
 
 CROSS_RUN_MATCH_PROMPT_TEMPLATE = (
     "You are deciding which of this application's already-reported issues a new finding is, "

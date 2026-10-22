@@ -30,6 +30,8 @@ from mlflow.genai.discovery.constants import (
     CROSS_RUN_MATCH_PROMPT_TEMPLATE,
     DEFAULT_MODEL,
     MAX_MATCH_CANDIDATES,
+    MAX_MATCH_NAME_CHARS,
+    MAX_MATCH_TEXT_CHARS,
 )
 from mlflow.genai.discovery.entities import _IdentifiedIssue
 
@@ -51,14 +53,34 @@ class CandidateReadError(Exception):
 
 class _Match(pydantic.BaseModel):
     finding_index: int = pydantic.Field(description="Index of the new finding being decided.")
+    # Required but nullable. A pydantic default keeps the field out of the schema's ``required``
+    # list, and OpenAI's strict structured-output mode requires every property to be listed
+    # there -- so a default here makes the request invalid rather than the field optional, the
+    # matcher falls through to its error path, and every finding is published as new.
     issue_id: str | None = pydantic.Field(
-        default=None,
         description="ID of the already-reported issue this finding is, or null when it is new.",
     )
 
 
 class _Matches(pydantic.BaseModel):
-    matches: list[_Match] = pydantic.Field(default_factory=list)
+    matches: list[_Match] = pydantic.Field(
+        description="One decision per finding. Empty when none of them is already reported.",
+    )
+
+    @pydantic.model_validator(mode="before")
+    @classmethod
+    def _tolerate_omitted_matches(cls, data):
+        """
+        Accept a response that leaves ``matches`` out, without giving it a schema default.
+
+        Unreachable under strict mode, which obliges the model to send every property. It
+        matters for a provider that ignores strict mode: "nothing matched" is the answer most
+        likely to be expressed by omission, and reading that as a failure would publish a
+        duplicate of every finding.
+        """
+        if isinstance(data, dict) and "matches" not in data:
+            return {**data, "matches": []}
+        return data
 
 
 @dataclass
@@ -108,20 +130,31 @@ def read_match_candidates(
     return list(found)
 
 
+def _clip(text: str, limit: int) -> str:
+    """``text`` bounded to ``limit`` characters, marked when it was cut."""
+    text = (text or "").strip()
+    return text if len(text) <= limit else f"{text[:limit]}..."
+
+
 def _format_existing(candidates: list[Issue]) -> str:
     lines = []
     for issue in candidates:
         causes = "; ".join(issue.root_causes or []) or "unknown"
         lines.append(
-            f"- id={issue.issue_id} name={issue.name!r} "
-            f"description={(issue.description or '').strip()!r} root_cause={causes!r}"
+            f"- id={issue.issue_id} name={_clip(issue.name, MAX_MATCH_NAME_CHARS)!r} "
+            f"description={_clip(issue.description, MAX_MATCH_TEXT_CHARS)!r} "
+            f"root_cause={_clip(causes, MAX_MATCH_TEXT_CHARS)!r}"
         )
     return "\n".join(lines)
 
 
 def _format_findings(findings: list[_IdentifiedIssue]) -> str:
+    # Bounded for the same reason as the candidates: these come from the summarization stage,
+    # which has no length ceiling of its own.
     return "\n".join(
-        f"[{index}] {finding.name}: {finding.description} (root cause: {finding.root_cause})"
+        f"[{index}] {_clip(finding.name, MAX_MATCH_NAME_CHARS)}: "
+        f"{_clip(finding.description, MAX_MATCH_TEXT_CHARS)} "
+        f"(root cause: {_clip(finding.root_cause, MAX_MATCH_TEXT_CHARS)})"
         for index, finding in enumerate(findings)
     )
 
