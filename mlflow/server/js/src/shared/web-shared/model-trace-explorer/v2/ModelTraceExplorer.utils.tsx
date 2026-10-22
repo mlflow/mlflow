@@ -13,7 +13,6 @@ import {
   compact,
   keyBy,
   isEmpty,
-  isEqual,
 } from 'lodash';
 
 import Utils from '../../../../common/utils/Utils';
@@ -859,10 +858,29 @@ const groupModelTraceSpanNodesByComparisonName = (nodes: ModelTraceSpanNode[]) =
   return groups;
 };
 
-const haveSameModelTraceSpanInputs = (baselineNode: ModelTraceSpanNode, candidateNode: ModelTraceSpanNode) =>
-  baselineNode.inputs !== undefined &&
-  candidateNode.inputs !== undefined &&
-  isEqual(baselineNode.inputs, candidateNode.inputs);
+// Above this many baseline × candidate pairs in one sibling group, siblings pair by position instead.
+const MAX_SPAN_ALIGNMENT_CELLS = 1_000_000;
+
+const sortObjectKeys = (_key: string, value: unknown) =>
+  value && typeof value === 'object' && !Array.isArray(value)
+    ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+    : value;
+
+// One id per distinct inputs value (key order ignored), so the alignment compares numbers instead of
+// deep-comparing inputs in every cell. Spans without inputs get -1 and never match.
+const getModelTraceSpanInputIds = (nodes: ModelTraceSpanNode[], idsByInputs: Map<string, number>): number[] =>
+  nodes.map((node) => {
+    if (node.inputs === undefined) {
+      return -1;
+    }
+    const serializedInputs = JSON.stringify(node.inputs, sortObjectKeys) ?? '';
+    let id = idsByInputs.get(serializedInputs);
+    if (id === undefined) {
+      id = idsByInputs.size;
+      idsByInputs.set(serializedInputs, id);
+    }
+    return id;
+  });
 
 const alignModelTraceSpanOccurrences = (
   baselineNodes: ModelTraceSpanNode[],
@@ -870,38 +888,43 @@ const alignModelTraceSpanOccurrences = (
 ): ModelTraceSpanNodeAlignment[] => {
   // Exact inputs anchor spans without allowing a later match to cross an earlier one. Spans between
   // anchors remain positional so changed inputs can still be compared.
-  const matchingInputCounts = Array.from({ length: baselineNodes.length + 1 }, () =>
-    Array<number>(candidateNodes.length + 1).fill(0),
-  );
-
-  for (let baselineIndex = baselineNodes.length - 1; baselineIndex >= 0; baselineIndex -= 1) {
-    for (let candidateIndex = candidateNodes.length - 1; candidateIndex >= 0; candidateIndex -= 1) {
-      matchingInputCounts[baselineIndex][candidateIndex] = haveSameModelTraceSpanInputs(
-        baselineNodes[baselineIndex],
-        candidateNodes[candidateIndex],
-      )
-        ? matchingInputCounts[baselineIndex + 1][candidateIndex + 1] + 1
-        : Math.max(
-            matchingInputCounts[baselineIndex + 1][candidateIndex],
-            matchingInputCounts[baselineIndex][candidateIndex + 1],
-          );
-    }
-  }
-
   const anchors: Array<[number, number]> = [];
-  let baselineIndex = 0;
-  let candidateIndex = 0;
-  while (baselineIndex < baselineNodes.length && candidateIndex < candidateNodes.length) {
-    if (haveSameModelTraceSpanInputs(baselineNodes[baselineIndex], candidateNodes[candidateIndex])) {
-      anchors.push([baselineIndex, candidateIndex]);
-      baselineIndex += 1;
-      candidateIndex += 1;
-    } else if (
-      matchingInputCounts[baselineIndex][candidateIndex + 1] >= matchingInputCounts[baselineIndex + 1][candidateIndex]
-    ) {
-      candidateIndex += 1;
-    } else {
-      baselineIndex += 1;
+  if (baselineNodes.length * candidateNodes.length <= MAX_SPAN_ALIGNMENT_CELLS) {
+    const idsByInputs = new Map<string, number>();
+    const baselineInputIds = getModelTraceSpanInputIds(baselineNodes, idsByInputs);
+    const candidateInputIds = getModelTraceSpanInputIds(candidateNodes, idsByInputs);
+    const haveSameInputs = (baselineIndex: number, candidateIndex: number) =>
+      baselineInputIds[baselineIndex] >= 0 && baselineInputIds[baselineIndex] === candidateInputIds[candidateIndex];
+
+    const matchingInputCounts = Array.from(
+      { length: baselineNodes.length + 1 },
+      () => new Uint32Array(candidateNodes.length + 1),
+    );
+    for (let baselineIndex = baselineNodes.length - 1; baselineIndex >= 0; baselineIndex -= 1) {
+      for (let candidateIndex = candidateNodes.length - 1; candidateIndex >= 0; candidateIndex -= 1) {
+        matchingInputCounts[baselineIndex][candidateIndex] = haveSameInputs(baselineIndex, candidateIndex)
+          ? matchingInputCounts[baselineIndex + 1][candidateIndex + 1] + 1
+          : Math.max(
+              matchingInputCounts[baselineIndex + 1][candidateIndex],
+              matchingInputCounts[baselineIndex][candidateIndex + 1],
+            );
+      }
+    }
+
+    let baselineIndex = 0;
+    let candidateIndex = 0;
+    while (baselineIndex < baselineNodes.length && candidateIndex < candidateNodes.length) {
+      if (haveSameInputs(baselineIndex, candidateIndex)) {
+        anchors.push([baselineIndex, candidateIndex]);
+        baselineIndex += 1;
+        candidateIndex += 1;
+      } else if (
+        matchingInputCounts[baselineIndex][candidateIndex + 1] >= matchingInputCounts[baselineIndex + 1][candidateIndex]
+      ) {
+        candidateIndex += 1;
+      } else {
+        baselineIndex += 1;
+      }
     }
   }
 
@@ -1071,6 +1094,25 @@ export const buildModelTraceComparisonForest = (
     comparisonNodeMap,
     comparisonNodeRoleMap,
     sourceNodeToDisplayNodeMap,
+  };
+};
+
+export const getModelTraceTimelineRange = (
+  topLevelNodes: ModelTraceSpanNode[] | undefined,
+  comparisonNodeMap: Record<string, ModelTraceSpanNode>,
+): { traceStartTime: number; traceEndTime: number } => {
+  if (!topLevelNodes || topLevelNodes.length === 0) {
+    return { traceStartTime: 0, traceEndTime: 0 };
+  }
+  // A comparison's merged spans keep baseline times, so include their candidate sides: a longer
+  // candidate's later spans would otherwise fall outside the timeline.
+  const rangeNodes = topLevelNodes.flatMap((node) => {
+    const candidateNode = comparisonNodeMap[String(node.key)];
+    return candidateNode ? [node, candidateNode] : [node];
+  });
+  return {
+    traceStartTime: Math.min(...rangeNodes.map((node) => node.start)),
+    traceEndTime: Math.max(...rangeNodes.map((node) => node.end)),
   };
 };
 

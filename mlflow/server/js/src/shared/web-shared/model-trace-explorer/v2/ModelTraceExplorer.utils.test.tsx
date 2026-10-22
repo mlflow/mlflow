@@ -47,6 +47,7 @@ import {
   getRootSpanTimeToFirstTokenMs,
   tryDeserializeAttribute,
   buildModelTraceComparisonForest,
+  getModelTraceTimelineRange,
   pairModelTraceSpanTrees,
 } from './ModelTraceExplorer.utils';
 import { SPAN_ATTRIBUTE_TIME_TO_FIRST_TOKEN_MS_KEY } from '../constants';
@@ -172,6 +173,70 @@ describe('buildModelTraceComparisonForest', () => {
       expect(pairs).toEqual(expectedPairs);
     },
   );
+});
+
+describe('buildModelTraceComparisonForest at scale', () => {
+  const createLlmSiblings = (side: string, count: number) =>
+    Array.from({ length: count }, (_, index) => {
+      const node = createComparisonNode(`${side}-${index}`, 'llm');
+      node.inputs = {
+        messages: Array.from({ length: 20 }, (__, turn) => ({
+          role: 'user',
+          content: `turn ${turn} ${'x'.repeat(200)}`,
+        })),
+      };
+      return node;
+    });
+
+  it('aligns 1,000 same-name siblings with identical inputs on each side quickly', () => {
+    const start = performance.now();
+    const forest = buildModelTraceComparisonForest(
+      createLlmSiblings('baseline', 1000),
+      createLlmSiblings('candidate', 1000),
+    );
+
+    expect(performance.now() - start).toBeLessThan(2000);
+    expect(forest.topLevelNodes).toHaveLength(1000);
+    expect(forest.comparisonNodeMap['baseline-999'].key).toBe('candidate-999');
+  });
+
+  it('anchors inputs that differ only in key order', () => {
+    const baselineNode = createComparisonNode('baseline-0', 'search');
+    baselineNode.inputs = { query: 'alpha', limit: 5 };
+    const candidateInsert = createComparisonNode('candidate-0', 'search');
+    candidateInsert.inputs = { query: 'gamma' };
+    const candidateNode = createComparisonNode('candidate-1', 'search');
+    candidateNode.inputs = { limit: 5, query: 'alpha' };
+
+    const { baselineToCandidate } = pairModelTraceSpanTrees([baselineNode], [candidateInsert, candidateNode]);
+
+    expect(baselineToCandidate['baseline-0']).toBe(candidateNode);
+  });
+
+  it('pairs siblings by position when there are too many to align by inputs', () => {
+    const baselineNodes = createLlmSiblings('baseline', 1001);
+    const candidateNodes = createLlmSiblings('candidate', 1001);
+    candidateNodes[0].inputs = { query: 'inserted' };
+
+    const { baselineToCandidate } = pairModelTraceSpanTrees(baselineNodes, candidateNodes);
+
+    expect(baselineToCandidate['baseline-0'].key).toBe('candidate-0');
+    expect(baselineToCandidate['baseline-1000'].key).toBe('candidate-1000');
+  });
+});
+
+describe('getModelTraceTimelineRange', () => {
+  it('spans both sides of a comparison when the candidate runs longer', () => {
+    const baselineRoot = createComparisonNode('baseline-root', 'root');
+    const candidateRoot = { ...createComparisonNode('candidate-root', 'root'), start: 0, end: 5 };
+    const { topLevelNodes, comparisonNodeMap } = buildModelTraceComparisonForest([baselineRoot], [candidateRoot]);
+
+    expect(getModelTraceTimelineRange(topLevelNodes, comparisonNodeMap)).toEqual({
+      traceStartTime: 0,
+      traceEndTime: 5,
+    });
+    expect(getModelTraceTimelineRange([baselineRoot], {})).toEqual({ traceStartTime: 0, traceEndTime: 1 });
+  });
 });
 
 describe('parseTraceToTree', () => {

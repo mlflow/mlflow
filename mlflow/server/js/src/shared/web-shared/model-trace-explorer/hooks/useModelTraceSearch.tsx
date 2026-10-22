@@ -83,11 +83,12 @@ const searchComparisonTree = (
       ({ section, key, isKeyMatch, matchIndex }) => `${section}:${key}:${String(isKeyMatch)}:${matchIndex}`,
     ),
   );
+  // The Links tab shows only the displayed (baseline) span's links, so candidate link matches can't be shown.
   const comparisonMatches = comparisonNode
     ? getMatchesFromSpan(comparisonNode, searchFilterLowercased)
         .filter(
           ({ section, key, isKeyMatch, matchIndex }) =>
-            !baselineMatchKeys.has(`${section}:${key}:${String(isKeyMatch)}:${matchIndex}`),
+            section !== 'links' && !baselineMatchKeys.has(`${section}:${key}:${String(isKeyMatch)}:${matchIndex}`),
         )
         .map((match) => ({ ...match, span: rootNode }))
     : [];
