@@ -177,8 +177,9 @@ def run_scheduled_issue_detection_job(
     send them. A scheduled run therefore analyzes an experiment the way its owner configured it,
     exactly as a manual run does.
 
-    Note: Provider credentials come from the server's own environment. A schedule fires with no
-    user session, so there is nobody to supply them at submit time.
+    Note: a schedule fires with no user session, so nobody is there to supply credentials. The
+    dispatcher resolves them from the provider of the model the schedule names, falling back to
+    the credentials in the server's own environment when nothing is stored for it.
     """
     window = SampleWindow(lower_bound_ms=window_lower_bound_ms, now_ms=window_upper_bound_ms)
     filter_string = " AND ".join(filter(None, [window.to_filter_clause(), trace_filter]))
