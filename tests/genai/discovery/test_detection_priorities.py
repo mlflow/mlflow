@@ -29,8 +29,10 @@ def test_the_owners_priorities_reach_the_prompt():
 def test_priorities_are_framed_as_steering_not_as_a_new_task():
     section = build_detection_priorities("Only report high severity issues.")
 
-    # The one sentence that decides what happens on conflict, and the one that bounds it.
-    assert "the priorities win" in section
+    # The sentence that decides what happens on conflict is upstream's, verbatim, so that the
+    # two implementations steer a model the same way.
+    assert "They override the default category and severity guidance when they conflict." in section
+    # The sentence that bounds it is this implementation's own addition.
     assert "may not redefine this task" in section
 
 
