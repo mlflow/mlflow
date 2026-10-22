@@ -156,6 +156,7 @@ def run_scheduled_issue_detection_job(
     window_lower_bound_ms: int,
     window_upper_bound_ms: int,
     categories: list[str],
+    instructions: str | None = None,
     trace_filter: str = "",
     model: str | None = None,
 ) -> dict[str, Any]:
@@ -170,6 +171,11 @@ def run_scheduled_issue_detection_job(
     rather than the newest trace sampled: traces this occurrence was entitled to see and did not
     sample are not carried forward for a second look. A failed run leaves the watermark alone, so
     the next occurrence covers this window again.
+
+    The experiment's saved detection priorities -- its category selection and its free-text
+    instructions -- are read by the dispatcher and handed over here, since there is no browser to
+    send them. A scheduled run therefore analyzes an experiment the way its owner configured it,
+    exactly as a manual run does.
 
     Note: Provider credentials come from the server's own environment. A schedule fires with no
     user session, so there is nobody to supply them at submit time.
@@ -217,6 +223,7 @@ def run_scheduled_issue_detection_job(
         categories,
         run.info.run_id,
         model,
+        instructions,
     )
     # Only now that the run has finished does the window count as covered.
     if checkpoint := advance_checkpoint(newest, run_id=run.info.run_id):

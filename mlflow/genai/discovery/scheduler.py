@@ -105,6 +105,7 @@ def _submit_occurrence(
             "window_lower_bound_ms": window.lower_bound_ms,
             "window_upper_bound_ms": window.now_ms,
             "categories": list(settings.categories),
+            "instructions": settings.instructions,
             "trace_filter": schedule.to_filter_string(),
         },
     )

@@ -27,10 +27,33 @@ def _experiment(tags: dict[str, str]) -> Experiment:
 
 @pytest.mark.parametrize(
     "raw_value",
-    [None, "", "not json", "[]", '"a string"', "null", json.dumps({"instructions": "focus here"})],
+    [None, "", "not json", "[]", '"a string"', "null"],
 )
-def test_anything_unreadable_means_every_category(raw_value: str | None):
+def test_anything_unreadable_means_every_category_and_no_instructions(raw_value: str | None):
     assert parse_detection_settings(raw_value) == DetectionSettings(categories=ALL_CATEGORIES)
+
+
+def test_saved_instructions_are_read_as_written():
+    settings = parse_detection_settings(
+        json.dumps({"instructions": "  watch the checkout flow  ", "categories": {"cost": False}})
+    )
+    assert settings.instructions == "  watch the checkout flow  "
+    assert "cost" not in settings.categories
+
+
+def test_instructions_survive_a_category_selection_this_server_cannot_read():
+    # The categories fall back to every one, but the owner's priorities are not lost with them.
+    settings = parse_detection_settings(
+        json.dumps({"instructions": "watch the checkout flow", "categories": "all of them"})
+    )
+    assert settings == DetectionSettings(
+        categories=ALL_CATEGORIES, instructions="watch the checkout flow"
+    )
+
+
+@pytest.mark.parametrize("instructions", [None, 7, [], {}, True])
+def test_non_text_instructions_read_as_none_saved(instructions: object):
+    assert parse_detection_settings(json.dumps({"instructions": instructions})).instructions == ""
 
 
 def test_a_deselected_category_is_dropped():
@@ -73,7 +96,12 @@ def test_a_blank_category_name_is_ignored():
 
 def test_settings_are_read_from_the_experiment_tag():
     experiment = _experiment({
-        MLFLOW_ISSUE_DETECTION_PRIORITIES: json.dumps({"categories": {"safety": False}})
+        MLFLOW_ISSUE_DETECTION_PRIORITIES: json.dumps({
+            "instructions": "watch the checkout flow",
+            "categories": {"safety": False},
+        })
     })
-    assert "safety" not in read_detection_settings(experiment).categories
-    assert read_detection_settings(_experiment({})).categories == ALL_CATEGORIES
+    settings = read_detection_settings(experiment)
+    assert "safety" not in settings.categories
+    assert settings.instructions == "watch the checkout flow"
+    assert read_detection_settings(_experiment({})) == DetectionSettings(categories=ALL_CATEGORIES)
