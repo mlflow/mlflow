@@ -213,7 +213,9 @@ def run_scheduled_issue_detection_job(
             MLFLOW_ISSUE_DETECTION_TRIGGER: MLFLOW_ISSUE_DETECTION_TRIGGER_SCHEDULE,
             "categories": ",".join(categories),
             "model": model or DEFAULT_MODEL,
-            "total_traces": len(traces),
+            # Stringified because create_run stores tag values verbatim, unlike the fluent
+            # start_run the manual path uses, which coerces them.
+            "total_traces": str(len(traces)),
         },
     )
     result = _detect_issues_into_run(
