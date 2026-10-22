@@ -21,7 +21,8 @@ comments as `{author, created_at, url, body}`, oldest first; empty for `init`), 
 | `feature_request` | `follow-up` | [follow-up.md](feature_request/follow-up.md) | [follow-up.schema.yml](feature_request/follow-up.schema.yml) | `followup` non-null        |
 
 Stop without writing a payload if the type or action is unknown or its input requirement is unmet.
-Read only the selected action's instructions and schema, plus the shared
+Read only the selected action's instructions and schema, the selected type's output rules
+([bug](bug/output.md) or [feature request](feature_request/output.md)), and the shared
 [runtime](runtime.md) and [output rules](output.md).
 
 Write `$out_dir/payload.json`, then validate it against the selected action's schema:

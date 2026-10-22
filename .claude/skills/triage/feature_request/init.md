@@ -33,8 +33,4 @@ change in a fenced `diff` code block. Keep the diff focused and state whether it
 
 ## Response
 
-Read [init.schema.yml](init.schema.yml). Pick one `verdict` from its descriptions,
-and write `comment` using its report template. Keep the verdict unprefixed in the comment.
-Only write the payload; the workflow adds `triage: ` and applies the verdict as an issue label.
-Omit boilerplate about not running tests or not proposing a PR.
 Follow the [shared guidance for issue titles](../output.md#optional-issue-title).

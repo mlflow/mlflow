@@ -18,8 +18,3 @@ verify the implementation with the same usage example and relevant tests. Leave 
 offered by the author to them unless the maintainer asks for an automated implementation.
 All shared PR requirements apply. For visible UI changes, verify the existing and updated
 workflows in the browser as described in [runtime.md](../runtime.md).
-
-Read [follow-up.schema.yml](follow-up.schema.yml). Write a concise, free-form `comment`
-addressing the request, including changes to the triage or implementation results
-and verification. Do not repeat the original report or include a `verdict`. Include
-`pull_request` only with a verified `fix.patch` that meets the shared requirements.

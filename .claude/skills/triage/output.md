@@ -24,22 +24,14 @@ rename the issue yourself.
 
 ## Optional pull request
 
-Initial feature request triage may attempt a minimal working proof of concept when the
-effort is small, solely to refine the estimate and uncover implementation issues.
-Summarize its findings and verification results in the triage comment;
-do not write `fix.patch` or include `pull_request` in the initial payload. A maintainer
-follow-up can request an implementation and PR under the rules below.
-
 Propose a pull request only when all of these hold:
 
 - The `PR_DISABLED` environment variable is not `true`.
-- For a bug, it reproduces at the current checkout and the fix is verified against the reproduction and relevant tests.
-- For a feature request follow-up, the maintainer requests an implementation, the behavior is not already supported, and the implementation is verified against a concrete usage example and relevant tests.
 - The change leaves no design choice or trade-off unresolved.
 - Every changed file is under `mlflow/` or `tests/`.
 
-Also apply the PR eligibility rules in the selected action. If any requirement is unmet,
-explain the findings in the comment without proposing a PR.
+Also apply the PR eligibility and verification rules for the selected type and action.
+If any requirement is unmet, explain the findings in the comment without proposing a PR.
 
 Add regression tests when they add meaningful coverage. Place new regression tests next to
 the existing tests for that code, verify that they fail without the fix and pass with it,
