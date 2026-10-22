@@ -26,7 +26,7 @@ rename the issue yourself.
 
 Initial feature request triage may attempt a minimal working proof of concept when the
 effort is small, solely to refine the estimate and uncover implementation issues.
-Summarize its findings and verification results in the assessment comment;
+Summarize its findings and verification results in the triage comment;
 do not write `fix.patch` or include `pull_request` in the initial payload. A maintainer
 follow-up can request an implementation and PR under the rules below.
 

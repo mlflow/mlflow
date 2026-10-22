@@ -1,17 +1,17 @@
-# Initial feature request assessment
+# Initial feature request triage
 
-Assess the request first. If implementation looks cheap, attempt a minimal working proof
+Triage the request first. If implementation looks cheap, attempt a minimal working proof
 of concept as described below. Do not write `fix.patch` or propose a pull request.
 
 Identify the user's goal, the requested behavior, and the affected MLflow components.
 Check the current code and relevant documentation for existing support or a practical
 workaround. Verify existing support with a small usage example when useful; do not
 classify a missing feature as a reproduced bug.
-Do not write or run tests during initial assessment; suggest relevant tests as future checks.
+Do not write or run tests during initial triage; suggest relevant tests as future checks.
 
 ## Cost and impact
 
-Keep the assessment brief and limited to three things:
+Keep the triage brief and limited to three things:
 
 - Implementation effort: small, medium, or large, with the main changes and supporting code permalinks.
 - Impact on existing features: the concrete behavior or compatibility risks found in the code.

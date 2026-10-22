@@ -1,6 +1,6 @@
 $schema: https://json-schema.org/draft/2020-12/schema
 title: Feature Request Triage Follow-up Payload
-description: Updated assessment or a verified implementation requested by a maintainer.
+description: Updated triage or a verified implementation requested by a maintainer.
 type: object
 additionalProperties: false
 required:
