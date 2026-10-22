@@ -148,6 +148,13 @@ describe('ArtifactView', () => {
     wrapper = shallowWithIntl(<ArtifactViewImpl {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
+  test.each([
+    ['logged model fallback', { isFallbackToLoggedModelArtifacts: true }, undefined],
+    ['run artifacts', {}, 'test_root'],
+  ])('resolves the artifact root for %s', (_mode, modeProps, expectedRoot) => {
+    wrapper = getWrapper(minimalStore, { ...minimalProps, artifactRootUri: undefined, ...modeProps });
+    expect(wrapper.find(ArtifactViewImpl).prop('artifactRootUri')).toBe(expectedRoot);
+  });
   test('should render NoArtifactView when no artifacts are present', () => {
     // @ts-expect-error TS(2554): Expected 3 arguments, but got 2.
     const emptyNode = new ArtifactNode(true, undefined);
@@ -440,10 +447,12 @@ describe('ArtifactView', () => {
         url: 'https://storage.example/model',
         headers: { 'x-required': 'value' },
       });
-      const mountedInstance = getImplInstance({ isLoggedModelsMode: true });
-      // The connected component supplies a run root from Redux. Exercise the
-      // download handler's discovery path with that optional root truly absent.
-      const implInstance = new ArtifactViewImpl({ ...mountedInstance.props, artifactRootUri: undefined });
+      const implInstance = getImplInstance({
+        isLoggedModelsMode: true,
+        loggedModelId: 'model-123',
+        artifactRootUri: undefined,
+      });
+      expect(implInstance.props.artifactRootUri).toBeUndefined();
       jest.mocked(getArtifactDownloadBlob).mockRejectedValueOnce(new TypeError('storage CORS'));
       await implInstance.onDownloadClick(undefined, 'summary.txt', 'model-123');
       expect(model).toHaveBeenCalledTimes(1);
