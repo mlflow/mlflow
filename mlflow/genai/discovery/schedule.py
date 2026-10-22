@@ -52,6 +52,10 @@ MAX_TRACE_FILTERS = 20
 # wrong traces would be worse than one that ignored a clause nobody can express.
 _FORBIDDEN_FILTER_CHARS = "`'\"\\"
 
+# Upper bound on a stored provider, model or endpoint name. The tag is client-written, so the
+# dispatcher bounds what it will splice into a model URI rather than trusting its length.
+MAX_MODEL_IDENTIFIER_LENGTH = 200
+
 
 class DetectionCadence(str, Enum):
     """How often a schedule runs. ``off`` is not a cadence -- it is the absence of a schedule."""
@@ -96,6 +100,37 @@ class ScheduleTraceFilter:
 
 
 @dataclass(frozen=True)
+class ScheduleModel:
+    """
+    The model a scheduled run analyzes with, as chosen in the schedule modal.
+
+    Either an AI Gateway endpoint (``endpoint_name``) or a provider's model directly
+    (``provider`` + ``model``). A schedule saved before this was offered carries no model at all,
+    which reads back as ``None`` and leaves the run on the server's default -- the behaviour such
+    a schedule had when it was saved.
+
+    The credential is deliberately not stored here. It is resolved from the provider at each fire
+    time, so rotating a key keeps the schedule running instead of pinning it to a secret that may
+    since have been deleted.
+    """
+
+    provider: str = ""
+    model: str = ""
+    endpoint_name: str = ""
+
+    def to_model_uri(self) -> str:
+        """The model identifier the job takes, in the same form the manual path builds."""
+        if self.endpoint_name:
+            return f"gateway:/{self.endpoint_name}"
+        return f"{self.provider.lower()}:/{self.model}"
+
+    def to_dict(self) -> dict[str, str]:
+        if self.endpoint_name:
+            return {"endpointName": self.endpoint_name}
+        return {"provider": self.provider, "model": self.model}
+
+
+@dataclass(frozen=True)
 class DetectionSchedule:
     """
     An experiment's recurring detection schedule, as stored.
@@ -108,15 +143,19 @@ class DetectionSchedule:
     timezone: str = DEFAULT_TIMEZONE
     paused: bool = False
     trace_filters: tuple[ScheduleTraceFilter, ...] = ()
+    model: ScheduleModel | None = None
 
     def to_json(self) -> str:
         """Serialize the cadence tag. The filters live in their own tag."""
-        return json.dumps({
+        payload: dict[str, Any] = {
             "version": SCHEDULE_VERSION,
             "cadence": self.cadence.value,
             "timezone": self.timezone,
             "paused": self.paused,
-        })
+        }
+        if self.model is not None:
+            payload["model"] = self.model.to_dict()
+        return json.dumps(payload)
 
     def trace_filters_to_json(self) -> str:
         return json.dumps([f.to_dict() for f in self.trace_filters])
@@ -185,6 +224,47 @@ def _parse_trace_filter(entry: object) -> ScheduleTraceFilter | None:
     if any(char in key or char in value for char in _FORBIDDEN_FILTER_CHARS):
         return None
     return ScheduleTraceFilter(field=field, key=key, value=value)
+
+
+def _parse_model_identifier(value: object) -> str:
+    """
+    One stored provider / model / endpoint name, or ``""`` when it is not usable.
+
+    Whitespace and control characters are rejected rather than stripped out of the middle: the
+    value becomes a model URI, and quietly rewriting it could point a run at a different model
+    than the schedule names.
+    """
+    if not isinstance(value, str):
+        return ""
+    stripped = value.strip()
+    if not stripped or len(stripped) > MAX_MODEL_IDENTIFIER_LENGTH:
+        return ""
+    if any(char.isspace() or ord(char) < 0x20 for char in stripped):
+        return ""
+    return stripped
+
+
+def _parse_model(entry: object) -> ScheduleModel | None:
+    """
+    Parse the model half of the schedule envelope.
+
+    Returns ``None`` when there is no usable selection, which leaves the run on the server's
+    default model rather than failing the occurrence: a schedule that still fires and analyzes
+    with the default is a better outcome than one that silently stops.
+    """
+    if not isinstance(entry, dict):
+        return None
+    if endpoint_name := _parse_model_identifier(entry.get("endpointName")):
+        return ScheduleModel(endpoint_name=endpoint_name)
+    provider = _parse_model_identifier(entry.get("provider"))
+    model = _parse_model_identifier(entry.get("model"))
+    if not provider or not model:
+        _logger.warning(
+            "Ignoring an unusable model selection on an issue-detection schedule; the scheduled "
+            "run will use this server's default detection model"
+        )
+        return None
+    return ScheduleModel(provider=provider, model=model)
 
 
 def parse_trace_filters(raw_value: str | None) -> tuple[ScheduleTraceFilter, ...]:
@@ -269,6 +349,7 @@ def parse_detection_schedule(
         timezone=_resolve_timezone(parsed.get("timezone")),
         paused=parsed.get("paused") is True,
         trace_filters=parse_trace_filters(raw_trace_filters),
+        model=_parse_model(parsed.get("model")),
     )
 
 
