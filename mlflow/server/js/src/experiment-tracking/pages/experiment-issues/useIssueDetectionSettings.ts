@@ -28,6 +28,11 @@ export const useIssueDetectionSettings = (experimentId: string, enabled = true) 
   });
 
   const save = useMutation<IssueDetectionSettings, Error, IssueDetectionSettings>({
+    // A read already in flight was issued before this write, so it answers with the settings as
+    // they were and would land *after* the cache update below -- leaving a run to be submitted
+    // with the priorities the user just replaced. Cancelling it first is what makes the write
+    // the last word.
+    onMutate: () => queryClient.cancelQueries({ queryKey }),
     mutationFn: (settings) => saveIssueDetectionSettings(experimentId, settings),
     // The response is what was persisted, so seeding the cache with it avoids a refetch and
     // avoids briefly showing the pre-save value.

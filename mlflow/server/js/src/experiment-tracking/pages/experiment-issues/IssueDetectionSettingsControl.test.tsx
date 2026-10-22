@@ -148,6 +148,20 @@ describe('IssueDetectionSettingsControl', () => {
     expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled();
   });
 
+  test('a focus area name containing a template variable is rejected', async () => {
+    // Reported in review: such a name saves fine but then reaches the judge's instructions,
+    // where a doubled brace declares a template variable. The server rewrites it rather than
+    // failing, so the name it judges against would no longer be the name stored here.
+    render();
+    await openSettings();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Custom focus area' }));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Custom focus area' }), 'Unresolved {{ name }}');
+
+    expect(await screen.findByText('A focus area name cannot contain {{ }}.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled();
+  });
+
   test('a custom focus area can be removed again', async () => {
     experimentTags = [
       {

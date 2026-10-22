@@ -66,6 +66,12 @@ export const IssueDetectionSettingsControl = ({ experimentId }: IssueDetectionSe
   const isDuplicateCategory = Object.keys(draft.categories).some(
     (category) => category.toLowerCase() === trimmedNewCategory.toLowerCase(),
   );
+  // A doubled brace in a category name would declare a template variable in the judge's
+  // instructions. The server rewrites it rather than failing, which means the name it judges
+  // against would no longer be the name stored here -- so the name is rejected at the source
+  // instead of being silently altered later.
+  const hasTemplateBraces = /\{\{|\}\}/.test(trimmedNewCategory);
+  const isUnusableCategory = isDuplicateCategory || hasTemplateBraces;
   const nothingSelected = noFocusAreaSelected(draft);
 
   const open = useCallback(() => {
@@ -88,13 +94,13 @@ export const IssueDetectionSettingsControl = ({ experimentId }: IssueDetectionSe
   }, []);
 
   const addCategory = useCallback(() => {
-    if (!trimmedNewCategory || isDuplicateCategory) {
+    if (!trimmedNewCategory || isUnusableCategory) {
       return;
     }
     setDraft((current) => ({ ...current, categories: { ...current.categories, [trimmedNewCategory]: true } }));
     setNewCategory('');
     setIsAddingCategory(false);
-  }, [isDuplicateCategory, trimmedNewCategory]);
+  }, [isUnusableCategory, trimmedNewCategory]);
 
   const removeCategory = useCallback((category: string) => {
     setDraft((current) => {
@@ -291,21 +297,32 @@ export const IssueDetectionSettingsControl = ({ experimentId }: IssueDetectionSe
                       }
                     }}
                   />
-                  {trimmedNewCategory && isDuplicateCategory && (
+                  {trimmedNewCategory && isUnusableCategory && (
                     <FormUI.Message
                       type="error"
-                      message={intl.formatMessage({
-                        defaultMessage: 'That focus area already exists.',
-                        description:
-                          'Issue detection settings modal > Error shown when the typed custom category is already present',
-                      })}
+                      message={
+                        isDuplicateCategory
+                          ? intl.formatMessage({
+                              defaultMessage: 'That focus area already exists.',
+                              description:
+                                'Issue detection settings modal > Error shown when the typed custom category is already present',
+                            })
+                          : intl.formatMessage(
+                              {
+                                defaultMessage: 'A focus area name cannot contain {braces}.',
+                                description:
+                                  'Issue detection settings modal > Error shown when the typed custom category contains doubled braces',
+                              },
+                              { braces: '{{ }}' },
+                            )
+                      }
                     />
                   )}
                 </div>
                 <Button
                   componentId={`${COMPONENT_ID}.custom-focus-area.add`}
                   type="primary"
-                  disabled={!trimmedNewCategory || isDuplicateCategory}
+                  disabled={!trimmedNewCategory || isUnusableCategory}
                   onClick={addCategory}
                 >
                   {intl.formatMessage({
