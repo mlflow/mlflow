@@ -95,9 +95,12 @@ def _convert_otlp_json_ids_to_base64(body: bytes) -> bytes:
     for resource_span in data.get("resourceSpans", []):
         for scope_span in resource_span.get("scopeSpans", []):
             for span in scope_span.get("spans", []):
-                for field in _OTLP_HEX_ID_FIELDS:
-                    if hex_val := span.get(field):
-                        span[field] = base64.b64encode(bytes.fromhex(hex_val)).decode("ascii")
+                for span_or_link in [span, *(span.get("links") or [])]:
+                    for field in _OTLP_HEX_ID_FIELDS:
+                        if hex_val := span_or_link.get(field):
+                            span_or_link[field] = base64.b64encode(bytes.fromhex(hex_val)).decode(
+                                "ascii"
+                            )
     return json.dumps(data).encode("utf-8")
 
 

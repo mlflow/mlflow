@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Button,
   GenericSkeleton,
@@ -43,6 +43,10 @@ import type { ExperimentEntity } from '../../types';
 import { ExperimentPageBreadcrumbs } from './ExperimentPageBreadcrumbs';
 import { ExperimentPageMainContent } from './ExperimentPageMainContent';
 import { ExperimentPageRevampProvider } from './ExperimentPageRevampContext';
+import {
+  ExperimentPageShellExperimentActions,
+  ExperimentPageShellExperimentDescription,
+} from './ExperimentPageShellExperimentActions';
 
 // Lazy so experiment tabs other than evaluation runs don't load the evaluation flow's modules.
 const RunEvaluationButton = React.lazy(() =>
@@ -81,6 +85,8 @@ const ExperimentPageTabsImpl = () => {
   useExperimentReduxStoreCompat(experiment);
 
   const { headerHidden } = useHeaderVisibility();
+  // Shared by the breadcrumb row's Edit experiment item and the description under it.
+  const [editingExperiment, setEditingExperiment] = useState(false);
 
   // For showstopper experiment fetch errors, we want it to hit the error boundary
   // so that the user can see the error message
@@ -231,12 +237,20 @@ const ExperimentPageTabsImpl = () => {
     ) : undefined;
 
   const isEvaluationRunsListRoute = Boolean(matchPath(RoutePaths.experimentPageTabEvaluationRuns, pathname));
-  const pageActions = isEvaluationRunsListRoute ? (
-    <React.Suspense fallback={<GenericSkeleton css={{ width: 124, height: theme.general.heightSm }} loading />}>
-      <RunEvaluationButton experimentId={experimentId} isPageAction />
-    </React.Suspense>
-  ) : (
-    headerSavedViewsSlot
+  const pageActions = (
+    <ExperimentPageShellExperimentActions
+      experiment={experiment}
+      setEditing={setEditingExperiment}
+      pageAction={
+        isEvaluationRunsListRoute ? (
+          <React.Suspense fallback={<GenericSkeleton css={{ width: 124, height: theme.general.heightSm }} loading />}>
+            <RunEvaluationButton experimentId={experimentId} isPageAction />
+          </React.Suspense>
+        ) : (
+          headerSavedViewsSlot
+        )
+      }
+    />
   );
   // Review queue focus mode hides the page header; with the shell that is the breadcrumb row.
   const mainContent = showRevamp ? (
@@ -245,6 +259,16 @@ const ExperimentPageTabsImpl = () => {
         headerHidden ? undefined : <ExperimentPageBreadcrumbs experiment={experiment as unknown as ExperimentEntity} />
       }
       pageActions={headerHidden ? undefined : pageActions}
+      headerDescription={
+        headerHidden ? undefined : (
+          <ExperimentPageShellExperimentDescription
+            experiment={experiment}
+            editing={editingExperiment}
+            setEditing={setEditingExperiment}
+            onNoteUpdated={refetchExperiment}
+          />
+        )
+      }
     >
       {outletComponent}
     </ExperimentPageMainContent>

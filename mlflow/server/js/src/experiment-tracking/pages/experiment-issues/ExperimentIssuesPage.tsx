@@ -116,10 +116,16 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
   const onCancelDetection =
     isDetecting && detection.jobId
       ? async () => {
-          // The run is passed so the hook terminates it too: the server cancels the job
-          // without touching the run it belongs to, which would otherwise stay RUNNING.
-          await cancelJobAsync({ jobId: detection.jobId as string, runUuid: detection.run?.info.run_id });
-          await detection.refetch();
+          try {
+            // The run is passed so the hook terminates it too: the server cancels the job
+            // without touching the run it belongs to, which would otherwise stay RUNNING.
+            await cancelJobAsync({ jobId: detection.jobId as string, runUuid: detection.run?.info.run_id });
+          } finally {
+            // Refreshed even when the cancel fails, for the reason given in
+            // `TracesV4PageContent`: "already finalized" is precisely the case where this
+            // client's job status is stale, so the refresh is what recovers the page.
+            await detection.refetch();
+          }
         }
       : undefined;
   const [params, setParams] = useSearchParams();

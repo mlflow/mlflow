@@ -761,6 +761,25 @@
       },
       "last_updated_at": "2026-09-18"
     },
+    "reflection/Beam-1.0-501B-A23B": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1049000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.0,
+        "output_per_million_tokens": 3.0,
+        "cache_read_per_million_tokens": 0.1
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-21"
+    },
     "zai-org/GLM-4.5": {
       "mode": "chat",
       "context_window": {
@@ -800,6 +819,25 @@
         "response_schema": false
       },
       "last_updated_at": "2026-09-18"
+    },
+    "zai-org/GLM-5.3": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1049000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.2,
+        "output_per_million_tokens": 4.0,
+        "cache_read_per_million_tokens": 0.19
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-21"
     },
     "zai-org/GLM-5.3-Flash": {
       "mode": "chat",

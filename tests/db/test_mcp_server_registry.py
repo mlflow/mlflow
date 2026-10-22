@@ -35,6 +35,23 @@ def _create_mcp_server_version(store, name: str, version: str, status: MCPStatus
     return created
 
 
+@pytest.mark.parametrize(
+    ("label", "upper", "lower"),
+    [
+        ("prerelease", "1.0.0-A", "1.0.0-a"),
+        ("build", "1.0.0+Build", "1.0.0+build"),
+    ],
+)
+def test_db_backend_mcp_version_identity_is_case_sensitive(store, label, upper, lower):
+    name = f"io.github.test/backend-case-{label}"
+    for version in (upper, lower):
+        _create_mcp_server_version(store, name, version, MCPStatus.ACTIVE)
+
+    assert store.get_mcp_server_version(name, upper).version == upper
+    assert store.get_mcp_server_version(name, lower).version == lower
+    assert {v.version for v in store.search_mcp_server_versions(name=name)} == {upper, lower}
+
+
 def test_db_backend_mcp_latest_prefers_semver_prerelease_ordering(store):
     for version in ("1.0.0-alpha.2", "1.0.0-alpha.10", "1.0.0-beta.1"):
         _create_mcp_server_version(

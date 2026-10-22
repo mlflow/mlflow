@@ -729,6 +729,41 @@ describe('Experiment Issues', () => {
     expect(screen.queryByRole('button', { name: 'Detect issues in traces' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retry status' })).toBeEnabled();
   });
+  test('a failed cancel still refreshes job status, so a finished run stops blocking', async () => {
+    // Reported in review. One failed status read stops polling, so this client can be holding
+    // a stale RUNNING while the job has already finalized -- and then Cancel is refused with
+    // "already finalized" and nothing refreshed, leaving the page blocked until a reload.
+    // The refresh now runs in a `finally`, which is what recovers it. The Traces toolbar uses
+    // the identical pattern.
+    issues = [];
+    latestRun = {
+      info: { run_id: 'run-1', status: 'RUNNING' },
+      data: { tags: [{ key: 'mlflow.issueDetection.jobId', value: 'job-1' }] },
+    };
+    jobStatus = 'RUNNING';
+    renderPage();
+    await screen.findByText('Detecting issues...');
+
+    // The job finalized without this client seeing it; cancelling it is therefore refused.
+    latestRun.info.status = 'FINISHED';
+    jobStatus = 'SUCCEEDED';
+    issues = [makeIssue('iss-late', 'Found after the stale cancel')];
+    server.use(
+      rest.patch('*/ajax-api/3.0/mlflow/jobs/cancel/job-1', (_req, res, ctx) =>
+        res(ctx.status(400), ctx.json({ message: 'Job job-1 is already finalized' })),
+      ),
+    );
+
+    // Both the progress panel and the action bar offer a cancel, so this picks the panel's.
+    await userEvent.click(
+      document.querySelector('[data-component-id="mlflow.experiment-issues.detection-progress.cancel"]') as HTMLElement,
+    );
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancel detection' }));
+
+    // The refresh that followed the failed cancel picked up the real state.
+    expect(await screen.findByRole('button', { name: /Found after the stale cancel/ })).toBeInTheDocument();
+    expect(screen.queryByText('Detecting issues...')).not.toBeInTheDocument();
+  });
   test('retries failed job polling and refreshes issues on completion', async () => {
     issues = [];
     latestRun = {

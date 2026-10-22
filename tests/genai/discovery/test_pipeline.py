@@ -1456,3 +1456,81 @@ def test_annotate_traces_falls_back_to_prose_when_evidence_generation_fails():
     mock_log_issue.assert_called_once()
     assert mock_log_issue.call_args.kwargs["evidence"] is None
     assert "empty context" in mock_log_issue.call_args.kwargs["rationale"]
+
+
+def test_evidence_the_store_refuses_still_records_the_issue_reference():
+    # Reported in review. Nothing bounds how many steps the generator emits, so evidence that
+    # passes validation can still overflow the 65,535-byte assessment metadata column. A single
+    # `except` around `log_issue` dropped the entire reference, so the trace stopped showing the
+    # issue at all -- strictly worse than showing it without the span-anchored walkthrough.
+    from mlflow.entities.issue_evidence import IssueEvidence, IssueEvidenceStep
+    from mlflow.exceptions import MlflowException
+
+    oversized = IssueEvidence(
+        summary="Retrieval returned nothing and the agent answered anyway.",
+        steps=[
+            IssueEvidenceStep(
+                span_id=f"span{index:04d}",
+                text="x" * 900,
+                highlights=["x" * 20],
+                highlight_tone="error",
+            )
+            for index in range(80)
+        ],
+    )
+    issues = [_make_issue(name="Refund falsely confirmed")]
+    issue_trace_ids = {issues[0].issue_id: ["t1"]}
+
+    def reject_evidence(**kwargs):
+        if kwargs.get("evidence") is not None:
+            raise MlflowException.invalid_parameter_value("exceeds the 65535-byte limit")
+
+    with (
+        patch("mlflow.genai.discovery.pipeline.format_trace_content", return_value="content"),
+        patch(
+            "mlflow.genai.discovery.pipeline.generate_trace_evidence",
+            return_value=(oversized, "Retrieval returned nothing."),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.log_issue", side_effect=reject_evidence
+        ) as mock_log_issue,
+    ):
+        _annotate_issue_traces(
+            issues, issue_trace_ids, {"t1": "triage said so"}, {"t1": MagicMock()}, DEFAULT_MODEL
+        )
+
+    # Attempted with the walkthrough, then retried without it rather than giving up.
+    assert mock_log_issue.call_count == 2
+    assert mock_log_issue.call_args_list[0].kwargs["evidence"] is oversized
+    retry = mock_log_issue.call_args_list[1].kwargs
+    assert retry["evidence"] is None
+    # The prose the generator produced is kept, so the reference still explains itself.
+    assert retry["rationale"] == "Retrieval returned nothing."
+    assert retry["issue_id"] == issues[0].issue_id
+
+
+def test_a_reference_that_cannot_be_stored_at_all_is_given_up_on_quietly():
+    # The retry must not turn one unstorable reference into an endless pair of failures.
+    issues = [_make_issue(name="Refund falsely confirmed")]
+
+    with (
+        patch("mlflow.genai.discovery.pipeline.format_trace_content", return_value="content"),
+        patch(
+            "mlflow.genai.discovery.pipeline.generate_trace_evidence",
+            return_value=(None, "prose only"),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.log_issue",
+            side_effect=Exception("store is down"),
+        ) as mock_log_issue,
+    ):
+        _annotate_issue_traces(
+            issues,
+            {issues[0].issue_id: ["t1"]},
+            {"t1": "triage"},
+            {"t1": MagicMock()},
+            DEFAULT_MODEL,
+        )
+
+    # No evidence to drop, so there is nothing to retry: one attempt, no exception escaping.
+    mock_log_issue.assert_called_once()
