@@ -645,6 +645,11 @@ class Span:
         for key, value in self.attributes.items():
             attr = otel_span.attributes.add()
             attr.key = key
+            if isinstance(value, str):
+                # Send the serialized string, as the OTel exporter does. A bare JSON-looking
+                # string like '{"a": 1}' would otherwise be parsed into a dict on the receiving
+                # side; `strip_otlp_double_encoding` undoes the extra encoding layer instead.
+                value = self._span.attributes[key]
             _set_otel_proto_anyvalue(attr.value, value)
 
         for event in self.events:

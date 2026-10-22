@@ -527,6 +527,20 @@ def test_trace_to_and_from_proto():
     assert trace_from_proto.to_dict() == trace.to_dict()
 
 
+@pytest.mark.parametrize("output", ["hello", '"quoted"', '{"a": 1}', "[1, 2]"])
+def test_trace_proto_roundtrip_keeps_string_outputs(output):
+    @mlflow.trace
+    def f():
+        return output
+
+    f()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    trace_from_proto = Trace.from_proto(trace.to_proto())
+
+    assert trace_from_proto.data.spans[0].outputs == output
+
+
 def test_trace_from_dict_load_old_trace():
     trace_dict = {
         "info": {
