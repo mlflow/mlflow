@@ -819,6 +819,17 @@ jobs:
             "/triage $TRIAGE_ACTION $ISSUE_PATH /tmp/triage-out" \
             | .claude/scripts/stream.sh || { echo "::$token::"; exit 1; }
           echo "::$token::"
+      - name: Check worktree
+        run: |
+          if [ "$(git rev-parse HEAD)" != "$GITHUB_SHA" ]; then
+            echo "::error::Triage agent moved HEAD off $GITHUB_SHA"
+            exit 1
+          fi
+          if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
+            echo "::error::Triage agent left changes in the worktree"
+            git status --short --untracked-files=all
+            exit 1
+          fi
       - name: Stage triage report for upload
         if: always()
         run: |
