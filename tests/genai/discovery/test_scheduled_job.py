@@ -78,6 +78,7 @@ def test_a_window_whose_sample_comes_back_empty_creates_no_run(client):
             return_value=CheckpointTrace(trace_id="tr-newest", time_ms=WINDOW_UPPER_MS - 1),
         ),
         mock.patch("mlflow.genai.discovery.job.sample_traces", return_value=[]) as sample,
+        mock.patch("mlflow.genai.discovery.job.write_detection_checkpoint") as write_checkpoint,
     ):
         result = run_scheduled_issue_detection_job(
             experiment_id="exp-1",
@@ -88,8 +89,9 @@ def test_a_window_whose_sample_comes_back_empty_creates_no_run(client):
 
     assert result == {"traces_in_window": 0}
     client.create_run.assert_not_called()
-    client.set_experiment_tag.assert_not_called()
     sample.assert_called_once()
+    # The window was still covered, so the watermark moves even though no run was recorded.
+    assert write_checkpoint.call_args.args[2].last_scanned_trace_time_ms == WINDOW_UPPER_MS - 1
 
 
 def test_a_successful_occurrence_records_a_run_and_advances_the_watermark(client):
@@ -270,3 +272,55 @@ def test_an_experiment_with_no_saved_priorities_steers_nothing(client):
         )
 
     assert discover.call_args.kwargs["instructions"] is None
+
+
+def test_the_watermark_lookup_ignores_the_schedule_filter(client):
+    # The filter scopes what gets analyzed, not how far the occurrence covered. Applying it to the
+    # watermark lookup too would stall the checkpoint whenever a window holds traces but none that
+    # match, leaving every later occurrence to re-scan the same stretch.
+    newest = CheckpointTrace(trace_id="tr-newest", time_ms=WINDOW_UPPER_MS - 1)
+    with (
+        mock.patch("mlflow.genai.discovery.job.MlflowClient", return_value=client),
+        mock.patch(
+            "mlflow.genai.discovery.job._newest_trace_matching", return_value=newest
+        ) as newest_lookup,
+        mock.patch("mlflow.genai.discovery.job.sample_traces", return_value=[_trace("tr-1")]),
+        mock.patch("mlflow.genai.discovery.job.discover_issues", return_value=_result()),
+    ):
+        client._tracing_client.batch_get_traces.return_value = [_trace("tr-1")]
+        run_scheduled_issue_detection_job(
+            experiment_id="exp-1",
+            window_lower_bound_ms=WINDOW_LOWER_MS,
+            window_upper_bound_ms=WINDOW_UPPER_MS,
+            categories=CATEGORIES,
+            trace_filter="tags.`team` = 'search'",
+        )
+
+    assert newest_lookup.call_args.args[1] == (
+        f"timestamp_ms > {WINDOW_LOWER_MS} AND timestamp_ms <= {WINDOW_UPPER_MS}"
+    )
+
+
+def test_a_window_whose_traces_all_fail_the_filter_still_advances_the_watermark(client):
+    # Nothing to analyze, but the occurrence did cover the window, so the next one starts after it.
+    newest = CheckpointTrace(trace_id="tr-unmatched", time_ms=WINDOW_UPPER_MS - 1)
+    with (
+        mock.patch("mlflow.genai.discovery.job.MlflowClient", return_value=client),
+        mock.patch("mlflow.genai.discovery.job._newest_trace_matching", return_value=newest),
+        mock.patch("mlflow.genai.discovery.job.sample_traces", return_value=[]),
+        mock.patch("mlflow.genai.discovery.job.write_detection_checkpoint") as write_checkpoint,
+        mock.patch("mlflow.genai.discovery.job.discover_issues") as discover,
+    ):
+        result = run_scheduled_issue_detection_job(
+            experiment_id="exp-1",
+            window_lower_bound_ms=WINDOW_LOWER_MS,
+            window_upper_bound_ms=WINDOW_UPPER_MS,
+            categories=CATEGORIES,
+            trace_filter="tags.`team` = 'search'",
+        )
+
+    # No run and no analysis for an empty sample, but the watermark moves to the window's newest.
+    discover.assert_not_called()
+    client.create_run.assert_not_called()
+    assert result == {"traces_in_window": 0}
+    assert write_checkpoint.call_args.args[2].last_scanned_trace_time_ms == newest.time_ms
