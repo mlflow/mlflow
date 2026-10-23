@@ -6927,6 +6927,10 @@
     "defaultMessage": "Download as SVG",
     "description": "Experiment page > compare runs tab > chart header > download as SVG option"
   },
+  "LjeQn8": {
+    "defaultMessage": "This experiment's issue detection settings could not be refreshed, so this run uses the last ones loaded. Reopen this dialog to try again.",
+    "description": "Warning in the issue detection modal shown when the saved detection settings could not be refreshed and the previously loaded ones are used"
+  },
   "Ll6vbT": {
     "defaultMessage": "Model versions in the `{currentStage}` stage will be moved to the `Archived` stage.",
     "description": "Tooltip text for transitioning existing model versions in stage to archived\n     in the model versions page"
@@ -11546,6 +11550,10 @@
   "b1yfI9": {
     "defaultMessage": "Run details",
     "description": "Run page > Overview > Run details section heading"
+  },
+  "b2qzxE": {
+    "defaultMessage": "Retry loading issue detection settings",
+    "description": "Issue detection settings > Accessible label of the button that retries a failed settings read"
   },
   "b3AmzB": {
     "defaultMessage": "Select an MCP server",
@@ -17438,6 +17446,10 @@
   "uFM4rv": {
     "defaultMessage": "Digest",
     "description": "Label for the digest field in the V2 evaluation dataset metadata modal"
+  },
+  "uGd7At": {
+    "defaultMessage": "Couldn't read this experiment's issue detection settings. Retry to edit them.",
+    "description": "Issue detection settings > Tooltip explaining the settings button could not load and offers a retry"
   },
   "uGfscW": {
     "defaultMessage": "The SQL query timed out. Please retry, and if the problem persists, try selecting a larger SQL warehouse.",

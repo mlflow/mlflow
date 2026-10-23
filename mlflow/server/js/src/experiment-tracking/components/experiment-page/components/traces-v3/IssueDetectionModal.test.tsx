@@ -365,6 +365,32 @@ describe('IssueDetectionModal', () => {
     expect(screen.queryByText(/no focus area selected/)).not.toBeInTheDocument();
   });
 
+  test('a failed refresh over loaded settings says what the run will actually use', async () => {
+    // React Query keeps the cached data alongside a failed background refetch, and the run is
+    // submitted with it -- so claiming "the defaults will be used" here would be false.
+    jest.mocked(useIssueDetectionSettings).mockReturnValue({
+      data: { instructions: 'Only report high severity.', categories: { safety: true } },
+      isLoading: false,
+      error: new Error('nope'),
+    } as any);
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
+
+    expect(screen.getByText(/could not be refreshed, so this run uses the last ones loaded/)).toBeInTheDocument();
+    expect(screen.queryByText(/will use the defaults/)).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByText('Run Analysis').closest('button')!);
+
+    await waitFor(() => {
+      expect(mockInvokeIssueDetection).toHaveBeenCalledWith(
+        expect.objectContaining({
+          categories: ['safety'],
+          instructions: 'Only report high severity.',
+        }),
+        expect.any(Object),
+      );
+    });
+  });
+
   test('settings that failed to load say so rather than quietly using the defaults', async () => {
     // Blocking on a tag read would strand a feature that worked before settings existed, so
     // the run is still allowed -- but not silently.

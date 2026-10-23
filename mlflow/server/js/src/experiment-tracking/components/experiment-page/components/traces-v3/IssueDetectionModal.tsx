@@ -319,7 +319,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
           closable={false}
         />
       )}
-      {detectionSettingsError && (
+      {detectionSettingsError && !detectionSettings && (
         // Blocking the run on a tag read would strand a feature that worked before settings
         // existed; running without saying so would hide that the configuration was ignored.
         <Alert
@@ -331,6 +331,23 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
               "This experiment's issue detection settings could not be read, so this run will use the defaults: all focus areas and no saved priorities.",
             description:
               'Warning in the issue detection modal shown when the saved detection settings could not be loaded',
+          })}
+          closable={false}
+        />
+      )}
+      {detectionSettingsError && detectionSettings && (
+        // A refresh that fails over settings already loaded is a different situation, and saying
+        // "the defaults will be used" here would be false: the run is submitted with these
+        // values, so what it says has to be what is sent.
+        <Alert
+          componentId="mlflow.traces.issue-detection-modal.settings-not-refreshed"
+          type="warning"
+          css={{ marginTop: theme.spacing.md }}
+          message={intl.formatMessage({
+            defaultMessage:
+              "This experiment's issue detection settings could not be refreshed, so this run uses the last ones loaded. Reopen this dialog to try again.",
+            description:
+              'Warning in the issue detection modal shown when the saved detection settings could not be refreshed and the previously loaded ones are used',
           })}
           closable={false}
         />

@@ -274,12 +274,16 @@ _PRIORITIES_DELIMITER_RE = re.compile(r"</?\s*detection_priorities\s*/?>", re.IG
 # validates the set it finds. Any operator-authored text that reaches those instructions can
 # therefore abort the whole run before a single trace is read -- free-text priorities and
 # custom category names alike.
-_TEMPLATE_BRACES_RE = re.compile(r"\{\{|\}\}")
+# A whole run is matched, not a pair: collapsing pairs leaves an odd run still doubled, so
+# ``{{{ name }}}`` came out as ``{{ name }}`` -- still a declaration, and still enough to abort
+# the run.
+_TEMPLATE_BRACES_RE = re.compile(r"\{{2,}|\}{2,}")
 
 
 def neutralize_template_braces(text: str) -> str:
     """
-    Collapse doubled braces so operator text cannot declare a judge template variable.
+    Collapse every run of repeated braces to one, so operator text cannot declare a judge
+    template variable however many braces it piles up.
 
     The wording survives and reads the same to the model; it simply stops being a variable.
     """

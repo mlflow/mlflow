@@ -1,5 +1,7 @@
 from unittest import mock
 
+import pytest
+
 from mlflow.entities.issue import IssueSeverity
 from mlflow.genai.discovery import clustering
 from mlflow.genai.discovery.constants import (
@@ -195,6 +197,25 @@ def test_the_severity_stage_survives_a_braced_category_name_too():
 
     assert "Unresolved { customer_name } placeholders" in prompt
     assert "{{ customer_name }}" not in prompt
+
+
+@pytest.mark.parametrize("braces", ["{{", "{{{", "{{{{", "{{{{{"])
+def test_no_length_of_brace_run_survives_as_a_variable(braces: str):
+    # Reported in review: collapsing brace *pairs* left an odd run still doubled, so
+    # "{{{ customer_name }}}" came out as "{{ customer_name }}" -- still a declaration, and still
+    # enough to abort the run before a trace was read.
+    closing = braces.replace("{", "}")
+    text = f"Flag unresolved {braces} customer_name {closing} placeholders."
+
+    for use_conversation in (True, False):
+        build_issue_discovery_scorer(categories=list(DEFAULT_CATEGORIES), instructions=text)
+        build_issue_discovery_scorer(
+            categories=["correctness", f"{braces} customer_name {closing}"],
+            use_conversation=use_conversation,
+        )
+
+    assert "{ customer_name }" in build_detection_priorities(text)
+    assert "{{" not in build_detection_priorities(text)
 
 
 def test_neutralizing_braces_leaves_ordinary_names_alone():
