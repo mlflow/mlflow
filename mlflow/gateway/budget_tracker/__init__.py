@@ -9,6 +9,7 @@ from __future__ import annotations
 import threading
 import time
 from abc import ABC, abstractmethod
+from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -103,6 +104,7 @@ class BudgetTracker(ABC):
         workspace: str | None = None,
         endpoint_id: str | None = None,
         username: str | None = None,
+        role_ids: Collection[str] = (),
     ) -> list[BudgetWindow]:
         """Record a cost against all applicable policies.
 
@@ -113,6 +115,8 @@ class BudgetTracker(ABC):
                 match ENDPOINT-scoped policies.
             username: The authenticated username the request was made by. Used to
                 match USER-scoped policies.
+            role_ids: IDs of the auth roles assigned to the requesting user. Used to
+                match ROLE-scoped policies.
 
         Returns:
             List of windows that were newly exceeded (limit exceeded for the first
@@ -125,6 +129,7 @@ class BudgetTracker(ABC):
         workspace: str | None = None,
         endpoint_id: str | None = None,
         username: str | None = None,
+        role_ids: Collection[str] = (),
     ) -> tuple[bool, BudgetWindow | None]:
         """Check if any REJECT-capable policy is exceeded.
 
@@ -134,6 +139,8 @@ class BudgetTracker(ABC):
                 ENDPOINT-scoped policies.
             username: The authenticated username to check against. Used to match
                 USER-scoped policies.
+            role_ids: IDs of the auth roles assigned to the requesting user. Used to
+                match ROLE-scoped policies.
 
         Returns:
             Tuple of (exceeded, window). If exceeded is True, window is the
@@ -149,6 +156,14 @@ class BudgetTracker(ABC):
 
         Args:
             spend_by_policy: Dict mapping budget_policy_id to historical spend amount.
+        """
+
+    @abstractmethod
+    def has_role_policies(self) -> bool:
+        """Whether any ROLE-scoped policy is loaded.
+
+        Lets callers skip resolving the requesting user's roles when no policy
+        could match them.
         """
 
     @abstractmethod
@@ -245,6 +260,7 @@ def _policy_applies(
     workspace: str | None,
     endpoint_id: str | None = None,
     username: str | None = None,
+    role_ids: Collection[str] = (),
 ) -> bool:
     """Check if a policy applies to a given request.
 
@@ -255,6 +271,8 @@ def _policy_applies(
       policy's ``target_value``.
     - USER policies only apply when the request username matches the
       policy's ``target_value``.
+    - ROLE policies only apply when the requesting user is assigned the role
+      whose ID is the policy's ``target_value``.
     """
     if policy.target_scope == BudgetTargetScope.GLOBAL:
         return True
@@ -262,5 +280,7 @@ def _policy_applies(
         return endpoint_id is not None and policy.target_value == endpoint_id
     if policy.target_scope == BudgetTargetScope.USER:
         return policy.target_value is not None and policy.target_value == username
+    if policy.target_scope == BudgetTargetScope.ROLE:
+        return policy.target_value is not None and policy.target_value in role_ids
     effective_workspace = workspace or DEFAULT_WORKSPACE_NAME
     return policy.workspace == effective_workspace
