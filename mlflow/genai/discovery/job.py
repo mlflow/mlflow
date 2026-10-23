@@ -182,31 +182,41 @@ def run_scheduled_issue_detection_job(
     the credentials in the server's own environment when nothing is stored for it.
     """
     window = SampleWindow(lower_bound_ms=window_lower_bound_ms, now_ms=window_upper_bound_ms)
-    filter_string = " AND ".join(filter(None, [window.to_filter_clause(), trace_filter]))
+    window_clause = window.to_filter_clause()
 
-    newest = _newest_trace_matching(experiment_id, filter_string)
+    # Deliberately the window alone, without the schedule's clauses: they scope what this
+    # occurrence analyzes, not how far it covered. Applying them here too would stall the
+    # watermark on every window that holds traces but none matching, leaving each later
+    # occurrence to re-scan the same stretch until the stale cap cut it off.
+    newest = _newest_trace_matching(experiment_id, window_clause)
     if newest is None:
         _logger.info(
             "Scheduled issue detection found no traces for experiment %s in %s; "
             "leaving its watermark where it is",
             experiment_id,
-            filter_string,
+            window_clause,
         )
         return {"traces_in_window": 0}
 
+    filter_string = " AND ".join(filter(None, [window_clause, trace_filter]))
     traces = sample_traces(
         MAX_SCHEDULED_SAMPLE_SIZE,
         search_kwargs={"experiment_ids": [experiment_id], "filter_string": filter_string},
     )
+    client = MlflowClient()
     if not traces:
+        # Nothing matched, so there is nothing to analyze and no run worth leaving behind -- but
+        # the occurrence did cover its window, so the watermark still moves past it.
         _logger.info(
-            "Scheduled issue detection sampled no traces for experiment %s in %s",
+            "Scheduled issue detection sampled no traces for experiment %s in %s; "
+            "advancing its watermark across the window regardless",
             experiment_id,
             filter_string,
         )
+        if checkpoint := advance_checkpoint(newest):
+            write_detection_checkpoint(client, experiment_id, checkpoint)
         return {"traces_in_window": 0}
 
-    client = MlflowClient()
     run = client.create_run(
         experiment_id=experiment_id,
         tags={
