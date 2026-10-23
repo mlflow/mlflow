@@ -5,7 +5,9 @@ import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explor
 import { DetectIssuesButton, shouldEnableSessionGrouping } from '@databricks/web-shared/genai-traces-table';
 import {
   TraceFilterButton,
+  type TraceFilterButtonProps,
   type ColumnSelectorOption,
+  type FilterFieldDef,
   type SortDirection,
   type ReorderableTraceColumnOption,
   type TraceColumnId,
@@ -77,6 +79,14 @@ export interface TracesV4ToolbarParams {
   hideFilterButton?: boolean;
   /** Traces on the current page; with the new evaluation runs UI the filter editor suggests their values. */
   traces?: ModelTraceInfoV3[];
+  /** Replaces the Filters button's fields (default: the trace filter fields for these traces). */
+  filterFields?: FilterFieldDef[];
+  /** Explains the Filters button's matching semantics (default: none). */
+  filterDescription?: TraceFilterButtonProps['description'];
+  /** Rejects an Apply in the Filters button while keeping the draft editable (default: none). */
+  validateFilters?: TraceFilterButtonProps['validateFilters'];
+  /** Offer the session grouping toggle (default true, when session grouping is enabled). */
+  showSessionGrouping?: boolean;
 }
 
 // Column-selector options: static componentIds (lint requires static ids) + localized labels. Adding
@@ -176,6 +186,10 @@ export const useTracesV4ToolbarSlots = ({
   savedViewsButton,
   hideFilterButton = false,
   traces,
+  filterFields: filterFieldsOverride,
+  filterDescription,
+  validateFilters,
+  showSessionGrouping = true,
   isGroupedBySession,
   onToggleSessionGrouping,
   columnOrder,
@@ -184,7 +198,8 @@ export const useTracesV4ToolbarSlots = ({
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const hasSelection = selectionCount > 0;
-  const filterFields = useMlflowTraceFilterFields(assessmentColumns.candidateNames, traces);
+  const defaultFilterFields = useMlflowTraceFilterFields(assessmentColumns.candidateNames, traces);
+  const filterFields = filterFieldsOverride ?? defaultFilterFields;
 
   // While grouped by session the table force-shows the Session column, so lock its column-selector
   // toggle (checked + disabled) rather than letting an unchecking click silently no-op.
@@ -331,6 +346,8 @@ export const useTracesV4ToolbarSlots = ({
         onClearAll={onClearFilters}
         activeCount={activeFilterCount}
         renderTrigger={renderTrigger}
+        description={filterDescription}
+        validateFilters={validateFilters}
       />
     ),
     rightControls: (
@@ -342,9 +359,11 @@ export const useTracesV4ToolbarSlots = ({
             onChange={onFilterChange}
             onClearAll={onClearFilters}
             activeCount={activeFilterCount}
+            description={filterDescription}
+            validateFilters={validateFilters}
           />
         )}
-        {shouldEnableSessionGrouping() && (
+        {showSessionGrouping && shouldEnableSessionGrouping() && (
           <Tooltip
             componentId="mlflow.traces-v4.group-by-session.tooltip"
             content={intl.formatMessage({

@@ -837,6 +837,21 @@ module.exports = {
   "mlflow.eval-run.traces.selected-trace-error": "",
   "mlflow.eval-run.traces.selected-trace-error.retry": "",
 
+  // -- mlflow.eval-run-comparison --
+  "mlflow.eval-run-comparison.aggregate-method": "",
+  "mlflow.eval-run-comparison.clear-invalid-filters": "",
+  "mlflow.eval-run-comparison.invalid-filters": "",
+  "mlflow.eval-run-comparison.outcome-filter.clear-all": "",
+  "mlflow.eval-run-comparison.outcome-filter.column": "",
+  "mlflow.eval-run-comparison.outcome-filter.edit": "",
+  "mlflow.eval-run-comparison.outcome-filter.outcome": "",
+  "mlflow.eval-run-comparison.outcome-filter.popover": "",
+  "mlflow.eval-run-comparison.outcome-filter.remove": "",
+  "mlflow.eval-run-comparison.outcome-filter.run": "",
+  "mlflow.eval-run-comparison.outcome-filter.tooltip": "",
+  "mlflow.eval-run-comparison.traces-cap": "",
+  "mlflow.eval-run-comparison.traces.assessment-delta-tag": "",
+
   // -- mlflow.eval-run-traces-v4 --
   "mlflow.eval-run-traces-v4.baseline-delta": "",
   "mlflow.eval-run-traces-v4.baseline-delta.open-baseline": "",
@@ -945,6 +960,7 @@ module.exports = {
   "mlflow.eval_run_details.compare.selection_bar.baseline_trigger": "",
   "mlflow.eval_run_details.compare.selection_bar.comparison": "",
   "mlflow.eval_run_details.compare.selection_bar.comparison_trigger": "",
+  "mlflow.eval_run_details.compare.tabs": "",
   "mlflow.eval_run_details.compare.view_trace_comparison": "",
   "mlflow.eval_run_details.compare.view_trace_comparison.tooltip": "",
   "mlflow.eval_run_details.comparisons.compare": "",

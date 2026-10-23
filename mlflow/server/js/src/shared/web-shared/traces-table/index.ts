@@ -13,6 +13,10 @@ export type {
   SessionSelectionHandler,
   TraceHrefGetter,
   TraceColumnHeaderAction,
+  TraceSortColumnId,
+  TraceComparisonRow,
+  ComparisonCellRenderer,
+  TraceColumnHeaderSummary,
 } from './types';
 
 // Constants
@@ -22,6 +26,7 @@ export {
   SORTABLE_TRACE_COLUMNS,
   getSortableTraceColumns,
   isSortableTraceColumn,
+  isComparisonSortableTraceColumn,
   DEFAULT_SORT_COLUMN,
   DEFAULT_SORT_DIR,
   PAGE_SIZE_OPTIONS,
@@ -101,7 +106,7 @@ export {
 } from './filterModel';
 
 // Helpers
-export { formatTraceDuration } from './formatTraceDuration';
+export { formatTraceDuration, formatTraceDurationMs, parseTraceDurationToMs } from './formatTraceDuration';
 export { getTextColumnMaxSize } from './getColumnMaxSizes';
 
 // Hooks (presentational state)

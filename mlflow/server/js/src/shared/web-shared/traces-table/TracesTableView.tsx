@@ -9,7 +9,10 @@ import type {
   SortDirection,
   TraceColumnId,
   TraceColumnHeaderAction,
+  TraceColumnHeaderSummary,
+  TraceComparisonRow,
   TraceHrefGetter,
+  TraceSortColumnId,
   TraceTableColumn,
 } from './types';
 import { TracesTable } from './TracesTable';
@@ -40,6 +43,7 @@ export interface TracesTableViewProps {
 
   // Table passthrough (see TracesTableProps).
   traces: ModelTraceInfoV3[];
+  comparisonRows?: TraceComparisonRow[];
   visibleColumns: TraceColumnId[];
   extraColumns?: TraceTableColumn[];
   columnOrder?: string[];
@@ -57,9 +61,12 @@ export interface TracesTableViewProps {
   /** Toggle-select every trace in a session header row; omit to disable session-level selection. */
   onToggleBulkRows?: (traces: ModelTraceInfoV3[]) => void;
   onToggleBulkAll: () => void;
-  sort: TraceColumnId;
+  sort: TraceSortColumnId;
   dir: SortDirection;
   onSort: (column: TraceColumnId, direction: SortDirection) => void;
+  enableSorting?: boolean;
+  sortTooltip?: string;
+  columnHeaderSummaries?: Readonly<Partial<Record<string, TraceColumnHeaderSummary>>>;
   getTraceHref?: TraceHrefGetter;
   getSessionHref?: SessionHrefGetter;
   /** Handles clicks on a grouped session summary row — forwarded to the table. */
@@ -115,6 +122,8 @@ export interface TracesTableViewProps {
   hidePagination?: boolean;
   /** Hide just the page-size selector — grouped mode fetches one large page, so it's moot. */
   hidePageSizeSelector?: boolean;
+  /** Content pinned to the left of the pagination bar (e.g. a result-count label). */
+  paginationLeadingContent?: React.ReactNode;
 
   // State handling.
   /** Clear active search/filters — wired to the no-results state's clear affordance. */
@@ -188,6 +197,7 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
       sessionCount={props.sessionCount}
       sessionTotal={props.sessionTotal}
       hidePageSizeSelector={props.hidePageSizeSelector}
+      leadingContent={props.paginationLeadingContent}
     />
   );
   // Wrap the bar in the consumer's obstruction-aware shell when provided (else render it bare). When
@@ -201,6 +211,7 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
   const table = (
     <TracesTable
       traces={props.traces}
+      comparisonRows={props.comparisonRows}
       visibleColumns={props.visibleColumns}
       extraColumns={props.extraColumns}
       columnOrder={props.columnOrder}
@@ -220,6 +231,9 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
       sort={props.sort}
       dir={props.dir}
       onSort={props.onSort}
+      enableSorting={props.enableSorting}
+      sortTooltip={props.sortTooltip}
+      columnHeaderSummaries={props.columnHeaderSummaries}
       getTraceHref={props.getTraceHref}
       getSessionHref={props.getSessionHref}
       onSessionSelected={props.onSessionSelected}

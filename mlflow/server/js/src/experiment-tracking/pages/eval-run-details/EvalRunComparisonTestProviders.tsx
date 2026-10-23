@@ -1,7 +1,7 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { QueryClientProvider, type QueryClient } from '@databricks/web-shared/query-client';
+import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 import { MockedProvider, type MockedResponse } from '../../../common/utils/graphQLHooks';
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
@@ -44,3 +44,9 @@ export const EvalRunComparisonTestProviders = ({
     </DesignSystemProvider>
   </IntlProvider>
 );
+
+/** `EvalRunComparisonTestProviders` with its own query client, for a render's `wrapper` option. */
+export const EvalRunComparisonTestWrapper = ({ children }: { children?: ReactNode }) => {
+  const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false } } }));
+  return <EvalRunComparisonTestProviders client={client}>{children}</EvalRunComparisonTestProviders>;
+};
