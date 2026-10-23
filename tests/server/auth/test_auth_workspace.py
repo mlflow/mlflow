@@ -4196,6 +4196,41 @@ def test_role_grant_on_mcp_server_gates_capabilities(
     assert perm.can_manage is expected_manage
 
 
+@pytest.mark.parametrize("prefix", ["/api", "/ajax-api"])
+@pytest.mark.parametrize(
+    ("permission", "server_tag_allowed", "version_tag_allowed"),
+    [
+        (READ.name, False, False),
+        (EDIT.name, True, False),
+        (MANAGE.name, True, True),
+    ],
+)
+def test_mcp_tag_deletion_permissions(
+    workspace_permission_setup,
+    monkeypatch,
+    prefix,
+    permission,
+    server_tag_allowed,
+    version_tag_allowed,
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    auth_module._get_tracking_store()._mcp_server_workspaces["com.test/srv"] = "team-a"
+    _set_workspace_permission(store, username, USE.name)
+    _grant(store, username, "team-a", [("mcp_server", "com.test/srv", permission)])
+
+    request = SimpleNamespace(method="DELETE", state=SimpleNamespace(), query_params={})
+    for suffix, expected in [
+        ("/tags/k", server_tag_allowed),
+        ("/versions/1/tags/k", version_tag_allowed),
+    ]:
+        validator = auth_module._get_mcp_server_validator(
+            f"{prefix}/3.0/mlflow/mcp-servers/com.test/srv{suffix}"
+        )
+        assert asyncio.run(validator(username, request)) is expected
+
+
 @pytest.mark.parametrize(
     ("version_grant", "allowed"),
     [
