@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 from unittest import mock
 
@@ -301,6 +302,27 @@ def test_an_occurrence_is_claimed_before_it_is_submitted(store, dispatch):
     assert claimed_when_submitted == [_state(store, experiment_id).last_fire_time_ms]
     # And the lost occurrence is not retried.
     assert dispatch(ONE_PM_MS + HOUR_MS + 60_000).call_count == 0
+
+
+def test_a_claim_without_a_submission_says_so(store, dispatch, caplog):
+    # Otherwise the only trace of a lost occurrence is a claim with no matching submission log,
+    # which reads like a silent drop rather than the deliberate at-most-once behaviour.
+    experiment_id = _experiment_with(
+        store, "hourly", **_schedule_tags(DetectionSchedule(cadence=DetectionCadence.HOURLY))
+    )
+    dispatch(ONE_PM_MS)
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch("mlflow.server.jobs.submit_job", side_effect=RuntimeError("submit failed")),
+        caplog.at_level(logging.WARNING, logger="mlflow.genai.discovery.scheduler"),
+    ):
+        run_issue_detection_scheduler(now_ms=ONE_PM_MS + HOUR_MS)
+
+    assert any(
+        "claimed at fire time" in record.message and experiment_id in record.message
+        for record in caplog.records
+    )
 
 
 def test_a_pass_pages_through_more_experiments_than_one_page_holds(store, dispatch):
