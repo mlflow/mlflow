@@ -1,7 +1,7 @@
 import { HoverCard, Overflow, Tag, useDesignSystemTheme } from '@databricks/design-system';
 import { useNavigate } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
-import { RunPageTabName } from '@mlflow/mlflow/src/experiment-tracking/constants';
+import { ExperimentPageTabName } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { getIssue } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useGetIssueQuery';
 import { SELECTED_ISSUE_ID_PARAM } from '@mlflow/mlflow/src/experiment-tracking/constants';
 
@@ -19,12 +19,8 @@ const IssueTag = ({ issue }: { issue: Issue }) => {
   const handleClick = async () => {
     try {
       const issueData = await getIssue(issue.id);
-      if (issueData.source_run_id && issueData.experiment_id) {
-        const baseUrl = Routes.getIssueDetectionRunDetailsTabRoute(
-          issueData.experiment_id,
-          issueData.source_run_id,
-          RunPageTabName.ISSUES,
-        );
+      if (issueData.experiment_id) {
+        const baseUrl = Routes.getExperimentPageTabRoute(issueData.experiment_id, ExperimentPageTabName.Issues);
         const params = new URLSearchParams({ [SELECTED_ISSUE_ID_PARAM]: issue.id });
         const url = `${baseUrl}?${params.toString()}`;
         navigate(url);
