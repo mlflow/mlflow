@@ -6012,7 +6012,11 @@ def _deprecated_end_trace_v2(request_id):
         },
     )
     request_metadata = {e.key: e.value for e in request_message.request_metadata}
-    tags = {e.key: e.value for e in request_message.tags}
+    # Legacy clients send back all trace tags, including server-managed ones, so drop
+    # blocked tags instead of rejecting the request.
+    tags = {
+        e.key: e.value for e in request_message.tags if e.key not in _HANDLER_BLOCKED_TRACE_TAGS
+    }
 
     trace_info = _get_tracking_store().deprecated_end_trace_v2(
         request_id=request_id,
