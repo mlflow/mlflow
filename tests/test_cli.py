@@ -1802,6 +1802,53 @@ def test_mlflow_gc_all_jobs_deleted_with_jobs_flag(sqlite_store_with_jobs):
         job_store.get_job(job3.job_id)
 
 
+def test_mlflow_gc_deletes_jobs_through_job_store_plugin(sqlite_store_with_jobs):
+    _, job_store, db_uri = sqlite_store_with_jobs
+    job = _create_test_job(job_store)
+    plugin_store_uris = []
+
+    class PluginJobStore(SqlAlchemyJobStore):
+        def __init__(self, store_uri):
+            plugin_store_uris.append(store_uri)
+            super().__init__(store_uri)
+
+    entrypoint = mock.Mock(load=mock.Mock(return_value=PluginJobStore))
+    entrypoint.name = "sqlite"
+    with mock.patch(
+        "mlflow.utils.plugins._get_entry_points",
+        side_effect=lambda group: [entrypoint] if group == "mlflow.job_store" else [],
+    ):
+        CliRunner().invoke(gc, ["--backend-store-uri", db_uri, "--jobs"], catch_exceptions=False)
+
+    assert plugin_store_uris == [db_uri]
+    with pytest.raises(MlflowException, match=r"Job .+ not found"):
+        job_store.get_job(job.job_id)
+
+
+def test_mlflow_gc_rejects_job_store_plugin_without_workspace_support(
+    sqlite_store_with_jobs, monkeypatch
+):
+    _, job_store, db_uri = sqlite_store_with_jobs
+    job = _create_test_job(job_store)
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "true")
+
+    class PluginJobStore(SqlAlchemyJobStore):
+        pass
+
+    entrypoint = mock.Mock(load=mock.Mock(return_value=PluginJobStore))
+    entrypoint.name = "sqlite"
+    with (
+        mock.patch(
+            "mlflow.utils.plugins._get_entry_points",
+            side_effect=lambda group: [entrypoint] if group == "mlflow.job_store" else [],
+        ),
+        pytest.raises(MlflowException, match="does not support workspace-aware operations"),
+    ):
+        CliRunner().invoke(gc, ["--backend-store-uri", db_uri, "--jobs"], catch_exceptions=False)
+
+    assert job_store.get_job(job.job_id).job_id == job.job_id
+
+
 def test_mlflow_gc_specific_jobs_deleted_with_job_ids(sqlite_store_with_jobs):
     _, job_store, db_uri = sqlite_store_with_jobs
 

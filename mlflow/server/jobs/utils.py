@@ -989,7 +989,7 @@ def _validate_function_parameters(function: Callable[..., Any], params: dict[str
 
 def _check_requirements(backend_store_uri: str | None = None) -> None:
     from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR
-    from mlflow.utils.uri import extract_db_type_from_uri
+    from mlflow.store.jobs.registry import JobStoreRegistry
 
     if os.name == "nt":
         raise MlflowException("MLflow job backend does not support Windows system.")
@@ -1001,7 +1001,7 @@ def _check_requirements(backend_store_uri: str | None = None) -> None:
             "'--backend-store-uri' is not set"
         )
     try:
-        extract_db_type_from_uri(backend_store_uri)
+        JobStoreRegistry().get_store_builder(backend_store_uri)
     except MlflowException:
         raise MlflowException(
             f"MLflow job backend requires a database backend store URI but got {backend_store_uri}"

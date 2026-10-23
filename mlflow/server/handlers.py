@@ -365,6 +365,7 @@ from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.artifact.utils.models import _parse_model_uri, get_model_name_and_version
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.jobs.abstract_store import AbstractJobStore
+from mlflow.store.jobs.registry import JobStoreRegistry
 from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
 from mlflow.store.tracking import (
@@ -615,6 +616,7 @@ class ModelRegistryStoreRegistryWrapper(ModelRegistryStoreRegistry):
 
 _tracking_store_registry = TrackingStoreRegistryWrapper()
 _model_registry_store_registry = ModelRegistryStoreRegistryWrapper()
+_job_store_registry = JobStoreRegistry()
 
 
 def _get_artifact_repo_mlflow_artifacts():
@@ -811,9 +813,6 @@ def _get_job_store(backend_store_uri: str | None = None) -> AbstractJobStore:
         An instance of AbstractJobStore
     """
     from mlflow.server import BACKEND_STORE_URI_ENV_VAR
-    from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
-    from mlflow.store.jobs.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyJobStore
-    from mlflow.utils.uri import extract_db_type_from_uri
 
     global _job_store
     if _job_store is None:
@@ -821,19 +820,14 @@ def _get_job_store(backend_store_uri: str | None = None) -> AbstractJobStore:
         if not store_uri:
             raise MlflowException.invalid_parameter_value("Job store requires a backend store URI")
         try:
-            extract_db_type_from_uri(store_uri)
+            store_builder = _job_store_registry.get_store_builder(store_uri)
         except (MlflowException, ValueError):
-            # Require a database backend URI for the job store
+            # Require a backend URI with a registered job store, such as a database URI
             # Raise MlflowException so the CLI/REST layer returns a structured 400
             # instead of surfacing a generic 500 from ValueError
             raise MlflowException.invalid_parameter_value("Job store requires a backend store URI")
 
-        store_cls = (
-            WorkspaceAwareSqlAlchemyJobStore
-            if MLFLOW_ENABLE_WORKSPACES.get()
-            else SqlAlchemyJobStore
-        )
-        _job_store = store_cls(store_uri)
+        _job_store = store_builder(store_uri)
 
         if MLFLOW_ENABLE_WORKSPACES.get():
             _verify_job_store_workspace_support(_job_store)
