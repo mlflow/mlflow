@@ -70,7 +70,10 @@ describe('IssueDetectionSettingsControl', () => {
     experimentTags = [
       {
         key: MLFLOW_ISSUE_DETECTION_PRIORITIES_TAG,
-        value: JSON.stringify({ instructions: 'Only report high severity.', categories: { cost: false } }),
+        value: JSON.stringify({
+          instructions: 'Only report high severity.',
+          categories: { correctness: true, cost: false },
+        }),
       },
     ];
     render();
@@ -79,6 +82,22 @@ describe('IssueDetectionSettingsControl', () => {
     expect(screen.getByRole('textbox', { name: /Detection priorities/ })).toHaveValue('Only report high severity.');
     expect(screen.getByRole('button', { name: 'Cost', pressed: false })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Correctness', pressed: true })).toBeInTheDocument();
+  });
+
+  test('a focus area the saved settings never mentioned shows unticked', async () => {
+    // Only what the tag selects is ticked, so a built-in added to the product after the owner
+    // last saved shows off here until they save again.
+    experimentTags = [
+      {
+        key: MLFLOW_ISSUE_DETECTION_PRIORITIES_TAG,
+        value: JSON.stringify({ instructions: '', categories: { correctness: true } }),
+      },
+    ];
+    render();
+    await openSettings();
+
+    expect(screen.getByRole('button', { name: 'Correctness', pressed: true })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cost', pressed: false })).toBeInTheDocument();
   });
 
   test('priorities and focus areas are saved as one tag', async () => {

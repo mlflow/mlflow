@@ -51,10 +51,10 @@ export const readIssueDetectionSettingsFromTags = (
     }
     return {
       instructions: typeof parsed['instructions'] === 'string' ? parsed['instructions'] : '',
-      // Merged over the defaults rather than taken as-is: a built-in the tag does not mention
-      // is a category added after the owner last saved, not a decision they made. Turning
-      // everything off stays expressible, because that writes every built-in explicitly false.
-      categories: { ...DEFAULT_CATEGORIES, ...normalizeCategories(parsed['categories']) },
+      // Taken as-is, matching upstream: a focus area is selected only where the tag says so
+      // explicitly. A built-in the tag does not mention is therefore not selected, and a tag
+      // that selects nothing resolves to every category in `selectedDetectionCategories`.
+      categories: normalizeCategories(parsed['categories']),
     };
   } catch {
     return defaultIssueDetectionSettings();
