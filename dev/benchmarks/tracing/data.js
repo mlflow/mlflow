@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792736967989,
+  "lastUpdate": 1792742257052,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "atwkdeveloper@gmail.com",
-            "name": "Aaron Teo",
-            "username": "aaronteo-db"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3bd9069c125149e6c609e536e5f418fd5df1126e",
-          "message": "Support Vertex AI `eu`/`us` multi-region endpoints in gateway provider (#24932)\n\nSigned-off-by: Aaron Teo <atwkdeveloper@gmail.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
-          "timestamp": "2026-08-06T18:36:59+08:00",
-          "tree_id": "751fb90e2edf6256dbe811d4f448b3d6b21498b2",
-          "url": "https://github.com/mlflow/mlflow/commit/3bd9069c125149e6c609e536e5f418fd5df1126e"
-        },
-        "date": 1786012696958,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 43.96978679999677,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 6.30643333333475,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 5.436176406667339,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 6.254591644068872,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 5.787279054263657,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 30.19082920000642,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 18.308405800007677,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "joshua.wong@databricks.com",
+            "name": "joshuawong-db",
+            "username": "joshuawong-db"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e407cfd5f164d158b4b20829fbb2568dd5e86591",
+          "message": "Strip the static prefix before matching public routes in `is_unprotected_route` (#27036)\n\nSigned-off-by: Joshua Wong <joshua.wong@databricks.com>\nCo-authored-by: Isaac <no-reply@databricks.com>",
+          "timestamp": "2026-10-23T07:53:38Z",
+          "tree_id": "4e17573bf978247ef3377c4d357a23a85a134b45",
+          "url": "https://github.com/mlflow/mlflow/commit/e407cfd5f164d158b4b20829fbb2568dd5e86591"
+        },
+        "date": 1792742254533,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 48.11360879999711,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 7.428918964907544,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.859224750004073,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.773310527272646,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 7.258049198207822,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.335630799980208,
             "unit": "ms"
           }
         ]
