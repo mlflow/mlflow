@@ -136,7 +136,8 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
 
   const panelMode: 'edit' | 'create' | null = url.recordId ? 'edit' : pendingNewRecord !== null ? 'create' : null;
   const recordPanelOpen = panelMode !== null;
-  const isRunsPanelOpen = enableNewEvalRunsUi && url.isRunsPanelOpen;
+  // A record panel wins: Back can restore `runsPanel` while a new-record draft is still open.
+  const isRunsPanelOpen = enableNewEvalRunsUi && url.isRunsPanelOpen && !recordPanelOpen;
   const panelOpen = recordPanelOpen || isRunsPanelOpen;
 
   // Dirty flag is owned by the side panel (drives its editor state) but consumed here so
