@@ -395,12 +395,58 @@ def test_downtime_spanning_many_fire_times_resumes_with_one_occurrence():
     state = DetectionScheduleState(last_fire_time_ms=_ms("UTC", 2026, 5, 1, 13))
     back_up = _ms("UTC", 2026, 5, 4, 14, 5)
     fire_time = due_occurrence_ms(schedule, state, back_up)
-    # The oldest missed occurrence, not a backlog of every hour in between.
-    assert fire_time == _ms("UTC", 2026, 5, 1, 14)
+    # The most recent occurrence due, not the oldest one missed: the hour the server came back in.
+    assert fire_time == _ms("UTC", 2026, 5, 4, 14)
     claimed = claim_occurrence(state, fire_time, now_ms=back_up)
     assert claimed.last_dispatched_at_ms == back_up
-    # And the next pass picks up the following one, one occurrence at a time.
-    assert due_occurrence_ms(schedule, claimed, back_up) == _ms("UTC", 2026, 5, 1, 15)
+    # Nothing is left behind it, so the next poll a minute later dispatches nothing.
+    assert due_occurrence_ms(schedule, claimed, back_up) is None
+    assert due_occurrence_ms(schedule, claimed, back_up + 60_000) is None
+
+
+def test_a_three_day_pause_costs_one_run_not_one_per_hour():
+    schedule = DetectionSchedule(cadence=DetectionCadence.HOURLY)
+    state = DetectionScheduleState(last_fire_time_ms=_ms("UTC", 2026, 5, 1, 13))
+    back_up = _ms("UTC", 2026, 5, 4, 14, 5)
+
+    dispatched = []
+    while (fire_time := due_occurrence_ms(schedule, state, back_up)) is not None:
+        dispatched.append(fire_time)
+        state = claim_occurrence(state, fire_time, now_ms=back_up)
+        if len(dispatched) > 100:
+            break
+
+    assert dispatched == [_ms("UTC", 2026, 5, 4, 14)]
+
+
+@pytest.mark.parametrize(
+    "cadence", [DetectionCadence.HOURLY, DetectionCadence.DAILY, DetectionCadence.WEEKLY]
+)
+def test_a_long_pause_costs_one_run_at_every_cadence(cadence: DetectionCadence):
+    schedule = DetectionSchedule(cadence=cadence)
+    state = DetectionScheduleState(last_fire_time_ms=_ms("UTC", 2025, 5, 1, 13))
+    back_up = _ms("UTC", 2026, 5, 4, 14, 5)
+
+    runs = 0
+    while (fire_time := due_occurrence_ms(schedule, state, back_up)) is not None:
+        state = claim_occurrence(state, fire_time, now_ms=back_up)
+        runs += 1
+        if runs > 50:
+            break
+
+    assert runs == 1
+    # The claimed occurrence is recent, so the window's stale cap is measured near now rather than
+    # near the start of the year-long gap.
+    assert back_up - state.last_fire_time_ms < 8 * 24 * 60 * 60 * 1000
+
+
+def test_an_occurrence_due_without_any_backlog_is_unchanged():
+    schedule = DetectionSchedule(cadence=DetectionCadence.HOURLY)
+    state = DetectionScheduleState(last_fire_time_ms=_ms("UTC", 2026, 5, 4, 13))
+    # Woken half a minute after the fire time, the ordinary case: that occurrence is what runs.
+    assert due_occurrence_ms(schedule, state, _ms("UTC", 2026, 5, 4, 14) + 30_000) == _ms(
+        "UTC", 2026, 5, 4, 14
+    )
 
 
 def test_the_first_run_lookback_matches_the_cadences_a_schedule_offers():
