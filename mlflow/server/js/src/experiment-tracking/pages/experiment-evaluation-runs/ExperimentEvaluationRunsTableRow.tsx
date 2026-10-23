@@ -256,6 +256,7 @@ export const ExperimentEvaluationRunsTableRow = React.memo(
             return (
               <TableCell
                 key={cell.id}
+                aria-colspan={isLabelCell && groupLabelSpan ? groupLabelSpan.columnIds.size : undefined}
                 style={
                   isLabelCell && groupLabelSpan
                     ? { ...groupLabelSpan.style, paddingLeft: theme.spacing.sm, paddingRight: theme.spacing.sm }
