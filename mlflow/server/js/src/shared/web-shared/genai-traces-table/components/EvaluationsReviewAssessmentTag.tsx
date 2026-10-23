@@ -24,8 +24,11 @@ import { FormattedMessage, useIntl } from '@databricks/i18n';
 import {
   KnownEvaluationResultAssessmentValueLabel,
   KnownEvaluationResultAssessmentValueMapping,
+  normalizePassFailValue,
   getEvaluationResultAssessmentValue,
   hasBeenEditedByHuman,
+  isFailingValue,
+  isPassingValue,
   KnownEvaluationResultAssessmentStringValue,
   KnownEvaluationResultAssessmentValueMissingTooltip,
   ASSESSMENTS_DOC_LINKS,
@@ -46,9 +49,9 @@ export const isAssessmentPassing = (
 ) => {
   if (!isNil(assessmentValue)) {
     if (assessmentInfo.dtype === 'pass-fail') {
-      if (assessmentValue === KnownEvaluationResultAssessmentStringValue.YES) {
+      if (isPassingValue(assessmentValue)) {
         return true;
-      } else if (assessmentValue === KnownEvaluationResultAssessmentStringValue.NO) {
+      } else if (isFailingValue(assessmentValue)) {
         return false;
       }
     } else if (assessmentInfo.dtype === 'boolean') {
@@ -160,8 +163,13 @@ function getAssessmentTagDisplayValue(
       const knownMapping = KnownEvaluationResultAssessmentValueMapping[assessmentInfo.name];
 
       if (knownMapping) {
+        let lookupValue = KnownEvaluationResultAssessmentStringValue.YES;
+
+        if (value) {
+          lookupValue = normalizePassFailValue(value.toString()) as KnownEvaluationResultAssessmentStringValue;
+        }
         const messageDescriptor = value
-          ? (knownMapping[value.toString()] ?? knownMapping[KnownEvaluationResultAssessmentStringValue.YES])
+          ? (knownMapping[lookupValue] ?? knownMapping[KnownEvaluationResultAssessmentStringValue.YES])
           : knownMapping[KnownEvaluationResultAssessmentStringValue.YES];
         if (messageDescriptor) {
           tagText = <FormattedMessage {...messageDescriptor} values={{ value }} />;
