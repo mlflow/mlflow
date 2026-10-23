@@ -1111,6 +1111,16 @@ def test_get_job_store_with_installed_plugin(tmp_path, monkeypatch):
     assert plugin_job_store.is_plugin
 
 
+def test_get_job_store_does_not_cache_a_store_without_workspace_support(tmp_path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "true")
+    monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, f"file-plugin:{tmp_path / 'mlflow.db'}")
+    monkeypatch.setattr(mlflow.server.handlers, "_job_store", None)
+    for _ in range(2):
+        with pytest.raises(MlflowException, match="does not support workspace-aware operations"):
+            mlflow.server.handlers._get_job_store()
+    assert mlflow.server.handlers._job_store is None
+
+
 def test_get_job_store_rejects_uri_without_job_store(tmp_path, monkeypatch):
     monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, tmp_path.as_uri())
     monkeypatch.setattr(mlflow.server.handlers, "_job_store", None)

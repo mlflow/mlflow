@@ -827,10 +827,13 @@ def _get_job_store(backend_store_uri: str | None = None) -> AbstractJobStore:
             # instead of surfacing a generic 500 from ValueError
             raise MlflowException.invalid_parameter_value("Job store requires a backend store URI")
 
-        _job_store = store_builder(store_uri)
+        job_store = store_builder(store_uri)
 
+        # Verify before caching, or a later call returns the rejected store unchecked.
         if MLFLOW_ENABLE_WORKSPACES.get():
-            _verify_job_store_workspace_support(_job_store)
+            _verify_job_store_workspace_support(job_store)
+
+        _job_store = job_store
 
     return _job_store
 
