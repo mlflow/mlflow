@@ -6,9 +6,8 @@ Explain what reproduces on the current checkout, the root cause, and the suggest
 ## Automatic fix
 
 Only propose a PR for a simple issue with a straightforward fix that meets the shared
-output requirements. If the author offers to implement it (for example, "I'd be happy to
-submit a PR"), leave the fix to them. Describe unresolved design options for a maintainer
-to choose.
+output requirements, even if the author offers to implement it. Describe unresolved design
+options for a maintainer to choose.
 
 ## Response
 
