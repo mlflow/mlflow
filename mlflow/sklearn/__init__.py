@@ -542,7 +542,7 @@ def _load_model_from_local_file(path, serialization_format, skops_trusted_types=
     # Loading a serialized model can execute arbitrary code from the model artifact. This
     # includes the skops format: skops only blocks untrusted types via its `trusted` allow-list,
     # and that list is read from the model's own MLmodel file, so a crafted model can whitelist
-    # dangerous types. Gate every serialization format behind MLFLOW_ALLOW_PICKLE_DESERIALIZATION
+    # dangerous types. Gate every serialization format behind `_is_pickle_loading_allowed`
     # so the flag is a real safety control rather than one the skops format silently bypasses.
     # The is_in_databricks_* carve-outs are pre-existing and shared with the pickle/cloudpickle
     # paths: those managed runtimes permit model deserialization regardless of the flag.

@@ -13,6 +13,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_STATE
 from mlflow.transformers.flavor_config import FlavorKey, get_peft_base_model, is_peft_model
 from mlflow.transformers.torch_utils import _get_torch_dtype_kwarg_name
+from mlflow.utils.model_utils import _check_model_code_loading_allowed
 
 if TYPE_CHECKING:
     import transformers
@@ -234,6 +235,7 @@ def _load_component(flavor_conf, name, local_path=None, repo_id=None):
                 "save_pretrained=True."
             )
         cls = _COMPONENT_TO_AUTOCLASS_MAP[name]
+        _check_model_code_loading_allowed("a Transformers model with a custom component")
         trust_remote = True
 
     if local_path is not None:
@@ -255,6 +257,7 @@ def _load_class_from_transformers_config(model_name_or_path, revision=None):
     import transformers
     from transformers import AutoConfig
 
+    _check_model_code_loading_allowed("a Transformers model with a custom architecture")
     config = AutoConfig.from_pretrained(
         model_name_or_path,
         revision=revision,

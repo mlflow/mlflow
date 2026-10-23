@@ -160,14 +160,15 @@ When set to `false`, MLflow raises an error instead of loading:
 
 - a model saved with `pickle` or `cloudpickle` (use a pickle-free saving option when logging the model),
 - a model logged with a code directory (`code_paths` or `infer_code_paths=True`), because that code is added to the Python path and can run when modules are imported,
-- a [Models From Code](/ml/model/models-from-code) model, because loading it runs the model's Python file.
-- a model stored inside a directory on the Python path (such as the current directory), because module names read from the model could import the model's own files. Move the model to another directory, or load it by run or model URI.
+- a [Models From Code](/ml/model/models-from-code) model, because loading it runs the model's Python file,
+- a model stored inside a directory on the Python path (such as the current directory), because module names read from the model could import the model's own files. Move the model to another directory, or load it by run or model URI,
+- a Transformers model with a custom architecture or component, because loading it runs code saved with the model. Sentence Transformers models are loaded without `trust_remote_code`, so models that need custom code fail to load.
 
-Saving a model with `infer_code_paths=True` also raises an error, because inferring code paths requires loading the model. Pass `code_paths` explicitly instead.
+Saving a model with `infer_code_paths=True` also raises an error, because inferring code paths requires loading the model. Pass `code_paths` explicitly instead. Inferring pip requirements also loads the model while saving; if that load is refused, MLflow logs a warning and saves the model with only its default requirements. Pass `pip_requirements` explicitly when saving such models.
 
 Only set it to `true` for models from sources you trust. The default is `true` for backward compatibility.
 
-`MLFLOW_ALLOW_MODEL_CODE_EXECUTION` was introduced in MLflow 3.18.0 and replaces `MLFLOW_ALLOW_PICKLE_DESERIALIZATION`, which is now deprecated. For backward compatibility, the old variable keeps its previous behavior: setting `MLFLOW_ALLOW_PICKLE_DESERIALIZATION=false` refuses only `pickle` and `cloudpickle` models. To also refuse models with a code directory and Models From Code, set `MLFLOW_ALLOW_MODEL_CODE_EXECUTION=false`. In MLflow versions before 3.18.0, only `MLFLOW_ALLOW_PICKLE_DESERIALIZATION` is available.
+`MLFLOW_ALLOW_MODEL_CODE_EXECUTION` was introduced in MLflow 3.18.0 and replaces `MLFLOW_ALLOW_PICKLE_DESERIALIZATION`, which is now deprecated. For backward compatibility, the old variable keeps its previous behavior: setting `MLFLOW_ALLOW_PICKLE_DESERIALIZATION=false` refuses only `pickle` and `cloudpickle` models. To also refuse the other models listed above, set `MLFLOW_ALLOW_MODEL_CODE_EXECUTION=false`. In MLflow versions before 3.18.0, only `MLFLOW_ALLOW_PICKLE_DESERIALIZATION` is available.
 
 :::note[PyTorch `pt2` models]
 `torch.export.load` internally deserializes parts of a `.pt2` archive with `torch.load(weights_only=False)`. When `MLFLOW_ALLOW_MODEL_CODE_EXECUTION=false`, MLflow therefore verifies before loading that every record in the archive is accepted by torch's restricted `weights_only` unpickler (tensors and primitive containers only), and refuses the model otherwise. This verification requires `torch` >= 2.10 (older versions have known `weights_only` unpickler vulnerabilities); on older versions, loading a `pt2` model with the flag set to `false` raises an error asking you to upgrade `torch` or enable the flag.
