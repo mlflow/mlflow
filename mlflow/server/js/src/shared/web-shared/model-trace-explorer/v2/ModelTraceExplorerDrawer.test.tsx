@@ -1,16 +1,25 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
-import { act, screen } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { render } from '@databricks/web-shared/test-utils/render';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
 
+import { useState } from 'react';
+import { createMemoryRouter, RouterProvider } from 'react-router-dom';
+
 import { HashRouter } from '../../genai-traces-table/utils/RoutingUtils';
-import { COST_METADATA_KEY, TOKEN_USAGE_METADATA_KEY } from '../constants';
+import { COST_METADATA_KEY, CREATE_CUSTOM_VIEW_QUERY_PARAM, TOKEN_USAGE_METADATA_KEY } from '../constants';
 import type { ModelTraceInfoV3 } from './ModelTrace.types';
 import { type DrawerComponentType, ModelTraceExplorerContextProvider } from './ModelTraceExplorerContext';
 import { ModelTraceExplorerDrawer } from './ModelTraceExplorerDrawer';
+import { CustomViewAssistantConnectorProvider } from '../custom-view/assistant/CustomViewAssistantConnector';
+import {
+  CustomViewDefinitionProvider,
+  useOptionalCustomViewDefinition,
+} from '../custom-view/CustomViewDefinitionContext';
+import { MAX_CUSTOM_VIEWS_PER_EXPERIMENT, type CustomView } from '../custom-view/customViewDefinition';
 import { shouldEnableNewEvalRunsUi } from '../../../../common/utils/FeatureUtils';
 
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
@@ -409,6 +418,134 @@ describe('ModelTraceExplorerDrawer', () => {
       expect(screen.getByRole('button', { name: 'Full screen' })).toBeInTheDocument();
       const resizeHandle = screen.getByRole('separator', { name: 'Resize trace drawer' });
       expect(drawerScope).not.toContainElement(resizeHandle);
+    });
+  });
+
+  describe('create custom view URL intent', () => {
+    type DefinitionState = { views: CustomView[]; isLoaded: boolean };
+    let setDefinitionState: (state: DefinitionState) => void = () => {};
+
+    const DraftProbe = () => {
+      const customViewDefinition = useOptionalCustomViewDefinition();
+      return (
+        <>
+          <div>{customViewDefinition?.isDraft ? 'draft-started' : 'no-draft'}</div>
+          <div data-testid="active-view-id">{customViewDefinition?.activeViewId ?? 'none'}</div>
+        </>
+      );
+    };
+
+    const DrawerHost = ({
+      initialState = { views: [], isLoaded: false },
+      autoSelectFirstView,
+    }: {
+      initialState?: DefinitionState;
+      autoSelectFirstView?: boolean;
+    }) => {
+      const [definitionState, setState] = useState<DefinitionState>(initialState);
+      setDefinitionState = setState;
+      return (
+        <CustomViewAssistantConnectorProvider connector={{ openAssistant: jest.fn() }}>
+          <CustomViewDefinitionProvider
+            views={definitionState.views}
+            isLoaded={definitionState.isLoaded}
+            onPersistView={() => Promise.resolve()}
+            canModifyPersistedViews
+            autoSelectFirstView={autoSelectFirstView}
+          >
+            <ModelTraceExplorerDrawer
+              selectPreviousEval={jest.fn()}
+              selectNextEval={jest.fn()}
+              isPreviousAvailable={false}
+              isNextAvailable={false}
+              handleClose={jest.fn()}
+            >
+              <DraftProbe />
+            </ModelTraceExplorerDrawer>
+          </CustomViewDefinitionProvider>
+        </CustomViewAssistantConnectorProvider>
+      );
+    };
+
+    const renderDrawerAt = (initialEntry: string, hostProps: React.ComponentProps<typeof DrawerHost> = {}) => {
+      const router = createMemoryRouter([{ path: '*', element: <DrawerHost {...hostProps} /> }], {
+        initialEntries: [initialEntry],
+      });
+      const locationChanges = jest.fn();
+      router.subscribe(locationChanges);
+      render(
+        <IntlProvider locale="en">
+          <DesignSystemProvider>
+            <RouterProvider router={router} />
+          </DesignSystemProvider>
+        </IntlProvider>,
+      );
+      return { router, locationChanges };
+    };
+
+    test('consumes the intent once after creation becomes eligible', async () => {
+      const { router, locationChanges } = renderDrawerAt(
+        `/experiments/1/traces?${CREATE_CUSTOM_VIEW_QUERY_PARAM}=true&retained=value#trace`,
+      );
+
+      expect(screen.getByText('no-draft')).toBeInTheDocument();
+      expect(router.state.location.search).toContain(`${CREATE_CUSTOM_VIEW_QUERY_PARAM}=true`);
+
+      act(() => setDefinitionState({ views: [], isLoaded: true }));
+
+      expect(await screen.findByText('draft-started')).toBeInTheDocument();
+      await waitFor(() => expect(router.state.location.search).toBe('?retained=value'));
+      expect(router.state.location.pathname).toBe('/experiments/1/traces');
+      expect(router.state.location.hash).toBe('#trace');
+      expect(router.state.historyAction).toBe('REPLACE');
+      expect(locationChanges).toHaveBeenCalledTimes(1);
+
+      act(() => setDefinitionState({ views: [], isLoaded: true }));
+
+      expect(screen.getByText('draft-started')).toBeInTheDocument();
+      expect(locationChanges).toHaveBeenCalledTimes(1);
+    });
+
+    test('starts the draft instead of auto-selecting a saved view that was already loaded on mount', async () => {
+      const savedView: CustomView = {
+        id: 'saved-view',
+        name: 'Saved view',
+        label: 'Saved view',
+        instruction: '',
+        template: [],
+        createdAtMs: 1,
+      };
+      const { router } = renderDrawerAt(`/experiments/1/traces?${CREATE_CUSTOM_VIEW_QUERY_PARAM}=true`, {
+        initialState: { views: [savedView], isLoaded: true },
+        autoSelectFirstView: true,
+      });
+
+      expect(await screen.findByText('draft-started')).toBeInTheDocument();
+      expect(screen.getByTestId('active-view-id')).toHaveTextContent('none');
+      await waitFor(() => expect(router.state.location.search).toBe(''));
+    });
+
+    test('keeps the intent when loaded definitions reach the view limit', async () => {
+      const maxCustomViews: CustomView[] = Array.from(
+        { length: MAX_CUSTOM_VIEWS_PER_EXPERIMENT },
+        (_unused, index) => ({
+          id: `view-${index}`,
+          name: `View ${index}`,
+          label: `View ${index}`,
+          instruction: '',
+          template: [],
+          createdAtMs: index,
+        }),
+      );
+      const { router, locationChanges } = renderDrawerAt(
+        `/experiments/1/traces?${CREATE_CUSTOM_VIEW_QUERY_PARAM}=true`,
+      );
+
+      act(() => setDefinitionState({ views: maxCustomViews, isLoaded: true }));
+
+      expect(screen.getByText('no-draft')).toBeInTheDocument();
+      expect(router.state.location.search).toContain(`${CREATE_CUSTOM_VIEW_QUERY_PARAM}=true`);
+      expect(locationChanges).not.toHaveBeenCalled();
     });
   });
 });
