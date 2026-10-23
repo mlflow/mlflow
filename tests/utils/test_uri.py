@@ -116,6 +116,9 @@ def test_is_local_uri():
     with pytest.raises(MlflowException, match="is not a valid remote uri."):
         is_local_uri("file://myhostname/path/to/file")
 
+    with pytest.raises(MlflowException, match="is not a valid remote uri."):
+        is_local_uri("file://localhost.evil.example/path/to/file")
+
 
 @pytest.mark.skipif(not is_windows(), reason="Windows-only test")
 def test_is_local_uri_windows():
