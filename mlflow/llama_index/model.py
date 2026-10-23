@@ -506,7 +506,6 @@ def _load_llama_model(path, flavor_conf):
     # Handle model-from-code
     pyfunc_flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=pyfunc.FLAVOR_NAME)
     if model_code_path := pyfunc_flavor_conf.get(MODEL_CODE_PATH):
-        _check_model_code_loading_allowed("a model from code")
         # TODO: The code path saved in the MLModel file is the local absolute path to the code
         # file when it is saved. We should update the relative path in artifact directory.
         model_code_path = os.path.join(path, os.path.basename(model_code_path))
@@ -556,6 +555,8 @@ def load_model(model_uri, dst_path=None):
 
     # Runs before the settings are deserialized, because that imports classes named by the model.
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
+    if mlflow_model.flavors.get(pyfunc.FLAVOR_NAME, {}).get(MODEL_CODE_PATH):
+        _check_model_code_loading_allowed("a model from code")
     settings_path = os.path.join(local_model_path, _SETTINGS_FILE)
     # NB: Settings is a singleton and can be loaded via llama_index.core.Settings
     deserialize_settings(settings_path)

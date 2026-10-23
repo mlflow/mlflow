@@ -624,3 +624,17 @@ def test_load_model_refuses_model_on_python_path_before_loading_settings(tmp_pat
     ):
         mlflow.llama_index.load_model(str(model_dir))
     deserialize.assert_not_called()
+
+
+def test_load_model_refuses_model_from_code_before_loading_settings(tmp_path, monkeypatch):
+    (tmp_path / "MLmodel").write_text(
+        "flavors:\n  llama_index: {}\n  python_function:\n    model_code_path: model.py\n"
+    )
+
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with (
+        mock.patch("mlflow.llama_index.serialize_objects.deserialize_settings") as deserialize,
+        pytest.raises(MlflowException, match="a model from code"),
+    ):
+        mlflow.llama_index.load_model(str(tmp_path))
+    deserialize.assert_not_called()
