@@ -427,11 +427,22 @@ describe('ModelTraceExplorerDrawer', () => {
 
     const DraftProbe = () => {
       const customViewDefinition = useOptionalCustomViewDefinition();
-      return <div>{customViewDefinition?.isDraft ? 'draft-started' : 'no-draft'}</div>;
+      return (
+        <>
+          <div>{customViewDefinition?.isDraft ? 'draft-started' : 'no-draft'}</div>
+          <div data-testid="active-view-id">{customViewDefinition?.activeViewId ?? 'none'}</div>
+        </>
+      );
     };
 
-    const DrawerHost = () => {
-      const [definitionState, setState] = useState<DefinitionState>({ views: [], isLoaded: false });
+    const DrawerHost = ({
+      initialState = { views: [], isLoaded: false },
+      autoSelectFirstView,
+    }: {
+      initialState?: DefinitionState;
+      autoSelectFirstView?: boolean;
+    }) => {
+      const [definitionState, setState] = useState<DefinitionState>(initialState);
       setDefinitionState = setState;
       return (
         <CustomViewAssistantConnectorProvider connector={{ openAssistant: jest.fn() }}>
@@ -440,6 +451,7 @@ describe('ModelTraceExplorerDrawer', () => {
             isLoaded={definitionState.isLoaded}
             onPersistView={() => Promise.resolve()}
             canModifyPersistedViews
+            autoSelectFirstView={autoSelectFirstView}
           >
             <ModelTraceExplorerDrawer
               selectPreviousEval={jest.fn()}
@@ -455,8 +467,10 @@ describe('ModelTraceExplorerDrawer', () => {
       );
     };
 
-    const renderDrawerAt = (initialEntry: string) => {
-      const router = createMemoryRouter([{ path: '*', element: <DrawerHost /> }], { initialEntries: [initialEntry] });
+    const renderDrawerAt = (initialEntry: string, hostProps: React.ComponentProps<typeof DrawerHost> = {}) => {
+      const router = createMemoryRouter([{ path: '*', element: <DrawerHost {...hostProps} /> }], {
+        initialEntries: [initialEntry],
+      });
       const locationChanges = jest.fn();
       router.subscribe(locationChanges);
       render(
@@ -490,6 +504,25 @@ describe('ModelTraceExplorerDrawer', () => {
 
       expect(screen.getByText('draft-started')).toBeInTheDocument();
       expect(locationChanges).toHaveBeenCalledTimes(1);
+    });
+
+    test('starts the draft instead of auto-selecting a saved view that was already loaded on mount', async () => {
+      const savedView: CustomView = {
+        id: 'saved-view',
+        name: 'Saved view',
+        label: 'Saved view',
+        instruction: '',
+        template: [],
+        createdAtMs: 1,
+      };
+      const { router } = renderDrawerAt(`/experiments/1/traces?${CREATE_CUSTOM_VIEW_QUERY_PARAM}=true`, {
+        initialState: { views: [savedView], isLoaded: true },
+        autoSelectFirstView: true,
+      });
+
+      expect(await screen.findByText('draft-started')).toBeInTheDocument();
+      expect(screen.getByTestId('active-view-id')).toHaveTextContent('none');
+      await waitFor(() => expect(router.state.location.search).toBe(''));
     });
 
     test('keeps the intent when loaded definitions reach the view limit', async () => {

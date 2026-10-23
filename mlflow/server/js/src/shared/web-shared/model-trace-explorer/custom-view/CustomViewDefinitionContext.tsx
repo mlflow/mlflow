@@ -188,11 +188,15 @@ export const useCustomViewDefinitionState = (
   // no saved views this is a no-op (the host renders its create-first-view
   // authoring empty state instead). Skip once the user has diverged (draft,
   // delete, explicit selection) so we never steal a later empty state.
+  // Set synchronously by `startNewView`: a child's effect (e.g. the drawer's create intent) can
+  // start a draft in the same commit, before this effect sees the `isDraft` state update.
+  const draftStartedRef = useRef(false);
   useEffect(() => {
     if (
       !autoSelectFirstView ||
       !isLoaded ||
       hasLocalEditsRef.current ||
+      draftStartedRef.current ||
       isDraft ||
       activeViewIdRef.current !== undefined
     ) {
@@ -255,6 +259,7 @@ export const useCustomViewDefinitionState = (
       if (!canPersist || hasReachedViewLimit) {
         return;
       }
+      draftStartedRef.current = true;
       setSaveError(undefined);
       setDraftName(name);
       setIsDraft(true);
