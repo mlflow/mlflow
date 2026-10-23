@@ -147,6 +147,55 @@ def invoke_issue_detection_job(
     )
 
 
+def _create_scheduled_run(
+    client: MlflowClient,
+    experiment_id: str,
+    categories: list[str],
+    model: str | None,
+    total_traces: int,
+) -> str:
+    """
+    Create the run that records one scheduled occurrence.
+
+    Every occurrence that fires records one, including an occurrence that found nothing to analyze:
+    without a run there is no way for an experiment's owner to tell a schedule that fired over a
+    quiet window from one that never fired at all.
+    """
+    tags = {
+        MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_ISSUE_DETECTION,
+        MLFLOW_ISSUE_DETECTION_TRIGGER: MLFLOW_ISSUE_DETECTION_TRIGGER_SCHEDULE,
+        "categories": ",".join(categories),
+        "model": model or DEFAULT_MODEL,
+        # Stringified because create_run stores tag values verbatim, unlike the fluent
+        # start_run the manual path uses, which coerces them.
+        "total_traces": str(total_traces),
+    }
+    # The same tag the manual path sets from the submitting handler. Without it the Issues tab
+    # cannot poll this run's job: it treats a RUNNING detection run carrying no job id as a
+    # submission that never started, so a scheduled run would vanish from the tab after a couple
+    # of minutes and let someone start a second one over the top of it. Read from the environment
+    # because nothing passes the id into a running job.
+    if job_id := os.environ.get(MLFLOW_SERVER_JOB_ID_ENV_VAR):
+        tags[MLFLOW_ISSUE_DETECTION_JOB_ID] = job_id
+    return client.create_run(experiment_id=experiment_id, tags=tags).info.run_id
+
+
+def _record_quiet_occurrence(
+    client: MlflowClient, experiment_id: str, categories: list[str], model: str | None
+) -> str:
+    """
+    Record an occurrence that had nothing to analyze: a finished run over zero traces.
+
+    No traces are linked and the model is never called, so the occurrence costs nothing beyond the
+    run itself. It carries the same tags as any other scheduled run, so a reader needs no special
+    case to list it -- a ``total_traces`` of zero is what distinguishes it.
+    """
+    run_id = _create_scheduled_run(client, experiment_id, categories, model, total_traces=0)
+    client.set_tag(run_id, "total_cost_usd", 0.0)
+    client.set_terminated(run_id, RunStatus.to_string(RunStatus.FINISHED))
+    return run_id
+
+
 @job(
     name="scheduled_issue_detection",
     max_workers=MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS.get(),
@@ -166,9 +215,10 @@ def run_scheduled_issue_detection_job(
     """
     Run one scheduled occurrence over the traces in its window.
 
-    Unlike the manual path, which is handed the traces a user selected and a run created up front,
-    this samples its own traces and creates the run only once it knows there is something to
-    analyze -- an occurrence over a quiet window should leave no empty run behind.
+    Unlike the manual path, which is handed the traces a user selected, this samples its own
+    traces from the window. Every occurrence records a run either way: an occurrence that found
+    nothing to analyze leaves a finished run over zero traces behind, since a schedule that fired
+    over a quiet window and a schedule that never fired are otherwise indistinguishable.
 
     The watermark advances only after the run finishes, and to the newest trace in the *window*
     rather than the newest trace sampled: traces this occurrence was entitled to see and did not
@@ -186,6 +236,7 @@ def run_scheduled_issue_detection_job(
     """
     window = SampleWindow(lower_bound_ms=window_lower_bound_ms, now_ms=window_upper_bound_ms)
     window_clause = window.to_filter_clause()
+    client = MlflowClient()
 
     # Deliberately the window alone, without the schedule's clauses: they scope what this
     # occurrence analyzes, not how far it covered. Applying them here too would stall the
@@ -193,60 +244,47 @@ def run_scheduled_issue_detection_job(
     # occurrence to re-scan the same stretch until the stale cap cut it off.
     newest = _newest_trace_matching(experiment_id, window_clause)
     if newest is None:
+        run_id = _record_quiet_occurrence(client, experiment_id, categories, model)
         _logger.info(
-            "Scheduled issue detection found no traces for experiment %s in %s; "
-            "leaving its watermark where it is",
+            "Scheduled issue detection found no traces for experiment %s in %s; recorded run %s "
+            "over zero traces and left its watermark where it is",
             experiment_id,
             window_clause,
+            run_id,
         )
-        return {"traces_in_window": 0}
+        return {"traces_in_window": 0, "run_id": run_id}
 
     filter_string = " AND ".join(filter(None, [window_clause, trace_filter]))
     traces = sample_traces(
         MAX_SCHEDULED_SAMPLE_SIZE,
         search_kwargs={"experiment_ids": [experiment_id], "filter_string": filter_string},
     )
-    client = MlflowClient()
     if not traces:
-        # Nothing matched, so there is nothing to analyze and no run worth leaving behind -- but
-        # the occurrence did cover its window, so the watermark still moves past it.
+        # Nothing matched, so there is nothing to analyze -- but the occurrence did cover its
+        # window, so the watermark still moves past it.
+        run_id = _record_quiet_occurrence(client, experiment_id, categories, model)
         _logger.info(
-            "Scheduled issue detection sampled no traces for experiment %s in %s; "
-            "advancing its watermark across the window regardless",
+            "Scheduled issue detection sampled no traces for experiment %s in %s; recorded run %s "
+            "over zero traces and advanced its watermark across the window regardless",
             experiment_id,
             filter_string,
+            run_id,
         )
-        if checkpoint := advance_checkpoint(newest):
+        if checkpoint := advance_checkpoint(newest, run_id=run_id):
             write_detection_checkpoint(client, experiment_id, checkpoint)
-        return {"traces_in_window": 0}
+        return {"traces_in_window": 0, "run_id": run_id}
 
-    tags = {
-        MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_ISSUE_DETECTION,
-        MLFLOW_ISSUE_DETECTION_TRIGGER: MLFLOW_ISSUE_DETECTION_TRIGGER_SCHEDULE,
-        "categories": ",".join(categories),
-        "model": model or DEFAULT_MODEL,
-        # Stringified because create_run stores tag values verbatim, unlike the fluent
-        # start_run the manual path uses, which coerces them.
-        "total_traces": str(len(traces)),
-    }
-    # The same tag the manual path sets from the submitting handler. Without it the Issues tab
-    # cannot poll this run's job: it treats a RUNNING detection run carrying no job id as a
-    # submission that never started, so a scheduled run would vanish from the tab after a couple
-    # of minutes and let someone start a second one over the top of it. Read from the environment
-    # because nothing passes the id into a running job.
-    if job_id := os.environ.get(MLFLOW_SERVER_JOB_ID_ENV_VAR):
-        tags[MLFLOW_ISSUE_DETECTION_JOB_ID] = job_id
-    run = client.create_run(experiment_id=experiment_id, tags=tags)
+    run_id = _create_scheduled_run(client, experiment_id, categories, model, len(traces))
     result = _detect_issues_into_run(
         client,
         experiment_id,
         [trace.info.trace_id for trace in traces],
         categories,
-        run.info.run_id,
+        run_id,
         model,
         instructions,
     )
     # Only now that the run has finished does the window count as covered.
-    if checkpoint := advance_checkpoint(newest, run_id=run.info.run_id):
+    if checkpoint := advance_checkpoint(newest, run_id=run_id):
         write_detection_checkpoint(client, experiment_id, checkpoint)
-    return result | {"traces_in_window": len(traces), "run_id": run.info.run_id}
+    return result | {"traces_in_window": len(traces), "run_id": run_id}

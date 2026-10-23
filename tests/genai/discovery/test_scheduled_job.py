@@ -53,11 +53,12 @@ def test_job_has_metadata_and_is_exclusive_per_experiment():
     assert metadata.exclusive == ["experiment_id"]
 
 
-def test_an_empty_window_creates_no_run_and_leaves_the_watermark_alone(client):
+def test_an_empty_window_records_a_finished_run_and_leaves_the_watermark_alone(client):
     with (
         mock.patch("mlflow.genai.discovery.job.MlflowClient", return_value=client),
         mock.patch("mlflow.genai.discovery.job._newest_trace_matching", return_value=None),
         mock.patch("mlflow.genai.discovery.job.sample_traces") as sample,
+        mock.patch("mlflow.genai.discovery.job.discover_issues") as discover,
     ):
         result = run_scheduled_issue_detection_job(
             experiment_id="exp-1",
@@ -66,13 +67,23 @@ def test_an_empty_window_creates_no_run_and_leaves_the_watermark_alone(client):
             categories=CATEGORIES,
         )
 
-    assert result == {"traces_in_window": 0}
-    client.create_run.assert_not_called()
+    # A quiet window still leaves a run behind: "fired and found nothing" has to be
+    # distinguishable from "never fired". Nothing is analyzed, so the model is never called.
+    assert result == {"traces_in_window": 0, "run_id": "run-scheduled"}
+    tags = client.create_run.call_args.kwargs["tags"]
+    assert tags["total_traces"] == "0"
+    assert tags[MLFLOW_RUN_TYPE] == MLFLOW_RUN_TYPE_ISSUE_DETECTION
+    assert tags[MLFLOW_ISSUE_DETECTION_TRIGGER] == "schedule"
+    client.set_terminated.assert_called_once_with(
+        "run-scheduled", RunStatus.to_string(RunStatus.FINISHED)
+    )
+    discover.assert_not_called()
+    client.link_traces_to_run.assert_not_called()
     client.set_experiment_tag.assert_not_called()
     sample.assert_not_called()
 
 
-def test_a_window_whose_sample_comes_back_empty_creates_no_run(client):
+def test_a_window_whose_sample_comes_back_empty_records_a_run_over_zero_traces(client):
     with (
         mock.patch("mlflow.genai.discovery.job.MlflowClient", return_value=client),
         mock.patch(
@@ -89,11 +100,13 @@ def test_a_window_whose_sample_comes_back_empty_creates_no_run(client):
             categories=CATEGORIES,
         )
 
-    assert result == {"traces_in_window": 0}
-    client.create_run.assert_not_called()
+    assert result == {"traces_in_window": 0, "run_id": "run-scheduled"}
+    assert client.create_run.call_args.kwargs["tags"]["total_traces"] == "0"
     sample.assert_called_once()
-    # The window was still covered, so the watermark moves even though no run was recorded.
-    assert write_checkpoint.call_args.args[2].last_scanned_trace_time_ms == WINDOW_UPPER_MS - 1
+    # The window was still covered, so the watermark moves, and it names the run that covered it.
+    checkpoint = write_checkpoint.call_args.args[2]
+    assert checkpoint.last_scanned_trace_time_ms == WINDOW_UPPER_MS - 1
+    assert checkpoint.last_run_id == "run-scheduled"
 
 
 def test_a_successful_occurrence_records_a_run_and_advances_the_watermark(client):
@@ -367,8 +380,9 @@ def test_a_window_whose_traces_all_fail_the_filter_still_advances_the_watermark(
             trace_filter="tags.`team` = 'search'",
         )
 
-    # No run and no analysis for an empty sample, but the watermark moves to the window's newest.
+    # No analysis for an empty sample -- but a run records that the occurrence happened, and the
+    # watermark moves to the window's newest.
     discover.assert_not_called()
-    client.create_run.assert_not_called()
-    assert result == {"traces_in_window": 0}
+    assert client.create_run.call_args.kwargs["tags"]["total_traces"] == "0"
+    assert result == {"traces_in_window": 0, "run_id": "run-scheduled"}
     assert write_checkpoint.call_args.args[2].last_scanned_trace_time_ms == newest.time_ms
