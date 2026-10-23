@@ -302,14 +302,17 @@ describe('ExperimentEvaluationRunsTable baseline', () => {
 });
 
 describe('ExperimentEvaluationRunsTable metric cells', () => {
-  test('rounds metric values to four decimal places in the cell and keeps the full value in its title', () => {
+  test('rounds metric values to four decimal places in the cell and shows the full value in a tooltip', async () => {
     renderTable({
       data: [withAccuracy('run-1', 0.123456789)],
       uniqueColumns: [metricColumn],
       enableNewEvalRunsUi: true,
     });
 
-    expect(screen.getByText('0.1235')).toHaveAttribute('title', '0.123456789');
+    const cell = screen.getByText('0.1235');
+    expect(cell).not.toHaveAttribute('title');
+    await userEvent.hover(cell);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('0.123456789');
   });
 
   test('flag off: metric values keep their full precision', () => {
@@ -634,7 +637,7 @@ describe('ExperimentEvaluationRunsTable group rows', () => {
     expect(await screen.findByRole('tooltip')).toHaveTextContent(`Scorers: ${digest} (partial: 2 of 3)`);
   });
 
-  test('keeps the full group average in the title', () => {
+  test('shows the full group average in a tooltip', async () => {
     renderTable({
       data: [{ ...group, subRuns: [withAccuracy('group-1', 0.1), withAccuracy('group-2', 0.2)] }],
       uniqueColumns: [metricColumn],
@@ -642,7 +645,8 @@ describe('ExperimentEvaluationRunsTable group rows', () => {
       enableNewEvalRunsUi: true,
     });
 
-    expect(screen.getByText('0.15').closest('[title]')).toHaveAttribute('title', String((0.1 + 0.2) / 2));
+    await userEvent.hover(screen.getByText('0.15'));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(String((0.1 + 0.2) / 2));
   });
 
   test('flag off: group rows keep the legacy label-only row without a background', () => {
