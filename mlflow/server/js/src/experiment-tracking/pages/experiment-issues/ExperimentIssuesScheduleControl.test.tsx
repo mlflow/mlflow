@@ -17,6 +17,10 @@ interface SavedTag {
 let experimentTags: SavedTag[];
 let written: SavedTag[];
 let saveFails: boolean;
+/** Key of a tag whose write should fail, to exercise a partial save. */
+let failWriteOfTag: string | null;
+/** Set to fail the experiment read, which is how a load failure is exercised. */
+let loadFails: boolean;
 let scheduledDetectionEnabled: boolean;
 let gatewayEndpoints: { name: string }[];
 let gatewaySecrets: { secret_id: string; secret_name: string; provider: string }[];
@@ -34,13 +38,18 @@ const server = setupServer(
     ),
   ),
   rest.get('*/ajax-api/2.0/mlflow/experiments/get', (_req, res, ctx) =>
-    res(ctx.json({ experiment: { experiment_id: '1', name: 'exp', tags: experimentTags } })),
+    loadFails
+      ? res(ctx.status(500), ctx.json({ message: 'nope' }))
+      : res(ctx.json({ experiment: { experiment_id: '1', name: 'exp', tags: experimentTags } })),
   ),
   rest.post('*/ajax-api/2.0/mlflow/experiments/set-experiment-tag', async (req, res, ctx) => {
     if (saveFails) {
       return res(ctx.status(500), ctx.json({ message: 'nope' }));
     }
     const body = (await req.json()) as SavedTag;
+    if (failWriteOfTag === body.key) {
+      return res(ctx.status(500), ctx.json({ message: 'nope' }));
+    }
     written.push({ key: body.key, value: body.value });
     return res(ctx.json({}));
   }),
@@ -124,6 +133,8 @@ describe('ExperimentIssuesScheduleControl', () => {
     experimentTags = [];
     written = [];
     saveFails = false;
+    failWriteOfTag = null;
+    loadFails = false;
     scheduledDetectionEnabled = true;
     gatewayEndpoints = [];
     gatewaySecrets = [];
@@ -539,5 +550,80 @@ describe('ExperimentIssuesScheduleControl', () => {
 
     expect(await screen.findByRole('combobox', { name: /cadence/i })).toHaveTextContent('Daily');
     expect(await screen.findByRole('checkbox', { name: UNATTENDED_RUN_APPROVAL })).toBeChecked();
+  });
+
+  test('the filters are stored before the cadence that activates them', async () => {
+    const user = setup();
+    render();
+    await openModal(user);
+    await chooseCadence(user, 'Daily');
+    await user.click(await screen.findByRole('button', { name: 'Add filter' }));
+    await user.type(await screen.findByRole('textbox', { name: 'Filter key' }), 'environment');
+    await user.type(await screen.findByRole('textbox', { name: 'Filter value' }), 'production');
+    await approveUnattendedRun(user);
+    await save(user);
+
+    await waitFor(() => expect(written).toHaveLength(2));
+    // The cadence is what makes the dispatcher pick the schedule up, so it must land last: written
+    // first, a failed second write or a poll in between could run against clauses not yet stored.
+    expect(written.map(({ key }) => key)).toEqual([
+      MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG,
+      MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG,
+    ]);
+  });
+
+  test('a schedule is not activated when its filters cannot be stored', async () => {
+    failWriteOfTag = MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG;
+    const user = setup();
+    render();
+    await openModal(user);
+    await chooseCadence(user, 'Daily');
+    await approveUnattendedRun(user);
+    await save(user);
+
+    expect(await screen.findByText(/Couldn't save the schedule/)).toBeInTheDocument();
+    // Nothing was activated, so no run can happen under clauses that were never stored.
+    expect(written).toEqual([]);
+  });
+
+  test('a clause the server cannot match on is rejected instead of saved', async () => {
+    const user = setup();
+    render();
+    await openModal(user);
+    await chooseCadence(user, 'Daily');
+    await user.click(await screen.findByRole('button', { name: 'Add filter' }));
+    await user.type(await screen.findByRole('textbox', { name: 'Filter key' }), 'team');
+    await user.type(await screen.findByRole('textbox', { name: 'Filter value' }), "o'brien");
+    await approveUnattendedRun(user);
+    await save(user);
+
+    expect(await screen.findByText(/cannot match on it/)).toBeInTheDocument();
+    // Nothing is stored, so the modal never shows a filter that every run would ignore.
+    expect(written).toEqual([]);
+
+    // Correcting the value clears the message and lets the save through.
+    await user.clear(await screen.findByRole('textbox', { name: 'Filter value' }));
+    await user.type(await screen.findByRole('textbox', { name: 'Filter value' }), 'obrien');
+    await save(user);
+    await waitFor(() =>
+      expect(savedTraceFilters()).toEqual([{ field: 'metadata', operator: '=', key: 'team', value: 'obrien' }]),
+    );
+  });
+
+  test('a schedule that could not be read is not editable, and offers a retry', async () => {
+    loadFails = true;
+    const user = setup();
+    render();
+
+    // Opening the modal against a failed read would show "Off" with no filters, and saving that
+    // would replace whatever is really stored.
+    expect(await screen.findByRole('button', { name: /retry schedule/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /schedule detection/i })).not.toBeInTheDocument();
+
+    loadFails = false;
+    experimentTags = [scheduleTag('weekly')];
+    await user.click(await screen.findByRole('button', { name: /retry schedule/i }));
+
+    expect(await screen.findByRole('button', { name: /scheduled: weekly/i })).toBeInTheDocument();
   });
 });
