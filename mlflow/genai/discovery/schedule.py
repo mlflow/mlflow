@@ -48,8 +48,9 @@ MAX_TRACE_FILTERS = 20
 
 # A clause is spliced into a ``search_traces`` filter string, where a backtick or quote would
 # either break the expression or change which traces it matches. Such a clause is dropped rather
-# than escaped: the filter grammar has no documented escape, and a run that silently analyzed the
-# wrong traces would be worse than one that ignored a clause nobody can express.
+# than escaped: the filter grammar has no escape -- doubling a quote yields a value containing
+# both characters rather than one -- and a run that silently analyzed the wrong traces would be
+# worse than one that ignored a clause nobody can express.
 _FORBIDDEN_FILTER_CHARS = "`'\"\\"
 
 # Upper bound on a stored provider, model or endpoint name. The tag is client-written, so the
@@ -210,15 +211,25 @@ def _parse_envelope(raw_value: str | None) -> dict[str, Any] | None:
 def _parse_trace_filter(entry: object) -> ScheduleTraceFilter | None:
     if not isinstance(entry, dict):
         return None
-    field = entry.get("field")
+    # Anything that is not "tag" reads as request metadata, as it does in the tab: a clause
+    # written before this field existed, or naming a namespace this server does not know, is
+    # applied rather than dropped, since dropping it would widen what the occurrence analyzes.
+    field: Literal["metadata", "tag"] = "tag" if entry.get("field") == "tag" else "metadata"
     key = entry.get("key")
-    value = entry.get("value")
-    if field not in ("metadata", "tag"):
+    if not isinstance(key, str):
         return None
-    if not isinstance(key, str) or not isinstance(value, str) or not key:
+    # Trimmed, and a key that is blank once trimmed is no clause at all. Left untrimmed it would
+    # build a filter on a padded key, which matches nothing and silently analyzes nothing.
+    key = key.strip()
+    if not key:
         return None
-    # Only equality exists today. An unknown operator is dropped rather than coerced to "=", which
-    # would analyze a wider set of traces than the clause asked for.
+    # A missing or non-text value reads as the empty string, matching the tab, rather than
+    # dropping the clause.
+    raw_value = entry.get("value")
+    value = raw_value if isinstance(raw_value, str) else ""
+    # Only equality exists today. An unknown operator is dropped rather than coerced to "=":
+    # coercing, say, "!=" would analyze a set disjoint from the one the clause asked for, which
+    # hides exactly the traces it was written to select.
     if entry.get("operator", "=") != "=":
         return None
     if any(char in key or char in value for char in _FORBIDDEN_FILTER_CHARS):

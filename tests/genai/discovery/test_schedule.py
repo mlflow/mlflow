@@ -161,10 +161,9 @@ def test_no_clauses_make_an_empty_filter_string():
 @pytest.mark.parametrize(
     "entry",
     [
-        {"field": "span", "key": "k", "value": "v"},
         {"field": "metadata", "key": "", "value": "v"},
+        {"field": "metadata", "key": "   ", "value": "v"},
         {"field": "metadata", "key": 7, "value": "v"},
-        {"field": "metadata", "key": "k", "value": None},
         {"field": "metadata", "key": "k", "value": "v", "operator": "!="},
         {"field": "metadata", "key": "k`", "value": "v"},
         {"field": "metadata", "key": "k", "value": "v' OR '1' = '1"},
@@ -175,6 +174,25 @@ def test_no_clauses_make_an_empty_filter_string():
 )
 def test_a_clause_this_server_cannot_apply_is_dropped(entry: object):
     assert parse_trace_filters(json.dumps([entry])) == ()
+
+
+@pytest.mark.parametrize(
+    ("entry", "expected"),
+    [
+        # Read the way the tab reads them rather than dropped: an unknown or missing namespace is
+        # request metadata, a missing or non-text value is empty, and a padded key is trimmed.
+        ({"key": "env", "value": "prod"}, "request_metadata.`env` = 'prod'"),
+        ({"field": "span", "key": "env", "value": "prod"}, "request_metadata.`env` = 'prod'"),
+        ({"field": "tag", "key": "  team  ", "value": "search"}, "tags.`team` = 'search'"),
+        ({"field": "tag", "key": "team"}, "tags.`team` = ''"),
+        ({"field": "tag", "key": "team", "value": None}, "tags.`team` = ''"),
+        ({"field": "tag", "key": "team", "value": 7}, "tags.`team` = ''"),
+    ],
+)
+def test_a_clause_the_tab_would_keep_is_kept(entry: object, expected: str):
+    parsed = parse_trace_filters(json.dumps([entry]))
+    assert len(parsed) == 1
+    assert parsed[0].to_filter_clause() == expected
 
 
 def test_a_dropped_clause_does_not_discard_the_usable_ones():
