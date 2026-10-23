@@ -34,8 +34,9 @@ def test_anything_unreadable_means_every_category_and_no_instructions(raw_value:
 
 
 def test_saved_instructions_are_read_as_written():
+    saved = dict.fromkeys(DEFAULT_CATEGORIES, True) | {"cost": False}
     settings = parse_detection_settings(
-        json.dumps({"instructions": "  watch the checkout flow  ", "categories": {"cost": False}})
+        json.dumps({"instructions": "  watch the checkout flow  ", "categories": saved})
     )
     assert settings.instructions == "  watch the checkout flow  "
     assert "cost" not in settings.categories
@@ -57,15 +58,17 @@ def test_non_text_instructions_read_as_none_saved(instructions: object):
 
 
 def test_a_deselected_category_is_dropped():
-    settings = parse_detection_settings(json.dumps({"categories": {"cost": False}}))
-    assert "cost" not in settings.categories
-    assert set(settings.categories) == set(ALL_CATEGORIES) - {"cost"}
+    # The shape the tab writes: every built-in, with the unticked ones false.
+    saved = dict.fromkeys(DEFAULT_CATEGORIES, True) | {"cost": False}
+    settings = parse_detection_settings(json.dumps({"categories": saved}))
+    assert settings.categories == tuple(c for c in ALL_CATEGORIES if c != "cost")
 
 
-def test_a_built_in_the_tag_does_not_mention_stays_selected():
-    # A category added after the owner last saved is not a decision they made.
+def test_only_the_categories_the_tag_selects_are_used():
+    # Read as the tab reads it: a built-in the tag does not mention is not selected. A category
+    # added to the product after the owner last saved is therefore off until they save again.
     settings = parse_detection_settings(json.dumps({"categories": {"correctness": True}}))
-    assert settings.categories == ALL_CATEGORIES
+    assert settings.categories == ("correctness",)
 
 
 def test_deselecting_everything_still_means_every_category():
@@ -79,26 +82,46 @@ def test_a_custom_category_is_kept():
     settings = parse_detection_settings(
         json.dumps({"categories": {"  checkout flow  ": True, "cost": False}})
     )
-    assert "checkout flow" in settings.categories
-    assert "cost" not in settings.categories
+    assert settings.categories == ("checkout flow",)
+
+
+def test_a_mixed_selection_reads_the_same_as_the_tab_reads_it():
+    # The same input the tab's own tests pin: one deselected built-in, one selected custom area
+    # and one deselected custom area. Only the selected key is used, so this server and the
+    # browser hand the pipeline the same list.
+    settings = parse_detection_settings(
+        json.dumps({
+            "categories": {"correctness": False, "Authentication": True, "Formatting": False}
+        })
+    )
+    assert settings.categories == ("Authentication",)
+
+
+def test_a_repeated_category_is_selected_once():
+    settings = parse_detection_settings(
+        json.dumps({"categories": {"cost": True, "  cost  ": True}})
+    )
+    assert settings.categories == ("cost",)
 
 
 @pytest.mark.parametrize("selected", ["true", 1, None, [], {}])
-def test_a_non_boolean_selection_leaves_the_category_as_it_was(selected: object):
-    settings = parse_detection_settings(json.dumps({"categories": {"cost": selected}}))
-    assert "cost" in settings.categories
+def test_a_non_boolean_selection_is_not_a_selection(selected: object):
+    settings = parse_detection_settings(
+        json.dumps({"categories": {"correctness": True, "cost": selected}})
+    )
+    assert settings.categories == ("correctness",)
 
 
 def test_a_blank_category_name_is_ignored():
-    settings = parse_detection_settings(json.dumps({"categories": {"   ": True, "cost": False}}))
-    assert settings.categories == tuple(c for c in ALL_CATEGORIES if c != "cost")
+    settings = parse_detection_settings(json.dumps({"categories": {"   ": True, "cost": True}}))
+    assert settings.categories == ("cost",)
 
 
 def test_settings_are_read_from_the_experiment_tag():
     experiment = _experiment({
         MLFLOW_ISSUE_DETECTION_PRIORITIES: json.dumps({
             "instructions": "watch the checkout flow",
-            "categories": {"safety": False},
+            "categories": dict.fromkeys(DEFAULT_CATEGORIES, True) | {"safety": False},
         })
     })
     settings = read_detection_settings(experiment)
