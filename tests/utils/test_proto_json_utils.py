@@ -639,6 +639,69 @@ def test_cast_df_types_according_to_schema_error_message(dataframe, schema, erro
 
 
 @pytest.mark.parametrize(
+    ("pandas_orient", "data"),
+    [
+        ("split", {"columns": ["foo"], "data": [[True], [None], [False]]}),
+        ("records", [{"foo": True}, {"foo": None}, {"foo": False}]),
+        ("records", [{"foo": True}, {}, {"foo": False}]),
+    ],
+)
+def test_dataframe_from_parsed_json_keeps_missing_booleans(pandas_orient, data):
+    schema = Schema([ColSpec(DataType.boolean, "foo", required=False)])
+    df = dataframe_from_parsed_json(data, pandas_orient, schema)
+    values = df["foo"].tolist()
+    assert values[0] is True
+    assert pd.isna(values[1])
+    assert values[2] is False
+
+
+@pytest.mark.parametrize(
+    ("data_type", "value", "expected"),
+    [
+        (DataType.boolean, True, True),
+        (DataType.string, "a", "a"),
+        (DataType.binary, "a", b"a"),
+    ],
+)
+@pytest.mark.parametrize("key", ["inputs", "instances"])
+def test_parse_tf_serving_input_keeps_missing_values(data_type, value, expected, key):
+    schema = Schema([ColSpec(data_type, "foo", required=False), ColSpec(DataType.long, "bar")])
+    data = (
+        {"foo": [value, None], "bar": [1, 2]}
+        if key == "inputs"
+        else [{"foo": value, "bar": 1}, {"foo": None, "bar": 2}]
+    )
+    result = parse_tf_serving_input({key: data}, schema)
+    assert result["foo"].tolist() == [expected, None]
+
+
+@pytest.mark.parametrize(
+    ("pandas_orient", "data"),
+    [
+        ("split", {"columns": ["foo"], "data": [[1.5], [None], [0]]}),
+        ("records", [{"foo": "true"}, {}, {"foo": False}]),
+    ],
+)
+def test_dataframe_from_parsed_json_converts_non_null_booleans_with_missing_values(
+    pandas_orient, data
+):
+    schema = Schema([ColSpec(DataType.boolean, "foo", required=False)])
+    df = dataframe_from_parsed_json(data, pandas_orient, schema)
+    values = df["foo"].tolist()
+    assert values[0] is True
+    assert pd.isna(values[1])
+    assert values[2] is False
+
+
+@pytest.mark.parametrize("data_type", [DataType.boolean, DataType.string, DataType.binary])
+def test_parse_tf_serving_input_rejects_nested_values_with_missing_values(data_type):
+    schema = Schema([ColSpec(data_type, "foo", required=False), ColSpec(DataType.long, "bar")])
+    data = {"foo": [["a"], None], "bar": [1, 2]}
+    with pytest.raises(MlflowException, match="setting an array element with a sequence"):
+        parse_tf_serving_input({"inputs": data}, schema)
+
+
+@pytest.mark.parametrize(
     ("data", "schema", "instances_data"),
     [
         ({"query": "sentence"}, Schema([ColSpec(DataType.string, name="query")]), None),
