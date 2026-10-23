@@ -94,7 +94,11 @@ def test_the_first_pass_anchors_a_new_schedule_without_running_it(store, dispatc
     )
 
     assert dispatch(ONE_PM_MS).call_count == 0
-    assert _state(store, experiment_id) == DetectionScheduleState(last_fire_time_ms=ONE_PM_MS)
+    state = _state(store, experiment_id)
+    assert state.last_fire_time_ms == ONE_PM_MS
+    # Anchoring also pins where coverage starts: one cold-start lookback before the first
+    # occurrence's fire time, so a failed first occurrence does not lose its traces.
+    assert state.coverage_floor_ms == ONE_PM_MS + HOUR_MS - FIRST_RUN_LOOKBACK_MS["hourly"]
 
 
 def test_the_occurrence_after_the_anchor_is_dispatched(store, dispatch):
@@ -311,8 +315,8 @@ def test_a_pass_pages_through_more_experiments_than_one_page_holds(store, dispat
         assert dispatch(ONE_PM_MS + HOUR_MS).call_count == 3
 
 
-def test_a_pass_is_bounded(store, dispatch):
-    for index in range(3):
+def test_a_pass_dispatches_no_more_than_the_bound(store, dispatch):
+    for index in range(5):
         _experiment_with(
             store,
             f"exp-{index}",
@@ -323,8 +327,43 @@ def test_a_pass_is_bounded(store, dispatch):
         mock.patch("mlflow.genai.discovery.scheduler._EXPERIMENTS_PAGE_SIZE", 1),
     ):
         dispatch(ONE_PM_MS)
-        assert dispatch(ONE_PM_MS + HOUR_MS).call_count == 2
+        # Which experiments a pass reaches is random, so the bound is asserted on every pass
+        # rather than on a particular one.
+        for pass_index in range(5):
+            assert dispatch(ONE_PM_MS + (pass_index + 1) * HOUR_MS).call_count <= 2
     assert MAX_EXPERIMENTS_PER_PASS > 2
+
+
+def test_every_scheduled_experiment_is_eventually_dispatched_despite_the_bound(store, dispatch):
+    # The regression the bound used to cause: it was applied while paging, so the experiments the
+    # store returned last were never fetched, never shuffled, and never dispatched at all.
+    ids = {
+        _experiment_with(
+            store,
+            f"exp-{index}",
+            **_schedule_tags(DetectionSchedule(cadence=DetectionCadence.HOURLY)),
+        )
+        for index in range(6)
+    }
+    with (
+        mock.patch("mlflow.genai.discovery.scheduler.MAX_EXPERIMENTS_PER_PASS", 2),
+        mock.patch("mlflow.genai.discovery.scheduler._EXPERIMENTS_PAGE_SIZE", 2),
+    ):
+        dispatch(ONE_PM_MS)
+
+        dispatched: set[str] = set()
+        # Each pass dispatches at most the bound, so several are needed; a shuffled subset means
+        # the count needed is probabilistic, and 60 passes makes a miss vanishingly unlikely.
+        for pass_index in range(60):
+            submit_job = dispatch(ONE_PM_MS + (pass_index + 1) * HOUR_MS)
+            assert submit_job.call_count <= 2
+            dispatched.update(
+                call.kwargs["params"]["experiment_id"] for call in submit_job.call_args_list
+            )
+            if dispatched == ids:
+                break
+
+    assert dispatched == ids
 
 
 class _RecordingHuey:
@@ -504,3 +543,19 @@ def test_the_most_recently_saved_key_for_the_provider_is_the_one_used(store, dis
 
     submit_job = dispatch(ONE_PM_MS + HOUR_MS)
     assert submit_job.call_args.kwargs["extra_envs"] == {"OPENAI_API_KEY": "sk-rotated"}
+
+
+def test_a_failed_occurrence_is_covered_again_by_the_next_one(store, dispatch):
+    # The regression: before any run succeeded, each occurrence's window started one interval
+    # before its own fire time, so the stretch a failed occurrence covered was never revisited.
+    _experiment_with(
+        store, "fresh", **_schedule_tags(DetectionSchedule(cadence=DetectionCadence.HOURLY))
+    )
+    dispatch(ONE_PM_MS)
+
+    first = dispatch(ONE_PM_MS + HOUR_MS).call_args.kwargs["params"]
+    # The job failed, so no checkpoint was ever written for this experiment.
+    second = dispatch(ONE_PM_MS + 2 * HOUR_MS).call_args.kwargs["params"]
+
+    assert second["window_lower_bound_ms"] == first["window_lower_bound_ms"]
+    assert second["window_upper_bound_ms"] > first["window_upper_bound_ms"]

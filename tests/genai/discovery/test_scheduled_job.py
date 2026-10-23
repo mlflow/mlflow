@@ -9,8 +9,10 @@ from mlflow.genai.discovery.checkpoint import (
     parse_detection_checkpoint,
 )
 from mlflow.genai.discovery.job import run_scheduled_issue_detection_job
+from mlflow.server.jobs.utils import MLFLOW_SERVER_JOB_ID_ENV_VAR
 from mlflow.utils.mlflow_tags import (
     MLFLOW_ISSUE_DETECTION_CHECKPOINT,
+    MLFLOW_ISSUE_DETECTION_JOB_ID,
     MLFLOW_ISSUE_DETECTION_TRIGGER,
     MLFLOW_RUN_TYPE,
     MLFLOW_RUN_TYPE_ISSUE_DETECTION,
@@ -272,6 +274,52 @@ def test_an_experiment_with_no_saved_priorities_steers_nothing(client):
         )
 
     assert discover.call_args.kwargs["instructions"] is None
+
+
+def test_the_run_carries_the_job_id_so_the_tab_can_poll_it(client, monkeypatch):
+    # Without this the Issues tab treats a RUNNING detection run with no job id as a submission
+    # that never started, drops it after two minutes, and lets a second run start over the top.
+    monkeypatch.setenv(MLFLOW_SERVER_JOB_ID_ENV_VAR, "job-42")
+    with (
+        mock.patch("mlflow.genai.discovery.job.MlflowClient", return_value=client),
+        mock.patch(
+            "mlflow.genai.discovery.job._newest_trace_matching",
+            return_value=CheckpointTrace(trace_id="tr-newest", time_ms=WINDOW_UPPER_MS - 1),
+        ),
+        mock.patch("mlflow.genai.discovery.job.sample_traces", return_value=[_trace("tr-1")]),
+        mock.patch("mlflow.genai.discovery.job.discover_issues", return_value=_result()),
+    ):
+        client._tracing_client.batch_get_traces.return_value = [_trace("tr-1")]
+        run_scheduled_issue_detection_job(
+            experiment_id="exp-1",
+            window_lower_bound_ms=WINDOW_LOWER_MS,
+            window_upper_bound_ms=WINDOW_UPPER_MS,
+            categories=CATEGORIES,
+        )
+
+    assert client.create_run.call_args.kwargs["tags"][MLFLOW_ISSUE_DETECTION_JOB_ID] == "job-42"
+
+
+def test_a_run_outside_a_job_worker_simply_carries_no_job_id(client, monkeypatch):
+    monkeypatch.delenv(MLFLOW_SERVER_JOB_ID_ENV_VAR, raising=False)
+    with (
+        mock.patch("mlflow.genai.discovery.job.MlflowClient", return_value=client),
+        mock.patch(
+            "mlflow.genai.discovery.job._newest_trace_matching",
+            return_value=CheckpointTrace(trace_id="tr-newest", time_ms=WINDOW_UPPER_MS - 1),
+        ),
+        mock.patch("mlflow.genai.discovery.job.sample_traces", return_value=[_trace("tr-1")]),
+        mock.patch("mlflow.genai.discovery.job.discover_issues", return_value=_result()),
+    ):
+        client._tracing_client.batch_get_traces.return_value = [_trace("tr-1")]
+        run_scheduled_issue_detection_job(
+            experiment_id="exp-1",
+            window_lower_bound_ms=WINDOW_LOWER_MS,
+            window_upper_bound_ms=WINDOW_UPPER_MS,
+            categories=CATEGORIES,
+        )
+
+    assert MLFLOW_ISSUE_DETECTION_JOB_ID not in client.create_run.call_args.kwargs["tags"]
 
 
 def test_the_watermark_lookup_ignores_the_schedule_filter(client):
