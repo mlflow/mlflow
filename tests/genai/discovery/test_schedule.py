@@ -17,6 +17,7 @@ from mlflow.genai.discovery.schedule import (
     DetectionScheduleState,
     ScheduleModel,
     ScheduleTraceFilter,
+    _latest_fire_time_ms,
     claim_first_occurrence,
     claim_occurrence,
     due_occurrence_ms,
@@ -571,3 +572,73 @@ def test_surrounding_whitespace_is_trimmed_from_a_stored_identifier():
         })
     )
     assert parsed.model == ScheduleModel(provider="openai", model="gpt-5.6-sol")
+
+
+def _brute_force_latest_fire_time_ms(
+    schedule: DetectionSchedule, at_or_before_ms: int
+) -> int | None:
+    """Walk real fire times from well before the target and keep the last one at or before it."""
+    cursor = at_or_before_ms - 20 * 24 * 60 * 60 * 1000
+    latest = None
+    while (nxt := next_fire_time_ms(schedule, cursor)) <= at_or_before_ms:
+        latest = nxt
+        cursor = nxt
+    return latest
+
+
+@pytest.mark.parametrize(
+    ("zone", "transition_utc"),
+    [
+        # Clocks go back: the wall clock repeats an hour, so a naive candidate is ambiguous.
+        ("Europe/London", (2026, 10, 25, 1)),
+        ("America/New_York", (2026, 11, 1, 6)),
+        # Clocks go forward: the wall clock skips an hour, so a candidate may not exist at all.
+        ("Europe/London", (2026, 3, 29, 1)),
+        # A 30-minute shift rather than an hour, which an hour-granular candidate set can miss.
+        ("Australia/Lord_Howe", (2026, 4, 4, 15, 30)),
+    ],
+)
+@pytest.mark.parametrize(
+    "cadence", [DetectionCadence.HOURLY, DetectionCadence.DAILY, DetectionCadence.WEEKLY]
+)
+def test_the_latest_fire_time_is_found_across_a_dst_transition(zone, transition_utc, cadence):
+    # The candidate set is a fixed window of offsets around the reference, so a DST shift that
+    # moves a candidate relative to the reference could put the real latest fire time outside it.
+    # Swept against a brute-force walk rather than asserted at one instant, since which offset is
+    # the right answer changes through the transition.
+    schedule = DetectionSchedule(cadence=cadence, timezone=zone)
+    transition_ms = _ms("UTC", *transition_utc)
+    for offset_minutes in range(-360, 361, 10):
+        at_or_before_ms = transition_ms + offset_minutes * 60_000
+        assert _latest_fire_time_ms(schedule, at_or_before_ms) == _brute_force_latest_fire_time_ms(
+            schedule, at_or_before_ms
+        ), f"mismatch {offset_minutes:+d} min from the {zone} transition"
+
+
+def test_a_trace_filter_carrying_a_control_character_is_dropped():
+    # The key and value are spliced into a filter expression, so a newline or a null byte would
+    # build a malformed clause.
+    for key, value in [
+        ("team\x00x", "search"),
+        ("team\nx", "search"),
+        ("a\tb", "search"),
+        ("team", "a\x00b"),
+        ("team", "a\nb"),
+    ]:
+        raw = json.dumps([{"field": "tag", "key": key, "value": value}])
+        assert parse_trace_filters(raw) == ()
+    # An ordinary space is not a control character and stays usable.
+    kept = parse_trace_filters(
+        json.dumps([{"field": "tag", "key": "team", "value": "north america"}])
+    )
+    assert kept == (ScheduleTraceFilter(field="tag", key="team", value="north america"),)
+
+
+def test_a_model_naming_neither_an_endpoint_nor_a_provider_and_model_is_rejected():
+    # Every field defaults to "", which would otherwise build the URI ":/".
+    with pytest.raises(ValueError, match="names either an AI Gateway endpoint"):
+        ScheduleModel()
+    with pytest.raises(ValueError, match="names either an AI Gateway endpoint"):
+        ScheduleModel(provider="openai")
+    assert ScheduleModel(endpoint_name="my-endpoint").to_model_uri() == "gateway:/my-endpoint"
+    assert ScheduleModel(provider="OpenAI", model="gpt-5").to_model_uri() == "openai:/gpt-5"
