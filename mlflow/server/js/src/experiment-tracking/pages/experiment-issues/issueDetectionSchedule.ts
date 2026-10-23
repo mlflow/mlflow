@@ -100,13 +100,22 @@ const parseTraceFilter = (entry: unknown): ScheduleTraceFilter | undefined => {
     return undefined;
   }
   const { field, key, value, operator } = entry;
-  if ((field !== 'metadata' && field !== 'tag') || typeof key !== 'string' || typeof value !== 'string') {
+  if (typeof key !== 'string' || key.trim().length === 0) {
     return undefined;
   }
+  // Only equality exists today; an operator this version cannot apply drops the clause rather
+  // than being coerced to '=', which would select a set disjoint from the one it asked for.
   if (operator !== undefined && operator !== '=') {
     return undefined;
   }
-  return { field, operator: '=', key, value };
+  // Anything that is not 'tag' is request metadata, so a clause written before the field existed
+  // still applies; a missing or non-text value reads as empty.
+  return {
+    field: field === 'tag' ? 'tag' : 'metadata',
+    operator: '=',
+    key: key.trim(),
+    value: typeof value === 'string' ? value : '',
+  };
 };
 
 const parseScheduleModel = (entry: unknown): IssueDetectionScheduleModel | undefined => {
