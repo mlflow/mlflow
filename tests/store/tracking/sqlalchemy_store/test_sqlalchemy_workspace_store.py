@@ -2060,6 +2060,27 @@ def test_upsert_dataset_records_is_workspace_scoped(workspace_tracking_store):
         assert records[0].inputs == {"x": 1}
 
 
+def test_upsert_dataset_records_rejects_non_dict_inputs_within_workspace(
+    workspace_tracking_store,
+):
+    with WorkspaceContext("team-records-shape"):
+        exp = workspace_tracking_store.create_experiment("exp-records-shape")
+        dataset = workspace_tracking_store.create_dataset(
+            name="dataset-records-shape",
+            experiment_ids=[exp],
+        )
+
+        with pytest.raises(MlflowException, match="expected a dict, but got list") as excinfo:
+            workspace_tracking_store.upsert_dataset_records(
+                dataset.dataset_id,
+                [{"inputs": [1, 2, 3]}],
+            )
+        assert excinfo.value.error_code == "INVALID_PARAMETER_VALUE"
+
+        records, _ = workspace_tracking_store._load_dataset_records(dataset.dataset_id)
+        assert records == []
+
+
 def test_load_dataset_records_is_workspace_scoped(workspace_tracking_store):
     with WorkspaceContext("team-load-a"):
         exp_a = workspace_tracking_store.create_experiment("exp-load-a")

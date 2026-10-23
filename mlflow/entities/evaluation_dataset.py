@@ -14,19 +14,39 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.datasets_pb2 import Dataset as ProtoDataset
 from mlflow.telemetry.events import DatasetToDataFrameEvent, MergeRecordsEvent
 from mlflow.telemetry.track import record_usage_event
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import GenAiSemconvKey, TraceMetadataKey
 from mlflow.tracking.context import registry as context_registry
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 
 if TYPE_CHECKING:
     import pandas as pd
 
+    from mlflow.entities.span import Span
     from mlflow.entities.trace import Trace
 
 
 SESSION_IDENTIFIER_FIELDS = frozenset({"goal"})
 SESSION_INPUT_FIELDS = frozenset({"persona", "goal", "context", "simulation_guidelines"})
 SESSION_ALLOWED_COLUMNS = SESSION_INPUT_FIELDS | {"expectations", "tags", "source"}
+
+
+def _maybe_wrap_genai_messages(root_span: Span, inputs: Any) -> Any:
+    """Wrap OTel GenAI chat messages as ``{"messages": [...]}`` so they fit a dataset record.
+
+    Dataset record inputs must be a dict, but the OTel GenAI semantic convention stores
+    ``gen_ai.input.messages`` as a bare list of messages. The inputs are wrapped only when they
+    are a non-empty list of messages (each with a string ``role``) that equals the decoded
+    ``gen_ai.input.messages`` attribute of the root span, so lists from other sources are
+    returned unchanged. The messages themselves are not modified.
+    """
+    if (
+        isinstance(inputs, list)
+        and inputs
+        and all(isinstance(m, dict) and isinstance(m.get("role"), str) for m in inputs)
+        and inputs == root_span.get_attribute(GenAiSemconvKey.INPUT_MESSAGES)
+    ):
+        return {"messages": inputs}
+    return inputs
 
 
 class DatasetGranularity(Enum):
@@ -166,6 +186,8 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
 
             root_span = trace.data._get_root_span()
             inputs = root_span.inputs if root_span and root_span.inputs is not None else {}
+            if root_span is not None:
+                inputs = _maybe_wrap_genai_messages(root_span, inputs)
             outputs = root_span.outputs if root_span and root_span.outputs is not None else None
 
             expectations = {}
@@ -358,7 +380,15 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         has_empty_inputs = False
 
         for record in record_dicts:
-            input_keys = set(record.get("inputs", {}).keys())
+            record_inputs = record.get("inputs", {})
+            if not isinstance(record_inputs, dict):
+                raise MlflowException.invalid_parameter_value(
+                    "Invalid 'inputs' type: expected a dict, but got "
+                    f"{type(record_inputs).__name__}. Wrap the value in a dict keyed by "
+                    "your predict_fn's argument names, e.g. {'messages': [...]}."
+                )
+
+            input_keys = set(record_inputs.keys())
             if not input_keys:
                 has_empty_inputs = True
                 continue

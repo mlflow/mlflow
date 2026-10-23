@@ -400,6 +400,7 @@ def create_test_span(
     inputs=None,
     outputs=None,
     span_type=SpanType.UNKNOWN,
+    extra_attributes=None,
 ):
     attributes = {
         "mlflow.spanType": json.dumps(span_type),
@@ -410,6 +411,10 @@ def create_test_span(
 
     if outputs is not None:
         attributes["mlflow.spanOutputs"] = json.dumps(outputs)
+
+    if extra_attributes:
+        for key, value in extra_attributes.items():
+            attributes[key] = json.dumps(value)
 
     otel_span = OTelReadableSpan(
         name=name,
@@ -429,6 +434,7 @@ def create_test_trace(
     expectations=None,
     trace_metadata=None,
     _no_defaults=False,
+    root_span_extra_attributes=None,
 ):
     assessments = []
     if expectations:
@@ -472,6 +478,7 @@ def create_test_trace(
             inputs=span_inputs,
             outputs=span_outputs,
             span_type=SpanType.CHAIN,
+            extra_attributes=root_span_extra_attributes,
         )
     ]
 
@@ -813,3 +820,151 @@ def test_merge_records_does_not_modify_input_records():
         {"team": "eval", MLFLOW_USER: "alice"},
         {MLFLOW_USER: "alice"},
     ]
+
+
+SEMCONV_MESSAGES = [{"role": "user", "parts": [{"type": "text", "content": "hi"}]}]
+
+
+def _new_dataset():
+    return EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+
+
+def test_process_trace_records_wraps_inputs_matching_genai_input_messages():
+    trace = create_test_trace(
+        trace_id="trace1",
+        inputs=SEMCONV_MESSAGES,
+        root_span_extra_attributes={"gen_ai.input.messages": SEMCONV_MESSAGES},
+    )
+
+    record_dicts = _new_dataset()._process_trace_records([trace])
+
+    assert record_dicts[0]["inputs"] == {"messages": SEMCONV_MESSAGES}
+
+
+@pytest.mark.parametrize(
+    ("inputs", "extra_attributes"),
+    [
+        # No gen_ai.input.messages attribute on the root span
+        (SEMCONV_MESSAGES, None),
+        # Inputs came from another source (e.g. OpenInference's input.value)
+        (
+            [{"role": "user", "content": "hi"}],
+            {"gen_ai.input.messages": SEMCONV_MESSAGES},
+        ),
+        # Items that are not message objects
+        (["hi"], {"gen_ai.input.messages": ["hi"]}),
+        # Messages without a string role
+        ([{"content": "hi"}], {"gen_ai.input.messages": [{"content": "hi"}]}),
+        (
+            [{"role": 1, "content": "hi"}],
+            {"gen_ai.input.messages": [{"role": 1, "content": "hi"}]},
+        ),
+        ([], {"gen_ai.input.messages": []}),
+        # Tool call arguments are not chat messages
+        ([{"x": 1}], {"gen_ai.tool.call.arguments": [{"x": 1}]}),
+        ([1, 2, 3], None),
+    ],
+)
+def test_process_trace_records_does_not_wrap_other_list_inputs(inputs, extra_attributes):
+    trace = create_test_trace(
+        trace_id="trace1",
+        inputs=inputs,
+        root_span_extra_attributes=extra_attributes,
+    )
+
+    record_dicts = _new_dataset()._process_trace_records([trace])
+
+    assert record_dicts[0]["inputs"] == inputs
+
+
+def test_process_trace_records_does_not_wrap_string_inputs():
+    trace = create_test_trace(
+        trace_id="trace1",
+        inputs="hello",
+        root_span_extra_attributes={"gen_ai.input.messages": "hello"},
+    )
+
+    record_dicts = _new_dataset()._process_trace_records([trace])
+
+    assert record_dicts[0]["inputs"] == "hello"
+
+
+def test_merge_records_accepts_trace_with_matching_genai_input_messages():
+    trace = create_test_trace(
+        trace_id="trace1",
+        inputs=SEMCONV_MESSAGES,
+        root_span_extra_attributes={"gen_ai.input.messages": SEMCONV_MESSAGES},
+    )
+    mock_store = Mock()
+    mock_store.get_dataset.return_value.schema = None
+
+    with patch("mlflow.tracking._tracking_service.utils._get_store", return_value=mock_store):
+        _new_dataset().merge_records([trace])
+
+    mock_store.upsert_dataset_records.assert_called_once()
+    records = mock_store.upsert_dataset_records.call_args.kwargs["records"]
+    assert records[0]["inputs"] == {"messages": SEMCONV_MESSAGES}
+
+
+def test_merge_records_rejects_trace_with_unmatched_list_inputs():
+    trace = create_test_trace(
+        trace_id="trace1",
+        inputs=[{"role": "user", "content": "hi"}],
+        root_span_extra_attributes={"gen_ai.input.messages": SEMCONV_MESSAGES},
+    )
+    mock_store = Mock()
+    mock_store.get_dataset.return_value.schema = None
+
+    with patch("mlflow.tracking._tracking_service.utils._get_store", return_value=mock_store):
+        with pytest.raises(MlflowException, match="expected a dict, but got list") as exc_info:
+            _new_dataset().merge_records([trace])
+
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+    mock_store.upsert_dataset_records.assert_not_called()
+
+
+def test_merge_records_rejects_non_dict_inputs_with_invalid_parameter_value():
+    dataset = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+
+    mock_store = Mock()
+    mock_store.get_dataset.return_value.schema = None
+
+    with patch("mlflow.tracking._tracking_service.utils._get_store", return_value=mock_store):
+        with pytest.raises(MlflowException, match="expected a dict, but got list") as exc_info:
+            dataset.merge_records([{"inputs": [1, 2, 3]}])
+
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+    assert "[1, 2, 3]" not in str(exc_info.value)
+    mock_store.upsert_dataset_records.assert_not_called()
+
+
+@pytest.mark.parametrize("bad_inputs", ["just a string", 42])
+def test_merge_records_rejects_other_non_dict_inputs(bad_inputs):
+    dataset = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+
+    mock_store = Mock()
+    mock_store.get_dataset.return_value.schema = None
+
+    with patch("mlflow.tracking._tracking_service.utils._get_store", return_value=mock_store):
+        with pytest.raises(MlflowException, match="dict") as exc_info:
+            dataset.merge_records([{"inputs": bad_inputs}])
+
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"

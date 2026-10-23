@@ -3874,6 +3874,28 @@ def test_evaluation_dataset_upsert_records(mlflow_client, store_type):
     assert response.status_code != 200
 
 
+@pytest.mark.parametrize("bad_inputs", [[{"role": "user", "content": "hi-secret"}], "hi-secret"])
+def test_evaluation_dataset_upsert_records_non_dict_inputs_returns_400(
+    mlflow_client, store_type, bad_inputs
+):
+    if store_type == "file":
+        pytest.skip("Evaluation datasets not supported for FileStore")
+
+    experiment_id = mlflow_client.create_experiment("upsert_non_dict_inputs_test")
+    dataset = mlflow_client.create_dataset(name="test_non_dict_inputs", experiment_id=experiment_id)
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/datasets/{dataset.dataset_id}/records",
+        json={"records": json.dumps([{"inputs": bad_inputs}])},
+    )
+
+    assert response.status_code == 400
+    body = response.json()
+    assert body["error_code"] == "INVALID_PARAMETER_VALUE"
+    assert "expected a dict" in body["message"]
+    assert "hi-secret" not in body["message"]
+
+
 def test_add_dataset_to_experiments_rest_tracking(mlflow_client, store_type):
     if store_type == "file":
         pytest.skip("File store doesn't support dataset operations")

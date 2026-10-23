@@ -8290,6 +8290,14 @@ class SqlAlchemyStore(
         Returns:
             Dictionary with counts of inserted and updated records.
         """
+        for i, record_dict in enumerate(records):
+            record_inputs = record_dict.get("inputs", {})
+            if not isinstance(record_inputs, dict):
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid 'inputs' type for record at index {i}: expected a dict, but got "
+                    f"{type(record_inputs).__name__}. Wrap the value in a dict keyed by your "
+                    "predict_fn's argument names, e.g. {'messages': [...]}."
+                )
 
         with self.ManagedSessionMaker(read_only=False) as session:
             self._validate_dataset_accessible(session, dataset_id)
