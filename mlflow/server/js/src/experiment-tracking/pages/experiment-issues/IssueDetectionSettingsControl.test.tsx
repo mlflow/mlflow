@@ -16,10 +16,14 @@ interface SavedTag {
 let experimentTags: SavedTag[];
 let written: SavedTag[];
 let saveFails: boolean;
+/** Set to fail the experiment read, which is how a failed settings load is exercised. */
+let loadFails: boolean;
 
 const server = setupServer(
   rest.get('*/ajax-api/2.0/mlflow/experiments/get', (_req, res, ctx) =>
-    res(ctx.json({ experiment: { experiment_id: '1', name: 'exp', tags: experimentTags } })),
+    loadFails
+      ? res(ctx.status(500), ctx.json({ message: 'nope' }))
+      : res(ctx.json({ experiment: { experiment_id: '1', name: 'exp', tags: experimentTags } })),
   ),
   rest.post('*/ajax-api/2.0/mlflow/experiments/set-experiment-tag', async (req, res, ctx) => {
     if (saveFails) {
@@ -54,6 +58,7 @@ beforeEach(() => {
   experimentTags = [];
   written = [];
   saveFails = false;
+  loadFails = false;
 });
 
 describe('IssueDetectionSettingsControl', () => {
@@ -221,5 +226,44 @@ describe('IssueDetectionSettingsControl', () => {
 
     expect(await screen.findByText('Could not save issue detection settings. Try again.')).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: /Detection priorities/ })).toHaveValue('Worth keeping.');
+  });
+
+  test('a failed settings read offers a retry instead of a dead control', async () => {
+    loadFails = true;
+    render();
+
+    // The error alert lives inside the modal, so a disabled gear with no retry left the settings
+    // unreachable until a remount even after the server recovered.
+    const retry = await screen.findByRole('button', {
+      name: /retry loading issue detection settings/i,
+    });
+    expect(retry).not.toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Issue detection settings' })).not.toBeInTheDocument();
+
+    loadFails = false;
+    experimentTags = [
+      {
+        key: MLFLOW_ISSUE_DETECTION_PRIORITIES_TAG,
+        value: JSON.stringify({ instructions: 'Only report high severity.', categories: {} }),
+      },
+    ];
+    await userEvent.click(retry);
+
+    // Editing is reachable again, and against what is really stored.
+    await userEvent.click(await screen.findByRole('button', { name: 'Issue detection settings' }));
+    expect(await screen.findByRole('textbox', { name: /Detection priorities/ })).toHaveValue(
+      'Only report high severity.',
+    );
+  });
+
+  test('a failed read cannot be saved over', async () => {
+    loadFails = true;
+    render();
+
+    await screen.findByRole('button', { name: /retry loading issue detection settings/i });
+    // No modal to open means no Save, so the defaults shown against a failed read cannot replace
+    // whatever is stored.
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+    expect(written).toEqual([]);
   });
 });

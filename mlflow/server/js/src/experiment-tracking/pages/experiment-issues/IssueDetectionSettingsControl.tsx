@@ -41,6 +41,7 @@ export const IssueDetectionSettingsControl = ({ experimentId }: IssueDetectionSe
     data: settings,
     isLoading: isLoadingSettings,
     error: loadError,
+    refetch: refetchSettings,
     save: saveMutation,
   } = useIssueDetectionSettings(experimentId);
 
@@ -127,15 +128,42 @@ export const IssueDetectionSettingsControl = ({ experimentId }: IssueDetectionSe
 
   return (
     <>
-      <Tooltip componentId={`${COMPONENT_ID}.tooltip`} content={settingsLabel}>
-        <Button
-          componentId={`${COMPONENT_ID}.open`}
-          icon={<GearIcon />}
-          aria-label={settingsLabel}
-          disabled={isLoadingSettings || Boolean(loadError)}
-          onClick={open}
-        />
-      </Tooltip>
+      {loadError ? (
+        // Editing has to stay blocked -- saving the defaults shown against a failed read would
+        // overwrite whatever is really stored -- but the retry has to live out here, because the
+        // modal that would otherwise carry the message is exactly what is being withheld.
+        <Tooltip
+          componentId={`${COMPONENT_ID}.load-failed-tooltip`}
+          content={intl.formatMessage({
+            defaultMessage: "Couldn't read this experiment's issue detection settings. Retry to edit them.",
+            description:
+              'Issue detection settings > Tooltip explaining the settings button could not load and offers a retry',
+          })}
+        >
+          <Button
+            componentId={`${COMPONENT_ID}.retry-load`}
+            icon={<GearIcon />}
+            aria-label={intl.formatMessage({
+              defaultMessage: 'Retry loading issue detection settings',
+              description:
+                'Issue detection settings > Accessible label of the button that retries a failed settings read',
+            })}
+            onClick={() => {
+              void refetchSettings();
+            }}
+          />
+        </Tooltip>
+      ) : (
+        <Tooltip componentId={`${COMPONENT_ID}.tooltip`} content={settingsLabel}>
+          <Button
+            componentId={`${COMPONENT_ID}.open`}
+            icon={<GearIcon />}
+            aria-label={settingsLabel}
+            disabled={isLoadingSettings}
+            onClick={open}
+          />
+        </Tooltip>
+      )}
       <Modal
         componentId={`${COMPONENT_ID}.modal`}
         visible={isOpen}
