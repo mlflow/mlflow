@@ -370,6 +370,37 @@ def test_is_unprotected_route_handles_static_prefix(monkeypatch):
     assert not auth_module.is_unprotected_route("/mlflow/api/2.0/mlflow/users/list")
 
 
+@pytest.mark.parametrize("prefix", ["/static", "/static-ui", "/healthz", "/favicon.ico-app"])
+def test_is_unprotected_route_static_prefix_starting_with_exempt_path(monkeypatch, prefix):
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, prefix)
+    assert not auth_module.is_unprotected_route(f"{prefix}/api/2.0/mlflow/users/create")
+    assert not auth_module.is_unprotected_route(f"{prefix}/ajax-api/3.0/jobs/search")
+    assert not auth_module.is_unprotected_route(f"{prefix}/gateway/my-endpoint/mlflow/invocations")
+    assert auth_module.is_unprotected_route(f"{prefix}/health")
+    assert auth_module.is_unprotected_route(f"{prefix}/static-files/index.html")
+
+
+@pytest.mark.parametrize(
+    "client",
+    [
+        {
+            "MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini",
+            STATIC_PREFIX_ENV_VAR: "/static-ui",
+        }
+    ],
+    indirect=True,
+)
+def test_static_prefix_starting_with_exempt_path_requires_auth(client):
+    base = f"{client.tracking_uri}/static-ui"
+    response = requests.get(f"{base}/api/2.0/mlflow/users/get", params={"username": "admin"})
+    assert response.status_code == 401
+    response = requests.post(
+        f"{base}/api/2.0/mlflow/users/create", json={"username": "probe", "password": "x" * 12}
+    )
+    assert response.status_code == 401
+    assert requests.get(f"{base}/health").status_code == 200
+
+
 def test_find_fastapi_validator_handles_static_prefix(monkeypatch):
     monkeypatch.delenv(STATIC_PREFIX_ENV_VAR, raising=False)
     assert _find_fastapi_validator("/gateway/mlflow/v1/chat/completions", "GET") is not None
