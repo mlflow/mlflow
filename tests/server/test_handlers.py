@@ -5704,6 +5704,8 @@ def test_deprecated_end_trace_v2_handler_drops_immutable_tags(
         tags=[
             TraceTag(key=MLFLOW_ARTIFACT_LOCATION, value="file:///tmp/other"),
             TraceTag(key=TraceTagKey.SPANS_LOCATION, value="archive_repo"),
+            TraceTag(key=TraceTagKey.ARCHIVE_LOCATION, value="file:///tmp/archive"),
+            TraceTag(key=TraceTagKey.ARCHIVAL_FAILURE, value="failed"),
             TraceTag(key="user_tag", value="v"),
         ],
     )
