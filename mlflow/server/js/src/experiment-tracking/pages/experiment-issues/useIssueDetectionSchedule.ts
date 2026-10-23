@@ -21,11 +21,13 @@ export type { IssueDetectionScheduleSetting } from './issueDetectionSchedule';
  * Whether this server can run a schedule at all.
  *
  * Recurring detection needs the job system and its periodic tasks enabled behind a SQL backend
- * store, which `server-info` reports. A server that predates the field is treated as able, so the
- * control is not hidden by an older server that may well be running schedules.
+ * store, which `server-info` reports. Defaults to unavailable when the field is missing or the
+ * read failed: the field ships with the scheduler itself, so a server that does not report it has
+ * no scheduler either. Guessing the other way would offer a control that writes a schedule nothing
+ * ever picks up, which fails silently -- worse than a disabled control that says why.
  */
 export const useScheduledDetectionAvailable = (): boolean =>
-  useFeatureEnabled(SERVER_FEATURE_KEYS.SCHEDULED_ISSUE_DETECTION);
+  useFeatureEnabled(SERVER_FEATURE_KEYS.SCHEDULED_ISSUE_DETECTION, false);
 
 export interface UseIssueDetectionScheduleResult {
   /** Current setting derived from the stored schedule (a paused schedule reads as 'off'). */

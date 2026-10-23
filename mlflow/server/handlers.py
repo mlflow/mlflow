@@ -7810,11 +7810,14 @@ def _get_provider_config():
 
     try:
         provider = request.args.get("provider")
+        # Normalized here rather than relying on `has_env_credentials` to lower-case internally,
+        # which is how a mixed-case provider works today -- by accident rather than by contract.
+        provider_name = provider.lower() if provider else provider
         config = get_provider_config_response(provider)
         # Reported so a client can tell whether this provider needs a key saved at all. A server
         # started with the provider's own environment variable set already has a credential, and
         # asking for another would be asking for one it would not use.
-        config["env_credentials_available"] = has_env_credentials(provider)
+        config["env_credentials_available"] = has_env_credentials(provider_name)
         return jsonify(config)
     except (ImportError, ValueError) as e:
         raise MlflowException(str(e), error_code=INVALID_PARAMETER_VALUE)

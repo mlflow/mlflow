@@ -103,6 +103,8 @@ const render = () => {
 
 const setup = () => userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
 
+const COMPONENT_ID = 'mlflow.experiment-issues.schedule';
+
 const UNATTENDED_RUN_APPROVAL = /I understand that scheduled runs analyze traces and spend unattended/;
 
 const savedSchedule = (): Record<string, unknown> =>
@@ -112,9 +114,11 @@ const savedTraceFilters = (): unknown[] =>
   JSON.parse(written.find(({ key }) => key === MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG)?.value ?? 'null');
 
 const openModal = async (user: ReturnType<typeof setup>, name = /schedule detection/i) => {
-  const trigger = await screen.findByRole('button', { name });
-  await waitFor(() => expect(trigger).not.toBeDisabled());
-  await user.click(trigger);
+  // Re-queried inside the wait rather than captured once: until `server-info` answers, the control
+  // renders its disabled branch, and becoming available swaps in a different button. Waiting on the
+  // element found first would wait forever on a node that has been detached.
+  await waitFor(async () => expect(await screen.findByRole('button', { name })).not.toBeDisabled());
+  await user.click(await screen.findByRole('button', { name }));
   return screen.findByRole('dialog');
 };
 
@@ -478,6 +482,54 @@ describe('ExperimentIssuesScheduleControl', () => {
     ]);
     // The key is referenced by provider, not stored in the schedule, so rotating it keeps running.
     expect(savedSchedule()['model']).toEqual({ provider: 'openai', model: 'gpt-5.6-sol' });
+  });
+
+  test('stores one key when "Continue and save" is clicked again while the first is in flight', async () => {
+    // Each click mints a fresh secret name, so a second one lands a duplicate key for the same
+    // schedule. `loading` hides the button's label but still accepts a click, so the guard has to
+    // be `disabled`. Reproduced by holding the create response open and clicking again before the
+    // first settles -- awaiting the first click instead lets the in-flight state propagate, which
+    // hides the race.
+    envCredentialsAvailable = false;
+    let releaseCreate: () => void = () => {};
+    const createHeld = new Promise<void>((resolve) => {
+      releaseCreate = resolve;
+    });
+    server.use(
+      rest.post('*/ajax-api/3.0/mlflow/gateway/secrets/create', async (req, res, ctx) => {
+        const body = (await req.json()) as (typeof createdSecrets)[number];
+        createdSecrets.push(body);
+        await createHeld;
+        const secret = { secret_id: 'sec-new', secret_name: body.secret_name, provider: body.provider ?? '' };
+        gatewaySecrets = [...gatewaySecrets, secret];
+        return res(ctx.json({ secret }));
+      }),
+    );
+
+    const user = setup();
+    render();
+    await openModal(user);
+    await chooseCadence(user, 'Daily');
+    await approveUnattendedRun(user);
+    await save(user);
+
+    await user.type(await screen.findByTestId('schedule-api-key-input'), 'sk-test-key');
+    const continueAndSave = await screen.findByRole('button', { name: /continue and save/i });
+    const firstClick = user.click(continueAndSave);
+    await waitFor(() => expect(createdSecrets).toHaveLength(1));
+
+    // Found by component id rather than name: the in-flight button hides its label, so its
+    // accessible name no longer matches. This is the node a second click would land on.
+    const inFlight = () =>
+      // eslint-disable-next-line testing-library/no-node-access
+      document.querySelector(`[data-component-id="${COMPONENT_ID}.modal.footer.api-key-continue"]`);
+    expect(inFlight()).toBeDisabled();
+    await user.click(inFlight()!);
+    releaseCreate();
+    await firstClick;
+
+    await waitFor(() => expect(savedSchedule()['cadence']).toBe('daily'));
+    expect(createdSecrets).toHaveLength(1);
   });
 
   test('does not ask for a key when AI Gateway already holds one for the provider', async () => {

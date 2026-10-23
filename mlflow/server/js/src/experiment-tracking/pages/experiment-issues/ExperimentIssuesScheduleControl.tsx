@@ -429,6 +429,13 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
   // Only act on a conclusive answer. A server that does not report its environment credentials, or
   // one whose gateway could not be reached, leaves this unknown -- and a schedule that could be
   // saved before this step existed must not become unsavable because a capability check failed.
+  //
+  // This deliberately treats "the secrets list could not be read" the same as "this server has no
+  // environment credential": both mean nobody can say whether a usable key exists, so the step is
+  // skipped rather than demanding a key that may already be stored. The cost is a schedule saved
+  // without a key, whose first occurrence then fails with a credential error that names the
+  // problem -- visible, and recoverable by saving a key -- rather than a prompt that cannot be
+  // dismissed on a server that was working a moment ago.
   const credentialStateKnown = envCredentialsAvailable !== undefined && !secretsError;
   // Whether the chosen model can run at all. An AI Gateway endpoint carries its own credentials;
   // a provider's model needs either a key saved in AI Gateway or one in the server's environment.
@@ -565,7 +572,9 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
                     componentId={`${COMPONENT_ID}.modal.footer.api-key-continue`}
                     type="primary"
                     loading={isCreatingSecret || isUpdating}
-                    disabled={!apiKeyDraft.trim()}
+                    // `loading` hides the label but still accepts a click, and each click mints a
+                    // fresh secret name, so a double-click would store two keys for one schedule.
+                    disabled={!apiKeyDraft.trim() || isCreatingSecret || isUpdating}
                     onClick={handleContinueAndSave}
                   >
                     {intl.formatMessage({
