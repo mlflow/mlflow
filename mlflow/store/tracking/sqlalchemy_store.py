@@ -1564,8 +1564,12 @@ class SqlAlchemyStore(
                 metric.step,
                 path="" if is_single_metric else f"metrics[{idx}]",
             )
-            _, value = self.sanitize_metric_value(metric.value)
-            sanitized_metrics.append((metric, value))
+            is_nan, value = self.sanitize_metric_value(metric.value)
+            # `logged_model_metrics` has no `is_nan` column (unlike `metrics`), so persist a NaN
+            # as NULL rather than the 0 that `sanitize_metric_value` substitutes for it.
+            # Otherwise a NaN is read back as 0.0 and satisfies numeric filters such as
+            # `metrics.loss < 0.1`.
+            sanitized_metrics.append((metric, None if is_nan else value))
 
         if not sanitized_metrics:
             return
@@ -1608,9 +1612,14 @@ class SqlAlchemyStore(
                         )
                         .all()
                     )
-                    existing_metrics = {m.to_mlflow_entity() for m in existing_metrics}
+                    # Compare rows by their stored columns instead of `Metric` entities, since
+                    # NaN values (stored as NULL) never compare equal once converted back to
+                    # floats.
+                    existing_metrics = {_logged_model_metric_identity(m) for m in existing_metrics}
                     non_existing_metrics = [
-                        m for m in metric_instances if m.to_mlflow_entity() not in existing_metrics
+                        m
+                        for m in metric_instances
+                        if _logged_model_metric_identity(m) not in existing_metrics
                     ]
                     session.add_all(non_existing_metrics)
 
@@ -3818,9 +3827,16 @@ class SqlAlchemyStore(
                 attr_filters.append(comp_func(getattr(SqlLoggedModel, comp.entity.key), value))
             elif comp.entity.type == EntityType.METRIC:
                 has_metric_filters = True
+                value_filter = comp_func(SqlLoggedModelMetric.metric_value, comp.value)
+                if comp.op == "!=":
+                    # NaN metrics are stored as NULL. Every comparison against NaN is false
+                    # except "!=", and SQL evaluates `NULL != x` to NULL.
+                    value_filter = sqlalchemy.or_(
+                        value_filter, SqlLoggedModelMetric.metric_value.is_(None)
+                    )
                 metric_filters = [
                     SqlLoggedModelMetric.metric_name == comp.entity.key,
-                    comp_func(SqlLoggedModelMetric.metric_value, comp.value),
+                    value_filter,
                 ]
                 if dataset_filters:
                     metric_filters.append(sqlalchemy.or_(*dataset_filters))
@@ -10359,6 +10375,19 @@ class SqlAlchemyStore(
                 row.completed_time_ms = now_ms
             session.flush()
             return row.to_mlflow_entity()
+
+
+def _logged_model_metric_identity(metric: SqlLoggedModelMetric) -> tuple[Any, ...]:
+    return (
+        metric.model_id,
+        metric.metric_name,
+        metric.metric_timestamp_ms,
+        metric.metric_step,
+        metric.metric_value,
+        metric.run_id,
+        metric.dataset_name,
+        metric.dataset_digest,
+    )
 
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):

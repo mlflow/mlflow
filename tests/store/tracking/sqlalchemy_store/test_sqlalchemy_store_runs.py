@@ -4325,6 +4325,133 @@ def test_search_logged_models_eager_loads_tags_params_and_metrics(store: SqlAlch
         assert len(child_selects) == 1, f"{table}: {len(child_selects)} SELECTs"
 
 
+def _log_logged_model_metric_values(store: SqlAlchemyStore, values: dict[str, float]):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, run_name="run", tags=[]
+    )
+    models = {}
+    for name, value in values.items():
+        model = store.create_logged_model(experiment_id=exp_id, name=name)
+        store.log_metric(
+            run.info.run_id,
+            Metric("loss", value, timestamp=123, step=0, model_id=model.model_id),
+        )
+        models[name] = model
+    return exp_id, run, models
+
+
+@pytest.mark.parametrize("use_log_batch", [False, True])
+def test_logged_model_metric_preserves_nan_inf_and_finite_values(
+    store: SqlAlchemyStore, use_log_batch
+):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, run_name="run", tags=[]
+    )
+    expected = {
+        "nan": float("nan"),
+        "finite": 0.25,
+        "zero": 0.0,
+        "pos_inf": float("inf"),
+        "neg_inf": float("-inf"),
+    }
+    model_ids = {}
+    for name, value in expected.items():
+        model = store.create_logged_model(experiment_id=exp_id, name=name)
+        model_ids[name] = model.model_id
+        metric = Metric("loss", value, timestamp=123, step=0, model_id=model.model_id)
+        if use_log_batch:
+            store.log_batch(run.info.run_id, metrics=[metric], params=[], tags=[])
+        else:
+            store.log_metric(run.info.run_id, metric)
+
+    values = {}
+    for name, model_id in model_ids.items():
+        (metric,) = store.get_logged_model(model_id).metrics
+        values[name] = metric.value
+    assert math.isnan(values.pop("nan"))
+    # SQL can not represent infinities, so they are clamped to the largest finite 64-bit floats
+    assert values == {
+        "finite": 0.25,
+        "zero": 0.0,
+        "pos_inf": 1.7976931348623157e308,
+        "neg_inf": -1.7976931348623157e308,
+    }
+
+
+def test_logged_model_nan_metric_can_be_logged_again_without_error(store: SqlAlchemyStore):
+    # Logging an identical metric a second time is a no-op; this must hold for NaN too.
+    exp_id, run, models = _log_logged_model_metric_values(store, {"model": float("nan")})
+    model = models["model"]
+    nan_metric = Metric("loss", float("nan"), timestamp=123, step=0, model_id=model.model_id)
+    other_metric = Metric("acc", 0.9, timestamp=123, step=0, model_id=model.model_id)
+    store.log_batch(run.info.run_id, metrics=[nan_metric, other_metric], params=[], tags=[])
+
+    metrics = {m.key: m.value for m in store.get_logged_model(model.model_id).metrics}
+    assert math.isnan(metrics["loss"])
+    assert metrics["acc"] == 0.9
+    assert len(store.get_logged_model(model.model_id).metrics) == 2
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "expected_names"),
+    [
+        # A NaN metric must never satisfy a numeric comparison, in particular not as 0.
+        ("metrics.loss < 0.1", {"good", "neg_inf"}),
+        ("metrics.loss <= 0.05", {"good", "neg_inf"}),
+        ("metrics.loss = 0", set()),
+        ("metrics.loss >= 0", {"good", "bad", "pos_inf"}),
+        ("metrics.loss > 0.1", {"bad", "pos_inf"}),
+        # Like every other store, NaN is the only value for which `!=` always holds.
+        ("metrics.loss != 0", {"nan", "good", "bad", "pos_inf", "neg_inf"}),
+        ("metrics.loss != 0.05", {"nan", "bad", "pos_inf", "neg_inf"}),
+    ],
+)
+def test_search_logged_models_nan_metric_does_not_match_numeric_filters(
+    store: SqlAlchemyStore, filter_string, expected_names
+):
+    exp_id, _, _ = _log_logged_model_metric_values(
+        store,
+        {
+            "nan": float("nan"),
+            "good": 0.05,
+            "bad": 0.5,
+            "pos_inf": float("inf"),
+            "neg_inf": float("-inf"),
+        },
+    )
+    models = store.search_logged_models(experiment_ids=[exp_id], filter_string=filter_string)
+    assert {m.name for m in models} == expected_names
+
+
+@pytest.mark.parametrize(
+    ("ascending", "expected_names"),
+    [
+        (True, ["neg_inf", "good", "bad", "pos_inf", "nan"]),
+        (False, ["pos_inf", "bad", "good", "neg_inf", "nan"]),
+    ],
+)
+def test_search_logged_models_order_by_metric_sorts_nan_last(
+    store: SqlAlchemyStore, ascending, expected_names
+):
+    exp_id, _, _ = _log_logged_model_metric_values(
+        store,
+        {
+            "nan": float("nan"),
+            "good": 0.05,
+            "bad": 0.5,
+            "pos_inf": float("inf"),
+            "neg_inf": float("-inf"),
+        },
+    )
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        order_by=[{"field_name": "metrics.loss", "ascending": ascending}],
+    )
+    assert [m.name for m in models] == expected_names
+
+
 def test_search_runs_returns_outputs(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
 

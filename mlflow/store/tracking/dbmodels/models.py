@@ -1755,7 +1755,8 @@ class SqlLoggedModelMetric(Base):
     def to_mlflow_entity(self) -> Metric:
         return Metric(
             key=self.metric_name,
-            value=self.metric_value,
+            # NaN is stored as NULL because this table has no `is_nan` column.
+            value=float("nan") if self.metric_value is None else self.metric_value,
             timestamp=self.metric_timestamp_ms,
             step=self.metric_step,
             run_id=self.run_id,
