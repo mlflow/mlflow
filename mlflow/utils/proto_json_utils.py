@@ -327,9 +327,11 @@ def cast_df_types_according_to_schema(pdf, schema):
                 elif isinstance(col_type_spec, AnyType):
                     pass
                 elif col_type_spec == DataType.boolean and pdf[col_name].isna().any():
-                    # `astype(bool)` turns None into False and NaN into True. Keep missing
-                    # values as is and let schema enforcement handle them.
-                    pass
+                    # `astype(bool)` turns None into False and NaN into True. Convert
+                    # non-missing values only and keep missing values for schema enforcement.
+                    pdf[col_name] = pdf[col_name].where(
+                        pdf[col_name].isna(), pdf[col_name].astype(bool)
+                    )
                 elif isinstance(col_type_spec, DataType) and col_type_spec == DataType.datetime:
                     parsed = pd.to_datetime(pdf[col_name])
                     # pandas 3 parses to microseconds by default, but `DataType.datetime` is
@@ -491,10 +493,11 @@ def convert_data_type(data, spec):
                     if data is None:
                         return None
                     if isinstance(data, list) and any(x is None for x in data):
-                        return np.array(
-                            [x if x is None else convert_data_type(x, spec) for x in data],
-                            dtype=object,
-                        )
+                        if all(np.isscalar(x) for x in data if x is not None):
+                            return np.array(
+                                [x if x is None else convert_data_type(x, spec) for x in data],
+                                dtype=object,
+                            )
                 return (
                     np.array(data, spec.type.to_numpy())
                     if isinstance(data, (list, np.ndarray))
