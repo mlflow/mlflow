@@ -23,7 +23,6 @@ from mlflow.genai.discovery.checkpoint import (
 )
 from mlflow.genai.discovery.schedule import (
     DetectionSchedule,
-    DetectionScheduleState,
     ScheduleModel,
     claim_first_occurrence,
     claim_occurrence,
@@ -139,7 +138,6 @@ def _submit_occurrence(
     store: AbstractStore,
     experiment: Experiment,
     schedule: DetectionSchedule,
-    state: DetectionScheduleState,
     fire_time_ms: int,
 ) -> str:
     from mlflow.genai.discovery.job import run_scheduled_issue_detection_job
@@ -151,9 +149,6 @@ def _submit_occurrence(
         read_detection_checkpoint(experiment),
         now_ms=fire_time_ms,
         first_run_lookback_ms=FIRST_RUN_LOOKBACK_MS[schedule.cadence.value],
-        # Until a run succeeds there is no watermark, so the floor pinned when this schedule was
-        # anchored is what stops a failed occurrence taking its traces with it.
-        coverage_floor_ms=state.coverage_floor_ms,
     )
     settings = read_detection_settings(experiment)
     submitted = submit_job(
@@ -183,7 +178,7 @@ def _dispatch_if_due(store: AbstractStore, experiment: Experiment, now_ms: int) 
         write_detection_schedule_state(
             store,
             experiment.experiment_id,
-            claim_first_occurrence(now_ms, schedule, FIRST_RUN_LOOKBACK_MS[schedule.cadence.value]),
+            claim_first_occurrence(now_ms),
         )
         return
     fire_time_ms = due_occurrence_ms(schedule, state, now_ms)
@@ -197,7 +192,7 @@ def _dispatch_if_due(store: AbstractStore, experiment: Experiment, now_ms: int) 
         store, experiment.experiment_id, claim_occurrence(state, fire_time_ms, now_ms)
     )
     try:
-        job_id = _submit_occurrence(store, experiment, schedule, state, fire_time_ms)
+        job_id = _submit_occurrence(store, experiment, schedule, fire_time_ms)
     except Exception:
         # The claim is already written, so this occurrence is skipped rather than retried. Said
         # here because the caller only sees "could not dispatch": without this, the one trace of
