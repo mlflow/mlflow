@@ -363,9 +363,16 @@ describe('ExperimentIssuesScheduleControl', () => {
     await waitFor(async () =>
       expect(await screen.findByRole('button', { name: /schedule detection/i })).toBeDisabled(),
     );
-    // pointerEventsCheck is off so hover reaches the disabled button; the tooltip states the reason.
-    await user.hover(await screen.findByRole('button', { name: /schedule detection/i }));
-    expect(await screen.findByRole('tooltip')).toHaveTextContent(/cannot run scheduled detection/i);
+    // pointerEventsCheck is off so hover reaches the disabled button; the tooltip states the
+    // reason. The hover is retried because the tooltip opens on a delay the first pointer event
+    // can land inside, which made a single hover flaky under a loaded suite.
+    await waitFor(
+      async () => {
+        await user.hover(await screen.findByRole('button', { name: /schedule detection/i }));
+        expect(await screen.findByRole('tooltip')).toHaveTextContent(/cannot run scheduled detection/i);
+      },
+      { timeout: 5000 },
+    );
   });
 
   test('saves the model the picker is left on, defaulting to the first provider', async () => {
