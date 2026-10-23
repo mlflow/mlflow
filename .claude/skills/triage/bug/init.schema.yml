@@ -43,7 +43,8 @@ properties:
       - Fails at: <only for Reproduced: permalink to the line that raises or returns the wrong value>
       - Missing information: <what the reporter should add; for an external API integration report,
         such as OpenAI or Anthropic, without a live call to the provider's real endpoint, ask for
-        the request and response against that endpoint>
+        the request and response against that endpoint, the integration package version, and any
+        applicable provider API or model version>
 
       ### How to reproduce
 
@@ -72,7 +73,8 @@ properties:
 
       - Reporter: <e.g. "Test the PR." or "Wait for the `ready` label before opening a PR." or
         "Share a minimal reproduction; for an external API integration such as OpenAI or
-        Anthropic, use a live call to the provider's real endpoint.">
+        Anthropic, use a live call to the provider's real endpoint and include the integration
+        package version.">
       - Maintainers: <e.g. "Review the PR." or "Review findings and add the `ready` label if appropriate." or "Choose a fix direction.">
     type: string
     minLength: 1
