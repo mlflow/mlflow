@@ -4,6 +4,7 @@ import urllib.parse
 from pathlib import Path
 
 import mlflow
+from mlflow.environment_variables import MLFLOW_DISABLE_REGISTERED_MODEL_META_FILE
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.databricks_models_artifact_repo import DatabricksModelsArtifactRepository
@@ -222,7 +223,9 @@ class ModelsArtifactRepository(ArtifactRepository):
         Download an artifact file or directory to a local directory if applicable, and return a
         local path for it.
         For registered models, when the artifact is downloaded, the model name and version
-        are saved in the "registered_model_meta" file on the caller's side.
+        are saved in the "registered_model_meta" file on the caller's side, unless the
+        ``MLFLOW_DISABLE_REGISTERED_MODEL_META_FILE`` environment variable is set, in which case
+        the downloaded directory contains exactly the logged model's files.
         The caller is responsible for managing the lifecycle of the downloaded artifacts.
 
         Args:
@@ -249,8 +252,13 @@ class ModelsArtifactRepository(ArtifactRepository):
             model_path = self.repo.download_artifacts(artifact_path, dst_path)
         # NB: only add the registered model metadata iff the artifact path is at the root model
         # directory. For individual files or subdirectories within the model directory, do not
-        # create the metadata file.
-        if os.path.isdir(model_path) and MLMODEL_FILE_NAME in os.listdir(model_path):
+        # create the metadata file. Skip it when the caller needs the download to match the
+        # logged model exactly (e.g. to verify a signature over it).
+        if (
+            os.path.isdir(model_path)
+            and MLMODEL_FILE_NAME in os.listdir(model_path)
+            and not MLFLOW_DISABLE_REGISTERED_MODEL_META_FILE.get()
+        ):
             self._add_registered_model_meta_file(model_path)
 
         return model_path

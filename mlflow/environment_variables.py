@@ -676,6 +676,14 @@ MLFLOW_SAGEMAKER_DEPLOY_IMG_URL = _EnvironmentVariable("MLFLOW_SAGEMAKER_DEPLOY_
 #: (default: ``False``)
 MLFLOW_DISABLE_ENV_CREATION = _BooleanEnvironmentVariable("MLFLOW_DISABLE_ENV_CREATION", False)
 
+#: Specifies whether to skip writing the ``registered_model_meta`` file (the registered model's
+#: name and version) into a model directory downloaded from a ``models:/`` URI. Set this when the
+#: downloaded directory must match the logged model exactly, for example to verify a signature or
+#: a hash manifest over it. (default: ``False``)
+MLFLOW_DISABLE_REGISTERED_MODEL_META_FILE = _BooleanEnvironmentVariable(
+    "MLFLOW_DISABLE_REGISTERED_MODEL_META_FILE", False
+)
+
 #: Specifies the timeout value for downloading chunks of mlflow artifacts.
 #: (default: ``300``)
 MLFLOW_DOWNLOAD_CHUNK_TIMEOUT = _EnvironmentVariable("MLFLOW_DOWNLOAD_CHUNK_TIMEOUT", int, 300)

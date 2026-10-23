@@ -5,7 +5,10 @@ import pytest
 
 from mlflow import MlflowClient
 from mlflow.entities.model_registry import ModelVersion
-from mlflow.environment_variables import MLFLOW_TRACE_ARCHIVAL_CONFIG
+from mlflow.environment_variables import (
+    MLFLOW_DISABLE_REGISTERED_MODEL_META_FILE,
+    MLFLOW_TRACE_ARCHIVAL_CONFIG,
+)
 from mlflow.store.artifact.databricks_models_artifact_repo import DatabricksModelsArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
@@ -229,6 +232,30 @@ def test_models_artifact_repo_download_with_real_files(tmp_path):
         # Check if the metadata file is created
         metadata_file_path = temp_local_storage / "registered_model_meta"
         assert metadata_file_path.exists()
+
+
+@pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
+def test_models_artifact_repo_download_skips_meta_file_when_disabled(tmp_path, monkeypatch):
+    # Verifying a signature or a hash manifest over the downloaded model needs the download to
+    # contain exactly the logged model's files, so the metadata file can be turned off.
+    monkeypatch.setenv(MLFLOW_DISABLE_REGISTERED_MODEL_META_FILE.name, "true")
+    temp_remote_storage = tmp_path / "remote_storage"
+    model_dir = temp_remote_storage / "model_dir"
+    model_dir.mkdir(parents=True)
+    (model_dir / "MLmodel").touch()
+
+    with mock.patch.object(
+        MlflowClient, "get_model_version_download_uri", return_value=str(model_dir)
+    ):
+        models_repo = ModelsArtifactRepository("models:/MyModel/1")
+        temp_local_storage = tmp_path / "local_storage"
+        temp_local_storage.mkdir()
+
+        models_repo.download_artifacts("", str(temp_local_storage))
+
+        assert (temp_local_storage / "MLmodel").exists()
+        assert not (temp_local_storage / "registered_model_meta").exists()
+        assert sorted(p.name for p in temp_local_storage.iterdir()) == ["MLmodel"]
 
 
 def test_models_artifact_repo_does_not_add_meta_for_file(tmp_path):
