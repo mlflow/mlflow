@@ -10,7 +10,7 @@ import requests
 import mlflow
 from mlflow import MlflowClient, register_model
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, RestException
 from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
     INTERNAL_ERROR,
@@ -604,3 +604,62 @@ def test_register_model_with_env_pack_staging_failure(tmp_path, mock_dbr_version
             "The model was registered successfully and is available for serving, but may take "
             "longer to deploy."
         )
+
+
+def _register_with_staging_error(tmp_path, monkeypatch, staging_error):
+    monkeypatch.setenv("DATABRICKS_CPU_ARCH", "x86_64")
+    mock_artifacts_dir = tmp_path / "artifacts"
+    mock_artifacts_dir.mkdir()
+    with (
+        mock.patch(
+            "mlflow.tracking._model_registry.fluent.pack_env_for_databricks_model_serving"
+        ) as mock_pack_env,
+        mock.patch(
+            "mlflow.tracking._model_registry.fluent.stage_model_for_databricks_model_serving",
+            side_effect=staging_error,
+        ),
+        mock.patch(
+            "mlflow.MlflowClient._create_model_version",
+            return_value=ModelVersion("Model 1", "1", creation_timestamp=123),
+        ),
+        mock.patch(
+            "mlflow.MlflowClient.get_model_version",
+            return_value=ModelVersion("Model 1", "1", creation_timestamp=123),
+        ),
+        mock.patch("mlflow.tracking._model_registry.fluent.eprint") as mock_eprint,
+    ):
+        mock_pack_env.return_value.__enter__.return_value = str(mock_artifacts_dir)
+        register_model("models:/test-model/1", "Model 1", env_pack="databricks_model_serving")
+    return mock_eprint
+
+
+def test_register_model_with_env_pack_raises_when_model_cannot_be_served(
+    tmp_path, mock_dbr_version, monkeypatch
+):
+    staging_error = RestException({
+        "error_code": "INVALID_PARAMETER_VALUE",
+        "message": "Architecture is not supported.",
+    })
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Model 'Model 1' version '1' was registered, but it can't be served by Databricks "
+        r"Model Serving: .*Architecture is not supported\.",
+    ) as exc_info:
+        _register_with_staging_error(tmp_path, monkeypatch, staging_error)
+
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+def test_register_model_with_env_pack_warns_on_other_staging_errors(
+    tmp_path, mock_dbr_version, monkeypatch
+):
+    staging_error = RestException({"error_code": "BAD_REQUEST", "message": "Not supported."})
+
+    mock_eprint = _register_with_staging_error(tmp_path, monkeypatch, staging_error)
+
+    mock_eprint.assert_any_call(
+        f"Failed to stage model for Databricks Model Serving: {staging_error!s}. "
+        "The model was registered successfully and is available for serving, but may "
+        "take longer to deploy."
+    )
