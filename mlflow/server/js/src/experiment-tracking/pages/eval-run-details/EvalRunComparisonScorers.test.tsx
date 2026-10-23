@@ -152,6 +152,15 @@ describe('EvalRunComparisonScorers', () => {
     expect(await screen.findByRole('tooltip')).toHaveTextContent('great1');
   });
 
+  test('shows the numeric breakdown built from the run traces', async () => {
+    renderScorers({
+      runs: [createRun('baseline', { numeric: 2 }), createRun('candidate', { numeric: 3 })],
+    });
+    const cell = within(screen.getByRole('row', { name: /^numeric / })).getByRole('cell', { name: '3' });
+    fireEvent.focus(within(cell).getByRole('button', { name: '3' }));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('31');
+  });
+
   test('shows the percentage-point change from 4% to 88%', async () => {
     renderScorers({
       runs: [createRateRun('baseline', 1, 25), createRateRun('candidate', 22, 25)],

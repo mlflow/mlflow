@@ -3,12 +3,15 @@ import {
   convertTraceInfoV3ToRunEvalEntry,
   getAssessmentInfos,
   type AssessmentInfo,
+  type RunEvaluationTracesDataEntry,
 } from '@databricks/web-shared/genai-traces-table';
 // Not re-exported from the genai-traces-table barrel in OSS — import from their modules.
 import {
+  doesAssessmentContainErrors,
   ERROR_KEY,
   getAssessmentAggregateOverallFraction,
 } from '@databricks/web-shared/genai-traces-table/utils/AggregationUtils';
+import { getEvaluationResultAssessmentValue } from '@databricks/web-shared/genai-traces-table/components/GenAiEvaluationTracesReview.utils';
 import { getDisplayOverallScoreAndChange } from '@databricks/web-shared/genai-traces-table/utils/DisplayUtils';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { getEvalRunComparisonAssessmentAggregates } from './evalRunComparisonAggregates';
@@ -46,6 +49,26 @@ export interface EvalRunComparisonScorerRow {
   cells: EvalRunComparisonScorerCell[];
 }
 
+// The shared aggregator only buckets numeric scores; the breakdown tooltip lists each value that was scored.
+const getNumericValueCounts = (
+  assessmentInfo: AssessmentInfo,
+  evalResults: { currentRunValue: RunEvaluationTracesDataEntry }[],
+): ScorerValueCount[] => {
+  const counts = new Map<number, number>();
+  for (const { currentRunValue } of evalResults) {
+    const assessments = assessmentInfo.isOverall
+      ? currentRunValue.overallAssessments
+      : currentRunValue.responseAssessmentsByName[assessmentInfo.name];
+    for (const assessment of assessments ?? []) {
+      const value = doesAssessmentContainErrors(assessment)
+        ? undefined
+        : getEvaluationResultAssessmentValue(assessment);
+      if (typeof value === 'number' && Number.isFinite(value)) counts.set(value, (counts.get(value) ?? 0) + 1);
+    }
+  }
+  return Array.from(counts, ([value, count]) => ({ value, count })).sort((a, b) => b.count - a.count);
+};
+
 export const buildEvalRunComparisonScorers = (
   intl: IntlShape,
   traceInfos: ModelTraceInfoV3[],
@@ -69,11 +92,22 @@ export const buildEvalRunComparisonScorers = (
         ).find((info) => info.name === runAssessmentInfo.name) ?? runAssessmentInfo)
       : runAssessmentInfo;
     const aggregates = getEvalRunComparisonAssessmentAggregates(assessmentInfo, summarizedResults);
-    const { displayScore } = getDisplayOverallScoreAndChange(intl, assessmentInfo, aggregates);
-    const valueCounts = Array.from(aggregates.currentCounts ?? [])
-      .map(([value, count]) => ({ value, count }))
-      .sort((a, b) => b.count - a.count);
-    const hasValues = valueCounts.some(({ value, count }) => value !== undefined && value !== ERROR_KEY && count > 0);
+    const valueCounts =
+      assessmentInfo.dtype === 'numeric'
+        ? getNumericValueCounts(assessmentInfo, summarizedResults)
+        : Array.from(aggregates.currentCounts ?? [])
+            .map(([value, count]) => ({ value, count }))
+            .sort((a, b) => b.count - a.count);
+    const presentValues = valueCounts
+      .filter(({ value, count }) => value !== undefined && value !== ERROR_KEY && count > 0)
+      .map(({ value }) => value);
+    const hasValues = presentValues.length > 0;
+    // A category count covers the values that were scored, not missing or errored results.
+    const { displayScore } = getDisplayOverallScoreAndChange(
+      intl,
+      assessmentInfo.dtype === 'string' ? { ...assessmentInfo, uniqueValues: new Set(presentValues) } : assessmentInfo,
+      aggregates,
+    );
     const isRate = assessmentInfo.dtype === 'boolean' || assessmentInfo.dtype === 'pass-fail';
     const value = isRate
       ? hasValues
