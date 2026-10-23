@@ -12,6 +12,7 @@ import {
   type TraceFilterModel,
 } from '@databricks/web-shared/traces-table';
 import { shouldEnableIssueDetection } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { CancelIssueDetectionButton } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-issues/CancelIssueDetectionButton';
 import { type TracesV4AssessmentColumns } from '../hooks/useTracesV4AssessmentColumns';
 import { type TracesV4CustomColumns } from '../hooks/useTracesV4CustomColumns';
 import { type TracesV4Density } from '../hooks/useTracesV4Density';
@@ -61,6 +62,12 @@ export interface TracesV4ToolbarParams {
   selectedTraceInfos: ModelTraceInfoV3[];
   /** Opens the AI issue-detection modal (seeded with the current selection). Omit to hide the button. */
   onDetectIssues?: () => void;
+  /**
+   * A detection already in flight, which the button offers to cancel rather than starting a
+   * second one. Omit when none is running. `isStarting` covers the gap before the run exists:
+   * the button spins, since there is nothing to cancel yet.
+   */
+  inProgressIssueDetection?: { isStarting: boolean; onCancel?: () => Promise<void> };
   /** The "Views" saved-views dropdown, rendered far left (before the date selector). Omit to hide it. */
   savedViewsButton?: React.ReactNode;
   /**
@@ -165,6 +172,7 @@ export const useTracesV4ToolbarSlots = ({
   actions,
   selectedTraceInfos,
   onDetectIssues,
+  inProgressIssueDetection,
   savedViewsButton,
   hideFilterButton = false,
   traces,
@@ -390,9 +398,20 @@ export const useTracesV4ToolbarSlots = ({
         {!hideFilterButton && <div css={{ flex: 1 }} />}
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
           <TracesV4RefreshButton isFetching={isRefreshing} />
-          {shouldEnableIssueDetection() && onDetectIssues && (
-            <DetectIssuesButton componentId="mlflow.traces-v4.detect-issues-button" onClick={onDetectIssues} />
-          )}
+          {shouldEnableIssueDetection() &&
+            onDetectIssues &&
+            (inProgressIssueDetection && !inProgressIssueDetection.isStarting ? (
+              <CancelIssueDetectionButton
+                componentId="mlflow.traces-v4.cancel-issue-detection-button"
+                onCancel={inProgressIssueDetection.onCancel}
+              />
+            ) : (
+              <DetectIssuesButton
+                componentId="mlflow.traces-v4.detect-issues-button"
+                onClick={onDetectIssues}
+                loading={Boolean(inProgressIssueDetection?.isStarting)}
+              />
+            ))}
         </div>
       </>
     ),

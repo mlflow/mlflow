@@ -35,7 +35,7 @@ export type DrawerComponentType = {
     modal?: boolean;
     children: ReactNode;
   }) => React.ReactElement;
-  Content: (props: Drawer.DrawerContentProps) => React.ReactElement;
+  Content: (props: Drawer.DrawerContentProps & { isFullscreen?: boolean }) => React.ReactElement;
 };
 
 export interface AddToDatasetAction {
@@ -63,6 +63,10 @@ export interface ModelTraceExplorerContextValue {
    * drawer around the assistant themselves (e.g. AssistantAwareDrawer) can omit it.
    */
   isAssistantPanelOpen?: boolean;
+  /** Optional boundary used to contain the drawer and its auxiliary UI (new eval runs UI only). */
+  getDrawerPortalContainer?: () => HTMLElement;
+  /** Opens the trace drawer at the full size of its viewport or scoped container (new eval runs UI only). */
+  initiallyFullscreen?: boolean;
 }
 
 const ModelTraceExplorerContext = createContext<ModelTraceExplorerContextValue>({
@@ -81,6 +85,8 @@ interface ModelTraceExplorerContextProviderProps {
   drawerWidth?: string | number;
   isAssistantPanelOpen?: boolean;
   isSearchVisible?: boolean;
+  getDrawerPortalContainer?: () => HTMLElement;
+  initiallyFullscreen?: boolean;
 }
 
 export const ModelTraceExplorerContextProvider: React.FC<ModelTraceExplorerContextProviderProps> = ({
@@ -91,6 +97,8 @@ export const ModelTraceExplorerContextProvider: React.FC<ModelTraceExplorerConte
   drawerWidth,
   isAssistantPanelOpen,
   isSearchVisible,
+  getDrawerPortalContainer,
+  initiallyFullscreen,
 }) => {
   const value = useMemo(
     () => ({
@@ -100,6 +108,8 @@ export const ModelTraceExplorerContextProvider: React.FC<ModelTraceExplorerConte
       drawerWidth,
       isAssistantPanelOpen,
       isSearchVisible,
+      getDrawerPortalContainer,
+      initiallyFullscreen,
     }),
     [
       renderExportTracesToDatasetsModal,
@@ -108,6 +118,8 @@ export const ModelTraceExplorerContextProvider: React.FC<ModelTraceExplorerConte
       drawerWidth,
       isAssistantPanelOpen,
       isSearchVisible,
+      getDrawerPortalContainer,
+      initiallyFullscreen,
     ],
   );
 

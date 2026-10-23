@@ -412,6 +412,43 @@ def test_otlp_resource_attributes_preserved(monkeypatch):
     assert res["telemetry.sdk.name"] == "opentelemetry"
 
 
+@pytest.mark.parametrize(
+    ("key", "sent_value", "expected"),
+    [
+        # MLflow's OTel exporter sends values already JSON-encoded, so a str output stays a str
+        ("mlflow.spanOutputs", json.dumps('{"a": 1}'), '{"a": 1}'),
+        # Raw JSON strings from third-party clients are parsed into structured values
+        ("custom.attr", '{"a": 1}', {"a": 1}),
+        ("custom.attr", "[1, 2]", [1, 2]),
+        ("custom.attr", "hello", "hello"),
+    ],
+)
+def test_otlp_json_string_attributes(monkeypatch, db_uri, tmp_path, key, sent_value, expected):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    store = SqlAlchemyStore(db_uri, tmp_path.as_uri())
+    experiment_id = store.create_experiment("otlp-json-string-attributes")
+    monkeypatch.setattr("mlflow.server.otel_api._get_tracking_store", lambda: store)
+
+    trace_id = "0af7651916cd43dd8448eb211c80319c"
+    span = {
+        "traceId": trace_id,
+        "spanId": "b7ad6b7169203331",
+        "name": "span",
+        "startTimeUnixNano": "1000000000",
+        "endTimeUnixNano": "2000000000",
+        "attributes": [{"key": key, "value": {"stringValue": sent_value}}],
+    }
+    response = _make_test_client().post(
+        OTLP_TRACES_PATH,
+        content=json.dumps({"resourceSpans": [{"scopeSpans": [{"spans": [span]}]}]}),
+        headers={"Content-Type": "application/json", "X-MLflow-Experiment-Id": experiment_id},
+    )
+
+    assert response.status_code == 200
+    stored_span = store.get_trace(f"tr-{trace_id}").data.spans[0]
+    assert stored_span.get_attribute(key) == expected
+
+
 @pytest.mark.parametrize("content_type", ["application/json", "application/json; charset=utf-8"])
 @pytest.mark.parametrize("compressed", [False, True])
 def test_otlp_json_span_links_preserved(monkeypatch, db_uri, tmp_path, content_type, compressed):

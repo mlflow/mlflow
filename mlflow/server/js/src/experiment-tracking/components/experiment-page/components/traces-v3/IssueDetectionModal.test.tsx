@@ -240,7 +240,7 @@ describe('IssueDetectionModal', () => {
     await waitFor(() => {
       expect(mockInvokeIssueDetection).toHaveBeenCalledWith(
         expect.objectContaining({
-          categories: ['correctness', 'latency', 'execution', 'adherence', 'relevance', 'safety'],
+          categories: ['correctness', 'latency', 'execution', 'adherence', 'relevance', 'safety', 'cost'],
           provider: 'openai',
           model: 'gpt-5.6-sol',
           secret_id: 'secret-123',

@@ -22,6 +22,19 @@ import {
 
 export const LATEST_ISSUE_DETECTION_QUERY_KEY = 'LATEST_ISSUE_DETECTION';
 
+/**
+ * How long a RUNNING detection run may carry no job ID before it is treated as never started.
+ *
+ * The invoke handler creates the run and then tags it with the job ID in the same request, so
+ * in practice the gap is milliseconds. A run that is still untagged much later means job
+ * submission failed after the run existed -- and because every surface derives "a detection is
+ * in flight" from the run alone, that left Detect disabled with nothing to cancel, on the
+ * Traces tab, the Issues tab and the GenAI overview alike, until someone edited the database.
+ *
+ * Generous enough that a slow-but-successful submission is never mistaken for a failed one.
+ */
+const STALLED_SUBMISSION_MS = 2 * 60 * 1000;
+
 interface DetectionRun {
   info: { run_id: string; status: string; start_time: number };
   data?: { tags?: { key: string; value: string }[] };
@@ -82,6 +95,12 @@ export const useLatestIssueDetection = (experimentId: string) => {
     [submitted, latestRun],
   );
   const jobId = run?.data?.tags?.find((tag) => tag.key === MLFLOW_ISSUE_DETECTION_JOB_ID_TAG)?.value;
+  // A run whose submission failed is reported as no run at all, so every consumer's
+  // `Boolean(run) && !isJobComplete(status)` stops claiming a detection is in flight. Done here
+  // rather than in each consumer because all three compute that the same way, and two of them
+  // would otherwise keep blocking.
+  const submissionStalled =
+    !jobId && run?.info.status === 'RUNNING' && Date.now() - (run?.info.start_time ?? 0) > STALLED_SUBMISSION_MS;
   const job = useFetchJobStatus({ jobId });
   const runStatus = (
     { FINISHED: JobStatus.SUCCEEDED, FAILED: JobStatus.FAILED, KILLED: JobStatus.CANCELED } as Record<string, JobStatus>
@@ -129,11 +148,14 @@ export const useLatestIssueDetection = (experimentId: string) => {
       jobResult?.total_traces_analyzed ?? readCount(MLFLOW_ISSUE_DETECTION_RESULT_TOTAL_TRACES_TAG),
   };
   return {
-    run,
+    run: submissionStalled ? undefined : run,
     jobId,
     job,
     status,
     result,
+    // Reported separately from `run` so a surface that wants to say "the last attempt never
+    // started" can, rather than having to infer it from a run that is no longer reported.
+    submissionStalled,
     isLoading: latest.isLoading,
     isFetching: latest.isFetching,
     error: latest.error,

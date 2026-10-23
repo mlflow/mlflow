@@ -361,6 +361,7 @@ from mlflow.store.artifact.host_policy import (
     validate_artifact_uri_host,
 )
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
+from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.artifact.utils.models import _parse_model_uri, get_model_name_and_version
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.jobs.abstract_store import AbstractJobStore
@@ -5811,8 +5812,8 @@ def _get_registered_scorer(
     were made for.
 
     MySQL and SQL Server compare names without case by default, and can also ignore trailing
-    spaces or accents, so the store can return a scorer whose name differs from ``name``. That is
-    treated as not found.
+    spaces or accents. The SQLAlchemy store already treats such a match as not found; this check
+    keeps the same guarantee for other tracking stores.
     """
     registered_scorer = tracking_store.get_scorer(experiment_id, name, version)
     if registered_scorer.scorer_name != name:
@@ -7664,6 +7665,12 @@ def build_server_info_payload() -> dict[str, Any]:
     from mlflow.store.tracking.file_store import FileStore
     from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
+    try:
+        s3_extra_args = S3ArtifactRepository.get_s3_file_upload_extra_args() or {}
+        presigned_transfers_supported = "SSECustomerKey" not in s3_extra_args
+    except (TypeError, ValueError):
+        presigned_transfers_supported = False
+
     # The limits a skill upload is checked against, so a client can refuse an oversized folder
     # before packaging it. A malformed limit setting leaves them out rather than failing the
     # whole response, which every client reads at startup.
@@ -7713,11 +7720,14 @@ def build_server_info_payload() -> dict[str, Any]:
             artifact_repo = _get_artifact_repo_mlflow_artifacts()
             # Multipart transfers use presigned URLs that clients access directly, bypassing the
             # proxy, so they're only advertised when the server operator opts in.
-            multipart_uploads_enabled = MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD.get() and isinstance(
-                artifact_repo, MultipartUploadMixin
+            multipart_uploads_enabled = (
+                presigned_transfers_supported
+                and MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD.get()
+                and isinstance(artifact_repo, MultipartUploadMixin)
             )
             multipart_downloads_enabled = (
-                MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD.get()
+                presigned_transfers_supported
+                and MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD.get()
                 and isinstance(artifact_repo, MultipartDownloadMixin)
             )
         except Exception:
@@ -7739,9 +7749,10 @@ def build_server_info_payload() -> dict[str, Any]:
         SERVER_INFO_ARTIFACT_SERVING_ENABLED: _is_serving_proxied_artifacts(),
         **skill_content_limits,
         # These advertise request-contract support; repository support is checked per resource.
-        SERVER_INFO_PRESIGNED_UPLOAD_RUN_ID_SUPPORTED: True,
-        SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED: True,
-        SERVER_INFO_MODEL_ARTIFACT_PRESIGNED_DOWNLOADS_SUPPORTED: True,
+        # SSE-C is process-wide and cannot be exposed in presigned response headers.
+        SERVER_INFO_PRESIGNED_UPLOAD_RUN_ID_SUPPORTED: presigned_transfers_supported,
+        SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED: presigned_transfers_supported,
+        SERVER_INFO_MODEL_ARTIFACT_PRESIGNED_DOWNLOADS_SUPPORTED: presigned_transfers_supported,
         SERVER_INFO_FEATURES_ENABLED: {
             "gateway": MLFLOW_ENABLE_AI_GATEWAY.get(),
         },

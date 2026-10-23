@@ -369,7 +369,7 @@ def _infer_schema(data: Any) -> Schema:
             ColSpec(
                 type=_infer_pandas_column(data),
                 name=name,
-                required=_infer_required(data),
+                required=_infer_required(data) if name is not None else True,
             )
         ])
     # pandas.DataFrame

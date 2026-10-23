@@ -27,12 +27,11 @@ rename the issue yourself.
 Propose a pull request only when all of these hold:
 
 - The `PR_DISABLED` environment variable is not `true`.
-- The bug reproduces at the current checkout.
-- The fix is verified against the reproduction and relevant tests and leaves no design choice or trade-off unresolved.
+- The change leaves no design choice or trade-off unresolved.
 - Every changed file is under `mlflow/` or `tests/`.
 
-Also apply the PR eligibility rules in the selected action. If any requirement is unmet,
-explain the findings in the comment without proposing a PR.
+Also apply the PR eligibility and verification rules for the selected type and action.
+If any requirement is unmet, explain the findings in the comment without proposing a PR.
 
 Add regression tests when they add meaningful coverage. Place new regression tests next to
 the existing tests for that code, verify that they fail without the fix and pass with it,
@@ -50,11 +49,13 @@ git diff HEAD --stat
 The last command must list only the files in the patch. Then add `pull_request` to the payload
 using `pull_request` from the selected action's payload schema.
 
-For visible UI fixes, include a before/after comparison in the PR body.
+For visible UI changes, include a before/after comparison in the PR body.
 Stack screenshots vertically with **Before** above **After**, rather than
 side-by-side. Capture the broken behavior before applying the fix and the
 fixed behavior with the same data, page state, and viewport. Label the captures **Before**
 and **After**, save them under `$out_dir/media`, and cite their exact paths as described below.
+For a feature request, show the existing workflow or limitation before the change and the
+requested behavior after it.
 
 ## Media
 

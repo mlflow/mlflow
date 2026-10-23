@@ -103,6 +103,12 @@ body:
       description: |
         Provide a reproducible test case that is the bare minimum necessary to generate the problem.
 
+        For bugs in an external API integration (for example, OpenAI or Anthropic), include the
+        actual call made through the affected integration to the provider's real endpoint and its
+        response. Also state the integration package version and, where applicable, the provider
+        API or model version. Reporting a suspected issue from code inspection, or calling the
+        handler function directly, does not count as a reproduction.
+
         ### Bad
 
         Requires modifications (e.g., adding missing import statements) to run.

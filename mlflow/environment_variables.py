@@ -1334,6 +1334,10 @@ MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS = _EnvironmentVariable(
     "MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS", int, 10
 )
 
+#: Maximum number of worker threads for deleting archived trace payloads. Must be positive.
+#: (default: ``8``)
+MLFLOW_TRACE_DELETE_MAX_WORKERS = _EnvironmentVariable("MLFLOW_TRACE_DELETE_MAX_WORKERS", int, 8)
+
 #: Maximum number of export tasks to queue for async trace logging.
 #: When the queue is full, new export tasks will be dropped.
 #: (default: ``1000``)
@@ -1923,6 +1927,13 @@ MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
 )
 
 
+#: Whether to disable loading PyFunc models through their configured loader_module.
+#: (default: ``False``)
+MLFLOW_DISABLE_PYFUNC_LOADER_MODULE = _BooleanEnvironmentVariable(
+    "MLFLOW_DISABLE_PYFUNC_LOADER_MODULE", False
+)
+
+
 #: Internal env var for the shared gateway auth token. The server generates a random
 #: token at startup and sets it in the environment so all uvicorn workers and job
 #: subprocesses can use it to authenticate internal gateway requests. Subprocesses that the
@@ -1932,6 +1943,13 @@ MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
 _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN = _EnvironmentVariable(
     "_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", str, None
 )
+
+#: Internal env var set by ``mlflow server`` for its worker processes when uvicorn terminates TLS
+#: itself (``--uvicorn-opts`` with ``--ssl-keyfile``/``--ssl-certfile``), so that server
+#: self-calls (see ``mlflow.server.asgi_utils.get_server_self_url``) use HTTPS. Not set behind a
+#: TLS-terminating proxy, where the listener itself speaks plain HTTP.
+#: (default: ``False``)
+_MLFLOW_SERVER_TLS_LISTENER = _BooleanEnvironmentVariable("_MLFLOW_SERVER_TLS_LISTENER", False)
 
 # Short-lived, user-scoped credential the MLflow Assistant injects into a tool subprocess so the
 # tool's MLflow API calls authenticate as the session owner. It is an HMAC-signed value (see
