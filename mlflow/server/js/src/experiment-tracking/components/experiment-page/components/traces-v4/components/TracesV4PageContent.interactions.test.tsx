@@ -30,6 +30,10 @@ jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
     '@mlflow/mlflow/src/common/utils/FeatureUtils',
   ),
   shouldEnableNewEvalRunsUi: jest.fn(() => false),
+  // Detection is enabled here so the toolbar renders its button. The real flag also requires the
+  // Issues tab, which is where a detection run's findings are read, and mocking that export would
+  // not reach the call inside FeatureUtils itself.
+  shouldEnableIssueDetection: jest.fn(() => true),
 }));
 
 // The saved-views hook (mounted via the toolbar's Views button) reads experiment tags through the
@@ -478,7 +482,8 @@ describe('TracesV4PageContent (interactions)', () => {
   describe('toolbar order', () => {
     // Assert the always-present V4 control ordering. Views pins far left (before the date selector);
     // column/sort/row-height controls consolidate into the Display popover; Refresh then Detect Issues
-    // pin far right (Detect Issues renders whenever issue detection is enabled, true in OSS).
+    // pin far right (Detect Issues renders when issue detection is enabled, which needs the gateway
+    // feature and the Issues tab -- both mocked on above).
     test('renders Views → Date → Search → Filter → Display → Refresh → Detect Issues', async () => {
       renderPage();
       await findTraceRow('tr-000');
