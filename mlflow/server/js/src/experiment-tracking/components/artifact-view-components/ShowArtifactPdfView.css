@@ -4,6 +4,8 @@
   align-items: center;
   height: 100%;
   width: 100%;
+  flex: 1;
+  min-height: 0;
   padding-left: 16px;
   overflow: hidden;
 }
