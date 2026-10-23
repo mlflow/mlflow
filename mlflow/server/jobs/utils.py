@@ -1078,9 +1078,10 @@ def register_periodic_tasks(huey_instance) -> None:
             cached_tracking_store = initialize_periodic_tasks_tracking_store()
         return cached_tracking_store
 
-    # The error the online scoring scheduler last failed with, so that a failure that repeats
-    # every minute (for example while the Docker daemon is unreachable) is logged once.
+    # The error each minute-ly scheduler last failed with, so that a failure that repeats every
+    # minute (for example while the Docker daemon is unreachable) is logged once.
     scheduler_error = None
+    detection_scheduler_error = None
 
     def error_key(e: Exception) -> str:
         # Memory addresses in a message (for example "object at 0x10a2b3c4d") differ each time.
@@ -1142,10 +1143,30 @@ def register_periodic_tasks(huey_instance) -> None:
         """Runs every minute and submits detection for each schedule whose fire time arrived."""
         from mlflow.genai.discovery.scheduler import run_issue_detection_scheduler
 
+        nonlocal detection_scheduler_error
         try:
             run_issue_detection_scheduler()
         except Exception as e:
-            _logger.exception(f"Issue detection scheduler failed: {e!r}")
+            # Same repeat-suppression the online scoring scheduler uses: this runs every minute,
+            # so an outage that persists would otherwise log one traceback per minute. The
+            # message is left to `exception`, which appends it, rather than interpolated here
+            # and then repeated by the traceback.
+            error = error_key(e)
+            if error == detection_scheduler_error:
+                _logger.debug("Issue detection scheduler failed again", exc_info=True)
+            else:
+                _logger.exception(
+                    "Issue detection scheduler failed. It runs again every minute; this error "
+                    "is not logged again while it repeats."
+                )
+                detection_scheduler_error = error
+            return
+        if detection_scheduler_error is not None:
+            _logger.info(
+                f"Issue detection scheduler recovered after failing with: "
+                f"{detection_scheduler_error}"
+            )
+            detection_scheduler_error = None
 
     _logger.info(
         "Registered issue_detection_scheduler periodic task (polls every 1 minute and "

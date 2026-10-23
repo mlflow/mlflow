@@ -196,7 +196,20 @@ def _dispatch_if_due(store: AbstractStore, experiment: Experiment, now_ms: int) 
     write_detection_schedule_state(
         store, experiment.experiment_id, claim_occurrence(state, fire_time_ms, now_ms)
     )
-    job_id = _submit_occurrence(store, experiment, schedule, state, fire_time_ms)
+    try:
+        job_id = _submit_occurrence(store, experiment, schedule, state, fire_time_ms)
+    except Exception:
+        # The claim is already written, so this occurrence is skipped rather than retried. Said
+        # here because the caller only sees "could not dispatch": without this, the one trace of
+        # a lost occurrence is a claim with no matching submission, which reads like a silent
+        # drop rather than the deliberate at-most-once behaviour above.
+        _logger.warning(
+            "Issue detection for experiment %s was claimed at fire time %d but not submitted, so "
+            "this occurrence is skipped; the next one covers its traces",
+            experiment.experiment_id,
+            fire_time_ms,
+        )
+        raise
     _logger.info(
         "Submitted scheduled issue detection job %s for experiment %s (%s occurrence at %d)",
         job_id,
