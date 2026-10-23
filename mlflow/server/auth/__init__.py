@@ -1233,7 +1233,8 @@ def _parse_artifact_auth_target(artifact_path: str | None) -> _ArtifactAuthTarge
     segments = canonical.strip("/").split("/")
     workspace = None
     relative_path = canonical
-    if segments[0] == "workspaces":
+    # Matches the artifact handler, which treats any case of ``workspaces`` as the reserved prefix.
+    if segments[0].lower() == "workspaces":
         if len(segments) < 3 or segments[1] in ("", ".", ".."):
             return _ArtifactAuthTarget(invalid=True)
         workspace = segments[1]
