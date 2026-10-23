@@ -177,20 +177,29 @@ def sample_window(
     checkpoint: DetectionCheckpoint | None,
     now_ms: int,
     first_run_lookback_ms: int,
+    coverage_floor_ms: int | None = None,
     stale_watermark_cap_ms: int = STALE_WATERMARK_CAP_MS,
 ) -> SampleWindow:
     """
     The window a run draws its random sample from.
 
-    The two lower bounds are independent: the cold-start lookback tracks the cadence, while the
-    stale cap is fixed and only applies once a watermark exists.
+    The lower bound is the first of these that exists: the watermark, once a run has succeeded;
+    the schedule's coverage floor, pinned when it was anchored, which keeps a failed occurrence's
+    stretch of traces in play for the next one; or a cold-start lookback from this fire time, for
+    a schedule anchored before the floor was recorded.
+
+    Whichever it is, the stale cap bounds it, so a schedule whose runs keep failing widens its
+    window only up to that cap rather than without limit.
     """
-    lower_bound_ms = (
-        max(checkpoint.last_scanned_trace_time_ms, now_ms - stale_watermark_cap_ms)
-        if checkpoint
-        else now_ms - first_run_lookback_ms
+    if checkpoint is not None:
+        lower_bound_ms = checkpoint.last_scanned_trace_time_ms
+    elif coverage_floor_ms is not None:
+        lower_bound_ms = coverage_floor_ms
+    else:
+        lower_bound_ms = now_ms - first_run_lookback_ms
+    return SampleWindow(
+        lower_bound_ms=max(lower_bound_ms, now_ms - stale_watermark_cap_ms), now_ms=now_ms
     )
-    return SampleWindow(lower_bound_ms=lower_bound_ms, now_ms=now_ms)
 
 
 def advance_checkpoint(
