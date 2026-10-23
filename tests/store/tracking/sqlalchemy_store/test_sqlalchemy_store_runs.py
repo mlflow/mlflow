@@ -2637,6 +2637,82 @@ def test_log_batch_duplicate_metrics_mixed_with_new_across_key_batches(store: Sq
     )
 
 
+def test_log_batch_updates_latest_metrics_without_per_row_updates(store: SqlAlchemyStore):
+    run = _run_factory(store)
+    num_keys = 250
+    store.log_batch(
+        run.info.run_id,
+        params=[],
+        metrics=[Metric(key=f"m-{i}", value=0.0, timestamp=1, step=0) for i in range(num_keys)],
+        tags=[],
+    )
+
+    captured = []
+
+    def _capture(conn, cursor, statement, parameters, context, executemany):
+        captured.append(statement)
+
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", _capture)
+    try:
+        store.log_batch(
+            run.info.run_id,
+            params=[],
+            metrics=[
+                Metric(key=f"m-{i}", value=float(i), timestamp=2, step=1) for i in range(num_keys)
+            ],
+            tags=[],
+        )
+    finally:
+        sqlalchemy.event.remove(store.engine, "before_cursor_execute", _capture)
+
+    latest_metric_writes = [s for s in captured if re.search(r"\blatest_metrics\b", s)]
+    assert not [s for s in latest_metric_writes if s.lstrip().upper().startswith("UPDATE")]
+    if store._get_dialect() != MSSQL:
+        assert len([s for s in latest_metric_writes if "INSERT" in s.upper()]) == 3
+    assert store.get_run(run.info.run_id).data.metrics == {
+        f"m-{i}": float(i) for i in range(num_keys)
+    }
+
+
+def test_log_batch_latest_metrics_keep_most_recent_value(store: SqlAlchemyStore):
+    run = _run_factory(store)
+    store.log_batch(
+        run.info.run_id,
+        params=[],
+        metrics=[
+            Metric(key="older", value=5.0, timestamp=5, step=5),
+            Metric(key="newer", value=5.0, timestamp=5, step=5),
+            Metric(key="repeated", value=5.0, timestamp=5, step=5),
+            Metric(key="nan", value=5.0, timestamp=5, step=5),
+        ],
+        tags=[],
+    )
+    store.log_batch(
+        run.info.run_id,
+        params=[],
+        metrics=[
+            Metric(key="older", value=3.0, timestamp=3, step=3),
+            Metric(key="newer", value=7.0, timestamp=7, step=7),
+            Metric(key="repeated", value=8.0, timestamp=8, step=8),
+            Metric(key="repeated", value=6.0, timestamp=6, step=6),
+            Metric(key="nan", value=float("nan"), timestamp=9, step=9),
+        ],
+        tags=[],
+    )
+
+    with store.ManagedSessionMaker() as session:
+        latest = {
+            m.key: (m.value, m.timestamp, m.step, m.is_nan)
+            for m in session.query(SqlLatestMetric).filter_by(run_uuid=run.info.run_id)
+        }
+    assert latest == {
+        "older": (5.0, 5, 5, False),
+        "newer": (7.0, 7, 7, False),
+        "repeated": (8.0, 8, 8, False),
+        "nan": (0.0, 9, 9, True),
+    }
+
+
 def test_dedup_recovery_exact_duplicate_and_mixed_insert(store: SqlAlchemyStore):
     # Resending exact duplicates mixed with new metrics should only insert the new ones.
     run = _run_factory(store)

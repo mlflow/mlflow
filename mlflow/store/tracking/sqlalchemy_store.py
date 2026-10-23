@@ -1696,6 +1696,7 @@ class SqlAlchemyStore(
         # create a new SqlLatestMetric instance and put it in
         # new_latest_metric_dict so that they can be saved later.
         new_latest_metric_dict = {}
+        updated_latest_metric_keys = set()
         for logged_metric in logged_metrics:
             latest_metric = latest_metrics.get(logged_metric.key)
             # a metric key can be passed more then once within logged metrics
@@ -1728,9 +1729,27 @@ class SqlAlchemyStore(
 
             # compare with the row
             elif _compare_metrics(logged_metric, latest_metric):
-                # editing the attributes of latest_metric, which is a
-                # SqlLatestMetric instance will result in UPDATE in DB side.
-                latest_metric = _overwrite_metric(logged_metric, latest_metric)
+                latest_metrics[logged_metric.key] = logged_metric
+                updated_latest_metric_keys.add(logged_metric.key)
+
+        # The rows were locked above, so they can be overwritten unconditionally. An upsert
+        # writes them in batches, whereas mutating the ORM objects flushes one UPDATE per row.
+        if updated_latest_metric_keys:
+            _bulk_upsert(
+                session,
+                SqlLatestMetric,
+                [
+                    {
+                        "run_uuid": latest_metrics[key].run_uuid,
+                        "key": key,
+                        "value": latest_metrics[key].value,
+                        "timestamp": latest_metrics[key].timestamp,
+                        "step": latest_metrics[key].step,
+                        "is_nan": latest_metrics[key].is_nan,
+                    }
+                    for key in sorted(updated_latest_metric_keys)
+                ],
+            )
 
         if new_latest_metric_dict:
             session.add_all(new_latest_metric_dict.values())
