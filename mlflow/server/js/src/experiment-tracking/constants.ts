@@ -93,6 +93,8 @@ export const MLFLOW_ISSUE_DETECTION_JOB_ID_TAG = 'mlflow.issueDetection.jobId';
 export const MLFLOW_ISSUE_DETECTION_RESULT_ISSUES_TAG = 'mlflow.issueDetection.result.issues';
 export const MLFLOW_ISSUE_DETECTION_RESULT_TOTAL_TRACES_TAG = 'mlflow.issueDetection.result.totalTracesAnalyzed';
 export const MLFLOW_ISSUE_DETECTION_RESULT_SUMMARY_TAG = 'mlflow.issueDetection.result.summary';
+// Experiment-level detection settings, stored as one JSON value: instructions plus category toggles.
+export const MLFLOW_ISSUE_DETECTION_PRIORITIES_TAG = 'mlflow.issueDetection.priorities';
 
 export const MLFLOW_RUN_GIT_SOURCE_BRANCH_TAG = 'mlflow.source.git.branch';
 export const MLFLOW_PROMPT_VERSION_COUNT_TAG = 'PromptVersionCount';
