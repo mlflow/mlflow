@@ -1149,8 +1149,9 @@ def _get_experiment_permission(experiment_id: str, username: str) -> Permission:
 # workspaces are enabled, non-default workspaces prefix the path with
 # ``workspaces/<workspace>/``. Accept the optional prefix so the experiment id is
 # resolved in both layouts; otherwise the prefixed form fails to match and the
-# artifact-proxy validator falls back to the coarser workspace-tier grant.
-_EXPERIMENT_ID_PATTERN = re.compile(r"^(?:workspaces/[^/]+/)?(\d+)/")
+# artifact-proxy validator falls back to the coarser workspace-tier grant. Case-insensitive
+# like the artifact handler's reserved-prefix check.
+_EXPERIMENT_ID_PATTERN = re.compile(r"^(?:workspaces/[^/]+/)?(\d+)/", re.IGNORECASE)
 
 
 def _experiment_id_from_canonical_proxy_path(canonical: str) -> "str | None":
@@ -1234,7 +1235,8 @@ def _parse_artifact_auth_target(artifact_path: str | None) -> _ArtifactAuthTarge
     segments = canonical.strip("/").split("/")
     workspace = None
     relative_path = canonical
-    if segments[0] == "workspaces":
+    # Matches the artifact handler, which treats any case of ``workspaces`` as the reserved prefix.
+    if segments[0].lower() == "workspaces":
         if len(segments) < 3 or segments[1] in ("", ".", ".."):
             return _ArtifactAuthTarget(invalid=True)
         workspace = segments[1]

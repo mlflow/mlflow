@@ -10071,3 +10071,20 @@ def test_retention_gate_memoizes_and_fails_closed(workspace_permission_setup):
             [template],
         )
     assert closed.retains(auth_module.RESOURCE_TYPE_ASSESSMENT) is False
+
+
+@pytest.mark.parametrize("prefix", ["workspaces", "WORKSPACES", "Workspaces"])
+def test_parse_artifact_auth_target_workspace_prefix_ignores_case(prefix):
+    # A case-insensitive local store serves ``WORKSPACES/`` from ``workspaces/``, so the
+    # upper-case spelling must be judged against the experiment, not the workspace grant.
+    target = auth_module._parse_artifact_auth_target(f"{prefix}/team-a/17/models/m-1/model.pkl")
+    assert target.workspace == "team-a"
+    assert target.experiment_id == "17"
+    assert target.relative_path == "17/models/m-1/model.pkl"
+
+
+@pytest.mark.parametrize("prefix", ["workspaces", "WORKSPACES"])
+def test_experiment_id_from_canonical_proxy_path_workspace_prefix_ignores_case(prefix):
+    # ``filter_list_artifacts_proxy`` passes the full path, so the experiment-root listing filter
+    # must resolve the experiment for any spelling of the prefix.
+    assert auth_module._experiment_id_from_canonical_proxy_path(f"{prefix}/team-a/17") == "17"
