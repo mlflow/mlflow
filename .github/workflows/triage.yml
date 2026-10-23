@@ -578,7 +578,7 @@ jobs:
           - name: Install system packages
             run: |
               sudo apt-get update
-              sudo apt-get install -y bubblewrap socat ripgrep ffmpeg
+              sudo apt-get install -y --no-install-recommends bubblewrap socat ripgrep ffmpeg
               if [ "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)" = 1 ]; then
                 sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
               fi
