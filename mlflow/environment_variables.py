@@ -1944,6 +1944,13 @@ _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN = _EnvironmentVariable(
     "_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", str, None
 )
 
+#: Internal env var set by ``mlflow server`` for its worker processes when uvicorn terminates TLS
+#: itself (``--uvicorn-opts`` with ``--ssl-keyfile``/``--ssl-certfile``), so that server
+#: self-calls (see ``mlflow.server.asgi_utils.get_server_self_url``) use HTTPS. Not set behind a
+#: TLS-terminating proxy, where the listener itself speaks plain HTTP.
+#: (default: ``False``)
+_MLFLOW_SERVER_TLS_LISTENER = _BooleanEnvironmentVariable("_MLFLOW_SERVER_TLS_LISTENER", False)
+
 # Short-lived, user-scoped credential the MLflow Assistant injects into a tool subprocess so the
 # tool's MLflow API calls authenticate as the session owner. It is an HMAC-signed value (see
 # mlflow.server.assistant.delegation), not a raw secret, so a leaked value only impersonates that
