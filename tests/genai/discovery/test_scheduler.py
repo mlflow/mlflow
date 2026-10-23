@@ -212,7 +212,8 @@ def test_the_experiments_saved_categories_reach_the_job(store, dispatch):
         **{
             MLFLOW_ISSUE_DETECTION_PRIORITIES: json.dumps({
                 "instructions": "watch the checkout flow",
-                "categories": {"cost": False},
+                # The shape the tab writes: every built-in, with the unticked ones false.
+                "categories": dict.fromkeys(DEFAULT_CATEGORIES, True) | {"cost": False},
             })
         },
     )

@@ -44,13 +44,14 @@ def parse_detection_settings(raw_value: str | None) -> DetectionSettings:
     """
     Parse the saved priorities, falling back to the defaults for anything unreadable.
 
-    Two defaulting rules are kept the same as the tab's, so a schedule analyzes an experiment the
-    way its owner sees it configured:
+    Read exactly the way the tab reads it, so a schedule analyzes an experiment the way its owner
+    sees it configured:
 
-    - A built-in category the tag does not mention is treated as selected. It is a category added
-      after the owner last saved, not a decision they made.
+    - The selected categories are the keys the tag sets to ``true``. A category the tag does not
+      mention is not selected, and neither is one whose value is not a boolean, since neither is
+      a selection the owner made.
     - A selection that comes out empty means every category, which is what the tab runs when
-      nothing is ticked.
+      nothing is ticked. Restricting a run to no categories at all would let it report nothing.
 
     The free-text priorities are passed on as they were written. They are capped and wrapped in
     their delimited block by the prompt builder, the same way a manual run's are, so there is
@@ -73,9 +74,11 @@ def parse_detection_settings(raw_value: str | None) -> DetectionSettings:
     raw_categories = parsed.get("categories")
     if not isinstance(raw_categories, dict):
         return DetectionSettings(categories=tuple(DEFAULT_CATEGORIES), instructions=instructions)
-    selected = dict.fromkeys(DEFAULT_CATEGORIES, True)
+    selected: dict[str, bool] = {}
     for category, is_selected in raw_categories.items():
         if isinstance(category, str) and category.strip() and isinstance(is_selected, bool):
+            # Last write wins, as it does for the object the tab parses, so two keys differing
+            # only in surrounding whitespace cannot produce the category twice.
             selected[category.strip()] = is_selected
     categories = tuple(category for category, is_selected in selected.items() if is_selected)
     return DetectionSettings(
