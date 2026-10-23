@@ -9,7 +9,18 @@ Prefer permalinks to file paths:
 
 Do not rename, comment on, label, or close the issue, and do not commit, push, or open a PR.
 A PR in the payload is a proposal; the workflow publishes it later, so do not claim it
-is already open. Stop after writing and validating the output.
+is already open.
+
+After writing and validating the output, restore the checkout to `HEAD`, then stop:
+
+```bash
+git reset -q --hard HEAD
+git clean -fdq
+git status --porcelain --untracked-files=all
+```
+
+The last command must print nothing. `fix.patch` and media under `$out_dir` are outside the
+checkout and survive this.
 
 ## Optional issue title
 
