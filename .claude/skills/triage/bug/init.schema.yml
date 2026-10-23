@@ -41,9 +41,9 @@ properties:
       - Expected: <what should happen>
       - Actual: <what happens, in one line, e.g. the exception and its message>
       - Fails at: <only for Reproduced: permalink to the line that raises or returns the wrong value>
-      - Missing information: <what the reporter should add; for a report about an MLflow REST
-        server endpoint, model serving endpoint, or AI Gateway route without a live endpoint call,
-        ask for the request and response against the real endpoint>
+      - Missing information: <what the reporter should add; for an external API integration report,
+        such as OpenAI or Anthropic, without a live call to the provider's real endpoint, ask for
+        the request and response against that endpoint>
 
       ### How to reproduce
 
@@ -71,8 +71,8 @@ properties:
       to add the `ready` issue label.>
 
       - Reporter: <e.g. "Test the PR." or "Wait for the `ready` label before opening a PR." or
-        "Share a minimal reproduction; for an MLflow REST server, model serving, or AI Gateway
-        bug, use a live call to the affected endpoint.">
+        "Share a minimal reproduction; for an external API integration such as OpenAI or
+        Anthropic, use a live call to the provider's real endpoint.">
       - Maintainers: <e.g. "Review the PR." or "Review findings and add the `ready` label if appropriate." or "Choose a fix direction.">
     type: string
     minLength: 1
