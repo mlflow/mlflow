@@ -38,6 +38,19 @@ jest.mock('../../components/evaluations/RunViewEvaluationsTab', () => ({
 jest.mock('./EvalRunTracesSidebar', () => ({
   EvalRunTracesSidebar: () => <div role="region" aria-label="Run sidebar" />,
 }));
+jest.mock('./EvalRunCompareView', () => ({
+  EvalRunCompareView: ({
+    baselineRunUuid,
+    compareRunUuids,
+  }: {
+    baselineRunUuid: string;
+    compareRunUuids: string[];
+  }) => (
+    <div data-testid="eval-run-compare-view">
+      base:{baselineRunUuid} compare:{compareRunUuids.join(',')}
+    </div>
+  ),
+}));
 jest.mock('./EvalRunTracesV4Table', () => ({
   EvalRunTracesV4Table: ({
     runUuid,
@@ -139,6 +152,21 @@ describe('EvalRunDetailsPage', () => {
     expect(screen.queryByTestId('eval-results-table')).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Overview' })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Traces' })).not.toBeInTheDocument();
+  });
+
+  test('opens the comparison of the path run against the compared runs in compare mode', async () => {
+    renderAt('/experiments/123/evaluation-runs/run-1/details?compare=true&compareFrom=runs&compareRuns=run-2,run-3');
+
+    expect(await screen.findByTestId('eval-run-compare-view')).toHaveTextContent('base:run-1 compare:run-2,run-3');
+    expect(screen.queryByTestId('eval-results-v4')).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Run sidebar' })).not.toBeInTheDocument();
+  });
+
+  test('keeps the single-run view when compare mode is off', async () => {
+    renderAt('/experiments/123/evaluation-runs/run-1/details?compareRuns=run-2');
+
+    expect(await screen.findByTestId('eval-results-v4')).toHaveTextContent('run:run-1');
+    expect(screen.queryByTestId('eval-run-compare-view')).not.toBeInTheDocument();
   });
 
   test("renders the traces table inside the experiment's custom view provider", async () => {
