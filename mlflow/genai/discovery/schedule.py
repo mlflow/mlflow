@@ -54,6 +54,19 @@ MAX_TRACE_FILTERS = 20
 _FORBIDDEN_FILTER_CHARS = "`'\"\\"
 
 
+def _has_control_char(text: str) -> bool:
+    """
+    Whether ``text`` carries a character that cannot appear in a filter clause.
+
+    Control characters and DEL are rejected rather than stripped: the key and value are
+    spliced into a filter expression, so one carrying a newline or a null byte builds a
+    malformed clause, and rewriting it quietly would filter on something other than what the
+    schedule names. Ordinary whitespace is allowed, unlike in a model identifier -- a tag
+    value like "north america" is legitimate.
+    """
+    return any(ord(char) < 0x20 or ord(char) == 0x7F for char in text)
+
+
 # Upper bound on a stored provider, model or endpoint name. The tag is client-written, so the
 # dispatcher bounds what it will splice into a model URI rather than trusting its length.
 MAX_MODEL_IDENTIFIER_LENGTH = 200
@@ -119,6 +132,15 @@ class ScheduleModel:
     provider: str = ""
     model: str = ""
     endpoint_name: str = ""
+
+    def __post_init__(self) -> None:
+        # Every field defaulting to "" keeps the two selections independent, but it also makes
+        # ``ScheduleModel()`` constructable into the URI ":/", which names no model. The parser
+        # already returns None rather than building one, so this guards a future caller.
+        if not self.endpoint_name and not (self.provider and self.model):
+            raise ValueError(
+                "A ScheduleModel names either an AI Gateway endpoint or a provider and model"
+            )
 
     def to_model_uri(self) -> str:
         """The model identifier the job takes, in the same form the manual path builds."""
@@ -234,6 +256,8 @@ def _parse_trace_filter(entry: object) -> ScheduleTraceFilter | None:
     if entry.get("operator", "=") != "=":
         return None
     if any(char in key or char in value for char in _FORBIDDEN_FILTER_CHARS):
+        return None
+    if _has_control_char(key) or _has_control_char(value):
         return None
     return ScheduleTraceFilter(field=field, key=key, value=value)
 
