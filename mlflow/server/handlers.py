@@ -403,6 +403,7 @@ from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.issue_utils import validate_issue_fields
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.mlflow_tags import (
+    MLFLOW_ARTIFACT_LOCATION,
     MLFLOW_CUSTOM_VIEW_TAG_PREFIX,
     MLFLOW_GENAI_EVALUATE_JOB_ID,
     MLFLOW_ISSUE_DETECTION_JOB_ID,
@@ -2825,6 +2826,7 @@ def _get_artifact_repo(run):
 
 
 _HANDLER_BLOCKED_TRACE_TAGS = frozenset({
+    MLFLOW_ARTIFACT_LOCATION,
     MLFLOW_TRACE_SPANS_LOCATION,
     MLFLOW_TRACE_ARCHIVE_LOCATION,
     MLFLOW_TRACE_ARCHIVAL_FAILURE,
@@ -6012,7 +6014,11 @@ def _deprecated_end_trace_v2(request_id):
         },
     )
     request_metadata = {e.key: e.value for e in request_message.request_metadata}
-    tags = {e.key: e.value for e in request_message.tags}
+    # Legacy clients send back all trace tags, including server-managed ones, so drop
+    # blocked tags instead of rejecting the request.
+    tags = {
+        e.key: e.value for e in request_message.tags if e.key not in _HANDLER_BLOCKED_TRACE_TAGS
+    }
 
     trace_info = _get_tracking_store().deprecated_end_trace_v2(
         request_id=request_id,
