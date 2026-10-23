@@ -1,4 +1,5 @@
 import json
+from types import SimpleNamespace
 from unittest import mock
 
 import pytest
@@ -423,6 +424,42 @@ def test_an_issue_resolved_while_matching_is_not_refreshed_into():
     assert [issue.issue_id for issue in issues] != [target.issue_id]
     assert issues[0].source_run_id == run.info.run_id
     # The closed issue is left exactly as the user left it.
+    assert client._get_issue(target.issue_id).status == IssueStatus.RESOLVED
+    assert len(list(client._search_issues(experiment_id=exp_id))) == 2
+
+
+def test_an_issue_resolved_between_the_check_and_the_refresh_is_not_annotated_into():
+    # The re-read above closes the window the model call opens, but nothing in the store
+    # conditions the write on status, so a resolution landing between the read and the write would
+    # otherwise be refreshed into and carry this run's traces under the closed row. Simulated by
+    # letting the read see a pending issue while the store already holds a resolved one.
+    from mlflow.genai.discovery.pipeline import _build_issues
+    from mlflow.tracing.client import TracingClient
+
+    exp_id = mlflow.set_experiment("b7-resolved-mid-refresh").experiment_id
+    client = TracingClient()
+    target = client._create_issue(
+        experiment_id=exp_id,
+        name="Refund falsely confirmed",
+        description="Agent reports a refund the tool never completed.",
+        severity="high",
+        categories=["correctness"],
+    )
+    outcome = MatchOutcome(matched={0: target.issue_id})
+    client._update_issue(issue_id=target.issue_id, status=IssueStatus.RESOLVED)
+    stale_read = SimpleNamespace(status=IssueStatus.PENDING.value, last_seen_timestamp=0)
+
+    with (
+        mock.patch.object(TracingClient, "_get_issue", return_value=stale_read),
+        mlflow.start_run() as run,
+    ):
+        issues, issue_trace_ids = _build_issues(
+            [_finding("Refund falsely confirmed")], [], exp_id, run.info.run_id, outcome
+        )
+
+    assert [issue.issue_id for issue in issues] != [target.issue_id]
+    assert target.issue_id not in issue_trace_ids
+    assert issues[0].source_run_id == run.info.run_id
     assert client._get_issue(target.issue_id).status == IssueStatus.RESOLVED
     assert len(list(client._search_issues(experiment_id=exp_id))) == 2
 

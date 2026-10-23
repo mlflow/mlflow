@@ -646,6 +646,18 @@ def _build_issues(
                         current.last_seen_timestamp or 0,
                     ),
                 )
+                # The re-read above closes the window the model call opens, but not the gap
+                # between that read and this write: nothing in the store conditions the update on
+                # status. Judge the issue the store handed back rather than the one that was read,
+                # so a resolution landing in that gap still sends the finding to a new issue
+                # instead of annotating this run's traces onto the row someone just closed.
+                if issue.status not in MATCHABLE_STATUSES:
+                    _logger.info(
+                        "Issue %s became %s while being refreshed; reporting the finding as new",
+                        matched_id,
+                        issue.status,
+                    )
+                    raise _MatchNoLongerValid
             except _MatchNoLongerValid:
                 pass
             except Exception:
