@@ -959,6 +959,10 @@
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
     "description": "Label for the number of traces selected"
   },
+  "1Nww1d": {
+    "defaultMessage": "AVG",
+    "description": "Average label in a comparison session score summary"
+  },
   "1OQt7+": {
     "defaultMessage": "Evaluate traces",
     "description": "Title for the run evaluation modal dialog"
@@ -1038,6 +1042,10 @@
   "1hI96w": {
     "defaultMessage": "Showing only visible runs",
     "description": "Experiment page > compare runs > parallel chart > header > indicator for only visible runs shown"
+  },
+  "1hnR4G": {
+    "defaultMessage": "TRUE",
+    "description": "True-rate label in a comparison session score summary"
   },
   "1htGxF": {
     "defaultMessage": "Cancel",
@@ -1686,6 +1694,10 @@
   "3v2Y8K": {
     "defaultMessage": "AI Gateway",
     "description": "Shared label for AI Gateway used in sidebar and breadcrumbs"
+  },
+  "3vK0nn": {
+    "defaultMessage": "{runName} session {sessionId}",
+    "description": "Summary row for one run in a matched session comparison"
   },
   "3vS6G9": {
     "defaultMessage": "{count, plural, one {# trace was} other {# traces were}} removed",
@@ -2554,6 +2566,10 @@
   "6csnxr": {
     "defaultMessage": "Delete",
     "description": "Gateway > Endpoints list > Delete button"
+  },
+  "6dK+y+": {
+    "defaultMessage": "Comparison is limited to {limit, number} traces per run. Sessions may have missing turns, and matches and summaries may be incomplete.",
+    "description": "Loaded session summaries may be partial when the trace cap is reached"
   },
   "6ejdmD": {
     "defaultMessage": "Requests",
@@ -3479,6 +3495,10 @@
     "defaultMessage": "Version status",
     "description": "Aria label for MCP server version status selector"
   },
+  "9RA9+t": {
+    "defaultMessage": "{runCount} · {turnCount}",
+    "description": "Number of populated runs and loaded trace turns in a session comparison group"
+  },
   "9RoNrt": {
     "defaultMessage": "Standard",
     "description": "Traces table row-height option: taller rows with two-line text previews"
@@ -3914,6 +3934,10 @@
   "AkU1/U": {
     "defaultMessage": "No value",
     "description": "Eval-runs metric timeline tooltip value when a run has no value for a metric"
+  },
+  "AlKCj1": {
+    "defaultMessage": "{count, plural, one {# comparison group} other {# comparison groups}}",
+    "description": "Number of matched session or standalone trace groups"
   },
   "AmLGSf": {
     "defaultMessage": "Apply filters",
@@ -5114,6 +5138,10 @@
   "Epo8/i": {
     "defaultMessage": "Delete {count, plural, one {# Experiment} other {# Experiments}}",
     "description": "Experiments page list, delete bulk experiments modal title"
+  },
+  "Er9lSJ": {
+    "defaultMessage": "Matched sessions",
+    "description": "Label for a comparison group containing different session IDs across runs"
   },
   "EskEv7": {
     "defaultMessage": "Question preview",
@@ -7979,6 +8007,10 @@
     "defaultMessage": "Showing the first {count} matches — refine your search",
     "description": "Review queue: hint that the owner search results were capped"
   },
+  "O476xr": {
+    "defaultMessage": "{count, plural, one {# turn} other {# turns}}",
+    "description": "Number of loaded trace turns across runs in a session comparison group"
+  },
   "O4EngZ": {
     "defaultMessage": "Reference URIs:",
     "description": "Pinned skills URI label for a Skill version"
@@ -8082,6 +8114,10 @@
   "OIKebl": {
     "defaultMessage": "Choice",
     "description": "Choice decision answer type"
+  },
+  "OJWlBb": {
+    "defaultMessage": "{runName} session unavailable",
+    "description": "Placeholder row for a run with no matching session"
   },
   "OLCPsu": {
     "defaultMessage": "Loading overview",
@@ -9603,6 +9639,10 @@
     "defaultMessage": "Commit message (optional)",
     "description": "Label for the optional commit-message input in the playground save-prompt-version modal"
   },
+  "TUBoJA": {
+    "defaultMessage": "{runName} session turns",
+    "description": "Trace block for one run in an expanded session comparison"
+  },
   "TWnsnV": {
     "defaultMessage": "Run Name",
     "description": "Column header for run name in the evaluation runs table"
@@ -9622,6 +9662,10 @@
   "TXwmoT": {
     "defaultMessage": "Git branch",
     "description": "Usage overview > metrics filter > git branch column option label"
+  },
+  "TZ2shB": {
+    "defaultMessage": "Turn {turnNumber}",
+    "description": "Turn number within one run session, not a cross-run match"
   },
   "TannO5": {
     "defaultMessage": "Retrieved {sampledCount} out of {totalCount} total logs ({percentage}%)",
@@ -9722,6 +9766,10 @@
   "TrYfRN": {
     "defaultMessage": "Dataset actions",
     "description": "Aria label for the V2 evaluation dataset detail page overflow-menu trigger"
+  },
+  "Ts2cf5": {
+    "defaultMessage": "Collapse {runName} session {sessionId}",
+    "description": "Collapse one run’s turns within a matched session comparison"
   },
   "TsYfJG": {
     "defaultMessage": "Source",
@@ -10243,6 +10291,10 @@
     "defaultMessage": "Create your first experiment",
     "description": "Home page experiments empty state title"
   },
+  "VU0EIZ": {
+    "defaultMessage": "Keep every turn and run in a session comparison when one trace matches all filters and the search. Filters use individual trace values, not session scores or totals.",
+    "description": "Trace-level filtering semantics in the session comparison"
+  },
   "VUqt8S": {
     "defaultMessage": "{label}: {value}",
     "description": "Tooltip for an unchanged span metric in a trace comparison"
@@ -10350,6 +10402,10 @@
   "VnnPrX": {
     "defaultMessage": "Enable Usage Tracking in the Overview tab to view usage metrics",
     "description": "Tooltip shown on disabled Usage tab explaining that usage tracking must be enabled first"
+  },
+  "VoJb74": {
+    "defaultMessage": "Collapse session comparison {sessionId}",
+    "description": "Collapse the run rows within a matched session comparison"
   },
   "VpFZR/": {
     "defaultMessage": "Cancel",
@@ -11467,6 +11523,10 @@
     "defaultMessage": "Install MLflow 3:",
     "description": "Instruction for installing MLflow from mlflow-3 branch in log MLflow 3 models"
   },
+  "ZSmd/j": {
+    "defaultMessage": "Session comparison {sessionId}",
+    "description": "Parent row for a matched group of run sessions"
+  },
   "ZWtO7h": {
     "defaultMessage": "TRUE",
     "description": "True percentage label in a comparison column summary"
@@ -11982,6 +12042,10 @@
   "bGHzui": {
     "defaultMessage": "Custom judge",
     "description": "Sub-label for a custom LLM-as-a-judge row in the run evaluation modal"
+  },
+  "bHczHw": {
+    "defaultMessage": "{count, plural, one {# run} other {# runs}}",
+    "description": "Number of populated runs in a session comparison group"
   },
   "bHuphj": {
     "defaultMessage": "See the documents below to learn how to customize this model and deploy it for batch or real-time scoring using the pyfunc model flavor.",
@@ -12667,6 +12731,10 @@
     "defaultMessage": "expand {title}",
     "description": "Common component > collapsible section > alternative label when collapsed"
   },
+  "dTdPx2": {
+    "defaultMessage": "Expand session comparison {sessionId}",
+    "description": "Expand the run rows within a matched session comparison"
+  },
   "dTl9NJ": {
     "defaultMessage": "Detect issues in traces",
     "description": "Aria label for the detect issues button"
@@ -12774,6 +12842,10 @@
   "dvL+4V": {
     "defaultMessage": "Automatically log traces for LangGraph workflows by calling the {code} function. For example:",
     "description": "Description of how to log traces for the LangGraph package using MLflow autologging. This message is followed by a code example."
+  },
+  "dvuWn+": {
+    "defaultMessage": "Groups are sorted by the baseline session’s summary. Ties use the other runs in displayed order. Missing values appear last. Turns remain chronological.",
+    "description": "Explains sorting complete matched sessions"
   },
   "dw+xvS": {
     "defaultMessage": "Version/Alias:",
@@ -14054,6 +14126,10 @@
   "hZFbZl": {
     "defaultMessage": "Issue detection canceled",
     "description": "Issue detection progress > Step label when canceled"
+  },
+  "hZNzKK": {
+    "defaultMessage": "{value} ({label})",
+    "description": "Trace feedback summary within one comparison session"
   },
   "haBULM": {
     "defaultMessage": "Duration",
@@ -15471,6 +15547,10 @@
     "defaultMessage": "Date unavailable",
     "description": "Fallback for an evaluation run whose creation date is unavailable"
   },
+  "m/Q9At": {
+    "defaultMessage": "Expand {runName} session {sessionId}",
+    "description": "Expand one run’s turns within a matched session comparison"
+  },
   "m/gY3l": {
     "defaultMessage": "Viewing version {version}",
     "description": "Skill version detail heading"
@@ -16106,6 +16186,10 @@
   "nrIEMg": {
     "defaultMessage": "No servers found",
     "description": "Empty state when MCP server search returns no results"
+  },
+  "nuQe0X": {
+    "defaultMessage": "PASS",
+    "description": "Pass-rate label in a comparison session score summary"
   },
   "nugZSE": {
     "defaultMessage": "Show less",
@@ -18391,6 +18475,10 @@
     "defaultMessage": "Add tags",
     "description": "Label for the add tags button on the MCP server detail page"
   },
+  "vkXerk": {
+    "defaultMessage": "{value}: {count}",
+    "description": "Categorical feedback counts within a session"
+  },
   "vlUEAo": {
     "defaultMessage": "Delete",
     "description": "Delete assessment modal button text"
@@ -19298,6 +19386,10 @@
   "ybnujd": {
     "defaultMessage": "Evaluation Runs",
     "description": "Breadcrumb link back to the evaluation runs list from the eval-run detail page"
+  },
+  "yd0jHL": {
+    "defaultMessage": "{count} unique",
+    "description": "Distinct assessment values in session comparison summaries"
   },
   "yd6Poj": {
     "defaultMessage": "No traces to analyze. Log traces to this experiment first.",

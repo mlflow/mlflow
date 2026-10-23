@@ -10,7 +10,7 @@ import type {
   TraceColumnId,
   TraceColumnHeaderAction,
   TraceColumnHeaderSummary,
-  TraceComparisonRow,
+  TracesComparisonRow,
   TraceHrefGetter,
   TraceSortColumnId,
   TraceTableColumn,
@@ -43,7 +43,13 @@ export interface TracesTableViewProps {
 
   // Table passthrough (see TracesTableProps).
   traces: ModelTraceInfoV3[];
-  comparisonRows?: TraceComparisonRow[];
+  comparisonRows?: TracesComparisonRow[];
+  /** Session comparison groups that are open; with `comparisonRows` grouped by session. */
+  expandedComparisonGroups?: ReadonlySet<string>;
+  onToggleComparisonGroup?: (comparisonId: string) => void;
+  /** Runs whose turns are open within each session comparison group. */
+  expandedComparisonRuns?: ReadonlyMap<string, ReadonlySet<string>>;
+  onToggleComparisonRun?: (comparisonId: string, runUuid: string) => void;
   visibleColumns: TraceColumnId[];
   extraColumns?: TraceTableColumn[];
   columnOrder?: string[];
@@ -212,6 +218,10 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
     <TracesTable
       traces={props.traces}
       comparisonRows={props.comparisonRows}
+      expandedComparisonGroups={props.expandedComparisonGroups}
+      onToggleComparisonGroup={props.onToggleComparisonGroup}
+      expandedComparisonRuns={props.expandedComparisonRuns}
+      onToggleComparisonRun={props.onToggleComparisonRun}
       visibleColumns={props.visibleColumns}
       extraColumns={props.extraColumns}
       columnOrder={props.columnOrder}

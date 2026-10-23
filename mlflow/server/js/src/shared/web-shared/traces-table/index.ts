@@ -15,6 +15,8 @@ export type {
   TraceColumnHeaderAction,
   TraceSortColumnId,
   TraceComparisonRow,
+  SessionComparisonRow,
+  TracesComparisonRow,
   ComparisonCellRenderer,
   TraceColumnHeaderSummary,
 } from './types';

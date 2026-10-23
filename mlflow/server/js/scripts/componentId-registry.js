@@ -849,6 +849,8 @@ module.exports = {
   "mlflow.eval-run-comparison.outcome-filter.remove": "",
   "mlflow.eval-run-comparison.outcome-filter.run": "",
   "mlflow.eval-run-comparison.outcome-filter.tooltip": "",
+  "mlflow.eval-run-comparison.session-assessment-category": "",
+  "mlflow.eval-run-comparison.session-assessment-summary": "",
   "mlflow.eval-run-comparison.traces-cap": "",
   "mlflow.eval-run-comparison.traces.assessment-delta-tag": "",
 
