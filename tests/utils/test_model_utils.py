@@ -189,6 +189,19 @@ def test_is_model_code_loading_allowed(monkeypatch, model_code, pickle, expected
     assert mlflow_model_utils._is_model_code_loading_allowed() is expected
 
 
+@pytest.mark.parametrize(
+    ("pickle", "mentions_deprecated_variable"),
+    [(None, False), ("true", False), ("false", True)],
+)
+def test_deprecated_pickle_variable_hint(monkeypatch, pickle, mentions_deprecated_variable):
+    if pickle is None:
+        monkeypatch.delenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", raising=False)
+    else:
+        monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", pickle)
+    hint = mlflow_model_utils._deprecated_pickle_variable_hint()
+    assert ("MLFLOW_ALLOW_PICKLE_DESERIALIZATION" in hint) is mentions_deprecated_variable
+
+
 def test_load_model_refuses_code_directory_when_model_code_execution_disallowed(
     tmp_path, monkeypatch
 ):

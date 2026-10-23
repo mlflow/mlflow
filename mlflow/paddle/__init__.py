@@ -43,6 +43,7 @@ from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _copy_extra_files,
+    _deprecated_pickle_variable_hint,
     _get_flavor_configuration,
     _is_pickle_loading_allowed,
     _validate_and_copy_code_paths,
@@ -316,7 +317,7 @@ def load_model(model_uri, model=None, dst_path=None, **kwargs):
         raise MlflowException(
             "Deserializing model using pickle is disallowed, but loading a paddle model "
             "may deserialize pickle data. The workaround is to set environment variable "
-            "'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' to 'true'."
+            "'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' to 'true'." + _deprecated_pickle_variable_hint()
         )
     import paddle
 

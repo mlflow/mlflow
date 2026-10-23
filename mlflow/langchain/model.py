@@ -91,6 +91,7 @@ from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _check_model_code_loading_allowed,
+    _deprecated_pickle_variable_hint,
     _get_flavor_configuration,
     _is_pickle_loading_allowed,
     _validate_and_copy_code_paths,
@@ -907,7 +908,7 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
                 "variable 'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' to 'true'; or save the model as "
                 "models-from-code artifacts, you can refer to documentation at "
                 "https://mlflow.org/docs/latest/ml/model/models-from-code/#examples-and-patterns "
-                "for example code."
+                "for example code." + _deprecated_pickle_variable_hint()
             )
         model = _load_model(local_model_path, flavor_conf)
     # set active model after model loading since experiment ID might be set

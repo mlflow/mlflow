@@ -11,7 +11,10 @@ import pandas as pd
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import EvaluationArtifact
 from mlflow.utils.annotations import developer_stable
-from mlflow.utils.model_utils import _is_pickle_loading_allowed
+from mlflow.utils.model_utils import (
+    _deprecated_pickle_variable_hint,
+    _is_pickle_loading_allowed,
+)
 from mlflow.utils.proto_json_utils import NumpyEncoder
 
 
@@ -94,6 +97,7 @@ class PickleEvaluationArtifact(EvaluationArtifact):
                 "Deserializing evaluation artifacts using pickle is disallowed. "
                 "Set environment variable 'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' to 'true' "
                 "to allow deserializing evaluation artifacts using pickle."
+                + _deprecated_pickle_variable_hint()
             )
         with open(local_artifact_path, "rb") as f:
             self._content = pickle.load(f)

@@ -95,6 +95,7 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _check_model_code_loading_allowed,
+    _deprecated_pickle_variable_hint,
     _get_flavor_configuration,
     _is_pickle_loading_allowed,
     _validate_infer_and_copy_code_paths,
@@ -1409,7 +1410,7 @@ def _load_context_model_and_signature(model_path: str, model_config: dict[str, A
                 "https://mlflow.org/docs/latest/ml/model/models-from-code/ for details. "
                 "Another workaround is to set environment "
                 "variable 'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' to 'true' to allow "
-                "deserializing model using pickle."
+                "deserializing model using pickle." + _deprecated_pickle_variable_hint()
             )
         python_model_cloudpickle_version = pyfunc_config.get(CONFIG_KEY_CLOUDPICKLE_VERSION, None)
         if python_model_cloudpickle_version is None:

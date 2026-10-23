@@ -402,6 +402,18 @@ def _is_pickle_loading_allowed(allow_in_databricks: bool = True) -> bool:
     return allow_in_databricks and _is_in_databricks_managed_environment()
 
 
+def _deprecated_pickle_variable_hint() -> str:
+    # The deprecated variable still disallows pickle on its own, so setting the new variable to
+    # 'true' is not enough while it is 'false'.
+    pickle_variable = MLFLOW_ALLOW_PICKLE_DESERIALIZATION
+    if pickle_variable.defined and not pickle_variable.get():
+        return (
+            f" Also unset the deprecated environment variable '{pickle_variable.name}', "
+            "which is set to 'false'."
+        )
+    return ""
+
+
 def _is_model_code_loading_allowed() -> bool:
     # Only the new variable gates model code (code directories, models from code), so that
     # `MLFLOW_ALLOW_PICKLE_DESERIALIZATION=false` keeps refusing only pickle, as before.

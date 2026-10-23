@@ -19,6 +19,7 @@ from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
+    _deprecated_pickle_variable_hint,
     _get_flavor_configuration,
     _is_pickle_loading_allowed,
 )
@@ -62,6 +63,7 @@ def _load_model(model_uri, dst_path=None):
             "'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' to 'true', or save the model with "
             "'use_dspy_model_save=True' like "
             "`mlflow.dspy.save_model(model, path, use_dspy_model_save=True)`."
+            + _deprecated_pickle_variable_hint()
         )
 
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
@@ -75,12 +77,11 @@ def _load_model(model_uri, dst_path=None):
         except Exception as e:
             if not allow_pickle:
                 raise MlflowException(
-                    f"Failed to load DSPy model: {e}. Note: the environment variable "
-                    "'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' is currently set to 'false', "
-                    "which disables pickle-based deserialization. If the failure above "
+                    f"Failed to load DSPy model: {e}. Note: pickle-based deserialization "
+                    "is disallowed. If the failure above "
                     "is due to disabled pickle deserialization, set "
                     "'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' to 'true' to allow loading "
-                    "pickle-based models."
+                    "pickle-based models." + _deprecated_pickle_variable_hint()
                 ) from e
             raise
 

@@ -51,7 +51,7 @@ from mlflow.transformers import (
     get_default_pip_requirements,
 )
 from mlflow.transformers.flavor_config import FlavorKey
-from mlflow.transformers.model_io import _load_component, _load_model
+from mlflow.transformers.model_io import _load_component, _load_model, save_local_checkpoint
 from mlflow.transformers.torch_utils import _get_torch_dtype_kwarg_name
 from mlflow.types.schema import Array, ColSpec, DataType, ParamSchema, ParamSpec, Schema
 from mlflow.utils.environment import _mlflow_conda_env
@@ -4004,3 +4004,19 @@ def test_load_component_refuses_custom_component_when_model_code_execution_is_di
     ):
         _load_component(flavor_conf, FlavorKey.TOKENIZER, local_path="tokenizer")
     from_pretrained.assert_not_called()
+
+
+def test_save_local_checkpoint_with_custom_component_when_model_code_execution_is_disallowed(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    checkpoint_dir = tmp_path / "checkpoint"
+    checkpoint_dir.mkdir()
+    (checkpoint_dir / "config.json").write_text("{}")
+    flavor_conf = {
+        FlavorKey.COMPONENTS: [FlavorKey.TOKENIZER],
+        FlavorKey.COMPONENT_TYPE.format(FlavorKey.TOKENIZER): "CustomTokenizer",
+    }
+    with mock.patch("transformers.AutoTokenizer.from_pretrained") as from_pretrained:
+        save_local_checkpoint(tmp_path / "model", checkpoint_dir, flavor_conf)
+    from_pretrained.assert_called_once_with(str(checkpoint_dir), trust_remote_code=True)

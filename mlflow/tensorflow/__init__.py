@@ -66,6 +66,7 @@ from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _copy_extra_files,
+    _deprecated_pickle_variable_hint,
     _get_flavor_configuration,
     _is_pickle_loading_allowed,
     _validate_and_copy_code_paths,
@@ -550,6 +551,7 @@ def _load_custom_objects(path, file_name):
                 "Deserializing custom objects using cloudpickle is disallowed, but this model "
                 "was saved with custom objects in pickle format. To address this issue, you need "
                 "to set environment variable 'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' to 'true'."
+                + _deprecated_pickle_variable_hint()
             )
         import cloudpickle
 

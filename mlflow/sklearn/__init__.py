@@ -79,6 +79,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _copy_extra_files,
+    _deprecated_pickle_variable_hint,
     _get_flavor_configuration,
     _is_pickle_loading_allowed,
     _validate_and_copy_code_paths,
@@ -548,11 +549,12 @@ def _load_model_from_local_file(path, serialization_format, skops_trusted_types=
     # paths: those managed runtimes permit model deserialization regardless of the flag.
     if not _is_pickle_loading_allowed():
         raise MlflowException(
-            "Deserializing this model is disallowed because 'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' "
-            "is not set to 'true'. Loading a model can execute arbitrary code from the model "
+            "Deserializing this model is disallowed. Loading a model can execute arbitrary "
+            "code from the model "
             "artifact, including models saved in the 'skops' format, whose trusted-types "
             "allow-list is read from the model itself. Only load models from trusted sources; set "
             "'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' to 'true' to allow loading."
+            + _deprecated_pickle_variable_hint()
         )
 
     if serialization_format == SERIALIZATION_FORMAT_SKOPS:

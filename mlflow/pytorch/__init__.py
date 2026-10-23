@@ -67,6 +67,7 @@ from mlflow.utils.file_utils import (
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _copy_extra_files,
+    _deprecated_pickle_variable_hint,
     _get_flavor_configuration,
     _is_pickle_loading_allowed,
     _validate_and_copy_code_paths,
@@ -707,7 +708,7 @@ def _load_by_pickle_check(is_loading_state_dict: bool):
                 "Deserializing model using pickle is disallowed, but this state dict is saved "
                 "in pickle format. You can set environment variable "
                 "'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' to 'true' to allow deserializing state "
-                "dict using pickle."
+                "dict using pickle." + _deprecated_pickle_variable_hint()
             )
         raise MlflowException(
             "Deserializing model using pickle is disallowed, but this model is saved "
@@ -716,7 +717,7 @@ def _load_by_pickle_check(is_loading_state_dict: bool):
             "`mlflow.pytorch.save_model(model, path, serialization_format='pt2')`, "
             "or you can set environment variable "
             "'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' to 'true' to allow deserializing model "
-            "using pickle."
+            "using pickle." + _deprecated_pickle_variable_hint()
         )
 
 
@@ -844,7 +845,7 @@ def _validate_pt2_archive_is_pickle_free(model_path: str) -> None:
             f"version ({torch.__version__}) cannot safely verify that a model saved with "
             "serialization_format='pt2' is free of pickle payloads. Upgrade to `torch` >= 2.10, "
             "or set environment variable 'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' to 'true' to "
-            "allow deserializing the model using pickle."
+            "allow deserializing the model using pickle." + _deprecated_pickle_variable_hint()
         )
 
     def _violation(record: str) -> MlflowException:
@@ -855,7 +856,7 @@ def _validate_pt2_archive_is_pickle_free(model_path: str) -> None:
             "whose weights, constants and example inputs are tensors or primitive containers "
             "can be loaded. You can set environment variable "
             "'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' to 'true' to allow deserializing the model "
-            "using pickle."
+            "using pickle." + _deprecated_pickle_variable_hint()
         )
 
     user_safe_globals = _user_registered_safe_globals(torch)
