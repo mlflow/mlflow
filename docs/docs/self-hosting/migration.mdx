@@ -17,7 +17,7 @@ Upgrading MLflow typically involves the following steps:
 
 :::info
 
-MLflow does not natively support upgrading the server while the server is running. To avoid downtime, upgrade the server in a rolling manner and use load balancer to gradually route traffic from the old servers to the new servers.
+For releases where all pending migrations are safe (additive), MLflow supports zero-downtime upgrades. See [Zero-Downtime Upgrades](#zero-downtime-upgrades) below.
 
 :::
 
@@ -36,6 +36,48 @@ The command will update the database schema to the latest version using [Alembic
 Schema migrations can be slow and are not guaranteed to be transactional. Always take a backup of the database before running the migration.
 
 :::
+
+## Zero-Downtime Upgrades
+
+MLflow can classify pending database migrations by their safety level, enabling zero-downtime upgrades when all pending migrations are additive (new tables, nullable columns, indexes).
+
+### Checking migration safety
+
+Before upgrading, check whether pending migrations are safe:
+
+```bash
+mlflow db check-upgrade <backend-store-url>
+```
+
+The command classifies each pending migration as:
+
+- **SAFE**: Additive changes (new tables, indexes, nullable columns). Zero-downtime upgrade is possible.
+- **CAUTIOUS**: Changes that may need review (type changes, constraint modifications). Consider testing first.
+- **BREAKING**: Changes that require downtime (column renames, drops, data migrations).
+
+Exit codes: `0` = all safe, `1` = cautious, `2` = breaking. Use `--json` for machine-readable output in CI pipelines.
+
+### Upgrade workflow
+
+**When all migrations are safe (exit code 0):**
+
+1. Deploy new server instances (MLflow auto-detects safe pending migrations and starts normally).
+2. Run `mlflow db upgrade <backend-store-url>` from a separate process or job.
+3. Done. No downtime required.
+
+**When breaking migrations are present (exit code 2):**
+
+Use the traditional workflow: stop the server, run migrations, restart.
+
+### Manual override
+
+If you need to bypass the schema check regardless of migration safety, set the `MLFLOW_ALLOW_SCHEMA_MISMATCH` environment variable:
+
+```bash
+export MLFLOW_ALLOW_SCHEMA_MISMATCH=true
+```
+
+This causes schema mismatches to produce a warning instead of a fatal error. Use with caution, as running against a schema missing breaking changes may cause runtime errors.
 
 ## Semantic versioning
 
