@@ -1188,7 +1188,8 @@ def _artifact_proxy_child_types(artifact_path: str, *, recursive: bool) -> "tupl
     can reach, so stripping a path segment cannot turn a denied delete into a permitted one.
     """
     remainder = _EXPERIMENT_ID_PATTERN.sub("", f"{artifact_path.lstrip('/')}/", count=1)
-    segments = [segment for segment in remainder.split("/") if segment]
+    # Lowercased because a case-insensitive local store serves ``MODELS`` as ``models``.
+    segments = [segment.lower() for segment in remainder.split("/") if segment]
     if not segments:
         # The experiment artifact root contains every child tier's subtree.
         return _ARTIFACT_PROXY_EXPERIMENT_ROOT_TIERS if recursive else ()
