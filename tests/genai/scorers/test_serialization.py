@@ -1270,7 +1270,9 @@ def test_third_party_scorer_session_level_round_trip_and_copy():
     assert copy.session_level == "episode"
 
 
-@pytest.mark.parametrize("class_name", ["invoke_judge_model", "MlflowException", "DoesNotExist"])
+@pytest.mark.parametrize(
+    "class_name", ["invoke_judge_model", "MlflowException", "BuiltInScorer", "DoesNotExist"]
+)
 def test_builtin_scorer_class_must_name_a_builtin_scorer(class_name):
     data = {
         "name": "probe",

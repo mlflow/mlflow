@@ -380,7 +380,11 @@ class BuiltInScorer(Judge):
 
         scorer_class = getattr(builtin_scorers, serialized.builtin_scorer_class, None)
         # The module also holds imported helpers, so only scorer classes may be constructed.
-        if not (isinstance(scorer_class, type) and issubclass(scorer_class, BuiltInScorer)):
+        if not (
+            isinstance(scorer_class, type)
+            and issubclass(scorer_class, BuiltInScorer)
+            and not inspect.isabstract(scorer_class)
+        ):
             # error_code is INVALID_PARAMETER_VALUE but this is an attribute lookup failure
             raise MlflowException.invalid_parameter_value(
                 f"Unknown builtin scorer class: {serialized.builtin_scorer_class}",
