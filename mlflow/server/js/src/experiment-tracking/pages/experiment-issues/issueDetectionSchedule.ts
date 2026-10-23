@@ -175,6 +175,17 @@ export const loadIssueDetectionSchedule = async (experimentId: string): Promise<
   return readIssueDetectionScheduleFromTags(experiment?.tags);
 };
 
+/**
+ * Characters the server drops a clause for. A clause is spliced into a trace-search expression
+ * where a backtick or quote breaks it, and that grammar has no escape, so the server has no way to
+ * apply such a clause. Rejecting the draft here is what stops a schedule being saved with a filter
+ * that looks active in this modal and is silently ignored by every run.
+ */
+const UNSUPPORTED_FILTER_CHARACTERS = ['`', "'", '"', '\\'];
+
+export const unsupportedFilterCharacter = (filter: ScheduleTraceFilter): string | undefined =>
+  UNSUPPORTED_FILTER_CHARACTERS.find((character) => filter.key.includes(character) || filter.value.includes(character));
+
 /** Blank-key clauses are dropped and keys trimmed, so the stored model stays clean. */
 export const normalizeTraceFilters = (filters: ScheduleTraceFilter[]): ScheduleTraceFilter[] =>
   filters
@@ -196,10 +207,16 @@ export interface IssueDetectionScheduleUpdate {
  * restores what was chosen before. Turning it off with nothing stored writes a paused schedule with
  * no cadence, which the server reads as nothing to run.
  *
- * The clauses are written from the same model as the cadence on every save, so the two tags cannot
- * drift. They are separate writes, so a failure between them can leave them briefly inconsistent;
- * that failure is surfaced to the user, and because both are always rewritten, the next successful
- * save reconciles them.
+ * The clauses are written **before** the cadence, and the order is the safety property rather than
+ * a detail: the cadence tag is what makes the dispatcher pick the schedule up, so writing it first
+ * opened a window -- a failed second write, or a dispatcher poll landing between the two -- where a
+ * run could analyze traces the clauses were meant to exclude. Written in this order, a narrowed
+ * scope is in force before anything can run under it, and a failure before the cadence write
+ * leaves the schedule as it was.
+ *
+ * The two writes are still not atomic, so a failure between them can leave the stored clauses
+ * ahead of the cadence. That failure is surfaced to the user, both tags are rewritten on every
+ * save, and the direction it can fail in is the safe one.
  */
 export const saveIssueDetectionSchedule = async (
   experimentId: string,
@@ -212,6 +229,11 @@ export const saveIssueDetectionSchedule = async (
   const savedModel = model ?? current?.model;
   await MlflowService.setExperimentTag({
     experiment_id: experimentId,
+    key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG,
+    value: JSON.stringify(normalized),
+  });
+  await MlflowService.setExperimentTag({
+    experiment_id: experimentId,
     key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG,
     value: JSON.stringify({
       version: ISSUE_DETECTION_SCHEDULE_VERSION,
@@ -222,11 +244,6 @@ export const saveIssueDetectionSchedule = async (
       paused: setting === 'off',
       ...(savedModel ? { model: savedModel } : {}),
     }),
-  });
-  await MlflowService.setExperimentTag({
-    experiment_id: experimentId,
-    key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG,
-    value: JSON.stringify(normalized),
   });
   return { setting, cadence, traceFilters: normalized, model: savedModel };
 };

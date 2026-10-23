@@ -38,6 +38,15 @@ export interface UseIssueDetectionScheduleResult {
   isUpdating: boolean;
   error: Error | null;
   /**
+   * Set when the stored schedule could not be read. Separate from `error` because the two call for
+   * opposite handling: a failed save keeps the draft open to retry, while a failed read means the
+   * values here are a fallback rather than what is stored, so editing has to be blocked -- saving
+   * over them would replace a real schedule with this one's defaults.
+   */
+  loadError: Error | null;
+  /** Retry the read, so a transient failure does not strand the control until a remount. */
+  retryLoad: () => void;
+  /**
    * Apply the desired cadence + clauses. Resolves once the writes succeed and rejects if any
    * fail, so the modal can await it -- keeping itself open on failure instead of closing and
    * silently discarding the user's draft.
@@ -64,6 +73,7 @@ export const useIssueDetectionSchedule = ({
     data: schedule,
     isLoading,
     error,
+    refetch,
   } = useQuery<IssueDetectionSchedule, Error>({
     queryKey,
     queryFn: () => loadIssueDetectionSchedule(experimentId),
@@ -96,6 +106,10 @@ export const useIssueDetectionSchedule = ({
     isLoading,
     isUpdating: mutation.isLoading,
     error: error ?? (mutation.error instanceof Error ? mutation.error : null),
+    loadError: error ?? null,
+    retryLoad: () => {
+      void refetch();
+    },
     setSetting,
   };
 };

@@ -8031,6 +8031,10 @@
     "defaultMessage": "Key name is required",
     "description": "Error message when key name is empty"
   },
+  "OyB7Fe": {
+    "defaultMessage": "Couldn't read this experiment's detection schedule. Retry to edit it.",
+    "description": "Experiment issues tab > Tooltip explaining the scheduled-detection control is disabled because its schedule could not be read"
+  },
   "OzFBcd": {
     "defaultMessage": "Choose which questions reviewers answer for traces in this queue.",
     "description": "Create review queue: questions field hint"
@@ -9702,6 +9706,10 @@
   "UjxgWD": {
     "defaultMessage": "Aliases:",
     "description": "Skill version aliases label"
+  },
+  "UkBza7": {
+    "defaultMessage": "Remove the {character} character from the filter. Scheduled runs cannot match on it.",
+    "description": "Experiment issues tab > Schedule modal error shown when a trace filter contains a character the server cannot apply"
   },
   "UkVgwL": {
     "defaultMessage": "Create endpoint",
@@ -12138,6 +12146,10 @@
   "coo35p": {
     "defaultMessage": "No runs have been logged yet. <link>Learn more</link> about how to create ML model training runs in this experiment.",
     "description": "Empty state description text for experiment runs page when no runs are logged in the experiment"
+  },
+  "corxRF": {
+    "defaultMessage": "Retry schedule",
+    "description": "Experiment issues tab > Button that retries reading the detection schedule after a failed read"
   },
   "cp/h86": {
     "defaultMessage": "Failed to load chart data",

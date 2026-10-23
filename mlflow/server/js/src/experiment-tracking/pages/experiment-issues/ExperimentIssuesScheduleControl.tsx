@@ -26,6 +26,7 @@ import {
   IssueDetectionModelDropdown,
   type IssueDetectionModelSelection,
 } from '../../components/experiment-page/components/traces-v3/IssueDetectionModelDropdown';
+import { unsupportedFilterCharacter } from './issueDetectionSchedule';
 import type {
   IssueDetectionScheduleModel,
   ScheduleTraceFilter,
@@ -249,9 +250,8 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
   // Replaces upstream's experiment-ACL check: OSS has no per-experiment write permission for
   // tags, but it does have servers that cannot run a schedule at all.
   const scheduledDetectionAvailable = useScheduledDetectionAvailable();
-  const { setting, traceFilters, model, isLoading, isUpdating, setSetting } = useIssueDetectionSchedule({
-    experimentId,
-  });
+  const { setting, traceFilters, model, isLoading, isUpdating, loadError, retryLoad, setSetting } =
+    useIssueDetectionSchedule({ experimentId });
 
   const [open, setOpen] = useState(false);
   const [cadence, setCadence] = useState<IssueDetectionScheduleSetting>('off');
@@ -276,6 +276,9 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     error: createSecretError,
     reset: resetCreateSecret,
   } = useCreateSecret();
+  // Set when a clause holds a character the server cannot apply, so Save explains instead of
+  // storing a filter that every run would ignore.
+  const [filterError, setFilterError] = useState<string | null>(null);
   // True after a Save whose writes failed. Local (not the hook's `error`, which also covers load
   // failures) so it only reflects the in-modal save attempt, and it keeps the modal open for retry.
   const [saveFailed, setSaveFailed] = useState(false);
@@ -338,6 +341,7 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     setCadence(setting);
     setFilters(traceFilters.map((filter) => ({ ...filter })));
     setSaveFailed(false);
+    setFilterError(null);
     setApprovedUnattendedRun(false);
     setSelection(toSelection(model) ?? null);
     setView('main');
@@ -367,11 +371,10 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     );
   }, [open, selection, isLoadingEndpoints, endpoints]);
 
-  const changeFilter = useCallback(
-    (index: number, next: ScheduleTraceFilter) =>
-      setFilters((prev) => prev.map((filter, i) => (i === index ? next : filter))),
-    [],
-  );
+  const changeFilter = useCallback((index: number, next: ScheduleTraceFilter) => {
+    setFilterError(null);
+    setFilters((prev) => prev.map((filter, i) => (i === index ? next : filter)));
+  }, []);
 
   // Removing the last row collapses the section back to just the "Add filter" button.
   const removeFilter = useCallback((index: number) => setFilters((prev) => prev.filter((_, i) => i !== index)), []);
@@ -389,6 +392,23 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
         value: filter.value,
       }))
       .filter((filter) => filter.key.length > 0);
+    // Checked before either tag is written: the server drops a clause carrying one of these, so
+    // storing it would leave the modal showing a filter that no run applies.
+    const rejected = cleaned.map(unsupportedFilterCharacter).find(Boolean);
+    if (rejected) {
+      setFilterError(
+        intl.formatMessage(
+          {
+            defaultMessage: 'Remove the {character} character from the filter. Scheduled runs cannot match on it.',
+            description:
+              'Experiment issues tab > Schedule modal error shown when a trace filter contains a character the server cannot apply',
+          },
+          { character: rejected },
+        ),
+      );
+      return;
+    }
+    setFilterError(null);
     setSaveFailed(false);
     try {
       // Await the writes and only close on success. On failure keep the modal open with the draft
@@ -402,7 +422,7 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     } catch {
       setSaveFailed(true);
     }
-  }, [cadence, filters, selection, setSetting]);
+  }, [cadence, filters, selection, setSetting, intl]);
 
   // Prompting for a key before these answer would ask for one the server may already have.
   const isCheckingCredentials = isLoadingSecrets || isLoadingProviderConfig;
@@ -449,6 +469,29 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
   // SQL backend store. Rather than hide the control, keep it visible but disabled with a tooltip
   // explaining why -- the affordance stays discoverable and any cadence already saved is still
   // readable. Offering a working-looking switch that silently never fires would be worse.
+  // A failed read leaves the values above as fallbacks rather than what is stored, so the modal
+  // must not open: saving the apparent "Off, no filters" state would replace a real schedule with
+  // it. The reason and a retry sit on the trigger, since the modal that would otherwise carry them
+  // is exactly what is being withheld.
+  if (loadError) {
+    const readFailed = intl.formatMessage({
+      defaultMessage: "Couldn't read this experiment's detection schedule. Retry to edit it.",
+      description:
+        'Experiment issues tab > Tooltip explaining the scheduled-detection control is disabled because its schedule could not be read',
+    });
+    return (
+      <Tooltip componentId={`${COMPONENT_ID}.trigger.load-failed-tooltip`} content={readFailed}>
+        <Button componentId={`${COMPONENT_ID}.trigger.retry-load`} icon={<ClockIcon />} onClick={retryLoad}>
+          {intl.formatMessage({
+            defaultMessage: 'Retry schedule',
+            description:
+              'Experiment issues tab > Button that retries reading the detection schedule after a failed read',
+          })}
+        </Button>
+      </Tooltip>
+    );
+  }
+
   if (!scheduledDetectionAvailable) {
     const disabledReason = intl.formatMessage({
       defaultMessage:
@@ -701,6 +744,7 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
               {createSecretError && <FormUI.Message type="error" message={createSecretError.message} />}
             </div>
           )}
+          {filterError && <FormUI.Message type="error" message={filterError} />}
           {saveFailed && (
             <FormUI.Message
               type="error"
