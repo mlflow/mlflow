@@ -193,44 +193,17 @@ def test_a_run_that_sampled_less_than_its_window_still_advances_past_the_whole_w
     assert advanced.last_scanned_trace_time_ms > sampled_newest.time_ms
 
 
-_HOUR_MS = 60 * 60 * 1000
-
-
-def test_the_coverage_floor_is_the_lower_bound_before_the_first_success():
-    # Without it, a cold-start window is derived from its own fire time, so the stretch a failed
-    # occurrence was meant to cover is never looked at again.
-    floor_ms = NOW_MS - 3 * _HOUR_MS
-    window = sample_window(
-        None,
-        now_ms=NOW_MS,
-        first_run_lookback_ms=FIRST_RUN_LOOKBACK_MS["hourly"],
-        coverage_floor_ms=floor_ms,
-    )
-    assert window.lower_bound_ms == floor_ms
-
-
-def test_the_watermark_wins_over_the_coverage_floor_once_a_run_has_succeeded():
-    watermark_ms = NOW_MS - _HOUR_MS
+def test_the_watermark_is_the_lower_bound_once_a_run_has_succeeded():
+    watermark_ms = NOW_MS - HOUR_MS
     window = sample_window(
         DetectionCheckpoint(last_scanned_trace_time_ms=watermark_ms),
         now_ms=NOW_MS,
         first_run_lookback_ms=FIRST_RUN_LOOKBACK_MS["hourly"],
-        coverage_floor_ms=NOW_MS - 3 * _HOUR_MS,
     )
     assert window.lower_bound_ms == watermark_ms
 
 
-def test_a_coverage_floor_is_bounded_by_the_stale_cap():
-    window = sample_window(
-        None,
-        now_ms=NOW_MS,
-        first_run_lookback_ms=FIRST_RUN_LOOKBACK_MS["hourly"],
-        coverage_floor_ms=NOW_MS - 30 * 24 * _HOUR_MS,
-    )
-    assert window.lower_bound_ms == NOW_MS - STALE_WATERMARK_CAP_MS
-
-
-def test_no_floor_falls_back_to_the_cold_start_lookback():
+def test_no_checkpoint_falls_back_to_the_cold_start_lookback():
     window = sample_window(
         None, now_ms=NOW_MS, first_run_lookback_ms=FIRST_RUN_LOOKBACK_MS["daily"]
     )

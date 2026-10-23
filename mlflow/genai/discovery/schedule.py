@@ -53,6 +53,7 @@ MAX_TRACE_FILTERS = 20
 # worse than one that ignored a clause nobody can express.
 _FORBIDDEN_FILTER_CHARS = "`'\"\\"
 
+
 # Upper bound on a stored provider, model or endpoint name. The tag is client-written, so the
 # dispatcher bounds what it will splice into a model URI rather than trusting its length.
 MAX_MODEL_IDENTIFIER_LENGTH = 200
@@ -178,18 +179,11 @@ class DetectionScheduleState:
         last_dispatched_at_ms: Wall-clock time the dispatch happened (audit only). Differs from
             ``last_fire_time_ms`` when the server was busy or down at the fire time.
         last_run_id: The detection run the last dispatch created (audit only).
-        coverage_floor_ms: Lower bound (epoch ms) for the window of every occurrence until the
-            first one succeeds. Recorded when the schedule is first anchored, and from then on
-            only the watermark moves. Without it a cold-start window is derived from its own fire
-            time, so an occurrence that failed took its stretch of traces with it: the next one
-            looked back one interval from *its* fire time and never saw them. Unset on a schedule
-            anchored before this field existed, which falls back to that cold-start lookback.
     """
 
     last_fire_time_ms: int
     last_dispatched_at_ms: int | None = None
     last_run_id: str | None = None
-    coverage_floor_ms: int | None = None
 
     def to_json(self) -> str:
         payload: dict[str, object] = {
@@ -200,8 +194,6 @@ class DetectionScheduleState:
             payload["lastDispatchedAtMs"] = self.last_dispatched_at_ms
         if self.last_run_id is not None:
             payload["lastRunId"] = self.last_run_id
-        if self.coverage_floor_ms is not None:
-            payload["coverageFloorMs"] = self.coverage_floor_ms
         return json.dumps(payload)
 
 
@@ -380,16 +372,12 @@ def parse_detection_schedule_state(raw_value: str | None) -> DetectionScheduleSt
     if isinstance(last_fire_time_ms, bool) or not isinstance(last_fire_time_ms, int):
         return None
     last_dispatched_at_ms = parsed.get("lastDispatchedAtMs")
-    coverage_floor_ms = parsed.get("coverageFloorMs")
     return DetectionScheduleState(
         last_fire_time_ms=last_fire_time_ms,
         last_dispatched_at_ms=last_dispatched_at_ms
         if isinstance(last_dispatched_at_ms, int) and not isinstance(last_dispatched_at_ms, bool)
         else None,
         last_run_id=parsed.get("lastRunId") if isinstance(parsed.get("lastRunId"), str) else None,
-        coverage_floor_ms=coverage_floor_ms
-        if isinstance(coverage_floor_ms, int) and not isinstance(coverage_floor_ms, bool)
-        else None,
     )
 
 
@@ -524,28 +512,14 @@ def due_occurrence_ms(
     return fire_time_ms if latest_ms is None else max(fire_time_ms, latest_ms)
 
 
-def claim_first_occurrence(
-    now_ms: int,
-    schedule: DetectionSchedule | None = None,
-    first_run_lookback_ms: int | None = None,
-) -> DetectionScheduleState:
+def claim_first_occurrence(now_ms: int) -> DetectionScheduleState:
     """
     The state to record for a schedule the server has not dispatched before.
 
     Anchoring at ``now_ms`` makes the first run happen at the schedule's next fire time rather
     than immediately, so saving a daily schedule in the afternoon does not run it on the spot.
-
-    Given the schedule and its cold-start lookback, this also records the coverage floor: one
-    lookback before the first occurrence's fire time, which is exactly the stretch that first
-    occurrence was always meant to cover. Pinning it here rather than deriving it per occurrence
-    is what lets a failed occurrence be covered again instead of losing its traces.
     """
-    coverage_floor_ms = None
-    if schedule is not None and first_run_lookback_ms is not None:
-        coverage_floor_ms = next_fire_time_ms(schedule, now_ms) - first_run_lookback_ms
-    return DetectionScheduleState(
-        last_fire_time_ms=now_ms, last_dispatched_at_ms=None, coverage_floor_ms=coverage_floor_ms
-    )
+    return DetectionScheduleState(last_fire_time_ms=now_ms, last_dispatched_at_ms=None)
 
 
 def claim_occurrence(
