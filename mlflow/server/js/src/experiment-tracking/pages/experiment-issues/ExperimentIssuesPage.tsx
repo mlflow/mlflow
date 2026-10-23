@@ -9,6 +9,7 @@ import { useParams, useSearchParams } from '../../../common/utils/RoutingUtils';
 import { useActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
 import { IssueDetectionModal } from '../../components/experiment-page/components/traces-v3/IssueDetectionModal';
 import { JobStatus, isJobComplete } from '../../components/run-page/hooks/useFetchJobStatus';
+import { useCancelJob } from '../../components/run-page/hooks/useCancelJob';
 import type { Issue } from '../../components/run-page/hooks/useSearchIssuesQuery';
 import { SELECTED_EVALUATION_ID_PARAM } from '../../../shared/web-shared/genai-traces-table';
 import { SELECTED_ISSUE_ID_PARAM, SELECTED_ISSUE_SPAN_ID_PARAM } from '../../constants';
@@ -20,6 +21,7 @@ import { useIssueListControls } from './useExperimentIssuesListControls';
 import { ExperimentIssuesActionBar } from './ExperimentIssuesActionBar';
 import { IssueSplitPane } from './IssueSplitPane';
 import { markDetectIssuesGuidanceSeen } from '../../../shared/web-shared/genai-traces-table/components/DetectIssuesButton';
+import { ExperimentIssuesDetectionProgress } from './ExperimentIssuesDetectionProgress';
 import { ExperimentIssuesEmptyState } from './ExperimentIssuesEmptyState';
 import { useDetectionTraceIds, useLatestIssueDetection } from './useIssueDetection';
 import { useExperimentIssue, useExperimentIssues, useHasExperimentIssues } from './useExperimentIssues';
@@ -107,6 +109,25 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
   const [showDetection, setShowDetection] = useState(false);
   const traces = useDetectionTraceIds(experimentId, showDetection);
   const isDetectionButtonLoading = isDetecting || (showDetection && traces.isFetching);
+  const { cancelJobAsync } = useCancelJob();
+  // Gated on a run actually being in flight, not merely on a job ID existing: a completed run
+  // keeps its job ID, so gating on that alone would offer to cancel a terminal job whenever the
+  // button went busy again -- which it does while the modal loads traces for the next run.
+  const onCancelDetection =
+    isDetecting && detection.jobId
+      ? async () => {
+          try {
+            // The run is passed so the hook terminates it too: the server cancels the job
+            // without touching the run it belongs to, which would otherwise stay RUNNING.
+            await cancelJobAsync({ jobId: detection.jobId as string, runUuid: detection.run?.info.run_id });
+          } finally {
+            // Refreshed even when the cancel fails, for the reason given in
+            // `TracesV4PageContent`: "already finalized" is precisely the case where this
+            // client's job status is stale, so the refresh is what recovers the page.
+            await detection.refetch();
+          }
+        }
+      : undefined;
   const [params, setParams] = useSearchParams();
   const requestedIssueId = params.get(SELECTED_ISSUE_ID_PARAM) ?? undefined;
   const firstIssueId = issues[0]?.issue_id;
@@ -322,6 +343,7 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
             isDetecting={isDetectionButtonLoading}
             detectionEnabled={detectionEnabled}
             onRunDetection={startDetection}
+            onCancelDetection={onCancelDetection}
           />
         </div>
       )}
@@ -377,6 +399,10 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
       )}
       {isResolvingEmptyState ? (
         <TableSkeleton lines={5} />
+      ) : isEmptyState && isDetecting ? (
+        <CenteredState>
+          <ExperimentIssuesDetectionProgress experimentId={experimentId} onCancelDetection={onCancelDetection} />
+        </CenteredState>
       ) : isEmptyState ? (
         <CenteredState>
           <ExperimentIssuesEmptyState

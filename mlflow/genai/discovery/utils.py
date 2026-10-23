@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import math
+import statistics
 from collections import defaultdict
 
 import mlflow
@@ -9,12 +11,30 @@ from mlflow.entities.trace import Trace
 from mlflow.genai.discovery.constants import (
     TRACE_CONTENT_TRUNCATION,
 )
-from mlflow.genai.discovery.entities import Issue, _ConversationAnalysis, _IdentifiedIssue
+from mlflow.genai.discovery.entities import (
+    CostAnomaly,
+    Issue,
+    _ConversationAnalysis,
+    _IdentifiedIssue,
+)
 from mlflow.genai.scorers.base import Scorer
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import TraceMetadataKey, TraceTagKey
 from mlflow.tracing.provider import trace_disabled
 
 _logger = logging.getLogger(__name__)
+
+
+def safe_trace_id(trace: Trace, position: int) -> str:
+    """
+    A trace's ID, or a positional stand-in when even that cannot be read.
+
+    Falling back rather than raising keeps the trace counted: dropping it would shrink the
+    sample the run reports against.
+    """
+    try:
+        return trace.info.trace_id
+    except Exception:
+        return f"(unreadable trace at position {position})"
 
 
 def get_session_id(trace: Trace) -> str | None:
@@ -119,6 +139,166 @@ def compute_latency_percentiles(traces: list[Trace]) -> dict[str, float | int] |
         "p99": round(percentile_values[4], 2),
         "count": len(durations_s),
     }
+
+
+# Cost anomaly detection. Spend is compared on a log scale against a robust centre and
+# spread (median and median absolute deviation), because agent spend is right-skewed: a mean
+# and standard deviation are pulled upward by the very traces being tested, so a sample's most
+# expensive trace clears a 3-sigma bar in most healthy runs. A robust spread also lets each
+# workload set its own bar -- a tight workload flags an 8x trace, one that routinely varies
+# 30x does not -- which is what keeps a cost issue from being filed every run.
+MIN_COST_SAMPLE = 10
+# Robust deviations above typical at which spend is called anomalous. Chosen by simulation
+# over lognormal samples: ~0.5% of healthy runs file a cost issue at any spread, while a
+# genuine runaway (40x the typical trace) is caught in 99.9% of runs.
+COST_ANOMALY_DEVIATIONS = 4.5
+# Above this share of a group, "anomalies" are the distribution rather than outliers in it,
+# so none are reported. Also guards a degenerate group whose spread is near zero.
+MAX_ANOMALOUS_FRACTION = 0.10
+# When the group agrees on one figure there is no spread to measure against, so a multiple of
+# it stands in. Deliberately well above the ordinary bar: unanimous peers are usually a sign of
+# synthetic or heavily cached work, where small differences mean little.
+UNANIMOUS_PEER_RATIO = 3.0
+# MAD to standard-deviation scale factor for a normal distribution.
+_MAD_TO_SIGMA = 1.4826
+
+
+def get_agent_label(trace: Trace) -> str:
+    """
+    The label whose peers a trace's spend is compared against.
+
+    OSS traces carry no dedicated agent field, so the trace name is used: it is the root span's
+    name, which is the entry point the application was called through, and is what distinguishes
+    a retrieval agent from a summarizer in practice.
+    """
+    tags = trace.info.tags or {}
+    if name := tags.get(TraceTagKey.TRACE_NAME):
+        # Coerced because the label only has to group and be printable: a tag written with a
+        # non-string value should bucket the trace, not raise while grouping the sample.
+        return str(name)
+    for span in trace.data.spans or []:
+        if span.parent_id is None and span.name:
+            return str(span.name)
+    return "(unnamed)"
+
+
+def _trace_cost(trace: Trace) -> float | None:
+    total = (trace.info.cost or {}).get("total_cost")
+    return float(total) if total is not None else None
+
+
+def _anomalies_in_group(
+    label: str, priced: list[tuple[str, float]], deviations: float
+) -> list[CostAnomaly]:
+    logs = [math.log(cost) for _, cost in priced]
+    centre = statistics.median(logs)
+    mad = statistics.median([abs(value - centre) for value in logs])
+    typical = math.exp(centre)
+
+    if mad > 0:
+        spread = _MAD_TO_SIGMA * mad
+        scored = [(trace_id, cost, (math.log(cost) - centre) / spread) for trace_id, cost in priced]
+        found = [entry for entry in scored if entry[2] >= deviations]
+    else:
+        # More than half the group agrees on one figure, so there is no spread to scale by.
+        # Estimating one from the whole group would let a runaway set its own threshold: the
+        # standard deviation grows with it, and the score saturates no matter how extreme the
+        # trace gets. Against unanimous peers, a material multiple is the evidence.
+        found = [
+            (trace_id, cost, math.inf)
+            for trace_id, cost in priced
+            if cost >= UNANIMOUS_PEER_RATIO * typical
+        ]
+
+    if len(found) > MAX_ANOMALOUS_FRACTION * len(priced):
+        # The qualifying share is the distribution, not an outlier in it.
+        return []
+    return sorted(
+        (
+            CostAnomaly(
+                trace_id=trace_id,
+                label=label,
+                cost_usd=cost,
+                typical_usd=typical,
+                peer_count=len(priced),
+                deviations=score,
+            )
+            for trace_id, cost, score in found
+        ),
+        key=lambda anomaly: anomaly.cost_usd,
+        reverse=True,
+    )
+
+
+def analyze_cost_anomalies(
+    traces: list[Trace],
+    *,
+    deviations: float = COST_ANOMALY_DEVIATIONS,
+    min_sample: int = MIN_COST_SAMPLE,
+) -> list[CostAnomaly]:
+    """
+    Traces whose spend is anomalous for the sample, or an empty list.
+
+    Cost is the one category the triage judge cannot reach: every other category is decided
+    from one trace's content, but "expensive" only means anything relative to other traces,
+    and a judge scoring one trace at a time cannot see them.
+
+    Traces are grouped by agent label so a summarizer is not compared against a retriever,
+    and a label without enough priced peers is not judged at all. Pooling such labels together
+    was tried and removed: it reports whichever label happens to be the most expensive in the
+    sample, so two ordinary traces of a costlier agent are flagged purely because the other
+    agents in the sample are cheap, and adding same-agent peers makes the finding vanish
+    without those traces changing. An unjudged label is the honest outcome -- "expensive" has
+    no meaning without comparable peers. A trace with no recorded cost is excluded, never read
+    as zero spend.
+
+    Args:
+        traces: The sampled traces. Only recorded cost is read.
+        deviations: Robust deviations above typical required to call spend anomalous.
+        min_sample: Priced traces a label needs before its spend is judged.
+
+    Returns:
+        The anomalies, most expensive first. Empty when no label has enough priced peers,
+        when spend is uniformly spread, or when so much of it qualifies that the spread is
+        the distribution rather than an outlier in it.
+    """
+    by_label: dict[str, list[tuple[str, float]]] = {}
+    unpriced = 0
+    for position, trace in enumerate(traces):
+        trace_id = safe_trace_id(trace, position)
+        try:
+            cost = _trace_cost(trace)
+            label = get_agent_label(trace)
+        except Exception:
+            # Cost findings are advisory: a trace whose usage cannot be read is left out
+            # rather than taking the run down with it.
+            _logger.debug("Could not read cost for trace %s", trace_id, exc_info=True)
+            unpriced += 1
+            continue
+        if cost is None or cost <= 0:
+            unpriced += 1
+            continue
+        by_label.setdefault(label, []).append((trace_id, cost))
+
+    judged = {label: priced for label, priced in by_label.items() if len(priced) >= min_sample}
+
+    anomalies: list[CostAnomaly] = []
+    for label, priced in sorted(judged.items(), key=lambda item: str(item[0])):
+        anomalies.extend(_anomalies_in_group(label, priced, deviations))
+
+    if skipped := {label: len(priced) for label, priced in by_label.items() if label not in judged}:
+        _logger.info(
+            "Cost was not judged for %d agent label(s) with fewer than %d priced traces: %s",
+            len(skipped),
+            min_sample,
+            ", ".join(f"{label!r} ({count})" for label, count in sorted(skipped.items())),
+        )
+    if unpriced:
+        _logger.info(
+            "%d traces were left out of cost analysis because they record no positive cost",
+            unpriced,
+        )
+    return sorted(anomalies, key=lambda anomaly: anomaly.cost_usd, reverse=True)
 
 
 def build_summary(issues: list[Issue], total_traces: int) -> str:

@@ -1927,6 +1927,13 @@ MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
 )
 
 
+#: Whether to disable loading PyFunc models through their configured loader_module.
+#: (default: ``False``)
+MLFLOW_DISABLE_PYFUNC_LOADER_MODULE = _BooleanEnvironmentVariable(
+    "MLFLOW_DISABLE_PYFUNC_LOADER_MODULE", False
+)
+
+
 #: Internal env var for the shared gateway auth token. The server generates a random
 #: token at startup and sets it in the environment so all uvicorn workers and job
 #: subprocesses can use it to authenticate internal gateway requests. Subprocesses that the

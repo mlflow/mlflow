@@ -232,7 +232,7 @@ export const shouldEnableImprovedEvalRunsComparison = () => {
  * group averages, the dataset version column and the restyled dataset cell.
  */
 export const shouldEnableNewEvalRunsUi = () => {
-  return false;
+  return true;
 };
 
 export const isScorerModelSelectionEnabled = () => {

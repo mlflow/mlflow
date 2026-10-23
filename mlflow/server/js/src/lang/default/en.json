@@ -55,6 +55,10 @@
     "defaultMessage": "Name",
     "description": "Field label for assessment name in a creation form"
   },
+  "+7/mG0": {
+    "defaultMessage": "Show span tree",
+    "description": "Accessible label for showing the span tree in the trace explorer"
+  },
   "+7qu4I": {
     "defaultMessage": "Version {version}",
     "description": "Skill version list item label"
@@ -515,6 +519,10 @@
     "defaultMessage": "Key",
     "description": "Tag filter input for key field in the tags filter popover for experiments page search by tags"
   },
+  "/l44ud": {
+    "defaultMessage": "Lose",
+    "description": "Label for a losing pairwise preference assessment"
+  },
   "/la8K9": {
     "defaultMessage": "Date",
     "description": "Accessible label for the evaluation runs date filter button"
@@ -791,6 +799,10 @@
     "defaultMessage": "No endpoints found",
     "description": "Empty state title when filter returns no results"
   },
+  "0st1m4": {
+    "defaultMessage": "Events",
+    "description": "Label for the span events tab."
+  },
   "0tU5gv": {
     "defaultMessage": "Cancel",
     "description": "Cancel text to cancel the flow to copy the model"
@@ -874,6 +886,10 @@
   "1CPknH": {
     "defaultMessage": "When the trace was created",
     "description": "Tooltip description for the Request Time column in the traces table"
+  },
+  "1DAglI": {
+    "defaultMessage": "Compare traces",
+    "description": "Bulk action that compares exactly two selected traces in the trace drawer"
   },
   "1DKoiD": {
     "defaultMessage": "Suggestions",
@@ -1071,6 +1087,10 @@
     "defaultMessage": "added {when} by {user}",
     "description": "Evaluation review > assessments > detailed history > added history entry"
   },
+  "21Sf6U": {
+    "defaultMessage": "Add a comment (optional)",
+    "description": "Placeholder for an optional comment in pairwise trace review"
+  },
   "21rwGc": {
     "defaultMessage": "Status",
     "description": "Label for the initial skill version status"
@@ -1122,6 +1142,10 @@
   "2DNVN4": {
     "defaultMessage": "Aliases allow you to assign a mutable, named reference to a particular model version. <link>Learn more</link>",
     "description": "Explanation of registered model aliases"
+  },
+  "2GG56d": {
+    "defaultMessage": "Go to Traces",
+    "description": "Experiment issues tab > In-progress issue detection action to go to the traces tab"
   },
   "2Hf+yU": {
     "defaultMessage": "Time (wall)",
@@ -1202,6 +1226,10 @@
   "2Us2jl": {
     "defaultMessage": "X axis",
     "description": "Label for X axis in Contour chart configurator in compare runs chart config modal"
+  },
+  "2WFEvy": {
+    "defaultMessage": "Comparing traces from Runs",
+    "description": "Context shown in an evaluation run trace comparison header"
   },
   "2WOIGG": {
     "defaultMessage": "Prompt created",
@@ -1367,6 +1395,10 @@
     "defaultMessage": "Endpoint",
     "description": "Label for the endpoint-selection section in the run evaluation modal"
   },
+  "2rtsN+": {
+    "defaultMessage": "Keep running",
+    "description": "Experiment issues tab > Dialog action leaving the issue detection running"
+  },
   "2tQXw0": {
     "defaultMessage": "Key name cannot be changed.",
     "description": "Tooltip explaining why key name field is disabled"
@@ -1386,6 +1418,10 @@
   "2xOenV": {
     "defaultMessage": "Description",
     "description": "Header for the description column in the Skill Registry table"
+  },
+  "2xzJhw": {
+    "defaultMessage": "Model: {modelName}",
+    "description": "Tooltip for an unchanged model name in a trace comparison"
   },
   "2yONCo": {
     "defaultMessage": "Skills",
@@ -1670,6 +1706,10 @@
   "47QsAK": {
     "defaultMessage": "{fieldName} are empty",
     "description": "Default text in data table where items are empty in the model\n                  comparison page"
+  },
+  "47VSj1": {
+    "defaultMessage": "Failed to save pairwise review. Error: {error}",
+    "description": "Error shown when saving a pairwise trace review fails"
   },
   "47li88": {
     "defaultMessage": "Created",
@@ -2251,6 +2291,10 @@
     "defaultMessage": "No data found for trace ID: {traceId}",
     "description": "Body shown in the V4 trace drawer when a trace has no data"
   },
+  "66SAEx": {
+    "defaultMessage": "Swap baseline and candidate",
+    "description": "Accessible label for reversing the trace comparison order"
+  },
   "67wL4+": {
     "defaultMessage": "This version is no longer available.",
     "description": "Skill detail message when the selected version is missing or deleted"
@@ -2387,6 +2431,10 @@
     "defaultMessage": "Select a file to preview",
     "description": "Label to suggests users to select a file to preview the output"
   },
+  "6bbrZO": {
+    "defaultMessage": "Compare baseline trace {baselineTraceId} with candidate trace {candidateTraceId}. Highlight differences in their span structure, inputs, outputs, attributes, duration, token usage, and estimated cost.",
+    "description": "Prompt sent to the assistant for comparing two traces"
+  },
   "6bmLqb": {
     "defaultMessage": "Load model",
     "description": "Code comment which states how to load the model"
@@ -2447,6 +2495,10 @@
     "defaultMessage": "Test",
     "description": "Test webhook button"
   },
+  "6oKqWI": {
+    "defaultMessage": "Both runs reference the same trace.",
+    "description": "Tooltip explaining the same trace badge in a trace comparison header"
+  },
   "6sFPJF": {
     "defaultMessage": "Learn more",
     "description": "Link text for production monitoring documentation"
@@ -2462,6 +2514,10 @@
   "6tR8R9": {
     "defaultMessage": "View Sessions in Traces tab →",
     "description": "Link from the legacy Sessions page to the equivalent view in the Traces tab"
+  },
+  "6uTK7/": {
+    "defaultMessage": "{removed} removed lines and {added} added lines",
+    "description": "Accessible label for line difference counts on a trace comparison tab"
   },
   "6vII7y": {
     "defaultMessage": "Cancel",
@@ -2970,6 +3026,10 @@
   "8Uwpjw": {
     "defaultMessage": "Create run",
     "description": "Experiment page > new run modal > \"Create run\" confirm button label"
+  },
+  "8VpQ8D": {
+    "defaultMessage": "Cost",
+    "description": "Experiment issues tab > Cost category filter option"
   },
   "8VzQLx": {
     "defaultMessage": "Markdown",
@@ -3843,6 +3903,10 @@
     "defaultMessage": "(no name yet)",
     "description": "Review question preview placeholder for blank name"
   },
+  "BEW/bM": {
+    "defaultMessage": "Pairwise trace details",
+    "description": "Accessible label for the side-by-side trace details in pairwise review"
+  },
   "BEXAt0": {
     "defaultMessage": "(empty)",
     "description": "Placeholder for an empty JSON cell"
@@ -3962,6 +4026,10 @@
   "BdV0qk": {
     "defaultMessage": "Human judge",
     "description": "Label for human judge in the tooltip for the assessment in the evaluation metrics."
+  },
+  "BdfS6s": {
+    "defaultMessage": "Cancel issue detection",
+    "description": "Experiment issues tab > Title of the dialog confirming cancellation of issue detection"
   },
   "BduLHx": {
     "defaultMessage": "Failed to refresh traces",
@@ -4167,6 +4235,10 @@
     "defaultMessage": "Skills you can read will appear here once they are registered.",
     "description": "Empty state description for a Skill Registry page without skills"
   },
+  "CGB0NE": {
+    "defaultMessage": "Click to Expand",
+    "description": "Hint next to an unchanged comparison section chevron that the section can be expanded"
+  },
   "CHQQ0K": {
     "defaultMessage": "Find",
     "description": "Visible label for finding content in a trace"
@@ -4263,6 +4335,10 @@
     "defaultMessage": "Does the response follow per-example guidelines from expectations?",
     "description": "Hint for ExpectationsGuidelines template"
   },
+  "CbG0s1": {
+    "defaultMessage": "Estimated cost: {value}. {explanation}",
+    "description": "Tooltip for span cost in the timeline tree, including the estimation explanation"
+  },
   "CbRDlp": {
     "defaultMessage": "Type",
     "description": "Row heading in a table that contains the type of a function parameter (e.g. string, boolean)"
@@ -4310,6 +4386,10 @@
   "ClYb2e": {
     "defaultMessage": "Count",
     "description": "Label for the count in the tooltip for the numeric aggregate chart."
+  },
+  "CoJvIT": {
+    "defaultMessage": "Attributes",
+    "description": "Label for the span attributes tab."
   },
   "CpLnGS": {
     "defaultMessage": "Metrics",
@@ -4415,6 +4495,10 @@
     "defaultMessage": "Retry",
     "description": "Button to retry validating a selected trace in an evaluation run"
   },
+  "DD/MkR": {
+    "defaultMessage": "Estimated cost: {cost}",
+    "description": "Accessible name for the ≈-prefixed cost value; {cost} is the plain dollar amount (no ≈ glyph) so screen readers announce it as \"Estimated cost: $X\" rather than reading the glyph literally"
+  },
   "DEGkua": {
     "defaultMessage": "Filter by active status",
     "description": "Aria label for Skill Registry active status filter toggle"
@@ -4491,6 +4575,10 @@
     "defaultMessage": "Expand assertion text",
     "description": "Aria label for the chevron that expands a long assertion text"
   },
+  "DVqrmC": {
+    "defaultMessage": "Tokens",
+    "description": "Trace comparison metric label"
+  },
   "DXkWqG": {
     "defaultMessage": "Assessment",
     "description": "Accessible label for the monitoring assessment selector"
@@ -4526,6 +4614,10 @@
   "DgLM4K": {
     "defaultMessage": "The output is factually inaccurate or grounded incorrectly.",
     "description": "Issue category description for correctness"
+  },
+  "DgRIri": {
+    "defaultMessage": "Swap baseline and candidate",
+    "description": "Tooltip for reversing the trace comparison order"
   },
   "Dgou/C": {
     "defaultMessage": "Error",
@@ -4754,6 +4846,10 @@
   "ET2qrH": {
     "defaultMessage": "The Python SDK reads the skill locally, so it can infer the name and record a digest.",
     "description": "Explanation of the skill registration Python example"
+  },
+  "EUf1+6": {
+    "defaultMessage": "Cancelling discards the analysis done so far. Any issues already recorded are kept.",
+    "description": "Experiment issues tab > Explanation of what cancelling issue detection discards"
   },
   "EWf8NH": {
     "defaultMessage": "Learn more",
@@ -5143,6 +5239,10 @@
     "defaultMessage": "Loading version...",
     "description": "Loading state for Skill version detail"
   },
+  "G1XTXP": {
+    "defaultMessage": "Duration",
+    "description": "Trace comparison metric label"
+  },
   "G2zMpZ": {
     "defaultMessage": "Delete ({count})",
     "description": "Gateway > API keys list > Delete button with count"
@@ -5399,6 +5499,10 @@
     "defaultMessage": "Last modified",
     "description": "Column title for last modified timestamp for a model in the registered model page"
   },
+  "GsoLRR": {
+    "defaultMessage": "Scanning your traces for issues. This can take a while.",
+    "description": "Experiment issues tab > In-progress issue detection state description"
+  },
   "Gxl8pl": {
     "defaultMessage": "Version",
     "description": "Label for the version picker on the playground prompt-registry modal"
@@ -5606,6 +5710,10 @@
   "HcY5MF": {
     "defaultMessage": "Create your first experiment to start tracking ML workflows.",
     "description": "Home page experiments empty state description"
+  },
+  "HcfqOz": {
+    "defaultMessage": "The agent's token or tool-call spend is anomalous against its own baseline.",
+    "description": "Issue category description for cost"
   },
   "HdEgbb": {
     "defaultMessage": "Error",
@@ -6167,6 +6275,10 @@
     "defaultMessage": "Search text “{text}”",
     "description": "Run a plain text trace search instead of adding a filter"
   },
+  "JVrnss": {
+    "defaultMessage": "Saving…",
+    "description": "Status shown while a pairwise trace review is being saved"
+  },
   "JW0GbU": {
     "defaultMessage": "You can set a maximum of {maxLength} values",
     "description": "Error message when trying to submit a key-value pair form with more than the maximum allowed values"
@@ -6455,6 +6567,10 @@
     "defaultMessage": "Endpoints ({count})",
     "description": "Gateway > Endpoints using key drawer > Title"
   },
+  "KPIs28": {
+    "defaultMessage": "Pairwise review question",
+    "description": "Accessible label for the pairwise review question banner"
+  },
   "KQMhjY": {
     "defaultMessage": "Status:",
     "description": "MCP compare metadata status label"
@@ -6570,6 +6686,10 @@
   "KpFPCX": {
     "defaultMessage": "Settings",
     "description": "Subsection header listing model settings stored with the selected prompt version on the playground prompt-registry picker modal"
+  },
+  "KqFU/V": {
+    "defaultMessage": "Comparing traces",
+    "description": "Context shown in a trace comparison header"
   },
   "KqReh3": {
     "defaultMessage": "Error stack trace",
@@ -7355,6 +7475,10 @@
     "defaultMessage": "Cached",
     "description": "Label for the cached input tokens in the tooltip for the tokens cell."
   },
+  "NQi6wp": {
+    "defaultMessage": "Cost",
+    "description": "Issue category title for cost"
+  },
   "NRNNnk": {
     "defaultMessage": "Click to expand",
     "description": "Tooltip for expandable session cell"
@@ -7430,6 +7554,10 @@
   "NekUba": {
     "defaultMessage": "Add to dataset",
     "description": "Button text for adding a trace to an evaluation dataset"
+  },
+  "NfKgNa": {
+    "defaultMessage": "Win",
+    "description": "Label for a winning pairwise preference assessment"
   },
   "NhEmyj": {
     "defaultMessage": "Training runs",
@@ -7855,6 +7983,10 @@
     "defaultMessage": "Search skills",
     "description": "Placeholder for Skill Registry free-text search"
   },
+  "P2LLVj": {
+    "defaultMessage": "{tokenCount} tokens",
+    "description": "Compact token count in the trace details header, abbreviated (e.g. 1.2K)"
+  },
   "P31kXd": {
     "defaultMessage": "Cost breakdown",
     "description": "Header for span cost breakdown"
@@ -8090,6 +8222,10 @@
   "PuXTcZ": {
     "defaultMessage": "Welcome to MLflow",
     "description": "Workspace landing page title"
+  },
+  "PuoR9y": {
+    "defaultMessage": "Copy the prompt below to fix this issue with your coding agent.",
+    "description": "Experiment issues tab > Issue detail > Fix this issue section > Explains what the prompt below is for"
   },
   "Pv88gx": {
     "defaultMessage": "Model",
@@ -8591,6 +8727,10 @@
     "defaultMessage": "Refreshing…",
     "description": "Trace refresh action in progress"
   },
+  "RcrnKk": {
+    "defaultMessage": "Candidate",
+    "description": "Trace comparison metric column"
+  },
   "ReQ01f": {
     "defaultMessage": "Do retrieved documents contain all necessary information?",
     "description": "Hint for RetrievalSufficiency template"
@@ -8618,6 +8758,10 @@
   "RlBbjb": {
     "defaultMessage": "A tag key is required",
     "description": "Key-value tag editor modal > Tag dropdown > Tag key required error message"
+  },
+  "RlOzR4": {
+    "defaultMessage": "Cost is estimated from token usage and public model pricing.",
+    "description": "Tooltip explaining that cost is estimated, not reported by the provider"
   },
   "RlRsah": {
     "defaultMessage": "loading...",
@@ -8971,6 +9115,10 @@
     "defaultMessage": "Is the summary faithful, complete, and concise?",
     "description": "Hint for Summarization template"
   },
+  "SxTbG4": {
+    "defaultMessage": "Candidate: missing",
+    "description": "Label for an absent candidate value in a trace comparison diff"
+  },
   "SymYki": {
     "defaultMessage": "About icons",
     "description": "Aria label for icons help popover in create MCP server modal"
@@ -9018,6 +9166,10 @@
   "T7b0ai": {
     "defaultMessage": "Register and catalog skills for your organization.",
     "description": "Empty state description for an empty Skill Registry"
+  },
+  "TAQHxC": {
+    "defaultMessage": "{traceId}",
+    "description": "Baseline trace identifier in the trace comparison header"
   },
   "TBX+Gs": {
     "defaultMessage": "Add/Edit tags",
@@ -9326,6 +9478,10 @@
   "UEZlh7": {
     "defaultMessage": "issues",
     "description": "Analyze step caption"
+  },
+  "UFEaLl": {
+    "defaultMessage": "Show less",
+    "description": "Experiment issues tab > Issue detail > Fix this issue > Collapses the fix prompt"
   },
   "UGAKJp": {
     "defaultMessage": "X-axis:",
@@ -9719,6 +9875,10 @@
     "defaultMessage": "Create your first experiment",
     "description": "Home page experiments empty state title"
   },
+  "VUqt8S": {
+    "defaultMessage": "{label}: {value}",
+    "description": "Tooltip for an unchanged span metric in a trace comparison"
+  },
   "VVoQ5V": {
     "defaultMessage": "Structured output (JSON schema)",
     "description": "Label for the structured output JSON schema field in the prompt creation modal"
@@ -10062,6 +10222,10 @@
   "WZXP1G": {
     "defaultMessage": "Run name",
     "description": "Header for the traces table run-name column"
+  },
+  "WZpT6f": {
+    "defaultMessage": "Comment",
+    "description": "Accessible label for the comment in pairwise trace review"
   },
   "WatQf0": {
     "defaultMessage": "Image unavailable",
@@ -10815,6 +10979,10 @@
     "defaultMessage": "Move down",
     "description": "Experiment page > compare runs tab > chart header > move down option"
   },
+  "Z7NXJF": {
+    "defaultMessage": "If it has stopped making progress, cancel to start a new detection.",
+    "description": "Experiment issues tab > In-progress issue detection guidance on when to cancel"
+  },
   "ZAqdq9": {
     "defaultMessage": "Edit API key",
     "description": "Gateway > API key details drawer > Edit API key button aria label"
@@ -10866,6 +11034,10 @@
   "ZMaqXx": {
     "defaultMessage": "Or use coding agents/code snippets",
     "description": "Divider label separating the primary UI evaluation flow from the code-based alternatives"
+  },
+  "ZMqKjp": {
+    "defaultMessage": "Show more",
+    "description": "Experiment issues tab > Issue detail > Fix this issue > Expands the whole fix prompt"
   },
   "ZNYFUr": {
     "defaultMessage": "Adheres to guidelines",
@@ -11171,6 +11343,10 @@
     "defaultMessage": "No tools selected",
     "description": "Label for tool selector when no tools are selected"
   },
+  "aVam/F": {
+    "defaultMessage": "Hide span tree",
+    "description": "Accessible label for hiding the span tree in the trace explorer"
+  },
   "aW3CeS": {
     "defaultMessage": "Bound {date}",
     "description": "Gateway > Bindings using key drawer > Binding created date"
@@ -11371,6 +11547,10 @@
     "defaultMessage": "Draft",
     "description": "Draft status option in create MCP server modal"
   },
+  "bBCk2J": {
+    "defaultMessage": "{label}: {baseline} → {candidate}; change {change}",
+    "description": "Tooltip for a baseline and candidate span metric comparison"
+  },
   "bCdY2j": {
     "defaultMessage": "Add \"{label}\"",
     "description": "Evaluation review > assessments > add new custom value element"
@@ -11402,6 +11582,10 @@
   "bKSd3c": {
     "defaultMessage": "An unknown error occurred.",
     "description": "Generic message for an unknown error"
+  },
+  "bMUODD": {
+    "defaultMessage": "Cancel detection",
+    "description": "Experiment issues tab > Action to cancel the issue detection in progress"
   },
   "bO0wxq": {
     "defaultMessage": "Advanced settings",
@@ -11486,6 +11670,10 @@
   "bdVsGZ": {
     "defaultMessage": "Collapse description",
     "description": "Aria label for button that collapses a long description"
+  },
+  "bep48I": {
+    "defaultMessage": "{traceId}",
+    "description": "Candidate trace identifier in the trace comparison header"
   },
   "bgk51B": {
     "defaultMessage": "Give every tool a function name",
@@ -12655,9 +12843,17 @@
     "defaultMessage": "Medium",
     "description": "Medium row size"
   },
+  "fdP5uH": {
+    "defaultMessage": "{label} · R",
+    "description": "Tooltip for flagging a trace for review with the keyboard shortcut"
+  },
   "fdfi96": {
     "defaultMessage": "Create judge",
     "description": "Button to create a new judge"
+  },
+  "fdp7Ls": {
+    "defaultMessage": "Copy",
+    "description": "Experiment issues tab > Issue detail > Fix this issue > Copies the fix prompt"
   },
   "fejFDn": {
     "defaultMessage": "Ask Assistant",
@@ -12674,6 +12870,10 @@
   "ffema5": {
     "defaultMessage": "Experiment ID",
     "description": "Run page > Overview > experiment ID section label"
+  },
+  "fgvfcZ": {
+    "defaultMessage": "Baseline: missing",
+    "description": "Label for an absent baseline value in a trace comparison diff"
   },
   "fh1apj": {
     "defaultMessage": "View name",
@@ -12955,6 +13155,10 @@
     "defaultMessage": "Show less",
     "description": "Show less tools button"
   },
+  "gTuFoi": {
+    "defaultMessage": "Baseline",
+    "description": "Trace comparison metric column"
+  },
   "gUdmaJ": {
     "defaultMessage": "Schema",
     "description": "Title text for the schema section on the model versions view page"
@@ -13122,6 +13326,10 @@
   "gupgRi": {
     "defaultMessage": "State",
     "description": "Traces table state column name"
+  },
+  "gxkVQo": {
+    "defaultMessage": "Estimated cost",
+    "description": "Trace comparison metric label"
   },
   "gy4ziK": {
     "defaultMessage": "Assign reviewers who should answer this queue's questions. They'll find it under “Feedback requested”.",
@@ -13935,6 +14143,10 @@
     "defaultMessage": "Session",
     "description": "Title for the session conversation pane"
   },
+  "jEsL5g": {
+    "defaultMessage": "Detecting issues...",
+    "description": "Experiment issues tab > In-progress issue detection state title"
+  },
   "jFk49l": {
     "defaultMessage": "Quick-start with a popular model below, or create an endpoint from 60+ providers and all their supported models.",
     "description": "Gateway > Endpoints > Quick start call to action"
@@ -14231,6 +14443,10 @@
     "defaultMessage": "Create webhook",
     "description": "Create webhook button"
   },
+  "k7j09i": {
+    "defaultMessage": "Analyze traces",
+    "description": "Button label for asking the assistant to compare two traces"
+  },
   "k9M+N6": {
     "defaultMessage": "No assistant provider is available. Configure one in Settings.",
     "description": "Callout shown when no assistant provider could serve the chat"
@@ -14427,6 +14643,10 @@
     "defaultMessage": "Learn more about the AI Gateway in the {gatewayDocs}.",
     "description": "AI Gateway setup guide > Documentation link"
   },
+  "ko0/Vb": {
+    "defaultMessage": "Review",
+    "description": "Action that opens pairwise review for the compared traces"
+  },
   "kqXT2V": {
     "defaultMessage": "Description",
     "description": "SKILL.md description field label"
@@ -14594,6 +14814,10 @@
   "lTrmPI": {
     "defaultMessage": "No matching data found for the available runs.",
     "description": "Experiment tracking > runs charts > parallel coordinates chart preview > no data found description"
+  },
+  "lUy8rP": {
+    "defaultMessage": "Detection runs on the server, so you can leave this page and return later.",
+    "description": "Experiment issues tab > In-progress issue detection guidance about leaving the page"
   },
   "lVtl/C": {
     "defaultMessage": "Copy SKILL.md",
@@ -14814,6 +15038,10 @@
   "mIk1MU": {
     "defaultMessage": "Create Model",
     "description": "Title text for creating model in the model registry"
+  },
+  "mJtCCq": {
+    "defaultMessage": "Fix this issue",
+    "description": "Experiment issues tab > Issue detail > Heading of the section with a prompt that fixes the issue"
   },
   "mJvdRR": {
     "defaultMessage": "<baselineLink>Evaluation baseline run</baselineLink> does not have this scorer.",
@@ -15271,9 +15499,17 @@
     "defaultMessage": "Running",
     "description": "Run status filter value"
   },
+  "ng29fW": {
+    "defaultMessage": "Change",
+    "description": "Trace comparison metric column"
+  },
   "nhqO2Z": {
     "defaultMessage": "Save",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > cancel button label"
+  },
+  "nicnCg": {
+    "defaultMessage": "{label} (R)",
+    "description": "Tooltip for the pairwise review action with its keyboard shortcut"
   },
   "nkh1zr": {
     "defaultMessage": "Negative label",
@@ -16463,6 +16699,10 @@
     "defaultMessage": "Saving…",
     "description": "Status text shown in the dataset record drawer while a save is in flight"
   },
+  "rlx1L8": {
+    "defaultMessage": "Copied",
+    "description": "Experiment issues tab > Issue detail > Fix this issue > Shown after the fix prompt was copied"
+  },
   "rlxFiB": {
     "defaultMessage": "Collapse assessment charts",
     "description": "Accessible label for collapsing the score charts in the evaluation run table headers"
@@ -17087,6 +17327,10 @@
     "defaultMessage": "Name",
     "description": "Header for the name column in the registered prompts table"
   },
+  "u0JbBm": {
+    "defaultMessage": "Model: {baselineModelName} → {candidateModelName}",
+    "description": "Tooltip for baseline and candidate model names in a trace comparison"
+  },
   "u13xKF": {
     "defaultMessage": "Custom judge",
     "description": "LLM judge option for creating a custom judge"
@@ -17342,6 +17586,10 @@
   "v+uGcN": {
     "defaultMessage": "Allow multiple selections (multi-select)",
     "description": "Categorical multi-select checkbox"
+  },
+  "v/RzmD": {
+    "defaultMessage": "{label} · D",
+    "description": "Tooltip for adding a trace to a dataset with the keyboard shortcut"
   },
   "v/njcq": {
     "defaultMessage": "Comparing",
@@ -17770,6 +18018,10 @@
   "wU/MOk": {
     "defaultMessage": "Create MCP server",
     "description": "MCP servers empty state CTA button"
+  },
+  "wU8Ziv": {
+    "defaultMessage": "Which run is better?",
+    "description": "Question shown while reviewing two traces side by side"
   },
   "wY58OE": {
     "defaultMessage": "Retrieval groundedness",
@@ -18379,6 +18631,10 @@
     "defaultMessage": "State",
     "description": "Column label for state"
   },
+  "yTdnBI": {
+    "defaultMessage": "Debug",
+    "description": "Group label for trace debugging bulk actions in the V4 traces toolbar"
+  },
   "yWRwlk": {
     "defaultMessage": "Traces show you how your LLM calls behave: what they cost, how they perform, and where things go wrong. Get started in a few minutes.",
     "description": "Subtitle for the empty state when no traces are recorded"
@@ -18486,6 +18742,10 @@
   "yzxYIm": {
     "defaultMessage": "Points:",
     "description": "Label for the toggle button to toggle to show points or not for the metric experiment run"
+  },
+  "z++2eH": {
+    "defaultMessage": "Failed to cancel issue detection: {error}",
+    "description": "Experiment issues tab > Error shown when cancelling issue detection fails"
   },
   "z+0t/R": {
     "defaultMessage": "You need to define at least one input variable",
@@ -18743,6 +19003,10 @@
     "defaultMessage": "Loaded {allRuns} {allRuns, plural, =1 {run} other {runs}}, including {childRuns} child {childRuns, plural, =1 {run} other {runs}}",
     "description": "Experiment page > loaded more runs notification > loaded both parent and child runs"
   },
+  "ziiwk7": {
+    "defaultMessage": "Same trace",
+    "description": "Badge shown when both sides of a trace comparison reference the same trace"
+  },
   "zjXq2X": {
     "defaultMessage": "The model will be registered as a new version of {selectedModel}.",
     "description": "Explantory text for registering a model"
@@ -18786,6 +19050,10 @@
   "zwO8+l": {
     "defaultMessage": "20",
     "description": "Label for 20 first runs visible in run count selector within runs compare configuration modal"
+  },
+  "zwOxO2": {
+    "defaultMessage": "Cancel detection",
+    "description": "Experiment issues tab > Dialog action confirming that issue detection should be cancelled"
   },
   "zwktEP": {
     "defaultMessage": "No data available for the selected time range",

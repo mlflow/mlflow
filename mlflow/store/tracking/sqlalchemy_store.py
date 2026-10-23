@@ -2907,7 +2907,9 @@ class SqlAlchemyStore(
 
         Raises:
             MlflowException: If the scorer name is invalid, if the model is invalid,
-                or if the scorer references a gateway endpoint that does not exist.
+                if the scorer references a gateway endpoint that does not exist, or if the
+                experiment has a scorer whose name differs from ``name`` but that the database
+                compares as equal (``RESOURCE_ALREADY_EXISTS``).
         """
         # Validate scorer name
         validate_scorer_name(name)
@@ -2936,22 +2938,21 @@ class SqlAlchemyStore(
                 )
                 serialized_scorer = json.dumps(serialized_data)
 
-            # First, check if the scorer exists in the scorers table
-            scorer = (
-                session
-                .query(SqlScorer)
-                .filter(
-                    # ``Experiment.experiment_id`` (the entity field) is a
-                    # string while the column is INTEGER; psycopg v3 binds
-                    # strings as typed VARCHAR, which PostgreSQL rejects
-                    # ("operator does not exist: integer = character
-                    # varying"), so compare through int(). Safe: the id of a
-                    # validated experiment is always a stringified integer.
-                    SqlScorer.experiment_id == int(experiment.experiment_id),
-                    SqlScorer.scorer_name == name,
-                )
-                .first()
+            scorer = self._find_sql_scorer_by_collation(
+                session, int(experiment.experiment_id), name
             )
+            if scorer is not None and scorer.scorer_name != name:
+                # Only on a database that compares names without case or accents. The scorer
+                # table allows one scorer per name there, so the only option would be to add a
+                # version to the existing scorer, which would bypass the permission grants on its
+                # real name. The message leaves out that name, which the caller may not be allowed
+                # to see.
+                raise MlflowException(
+                    f"Experiment {experiment_id} already has a scorer whose name this database "
+                    f"compares as equal to {name!r}, so a scorer named {name!r} cannot be "
+                    "registered. Use a different name.",
+                    RESOURCE_ALREADY_EXISTS,
+                )
 
             if scorer is None:
                 # Create the scorer record with a new UUID
@@ -3164,18 +3165,7 @@ class SqlAlchemyStore(
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
 
-            # First, get the scorer record
-            scorer = (
-                session
-                .query(SqlScorer)
-                .filter(
-                    # int(): see register_scorer — psycopg v3 VARCHAR binds
-                    # don't compare against the INTEGER column.
-                    SqlScorer.experiment_id == int(experiment.experiment_id),
-                    SqlScorer.scorer_name == name,
-                )
-                .first()
-            )
+            scorer = self._get_sql_scorer_exact(session, int(experiment.experiment_id), name)
 
             if scorer is None:
                 raise MlflowException(
@@ -3256,18 +3246,7 @@ class SqlAlchemyStore(
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
 
-            # First, get the scorer record
-            scorer = (
-                session
-                .query(SqlScorer)
-                .filter(
-                    # int(): see register_scorer — psycopg v3 VARCHAR binds
-                    # don't compare against the INTEGER column.
-                    SqlScorer.experiment_id == int(experiment.experiment_id),
-                    SqlScorer.scorer_name == name,
-                )
-                .first()
-            )
+            scorer = self._get_sql_scorer_exact(session, int(experiment.experiment_id), name)
 
             if scorer is None:
                 raise MlflowException(
@@ -3334,18 +3313,7 @@ class SqlAlchemyStore(
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
 
-            # First, get the scorer record
-            scorer = (
-                session
-                .query(SqlScorer)
-                .filter(
-                    # int(): see register_scorer — psycopg v3 VARCHAR binds
-                    # don't compare against the INTEGER column.
-                    SqlScorer.experiment_id == int(experiment.experiment_id),
-                    SqlScorer.scorer_name == name,
-                )
-                .first()
-            )
+            scorer = self._get_sql_scorer_exact(session, int(experiment.experiment_id), name)
 
             if scorer is None:
                 raise MlflowException(
@@ -3410,6 +3378,42 @@ class SqlAlchemyStore(
             )
 
             return [config.to_mlflow_entity() for config in results]
+
+    @staticmethod
+    def _find_sql_scorer_by_collation(session, experiment_id: int, name: str) -> SqlScorer | None:
+        """Return the experiment's scorer whose name equals ``name`` in SQL.
+
+        MySQL and SQL Server compare strings without case by default (MySQL also without accents,
+        and SQL Server without trailing spaces), so the scorer's name can differ from ``name``.
+        Use ``_get_sql_scorer_exact`` to act on the scorer that ``name`` names.
+        """
+        return (
+            session
+            .query(SqlScorer)
+            .filter(
+                # ``Experiment.experiment_id`` (the entity field) is a
+                # string while the column is INTEGER; psycopg v3 binds
+                # strings as typed VARCHAR, which PostgreSQL rejects
+                # ("operator does not exist: integer = character
+                # varying"), so callers pass int(). Safe: the id of a
+                # validated experiment is always a stringified integer.
+                SqlScorer.experiment_id == experiment_id,
+                SqlScorer.scorer_name == name,
+            )
+            .first()
+        )
+
+    @classmethod
+    def _get_sql_scorer_exact(cls, session, experiment_id: int, name: str) -> SqlScorer | None:
+        """Return the experiment's scorer named exactly ``name``, or None.
+
+        Permission grants on a scorer are keyed by the name in the request, so a scorer that
+        matches ``name`` only under the database's collation is not found here. Otherwise a
+        request for ``JUDGE`` would act on ``judge`` without the grants on ``judge``. Do not
+        replace this check with a case-insensitive comparison: collations also ignore accents.
+        """
+        scorer = cls._find_sql_scorer_by_collation(session, experiment_id, name)
+        return scorer if scorer is not None and scorer.scorer_name == name else None
 
     @staticmethod
     def _validate_online_judge(scorer_name: str, serialized_scorer: str) -> None:
@@ -3528,17 +3532,7 @@ class SqlAlchemyStore(
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
 
-            scorer = (
-                session
-                .query(SqlScorer)
-                .filter(
-                    # int(): see register_scorer — psycopg v3 VARCHAR binds
-                    # don't compare against the INTEGER column.
-                    SqlScorer.experiment_id == int(experiment.experiment_id),
-                    SqlScorer.scorer_name == scorer_name,
-                )
-                .first()
-            )
+            scorer = self._get_sql_scorer_exact(session, int(experiment.experiment_id), scorer_name)
             if scorer is None:
                 raise MlflowException(
                     f"Scorer with name '{scorer_name}' not found for experiment {experiment_id}.",
