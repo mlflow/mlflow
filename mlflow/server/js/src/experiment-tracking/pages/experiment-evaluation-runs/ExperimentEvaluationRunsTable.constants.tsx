@@ -79,7 +79,8 @@ export const EVAL_RUNS_KEYED_COLUMN_SIZE: EvalRunsColumnSizeSpec = { size: 140, 
 // callsite's `?? EVAL_RUNS_KEYED_COLUMN_SIZE` supplies the default for ids not listed here.
 export const EVAL_RUNS_COLUMN_SIZES: Partial<Record<string, EvalRunsColumnSizeSpec>> = {
   [EvalRunsTableColumnId.runName]: { size: 260, minSize: 160, maxSize: 600 },
-  [EvalRunsTableColumnId.status]: { size: 130, minSize: 120, maxSize: 200 },
+  // Icon only; the header truncates when narrow.
+  [EvalRunsTableColumnId.status]: { size: 72, minSize: 48, maxSize: 200 },
   [EvalRunsTableColumnId.type]: { size: 100, minSize: 80, maxSize: 160 },
   [EvalRunsTableColumnId.createdAt]: { size: 140, minSize: 100, maxSize: 320 },
   [EvalRunsTableColumnId.dataset]: { size: 180, minSize: 100, maxSize: 480 },
@@ -226,7 +227,7 @@ export const getExperimentEvalRunsDefaultColumns = (
         return row.info.status;
       },
       cell: StatusCell,
-      enableResizing: false,
+      enableResizing: Boolean(enableNewEvalRunsUi),
       ...(enableNewEvalRunsUi ? { enableSorting: true, sortingFn: 'alphanumeric' as const } : {}),
       meta: {
         styles: {
@@ -239,7 +240,7 @@ export const getExperimentEvalRunsDefaultColumns = (
       id: EvalRunsTableColumnId.type,
       header: () => <FormattedMessage {...EVAL_RUNS_COLUMN_LABELS[EvalRunsTableColumnId.type]} />,
       cell: TypeCell,
-      enableResizing: false,
+      enableResizing: Boolean(enableNewEvalRunsUi),
       meta: {
         styles: {
           minWidth: 80,
