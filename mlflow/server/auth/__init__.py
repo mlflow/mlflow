@@ -8731,6 +8731,9 @@ def _get_mcp_server_validator(
             return _mcp_server_version_action_allowed(
                 username, name, _mcp_version_action(parts, request.method)
             )
+
+        is_server_tag_delete = request.method == "DELETE" and len(parts) >= 4 and parts[2] == "tags"
+
         perm = _get_mcp_server_permission(name, username)
         match request.method:
             case "GET":
@@ -8738,7 +8741,7 @@ def _get_mcp_server_validator(
             case "POST" | "PATCH":
                 allowed = perm.can_update
             case "DELETE":
-                allowed = perm.can_delete
+                allowed = perm.can_update if is_server_tag_delete else perm.can_delete
             case _:
                 return False
         if not allowed:
@@ -8755,6 +8758,8 @@ def _get_mcp_server_validator(
         ):
             return _mcp_server_version_not_denied(username, name)
         if request.method == "DELETE":
+            if is_server_tag_delete:
+                return True
             return _mcp_server_version_action_allowed(username, name, "delete")
         return True
 
