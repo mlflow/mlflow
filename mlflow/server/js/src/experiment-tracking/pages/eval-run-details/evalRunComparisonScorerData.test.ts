@@ -95,6 +95,36 @@ describe('buildEvalRunComparisonScorers', () => {
     expect(frustration?.valueCounts).toHaveLength(2);
   });
 
+  test('counts only scored categories, not missing or errored results', () => {
+    const errored = createComparisonTrace('run', { category: 'bad' }, 2);
+    if (errored.assessments?.[0]) {
+      errored.assessments[0].error = { error_code: 'FAILED', error_message: 'Scorer failed' };
+    }
+    const scores = buildEvalRunComparisonScorers(intl, [
+      createComparisonTrace('run', { category: 'good' }),
+      createComparisonTrace('run', { other: true }, 1),
+      errored,
+    ]);
+    expect(scores.find(({ assessmentInfo }) => assessmentInfo.name === 'category')?.displayScore).toBe('1 value');
+  });
+
+  test('lists each scored numeric value for the breakdown tooltip', () => {
+    const errored = createComparisonTrace('run', { rating: 1 }, 3);
+    if (errored.assessments?.[0]) {
+      errored.assessments[0].error = { error_code: 'FAILED', error_message: 'Scorer failed' };
+    }
+    const scores = buildEvalRunComparisonScorers(intl, [
+      createComparisonTrace('run', { rating: 4 }),
+      createComparisonTrace('run', { rating: 4 }, 1),
+      createComparisonTrace('run', { rating: 2 }, 2),
+      errored,
+    ]);
+    expect(scores.find(({ assessmentInfo }) => assessmentInfo.name === 'rating')?.valueCounts).toEqual([
+      { value: 4, count: 2 },
+      { value: 2, count: 1 },
+    ]);
+  });
+
   test('returns no scorers for an empty trace set', () => {
     expect(buildEvalRunComparisonScorers(intl, [])).toEqual([]);
   });
