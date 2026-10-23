@@ -12,9 +12,15 @@ interface CreateEndpointModalProps {
   onSuccess?: (endpoint: Endpoint) => void;
   /** Restrict endpoint creation to this provider. */
   provider?: string;
+  /**
+   * Lifts this modal above a host that raises its own stacking context. Needed when it is opened
+   * from inside another modal, which would otherwise render over it. Left unset, the design
+   * system's default applies.
+   */
+  zIndex?: number;
 }
 
-export const CreateEndpointModal = ({ open, onClose, onSuccess, provider }: CreateEndpointModalProps) => {
+export const CreateEndpointModal = ({ open, onClose, onSuccess, provider, zIndex }: CreateEndpointModalProps) => {
   const intl = useIntl();
 
   const {
@@ -52,6 +58,7 @@ export const CreateEndpointModal = ({ open, onClose, onSuccess, provider }: Crea
       onCancel={handleCancel}
       footer={null}
       size="wide"
+      zIndex={zIndex}
       css={{ width: '100% !important' }}
     >
       <FormProvider {...form}>
