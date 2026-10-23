@@ -39,14 +39,7 @@ export const useExperimentEvaluationRunsData = ({
     SearchRunsApiResponse,
     Error
   >({
-    queryKey: [
-      SEARCH_RUNS_QUERY_KEY,
-      experimentId,
-      filter,
-      orderBy,
-      fetchAllPages,
-      excludeIssueDetectionRuns,
-    ],
+    queryKey: [SEARCH_RUNS_QUERY_KEY, experimentId, filter, orderBy, fetchAllPages, excludeIssueDetectionRuns],
     queryFn: async ({ pageParam = undefined }) => {
       const requestBody = {
         experiment_ids: [experimentId],
