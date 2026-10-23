@@ -5516,11 +5516,12 @@ def test_delete_trace_tag_v3_handler(mock_get_request_message, mock_tracking_sto
 @pytest.mark.parametrize(
     "tag_key",
     [
+        MLFLOW_ARTIFACT_LOCATION,
         TraceTagKey.SPANS_LOCATION,
         TraceTagKey.ARCHIVE_LOCATION,
     ],
 )
-def test_delete_trace_tag_v2_handler_rejects_archival_immutable_tags(
+def test_delete_trace_tag_v2_handler_rejects_immutable_tags(
     mock_get_request_message, mock_tracking_store, tag_key
 ):
     request_msg = DeleteTraceTag(key=tag_key)
@@ -5540,11 +5541,12 @@ def test_delete_trace_tag_v2_handler_rejects_archival_immutable_tags(
 @pytest.mark.parametrize(
     "tag_key",
     [
+        MLFLOW_ARTIFACT_LOCATION,
         TraceTagKey.SPANS_LOCATION,
         TraceTagKey.ARCHIVE_LOCATION,
     ],
 )
-def test_delete_trace_tag_v3_handler_rejects_archival_immutable_tags(
+def test_delete_trace_tag_v3_handler_rejects_immutable_tags(
     mock_get_request_message, mock_tracking_store, tag_key
 ):
     request_msg = DeleteTraceTagV3(key=tag_key)
@@ -5644,12 +5646,13 @@ def test_set_trace_tag_v3_handler(mock_get_request_message, mock_tracking_store)
 @pytest.mark.parametrize(
     "tag_key",
     [
+        MLFLOW_ARTIFACT_LOCATION,
         TraceTagKey.SPANS_LOCATION,
         TraceTagKey.ARCHIVE_LOCATION,
         TraceTagKey.ARCHIVAL_FAILURE,
     ],
 )
-def test_set_trace_tag_v2_handler_rejects_archival_immutable_tags(
+def test_set_trace_tag_v2_handler_rejects_immutable_tags(
     mock_get_request_message, mock_tracking_store, tag_key
 ):
     request_msg = SetTraceTag(key=tag_key, value="tv")
@@ -5667,12 +5670,13 @@ def test_set_trace_tag_v2_handler_rejects_archival_immutable_tags(
 @pytest.mark.parametrize(
     "tag_key",
     [
+        MLFLOW_ARTIFACT_LOCATION,
         TraceTagKey.SPANS_LOCATION,
         TraceTagKey.ARCHIVE_LOCATION,
         TraceTagKey.ARCHIVAL_FAILURE,
     ],
 )
-def test_set_trace_tag_v3_handler_rejects_archival_immutable_tags(
+def test_set_trace_tag_v3_handler_rejects_immutable_tags(
     mock_get_request_message, mock_tracking_store, tag_key
 ):
     request_msg = SetTraceTagV3(key=tag_key, value="tv")
