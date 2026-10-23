@@ -43,6 +43,19 @@ MLFLOW_RUN_TYPE_TEST = "test"
 # The ID of the job that is running issue detection
 MLFLOW_ISSUE_DETECTION_JOB_ID = "mlflow.issueDetection.jobId"
 
+# An experiment's recurring issue-detection schedule: its cadence, timezone and paused flag
+MLFLOW_ISSUE_DETECTION_SCHEDULE = "mlflow.issueDetection.schedule"
+
+# The equality clauses narrowing which traces a scheduled issue-detection run analyzes
+MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER = "mlflow.issueDetection.scheduleTraceFilter"
+
+# What the server has dispatched for a schedule so far. Written only by the server, so an owner
+# editing the schedule and the server stamping an occurrence never overwrite each other.
+MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE = "mlflow.issueDetection.scheduleState"
+
+# Watermark of the traces scheduled issue detection has covered. Manual runs never touch it.
+MLFLOW_ISSUE_DETECTION_CHECKPOINT = "mlflow.issueDetection.checkpoint"
+
 # The ID of the job that is running the UI-triggered mlflow.genai.evaluate flow
 MLFLOW_GENAI_EVALUATE_JOB_ID = "mlflow.genaiEvaluate.jobId"
 
