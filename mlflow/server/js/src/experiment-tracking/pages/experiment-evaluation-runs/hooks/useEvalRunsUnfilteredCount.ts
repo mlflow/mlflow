@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useQueries } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { isIssueDetectionRun } from '../../../components/experiment-page/hooks/useExperimentEvaluationRunsData';
 import { MlflowService } from '../../../sdk/MlflowService';
 import type { SearchRunsApiResponse } from '../../../types';
 
@@ -26,8 +27,12 @@ export const useEvalRunsUnfilteredCount = ({ experimentId, enabled }: { experime
     })),
   });
   const data = result?.data;
-  // Same split as `useExperimentEvaluationRunsData`: runs that logged a model are training runs.
-  const runs = useMemo(() => (data?.runs ?? []).filter((run) => !(run.outputs?.modelOutputs?.length ?? 0)), [data]);
+  // Same split as `useExperimentEvaluationRunsData`: runs that logged a model are training runs,
+  // and detection runs are not listed at all, so neither counts towards the total.
+  const runs = useMemo(
+    () => (data?.runs ?? []).filter((run) => !(run.outputs?.modelOutputs?.length ?? 0) && !isIssueDetectionRun(run)),
+    [data],
+  );
   return {
     runs,
     hasNextPage: Boolean(data?.next_page_token),

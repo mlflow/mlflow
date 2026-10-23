@@ -157,7 +157,7 @@ export const GenAIOverviewEvalScoresChart = ({
             const firstPoint = chartScorePoints[interaction.selection?.startIndex ?? 0];
             if (!firstPoint) return;
             if (interaction.selection?.startIndex === interaction.selection?.endIndex) {
-              void navigate(Routes.getIssueDetectionRunDetailsRoute(experimentId, firstPoint.runUuid));
+              void navigate(Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Issues));
               return;
             }
             const evalRunsRoute = Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.EvaluationRuns);
