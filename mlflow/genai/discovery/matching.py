@@ -208,18 +208,36 @@ def match_findings_to_existing_issues(
         return outcome
 
     by_id = {issue.issue_id: issue for issue in candidates}
+    # Collected before any is applied, because the schema lets the matcher return several
+    # decisions for one finding. Taking them in order would let the last one win, so a model that
+    # contradicted itself would route the finding's evidence to whichever issue it happened to
+    # name last -- and a later "no match" would not undo an earlier match at all.
+    decisions: dict[int, set[str | None]] = {}
     for match in decided.matches:
-        if match.issue_id is None:
-            continue
         if not 0 <= match.finding_index < len(findings):
             # The matcher invented an index; the finding it meant is unknowable, so nothing is
             # matched rather than guessing which one.
             _logger.debug("Ignoring match for unknown finding index %s", match.finding_index)
             continue
-        if match.issue_id not in by_id:
+        decisions.setdefault(match.finding_index, set()).add(match.issue_id)
+
+    for finding_index, issue_ids in decisions.items():
+        if len(issue_ids) > 1:
+            # Disagreement is not a tie to break: the finding is reported as new, which costs a
+            # duplicate issue at worst, where guessing costs this finding's evidence landing on
+            # an issue it does not describe.
+            _logger.info(
+                "Reporting finding %s as new: the matcher returned conflicting decisions for it",
+                finding_index,
+            )
+            continue
+        (issue_id,) = issue_ids
+        if issue_id is None:
+            continue
+        if issue_id not in by_id:
             # Only the issues it was shown are matchable: a stale or foreign ID would attach
             # this run's evidence to an issue in another experiment, or to nothing at all.
-            _logger.debug("Ignoring match to unoffered issue %s", match.issue_id)
+            _logger.debug("Ignoring match to unoffered issue %s", issue_id)
             continue
-        outcome.matched[match.finding_index] = match.issue_id
+        outcome.matched[finding_index] = issue_id
     return outcome

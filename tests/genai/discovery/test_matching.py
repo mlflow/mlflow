@@ -111,6 +111,76 @@ def test_a_match_for_a_finding_that_does_not_exist_is_ignored():
     assert outcome.matched == {}
 
 
+def test_conflicting_decisions_for_one_finding_leave_it_unmatched():
+    # The schema permits several decisions per finding. Applying them in order let the last win,
+    # so a self-contradicting matcher routed this finding's evidence to whichever issue it named
+    # last; reporting it as new costs a duplicate at worst.
+    findings = [_finding("Refund falsely confirmed")]
+    candidates = [
+        _existing("iss-one", "Refund falsely confirmed"),
+        _existing("iss-two", "Refund confirmed that never happened"),
+    ]
+
+    with _matcher({
+        "matches": [
+            {"finding_index": 0, "issue_id": "iss-one"},
+            {"finding_index": 0, "issue_id": "iss-two"},
+        ]
+    }):
+        outcome = match_findings_to_existing_issues(findings, candidates)
+
+    assert outcome.matched == {}
+
+
+def test_a_later_no_match_clears_an_earlier_match_for_the_same_finding():
+    findings = [_finding("Refund falsely confirmed")]
+    candidates = [_existing("iss-one", "Refund falsely confirmed")]
+
+    with _matcher({
+        "matches": [
+            {"finding_index": 0, "issue_id": "iss-one"},
+            {"finding_index": 0, "issue_id": None},
+        ]
+    }):
+        outcome = match_findings_to_existing_issues(findings, candidates)
+
+    assert outcome.matched == {}
+
+
+def test_the_same_decision_repeated_is_not_a_conflict():
+    findings = [_finding("Refund falsely confirmed")]
+    candidates = [_existing("iss-one", "Refund falsely confirmed")]
+
+    with _matcher({
+        "matches": [
+            {"finding_index": 0, "issue_id": "iss-one"},
+            {"finding_index": 0, "issue_id": "iss-one"},
+        ]
+    }):
+        outcome = match_findings_to_existing_issues(findings, candidates)
+
+    assert outcome.matched == {0: "iss-one"}
+
+
+def test_one_findings_conflict_does_not_affect_another():
+    findings = [_finding("Refund falsely confirmed"), _finding("Latency spike on checkout")]
+    candidates = [
+        _existing("iss-one", "Refund falsely confirmed"),
+        _existing("iss-two", "Latency spike on checkout"),
+    ]
+
+    with _matcher({
+        "matches": [
+            {"finding_index": 0, "issue_id": "iss-one"},
+            {"finding_index": 0, "issue_id": "iss-two"},
+            {"finding_index": 1, "issue_id": "iss-two"},
+        ]
+    }):
+        outcome = match_findings_to_existing_issues(findings, candidates)
+
+    assert outcome.matched == {1: "iss-two"}
+
+
 def test_a_matcher_failure_reports_findings_as_new_rather_than_guessing():
     findings = [_finding("Refund falsely confirmed")]
     candidates = [_existing("iss-known", "Refund falsely confirmed")]
