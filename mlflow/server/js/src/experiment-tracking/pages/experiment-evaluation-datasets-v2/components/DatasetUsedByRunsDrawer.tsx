@@ -27,6 +27,10 @@ import { EvalRunsFilterOperator, quoteFilterValue } from '../../experiment-evalu
 import { EvalRunsRecentRunsChart } from '../../experiment-evaluation-runs/charts/EvalRunsRecentRunsChart';
 import { formatEvalRunsNumericValue } from '../../experiment-evaluation-runs/ExperimentEvaluationRunsNumberFormat';
 import { EVAL_RUNS_FILTER_CLAUSES_QUERY_PARAM } from '../../experiment-evaluation-runs/hooks/useEvalRunsFilters';
+import {
+  EvalRunsDatePreset,
+  START_TIME_LABEL_PARAM,
+} from '../../experiment-evaluation-runs/hooks/usePersistedDatePreset';
 import { RunStatusIcon } from '../../../components/RunStatusIcon';
 import { useDebouncedSearchInput } from '../hooks/useDebouncedSearchInput';
 import { SEARCH_DEBOUNCE_MS } from '../utils/constants';
@@ -109,6 +113,8 @@ export const DatasetUsedByRunsPanel = ({ datasetName, experimentId, open, onClos
         },
       ]),
     );
+    // The panel lists runs from all time; without this, the experiment's saved date preset would apply.
+    searchParams.set(START_TIME_LABEL_PARAM, EvalRunsDatePreset.ALL);
     return {
       pathname: Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.EvaluationRuns),
       search: searchParams.toString(),

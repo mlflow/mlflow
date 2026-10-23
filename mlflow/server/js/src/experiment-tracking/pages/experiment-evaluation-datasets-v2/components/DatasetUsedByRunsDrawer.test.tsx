@@ -135,6 +135,8 @@ describe('DatasetUsedByRunsPanel', () => {
     const [pathname, search] = (await screen.findByTestId('location')).textContent!.split('?');
     expect(pathname).toBe('/experiments/exp-1/evaluation-runs');
     const params = new URLSearchParams(search);
+    // All time, so a saved date preset on the evaluation runs tab can't hide the panel's older runs.
+    expect(params.get('startTimeLabel')).toBe('ALL');
     expect(JSON.parse(params.get('evalRunsFilterClauses') ?? '[]')).toEqual([
       { field: 'dataset.name', operator: '=', value: 'Customer Support Eval' },
     ]);

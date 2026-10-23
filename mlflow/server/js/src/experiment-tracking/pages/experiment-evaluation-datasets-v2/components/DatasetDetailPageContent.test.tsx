@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { rest } from 'msw';
 
 import { shouldEnableNewEvalRunsUi } from '../../../../common/utils/FeatureUtils';
+import { useNavigate } from '../../../../common/utils/RoutingUtils';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import type { Dataset } from '../hooks/useDatasetsQueries';
 import { renderDatasetsPage } from '../test-utils/renderDatasetsPage';
@@ -16,6 +17,9 @@ jest.mock('../../../../common/utils/FeatureUtils', () => ({
   shouldEnableNewEvalRunsUi: jest.fn(() => true),
 }));
 
+// The record editor loads monaco, which jest can't resolve; these tests only need the panel around it.
+jest.mock('./LazyJsonRecordEditor', () => ({ LazyJsonRecordEditor: () => null }));
+
 const dataset = { dataset_id: 'ds-1', name: 'Support eval', create_time: '2026-01-01T00:00:00Z' } as Dataset;
 
 setupServer(
@@ -25,13 +29,24 @@ setupServer(
   rest.post(/\/ajax-api\/2\.0\/mlflow\/runs\/search$/, (_req, res, ctx) => res(ctx.json({ runs: [] }))),
 );
 
+// Stands in for the browser Back button.
+const BackButton = () => {
+  const navigate = useNavigate();
+  return <button onClick={() => navigate(-1)}>Browser back</button>;
+};
+
 const renderContent = (initialUrl = '/experiments/exp-1/datasets/ds-1') =>
   renderDatasetsPage({
     initialUrl,
     routes: [
       {
         path: '/experiments/:experimentId/datasets/:datasetId',
-        element: <DatasetDetailPageContent experimentId="exp-1" datasetId="ds-1" dataset={dataset} />,
+        element: (
+          <>
+            <BackButton />
+            <DatasetDetailPageContent experimentId="exp-1" datasetId="ds-1" dataset={dataset} />
+          </>
+        ),
       },
     ],
     history: {},
@@ -57,6 +72,20 @@ describe('DatasetDetailPageContent evaluation runs panel', () => {
     renderContent('/experiments/exp-1/datasets/ds-1?runsPanel=true');
 
     expect(await screen.findByRole('complementary', { name: 'Evaluation Runs' })).toBeInTheDocument();
+  });
+
+  test('keeps a new-record draft open when Back restores the panel URL state', async () => {
+    const user = userEvent.setup();
+    renderContent('/experiments/exp-1/datasets/ds-1?runsPanel=true');
+    expect(await screen.findByRole('complementary', { name: 'Evaluation Runs' })).toBeInTheDocument();
+
+    await user.click(await screen.findByRole('button', { name: /Add record/i }));
+    expect(await screen.findByRole('complementary', { name: 'New dataset record' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Browser back' }));
+
+    expect(screen.getByRole('complementary', { name: 'New dataset record' })).toBeInTheDocument();
+    expect(screen.queryByRole('complementary', { name: 'Evaluation Runs' })).not.toBeInTheDocument();
   });
 
   test('flag off: shows no panel button and ignores the panel URL state', async () => {

@@ -13,7 +13,7 @@ export enum EvalRunsDatePreset {
   LAST_YEAR = 'LAST_YEAR',
 }
 
-const START_TIME_LABEL_PARAM = 'startTimeLabel';
+export const START_TIME_LABEL_PARAM = 'startTimeLabel';
 const START_TIME_PARAM = 'startTime';
 const END_TIME_PARAM = 'endTime';
 const DATE_PRESET_STORAGE_VERSION = 1;
