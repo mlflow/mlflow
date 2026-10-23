@@ -1234,7 +1234,7 @@ def test_load_pt2_model_rejects_pickle_payload_when_pickle_deserialization_disal
         mlflow.pytorch.load_model(model_path)
     assert not marker_path.exists()
 
-    with pytest.raises(MlflowException, match=f"record '{re.escape(record)}'"):
+    with pytest.raises(MlflowException, match="Loading PyFunc models is disallowed"):
         mlflow.pyfunc.load_model(model_path)
     assert not marker_path.exists()
 
@@ -1372,9 +1372,7 @@ def test_load_pickle_model_does_not_import_artifact_pickle_module_when_disallowe
     # The rejected load must not leave the artifact's code directory importable either.
     assert code_dir not in sys.path
 
-    # `mlflow.pyfunc.load_model` prepends the code directory itself before calling the flavor,
-    # so only the import is checked on this route.
-    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_MODEL_CODE_EXECUTION"):
+    with pytest.raises(MlflowException, match="Loading PyFunc models is disallowed"):
         mlflow.pyfunc.load_model(model_path)
     assert not marker_path.exists()
     assert "pickle_module_canary" not in sys.modules

@@ -158,6 +158,7 @@ export MLFLOW_ALLOW_MODEL_CODE_EXECUTION=false
 
 When set to `false`, MLflow raises an error instead of loading:
 
+- any model loaded with <APILink fn="mlflow.pyfunc.load_model" />, including Spark UDFs and `mlflow models serve`, because a PyFunc model names the Python module that loads it. Load models that do not run code with their flavor's own `load_model` function instead, such as <APILink fn="mlflow.pytorch.load_model" />,
 - a model saved with `pickle` or `cloudpickle` (use a pickle-free saving option when logging the model),
 - a model logged with a code directory (`code_paths` or `infer_code_paths=True`), because that code is added to the Python path and can run when modules are imported,
 - a [Models From Code](/ml/model/models-from-code) model, because loading it runs the model's Python file,
@@ -175,7 +176,7 @@ Only set it to `true` for models from sources you trust. The default is `true` f
 :::
 
 :::note
-In Databricks Runtime and Databricks Model Serving, these checks are skipped: models serialized with `pickle` or `cloudpickle`, models with a code directory, Models From Code, and models inside a directory on the Python path always load, regardless of `MLFLOW_ALLOW_MODEL_CODE_EXECUTION` or `MLFLOW_ALLOW_PICKLE_DESERIALIZATION`. This is because Databricks uses a managed MLflow artifact store that protects model artifacts from unauthorized modification. By ensuring artifact integrity, the platform mitigates the risk of executing malicious code supplied by a model. Pickle-based evaluation artifacts are the exception: they are refused in these environments too when either variable is `false`.
+In Databricks Runtime and Databricks Model Serving, these checks are skipped: PyFunc models, models serialized with `pickle` or `cloudpickle`, models with a code directory, Models From Code, and models inside a directory on the Python path always load, regardless of `MLFLOW_ALLOW_MODEL_CODE_EXECUTION` or `MLFLOW_ALLOW_PICKLE_DESERIALIZATION`. This is because Databricks uses a managed MLflow artifact store that protects model artifacts from unauthorized modification. By ensuring artifact integrity, the platform mitigates the risk of executing malicious code supplied by a model. Pickle-based evaluation artifacts are the exception: they are refused in these environments too when either variable is `false`.
 :::
 
 ## Summary

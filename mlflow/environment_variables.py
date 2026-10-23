@@ -1929,18 +1929,13 @@ MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
 )
 
 #: Specifies whether to allow loading models that run code supplied by the model: pickle or
-#: cloudpickle artifacts, code directories logged with ``code_paths``, and models from code.
-#: Set it to ``false`` to refuse such models. Only set it to ``true`` for models you trust.
+#: cloudpickle artifacts, code directories logged with ``code_paths``, models from code, models
+#: on the Python path, Transformers custom code, and all PyFunc models, because a PyFunc model
+#: names the Python module that loads it. Set it to ``false`` to refuse such models. Only set it
+#: to ``true`` for models you trust.
 #: (default: ``True``)
 MLFLOW_ALLOW_MODEL_CODE_EXECUTION = _BooleanEnvironmentVariable(
     "MLFLOW_ALLOW_MODEL_CODE_EXECUTION", True
-)
-
-
-#: Whether to disable loading PyFunc models through their configured loader_module.
-#: (default: ``False``)
-MLFLOW_DISABLE_PYFUNC_LOADER_MODULE = _BooleanEnvironmentVariable(
-    "MLFLOW_DISABLE_PYFUNC_LOADER_MODULE", False
 )
 
 

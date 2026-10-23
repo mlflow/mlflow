@@ -202,48 +202,28 @@ def test_deprecated_pickle_variable_hint(monkeypatch, pickle, mentions_deprecate
     assert ("MLFLOW_ALLOW_PICKLE_DESERIALIZATION" in hint) is mentions_deprecated_variable
 
 
-def test_load_model_refuses_code_directory_when_model_code_execution_disallowed(
+def test_add_code_refuses_code_directory_when_model_code_execution_disallowed(
     tmp_path, monkeypatch
 ):
-    # A crafted model whose `loader_module` resolves to a module shipped in its own code dir.
-    module_name = f"crafted_loader_{os.getpid()}"
-    marker = tmp_path / "marker"
-    model_dir = tmp_path / "model"
-    (model_dir / "code").mkdir(parents=True)
-    (model_dir / "code" / f"{module_name}.py").write_text(
-        f"open({str(marker)!r}, 'w').close()\ndef _load_pyfunc(path): pass\n"
-    )
-    (model_dir / "MLmodel").write_text(
-        f"flavors:\n  python_function:\n    loader_module: {module_name}\n    code: code\n"
-    )
-
+    (tmp_path / "code").mkdir()
     monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
     sys_path = list(sys.path)
-    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_MODEL_CODE_EXECUTION"):
-        mlflow.pyfunc.load_model(str(model_dir))
-    assert not marker.exists()
+    with pytest.raises(MlflowException, match="a model with a code directory"):
+        mlflow_model_utils._add_code_from_conf_to_system_path(str(tmp_path), {"code": "code"})
     assert sys.path == sys_path
 
 
-def test_load_model_refuses_model_on_python_path_when_model_code_execution_disallowed(
+def test_add_code_refuses_model_on_python_path_when_model_code_execution_disallowed(
     tmp_path, monkeypatch
 ):
-    # Without a code directory, a dotted `loader_module` can still import the model's own files
-    # when the model directory is under a `sys.path` entry, such as the current directory.
-    model_name = f"crafted_model_{os.getpid()}"
-    marker = tmp_path / "marker"
-    model_dir = tmp_path / model_name
+    # Without a code directory, a model can still import its own files when the model directory
+    # is under a `sys.path` entry, such as the current directory.
+    model_dir = tmp_path / "model"
     model_dir.mkdir()
-    (model_dir / "evil.py").write_text(f"open({str(marker)!r}, 'w').close()\n")
-    (model_dir / "MLmodel").write_text(
-        f"flavors:\n  python_function:\n    loader_module: {model_name}.evil\n"
-    )
-
     monkeypatch.syspath_prepend(str(tmp_path))
     monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
     with pytest.raises(MlflowException, match="on the Python path"):
-        mlflow.pyfunc.load_model(str(model_dir))
-    assert not marker.exists()
+        mlflow_model_utils._add_code_from_conf_to_system_path(str(model_dir), {})
 
 
 def test_load_model_from_code_refused_when_model_code_execution_disallowed(tmp_path, monkeypatch):
@@ -251,16 +231,20 @@ def test_load_model_from_code_refused_when_model_code_execution_disallowed(tmp_p
     code_file = tmp_path / "model.py"
     code_file.write_text(
         "import mlflow\n"
+        "import sklearn\n"
         f"open({str(marker)!r}, 'w').close()\n"
         "mlflow.models.set_model(lambda model_input: model_input)\n"
     )
     model_dir = tmp_path / "model"
     monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
-    # Saving runs the user's own code, so it stays allowed.
-    mlflow.pyfunc.save_model(model_dir, python_model=str(code_file), pip_requirements=["mlflow"])
+    # Saving, including inferring pip requirements, runs the user's own code, so it stays allowed.
+    mlflow.pyfunc.save_model(
+        model_dir, python_model=str(code_file), extra_pip_requirements=["mlflow"]
+    )
+    assert "scikit-learn" in (model_dir / "requirements.txt").read_text()
     marker.unlink()
 
-    with pytest.raises(MlflowException, match="a model from code"):
+    with pytest.raises(MlflowException, match="Loading PyFunc models is disallowed"):
         mlflow.pyfunc.load_model(str(model_dir))
     assert not marker.exists()
 
