@@ -20,12 +20,6 @@ export interface RenderAddToReviewQueueDropdownParams {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   popoverAlign?: 'start' | 'end';
-  /**
-   * Closes the host trace-detail drawer, if the dropdown is rendered inside one.
-   * The drawer is modal, so while it is open, Radix disables pointer events on
-   * everything outside it, including success toasts portaled to the document body.
-   */
-  onCloseDrawer?: () => void;
 }
 
 export type DrawerComponentType = {

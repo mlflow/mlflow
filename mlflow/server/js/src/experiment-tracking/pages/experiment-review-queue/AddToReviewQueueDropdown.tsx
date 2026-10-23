@@ -97,12 +97,6 @@ export const AddToReviewQueueDropdown = ({
   const [internalOpen, setInternalOpen] = useState(false);
   const isControlled = controlledOpen !== undefined;
   const isOpen = isControlled ? controlledOpen : internalOpen;
-  const hasRequestedDrawerCloseRef = useRef(false);
-  useEffect(() => {
-    if (!isOpen) {
-      hasRequestedDrawerCloseRef.current = false;
-    }
-  }, [isOpen]);
   const setOpen = useCallback(
     (next: boolean) => {
       if (isControlled) {
