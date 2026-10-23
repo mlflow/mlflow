@@ -9133,7 +9133,6 @@ def test_artifact_proxy_classifies_a_bare_run_id_as_a_run():
     # Shapes that are not a run id stay experiment-level on a point read, so an experiment-level
     # artifact is not swept into the run tier.
     for segment in (
-        run_id.upper(),  # run ids are lowercase hex
         run_id[:-1],  # 31 characters
         f"{run_id}3",  # 33 characters
         "notes.txt",
@@ -9148,6 +9147,21 @@ def test_artifact_proxy_classifies_a_bare_run_id_as_a_run():
     )
     assert classify("1", recursive=False) == ()
     assert classify("1", recursive=True) == auth_module._ARTIFACT_PROXY_EXPERIMENT_ROOT_TIERS
+
+
+def test_artifact_proxy_child_types_ignore_case():
+    # A case-insensitive local store serves ``MODELS`` from ``models``, so a case variant must be
+    # judged against the same tier as the canonical spelling.
+    run_id = "336fd361d5624171b792e03b99c69f63"
+    classify = auth_module._artifact_proxy_child_types
+    for path, expected in (
+        ("1/MODELS/m-1/artifacts/f", auth_module.RESOURCE_TYPE_LOGGED_MODEL),
+        ("1/Traces/tr-1/artifacts/f", auth_module.RESOURCE_TYPE_TRACE),
+        (f"1/{run_id.upper()}", auth_module.RESOURCE_TYPE_RUN),
+        (f"1/{run_id.upper()}/ARTIFACTS/f", auth_module.RESOURCE_TYPE_RUN),
+        ("workspaces/wsb/1/MODELS/m-1", auth_module.RESOURCE_TYPE_LOGGED_MODEL),
+    ):
+        assert classify(path, recursive=False) == (expected,)
 
 
 @pytest.mark.parametrize(
