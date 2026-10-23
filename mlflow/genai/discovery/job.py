@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Any
 
 import mlflow
@@ -17,9 +18,11 @@ from mlflow.genai.discovery.constants import DEFAULT_MODEL
 from mlflow.genai.discovery.pipeline import discover_issues
 from mlflow.genai.discovery.sampling import sample_traces
 from mlflow.server.jobs import job
+from mlflow.server.jobs.utils import MLFLOW_SERVER_JOB_ID_ENV_VAR
 from mlflow.store.tracking import MAX_TRACE_LINKS_PER_REQUEST
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.mlflow_tags import (
+    MLFLOW_ISSUE_DETECTION_JOB_ID,
     MLFLOW_ISSUE_DETECTION_TRIGGER,
     MLFLOW_ISSUE_DETECTION_TRIGGER_SCHEDULE,
     MLFLOW_RUN_TYPE,
@@ -217,18 +220,23 @@ def run_scheduled_issue_detection_job(
             write_detection_checkpoint(client, experiment_id, checkpoint)
         return {"traces_in_window": 0}
 
-    run = client.create_run(
-        experiment_id=experiment_id,
-        tags={
-            MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_ISSUE_DETECTION,
-            MLFLOW_ISSUE_DETECTION_TRIGGER: MLFLOW_ISSUE_DETECTION_TRIGGER_SCHEDULE,
-            "categories": ",".join(categories),
-            "model": model or DEFAULT_MODEL,
-            # Stringified because create_run stores tag values verbatim, unlike the fluent
-            # start_run the manual path uses, which coerces them.
-            "total_traces": str(len(traces)),
-        },
-    )
+    tags = {
+        MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_ISSUE_DETECTION,
+        MLFLOW_ISSUE_DETECTION_TRIGGER: MLFLOW_ISSUE_DETECTION_TRIGGER_SCHEDULE,
+        "categories": ",".join(categories),
+        "model": model or DEFAULT_MODEL,
+        # Stringified because create_run stores tag values verbatim, unlike the fluent
+        # start_run the manual path uses, which coerces them.
+        "total_traces": str(len(traces)),
+    }
+    # The same tag the manual path sets from the submitting handler. Without it the Issues tab
+    # cannot poll this run's job: it treats a RUNNING detection run carrying no job id as a
+    # submission that never started, so a scheduled run would vanish from the tab after a couple
+    # of minutes and let someone start a second one over the top of it. Read from the environment
+    # because nothing passes the id into a running job.
+    if job_id := os.environ.get(MLFLOW_SERVER_JOB_ID_ENV_VAR):
+        tags[MLFLOW_ISSUE_DETECTION_JOB_ID] = job_id
+    run = client.create_run(experiment_id=experiment_id, tags=tags)
     result = _detect_issues_into_run(
         client,
         experiment_id,

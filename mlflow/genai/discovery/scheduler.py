@@ -23,6 +23,7 @@ from mlflow.genai.discovery.checkpoint import (
 )
 from mlflow.genai.discovery.schedule import (
     DetectionSchedule,
+    DetectionScheduleState,
     ScheduleModel,
     claim_first_occurrence,
     claim_occurrence,
@@ -38,10 +39,10 @@ from mlflow.utils.workspace_context import ServerWorkspaceContext
 
 _logger = logging.getLogger(__name__)
 
-# How many experiments one pass will page through. A pass runs every minute and must finish well
+# How many experiments one pass will dispatch. A pass runs every minute and must finish well
 # inside that, so an installation with a very large number of scheduled experiments spreads its
-# work over several passes rather than overrunning one. Experiments are shuffled per pass, so no
-# schedule is starved by always landing beyond the bound.
+# work over several passes rather than overrunning one. The bound is applied after shuffling the
+# whole set, which is what keeps a schedule from being starved by always landing beyond it.
 MAX_EXPERIMENTS_PER_PASS = 500
 
 _EXPERIMENTS_PAGE_SIZE = 100
@@ -68,19 +69,29 @@ def _workspace_contexts():
 
 
 def _scheduled_experiments(store: AbstractStore) -> list[Experiment]:
+    """
+    Every active experiment carrying a detection schedule, shuffled.
+
+    The whole set is read rather than the first page's worth. Stopping at the dispatch bound
+    would shuffle only the experiments already fetched, and ``search_experiments`` orders them
+    deterministically, so everything past the bound would never be anchored or dispatched at
+    all. The set is small by construction -- one entry per experiment that has a schedule --
+    which is how the online scoring scheduler reads its active scorers too.
+    """
     experiments: list[Experiment] = []
     page_token = None
-    while len(experiments) < MAX_EXPERIMENTS_PER_PASS:
+    while True:
         page = store.search_experiments(
             view_type=ViewType.ACTIVE_ONLY,
-            max_results=min(_EXPERIMENTS_PAGE_SIZE, MAX_EXPERIMENTS_PER_PASS - len(experiments)),
+            max_results=_EXPERIMENTS_PAGE_SIZE,
             filter_string=_SCHEDULED_EXPERIMENTS_FILTER,
             page_token=page_token,
         )
         experiments.extend(page)
         if not (page_token := page.token):
             break
-    # Shuffled so a pass that hits the bound does not always drop the same experiments.
+    # Shuffled before the dispatch bound is applied, so a pass that cannot reach all of them
+    # drops a different subset every time rather than the same tail forever.
     random.shuffle(experiments)
     return experiments
 
@@ -125,7 +136,11 @@ def _provider_credentials(store: AbstractStore, model: ScheduleModel | None) -> 
 
 
 def _submit_occurrence(
-    store: AbstractStore, experiment: Experiment, schedule: DetectionSchedule, fire_time_ms: int
+    store: AbstractStore,
+    experiment: Experiment,
+    schedule: DetectionSchedule,
+    state: DetectionScheduleState,
+    fire_time_ms: int,
 ) -> str:
     from mlflow.genai.discovery.job import run_scheduled_issue_detection_job
     from mlflow.server.jobs import submit_job
@@ -136,6 +151,9 @@ def _submit_occurrence(
         read_detection_checkpoint(experiment),
         now_ms=fire_time_ms,
         first_run_lookback_ms=FIRST_RUN_LOOKBACK_MS[schedule.cadence.value],
+        # Until a run succeeds there is no watermark, so the floor pinned when this schedule was
+        # anchored is what stops a failed occurrence taking its traces with it.
+        coverage_floor_ms=state.coverage_floor_ms,
     )
     settings = read_detection_settings(experiment)
     submitted = submit_job(
@@ -163,7 +181,9 @@ def _dispatch_if_due(store: AbstractStore, experiment: Experiment, now_ms: int) 
         # First time this server has seen the schedule. Anchor it and wait: its first run belongs
         # at the next fire time, not the moment it was noticed.
         write_detection_schedule_state(
-            store, experiment.experiment_id, claim_first_occurrence(now_ms)
+            store,
+            experiment.experiment_id,
+            claim_first_occurrence(now_ms, schedule, FIRST_RUN_LOOKBACK_MS[schedule.cadence.value]),
         )
         return
     fire_time_ms = due_occurrence_ms(schedule, state, now_ms)
@@ -176,7 +196,7 @@ def _dispatch_if_due(store: AbstractStore, experiment: Experiment, now_ms: int) 
     write_detection_schedule_state(
         store, experiment.experiment_id, claim_occurrence(state, fire_time_ms, now_ms)
     )
-    job_id = _submit_occurrence(store, experiment, schedule, fire_time_ms)
+    job_id = _submit_occurrence(store, experiment, schedule, state, fire_time_ms)
     _logger.info(
         "Submitted scheduled issue detection job %s for experiment %s (%s occurrence at %d)",
         job_id,
@@ -209,7 +229,14 @@ def run_issue_detection_scheduler(now_ms: int | None = None) -> None:
                 "Issue detection scheduler found %d experiment(s) with a schedule",
                 len(experiments),
             )
-            for experiment in experiments:
+            if len(experiments) > MAX_EXPERIMENTS_PER_PASS:
+                _logger.info(
+                    "Issue detection scheduler is dispatching %d of %d scheduled experiments this "
+                    "pass; the rest are picked up by later passes",
+                    MAX_EXPERIMENTS_PER_PASS,
+                    len(experiments),
+                )
+            for experiment in experiments[:MAX_EXPERIMENTS_PER_PASS]:
                 try:
                     _dispatch_if_due(store, experiment, now_ms)
                 except Exception:
