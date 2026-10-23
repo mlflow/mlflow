@@ -115,6 +115,9 @@ _CONTENT_FILTER_FINISH_REASONS = frozenset({
     "PROHIBITED_CONTENT",
     "SPII",
     "IMAGE_SAFETY",
+    "IMAGE_PROHIBITED_CONTENT",
+    "IMAGE_RECITATION",
+    "ESCALATION",
 })
 
 
@@ -468,31 +471,25 @@ class GeminiAdapter(ProviderAdapter):
         for idx, candidate in enumerate(resp.get("candidates", [])):
             finish_reason = cls._normalize_finish_reason(candidate.get("finishReason", "stop"))
 
-            if parts := candidate.get("content", {}).get("parts", None):
-                if any(part.get("functionCall") for part in parts):
-                    choices.append(
-                        GeminiAdapter._convert_function_call_to_openai_choice(
-                            parts, finish_reason, idx, False
-                        )
+            parts = candidate.get("content", {}).get("parts")
+            if parts and any(part.get("functionCall") for part in parts):
+                choices.append(
+                    GeminiAdapter._convert_function_call_to_openai_choice(
+                        parts, finish_reason, idx, False
                     )
-
-                elif content := GeminiAdapter._join_text_parts(parts):
-                    choices.append(
-                        chat_schema.Choice(
-                            index=idx,
-                            message=chat_schema.ResponseMessage(
-                                role="assistant",
-                                content=content,
-                            ),
-                            finish_reason=finish_reason,
-                        )
-                    )
-            elif finish_reason == "content_filter":
-                # A filtered candidate has no parts; keep it so clients see why it ended.
+                )
+            elif (
+                content := GeminiAdapter._join_text_parts(parts)
+            ) or finish_reason == "content_filter":
+                # A filtered candidate may have no parts or only empty-text parts; keep it so
+                # clients see why it ended.
                 choices.append(
                     chat_schema.Choice(
                         index=idx,
-                        message=chat_schema.ResponseMessage(role="assistant", content=None),
+                        message=chat_schema.ResponseMessage(
+                            role="assistant",
+                            content=content or None,
+                        ),
                         finish_reason=finish_reason,
                     )
                 )
