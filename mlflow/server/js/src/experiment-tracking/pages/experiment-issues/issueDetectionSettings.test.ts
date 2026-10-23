@@ -35,18 +35,30 @@ describe('readIssueDetectionSettingsFromTags', () => {
     const settings = readIssueDetectionSettingsFromTags(tag({ instructions: '', categories: { 'pii leakage': true } }));
 
     expect(settings.categories['pii leakage']).toBe(true);
-    expect(selectedDetectionCategories(settings)).toContain('pii leakage');
+    expect(selectedDetectionCategories(settings)).toEqual(['pii leakage']);
   });
 
-  test('a built-in the saved settings never mentioned stays selected', () => {
-    // Otherwise a category added to the product after someone last saved would be silently
-    // off for them, which is not a decision they made.
-    const settings = readIssueDetectionSettingsFromTags(tag({ instructions: '', categories: { cost: false } }));
+  test('a focus area the saved settings never mentioned is not selected', () => {
+    // Only what the tag selects counts, so a built-in it does not mention is off -- including
+    // one added to the product after the owner last saved, which is why the settings modal
+    // shows it unticked until they save again.
+    const settings = readIssueDetectionSettingsFromTags(tag({ instructions: '', categories: { correctness: true } }));
+
+    expect(settings.categories).toEqual({ correctness: true });
+    expect(selectedDetectionCategories(settings)).toEqual(['correctness']);
+  });
+
+  test('a deselected built-in is kept alongside the selected ones', () => {
+    // The shape the settings modal actually writes: every built-in, with the unticked ones false.
+    const settings = readIssueDetectionSettingsFromTags(
+      tag({
+        instructions: '',
+        categories: Object.fromEntries(ALL_ISSUE_CATEGORIES.map((category) => [category, category !== 'cost'])),
+      }),
+    );
 
     expect(settings.categories['cost']).toBe(false);
-    for (const category of ALL_ISSUE_CATEGORIES.filter((id) => id !== 'cost')) {
-      expect(settings.categories[category]).toBe(true);
-    }
+    expect(selectedDetectionCategories(settings)).toEqual(ALL_ISSUE_CATEGORIES.filter((id) => id !== 'cost'));
   });
 
   test('turning everything off is still expressible', () => {
@@ -71,10 +83,9 @@ describe('readIssueDetectionSettingsFromTags', () => {
     );
 
     expect(settings.instructions).toBe('');
-    // 'yes' is not a decision, so correctness keeps its default; the blank key is dropped.
-    expect(settings.categories['correctness']).toBe(true);
-    expect(settings.categories['latency']).toBe(true);
-    expect(Object.keys(settings.categories)).not.toContain('  ');
+    // 'yes' is not a decision either way, so correctness is dropped rather than read as selected.
+    expect(settings.categories).toEqual({ latency: true });
+    expect(selectedDetectionCategories(settings)).toEqual(['latency']);
   });
 });
 
