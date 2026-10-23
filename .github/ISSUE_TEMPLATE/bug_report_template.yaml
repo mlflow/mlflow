@@ -101,9 +101,10 @@ body:
       description: |
         Provide a reproducible test case that is the bare minimum necessary to generate the problem.
 
-        For bugs in the HTTP API, include the actual call made to the endpoint (for example, with
-        `curl` or `requests`) and its response. Reporting a suspected issue from code inspection,
-        or calling the handler function directly, does not count as a reproduction.
+        For bugs in an MLflow REST server endpoint, model serving endpoint, or AI Gateway route,
+        include the actual call made to the endpoint (for example, with `curl` or `requests`) and
+        its response. Reporting a suspected issue from code inspection, or calling the handler
+        function directly, does not count as a reproduction.
 
         ### Bad
 

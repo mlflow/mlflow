@@ -24,11 +24,11 @@ drive the UI as described in "Running the UI" in [runtime.md](../runtime.md) and
 For visible UI bugs, capture an image or short recording of the symptom under `$out_dir/media`;
 cite the exact path in the comment as described in [output.md](../output.md).
 
-For an HTTP API bug, reproduce it with a live call to the affected endpoint against a running
-MLflow server. A direct call to the handler or implementation function, or inspection of the
-code alone, does not count as an endpoint reproduction. If the report does not provide enough
-information to make that live call, ask the reporter to share a minimal request and response
-against the real endpoint.
+For a bug in an MLflow REST server endpoint, model serving endpoint, or AI Gateway route,
+reproduce it with a live call to that endpoint. A direct call to the handler or implementation
+function, or inspection of the code alone, does not count as an endpoint reproduction. If the
+report does not provide enough information to make that live call, ask the reporter to share a
+minimal request and response against the real endpoint.
 
 If the symptom is not obvious in the screenshot, use `agent-browser eval` to add temporary
 JavaScript overlays such as an arrow, outline, or short label pointing out the bug, then
