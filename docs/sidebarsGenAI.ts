@@ -706,6 +706,11 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
+          id: 'eval-monitor/repeated-evaluation',
+          label: 'Measuring Consistency',
+        },
+        {
+          type: 'doc',
           id: 'eval-monitor/automatic-evaluations/index',
           label: 'Automatic Evaluation',
         },
