@@ -34,6 +34,18 @@ function forwardedHeaders(headers) {
   return result;
 }
 
+let tokens = 10;
+let lastRefill = performance.now();
+
+function retryAfterSeconds() {
+  const now = performance.now();
+  tokens = Math.min(10, tokens + (now - lastRefill) / 1000);
+  lastRefill = now;
+  if (tokens < 1) return Math.ceil(1 - tokens);
+  tokens -= 1;
+  return 0;
+}
+
 const server = http.createServer((request, response) => {
   let bodyBytes = 0;
   let logged = false;
@@ -65,6 +77,12 @@ const server = http.createServer((request, response) => {
   }
   if (!local.pathname.startsWith("/anthropic/")) {
     response.writeHead(404).end();
+    return;
+  }
+
+  const retryAfter = retryAfterSeconds();
+  if (retryAfter > 0) {
+    response.writeHead(429, { "Retry-After": String(retryAfter) }).end();
     return;
   }
 
