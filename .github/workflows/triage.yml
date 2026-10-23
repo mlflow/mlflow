@@ -987,6 +987,18 @@ jobs:
         run: |
           uvx check-jsonschema@0.37.4 \
             --schemafile "$PAYLOAD_SCHEMA" "$PAYLOAD_PATH"
+      - name: Sanitize triage comment
+        if: needs.triage.result == 'success'
+        env:
+          PAYLOAD_PATH: /tmp/triage-out/payload.json
+        run: |
+          jq -j .comment "$PAYLOAD_PATH" |
+            node .claude/skills/triage/scripts/sanitize.js output > "$RUNNER_TEMP/sanitized-triage-comment.md"
+          jq --rawfile comment "$RUNNER_TEMP/sanitized-triage-comment.md" '.comment = $comment' \
+            "$PAYLOAD_PATH" > "$RUNNER_TEMP/sanitized-triage-payload.json"
+          mv "$RUNNER_TEMP/sanitized-triage-payload.json" "$PAYLOAD_PATH"
+          uvx check-jsonschema@0.37.4 \
+            --schemafile "$PAYLOAD_SCHEMA" "$PAYLOAD_PATH"
       - name: Validate triage media
         if: needs.triage.result == 'success'
         env:
@@ -1039,20 +1051,6 @@ jobs:
           jq --rawfile comment "$RUNNER_TEMP/triage-comment.md" '.comment = $comment' \
             "$PAYLOAD_PATH" > "$RUNNER_TEMP/triage-payload.json"
           mv "$RUNNER_TEMP/triage-payload.json" "$PAYLOAD_PATH"
-          uvx check-jsonschema@0.37.4 \
-            --schemafile "$PAYLOAD_SCHEMA" "$PAYLOAD_PATH"
-      - name: Sanitize triage comment
-        if: needs.triage.result == 'success'
-        env:
-          PAYLOAD_PATH: /tmp/triage-out/payload.json
-        run: |
-          jq -j .comment "$PAYLOAD_PATH" |
-            node .claude/skills/triage/scripts/sanitize.js output > "$RUNNER_TEMP/sanitized-triage-comment.md"
-          jq --rawfile comment "$RUNNER_TEMP/sanitized-triage-comment.md" '.comment = $comment' \
-            "$PAYLOAD_PATH" > "$RUNNER_TEMP/sanitized-triage-payload.json"
-          mv "$RUNNER_TEMP/sanitized-triage-payload.json" "$PAYLOAD_PATH"
-          uvx check-jsonschema@0.37.4 \
-            --schemafile "$PAYLOAD_SCHEMA" "$PAYLOAD_PATH"
       - name: Preview and update issue title
         if: needs.triage.result == 'success' && needs.issue.outputs.action == 'init'
         env:
