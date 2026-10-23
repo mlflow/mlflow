@@ -614,16 +614,16 @@ _UNPROTECTED_PATH_PREFIXES = ("/static", "/favicon.ico", "/health")
 
 def is_unprotected_route(path: str) -> bool:
     # When ``_MLFLOW_STATIC_PREFIX`` is set, the health/static routes are
-    # actually served from e.g. ``/mlflow/health``, not ``/health``. Match
-    # both the unprefixed and the prefixed forms so health checks don't end
-    # up requiring auth on prefixed deployments.
-    prefixed = tuple(_add_static_prefix(p) for p in _UNPROTECTED_PATH_PREFIXES)
-    if path.startswith(_UNPROTECTED_PATH_PREFIXES) or path.startswith(prefixed):
+    # actually served from e.g. ``/mlflow/health``, not ``/health``. Strip the
+    # prefix before matching: matching the full path would let a prefix that
+    # itself starts with an exempt path (e.g. ``/static-ui``) exempt every route.
+    bare_path = _strip_static_prefix(path)
+    if bare_path.startswith(_UNPROTECTED_PATH_PREFIXES):
         return True
     # Server-info is public, including on a basic-auth server, so a client can read
     # how the server is configured before logging in. Keep the payload free of
     # secrets; see build_server_info_payload.
-    return _matches_route_suffix(_strip_static_prefix(path), _PUBLIC_ROUTE_SUFFIXES)
+    return _matches_route_suffix(bare_path, _PUBLIC_ROUTE_SUFFIXES)
 
 
 def make_basic_auth_response() -> Response:
