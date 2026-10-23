@@ -590,6 +590,16 @@ describe('ExperimentEvaluationRunsTable group rows', () => {
     expect(screen.getByText('0.7')).toBeInTheDocument();
   });
 
+  test('gives the group label cell an accessible span up to the first metric column', () => {
+    renderTable({ data: [group], uniqueColumns: [metricColumn], isGrouped: true, enableNewEvalRunsUi: true });
+
+    const headers = screen.getAllByRole('columnheader');
+    const runNameIndex = headers.findIndex((header) => /Run Name/.test(header.textContent ?? ''));
+    const metricIndex = headers.findIndex((header) => /accuracy/.test(header.textContent ?? ''));
+    const labelCell = screen.getByText('dataset-a').closest('[role="cell"]');
+    expect(labelCell).toHaveAttribute('aria-colspan', String(metricIndex - runNameIndex));
+  });
+
   test('shows every lineage group tag, with the full value in a tooltip', async () => {
     const user = userEvent.setup();
     const digest = 'sha256:4c16af46ac51d2a964f7d0b41e3707a09a22fc3e46eaeba217cb47073d255759';
