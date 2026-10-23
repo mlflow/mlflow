@@ -1,6 +1,5 @@
 # Copyright 2018 Databricks, Inc.
 import importlib.metadata
-import importlib.util
 import re
 
 VERSION = "3.17.3.dev0"
@@ -32,5 +31,5 @@ IS_FULL_MLFLOW = _is_package_installed("mlflow")
 # A flag to indicate whether the flavor model logging APIs can be imported. They depend on
 # numpy and pandas, which mlflow-skinny and the tracing SDK don't require.
 HAS_MODEL_LOGGING_DEPS = not IS_TRACING_SDK_ONLY and all(
-    importlib.util.find_spec(pkg) for pkg in ["numpy", "pandas"]
+    _is_package_installed(pkg) for pkg in ["numpy", "pandas"]
 )
