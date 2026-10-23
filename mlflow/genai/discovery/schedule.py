@@ -416,6 +416,31 @@ def write_detection_schedule_state(
     )
 
 
+def _fire_time_anchor(
+    schedule: DetectionSchedule, reference_ms: int
+) -> tuple[ZoneInfo, datetime, timedelta]:
+    """
+    The candidate anchor and interval for ``schedule``, as a naive wall clock in its timezone.
+
+    Kept naive on purpose: candidates are built in wall-clock terms and only then resolved to an
+    instant, so the local hour a schedule fires at survives a DST change instead of drifting.
+    """
+    zone = ZoneInfo(schedule.timezone)
+    naive = datetime.fromtimestamp(reference_ms / 1000, tz=zone).replace(tzinfo=None)
+    if schedule.cadence is DetectionCadence.HOURLY:
+        return zone, naive.replace(minute=0, second=0, microsecond=0), timedelta(hours=1)
+    if schedule.cadence is DetectionCadence.DAILY:
+        return (
+            zone,
+            naive.replace(hour=_FIRE_HOUR, minute=0, second=0, microsecond=0),
+            timedelta(days=1),
+        )
+    monday = naive.replace(hour=_FIRE_HOUR, minute=0, second=0, microsecond=0) - timedelta(
+        days=(naive.weekday() - _MONDAY) % 7
+    )
+    return zone, monday, timedelta(weeks=1)
+
+
 def next_fire_time_ms(schedule: DetectionSchedule, after_ms: int) -> int:
     """
     The first time this schedule's cadence fires, strictly after ``after_ms`` (epoch ms).
@@ -426,22 +451,7 @@ def next_fire_time_ms(schedule: DetectionSchedule, after_ms: int) -> int:
     its first occurrence, and a nonexistent one (the skipped hour when they go forward) to the
     instant the gap moves it to, so every candidate maps to exactly one instant.
     """
-    zone = ZoneInfo(schedule.timezone)
-    local = datetime.fromtimestamp(after_ms / 1000, tz=zone)
-    naive = local.replace(tzinfo=None)
-
-    if schedule.cadence is DetectionCadence.HOURLY:
-        base = naive.replace(minute=0, second=0, microsecond=0)
-        step = timedelta(hours=1)
-    elif schedule.cadence is DetectionCadence.DAILY:
-        base = naive.replace(hour=_FIRE_HOUR, minute=0, second=0, microsecond=0)
-        step = timedelta(days=1)
-    else:
-        base = naive.replace(hour=_FIRE_HOUR, minute=0, second=0, microsecond=0) - timedelta(
-            days=(naive.weekday() - _MONDAY) % 7
-        )
-        step = timedelta(weeks=1)
-
+    zone, base, step = _fire_time_anchor(schedule, after_ms)
     # Walking candidates in wall-clock order, the first one past ``after_ms`` wins. A handful of
     # steps covers it: the base candidate is at most one interval behind, and a DST shift can only
     # move an instant by an hour or two, never past the next interval.
@@ -456,6 +466,23 @@ def next_fire_time_ms(schedule: DetectionSchedule, after_ms: int) -> int:
     )
 
 
+def _latest_fire_time_ms(schedule: DetectionSchedule, at_or_before_ms: int) -> int | None:
+    """
+    The most recent time this schedule fires at or before ``at_or_before_ms``, if there is one.
+
+    Candidates are filtered rather than assumed to be in increasing instant order, since a DST
+    shift can move one by an hour either way.
+    """
+    zone, base, step = _fire_time_anchor(schedule, at_or_before_ms)
+    due = [
+        candidate_ms
+        for index in range(1, -3, -1)
+        if (candidate_ms := int((base + step * index).replace(tzinfo=zone).timestamp() * 1000))
+        <= at_or_before_ms
+    ]
+    return max(due) if due else None
+
+
 def due_occurrence_ms(
     schedule: DetectionSchedule,
     state: DetectionScheduleState | None,
@@ -468,14 +495,20 @@ def due_occurrence_ms(
     next fire time after the server noticed it, the same as a cron would do. That is why a
     first pass records state without dispatching -- see ``claim_first_occurrence``.
 
-    Only one occurrence is ever returned. After downtime that spans several fire times, the
-    schedule resumes with a single run rather than a backlog, and how much history that run may
-    reach back over is bounded separately by the sampling window's stale-watermark cap.
+    Only one occurrence is ever returned, and it is the most recent one due rather than the oldest
+    one missed. That is what keeps downtime to a single catch-up run: claiming the oldest would
+    advance the state only to that historical fire time, leaving the next poll a minute later to
+    claim the one after it, so a pause of a month would dispatch a month of hourly runs. How much
+    history the one run reads is bounded separately by the sampling window's stale-watermark cap,
+    which is measured from this fire time -- near now, not near the start of the gap.
     """
     if schedule.paused or state is None:
         return None
     fire_time_ms = next_fire_time_ms(schedule, state.last_fire_time_ms)
-    return fire_time_ms if fire_time_ms <= now_ms else None
+    if fire_time_ms > now_ms:
+        return None
+    latest_ms = _latest_fire_time_ms(schedule, now_ms)
+    return fire_time_ms if latest_ms is None else max(fire_time_ms, latest_ms)
 
 
 def claim_first_occurrence(now_ms: int) -> DetectionScheduleState:
