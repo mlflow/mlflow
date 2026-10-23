@@ -1,4 +1,5 @@
 # Define all the service endpoint handlers here.
+import inspect
 import io
 import json
 import logging
@@ -19,7 +20,16 @@ from zlib import adler32
 
 import requests
 from cachetools import TTLCache
-from flask import Request, Response, current_app, g, jsonify, request, send_file
+from flask import (
+    Request,
+    Response,
+    current_app,
+    g,
+    has_request_context,
+    jsonify,
+    request,
+    send_file,
+)
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
 from werkzeug.exceptions import RequestedRangeNotSatisfiable
@@ -337,6 +347,8 @@ from mlflow.protos.webhooks_pb2 import (
     UpdateWebhook,
     WebhookService,
 )
+from mlflow.server._request_keys import SCOPED_EXPERIMENT_FILTER, SCOPED_EXPERIMENT_IDS
+from mlflow.server._search_limits import scoped_search_limit_error
 from mlflow.server.artifact_transfer import (
     reject_proxied_artifact_download,
     reject_proxied_artifact_upload,
@@ -1168,11 +1180,19 @@ def _raw_request_has_field(field: descriptor.FieldDescriptor) -> bool:
     """
     try:
         if request.method == "GET":
-            return field.name in request.args
+            return field.name in request.args or field.json_name in request.args
         request_json = _get_normalized_request_json()
         return field.name in request_json or field.json_name in request_json
     except RuntimeError:
         return False
+
+
+def _get_scoped_experiment_ids() -> list[str] | None:
+    return getattr(g, SCOPED_EXPERIMENT_IDS, None) if has_request_context() else None
+
+
+def _get_scoped_experiment_filter() -> str | None:
+    return getattr(g, SCOPED_EXPERIMENT_FILTER, None) if has_request_context() else None
 
 
 def _get_request_message(request_message, flask_request=request, schema=None):
@@ -1185,7 +1205,20 @@ def _get_request_message(request_message, flask_request=request, schema=None):
         # deserialization will fail unless we do the fix below.
         request_json = {}
         for field in request_message.DESCRIPTOR.fields:
-            if field.name not in flask_request.args:
+            if (
+                field.name == "experiment_ids"
+                and field.name != field.json_name
+                and field.name in flask_request.args
+                and field.json_name in flask_request.args
+            ):
+                raise MlflowException.invalid_parameter_value(
+                    f"Request specifies both '{field.name}' and '{field.json_name}'; "
+                    "provide only one of them."
+                )
+            query_key = field.name
+            if field.name == "experiment_ids" and query_key not in flask_request.args:
+                query_key = field.json_name
+            if query_key not in flask_request.args:
                 continue
 
             # Use is_repeated property (preferred) with fallback to deprecated label
@@ -1195,9 +1228,9 @@ def _get_request_message(request_message, flask_request=request, schema=None):
                 is_repeated = field.label == descriptor.FieldDescriptor.LABEL_REPEATED
 
             if is_repeated:
-                request_json[field.name] = flask_request.args.getlist(field.name)
+                request_json[field.name] = flask_request.args.getlist(query_key)
             else:
-                value = flask_request.args.get(field.name)
+                value = flask_request.args.get(query_key)
                 if field.type == descriptor.FieldDescriptor.TYPE_BOOL and isinstance(value, str):
                     if value.lower() not in ["true", "false"]:
                         raise MlflowException.invalid_parameter_value(
@@ -1404,6 +1437,11 @@ def catch_mlflow_exception(func):
         try:
             return func(*args, **kwargs)
         except MlflowException as e:
+            if (
+                _get_scoped_experiment_filter() is not None
+                or _get_scoped_experiment_ids() is not None
+            ):
+                e = scoped_search_limit_error(e)
             response = Response(mimetype="application/json")
             response.set_data(e.serialize_as_json())
             response.status_code = e.get_http_status_code()
@@ -2804,11 +2842,12 @@ def _search_experiments():
         },
     )
 
+    scoped_filter = _get_scoped_experiment_filter()
     experiment_entities = _get_tracking_store().search_experiments(
         view_type=request_message.view_type,
         max_results=request_message.max_results,
         order_by=request_message.order_by,
-        filter_string=request_message.filter,
+        filter_string=scoped_filter if scoped_filter is not None else request_message.filter,
         page_token=request_message.page_token or None,
     )
     response_message = SearchExperiments.Response()
@@ -4462,6 +4501,17 @@ def _get_presigned_download_url(artifact_path):
 # MLflow Tracing APIs
 
 
+def _supports_batch_trace_experiment_scope(store, method_name: str) -> bool:
+    # Databricks accepts the keyword but explicitly rejects non-None values. Older plugins
+    # may not accept it at all; auth still enforces its scope in the response filter.
+    if isinstance(store, DatabricksTracingRestStore):
+        return False
+    parameters = inspect.signature(getattr(store, method_name)).parameters
+    return "experiment_ids" in parameters or any(
+        parameter.kind == inspect.Parameter.VAR_KEYWORD for parameter in parameters.values()
+    )
+
+
 def _wrap_trace_info_response(response_message):
     # JSON whitespace is not part of the API contract, so compact output reduces serialization
     # work and payload size for trace-info responses, which can contain up to 500 traces per page.
@@ -4520,11 +4570,15 @@ def _batch_get_traces() -> Response:
     store = _get_tracking_store()
     experiment_ids_field = request_message.DESCRIPTOR.fields_by_name["experiment_ids"]
     has_experiment_ids = _raw_request_has_field(experiment_ids_field)
-    if has_experiment_ids:
+    experiment_ids = list(request_message.experiment_ids)
+    scoped_ids = _get_scoped_experiment_ids()
+    if has_experiment_ids or (
+        scoped_ids is not None and _supports_batch_trace_experiment_scope(store, "batch_get_traces")
+    ):
         traces = store.batch_get_traces(
             request_message.trace_ids,
             None,
-            experiment_ids=list(request_message.experiment_ids),
+            experiment_ids=scoped_ids if scoped_ids is not None else experiment_ids,
         )
     else:
         traces = store.batch_get_traces(request_message.trace_ids, None)
@@ -4546,9 +4600,15 @@ def _batch_get_trace_infos() -> Response:
     store = _get_tracking_store()
     experiment_ids_field = request_message.DESCRIPTOR.fields_by_name["experiment_ids"]
     has_experiment_ids = _raw_request_has_field(experiment_ids_field)
-    if has_experiment_ids:
+    experiment_ids = list(request_message.experiment_ids)
+    scoped_ids = _get_scoped_experiment_ids()
+    if has_experiment_ids or (
+        scoped_ids is not None
+        and _supports_batch_trace_experiment_scope(store, "batch_get_trace_infos")
+    ):
         trace_infos = store.batch_get_trace_infos(
-            request_message.trace_ids, experiment_ids=list(request_message.experiment_ids)
+            request_message.trace_ids,
+            experiment_ids=scoped_ids if scoped_ids is not None else experiment_ids,
         )
     else:
         trace_infos = store.batch_get_trace_infos(request_message.trace_ids)
@@ -6239,10 +6299,13 @@ def _search_logged_models():
             "page_token": [_assert_string],
         },
     )
+    scoped_ids = _get_scoped_experiment_ids()
+    experiment_ids = scoped_ids if scoped_ids is not None else list(request_message.experiment_ids)
+
     models = _get_tracking_store().search_logged_models(
         # Convert `RepeatedScalarContainer` objects (experiment_ids and order_by) to `list`
         # to avoid serialization issues
-        experiment_ids=list(request_message.experiment_ids),
+        experiment_ids=experiment_ids,
         filter_string=request_message.filter or None,
         datasets=(
             [
@@ -6423,9 +6486,8 @@ def _list_scorers():
         )
     if has_experiment_ids:
         requested_experiment_ids = list(dict.fromkeys(request_message.experiment_ids))
-        if requested_experiment_ids:
-            for eid in requested_experiment_ids:
-                _validate_experiment_id(eid)
+        for eid in requested_experiment_ids:
+            _validate_experiment_id(eid)
         valid_experiment_ids = store.filter_active_experiment_ids(requested_experiment_ids)
         scorers = store.list_scorers_across_experiments(valid_experiment_ids)
     elif request_message.experiment_id:
@@ -6434,8 +6496,6 @@ def _list_scorers():
         # Cross-experiment listing: walk the active workspace's experiments
         # via the workspace-aware ``search_experiments`` pagination, then
         # batch the scorer fetch through ``list_scorers_across_experiments``.
-        # Auth-side ``filter_list_scorers`` applies per-row RBAC filtering on
-        # the response.
         scorers = store.list_scorers_across_experiments(_search_active_experiment_ids(store))
     response_message.scorers.extend([scorer.to_proto() for scorer in scorers])
     response = Response(mimetype="application/json")

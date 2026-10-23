@@ -25,6 +25,11 @@ from mlflow.entities.mcp_server import (
 from mlflow.entities.mcp_server_version import ConnectOptionSettings, MCPServerVersion
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, RESOURCE_ALREADY_EXISTS, ErrorCode
+from mlflow.server._request_keys import (
+    MCP_SERVER_ALLOWED_ACTIONS,
+    SCOPED_MCP_ACCESS_ENDPOINT_FILTER,
+    SCOPED_MCP_SERVER_FILTER,
+)
 from mlflow.server.mlflow_response import mlflow_exception_response
 from mlflow.utils.validation import (
     _MAX_MCP_TOOLS_PER_LIST,
@@ -339,6 +344,9 @@ class MCPServerResponse(BaseModel):
     last_updated_by: str | None = None
     creation_timestamp: int | None = None
     last_updated_timestamp: int | None = None
+    allowed_actions: list[str] = Field(
+        default_factory=lambda: ["USE", "UPDATE", "DELETE", "MANAGE"]
+    )
 
     @classmethod
     def from_entity(cls, entity: MCPServer) -> MCPServerResponse:
@@ -360,6 +368,12 @@ class MCPServerResponse(BaseModel):
             creation_timestamp=entity.creation_timestamp,
             last_updated_timestamp=entity.last_updated_timestamp,
         )
+
+
+def _mcp_server_response_with_actions(server: MCPServer, request: Request) -> MCPServerResponse:
+    resolver = getattr(request.state, MCP_SERVER_ALLOWED_ACTIONS, None)
+    actions = resolver(server.name) if resolver else ["USE", "UPDATE", "DELETE", "MANAGE"]
+    return MCPServerResponse.from_entity(server).model_copy(update={"allowed_actions": actions})
 
 
 class MCPServerVersionResponse(BaseModel):
@@ -586,11 +600,12 @@ def create_mcp_server(body: CreateMCPServerRequest, request: Request) -> MCPServ
         icons=_icon_payloads_to_entities(body.icons),
         created_by=username,
     )
-    return MCPServerResponse.from_entity(server)
+    return _mcp_server_response_with_actions(server, request)
 
 
 @mcp_server_router.get("", response_model=SearchMCPServersResponse)
 def search_mcp_servers(
+    request: Request,
     filter_string: str | None = Query(None),
     max_results: int = Query(100),
     order_by: list[str] | None = Query(None),
@@ -599,20 +614,19 @@ def search_mcp_servers(
     from mlflow.server.handlers import _get_tracking_store
 
     results = _get_tracking_store().search_mcp_servers(
-        filter_string=filter_string,
+        filter_string=getattr(request.state, SCOPED_MCP_SERVER_FILTER, filter_string),
         max_results=max_results,
         order_by=order_by,
         page_token=page_token,
     )
-    return SearchMCPServersResponse(
-        mcp_servers=[MCPServerResponse.from_entity(s) for s in results],
-        next_page_token=results.token,
-    )
+    servers = [_mcp_server_response_with_actions(server, request) for server in results]
+    return SearchMCPServersResponse(mcp_servers=servers, next_page_token=results.token)
 
 
 # Static route — must be registered before /{name:path} routes
 @mcp_server_router.get("/endpoints", response_model=SearchMCPAccessEndpointsResponse)
 def search_all_access_endpoints(
+    request: Request,
     filter_string: str | None = Query(None),
     max_results: int = Query(100),
     order_by: list[str] | None = Query(None),
@@ -624,7 +638,7 @@ def search_all_access_endpoints(
 
     store = _get_tracking_store()
     results = store.search_mcp_access_endpoints(
-        filter_string=filter_string,
+        filter_string=getattr(request.state, SCOPED_MCP_ACCESS_ENDPOINT_FILTER, filter_string),
         max_results=max_results,
         order_by=order_by,
         page_token=page_token,
@@ -877,11 +891,11 @@ def delete_mcp_server_alias(name: str, alias: str) -> dict[str, Any]:
 
 # Catch-all — must be registered last so {name:path} doesn't swallow sub-resource routes
 @mcp_server_router.get("/{name:path}", response_model=MCPServerResponse)
-def get_mcp_server(name: str) -> MCPServerResponse:
+def get_mcp_server(name: str, request: Request) -> MCPServerResponse:
     from mlflow.server.handlers import _get_tracking_store
 
     server = _get_tracking_store().get_mcp_server(name)
-    return MCPServerResponse.from_entity(server)
+    return _mcp_server_response_with_actions(server, request)
 
 
 @mcp_server_router.patch("/{name:path}", response_model=MCPServerResponse)
@@ -894,7 +908,7 @@ def update_mcp_server(
     server = _get_tracking_store().update_mcp_server(
         **_update_mcp_server_kwargs(name, body), last_updated_by=username
     )
-    return MCPServerResponse.from_entity(server)
+    return _mcp_server_response_with_actions(server, request)
 
 
 @mcp_server_router.delete("/{name:path}")

@@ -4921,6 +4921,21 @@ def test_raw_request_has_field_get_query_string():
         assert _raw_request_has_field(experiment_ids_field) is False
 
 
+@pytest.mark.parametrize("query_field", ["experiment_ids", "experimentIds"])
+def test_raw_request_has_field_falls_back_to_get_query_when_not_overridden(query_field):
+    experiment_ids_field = BatchGetTraces.DESCRIPTOR.fields_by_name["experiment_ids"]
+    with app.test_request_context(method="GET", query_string={query_field: "1"}):
+        assert _raw_request_has_field(experiment_ids_field) is True
+
+
+def test_get_request_message_rejects_conflicting_get_experiment_scopes():
+    with app.test_request_context(
+        method="GET", query_string={"experiment_ids": "1", "experimentIds": "2"}
+    ):
+        with pytest.raises(MlflowException, match="Request specifies both"):
+            _get_request_message(BatchGetTraces())
+
+
 def test_raw_request_has_field_post_json_body():
     experiment_ids_field = BatchGetTraceInfos.DESCRIPTOR.fields_by_name["experiment_ids"]
 
