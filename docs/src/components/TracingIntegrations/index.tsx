@@ -295,6 +295,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Model Providers',
   },
   {
+    id: 'claude-platform',
+    name: 'Claude Platform',
+    logoPath: '/images/logos/anthropic-logo.png',
+    link: '/genai/tracing/integrations/listing/claude-platform',
+    category: 'Model Providers',
+  },
+  {
     id: 'databricks',
     name: 'Databricks',
     logoPath: '/images/logos/databricks-logo.png',
