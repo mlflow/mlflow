@@ -11,7 +11,8 @@ import {
   type LiveSpan,
 } from '@mlflow/core';
 
-import type { SubagentGroup, TokenUsage, ToolResultInfo, TranscriptEntry } from './types.js';
+import type { SubagentGroup, TokenUsage, TranscriptEntry } from './types.js';
+import { findToolResults, isAgentLaunchTool, isBackgroundLaunch } from './toolResults.js';
 import {
   LLM_COST_ATTRIBUTE,
   TRACE_COST_METADATA,
@@ -45,81 +46,6 @@ import {
 
 const NANOSECONDS_PER_MS = 1e6;
 const NANOSECONDS_PER_S = 1e9;
-
-// ============================================================================
-// Tool result finding
-// ============================================================================
-
-/**
- * Find tool results following the current assistant response.
- * Returns a mapping from tool_use_id to result info.
- */
-function findToolResults(
-  transcript: TranscriptEntry[],
-  startIdx: number,
-): Record<string, ToolResultInfo> {
-  const results: Record<string, ToolResultInfo> = {};
-  // Claude Code splits a single assistant turn into multiple JSONL entries
-  // (one per content block) that share the same message.id. Treat them as
-  // one turn so parallel tool_uses in the same turn all find their results.
-  const currentMessageId = transcript[startIdx]?.message?.id;
-
-  for (let i = startIdx + 1; i < transcript.length; i++) {
-    const entry = transcript[i];
-    if (entry.type === 'assistant') {
-      if (currentMessageId && entry.message?.id === currentMessageId) {
-        continue;
-      }
-      break;
-    }
-    if (entry.type !== 'user') {
-      continue;
-    }
-
-    // Entry-level toolUseResult (used in real Claude Code transcripts)
-    const entryToolUseResult =
-      entry.toolUseResult && typeof entry.toolUseResult === 'object' ? entry.toolUseResult : {};
-
-    const content = entry.message?.content;
-    if (!Array.isArray(content)) {
-      continue;
-    }
-
-    for (const part of content) {
-      if (typeof part !== 'object' || part == null || !('type' in part)) {
-        continue;
-      }
-      if (part.type !== 'tool_result') {
-        continue;
-      }
-
-      const toolResult = part as {
-        type: 'tool_result';
-        tool_use_id?: string;
-        content?: string;
-        is_error?: boolean;
-        toolUseResult?: { agentId?: string };
-      };
-
-      const toolUseId = toolResult.tool_use_id;
-      if (!toolUseId) {
-        continue;
-      }
-
-      // Check both entry-level and content-level toolUseResult for agentId
-      const partToolUseResult = toolResult.toolUseResult ?? {};
-      const agentId = entryToolUseResult.agentId ?? partToolUseResult.agentId;
-
-      results[toolUseId] = {
-        content: toolResult.content ?? '',
-        isError: toolResult.is_error ?? false,
-        agentId,
-      };
-    }
-  }
-
-  return results;
-}
 
 // ============================================================================
 // Input message reconstruction
@@ -485,12 +411,30 @@ function createLlmAndToolSpans(
           },
         });
 
-        // If this is a Task tool, try to read sub-agent transcript
+        // An Agent (legacy: Task) launch nests the sub-agent's transcript,
+        // unless the agent was launched in the background. Other tools that
+        // carry an agentId (SendMessage resuming an agent) nest nothing.
         const agentId = toolResultInfo?.agentId;
-        const subagentPath = getSubagentTranscriptPath(transcriptPath, agentId);
+        const launchesAgent = isAgentLaunchTool(toolName);
+        const background =
+          launchesAgent && toolResultInfo != null && isBackgroundLaunch(toolResultInfo);
+        const subagentPath =
+          launchesAgent && !background ? getSubagentTranscriptPath(transcriptPath, agentId) : null;
         const toolInput = toolUse.input ?? {};
 
-        if (subagentPath) {
+        if (background) {
+          // The agent is still running when this result is written; its
+          // transcript would be partial. The SubagentStop hook traces each of
+          // its stops as its own trace (see subagentTracing.ts).
+          if (agentId) {
+            toolSpan.setAttribute('agent_id', agentId);
+          } else {
+            console.error(
+              `[mlflow] Background agent receipt for tool_use ${toolUseId} has no agentId; its SubagentStop trace cannot be linked`,
+            );
+          }
+          toolSpan.setAttribute('background', true);
+        } else if (subagentPath) {
           createSubagentSpansFromFile(
             toolSpan,
             subagentPath,
@@ -526,9 +470,24 @@ function createLlmAndToolSpans(
 // ============================================================================
 
 /**
+ * Overrides for tracing a transcript that is not a top-level conversation
+ * (a background sub-agent's own transcript).
+ */
+export interface TranscriptTraceOptions {
+  /** Root span name. Default: `claude_code_conversation`. */
+  rootSpanName?: string;
+  /** Extra trace tags, merged into the trace info's tags. */
+  tags?: Record<string, string>;
+}
+
+/**
  * Process a Claude conversation transcript and create an MLflow trace with spans.
  */
-export async function processTranscript(transcriptPath: string, sessionId?: string): Promise<void> {
+export async function processTranscript(
+  transcriptPath: string,
+  sessionId?: string,
+  options: TranscriptTraceOptions = {},
+): Promise<void> {
   try {
     const transcript = readTranscript(transcriptPath);
     if (!transcript.length) {
@@ -557,7 +516,7 @@ export async function processTranscript(transcriptPath: string, sessionId?: stri
     setModelRates(await loadCatalogRates());
 
     const parentSpan = startSpan({
-      name: 'claude_code_conversation',
+      name: options.rootSpanName ?? 'claude_code_conversation',
       inputs: { prompt: userPromptText },
       startTimeNs: convStartNs ?? undefined,
       spanType: SpanType.AGENT,
@@ -615,6 +574,9 @@ export async function processTranscript(transcriptPath: string, sessionId?: stri
         }
 
         trace.info.traceMetadata = metadata;
+        if (options.tags) {
+          Object.assign(trace.info.tags, options.tags);
+        }
       }
     } catch (err) {
       console.error('[mlflow] Failed to update trace metadata:', err);

@@ -1,0 +1,4 @@
+{"type":"user","message":{"role":"user","content":"Find the auth module"},"timestamp":"2025-02-01T09:00:01.500Z","agentId":"bg5678"}
+{"type":"assistant","message":{"id":"msg_sub_1","role":"assistant","content":[{"type":"tool_use","id":"sub_bg_grep","name":"Grep","input":{"pattern":"auth"}}],"model":"claude-sonnet-4-20250514","usage":{"input_tokens":100,"output_tokens":20}},"timestamp":"2025-02-01T09:00:02.000Z","agentId":"bg5678"}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"sub_bg_grep","content":"auth.py:1: def auth()"}]},"toolUseResult":{"success":true},"timestamp":"2025-02-01T09:03:00.000Z","agentId":"bg5678"}
+{"type":"assistant","message":{"id":"msg_sub_2","role":"assistant","content":[{"type":"text","text":"The auth module is auth.py."}],"model":"claude-sonnet-4-20250514","usage":{"input_tokens":150,"output_tokens":30}},"timestamp":"2025-02-01T09:03:01.000Z","agentId":"bg5678"}
