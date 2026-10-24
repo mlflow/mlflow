@@ -30,6 +30,11 @@ from mlflow.gateway.budget_tracker import (
 
 _logger = logging.getLogger(__name__)
 
+# Bound connection attempts and Redis commands by default. Operators can override
+# either timeout with socket_connect_timeout or socket_timeout in the Redis URL.
+_DEFAULT_CONNECT_TIMEOUT_SECONDS = 1
+_DEFAULT_SOCKET_TIMEOUT_SECONDS = 2
+
 # Redis key prefix for all budget tracker keys
 _KEY_PREFIX = "mlflow:budget:"
 
@@ -176,7 +181,12 @@ class RedisBudgetTracker(BudgetTracker):
                     "The `redis` package is required for RedisBudgetTracker. "
                     "Install it with: pip install redis"
                 )
-            self._client = redis.Redis.from_url(self._redis_url, decode_responses=True)
+            self._client = redis.Redis.from_url(
+                self._redis_url,
+                decode_responses=True,
+                socket_connect_timeout=_DEFAULT_CONNECT_TIMEOUT_SECONDS,
+                socket_timeout=_DEFAULT_SOCKET_TIMEOUT_SECONDS,
+            )
 
     def _ensure_window(
         self, policy: GatewayBudgetPolicy, now: datetime
