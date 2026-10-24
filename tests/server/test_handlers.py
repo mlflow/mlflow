@@ -6319,6 +6319,60 @@ def test_invoke_scorer_submits_jobs(mock_tracking_store):
         assert mock_submit.call_args.kwargs["params"]["experiment_id"] == "exp-123"
 
 
+@pytest.mark.parametrize("username", ["alice", None])
+def test_invoke_scorer_propagates_authenticated_username(mock_tracking_store, username):
+    serialized_scorer = json.dumps({
+        "name": "test_judge",
+        "aggregations": [],
+        "description": None,
+        "is_session_level_scorer": False,
+        "mlflow_version": mlflow.__version__,
+        "serialization_version": 1,
+        "builtin_scorer_class": None,
+        "builtin_scorer_pydantic_data": None,
+        "call_source": None,
+        "call_signature": None,
+        "original_func_name": None,
+        "instructions_judge_pydantic_data": {
+            "instructions": "Test: {{ inputs }}",
+            "model": "openai:/gpt-4",
+            "feedback_value_type": {
+                "enum": ["Yes", "No"],
+                "title": "Result",
+                "type": "string",
+            },
+        },
+    })
+    mock_tracking_store.batch_get_trace_infos.return_value = [
+        TraceInfo(
+            trace_id="trace1",
+            trace_location=EntityTraceLocation.from_experiment_id("exp-123"),
+            request_time=1234567890,
+            state=TraceState.OK,
+        )
+    ]
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit,
+        # The auth plugin's authenticated user, not a raw Authorization header, which a browser
+        # session does not have.
+        mock.patch("mlflow.server.handlers._get_request_username", return_value=username),
+        app.test_client() as c,
+    ):
+        mock_submit.return_value.job_id = "test-job-123"
+        response = c.post(
+            "/ajax-api/3.0/mlflow/scorer/invoke",
+            json={
+                "experiment_id": "exp-123",
+                "serialized_scorer": serialized_scorer,
+                "trace_ids": ["trace1"],
+            },
+        )
+
+    assert response.status_code == 200
+    assert mock_submit.call_args.kwargs["params"]["username"] == username
+
+
 def test_invoke_scorer_deduplicates_trace_ids(mock_tracking_store):
     serialized_scorer = json.dumps({
         "name": "test_judge",
@@ -10698,9 +10752,10 @@ def test_invoke_issue_detection_handler_with_endpoint(monkeypatch, mock_tracking
             return_value={"OPENAI_API_KEY": "test-key"},
         ),
         mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job) as mock_submit_job,
-        mock.patch("mlflow.start_run", return_value=mock_run),
+        mock.patch("mlflow.start_run", return_value=mock_run) as mock_start_run,
         mock.patch("mlflow.set_tag"),
         mock.patch("mlflow.end_run"),
+        mock.patch("mlflow.server.handlers._get_request_username", return_value="alice"),
         app.test_client() as c,
     ):
         resp = c.post(
@@ -10715,6 +10770,10 @@ def test_invoke_issue_detection_handler_with_endpoint(monkeypatch, mock_tracking
 
         call_kwargs = mock_submit_job.call_args.kwargs
         assert call_kwargs["params"]["model"] == "gateway:/my-endpoint"
+        # The job authenticates its tracking and gateway requests as the user who started it,
+        # and the run records that user as its creator.
+        assert call_kwargs["params"]["username"] == "alice"
+        assert mock_start_run.call_args.kwargs["tags"]["mlflow.user"] == "alice"
 
 
 def test_invoke_issue_detection_handler_missing_required_params(monkeypatch):
@@ -11373,11 +11432,12 @@ def test_invoke_genai_evaluate_handler_missing_required_fields(monkeypatch):
             mock_submit_job.assert_not_called()
 
 
-def test_invoke_genai_evaluate_handler_propagates_basic_auth_username(
+def test_invoke_genai_evaluate_handler_propagates_authenticated_username(
     monkeypatch, mock_tracking_store
 ):
-    """Username comes from HTTP Basic auth and feeds the job's gateway-auth
-    path so judge LLM calls are made *as* the user.
+    """The username is the auth plugin's authenticated user (not a raw Authorization header,
+    which a browser session does not have) and feeds the job's gateway-auth path so judge LLM
+    calls are made *as* the user.
     """
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
 
@@ -11396,16 +11456,14 @@ def test_invoke_genai_evaluate_handler_propagates_basic_auth_username(
     with (
         mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job) as mock_submit_job,
         mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
+        mock.patch("mlflow.server.handlers._get_request_username", return_value="alice"),
         app.test_client() as c,
     ):
-        # Encoded form of "alice:hunter2"
-        resp = c.post(
-            "/ajax-api/3.0/mlflow/genai/evaluate/invoke",
-            json=request_json,
-            headers={"Authorization": "Basic YWxpY2U6aHVudGVyMg=="},
-        )
+        resp = c.post("/ajax-api/3.0/mlflow/genai/evaluate/invoke", json=request_json)
         assert resp.status_code == 200
         assert mock_submit_job.call_args.kwargs["params"]["username"] == "alice"
+        # The run is created server-side, so it records its creator explicitly.
+        assert mock_client.create_run.call_args.kwargs["tags"]["mlflow.user"] == "alice"
 
 
 def test_invoke_genai_evaluate_handler_marks_run_failed_when_submit_job_raises(
