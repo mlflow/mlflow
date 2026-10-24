@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792815304200,
+  "lastUpdate": 1792815395677,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "85829459+shivamAmrutia@users.noreply.github.com",
-            "name": "shivam",
-            "username": "shivamAmrutia"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8e7b8329575250ca1d03e0578ba9d08512a5a0e0",
-          "message": "Fix Bedrock gateway grouping of parallel tool results (#24309)\n\nSigned-off-by: shivamAmrutia <amrutiashivam@gmail.com>\nCo-authored-by: Pat Sukprasert <pattara.sk127@gmail.com>",
-          "timestamp": "2026-08-07T17:34:47+08:00",
-          "tree_id": "98193d527a56c3a64000b1abeab64fefdab66a5b",
-          "url": "https://github.com/mlflow/mlflow/commit/8e7b8329575250ca1d03e0578ba9d08512a5a0e0"
-        },
-        "date": 1786095369964,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 45.32509630000732,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 6.3393058727280565,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 5.414065503397397,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 6.3108870338999745,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 6.809276152670678,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 9.56952920000731,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.856101000002582,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "105595392+astroknot-sheep@users.noreply.github.com",
+            "name": "Dhriman Deka",
+            "username": "astroknot-sheep"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0e437e6e2684ebd344b7af8124b7041bb8339268",
+          "message": "Map Gemini safety blocks to `content_filter` in the gateway (#27018)\n\nSigned-off-by: Dhriman Deka <105595392+astroknot-sheep@users.noreply.github.com>",
+          "timestamp": "2026-10-24T04:12:58Z",
+          "tree_id": "e007dfede61cbce3406fda53d24a826a01731af3",
+          "url": "https://github.com/mlflow/mlflow/commit/0e437e6e2684ebd344b7af8124b7041bb8339268"
+        },
+        "date": 1792815393185,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 51.19715444999926,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 7.403432290909574,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.522085095238053,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.575512999999432,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 7.117021900000332,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 22.912427000002822,
             "unit": "ms"
           }
         ]
