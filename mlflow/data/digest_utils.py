@@ -9,11 +9,13 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 MAX_ROWS = 10000
 
 
-def compute_pandas_digest(df) -> str:
+def compute_pandas_digest(df, num_rows: int | None = None) -> str:
     """Computes a digest for the given Pandas DataFrame.
 
     Args:
         df: A Pandas DataFrame.
+        num_rows: The original number of rows if ``df`` is a truncated dataset sample.
+            Defaults to the length of ``df``.
 
     Returns:
         A string digest.
@@ -37,7 +39,7 @@ def compute_pandas_digest(df) -> str:
     return get_normalized_md5_digest(
         [
             pd.util.hash_pandas_object(trimmed_df).values,
-            np.int64(len(df)),
+            np.int64(len(df) if num_rows is None else num_rows),
         ]
         + [str(x).encode() for x in df.columns]
     )
