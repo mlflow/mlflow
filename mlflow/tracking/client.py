@@ -3396,11 +3396,15 @@ class MlflowClient:
             if char in artifact_file:
                 raise ValueError(f"The artifact_file contains forbidden character: {char}")
 
-    def _read_from_file(self, artifact_path):
+    def _read_from_file(self, artifact_path, infer_dtypes=True):
         import pandas as pd
 
         if artifact_path.endswith(".json"):
-            return pd.read_json(artifact_path, orient="split")
+            if infer_dtypes:
+                return pd.read_json(artifact_path, orient="split")
+            # Keep the stored JSON values as-is so that rewriting the table doesn't alter them
+            # (e.g. "02108" -> 2108)
+            return pd.read_json(artifact_path, orient="split", dtype=False, convert_dates=False)
         if artifact_path.endswith(".parquet"):
             return pd.read_parquet(artifact_path)
         raise ValueError(f"Unsupported file type in {artifact_path}. Expected .json or .parquet")
@@ -3560,7 +3564,9 @@ class MlflowClient:
                 downloaded_artifact_path = self.download_artifacts(
                     run_id=run_id, path=artifact_file, dst_path=tmpdir
                 )
-                existing_predictions = self._read_from_file(downloaded_artifact_path)
+                existing_predictions = self._read_from_file(
+                    downloaded_artifact_path, infer_dtypes=False
+                )
             data = pd.concat([existing_predictions, data], ignore_index=True)
             _logger.debug(
                 "Appending new table to already existing artifact "
