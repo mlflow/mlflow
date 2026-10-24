@@ -603,16 +603,20 @@ jobs:
           client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
           client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
       - name: Start gateway proxy
+        id: gateway-proxy
         env:
           GATEWAY_TOKEN: ${{ steps.gateway.outputs.token }}
           GATEWAY_URL: ${{ steps.gateway.outputs.base-url }}
         run: |
           umask 077
-          printf '%s\n' "$GATEWAY_TOKEN" | env -u GATEWAY_TOKEN \
+          proxy_token=$(openssl rand -hex 32)
+          echo "::add-mask::$proxy_token"
+          printf 'token=%s\n' "$proxy_token" >> "$GITHUB_OUTPUT"
+          printf '%s\n%s\n' "$GATEWAY_TOKEN" "$proxy_token" | env -u GATEWAY_TOKEN \
             GATEWAY_URL="$GATEWAY_URL" node .claude/sandbox/gateway-proxy.mjs \
             > "$RUNNER_TEMP/triage-gateway-proxy.log" 2>&1 &
           proxy_pid=$!
-          unset GATEWAY_TOKEN
+          unset GATEWAY_TOKEN proxy_token
           printf '%s\n' "$proxy_pid" > "$RUNNER_TEMP/triage-gateway-proxy.pid"
           for _ in $(seq 1 30); do
             if ! kill -0 "$proxy_pid" 2>/dev/null; then
@@ -763,7 +767,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANTHROPIC_BASE_URL: http://localhost:8080/anthropic
-          ANTHROPIC_AUTH_TOKEN: placeholder
+          ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway-proxy.outputs.token }}
           ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
           # Used by the auto mode classifier. The gateway rejects its requests for Sonnet 5.5.
           ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5
