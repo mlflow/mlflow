@@ -2127,6 +2127,36 @@ def test_submit_persists_default_backend(monkeypatch, tmp_path):
         assert get_job(submitted.job_id).executor_backend == "local"
 
 
+@pytest.mark.parametrize("creator", ["alice", None])
+def test_submit_rejects_username_param_not_matching_creator(monkeypatch, tmp_path, creator):
+    with _setup_job_runner(
+        monkeypatch,
+        tmp_path,
+        supported_job_functions=["mlflow.genai.scorers.job.invoke_scorer_job"],
+        allowed_job_names=["invoke_scorer"],
+    ):
+        monkeypatch.setenv("MLFLOW_SERVER_JOB_EXECUTION_ENGINE", "executor")
+        params = _builtin_scorer_params() | {"username": "admin"}
+        with pytest.raises(MlflowException, match="must match the authenticated user"):
+            submit_job(invoke_scorer_job, params, creator=creator)
+
+
+@pytest.mark.parametrize(
+    ("username", "creator"), [("alice", "alice"), (None, "alice"), (None, None)]
+)
+def test_submit_accepts_username_param_matching_creator(monkeypatch, tmp_path, username, creator):
+    with _setup_job_runner(
+        monkeypatch,
+        tmp_path,
+        supported_job_functions=["mlflow.genai.scorers.job.invoke_scorer_job"],
+        allowed_job_names=["invoke_scorer"],
+    ):
+        monkeypatch.setenv("MLFLOW_SERVER_JOB_EXECUTION_ENGINE", "executor")
+        params = _builtin_scorer_params() | {"username": username}
+        submitted = submit_job(invoke_scorer_job, params, creator=creator)
+        assert get_job(submitted.job_id).creator == creator
+
+
 def test_submit_leaves_backend_unset_on_default_engine(monkeypatch, tmp_path):
     with _setup_job_runner(
         monkeypatch,
