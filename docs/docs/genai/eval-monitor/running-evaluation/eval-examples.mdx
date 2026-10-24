@@ -225,3 +225,42 @@ results = mlflow.genai.evaluate(
     scorers=[Safety()],
 )
 ```
+
+### Measure consistency with repeated runs
+
+Run the same evaluation several times as nested runs to find test cases that pass only some of the time. pass^k, from [τ-bench](https://arxiv.org/abs/2406.12045), estimates the chance that k attempts at a test case all pass.
+
+```python
+import json
+import math
+
+import mlflow
+import pandas as pd
+from mlflow.genai.scorers import Correctness
+from my_app import agent  # Your app with tracing
+
+# eval_data has expectations, as in "Evaluate using a list of dictionaries" above
+frames = []
+with mlflow.start_run(run_name="consistency"):
+    for i in range(5):
+        with mlflow.start_run(run_name=f"repeat-{i}", nested=True):
+            result = mlflow.genai.evaluate(
+                data=eval_data, predict_fn=agent, scorers=[Correctness()]
+            )
+        frames.append(result.result_df)
+results = pd.concat(frames, ignore_index=True)
+
+# `request` holds dicts, so group on their JSON form. Skip scorer errors, which have no value.
+results["case"] = results["request"].map(lambda r: json.dumps(r, sort_keys=True, default=str))
+scored = results[results["correctness/value"].notna()]
+per_case = (scored["correctness/value"] == "yes").groupby(scored["case"]).agg(n="size", c="sum")
+
+k = 3
+per_case["pass^k"] = [
+    math.comb(c, k) / math.comb(n, k) if n >= k else float("nan")
+    for n, c in zip(per_case["n"], per_case["c"])
+]
+print(per_case["pass^k"].mean())
+```
+
+Rows are matched on their inputs, so test cases with the same inputs count as one. Do not match by row position, because rows whose trace cannot be read back are left out of `result_df`.
