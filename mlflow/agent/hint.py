@@ -1,10 +1,12 @@
 """Agent-directed pointers to the bundled MLflow skills.
 
-Emitted on ``import mlflow`` when a coding agent is driving. Whether the skill
-is already installed is deliberately not probed: skills end up in too many
-places for the check to be accurate, and the pointer stays useful either way.
-Without it, agents design tracing from scratch and produce traces with blank
-tool inputs and outputs.
+Emitted on ``import mlflow`` when a coding agent is driving. Points to the bundled
+skills index (covering instrumentation, trace querying, and debugging) so agents
+can load the appropriate SKILL.md. Whether the skill is already installed is
+deliberately not probed: skills end up in too many places for the check to be
+accurate, and the pointer stays useful either way. Without it, agents design
+tracing from scratch and produce traces with blank tool inputs and outputs, or
+conflate runs with traces when retrieving.
 
 Fires once per process; ``MLFLOW_DISABLE_AGENT_HINT=1`` silences it for good.
 """
@@ -63,6 +65,9 @@ _AGENT_ENV_VALUES_WITHOUT_TTY = {"TERM_PROGRAM": "kiro"}
 # Lives in https://github.com/mlflow/skills and is installed by `mlflow agent setup`.
 TRACING_SKILL = "instrumenting-with-mlflow-tracing"
 
+# Identifier for the skills-index hint in _EMITTED_HINTS.
+SKILLS_INDEX_HINT_ID = "skills_index"
+
 # All hints in this module are process-local. An agent only needs to see a
 # particular problem once to change course; repeating it on every span or row
 # makes the useful message indistinguishable from ordinary logs.
@@ -76,26 +81,32 @@ _EMITTED_HINTS_LOCK = threading.Lock()
 # the commands they run, and a multi-line message loses its actionable half to
 # the pipe -- silently, since the surviving fragment still reads like a log line.
 _HINT = (
-    "Load the `{skill}` skill at {path} before writing any tracing code; it ships with this "
-    "MLflow install. Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this."
+    "MLflow skills for instrumenting, querying, and debugging traces are bundled at {path}; "
+    "read its README and load the matching SKILL.md before writing MLflow code."
 )
 
 
-def _bundled_skill_manifest() -> Path | None:
-    """Path to the skill shipped with this install, or ``None`` when absent.
+def _bundled_skills_dir() -> Path | None:
+    """Path to the skills directory shipped with this install, or ``None`` when absent.
 
     Released packages bundle it; a source checkout without the
     ``mlflow/assistant/skills`` submodule does not.
     """
-    # Imported lazily: `mlflow.assistant` pulls in pydantic config models that
-    # `import mlflow` does not otherwise load, and only a detected agent needs them.
+    from mlflow.assistant.skill_installer import SKILLS_PACKAGE
+
+    try:
+        readme = resources.files(SKILLS_PACKAGE).joinpath("README.md")
+        return Path(str(readme)).parent if readme.is_file() else None
+    except (ModuleNotFoundError, OSError):
+        return None
+
+
+def _bundled_skill_manifest(skill: str = TRACING_SKILL) -> Path | None:
+    """Path to the skill shipped with this install, or ``None`` when absent."""
     from mlflow.assistant.skill_installer import SKILL_MANIFEST_FILE, SKILLS_PACKAGE
 
     try:
-        # Chained joinpath: importlib's MultiplexedPath takes a single segment.
-        manifest = (
-            resources.files(SKILLS_PACKAGE).joinpath(TRACING_SKILL).joinpath(SKILL_MANIFEST_FILE)
-        )
+        manifest = resources.files(SKILLS_PACKAGE).joinpath(skill).joinpath(SKILL_MANIFEST_FILE)
         return Path(str(manifest)) if manifest.is_file() else None
     except (ModuleNotFoundError, OSError):
         return None
@@ -116,14 +127,25 @@ def _is_agent_driving() -> bool:
 
 
 def maybe_hint_tracing_skill() -> None:
-    """Log the tracing-skill hint when a coding agent is driving."""
-    if MLFLOW_DISABLE_AGENT_HINT.get():
+    """Log the skills-index hint when a coding agent is driving."""
+    try:
+        if (
+            SKILLS_INDEX_HINT_ID in _EMITTED_HINTS
+            or MLFLOW_DISABLE_AGENT_HINT.get()
+            or not _is_agent_driving()
+        ):
+            return
+        with _EMITTED_HINTS_LOCK:
+            if SKILLS_INDEX_HINT_ID in _EMITTED_HINTS:
+                return
+            _EMITTED_HINTS.add(SKILLS_INDEX_HINT_ID)
+
+        if (path := _bundled_skills_dir()) is None:
+            return
+        _logger.info(_HINT.format(path=path))
+    except Exception:
+        # User-configurable logging handlers must not affect MLflow behavior.
         return
-    if not _is_agent_driving():
-        return
-    if (path := _bundled_skill_manifest()) is None:
-        return
-    _logger.info(_HINT.format(skill=TRACING_SKILL, path=path))
 
 
 def _claim_agent_hint(issue_id: str) -> Path | None:
@@ -132,20 +154,12 @@ def _claim_agent_hint(issue_id: str) -> Path | None:
         if issue_id in _EMITTED_HINTS or MLFLOW_DISABLE_AGENT_HINT.get() or not _is_agent_driving():
             return None
 
-        skills = resources.files("mlflow.assistant.skills")
-        readme = skills.joinpath("README.md")
-        if not readme.is_file():
-            return None
-        skills_path = Path(str(readme)).parent
-
-        # Resource discovery above can overlap across threads, so repeat the
-        # membership check while atomically claiming this issue. Do not hold
-        # the lock while invoking user-configurable logging handlers.
         with _EMITTED_HINTS_LOCK:
             if issue_id in _EMITTED_HINTS:
                 return None
             _EMITTED_HINTS.add(issue_id)
-        return skills_path
+
+        return _bundled_skills_dir()
     except Exception:
         return None
 
