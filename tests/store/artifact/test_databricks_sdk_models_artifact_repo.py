@@ -1,5 +1,4 @@
 import io
-from types import SimpleNamespace
 from unittest import mock
 
 import pytest
@@ -253,15 +252,15 @@ def test_mlflow_use_databricks_sdk_model_artifacts_repo_for_uc(tmp_path, monkeyp
         )
 
 
-def test_mlflow_use_databricks_sdk_model_artifacts_repo_for_uc_seg(tmp_path, monkeypatch):
+def test_mlflow_use_databricks_sdk_model_artifacts_repo_for_uc_default(tmp_path, monkeypatch):
+    # The SDK models artifact repository is used by default when the env var is not set.
+    monkeypatch.delenv("MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC", raising=False)
     monkeypatch.setenv("DATABRICKS_HOST", "my-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "my-token")
     with mock.patch(
         "mlflow.utils._unity_catalog_utils.call_endpoint",
         side_effect=[
-            SimpleNamespace(is_databricks_sdk_models_artifact_repository_enabled=True),
             Exception("lineage emission fails"),
-            SimpleNamespace(is_databricks_sdk_models_artifact_repository_enabled=True),
         ],
     ):
         uc_repo = UnityCatalogModelsArtifactRepository("models:/a.b.c/1", "databricks-uc")
