@@ -258,7 +258,10 @@ jobs:
             $previous[0] as $old | $current[0] as $new
             | ($old + $new | keys[]) as $name
             | select($old[$name] != $new[$name])
-            | "\($name) \($old[$name] // "(not installed)") -> \($new[$name] // "(not installed)")"
+            | if $old[$name] == null then "Added \($name) v\($new[$name])"
+              elif $new[$name] == null then "Removed \($name) v\($old[$name])"
+              else "Updated \($name) v\($old[$name]) -> v\($new[$name])"
+              end
           ' > "$previous_dir/changes.txt"
           if [[ -s "$previous_dir/changes.txt" ]]; then
             cat "$previous_dir/changes.txt"

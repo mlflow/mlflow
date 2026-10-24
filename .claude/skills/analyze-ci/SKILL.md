@@ -34,7 +34,7 @@ If no URLs are listed above, ask for a job, run, or PR URL and stop. `fetch-logs
    - Full pytest test names where applicable (e.g. `tests/test_foo.py::test_bar`).
    - A short log snippet showing the error context.
 
-   If `Snapshot changes:` is present, read that file too and summarize relevant package changes alongside the failure, including the baseline run link when available. Changes use `name old -> new`, with `(not installed)` for additions or removals. Treat changes as diagnostic evidence, not proof of the root cause. Report unavailable baselines or comparison errors as such, not as package removals. Do not fetch artifacts or perform another comparison. Older or non-cross-version logs may have no snapshot changes block; analyze them normally.
+   If `Snapshot changes:` is present, read that file too and summarize relevant package changes alongside the failure, including the baseline run link when available. Changes use uv's `Updated name vold -> vnew`, `Added name vversion`, and `Removed name vversion` format. Treat changes as diagnostic evidence, not proof of the root cause. Report unavailable baselines or comparison errors as such, not as package removals. Do not fetch artifacts or perform another comparison. Older or non-cross-version logs may have no snapshot changes block; analyze them normally.
 
 3. **Format each summary** with these fields, then a blank line, then the 1-2 paragraph summary.
 
