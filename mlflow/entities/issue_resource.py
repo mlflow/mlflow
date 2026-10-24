@@ -16,7 +16,7 @@ class IssueResource:
     such as ``PENDING``, ``HIGH``, and ``MANUAL``. Timestamps are RFC 3339 strings.
 
     Searches using the ``BASIC`` view omit the description and trace-list metadata.
-    Use :py:meth:`MlflowClient.get_issue <mlflow.client.MlflowClient.get_issue>`
+    Use :py:func:`mlflow.genai.get_issue`
     to retrieve the complete issue.
     """
 
