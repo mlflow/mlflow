@@ -33,6 +33,6 @@ def upgrade():
 def downgrade():
     # Remove experiment_id and usage_tracking columns from endpoints table
     with op.batch_alter_table("endpoints", schema=None) as batch_op:
-        batch_op.drop_constraint("fk_endpoints_experiment_id", type_="foreignkey")
+        batch_op.drop_constraint("fk_endpoints_experiment_id", type_="foreignkey", if_exists=True)
         batch_op.drop_column("usage_tracking")
         batch_op.drop_column("experiment_id")

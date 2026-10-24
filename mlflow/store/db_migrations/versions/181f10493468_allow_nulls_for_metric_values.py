@@ -22,7 +22,7 @@ def upgrade():
                 "is_nan", sa.Boolean(create_constraint=False), nullable=False, server_default="0"
             )
         )
-        batch_op.drop_constraint(constraint_name="metric_pk", type_="primary")
+        batch_op.drop_constraint(constraint_name="metric_pk", type_="primary", if_exits=True)
         batch_op.create_primary_key(
             constraint_name="metric_pk",
             columns=["key", "timestamp", "step", "run_uuid", "value", "is_nan"],
