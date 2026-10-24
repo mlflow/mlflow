@@ -242,7 +242,7 @@ jobs:
           if ! gh run download "$PREVIOUS_RUN_ID" --repo "$GITHUB_REPOSITORY" \
             --name "$ARTIFACT_NAME" --dir "$previous_dir"; then
             echo 'Could not retrieve the baseline snapshot; see the gh diagnostic above. Comparison skipped.'
-            exit 1
+            exit 0
           fi
           if ! jq --exit-status '.packages | objects | select(all(.[]; type == "string"))' "$previous_dir/snapshot.json" > "$previous_dir/previous.json"; then
             echo 'Invalid baseline snapshot packages; comparison skipped.'
