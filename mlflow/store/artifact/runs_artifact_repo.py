@@ -208,10 +208,12 @@ class RunsArtifactRepository(ArtifactRepository):
         """
         dst_path = dst_path or create_tmp_dir()
         run_out_path: str | None = None
+        run_download_error: Exception | None = None
         try:
             # This fails when the run has no artifacts, so we catch the exception
             run_out_path = self.repo.download_artifacts(artifact_path, dst_path)
-        except Exception:
+        except Exception as e:
+            run_download_error = e
             _logger.debug(
                 f"Failed to download artifacts from {self.artifact_uri}/{artifact_path}.",
                 exc_info=True,
@@ -229,11 +231,17 @@ class RunsArtifactRepository(ArtifactRepository):
             )
         path = run_out_path or model_out_path
         if path is None:
-            raise MlflowException(
+            error = MlflowException(
                 f"Failed to download artifacts from path {artifact_path!r}, "
                 "please ensure that the path is correct.",
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
+            if run_download_error is not None:
+                # Chain the run repository's exception so the underlying artifact store
+                # error (e.g. a connection failure) is visible instead of reading as an
+                # incorrect artifact path.
+                raise error from run_download_error
+            raise error
         return path
 
     def _download_model_artifacts(self, artifact_path: str, dst_path: str) -> str | None:

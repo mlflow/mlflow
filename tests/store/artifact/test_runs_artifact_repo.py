@@ -109,6 +109,52 @@ def test_runs_artifact_repo_uses_repo_download_artifacts():
     runs_repo.repo.download_artifacts.assert_called_once()
 
 
+def test_download_artifacts_chains_run_repo_exception():
+    """
+    When neither the run nor the model artifacts can be downloaded, the raised
+    MlflowException should chain the run repository's exception so that the underlying
+    artifact store error (e.g. a connection failure) is visible in the traceback rather
+    than reading as an incorrect artifact path. Model artifact failures stay logged at
+    DEBUG and must not become the cause. See issue #26197.
+    """
+    with mlflow.start_run():
+        run_id = mlflow.active_run().info.run_id
+    runs_repo = RunsArtifactRepository(f"runs:/{run_id}")
+    runs_repo.repo = Mock()
+    underlying_error = ConnectionError("failed to connect to the artifact store")
+    runs_repo.repo.download_artifacts.side_effect = underlying_error
+    with mock.patch.object(
+        runs_repo, "_download_model_artifacts", side_effect=Exception("model download failed")
+    ):
+        with pytest.raises(
+            MlflowException, match="Failed to download artifacts from path 'artifact_path'"
+        ) as exc_info:
+            runs_repo.download_artifacts("artifact_path", "dst_path")
+
+    assert exc_info.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+    assert exc_info.value.__cause__ is underlying_error
+
+
+def test_download_artifacts_returns_model_path_when_run_repo_fails():
+    """
+    A run repository failure should not prevent model artifacts from being downloaded:
+    when the run repository raises but the model repository succeeds, its path is
+    returned and no exception propagates.
+    """
+    with mlflow.start_run():
+        run_id = mlflow.active_run().info.run_id
+    runs_repo = RunsArtifactRepository(f"runs:/{run_id}")
+    runs_repo.repo = Mock()
+    runs_repo.repo.download_artifacts.side_effect = Exception("run repo download failed")
+    with mock.patch.object(
+        runs_repo, "_download_model_artifacts", return_value="model_out_path"
+    ) as mock_model_download:
+        out_path = runs_repo.download_artifacts("artifact_path", "dst_path")
+
+    assert out_path == "model_out_path"
+    mock_model_download.assert_called_once()
+
+
 def test_runs_artifact_repo_tracking_uri_passed_as_keyword():
     """
     Test that tracking_uri is passed as keyword argument to get_artifact_repository.
