@@ -124,10 +124,12 @@ docker build -t mlflow-assistant-sandbox:latest -f Dockerfile .
 export MLFLOW_ASSISTANT_SANDBOX_CLI_IMAGE=mlflow-assistant-sandbox:latest
 ```
 
-Pin the CLI package(s) to a known version for reproducibility. Provider credentials — for
-Claude Code (`ANTHROPIC_API_KEY`, Bedrock/Vertex, or a proxy) and for Codex (`OPENAI_API_KEY`,
-`OPENAI_BASE_URL`) — are read from the server's environment and forwarded into the container;
-other host secrets are not.
+Pin the CLI package(s) to a known version for reproducibility. The server reads provider
+credentials from its environment and forwards them into the container; it does not forward other
+host secrets. For Claude Code, set `ANTHROPIC_API_KEY` (or configure Bedrock, Vertex, or a proxy).
+For Codex, set `CODEX_API_KEY` or `OPENAI_API_KEY`, and optionally `OPENAI_BASE_URL`: `codex exec`
+reads its key from `CODEX_API_KEY`, so the sandbox also passes `OPENAI_API_KEY` under that name
+when `CODEX_API_KEY` is not set. If both are set, `CODEX_API_KEY` is used.
 
 ## Egress
 
