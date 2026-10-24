@@ -39,7 +39,8 @@ Propose a pull request only when all of these hold:
 
 - The `PR_DISABLED` environment variable is not `true`.
 - The change leaves no design choice or trade-off unresolved.
-- Every changed file is under `mlflow/` or `tests/`.
+- Every changed file is within `TRIAGE_PATCH_PATH_ALLOWLIST`.
+  Each non-empty line is a permitted repository path; an empty list permits no changes.
 
 Also apply the PR eligibility and verification rules for the selected type and action.
 If any requirement is unmet, explain the findings in the comment without proposing a PR.
@@ -52,8 +53,10 @@ Then leave only the fix and any regression tests changed in the checkout (revert
 you edited there) and write the patch:
 
 ```bash
-git add -N mlflow tests
-git diff HEAD -- mlflow tests > "$out_dir/fix.patch"
+mapfile -t paths < <(printf '%s\n' "$TRIAGE_PATCH_PATH_ALLOWLIST" | sed '/^$/d')
+[ "${#paths[@]}" -gt 0 ] || exit 1
+git add -N -- "${paths[@]}"
+git diff HEAD -- "${paths[@]}" > "$out_dir/fix.patch"
 git diff HEAD --stat
 ```
 
