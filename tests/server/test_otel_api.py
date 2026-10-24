@@ -18,9 +18,7 @@ from mlflow.entities import Workspace
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
-from mlflow.server import handlers
 from mlflow.server.fastapi_app import add_fastapi_workspace_middleware, create_fastapi_app
-from mlflow.server.fastapi_app import app as mlflow_app
 from mlflow.server.otel_api import otel_router
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -893,7 +891,7 @@ def test_otlp_response_encoding_matches_request(
 def test_otlp_span_kind_preserved_in_batch_get(monkeypatch, tmp_path, db_uri):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
     store = SqlAlchemyStore(db_uri, tmp_path.joinpath("artifacts").as_uri())
-    monkeypatch.setattr(handlers, "_tracking_store", store)
+    monkeypatch.setattr("mlflow.server.handlers._tracking_store", store)
 
     trace_id = bytes.fromhex("0af7651916cd43dd8448eb211c80319c")
     request = ExportTraceServiceRequest()
@@ -917,7 +915,7 @@ def test_otlp_span_kind_preserved_in_batch_get(monkeypatch, tmp_path, db_uri):
     )
 
     # The full server app only accepts localhost Host headers by default.
-    client = TestClient(mlflow_app, base_url="http://localhost")
+    client = TestClient(create_fastapi_app(), base_url="http://localhost")
     response = client.post(
         OTLP_TRACES_PATH,
         content=request.SerializeToString(),
