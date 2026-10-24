@@ -1774,6 +1774,20 @@ MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS = _EnvironmentVariable(
     "MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS", int, 5
 )
 
+#: Username of the account whose credentials online scoring jobs present to the in-server AI
+#: Gateway when a registered judge uses a ``gateway:/`` model. Online scoring runs on a schedule,
+#: not on behalf of a request, so it has no user of its own; on an auth-enabled server set this
+#: (with ``MLFLOW_SERVER_ONLINE_SCORING_PASSWORD``) to a service account with USE permission on the
+#: judges' endpoints. Unset by default, in which case gateway judge calls carry no credentials.
+MLFLOW_SERVER_ONLINE_SCORING_USERNAME = _EnvironmentVariable(
+    "MLFLOW_SERVER_ONLINE_SCORING_USERNAME", str, None
+)
+
+#: Password or access token for ``MLFLOW_SERVER_ONLINE_SCORING_USERNAME``.
+MLFLOW_SERVER_ONLINE_SCORING_PASSWORD = _EnvironmentVariable(
+    "MLFLOW_SERVER_ONLINE_SCORING_PASSWORD", str, None
+)
+
 #: Default buffer time in seconds to wait before considering a session complete for online scoring.
 #: Sessions with no new traces for this duration are considered complete and ready for scoring.
 #: (default: ``300`` (5 minutes))

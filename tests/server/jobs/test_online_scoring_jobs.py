@@ -65,6 +65,38 @@ def test_run_online_trace_scorer_job_calls_processor():
         mock_processor.process_traces.assert_called_once()
 
 
+@pytest.mark.parametrize(
+    ("configured", "expected"),
+    [
+        ({"username": "scoring-sa", "password": "sa-token"}, ("scoring-sa", "sa-token")),
+        (None, ("unchanged", "unchanged")),
+    ],
+)
+def test_run_online_trace_scorer_job_authenticates_gateway_judges_as_configured_account(
+    monkeypatch, configured, expected
+):
+    monkeypatch.setenv("MLFLOW_TRACKING_USERNAME", "unchanged")
+    monkeypatch.setenv("MLFLOW_TRACKING_PASSWORD", "unchanged")
+    if configured:
+        monkeypatch.setenv("MLFLOW_SERVER_ONLINE_SCORING_USERNAME", configured["username"])
+        monkeypatch.setenv("MLFLOW_SERVER_ONLINE_SCORING_PASSWORD", configured["password"])
+    else:
+        monkeypatch.delenv("MLFLOW_SERVER_ONLINE_SCORING_USERNAME", raising=False)
+        monkeypatch.delenv("MLFLOW_SERVER_ONLINE_SCORING_PASSWORD", raising=False)
+
+    with (
+        patch("mlflow.genai.scorers.job._get_tracking_store"),
+        patch("mlflow.genai.scorers.online.trace_processor.OnlineTraceScoringProcessor.create"),
+    ):
+        run_online_trace_scorer_job(
+            experiment_id="exp1", online_scorers=[make_online_scorer_dict(Completeness())]
+        )
+
+    assert (os.environ["MLFLOW_TRACKING_USERNAME"], os.environ["MLFLOW_TRACKING_PASSWORD"]) == (
+        expected
+    )
+
+
 def test_run_online_trace_scorer_job_runs_exclusively_per_experiment(monkeypatch, tmp_path: Path):
     """
     Test that online trace scorer jobs are exclusive per experiment_id.

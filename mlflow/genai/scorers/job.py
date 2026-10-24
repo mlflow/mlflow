@@ -18,6 +18,8 @@ from mlflow.environment_variables import (
     MLFLOW_GENAI_EVAL_MAX_WORKERS,
     MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS,
     MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS,
+    MLFLOW_SERVER_ONLINE_SCORING_PASSWORD,
+    MLFLOW_SERVER_ONLINE_SCORING_USERNAME,
     MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE,
 )
 from mlflow.exceptions import MlflowException
@@ -115,6 +117,20 @@ def _online_scorers_this_job_can_run(online_scorers: list[OnlineScorer]) -> list
     return runnable
 
 
+def _set_online_scoring_gateway_credentials() -> None:
+    """Authenticate online scoring's ``gateway:/`` judge calls as the configured account.
+
+    Online scoring runs on a schedule rather than for a request, so there is no caller to act
+    for. When the operator configures an account, the judges' gateway requests (which read
+    ``MLFLOW_TRACKING_USERNAME`` and ``MLFLOW_TRACKING_PASSWORD``) present its credentials.
+    """
+    username = MLFLOW_SERVER_ONLINE_SCORING_USERNAME.get()
+    password = MLFLOW_SERVER_ONLINE_SCORING_PASSWORD.get()
+    if username and password:
+        os.environ["MLFLOW_TRACKING_USERNAME"] = username
+        os.environ["MLFLOW_TRACKING_PASSWORD"] = password
+
+
 @job(
     name=ONLINE_TRACE_SCORER_JOB_NAME,
     max_workers=MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS.get(),
@@ -135,6 +151,7 @@ def run_online_trace_scorer_job(
         experiment_id: The experiment ID to fetch traces from.
         online_scorers: List of OnlineScorer dicts specifying which scorers to run.
     """
+    _set_online_scoring_gateway_credentials()
     scorer_objects = [
         OnlineScorer(
             name=scorer_dict["name"],
@@ -182,6 +199,7 @@ def run_online_session_scorer_job(
         experiment_id: The experiment ID to fetch sessions from.
         online_scorers: List of OnlineScorer dicts specifying which scorers to run.
     """
+    _set_online_scoring_gateway_credentials()
     scorer_objects = [
         OnlineScorer(
             name=scorer_dict["name"],
