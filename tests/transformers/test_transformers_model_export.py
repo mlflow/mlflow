@@ -3146,6 +3146,28 @@ def test_basic_model_with_accelerate_homogeneous_mapping_works(model_path):
     assert loaded(text) == pipeline(text)
 
 
+@pytest.mark.parametrize("device", [None, -1])
+def test_load_model_with_accelerate_device_map_does_not_pass_device(
+    text_generation_pipeline, model_path, device
+):
+    mlflow.transformers.save_model(transformers_model=text_generation_pipeline, path=model_path)
+
+    # Simulate accelerate placement on the loaded model without requiring a GPU
+    # or quantized weights. Use the real pipeline constructor to catch device conflicts.
+    with (
+        mock.patch.object(
+            type(text_generation_pipeline.model), "hf_device_map", {"": "cpu"}, create=True
+        ),
+        mock.patch("mlflow.transformers.is_gpu_available", return_value=True),
+    ):
+        loaded = mlflow.transformers.load_model(model_path, device=device)
+
+    assert loaded.device == torch.device("cpu")
+    text = "Apples are delicious"
+    generation_kwargs = {"max_new_tokens": 2, "do_sample": False}
+    assert loaded(text, **generation_kwargs) == text_generation_pipeline(text, **generation_kwargs)
+
+
 def test_qa_model_model_size_bytes(small_qa_pipeline, tmp_path):
     def _calculate_expected_size(path_or_dir):
         # this helper function does not consider subdirectories
