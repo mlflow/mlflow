@@ -22,6 +22,8 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlJob,
     SqlMCPServer,
     SqlMCPServerTag,
+    SqlSkill,
+    SqlSkillTag,
 )
 from mlflow.store.workspace.abstract_store import AbstractStore
 from mlflow.store.workspace.sqlalchemy_store import _WORKSPACE_ROOT_MODELS
@@ -112,6 +114,17 @@ _SPEC_BY_MODEL: dict[type, _ResourceSpec] = {
             ("mcp_access_endpoints", "server_name"),
         ),
     ),
+    SqlSkill: _ResourceSpec(
+        model=SqlSkill,
+        name_column=SqlSkill.name.key,
+        tag_model=SqlSkillTag,
+        child_tables=(
+            "skill_versions",
+            "skill_tags",
+            "skill_version_tags",
+            "skill_aliases",
+        ),
+    ),
 }
 
 _RESOURCE_SPECS: dict[str, _ResourceSpec] = {
@@ -120,6 +133,37 @@ _RESOURCE_SPECS: dict[str, _ResourceSpec] = {
     if model in _SPEC_BY_MODEL
 }
 RESOURCE_TYPE_CHOICES = sorted(_RESOURCE_SPECS)
+
+
+def _parse_skill_name(raw_name: str) -> tuple[str, str]:
+    """Parse a skill identifier into (organization, name).
+
+    Accepts '@org/name' or 'name'.
+    """
+    if raw_name.startswith("@"):
+        org, sep, name = raw_name[1:].partition("/")
+        if sep and org and name:
+            return org, name
+    return "", raw_name
+
+
+def _format_skill_name(organization: str, name: str) -> str:
+    """Format a skill's organization and name for display and CLI output."""
+    return f"@{organization}/{name}" if organization else name
+
+
+def _skill_filter_condition(
+    table: sa.Table, identities: list[tuple[str, str]]
+) -> sa.BinaryExpression:
+    """Build a dialect-agnostic WHERE condition matching (organization, name) pairs."""
+    names_by_org: dict[str, set[str]] = {}
+    for org, name in identities:
+        names_by_org.setdefault(org, set()).add(name)
+    clauses = [
+        sa.and_(table.c.organization == org, table.c.name.in_(sorted(names)))
+        for org, names in names_by_org.items()
+    ]
+    return sa.or_(*clauses) if clauses else sa.false()
 
 
 def _tag_names_subquery(
@@ -154,6 +198,14 @@ def _tag_names_subquery(
             .where(tag_conditions)
             .group_by(name_col)
         )
+    elif spec.model is SqlSkill:
+        subq = (
+            sa
+            .select(tag_table.c.organization, tag_table.c.name)
+            .where(tag_table.c.workspace == source_workspace)
+            .where(tag_conditions)
+            .group_by(tag_table.c.organization, tag_table.c.name)
+        )
     else:
         # Registered models: the tag table carries workspace + name
         # directly, so we can query it without joining the parent table.
@@ -180,6 +232,13 @@ def _resolve_names(
 ) -> set[str]:
     """Return resource names in *workspace*, optionally filtered to *names*."""
     table = spec.table
+    if spec.model is SqlSkill:
+        stmt = sa.select(table.c.organization, table.c.name).where(table.c.workspace == workspace)
+        if names is not None:
+            identities = [_parse_skill_name(n) for n in names]
+            stmt = stmt.where(_skill_filter_condition(table, identities))
+        return {_format_skill_name(row[0], row[1]) for row in conn.execute(stmt).fetchall()}
+
     name_col = table.c[spec.name_column]
     stmt = sa.select(name_col).where(table.c.workspace == workspace)
     if names is not None:
@@ -192,17 +251,37 @@ def _find_conflicts(
     spec: _ResourceSpec,
     source_workspace: str,
     target_workspace: str,
-    name_filter: list[str] | sa.Select | None = None,
+    name_filter: list[str] | list[tuple[str, str]] | sa.Select | None = None,
 ) -> list[str]:
     """Return source resource names that already exist in *target_workspace*.
 
-    *name_filter* can be a ``list`` (literal names), a ``Select`` subquery,
-    or ``None`` (move-all, falls back to a source-workspace subquery).
+    *name_filter* can be a ``list`` (literal names or (org, name) pairs for skills),
+    a ``Select`` subquery, or ``None`` (move-all, falls back to a source-workspace subquery).
     SQLAlchemy's ``in_()`` handles both lists and subqueries transparently.
     """
     if not spec.has_unique_name:
         return []
     table = spec.table
+    if spec.model is SqlSkill:
+        stmt = sa.select(table.c.organization, table.c.name).where(
+            table.c.workspace == target_workspace
+        )
+        if name_filter is not None:
+            stmt = stmt.where(_skill_filter_condition(table, name_filter))
+        else:
+            source_table = table.alias("source_skills")
+            stmt = stmt.where(
+                sa.exists(
+                    sa.select(1).where(
+                        source_table.c.workspace == source_workspace,
+                        source_table.c.organization == table.c.organization,
+                        source_table.c.name == table.c.name,
+                    )
+                )
+            )
+        rows = conn.execute(stmt.order_by(table.c.organization, table.c.name)).fetchall()
+        return [_format_skill_name(org, name) for org, name in rows]
+
     name_col = table.c[spec.name_column]
     stmt = sa.select(name_col).where(table.c.workspace == target_workspace)
 
@@ -320,11 +399,20 @@ def move_resources(
         # handles lists and Select objects identically, so every subsequent
         # query uses the same one-branch pattern.
         if tags:
-            name_filter = _tag_names_subquery(spec, source_workspace, tags)
-            matched = {row[0] for row in conn.execute(name_filter).fetchall()}
+            tag_subq = _tag_names_subquery(spec, source_workspace, tags)
+            if spec.model is SqlSkill:
+                skill_rows = conn.execute(tag_subq).fetchall()
+                name_filter = [(row[0], row[1]) for row in skill_rows]
+                matched = {_format_skill_name(org, name) for org, name in name_filter}
+            else:
+                name_filter = tag_subq
+                matched = {row[0] for row in conn.execute(name_filter).fetchall()}
         elif names:
             matched = _resolve_names(conn, spec, source_workspace, names)
-            name_filter = list(matched)
+            if spec.model is SqlSkill:
+                name_filter = [_parse_skill_name(n) for n in matched]
+            else:
+                name_filter = list(matched)
         else:
             matched = _resolve_names(conn, spec, source_workspace)
             name_filter = None
@@ -353,15 +441,26 @@ def move_resources(
         def _filtered(stmt, col, _nf=name_filter):
             return stmt.where(col.in_(_nf)) if _nf is not None else stmt
 
-        row_count = conn.execute(
-            _filtered(
+        if spec.model is SqlSkill:
+            count_stmt = (
                 sa
                 .select(sa.func.count())
                 .select_from(table)
-                .where(table.c.workspace == source_workspace),
-                name_col,
+                .where(table.c.workspace == source_workspace)
             )
-        ).scalar()
+            if name_filter is not None:
+                count_stmt = count_stmt.where(_skill_filter_condition(table, name_filter))
+            row_count = conn.execute(count_stmt).scalar()
+        else:
+            row_count = conn.execute(
+                _filtered(
+                    sa
+                    .select(sa.func.count())
+                    .select_from(table)
+                    .where(table.c.workspace == source_workspace),
+                    name_col,
+                )
+            ).scalar()
 
         if not dry_run:
             if retarget_root is not None:
@@ -391,15 +490,26 @@ def move_resources(
                     retarget_params,
                 )
 
-            conn.execute(
-                _filtered(
+            if spec.model is SqlSkill:
+                table_upd = (
                     table
                     .update()
                     .where(table.c.workspace == source_workspace)
-                    .values(workspace=target_workspace),
-                    name_col,
+                    .values(workspace=target_workspace)
                 )
-            )
+                if name_filter is not None:
+                    table_upd = table_upd.where(_skill_filter_condition(table, name_filter))
+                conn.execute(table_upd)
+            else:
+                conn.execute(
+                    _filtered(
+                        table
+                        .update()
+                        .where(table.c.workspace == source_workspace)
+                        .values(workspace=target_workspace),
+                        name_col,
+                    )
+                )
 
             # Explicitly update child tables because not all backends honour
             # ON UPDATE CASCADE (e.g. SQLite without the foreign_keys pragma).
@@ -413,14 +523,17 @@ def move_resources(
                     child_table_name = entry
                     col_name = spec.child_name_column
                 child = get_workspace_table(conn, child_table_name)
-                conn.execute(
-                    _filtered(
-                        child
-                        .update()
-                        .where(child.c.workspace == source_workspace)
-                        .values(workspace=target_workspace),
-                        child.c[col_name],
-                    )
+                child_upd = (
+                    child
+                    .update()
+                    .where(child.c.workspace == source_workspace)
+                    .values(workspace=target_workspace)
                 )
+                if spec.model is SqlSkill:
+                    if name_filter is not None:
+                        child_upd = child_upd.where(_skill_filter_condition(child, name_filter))
+                else:
+                    child_upd = _filtered(child_upd, child.c[col_name])
+                conn.execute(child_upd)
 
     return MoveResult(names=sorted(matched), row_count=row_count, retarget_root=retarget_root)

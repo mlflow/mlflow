@@ -319,11 +319,11 @@ def move_resources(
     specified, all resources of the given type in the source workspace are moved.
 
     The --resource-type value is the database table name (e.g. experiments,
-    registered_models, evaluation_datasets, webhooks, jobs).
+    registered_models, skills, evaluation_datasets, webhooks, jobs).
 
-    Tag filtering (--tag) is supported for experiments and registered_models
-    only. When multiple --tag flags are given, only resources matching ALL tags
-    are included (AND logic).
+    Tag filtering (--tag) is supported for experiments, registered_models,
+    and skills only. When multiple --tag flags are given, only resources matching
+    ALL tags are included (AND logic).
 
     \b
     Examples:
@@ -338,6 +338,10 @@ def move_resources(
       # Move all registered models from one workspace to another
       mlflow db move-resources sqlite:///mlflow.db \\
         --from default --to team-a --resource-type registered_models
+      # Move specific skills by name (standalone or @organization/name)
+      mlflow db move-resources sqlite:///mlflow.db \\
+        --from default --to team-a --resource-type skills \\
+        --name my-skill --name @acme/team-skill
       # Move experiments and repoint their artifact roots to the target
       # workspace's artifact root (new runs land there, existing artifact
       # URIs are not modified)
