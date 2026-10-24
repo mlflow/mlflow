@@ -8634,22 +8634,39 @@ class SqlAlchemyStore(
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 
-            experiment_ids_str = [str(exp_id) for exp_id in experiment_ids]
+            # ``SqlExperiment.experiment_id`` is an INTEGER column but REST callers
+            # pass string IDs. psycopg2 sent them as untyped literals PostgreSQL
+            # would coerce; psycopg v3 binds them as typed VARCHAR and PostgreSQL
+            # rejects the comparison ("operator does not exist:
+            # integer = character varying"). Coerce with the same error contract
+            # as ``_get_experiment``/``list_scorers_across_experiments``.
+            try:
+                experiment_ids_int = [int(exp_id) for exp_id in experiment_ids]
+            except (ValueError, TypeError):
+                raise MlflowException(
+                    "Invalid experiment IDs: experiment IDs must be valid integers.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            # Canonical string form, derived from the coerced integers, so a
+            # non-canonical input id (e.g. "007", " 5 ", "+5") is compared
+            # consistently with the query above instead of against its raw form.
+            experiment_ids_canonical = [str(exp_id) for exp_id in experiment_ids_int]
 
             accessible_exp_ids = (
                 {
                     str(row[0])
                     for row in self
                     ._get_query(session, SqlExperiment)
-                    .filter(SqlExperiment.experiment_id.in_(experiment_ids_str))
+                    .filter(SqlExperiment.experiment_id.in_(experiment_ids_int))
                     .with_entities(SqlExperiment.experiment_id)
                     .all()
                 }
-                if experiment_ids_str
+                if experiment_ids_int
                 else set()
             )
 
-            for exp_id in experiment_ids_str:
+            for exp_id in experiment_ids_canonical:
                 if exp_id not in accessible_exp_ids:
                     raise MlflowException(
                         f"No Experiment with id={exp_id}",
@@ -8662,7 +8679,7 @@ class SqlAlchemyStore(
                 .filter(
                     SqlEntityAssociation.source_id == dataset_id,
                     SqlEntityAssociation.source_type == EntityAssociationType.EVALUATION_DATASET,
-                    SqlEntityAssociation.destination_id.in_(experiment_ids_str),
+                    SqlEntityAssociation.destination_id.in_(experiment_ids_canonical),
                     SqlEntityAssociation.destination_type == EntityAssociationType.EXPERIMENT,
                 )
                 .all()
@@ -8678,7 +8695,7 @@ class SqlAlchemyStore(
                     destination_id=exp_id,
                     destination_type=EntityAssociationType.EXPERIMENT,
                 )
-                for exp_id in experiment_ids_str
+                for exp_id in experiment_ids_canonical
                 if exp_id not in existing_exp_ids
             ]
 
