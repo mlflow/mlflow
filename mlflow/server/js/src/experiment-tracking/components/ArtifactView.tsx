@@ -474,7 +474,9 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
 
   getActiveNodeRealPath() {
     if (this.state.activeNodeId) {
-      return `${this.props.artifactRootUri}/${this.state.activeNodeId}`;
+      return this.props.artifactRootUri
+        ? `${this.props.artifactRootUri}/${this.state.activeNodeId}`
+        : this.state.activeNodeId;
     }
     return this.props.artifactRootUri;
   }
