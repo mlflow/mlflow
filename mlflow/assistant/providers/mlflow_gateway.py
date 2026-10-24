@@ -38,17 +38,32 @@ _server_host_header: contextvars.ContextVar[str | None] = contextvars.ContextVar
 _server_workspace_header: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "mlflow_gateway_provider_server_workspace_header", default=None
 )
+# The inbound request's own credential headers (``Authorization``, ``Cookie``), presented on the
+# self-call when the server has no internal gateway token -- a third-party auth app (e.g.
+# ``mlflow-oidc-auth``) authenticates the gateway route with its own middleware, which knows
+# nothing of that token. They go only to the server's own address above, which already accepted
+# them on the inbound request; the gateway's chat route never forwards client headers upstream.
+_server_credential_headers: contextvars.ContextVar[dict[str, str] | None] = contextvars.ContextVar(
+    "mlflow_gateway_provider_server_credential_headers", default=None
+)
+
+# Inbound request headers that carry the caller's credentials to an auth app.
+CALLER_CREDENTIAL_HEADERS = ("Authorization", "Cookie")
 
 
 def set_server_url(
-    url: str | None, host_header: str | None = None, workspace_header: str | None = None
+    url: str | None,
+    host_header: str | None = None,
+    workspace_header: str | None = None,
+    credential_headers: dict[str, str] | None = None,
 ) -> None:
     """Bind, for the current context, the URL at which the in-server gateway is reached and the
-    Host and workspace header values the call presents (the inbound request's own).
+    Host, workspace, and credential header values the call presents (the inbound request's own).
     """
     _server_url.set(url)
     _server_host_header.set(host_header)
     _server_workspace_header.set(workspace_header)
+    _server_credential_headers.set(credential_headers)
 
 
 class MlflowGatewayProvider(OpenAICompatibleProvider):
@@ -93,13 +108,18 @@ class MlflowGatewayProvider(OpenAICompatibleProvider):
         # an auth-enabled server. Reuse the server's internal gateway token (generated at startup
         # and shared across all worker processes; also used by scorer and evaluation jobs) and
         # attribute the call to the current user. The credential goes in the dedicated gateway
-        # auth header so it is not forwarded upstream to the LLM provider. When there is no token
-        # (a server without auth), the gateway needs no credential, so no header is added.
+        # auth header so it is not forwarded upstream to the LLM provider. Also present the
+        # caller's own credentials: a third-party auth app (e.g. mlflow-oidc-auth) authenticates
+        # the gateway route from Authorization or its session cookie and never reads the
+        # dedicated header, so this is how it sees the caller. The built-in auth prefers the
+        # dedicated header on gateway routes, so for it the token still decides.
         token = _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.get()
         username = get_config_user()
         if token and username:
             credential = base64.b64encode(f"{username}:{token}".encode()).decode("ascii")
             headers[MLFLOW_GATEWAY_AUTH_HEADER] = f"Basic {credential}"
+        for name, value in (_server_credential_headers.get() or {}).items():
+            headers.setdefault(name, value)
         if host_header := _server_host_header.get():
             headers["Host"] = host_header
         if workspace_header := _server_workspace_header.get():

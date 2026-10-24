@@ -178,6 +178,46 @@ def test_auth_headers_omit_workspace_header_without_a_bound_one(reset_server_url
     assert WORKSPACE_HEADER_NAME not in _gateway_provider()._auth_headers(None)
 
 
+def test_auth_headers_present_the_callers_credentials_without_gateway_token(
+    monkeypatch, reset_config_user, reset_server_url
+):
+    # A third-party auth app (e.g. mlflow-oidc-auth) does not accept the internal gateway token,
+    # so the self-call authenticates with the inbound request's own credentials.
+    monkeypatch.delenv("_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", raising=False)
+    set_config_user("alice")
+    set_server_url(
+        "http://127.0.0.1:5000",
+        credential_headers={"Authorization": "Bearer user-token", "Cookie": "session=abc"},
+    )
+
+    headers = _gateway_provider()._auth_headers(None)
+
+    assert headers["Authorization"] == "Bearer user-token"
+    assert headers["Cookie"] == "session=abc"
+    assert MLFLOW_GATEWAY_AUTH_HEADER not in headers
+
+
+def test_auth_headers_carry_both_gateway_token_and_the_callers_credentials(
+    monkeypatch, reset_config_user, reset_server_url
+):
+    # The built-in auth reads the dedicated header on gateway routes, and a third-party auth app
+    # reads Authorization or its session cookie, so both are sent and each app uses its own.
+    monkeypatch.setenv("_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", "tok-123")
+    set_config_user("alice")
+    set_server_url(
+        "http://127.0.0.1:5000",
+        credential_headers={"Authorization": "Basic YWxpY2U6cHc=", "Cookie": "session=abc"},
+    )
+
+    headers = _gateway_provider()._auth_headers(None)
+
+    assert headers[MLFLOW_GATEWAY_AUTH_HEADER] == "Basic " + base64.b64encode(
+        b"alice:tok-123"
+    ).decode("ascii")
+    assert headers["Authorization"] == "Basic YWxpY2U6cHc="
+    assert headers["Cookie"] == "session=abc"
+
+
 def test_request_kwargs_reject_tls_self_call_on_old_aiohttp(monkeypatch, reset_server_url):
     # Before aiohttp 3.9 there is no way to verify the certificate against the inbound host name
     # while connecting to the server's address, so refuse clearly instead of failing the handshake.
