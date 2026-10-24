@@ -3,8 +3,9 @@ name: rerun-cross-version-tests
 
 on:
   schedule:
-    # Run this workflow daily at 19:00 UTC (6 hours after cross-version-tests.yml workflow)
-    - cron: "0 19 * * *"
+    # Run this workflow daily at 08:00 JST (6 hours after cross-version-tests.yml workflow)
+    - cron: "0 8 * * *"
+      timezone: "Asia/Tokyo"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
@@ -21,7 +22,7 @@ jobs:
   set-matrix:
     runs-on: ubuntu-slim
     timeout-minutes: 10
-    if: github.repository == 'mlflow/dev'
+    if: github.repository == 'mlflow/mlflow'
     permissions:
       actions: write # to rerun workflows
     steps:
