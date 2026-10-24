@@ -282,6 +282,10 @@ class AWSBearerToken(AWSBaseConfig):
 class AmazonBedrockConfig(ConfigModel):
     # order here is important, at least for pydantic<2
     aws_config: AWSBearerToken | AWSRole | AWSIdAndKey | AWSBaseConfig
+    # Optional Bedrock runtime base URL override, e.g. a VPC endpoint (PrivateLink)
+    # hostname. Reuses the gateway's standard ``api_base`` configuration and is passed
+    # to boto3's ``client(endpoint_url=...)``.
+    api_base: str | None = None
 
 
 class MistralConfig(ConfigModel):

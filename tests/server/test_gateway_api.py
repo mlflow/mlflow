@@ -26,6 +26,7 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.environment_variables import MLFLOW_GATEWAY_MAX_DECOMPRESSED_REQUEST_SIZE
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
+    AmazonBedrockConfig,
     EndpointType,
     GatewayRequestType,
     GeminiConfig,
@@ -185,6 +186,35 @@ def test_build_endpoint_config_typesafe_reads_api_base_from_auth_config():
     assert config.model.config.typesafe_api_base == "https://typesafe.example.com/v1"
 
 
+def test_build_endpoint_config_bedrock_reads_api_base_from_auth_config():
+    model_config = GatewayModelConfig(
+        model_definition_id="md-test",
+        provider="bedrock",
+        model_name="anthropic.claude-v2",
+        secret_value={"api_key": "bedrock-api-key"},
+        auth_config={
+            "auth_mode": "api_key",
+            "aws_region_name": "us-east-1",
+            "api_base": "https://bedrock-runtime.example-vpce.amazonaws.com",
+        },
+    )
+    config = _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
+    assert isinstance(config.model.config, AmazonBedrockConfig)
+    assert config.model.config.api_base == "https://bedrock-runtime.example-vpce.amazonaws.com"
+
+
+def test_build_endpoint_config_bedrock_api_base_defaults_to_none():
+    model_config = GatewayModelConfig(
+        model_definition_id="md-test",
+        provider="bedrock",
+        model_name="anthropic.claude-v2",
+        secret_value={"api_key": "bedrock-api-key"},
+        auth_config={"auth_mode": "api_key", "aws_region_name": "us-east-1"},
+    )
+    config = _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
+    assert isinstance(config.model.config, AmazonBedrockConfig)
+    assert config.model.config.api_base is None
+    
 @pytest.mark.parametrize(
     ("auth_config", "expected_base"),
     [
@@ -196,6 +226,7 @@ def test_build_endpoint_config_typesafe_reads_api_base_from_auth_config():
         ),
     ],
 )
+
 def test_build_endpoint_config_gemini_api_base(auth_config, expected_base):
     model_config = _make_model_config("gemini", "gemini-2.0-flash")
     model_config.auth_config = auth_config
