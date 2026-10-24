@@ -5880,6 +5880,15 @@ class SqlAlchemyStore(
                 content_json = json.dumps(
                     span_dict, cls=TraceJSONEncoder, ensure_ascii=self.db_type == MSSQL
                 )
+                translated_span_type = _try_parse_json_string(
+                    span_attributes.get(SpanAttributeKey.SPAN_TYPE)
+                )
+
+                if not translated_span_type:
+                    translated_span_type = span.span_type
+
+                if not translated_span_type:
+                    translated_span_type = "UNKNOWN"
 
                 model_name = bounded_model_dimension(
                     _try_parse_json_string(span_attributes.get(SpanAttributeKey.MODEL))
@@ -5894,6 +5903,8 @@ class SqlAlchemyStore(
                     except (TypeError, ValueError):
                         _logger.debug("Skipping malformed cost for span %s", span.span_id)
 
+                        
+
                 # experiment_id filled in after we resolve trace infos
                 all_span_rows.append({
                     "trace_id": span.trace_id,
@@ -5901,7 +5912,7 @@ class SqlAlchemyStore(
                     "span_id": span.span_id,
                     "parent_span_id": span.parent_id,
                     "name": span.name,
-                    "type": span.span_type,
+                    "type": translated_span_type,
                     "status": span.status.status_code,
                     "start_time_unix_nano": span.start_time_ns,
                     "end_time_unix_nano": span.end_time_ns,
