@@ -8974,6 +8974,18 @@ def test_registered_scorer_names_in_evaluate_request(body, expected):
     assert auth_module._registered_scorer_names_in_evaluate_request(body) == expected
 
 
+def test_registered_scorer_names_only_skips_concrete_builtin_scorers():
+    # Must agree with ``optimize.job._load_scorers``: any name that is not a concrete built-in
+    # scorer class is loaded from the registry, so it keeps the registered-scorer checks.
+    names = ["Correctness", "Feedback", "get_default_model", "BuiltInScorer", "custom"]
+    assert auth_module._registered_scorer_names(names) == [
+        "BuiltInScorer",
+        "Feedback",
+        "custom",
+        "get_default_model",
+    ]
+
+
 @pytest.mark.parametrize(
     "body",
     [

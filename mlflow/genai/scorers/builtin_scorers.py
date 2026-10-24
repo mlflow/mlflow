@@ -360,8 +360,6 @@ class BuiltInScorer(Judge):
     @classmethod
     def model_validate(cls, obj: SerializedScorer | dict[str, Any]) -> "BuiltInScorer":
         """Override model_validate to handle builtin scorer deserialization."""
-        from mlflow.genai.scorers import builtin_scorers
-
         if isinstance(obj, SerializedScorer):
             serialized = obj
         else:
@@ -378,10 +376,9 @@ class BuiltInScorer(Judge):
                     f"Failed to parse serialized scorer data: {e}"
                 )
 
-        try:
-            scorer_class = getattr(builtin_scorers, serialized.builtin_scorer_class)
-        except AttributeError:
-            # error_code is INVALID_PARAMETER_VALUE but this is an attribute lookup failure
+        scorer_class = _get_builtin_scorer_class(serialized.builtin_scorer_class)
+        if scorer_class is None:
+            # error_class is kept from when this was a plain attribute lookup.
             raise MlflowException.invalid_parameter_value(
                 f"Unknown builtin scorer class: {serialized.builtin_scorer_class}",
                 error_class="ATTRIBUTE_NOT_FOUND",
@@ -3635,6 +3632,17 @@ class ResponseLength(BuiltInScorer):
             value=CategoricalRating.YES,
             rationale=f"Output length ({length} {self.unit}) is within bounds",
         )
+
+
+def _get_builtin_scorer_class(name: Any) -> type[BuiltInScorer] | None:
+    """The concrete built-in scorer class named ``name``, or ``None``.
+
+    The module also holds imported helpers and abstract bases, so a plain ``getattr`` would
+    resolve names like ``invoke_judge_model`` that must never be called as a scorer.
+    """
+    if not isinstance(name, str):
+        return None
+    return next((cls for cls in _get_all_concrete_builtin_scorers() if cls.__name__ == name), None)
 
 
 def _get_all_concrete_builtin_scorers() -> list[type[BuiltInScorer]]:
