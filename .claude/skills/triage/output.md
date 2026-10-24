@@ -40,8 +40,8 @@ Propose a pull request only when all of these hold:
 - The `PR_DISABLED` environment variable is not `true`.
 - The change leaves no design choice or trade-off unresolved.
 - Every changed file is within `TRIAGE_PATCH_PATH_ALLOWLIST`, supplied by the workflow.
-  Each non-empty line is a permitted repository path. `.` permits the whole repository;
-  an empty list permits no changes. Read this policy from the environment.
+  Each non-empty line is a permitted repository path; an empty list permits no changes.
+  Read this policy from the environment.
 
 Also apply the PR eligibility and verification rules for the selected type and action.
 If any requirement is unmet, explain the findings in the comment without proposing a PR.
