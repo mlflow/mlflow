@@ -1074,7 +1074,6 @@ module.exports = {
   "mlflow.experiment-issues.retry-refresh": "",
   "mlflow.experiment-issues.row": "",
   "mlflow.experiment-issues.row.category": "",
-  "mlflow.experiment-issues.source-run": "",
   "mlflow.experiment-issues.trace-error": "",
   "mlflow.experiment-issues.triage-error": "",
 
@@ -1682,6 +1681,13 @@ module.exports = {
   "mlflow.issue-detection.category-tag": "",
   "mlflow.issue-detection.completed": "",
   "mlflow.issue-detection.endpoint-link": "",
+
+  // -- mlflow.issue-detection-settings --
+  "mlflow.issue-detection-settings.custom-category.remove": "",
+  "mlflow.issue-detection-settings.custom-category.remove-tooltip": "",
+  "mlflow.issue-detection-settings.custom-category.toggle": "",
+  "mlflow.issue-detection-settings.focus-area.toggle": "",
+  "mlflow.issue-detection-settings.focus-area.tooltip": "",
 
   // -- mlflow.issues --
   "mlflow.issues.cancel-button": "",
@@ -2346,6 +2352,9 @@ module.exports = {
   "mlflow.traces.issue-detection-modal.error": "",
   "mlflow.traces.issue-detection-modal.model": "",
   "mlflow.traces.issue-detection-modal.model-dropdown": "",
+  "mlflow.traces.issue-detection-modal.no-focus-area-selected": "",
+  "mlflow.traces.issue-detection-modal.settings-not-refreshed": "",
+  "mlflow.traces.issue-detection-modal.settings-unavailable": "",
   "mlflow.traces.issue-detection-modal.submit": "",
   "mlflow.traces.issue-detection-modal.submit.tooltip": "",
   "mlflow.traces.issue-detection.api-key.auth-mode-radio-group": "",

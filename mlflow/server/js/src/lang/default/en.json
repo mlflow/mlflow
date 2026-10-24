@@ -987,6 +987,10 @@
     "defaultMessage": "No dataset",
     "description": "Label for the ungrouped metrics column group in the logged model column selector"
   },
+  "1btee7": {
+    "defaultMessage": "Remove custom category {category}",
+    "description": "Issue detection settings modal > Remove custom category button label"
+  },
   "1dpbMP": {
     "defaultMessage": "Delete {count, plural, one {# Endpoint} other {# Endpoints}}",
     "description": "Gateway > Bulk delete endpoints modal > Title"
@@ -1002,6 +1006,10 @@
   "1hI96w": {
     "defaultMessage": "Showing only visible runs",
     "description": "Experiment page > compare runs > parallel chart > header > indicator for only visible runs shown"
+  },
+  "1hoVpT": {
+    "defaultMessage": "Save",
+    "description": "Issue detection settings modal > Save button"
   },
   "1htGxF": {
     "defaultMessage": "Cancel",
@@ -3019,6 +3027,10 @@
     "defaultMessage": "Predicate",
     "description": "Predicate decision answer type"
   },
+  "8I6VaG": {
+    "defaultMessage": "For example:{lineBreak}- Treat authentication failures as high severity{lineBreak}- Only report high and medium severity issues{lineBreak}- Ignore cosmetic output formatting issues",
+    "description": "Issue detection settings modal > Detection instructions placeholder"
+  },
   "8I9ipd": {
     "defaultMessage": "The provided value is not valid JSON",
     "description": "Error message for invalid JSON in an assessment edit form"
@@ -4598,10 +4610,6 @@
   "DTu1X9": {
     "defaultMessage": "Permission denied",
     "description": "Title for Skill detail permission-denied state"
-  },
-  "DUcwbU": {
-    "defaultMessage": "Source run",
-    "description": "Experiment Issue source run link"
   },
   "DUnrWL": {
     "defaultMessage": "Run Name:",
@@ -6967,6 +6975,10 @@
     "defaultMessage": "Download as SVG",
     "description": "Experiment page > compare runs tab > chart header > download as SVG option"
   },
+  "LjeQn8": {
+    "defaultMessage": "This experiment's issue detection settings could not be refreshed, so this run uses the last ones loaded. Reopen this dialog to try again.",
+    "description": "Warning in the issue detection modal shown when the saved detection settings could not be refreshed and the previously loaded ones are used"
+  },
   "Ll6vbT": {
     "defaultMessage": "Model versions in the `{currentStage}` stage will be moved to the `Archived` stage.",
     "description": "Tooltip text for transitioning existing model versions in stage to archived\n     in the model versions page"
@@ -7343,6 +7355,10 @@
     "defaultMessage": "Expectation (ground truth)",
     "description": "Review question answer type: expectation"
   },
+  "Mt1xf7": {
+    "defaultMessage": "Issue detection settings",
+    "description": "Issues page > Accessible label and tooltip for the issue detection settings button"
+  },
   "Mtj9Ay": {
     "defaultMessage": "Edit description",
     "description": "Run page > Overview > Description section > Edit button label"
@@ -7354,6 +7370,10 @@
   "MxiIan": {
     "defaultMessage": "Add message",
     "description": "Button to insert a new chat message row"
+  },
+  "MylJBR": {
+    "defaultMessage": "Custom category",
+    "description": "Issue detection settings modal > Custom category field label"
   },
   "Myqag6": {
     "defaultMessage": "View details",
@@ -7410,6 +7430,10 @@
   "N5IyPh": {
     "defaultMessage": "Click on a stage to choose when this guardrail runs.",
     "description": "Stage help text"
+  },
+  "N6DzXF": {
+    "defaultMessage": "Could not save issue detection settings. Try again.",
+    "description": "Issue detection settings modal > Save error"
   },
   "N79Rdb": {
     "defaultMessage": "{count, plural, =1 {1 month} other {# months}} ago",
@@ -9451,6 +9475,10 @@
     "defaultMessage": "A fingerprint of all scorers in this run.",
     "description": "Tooltip explaining what the eval run scorers digest identifies"
   },
+  "Tyh+hX": {
+    "defaultMessage": "This experiment's issue detection settings could not be read, so this run will use the defaults: all focus areas and no saved priorities.",
+    "description": "Warning in the issue detection modal shown when the saved detection settings could not be loaded"
+  },
   "U+0wfV": {
     "defaultMessage": "Trace name",
     "description": "Column selector label for the trace-name column"
@@ -9967,6 +9995,10 @@
     "defaultMessage": "Using the list of logged table artifacts, select at least one to start comparing results.",
     "description": "Experiment page > artifact compare view > table select dropdown tooltip"
   },
+  "Va0iq8": {
+    "defaultMessage": "Focus areas",
+    "description": "Issue detection settings modal > Focus areas section title"
+  },
   "Vadurt": {
     "defaultMessage": "Issues by severity. Use arrow keys to select a day.",
     "description": "Accessible label for the interactive issue activity chart"
@@ -10038,6 +10070,10 @@
   "VpFZR/": {
     "defaultMessage": "Cancel",
     "description": "A label for the cancel button in the delete prompt version modal"
+  },
+  "VqLpmy": {
+    "defaultMessage": "Detection priorities",
+    "description": "Issue detection settings modal > Detection priorities field label"
   },
   "VqSjYH": {
     "defaultMessage": "MLflow documentation",
@@ -11571,6 +11607,10 @@
     "defaultMessage": "Run details",
     "description": "Run page > Overview > Run details section heading"
   },
+  "b2qzxE": {
+    "defaultMessage": "Retry loading issue detection settings",
+    "description": "Issue detection settings > Accessible label of the button that retries a failed settings read"
+  },
   "b3AmzB": {
     "defaultMessage": "Select an MCP server",
     "description": "MCP registry endpoint modal server placeholder"
@@ -11738,6 +11778,10 @@
   "bi26D5": {
     "defaultMessage": "Run ID:",
     "description": "Text for run ID header in the main table in the model comparison page"
+  },
+  "bi5wmr": {
+    "defaultMessage": "Custom category",
+    "description": "Issue detection settings modal > Add custom category button"
   },
   "biGssA": {
     "defaultMessage": "Assessments",
@@ -12322,6 +12366,10 @@
   "dh5dT7": {
     "defaultMessage": "Flag for review",
     "description": "Bulk action that assigns the selected traces to a review queue"
+  },
+  "diS6Td": {
+    "defaultMessage": "With no focus area selected, detection considers all of them.",
+    "description": "Issue detection settings modal > Hint shown when every focus area has been deselected"
   },
   "dkv7sq": {
     "defaultMessage": "Beta",
@@ -13631,6 +13679,10 @@
     "defaultMessage": "Pick your language and follow the steps.",
     "description": "Description above the manual setup steps in the traces empty state"
   },
+  "hevxNa": {
+    "defaultMessage": "This experiment's issue detection settings have no focus area selected, so this run considers all of them.",
+    "description": "Note in the issue detection modal shown when the saved settings deselect every focus area"
+  },
   "hg+bcy": {
     "defaultMessage": "Enable telemetry",
     "description": "Enable telemetry settings title"
@@ -14446,6 +14498,10 @@
   "k/fDlw": {
     "defaultMessage": "Optimize",
     "description": "A label for a button to display the modal with instructions to optimize the prompt"
+  },
+  "k/gR2N": {
+    "defaultMessage": "Cancel",
+    "description": "Issue detection settings modal > Cancel button"
   },
   "k0CEIu": {
     "defaultMessage": "OpenAI Chat Completions",
@@ -15627,6 +15683,10 @@
     "defaultMessage": "No servers found",
     "description": "Empty state when MCP server search returns no results"
   },
+  "ns5GSR": {
+    "defaultMessage": "Issue detection settings",
+    "description": "Issue detection settings modal > Title"
+  },
   "nugZSE": {
     "defaultMessage": "Show less",
     "description": "Button label to collapse conversation messages in model trace explorer"
@@ -16791,6 +16851,10 @@
     "defaultMessage": "Tags",
     "description": "Run page > Overview > Run tags section label"
   },
+  "rsWoSh": {
+    "defaultMessage": "Cancel",
+    "description": "Issue detection settings modal > Cancel custom category button"
+  },
   "rstugP": {
     "defaultMessage": "Max Tokens",
     "description": "Label for max tokens input"
@@ -17451,6 +17515,10 @@
     "defaultMessage": "Digest",
     "description": "Label for the digest field in the V2 evaluation dataset metadata modal"
   },
+  "uGd7At": {
+    "defaultMessage": "Couldn't read this experiment's issue detection settings. Retry to edit them.",
+    "description": "Issue detection settings > Tooltip explaining the settings button could not load and offers a retry"
+  },
   "uGfscW": {
     "defaultMessage": "The SQL query timed out. Please retry, and if the problem persists, try selecting a larger SQL warehouse.",
     "description": "Evaluation review > evaluations list > SQL warehouse timeout error description with CTA to select larger warehouse"
@@ -17606,6 +17674,10 @@
   "uq6CTI": {
     "defaultMessage": "No profile available",
     "description": "Text for no profile available in the experiment run dataset drawer"
+  },
+  "uqr+Me": {
+    "defaultMessage": "A category name cannot contain {braces}.",
+    "description": "Issue detection settings modal > Error shown when the typed custom category contains doubled braces"
   },
   "urvfNd": {
     "defaultMessage": "Cancel",
@@ -18342,6 +18414,10 @@
   "xEr8Gl": {
     "defaultMessage": "Set spending limits and control costs across your endpoints.",
     "description": "Empty state message for budgets list"
+  },
+  "xFz7AM": {
+    "defaultMessage": "Add",
+    "description": "Issue detection settings modal > Confirm custom category button"
   },
   "xIP8WW": {
     "defaultMessage": "Are you sure you want to delete these runs?",
