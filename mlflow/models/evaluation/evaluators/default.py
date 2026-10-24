@@ -57,14 +57,12 @@ class DefaultEvaluator(BuiltInEvaluator):
         custom_artifacts=None,
         **kwargs,
     ) -> EvaluationResult | None:
-        compute_latency = False
-        for extra_metric in extra_metrics:
-            # If latency metric is specified, we will compute latency for the model
-            # during prediction, and we will remove the metric from the list of extra
-            # metrics to be computed after prediction.
-            if extra_metric.name == _LATENCY_METRIC_NAME:
-                compute_latency = True
-                extra_metrics.remove(extra_metric)
+        # If latency metric is specified, we will compute latency for the model
+        # during prediction, and we will remove the metric from the list of extra
+        # metrics to be computed after prediction. Build a new list rather than
+        # removing in place: the caller's list must not change.
+        compute_latency = any(m.name == _LATENCY_METRIC_NAME for m in extra_metrics)
+        extra_metrics = [m for m in extra_metrics if m.name != _LATENCY_METRIC_NAME]
         self._log_genai_custom_metrics(extra_metrics)
 
         # Generate model predictions and evaluate metrics
