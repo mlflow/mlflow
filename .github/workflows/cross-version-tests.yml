@@ -244,26 +244,26 @@ jobs:
             echo 'Could not retrieve the baseline snapshot; see the gh diagnostic above. Comparison skipped.'
             exit 1
           fi
-          if ! jq --exit-status --sort-keys . "$previous_dir/snapshot.json" > "$previous_dir/previous.json"; then
-            echo 'Invalid baseline snapshot JSON; comparison skipped.'
+          if ! jq --exit-status '.packages | objects | select(all(.[]; type == "string"))' "$previous_dir/snapshot.json" > "$previous_dir/previous.json"; then
+            echo 'Invalid baseline snapshot packages; comparison skipped.'
             exit 1
           fi
-          if ! jq --exit-status --sort-keys . snapshot.json > "$previous_dir/current.json"; then
-            echo 'Invalid current snapshot JSON; comparison skipped.'
+          if ! jq --exit-status '.packages | objects | select(all(.[]; type == "string"))' snapshot.json > "$previous_dir/current.json"; then
+            echo 'Invalid current snapshot packages; comparison skipped.'
             exit 1
           fi
-          diff_status=0
-          diff -u --label "Previous run $PREVIOUS_RUN_ID" --label 'Current snapshot' \
-            "$previous_dir/previous.json" "$previous_dir/current.json" > "$previous_dir/changes.diff" || diff_status=$?
-          if (( diff_status > 1 )); then
-            exit "$diff_status"
-          fi
-          if (( diff_status == 0 )); then
-            echo 'No snapshot changes.'
+          jq --null-input --raw-output \
+            --slurpfile previous "$previous_dir/previous.json" \
+            --slurpfile current "$previous_dir/current.json" '
+            $previous[0] as $old | $current[0] as $new
+            | ($old + $new | keys[]) as $name
+            | select($old[$name] != $new[$name])
+            | "\($name) \($old[$name] // "(not installed)") -> \($new[$name] // "(not installed)")"
+          ' > "$previous_dir/changes.txt"
+          if [[ -s "$previous_dir/changes.txt" ]]; then
+            cat "$previous_dir/changes.txt"
           else
-            echo '```diff'
-            cat "$previous_dir/changes.diff"
-            echo '```'
+            echo 'No package changes.'
           fi
       - name: Pre-test
         if: matrix.pre_test
