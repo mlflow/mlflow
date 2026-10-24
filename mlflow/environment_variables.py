@@ -1324,6 +1324,9 @@ _MLFLOW_DATABRICKS_TRAFFIC_ID = _EnvironmentVariable("MLFLOW_DATABRICKS_TRAFFIC_
 
 #: Specifies whether to enable async trace logging to Databricks Tracing Server.
 #: Default: ``True``.
+#: UC table tracing in Databricks Jobs defaults to ``False`` when this variable is unset.
+#: Jobs that explicitly enable async logging should call ``mlflow.flush_trace_async_logging()``
+#: after traced work finishes and before completing the task.
 MLFLOW_ENABLE_ASYNC_TRACE_LOGGING = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", True
 )

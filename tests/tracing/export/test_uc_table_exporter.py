@@ -1,4 +1,9 @@
+import json
+import subprocess
+import sys
+import textwrap
 import time
+from base64 import b64decode
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
@@ -18,6 +23,91 @@ from tests.tracing.helper import (
     create_mock_otel_span,
     create_test_trace_info_with_uc_table,
 )
+
+
+@pytest.mark.parametrize("is_job", [True, False])
+@pytest.mark.parametrize("async_env", [None, "true", "false"])
+def test_async_logging_configuration(is_job, async_env, monkeypatch):
+    if async_env is None:
+        monkeypatch.delenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", raising=False)
+    else:
+        monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", async_env)
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS", "60000")
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", "5")
+
+    with mock.patch("mlflow.tracing.export.uc_table.is_in_databricks_job", return_value=is_job):
+        exporter = _make_exporter()
+
+    expected_async = async_env == "true" if async_env is not None else not is_job
+    try:
+        with mock.patch(
+            "mlflow.tracing.export.uc_table.get_active_spans_table_name",
+            return_value="catalog.schema.spans",
+        ):
+            exporter._export_spans_incrementally([create_mock_otel_span(trace_id=12345, span_id=1)])
+
+        # Check delivery before cleanup: teardown flushing would conceal a buffered span.
+        assert exporter._client.log_spans.call_count == (0 if expected_async else 1)
+        exporter.flush()
+        exporter._client.log_spans.assert_called_once()
+    finally:
+        exporter.flush(terminate=True)
+
+
+def test_one_span_job_exports_before_task_completion(tmp_path, monkeypatch):
+    monkeypatch.delenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", raising=False)
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS", "60000")
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", "5")
+    script = textwrap.dedent("""
+        import json
+        import os
+        import sys
+        from pathlib import Path
+        from unittest import mock
+
+        from opentelemetry.sdk.trace import TracerProvider
+
+        from mlflow.entities.trace_location import UCSchemaLocation
+        from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
+        from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
+        from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
+
+        output_dir = Path(sys.argv[1])
+
+        class LocalTransport:
+            def start_trace(self, info):
+                (output_dir / "metadata.json").write_text(json.dumps(info.to_dict()))
+                return info
+
+            def log_spans(self, location, spans):
+                (output_dir / "spans.json").write_text(json.dumps({
+                    "location": location,
+                    "spans": [span.to_dict() for span in spans],
+                }))
+
+        _MLFLOW_TRACE_USER_DESTINATION.set(UCSchemaLocation("catalog", "schema"))
+        with mock.patch("mlflow.tracing.export.uc_table.is_in_databricks_job", return_value=True):
+            exporter = DatabricksUCTableSpanExporter()
+        exporter._client = LocalTransport()
+        provider = TracerProvider(shutdown_on_exit=False)
+        provider.add_span_processor(DatabricksUCTableSpanProcessor(exporter))
+        with provider.get_tracer("test").start_as_current_span("one-span-job"):
+            pass
+
+        # The task ends immediately. Bypass process-exit hooks to verify that export
+        # completed on the task path; this does not model a particular runtime signal.
+        os._exit(0)
+    """)
+    subprocess.run([sys.executable, "-c", script, str(tmp_path)], check=True, timeout=30)
+
+    assert (tmp_path / "spans.json").exists(), "The Job completed with its span still buffered"
+    payload = json.loads((tmp_path / "spans.json").read_text())
+    assert payload["location"] == "catalog.schema.mlflow_experiment_trace_otel_spans"
+    assert len(payload["spans"]) == 1
+    assert payload["spans"][0]["name"] == "one-span-job"
+    metadata = json.loads((tmp_path / "metadata.json").read_text())
+    trace_id = b64decode(payload["spans"][0]["trace_id"]).hex()
+    assert metadata["trace_id"] == f"trace:/catalog.schema/{trace_id}"
 
 
 @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
