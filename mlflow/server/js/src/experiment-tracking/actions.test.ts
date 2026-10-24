@@ -207,6 +207,45 @@ describe('fetchMissingParents', () => {
     expect(runs.runs).toEqual([a, aParentWithGrandParent]);
   });
 
+  it('should stop fetching ancestors when the parent references form a cycle', async () => {
+    // A run may reference a run which references it back. The traversal has to terminate
+    // instead of fetching the same runs over and over again.
+    const aWithParentB = {
+      info: { run_id: 'a' },
+      data: {
+        tags: [
+          {
+            key: getParentRunTagName(),
+            value: 'b',
+          },
+        ],
+      },
+    };
+    const bWithParentA = {
+      info: { run_id: 'b' },
+      data: {
+        tags: [
+          {
+            key: getParentRunTagName(),
+            value: 'a',
+          },
+        ],
+      },
+    };
+
+    jest.spyOn(MlflowService, 'getRun').mockImplementation(
+      (data) =>
+        Promise.resolve({
+          run: data.run_id === 'b' ? bWithParentA : { info: { run_id: data.run_id } },
+        }) as any,
+    );
+
+    const res = { runs: [aWithParentB] };
+    const runs: any = await fetchMissingParents(res);
+    expect(runs.runs).toEqual([aWithParentB, bWithParentA]);
+    expect(MlflowService.getRun).toHaveBeenCalledTimes(1);
+  });
+
   it('should throw for unexpected exceptions encountered during run resolution', async () => {
     const mockUnexpectedGetRunError = {
       getErrorCode() {
