@@ -2,10 +2,27 @@ import pytest
 
 from mlflow.utils.jsonpath_utils import (
     filter_json_by_fields,
+    find_matching_paths,
     jsonpath_extract_values,
     split_path_respecting_backticks,
     validate_field_paths,
 )
+
+
+@pytest.mark.parametrize(("index", "expected"), [("0", [7]), ("1", [None]), ("2", [])])
+def test_extract_numeric_array_index(index, expected):
+    data = {"items": [{"value": 7}, {"value": None}]}
+    path = f"items.{index}.value"
+    assert jsonpath_extract_values(data, path) == expected
+    if expected:
+        validate_field_paths([path], data)
+
+
+def test_filter_wildcard_after_numeric_array_index():
+    data = {"items": [{"nested": {"a": 1, "b": 2}}, {"nested": {"a": 3}}]}
+    path = "items.0.nested.*"
+    assert find_matching_paths(data, path) == ["items.0.nested.a", "items.0.nested.b"]
+    assert filter_json_by_fields(data, [path]) == {"items": [{"nested": {"a": 1, "b": 2}}]}
 
 
 def test_jsonpath_extract_values_simple():
