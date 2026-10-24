@@ -31,6 +31,7 @@ from mlflow.entities import (
     EvaluationDataset,
     Experiment,
     FileInfo,
+    IssueResource,
     Link,
     LoggedModel,
     LoggedModelInput,
@@ -125,6 +126,7 @@ from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, TraceMetadataKey
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.fluent import _flush_pending_async_trace_writes, start_span_no_context
+from mlflow.tracing.issue_client import IssueClient
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils.copy import copy_trace_to_experiment
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -138,7 +140,7 @@ from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.multimedia import Image, compress_image_size, convert_to_pil_image
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils import get_results_from_paginated_fn, is_uuid, workspace_utils
-from mlflow.utils.annotations import deprecated, deprecated_parameter
+from mlflow.utils.annotations import deprecated, deprecated_parameter, experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import (
     get_databricks_run_url,
@@ -1174,6 +1176,223 @@ class MlflowClient:
         return self._get_registry_client().link_prompt_versions_to_trace(
             prompt_versions=prompt_versions,
             trace_id=trace_id,
+        )
+
+    @experimental(version="3.18.0")
+    def create_issue(
+        self,
+        experiment_id: str,
+        title: str,
+        *,
+        severity: str,
+        description: str = "",
+        status: str = "PENDING",
+        categories: list[str] | None = None,
+        tags: dict[str, str] | None = None,
+        last_seen_time: str | None = None,
+        source_type: str = "MANUAL",
+        source_id: str | None = None,
+        metadata: dict[str, str] | None = None,
+        issue_id: str | None = None,
+    ) -> IssueResource:
+        """Create an issue in an experiment.
+
+        Args:
+            experiment_id: Experiment that owns the issue.
+            title: Human-readable issue title.
+            severity: ``LOW``, ``MEDIUM``, or ``HIGH``.
+            description: Markdown description of the issue.
+            status: ``PENDING``, ``RESOLVED``, or ``REJECTED``.
+            categories: Issue category labels.
+            tags: String tags that can be used to filter issues.
+            last_seen_time: Most recent observation as an RFC 3339 timestamp.
+            source_type: ``MANUAL``, ``ADHOC_RUN``, ``SCHEDULED_RUN``, or
+                ``SINGLE_TRACE_ANALYSIS``. Source fields cannot be changed after creation.
+            source_id: Identifier of the source that produced the issue.
+            metadata: Additional string metadata.
+            issue_id: Optional caller-assigned ID, ``iss-`` followed by 32 lowercase hex
+                characters. Reusing an ID raises a conflict.
+
+        Returns:
+            The created :py:class:`mlflow.entities.IssueResource`.
+
+        Example:
+            .. code-block:: python
+
+                from mlflow import MlflowClient
+
+                issue = MlflowClient().create_issue(
+                    experiment_id="1",
+                    title="Payment retries fail",
+                    severity="HIGH",
+                    categories=["correctness"],
+                )
+                print(issue.issue_id, issue.title)
+        """
+        return IssueClient(self.tracking_uri).create_issue(
+            experiment_id=experiment_id,
+            title=title,
+            severity=severity,
+            description=description,
+            status=status,
+            categories=categories,
+            tags=tags,
+            last_seen_time=last_seen_time,
+            source_type=source_type,
+            source_id=source_id,
+            metadata=metadata,
+            issue_id=issue_id,
+        )
+
+    @experimental(version="3.18.0")
+    def get_issue(self, experiment_id: str, issue_id: str) -> IssueResource:
+        """Retrieve the complete issue from its owning experiment.
+
+        Args:
+            experiment_id: Experiment that owns the issue.
+            issue_id: Issue ID to retrieve.
+
+        Returns:
+            The :py:class:`mlflow.entities.IssueResource`, including its description and metadata.
+        """
+        return IssueClient(self.tracking_uri).get_issue(
+            experiment_id=experiment_id, issue_id=issue_id
+        )
+
+    @experimental(version="3.18.0")
+    def update_issue(
+        self,
+        experiment_id: str,
+        issue_id: str,
+        *,
+        title: str = NOT_SET,
+        description: str | None = NOT_SET,
+        status: str = NOT_SET,
+        severity: str = NOT_SET,
+        categories: list[str] | None = NOT_SET,
+        tags: dict[str, str] | None = NOT_SET,
+        last_seen_time: str | None = NOT_SET,
+        metadata: dict[str, str] | None = None,
+        delete_metadata_keys: list[str] | None = None,
+    ) -> IssueResource:
+        """Update only the issue fields explicitly supplied.
+
+        The SDK builds the REST update mask. Omitted fields retain their values;
+        ``None`` clears an optional field. Metadata is updated per key, so unrelated
+        entries are preserved.
+
+        Args:
+            experiment_id: Experiment that owns the issue.
+            issue_id: Issue ID to update.
+            title: New human-readable title.
+            description: New Markdown description, or ``None`` to clear it.
+            status: ``PENDING``, ``RESOLVED``, or ``REJECTED``.
+            severity: ``LOW``, ``MEDIUM``, or ``HIGH``.
+            categories: Replacement category labels; ``[]`` or ``None`` clears them.
+            tags: Replacement tags; ``{}`` or ``None`` clears them.
+            last_seen_time: RFC 3339 timestamp. ``None`` resets a manual issue to its
+                creation time; issues produced by detection must retain an observation time.
+            metadata: Metadata entries to add or replace.
+            delete_metadata_keys: Metadata keys to remove. A key cannot be updated and
+                deleted in the same request.
+
+        Returns:
+            The updated :py:class:`mlflow.entities.IssueResource`.
+        """
+        return IssueClient(self.tracking_uri).update_issue(
+            experiment_id=experiment_id,
+            issue_id=issue_id,
+            title=title,
+            description=description,
+            status=status,
+            severity=severity,
+            categories=categories,
+            tags=tags,
+            last_seen_time=last_seen_time,
+            metadata=metadata,
+            delete_metadata_keys=delete_metadata_keys,
+        )
+
+    @experimental(version="3.18.0")
+    def search_issues(
+        self,
+        experiment_id: str,
+        *,
+        query: str | None = None,
+        statuses: list[str] | None = None,
+        severities: list[str] | None = None,
+        categories: list[str] | None = None,
+        tag_filters: list[dict[str, Any]] | None = None,
+        sort_key: str | None = None,
+        sort_order: str | None = None,
+        page_size: int | None = None,
+        page_token: str | None = None,
+        view: str | None = None,
+    ) -> PagedList[IssueResource]:
+        """Search one experiment's issues with filters and pagination.
+
+        Values within each filter are ORed; different filters are ANDed.
+
+        Args:
+            experiment_id: Experiment to search.
+            query: Case-insensitive substring of the issue title.
+            statuses: ``PENDING``, ``RESOLVED``, or ``REJECTED`` values to match.
+            severities: ``LOW``, ``MEDIUM``, or ``HIGH`` values to match.
+            categories: Category labels to match.
+            tag_filters: Filters such as ``[{"key": "team", "values": ["payments"]}]``.
+                Omitting ``values`` matches any issue with the specified key.
+            sort_key: ``SEVERITY``, ``LAST_SEEN_TIME``, ``UPDATE_TIME``, or ``CREATE_TIME``.
+            sort_order: ``DESCENDING`` or ``ASCENDING``. Issues are grouped by status first.
+            page_size: Page size; defaults to 20, with a maximum of 100.
+            page_token: Token from a previous result's ``token`` attribute.
+            view: ``BASIC`` (default) omits the description and trace-list metadata;
+                ``FULL`` returns complete issues.
+
+        Returns:
+            A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`mlflow.entities.IssueResource` objects. ``token`` identifies the next
+            page, and ``total_count`` is the number of matching issues across all pages.
+        """
+        return IssueClient(self.tracking_uri).search_issues(
+            experiment_id=experiment_id,
+            query=query,
+            statuses=statuses,
+            severities=severities,
+            categories=categories,
+            tag_filters=tag_filters,
+            sort_key=sort_key,
+            sort_order=sort_order,
+            page_size=page_size,
+            page_token=page_token,
+            view=view,
+        )
+
+    @experimental(version="3.18.0")
+    def delete_issue(
+        self,
+        experiment_id: str,
+        issue_id: str,
+        *,
+        force: bool = False,
+        sql_warehouse_id: str | None = None,
+    ) -> None:
+        """Delete an issue from its owning experiment.
+
+        On Databricks, deletion fails while assessments on Unity Catalog traces reference
+        the issue unless ``force=True``. Forced deletion removes those references first
+        and requires a SQL warehouse.
+
+        Args:
+            experiment_id: Experiment that owns the issue.
+            issue_id: Issue ID to delete.
+            force: Remove Unity Catalog trace references before deleting the issue.
+            sql_warehouse_id: Databricks SQL warehouse used for Unity Catalog trace cleanup.
+        """
+        IssueClient(self.tracking_uri).delete_issue(
+            experiment_id=experiment_id,
+            issue_id=issue_id,
+            force=force,
+            sql_warehouse_id=sql_warehouse_id,
         )
 
     def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
