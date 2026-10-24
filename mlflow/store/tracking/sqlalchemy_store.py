@@ -7663,17 +7663,21 @@ class SqlAlchemyStore(
 
         span_snapshots_by_trace_id: dict[str, list[_TraceSpanSnapshot]] = defaultdict(list)
         traces_with_cleared_payloads: set[str] = set()
-        rows = (
-            session
-            .query(
-                SqlSpan.trace_id,
-                SqlSpan.content,
-                SqlSpan.parent_span_id,
-                SqlSpan.start_time_unix_nano,
+        rows = []
+        # Chunk the trace IDs to stay under SQLite's bound-parameter cap.
+        for i in range(0, len(trace_ids), self._TRACE_BATCH_QUERY_ID_CHUNK_SIZE):
+            trace_id_chunk = trace_ids[i : i + self._TRACE_BATCH_QUERY_ID_CHUNK_SIZE]
+            rows.extend(
+                session
+                .query(
+                    SqlSpan.trace_id,
+                    SqlSpan.content,
+                    SqlSpan.parent_span_id,
+                    SqlSpan.start_time_unix_nano,
+                )
+                .filter(SqlSpan.trace_id.in_(trace_id_chunk))
+                .all()
             )
-            .filter(SqlSpan.trace_id.in_(trace_ids))
-            .all()
-        )
         for trace_id, content, parent_span_id, start_time_unix_nano in rows:
             if content == "":
                 traces_with_cleared_payloads.add(trace_id)
