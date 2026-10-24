@@ -238,6 +238,57 @@ Mark an issue as rejected when:
 
 Rejecting false positives keeps your issue list focused and prevents noise from accumulating over time.
 
+## Managing Issues with Python
+
+The experimental `MlflowClient` issue methods wrap the experiment-scoped Issues REST APIs. They require a tracking server that exposes those APIs, such as Databricks. They manage issue records; automatic detection runs separately.
+
+```python
+from mlflow import MlflowClient
+
+client = MlflowClient(tracking_uri="databricks")
+experiment_id = "1"
+
+issue = client.create_issue(
+    experiment_id,
+    "Payment retries fail",
+    severity="HIGH",
+    description="Retries fail after a timeout.",
+    categories=["correctness"],
+    tags={"team": "payments"},
+    metadata={"ticket": "PAY-123"},
+)
+
+issue = client.get_issue(experiment_id, issue.issue_id)
+client.update_issue(experiment_id, issue.issue_id, status="RESOLVED")
+
+page = client.search_issues(
+    experiment_id,
+    statuses=["PENDING"],
+    tag_filters=[{"key": "team", "values": ["payments"]}],
+    page_size=20,
+)
+for result in page:
+    print(result.issue_id, result.title)
+if page.token:
+    next_page = client.search_issues(
+        experiment_id,
+        statuses=["PENDING"],
+        tag_filters=[{"key": "team", "values": ["payments"]}],
+        page_size=20,
+        page_token=page.token,
+    )
+
+client.delete_issue(experiment_id, issue.issue_id)
+```
+
+`IssueResource.name` is the full resource path, such as `experiments/1/issues/iss-…`; `title` is the human-readable label. Statuses are `PENDING`, `RESOLVED`, and `REJECTED`; severities are `LOW`, `MEDIUM`, and `HIGH`. Timestamps are RFC 3339 strings.
+
+Updates leave omitted arguments unchanged. Set `description`, `categories`, or `tags` to `None` to clear them. Pass `metadata={"ticket": "PAY-456"}` to update individual metadata entries or `delete_metadata_keys=["ticket"]` to remove them.
+
+Search returns a `PagedList` with `total_count` and a continuation `token`. Keep the filters, sort options, and page size unchanged when using a token. The default `BASIC` view omits descriptions and `recent_affected_trace_ids` metadata; request `view="FULL"` or get an individual issue for those fields.
+
+For Databricks Unity Catalog trace storage, `force=True` permits cleanup of issue references before deletion; `sql_warehouse_id` selects the warehouse for that cleanup.
+
 ## Best Practices
 
 ### Effective Analysis
