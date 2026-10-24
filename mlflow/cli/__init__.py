@@ -1304,25 +1304,20 @@ def gc(
     job_store = None
     job_ids_list = None
     if jobs or job_ids:
-        from mlflow.utils.uri import extract_db_type_from_uri
+        from mlflow.store.jobs.registry import JobStoreRegistry
 
         store_uri = backend_store_uri or os.environ.get("MLFLOW_BACKEND_STORE_URI")
         try:
-            extract_db_type_from_uri(store_uri)
+            store_builder = JobStoreRegistry().get_store_builder(store_uri)
         except MlflowException:
-            # Not a database backend - skip job cleanup silently
+            # No job store for this backend - skip job cleanup silently
             pass
         else:
+            job_store = store_builder(store_uri)
             if MLFLOW_ENABLE_WORKSPACES.get():
-                from mlflow.store.jobs.sqlalchemy_workspace_store import (
-                    WorkspaceAwareSqlAlchemyJobStore,
-                )
+                from mlflow.server.handlers import _verify_job_store_workspace_support
 
-                job_store = WorkspaceAwareSqlAlchemyJobStore(store_uri)
-            else:
-                from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
-
-                job_store = SqlAlchemyJobStore(store_uri)
+                _verify_job_store_workspace_support(job_store)
             job_ids_list = job_ids.split(",") if job_ids else None
 
     for workspace_name in _resolve_gc_workspaces(

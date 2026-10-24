@@ -5,7 +5,11 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.server.constants import HUEY_STORAGE_PATH_ENV_VAR
-from mlflow.server.jobs.utils import _load_function, _validate_function_parameters
+from mlflow.server.jobs.utils import (
+    _check_requirements,
+    _load_function,
+    _validate_function_parameters,
+)
 
 pytestmark = pytest.mark.skipif(
     os.name == "nt", reason="MLflow job execution is not supported on Windows"
@@ -205,3 +209,10 @@ def test_get_or_init_huey_instance_uses_distinct_redis_names_per_instance_key(mo
         assert first_name == "jobs.name"
         assert second_name == "periodic_tasks"
         assert first_name != second_name
+
+
+def test_check_requirements_accepts_uri_with_job_store_plugin(tmp_path):
+    _check_requirements(f"file-plugin:{tmp_path}")
+
+    with pytest.raises(MlflowException, match="requires a database backend store URI"):
+        _check_requirements(tmp_path.as_uri())

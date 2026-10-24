@@ -1101,6 +1101,33 @@ def test_mlflow_server_with_installed_plugin(tmp_path, monkeypatch):
     assert plugin_file_store.is_plugin
 
 
+def test_get_job_store_with_installed_plugin(tmp_path, monkeypatch):
+    from mlflow_test_plugin.job_store import PluginJobStore
+
+    monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, f"file-plugin:{tmp_path / 'mlflow.db'}")
+    monkeypatch.setattr(mlflow.server.handlers, "_job_store", None)
+    plugin_job_store = mlflow.server.handlers._get_job_store()
+    assert isinstance(plugin_job_store, PluginJobStore)
+    assert plugin_job_store.is_plugin
+
+
+def test_get_job_store_does_not_cache_a_store_without_workspace_support(tmp_path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "true")
+    monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, f"file-plugin:{tmp_path / 'mlflow.db'}")
+    monkeypatch.setattr(mlflow.server.handlers, "_job_store", None)
+    for _ in range(2):
+        with pytest.raises(MlflowException, match="does not support workspace-aware operations"):
+            mlflow.server.handlers._get_job_store()
+    assert mlflow.server.handlers._job_store is None
+
+
+def test_get_job_store_rejects_uri_without_job_store(tmp_path, monkeypatch):
+    monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, tmp_path.as_uri())
+    monkeypatch.setattr(mlflow.server.handlers, "_job_store", None)
+    with pytest.raises(MlflowException, match="Job store requires a backend store URI"):
+        mlflow.server.handlers._get_job_store()
+
+
 def jsonify(obj):
     def _jsonify(obj):
         return json.loads(message_to_json(obj.to_proto()))
