@@ -555,6 +555,89 @@ def test_record_logged_model(
         assert tags[0] == json.dumps([m_with_config.get_tags_dict()])
 
 
+def test_record_logged_model_history_stays_within_tag_limit(store: SqlAlchemyStore, caplog):
+    run = _run_factory(store)
+    models = [
+        Model(
+            artifact_path=f"model/{i:03d}",
+            run_id=run.info.run_id,
+            flavors={"python_function": {"loader_module": "x" * 500}},
+        )
+        for i in range(30)
+    ]
+
+    counts = []
+    expected_history = []
+    for model in models:
+        store.record_logged_model(run.info.run_id, model)
+        value = store.get_run(run.info.run_id).data.tags[mlflow_tags.MLFLOW_LOGGED_MODELS]
+        history = json.loads(value)
+        expected_history.append(model.get_tags_dict())
+
+        assert len(value) <= MAX_TAG_VAL_LENGTH
+        assert history[-1] == model.get_tags_dict()
+        if len(json.dumps(expected_history)) <= MAX_TAG_VAL_LENGTH:
+            assert value == json.dumps(expected_history)
+        counts.append(len(history))
+
+    assert counts == sorted(counts)
+    assert len(history) < len(models)
+    assert history == [model.get_tags_dict() for model in models[-len(history) :]]
+    warning_records = [
+        record for record in caplog.records if "oldest logged model" in record.message
+    ]
+    assert warning_records
+    assert sum(record.args[0] for record in warning_records) == len(models) - len(history)
+    assert all(record.args[1] == run.info.run_id for record in warning_records)
+
+
+def test_record_logged_model_rejects_single_oversized_entry(store: SqlAlchemyStore):
+    run = _run_factory(store)
+    model = Model(
+        artifact_path="model/path",
+        run_id=run.info.run_id,
+        flavors={"python_function": {"loader_module": "x" * MAX_TAG_VAL_LENGTH}},
+    )
+
+    with pytest.raises(
+        MlflowException, match=f"exceeds the maximum length of {MAX_TAG_VAL_LENGTH} characters"
+    ):
+        store.record_logged_model(run.info.run_id, model)
+
+    assert mlflow_tags.MLFLOW_LOGGED_MODELS not in store.get_run(run.info.run_id).data.tags
+
+
+def test_record_logged_model_does_not_warn_when_commit_fails(store: SqlAlchemyStore, caplog):
+    run = _run_factory(store)
+    models = [
+        Model(
+            artifact_path=f"model/{i:03d}",
+            run_id=run.info.run_id,
+            flavors={"python_function": {"loader_module": "x" * 500}},
+        )
+        for i in range(31)
+    ]
+    for model in models[:-1]:
+        store.record_logged_model(run.info.run_id, model)
+
+    value_before = store.get_run(run.info.run_id).data.tags[mlflow_tags.MLFLOW_LOGGED_MODELS]
+    caplog.clear()
+    with (
+        mock.patch.object(
+            sqlalchemy.orm.Session,
+            "commit",
+            side_effect=RuntimeError("forced commit failure"),
+        ),
+        pytest.raises(MlflowException, match="forced commit failure"),
+    ):
+        store.record_logged_model(run.info.run_id, models[-1])
+
+    assert (
+        store.get_run(run.info.run_id).data.tags[mlflow_tags.MLFLOW_LOGGED_MODELS] == value_before
+    )
+    assert not any("oldest logged model" in record.message for record in caplog.records)
+
+
 def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_value(
     store: SqlAlchemyStore,
 ):
