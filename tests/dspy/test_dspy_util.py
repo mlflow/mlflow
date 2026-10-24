@@ -137,6 +137,8 @@ def test_sanitize_params():
         "azure_ad_token": "secret-token",
         "client_secret": "secret-client-secret",
         "azure_password": "secret-azure-password",
+        "extra_headers": {"Authorization": "Basic secret"},
+        "headers": {"Authorization": "Bearer secret"},
         "model": "gpt-4o-mini",
     }
     assert sanitize_params(params) == {"model": "gpt-4o-mini"}
