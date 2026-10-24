@@ -89,7 +89,13 @@ function prepareContext({ repo, issue, event, comment, dryRun = false, api = ghA
   const context = request
     ? prepareFollowup({ repo, issue, comment: request, dryRun, api })
     : { body: issue.body ?? "", comments: [], followup: null };
-  return { title: issue.title, repository: repo, issue_number: issue.number, ...context };
+  return {
+    title: issue.title,
+    repository: repo,
+    issue_number: issue.number,
+    ...context,
+    patch_path_allowlist: ["mlflow/", "tests/"].join("\n"),
+  };
 }
 
 module.exports = { parseCommand, findOpenPr, checkExistingPr, prepareContext };

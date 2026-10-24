@@ -73,7 +73,7 @@ jobs:
       url: ${{ fromJSON(steps.issue.outputs.json).html_url }}
       author_association: ${{ fromJSON(steps.issue.outputs.json).author_association }}
       followup: ${{ steps.followup.outputs.json }}
-      patch_path_allowlist: ${{ steps.policy.outputs.patch_path_allowlist }}
+      patch_path_allowlist: ${{ steps.followup.outputs.patch_path_allowlist }}
       action: ${{ steps.followup.outputs.json != 'null' && 'follow-up' || 'init' }}
       dry_run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
       # Set the TRIAGE_PR_DISABLED repository Actions variable to "true" to stop opening pull requests.
@@ -113,13 +113,9 @@ jobs:
         run: |
           node .claude/skills/triage/scripts/utils.js prepare "$RUNNER_TEMP/issue.json" > "$RUNNER_TEMP/issue-context.json"
           echo "json=$(jq -c .followup "$RUNNER_TEMP/issue-context.json")" >> "$GITHUB_OUTPUT"
-      - name: Resolve patch scope
-        id: policy
-        run: |
           {
             echo 'patch_path_allowlist<<EOF'
-            echo 'mlflow/'
-            echo 'tests/'
+            jq -r .patch_path_allowlist "$RUNNER_TEMP/issue-context.json"
             echo EOF
           } >> "$GITHUB_OUTPUT"
       - name: Clean issue content
