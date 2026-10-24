@@ -191,13 +191,13 @@ jobs:
           eval "$MATRIX_INSTALL"
       - uses: ./.github/actions/show-versions
         with:
-          output-json: ${{ github.event_name == 'schedule' && 'package-versions.json' || '' }}
-      - name: Upload package versions
-        if: github.event_name == 'schedule' && !cancelled() && hashFiles('package-versions.json') != ''
+          output-json: ${{ github.event_name == 'schedule' && 'snapshot.json' || '' }}
+      - name: Upload snapshot
+        if: github.event_name == 'schedule' && !cancelled() && hashFiles('snapshot.json') != ''
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: package-versions-${{ matrix.name }}-${{ matrix.category }}-${{ matrix.version }}
-          path: package-versions.json
+          name: snapshot-${{ matrix.name }}-${{ matrix.category }}-${{ matrix.version }}
+          path: snapshot.json
           retention-days: 7
           if-no-files-found: error
           overwrite: true
