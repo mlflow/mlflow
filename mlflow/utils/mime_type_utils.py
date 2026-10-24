@@ -46,7 +46,7 @@ def get_text_extensions():
 
 def _guess_mime_type(file_path):
     filename = pathlib.Path(file_path).name
-    extension = os.path.splitext(filename)[-1].replace(".", "")
+    extension = os.path.splitext(filename)[-1].replace(".", "").lower()
     # for MLmodel/mlproject with no extensions
     if extension == "":
         extension = filename
