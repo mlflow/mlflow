@@ -5,8 +5,8 @@ import pytest
 from requests import Response
 
 import mlflow
-from mlflow.entities import IssueResource
-from mlflow.exceptions import MlflowNotImplementedException, RestException
+from mlflow.entities import IssueCategory, IssueResource, IssueSeverity, IssueStatus
+from mlflow.exceptions import MlflowException, MlflowNotImplementedException, RestException
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.utils.rest_utils import MlflowHostCreds
@@ -48,7 +48,7 @@ def issue_sdk(request, monkeypatch):
 
 
 @pytest.mark.parametrize("delete_status", [200, 204])
-def test_public_issue_sdk_requests_and_responses(issue_sdk, delete_status):
+def test_public_issue_sdk_requests_and_responses(issue_sdk, delete_status, monkeypatch):
     http_request, credentials = issue_sdk
     payload = {
         "name": RESOURCE_NAME,
@@ -57,13 +57,19 @@ def test_public_issue_sdk_requests_and_responses(issue_sdk, delete_status):
         "status": "PENDING",
         "severity": "HIGH",
         "description": "Slow requests",
-        "categories": ["latency"],
+        "categories": ["latency", "custom-category"],
         "tags": {"team": "api"},
         "metadata": {"count": "1", "remove.me": "old"},
         "source_type": "MANUAL",
         "last_seen_time": "2026-10-22T12:34:56Z",
     }
-    updated_payload = {**payload, "status": "RESOLVED", "metadata": {"count": "2"}}
+    updated_payload = {
+        **payload,
+        "status": "RESOLVED",
+        "severity": "MEDIUM",
+        "categories": [],
+        "metadata": {"count": "2"},
+    }
     http_request.side_effect = [
         _response(payload),
         _response(payload),
@@ -75,9 +81,9 @@ def test_public_issue_sdk_requests_and_responses(issue_sdk, delete_status):
     created = mlflow.genai.create_issue(
         "1",
         "Latency",
-        severity="HIGH",
+        severity=IssueSeverity.HIGH,
         description="Slow requests",
-        categories=["latency"],
+        categories=[IssueCategory.LATENCY, "custom-category"],
         tags={"team": "api"},
         metadata={"count": "1", "remove.me": "old"},
         last_seen_time=payload["last_seen_time"],
@@ -85,11 +91,15 @@ def test_public_issue_sdk_requests_and_responses(issue_sdk, delete_status):
     )
     assert isinstance(created, IssueResource)
     assert created.name == RESOURCE_NAME
+    assert created.severity is IssueSeverity.HIGH
+    assert created.categories == [IssueCategory.LATENCY, "custom-category"]
+    assert created.categories[0] is IssueCategory.LATENCY
     assert mlflow.genai.get_issue("1", ISSUE_ID) == created
     updated = mlflow.genai.update_issue(
         "1",
         ISSUE_ID,
-        status="RESOLVED",
+        status=IssueStatus.RESOLVED,
+        severity=IssueSeverity.MEDIUM,
         description=None,
         categories=[],
         tags=None,
@@ -97,29 +107,37 @@ def test_public_issue_sdk_requests_and_responses(issue_sdk, delete_status):
         metadata={"count": "2"},
         delete_metadata_keys=["remove.me"],
     )
-    assert updated.status == "RESOLVED"
+    assert updated.status is IssueStatus.RESOLVED
+    assert updated.severity is IssueSeverity.MEDIUM
     assert updated.metadata == {"count": "2"}
     filters = {
         "query": "LATENCY",
         "statuses": ["PENDING", "RESOLVED"],
         "severities": ["HIGH"],
-        "categories": ["latency"],
+        "categories": ["latency", "custom-category"],
         "tag_filters": [{"key": "team", "values": ["api"]}],
         "sort_key": "CREATE_TIME",
         "sort_order": "ASCENDING",
         "page_size": 1,
     }
-    first = mlflow.genai.search_issues("1", **filters)
+    filter_string = (
+        "title ILIKE '%LATENCY%' AND status IN ('PENDING', 'RESOLVED') "
+        "AND severity = 'HIGH' AND category IN ('latency', 'custom-category') "
+        "AND tags.team = 'api'"
+    )
+    pagination = {"sort_key": "CREATE_TIME", "sort_order": "ASCENDING", "page_size": 1}
+    first = mlflow.genai.search_issues("1", filter_string=filter_string, **pagination)
     assert first == [created]
     assert first.total_count == 2
     assert first.token == "next-page"
-    second = mlflow.genai.search_issues("1", **filters, page_token=first.token, view="FULL")
+    second = mlflow.genai.search_issues(
+        "1", filter_string=filter_string, **pagination, page_token=first.token, view="FULL"
+    )
     assert second == [updated]
     assert second.total_count == 2
     assert second.token is None
-    assert (
-        mlflow.genai.delete_issue("1", ISSUE_ID, force=True, sql_warehouse_id="warehouse") is None
-    )
+    monkeypatch.setenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", "warehouse")
+    assert mlflow.genai.delete_issue("1", ISSUE_ID, force=True) is None
 
     assert http_request.call_args_list == [
         call(
@@ -132,7 +150,7 @@ def test_public_issue_sdk_requests_and_responses(issue_sdk, delete_status):
                 "severity": "HIGH",
                 "description": "Slow requests",
                 "status": "PENDING",
-                "categories": ["latency"],
+                "categories": ["latency", "custom-category"],
                 "tags": {"team": "api"},
                 "last_seen_time": payload["last_seen_time"],
                 "source_type": "MANUAL",
@@ -151,12 +169,13 @@ def test_public_issue_sdk_requests_and_responses(issue_sdk, delete_status):
             endpoint=f"{COLLECTION}/{ISSUE_ID}",
             method="PATCH",
             params={
-                "update_mask": "description,status,categories,tags,last_seen_time,"
+                "update_mask": "description,status,severity,categories,tags,last_seen_time,"
                 "metadata.`count`,metadata.`remove.me`"
             },
             json={
                 "name": RESOURCE_NAME,
                 "status": "RESOLVED",
+                "severity": "MEDIUM",
                 "categories": [],
                 "metadata": {"count": "2"},
             },
@@ -235,3 +254,65 @@ def test_issue_fluent_api_uses_current_tracking_uri(monkeypatch):
 
     assert get_store.call_args_list == [call(uri) for uri in stores]
     assert [request.kwargs["host_creds"] for request in http_request.call_args_list] == credentials
+
+
+@pytest.mark.parametrize("warehouse_id", [None, "warehouse"])
+@pytest.mark.parametrize("force", [False, True])
+def test_delete_issue_reads_warehouse_from_environment(issue_sdk, monkeypatch, warehouse_id, force):
+    http_request, _ = issue_sdk
+    http_request.return_value = _response(status_code=204)
+    if warehouse_id is None:
+        monkeypatch.delenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", raising=False)
+    else:
+        monkeypatch.setenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", warehouse_id)
+
+    mlflow.genai.delete_issue("1", ISSUE_ID, force=force)
+
+    expected_params = {"force": str(force).lower()}
+    if force and warehouse_id:
+        expected_params["sql_warehouse_id"] = warehouse_id
+    assert http_request.call_args.kwargs["params"] == expected_params
+
+
+def test_delete_issue_reads_warehouse_environment_for_each_call(issue_sdk, monkeypatch):
+    http_request, _ = issue_sdk
+    http_request.return_value = _response(status_code=204)
+
+    for warehouse_id in ["first-warehouse", "second-warehouse"]:
+        monkeypatch.setenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", warehouse_id)
+        mlflow.genai.delete_issue("1", ISSUE_ID, force=True)
+
+    assert [request.kwargs["params"] for request in http_request.call_args_list] == [
+        {"force": "true", "sql_warehouse_id": "first-warehouse"},
+        {"force": "true", "sql_warehouse_id": "second-warehouse"},
+    ]
+
+
+@pytest.mark.parametrize("severity", [IssueSeverity.NOT_AN_ISSUE, "not_an_issue", "CRITICAL"])
+@pytest.mark.parametrize("operation", ["create", "update"])
+def test_issue_severity_rejects_values_not_supported_by_rest(issue_sdk, severity, operation):
+    http_request, _ = issue_sdk
+    kwargs = {"title": "Latency"} if operation == "create" else {"issue_id": ISSUE_ID}
+    with pytest.raises(MlflowException, match="(?i)severity") as caught:
+        getattr(mlflow.genai, f"{operation}_issue")("1", severity=severity, **kwargs)
+
+    assert caught.value.error_code == "INVALID_PARAMETER_VALUE"
+    http_request.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "field_value", [{"status": "INVALID"}, {"categories": "latency"}, {"categories": [12]}]
+)
+@pytest.mark.parametrize("operation", ["create", "update"])
+def test_issue_rejects_invalid_fields_before_request(issue_sdk, field_value, operation):
+    http_request, _ = issue_sdk
+    kwargs = (
+        {"title": "Latency", "severity": IssueSeverity.HIGH}
+        if operation == "create"
+        else {"issue_id": ISSUE_ID}
+    )
+    with pytest.raises(MlflowException, match=f"(?i){next(iter(field_value))}") as caught:
+        getattr(mlflow.genai, f"{operation}_issue")("1", **kwargs, **field_value)
+
+    assert caught.value.error_code == "INVALID_PARAMETER_VALUE"
+    http_request.assert_not_called()

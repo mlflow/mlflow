@@ -9,6 +9,21 @@ from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.issues_pb2 import Issue as ProtoIssue
 
 
+class IssueCategory(str, Enum):
+    """Built-in issue categories. Custom categories can be supplied as strings."""
+
+    CORRECTNESS = "correctness"
+    LATENCY = "latency"
+    EXECUTION = "execution"
+    ADHERENCE = "adherence"
+    RELEVANCE = "relevance"
+    SAFETY = "safety"
+    COST = "cost"
+
+    def __str__(self) -> str:
+        return self.value
+
+
 class IssueStatus(str, Enum):
     """Enum for status of an :py:class:`mlflow.entities.Issue`."""
 
