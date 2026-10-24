@@ -4,7 +4,7 @@ from unittest.mock import Mock, call
 import pytest
 from requests import Response
 
-from mlflow import MlflowClient
+import mlflow
 from mlflow.entities import IssueResource
 from mlflow.exceptions import MlflowNotImplementedException, RestException
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
@@ -41,14 +41,15 @@ def issue_sdk(request, monkeypatch):
         return store
 
     http_request = Mock()
-    monkeypatch.setattr("mlflow.tracing.issue_client._get_store", get_store)
-    monkeypatch.setattr("mlflow.tracing.issue_client.http_request", http_request)
-    return MlflowClient(tracking_uri=tracking_uri), http_request, credentials
+    monkeypatch.setattr("mlflow.tracking._tracking_service.utils._tracking_uri", tracking_uri)
+    monkeypatch.setattr("mlflow.genai.issues._get_store", get_store)
+    monkeypatch.setattr("mlflow.genai.issues.http_request", http_request)
+    return http_request, credentials
 
 
 @pytest.mark.parametrize("delete_status", [200, 204])
 def test_public_issue_sdk_requests_and_responses(issue_sdk, delete_status):
-    client, http_request, credentials = issue_sdk
+    http_request, credentials = issue_sdk
     payload = {
         "name": RESOURCE_NAME,
         "issue_id": ISSUE_ID,
@@ -71,7 +72,7 @@ def test_public_issue_sdk_requests_and_responses(issue_sdk, delete_status):
         _response({"issues": [updated_payload], "total_size": 2}),
         _response({} if delete_status == 200 else None, delete_status),
     ]
-    created = client.create_issue(
+    created = mlflow.genai.create_issue(
         "1",
         "Latency",
         severity="HIGH",
@@ -84,8 +85,8 @@ def test_public_issue_sdk_requests_and_responses(issue_sdk, delete_status):
     )
     assert isinstance(created, IssueResource)
     assert created.name == RESOURCE_NAME
-    assert client.get_issue("1", ISSUE_ID) == created
-    updated = client.update_issue(
+    assert mlflow.genai.get_issue("1", ISSUE_ID) == created
+    updated = mlflow.genai.update_issue(
         "1",
         ISSUE_ID,
         status="RESOLVED",
@@ -108,15 +109,17 @@ def test_public_issue_sdk_requests_and_responses(issue_sdk, delete_status):
         "sort_order": "ASCENDING",
         "page_size": 1,
     }
-    first = client.search_issues("1", **filters)
+    first = mlflow.genai.search_issues("1", **filters)
     assert first == [created]
     assert first.total_count == 2
     assert first.token == "next-page"
-    second = client.search_issues("1", **filters, page_token=first.token, view="FULL")
+    second = mlflow.genai.search_issues("1", **filters, page_token=first.token, view="FULL")
     assert second == [updated]
     assert second.total_count == 2
     assert second.token is None
-    assert client.delete_issue("1", ISSUE_ID, force=True, sql_warehouse_id="warehouse") is None
+    assert (
+        mlflow.genai.delete_issue("1", ISSUE_ID, force=True, sql_warehouse_id="warehouse") is None
+    )
 
     assert http_request.call_args_list == [
         call(
@@ -184,12 +187,12 @@ def test_public_issue_sdk_requests_and_responses(issue_sdk, delete_status):
 
 @pytest.mark.parametrize(("method", "kwargs"), OPERATIONS)
 def test_public_issue_sdk_preserves_server_errors(issue_sdk, method, kwargs):
-    client, http_request, _ = issue_sdk
+    http_request, _ = issue_sdk
     error = {"error_code": "PERMISSION_DENIED", "message": "Experiment access denied"}
     http_request.return_value = _response(error, 403)
 
     with pytest.raises(RestException, match="Experiment access denied") as caught:
-        getattr(client, method)(**kwargs)
+        getattr(mlflow.genai, method)(**kwargs)
 
     assert caught.value.error_code == "PERMISSION_DENIED"
     assert caught.value.json == error
@@ -198,14 +201,37 @@ def test_public_issue_sdk_preserves_server_errors(issue_sdk, method, kwargs):
 
 @pytest.mark.parametrize(("method", "kwargs"), OPERATIONS)
 def test_public_issue_sdk_rejects_local_tracking_stores(monkeypatch, method, kwargs):
-    client = MlflowClient(tracking_uri="http://issues")
     http_request = Mock()
-    monkeypatch.setattr("mlflow.tracing.issue_client._get_store", lambda uri: object())
-    monkeypatch.setattr("mlflow.tracing.issue_client.http_request", http_request)
+    monkeypatch.setattr("mlflow.genai.issues._get_store", lambda uri: object())
+    monkeypatch.setattr("mlflow.genai.issues.http_request", http_request)
 
     with pytest.raises(
         MlflowNotImplementedException, match="Local tracking stores are not supported"
     ):
-        getattr(client, method)(**kwargs)
+        getattr(mlflow.genai, method)(**kwargs)
 
     http_request.assert_not_called()
+
+
+def test_issue_fluent_api_uses_current_tracking_uri(monkeypatch):
+    credentials = [
+        MlflowHostCreds("https://first-workspace", token="first-token"),
+        MlflowHostCreds("https://second-workspace", token="second-token"),
+    ]
+    stores = {
+        uri: RestStore(lambda creds=creds: creds)
+        for uri, creds in zip(["http://first-workspace", "http://second-workspace"], credentials)
+    }
+    get_store = Mock(side_effect=stores.__getitem__)
+    http_request = Mock(return_value=_response({"issues": []}))
+    monkeypatch.setattr("mlflow.genai.issues._get_store", get_store)
+    monkeypatch.setattr("mlflow.genai.issues.http_request", http_request)
+    monkeypatch.setattr("mlflow.tracking._tracking_service.utils._tracking_uri", None)
+    monkeypatch.delenv("MLFLOW_TRACKING_URI", raising=False)
+
+    for uri in stores:
+        mlflow.set_tracking_uri(uri)
+        assert mlflow.genai.search_issues("1") == []
+
+    assert get_store.call_args_list == [call(uri) for uri in stores]
+    assert [request.kwargs["host_creds"] for request in http_request.call_args_list] == credentials

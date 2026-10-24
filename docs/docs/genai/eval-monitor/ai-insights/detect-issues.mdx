@@ -240,15 +240,15 @@ Rejecting false positives keeps your issue list focused and prevents noise from 
 
 ## Managing Issues with Python
 
-The experimental `MlflowClient` issue methods wrap the experiment-scoped Issues REST APIs. They require a tracking server that exposes those APIs, such as Databricks. They manage issue records; automatic detection runs separately.
+The experimental `mlflow.genai` issue functions wrap the experiment-scoped Issues REST APIs. They require a tracking server that exposes those APIs, such as Databricks. They manage issue records; automatic detection runs separately.
 
 ```python
-from mlflow import MlflowClient
+import mlflow
 
-client = MlflowClient(tracking_uri="databricks")
+mlflow.set_tracking_uri("databricks")
 experiment_id = "1"
 
-issue = client.create_issue(
+issue = mlflow.genai.create_issue(
     experiment_id,
     "Payment retries fail",
     severity="HIGH",
@@ -258,10 +258,10 @@ issue = client.create_issue(
     metadata={"ticket": "PAY-123"},
 )
 
-issue = client.get_issue(experiment_id, issue.issue_id)
-client.update_issue(experiment_id, issue.issue_id, status="RESOLVED")
+issue = mlflow.genai.get_issue(experiment_id, issue.issue_id)
+mlflow.genai.update_issue(experiment_id, issue.issue_id, status="RESOLVED")
 
-page = client.search_issues(
+page = mlflow.genai.search_issues(
     experiment_id,
     statuses=["PENDING"],
     tag_filters=[{"key": "team", "values": ["payments"]}],
@@ -270,7 +270,7 @@ page = client.search_issues(
 for result in page:
     print(result.issue_id, result.title)
 if page.token:
-    next_page = client.search_issues(
+    next_page = mlflow.genai.search_issues(
         experiment_id,
         statuses=["PENDING"],
         tag_filters=[{"key": "team", "values": ["payments"]}],
@@ -278,7 +278,7 @@ if page.token:
         page_token=page.token,
     )
 
-client.delete_issue(experiment_id, issue.issue_id)
+mlflow.genai.delete_issue(experiment_id, issue.issue_id)
 ```
 
 `IssueResource.name` is the full resource path, such as `experiments/1/issues/iss-…`; `title` is the human-readable label. Statuses are `PENDING`, `RESOLVED`, and `REJECTED`; severities are `LOW`, `MEDIUM`, and `HIGH`. Timestamps are RFC 3339 strings.
