@@ -1,3 +1,4 @@
+import os
 from unittest import mock
 
 import pytest
@@ -173,6 +174,44 @@ def test_invoke_issue_detection_job_success():
         assert result["issues"] == 3
         assert result["total_traces_analyzed"] == 2
         assert result["total_cost_usd"] == 0.15
+
+
+@pytest.mark.parametrize(
+    ("username", "expected_username", "expected_password"),
+    [
+        ("alice", "alice", "internal-token"),
+        (None, "unchanged", "unchanged"),
+    ],
+)
+def test_invoke_issue_detection_job_authenticates_as_the_user(
+    monkeypatch, username, expected_username, expected_password
+):
+    monkeypatch.setenv("_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", "internal-token")
+    monkeypatch.setenv("MLFLOW_TRACKING_USERNAME", "unchanged")
+    monkeypatch.setenv("MLFLOW_TRACKING_PASSWORD", "unchanged")
+    captured = {}
+
+    def _client(*args, **kwargs):
+        # The job's very first request (a server-info probe) must already carry the user's
+        # credentials, so capture them when the client is created.
+        captured["username"] = os.environ["MLFLOW_TRACKING_USERNAME"]
+        captured["password"] = os.environ["MLFLOW_TRACKING_PASSWORD"]
+        return mock.MagicMock()
+
+    with (
+        mock.patch("mlflow.genai.discovery.job.MlflowClient", side_effect=_client),
+        mock.patch("mlflow.genai.discovery.job.discover_issues"),
+    ):
+        invoke_issue_detection_job(
+            experiment_id="exp-123",
+            trace_ids=["trace-1"],
+            categories=["correctness"],
+            run_id="run-123",
+            model="gateway:/my-endpoint",
+            username=username,
+        )
+
+    assert captured == {"username": expected_username, "password": expected_password}
 
 
 def test_invoke_issue_detection_job_with_endpoint():

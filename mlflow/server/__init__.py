@@ -625,14 +625,17 @@ def _run_server(
 
                 validate_and_resolve_sql_trace_rollup_schedule()
 
-    if app_name == "basic-auth":
+    if app_name:
         # Generate the token here (before forking uvicorn workers) so that all worker processes
         # and job subprocesses share the same token. Server-internal callers of the in-server
         # gateway (job workers, and the MLflow Assistant's gateway provider) authenticate their
         # own requests with it, so it must exist on any auth-enabled server, independent of
-        # whether job execution is available.
+        # whether job execution is available. Any auth app gets it, not only the built-in
+        # basic-auth: a third-party app (e.g. mlflow-oidc-auth) reads it from the environment to
+        # trust job subprocesses acting for the user who started them.
         env_map[_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name] = secrets.token_hex(32)
 
+    if app_name == "basic-auth":
         # Key for signing and verifying MLflow Assistant delegation credentials. Generated here so
         # all worker processes share it, but deliberately excluded from the job runner env below so
         # that code running in a job subprocess (e.g. a user-supplied scorer) cannot mint one. A

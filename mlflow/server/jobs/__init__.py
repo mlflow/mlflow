@@ -9,6 +9,7 @@ from typing import Any, Callable, ParamSpec, TypeVar
 from mlflow.entities._job import Job as JobEntity
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import PERMISSION_DENIED
 from mlflow.server.handlers import _get_job_store
 from mlflow.utils.environment import _PythonEnv
 
@@ -348,6 +349,14 @@ def submit_job(
     # Resolve it before create_job so the creator is recorded on both engine paths.
     if creator is None:
         creator = _current_authenticated_user()
+    # Jobs that take a ``username`` param authenticate their tracking and gateway requests as that
+    # user with the server's internal gateway token, so it must be the authenticated submitter.
+    # Otherwise a caller could submit a job naming another user and act on their behalf.
+    if (username := params.get("username")) is not None and username != creator:
+        raise MlflowException(
+            "The 'username' job param must match the authenticated user submitting the job.",
+            error_code=PERMISSION_DENIED,
+        )
     job = job_store.create_job(
         fn_meta.name, serialized_params, timeout, creator=creator, executor_backend=executor_backend
     )

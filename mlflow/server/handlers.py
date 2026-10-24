@@ -413,6 +413,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_TRACE_ARCHIVAL_FAILURE,
     MLFLOW_TRACE_ARCHIVE_LOCATION,
     MLFLOW_TRACE_SPANS_LOCATION,
+    MLFLOW_USER,
 )
 from mlflow.utils.promptlab_utils import _create_promptlab_run_impl
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
@@ -5785,6 +5786,10 @@ def _invoke_issue_detection_handler():
     }
     if endpoint_name:
         tags["endpoint_name"] = endpoint_name
+    username = _get_request_username()
+    if username:
+        # The run is created here, server-side, so record its creator explicitly.
+        tags[MLFLOW_USER] = username
     run = mlflow.start_run(
         experiment_id=experiment_id,
         tags=tags,
@@ -5799,6 +5804,7 @@ def _invoke_issue_detection_handler():
             "categories": categories,
             "run_id": run_id,
             "model": model_name,
+            "username": username,
         },
         extra_envs=credentials,
     )
@@ -5903,14 +5909,19 @@ def _invoke_genai_evaluate_handler():
     for serialized_scorer in serialized_scorers:
         _validate_serialized_scorer_payload(serialized_scorer)
 
+    # The auth plugin's authenticated user, whatever the credential (an auth app's browser
+    # session has no Basic Authorization header to read a username from).
+    username = _get_request_username()
+
     # Create the run upfront so we can return run_id immediately, so the run
     # shows up on /evaluation-runs even before the job has produced artifacts.
     tags = {MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_GENAI_EVALUATE}
+    if username:
+        # The run is created here, server-side, so record its creator explicitly.
+        tags[MLFLOW_USER] = username
     client = MlflowClient()
     run = client.create_run(experiment_id=experiment_id, tags=tags)
     run_id = run.info.run_id
-
-    username = request.authorization.username if request.authorization else None
 
     try:
         job = submit_job(
@@ -7891,9 +7902,9 @@ def _invoke_scorer_handler():
     _validate_trace_ids_in_experiment(tracking_store, trace_ids, experiment_id)
     batches = get_trace_batches_for_scorer(trace_ids, scorer, tracking_store)
 
-    # Extract the authenticated username so that job subprocesses can make
-    # gateway requests authorised as the original user (not the admin).
-    username = request.authorization.username if request.authorization else None
+    # The auth plugin's authenticated user, so that job subprocesses can make gateway requests
+    # authorised as the original user (not the admin). It is also the recorded job creator.
+    username = _get_request_username()
 
     jobs = []
     for batch_trace_ids in batches:

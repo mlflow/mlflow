@@ -13,6 +13,7 @@ from mlflow import server
 from mlflow.environment_variables import (
     _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED,
     _MLFLOW_IN_JOB_EXECUTOR,
+    _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     _MLFLOW_SERVER_BOOT_ID,
     _MLFLOW_SERVER_TLS_LISTENER,
     _MLFLOW_SGI_NAME,
@@ -253,6 +254,45 @@ def test_run_server_marks_a_tls_listener_for_workers(
 
     extra_env = mock_exec_cmd.call_args.kwargs["extra_env"]
     assert extra_env[_MLFLOW_SERVER_TLS_LISTENER.name] == expected
+
+
+@pytest.mark.parametrize(
+    ("app_name", "expect_token"),
+    [
+        ("basic-auth", True),
+        # A third-party auth app reads the token from the environment, so it gets one too.
+        ("oidc-auth", True),
+        (None, False),
+    ],
+)
+def test_run_server_generates_internal_gateway_token_for_auth_apps(
+    mock_exec_cmd, monkeypatch, app_name, expect_token
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    with (
+        mock.patch("sys.platform", return_value="linux"),
+        mock.patch("mlflow.server._find_app", return_value="some.module:app"),
+        mock.patch("mlflow.server._is_factory", return_value=False),
+        mock.patch("mlflow.server._bootstrap_basic_auth"),
+    ):
+        server._run_server(
+            file_store_path="",
+            registry_store_uri="",
+            default_artifact_root="",
+            serve_artifacts="",
+            artifacts_only="",
+            artifacts_destination="",
+            host="",
+            port="",
+            app_name=app_name,
+        )
+
+    extra_env = mock_exec_cmd.call_args.kwargs["extra_env"]
+    if expect_token:
+        assert len(extra_env[_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name]) == 64
+    else:
+        assert _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name not in extra_env
 
 
 def test_run_server_rejects_invalid_enabled_rollup_schedule(mock_exec_cmd, monkeypatch):
