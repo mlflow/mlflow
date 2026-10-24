@@ -266,11 +266,16 @@ class AnthropicAdapter(ProviderAdapter):
                     )
 
                 tool_function = tool["function"]
-                converted_tools.append({
+                # `description` and `parameters` are optional in OpenAI tool definitions,
+                # but Anthropic requires `input_schema`, so default to a no-argument schema.
+                converted_tool = {
                     "name": tool_function["name"],
-                    "description": tool_function["description"],
-                    "input_schema": tool_function["parameters"],
-                })
+                    "input_schema": tool_function.get("parameters")
+                    or {"type": "object", "properties": {}},
+                }
+                if description := tool_function.get("description"):
+                    converted_tool["description"] = description
+                converted_tools.append(converted_tool)
 
             payload["tools"] = converted_tools
 
