@@ -6,6 +6,7 @@ import zlib
 from typing import Any
 from unittest import mock
 
+import pydantic
 import pytest
 from aiohttp import ClientTimeout
 from fastapi import HTTPException
@@ -732,6 +733,58 @@ def _tool_stream_events(*blocks):
     return {"stream": iter(events)}
 
 
+def test_bedrock_config_guardrail_defaults_to_none():
+    config = AmazonBedrockConfig.model_validate({
+        "aws_config": {"aws_region": "us-east-1", "aws_role_arn": "test-aws-role-arn"}
+    })
+    assert config.guardrail_config is None
+
+
+@pytest.mark.parametrize("trace", [None, "enabled", "disabled", "enabled_full"])
+def test_bedrock_config_accepts_guardrail(trace):
+    guardrail = {"guardrail_identifier": "gr-abc123", "guardrail_version": "DRAFT"}
+    if trace is not None:
+        guardrail["trace"] = trace
+    config = AmazonBedrockConfig.model_validate({
+        "aws_config": {"aws_region": "us-east-1", "aws_role_arn": "test-aws-role-arn"},
+        "guardrail_config": guardrail,
+    })
+    assert config.guardrail_config.guardrail_identifier == "gr-abc123"
+    assert config.guardrail_config.guardrail_version == "DRAFT"
+    assert config.guardrail_config.trace == trace
+
+
+def test_bedrock_config_rejects_invalid_guardrail_trace():
+    with pytest.raises(pydantic.ValidationError, match="guardrail_config.trace"):
+        AmazonBedrockConfig.model_validate({
+            "aws_config": {"aws_region": "us-east-1", "aws_role_arn": "test-aws-role-arn"},
+            "guardrail_config": {
+                "guardrail_identifier": "gr-abc123",
+                "guardrail_version": "DRAFT",
+                "trace": "verbose",
+            },
+        })
+
+
+def _make_converse_provider_with_guardrail(trace=None):
+    guardrail = {"guardrail_identifier": "gr-abc123", "guardrail_version": "DRAFT"}
+    if trace is not None:
+        guardrail["trace"] = trace
+    config = {
+        "name": "chat",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "bedrock",
+            "name": "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+            "config": {
+                "aws_config": {"aws_region": "us-east-1"},
+                "guardrail_config": guardrail,
+            },
+        },
+    }
+    return AmazonBedrockProvider(EndpointConfig(**config))
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("blocks", "expected"),
@@ -755,6 +808,100 @@ async def test_bedrock_converse_chat_stream_tool_call_index(blocks, expected):
     tool_calls = [tc for c in chunks for tc in c["choices"][0]["delta"].get("tool_calls") or []]
     assert [(tc["index"], tc.get("id")) for tc in tool_calls] == expected
     mock_client.converse_stream.assert_called_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("trace", "expected_guardrail"),
+    [
+        (None, {"guardrailIdentifier": "gr-abc123", "guardrailVersion": "DRAFT"}),
+        (
+            "enabled",
+            {
+                "guardrailIdentifier": "gr-abc123",
+                "guardrailVersion": "DRAFT",
+                "trace": "enabled",
+            },
+        ),
+    ],
+)
+async def test_bedrock_converse_chat_passes_guardrail_config(trace, expected_guardrail):
+    provider = _make_converse_provider_with_guardrail(trace=trace)
+    mock_client = mock.Mock()
+    mock_client.converse.return_value = _converse_response()
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        await provider.chat(chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}]))
+
+    mock_client.converse.assert_called_once()
+    assert mock_client.converse.call_args.kwargs["guardrailConfig"] == expected_guardrail
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_chat_stream_passes_guardrail_config():
+    provider = _make_converse_provider_with_guardrail()
+    mock_client = mock.Mock()
+    mock_client.converse_stream.return_value = _converse_stream_response()
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}])
+        [chunk async for chunk in provider.chat_stream(payload)]
+
+    mock_client.converse_stream.assert_called_once()
+    assert mock_client.converse_stream.call_args.kwargs["guardrailConfig"] == {
+        "guardrailIdentifier": "gr-abc123",
+        "guardrailVersion": "DRAFT",
+    }
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_chat_omits_guardrail_config_when_unset():
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    mock_client.converse.return_value = _converse_response()
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        await provider.chat(chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}]))
+
+    mock_client.converse.assert_called_once()
+    assert "guardrailConfig" not in mock_client.converse.call_args.kwargs
+
+
+@pytest.mark.asyncio
+async def test_bedrock_token_auth_converse_passes_guardrail_config():
+    config = {
+        "name": "chat",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "bedrock",
+            "name": "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+            "config": {
+                "aws_config": {
+                    "aws_bearer_token": "bedrock-api-key",
+                    "aws_region": "us-east-1",
+                },
+                "guardrail_config": {
+                    "guardrail_identifier": "gr-abc123",
+                    "guardrail_version": "DRAFT",
+                    "trace": "enabled",
+                },
+            },
+        },
+    }
+    provider = AmazonBedrockProvider(EndpointConfig(**config))
+
+    with mock.patch(
+        "mlflow.gateway.providers.bedrock.send_request",
+        return_value=_converse_response(),
+    ) as mock_send_request:
+        await provider.chat(chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}]))
+
+    mock_send_request.assert_called_once()
+    assert mock_send_request.call_args.kwargs["payload"]["guardrailConfig"] == {
+        "guardrailIdentifier": "gr-abc123",
+        "guardrailVersion": "DRAFT",
+        "trace": "enabled",
+    }
 
 
 @pytest.mark.asyncio

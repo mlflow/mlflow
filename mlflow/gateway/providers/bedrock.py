@@ -519,7 +519,24 @@ class AmazonBedrockProvider(BaseProvider):
             if bedrock_tools:
                 kwargs["toolConfig"] = {"tools": bedrock_tools}
 
+        if guardrail_config := self._build_guardrail_config():
+            kwargs["guardrailConfig"] = guardrail_config
+
         return kwargs
+
+    def _build_guardrail_config(self) -> dict[str, str] | None:
+        """Build the Converse API ``guardrailConfig`` from the endpoint's guardrail settings."""
+        guardrail = self.bedrock_config.guardrail_config
+        if not guardrail:
+            return None
+
+        guardrail_config = {
+            "guardrailIdentifier": guardrail.guardrail_identifier,
+            "guardrailVersion": guardrail.guardrail_version,
+        }
+        if guardrail.trace:
+            guardrail_config["trace"] = guardrail.trace
+        return guardrail_config
 
     @staticmethod
     def _normalize_content_text(content: Any) -> str:
