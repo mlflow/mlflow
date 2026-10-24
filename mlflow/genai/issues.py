@@ -7,8 +7,11 @@ and require a server exposing the experiment-scoped Issues REST APIs.
 from typing import Any
 from urllib.parse import quote
 
+from mlflow.entities.issue import IssueCategory, IssueSeverity, IssueStatus
 from mlflow.entities.issue_resource import IssueResource
+from mlflow.environment_variables import MLFLOW_TRACING_SQL_WAREHOUSE_ID
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
+from mlflow.genai._issues_search import _parse_issue_filter
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import NOT_SET
 from mlflow.store.tracking.rest_store import RestStore
@@ -16,6 +19,30 @@ from mlflow.tracking import get_tracking_uri
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.utils.annotations import experimental
 from mlflow.utils.rest_utils import http_request, verify_rest_response
+
+
+def _enum_name(value: str, enum_type: type[IssueSeverity] | type[IssueStatus]) -> str:
+    try:
+        member = enum_type(value.lower())
+        if member is IssueSeverity.NOT_AN_ISSUE:
+            raise ValueError
+        return member.name
+    except (AttributeError, TypeError, ValueError):
+        valid = [member.value for member in enum_type if member is not IssueSeverity.NOT_AN_ISSUE]
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid {enum_type.__name__.removeprefix('Issue').lower()} {value!r}. "
+            f"Expected one of {valid}."
+        ) from None
+
+
+def _category_values(categories: list[IssueCategory | str] | None) -> list[str] | None:
+    if categories is None:
+        return None
+    if not isinstance(categories, list) or any(not isinstance(value, str) for value in categories):
+        raise MlflowException.invalid_parameter_value(
+            "categories must be a list of IssueCategory values or custom category strings"
+        )
+    return [value.value if isinstance(value, IssueCategory) else value for value in categories]
 
 
 def _metadata_mask_path(key: str) -> str:
@@ -62,10 +89,10 @@ def create_issue(
     experiment_id: str,
     title: str,
     *,
-    severity: str,
+    severity: IssueSeverity | str,
     description: str = "",
-    status: str = "PENDING",
-    categories: list[str] | None = None,
+    status: IssueStatus | str = IssueStatus.PENDING,
+    categories: list[IssueCategory | str] | None = None,
     tags: dict[str, str] | None = None,
     last_seen_time: str | None = None,
     source_type: str = "MANUAL",
@@ -78,10 +105,10 @@ def create_issue(
     Args:
         experiment_id: Experiment that owns the issue.
         title: Human-readable issue title.
-        severity: ``LOW``, ``MEDIUM``, or ``HIGH``.
+        severity: An :py:class:`mlflow.entities.IssueSeverity` value (low, medium, or high).
         description: Markdown description of the issue.
-        status: ``PENDING``, ``RESOLVED``, or ``REJECTED``.
-        categories: Issue category labels.
+        status: An :py:class:`mlflow.entities.IssueStatus` value.
+        categories: :py:class:`mlflow.entities.IssueCategory` values or custom category strings.
         tags: String tags that can be used to filter issues.
         last_seen_time: Most recent observation as an RFC 3339 timestamp.
         source_type: ``MANUAL``, ``ADHOC_RUN``, ``SCHEDULED_RUN``, or
@@ -98,12 +125,13 @@ def create_issue(
         .. code-block:: python
 
             import mlflow
+            from mlflow.entities import IssueCategory, IssueSeverity
 
             issue = mlflow.genai.create_issue(
                 experiment_id="1",
                 title="Payment retries fail",
-                severity="HIGH",
-                categories=["correctness"],
+                severity=IssueSeverity.HIGH,
+                categories=[IssueCategory.CORRECTNESS],
             )
             print(issue.issue_id, issue.title)
     """
@@ -112,10 +140,10 @@ def create_issue(
         key: value
         for key, value in {
             "title": title,
-            "severity": severity,
+            "severity": _enum_name(severity, IssueSeverity),
             "description": description,
-            "status": status,
-            "categories": categories,
+            "status": _enum_name(status, IssueStatus),
+            "categories": _category_values(categories),
             "tags": tags,
             "last_seen_time": last_seen_time,
             "source_type": source_type,
@@ -153,9 +181,9 @@ def update_issue(
     *,
     title: str = NOT_SET,
     description: str | None = NOT_SET,
-    status: str = NOT_SET,
-    severity: str = NOT_SET,
-    categories: list[str] | None = NOT_SET,
+    status: IssueStatus | str = NOT_SET,
+    severity: IssueSeverity | str = NOT_SET,
+    categories: list[IssueCategory | str] | None = NOT_SET,
     tags: dict[str, str] | None = NOT_SET,
     last_seen_time: str | None = NOT_SET,
     metadata: dict[str, str] | None = None,
@@ -172,9 +200,9 @@ def update_issue(
         issue_id: Issue ID to update.
         title: New human-readable title.
         description: New Markdown description, or ``None`` to clear it.
-        status: ``PENDING``, ``RESOLVED``, or ``REJECTED``.
-        severity: ``LOW``, ``MEDIUM``, or ``HIGH``.
-        categories: Replacement category labels; ``[]`` or ``None`` clears them.
+        status: New :py:class:`mlflow.entities.IssueStatus` value.
+        severity: New :py:class:`mlflow.entities.IssueSeverity` value (low, medium, or high).
+        categories: Replacement built-in or custom categories; ``[]`` or ``None`` clears them.
         tags: Replacement tags; ``{}`` or ``None`` clears them.
         last_seen_time: RFC 3339 timestamp. ``None`` resets a manual issue to its
             creation time; issues produced by detection must retain an observation time.
@@ -189,9 +217,9 @@ def update_issue(
     fields = {
         "title": title,
         "description": description,
-        "status": status,
-        "severity": severity,
-        "categories": categories,
+        "status": _enum_name(status, IssueStatus) if status is not NOT_SET else NOT_SET,
+        "severity": _enum_name(severity, IssueSeverity) if severity is not NOT_SET else NOT_SET,
+        "categories": _category_values(categories) if categories is not NOT_SET else NOT_SET,
         "tags": tags,
         "last_seen_time": last_seen_time,
     }
@@ -229,12 +257,8 @@ def update_issue(
 @experimental(version="3.18.0")
 def search_issues(
     experiment_id: str,
+    filter_string: str | None = None,
     *,
-    query: str | None = None,
-    statuses: list[str] | None = None,
-    severities: list[str] | None = None,
-    categories: list[str] | None = None,
-    tag_filters: list[dict[str, Any]] | None = None,
     sort_key: str | None = None,
     sort_order: str | None = None,
     page_size: int | None = None,
@@ -243,16 +267,14 @@ def search_issues(
 ) -> PagedList[IssueResource]:
     """Search one experiment's issues with filters and pagination.
 
-    Values within each filter are ORed; different filters are ANDed.
-
     Args:
         experiment_id: Experiment to search.
-        query: Case-insensitive substring of the issue title.
-        statuses: ``PENDING``, ``RESOLVED``, or ``REJECTED`` values to match.
-        severities: ``LOW``, ``MEDIUM``, or ``HIGH`` values to match.
-        categories: Category labels to match.
-        tag_filters: Filters such as ``[{"key": "team", "values": ["payments"]}]``.
-            Omitting ``values`` matches any issue with the specified key.
+        filter_string: SQL-like filter joined with ``AND``. Supports ``=`` and ``IN``
+            for ``status``, ``severity``, ``category`` (or ``categories``), and ``tags.<key>``;
+            ``tags.<key> IS NOT NULL`` tests tag presence. Use ``title ILIKE '%text%'``
+            for a case-insensitive title substring. For example,
+            ``"status = 'PENDING' AND severity IN ('HIGH', 'MEDIUM')"``.
+            Unsupported comparisons raise an error.
         sort_key: ``SEVERITY``, ``LAST_SEEN_TIME``, ``UPDATE_TIME``, or ``CREATE_TIME``.
         sort_order: ``DESCENDING`` or ``ASCENDING``. Issues are grouped by status first.
         page_size: Page size; defaults to 20, with a maximum of 100.
@@ -270,11 +292,7 @@ def search_issues(
         key: value
         for key, value in {
             "parent": f"experiments/{experiment_id}",
-            "query": query,
-            "statuses": statuses,
-            "severities": severities,
-            "categories": categories,
-            "tag_filters": tag_filters,
+            **_parse_issue_filter(filter_string),
             "sort_key": sort_key,
             "sort_order": sort_order,
             "page_size": page_size,
@@ -292,25 +310,22 @@ def search_issues(
 
 
 @experimental(version="3.18.0")
-def delete_issue(
-    experiment_id: str, issue_id: str, *, force: bool = False, sql_warehouse_id: str | None = None
-) -> None:
+def delete_issue(experiment_id: str, issue_id: str, *, force: bool = False) -> None:
     """Delete an issue from its owning experiment.
 
     On Databricks, deletion fails while assessments on Unity Catalog traces reference
     the issue unless ``force=True``. Forced deletion removes those references first
-    and requires a SQL warehouse.
+    and uses the ``MLFLOW_TRACING_SQL_WAREHOUSE_ID`` environment variable to select a SQL warehouse.
 
     Args:
         experiment_id: Experiment that owns the issue.
         issue_id: Issue ID to delete.
         force: Remove Unity Catalog trace references before deleting the issue.
-        sql_warehouse_id: Databricks SQL warehouse used for Unity Catalog trace cleanup.
     """
     path = _path(experiment_id, issue_id)
     if type(force) is not bool:
         raise MlflowException.invalid_parameter_value("force must be a boolean")
     params = {"force": str(force).lower()}
-    if sql_warehouse_id is not None:
-        params["sql_warehouse_id"] = sql_warehouse_id
+    if force and (warehouse_id := MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()):
+        params["sql_warehouse_id"] = warehouse_id
     _request("DELETE", path, params=params)
