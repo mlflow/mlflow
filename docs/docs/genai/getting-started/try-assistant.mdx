@@ -192,7 +192,7 @@ Yes! MLflow AI Assistant uses your existing coding agent subscription or model p
 <details>
 <summary><strong>Does the assistant have access to my data?</strong></summary>
 
-The assistant runs on the machine that runs the MLflow server. To answer you, it sends your messages, and the MLflow data and code it reads, to the model of the backend you choose: the model provider of Claude Code or Codex, the provider of a hosted model behind an MLflow AI Gateway endpoint, or a local Ollama model, which keeps everything on your machine. It reads your project code only if you link a project path in the settings.
+The assistant runs on the machine that runs the MLflow server. To answer you, it sends your messages, and the MLflow data and code it reads, to the model of the backend you choose: the model provider of Claude Code or Codex, the provider of a hosted model behind an MLflow AI Gateway endpoint, or a local Ollama model, which keeps everything on your machine. Linking a project path in the settings sets the folder the assistant works in, but it does not limit what the assistant can read: without the sandbox, the coding agent can read files that the server's user can read, depending on the backend and the permissions you grant (with **Full access**, any of them).
 
 </details>
 
