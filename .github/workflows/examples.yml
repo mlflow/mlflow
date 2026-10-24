@@ -16,7 +16,6 @@ on:
       - ".github/workflows/typescript.yml"
       - ".claude/**"
   schedule:
-    # Run this action daily at 02:00 JST
     - cron: "0 2 * * *"
       timezone: "Asia/Tokyo"
   workflow_dispatch:
