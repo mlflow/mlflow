@@ -244,8 +244,14 @@ jobs:
             echo 'Could not retrieve the baseline snapshot; see the gh diagnostic above. Comparison skipped.'
             exit 1
           fi
-          jq --sort-keys . "$previous_dir/snapshot.json" > "$previous_dir/previous.json"
-          jq --sort-keys . snapshot.json > "$previous_dir/current.json"
+          if ! jq --exit-status --sort-keys . "$previous_dir/snapshot.json" > "$previous_dir/previous.json"; then
+            echo 'Invalid baseline snapshot JSON; comparison skipped.'
+            exit 1
+          fi
+          if ! jq --exit-status --sort-keys . snapshot.json > "$previous_dir/current.json"; then
+            echo 'Invalid current snapshot JSON; comparison skipped.'
+            exit 1
+          fi
           diff_status=0
           diff -u --label "Previous run $PREVIOUS_RUN_ID" --label 'Current snapshot' \
             "$previous_dir/previous.json" "$previous_dir/current.json" > "$previous_dir/changes.diff" || diff_status=$?
