@@ -209,6 +209,7 @@ export const ReviewerChecklistCombobox = ({
       <DialogComboboxTrigger
         allowClear={false}
         disabled={disabled}
+        width="100%"
         placeholder={intl.formatMessage({
           defaultMessage: 'Select reviewers',
           description: 'Review queue: reviewers dropdown placeholder',

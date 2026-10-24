@@ -70,7 +70,7 @@ export const QuestionChecklistCombobox = ({
           description: 'Review queue: questions dropdown placeholder',
         })}
       />
-      <DialogComboboxContent maxHeight={240} matchTriggerWidth style={{ zIndex: dropdownZIndex }}>
+      <DialogComboboxContent maxHeight={240} maxWidth={592} style={{ zIndex: dropdownZIndex }}>
         <DialogComboboxOptionList>
           <DialogComboboxOptionListSearch controlledValue={search} setControlledValue={setSearch}>
             {onCreateQuestion && !search.trim() && (
