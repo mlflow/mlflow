@@ -939,6 +939,74 @@ def test_download_without_file_size_uses_storage(
         server.server_close()
 
 
+def _presigned_not_implemented_error():
+    mock_response = mock.MagicMock()
+    mock_response.status_code = 501
+    mock_response.headers = {"Content-Type": "application/json"}
+    return HTTPError(response=mock_response)
+
+
+def test_download_file_falls_back_when_auto_detected_presigned_download_is_not_implemented(
+    mlflow_artifact_repo_for_download, tmp_path, monkeypatch
+):
+    # The server advertises multipart downloads via /server-info, but cannot sign a URL
+    # (e.g. GCS/Azure credentials without signing permission) and responds with 501.
+    monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", raising=False)
+    mlflow_artifact_repo_for_download._server_capabilities = None
+    server_info = mock.Mock(
+        status_code=200,
+        data={SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED: True},
+    )
+
+    with (
+        mock.patch(
+            "mlflow.store.artifact.http_artifact_repo.fetch_server_info",
+            return_value=server_info,
+        ) as mock_fetch_server_info,
+        mock.patch.object(
+            mlflow_artifact_repo_for_download,
+            "_get_presigned_download_url",
+            side_effect=_presigned_not_implemented_error(),
+        ) as mock_get_presigned,
+        mock.patch(
+            "mlflow.store.artifact.http_artifact_repo.http_request",
+            return_value=MockStreamResponse("data", 200),
+        ) as mock_http_request,
+    ):
+        mlflow_artifact_repo_for_download._download_file("a.txt", str(tmp_path / "a.txt"))
+
+    mock_get_presigned.assert_called_once_with("a.txt")
+    mock_fetch_server_info.assert_called_once()
+    mock_http_request.assert_called_once()
+    assert (tmp_path / "a.txt").read_text() == "data"
+
+
+def test_download_file_raises_on_other_auto_detected_presigned_download_errors(
+    mlflow_artifact_repo_for_download, tmp_path, monkeypatch
+):
+    monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", raising=False)
+    mlflow_artifact_repo_for_download._server_capabilities = None
+    server_info = mock.Mock(
+        status_code=200,
+        data={SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED: True},
+    )
+    error_response = mock.MagicMock(status_code=500)
+
+    with (
+        mock.patch(
+            "mlflow.store.artifact.http_artifact_repo.fetch_server_info",
+            return_value=server_info,
+        ),
+        mock.patch.object(
+            mlflow_artifact_repo_for_download,
+            "_get_presigned_download_url",
+            side_effect=HTTPError("500 Server Error", response=error_response),
+        ),
+        pytest.raises(HTTPError, match="500 Server Error"),
+    ):
+        mlflow_artifact_repo_for_download._download_file("a.txt", str(tmp_path / "a.txt"))
+
+
 def test_download_file_multipart_disabled_uses_proxy(
     mlflow_artifact_repo_for_download, tmp_path, monkeypatch
 ):

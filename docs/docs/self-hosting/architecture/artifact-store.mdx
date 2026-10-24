@@ -325,6 +325,39 @@ Downloads can exceed this preview limit.
 MLflow supports presigned URL downloads for the following storage:
 
 - Amazon S3
+- Google Cloud Storage
+- Azure Blob Storage
+
+Presigned URLs are signed by the Tracking Server using the credentials it uses to access the storage, so those
+credentials must be able to sign:
+
+- **Google Cloud Storage**: the credentials must be able to sign, for example a service account key file
+  (`GOOGLE_APPLICATION_CREDENTIALS`), or impersonated service account credentials, which sign remotely through the IAM
+  `signBlob` API and need permission to call it (for example the Service Account Token Creator role). User credentials
+  from `gcloud auth application-default login`, the Compute Engine/GKE metadata server, Workload Identity Federation and
+  anonymous credentials cannot sign URLs.
+- **Azure Blob Storage**: use an account key (`AZURE_STORAGE_ACCESS_KEY` or `AZURE_STORAGE_CONNECTION_STRING` with an
+  account key), or Microsoft Entra ID credentials (such as `DefaultAzureCredential`) for an identity allowed to
+  request a user delegation key, for example one with the
+  [Storage Blob Delegator](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/storage#storage-blob-delegator)
+  role in addition to read access to the blobs. SAS token and anonymous credentials cannot sign.
+
+If the credentials cannot sign, the Tracking Server responds to presigned download requests with HTTP 501
+(`NOT_IMPLEMENTED`) and the UI falls back to downloading the artifact through the Tracking Server.
+Failing to sign through the IAM `signBlob` API, such as when impersonated Google credentials lack permission to sign,
+also results in HTTP 501. Only transient failures that google-auth marks as retryable, such as a temporary failure to
+refresh the access token, are reported as ordinary server errors.
+
+With [proxied artifact access](/self-hosting/architecture/tracking-server#tracking-server-artifact-store), the Tracking
+Server advertises presigned downloads to the Python client (the `multipart_downloads_enabled` field of `/server-info`)
+only when `MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD` is enabled on the server and it can sign, so the Python client
+otherwise keeps downloading artifacts through the Tracking Server, as before.
+For Google Cloud Storage this means credentials that can sign (a service account key file or impersonated service account
+credentials), and for Azure Blob Storage an account key.
+Microsoft Entra ID credentials are not advertised for proxied artifact access, even though they can sign when a
+presigned URL is requested explicitly. Python clients that include the HTTP 501 fallback also recover if a server
+advertises presigned downloads but cannot sign (for example, impersonated Google credentials that lack permission to
+sign); earlier clients (MLflow 3.15.0 through 3.17.0) rely on the server not advertising them.
 
 You can configure the following environment variable:
 
