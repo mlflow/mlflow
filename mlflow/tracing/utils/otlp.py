@@ -93,12 +93,15 @@ def _get_otlp_traces_endpoint() -> str | None:
 
     Per the OTel spec:
     - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: Full URL used as-is
-    - OTEL_EXPORTER_OTLP_ENDPOINT: Base URL, requires appending signal path
+    - OTEL_EXPORTER_OTLP_ENDPOINT: Base URL, requires appending signal path for OTLP/HTTP.
+      For OTLP/gRPC, it is used as-is.
     """
     if traces_endpoint := os.environ.get("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"):
         return traces_endpoint
 
     if base_endpoint := os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"):
+        if _get_otlp_protocol() == "grpc":
+            return base_endpoint
         return base_endpoint.rstrip("/") + OTLP_TRACES_PATH
 
     return None
@@ -110,12 +113,15 @@ def _get_otlp_metrics_endpoint() -> str | None:
 
     Per the OTel spec:
     - OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: Full URL used as-is
-    - OTEL_EXPORTER_OTLP_ENDPOINT: Base URL, requires appending signal path
+    - OTEL_EXPORTER_OTLP_ENDPOINT: Base URL, requires appending signal path for OTLP/HTTP.
+      For OTLP/gRPC, it is used as-is.
     """
     if metrics_endpoint := os.environ.get("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"):
         return metrics_endpoint
 
     if base_endpoint := os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"):
+        if _get_otlp_metrics_protocol() == "grpc":
+            return base_endpoint
         return base_endpoint.rstrip("/") + OTLP_METRICS_PATH
 
     return None
