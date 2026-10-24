@@ -74,7 +74,13 @@ def _uv_prefix() -> list[str]:
 
 
 def _subprocess_env() -> dict[str, str]:
-    return os.environ | {"OBJC_DISABLE_INITIALIZE_FORK_SAFETY": "YES"}
+    return os.environ | {
+        "OBJC_DISABLE_INITIALIZE_FORK_SAFETY": "YES",
+        # The benchmarked endpoint points at the local fake OpenAI server over plain HTTP on
+        # loopback, which the gateway secret `api_base` SSRF guard rejects by default.
+        "MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES": "http,https",
+        "MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS": "true",
+    }
 
 
 def _wait_for_port(port: int, label: str, log_file: Path | None = None, timeout: int = 30) -> None:
