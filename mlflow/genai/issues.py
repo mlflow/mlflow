@@ -14,7 +14,7 @@ def create_issue(
     name: str,
     *,
     severity: IssueSeverity,
-    description: str = "",
+    description: str,
     status: IssueStatus = IssueStatus.PENDING,
     categories: list[IssueCategory | str] | None = None,
     last_seen_timestamp: int | None = None,
@@ -57,16 +57,19 @@ def create_issue(
 
 
 @experimental(version="3.18.0")
-def get_issue(issue_id: str) -> Issue:
+def get_issue(issue_id: str, *, experiment_id: str | None = None) -> Issue:
     """Get an issue by ID.
 
     Args:
         issue_id: Issue ID.
+        experiment_id: Parent experiment for Databricks routing. Defaults to the active experiment.
 
     Returns:
         The :py:class:`mlflow.entities.Issue`.
     """
-    return TracingClient()._get_issue(issue_id)
+    if experiment_id is None:
+        experiment_id = _get_experiment_id()
+    return TracingClient()._get_issue(issue_id, experiment_id=experiment_id)
 
 
 @experimental(version="3.18.0")
@@ -81,6 +84,7 @@ def update_issue(
     last_seen_timestamp: int | None = None,
     metadata: dict[str, str] | None = None,
     delete_metadata_keys: list[str] | None = None,
+    experiment_id: str | None = None,
 ) -> Issue:
     """Update issue fields. Arguments set to ``None`` retain their values.
 
@@ -94,10 +98,13 @@ def update_issue(
         last_seen_timestamp: Most recent observation in milliseconds since the epoch.
         metadata: Metadata entries to add or replace.
         delete_metadata_keys: Metadata keys to remove.
+        experiment_id: Parent experiment for Databricks routing. Defaults to the active experiment.
 
     Returns:
         The updated :py:class:`mlflow.entities.Issue`.
     """
+    if experiment_id is None:
+        experiment_id = _get_experiment_id()
     return TracingClient()._update_issue(
         issue_id,
         name=name,
@@ -108,6 +115,7 @@ def update_issue(
         last_seen_timestamp=last_seen_timestamp,
         metadata=metadata,
         delete_metadata_keys=delete_metadata_keys,
+        experiment_id=experiment_id,
     )
 
 

@@ -38,14 +38,22 @@ def test_create_issue_delegates_to_tracing_client(tracing_client):
 
 
 def test_get_issue_delegates_to_tracing_client(tracing_client):
+    experiment = mlflow.set_experiment("issue-sdk-lookup")
     result = mlflow.genai.get_issue(ISSUE_ID)
 
     assert result is tracing_client._get_issue.return_value
-    tracing_client._get_issue.assert_called_once_with(ISSUE_ID)
+    tracing_client._get_issue.assert_called_once_with(
+        ISSUE_ID, experiment_id=experiment.experiment_id
+    )
+    tracing_client._get_issue.reset_mock()
+
+    assert mlflow.genai.get_issue(ISSUE_ID, experiment_id="override") is result
+    tracing_client._get_issue.assert_called_once_with(ISSUE_ID, experiment_id="override")
 
 
 def test_update_issue_delegates_to_tracing_client(tracing_client):
     kwargs = {
+        "experiment_id": "1",
         "name": "New name",
         "description": "",
         "status": IssueStatus.RESOLVED,
@@ -137,6 +145,7 @@ def test_search_issues_filters_and_paginates_local_store():
         )
     mlflow.genai.create_issue(
         "Resolved",
+        description="Resolved issue",
         severity=IssueSeverity.LOW,
         status=IssueStatus.RESOLVED,
         experiment_id=experiment_id,
@@ -166,14 +175,20 @@ def test_search_issues_filters_and_paginates_local_store():
 def test_issue_api_uses_current_tracking_uri(tmp_sqlite_uri):
     experiment_id = mlflow.create_experiment("original-store")
     original = mlflow.genai.create_issue(
-        "Original", severity=IssueSeverity.HIGH, experiment_id=experiment_id
+        "Original",
+        description="Original issue",
+        severity=IssueSeverity.HIGH,
+        experiment_id=experiment_id,
     )
 
     with _use_tracking_uri(tmp_sqlite_uri):
         other_experiment_id = mlflow.create_experiment("other-store")
         assert mlflow.genai.search_issues(experiment_id=other_experiment_id) == []
         other = mlflow.genai.create_issue(
-            "Other", severity=IssueSeverity.MEDIUM, experiment_id=other_experiment_id
+            "Other",
+            description="Other issue",
+            severity=IssueSeverity.MEDIUM,
+            experiment_id=other_experiment_id,
         )
         assert mlflow.genai.get_issue(other.issue_id).name == "Other"
         assert [
@@ -188,16 +203,21 @@ def test_issue_api_uses_current_tracking_uri(tmp_sqlite_uri):
 
 def test_issue_api_infers_active_experiment_and_supports_explicit_override():
     first_experiment = mlflow.set_experiment("first-issue-experiment")
-    first = mlflow.genai.create_issue("First", severity=IssueSeverity.HIGH)
+    first = mlflow.genai.create_issue(
+        "First", description="First issue", severity=IssueSeverity.HIGH
+    )
     assert first.experiment_id == first_experiment.experiment_id
 
     second_experiment = mlflow.set_experiment("second-issue-experiment")
-    second = mlflow.genai.create_issue("Second", severity=IssueSeverity.LOW)
+    second = mlflow.genai.create_issue(
+        "Second", description="Second issue", severity=IssueSeverity.LOW
+    )
     assert second.experiment_id == second_experiment.experiment_id
     assert [issue.name for issue in mlflow.genai.search_issues("status = 'pending'")] == ["Second"]
 
     override = mlflow.genai.create_issue(
         "Override",
+        description="Explicit experiment",
         severity=IssueSeverity.MEDIUM,
         experiment_id=first_experiment.experiment_id,
     )
@@ -233,7 +253,9 @@ def test_issue_api_uses_existing_experiment_resolution(monkeypatch, environment_
             else "environment-issue-experiment",
         )
 
-    issue = mlflow.genai.create_issue("Inferred", severity=IssueSeverity.HIGH)
+    issue = mlflow.genai.create_issue(
+        "Inferred", description="Inferred experiment", severity=IssueSeverity.HIGH
+    )
 
     assert issue.experiment_id == experiment_id
     assert [result.issue_id for result in mlflow.genai.search_issues()] == [issue.issue_id]
@@ -244,10 +266,18 @@ def test_issue_api_uses_existing_experiment_resolution(monkeypatch, environment_
     [
         (
             "create_issue",
-            {"name": "Latency", "severity": IssueSeverity.HIGH, "experiment_id": "1"},
+            {
+                "name": "Latency",
+                "description": "Slow requests",
+                "severity": IssueSeverity.HIGH,
+                "experiment_id": "1",
+            },
         ),
-        ("get_issue", {"issue_id": ISSUE_ID}),
-        ("update_issue", {"issue_id": ISSUE_ID, "status": IssueStatus.RESOLVED}),
+        ("get_issue", {"issue_id": ISSUE_ID, "experiment_id": "1"}),
+        (
+            "update_issue",
+            {"issue_id": ISSUE_ID, "status": IssueStatus.RESOLVED, "experiment_id": "1"},
+        ),
         ("search_issues", {"filter_string": "status = 'pending'", "experiment_id": "1"}),
     ],
 )

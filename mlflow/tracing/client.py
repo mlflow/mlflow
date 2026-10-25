@@ -928,16 +928,19 @@ class TracingClient:
             **options,
         )
 
-    def _get_issue(self, issue_id: str) -> Issue:
+    def _get_issue(self, issue_id: str, *, experiment_id: str | None = None) -> Issue:
         """
         Get an issue by ID.
 
         Args:
             issue_id: The ID of the issue to retrieve.
+            experiment_id: Parent experiment for Databricks routing.
 
         Returns:
             The Issue entity.
         """
+        if is_databricks_uri(self.tracking_uri):
+            return self.store.get_issue(issue_id, experiment_id=experiment_id)
         return self.store.get_issue(issue_id)
 
     def _update_issue(
@@ -953,6 +956,7 @@ class TracingClient:
         last_updated_by: str | None = None,
         metadata: dict[str, str] | None = None,
         delete_metadata_keys: list[str] | None = None,
+        experiment_id: str | None = None,
     ) -> Issue:
         """
         Update an existing issue.
@@ -964,10 +968,11 @@ class TracingClient:
             description: Optional new description.
             severity: Optional new severity level.
             categories: Replacement categories; [] clears them and None leaves them unchanged.
-            last_seen_timestamp: Latest observation in milliseconds; never moves backwards.
+            last_seen_timestamp: Latest observation in milliseconds since the epoch.
             last_updated_by: Update actor, overridden by the authenticated HTTP user when available.
             metadata: Entries to merge with existing metadata.
             delete_metadata_keys: Metadata keys to remove; cannot overlap metadata updates.
+            experiment_id: Parent experiment for Databricks routing.
 
         Returns:
             The updated Issue entity.
@@ -988,6 +993,8 @@ class TracingClient:
             }.items()
             if value is not None
         }
+        if is_databricks_uri(self.tracking_uri):
+            options["experiment_id"] = experiment_id
         return self.store.update_issue(**options)
 
     def _search_issues(
