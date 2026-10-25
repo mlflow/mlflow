@@ -614,7 +614,7 @@ jobs:
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-node
       - parallel:
-          - name: Prepare pre-commit checks
+          - name: Install pre-commit hooks and binaries
             run: |
               uv run --only-group lint pre-commit install-hooks
               uv run --no-sync pre-commit run install-bin --all-files
