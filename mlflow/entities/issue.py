@@ -108,7 +108,7 @@ class Issue(_MlflowObject):
     source_run_id: str | None = None
     """MLflow run ID that discovered this issue."""
 
-    categories: list[str] | None = None
+    categories: list[IssueCategory | str] | None = None
     """Categories of this issue."""
 
     created_by: str | None = None
@@ -125,6 +125,15 @@ class Issue(_MlflowObject):
 
     metadata: dict[str, str] | None = None
     """Application metadata, updated per key."""
+
+    tags: dict[str, str] | None = None
+    """String tags used to filter issues."""
+
+    source_type: str | None = None
+    """Type of source that produced the issue."""
+
+    source_id: str | None = None
+    """Identifier of the source that produced the issue."""
 
     def to_dictionary(self) -> dict[str, Any]:
         """Convert Issue to dictionary representation."""
@@ -147,6 +156,9 @@ class Issue(_MlflowObject):
             "last_seen_timestamp",
             "last_updated_by",
             "metadata",
+            "tags",
+            "source_type",
+            "source_id",
         ):
             if (value := getattr(self, key)) is not None:
                 result[key] = value
@@ -174,6 +186,9 @@ class Issue(_MlflowObject):
             last_seen_timestamp=issue_dict.get("last_seen_timestamp"),
             last_updated_by=issue_dict.get("last_updated_by"),
             metadata=issue_dict.get("metadata"),
+            tags=issue_dict.get("tags"),
+            source_type=issue_dict.get("source_type"),
+            source_id=issue_dict.get("source_id"),
         )
 
     def to_proto(self) -> ProtoIssue:

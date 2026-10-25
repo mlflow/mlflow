@@ -1,8 +1,9 @@
+import json
 import uuid
 
 import pytest
 
-from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
+from mlflow.entities.issue import Issue, IssueCategory, IssueSeverity, IssueStatus
 from mlflow.protos.issues_pb2 import Issue as ProtoIssue
 
 
@@ -494,3 +495,41 @@ def test_extended_issue_roundtrips():
     issue.metadata = {"evidence": "[]"}
     assert Issue.from_proto(issue.to_proto()) == issue
     assert Issue.from_dictionary(issue.to_dictionary()) == issue
+
+
+def test_issue_rest_fields_dictionary_roundtrip():
+    issue = create_issue(IssueSeverity.HIGH)
+    issue.tags = {"team": "payments"}
+    issue.source_type = "ADHOC_RUN"
+    issue.source_id = "run-123"
+    issue.categories = [IssueCategory.CORRECTNESS, "custom-category"]
+
+    serialized = json.loads(json.dumps(issue.to_dictionary()))
+
+    assert serialized["tags"] == {"team": "payments"}
+    assert serialized["source_type"] == "ADHOC_RUN"
+    assert serialized["source_id"] == "run-123"
+    assert serialized["categories"] == ["correctness", "custom-category"]
+    assert Issue.from_dictionary(serialized) == issue
+
+
+def test_issue_unset_rest_fields_preserve_dictionary_shape():
+    issue = create_issue(IssueSeverity.LOW)
+
+    serialized = issue.to_dictionary()
+
+    assert {"tags", "source_type", "source_id"}.isdisjoint(serialized)
+    restored = Issue.from_dictionary(serialized)
+    assert restored.tags is None
+    assert restored.source_type is None
+    assert restored.source_id is None
+
+
+def test_issue_empty_tags_dictionary_roundtrip():
+    issue = create_issue(IssueSeverity.LOW)
+    issue.tags = {}
+
+    serialized = issue.to_dictionary()
+
+    assert serialized["tags"] == {}
+    assert Issue.from_dictionary(serialized).tags == {}

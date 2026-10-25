@@ -5,7 +5,7 @@ import pytest
 from requests import Response
 
 import mlflow
-from mlflow.entities import IssueCategory, IssueResource, IssueSeverity, IssueStatus
+from mlflow.entities import Issue, IssueCategory, IssueSeverity, IssueStatus
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException, RestException
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.tracking.rest_store import RestStore
@@ -61,6 +61,8 @@ def test_public_issue_sdk_requests_and_responses(issue_sdk, delete_status, monke
         "tags": {"team": "api"},
         "metadata": {"count": "1", "remove.me": "old"},
         "source_type": "MANUAL",
+        "create_time": "2026-10-22T12:34:00Z",
+        "update_time": "2026-10-22T12:35:00Z",
         "last_seen_time": "2026-10-22T12:34:56Z",
     }
     updated_payload = {
@@ -89,8 +91,14 @@ def test_public_issue_sdk_requests_and_responses(issue_sdk, delete_status, monke
         last_seen_time=payload["last_seen_time"],
         issue_id=ISSUE_ID,
     )
-    assert isinstance(created, IssueResource)
-    assert created.name == RESOURCE_NAME
+    assert isinstance(created, Issue)
+    assert created.name == "Latency"
+    assert created.experiment_id == "1"
+    assert created.created_timestamp == 1792672440000
+    assert created.last_updated_timestamp == 1792672500000
+    assert created.last_seen_timestamp == 1792672496000
+    assert created.tags == {"team": "api"}
+    assert created.source_type == "MANUAL"
     assert created.severity is IssueSeverity.HIGH
     assert created.categories == [IssueCategory.LATENCY, "custom-category"]
     assert created.categories[0] is IssueCategory.LATENCY
@@ -202,6 +210,87 @@ def test_public_issue_sdk_requests_and_responses(issue_sdk, delete_status, monke
             json=None,
         ),
     ]
+
+
+@pytest.mark.parametrize(
+    "source_type", ["ADHOC_RUN", "SCHEDULED_RUN", "SINGLE_TRACE_ANALYSIS", "MANUAL"]
+)
+def test_get_issue_maps_rest_response_to_existing_issue(issue_sdk, source_type):
+    http_request, _ = issue_sdk
+    http_request.return_value = _response({
+        "name": RESOURCE_NAME,
+        "issue_id": ISSUE_ID,
+        "title": "Payment failures",
+        "description": "Retries fail after a timeout.",
+        "status": "RESOLVED",
+        "severity": "MEDIUM",
+        "create_time": "1970-01-01T01:00:00.123456789+01:00",
+        "update_time": "1970-01-01T01:00:02.987654321+01:00",
+        "last_seen_time": "1970-01-01T00:00:01.999999999Z",
+        "categories": ["correctness", "payment-processing"],
+        "source_type": source_type,
+        "source_id": "source-123",
+        "tags": {"team": "payments"},
+        "metadata": {"recent_affected_trace_ids": '["tr-123"]'},
+        "created_by": "creator",
+        "last_updated_by": "editor",
+    })
+
+    issue = mlflow.genai.get_issue("1", ISSUE_ID)
+
+    assert isinstance(issue, Issue)
+    assert issue.issue_id == ISSUE_ID
+    assert issue.experiment_id == "1"
+    assert issue.name == "Payment failures"
+    assert issue.description == "Retries fail after a timeout."
+    assert issue.created_timestamp == 123
+    assert issue.last_updated_timestamp == 2987
+    assert issue.last_seen_timestamp == 1999
+    assert issue.status is IssueStatus.RESOLVED
+    assert issue.severity is IssueSeverity.MEDIUM
+    assert issue.categories == [IssueCategory.CORRECTNESS, "payment-processing"]
+    assert issue.categories[0] is IssueCategory.CORRECTNESS
+    assert issue.source_type == source_type
+    assert issue.source_id == "source-123"
+    assert issue.source_run_id == (
+        "source-123" if source_type in {"ADHOC_RUN", "SCHEDULED_RUN"} else None
+    )
+    assert issue.tags == {"team": "payments"}
+    assert issue.metadata == {"recent_affected_trace_ids": '["tr-123"]'}
+    assert issue.created_by == "creator"
+    assert issue.last_updated_by == "editor"
+
+
+@pytest.mark.parametrize("severity", [None, "", "ISSUE_SEVERITY_UNSPECIFIED"])
+def test_search_issue_basic_view_preserves_missing_optional_fields(issue_sdk, severity):
+    http_request, _ = issue_sdk
+    payload = {
+        "name": RESOURCE_NAME,
+        "issue_id": ISSUE_ID,
+        "title": "Manual issue",
+        "status": "PENDING",
+        "create_time": "2026-10-22T12:34:00Z",
+        "update_time": "2026-10-22T12:35:00Z",
+        "categories": [],
+        "tags": {},
+        "metadata": {},
+    }
+    if severity is not None:
+        payload["severity"] = severity
+    http_request.return_value = _response({"issues": [payload]})
+
+    [issue] = mlflow.genai.search_issues("1")
+
+    assert isinstance(issue, Issue)
+    assert issue.name == "Manual issue"
+    assert issue.description == ""
+    assert issue.severity is None
+    assert issue.last_seen_timestamp is None
+    assert issue.source_id is None
+    assert issue.source_run_id is None
+    assert issue.categories == []
+    assert issue.tags == {}
+    assert issue.metadata == {}
 
 
 @pytest.mark.parametrize(("method", "kwargs"), OPERATIONS)

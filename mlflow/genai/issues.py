@@ -7,8 +7,7 @@ and require a server exposing the experiment-scoped Issues REST APIs.
 from typing import Any
 from urllib.parse import quote
 
-from mlflow.entities.issue import IssueCategory, IssueSeverity, IssueStatus
-from mlflow.entities.issue_resource import IssueResource
+from mlflow.entities.issue import Issue, IssueCategory, IssueSeverity, IssueStatus
 from mlflow.environment_variables import MLFLOW_TRACING_SQL_WAREHOUSE_ID
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.genai._issues_search import _parse_issue_filter
@@ -18,7 +17,47 @@ from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracking import get_tracking_uri
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.utils.annotations import experimental
+from mlflow.utils.proto_json_utils import proto_timestamp_to_milliseconds
 from mlflow.utils.rest_utils import http_request, verify_rest_response
+
+
+def _issue_from_rest(resource: dict[str, Any], experiment_id: str) -> Issue:
+    severity = resource.get("severity")
+    source_type = resource.get("source_type")
+    source_id = resource.get("source_id")
+    built_in_categories = {category.value: category for category in IssueCategory}
+    categories = resource.get("categories")
+    return Issue(
+        issue_id=resource["issue_id"],
+        experiment_id=experiment_id,
+        name=resource["title"],
+        description=resource.get("description", ""),
+        status=IssueStatus(resource["status"].lower()),
+        created_timestamp=proto_timestamp_to_milliseconds(resource["create_time"]),
+        last_updated_timestamp=proto_timestamp_to_milliseconds(resource["update_time"]),
+        severity=(
+            IssueSeverity(severity.lower())
+            if severity and severity != "ISSUE_SEVERITY_UNSPECIFIED"
+            else None
+        ),
+        source_run_id=source_id if source_type in {"ADHOC_RUN", "SCHEDULED_RUN"} else None,
+        categories=(
+            [built_in_categories.get(category, category) for category in categories]
+            if categories is not None
+            else None
+        ),
+        created_by=resource.get("created_by"),
+        last_seen_timestamp=(
+            proto_timestamp_to_milliseconds(resource["last_seen_time"])
+            if resource.get("last_seen_time")
+            else None
+        ),
+        last_updated_by=resource.get("last_updated_by"),
+        metadata=resource.get("metadata"),
+        tags=resource.get("tags"),
+        source_type=source_type,
+        source_id=source_id,
+    )
 
 
 def _enum_name(value: str, enum_type: type[IssueSeverity] | type[IssueStatus]) -> str:
@@ -99,7 +138,7 @@ def create_issue(
     source_id: str | None = None,
     metadata: dict[str, str] | None = None,
     issue_id: str | None = None,
-) -> IssueResource:
+) -> Issue:
     """Create an issue in an experiment.
 
     Args:
@@ -119,7 +158,7 @@ def create_issue(
             characters. Reusing an ID raises a conflict.
 
     Returns:
-        The created :py:class:`mlflow.entities.IssueResource`.
+        The created :py:class:`mlflow.entities.Issue`.
 
     Example:
         .. code-block:: python
@@ -133,7 +172,7 @@ def create_issue(
                 severity=IssueSeverity.HIGH,
                 categories=[IssueCategory.CORRECTNESS],
             )
-            print(issue.issue_id, issue.title)
+            print(issue.issue_id, issue.name)
     """
     path = _path(experiment_id)
     body = {
@@ -155,11 +194,11 @@ def create_issue(
     resource = _request(
         "POST", path, body=body, params={"issue_id": issue_id} if issue_id is not None else None
     )
-    return IssueResource.from_dictionary(resource)
+    return _issue_from_rest(resource, experiment_id)
 
 
 @experimental(version="3.18.0")
-def get_issue(experiment_id: str, issue_id: str) -> IssueResource:
+def get_issue(experiment_id: str, issue_id: str) -> Issue:
     """Retrieve the complete issue from its owning experiment.
 
     Args:
@@ -167,11 +206,11 @@ def get_issue(experiment_id: str, issue_id: str) -> IssueResource:
         issue_id: Issue ID to retrieve.
 
     Returns:
-        The :py:class:`mlflow.entities.IssueResource`, including its description and metadata.
+        The :py:class:`mlflow.entities.Issue`, including its description and metadata.
     """
     path = _path(experiment_id, issue_id)
     resource = _request("GET", path)
-    return IssueResource.from_dictionary(resource)
+    return _issue_from_rest(resource, experiment_id)
 
 
 @experimental(version="3.18.0")
@@ -188,7 +227,7 @@ def update_issue(
     last_seen_time: str | None = NOT_SET,
     metadata: dict[str, str] | None = None,
     delete_metadata_keys: list[str] | None = None,
-) -> IssueResource:
+) -> Issue:
     """Update only the issue fields explicitly supplied.
 
     The SDK builds the REST update mask. Omitted fields retain their values;
@@ -211,7 +250,7 @@ def update_issue(
             deleted in the same request.
 
     Returns:
-        The updated :py:class:`mlflow.entities.IssueResource`.
+        The updated :py:class:`mlflow.entities.Issue`.
     """
     path = _path(experiment_id, issue_id)
     fields = {
@@ -251,7 +290,7 @@ def update_issue(
     if not paths:
         raise MlflowException.invalid_parameter_value("At least one issue field must be updated")
     resource = _request("PATCH", path, body=body, params={"update_mask": update_mask})
-    return IssueResource.from_dictionary(resource)
+    return _issue_from_rest(resource, experiment_id)
 
 
 @experimental(version="3.18.0")
@@ -264,7 +303,7 @@ def search_issues(
     page_size: int | None = None,
     page_token: str | None = None,
     view: str | None = None,
-) -> PagedList[IssueResource]:
+) -> PagedList[Issue]:
     """Search one experiment's issues with filters and pagination.
 
     Args:
@@ -284,7 +323,7 @@ def search_issues(
 
     Returns:
         A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
-        :py:class:`mlflow.entities.IssueResource` objects. ``token`` identifies the next
+        :py:class:`mlflow.entities.Issue` objects. ``token`` identifies the next
         page, and ``total_count`` is the number of matching issues across all pages.
     """
     path = _path(experiment_id) + ":search"
@@ -303,7 +342,7 @@ def search_issues(
     }
     response = _request("POST", path, body=body)
     return PagedList(
-        [IssueResource.from_dictionary(issue) for issue in response.get("issues", [])],
+        [_issue_from_rest(issue, experiment_id) for issue in response.get("issues", [])],
         token=response.get("next_page_token") or None,
         total_count=response.get("total_size"),
     )
