@@ -1,5 +1,8 @@
 # File a PR from an upstream branch (not a fork) when changing this workflow or the files it
 # runs, so the change can be tested with `gh workflow run triage.yml --ref <branch>` before merging.
+# Sonnet/medium is the dispatch default for workflow smoke tests. Use Opus/high for
+# triage quality checks, matching automatic issue runs:
+# `-f model=databricks-claude-opus-5-5 -f effort=high`.
 name: Triage
 
 on:
@@ -21,10 +24,21 @@ on:
         description: "AI Gateway Claude model for the triage agent"
         required: false
         type: choice
-        default: databricks-claude-opus-5-5
+        default: databricks-claude-sonnet-5-5
         options:
           - databricks-claude-opus-5-5
           - databricks-claude-sonnet-5-5
+      effort:
+        description: "Reasoning effort for the triage agent"
+        required: false
+        type: choice
+        default: medium
+        options:
+          - low
+          - medium
+          - high
+          - xhigh
+          - max
       dry_run:
         description: "Preview triage without issue mutations"
         required: false
@@ -803,6 +817,7 @@ jobs:
           AGENT_BROWSER_ARGS: --no-sandbox
           AGENT_BROWSER_SCREENSHOT_DIR: /tmp/triage-out/media
           MODEL: ${{ inputs.model || 'databricks-claude-opus-5-5' }}
+          EFFORT: ${{ inputs.effort || 'high' }}
           SESSION_ID: ${{ steps.session.outputs.id }}
           ISSUE_PATH: ${{ runner.temp }}/issue-context/issue-context.json
           TRIAGE_ACTION: ${{ needs.issue.outputs.action }}
@@ -841,7 +856,7 @@ jobs:
             "${relay[@]}" env -u NO_PROXY -u no_proxy claude \
             --model "$MODEL" \
             --session-id "$SESSION_ID" \
-            --effort high \
+            --effort "$EFFORT" \
             --max-budget-usd 5 \
             --permission-mode auto \
             --disallowed-tools WebSearch \
