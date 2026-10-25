@@ -146,6 +146,7 @@ jobs:
             echo 'patch_path_allowlist<<EOF'
             echo 'mlflow/'
             echo 'tests/'
+            echo 'docs/'
             echo EOF
           } >> "$GITHUB_OUTPUT"
       - name: Clean issue content
@@ -368,7 +369,7 @@ jobs:
             ui_bug) labels="bug,area/uiux"; type=bug ;;
             bug | setup_bug) labels="bug"; type=bug ;;
             feature_request) labels="enhancement" ;;
-            doc_fix) labels="bug,area/docs" ;;
+            doc_fix) labels="bug,area/docs"; type=bug ;;
             *) type=unknown ;;
           esac
           echo "type=$type" >> "$GITHUB_OUTPUT"
