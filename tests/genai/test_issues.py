@@ -38,10 +38,10 @@ def test_create_issue_delegates_to_tracing_client(tracing_client):
 
 
 def test_get_issue_delegates_to_tracing_client(tracing_client):
-    result = mlflow.genai.get_issue("1", ISSUE_ID)
+    result = mlflow.genai.get_issue(ISSUE_ID)
 
     assert result is tracing_client._get_issue.return_value
-    tracing_client._get_issue.assert_called_once_with(ISSUE_ID, experiment_id="1")
+    tracing_client._get_issue.assert_called_once_with(ISSUE_ID)
 
 
 def test_update_issue_delegates_to_tracing_client(tracing_client):
@@ -56,10 +56,10 @@ def test_update_issue_delegates_to_tracing_client(tracing_client):
         "delete_metadata_keys": ["remove.me"],
     }
 
-    result = mlflow.genai.update_issue("1", ISSUE_ID, **kwargs)
+    result = mlflow.genai.update_issue(ISSUE_ID, **kwargs)
 
     assert result is tracing_client._update_issue.return_value
-    tracing_client._update_issue.assert_called_once_with(ISSUE_ID, experiment_id="1", **kwargs)
+    tracing_client._update_issue.assert_called_once_with(ISSUE_ID, **kwargs)
 
 
 def test_search_issues_delegates_to_tracing_client(tracing_client):
@@ -83,7 +83,6 @@ def test_issue_api_uses_existing_local_store():
     with mlflow.start_run(experiment_id=experiment_id) as run:
         source_run_id = run.info.run_id
     created = mlflow.genai.create_issue(
-        experiment_id,
         "Latency",
         severity=IssueSeverity.HIGH,
         description="Slow requests",
@@ -92,6 +91,7 @@ def test_issue_api_uses_existing_local_store():
         last_seen_timestamp=0,
         metadata={"count": "1", "remove.me": "old"},
         issue_id=ISSUE_ID,
+        experiment_id=experiment_id,
     )
 
     assert created.issue_id == ISSUE_ID
@@ -100,9 +100,9 @@ def test_issue_api_uses_existing_local_store():
     assert created.severity is IssueSeverity.HIGH
     assert created.categories == [IssueCategory.LATENCY, "custom-category"]
     assert created.last_seen_timestamp == 0
-    assert mlflow.genai.get_issue(experiment_id, ISSUE_ID) == created
+    assert mlflow.genai.get_issue(ISSUE_ID) == created
 
-    unchanged = mlflow.genai.update_issue(experiment_id, ISSUE_ID)
+    unchanged = mlflow.genai.update_issue(ISSUE_ID)
     assert unchanged.name == "Latency"
     assert unchanged.description == "Slow requests"
     assert unchanged.categories == created.categories
@@ -110,7 +110,6 @@ def test_issue_api_uses_existing_local_store():
     assert unchanged.last_seen_timestamp == 0
 
     updated = mlflow.genai.update_issue(
-        experiment_id,
         ISSUE_ID,
         status=IssueStatus.RESOLVED,
         description="",
@@ -123,21 +122,24 @@ def test_issue_api_uses_existing_local_store():
     assert not updated.categories
     assert updated.metadata == {"count": "2"}
     assert updated.last_seen_timestamp == 0
-    assert mlflow.genai.get_issue(experiment_id, ISSUE_ID) == updated
+    assert mlflow.genai.get_issue(ISSUE_ID) == updated
 
 
 def test_search_issues_filters_and_paginates_local_store():
     experiment_id = mlflow.create_experiment("issue-sdk-search")
     for name in ["A", "B"]:
         mlflow.genai.create_issue(
-            experiment_id,
             name,
             severity=IssueSeverity.HIGH,
             description="Details",
             metadata={"key": "value"},
+            experiment_id=experiment_id,
         )
     mlflow.genai.create_issue(
-        experiment_id, "Resolved", severity=IssueSeverity.LOW, status=IssueStatus.RESOLVED
+        "Resolved",
+        severity=IssueSeverity.LOW,
+        status=IssueStatus.RESOLVED,
+        experiment_id=experiment_id,
     )
     kwargs = {
         "filter_string": "status = 'pending'",
@@ -146,8 +148,10 @@ def test_search_issues_filters_and_paginates_local_store():
         "view": "basic",
     }
 
-    first = mlflow.genai.search_issues(experiment_id, **kwargs)
-    second = mlflow.genai.search_issues(experiment_id, page_token=first.token, **kwargs)
+    first = mlflow.genai.search_issues(experiment_id=experiment_id, **kwargs)
+    second = mlflow.genai.search_issues(
+        experiment_id=experiment_id, page_token=first.token, **kwargs
+    )
 
     assert [issue.name for issue in first] == ["A"]
     assert [issue.name for issue in second] == ["B"]
@@ -161,30 +165,90 @@ def test_search_issues_filters_and_paginates_local_store():
 
 def test_issue_api_uses_current_tracking_uri(tmp_sqlite_uri):
     experiment_id = mlflow.create_experiment("original-store")
-    original = mlflow.genai.create_issue(experiment_id, "Original", severity=IssueSeverity.HIGH)
+    original = mlflow.genai.create_issue(
+        "Original", severity=IssueSeverity.HIGH, experiment_id=experiment_id
+    )
 
     with _use_tracking_uri(tmp_sqlite_uri):
         other_experiment_id = mlflow.create_experiment("other-store")
-        assert mlflow.genai.search_issues(other_experiment_id) == []
+        assert mlflow.genai.search_issues(experiment_id=other_experiment_id) == []
         other = mlflow.genai.create_issue(
-            other_experiment_id, "Other", severity=IssueSeverity.MEDIUM
+            "Other", severity=IssueSeverity.MEDIUM, experiment_id=other_experiment_id
         )
-        assert mlflow.genai.get_issue(other_experiment_id, other.issue_id).name == "Other"
-        assert [issue.name for issue in mlflow.genai.search_issues(other_experiment_id)] == [
-            "Other"
-        ]
+        assert mlflow.genai.get_issue(other.issue_id).name == "Other"
+        assert [
+            issue.name for issue in mlflow.genai.search_issues(experiment_id=other_experiment_id)
+        ] == ["Other"]
 
-    assert mlflow.genai.get_issue(experiment_id, original.issue_id).name == "Original"
-    assert [issue.name for issue in mlflow.genai.search_issues(experiment_id)] == ["Original"]
+    assert mlflow.genai.get_issue(original.issue_id).name == "Original"
+    assert [issue.name for issue in mlflow.genai.search_issues(experiment_id=experiment_id)] == [
+        "Original"
+    ]
+
+
+def test_issue_api_infers_active_experiment_and_supports_explicit_override():
+    first_experiment = mlflow.set_experiment("first-issue-experiment")
+    first = mlflow.genai.create_issue("First", severity=IssueSeverity.HIGH)
+    assert first.experiment_id == first_experiment.experiment_id
+
+    second_experiment = mlflow.set_experiment("second-issue-experiment")
+    second = mlflow.genai.create_issue("Second", severity=IssueSeverity.LOW)
+    assert second.experiment_id == second_experiment.experiment_id
+    assert [issue.name for issue in mlflow.genai.search_issues("status = 'pending'")] == ["Second"]
+
+    override = mlflow.genai.create_issue(
+        "Override",
+        severity=IssueSeverity.MEDIUM,
+        experiment_id=first_experiment.experiment_id,
+    )
+    assert override.experiment_id == first_experiment.experiment_id
+    assert [
+        issue.name
+        for issue in mlflow.genai.search_issues(
+            experiment_id=first_experiment.experiment_id, order_by=["name ASC"]
+        )
+    ] == ["First", "Override"]
+
+    assert mlflow.genai.get_issue(first.issue_id).name == "First"
+    updated = mlflow.genai.update_issue(first.issue_id, name="Updated")
+    assert updated.experiment_id == first_experiment.experiment_id
+    assert mlflow.genai.get_issue(first.issue_id).name == "Updated"
+    assert [issue.name for issue in mlflow.genai.search_issues()] == ["Second"]
+
+
+@pytest.mark.parametrize(
+    "environment_variable", [None, "MLFLOW_EXPERIMENT_ID", "MLFLOW_EXPERIMENT_NAME"]
+)
+def test_issue_api_uses_existing_experiment_resolution(monkeypatch, environment_variable):
+    monkeypatch.setattr("mlflow.tracking.fluent._active_experiment_id", None)
+    monkeypatch.delenv("MLFLOW_EXPERIMENT_ID", raising=False)
+    monkeypatch.delenv("MLFLOW_EXPERIMENT_NAME", raising=False)
+    experiment_id = "0"
+    if environment_variable is not None:
+        experiment_id = mlflow.create_experiment("environment-issue-experiment")
+        monkeypatch.setenv(
+            environment_variable,
+            experiment_id
+            if environment_variable == "MLFLOW_EXPERIMENT_ID"
+            else "environment-issue-experiment",
+        )
+
+    issue = mlflow.genai.create_issue("Inferred", severity=IssueSeverity.HIGH)
+
+    assert issue.experiment_id == experiment_id
+    assert [result.issue_id for result in mlflow.genai.search_issues()] == [issue.issue_id]
 
 
 @pytest.mark.parametrize(
     ("method", "kwargs"),
     [
-        ("create_issue", {"name": "Latency", "severity": IssueSeverity.HIGH}),
+        (
+            "create_issue",
+            {"name": "Latency", "severity": IssueSeverity.HIGH, "experiment_id": "1"},
+        ),
         ("get_issue", {"issue_id": ISSUE_ID}),
         ("update_issue", {"issue_id": ISSUE_ID, "status": IssueStatus.RESOLVED}),
-        ("search_issues", {"filter_string": "status = 'pending'"}),
+        ("search_issues", {"filter_string": "status = 'pending'", "experiment_id": "1"}),
     ],
 )
 def test_issue_api_preserves_client_errors(tracing_client, method, kwargs):
@@ -192,6 +256,6 @@ def test_issue_api_preserves_client_errors(tracing_client, method, kwargs):
     getattr(tracing_client, f"_{method}").side_effect = error
 
     with pytest.raises(MlflowException, match="Experiment access denied") as caught:
-        getattr(mlflow.genai, method)("1", **kwargs)
+        getattr(mlflow.genai, method)(**kwargs)
 
     assert caught.value is error

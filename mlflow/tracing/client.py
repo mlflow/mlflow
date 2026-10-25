@@ -928,24 +928,17 @@ class TracingClient:
             **options,
         )
 
-    def _get_issue(self, issue_id: str, *, experiment_id: str | None = None) -> Issue:
+    def _get_issue(self, issue_id: str) -> Issue:
         """
         Get an issue by ID.
 
         Args:
             issue_id: The ID of the issue to retrieve.
-            experiment_id: The experiment that owns the issue.
 
         Returns:
             The Issue entity.
         """
-        issue = self.store.get_issue(issue_id)
-        if experiment_id is not None and issue.experiment_id != experiment_id:
-            raise MlflowException(
-                f"Issue {issue_id!r} does not belong to experiment {experiment_id!r}.",
-                error_code=RESOURCE_DOES_NOT_EXIST,
-            )
-        return issue
+        return self.store.get_issue(issue_id)
 
     def _update_issue(
         self,
@@ -960,7 +953,6 @@ class TracingClient:
         last_updated_by: str | None = None,
         metadata: dict[str, str] | None = None,
         delete_metadata_keys: list[str] | None = None,
-        experiment_id: str | None = None,
     ) -> Issue:
         """
         Update an existing issue.
@@ -976,13 +968,10 @@ class TracingClient:
             last_updated_by: Update actor, overridden by the authenticated HTTP user when available.
             metadata: Entries to merge with existing metadata.
             delete_metadata_keys: Metadata keys to remove; cannot overlap metadata updates.
-            experiment_id: The experiment that owns the issue.
 
         Returns:
             The updated Issue entity.
         """
-        if experiment_id is not None:
-            self._get_issue(issue_id, experiment_id=experiment_id)
         options = {
             key: value
             for key, value in {

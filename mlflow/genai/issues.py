@@ -5,12 +5,12 @@ from typing import Literal
 from mlflow.entities.issue import Issue, IssueCategory, IssueSeverity, IssueStatus
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracing.client import TracingClient
+from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.annotations import experimental
 
 
 @experimental(version="3.18.0")
 def create_issue(
-    experiment_id: str,
     name: str,
     *,
     severity: IssueSeverity,
@@ -21,11 +21,11 @@ def create_issue(
     source_run_id: str | None = None,
     metadata: dict[str, str] | None = None,
     issue_id: str | None = None,
+    experiment_id: str | None = None,
 ) -> Issue:
     """Create an issue in an experiment.
 
     Args:
-        experiment_id: Experiment that owns the issue.
         name: Human-readable issue name.
         severity: Issue severity.
         description: Markdown description.
@@ -35,10 +35,13 @@ def create_issue(
         source_run_id: MLflow run that discovered the issue.
         metadata: Additional string metadata.
         issue_id: Optional caller-assigned issue ID.
+        experiment_id: Experiment that owns the issue. Defaults to the active experiment.
 
     Returns:
         The created :py:class:`mlflow.entities.Issue`.
     """
+    if experiment_id is None:
+        experiment_id = _get_experiment_id()
     return TracingClient()._create_issue(
         experiment_id=experiment_id,
         name=name,
@@ -54,22 +57,20 @@ def create_issue(
 
 
 @experimental(version="3.18.0")
-def get_issue(experiment_id: str, issue_id: str) -> Issue:
-    """Get an issue from its owning experiment.
+def get_issue(issue_id: str) -> Issue:
+    """Get an issue by ID.
 
     Args:
-        experiment_id: Experiment that owns the issue.
         issue_id: Issue ID.
 
     Returns:
         The :py:class:`mlflow.entities.Issue`.
     """
-    return TracingClient()._get_issue(issue_id, experiment_id=experiment_id)
+    return TracingClient()._get_issue(issue_id)
 
 
 @experimental(version="3.18.0")
 def update_issue(
-    experiment_id: str,
     issue_id: str,
     *,
     name: str | None = None,
@@ -84,7 +85,6 @@ def update_issue(
     """Update issue fields. Arguments set to ``None`` retain their values.
 
     Args:
-        experiment_id: Experiment that owns the issue.
         issue_id: Issue ID.
         name: New issue name.
         description: New Markdown description; ``""`` clears it.
@@ -100,7 +100,6 @@ def update_issue(
     """
     return TracingClient()._update_issue(
         issue_id,
-        experiment_id=experiment_id,
         name=name,
         description=description,
         status=status,
@@ -114,9 +113,9 @@ def update_issue(
 
 @experimental(version="3.18.0")
 def search_issues(
-    experiment_id: str,
     filter_string: str | None = None,
     *,
+    experiment_id: str | None = None,
     max_results: int | None = None,
     order_by: list[str] | None = None,
     page_token: str | None = None,
@@ -125,8 +124,8 @@ def search_issues(
     """Search issues using MLflow filter syntax.
 
     Args:
-        experiment_id: Experiment to search.
         filter_string: SQL-like filter supported by the tracking store.
+        experiment_id: Experiment to search. Defaults to the active experiment.
         max_results: Maximum results in one page.
         order_by: Ordering fields and optional ASC/DESC directions.
         page_token: Continuation token from a previous result.
@@ -136,6 +135,8 @@ def search_issues(
         A list of :py:class:`mlflow.entities.Issue` objects with a continuation ``token``
         and ``total_count`` when supplied by the store.
     """
+    if experiment_id is None:
+        experiment_id = _get_experiment_id()
     return TracingClient()._search_issues(
         experiment_id=experiment_id,
         filter_string=filter_string,
