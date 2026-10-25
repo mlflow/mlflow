@@ -49,6 +49,7 @@ Add regression tests when they add meaningful coverage. Place new regression tes
 the existing tests for that code, verify that they fail without the fix and pass with it,
 and run them together with the directly relevant existing tests, within the
 [runtime time budget](runtime.md#time-budget).
+Before generating `fix.patch` for an eligible PR with Python changes, invoke the `python-style` skill and apply its guidance.
 Then leave only the fix and any regression tests changed in the checkout (revert anything else
 you edited there) and write the patch:
 
