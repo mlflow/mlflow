@@ -28,6 +28,7 @@ on:
         options:
           - databricks-claude-opus-5-5
           - databricks-claude-sonnet-5-5
+          - databricks-claude-haiku-5-5
       effort:
         description: "Reasoning effort for the triage agent"
         required: false
