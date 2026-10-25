@@ -613,8 +613,11 @@ jobs:
       # https://github.com/actions/runner/issues/4789
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-node
-      # Install system packages and CLIs in parallel.
       - parallel:
+          - name: Warm pre-commit cache
+            run: |
+              uv run --only-group lint pre-commit install-hooks
+              uv run --no-sync pre-commit run install-bin --files .pre-commit-config.yaml
           - name: Install system packages
             run: |
               sudo apt-get update
@@ -814,6 +817,12 @@ jobs:
               exit 1
             fi
           done
+      - name: Check pre-commit setup in sandbox
+        run: |
+          srt --settings "$RUNNER_TEMP/triage-srt.json" -- \
+            uv run --no-sync pre-commit run trailing-whitespace --files .pre-commit-config.yaml
+          srt --settings "$RUNNER_TEMP/triage-srt.json" -- \
+            uv run --no-sync pre-commit run install-bin --files .pre-commit-config.yaml
       # Fixed up front so the trace can be found by its session after the run.
       - id: session
         name: Generate session ID
