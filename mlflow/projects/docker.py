@@ -160,7 +160,7 @@ def _get_local_uri_or_none(uri):
         if parsed_uri.scheme == "sqlite":
             from sqlalchemy.engine import make_url
 
-            # SQLite URIs hold literal paths (e.g. `%` and `#` are not URL escapes/fragments).
+            # Use SQLAlchemy's parsing rather than `urlparse` (e.g. `#` is not a fragment).
             path = make_url(uri).database
             uri = file_utils.path_to_local_sqlite_uri(_MLFLOW_DOCKER_TRACKING_DIR_PATH)
         else:
