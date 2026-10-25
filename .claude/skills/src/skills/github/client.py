@@ -21,7 +21,6 @@ class GitHubClient:
         self._session = aiohttp.ClientSession(
             base_url="https://api.github.com",
             headers=headers,
-            trust_env=True,
         )
         return self
 
