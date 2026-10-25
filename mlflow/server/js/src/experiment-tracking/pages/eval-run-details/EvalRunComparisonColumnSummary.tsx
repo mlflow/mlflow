@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { ArrowRightIcon, DropdownMenu, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import type { Theme } from '@emotion/react';
 import { defineMessages, useIntl, type IntlShape } from 'react-intl';
@@ -254,22 +254,8 @@ export const EvalRunComparisonColumnSummary = ({
 }: EvalRunComparisonColumnSummaryProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  // Opens on click only: a hover-opened menu covers the run rows below it.
   const [openRunUuid, setOpenRunUuid] = useState<string>();
-  const persistentOpen = useRef(false);
-  const closeTimer = useRef<ReturnType<typeof setTimeout>>();
-  const cancelClose = () => clearTimeout(closeTimer.current);
-  const persistOpen = () => {
-    cancelClose();
-    persistentOpen.current = true;
-  };
-  const closeAfterLeaving = (runUuid: string) => {
-    cancelClose();
-    closeTimer.current = setTimeout(() => {
-      if (persistentOpen.current) return;
-      setOpenRunUuid((currentRunUuid) => (currentRunUuid === runUuid ? undefined : currentRunUuid));
-    }, 150);
-  };
-  useEffect(() => () => clearTimeout(closeTimer.current), []);
   const aggregateLabel =
     aggregate.label === 'AVG'
       ? intl.formatMessage({
@@ -402,37 +388,15 @@ export const EvalRunComparisonColumnSummary = ({
               if (open) {
                 setOpenRunUuid(run.runUuid);
               } else {
-                setOpenRunUuid((currentRunUuid) => {
-                  if (currentRunUuid !== run.runUuid) return currentRunUuid;
-                  persistentOpen.current = false;
-                  return undefined;
-                });
+                setOpenRunUuid((currentRunUuid) => (currentRunUuid === run.runUuid ? undefined : currentRunUuid));
               }
             }}
           >
             <DropdownMenu.Trigger asChild>
               <button
                 type="button"
-                onPointerEnter={(event) => {
-                  if (event.pointerType !== 'mouse' || persistentOpen.current) return;
-                  cancelClose();
-                  setOpenRunUuid(run.runUuid);
-                }}
-                onPointerLeave={(event) => {
-                  if (event.pointerType === 'mouse') closeAfterLeaving(run.runUuid);
-                }}
-                onPointerDown={(event) => {
-                  event.stopPropagation();
-                  if (event.button === 0 && !event.ctrlKey) persistOpen();
-                  if (openRunUuid === run.runUuid) event.preventDefault();
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') persistOpen();
-                }}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  persistOpen();
-                }}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
                 aria-label={intl.formatMessage(
                   {
                     defaultMessage: 'Open comparison summary for {run}',
@@ -462,12 +426,6 @@ export const EvalRunComparisonColumnSummary = ({
             <DropdownMenu.Content
               align="start"
               minWidth={0}
-              onPointerEnter={(event) => {
-                if (event.pointerType === 'mouse') cancelClose();
-              }}
-              onPointerLeave={(event) => {
-                if (event.pointerType === 'mouse') closeAfterLeaving(run.runUuid);
-              }}
               css={{
                 width: `min(360px, calc(100vw - ${theme.spacing.lg}px))`,
                 maxWidth: `calc(100vw - ${theme.spacing.lg}px)`,

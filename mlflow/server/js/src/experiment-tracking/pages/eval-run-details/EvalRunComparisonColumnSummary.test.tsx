@@ -1,5 +1,5 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { act, fireEvent, render, screen, waitFor, within } from '@databricks/web-shared/test-utils/render';
+import { fireEvent, render, screen, within } from '@databricks/web-shared/test-utils/render';
 import userEvent from '@testing-library/user-event';
 import { EvalRunComparisonTestWrapper } from './EvalRunComparisonTestProviders';
 import {
@@ -20,17 +20,8 @@ const renderSummary = (aggregate: EvalRunComparisonColumnSummaryProps['aggregate
     { wrapper: EvalRunComparisonTestWrapper },
   );
 
-const leaveTriggerAndAdvanceCloseTimer = (trigger: HTMLElement, pointerType: string) => {
-  jest.useFakeTimers();
-  fireEvent.pointerLeave(trigger, { pointerType });
-  act(() => {
-    jest.advanceTimersByTime(200);
-  });
-  jest.useRealTimers();
-};
-
 describe('EvalRunComparisonColumnSummary', () => {
-  test('opens the summary card on row hover and keeps its filter interactive', async () => {
+  test('opens the summary card on row click and keeps its filter interactive', async () => {
     const onOutcomeClick = jest.fn();
     render(
       <EvalRunComparisonColumnSummary
@@ -52,31 +43,30 @@ describe('EvalRunComparisonColumnSummary', () => {
     );
 
     const trigger = within(screen.getByRole('group', { name: 'Candidate run' })).getByRole('button');
-    await userEvent.hover(trigger);
+    await userEvent.click(trigger);
     const menu = await screen.findByRole('menu');
     expect(menu).toHaveTextContent('For Candidate run, the average value for Quality is 3.');
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
-    await userEvent.click(trigger);
-    expect(menu).toBeVisible();
-    await userEvent.hover(menu);
     await userEvent.click(
       within(menu).getByRole('menuitemcheckbox', { name: '1 improved trace compared with baseline' }),
     );
     expect(onOutcomeClick).toHaveBeenCalledWith('candidate', 'improvement');
   });
 
-  test('closes a hover-opened summary after the pointer leaves the row', async () => {
+  test('does not open a summary on hover, so it cannot cover the run rows below', async () => {
     renderSummary({ label: 'AVG', values: [{ displayValue: '2' }, { displayValue: '3' }] });
-    const trigger = within(screen.getByRole('group', { name: 'Candidate run' })).getByRole('button');
+    const baseline = within(screen.getByRole('group', { name: 'Baseline run' })).getByRole('button');
+    const candidate = within(screen.getByRole('group', { name: 'Candidate run' })).getByRole('button');
 
-    await userEvent.hover(trigger);
-    expect(await screen.findByRole('menu')).toBeVisible();
+    await userEvent.hover(baseline);
+    await userEvent.hover(candidate);
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
 
-    await userEvent.unhover(trigger);
-    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+    await userEvent.click(candidate);
+    expect(await screen.findByRole('menu')).toHaveTextContent('Candidate run');
   });
 
-  test('keeps click and keyboard activated summaries open until dismissed', async () => {
+  test('keeps click and keyboard opened summaries open until dismissed', async () => {
     renderSummary({
       label: 'AVG',
       values: [{ displayValue: '2' }, { displayValue: '3' }],
@@ -85,7 +75,7 @@ describe('EvalRunComparisonColumnSummary', () => {
 
     await userEvent.click(trigger);
     const clickMenu = await screen.findByRole('menu');
-    leaveTriggerAndAdvanceCloseTimer(trigger, 'mouse');
+    fireEvent.pointerLeave(trigger, { pointerType: 'mouse' });
     expect(clickMenu).toBeInTheDocument();
 
     await userEvent.keyboard('{Escape}');
@@ -94,7 +84,7 @@ describe('EvalRunComparisonColumnSummary', () => {
     trigger.focus();
     await userEvent.keyboard('{Enter}');
     const keyboardMenu = await screen.findByRole('menu');
-    leaveTriggerAndAdvanceCloseTimer(trigger, 'mouse');
+    fireEvent.pointerLeave(trigger, { pointerType: 'mouse' });
     expect(keyboardMenu).toBeInTheDocument();
   });
 
