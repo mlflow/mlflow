@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792902547144,
+  "lastUpdate": 1792913581873,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "aishwaryag532@gmail.com",
-            "name": "Aishwarya Ghosh",
-            "username": "aishdbx"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5bccdc775b7b6fd115ea3f874bc8578cede96963",
-          "message": "Resolve UC path from active experiment when using `get_trace` with a plain ID (#24700)\n\nSigned-off-by: Aishwarya Ghosh <aishwaryag532@gmail.com>\nSigned-off-by: AishwaryaGhosh <aishwaryag532@gmail.com>\nCo-authored-by: Daniel Lok <daniel.lok@databricks.com>",
-          "timestamp": "2026-08-07T16:41:46-07:00",
-          "tree_id": "25aaf3b0bf8866454254f8a1cb2022f88ba27a56",
-          "url": "https://github.com/mlflow/mlflow/commit/5bccdc775b7b6fd115ea3f874bc8578cede96963"
-        },
-        "date": 1786146191751,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 45.37171265000026,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 9.160167057691329,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 5.536551157533836,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 6.480606060869793,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 5.948826551401659,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 10.486777799999913,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 5.764570666665729,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "191841109+mlflow-app[bot]@users.noreply.github.com",
+            "name": "mlflow-app[bot]",
+            "username": "mlflow-app[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d0763bfac70318e68a38aeeed5aafbb5d9ed7efb",
+          "message": "Fix `path_to_local_sqlite_uri` for paths containing `%` with SQLAlchemy 2.1 (#27102)\n\nSigned-off-by: mlflow-app[bot] <191841109+mlflow-app[bot]@users.noreply.github.com>\nCo-authored-by: mlflow-app[bot] <191841109+mlflow-app[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-25T07:29:13Z",
+          "tree_id": "b0cf50bf4df797df68633c5e6c662be28d44d19b",
+          "url": "https://github.com/mlflow/mlflow/commit/d0763bfac70318e68a38aeeed5aafbb5d9ed7efb"
+        },
+        "date": 1792913579360,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 54.52211399999882,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 7.950080372548391,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 7.103736101695269,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 7.335426447916997,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 7.564185202019384,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 10.860842200003162,
             "unit": "ms"
           }
         ]
