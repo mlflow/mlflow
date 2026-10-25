@@ -11,6 +11,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
+from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 from prometheus_client import REGISTRY
 
 from mlflow.entities import Workspace
@@ -885,3 +886,50 @@ def test_otlp_response_encoding_matches_request(
     assert resp.status_code == 200
     assert resp.headers["content-type"] == expected_media_type
     assert resp.content == expected_body
+
+
+def test_otlp_span_kind_preserved_in_batch_get(monkeypatch, tmp_path, db_uri):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    store = SqlAlchemyStore(db_uri, tmp_path.joinpath("artifacts").as_uri())
+    monkeypatch.setattr("mlflow.server.handlers._tracking_store", store)
+
+    trace_id = bytes.fromhex("0af7651916cd43dd8448eb211c80319c")
+    request = ExportTraceServiceRequest()
+    scope_spans = request.resource_spans.add().scope_spans.add()
+    server_span = scope_spans.spans.add(
+        trace_id=trace_id,
+        span_id=bytes.fromhex("b7ad6b7169203331"),
+        name="server-request",
+        kind=OTelProtoSpan.SPAN_KIND_SERVER,
+        start_time_unix_nano=1_000_000_000,
+        end_time_unix_nano=4_000_000_000,
+    )
+    scope_spans.spans.add(
+        trace_id=trace_id,
+        span_id=bytes.fromhex("53995c3f42cd8ad8"),
+        parent_span_id=server_span.span_id,
+        name="outgoing-call",
+        kind=OTelProtoSpan.SPAN_KIND_CLIENT,
+        start_time_unix_nano=2_000_000_000,
+        end_time_unix_nano=3_000_000_000,
+    )
+
+    # The full server app only accepts localhost Host headers by default.
+    client = TestClient(create_fastapi_app(), base_url="http://localhost")
+    response = client.post(
+        OTLP_TRACES_PATH,
+        content=request.SerializeToString(),
+        headers={"Content-Type": "application/x-protobuf", "X-MLflow-Experiment-Id": "0"},
+    )
+    assert response.status_code == 200
+
+    response = client.get(
+        "/api/3.0/mlflow/traces/batchGet",
+        params={"trace_ids": f"tr-{trace_id.hex()}"},
+    )
+    assert response.status_code == 200
+    spans = response.json()["traces"][0]["spans"]
+    assert {span["name"]: span.get("kind") for span in spans} == {
+        "server-request": "SPAN_KIND_SERVER",
+        "outgoing-call": "SPAN_KIND_CLIENT",
+    }
