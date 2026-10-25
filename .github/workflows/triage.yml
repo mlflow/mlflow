@@ -6,6 +6,11 @@
 name: Triage
 
 on:
+  # On issues.opened, repo admins/maintainers may add this issue-body comment to skip triage:
+  # <!-- triage
+  # skip: true
+  # -->
+  # Missing/omitted skip defaults to false. Dispatch and /triage follow-ups ignore this metadata.
   issues:
     types: [opened]
   issue_comment:
@@ -51,7 +56,6 @@ concurrency:
     ${{ format('{0}-{1}', github.workflow,
       github.event_name == 'issue_comment' &&
       (github.event.issue.pull_request || github.event.issue.state != 'open' ||
-       !contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) ||
        !startsWith(github.event.comment.body, '/triage')) &&
       format('ignored-{0}', github.run_id) ||
       github.event.issue.number || inputs.issue_number) }}
@@ -73,7 +77,6 @@ jobs:
       github.repository == 'mlflow/mlflow' && vars.TRIAGE_DISABLED != 'true' &&
       (github.event_name != 'issue_comment' ||
        (!github.event.issue.pull_request && github.event.issue.state == 'open' &&
-        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
         startsWith(github.event.comment.body, '/triage')))
     runs-on: ubuntu-slim
     timeout-minutes: 5
@@ -88,6 +91,7 @@ jobs:
       url: ${{ fromJSON(steps.issue.outputs.json).html_url }}
       author_association: ${{ fromJSON(steps.issue.outputs.json).author_association }}
       followup: ${{ steps.followup.outputs.json }}
+      skip: ${{ steps.followup.outputs.skip }}
       patch_path_allowlist: ${{ steps.policy.outputs.patch_path_allowlist }}
       action: ${{ steps.followup.outputs.json != 'null' && 'follow-up' || 'init' }}
       dry_run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
@@ -128,6 +132,11 @@ jobs:
         run: |
           node .claude/skills/triage/scripts/utils.js prepare "$RUNNER_TEMP/issue.json" > "$RUNNER_TEMP/issue-context.json"
           echo "json=$(jq -c .followup "$RUNNER_TEMP/issue-context.json")" >> "$GITHUB_OUTPUT"
+          skip=$(jq -r '.triage_options.skip // false' "$RUNNER_TEMP/issue-context.json")
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+          if [ "$skip" = true ]; then
+            echo "Triage skipped: the trusted issue author opted out with \`skip: true\` frontmatter." >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Resolve patch scope
         id: policy
         run: |
@@ -197,6 +206,7 @@ jobs:
           echo "::$token::"
   security_gate:
     needs: issue
+    if: needs.issue.outputs.skip != 'true'
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:

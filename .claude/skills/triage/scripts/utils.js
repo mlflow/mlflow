@@ -17,6 +17,61 @@ function parseCommand(body) {
   return match[1]?.trim() ?? "";
 }
 
+const TRIAGE_MARKER = /^[ \t]*<!-- triage(?:[ \t]|\r?\n|$)/m;
+
+function parseIssueFrontmatter(body) {
+  const text = body.replace(/\r\n/g, "\n");
+  const starts = [...text.matchAll(/^[ \t]*<!-- triage(?:[ \t]|\n|$)/gm)];
+  if (!starts.length) return {};
+  const blocks = [...text.matchAll(/^[ \t]*<!-- triage[ \t]*\n([\s\S]*?)^[ \t]*-->[ \t]*$/gm)];
+  if (starts.length !== 1 || blocks.length !== 1) {
+    throw new Error("Expected one complete triage frontmatter comment.");
+  }
+
+  const fields = new Map();
+  for (const rawLine of blocks[0][1].split("\n")) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const match = /^([a-z][a-z0-9_]*):[ \t]*(\S+)$/.exec(line);
+    if (!match) throw new Error("Invalid triage frontmatter field.");
+    const [, key, value] = match;
+    if (fields.has(key)) throw new Error(`Duplicate triage field: ${key}`);
+    fields.set(key, value);
+  }
+
+  const options = Object.fromEntries(fields);
+  if (Object.keys(options).some((key) => key !== "skip")) {
+    throw new Error("Only skip is supported in triage frontmatter.");
+  }
+  if (options.skip === undefined) return {};
+  if (!["true", "false"].includes(options.skip)) {
+    throw new Error("Triage skip must be true or false.");
+  }
+  return { skip: options.skip === "true" };
+}
+
+function isTrustedActor({ repo, actor, api = ghApi }) {
+  if (!actor?.login) return false;
+  let permission;
+  try {
+    permission = api(`repos/${repo}/collaborators/${encodeURIComponent(actor.login)}/permission`);
+  } catch (error) {
+    const detail = `${error.message}\n${error.stderr ?? ""}`;
+    if (/HTTP 404\b|404 Not Found/.test(detail)) return false;
+    throw error;
+  }
+  return ["admin", "maintain"].includes(permission.role_name);
+}
+
+function resolveIssueOptions({ repo, eventName, event, api = ghApi }) {
+  if (eventName !== "issues" || event?.action !== "opened") return {};
+  const issue = event.issue;
+  const body = issue?.body ?? "";
+  if (!TRIAGE_MARKER.test(body)) return {};
+  if (!isTrustedActor({ repo, actor: issue.user, api })) return {};
+  return parseIssueFrontmatter(body);
+}
+
 function findOpenPr(repo, issueNumber, api = ghApi) {
   const owner = repo.split("/")[0];
   const head = encodeURIComponent(`${owner}:triage/issue-${issueNumber}`);
@@ -40,14 +95,11 @@ function checkExistingPr({ repo, issueNumber, dryRun = false, api = ghApi }) {
 function prepareFollowup({ repo, issue, comment, dryRun = false, api = ghApi }) {
   if (issue.pull_request || issue.state !== "open")
     throw new Error("Triage requires an open issue.");
-  if (comment.issue_url !== issue.url || comment.user.type !== "User") {
-    throw new Error("The command must be a user comment on this issue.");
+  if (comment.issue_url !== issue.url) {
+    throw new Error("The command must be a comment on this issue.");
   }
   const instructions = parseCommand(comment.body);
-  const permission = api(
-    `repos/${repo}/collaborators/${encodeURIComponent(comment.user.login)}/permission`
-  );
-  if (!["admin", "maintain"].includes(permission.role_name)) {
+  if (!isTrustedActor({ repo, actor: comment.user, api })) {
     throw new Error("Only repository admins and maintainers can request follow-up triage.");
   }
   checkExistingPr({ repo, issueNumber: issue.number, dryRun, api });
@@ -76,7 +128,15 @@ function prepareFollowup({ repo, issue, comment, dryRun = false, api = ghApi }) 
   };
 }
 
-function prepareContext({ repo, issue, event, comment, dryRun = false, api = ghApi }) {
+function prepareContext({
+  repo,
+  issue,
+  event,
+  eventName = process.env.GITHUB_EVENT_NAME,
+  comment,
+  dryRun = false,
+  api = ghApi,
+}) {
   let request = event.comment;
   if (!request && comment?.trim()) {
     const text = comment.trim();
@@ -89,10 +149,25 @@ function prepareContext({ repo, issue, event, comment, dryRun = false, api = ghA
   const context = request
     ? prepareFollowup({ repo, issue, comment: request, dryRun, api })
     : { body: issue.body ?? "", comments: [], followup: null };
-  return { title: issue.title, repository: repo, issue_number: issue.number, ...context };
+  const triage_options = resolveIssueOptions({ repo, eventName, event, api });
+  return {
+    title: issue.title,
+    repository: repo,
+    issue_number: issue.number,
+    triage_options,
+    ...context,
+  };
 }
 
-module.exports = { parseCommand, findOpenPr, checkExistingPr, prepareContext };
+module.exports = {
+  parseCommand,
+  parseIssueFrontmatter,
+  isTrustedActor,
+  resolveIssueOptions,
+  findOpenPr,
+  checkExistingPr,
+  prepareContext,
+};
 
 if (require.main === module) {
   try {
