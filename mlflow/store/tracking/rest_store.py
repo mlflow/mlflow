@@ -270,7 +270,7 @@ class RestStore(
             _, method = method_to_info[api]
         else:
             endpoint, method = method_to_info[api]
-        response_proto = api.Response() if response_proto is None else response_proto
+        response_proto = response_proto or api.Response()
         return call_endpoint(
             self.get_host_creds(),
             endpoint,

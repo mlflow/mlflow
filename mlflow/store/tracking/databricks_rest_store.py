@@ -8,7 +8,7 @@ from typing import Any, Literal
 from urllib.parse import quote, urlencode
 
 from google.protobuf.json_format import MessageToDict
-from google.protobuf.struct_pb2 import Struct
+from google.protobuf.struct_pb2 import Value
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 from pydantic import BaseModel
 
@@ -1267,7 +1267,7 @@ class DatabricksTracingRestStore(RestStore):
         if issue_id is not None:
             endpoint = append_to_uri_query_params(endpoint, ("issue_id", issue_id))
         response = self._call_endpoint(
-            CreateIssue, json.dumps(body), endpoint=endpoint, response_proto=Struct()
+            CreateIssue, json.dumps(body), endpoint=endpoint, response_proto=Value()
         )
         return self._issue_from_databricks_dict(MessageToDict(response), experiment_id)
 
@@ -1279,7 +1279,7 @@ class DatabricksTracingRestStore(RestStore):
         if not isinstance(issue_id, str) or not issue_id:
             raise MlflowException.invalid_parameter_value("issue_id must be a nonempty string")
         endpoint = self._get_issue_endpoint(experiment_id, issue_id)
-        response = self._call_endpoint(GetIssue, endpoint=endpoint, response_proto=Struct())
+        response = self._call_endpoint(GetIssue, endpoint=endpoint, response_proto=Value())
         return self._issue_from_databricks_dict(MessageToDict(response), experiment_id)
 
     def update_issue(
@@ -1342,7 +1342,7 @@ class DatabricksTracingRestStore(RestStore):
         endpoint = self._get_issue_endpoint(experiment_id, issue_id)
         endpoint = append_to_uri_query_params(endpoint, ("update_mask", ",".join(paths)))
         response = self._call_endpoint(
-            UpdateIssue, json.dumps(body), endpoint=endpoint, response_proto=Struct()
+            UpdateIssue, json.dumps(body), endpoint=endpoint, response_proto=Value()
         )
         return self._issue_from_databricks_dict(MessageToDict(response), experiment_id)
 
@@ -1437,7 +1437,7 @@ class DatabricksTracingRestStore(RestStore):
             SearchIssues,
             json.dumps(body),
             endpoint=f"{self._get_issue_endpoint(experiment_id)}:search",
-            response_proto=Struct(),
+            response_proto=Value(),
         )
         result = MessageToDict(response)
         return PagedList(
