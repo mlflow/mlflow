@@ -885,9 +885,6 @@ class TracingClient:
         issue_id: str | None = None,
         last_seen_timestamp: int | None = None,
         metadata: dict[str, str] | None = None,
-        tags: dict[str, str] | None = None,
-        source_type: str | None = None,
-        source_id: str | None = None,
     ) -> Issue:
         """
         Create a new issue in the tracking store.
@@ -905,26 +902,10 @@ class TracingClient:
             issue_id: Optional iss-* ID (at most 36 characters); reuse returns a conflict.
             last_seen_timestamp: Latest observation in milliseconds; defaults to creation time.
             metadata: String metadata map (at most 100 entries).
-            tags: Tags supported by the Databricks Issues API.
-            source_type: Source type supported by the Databricks Issues API.
-            source_id: Source identifier supported by the Databricks Issues API.
 
         Returns:
             The created Issue entity.
         """
-        managed_options = {
-            key: value
-            for key, value in {
-                "tags": tags,
-                "source_type": source_type,
-                "source_id": source_id,
-            }.items()
-            if value is not None
-        }
-        if managed_options and not is_databricks_uri(self.tracking_uri):
-            raise MlflowNotImplementedException(
-                "Issue tags and source fields are only supported by Databricks tracking servers."
-            )
         options = {
             key: value
             for key, value in {
@@ -944,7 +925,6 @@ class TracingClient:
             source_run_id=source_run_id,
             categories=categories,
             created_by=created_by,
-            **managed_options,
             **options,
         )
 
@@ -959,8 +939,6 @@ class TracingClient:
         Returns:
             The Issue entity.
         """
-        if is_databricks_uri(self.tracking_uri):
-            return self.store.get_issue(issue_id, experiment_id=experiment_id)
         issue = self.store.get_issue(issue_id)
         if experiment_id is not None and issue.experiment_id != experiment_id:
             raise MlflowException(
@@ -983,7 +961,6 @@ class TracingClient:
         metadata: dict[str, str] | None = None,
         delete_metadata_keys: list[str] | None = None,
         experiment_id: str | None = None,
-        tags: dict[str, str] | None = None,
     ) -> Issue:
         """
         Update an existing issue.
@@ -1000,11 +977,12 @@ class TracingClient:
             metadata: Entries to merge with existing metadata.
             delete_metadata_keys: Metadata keys to remove; cannot overlap metadata updates.
             experiment_id: The experiment that owns the issue.
-            tags: Replacement tags supported by the Databricks Issues API.
 
         Returns:
             The updated Issue entity.
         """
+        if experiment_id is not None:
+            self._get_issue(issue_id, experiment_id=experiment_id)
         options = {
             key: value
             for key, value in {
@@ -1021,21 +999,7 @@ class TracingClient:
             }.items()
             if value is not None
         }
-        if is_databricks_uri(self.tracking_uri):
-            options["experiment_id"] = experiment_id
-            if tags is not None:
-                options["tags"] = tags
-        else:
-            if tags is not None:
-                raise MlflowNotImplementedException(
-                    "Issue tags are only supported by Databricks tracking servers."
-                )
-            if experiment_id is not None:
-                self._get_issue(issue_id, experiment_id=experiment_id)
         return self.store.update_issue(**options)
-
-    def _delete_issue(self, issue_id: str, *, experiment_id: str, force: bool = False) -> None:
-        self.store.delete_issue(issue_id, experiment_id=experiment_id, force=force)
 
     def _search_issues(
         self,

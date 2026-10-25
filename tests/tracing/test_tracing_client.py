@@ -83,16 +83,6 @@ def test_issue_client_preserves_local_store_and_checks_experiment():
     assert result.total_count == 1
 
 
-@pytest.mark.parametrize("options", [{"tags": {}}, {"source_type": "MANUAL"}, {"source_id": "x"}])
-def test_issue_client_rejects_managed_fields_on_oss(options):
-    store = Mock()
-    with patch("mlflow.tracing.client._get_store", return_value=store):
-        client = TracingClient(tracking_uri="http://localhost:5000")
-        with pytest.raises(MlflowNotImplementedException, match="only supported by Databricks"):
-            client._create_issue("1", "name", "description", **options)
-    store.create_issue.assert_not_called()
-
-
 def test_get_trace_v4_retry():
     mock_store = Mock()
     mock_store.batch_get_traces.side_effect = [[], ["dummy_trace"]]

@@ -167,7 +167,6 @@ uc_proto_files = to_paths(
 tracing_proto_files = to_paths(
     "databricks_exception_with_details.proto",
     "databricks_tracing.proto",
-    "managed_issues.proto",
 )
 facet_proto_files = to_paths("facet_feature_statistics.proto")
 python_proto_files = basic_proto_files + uc_proto_files + facet_proto_files + tracing_proto_files

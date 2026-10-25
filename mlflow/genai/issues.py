@@ -17,10 +17,8 @@ def create_issue(
     description: str = "",
     status: IssueStatus = IssueStatus.PENDING,
     categories: list[IssueCategory | str] | None = None,
-    tags: dict[str, str] | None = None,
     last_seen_timestamp: int | None = None,
-    source_type: str | None = None,
-    source_id: str | None = None,
+    source_run_id: str | None = None,
     metadata: dict[str, str] | None = None,
     issue_id: str | None = None,
 ) -> Issue:
@@ -33,10 +31,8 @@ def create_issue(
         description: Markdown description.
         status: Initial status.
         categories: Built-in categories or custom category strings.
-        tags: String tags. Supported by the Databricks Issues API.
         last_seen_timestamp: Most recent observation in milliseconds since the epoch.
-        source_type: Source type. Supported by the Databricks Issues API.
-        source_id: Source identifier. Supported by the Databricks Issues API.
+        source_run_id: MLflow run that discovered the issue.
         metadata: Additional string metadata.
         issue_id: Optional caller-assigned issue ID.
 
@@ -50,10 +46,8 @@ def create_issue(
         status=status,
         severity=severity,
         categories=categories,
-        tags=tags,
         last_seen_timestamp=last_seen_timestamp,
-        source_type=source_type,
-        source_id=source_id,
+        source_run_id=source_run_id,
         metadata=metadata,
         issue_id=issue_id,
     )
@@ -83,7 +77,6 @@ def update_issue(
     status: IssueStatus | None = None,
     severity: IssueSeverity | None = None,
     categories: list[IssueCategory | str] | None = None,
-    tags: dict[str, str] | None = None,
     last_seen_timestamp: int | None = None,
     metadata: dict[str, str] | None = None,
     delete_metadata_keys: list[str] | None = None,
@@ -98,7 +91,6 @@ def update_issue(
         status: New status.
         severity: New severity.
         categories: Replacement categories; ``[]`` clears them.
-        tags: Replacement tags; ``{}`` clears them. Supported by the Databricks Issues API.
         last_seen_timestamp: Most recent observation in milliseconds since the epoch.
         metadata: Metadata entries to add or replace.
         delete_metadata_keys: Metadata keys to remove.
@@ -114,7 +106,6 @@ def update_issue(
         status=status,
         severity=severity,
         categories=categories,
-        tags=tags,
         last_seen_timestamp=last_seen_timestamp,
         metadata=metadata,
         delete_metadata_keys=delete_metadata_keys,
@@ -152,18 +143,4 @@ def search_issues(
         order_by=order_by,
         page_token=page_token,
         view=view,
-        include_total_count=True,
     )
-
-
-@experimental(version="3.18.0")
-def delete_issue(experiment_id: str, issue_id: str, *, force: bool = False) -> None:
-    """Delete an issue through the experiment-scoped Issues API.
-
-    Args:
-        experiment_id: Experiment that owns the issue.
-        issue_id: Issue ID.
-        force: Remove Unity Catalog trace references before deletion. The cleanup warehouse
-            is read from ``MLFLOW_TRACING_SQL_WAREHOUSE_ID``.
-    """
-    TracingClient()._delete_issue(issue_id, experiment_id=experiment_id, force=force)

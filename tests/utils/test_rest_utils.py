@@ -90,41 +90,6 @@ def test_call_endpoints_raises_exceptions():
             call_endpoints(host_only, endpoints, "", response_proto)
 
 
-@pytest.mark.parametrize("status_code", [200, 204, 201, 403])
-def test_call_endpoint_multiple_success_statuses(status_code):
-    response = requests.Response()
-    response.status_code = status_code
-    response._content = b"" if status_code == 204 else b"{}"
-    if status_code not in (200, 204):
-        response._content = (
-            b'{"error_code": "INTERNAL_ERROR", "message": "Unexpected response status"}'
-        )
-    response_proto = GetRun.Response()
-    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response):
-        if status_code in (200, 204):
-            assert (
-                call_endpoint(
-                    MlflowHostCreds("http://my-host"),
-                    "/api/2.0/mlflow/issues/iss-test",
-                    "DELETE",
-                    None,
-                    response_proto,
-                    expected_status=(200, 204),
-                )
-                is response_proto
-            )
-        else:
-            with pytest.raises(RestException, match="Unexpected response status"):
-                call_endpoint(
-                    MlflowHostCreds("http://my-host"),
-                    "/api/2.0/mlflow/issues/iss-test",
-                    "DELETE",
-                    None,
-                    response_proto,
-                    expected_status=(200, 204),
-                )
-
-
 def test_http_request_hostonly():
     host_only = MlflowHostCreds("http://my-host")
     response = mock.MagicMock()
