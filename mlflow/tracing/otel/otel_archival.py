@@ -4,14 +4,15 @@ Helpers for serializing archived trace spans as OTLP ``TracesData`` protobuf.
 
 from __future__ import annotations
 
-from typing import Any
-
 from google.protobuf.message import DecodeError
 from opentelemetry.proto.trace.v1.trace_pb2 import TracesData
 
 from mlflow.entities.span import Span
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.utils.otlp import resource_to_otel_proto
+from mlflow.tracing.utils.otlp import (
+    normalize_otel_resource_attributes,
+    resource_to_otel_proto,
+)
 
 TRACE_ARCHIVAL_FILENAME = "traces.pb"
 
@@ -26,28 +27,6 @@ def _sort_spans_for_trace_output(spans: list[Span]) -> list[Span]:
             span.span_id,
         ),
     )
-
-
-def normalize_otel_resource_attributes(resource) -> tuple[tuple[str, Any], ...]:
-    """Convert resource attributes into an order-insensitive comparable representation."""
-    if resource is None:
-        return ()
-
-    return tuple(
-        (str(key), _normalize_otel_resource_attribute_value(value))
-        for key, value in sorted(resource.attributes.items(), key=lambda item: str(item[0]))
-    )
-
-
-def _normalize_otel_resource_attribute_value(value: Any) -> Any:
-    if isinstance(value, dict):
-        return tuple(
-            (str(key), _normalize_otel_resource_attribute_value(nested_value))
-            for key, nested_value in sorted(value.items(), key=lambda item: str(item[0]))
-        )
-    if isinstance(value, (list, tuple)):
-        return tuple(_normalize_otel_resource_attribute_value(item) for item in value)
-    return value
 
 
 def spans_to_traces_data_pb(spans: list[Span]) -> bytes:
