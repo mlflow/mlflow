@@ -56,6 +56,7 @@ concurrency:
     ${{ format('{0}-{1}', github.workflow,
       github.event_name == 'issue_comment' &&
       (github.event.issue.pull_request || github.event.issue.state != 'open' ||
+       !contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) ||
        !startsWith(github.event.comment.body, '/triage')) &&
       format('ignored-{0}', github.run_id) ||
       github.event.issue.number || inputs.issue_number) }}
@@ -77,6 +78,7 @@ jobs:
       github.repository == 'mlflow/mlflow' && vars.TRIAGE_DISABLED != 'true' &&
       (github.event_name != 'issue_comment' ||
        (!github.event.issue.pull_request && github.event.issue.state == 'open' &&
+        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
         startsWith(github.event.comment.body, '/triage')))
     runs-on: ubuntu-slim
     timeout-minutes: 5
