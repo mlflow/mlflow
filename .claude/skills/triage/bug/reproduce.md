@@ -11,8 +11,8 @@ Extract from the issue:
 - The steps to reproduce, the expected behavior, and the actual behavior (error message,
   traceback, wrong output, UI symptom).
 - When the issue links to a failed GitHub Actions job or workflow run, or a pull request with
-  failing checks, use the Skill tool to invoke `analyze-ci` with the URL before reproducing the
-  failure.
+  failing checks, use the Skill tool to invoke the `analyze-ci` skill with the URL before
+  reproducing the failure.
 
 If the issue lacks what you need, still try a best-effort reproduction from what is there,
 and list the missing details in the comment.
