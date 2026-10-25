@@ -1,6 +1,6 @@
 ---
 name: ui-review
-description: Review a GitHub PR's UI/UX changes by launching the MLflow web app, driving a headless agent-browser over the changed surfaces, and writing a Markdown UI-review comment body (findings + screenshots) for the workflow to post. Ignore this skill unless the user explicitly invokes `/ui-review` or `$ui-review`.
+description: Ignore this skill unless the user explicitly invokes `/ui-review` or `$ui-review`. Review a GitHub PR's UI/UX changes by launching the MLflow web app, driving a headless agent-browser over the changed surfaces, and writing a Markdown UI-review comment body (findings + screenshots) for the workflow to post.
 disable-model-invocation: true
 argument-hint: "<owner_repo> <pr_number> <app_url>"
 arguments: [owner_repo, pr_number, app_url]
