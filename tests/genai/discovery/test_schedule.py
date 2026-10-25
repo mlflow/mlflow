@@ -281,6 +281,49 @@ def test_read_and_write_use_the_experiment_tags():
     )
 
 
+def test_the_filters_are_stored_before_the_cadence_activates_them():
+    # Order is the safety property: the cadence tag is what makes the dispatcher pick a schedule
+    # up, so a narrowed scope has to be in force before anything can run under it.
+    store = mock.Mock()
+    write_detection_schedule(
+        store,
+        "1",
+        DetectionSchedule(
+            cadence=DetectionCadence.HOURLY,
+            trace_filters=(ScheduleTraceFilter(field="tag", key="team", value="search"),),
+        ),
+    )
+    assert [call.args[1].key for call in store.set_experiment_tag.call_args_list] == [
+        MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER,
+        MLFLOW_ISSUE_DETECTION_SCHEDULE,
+    ]
+
+
+def test_a_failed_cadence_write_leaves_no_schedule_running_on_the_old_filters():
+    # The two writes are not atomic. Failing on the second leaves the narrowed filters stored and
+    # the cadence untouched, so nothing runs under the old, wider scope.
+    stored: dict[str, str] = {}
+
+    def set_experiment_tag(experiment_id: str, tag: ExperimentTag) -> None:
+        if tag.key == MLFLOW_ISSUE_DETECTION_SCHEDULE:
+            raise RuntimeError("tag write failed")
+        stored[tag.key] = tag.value
+
+    store = mock.Mock()
+    store.set_experiment_tag.side_effect = set_experiment_tag
+    narrowed = DetectionSchedule(
+        cadence=DetectionCadence.HOURLY,
+        trace_filters=(ScheduleTraceFilter(field="tag", key="team", value="search"),),
+    )
+    with pytest.raises(RuntimeError, match="tag write failed"):
+        write_detection_schedule(store, "1", narrowed)
+
+    assert MLFLOW_ISSUE_DETECTION_SCHEDULE not in stored
+    assert parse_trace_filters(stored[MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER]) == (
+        narrowed.trace_filters
+    )
+
+
 def test_saving_a_schedule_without_clauses_clears_a_stale_filter_tag():
     store = mock.Mock()
     write_detection_schedule(store, "1", DetectionSchedule(cadence=DetectionCadence.DAILY))
