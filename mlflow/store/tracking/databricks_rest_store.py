@@ -102,7 +102,6 @@ from mlflow.utils.rest_utils import (
     http_request,
     verify_rest_response,
 )
-from mlflow.utils.search_utils import SearchIssuesUtils, SearchUtils
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import append_to_uri_query_params
 
@@ -1362,6 +1361,8 @@ class DatabricksTracingRestStore(RestStore):
         include_total_count: bool = False,
         view: Literal["basic", "full"] | None = None,
     ) -> PagedList[Issue]:
+        from mlflow.utils.search_utils import SearchIssuesUtils, SearchUtils
+
         if not isinstance(experiment_id, str) or not experiment_id:
             raise MlflowException.invalid_parameter_value(
                 "experiment_id must be specified to search Databricks issues"
