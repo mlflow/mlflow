@@ -4,6 +4,10 @@ Use these steps to investigate a bug or verify a proposed fix.
 
 ## 1. Understand the issue
 
+When the issue links to a failed GitHub Actions job or workflow run, or a pull request with
+failing checks, use the Skill tool to invoke `analyze-ci` with the URL before reproducing the
+failure.
+
 Extract from the issue:
 
 - The MLflow version and the environment (Python version, OS, tracking/registry backend,
