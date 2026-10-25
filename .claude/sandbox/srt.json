@@ -6,6 +6,7 @@
       "github.com",
       "api.github.com",
       "raw.githubusercontent.com",
+      "*.blob.core.windows.net:443",
       "pypi.org",
       "files.pythonhosted.org",
       "releases.astral.sh",

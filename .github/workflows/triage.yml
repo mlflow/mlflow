@@ -561,6 +561,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
+      actions: read
       contents: read
       issues: read
       pull-requests: read
