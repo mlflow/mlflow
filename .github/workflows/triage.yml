@@ -561,6 +561,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
+      actions: read
       contents: read
       issues: read
       pull-requests: read
@@ -698,12 +699,28 @@ jobs:
           mkdir -p ~/.claude ~/.cache/uv ~/.npm
           # Claude Code rejects an empty config file.
           echo '{}' > ~/.claude.json
+      - name: Configure sandbox log access
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api meta > "$RUNNER_TEMP/triage-github-meta.json"
+          jq --exit-status --slurpfile meta "$RUNNER_TEMP/triage-github-meta.json" '
+            ($meta[0].domains.actions
+              | if type == "array" then . else error("Invalid Actions domains in GitHub /meta") end
+              | map(select(test("^productionresultssa[0-9]+\\.blob\\.core\\.windows\\.net$")))
+              | unique) as $domains
+            | if ($domains | length) == 0 then
+                error("GitHub /meta returned no Actions log-storage domains")
+              else
+                .network.allowedDomains += ($domains | map(. + ":443"))
+              end
+          ' .claude/sandbox/srt.json > "$RUNNER_TEMP/triage-srt.json"
       - name: Check sandbox restrictions
         run: |
           # .claude/sandbox/srt.json allows all Unix sockets because Linux SRT cannot allowlist
           # them by path and agent-browser needs one; denyRead hides the host service sockets.
           # Otherwise a sandbox that fails to start would pass every check below.
-          srt --settings .claude/sandbox/srt.json -- true
+          srt --settings "$RUNNER_TEMP/triage-srt.json" -- true
           # Verify the sandbox's PID namespace hides Runner.Worker, which holds
           # credentials referenced by this job.
           host_processes=$(ps -e -o comm=)
@@ -711,7 +728,7 @@ jobs:
             echo "::error::Runner.Worker was not found on the host"
             exit 1
           fi
-          srt --settings .claude/sandbox/srt.json -- bash -c '
+          srt --settings "$RUNNER_TEMP/triage-srt.json" -- bash -c '
             set -euo pipefail
             processes=$(ps -e -o comm=)
             if grep -Fxq "Runner.Worker" <<< "$processes"; then
@@ -749,7 +766,7 @@ jobs:
               exit 1
             fi
             TELEMETRY_SOCKET="$RUNNER_TEMP/triage-telemetry.sock" \
-              srt --settings .claude/sandbox/srt.json -- bash -c '
+              srt --settings "$RUNNER_TEMP/triage-srt.json" -- bash -c '
                 socat TCP-LISTEN:8081,bind=127.0.0.1,reuseaddr "UNIX-CONNECT:$TELEMETRY_SOCKET" &
                 for _ in $(seq 1 10); do
                   curl --noproxy "*" -fsS http://127.0.0.1:8081/healthz > /dev/null && exit 0
@@ -764,7 +781,7 @@ jobs:
             'curl -sf --unix-socket /var/run/docker.sock http://localhost/version' \
             'curl -sf --unix-socket /run/docker.sock http://localhost/version' \
             'ls /home/runner/work/_temp/_runner_file_commands | grep -q .'; do
-            if srt --settings .claude/sandbox/srt.json -- bash -c "$command"; then
+            if srt --settings "$RUNNER_TEMP/triage-srt.json" -- bash -c "$command"; then
               echo "::error::Sandbox allowed a forbidden operation"
               exit 1
             fi
@@ -820,7 +837,7 @@ jobs:
           if [ -S "$TELEMETRY_SOCKET" ]; then
             relay=(bash -c 'socat TCP-LISTEN:8081,bind=127.0.0.1,fork,reuseaddr "UNIX-CONNECT:$0" & exec "$@"' "$TELEMETRY_SOCKET")
           fi
-          timeout 30m srt --settings .claude/sandbox/srt.json -- \
+          timeout 30m srt --settings "$RUNNER_TEMP/triage-srt.json" -- \
             "${relay[@]}" env -u NO_PROXY -u no_proxy claude \
             --model "$MODEL" \
             --session-id "$SESSION_ID" \
