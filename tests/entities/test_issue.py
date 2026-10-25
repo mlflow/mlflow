@@ -2,9 +2,11 @@ import json
 import uuid
 
 import pytest
+from google.protobuf.json_format import ParseDict
 
 from mlflow.entities.issue import Issue, IssueCategory, IssueSeverity, IssueStatus
 from mlflow.protos.issues_pb2 import Issue as ProtoIssue
+from mlflow.protos.managed_issues_pb2 import Issue as ManagedProtoIssue
 
 
 def create_issue(severity: IssueSeverity) -> Issue:
@@ -533,3 +535,99 @@ def test_issue_empty_tags_dictionary_roundtrip():
 
     assert serialized["tags"] == {}
     assert Issue.from_dictionary(serialized).tags == {}
+
+
+def test_issue_from_managed_proto():
+    proto = ParseDict(
+        {
+            "name": "experiments/123/issues/iss-456",
+            "issue_id": "iss-456",
+            "title": "Unexpected answer",
+            "description": "The answer contradicts the source.",
+            "status": "PENDING",
+            "severity": "HIGH",
+            "categories": ["correctness", "custom-category"],
+            "create_time": "1970-01-01T01:00:00.123456789+01:00",
+            "update_time": "1970-01-01T01:00:02.987654321+01:00",
+            "last_seen_time": "1970-01-01T00:00:01.999999999Z",
+            "tags": {"team": "payments"},
+            "metadata": {"trace_ids": "tr-123"},
+            "source_type": "ADHOC_RUN",
+            "source_id": "run-123",
+            "created_by": "creator",
+            "last_updated_by": "editor",
+        },
+        ManagedProtoIssue(),
+    )
+
+    issue = Issue.from_proto(proto)
+
+    assert issue == Issue(
+        issue_id="iss-456",
+        experiment_id="123",
+        name="Unexpected answer",
+        description="The answer contradicts the source.",
+        status=IssueStatus.PENDING,
+        severity=IssueSeverity.HIGH,
+        categories=[IssueCategory.CORRECTNESS, "custom-category"],
+        created_timestamp=123,
+        last_updated_timestamp=2987,
+        last_seen_timestamp=1999,
+        tags={"team": "payments"},
+        metadata={"trace_ids": "tr-123"},
+        source_type="ADHOC_RUN",
+        source_id="run-123",
+        source_run_id="run-123",
+        created_by="creator",
+        last_updated_by="editor",
+    )
+    assert issue.categories[0] is IssueCategory.CORRECTNESS
+
+
+@pytest.mark.parametrize("severity", [None, "ISSUE_SEVERITY_UNSPECIFIED"])
+def test_issue_from_managed_basic_proto(severity):
+    proto = ManagedProtoIssue(
+        name="experiments/1/issues/iss-123",
+        issue_id="iss-123",
+        title="Unexpected answer",
+        status="RESOLVED",
+        severity=severity,
+    )
+
+    issue = Issue.from_proto(proto)
+
+    assert issue.description == ""
+    assert issue.status is IssueStatus.RESOLVED
+    assert issue.severity is None
+    assert issue.categories == []
+    assert issue.tags == {}
+    assert issue.metadata == {}
+    assert issue.last_seen_timestamp is None
+    assert issue.source_type is None
+    assert issue.source_id is None
+    assert issue.created_by is None
+    assert issue.last_updated_by is None
+
+
+@pytest.mark.parametrize(
+    ("source_type", "source_run_id"),
+    [
+        ("ADHOC_RUN", "source-123"),
+        ("SCHEDULED_RUN", "source-123"),
+        ("MANUAL", None),
+        ("SINGLE_TRACE_ANALYSIS", None),
+    ],
+)
+def test_issue_from_managed_proto_source(source_type, source_run_id):
+    proto = ManagedProtoIssue(
+        name="experiments/1/issues/iss-123",
+        status="PENDING",
+        source_type=source_type,
+        source_id="source-123",
+    )
+
+    issue = Issue.from_proto(proto)
+
+    assert issue.source_type == source_type
+    assert issue.source_id == "source-123"
+    assert issue.source_run_id == source_run_id

@@ -2,6 +2,7 @@ import functools
 import json
 import logging
 from typing import TYPE_CHECKING, Any, Literal
+from urllib.parse import quote
 
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 
@@ -48,6 +49,7 @@ from mlflow.environment_variables import (
     _MLFLOW_DELETE_TRACES_MAX_BATCH_SIZE,
     _MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE,
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
+    MLFLOW_TRACING_SQL_WAREHOUSE_ID,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
@@ -66,6 +68,7 @@ from mlflow.protos.label_schemas_pb2 import (
     ListLabelSchemas,
     UpdateLabelSchema,
 )
+from mlflow.protos.managed_issues_pb2 import DeleteIssue, ManagedIssueService
 from mlflow.protos.review_queues_pb2 import (
     AddItemsToReviewQueue,
     CreateReviewQueue,
@@ -186,6 +189,7 @@ from mlflow.utils.rest_utils import (
     http_request,
     verify_rest_response,
 )
+from mlflow.utils.uri import append_to_uri_query_params
 from mlflow.utils.validation import _resolve_experiment_ids_and_locations
 
 _logger = logging.getLogger(__name__)
@@ -212,7 +216,9 @@ class RestStore(
             is a function so that we can obtain fresh credentials in the case of expiry.
     """
 
-    _METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
+    _METHOD_TO_INFO = extract_api_info_for_service(
+        MlflowService, _REST_API_PATH_PREFIX
+    ) | extract_api_info_for_service(ManagedIssueService, _REST_API_PATH_PREFIX)
     _V3_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _V3_REST_API_PATH_PREFIX)
 
     # Set of v3 APIs - includes Gateway APIs from mixin
@@ -259,6 +265,7 @@ class RestStore(
         endpoint=None,
         retry_timeout_seconds=None,
         response_proto=None,
+        expected_status=200,
     ):
         # Route v3 APIs to v3 endpoints, all others to v2 endpoints
         method_to_info = self._V3_METHOD_TO_INFO if api in self._V3_APIS else self._METHOD_TO_INFO
@@ -278,6 +285,7 @@ class RestStore(
             json_body,
             response_proto,
             retry_timeout_seconds=retry_timeout_seconds,
+            **({"expected_status": expected_status} if expected_status != 200 else {}),
         )
 
     def search_experiments(
@@ -1031,6 +1039,31 @@ class RestStore(
             UpdateIssue, req_body, endpoint=f"{_V3_ISSUES_REST_API_PATH_PREFIX}/{issue_id}"
         )
         return Issue.from_proto(response_proto.issue)
+
+    def delete_issue(self, issue_id: str, *, experiment_id: str, force: bool = False) -> None:
+        if not isinstance(experiment_id, str) or not experiment_id:
+            raise MlflowException.invalid_parameter_value("experiment_id must be a nonempty string")
+        if not isinstance(issue_id, str) or not issue_id:
+            raise MlflowException.invalid_parameter_value("issue_id must be a nonempty string")
+        if type(force) is not bool:
+            raise MlflowException.invalid_parameter_value("force must be a boolean")
+        request = DeleteIssue(
+            name=f"experiments/{experiment_id}/issues/{issue_id}",
+            force=force,
+            sql_warehouse_id=MLFLOW_TRACING_SQL_WAREHOUSE_ID.get() if force else None,
+        )
+        endpoint = (
+            f"/api/2.0/mlflow/experiments/{quote(experiment_id, safe='')}/issues/"
+            f"{quote(issue_id, safe='')}"
+        )
+        params = [("force", str(request.force).lower())]
+        if request.HasField("sql_warehouse_id"):
+            params.append(("sql_warehouse_id", request.sql_warehouse_id))
+        self._call_endpoint(
+            DeleteIssue,
+            endpoint=append_to_uri_query_params(endpoint, *params),
+            expected_status=(200, 204),
+        )
 
     def search_issues(
         self,

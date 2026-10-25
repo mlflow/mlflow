@@ -7,6 +7,7 @@ from typing import Any
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.issues_pb2 import Issue as ProtoIssue
+from mlflow.protos.managed_issues_pb2 import Issue as ManagedProtoIssue
 
 
 class IssueCategory(str, Enum):
@@ -222,8 +223,42 @@ class Issue(_MlflowObject):
         return proto_issue
 
     @classmethod
-    def from_proto(cls, proto: ProtoIssue) -> Issue:
+    def from_proto(cls, proto: ProtoIssue | ManagedProtoIssue) -> Issue:
         """Create Issue from protobuf representation."""
+        if isinstance(proto, ManagedProtoIssue):
+            built_in_categories = {category.value: category for category in IssueCategory}
+            return cls(
+                issue_id=proto.issue_id,
+                experiment_id=proto.name.split("/")[1],
+                name=proto.title,
+                description=proto.description,
+                status=IssueStatus(proto.status.lower()),
+                created_timestamp=proto.create_time.ToMilliseconds(),
+                last_updated_timestamp=proto.update_time.ToMilliseconds(),
+                severity=(
+                    IssueSeverity(proto.severity.lower())
+                    if proto.severity and proto.severity != "ISSUE_SEVERITY_UNSPECIFIED"
+                    else None
+                ),
+                source_run_id=(
+                    proto.source_id if proto.source_type in {"ADHOC_RUN", "SCHEDULED_RUN"} else None
+                ),
+                categories=[
+                    built_in_categories.get(category, category) for category in proto.categories
+                ],
+                created_by=proto.created_by or None,
+                last_seen_timestamp=(
+                    proto.last_seen_time.ToMilliseconds()
+                    if proto.HasField("last_seen_time")
+                    else None
+                ),
+                last_updated_by=proto.last_updated_by or None,
+                metadata=dict(proto.metadata),
+                tags=dict(proto.tags),
+                source_type=proto.source_type or None,
+                source_id=proto.source_id or None,
+            )
+
         return cls(
             issue_id=proto.issue_id,
             experiment_id=proto.experiment_id,

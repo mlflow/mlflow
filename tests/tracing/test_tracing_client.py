@@ -10,6 +10,7 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 import mlflow
 from mlflow.entities.experiment import Experiment
 from mlflow.entities.experiment_tag import ExperimentTag
+from mlflow.entities.issue import IssueSeverity, IssueStatus
 from mlflow.entities.span import create_mlflow_span
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
@@ -45,6 +46,51 @@ def test_get_trace_v4():
     mock_store.batch_get_traces.assert_called_once_with(
         ["trace:/catalog.schema/1234567890"], "catalog.schema"
     )
+
+
+def test_issue_client_preserves_local_store_and_checks_experiment():
+    experiment_id = mlflow.create_experiment("issue-sdk-compatibility")
+    other_experiment_id = mlflow.create_experiment("another-issue-experiment")
+    client = TracingClient()
+    issue = client._create_issue(
+        experiment_id,
+        "Original",
+        "Description",
+        severity=IssueSeverity.HIGH,
+        categories=["correctness"],
+    )
+    assert client._get_issue(issue.issue_id, experiment_id=experiment_id) == issue
+    with pytest.raises(MlflowException, match="does not belong") as exc:
+        client._get_issue(issue.issue_id, experiment_id=other_experiment_id)
+    assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+    with pytest.raises(MlflowException, match="does not belong"):
+        client._update_issue(
+            issue.issue_id, experiment_id=other_experiment_id, name="Wrong experiment"
+        )
+    assert client._get_issue(issue.issue_id).name == "Original"
+    updated = client._update_issue(
+        issue.issue_id,
+        experiment_id=experiment_id,
+        name="Updated",
+        status=IssueStatus.RESOLVED,
+        description="",
+        categories=[],
+    )
+    assert updated.description == ""
+    assert not updated.categories
+    result = client._search_issues(experiment_id, "status = 'resolved'", include_total_count=True)
+    assert [issue.name for issue in result] == ["Updated"]
+    assert result.total_count == 1
+
+
+@pytest.mark.parametrize("options", [{"tags": {}}, {"source_type": "MANUAL"}, {"source_id": "x"}])
+def test_issue_client_rejects_managed_fields_on_oss(options):
+    store = Mock()
+    with patch("mlflow.tracing.client._get_store", return_value=store):
+        client = TracingClient(tracking_uri="http://localhost:5000")
+        with pytest.raises(MlflowNotImplementedException, match="only supported by Databricks"):
+            client._create_issue("1", "name", "description", **options)
+    store.create_issue.assert_not_called()
 
 
 def test_get_trace_v4_retry():

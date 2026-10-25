@@ -368,7 +368,7 @@ def http_request_safe(host_creds, endpoint, method, **kwargs):
 def verify_rest_response(
     response,
     endpoint,
-    expected_status: int = 200,
+    expected_status: int | tuple[int, ...] = 200,
 ):
     """Verify the return code and format, raise exception if the request was not successful."""
     # Handle Armeria-specific response case where response text is "200 OK"
@@ -378,7 +378,8 @@ def verify_rest_response(
         return response
 
     # Handle non-expected status codes
-    if response.status_code != expected_status:
+    expected_statuses = (expected_status,) if isinstance(expected_status, int) else expected_status
+    if response.status_code not in expected_statuses:
         if _can_parse_as_json_object(response.text):
             raise RestException(json.loads(response.text))
         else:
@@ -652,7 +653,7 @@ def call_endpoint(
     response_proto,
     extra_headers=None,
     retry_timeout_seconds=None,
-    expected_status: int = 200,
+    expected_status: int | tuple[int, ...] = 200,
 ):
     # Convert json string to json dictionary, to pass to requests
     if json_body is not None:

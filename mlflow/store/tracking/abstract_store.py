@@ -711,6 +711,9 @@ class AbstractStore(SkillRegistryMixin, MCPServerRegistryMixin, GatewayStoreMixi
         issue_id: str | None = None,
         last_seen_timestamp: int | None = None,
         metadata: dict[str, str] | None = None,
+        tags: dict[str, str] | None = None,
+        source_type: str | None = None,
+        source_id: str | None = None,
     ) -> Issue:
         """
         Create a new issue.
@@ -728,18 +731,22 @@ class AbstractStore(SkillRegistryMixin, MCPServerRegistryMixin, GatewayStoreMixi
             issue_id: Optional iss-* ID (at most 36 characters); reuse returns a conflict.
             last_seen_timestamp: Latest observation in milliseconds; defaults to creation time.
             metadata: String metadata map (at most 100 entries).
+            tags: Tags supported by the Databricks Issues API.
+            source_type: Source type supported by the Databricks Issues API.
+            source_id: Source identifier supported by the Databricks Issues API.
 
         Returns:
             The created Issue entity.
         """
         raise MlflowNotImplementedException()
 
-    def get_issue(self, issue_id: str) -> Issue:
+    def get_issue(self, issue_id: str, *, experiment_id: str | None = None) -> Issue:
         """
         Get an issue by ID.
 
         Args:
             issue_id: The ID of the issue to retrieve.
+            experiment_id: The experiment that owns the issue, required on Databricks.
 
         Returns:
             The Issue entity.
@@ -759,6 +766,8 @@ class AbstractStore(SkillRegistryMixin, MCPServerRegistryMixin, GatewayStoreMixi
         last_updated_by: str | None = None,
         metadata: dict[str, str] | None = None,
         delete_metadata_keys: list[str] | None = None,
+        experiment_id: str | None = None,
+        tags: dict[str, str] | None = None,
     ) -> Issue:
         """
         Update an existing issue.
@@ -774,9 +783,21 @@ class AbstractStore(SkillRegistryMixin, MCPServerRegistryMixin, GatewayStoreMixi
             last_updated_by: Update actor, overridden by the authenticated HTTP user when available.
             metadata: Entries to merge with existing metadata.
             delete_metadata_keys: Metadata keys to remove; cannot overlap metadata updates.
+            experiment_id: The experiment that owns the issue, required on Databricks.
+            tags: Replacement tags supported by the Databricks Issues API.
 
         Returns:
             The updated Issue entity.
+        """
+        raise MlflowNotImplementedException()
+
+    def delete_issue(self, issue_id: str, *, experiment_id: str, force: bool = False) -> None:
+        """Delete an issue using the experiment-scoped Issues API.
+
+        Args:
+            issue_id: The ID of the issue to delete.
+            experiment_id: The experiment that owns the issue.
+            force: Remove trace references before deletion.
         """
         raise MlflowNotImplementedException()
 
