@@ -1753,9 +1753,10 @@ class SqlLoggedModelMetric(Base):
     )
 
     def to_mlflow_entity(self) -> Metric:
+        value = float("nan") if self.metric_value is None else self.metric_value
         return Metric(
             key=self.metric_name,
-            value=self.metric_value,
+            value=value,
             timestamp=self.metric_timestamp_ms,
             step=self.metric_step,
             run_id=self.run_id,

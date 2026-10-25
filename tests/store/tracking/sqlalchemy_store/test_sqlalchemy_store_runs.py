@@ -4657,3 +4657,22 @@ def test_set_logged_model_tags_bulk_upsert(store: SqlAlchemyStore):
         ],
     )
     assert store.get_logged_model(model.model_id).tags["dup"] == "third"
+
+
+def test_logged_model_nan_metric_roundtrip(store):
+    """NaN logged-model metrics must round-trip as NaN and not match numeric filters."""
+    import math
+    from mlflow.entities import Metric
+
+    exp_id = store.create_experiment("nan-model-test")
+    run = store.create_run(exp_id, "user", 0, [], None)
+    model = store.create_logged_model(exp_id, name="nan-model")
+    metric = Metric("loss", float("nan"), 0, 0, model_id=model.model_id)
+    store.log_metric(run.info.run_id, metric)
+
+    retrieved = store.get_logged_model(model.model_id)
+    assert math.isnan(retrieved.metrics[0].value)
+
+    # Must not match numeric filters
+    results = store.search_logged_models([exp_id], filter_string="metrics.loss < 0.1")
+    assert len(results) == 0

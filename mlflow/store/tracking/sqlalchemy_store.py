@@ -1564,8 +1564,10 @@ class SqlAlchemyStore(
                 metric.step,
                 path="" if is_single_metric else f"metrics[{idx}]",
             )
-            _, value = self.sanitize_metric_value(metric.value)
-            sanitized_metrics.append((metric, value))
+            is_nan, value = self.sanitize_metric_value(metric.value)
+            # Store NaN as NULL so it round-trips and does not match numeric filters
+            stored_value = None if is_nan else value
+            sanitized_metrics.append((metric, stored_value))
 
         if not sanitized_metrics:
             return
