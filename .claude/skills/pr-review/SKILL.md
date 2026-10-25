@@ -1,6 +1,6 @@
 ---
 name: pr-review
-description: Review a pull request and emit a validated review payload.
+description: Review a pull request and emit a validated review payload. Ignore this skill unless the user explicitly invokes `/pr-review` or `$pr-review`.
 disable-model-invocation: true
 argument-hint: "<pr_url> <pr_checkout> <payload_path> <media_dir> <base_dir>"
 arguments: [pr_url, pr_checkout, payload_path, media_dir, base_dir]
