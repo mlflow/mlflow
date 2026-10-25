@@ -615,9 +615,10 @@ jobs:
       - uses: ./.github/actions/setup-node
       # Install system packages, CLIs, and hook environments in parallel.
       - parallel:
-          - name: Install pre-commit hook environments
+          - name: Prepare pre-commit checks
             run: |
               uv run --only-group lint pre-commit install-hooks
+              uv run --no-sync pre-commit run install-bin --all-files
           - name: Install system packages
             run: |
               sudo apt-get update
@@ -817,10 +818,12 @@ jobs:
               exit 1
             fi
           done
-      - name: Check pre-commit hook cache in sandbox
+      - name: Check pre-commit setup in sandbox
         run: |
           srt --settings "$RUNNER_TEMP/triage-srt.json" -- \
             uv run --no-sync pre-commit run trailing-whitespace --files .pre-commit-config.yaml
+          srt --settings "$RUNNER_TEMP/triage-srt.json" -- \
+            uv run --no-sync pre-commit run install-bin --all-files
       # Fixed up front so the trace can be found by its session after the run.
       - id: session
         name: Generate session ID
