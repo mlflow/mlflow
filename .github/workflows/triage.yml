@@ -613,7 +613,6 @@ jobs:
       # https://github.com/actions/runner/issues/4789
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-node
-      # Install system packages, CLIs, and hook environments in parallel.
       - parallel:
           - name: Prepare pre-commit checks
             run: |
