@@ -25,15 +25,6 @@ on:
         options:
           - databricks-claude-opus-5-5
           - databricks-claude-sonnet-5-5
-      effort:
-        description: "Claude reasoning effort"
-        required: false
-        type: choice
-        default: high
-        options:
-          - low
-          - medium
-          - high
       dry_run:
         description: "Preview triage without issue mutations"
         required: false
@@ -812,7 +803,6 @@ jobs:
           AGENT_BROWSER_ARGS: --no-sandbox
           AGENT_BROWSER_SCREENSHOT_DIR: /tmp/triage-out/media
           MODEL: ${{ inputs.model || 'databricks-claude-opus-5-5' }}
-          EFFORT: ${{ inputs.effort || 'high' }}
           SESSION_ID: ${{ steps.session.outputs.id }}
           ISSUE_PATH: ${{ runner.temp }}/issue-context/issue-context.json
           TRIAGE_ACTION: ${{ needs.issue.outputs.action }}
@@ -851,7 +841,7 @@ jobs:
             "${relay[@]}" env -u NO_PROXY -u no_proxy claude \
             --model "$MODEL" \
             --session-id "$SESSION_ID" \
-            --effort "$EFFORT" \
+            --effort high \
             --max-budget-usd 5 \
             --permission-mode auto \
             --disallowed-tools WebSearch \
