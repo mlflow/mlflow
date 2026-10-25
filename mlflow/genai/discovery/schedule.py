@@ -1,15 +1,14 @@
 """Storage and timing of an experiment's recurring issue-detection schedule.
 
 A schedule lives in experiment tags, the way the experiment's detection priorities already do:
-``mlflow.issueDetection.schedule`` holds the cadence, timezone and paused flag the owner chose,
-``mlflow.issueDetection.scheduleTraceFilter`` holds the optional clauses narrowing which traces a
-run analyzes, and ``mlflow.issueDetection.scheduleState`` holds what the server has dispatched so
-far. The first two are written by whoever edits the schedule; the last is written only by the
-server, so an owner saving a new cadence can never clobber the dispatch bookkeeping, and the
-server stamping an occurrence can never clobber their edit.
+``mlflow.issueDetection.schedule`` holds the cadence, timezone and paused flag,
+``mlflow.issueDetection.scheduleTraceFilter`` the optional clauses narrowing which traces a run
+analyzes, and ``mlflow.issueDetection.scheduleState`` what the server has dispatched. The first
+two are written by whoever edits the schedule, the last only by the server, so neither can clobber
+the other.
 
-This module owns the storage contract and the timing arithmetic. Dispatching the due occurrence
-and running detection are separate.
+This module owns the storage contract and the timing arithmetic; dispatching and running are
+separate.
 """
 
 from __future__ import annotations
@@ -41,16 +40,15 @@ SCHEDULE_VERSION = 1
 
 DEFAULT_TIMEZONE = "UTC"
 
-# Upper bound on how many clauses one schedule may carry. The tag is written by a client, so the
-# dispatcher reads it defensively rather than trusting its size; 20 is far more than the modal
-# offers and still bounds the filter string a run builds.
+# Upper bound on how many clauses one schedule may carry. The tag is client-written, so its size
+# is read defensively; 20 is far more than the modal offers.
 MAX_TRACE_FILTERS = 20
 
-# A clause is spliced into a ``search_traces`` filter string, where a backtick or quote would
-# either break the expression or change which traces it matches. Such a clause is dropped rather
-# than escaped: the filter grammar has no escape -- doubling a quote yields a value containing
-# both characters rather than one -- and a run that silently analyzed the wrong traces would be
-# worse than one that ignored a clause nobody can express.
+# A clause's key and value are spliced into a ``search_traces`` filter string, so a character that
+# would break the expression or change which traces it matches makes the clause unusable. Such a
+# clause is dropped rather than escaped or rewritten: the filter grammar has no escape (doubling a
+# quote yields both characters, not one), and a run that silently analyzed the wrong traces would
+# be worse than one that ignored a clause nobody can express.
 _FORBIDDEN_FILTER_CHARS = "`'\"\\"
 
 
@@ -58,11 +56,8 @@ def _has_control_char(text: str) -> bool:
     """
     Whether ``text`` carries a character that cannot appear in a filter clause.
 
-    Control characters and DEL are rejected rather than stripped: the key and value are
-    spliced into a filter expression, so one carrying a newline or a null byte builds a
-    malformed clause, and rewriting it quietly would filter on something other than what the
-    schedule names. Ordinary whitespace is allowed, unlike in a model identifier -- a tag
-    value like "north america" is legitimate.
+    Control characters and DEL build a malformed clause. Ordinary whitespace does not, unlike in a
+    model identifier -- a tag value like "north america" is legitimate.
     """
     return any(ord(char) < 0x20 or ord(char) == 0x7F for char in text)
 
@@ -91,9 +86,8 @@ class ScheduleTraceFilter:
     """
     One equality clause narrowing which traces a scheduled run analyzes.
 
-    A schedule may carry several, ANDed: a run only analyzes traces matching every clause.
-    ``field`` says which namespace the key lives in; ``operator`` is fixed to ``=`` today but
-    stored so the shape can carry other comparisons later without a migration.
+    A schedule may carry several, ANDed. ``field`` says which namespace the key lives in;
+    ``operator`` is fixed to ``=`` today but stored so other comparisons need no migration.
     """
 
     field: Literal["metadata", "tag"]
@@ -119,14 +113,12 @@ class ScheduleModel:
     """
     The model a scheduled run analyzes with, as chosen in the schedule modal.
 
-    Either an AI Gateway endpoint (``endpoint_name``) or a provider's model directly
-    (``provider`` + ``model``). A schedule saved before this was offered carries no model at all,
-    which reads back as ``None`` and leaves the run on the server's default -- the behaviour such
-    a schedule had when it was saved.
+    Either an AI Gateway endpoint (``endpoint_name``) or a provider's model directly (``provider``
+    + ``model``). A schedule saved before this was offered carries none, reads back as ``None``,
+    and stays on the server's default -- the behaviour it had when it was saved.
 
-    The credential is deliberately not stored here. It is resolved from the provider at each fire
-    time, so rotating a key keeps the schedule running instead of pinning it to a secret that may
-    since have been deleted.
+    The credential is deliberately not stored: it is resolved from the provider at each fire time,
+    so rotating a key keeps the schedule running rather than pinning it to a deleted secret.
     """
 
     provider: str = ""
@@ -159,8 +151,8 @@ class DetectionSchedule:
     """
     An experiment's recurring detection schedule, as stored.
 
-    A paused schedule keeps its cadence and filters so resuming restores them; it simply does not
-    fire. "Off" in the UI is a paused schedule, not a deleted one.
+    "Off" in the UI is a paused schedule rather than a deleted one: the cadence and filters stay
+    stored so resuming restores them.
     """
 
     cadence: DetectionCadence
@@ -196,11 +188,10 @@ class DetectionScheduleState:
 
     Args:
         last_fire_time_ms: Fire time (epoch ms) of the occurrence last dispatched. The next
-            occurrence is the first fire time strictly after it, so this both prevents the same
-            occurrence running twice and bounds catch-up after downtime to one run.
-        last_dispatched_at_ms: Wall-clock time the dispatch happened (audit only). Differs from
+            occurrence is the first fire time strictly after it -- see ``due_occurrence_ms``.
+        last_dispatched_at_ms: Wall-clock dispatch time (audit only). Differs from
             ``last_fire_time_ms`` when the server was busy or down at the fire time.
-        last_run_id: The detection run the last dispatch created (audit only).
+        last_run_id: The run that dispatch created (audit only).
     """
 
     last_fire_time_ms: int
@@ -234,15 +225,14 @@ def _parse_envelope(raw_value: str | None) -> dict[str, Any] | None:
 def _parse_trace_filter(entry: object) -> ScheduleTraceFilter | None:
     if not isinstance(entry, dict):
         return None
-    # Anything that is not "tag" reads as request metadata, as it does in the tab: a clause
-    # written before this field existed, or naming a namespace this server does not know, is
-    # applied rather than dropped, since dropping it would widen what the occurrence analyzes.
+    # Anything that is not "tag" reads as request metadata, as it does in the tab, so a clause
+    # written before this field existed is applied rather than dropped.
     field: Literal["metadata", "tag"] = "tag" if entry.get("field") == "tag" else "metadata"
     key = entry.get("key")
     if not isinstance(key, str):
         return None
-    # Trimmed, and a key that is blank once trimmed is no clause at all. Left untrimmed it would
-    # build a filter on a padded key, which matches nothing and silently analyzes nothing.
+    # Trimmed, since a padded key would build a filter matching nothing; blank once trimmed is
+    # no clause at all.
     key = key.strip()
     if not key:
         return None
@@ -250,9 +240,8 @@ def _parse_trace_filter(entry: object) -> ScheduleTraceFilter | None:
     # dropping the clause.
     raw_value = entry.get("value")
     value = raw_value if isinstance(raw_value, str) else ""
-    # Only equality exists today. An unknown operator is dropped rather than coerced to "=":
-    # coercing, say, "!=" would analyze a set disjoint from the one the clause asked for, which
-    # hides exactly the traces it was written to select.
+    # An unknown operator is dropped rather than coerced to "=": coercing "!=" would analyze a
+    # set disjoint from the one the clause asked for, hiding the traces it meant to select.
     if entry.get("operator", "=") != "=":
         return None
     if any(char in key or char in value for char in _FORBIDDEN_FILTER_CHARS):
@@ -266,9 +255,8 @@ def _parse_model_identifier(value: object) -> str:
     """
     One stored provider / model / endpoint name, or ``""`` when it is not usable.
 
-    Whitespace and control characters are rejected rather than stripped out of the middle: the
-    value becomes a model URI, and quietly rewriting it could point a run at a different model
-    than the schedule names.
+    Interior whitespace and control characters are rejected rather than stripped: the value
+    becomes a model URI, and rewriting it could point a run at a different model.
     """
     if not isinstance(value, str):
         return ""
@@ -284,9 +272,8 @@ def _parse_model(entry: object) -> ScheduleModel | None:
     """
     Parse the model half of the schedule envelope.
 
-    Returns ``None`` when there is no usable selection, which leaves the run on the server's
-    default model rather than failing the occurrence: a schedule that still fires and analyzes
-    with the default is a better outcome than one that silently stops.
+    Returns ``None`` when there is no usable selection, leaving the run on the server's default
+    rather than failing the occurrence -- firing with the default beats stopping.
     """
     if not isinstance(entry, dict):
         return None
@@ -307,9 +294,8 @@ def parse_trace_filters(raw_value: str | None) -> tuple[ScheduleTraceFilter, ...
     """
     Parse the trace-filter tag, dropping any clause this reader cannot use.
 
-    Dropping one clause widens what a run analyzes, so each is reported. Returning the
-    clauses that did parse keeps a schedule running on the rest rather than silently
-    analyzing the whole experiment or stopping.
+    Dropping a clause widens what a run analyzes, so each is logged. The clauses that did parse
+    are still returned, which keeps the schedule narrowed by the rest rather than not at all.
     """
     if not raw_value:
         return ()
@@ -342,8 +328,8 @@ def _resolve_timezone(name: object) -> str:
     """
     The schedule's timezone, falling back to UTC when it names a zone this server cannot load.
 
-    A zone the server's tzdata does not carry must not stop the schedule: UTC still fires it on
-    cadence, only at a different local hour, which is a better outcome than silence.
+    A zone missing from the server's tzdata must not stop the schedule: UTC still fires it on
+    cadence, only at a different local hour.
     """
     if not isinstance(name, str) or not name:
         return DEFAULT_TIMEZONE
@@ -366,9 +352,8 @@ def parse_detection_schedule(
     """
     Parse the schedule tags.
 
-    Returns ``None`` when there is no schedule, when the envelope carries an unrecognized
-    ``version``, or when it names a cadence this server does not run -- all of which mean "do not
-    fire" rather than "fire with a guess".
+    Returns ``None`` when there is no schedule, the envelope carries an unrecognized ``version``,
+    or it names a cadence this server does not run -- each meaning "do not fire", not "guess".
     """
     if (parsed := _parse_envelope(raw_value)) is None:
         return None
@@ -482,11 +467,9 @@ def next_fire_time_ms(schedule: DetectionSchedule, after_ms: int) -> int:
     """
     The first time this schedule's cadence fires, strictly after ``after_ms`` (epoch ms).
 
-    Candidates are built as local wall-clock times and then resolved to an instant, so the hour a
-    schedule fires at stays the same local hour across a DST change rather than drifting by an
-    hour. ``zoneinfo`` resolves an ambiguous wall clock (the repeated hour when clocks go back) to
-    its first occurrence, and a nonexistent one (the skipped hour when they go forward) to the
-    instant the gap moves it to, so every candidate maps to exactly one instant.
+    ``zoneinfo`` resolves each wall-clock candidate (see ``_fire_time_anchor``) to exactly one
+    instant: an ambiguous one, the repeated hour when clocks go back, to its first occurrence, and
+    a nonexistent one, the hour skipped when they go forward, to the instant the gap moves it to.
     """
     zone, base, step = _fire_time_anchor(schedule, after_ms)
     # Walking candidates in wall-clock order, the first one past ``after_ms`` wins. A handful of
@@ -526,18 +509,15 @@ def due_occurrence_ms(
     now_ms: int,
 ) -> int | None:
     """
-    The fire time of the occurrence that should run now, or ``None`` when none is due.
-
-    A schedule the server has not seen before gets no immediate run: its first occurrence is the
-    next fire time after the server noticed it, the same as a cron would do. That is why a
-    first pass records state without dispatching -- see ``claim_first_occurrence``.
+    The fire time of the occurrence that should run now, or ``None`` when none is due. A
+    schedule with no state yet is never due -- see ``claim_first_occurrence``.
 
     Only one occurrence is ever returned, and it is the most recent one due rather than the oldest
-    one missed. That is what keeps downtime to a single catch-up run: claiming the oldest would
-    advance the state only to that historical fire time, leaving the next poll a minute later to
-    claim the one after it, so a pause of a month would dispatch a month of hourly runs. How much
-    history the one run reads is bounded separately by the sampling window's stale-watermark cap,
-    which is measured from this fire time -- near now, not near the start of the gap.
+    missed. That is what keeps downtime to a single catch-up run: claiming the oldest would
+    advance the state only to that historical fire time, leaving the next poll to claim the one
+    after it, so a month-long pause would dispatch a month of hourly runs. How much history that
+    one run reads is bounded separately by ``STALE_WATERMARK_CAP_MS``, measured from this fire
+    time -- near now, not near the start of the gap.
     """
     if schedule.paused or state is None:
         return None
@@ -573,9 +553,9 @@ def scheduled_detection_available() -> bool:
     """
     Whether this server can run a schedule at all.
 
-    Recurring detection needs the periodic-task dispatcher and the job system behind it, which in
-    turn need a SQL backend store. Without them a saved schedule would sit there looking active
-    and never run, so the capability is reported rather than inferred by a client.
+    Recurring detection needs the periodic-task dispatcher, the job system behind it, and the SQL
+    backend store both need. Reported rather than left for a client to infer, since a saved
+    schedule would otherwise look active and never run.
     """
     from mlflow.environment_variables import (
         MLFLOW_SERVER_ENABLE_JOB_EXECUTION,

@@ -21,25 +21,21 @@ CHECKPOINT_VERSION = 1
 # Cap on how many traces one scheduled run samples from its window.
 MAX_SCHEDULED_SAMPLE_SIZE = 100
 
-# Cold-start lookback per cadence, used only when there is no usable checkpoint (first run, or an
-# envelope this reader ignored): the window's lower bound is ``now - lookback``, one cadence
-# interval, so a fresh schedule starts from "the last interval" rather than the whole history.
+# One cadence interval each, so a schedule with no checkpoint yet starts from "the last interval"
+# rather than the whole history. See ``sample_window`` for where this applies.
 FIRST_RUN_LOOKBACK_MS = {
     "hourly": 60 * 60 * 1000,
     "daily": 24 * 60 * 60 * 1000,
     "weekly": 7 * 24 * 60 * 60 * 1000,
 }
 
-# Cap on how far back a run may reach when its watermark is stale -- the schedule was paused for a
-# long time, say. The lower bound is ``max(watermark, now - cap)``, so a resumed schedule never
-# rescans a huge, mostly-stale backlog. Fixed rather than cadence-derived and independent of the
-# cold-start lookback: it bounds the between-run window, so a single run covers at most this much
-# history even after a long gap. Traces older than the cap that no run covered are skipped.
+# How far back any one run may reach, bounding the window a long-paused schedule resumes with.
+# Traces older than this that no run covered are skipped.
 #
 # 8 days = the 7-day weekly interval plus ~1 day of DST and scheduler-jitter headroom, so a healthy
-# weekly run (watermark ~7 days old) is never clamped at the boundary; the cap only clips a
-# genuinely long-paused schedule. Comfortably larger than the hourly and daily intervals too, so
-# their behavior is unchanged.
+# weekly run (watermark ~7 days old) is never clamped at the boundary and only a genuinely
+# long-paused schedule is clipped. Fixed rather than cadence-derived, so it is comfortably larger
+# than the hourly and daily intervals too.
 STALE_WATERMARK_CAP_MS = 8 * 24 * 60 * 60 * 1000
 
 
@@ -51,13 +47,11 @@ class DetectionCheckpoint:
     Only the scheduled sampling path reads or writes it; manual detection runs never touch it.
 
     Args:
-        last_scanned_trace_time_ms: The watermark -- the newest trace request time (epoch ms) in
-            the last run's sampling window. The next run's window is ``(this, now]``, so this
-            marks the boundary already covered. A timestamp, since a trace ID alone has no order.
-        last_scanned_trace_id: ID of the newest trace at ``last_scanned_trace_time_ms``. Audit
-            only; the window's lower bound is the timestamp, not this ID.
-        last_run_id: Detection run that advanced the watermark (audit only).
-        updated_at_ms: Wall-clock time (epoch ms) the tag was last written (audit only).
+        last_scanned_trace_time_ms: The watermark -- the newest trace request time (epoch ms) the
+            last run covered. A timestamp rather than a trace ID, since an ID alone has no order.
+        last_scanned_trace_id: ID of the trace at that time (audit only).
+        last_run_id: Run that advanced the watermark (audit only).
+        updated_at_ms: Wall-clock time the tag was written (audit only).
     """
 
     last_scanned_trace_time_ms: int
@@ -100,10 +94,8 @@ def parse_detection_checkpoint(raw_value: str | None) -> DetectionCheckpoint | N
     Parse a raw tag value into a checkpoint.
 
     Returns ``None`` when the tag is absent, carries an unrecognized ``version``, or lacks a
-    usable watermark. Strict on the two fields that must be trustworthy -- the in-band
-    ``version``, so a foreign or future envelope is never misread as the current shape, and
-    ``lastScannedTraceTimeMs``, which drives trace selection -- and lenient on the optional
-    audit fields.
+    usable watermark. Strict on those two -- a foreign or future envelope must never be misread
+    as this shape, and the watermark drives trace selection -- and lenient on the audit fields.
     """
     if not raw_value:
         return None
@@ -146,15 +138,8 @@ def write_detection_checkpoint(
 @dataclass
 class SampleWindow:
     """
-    The window a scheduled run samples from: ``(lower_bound_ms, now_ms]``.
-
-    Lower bound exclusive, upper bound inclusive.
-
-    Args:
-        lower_bound_ms: Exclusive lower bound. With a checkpoint this is the watermark, clamped
-            so it never reaches further back than ``now_ms - STALE_WATERMARK_CAP_MS``; with no
-            checkpoint it is the cold-start bound ``now_ms - first_run_lookback_ms``.
-        now_ms: Inclusive upper bound -- the time the window was computed.
+    The window a scheduled run samples from: ``(lower_bound_ms, now_ms]`` -- lower exclusive,
+    upper inclusive. Built by ``sample_window``, which resolves the bounds.
     """
 
     lower_bound_ms: int
@@ -167,8 +152,7 @@ class SampleWindow:
         """
         The ``timestamp_ms`` clause bounding this window for ``search_traces``.
 
-        The run then randomly samples within the window, so this clause bounds what it draws
-        from rather than selecting the sample itself.
+        Bounds what the run draws from rather than selecting the sample itself.
         """
         return f"timestamp_ms > {self.lower_bound_ms} AND timestamp_ms <= {self.now_ms}"
 
@@ -182,12 +166,10 @@ def sample_window(
     """
     The window a run draws its random sample from.
 
-    With a checkpoint the lower bound is the watermark, bounded by the stale cap so a long-paused
-    schedule does not rescan a huge, mostly-stale backlog. With no checkpoint -- the first run, or
-    an envelope this reader ignored -- it is a cold-start lookback of one cadence interval.
-
-    The cap is applied to either bound. It never binds the cold-start one, whose largest lookback
-    is smaller than the cap, so it is there to keep the bound sane rather than to shape it.
+    The lower bound is the watermark when a checkpoint exists, and ``now_ms -
+    first_run_lookback_ms`` when none does -- the first run, or an envelope this reader ignored.
+    ``stale_watermark_cap_ms`` bounds whichever applies, which in practice only ever clamps a
+    stale watermark: the largest cold-start lookback is smaller than the cap.
     """
     lower_bound_ms = (
         checkpoint.last_scanned_trace_time_ms
@@ -208,10 +190,8 @@ def advance_checkpoint(
     """
     The checkpoint to persist after a run.
 
-    The watermark advances to the window's *newest* trace, so the next run's window starts
-    strictly after it. That is the newest trace in the window, not the newest trace the run
-    sampled: traces the run did not sample are intentionally not carried forward, since the
-    window is what the run is entitled to call covered.
+    Advances to the newest trace in the *window*, not the newest the run sampled: the window is
+    what the run was entitled to cover, so traces it skipped are not carried forward.
 
     Returns ``None`` when the window held no trace, signalling "do not advance".
     """

@@ -7,7 +7,7 @@ import pytest
 
 from mlflow.entities.experiment import Experiment
 from mlflow.entities.experiment_tag import ExperimentTag
-from mlflow.genai.discovery.checkpoint import FIRST_RUN_LOOKBACK_MS
+from mlflow.genai.discovery.checkpoint import FIRST_RUN_LOOKBACK_MS, STALE_WATERMARK_CAP_MS
 from mlflow.genai.discovery.schedule import (
     MAX_MODEL_IDENTIFIER_LENGTH,
     MAX_TRACE_FILTERS,
@@ -434,23 +434,26 @@ def test_a_dispatched_occurrence_is_not_due_a_second_time():
     assert due_occurrence_ms(schedule, claimed, _ms("UTC", 2026, 5, 4, 14, 30)) is None
 
 
-def test_downtime_spanning_many_fire_times_resumes_with_one_occurrence():
-    schedule = DetectionSchedule(cadence=DetectionCadence.HOURLY)
-    state = DetectionScheduleState(last_fire_time_ms=_ms("UTC", 2026, 5, 1, 13))
-    back_up = _ms("UTC", 2026, 5, 4, 14, 5)
-    fire_time = due_occurrence_ms(schedule, state, back_up)
-    # The most recent occurrence due, not the oldest one missed: the hour the server came back in.
-    assert fire_time == _ms("UTC", 2026, 5, 4, 14)
-    claimed = claim_occurrence(state, fire_time, now_ms=back_up)
-    assert claimed.last_dispatched_at_ms == back_up
-    # Nothing is left behind it, so the next poll a minute later dispatches nothing.
-    assert due_occurrence_ms(schedule, claimed, back_up) is None
-    assert due_occurrence_ms(schedule, claimed, back_up + 60_000) is None
-
-
-def test_a_three_day_pause_costs_one_run_not_one_per_hour():
-    schedule = DetectionSchedule(cadence=DetectionCadence.HOURLY)
-    state = DetectionScheduleState(last_fire_time_ms=_ms("UTC", 2026, 5, 1, 13))
+@pytest.mark.parametrize(
+    ("cadence", "latest_fire_time"),
+    [
+        (DetectionCadence.HOURLY, (2026, 5, 4, 14)),
+        (DetectionCadence.DAILY, (2026, 5, 4, 9)),
+        (DetectionCadence.WEEKLY, (2026, 5, 4, 9)),
+    ],
+)
+@pytest.mark.parametrize("last_fire_time", [(2026, 5, 1, 13), (2025, 5, 1, 13)])
+def test_downtime_resumes_with_one_occurrence_at_the_most_recent_fire_time(
+    cadence: DetectionCadence,
+    latest_fire_time: tuple[int, ...],
+    last_fire_time: tuple[int, ...],
+):
+    # Drained rather than polled once, so "one run" is the loop's result and not an assumption:
+    # claiming the oldest missed occurrence would leave the next poll another one to claim, and a
+    # long gap would dispatch a run per interval. Both a three-day and a year-long gap, since the
+    # cost of getting this wrong grows with the gap.
+    schedule = DetectionSchedule(cadence=cadence)
+    state = DetectionScheduleState(last_fire_time_ms=_ms("UTC", *last_fire_time))
     back_up = _ms("UTC", 2026, 5, 4, 14, 5)
 
     dispatched = []
@@ -460,37 +463,14 @@ def test_a_three_day_pause_costs_one_run_not_one_per_hour():
         if len(dispatched) > 100:
             break
 
-    assert dispatched == [_ms("UTC", 2026, 5, 4, 14)]
-
-
-@pytest.mark.parametrize(
-    "cadence", [DetectionCadence.HOURLY, DetectionCadence.DAILY, DetectionCadence.WEEKLY]
-)
-def test_a_long_pause_costs_one_run_at_every_cadence(cadence: DetectionCadence):
-    schedule = DetectionSchedule(cadence=cadence)
-    state = DetectionScheduleState(last_fire_time_ms=_ms("UTC", 2025, 5, 1, 13))
-    back_up = _ms("UTC", 2026, 5, 4, 14, 5)
-
-    runs = 0
-    while (fire_time := due_occurrence_ms(schedule, state, back_up)) is not None:
-        state = claim_occurrence(state, fire_time, now_ms=back_up)
-        runs += 1
-        if runs > 50:
-            break
-
-    assert runs == 1
+    # The most recent occurrence due, not the oldest missed: the interval the server came back in.
+    assert dispatched == [_ms("UTC", *latest_fire_time)]
+    assert state.last_dispatched_at_ms == back_up
+    # Nothing is left behind it, so a poll a minute later dispatches nothing.
+    assert due_occurrence_ms(schedule, state, back_up + 60_000) is None
     # The claimed occurrence is recent, so the window's stale cap is measured near now rather than
-    # near the start of the year-long gap.
-    assert back_up - state.last_fire_time_ms < 8 * 24 * 60 * 60 * 1000
-
-
-def test_an_occurrence_due_without_any_backlog_is_unchanged():
-    schedule = DetectionSchedule(cadence=DetectionCadence.HOURLY)
-    state = DetectionScheduleState(last_fire_time_ms=_ms("UTC", 2026, 5, 4, 13))
-    # Woken half a minute after the fire time, the ordinary case: that occurrence is what runs.
-    assert due_occurrence_ms(schedule, state, _ms("UTC", 2026, 5, 4, 14) + 30_000) == _ms(
-        "UTC", 2026, 5, 4, 14
-    )
+    # near the start of the gap.
+    assert back_up - state.last_fire_time_ms < STALE_WATERMARK_CAP_MS
 
 
 def test_the_first_run_lookback_matches_the_cadences_a_schedule_offers():

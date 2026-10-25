@@ -182,29 +182,3 @@ def test_checkpoint_advances_to_the_window_newest_trace():
 
 def test_an_empty_window_does_not_advance_the_checkpoint():
     assert advance_checkpoint(None, run_id="run-1", now_ms=NOW_MS) is None
-
-
-def test_a_run_that_sampled_less_than_its_window_still_advances_past_the_whole_window():
-    # The run sampled an older trace, but the window reached NOW_MS - 5: the next window must not
-    # re-cover traces this one was entitled to see and chose not to sample.
-    window_newest = CheckpointTrace(trace_id="tr-newest", time_ms=NOW_MS - 5)
-    sampled_newest = CheckpointTrace(trace_id="tr-sampled", time_ms=NOW_MS - 5000)
-    advanced = advance_checkpoint(window_newest, now_ms=NOW_MS)
-    assert advanced.last_scanned_trace_time_ms > sampled_newest.time_ms
-
-
-def test_the_watermark_is_the_lower_bound_once_a_run_has_succeeded():
-    watermark_ms = NOW_MS - HOUR_MS
-    window = sample_window(
-        DetectionCheckpoint(last_scanned_trace_time_ms=watermark_ms),
-        now_ms=NOW_MS,
-        first_run_lookback_ms=FIRST_RUN_LOOKBACK_MS["hourly"],
-    )
-    assert window.lower_bound_ms == watermark_ms
-
-
-def test_no_checkpoint_falls_back_to_the_cold_start_lookback():
-    window = sample_window(
-        None, now_ms=NOW_MS, first_run_lookback_ms=FIRST_RUN_LOOKBACK_MS["daily"]
-    )
-    assert window.lower_bound_ms == NOW_MS - FIRST_RUN_LOOKBACK_MS["daily"]
