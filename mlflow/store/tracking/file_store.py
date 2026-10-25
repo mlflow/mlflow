@@ -915,18 +915,20 @@ class FileStore(AbstractStore):
         run_id: str, metric_name: str, metric_line: str, exp_id: str
     ) -> Metric:
         metric_parts = metric_line.strip().split(" ")
-        if len(metric_parts) != 2 and len(metric_parts) != 3 and len(metric_parts) != 5:
+        if len(metric_parts) not in (2, 3) and len(metric_parts) < 5:
             raise MlflowException(
                 f"Metric '{metric_name}' is malformed; persisted metric data contained "
-                f"{len(metric_parts)} fields. Expected 2, 3, or 5 fields. "
+                f"{len(metric_parts)} fields. Expected 2, 3, or 5 or more fields. "
                 f"Experiment id: {exp_id}",
                 databricks_pb2.INTERNAL_ERROR,
             )
         ts = int(metric_parts[0])
         val = float(metric_parts[1])
-        step = int(metric_parts[2]) if len(metric_parts) == 3 else 0
-        dataset_name = str(metric_parts[3]) if len(metric_parts) == 5 else None
-        dataset_digest = str(metric_parts[4]) if len(metric_parts) == 5 else None
+        step = int(metric_parts[2]) if len(metric_parts) >= 3 else 0
+        # The dataset name is written verbatim, so it may itself contain spaces;
+        # the digest (a hash) never does, so it is always the last field.
+        dataset_name = " ".join(metric_parts[3:-1]) if len(metric_parts) >= 5 else None
+        dataset_digest = str(metric_parts[-1]) if len(metric_parts) >= 5 else None
         return Metric(
             key=metric_name,
             value=val,
@@ -2628,18 +2630,20 @@ class FileStore(AbstractStore):
     @staticmethod
     def _get_model_metric_from_line(model_id: str, metric_name: str, metric_line: str) -> Metric:
         metric_parts = metric_line.strip().split(" ")
-        if len(metric_parts) not in [4, 6]:
+        if len(metric_parts) != 4 and len(metric_parts) < 6:
             raise MlflowException(
                 f"Metric '{metric_name}' is malformed; persisted metric data contained "
-                f"{len(metric_parts)} fields. Expected 4 or 6 fields.",
+                f"{len(metric_parts)} fields. Expected 4 or 6 or more fields.",
                 databricks_pb2.INTERNAL_ERROR,
             )
         ts = int(metric_parts[0])
         val = float(metric_parts[1])
         step = int(metric_parts[2])
         run_id = str(metric_parts[3])
-        dataset_name = str(metric_parts[4]) if len(metric_parts) == 6 else None
-        dataset_digest = str(metric_parts[5]) if len(metric_parts) == 6 else None
+        # The dataset name is written verbatim, so it may itself contain spaces;
+        # the digest (a hash) never does, so it is always the last field.
+        dataset_name = " ".join(metric_parts[4:-1]) if len(metric_parts) >= 6 else None
+        dataset_digest = str(metric_parts[-1]) if len(metric_parts) >= 6 else None
         # TODO: Read run ID from the metric file and pass it to the Metric constructor
         return Metric(
             key=metric_name,

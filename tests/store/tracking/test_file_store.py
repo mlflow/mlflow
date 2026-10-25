@@ -2053,11 +2053,49 @@ def test_malformed_metric(store):
         pytest.raises(
             MlflowException,
             match=f"Metric 'test' is malformed; persisted metric data contained "
-            f"4 fields. Expected 2, 3, or 5 fields. "
+            f"4 fields. Expected 2, 3, or 5 or more fields. "
             f"Experiment id: {exp_id}",
         ),
     ):
         store.get_metric_history(run_id, "test")
+
+
+def test_get_metric_history_with_dataset_name_containing_spaces(store):
+    run_id = store.create_run(
+        experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+        user_id="user",
+        start_time=0,
+        tags=[],
+        run_name="first name",
+    ).info.run_id
+    store.log_metric(
+        run_id,
+        Metric(
+            "acc",
+            0.9,
+            timestamp=1000,
+            step=1,
+            dataset_name="my dataset",
+            dataset_digest="abc123",
+        ),
+    )
+    history = store.get_metric_history(run_id, "acc")
+    assert len(history) == 1
+    assert history[0].value == 0.9
+    assert history[0].step == 1
+    assert history[0].dataset_name == "my dataset"
+    assert history[0].dataset_digest == "abc123"
+
+
+def test_get_model_metric_from_line_with_dataset_name_containing_spaces():
+    metric = FileStore._get_model_metric_from_line(
+        "model-id", "acc", "1000 0.9 1 run-id my dataset abc123"
+    )
+    assert metric.value == 0.9
+    assert metric.step == 1
+    assert metric.run_id == "run-id"
+    assert metric.dataset_name == "my dataset"
+    assert metric.dataset_digest == "abc123"
 
 
 def test_mismatching_experiment_id(store):
