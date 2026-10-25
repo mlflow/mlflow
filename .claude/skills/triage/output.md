@@ -51,7 +51,7 @@ and run them together with the directly relevant existing tests, within the
 [runtime time budget](runtime.md#time-budget).
 Before creating `fix.patch`:
 
-- Leave only the fix and any regression tests changed in the checkout (revert anything else you edited there).
+- Keep only the fix and any regression tests in the checkout.
 - If the patch changes Python files, invoke the `python-style` skill and follow its guidance.
 - Run pre-commit on all changed files; fix and rerun failures.
 
