@@ -103,7 +103,7 @@ from mlflow.utils.rest_utils import (
     verify_rest_response,
 )
 from mlflow.utils.time import get_current_time_millis
-from mlflow.utils.uri import append_to_uri_query_params
+from mlflow.utils.uri import append_to_uri_path, append_to_uri_query_params
 
 DATABRICKS_UC_TABLE_HEADER = "X-Databricks-UC-Table-Name"
 _V5_TRACE_LOCATION_ENDPOINT = "/api/5.0/mlflow/tracing/locations"
@@ -1177,33 +1177,40 @@ class DatabricksTracingRestStore(RestStore):
         return PagedList(results_to_return, next_token)
 
     @staticmethod
+    def _get_issue_endpoint(experiment_id: str, issue_id: str | None = None) -> str:
+        endpoint = append_to_uri_path(
+            _REST_API_PATH_PREFIX, "mlflow/experiments", quote(experiment_id, safe=""), "issues"
+        )
+        if issue_id is not None:
+            endpoint = append_to_uri_path(endpoint, quote(issue_id, safe=""))
+        return endpoint
+
+    @staticmethod
     def _issue_from_databricks_dict(resource: dict[str, Any], experiment_id: str) -> Issue:
         categories = {category.value: category for category in IssueCategory}
-        severity = resource.get("severity")
-        return Issue.from_dictionary({
+        issue_dict = {
             "issue_id": resource["issue_id"],
             "experiment_id": experiment_id,
             "name": resource["title"],
             "description": resource.get("description", ""),
             "status": resource["status"].lower(),
-            "severity": severity.lower()
-            if severity and severity != "ISSUE_SEVERITY_UNSPECIFIED"
-            else None,
             "created_timestamp": proto_timestamp_to_milliseconds(resource["create_time"]),
             "last_updated_timestamp": proto_timestamp_to_milliseconds(resource["update_time"]),
-            "last_seen_timestamp": proto_timestamp_to_milliseconds(resource["last_seen_time"])
-            if resource.get("last_seen_time")
-            else None,
-            "source_run_id": resource.get("source_id")
-            if resource.get("source_type") in {"ADHOC_RUN", "SCHEDULED_RUN"}
-            else None,
             "categories": [
                 categories.get(category, category) for category in resource.get("categories", [])
             ],
             "created_by": resource.get("created_by"),
             "last_updated_by": resource.get("last_updated_by"),
             "metadata": resource.get("metadata"),
-        })
+        }
+        severity = resource.get("severity")
+        if severity and severity != "ISSUE_SEVERITY_UNSPECIFIED":
+            issue_dict["severity"] = severity.lower()
+        if last_seen_time := resource.get("last_seen_time"):
+            issue_dict["last_seen_timestamp"] = proto_timestamp_to_milliseconds(last_seen_time)
+        if resource.get("source_type") in {"ADHOC_RUN", "SCHEDULED_RUN"}:
+            issue_dict["source_run_id"] = resource.get("source_id")
+        return Issue.from_dictionary(issue_dict)
 
     def create_issue(
         self,
@@ -1256,7 +1263,7 @@ class DatabricksTracingRestStore(RestStore):
                 last_seen_timestamp = get_current_time_millis()
         if last_seen_timestamp is not None:
             body["last_seen_time"] = milliseconds_to_proto_timestamp(last_seen_timestamp)
-        endpoint = f"/api/2.0/mlflow/experiments/{quote(experiment_id, safe='')}/issues"
+        endpoint = self._get_issue_endpoint(experiment_id)
         if issue_id is not None:
             endpoint = append_to_uri_query_params(endpoint, ("issue_id", issue_id))
         response = self._call_endpoint(
@@ -1271,10 +1278,7 @@ class DatabricksTracingRestStore(RestStore):
             )
         if not isinstance(issue_id, str) or not issue_id:
             raise MlflowException.invalid_parameter_value("issue_id must be a nonempty string")
-        endpoint = (
-            f"/api/2.0/mlflow/experiments/{quote(experiment_id, safe='')}/issues/"
-            f"{quote(issue_id, safe='')}"
-        )
+        endpoint = self._get_issue_endpoint(experiment_id, issue_id)
         response = self._call_endpoint(GetIssue, endpoint=endpoint, response_proto=Struct())
         return self._issue_from_databricks_dict(MessageToDict(response), experiment_id)
 
@@ -1335,10 +1339,7 @@ class DatabricksTracingRestStore(RestStore):
         if metadata:
             body["metadata"] = metadata
         body["name"] = f"experiments/{experiment_id}/issues/{issue_id}"
-        endpoint = (
-            f"/api/2.0/mlflow/experiments/{quote(experiment_id, safe='')}/issues/"
-            f"{quote(issue_id, safe='')}"
-        )
+        endpoint = self._get_issue_endpoint(experiment_id, issue_id)
         endpoint = append_to_uri_query_params(endpoint, ("update_mask", ",".join(paths)))
         response = self._call_endpoint(
             UpdateIssue, json.dumps(body), endpoint=endpoint, response_proto=Struct()
@@ -1435,7 +1436,7 @@ class DatabricksTracingRestStore(RestStore):
         response = self._call_endpoint(
             SearchIssues,
             json.dumps(body),
-            endpoint=f"/api/2.0/mlflow/experiments/{quote(experiment_id, safe='')}/issues:search",
+            endpoint=f"{self._get_issue_endpoint(experiment_id)}:search",
             response_proto=Struct(),
         )
         result = MessageToDict(response)
