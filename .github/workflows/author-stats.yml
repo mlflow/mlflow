@@ -1,4 +1,4 @@
-name: Author repos
+name: Author stats
 
 on:
   issues:
@@ -22,7 +22,7 @@ permissions: {}
 cache-mode: none
 
 jobs:
-  set-field:
+  set-fields:
     if: >-
       github.repository == 'mlflow/mlflow' &&
       (github.event_name != 'issues' || github.event.issue.user.type == 'User')
