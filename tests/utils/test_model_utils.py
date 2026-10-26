@@ -231,21 +231,19 @@ def test_load_model_from_code_refused_when_model_code_execution_disallowed(tmp_p
     code_file = tmp_path / "model.py"
     code_file.write_text(
         "import mlflow\n"
-        "import sklearn\n"
         f"open({str(marker)!r}, 'w').close()\n"
         "mlflow.models.set_model(lambda model_input: model_input)\n"
     )
     model_dir = tmp_path / "model"
     monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
-    # Saving, including inferring pip requirements, runs the user's own code, so it stays allowed.
-    mlflow.pyfunc.save_model(
-        model_dir, python_model=str(code_file), extra_pip_requirements=["mlflow"]
-    )
-    assert "scikit-learn" in (model_dir / "requirements.txt").read_text()
+    # Saving runs the user's own code, so it stays allowed.
+    mlflow.pyfunc.save_model(model_dir, python_model=str(code_file), pip_requirements=["mlflow"])
     marker.unlink()
 
     with pytest.raises(MlflowException, match="Loading PyFunc models is disallowed"):
         mlflow.pyfunc.load_model(str(model_dir))
+    # Inferring pip requirements loads the model in a subprocess that skips the PyFunc load check.
+    mlflow.models.infer_pip_requirements(str(model_dir), "python_function", fallback=[])
     assert not marker.exists()
 
 
