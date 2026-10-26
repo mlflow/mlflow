@@ -691,8 +691,10 @@ def test_the_real_submission_rejects_the_credential_environment_on_the_executor_
     from mlflow.server.jobs import submit_job
 
     monkeypatch.setenv("MLFLOW_SERVER_JOB_EXECUTION_ENGINE", "executor")
-    # The job backend's own requirement check runs first, so the submission has to get far enough
-    # to reach the environment check this test is about.
+    # Every gate ahead of the environment check has to be satisfied for the submission to reach
+    # it: job execution enabled (CI runs with it off, so relying on the default made this pass
+    # locally and fail there), then the job backend's own requirement check.
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
     monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, f"sqlite:///{tmp_path}/jobs.db")
     monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, str(tmp_path))
     monkeypatch.setenv(HUEY_STORAGE_PATH_ENV_VAR, str(tmp_path))
@@ -710,7 +712,6 @@ def test_the_real_submission_rejects_the_credential_environment_on_the_executor_
         )
 
     # And the capability check agrees, which is the whole reason the control is disabled there.
-    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
     monkeypatch.setenv("MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS", "true")
     with mock.patch("mlflow.server.jobs.utils._check_requirements"):
         assert scheduled_detection_available() is False
