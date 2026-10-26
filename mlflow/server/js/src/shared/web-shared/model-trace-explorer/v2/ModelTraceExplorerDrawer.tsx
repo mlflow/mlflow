@@ -734,7 +734,6 @@ export const ModelTraceExplorerDrawer = ({
           {React.createElement(renderAddToReviewQueueDropdown, {
             selectedTraceInfos: [traceInfo],
             experimentId,
-            onCloseDrawer: beginClose,
             open: isFlagForReviewDropdownOpen,
             onOpenChange: (open) => {
               setIsFlagForReviewDropdownOpen(open);
