@@ -1,3 +1,4 @@
+import { fetchAPI, getAjaxUrl } from '../../../common/utils/FetchUtils';
 import { MlflowService } from '../../sdk/MlflowService';
 import {
   MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG,
@@ -426,6 +427,31 @@ export interface IssueDetectionScheduleUpdate {
 }
 
 /**
+ * Ask the server to bring the schedule's dispatch state in line with what was just written, and
+ * to say when it next runs.
+ *
+ * The two tag writes above go through the generic tag endpoint, so nothing on the server learns a
+ * schedule was saved; without this the next run was computed only by the following dispatcher
+ * pass, up to a quarter of an hour later, and the dialog had nothing to show for exactly as long
+ * as someone was waiting to be told what they had just scheduled.
+ *
+ * Best-effort on purpose. A failure, an older server with no such route, or an authorization
+ * refusal all leave the state as the dispatcher would have found it, and its next pass still
+ * corrects it -- so this must never fail a save that has already persisted.
+ */
+const syncScheduleState = async (experimentId: string): Promise<number | undefined> => {
+  try {
+    const response = (await fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/issues/schedule/state'), {
+      method: 'POST',
+      body: { experiment_id: experimentId },
+    })) as { next_fire_time_ms?: number | null };
+    return typeof response?.next_fire_time_ms === 'number' ? response.next_fire_time_ms : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+/**
  * Persist the schedule.
  *
  * "Off" pauses rather than deletes: the cadence and the clauses stay stored, so turning it back on
@@ -481,9 +507,10 @@ export const saveIssueDetectionSchedule = async (
     cadence,
     startTime: savedStartTime,
     weekday: savedWeekday,
-    // Unknown until the dispatcher's next pass re-reads the schedule it has just been given, so
-    // the line is dropped rather than left showing the run the old timing would have had.
-    nextRunMs: undefined,
+    // Answered by the server now that the tags are written, so the dialog can say when the
+    // schedule runs next the moment it is saved. Undefined if that call did not get through,
+    // which is the old behaviour: no line until the dispatcher's next pass.
+    nextRunMs: await syncScheduleState(experimentId),
     traceFilters: normalized,
     model: savedModel,
     timezone: savedTimezone,

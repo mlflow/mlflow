@@ -730,22 +730,21 @@ def adopt_timing(
 
 
 def reanchor_timing(
-    state: DetectionScheduleState, schedule: DetectionSchedule, now_ms: int
+    state: DetectionScheduleState, schedule: DetectionSchedule, anchor_ms: int
 ) -> DetectionScheduleState:
     """
     The state to record when a schedule's timing has been edited.
 
-    Re-anchored so the new timing takes effect from its next occurrence instead of firing one on
-    the spot: moving a daily schedule from 09:00 to 16:00 at 17:00 would otherwise leave today's
-    16:00 looking like an occurrence the server had missed, and dispatch it immediately. The next
-    run is then tomorrow at 16:00, which is what the owner asked for.
+    Re-anchored at ``anchor_ms``, so the new timing takes effect from its next occurrence instead
+    of firing one on the spot: moving a daily schedule from 09:00 to 16:00 at 17:00 would
+    otherwise leave today's 16:00 looking like an occurrence the server had missed, and dispatch
+    it immediately. The next run is then tomorrow at 16:00, which is what the owner asked for.
 
-    The anchor is **one poll interval back**, not ``now_ms``, and that is the whole precision this
-    has to offer. Nothing records when the tag was written, but the previous pass saw the old
-    timing, so the edit is at most one interval old. Anchoring there keeps an occurrence the edit
-    placed in the *future* -- 16:00 chosen at 15:55, noticed by the 16:00 pass -- which anchoring
-    at ``now_ms`` would have stepped over, costing a daily schedule a day and a weekly one a week.
-    The 17:00 case is unaffected: an anchor at 16:45 still puts the next 16:00 tomorrow.
+    The anchor is the moment the edit happened, and the callers know that moment to different
+    precision. A save knows it exactly. A dispatcher pass that notices the change afterwards does
+    not -- nothing records when the tag was written -- so it passes the previous pass's time,
+    which is the tightest bound available, and what keeps an occurrence the edit placed in the
+    near future from being stepped over.
 
     No window is lost either way. The watermark, not the fire time, decides how far back a run
     reads, so the occurrence that does fire still covers the traces that arrived in between.
@@ -753,7 +752,6 @@ def reanchor_timing(
     ``last_run_id`` and ``last_dispatched_at_ms`` are kept: they record what this schedule has
     actually done, which an edit does not undo.
     """
-    anchor_ms = now_ms - POLL_INTERVAL_MS
     return replace(
         state,
         last_fire_time_ms=anchor_ms,

@@ -22,6 +22,7 @@ from mlflow.genai.discovery.checkpoint import (
     sample_window,
 )
 from mlflow.genai.discovery.schedule import (
+    POLL_INTERVAL_MS,
     DetectionSchedule,
     ScheduleModel,
     adopt_timing,
@@ -179,10 +180,12 @@ def _dispatch_if_due(store: AbstractStore, experiment: Experiment, now_ms: int) 
             state = adopt_timing(state, schedule)
             write_detection_schedule_state(store, experiment.experiment_id, state)
         else:
-            # The owner moved the schedule. Re-anchored so the new timing applies from its next
-            # occurrence rather than firing one on the spot -- see ``reanchor_timing`` for why
-            # the anchor is a poll interval back rather than this instant.
-            state = reanchor_timing(state, schedule, now_ms)
+            # The owner moved the schedule, and this pass is finding out afterwards. Anchored
+            # at the previous pass rather than at this instant: that pass saw the old timing, so
+            # the edit is no older than it, and anchoring here instead would step over an
+            # occurrence the edit placed in between -- 16:00 chosen at 15:55, noticed now.
+            # A save gets this exactly right on its own; see the schedule-state endpoint.
+            state = reanchor_timing(state, schedule, now_ms - POLL_INTERVAL_MS)
             write_detection_schedule_state(store, experiment.experiment_id, state)
             _logger.info(
                 "Issue detection schedule for experiment %s was retimed; its next occurrence is %s",

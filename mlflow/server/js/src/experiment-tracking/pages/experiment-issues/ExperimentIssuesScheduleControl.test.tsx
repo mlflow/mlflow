@@ -27,6 +27,11 @@ let failWriteOfTag: string | null;
 let loadFails: boolean;
 /** How many times the experiment (and so the schedule) has been read. */
 let experimentReads: number;
+/** How many times a save asked the server to bring the dispatch state up to date. */
+let scheduleStateSyncs: number;
+/** What that call answers with, and whether it fails at all. */
+let syncedNextRunMs: number | null;
+let syncFails: boolean;
 let scheduledDetectionEnabled: boolean;
 let gatewayEndpoints: { name: string }[];
 let gatewaySecrets: { secret_id: string; secret_name: string; provider: string }[];
@@ -58,6 +63,7 @@ const server = setupServer(
       return res(ctx.status(500), ctx.json({ message: 'nope' }));
     }
     written.push({ key: body.key, value: body.value });
+    experimentTags = [...experimentTags.filter(({ key }) => key !== body.key), { key: body.key, value: body.value }];
     return res(ctx.json({}));
   }),
   rest.get('*/ajax-api/3.0/mlflow/gateway/endpoints/list', (_req, res, ctx) =>
@@ -75,6 +81,29 @@ const server = setupServer(
       }),
     ),
   ),
+  rest.post('*/ajax-api/3.0/mlflow/issues/schedule/state', (_req, res, ctx) => {
+    scheduleStateSyncs += 1;
+    if (syncFails) {
+      return res(ctx.status(500), ctx.json({ message: 'nope' }));
+    }
+    // What the server does: it writes the dispatch state against the schedule now stored, and
+    // only then answers. Stubbing the reply alone would have the next read find no state tag and
+    // drop the line again, which is not what a real save leaves behind.
+    const saved = JSON.parse(written.findLast(({ key }) => key === MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG)?.value ?? '{}');
+    experimentTags = [
+      ...experimentTags.filter(({ key }) => key !== MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG),
+      {
+        key: MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG,
+        value: JSON.stringify({
+          version: ISSUE_DETECTION_SCHEDULE_VERSION,
+          lastFireTimeMs: 1,
+          timing: scheduleTiming(saved.cadence, saved.fireTime, saved.weekday, saved.timezone),
+          nextFireTimeMs: syncedNextRunMs,
+        }),
+      },
+    ];
+    return res(ctx.json({ next_fire_time_ms: syncedNextRunMs }));
+  }),
   rest.post('*/ajax-api/3.0/mlflow/gateway/secrets/create', async (req, res, ctx) => {
     const body = (await req.json()) as (typeof createdSecrets)[number];
     createdSecrets.push(body);
@@ -165,6 +194,9 @@ describe('ExperimentIssuesScheduleControl', () => {
     failWriteOfTag = null;
     loadFails = false;
     experimentReads = 0;
+    scheduleStateSyncs = 0;
+    syncedNextRunMs = null;
+    syncFails = false;
     scheduledDetectionEnabled = true;
     gatewayEndpoints = [];
     gatewaySecrets = [];
@@ -533,6 +565,43 @@ describe('ExperimentIssuesScheduleControl', () => {
     await openModal(user);
     expect(await screen.findByRole('combobox', { name: /cadence/i })).toHaveTextContent('Off');
     expect(screen.queryByText(/Next run as saved:/)).not.toBeInTheDocument();
+  });
+
+  test('shows the next run as soon as the schedule is saved', async () => {
+    // The tags are written through the generic tag endpoint, so the save asks the server to
+    // bring the dispatch state up to date and answer with the next run -- otherwise there is
+    // nothing to show until the dispatcher's next pass, a quarter of an hour of silence at the
+    // one moment the owner wants to be told what they just scheduled.
+    syncedNextRunMs = Date.UTC(2026, 10, 3, 15, 0);
+    experimentTags = [scheduleTag('daily', false, 'Europe/Berlin', '09:00', 0)];
+    const user = setup();
+    render();
+
+    await openModal(user, /scheduled: daily/i);
+    await chooseStartTime(user, '16', '00');
+    await save(user);
+
+    await waitFor(() => expect(savedSchedule()['fireTime']).toBe('16:00'));
+    expect(scheduleStateSyncs).toBe(1);
+    await openModal(user, /scheduled: daily/i);
+    expect(await screen.findByText(/Next run as saved:.*16:00/)).toBeInTheDocument();
+  });
+
+  test('a save still succeeds when the state cannot be brought up to date', async () => {
+    // An older server has no such route and an authorization refusal looks the same. The
+    // schedule is already written by then, so this must not fail the save -- the dispatcher's
+    // next pass computes the next run, which is where it came from before.
+    syncFails = true;
+    const user = setup();
+    render();
+
+    await openModal(user);
+    await chooseCadence(user, 'Daily');
+    await save(user);
+
+    await waitFor(() => expect(savedSchedule()['cadence']).toBe('daily'));
+    expect(await screen.findByRole('button', { name: /scheduled: daily/i })).toBeInTheDocument();
+    expect(screen.queryByText(/Couldn't save the schedule/)).not.toBeInTheDocument();
   });
 
   test('reads the schedule again on open, so a saved next run appears without a reload', async () => {
