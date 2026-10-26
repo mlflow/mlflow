@@ -1,4 +1,4 @@
-name: Issue author activity
+name: Author repos
 
 on:
   issues:
