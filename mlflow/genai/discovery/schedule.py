@@ -117,13 +117,26 @@ class ScheduleModel:
     + ``model``). A schedule saved before this was offered carries none, reads back as ``None``,
     and stays on the server's default -- the behaviour it had when it was saved.
 
-    The credential is deliberately not stored: it is resolved from the provider at each fire time,
-    so rotating a key keeps the schedule running rather than pinning it to a deleted secret.
+    A direct selection also records ``secret_id``: *which* stored credential the owner chose, not
+    the credential itself. The alternative -- resolving a key from the provider at each fire time
+    -- survives key rotation but picks whatever secret happens to be newest for that provider,
+    which on a multi-user server is a key somebody else saved for their own use. Naming the secret
+    is what keeps an occurrence on the credential its owner actually designated; an occurrence
+    whose secret has since been deleted fails and says so, rather than silently substituting one.
+
+    Args:
+        provider: Provider id for a direct selection, e.g. ``openai``.
+        model: Model name for a direct selection.
+        endpoint_name: AI Gateway endpoint name, which carries its own credential server-side.
+        secret_id: The stored credential a direct selection runs with. Empty on an endpoint
+            selection, which needs none, and on a schedule saved before this was recorded -- that
+            one falls back to the server's own environment.
     """
 
     provider: str = ""
     model: str = ""
     endpoint_name: str = ""
+    secret_id: str = ""
 
     def __post_init__(self) -> None:
         # Every field defaulting to "" keeps the two selections independent, but it also makes
@@ -143,7 +156,10 @@ class ScheduleModel:
     def to_dict(self) -> dict[str, str]:
         if self.endpoint_name:
             return {"endpointName": self.endpoint_name}
-        return {"provider": self.provider, "model": self.model}
+        stored = {"provider": self.provider, "model": self.model}
+        if self.secret_id:
+            stored["secretId"] = self.secret_id
+        return stored
 
 
 @dataclass(frozen=True)
@@ -287,7 +303,14 @@ def _parse_model(entry: object) -> ScheduleModel | None:
             "run will use this server's default detection model"
         )
         return None
-    return ScheduleModel(provider=provider, model=model)
+    # A secret id is a stored reference, not a name spliced into a URI, so it is checked for
+    # usability but not length-bounded the way an identifier is.
+    secret_id = entry.get("secretId")
+    return ScheduleModel(
+        provider=provider,
+        model=model,
+        secret_id=secret_id if isinstance(secret_id, str) and secret_id.strip() else "",
+    )
 
 
 def parse_trace_filters(raw_value: str | None) -> tuple[ScheduleTraceFilter, ...]:

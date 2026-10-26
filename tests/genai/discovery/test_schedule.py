@@ -657,6 +657,48 @@ def test_a_trace_filter_carrying_a_control_character_is_dropped():
     assert kept == (ScheduleTraceFilter(field="tag", key="team", value="north america"),)
 
 
+@pytest.mark.parametrize(
+    ("stored", "expected_secret_id"),
+    [
+        ({"provider": "openai", "model": "gpt-5", "secretId": "s-abc"}, "s-abc"),
+        # Absent on a schedule saved before the id was recorded, or blank once trimmed: the
+        # occurrence falls back to the server's own environment rather than hunting for a key.
+        ({"provider": "openai", "model": "gpt-5"}, ""),
+        ({"provider": "openai", "model": "gpt-5", "secretId": "   "}, ""),
+        ({"provider": "openai", "model": "gpt-5", "secretId": 7}, ""),
+    ],
+)
+def test_a_direct_selection_records_which_secret_it_runs_with(stored, expected_secret_id):
+    raw = json.dumps({
+        "version": SCHEDULE_VERSION,
+        "cadence": "daily",
+        "timezone": "UTC",
+        "paused": False,
+        "model": stored,
+    })
+    schedule = parse_detection_schedule(raw)
+    assert schedule.model.secret_id == expected_secret_id
+    # Round-trips, so a save does not drop the choice the owner made.
+    assert (
+        parse_detection_schedule(
+            json.dumps({
+                "version": SCHEDULE_VERSION,
+                "cadence": "daily",
+                "timezone": "UTC",
+                "paused": False,
+                "model": schedule.model.to_dict(),
+            })
+        ).model.secret_id
+        == expected_secret_id
+    )
+
+
+def test_an_endpoint_selection_stores_no_secret_id():
+    # An AI Gateway endpoint carries its own credential server-side, so there is nothing to name.
+    model = ScheduleModel(endpoint_name="prod-gateway", secret_id="s-ignored")
+    assert model.to_dict() == {"endpointName": "prod-gateway"}
+
+
 def test_a_model_naming_neither_an_endpoint_nor_a_provider_and_model_is_rejected():
     # Every field defaults to "", which would otherwise build the URI ":/".
     with pytest.raises(ValueError, match="names either an AI Gateway endpoint"):
