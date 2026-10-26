@@ -547,10 +547,6 @@
     "defaultMessage": "Failed to save question: {error}",
     "description": "Review question modal: error toast shown when saving a question fails"
   },
-  "/qBkyA": {
-    "defaultMessage": "This MLflow server cannot run scheduled detection. It needs a SQL backend store with job execution and periodic tasks enabled.",
-    "description": "Experiment issues tab > Tooltip explaining the scheduled-detection control is disabled because the server cannot run a schedule"
-  },
   "/qIHh7": {
     "defaultMessage": "Traces",
     "description": "Label for the scorer evaluation scope selection"
@@ -1095,6 +1091,10 @@
     "defaultMessage": "View {count} {count, plural, one {issue} other {issues}}",
     "description": "Issue detection summary > View issues button"
   },
+  "1v3p5x": {
+    "defaultMessage": "This MLflow server is not configured to run scheduled detection. It needs a SQL backend store, job execution and periodic tasks enabled, and a job execution engine that can run scheduled detection.",
+    "description": "Experiment issues tab > Tooltip explaining the scheduled-detection control is disabled because the server cannot run a schedule"
+  },
   "1wfVV5": {
     "defaultMessage": "Currently sorted by",
     "description": "Label for the custom column group in the logged model column selector"
@@ -1226,6 +1226,10 @@
   "2Noq+z": {
     "defaultMessage": "Could not assign yourself to the queue: {error}",
     "description": "Review queue: error toast when self-assigning to a queue fails"
+  },
+  "2O3Jgq": {
+    "defaultMessage": "Scheduled runs incur model usage costs on every occurrence.",
+    "description": "Experiment issues tab > Schedule modal hint that a scheduled detection run spends on the chosen model each time it fires"
   },
   "2O7c5v": {
     "defaultMessage": "Comparisons",
@@ -6655,6 +6659,10 @@
     "defaultMessage": "Track every version of your app's code and prompts to understand how quality changes over time. {learnMoreLink}",
     "description": "Empty state description displayed when no models are logged in the genai logged models list page"
   },
+  "KCN//B": {
+    "defaultMessage": "Remove {excess, plural, one {# filter} other {# filters}}. Scheduled runs apply at most {limit}.",
+    "description": "Experiment issues tab > Schedule modal error shown when a schedule carries more trace filters than the server applies"
+  },
   "KDxbQI": {
     "defaultMessage": "An error occurred while rendering the trace",
     "description": "Description for default error message in the Trace Explorer UI"
@@ -10431,10 +10439,6 @@
     "defaultMessage": "Sort ascending",
     "description": "Traces table column header menu item to sort the column in ascending order"
   },
-  "WVG3mp": {
-    "defaultMessage": "I understand that scheduled runs analyze traces and spend unattended",
-    "description": "Experiment issues tab > Schedule modal checkbox the owner must tick before saving a schedule"
-  },
   "WVUF2N": {
     "defaultMessage": "Are you sure you want to delete the prompt?",
     "description": "A content for the delete prompt confirmation modal"
@@ -13738,10 +13742,6 @@
   "hEF41D": {
     "defaultMessage": "Run name",
     "description": "Column selector label for the run-name column"
-  },
-  "hENHAL": {
-    "defaultMessage": "Each run samples this experiment's recent traces, sends their content to the model chosen above using the credential saved for it, and files what it finds in Issues. That spend recurs on this cadence. Trace content is written by your application and its users, so it is untrusted input to the model.",
-    "description": "Experiment issues tab > Schedule modal notice explaining that a scheduled detection run analyzes untrusted trace content unattended using the credential saved for the chosen model"
   },
   "hFKR7V": {
     "defaultMessage": "Group traces by session",
@@ -17578,10 +17578,6 @@
   "tPUQUF": {
     "defaultMessage": "An API key with this name already exists. Please choose a different name.",
     "description": "Error message for duplicate key name"
-  },
-  "tQ1p7T": {
-    "defaultMessage": "Scheduled runs analyze traces with nobody watching",
-    "description": "Experiment issues tab > Schedule modal notice title about what an unattended scheduled detection run does"
   },
   "tQDJsj": {
     "defaultMessage": "Issue detection runs cannot be used as a baseline",
