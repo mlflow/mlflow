@@ -40,6 +40,12 @@ export interface IssueDetectionScheduleModel {
   provider?: string;
   model?: string;
   endpointName?: string;
+  /**
+   * Which stored credential a direct selection runs with. The dispatcher uses this and nothing
+   * else, so a schedule never runs on a key its owner did not choose. Absent on an endpoint
+   * selection, which carries its own credential, and on a schedule saved before it was recorded.
+   */
+  secretId?: string;
 }
 
 /** The cadences offered. Hourly fires on the hour, daily at 09:00, weekly on Monday at 09:00. */
@@ -128,12 +134,16 @@ const parseScheduleModel = (entry: unknown): IssueDetectionScheduleModel | undef
   if (!isRecord(entry)) {
     return undefined;
   }
-  const { provider, model, endpointName } = entry;
+  const { provider, model, endpointName, secretId } = entry;
   if (typeof endpointName === 'string' && endpointName.length > 0) {
     return { endpointName };
   }
   if (typeof provider === 'string' && provider.length > 0 && typeof model === 'string' && model.length > 0) {
-    return { provider, model };
+    return {
+      provider,
+      model,
+      ...(typeof secretId === 'string' && secretId.trim().length > 0 ? { secretId } : {}),
+    };
   }
   return undefined;
 };

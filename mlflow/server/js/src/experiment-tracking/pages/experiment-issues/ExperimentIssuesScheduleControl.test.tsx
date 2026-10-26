@@ -210,7 +210,7 @@ describe('ExperimentIssuesScheduleControl', () => {
     const user = setup();
     render();
     await openModal(user);
-    await chooseCadence(user, 'Hourly');
+    await chooseCadence(user, 'Daily');
 
     await user.click(await screen.findByRole('button', { name: 'Add filter' }));
     await user.type(await screen.findByRole('textbox', { name: 'Filter key' }), 'environment');
@@ -280,7 +280,7 @@ describe('ExperimentIssuesScheduleControl', () => {
     const user = setup();
     render();
     await openModal(user);
-    await chooseCadence(user, 'Hourly');
+    await chooseCadence(user, 'Daily');
 
     await user.click(await screen.findByRole('button', { name: 'Add filter' }));
     await user.type(await screen.findByRole('textbox', { name: 'Filter value' }), 'production');
@@ -534,8 +534,31 @@ describe('ExperimentIssuesScheduleControl', () => {
     expect(createdSecrets).toEqual([
       { secret_name: expect.any(String), provider: 'openai', secret_value: { api_key: 'sk-test-key' } },
     ]);
-    // The key is referenced by provider, not stored in the schedule, so rotating it keeps running.
-    expect(savedSchedule()['model']).toEqual({ provider: 'openai', model: 'gpt-5.6-sol' });
+    // The schedule names the secret just created, so the dispatcher runs on that key and not on
+    // whichever one a later read happens to find first.
+    expect(savedSchedule()['model']).toEqual({
+      provider: 'openai',
+      model: 'gpt-5.6-sol',
+      secretId: 'sec-new',
+    });
+  });
+
+  test('names the existing secret when AI Gateway already holds one for the provider', async () => {
+    // No key step here -- a key already exists -- but the schedule must still record *which* one,
+    // or the dispatcher would be back to guessing among a provider's secrets at fire time.
+    gatewaySecrets = [{ secret_id: 'sec-existing', secret_name: 'my-openai-key', provider: 'openai' }];
+    const user = setup();
+    render();
+    await openModal(user);
+    await chooseCadence(user, 'Daily');
+    await save(user);
+
+    await waitFor(() => expect(savedSchedule()['cadence']).toBe('daily'));
+    expect(savedSchedule()['model']).toEqual({
+      provider: 'openai',
+      model: 'gpt-5.6-sol',
+      secretId: 'sec-existing',
+    });
   });
 
   test('stores one key when "Continue and save" is clicked again while the first is in flight', async () => {

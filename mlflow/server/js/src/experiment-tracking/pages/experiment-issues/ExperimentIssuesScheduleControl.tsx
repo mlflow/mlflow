@@ -39,7 +39,10 @@ import {
 const COMPONENT_ID = 'mlflow.experiment-issues.schedule';
 
 // 'off' first so the select reads Off -> Weekly -> Daily -> Hourly (weekly/daily emphasized over hourly).
-const SETTING_OPTIONS: IssueDetectionScheduleSetting[] = ['off', 'weekly', 'daily', 'hourly'];
+// Daily and weekly only. An hourly cadence is more detection than an experiment needs and
+// multiplies the spend; the dispatcher still runs a schedule already stored as hourly, so
+// dropping the option here does not strand one.
+const SETTING_OPTIONS: IssueDetectionScheduleSetting[] = ['off', 'weekly', 'daily'];
 
 const isScheduleSetting = (value: string): value is IssueDetectionScheduleSetting =>
   SETTING_OPTIONS.some((option) => option === value);
@@ -213,11 +216,22 @@ const emptyFilterRow = (): ScheduleTraceFilter => ({
   value: '',
 });
 
-/** The picker's selection in the shape the schedule stores: an endpoint, or a provider's model. */
-const toStoredModel = (selection: IssueDetectionModelSelection): IssueDetectionScheduleModel =>
+/**
+ * The picker's selection in the shape the schedule stores: an endpoint, or a provider's model
+ * plus the stored credential it runs with.
+ *
+ * A direct selection names its secret, the same one the ad-hoc dialog sends as `secret_id`. The
+ * dispatcher uses it and nothing else: resolving a key by provider at fire time would pick
+ * whichever secret was saved most recently, which on a server with more than one user is a key
+ * somebody else saved for their own use.
+ */
+const toStoredModel = (
+  selection: IssueDetectionModelSelection,
+  secretId: string | undefined,
+): IssueDetectionScheduleModel =>
   selection.mode === 'endpoint' && selection.endpointName
     ? { endpointName: selection.endpointName }
-    : { provider: selection.provider, model: selection.model };
+    : { provider: selection.provider, model: selection.model, ...(secretId ? { secretId } : {}) };
 
 /** The stored selection put back into the picker's shape, for prefilling the modal. */
 const toSelection = (model: IssueDetectionScheduleModel | undefined): IssueDetectionModelSelection | undefined => {
@@ -264,10 +278,16 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
   const [apiKeyDraft, setApiKeyDraft] = useState('');
 
   const { data: endpoints, isLoading: isLoadingEndpoints } = useEndpointsQuery();
-  const { hasExistingSecrets, isLoadingSecrets, envCredentialsAvailable, isLoadingProviderConfig, secretsError } =
-    useApiKeyConfiguration({
-      provider: selection?.mode === 'direct' ? selection.provider : ISSUE_DETECTION_PROVIDERS[0].id,
-    });
+  const {
+    hasExistingSecrets,
+    existingSecrets,
+    isLoadingSecrets,
+    envCredentialsAvailable,
+    isLoadingProviderConfig,
+    secretsError,
+  } = useApiKeyConfiguration({
+    provider: selection?.mode === 'direct' ? selection.provider : ISSUE_DETECTION_PROVIDERS[0].id,
+  });
   const {
     mutate: createSecret,
     isLoading: isCreatingSecret,
@@ -378,62 +398,65 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     [],
   );
 
-  const persistSchedule = useCallback(async () => {
-    // Blank-key rows are dropped; the hook/persistence also normalize, but trimming here keeps the
-    // saved model clean.
-    const cleaned = filters
-      .map((filter) => ({
-        field: filter.field,
-        operator: filter.operator,
-        key: filter.key.trim(),
-        value: filter.value,
-      }))
-      .filter((filter) => filter.key.length > 0);
-    // Both checks run before either tag is written: the server drops what they catch, so storing
-    // it would leave the modal showing a filter that no run applies.
-    if (cleaned.length > MAX_TRACE_FILTERS) {
-      setFilterError(
-        intl.formatMessage(
-          {
-            defaultMessage:
-              'Remove {excess, plural, one {# filter} other {# filters}}. Scheduled runs apply at most {limit}.',
-            description:
-              'Experiment issues tab > Schedule modal error shown when a schedule carries more trace filters than the server applies',
-          },
-          { excess: cleaned.length - MAX_TRACE_FILTERS, limit: MAX_TRACE_FILTERS },
-        ),
-      );
-      return;
-    }
-    const rejected = cleaned.map(unsupportedFilterCharacter).find(Boolean);
-    if (rejected) {
-      setFilterError(
-        intl.formatMessage(
-          {
-            defaultMessage: 'Remove the {character} character from the filter. Scheduled runs cannot match on it.',
-            description:
-              'Experiment issues tab > Schedule modal error shown when a trace filter contains a character the server cannot apply',
-          },
-          { character: rejected },
-        ),
-      );
-      return;
-    }
-    setFilterError(null);
-    setSaveFailed(false);
-    try {
-      // Await the writes and only close on success. On failure keep the modal open with the draft
-      // intact so the user can retry without re-entering the cadence/filters.
-      await setSetting({
-        setting: cadence,
-        traceFilters: cleaned,
-        model: selection ? toStoredModel(selection) : undefined,
-      });
-      setOpen(false);
-    } catch {
-      setSaveFailed(true);
-    }
-  }, [cadence, filters, selection, setSetting, intl]);
+  const persistSchedule = useCallback(
+    async (secretId?: string) => {
+      // Blank-key rows are dropped; the hook/persistence also normalize, but trimming here keeps the
+      // saved model clean.
+      const cleaned = filters
+        .map((filter) => ({
+          field: filter.field,
+          operator: filter.operator,
+          key: filter.key.trim(),
+          value: filter.value,
+        }))
+        .filter((filter) => filter.key.length > 0);
+      // Both checks run before either tag is written: the server drops what they catch, so storing
+      // it would leave the modal showing a filter that no run applies.
+      if (cleaned.length > MAX_TRACE_FILTERS) {
+        setFilterError(
+          intl.formatMessage(
+            {
+              defaultMessage:
+                'Remove {excess, plural, one {# filter} other {# filters}}. Scheduled runs apply at most {limit}.',
+              description:
+                'Experiment issues tab > Schedule modal error shown when a schedule carries more trace filters than the server applies',
+            },
+            { excess: cleaned.length - MAX_TRACE_FILTERS, limit: MAX_TRACE_FILTERS },
+          ),
+        );
+        return;
+      }
+      const rejected = cleaned.map(unsupportedFilterCharacter).find(Boolean);
+      if (rejected) {
+        setFilterError(
+          intl.formatMessage(
+            {
+              defaultMessage: 'Remove the {character} character from the filter. Scheduled runs cannot match on it.',
+              description:
+                'Experiment issues tab > Schedule modal error shown when a trace filter contains a character the server cannot apply',
+            },
+            { character: rejected },
+          ),
+        );
+        return;
+      }
+      setFilterError(null);
+      setSaveFailed(false);
+      try {
+        // Await the writes and only close on success. On failure keep the modal open with the draft
+        // intact so the user can retry without re-entering the cadence/filters.
+        await setSetting({
+          setting: cadence,
+          traceFilters: cleaned,
+          model: selection ? toStoredModel(selection, secretId ?? existingSecrets[0]?.secret_id) : undefined,
+        });
+        setOpen(false);
+      } catch {
+        setSaveFailed(true);
+      }
+    },
+    [cadence, filters, selection, existingSecrets, setSetting, intl],
+  );
 
   // Prompting for a key before these answer would ask for one the server may already have.
   const isCheckingCredentials = isLoadingSecrets || isLoadingProviderConfig;
@@ -479,7 +502,9 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
         secret_value: { api_key: trimmedKey },
         provider: selection.provider,
       },
-      { onSuccess: () => persistSchedule() },
+      // The schedule stores the secret just created, not whichever one a later read happens to
+      // find first.
+      { onSuccess: (response) => persistSchedule(response.secret.secret_id) },
     );
   }, [apiKeyDraft, selection, createSecret, persistSchedule]);
 
