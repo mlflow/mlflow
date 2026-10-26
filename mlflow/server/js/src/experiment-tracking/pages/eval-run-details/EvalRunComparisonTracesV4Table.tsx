@@ -30,6 +30,7 @@ import { useSlashFocusSearch } from '../experiment-evaluation-datasets-v2/hooks/
 import { TracesV4TableSurface } from '../../components/experiment-page/components/traces-v4/components/TracesV4TableSurface';
 import { useTracesV4ToolbarSlots } from '../../components/experiment-page/components/traces-v4/components/TracesV4Toolbar';
 import { useTracesV4Density } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4Density';
+import { useTracesV4Notifications } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4Notifications';
 import { useTracesV4TraceActions } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4TraceActions';
 import {
   assessmentColumnId,
@@ -110,7 +111,8 @@ const EvalRunComparisonTracesV4Content = (props: EvalRunComparisonTracesV4TableP
   const { density, setDensity } = useTracesV4Density(controller.persistenceId);
   const { refetch } = controller;
   const refetchComparison = useCallback(() => void refetch(), [refetch]);
-  const actions = useTracesV4TraceActions(experimentId, controller.pageTraces, refetchComparison);
+  const { notify, notificationContainer } = useTracesV4Notifications();
+  const actions = useTracesV4TraceActions(experimentId, controller.pageTraces, refetchComparison, notify);
   const searchInputRef = useRef<InputRef>(null);
   useSlashFocusSearch(searchInputRef);
   const location = useLocation();
@@ -548,7 +550,7 @@ const EvalRunComparisonTracesV4Content = (props: EvalRunComparisonTracesV4TableP
         onSelectTrace: url.setTraceId,
         runJudgeConfiguration: actions.runJudges?.runJudgeConfiguration,
       }}
-      overlaySlots={{ actionModals: actions.runJudges?.RunJudgesModal }}
+      overlaySlots={{ actionModals: actions.runJudges?.RunJudgesModal, notificationContainer }}
       layoutProps={{ paddingTop: 0, paddingLeft: 0, marginBottom: -theme.spacing.sm }}
     />
   );
