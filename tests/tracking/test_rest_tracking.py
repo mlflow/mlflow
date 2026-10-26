@@ -2416,11 +2416,7 @@ def test_upload_artifact_handler(mlflow_client):
 
 
 def test_upload_artifact_handler_uses_run_id_when_both_params_provided(mlflow_client):
-    """Test that upload_artifact uses run_id when both run_id and run_uuid are provided.
-
-    This is a regression test for an authorization bypass where a user could provide
-    their own run_id (passing auth) but a different run_uuid (writing to another run).
-    """
+    # Auth checks `run_id` first, so the handler must write to the same run.
     experiment_id = mlflow_client.create_experiment("upload_artifacts_test")
     run1 = mlflow_client.create_run(experiment_id)
     run2 = mlflow_client.create_run(experiment_id)
