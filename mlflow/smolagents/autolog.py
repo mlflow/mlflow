@@ -125,10 +125,16 @@ def _parse_tools(tools):
     return [_inner_get_tool_attributes(tool) for tool in tools]
 
 
+def _is_sensitive_key(key: str) -> bool:
+    """Check if a key looks like it contains credentials."""
+    sensitive_patterns = ["api_key", "token", "secret", "password", "client_kwargs"]
+    return any(pattern in key.lower() for pattern in sensitive_patterns)
+
+
 def _get_model_attributes(instance):
     model = {SpanAttributeKey.MESSAGE_FORMAT: "smolagents"}
     for key, value in instance.__dict__.items():
-        if value is None or key == "api_key":
+        if value is None or _is_sensitive_key(key):
             continue
         model[key] = str(value)
     return model
