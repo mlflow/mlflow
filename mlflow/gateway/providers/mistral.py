@@ -12,6 +12,14 @@ from mlflow.gateway.schemas import embeddings as embeddings_schema
 from mlflow.gateway.utils import handle_incomplete_chunks, strip_sse_prefix
 
 
+def _build_prompt_tokens_details(usage: dict[str, Any]) -> chat_schema.PromptTokensDetails | None:
+    # Mistral reports prompt cache hits in `usage.prompt_tokens_details.cached_tokens`
+    # (https://docs.mistral.ai/studio-api/conversations/advanced/prompt-caching).
+    if details := usage.get("prompt_tokens_details"):
+        return chat_schema.PromptTokensDetails(**details)
+    return None
+
+
 class MistralAdapter(ProviderAdapter):
     @classmethod
     def model_to_completions(cls, resp, config):
@@ -86,6 +94,7 @@ class MistralAdapter(ProviderAdapter):
                 prompt_tokens=resp["usage"]["prompt_tokens"],
                 completion_tokens=resp["usage"]["completion_tokens"],
                 total_tokens=resp["usage"]["total_tokens"],
+                prompt_tokens_details=_build_prompt_tokens_details(resp["usage"]),
             ),
         )
 
@@ -119,6 +128,7 @@ class MistralAdapter(ProviderAdapter):
                 prompt_tokens=usage_data.get("prompt_tokens"),
                 completion_tokens=usage_data.get("completion_tokens"),
                 total_tokens=usage_data.get("total_tokens"),
+                prompt_tokens_details=_build_prompt_tokens_details(usage_data),
             )
 
         return chat_schema.StreamResponsePayload(
