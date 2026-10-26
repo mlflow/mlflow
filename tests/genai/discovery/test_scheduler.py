@@ -6,6 +6,7 @@ from unittest import mock
 import pytest
 
 from mlflow.entities.experiment_tag import ExperimentTag
+from mlflow.exceptions import MlflowException
 from mlflow.genai.discovery.checkpoint import (
     FIRST_RUN_LOOKBACK_MS,
     STALE_WATERMARK_CAP_MS,
@@ -19,10 +20,16 @@ from mlflow.genai.discovery.schedule import (
     ScheduleModel,
     ScheduleTraceFilter,
     parse_detection_schedule_state,
+    scheduled_detection_available,
 )
 from mlflow.genai.discovery.scheduler import (
     MAX_EXPERIMENTS_PER_PASS,
     run_issue_detection_scheduler,
+)
+from mlflow.server import (
+    ARTIFACT_ROOT_ENV_VAR,
+    BACKEND_STORE_URI_ENV_VAR,
+    HUEY_STORAGE_PATH_ENV_VAR,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.mlflow_tags import (
@@ -626,3 +633,68 @@ def test_a_key_stored_for_another_provider_is_not_used(store, dispatch):
     # Nothing is stored for OpenAI, so the run falls back to the server's own environment rather
     # than being handed another provider's key.
     assert submit_job.call_args.kwargs["extra_envs"] == {}
+
+
+def test_the_real_submission_rejects_the_credential_environment_on_the_executor_engine(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+):
+    # Drives the real `submit_job` validation rather than the mock the dispatcher tests use, which
+    # is what makes this a contract test: if that engine ever learns to carry `extra_envs`, this
+    # goes green and `scheduled_detection_available` should stop reporting it unavailable.
+    from mlflow.genai.discovery.job import run_scheduled_issue_detection_job
+    from mlflow.server.jobs import submit_job
+
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_EXECUTION_ENGINE", "executor")
+    # The job backend's own requirement check runs first, so the submission has to get far enough
+    # to reach the environment check this test is about.
+    monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, f"sqlite:///{tmp_path}/jobs.db")
+    monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, str(tmp_path))
+    monkeypatch.setenv(HUEY_STORAGE_PATH_ENV_VAR, str(tmp_path))
+    params = {
+        "experiment_id": "1",
+        "window_lower_bound_ms": ONE_PM_MS,
+        "window_upper_bound_ms": ONE_PM_MS + HOUR_MS,
+        "categories": ["correctness"],
+    }
+    with pytest.raises(MlflowException, match="extra_envs is not yet supported"):
+        submit_job(
+            function=run_scheduled_issue_detection_job,
+            params=params,
+            extra_envs={"OPENAI_API_KEY": "sk-test"},
+        )
+
+    # And the capability check agrees, which is the whole reason the control is disabled there.
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS", "true")
+    with mock.patch("mlflow.server.jobs.utils._check_requirements"):
+        assert scheduled_detection_available() is False
+
+
+def test_a_scheduled_job_records_no_creator_so_only_an_admin_can_inspect_it(store, dispatch):
+    # A background pass has no authenticated request, so `submit_job` persists `creator=None` and
+    # `validate_is_job_owner` -- which requires a non-null creator matching the caller -- denies
+    # every non-admin. Verified against a basic-auth server; pinned here so the limitation is
+    # visible in the suite and this test turns red when it is fixed rather than silently staying
+    # true. See the PR description for why the fix is deferred.
+    from mlflow.server.auth import validate_is_job_owner
+
+    _experiment_with(
+        store, "no-creator", **_schedule_tags(DetectionSchedule(cadence=DetectionCadence.DAILY))
+    )
+    dispatch(ONE_PM_MS)
+    submitted = dispatch(ONE_PM_MS + DAY_MS)
+    job_id = submitted.return_value.job_id
+
+    job = mock.MagicMock()
+    job.creator = None
+    with (
+        mock.patch("mlflow.server.jobs.get_job", return_value=job),
+        mock.patch("mlflow.server.auth._get_request_param", return_value=job_id),
+        mock.patch("mlflow.server.auth.authenticate_request") as authenticate,
+    ):
+        authenticate.return_value.username = "alice"
+        assert validate_is_job_owner() is False
+        authenticate.return_value.username = "admin"
+        # Not even the admin passes the *ownership* check -- admins reach these routes by
+        # bypassing RBAC entirely, not by owning the job.
+        assert validate_is_job_owner() is False
