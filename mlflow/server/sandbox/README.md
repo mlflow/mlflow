@@ -28,15 +28,17 @@ The sandbox turns on automatically when the assistant is put into remote/multi-u
 export MLFLOW_ENABLE_REMOTE_ASSISTANT=true
 ```
 
-In that mode the `Bash` tool and the coding-agent CLI providers run in a container, and those
-providers become reachable by remote clients (they no longer execute on the host). Left unset (the
+In that mode the `Bash` tool and the coding-agent CLI providers run in a container, for local
+users too. Remote clients can use only the MLflow AI Gateway provider: the coding-agent CLI
+providers (Claude Code and Codex) stay local-only, even in the sandbox. Left unset (the
 default), the assistant is localhost-only and runs that work in a host subprocess, exactly as
 before. Requirements: a POSIX host with a reachable Docker daemon — the server enables the sandbox
 when a `docker` executable is on PATH, and an unreachable daemon surfaces when a turn starts.
 
 To override that automatic behavior, set `MLFLOW_ENABLE_ASSISTANT_SANDBOX` explicitly — `true`
 forces the sandbox on (even locally; a turn then fails at container start if Docker is missing) and
-`false` opts out of it (running on the host even in remote mode):
+`false` opts out of it (local users' work then runs on the host, and remote clients cannot use
+the assistant):
 
 ```bash
 export MLFLOW_ENABLE_ASSISTANT_SANDBOX=false  # opt out; run on the host
@@ -48,9 +50,48 @@ Relevant environment variables:
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
 | `MLFLOW_ENABLE_REMOTE_ASSISTANT`     | Put the assistant in remote/multi-user mode; when a `docker` executable is present, its work runs in the sandbox.                              | `false`                           |
 | `MLFLOW_ENABLE_ASSISTANT_SANDBOX`    | Override the automatic decision: `true` forces the sandbox on, `false` forces it off. Unset derives it from remote mode + Docker.              | unset                             |
-| `MLFLOW_SANDBOX_DOCKER_IMAGE`        | Image for the `Bash` sandbox (needs Python + MLflow). Auto-built if missing.                                                                   | `mlflow-sandbox:latest`           |
+| `MLFLOW_SANDBOX_DOCKER_IMAGE`        | Image for the `Bash` sandbox (needs Python + MLflow). Auto-built if missing (see below).                                                       | `mlflow-sandbox:latest`           |
 | `MLFLOW_ASSISTANT_SANDBOX_CLI_IMAGE` | Image for the coding-agent CLI sandbox — Claude Code and/or Codex (needs the CLI(s) + their runtime). **Operator-provided; never auto-built.** | `mlflow-assistant-sandbox:latest` |
 | `MLFLOW_SANDBOX_EGRESS_PROXY`        | Optional proxy to steer container egress through (see below).                                                                                  | unset                             |
+
+## Let the sandbox reach the server
+
+Commands in the sandbox call the tracking server at the address the browser used to open the MLflow
+UI. A loopback address (`localhost` or `127.0.0.1`) is rewritten to `host.docker.internal`, which
+the server's default allowed hosts (its protection against DNS rebinding) do not include. So if you
+open the UI at `localhost`, every `mlflow` command in the sandbox fails with
+`403 Invalid Host header - possible DNS rebinding attack detected`, and the assistant cannot read
+any MLflow data. Add `host.docker.internal` to the allowed hosts. `--allowed-hosts` (or
+`MLFLOW_SERVER_ALLOWED_HOSTS`) replaces the default list, so also keep the defaults that your users
+need: the loopback names, private IP addresses (`10.*`, `172.16.*` to `172.31.*`, `192.168.*`), and
+the server's own name. For example:
+
+```bash
+mlflow server --host 0.0.0.0 \
+  --allowed-hosts "localhost,localhost:*,127.0.0.1,127.0.0.1:*,host.docker.internal,host.docker.internal:*,10.*,192.168.*,mlflow.example.com,mlflow.example.com:*"
+```
+
+On Linux, `host.docker.internal` is the address of the Docker bridge, not the host's loopback
+address, so a server that listens only on `127.0.0.1` (the default `--host`) cannot be reached from
+the sandbox. Listen on an address the bridge can reach, for example `--host 0.0.0.0`.
+
+When Docker runs in a virtual machine, as it does on macOS, that machine must also be able to see
+the server's temporary folder (`TMPDIR`): the CLI sandbox passes its input to the container
+through a folder there. Docker Desktop shares it by default. Colima, for example, shares only your
+home folder by default, so set `TMPDIR` to a folder under your home folder before you start the
+server.
+
+## The `Bash` sandbox image
+
+If `MLFLOW_SANDBOX_DOCKER_IMAGE` is not present locally, the server builds a minimal one when a
+turn first needs it: a `python:<version>-slim` base image from Docker Hub with the server's Python
+version, and MLflow installed to match the server. MLflow comes from `MLFLOW_HOME` if it is set,
+and otherwise from the server's source checkout (a development build), from GitHub (a development
+build without a checkout), or from the package index (a released version). This build does not
+use `PIP_INDEX_URL` or `PIP_EXTRA_INDEX_URL`. If the server cannot reach Docker Hub or the public
+package index, build an image with the server's Python and MLflow versions yourself, and set
+`MLFLOW_SANDBOX_DOCKER_IMAGE` to it. The image is not rebuilt when MLflow changes: delete it to
+rebuild it.
 
 ## Building the CLI image
 

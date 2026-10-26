@@ -28,7 +28,7 @@ export type DrawerComponentType = {
     modal?: boolean;
     children: ReactNode;
   }) => React.ReactElement;
-  Content: (props: Drawer.DrawerContentProps) => React.ReactElement;
+  Content: (props: Drawer.DrawerContentProps & { isFullscreen?: boolean }) => React.ReactElement;
 };
 
 export interface AddToDatasetAction {
@@ -42,6 +42,10 @@ export interface ModelTraceExplorerContextValue {
   /** When set (e.g. by the evaluation review drawer), content can show "Add to dataset" that calls openModal */
   addToDatasetAction?: AddToDatasetAction;
   drawerWidth?: string | number;
+  /** Optional boundary used to contain the drawer and its auxiliary UI (new eval runs UI only). */
+  getDrawerPortalContainer?: () => HTMLElement;
+  /** Opens the trace drawer at the full size of its viewport or scoped container (new eval runs UI only). */
+  initiallyFullscreen?: boolean;
 }
 
 const ModelTraceExplorerContext = createContext<ModelTraceExplorerContextValue>({
@@ -56,6 +60,8 @@ interface ModelTraceExplorerContextProviderProps {
   renderAddToReviewQueueDropdown?: React.ComponentType<RenderAddToReviewQueueDropdownParams>;
   DrawerComponent?: DrawerComponentType;
   drawerWidth?: string | number;
+  getDrawerPortalContainer?: () => HTMLElement;
+  initiallyFullscreen?: boolean;
 }
 
 export const ModelTraceExplorerContextProvider: React.FC<ModelTraceExplorerContextProviderProps> = ({
@@ -64,6 +70,8 @@ export const ModelTraceExplorerContextProvider: React.FC<ModelTraceExplorerConte
   renderAddToReviewQueueDropdown,
   DrawerComponent = Drawer,
   drawerWidth,
+  getDrawerPortalContainer,
+  initiallyFullscreen,
 }) => {
   const value = useMemo(
     () => ({
@@ -71,8 +79,17 @@ export const ModelTraceExplorerContextProvider: React.FC<ModelTraceExplorerConte
       renderAddToReviewQueueDropdown,
       DrawerComponent,
       drawerWidth,
+      getDrawerPortalContainer,
+      initiallyFullscreen,
     }),
-    [renderExportTracesToDatasetsModal, renderAddToReviewQueueDropdown, DrawerComponent, drawerWidth],
+    [
+      renderExportTracesToDatasetsModal,
+      renderAddToReviewQueueDropdown,
+      DrawerComponent,
+      drawerWidth,
+      getDrawerPortalContainer,
+      initiallyFullscreen,
+    ],
   );
 
   return <ModelTraceExplorerContext.Provider value={value}>{children}</ModelTraceExplorerContext.Provider>;

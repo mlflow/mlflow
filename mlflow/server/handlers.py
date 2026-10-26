@@ -101,6 +101,7 @@ from mlflow.gateway.budget import maybe_refresh_budget_policies
 from mlflow.gateway.budget_tracker import get_budget_tracker
 from mlflow.gateway.constants import GATEWAY_DISABLED_MESSAGE
 from mlflow.gateway.utils import is_valid_endpoint_name
+from mlflow.genai.discovery.schedule import scheduled_detection_available
 from mlflow.genai.label_schemas.label_schemas import LabelSchemaType, _input_from_proto
 from mlflow.genai.review_queues import ReviewItemType, ReviewQueueType, ReviewStatus
 from mlflow.genai.review_queues.validation import validate_item_ids_for_attach
@@ -403,6 +404,7 @@ from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.issue_utils import validate_issue_fields
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.mlflow_tags import (
+    MLFLOW_ARTIFACT_LOCATION,
     MLFLOW_CUSTOM_VIEW_TAG_PREFIX,
     MLFLOW_GENAI_EVALUATE_JOB_ID,
     MLFLOW_ISSUE_DETECTION_JOB_ID,
@@ -2720,10 +2722,10 @@ def create_promptlab_run_handler():
 @_disable_if_artifacts_presigned_only(upload=True)
 def upload_artifact_handler():
     args = request.args
-    run_uuid = args.get("run_uuid")
-    if not run_uuid:
+    run_id = args.get("run_id") or args.get("run_uuid")
+    if not run_id:
         raise MlflowException(
-            message="Request must specify run_uuid.",
+            message="Request must specify run_id or run_uuid.",
             error_code=INVALID_PARAMETER_VALUE,
         )
     path = args.get("path")
@@ -2753,7 +2755,7 @@ def upload_artifact_handler():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    run = _get_tracking_store().get_run(run_uuid)
+    run = _get_tracking_store().get_run(run_id)
     artifact_dir = run.info.artifact_uri
 
     basename = posixpath.basename(path)
@@ -2825,6 +2827,7 @@ def _get_artifact_repo(run):
 
 
 _HANDLER_BLOCKED_TRACE_TAGS = frozenset({
+    MLFLOW_ARTIFACT_LOCATION,
     MLFLOW_TRACE_SPANS_LOCATION,
     MLFLOW_TRACE_ARCHIVE_LOCATION,
     MLFLOW_TRACE_ARCHIVAL_FAILURE,
@@ -4021,13 +4024,15 @@ def _get_workspace_scoped_repo_path_if_enabled(artifact_path: str | None) -> str
         # so root operations continue to see the existing layout.
         return base if workspace != DEFAULT_WORKSPACE_NAME else artifact_path
 
-    if workspace == DEFAULT_WORKSPACE_NAME and not normalized.startswith("workspaces/"):
+    # Case-insensitive because a case-insensitive local store serves ``WORKSPACES/`` as
+    # ``workspaces/``.
+    if workspace == DEFAULT_WORKSPACE_NAME and not normalized.lower().startswith("workspaces/"):
         # Legacy default-workspace artifacts never had the workspace prefix; allow them to be served
         # without rewriting as long as the path isn't trying to opt into the reserved namespace.
         return artifact_path
 
     leading_segments = normalized.split("/", 2)
-    if leading_segments and leading_segments[0] == "workspaces":
+    if leading_segments and leading_segments[0].lower() == "workspaces":
         if len(leading_segments) == 1 or not leading_segments[1]:
             raise MlflowException.invalid_parameter_value(
                 "Artifact paths prefixed with 'workspaces/' must include a workspace name."
@@ -5712,6 +5717,7 @@ def _invoke_issue_detection_handler():
             "experiment_id": [_assert_required, _assert_string],
             "trace_ids": [_assert_required, _assert_array, _assert_item_type_string],
             "categories": [_assert_required, _assert_array],
+            "instructions": [_assert_string],
             "provider": [_assert_required, _assert_string],
             "model": [_assert_string],
             "secret_id": [_assert_string],
@@ -5723,6 +5729,7 @@ def _invoke_issue_detection_handler():
     # Deduplicate while preserving order so a repeated trace_id is not fetched or analyzed twice.
     trace_ids = list(dict.fromkeys(request_json.get("trace_ids", [])))
     categories = request_json.get("categories", [])
+    instructions = request_json.get("instructions")
     provider = request_json.get("provider")
     model = request_json.get("model")
     secret_id = request_json.get("secret_id")
@@ -5795,6 +5802,7 @@ def _invoke_issue_detection_handler():
             "categories": categories,
             "run_id": run_id,
             "model": model_name,
+            "instructions": instructions,
         },
         extra_envs=credentials,
     )
@@ -6010,7 +6018,11 @@ def _deprecated_end_trace_v2(request_id):
         },
     )
     request_metadata = {e.key: e.value for e in request_message.request_metadata}
-    tags = {e.key: e.value for e in request_message.tags}
+    # Legacy clients send back all trace tags, including server-managed ones, so drop
+    # blocked tags instead of rejecting the request.
+    tags = {
+        e.key: e.value for e in request_message.tags if e.key not in _HANDLER_BLOCKED_TRACE_TAGS
+    }
 
     trace_info = _get_tracking_store().deprecated_end_trace_v2(
         request_id=request_id,
@@ -7713,6 +7725,20 @@ def build_server_info_payload() -> dict[str, Any]:
         else:
             store_type = None
 
+    # Whether a saved issue-detection schedule would actually run here. A client asks so it can
+    # say the schedule cannot run instead of offering a switch that silently does nothing. This
+    # response is served before login, so an unavailable capability reports as False rather than
+    # failing the whole payload every client reads at startup.
+    try:
+        scheduled_issue_detection_enabled = scheduled_detection_available()
+    except Exception:
+        _logger.debug(
+            "Failed to resolve scheduled issue detection availability while serving server-info; "
+            "defaulting to disabled.",
+            exc_info=True,
+        )
+        scheduled_issue_detection_enabled = False
+
     multipart_uploads_enabled = False
     multipart_downloads_enabled = False
     if _is_serving_proxied_artifacts():
@@ -7755,6 +7781,7 @@ def build_server_info_payload() -> dict[str, Any]:
         SERVER_INFO_MODEL_ARTIFACT_PRESIGNED_DOWNLOADS_SUPPORTED: presigned_transfers_supported,
         SERVER_INFO_FEATURES_ENABLED: {
             "gateway": MLFLOW_ENABLE_AI_GATEWAY.get(),
+            "scheduled_issue_detection": scheduled_issue_detection_enabled,
         },
         SERVER_INFO_TRACKING_AUTH: MLFLOW_SERVER_INFO_TRACKING_AUTH.get() or "",
         SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY: MLFLOW_ARTIFACTS_PRESIGNED_ONLY.get(),

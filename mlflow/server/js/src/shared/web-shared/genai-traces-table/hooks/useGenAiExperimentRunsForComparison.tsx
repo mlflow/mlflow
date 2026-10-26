@@ -15,6 +15,7 @@ type RawSearchRunsResponse = {
     info?: {
       run_uuid?: string;
       run_name?: string;
+      start_time?: number | string | null;
     };
   }[];
 };
@@ -31,7 +32,21 @@ const queryFn = async ({
 /**
  * Fetches the runs for the given experiment, used for the "compare to" dropdown in the eval page.
  */
-export const useGenAiExperimentRunsForComparison = (experimentId: string | undefined, disabled = false) => {
+export const useGenAiExperimentRunsForComparison = (
+  experimentId: string | undefined,
+  disabled = false,
+): {
+  requestError: Error | null;
+  isLoading: boolean;
+  isFetching: boolean;
+  runInfos:
+    | {
+        runUuid: string | undefined;
+        runName: string | undefined;
+        startTime?: number;
+      }[]
+    | undefined;
+} => {
   const { data, error, isLoading, isFetching } = useQuery<
     RawSearchRunsResponse,
     Error,
@@ -44,10 +59,18 @@ export const useGenAiExperimentRunsForComparison = (experimentId: string | undef
     staleTime: Infinity,
   });
 
-  const runInfos = data?.runs?.map((run) => ({
-    runUuid: run.info?.run_uuid,
-    runName: run.info?.run_name,
-  }));
+  const runInfos = data?.runs?.map((run) => {
+    const startTime = run.info?.start_time;
+    const parsedStartTime =
+      startTime === undefined || startTime === null || (typeof startTime === 'string' && startTime.trim() === '')
+        ? undefined
+        : Number(startTime);
+    return {
+      runUuid: run.info?.run_uuid,
+      runName: run.info?.run_name,
+      startTime: parsedStartTime !== undefined && Number.isFinite(parsedStartTime) ? parsedStartTime : undefined,
+    };
+  });
 
   return {
     requestError: error,

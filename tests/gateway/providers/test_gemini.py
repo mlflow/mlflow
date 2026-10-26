@@ -2521,3 +2521,111 @@ def test_gemini_multiple_text_parts_are_joined(method, config_fn, get_text):
     resp = _mixed_parts_response([{"text": "Hello, "}, {"text": "world."}])
 
     assert get_text(getattr(GeminiAdapter, method)(resp, config)) == "Hello, world."
+
+
+_ALL_CONVERTERS = [
+    ("model_to_chat", chat_config),
+    ("model_to_chat_streaming", chat_config),
+    ("model_to_completions", completions_config),
+    ("model_to_completions_streaming", completions_config),
+]
+
+
+@pytest.mark.parametrize(
+    "gemini_reason",
+    [
+        "SAFETY",
+        "RECITATION",
+        "BLOCKLIST",
+        "PROHIBITED_CONTENT",
+        "SPII",
+        "IMAGE_SAFETY",
+        "IMAGE_PROHIBITED_CONTENT",
+        "IMAGE_RECITATION",
+        "ESCALATION",
+    ],
+)
+@pytest.mark.parametrize(("method", "config_fn"), _ALL_CONVERTERS)
+def test_gemini_filtered_candidate_is_content_filter(method, config_fn, gemini_reason):
+    # Gemini omits `content` for a candidate its filters blocked.
+    resp = {
+        "candidates": [{"finishReason": gemini_reason, "index": 0}],
+        "usageMetadata": {"promptTokenCount": 3, "totalTokenCount": 3},
+    }
+
+    result = getattr(GeminiAdapter, method)(resp, EndpointConfig(**config_fn()))
+
+    assert [(c.index, c.finish_reason) for c in result.choices] == [(0, "content_filter")]
+
+
+@pytest.mark.parametrize(("method", "config_fn"), _ALL_CONVERTERS)
+def test_gemini_filtered_candidate_with_empty_text_part_is_content_filter(method, config_fn):
+    resp = {
+        "candidates": [
+            {"content": {"role": "model", "parts": [{"text": ""}]}, "finishReason": "SAFETY"}
+        ],
+        "usageMetadata": {"promptTokenCount": 3, "totalTokenCount": 3},
+    }
+
+    result = getattr(GeminiAdapter, method)(resp, EndpointConfig(**config_fn()))
+
+    assert [(c.index, c.finish_reason) for c in result.choices] == [(0, "content_filter")]
+
+
+def test_gemini_filtered_candidate_with_empty_text_part_chat_message_has_no_content():
+    resp = {
+        "candidates": [
+            {"content": {"role": "model", "parts": [{"text": ""}]}, "finishReason": "SAFETY"}
+        ]
+    }
+
+    result = GeminiAdapter.model_to_chat(resp, EndpointConfig(**chat_config()))
+
+    assert result.choices[0].message.content is None
+
+
+def test_gemini_filtered_candidate_chat_message_has_no_content():
+    resp = {"candidates": [{"finishReason": "SAFETY", "index": 0}]}
+
+    result = GeminiAdapter.model_to_chat(resp, EndpointConfig(**chat_config()))
+
+    assert result.choices[0].message.role == "assistant"
+    assert result.choices[0].message.content is None
+
+
+def test_gemini_partially_filtered_candidate_keeps_text():
+    resp = {
+        "candidates": [
+            {
+                "content": {"role": "model", "parts": [{"text": "Once upon"}]},
+                "finishReason": "RECITATION",
+                "index": 0,
+            }
+        ]
+    }
+
+    result = GeminiAdapter.model_to_chat(resp, EndpointConfig(**chat_config()))
+
+    assert result.choices[0].message.content == "Once upon"
+    assert result.choices[0].finish_reason == "content_filter"
+
+
+@pytest.mark.parametrize(("method", "config_fn"), _ALL_CONVERTERS)
+def test_gemini_blocked_prompt_returns_content_filter_choice(method, config_fn):
+    resp = {
+        "promptFeedback": {"blockReason": "SAFETY"},
+        "usageMetadata": {"promptTokenCount": 3, "totalTokenCount": 3},
+    }
+
+    result = getattr(GeminiAdapter, method)(resp, EndpointConfig(**config_fn()))
+
+    assert [(c.index, c.finish_reason) for c in result.choices] == [(0, "content_filter")]
+
+
+@pytest.mark.parametrize(("method", "config_fn"), _ALL_CONVERTERS)
+def test_gemini_chunk_without_candidates_or_block_reason_has_no_choices(method, config_fn):
+    resp = {"usageMetadata": {"promptTokenCount": 3, "totalTokenCount": 3}}
+
+    result = getattr(GeminiAdapter, method)(resp, EndpointConfig(**config_fn()))
+
+    assert result.choices == []

@@ -2,6 +2,7 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import React from 'react';
 
+import { ExperimentCustomViewDefinitionProvider } from './ExperimentCustomViewDefinitionProvider';
 import { ExperimentCustomViewProvider } from './ExperimentCustomViewProvider';
 import { useExperimentCustomViewDefinition } from './hooks/custom-view/useExperimentCustomViewDefinition';
 import { useAssistant } from '../../../../../assistant/AssistantContext';
@@ -340,5 +341,29 @@ describe('ExperimentCustomViewProvider', () => {
       });
       expect(mockBuildCustomViewAuthoringGuide).toHaveBeenCalledWith('structured');
     });
+  });
+
+  it('loads experiment custom views without exposing persistence or Assistant authoring in the definition-only provider', () => {
+    const persistView = jest.fn<(view: CustomView) => Promise<void>>().mockResolvedValue(undefined);
+    const deleteView = jest.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined);
+    mockUseExperimentCustomViewDefinition.mockReturnValue({ views: [], isLoaded: true, persistView, deleteView });
+    makeAssistant();
+
+    render(
+      <ExperimentCustomViewDefinitionProvider experimentId="exp-123">
+        <div>child content</div>
+      </ExperimentCustomViewDefinitionProvider>,
+    );
+
+    expect(screen.getByText('child content')).toBeInTheDocument();
+    expect(mockUseExperimentCustomViewDefinition).toHaveBeenCalledWith('exp-123');
+    expect(capturedDefinitionProviderProps?.isLoaded).toBe(true);
+    expect(capturedDefinitionProviderProps?.onPersistView).toBeUndefined();
+    expect(capturedDefinitionProviderProps?.onDeleteView).toBeUndefined();
+    expect(capturedDefinitionProviderProps?.canModifyPersistedViews).toBe(false);
+    expect(capturedDefinitionProviderProps?.autoSelectFirstView).toBeUndefined();
+    expect(capturedConnectorProviderProps).toBeUndefined();
+    expect(mockRegisterClientToolHandler).not.toHaveBeenCalled();
+    expect(mockRegisterAssistantContextProvider).not.toHaveBeenCalled();
   });
 });

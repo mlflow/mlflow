@@ -294,6 +294,15 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         tracking_store.upsert_dataset_records(dataset_id=self.dataset_id, records=record_dicts)
         self._records = None
 
+        # The upsert updates the digest, schema, and profile in the backend; refresh them so
+        # this object's identity matches its records when logged as a run input.
+        updated_dataset = tracking_store.get_dataset(self.dataset_id)
+        self._digest = updated_dataset.digest
+        self._schema = updated_dataset.schema
+        self._profile = updated_dataset.profile
+        self.last_update_time = updated_dataset.last_update_time
+        self.last_updated_by = updated_dataset.last_updated_by
+
         return self
 
     def _validate_record_dicts(self, record_dicts: list[dict[str, Any]]) -> None:

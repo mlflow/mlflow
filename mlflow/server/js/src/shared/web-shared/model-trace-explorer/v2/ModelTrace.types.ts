@@ -371,6 +371,8 @@ export interface ModelTraceSpanNode
   tokenUsage?: SpanTokenUsage;
 }
 
+export type ModelTraceComparisonRole = 'baseline' | 'candidate';
+
 export type ModelTraceExplorerTab = 'content' | 'attributes' | 'events' | 'links';
 
 /** The top-level view tabs in the trace panel. */

@@ -130,7 +130,7 @@ describe('ExperimentEvaluationRunsPage baseline', () => {
         .getQueryCache()
         .getAll()
         .map((query) => query.queryKey),
-    ).toEqual([['SEARCH_RUNS', 'exp-1', '', false]]);
+    ).toEqual([['SEARCH_RUNS', 'exp-1', '', ['attributes.start_time DESC'], false]]);
     expect(requests.filter((request) => /users\/|runs\/get/.test(request))).toEqual([]);
   });
 

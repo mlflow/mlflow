@@ -1,11 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { lazy, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button, Modal, PlusIcon, TableSkeleton, useDesignSystemTheme } from '@databricks/design-system';
-import { ModelTraceExplorerResizablePane, useGetTracesById } from '@databricks/web-shared/model-trace-explorer';
+import {
+  ModelTraceExplorerResizablePane,
+  useGetTracesById,
+  type ModelTraceExplorerDisplayMode,
+} from '@databricks/web-shared/model-trace-explorer';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import { useListLabelSchemasQuery } from '../../components/label-schemas';
-import { useParams } from '../../../common/utils/RoutingUtils';
+import { useLocation, useParams } from '../../../common/utils/RoutingUtils';
 import Utils from '../../../common/utils/Utils';
 import { copyToClipboard } from '../../../common/utils/copyToClipboard';
 import Routes from '../../routes';
@@ -29,9 +33,17 @@ import { useRemoveItemsFromReviewQueueMutation } from './hooks/useRemoveItemsFro
 import { DEFAULT_REVIEWER, displayUser, useIsReviewerResolved, useReviewer } from './hooks/useReviewer';
 import { useSetReviewQueueItemStatusMutation } from './hooks/useSetReviewQueueItemStatusMutation';
 import { canDeleteQueue, canManageQueue, canRemoveQueueItems, sameUser } from './queuePermissions';
+import { getReviewQueueCreateCustomViewUrl } from './reviewQueueCustomViewNavigation';
 import { useHeaderVisibility } from '../experiment-page-tabs/ExperimentPageHeaderVisibilityContext';
 import type { ReviewQueueItem, ReviewStatus } from './types';
 import { useSetExperimentBreadcrumbTitle } from '../experiment-page-tabs/ExperimentPageRevampContext';
+
+// Custom views pull in @a2ui (ESM-only); keep them off the review page's static module graph.
+const LazyExperimentCustomViewDefinitionProvider = lazy(() =>
+  import('../../components/experiment-page/components/traces-v3/ExperimentCustomViewDefinitionProvider').then(
+    (module) => ({ default: module.ExperimentCustomViewDefinitionProvider }),
+  ),
+);
 
 /**
  * Review tab — a master/detail surface modeled on the labeling-session page:
@@ -54,6 +66,10 @@ const ExperimentReviewQueuePage = () => {
   // gates queue create/manage and reviewing. Per-queue rules: queuePermissions.ts.
   const canManage = useCanManageReviews(experimentId ?? '');
   const canEdit = useCanEditReviews(experimentId ?? '');
+
+  // Lives above the per-item FocusedReview remount so the chosen mode persists across items.
+  const [traceViewDisplayMode, setTraceViewDisplayMode] = useState<ModelTraceExplorerDisplayMode>('default');
+  const currentSearch = useLocation().search;
 
   // Queue selection and the trace open in focused review (null = show the
   // queue's trace table) live in the URL, so both are shareable links.
@@ -243,6 +259,13 @@ const ExperimentReviewQueuePage = () => {
   // We save the sidebar's state on entering and restore it on exit/unmount, so a
   // sidebar the user had already collapsed stays collapsed when they go back.
   const inFocusMode = Boolean(openItemId && openItem);
+  // The chosen saved view lives in the focused-review provider, which unmounts on exit; start the
+  // next focused review on Default view rather than custom mode with no view selected.
+  useEffect(() => {
+    if (!inFocusMode) {
+      setTraceViewDisplayMode('default');
+    }
+  }, [inFocusMode]);
   const sidebar = useMlflowSidebar();
   // Read the sidebar context through a ref so the effect can collapse/restore it
   // without listing `sidebar` as a dependency — `setShowSidebar` changes the
@@ -374,24 +397,43 @@ const ExperimentReviewQueuePage = () => {
       />
     );
   } else if (openItemId && openItem) {
+    const openCustomViewCreation =
+      canEdit && experimentId
+        ? () =>
+            window.open(
+              getReviewQueueCreateCustomViewUrl({ experimentId, traceId: openItem.item_id, currentSearch }),
+              '_blank',
+              'noopener,noreferrer',
+            )
+        : undefined;
+    // The saved views load only here, so the queue list never waits on custom-view code. The boundary
+    // sits above the keyed FocusedReview: its skeleton shows before any answer can be typed, and the
+    // provider (with the chosen view) stays mounted across items.
     rightContent = (
-      <FocusedReview
-        // Remount per trace so answer state never bleeds across traces.
-        key={openItem.item_id}
-        item={openItem}
-        items={orderedTraces}
-        schemas={questionSchemas}
-        completedBy={reviewer}
-        // Treat an unresolved reviewer like an in-flight write so the complete /
-        // decline controls stay disabled until `completed_by` is trustworthy.
-        isSettingStatus={isSettingStatus || !reviewerResolved}
-        canReview={canReviewSelectedQueue}
-        onAssignSelf={handleAssignSelf}
-        isAssigningSelf={isUpdatingQueue}
-        onBack={() => setOpenItemId(null)}
-        onSelect={(itemId) => setOpenItemId(itemId)}
-        onSetStatus={setOpenStatus}
-      />
+      <React.Suspense fallback={<TableSkeleton lines={8} />}>
+        <LazyExperimentCustomViewDefinitionProvider experimentId={experimentId}>
+          <FocusedReview
+            // Remount per trace so answer state never bleeds across traces.
+            key={openItem.item_id}
+            item={openItem}
+            items={orderedTraces}
+            schemas={questionSchemas}
+            completedBy={reviewer}
+            // Treat an unresolved reviewer like an in-flight write so the complete /
+            // decline controls stay disabled until `completed_by` is trustworthy.
+            isSettingStatus={isSettingStatus || !reviewerResolved}
+            canReview={canReviewSelectedQueue}
+            traceViewDisplayMode={traceViewDisplayMode}
+            onTraceViewDisplayModeChange={setTraceViewDisplayMode}
+            onCreateCustomView={openCustomViewCreation}
+            onAssignSelf={handleAssignSelf}
+            isAssigningSelf={isUpdatingQueue}
+            onBack={() => setOpenItemId(null)}
+            onSelect={(itemId) => setOpenItemId(itemId)}
+            onSetStatus={setOpenStatus}
+          />
+        </LazyExperimentCustomViewDefinitionProvider>
+      </React.Suspense>
     );
   } else if (itemsLoading) {
     rightContent = <TableSkeleton lines={5} />;

@@ -49,6 +49,7 @@ def invoke_issue_detection_job(
     categories: list[str],
     run_id: str,
     model: str | None = None,
+    instructions: str | None = None,
 ):
     """
     Job function to run issue detection on traces.
@@ -68,6 +69,7 @@ def invoke_issue_detection_job(
             model=model,
             run_id=run_id,
             categories=categories,
+            instructions=instructions,
         )
         client.set_terminated(run_id, RunStatus.to_string(RunStatus.FINISHED))
         client.set_tag(run_id, "total_cost_usd", result.total_cost_usd)

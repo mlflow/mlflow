@@ -29,6 +29,7 @@ class JobLogs:
     failed_step_log_path: Path | None
     package_versions_path: Path | None
     conclusion: str | None
+    snapshot_changes_path: Path | None = None
 
 
 def log(msg: str) -> None:
@@ -102,13 +103,37 @@ def iter_step_lines(log_path: Path, failed_step: JobStep) -> Iterator[str]:
 
 PACKAGE_VERSIONS_BEGIN_MARKER = ">>> package versions"
 PACKAGE_VERSIONS_END_MARKER = "<<< package versions"
+SNAPSHOT_CHANGES_BEGIN_MARKER = ">>> snapshot changes"
+SNAPSHOT_CHANGES_END_MARKER = "<<< snapshot changes"
 
 
 def extract_package_versions(log_path: Path) -> Path | None:
     """Save the show-versions action's package list block next to the raw log."""
-    out_path = log_path.with_suffix(".package-versions.txt")
+    return extract_log_block(
+        log_path,
+        PACKAGE_VERSIONS_BEGIN_MARKER,
+        PACKAGE_VERSIONS_END_MARKER,
+        "package versions",
+        ".package-versions.txt",
+    )
+
+
+def extract_snapshot_changes(log_path: Path) -> Path | None:
+    return extract_log_block(
+        log_path,
+        SNAPSHOT_CHANGES_BEGIN_MARKER,
+        SNAPSHOT_CHANGES_END_MARKER,
+        "snapshot changes",
+        ".snapshot-changes.txt",
+    )
+
+
+def extract_log_block(
+    log_path: Path, begin_marker: str, end_marker: str, label: str, suffix: str
+) -> Path | None:
+    out_path = log_path.with_suffix(suffix)
     if out_path.exists():
-        log(f"Using cached package versions at {out_path}")
+        log(f"Using cached {label} at {out_path}")
         return out_path
 
     captured: list[str] = []
@@ -119,10 +144,10 @@ def extract_package_versions(log_path: Path) -> Path | None:
             line = line.rstrip("\r\n")
             content = TIMESTAMP_PATTERN.sub("", line)
             if not capturing:
-                if content == PACKAGE_VERSIONS_BEGIN_MARKER:
+                if content == begin_marker:
                     capturing = True
                 continue
-            if content == PACKAGE_VERSIONS_END_MARKER:
+            if content == end_marker:
                 terminated = True
                 break
             captured.append(content)
@@ -131,7 +156,7 @@ def extract_package_versions(log_path: Path) -> Path | None:
         return None
     with out_path.open("w", encoding="utf-8") as f:
         f.write("\n".join(captured) + "\n")
-    log(f"Saved package versions to {out_path}")
+    log(f"Saved {label} to {out_path}")
     return out_path
 
 
@@ -248,6 +273,7 @@ async def fetch_single_job_logs(client: GitHubClient, job: Job) -> JobLogs:
     log(f"Fetching logs for '{job.workflow_name} / {job.name}'")
     raw_log_path = await download_raw_log(client, job)
     package_versions_path = extract_package_versions(raw_log_path)
+    snapshot_changes_path = extract_snapshot_changes(raw_log_path)
 
     failed_step = next((s for s in job.steps if s.conclusion == "failure"), None)
     failed_step_log_path = (
@@ -263,6 +289,7 @@ async def fetch_single_job_logs(client: GitHubClient, job: Job) -> JobLogs:
         failed_step_log_path=failed_step_log_path,
         package_versions_path=package_versions_path,
         conclusion=job.conclusion,
+        snapshot_changes_path=snapshot_changes_path,
     )
 
 
@@ -280,6 +307,8 @@ def format_job_output(job: JobLogs) -> str:
         parts.append(f"Failed step log: {job.failed_step_log_path}")
     if job.package_versions_path:
         parts.append(f"Package versions: {job.package_versions_path}")
+    if job.snapshot_changes_path:
+        parts.append(f"Snapshot changes: {job.snapshot_changes_path}")
     return "\n".join(parts)
 
 

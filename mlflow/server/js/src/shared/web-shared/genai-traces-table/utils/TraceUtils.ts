@@ -167,6 +167,10 @@ export const getTraceInfoOutputs = (traceInfo: ModelTraceInfoV3) => {
   return traceInfo.response_preview || traceInfo.response || traceInfo.trace_metadata?.['mlflow.traceOutputs'] || '';
 };
 
+// Explicit previews are authoritative, including JSON and empty strings.
+export const getTraceInfoInputPreview = (traceInfo: ModelTraceInfoV3): string =>
+  traceInfo.request_preview ?? getTraceInfoInputs(traceInfo);
+
 /**
  * Returns the "spans location" tag value if present.
  */

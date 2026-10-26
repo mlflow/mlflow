@@ -14,6 +14,7 @@ from mlflow.environment_variables import (
     _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED,
     _MLFLOW_IN_JOB_EXECUTOR,
     _MLFLOW_SERVER_BOOT_ID,
+    _MLFLOW_SERVER_TLS_LISTENER,
     _MLFLOW_SGI_NAME,
     MLFLOW_ARTIFACTS_PRESIGNED_ONLY,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
@@ -193,6 +194,19 @@ def test_build_uvicorn_command_with_env_file():
     assert env_file_path_idx < app_name_idx
 
 
+@pytest.mark.parametrize(
+    ("uvicorn_opts", "expected"),
+    [
+        (None, False),
+        ("--log-level debug", False),
+        ("--ssl-keyfile key.pem --ssl-certfile cert.pem", True),
+        ("--ssl-certfile=cert.pem", True),
+    ],
+)
+def test_uvicorn_opts_enable_tls(uvicorn_opts, expected):
+    assert server._uvicorn_opts_enable_tls(uvicorn_opts) is expected
+
+
 def test_run_server(mock_exec_cmd, monkeypatch):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
     with mock.patch("sys.platform", return_value="linux"):
@@ -207,6 +221,38 @@ def test_run_server(mock_exec_cmd, monkeypatch):
             port="",
         )
     mock_exec_cmd.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("uvicorn_opts", "inherited", "expected"),
+    [
+        ("--ssl-keyfile key.pem --ssl-certfile cert.pem", None, "true"),
+        (None, None, "false"),
+        # A marker inherited from a parent server must not leak into a child without TLS.
+        (None, "true", "false"),
+    ],
+)
+def test_run_server_marks_a_tls_listener_for_workers(
+    mock_exec_cmd, monkeypatch, uvicorn_opts, inherited, expected
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
+    if inherited is not None:
+        monkeypatch.setenv(_MLFLOW_SERVER_TLS_LISTENER.name, inherited)
+    with mock.patch("sys.platform", return_value="linux"):
+        server._run_server(
+            file_store_path="",
+            registry_store_uri="",
+            default_artifact_root="",
+            serve_artifacts="",
+            artifacts_only="",
+            artifacts_destination="",
+            host="",
+            port="",
+            uvicorn_opts=uvicorn_opts,
+        )
+
+    extra_env = mock_exec_cmd.call_args.kwargs["extra_env"]
+    assert extra_env[_MLFLOW_SERVER_TLS_LISTENER.name] == expected
 
 
 def test_run_server_rejects_invalid_enabled_rollup_schedule(mock_exec_cmd, monkeypatch):

@@ -1,23 +1,32 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import {
   ApplyDesignSystemContextOverrides,
+  ArrowsUpDownIcon,
   Button,
   CheckCircleIcon,
   CheckboxIcon,
+  ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   CloseIcon,
   ClockIcon,
   DatabaseIcon,
+  DialogCombobox,
+  DialogComboboxContent,
+  DialogComboboxCustomButtonTriggerWrapper,
+  DialogComboboxOptionList,
+  DialogComboboxOptionListSelectItem,
   FullscreenExitIcon,
   FullscreenIcon,
   LinkIcon,
   PlusIcon,
   SearchIcon,
   Tag,
+  ToggleButton,
   Tooltip,
+  TruncationTooltip,
   Typography,
   useDesignSystemTheme,
   XCircleIcon,
@@ -26,7 +35,10 @@ import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { Global, keyframes } from '@emotion/react';
 import { useAssistant } from '@mlflow/mlflow/src/assistant';
 
+import { CREATE_CUSTOM_VIEW_QUERY_PARAM } from '../constants';
 import { shouldEnableModelTraceExplorerCustomTraceView } from '../FeatureUtils';
+import { shouldEnableNewEvalRunsUi } from '../../../../common/utils/FeatureUtils';
+import { formatEstimatedCostUSD } from '../CostUtils';
 import { ModelTraceExplorerCustomViewSelector } from './ModelTraceExplorerCustomViewSelector';
 import { isTraceCostType } from '../ModelTraceExplorerCostHoverCard';
 import { ModelTraceExplorerAssistantButton } from './ModelTraceExplorerAssistantButton';
@@ -41,8 +53,10 @@ import { useOptionalCustomViewDefinition } from '../custom-view/CustomViewDefini
 import type { ModelTraceInfoV3 } from './ModelTrace.types';
 import { getTraceCost, getTraceTokenUsage } from './ModelTraceExplorer.utils';
 import { CostMetadataItem, TokenUsageMetadataItem } from './right-pane/ModelTraceExplorerRightPaneHeader';
+import { formatExecutionDuration } from './timeline-tree/TimelineTree.utils';
 import { useCopyController } from '../../copy/useCopyController';
-import { useLocation } from '../RoutingUtils';
+import { useLocation, useNavigate } from '../RoutingUtils';
+import { RunColorCircle } from '../../genai-traces-table/components/RunColorCircle';
 
 const CUSTOM_VIEW_INITIAL_WIDTH = '50vw';
 const MIN_DRAWER_WIDTH = 480;
@@ -50,6 +64,10 @@ const MAX_DRAWER_WIDTH_RATIO = 0.9;
 const DRAWER_CLOSE_ANIMATION_MS = 180;
 const TRACE_METADATA_MIN_WIDTH = 960;
 const LABELED_PRIMARY_ACTIONS_MIN_WIDTH = 800;
+// The new eval runs UI keeps action labels down to a narrower drawer.
+const NEW_UI_LABELED_PRIMARY_ACTIONS_MIN_WIDTH = 720;
+// Below this width the new UI hides the "Trace" title text (kept for screen readers) so the trace ID fits beside the actions.
+const NEW_UI_TRACE_TITLE_MIN_WIDTH = 560;
 // Targets the design system Drawer.Content node (it renders these data attributes from the
 // Content componentId below), used by the Global rules that reproduce managed's header layout.
 const DRAWER_CONTENT_SELECTOR =
@@ -58,6 +76,11 @@ const headerIconCss = { svg: { width: 15, height: 15 } };
 const statusIconCss = { svg: { width: 12, height: 12 } };
 
 const formatHeaderDuration = (value: string): string => {
+  // The new eval runs UI formats the header duration like span durations (e.g. "2.20s", "71.57ms").
+  if (shouldEnableNewEvalRunsUi()) {
+    return formatExecutionDuration(value);
+  }
+
   const match = value.match(/^(-?\d+(?:\.\d+)?)(.*)$/);
   if (!match) {
     return value;
@@ -71,13 +94,88 @@ const formatHeaderDuration = (value: string): string => {
   return match[2] === 's' ? `${(numericValue * 1000).toFixed(2)}ms` : `${numericValue.toFixed(2)}${match[2]}`;
 };
 
-const formatHeaderCost = (cost: number): string => `$${cost.toFixed(2)}`;
+const getTraceIdPreview = (traceId: string): string => {
+  const shortTraceId = traceId.split('/').at(-1) ?? traceId;
+  return shortTraceId.replace(/^tr-/, '').slice(0, 8);
+};
+
+const formatHeaderCost = (cost: number): string =>
+  shouldEnableNewEvalRunsUi() ? formatEstimatedCostUSD(cost, 4) : `$${cost.toFixed(2)}`;
+
+// Targets where a plain letter key belongs to the focused control, so the drawer's single-key
+// shortcuts must not fire.
+const SHORTCUT_INTERACTIVE_TARGET_SELECTOR = [
+  'input',
+  'select',
+  'textarea',
+  '[contenteditable="true"]',
+  '[role="checkbox"]',
+  '[role="combobox"]',
+  '[role="menuitem"]',
+  '[role="menuitemcheckbox"]',
+  '[role="menuitemradio"]',
+  '[role="option"]',
+  '[role="radio"]',
+  '[role="searchbox"]',
+  '[role="slider"]',
+  '[role="spinbutton"]',
+  '[role="switch"]',
+  '[role="tab"]',
+  '[role="textbox"]',
+  '[role="treeitem"]',
+  '[data-radix-popper-content-wrapper]',
+  '[data-radix-menu-content]',
+  '[data-radix-select-content]',
+].join(', ');
+
+const isShortcutInteractiveTarget = (target: EventTarget | null): boolean => {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+  return target.closest(SHORTCUT_INTERACTIVE_TARGET_SELECTOR) !== null;
+};
+
+interface DrawerContainerBounds {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+  width: number;
+  height: number;
+}
+
+const getViewportBounds = (): DrawerContainerBounds => ({
+  top: 0,
+  right: window.innerWidth,
+  bottom: window.innerHeight,
+  left: 0,
+  width: window.innerWidth,
+  height: window.innerHeight,
+});
+
+// A drawer scoped to a host container (the MLflow panel beside the open Assistant) stays open when
+// the user interacts outside that container, e.g. with the Assistant itself.
+const shouldKeepScopedDrawerOpenForOutsideInteraction = (target: EventTarget | null, drawerScope?: HTMLElement) => {
+  if (!(target instanceof Node)) {
+    return false;
+  }
+  if (drawerScope && !drawerScope.contains(target)) {
+    return true;
+  }
+  return (
+    target instanceof Element &&
+    Boolean(target.closest('[data-assistant-ui="true"], [data-drawer-resize-handle="true"]'))
+  );
+};
 
 const resolveWidthToPixels = (width: number | string, viewportWidth = window.innerWidth): number => {
   if (typeof width === 'number') {
     return width;
   }
   if (width.endsWith('vw')) {
+    return (parseFloat(width) / 100) * viewportWidth;
+  }
+  if (width.endsWith('%')) {
     return (parseFloat(width) / 100) * viewportWidth;
   }
   if (width.endsWith('px')) {
@@ -112,6 +210,24 @@ export interface ModelTraceExplorerDrawerProps {
     onOpenChange: (open: boolean) => void;
     open: boolean;
   }) => React.ReactNode;
+  traceComparison?: {
+    baselineTraceId: string;
+    candidateTraceId: string;
+    baselineTraceUrl: string;
+    candidateTraceUrl: string;
+    onSwap: () => void;
+    baselineTraceInfo?: ModelTraceInfoV3;
+    candidateTraceInfo?: ModelTraceInfoV3;
+    runOptions?: {
+      runUuid: string;
+      runName: string;
+      traceId?: string;
+    }[];
+    onSelectBaselineTrace?: (traceId: string) => void;
+    onSelectCandidateTrace?: (traceId: string) => void;
+    isReviewMode?: boolean;
+    onReviewModeChange?: (isReviewMode: boolean) => void;
+  };
 }
 
 export const ModelTraceExplorerDrawer = ({
@@ -126,6 +242,7 @@ export const ModelTraceExplorerDrawer = ({
   traceInfo,
   headerTitle,
   renderManagedAddToDatasetDropdown,
+  traceComparison,
 }: ModelTraceExplorerDrawerProps): JSX.Element => {
   const { getPrefixedClassName, theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -133,20 +250,9 @@ export const ModelTraceExplorerDrawer = ({
   const customViewDefinition = useOptionalCustomViewDefinition();
   const [showDatasetModal, setShowDatasetModal] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(true);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [isSearchVisible, setSearchVisible] = useState(false);
   const [isFlagForReviewDropdownOpen, setIsFlagForReviewDropdownOpen] = useState(false);
   const [isFlagForReviewTooltipOpen, setIsFlagForReviewTooltipOpen] = useState(false);
-  const fullscreenActionButtonCss = isFullscreen
-    ? {
-        '&&, &&:hover, &&:active': {
-          borderColor: 'transparent !important',
-        },
-        '&& > .anticon + span': {
-          marginLeft: `${theme.spacing.sm}px !important`,
-        },
-      }
-    : undefined;
   const closeTimerRef = useRef<number | undefined>(undefined);
   const isClosingRef = useRef(false);
   const {
@@ -155,7 +261,14 @@ export const ModelTraceExplorerDrawer = ({
     DrawerComponent,
     drawerWidth = '90vw',
     isAssistantPanelOpen,
+    getDrawerPortalContainer,
+    initiallyFullscreen,
   } = useModelTraceExplorerContext();
+  const isNewEvalRunsUi = shouldEnableNewEvalRunsUi();
+  // With the new eval runs UI, a host can scope the drawer to a container (the MLflow panel beside
+  // the open Assistant): it then opens fullscreen within that container instead of the viewport.
+  const isDrawerScoped = isNewEvalRunsUi && Boolean(getDrawerPortalContainer);
+  const [isFullscreen, setIsFullscreen] = useState(() => isNewEvalRunsUi && Boolean(initiallyFullscreen));
   const { canUseAssistant, isPanelOpen, openPanel, sendMessageWhenReady } = useAssistant();
   // The drawer must go non-modal while the assistant panel is open so its focus
   // trap doesn't yank focus back from the chat composer (e.g. right after
@@ -167,7 +280,10 @@ export const ModelTraceExplorerDrawer = ({
   const isCustomViewEnabled = enableCustomTraceView && Boolean(openCustomViewAssistant);
   const [traceExplorerDisplayMode, setTraceExplorerDisplayMode] = useState<ModelTraceExplorerDisplayMode>('default');
   const canCreateCustomView =
-    isCustomViewEnabled && Boolean(customViewDefinition?.canPersist) && !customViewDefinition?.hasReachedViewLimit;
+    isCustomViewEnabled &&
+    Boolean(customViewDefinition?.isLoaded) &&
+    Boolean(customViewDefinition?.canPersist) &&
+    !customViewDefinition?.hasReachedViewLimit;
   const handleCreateCustomView = useCallback(() => {
     if (!canCreateCustomView) {
       return;
@@ -175,22 +291,71 @@ export const ModelTraceExplorerDrawer = ({
     customViewDefinition?.startNewView('');
     setTraceExplorerDisplayMode('custom');
   }, [canCreateCustomView, customViewDefinition]);
-  const snapDrawerLeft = enableCustomTraceView && Boolean(isAssistantPanelOpen) && !isFullscreen;
+  const location = useLocation();
+  const navigate = useNavigate();
+  const createCustomViewRequested = new URLSearchParams(location.search).get(CREATE_CUSTOM_VIEW_QUERY_PARAM) === 'true';
+  const createCustomViewIntentHandledRef = useRef(false);
+  useEffect(() => {
+    if (!createCustomViewRequested) {
+      createCustomViewIntentHandledRef.current = false;
+      return;
+    }
+    if (!canCreateCustomView || createCustomViewIntentHandledRef.current) {
+      return;
+    }
+
+    createCustomViewIntentHandledRef.current = true;
+    handleCreateCustomView();
+
+    const nextSearchParams = new URLSearchParams(location.search);
+    nextSearchParams.delete(CREATE_CUSTOM_VIEW_QUERY_PARAM);
+    const nextSearch = nextSearchParams.toString();
+    navigate(
+      { pathname: location.pathname, search: nextSearch ? `?${nextSearch}` : '', hash: location.hash },
+      { replace: true },
+    );
+  }, [canCreateCustomView, createCustomViewRequested, handleCreateCustomView, location, navigate]);
+  const snapDrawerLeft = !isDrawerScoped && enableCustomTraceView && Boolean(isAssistantPanelOpen) && !isFullscreen;
   // Non-modal whenever the drawer snaps beside a host-repositioned assistant, OR
   // whenever the live assistant panel is open (OSS: AssistantAwareDrawer flips the
   // drawer to the left itself). Either way the modal focus trap must be off.
-  const isDrawerModal = !snapDrawerLeft && !assistantPanelOpen;
+  const isDrawerModal = !snapDrawerLeft && !assistantPanelOpen && !isDrawerScoped;
   const notificationClassName = getPrefixedClassName('notification');
   const baseDrawerWidth = snapDrawerLeft ? CUSTOM_VIEW_INITIAL_WIDTH : drawerWidth;
   const [resizedWidth, setResizedWidth] = useState<number | string>(baseDrawerWidth);
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
-  const width = isFullscreen ? '100vw' : resizedWidth;
-  const drawerWidthPixels = isFullscreen ? viewportWidth : resolveWidthToPixels(resizedWidth, viewportWidth);
-  const showTraceMetadata = isFullscreen || drawerWidthPixels >= TRACE_METADATA_MIN_WIDTH;
-  const compactPrimaryActions = !isFullscreen && drawerWidthPixels < LABELED_PRIMARY_ACTIONS_MIN_WIDTH;
+  const [drawerContainerBounds, setDrawerContainerBounds] = useState(getViewportBounds);
+  // A scoped drawer measures against its container; otherwise against the viewport.
+  const drawerContainerWidth = isDrawerScoped ? drawerContainerBounds.width : viewportWidth;
+  const width = isFullscreen ? (isDrawerScoped ? '100%' : '100vw') : resizedWidth;
+  const drawerWidthPixels = isFullscreen
+    ? drawerContainerWidth
+    : resolveWidthToPixels(resizedWidth, drawerContainerWidth);
+  // The new eval runs UI sizes the header by the drawer width in fullscreen too, so a narrow window
+  // gets compact, icon-only actions and no trace metadata instead of an overcrowded header.
+  const hideTraceTitleText = isNewEvalRunsUi && drawerWidthPixels < NEW_UI_TRACE_TITLE_MIN_WIDTH;
+  const showTraceMetadata = isNewEvalRunsUi
+    ? drawerWidthPixels >= TRACE_METADATA_MIN_WIDTH
+    : isFullscreen || drawerWidthPixels >= TRACE_METADATA_MIN_WIDTH;
+  const showFullscreenActionLabels = isNewEvalRunsUi
+    ? isFullscreen && !isDrawerScoped && drawerWidthPixels >= NEW_UI_LABELED_PRIMARY_ACTIONS_MIN_WIDTH
+    : isFullscreen;
+  const compactPrimaryActions = isNewEvalRunsUi
+    ? isDrawerScoped || drawerWidthPixels < NEW_UI_LABELED_PRIMARY_ACTIONS_MIN_WIDTH
+    : !isFullscreen && drawerWidthPixels < LABELED_PRIMARY_ACTIONS_MIN_WIDTH;
+  const fullscreenActionButtonCss = showFullscreenActionLabels
+    ? {
+        '&&, &&:hover, &&:active': {
+          borderColor: 'transparent !important',
+        },
+        '&& > .anticon + span': {
+          marginLeft: `${theme.spacing.sm}px !important`,
+        },
+      }
+    : undefined;
   const resizeHandleOffset = useMemo(
-    () => resolveWidthToPixels(resizedWidth, viewportWidth),
-    [resizedWidth, viewportWidth],
+    () => resolveWidthToPixels(resizedWidth, drawerContainerWidth),
+    [resizedWidth, drawerContainerWidth],
   );
   const isResizingRef = useRef(false);
 
@@ -234,6 +399,55 @@ export const ModelTraceExplorerDrawer = ({
     setResizedWidth(baseDrawerWidth);
   }, [baseDrawerWidth]);
 
+  useLayoutEffect(() => {
+    if (isNewEvalRunsUi) {
+      setIsFullscreen(Boolean(initiallyFullscreen));
+    }
+  }, [initiallyFullscreen, isNewEvalRunsUi]);
+
+  useLayoutEffect(() => {
+    if (traceComparison?.isReviewMode) {
+      setIsFullscreen(true);
+    }
+  }, [traceComparison?.isReviewMode]);
+
+  useLayoutEffect(() => {
+    if (!isDrawerScoped) {
+      return undefined;
+    }
+    const drawerContainer = getDrawerPortalContainer?.();
+    const updateDrawerContainerBounds = () => {
+      const bounds = drawerContainer?.getBoundingClientRect();
+      setDrawerContainerBounds(
+        bounds
+          ? {
+              top: bounds.top,
+              right: bounds.right,
+              bottom: bounds.bottom,
+              left: bounds.left,
+              width: bounds.width,
+              height: bounds.height,
+            }
+          : getViewportBounds(),
+      );
+    };
+    updateDrawerContainerBounds();
+    const resizeObserver =
+      drawerContainer && typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(updateDrawerContainerBounds)
+        : undefined;
+    if (drawerContainer) {
+      resizeObserver?.observe(drawerContainer);
+    }
+    window.addEventListener('resize', updateDrawerContainerBounds);
+    window.addEventListener('scroll', updateDrawerContainerBounds, true);
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', updateDrawerContainerBounds);
+      window.removeEventListener('scroll', updateDrawerContainerBounds, true);
+    };
+  }, [getDrawerPortalContainer, isDrawerScoped]);
+
   useEffect(() => {
     const handleViewportResize = () => setViewportWidth(window.innerWidth);
     window.addEventListener('resize', handleViewportResize);
@@ -247,11 +461,21 @@ export const ModelTraceExplorerDrawer = ({
       if (!isResizingRef.current) {
         return;
       }
+      if (isDrawerScoped) {
+        // A scoped drawer resizes within its container, up to the container's full width.
+        const drawerContainerRect = getDrawerPortalContainer?.().getBoundingClientRect();
+        const containerLeft = drawerContainerRect?.left ?? 0;
+        const containerRight = drawerContainerRect?.right ?? window.innerWidth;
+        const containerWidth = drawerContainerRect?.width ?? window.innerWidth;
+        const nextWidth = snapDrawerLeft ? e.clientX - containerLeft : containerRight - e.clientX;
+        setResizedWidth(Math.min(Math.max(nextWidth, MIN_DRAWER_WIDTH), containerWidth));
+        return;
+      }
       const maxWidth = window.innerWidth * MAX_DRAWER_WIDTH_RATIO;
       const nextWidth = snapDrawerLeft ? e.clientX : window.innerWidth - e.clientX;
       setResizedWidth(Math.min(Math.max(nextWidth, MIN_DRAWER_WIDTH), maxWidth));
     },
-    [snapDrawerLeft],
+    [getDrawerPortalContainer, isDrawerScoped, snapDrawerLeft],
   );
 
   const stopResizing = useCallback(() => {
@@ -310,8 +534,38 @@ export const ModelTraceExplorerDrawer = ({
     [],
   );
 
+  const showAddToDatasetButton = Boolean(
+    !traceComparison &&
+    (renderManagedAddToDatasetDropdown || renderExportTracesToDatasetsModal) &&
+    experimentId &&
+    traceInfo,
+  );
+  const [isAddToDatasetDropdownOpen, setIsAddToDatasetDropdownOpen] = useState(false);
+  const [isAddToDatasetTooltipOpen, setIsAddToDatasetTooltipOpen] = useState(false);
+  const handleAddToDatasetClick = useCallback(() => {
+    if (renderManagedAddToDatasetDropdown) {
+      setIsAddToDatasetDropdownOpen(true);
+      setIsAddToDatasetTooltipOpen(false);
+    } else {
+      setShowDatasetModal(true);
+    }
+  }, [renderManagedAddToDatasetDropdown]);
+  const canFlagForReview = Boolean(renderAddToReviewQueueDropdown && experimentId && traceInfo);
+  const handleReviewModeChange = useCallback(
+    (isReviewMode: boolean) => {
+      if (isReviewMode) {
+        setIsFullscreen(true);
+      }
+      traceComparison?.onReviewModeChange?.(isReviewMode);
+    },
+    [traceComparison],
+  );
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
+      if (isNewEvalRunsUi && (!isDrawerOpen || isClosingRef.current)) {
+        return;
+      }
       if (e.target instanceof HTMLElement) {
         if (e.target.role === 'tab') {
           return;
@@ -329,9 +583,50 @@ export const ModelTraceExplorerDrawer = ({
         e.preventDefault();
         e.stopPropagation();
         selectNextEval();
+      } else if (isNewEvalRunsUi && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.repeat) {
+        // The new eval runs UI opens the dataset (d) and review (r) actions from the keyboard. In a trace
+        // comparison, which has neither action, r toggles pairwise review instead.
+        if (
+          showDatasetModal ||
+          isAddToDatasetDropdownOpen ||
+          isFlagForReviewDropdownOpen ||
+          isShortcutInteractiveTarget(e.target)
+        ) {
+          return;
+        }
+        if (traceComparison) {
+          if (e.key === 'r' && traceComparison.onReviewModeChange) {
+            e.preventDefault();
+            handleReviewModeChange(!traceComparison.isReviewMode);
+          }
+        } else if (e.key === 'd' && showAddToDatasetButton) {
+          e.preventDefault();
+          setIsFlagForReviewDropdownOpen(false);
+          handleAddToDatasetClick();
+        } else if (e.key === 'r' && canFlagForReview) {
+          e.preventDefault();
+          setIsAddToDatasetDropdownOpen(false);
+          setIsFlagForReviewDropdownOpen(true);
+          setIsFlagForReviewTooltipOpen(false);
+        }
       }
     },
-    [isPreviousAvailable, isNextAvailable, selectPreviousEval, selectNextEval],
+    [
+      isPreviousAvailable,
+      isNextAvailable,
+      selectPreviousEval,
+      selectNextEval,
+      isNewEvalRunsUi,
+      traceComparison,
+      isDrawerOpen,
+      showDatasetModal,
+      isAddToDatasetDropdownOpen,
+      isFlagForReviewDropdownOpen,
+      showAddToDatasetButton,
+      handleAddToDatasetClick,
+      canFlagForReview,
+      handleReviewModeChange,
+    ],
   );
 
   useEffect(() => {
@@ -341,9 +636,6 @@ export const ModelTraceExplorerDrawer = ({
     };
   }, [handleKeyDown]);
 
-  const showAddToDatasetButton = Boolean(
-    (renderManagedAddToDatasetDropdown || renderExportTracesToDatasetsModal) && experimentId && traceInfo,
-  );
   const addToDatasetLabel = intl.formatMessage({
     defaultMessage: 'Add to dataset',
     description: 'Accessible label and tooltip for adding a trace to a dataset',
@@ -356,6 +648,17 @@ export const ModelTraceExplorerDrawer = ({
     defaultMessage: 'Review',
     description: 'Visible label for the action that flags a trace for review',
   });
+  const pairwiseReviewLabel = intl.formatMessage({
+    defaultMessage: 'Review',
+    description: 'Action that opens pairwise review for the compared traces',
+  });
+  const pairwiseReviewTooltip = intl.formatMessage(
+    {
+      defaultMessage: '{label} (R)',
+      description: 'Tooltip for the pairwise review action with its keyboard shortcut',
+    },
+    { label: pairwiseReviewLabel },
+  );
   const addToLabelingSessionLabel = intl.formatMessage({
     defaultMessage: 'Add to labeling session',
     description: 'Accessible label for adding a trace to a labeling session',
@@ -364,16 +667,6 @@ export const ModelTraceExplorerDrawer = ({
     defaultMessage: 'Share',
     description: 'Accessible label for sharing a trace',
   });
-  const [isAddToDatasetDropdownOpen, setIsAddToDatasetDropdownOpen] = useState(false);
-  const [isAddToDatasetTooltipOpen, setIsAddToDatasetTooltipOpen] = useState(false);
-  const handleAddToDatasetClick = useCallback(() => {
-    if (renderManagedAddToDatasetDropdown) {
-      setIsAddToDatasetDropdownOpen(true);
-      setIsAddToDatasetTooltipOpen(false);
-    } else {
-      setShowDatasetModal(true);
-    }
-  }, [renderManagedAddToDatasetDropdown]);
   const addToDatasetTrigger = (
     <Button
       componentId="mlflow.evaluations_review.modal.add_to_dataset"
@@ -383,7 +676,7 @@ export const ModelTraceExplorerDrawer = ({
       size="small"
       css={fullscreenActionButtonCss}
     >
-      {isFullscreen ? (
+      {showFullscreenActionLabels ? (
         <FormattedMessage defaultMessage="Dataset" description="Visible label for adding a trace to a dataset" />
       ) : undefined}
     </Button>
@@ -391,7 +684,17 @@ export const ModelTraceExplorerDrawer = ({
   const addToDatasetButton = showAddToDatasetButton ? (
     <Tooltip
       componentId="mlflow.evaluations_review.modal.add_to_dataset.tooltip"
-      content={addToDatasetLabel}
+      content={
+        isNewEvalRunsUi
+          ? intl.formatMessage(
+              {
+                defaultMessage: '{label} · D',
+                description: 'Tooltip for adding a trace to a dataset with the keyboard shortcut',
+              },
+              { label: addToDatasetLabel },
+            )
+          : addToDatasetLabel
+      }
       open={renderManagedAddToDatasetDropdown ? !isAddToDatasetDropdownOpen && isAddToDatasetTooltipOpen : undefined}
       onOpenChange={renderManagedAddToDatasetDropdown ? setIsAddToDatasetTooltipOpen : undefined}
     >
@@ -410,10 +713,20 @@ export const ModelTraceExplorerDrawer = ({
     </Tooltip>
   ) : null;
   const flagForReviewButton =
-    renderAddToReviewQueueDropdown && experimentId && traceInfo ? (
+    !traceComparison && renderAddToReviewQueueDropdown && experimentId && traceInfo ? (
       <Tooltip
         componentId="mlflow.evaluations_review.modal.flag_for_review.tooltip"
-        content={sendToReviewLabel}
+        content={
+          isNewEvalRunsUi
+            ? intl.formatMessage(
+                {
+                  defaultMessage: '{label} · R',
+                  description: 'Tooltip for flagging a trace for review with the keyboard shortcut',
+                },
+                { label: sendToReviewLabel },
+              )
+            : sendToReviewLabel
+        }
         open={!isFlagForReviewDropdownOpen && isFlagForReviewTooltipOpen}
         onOpenChange={setIsFlagForReviewTooltipOpen}
       >
@@ -421,7 +734,6 @@ export const ModelTraceExplorerDrawer = ({
           {React.createElement(renderAddToReviewQueueDropdown, {
             selectedTraceInfos: [traceInfo],
             experimentId,
-            onCloseDrawer: beginClose,
             open: isFlagForReviewDropdownOpen,
             onOpenChange: (open) => {
               setIsFlagForReviewDropdownOpen(open);
@@ -435,7 +747,7 @@ export const ModelTraceExplorerDrawer = ({
                 size="small"
                 css={fullscreenActionButtonCss}
               >
-                {isFullscreen ? reviewLabel : undefined}
+                {showFullscreenActionLabels ? reviewLabel : undefined}
               </Button>
             ),
           })}
@@ -444,12 +756,28 @@ export const ModelTraceExplorerDrawer = ({
     ) : null;
   const handleToggleFullscreen = useCallback(() => setIsFullscreen((value) => !value), []);
   const handleFindClick = useCallback(() => setSearchVisible((visible) => !visible), []);
-  const analyzeTraceLabel = intl.formatMessage({
-    defaultMessage: 'Analyze trace',
-    description: 'Button label for asking the assistant to analyze a trace',
-  });
-  const analyzeTracePrompt =
-    traceInfo?.state === 'ERROR'
+  const analyzeTraceLabel = traceComparison
+    ? intl.formatMessage({
+        defaultMessage: 'Analyze traces',
+        description: 'Button label for asking the assistant to compare two traces',
+      })
+    : intl.formatMessage({
+        defaultMessage: 'Analyze trace',
+        description: 'Button label for asking the assistant to analyze a trace',
+      });
+  const analyzeTracePrompt = traceComparison
+    ? intl.formatMessage(
+        {
+          defaultMessage:
+            'Compare baseline trace {baselineTraceId} with candidate trace {candidateTraceId}. Highlight differences in their span structure, inputs, outputs, attributes, duration, token usage, and estimated cost.',
+          description: 'Prompt sent to the assistant for comparing two traces',
+        },
+        {
+          baselineTraceId: traceComparison.baselineTraceId,
+          candidateTraceId: traceComparison.candidateTraceId,
+        },
+      )
+    : traceInfo?.state === 'ERROR'
       ? intl.formatMessage(
           {
             defaultMessage: 'Debug the error in trace {traceId}.',
@@ -507,6 +835,361 @@ export const ModelTraceExplorerDrawer = ({
   const traceTokenUsage = traceInfo ? getTraceTokenUsage(traceInfo) : undefined;
   const totalTokens = traceTokenUsage?.total_tokens;
   const traceCost = traceInfo ? getTraceCost(traceInfo) : undefined;
+  const baselineRunOption = traceComparison?.runOptions?.find(
+    (option) => option.traceId === traceComparison.baselineTraceId,
+  );
+  const candidateRunOption = traceComparison?.runOptions?.find(
+    (option) => option.traceId === traceComparison.candidateTraceId,
+  );
+  const showComparisonRunSelectors = Boolean(
+    traceComparison?.runOptions?.length &&
+    baselineRunOption &&
+    candidateRunOption &&
+    traceComparison.onSelectBaselineTrace &&
+    traceComparison.onSelectCandidateTrace,
+  );
+  const comparisonTraceContext = traceComparison ? (
+    <div
+      css={{
+        display: 'grid',
+        gridTemplateColumns: showComparisonRunSelectors
+          ? 'max-content minmax(0, 240px) max-content minmax(0, 240px) max-content'
+          : 'repeat(5, max-content)',
+        alignItems: 'center',
+        alignSelf: 'stretch',
+        columnGap: theme.spacing.sm,
+        flex: '1 1 0',
+        width: '100%',
+        minWidth: 0,
+        overflow: 'hidden',
+      }}
+    >
+      <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs, whiteSpace: 'nowrap' }}>
+        <Typography.Text size="sm" color="secondary">
+          {showComparisonRunSelectors ? (
+            <FormattedMessage
+              defaultMessage="Comparing traces from Runs"
+              description="Context shown in an evaluation run trace comparison header"
+            />
+          ) : (
+            <FormattedMessage
+              defaultMessage="Comparing traces"
+              description="Context shown in a trace comparison header"
+            />
+          )}
+        </Typography.Text>
+        {traceComparison.baselineTraceId === traceComparison.candidateTraceId && (
+          <Tooltip
+            componentId="mlflow.trace-explorer.comparison.same-trace-tooltip"
+            content={intl.formatMessage({
+              defaultMessage: 'Both runs reference the same trace.',
+              description: 'Tooltip explaining the same trace badge in a trace comparison header',
+            })}
+          >
+            <Tag componentId="mlflow.trace-explorer.comparison.same-trace-tag">
+              <FormattedMessage
+                defaultMessage="Same trace"
+                description="Badge shown when both sides of a trace comparison reference the same trace"
+              />
+            </Tag>
+          </Tooltip>
+        )}
+      </span>
+      {showComparisonRunSelectors ? (
+        <span
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            alignSelf: 'center',
+            width: '100%',
+            minWidth: 0,
+            overflow: 'hidden',
+          }}
+        >
+          <DialogCombobox
+            componentId="mlflow.trace-explorer.comparison.baseline-run"
+            id="trace-comparison-baseline-run"
+            value={[baselineRunOption?.runUuid ?? '']}
+          >
+            <DialogComboboxCustomButtonTriggerWrapper>
+              <Button
+                componentId="mlflow.trace-explorer.comparison.baseline-run-trigger"
+                type="tertiary"
+                size="small"
+                block
+                dangerouslyAppendWrapperCss={{ width: '100%', minWidth: 0, overflow: 'hidden' }}
+                css={{
+                  minWidth: 0,
+                  maxWidth: '100%',
+                  width: '100%',
+                  overflow: 'hidden',
+                }}
+              >
+                <span
+                  css={{
+                    display: 'grid',
+                    gridTemplateColumns: `${theme.spacing.sm}px minmax(0, 1fr) auto`,
+                    alignItems: 'center',
+                    gap: theme.spacing.xs,
+                    width: '100%',
+                    minWidth: 0,
+                    maxWidth: '100%',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <span
+                    css={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: theme.spacing.sm,
+                      height: theme.spacing.sm,
+                      flexShrink: 0,
+                      '& > label': { transform: 'scale(0.67)', transformOrigin: 'center' },
+                    }}
+                  >
+                    <RunColorCircle color={theme.colors.textSecondary} />
+                  </span>
+                  <span css={{ display: 'block', width: '100%', minWidth: 0, overflow: 'hidden' }}>
+                    <TruncationTooltip componentId="mlflow.trace-explorer.comparison.baseline-run-name-tooltip">
+                      <Typography.Text
+                        css={{
+                          display: 'block',
+                          width: '100%',
+                          minWidth: 0,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {baselineRunOption?.runName}
+                      </Typography.Text>
+                    </TruncationTooltip>
+                  </span>
+                  <ChevronDownIcon css={{ color: theme.colors.textSecondary }} />
+                </span>
+              </Button>
+            </DialogComboboxCustomButtonTriggerWrapper>
+            <DialogComboboxContent>
+              <DialogComboboxOptionList>
+                {traceComparison.runOptions?.map((option) => (
+                  <DialogComboboxOptionListSelectItem
+                    key={option.runUuid}
+                    value={option.runName}
+                    checked={option.traceId === traceComparison.baselineTraceId}
+                    disabled={!option.traceId || option.traceId === traceComparison.candidateTraceId}
+                    onChange={() => option.traceId && traceComparison.onSelectBaselineTrace?.(option.traceId)}
+                  >
+                    {option.runName}
+                  </DialogComboboxOptionListSelectItem>
+                ))}
+              </DialogComboboxOptionList>
+            </DialogComboboxContent>
+          </DialogCombobox>
+        </span>
+      ) : (
+        <Tooltip
+          componentId="mlflow.trace-explorer.comparison.baseline-id-tooltip"
+          content={traceComparison.baselineTraceId}
+        >
+          <Typography.Text size="sm" color="secondary" css={{ whiteSpace: 'nowrap' }}>
+            <span
+              css={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: theme.spacing.xs,
+                fontFamily: 'monospace',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <span
+                css={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: theme.spacing.sm,
+                  height: theme.spacing.sm,
+                  '& > label': { transform: 'scale(0.67)', transformOrigin: 'center' },
+                }}
+              >
+                <RunColorCircle color={theme.colors.textSecondary} />
+              </span>
+              <FormattedMessage
+                defaultMessage="{traceId}"
+                description="Baseline trace identifier in the trace comparison header"
+                values={{ traceId: getTraceIdPreview(traceComparison.baselineTraceId) }}
+              />
+            </span>
+          </Typography.Text>
+        </Tooltip>
+      )}
+      <span
+        css={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        <Tooltip
+          componentId="mlflow.trace-explorer.comparison.swap-tooltip"
+          content={intl.formatMessage({
+            defaultMessage: 'Swap baseline and candidate',
+            description: 'Tooltip for reversing the trace comparison order',
+          })}
+        >
+          <Button
+            componentId="mlflow.trace-explorer.comparison.swap"
+            size="small"
+            icon={<ArrowsUpDownIcon rotate={90} css={headerIconCss} />}
+            aria-label={intl.formatMessage({
+              defaultMessage: 'Swap baseline and candidate',
+              description: 'Accessible label for reversing the trace comparison order',
+            })}
+            onClick={traceComparison.onSwap}
+          />
+        </Tooltip>
+      </span>
+      {showComparisonRunSelectors ? (
+        <span
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            alignSelf: 'center',
+            width: '100%',
+            minWidth: 0,
+            overflow: 'hidden',
+          }}
+        >
+          <DialogCombobox
+            componentId="mlflow.trace-explorer.comparison.candidate-run"
+            id="trace-comparison-candidate-run"
+            value={[candidateRunOption?.runUuid ?? '']}
+          >
+            <DialogComboboxCustomButtonTriggerWrapper>
+              <Button
+                componentId="mlflow.trace-explorer.comparison.candidate-run-trigger"
+                type="tertiary"
+                size="small"
+                block
+                dangerouslyAppendWrapperCss={{ width: '100%', minWidth: 0, overflow: 'hidden' }}
+                css={{
+                  minWidth: 0,
+                  maxWidth: '100%',
+                  width: '100%',
+                  overflow: 'hidden',
+                }}
+              >
+                <span
+                  css={{
+                    display: 'grid',
+                    gridTemplateColumns: `${theme.spacing.sm}px minmax(0, 1fr) auto`,
+                    alignItems: 'center',
+                    gap: theme.spacing.xs,
+                    width: '100%',
+                    minWidth: 0,
+                    maxWidth: '100%',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <span
+                    css={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: theme.spacing.sm,
+                      height: theme.spacing.sm,
+                      flexShrink: 0,
+                      '& > label': { transform: 'scale(0.67)', transformOrigin: 'center' },
+                    }}
+                  >
+                    <RunColorCircle color={theme.colors.actionLinkDefault} />
+                  </span>
+                  <span css={{ display: 'block', width: '100%', minWidth: 0, overflow: 'hidden' }}>
+                    <TruncationTooltip componentId="mlflow.trace-explorer.comparison.candidate-run-name-tooltip">
+                      <Typography.Text
+                        css={{
+                          display: 'block',
+                          width: '100%',
+                          minWidth: 0,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {candidateRunOption?.runName}
+                      </Typography.Text>
+                    </TruncationTooltip>
+                  </span>
+                  <ChevronDownIcon css={{ color: theme.colors.textSecondary }} />
+                </span>
+              </Button>
+            </DialogComboboxCustomButtonTriggerWrapper>
+            <DialogComboboxContent>
+              <DialogComboboxOptionList>
+                {traceComparison.runOptions?.map((option) => (
+                  <DialogComboboxOptionListSelectItem
+                    key={option.runUuid}
+                    value={option.runName}
+                    checked={option.traceId === traceComparison.candidateTraceId}
+                    disabled={!option.traceId || option.traceId === traceComparison.baselineTraceId}
+                    onChange={() => option.traceId && traceComparison.onSelectCandidateTrace?.(option.traceId)}
+                  >
+                    {option.runName}
+                  </DialogComboboxOptionListSelectItem>
+                ))}
+              </DialogComboboxOptionList>
+            </DialogComboboxContent>
+          </DialogCombobox>
+        </span>
+      ) : (
+        <Tooltip
+          componentId="mlflow.trace-explorer.comparison.candidate-id-tooltip"
+          content={traceComparison.candidateTraceId}
+        >
+          <Typography.Text size="sm" color="secondary" css={{ whiteSpace: 'nowrap' }}>
+            <span
+              css={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: theme.spacing.xs,
+                fontFamily: 'monospace',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <span
+                css={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: theme.spacing.sm,
+                  height: theme.spacing.sm,
+                  '& > label': { transform: 'scale(0.67)', transformOrigin: 'center' },
+                }}
+              >
+                <RunColorCircle color={theme.colors.actionLinkDefault} />
+              </span>
+              <FormattedMessage
+                defaultMessage="{traceId}"
+                description="Candidate trace identifier in the trace comparison header"
+                values={{ traceId: getTraceIdPreview(traceComparison.candidateTraceId) }}
+              />
+            </span>
+          </Typography.Text>
+        </Tooltip>
+      )}
+      <div
+        css={{
+          width: 1,
+          height: theme.spacing.lg,
+          flexShrink: 0,
+          backgroundColor: theme.colors.border,
+          marginLeft: theme.spacing.xs,
+          marginRight: theme.spacing.xs,
+        }}
+      />
+    </div>
+  ) : null;
   const traceStatus =
     traceInfo?.state === 'OK'
       ? {
@@ -581,7 +1264,7 @@ export const ModelTraceExplorerDrawer = ({
           },
         }}
       />
-      {isFullscreen && (
+      {isFullscreen && !isDrawerScoped && (
         <Global
           styles={{
             '[data-component-id="mlflow.evaluations_review.modal"]': {
@@ -611,8 +1294,15 @@ export const ModelTraceExplorerDrawer = ({
       )}
       <DrawerComponent.Content
         componentId="mlflow.evaluations_review.modal"
+        {...(isDrawerScoped ? { isFullscreen, 'data-trace-drawer-fullscreen': isFullscreen } : {})}
         position={snapDrawerLeft ? 'left' : undefined}
         onInteractOutside={(event) => {
+          if (isDrawerScoped) {
+            if (shouldKeepScopedDrawerOpenForOutsideInteraction(event.target, getDrawerPortalContainer?.())) {
+              event.preventDefault();
+            }
+            return;
+          }
           const target = event.target as HTMLElement;
           if (target?.closest('[data-drawer-resize-handle="true"]') || snapDrawerLeft) {
             event.preventDefault();
@@ -683,10 +1373,25 @@ export const ModelTraceExplorerDrawer = ({
             >
               {headerTitle ?? (
                 <>
-                  <Typography.Text css={{ whiteSpace: 'nowrap' }}>
-                    <FormattedMessage defaultMessage="Trace" description="Title for the trace details drawer" />
-                  </Typography.Text>
-                  {displayedTraceId && traceInfo && (
+                  {!traceComparison && (
+                    <Typography.Text
+                      css={
+                        hideTraceTitleText
+                          ? {
+                              position: 'absolute',
+                              width: 1,
+                              height: 1,
+                              overflow: 'hidden',
+                              clip: 'rect(0 0 0 0)',
+                              whiteSpace: 'nowrap',
+                            }
+                          : { whiteSpace: 'nowrap' }
+                      }
+                    >
+                      <FormattedMessage defaultMessage="Trace" description="Title for the trace details drawer" />
+                    </Typography.Text>
+                  )}
+                  {displayedTraceId && traceInfo && !traceComparison && (
                     <Tooltip
                       componentId="mlflow.evaluations_review.modal.trace-id-tooltip"
                       content={traceIdTooltipMessage}
@@ -706,12 +1411,25 @@ export const ModelTraceExplorerDrawer = ({
                         }}
                         role="button"
                         tabIndex={0}
-                        css={{ cursor: 'pointer', margin: 0, maxWidth: 96 }}
+                        css={
+                          isNewEvalRunsUi
+                            ? { cursor: 'pointer', margin: 0, maxWidth: 96, minWidth: 0, overflow: 'hidden' }
+                            : { cursor: 'pointer', margin: 0, maxWidth: 96 }
+                        }
                       >
                         <Typography.Text
                           size="sm"
                           color="secondary"
-                          css={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}
+                          css={
+                            isNewEvalRunsUi
+                              ? {
+                                  fontFamily: 'monospace',
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                }
+                              : { fontFamily: 'monospace', whiteSpace: 'nowrap' }
+                          }
                         >
                           {displayedTraceId}
                         </Typography.Text>
@@ -720,7 +1438,8 @@ export const ModelTraceExplorerDrawer = ({
                   )}
                 </>
               )}
-              {showTraceMetadata && traceStatus && (
+              {showTraceMetadata && comparisonTraceContext}
+              {showTraceMetadata && !traceComparison && traceStatus && (
                 <>
                   <div
                     css={{
@@ -748,7 +1467,7 @@ export const ModelTraceExplorerDrawer = ({
                   </div>
                 </>
               )}
-              {showTraceMetadata && formattedExecutionDuration && (
+              {showTraceMetadata && !traceComparison && formattedExecutionDuration && (
                 <div
                   css={{
                     display: 'flex',
@@ -764,14 +1483,24 @@ export const ModelTraceExplorerDrawer = ({
                   </Typography.Text>
                 </div>
               )}
-              {showTraceMetadata && typeof totalTokens === 'number' && Number.isFinite(totalTokens) && (
-                <TokenUsageMetadataItem tokenUsage={{ ...traceTokenUsage, total_tokens: totalTokens }} />
-              )}
-              {showTraceMetadata && isTraceCostType(traceCost) && (
+              {showTraceMetadata &&
+                !traceComparison &&
+                typeof totalTokens === 'number' &&
+                Number.isFinite(totalTokens) && (
+                  <TokenUsageMetadataItem tokenUsage={{ ...traceTokenUsage, total_tokens: totalTokens }} />
+                )}
+              {showTraceMetadata && !traceComparison && isTraceCostType(traceCost) && (
                 <CostMetadataItem cost={traceCost} formatTotalCost={formatHeaderCost} />
               )}
             </div>
-            <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.md, flexShrink: 0 }}>
+            <div
+              css={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: hideTraceTitleText ? theme.spacing.sm : theme.spacing.md,
+                flexShrink: 0,
+              }}
+            >
               <Tooltip componentId="mlflow.evaluations_review.modal.find-tooltip" content={findInTraceLabel}>
                 <Button
                   componentId="mlflow.evaluations_review.modal.find-button"
@@ -782,7 +1511,7 @@ export const ModelTraceExplorerDrawer = ({
                   size="small"
                   css={fullscreenActionButtonCss}
                 >
-                  {isFullscreen ? (
+                  {showFullscreenActionLabels ? (
                     <FormattedMessage
                       defaultMessage="Find"
                       description="Visible label for finding content in a trace"
@@ -792,6 +1521,28 @@ export const ModelTraceExplorerDrawer = ({
               </Tooltip>
               {addToDatasetButton}
               {flagForReviewButton}
+              {traceComparison?.onReviewModeChange && (
+                <Tooltip componentId="mlflow.trace-comparison.review-tooltip" content={pairwiseReviewTooltip}>
+                  <ToggleButton
+                    componentId="mlflow.trace-comparison.review"
+                    aria-label={pairwiseReviewTooltip}
+                    pressed={traceComparison.isReviewMode}
+                    onPressedChange={handleReviewModeChange}
+                    icon={<CheckboxIcon css={headerIconCss} />}
+                    size="small"
+                    css={[
+                      fullscreenActionButtonCss,
+                      {
+                        '&&[data-state="on"], &&[data-state="on"]:hover, &&[data-state="on"]:active': {
+                          backgroundColor: theme.colors.actionDefaultBackgroundHover,
+                        },
+                      },
+                    ]}
+                  >
+                    {showFullscreenActionLabels ? pairwiseReviewLabel : undefined}
+                  </ToggleButton>
+                </Tooltip>
+              )}
               <Tooltip
                 componentId="mlflow.evaluations_review.modal.copy-link-tooltip"
                 content={tooltipMessage}
@@ -806,7 +1557,7 @@ export const ModelTraceExplorerDrawer = ({
                   size="small"
                   css={fullscreenActionButtonCss}
                 >
-                  {isFullscreen ? (
+                  {showFullscreenActionLabels ? (
                     <FormattedMessage
                       defaultMessage="Share"
                       description="Visible label for copying a link to a trace"
@@ -815,15 +1566,17 @@ export const ModelTraceExplorerDrawer = ({
                 </Button>
               </Tooltip>
             </div>
-            <ModelTraceExplorerCustomViewSelector
-              value={isCustomViewEnabled ? traceExplorerDisplayMode : 'default'}
-              onValueChange={setTraceExplorerDisplayMode}
-              onCreateCustomView={handleCreateCustomView}
-              isCustomViewEnabled={isCustomViewEnabled}
-              canCreateCustomView={canCreateCustomView}
-              compact={compactPrimaryActions}
-              componentId="mlflow.model_trace_explorer.drawer.custom_view_selector"
-            />
+            {!traceComparison && (
+              <ModelTraceExplorerCustomViewSelector
+                value={isCustomViewEnabled ? traceExplorerDisplayMode : 'default'}
+                onValueChange={setTraceExplorerDisplayMode}
+                onCreateCustomView={handleCreateCustomView}
+                isCustomViewEnabled={isCustomViewEnabled}
+                canCreateCustomView={canCreateCustomView}
+                compact={compactPrimaryActions}
+                componentId="mlflow.model_trace_explorer.drawer.custom_view_selector"
+              />
+            )}
             {canUseAssistant && (
               <ModelTraceExplorerAssistantButton
                 componentId="mlflow.evaluations_review.modal.analyze-trace"
@@ -859,7 +1612,7 @@ export const ModelTraceExplorerDrawer = ({
         css={[
           {
             paddingTop: 0,
-            ...(isFullscreen
+            ...(isFullscreen && !isDrawerScoped
               ? {
                   left: 0,
                   right: 0,
@@ -926,9 +1679,19 @@ export const ModelTraceExplorerDrawer = ({
             onPointerCancel={handleResizePointerUp}
             css={{
               position: 'fixed',
-              top: 0,
-              bottom: 0,
-              ...(snapDrawerLeft ? { left: resizeHandleOffset - 6 } : { right: resizeHandleOffset - 6 }),
+              ...(isDrawerScoped
+                ? {
+                    top: drawerContainerBounds.top,
+                    height: drawerContainerBounds.height,
+                    ...(snapDrawerLeft
+                      ? { left: drawerContainerBounds.left + resizeHandleOffset - 6 }
+                      : { right: window.innerWidth - drawerContainerBounds.right + resizeHandleOffset - 6 }),
+                  }
+                : {
+                    top: 0,
+                    bottom: 0,
+                    ...(snapDrawerLeft ? { left: resizeHandleOffset - 6 } : { right: resizeHandleOffset - 6 }),
+                  }),
               width: 12,
               cursor: 'col-resize',
               touchAction: 'none',
@@ -956,7 +1719,7 @@ export const ModelTraceExplorerDrawer = ({
               },
             }}
           />,
-          document.body,
+          (isDrawerScoped ? getDrawerPortalContainer?.() : undefined) ?? document.body,
         )}
     </DrawerComponent.Root>
   );
