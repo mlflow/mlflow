@@ -7,15 +7,22 @@ import {
   type EvalRunComparisonColumnSummaryProps,
 } from './EvalRunComparisonColumnSummary';
 
-const renderSummary = (aggregate: EvalRunComparisonColumnSummaryProps['aggregate']) =>
+type SummaryProps = EvalRunComparisonColumnSummaryProps;
+const TWO_RUNS: SummaryProps['runs'] = [
+  { runUuid: 'baseline', label: 'Baseline run', color: 'blue' },
+  { runUuid: 'candidate', label: 'Candidate run', color: 'red' },
+];
+// An AVG summary whose baseline averages 2, so each case states only the candidate it checks.
+const avgWithCandidate = (candidate: SummaryProps['aggregate']['values'][number]): SummaryProps['aggregate'] => ({
+  label: 'AVG',
+  values: [{ displayValue: '2' }, candidate],
+});
+const renderSummary = (aggregate: SummaryProps['aggregate'], props: Partial<SummaryProps> = {}) =>
   render(
     <EvalRunComparisonColumnSummary
-      runs={[
-        { runUuid: 'baseline', label: 'Baseline run', color: 'blue' },
-        { runUuid: 'candidate', label: 'Candidate run', color: 'red' },
-        { runUuid: 'missing', label: 'Missing run', color: 'green' },
-      ]}
+      runs={[...TWO_RUNS, { runUuid: 'missing', label: 'Missing run', color: 'green' }]}
       aggregate={aggregate}
+      {...props}
     />,
     { wrapper: EvalRunComparisonTestWrapper },
   );
@@ -23,23 +30,14 @@ const renderSummary = (aggregate: EvalRunComparisonColumnSummaryProps['aggregate
 describe('EvalRunComparisonColumnSummary', () => {
   test('opens the summary card on row click and keeps its filter interactive', async () => {
     const onOutcomeClick = jest.fn();
-    render(
-      <EvalRunComparisonColumnSummary
-        aggregate={{
-          label: 'AVG',
-          values: [
-            { displayValue: '2' },
-            { displayValue: '3', displayDelta: '+1', delta: 1, changeCounts: { improved: 1, regressed: 0 } },
-          ],
-        }}
-        runs={[
-          { runUuid: 'baseline', label: 'Baseline run', color: 'blue' },
-          { runUuid: 'candidate', label: 'Candidate run', color: 'red' },
-        ]}
-        columnLabel="Quality"
-        onOutcomeClick={onOutcomeClick}
-      />,
-      { wrapper: EvalRunComparisonTestWrapper },
+    renderSummary(
+      avgWithCandidate({
+        displayValue: '3',
+        displayDelta: '+1',
+        delta: 1,
+        changeCounts: { improved: 1, regressed: 0 },
+      }),
+      { runs: TWO_RUNS, columnLabel: 'Quality', onOutcomeClick: onOutcomeClick },
     );
 
     const trigger = within(screen.getByRole('group', { name: 'Candidate run' })).getByRole('button');
@@ -54,7 +52,7 @@ describe('EvalRunComparisonColumnSummary', () => {
   });
 
   test('does not open a summary on hover, so it cannot cover the run rows below', async () => {
-    renderSummary({ label: 'AVG', values: [{ displayValue: '2' }, { displayValue: '3' }] });
+    renderSummary(avgWithCandidate({ displayValue: '3' }));
     const baseline = within(screen.getByRole('group', { name: 'Baseline run' })).getByRole('button');
     const candidate = within(screen.getByRole('group', { name: 'Candidate run' })).getByRole('button');
 
@@ -67,10 +65,7 @@ describe('EvalRunComparisonColumnSummary', () => {
   });
 
   test('keeps click and keyboard opened summaries open until dismissed', async () => {
-    renderSummary({
-      label: 'AVG',
-      values: [{ displayValue: '2' }, { displayValue: '3' }],
-    });
+    renderSummary(avgWithCandidate({ displayValue: '3' }));
     const trigger = within(screen.getByRole('group', { name: 'Candidate run' })).getByRole('button');
 
     await userEvent.click(trigger);
@@ -89,30 +84,15 @@ describe('EvalRunComparisonColumnSummary', () => {
   });
 
   test('opens a contextual summary and outcome filters from a candidate row', async () => {
-    render(
-      <EvalRunComparisonColumnSummary
-        aggregate={{
-          label: 'AVG',
-          values: [
-            { displayValue: '2' },
-            {
-              displayValue: '3',
-              displayDelta: '+1',
-              delta: 1,
-              percentDelta: 50,
-              changeCounts: { improved: 1, regressed: 2 },
-            },
-          ],
-        }}
-        runs={[
-          { runUuid: 'baseline', label: 'Baseline run', color: 'blue' },
-          { runUuid: 'candidate', label: 'Candidate run', color: 'red' },
-        ]}
-        columnLabel="Duration"
-        higherIsBetter={false}
-        onOutcomeClick={() => undefined}
-      />,
-      { wrapper: EvalRunComparisonTestWrapper },
+    renderSummary(
+      avgWithCandidate({
+        displayValue: '3',
+        displayDelta: '+1',
+        delta: 1,
+        percentDelta: 50,
+        changeCounts: { improved: 1, regressed: 2 },
+      }),
+      { runs: TWO_RUNS, columnLabel: 'Duration', higherIsBetter: false, onOutcomeClick: () => undefined },
     );
 
     await userEvent.click(
@@ -148,29 +128,15 @@ describe('EvalRunComparisonColumnSummary', () => {
   });
 
   test('opens the baseline summary without a delta or outcome filters', async () => {
-    render(
-      <EvalRunComparisonColumnSummary
-        aggregate={{
-          label: 'AVG',
-          values: [
-            { displayValue: '2' },
-            {
-              displayValue: '3',
-              displayDelta: '+1',
-              delta: 1,
-              percentDelta: 50,
-              changeCounts: { improved: 1, regressed: 2 },
-            },
-          ],
-        }}
-        runs={[
-          { runUuid: 'baseline', label: 'Baseline run', color: 'blue' },
-          { runUuid: 'candidate', label: 'Candidate run', color: 'red' },
-        ]}
-        columnLabel="Duration"
-        onOutcomeClick={() => undefined}
-      />,
-      { wrapper: EvalRunComparisonTestWrapper },
+    renderSummary(
+      avgWithCandidate({
+        displayValue: '3',
+        displayDelta: '+1',
+        delta: 1,
+        percentDelta: 50,
+        changeCounts: { improved: 1, regressed: 2 },
+      }),
+      { runs: TWO_RUNS, columnLabel: 'Duration', onOutcomeClick: () => undefined },
     );
 
     const baselineTrigger = within(screen.getByRole('group', { name: 'Baseline run' })).getByRole('button', {
@@ -189,22 +155,12 @@ describe('EvalRunComparisonColumnSummary', () => {
   });
 
   test('keeps original outcome counts available when displayed counts are filtered', async () => {
-    render(
-      <EvalRunComparisonColumnSummary
-        aggregate={{
-          label: 'AVG',
-          values: [{ displayValue: '2' }, { displayValue: '3', changeCounts: { improved: 1, regressed: 0 } }],
-        }}
-        runs={[
-          { runUuid: 'baseline', label: 'Baseline run', color: 'blue' },
-          { runUuid: 'candidate', label: 'Candidate run', color: 'red' },
-        ]}
-        columnLabel="Duration"
-        filterOptionCounts={[undefined, { improved: 2, regressed: 1 }]}
-        onOutcomeClick={() => undefined}
-      />,
-      { wrapper: EvalRunComparisonTestWrapper },
-    );
+    renderSummary(avgWithCandidate({ displayValue: '3', changeCounts: { improved: 1, regressed: 0 } }), {
+      runs: TWO_RUNS,
+      columnLabel: 'Duration',
+      filterOptionCounts: [undefined, { improved: 2, regressed: 1 }],
+      onOutcomeClick: () => undefined,
+    });
 
     const candidate = within(screen.getByRole('group', { name: 'Candidate run' }));
     expect(
@@ -233,27 +189,14 @@ describe('EvalRunComparisonColumnSummary', () => {
   });
 
   test('shows a neutral zero delta when baseline and candidate values are equal', async () => {
-    render(
-      <EvalRunComparisonColumnSummary
-        aggregate={{
-          label: 'AVG',
-          values: [
-            { displayValue: '2' },
-            {
-              displayValue: '2',
-              delta: 0,
-              percentDelta: 0,
-              changeCounts: { improved: 0, regressed: 0 },
-            },
-          ],
-        }}
-        runs={[
-          { runUuid: 'baseline', label: 'Baseline run', color: 'blue' },
-          { runUuid: 'candidate', label: 'Candidate run', color: 'red' },
-        ]}
-        columnLabel="Duration"
-      />,
-      { wrapper: EvalRunComparisonTestWrapper },
+    renderSummary(
+      avgWithCandidate({
+        displayValue: '2',
+        delta: 0,
+        percentDelta: 0,
+        changeCounts: { improved: 0, regressed: 0 },
+      }),
+      { runs: TWO_RUNS, columnLabel: 'Duration' },
     );
 
     await userEvent.click(
@@ -280,27 +223,20 @@ describe('EvalRunComparisonColumnSummary', () => {
   });
 
   test('omits the relative delta when the baseline is zero and the candidate is nonzero', async () => {
-    render(
-      <EvalRunComparisonColumnSummary
-        aggregate={{
-          label: 'AVG',
-          values: [
-            { displayValue: '0' },
-            {
-              displayValue: '2',
-              displayDelta: '+2',
-              delta: 2,
-              changeCounts: { improved: 1, regressed: 0 },
-            },
-          ],
-        }}
-        runs={[
-          { runUuid: 'baseline', label: 'Baseline run', color: 'blue' },
-          { runUuid: 'candidate', label: 'Candidate run', color: 'red' },
-        ]}
-        columnLabel="Duration"
-      />,
-      { wrapper: EvalRunComparisonTestWrapper },
+    renderSummary(
+      {
+        label: 'AVG',
+        values: [
+          { displayValue: '0' },
+          {
+            displayValue: '2',
+            displayDelta: '+2',
+            delta: 2,
+            changeCounts: { improved: 1, regressed: 0 },
+          },
+        ],
+      },
+      { runs: TWO_RUNS, columnLabel: 'Duration' },
     );
 
     await userEvent.click(
@@ -315,29 +251,25 @@ describe('EvalRunComparisonColumnSummary', () => {
 
   test('invokes the outcome callback and reflects the active outcome', async () => {
     const onOutcomeClick = jest.fn();
-    render(
-      <EvalRunComparisonColumnSummary
-        aggregate={{
-          values: [
-            { displayValue: '2' },
-            {
-              displayValue: '3',
-              displayDelta: '+1',
-              delta: 1,
-              percentDelta: 50,
-              changeCounts: { improved: 1, regressed: 2 },
-            },
-          ],
-        }}
-        runs={[
-          { runUuid: 'baseline', label: 'Baseline run', color: 'blue' },
-          { runUuid: 'candidate', label: 'Candidate run', color: 'red' },
-        ]}
-        columnLabel="Duration"
-        onOutcomeClick={onOutcomeClick}
-        activeOutcomes={{ candidate: 'improvement' }}
-      />,
-      { wrapper: EvalRunComparisonTestWrapper },
+    renderSummary(
+      {
+        values: [
+          { displayValue: '2' },
+          {
+            displayValue: '3',
+            displayDelta: '+1',
+            delta: 1,
+            percentDelta: 50,
+            changeCounts: { improved: 1, regressed: 2 },
+          },
+        ],
+      },
+      {
+        runs: TWO_RUNS,
+        columnLabel: 'Duration',
+        onOutcomeClick: onOutcomeClick,
+        activeOutcomes: { candidate: 'improvement' },
+      },
     );
 
     await userEvent.click(
@@ -373,10 +305,7 @@ describe('EvalRunComparisonColumnSummary', () => {
     { run: 'Candidate run', color: 'red', value: '5' },
     { run: 'Missing run', color: 'green', value: '—' },
   ])('identifies $run with its existing color pill beside the summary value', ({ run, color, value }) => {
-    renderSummary({
-      label: 'AVG',
-      values: [{ displayValue: '2' }, { displayValue: '5', displayDelta: '+3' }],
-    });
+    renderSummary(avgWithCandidate({ displayValue: '5', displayDelta: '+3' }));
 
     const summary = within(screen.getByRole('group', { name: run }));
     // The color marker is decorative; the enclosing group provides the accessible run name.

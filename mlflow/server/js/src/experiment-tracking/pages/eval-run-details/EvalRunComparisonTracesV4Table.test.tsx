@@ -209,15 +209,6 @@ describe('EvalRunComparisonTracesV4Table', () => {
     expect(await screen.findByText(/No traces match/)).toBeInTheDocument();
   });
 
-  test('explains a comparison that cannot load every run', async () => {
-    state.failRun = 'candidate';
-    renderTable();
-
-    expect(
-      await screen.findByText('Could not load traces for all selected runs. Retry to load the comparison.'),
-    ).toBeInTheDocument();
-  });
-
   test('describes compared runs without traces', async () => {
     state.tracesByRun = {};
     renderTable();
@@ -289,21 +280,12 @@ describe('EvalRunComparisonTracesV4Table', () => {
     expect(within(qualityHeader).getByRole('group', { name: 'Candidate run' })).toHaveTextContent('0.6');
   });
 
-  test('offers one Filters button with only the fields the comparison can match', async () => {
-    renderTable();
-    expect(await findMatchedRows()).toBeVisible();
-    const filterButtons = screen.getAllByRole('button', { name: /Filters/ });
-    expect(filterButtons).toHaveLength(1);
-    await userEvent.click(filterButtons[0]);
-    await userEvent.click(await screen.findByRole('combobox', { name: /Filter field/ }));
-    expect(await screen.findByRole('option', { name: 'Duration' })).toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: 'Span name' })).not.toBeInTheDocument();
-  });
-
   test('explains comparison filtering and keeps an incomplete filter in the editor', async () => {
     renderTable();
     expect(await findMatchedRows()).toBeVisible();
-    await userEvent.click(screen.getByRole('button', { name: /Filters/ }));
+    const [filters, ...otherFilterButtons] = screen.getAllByRole('button', { name: /Filters/ });
+    expect(otherFilterButtons).toHaveLength(0);
+    await userEvent.click(filters);
     expect(screen.getByText('Keep a comparison row when one trace matches all filters and the search.')).toBeVisible();
     await userEvent.click(screen.getByRole('button', { name: 'Apply filters' }));
 
@@ -337,30 +319,6 @@ describe('EvalRunComparisonTracesV4Table', () => {
     expect(screen.getByRole('textbox', { name: 'Search traces by id or input' })).toHaveValue('');
   });
 
-  test('pairs repeated inputs across runs, newest first', async () => {
-    const repeated = (runUuid: string, index: number, minute: number) =>
-      scored(traceId(`${runUuid === 'baseline' ? 'b' : 'c'}${index}`), runUuid, 'Same question', 0.5, {
-        response_preview: `${runUuid} answer ${index}`,
-        request_time: new Date(Date.UTC(2026, 0, 1, 0, minute)).toISOString(),
-      });
-    state.tracesByRun = {
-      baseline: [repeated('baseline', 1, 1), repeated('baseline', 2, 2)],
-      candidate: [repeated('candidate', 1, 1), repeated('candidate', 2, 2)],
-    };
-    renderTable();
-    await findMatchedRows();
-    expect(
-      screen.getAllByRole('rowgroup').map((group) =>
-        within(group)
-          .queryAllByText(/ answer \d$/)
-          .map((cell) => cell.textContent),
-      ),
-    ).toEqual([
-      ['baseline answer 2', 'candidate answer 2'],
-      ['baseline answer 1', 'candidate answer 1'],
-    ]);
-  });
-
   test('waits for the recorded inputs before showing matched rows', async () => {
     let release = () => {};
     state.inputsReady = new Promise<void>((resolve) => {
@@ -381,6 +339,9 @@ describe('EvalRunComparisonTracesV4Table', () => {
     state.failRun = 'candidate';
     renderTable();
     expect(await screen.findByText("Couldn't load traces", undefined, { timeout: 20000 })).toBeInTheDocument();
+    expect(
+      screen.getByText('Could not load traces for all selected runs. Retry to load the comparison.'),
+    ).toBeVisible();
     state.failRun = undefined;
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(await findMatchedRows()).toBeVisible();

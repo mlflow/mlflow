@@ -261,6 +261,22 @@ export const getNumericComparisonAggregate = (
   };
 };
 
+type ComparisonEntry = ReturnType<typeof getComparisonEntry>;
+
+/** A trace's entry holding only the scorer's valid assessments, as the shared aggregators read it. */
+const getValidScorerEntry = (entry: ComparisonEntry, info: AssessmentInfo): ComparisonEntry => ({
+  ...entry,
+  overallAssessments: entry.overallAssessments.filter((assessment) => isValidAssessment(assessment, info)),
+  responseAssessmentsByName: {
+    [info.name]: (entry.responseAssessmentsByName[info.name] ?? []).filter((assessment) =>
+      isValidAssessment(assessment, info),
+    ),
+  },
+});
+
+const getScorerAssessments = (entry: ComparisonEntry | undefined, info: AssessmentInfo) =>
+  (info.isOverall ? entry?.overallAssessments : entry?.responseAssessmentsByName[info.name]) ?? [];
+
 /** Rows are the complete search-retained join, never the paginated or trace-ID-deduplicated view. */
 export const getEvalRunComparisonColumnAggregates = (
   rows: TraceComparisonRow[],
@@ -274,69 +290,38 @@ export const getEvalRunComparisonColumnAggregates = (
   const assessmentAggregates = assessmentInfos.map((info) => {
     // Copies keep invalid samples out of this consumer's summaries without changing shared caches/helpers.
     const sanitized: EvalTraceComparisonEntry[] = entries.map((runValues) => ({
-      runValues: runValues.map((entry) =>
-        entry
-          ? {
-              ...entry,
-              overallAssessments: entry.overallAssessments.filter((assessment) => isValidAssessment(assessment, info)),
-              responseAssessmentsByName: {
-                [info.name]: (entry.responseAssessmentsByName[info.name] ?? []).filter((assessment) =>
-                  isValidAssessment(assessment, info),
-                ),
-              },
-            }
-          : undefined,
-      ),
+      runValues: runValues.map((entry) => (entry ? getValidScorerEntry(entry, info) : undefined)),
     }));
-    const uniqueValuesByRun = Array.from(
-      { length: numRuns },
-      (_, index) =>
-        new Set(
-          sanitized.flatMap(({ runValues }) => {
-            const entry = runValues?.[index];
-            return (
-              (info.isOverall ? entry?.overallAssessments : entry?.responseAssessmentsByName[info.name])?.map(
-                getEvaluationResultAssessmentValue,
-              ) ?? []
-            );
-          }),
-        ),
+    // Each run's valid values for this scorer, extracted once for the unique values, numeric aggregates
+    // and change counts below.
+    const valuesByRun = Array.from({ length: numRuns }, (_, runIndex) =>
+      sanitized.flatMap(({ runValues }) =>
+        getScorerAssessments(runValues?.[runIndex], info).map(getEvaluationResultAssessmentValue),
+      ),
     );
-    const sanitizedInfo = { ...info, uniqueValues: new Set(uniqueValuesByRun.flatMap((values) => [...values])) };
+    const uniqueValuesByRun = valuesByRun.map((values) => new Set(values));
+    const sanitizedInfo = { ...info, uniqueValues: new Set(valuesByRun.flat()) };
     const aggregates = getAssessmentAggregatesMulti(sanitizedInfo, sanitized, [], numRuns);
+    const method = getNumericAggregateMethod(aggregateMethods, assessmentColumnId(info.name));
     const aggregateValuesByRun =
       info.dtype === 'numeric'
-        ? (() => {
-            const numericValuesByRun = Array.from({ length: numRuns }, (_, runIndex) =>
-              sanitized.flatMap(({ runValues }) => {
-                const entry = runValues?.[runIndex];
-                const assessments = info.isOverall
-                  ? entry?.overallAssessments
-                  : entry?.responseAssessmentsByName[info.name];
-                return (
-                  assessments
-                    ?.map(getEvaluationResultAssessmentValue)
-                    .filter((value): value is number => typeof value === 'number' && Number.isFinite(value)) ?? []
-                );
-              }),
-            );
-            const method = getNumericAggregateMethod(aggregateMethods, assessmentColumnId(info.name));
-            return numericValuesByRun.map((values) => getNumericAggregateValue(values, method));
-          })()
+        ? valuesByRun.map((values) =>
+            getNumericAggregateValue(
+              values.filter((value): value is number => typeof value === 'number' && Number.isFinite(value)),
+              method,
+            ),
+          )
         : info.dtype === 'boolean' || info.dtype === 'pass-fail'
           ? aggregates.countsByRun?.map((counts) => getAssessmentAggregateOverallFraction(info, counts))
           : undefined;
     const baselineValue = aggregateValuesByRun?.[0];
+    const isScored = info.dtype === 'numeric' || info.dtype === 'boolean' || info.dtype === 'pass-fail';
     const changeCounts = getComparisonChangeCounts(
       sanitized.map(({ runValues }) =>
-        (runValues ?? []).map((entry) => {
-          if (!entry || (info.dtype !== 'numeric' && info.dtype !== 'boolean' && info.dtype !== 'pass-fail')) {
-            return undefined;
-          }
-          const assessments = info.isOverall ? entry.overallAssessments : entry.responseAssessmentsByName[info.name];
-          // Each matched trace contributes once, even when several valid assessments share the name.
-          return getAssessmentRowValue(assessments ?? [], info);
-        }),
+        // Each matched trace contributes once, even when several valid assessments share the name.
+        (runValues ?? []).map((entry) =>
+          entry && isScored ? getAssessmentRowValue(getScorerAssessments(entry, info), info) : undefined,
+        ),
       ),
       numRuns,
       true,
@@ -376,7 +361,7 @@ export const getEvalRunComparisonColumnAggregates = (
     const aggregate: EvalRunComparisonColumnAggregate = {
       label:
         info.dtype === 'numeric'
-          ? getNumericAggregateLabel(getNumericAggregateMethod(aggregateMethods, assessmentColumnId(info.name)))
+          ? getNumericAggregateLabel(method)
           : info.dtype === 'pass-fail'
             ? 'PASS'
             : info.dtype === 'boolean'
