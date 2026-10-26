@@ -27,5 +27,6 @@ viewport to 800px wide at device scale factor 2, and screenshot just the figure 
 `$out_dir/media`. Check the screenshot for clipped or overlapping text and close the session.
 Cite the screenshot in the Summary, right after the verdict line, with alt text that states
 the takeaway.
-When proposing a PR, also cite the same screenshot in `pull_request.body`, at the top of
-"What changes are proposed in this pull request?", with the same alt text.
+When proposing a PR, also cite the same screenshot in `pull_request.body`, as the first line
+under the `### What changes are proposed in this pull request?` heading (not above the
+template's first heading), with the same alt text.
