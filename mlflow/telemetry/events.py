@@ -220,6 +220,18 @@ class GenAIEvaluateEvent(Event):
         return telemetry_data
 
 
+class CompareEvaluationsEvent(Event):
+    name: str = "compare_evaluations"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "greater_is_better_provided": bool(arguments.get("greater_is_better")),
+            "confidence_level": arguments.get("confidence_level"),
+            "log_results": arguments.get("log_results"),
+        }
+
+
 class CreateLoggedModelEvent(Event):
     name: str = "create_logged_model"
 
