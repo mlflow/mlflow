@@ -1249,6 +1249,22 @@ def test_extract_tool_name_from_span_extracts_from_call_tool_name():
     assert _extract_tool_name_from_span(tool_spans[0]) == "list_client"
 
 
+def test_extract_tool_name_from_span_uses_genai_semconv_tool_name():
+    with mlflow.start_span(name="root") as root_span:
+        root_span.set_inputs({"query": "test"})
+
+        with mlflow.start_span(name="execute_tool log_food", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_attribute("gen_ai.tool.name", "log_food")
+            tool_span.set_inputs({"food": "egg"})
+
+        root_span.set_outputs("result")
+
+    trace = mlflow.get_trace(root_span.trace_id)
+    tool_spans = trace.search_spans(span_type=SpanType.TOOL)
+
+    assert _extract_tool_name_from_span(tool_spans[0]) == "log_food"
+
+
 def test_resolve_conversation_from_session():
     session_id = "test_session_resolve"
     traces = []
