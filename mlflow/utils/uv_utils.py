@@ -432,7 +432,9 @@ def run_uv_sync(
         return False
     project_dir = Path(project_dir)
 
-    cmd = [uv_bin, "sync"]
+    # The project itself is not installed: only uv.lock and pyproject.toml are copied into
+    # `project_dir`, so a project with a build system cannot be built from there.
+    cmd = [uv_bin, "sync", "--no-install-project"]
     if frozen:
         cmd.append("--frozen")
     if no_dev:
