@@ -99,35 +99,26 @@ def _provider_credentials(store: AbstractStore, model: ScheduleModel | None) -> 
     """
     The credential environment a scheduled run needs for its chosen model.
 
-    Resolved from the provider at each fire time rather than from a secret id stored with the
-    schedule, so rotating a key keeps the schedule running. An AI Gateway endpoint needs nothing
-    here: it carries its own credentials server-side, and an empty mapping leaves the run on
-    whatever the server's own environment holds.
+    Resolved from the secret the schedule names, not by searching the provider's secrets: on a
+    server with more than one user, the newest secret for a provider is as likely to be a key
+    somebody else saved for their own use. A schedule runs on the credential its owner chose or
+    it does not run.
+
+    Raises when the named secret can no longer be read -- deleted, or rotated by replacement --
+    so the occurrence fails visibly instead of quietly falling back to a different key or to the
+    server's environment, either of which bills someone who did not agree to it.
+
+    An empty mapping means "nothing to deliver", which leaves the run on the server's own
+    environment: an AI Gateway endpoint, which carries its own credential, or a schedule saved
+    before the secret id was recorded.
     """
     from mlflow.genai.discovery.job import _fetch_provider_credentials
 
-    if model is None or model.endpoint_name or not model.provider:
+    if model is None or model.endpoint_name or not model.provider or not model.secret_id:
         return {}
-    if not hasattr(store, "list_secret_infos"):
+    if not hasattr(store, "_get_decrypted_secret"):
         return {}
-    provider = model.provider.lower()
-    try:
-        secrets = store.list_secret_infos(provider=provider)
-        if not secrets:
-            return {}
-        # Neither dialog offers a choice between several keys for one provider, so the most
-        # recently touched one wins: saving a replacement is how a key gets rotated, and a
-        # schedule should pick that up rather than stay on the one it was created with.
-        newest = max(secrets, key=lambda secret: secret.last_updated_at or secret.created_at or 0)
-        return _fetch_provider_credentials(store, provider, newest.secret_id)
-    except Exception:
-        _logger.warning(
-            "Could not resolve a stored %s credential for scheduled issue detection; the run "
-            "will fall back to the credentials in this server's environment",
-            provider,
-            exc_info=True,
-        )
-        return {}
+    return _fetch_provider_credentials(store, model.provider.lower(), model.secret_id)
 
 
 def _submit_occurrence(

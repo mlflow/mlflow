@@ -36,6 +36,7 @@ from mlflow.utils.mlflow_tags import (
 # 2026-05-04 is a Monday; 13:00 and 14:00 UTC bracket one hourly occurrence.
 ONE_PM_MS = 1777899600000
 HOUR_MS = 60 * 60 * 1000
+DAY_MS = 24 * HOUR_MS
 
 
 @pytest.fixture
@@ -475,24 +476,134 @@ def test_a_schedule_naming_no_model_leaves_the_job_on_the_server_default(store, 
     assert kwargs["extra_envs"] == {}
 
 
-def test_the_stored_key_for_the_schedules_provider_is_handed_to_the_job(store, dispatch):
-    store.create_gateway_secret(
-        secret_name="openai-key", secret_value={"api_key": "sk-stored"}, provider="openai"
-    )
+def test_an_unresolvable_credential_still_dispatches_the_occurrence(store, dispatch):
     _experiment_with(
         store,
-        "with-key",
+        "unknown-provider",
         **_schedule_tags(
             DetectionSchedule(
                 cadence=DetectionCadence.HOURLY,
-                model=ScheduleModel(provider="openai", model="gpt-5.6-sol"),
+                model=ScheduleModel(provider="not-a-provider", model="m"),
             )
         ),
     )
     dispatch(ONE_PM_MS)
 
     submit_job = dispatch(ONE_PM_MS + HOUR_MS)
-    assert submit_job.call_args.kwargs["extra_envs"] == {"OPENAI_API_KEY": "sk-stored"}
+    submit_job.assert_called_once()
+    assert submit_job.call_args.kwargs["extra_envs"] == {}
+
+
+def test_before_the_first_success_each_window_looks_back_from_its_own_fire_time(store, dispatch):
+    # With no checkpoint yet, the lower bound is one cold-start lookback before this fire time,
+    # the same as upstream. A failed occurrence therefore leaves its own stretch unanalyzed, which
+    # is the accepted cost of resolving the bound from the watermark alone.
+    _experiment_with(
+        store, "fresh", **_schedule_tags(DetectionSchedule(cadence=DetectionCadence.HOURLY))
+    )
+    dispatch(ONE_PM_MS)
+
+    first = dispatch(ONE_PM_MS + HOUR_MS).call_args.kwargs["params"]
+    # The job failed, so no checkpoint was ever written for this experiment.
+    second = dispatch(ONE_PM_MS + 2 * HOUR_MS).call_args.kwargs["params"]
+
+    lookback = FIRST_RUN_LOOKBACK_MS["hourly"]
+    assert first["window_lower_bound_ms"] == first["window_upper_bound_ms"] - lookback
+    assert second["window_lower_bound_ms"] == second["window_upper_bound_ms"] - lookback
+    # Each window still moves forward with its fire time, and they abut rather than overlap.
+    assert second["window_lower_bound_ms"] == first["window_upper_bound_ms"]
+
+
+def test_the_secret_the_schedule_names_is_handed_to_the_job(store, dispatch):
+    secret = store.create_gateway_secret(
+        secret_name="openai-key", secret_value={"api_key": "sk-chosen"}, provider="openai"
+    )
+    _experiment_with(
+        store,
+        "with-key",
+        **_schedule_tags(
+            DetectionSchedule(
+                cadence=DetectionCadence.DAILY,
+                model=ScheduleModel(
+                    provider="openai", model="gpt-5.6-sol", secret_id=secret.secret_id
+                ),
+            )
+        ),
+    )
+    dispatch(ONE_PM_MS)
+
+    submit_job = dispatch(ONE_PM_MS + DAY_MS)
+    assert submit_job.call_args.kwargs["extra_envs"] == {"OPENAI_API_KEY": "sk-chosen"}
+
+
+def test_another_users_key_is_never_substituted(store, dispatch):
+    # The regression this replaces: resolving by provider picked the newest secret, so a schedule
+    # ran on whichever key was saved last -- on a multi-user server, somebody else's.
+    mine = store.create_gateway_secret(
+        secret_name="my-key", secret_value={"api_key": "sk-mine"}, provider="openai"
+    )
+    store.create_gateway_secret(
+        secret_name="someone-elses-key", secret_value={"api_key": "sk-theirs"}, provider="openai"
+    )
+    _experiment_with(
+        store,
+        "named-secret",
+        **_schedule_tags(
+            DetectionSchedule(
+                cadence=DetectionCadence.DAILY,
+                model=ScheduleModel(
+                    provider="openai", model="gpt-5.6-sol", secret_id=mine.secret_id
+                ),
+            )
+        ),
+    )
+    dispatch(ONE_PM_MS)
+
+    submit_job = dispatch(ONE_PM_MS + DAY_MS)
+    assert submit_job.call_args.kwargs["extra_envs"] == {"OPENAI_API_KEY": "sk-mine"}
+
+
+def test_a_schedule_naming_a_deleted_secret_fails_rather_than_substituting(store, dispatch):
+    secret = store.create_gateway_secret(
+        secret_name="openai-key", secret_value={"api_key": "sk-gone"}, provider="openai"
+    )
+    store.create_gateway_secret(
+        secret_name="still-here", secret_value={"api_key": "sk-other"}, provider="openai"
+    )
+    _experiment_with(
+        store,
+        "dangling-secret",
+        **_schedule_tags(
+            DetectionSchedule(
+                cadence=DetectionCadence.DAILY,
+                model=ScheduleModel(
+                    provider="openai", model="gpt-5.6-sol", secret_id=secret.secret_id
+                ),
+            )
+        ),
+    )
+    dispatch(ONE_PM_MS)
+    store.delete_gateway_secret(secret.secret_id)
+
+    # The occurrence is not submitted. Failing visibly beats running on a key nobody designated.
+    assert dispatch(ONE_PM_MS + DAY_MS).call_count == 0
+
+
+def test_a_schedule_with_no_named_secret_leaves_the_run_on_the_server_environment(store, dispatch):
+    # A schedule saved before the id was recorded, which is what it did when it was saved.
+    _experiment_with(
+        store,
+        "no-secret-id",
+        **_schedule_tags(
+            DetectionSchedule(
+                cadence=DetectionCadence.DAILY,
+                model=ScheduleModel(provider="openai", model="gpt-5.6-sol"),
+            )
+        ),
+    )
+    dispatch(ONE_PM_MS)
+
+    assert dispatch(ONE_PM_MS + DAY_MS).call_args.kwargs["extra_envs"] == {}
 
 
 def test_a_key_stored_for_another_provider_is_not_used(store, dispatch):
@@ -515,70 +626,3 @@ def test_a_key_stored_for_another_provider_is_not_used(store, dispatch):
     # Nothing is stored for OpenAI, so the run falls back to the server's own environment rather
     # than being handed another provider's key.
     assert submit_job.call_args.kwargs["extra_envs"] == {}
-
-
-def test_an_unresolvable_credential_still_dispatches_the_occurrence(store, dispatch):
-    _experiment_with(
-        store,
-        "unknown-provider",
-        **_schedule_tags(
-            DetectionSchedule(
-                cadence=DetectionCadence.HOURLY,
-                model=ScheduleModel(provider="not-a-provider", model="m"),
-            )
-        ),
-    )
-    dispatch(ONE_PM_MS)
-
-    submit_job = dispatch(ONE_PM_MS + HOUR_MS)
-    submit_job.assert_called_once()
-    assert submit_job.call_args.kwargs["extra_envs"] == {}
-
-
-def test_the_most_recently_saved_key_for_the_provider_is_the_one_used(store, dispatch):
-    # Stamped explicitly: two keys saved in the same millisecond would leave "most recent"
-    # decided by insertion order rather than by time.
-    with mock.patch(
-        "mlflow.store.tracking.gateway.sqlalchemy_mixin.get_current_time_millis",
-        side_effect=[ONE_PM_MS - HOUR_MS, ONE_PM_MS],
-    ):
-        store.create_gateway_secret(
-            secret_name="openai-old", secret_value={"api_key": "sk-old"}, provider="openai"
-        )
-        store.create_gateway_secret(
-            secret_name="openai-new", secret_value={"api_key": "sk-rotated"}, provider="openai"
-        )
-    _experiment_with(
-        store,
-        "rotated-key",
-        **_schedule_tags(
-            DetectionSchedule(
-                cadence=DetectionCadence.HOURLY,
-                model=ScheduleModel(provider="openai", model="gpt-5.6-sol"),
-            )
-        ),
-    )
-    dispatch(ONE_PM_MS)
-
-    submit_job = dispatch(ONE_PM_MS + HOUR_MS)
-    assert submit_job.call_args.kwargs["extra_envs"] == {"OPENAI_API_KEY": "sk-rotated"}
-
-
-def test_before_the_first_success_each_window_looks_back_from_its_own_fire_time(store, dispatch):
-    # With no checkpoint yet, the lower bound is one cold-start lookback before this fire time,
-    # the same as upstream. A failed occurrence therefore leaves its own stretch unanalyzed, which
-    # is the accepted cost of resolving the bound from the watermark alone.
-    _experiment_with(
-        store, "fresh", **_schedule_tags(DetectionSchedule(cadence=DetectionCadence.HOURLY))
-    )
-    dispatch(ONE_PM_MS)
-
-    first = dispatch(ONE_PM_MS + HOUR_MS).call_args.kwargs["params"]
-    # The job failed, so no checkpoint was ever written for this experiment.
-    second = dispatch(ONE_PM_MS + 2 * HOUR_MS).call_args.kwargs["params"]
-
-    lookback = FIRST_RUN_LOOKBACK_MS["hourly"]
-    assert first["window_lower_bound_ms"] == first["window_upper_bound_ms"] - lookback
-    assert second["window_lower_bound_ms"] == second["window_upper_bound_ms"] - lookback
-    # Each window still moves forward with its fire time, and they abut rather than overlap.
-    assert second["window_lower_bound_ms"] == first["window_upper_bound_ms"]
