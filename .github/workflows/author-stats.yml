@@ -51,7 +51,6 @@ jobs:
               exit 0
             fi
           fi
-          # Counts only repos the token can see, so effectively public repos plus this one.
           read -r repos prs < <(
             gh api graphql \
               -f login="$author" \
