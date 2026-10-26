@@ -530,6 +530,17 @@ def _sanitize_value_impl(val, ancestors: set[int]):
             return _get_llm_summary(val)
         if isinstance(val, pydantic.BaseModel):
             return _sanitize_value_impl(val.__dict__, ancestors)
+        if callable(val):
+            # Bound methods and other callables must not be stringified: their repr may embed
+            # the owner's attributes, including API keys. Render safe qualified names instead.
+            if hasattr(val, "__self__"):
+                # Bound method: return class_name.method_name
+                cls_name = val.__self__.__class__.__name__
+                method_name = getattr(val, "__name__", "unknown")
+                return f"{cls_name}.{method_name}"
+            else:
+                # Unbound function or other callable
+                return getattr(val, "__qualname__", type(val).__name__)
         return val
     finally:
         ancestors.discard(id(val))

@@ -7,6 +7,7 @@ from crewai import Agent, Crew, Task
 from crewai.flow.flow import Flow, start
 from crewai.tools import BaseTool
 from packaging.version import Version
+from pydantic import BaseModel
 
 import mlflow
 from mlflow.crewai.autolog import (
@@ -910,3 +911,58 @@ def test_kickoff_trace_does_not_expose_llm_api_key(agent_with_api_key, autolog, 
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
     assert _FAKE_API_KEY not in traces[0].to_json()
+
+
+def test_sanitize_value_handles_bound_methods_without_exposing_owner_api_key():
+    _FAKE_TOOL_API_KEY = "tavily-fake-api-key-12345"
+
+    class FakeTool(BaseModel):
+        """Simulates a tool like TavilySearchTool with an api_key field."""
+
+        name: str = "fake_tool"
+        api_key: str = _FAKE_TOOL_API_KEY
+
+        def execute(self, query: str) -> str:
+            """Simulate a tool's execute bound method."""
+            return f"result for {query}"
+
+    tool = FakeTool()
+    # Get the bound method
+    bound_method = tool.execute
+
+    # Sanitize a dict containing the bound method
+    value = {"tool": tool, "method": bound_method}
+    sanitized = _sanitize_value(value)
+
+    # Verify the api_key is not in the sanitized output
+    sanitized_json = json.dumps(sanitized, cls=TraceJSONEncoder)
+    assert _FAKE_TOOL_API_KEY not in sanitized_json
+
+    # Verify the tool is properly sanitized (api_key dropped)
+    assert "api_key" not in sanitized["tool"]
+    assert sanitized["tool"]["name"] == "fake_tool"
+
+    # Verify the method is rendered as a safe qualified name (class.method)
+    assert sanitized["method"] == "FakeTool.execute"
+
+
+def test_sanitize_value_handles_unbound_callables():
+    def my_func():
+        return "result"
+
+    lambda_func = lambda x: x  # noqa: E731
+
+    value = {
+        "func": my_func,
+        "lambda": lambda_func,
+        "callable_obj": object(),
+    }
+
+    sanitized = _sanitize_value(value)
+    sanitized_json = json.dumps(sanitized, cls=TraceJSONEncoder)
+
+    # Verify functions are rendered using __qualname__ (safe qualified names, not repr)
+    assert "my_func" in sanitized["func"]
+    assert "<function" not in sanitized_json
+    # Lambda and locals are included in __qualname__, which is safe
+    assert "<lambda" in sanitized_json or "<locals>" in sanitized_json
