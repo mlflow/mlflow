@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { TracesTable, type TracesTableProps } from './TracesTable';
 import { makeSessionTrace } from './test-utils/mockTraces';
 import { renderWithProviders } from './test-utils/renderWithProviders';
+import { makeBaseTableProps } from './test-utils/tableProps';
 import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
 
 jest.mock('../../../common/utils/FeatureUtils', () => ({
@@ -15,23 +16,9 @@ jest.mock('../../../common/utils/FeatureUtils', () => ({
 const props = (
   traces = [makeSessionTrace('s1-turn-1', 's1'), makeSessionTrace('s1-turn-2', 's1')],
 ): TracesTableProps => ({
+  ...makeBaseTableProps(),
   traces,
   visibleColumns: ['duration', 'cost'],
-  initialColumnSizing: {},
-  onColumnSizingSettled: jest.fn(),
-  isLoading: false,
-  isFetching: false,
-  skeletonRowCount: 25,
-  onTraceSelected: jest.fn(),
-  selectedForBulk: new Map(),
-  isAllOnPageSelected: false,
-  isSomeOnPageSelected: false,
-  onToggleBulkRow: jest.fn(),
-  onToggleBulkAll: jest.fn(),
-  sort: 'start_time',
-  dir: 'desc',
-  onSort: jest.fn(),
-  onHideColumn: jest.fn(),
   isGroupedBySession: true,
 });
 
