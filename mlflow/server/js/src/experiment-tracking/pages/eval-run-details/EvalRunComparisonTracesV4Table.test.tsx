@@ -404,7 +404,7 @@ describe('EvalRunComparisonTracesV4Table', () => {
   test('offers only the comparison filter fields, session grouping and no date range in the toolbar', async () => {
     renderTable();
     await findMatchedRows();
-    expect(screen.getByRole('button', { name: 'Group traces by session' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('radio', { name: 'Traces' })).toBeChecked();
     expect(screen.queryByRole('button', { name: /time range|last 7 days|all time/i })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: /Filters/ }));
@@ -448,7 +448,8 @@ describe('EvalRunComparisonTracesV4Table', () => {
     };
     return state.tracesByRun;
   };
-  const groupBySession = () => screen.findByRole('button', { name: 'Group traces by session' });
+  const sessionsView = () => screen.findByRole('radio', { name: 'Sessions' });
+  const tracesView = () => screen.findByRole('radio', { name: 'Traces' });
 
   test('switches to nested session summaries, expands runs independently and opens their traces', async () => {
     setupSessionTraces();
@@ -456,11 +457,11 @@ describe('EvalRunComparisonTracesV4Table', () => {
     await screen.findByText('3 comparison rows');
     expect(screen.queryByRole('columnheader', { name: /^Conversation quality/ })).not.toBeInTheDocument();
 
-    await userEvent.click(await groupBySession());
+    await userEvent.click(await sessionsView());
 
     expect(await screen.findByRole('button', { name: 'Collapse session comparison Matched sessions' })).toBeVisible();
     expect(new URLSearchParams(lastSearch).get('comparisonGroupBy')).toBe('session');
-    expect(screen.getByRole('button', { name: 'Group traces by session' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('radio', { name: 'Sessions' })).toBeChecked();
     expect(screen.queryByRole('columnheader', { name: 'Run' })).not.toBeInTheDocument();
     expect(screen.getAllByRole('columnheader')[0]).toHaveTextContent(/^Session/);
     const groupRow = within(screen.getByRole('row', { name: 'Session comparison Matched sessions' }));
@@ -513,7 +514,7 @@ describe('EvalRunComparisonTracesV4Table', () => {
     await userEvent.click(screen.getByRole('menuitem', { name: 'Hide column' }));
     expect(screen.queryByRole('columnheader', { name: /^Duration/ })).not.toBeInTheDocument();
 
-    await userEvent.click(await groupBySession());
+    await userEvent.click(await sessionsView());
     expect(await screen.findByRole('columnheader', { name: /^Duration/ })).toBeVisible();
     const quality = screen.getByRole('columnheader', { name: /^quality/ });
     await userEvent.click(within(quality).getByRole('button', { name: /Column options/ }));
@@ -524,12 +525,12 @@ describe('EvalRunComparisonTracesV4Table', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Collapse session comparison Matched sessions' }));
     expect(screen.queryByRole('row', { name: 'Baseline run session baseline-conversation' })).not.toBeInTheDocument();
 
-    await userEvent.click(await groupBySession());
+    await userEvent.click(await tracesView());
     expect(await screen.findByRole('columnheader', { name: /^quality/ })).toBeVisible();
     expect(screen.queryByRole('columnheader', { name: /^Duration/ })).not.toBeInTheDocument();
     expect(screen.getAllByRole('columnheader')[0]).toHaveTextContent('Input');
 
-    await userEvent.click(await groupBySession());
+    await userEvent.click(await sessionsView());
     expect(await screen.findByRole('columnheader', { name: /^Duration/ })).toBeVisible();
     expect(screen.queryByRole('columnheader', { name: /^quality/ })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Collapse session comparison Matched sessions' })).toHaveAttribute(
@@ -549,11 +550,11 @@ describe('EvalRunComparisonTracesV4Table', () => {
       initialOutcomeFilter: { columnId: 'assessment:quality', runUuid: 'candidate', outcome: 'improvement' },
     });
     await userEvent.click(await screen.findByRole('button', { name: /Remove comparison filter/ }));
-    await userEvent.click(await groupBySession());
+    await userEvent.click(await sessionsView());
 
     expect(await screen.findByRole('button', { name: 'Collapse session comparison Matched sessions' })).toBeVisible();
     expect(new URLSearchParams(lastSearch).get('comparisonGroupBy')).toBe('session');
-    expect(screen.getByRole('button', { name: 'Group traces by session' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('radio', { name: 'Sessions' })).toBeChecked();
   }, 60000);
 
   test('locks the Session, Input and Output columns while comparing sessions', async () => {
@@ -627,14 +628,14 @@ describe('EvalRunComparisonTracesV4Table', () => {
   test('hides session grouping while an outcome filter is active and leaves session mode for it', async () => {
     renderTable();
     await findMatchedRows();
-    expect(await groupBySession()).toBeVisible();
+    expect(await sessionsView()).toBeVisible();
     const qualityHeader = await screen.findByRole('columnheader', { name: /quality/ });
     const candidate = await waitFor(() => within(qualityHeader).getByRole('group', { name: 'Candidate run' }));
     await userEvent.click(within(candidate).getByRole('button', { name: /Open comparison summary/ }));
     await userEvent.click(await screen.findByTestId('comparison-summary-improvement-filter'));
     expect(await screen.findByRole('button', { name: /Edit comparison filter/ })).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Group traces by session' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: 'Sessions' })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /Remove comparison filter/ }));
-    expect(await groupBySession()).toBeVisible();
+    expect(await sessionsView()).toBeVisible();
   });
 });

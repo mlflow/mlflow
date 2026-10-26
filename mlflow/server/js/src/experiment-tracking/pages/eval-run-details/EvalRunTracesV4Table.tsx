@@ -388,6 +388,7 @@ export const EvalRunTracesV4Table = ({
     selectedTraceInfos,
     isGroupedBySession: controller.isGroupedBySession,
     onToggleSessionGrouping: url.setIsGroupedBySession,
+    showSessionViewSwitch: true,
   });
 
   const hasRows = page.traces.length > 0;

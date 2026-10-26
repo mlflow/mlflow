@@ -1,6 +1,15 @@
 import { useMemo } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { SchemaIcon, ToggleButton, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  ForkHorizontalIcon,
+  SchemaIcon,
+  SegmentedControlButton,
+  SegmentedControlGroup,
+  SpeechBubbleIcon,
+  ToggleButton,
+  Tooltip,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { DetectIssuesButton, shouldEnableSessionGrouping } from '@databricks/web-shared/genai-traces-table';
 import {
@@ -89,6 +98,8 @@ export interface TracesV4ToolbarParams {
   showSessionGrouping?: boolean;
   /** Columns the table force-shows while grouped by session, locked in the Display column list (default none). */
   groupedLockedColumns?: readonly TraceColumnId[];
+  /** Show a Traces/Sessions switch instead of the group-by-session toggle (default false). */
+  showSessionViewSwitch?: boolean;
 }
 
 // Column-selector options: static componentIds (lint requires static ids) + localized labels. Adding
@@ -193,6 +204,7 @@ export const useTracesV4ToolbarSlots = ({
   validateFilters,
   showSessionGrouping = true,
   groupedLockedColumns,
+  showSessionViewSwitch = false,
   isGroupedBySession,
   onToggleSessionGrouping,
   columnOrder,
@@ -201,6 +213,14 @@ export const useTracesV4ToolbarSlots = ({
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const hasSelection = selectionCount > 0;
+  const tracesViewLabel = intl.formatMessage({
+    defaultMessage: 'Traces',
+    description: 'Trace table view switcher option',
+  });
+  const sessionsViewLabel = intl.formatMessage({
+    defaultMessage: 'Sessions',
+    description: 'Session table view switcher option',
+  });
   const defaultFilterFields = useMlflowTraceFilterFields(assessmentColumns.candidateNames, traces);
   const filterFields = filterFieldsOverride ?? defaultFilterFields;
 
@@ -380,7 +400,44 @@ export const useTracesV4ToolbarSlots = ({
             validateFilters={validateFilters}
           />
         )}
-        {showSessionGrouping && shouldEnableSessionGrouping() && (
+        {showSessionGrouping && shouldEnableSessionGrouping() && showSessionViewSwitch && (
+          <SegmentedControlGroup
+            name="mlflow.traces-v4.table-view"
+            componentId="mlflow.traces-v4.table-view"
+            value={isGroupedBySession ? 'sessions' : 'traces'}
+            newStyleFlagOverride
+          >
+            <SegmentedControlButton
+              value="traces"
+              aria-label={tracesViewLabel}
+              onClick={() => onToggleSessionGrouping(false)}
+              icon={
+                <Tooltip
+                  componentId="mlflow.traces-v4.table-view-traces-tooltip"
+                  content={tracesViewLabel}
+                  delayDuration={0}
+                >
+                  <ForkHorizontalIcon />
+                </Tooltip>
+              }
+            />
+            <SegmentedControlButton
+              value="sessions"
+              aria-label={sessionsViewLabel}
+              onClick={() => onToggleSessionGrouping(true)}
+              icon={
+                <Tooltip
+                  componentId="mlflow.traces-v4.table-view-sessions-tooltip"
+                  content={sessionsViewLabel}
+                  delayDuration={0}
+                >
+                  <SpeechBubbleIcon />
+                </Tooltip>
+              }
+            />
+          </SegmentedControlGroup>
+        )}
+        {showSessionGrouping && shouldEnableSessionGrouping() && !showSessionViewSwitch && (
           <Tooltip
             componentId="mlflow.traces-v4.group-by-session.tooltip"
             content={intl.formatMessage({

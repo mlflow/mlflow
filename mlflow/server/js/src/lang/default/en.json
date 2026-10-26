@@ -8543,6 +8543,10 @@
     "defaultMessage": "Run",
     "description": "Field group heading in the evaluation runs filter field picker"
   },
+  "PUnT5T": {
+    "defaultMessage": "Sessions",
+    "description": "Session table view switcher option"
+  },
   "PUtV09": {
     "defaultMessage": "No conversation turns found in this session.",
     "description": "Empty state in the V4 session drawer"
@@ -15026,6 +15030,10 @@
   "jjidVr": {
     "defaultMessage": "{numValue}/{numEvals} for run \"{runName}\"",
     "description": "Passing assessment tooltip"
+  },
+  "jjxuZt": {
+    "defaultMessage": "Traces",
+    "description": "Trace table view switcher option"
   },
   "jkeYf8": {
     "defaultMessage": "Unpin group",

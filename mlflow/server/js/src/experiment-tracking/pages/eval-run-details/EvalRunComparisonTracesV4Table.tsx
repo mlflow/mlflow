@@ -370,6 +370,7 @@ const EvalRunComparisonTracesV4Content = (props: EvalRunComparisonTracesV4TableP
     selectedTraceInfos: NO_TRACES,
     isGroupedBySession,
     onToggleSessionGrouping: criteria.setIsGroupedBySession,
+    showSessionViewSwitch: true,
   });
   const error = useMemo(
     () =>
