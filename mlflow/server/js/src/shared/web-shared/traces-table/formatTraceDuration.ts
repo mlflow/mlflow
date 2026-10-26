@@ -7,7 +7,7 @@
  */
 const DURATION_PATTERN = /^([\d.]+)\s*(s|ms|us|µs|ns|m|h)$/;
 
-const parseDurationToMs = (duration: string): number | null => {
+export const parseTraceDurationToMs = (duration: string): number | null => {
   const match = duration.trim().match(DURATION_PATTERN);
   if (!match) {
     return null;
@@ -41,7 +41,7 @@ const parseDurationToMs = (duration: string): number | null => {
  * anything under a second reads as whole milliseconds — the "ms below 1 second" spec for the
  * traces duration column.
  */
-const formatDurationMs = (ms: number): string => {
+export const formatTraceDurationMs = (ms: number): string => {
   if (ms < 1_000) {
     return `${Math.round(ms)}ms`;
   }
@@ -62,6 +62,6 @@ const formatDurationMs = (ms: number): string => {
  * null when the value can't be parsed, so the caller can fall back to showing the raw string.
  */
 export const formatTraceDuration = (duration: string): string | null => {
-  const ms = parseDurationToMs(duration);
-  return ms === null ? null : formatDurationMs(ms);
+  const ms = parseTraceDurationToMs(duration);
+  return ms === null ? null : formatTraceDurationMs(ms);
 };
