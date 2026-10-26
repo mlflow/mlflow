@@ -162,10 +162,12 @@ export interface TracesV4ToolbarSlots {
   renderFilterEditor: (
     renderTrigger: (openEditor: (filterIndex?: number) => void) => React.ReactNode,
   ) => React.ReactNode;
-  /** Rendered before the shared search box: the Views dropdown, then the date-range selector. */
+  /** Rendered before the shared search box: the Views dropdown, the Traces/Sessions switch, then the date range. */
   leftControls: React.ReactNode;
   /** Rendered after the shared search box: filters, columns, a spacer, Detect Issues, and refresh. */
   rightControls: React.ReactNode;
+  /** The Traces/Sessions switch alone, for tables whose left slot has no Views dropdown or date range. */
+  sessionViewSwitch: React.ReactNode;
 }
 
 /**
@@ -365,6 +367,46 @@ export const useTracesV4ToolbarSlots = ({
     });
   }
 
+  // Shown before the search box, after the Views dropdown where there is one.
+  const sessionViewSwitch =
+    showSessionGrouping && shouldEnableSessionGrouping() && showSessionViewSwitch ? (
+      <SegmentedControlGroup
+        name="mlflow.traces-v4.table-view"
+        componentId="mlflow.traces-v4.table-view"
+        value={isGroupedBySession ? 'sessions' : 'traces'}
+        newStyleFlagOverride
+      >
+        <SegmentedControlButton
+          value="traces"
+          aria-label={tracesViewLabel}
+          onClick={() => onToggleSessionGrouping(false)}
+          icon={
+            <Tooltip
+              componentId="mlflow.traces-v4.table-view-traces-tooltip"
+              content={tracesViewLabel}
+              delayDuration={0}
+            >
+              <ForkHorizontalIcon />
+            </Tooltip>
+          }
+        />
+        <SegmentedControlButton
+          value="sessions"
+          aria-label={sessionsViewLabel}
+          onClick={() => onToggleSessionGrouping(true)}
+          icon={
+            <Tooltip
+              componentId="mlflow.traces-v4.table-view-sessions-tooltip"
+              content={sessionsViewLabel}
+              delayDuration={0}
+            >
+              <SpeechBubbleIcon />
+            </Tooltip>
+          }
+        />
+      </SegmentedControlGroup>
+    ) : null;
+
   // Note: the Databricks build disables Delete for UC-backed traces (with a "delete from the Delta
   // table instead" tooltip). OSS traces are always deletable via the standard path, so that gate is
   // dropped here and Delete is always enabled.
@@ -372,9 +414,11 @@ export const useTracesV4ToolbarSlots = ({
     leftControls: (
       <>
         {savedViewsButton}
+        {sessionViewSwitch}
         <TracesV4DateSelector experimentId={experimentId} />
       </>
     ),
+    sessionViewSwitch,
     renderFilterEditor: (renderTrigger) => (
       <TraceFilterButton
         fields={filterFields}
@@ -399,43 +443,6 @@ export const useTracesV4ToolbarSlots = ({
             description={filterDescription}
             validateFilters={validateFilters}
           />
-        )}
-        {showSessionGrouping && shouldEnableSessionGrouping() && showSessionViewSwitch && (
-          <SegmentedControlGroup
-            name="mlflow.traces-v4.table-view"
-            componentId="mlflow.traces-v4.table-view"
-            value={isGroupedBySession ? 'sessions' : 'traces'}
-            newStyleFlagOverride
-          >
-            <SegmentedControlButton
-              value="traces"
-              aria-label={tracesViewLabel}
-              onClick={() => onToggleSessionGrouping(false)}
-              icon={
-                <Tooltip
-                  componentId="mlflow.traces-v4.table-view-traces-tooltip"
-                  content={tracesViewLabel}
-                  delayDuration={0}
-                >
-                  <ForkHorizontalIcon />
-                </Tooltip>
-              }
-            />
-            <SegmentedControlButton
-              value="sessions"
-              aria-label={sessionsViewLabel}
-              onClick={() => onToggleSessionGrouping(true)}
-              icon={
-                <Tooltip
-                  componentId="mlflow.traces-v4.table-view-sessions-tooltip"
-                  content={sessionsViewLabel}
-                  delayDuration={0}
-                >
-                  <SpeechBubbleIcon />
-                </Tooltip>
-              }
-            />
-          </SegmentedControlGroup>
         )}
         {showSessionGrouping && shouldEnableSessionGrouping() && !showSessionViewSwitch && (
           <Tooltip

@@ -452,6 +452,7 @@ export const EvalRunTracesV4Table = ({
       inputRef: searchInputRef,
       resetKey: runUuid,
     }),
+    leftControls: toolbarSlots.sessionViewSwitch,
     rightControls: toolbarSlots.rightControls,
     bannerSlot: (
       <>

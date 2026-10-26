@@ -446,6 +446,7 @@ const EvalRunComparisonTracesV4Content = (props: EvalRunComparisonTracesV4TableP
     onSearchClear: searchInput.clear,
     onSearchSubmit: searchInput.submit,
     searchInputRef,
+    leftControls: toolbar.sessionViewSwitch,
     rightControls: toolbar.rightControls,
     pageIndex: controller.pageIndex,
     pageSize: controller.pageSize,

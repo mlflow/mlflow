@@ -7,6 +7,7 @@ import { TRACE_DENSITY_STORAGE_KEY_PREFIX } from '../utils/constants';
 import { DENSITY_STORAGE_VERSION } from '../hooks/useTracesV4Density';
 import { setLocalStorageItem } from '@databricks/web-shared/hooks';
 import { slowlyTypeEachKey } from '@databricks/web-shared/test-utils/slowlyTypeEachKey';
+import { shouldEnableNewEvalRunsUi } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import {
   renderPage,
   findTraceRow,
@@ -479,6 +480,24 @@ describe('TracesV4PageContent (interactions)', () => {
     // Assert the always-present V4 control ordering. Views pins far left (before the date selector);
     // column/sort/row-height controls consolidate into the Display popover; Refresh then Detect Issues
     // pin far right (Detect Issues renders whenever issue detection is enabled, true in OSS).
+    test('puts the Traces/Sessions switch right after Views with the new eval runs UI', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      try {
+        renderPage();
+        await findTraceRow('tr-000');
+        const views = screen.getByTestId('trace-v4-saved-views-trigger');
+        const traces = screen.getByRole('radio', { name: 'Traces' });
+        const date = screen.getByTestId('time-range-select-dropdown');
+        expect(traces).toBeChecked();
+        expect(screen.getByRole('radio', { name: 'Sessions' })).not.toBeChecked();
+        expect(screen.queryByRole('button', { name: 'Group traces by session' })).not.toBeInTheDocument();
+        expect(views.compareDocumentPosition(traces) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(traces.compareDocumentPosition(date) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      } finally {
+        jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
+      }
+    }, 20000);
+
     test('renders Views → Date → Search → Filter → Display → Refresh → Detect Issues', async () => {
       renderPage();
       await findTraceRow('tr-000');
