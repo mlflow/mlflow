@@ -9561,3 +9561,18 @@ def test_delete_authorizes_body_params_regardless_of_content_type(client, monkey
     assert response.status_code == 403
     with User(owner, owner_pw, monkeypatch):
         assert client.get_registered_model("victim_model").name == "victim_model"
+
+
+def test_delete_with_double_encoded_body_cleans_up_permissions(client, monkeypatch):
+    owner, owner_pw = create_user(client.tracking_uri)
+    with User(owner, owner_pw, monkeypatch):
+        client.create_registered_model("own_model")
+
+    response = requests.delete(
+        url=client.tracking_uri + "/api/2.0/mlflow/registered-models/delete",
+        data=json.dumps(json.dumps({"name": "own_model"})),
+        headers={"Content-Type": "text/plain"},
+        auth=(owner, owner_pw),
+    )
+
+    assert response.status_code == 200

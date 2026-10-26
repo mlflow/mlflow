@@ -5762,9 +5762,7 @@ def delete_can_manage_registered_model_permission(resp: Response):
     now. Names are unique within the registry, so exactly one of the two
     sweeps applies and the other is a no-op.
     """
-    # ``silent=True`` returns ``None`` on missing / unparsable bodies; the
-    # ``or {}`` guard prevents a ``TypeError`` from leaking out as a 500.
-    data = request.get_json(force=True, silent=True) or {}
+    data = _get_delete_request_args()
     name = data.get("name")
     if not name:
         raise MlflowException(
@@ -6372,7 +6370,7 @@ def set_can_manage_scorer_permission(resp: Response):
 
 
 def delete_scorer_permissions_cascade(resp: Response):
-    data = request.get_json(force=True, silent=True)
+    data = _get_delete_request_args()
     experiment_id = data.get("experiment_id")
     name = data.get("name")
     if experiment_id and name:
