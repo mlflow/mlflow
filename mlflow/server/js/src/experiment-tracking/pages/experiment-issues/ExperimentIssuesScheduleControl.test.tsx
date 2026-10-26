@@ -7,7 +7,7 @@ import { setupServer } from '../../../common/utils/setup-msw';
 import { QueryClient, QueryClientProvider } from '../../../common/utils/reactQueryHooks';
 import { MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG, MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG } from '../../constants';
 import { ExperimentIssuesScheduleControl } from './ExperimentIssuesScheduleControl';
-import { ISSUE_DETECTION_SCHEDULE_VERSION } from './issueDetectionSchedule';
+import { ISSUE_DETECTION_SCHEDULE_VERSION, MAX_TRACE_FILTERS } from './issueDetectionSchedule';
 
 interface SavedTag {
   key: string;
@@ -77,12 +77,12 @@ const server = setupServer(
   }),
 );
 
-const scheduleTag = (cadence: string | null, paused = false): SavedTag => ({
+const scheduleTag = (cadence: string | null, paused = false, timezone = 'UTC'): SavedTag => ({
   key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG,
   value: JSON.stringify({
     version: ISSUE_DETECTION_SCHEDULE_VERSION,
     cadence,
-    timezone: 'UTC',
+    timezone,
     paused,
   }),
 });
@@ -105,8 +105,6 @@ const setup = () => userEvent.setup({ pointerEventsCheck: PointerEventsCheckLeve
 
 const COMPONENT_ID = 'mlflow.experiment-issues.schedule';
 
-const UNATTENDED_RUN_APPROVAL = /I understand that scheduled runs analyze traces and spend unattended/;
-
 const savedSchedule = (): Record<string, unknown> =>
   JSON.parse(written.find(({ key }) => key === MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG)?.value ?? '{}');
 
@@ -126,9 +124,6 @@ const chooseCadence = async (user: ReturnType<typeof setup>, cadence: string) =>
   await user.click(await screen.findByRole('combobox', { name: /cadence/i }));
   await user.click(await screen.findByRole('option', { name: cadence }));
 };
-
-const approveUnattendedRun = async (user: ReturnType<typeof setup>) =>
-  user.click(await screen.findByRole('checkbox', { name: UNATTENDED_RUN_APPROVAL }));
 
 const save = async (user: ReturnType<typeof setup>) => user.click(await screen.findByRole('button', { name: 'Save' }));
 
@@ -181,7 +176,6 @@ describe('ExperimentIssuesScheduleControl', () => {
 
     // Turning it back on offers the cadence it was paused at, rather than starting from nothing.
     await chooseCadence(user, 'Weekly');
-    await approveUnattendedRun(user);
     await save(user);
     await waitFor(() => expect(savedSchedule()['cadence']).toBe('weekly'));
     expect(savedSchedule()['paused']).toBe(false);
@@ -204,7 +198,6 @@ describe('ExperimentIssuesScheduleControl', () => {
 
     expect(screen.queryByRole('combobox', { name: 'Field' })).not.toBeInTheDocument();
     await chooseCadence(user, 'Daily');
-    await approveUnattendedRun(user);
     await save(user);
 
     await waitFor(() => expect(savedTraceFilters()).toEqual([]));
@@ -222,7 +215,6 @@ describe('ExperimentIssuesScheduleControl', () => {
     await user.click(await screen.findByRole('button', { name: 'Add filter' }));
     await user.type(await screen.findByRole('textbox', { name: 'Filter key' }), 'environment');
     await user.type(await screen.findByRole('textbox', { name: 'Filter value' }), 'production');
-    await approveUnattendedRun(user);
     await save(user);
 
     await waitFor(() =>
@@ -245,7 +237,6 @@ describe('ExperimentIssuesScheduleControl', () => {
     const keys = await screen.findAllByRole('textbox', { name: 'Filter key' });
     expect(keys.map((input) => (input as HTMLInputElement).value)).toEqual(['environment', 'team']);
 
-    await approveUnattendedRun(user);
     await save(user);
     await waitFor(() => expect(savedTraceFilters()).toEqual(stored));
   });
@@ -264,7 +255,6 @@ describe('ExperimentIssuesScheduleControl', () => {
     await openModal(user, /scheduled: daily/i);
     const removeButtons = await screen.findAllByRole('button', { name: 'Remove filter' });
     await user.click(removeButtons[0]);
-    await approveUnattendedRun(user);
     await save(user);
 
     await waitFor(() =>
@@ -294,43 +284,97 @@ describe('ExperimentIssuesScheduleControl', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Add filter' }));
     await user.type(await screen.findByRole('textbox', { name: 'Filter value' }), 'production');
-    await approveUnattendedRun(user);
     await save(user);
 
     await waitFor(() => expect(savedTraceFilters()).toEqual([]));
   });
 
-  test('saves a schedule only after the owner approves what the unattended run does', async () => {
+  test('holds Save until the model selection resolves, so an active schedule never saves without one', async () => {
+    // The endpoint list is what the default selection is derived from, and the credential queries
+    // can settle before it. Saving in that gap stored no model -- the run would fall back to the
+    // server default rather than the endpoint this dialog was about to show -- and skipped the key
+    // step, since that only applies to a direct provider selection.
+    envCredentialsAvailable = false;
+    gatewayEndpoints = [{ name: 'prod-gateway' }];
+    let releaseEndpoints: () => void = () => {};
+    const endpointsHeld = new Promise<void>((resolve) => {
+      releaseEndpoints = resolve;
+    });
+    server.use(
+      rest.get('*/ajax-api/3.0/mlflow/gateway/endpoints/list', async (_req, res, ctx) => {
+        await endpointsHeld;
+        return res(ctx.json({ endpoints: gatewayEndpoints }));
+      }),
+    );
+
     const user = setup();
     render();
     await openModal(user);
     await chooseCadence(user, 'Daily');
 
-    expect(await screen.findByRole('button', { name: 'Save' })).toBeDisabled();
-    await approveUnattendedRun(user);
-    expect(await screen.findByRole('button', { name: 'Save' })).not.toBeDisabled();
+    // The credential answers have arrived; the endpoint list has not.
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled());
+    expect(written).toEqual([]);
+
+    releaseEndpoints();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).not.toBeDisabled());
     await save(user);
+
+    // The resolved endpoint is stored rather than nothing, and it needs no API key of its own.
     await waitFor(() => expect(savedSchedule()['cadence']).toBe('daily'));
+    expect(savedSchedule()['model']).toEqual({ endpointName: 'prod-gateway' });
+    expect(screen.queryByTestId('schedule-api-key-view')).not.toBeInTheDocument();
   });
 
-  test('asks for approval again each time the modal opens, even for a schedule already on', async () => {
-    experimentTags = [scheduleTag('hourly')];
+  test('offers no more filters than scheduled runs apply', async () => {
+    const user = setup();
+    render();
+    await openModal(user);
+    await chooseCadence(user, 'Daily');
+
+    const addFilter = await screen.findByRole('button', { name: 'Add filter' });
+    for (let i = 0; i < MAX_TRACE_FILTERS; i++) {
+      await user.click(addFilter);
+    }
+    expect(await screen.findAllByRole('textbox', { name: 'Filter key' })).toHaveLength(MAX_TRACE_FILTERS);
+    // A further clause would show here as active and be dropped by every run.
+    expect(addFilter).toBeDisabled();
+  });
+
+  test("keeps a schedule's stored timezone when it is edited from somewhere else", async () => {
+    // The modal has no timezone control, so a save made elsewhere must not move when the schedule
+    // fires: pausing a Tokyo daily schedule from another zone would otherwise resume it at 09:00
+    // local to whoever paused it.
+    experimentTags = [scheduleTag('daily', false, 'Asia/Tokyo')];
     const user = setup();
     render();
 
-    await openModal(user, /scheduled: hourly/i);
-    expect(await screen.findByRole('checkbox', { name: UNATTENDED_RUN_APPROVAL })).not.toBeChecked();
-    expect(await screen.findByRole('button', { name: 'Save' })).toBeDisabled();
+    await openModal(user, /scheduled: daily/i);
+    await chooseCadence(user, 'Off');
+    await save(user);
+
+    await waitFor(() => expect(savedSchedule()['paused']).toBe(true));
+    expect(savedSchedule()['timezone']).toBe('Asia/Tokyo');
   });
 
-  test('turns a schedule off without asking for approval', async () => {
+  test('adopts the browser timezone only when the schedule has none stored', async () => {
+    const user = setup();
+    render();
+    await openModal(user);
+    await chooseCadence(user, 'Daily');
+    await save(user);
+
+    await waitFor(() => expect(savedSchedule()['cadence']).toBe('daily'));
+    expect(savedSchedule()['timezone']).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  });
+
+  test('turns a schedule off', async () => {
     experimentTags = [scheduleTag('hourly')];
     const user = setup();
     render();
 
     await openModal(user, /scheduled: hourly/i);
     await chooseCadence(user, 'Off');
-    expect(screen.queryByRole('checkbox', { name: UNATTENDED_RUN_APPROVAL })).not.toBeInTheDocument();
     await save(user);
 
     await waitFor(() => expect(savedSchedule()['paused']).toBe(true));
@@ -359,7 +403,6 @@ describe('ExperimentIssuesScheduleControl', () => {
     render();
     await openModal(user);
     await chooseCadence(user, 'Daily');
-    await approveUnattendedRun(user);
 
     saveFails = true;
     await save(user);
@@ -395,7 +438,6 @@ describe('ExperimentIssuesScheduleControl', () => {
     await openModal(user);
     expect(await screen.findByTestId('model-dropdown-trigger')).toHaveTextContent('OpenAI');
     await chooseCadence(user, 'Daily');
-    await approveUnattendedRun(user);
     await save(user);
 
     await waitFor(() => expect(savedSchedule()['model']).toEqual({ provider: 'openai', model: 'gpt-5.6-sol' }));
@@ -408,7 +450,6 @@ describe('ExperimentIssuesScheduleControl', () => {
     await openModal(user);
     expect(await screen.findByTestId('model-dropdown-trigger')).toHaveTextContent('prod-gateway');
     await chooseCadence(user, 'Daily');
-    await approveUnattendedRun(user);
     await save(user);
 
     await waitFor(() => expect(savedSchedule()['model']).toEqual({ endpointName: 'prod-gateway' }));
@@ -465,7 +506,6 @@ describe('ExperimentIssuesScheduleControl', () => {
     render();
     await openModal(user);
     await chooseCadence(user, 'Daily');
-    await approveUnattendedRun(user);
     await save(user);
 
     expect(await screen.findByTestId('schedule-api-key-view')).toBeInTheDocument();
@@ -510,7 +550,6 @@ describe('ExperimentIssuesScheduleControl', () => {
     render();
     await openModal(user);
     await chooseCadence(user, 'Daily');
-    await approveUnattendedRun(user);
     await save(user);
 
     await user.type(await screen.findByTestId('schedule-api-key-input'), 'sk-test-key');
@@ -539,7 +578,6 @@ describe('ExperimentIssuesScheduleControl', () => {
     render();
     await openModal(user);
     await chooseCadence(user, 'Daily');
-    await approveUnattendedRun(user);
     await save(user);
 
     await waitFor(() => expect(savedSchedule()['cadence']).toBe('daily'));
@@ -553,7 +591,6 @@ describe('ExperimentIssuesScheduleControl', () => {
     render();
     await openModal(user);
     await chooseCadence(user, 'Daily');
-    await approveUnattendedRun(user);
     await save(user);
 
     await waitFor(() => expect(savedSchedule()['model']).toEqual({ endpointName: 'prod-gateway' }));
@@ -581,7 +618,6 @@ describe('ExperimentIssuesScheduleControl', () => {
     render();
     await openModal(user);
     await chooseCadence(user, 'Daily');
-    await approveUnattendedRun(user);
     await save(user);
 
     await waitFor(() => expect(savedSchedule()['cadence']).toBe('daily'));
@@ -594,14 +630,12 @@ describe('ExperimentIssuesScheduleControl', () => {
     render();
     await openModal(user);
     await chooseCadence(user, 'Daily');
-    await approveUnattendedRun(user);
     await save(user);
 
     expect(await screen.findByTestId('schedule-api-key-view')).toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: 'Back' }));
 
     expect(await screen.findByRole('combobox', { name: /cadence/i })).toHaveTextContent('Daily');
-    expect(await screen.findByRole('checkbox', { name: UNATTENDED_RUN_APPROVAL })).toBeChecked();
   });
 
   test('the filters are stored before the cadence that activates them', async () => {
@@ -612,7 +646,6 @@ describe('ExperimentIssuesScheduleControl', () => {
     await user.click(await screen.findByRole('button', { name: 'Add filter' }));
     await user.type(await screen.findByRole('textbox', { name: 'Filter key' }), 'environment');
     await user.type(await screen.findByRole('textbox', { name: 'Filter value' }), 'production');
-    await approveUnattendedRun(user);
     await save(user);
 
     await waitFor(() => expect(written).toHaveLength(2));
@@ -630,7 +663,6 @@ describe('ExperimentIssuesScheduleControl', () => {
     render();
     await openModal(user);
     await chooseCadence(user, 'Daily');
-    await approveUnattendedRun(user);
     await save(user);
 
     expect(await screen.findByText(/Couldn't save the schedule/)).toBeInTheDocument();
@@ -646,7 +678,6 @@ describe('ExperimentIssuesScheduleControl', () => {
     await user.click(await screen.findByRole('button', { name: 'Add filter' }));
     await user.type(await screen.findByRole('textbox', { name: 'Filter key' }), 'team');
     await user.type(await screen.findByRole('textbox', { name: 'Filter value' }), "o'brien");
-    await approveUnattendedRun(user);
     await save(user);
 
     expect(await screen.findByText(/cannot match on it/)).toBeInTheDocument();

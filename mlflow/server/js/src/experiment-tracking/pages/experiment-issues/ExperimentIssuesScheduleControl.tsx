@@ -1,8 +1,6 @@
 import {
-  Alert,
   Button,
   CheckCircleIcon,
-  Checkbox,
   ClockIcon,
   CloseSmallIcon,
   FormUI,
@@ -26,7 +24,7 @@ import {
   IssueDetectionModelDropdown,
   type IssueDetectionModelSelection,
 } from '../../components/experiment-page/components/traces-v3/IssueDetectionModelDropdown';
-import { unsupportedFilterCharacter } from './issueDetectionSchedule';
+import { MAX_TRACE_FILTERS, unsupportedFilterCharacter } from './issueDetectionSchedule';
 import type {
   IssueDetectionScheduleModel,
   ScheduleTraceFilter,
@@ -282,9 +280,6 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
   // True after a Save whose writes failed. Local (not the hook's `error`, which also covers load
   // failures) so it only reflects the in-modal save attempt, and it keeps the modal open for retry.
   const [saveFailed, setSaveFailed] = useState(false);
-  // The owner approves what an unattended run does on every Save that schedules one, since each
-  // Save is what puts a recurring, unwatched run in place.
-  const [approvedUnattendedRun, setApprovedUnattendedRun] = useState(false);
 
   const optionLabels: Record<IssueDetectionScheduleSetting, string> = {
     off: intl.formatMessage({
@@ -342,7 +337,6 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     setFilters(traceFilters.map((filter) => ({ ...filter })));
     setSaveFailed(false);
     setFilterError(null);
-    setApprovedUnattendedRun(false);
     setSelection(toSelection(model) ?? null);
     setView('main');
     setApiKeyDraft('');
@@ -379,7 +373,10 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
   // Removing the last row collapses the section back to just the "Add filter" button.
   const removeFilter = useCallback((index: number) => setFilters((prev) => prev.filter((_, i) => i !== index)), []);
 
-  const addFilter = useCallback(() => setFilters((prev) => [...prev, emptyFilterRow()]), []);
+  const addFilter = useCallback(
+    () => setFilters((prev) => (prev.length >= MAX_TRACE_FILTERS ? prev : [...prev, emptyFilterRow()])),
+    [],
+  );
 
   const persistSchedule = useCallback(async () => {
     // Blank-key rows are dropped; the hook/persistence also normalize, but trimming here keeps the
@@ -392,8 +389,22 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
         value: filter.value,
       }))
       .filter((filter) => filter.key.length > 0);
-    // Checked before either tag is written: the server drops a clause carrying one of these, so
-    // storing it would leave the modal showing a filter that no run applies.
+    // Both checks run before either tag is written: the server drops what they catch, so storing
+    // it would leave the modal showing a filter that no run applies.
+    if (cleaned.length > MAX_TRACE_FILTERS) {
+      setFilterError(
+        intl.formatMessage(
+          {
+            defaultMessage:
+              'Remove {excess, plural, one {# filter} other {# filters}}. Scheduled runs apply at most {limit}.',
+            description:
+              'Experiment issues tab > Schedule modal error shown when a schedule carries more trace filters than the server applies',
+          },
+          { excess: cleaned.length - MAX_TRACE_FILTERS, limit: MAX_TRACE_FILTERS },
+        ),
+      );
+      return;
+    }
     const rejected = cleaned.map(unsupportedFilterCharacter).find(Boolean);
     if (rejected) {
       setFilterError(
@@ -528,7 +539,11 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     description: 'Experiment issues tab > Schedule modal label for the optional trace filters',
   });
   const filtersDisabled = cadence === 'off';
-  const needsApproval = cadence !== 'off' && !approvedUnattendedRun;
+  // An active schedule has to name the model it will run on. `selection` is null until the
+  // endpoint list resolves, and a save made in that gap stores no model at all -- the run would
+  // then use the server's default rather than what this dialog was about to show, and the
+  // credential step would be skipped because it only applies to a direct provider selection.
+  const awaitingSelection = cadence !== 'off' && !selection;
   const selectedProviderName =
     ISSUE_DETECTION_PROVIDERS.find((provider) => provider.id === selection?.provider)?.name ?? selection?.provider;
 
@@ -598,7 +613,7 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
                     loading={isUpdating}
                     // Also held while the credential check is in flight, so Save cannot ask for a
                     // key before the answer that says whether one is needed has arrived.
-                    disabled={needsApproval || isCheckingCredentials}
+                    disabled={awaitingSelection || isCheckingCredentials}
                     onClick={handleSave}
                   >
                     {intl.formatMessage({
@@ -674,7 +689,9 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
                   <Button
                     componentId={`${COMPONENT_ID}.modal.filter-add`}
                     icon={<PlusIcon />}
-                    disabled={filtersDisabled}
+                    // Held at the cap the server applies: a clause past it would show here as
+                    // active and be dropped by every run.
+                    disabled={filtersDisabled || filters.length >= MAX_TRACE_FILTERS}
                     onClick={addFilter}
                   >
                     {intl.formatMessage({
@@ -685,37 +702,6 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
                   </Button>
                 </div>
               </div>
-              {cadence !== 'off' && (
-                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-                  <Alert
-                    componentId={`${COMPONENT_ID}.modal.unattended-run-notice`}
-                    type="info"
-                    closable={false}
-                    message={intl.formatMessage({
-                      defaultMessage: 'Scheduled runs analyze traces with nobody watching',
-                      description:
-                        'Experiment issues tab > Schedule modal notice title about what an unattended scheduled detection run does',
-                    })}
-                    description={intl.formatMessage({
-                      defaultMessage:
-                        "Each run samples this experiment's recent traces, sends their content to the model chosen above using the credential saved for it, and files what it finds in Issues. That spend recurs on this cadence. Trace content is written by your application and its users, so it is untrusted input to the model.",
-                      description:
-                        'Experiment issues tab > Schedule modal notice explaining that a scheduled detection run analyzes untrusted trace content unattended using the credential saved for the chosen model',
-                    })}
-                  />
-                  <Checkbox
-                    componentId={`${COMPONENT_ID}.modal.approve-unattended-run`}
-                    isChecked={approvedUnattendedRun}
-                    onChange={setApprovedUnattendedRun}
-                  >
-                    {intl.formatMessage({
-                      defaultMessage: 'I understand that scheduled runs analyze traces and spend unattended',
-                      description:
-                        'Experiment issues tab > Schedule modal checkbox the owner must tick before saving a schedule',
-                    })}
-                  </Checkbox>
-                </div>
-              )}
             </>
           )}
           {view === 'apiKey' && (

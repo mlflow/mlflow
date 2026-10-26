@@ -67,6 +67,11 @@ export interface IssueDetectionSchedule {
   traceFilters: ScheduleTraceFilter[];
   /** Undefined on a schedule saved before a model could be chosen: the server default applies. */
   model: IssueDetectionScheduleModel | undefined;
+  /**
+   * IANA zone the cadence's hour is interpreted in. Undefined only on a schedule with none
+   * stored, where saving adopts the editor's browser zone.
+   */
+  timezone: string | undefined;
 }
 
 export const noIssueDetectionSchedule = (): IssueDetectionSchedule => ({
@@ -74,6 +79,7 @@ export const noIssueDetectionSchedule = (): IssueDetectionSchedule => ({
   cadence: undefined,
   traceFilters: [],
   model: undefined,
+  timezone: undefined,
 });
 
 interface ExperimentTag {
@@ -162,11 +168,13 @@ export const readIssueDetectionScheduleFromTags = (
   }
   const cadence = isFrequency(parsed['cadence']) ? parsed['cadence'] : undefined;
   const paused = parsed['paused'] === true;
+  const timezone = parsed['timezone'];
   return {
     setting: !cadence || paused ? 'off' : cadence,
     cadence,
     traceFilters,
     model: parseScheduleModel(parsed['model']),
+    timezone: typeof timezone === 'string' && timezone.trim().length > 0 ? timezone : undefined,
   };
 };
 
@@ -183,6 +191,13 @@ export const loadIssueDetectionSchedule = async (experimentId: string): Promise<
  */
 const UNSUPPORTED_FILTER_CHARACTERS = ['`', "'", '"', '\\'];
 
+/**
+ * How many clauses a schedule may carry. The server applies only this many and ignores the rest,
+ * so offering a further one here would show a filter as active that no run ever applies. Must
+ * stay in step with `MAX_TRACE_FILTERS` on the server.
+ */
+export const MAX_TRACE_FILTERS = 20;
+
 export const unsupportedFilterCharacter = (filter: ScheduleTraceFilter): string | undefined =>
   UNSUPPORTED_FILTER_CHARACTERS.find((character) => filter.key.includes(character) || filter.value.includes(character));
 
@@ -192,7 +207,14 @@ export const normalizeTraceFilters = (filters: ScheduleTraceFilter[]): ScheduleT
     .map((filter) => ({ field: filter.field, operator: filter.operator, key: filter.key.trim(), value: filter.value }))
     .filter((filter) => filter.key.length > 0);
 
-const resolveTimezone = (): string => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+/**
+ * The zone a save stores: the one already on the schedule, or the editor's browser zone when it
+ * has none. Preserving it is what stops an edit made elsewhere moving when the schedule fires --
+ * pausing a Tokyo daily schedule from Los Angeles would otherwise resume it at 09:00 Pacific.
+ * There is no timezone control in the modal, so a stored zone is only ever changed by the server.
+ */
+const resolveTimezone = (stored?: string): string =>
+  stored?.trim() || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
 export interface IssueDetectionScheduleUpdate {
   setting: IssueDetectionScheduleSetting;
@@ -225,8 +247,10 @@ export const saveIssueDetectionSchedule = async (
 ): Promise<IssueDetectionSchedule> => {
   const normalized = normalizeTraceFilters(traceFilters);
   const cadence = setting === 'off' ? current?.cadence : setting;
-  // Like the cadence, the model is kept while paused so turning the schedule back on restores it.
+  // Like the cadence, the model and timezone are kept while paused so turning the schedule back
+  // on restores what it had.
   const savedModel = model ?? current?.model;
+  const timezone = resolveTimezone(current?.timezone);
   await MlflowService.setExperimentTag({
     experiment_id: experimentId,
     key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG,
@@ -238,12 +262,10 @@ export const saveIssueDetectionSchedule = async (
     value: JSON.stringify({
       version: ISSUE_DETECTION_SCHEDULE_VERSION,
       cadence: cadence ?? null,
-      // The cron hour is interpreted in this zone, so a daily schedule saved here keeps firing at
-      // 09:00 where it was saved rather than drifting to the server's zone.
-      timezone: resolveTimezone(),
+      timezone,
       paused: setting === 'off',
       ...(savedModel ? { model: savedModel } : {}),
     }),
   });
-  return { setting, cadence, traceFilters: normalized, model: savedModel };
+  return { setting, cadence, traceFilters: normalized, model: savedModel, timezone };
 };
