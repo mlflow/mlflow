@@ -23,7 +23,8 @@ def create_issue(
     issue_id: str | None = None,
     experiment_id: str | None = None,
 ) -> Issue:
-    """Create an issue in an experiment.
+    """
+    Create an issue in an experiment.
 
     Args:
         name: Human-readable issue name.
@@ -58,7 +59,8 @@ def create_issue(
 
 @experimental(version="3.18.0")
 def get_issue(issue_id: str, *, experiment_id: str | None = None) -> Issue:
-    """Get an issue by ID.
+    """
+    Get an issue by ID.
 
     Args:
         issue_id: Issue ID.
@@ -86,7 +88,8 @@ def update_issue(
     delete_metadata_keys: list[str] | None = None,
     experiment_id: str | None = None,
 ) -> Issue:
-    """Update issue fields. Arguments set to ``None`` retain their values.
+    """
+    Update issue fields. Arguments set to ``None`` retain their values.
 
     Args:
         issue_id: Issue ID.
@@ -133,7 +136,8 @@ def search_issues(
     include_total_count: bool = False,
     view: Literal["basic", "full"] | None = None,
 ) -> PagedList[Issue]:
-    """Search issues, combining different filter fields with AND.
+    """
+    Search issues, combining different filter fields with AND.
 
     Args:
         filter_string: Comparisons on ``status`` or ``source_run_id`` using ``=`` or ``!=``,
