@@ -609,3 +609,32 @@ async def test_save_load_workflow_as_code():
         )
         assert response.status_code == 200, response.text
         assert response.json()["predictions"] == batch_result
+
+
+def test_load_model_refuses_model_on_python_path_before_loading_settings(tmp_path, monkeypatch):
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    (model_dir / "MLmodel").write_text("flavors:\n  llama_index: {}\n")
+
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with (
+        mock.patch("mlflow.llama_index.serialize_objects.deserialize_settings") as deserialize,
+        pytest.raises(MlflowException, match="on the Python path"),
+    ):
+        mlflow.llama_index.load_model(str(model_dir))
+    deserialize.assert_not_called()
+
+
+def test_load_model_refuses_model_from_code_before_loading_settings(tmp_path, monkeypatch):
+    (tmp_path / "MLmodel").write_text(
+        "flavors:\n  llama_index: {}\n  python_function:\n    model_code_path: model.py\n"
+    )
+
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with (
+        mock.patch("mlflow.llama_index.serialize_objects.deserialize_settings") as deserialize,
+        pytest.raises(MlflowException, match="a model from code"),
+    ):
+        mlflow.llama_index.load_model(str(tmp_path))
+    deserialize.assert_not_called()
