@@ -484,7 +484,7 @@ describe('ExperimentIssuesScheduleControl', () => {
 
     await openModal(user, /scheduled: daily/i);
     // 15:00 UTC is 16:00 in Berlin, which is the zone the row above is read in.
-    expect(await screen.findByText(/Next run:.*16:00/)).toBeInTheDocument();
+    expect(await screen.findByText(/Next run as saved:.*16:00/)).toBeInTheDocument();
   });
 
   test('says nothing about the next run when the schedule has been retimed since', async () => {
@@ -507,7 +507,7 @@ describe('ExperimentIssuesScheduleControl', () => {
 
     await openModal(user, /scheduled: daily/i);
     expect(await screen.findByRole('combobox', { name: 'Hour' })).toHaveTextContent('16');
-    expect(screen.queryByText(/Next run:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Next run as saved:/)).not.toBeInTheDocument();
   });
 
   test('says nothing about the next run while the schedule is off', async () => {
@@ -528,12 +528,13 @@ describe('ExperimentIssuesScheduleControl', () => {
 
     await openModal(user);
     expect(await screen.findByRole('combobox', { name: /cadence/i })).toHaveTextContent('Off');
-    expect(screen.queryByText(/Next run:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Next run as saved:/)).not.toBeInTheDocument();
   });
 
-  test('drops the next run as soon as the draft is turned off', async () => {
-    // The line describes the saved schedule, but a draft set to Off is about to stop it, so
-    // leaving "Next run" on screen would answer a question the user has just changed.
+  test('keeps naming the saved next run while the draft is edited', async () => {
+    // Only the server computes these, and it has not seen an unsaved edit -- so the value must
+    // not follow the draft, and the label has to say which schedule it is describing. Pinned
+    // because the alternative is a line that silently answers for the controls above it.
     const nextRun = Date.UTC(2026, 10, 3, 15, 0);
     experimentTags = [
       scheduleTag('daily', false, 'Europe/Berlin', '16:00', 0),
@@ -551,10 +552,40 @@ describe('ExperimentIssuesScheduleControl', () => {
     render();
 
     await openModal(user, /scheduled: daily/i);
-    expect(await screen.findByText(/Next run:/)).toBeInTheDocument();
+    expect(await screen.findByText(/Next run as saved:.*16:00/)).toBeInTheDocument();
+
+    await chooseStartTime(user, '07', '45');
+    await chooseCadence(user, 'Weekly');
+
+    expect(await screen.findByRole('combobox', { name: 'Hour' })).toHaveTextContent('07');
+    // Still the saved schedule's next run, and still labelled as such.
+    expect(await screen.findByText(/Next run as saved:.*16:00/)).toBeInTheDocument();
+  });
+
+  test('drops the next run as soon as the draft is turned off', async () => {
+    // The line describes the saved schedule, but a draft set to Off is about to stop it, so
+    // leaving it on screen would describe a schedule the user has just turned off.
+    const nextRun = Date.UTC(2026, 10, 3, 15, 0);
+    experimentTags = [
+      scheduleTag('daily', false, 'Europe/Berlin', '16:00', 0),
+      {
+        key: MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG,
+        value: JSON.stringify({
+          version: ISSUE_DETECTION_SCHEDULE_VERSION,
+          lastFireTimeMs: nextRun - 86_400_000,
+          timing: scheduleTiming('daily', '16:00', 0, 'Europe/Berlin'),
+          nextFireTimeMs: nextRun,
+        }),
+      },
+    ];
+    const user = setup();
+    render();
+
+    await openModal(user, /scheduled: daily/i);
+    expect(await screen.findByText(/Next run as saved:/)).toBeInTheDocument();
 
     await chooseCadence(user, 'Off');
-    await waitFor(() => expect(screen.queryByText(/Next run:/)).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText(/Next run as saved:/)).not.toBeInTheDocument());
   });
 
   test('says the cost recurs while a cadence is selected, and not when off', async () => {

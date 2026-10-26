@@ -3171,10 +3171,6 @@
     "defaultMessage": "Monitor",
     "description": "Monitor step"
   },
-  "8G84mD": {
-    "defaultMessage": "Next run: {when}",
-    "description": "Experiment issues tab > Schedule modal line stating when the saved schedule next runs"
-  },
   "8GlhpA": {
     "defaultMessage": "No attributes",
     "description": "Empty state shown when a span link has no attributes"
@@ -13242,6 +13238,10 @@
   "eIdMWq": {
     "defaultMessage": "Reset example",
     "description": "Reset example button"
+  },
+  "eJM0ai": {
+    "defaultMessage": "Next run as saved: {when}",
+    "description": "Experiment issues tab > Schedule modal line stating when the schedule as currently saved next runs; it does not follow unsaved edits"
   },
   "eLgTRT": {
     "defaultMessage": "Key",

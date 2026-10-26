@@ -689,15 +689,21 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
   });
   // What the saved schedule will do next, which is the question the dialog cannot otherwise
   // answer: the controls say "daily at 16:00", not "that means tomorrow". Shown in the
-  // schedule's own zone, since that is the zone the row above is read in. Stays on the saved
-  // value while a draft is edited -- the server works out the new one on its next pass.
+  // schedule's own zone, since that is the zone the row above is read in.
+  //
+  // "as saved" is doing real work in that wording. This is the stored schedule's next run and it
+  // does not follow the draft: only the server computes these, and it has not seen an unsaved
+  // edit. Labelled plainly "Next run" it reads as a claim about the controls above it, so a draft
+  // of "Weekly at 07:45" would sit beside a Tuesday at 12:00 and look like the dialog's answer
+  // for what was just typed.
   const nextRunLabel =
     nextRunMs === undefined
       ? null
       : intl.formatMessage(
           {
-            defaultMessage: 'Next run: {when}',
-            description: 'Experiment issues tab > Schedule modal line stating when the saved schedule next runs',
+            defaultMessage: 'Next run as saved: {when}',
+            description:
+              'Experiment issues tab > Schedule modal line stating when the schedule as currently saved next runs; it does not follow unsaved edits',
           },
           {
             when: new Intl.DateTimeFormat(intl.locale, {
@@ -870,6 +876,14 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
           {view === 'main' && (
             <>
+              {/* Above the controls, because it is the one line here that describes the schedule
+                  as it stands rather than the draft being edited. Shown only while both the
+                  saved schedule and the draft are running: a paused schedule has a next fire
+                  time recorded that it will never reach, and a draft turned off is about to stop
+                  the one that would. */}
+              {setting !== 'off' && cadence !== 'off' && nextRunLabel && (
+                <Typography.Hint>{nextRunLabel}</Typography.Hint>
+              )}
               <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
                 <Typography.Text color="secondary">{cadenceRowLabel}</Typography.Text>
                 {/* One row: the cadence, the weekday a weekly one falls on, and the time of day.
@@ -988,12 +1002,6 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
                   disabled={filtersDisabled}
                   clearOnOpen
                 />
-                {/* Only while both the saved schedule and the draft are running: a paused
-                    schedule has a next fire time recorded that it will never reach, and a draft
-                    turned off is about to stop the one that would. */}
-                {setting !== 'off' && cadence !== 'off' && nextRunLabel && (
-                  <Typography.Hint>{nextRunLabel}</Typography.Hint>
-                )}
               </div>
               <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
                 <Typography.Text color="secondary">{modelRowLabel}</Typography.Text>
