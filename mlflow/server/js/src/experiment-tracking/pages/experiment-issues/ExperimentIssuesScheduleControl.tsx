@@ -907,132 +907,147 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
               {setting !== 'off' && cadence !== 'off' && nextRunLabel && (
                 <Typography.Hint>{nextRunLabel}</Typography.Hint>
               )}
-              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                <Typography.Text color="secondary">{cadenceRowLabel}</Typography.Text>
-                {/* One row: the cadence, the weekday a weekly one falls on, and the time of day.
+              {/* The cadence row and the timezone under it share one column sized to the row's
+                  own content, so the timezone control ends where the minute select ends instead
+                  of running the width of the dialog. Measured from the row rather than set to a
+                  number: the row's width depends on the weekday being there and on how long
+                  "on" and "at" are in the current language, so a constant would be wrong in
+                  some languages and on every cadence change. */}
+              <div
+                css={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: theme.spacing.md,
+                  width: 'fit-content',
+                }}
+              >
+                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                  <Typography.Text color="secondary">{cadenceRowLabel}</Typography.Text>
+                  {/* One row: the cadence, the weekday a weekly one falls on, and the time of day.
                     Wraps rather than overflowing, since a long translation of "on" or "at" can
                     push the minute select past the modal's width. */}
-                <div
-                  css={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: theme.spacing.sm,
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <SimpleSelect
-                    id={`${COMPONENT_ID}.modal.cadence`}
-                    componentId={`${COMPONENT_ID}.modal.cadence`}
-                    label={cadenceRowLabel}
-                    width={CADENCE_WIDTH}
-                    value={cadence}
-                    onChange={({ target }) => {
-                      if (isScheduleSetting(target.value)) {
-                        setCadence(target.value);
-                      }
+                  <div
+                    css={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: theme.spacing.sm,
+                      flexWrap: 'wrap',
                     }}
-                    // The select's options popover defaults below the modal; lift it above the modal's zIndex.
-                    contentProps={{ style: { zIndex: theme.options.zIndexBase + 40 } }}
                   >
-                    {SETTING_OPTIONS.map((option) => (
-                      <SimpleSelectOption key={option} value={option}>
-                        {optionLabels[option]}
-                      </SimpleSelectOption>
-                    ))}
-                  </SimpleSelect>
-                  {cadence === 'weekly' && (
-                    <>
-                      <Typography.Text color="secondary">
-                        {intl.formatMessage({
-                          defaultMessage: 'on',
-                          description:
-                            'Experiment issues tab > Schedule modal word joining the cadence to the weekday it runs on, as in "Weekly on Monday"',
-                        })}
-                      </Typography.Text>
-                      <SimpleSelect
-                        id={`${COMPONENT_ID}.modal.weekday`}
-                        componentId={`${COMPONENT_ID}.modal.weekday`}
-                        label={weekdayFieldLabel}
-                        width={WEEKDAY_WIDTH}
-                        value={String(weekday)}
-                        // Guarded rather than coerced: `Number('')` is `NaN`, which serializes to
-                        // `null` and would come back from the server as Monday -- a silently
-                        // different day from the one on screen.
-                        onChange={({ target }) => {
-                          const chosen = Number(target.value);
-                          if (Number.isInteger(chosen) && chosen >= 0 && chosen <= 6) {
-                            setWeekday(chosen);
-                          }
-                        }}
-                        contentProps={{ style: { zIndex: theme.options.zIndexBase + 40 } }}
-                      >
-                        {weekdayOptions.map((label, index) => (
-                          <SimpleSelectOption key={label} value={String(index)}>
-                            {label}
-                          </SimpleSelectOption>
-                        ))}
-                      </SimpleSelect>
-                    </>
-                  )}
-                  <Typography.Text color="secondary">
-                    {intl.formatMessage({
-                      defaultMessage: 'at',
-                      description:
-                        'Experiment issues tab > Schedule modal word joining the cadence to the time it runs at, as in "Daily at 09:00"',
-                    })}
-                  </Typography.Text>
-                  <SimpleSelect
-                    id={`${COMPONENT_ID}.modal.start-hour`}
-                    componentId={`${COMPONENT_ID}.modal.start-hour`}
-                    label={hourFieldLabel}
-                    width={TIME_PART_WIDTH}
-                    value={hour}
-                    disabled={filtersDisabled}
-                    onChange={({ target }) => setStartTime(joinStartTime(target.value, minute))}
-                    contentProps={{ style: { zIndex: theme.options.zIndexBase + 40 } }}
-                  >
-                    {startTimeHourOptions().map((option) => (
-                      <SimpleSelectOption key={option} value={option}>
-                        {option}
-                      </SimpleSelectOption>
-                    ))}
-                  </SimpleSelect>
-                  <Typography.Text color="secondary">:</Typography.Text>
-                  <SimpleSelect
-                    id={`${COMPONENT_ID}.modal.start-minute`}
-                    componentId={`${COMPONENT_ID}.modal.start-minute`}
-                    label={minuteFieldLabel}
-                    width={TIME_PART_WIDTH}
-                    value={minute}
-                    disabled={filtersDisabled}
-                    onChange={({ target }) => setStartTime(joinStartTime(hour, target.value))}
-                    contentProps={{ style: { zIndex: theme.options.zIndexBase + 40 } }}
-                  >
-                    {minuteOptions.map((option) => (
-                      <SimpleSelectOption key={option} value={option}>
-                        {option}
-                      </SimpleSelectOption>
-                    ))}
-                  </SimpleSelect>
+                    <SimpleSelect
+                      id={`${COMPONENT_ID}.modal.cadence`}
+                      componentId={`${COMPONENT_ID}.modal.cadence`}
+                      label={cadenceRowLabel}
+                      width={CADENCE_WIDTH}
+                      value={cadence}
+                      onChange={({ target }) => {
+                        if (isScheduleSetting(target.value)) {
+                          setCadence(target.value);
+                        }
+                      }}
+                      // The select's options popover defaults below the modal; lift it above the modal's zIndex.
+                      contentProps={{ style: { zIndex: theme.options.zIndexBase + 40 } }}
+                    >
+                      {SETTING_OPTIONS.map((option) => (
+                        <SimpleSelectOption key={option} value={option}>
+                          {optionLabels[option]}
+                        </SimpleSelectOption>
+                      ))}
+                    </SimpleSelect>
+                    {cadence === 'weekly' && (
+                      <>
+                        <Typography.Text color="secondary">
+                          {intl.formatMessage({
+                            defaultMessage: 'on',
+                            description:
+                              'Experiment issues tab > Schedule modal word joining the cadence to the weekday it runs on, as in "Weekly on Monday"',
+                          })}
+                        </Typography.Text>
+                        <SimpleSelect
+                          id={`${COMPONENT_ID}.modal.weekday`}
+                          componentId={`${COMPONENT_ID}.modal.weekday`}
+                          label={weekdayFieldLabel}
+                          width={WEEKDAY_WIDTH}
+                          value={String(weekday)}
+                          // Guarded rather than coerced: `Number('')` is `NaN`, which serializes to
+                          // `null` and would come back from the server as Monday -- a silently
+                          // different day from the one on screen.
+                          onChange={({ target }) => {
+                            const chosen = Number(target.value);
+                            if (Number.isInteger(chosen) && chosen >= 0 && chosen <= 6) {
+                              setWeekday(chosen);
+                            }
+                          }}
+                          contentProps={{ style: { zIndex: theme.options.zIndexBase + 40 } }}
+                        >
+                          {weekdayOptions.map((label, index) => (
+                            <SimpleSelectOption key={label} value={String(index)}>
+                              {label}
+                            </SimpleSelectOption>
+                          ))}
+                        </SimpleSelect>
+                      </>
+                    )}
+                    <Typography.Text color="secondary">
+                      {intl.formatMessage({
+                        defaultMessage: 'at',
+                        description:
+                          'Experiment issues tab > Schedule modal word joining the cadence to the time it runs at, as in "Daily at 09:00"',
+                      })}
+                    </Typography.Text>
+                    <SimpleSelect
+                      id={`${COMPONENT_ID}.modal.start-hour`}
+                      componentId={`${COMPONENT_ID}.modal.start-hour`}
+                      label={hourFieldLabel}
+                      width={TIME_PART_WIDTH}
+                      value={hour}
+                      disabled={filtersDisabled}
+                      onChange={({ target }) => setStartTime(joinStartTime(target.value, minute))}
+                      contentProps={{ style: { zIndex: theme.options.zIndexBase + 40 } }}
+                    >
+                      {startTimeHourOptions().map((option) => (
+                        <SimpleSelectOption key={option} value={option}>
+                          {option}
+                        </SimpleSelectOption>
+                      ))}
+                    </SimpleSelect>
+                    <Typography.Text color="secondary">:</Typography.Text>
+                    <SimpleSelect
+                      id={`${COMPONENT_ID}.modal.start-minute`}
+                      componentId={`${COMPONENT_ID}.modal.start-minute`}
+                      label={minuteFieldLabel}
+                      width={TIME_PART_WIDTH}
+                      value={minute}
+                      disabled={filtersDisabled}
+                      onChange={({ target }) => setStartTime(joinStartTime(hour, target.value))}
+                      contentProps={{ style: { zIndex: theme.options.zIndexBase + 40 } }}
+                    >
+                      {minuteOptions.map((option) => (
+                        <SimpleSelectOption key={option} value={option}>
+                          {option}
+                        </SimpleSelectOption>
+                      ))}
+                    </SimpleSelect>
+                  </div>
                 </div>
-              </div>
-              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                <Typography.Text color="secondary">{timezoneRowLabel}</Typography.Text>
-                <NavigableCombobox
-                  componentId={`${COMPONENT_ID}.modal.timezone`}
-                  config={timezoneConfig}
-                  value={timezone}
-                  // Clearing the field leaves the schedule on the zone it had rather than on none,
-                  // since every stored schedule has to name one for its time to mean anything.
-                  onChange={(next) => setTimezone(next ?? timezone)}
-                  valueToDisplayString={(zone) => timezoneChoice(zone).label}
-                  placeholder={intl.formatMessage({
-                    defaultMessage: 'Search timezones',
-                    description: 'Experiment issues tab > Schedule modal placeholder of the timezone search input',
-                  })}
-                  disabled={filtersDisabled}
-                  clearOnOpen
-                />
+                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                  <Typography.Text color="secondary">{timezoneRowLabel}</Typography.Text>
+                  <NavigableCombobox
+                    componentId={`${COMPONENT_ID}.modal.timezone`}
+                    config={timezoneConfig}
+                    value={timezone}
+                    // Clearing the field leaves the schedule on the zone it had rather than on none,
+                    // since every stored schedule has to name one for its time to mean anything.
+                    onChange={(next) => setTimezone(next ?? timezone)}
+                    valueToDisplayString={(zone) => timezoneChoice(zone).label}
+                    placeholder={intl.formatMessage({
+                      defaultMessage: 'Search timezones',
+                      description: 'Experiment issues tab > Schedule modal placeholder of the timezone search input',
+                    })}
+                    disabled={filtersDisabled}
+                    clearOnOpen
+                  />
+                </div>
               </div>
               <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
                 <Typography.Text color="secondary">{modelRowLabel}</Typography.Text>
