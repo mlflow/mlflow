@@ -25,7 +25,9 @@ jobs:
   set-fields:
     if: >-
       github.repository == 'mlflow/mlflow' &&
-      (github.event_name != 'issues' || github.event.issue.user.type == 'User')
+      (github.event_name != 'issues' ||
+        (github.event.issue.user.type == 'User' &&
+          !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)))
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
