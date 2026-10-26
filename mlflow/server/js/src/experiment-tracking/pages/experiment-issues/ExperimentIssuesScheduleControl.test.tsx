@@ -432,9 +432,12 @@ describe('ExperimentIssuesScheduleControl', () => {
     render();
 
     // Only the unavailable branch wraps the trigger in a tooltip, so that attribute is what says
-    // the capability check has landed. Waiting on `toBeDisabled` instead would pass before it does:
-    // the capability defaults to available until `server-info` answers, and the ordinary trigger is
-    // disabled too while the schedule loads -- so the assertion could hold for the wrong reason.
+    // the control took it. Waiting on `toBeDisabled` alone would not discriminate: the ordinary
+    // trigger is disabled too while the schedule loads, so that assertion can hold for the wrong
+    // reason. The capability itself reads false until `server-info` answers
+    // (`useFeatureEnabled(SCHEDULED_ISSUE_DETECTION, false)`), which is the fail-closed direction
+    // for a capability question -- a control that looks available and saves a schedule the server
+    // cannot run is the worse default.
     await waitFor(async () =>
       expect(await screen.findByRole('button', { name: /schedule detection/i })).toHaveAttribute('tooltip-data-state'),
     );

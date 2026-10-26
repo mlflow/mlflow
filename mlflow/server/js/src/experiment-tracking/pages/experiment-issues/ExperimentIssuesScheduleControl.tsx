@@ -536,9 +536,13 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
   }
 
   if (!scheduledDetectionAvailable) {
+    // The server reports only whether it can run a schedule, not which requirement is missing, so
+    // the reason has to cover every case `scheduled_detection_available()` answers no for. The
+    // earlier wording named the backend store, job execution and periodic tasks, which reads as
+    // wrong on a server that has all three and is turned down for its job execution engine.
     const disabledReason = intl.formatMessage({
       defaultMessage:
-        'This MLflow server cannot run scheduled detection. It needs a SQL backend store with job execution and periodic tasks enabled.',
+        'This MLflow server is not configured to run scheduled detection. It needs a SQL backend store, job execution and periodic tasks enabled, and a job execution engine that can run scheduled detection.',
       description:
         'Experiment issues tab > Tooltip explaining the scheduled-detection control is disabled because the server cannot run a schedule',
     });
