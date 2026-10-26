@@ -484,12 +484,15 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         try:
             create = self.create_multipart_upload(local_file, num_parts, artifact_path)
         except HTTPError as e:
-            # return False if server does not support multipart upload
-            error_message = e.response.json().get("message", "")
-            if isinstance(error_message, str) and error_message.startswith(
-                _UnsupportedMultipartUploadException.MESSAGE
-            ):
+            if e.response is not None and e.response.status_code == HTTPStatus.NOT_IMPLEMENTED:
                 raise _UnsupportedMultipartUploadException()
+            # Older servers report unsupported multipart uploads in the response message.
+            if e.response is not None:
+                error_message = e.response.json().get("message", "")
+                if isinstance(error_message, str) and error_message.startswith(
+                    _UnsupportedMultipartUploadException.MESSAGE
+                ):
+                    raise _UnsupportedMultipartUploadException()
             raise
 
         try:

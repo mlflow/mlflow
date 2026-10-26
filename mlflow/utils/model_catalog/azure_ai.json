@@ -1211,7 +1211,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2027-01-17",
+      "last_updated_at": "2026-10-26"
     },
     "Phi-4-mini-instruct": {
       "mode": "chat",
@@ -1231,7 +1232,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2027-01-17",
+      "last_updated_at": "2026-10-26"
     },
     "Phi-4-mini-reasoning": {
       "mode": "chat",
@@ -1251,7 +1253,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-17"
+      "deprecation_date": "2027-01-17",
+      "last_updated_at": "2026-10-26"
     },
     "Phi-4-multimodal-instruct": {
       "mode": "chat",
@@ -1276,7 +1279,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2027-01-17",
+      "last_updated_at": "2026-10-26"
     },
     "Phi-4-reasoning": {
       "mode": "chat",
@@ -1296,7 +1300,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2027-01-17",
+      "last_updated_at": "2026-10-26"
     },
     "claude-fable-5": {
       "mode": "chat",
@@ -2655,7 +2660,7 @@
     "gpt-chat-latest": {
       "mode": "chat",
       "context_window": {
-        "max_input": 272000,
+        "max_input": 128000,
         "max_output": 128000,
         "max_tokens": 128000
       },
@@ -2672,7 +2677,7 @@
         "response_schema": true
       },
       "deprecation_date": "2027-05-18",
-      "last_updated_at": "2026-10-16"
+      "last_updated_at": "2026-10-26"
     },
     "gpt-image-2": {
       "mode": "image_generation",

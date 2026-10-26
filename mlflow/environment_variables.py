@@ -1334,6 +1334,10 @@ MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS = _EnvironmentVariable(
     "MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS", int, 10
 )
 
+#: Maximum number of worker threads for deleting archived trace payloads. Must be positive.
+#: (default: ``8``)
+MLFLOW_TRACE_DELETE_MAX_WORKERS = _EnvironmentVariable("MLFLOW_TRACE_DELETE_MAX_WORKERS", int, 8)
+
 #: Maximum number of export tasks to queue for async trace logging.
 #: When the queue is full, new export tasks will be dropped.
 #: (default: ``1000``)
@@ -1917,9 +1921,21 @@ MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH = _BooleanEnvironmentVariable(
 _MLFLOW_ENABLE_UC_TRACE_UPSELL = _BooleanEnvironmentVariable("_MLFLOW_ENABLE_UC_TRACE_UPSELL", True)
 
 
-#: Specifies whether to allow unsafe pickle deserialization for loading model
+#: (Deprecated, use ``MLFLOW_ALLOW_MODEL_CODE_EXECUTION``) Specifies whether to allow unsafe
+#: pickle deserialization for loading model. Setting it to ``false`` refuses only pickle and
+#: cloudpickle models.
 MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
     "MLFLOW_ALLOW_PICKLE_DESERIALIZATION", True
+)
+
+#: Specifies whether to allow loading models that run code supplied by the model: pickle or
+#: cloudpickle artifacts, code directories logged with ``code_paths``, models from code, models
+#: on the Python path, Transformers custom code, and all PyFunc models, because a PyFunc model
+#: names the Python module that loads it. Set it to ``false`` to refuse such models. Only set it
+#: to ``true`` for models you trust.
+#: (default: ``True``)
+MLFLOW_ALLOW_MODEL_CODE_EXECUTION = _BooleanEnvironmentVariable(
+    "MLFLOW_ALLOW_MODEL_CODE_EXECUTION", True
 )
 
 
@@ -1932,6 +1948,13 @@ MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
 _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN = _EnvironmentVariable(
     "_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", str, None
 )
+
+#: Internal env var set by ``mlflow server`` for its worker processes when uvicorn terminates TLS
+#: itself (``--uvicorn-opts`` with ``--ssl-keyfile``/``--ssl-certfile``), so that server
+#: self-calls (see ``mlflow.server.asgi_utils.get_server_self_url``) use HTTPS. Not set behind a
+#: TLS-terminating proxy, where the listener itself speaks plain HTTP.
+#: (default: ``False``)
+_MLFLOW_SERVER_TLS_LISTENER = _BooleanEnvironmentVariable("_MLFLOW_SERVER_TLS_LISTENER", False)
 
 # Short-lived, user-scoped credential the MLflow Assistant injects into a tool subprocess so the
 # tool's MLflow API calls authenticate as the session owner. It is an HMAC-signed value (see

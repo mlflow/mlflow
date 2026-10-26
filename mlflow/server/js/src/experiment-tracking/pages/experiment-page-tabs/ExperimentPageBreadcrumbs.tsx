@@ -9,6 +9,9 @@ import Routes, { RoutePaths } from '../../routes';
 import { getTabDisplayName } from '../../components/experiment-page/components/header/ExperimentViewHeader.utils';
 import { useGetExperimentPageActiveTabByRoute } from '../../components/experiment-page/hooks/useGetExperimentPageActiveTabByRoute';
 import { useExperimentBreadcrumbStatus, useExperimentBreadcrumbTitle } from './ExperimentPageRevampContext';
+import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
+import { useEvalRunsCompareMode } from '../../components/evaluations/hooks/useEvalRunsCompareMode';
+import { EvalRunComparisonBackButton } from '../eval-run-details/EvalRunComparisonBackButton';
 
 const breadcrumbLabelCss = {
   display: 'inline-flex',
@@ -75,6 +78,11 @@ export const ExperimentPageBreadcrumbs = ({ experiment }: ExperimentPageBreadcru
       : undefined;
   const experimentName = experiment.name.split('/').pop() ?? experiment.name;
   const runStatus = useExperimentBreadcrumbStatus();
+  const { compareMode } = useEvalRunsCompareMode();
+  // Only the new eval-run detail page hosts this compare view. Keep an exit action while comparing,
+  // but start comparisons from the run sidebar instead of a top-level toggle.
+  const showExitCompareAction =
+    Boolean(matchPath(RoutePaths.experimentPageTabEvaluationRunDetails, pathname)) && shouldEnableNewEvalRunsUi();
 
   return (
     <div
@@ -150,6 +158,11 @@ export const ExperimentPageBreadcrumbs = ({ experiment }: ExperimentPageBreadcru
           </div>
         )}
       </div>
+      {showExitCompareAction && compareMode && (
+        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, flexShrink: 0 }}>
+          <EvalRunComparisonBackButton />
+        </div>
+      )}
       <div css={{ flexShrink: 0 }}>
         <CopyButton
           componentId="mlflow.experiment_page.breadcrumb.copy_link"

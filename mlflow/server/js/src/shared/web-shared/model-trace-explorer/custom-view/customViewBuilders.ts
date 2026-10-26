@@ -1,5 +1,7 @@
 import type { Assessment, ModelTrace, ModelTraceSpanNode } from '../ModelTrace.types';
 import { getTotalTokens, isV3ModelTraceInfo } from '../ModelTraceExplorer.utils';
+import { formatExecutionDuration, spanTimeFormatter } from '../v2/timeline-tree/TimelineTree.utils';
+import { shouldEnableNewEvalRunsUi } from '../../../../common/utils/FeatureUtils';
 
 // Must match the `catalogId` declared in `catalog.json`.
 export const CUSTOM_VIEW_CATALOG_ID = 'https://mlflow.org/model-trace-explorer/custom-view/catalog.json';
@@ -26,7 +28,11 @@ export const getMetricsFromTraceInfo = (info: ModelTrace['info'], assessmentCoun
     const totalTokens = getTotalTokens(info);
     return {
       status: info.state ?? 'STATE_UNSPECIFIED',
-      latency: info.execution_duration ?? 'N/A',
+      latency: info.execution_duration
+        ? shouldEnableNewEvalRunsUi()
+          ? formatExecutionDuration(info.execution_duration)
+          : info.execution_duration
+        : 'N/A',
       totalTokens: totalTokens != null ? totalTokens.toLocaleString() : 'N/A',
       assessments: String(assessmentCount),
     };
@@ -36,7 +42,12 @@ export const getMetricsFromTraceInfo = (info: ModelTrace['info'], assessmentCoun
   // both expose `status` and `execution_time_ms` — no cast needed.
   return {
     status: info.status ?? 'UNKNOWN',
-    latency: typeof info.execution_time_ms === 'number' ? formatLatencyMs(info.execution_time_ms) : 'N/A',
+    latency:
+      typeof info.execution_time_ms === 'number'
+        ? shouldEnableNewEvalRunsUi()
+          ? spanTimeFormatter(info.execution_time_ms * 1000)
+          : formatLatencyMs(info.execution_time_ms)
+        : 'N/A',
     totalTokens: 'N/A',
     assessments: String(assessmentCount),
   };

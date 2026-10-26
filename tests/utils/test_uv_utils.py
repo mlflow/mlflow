@@ -826,6 +826,7 @@ def test_run_uv_sync_builds_correct_command(tmp_path):
         call_args = mock_run.call_args[0][0]
         assert call_args[0] == "/usr/bin/uv"
         assert call_args[1] == "sync"
+        assert "--no-install-project" in call_args
         assert "--frozen" in call_args
         assert "--no-dev" in call_args
 

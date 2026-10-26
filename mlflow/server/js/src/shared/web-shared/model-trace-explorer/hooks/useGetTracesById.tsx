@@ -6,7 +6,7 @@ import { useArrayMemo } from './useArrayMemo';
 import { doesTraceSupportV4API, parseV4TraceIdToObject } from '../ModelTraceExplorer.utils';
 import { TracesServiceV3, TracesServiceV4 } from '../api';
 
-const GET_TRACE_BY_ID = 'GET_TRACE_BY_ID';
+export const GET_TRACE_BY_ID = 'GET_TRACE_BY_ID';
 
 type UseGetTracesByIdProps = any;
 
