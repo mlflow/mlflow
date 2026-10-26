@@ -800,7 +800,7 @@ class ColSpec:
         if kwargs["type"] not in [ARRAY_TYPE, OBJECT_TYPE, MAP_TYPE, SPARKML_VECTOR_TYPE, ANY_TYPE]:
             return cls(**kwargs)
         name = kwargs.pop("name", None)
-        required = kwargs.pop("required", None)
+        required = kwargs.pop("required", True)
         if kwargs["type"] == ARRAY_TYPE:
             return cls(name=name, type=Array.from_json_dict(**kwargs), required=required)
         if kwargs["type"] == OBJECT_TYPE:

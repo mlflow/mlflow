@@ -65,6 +65,22 @@ def test_col_spec():
     assert ColSpec(**json.loads(json.dumps(a5.to_dict()))) == a5
 
 
+@pytest.mark.parametrize(
+    "spec",
+    [
+        {"type": "string"},
+        {"type": "array", "items": {"type": "float"}},
+        {"type": "object", "properties": {"a": {"type": "long"}}},
+        {"type": "map", "values": {"type": "string"}},
+        {"type": "sparkml_vector"},
+        {"type": "any"},
+    ],
+)
+def test_col_spec_from_json_dict_defaults_required_to_true(spec):
+    assert ColSpec.from_json_dict(name="a", **spec).required is True
+    assert ColSpec.from_json_dict(name="a", required=False, **spec).required is False
+
+
 def test_tensor_spec():
     a1 = TensorSpec(np.dtype("float64"), (-1, 3, 3), "a")
     a2 = TensorSpec(np.dtype("float"), (-1, 3, 3), "a")  # float defaults to float64
