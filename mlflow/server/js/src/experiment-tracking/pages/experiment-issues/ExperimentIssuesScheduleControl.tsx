@@ -75,7 +75,16 @@ const weekdayLabels = (locale: string): string[] => {
   return Array.from({ length: 7 }, (_, index) => formatter.format(new Date(Date.UTC(2026, 0, 5 + index))));
 };
 
-/** Widths of the schedule row's controls, sized to fit one line inside a 520-wide modal. */
+/**
+ * Width of the dialog.
+ *
+ * Narrower than the design system's default, which left every row ending less than half way
+ * across. What stops it going narrower still is the clause row below -- `Field | Key | Operator |
+ * Value` plus its remove button -- which is the widest thing here and has to stay on one line.
+ */
+const MODAL_WIDTH = 580;
+
+/** Widths of the schedule row's controls, sized to fit one line inside the dialog. */
 const CADENCE_WIDTH = 104;
 const WEEKDAY_WIDTH = 116;
 const TIME_PART_WIDTH = 72;
@@ -86,6 +95,14 @@ const TIME_PART_WIDTH = 72;
  * filling the row so the two dialogs present the same control at the same size.
  */
 const MODEL_PICKER_WIDTH = 220;
+
+// Widths of one clause row, which together with its gaps and remove button set the floor under
+// `MODAL_WIDTH`. Trimmed from 140/160/56/160 when the dialog was narrowed; the key and value
+// still hold a tag name and a value like `production` without scrolling.
+const FILTER_FIELD_WIDTH = 130;
+const FILTER_KEY_WIDTH = 140;
+const FILTER_OPERATOR_WIDTH = 48;
+const FILTER_VALUE_WIDTH = 140;
 
 // The filterable namespaces (Field dropdown) and the only operator offered today. Kept as constants
 // so the row mirrors the traces-tab filter shape (Field | Key | Operator | Value) while the operator
@@ -155,7 +172,7 @@ const TraceFilterRow = ({ index, filter, disabled, onChange, onRemove }: TraceFi
           id={fieldId}
           componentId={`${COMPONENT_ID}.modal.filter-field`}
           aria-label={fieldLabel}
-          width={140}
+          width={FILTER_FIELD_WIDTH}
           value={filter.field}
           disabled={disabled}
           contentProps={contentProps}
@@ -178,7 +195,7 @@ const TraceFilterRow = ({ index, filter, disabled, onChange, onRemove }: TraceFi
             defaultMessage: 'Filter key',
             description: 'Experiment issues tab > Schedule modal aria label for the trace filter key input',
           })}
-          css={{ width: 160 }}
+          css={{ width: FILTER_KEY_WIDTH }}
           placeholder={intl.formatMessage({
             defaultMessage: 'e.g. environment',
             description: 'Experiment issues tab > Schedule modal placeholder for the metadata filter key',
@@ -194,7 +211,7 @@ const TraceFilterRow = ({ index, filter, disabled, onChange, onRemove }: TraceFi
           id={operatorId}
           componentId={`${COMPONENT_ID}.modal.filter-operator`}
           aria-label={operatorLabel}
-          css={{ width: 56 }}
+          css={{ width: FILTER_OPERATOR_WIDTH }}
           value={EQUALS_OPERATOR}
           // Only equality is supported for now, so the operator is a fixed, read-only "=".
           readOnly
@@ -210,7 +227,7 @@ const TraceFilterRow = ({ index, filter, disabled, onChange, onRemove }: TraceFi
             defaultMessage: 'Filter value',
             description: 'Experiment issues tab > Schedule modal aria label for the trace filter value input',
           })}
-          css={{ width: 160 }}
+          css={{ width: FILTER_VALUE_WIDTH }}
           placeholder={intl.formatMessage({
             defaultMessage: 'e.g. production',
             description: 'Experiment issues tab > Schedule modal placeholder for the metadata filter value',
@@ -891,6 +908,8 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
           defaultMessage: 'Schedule issue detection',
           description: 'Experiment issues tab > Schedule modal title',
         })}
+        size="normal"
+        css={{ width: `${MODAL_WIDTH}px !important` }}
         // Left at the design system's default rather than raised: the timezone combobox portals
         // its menu at `zIndexBase + 10`, with no way to lift it, so a modal above that height
         // renders over its own dropdown. Everything this dialog opens for itself is placed at
