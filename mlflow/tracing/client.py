@@ -1030,7 +1030,8 @@ class TracingClient:
             order_by: Field and optional ASC/DESC; supports name, status, severity and timestamps.
                 Issue ID breaks ties. Omit to retain the legacy severity/count/creation ordering.
             include_total_count: Return the matching count before pagination in total_count.
-            view: "basic" returns an empty description and omits root_causes and metadata.
+            view: "basic" returns an empty description and may omit metadata, depending on
+                the backend. "full" returns complete issues.
                 The default is "full".
 
         Returns:

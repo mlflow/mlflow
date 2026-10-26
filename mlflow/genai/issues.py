@@ -157,8 +157,9 @@ def search_issues(
             and timestamps. Defaults to the store's ordering.
         page_token: Continuation token from a previous result.
         include_total_count: Include the matching count before pagination in ``total_count``.
-        view: ``"basic"`` returns an empty description and omits root causes and metadata;
-            ``"full"`` returns complete issues. Defaults to ``"full"``.
+        view: ``"basic"`` returns an empty description. SQL stores also omit root causes
+            and metadata; Databricks may omit large metadata entries. ``"full"`` returns
+            complete issues. Defaults to ``"full"``.
 
     Returns:
         A list of :py:class:`mlflow.entities.Issue` objects with a continuation ``token``
