@@ -31,14 +31,15 @@ jobs:
     permissions:
       issues: write
     steps:
-      - name: Set author PR repos field
+      - name: Set author stats fields
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
           AUTHOR: ${{ github.event.issue.user.login }}
-          # The "Author PR repos (30d)" org issue field (`gh api orgs/mlflow/issue-fields`).
-          FIELD_ID: 49034796
+          # Org issue field IDs (`gh api orgs/mlflow/issue-fields`).
+          REPOS_FIELD_ID: 49034796 # Author PR repos (30d)
+          PRS_FIELD_ID: 49036049 # Author PRs 30d
         run: |
           author="$AUTHOR"
           if [ -z "$author" ]; then
@@ -49,7 +50,7 @@ jobs:
             fi
           fi
           # Counts only repos the token can see, so effectively public repos plus this one.
-          count=$(
+          read -r repos prs < <(
             gh api graphql \
               -f login="$author" \
               -f from="$(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)" \
@@ -59,15 +60,18 @@ jobs:
                   user(login: $login) {
                     contributionsCollection(from: $from, to: $to) {
                       pullRequestContributionsByRepository(maxRepositories: 100) {
-                        repository { nameWithOwner }
+                        contributions { totalCount }
                       }
                     }
                   }
                 }' \
-              --jq '.data.user.contributionsCollection.pullRequestContributionsByRepository | length'
+              --jq '.data.user.contributionsCollection.pullRequestContributionsByRepository
+                | "\(length) \(map(.contributions.totalCount) | add // 0)"'
           )
           # POST (not PUT) so other field values on the issue are kept.
-          jq -n --argjson id "$FIELD_ID" --argjson count "$count" \
-            '{issue_field_values: [{field_id: $id, value: $count}]}' \
+          jq -n \
+            --argjson repos_id "$REPOS_FIELD_ID" --argjson repos "$repos" \
+            --argjson prs_id "$PRS_FIELD_ID" --argjson prs "$prs" \
+            '{issue_field_values: [{field_id: $repos_id, value: $repos}, {field_id: $prs_id, value: $prs}]}' \
             | gh api -X POST "repos/$REPO/issues/$ISSUE_NUMBER/issue-field-values" --input - > /dev/null
-          echo "Set Author PR repos (30d) to $count for $author on #$ISSUE_NUMBER" >> "$GITHUB_STEP_SUMMARY"
+          echo "Set $author's stats on #$ISSUE_NUMBER: $repos repos, $prs PRs" >> "$GITHUB_STEP_SUMMARY"
