@@ -8,7 +8,8 @@ on:
       - requirements/gateway-requirements.yaml
       - .github/workflows/test-requirements.yml
   schedule:
-    - cron: "0 13 * * *"
+    - cron: "0 2 * * *"
+      timezone: "Asia/Tokyo"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
@@ -36,7 +37,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-    if: (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || github.event_name == 'pull_request'
+    if: (github.event_name == 'schedule' && github.repository == 'mlflow/mlflow') || github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -65,7 +66,7 @@ jobs:
     permissions:
       contents: read
     cache-mode: read
-    if: (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || github.event_name == 'pull_request'
+    if: (github.event_name == 'schedule' && github.repository == 'mlflow/mlflow') || github.event_name == 'pull_request'
     strategy:
       fail-fast: false
       matrix:
@@ -102,6 +103,6 @@ jobs:
           GROUP: ${{ matrix.group }}
         run: |
           source dev/setup-ssh.sh
-          pytest --splits=$SPLITS --group=$GROUP tests --requires-ssh --ignore-flavors \
+          pytest --quiet --splits=$SPLITS --group=$GROUP tests --requires-ssh --ignore-flavors \
             --ignore=tests/examples --ignore=tests/evaluate \
             --ignore=tests/deployments --ignore=tests/genai

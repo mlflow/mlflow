@@ -137,7 +137,7 @@ from mlflow.tracking._workspace.registry import UnsupportedWorkspaceStoreURIExce
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.multimedia import Image, compress_image_size, convert_to_pil_image
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
-from mlflow.utils import is_uuid, workspace_utils
+from mlflow.utils import get_results_from_paginated_fn, is_uuid, workspace_utils
 from mlflow.utils.annotations import deprecated, deprecated_parameter
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import (
@@ -3396,11 +3396,15 @@ class MlflowClient:
             if char in artifact_file:
                 raise ValueError(f"The artifact_file contains forbidden character: {char}")
 
-    def _read_from_file(self, artifact_path):
+    def _read_from_file(self, artifact_path, infer_dtypes=True):
         import pandas as pd
 
         if artifact_path.endswith(".json"):
-            return pd.read_json(artifact_path, orient="split")
+            if infer_dtypes:
+                return pd.read_json(artifact_path, orient="split")
+            # Keep the stored JSON values as-is so that rewriting the table doesn't alter them
+            # (e.g. "02108" -> 2108)
+            return pd.read_json(artifact_path, orient="split", dtype=False, convert_dates=False)
         if artifact_path.endswith(".parquet"):
             return pd.read_parquet(artifact_path)
         raise ValueError(f"Unsupported file type in {artifact_path}. Expected .json or .parquet")
@@ -3560,7 +3564,9 @@ class MlflowClient:
                 downloaded_artifact_path = self.download_artifacts(
                     run_id=run_id, path=artifact_file, dst_path=tmpdir
                 )
-                existing_predictions = self._read_from_file(downloaded_artifact_path)
+                existing_predictions = self._read_from_file(
+                    downloaded_artifact_path, infer_dtypes=False
+                )
             data = pd.concat([existing_predictions, data], ignore_index=True)
             _logger.debug(
                 "Appending new table to already existing artifact "
@@ -3678,7 +3684,25 @@ class MlflowClient:
             list_run_ids = ",".join(map(repr, run_ids))
             filter_string += f" and attributes.run_id IN ({list_run_ids})"
 
-        runs = mlflow.search_runs(experiment_ids=[experiment_id], filter_string=filter_string)
+        from mlflow.tracking.fluent import (
+            NUM_RUNS_PER_PAGE_PANDAS,
+            SEARCH_MAX_RESULTS_PANDAS,
+            _runs_to_pandas,
+        )
+
+        def pagination_wrapper_func(number_to_get, next_page_token):
+            return self.search_runs(
+                [experiment_id],
+                filter_string,
+                max_results=number_to_get,
+                page_token=next_page_token,
+            )
+
+        runs = _runs_to_pandas(
+            get_results_from_paginated_fn(
+                pagination_wrapper_func, NUM_RUNS_PER_PAGE_PANDAS, SEARCH_MAX_RESULTS_PANDAS
+            )
+        )
         if run_ids and len(run_ids) != len(runs):
             _logger.warning(
                 "Not all runs have the specified table artifact. Some runs will be skipped."

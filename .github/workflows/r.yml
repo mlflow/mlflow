@@ -20,8 +20,8 @@ on:
       - ".github/workflows/typescript.yml"
       - ".claude/**"
   schedule:
-    # Run this workflow daily at 13:00 UTC
-    - cron: "0 13 * * *"
+    - cron: "0 2 * * *"
+      timezone: "Asia/Tokyo"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
@@ -45,7 +45,7 @@ jobs:
     permissions:
       contents: read
     cache-mode: write
-    if: github.event_name == 'push' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || github.event_name == 'pull_request'
+    if: github.event_name == 'push' || (github.event_name == 'schedule' && github.repository == 'mlflow/mlflow') || github.event_name == 'pull_request'
     defaults:
       run:
         working-directory: mlflow/R/mlflow

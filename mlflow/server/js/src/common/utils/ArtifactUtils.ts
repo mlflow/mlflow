@@ -32,11 +32,12 @@ async function fetchArtifactResponse(artifactLocation: string, options?: Artifac
   return response;
 }
 
-/** Enforce the preview limit on bytes actually received, including chunked responses. */
+/** Enforce the preview limit on bytes actually received unless a caller supplies another limit. */
 async function readArtifactPreview(
   artifactLocation: string,
   options: ArtifactRequestOptions | undefined,
   onChunk: (chunk: Uint8Array) => void,
+  maxBytes: number = MAX_ARTIFACT_PREVIEW_BYTES,
 ): Promise<Response> {
   const response = await fetchArtifactResponse(artifactLocation, options);
   const reader = response.body?.getReader();
@@ -49,7 +50,7 @@ async function readArtifactPreview(
     for (let result = await reader.read(); !result.done; result = await reader.read()) {
       const { value } = result;
       bytesRead += value.byteLength;
-      if (bytesRead > MAX_ARTIFACT_PREVIEW_BYTES) {
+      if (bytesRead > maxBytes) {
         throw new ArtifactPreviewTooLargeError();
       }
       onChunk(value);
@@ -91,9 +92,14 @@ export async function getArtifactChunkedText(
 ): Promise<string> {
   let text = '';
   const decoder = new TextDecoder();
-  await readArtifactPreview(artifactLocation, options, (chunk) => {
-    text += decoder.decode(chunk, { stream: true });
-  });
+  await readArtifactPreview(
+    artifactLocation,
+    options,
+    (chunk) => {
+      text += decoder.decode(chunk, { stream: true });
+    },
+    Number.POSITIVE_INFINITY,
+  );
   return text + decoder.decode();
 }
 

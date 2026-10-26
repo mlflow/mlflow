@@ -638,31 +638,50 @@ export const KeyedValueCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
     }
     const displayValue = formatEvalRunsNumericValue(average);
     return (
-      <span css={{ display: 'inline-flex', alignItems: 'center' }}>
-        <FormattedMessage
-          defaultMessage="<label>avg</label> <value>{average}</value>"
-          description="Average metric value of a group of evaluation runs"
-          values={{
-            average: displayValue,
-            label: (chunks) => (
-              <Typography.Text
-                size="sm"
-                color="secondary"
-                css={{ marginRight: theme.spacing.xs, fontSize: theme.typography.fontSizeSm - 2 }}
-              >
-                {chunks}
-              </Typography.Text>
-            ),
-            value: (chunks) => <Typography.Text bold>{chunks}</Typography.Text>,
-          }}
-        />
-      </span>
+      <Tooltip componentId="mlflow.eval-runs.group-metric-average.tooltip" content={String(average)}>
+        <span css={{ display: 'inline-flex', alignItems: 'center' }}>
+          <FormattedMessage
+            defaultMessage="<label>avg</label> <value>{average}</value>"
+            description="Average metric value of a group of evaluation runs"
+            values={{
+              average: displayValue,
+              label: (chunks) => (
+                <Typography.Text
+                  size="sm"
+                  color="secondary"
+                  css={{ marginRight: theme.spacing.xs, fontSize: theme.typography.fontSizeSm - 2 }}
+                >
+                  {chunks}
+                </Typography.Text>
+              ),
+              value: (chunks) => <Typography.Text bold>{chunks}</Typography.Text>,
+            }}
+          />
+        </span>
+      </Tooltip>
     );
   }
 
   const displayValue = metricKey !== undefined && typeof value === 'number' ? formatEvalRunsNumericValue(value) : value;
 
-  return <span title={displayValue === undefined ? undefined : String(displayValue)}>{displayValue ?? '-'}</span>;
+  const valueText = (
+    <span css={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      {displayValue ?? '-'}
+    </span>
+  );
+  // The cell rounds metrics, so a rounded value always gets a tooltip with the full value.
+  if (value !== undefined && String(displayValue) !== String(value)) {
+    return (
+      <Tooltip componentId="mlflow.eval-runs.keyed-value-cell.tooltip" content={String(value)}>
+        {valueText}
+      </Tooltip>
+    );
+  }
+  return (
+    <TruncationTooltip componentId="mlflow.eval-runs.keyed-value-cell.truncation-tooltip">
+      {valueText}
+    </TruncationTooltip>
+  );
 };
 
 export const SortableHeaderCell = ({

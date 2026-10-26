@@ -1,5 +1,5 @@
-import { GavelIcon } from '@databricks/design-system';
 import type { TraceTableColumn } from '@databricks/web-shared/traces-table';
+import { AssessmentSourceIcon } from '../components/AssessmentSourceIcon';
 import { AssessmentCell, TraceAssessmentCell } from '../components/TraceAssessmentCell';
 import { assessmentColumnId, pickSessionCellAssessment } from './assessmentColumns';
 
@@ -9,6 +9,8 @@ const ASSESSMENT_COLUMN_SIZE = { size: 160, minSize: 100, maxSize: 480 } as cons
 export interface AssessmentColumn {
   name: string;
   type: 'numeric' | 'categorical';
+  /** Set when every assessment shown in the column has this source; the header then shows its icon. */
+  sourceType?: string;
 }
 
 export interface AssessmentColumnDefsOptions {
@@ -25,10 +27,10 @@ export const buildAssessmentColumnDefs = (
   assessmentColumns: AssessmentColumn[],
   { sessionAssessmentNames, isGroupedBySession = false }: AssessmentColumnDefsOptions = {},
 ): TraceTableColumn[] =>
-  assessmentColumns.map(({ name, type }) => {
+  assessmentColumns.map(({ name, type, sourceType }) => {
     const header = () => (
       <span css={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-        <GavelIcon data-testid="trace-assessment-column-icon" css={{ fontSize: 16 }} />
+        <AssessmentSourceIcon sourceType={sourceType} testIdPrefix="trace-assessment-column" />
         {name}
       </span>
     );

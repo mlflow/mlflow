@@ -126,20 +126,30 @@ export const getIssueReferenceFromAssessment = (assessment: Assessment): TraceIs
 };
 
 /**
- * The newest valid reference per issue. Repeated detection runs can leave several references to
- * the same issue on one trace, and an invalidated one is not an association at all.
+ * The newest valid reference per issue, as the assessments themselves.
+ *
+ * Repeated detection runs leave one reference each on a trace they both flag, and an invalidated
+ * one is not an association at all -- so any reader that takes the assessments as they come shows
+ * a card per run and a count that grows with every rerun. Every such reader goes through here, so
+ * "which reference represents this issue" is decided in one place.
  */
-export const getUniqueIssueReferences = (assessments: Assessment[]): TraceIssueReference[] => {
-  const issues = new Map<string, { issue: TraceIssueReference; timestamp: number }>();
+export const getUniqueIssueReferenceAssessments = (assessments: Assessment[]): IssueReferenceAssessment[] => {
+  const newest = new Map<string, { assessment: IssueReferenceAssessment; timestamp: number }>();
   for (const assessment of assessments) {
-    const issue = assessment.valid === false ? undefined : getIssueReferenceFromAssessment(assessment);
-    if (issue) {
-      const timestamp = Date.parse(assessment.last_update_time || assessment.create_time) || 0;
-      const existing = issues.get(issue.id);
-      if (!existing || timestamp >= existing.timestamp) {
-        issues.set(issue.id, { issue, timestamp });
-      }
+    if (assessment.valid === false || !isIssueReferenceAssessment(assessment)) {
+      continue;
+    }
+    const timestamp = Date.parse(assessment.last_update_time || assessment.create_time) || 0;
+    const existing = newest.get(assessment.assessment_name);
+    if (!existing || timestamp >= existing.timestamp) {
+      newest.set(assessment.assessment_name, { assessment, timestamp });
     }
   }
-  return [...issues.values()].map(({ issue }) => issue);
+  return [...newest.values()].map(({ assessment }) => assessment);
 };
+
+/** The same selection, projected to what a card needs to render. */
+export const getUniqueIssueReferences = (assessments: Assessment[]): TraceIssueReference[] =>
+  getUniqueIssueReferenceAssessments(assessments).flatMap(
+    (assessment) => getIssueReferenceFromAssessment(assessment) ?? [],
+  );

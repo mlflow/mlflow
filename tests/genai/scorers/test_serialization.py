@@ -102,6 +102,57 @@ def test_simple_scorer_round_trip():
     assert deserialized(outputs="wrong") is False
 
 
+def test_body_on_the_def_line_round_trip():
+    # fmt: off
+    @scorer
+    def one_statement(outputs): return outputs == "correct"
+
+    @scorer
+    def several_statements(outputs): n = len(outputs); return n > 2  # noqa: E702
+
+    @scorer
+    def with_docstring(outputs): "Doc."; return outputs == "é"  # noqa: E702
+
+    @scorer
+    def multiline_header(
+        outputs,
+    ): return (outputs +
+               "!")
+
+    @scorer
+    def trailing_semicolon_and_comment(outputs): return outputs == "correct";  # noqa: E703
+
+    @scorer
+    def non_ascii_default(outputs="ééé"): return outputs[:1]
+
+    @scorer
+    def docstring_and_statement_below_header(outputs):
+        "Doc."; n = len(outputs)  # noqa: E702
+        if n > 2:
+            return "long"
+        else:
+            return "short"
+    # fmt: on
+
+    cases = [
+        (one_statement, {"outputs": "correct"}, True),
+        (one_statement, {"outputs": "wrong"}, False),
+        (several_statements, {"outputs": "abc"}, True),
+        (several_statements, {"outputs": "a"}, False),
+        (with_docstring, {"outputs": "é"}, True),
+        (with_docstring, {"outputs": "no"}, False),
+        (multiline_header, {"outputs": "a"}, "a!"),
+        (trailing_semicolon_and_comment, {"outputs": "correct"}, True),
+        (non_ascii_default, {}, "é"),
+        (docstring_and_statement_below_header, {"outputs": "abc"}, "long"),
+        (docstring_and_statement_below_header, {"outputs": "a"}, "short"),
+    ]
+    for original, kwargs, expected in cases:
+        assert original(**kwargs) == expected, original.name
+        deserialized = Scorer.model_validate(original.model_dump())
+        assert deserialized(**kwargs) == expected, original.name
+
+
 def test_custom_name_and_aggregations_round_trip():
     @scorer(name="length_check", aggregations=["mean", "max"])
     def my_scorer(inputs, outputs):

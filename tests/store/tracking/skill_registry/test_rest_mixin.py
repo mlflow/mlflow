@@ -1662,7 +1662,20 @@ def test_import_fetches_requested_git_ref(registry_client, skill_repository):
         ["tag", "v1"],
     ]:
         subprocess.run(
-            ["git", "-c", "user.name=Test", "-c", "user.email=test@example.com", *args],
+            [
+                "git",
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.com",
+                # The expected digest below hashes the working tree, so the commit must store
+                # its bytes verbatim. GitHub's Windows runners set core.autocrlf=true, which
+                # would commit LF for the CRLF files write_text produces there, while the
+                # importer hashes the committed blobs.
+                "-c",
+                "core.autocrlf=false",
+                *args,
+            ],
             cwd=skill_repository,
             check=True,
             capture_output=True,

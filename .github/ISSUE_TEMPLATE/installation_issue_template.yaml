@@ -10,12 +10,7 @@ body:
     attributes:
       value: |
         > [!WARNING]
-        > Before submitting a PR, please make sure that:
-        > - A maintainer has triaged this issue and applied the `ready` label
-        > - This issue has no assignee
-        > - No duplicate PR exists
-        >
-        > PRs not meeting these requirements may be automatically closed.
+        > Wait for a maintainer to apply the `ready` label before opening a PR. PRs are closed automatically if the issue isn't `ready`, is assigned to someone else, or is already linked from an open PR.
   - type: markdown
     attributes:
       value: |
