@@ -1439,7 +1439,6 @@ def test_compare_evaluations(mock_requests, mock_telemetry_client: TelemetryClie
 
     expected_params = {
         "greater_is_better_provided": True,
-        "confidence_level": 0.95,
         "log_results": False,
     }
     validate_telemetry_record(
