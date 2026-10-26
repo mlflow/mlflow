@@ -3788,7 +3788,13 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.35,
-        "output_per_million_tokens": 1.15
+        "output_per_million_tokens": 1.15,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.175,
+            "output_per_million_tokens": 0.575
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -3797,7 +3803,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-26"
     },
     "meta/llama-4-scout-17b-128e-instruct-maas": {
       "mode": "chat",
@@ -3808,7 +3814,13 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.25,
-        "output_per_million_tokens": 0.7
+        "output_per_million_tokens": 0.7,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.125,
+            "output_per_million_tokens": 0.35
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -3817,7 +3829,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-26"
     },
     "meta/llama-4-scout-17b-16e-instruct-maas": {
       "mode": "chat",
