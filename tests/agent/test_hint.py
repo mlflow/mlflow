@@ -61,7 +61,9 @@ def test_silent_without_a_coding_agent(clean_env: Path):
 
 
 def test_tracing_skill_is_bundled():
-    manifest = Path(hint.__file__).parents[1] / "assistant" / "skills" / hint.TRACING_SKILL / "SKILL.md"
+    manifest = (
+        Path(hint.__file__).parents[1] / "assistant" / "skills" / hint.TRACING_SKILL / "SKILL.md"
+    )
     assert manifest.is_file()
 
 
