@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@databricks/web-shared/qu
 import { useActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
 import { SERVER_FEATURE_KEYS, useFeatureEnabled } from '../../hooks/useServerInfo';
 import {
+  DEFAULT_ISSUE_DETECTION_START_TIME,
+  DEFAULT_ISSUE_DETECTION_WEEKDAY,
   loadIssueDetectionSchedule,
   noIssueDetectionSchedule,
   saveIssueDetectionSchedule,
@@ -34,6 +36,16 @@ export interface UseIssueDetectionScheduleResult {
   setting: IssueDetectionScheduleSetting;
   /** Current trace filter clauses (persisted independently of pause) for prefilling the modal. */
   traceFilters: ScheduleTraceFilter[];
+  /** Time of day the cadence fires, `HH:MM`, read in `timezone`. */
+  startTime: string;
+  /** Weekday a weekly cadence fires on, Monday as 0. */
+  weekday: number;
+  /**
+   * The zone `startTime` is read in: the stored one, or undefined on a schedule with none, where
+   * a save adopts the editor's browser zone. A time of day means nothing without it, so the modal
+   * both shows it and lets it be changed.
+   */
+  timezone: string | undefined;
   /** The stored model selection, or undefined on a schedule that names none. */
   model: IssueDetectionScheduleModel | undefined;
   isLoading: boolean;
@@ -104,6 +116,9 @@ export const useIssueDetectionSchedule = ({
   return {
     setting: schedule?.setting ?? noIssueDetectionSchedule().setting,
     traceFilters: schedule?.traceFilters ?? [],
+    startTime: schedule?.startTime ?? DEFAULT_ISSUE_DETECTION_START_TIME,
+    weekday: schedule?.weekday ?? DEFAULT_ISSUE_DETECTION_WEEKDAY,
+    timezone: schedule?.timezone,
     model: schedule?.model,
     isLoading,
     isUpdating: mutation.isLoading,

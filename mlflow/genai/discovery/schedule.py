@@ -1,11 +1,11 @@
 """Storage and timing of an experiment's recurring issue-detection schedule.
 
 A schedule lives in experiment tags, the way the experiment's detection priorities already do:
-``mlflow.issueDetection.schedule`` holds the cadence, timezone and paused flag,
-``mlflow.issueDetection.scheduleTraceFilter`` the optional clauses narrowing which traces a run
-analyzes, and ``mlflow.issueDetection.scheduleState`` what the server has dispatched. The first
-two are written by whoever edits the schedule, the last only by the server, so neither can clobber
-the other.
+``mlflow.issueDetection.schedule`` holds the cadence, the time of day it fires, the timezone that
+time is read in and the paused flag, ``mlflow.issueDetection.scheduleTraceFilter`` the optional
+clauses narrowing which traces a run analyzes, and ``mlflow.issueDetection.scheduleState`` what the
+server has dispatched. The first two are written by whoever edits the schedule, the last only by
+the server, so neither can clobber the other.
 
 This module owns the storage contract and the timing arithmetic; dispatching and running are
 separate.
@@ -75,10 +75,14 @@ class DetectionCadence(str, Enum):
     WEEKLY = "weekly"
 
 
-# When each cadence fires, in the schedule's own timezone: hourly on the hour, daily at 09:00, and
-# weekly on Monday at 09:00.
-_FIRE_HOUR = 9
-_MONDAY = 0
+# Time of day a daily or weekly schedule fires in its own timezone, for a schedule that stores
+# none -- the hour every schedule fired at before the start time could be chosen, so one saved
+# before this reads back unchanged and keeps firing when it always did.
+DEFAULT_FIRE_TIME = "09:00"
+
+# Weekday a weekly schedule fires on when it stores none: Monday, numbered as
+# ``datetime.weekday()`` does, which is the numbering the stored value uses.
+DEFAULT_WEEKDAY = 0
 
 
 @dataclass(frozen=True)
@@ -176,6 +180,20 @@ class DetectionSchedule:
     paused: bool = False
     trace_filters: tuple[ScheduleTraceFilter, ...] = ()
     model: ScheduleModel | None = None
+    # Time of day the cadence fires, ``"HH:MM"`` in ``timezone``. Daily and weekly use both
+    # halves; hourly uses the minute and ignores the hour.
+    fire_time: str = DEFAULT_FIRE_TIME
+    # Weekday a weekly cadence fires on, Monday as 0 like ``datetime.weekday()``. Ignored by the
+    # other cadences, which have no day to choose.
+    weekday: int = DEFAULT_WEEKDAY
+
+    @property
+    def fire_hour_minute(self) -> tuple[int, int]:
+        """
+        ``fire_time`` as numbers. Parsed on the way in, so an unreadable value never reaches here.
+        """
+        hour, _, minute = self.fire_time.partition(":")
+        return int(hour), int(minute)
 
     def to_json(self) -> str:
         """Serialize the cadence tag. The filters live in their own tag."""
@@ -184,6 +202,8 @@ class DetectionSchedule:
             "cadence": self.cadence.value,
             "timezone": self.timezone,
             "paused": self.paused,
+            "fireTime": self.fire_time,
+            "weekday": self.weekday,
         }
         if self.model is not None:
             payload["model"] = self.model.to_dict()
@@ -265,6 +285,61 @@ def _parse_trace_filter(entry: object) -> ScheduleTraceFilter | None:
     if _has_control_char(key) or _has_control_char(value):
         return None
     return ScheduleTraceFilter(field=field, key=key, value=value)
+
+
+def _is_ascii_decimal(text: str) -> bool:
+    return text.isascii() and text.isdecimal()
+
+
+def _parse_weekday(value: object) -> int:
+    """
+    The stored weekday a weekly schedule fires on, or the default when it is missing or unusable.
+
+    ``bool`` is excluded explicitly because it is an ``int`` in Python, and ``True`` would
+    otherwise read as Tuesday.
+    """
+    if value is None:
+        return DEFAULT_WEEKDAY
+    if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 6:
+        return value
+    _logger.warning(
+        "Issue-detection schedule names weekday %r, which is not a day this server can fire on; "
+        "firing it on weekday %d instead",
+        value,
+        DEFAULT_WEEKDAY,
+    )
+    return DEFAULT_WEEKDAY
+
+
+def _parse_fire_time(value: object) -> str:
+    """
+    The stored time of day a schedule fires at, as ``"HH:MM"``, or the default when unusable.
+
+    Falls back rather than refusing the schedule: a time this reader cannot make sense of should
+    cost the owner the hour they chose, not every run. Any minute is accepted, not just the
+    quarter hours the modal offers -- the dispatcher polls on a 15-minute grid, so an off-grid
+    minute fires at the first poll after it instead of not at all.
+    """
+    if value is None:
+        # Nothing stored, which is a schedule saved before a start time could be chosen rather
+        # than a bad value -- so it falls back silently instead of warning on every poll.
+        return DEFAULT_FIRE_TIME
+    if isinstance(value, str):
+        hour, separator, minute = value.strip().partition(":")
+        # ASCII decimal digits only, and ``isdecimal`` rather than ``isdigit`` because that also
+        # accepts characters like superscripts which ``int`` then refuses. Narrow on purpose: the
+        # modal reads this tag back with the same rule, and a value only one of the two accepts
+        # would have the dialog showing an hour the dispatcher does not fire at.
+        if separator and _is_ascii_decimal(hour) and _is_ascii_decimal(minute):
+            if 0 <= int(hour) <= 23 and 0 <= int(minute) <= 59:
+                return f"{int(hour):02d}:{int(minute):02d}"
+    _logger.warning(
+        "Issue-detection schedule names start time %r, which this server cannot read; firing it "
+        "at %s instead",
+        value,
+        DEFAULT_FIRE_TIME,
+    )
+    return DEFAULT_FIRE_TIME
 
 
 def _parse_model_identifier(value: object) -> str:
@@ -394,6 +469,8 @@ def parse_detection_schedule(
         paused=parsed.get("paused") is True,
         trace_filters=parse_trace_filters(raw_trace_filters),
         model=_parse_model(parsed.get("model")),
+        fire_time=_parse_fire_time(parsed.get("fireTime")),
+        weekday=_parse_weekday(parsed.get("weekday")),
     )
 
 
@@ -472,18 +549,22 @@ def _fire_time_anchor(
     """
     zone = ZoneInfo(schedule.timezone)
     naive = datetime.fromtimestamp(reference_ms / 1000, tz=zone).replace(tzinfo=None)
+    hour, minute = schedule.fire_hour_minute
     if schedule.cadence is DetectionCadence.HOURLY:
-        return zone, naive.replace(minute=0, second=0, microsecond=0), timedelta(hours=1)
+        # The minute only: an hourly schedule fires every hour, so the chosen hour says nothing
+        # about it. The default start time's minute is 0, which is the on-the-hour behaviour an
+        # hourly schedule has always had.
+        return zone, naive.replace(minute=minute, second=0, microsecond=0), timedelta(hours=1)
     if schedule.cadence is DetectionCadence.DAILY:
         return (
             zone,
-            naive.replace(hour=_FIRE_HOUR, minute=0, second=0, microsecond=0),
+            naive.replace(hour=hour, minute=minute, second=0, microsecond=0),
             timedelta(days=1),
         )
-    monday = naive.replace(hour=_FIRE_HOUR, minute=0, second=0, microsecond=0) - timedelta(
-        days=(naive.weekday() - _MONDAY) % 7
+    chosen_day = naive.replace(hour=hour, minute=minute, second=0, microsecond=0) - timedelta(
+        days=(naive.weekday() - schedule.weekday) % 7
     )
-    return zone, monday, timedelta(weeks=1)
+    return zone, chosen_day, timedelta(weeks=1)
 
 
 def next_fire_time_ms(schedule: DetectionSchedule, after_ms: int) -> int:

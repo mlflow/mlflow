@@ -13,7 +13,7 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { generateRandomName } from '../../../common/utils/NameUtils';
 import { useApiKeyConfiguration } from '../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration';
@@ -24,7 +24,20 @@ import {
   IssueDetectionModelDropdown,
   type IssueDetectionModelSelection,
 } from '../../components/experiment-page/components/traces-v3/IssueDetectionModelDropdown';
-import { MAX_TRACE_FILTERS, unsupportedFilterCharacter } from './issueDetectionSchedule';
+import {
+  DEFAULT_ISSUE_DETECTION_START_TIME,
+  DEFAULT_ISSUE_DETECTION_WEEKDAY,
+  MAX_TRACE_FILTERS,
+  joinStartTime,
+  resolveScheduleTimezone,
+  splitStartTime,
+  startTimeHourOptions,
+  startTimeMinuteOptions,
+  unsupportedFilterCharacter,
+} from './issueDetectionSchedule';
+import { allTimezones, recommendedTimezones, timezoneChoice } from './scheduleTimezones';
+import { NavigableCombobox } from '../../../common/components/navigable-combobox/NavigableCombobox';
+import type { ComboboxMenuItem, NavigableComboboxConfig } from '../../../common/components/navigable-combobox/types';
 import type {
   IssueDetectionScheduleModel,
   ScheduleTraceFilter,
@@ -49,6 +62,23 @@ const isScheduleSetting = (value: string): value is IssueDetectionScheduleSettin
 
 /** The modal's two steps: the schedule itself, and the API key the chosen provider needs. */
 type ModalView = 'main' | 'apiKey';
+
+/**
+ * Weekday names in the browser's own language, Monday first -- which is the numbering the
+ * schedule stores and the server reads (`datetime.weekday()`), not the locale's first day.
+ * Localized through `Intl` rather than through seven translated messages, since every locale
+ * already has these names.
+ */
+const weekdayLabels = (locale: string): string[] => {
+  const formatter = new Intl.DateTimeFormat(locale, { weekday: 'long', timeZone: 'UTC' });
+  // 2026-01-05 is a Monday, so walking forward from it walks the week in stored order.
+  return Array.from({ length: 7 }, (_, index) => formatter.format(new Date(Date.UTC(2026, 0, 5 + index))));
+};
+
+/** Widths of the schedule row's controls, sized to fit one line inside a 520-wide modal. */
+const CADENCE_WIDTH = 104;
+const WEEKDAY_WIDTH = 116;
+const TIME_PART_WIDTH = 72;
 
 /**
  * Width of the model picker, matching the one in the ad-hoc detection dialog: that modal is 520
@@ -290,11 +320,29 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
   // Replaces upstream's experiment-ACL check: OSS has no per-experiment write permission for
   // tags, but it does have servers that cannot run a schedule at all.
   const scheduledDetectionAvailable = useScheduledDetectionAvailable();
-  const { setting, traceFilters, model, isLoading, isUpdating, loadError, retryLoad, setSetting } =
-    useIssueDetectionSchedule({ experimentId });
+  const {
+    setting,
+    traceFilters,
+    model,
+    startTime: storedStartTime,
+    weekday: storedWeekday,
+    timezone: storedTimezone,
+    isLoading,
+    isUpdating,
+    loadError,
+    retryLoad,
+    setSetting,
+  } = useIssueDetectionSchedule({ experimentId });
 
   const [open, setOpen] = useState(false);
   const [cadence, setCadence] = useState<IssueDetectionScheduleSetting>('off');
+  // Time of day the cadence fires, `HH:MM` in the schedule's timezone.
+  const [startTime, setStartTime] = useState(DEFAULT_ISSUE_DETECTION_START_TIME);
+  // Weekday a weekly cadence fires on, Monday as 0.
+  const [weekday, setWeekday] = useState(DEFAULT_ISSUE_DETECTION_WEEKDAY);
+  // The zone the time above is read in. Seeded from the schedule, or from this browser when the
+  // schedule has none, which is the zone a save would have adopted anyway.
+  const [timezone, setTimezone] = useState(() => resolveScheduleTimezone());
   const [filters, setFilters] = useState<ScheduleTraceFilter[]>([]);
   // The model the scheduled runs will use. Null until the stored selection (or the default) is
   // resolved, which needs the endpoint list.
@@ -390,6 +438,9 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
   // filters we show no rows — just the "Add filter" button — so the user opts in explicitly.
   const openModal = useCallback(() => {
     setCadence(setting);
+    setStartTime(storedStartTime);
+    setWeekday(storedWeekday);
+    setTimezone(resolveScheduleTimezone(undefined, storedTimezone));
     setFilters(traceFilters.map((filter) => ({ ...filter })));
     setSaveFailed(false);
     setFilterError(null);
@@ -399,7 +450,7 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     setCreatedSecret(null);
     resetCreateSecret();
     setOpen(true);
-  }, [setting, traceFilters, model, resetCreateSecret]);
+  }, [setting, storedStartTime, storedWeekday, storedTimezone, traceFilters, model, resetCreateSecret]);
   const closeModal = useCallback(() => setOpen(false), []);
 
   // A schedule that names no model (or one saved before a model could be chosen) falls back to the
@@ -434,6 +485,11 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     () => setFilters((prev) => (prev.length >= MAX_TRACE_FILTERS ? prev : [...prev, emptyFilterRow()])),
     [],
   );
+
+  // Every zone the browser knows, built once the modal is opened rather than on every render of
+  // the Issues tab: the list is a few hundred entries and each one is formatted to find its
+  // current offset.
+  const standardTimezones = useMemo(() => (open ? allTimezones() : []), [open]);
 
   const persistSchedule = useCallback(
     async (secretId?: string) => {
@@ -484,6 +540,9 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
         // intact so the user can retry without re-entering the cadence/filters.
         await setSetting({
           setting: cadence,
+          startTime,
+          weekday,
+          timezone,
           traceFilters: cleaned,
           model: selection
             ? toStoredModel(selection, resolveSecretId(selection, model, secretId, existingSecrets[0]?.secret_id))
@@ -494,7 +553,7 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
         setSaveFailed(true);
       }
     },
-    [cadence, filters, selection, model, existingSecrets, setSetting, intl],
+    [cadence, startTime, weekday, timezone, filters, selection, model, existingSecrets, setSetting, intl],
   );
 
   // Prompting for a key before these answer would ask for one the server may already have.
@@ -615,6 +674,22 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     defaultMessage: 'Cadence',
     description: 'Experiment issues tab > Schedule modal label for the run cadence',
   });
+  const weekdayFieldLabel = intl.formatMessage({
+    defaultMessage: 'Day',
+    description: 'Experiment issues tab > Schedule modal label for the weekday a weekly run starts on',
+  });
+  const hourFieldLabel = intl.formatMessage({
+    defaultMessage: 'Hour',
+    description: 'Experiment issues tab > Schedule modal label for the hour a run starts at',
+  });
+  const minuteFieldLabel = intl.formatMessage({
+    defaultMessage: 'Minute',
+    description: 'Experiment issues tab > Schedule modal label for the minute a run starts at',
+  });
+  const timezoneRowLabel = intl.formatMessage({
+    defaultMessage: 'Timezone',
+    description: 'Experiment issues tab > Schedule modal label for the timezone the start time is read in',
+  });
   const modelRowLabel = intl.formatMessage({
     defaultMessage: 'Model',
     description: 'Experiment issues tab > Schedule modal label for the model scheduled runs analyze with',
@@ -624,6 +699,54 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     description: 'Experiment issues tab > Schedule modal label for the optional trace filters',
   });
   const filtersDisabled = cadence === 'off';
+  const { hour, minute } = splitStartTime(startTime);
+  // The quarter hours the dispatcher can fire at, plus the stored minute when it is not one of
+  // them: a schedule set by hand to 09:08 is shown and saved as 09:08 rather than being moved to
+  // a neighbouring quarter hour by having been looked at. Sorts correctly as text, zero-padded.
+  const minuteOptions = startTimeMinuteOptions().includes(minute)
+    ? startTimeMinuteOptions()
+    : [...startTimeMinuteOptions(), minute].sort();
+  const weekdayOptions = weekdayLabels(intl.locale);
+  // The zones offered first, with the schedule's own among them so re-opening the dialog does not
+  // bury it. Excluded from the long list below so neither appears twice.
+  const suggestedTimezones = recommendedTimezones(timezone);
+  const timezoneConfig: NavigableComboboxConfig<string> = (() => {
+    const suggested = new Set(suggestedTimezones.map(({ zone }) => zone));
+    const toItem = ({ zone, label }: { zone: string; label: string }): ComboboxMenuItem<string> => ({
+      type: 'item',
+      key: zone,
+      label,
+      value: zone,
+    });
+    return {
+      initialViewId: 'main',
+      views: [
+        {
+          id: 'main',
+          items: [
+            {
+              type: 'section',
+              key: 'recommended',
+              label: intl.formatMessage({
+                defaultMessage: 'Recommended',
+                description: 'Experiment issues tab > Schedule modal heading above the suggested timezones',
+              }),
+            },
+            ...suggestedTimezones.map(toItem),
+            {
+              type: 'section',
+              key: 'standard',
+              label: intl.formatMessage({
+                defaultMessage: 'Standard',
+                description: 'Experiment issues tab > Schedule modal heading above the full timezone list',
+              }),
+            },
+            ...standardTimezones.filter(({ zone }) => !suggested.has(zone)).map(toItem),
+          ],
+        },
+      ],
+    };
+  })();
   // An active schedule has to name the model it will run on. `selection` is null until the
   // endpoint list resolves, and a save made in that gap stores no model at all -- the run would
   // then use the server's default rather than what this dialog was about to show, and the
@@ -715,32 +838,132 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
           defaultMessage: 'Schedule issue detection',
           description: 'Experiment issues tab > Schedule modal title',
         })}
-        zIndex={theme.options.zIndexBase + 20}
+        // Left at the design system's default rather than raised: the timezone combobox portals
+        // its menu at `zIndexBase + 10`, with no way to lift it, so a modal above that height
+        // renders over its own dropdown. Everything this dialog opens for itself is placed at
+        // `+ 40` or beyond, so it still stacks over the modal from here.
       >
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
           {view === 'main' && (
             <>
               <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
                 <Typography.Text color="secondary">{cadenceRowLabel}</Typography.Text>
-                <SimpleSelect
-                  id={`${COMPONENT_ID}.modal.cadence`}
-                  componentId={`${COMPONENT_ID}.modal.cadence`}
-                  label={cadenceRowLabel}
-                  value={cadence}
-                  onChange={({ target }) => {
-                    if (isScheduleSetting(target.value)) {
-                      setCadence(target.value);
-                    }
+                {/* One row: the cadence, the weekday a weekly one falls on, and the time of day.
+                    Wraps rather than overflowing, since a long translation of "on" or "at" can
+                    push the minute select past the modal's width. */}
+                <div
+                  css={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: theme.spacing.sm,
+                    flexWrap: 'wrap',
                   }}
-                  // The select's options popover defaults below the modal; lift it above the modal's zIndex.
-                  contentProps={{ style: { zIndex: theme.options.zIndexBase + 40 } }}
                 >
-                  {SETTING_OPTIONS.map((option) => (
-                    <SimpleSelectOption key={option} value={option}>
-                      {optionLabels[option]}
-                    </SimpleSelectOption>
-                  ))}
-                </SimpleSelect>
+                  <SimpleSelect
+                    id={`${COMPONENT_ID}.modal.cadence`}
+                    componentId={`${COMPONENT_ID}.modal.cadence`}
+                    label={cadenceRowLabel}
+                    width={CADENCE_WIDTH}
+                    value={cadence}
+                    onChange={({ target }) => {
+                      if (isScheduleSetting(target.value)) {
+                        setCadence(target.value);
+                      }
+                    }}
+                    // The select's options popover defaults below the modal; lift it above the modal's zIndex.
+                    contentProps={{ style: { zIndex: theme.options.zIndexBase + 40 } }}
+                  >
+                    {SETTING_OPTIONS.map((option) => (
+                      <SimpleSelectOption key={option} value={option}>
+                        {optionLabels[option]}
+                      </SimpleSelectOption>
+                    ))}
+                  </SimpleSelect>
+                  {cadence === 'weekly' && (
+                    <>
+                      <Typography.Text color="secondary">
+                        {intl.formatMessage({
+                          defaultMessage: 'on',
+                          description:
+                            'Experiment issues tab > Schedule modal word joining the cadence to the weekday it runs on, as in "Weekly on Monday"',
+                        })}
+                      </Typography.Text>
+                      <SimpleSelect
+                        id={`${COMPONENT_ID}.modal.weekday`}
+                        componentId={`${COMPONENT_ID}.modal.weekday`}
+                        label={weekdayFieldLabel}
+                        width={WEEKDAY_WIDTH}
+                        value={String(weekday)}
+                        onChange={({ target }) => setWeekday(Number(target.value))}
+                        contentProps={{ style: { zIndex: theme.options.zIndexBase + 40 } }}
+                      >
+                        {weekdayOptions.map((label, index) => (
+                          <SimpleSelectOption key={label} value={String(index)}>
+                            {label}
+                          </SimpleSelectOption>
+                        ))}
+                      </SimpleSelect>
+                    </>
+                  )}
+                  <Typography.Text color="secondary">
+                    {intl.formatMessage({
+                      defaultMessage: 'at',
+                      description:
+                        'Experiment issues tab > Schedule modal word joining the cadence to the time it runs at, as in "Daily at 09:00"',
+                    })}
+                  </Typography.Text>
+                  <SimpleSelect
+                    id={`${COMPONENT_ID}.modal.start-hour`}
+                    componentId={`${COMPONENT_ID}.modal.start-hour`}
+                    label={hourFieldLabel}
+                    width={TIME_PART_WIDTH}
+                    value={hour}
+                    disabled={filtersDisabled}
+                    onChange={({ target }) => setStartTime(joinStartTime(target.value, minute))}
+                    contentProps={{ style: { zIndex: theme.options.zIndexBase + 40 } }}
+                  >
+                    {startTimeHourOptions().map((option) => (
+                      <SimpleSelectOption key={option} value={option}>
+                        {option}
+                      </SimpleSelectOption>
+                    ))}
+                  </SimpleSelect>
+                  <Typography.Text color="secondary">:</Typography.Text>
+                  <SimpleSelect
+                    id={`${COMPONENT_ID}.modal.start-minute`}
+                    componentId={`${COMPONENT_ID}.modal.start-minute`}
+                    label={minuteFieldLabel}
+                    width={TIME_PART_WIDTH}
+                    value={minute}
+                    disabled={filtersDisabled}
+                    onChange={({ target }) => setStartTime(joinStartTime(hour, target.value))}
+                    contentProps={{ style: { zIndex: theme.options.zIndexBase + 40 } }}
+                  >
+                    {minuteOptions.map((option) => (
+                      <SimpleSelectOption key={option} value={option}>
+                        {option}
+                      </SimpleSelectOption>
+                    ))}
+                  </SimpleSelect>
+                </div>
+              </div>
+              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                <Typography.Text color="secondary">{timezoneRowLabel}</Typography.Text>
+                <NavigableCombobox
+                  componentId={`${COMPONENT_ID}.modal.timezone`}
+                  config={timezoneConfig}
+                  value={timezone}
+                  // Clearing the field leaves the schedule on the zone it had rather than on none,
+                  // since every stored schedule has to name one for its time to mean anything.
+                  onChange={(next) => setTimezone(next ?? timezone)}
+                  valueToDisplayString={(zone) => timezoneChoice(zone).label}
+                  placeholder={intl.formatMessage({
+                    defaultMessage: 'Search timezones',
+                    description: 'Experiment issues tab > Schedule modal placeholder of the timezone search input',
+                  })}
+                  disabled={filtersDisabled}
+                  clearOnOpen
+                />
               </div>
               <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
                 <Typography.Text color="secondary">{modelRowLabel}</Typography.Text>

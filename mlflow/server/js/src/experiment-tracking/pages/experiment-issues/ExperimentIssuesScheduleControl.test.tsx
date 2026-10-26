@@ -77,13 +77,22 @@ const server = setupServer(
   }),
 );
 
-const scheduleTag = (cadence: string | null, paused = false, timezone = 'UTC'): SavedTag => ({
+/** `fireTime` is left out when not given, which is how a schedule saved before it is exercised. */
+const scheduleTag = (
+  cadence: string | null,
+  paused = false,
+  timezone = 'UTC',
+  fireTime?: unknown,
+  weekday?: unknown,
+): SavedTag => ({
   key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG,
   value: JSON.stringify({
     version: ISSUE_DETECTION_SCHEDULE_VERSION,
     cadence,
     timezone,
     paused,
+    ...(fireTime === undefined ? {} : { fireTime }),
+    ...(weekday === undefined ? {} : { weekday }),
   }),
 });
 
@@ -123,6 +132,20 @@ const openModal = async (user: ReturnType<typeof setup>, name = /schedule detect
 const chooseCadence = async (user: ReturnType<typeof setup>, cadence: string) => {
   await user.click(await screen.findByRole('combobox', { name: /cadence/i }));
   await user.click(await screen.findByRole('option', { name: cadence }));
+};
+
+const hourSelect = () => screen.findByRole('combobox', { name: 'Hour' });
+const minuteSelect = () => screen.findByRole('combobox', { name: 'Minute' });
+const weekdaySelect = () => screen.findByRole('combobox', { name: 'Day' });
+
+const chooseOption = async (user: ReturnType<typeof setup>, select: HTMLElement, option: string) => {
+  await user.click(select);
+  await user.click(await screen.findByRole('option', { name: option }));
+};
+
+const chooseStartTime = async (user: ReturnType<typeof setup>, hour: string, minute: string) => {
+  await chooseOption(user, await hourSelect(), hour);
+  await chooseOption(user, await minuteSelect(), minute);
 };
 
 const save = async (user: ReturnType<typeof setup>) => user.click(await screen.findByRole('button', { name: 'Save' }));
@@ -324,6 +347,116 @@ describe('ExperimentIssuesScheduleControl', () => {
     await waitFor(() => expect(savedSchedule()['cadence']).toBe('daily'));
     expect(savedSchedule()['model']).toEqual({ endpointName: 'prod-gateway' });
     expect(screen.queryByTestId('schedule-api-key-view')).not.toBeInTheDocument();
+  });
+
+  test('prefills the stored start time and saves the one chosen instead', async () => {
+    experimentTags = [scheduleTag('daily', false, 'UTC', '06:45')];
+    const user = setup();
+    render();
+
+    await openModal(user, /scheduled: daily/i);
+    expect(await hourSelect()).toHaveTextContent('06');
+    expect(await minuteSelect()).toHaveTextContent('45');
+
+    await chooseStartTime(user, '21', '30');
+    await save(user);
+    await waitFor(() => expect(savedSchedule()['fireTime']).toBe('21:30'));
+  });
+
+  test('a schedule storing no start time keeps firing at the hour it already did', async () => {
+    // The compatibility property this control has to hold: opening and saving a schedule from
+    // before the start time existed must not move when it fires.
+    experimentTags = [scheduleTag('daily')];
+    const user = setup();
+    render();
+
+    await openModal(user, /scheduled: daily/i);
+    expect(await hourSelect()).toHaveTextContent('09');
+    expect(await minuteSelect()).toHaveTextContent('00');
+
+    await save(user);
+    await waitFor(() => expect(savedSchedule()['fireTime']).toBe('09:00'));
+  });
+
+  test('offers the weekday only for a weekly cadence, and saves the one chosen', async () => {
+    // Weekly is the only cadence with a day to choose; a daily one fires every day, so offering a
+    // day there would be a control with nothing to say.
+    experimentTags = [scheduleTag('weekly', false, 'UTC', '17:45', 3)];
+    const user = setup();
+    render();
+
+    await openModal(user, /scheduled: weekly/i);
+    expect(await weekdaySelect()).toHaveTextContent('Thursday');
+
+    await chooseOption(user, await weekdaySelect(), 'Sunday');
+    await save(user);
+    await waitFor(() => expect(savedSchedule()['weekday']).toBe(6));
+    expect(savedSchedule()['fireTime']).toBe('17:45');
+  });
+
+  test('drops the weekday when the cadence stops being weekly', async () => {
+    experimentTags = [scheduleTag('weekly', false, 'UTC', '17:45', 3)];
+    const user = setup();
+    render();
+
+    await openModal(user, /scheduled: weekly/i);
+    expect(await weekdaySelect()).toBeInTheDocument();
+
+    await chooseCadence(user, 'Daily');
+    await waitFor(() => expect(screen.queryByRole('combobox', { name: 'Day' })).not.toBeInTheDocument());
+
+    // Still stored, so switching back to weekly restores the day rather than resetting it.
+    await save(user);
+    await waitFor(() => expect(savedSchedule()['cadence']).toBe('daily'));
+    expect(savedSchedule()['weekday']).toBe(3);
+  });
+
+  test('shows the stored timezone with its offset, and saves the one chosen instead', async () => {
+    // A time of day says nothing without its zone: an owner editing a Tokyo schedule from
+    // anywhere else would otherwise read 17:45 as their own 17:45.
+    experimentTags = [scheduleTag('daily', false, 'Asia/Tokyo', '17:45')];
+    const user = setup();
+    render();
+
+    await openModal(user, /scheduled: daily/i);
+    const timezoneInput = await screen.findByPlaceholderText('Search timezones');
+    expect(timezoneInput).toHaveValue('(UTC+09:00) Asia/Tokyo');
+
+    await user.click(timezoneInput);
+    await user.keyboard('Berlin');
+    // By test id rather than by label: the label carries the zone's *current* offset, so matching
+    // on it would make this test fail twice a year when Berlin changes to summer time.
+    await user.click(await screen.findByTestId(`${COMPONENT_ID}.modal.timezone.option.Europe/Berlin`));
+    await save(user);
+
+    await waitFor(() => expect(savedSchedule()['timezone']).toBe('Europe/Berlin'));
+    // The wall-clock time is unchanged -- changing the zone moves the instant, not the time of day.
+    expect(savedSchedule()['fireTime']).toBe('17:45');
+  });
+
+  test('offers a stored start time that is not one of the quarter hours, and keeps it', async () => {
+    // The dispatcher polls every 15 minutes, so 09:08 fires at 09:15 -- late, but it does fire.
+    // Rounding it here would change when a schedule runs because someone opened the dialog.
+    experimentTags = [scheduleTag('daily', false, 'UTC', '09:08')];
+    const user = setup();
+    render();
+
+    await openModal(user, /scheduled: daily/i);
+    expect(await hourSelect()).toHaveTextContent('09');
+    expect(await minuteSelect()).toHaveTextContent('08');
+
+    await save(user);
+    await waitFor(() => expect(savedSchedule()['fireTime']).toBe('09:08'));
+  });
+
+  test('falls back to the default rather than blanking the control on an unreadable start time', async () => {
+    experimentTags = [scheduleTag('daily', false, 'UTC', 'at noon')];
+    const user = setup();
+    render();
+
+    await openModal(user, /scheduled: daily/i);
+    expect(await hourSelect()).toHaveTextContent('09');
+    expect(await minuteSelect()).toHaveTextContent('00');
   });
 
   test('says the cost recurs while a cadence is selected, and not when off', async () => {
