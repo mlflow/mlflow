@@ -12,6 +12,14 @@ from mlflow.gateway.schemas import embeddings as embeddings_schema
 from mlflow.gateway.utils import handle_incomplete_chunks, strip_sse_prefix
 
 
+def _text_content(content: Any) -> str | None:
+    # Reasoning models return content as a list of chunks (e.g. "thinking" and "text").
+    # The gateway schemas don't support "thinking" chunks, so keep only the text.
+    if not isinstance(content, list):
+        return content
+    return "".join(c.get("text", "") for c in content if c.get("type") == "text") or None
+
+
 class MistralAdapter(ProviderAdapter):
     @classmethod
     def model_to_completions(cls, resp, config):
@@ -47,7 +55,7 @@ class MistralAdapter(ProviderAdapter):
             choices=[
                 completions_schema.Choice(
                     index=idx,
-                    text=c["message"]["content"],
+                    text=_text_content(c["message"]["content"]),
                     finish_reason=c["finish_reason"],
                 )
                 for idx, c in enumerate(resp["choices"])
@@ -72,7 +80,7 @@ class MistralAdapter(ProviderAdapter):
                     index=idx,
                     message=chat_schema.ResponseMessage(
                         role=c["message"]["role"],
-                        content=c["message"].get("content"),
+                        content=_text_content(c["message"].get("content")),
                         tool_calls=(
                             (calls := c["message"].get("tool_calls"))
                             and [chat_schema.ToolCall(**c) for c in calls]
@@ -132,7 +140,7 @@ class MistralAdapter(ProviderAdapter):
                     finish_reason=c.get("finish_reason"),
                     delta=chat_schema.StreamDelta(
                         role=c["delta"].get("role"),
-                        content=c["delta"].get("content"),
+                        content=_text_content(c["delta"].get("content")),
                         tool_calls=(
                             (calls := c["delta"].get("tool_calls"))
                             and [chat_schema.ToolCallDelta(**tc) for tc in calls]
