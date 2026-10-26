@@ -18,17 +18,14 @@ from mlflow.utils.mlflow_tags import MLFLOW_ISSUE_DETECTION_CHECKPOINT
 CHECKPOINT_VERSION = 1
 
 # How many sessions one scheduled run samples from its window -- sessions, not traces, because
-# the sampler selects whole sessions so a multi-turn conversation is analyzed together. A session
-# with no session metadata is one trace, so this is also the trace count in that case. Matches
+# the sampler selects whole sessions so a multi-turn conversation is analyzed together. Matches
 # `MLFLOW_GENAI_DISCOVERY_TRIAGE_SAMPLE_SIZE`, which the manual path uses the same way.
+#
+# This bounds traces as well, which is why there is no separate trace cap: ``sample_traces``
+# fetches a pool of ``sample_size * SAMPLE_POOL_MULTIPLIER`` traces and returns a subset of that
+# pool, so one occurrence analyzes at most 100 * 5 = 500 traces -- and exactly 100 when the
+# traces carry no session metadata, since each trace is then its own session.
 MAX_SCHEDULED_SESSION_SAMPLE_SIZE = 100
-
-# Upper bound on the traces those sessions may add up to. Sessions are unbounded in length, so a
-# session cap alone leaves an unattended run's size -- and its spend -- unbounded. Whole sessions
-# are dropped to stay under this rather than truncating one, which would hand the model half a
-# conversation. Only the scheduled path applies it: a manual run is sized by the traces its user
-# selected, and someone is watching it.
-MAX_SCHEDULED_TRACE_SAMPLE_SIZE = 500
 
 # One cadence interval each, so a schedule with no checkpoint yet starts from "the last interval"
 # rather than the whole history. See ``sample_window`` for where this applies.

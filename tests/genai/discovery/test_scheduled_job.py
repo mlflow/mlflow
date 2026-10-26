@@ -12,12 +12,13 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.genai.discovery.checkpoint import (
     MAX_SCHEDULED_SESSION_SAMPLE_SIZE,
-    MAX_SCHEDULED_TRACE_SAMPLE_SIZE,
     CheckpointTrace,
     DetectionCheckpoint,
     parse_detection_checkpoint,
 )
-from mlflow.genai.discovery.job import _bounded_sample, run_scheduled_issue_detection_job
+from mlflow.genai.discovery.constants import SAMPLE_POOL_MULTIPLIER
+from mlflow.genai.discovery.job import run_scheduled_issue_detection_job
+from mlflow.genai.discovery.sampling import sample_traces
 from mlflow.server.jobs.utils import MLFLOW_SERVER_JOB_ID_ENV_VAR
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.utils.mlflow_tags import (
@@ -477,40 +478,81 @@ def _session_trace(trace_id: str, session_id: str, time_ms: int):
     )
 
 
-def test_the_trace_bound_holds_through_the_real_sampler(monkeypatch: pytest.MonkeyPatch):
-    # Driven through `sample_traces` itself rather than asserting the argument: its bound counts
-    # sessions, so 100 sessions of 10 traces is 1000 traces and the session cap alone does not
-    # bound what an unattended run pays for.
-    pool = [
+def _honest_search(store: list[Trace]):
+    """A ``search_traces`` stand-in that honors ``max_results``, as a real store does."""
+    asked: list[int | None] = []
+
+    def search(max_results: int | None = None, **kwargs):
+        asked.append(max_results)
+        return store[:max_results]
+
+    return search, asked
+
+
+def test_an_occurrence_samples_with_the_session_cap(occurrence):
+    occurrence.run()
+
+    assert occurrence.sample.call_args.args[0] == MAX_SCHEDULED_SESSION_SAMPLE_SIZE
+
+
+@pytest.mark.parametrize(
+    ("traces_per_session", "expected"),
+    [
+        # One trace per session: the sample is the session cap itself.
+        (1, MAX_SCHEDULED_SESSION_SAMPLE_SIZE),
+        # Long sessions: the pool the sampler fetched is the ceiling, since every returned trace
+        # comes out of that pool however many sessions are selected.
+        (10, MAX_SCHEDULED_SESSION_SAMPLE_SIZE * SAMPLE_POOL_MULTIPLIER),
+    ],
+)
+def test_the_session_cap_bounds_traces_too(
+    traces_per_session: int, expected: int, monkeypatch: pytest.MonkeyPatch
+):
+    # Why there is no separate trace cap: ``sample_traces`` fetches a pool of
+    # ``sample_size * SAMPLE_POOL_MULTIPLIER`` traces and returns a subset of it, so an
+    # occurrence cannot analyze more than that however long its sessions are. Driven against a
+    # store far larger than the bound with a stub that honors ``max_results`` -- a stub that
+    # ignores it would "prove" a bound the real path can never reach.
+    ceiling = MAX_SCHEDULED_SESSION_SAMPLE_SIZE * SAMPLE_POOL_MULTIPLIER
+    store = [
         _session_trace(f"tr-{session}-{index}", f"sess-{session}", 1_800_000_000_000 + session)
-        for session in range(100)
-        for index in range(10)
+        for session in range(4 * ceiling)
+        for index in range(traces_per_session)
     ]
-    monkeypatch.setattr(
-        "mlflow.genai.discovery.sampling.mlflow.search_traces", lambda **kwargs: pool
+    search, asked = _honest_search(store)
+    monkeypatch.setattr("mlflow.genai.discovery.sampling.mlflow.search_traces", search)
+
+    analyzed = sample_traces(
+        MAX_SCHEDULED_SESSION_SAMPLE_SIZE,
+        search_kwargs={"experiment_ids": ["exp-1"], "filter_string": "timestamp_ms > 0"},
     )
 
-    sampled = _bounded_sample("exp-1", "timestamp_ms > 0")
-
-    assert len(pool) == 1000
-    assert len(sampled) <= MAX_SCHEDULED_TRACE_SAMPLE_SIZE
-    # Whole sessions only: every session present contributes all ten of its traces.
-    by_session: dict[str, int] = {}
-    for trace in sampled:
-        by_session[trace.info.trace_metadata[TraceMetadataKey.TRACE_SESSION]] = (
-            by_session.get(trace.info.trace_metadata[TraceMetadataKey.TRACE_SESSION], 0) + 1
-        )
-    assert set(by_session.values()) == {10}
+    assert len(store) > ceiling
+    assert asked == [ceiling]
+    assert len(analyzed) == expected
+    # Whole sessions only -- never half a conversation.
+    per_session: dict[str, int] = {}
+    for trace in analyzed:
+        key = trace.info.trace_metadata[TraceMetadataKey.TRACE_SESSION]
+        per_session[key] = per_session.get(key, 0) + 1
+    assert set(per_session.values()) == {traces_per_session}
 
 
-def test_a_sample_inside_the_trace_bound_is_returned_whole(monkeypatch: pytest.MonkeyPatch):
-    pool = [
+def test_a_store_smaller_than_the_bound_is_sampled_whole(monkeypatch: pytest.MonkeyPatch):
+    store = [
         _session_trace(f"tr-{session}-{index}", f"sess-{session}", 1_800_000_000_000 + session)
         for session in range(5)
         for index in range(3)
     ]
-    monkeypatch.setattr(
-        "mlflow.genai.discovery.sampling.mlflow.search_traces", lambda **kwargs: pool
-    )
+    search, _ = _honest_search(store)
+    monkeypatch.setattr("mlflow.genai.discovery.sampling.mlflow.search_traces", search)
 
-    assert len(_bounded_sample("exp-1", "timestamp_ms > 0")) == 15
+    assert (
+        len(
+            sample_traces(
+                MAX_SCHEDULED_SESSION_SAMPLE_SIZE,
+                search_kwargs={"experiment_ids": ["exp-1"], "filter_string": "timestamp_ms > 0"},
+            )
+        )
+        == 15
+    )

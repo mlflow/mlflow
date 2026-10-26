@@ -5,7 +5,6 @@ from typing import Any
 import mlflow
 from mlflow.client import MlflowClient
 from mlflow.entities.run_status import RunStatus
-from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
     MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS,
     MLFLOW_SERVER_SCHEDULED_ISSUE_DETECTION_MAX_WORKERS,
@@ -13,7 +12,6 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.genai.discovery.checkpoint import (
     MAX_SCHEDULED_SESSION_SAMPLE_SIZE,
-    MAX_SCHEDULED_TRACE_SAMPLE_SIZE,
     CheckpointTrace,
     SampleWindow,
     advance_checkpoint,
@@ -23,7 +21,6 @@ from mlflow.genai.discovery.checkpoint import (
 from mlflow.genai.discovery.constants import DEFAULT_MODEL
 from mlflow.genai.discovery.pipeline import discover_issues
 from mlflow.genai.discovery.sampling import sample_traces
-from mlflow.genai.discovery.utils import group_traces_by_session
 from mlflow.server.jobs import job
 from mlflow.server.jobs.utils import MLFLOW_SERVER_JOB_ID_ENV_VAR
 from mlflow.store.tracking import MAX_TRACE_LINKS_PER_REQUEST
@@ -91,40 +88,6 @@ def _newest_trace_matching(experiment_id: str, filter_string: str) -> Checkpoint
     if not traces:
         return None
     return CheckpointTrace(trace_id=traces[0].info.trace_id, time_ms=traces[0].info.request_time)
-
-
-def _bounded_sample(experiment_id: str, filter_string: str) -> list[Trace]:
-    """
-    The traces one scheduled occurrence analyzes.
-
-    ``sample_traces`` selects whole sessions, so its bound is a session count and the traces it
-    returns are however long those sessions happen to be. That keeps a conversation together,
-    which is what it is for, but it is not a bound on the size of an unattended run: 100 sessions
-    of five traces is 500 traces to pay for. Whole sessions are dropped to fit the trace bound --
-    never part of one, which would hand the model half a conversation.
-    """
-    sampled = sample_traces(
-        MAX_SCHEDULED_SESSION_SAMPLE_SIZE,
-        search_kwargs={"experiment_ids": [experiment_id], "filter_string": filter_string},
-    )
-    if len(sampled) <= MAX_SCHEDULED_TRACE_SAMPLE_SIZE:
-        return sampled
-
-    sessions = group_traces_by_session(sampled)
-    kept: list[Trace] = []
-    for session_traces in sessions.values():
-        if len(kept) + len(session_traces) <= MAX_SCHEDULED_TRACE_SAMPLE_SIZE:
-            kept.extend(session_traces)
-    _logger.info(
-        "Scheduled issue detection sampled %d traces across %d sessions for experiment %s, over "
-        "the %d-trace bound; analyzing the %d traces whose sessions fit",
-        len(sampled),
-        len(sessions),
-        experiment_id,
-        MAX_SCHEDULED_TRACE_SAMPLE_SIZE,
-        len(kept),
-    )
-    return kept
 
 
 def _detect_issues_into_run(
@@ -316,7 +279,12 @@ def run_scheduled_issue_detection_job(
         return {"traces_in_window": 0, "run_id": run_id}
 
     filter_string = " AND ".join(filter(None, [window_clause, trace_filter]))
-    traces = _bounded_sample(experiment_id, filter_string)
+    # Whole sessions, so a multi-turn conversation is analyzed together rather than cut in half.
+    # The session count bounds the traces too -- see MAX_SCHEDULED_SESSION_SAMPLE_SIZE.
+    traces = sample_traces(
+        MAX_SCHEDULED_SESSION_SAMPLE_SIZE,
+        search_kwargs={"experiment_ids": [experiment_id], "filter_string": filter_string},
+    )
     if not traces:
         # Nothing matched, so there is nothing to analyze -- but the occurrence did cover its
         # window, so the watermark still moves past it.
