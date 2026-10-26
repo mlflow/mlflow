@@ -1,9 +1,11 @@
 import asyncio
+import json
 import re
 from typing import Any
 from unittest.mock import ANY, patch
 
 import anthropic
+import httpx2
 import pytest
 from anthropic.types import Message, TextBlock, ToolUseBlock, Usage
 
@@ -562,3 +564,116 @@ def test_tracing_headers_preserve_user_extra_headers(is_async):
     span = traces[0].data.spans[0]
     # User-provided extra_headers should be recorded in span inputs and take precedence
     assert span.inputs.get("extra_headers", {}).get("X-Custom") == "my-value"
+
+
+def _sse_event(event: str, data: dict[str, Any]) -> str:
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+
+STREAM_SSE_BODY = "".join([
+    _sse_event(
+        "message_start",
+        {
+            "type": "message_start",
+            "message": {
+                "id": "test_id",
+                "type": "message",
+                "role": "assistant",
+                "model": "test_model",
+                "content": [],
+                "stop_reason": None,
+                "stop_sequence": None,
+                "usage": {"input_tokens": 10, "output_tokens": 1},
+            },
+        },
+    ),
+    _sse_event(
+        "content_block_start",
+        {
+            "type": "content_block_start",
+            "index": 0,
+            "content_block": {"type": "text", "text": ""},
+        },
+    ),
+    _sse_event(
+        "content_block_delta",
+        {
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"type": "text_delta", "text": "Hello"},
+        },
+    ),
+    _sse_event(
+        "content_block_delta",
+        {
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"type": "text_delta", "text": " world"},
+        },
+    ),
+    _sse_event("content_block_stop", {"type": "content_block_stop", "index": 0}),
+    _sse_event(
+        "message_delta",
+        {
+            "type": "message_delta",
+            "delta": {"stop_reason": "end_turn", "stop_sequence": None},
+            "usage": {"output_tokens": 2},
+        },
+    ),
+    _sse_event("message_stop", {"type": "message_stop"}),
+])
+
+
+def _create_streaming_message():
+    transport = httpx2.MockTransport(
+        lambda request: httpx2.Response(
+            200,
+            headers={"content-type": "text/event-stream"},
+            content=STREAM_SSE_BODY.encode(),
+        )
+    )
+    client = anthropic.Anthropic(api_key="test_key", http_client=httpx2.Client(transport=transport))
+    return client.messages.create(**DUMMY_CREATE_MESSAGE_REQUEST, stream=True)
+
+
+def test_messages_autolog_stream():
+    mlflow.anthropic.autolog()
+
+    stream = _create_streaming_message()
+    # The span must stay open until the stream is consumed.
+    assert get_traces() == []
+
+    text = "".join(event.delta.text for event in stream if event.type == "content_block_delta")
+    assert text == "Hello world"
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    span = traces[0].data.spans[0]
+    assert span.outputs["content"][0]["text"] == "Hello world"
+    assert span.outputs["stop_reason"] == "end_turn"
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 10,
+        "output_tokens": 2,
+        "total_tokens": 12,
+    }
+    assert traces[0].info.token_usage == {
+        "input_tokens": 10,
+        "output_tokens": 2,
+        "total_tokens": 12,
+    }
+
+
+def test_messages_autolog_stream_closed_early():
+    mlflow.anthropic.autolog()
+
+    stream = _create_streaming_message()
+    for event in stream:
+        if event.type == "content_block_delta":
+            break
+    stream.close()
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert traces[0].data.spans[0].outputs["content"][0]["text"] == "Hello"

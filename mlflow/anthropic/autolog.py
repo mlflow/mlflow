@@ -73,11 +73,86 @@ def patched_claude_sdk_init(original, self, options=None):
 
 
 def patched_class_call(original, self, *args, **kwargs):
+    from anthropic import Stream
+
     with TracingSession(original, self, args, kwargs) as manager:
         _inject_tracing_headers(kwargs, manager.span)
         output = original(self, *args, **kwargs)
-        manager.output = output
+        if isinstance(output, Stream) and manager.span is not None:
+            # The span must stay open until the caller consumes or closes the stream.
+            manager.defer_end = True
+            _trace_stream(manager, output)
+        else:
+            manager.output = output
         return output
+
+
+def _trace_stream(manager: "TracingSession", stream: Any):
+    events = []
+    finished = False
+
+    def _finish(error=None):
+        nonlocal finished
+        if finished:
+            return
+        finished = True
+        if error is not None:
+            manager.span.record_exception(error)
+        else:
+            manager.output = _reconstruct_message(events)
+        manager.end_span()
+
+    original_close = stream.close
+    original_iterator = stream._iterator
+
+    def _stream_output_logging_hook(iterator):
+        try:
+            for event in iterator:
+                events.append(event)
+                yield event
+        except Exception as e:
+            _finish(e)
+            raise
+        finally:
+            _finish()
+
+    def _close():
+        try:
+            return original_close()
+        finally:
+            _finish()
+
+    stream._iterator = _stream_output_logging_hook(original_iterator)
+    stream.close = _close
+
+
+def _reconstruct_message(events: list[Any]):
+    from anthropic.types import TextBlock
+
+    message = None
+    text_parts = []
+    stop_reason = None
+    output_tokens = None
+    for event in events:
+        if event.type == "message_start":
+            message = event.message
+        elif event.type == "content_block_delta" and event.delta.type == "text_delta":
+            text_parts.append(event.delta.text)
+        elif event.type == "message_delta":
+            stop_reason = event.delta.stop_reason
+            output_tokens = event.usage.output_tokens
+
+    if message is None:
+        return None
+
+    usage = message.usage.model_copy(update={"output_tokens": output_tokens or 0})
+    return message.model_copy(
+        update={
+            "content": [TextBlock(type="text", text="".join(text_parts))],
+            "stop_reason": stop_reason,
+            "usage": usage,
+        }
+    )
 
 
 async def async_patched_class_call(original, self, *args, **kwargs):
@@ -99,6 +174,7 @@ class TracingSession:
         # These attributes are set outside the constructor.
         self.span = None
         self.output = None
+        self.defer_end = False
 
     def __enter__(self):
         return self._enter_impl()
@@ -127,19 +203,21 @@ class TracingSession:
         return self
 
     def _exit_impl(self, exc_type, exc_val, exc_tb) -> None:
-        if self.span:
+        if self.span and not self.defer_end:
             if exc_val:
                 self.span.record_exception(exc_val)
+            self.end_span()
 
-            set_span_model_attribute(self.span, self.inputs)
-            # Client-side cost computation (used for Databricks backends) resolves
-            # litellm pricing by provider; without it, Claude model names don't
-            # match and cost is silently dropped while token usage is still
-            # recorded. This autolog patches the Anthropic SDK, so the provider
-            # is always Anthropic.
-            self.span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, "anthropic")
-            _set_token_usage_attribute(self.span, self.output)
-            self.span.end(outputs=self.output)
+    def end_span(self) -> None:
+        set_span_model_attribute(self.span, self.inputs)
+        # Client-side cost computation (used for Databricks backends) resolves
+        # litellm pricing by provider; without it, Claude model names don't
+        # match and cost is silently dropped while token usage is still
+        # recorded. This autolog patches the Anthropic SDK, so the provider
+        # is always Anthropic.
+        self.span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, "anthropic")
+        _set_token_usage_attribute(self.span, self.output)
+        self.span.end(outputs=self.output)
 
 
 def _inject_tracing_headers(kwargs: dict[str, Any], span: LiveSpan | None):
