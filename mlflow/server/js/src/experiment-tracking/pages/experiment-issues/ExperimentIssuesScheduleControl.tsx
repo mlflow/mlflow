@@ -327,6 +327,7 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     startTime: storedStartTime,
     weekday: storedWeekday,
     timezone: storedTimezone,
+    nextRunMs,
     isLoading,
     isUpdating,
     loadError,
@@ -686,6 +687,29 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     defaultMessage: 'Minute',
     description: 'Experiment issues tab > Schedule modal label for the minute a run starts at',
   });
+  // What the saved schedule will do next, which is the question the dialog cannot otherwise
+  // answer: the controls say "daily at 16:00", not "that means tomorrow". Shown in the
+  // schedule's own zone, since that is the zone the row above is read in. Stays on the saved
+  // value while a draft is edited -- the server works out the new one on its next pass.
+  const nextRunLabel =
+    nextRunMs === undefined
+      ? null
+      : intl.formatMessage(
+          {
+            defaultMessage: 'Next run: {when}',
+            description: 'Experiment issues tab > Schedule modal line stating when the saved schedule next runs',
+          },
+          {
+            when: new Intl.DateTimeFormat(intl.locale, {
+              dateStyle: 'medium',
+              timeStyle: 'short',
+              // 24-hour, because the selects above are: "16:00" there and "4:00 PM" here would
+              // read as two different times.
+              hourCycle: 'h23',
+              timeZone: storedTimezone ?? undefined,
+            }).format(new Date(nextRunMs)),
+          },
+        );
   const timezoneRowLabel = intl.formatMessage({
     defaultMessage: 'Timezone',
     description: 'Experiment issues tab > Schedule modal label for the timezone the start time is read in',
@@ -964,6 +988,12 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
                   disabled={filtersDisabled}
                   clearOnOpen
                 />
+                {/* Only while both the saved schedule and the draft are running: a paused
+                    schedule has a next fire time recorded that it will never reach, and a draft
+                    turned off is about to stop the one that would. */}
+                {setting !== 'off' && cadence !== 'off' && nextRunLabel && (
+                  <Typography.Hint>{nextRunLabel}</Typography.Hint>
+                )}
               </div>
               <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
                 <Typography.Text color="secondary">{modelRowLabel}</Typography.Text>

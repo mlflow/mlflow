@@ -1,7 +1,10 @@
 import json
 import logging
+from dataclasses import replace
+from datetime import datetime
 from pathlib import Path
 from unittest import mock
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -49,6 +52,10 @@ from mlflow.utils.mlflow_tags import (
 ONE_PM_MS = 1777899600000
 HOUR_MS = 60 * 60 * 1000
 DAY_MS = 24 * HOUR_MS
+
+
+def _ms(zone: str, *args: int) -> int:
+    return int(datetime(*args, tzinfo=ZoneInfo(zone)).timestamp() * 1000)
 
 
 @pytest.fixture
@@ -178,6 +185,105 @@ def test_an_occurrence_is_not_dispatched_twice(store, dispatch):
     dispatch(ONE_PM_MS)
     assert dispatch(ONE_PM_MS + HOUR_MS).call_count == 1
     assert dispatch(ONE_PM_MS + HOUR_MS + 60_000).call_count == 0
+
+
+def _retime(store, experiment_id: str, schedule: DetectionSchedule) -> None:
+    """Rewrite the schedule tag the way the modal does, leaving the state tag alone."""
+    for key, value in _schedule_tags(schedule).items():
+        store.set_experiment_tag(experiment_id, ExperimentTag(key, value))
+
+
+def test_moving_a_schedule_earlier_does_not_fire_it_on_the_spot(store, dispatch):
+    # The case the fingerprint exists for. A daily schedule has been running at 09:00; at 17:00
+    # its owner moves it to 16:00. Today's 16:00 is behind us and after the last run, so without
+    # re-anchoring the very next poll would read it as an occurrence the server missed.
+    nine_am = _ms("UTC", 2026, 5, 4, 9)
+    experiment_id = _experiment_with(
+        store,
+        "retimed",
+        **_schedule_tags(DetectionSchedule(cadence=DetectionCadence.DAILY, fire_time="09:00")),
+    )
+    dispatch(_ms("UTC", 2026, 5, 3, 10))
+    assert dispatch(_ms("UTC", 2026, 5, 4, 9, 0, 30)).call_count == 1
+    assert _state(store, experiment_id).last_fire_time_ms == nine_am
+
+    _retime(
+        store, experiment_id, DetectionSchedule(cadence=DetectionCadence.DAILY, fire_time="16:00")
+    )
+    assert dispatch(_ms("UTC", 2026, 5, 4, 17)).call_count == 0
+    state = _state(store, experiment_id)
+    assert state.last_fire_time_ms == _ms("UTC", 2026, 5, 4, 17)
+    assert state.next_fire_time_ms == _ms("UTC", 2026, 5, 5, 16)
+    # And what it had already done is still recorded against it: the 09:00 dispatch.
+    assert state.last_dispatched_at_ms == _ms("UTC", 2026, 5, 4, 9, 0, 30)
+
+    # Nothing fires until the new time comes round, and then exactly one occurrence does.
+    assert dispatch(_ms("UTC", 2026, 5, 4, 23, 45)).call_count == 0
+    submit_job = dispatch(_ms("UTC", 2026, 5, 5, 16))
+    submit_job.assert_called_once()
+    assert submit_job.call_args.kwargs["params"]["window_upper_bound_ms"] == _ms(
+        "UTC", 2026, 5, 5, 16
+    )
+
+
+def test_moving_a_schedule_later_today_still_fires_today(store, dispatch):
+    # Re-anchoring must not swallow an occurrence that has not happened yet: moving a daily
+    # schedule from 09:00 to 16:00 at 10:00 should run it at 16:00 today, not tomorrow.
+    experiment_id = _experiment_with(
+        store,
+        "retimed-later",
+        **_schedule_tags(DetectionSchedule(cadence=DetectionCadence.DAILY, fire_time="09:00")),
+    )
+    dispatch(_ms("UTC", 2026, 5, 4, 8))
+    _retime(
+        store, experiment_id, DetectionSchedule(cadence=DetectionCadence.DAILY, fire_time="16:00")
+    )
+
+    assert dispatch(_ms("UTC", 2026, 5, 4, 10)).call_count == 0
+    assert _state(store, experiment_id).next_fire_time_ms == _ms("UTC", 2026, 5, 4, 16)
+    assert dispatch(_ms("UTC", 2026, 5, 4, 16)).call_count == 1
+
+
+def test_editing_what_a_run_does_rather_than_when_leaves_the_schedule_alone(store, dispatch):
+    # Changing the clauses must neither delay the next occurrence nor trigger one, so the
+    # fingerprint deliberately ignores them.
+    was = DetectionSchedule(cadence=DetectionCadence.HOURLY)
+    experiment_id = _experiment_with(store, "refiltered", **_schedule_tags(was))
+    dispatch(ONE_PM_MS)
+
+    _retime(
+        store,
+        experiment_id,
+        replace(
+            was,
+            trace_filters=(ScheduleTraceFilter(field="tag", key="team", value="search"),),
+        ),
+    )
+    submit_job = dispatch(ONE_PM_MS + HOUR_MS)
+    submit_job.assert_called_once()
+    assert submit_job.call_args.kwargs["params"]["trace_filter"] == "tags.`team` = 'search'"
+
+
+def test_a_schedule_dispatched_before_timings_were_recorded_is_not_delayed(store, dispatch):
+    # An upgrade must not cost every existing schedule an occurrence: the fingerprint is written
+    # down without moving the anchor, and the pass continues as normal.
+    experiment_id = _experiment_with(
+        store, "legacy", **_schedule_tags(DetectionSchedule(cadence=DetectionCadence.HOURLY))
+    )
+    dispatch(ONE_PM_MS)
+    # Rewrite the state the way a server without timings left it.
+    store.set_experiment_tag(
+        experiment_id,
+        ExperimentTag(
+            MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE,
+            json.dumps({"version": 1, "lastFireTimeMs": ONE_PM_MS}),
+        ),
+    )
+
+    assert dispatch(ONE_PM_MS + HOUR_MS).call_count == 1
+    state = _state(store, experiment_id)
+    assert state.timing == DetectionSchedule(cadence=DetectionCadence.HOURLY).timing
+    assert state.last_fire_time_ms == ONE_PM_MS + HOUR_MS
 
 
 def test_a_paused_schedule_is_anchored_but_never_dispatched(store, dispatch):

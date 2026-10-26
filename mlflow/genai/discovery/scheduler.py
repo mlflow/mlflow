@@ -24,11 +24,13 @@ from mlflow.genai.discovery.checkpoint import (
 from mlflow.genai.discovery.schedule import (
     DetectionSchedule,
     ScheduleModel,
+    adopt_timing,
     claim_first_occurrence,
     claim_occurrence,
     due_occurrence_ms,
     read_detection_schedule,
     read_detection_schedule_state,
+    reanchor_timing,
     write_detection_schedule_state,
 )
 from mlflow.genai.discovery.settings import read_detection_settings
@@ -166,9 +168,30 @@ def _dispatch_if_due(store: AbstractStore, experiment: Experiment, now_ms: int) 
         write_detection_schedule_state(
             store,
             experiment.experiment_id,
-            claim_first_occurrence(now_ms),
+            claim_first_occurrence(now_ms, schedule),
         )
         return
+    if state.timing != schedule.timing:
+        if state.timing is None:
+            # Dispatched before this server recorded timings. Written down without moving the
+            # anchor, so an upgrade does not delay anybody's next occurrence, and then treated
+            # as any other pass -- nothing about the schedule has actually changed.
+            state = adopt_timing(state, schedule)
+            write_detection_schedule_state(store, experiment.experiment_id, state)
+        else:
+            # The owner moved the schedule. Re-anchored at now so the new timing applies from
+            # its next occurrence: otherwise a time the change places earlier today reads as an
+            # occurrence this server missed, and fires the moment it was saved.
+            write_detection_schedule_state(
+                store, experiment.experiment_id, reanchor_timing(state, schedule, now_ms)
+            )
+            _logger.info(
+                "Issue detection schedule for experiment %s was retimed; the next occurrence is "
+                "its first fire time after %d",
+                experiment.experiment_id,
+                now_ms,
+            )
+            return
     fire_time_ms = due_occurrence_ms(schedule, state, now_ms)
     if fire_time_ms is None:
         return
@@ -191,7 +214,9 @@ def _dispatch_if_due(store: AbstractStore, experiment: Experiment, now_ms: int) 
     # it twice, and losing one costs nothing: the watermark only advances when a run finishes, so
     # the next occurrence's window still covers the traces this one would have analyzed.
     write_detection_schedule_state(
-        store, experiment.experiment_id, claim_occurrence(state, fire_time_ms, now_ms)
+        store,
+        experiment.experiment_id,
+        claim_occurrence(state, fire_time_ms, schedule, now_ms),
     )
     try:
         job_id = _submit_occurrence(store, experiment, schedule, fire_time_ms)

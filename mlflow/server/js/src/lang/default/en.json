@@ -3171,6 +3171,10 @@
     "defaultMessage": "Monitor",
     "description": "Monitor step"
   },
+  "8G84mD": {
+    "defaultMessage": "Next run: {when}",
+    "description": "Experiment issues tab > Schedule modal line stating when the saved schedule next runs"
+  },
   "8GlhpA": {
     "defaultMessage": "No attributes",
     "description": "Empty state shown when a span link has no attributes"

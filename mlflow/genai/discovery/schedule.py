@@ -188,6 +188,22 @@ class DetectionSchedule:
     weekday: int = DEFAULT_WEEKDAY
 
     @property
+    def timing(self) -> str:
+        """
+        A fingerprint of everything that decides *when* this schedule fires.
+
+        Recorded alongside the dispatch state so a poll can tell "the owner moved the schedule"
+        from "time passed": the first has to re-anchor, or an occurrence the new timing already
+        places in the past would fire the moment it was saved; the second must not, or a server
+        that was down would quietly skip the window it missed.
+
+        The model and the trace filters are deliberately absent -- they change what a run does,
+        not when it happens, so editing them should neither delay nor trigger one. So is
+        ``paused``: turning a schedule off and on again is not a change of timing.
+        """
+        return f"{self.cadence.value}|{self.fire_time}|{self.weekday}|{self.timezone}"
+
+    @property
     def fire_hour_minute(self) -> tuple[int, int]:
         """
         ``fire_time`` as numbers. Parsed on the way in, so an unreadable value never reaches here.
@@ -228,11 +244,21 @@ class DetectionScheduleState:
         last_dispatched_at_ms: Wall-clock dispatch time (audit only). Differs from
             ``last_fire_time_ms`` when the server was busy or down at the fire time.
         last_run_id: The run that dispatch created (audit only).
+        timing: The schedule's ``timing`` fingerprint when this state was written, so the next
+            poll can tell whether the owner has moved the schedule since. ``None`` on a state
+            written before this was recorded.
+        next_fire_time_ms: When the next occurrence is due, as this server works it out. Written
+            for the dialog to show, since the arithmetic that produces it is DST-aware and
+            belongs on one side only -- a second implementation in the browser would be a second
+            answer. Read with ``timing``: a value whose fingerprint no longer matches the stored
+            schedule describes a schedule that has since been edited.
     """
 
     last_fire_time_ms: int
     last_dispatched_at_ms: int | None = None
     last_run_id: str | None = None
+    timing: str | None = None
+    next_fire_time_ms: int | None = None
 
     def to_json(self) -> str:
         payload: dict[str, object] = {
@@ -243,6 +269,10 @@ class DetectionScheduleState:
             payload["lastDispatchedAtMs"] = self.last_dispatched_at_ms
         if self.last_run_id is not None:
             payload["lastRunId"] = self.last_run_id
+        if self.timing is not None:
+            payload["timing"] = self.timing
+        if self.next_fire_time_ms is not None:
+            payload["nextFireTimeMs"] = self.next_fire_time_ms
         return json.dumps(payload)
 
 
@@ -481,12 +511,18 @@ def parse_detection_schedule_state(raw_value: str | None) -> DetectionScheduleSt
     if isinstance(last_fire_time_ms, bool) or not isinstance(last_fire_time_ms, int):
         return None
     last_dispatched_at_ms = parsed.get("lastDispatchedAtMs")
+    next_fire_time_ms = parsed.get("nextFireTimeMs")
+    timing = parsed.get("timing")
     return DetectionScheduleState(
         last_fire_time_ms=last_fire_time_ms,
         last_dispatched_at_ms=last_dispatched_at_ms
         if isinstance(last_dispatched_at_ms, int) and not isinstance(last_dispatched_at_ms, bool)
         else None,
         last_run_id=parsed.get("lastRunId") if isinstance(parsed.get("lastRunId"), str) else None,
+        timing=timing if isinstance(timing, str) and timing else None,
+        next_fire_time_ms=next_fire_time_ms
+        if isinstance(next_fire_time_ms, int) and not isinstance(next_fire_time_ms, bool)
+        else None,
     )
 
 
@@ -632,24 +668,76 @@ def due_occurrence_ms(
     return fire_time_ms if latest_ms is None else max(fire_time_ms, latest_ms)
 
 
-def claim_first_occurrence(now_ms: int) -> DetectionScheduleState:
+def claim_first_occurrence(now_ms: int, schedule: DetectionSchedule) -> DetectionScheduleState:
     """
     The state to record for a schedule the server has not dispatched before.
 
     Anchoring at ``now_ms`` makes the first run happen at the schedule's next fire time rather
     than immediately, so saving a daily schedule in the afternoon does not run it on the spot.
     """
-    return DetectionScheduleState(last_fire_time_ms=now_ms, last_dispatched_at_ms=None)
+    return DetectionScheduleState(
+        last_fire_time_ms=now_ms,
+        last_dispatched_at_ms=None,
+        timing=schedule.timing,
+        next_fire_time_ms=next_fire_time_ms(schedule, now_ms),
+    )
 
 
 def claim_occurrence(
-    state: DetectionScheduleState, fire_time_ms: int, now_ms: int | None = None
+    state: DetectionScheduleState,
+    fire_time_ms: int,
+    schedule: DetectionSchedule,
+    now_ms: int | None = None,
 ) -> DetectionScheduleState:
     """The state to record when dispatching the occurrence that fired at ``fire_time_ms``."""
     return replace(
         state,
         last_fire_time_ms=fire_time_ms,
         last_dispatched_at_ms=now_ms if now_ms is not None else int(time.time() * 1000),
+        timing=schedule.timing,
+        next_fire_time_ms=next_fire_time_ms(schedule, fire_time_ms),
+    )
+
+
+def adopt_timing(
+    state: DetectionScheduleState, schedule: DetectionSchedule
+) -> DetectionScheduleState:
+    """
+    The state to record for a schedule dispatched before this server recorded timings.
+
+    The anchor is left exactly where it was: nothing about the schedule changed, this server
+    simply had not written down what its timing was, so delaying its next occurrence to record
+    that would punish a schedule for an upgrade.
+    """
+    return replace(
+        state,
+        timing=schedule.timing,
+        next_fire_time_ms=next_fire_time_ms(schedule, state.last_fire_time_ms),
+    )
+
+
+def reanchor_timing(
+    state: DetectionScheduleState, schedule: DetectionSchedule, now_ms: int
+) -> DetectionScheduleState:
+    """
+    The state to record when a schedule's timing has been edited.
+
+    Anchored at ``now_ms``, so the new timing takes effect from its next occurrence instead of
+    firing one on the spot: moving a daily schedule from 09:00 to 16:00 at 17:00 would otherwise
+    leave today's 16:00 looking like an occurrence the server had missed, and dispatch it
+    immediately. The next run is then tomorrow at 16:00, which is what the owner asked for.
+
+    No window is lost by this. The watermark, not the fire time, decides how far back a run
+    reads, so the occurrence that does fire still covers the traces that arrived in between.
+
+    ``last_run_id`` and ``last_dispatched_at_ms`` are kept: they record what this schedule has
+    actually done, which an edit does not undo.
+    """
+    return replace(
+        state,
+        last_fire_time_ms=now_ms,
+        timing=schedule.timing,
+        next_fire_time_ms=next_fire_time_ms(schedule, now_ms),
     )
 
 

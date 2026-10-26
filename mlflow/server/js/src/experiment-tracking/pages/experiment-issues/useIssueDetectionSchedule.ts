@@ -40,6 +40,8 @@ export interface UseIssueDetectionScheduleResult {
   startTime: string;
   /** Weekday a weekly cadence fires on, Monday as 0. */
   weekday: number;
+  /** When the server says the schedule next runs, or undefined when it has not said yet. */
+  nextRunMs: number | undefined;
   /**
    * The zone `startTime` is read in: the stored one, or undefined on a schedule with none, where
    * a save adopts the editor's browser zone. A time of day means nothing without it, so the modal
@@ -118,6 +120,7 @@ export const useIssueDetectionSchedule = ({
     traceFilters: schedule?.traceFilters ?? [],
     startTime: schedule?.startTime ?? DEFAULT_ISSUE_DETECTION_START_TIME,
     weekday: schedule?.weekday ?? DEFAULT_ISSUE_DETECTION_WEEKDAY,
+    nextRunMs: schedule?.nextRunMs,
     timezone: schedule?.timezone,
     model: schedule?.model,
     isLoading,

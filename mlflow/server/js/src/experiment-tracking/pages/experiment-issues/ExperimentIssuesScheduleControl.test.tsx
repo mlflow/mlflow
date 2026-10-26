@@ -5,9 +5,13 @@ import userEvent, { PointerEventsCheckLevel } from '@testing-library/user-event'
 import { renderWithDesignSystem, screen, waitFor } from '../../../common/utils/TestUtils.react18';
 import { setupServer } from '../../../common/utils/setup-msw';
 import { QueryClient, QueryClientProvider } from '../../../common/utils/reactQueryHooks';
-import { MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG, MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG } from '../../constants';
+import {
+  MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG,
+  MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG,
+  MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG,
+} from '../../constants';
 import { ExperimentIssuesScheduleControl } from './ExperimentIssuesScheduleControl';
-import { ISSUE_DETECTION_SCHEDULE_VERSION, MAX_TRACE_FILTERS } from './issueDetectionSchedule';
+import { ISSUE_DETECTION_SCHEDULE_VERSION, MAX_TRACE_FILTERS, scheduleTiming } from './issueDetectionSchedule';
 
 interface SavedTag {
   key: string;
@@ -457,6 +461,100 @@ describe('ExperimentIssuesScheduleControl', () => {
     await openModal(user, /scheduled: daily/i);
     expect(await hourSelect()).toHaveTextContent('09');
     expect(await minuteSelect()).toHaveTextContent('00');
+  });
+
+  test("shows when the saved schedule next runs, in the schedule's own zone", async () => {
+    // The question the controls cannot answer on their own: "daily at 16:00" does not say
+    // whether that means today or tomorrow.
+    const nextRun = Date.UTC(2026, 10, 3, 15, 0);
+    experimentTags = [
+      scheduleTag('daily', false, 'Europe/Berlin', '16:00', 0),
+      {
+        key: MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG,
+        value: JSON.stringify({
+          version: ISSUE_DETECTION_SCHEDULE_VERSION,
+          lastFireTimeMs: nextRun - 86_400_000,
+          timing: scheduleTiming('daily', '16:00', 0, 'Europe/Berlin'),
+          nextFireTimeMs: nextRun,
+        }),
+      },
+    ];
+    const user = setup();
+    render();
+
+    await openModal(user, /scheduled: daily/i);
+    // 15:00 UTC is 16:00 in Berlin, which is the zone the row above is read in.
+    expect(await screen.findByText(/Next run:.*16:00/)).toBeInTheDocument();
+  });
+
+  test('says nothing about the next run when the schedule has been retimed since', async () => {
+    // The server has not recomputed it yet, and the old value names a time nothing will happen
+    // at, so the line is dropped rather than left to mislead.
+    experimentTags = [
+      scheduleTag('daily', false, 'Europe/Berlin', '16:00', 0),
+      {
+        key: MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG,
+        value: JSON.stringify({
+          version: ISSUE_DETECTION_SCHEDULE_VERSION,
+          lastFireTimeMs: 1,
+          timing: scheduleTiming('daily', '09:00', 0, 'Europe/Berlin'),
+          nextFireTimeMs: Date.UTC(2026, 10, 3, 8, 0),
+        }),
+      },
+    ];
+    const user = setup();
+    render();
+
+    await openModal(user, /scheduled: daily/i);
+    expect(await screen.findByRole('combobox', { name: 'Hour' })).toHaveTextContent('16');
+    expect(screen.queryByText(/Next run:/)).not.toBeInTheDocument();
+  });
+
+  test('says nothing about the next run while the schedule is off', async () => {
+    experimentTags = [
+      scheduleTag('daily', true, 'Europe/Berlin', '16:00', 0),
+      {
+        key: MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG,
+        value: JSON.stringify({
+          version: ISSUE_DETECTION_SCHEDULE_VERSION,
+          lastFireTimeMs: 1,
+          timing: scheduleTiming('daily', '16:00', 0, 'Europe/Berlin'),
+          nextFireTimeMs: Date.UTC(2026, 10, 3, 15, 0),
+        }),
+      },
+    ];
+    const user = setup();
+    render();
+
+    await openModal(user);
+    expect(await screen.findByRole('combobox', { name: /cadence/i })).toHaveTextContent('Off');
+    expect(screen.queryByText(/Next run:/)).not.toBeInTheDocument();
+  });
+
+  test('drops the next run as soon as the draft is turned off', async () => {
+    // The line describes the saved schedule, but a draft set to Off is about to stop it, so
+    // leaving "Next run" on screen would answer a question the user has just changed.
+    const nextRun = Date.UTC(2026, 10, 3, 15, 0);
+    experimentTags = [
+      scheduleTag('daily', false, 'Europe/Berlin', '16:00', 0),
+      {
+        key: MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG,
+        value: JSON.stringify({
+          version: ISSUE_DETECTION_SCHEDULE_VERSION,
+          lastFireTimeMs: nextRun - 86_400_000,
+          timing: scheduleTiming('daily', '16:00', 0, 'Europe/Berlin'),
+          nextFireTimeMs: nextRun,
+        }),
+      },
+    ];
+    const user = setup();
+    render();
+
+    await openModal(user, /scheduled: daily/i);
+    expect(await screen.findByText(/Next run:/)).toBeInTheDocument();
+
+    await chooseCadence(user, 'Off');
+    await waitFor(() => expect(screen.queryByText(/Next run:/)).not.toBeInTheDocument());
   });
 
   test('says the cost recurs while a cadence is selected, and not when off', async () => {

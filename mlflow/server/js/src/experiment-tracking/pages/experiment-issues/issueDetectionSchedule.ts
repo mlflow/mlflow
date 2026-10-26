@@ -1,5 +1,9 @@
 import { MlflowService } from '../../sdk/MlflowService';
-import { MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG, MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG } from '../../constants';
+import {
+  MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG,
+  MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG,
+  MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG,
+} from '../../constants';
 
 /**
  * The experiment's recurring issue-detection schedule, as stored.
@@ -104,6 +108,15 @@ export interface IssueDetectionSchedule {
   startTime: string;
   /** Weekday a weekly cadence fires on, Monday as 0. Meaningless for the other cadences. */
   weekday: number;
+  /**
+   * When the server says this schedule next runs, or undefined when it has not said yet.
+   *
+   * Taken from the server's own state tag rather than worked out here: the arithmetic behind it
+   * is DST-aware, and a second implementation in the browser would be a second answer. Undefined
+   * until the dispatcher's next pass after a schedule is saved, and deliberately so -- a value
+   * recorded against different timing would describe a schedule that no longer exists.
+   */
+  nextRunMs: number | undefined;
   traceFilters: ScheduleTraceFilter[];
   /** Undefined on a schedule saved before a model could be chosen: the server default applies. */
   model: IssueDetectionScheduleModel | undefined;
@@ -119,6 +132,7 @@ export const noIssueDetectionSchedule = (): IssueDetectionSchedule => ({
   cadence: undefined,
   startTime: DEFAULT_ISSUE_DETECTION_START_TIME,
   weekday: DEFAULT_ISSUE_DETECTION_WEEKDAY,
+  nextRunMs: undefined,
   traceFilters: [],
   model: undefined,
   timezone: undefined,
@@ -256,6 +270,46 @@ export const parseScheduleTraceFilters = (raw: string | null | undefined): Sched
 };
 
 /**
+ * A fingerprint of everything that decides *when* a schedule fires, in the form the server writes
+ * alongside its dispatch state. Must stay in step with `DetectionSchedule.timing` on the server:
+ * a mismatch only hides the next-run line, never changes when anything fires.
+ */
+export const scheduleTiming = (
+  cadence: IssueDetectionScheduleFrequency,
+  startTime: string,
+  weekday: number,
+  timezone: string,
+): string => `${cadence}|${startTime}|${weekday}|${timezone}`;
+
+/**
+ * When the server says this schedule next runs, if what it recorded still describes it.
+ *
+ * The state tag carries the timing it was written against. A schedule edited since then has a
+ * next run the server has not computed yet, and showing the old one would name a time nothing
+ * will happen at -- so this answers undefined until the next dispatcher pass catches up.
+ */
+const parseNextRun = (
+  raw: string | null | undefined,
+  schedule: {
+    cadence: IssueDetectionScheduleFrequency | undefined;
+    startTime: string;
+    weekday: number;
+    timezone: string | undefined;
+  },
+): number | undefined => {
+  const parsed = parseJson(raw);
+  if (!isRecord(parsed) || parsed['version'] !== ISSUE_DETECTION_SCHEDULE_VERSION) {
+    return undefined;
+  }
+  const nextRun = parsed['nextFireTimeMs'];
+  if (typeof nextRun !== 'number' || !Number.isFinite(nextRun) || !schedule.cadence || !schedule.timezone) {
+    return undefined;
+  }
+  const timing = scheduleTiming(schedule.cadence, schedule.startTime, schedule.weekday, schedule.timezone);
+  return parsed['timing'] === timing ? nextRun : undefined;
+};
+
+/**
  * Read the schedule from an experiment's tags.
  *
  * Only an envelope this reader recognizes is interpreted, so a tag written by a newer server (or
@@ -274,15 +328,22 @@ export const readIssueDetectionScheduleFromTags = (
   }
   const cadence = isFrequency(parsed['cadence']) ? parsed['cadence'] : undefined;
   const paused = parsed['paused'] === true;
-  const timezone = parsed['timezone'];
-  return {
-    setting: !cadence || paused ? 'off' : cadence,
+  const storedTimezone = parsed['timezone'];
+  const schedule = {
+    setting: (!cadence || paused ? 'off' : cadence) as IssueDetectionScheduleSetting,
     cadence,
     startTime: parseIssueDetectionStartTime(parsed['fireTime']),
     weekday: parseIssueDetectionWeekday(parsed['weekday']),
     traceFilters,
     model: parseScheduleModel(parsed['model']),
-    timezone: typeof timezone === 'string' && timezone.trim().length > 0 ? timezone : undefined,
+    timezone: typeof storedTimezone === 'string' && storedTimezone.trim().length > 0 ? storedTimezone : undefined,
+  };
+  return {
+    ...schedule,
+    nextRunMs: parseNextRun(
+      tags?.find(({ key }) => key === MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG)?.value,
+      schedule,
+    ),
   };
 };
 
@@ -420,6 +481,9 @@ export const saveIssueDetectionSchedule = async (
     cadence,
     startTime: savedStartTime,
     weekday: savedWeekday,
+    // Unknown until the dispatcher's next pass re-reads the schedule it has just been given, so
+    // the line is dropped rather than left showing the run the old timing would have had.
+    nextRunMs: undefined,
     traceFilters: normalized,
     model: savedModel,
     timezone: savedTimezone,

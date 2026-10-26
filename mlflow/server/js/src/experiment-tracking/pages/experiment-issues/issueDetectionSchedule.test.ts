@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 
-import { MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG } from '../../constants';
+import { MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG, MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG } from '../../constants';
 import {
   DEFAULT_ISSUE_DETECTION_START_TIME,
   DEFAULT_ISSUE_DETECTION_WEEKDAY,
@@ -11,6 +11,7 @@ import {
   parseIssueDetectionWeekday,
   parseScheduleTraceFilters,
   readIssueDetectionScheduleFromTags,
+  scheduleTiming,
   splitStartTime,
   startTimeHourOptions,
   startTimeMinuteOptions,
@@ -218,5 +219,64 @@ describe('readIssueDetectionScheduleFromTags', () => {
 
   test('a schedule with no readable envelope still reads as a usable start time', () => {
     expect(readIssueDetectionScheduleFromTags([]).startTime).toBe(DEFAULT_ISSUE_DETECTION_START_TIME);
+  });
+});
+
+describe('the next run the server has worked out', () => {
+  const NEXT_RUN_MS = 1_800_000_000_000;
+
+  const readWithState = (stored: Record<string, unknown>, state: Record<string, unknown>) =>
+    readIssueDetectionScheduleFromTags([
+      {
+        key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG,
+        value: JSON.stringify({ version: ISSUE_DETECTION_SCHEDULE_VERSION, ...stored }),
+      },
+      {
+        key: MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG,
+        value: JSON.stringify({ version: ISSUE_DETECTION_SCHEDULE_VERSION, lastFireTimeMs: 1, ...state }),
+      },
+    ]);
+
+  const daily = { cadence: 'daily', fireTime: '16:00', weekday: 0, timezone: 'Europe/Berlin' };
+  const matchingTiming = scheduleTiming('daily', '16:00', 0, 'Europe/Berlin');
+
+  test('is read when it was recorded against the schedule as it stands', () => {
+    expect(readWithState(daily, { timing: matchingTiming, nextFireTimeMs: NEXT_RUN_MS }).nextRunMs).toBe(NEXT_RUN_MS);
+  });
+
+  test('matches the fingerprint the server writes', () => {
+    // Pinned as a literal as well as through the helper: the two sides have to agree on this
+    // string, and a silent change here would only ever hide the line, never be caught by types.
+    expect(matchingTiming).toBe('daily|16:00|0|Europe/Berlin');
+  });
+
+  test.each([
+    ['the start time has changed since', scheduleTiming('daily', '09:00', 0, 'Europe/Berlin')],
+    ['the cadence has changed since', scheduleTiming('weekly', '16:00', 0, 'Europe/Berlin')],
+    ['the weekday has changed since', scheduleTiming('daily', '16:00', 3, 'Europe/Berlin')],
+    ['the timezone has changed since', scheduleTiming('daily', '16:00', 0, 'UTC')],
+  ])('is withheld when %s', (_label, timing) => {
+    // Showing it would name a time nothing will happen at: the server has not recomputed the
+    // next run for the schedule that is stored now.
+    expect(readWithState(daily, { timing, nextFireTimeMs: NEXT_RUN_MS }).nextRunMs).toBeUndefined();
+  });
+
+  test.each([
+    ['no timing recorded', { nextFireTimeMs: NEXT_RUN_MS }],
+    ['no next run recorded', { timing: matchingTiming }],
+    ['a next run that is not a number', { timing: matchingTiming, nextFireTimeMs: 'soon' }],
+  ])('is withheld when there is %s', (_label, state) => {
+    expect(readWithState(daily, state).nextRunMs).toBeUndefined();
+  });
+
+  test('is withheld when there is no state tag at all', () => {
+    expect(
+      readIssueDetectionScheduleFromTags([
+        {
+          key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG,
+          value: JSON.stringify({ version: ISSUE_DETECTION_SCHEDULE_VERSION, ...daily }),
+        },
+      ]).nextRunMs,
+    ).toBeUndefined();
   });
 });

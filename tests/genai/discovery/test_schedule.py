@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 from datetime import datetime
 from unittest import mock
 from zoneinfo import ZoneInfo
@@ -20,6 +21,7 @@ from mlflow.genai.discovery.schedule import (
     ScheduleModel,
     ScheduleTraceFilter,
     _latest_fire_time_ms,
+    adopt_timing,
     claim_first_occurrence,
     claim_occurrence,
     due_occurrence_ms,
@@ -29,6 +31,7 @@ from mlflow.genai.discovery.schedule import (
     parse_trace_filters,
     read_detection_schedule,
     read_detection_schedule_state,
+    reanchor_timing,
     scheduled_detection_available,
     write_detection_schedule,
     write_detection_schedule_state,
@@ -227,6 +230,38 @@ def test_more_clauses_than_the_cap_are_truncated_not_dropped():
         for index in range(MAX_TRACE_FILTERS + 5)
     ]
     assert len(parse_trace_filters(json.dumps(entries))) == MAX_TRACE_FILTERS
+
+
+def test_schedule_state_round_trips_with_its_timing_and_next_occurrence():
+    state = DetectionScheduleState(
+        last_fire_time_ms=1_700_000_000_000,
+        last_dispatched_at_ms=1_700_000_001_000,
+        last_run_id="run-1",
+        timing="daily|09:15|0|Asia/Tokyo",
+        next_fire_time_ms=1_700_086_400_000,
+    )
+    assert parse_detection_schedule_state(state.to_json()) == state
+
+
+@pytest.mark.parametrize(
+    ("stored", "expected_timing", "expected_next"),
+    [
+        ({}, None, None),
+        ({"timing": ""}, None, None),
+        ({"timing": 7}, None, None),
+        ({"nextFireTimeMs": "soon"}, None, None),
+        ({"nextFireTimeMs": True}, None, None),
+    ],
+)
+def test_unusable_timing_fields_read_as_absent(
+    stored: dict[str, object], expected_timing: object, expected_next: object
+):
+    # Absent reads as "this server has not recorded a timing", which the dispatcher treats as
+    # something to adopt rather than as a change -- so a junk value cannot delay a schedule.
+    parsed = parse_detection_schedule_state(
+        json.dumps({"version": SCHEDULE_VERSION, "lastFireTimeMs": 1, **stored})
+    )
+    assert (parsed.timing, parsed.next_fire_time_ms) == (expected_timing, expected_next)
 
 
 def test_schedule_state_round_trips():
@@ -569,8 +604,11 @@ def test_a_schedule_the_server_has_not_seen_is_not_due_yet():
 def test_the_first_occurrence_is_the_next_fire_time_after_the_server_noticed_the_schedule():
     schedule = DetectionSchedule(cadence=DetectionCadence.DAILY, timezone="UTC")
     noticed = _ms("UTC", 2026, 5, 4, 10)
-    state = claim_first_occurrence(noticed)
-    assert state == DetectionScheduleState(last_fire_time_ms=noticed)
+    state = claim_first_occurrence(noticed, schedule)
+    assert state.last_fire_time_ms == noticed
+    # The next occurrence is recorded with it, which is what the dialog reads rather than
+    # recomputing this arithmetic in the browser.
+    assert state.next_fire_time_ms == _ms("UTC", 2026, 5, 5, 9)
     # Today's 09:00 already passed when the schedule was saved, so it does not run on the spot.
     assert due_occurrence_ms(schedule, state, noticed + 60_000) is None
     assert due_occurrence_ms(schedule, state, _ms("UTC", 2026, 5, 5, 9)) == _ms(
@@ -590,7 +628,7 @@ def test_a_dispatched_occurrence_is_not_due_a_second_time():
     fire_time = due_occurrence_ms(schedule, state, _ms("UTC", 2026, 5, 4, 14, 0, 30))
     assert fire_time == _ms("UTC", 2026, 5, 4, 14)
 
-    claimed = claim_occurrence(state, fire_time, now_ms=_ms("UTC", 2026, 5, 4, 14, 0, 30))
+    claimed = claim_occurrence(state, fire_time, schedule, now_ms=_ms("UTC", 2026, 5, 4, 14, 0, 30))
     assert claimed.last_fire_time_ms == fire_time
     assert due_occurrence_ms(schedule, claimed, _ms("UTC", 2026, 5, 4, 14, 30)) is None
 
@@ -620,7 +658,7 @@ def test_downtime_resumes_with_one_occurrence_at_the_most_recent_fire_time(
     dispatched = []
     while (fire_time := due_occurrence_ms(schedule, state, back_up)) is not None:
         dispatched.append(fire_time)
-        state = claim_occurrence(state, fire_time, now_ms=back_up)
+        state = claim_occurrence(state, fire_time, schedule, now_ms=back_up)
         if len(dispatched) > 100:
             break
 
@@ -632,6 +670,101 @@ def test_downtime_resumes_with_one_occurrence_at_the_most_recent_fire_time(
     # The claimed occurrence is recent, so the window's stale cap is measured near now rather than
     # near the start of the gap.
     assert back_up - state.last_fire_time_ms < STALE_WATERMARK_CAP_MS
+
+
+def test_the_timing_fingerprint_covers_what_decides_when_a_schedule_fires():
+    schedule = DetectionSchedule(
+        cadence=DetectionCadence.WEEKLY, timezone="Asia/Tokyo", fire_time="09:00", weekday=0
+    )
+    assert replace(schedule, cadence=DetectionCadence.DAILY).timing != schedule.timing
+    assert replace(schedule, fire_time="09:15").timing != schedule.timing
+    assert replace(schedule, weekday=1).timing != schedule.timing
+    assert replace(schedule, timezone="UTC").timing != schedule.timing
+
+
+def test_the_timing_fingerprint_ignores_what_does_not_move_a_schedule():
+    # Editing these should neither delay the next occurrence nor trigger one: they change what a
+    # run does, not when it happens. Pausing is in here too -- turning a schedule off and on is
+    # not a retiming.
+    schedule = DetectionSchedule(cadence=DetectionCadence.DAILY, fire_time="09:00")
+    assert replace(schedule, paused=True).timing == schedule.timing
+    assert (
+        replace(schedule, model=ScheduleModel(provider="openai", model="gpt-5")).timing
+        == schedule.timing
+    )
+    assert (
+        replace(
+            schedule,
+            trace_filters=(ScheduleTraceFilter(field="tag", key="team", value="search"),),
+        ).timing
+        == schedule.timing
+    )
+
+
+def test_a_retimed_schedule_runs_at_its_next_occurrence_rather_than_at_once():
+    # The case this exists for: it is 17:00, the owner moves a daily schedule to 16:00. Today's
+    # 16:00 is in the past and after the last run, so without re-anchoring the next poll would
+    # read it as a missed occurrence and fire immediately.
+    was = DetectionSchedule(cadence=DetectionCadence.DAILY, fire_time="09:00")
+    now = _ms("UTC", 2026, 5, 4, 17)
+    state = claim_occurrence(
+        DetectionScheduleState(last_fire_time_ms=_ms("UTC", 2026, 5, 3, 9)),
+        _ms("UTC", 2026, 5, 4, 9),
+        was,
+        now_ms=_ms("UTC", 2026, 5, 4, 9),
+    )
+    retimed = replace(was, fire_time="16:00")
+    assert due_occurrence_ms(retimed, state, now) == _ms("UTC", 2026, 5, 4, 16)
+
+    reanchored = reanchor_timing(state, retimed, now)
+    assert due_occurrence_ms(retimed, reanchored, now) is None
+    assert reanchored.next_fire_time_ms == _ms("UTC", 2026, 5, 5, 16)
+    assert due_occurrence_ms(retimed, reanchored, _ms("UTC", 2026, 5, 5, 16)) == _ms(
+        "UTC", 2026, 5, 5, 16
+    )
+
+
+def test_re_anchoring_keeps_what_the_schedule_has_already_done():
+    schedule = DetectionSchedule(cadence=DetectionCadence.DAILY)
+    state = DetectionScheduleState(
+        last_fire_time_ms=_ms("UTC", 2026, 5, 4, 9),
+        last_dispatched_at_ms=_ms("UTC", 2026, 5, 4, 9, 1),
+        last_run_id="run-1",
+        timing="daily|09:00|0|UTC",
+    )
+    reanchored = reanchor_timing(
+        state, replace(schedule, fire_time="16:00"), _ms("UTC", 2026, 5, 4, 17)
+    )
+    # An edit does not undo the run that happened.
+    assert (reanchored.last_run_id, reanchored.last_dispatched_at_ms) == (
+        "run-1",
+        _ms("UTC", 2026, 5, 4, 9, 1),
+    )
+
+
+def test_adopting_a_timing_does_not_move_the_anchor():
+    # A schedule dispatched before this server recorded timings. Writing the fingerprint down
+    # must not delay its next occurrence, or an upgrade would skip a run for every schedule.
+    schedule = DetectionSchedule(cadence=DetectionCadence.DAILY)
+    state = DetectionScheduleState(last_fire_time_ms=_ms("UTC", 2026, 5, 4, 9))
+    adopted = adopt_timing(state, schedule)
+    assert adopted.last_fire_time_ms == state.last_fire_time_ms
+    assert adopted.timing == schedule.timing
+    assert adopted.next_fire_time_ms == _ms("UTC", 2026, 5, 5, 9)
+    assert due_occurrence_ms(schedule, adopted, _ms("UTC", 2026, 5, 5, 9)) == _ms(
+        "UTC", 2026, 5, 5, 9
+    )
+
+
+def test_downtime_is_not_a_retiming():
+    # The distinction the fingerprint exists to draw: time passing must still catch up, or a
+    # server that was down would skip the window it missed.
+    schedule = DetectionSchedule(cadence=DetectionCadence.DAILY)
+    state = claim_first_occurrence(_ms("UTC", 2026, 5, 1, 10), schedule)
+    assert state.timing == schedule.timing
+    assert due_occurrence_ms(schedule, state, _ms("UTC", 2026, 5, 4, 14)) == _ms(
+        "UTC", 2026, 5, 4, 9
+    )
 
 
 def test_the_first_run_lookback_matches_the_cadences_a_schedule_offers():
