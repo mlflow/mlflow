@@ -273,6 +273,10 @@ class LocalArtifactRepository(ArtifactRepository, StreamUploadMixin):
                 f"No such artifact: '{os.path.relpath(remote_file_path, self.artifact_dir)}'",
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
+        # The destination may already be the artifact itself, e.g. when `dst_path` is the
+        # artifact directory. There is nothing to copy in that case.
+        if os.path.exists(local_path) and os.path.samefile(remote_file_path, local_path):
+            return
         shutil.copy2(remote_file_path, local_path)
 
     def delete_artifacts(self, artifact_path=None):

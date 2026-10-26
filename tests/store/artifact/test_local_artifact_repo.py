@@ -123,6 +123,20 @@ def test_download_artifacts_does_not_copy(local_artifact_repo):
         )
 
 
+@pytest.mark.parametrize("artifact_path", ["test.txt", "", None])
+def test_download_artifacts_to_artifact_dir_does_not_copy(local_artifact_repo, artifact_path):
+    artifact_file = pathlib.Path(local_artifact_repo.artifact_dir, "test.txt")
+    artifact_file.write_text("hello world!")
+
+    result = local_artifact_repo.download_artifacts(
+        artifact_path=artifact_path, dst_path=local_artifact_repo.artifact_dir
+    )
+
+    expected = artifact_file if artifact_path else artifact_file.parent
+    assert pathlib.Path(result) == expected
+    assert artifact_file.read_text() == "hello world!"
+
+
 def test_get_local_path_returns_absolute_path(local_artifact_repo):
     artifact_rel_path = "test.txt"
     artifact_text = "hello world!"
