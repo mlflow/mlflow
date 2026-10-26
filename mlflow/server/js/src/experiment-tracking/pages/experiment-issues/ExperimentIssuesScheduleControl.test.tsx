@@ -25,6 +25,8 @@ let saveFails: boolean;
 let failWriteOfTag: string | null;
 /** Set to fail the experiment read, which is how a load failure is exercised. */
 let loadFails: boolean;
+/** How many times the experiment (and so the schedule) has been read. */
+let experimentReads: number;
 let scheduledDetectionEnabled: boolean;
 let gatewayEndpoints: { name: string }[];
 let gatewaySecrets: { secret_id: string; secret_name: string; provider: string }[];
@@ -41,11 +43,12 @@ const server = setupServer(
       }),
     ),
   ),
-  rest.get('*/ajax-api/2.0/mlflow/experiments/get', (_req, res, ctx) =>
-    loadFails
+  rest.get('*/ajax-api/2.0/mlflow/experiments/get', (_req, res, ctx) => {
+    experimentReads += 1;
+    return loadFails
       ? res(ctx.status(500), ctx.json({ message: 'nope' }))
-      : res(ctx.json({ experiment: { experiment_id: '1', name: 'exp', tags: experimentTags } })),
-  ),
+      : res(ctx.json({ experiment: { experiment_id: '1', name: 'exp', tags: experimentTags } }));
+  }),
   rest.post('*/ajax-api/2.0/mlflow/experiments/set-experiment-tag', async (req, res, ctx) => {
     if (saveFails) {
       return res(ctx.status(500), ctx.json({ message: 'nope' }));
@@ -161,6 +164,7 @@ describe('ExperimentIssuesScheduleControl', () => {
     saveFails = false;
     failWriteOfTag = null;
     loadFails = false;
+    experimentReads = 0;
     scheduledDetectionEnabled = true;
     gatewayEndpoints = [];
     gatewaySecrets = [];
@@ -529,6 +533,39 @@ describe('ExperimentIssuesScheduleControl', () => {
     await openModal(user);
     expect(await screen.findByRole('combobox', { name: /cadence/i })).toHaveTextContent('Off');
     expect(screen.queryByText(/Next run as saved:/)).not.toBeInTheDocument();
+  });
+
+  test('reads the schedule again on open, so a saved next run appears without a reload', async () => {
+    // Only the dispatcher computes a next run, so a save resolves with none. Without this the
+    // line stayed missing for the rest of the session: the query does not poll and does not
+    // refetch on focus.
+    const nextRun = Date.UTC(2026, 10, 3, 15, 0);
+    experimentTags = [scheduleTag('daily', false, 'Europe/Berlin', '16:00', 0)];
+    const user = setup();
+    render();
+
+    await openModal(user, /scheduled: daily/i);
+    expect(screen.queryByText(/Next run as saved:/)).not.toBeInTheDocument();
+    const readsOnFirstOpen = experimentReads;
+
+    await user.click(await screen.findByRole('button', { name: 'Cancel' }));
+    // The dispatcher's pass lands between the two opens.
+    experimentTags = [
+      scheduleTag('daily', false, 'Europe/Berlin', '16:00', 0),
+      {
+        key: MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG,
+        value: JSON.stringify({
+          version: ISSUE_DETECTION_SCHEDULE_VERSION,
+          lastFireTimeMs: nextRun - 86_400_000,
+          timing: scheduleTiming('daily', '16:00', 0, 'Europe/Berlin'),
+          nextFireTimeMs: nextRun,
+        }),
+      },
+    ];
+
+    await openModal(user, /scheduled: daily/i);
+    expect(await screen.findByText(/Next run as saved:.*16:00/)).toBeInTheDocument();
+    expect(experimentReads).toBeGreaterThan(readsOnFirstOpen);
   });
 
   test('keeps naming the saved next run while the draft is edited', async () => {

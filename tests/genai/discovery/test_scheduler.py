@@ -212,7 +212,10 @@ def test_moving_a_schedule_earlier_does_not_fire_it_on_the_spot(store, dispatch)
     )
     assert dispatch(_ms("UTC", 2026, 5, 4, 17)).call_count == 0
     state = _state(store, experiment_id)
-    assert state.last_fire_time_ms == _ms("UTC", 2026, 5, 4, 17)
+    # Anchored one poll interval back rather than at this instant, which is as precisely as the
+    # edit can be placed: the 16:45 pass still saw the old timing. Today's 16:00 is behind that
+    # anchor either way, so nothing fires.
+    assert state.last_fire_time_ms == _ms("UTC", 2026, 5, 4, 16, 45)
     assert state.next_fire_time_ms == _ms("UTC", 2026, 5, 5, 16)
     # And what it had already done is still recorded against it: the 09:00 dispatch.
     assert state.last_dispatched_at_ms == _ms("UTC", 2026, 5, 4, 9, 0, 30)
@@ -224,6 +227,51 @@ def test_moving_a_schedule_earlier_does_not_fire_it_on_the_spot(store, dispatch)
     assert submit_job.call_args.kwargs["params"]["window_upper_bound_ms"] == _ms(
         "UTC", 2026, 5, 5, 16
     )
+
+
+def test_a_time_chosen_just_before_it_arrives_still_runs_that_day(store, dispatch):
+    # The edge the re-anchor has to leave alone. At 15:55 the owner moves a daily schedule to
+    # 16:00, and the pass that notices is the 16:00 one -- so the occurrence is in the past by
+    # the time the server looks, but it was in the *future* when they saved it. Anchoring at the
+    # instant of the pass would step over it and cost a daily schedule a day, a weekly one a week.
+    experiment_id = _experiment_with(
+        store,
+        "retimed-just-in-time",
+        **_schedule_tags(DetectionSchedule(cadence=DetectionCadence.DAILY, fire_time="09:00")),
+    )
+    dispatch(_ms("UTC", 2026, 5, 4, 10))
+    _retime(
+        store, experiment_id, DetectionSchedule(cadence=DetectionCadence.DAILY, fire_time="16:00")
+    )
+
+    submit_job = dispatch(_ms("UTC", 2026, 5, 4, 16))
+    submit_job.assert_called_once()
+    assert submit_job.call_args.kwargs["params"]["window_upper_bound_ms"] == _ms(
+        "UTC", 2026, 5, 4, 16
+    )
+    # Claimed, so the next pass does not run it again.
+    assert dispatch(_ms("UTC", 2026, 5, 4, 16, 15)).call_count == 0
+    assert _state(store, experiment_id).next_fire_time_ms == _ms("UTC", 2026, 5, 5, 16)
+
+
+def test_a_weekly_schedule_retimed_just_before_its_day_is_not_delayed_a_week(store, dispatch):
+    # Same edge, where getting it wrong costs the most. 2026-05-04 is a Monday.
+    experiment_id = _experiment_with(
+        store,
+        "retimed-weekly",
+        **_schedule_tags(
+            DetectionSchedule(cadence=DetectionCadence.WEEKLY, fire_time="09:00", weekday=0)
+        ),
+    )
+    dispatch(_ms("UTC", 2026, 5, 4, 10))
+    _retime(
+        store,
+        experiment_id,
+        DetectionSchedule(cadence=DetectionCadence.WEEKLY, fire_time="16:00", weekday=0),
+    )
+
+    assert dispatch(_ms("UTC", 2026, 5, 4, 16)).call_count == 1
+    assert _state(store, experiment_id).next_fire_time_ms == _ms("UTC", 2026, 5, 11, 16)
 
 
 def test_moving_a_schedule_later_today_still_fires_today(store, dispatch):

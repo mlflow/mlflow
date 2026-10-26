@@ -554,6 +554,10 @@ def test_hourly_fires_at_the_chosen_minute_past_every_hour():
         "09:0a",
         "nine",
         "09:00:00",
+        # Readable as 06:45 by ``int`` but refused by the modal's one-or-two-digit reader, so
+        # accepting it here would run a schedule at an hour the dialog showed as 09:00.
+        "006:45",
+        "06:045",
         "²:00",
         # Readable as 02:00 by ``int``, but the modal's reader takes ASCII digits only, so
         # accepting it here would show one hour in the dialog and fire at another.

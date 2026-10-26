@@ -128,6 +128,10 @@ describe('parseIssueDetectionStartTime', () => {
     ['no separator', '0900'],
     ['letters', 'nine'],
     ['seconds as well', '09:00:00'],
+    // Both readers stop at two digits per component. `int('006')` is 6, so a server that did not
+    // would run this at 06:45 while the modal showed the default.
+    ['more than two digits in the hour', '006:45'],
+    ['more than two digits in the minute', '06:045'],
     // Readable as 02:00 by the server's `int`, but both readers take ASCII digits only -- a value
     // one of them accepted alone would show one hour in the modal and fire at another.
     ['digits outside ASCII', '\u0662:\u0660\u0660'],

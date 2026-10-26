@@ -331,7 +331,7 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     isLoading,
     isUpdating,
     loadError,
-    retryLoad,
+    reload,
     setSetting,
   } = useIssueDetectionSchedule({ experimentId });
 
@@ -438,6 +438,10 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
   // Seed the modal from the current schedule + filters so it opens showing what is active. With no
   // filters we show no rows — just the "Add filter" button — so the user opts in explicitly.
   const openModal = useCallback(() => {
+    // Read the schedule again on the way in. The draft below is seeded from what is already
+    // loaded, so a reply that lands mid-edit cannot disturb it -- what it refreshes is the next
+    // run, which a save leaves unknown until the dispatcher has worked the new one out.
+    reload();
     setCadence(setting);
     setStartTime(storedStartTime);
     setWeekday(storedWeekday);
@@ -451,7 +455,7 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     setCreatedSecret(null);
     resetCreateSecret();
     setOpen(true);
-  }, [setting, storedStartTime, storedWeekday, storedTimezone, traceFilters, model, resetCreateSecret]);
+  }, [reload, setting, storedStartTime, storedWeekday, storedTimezone, traceFilters, model, resetCreateSecret]);
   const closeModal = useCallback(() => setOpen(false), []);
 
   // A schedule that names no model (or one saved before a model could be chosen) falls back to the
@@ -491,6 +495,94 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
   // the Issues tab: the list is a few hundred entries and each one is formatted to find its
   // current offset.
   const standardTimezones = useMemo(() => (open ? allTimezones() : []), [open]);
+  const recommendedTimezonesLabel = intl.formatMessage({
+    defaultMessage: 'Recommended',
+    description: 'Experiment issues tab > Schedule modal heading above the suggested timezones',
+  });
+  const standardTimezonesLabel = intl.formatMessage({
+    defaultMessage: 'Standard',
+    description: 'Experiment issues tab > Schedule modal heading above the full timezone list',
+  });
+  // Built once per open and per chosen zone, not on every render: the config maps the whole
+  // zone list, and the combobox re-renders on every keystroke in its search box. A stable
+  // identity also lets `NavigableCombobox` keep its own memoized views.
+  const suggestedTimezones = useMemo(() => recommendedTimezones(timezone), [timezone]);
+  const timezoneConfig = useMemo<NavigableComboboxConfig<string>>(() => {
+    const suggested = new Set(suggestedTimezones.map(({ zone }) => zone));
+    const toItem = ({ zone, label }: { zone: string; label: string }): ComboboxMenuItem<string> => ({
+      type: 'item',
+      key: zone,
+      label,
+      value: zone,
+    });
+    return {
+      initialViewId: 'main',
+      views: [
+        {
+          id: 'main',
+          items: [
+            {
+              type: 'section',
+              key: 'recommended',
+              label: recommendedTimezonesLabel,
+            },
+            ...suggestedTimezones.map(toItem),
+            {
+              type: 'section',
+              key: 'standard',
+              label: standardTimezonesLabel,
+            },
+            ...standardTimezones.filter(({ zone }) => !suggested.has(zone)).map(toItem),
+          ],
+        },
+      ],
+    };
+  }, [suggestedTimezones, standardTimezones, recommendedTimezonesLabel, standardTimezonesLabel]);
+
+  // What the saved schedule will do next, which is the question the dialog cannot otherwise
+  // answer: the controls say "daily at 16:00", not "that means tomorrow".
+  //
+  // "as saved" is doing real work in that wording. This is the stored schedule's next run and it
+  // does not follow the draft: only the server computes these, and it has not seen an unsaved
+  // edit. Labelled plainly "Next run" it reads as a claim about the controls above it, so a draft
+  // of "Weekly at 07:45" would sit beside a Tuesday at 12:00 and look like the dialog's answer
+  // for what was just typed.
+  //
+  // Formatted in the zone the schedule stores, which is the zone the server read the instant in
+  // -- not the draft's zone, which would show a different wall clock for the same instant while
+  // still claiming to describe what is saved. `nextRunMs` is only ever read alongside a stored
+  // zone, and this requires one rather than falling back to the browser's, which would name an
+  // hour the server is not going to fire at.
+  const nextRunLabel = useMemo(() => {
+    if (nextRunMs === undefined || !storedTimezone) {
+      return null;
+    }
+    let when: string;
+    try {
+      when = new Intl.DateTimeFormat(intl.locale, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+        // 24-hour, because the selects above are: "16:00" there and "4:00 PM" here would read as
+        // two different times.
+        hourCycle: 'h23',
+        timeZone: storedTimezone,
+      }).format(new Date(nextRunMs));
+    } catch {
+      // A zone this server can load but this browser cannot -- older tzdata, a zone added since
+      // -- makes `Intl` throw. Unguarded that took the whole Issues tab down rather than one
+      // line of it, since this runs whenever the control renders and not only when the modal is
+      // open. The schedule stays editable and its stored zone untouched; only the line is lost.
+      return null;
+    }
+    return intl.formatMessage(
+      {
+        defaultMessage: 'Next run as saved: {when}',
+        description:
+          'Experiment issues tab > Schedule modal line stating when the schedule as currently saved next runs; it does not follow unsaved edits',
+      },
+      { when },
+    );
+  }, [nextRunMs, storedTimezone, intl]);
 
   const persistSchedule = useCallback(
     async (secretId?: string) => {
@@ -640,7 +732,7 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     });
     return (
       <Tooltip componentId={`${COMPONENT_ID}.trigger.load-failed-tooltip`} content={readFailed}>
-        <Button componentId={`${COMPONENT_ID}.trigger.retry-load`} icon={<ClockIcon />} onClick={retryLoad}>
+        <Button componentId={`${COMPONENT_ID}.trigger.retry-load`} icon={<ClockIcon />} onClick={reload}>
           {intl.formatMessage({
             defaultMessage: 'Retry schedule',
             description:
@@ -687,35 +779,6 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     defaultMessage: 'Minute',
     description: 'Experiment issues tab > Schedule modal label for the minute a run starts at',
   });
-  // What the saved schedule will do next, which is the question the dialog cannot otherwise
-  // answer: the controls say "daily at 16:00", not "that means tomorrow". Shown in the
-  // schedule's own zone, since that is the zone the row above is read in.
-  //
-  // "as saved" is doing real work in that wording. This is the stored schedule's next run and it
-  // does not follow the draft: only the server computes these, and it has not seen an unsaved
-  // edit. Labelled plainly "Next run" it reads as a claim about the controls above it, so a draft
-  // of "Weekly at 07:45" would sit beside a Tuesday at 12:00 and look like the dialog's answer
-  // for what was just typed.
-  const nextRunLabel =
-    nextRunMs === undefined
-      ? null
-      : intl.formatMessage(
-          {
-            defaultMessage: 'Next run as saved: {when}',
-            description:
-              'Experiment issues tab > Schedule modal line stating when the schedule as currently saved next runs; it does not follow unsaved edits',
-          },
-          {
-            when: new Intl.DateTimeFormat(intl.locale, {
-              dateStyle: 'medium',
-              timeStyle: 'short',
-              // 24-hour, because the selects above are: "16:00" there and "4:00 PM" here would
-              // read as two different times.
-              hourCycle: 'h23',
-              timeZone: storedTimezone ?? undefined,
-            }).format(new Date(nextRunMs)),
-          },
-        );
   const timezoneRowLabel = intl.formatMessage({
     defaultMessage: 'Timezone',
     description: 'Experiment issues tab > Schedule modal label for the timezone the start time is read in',
@@ -737,46 +800,6 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     ? startTimeMinuteOptions()
     : [...startTimeMinuteOptions(), minute].sort();
   const weekdayOptions = weekdayLabels(intl.locale);
-  // The zones offered first, with the schedule's own among them so re-opening the dialog does not
-  // bury it. Excluded from the long list below so neither appears twice.
-  const suggestedTimezones = recommendedTimezones(timezone);
-  const timezoneConfig: NavigableComboboxConfig<string> = (() => {
-    const suggested = new Set(suggestedTimezones.map(({ zone }) => zone));
-    const toItem = ({ zone, label }: { zone: string; label: string }): ComboboxMenuItem<string> => ({
-      type: 'item',
-      key: zone,
-      label,
-      value: zone,
-    });
-    return {
-      initialViewId: 'main',
-      views: [
-        {
-          id: 'main',
-          items: [
-            {
-              type: 'section',
-              key: 'recommended',
-              label: intl.formatMessage({
-                defaultMessage: 'Recommended',
-                description: 'Experiment issues tab > Schedule modal heading above the suggested timezones',
-              }),
-            },
-            ...suggestedTimezones.map(toItem),
-            {
-              type: 'section',
-              key: 'standard',
-              label: intl.formatMessage({
-                defaultMessage: 'Standard',
-                description: 'Experiment issues tab > Schedule modal heading above the full timezone list',
-              }),
-            },
-            ...standardTimezones.filter(({ zone }) => !suggested.has(zone)).map(toItem),
-          ],
-        },
-      ],
-    };
-  })();
   // An active schedule has to name the model it will run on. `selection` is null until the
   // endpoint list resolves, and a save made in that gap stores no model at all -- the run would
   // then use the server's default rather than what this dialog was about to show, and the
@@ -932,7 +955,15 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
                         label={weekdayFieldLabel}
                         width={WEEKDAY_WIDTH}
                         value={String(weekday)}
-                        onChange={({ target }) => setWeekday(Number(target.value))}
+                        // Guarded rather than coerced: `Number('')` is `NaN`, which serializes to
+                        // `null` and would come back from the server as Monday -- a silently
+                        // different day from the one on screen.
+                        onChange={({ target }) => {
+                          const chosen = Number(target.value);
+                          if (Number.isInteger(chosen) && chosen >= 0 && chosen <= 6) {
+                            setWeekday(chosen);
+                          }
+                        }}
                         contentProps={{ style: { zIndex: theme.options.zIndexBase + 40 } }}
                       >
                         {weekdayOptions.map((label, index) => (

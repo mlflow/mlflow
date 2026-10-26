@@ -84,6 +84,12 @@ DEFAULT_FIRE_TIME = "09:00"
 # ``datetime.weekday()`` does, which is the numbering the stored value uses.
 DEFAULT_WEEKDAY = 0
 
+# How often the dispatcher polls. Defined here because the timing arithmetic depends on it --
+# see ``reanchor_timing`` -- and read by ``mlflow/server/jobs/utils.py`` to build the crontab, so
+# the two cannot drift apart.
+POLL_INTERVAL_MINUTES = 15
+POLL_INTERVAL_MS = POLL_INTERVAL_MINUTES * 60 * 1000
+
 
 @dataclass(frozen=True)
 class ScheduleTraceFilter:
@@ -317,8 +323,16 @@ def _parse_trace_filter(entry: object) -> ScheduleTraceFilter | None:
     return ScheduleTraceFilter(field=field, key=key, value=value)
 
 
-def _is_ascii_decimal(text: str) -> bool:
-    return text.isascii() and text.isdecimal()
+def _is_ascii_decimal(text: str, max_digits: int) -> bool:
+    """
+    Whether ``text`` is one to ``max_digits`` ASCII decimal digits.
+
+    Bounded, not just numeric: ``int("006")`` is 6, so an unbounded reader would run a schedule
+    stored as ``"006:45"`` at 06:45 while the modal -- which matches on one or two digits -- read
+    the same tag as the default and showed 09:00. The two have to agree about which values they
+    accept, or the dialog names an hour the dispatcher does not fire at.
+    """
+    return 1 <= len(text) <= max_digits and text.isascii() and text.isdecimal()
 
 
 def _parse_weekday(value: object) -> int:
@@ -356,11 +370,10 @@ def _parse_fire_time(value: object) -> str:
         return DEFAULT_FIRE_TIME
     if isinstance(value, str):
         hour, separator, minute = value.strip().partition(":")
-        # ASCII decimal digits only, and ``isdecimal`` rather than ``isdigit`` because that also
-        # accepts characters like superscripts which ``int`` then refuses. Narrow on purpose: the
-        # modal reads this tag back with the same rule, and a value only one of the two accepts
-        # would have the dialog showing an hour the dispatcher does not fire at.
-        if separator and _is_ascii_decimal(hour) and _is_ascii_decimal(minute):
+        # ``isdecimal`` rather than ``isdigit`` because that also accepts characters like
+        # superscripts which ``int`` then refuses. Narrow on purpose: the modal reads this tag
+        # back with the same rule.
+        if separator and _is_ascii_decimal(hour, 2) and _is_ascii_decimal(minute, 2):
             if 0 <= int(hour) <= 23 and 0 <= int(minute) <= 59:
                 return f"{int(hour):02d}:{int(minute):02d}"
     _logger.warning(
@@ -722,22 +735,30 @@ def reanchor_timing(
     """
     The state to record when a schedule's timing has been edited.
 
-    Anchored at ``now_ms``, so the new timing takes effect from its next occurrence instead of
-    firing one on the spot: moving a daily schedule from 09:00 to 16:00 at 17:00 would otherwise
-    leave today's 16:00 looking like an occurrence the server had missed, and dispatch it
-    immediately. The next run is then tomorrow at 16:00, which is what the owner asked for.
+    Re-anchored so the new timing takes effect from its next occurrence instead of firing one on
+    the spot: moving a daily schedule from 09:00 to 16:00 at 17:00 would otherwise leave today's
+    16:00 looking like an occurrence the server had missed, and dispatch it immediately. The next
+    run is then tomorrow at 16:00, which is what the owner asked for.
 
-    No window is lost by this. The watermark, not the fire time, decides how far back a run
+    The anchor is **one poll interval back**, not ``now_ms``, and that is the whole precision this
+    has to offer. Nothing records when the tag was written, but the previous pass saw the old
+    timing, so the edit is at most one interval old. Anchoring there keeps an occurrence the edit
+    placed in the *future* -- 16:00 chosen at 15:55, noticed by the 16:00 pass -- which anchoring
+    at ``now_ms`` would have stepped over, costing a daily schedule a day and a weekly one a week.
+    The 17:00 case is unaffected: an anchor at 16:45 still puts the next 16:00 tomorrow.
+
+    No window is lost either way. The watermark, not the fire time, decides how far back a run
     reads, so the occurrence that does fire still covers the traces that arrived in between.
 
     ``last_run_id`` and ``last_dispatched_at_ms`` are kept: they record what this schedule has
     actually done, which an edit does not undo.
     """
+    anchor_ms = now_ms - POLL_INTERVAL_MS
     return replace(
         state,
-        last_fire_time_ms=now_ms,
+        last_fire_time_ms=anchor_ms,
         timing=schedule.timing,
-        next_fire_time_ms=next_fire_time_ms(schedule, now_ms),
+        next_fire_time_ms=next_fire_time_ms(schedule, anchor_ms),
     )
 
 

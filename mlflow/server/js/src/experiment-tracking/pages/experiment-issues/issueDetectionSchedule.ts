@@ -169,12 +169,6 @@ export const joinStartTime = (hour: string, minute: string): string => `${hour}:
 const START_TIME_PATTERN = /^(\d{1,2}):(\d{1,2})$/;
 
 /**
- * The stored start time as `HH:MM`, or the default when it is missing or unreadable.
- *
- * Falling back costs the owner the hour they chose rather than every run, which is the same
- * trade-off the server makes for the same tag.
- */
-/**
  * The stored weekday, or the default when it is missing or not a day.
  *
  * Mirrors the server's reader, including its refusal of anything but a whole 0-6.
@@ -182,6 +176,12 @@ const START_TIME_PATTERN = /^(\d{1,2}):(\d{1,2})$/;
 export const parseIssueDetectionWeekday = (raw: unknown): number =>
   typeof raw === 'number' && Number.isInteger(raw) && raw >= 0 && raw <= 6 ? raw : DEFAULT_ISSUE_DETECTION_WEEKDAY;
 
+/**
+ * The stored start time as `HH:MM`, or the default when it is missing or unreadable.
+ *
+ * Falling back costs the owner the hour they chose rather than every run, which is the same
+ * trade-off the server makes for the same tag.
+ */
 export const parseIssueDetectionStartTime = (raw: unknown): string => {
   if (typeof raw !== 'string') {
     return DEFAULT_ISSUE_DETECTION_START_TIME;

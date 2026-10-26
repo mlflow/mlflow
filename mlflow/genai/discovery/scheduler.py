@@ -179,19 +179,19 @@ def _dispatch_if_due(store: AbstractStore, experiment: Experiment, now_ms: int) 
             state = adopt_timing(state, schedule)
             write_detection_schedule_state(store, experiment.experiment_id, state)
         else:
-            # The owner moved the schedule. Re-anchored at now so the new timing applies from
-            # its next occurrence: otherwise a time the change places earlier today reads as an
-            # occurrence this server missed, and fires the moment it was saved.
-            write_detection_schedule_state(
-                store, experiment.experiment_id, reanchor_timing(state, schedule, now_ms)
-            )
+            # The owner moved the schedule. Re-anchored so the new timing applies from its next
+            # occurrence rather than firing one on the spot -- see ``reanchor_timing`` for why
+            # the anchor is a poll interval back rather than this instant.
+            state = reanchor_timing(state, schedule, now_ms)
+            write_detection_schedule_state(store, experiment.experiment_id, state)
             _logger.info(
-                "Issue detection schedule for experiment %s was retimed; the next occurrence is "
-                "its first fire time after %d",
+                "Issue detection schedule for experiment %s was retimed; its next occurrence is %s",
                 experiment.experiment_id,
-                now_ms,
+                state.next_fire_time_ms,
             )
-            return
+    # Not returned after a re-anchor: an occurrence the edit placed between the previous pass and
+    # this one is due now, and dispatching it here is what makes "16:00, chosen at 15:55" run at
+    # 16:00 rather than tomorrow.
     fire_time_ms = due_occurrence_ms(schedule, state, now_ms)
     if fire_time_ms is None:
         return

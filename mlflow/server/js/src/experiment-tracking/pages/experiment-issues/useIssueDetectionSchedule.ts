@@ -60,8 +60,16 @@ export interface UseIssueDetectionScheduleResult {
    * over them would replace a real schedule with this one's defaults.
    */
   loadError: Error | null;
-  /** Retry the read, so a transient failure does not strand the control until a remount. */
-  retryLoad: () => void;
+  /**
+   * Read the schedule again.
+   *
+   * Two callers, one reason: the stored state is the only source of `nextRunMs`, and this query
+   * neither polls nor refetches on focus. A failed read needs a retry that does not strand the
+   * control until a remount, and opening the dialog needs the current state -- a save resolves
+   * with no next run, since only the dispatcher computes one, so without this the line stayed
+   * missing for the rest of the session.
+   */
+  reload: () => void;
   /**
    * Apply the desired cadence + clauses. Resolves once the writes succeed and rejects if any
    * fail, so the modal can await it -- keeping itself open on failure instead of closing and
@@ -127,7 +135,7 @@ export const useIssueDetectionSchedule = ({
     isUpdating: mutation.isLoading,
     error: error ?? (mutation.error instanceof Error ? mutation.error : null),
     loadError: error ?? null,
-    retryLoad: () => {
+    reload: () => {
       void refetch();
     },
     setSetting,
