@@ -92,6 +92,8 @@ jobs:
       body: ${{ fromJSON(steps.issue.outputs.json).body }}
       url: ${{ fromJSON(steps.issue.outputs.json).html_url }}
       author_association: ${{ fromJSON(steps.issue.outputs.json).author_association }}
+      author: ${{ fromJSON(steps.issue.outputs.json).author }}
+      author_type: ${{ fromJSON(steps.issue.outputs.json).author_type }}
       followup: ${{ steps.followup.outputs.json }}
       skip: ${{ steps.followup.outputs.skip }}
       patch_path_allowlist: ${{ steps.policy.outputs.patch_path_allowlist }}
@@ -123,7 +125,7 @@ jobs:
           jq -e 'has("pull_request") | not' <<< "$issue" > /dev/null
           printf '%s\n' "$issue" > "$RUNNER_TEMP/issue.json"
           # Compact JSON keeps the untrusted body on one line of $GITHUB_OUTPUT.
-          echo "json=$(jq -c '{number, title, body: (.body // ""), html_url, author_association}' <<< "$issue")" >> "$GITHUB_OUTPUT"
+          echo "json=$(jq -c '{number, title, body: (.body // ""), html_url, author_association, author: .user.login, author_type: .user.type}' <<< "$issue")" >> "$GITHUB_OUTPUT"
       - name: Build issue context
         id: followup
         env:
@@ -240,6 +242,52 @@ jobs:
           Please report security vulnerabilities through [GitHub's private vulnerability reporting](https://github.com/mlflow/mlflow/security/advisories/new) instead. See our [Security Policy](https://github.com/mlflow/mlflow/blob/master/SECURITY.md) for more details.
           EOF
           )"
+  author_activity:
+    needs: [issue, security_gate]
+    if: >-
+      needs.security_gate.outputs.security_match != 'true' &&
+      needs.issue.outputs.author_type == 'User'
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Set author PR repos field
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ needs.issue.outputs.number }}
+          AUTHOR: ${{ needs.issue.outputs.author }}
+          DRY_RUN: ${{ needs.issue.outputs.dry_run }}
+          # The "Author PR repos (30d)" org issue field (`gh api orgs/mlflow/issue-fields`).
+          FIELD_ID: 49034796
+        run: |
+          # Counts only repos the token can see, so effectively public repos plus this one.
+          count=$(
+            gh api graphql \
+              -f login="$AUTHOR" \
+              -f from="$(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)" \
+              -f to="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              -f query='
+                query($login: String!, $from: DateTime!, $to: DateTime!) {
+                  user(login: $login) {
+                    contributionsCollection(from: $from, to: $to) {
+                      pullRequestContributionsByRepository(maxRepositories: 100) {
+                        repository { nameWithOwner }
+                      }
+                    }
+                  }
+                }' \
+              --jq '.data.user.contributionsCollection.pullRequestContributionsByRepository | length'
+          )
+          if [ "$DRY_RUN" = true ]; then
+            echo "Dry run: would set Author PR repos (30d) to $count on #$ISSUE_NUMBER." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # POST (not PUT) so other field values on the issue are kept.
+          jq -n --argjson id "$FIELD_ID" --argjson count "$count" \
+            '{issue_field_values: [{field_id: $id, value: $count}]}' \
+            | gh api -X POST "repos/$REPO/issues/$ISSUE_NUMBER/issue-field-values" --input - > /dev/null
   label:
     needs: [issue, security_gate]
     if: needs.security_gate.outputs.security_match != 'true'
