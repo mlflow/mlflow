@@ -41,6 +41,8 @@ export interface TracesPaginationBarProps {
   sessionTotal?: number;
   /** Hide the page-size selector — grouped-by-session mode fetches one large page, so it's moot. */
   hidePageSizeSelector?: boolean;
+  /** Content pinned to the left of the bar (e.g. a result-count label), opposite the controls. */
+  leadingContent?: React.ReactNode;
 }
 
 /**
@@ -61,6 +63,7 @@ export const TracesPaginationBar: React.FC<TracesPaginationBarProps> = ({
   sessionCount,
   sessionTotal,
   hidePageSizeSelector,
+  leadingContent,
 }: TracesPaginationBarProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -101,6 +104,7 @@ export const TracesPaginationBar: React.FC<TracesPaginationBarProps> = ({
               />
             </Typography.Text>
           ))}
+        {leadingContent}
       </span>
 
       <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.md }}>

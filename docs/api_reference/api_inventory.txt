@@ -485,6 +485,7 @@ mlflow.entities.Issue.from_dictionary
 mlflow.entities.Issue.from_proto
 mlflow.entities.Issue.to_dictionary
 mlflow.entities.Issue.to_proto
+mlflow.entities.IssueCategory
 mlflow.entities.IssueEvidence
 mlflow.entities.IssueEvidence.from_assessment
 mlflow.entities.IssueEvidence.from_metadata_value
@@ -763,6 +764,7 @@ mlflow.entities.gateway_guardrail.GuardrailStage
 mlflow.entities.gateway_secrets.GatewaySecretInfo
 mlflow.entities.input_tag.InputTag
 mlflow.entities.issue.Issue
+mlflow.entities.issue.IssueCategory
 mlflow.entities.issue.IssueSeverity
 mlflow.entities.issue.IssueStatus
 mlflow.entities.issue_evidence.IssueEvidence
@@ -978,6 +980,7 @@ mlflow.genai.agent_server.setup_mlflow_git_based_version_tracking
 mlflow.genai.agent_server.stream
 mlflow.genai.compare_evaluations
 mlflow.genai.create_dataset
+mlflow.genai.create_issue
 mlflow.genai.create_labeling_session
 mlflow.genai.create_mcp_access_endpoint
 mlflow.genai.databricks.review_queues.InputCategorical
@@ -1070,6 +1073,7 @@ mlflow.genai.disable_git_model_versioning
 mlflow.genai.enable_git_model_versioning
 mlflow.genai.evaluate
 mlflow.genai.get_dataset
+mlflow.genai.get_issue
 mlflow.genai.get_labeling_session
 mlflow.genai.get_labeling_sessions
 mlflow.genai.get_latest_mcp_server_version
@@ -1549,6 +1553,7 @@ mlflow.genai.scorers.trulens.scorers.agent_trace.PlanQuality
 mlflow.genai.scorers.trulens.scorers.agent_trace.ToolCalling
 mlflow.genai.scorers.trulens.scorers.agent_trace.ToolSelection
 mlflow.genai.search_datasets
+mlflow.genai.search_issues
 mlflow.genai.search_mcp_access_endpoints
 mlflow.genai.search_mcp_server_versions
 mlflow.genai.search_mcp_servers
@@ -1566,6 +1571,7 @@ mlflow.genai.set_session_hierarchy
 mlflow.genai.simulators.simulator.ConversationSimulator
 mlflow.genai.test_agent
 mlflow.genai.to_predict_fn
+mlflow.genai.update_issue
 mlflow.genai.update_mcp_access_endpoint
 mlflow.genai.update_mcp_server
 mlflow.genai.update_mcp_server_version

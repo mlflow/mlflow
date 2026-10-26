@@ -31,7 +31,7 @@ import { Link } from '../genai-traces-table/utils/RoutingUtils';
 import { SourceCellRenderer } from '../genai-traces-table/cellRenderers/Source/SourceRenderer';
 import type { SessionHrefGetter } from './types';
 import type { To } from 'react-router';
-import { formatTraceDuration } from './formatTraceDuration';
+import { formatTraceDuration, formatTraceDurationTotal } from './formatTraceDuration';
 
 // Module-local static analytics-id namespace. The `@databricks/no-dynamic-property-value` lint rule
 // requires every `componentId` to be statically determinable, so a runtime-injected prefix isn't
@@ -609,6 +609,22 @@ export const TraceDurationCell: React.MemoExoticComponent<(props: { trace: Model
   },
 );
 
+/** Session duration: the total over its traces, or "-" when any of them has no duration. */
+export const SessionDurationCell: React.MemoExoticComponent<(props: { traces: ModelTraceInfoV3[] }) => JSX.Element> =
+  memo(function SessionDurationCell({ traces }: { traces: ModelTraceInfoV3[] }) {
+    const { theme } = useDesignSystemTheme();
+    const total = formatTraceDurationTotal(traces.map((trace) => trace.execution_duration));
+    if (total === null) {
+      return <EmptyValue />;
+    }
+    return (
+      <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.sm, maxWidth: '100%' }}>
+        <ClockIcon css={{ color: theme.colors.textSecondary, fontSize: CELL_ICON_SIZE }} />
+        <span css={truncateCss}>{total}</span>
+      </span>
+    );
+  });
+
 type TokenUsage = {
   input_tokens?: number;
   output_tokens?: number;
@@ -730,6 +746,20 @@ export const TraceCostCell: React.MemoExoticComponent<(props: { trace: ModelTrac
         {content}
       </Tooltip>
     );
+  },
+);
+
+/** Session cost in USD: the total over its traces that report one. */
+export const SessionCostCell: React.MemoExoticComponent<(props: { traces: ModelTraceInfoV3[] }) => JSX.Element> = memo(
+  function SessionCostCell({ traces }: { traces: ModelTraceInfoV3[] }) {
+    const costs = traces.flatMap((trace) => {
+      const totalCost = getTraceCost(trace)?.total_cost;
+      return typeof totalCost === 'number' && Number.isFinite(totalCost) ? [totalCost] : [];
+    });
+    if (costs.length === 0) {
+      return <EmptyValue />;
+    }
+    return <span css={truncateCss}>{formatCostUSD(costs.reduce((total, cost) => total + cost, 0))}</span>;
   },
 );
 
