@@ -538,7 +538,10 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     // Retrying after the secret was stored and the schedule write failed reuses that secret. Keyed
     // on the provider and the key itself, so editing either still stores the new one.
     if (createdSecret && createdSecret.provider === selection.provider && createdSecret.apiKey === trimmedKey) {
-      return persistSchedule(createdSecret.secretId);
+      // Not returned: every other path through this callback yields nothing, and returning a
+      // promise from one of them alone makes it a function with inconsistent returns.
+      void persistSchedule(createdSecret.secretId);
+      return;
     }
     createSecret(
       {
