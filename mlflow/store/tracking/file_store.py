@@ -137,15 +137,15 @@ def _default_root_dir():
     return MLFLOW_TRACKING_DIR.get() or os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
 
 
-def _validate_trace_id(trace_id: str) -> None:
-    # A trace id names a directory directly under an experiment's traces folder, so anything that
-    # resolves elsewhere (an absolute path, a path separator, "." or "..") must be rejected before
-    # it reaches `mkdir` or `shutil.rmtree`. Windows strips trailing spaces and periods from path
-    # components, which turns ids such as ".. " back into "..", so ids that normalization would
-    # alter are rejected too.
-    if not trace_id or trace_id.rstrip(" .") != trace_id or os.path.basename(trace_id) != trace_id:
+def _validate_path_component(value: str, field_name: str) -> None:
+    # Ids such as trace and model ids name a directory directly under a store folder, so anything
+    # that resolves elsewhere (an absolute path, a path separator, "." or "..") must be rejected
+    # before it reaches `mkdir` or `shutil.rmtree`. Windows strips trailing spaces and periods from
+    # path components, which turns ids such as ".. " back into "..", so ids that normalization
+    # would alter are rejected too.
+    if not value or value.rstrip(" .") != value or os.path.basename(value) != value:
         raise MlflowException(
-            invalid_value("trace_id", trace_id, "must be a single path component"),
+            invalid_value(field_name, value, "must be a single path component"),
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -1403,6 +1403,7 @@ class FileStore(AbstractStore):
 
         for model_output in models:
             model_id = model_output.model_id
+            _validate_path_component(model_id, "model_id")
             output_dir = os.path.join(run_dir, FileStore.OUTPUTS_FOLDER_NAME, model_id)
             if not os.path.exists(output_dir):
                 os.makedirs(output_dir, exist_ok=True)
@@ -1777,7 +1778,7 @@ class FileStore(AbstractStore):
             The created TraceInfo object from the backend.
         """
         _validate_experiment_id(trace_info.experiment_id)
-        _validate_trace_id(trace_info.trace_id)
+        _validate_path_component(trace_info.trace_id, "trace_id")
         experiment_dir = self._get_experiment_path(
             trace_info.experiment_id, view_type=ViewType.ACTIVE_ONLY, assert_exists=True
         )
@@ -2192,7 +2193,7 @@ class FileStore(AbstractStore):
             return deleted_traces
         if trace_ids:
             for trace_id in trace_ids:
-                _validate_trace_id(trace_id)
+                _validate_path_component(trace_id, "trace_id")
             for trace_id in trace_ids:
                 trace_path = os.path.join(traces_path, trace_id)
                 # Do not throw if the trace doesn't exist
@@ -2545,6 +2546,7 @@ class FileStore(AbstractStore):
         return model_dict
 
     def _get_model_dir(self, experiment_id: str, model_id: str) -> str:
+        _validate_path_component(model_id, "model_id")
         if not self._has_experiment(experiment_id):
             return None
         return os.path.join(
