@@ -3,15 +3,9 @@ name: Author stats
 on:
   issues:
     types: [opened]
-  workflow_dispatch:
-    inputs:
-      issue_number:
-        description: "Issue number to update"
-        required: true
-        type: number
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.issue.number || inputs.issue_number }}
+  group: ${{ github.workflow }}-${{ github.event.issue.number }}
   cancel-in-progress: true
 
 defaults:
@@ -25,9 +19,8 @@ jobs:
   set-fields:
     if: >-
       github.repository == 'mlflow/mlflow' &&
-      (github.event_name != 'issues' ||
-        (github.event.issue.user.type == 'User' &&
-          !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)))
+      github.event.issue.user.type == 'User' &&
+      !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
@@ -37,23 +30,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
-          ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
           AUTHOR: ${{ github.event.issue.user.login }}
           # Org issue field IDs (`gh api orgs/mlflow/issue-fields`).
           REPOS_FIELD_ID: 49034796 # Author PR repos (30d)
           PRS_FIELD_ID: 49036049 # Author PRs (30d)
         run: |
-          author="$AUTHOR"
-          if [ -z "$author" ]; then
-            read -r author author_type < <(gh api "repos/$REPO/issues/$ISSUE_NUMBER" --jq '"\(.user.login) \(.user.type)"')
-            if [ "$author_type" != User ]; then
-              echo "Skipping $author ($author_type)"
-              exit 0
-            fi
-          fi
           read -r repos prs < <(
             gh api graphql \
-              -f login="$author" \
+              -f login="$AUTHOR" \
               -f from="$(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)" \
               -f to="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
               -f query='
