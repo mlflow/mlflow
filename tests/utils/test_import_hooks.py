@@ -1,7 +1,11 @@
+import importlib
+import inspect
 import subprocess
 import sys
 
 import pytest
+
+from mlflow.utils import import_hooks
 
 _SCRIPT = """
 import importlib
@@ -54,3 +58,39 @@ def test_immediate_hook_does_not_deadlock_concurrent_import(tmp_path, register, 
         check=True,
         timeout=15,
     )
+
+
+@pytest.fixture
+def module_dir(tmp_path, monkeypatch):
+    monkeypatch.syspath_prepend(str(tmp_path))
+    yield tmp_path
+    for name in ("hooked_module", "broken_module"):
+        sys.modules.pop(name, None)
+        import_hooks._post_import_hooks.pop(name, None)
+        import_hooks._import_error_hooks.pop(name, None)
+
+
+def test_post_import_hook_fires_on_later_import(module_dir):
+    (module_dir / "hooked_module.py").write_text("def func():\n    return 42\n")
+    fired = []
+    import_hooks.register_post_import_hook(fired.append, "hooked_module")
+    assert fired == []
+
+    module = importlib.import_module("hooked_module")
+
+    assert fired == [module]
+    assert module.func() == 42
+    assert not isinstance(module.__loader__, import_hooks._ImportHookChainedLoader)
+    assert module.__spec__.loader is module.__loader__
+    assert "return 42" in inspect.getsource(module.func)
+
+
+def test_import_error_hook_fires_on_failed_import(module_dir):
+    (module_dir / "broken_module.py").write_text("import mlflow_nonexistent_module\n")
+    failed = []
+    import_hooks.register_import_error_hook(failed.append, "broken_module")
+
+    with pytest.raises(ModuleNotFoundError, match="mlflow_nonexistent_module"):
+        importlib.import_module("broken_module")
+
+    assert failed == ["broken_module"]
