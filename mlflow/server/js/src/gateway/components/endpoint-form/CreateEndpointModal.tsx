@@ -16,6 +16,10 @@ interface CreateEndpointModalProps {
    * Lifts this modal above a host that raises its own stacking context. Needed when it is opened
    * from inside another modal, which would otherwise render over it. Left unset, the design
    * system's default applies.
+   *
+   * It also lifts the model selector this form opens: that one is a modal of its own, so raising
+   * only its host left it rendering *behind* the dialog whose required Model field opened it,
+   * with no way to pick a model at all.
    */
   zIndex?: number;
 }
@@ -76,6 +80,7 @@ export const CreateEndpointModal = ({ open, onClose, onSuccess, provider, zIndex
           onNameBlur={handleNameBlur}
           componentId="mlflow.gateway.create-endpoint-modal"
           embedded
+          modelSelectorZIndex={zIndex === undefined ? undefined : zIndex + 20}
         />
       </FormProvider>
     </Modal>

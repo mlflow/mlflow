@@ -233,6 +233,34 @@ const toStoredModel = (
     ? { endpointName: selection.endpointName }
     : { provider: selection.provider, model: selection.model, ...(secretId ? { secretId } : {}) };
 
+/**
+ * Which stored credential a save pins the schedule to.
+ *
+ * A key just created in this dialog wins. Otherwise the schedule keeps the secret it was already
+ * pinned to, as long as the selection still names that provider: re-reading `existingSecrets[0]`
+ * on an unrelated edit -- a cadence change, a pause -- would re-point the schedule at whichever
+ * secret that provider happens to list first, which on a server with more than one user is a key
+ * somebody else saved for their own use. That is the hazard #27003's credential fix closed on the
+ * dispatcher side, and saving from here reopened it.
+ *
+ * Only a selection that moved to another provider falls back to that provider's first secret: the
+ * stored pin cannot apply to it, and this dialog has no secret picker to ask with.
+ */
+const resolveSecretId = (
+  selection: IssueDetectionModelSelection | null,
+  stored: IssueDetectionScheduleModel | undefined,
+  createdSecretId: string | undefined,
+  firstSecretId: string | undefined,
+): string | undefined => {
+  if (createdSecretId) {
+    return createdSecretId;
+  }
+  if (selection?.mode === 'direct' && stored?.provider === selection.provider && stored.secretId) {
+    return stored.secretId;
+  }
+  return firstSecretId;
+};
+
 /** The stored selection put back into the picker's shape, for prefilling the modal. */
 const toSelection = (model: IssueDetectionScheduleModel | undefined): IssueDetectionModelSelection | undefined => {
   const fallbackProvider = ISSUE_DETECTION_PROVIDERS[0];
@@ -276,6 +304,14 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
   // rejecting a submission -- this is checked before the schedule is stored.
   const [view, setView] = useState<ModalView>('main');
   const [apiKeyDraft, setApiKeyDraft] = useState('');
+  // The key this draft has already stored in AI Gateway, if any. Kept because the schedule's two
+  // tag writes can fail after the secret is created, and the secret is named randomly, so a retry
+  // that created another one would leave an unused credential behind on every attempt.
+  const [createdSecret, setCreatedSecret] = useState<{
+    provider: string;
+    apiKey: string;
+    secretId: string;
+  } | null>(null);
 
   const { data: endpoints, isLoading: isLoadingEndpoints } = useEndpointsQuery();
   const {
@@ -360,6 +396,7 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     setSelection(toSelection(model) ?? null);
     setView('main');
     setApiKeyDraft('');
+    setCreatedSecret(null);
     resetCreateSecret();
     setOpen(true);
   }, [setting, traceFilters, model, resetCreateSecret]);
@@ -448,14 +485,16 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
         await setSetting({
           setting: cadence,
           traceFilters: cleaned,
-          model: selection ? toStoredModel(selection, secretId ?? existingSecrets[0]?.secret_id) : undefined,
+          model: selection
+            ? toStoredModel(selection, resolveSecretId(selection, model, secretId, existingSecrets[0]?.secret_id))
+            : undefined,
         });
         setOpen(false);
       } catch {
         setSaveFailed(true);
       }
     },
-    [cadence, filters, selection, existingSecrets, setSetting, intl],
+    [cadence, filters, selection, model, existingSecrets, setSetting, intl],
   );
 
   // Prompting for a key before these answer would ask for one the server may already have.
@@ -496,6 +535,11 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     if (!selection || !trimmedKey) {
       return;
     }
+    // Retrying after the secret was stored and the schedule write failed reuses that secret. Keyed
+    // on the provider and the key itself, so editing either still stores the new one.
+    if (createdSecret && createdSecret.provider === selection.provider && createdSecret.apiKey === trimmedKey) {
+      return persistSchedule(createdSecret.secretId);
+    }
     createSecret(
       {
         secret_name: generateRandomName(selection.provider),
@@ -504,9 +548,18 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
       },
       // The schedule stores the secret just created, not whichever one a later read happens to
       // find first.
-      { onSuccess: (response) => persistSchedule(response.secret.secret_id) },
+      {
+        onSuccess: (response) => {
+          setCreatedSecret({
+            provider: selection.provider,
+            apiKey: trimmedKey,
+            secretId: response.secret.secret_id,
+          });
+          return persistSchedule(response.secret.secret_id);
+        },
+      },
     );
-  }, [apiKeyDraft, selection, createSecret, persistSchedule]);
+  }, [apiKeyDraft, selection, createdSecret, createSecret, persistSchedule]);
 
   // A schedule only runs on a server with the job system and its periodic tasks enabled, behind a
   // SQL backend store. Rather than hide the control, keep it visible but disabled with a tooltip

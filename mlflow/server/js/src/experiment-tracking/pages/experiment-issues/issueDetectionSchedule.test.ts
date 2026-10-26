@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 
-import { parseScheduleTraceFilters } from './issueDetectionSchedule';
+import { parseScheduleTraceFilters, unsupportedFilterCharacter } from './issueDetectionSchedule';
 
 const clause = (raw: unknown) =>
   parseScheduleTraceFilters(typeof raw === 'string' ? raw : JSON.stringify(raw)).map(
@@ -57,5 +57,37 @@ describe('parseScheduleTraceFilters', () => {
     ['junk', 'not-json'],
   ])('%s reads as no filters', (_label, raw) => {
     expect(clause(raw)).toEqual([]);
+  });
+});
+
+describe('unsupportedFilterCharacter', () => {
+  const clauseWith = (value: string) => ({ field: 'metadata' as const, operator: '=' as const, key: 'env', value });
+
+  test.each([
+    ['a backtick', '`', '`'],
+    ['a single quote', "o'brien", "'"],
+    ['a double quote', 'say "yes"', '"'],
+    ['a backslash', 'a\\b', '\\'],
+  ])('%s is reported as itself', (_label, value, expected) => {
+    expect(unsupportedFilterCharacter(clauseWith(value))).toBe(expected);
+  });
+
+  test.each([
+    ['a tab', 'production\t', 'U+0009'],
+    ['a newline', 'production\n', 'U+000A'],
+    ['a NUL', 'production\u0000', 'U+0000'],
+    ['a DEL', 'production\u007f', 'U+007F'],
+  ])('%s is reported by code point, since it shows nothing in the field', (_label, value, expected) => {
+    // The server drops a clause carrying one of these, so a schedule saved with it would show a
+    // filter in the modal that no run ever applies.
+    expect(unsupportedFilterCharacter(clauseWith(value))).toBe(expected);
+  });
+
+  test('a control character in the key is caught too', () => {
+    expect(unsupportedFilterCharacter({ field: 'tag', operator: '=', key: 'te\tam', value: 'search' })).toBe('U+0009');
+  });
+
+  test('an ordinary value is accepted, spaces and all', () => {
+    expect(unsupportedFilterCharacter(clauseWith('north america'))).toBeUndefined();
   });
 });

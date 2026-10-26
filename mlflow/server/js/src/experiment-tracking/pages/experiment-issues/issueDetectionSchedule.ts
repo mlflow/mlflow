@@ -202,14 +202,38 @@ export const loadIssueDetectionSchedule = async (experimentId: string): Promise<
 const UNSUPPORTED_FILTER_CHARACTERS = ['`', "'", '"', '\\'];
 
 /**
+ * Also dropped by the server: a control character or DEL makes a malformed clause, so
+ * `_has_control_char` in `mlflow/genai/discovery/schedule.py` refuses it the same way, and this
+ * applies the same bounds. Easy to arrive here by paste rather than by typing -- a tab or a
+ * newline carried along with a copied value -- and invisible once in the field, which is exactly
+ * why the modal has to name it.
+ */
+const isControlCharacter = (character: string): boolean => {
+  const code = character.codePointAt(0) ?? 0;
+  return code < 0x20 || code === 0x7f;
+};
+
+/**
  * How many clauses a schedule may carry. The server applies only this many and ignores the rest,
  * so offering a further one here would show a filter as active that no run ever applies. Must
  * stay in step with `MAX_TRACE_FILTERS` on the server.
  */
 export const MAX_TRACE_FILTERS = 20;
 
-export const unsupportedFilterCharacter = (filter: ScheduleTraceFilter): string | undefined =>
-  UNSUPPORTED_FILTER_CHARACTERS.find((character) => filter.key.includes(character) || filter.value.includes(character));
+export const unsupportedFilterCharacter = (filter: ScheduleTraceFilter): string | undefined => {
+  const punctuation = UNSUPPORTED_FILTER_CHARACTERS.find(
+    (character) => filter.key.includes(character) || filter.value.includes(character),
+  );
+  if (punctuation) {
+    return punctuation;
+  }
+  // Spread rather than indexed, so a character outside the basic plane is one item and cannot be
+  // split into surrogates that look like something else.
+  const control = [...filter.key, ...filter.value].find(isControlCharacter);
+  // Named by code point, because the character itself has nothing to show: "Remove the  character
+  // from the filter" would name nothing at all.
+  return control === undefined ? undefined : `U+${control.codePointAt(0)?.toString(16).toUpperCase().padStart(4, '0')}`;
+};
 
 /** Blank-key clauses are dropped and keys trimmed, so the stored model stays clean. */
 export const normalizeTraceFilters = (filters: ScheduleTraceFilter[]): ScheduleTraceFilter[] =>

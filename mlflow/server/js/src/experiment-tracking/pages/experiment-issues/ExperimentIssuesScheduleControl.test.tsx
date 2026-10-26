@@ -517,6 +517,87 @@ describe('ExperimentIssuesScheduleControl', () => {
     expect(savedSchedule()['model']).toEqual({ provider: 'anthropic', model: 'claude-opus-4-8' });
   });
 
+  test('keeps the credential the schedule is pinned to when an unrelated edit is saved', async () => {
+    // The hazard: re-reading the provider's first secret on every save would re-point the
+    // schedule at whichever key that provider happens to list first -- on a server with more than
+    // one user, somebody else's. Changing the cadence must not touch which credential runs.
+    experimentTags = [
+      {
+        key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG,
+        value: JSON.stringify({
+          version: ISSUE_DETECTION_SCHEDULE_VERSION,
+          cadence: 'daily',
+          timezone: 'UTC',
+          paused: false,
+          model: { provider: 'openai', model: 'gpt-5.6-sol', secretId: 'sec-mine' },
+        }),
+      },
+    ];
+    gatewaySecrets = [
+      { secret_id: 'sec-someone-elses', secret_name: 'bob-openai-key', provider: 'openai' },
+      { secret_id: 'sec-mine', secret_name: 'my-openai-key', provider: 'openai' },
+    ];
+    const user = setup();
+    render();
+    await openModal(user, /scheduled: daily/i);
+    await chooseCadence(user, 'Weekly');
+    await save(user);
+
+    await waitFor(() => expect(savedSchedule()['cadence']).toBe('weekly'));
+    expect(savedSchedule()['model']).toEqual({
+      provider: 'openai',
+      model: 'gpt-5.6-sol',
+      secretId: 'sec-mine',
+    });
+  });
+
+  test('keeps the pin when the provider lists no secrets, rather than dropping it', async () => {
+    // A read that comes back empty -- or fails -- says nothing about which key the schedule was
+    // pinned to. Dropping the pin would send the next occurrence to the server's own credential.
+    experimentTags = [
+      {
+        key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG,
+        value: JSON.stringify({
+          version: ISSUE_DETECTION_SCHEDULE_VERSION,
+          cadence: 'daily',
+          timezone: 'UTC',
+          paused: false,
+          model: { provider: 'openai', model: 'gpt-5.6-sol', secretId: 'sec-mine' },
+        }),
+      },
+    ];
+    gatewaySecrets = [];
+    const user = setup();
+    render();
+    await openModal(user, /scheduled: daily/i);
+    await chooseCadence(user, 'Off');
+    await save(user);
+
+    await waitFor(() => expect(savedSchedule()['paused']).toBe(true));
+    expect(savedSchedule()['model']).toEqual({
+      provider: 'openai',
+      model: 'gpt-5.6-sol',
+      secretId: 'sec-mine',
+    });
+  });
+
+  test('rejects a pasted control character, naming it by code point', async () => {
+    // The server drops a clause carrying one, so storing it would leave the modal showing a filter
+    // that every run ignores -- and a tab shows nothing in the field, hence the code point.
+    const user = setup();
+    render();
+    await openModal(user);
+    await chooseCadence(user, 'Daily');
+    await user.click(await screen.findByRole('button', { name: 'Add filter' }));
+    await user.type(await screen.findByRole('textbox', { name: 'Filter key' }), 'environment');
+    await user.click(await screen.findByRole('textbox', { name: 'Filter value' }));
+    await user.paste('production\t');
+    await save(user);
+
+    expect(await screen.findByText(/U\+0009/)).toBeInTheDocument();
+    expect(written).toEqual([]);
+  });
+
   test('asks for an API key before saving when neither the server nor AI Gateway has one', async () => {
     envCredentialsAvailable = false;
     const user = setup();
@@ -609,6 +690,35 @@ describe('ExperimentIssuesScheduleControl', () => {
 
     await waitFor(() => expect(savedSchedule()['cadence']).toBe('daily'));
     expect(createdSecrets).toHaveLength(1);
+  });
+
+  test('reuses the key it already stored when a failed save is retried', async () => {
+    // The secret is created before the schedule is written, and the two writes can still fail.
+    // Minting a second key on retry would leave an unused credential in AI Gateway per attempt,
+    // named randomly, with nothing tying it to this schedule.
+    envCredentialsAvailable = false;
+    failWriteOfTag = MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG;
+    const user = setup();
+    render();
+    await openModal(user);
+    await chooseCadence(user, 'Daily');
+    await save(user);
+
+    await user.type(await screen.findByTestId('schedule-api-key-input'), 'sk-demo-key');
+    await user.click(await screen.findByRole('button', { name: /continue and save/i }));
+    expect(await screen.findByText(/Couldn't save the schedule/)).toBeInTheDocument();
+    expect(createdSecrets).toHaveLength(1);
+
+    failWriteOfTag = null;
+    await user.click(await screen.findByRole('button', { name: /continue and save/i }));
+
+    await waitFor(() => expect(savedSchedule()['cadence']).toBe('daily'));
+    expect(createdSecrets).toHaveLength(1);
+    expect(savedSchedule()['model']).toEqual({
+      provider: 'openai',
+      model: 'gpt-5.6-sol',
+      secretId: 'sec-new',
+    });
   });
 
   test('does not ask for a key when AI Gateway already holds one for the provider', async () => {
