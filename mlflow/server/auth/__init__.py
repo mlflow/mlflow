@@ -643,6 +643,15 @@ def make_forbidden_response() -> Response:
     return res
 
 
+def _get_delete_request_args():
+    # DELETE handlers read the body as JSON regardless of Content-Type (including
+    # double-encoded bodies), so authorize against the same values they will act on.
+    if not request.get_data():
+        return request.args
+    body = _get_normalized_request_json()
+    return body if isinstance(body, dict) else {}
+
+
 def _get_request_param(param: str) -> str:
     if request.method == "GET":
         args = request.args
@@ -652,11 +661,7 @@ def _get_request_param(param: str) -> str:
         body = request.get_json(silent=True)
         args = body if isinstance(body, dict) else {}
     elif request.method == "DELETE":
-        if request.is_json:
-            body = request.get_json(silent=True)
-            args = body if isinstance(body, dict) else {}
-        else:
-            args = request.args
+        args = _get_delete_request_args()
     else:
         raise MlflowException(
             f"Unsupported HTTP method '{request.method}'",
@@ -2862,9 +2867,7 @@ def _request_params() -> dict[str, object]:
     if request.method in ("POST", "PATCH"):
         return dict(request.get_json(silent=True) or {})
     if request.method == "DELETE":
-        if request.is_json:
-            return dict(request.get_json(silent=True) or {})
-        return dict(request.args)
+        return dict(_get_delete_request_args())
     return {}
 
 
