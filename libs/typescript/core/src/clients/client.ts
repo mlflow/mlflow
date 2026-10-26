@@ -3,15 +3,20 @@ import { Trace } from '../core/entities/trace';
 import {
   CreateAssessment,
   CreateExperiment,
+  CreateIssue,
   CreateTraceInfoV4,
+  DatabricksIssues,
   DeleteExperiment,
   ExportOtlpTraces,
   ExportOtlpTracesOss,
   GetExperiment,
   GetExperimentByName,
+  GetIssue,
   GetTraceInfoV3,
   SearchTracesV3,
+  SearchIssues,
   StartTraceV3,
+  UpdateIssue,
 } from './spec';
 import {
   AssessmentSourceType,
@@ -26,7 +31,14 @@ import {
 import { makeRawRequest, makeRequest, MlflowHttpError } from './utils';
 import { TraceData } from '../core/entities/trace_data';
 import { ArtifactsClient, getArtifactsClient } from './artifacts';
-import { AuthProvider, HeadersProvider } from '../auth';
+import { AuthProvider, HeadersProvider, isDatabricksUri } from '../auth';
+import {
+  Issue,
+  IssueSeverity,
+  IssueStatus,
+  type IssueSeverityName,
+  type IssueStatusName,
+} from '../core/entities/issue';
 import { DATABRICKS_UC_TABLE_HEADER, MLFLOW_EXPERIMENT_ID_HEADER } from '../core/constants';
 import { serializeTraceLocation, type TraceLocation } from '../core/entities/trace_location';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto';
@@ -57,6 +69,53 @@ export interface SearchTracesResult {
   nextPageToken?: string;
 }
 
+export interface CreateIssueOptions {
+  experimentId: string;
+  name: string;
+  description: string;
+  severity: IssueSeverityName;
+  status?: IssueStatusName;
+  categories?: string[];
+  metadata?: Record<string, string>;
+  issueId?: string;
+  /** Most recent observation in milliseconds since the epoch. */
+  lastSeenTimestamp?: number;
+  sourceRunId?: string;
+}
+
+export interface UpdateIssueOptions {
+  experimentId: string;
+  name?: string;
+  /** An empty string clears the description. */
+  description?: string;
+  severity?: IssueSeverityName;
+  status?: IssueStatusName;
+  /** Replaces the categories; an empty array clears them. */
+  categories?: string[];
+  /** Metadata entries to add or replace. */
+  metadata?: Record<string, string>;
+  deleteMetadataKeys?: string[];
+  lastSeenTimestamp?: number;
+}
+
+export interface SearchIssuesOptions {
+  experimentId: string;
+  /** Status comparisons (=, !=) joined by AND; OSS also supports source_run_id. */
+  filter?: string;
+  maxResults?: number;
+  /** Backend field names, e.g. ['created_timestamp DESC']. Databricks supports one field. */
+  orderBy?: string[];
+  pageToken?: string;
+  /** Defaults to full. Basic omits the description. */
+  view?: 'basic' | 'full';
+}
+
+export interface SearchIssuesResult {
+  issues: Issue[];
+  nextPageToken?: string;
+  totalCount?: number;
+}
+
 /**
  * Client for MLflow tracing operations.
  *
@@ -74,6 +133,8 @@ export class MlflowClient {
   /** Host URL for API requests */
   private hostUrl: string;
 
+  private isDatabricks: boolean;
+
   /**
    * Creates a new MlflowClient.
    *
@@ -83,6 +144,7 @@ export class MlflowClient {
   constructor(options: { trackingUri: string; authProvider: AuthProvider }) {
     this.headersProvider = options.authProvider.getHeadersProvider();
     this.hostUrl = options.authProvider.getHost();
+    this.isDatabricks = isDatabricksUri(options.trackingUri);
 
     this.artifactsClient = getArtifactsClient({
       trackingUri: options.trackingUri,
@@ -381,6 +443,215 @@ export class MlflowClient {
     return Feedback.fromJson(response.assessment);
   }
 
+  /** Create an issue in an experiment. */
+  async createIssue(options: CreateIssueOptions): Promise<Issue> {
+    assertIssueId(options.experimentId, 'experimentId');
+    assertIssueTimestamp(options.lastSeenTimestamp);
+    if (this.isDatabricks) {
+      assertDatabricksIssueSeverity(options.severity);
+      const lastSeen = options.lastSeenTimestamp ?? (options.sourceRunId ? Date.now() : undefined);
+      const payload: DatabricksIssues.CreateRequest = {
+        title: options.name,
+        description: options.description,
+        severity: options.severity.toUpperCase(),
+        status: (options.status ?? IssueStatus.PENDING).toUpperCase(),
+        source_type: options.sourceRunId ? 'ADHOC_RUN' : 'MANUAL',
+        source_id: options.sourceRunId,
+        last_seen_time: lastSeen === undefined ? undefined : new Date(lastSeen).toISOString(),
+        categories: options.categories,
+        metadata: options.metadata,
+      };
+      const url = new URL(DatabricksIssues.getEndpoint(this.hostUrl, options.experimentId));
+      if (options.issueId !== undefined) {
+        url.searchParams.set('issue_id', options.issueId);
+      }
+      const response = await makeRequest<DatabricksIssues.Resource>(
+        'POST',
+        url.toString(),
+        this.headersProvider,
+        payload,
+      );
+      return issueFromDatabricksJson(response, options.experimentId);
+    }
+    const payload: CreateIssue.Request = {
+      experiment_id: options.experimentId,
+      name: options.name,
+      description: options.description,
+      severity: options.severity,
+      status: options.status ?? IssueStatus.PENDING,
+      categories: options.categories,
+      metadata: options.metadata,
+      issue_id: options.issueId,
+      last_seen_timestamp: options.lastSeenTimestamp,
+      source_run_id: options.sourceRunId,
+    };
+    const response = await makeRequest<CreateIssue.Response>(
+      'POST',
+      CreateIssue.getEndpoint(this.hostUrl),
+      this.headersProvider,
+      payload,
+    );
+    return Issue.fromJson(response.issue);
+  }
+
+  /** Get an issue. The experiment ID routes Databricks requests to the parent experiment. */
+  async getIssue(issueId: string, experimentId: string): Promise<Issue> {
+    assertIssueId(experimentId, 'experimentId');
+    assertIssueId(issueId, 'issueId');
+    if (this.isDatabricks) {
+      const response = await makeRequest<DatabricksIssues.Resource>(
+        'GET',
+        DatabricksIssues.getEndpoint(this.hostUrl, experimentId, issueId),
+        this.headersProvider,
+      );
+      return issueFromDatabricksJson(response, experimentId);
+    }
+    const response = await makeRequest<GetIssue.Response>(
+      'GET',
+      GetIssue.getEndpoint(this.hostUrl, issueId),
+      this.headersProvider,
+    );
+    return Issue.fromJson(response.issue);
+  }
+
+  /** Update supplied fields; omitted fields retain their values. */
+  async updateIssue(issueId: string, options: UpdateIssueOptions): Promise<Issue> {
+    assertIssueId(options.experimentId, 'experimentId');
+    assertIssueId(issueId, 'issueId');
+    assertIssueTimestamp(options.lastSeenTimestamp);
+    const metadataKeys = Object.keys(options.metadata ?? {});
+    if (options.deleteMetadataKeys?.some((key) => metadataKeys.includes(key))) {
+      throw new Error('Cannot update and delete the same metadata key');
+    }
+    if (this.isDatabricks) {
+      assertDatabricksIssueSeverity(options.severity);
+      const fields = {
+        title: options.name,
+        description: options.description,
+        status: options.status?.toUpperCase(),
+        severity: options.severity?.toUpperCase(),
+        categories: options.categories,
+        last_seen_time:
+          options.lastSeenTimestamp === undefined
+            ? undefined
+            : new Date(options.lastSeenTimestamp).toISOString(),
+      };
+      const paths = Object.entries(fields)
+        .filter(([, value]) => value !== undefined)
+        .map(([key]) => key);
+      for (const key of new Set([...metadataKeys, ...(options.deleteMetadataKeys ?? [])])) {
+        if (!key || /[,`]/.test(key)) {
+          throw new Error('Metadata update keys cannot be empty or contain commas or backticks');
+        }
+        paths.push(key.includes('.') ? `metadata.\`${key}\`` : `metadata.${key}`);
+      }
+      if (!paths.length) {
+        return this.getIssue(issueId, options.experimentId);
+      }
+      const payload: DatabricksIssues.UpdateRequest = {
+        ...fields,
+        name: `experiments/${options.experimentId}/issues/${issueId}`,
+        metadata: metadataKeys.length ? options.metadata : undefined,
+      };
+      const url = new URL(
+        DatabricksIssues.getEndpoint(this.hostUrl, options.experimentId, issueId),
+      );
+      url.searchParams.set('update_mask', paths.join(','));
+      const response = await makeRequest<DatabricksIssues.Resource>(
+        'PATCH',
+        url.toString(),
+        this.headersProvider,
+        payload,
+      );
+      return issueFromDatabricksJson(response, options.experimentId);
+    }
+    const payload: UpdateIssue.Request = {
+      issue_id: issueId,
+      name: options.name,
+      description: options.description,
+      severity: options.severity,
+      status: options.status,
+      categories: options.categories,
+      metadata: options.metadata,
+      delete_metadata_keys: options.deleteMetadataKeys,
+      last_seen_timestamp: options.lastSeenTimestamp,
+    };
+    const response = await makeRequest<UpdateIssue.Response>(
+      'PATCH',
+      UpdateIssue.getEndpoint(this.hostUrl, issueId),
+      this.headersProvider,
+      payload,
+    );
+    return Issue.fromJson(response.issue);
+  }
+
+  /** Search one page of issues using MLflow filter syntax. */
+  async searchIssues(options: SearchIssuesOptions): Promise<SearchIssuesResult> {
+    assertIssueId(options.experimentId, 'experimentId');
+    if (this.isDatabricks) {
+      const payload: DatabricksIssues.SearchRequest = {
+        parent: `experiments/${options.experimentId}`,
+        statuses: databricksIssueStatuses(options.filter),
+        page_size: options.maxResults,
+        page_token: options.pageToken,
+        view: (options.view ?? 'full').toUpperCase(),
+      };
+      if (options.orderBy?.length) {
+        if (options.orderBy.length !== 1) {
+          throw new Error('Databricks issue search supports one orderBy field');
+        }
+        const match = /^(\w+)(?:\s+(ASC|DESC))?$/i.exec(options.orderBy[0].trim());
+        const sortKeys: Record<string, string> = {
+          severity: 'SEVERITY',
+          last_seen_timestamp: 'LAST_SEEN_TIME',
+          last_updated_timestamp: 'UPDATE_TIME',
+          created_timestamp: 'CREATE_TIME',
+        };
+        if (!match || !Object.keys(sortKeys).includes(match[1])) {
+          throw new Error(`Unsupported Databricks issue orderBy: ${options.orderBy[0]}`);
+        }
+        payload.sort_key = sortKeys[match[1]];
+        payload.sort_order = match[2]?.toUpperCase() === 'DESC' ? 'DESCENDING' : 'ASCENDING';
+      }
+      // An empty statuses list means "all" to Databricks, so don't send a contradiction.
+      if (!payload.statuses.length) {
+        return { issues: [] };
+      }
+      const response = await makeRequest<DatabricksIssues.SearchResponse>(
+        'POST',
+        `${DatabricksIssues.getEndpoint(this.hostUrl, options.experimentId)}:search`,
+        this.headersProvider,
+        payload,
+      );
+      return {
+        issues: (response.issues ?? []).map((issue) =>
+          issueFromDatabricksJson(issue, options.experimentId),
+        ),
+        nextPageToken: response.next_page_token || undefined,
+        totalCount: response.total_size === undefined ? undefined : Number(response.total_size),
+      };
+    }
+    const payload: SearchIssues.Request = {
+      experiment_id: options.experimentId,
+      filter_string: options.filter,
+      max_results: options.maxResults,
+      order_by: options.orderBy,
+      page_token: options.pageToken,
+      view: options.view,
+    };
+    const response = await makeRequest<SearchIssues.Response>(
+      'POST',
+      SearchIssues.getEndpoint(this.hostUrl),
+      this.headersProvider,
+      payload,
+    );
+    return {
+      issues: (response.issues ?? []).map((issue) => Issue.fromJson(issue)),
+      nextPageToken: response.next_page_token || undefined,
+      totalCount: response.total_count === undefined ? undefined : Number(response.total_count),
+    };
+  }
+
   // === EXPERIMENT METHODS  ===
   /**
    * Create a new experiment
@@ -468,4 +739,91 @@ export class MlflowClient {
     const payload: DeleteExperiment.Request = { experiment_id: experimentId };
     await makeRequest<void>('POST', url, this.headersProvider, payload);
   }
+}
+
+function assertIssueId(value: string, field: 'experimentId' | 'issueId'): void {
+  if (typeof value !== 'string' || !value) {
+    throw new Error(`${field} must be a nonempty string`);
+  }
+}
+
+function assertIssueTimestamp(timestamp?: number): void {
+  if (
+    timestamp !== undefined &&
+    (!Number.isSafeInteger(timestamp) || timestamp < 0 || timestamp > 8.64e15)
+  ) {
+    throw new Error(
+      'lastSeenTimestamp must be nonnegative integer milliseconds within the Date range',
+    );
+  }
+}
+
+function assertDatabricksIssueSeverity(severity?: IssueSeverityName): void {
+  if (severity === IssueSeverity.NOT_AN_ISSUE) {
+    throw new Error('The Databricks Issues API supports low, medium, and high severity');
+  }
+}
+
+function issueFromDatabricksJson(resource: DatabricksIssues.Resource, experimentId: string): Issue {
+  return new Issue({
+    issueId: resource.issue_id,
+    experimentId,
+    name: resource.title,
+    description: resource.description ?? '',
+    status: resource.status.toLowerCase() as IssueStatusName,
+    severity:
+      resource.severity && resource.severity !== 'ISSUE_SEVERITY_UNSPECIFIED'
+        ? (resource.severity.toLowerCase() as IssueSeverityName)
+        : undefined,
+    createdTimestamp: Date.parse(resource.create_time),
+    lastUpdatedTimestamp: Date.parse(resource.update_time),
+    lastSeenTimestamp:
+      resource.last_seen_time === undefined ? undefined : Date.parse(resource.last_seen_time),
+    sourceRunId:
+      resource.source_type === 'ADHOC_RUN' || resource.source_type === 'SCHEDULED_RUN'
+        ? resource.source_id
+        : undefined,
+    categories: resource.categories ?? [],
+    createdBy: resource.created_by,
+    lastUpdatedBy: resource.last_updated_by,
+    metadata: resource.metadata,
+  });
+}
+
+function databricksIssueStatuses(filter?: string): string[] {
+  const statuses = new Set<string>(Object.values(IssueStatus));
+  let remaining = filter?.trim() ?? '';
+  while (remaining) {
+    // The OSS grammar only has string comparisons joined by AND. Databricks can
+    // express the status subset; it has no equivalent source_run_id predicate.
+    const comparison =
+      /^(?:`([^`]+)`|"([^"]+)"|(\w+))\s*(!=|=)\s*(?:'([^']*)'|"([^"]*)"|(\w+))\s*(?:(AND)\b\s*|$)/i.exec(
+        remaining,
+      );
+    if (!comparison) {
+      throw new Error('Issue filters require = or != comparisons joined by AND');
+    }
+    const field = comparison[1] ?? comparison[2] ?? comparison[3];
+    if (field !== 'status') {
+      throw new Error(`Databricks issue filters support status only; unsupported field: ${field}`);
+    }
+    const status = (comparison[5] ?? comparison[6] ?? comparison[7]).trim().toLowerCase();
+    if (!(Object.values(IssueStatus) as string[]).includes(status)) {
+      throw new Error(`Invalid issue status: ${status}`);
+    }
+    if (comparison[4] === '=') {
+      for (const candidate of statuses) {
+        if (candidate !== status) {
+          statuses.delete(candidate);
+        }
+      }
+    } else {
+      statuses.delete(status);
+    }
+    remaining = remaining.slice(comparison[0].length).trim();
+    if (comparison[8] && !remaining) {
+      throw new Error('Issue filters cannot end with AND');
+    }
+  }
+  return [...statuses].map((status) => status.toUpperCase());
 }

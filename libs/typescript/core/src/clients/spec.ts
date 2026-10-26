@@ -9,6 +9,130 @@ import type { TraceInfo } from '../core/entities/trace_info';
 import type { SerializedAssessment } from '../core/entities/assessment';
 import type { SerializedTraceLocation } from '../core/entities/trace_location';
 import { ArtifactCredentialType } from './artifacts/databricks';
+import type { SerializedIssue } from '../core/entities/issue';
+
+const getIssueEndpoint = (host: string, issueId?: string) =>
+  `${host}/api/3.0/mlflow/issues${issueId === undefined ? '' : `/${encodeURIComponent(issueId)}`}`;
+
+export namespace CreateIssue {
+  export const getEndpoint = (host: string) => getIssueEndpoint(host);
+  export interface Request {
+    experiment_id: string;
+    name: string;
+    description: string;
+    severity: SerializedIssue['severity'];
+    status?: SerializedIssue['status'];
+    categories?: string[];
+    metadata?: Record<string, string>;
+    issue_id?: string;
+    last_seen_timestamp?: number;
+    source_run_id?: string;
+  }
+  export interface Response {
+    issue: SerializedIssue;
+  }
+}
+
+export namespace GetIssue {
+  export const getEndpoint = getIssueEndpoint;
+  export type Response = CreateIssue.Response;
+}
+
+export namespace UpdateIssue {
+  export const getEndpoint = getIssueEndpoint;
+  export interface Request {
+    issue_id: string;
+    name?: string;
+    description?: string;
+    status?: SerializedIssue['status'];
+    severity?: SerializedIssue['severity'];
+    categories?: string[];
+    metadata?: Record<string, string>;
+    delete_metadata_keys?: string[];
+    last_seen_timestamp?: number;
+  }
+  export type Response = CreateIssue.Response;
+}
+
+export namespace SearchIssues {
+  export const getEndpoint = (host: string) => `${getIssueEndpoint(host)}/search`;
+  export interface Request {
+    experiment_id: string;
+    filter_string?: string;
+    max_results?: number;
+    order_by?: string[];
+    page_token?: string;
+    view?: 'basic' | 'full';
+  }
+  export interface Response {
+    issues?: SerializedIssue[];
+    next_page_token?: string;
+    total_count?: number | string;
+  }
+}
+
+export namespace DatabricksIssues {
+  export const getEndpoint = (host: string, experimentId: string, issueId?: string) =>
+    `${host}/api/2.0/mlflow/experiments/${encodeURIComponent(experimentId)}/issues${
+      issueId === undefined ? '' : `/${encodeURIComponent(issueId)}`
+    }`;
+
+  export interface Resource {
+    issue_id: string;
+    title: string;
+    description?: string;
+    status: 'PENDING' | 'REJECTED' | 'RESOLVED';
+    severity?: 'LOW' | 'MEDIUM' | 'HIGH' | 'ISSUE_SEVERITY_UNSPECIFIED';
+    create_time: string;
+    update_time: string;
+    last_seen_time?: string;
+    source_type?: string;
+    source_id?: string;
+    categories?: string[];
+    metadata?: Record<string, string>;
+    created_by?: string;
+    last_updated_by?: string;
+  }
+
+  export interface CreateRequest {
+    title: string;
+    description: string;
+    severity: string;
+    status: string;
+    source_type: 'MANUAL' | 'ADHOC_RUN';
+    source_id?: string;
+    last_seen_time?: string;
+    categories?: string[];
+    metadata?: Record<string, string>;
+  }
+
+  export interface UpdateRequest {
+    name: string;
+    title?: string;
+    description?: string;
+    severity?: string;
+    status?: string;
+    last_seen_time?: string;
+    categories?: string[];
+    metadata?: Record<string, string>;
+  }
+
+  export interface SearchRequest {
+    parent: string;
+    statuses: string[];
+    page_size?: number;
+    page_token?: string;
+    sort_key?: string;
+    sort_order?: 'ASCENDING' | 'DESCENDING';
+    view: string;
+  }
+
+  export interface SearchResponse {
+    issues?: Resource[];
+    next_page_token?: string;
+    total_size?: number | string;
+  }
+}
 
 /**
  * Create a new TraceInfo entity in the backend.
