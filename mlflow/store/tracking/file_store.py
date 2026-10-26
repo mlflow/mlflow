@@ -2546,6 +2546,7 @@ class FileStore(AbstractStore):
         return model_dict
 
     def _get_model_dir(self, experiment_id: str, model_id: str) -> str:
+        _validate_path_component(model_id, "model_id")
         if not self._has_experiment(experiment_id):
             return None
         return os.path.join(

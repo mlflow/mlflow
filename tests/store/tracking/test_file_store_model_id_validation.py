@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from mlflow.entities import LoggedModelOutput
+from mlflow.entities import LoggedModelOutput, Metric
 from mlflow.environment_variables import MLFLOW_ALLOW_FILE_STORE
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.file_store import FileStore
@@ -38,3 +38,16 @@ def test_log_outputs_accepts_plain_model_id(store):
     store.log_outputs(run_id, [LoggedModelOutput(model_id="m-123", step=0)])
 
     assert [o.model_id for o in store.get_run(run_id).outputs.model_outputs] == ["m-123"]
+
+
+@pytest.mark.parametrize("template", ["{target}", "../../../../{name}", ".."])
+def test_log_metric_rejects_model_ids_that_escape_the_models_dir(store, tmp_path, template):
+    target = tmp_path / "escaped"
+    model_id = template.format(target=target, name=target.name)
+    run_id = _create_run_id(store)
+    metric = Metric("m", 1.0, 0, 0, model_id=model_id)
+
+    with pytest.raises(MlflowException, match="must be a single path component"):
+        store.log_metric(run_id, metric)
+
+    assert not target.exists()
