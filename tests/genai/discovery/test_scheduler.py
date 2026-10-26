@@ -6,6 +6,9 @@ from unittest import mock
 import pytest
 
 from mlflow.entities.experiment_tag import ExperimentTag
+from mlflow.entities.run_status import RunStatus
+from mlflow.entities.run_tag import RunTag
+from mlflow.environment_variables import MLFLOW_SERVER_JOB_DEFAULT_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.genai.discovery.checkpoint import (
     FIRST_RUN_LOOKBACK_MS,
@@ -38,6 +41,8 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_ISSUE_DETECTION_SCHEDULE,
     MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE,
     MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER,
+    MLFLOW_RUN_TYPE,
+    MLFLOW_RUN_TYPE_ISSUE_DETECTION,
 )
 
 # 2026-05-04 is a Monday; 13:00 and 14:00 UTC bracket one hourly occurrence.
@@ -105,6 +110,47 @@ def test_the_first_pass_anchors_a_new_schedule_without_running_it(store, dispatc
     assert dispatch(ONE_PM_MS).call_count == 0
     state = _state(store, experiment_id)
     assert state.last_fire_time_ms == ONE_PM_MS
+
+
+def _detection_run(store, experiment_id: str, start_time_ms: int):
+    return store.create_run(
+        experiment_id,
+        "someone",
+        start_time_ms,
+        [RunTag(MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_ISSUE_DETECTION)],
+        "detection",
+    )
+
+
+def test_an_occurrence_due_while_detection_is_running_is_left_unclaimed(store, dispatch):
+    experiment_id = _experiment_with(
+        store, "overlapping", **_schedule_tags(DetectionSchedule(cadence=DetectionCadence.HOURLY))
+    )
+    dispatch(ONE_PM_MS)
+    due_ms = ONE_PM_MS + HOUR_MS
+    run = _detection_run(store, experiment_id, due_ms - 60_000)
+
+    assert dispatch(due_ms).call_count == 0
+    # Unclaimed on purpose: the watermark has not moved, so the occurrence is still due and a
+    # later pass runs it rather than the window being skipped.
+    assert _state(store, experiment_id).last_fire_time_ms == ONE_PM_MS
+
+    store.update_run_info(run.info.run_id, RunStatus.FINISHED, due_ms, None)
+    assert dispatch(due_ms).call_count == 1
+    assert _state(store, experiment_id).last_fire_time_ms == due_ms
+
+
+def test_a_run_left_running_past_the_job_timeout_does_not_block_the_schedule(store, dispatch):
+    # Otherwise a worker that died mid-detection would stop every later occurrence forever.
+    experiment_id = _experiment_with(
+        store, "stale", **_schedule_tags(DetectionSchedule(cadence=DetectionCadence.HOURLY))
+    )
+    dispatch(ONE_PM_MS)
+    due_ms = ONE_PM_MS + HOUR_MS
+    stale_start_ms = due_ms - int(MLFLOW_SERVER_JOB_DEFAULT_TIMEOUT.get() * 1000) - 1
+    _detection_run(store, experiment_id, stale_start_ms)
+
+    assert dispatch(due_ms).call_count == 1
 
 
 def test_the_occurrence_after_the_anchor_is_dispatched(store, dispatch):

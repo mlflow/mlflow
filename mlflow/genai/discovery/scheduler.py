@@ -32,6 +32,7 @@ from mlflow.genai.discovery.schedule import (
     write_detection_schedule_state,
 )
 from mlflow.genai.discovery.settings import read_detection_settings
+from mlflow.genai.discovery.utils import in_flight_detection_run
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.utils.mlflow_tags import MLFLOW_ISSUE_DETECTION_SCHEDULE
 from mlflow.utils.workspace_context import ServerWorkspaceContext
@@ -170,6 +171,20 @@ def _dispatch_if_due(store: AbstractStore, experiment: Experiment, now_ms: int) 
         return
     fire_time_ms = due_occurrence_ms(schedule, state, now_ms)
     if fire_time_ms is None:
+        return
+
+    # Not claimed, so this occurrence is retried on the next poll rather than lost. Overlapping
+    # an ad-hoc run would analyze its traces twice and file the same findings twice; waiting
+    # costs nothing because the watermark only advances when a run finishes, so whenever this
+    # occurrence does run its window still reaches back over everything it would have covered.
+    if in_flight_run_id := in_flight_detection_run(store, experiment.experiment_id, now_ms):
+        _logger.info(
+            "Issue detection for experiment %s is due at %d but run %s is still going; leaving "
+            "the occurrence unclaimed for a later pass",
+            experiment.experiment_id,
+            fire_time_ms,
+            in_flight_run_id,
+        )
         return
 
     # Claim before submitting. A crash between the two loses this occurrence rather than running

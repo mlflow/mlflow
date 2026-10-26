@@ -127,6 +127,7 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_STATE,
     NOT_IMPLEMENTED,
     PERMISSION_DENIED,
+    RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
@@ -5708,6 +5709,7 @@ def _invoke_issue_detection_handler():
     This is a UI-only AJAX endpoint for running issue detection from the frontend.
     """
     from mlflow.genai.discovery.job import _fetch_provider_credentials, invoke_issue_detection_job
+    from mlflow.genai.discovery.utils import in_flight_detection_run
     from mlflow.server.jobs import submit_job
 
     _validate_content_type(request, ["application/json"])
@@ -5771,6 +5773,19 @@ def _invoke_issue_detection_handler():
 
     store = _get_tracking_store()
     _validate_trace_ids_in_experiment(store, trace_ids, experiment_id)
+
+    # After the checks above rather than before, so request validation stays free of database
+    # reads and the "fails fast" contract on an unsupported provider or a missing key holds. The
+    # cost is that a caller with neither a key nor a free slot is told about the key first, which
+    # sends the dialog to its API-key step before this refusal; the opposite order would make
+    # every invoke read the run table before validating its own arguments.
+    if in_flight_run_id := in_flight_detection_run(store, experiment_id):
+        raise MlflowException(
+            "Issue detection is already running for this experiment "
+            f"(run {in_flight_run_id}). Wait for it to finish, or cancel it, before starting "
+            "another.",
+            error_code=RESOURCE_ALREADY_EXISTS,
+        )
 
     # Fetch credentials required for executing the job
     if secret_id:
