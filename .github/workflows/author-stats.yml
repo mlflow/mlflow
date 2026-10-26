@@ -46,12 +46,15 @@ jobs:
                   user(login: $login) {
                     contributionsCollection(from: $from, to: $to) {
                       pullRequestContributionsByRepository(maxRepositories: 100) {
+                        repository { owner { login } }
                         contributions { totalCount }
                       }
                     }
                   }
                 }' \
-              --jq '.data.user.contributionsCollection.pullRequestContributionsByRepository
+              | jq -r --arg author "$AUTHOR" '
+                .data.user.contributionsCollection.pullRequestContributionsByRepository
+                | map(select((.repository.owner.login | ascii_downcase) != ($author | ascii_downcase)))
                 | "\(length) \(map(.contributions.totalCount) | add // 0)"'
           )
           # POST (not PUT) so other field values on the issue are kept.
