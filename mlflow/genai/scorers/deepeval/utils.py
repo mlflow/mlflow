@@ -203,6 +203,7 @@ def map_session_to_deepeval_conversational_test_case(
         assistant_turn = Turn(
             role="assistant",
             content=parse_outputs_to_str(outputs),
+            tools_called=_extract_tool_calls_from_trace(trace),
         )
         turns.append(assistant_turn)
 

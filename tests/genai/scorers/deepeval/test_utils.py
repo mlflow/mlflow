@@ -2,6 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
+import mlflow
 from mlflow.entities.span import Span, SpanAttributeKey, SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.deepeval.models import create_deepeval_model
@@ -9,6 +10,7 @@ from mlflow.genai.scorers.deepeval.utils import (
     _convert_to_deepeval_tool_calls,
     _extract_tool_calls_from_trace,
     map_scorer_inputs_to_deepeval_test_case,
+    map_session_to_deepeval_conversational_test_case,
 )
 
 
@@ -140,3 +142,31 @@ def test_map_mlflow_to_test_case_with_expected_tool_calls():
     assert test_case.expected_tools is not None
     assert len(test_case.expected_tools) == 1
     assert test_case.expected_tools[0].name == "search"
+
+
+def _trace_with_tool(user_message, reply, tool_name=None):
+    with mlflow.start_span(name="root") as root_span:
+        root_span.set_inputs(user_message)
+        if tool_name:
+            with mlflow.start_span(name=tool_name, span_type=SpanType.TOOL) as tool_span:
+                tool_span.set_inputs({"day": "today"})
+                tool_span.set_outputs({"remaining_kcal": 1344})
+        root_span.set_outputs(reply)
+    return mlflow.get_trace(root_span.trace_id)
+
+
+def test_map_session_to_conversational_test_case_includes_tool_calls():
+    session = [
+        _trace_with_tool("How much is left?", "1,344 kcal left.", tool_name="get_remaining"),
+        _trace_with_tool("Thanks", "You're welcome."),
+    ]
+
+    test_case = map_session_to_deepeval_conversational_test_case(session)
+
+    assert [turn.role for turn in test_case.turns] == ["user", "assistant", "user", "assistant"]
+    tool_calls = test_case.turns[1].tools_called
+    assert [call.name for call in tool_calls] == ["get_remaining"]
+    assert tool_calls[0].input_parameters == {"day": "today"}
+    assert tool_calls[0].output == {"remaining_kcal": 1344}
+    assert test_case.turns[0].tools_called is None
+    assert test_case.turns[3].tools_called is None
