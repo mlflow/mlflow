@@ -672,6 +672,18 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
                     />
                   </div>
                 )}
+                {cadence !== 'off' && (
+                  // OSS only: the managed control has no equivalent line. A run here calls the
+                  // model the owner picked above on every occurrence, and nothing else in the
+                  // modal says that the cost recurs.
+                  <Typography.Hint>
+                    {intl.formatMessage({
+                      defaultMessage: 'Scheduled runs incur model usage costs on every occurrence.',
+                      description:
+                        'Experiment issues tab > Schedule modal hint that a scheduled detection run spends on the chosen model each time it fires',
+                    })}
+                  </Typography.Hint>
+                )}
               </div>
               <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
                 <Typography.Text color="secondary">{filterSectionLabel}</Typography.Text>

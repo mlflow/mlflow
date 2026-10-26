@@ -326,6 +326,20 @@ describe('ExperimentIssuesScheduleControl', () => {
     expect(screen.queryByTestId('schedule-api-key-view')).not.toBeInTheDocument();
   });
 
+  test('says the cost recurs while a cadence is selected, and not when off', async () => {
+    const costNote = /incur model usage costs on every occurrence/;
+    experimentTags = [scheduleTag('hourly')];
+    const user = setup();
+    render();
+
+    await openModal(user, /scheduled: hourly/i);
+    expect(await screen.findByText(costNote)).toBeInTheDocument();
+
+    // Turning the schedule off stops it firing, so there is no recurring spend to warn about.
+    await chooseCadence(user, 'Off');
+    await waitFor(() => expect(screen.queryByText(costNote)).not.toBeInTheDocument());
+  });
+
   test('offers no more filters than scheduled runs apply', async () => {
     const user = setup();
     render();
