@@ -5,6 +5,7 @@ import { rest } from 'msw';
 
 import { shouldEnableNewEvalRunsUi } from '../../../../common/utils/FeatureUtils';
 import { useNavigate } from '../../../../common/utils/RoutingUtils';
+import { RoutePaths } from '../../../routes';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import type { Dataset } from '../hooks/useDatasetsQueries';
 import { renderDatasetsPage } from '../test-utils/renderDatasetsPage';
@@ -22,7 +23,7 @@ jest.mock('./LazyJsonRecordEditor', () => ({ LazyJsonRecordEditor: () => null })
 
 const dataset = { dataset_id: 'ds-1', name: 'Support eval', create_time: '2026-01-01T00:00:00Z' } as Dataset;
 
-setupServer(
+const server = setupServer(
   rest.get(/\/ajax-api\/3\.0\/mlflow\/datasets\/ds-1\/records/, (_req, res, ctx) =>
     res(ctx.json({ records: JSON.stringify([{ dataset_record_id: 'r-1', inputs: { question: 'hi' } }]) })),
   ),
@@ -48,6 +49,15 @@ const renderContent = (initialUrl = '/experiments/exp-1/datasets/ds-1') =>
           </>
         ),
       },
+      {
+        path: RoutePaths.experimentPageTabEvaluationRunDetails,
+        element: (
+          <>
+            <BackButton />
+            <div>Run details page</div>
+          </>
+        ),
+      },
     ],
     history: {},
   });
@@ -70,6 +80,39 @@ describe('DatasetDetailPageContent evaluation runs panel', () => {
 
   test('restores the panel from the URL', async () => {
     renderContent('/experiments/exp-1/datasets/ds-1?runsPanel=true');
+
+    expect(await screen.findByRole('complementary', { name: 'Evaluation Runs' })).toBeInTheDocument();
+  });
+
+  test('reopens the panel on Back after following a run link from it', async () => {
+    server.use(
+      rest.post(/\/ajax-api\/2\.0\/mlflow\/runs\/search$/, (_req, res, ctx) =>
+        res(
+          ctx.json({
+            runs: [
+              {
+                info: {
+                  experiment_id: 'exp-1',
+                  run_uuid: 'run-1',
+                  run_name: 'Support quality run',
+                  status: 'FINISHED',
+                  start_time: 1720000000000,
+                },
+                data: { metrics: [], params: [], tags: [] },
+              },
+            ],
+          }),
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    renderContent();
+
+    await user.click(await screen.findByRole('button', { name: 'Evaluation Runs' }));
+    await user.click(await screen.findByRole('link', { name: /Support quality run/ }));
+    expect(await screen.findByText('Run details page')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Browser back' }));
 
     expect(await screen.findByRole('complementary', { name: 'Evaluation Runs' })).toBeInTheDocument();
   });
