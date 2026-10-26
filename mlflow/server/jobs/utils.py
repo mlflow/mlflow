@@ -1136,17 +1136,25 @@ def register_periodic_tasks(huey_instance) -> None:
         "no-ops when trace archival is disabled or unconfigured)"
     )
 
-    # Hourly rather than every minute: the cadences offered are daily and weekly, so a pass more
-    # often than hourly only repeats a query over every experiment carrying a schedule tag. The
-    # cost is punctuality -- an occurrence is dispatched at the first pass at or after its fire
-    # time, so a schedule whose local 09:00 falls mid-hour (a zone offset by 30 or 45 minutes)
-    # runs that much late. It covers the same window either way: the window's upper bound is the
-    # fire time, not the dispatch time, so nothing is skipped by arriving late.
-    @huey_instance.periodic_task(crontab(minute=0))
+    # Every 15 minutes rather than every minute: the cadences offered are daily and weekly, so a
+    # minute-ly pass mostly repeats a query over every experiment carrying a schedule tag to find
+    # the same nothing. Measured at the dispatch bound of 500 scheduled experiments, that is
+    # ~2.1s of query time an hour against ~140ms here.
+    #
+    # Fifteen minutes rather than an hour because every current IANA UTC offset is a multiple of
+    # 15 minutes (:00, :30 or :45 -- Kolkata, Kathmandu, Eucla and the rest), so a fire time on a
+    # local quarter hour always lands exactly on a pass, in every zone. An hourly pass would be
+    # punctual only in the whole-offset zones and 30-45 minutes late in the others, which is a
+    # worse trade than the ~100ms an hour it saves over this.
+    #
+    # A schedule is dispatched at the first pass at or after its fire time, so an off-grid fire
+    # time runs up to 15 minutes late. It covers the same window either way: the window's upper
+    # bound is the fire time, not the dispatch time, so arriving late skips nothing.
+    @huey_instance.periodic_task(crontab(minute="*/15"))
     # Prevent concurrent execution if a pass takes longer than the interval.
     @huey_instance.lock_task("issue-detection-scheduler-lock")
     def issue_detection_scheduler():
-        """Runs hourly and submits detection for each schedule whose fire time arrived."""
+        """Runs every 15 minutes, submitting detection for each schedule whose fire time came."""
         from mlflow.genai.discovery.scheduler import run_issue_detection_scheduler
 
         nonlocal detection_scheduler_error
@@ -1175,8 +1183,8 @@ def register_periodic_tasks(huey_instance) -> None:
             detection_scheduler_error = None
 
     _logger.info(
-        "Registered issue_detection_scheduler periodic task (polls hourly and no-ops when no "
-        "experiment has a detection schedule)"
+        "Registered issue_detection_scheduler periodic task (polls every 15 minutes and no-ops "
+        "when no experiment has a detection schedule)"
     )
 
     from mlflow.tracing.trace_rollup_service import (

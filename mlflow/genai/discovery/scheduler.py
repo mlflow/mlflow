@@ -1,9 +1,9 @@
 """The dispatcher that turns a saved detection schedule into runs.
 
-Registered as a periodic task, it wakes hourly, finds the experiments carrying a schedule, and
-submits one detection job for each schedule whose next fire time has arrived. It does no analysis
-itself: deciding what is due is cheap and must stay so, while detection is slow and belongs in the
-job system where it is already bounded, retried and observable.
+Registered as a periodic task, it wakes every 15 minutes, finds the experiments carrying a
+schedule, and submits one detection job for each schedule whose next fire time has arrived. It
+does no analysis itself: deciding what is due is cheap and must stay so, while detection is slow
+and belongs in the job system where it is already bounded, retried and observable.
 """
 
 from __future__ import annotations
