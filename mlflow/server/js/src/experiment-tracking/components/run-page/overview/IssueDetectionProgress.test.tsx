@@ -100,6 +100,24 @@ describe('IssueDetectionProgress telemetry', () => {
     useLogTelemetryEvent.mockReturnValue(mockLogTelemetryEvent);
   });
 
+  test('counts the issues the run published, not those it first filed', async () => {
+    // An issue a repeat run re-found keeps the source run that first filed it, so a query by
+    // this run's ID returns none. The run's own result is what it published.
+    await act(async () => {
+      renderWithIntl(
+        <MemoryRouter>
+          <IssueDetectionProgress
+            jobStatus={JobStatus.SUCCEEDED}
+            totalTraces={27}
+            result={{ issues: 5, total_cost_usd: 0.02 }}
+          />
+        </MemoryRouter>,
+      );
+    });
+
+    expect(screen.getByText(/5 issues/)).toBeInTheDocument();
+  });
+
   test('logs telemetry event when job succeeds', async () => {
     await act(async () => {
       renderWithIntl(
