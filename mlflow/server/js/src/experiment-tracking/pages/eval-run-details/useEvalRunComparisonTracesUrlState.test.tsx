@@ -114,4 +114,39 @@ describe('useEvalRunComparisonTracesUrlState', () => {
     act(() => navigate(1));
     expect(result.current.search).toBe('second');
   });
+
+  it.each([
+    { query: '', expected: false },
+    { query: '&comparisonGroupBy=session', expected: true },
+    { query: '&comparisonGroupBy=unsupported&groupBy=session', expected: false },
+  ])('reads comparison grouping from $query', async ({ query, expected }) => {
+    const { result } = await renderState(query);
+    expect(result.current.isGroupedBySession).toBe(expected);
+  });
+
+  it.each([true, false])('sets session grouping to %s without replacing other URL state', async (next) => {
+    const { result } = await renderState(
+      `&comparisonQ=hello&comparisonSort=duration&comparisonDir=asc&comparisonFilters=${encodeURIComponent(JSON.stringify(model))}${next ? '' : '&comparisonGroupBy=session'}`,
+    );
+    const previousKey = result.current.criteriaKey;
+    act(() => result.current.setIsGroupedBySession(next));
+    expect(result.current.isGroupedBySession).toBe(next);
+    expect(result.current.criteriaKey).not.toBe(previousKey);
+    expect(new URLSearchParams(lastSearch).get('comparisonGroupBy')).toBe(next ? 'session' : null);
+    expect(result.current.search).toBe('hello');
+    expect(result.current.filterModel).toEqual(model);
+    expect(result.current.sort).toBe('duration');
+    expect(result.current.dir).toBe('asc');
+    preserved();
+  });
+
+  it('restores the grouping mode after backward and forward navigation', async () => {
+    const { result } = await renderState();
+    act(() => result.current.setIsGroupedBySession(true));
+    act(() => navigate(-1));
+    expect(result.current.isGroupedBySession).toBe(false);
+    act(() => navigate(1));
+    expect(result.current.isGroupedBySession).toBe(true);
+    preserved();
+  });
 });

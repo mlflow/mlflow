@@ -719,6 +719,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     savedViewsButton: <TracesV4SavedViewsButton experimentId={experimentId} savedViews={savedViews} />,
     isGroupedBySession: controller.isGroupedBySession,
     onToggleSessionGrouping: url.setIsGroupedBySession,
+    showSessionViewSwitch: isNewEvalRunsUi,
   });
 
   // Map the controller's flags to a single shared `viewState`. Order mirrors the prior

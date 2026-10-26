@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { useIntl } from 'react-intl';
 import {
   convertTraceInfoV3ToRunEvalEntry,
@@ -13,6 +13,7 @@ import {
 import { filterTracesByAssessmentSourceRunId } from '@databricks/web-shared/genai-traces-table/utils/TraceUtils';
 import {
   createTraceV4LongIdentifier,
+  isFeedbackAssessment,
   isSessionLevelAssessment,
   type ModelTraceInfoV3,
 } from '@databricks/web-shared/model-trace-explorer';
@@ -23,6 +24,7 @@ import {
   type TraceColumnId,
   type TraceComparisonRow,
   type TraceFilterModel,
+  type TracesComparisonRow,
 } from '@databricks/web-shared/traces-table';
 import { useDebouncedSearchInput } from '../../components/experiment-page/components/traces-v4/hooks/useDebouncedSearchInput';
 import { useTracesV4AssessmentColumns } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4AssessmentColumns';
@@ -50,7 +52,13 @@ import { useEvalRunComparisonTracesUrlState } from './useEvalRunComparisonTraces
 import { useEvalRunComparisonFilterFields } from './useEvalRunComparisonFilterFields';
 import { filterEvalRunComparisonRows, validateComparisonFilters } from './evalRunComparisonTraceFilters';
 import { sortEvalRunComparisonRows } from './evalRunComparisonTraceSort';
-import { getComparisonRunTraces } from './evalRunSessionComparisonRows';
+import { buildEvalRunSessionComparisonRows, getComparisonRunTraces } from './evalRunSessionComparisonRows';
+import {
+  getEvalRunSessionComparisonColumnAggregates,
+  getSessionComparisonAssessmentInfos,
+  getSessionComparisonSummaries,
+  sortSessionComparisonRows,
+} from './evalRunComparisonSessionSummaries';
 
 /** The id the URL uses for a trace, as on the single-run page: the long id when the trace supports it, else the bare id. */
 export const getEvalRunComparisonTraceId = (trace: ModelTraceInfoV3): string =>
@@ -79,6 +87,8 @@ export interface EvalRunComparisonTracesV4Params {
   experimentId: string;
   runUuids: string[];
   initialOutcomeFilter?: Omit<EvalRunComparisonOutcomeFilter, 'id'>;
+  /** Outcome filter state owned by a parent that outlives this controller, e.g. across a mode remount. */
+  outcomeFiltersState?: [EvalRunComparisonOutcomeFilter[], Dispatch<SetStateAction<EvalRunComparisonOutcomeFilter[]>>];
 }
 
 /** The keyed comparison composition owns local paging; query criteria use a separate URL namespace. */
@@ -86,17 +96,54 @@ export const useEvalRunComparisonTracesV4Controller = ({
   experimentId,
   runUuids,
   initialOutcomeFilter,
+  outcomeFiltersState,
 }: EvalRunComparisonTracesV4Params) => {
   const intl = useIntl();
   const url = useEvalRunTracesV4UrlState();
   const criteria = useEvalRunComparisonTracesUrlState();
-  const persistenceId = `${experimentId}.run-comparison`;
+  const persistenceId = `${experimentId}.run-comparison${criteria.isGroupedBySession ? '.sessions' : ''}`;
+  const [collapsedComparisonGroups, setCollapsedComparisonGroups] = useState<ReadonlySet<string>>(() => new Set());
+  const toggleComparisonGroup = useCallback((id: string) => {
+    setCollapsedComparisonGroups((current) => {
+      const next = new Set(current);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+  const [expandedComparisonRuns, setExpandedComparisonRuns] = useState<ReadonlyMap<string, ReadonlySet<string>>>(
+    () => new Map(),
+  );
+  const toggleComparisonRun = useCallback((comparisonId: string, runUuid: string) => {
+    setExpandedComparisonRuns((current) => {
+      const next = new Map(current);
+      const expandedRuns = new Set(current.get(comparisonId));
+      if (expandedRuns.has(runUuid)) {
+        expandedRuns.delete(runUuid);
+      } else {
+        expandedRuns.add(runUuid);
+      }
+      if (expandedRuns.size) {
+        next.set(comparisonId, expandedRuns);
+      } else {
+        next.delete(comparisonId);
+      }
+      return next;
+    });
+  }, []);
   const [pageIndex, setPageIndex] = useState(1);
   const [pageSize, setPageSizeState] = useState<PageSize>(DEFAULT_PAGE_SIZE);
-  const [outcomeFilters, setOutcomeFilters] = useState<EvalRunComparisonOutcomeFilter[]>(() =>
+  const localOutcomeFiltersState = useState<EvalRunComparisonOutcomeFilter[]>(() =>
     initialOutcomeFilter ? [{ ...initialOutcomeFilter, id: 0 }] : [],
   );
-  const nextOutcomeFilterId = useRef(1);
+  const [outcomeFilters, setOutcomeFilters] = outcomeFiltersState ?? localOutcomeFiltersState;
+  const { isGroupedBySession, setIsGroupedBySession } = criteria;
+  useEffect(() => {
+    if (outcomeFilters.length && isGroupedBySession) setIsGroupedBySession(false);
+  }, [outcomeFilters.length, isGroupedBySession, setIsGroupedBySession]);
   const [aggregateMethods, setAggregateMethods] = useState<Record<string, NumericAggregateMethod>>({});
   useEffect(() => {
     setPageIndex(1);
@@ -136,12 +183,24 @@ export const useEvalRunComparisonTracesV4Controller = ({
       void queryClient.invalidateQueries({ queryKey: [SEARCH_MLFLOW_TRACES_QUERY_KEY] });
     }
   }, [lastRefreshTime, queryClient]);
-  const matchedRows = useMemo<TraceComparisonRow[]>(
+  const matchedRows = useMemo<TracesComparisonRow[]>(
     () =>
       inputs.isLoading
         ? []
-        : buildEvalRunTraceComparisonRows(data.runsWithTraces, runNames, getRunColor, '', inputs.inputsByTraceId),
-    [data.runsWithTraces, runNames, getRunColor, inputs.isLoading, inputs.inputsByTraceId],
+        : isGroupedBySession
+          ? buildEvalRunSessionComparisonRows(data.runsWithTraces, runNames, getRunColor, inputs.inputsByTraceId)
+          : buildEvalRunTraceComparisonRows(data.runsWithTraces, runNames, getRunColor, '', inputs.inputsByTraceId),
+    [data.runsWithTraces, runNames, getRunColor, inputs.isLoading, inputs.inputsByTraceId, isGroupedBySession],
+  );
+  // New sessions open automatically without overwriting a user's explicit collapse choices.
+  const expandedComparisonGroups = useMemo(
+    () =>
+      new Set(
+        matchedRows
+          .filter((row) => row.kind === 'session' && !collapsedComparisonGroups.has(row.id))
+          .map((row) => row.id),
+      ),
+    [matchedRows, collapsedComparisonGroups],
   );
   const filterFields = useEvalRunComparisonFilterFields(data.runsWithTraces, inputs.inputsByTraceId);
   const validateFilters = useCallback(
@@ -161,6 +220,15 @@ export const useEvalRunComparisonTracesV4Controller = ({
         : filterEvalRunComparisonRows(matchedRows, criteria.filterModel, criteria.search, inputs.inputsByTraceId),
     [matchedRows, criteria.filterModel, criteria.search, inputs.inputsByTraceId, filterError],
   );
+  const traceRows = useMemo(() => rows.filter((row): row is TraceComparisonRow => row.kind !== 'session'), [rows]);
+  const sessionAssessmentInfos = useMemo(
+    () => (isGroupedBySession ? getSessionComparisonAssessmentInfos(allTraces, rows) : []),
+    [allTraces, rows, isGroupedBySession],
+  );
+  const sessionSummaries = useMemo(
+    () => getSessionComparisonSummaries(isGroupedBySession ? rows : [], sessionAssessmentInfos),
+    [rows, sessionAssessmentInfos, isGroupedBySession],
+  );
   const summaryRuns = useMemo(
     () =>
       runUuids.map((runUuid) => ({
@@ -175,7 +243,7 @@ export const useEvalRunComparisonTracesV4Controller = ({
     () =>
       getAssessmentInfos(
         intl,
-        rows.flatMap((row) =>
+        traceRows.flatMap((row) =>
           row.runs.flatMap(({ trace }) =>
             trace
               ? [
@@ -189,22 +257,40 @@ export const useEvalRunComparisonTracesV4Controller = ({
         ),
         [],
       ),
-    [rows, intl],
+    [traceRows, intl],
   );
   const filterOptionAggregates = useMemo(
     () =>
-      getEvalRunComparisonColumnAggregates(
-        rows,
-        traceAssessmentInfos,
-        intl,
-        summaryRuns.length,
-        aggregateMethods,
-        true,
-      ),
-    [rows, traceAssessmentInfos, intl, summaryRuns.length, aggregateMethods],
+      isGroupedBySession
+        ? getEvalRunSessionComparisonColumnAggregates(
+            rows,
+            sessionSummaries,
+            sessionAssessmentInfos,
+            intl,
+            summaryRuns.length,
+          )
+        : getEvalRunComparisonColumnAggregates(
+            traceRows,
+            traceAssessmentInfos,
+            intl,
+            summaryRuns.length,
+            aggregateMethods,
+            true,
+          ),
+    [
+      rows,
+      traceRows,
+      traceAssessmentInfos,
+      intl,
+      summaryRuns.length,
+      aggregateMethods,
+      isGroupedBySession,
+      sessionSummaries,
+      sessionAssessmentInfos,
+    ],
   );
   useEffect(() => {
-    if (!data.isDataReady || inputs.isLoading) return;
+    if (isGroupedBySession || !data.isDataReady || inputs.isLoading) return;
     const filterableAssessments = new Set(
       traceAssessmentInfos
         .filter((info) => info.dtype === 'numeric' || info.dtype === 'boolean' || info.dtype === 'pass-fail')
@@ -218,22 +304,32 @@ export const useEvalRunComparisonTracesV4Controller = ({
       );
       return valid.length === current.length ? current : valid;
     });
-  }, [data.isDataReady, inputs.isLoading, runUuids, traceAssessmentInfos]);
-  const toggleOutcomeFilter = useCallback((filter: OutcomeFilterSelection) => {
-    setOutcomeFilters((current) => {
-      const existingIndex = current.findIndex((candidate) => isSameOutcomeFilterKey(candidate, filter));
-      if (existingIndex < 0) return [...current, { ...filter, id: nextOutcomeFilterId.current++ }];
-      if (isSameOutcomeFilter(current[existingIndex], filter)) {
-        return current.filter((candidate) => !isSameOutcomeFilterKey(candidate, filter));
-      }
-      return current.map((candidate, index) => (index === existingIndex ? { ...filter, id: candidate.id } : candidate));
-    });
-    setPageIndex(1);
-  }, []);
-  const removeOutcomeFilter = useCallback((filter: EvalRunComparisonOutcomeFilter) => {
-    setOutcomeFilters((current) => current.filter((candidate) => !isSameOutcomeFilter(candidate, filter)));
-    setPageIndex(1);
-  }, []);
+  }, [isGroupedBySession, data.isDataReady, inputs.isLoading, runUuids, traceAssessmentInfos, setOutcomeFilters]);
+  const toggleOutcomeFilter = useCallback(
+    (filter: OutcomeFilterSelection) => {
+      setOutcomeFilters((current) => {
+        const existingIndex = current.findIndex((candidate) => isSameOutcomeFilterKey(candidate, filter));
+        if (existingIndex < 0) {
+          return [...current, { ...filter, id: Math.max(0, ...current.map(({ id }) => id)) + 1 }];
+        }
+        if (isSameOutcomeFilter(current[existingIndex], filter)) {
+          return current.filter((candidate) => !isSameOutcomeFilterKey(candidate, filter));
+        }
+        return current.map((candidate, index) =>
+          index === existingIndex ? { ...filter, id: candidate.id } : candidate,
+        );
+      });
+      setPageIndex(1);
+    },
+    [setOutcomeFilters],
+  );
+  const removeOutcomeFilter = useCallback(
+    (filter: EvalRunComparisonOutcomeFilter) => {
+      setOutcomeFilters((current) => current.filter((candidate) => !isSameOutcomeFilter(candidate, filter)));
+      setPageIndex(1);
+    },
+    [setOutcomeFilters],
+  );
   const replaceOutcomeFilter = useCallback(
     (existing: EvalRunComparisonOutcomeFilter, next: EvalRunComparisonOutcomeFilter) => {
       setOutcomeFilters((current) =>
@@ -243,33 +339,33 @@ export const useEvalRunComparisonTracesV4Controller = ({
       );
       setPageIndex(1);
     },
-    [],
+    [setOutcomeFilters],
   );
   const clearOutcomeFilters = useCallback(() => {
     setOutcomeFilters([]);
     setPageIndex(1);
-  }, []);
+  }, [setOutcomeFilters]);
   const setAggregateMethod = useCallback((columnId: string, method: NumericAggregateMethod) => {
     setAggregateMethods((current) => ({ ...current, [columnId]: method }));
   }, []);
-  const filteredRows = useMemo(
+  const filteredTraceRows = useMemo(
     () =>
       outcomeFilters.length
-        ? rows.filter((row) =>
+        ? traceRows.filter((row) =>
             outcomeFilters.every(
               (filter) =>
                 getEvalRunComparisonOutcome(row, filter.columnId, filter.runUuid, traceAssessmentInfos) ===
                 filter.outcome,
             ),
           )
-        : rows,
-    [rows, outcomeFilters, traceAssessmentInfos],
+        : traceRows,
+    [traceRows, outcomeFilters, traceAssessmentInfos],
   );
   const columnAggregates = useMemo(
     () =>
-      outcomeFilters.length
+      !isGroupedBySession && outcomeFilters.length
         ? getEvalRunComparisonColumnAggregates(
-            filteredRows,
+            filteredTraceRows,
             traceAssessmentInfos,
             intl,
             summaryRuns.length,
@@ -278,20 +374,32 @@ export const useEvalRunComparisonTracesV4Controller = ({
           )
         : filterOptionAggregates,
     [
+      isGroupedBySession,
       outcomeFilters.length,
       filterOptionAggregates,
-      filteredRows,
+      filteredTraceRows,
       traceAssessmentInfos,
       intl,
       summaryRuns.length,
       aggregateMethods,
     ],
   );
-  const sortedRows = useMemo(
-    () => sortEvalRunComparisonRows(filteredRows, criteria.sort, criteria.dir),
-    [filteredRows, criteria.sort, criteria.dir],
+  const sortedRows = useMemo<TracesComparisonRow[]>(
+    () =>
+      isGroupedBySession
+        ? sortSessionComparisonRows(rows, sessionSummaries, criteria.sort, criteria.dir, sessionAssessmentInfos)
+        : sortEvalRunComparisonRows(filteredTraceRows, criteria.sort, criteria.dir),
+    [
+      rows,
+      filteredTraceRows,
+      sessionSummaries,
+      sessionAssessmentInfos,
+      isGroupedBySession,
+      criteria.sort,
+      criteria.dir,
+    ],
   );
-  const totalRows = filteredRows.length;
+  const totalRows = isGroupedBySession ? rows.length : filteredTraceRows.length;
   const lastPage = Math.max(1, Math.ceil(totalRows / pageSize));
   const currentPage = Math.min(pageIndex, lastPage);
   useEffect(() => {
@@ -318,7 +426,16 @@ export const useEvalRunComparisonTracesV4Controller = ({
     hasSessionOnPage: false,
     defaultHiddenColumns: COMPARISON_DEFAULT_HIDDEN_COLUMNS,
   });
-  const assessments = useTracesV4AssessmentColumns(persistenceId, allTraces);
+  const assessmentTraces = useMemo(
+    () =>
+      isGroupedBySession
+        ? allTraces.map((trace) => ({ ...trace, assessments: trace.assessments?.filter(isFeedbackAssessment) }))
+        : allTraces,
+    [allTraces, isGroupedBySession],
+  );
+  const assessments = useTracesV4AssessmentColumns(persistenceId, assessmentTraces, {
+    includeSessionAssessments: isGroupedBySession,
+  });
   const columnSizing = useTracesV4ColumnSizing(persistenceId);
 
   // A selected trace opens only when it belongs to one of the compared runs.
@@ -391,6 +508,11 @@ export const useEvalRunComparisonTracesV4Controller = ({
     columns,
     assessments,
     columnSizing,
+    expandedComparisonGroups,
+    toggleComparisonGroup,
+    expandedComparisonRuns,
+    toggleComparisonRun,
+    sessionAssessmentInfos,
     rows: pageRows,
     assessmentInfos: traceAssessmentInfos,
     outcomeFilters,

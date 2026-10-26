@@ -65,3 +65,19 @@ export const formatTraceDuration = (duration: string): string | null => {
   const ms = parseTraceDurationToMs(duration);
   return ms === null ? null : formatTraceDurationMs(ms);
 };
+
+/** Total of several trace durations, or null when there are none or any is missing or unparseable. */
+export const formatTraceDurationTotal = (durations: Array<string | undefined>): string | null => {
+  if (durations.length === 0) {
+    return null;
+  }
+  let totalMs = 0;
+  for (const duration of durations) {
+    const durationMs = duration ? parseTraceDurationToMs(duration) : null;
+    if (durationMs === null) {
+      return null;
+    }
+    totalMs += durationMs;
+  }
+  return formatTraceDurationMs(totalMs);
+};

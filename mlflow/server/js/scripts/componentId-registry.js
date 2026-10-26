@@ -860,6 +860,8 @@ module.exports = {
   "mlflow.eval-run-comparison.outcome-filter.remove": "",
   "mlflow.eval-run-comparison.outcome-filter.run": "",
   "mlflow.eval-run-comparison.outcome-filter.tooltip": "",
+  "mlflow.eval-run-comparison.session-assessment-category": "",
+  "mlflow.eval-run-comparison.session-assessment-summary": "",
   "mlflow.eval-run-comparison.traces-cap": "",
   "mlflow.eval-run-comparison.traces.assessment-delta-tag": "",
 
@@ -2524,6 +2526,9 @@ module.exports = {
   "mlflow.traces-v4.session-turn-settings": "",
   "mlflow.traces-v4.session-turn-settings-tooltip": "",
   "mlflow.traces-v4.session-view-trace": "",
+  "mlflow.traces-v4.table-view": "",
+  "mlflow.traces-v4.table-view-sessions-tooltip": "",
+  "mlflow.traces-v4.table-view-traces-tooltip": "",
   "mlflow.traces-v4.trace-context.back-to-session": "",
   "mlflow.traces-v4.trace-context.session-id": "",
   "mlflow.traces-v4.trace-context.session-id-tooltip": "",
