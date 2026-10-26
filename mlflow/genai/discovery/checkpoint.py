@@ -17,8 +17,18 @@ from mlflow.utils.mlflow_tags import MLFLOW_ISSUE_DETECTION_CHECKPOINT
 # breaking value-shape change and teach the parser to recognize the new shape.
 CHECKPOINT_VERSION = 1
 
-# Cap on how many traces one scheduled run samples from its window.
-MAX_SCHEDULED_SAMPLE_SIZE = 100
+# How many sessions one scheduled run samples from its window -- sessions, not traces, because
+# the sampler selects whole sessions so a multi-turn conversation is analyzed together. A session
+# with no session metadata is one trace, so this is also the trace count in that case. Matches
+# `MLFLOW_GENAI_DISCOVERY_TRIAGE_SAMPLE_SIZE`, which the manual path uses the same way.
+MAX_SCHEDULED_SESSION_SAMPLE_SIZE = 100
+
+# Upper bound on the traces those sessions may add up to. Sessions are unbounded in length, so a
+# session cap alone leaves an unattended run's size -- and its spend -- unbounded. Whole sessions
+# are dropped to stay under this rather than truncating one, which would hand the model half a
+# conversation. Only the scheduled path applies it: a manual run is sized by the traces its user
+# selected, and someone is watching it.
+MAX_SCHEDULED_TRACE_SAMPLE_SIZE = 500
 
 # One cadence interval each, so a schedule with no checkpoint yet starts from "the last interval"
 # rather than the whole history. See ``sample_window`` for where this applies.

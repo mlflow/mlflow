@@ -1,9 +1,9 @@
 """The dispatcher that turns a saved detection schedule into runs.
 
-Registered as a periodic task, it wakes every minute, finds the experiments carrying a schedule,
-and submits one detection job for each schedule whose next fire time has arrived. It does no
-analysis itself: deciding what is due is cheap and must stay so, while detection is slow and
-belongs in the job system where it is already bounded, retried and observable.
+Registered as a periodic task, it wakes hourly, finds the experiments carrying a schedule, and
+submits one detection job for each schedule whose next fire time has arrived. It does no analysis
+itself: deciding what is due is cheap and must stay so, while detection is slow and belongs in the
+job system where it is already bounded, retried and observable.
 """
 
 from __future__ import annotations
@@ -38,10 +38,10 @@ from mlflow.utils.workspace_context import ServerWorkspaceContext
 
 _logger = logging.getLogger(__name__)
 
-# How many experiments one pass will dispatch. A pass runs every minute and must finish well
-# inside that, so an installation with a very large number of scheduled experiments spreads its
-# work over several passes rather than overrunning one. The bound is applied after shuffling the
-# whole set, which is what keeps a schedule from being starved by always landing beyond it.
+# How many experiments one pass will dispatch, so an installation with a very large number of
+# scheduled experiments spreads its work over several passes rather than overrunning one. Applied
+# after shuffling the whole set, which is what keeps a schedule from being starved by always
+# landing beyond it.
 MAX_EXPERIMENTS_PER_PASS = 500
 
 _EXPERIMENTS_PAGE_SIZE = 100
@@ -101,12 +101,8 @@ def _provider_credentials(store: AbstractStore, model: ScheduleModel | None) -> 
 
     Resolved from the provider at each fire time rather than from a secret id stored with the
     schedule, so rotating a key keeps the schedule running. An AI Gateway endpoint needs nothing
-    here: it carries its own credentials server-side.
-
-    Returns an empty mapping when there is no stored secret to use, which leaves the run on the
-    credentials in the server's own environment -- what every scheduled run used before a model
-    could be chosen. The occurrence is still dispatched either way: a run that fails visibly for
-    want of a key is easier to act on than a schedule that quietly stops firing.
+    here: it carries its own credentials server-side, and an empty mapping leaves the run on
+    whatever the server's own environment holds.
     """
     from mlflow.genai.discovery.job import _fetch_provider_credentials
 

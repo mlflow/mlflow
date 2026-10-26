@@ -1763,6 +1763,14 @@ MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS = _EnvironmentVariable(
     "MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS", int, 10
 )
 
+#: Specifies the maximum number of scheduled issue-detection occurrences that run concurrently.
+#: One occurrence per experiment at a time, so this bounds how many experiments are analyzed at
+#: once -- separate from judge invocation, since these runs are unattended and spend on a cadence.
+#: (default: ``10``)
+MLFLOW_SERVER_SCHEDULED_ISSUE_DETECTION_MAX_WORKERS = _EnvironmentVariable(
+    "MLFLOW_SERVER_SCHEDULED_ISSUE_DETECTION_MAX_WORKERS", int, 10
+)
+
 #: Number of traces to batch into a single scorer invocation job.
 MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE = _EnvironmentVariable(
     "MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE", int, 100

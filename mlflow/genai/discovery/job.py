@@ -5,18 +5,25 @@ from typing import Any
 import mlflow
 from mlflow.client import MlflowClient
 from mlflow.entities.run_status import RunStatus
-from mlflow.environment_variables import MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS
+from mlflow.entities.trace import Trace
+from mlflow.environment_variables import (
+    MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS,
+    MLFLOW_SERVER_SCHEDULED_ISSUE_DETECTION_MAX_WORKERS,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.genai.discovery.checkpoint import (
-    MAX_SCHEDULED_SAMPLE_SIZE,
+    MAX_SCHEDULED_SESSION_SAMPLE_SIZE,
+    MAX_SCHEDULED_TRACE_SAMPLE_SIZE,
     CheckpointTrace,
     SampleWindow,
     advance_checkpoint,
+    read_detection_checkpoint,
     write_detection_checkpoint,
 )
 from mlflow.genai.discovery.constants import DEFAULT_MODEL
 from mlflow.genai.discovery.pipeline import discover_issues
 from mlflow.genai.discovery.sampling import sample_traces
+from mlflow.genai.discovery.utils import group_traces_by_session
 from mlflow.server.jobs import job
 from mlflow.server.jobs.utils import MLFLOW_SERVER_JOB_ID_ENV_VAR
 from mlflow.store.tracking import MAX_TRACE_LINKS_PER_REQUEST
@@ -84,6 +91,40 @@ def _newest_trace_matching(experiment_id: str, filter_string: str) -> Checkpoint
     if not traces:
         return None
     return CheckpointTrace(trace_id=traces[0].info.trace_id, time_ms=traces[0].info.request_time)
+
+
+def _bounded_sample(experiment_id: str, filter_string: str) -> list[Trace]:
+    """
+    The traces one scheduled occurrence analyzes.
+
+    ``sample_traces`` selects whole sessions, so its bound is a session count and the traces it
+    returns are however long those sessions happen to be. That keeps a conversation together,
+    which is what it is for, but it is not a bound on the size of an unattended run: 100 sessions
+    of five traces is 500 traces to pay for. Whole sessions are dropped to fit the trace bound --
+    never part of one, which would hand the model half a conversation.
+    """
+    sampled = sample_traces(
+        MAX_SCHEDULED_SESSION_SAMPLE_SIZE,
+        search_kwargs={"experiment_ids": [experiment_id], "filter_string": filter_string},
+    )
+    if len(sampled) <= MAX_SCHEDULED_TRACE_SAMPLE_SIZE:
+        return sampled
+
+    sessions = group_traces_by_session(sampled)
+    kept: list[Trace] = []
+    for session_traces in sessions.values():
+        if len(kept) + len(session_traces) <= MAX_SCHEDULED_TRACE_SAMPLE_SIZE:
+            kept.extend(session_traces)
+    _logger.info(
+        "Scheduled issue detection sampled %d traces across %d sessions for experiment %s, over "
+        "the %d-trace bound; analyzing the %d traces whose sessions fit",
+        len(sampled),
+        len(sessions),
+        experiment_id,
+        MAX_SCHEDULED_TRACE_SAMPLE_SIZE,
+        len(kept),
+    )
+    return kept
 
 
 def _detect_issues_into_run(
@@ -186,9 +227,10 @@ def _record_quiet_occurrence(
     """
     Record an occurrence that had nothing to analyze: a finished run over zero traces.
 
-    No traces are linked and the model is never called, so the occurrence costs nothing beyond the
-    run itself. It carries the same tags as any other scheduled run, so a reader needs no special
-    case to list it -- a ``total_traces`` of zero is what distinguishes it.
+    A schedule that fired over a quiet window and one that never fired are otherwise
+    indistinguishable. Nothing is linked and the model is never called, so this costs nothing
+    beyond the run itself, and it carries the same tags as any other scheduled run -- a
+    ``total_traces`` of zero is what tells them apart.
     """
     run_id = _create_scheduled_run(client, experiment_id, categories, model, total_traces=0)
     client.set_tag(run_id, "total_cost_usd", 0.0)
@@ -198,7 +240,10 @@ def _record_quiet_occurrence(
 
 @job(
     name="scheduled_issue_detection",
-    max_workers=MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS.get(),
+    # Sized separately from judge invocation: these occurrences are unattended and spend on a
+    # cadence, so an operator may want to bound how many run at once without touching the
+    # concurrency of judge calls a user is waiting on.
+    max_workers=MLFLOW_SERVER_SCHEDULED_ISSUE_DETECTION_MAX_WORKERS.get(),
     # One scheduled run per experiment at a time, so two occurrences can never publish findings
     # for the same experiment concurrently.
     exclusive=["experiment_id"],
@@ -215,28 +260,44 @@ def run_scheduled_issue_detection_job(
     """
     Run one scheduled occurrence over the traces in its window.
 
-    Unlike the manual path, which is handed the traces a user selected, this samples its own
-    traces from the window. Every occurrence records a run either way: an occurrence that found
-    nothing to analyze leaves a finished run over zero traces behind, since a schedule that fired
-    over a quiet window and a schedule that never fired are otherwise indistinguishable.
+    Unlike the manual path, which is handed the traces a user selected, this samples its own from
+    the window, and records a run either way -- see ``_record_quiet_occurrence`` for why an
+    occurrence that found nothing still leaves one.
 
-    The watermark advances only after the run finishes, and to the newest trace in the *window*
-    rather than the newest trace sampled: traces this occurrence was entitled to see and did not
-    sample are not carried forward for a second look. A failed run leaves the watermark alone, so
-    the next occurrence covers this window again.
+    The watermark advances only on success, and only as far as ``advance_checkpoint`` allows, so a
+    failed run leaves the next occurrence to cover this window again.
 
     The experiment's saved detection priorities -- its category selection and its free-text
     instructions -- are read by the dispatcher and handed over here, since there is no browser to
-    send them. A scheduled run therefore analyzes an experiment the way its owner configured it,
-    exactly as a manual run does.
-
-    Note: a schedule fires with no user session, so nobody is there to supply credentials. The
-    dispatcher resolves them from the provider of the model the schedule names, falling back to
-    the credentials in the server's own environment when nothing is stored for it.
+    send them, so a scheduled run analyzes an experiment the way its owner configured it. Its
+    credentials arrive the same way, resolved by the dispatcher from the model's provider.
     """
-    window = SampleWindow(lower_bound_ms=window_lower_bound_ms, now_ms=window_upper_bound_ms)
-    window_clause = window.to_filter_clause()
     client = MlflowClient()
+    # The bounds arrive fixed at dispatch time, but this job may have waited behind another
+    # occurrence for the same experiment -- ``exclusive`` serializes them without refreshing what
+    # they were told to cover. So the lower bound is raised to the watermark as it stands now:
+    # whatever ran first has already covered up to there, and re-analyzing it would spend on the
+    # same traces twice and re-derive findings cross-run matching then has to discard.
+    #
+    # The upper bound is left alone. It is this occurrence's fire time, which is what the
+    # dispatcher decided it covers; moving it would let a delayed job swallow the next
+    # occurrence's window.
+    covered = read_detection_checkpoint(client.get_experiment(experiment_id))
+    lower_bound_ms = max(
+        window_lower_bound_ms,
+        covered.last_scanned_trace_time_ms if covered is not None else window_lower_bound_ms,
+    )
+    if lower_bound_ms > window_lower_bound_ms:
+        _logger.info(
+            "Scheduled issue detection for experiment %s raised its window lower bound from %d "
+            "to the watermark at %d: another occurrence covered that stretch while this one was "
+            "queued",
+            experiment_id,
+            window_lower_bound_ms,
+            lower_bound_ms,
+        )
+    window = SampleWindow(lower_bound_ms=lower_bound_ms, now_ms=window_upper_bound_ms)
+    window_clause = window.to_filter_clause()
 
     # Deliberately the window alone, without the schedule's clauses: they scope what this
     # occurrence analyzes, not how far it covered. Applying them here too would stall the
@@ -255,10 +316,7 @@ def run_scheduled_issue_detection_job(
         return {"traces_in_window": 0, "run_id": run_id}
 
     filter_string = " AND ".join(filter(None, [window_clause, trace_filter]))
-    traces = sample_traces(
-        MAX_SCHEDULED_SAMPLE_SIZE,
-        search_kwargs={"experiment_ids": [experiment_id], "filter_string": filter_string},
-    )
+    traces = _bounded_sample(experiment_id, filter_string)
     if not traces:
         # Nothing matched, so there is nothing to analyze -- but the occurrence did cover its
         # window, so the watermark still moves past it.
