@@ -332,22 +332,19 @@ def _register_model(
                 model_name=create_version_response.name,
                 model_version=create_version_response.version,
             )
-        except MlflowException as e:
+        except Exception as e:
             # INVALID_PARAMETER_VALUE means the model can't be served as logged (for example, an
             # unsupported architecture), so retrying at deploy time won't help.
-            if e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE):
+            if isinstance(e, MlflowException) and e.error_code == ErrorCode.Name(
+                INVALID_PARAMETER_VALUE
+            ):
+                reason = getattr(e, "json", {}).get("message") or e.message
                 raise MlflowException(
                     f"Model '{create_version_response.name}' version "
                     f"'{create_version_response.version}' was registered, but it can't be served "
-                    f"by Databricks Model Serving: {e.message}",
+                    f"by Databricks Model Serving: {reason}",
                     error_code=INVALID_PARAMETER_VALUE,
                 ) from e
-            eprint(
-                f"Failed to stage model for Databricks Model Serving: {e!s}. "
-                "The model was registered successfully and is available for serving, but may "
-                "take longer to deploy."
-            )
-        except Exception as e:
             eprint(
                 f"Failed to stage model for Databricks Model Serving: {e!s}. "
                 "The model was registered successfully and is available for serving, but may take "

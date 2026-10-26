@@ -649,6 +649,7 @@ def test_register_model_with_env_pack_raises_when_model_cannot_be_served(
         _register_with_staging_error(tmp_path, monkeypatch, staging_error)
 
     assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+    assert "INVALID_PARAMETER_VALUE" not in exc_info.value.message
 
 
 def test_register_model_with_env_pack_warns_on_other_staging_errors(
