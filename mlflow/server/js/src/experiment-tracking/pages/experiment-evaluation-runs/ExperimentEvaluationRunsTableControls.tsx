@@ -313,6 +313,7 @@ export const ExperimentEvaluationRunsTableControls = ({
           rowSelection={rowSelection}
           setRowSelection={setRowSelection}
           refetchRuns={refetchRuns}
+          runs={runs}
           onCompare={onCompare}
           selectedRunUuid={selectedRunUuid}
           compareToRunUuid={compareToRunUuid}

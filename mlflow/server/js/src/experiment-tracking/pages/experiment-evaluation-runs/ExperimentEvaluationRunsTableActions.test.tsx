@@ -5,6 +5,7 @@ import { renderWithIntl, screen, waitFor, within } from '@mlflow/mlflow/src/comm
 import userEvent from '@testing-library/user-event';
 
 import { ExperimentEvaluationRunsTableActions } from './ExperimentEvaluationRunsTableActions';
+import type { RunEntity } from '../../types';
 
 const mockDeleteMutate = jest.fn();
 // Capture the options passed to useDeleteRuns so tests can drive its onSuccess callback.
@@ -17,11 +18,29 @@ jest.mock('../../components/experiment-page/hooks/useDeleteRuns', () => ({
   },
 }));
 
+// RenameRunModal is redux-connected; stub it to test the wiring (open on menu click,
+// refetch + close on success) without a store.
+jest.mock('../../components/modals/RenameRunModal', () => ({
+  __esModule: true,
+  RenameRunModal: ({ isOpen, runName, onSuccess }: { isOpen?: boolean; runName: string; onSuccess?: () => void }) =>
+    isOpen ? (
+      <div role="dialog" aria-label="Rename Run">
+        <span>{runName}</span>
+        <button onClick={() => onSuccess?.()}>SaveStub</button>
+      </div>
+    ) : null,
+}));
+
+const mockRuns = [
+  { info: { runUuid: 'run-1', runName: 'first run' } },
+  { info: { runUuid: 'run-2', runName: 'second run' } },
+] as unknown as RunEntity[];
+
 // The Actions Button renders a native `disabled` attribute; disable userEvent's
 // pointer-events check so we can still fire clicks against it and assert the menu stays closed.
 const setupUserEvent = () => userEvent.setup({ pointerEventsCheck: 0 });
 
-const renderActions = (rowSelection: RowSelectionState) => {
+const renderActions = (rowSelection: RowSelectionState, runs: RunEntity[] = mockRuns) => {
   const setRowSelection = jest.fn();
   const refetchRuns = jest.fn();
   renderWithIntl(
@@ -30,6 +49,7 @@ const renderActions = (rowSelection: RowSelectionState) => {
         rowSelection={rowSelection}
         setRowSelection={setRowSelection}
         refetchRuns={refetchRuns}
+        runs={runs}
         onCompare={jest.fn()}
       />
     </DesignSystemProvider>,
@@ -109,5 +129,28 @@ describe('ExperimentEvaluationRunsTableActions', () => {
     // On success the component refetches and clears the row selection.
     expect(refetchRuns).toHaveBeenCalledTimes(1);
     expect(setRowSelection).toHaveBeenCalledWith({});
+  });
+
+  it('opens the rename modal with the selected run name when Rename is clicked', async () => {
+    renderActions({ 'run-1': true });
+
+    await user.click(getActionsButton());
+    await user.click(await screen.findByText('Rename'));
+
+    const dialog = await screen.findByRole('dialog', { name: /Rename Run/ });
+    expect(within(dialog).getByText('first run')).toBeInTheDocument();
+  });
+
+  it('refetches runs and closes the modal when the rename succeeds', async () => {
+    const { refetchRuns } = renderActions({ 'run-2': true });
+
+    await user.click(getActionsButton());
+    await user.click(await screen.findByText('Rename'));
+
+    const dialog = await screen.findByRole('dialog', { name: /Rename Run/ });
+    await user.click(within(dialog).getByText('SaveStub'));
+
+    await waitFor(() => expect(refetchRuns).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole('dialog', { name: /Rename Run/ })).not.toBeInTheDocument();
   });
 });

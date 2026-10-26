@@ -311,6 +311,10 @@
     "defaultMessage": "Run",
     "description": "Column header for the run name in the runs table on the logged model details page"
   },
+  "/6QoXU": {
+    "defaultMessage": "Please select 1 run to rename",
+    "description": "Tooltip for disabled rename action in evaluation runs table actions"
+  },
   "/7wdnF": {
     "defaultMessage": "Usage coverage",
     "description": "Accessible label for usage coverage information"
@@ -8810,6 +8814,10 @@
   "QLRaAz": {
     "defaultMessage": "Select all rows on this page",
     "description": "Aria label for the select-all checkbox in the V2 dataset records table header"
+  },
+  "QLY6UU": {
+    "defaultMessage": "Rename",
+    "description": "Rename evaluation runs action"
   },
   "QMCliz": {
     "defaultMessage": "Measure and compare LLM quality with built-in and custom scorers.",
