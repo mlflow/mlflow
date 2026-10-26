@@ -9538,3 +9538,41 @@ def test_a_deny_holds_for_every_spelling_of_the_experiment_id(client, monkeypatc
             auth=(experiment_denied, experiment_denied_pw),
         )
         assert response.status_code == 403, spelling
+
+
+@pytest.mark.parametrize("encode", [json.dumps, lambda body: json.dumps(json.dumps(body))])
+def test_delete_authorizes_body_params_regardless_of_content_type(client, monkeypatch, encode):
+    owner, owner_pw = create_user(client.tracking_uri)
+    other, other_pw = create_user(client.tracking_uri)
+    with User(owner, owner_pw, monkeypatch):
+        client.create_registered_model("victim_model")
+    with User(other, other_pw, monkeypatch):
+        client.create_registered_model("own_model")
+
+    # Handlers read the JSON body whatever the Content-Type, so auth must check the body name.
+    response = requests.delete(
+        url=client.tracking_uri + "/api/2.0/mlflow/registered-models/delete",
+        params={"name": "own_model"},
+        data=encode({"name": "victim_model"}),
+        headers={"Content-Type": "text/plain"},
+        auth=(other, other_pw),
+    )
+
+    assert response.status_code == 403
+    with User(owner, owner_pw, monkeypatch):
+        assert client.get_registered_model("victim_model").name == "victim_model"
+
+
+def test_delete_with_double_encoded_body_cleans_up_permissions(client, monkeypatch):
+    owner, owner_pw = create_user(client.tracking_uri)
+    with User(owner, owner_pw, monkeypatch):
+        client.create_registered_model("own_model")
+
+    response = requests.delete(
+        url=client.tracking_uri + "/api/2.0/mlflow/registered-models/delete",
+        data=json.dumps(json.dumps({"name": "own_model"})),
+        headers={"Content-Type": "text/plain"},
+        auth=(owner, owner_pw),
+    )
+
+    assert response.status_code == 200
