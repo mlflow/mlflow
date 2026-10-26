@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793043478771,
+  "lastUpdate": 1793048330091,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "32432541+SeiichiroYoshioka@users.noreply.github.com",
-            "name": "Seiichiro Yoshioka",
-            "username": "SeiichiroYoshioka"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e80938dbc8d601eb33f24398ba1f42c1ff3c3f55",
-          "message": "fix: Serve FastAPI-native routers under `--static-prefix` (#24511)\n\nSigned-off-by: Seiichiro Yoshioka <yoshioka_seiichiro@cyberagent.co.jp>\nCo-authored-by: Claude <noreply@anthropic.com>",
-          "timestamp": "2026-08-11T20:31:31Z",
-          "tree_id": "495a13ab8b93588009b6329f89f3e14f9b782a88",
-          "url": "https://github.com/mlflow/mlflow/commit/e80938dbc8d601eb33f24398ba1f42c1ff3c3f55"
-        },
-        "date": 1786480481378,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 51.532816450000496,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 10.266617530611924,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 5.923915609022835,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 7.010731324073648,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 6.125134067226239,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 7.046099600012212,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 12.826920399993469,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "haoji.tang@databricks.com",
+            "name": "Haoji Tang",
+            "username": "tanghaoji"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ddc2a62265262ba3c6f0e775f0019c54713edb17",
+          "message": "Schedule issue detection from the Issues tab, with a model picker (#27006)\n\nSigned-off-by: Haoji Tang <haoji.tang@databricks.com>\nSigned-off-by: B-Step62 <yuki.watanabe@databricks.com>\nCo-authored-by: Isaac <no-reply@databricks.com>\nCo-authored-by: B-Step62 <yuki.watanabe@databricks.com>\nCo-authored-by: Codex <noreply@openai.com>",
+          "timestamp": "2026-10-26T20:54:58Z",
+          "tree_id": "a0d567a5549dd5befee7ec1c25b87a3f68c01155",
+          "url": "https://github.com/mlflow/mlflow/commit/ddc2a62265262ba3c6f0e775f0019c54713edb17"
+        },
+        "date": 1793048327027,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 61.213959249999306,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 8.059126377358599,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.844215024388315,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.900647115703592,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 7.43509831428531,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.773103999998511,
             "unit": "ms"
           }
         ]
