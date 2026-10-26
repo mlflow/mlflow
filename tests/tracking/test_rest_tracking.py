@@ -2347,7 +2347,7 @@ def test_upload_artifact_handler_rejects_invalid_requests(mlflow_client):
     response = requests.post(
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/upload-artifact", params={}
     )
-    assert_response(response, "Request must specify run_uuid.")
+    assert_response(response, "Request must specify run_id or run_uuid.")
 
     response = requests.post(
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/upload-artifact",
@@ -2413,6 +2413,51 @@ def test_upload_artifact_handler(mlflow_client):
     )
     assert response.status_code == 200
     assert response.text == "hello world"
+
+
+def test_upload_artifact_handler_uses_run_id_when_both_params_provided(mlflow_client):
+    """Test that upload_artifact uses run_id when both run_id and run_uuid are provided.
+
+    This is a regression test for an authorization bypass where a user could provide
+    their own run_id (passing auth) but a different run_uuid (writing to another run).
+    """
+    experiment_id = mlflow_client.create_experiment("upload_artifacts_test")
+    run1 = mlflow_client.create_run(experiment_id)
+    run2 = mlflow_client.create_run(experiment_id)
+
+    # Upload artifact with both run_id and run_uuid pointing to different runs.
+    # The artifact should go to run1 (the run_id, which is what auth validates).
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/upload-artifact",
+        params={
+            "run_id": run1.info.run_id,
+            "run_uuid": run2.info.run_id,
+            "path": "test.txt",
+        },
+        data="artifact for run1",
+    )
+    assert response.status_code == 200
+
+    # Verify artifact is in run1
+    response = requests.get(
+        f"{mlflow_client.tracking_uri}/get-artifact",
+        params={
+            "run_id": run1.info.run_id,
+            "path": "test.txt",
+        },
+    )
+    assert response.status_code == 200
+    assert response.text == "artifact for run1"
+
+    # Verify artifact is NOT in run2
+    response = requests.get(
+        f"{mlflow_client.tracking_uri}/get-artifact",
+        params={
+            "run_id": run2.info.run_id,
+            "path": "test.txt",
+        },
+    )
+    assert response.status_code == 404
 
 
 def test_graphql_handler(mlflow_client):

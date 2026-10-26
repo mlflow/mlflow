@@ -2721,10 +2721,10 @@ def create_promptlab_run_handler():
 @_disable_if_artifacts_presigned_only(upload=True)
 def upload_artifact_handler():
     args = request.args
-    run_uuid = args.get("run_uuid")
-    if not run_uuid:
+    run_id = args.get("run_id") or args.get("run_uuid")
+    if not run_id:
         raise MlflowException(
-            message="Request must specify run_uuid.",
+            message="Request must specify run_id or run_uuid.",
             error_code=INVALID_PARAMETER_VALUE,
         )
     path = args.get("path")
@@ -2754,7 +2754,7 @@ def upload_artifact_handler():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    run = _get_tracking_store().get_run(run_uuid)
+    run = _get_tracking_store().get_run(run_id)
     artifact_dir = run.info.artifact_uri
 
     basename = posixpath.basename(path)
