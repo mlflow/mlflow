@@ -76,4 +76,3 @@ jobs:
             --argjson prs_id "$PRS_FIELD_ID" --argjson prs "$prs" \
             '{issue_field_values: [{field_id: $repos_id, value: $repos}, {field_id: $prs_id, value: $prs}]}' \
             | gh api -X POST "repos/$REPO/issues/$ISSUE_NUMBER/issue-field-values" --input - > /dev/null
-          echo "Set $author's stats on #$ISSUE_NUMBER: $repos repos, $prs PRs" >> "$GITHUB_STEP_SUMMARY"
