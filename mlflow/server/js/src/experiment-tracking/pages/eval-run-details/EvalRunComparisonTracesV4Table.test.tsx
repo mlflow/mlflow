@@ -20,6 +20,12 @@ import {
   EvalRunComparisonTracesV4Table,
   type EvalRunComparisonTracesV4TableProps,
 } from './EvalRunComparisonTracesV4Table';
+import { EvalRunCompareView } from './EvalRunCompareView';
+
+// The view-level shortcut test mounts the real compare view around the table; its other panes are stubbed.
+jest.mock('./useEvalRunComparisonBaseline', () => ({ useEvalRunComparisonBaseline: () => jest.fn() }));
+jest.mock('./EvalRunCompareSelectionBar', () => ({ EvalRunCompareSelectionBar: () => null }));
+jest.mock('./EvalRunComparisonOverviewTab', () => ({ EvalRunComparisonOverviewTab: () => null }));
 
 const EXPERIMENT_ID = 'exp-1';
 const PATH = '/ml/experiments/:experimentId/evaluation-runs/:runUuid/details';
@@ -316,6 +322,52 @@ describe('EvalRunComparisonTracesV4Table', () => {
     expect(params.get('baselineTraceId')).toBe(traceId('b2'));
     expect(params.get('candidateTraceId')).toBe(traceId('c2'));
   });
+
+  test('drops an open pair with a trace from a run that is no longer selected', async () => {
+    state.tracesByRun['removed'] = [scored(traceId('x1'), 'removed', 'First question', 0.5)];
+    renderTable(
+      `${COMPARE_URL}&baselineTraceId=${traceId('x1')}&candidateTraceId=${traceId('c1')}&traceId=${traceId('c1')}&pairwiseReview=true`,
+    );
+    await waitFor(() => expect(new URLSearchParams(lastSearch).get('baselineTraceId')).toBeNull());
+    const params = new URLSearchParams(lastSearch);
+    expect(params.get('candidateTraceId')).toBeNull();
+    expect(params.get('pairwiseReview')).toBeNull();
+    expect(params.get('traceId')).toBe(traceId('c1'));
+  });
+
+  test('leaves R to the drawer while a single trace is open in the compare view', async () => {
+    state.tracesByRun['candidate'].push(scored(traceId('c3'), 'candidate', 'Unmatched question', 0.7));
+    renderTracesV4Page({
+      initialUrl: `${COMPARE_URL}&traceId=${traceId('c3')}`,
+      routes: [
+        {
+          path: PATH,
+          element: (
+            <>
+              <LocationSpy />
+              <EvalRunCompareView
+                experimentId={EXPERIMENT_ID}
+                baselineRunUuid="baseline"
+                compareRunUuids={['candidate']}
+              />
+            </>
+          ),
+        },
+      ],
+      history,
+      experimentId: EXPERIMENT_ID,
+    });
+    await userEvent.click(await screen.findByRole('tab', { name: 'Details' }));
+    expect(await screen.findByText('Unmatched question', {}, { timeout: 30000 })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeVisible());
+
+    await userEvent.keyboard('r');
+
+    const params = new URLSearchParams(lastSearch);
+    expect(params.get('pairwiseReview')).toBeNull();
+    expect(params.get('baselineTraceId')).toBeNull();
+    expect(params.get('traceId')).toBe(traceId('c3'));
+  }, 60000);
 
   test('narrows the rows to the search and offers to clear it when nothing matches', async () => {
     renderTable(`${COMPARE_URL}&comparisonQ=nothing%20matches`);

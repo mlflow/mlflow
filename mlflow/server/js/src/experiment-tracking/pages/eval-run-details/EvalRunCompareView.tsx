@@ -14,6 +14,7 @@ import {
   BASELINE_TRACE_ID_PARAM,
   CANDIDATE_TRACE_ID_PARAM,
   PAIRWISE_REVIEW_MODE_PARAM,
+  TRACE_ID_PARAM,
 } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4UrlState';
 
 enum EvalRunCompareTab {
@@ -101,9 +102,11 @@ export const EvalRunCompareView = ({
     return () => onPairwiseReviewActionChange?.(undefined);
   }, [onPairwiseReviewActionChange, startPairwiseReview, enablePairwiseReview]);
 
-  // R starts pairwise review, or leaves it while reviewing; typing in a field doesn't count.
+  // R starts pairwise review, or leaves it while reviewing; typing in a field doesn't count. An open trace
+  // drawer owns R (it toggles review in a comparison and flags a single trace), so the page skips it then.
+  const isTraceOpen = searchParams.has(TRACE_ID_PARAM) || searchParams.has('selectedEvaluationId');
   useEffect(() => {
-    if (!enablePairwiseReview) {
+    if (!enablePairwiseReview || isTraceOpen) {
       return;
     }
     const handleReviewShortcut = (event: KeyboardEvent) => {
@@ -130,7 +133,7 @@ export const EvalRunCompareView = ({
     };
     window.addEventListener('keydown', handleReviewShortcut);
     return () => window.removeEventListener('keydown', handleReviewShortcut);
-  }, [isPairwiseReviewMode, setSearchParams, startPairwiseReview, enablePairwiseReview]);
+  }, [isPairwiseReviewMode, setSearchParams, startPairwiseReview, enablePairwiseReview, isTraceOpen]);
 
   return (
     <div

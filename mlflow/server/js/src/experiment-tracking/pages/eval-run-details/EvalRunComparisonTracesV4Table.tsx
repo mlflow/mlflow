@@ -154,6 +154,20 @@ const EvalRunComparisonTracesV4Content = (props: EvalRunComparisonTracesV4TableP
     return selectedTraceIds.size === options.length ? options : undefined;
   }, [baselineTraceId, candidateTraceId, data.runsWithTraces, summaryRuns]);
   const activeComparisonRunOptions = comparisonRunOptions ?? directComparisonRunOptions;
+  // A pair with a trace outside the selected runs (say after removing a run) can't be compared or reviewed,
+  // so drop the pair and keep the candidate trace, which the controller still validates on its own.
+  const hasStalePair = Boolean(baselineTraceId && candidateTraceId) && data.isDataReady && !activeComparisonRunOptions;
+  useEffect(() => {
+    if (!hasStalePair) {
+      return;
+    }
+    setSearchParams((params) => {
+      params.delete(BASELINE_TRACE_ID_PARAM);
+      params.delete(CANDIDATE_TRACE_ID_PARAM);
+      params.delete(PAIRWISE_REVIEW_MODE_PARAM);
+      return params;
+    });
+  }, [hasStalePair, setSearchParams]);
   const selectedBaselineRunUuid = activeComparisonRunOptions?.find(
     (option) => option.traceId === baselineTraceId,
   )?.runUuid;
