@@ -74,9 +74,13 @@ def test_search_issues_delegates_to_tracing_client(tracing_client):
     kwargs = {
         "experiment_id": "1",
         "filter_string": "status = 'pending'",
+        "name": "latency",
+        "severities": [IssueSeverity.HIGH, IssueSeverity.MEDIUM],
+        "categories": [IssueCategory.LATENCY, "custom-category"],
         "max_results": 20,
         "order_by": ["created_timestamp ASC"],
         "page_token": "next-page",
+        "include_total_count": True,
         "view": "full",
     }
 
@@ -133,27 +137,35 @@ def test_issue_api_uses_existing_local_store():
     assert mlflow.genai.get_issue(ISSUE_ID) == updated
 
 
-def test_search_issues_filters_and_paginates_local_store():
+@pytest.mark.parametrize("include_total_count", [True, False])
+def test_search_issues_filters_and_paginates_local_store(include_total_count):
     experiment_id = mlflow.create_experiment("issue-sdk-search")
-    for name in ["A", "B"]:
+    for name, severity, status, categories in [
+        ("A latency%", IssueSeverity.HIGH, IssueStatus.PENDING, [IssueCategory.LATENCY]),
+        ("B LATENCY%", IssueSeverity.MEDIUM, IssueStatus.PENDING, ["custom-category"]),
+        ("Resolved latency%", IssueSeverity.HIGH, IssueStatus.RESOLVED, [IssueCategory.LATENCY]),
+        ("Low latency%", IssueSeverity.LOW, IssueStatus.PENDING, [IssueCategory.LATENCY]),
+        ("No category latency%", IssueSeverity.HIGH, IssueStatus.PENDING, []),
+        ("Other issue", IssueSeverity.HIGH, IssueStatus.PENDING, [IssueCategory.LATENCY]),
+        ("Wildcard latencyX", IssueSeverity.HIGH, IssueStatus.PENDING, [IssueCategory.LATENCY]),
+    ]:
         mlflow.genai.create_issue(
             name,
-            severity=IssueSeverity.HIGH,
+            severity=severity,
+            status=status,
+            categories=categories,
             description="Details",
             metadata={"key": "value"},
             experiment_id=experiment_id,
         )
-    mlflow.genai.create_issue(
-        "Resolved",
-        description="Resolved issue",
-        severity=IssueSeverity.LOW,
-        status=IssueStatus.RESOLVED,
-        experiment_id=experiment_id,
-    )
     kwargs = {
         "filter_string": "status = 'pending'",
+        "name": "latency%",
+        "severities": [IssueSeverity.HIGH, IssueSeverity.MEDIUM],
+        "categories": [" LATENCY ", "CUSTOM-CATEGORY"],
         "max_results": 1,
         "order_by": ["name ASC"],
+        "include_total_count": include_total_count,
         "view": "basic",
     }
 
@@ -162,12 +174,12 @@ def test_search_issues_filters_and_paginates_local_store():
         experiment_id=experiment_id, page_token=first.token, **kwargs
     )
 
-    assert [issue.name for issue in first] == ["A"]
-    assert [issue.name for issue in second] == ["B"]
+    assert [issue.name for issue in first] == ["A latency%"]
+    assert [issue.name for issue in second] == ["B LATENCY%"]
     assert first.token is not None
     assert second.token is None
-    assert first.total_count is None
-    assert second.total_count is None
+    assert first.total_count == (2 if include_total_count else None)
+    assert second.total_count == (2 if include_total_count else None)
     assert first[0].description == ""
     assert first[0].metadata is None
 

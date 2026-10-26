@@ -1244,6 +1244,7 @@ class DatabricksTracingRestStore(RestStore):
                 "The Databricks Issues API supports low, medium, and high severity"
             )
         if root_causes:
+            # Preserve the deprecated argument for older internal callers.
             description += "\n\nRoot causes:\n" + "\n".join(f"- {cause}" for cause in root_causes)
         body = {
             "title": name,
@@ -1368,6 +1369,12 @@ class DatabricksTracingRestStore(RestStore):
             raise MlflowException.invalid_parameter_value(
                 "experiment_id must be specified to search Databricks issues"
             )
+        if max_results is not None and (
+            type(max_results) is not int or not 1 <= max_results <= 100
+        ):
+            raise MlflowException.invalid_parameter_value(
+                "max_results must be an integer between 1 and 100"
+            )
         if include_trace_count:
             raise MlflowNotImplementedException(
                 "The Databricks Issues API does not return trace counts"
@@ -1382,7 +1389,7 @@ class DatabricksTracingRestStore(RestStore):
         for comparison in SearchIssuesUtils.parse_search_filter(filter_string):
             if comparison["key"] != "status":
                 raise MlflowNotImplementedException(
-                    "source_run_id filters are not supported by the Databricks Issues API"
+                    f"{comparison['key']} filters are not supported by the Databricks Issues API"
                 )
             status = comparison["value"].lower()
             validate_issue_fields(status=status)
@@ -1446,7 +1453,9 @@ class DatabricksTracingRestStore(RestStore):
                 for issue in result.get("issues", [])
             ],
             result.get("next_page_token") or None,
-            total_count=int(result["total_size"]) if "total_size" in result else None,
+            total_count=int(result["total_size"])
+            if include_total_count and "total_size" in result
+            else None,
         )
 
     def _append_sql_warehouse_id_param(self, endpoint: str) -> str:

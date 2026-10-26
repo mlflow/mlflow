@@ -895,7 +895,7 @@ class TracingClient:
             description: Detailed description of the issue.
             status: Issue status. Defaults to IssueStatus.PENDING if not provided.
             severity: Optional severity level indicator.
-            root_causes: Optional list of root cause analyses.
+            root_causes: Deprecated. Use description and trace evidence for causal explanation.
             source_run_id: Optional MLflow run ID that discovered this issue.
             categories: Optional list of categories for the issue.
             created_by: Optional identifier for who created this issue.

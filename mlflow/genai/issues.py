@@ -124,20 +124,37 @@ def search_issues(
     filter_string: str | None = None,
     *,
     experiment_id: str | None = None,
+    name: str | None = None,
+    severities: list[IssueSeverity] | None = None,
+    categories: list[IssueCategory | str] | None = None,
     max_results: int | None = None,
     order_by: list[str] | None = None,
     page_token: str | None = None,
+    include_total_count: bool = False,
     view: Literal["basic", "full"] | None = None,
 ) -> PagedList[Issue]:
-    """Search issues using MLflow filter syntax.
+    """Search issues, combining different filter fields with AND.
 
     Args:
-        filter_string: SQL-like filter supported by the tracking store.
+        filter_string: Comparisons on ``status`` or ``source_run_id`` using ``=`` or ``!=``,
+            joined with AND, such as ``"status = 'pending'"``. Databricks supports only
+            ``status`` filters.
         experiment_id: Experiment to search. Defaults to the active experiment.
-        max_results: Maximum results in one page.
-        order_by: Ordering fields and optional ASC/DESC directions.
+        name: Name filter. SQL stores match a case-insensitive literal substring;
+            Databricks uses its text search query.
+        severities: Match any of these severities. Databricks supports low, medium, and high.
+        categories: Match any of these built-in or custom categories. SQL stores ignore
+            case and surrounding whitespace.
+        max_results: Maximum results in one page. Defaults to 100 for SQL stores and 20
+            for Databricks. Databricks accepts at most 100.
+        order_by: Fields with optional ASC/DESC directions. SQL stores support ``name``,
+            ``status``, ``severity``, ``created_timestamp``, ``last_updated_timestamp``, and
+            ``last_seen_timestamp``. Databricks supports one field, limited to severity
+            and timestamps. Defaults to the store's ordering.
         page_token: Continuation token from a previous result.
-        view: ``"basic"`` omits detailed content; ``"full"`` returns complete issues.
+        include_total_count: Include the matching count before pagination in ``total_count``.
+        view: ``"basic"`` returns an empty description and omits root causes and metadata;
+            ``"full"`` returns complete issues. Defaults to ``"full"``.
 
     Returns:
         A list of :py:class:`mlflow.entities.Issue` objects with a continuation ``token``
@@ -148,8 +165,12 @@ def search_issues(
     return TracingClient()._search_issues(
         experiment_id=experiment_id,
         filter_string=filter_string,
+        name=name,
+        severities=severities,
+        categories=categories,
         max_results=max_results,
         order_by=order_by,
         page_token=page_token,
+        include_total_count=include_total_count,
         view=view,
     )

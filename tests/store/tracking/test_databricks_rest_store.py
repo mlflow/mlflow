@@ -2319,6 +2319,29 @@ def test_update_issue_sparse_mask_and_clears(issue_http):
 
 
 @pytest.mark.parametrize(
+    ("key", "mask"),
+    [
+        ("MixedCaseKey", "metadata.MixedCaseKey"),
+        ("MixedCase.Key", "metadata.`MixedCase.Key`"),
+    ],
+)
+@pytest.mark.parametrize("delete", [False, True])
+def test_update_issue_preserves_metadata_key_case(issue_http, key, mask, delete):
+    store, http, wire_issue = issue_http
+    kwargs = {"delete_metadata_keys": [key]} if delete else {"metadata": {key: "value"}}
+
+    store.update_issue(wire_issue["issue_id"], experiment_id="123", **kwargs)
+
+    http.assert_called_once()
+    request = http.call_args.kwargs
+    assert parse_qs(urlsplit(request["endpoint"]).query)["update_mask"] == [mask]
+    if delete:
+        assert "metadata" not in request["json"]
+    else:
+        assert request["json"]["metadata"] == {key: "value"}
+
+
+@pytest.mark.parametrize(
     ("filter_string", "expected_statuses"),
     [
         ("status = 'pending'", {"PENDING"}),
@@ -2329,7 +2352,9 @@ def test_update_issue_sparse_mask_and_clears(issue_http):
 def test_search_issues_translates_status_filter(issue_http, filter_string, expected_statuses):
     store, http, wire_issue = issue_http
     http.return_value.text = json.dumps({"issues": [wire_issue], "total_size": 1})
-    result = store.search_issues(experiment_id="123", filter_string=filter_string)
+    result = store.search_issues(
+        experiment_id="123", filter_string=filter_string, include_total_count=True
+    )
 
     request = http.call_args.kwargs
     assert request["method"] == "POST"
@@ -2343,13 +2368,69 @@ def test_search_issues_translates_status_filter(issue_http, filter_string, expec
     assert result.token is None
 
 
-def test_search_issues_contradictory_status_filter_avoids_unfiltered_request(issue_http):
+@pytest.mark.parametrize("include_total_count", [False, True])
+@pytest.mark.parametrize(
+    ("statuses", "filter_string"),
+    [
+        (None, "status = 'pending' AND status = 'resolved'"),
+        (["resolved"], "status = 'pending'"),
+        (None, "status != 'pending' AND status != 'resolved' AND status != 'rejected'"),
+    ],
+)
+def test_search_issues_contradictory_status_filter_avoids_unfiltered_request(
+    issue_http, include_total_count, statuses, filter_string
+):
     store, http, _ = issue_http
     result = store.search_issues(
-        experiment_id="123", filter_string="status = 'pending' AND status = 'resolved'"
+        experiment_id="123",
+        statuses=statuses,
+        filter_string=filter_string,
+        include_total_count=include_total_count,
     )
     assert result == []
     assert result.token is None
+    assert result.total_count == (0 if include_total_count else None)
+    http.assert_not_called()
+
+
+@pytest.mark.parametrize("include_total_count", [False, True])
+@pytest.mark.parametrize("total_size", [None, 0, 2])
+def test_search_issues_total_count_is_opt_in(issue_http, include_total_count, total_size):
+    store, http, _ = issue_http
+    response = {"issues": []}
+    if total_size is not None:
+        response["total_size"] = total_size
+    http.return_value.text = json.dumps(response)
+
+    result = store.search_issues(experiment_id="123", include_total_count=include_total_count)
+
+    assert result.total_count == (total_size if include_total_count else None)
+    http.assert_called_once()
+
+
+@pytest.mark.parametrize("max_results", [None, 1, 100])
+def test_search_issues_max_results_boundary(issue_http, max_results):
+    store, http, _ = issue_http
+    http.return_value.text = json.dumps({"issues": []})
+
+    store.search_issues(experiment_id="123", max_results=max_results)
+
+    http.assert_called_once()
+    body = http.call_args.kwargs["json"]
+    if max_results is None:
+        assert "page_size" not in body
+    else:
+        assert body["page_size"] == max_results
+
+
+@pytest.mark.parametrize("max_results", [-1, 0, 101, True, 1.5, "10"])
+def test_search_issues_rejects_invalid_max_results(issue_http, max_results):
+    store, http, _ = issue_http
+
+    with pytest.raises(MlflowException, match="max_results.*between 1 and 100") as error:
+        store.search_issues(experiment_id="123", max_results=max_results)
+
+    assert error.value.error_code == "INVALID_PARAMETER_VALUE"
     http.assert_not_called()
 
 
@@ -2367,6 +2448,7 @@ def test_search_issues_pagination_and_basic_view(issue_http):
         "experiment_id": "123",
         "max_results": 1,
         "order_by": ["last_seen_timestamp ASC"],
+        "include_total_count": True,
         "view": "basic",
     }
     first = store.search_issues(**kwargs)
