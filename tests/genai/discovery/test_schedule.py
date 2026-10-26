@@ -496,11 +496,30 @@ def test_availability_needs_jobs_periodic_tasks_and_a_sql_backend(
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", str(job_execution).lower())
     monkeypatch.setenv("MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS", str(periodic_tasks).lower())
     side_effect = None if requirements_met else Exception("no SQL backend store")
-    with mock.patch(
-        "mlflow.server.jobs.utils._check_requirements", side_effect=side_effect
-    ) as check_requirements:
+    with (
+        mock.patch("mlflow.server.jobs.utils.get_job_execution_engine", return_value="huey"),
+        mock.patch(
+            "mlflow.server.jobs.utils._check_requirements", side_effect=side_effect
+        ) as check_requirements,
+    ):
         assert scheduled_detection_available() is expected
     assert check_requirements.called is (job_execution and periodic_tasks)
+
+
+@pytest.mark.parametrize(("engine", "expected"), [("huey", True), ("executor", False)])
+def test_the_executor_engine_cannot_run_a_schedule(
+    monkeypatch: pytest.MonkeyPatch, engine: str, expected: bool
+):
+    # That engine rejects the environment a submission carries, which is how a scheduled run
+    # receives its model's credential -- so a schedule naming a provider could never authenticate.
+    # Reported here rather than discovered one failed occurrence at a time.
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS", "true")
+    with (
+        mock.patch("mlflow.server.jobs.utils.get_job_execution_engine", return_value=engine),
+        mock.patch("mlflow.server.jobs.utils._check_requirements"),
+    ):
+        assert scheduled_detection_available() is expected
 
 
 def test_a_model_round_trips_through_the_schedule_envelope():

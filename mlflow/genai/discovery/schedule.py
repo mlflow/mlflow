@@ -579,16 +579,29 @@ def scheduled_detection_available() -> bool:
     Recurring detection needs the periodic-task dispatcher, the job system behind it, and the SQL
     backend store both need. Reported rather than left for a client to infer, since a saved
     schedule would otherwise look active and never run.
+
+    The ``executor`` job-execution engine is reported unavailable: it rejects the environment a
+    submission carries, which is how a scheduled run receives the credential for its model, so a
+    schedule naming a provider could never authenticate there. This is broader than it has to be
+    -- an AI Gateway endpoint needs no credential delivered and would run fine -- but the answer
+    is per-server and given before anyone has chosen a model. Offering the control and failing
+    every occurrence afterwards is the worse of the two.
     """
     from mlflow.environment_variables import (
         MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
         MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS,
     )
-    from mlflow.server.jobs.utils import _check_requirements
+    from mlflow.server.jobs.utils import _check_requirements, get_job_execution_engine
 
     if not MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
         return False
     if not MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS.get():
+        return False
+    if get_job_execution_engine() == "executor":
+        _logger.debug(
+            "Scheduled issue detection is unavailable because the executor job-execution engine "
+            "cannot carry the credential a scheduled run needs"
+        )
         return False
     try:
         _check_requirements()
