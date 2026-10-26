@@ -226,7 +226,7 @@ class CompareEvaluationsEvent(Event):
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
         return {
-            "greater_is_better_provided": bool(arguments.get("greater_is_better")),
+            "greater_is_better_provided": arguments.get("greater_is_better") is not None,
             "log_results": bool(arguments.get("log_results")),
         }
 
