@@ -77,6 +77,8 @@ const COMPONENT_ID = 'web-shared.traces-table';
 // resized) pixel width and horizontal scroll on the Table handles overflow. A drag still sets
 // `columnSizing[id]`, which becomes the new flex-basis.
 const GROWING_COLUMNS = new Set<string>(['input', 'output']);
+/** Grouped mode always shows these and pins them left, in this order. */
+export const GROUPED_LEADING_COLUMNS: readonly TraceColumnId[] = ['session', 'input', 'output'];
 const columnSizeVariable = (index: number) => `--traces-table-column-${index}`;
 const sizeStyleFor = (id: string, index: number): CSSProperties => {
   const width = `var(${columnSizeVariable(index)})`;
@@ -435,12 +437,11 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
       // Grouped mode always shows session + the input/output previews and pins them left, so a session
       // header reads left-to-right as "which session → first input → last output" regardless of the
       // user's own column visibility/order.
-      const groupedLeadingColumns: TraceColumnId[] = ['session', 'input', 'output'];
       const groupedVisibleColumns = isGroupedBySession
-        ? [...new Set([...visibleColumns, ...groupedLeadingColumns])]
+        ? [...new Set([...visibleColumns, ...GROUPED_LEADING_COLUMNS])]
         : visibleColumns;
       const visibleColumnDefs = getVisibleColumnDefs(groupedVisibleColumns, extraColumns, columnOrder);
-      const groupedColumnRank = new Map<string, number>(groupedLeadingColumns.map((id, index) => [id, index]));
+      const groupedColumnRank = new Map<string, number>(GROUPED_LEADING_COLUMNS.map((id, index) => [id, index]));
       const getGroupedColumnRank = (id: string | undefined) =>
         id === undefined ? Infinity : (groupedColumnRank.get(id) ?? Infinity);
       const orderedVisibleColumnDefs = isGroupedBySession
@@ -998,7 +999,12 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
             sortTooltip={sortTooltip}
             onSortAscending={isSortable ? () => sortComparison(columnId, 'asc') : noop}
             onSortDescending={isSortable ? () => sortComparison(columnId, 'desc') : noop}
-            onHide={() => onHideColumn(columnId)}
+            // Session comparisons always show the grouped leading columns, so they can't be hidden.
+            onHide={
+              isSessionComparison && GROUPED_LEADING_COLUMNS.includes(columnId as TraceColumnId)
+                ? undefined
+                : () => onHideColumn(columnId)
+            }
             action={columnHeaderActions?.[columnId]}
             menuContent={columnDef.headerMenuContent}
             headerVariant={getTraceColumnHeaderVariant(columnDef)}

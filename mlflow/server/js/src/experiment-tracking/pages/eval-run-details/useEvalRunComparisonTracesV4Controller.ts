@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { useIntl } from 'react-intl';
 import {
   convertTraceInfoV3ToRunEvalEntry,
@@ -87,6 +87,8 @@ export interface EvalRunComparisonTracesV4Params {
   experimentId: string;
   runUuids: string[];
   initialOutcomeFilter?: Omit<EvalRunComparisonOutcomeFilter, 'id'>;
+  /** Outcome filter state owned by a parent that outlives this controller, e.g. across a mode remount. */
+  outcomeFiltersState?: [EvalRunComparisonOutcomeFilter[], Dispatch<SetStateAction<EvalRunComparisonOutcomeFilter[]>>];
 }
 
 /** The keyed comparison composition owns local paging; query criteria use a separate URL namespace. */
@@ -94,6 +96,7 @@ export const useEvalRunComparisonTracesV4Controller = ({
   experimentId,
   runUuids,
   initialOutcomeFilter,
+  outcomeFiltersState,
 }: EvalRunComparisonTracesV4Params) => {
   const intl = useIntl();
   const url = useEvalRunTracesV4UrlState();
@@ -133,14 +136,14 @@ export const useEvalRunComparisonTracesV4Controller = ({
   }, []);
   const [pageIndex, setPageIndex] = useState(1);
   const [pageSize, setPageSizeState] = useState<PageSize>(DEFAULT_PAGE_SIZE);
-  const [outcomeFilters, setOutcomeFilters] = useState<EvalRunComparisonOutcomeFilter[]>(() =>
+  const localOutcomeFiltersState = useState<EvalRunComparisonOutcomeFilter[]>(() =>
     initialOutcomeFilter ? [{ ...initialOutcomeFilter, id: 0 }] : [],
   );
+  const [outcomeFilters, setOutcomeFilters] = outcomeFiltersState ?? localOutcomeFiltersState;
   const { isGroupedBySession, setIsGroupedBySession } = criteria;
   useEffect(() => {
     if (outcomeFilters.length && isGroupedBySession) setIsGroupedBySession(false);
   }, [outcomeFilters.length, isGroupedBySession, setIsGroupedBySession]);
-  const nextOutcomeFilterId = useRef(1);
   const [aggregateMethods, setAggregateMethods] = useState<Record<string, NumericAggregateMethod>>({});
   useEffect(() => {
     setPageIndex(1);
@@ -301,22 +304,32 @@ export const useEvalRunComparisonTracesV4Controller = ({
       );
       return valid.length === current.length ? current : valid;
     });
-  }, [isGroupedBySession, data.isDataReady, inputs.isLoading, runUuids, traceAssessmentInfos]);
-  const toggleOutcomeFilter = useCallback((filter: OutcomeFilterSelection) => {
-    setOutcomeFilters((current) => {
-      const existingIndex = current.findIndex((candidate) => isSameOutcomeFilterKey(candidate, filter));
-      if (existingIndex < 0) return [...current, { ...filter, id: nextOutcomeFilterId.current++ }];
-      if (isSameOutcomeFilter(current[existingIndex], filter)) {
-        return current.filter((candidate) => !isSameOutcomeFilterKey(candidate, filter));
-      }
-      return current.map((candidate, index) => (index === existingIndex ? { ...filter, id: candidate.id } : candidate));
-    });
-    setPageIndex(1);
-  }, []);
-  const removeOutcomeFilter = useCallback((filter: EvalRunComparisonOutcomeFilter) => {
-    setOutcomeFilters((current) => current.filter((candidate) => !isSameOutcomeFilter(candidate, filter)));
-    setPageIndex(1);
-  }, []);
+  }, [isGroupedBySession, data.isDataReady, inputs.isLoading, runUuids, traceAssessmentInfos, setOutcomeFilters]);
+  const toggleOutcomeFilter = useCallback(
+    (filter: OutcomeFilterSelection) => {
+      setOutcomeFilters((current) => {
+        const existingIndex = current.findIndex((candidate) => isSameOutcomeFilterKey(candidate, filter));
+        if (existingIndex < 0) {
+          return [...current, { ...filter, id: Math.max(0, ...current.map(({ id }) => id)) + 1 }];
+        }
+        if (isSameOutcomeFilter(current[existingIndex], filter)) {
+          return current.filter((candidate) => !isSameOutcomeFilterKey(candidate, filter));
+        }
+        return current.map((candidate, index) =>
+          index === existingIndex ? { ...filter, id: candidate.id } : candidate,
+        );
+      });
+      setPageIndex(1);
+    },
+    [setOutcomeFilters],
+  );
+  const removeOutcomeFilter = useCallback(
+    (filter: EvalRunComparisonOutcomeFilter) => {
+      setOutcomeFilters((current) => current.filter((candidate) => !isSameOutcomeFilter(candidate, filter)));
+      setPageIndex(1);
+    },
+    [setOutcomeFilters],
+  );
   const replaceOutcomeFilter = useCallback(
     (existing: EvalRunComparisonOutcomeFilter, next: EvalRunComparisonOutcomeFilter) => {
       setOutcomeFilters((current) =>
@@ -326,12 +339,12 @@ export const useEvalRunComparisonTracesV4Controller = ({
       );
       setPageIndex(1);
     },
-    [],
+    [setOutcomeFilters],
   );
   const clearOutcomeFilters = useCallback(() => {
     setOutcomeFilters([]);
     setPageIndex(1);
-  }, []);
+  }, [setOutcomeFilters]);
   const setAggregateMethod = useCallback((columnId: string, method: NumericAggregateMethod) => {
     setAggregateMethods((current) => ({ ...current, [columnId]: method }));
   }, []);

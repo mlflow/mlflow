@@ -87,6 +87,8 @@ export interface TracesV4ToolbarParams {
   validateFilters?: TraceFilterButtonProps['validateFilters'];
   /** Offer the session grouping toggle (default true, when session grouping is enabled). */
   showSessionGrouping?: boolean;
+  /** Columns the table force-shows while grouped by session, locked in the Display column list (default none). */
+  groupedLockedColumns?: readonly TraceColumnId[];
 }
 
 // Column-selector options: static componentIds (lint requires static ids) + localized labels. Adding
@@ -190,6 +192,7 @@ export const useTracesV4ToolbarSlots = ({
   filterDescription,
   validateFilters,
   showSessionGrouping = true,
+  groupedLockedColumns,
   isGroupedBySession,
   onToggleSessionGrouping,
   columnOrder,
@@ -239,7 +242,14 @@ export const useTracesV4ToolbarSlots = ({
   // label; assessment columns use their name. Ids unknown on this page (a stored assessment not in the
   // current data) are dropped by the flatMap.
   const reorderableColumns = useMemo<ReorderableTraceColumnOption[]>(() => {
-    const standardById = new Map(COLUMN_OPTIONS.map((option) => [option.id, option]));
+    // Force-shown columns stay checked and disabled, so unchecking them can't silently no-op.
+    const lockedColumns = isGroupedBySession ? groupedLockedColumns : undefined;
+    const standardById = new Map(
+      COLUMN_OPTIONS.map((option) => [
+        option.id,
+        lockedColumns?.includes(option.id) ? { ...option, disabled: true } : option,
+      ]),
+    );
     const assessmentById = new Map(assessmentColumns.selectorOptions.map((option) => [option.id, option]));
     const reorderLabelFor = (name: string) =>
       intl.formatMessage(
@@ -260,7 +270,14 @@ export const useTracesV4ToolbarSlots = ({
       }
       return [];
     });
-  }, [columnOrder, assessmentColumns.selectorOptions, columnDisplayText, intl]);
+  }, [
+    columnOrder,
+    assessmentColumns.selectorOptions,
+    columnDisplayText,
+    intl,
+    isGroupedBySession,
+    groupedLockedColumns,
+  ]);
 
   // A single toggle that routes to the right handler by id: assessment ids go to the assessment
   // toggle, standard ids to the column toggle. The reorderable list is a flat list of both.

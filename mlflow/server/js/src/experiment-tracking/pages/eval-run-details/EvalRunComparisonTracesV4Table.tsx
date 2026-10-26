@@ -12,6 +12,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import {
   getTextColumnMaxSize,
+  GROUPED_LEADING_COLUMNS,
   isTraceColumnId,
   type SessionHrefGetter,
   type TraceColumnId,
@@ -40,6 +41,7 @@ import { buildEvalRunTableColumnOrder, EVAL_RUN_DEFAULT_COLUMN_SIZING } from './
 import {
   getEvalRunComparisonTraceId,
   useEvalRunComparisonTracesV4Controller,
+  type EvalRunComparisonOutcomeFilter,
   type EvalRunComparisonTracesV4Params,
 } from './useEvalRunComparisonTracesV4Controller';
 import { EvalRunComparisonColumnSummary } from './EvalRunComparisonColumnSummary';
@@ -73,8 +75,18 @@ export type EvalRunComparisonTracesV4TableProps = EvalRunComparisonTracesV4Param
 export const EvalRunComparisonTracesV4Table = (props: EvalRunComparisonTracesV4TableProps) => {
   const [searchParams] = useSearchParams();
   const sessionMode = searchParams.get('comparisonGroupBy') === 'session';
+  // Outcome filters outlive the remount, so switching modes doesn't restore one the user removed.
+  const outcomeFiltersState = useState<EvalRunComparisonOutcomeFilter[]>(() =>
+    props.initialOutcomeFilter ? [{ ...props.initialOutcomeFilter, id: 0 }] : [],
+  );
   // Storage hooks read their namespace at mount; do not carry trace preferences into session mode.
-  return <EvalRunComparisonTracesV4Content key={sessionMode ? 'sessions' : 'traces'} {...props} />;
+  return (
+    <EvalRunComparisonTracesV4Content
+      key={sessionMode ? 'sessions' : 'traces'}
+      {...props}
+      outcomeFiltersState={outcomeFiltersState}
+    />
+  );
 };
 
 const EvalRunComparisonTracesV4Content = (props: EvalRunComparisonTracesV4TableProps) => {
@@ -338,6 +350,7 @@ const EvalRunComparisonTracesV4Content = (props: EvalRunComparisonTracesV4TableP
         }),
     // Outcome filters only match traces, so session grouping is offered only without them.
     showSessionGrouping: outcomeFilters.length === 0,
+    groupedLockedColumns: GROUPED_LEADING_COLUMNS,
     visibleColumns,
     columnOrder: comparisonColumnOrder,
     onReorderColumn: reorderColumn,

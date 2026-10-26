@@ -8,12 +8,18 @@ const timestamp = (trace: ModelTraceInfoV3): number => {
   return Number.isFinite(time) ? time : Infinity;
 };
 
+// A session matches by scenario only when every turn carries the same goal and persona.
 const sessionMatchKey = (sessionId: string, traces: ModelTraceInfoV3[]): string => {
-  const goals = new Set(traces.map((trace) => trace.trace_metadata?.['mlflow.simulation.goal']).filter(Boolean));
-  const personas = new Set(traces.map((trace) => trace.trace_metadata?.['mlflow.simulation.persona']).filter(Boolean));
-  return goals.size === 1 && personas.size === 1
-    ? JSON.stringify(['scenario', [...goals][0], [...personas][0]])
-    : JSON.stringify(['session', sessionId]);
+  const goal = traces[0]?.trace_metadata?.['mlflow.simulation.goal'];
+  const persona = traces[0]?.trace_metadata?.['mlflow.simulation.persona'];
+  const isScenario =
+    Boolean(goal && persona) &&
+    traces.every(
+      (trace) =>
+        trace.trace_metadata?.['mlflow.simulation.goal'] === goal &&
+        trace.trace_metadata?.['mlflow.simulation.persona'] === persona,
+    );
+  return JSON.stringify(isScenario ? ['scenario', goal, persona] : ['session', sessionId]);
 };
 
 /** Preserve real sessions before aligning repeated scenarios; filtering must happen after this join. */

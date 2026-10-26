@@ -16,7 +16,10 @@ import {
   makeFeedbackAssessment,
   makeTrace,
 } from '../../components/experiment-page/components/traces-v4/test-utils/mockTraces';
-import { EvalRunComparisonTracesV4Table } from './EvalRunComparisonTracesV4Table';
+import {
+  EvalRunComparisonTracesV4Table,
+  type EvalRunComparisonTracesV4TableProps,
+} from './EvalRunComparisonTracesV4Table';
 
 const EXPERIMENT_ID = 'exp-1';
 const PATH = '/ml/experiments/:experimentId/evaluation-runs/:runUuid/details';
@@ -91,7 +94,7 @@ const LocationSpy = () => {
 describe('EvalRunComparisonTracesV4Table', () => {
   const { history } = setupTestRouter();
 
-  const renderTable = (initialUrl = COMPARE_URL) =>
+  const renderTable = (initialUrl = COMPARE_URL, props: Partial<EvalRunComparisonTracesV4TableProps> = {}) =>
     renderTracesV4Page({
       initialUrl,
       routes: [
@@ -100,7 +103,11 @@ describe('EvalRunComparisonTracesV4Table', () => {
           element: (
             <>
               <LocationSpy />
-              <EvalRunComparisonTracesV4Table experimentId={EXPERIMENT_ID} runUuids={['baseline', 'candidate']} />
+              <EvalRunComparisonTracesV4Table
+                experimentId={EXPERIMENT_ID}
+                runUuids={['baseline', 'candidate']}
+                {...props}
+              />
             </>
           ),
         },
@@ -534,6 +541,38 @@ describe('EvalRunComparisonTracesV4Table', () => {
       'false',
     );
     expect(screen.queryByRole('rowgroup', { name: 'Baseline run session turns' })).not.toBeInTheDocument();
+  }, 60000);
+
+  test('keeps an Overview outcome filter removed when switching to sessions', async () => {
+    setupSessionTraces();
+    renderTable(COMPARE_URL, {
+      initialOutcomeFilter: { columnId: 'assessment:quality', runUuid: 'candidate', outcome: 'improvement' },
+    });
+    await userEvent.click(await screen.findByRole('button', { name: /Remove comparison filter/ }));
+    await userEvent.click(await groupBySession());
+
+    expect(await screen.findByRole('button', { name: 'Collapse session comparison Matched sessions' })).toBeVisible();
+    expect(new URLSearchParams(lastSearch).get('comparisonGroupBy')).toBe('session');
+    expect(screen.getByRole('button', { name: 'Group traces by session' })).toHaveAttribute('aria-pressed', 'true');
+  }, 60000);
+
+  test('locks the Session, Input and Output columns while comparing sessions', async () => {
+    setupSessionTraces();
+    renderTable(`${COMPARE_URL}&comparisonGroupBy=session`);
+    await screen.findByRole('button', { name: 'Expand Baseline run session baseline-conversation' });
+    for (const name of [/^Session/, /^Input/, /^Output/]) {
+      const header = screen.getByRole('columnheader', { name });
+      expect(within(header).queryByRole('button', { name: /Column options/ })).not.toBeInTheDocument();
+    }
+    const duration = screen.getByRole('columnheader', { name: /^Duration/ });
+    expect(within(duration).getByRole('button', { name: /Column options/ })).toBeVisible();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Display' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Columns' }));
+    for (const name of ['Session', 'Input', 'Output']) {
+      expect(await screen.findByRole('menuitemcheckbox', { name })).toHaveAttribute('aria-disabled', 'true');
+    }
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Duration' })).not.toHaveAttribute('aria-disabled');
   }, 60000);
 
   test('explains that session comparisons filter on individual traces', async () => {

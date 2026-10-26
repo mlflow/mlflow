@@ -95,17 +95,21 @@ describe('buildEvalRunSessionComparisonRows', () => {
     ]);
   });
 
-  it('uses the session ID when turns disagree about their scenario', () => {
+  it.each<{ label: string; turns: Record<string, string>[] }>([
+    { label: 'disagree about their scenario', turns: [scenario, { ...scenario, 'mlflow.simulation.goal': 'Cancel' }] },
+    { label: 'are only partly annotated', turns: [scenario, {}] },
+    {
+      label: 'split the goal and persona',
+      turns: [{ 'mlflow.simulation.goal': 'Book a flight' }, { 'mlflow.simulation.persona': 'Traveler' }],
+    },
+  ])('uses the session ID when turns $label', ({ turns }) => {
     const rows = buildEvalRunSessionComparisonRows(
       [
         {
           runUuid: 'baseline',
-          traceInfos: [
-            sessionTrace('base-1', 'shared-session', { trace_metadata: scenario }),
-            sessionTrace('base-2', 'shared-session', {
-              trace_metadata: { ...scenario, 'mlflow.simulation.goal': 'Cancel a flight' },
-            }),
-          ],
+          traceInfos: turns.map((metadata, index) =>
+            sessionTrace(`base-${index}`, 'shared-session', { trace_metadata: metadata }),
+          ),
         },
         {
           runUuid: 'candidate',

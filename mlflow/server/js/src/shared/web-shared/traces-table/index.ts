@@ -41,7 +41,7 @@ export {
 export { STANDARD_COLUMNS, getVisibleColumnDefs, getTableMeta, openLabel, type TracesTableMeta } from './columns';
 
 // Presentational components
-export { TracesTable, type TracesTableProps } from './TracesTable';
+export { GROUPED_LEADING_COLUMNS, TracesTable, type TracesTableProps } from './TracesTable';
 export { TracesTableToolbar, type TracesTableToolbarProps } from './TracesTableToolbar';
 export { ToolbarCollapsibleLabel, TRACES_TOOLBAR_COLLAPSE_QUERY } from './TracesToolbarResponsive';
 export { TracesPaginationBar, type TracesPaginationBarProps } from './TracesPaginationBar';
