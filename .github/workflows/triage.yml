@@ -628,7 +628,7 @@ jobs:
               EOF
               for attempt in 1 2 3; do
                 echo "apt-get update attempt $attempt/3"
-                if sudo timeout --kill-after=10s 1m apt-get update; then
+                if sudo timeout --kill-after=10s 1m apt-get update --error-on=any; then
                   break
                 fi
                 if [ "$attempt" -eq 3 ]; then
