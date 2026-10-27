@@ -1793,6 +1793,7 @@ class SearchTraceUtils(SearchUtils):
     _FEEDBACK_IDENTIFIER = "feedback"
     _EXPECTATION_IDENTIFIER = "expectation"
     _ISSUE_IDENTIFIER = "issue"
+    _MCP_SERVER_IDENTIFIER = "mcp_server"
 
     # These are aliases for the base identifiers
     # e.g. trace.status is equivalent to attribute.status
@@ -1810,6 +1811,7 @@ class SearchTraceUtils(SearchUtils):
         _FEEDBACK_IDENTIFIER,
         _EXPECTATION_IDENTIFIER,
         _ISSUE_IDENTIFIER,
+        _MCP_SERVER_IDENTIFIER,
     }
     _VALID_IDENTIFIERS = _IDENTIFIERS | set(_ALTERNATE_IDENTIFIERS.keys())
 
@@ -1895,6 +1897,11 @@ class SearchTraceUtils(SearchUtils):
                 "on in-memory trace data.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        elif cls.is_mcp_server(key_type=type_, key_name=key, comparator=comparator):
+            raise MlflowException.invalid_parameter_value(
+                "MCP server filtering requires database support and cannot be performed "
+                "on in-memory trace data."
+            )
         elif sed.get("type") == cls._TAG_IDENTIFIER:
             lhs = trace.tags.get(key)
         else:
@@ -1928,8 +1935,8 @@ class SearchTraceUtils(SearchUtils):
         """
         Replace search key to tag or metadata key if it is in the mapping.
         """
-        # Don't replace keys for span filters - they have their own namespace
-        if parsed.get("type") == cls._SPAN_IDENTIFIER:
+        # Span and MCP server filters have their own namespaces.
+        if parsed.get("type") in (cls._SPAN_IDENTIFIER, cls._MCP_SERVER_IDENTIFIER):
             return parsed
 
         key = parsed.get("key").lower()
@@ -1957,6 +1964,26 @@ class SearchTraceUtils(SearchUtils):
                 )
             return True
         return False
+
+    @classmethod
+    def _get_identifier(cls, identifier, valid_attributes):
+        if identifier == cls._MCP_SERVER_IDENTIFIER:
+            return {"type": cls._MCP_SERVER_IDENTIFIER, "key": "name"}
+        return super()._get_identifier(identifier, valid_attributes)
+
+    @classmethod
+    def is_mcp_server(cls, key_type, key_name, comparator):
+        if key_type != cls._MCP_SERVER_IDENTIFIER:
+            return False
+        if key_name not in {"name", "version"}:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid MCP server search key '{key_name}'. Supported keys are name and version."
+            )
+        if comparator != "=":
+            raise MlflowException.invalid_parameter_value(
+                f"MCP server comparator '{comparator}' is not supported. Use '='."
+            )
+        return True
 
     @classmethod
     def is_span(cls, key_type, key_name, comparator):
@@ -2227,7 +2254,7 @@ class SearchTraceUtils(SearchUtils):
                     f"{token.value}",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-        elif identifier_type == cls._ISSUE_IDENTIFIER:
+        elif identifier_type in (cls._ISSUE_IDENTIFIER, cls._MCP_SERVER_IDENTIFIER):
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             else:
@@ -2329,10 +2356,12 @@ class SearchTraceUtils(SearchUtils):
             )
             comp["comparator"] = comparator
             comp["value"] = None
+            cls.is_mcp_server(comp["type"], comp["key"], comparator)
             return comp
 
         comp = cls._get_identifier(stripped_comparison[0].value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = stripped_comparison[1].value
+        cls.is_mcp_server(comp["type"], comp["key"], comp["comparator"])
         cls._validate_assessment_comparison_value(
             comp.get("type"), comp.get("comparator"), stripped_comparison[2]
         )
