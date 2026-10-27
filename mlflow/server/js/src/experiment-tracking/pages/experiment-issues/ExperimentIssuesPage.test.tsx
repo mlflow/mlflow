@@ -727,7 +727,7 @@ describe('Experiment Issues', () => {
     await screen.findByText('Unable to update detection progress');
     expect(screen.getByRole('button', { name: 'Cancel detection' })).toBeEnabled();
     expect(screen.queryByRole('button', { name: 'Detect issues in traces' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Retry status' })).toBeEnabled();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Retry status' })).toBeEnabled());
   });
   test('a failed cancel still refreshes job status, so a finished run stops blocking', async () => {
     // Reported in review. One failed status read stops polling, so this client can be holding

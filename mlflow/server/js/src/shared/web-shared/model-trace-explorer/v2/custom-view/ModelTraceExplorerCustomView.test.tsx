@@ -156,20 +156,32 @@ const setBridge = (overrides: Partial<CustomViewAssistantBridge> = {}): CustomVi
 const CustomViewTestHost = ({
   traceInfo,
   enableFeedback,
+  feedbackSourceId,
 }: {
   traceInfo: ModelTrace['info'];
   enableFeedback: boolean;
+  feedbackSourceId?: string;
 }) => {
   const customViewDefinition = useOptionalCustomViewDefinition();
   useCustomViewAssistantBridge({ data: {} as AgentTraceData, onSpec: () => {} });
   const [displayMode, setDisplayMode] = React.useState<'default' | 'custom'>('default');
   if (!customViewDefinition) {
-    return <ModelTraceExplorerCustomView modelTraceInfo={traceInfo} enableFeedback={enableFeedback} />;
+    return (
+      <ModelTraceExplorerCustomView
+        modelTraceInfo={traceInfo}
+        enableFeedback={enableFeedback}
+        feedbackSourceId={feedbackSourceId}
+      />
+    );
   }
   return (
     <>
       <ModelTraceExplorerCustomViewSelector value={displayMode} onValueChange={setDisplayMode} isCustomViewEnabled />
-      <ModelTraceExplorerCustomView modelTraceInfo={traceInfo} enableFeedback={enableFeedback} />
+      <ModelTraceExplorerCustomView
+        modelTraceInfo={traceInfo}
+        enableFeedback={enableFeedback}
+        feedbackSourceId={feedbackSourceId}
+      />
     </>
   );
 };
@@ -204,8 +216,17 @@ const withProviders = (children: React.ReactNode, views: CustomView[]) => (
   </IntlProvider>
 );
 
-const renderWithViews = (views: CustomView[], enableFeedback: boolean) =>
-  render(withProviders(<CustomViewTestHost traceInfo={modelTraceInfo} enableFeedback={enableFeedback} />, views));
+const renderWithViews = (views: CustomView[], enableFeedback: boolean, feedbackSourceId?: string) =>
+  render(
+    withProviders(
+      <CustomViewTestHost
+        traceInfo={modelTraceInfo}
+        enableFeedback={enableFeedback}
+        feedbackSourceId={feedbackSourceId}
+      />,
+      views,
+    ),
+  );
 
 const renderStandaloneCustomViewRenderer = (view: CustomView, modelTrace: ModelTrace) => {
   const selectViewRef: { current?: (id: string) => void } = {};
@@ -273,6 +294,34 @@ describe('ModelTraceExplorerCustomView in a read-only host', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Thumbs up' }));
 
     expect(posted).toHaveLength(0);
+  });
+
+  it('credits staged and thumbs feedback to the host-provided source', async () => {
+    const posted = captureAssessmentPosts();
+    renderWithViews([traceFormFeedbackView, immediateFeedbackView], true, 'reviewer-1');
+
+    await selectView(/name-trace-form/);
+    await userEvent.click(await screen.findByRole('radio', { name: 'Trace good' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Submit trace feedback' }));
+    await waitFor(() => expect(posted).toHaveLength(1));
+
+    await userEvent.click(screen.getByRole('button', { name: /name-trace-form/ }));
+    await userEvent.click(screen.getByRole('menuitemradio', { name: /name-immediate-feedback/ }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Thumbs up' }));
+    await waitFor(() => expect(posted).toHaveLength(2));
+
+    expect(posted.map((assessment) => assessment.source?.source_id)).toEqual(['reviewer-1', 'reviewer-1']);
+  });
+
+  it('credits feedback to getUser() when the host provides no source', async () => {
+    const posted = captureAssessmentPosts();
+    renderWithViews([immediateFeedbackView], true);
+
+    await selectView(/name-immediate-feedback/);
+    await userEvent.click(await screen.findByRole('button', { name: 'Thumbs up' }));
+
+    await waitFor(() => expect(posted).toHaveLength(1));
+    expect(posted[0].source?.source_id).toBe('test-user');
   });
 
   it('hides creation without a callback while allowing a saved view to become active', async () => {

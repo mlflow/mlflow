@@ -4,8 +4,7 @@
     "Embeddings": {
       "mode": "embedding",
       "context_window": {
-        "max_input": 512,
-        "max_tokens": 512
+        "max_input": 512
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -18,13 +17,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "Embeddings-2": {
       "mode": "embedding",
       "context_window": {
-        "max_input": 512,
-        "max_tokens": 512
+        "max_input": 512
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -37,13 +35,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "EmbeddingsGigaR": {
       "mode": "embedding",
       "context_window": {
-        "max_input": 4096,
-        "max_tokens": 4096
+        "max_input": 4096
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -56,14 +53,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "GigaChat-2": {
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 8192
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -76,7 +72,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-02"
+      "last_updated_at": "2026-10-27"
     },
     "GigaChat-2-Lite": {
       "mode": "chat",
@@ -102,8 +98,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 8192
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -116,14 +111,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "GigaChat-2-Pro": {
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 8192
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -136,13 +130,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "GigaEmbeddings-3B-2025-09": {
       "mode": "embedding",
       "context_window": {
-        "max_input": 4096,
-        "max_tokens": 4096
+        "max_input": 4096
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -155,7 +148,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-02"
+      "last_updated_at": "2026-10-27"
     }
   }
 }

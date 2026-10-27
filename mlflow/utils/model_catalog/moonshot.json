@@ -110,8 +110,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 262144,
-        "max_output": 262144,
-        "max_tokens": 262144
+        "max_output": 262144
       },
       "pricing": {
         "input_per_million_tokens": 0.6,
@@ -125,14 +124,13 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-09"
+      "last_updated_at": "2026-10-27"
     },
     "kimi-k2.6": {
       "mode": "chat",
       "context_window": {
         "max_input": 262144,
-        "max_output": 262144,
-        "max_tokens": 262144
+        "max_output": 262144
       },
       "pricing": {
         "input_per_million_tokens": 0.95,
@@ -146,14 +144,13 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-09"
+      "last_updated_at": "2026-10-27"
     },
     "kimi-k2.7-code": {
       "mode": "chat",
       "context_window": {
         "max_input": 262144,
-        "max_output": 262144,
-        "max_tokens": 262144
+        "max_output": 262144
       },
       "pricing": {
         "input_per_million_tokens": 0.95,
@@ -167,14 +164,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-31"
+      "last_updated_at": "2026-10-27"
     },
     "kimi-k3": {
       "mode": "chat",
       "context_window": {
         "max_input": 1048576,
-        "max_output": 1048576,
-        "max_tokens": 1048576
+        "max_output": 1048576
       },
       "pricing": {
         "input_per_million_tokens": 3.0,
@@ -188,7 +184,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-10-27"
     },
     "kimi-latest": {
       "mode": "chat",
@@ -299,8 +295,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 131072,
-        "max_output": 131072,
-        "max_tokens": 131072
+        "max_output": 131072
       },
       "pricing": {
         "input_per_million_tokens": 2.0,
@@ -313,7 +308,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-09"
+      "last_updated_at": "2026-10-27"
     },
     "moonshot-v1-128k-0430": {
       "mode": "chat",
@@ -339,8 +334,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 131072,
-        "max_output": 131072,
-        "max_tokens": 131072
+        "max_output": 131072
       },
       "pricing": {
         "input_per_million_tokens": 2.0,
@@ -353,14 +347,13 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-09"
+      "last_updated_at": "2026-10-27"
     },
     "moonshot-v1-32k": {
       "mode": "chat",
       "context_window": {
         "max_input": 32768,
-        "max_output": 32768,
-        "max_tokens": 32768
+        "max_output": 32768
       },
       "pricing": {
         "input_per_million_tokens": 1.0,
@@ -373,7 +366,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-09"
+      "last_updated_at": "2026-10-27"
     },
     "moonshot-v1-32k-0430": {
       "mode": "chat",
@@ -399,8 +392,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 32768,
-        "max_output": 32768,
-        "max_tokens": 32768
+        "max_output": 32768
       },
       "pricing": {
         "input_per_million_tokens": 1.0,
@@ -413,14 +405,13 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-09"
+      "last_updated_at": "2026-10-27"
     },
     "moonshot-v1-8k": {
       "mode": "chat",
       "context_window": {
         "max_input": 8192,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 8192
       },
       "pricing": {
         "input_per_million_tokens": 0.2,
@@ -433,7 +424,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-09"
+      "last_updated_at": "2026-10-27"
     },
     "moonshot-v1-8k-0430": {
       "mode": "chat",
@@ -459,8 +450,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 8192,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 8192
       },
       "pricing": {
         "input_per_million_tokens": 0.2,
@@ -473,14 +463,13 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-09"
+      "last_updated_at": "2026-10-27"
     },
     "moonshot-v1-auto": {
       "mode": "chat",
       "context_window": {
         "max_input": 131072,
-        "max_output": 131072,
-        "max_tokens": 131072
+        "max_output": 131072
       },
       "pricing": {
         "input_per_million_tokens": 2.0,
@@ -493,7 +482,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-09"
+      "last_updated_at": "2026-10-27"
     }
   }
 }

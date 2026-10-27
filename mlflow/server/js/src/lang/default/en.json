@@ -19,10 +19,6 @@
     "defaultMessage": "Registered At",
     "description": "Label name for registered timestamp metadata in model version page"
   },
-  "+2J6oE": {
-    "defaultMessage": "Medium",
-    "description": "Issue severity tag label for medium severity"
-  },
   "+33ShX": {
     "defaultMessage": "Cancel",
     "description": "Button label for cancelling the creation of an assessment"
@@ -315,6 +311,10 @@
     "defaultMessage": "Usage coverage",
     "description": "Accessible label for usage coverage information"
   },
+  "/807T7": {
+    "defaultMessage": "Search timezones",
+    "description": "Experiment issues tab > Schedule modal placeholder of the timezone search input"
+  },
   "/8HzzV": {
     "defaultMessage": "Total trace duration",
     "description": "Tooltip description for the Execution Duration column in the traces table"
@@ -355,10 +355,6 @@
     "defaultMessage": "Skill folder",
     "description": "Aria label for the skill directory picker"
   },
-  "/FWWkj": {
-    "defaultMessage": "Issue detection run",
-    "description": "Tooltip for the AI icon indicating this is an issue detection run"
-  },
   "/G/eHs": {
     "defaultMessage": "Run judge",
     "description": "Button text for running judge"
@@ -370,6 +366,10 @@
   "/H+bu1": {
     "defaultMessage": "Time",
     "description": "Traces table start-time column name"
+  },
+  "/HcFNg": {
+    "defaultMessage": "Field",
+    "description": "Experiment issues tab > Schedule modal label for the trace filter field"
   },
   "/HeTx7": {
     "defaultMessage": "Create",
@@ -879,10 +879,6 @@
     "defaultMessage": "User",
     "description": "Label for the user id section"
   },
-  "12WZU6": {
-    "defaultMessage": "Issues",
-    "description": "Run details page > tab selector > issues tab"
-  },
   "13uH6N": {
     "defaultMessage": "Complete or remove unsupported filters before applying.",
     "description": "Invalid or incomplete comparison trace filter"
@@ -975,6 +971,10 @@
     "defaultMessage": "Evaluate traces",
     "description": "Title for the run evaluation modal dialog"
   },
+  "1QnDrr": {
+    "defaultMessage": "Open trace comparison",
+    "description": "Accessible label for a matched trace comparison row"
+  },
   "1RAM3C": {
     "defaultMessage": "Failed to delete some API keys. Please try again.",
     "description": "Gateway > Bulk delete API keys modal > Error message"
@@ -1006,10 +1006,6 @@
   "1VD7Gl": {
     "defaultMessage": "Create judge",
     "description": "Create judge button text"
-  },
-  "1XEl9S": {
-    "defaultMessage": "Save",
-    "description": "Button to save issue changes"
   },
   "1YGQOY": {
     "defaultMessage": "Duplicate run",
@@ -1050,6 +1046,10 @@
   "1f72BQ": {
     "defaultMessage": "Version",
     "description": "Column title text for model version in model version table"
+  },
+  "1gnrjt": {
+    "defaultMessage": "Back",
+    "description": "Experiment issues tab > Schedule modal button that leaves the API key step"
   },
   "1hI96w": {
     "defaultMessage": "Showing only visible runs",
@@ -1127,9 +1127,9 @@
     "defaultMessage": "{count, plural, one {# improved comparison group} other {# improved comparison groups}} compared with baseline",
     "description": "Count of matched session summaries or standalone traces that improved against baseline"
   },
-  "1uyr/n": {
-    "defaultMessage": "View {count} {count, plural, one {issue} other {issues}}",
-    "description": "Issue detection summary > View issues button"
+  "1v3p5x": {
+    "defaultMessage": "This MLflow server is not configured to run scheduled detection. It needs a SQL backend store, job execution and periodic tasks enabled, and a job execution engine that can run scheduled detection.",
+    "description": "Experiment issues tab > Tooltip explaining the scheduled-detection control is disabled because the server cannot run a schedule"
   },
   "1wfVV5": {
     "defaultMessage": "Currently sorted by",
@@ -1231,10 +1231,6 @@
     "defaultMessage": "Trace",
     "description": "Experiment issues tab > Evidence card > Fallback trace name"
   },
-  "2Im7IU": {
-    "defaultMessage": "Move to pending",
-    "description": "Button to move an issue back to pending status"
-  },
   "2J+I80": {
     "defaultMessage": "State",
     "description": "Column selector label for the state column"
@@ -1262,6 +1258,10 @@
   "2Noq+z": {
     "defaultMessage": "Could not assign yourself to the queue: {error}",
     "description": "Review queue: error toast when self-assigning to a queue fails"
+  },
+  "2O3Jgq": {
+    "defaultMessage": "Scheduled runs incur model usage costs on every occurrence.",
+    "description": "Experiment issues tab > Schedule modal hint that a scheduled detection run spends on the chosen model each time it fires"
   },
   "2O7c5v": {
     "defaultMessage": "Comparisons",
@@ -1362,10 +1362,6 @@
   "2bLoV1": {
     "defaultMessage": "No issues match these filters.",
     "description": "Experiment Issues no matching results"
-  },
-  "2cshW2": {
-    "defaultMessage": "Resolved ({count})",
-    "description": "Issue status filter > Resolved button label"
   },
   "2deqxk": {
     "defaultMessage": "We couldn't find any models matching your search criteria. Try changing your search filters.",
@@ -2035,10 +2031,6 @@
     "defaultMessage": "In progress",
     "description": "Running trace status in the trace drawer header"
   },
-  "4kSYNV": {
-    "defaultMessage": "No issues found",
-    "description": "Issue detection run details > Issues tab > Empty state title"
-  },
   "4mxOPT": {
     "defaultMessage": "Estimated cost",
     "description": "Accessible label for evaluation run estimated cost information"
@@ -2159,10 +2151,6 @@
     "defaultMessage": "{status, select, SCHEDULED {Scheduled} FAILED {Failed} FINISHED {Finished} RUNNING {Running} KILLED {Killed} other {Unknown}}",
     "description": "Human-readable status of an evaluation run"
   },
-  "5EY1X7": {
-    "defaultMessage": "Small trace samples and weaker models can miss real issues. Ways to improve coverage:",
-    "description": "Introduction of the guidance callout on low-result issue detection runs"
-  },
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
@@ -2246,6 +2234,10 @@
   "5UrahG": {
     "defaultMessage": "Viewing version {version}",
     "description": "Title of the prompt details page for a given version"
+  },
+  "5WRWlN": {
+    "defaultMessage": "Model",
+    "description": "Experiment issues tab > Schedule modal label for the model scheduled runs analyze with"
   },
   "5WkkxY": {
     "defaultMessage": "Turn issues into a regression test and catch them before you ship.",
@@ -2494,6 +2486,10 @@
   "6K04VZ": {
     "defaultMessage": "Max. tokens: {max_tokens}",
     "description": "Experiment page > artifact compare view > run column header prompt metadata > max tokens parameter"
+  },
+  "6L7B4r": {
+    "defaultMessage": "e.g. production",
+    "description": "Experiment issues tab > Schedule modal placeholder for the metadata filter value"
   },
   "6OPA3U": {
     "defaultMessage": "Metadata:",
@@ -2750,6 +2746,10 @@
   "73n+mN": {
     "defaultMessage": "Create Guardrail",
     "description": "Create guardrail button"
+  },
+  "73tIKS": {
+    "defaultMessage": "Trace {traceNumber} of {traceCount}",
+    "description": "Current trace comparison position shown between pairwise review navigation buttons"
   },
   "73ydH0": {
     "defaultMessage": "Off",
@@ -3123,6 +3123,10 @@
     "defaultMessage": "Type a key",
     "description": "Key-value tag editor modal > Tag dropdown > Tag input placeholder"
   },
+  "8AefRn": {
+    "defaultMessage": "Review",
+    "description": "Action that starts pairwise review for evaluation run comparison traces"
+  },
   "8CgyA/": {
     "defaultMessage": "Tags",
     "description": "Section label for tag columns in the traces table column selector"
@@ -3174,6 +3178,10 @@
   "8Jnxjy": {
     "defaultMessage": "Advanced settings (optional)",
     "description": "Toggle for optional skill registration fields"
+  },
+  "8KDX76": {
+    "defaultMessage": "e.g. environment",
+    "description": "Experiment issues tab > Schedule modal placeholder for the metadata filter key"
   },
   "8Ks2en": {
     "defaultMessage": "Type something to search run names",
@@ -3675,14 +3683,6 @@
     "defaultMessage": "Add chart",
     "description": "Experiment tracking > runs charts > add chart menu"
   },
-  "9w0l9N": {
-    "defaultMessage": "Reject",
-    "description": "Button to reject an issue"
-  },
-  "9w1lBO": {
-    "defaultMessage": "Failed to update issue status: {error}",
-    "description": "Error message when issue status update fails"
-  },
   "9wWapn": {
     "defaultMessage": "Click 'Add chart' or drag and drop to add charts here.",
     "description": "Runs compare page > Charts tab > No charts placeholder description"
@@ -3858,10 +3858,6 @@
   "AP+v4+": {
     "defaultMessage": "Delete",
     "description": "MCP server detail delete server action"
-  },
-  "APwgn9": {
-    "defaultMessage": "Identifying issues from traces...",
-    "description": "Issue detection progress > Step label (fallback)"
   },
   "AQh8lf": {
     "defaultMessage": "Model",
@@ -4071,6 +4067,10 @@
     "defaultMessage": "This saved view could not be shared.",
     "description": "Error toast shown when building a saved traces view share link fails"
   },
+  "B7iXXS": {
+    "defaultMessage": "Timezone",
+    "description": "Experiment issues tab > Schedule modal label for the timezone the start time is read in"
+  },
   "B80MC6": {
     "defaultMessage": "Contour Plot",
     "description": "Tab pane title for contour plots on the compare runs page"
@@ -4110,10 +4110,6 @@
   "BDmDMg": {
     "defaultMessage": "Your saved view was overridden.",
     "description": "Experiment page > shared view > confirmation toast after overriding the user's saved view with a shared view"
-  },
-  "BDnRzZ": {
-    "defaultMessage": "Total cost: {cost}",
-    "description": "Issue detection progress > Total cost in USD"
   },
   "BEFBcB": {
     "defaultMessage": "We support multiple experiment types, each with its own set of features. Please select the type you'd like to use. You can change this later if needed.",
@@ -4230,10 +4226,6 @@
   "Bbm59f": {
     "defaultMessage": "100",
     "description": "Label for 100 first runs visible in run count selector within runs compare configuration modal"
-  },
-  "Bceyd0": {
-    "defaultMessage": "Issue detection summary",
-    "description": "Issue detection summary > Title"
   },
   "BcmFvf": {
     "defaultMessage": "Create endpoint",
@@ -4647,10 +4639,6 @@
     "defaultMessage": "Metrics",
     "description": "Table title text for metrics table in the model comparison page"
   },
-  "Cq6NMs": {
-    "defaultMessage": "Issue detection failed",
-    "description": "Issue detection progress > Step label when failed"
-  },
   "CruI7o": {
     "defaultMessage": "Latest version",
     "description": "Column title for latest model version in the registered model page"
@@ -4727,10 +4715,6 @@
     "defaultMessage": "View progress",
     "description": "Link to the issue detection run page from the job-started notification"
   },
-  "D9xvar": {
-    "defaultMessage": "Cancel",
-    "description": "Button to cancel editing"
-  },
   "DAXO9O": {
     "defaultMessage": "{count, plural, one {# regression} other {# regressions}} for {column} in {run} compared with baseline",
     "description": "Explanation of a regression comparison filter"
@@ -4738,6 +4722,10 @@
   "DCC164": {
     "defaultMessage": "GenAI",
     "description": "Label for GenAI workflow type option"
+  },
+  "DCfOND": {
+    "defaultMessage": "One last step to schedule issue detection",
+    "description": "Experiment issues tab > Schedule modal headline of the API key step"
   },
   "DCfRbl": {
     "defaultMessage": "Prompts",
@@ -5022,10 +5010,6 @@
   "EBwDIg": {
     "defaultMessage": "Delete",
     "description": "Delete evaluation runs modal button text"
-  },
-  "EC6A+w": {
-    "defaultMessage": "Edit",
-    "description": "Button to edit an issue"
   },
   "ECjBf5": {
     "defaultMessage": "Edit the request body below and click Send request to call the endpoint.",
@@ -5355,6 +5339,10 @@
     "defaultMessage": "When enabled, all requests to this endpoint will be logged as traces. This allows you to monitor usage, debug issues, and analyze performance.",
     "description": "Tooltip explaining what usage tracking does"
   },
+  "FZPIHc": {
+    "defaultMessage": "Minute",
+    "description": "Experiment issues tab > Schedule modal label for the minute a run starts at"
+  },
   "FZe3Mu": {
     "defaultMessage": "Last modified",
     "description": "Header for the last modified column in the MCP servers table"
@@ -5474,10 +5462,6 @@
   "FslHqc": {
     "defaultMessage": "Icon URL {number}",
     "description": "Registry icon editor label for an icon URL"
-  },
-  "Ft2NsS": {
-    "defaultMessage": "High",
-    "description": "Issue severity tag label for high severity"
   },
   "FxQYyX": {
     "defaultMessage": "Select your workflow type. Choose GenAI when working on apps and agents, and select model training when working on classical ML or deep learning problems.",
@@ -5627,6 +5611,10 @@
     "defaultMessage": "The trace variable is not supported when running the judge on a sample of traces",
     "description": "Tooltip message when instructions contain trace variable"
   },
+  "GKPgXX": {
+    "defaultMessage": "Cancel",
+    "description": "Experiment issues tab > Schedule modal cancel button"
+  },
   "GKVTw4": {
     "defaultMessage": "JSON",
     "description": "JSON select menu option for assessment data type"
@@ -5666,6 +5654,10 @@
   "GU5EuF": {
     "defaultMessage": "You do not have permission to view these issues",
     "description": "Experiment Issues permission error"
+  },
+  "GUkc63": {
+    "defaultMessage": "Remove filter",
+    "description": "Experiment issues tab > Schedule modal aria label for the remove-filter button"
   },
   "GWJ0sz": {
     "defaultMessage": "The agent errors, a tool call fails, or an action does not complete.",
@@ -5898,10 +5890,6 @@
   "HGsGOJ": {
     "defaultMessage": "Select a version to view details.",
     "description": "Skill detail placeholder when no version is selected"
-  },
-  "HHRU4d": {
-    "defaultMessage": "Detection progress",
-    "description": "Issue detection progress > Title"
   },
   "HHruY/": {
     "defaultMessage": "Enter a remote Git, OCI, or ZIP location.",
@@ -6459,10 +6447,6 @@
     "defaultMessage": "{totalCount, plural, one {# run} other {# runs}}",
     "description": "Total count of evaluation runs when no filter is applied"
   },
-  "IxV+1g": {
-    "defaultMessage": "This stops the current run. You can start a new one at any time.",
-    "description": "Body of the confirmation dialog for canceling an issue detection run"
-  },
   "J+Mfua": {
     "defaultMessage": "Delete",
     "description": "Confirm-button text for the V2 evaluation dataset delete modal"
@@ -6490,6 +6474,10 @@
   "J2IXIT": {
     "defaultMessage": "Create Guardrail",
     "description": "Title for create guardrail modal"
+  },
+  "J2Lytp": {
+    "defaultMessage": "{provider} needs an API key. Paste it once and MLflow saves it securely in AI Gateway, where every scheduled run reads it.",
+    "description": "Experiment issues tab > Schedule modal explanation of the API key step"
   },
   "J2XCE/": {
     "defaultMessage": "Specify sequences that signal the model to stop generating text.",
@@ -6642,10 +6630,6 @@
   "JYz7tl": {
     "defaultMessage": "Failed to load MCP server",
     "description": "MCP server detail page error title"
-  },
-  "JaA2me": {
-    "defaultMessage": "Failed to update issue: {error}",
-    "description": "Error message when issue update fails"
   },
   "JaanQY": {
     "defaultMessage": "Tools",
@@ -6851,6 +6835,10 @@
     "defaultMessage": "Track every version of your app's code and prompts to understand how quality changes over time. {learnMoreLink}",
     "description": "Empty state description displayed when no models are logged in the genai logged models list page"
   },
+  "KCN//B": {
+    "defaultMessage": "Remove {excess, plural, one {# filter} other {# filters}}. Scheduled runs apply at most {limit}.",
+    "description": "Experiment issues tab > Schedule modal error shown when a schedule carries more trace filters than the server applies"
+  },
   "KDxbQI": {
     "defaultMessage": "An error occurred while rendering the trace",
     "description": "Description for default error message in the Trace Explorer UI"
@@ -6934,6 +6922,10 @@
   "KTl4GE": {
     "defaultMessage": "No assignable reviewers",
     "description": "Review queue: no assignable reviewers available"
+  },
+  "KUuBfQ": {
+    "defaultMessage": "Schedule detection",
+    "description": "Experiment issues tab > Button that opens the scheduled-detection modal"
   },
   "KV3BXl": {
     "defaultMessage": "Select as baseline version",
@@ -7147,6 +7139,10 @@
     "defaultMessage": "No versions",
     "description": "Empty state when a Skill has no versions"
   },
+  "LAOuy0": {
+    "defaultMessage": "Daily",
+    "description": "Experiment issues tab > Scheduled detection cadence option that runs once a day"
+  },
   "LAfLd4": {
     "defaultMessage": "Learn more",
     "description": "Analyze overview documentation button shown when issue detection is unavailable"
@@ -7154,10 +7150,6 @@
   "LBaK9z": {
     "defaultMessage": "Open dataset",
     "description": "Text for the button that opens the dataset source URL in a new tab"
-  },
-  "LBbyku": {
-    "defaultMessage": "Endpoint",
-    "description": "Run page > Overview > Endpoint used for issue detection"
   },
   "LED2z5": {
     "defaultMessage": "To disable or enable this display, call {disableFunction} or {enableFunction} and re-run the cell",
@@ -7635,9 +7627,9 @@
     "defaultMessage": "Override saved view",
     "description": "Experiment page Views menu > entry that overwrites the user's saved view with the applied shared view"
   },
-  "MjypBt": {
-    "defaultMessage": "Pending ({count})",
-    "description": "Issue status filter > Pending button label"
+  "Mj0xjX": {
+    "defaultMessage": "Save",
+    "description": "Experiment issues tab > Schedule modal confirm button"
   },
   "MkP0XP": {
     "defaultMessage": "Could not remove traces: {error}",
@@ -7818,10 +7810,6 @@
   "NHPAjO": {
     "defaultMessage": "Trace display settings",
     "description": "Accessible label for trace display settings button"
-  },
-  "NHlNLj": {
-    "defaultMessage": "Description",
-    "description": "Label for issue description section"
   },
   "NI/ukG": {
     "defaultMessage": "N/A",
@@ -8038,6 +8026,10 @@
   "NyzPHY": {
     "defaultMessage": "Expand description",
     "description": "Aria label for button that expands a collapsed long description"
+  },
+  "NzFgn4": {
+    "defaultMessage": "Value",
+    "description": "Experiment issues tab > Schedule modal label for the trace filter value"
   },
   "NzRvyj": {
     "defaultMessage": "Table settings",
@@ -8343,10 +8335,6 @@
     "defaultMessage": "Registered at:",
     "description": "Skill version creation timestamp label"
   },
-  "Ortr1x": {
-    "defaultMessage": "<link>Add user feedback</link> to traces so real failures stand out",
-    "description": "Suggestion to collect user feedback on traces, with documentation link"
-  },
   "OtV8ht": {
     "defaultMessage": "Group by",
     "description": "Display menu item opening the evaluation-runs group-by submenu"
@@ -8366,6 +8354,10 @@
   "Oy0YDb": {
     "defaultMessage": "Compare selected runs",
     "description": "Tooltip for the eval-runs compare button when at least 2 runs are selected"
+  },
+  "OyB7Fe": {
+    "defaultMessage": "Couldn't read this experiment's detection schedule. Retry to edit it.",
+    "description": "Experiment issues tab > Tooltip explaining the scheduled-detection control is disabled because its schedule could not be read"
   },
   "OzFBcd": {
     "defaultMessage": "Choose which questions reviewers answer for traces in this queue.",
@@ -8462,10 +8454,6 @@
   "PIPzZY": {
     "defaultMessage": "General",
     "description": "Sidebar link: Settings > General"
-  },
-  "PIsgM0": {
-    "defaultMessage": "Experiments",
-    "description": "Issue detection run details > Breadcrumb > Experiments"
   },
   "PJNUxu": {
     "defaultMessage": "Run judges",
@@ -8574,10 +8562,6 @@
   "PcVvLL": {
     "defaultMessage": "Spans",
     "description": "Header for the spans column within the MLflow trace UI"
-  },
-  "PdoaF7": {
-    "defaultMessage": "Model",
-    "description": "Run page > Overview > Model used for issue detection"
   },
   "Pe0JMj": {
     "defaultMessage": "Failed to update password",
@@ -8722,10 +8706,6 @@
   "Q0i5xG": {
     "defaultMessage": "Scatter chart",
     "description": "Experiment tracking > runs charts > add chart menu > scatter plot"
-  },
-  "Q0tqO9": {
-    "defaultMessage": "Not an issue",
-    "description": "Issue severity tag label for not an issue"
   },
   "Q1cbfC": {
     "defaultMessage": "View evaluation runs",
@@ -8895,10 +8875,6 @@
     "defaultMessage": "Sort issues",
     "description": "Experiment issues tab > Accessible label for the sort toolbar button"
   },
-  "QevoXx": {
-    "defaultMessage": "Error details",
-    "description": "Issue detection error details > Title"
-  },
   "QfSTsy": {
     "defaultMessage": "Dismiss this banner. You'll keep viewing the shared view.",
     "description": "Tooltip on the shared view banner's dismiss button explaining it hides the banner but keeps the view"
@@ -8994,10 +8970,6 @@
   "QybNk9": {
     "defaultMessage": "Next unreviewed",
     "description": "Review focused view: jump to the next pending trace"
-  },
-  "R+r9jY": {
-    "defaultMessage": "Cancel issue detection?",
-    "description": "Title of the confirmation dialog for canceling an issue detection run"
   },
   "R/4/8G": {
     "defaultMessage": "Metric",
@@ -9147,6 +9119,10 @@
     "defaultMessage": "Columns",
     "description": "Columns label for the chat sessions table column selector"
   },
+  "RX6+zY": {
+    "defaultMessage": "Additional trace filters (optional)",
+    "description": "Experiment issues tab > Schedule modal label for the optional trace filters"
+  },
   "RXI71h": {
     "defaultMessage": "Top P",
     "description": "Label for the top-p input on the playground parameters panel"
@@ -9202,6 +9178,10 @@
   "RhQhT4": {
     "defaultMessage": "Model",
     "description": "Label for model name in span details"
+  },
+  "RiVnNf": {
+    "defaultMessage": "Continue and save",
+    "description": "Experiment issues tab > Schedule modal button that saves the API key and then the schedule"
   },
   "RiZy19": {
     "defaultMessage": "Remove filter",
@@ -9559,10 +9539,6 @@
     "defaultMessage": "Previewing the first {numRows} rows",
     "description": "Title for showing the number of rows in the parsed data preview"
   },
-  "SrjuS9": {
-    "defaultMessage": "Resolve",
-    "description": "Button to resolve an issue"
-  },
   "Ssqs6b": {
     "defaultMessage": "Dashboard",
     "description": "Label for the dashboard tab in the MLflow experiment navbar"
@@ -9570,10 +9546,6 @@
   "SuVsDp": {
     "defaultMessage": "Custom code judge feedback",
     "description": "Tooltip content for custom code judge feedback"
-  },
-  "Sw9saQ": {
-    "defaultMessage": "Add more traces. Only {count, plural, one {1 trace was} other {# traces were}} analyzed.",
-    "description": "Suggestion to analyze more traces, with the number analyzed in this run"
   },
   "SwS1nm": {
     "defaultMessage": "Expand session {sessionId}",
@@ -9907,10 +9879,6 @@
     "defaultMessage": "An error occurred while updating the budget policy. Please try again.",
     "description": "Generic error message for budget policy update"
   },
-  "U0eQAT": {
-    "defaultMessage": "Only 1 issue found. There may be more.",
-    "description": "Title of the guidance callout when an issue detection run found a single issue"
-  },
   "U0joaT": {
     "defaultMessage": "Select traces",
     "description": "Title for the select traces modal"
@@ -10119,9 +10087,17 @@
     "defaultMessage": "Aliases:",
     "description": "Skill version aliases label"
   },
+  "UkBza7": {
+    "defaultMessage": "Remove the {character} character from the filter. Scheduled runs cannot match on it.",
+    "description": "Experiment issues tab > Schedule modal error shown when a trace filter contains a character the server cannot apply"
+  },
   "UkVgwL": {
     "defaultMessage": "Create endpoint",
     "description": "Page title for create endpoint"
+  },
+  "UkiKf0": {
+    "defaultMessage": "at",
+    "description": "Experiment issues tab > Schedule modal word joining the cadence to the time it runs at, as in \"Daily at 09:00\""
   },
   "UlkINy": {
     "defaultMessage": "Admin",
@@ -10134,10 +10110,6 @@
   "UmwZQv": {
     "defaultMessage": "using Prompt Engineering",
     "description": "String for creating a new run with prompt engineering modal"
-  },
-  "UnQIPJ": {
-    "defaultMessage": "Created: {date}",
-    "description": "Issue creation date label"
   },
   "UnRN5H": {
     "defaultMessage": "Create access endpoint",
@@ -10227,10 +10199,6 @@
     "defaultMessage": "Select element type",
     "description": "Placeholder for list element type"
   },
-  "V386Xy": {
-    "defaultMessage": "0 issues doesn't always mean all clear",
-    "description": "Title of the guidance callout when an issue detection run found no issues"
-  },
   "V4CsL/": {
     "defaultMessage": "Unable to list artifacts stored under {artifactUri} for the current run. Please contact your tracking server administrator to notify them of this error, which can happen when the tracking server lacks permission to list artifacts under the current run's root artifact directory.",
     "description": "Error message when the artifact is unable to load. This message is displayed in the open source ML flow only"
@@ -10286,10 +10254,6 @@
   "VEuVfv": {
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
     "description": "Label showing number of traces selected in the run evaluation modal"
-  },
-  "VF2V6v": {
-    "defaultMessage": "Issues identified from traces will appear here.",
-    "description": "Issue detection run details > Issues tab > Empty state description"
   },
   "VGJhVI": {
     "defaultMessage": "Add New Tag",
@@ -10459,10 +10423,6 @@
     "defaultMessage": "Traces",
     "description": "Label for the traces tab in the MLflow experiment navbar"
   },
-  "VjeYic": {
-    "defaultMessage": "<link>Annotate traces</link> in the review queue to capture known issues",
-    "description": "Suggestion to annotate traces in the review queue, with link to the review queue"
-  },
   "Vjha2S": {
     "defaultMessage": "Guardrails",
     "description": "Tab label for endpoint guardrails"
@@ -10539,17 +10499,9 @@
     "defaultMessage": "Couldn't check whether this name is already registered: {reason} Try again.",
     "description": "Error when the skill name availability check fails before registration"
   },
-  "VuoTZe": {
-    "defaultMessage": "Cancel run",
-    "description": "Confirm button that cancels the issue detection run"
-  },
   "VuqpXo": {
     "defaultMessage": "AI Registry",
     "description": "Sidebar label for the AI Registry section"
-  },
-  "Vvs+79": {
-    "defaultMessage": "Low",
-    "description": "Issue severity tag label for low severity"
   },
   "VwxvII": {
     "defaultMessage": "forecasting",
@@ -11063,6 +11015,10 @@
     "defaultMessage": "Sort",
     "description": "Display menu item opening the traces table sort submenu"
   },
+  "XVu7d9": {
+    "defaultMessage": "on",
+    "description": "Experiment issues tab > Schedule modal word joining the cadence to the weekday it runs on, as in \"Weekly on Monday\""
+  },
   "XW2m3R": {
     "defaultMessage": "Sort",
     "description": "Experiment issues tab > Label before the current sort on the sort button"
@@ -11210,10 +11166,6 @@
   "Y1eg9D": {
     "defaultMessage": "In progress",
     "description": "Model trace header > status label > in progress"
-  },
-  "Y31bI7": {
-    "defaultMessage": "Try a stronger model. Model quality directly affects detection accuracy.",
-    "description": "Suggestion to use a stronger model for issue detection"
   },
   "Y3btxE": {
     "defaultMessage": "Toggle sort direction for {columnLabel}",
@@ -11467,6 +11419,10 @@
     "defaultMessage": "Select an endpoint to view logs",
     "description": "No endpoint selected message for logs tab"
   },
+  "YrfiRo": {
+    "defaultMessage": "Add filter",
+    "description": "Experiment issues tab > Schedule modal button that adds another trace filter clause"
+  },
   "YrlNKi": {
     "defaultMessage": "Follow these steps to create a custom code judge using your own code. {link}",
     "description": "Brief instructions for custom code judge creation"
@@ -11611,10 +11567,6 @@
     "defaultMessage": "{count, plural, =1 {1 minute} other {# minutes}} ago",
     "description": "Time duration in minutes"
   },
-  "ZOV936": {
-    "defaultMessage": "Resolved",
-    "description": "Issue status tag label for resolved issues"
-  },
   "ZOsiNc": {
     "defaultMessage": "just now",
     "description": "Indicates a time duration that just passed"
@@ -11630,6 +11582,10 @@
   "ZSmd/j": {
     "defaultMessage": "Session comparison {sessionId}",
     "description": "Parent row for a matched group of run sessions"
+  },
+  "ZTnd0L": {
+    "defaultMessage": "Filter value",
+    "description": "Experiment issues tab > Schedule modal aria label for the trace filter value input"
   },
   "ZWtO7h": {
     "defaultMessage": "TRUE",
@@ -11755,6 +11711,10 @@
     "defaultMessage": "New run name",
     "description": "Experiment page > new run modal > run name input label"
   },
+  "ZqjZoR": {
+    "defaultMessage": "Key",
+    "description": "Experiment issues tab > Schedule modal label for the trace filter key"
+  },
   "ZrE17j": {
     "defaultMessage": "Request: {value}",
     "description": "Experiment issues tab > Legacy evidence step > Trace's request preview"
@@ -11830,6 +11790,10 @@
   "a9kRlY": {
     "defaultMessage": "Tool calls",
     "description": "Label for the tool calls tab in the experiment overview page"
+  },
+  "a9nULu": {
+    "defaultMessage": "Recommended",
+    "description": "Experiment issues tab > Schedule modal heading above the suggested timezones"
   },
   "aAAHaS": {
     "defaultMessage": "Context insufficient",
@@ -11986,10 +11950,6 @@
   "acLHXI": {
     "defaultMessage": "Theme",
     "description": "Registry icon editor column header for icon themes"
-  },
-  "adOmg9": {
-    "defaultMessage": "Add more traces for broader coverage",
-    "description": "Suggestion to analyze more traces"
   },
   "adVHxN": {
     "defaultMessage": "Outputs",
@@ -12631,6 +12591,10 @@
     "defaultMessage": "No runs have been logged yet. <link>Learn more</link> about how to create ML model training runs in this experiment.",
     "description": "Empty state description text for experiment runs page when no runs are logged in the experiment"
   },
+  "corxRF": {
+    "defaultMessage": "Retry schedule",
+    "description": "Experiment issues tab > Button that retries reading the detection schedule after a failed read"
+  },
   "cp/h86": {
     "defaultMessage": "Failed to load chart data",
     "description": "Error message when chart fails to load"
@@ -12710,10 +12674,6 @@
   "d30JAY": {
     "defaultMessage": "Trace search limit reached",
     "description": "Accessible label for a potentially incomplete trace count"
-  },
-  "d34yzQ": {
-    "defaultMessage": "Rejected",
-    "description": "Issue status tag label for rejected issues"
   },
   "d44IPd": {
     "defaultMessage": "Reopen review",
@@ -12866,10 +12826,6 @@
   "dVh69l": {
     "defaultMessage": "Run name",
     "description": "Column label for run name"
-  },
-  "dWC3yM": {
-    "defaultMessage": "Scanned <tracesLink>{totalTraces, plural, one {1 trace} other {# traces}}</tracesLink>, <issuesLink>{identifiedIssues, plural, one {1 issue} other {# issues}}</issuesLink> found",
-    "description": "Issue detection progress > Progress summary when completed"
   },
   "dY1g+4": {
     "defaultMessage": "Optional character limit for the free-form text. Leave blank for no limit.",
@@ -13119,6 +13075,10 @@
     "defaultMessage": "Reset example",
     "description": "Reset example button"
   },
+  "eJM0ai": {
+    "defaultMessage": "Next run as saved: {when}",
+    "description": "Experiment issues tab > Schedule modal line stating when the schedule as currently saved next runs; it does not follow unsaved edits"
+  },
   "eLgTRT": {
     "defaultMessage": "Key",
     "description": "Tag key label in unified trace tag assignment modal"
@@ -13254,6 +13214,10 @@
   "ej31kf": {
     "defaultMessage": "URL",
     "description": "Remote URL label"
+  },
+  "ejrrhd": {
+    "defaultMessage": "Tag",
+    "description": "Experiment issues tab > Schedule modal trace filter field option for tags"
   },
   "ejy0iU": {
     "defaultMessage": "You can change this model in advanced settings",
@@ -13595,10 +13559,6 @@
     "defaultMessage": "You need to provide values for all defined inputs",
     "description": "Experiment page > new run modal > invalid state - no prompt inputs provided"
   },
-  "fnKCv5": {
-    "defaultMessage": "Cancel",
-    "description": "Issue detection progress > Cancel button"
-  },
   "fq8v6G": {
     "defaultMessage": "Trace name",
     "description": "Column label for trace name"
@@ -13710,6 +13670,10 @@
   "g6nof1": {
     "defaultMessage": "AI Gateway",
     "description": "Model dropdown group for AI Gateway endpoints"
+  },
+  "g7e1fJ": {
+    "defaultMessage": "Hour",
+    "description": "Experiment issues tab > Schedule modal label for the hour a run starts at"
   },
   "g7wXdA": {
     "defaultMessage": "Ask Assistant about the selected chart",
@@ -13871,6 +13835,10 @@
     "defaultMessage": "Run",
     "description": "Run header in the eval runs chart tooltip"
   },
+  "gXVZ22": {
+    "defaultMessage": "Metadata",
+    "description": "Experiment issues tab > Schedule modal trace filter field option for request metadata"
+  },
   "gXb1Ab": {
     "defaultMessage": "Create new workspace",
     "description": "Create workspace button"
@@ -14006,10 +13974,6 @@
   "gsF5IQ": {
     "defaultMessage": "{agentName} uses its own credentials, so no API key is required. The provider and model are pre-configured.",
     "description": "Info message shown on coding agent endpoint creation form"
-  },
-  "gt4t2m": {
-    "defaultMessage": "Issue detection completed",
-    "description": "Issue detection progress > Step label when completed"
   },
   "gtvp+Q": {
     "defaultMessage": "Instructions",
@@ -14254,10 +14218,6 @@
   "hZ9EVM": {
     "defaultMessage": "Saved views",
     "description": "Header at the top of the saved views dropdown"
-  },
-  "hZFbZl": {
-    "defaultMessage": "Issue detection canceled",
-    "description": "Issue detection progress > Step label when canceled"
   },
   "hZNzKK": {
     "defaultMessage": "{value} ({label})",
@@ -14859,10 +14819,6 @@
     "defaultMessage": "Metrics",
     "description": "Tooltip for the metric icon in the evaluation runs chart"
   },
-  "j8JWDD": {
-    "defaultMessage": "Enter issue description",
-    "description": "Placeholder text for issue description field"
-  },
   "jClVwe": {
     "defaultMessage": "Point the OTLP exporter at this MLflow server by setting these environment variables. See the <a>OpenTelemetry export docs</a> for the full reference.",
     "description": "Step 1 description for OpenTelemetry traces onboarding"
@@ -15155,10 +15111,6 @@
     "defaultMessage": "Last 24 hours",
     "description": "Date range preset in the evaluation runs filters"
   },
-  "k4F8aJ": {
-    "defaultMessage": "Copy issue ID",
-    "description": "Tooltip to copy issue ID"
-  },
   "k4Pj5X": {
     "defaultMessage": "Select as compared version",
     "description": "Label for selecting compared MCP server version in the comparison view"
@@ -15170,10 +15122,6 @@
   "k5Aq77": {
     "defaultMessage": "Issue detection has completed. There are currently no issues in this experiment. Run it again as your application changes.",
     "description": "Experiment issues tab > Completed detection with an empty store and unknown or nonzero historical results"
-  },
-  "k5kAB3": {
-    "defaultMessage": "Rejected ({count})",
-    "description": "Issue status filter > Rejected button label"
   },
   "k6WAHi": {
     "defaultMessage": "View session",
@@ -15418,10 +15366,6 @@
   "kyC8/W": {
     "defaultMessage": "Debug the error in trace {traceId}.",
     "description": "Prompt sent to the assistant for analyzing a failed trace"
-  },
-  "kzfRC2": {
-    "defaultMessage": "Impacted traces: {count}",
-    "description": "Label showing the number of traces impacted by this issue"
   },
   "l+5Myp": {
     "defaultMessage": "Select all runs",
@@ -15959,6 +15903,10 @@
     "defaultMessage": "Show assessments",
     "description": "Label for the button to show the assessments pane"
   },
+  "mmKobK": {
+    "defaultMessage": "Hourly",
+    "description": "Experiment issues tab > Scheduled detection cadence option that runs every hour"
+  },
   "mmiHAX": {
     "defaultMessage": "Parameters",
     "description": "Header title for the parameters section of the logged model list table"
@@ -16171,10 +16119,6 @@
     "defaultMessage": "Trace view",
     "description": "Tooltip for traces preview mode toggle in evaluation runs table controls"
   },
-  "nIkC92": {
-    "defaultMessage": "Issue ID copied",
-    "description": "Tooltip after issue ID was copied"
-  },
   "nJtz4Y": {
     "defaultMessage": "No results recorded",
     "description": "Tooltip shown when an evaluation run has no result metrics"
@@ -16362,6 +16306,10 @@
   "ns5GSR": {
     "defaultMessage": "Issue detection settings",
     "description": "Issue detection settings modal > Title"
+  },
+  "ntQ/Ku": {
+    "defaultMessage": "Standard",
+    "description": "Experiment issues tab > Schedule modal heading above the full timezone list"
   },
   "nuQe0X": {
     "defaultMessage": "PASS",
@@ -16603,6 +16551,10 @@
     "defaultMessage": "PII Detection",
     "description": "PII guardrail type name"
   },
+  "ohJMGB": {
+    "defaultMessage": "Scheduled: {cadence}",
+    "description": "Experiment issues tab > Button showing the active scheduled-detection cadence"
+  },
   "ojLGIx": {
     "defaultMessage": "Enter a feedback name",
     "description": "Placeholder for the feedback name typeahead"
@@ -16630,10 +16582,6 @@
   "opUoF8": {
     "defaultMessage": "Retrieval relevance",
     "description": "Evaluation results > known type of evaluation result assessment > retrieval relevance assessment. Used to indicate if the result is relevant to source data chunk in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Retrieval relevance: moderate\""
-  },
-  "opk7FD": {
-    "defaultMessage": "Scanning <tracesLink>{totalTraces, plural, one {1 trace} other {# traces}}</tracesLink>, <issuesLink>{identifiedIssues, plural, one {1 issue} other {# issues}}</issuesLink> identified so far",
-    "description": "Issue detection progress > Progress summary while running"
   },
   "oqBCfB": {
     "defaultMessage": "With the latest Model Registry UI, you can use <b>Model Aliases</b> for flexible references to specific model versions, streamlining deployment in a given environment. Use <b>Model Tags</b> to annotate model versions with metadata, like the status of pre-deployment checks.",
@@ -16826,6 +16774,10 @@
   "pOqgMC": {
     "defaultMessage": "Weight",
     "description": "Label for traffic split weight input"
+  },
+  "pP6TDe": {
+    "defaultMessage": "Couldn't save the schedule. Please try again.",
+    "description": "Experiment issues tab > Schedule modal error shown when saving the schedule fails"
   },
   "pPo8Le": {
     "defaultMessage": "Preview",
@@ -17051,6 +17003,10 @@
     "defaultMessage": "You need another endpoint to use guardrails.",
     "description": "Guidance shown when no alternate endpoint exists for guardrail model selection"
   },
+  "qF4j6q": {
+    "defaultMessage": "Off",
+    "description": "Experiment issues tab > Scheduled detection option that disables automatic runs"
+  },
   "qFo+/P": {
     "defaultMessage": "Session",
     "description": "Traces table session column name"
@@ -17074,10 +17030,6 @@
   "qHqhov": {
     "defaultMessage": "Select as baseline version",
     "description": "Label for selecting baseline MCP server version in the comparison view"
-  },
-  "qIHqi7": {
-    "defaultMessage": "Evaluation runs",
-    "description": "Issue detection run details > Breadcrumb > Evaluation runs"
   },
   "qIsNL0": {
     "defaultMessage": "Value",
@@ -17235,6 +17187,10 @@
     "defaultMessage": "Chunk relevance",
     "description": "Evaluation results > known type of evaluation result assessment > chunk relevance assessment. Used to indicate if the result is relevant to source data chunk in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Chunk relevance: moderate\""
   },
+  "qo8Z3t": {
+    "defaultMessage": "Operator",
+    "description": "Experiment issues tab > Schedule modal label for the trace filter operator"
+  },
   "qr7dhT": {
     "defaultMessage": "None",
     "description": "Label for experiments with no automatically inferred experiment type"
@@ -17262,6 +17218,10 @@
   "qxjHQW": {
     "defaultMessage": "Status",
     "description": "Header for the derived parent status column in the Skill Registry table"
+  },
+  "qyygLP": {
+    "defaultMessage": "Cadence",
+    "description": "Experiment issues tab > Schedule modal label for the run cadence"
   },
   "qz9XeG": {
     "defaultMessage": "Cancel",
@@ -17483,10 +17443,6 @@
     "defaultMessage": "For {run}, the {aggregate} value for {column} is {value}.",
     "description": "Summary of a comparison run aggregate value"
   },
-  "rXJqoL": {
-    "defaultMessage": "Adjust and run again",
-    "description": "Button to adjust issue detection settings and run from the low-results callout"
-  },
   "rY00Iw": {
     "defaultMessage": "Add filter",
     "description": "Button to add a new filter in the tags filter popover for experiments page search by tags"
@@ -17655,6 +17611,10 @@
     "defaultMessage": "Traces",
     "description": "Run details page > tab selector > Traces tab"
   },
+  "s9N0nr": {
+    "defaultMessage": "Weekly",
+    "description": "Experiment issues tab > Scheduled detection cadence option that runs once a week"
+  },
   "sAp/J2": {
     "defaultMessage": "Form",
     "description": "Create MCP server via form tab"
@@ -17698,6 +17658,10 @@
   "sEheG0": {
     "defaultMessage": "Key Name",
     "description": "Key name label"
+  },
+  "sFgb6D": {
+    "defaultMessage": "API key",
+    "description": "Experiment issues tab > Schedule modal placeholder of the API key input"
   },
   "sFqnju": {
     "defaultMessage": "Trace ID",
@@ -17999,10 +17963,6 @@
     "defaultMessage": "Active",
     "description": "Webhook active status"
   },
-  "tFVXU7": {
-    "defaultMessage": "Issue ID",
-    "description": "Label for issue ID in popover"
-  },
   "tGfvEG": {
     "defaultMessage": "Example: Show me all the spans in this trace with their information",
     "description": "Placeholder text for the custom trace view prompt input"
@@ -18107,6 +18067,10 @@
     "defaultMessage": "Description",
     "description": "Label for the skill description editor"
   },
+  "ti4iYB": {
+    "defaultMessage": "Schedule issue detection",
+    "description": "Experiment issues tab > Schedule modal title"
+  },
   "tiQptW": {
     "defaultMessage": "Learn more",
     "description": "Link to the documentation page for GenAI evaluation"
@@ -18174,6 +18138,10 @@
   "tyUmNa": {
     "defaultMessage": "{count, plural, one {# model} other {# models}} available",
     "description": "Number of models shown"
+  },
+  "tyi8uT": {
+    "defaultMessage": "Filter key",
+    "description": "Experiment issues tab > Schedule modal aria label for the trace filter key input"
   },
   "tzA/LZ": {
     "defaultMessage": "Name",
@@ -18354,10 +18322,6 @@
   "udIOG1": {
     "defaultMessage": "Submit prompt",
     "description": "Overview assistant submit label"
-  },
-  "ue/dsm": {
-    "defaultMessage": "Pending",
-    "description": "Issue status tag label for pending issues"
   },
   "ueI+tl": {
     "defaultMessage": "Or browse all providers and models →",
@@ -19343,10 +19307,6 @@
     "defaultMessage": "Optional. Override how long traces stay in the tracking store before archival. Leave blank to use the server default.",
     "description": "Hint for workspace trace archival retention field"
   },
-  "xhAFcl": {
-    "defaultMessage": "Failed to cancel job: {error}",
-    "description": "Error message when job cancellation fails"
-  },
   "xhpUB1": {
     "defaultMessage": "The previous issue detection failed. Start a new detection to try again.",
     "description": "Experiment issues tab > Empty state description after issue detection failed"
@@ -19739,10 +19699,6 @@
     "defaultMessage": "Create an AI Gateway endpoint in AI Gateway → Endpoints tab to reuse it here",
     "description": "Tooltip suggesting to create an endpoint for reuse"
   },
-  "z6QxDs": {
-    "defaultMessage": "Issue detection",
-    "description": "Type pill text for an issue-detection run in the evaluation runs table"
-  },
   "z6qX4/": {
     "defaultMessage": "This endpoint may have been deleted",
     "description": "Tooltip for deleted endpoint"
@@ -19891,10 +19847,6 @@
     "defaultMessage": "Metrics",
     "description": "Header for metric columns in the evaluation runs table column configuration"
   },
-  "zZlPwp": {
-    "defaultMessage": "Categories",
-    "description": "Run page > Overview > Issue categories being detected"
-  },
   "zc/Ask": {
     "defaultMessage": "Dataset",
     "description": "Dataset field in the evaluation runs filter"
@@ -19934,6 +19886,10 @@
   "ze1m7Z": {
     "defaultMessage": "Run name cannot consist only of whitespace!",
     "description": "An error shown when user sets the run's name to whitespace characters only"
+  },
+  "zfAfRl": {
+    "defaultMessage": "Day",
+    "description": "Experiment issues tab > Schedule modal label for the weekday a weekly run starts on"
   },
   "zfPkM2": {
     "defaultMessage": "Show {count} more",
