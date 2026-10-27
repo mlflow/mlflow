@@ -1,5 +1,7 @@
+import copy
 import logging
 
+from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 
@@ -9,7 +11,12 @@ from mlflow.environment_variables import (
     MLFLOW_ENABLE_OTEL_GENAI_SEMCONV,
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
 )
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
+from mlflow.tracing.constant import (
+    MCP_SERVER_VERSION_ENCODING,
+    TRACE_SCHEMA_VERSION,
+    TRACE_SCHEMA_VERSION_KEY,
+    SpanAttributeKey,
+)
 from mlflow.tracing.processor.otel_metrics_mixin import OtelMetricsMixin
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import generate_trace_id_v3
@@ -80,6 +87,12 @@ class OtelSpanProcessor(OtelMetricsMixin, BatchSpanProcessor):
 
         if MLFLOW_ENABLE_OTEL_GENAI_SEMCONV.get():
             span = self._translate_span(span)
+
+        if isinstance((span.attributes or {}).get(SpanAttributeKey.MCP_SERVER_VERSION), str):
+            # Keep collector-facing values raw; explicitly distinguish them from legacy JSON
+            # strings. Resource metadata is supported even by older SDKs and OTLP encoders.
+            span = copy.copy(span)
+            span._resource = span.resource.merge(Resource({MCP_SERVER_VERSION_ENCODING: "raw"}))
 
         super().on_end(span)
 

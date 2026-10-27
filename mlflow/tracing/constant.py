@@ -105,6 +105,9 @@ class TraceSizeStatsKey:
 
 # A set of reserved attribute keys
 class SpanAttributeKey:
+    MCP_SERVER_NAME = "mlflow.mcp.server.name"
+    MCP_SERVER_VERSION = "mlflow.mcp.server.version"
+    MCP_TOOL_NAME = "mlflow.mcp.tool.name"
     EXPERIMENT_ID = "mlflow.experimentId"
     REQUEST_ID = "mlflow.traceRequestId"
     INPUTS = "mlflow.spanInputs"
@@ -210,6 +213,9 @@ TRACE_SCHEMA_VERSION = 3
 # Key for the trace schema version in the trace. This key is also used in
 # Databricks model serving to be careful when modifying it.
 TRACE_SCHEMA_VERSION_KEY = "mlflow.trace_schema.version"
+
+# OTLP metadata distinguishing raw MCP versions from legacy JSON encoding.
+MCP_SERVER_VERSION_ENCODING = "mlflow.mcp.server.version.encoding"
 
 
 STREAM_CHUNK_EVENT_NAME_FORMAT = "mlflow.chunk.item.{index}"

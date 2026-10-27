@@ -3,6 +3,7 @@ import base64
 import copy
 import json
 import logging
+from contextlib import nullcontext
 from functools import cached_property
 from typing import Any, NoReturn, Union
 
@@ -49,6 +50,8 @@ from mlflow.tracing.utils.otlp import (
 from mlflow.tracing.utils.processor import apply_span_processors
 
 _logger = logging.getLogger(__name__)
+
+_RAW_MCP_ATTRIBUTES = (SpanAttributeKey.MCP_SERVER_NAME, SpanAttributeKey.MCP_SERVER_VERSION)
 
 
 def _normalize_link_trace_id(link_trace_id: str, source_trace_id: str | None) -> str | None:
@@ -159,6 +162,15 @@ class Span:
         self._links: list["Link"] = [
             _link_from_otel_link(otel_link, request_id) for otel_link in otel_links
         ]
+
+    @classmethod
+    def _from_otel_span(cls, otel_span: OTelReadableSpan) -> "Span":
+        """Wrap an OTel span whose MCP server coordinates have not yet been JSON-encoded."""
+        if any(key in otel_span.attributes for key in _RAW_MCP_ATTRIBUTES):
+            attributes = _LiveSpanAttributesRegistry(otel_span).get_serialized()
+            otel_span = copy.copy(otel_span)
+            otel_span._attributes = attributes
+        return cls(otel_span)
 
     @cached_property
     def trace_id(self) -> str:
@@ -398,7 +410,7 @@ class Span:
             # save the dumped attributes so they can be loaded correctly when deserializing.
             # Read raw values directly from the OTel span to skip a full json.loads pass
             # over every attribute that self.attributes would trigger via get_all().
-            "attributes": dict(self._span.attributes),
+            "attributes": self._attributes.get_serialized(),
             "links": [link.to_dict() for link in self.links],
         }
 
@@ -585,7 +597,7 @@ class Span:
             status_code = OTelStatusCode.UNSET
 
         serialized_attributes = {
-            attr.key: dump_span_attribute_value(_decode_otel_proto_anyvalue(attr.value))
+            attr.key: _serialize_span_attribute(attr.key, _decode_otel_proto_anyvalue(attr.value))
             for attr in otel_proto_span.attributes
         }
         mlflow_trace_id = (
@@ -766,7 +778,7 @@ class LiveSpan(Span):
 
         self._span = otel_span
         self._attachments: dict[str, Attachment] = {}
-        self._attributes = _SpanAttributesRegistry(otel_span)
+        self._attributes = _LiveSpanAttributesRegistry(otel_span)
         self._attributes.set(SpanAttributeKey.REQUEST_ID, trace_id)
         self._attributes.set(SpanAttributeKey.SPAN_TYPE, span_type)
         otel_links = getattr(otel_span, "links", ())
@@ -1308,8 +1320,7 @@ class LiveSpan(Span):
 
         :meta private:
         """
-        # All state of the live span is already persisted in the OpenTelemetry span object.
-        span = Span(self._span)
+        span = Span._from_otel_span(self._span)
         # Shallow copies so the immutable span is independent of further LiveSpan mutations
         span._attachments = dict(self._attachments)
         span._links = [
@@ -1624,6 +1635,14 @@ class NoOpSpan(Span):
         pass
 
 
+def _serialize_span_attribute(key: str, value: Any) -> str:
+    if key == SpanAttributeKey.MCP_SERVER_VERSION and isinstance(value, bytes):
+        # Generic JSON encoding stringifies bytes, which would invent a concrete MCP version.
+        _logger.warning("Ignoring malformed MCP server version of type bytes")
+        value = None
+    return dump_span_attribute_value(value)
+
+
 class _SpanAttributesRegistry:
     """
     A utility class to manage the span attributes.
@@ -1640,6 +1659,9 @@ class _SpanAttributesRegistry:
 
     def get_all(self) -> dict[str, Any]:
         return {key: self.get(key) for key in self._span.attributes.keys()}
+
+    def get_serialized(self) -> dict[str, Any]:
+        return dict(self._span.attributes)
 
     def get(self, key: str):
         if serialized_value := self._span.attributes.get(key):
@@ -1659,6 +1681,40 @@ class _SpanAttributesRegistry:
         #   int, float, bool, and list of them. However, we serialize all into JSON string here
         #   for the simplicity in deserialization process.
         self._span.set_attribute(key, dump_span_attribute_value(value))
+
+
+class _LiveSpanAttributesRegistry(_SpanAttributesRegistry):
+    # Keep coordinates raw on OTel spans and JSON-encode them when serializing for storage.
+    def get(self, key: str):
+        if key in _RAW_MCP_ATTRIBUTES:
+            return self._span.attributes.get(key)
+        return super().get(key)
+
+    def set(self, key: str, value: Any):
+        if key not in _RAW_MCP_ATTRIBUTES:
+            return super().set(key, value)
+        if value is not None and isinstance(value, (str, bool, int, float)):
+            self._span.set_attribute(key, value)
+            return
+        # Use the same lock as SDK setters and end(), which can freeze the attributes.
+        with getattr(self._span, "_lock", nullcontext()):
+            if not self._span.is_recording():
+                return
+            self._span._attributes.pop(key, None)
+        if value is not None:
+            # Older OTel SDKs reject structured values without replacing the old attribute.
+            _logger.warning(
+                "Clearing malformed MCP server %s of type %s",
+                key.rsplit(".", 1)[-1],
+                type(value).__name__,
+            )
+
+    def get_serialized(self) -> dict[str, Any]:
+        attributes = super().get_serialized()
+        for key in _RAW_MCP_ATTRIBUTES:
+            if key in attributes:
+                attributes[key] = _serialize_span_attribute(key, attributes[key])
+        return attributes
 
 
 class _CachedSpanAttributesRegistry(_SpanAttributesRegistry):

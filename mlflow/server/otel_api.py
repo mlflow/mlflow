@@ -39,6 +39,7 @@ from mlflow.server.otlp_metrics import (
 )
 from mlflow.telemetry.events import TraceSource, TracesReceivedByServerEvent
 from mlflow.telemetry.track import _record_event
+from mlflow.tracing.constant import MCP_SERVER_VERSION_ENCODING
 from mlflow.tracing.otel.translation import strip_otlp_double_encoding
 from mlflow.tracing.utils import dump_span_attribute_value
 from mlflow.tracing.utils.otlp import (
@@ -212,12 +213,26 @@ async def export_traces(
                     break
 
             resource = resource_span.resource
+            resource_mcp_version_is_raw = any(
+                attr.key == MCP_SERVER_VERSION_ENCODING and attr.value.string_value == "raw"
+                for attr in resource.attributes
+            )
+            if resource_mcp_version_is_raw:
+                # Keep transport encoding metadata out of the stored resource identity.
+                decoded_resource = type(resource)()
+                decoded_resource.CopyFrom(resource)
+                del decoded_resource.attributes[:]
+                decoded_resource.attributes.extend(
+                    attr for attr in resource.attributes if attr.key != MCP_SERVER_VERSION_ENCODING
+                )
+                resource = decoded_resource
             for scope_span in resource_span.scope_spans:
                 for otel_proto_span in scope_span.spans:
                     try:
                         mlflow_span = Span.from_otel_proto(otel_proto_span, resource=resource)
                         mlflow_span._span._attributes = strip_otlp_double_encoding(
-                            mlflow_span._span._attributes
+                            mlflow_span._span._attributes,
+                            mcp_version_is_raw=resource_mcp_version_is_raw,
                         )
 
                         # Propagate service.name onto root spans so it's visible

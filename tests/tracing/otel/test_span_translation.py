@@ -675,6 +675,23 @@ def test_strip_otlp_double_encoding(
     assert result == expected_attributes
 
 
+@pytest.mark.parametrize("key", ["custom.version", SpanAttributeKey.MCP_SERVER_VERSION])
+@pytest.mark.parametrize("mcp_version_is_raw", [False, True])
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [("1", "1"), ("null", "null"), ("[]", []), ('"quoted"', "quoted")],
+)
+def test_raw_otlp_json_strings_keep_existing_decoding(key, value, expected, mcp_version_is_raw):
+    attributes = {
+        SpanAttributeKey.MCP_SERVER_NAME: json.dumps("com.example/weather"),
+        key: json.dumps(value),
+    }
+    decoded = strip_otlp_double_encoding(attributes, mcp_version_is_raw=mcp_version_is_raw)
+    assert json.loads(decoded[key]) == (
+        value if mcp_version_is_raw and key == SpanAttributeKey.MCP_SERVER_VERSION else expected
+    )
+
+
 @pytest.mark.parametrize(
     ("translator", "model_value"),
     [

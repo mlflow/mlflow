@@ -480,7 +480,9 @@ def update_cost(
     return current_cost
 
 
-def strip_otlp_double_encoding(attributes: dict[str, Any]) -> dict[str, Any]:
+def strip_otlp_double_encoding(
+    attributes: dict[str, Any], *, mcp_version_is_raw: bool = False
+) -> dict[str, Any]:
     """
     Strip the extra JSON encoding layer that Span.from_otel_proto adds to attribute values.
 
@@ -488,9 +490,13 @@ def strip_otlp_double_encoding(attributes: dict[str, Any]) -> dict[str, Any]:
     values before export, so from_otel_proto encodes them a second time. A raw string from a
     third-party OTel client that happens to be JSON (e.g. '{"a": 1}') is also unwrapped here,
     so it is stored as a structured value. This is intended: the chat UI relies on it.
+    Explicitly marked raw MCP versions keep their single encoding from from_otel_proto.
     """
     updated_attributes = {}
     for key, value in attributes.items():
+        if mcp_version_is_raw and key == SpanAttributeKey.MCP_SERVER_VERSION:
+            updated_attributes[key] = value
+            continue
         try:
             result = json.loads(value)
             if isinstance(result, str):
