@@ -138,21 +138,19 @@ const traceFilterTag = (filters: unknown[]): SavedTag => ({
   value: JSON.stringify(filters),
 });
 
-/**
- * `initialEntries` carries the URL the control was reached by, which is how arriving from the
- * scheduled-runs page with the edit param is exercised. A router is required either way: the
- * footer links out to that page, and the control reads the query string.
- */
-const render = (initialEntries: string[] = ['/']) => {
+/** A router is required because the dialog's footer links out to the run history page. */
+const renderWithVariant = (triggerVariant?: 'status' | 'editButton') => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, cacheTime: 0 } } });
   return renderWithDesignSystem(
-    <MemoryRouter initialEntries={initialEntries}>
+    <MemoryRouter>
       <QueryClientProvider client={client}>
-        <ExperimentIssuesScheduleControl experimentId="1" />
+        <ExperimentIssuesScheduleControl experimentId="1" triggerVariant={triggerVariant} />
       </QueryClientProvider>
     </MemoryRouter>,
   );
 };
+
+const render = () => renderWithVariant();
 
 const setup = () => userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
 
@@ -164,7 +162,7 @@ const savedSchedule = (): Record<string, unknown> =>
 const savedTraceFilters = (): unknown[] =>
   JSON.parse(written.find(({ key }) => key === MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG)?.value ?? 'null');
 
-const openModal = async (user: ReturnType<typeof setup>, name = /schedule detection/i) => {
+const openModal = async (user: ReturnType<typeof setup>, name: RegExp | string = /schedule detection/i) => {
   // Re-queried inside the wait rather than captured once: until `server-info` answers, the control
   // renders its disabled branch, and becoming available swaps in a different button. Waiting on the
   // element found first would wait forever on a node that has been detached.
@@ -1250,6 +1248,20 @@ describe('ExperimentIssuesScheduleControl', () => {
       );
     });
 
+    test('a surface that states the schedule beside it gets a plain Edit schedule button', async () => {
+      // The scheduled-runs page says what the schedule is in its own header, so the trigger there
+      // is an action rather than a readout -- and it opens this same dialog in place.
+      experimentTags = [scheduleTag('weekly')];
+      const user = setup();
+      renderWithVariant('editButton');
+
+      expect(await screen.findByRole('button', { name: 'Edit schedule' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /scheduled: weekly/i })).not.toBeInTheDocument();
+      await openModal(user, 'Edit schedule');
+
+      expect(await screen.findByRole('button', { name: 'Save' })).toBeInTheDocument();
+    });
+
     test('the link is hidden on the API key step, which is mid-save', async () => {
       // The step is reached by saving, so leaving a navigation link there would offer to walk away
       // from a schedule that has not been stored yet.
@@ -1264,23 +1276,6 @@ describe('ExperimentIssuesScheduleControl', () => {
 
       expect(await screen.findByRole('button', { name: 'Continue and save' })).toBeInTheDocument();
       expect(screen.queryByRole('link', { name: 'View run history' })).not.toBeInTheDocument();
-    });
-
-    test('arriving from the run history page with the edit param opens the dialog', async () => {
-      experimentTags = [scheduleTag('daily')];
-      render(['/experiments/1/issues?editSchedule=true']);
-
-      expect(await screen.findByRole('button', { name: 'Save' })).toBeInTheDocument();
-    });
-
-    test('the param is not honoured when the schedule could not be read', async () => {
-      // Opening the dialog over a failed read shows defaults, and saving those would overwrite
-      // whatever is really stored -- the same reason the trigger itself is withheld.
-      loadFails = true;
-      render(['/experiments/1/issues?editSchedule=true']);
-
-      expect(await screen.findByRole('button', { name: /retry schedule/i })).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
     });
   });
 });

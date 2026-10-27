@@ -130,6 +130,14 @@ describe('ExperimentPageBreadcrumbs', () => {
       leaf: 'Helpful queue',
       title: 'Helpful queue',
     },
+    {
+      // This leaf is a fixed page name rather than an entity's, so it needs no published title --
+      // unlike every case above, which would read as a raw id without one.
+      entry: '/experiments/123/issues/scheduled-runs',
+      route: '/experiments/:experimentId/issues/scheduled-runs',
+      tab: 'Issues',
+      leaf: 'Scheduled detection runs',
+    },
   ])('shows $leaf under $tab', async ({ entry, route, tab, leaf, title }) => {
     renderAt(entry, route, title);
 

@@ -1555,6 +1555,10 @@
     "defaultMessage": "Select visible columns",
     "description": "Aria label for the column-selector dropdown trigger on the traces table"
   },
+  "39QaYz": {
+    "defaultMessage": "Edit schedule",
+    "description": "Experiment issues tab > Button that opens the schedule dialog from the scheduled runs page"
+  },
   "3AC0g1": {
     "defaultMessage": "Collapse child runs",
     "description": "Aria label to collapse child runs"
@@ -5830,6 +5834,10 @@
   "GyGCX5": {
     "defaultMessage": "Create experiment",
     "description": "Home page experiments empty state CTA"
+  },
+  "GyMIJN": {
+    "defaultMessage": "Scheduled detection runs",
+    "description": "Breadcrumb leaf for the page listing a detection schedule's past runs"
   },
   "GyyqO1": {
     "defaultMessage": "To submit:",
@@ -11103,6 +11111,10 @@
     "defaultMessage": "Comparison isn't available for regression-test runs",
     "description": "Tooltip for the compare button when a regression-test run is selected"
   },
+  "XYmmnh": {
+    "defaultMessage": "Traces scanned, last {days} days",
+    "description": "Experiment issues tab > Scheduled runs > Figure totalling traces analyzed over the summary window"
+  },
   "XZlIAj": {
     "defaultMessage": "Remove fallback model",
     "description": "Tooltip for remove fallback model button"
@@ -11286,10 +11298,6 @@
   "Y7DzTT": {
     "defaultMessage": "Input",
     "description": "Label for the input tokens in the tooltip for the tokens cell."
-  },
-  "Y9NjdK": {
-    "defaultMessage": "Traces scanned",
-    "description": "Experiment issues tab > Scheduled runs > Figure totalling traces analyzed recently"
   },
   "Y9ZFyN": {
     "defaultMessage": "Download artifact",
@@ -15162,10 +15170,6 @@
   "jzgQYP": {
     "defaultMessage": "Detect Issues",
     "description": "Label for the detect issues button"
-  },
-  "k+l4m4": {
-    "defaultMessage": "Issues",
-    "description": "Experiment issues tab > Scheduled runs > Breadcrumb back to the Issues tab"
   },
   "k/76Sq": {
     "defaultMessage": "Open model parameters",
@@ -19075,10 +19079,6 @@
     "defaultMessage": "Create prompt",
     "description": "A header for the create prompt modal in the prompt management UI"
   },
-  "whQNXS": {
-    "defaultMessage": "Edit schedule",
-    "description": "Experiment issues tab > Scheduled runs > Action opening the schedule dialog"
-  },
   "whhlYC": {
     "defaultMessage": "Transport URL",
     "description": "Package transport URL label"
@@ -19110,6 +19110,10 @@
   "wq+WyH": {
     "defaultMessage": "Prompt content is required",
     "description": "A validation state for the prompt content in the prompt creation modal"
+  },
+  "wql0jj": {
+    "defaultMessage": "Why it failed",
+    "description": "Experiment issues tab > Scheduled runs > Label above the reason an occurrence failed"
   },
   "wqv2gd": {
     "defaultMessage": "Redact or mask flagged content, then allow the request to continue.",

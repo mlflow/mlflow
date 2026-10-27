@@ -153,10 +153,6 @@ export const SELECTED_ISSUE_ID_PARAM = 'selectedIssueId';
  * from `selectedEvaluationId`. Kept in the URL so a copied link reopens the same span.
  */
 export const SELECTED_ISSUE_SPAN_ID_PARAM = 'selectedIssueSpanId';
-// Opens the schedule dialog on arrival at the Issues tab, so "Edit schedule" on the scheduled
-// runs page lands on the dialog itself rather than on a tab where it still has to be found. The
-// param is stripped once the dialog opens, so reloading or sharing the URL does not reopen it.
-export const EDIT_ISSUE_DETECTION_SCHEDULE_PARAM = 'editSchedule';
 
 export const MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH = 'images';
 export const IMAGE_FILE_EXTENSION = 'png';

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { rest } from 'msw';
+import userEvent, { PointerEventsCheckLevel } from '@testing-library/user-event';
 
 import { shouldEnableExperimentIssuesTab } from '../../../common/utils/FeatureUtils';
 import { MemoryRouter, Route, Routes } from '../../../common/utils/RoutingUtils';
@@ -22,11 +23,21 @@ jest.mock('../../../common/utils/FeatureUtils', () => ({
 }));
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
 /**
- * Fixed, and on a whole hour in UTC, so every relative time and formatted bound below is the same
- * on every run of the suite and can be written out rather than recomputed from the code under test.
+ * The clock is left alone, and each kind of assertion gets a timestamp it can be deterministic
+ * about.
+ *
+ * Freezing it was the obvious move -- `TimeAgo` measures with `new Date()`, so a fixture dated in
+ * the future reads as "just now" -- but fake timers kept React flushing work after the test ended,
+ * which crashed the suite in a torn-down jsdom. So anything compared against now is built from the
+ * real now instead, while the schedule's instants, which are formatted from the values they are
+ * given rather than from the clock, stay fixed and can be written out.
  */
-const NOW_MS = Date.UTC(2027, 0, 15, 12, 0);
+let nowMs: number;
+/** A fixed covered window, formatted from these bounds whatever today is. */
+const WINDOW_START_MS = Date.UTC(2027, 0, 1, 12, 0);
+const WINDOW_END_MS = Date.UTC(2027, 0, 8, 12, 0);
 /** The schedule's own next fire time: a Monday at 21:15 UTC, as the schedule tag says. */
 const NEXT_FIRE_MS = Date.UTC(2027, 0, 18, 21, 15);
 
@@ -49,7 +60,7 @@ let runFilters: string[];
 
 const server = setupServer(
   rest.get('*/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) =>
-    res(ctx.json({ store_type: 'SqlStore', features_enabled: { scheduled_issue_detection: true } })),
+    res(ctx.json({ store_type: 'SqlStore', features_enabled: { gateway: true, scheduled_issue_detection: true } })),
   ),
   rest.get('*/ajax-api/2.0/mlflow/experiments/get', (_req, res, ctx) =>
     res(ctx.json({ experiment: { experiment_id: '1', name: 'exp', tags: experimentTags } })),
@@ -74,6 +85,13 @@ const server = setupServer(
       }),
     );
   }),
+  rest.get('*/ajax-api/3.0/mlflow/gateway/endpoints/list', (_req, res, ctx) => res(ctx.json({ endpoints: [] }))),
+  rest.get('*/ajax-api/3.0/mlflow/gateway/secrets/list', (_req, res, ctx) =>
+    res(ctx.json({ secrets: [{ secret_id: 'sec-1', secret_name: 'key', provider: 'openai' }] })),
+  ),
+  rest.get('*/ajax-api/3.0/mlflow/gateway/provider-config', (_req, res, ctx) =>
+    res(ctx.json({ auth_modes: [], default_mode: 'api_key', env_credentials_available: true })),
+  ),
   rest.post('*/ajax-api/3.0/mlflow/issues/search', async (req, res, ctx) => {
     if (issueSearchFails) {
       return res(ctx.status(500), ctx.json({ message: 'nope' }));
@@ -109,20 +127,30 @@ const scheduleStateTag = (nextFireTimeMs: number) => ({
 const succeeded = (overrides: Partial<StoredRun> = {}): StoredRun => ({
   runUuid: 'run-ok',
   status: 'FINISHED',
-  startTime: NOW_MS - 7 * DAY_MS,
-  endTime: NOW_MS - 7 * DAY_MS + 192_000,
+  startTime: nowMs - 7 * DAY_MS,
+  endTime: nowMs - 7 * DAY_MS + 192_000,
   tags: {
     total_traces: '312',
     total_cost_usd: '0.42',
     model: 'openai:/gpt-5-mini',
-    [MLFLOW_ISSUE_DETECTION_WINDOW_START_TAG]: String(NOW_MS - 14 * DAY_MS),
-    [MLFLOW_ISSUE_DETECTION_WINDOW_END_TAG]: String(NOW_MS - 7 * DAY_MS),
+    [MLFLOW_ISSUE_DETECTION_WINDOW_START_TAG]: String(WINDOW_START_MS),
+    [MLFLOW_ISSUE_DETECTION_WINDOW_END_TAG]: String(WINDOW_END_MS),
   },
   ...overrides,
 });
 
+/**
+ * Held so it can be torn down between tests.
+ *
+ * The page issues one request per occurrence for its issue counts. Left in flight past the end of
+ * a test they settle against a torn-down renderer, which jest reports as a log after the test
+ * finished -- intermittently, and attributed to whichever suite happened to be running.
+ */
+let queryClient: QueryClient;
+
 const renderPage = () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, cacheTime: 0 } } });
+  queryClient = client;
   return renderWithDesignSystem(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={['/experiments/1/issues/scheduled-runs']}>
@@ -142,10 +170,7 @@ const rowFor = async (text: string | RegExp) => (await screen.findByText(text)).
 
 beforeEach(() => {
   jest.mocked(shouldEnableExperimentIssuesTab).mockReturnValue(true);
-  // The whole clock, not just `Date.now()`: `TimeAgo` measures with `new Date()`, so a fixture
-  // dated in 2027 would otherwise read as "just now" against the real date.
-  jest.useFakeTimers({ advanceTimers: true });
-  jest.setSystemTime(NOW_MS);
+  nowMs = Date.now();
   experimentTags = [scheduleTag('weekly'), scheduleStateTag(NEXT_FIRE_MS)];
   storedRuns = [succeeded()];
   issueSourceRunIds = [];
@@ -155,7 +180,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  jest.useRealTimers();
+  queryClient?.cancelQueries();
+  queryClient?.clear();
 });
 
 describe('ExperimentIssueScheduledRunsPage', () => {
@@ -274,21 +300,25 @@ describe('ExperimentIssueScheduledRunsPage', () => {
 
   test('an occurrence still going shows no cost and no issue count', async () => {
     storedRuns = [
-      succeeded({ runUuid: 'run-live', status: 'RUNNING', startTime: NOW_MS - 124_000, endTime: undefined }),
+      succeeded({ runUuid: 'run-live', status: 'RUNNING', startTime: nowMs - 124_000, endTime: undefined }),
     ];
     renderPage();
 
     const row = await rowFor('openai:/gpt-5-mini');
     expect(await within(row).findByText('Running')).toBeInTheDocument();
     // Measured against now, so a run with no end time does not read as having started in 1970.
-    expect(within(row).getByText('2m 04s')).toBeInTheDocument();
+    expect(within(row).getByText(/^2m 0[45]s$/)).toBeInTheDocument();
   });
 
   test('totals only the occurrences inside the summary window', async () => {
-    storedRuns = [succeeded(), succeeded({ runUuid: 'run-old', startTime: NOW_MS - 40 * DAY_MS })];
+    storedRuns = [succeeded(), succeeded({ runUuid: 'run-old', startTime: nowMs - 40 * DAY_MS })];
     renderPage();
 
     await waitFor(() => expect(screen.getByText('Runs, last 30 days').parentElement).toHaveTextContent('1'));
+    // Every scoped figure names its window: all three are over the same 30 days, and a bare
+    // "Traces scanned" read as an all-time count beside two that said otherwise.
+    expect(screen.getByText('Traces scanned, last 30 days').parentElement).toHaveTextContent('312');
+    expect(screen.getByText('Spend, last 30 days').parentElement).toHaveTextContent('$0.42');
   });
 
   test('an issue count that cannot be read leaves the cell blank rather than reading zero', async () => {
@@ -331,13 +361,17 @@ describe('ExperimentIssueScheduledRunsPage', () => {
     expect(await screen.findByText('This schedule is off')).toBeInTheDocument();
   });
 
-  test('offers a way back to the dialog that owns the schedule', async () => {
+  test('opens the schedule dialog without leaving the page', async () => {
+    // Editing used to mean navigating back to the Issues tab to find the dialog there.
+    const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
     renderPage();
 
-    expect(await screen.findByRole('link', { name: 'Edit schedule' })).toHaveAttribute(
-      'href',
-      '/experiments/1/issues?editSchedule=true',
-    );
+    // Disabled until the schedule has loaded, so the dialog never opens against unknown state.
+    await waitFor(async () => expect(await screen.findByRole('button', { name: 'Edit schedule' })).not.toBeDisabled());
+    await user.click(await screen.findByRole('button', { name: 'Edit schedule' }));
+
+    expect(await screen.findByRole('button', { name: 'Save' })).toBeInTheDocument();
+    expect(screen.getByText('Scheduled detection runs')).toBeInTheDocument();
   });
 
   test('is not reachable while the Issues tab is off', async () => {

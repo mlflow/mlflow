@@ -21,7 +21,6 @@ import { shouldEnableExperimentIssuesTab } from '../../../common/utils/FeatureUt
 import { Link, useParams } from '../../../common/utils/RoutingUtils';
 import { useActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
 import Routes from '../../routes';
-import { EDIT_ISSUE_DETECTION_SCHEDULE_PARAM, ExperimentPageTabName } from '../../constants';
 import { formatScheduleInstant, formatScheduleWindowBound, weekdayLabels } from './issueDetectionSchedule';
 import {
   SUMMARY_WINDOW_DAYS,
@@ -29,6 +28,7 @@ import {
   type ScheduledRunRow,
   scheduledRunDurationMs,
 } from './scheduledRunHistory';
+import { ExperimentIssuesScheduleControl } from './ExperimentIssuesScheduleControl';
 import { useIssueDetectionSchedule } from './useIssueDetectionSchedule';
 import { useScheduledDetectionRuns } from './useScheduledDetectionRuns';
 
@@ -135,7 +135,7 @@ const Figure = ({ label, children }: { label: React.ReactNode; children: React.R
   const { theme } = useDesignSystemTheme();
   return (
     <div css={{ minWidth: 0 }}>
-      <Typography.Text size="sm" color="secondary" bold css={{ display: 'block' }}>
+      <Typography.Text size="sm" color="secondary" bold css={{ display: 'block', whiteSpace: 'nowrap' }}>
         {label}
       </Typography.Text>
       <div css={{ marginTop: theme.spacing.xs }}>{children}</div>
@@ -280,6 +280,8 @@ const ScheduledRunsContent = ({ experimentId }: { experimentId: string }) => {
     },
   ];
 
+  const FILLER_CELL_STYLE = { flexGrow: 1, flexShrink: 0, flexBasis: 0, minWidth: 0, padding: 0 } as const;
+
   const cellStyle = (id: keyof typeof COLUMN_WIDTHS) => ({
     flexGrow: 0,
     flexShrink: 0,
@@ -306,20 +308,24 @@ const ScheduledRunsContent = ({ experimentId }: { experimentId: string }) => {
             </Typography.Text>
           )}
         </div>
-        <Link
-          componentId={`${COMPONENT_ID}.edit-schedule-link`}
-          to={`${Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Issues)}?${EDIT_ISSUE_DETECTION_SCHEDULE_PARAM}=true`}
-        >
-          <Button componentId={`${COMPONENT_ID}.edit-schedule`}>
-            <FormattedMessage
-              defaultMessage="Edit schedule"
-              description="Experiment issues tab > Scheduled runs > Action opening the schedule dialog"
-            />
-          </Button>
-        </Link>
+        {/* The same dialog the Issues tab opens, rendered here so editing a schedule does not
+            mean leaving the page that shows what it has done. */}
+        <ExperimentIssuesScheduleControl experimentId={experimentId} triggerVariant="editButton" />
       </div>
       <Spacer size="sm" />
-      <div css={{ display: 'flex', flexWrap: 'wrap', gap: theme.spacing.lg, alignItems: 'flex-start' }}>
+      <div
+        css={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: theme.spacing.lg,
+          alignItems: 'flex-start',
+          // Each figure shares the row's width so the strip spans the page rather than leaving
+          // its right half empty, but never narrows past its own label: a basis small enough to
+          // stretch from also let the longest label break across two lines and push the figure
+          // after it onto a second row. Whole figures wrap instead, when there is no room.
+          '& > div': { flex: '1 1 auto', minWidth: 'fit-content' },
+        }}
+      >
         <Figure
           label={
             <FormattedMessage
@@ -355,9 +361,12 @@ const ScheduledRunsContent = ({ experimentId }: { experimentId: string }) => {
         </Figure>
         <Figure
           label={
+            // Named with its window like the figures either side of it: the total is scoped to
+            // the same 30 days, and "Traces scanned" alone read as an all-time count.
             <FormattedMessage
-              defaultMessage="Traces scanned"
-              description="Experiment issues tab > Scheduled runs > Figure totalling traces analyzed recently"
+              defaultMessage="Traces scanned, last {days} days"
+              description="Experiment issues tab > Scheduled runs > Figure totalling traces analyzed over the summary window"
+              values={{ days: SUMMARY_WINDOW_DAYS }}
             />
           }
         >
@@ -425,6 +434,7 @@ const ScheduledRunsContent = ({ experimentId }: { experimentId: string }) => {
               {label}
             </TableHeader>
           ))}
+          <TableHeader componentId={`${COMPONENT_ID}.header.filler`} aria-hidden style={FILLER_CELL_STYLE} />
         </TableRow>
         {rows.flatMap((row) => [
           <TableRow key={row.runId}>
@@ -465,6 +475,7 @@ const ScheduledRunsContent = ({ experimentId }: { experimentId: string }) => {
             <TableCell style={cellStyle('duration')} css={{ alignItems: 'center' }}>
               {formatDuration(scheduledRunDurationMs(row, nowMs))}
             </TableCell>
+            <TableCell aria-hidden style={FILLER_CELL_STYLE} />
           </TableRow>,
           // Why it failed, on its own full-width row under the occurrence it belongs to. The
           // message is the provider's own wording, which is the part worth acting on, so it is
@@ -527,18 +538,9 @@ const ExperimentIssueScheduledRunsPage = () => {
   if (!shouldEnableExperimentIssuesTab()) return <PageNotFoundView />;
   if (!experimentId) return null;
   return (
+    // The route's place in the hierarchy is carried by the shell's breadcrumb -- Experiments >
+    // <experiment> > Issues > Scheduled detection runs -- rather than by a link of this page's own.
     <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, paddingTop: theme.spacing.sm }}>
-      <Typography.Text size="sm" color="secondary">
-        <Link
-          componentId={`${COMPONENT_ID}.breadcrumb-issues`}
-          to={Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Issues)}
-        >
-          <FormattedMessage
-            defaultMessage="Issues"
-            description="Experiment issues tab > Scheduled runs > Breadcrumb back to the Issues tab"
-          />
-        </Link>
-      </Typography.Text>
       <ScheduledRunsContent key={`${workspace}:${experimentId}`} experimentId={experimentId} />
     </div>
   );

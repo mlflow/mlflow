@@ -15,9 +15,8 @@ import {
 } from '@databricks/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
-import { Link, useSearchParams } from '../../../common/utils/RoutingUtils';
+import { Link } from '../../../common/utils/RoutingUtils';
 import { generateRandomName } from '../../../common/utils/NameUtils';
-import { EDIT_ISSUE_DETECTION_SCHEDULE_PARAM } from '../../constants';
 import Routes from '../../routes';
 import { useApiKeyConfiguration } from '../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration';
 import { useCreateSecret } from '../../../gateway/hooks/useCreateSecret';
@@ -253,6 +252,15 @@ const TraceFilterRow = ({ index, filter, disabled, onChange, onRemove }: TraceFi
 
 export interface ExperimentIssuesScheduleControlProps {
   experimentId: string;
+  /**
+   * What the control's own button looks like.
+   *
+   * `status` -- the default -- is the Issues-tab trigger, which doubles as the readout of whether
+   * a schedule is on. `editButton` is a plain "Edit schedule" button for a surface that already
+   * states the schedule beside it, so the same dialog opens there rather than sending someone back
+   * to the tab to find it.
+   */
+  triggerVariant?: 'status' | 'editButton';
 }
 
 const emptyFilterRow = (): ScheduleTraceFilter => ({
@@ -330,7 +338,10 @@ const toSelection = (model: IssueDetectionScheduleModel | undefined): IssueDetec
  * and/or tags. The trigger opens a modal so the cadence and the trace filters are chosen and saved
  * together; "Off" pauses the schedule. Manual detection is unaffected.
  */
-export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssuesScheduleControlProps) => {
+export const ExperimentIssuesScheduleControl = ({
+  experimentId,
+  triggerVariant = 'status',
+}: ExperimentIssuesScheduleControlProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   // Replaces upstream's experiment-ACL check: OSS has no per-experiment write permission for
@@ -439,17 +450,22 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
   // the label, not in `icon`: a default Button paints its leading icon with the button's own colour,
   // which would hide the green.
   const isScheduled = setting !== 'off';
-  const triggerIcon = isScheduled ? undefined : <ClockIcon />;
+  const isEditButton = triggerVariant === 'editButton';
+  const triggerIcon = isEditButton || isScheduled ? undefined : <ClockIcon />;
   // While saving, the button's spinner stands in for the checkmark.
-  const triggerContent =
-    isScheduled && !isUpdating ? (
-      <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
-        <CheckCircleIcon color="success" data-testid="schedule-on-icon" />
-        {triggerLabel}
-      </span>
-    ) : (
-      triggerLabel
-    );
+  const triggerContent = isEditButton ? (
+    intl.formatMessage({
+      defaultMessage: 'Edit schedule',
+      description: 'Experiment issues tab > Button that opens the schedule dialog from the scheduled runs page',
+    })
+  ) : isScheduled && !isUpdating ? (
+    <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
+      <CheckCircleIcon color="success" data-testid="schedule-on-icon" />
+      {triggerLabel}
+    </span>
+  ) : (
+    triggerLabel
+  );
 
   // Seed the modal from the current schedule + filters so it opens showing what is active. With no
   // filters we show no rows — just the "Add filter" button — so the user opts in explicitly.
@@ -473,29 +489,6 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     setOpen(true);
   }, [reload, setting, storedStartTime, storedWeekday, storedTimezone, traceFilters, model, resetCreateSecret]);
   const closeModal = useCallback(() => setOpen(false), []);
-
-  // "Edit schedule" on the scheduled-runs page navigates here with this param rather than leaving
-  // the dialog to be found again. The param is dropped as the dialog opens, so closing it and
-  // reloading -- or sharing the URL -- does not reopen it, and it is only honoured once the
-  // schedule has loaded, since `openModal` seeds the draft from what is loaded.
-  const [searchParams, setSearchParams] = useSearchParams();
-  const requestedEdit = searchParams.get(EDIT_ISSUE_DETECTION_SCHEDULE_PARAM) !== null;
-  useEffect(() => {
-    if (!requestedEdit || isLoading) {
-      return;
-    }
-    setSearchParams(
-      (current) => {
-        const next = new URLSearchParams(current);
-        next.delete(EDIT_ISSUE_DETECTION_SCHEDULE_PARAM);
-        return next;
-      },
-      { replace: true },
-    );
-    if (scheduledDetectionAvailable && !loadError) {
-      openModal();
-    }
-  }, [requestedEdit, isLoading, scheduledDetectionAvailable, loadError, openModal, setSearchParams]);
 
   // A schedule that names no model (or one saved before a model could be chosen) falls back to the
   // same default the ad-hoc dialog uses: the first AI Gateway endpoint, else the first provider.
