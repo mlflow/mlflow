@@ -4340,11 +4340,18 @@ def _create_presigned_download_url():
 
 
 def _get_multipart_upload_file_name(path: str) -> str:
-    # Clients send the local file path, which may be absolute or a Windows path, but artifact
-    # repositories only use its basename. `ntpath.basename` splits on both "/" and "\\".
-    if not (file_name := ntpath.basename(path)):
+    # The `path` field carries the name of the file being uploaded. Clients before 3.18 sent
+    # their local file path, which may be absolute or a Windows path, and artifact repositories
+    # only use its basename. `ntpath.basename` splits on both "/" and "\\" so those clients keep
+    # working; a backslash inside a POSIX file name is treated as a separator as a result.
+    # `validate_path_is_safe` percent-decodes, so take the basename again on its result to drop
+    # separators that arrived encoded.
+    file_name = ntpath.basename(path)
+    if file_name:
+        file_name = ntpath.basename(validate_path_is_safe(file_name))
+    if file_name in ("", "."):
         raise MlflowException("Invalid path", error_code=INVALID_PARAMETER_VALUE)
-    return validate_path_is_safe(file_name)
+    return file_name
 
 
 @catch_mlflow_exception

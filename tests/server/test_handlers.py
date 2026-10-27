@@ -7826,7 +7826,15 @@ _MULTIPART_UPLOAD_HANDLER_CASES = [
     ("handler", "repo_method", "request_fields"), _MULTIPART_UPLOAD_HANDLER_CASES
 )
 @pytest.mark.parametrize(
-    "path", ["model.bin", "src/model.bin", "/tmp/src/model.bin", "C:\\Users\\me\\model.bin"]
+    "path",
+    [
+        "model.bin",
+        "src/model.bin",
+        "/tmp/src/model.bin",
+        "C:\\Users\\me\\model.bin",
+        # A separator that arrives percent-encoded is only visible after decoding.
+        "src%2Fmodel.bin",
+    ],
 )
 def test_multipart_upload_handlers_pass_basename_of_path_to_repo(
     enable_serve_artifacts, handler, repo_method, request_fields, path
@@ -7841,6 +7849,9 @@ def test_multipart_upload_handlers_pass_basename_of_path_to_repo(
             "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts", return_value=repo
         ) as get_repo,
         mock.patch("mlflow.server.handlers._validate_support_multipart_upload") as validate,
+        mock.patch(
+            "mlflow.server.handlers._reject_skill_artifact_mutation", wraps=lambda _: None
+        ) as reject_skill_mutation,
     ):
         response = handler("0/run/artifacts")
 
@@ -7849,12 +7860,17 @@ def test_multipart_upload_handlers_pass_basename_of_path_to_repo(
     validate.assert_called_once_with(repo)
     getattr(repo, repo_method).assert_called_once()
     assert getattr(repo, repo_method).call_args.args[0] == "model.bin"
+    # The skill guard must evaluate the key that is actually written.
+    assert reject_skill_mutation.call_args_list[-1].args == ("0/run/artifacts/model.bin",)
 
 
 @pytest.mark.parametrize(
     ("handler", "repo_method", "request_fields"), _MULTIPART_UPLOAD_HANDLER_CASES
 )
-@pytest.mark.parametrize("path", ["src/", "/tmp/src/", "C:\\src\\", "/tmp/..", "src/%2E%2E"])
+@pytest.mark.parametrize(
+    "path",
+    ["src/", "/tmp/src/", "C:\\src\\", "/tmp/..", "src/%2E%2E", ".", "/tmp/src/.", "%2E", "src%2F"],
+)
 def test_multipart_upload_handlers_reject_invalid_file_name(
     enable_serve_artifacts, handler, repo_method, request_fields, path
 ):
