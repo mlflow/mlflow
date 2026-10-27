@@ -315,6 +315,10 @@
     "defaultMessage": "Usage coverage",
     "description": "Accessible label for usage coverage information"
   },
+  "/807T7": {
+    "defaultMessage": "Search timezones",
+    "description": "Experiment issues tab > Schedule modal placeholder of the timezone search input"
+  },
   "/8HzzV": {
     "defaultMessage": "Total trace duration",
     "description": "Tooltip description for the Execution Duration column in the traces table"
@@ -4111,6 +4115,10 @@
     "defaultMessage": "This saved view could not be shared.",
     "description": "Error toast shown when building a saved traces view share link fails"
   },
+  "B7iXXS": {
+    "defaultMessage": "Timezone",
+    "description": "Experiment issues tab > Schedule modal label for the timezone the start time is read in"
+  },
   "B80MC6": {
     "defaultMessage": "Contour Plot",
     "description": "Tab pane title for contour plots on the compare runs page"
@@ -5398,6 +5406,10 @@
   "FZL3HX": {
     "defaultMessage": "When enabled, all requests to this endpoint will be logged as traces. This allows you to monitor usage, debug issues, and analyze performance.",
     "description": "Tooltip explaining what usage tracking does"
+  },
+  "FZPIHc": {
+    "defaultMessage": "Minute",
+    "description": "Experiment issues tab > Schedule modal label for the minute a run starts at"
   },
   "FZe3Mu": {
     "defaultMessage": "Last modified",
@@ -10215,6 +10227,10 @@
     "defaultMessage": "Create endpoint",
     "description": "Page title for create endpoint"
   },
+  "UkiKf0": {
+    "defaultMessage": "at",
+    "description": "Experiment issues tab > Schedule modal word joining the cadence to the time it runs at, as in \"Daily at 09:00\""
+  },
   "UlkINy": {
     "defaultMessage": "Admin",
     "description": "Roles table column flagging admin roles when workspaces are disabled"
@@ -11155,6 +11171,10 @@
     "defaultMessage": "Sort",
     "description": "Display menu item opening the traces table sort submenu"
   },
+  "XVu7d9": {
+    "defaultMessage": "on",
+    "description": "Experiment issues tab > Schedule modal word joining the cadence to the weekday it runs on, as in \"Weekly on Monday\""
+  },
   "XW2m3R": {
     "defaultMessage": "Sort",
     "description": "Experiment issues tab > Label before the current sort on the sort button"
@@ -11934,6 +11954,10 @@
   "a9kRlY": {
     "defaultMessage": "Tool calls",
     "description": "Label for the tool calls tab in the experiment overview page"
+  },
+  "a9nULu": {
+    "defaultMessage": "Recommended",
+    "description": "Experiment issues tab > Schedule modal heading above the suggested timezones"
   },
   "aAAHaS": {
     "defaultMessage": "Context insufficient",
@@ -13227,6 +13251,10 @@
     "defaultMessage": "Reset example",
     "description": "Reset example button"
   },
+  "eJM0ai": {
+    "defaultMessage": "Next run as saved: {when}",
+    "description": "Experiment issues tab > Schedule modal line stating when the schedule as currently saved next runs; it does not follow unsaved edits"
+  },
   "eLgTRT": {
     "defaultMessage": "Key",
     "description": "Tag key label in unified trace tag assignment modal"
@@ -13822,6 +13850,10 @@
   "g6nof1": {
     "defaultMessage": "AI Gateway",
     "description": "Model dropdown group for AI Gateway endpoints"
+  },
+  "g7e1fJ": {
+    "defaultMessage": "Hour",
+    "description": "Experiment issues tab > Schedule modal label for the hour a run starts at"
   },
   "g7wXdA": {
     "defaultMessage": "Ask Assistant about the selected chart",
@@ -16482,6 +16514,10 @@
   "ns5GSR": {
     "defaultMessage": "Issue detection settings",
     "description": "Issue detection settings modal > Title"
+  },
+  "ntQ/Ku": {
+    "defaultMessage": "Standard",
+    "description": "Experiment issues tab > Schedule modal heading above the full timezone list"
   },
   "nuQe0X": {
     "defaultMessage": "PASS",
@@ -20090,6 +20126,10 @@
   "ze1m7Z": {
     "defaultMessage": "Run name cannot consist only of whitespace!",
     "description": "An error shown when user sets the run's name to whitespace characters only"
+  },
+  "zfAfRl": {
+    "defaultMessage": "Day",
+    "description": "Experiment issues tab > Schedule modal label for the weekday a weekly run starts on"
   },
   "zfPkM2": {
     "defaultMessage": "Show {count} more",
