@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793063916063,
+  "lastUpdate": 1793068226216,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "guojayce@gmail.com",
-            "name": "Jayce Guo",
-            "username": "jayceguo"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "61a5401606c27ddd8578e0a35f741119fa82a8ca",
-          "message": "Bound `log_batch` duplicate-metric recovery in `SqlAlchemyStore` by batch size (#24683)\n\nSigned-off-by: Jayce Guo <jiahaog@amazon.com>\nSigned-off-by: Pat Sukprasert <pattara.sk127@gmail.com>\nCo-authored-by: Daniel Lok <daniel.lok@databricks.com>\nCo-authored-by: Pat Sukprasert <pattara.sk127@gmail.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
-          "timestamp": "2026-08-12T04:29:41Z",
-          "tree_id": "510de477e629c9383ef7fcb11659a180ddccb066",
-          "url": "https://github.com/mlflow/mlflow/commit/61a5401606c27ddd8578e0a35f741119fa82a8ca"
-        },
-        "date": 1786509061545,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 53.013653949999906,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 11.608204291668459,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 6.659277851851949,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 8.375500282608288,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 7.069100181818393,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 7.104431799996291,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.52530460000105,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "82875882+pcbeingused333@users.noreply.github.com",
+            "name": "alexcastgonz",
+            "username": "pcbeingused333"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "daf51706e1bda87c7e50ebc2fa5fbfbe2ba6131a",
+          "message": "Keep tool calls and finish_reason in streamed OpenAI chat traces (#26973)\n\nSigned-off-by: Alex Castillo <alex.castillog33@gmail.com>\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>\nCo-authored-by: joshuawong-db <joshua.wong@databricks.com>",
+          "timestamp": "2026-10-27T02:26:48Z",
+          "tree_id": "df22bd38b2136fd0a9fca78035eec661dbe6e657",
+          "url": "https://github.com/mlflow/mlflow/commit/daf51706e1bda87c7e50ebc2fa5fbfbe2ba6131a"
+        },
+        "date": 1793068223092,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 39.79489620000081,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 4.387481988635791,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 3.919146397959879,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 3.8820275409834335,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.255863923529472,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 4.166277285711268,
             "unit": "ms"
           }
         ]
