@@ -78,4 +78,37 @@ describe('cacheComputedStylesUntilDomChanges', () => {
     element.style.setProperty('--offset', '4px');
     expect(window.getComputedStyle(element).getPropertyValue('--offset')).toBe('4px');
   });
+
+  test('sees a change made inside a shadow root', () => {
+    const style = document.createElement('style');
+    style.textContent = '.shadowed { visibility: hidden; }';
+    document.head.appendChild(style);
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const element = document.createElement('span');
+    host.attachShadow({ mode: 'open' }).appendChild(element);
+    expect(window.getComputedStyle(element).visibility).toBe('visible');
+
+    element.className = 'shadowed';
+    expect(window.getComputedStyle(element).visibility).toBe('hidden');
+  });
+
+  test('sees focus state from a focus listener', () => {
+    // With nothing focused, no `focusout` runs before the new element's `focus` listener.
+    (document.activeElement as HTMLElement | null)?.blur();
+    const style = document.createElement('style');
+    style.textContent = 'a:focus { visibility: hidden; }';
+    document.head.appendChild(style);
+    const link = document.createElement('a');
+    link.href = '#';
+    document.body.appendChild(link);
+    expect(window.getComputedStyle(link).visibility).toBe('visible');
+
+    let visibilityOnFocus;
+    link.addEventListener('focus', () => {
+      visibilityOnFocus = window.getComputedStyle(link).visibility;
+    });
+    link.focus();
+    expect(visibilityOnFocus).toBe('hidden');
+  });
 });

@@ -19,7 +19,7 @@ export const cacheComputedStylesUntilDomChanges = () => {
     });
     domChanges.observe(document, { subtree: true, childList: true, attributes: true, characterData: true });
 
-    // Emotion's speedy mode adds rules with `insertRule`, which changes styles without a DOM mutation.
+    // Rules added with `insertRule` (as Emotion's speedy mode does) change styles without a DOM mutation.
     const probe = document.createElement('style');
     document.head.appendChild(probe);
     const sheetPrototype = Object.getPrototypeOf(probe.sheet);
@@ -34,12 +34,13 @@ export const cacheComputedStylesUntilDomChanges = () => {
       return deleteRule.apply(this, args);
     };
 
-    // `:focus` and `:checked` rules follow state that changes without a DOM mutation.
-    // shortcut: an input `value` set from code without an event is not seen; extend this if a rule depends on one.
+    // `:focus` and `:checked` rules follow state that changes without a DOM mutation. `focus` and `blur`
+    // fire before `focusin` and `focusout`, so listeners on them see the new state too. Not seen: an input
+    // `value` set from code without an event, `form.reset()`, and edits through `cssRules[i].style`.
     const markStale = () => {
       stale = true;
     };
-    const stateEvents = ['focusin', 'focusout', 'input', 'change'];
+    const stateEvents = ['focus', 'blur', 'focusin', 'focusout', 'input', 'change'];
     stateEvents.forEach((type) => document.addEventListener(type, markStale, true));
     const checked = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked');
     Object.defineProperty(HTMLInputElement.prototype, 'checked', {
@@ -51,8 +52,8 @@ export const cacheComputedStylesUntilDomChanges = () => {
     });
 
     window.getComputedStyle = (element, pseudoElement) => {
-      // Changes inside a detached tree reach no observer, so only attached elements are cached.
-      if (pseudoElement || !element.isConnected) {
+      // The observer sees only this document's tree, so detached, shadow and other-document elements are not cached.
+      if (pseudoElement || element.getRootNode() !== document) {
         return getComputedStyle.call(window, element, pseudoElement);
       }
       if (domChanges.takeRecords().length > 0 || stale) {
