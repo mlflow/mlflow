@@ -6,7 +6,7 @@ import { shouldEnableExperimentIssuesTab } from '../../../common/utils/FeatureUt
 import { MemoryRouter, Route, Routes } from '../../../common/utils/RoutingUtils';
 import { QueryClient, QueryClientProvider } from '../../../common/utils/reactQueryHooks';
 import { setupServer } from '../../../common/utils/setup-msw';
-import { renderWithDesignSystem, screen, waitFor, within } from '../../../common/utils/TestUtils.react18';
+import { fireEvent, renderWithDesignSystem, screen, waitFor, within } from '../../../common/utils/TestUtils.react18';
 import {
   MLFLOW_ISSUE_DETECTION_ERROR_TAG,
   MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG,
@@ -59,6 +59,8 @@ let runSearchPages: number;
 let runFilters: string[];
 /** Set to fail the run search, which is how a read failure is exercised. */
 let runSearchFails: boolean;
+/** How many run searches were refused, so a test can wait for the failure it caused. */
+let runSearchFailures: number;
 
 const server = setupServer(
   rest.get('*/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) =>
@@ -69,6 +71,7 @@ const server = setupServer(
   ),
   rest.post('*/ajax-api/2.0/mlflow/runs/search', async (req, res, ctx) => {
     if (runSearchFails) {
+      runSearchFailures += 1;
       return res(ctx.status(500), ctx.json({ message: 'nope' }));
     }
     const body = (await req.json()) as { filter?: string; page_token?: string };
@@ -183,6 +186,7 @@ beforeEach(() => {
   runSearchPages = 1;
   runFilters = [];
   runSearchFails = false;
+  runSearchFailures = 0;
 });
 
 afterEach(() => {
@@ -408,6 +412,25 @@ describe('ExperimentIssueScheduledRunsPage', () => {
     expect(await screen.findByText("Could not load this schedule's history")).toBeInTheDocument();
     expect(screen.queryByText('No occurrences yet')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+  });
+
+  test('a later page failing keeps the occurrences already read', async () => {
+    // The same error covers the first page and the fiftieth. Taking the page over on the second
+    // would discard what the user is reading to report what could not be loaded next.
+    runSearchPages = 3;
+    renderPage();
+    const row = await rowFor('openai:/gpt-5-mini');
+    expect(await within(row).findByText('Succeeded')).toBeInTheDocument();
+
+    // Scrolling is what asks for the next page; jsdom reports every dimension as 0, which the
+    // page reads as "at the bottom".
+    runSearchFails = true;
+    const scroller = document.querySelector('[role="table"]') as HTMLElement;
+    fireEvent.scroll(scroller);
+    await waitFor(() => expect(runSearchFailures).toBeGreaterThan(0));
+
+    expect(await within(await rowFor('openai:/gpt-5-mini')).findByText('Succeeded')).toBeInTheDocument();
+    expect(screen.queryByText("Could not load this schedule's history")).not.toBeInTheDocument();
   });
 
   test('a paused schedule names no next run even when its dispatch state still has one', async () => {

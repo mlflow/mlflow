@@ -371,7 +371,11 @@ const ScheduledRunsContent = ({ experimentId }: { experimentId: string }) => {
   // A failed read is not an empty history: left to the empty state, a transient outage would tell
   // someone their schedule has never fired. The schedule's own read is checked the same way,
   // because its fallback reads as "Schedule is off".
-  if (error || schedule.loadError) {
+  //
+  // Only when there is nothing to show, though. A later page failing also sets this error, and
+  // taking the page over then would throw away the occurrences already read to report that the
+  // next fifty could not be -- the hedged count below already says the list is incomplete.
+  if ((error || schedule.loadError) && isEmpty) {
     return (
       <Empty
         image={<DangerIcon />}
