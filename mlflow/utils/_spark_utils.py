@@ -20,7 +20,7 @@ def _get_active_spark_session():
         return SparkSession._instantiatedSession
 
 
-# Suppose we have a parent process already initiate a spark session that connected to a spark
+# Suppose we have a parent process already initiated a spark session that connected to a spark
 # cluster, then the parent process spawns a child process, if child process directly creates
 # a local spark session, it does not work correctly, because of PYSPARK_GATEWAY_PORT and
 # PYSPARK_GATEWAY_SECRET are inherited from parent process and child process pyspark session
