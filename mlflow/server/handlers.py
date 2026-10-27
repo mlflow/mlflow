@@ -2,6 +2,7 @@
 import io
 import json
 import logging
+import ntpath
 import os
 import pathlib
 import posixpath
@@ -4338,6 +4339,14 @@ def _create_presigned_download_url():
     return resp
 
 
+def _get_multipart_upload_file_name(path: str) -> str:
+    # Clients send the local file path, which may be absolute or a Windows path, but artifact
+    # repositories only use its basename. `ntpath.basename` splits on both "/" and "\\".
+    if not (file_name := ntpath.basename(path)):
+        raise MlflowException("Invalid path", error_code=INVALID_PARAMETER_VALUE)
+    return validate_path_is_safe(file_name)
+
+
 @catch_mlflow_exception
 @_disable_unless_serve_artifacts
 def _create_multipart_upload_artifact(artifact_path):
@@ -4356,7 +4365,7 @@ def _create_multipart_upload_artifact(artifact_path):
             "num_parts": [_assert_intlike],
         },
     )
-    path = validate_path_is_safe(request_message.path)
+    path = _get_multipart_upload_file_name(request_message.path)
     num_parts = request_message.num_parts
     _reject_skill_artifact_mutation(posixpath.join(artifact_path, path))
 
@@ -4393,7 +4402,7 @@ def _complete_multipart_upload_artifact(artifact_path):
             "parts": [_assert_required],
         },
     )
-    path = validate_path_is_safe(request_message.path)
+    path = _get_multipart_upload_file_name(request_message.path)
     upload_id = request_message.upload_id
     parts = [MultipartUploadPart.from_proto(part) for part in request_message.parts]
     _reject_skill_artifact_mutation(posixpath.join(artifact_path, path))
@@ -4428,7 +4437,7 @@ def _abort_multipart_upload_artifact(artifact_path):
             "upload_id": [_assert_string],
         },
     )
-    path = validate_path_is_safe(request_message.path)
+    path = _get_multipart_upload_file_name(request_message.path)
     upload_id = request_message.upload_id
     _reject_skill_artifact_mutation(posixpath.join(artifact_path, path))
 
