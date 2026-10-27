@@ -643,8 +643,8 @@ def test_register_model_with_env_pack_raises_when_model_cannot_be_served(
 
     with pytest.raises(
         MlflowException,
-        match=r"Model 'Model 1' version '1' was registered, but it can't be served by Databricks "
-        r"Model Serving: .*Architecture is not supported\.",
+        match=r"Model 'Model 1' version '1' was registered, but Databricks Model Serving "
+        r"rejected it: Architecture is not supported\.",
     ) as exc_info:
         _register_with_staging_error(tmp_path, monkeypatch, staging_error)
 

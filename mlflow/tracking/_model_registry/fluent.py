@@ -341,8 +341,8 @@ def _register_model(
                 reason = getattr(e, "json", {}).get("message") or e.message
                 raise MlflowException(
                     f"Model '{create_version_response.name}' version "
-                    f"'{create_version_response.version}' was registered, but it can't be served "
-                    f"by Databricks Model Serving: {reason}",
+                    f"'{create_version_response.version}' was registered, but Databricks Model "
+                    f"Serving rejected it: {reason}",
                     error_code=INVALID_PARAMETER_VALUE,
                 ) from e
             eprint(
