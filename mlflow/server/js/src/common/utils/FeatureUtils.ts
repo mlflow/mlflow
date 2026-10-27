@@ -209,7 +209,11 @@ export const shouldEnableExperimentOverviewTab = (hasV4Location?: boolean) => {
   return true;
 };
 
-export const shouldEnableExperimentIssuesTab = () => false;
+/**
+ * On by default; the per-server gates live elsewhere -- the side nav requires a SQL backend store,
+ * and `shouldEnableIssueDetection` requires AI Gateway.
+ */
+export const shouldEnableExperimentIssuesTab = () => true;
 
 /**
  * Determines if the top-level nested sidebar feature is enabled.
