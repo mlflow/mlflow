@@ -5,8 +5,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 16384,
-        "max_output": 16384,
-        "max_tokens": 16384
+        "max_output": 16384
       },
       "pricing": {
         "input_per_million_tokens": 0.15,
@@ -19,14 +18,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "codellama/CodeLlama-34b-Instruct-hf": {
       "mode": "chat",
       "context_window": {
         "max_input": 4096,
-        "max_output": 4096,
-        "max_tokens": 4096
+        "max_output": 4096
       },
       "pricing": {
         "input_per_million_tokens": 1.0,
@@ -39,14 +37,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "codellama/CodeLlama-70b-Instruct-hf": {
       "mode": "chat",
       "context_window": {
         "max_input": 4096,
-        "max_output": 4096,
-        "max_tokens": 4096
+        "max_output": 4096
       },
       "pricing": {
         "input_per_million_tokens": 1.0,
@@ -59,14 +56,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "google/gemma-7b-it": {
       "mode": "chat",
       "context_window": {
         "max_input": 8192,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 8192
       },
       "pricing": {
         "input_per_million_tokens": 0.15,
@@ -79,14 +75,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "meta-llama/Llama-2-13b-chat-hf": {
       "mode": "chat",
       "context_window": {
         "max_input": 4096,
-        "max_output": 4096,
-        "max_tokens": 4096
+        "max_output": 4096
       },
       "pricing": {
         "input_per_million_tokens": 0.25,
@@ -99,14 +94,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "meta-llama/Llama-2-70b-chat-hf": {
       "mode": "chat",
       "context_window": {
         "max_input": 4096,
-        "max_output": 4096,
-        "max_tokens": 4096
+        "max_output": 4096
       },
       "pricing": {
         "input_per_million_tokens": 1.0,
@@ -119,14 +113,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "meta-llama/Llama-2-7b-chat-hf": {
       "mode": "chat",
       "context_window": {
         "max_input": 4096,
-        "max_output": 4096,
-        "max_tokens": 4096
+        "max_output": 4096
       },
       "pricing": {
         "input_per_million_tokens": 0.15,
@@ -139,14 +132,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "meta-llama/Meta-Llama-3-70B-Instruct": {
       "mode": "chat",
       "context_window": {
         "max_input": 8192,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 8192
       },
       "pricing": {
         "input_per_million_tokens": 1.0,
@@ -159,14 +151,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "meta-llama/Meta-Llama-3-8B-Instruct": {
       "mode": "chat",
       "context_window": {
         "max_input": 8192,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 8192
       },
       "pricing": {
         "input_per_million_tokens": 0.15,
@@ -179,14 +170,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "mistralai/Mistral-7B-Instruct-v0.1": {
       "mode": "chat",
       "context_window": {
         "max_input": 16384,
-        "max_output": 16384,
-        "max_tokens": 16384
+        "max_output": 16384
       },
       "pricing": {
         "input_per_million_tokens": 0.15,
@@ -199,14 +189,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "mistralai/Mixtral-8x22B-Instruct-v0.1": {
       "mode": "chat",
       "context_window": {
         "max_input": 65536,
-        "max_output": 65536,
-        "max_tokens": 65536
+        "max_output": 65536
       },
       "pricing": {
         "input_per_million_tokens": 0.9,
@@ -219,14 +208,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "mistralai/Mixtral-8x7B-Instruct-v0.1": {
       "mode": "chat",
       "context_window": {
         "max_input": 16384,
-        "max_output": 16384,
-        "max_tokens": 16384
+        "max_output": 16384
       },
       "pricing": {
         "input_per_million_tokens": 0.15,
@@ -239,7 +227,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     }
   }
 }
