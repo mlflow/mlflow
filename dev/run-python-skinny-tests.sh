@@ -28,8 +28,9 @@ pytest tests/test_skinny_client_omits_data_science_libs.py
 # Verify that mlflow.types.chat can be imported without numpy (issue #21779)
 pytest tests/test_skinny_client_anthropic_import.py
 
-# Verify that flavor autologging can be imported without numpy and pandas (issue #27005)
-pytest tests/test_skinny_client_flavor_autolog_import.py
+# Verify that flavor autologging works without numpy and pandas (issue #27005)
+uv pip install --system openai langchain-core dspy
+pytest tests/test_skinny_client_flavor_autolog.py -k "not llama_index_autolog_traces"
 
 # Install numpy that is required by mlflow.types.schema and pre-installed in DBR.
 uv pip install --system numpy
@@ -47,6 +48,10 @@ pytest \
   tests/store/tracking/test_file_store.py \
   tests/utils/test_doctor.py \
   --import-mode=importlib
+
+# llama-index-core requires numpy, so test it after numpy is installed and before pandas is
+uv pip install --system llama-index-core
+pytest tests/test_skinny_client_flavor_autolog.py -k llama_index_autolog_traces
 
 uv pip install --system pandas
 pytest tests/test_skinny_client_autolog_without_scipy.py
