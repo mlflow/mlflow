@@ -78,7 +78,6 @@ class SqlAlchemyStore(AbstractStore):
     def __init__(self, db_uri: str):
         from mlflow.store.db import utils as db_utils
 
-        self._workspace_uri = db_uri
         self._db_type = extract_db_type_from_uri(db_uri)
         self._engine = db_utils.create_sqlalchemy_engine_with_retry(db_uri)
         db_utils._safe_initialize_tables(self._engine)
@@ -277,9 +276,8 @@ class SqlAlchemyStore(AbstractStore):
             _logger.info("Deleted workspace '%s' (mode=%s)", workspace_name, mode.value)
             if mode == WorkspaceDeletionMode.CASCADE:
                 _logger.info(
-                    "Run 'mlflow gc --backend-store-uri %s' to permanently clean up "
-                    "artifacts associated with deleted resources.",
-                    self._workspace_uri,
+                    "Run 'mlflow gc --backend-store-uri <backend-store-uri>' to permanently "
+                    "clean up artifacts associated with deleted resources."
                 )
         with self._artifact_root_cache_lock:
             self._artifact_root_cache.pop(workspace_name, None)

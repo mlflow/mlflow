@@ -704,6 +704,17 @@ def test_delete_workspace_cascade_removes_skill_graph(workspace_store):
             assert session.query(model).count() == 0
 
 
+def test_delete_workspace_cascade_does_not_log_backend_store_uri(workspace_store, db_uri):
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+
+    with mock.patch("mlflow.store.workspace.sqlalchemy_store._logger") as mock_logger:
+        workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.CASCADE)
+
+    messages = [c.args[0] % c.args[1:] for c in mock_logger.info.call_args_list]
+    assert any("mlflow gc --backend-store-uri <backend-store-uri>" in m for m in messages)
+    assert all(db_uri not in m for m in messages)
+
+
 def test_delete_workspace_cascade_removes_resources(workspace_store):
     workspace_store.create_workspace(Workspace(name="team-a", description=None))
 
