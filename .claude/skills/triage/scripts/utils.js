@@ -18,6 +18,8 @@ function parseCommand(body) {
 }
 
 const TRIAGE_MARKER = /^[ \t]*<!-- triage(?:[ \t]|\r?\n|$)/m;
+// Nightly (.github/workflows/nightly.yml) files issues as this app with `type: nightly`.
+const TRUSTED_BOT = "mlflow-app[bot]";
 
 function parseIssueFrontmatter(body) {
   const text = body.replace(/\r\n/g, "\n");
@@ -40,18 +42,26 @@ function parseIssueFrontmatter(body) {
   }
 
   const options = Object.fromEntries(fields);
-  if (Object.keys(options).some((key) => key !== "skip")) {
-    throw new Error("Only skip is supported in triage frontmatter.");
+  if (Object.keys(options).some((key) => !["skip", "type"].includes(key))) {
+    throw new Error("Only skip and type are supported in triage frontmatter.");
   }
-  if (options.skip === undefined) return {};
-  if (!["true", "false"].includes(options.skip)) {
-    throw new Error("Triage skip must be true or false.");
+  const result = {};
+  if (options.skip !== undefined) {
+    if (!["true", "false"].includes(options.skip)) {
+      throw new Error("Triage skip must be true or false.");
+    }
+    result.skip = options.skip === "true";
   }
-  return { skip: options.skip === "true" };
+  if (options.type !== undefined) {
+    if (options.type !== "nightly") throw new Error("Triage type must be nightly.");
+    result.type = options.type;
+  }
+  return result;
 }
 
 function isTrustedActor({ repo, actor, api = ghApi }) {
   if (!actor?.login) return false;
+  if (actor.type === "Bot" && actor.login === TRUSTED_BOT) return true;
   let permission;
   try {
     permission = api(`repos/${repo}/collaborators/${encodeURIComponent(actor.login)}/permission`);
@@ -63,14 +73,16 @@ function isTrustedActor({ repo, actor, api = ghApi }) {
   return ["admin", "maintain", "write"].includes(permission.role_name);
 }
 
-function resolveIssueOptions({ repo, eventName, event, api = ghApi }) {
-  if (eventName !== "issues" || event?.action !== "opened") return {};
-  const issue = event.issue;
+function resolveIssueOptions({ repo, eventName, event, issue, api = ghApi }) {
   const body = issue?.body ?? "";
-  if (issue.user?.type === "Bot") return {};
   if (!isTrustedActor({ repo, actor: issue.user, api })) return {};
+  const { skip, type } = TRIAGE_MARKER.test(body) ? parseIssueFrontmatter(body) : {};
+  // `type` applies to follow-ups too. Trusted bots (only Nightly) never skip triage.
+  const options = type === undefined ? {} : { type };
+  const opened = eventName === "issues" && event?.action === "opened";
+  if (!opened || issue.user?.type === "Bot") return options;
   // These authors usually file issues they plan to handle themselves; opt in with `skip: false`.
-  return { skip: true, ...(TRIAGE_MARKER.test(body) ? parseIssueFrontmatter(body) : {}) };
+  return { skip: skip ?? true, ...options };
 }
 
 function findOpenPr(repo, issueNumber, api = ghApi) {
@@ -152,7 +164,7 @@ function prepareContext({
   const context = request
     ? prepareFollowup({ repo, issue, comment: request, dryRun, api })
     : { body: issue.body ?? "", comments: [], followup: null };
-  const triage_options = resolveIssueOptions({ repo, eventName, event, api });
+  const triage_options = resolveIssueOptions({ repo, eventName, event, issue, api });
   return {
     title: issue.title,
     repository: repo,
