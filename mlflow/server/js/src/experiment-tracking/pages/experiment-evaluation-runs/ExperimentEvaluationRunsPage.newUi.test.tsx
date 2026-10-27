@@ -127,7 +127,7 @@ describe('ExperimentEvaluationRunsPage new eval runs UI', () => {
     renderPage({ queryClient, initialEntry: '/experiments/exp-1/evaluation-runs?evalRunsSearchFilter=run' });
 
     expect(await queryKeysAfterLoad(queryClient)).toEqual([
-      ['SEARCH_RUNS', 'exp-1', '', ['attributes.start_time DESC'], false],
+      ['SEARCH_RUNS', 'exp-1', '', ['attributes.start_time DESC'], false, true],
     ]);
   });
 

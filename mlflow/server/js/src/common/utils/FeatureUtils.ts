@@ -245,7 +245,9 @@ export const isScorerModelSelectionEnabled = () => {
  * Gateway until those dependencies are decoupled.
  */
 export const shouldEnableIssueDetection = () => {
-  return getFeatureEnabledSync(SERVER_FEATURE_KEYS.GATEWAY);
+  // Also requires the Issues tab: it is the only place a detection run's findings are shown, so
+  // offering detection without it would start work whose results have nowhere to land.
+  return getFeatureEnabledSync(SERVER_FEATURE_KEYS.GATEWAY) && shouldEnableExperimentIssuesTab();
 };
 
 /**
