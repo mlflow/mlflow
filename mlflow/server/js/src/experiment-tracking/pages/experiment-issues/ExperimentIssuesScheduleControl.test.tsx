@@ -200,8 +200,8 @@ describe('ExperimentIssuesScheduleControl', () => {
     await chooseCadence(user, 'Daily');
     await save(user);
 
-    await waitFor(() => expect(savedTraceFilters()).toEqual([]));
-    expect(savedSchedule()['cadence']).toBe('daily');
+    await waitFor(() => expect(savedSchedule()['cadence']).toBe('daily'));
+    expect(savedTraceFilters()).toEqual([]);
     // Saved in the browser's zone, so the cadence keeps firing at the local hour it was set in.
     expect(savedSchedule()['timezone']).toEqual(expect.any(String));
   });
