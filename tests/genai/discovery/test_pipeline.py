@@ -1534,3 +1534,62 @@ def test_a_reference_that_cannot_be_stored_at_all_is_given_up_on_quietly():
 
     # No evidence to drop, so there is nothing to retry: one attempt, no exception escaping.
     mock_log_issue.assert_called_once()
+
+
+def test_an_issue_of_unknown_severity_does_not_break_the_final_sort():
+    # Reported in review. An issue matched onto one already in the store carries that row's
+    # severity, and the column is nullable -- so one untyped row raised TypeError from this
+    # sort. It runs after every database write but before evidence annotation, so the run
+    # published its issues and then lost all of their trace annotations.
+    from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
+    from mlflow.genai.discovery.pipeline import _severity_sort_key
+
+    def _issue(issue_id, severity):
+        return Issue(
+            issue_id=issue_id,
+            experiment_id="1",
+            name=issue_id,
+            description="d",
+            status=IssueStatus.PENDING,
+            severity=severity,
+            created_timestamp=1,
+            last_updated_timestamp=1,
+        )
+
+    # Mixed types on purpose: a newly created issue carries the enum, a row read back from
+    # the store carries a plain string, and this list holds both after matching.
+    issues = [
+        _issue("unknown", None),
+        _issue("low", "low"),
+        _issue("high", IssueSeverity.HIGH),
+        _issue("medium", "medium"),
+    ]
+
+    issues.sort(key=_severity_sort_key, reverse=True)
+
+    # Ordered by severity, not alphabetically. Before the fix a plain string fell back to
+    # `str` comparison, which put "high" below "low" and the most severe issues last.
+    assert [issue.issue_id for issue in issues] == ["high", "medium", "low", "unknown"]
+
+
+def test_only_unknown_severities_still_sort():
+    from mlflow.entities.issue import Issue, IssueStatus
+    from mlflow.genai.discovery.pipeline import _severity_sort_key
+
+    issues = [
+        Issue(
+            issue_id=f"iss-{index}",
+            experiment_id="1",
+            name="n",
+            description="d",
+            status=IssueStatus.PENDING,
+            severity=None,
+            created_timestamp=1,
+            last_updated_timestamp=1,
+        )
+        for index in range(3)
+    ]
+
+    # Two unknowns compare against each other, which is where a naive sentinel would raise.
+    issues.sort(key=_severity_sort_key, reverse=True)
+    assert len(issues) == 3

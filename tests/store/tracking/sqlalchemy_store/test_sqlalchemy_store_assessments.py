@@ -707,3 +707,39 @@ def test_create_assessment_constraint_violation_is_not_reported_as_missing_trace
     assert "not found" not in message
     assert "IntegrityError" not in message
     assert "INSERT INTO" not in message
+
+
+def test_start_trace_rejects_assessment_from_another_trace(store):
+    exp_id = store.create_experiment("assessment_owner")
+    _create_trace(store, "tr-victim", experiment_id=exp_id)
+    victim = store.create_assessment(
+        Feedback(
+            trace_id="tr-victim",
+            name="quality",
+            value="good",
+            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user1"),
+        )
+    )
+    _create_trace(store, "tr-other", experiment_id=exp_id)
+
+    stolen = Feedback(
+        trace_id="tr-other",
+        name="quality",
+        value="bad",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user2"),
+    )
+    stolen.assessment_id = victim.assessment_id
+    with pytest.raises(MlflowException, match="belongs to another trace"):
+        store.start_trace(
+            TraceInfo(
+                trace_id="tr-other",
+                trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+                request_time=get_current_time_millis(),
+                execution_duration=0,
+                state=TraceState.OK,
+                assessments=[stolen],
+            )
+        )
+
+    kept = store.get_assessment("tr-victim", victim.assessment_id)
+    assert kept.value == "good"

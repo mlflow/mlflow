@@ -2296,7 +2296,8 @@ def test_evaluation_dataset_merge_records():
 
                 assert result is eval_dataset
 
-                assert mock_get.call_count == 1
+                # Once to read the existing schema, once to refresh metadata after the upsert
+                assert mock_get.call_count == 2
                 assert mock_call.call_count == 1
 
                 call_args = mock_call.call_args_list[0]

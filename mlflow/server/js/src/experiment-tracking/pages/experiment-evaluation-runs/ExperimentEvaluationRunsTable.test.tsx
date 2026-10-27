@@ -302,14 +302,17 @@ describe('ExperimentEvaluationRunsTable baseline', () => {
 });
 
 describe('ExperimentEvaluationRunsTable metric cells', () => {
-  test('rounds metric values to four decimal places in the cell and its title', () => {
+  test('rounds metric values to four decimal places in the cell and shows the full value in a tooltip', async () => {
     renderTable({
       data: [withAccuracy('run-1', 0.123456789)],
       uniqueColumns: [metricColumn],
       enableNewEvalRunsUi: true,
     });
 
-    expect(screen.getByText('0.1235')).toHaveAttribute('title', '0.1235');
+    const cell = screen.getByText('0.1235');
+    expect(cell).not.toHaveAttribute('title');
+    await userEvent.hover(cell);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('0.123456789');
   });
 
   test('flag off: metric values keep their full precision', () => {
@@ -332,14 +335,37 @@ describe('ExperimentEvaluationRunsTable columns', () => {
     expect(screen.getByText('abc123def')).toBeInTheDocument();
   });
 
-  test('flag on: Dataset version is hidden by default and the Status column is removed', () => {
-    expect(getEvalRunsBaseSelectionState(true)).toMatchObject({ [EvalRunsTableColumnId.datasetVersion]: false });
-    expect(getEvalRunsBaseSelectionState(true)).not.toHaveProperty(EvalRunsTableColumnId.status);
+  test('flag on: Dataset version and Status are hidden by default', () => {
+    expect(getEvalRunsBaseSelectionState(true)).toMatchObject({
+      [EvalRunsTableColumnId.datasetVersion]: false,
+      [EvalRunsTableColumnId.status]: false,
+    });
 
     renderTable({ data: [withDataset('run-1', 'my_dataset', 'code')], enableNewEvalRunsUi: true });
 
     expect(screen.queryByRole('columnheader', { name: 'Dataset version' })).not.toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Status' })).not.toBeInTheDocument();
+  });
+
+  test('flag on: the Status column can be shown and sorts runs by status', () => {
+    const withStatus = (runUuid: string, status: string) => {
+      const run = makeRun(runUuid);
+      return { ...run, info: { ...run.info, status } } as RunEntityWithChildren;
+    };
+    renderTable({
+      data: [withStatus('running', 'RUNNING'), withStatus('failed', 'FAILED'), withStatus('finished', 'FINISHED')],
+      enableNewEvalRunsUi: true,
+      selectedColumns: { ...getEvalRunsBaseSelectionState(true), [EvalRunsTableColumnId.status]: true },
+    });
+
+    expect(screen.getByRole('columnheader', { name: 'Status' })).toBeInTheDocument();
+    act(() => capturedTableOptions!.onSortingChange?.([{ id: EvalRunsTableColumnId.status, desc: false }]));
+
+    expect(screen.getAllByText(/^Run (running|failed|finished)$/).map((node) => node.textContent)).toEqual([
+      'Run failed',
+      'Run finished',
+      'Run running',
+    ]);
   });
 
   test('flag off: the column defaults and the Status column are unchanged, and Dataset version is never rendered', () => {
@@ -562,6 +588,75 @@ describe('ExperimentEvaluationRunsTable group rows', () => {
 
     rerenderWithData([{ ...group, subRuns: [withAccuracy('group-1', 0.6), withAccuracy('group-2', 0.8)] }]);
     expect(screen.getByText('0.7')).toBeInTheDocument();
+  });
+
+  test('gives the group label cell an accessible span up to the first metric column', () => {
+    renderTable({ data: [group], uniqueColumns: [metricColumn], isGrouped: true, enableNewEvalRunsUi: true });
+
+    const headers = screen.getAllByRole('columnheader');
+    const runNameIndex = headers.findIndex((header) => /Run Name/.test(header.textContent ?? ''));
+    const metricIndex = headers.findIndex((header) => /accuracy/.test(header.textContent ?? ''));
+    const labelCell = screen.getByText('dataset-a').closest('[role="cell"]');
+    expect(labelCell).toHaveAttribute('aria-colspan', String(metricIndex - runNameIndex));
+  });
+
+  test('shows every lineage group tag, with the full value in a tooltip', async () => {
+    const user = userEvent.setup();
+    const digest = 'sha256:4c16af46ac51d2a964f7d0b41e3707a09a22fc3e46eaeba217cb47073d255759';
+    const lineageGroup: ExperimentEvaluationRunsGroupData = {
+      groupKey: 'lineage-group',
+      groupValues: [
+        { mode: RunGroupingMode.Tag, groupByData: 'mlflow.genaiEvaluate.scorersDigest', value: digest },
+        { mode: RunGroupingMode.Tag, groupByData: 'mlflow.genaiEvaluate.agent', value: '__main__.answer_question_v2' },
+      ],
+      subRuns: [makeRun('grouped')],
+    };
+
+    renderTable({ data: [lineageGroup], isGrouped: true, enableNewEvalRunsUi: true });
+
+    expect(screen.getByText('__main__.answer_question_v2', { exact: false })).toBeInTheDocument();
+    // The label replaces the empty cells after the run name, so the group row has fewer cells.
+    const rows = screen.getAllByRole('row');
+    const groupRow = rows.find((row) => row.textContent?.includes('Group:'));
+    const runRow = rows.find((row) => row.textContent?.includes('Run grouped'));
+    expect(groupRow && runRow).toBeTruthy();
+    expect(within(groupRow!).getAllByRole('cell').length).toBeLessThan(within(runRow!).getAllByRole('cell').length);
+    await user.hover(screen.getByText('4c16af4'));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(`Scorers: ${digest}`);
+  });
+
+  test('labels a partial scorers group with its counts', async () => {
+    const user = userEvent.setup();
+    const digest = 'sha256:77e63932b4d7109dea4ee21ff10b7674f776276096e2db0548db047ea68adb77';
+    const partialGroup: ExperimentEvaluationRunsGroupData = {
+      groupKey: 'partial-group',
+      groupValues: [
+        {
+          mode: RunGroupingMode.Tag,
+          groupByData: 'mlflow.genaiEvaluate.scorersDigest',
+          value: `${digest} partial:2/3`,
+        },
+      ],
+      subRuns: [makeRun('grouped')],
+    };
+
+    renderTable({ data: [partialGroup], isGrouped: true, enableNewEvalRunsUi: true });
+
+    const label = screen.getByText('77e6393 (partial: 2 of 3)', { exact: false });
+    await user.hover(label);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(`Scorers: ${digest} (partial: 2 of 3)`);
+  });
+
+  test('shows the full group average in a tooltip', async () => {
+    renderTable({
+      data: [{ ...group, subRuns: [withAccuracy('group-1', 0.1), withAccuracy('group-2', 0.2)] }],
+      uniqueColumns: [metricColumn],
+      isGrouped: true,
+      enableNewEvalRunsUi: true,
+    });
+
+    await userEvent.hover(screen.getByText('0.15'));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(String((0.1 + 0.2) / 2));
   });
 
   test('flag off: group rows keep the legacy label-only row without a background', () => {

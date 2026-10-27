@@ -49,8 +49,13 @@ Add regression tests when they add meaningful coverage. Place new regression tes
 the existing tests for that code, verify that they fail without the fix and pass with it,
 and run them together with the directly relevant existing tests, within the
 [runtime time budget](runtime.md#time-budget).
-Then leave only the fix and any regression tests changed in the checkout (revert anything else
-you edited there) and write the patch:
+Before creating `fix.patch`:
+
+- Keep only the fix and any regression tests in the checkout.
+- If the patch changes Python files, invoke the `python-style` skill and follow its guidance.
+- Run pre-commit on all changed files; fix and rerun failures.
+
+Write the patch:
 
 ```bash
 mapfile -t paths < <(printf '%s\n' "$TRIAGE_PATCH_PATH_ALLOWLIST" | sed '/^$/d')

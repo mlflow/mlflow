@@ -67,7 +67,14 @@ from mlflow.store.db.utils import (
 )
 from mlflow.utils import workspace_context
 from mlflow.utils.uri import extract_db_type_from_uri
-from mlflow.utils.validation import _validate_password, _validate_username
+from mlflow.utils.validation import (
+    MAX_ROLE_DESCRIPTION_LENGTH,
+    MAX_ROLE_NAME_LENGTH,
+    MAX_USERNAME_LENGTH,
+    _validate_password,
+    _validate_text_field,
+    _validate_username,
+)
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 _logger = logging.getLogger(__name__)
@@ -165,6 +172,7 @@ class SqlAlchemyStore:
 
     def create_user(self, username: str, password: str, is_admin: bool = False) -> User:
         _validate_username(username)
+        _validate_text_field("Username", username, MAX_USERNAME_LENGTH)
         _validate_password(password)
         pwhash = generate_password_hash(password)
         with self.ManagedSessionMaker(read_only=False) as session:
@@ -175,7 +183,7 @@ class SqlAlchemyStore:
                 return user.to_mlflow_entity()
             except IntegrityError as e:
                 raise MlflowException(
-                    f"User (username={username}) already exists. Error: {e}",
+                    f"User (username={username}) already exists.",
                     RESOURCE_ALREADY_EXISTS,
                 ) from e
 
@@ -1818,6 +1826,8 @@ class SqlAlchemyStore:
         description: str | None = None,
     ) -> Role:
         self._reject_synthetic_role_name(name)
+        _validate_text_field("Role name", name, MAX_ROLE_NAME_LENGTH)
+        _validate_text_field("Role description", description, MAX_ROLE_DESCRIPTION_LENGTH)
         with self.ManagedSessionMaker(read_only=False) as session:
             try:
                 role = SqlRole(
@@ -1830,7 +1840,7 @@ class SqlAlchemyStore:
                 return role.to_mlflow_entity()
             except IntegrityError as e:
                 raise MlflowException(
-                    f"Role (name={name}, workspace={workspace}) already exists. Error: {e}",
+                    f"Role (name={name}, workspace={workspace}) already exists.",
                     RESOURCE_ALREADY_EXISTS,
                 ) from e
 
@@ -1906,6 +1916,8 @@ class SqlAlchemyStore:
     ) -> Role:
         if name is not None:
             self._reject_synthetic_role_name(name)
+        _validate_text_field("Role name", name, MAX_ROLE_NAME_LENGTH)
+        _validate_text_field("Role description", description, MAX_ROLE_DESCRIPTION_LENGTH)
         with self.ManagedSessionMaker(read_only=False) as session:
             role = self._get_role(session, role_id)
             if name is not None:
@@ -1981,7 +1993,7 @@ class SqlAlchemyStore:
             except IntegrityError as e:
                 raise MlflowException(
                     f"Role permission (role_id={role_id}, resource_type={resource_type}, "
-                    f"resource_pattern={resource_pattern}) already exists. Error: {e}",
+                    f"resource_pattern={resource_pattern}) already exists.",
                     RESOURCE_ALREADY_EXISTS,
                 ) from e
 

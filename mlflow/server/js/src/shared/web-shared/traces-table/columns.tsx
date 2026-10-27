@@ -20,8 +20,11 @@ import {
   TraceMetadataCell,
   TraceTokensCell,
   SessionTokensCell,
+  SessionDurationCell,
+  SessionCostCell,
   TraceUserCell,
 } from './TraceCell';
+import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
 
 /**
  * Dynamic params handed to the module-scope cell renderers via the table `meta` option (per the
@@ -149,6 +152,8 @@ export const STANDARD_COLUMNS: StandardColumnDef[] = [
     ...COLUMN_SIZES.duration,
     header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.duration} />,
     cell: (ctx) => <TraceDurationCell trace={ctx.row.original} />,
+    // Session totals for duration and cost come with the new eval runs UI; without it session rows leave them blank.
+    renderSessionCell: (traces) => (shouldEnableNewEvalRunsUi() ? <SessionDurationCell traces={traces} /> : null),
   },
   {
     id: 'state',
@@ -180,6 +185,7 @@ export const STANDARD_COLUMNS: StandardColumnDef[] = [
     ...COLUMN_SIZES.cost,
     header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.cost} />,
     cell: (ctx) => <TraceCostCell trace={ctx.row.original} />,
+    renderSessionCell: (traces) => (shouldEnableNewEvalRunsUi() ? <SessionCostCell traces={traces} /> : null),
   },
   {
     id: 'tags',

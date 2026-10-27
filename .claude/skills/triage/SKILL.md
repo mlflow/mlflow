@@ -1,6 +1,6 @@
 ---
 name: triage
-description: Triage GitHub issues or handle maintainer follow-ups in a sandbox, writing a response and optional verified implementation proposal for the workflow to publish.
+description: Ignore this skill unless invoked through an explicit skill mention. Triage GitHub issues or handle maintainer follow-ups in a sandbox, writing a response and optional verified implementation proposal for the workflow to publish.
 disable-model-invocation: true
 argument-hint: "<init|follow-up> <issue_path> <out_dir>"
 arguments: [action, issue_path, out_dir]

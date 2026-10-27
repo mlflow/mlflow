@@ -11,7 +11,7 @@ import pydantic
 
 import mlflow
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
-from mlflow.entities.issue import IssueSeverity
+from mlflow.entities.issue import Issue, IssueSeverity
 from mlflow.entities.issue_evidence import IssueEvidence
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
@@ -48,6 +48,12 @@ from mlflow.genai.discovery.extraction import (
     extract_failing_traces,
     extract_failure_labels,
 )
+from mlflow.genai.discovery.matching import (
+    MATCHABLE_STATUSES,
+    MatchOutcome,
+    match_findings_to_existing_issues,
+    read_match_candidates,
+)
 from mlflow.genai.discovery.sampling import sample_traces
 from mlflow.genai.discovery.utils import (
     analyze_cost_anomalies,
@@ -69,6 +75,7 @@ from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_ISSUE_DETECTION
+from mlflow.utils.time import get_current_time_millis
 
 _logger = logging.getLogger(__name__)
 
@@ -501,6 +508,7 @@ def _merge_singleton_issues(
     max_issues: int,
     categories: list[str],
     token_counter: _TokenCounter | None = None,
+    instructions: str | None = None,
 ) -> list[_IdentifiedIssue]:
     singletons = [i for i in identified if len(i.example_indices) == 1]
     multi_member = [i for i in identified if len(i.example_indices) > 1]
@@ -515,6 +523,7 @@ def _merge_singleton_issues(
         max_issues,
         categories=categories,
         token_counter=token_counter,
+        instructions=instructions,
     )
     return multi_member + merged
 
@@ -525,6 +534,7 @@ def _cluster_and_identify(
     max_issues: int,
     categories: list[str],
     token_counter: _TokenCounter | None = None,
+    instructions: str | None = None,
 ) -> list[_IdentifiedIssue]:
     """Cluster analyses into identified issues via LLM-based labeling and grouping."""
     labels, label_to_analysis = extract_failure_labels(
@@ -555,6 +565,7 @@ def _cluster_and_identify(
             label_to_analysis=label_to_analysis,
             categories=categories,
             token_counter=token_counter,
+            instructions=instructions,
         )
 
     max_workers = min(MLFLOW_GENAI_EVAL_MAX_WORKERS.get(), len(cluster_groups))
@@ -582,7 +593,12 @@ def _cluster_and_identify(
         max_issues,
         categories=categories,
         token_counter=token_counter,
+        instructions=instructions,
     )
+
+
+class _MatchNoLongerValid(Exception):
+    """The matched issue stopped being matchable between the candidate read and the write."""
 
 
 def _build_issues(
@@ -590,9 +606,15 @@ def _build_issues(
     analyses: list[_ConversationAnalysis],
     exp_id: str,
     source_run_id: str,
+    match_outcome: MatchOutcome | None = None,
 ) -> tuple[list[Issue], dict[str, list[str]]]:
     """
     Convert identified issues into Issue entities.
+
+    A finding matched to an issue this experiment already carries refreshes that issue rather
+    than filing a second one: its last-seen time moves forward and this run's traces are
+    annotated against it. The user's triage is left alone -- a rejected issue stays rejected,
+    and the name and description someone edited are not overwritten by this run's wording.
 
     Returns:
         A tuple of (issues, issue_trace_ids) where issue_trace_ids maps
@@ -600,12 +622,71 @@ def _build_issues(
     """
     from mlflow.tracing.client import TracingClient
 
+    client = TracingClient()
     issues: list[Issue] = []
     issue_trace_ids: dict[str, list[str]] = {}
-    for ident in identified:
+    for index, ident in enumerate(identified):
         affected_trace_ids = collect_affected_trace_ids(ident, analyses)
         name = ident.name.removeprefix("Issue: ").removeprefix("issue: ")
-        issue = TracingClient()._create_issue(
+        if matched_id := (match_outcome.issue_id_for(index) if match_outcome else None):
+            try:
+                # Re-read rather than trust the candidate: matching takes a model call, and the
+                # issue can be resolved in that window. Refreshing it then would bury a
+                # regression in the issue someone had just closed, which is the outcome
+                # excluding resolved issues from the candidates exists to prevent.
+                current = client._get_issue(matched_id)
+                if current.status not in MATCHABLE_STATUSES:
+                    _logger.info(
+                        "Issue %s became %s while matching; reporting the finding as new",
+                        matched_id,
+                        current.status,
+                    )
+                    raise _MatchNoLongerValid
+                issue = client._update_issue(
+                    issue_id=matched_id,
+                    # Monotonic: a run over older traces must not drag the issue's last-seen
+                    # time backwards past what a later run already recorded.
+                    last_seen_timestamp=max(
+                        get_current_time_millis(),
+                        current.last_seen_timestamp or 0,
+                    ),
+                )
+                # The re-read above closes the window the model call opens, but not the gap
+                # between that read and this write: nothing in the store conditions the update on
+                # status. Judge the issue the store handed back rather than the one that was read,
+                # so a resolution landing in that gap still sends the finding to a new issue
+                # instead of annotating this run's traces onto the row someone just closed.
+                if issue.status not in MATCHABLE_STATUSES:
+                    _logger.info(
+                        "Issue %s became %s while being refreshed; reporting the finding as new",
+                        matched_id,
+                        issue.status,
+                    )
+                    raise _MatchNoLongerValid
+            except _MatchNoLongerValid:
+                pass
+            except Exception:
+                # Losing the match costs a duplicate; losing the finding costs the user the
+                # problem, so it falls through and is filed.
+                _logger.warning(
+                    "Could not refresh already-reported issue %s; reporting the finding as new",
+                    matched_id,
+                    exc_info=True,
+                )
+            else:
+                # Several findings in one run can re-find one Issue: it is refreshed once and
+                # carries all of their traces, rather than the last assignment winning and the
+                # earlier findings' traces going unannotated.
+                if issue.issue_id in issue_trace_ids:
+                    known = issue_trace_ids[issue.issue_id]
+                    issue_trace_ids[issue.issue_id] = known + [
+                        trace_id for trace_id in affected_trace_ids if trace_id not in known
+                    ]
+                else:
+                    issues.append(issue)
+                    issue_trace_ids[issue.issue_id] = affected_trace_ids
+                continue
+        issue = client._create_issue(
             experiment_id=exp_id,
             name=name,
             description=ident.description,
@@ -617,11 +698,36 @@ def _build_issues(
         issues.append(issue)
         issue_trace_ids[issue.issue_id] = affected_trace_ids
 
-    issues.sort(
-        key=lambda i: i.severity,
-        reverse=True,
-    )
+    issues.sort(key=_severity_sort_key, reverse=True)
     return issues, issue_trace_ids
+
+
+# Declaration order is the severity order, so the index is the rank.
+_SEVERITY_RANK = {severity.value: rank for rank, severity in enumerate(IssueSeverity)}
+# Below every known severity, so an issue whose severity cannot be read sorts last. An absent
+# severity is not evidence of a severe issue.
+_UNKNOWN_SEVERITY_RANK = -1
+
+
+def _severity_sort_key(issue: Issue) -> int:
+    """
+    Rank for ordering issues by severity, most severe first under ``reverse=True``.
+
+    Ranked explicitly rather than by comparing the field, for two reasons the review surfaced.
+
+    ``Issue`` keeps whatever severity it was given, so a row read back from the store holds a
+    plain string rather than an :class:`IssueSeverity`. ``IssueSeverity.__lt__`` returns
+    ``NotImplemented`` for a non-member, and the enum subclasses ``str``, so Python fell back
+    to string comparison -- which is alphabetical. ``"high" < "low"`` is true, so the most
+    severe issues sorted to the *bottom* of the list.
+
+    The column is also nullable, so a single untyped row raised ``TypeError`` from this sort.
+    It runs after every database write but before evidence annotation, so the run published
+    its issues and then lost all of their trace annotations.
+    """
+    if issue.severity is None:
+        return _UNKNOWN_SEVERITY_RANK
+    return _SEVERITY_RANK.get(str(issue.severity), _UNKNOWN_SEVERITY_RANK)
 
 
 def build_issue_discovery_scorer(
@@ -629,18 +735,22 @@ def build_issue_discovery_scorer(
     model: str | None = None,
     use_conversation: bool = True,
     latency_stats: dict[str, float] | None = None,
+    instructions: str | None = None,
 ) -> Scorer:
     model = model or DEFAULT_MODEL
     categories = categories if categories is not None else DEFAULT_CATEGORIES
 
     include_timing = use_conversation and CATEGORY_LATENCY in categories
 
-    instructions = build_satisfaction_instructions(
-        use_conversation=use_conversation, categories=categories, latency_stats=latency_stats
+    judge_instructions = build_satisfaction_instructions(
+        use_conversation=use_conversation,
+        categories=categories,
+        latency_stats=latency_stats,
+        instructions=instructions,
     )
     return make_judge(
         name=DEFAULT_SCORER_NAME,
-        instructions=instructions,
+        instructions=judge_instructions,
         model=model,
         feedback_value_type=dict[str, str],
         include_timing_in_conversation=include_timing,
@@ -712,6 +822,7 @@ def discover_issues(
     filter_string: str | None = None,
     run_id: str | None = None,
     categories: list[str] = DEFAULT_CATEGORIES,
+    instructions: str | None = None,
 ) -> DiscoverIssuesResult:
     """
     Discover quality and operational issues in traces.
@@ -740,10 +851,20 @@ def discover_issues(
             Ignored when ``traces`` is provided.
         run_id: Run ID to attach issues to. If not provided, a new run will be created.
         categories: Issue categories to search for.
+        instructions: Free-text detection priorities saved on the experiment, applied to the
+            stages that decide what to flag and how severe it is. Steers the run; it cannot
+            redefine the task.
 
     Returns:
         A :class:`DiscoverIssuesResult` with discovered issues, run IDs,
         and a summary report.
+
+    Raises:
+        CandidateReadError: If the issues this experiment already carries could not be read.
+            Deliberately fatal: publishing without that list would report every finding as new
+            and file a duplicate of everything already known, so the run fails instead. The job
+            wrapper marks the run FAILED and re-raises, which is the outcome a caller wants --
+            a detection run that could not be deduplicated is not a result worth keeping.
     """
     from mlflow.server.jobs.progress import update_status_details
 
@@ -799,6 +920,7 @@ def discover_issues(
             model=model,
             use_conversation=use_conversation,
             latency_stats=latency_stats,
+            instructions=instructions,
         )
         scorers = [default_scorer]
 
@@ -921,7 +1043,12 @@ def discover_issues(
     # ---- Phase 3: Cluster & identify ----
     update_status_details({"stage": "Clustering issues..."})
     identified = _cluster_and_identify(
-        analyses, model, max_issues, categories=categories, token_counter=token_counter
+        analyses,
+        model,
+        max_issues,
+        categories=categories,
+        token_counter=token_counter,
+        instructions=instructions,
     )
 
     if not identified:
@@ -933,9 +1060,26 @@ def discover_issues(
             total_cost_usd=token_counter.cost_usd,
         )
 
-    # ---- Phase 4: Build issues & annotate ----
+    # ---- Phase 4: Match against what is already reported, then build issues & annotate ----
+    update_status_details({"stage": "Checking already-reported issues..."})
+    # Read before publishing, and fail rather than publish against an unread list: treating a
+    # failed read as "nothing reported yet" would file a duplicate of every known issue.
+    candidates = read_match_candidates(exp_id)
+    match_outcome = match_findings_to_existing_issues(
+        identified, candidates, model=model, token_counter=token_counter
+    )
+    if match_outcome.already_reported:
+        _logger.info(
+            "%d of %d findings were already reported, out of %d issues considered",
+            match_outcome.already_reported,
+            len(identified),
+            match_outcome.candidates_considered,
+        )
+
     update_status_details({"stage": "Annotating issues..."})
-    issues, issue_trace_ids = _build_issues(identified, analyses, exp_id, triage_eval.run_id)
+    issues, issue_trace_ids = _build_issues(
+        identified, analyses, exp_id, triage_eval.run_id, match_outcome
+    )
 
     trace_to_session: dict[str, str] = {}
     for session_id, traces_in_session in session_groups.items():

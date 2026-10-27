@@ -3345,7 +3345,7 @@ class MlflowClient:
                 )
 
             step = step or 0
-            timestamp = timestamp or get_current_time_millis()
+            timestamp = timestamp if timestamp is not None else get_current_time_millis()
 
             # Sanitize key to use in filename (replace / with ~ to avoid subdirectories).
             # '#' was previously used here but is rejected by validate_path_is_safe(),
