@@ -1396,6 +1396,26 @@ def test_search_experiments(client, monkeypatch):
         assert names == [f"exp{i}" for i in readable]
 
 
+@pytest.mark.parametrize("is_admin", [False, True])
+@pytest.mark.parametrize("tags", [[], [{"key": "mlflow.prompt.is_prompt", "value": "true"}]])
+def test_wildcard_registered_model_name_is_rejected(client, tags, is_admin):
+    auth = (ADMIN_USERNAME, ADMIN_PASSWORD) if is_admin else create_user(client.tracking_uri)
+    base = f"{client.tracking_uri}/api/2.0/mlflow/registered-models"
+
+    response = requests.post(f"{base}/create", json={"name": "*", "tags": tags}, auth=auth)
+    assert response.status_code == 400
+    assert "reserved for wildcard" in response.json()["message"]
+
+    name = f"model-{uuid.uuid4().hex}"
+    response = requests.post(f"{base}/create", json={"name": name, "tags": tags}, auth=auth)
+    assert response.status_code == 200
+    response = requests.post(f"{base}/rename", json={"name": name, "new_name": "*"}, auth=auth)
+    assert response.status_code == 400
+    assert "reserved for wildcard" in response.json()["message"]
+    response = requests.get(f"{base}/get", params={"name": name}, auth=auth)
+    assert response.status_code == 200
+
+
 @pytest.mark.parametrize(
     "client",
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],

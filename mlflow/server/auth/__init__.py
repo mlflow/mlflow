@@ -2318,6 +2318,22 @@ def _validate_can_update_registered_model_or_prompt():
     return _get_permission_from_registered_model_or_prompt_name().can_update
 
 
+def _reject_wildcard_model_name(name: str) -> None:
+    # Model and prompt grants are keyed by name, so "*" would become a wildcard grant.
+    if name == "*":
+        raise MlflowException.invalid_parameter_value(
+            "'*' is reserved for wildcard permission grants and cannot be used as a "
+            "registered model or prompt name."
+        )
+
+
+def validate_can_rename_registered_model() -> bool:
+    if not _validate_can_update_registered_model_or_prompt():
+        return False
+    _reject_wildcard_model_name(_get_request_message(RenameRegisteredModel()).new_name)
+    return True
+
+
 def _validate_can_delete_registered_model_or_prompt():
     return _get_permission_from_registered_model_or_prompt_name().can_delete
 
@@ -2650,6 +2666,7 @@ def validate_can_create_registered_model() -> bool:
             RESOURCE_TYPE_REGISTERED_MODEL
         ) and _workspace_create_not_denied(RESOURCE_TYPE_PROMPT)
     msg = _get_request_message(CreateRegisteredModel())
+    _reject_wildcard_model_name(msg.name)
     created_type = (
         RESOURCE_TYPE_PROMPT if _entity_is_prompt(msg) else RESOURCE_TYPE_REGISTERED_MODEL
     )
@@ -4677,6 +4694,15 @@ def enforce_review_queue_name_not_username():
         _reject_rename_review_queue_shadowing_user(queue, _parse_update_review_queue_request())
 
 
+def enforce_model_name_not_wildcard():
+    """Apply the validators' wildcard-name check to admins, who skip the validators."""
+    validator = _find_validator(request)
+    if validator is validate_can_create_registered_model:
+        _reject_wildcard_model_name(_get_request_message(CreateRegisteredModel()).name)
+    elif validator is validate_can_rename_registered_model:
+        _reject_wildcard_model_name(_get_request_message(RenameRegisteredModel()).new_name)
+
+
 def validate_can_remove_items_from_review_queue():
     username = authenticate_request().username
     queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
@@ -4830,7 +4856,7 @@ BEFORE_REQUEST_HANDLERS = {
     GetRegisteredModel: _validate_can_read_registered_model_or_prompt,
     DeleteRegisteredModel: validate_can_delete_registered_model_or_prompt_cascade,
     UpdateRegisteredModel: _validate_can_update_registered_model_or_prompt,
-    RenameRegisteredModel: _validate_can_update_registered_model_or_prompt,
+    RenameRegisteredModel: validate_can_rename_registered_model,
     GetLatestVersions: validate_can_read_model_or_prompt_version,
     CreateModelVersion: validate_can_create_model_version,
     GetModelVersion: validate_can_read_model_or_prompt_version,
@@ -5711,6 +5737,7 @@ def _before_request():
     # inside the validators).
     if sender_is_admin():
         enforce_review_queue_name_not_username()
+        enforce_model_name_not_wildcard()
         return
 
     # authorization
