@@ -50,9 +50,7 @@ function parseIssueFrontmatter(body) {
   return { skip: options.skip === "true" };
 }
 
-const ISSUE_SKIP_ROLES = ["admin", "maintain", "write"];
-
-function isTrustedActor({ repo, actor, roles, api = ghApi }) {
+function isTrustedActor({ repo, actor, api = ghApi }) {
   if (!actor?.login) return false;
   let permission;
   try {
@@ -62,7 +60,7 @@ function isTrustedActor({ repo, actor, roles, api = ghApi }) {
     if (/HTTP 404\b|404 Not Found/.test(detail)) return false;
     throw error;
   }
-  return roles.includes(permission.role_name);
+  return ["admin", "maintain", "write"].includes(permission.role_name);
 }
 
 function resolveIssueOptions({ repo, eventName, event, api = ghApi }) {
@@ -70,7 +68,7 @@ function resolveIssueOptions({ repo, eventName, event, api = ghApi }) {
   const issue = event.issue;
   const body = issue?.body ?? "";
   if (issue.user?.type === "Bot") return {};
-  if (!isTrustedActor({ repo, actor: issue.user, roles: ISSUE_SKIP_ROLES, api })) return {};
+  if (!isTrustedActor({ repo, actor: issue.user, api })) return {};
   // These authors usually file issues they plan to handle themselves; opt in with `skip: false`.
   return { skip: true, ...(TRIAGE_MARKER.test(body) ? parseIssueFrontmatter(body) : {}) };
 }
@@ -102,8 +100,10 @@ function prepareFollowup({ repo, issue, comment, dryRun = false, api = ghApi }) 
     throw new Error("The command must be a comment on this issue.");
   }
   const instructions = parseCommand(comment.body);
-  if (!isTrustedActor({ repo, actor: comment.user, roles: ["admin", "maintain"], api })) {
-    throw new Error("Only repository admins and maintainers can request follow-up triage.");
+  if (!isTrustedActor({ repo, actor: comment.user, api })) {
+    throw new Error(
+      "Only repository admins, maintainers, and collaborators can request follow-up triage."
+    );
   }
   checkExistingPr({ repo, issueNumber: issue.number, dryRun, api });
 
