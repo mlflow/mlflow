@@ -1,3 +1,4 @@
+import functools
 import json
 import logging
 from typing import Any, AsyncIterator, Iterator
@@ -360,12 +361,27 @@ def _end_span_on_success(
 
     result = _try_parse_raw_response(raw_result)
 
+    if isinstance(result, (Stream, AsyncStream)):
+        output = []
+        finished = False
+
+        def _finish_stream(error=None):
+            nonlocal finished
+            if finished:
+                return
+            finished = True
+            if error is not None:
+                _end_span_on_exception(span, error)
+            else:
+                chunk = output[-1] if output else None
+                _process_last_chunk(span, chunk, inputs, output, is_responses_api)
+
+        original_close = result.close
+
     if isinstance(result, Stream):
         # If the output is a stream, we add a hook to store the intermediate chunks
         # and then log the outputs as a single artifact when the stream ends
         def _stream_output_logging_hook(stream: Iterator) -> Iterator:
-            output = []
-            chunk = None
             try:
                 for i, chunk in enumerate(stream):
                     _add_span_event(span, i, chunk)
@@ -374,27 +390,51 @@ def _end_span_on_success(
             except Exception as e:
                 # The SDK raises mid-stream (e.g. an error event from the server). End the
                 # span with an error status, otherwise the trace is never exported.
-                _end_span_on_exception(span, e)
+                _finish_stream(e)
                 raise
-            _process_last_chunk(span, chunk, inputs, output, is_responses_api)
+            finally:
+                _finish_stream()
+
+        @functools.wraps(original_close)
+        def _close():
+            try:
+                close_result = original_close()
+            except BaseException as e:
+                _finish_stream(e)
+                raise
+            _finish_stream()
+            return close_result
 
         result._iterator = _stream_output_logging_hook(result._iterator)
+        result.close = _close
     elif isinstance(result, AsyncStream):
 
         async def _stream_output_logging_hook(stream: AsyncIterator) -> AsyncIterator:
-            output = []
-            chunk = None
             try:
                 async for chunk in stream:
                     _add_span_event(span, len(output), chunk)
                     output.append(chunk)
                     yield chunk
-            except Exception as e:
-                _end_span_on_exception(span, e)
+            except GeneratorExit:
                 raise
-            _process_last_chunk(span, chunk, inputs, output, is_responses_api)
+            except BaseException as e:
+                _finish_stream(e)
+                raise
+            finally:
+                _finish_stream()
+
+        @functools.wraps(original_close)
+        async def _close():
+            try:
+                close_result = await original_close()
+            except BaseException as e:
+                _finish_stream(e)
+                raise
+            _finish_stream()
+            return close_result
 
         result._iterator = _stream_output_logging_hook(result._iterator)
+        result.close = _close
     else:
         try:
             set_span_chat_attributes(span, inputs, result)
@@ -489,16 +529,36 @@ def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
             return "".join(text_parts)
         return content
 
+    tool_calls: list[dict[str, Any]] = []
+    finish_reason = "stop"
+    for chunk in chunks:
+        if not chunk.choices:
+            continue
+        chunk_choice = chunk.choices[0]
+        if chunk_choice.finish_reason:
+            finish_reason = chunk_choice.finish_reason
+        for tool_call_delta in getattr(chunk_choice.delta, "tool_calls", None) or []:
+            while tool_call_delta.index >= len(tool_calls):
+                tool_calls.append({
+                    "id": "",
+                    "type": "function",
+                    "function": {"name": "", "arguments": ""},
+                })
+            tool_call = tool_calls[tool_call_delta.index]
+            if tool_call_delta.id:
+                tool_call["id"] = tool_call_delta.id
+            if function := tool_call_delta.function:
+                tool_call["function"]["name"] += function.name or ""
+                tool_call["function"]["arguments"] += function.arguments or ""
+
+    content = "".join(map(_extract_content, chunks))
     message = ChatCompletionMessage(
-        role="assistant", content="".join(map(_extract_content, chunks))
+        role="assistant",
+        content=None if tool_calls and not content else content,
+        tool_calls=tool_calls or None,
     )
 
-    # Extract metadata from the last chunk
     last_chunk = chunks[-1]
-    finish_reason = "stop"
-    if choices := getattr(last_chunk, "choices", None):
-        if chunk_choice := choices[0]:
-            finish_reason = getattr(chunk_choice, "finish_reason") or finish_reason
 
     choice = Choice(index=0, message=message, finish_reason=finish_reason)
 
@@ -528,9 +588,15 @@ def _reconstruct_response_from_stream(chunks: list[Any]) -> Any:
 
 def _is_responses_final_event(chunk: Any) -> bool:
     try:
-        from openai.types.responses import ResponseCompletedEvent
+        from openai.types.responses import (
+            ResponseCompletedEvent,
+            ResponseFailedEvent,
+            ResponseIncompleteEvent,
+        )
 
-        return isinstance(chunk, ResponseCompletedEvent)
+        return isinstance(
+            chunk, (ResponseCompletedEvent, ResponseIncompleteEvent, ResponseFailedEvent)
+        )
     except ImportError:
         return False
 

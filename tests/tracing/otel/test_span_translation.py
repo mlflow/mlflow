@@ -7,7 +7,7 @@ import pytest
 from mlflow.entities.span import Span, SpanType
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.otel.translation import (
-    sanitize_attributes,
+    strip_otlp_double_encoding,
     translate_loaded_span,
     translate_span_type_from_otel,
     translate_span_when_storing,
@@ -310,7 +310,11 @@ def test_translate_token_usage_edge_cases(
     assert usage[TokenUsageKey.TOTAL_TOKENS] == expected_total
 
 
-def test_translate_token_usage_with_cache_fields():
+@pytest.mark.parametrize(
+    "cache_creation_key",
+    ["gen_ai.usage.cache_write.input_tokens", "gen_ai.usage.cache_creation.input_tokens"],
+)
+def test_translate_token_usage_with_cache_fields(cache_creation_key):
     span = mock.Mock(spec=Span)
     span.parent_id = "parent_123"
     span_dict = {
@@ -318,7 +322,7 @@ def test_translate_token_usage_with_cache_fields():
             "gen_ai.usage.input_tokens": 100,
             "gen_ai.usage.output_tokens": 50,
             "gen_ai.usage.cache_read.input_tokens": 80,
-            "gen_ai.usage.cache_creation.input_tokens": 20,
+            cache_creation_key: 20,
         }
     }
     span.to_dict.return_value = span_dict
@@ -330,6 +334,24 @@ def test_translate_token_usage_with_cache_fields():
     assert usage[TokenUsageKey.OUTPUT_TOKENS] == 50
     assert usage[TokenUsageKey.TOTAL_TOKENS] == 150
     assert usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] == 80
+    assert usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] == 20
+
+
+def test_translate_token_usage_prefers_cache_write_over_cache_creation():
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span.to_dict.return_value = {
+        "attributes": {
+            "gen_ai.usage.input_tokens": 100,
+            "gen_ai.usage.output_tokens": 50,
+            "gen_ai.usage.cache_write.input_tokens": 20,
+            "gen_ai.usage.cache_creation.input_tokens": 30,
+        }
+    }
+
+    result = translate_span_when_storing(span)
+
+    usage = json.loads(result["attributes"][SpanAttributeKey.CHAT_USAGE])
     assert usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] == 20
 
 
@@ -646,8 +668,10 @@ def test_translate_inputs_outputs_edge_cases(
         ),
     ],
 )
-def test_sanitize_attributes(attributes: dict[str, Any], expected_attributes: dict[str, Any]):
-    result = sanitize_attributes(attributes)
+def test_strip_otlp_double_encoding(
+    attributes: dict[str, Any], expected_attributes: dict[str, Any]
+):
+    result = strip_otlp_double_encoding(attributes)
     assert result == expected_attributes
 
 
@@ -1063,8 +1087,10 @@ def test_update_token_usage_without_cached_tokens():
 def _translate_claude_code_span(attributes, events=None):
     span = mock.Mock(spec=Span)
     span.parent_id = "parent_123"
+    # Mirror the OTLP ingest path: from_otel_proto encodes each value once, then the
+    # endpoint strips the extra layer before the store translates the span.
     span.to_dict.return_value = {
-        "attributes": {k: json.dumps(v) for k, v in attributes.items()},
+        "attributes": strip_otlp_double_encoding({k: json.dumps(v) for k, v in attributes.items()}),
         "events": events or [],
     }
     return translate_span_when_storing(span)["attributes"]

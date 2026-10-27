@@ -1,3 +1,5 @@
+import { isNil } from 'lodash';
+
 import { HoverCard, Tag, Typography } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
 import { getTraceTokenUsage } from '../../model-trace-explorer/ModelTraceExplorer.utils';
@@ -112,7 +114,7 @@ export const TokenComponent = ({
               </div>
             </div>
           )}
-          {inputTokens && (
+          {!isNil(inputTokens) && (
             <div
               css={{
                 display: 'flex',
@@ -136,7 +138,7 @@ export const TokenComponent = ({
               </div>
             </div>
           )}
-          {outputTokens && (
+          {!isNil(outputTokens) && (
             <div
               css={{
                 display: 'flex',

@@ -25,8 +25,7 @@
       "mode": "completion",
       "context_window": {
         "max_input": 4096,
-        "max_output": 4096,
-        "max_tokens": 4096
+        "max_output": 4096
       },
       "pricing": {
         "input_per_million_tokens": 1.0,
@@ -39,7 +38,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "embed-english-light-v2.0": {
       "mode": "embedding",
@@ -63,8 +62,7 @@
     "embed-english-light-v3.0": {
       "mode": "embedding",
       "context_window": {
-        "max_input": 512,
-        "max_tokens": 512
+        "max_input": 512
       },
       "pricing": {
         "input_per_million_tokens": 0.1,
@@ -77,7 +75,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-21"
+      "last_updated_at": "2026-10-27"
     },
     "embed-english-v2.0": {
       "mode": "embedding",
@@ -101,8 +99,7 @@
     "embed-english-v3.0": {
       "mode": "embedding",
       "context_window": {
-        "max_input": 512,
-        "max_tokens": 512
+        "max_input": 512
       },
       "pricing": {
         "input_per_million_tokens": 0.1,
@@ -115,13 +112,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-21"
+      "last_updated_at": "2026-10-27"
     },
     "embed-multilingual-light-v3.0": {
       "mode": "embedding",
       "context_window": {
-        "max_input": 512,
-        "max_tokens": 512
+        "max_input": 512
       },
       "pricing": {
         "input_per_million_tokens": 100.0,
@@ -134,7 +130,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-21"
+      "last_updated_at": "2026-10-27"
     },
     "embed-multilingual-v2.0": {
       "mode": "embedding",
@@ -158,8 +154,7 @@
     "embed-multilingual-v3.0": {
       "mode": "embedding",
       "context_window": {
-        "max_input": 512,
-        "max_tokens": 512
+        "max_input": 512
       },
       "pricing": {
         "input_per_million_tokens": 0.1,
@@ -172,13 +167,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-21"
+      "last_updated_at": "2026-10-27"
     },
     "embed-v4.0": {
       "mode": "embedding",
       "context_window": {
-        "max_input": 128000,
-        "max_tokens": 128000
+        "max_input": 128000
       },
       "pricing": {
         "input_per_million_tokens": 0.12,
@@ -196,13 +190,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-28"
+      "last_updated_at": "2026-10-27"
     },
     "embed-v5.0-fast": {
       "mode": "embedding",
       "context_window": {
-        "max_input": 128000,
-        "max_tokens": 128000
+        "max_input": 128000
       },
       "pricing": {
         "input_per_million_tokens": 0.08,
@@ -215,13 +208,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-05"
+      "last_updated_at": "2026-10-27"
     },
     "embed-v5.0-pro": {
       "mode": "embedding",
       "context_window": {
-        "max_input": 128000,
-        "max_tokens": 128000
+        "max_input": 128000
       },
       "pricing": {
         "input_per_million_tokens": 0.12,
@@ -234,7 +226,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-05"
+      "last_updated_at": "2026-10-27"
     }
   }
 }

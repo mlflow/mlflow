@@ -20,6 +20,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from flask import Flask
+from starlette.exceptions import HTTPException
 from starlette.middleware.wsgi import WSGIResponder, build_environ
 from starlette.types import Receive, Scope, Send
 
@@ -28,8 +29,10 @@ from mlflow.environment_variables import MLFLOW_ENABLE_REMOTE_ASSISTANT
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import MLFLOW_GATEWAY_DURATION_HEADER, MLFLOW_GATEWAY_OVERHEAD_HEADER
 from mlflow.gateway.providers.utils import provider_call_duration_ms
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, ErrorCode
 from mlflow.server import app as flask_app
 from mlflow.server.artifact_router import artifact_router
+from mlflow.server.artifact_transfer import reject_proxied_artifact_upload
 from mlflow.server.asgi_utils import get_routed_asgi_path
 from mlflow.server.assistant.api import assistant_router
 from mlflow.server.assistant.identity import auth_plugin_active
@@ -37,6 +40,7 @@ from mlflow.server.fastapi_security import init_fastapi_security
 from mlflow.server.gateway_api import gateway_router
 from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR, _add_static_prefix
 from mlflow.server.job_api import job_api_router
+from mlflow.server.jobs.executor_registry import warm_executor_registry_in_background
 from mlflow.server.mcp_server_api import (
     _request_validation_error_response,
     get_mcp_server_api_route_prefixes,
@@ -46,6 +50,11 @@ from mlflow.server.mcp_server_api import (
 from mlflow.server.mlflow_response import mlflow_exception_response
 from mlflow.server.otel_api import otel_router
 from mlflow.server.server_info_api import server_info_router
+from mlflow.server.skill_registry_api import (
+    get_skill_registry_api_route_prefixes,
+    is_skill_registry_api_path,
+    skill_registry_router,
+)
 from mlflow.server.workspace_helpers import (
     WORKSPACE_HEADER_NAME,
     resolve_workspace_for_request_if_enabled,
@@ -110,6 +119,26 @@ class _EfficientWSGIMiddleware:
             return
         responder = _EfficientWSGIResponder(self.app, scope)
         await responder(receive, send)
+
+
+def add_fastapi_artifact_transfer_middleware(fastapi_app: FastAPI) -> None:
+    upload_path = _add_static_prefix("/ajax-api/2.0/mlflow/upload-artifact")
+
+    @fastapi_app.middleware("http")
+    async def artifact_transfer_middleware(request: Request, call_next):
+        path = get_routed_asgi_path(request)
+        root_path = request.scope.get("root_path", "").rstrip("/")
+        if root_path and path.startswith(f"{root_path}/"):
+            path = path[len(root_path) :]
+        if request.method == "POST" and path.rstrip("/") == upload_path:
+            try:
+                reject_proxied_artifact_upload()
+            except MlflowException as e:
+                return JSONResponse(
+                    status_code=e.get_http_status_code(),
+                    content=json.loads(e.serialize_as_json()),
+                )
+        return await call_next(request)
 
 
 def add_fastapi_workspace_middleware(fastapi_app: FastAPI) -> None:
@@ -177,19 +206,23 @@ def add_gateway_timing_middleware(fastapi_app: FastAPI) -> None:
     fastapi_app.state.gateway_timing_middleware_added = True
 
 
-def add_mcp_exception_handlers(fastapi_app: FastAPI) -> None:
-    if getattr(fastapi_app.state, "mcp_exception_handlers_added", False):
+def add_registry_exception_handlers(fastapi_app: FastAPI) -> None:
+    if getattr(fastapi_app.state, "registry_exception_handlers_added", False):
         return
 
     original_mlflow_exception_handler = fastapi_app.exception_handlers.get(MlflowException)
+    original_http_exception_handler = fastapi_app.exception_handlers.get(HTTPException)
 
     # These handlers are registered on the shared FastAPI app, so keep them
-    # scoped to MCP routes to avoid changing response behavior for other APIs.
+    # scoped to MCP and Skill Registry routes to avoid changing response
+    # behavior for other APIs.
     @fastapi_app.exception_handler(MlflowException)
-    async def mcp_mlflow_exception_handler(request: Request, exc: MlflowException):
+    async def registry_mlflow_exception_handler(request: Request, exc: MlflowException):
         path = get_routed_asgi_path(request)
         if is_mcp_server_api_path(path):
             return mlflow_exception_response(exc, handler_name="mcp_mlflow_exception_handler")
+        if is_skill_registry_api_path(path):
+            return mlflow_exception_response(exc, handler_name="skills_mlflow_exception_handler")
         if original_mlflow_exception_handler is not None:
             response = original_mlflow_exception_handler(request, exc)
             if inspect.isawaitable(response):
@@ -198,13 +231,38 @@ def add_mcp_exception_handlers(fastapi_app: FastAPI) -> None:
         return mlflow_exception_response(exc, handler_name="mcp_mlflow_exception_handler")
 
     @fastapi_app.exception_handler(RequestValidationError)
-    async def mcp_request_validation_error_handler(request: Request, exc: RequestValidationError):
+    async def registry_request_validation_error_handler(
+        request: Request, exc: RequestValidationError
+    ):
         path = get_routed_asgi_path(request)
-        if is_mcp_server_api_path(path):
+        if is_mcp_server_api_path(path) or is_skill_registry_api_path(path):
             return _request_validation_error_response(exc)
         return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
-    fastapi_app.state.mcp_exception_handlers_added = True
+    @fastapi_app.exception_handler(HTTPException)
+    async def registry_http_exception_handler(request: Request, exc: HTTPException):
+        path = get_routed_asgi_path(request)
+        if is_skill_registry_api_path(path):
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={
+                    "error_code": ErrorCode.Name(BAD_REQUEST),
+                    "message": exc.detail,
+                },
+                headers=exc.headers,
+            )
+        if original_http_exception_handler is not None:
+            response = original_http_exception_handler(request, exc)
+            if inspect.isawaitable(response):
+                return await response
+            return response
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail},
+            headers=exc.headers,
+        )
+
+    fastapi_app.state.registry_exception_handlers_added = True
 
 
 @asynccontextmanager
@@ -241,16 +299,44 @@ async def _lifespan(app: FastAPI):
     except Exception:
         _logger.warning("Assistant session cleanup failed", exc_info=True)
 
+    # Handlers submit jobs from this worker, so check the job executor backends now (see
+    # warm_executor_registry_in_background), without delaying the worker's startup.
+    try:
+        warm_executor_registry_in_background()
+    except Exception:
+        _logger.warning("Could not start checking the job executor backends", exc_info=True)
+
+    sandboxed = assistant_sandbox_enabled()
+    if sandboxed and shutil.which("docker") is None:
+        # MLFLOW_ENABLE_ASSISTANT_SANDBOX=true forces the sandbox on, even without Docker.
+        _logger.warning(
+            "MLFLOW_ENABLE_ASSISTANT_SANDBOX=true requires the MLflow Assistant to run its tools "
+            "in a Docker sandbox, but no `docker` executable was found, so its turns will fail "
+            "until Docker is installed."
+        )
+    elif sandboxed:
+        # The sandbox keeps the assistant's tools off the host, but not off the network, so say what
+        # it does not cover: an operator could otherwise take it for a network boundary.
+        _logger.warning(
+            "The MLflow Assistant runs its tools and coding-agent CLIs (claude, codex) in a Docker "
+            "sandbox, but the sandbox does not limit network access: code in it can reach the "
+            "server host (through host.docker.internal), other containers (including other "
+            "sessions' sandboxes), other hosts on the network, and cloud metadata endpoints. "
+            "MLFLOW_SANDBOX_EGRESS_PROXY, if set, steers only clients that honor proxy settings, "
+            "and requests to the server host bypass it. To limit what the sandbox can reach, add "
+            "host-level firewall rules that allow only what the Assistant needs, such as the model "
+            "provider's API and the MLflow server."
+        )
     # Remote mode but no sandbox means the assistant runs its work on the host; surface that once
     # at startup rather than silently, since it is a weaker isolation posture for a shared server.
-    if MLFLOW_ENABLE_REMOTE_ASSISTANT.get() and not assistant_sandbox_enabled():
+    elif MLFLOW_ENABLE_REMOTE_ASSISTANT.get():
         _logger.warning(
             "The MLflow Assistant is in remote mode but the Docker sandbox is not active "
             "(no `docker` executable found, or MLFLOW_ENABLE_ASSISTANT_SANDBOX=false); the "
             "assistant will run its Bash tool on the server host. Install Docker, or set "
             "MLFLOW_ENABLE_ASSISTANT_SANDBOX=true to require the sandbox."
         )
-    elif auth_plugin_active() and not assistant_sandbox_enabled():
+    elif auth_plugin_active():
         _logger.info(
             "Auth is enabled but the MLflow Assistant sandbox is not active, so local users' "
             "Assistant tools, including non-admins', run on the server host. Set "
@@ -306,6 +392,7 @@ def create_fastapi_app(flask_app: Flask = flask_app):
 
     add_fastapi_workspace_middleware(fastapi_app)
     add_gateway_timing_middleware(fastapi_app)
+    add_fastapi_artifact_transfer_middleware(fastapi_app)
 
     # Include OpenTelemetry API router BEFORE mounting Flask app
     # This ensures FastAPI routes take precedence over the catch-all Flask mount
@@ -325,9 +412,11 @@ def create_fastapi_app(flask_app: Flask = flask_app):
     # This provides /api/2.0/mlflow-artifacts/artifacts/* and /ajax-api/2.0/... routes
     fastapi_app.include_router(artifact_router)
 
-    add_mcp_exception_handlers(fastapi_app)
+    add_registry_exception_handlers(fastapi_app)
     for route_prefix in get_mcp_server_api_route_prefixes():
         fastapi_app.include_router(mcp_server_router, prefix=route_prefix)
+    for route_prefix in get_skill_registry_api_route_prefixes():
+        fastapi_app.include_router(skill_registry_router, prefix=route_prefix)
 
     fastapi_app.include_router(server_info_router, prefix=static_prefix)
 

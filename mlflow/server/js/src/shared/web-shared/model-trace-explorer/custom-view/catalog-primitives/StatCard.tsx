@@ -14,6 +14,8 @@ import {
   XCircleFillIcon,
 } from '@databricks/design-system';
 
+import { shouldEnableNewEvalRunsUi } from '../../../../../common/utils/FeatureUtils';
+
 const ICON_NAMES = ['wrench', 'clock', 'checkCircle', 'xCircle', 'hash', 'checklist'] as const;
 type IconName = (typeof ICON_NAMES)[number];
 
@@ -104,7 +106,14 @@ export const StatCard: ReactComponentImplementation = createComponentImplementat
       >
         <IconComponent />
       </div>
-      <div css={{ display: 'flex', flexDirection: 'column' }}>
+      <div
+        css={{
+          display: 'flex',
+          flexDirection: 'column',
+          // Long values wrap inside the card instead of overflowing it.
+          ...(shouldEnableNewEvalRunsUi() ? { minWidth: 0, overflowWrap: 'anywhere' } : {}),
+        }}
+      >
         <Typography.Text bold size="lg">
           {value}
         </Typography.Text>

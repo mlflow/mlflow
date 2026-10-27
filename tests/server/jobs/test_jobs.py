@@ -2139,10 +2139,9 @@ def test_submit_leaves_backend_unset_on_default_engine(monkeypatch, tmp_path):
         assert get_job(submitted.job_id).executor_backend is None
 
 
-def test_submit_rejects_differing_custom_scorer_backend(monkeypatch, tmp_path):
-    # Routing custom scorers to a backend that differs from the default is rejected until the
-    # runner dispatches per job (today it always runs on the default backend), so the persisted
-    # per-job backend would never be honored.
+def test_submit_routes_custom_scorer_to_separate_backend(monkeypatch, tmp_path):
+    # With a separate custom-scorer backend configured, a custom scorer job records that backend
+    # (the runner dispatches on it) while other jobs stay on the default backend.
     from mlflow.server.jobs.executor import AbstractJobExecutor, JobExecutorConfig
     from mlflow.server.jobs.executor_registry import (
         get_executor_registry,
@@ -2176,8 +2175,62 @@ def test_submit_rejects_differing_custom_scorer_backend(monkeypatch, tmp_path):
             get_executor_registry().register("custom-sandbox", _FakeLocal(JobExecutorConfig()))
             monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "custom-sandbox")
 
-            with pytest.raises(MlflowException, match="not supported yet"):
+            custom = submit_job(invoke_scorer_job, _custom_scorer_params())
+            builtin = submit_job(invoke_scorer_job, _builtin_scorer_params())
+            assert get_job(custom.job_id).executor_backend == "custom-sandbox"
+            assert get_job(builtin.job_id).executor_backend == "local"
+        finally:
+            shutdown_executor_registry()
+
+
+def test_submit_refuses_custom_scorer_job_the_custom_backend_cannot_run(monkeypatch, tmp_path):
+    # Running it on the default backend would run the custom scorer code on the server host, so
+    # it is refused before a job is stored.
+    from mlflow.server.jobs.executor import AbstractJobExecutor, JobExecutorConfig
+    from mlflow.server.jobs.executor_registry import (
+        get_executor_registry,
+        shutdown_executor_registry,
+    )
+
+    class _FakeSandbox(AbstractJobExecutor):
+        def submit_job(self, *args, **kwargs): ...
+
+        def wait_for_job(self, job_id): ...
+
+        def cancel_job(self, job_id): ...
+
+        def recover_jobs(self, ids):
+            return []
+
+        @property
+        def remote_execution(self):
+            return False
+
+        def supports_job(self, job_name, params):
+            return False
+
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    with _setup_job_runner(
+        monkeypatch,
+        tmp_path,
+        supported_job_functions=["mlflow.genai.scorers.job.invoke_scorer_job"],
+        allowed_job_names=["invoke_scorer"],
+    ):
+        try:
+            monkeypatch.setenv("MLFLOW_SERVER_JOB_EXECUTION_ENGINE", "executor")
+            shutdown_executor_registry()
+            get_executor_registry().register("custom-sandbox", _FakeSandbox(JobExecutorConfig()))
+            monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "custom-sandbox")
+            jobs_before = len(list(_get_job_store().list_jobs()))
+
+            with pytest.raises(MlflowException, match="does not run code-based scorers") as e:
                 submit_job(invoke_scorer_job, _custom_scorer_params())
+
+            assert e.value.error_code == "INVALID_PARAMETER_VALUE"
+            assert len(list(_get_job_store().list_jobs())) == jobs_before
+            # A job without custom scorer code still runs on the default backend.
+            builtin = submit_job(invoke_scorer_job, _builtin_scorer_params())
+            assert get_job(builtin.job_id).executor_backend == "local"
         finally:
             shutdown_executor_registry()
 

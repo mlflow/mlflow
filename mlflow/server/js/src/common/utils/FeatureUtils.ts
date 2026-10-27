@@ -209,6 +209,8 @@ export const shouldEnableExperimentOverviewTab = (hasV4Location?: boolean) => {
   return true;
 };
 
+export const shouldEnableExperimentIssuesTab = () => false;
+
 /**
  * Determines if the top-level nested sidebar feature is enabled.
  * This enables the workflow type selector and nested navigation items in the main sidebar.
@@ -223,6 +225,14 @@ export const shouldEnableWorkflowBasedNavigation = () => {
  */
 export const shouldEnableImprovedEvalRunsComparison = () => {
   return false;
+};
+
+/**
+ * Enables the refreshed evaluation runs table: status in the run name cell, rounded metric values,
+ * group averages, the dataset version column and the restyled dataset cell.
+ */
+export const shouldEnableNewEvalRunsUi = () => {
+  return true;
 };
 
 export const isScorerModelSelectionEnabled = () => {

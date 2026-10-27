@@ -1399,7 +1399,12 @@ def _enforce_array(data: Any, arr: Array, required: bool = True):
         data_enforced = [_enforce_type(x, arr.dtype, required=required) for x in data]
 
     if isinstance(data, list) and isinstance(data_enforced, np.ndarray):
-        data_enforced = data_enforced.tolist()
+        # NumPy's tolist() converts datetime64[ns] values to integers.
+        data_enforced = (
+            pd.Series(data_enforced).tolist()
+            if arr.dtype == DataType.datetime
+            else data_enforced.tolist()
+        )
     elif isinstance(data, np.ndarray) and isinstance(data_enforced, list):
         data_enforced = np.array(data_enforced)
 

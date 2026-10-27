@@ -202,6 +202,87 @@ def test_conversation_simulator_goal_achieved_stopping(
     assert "achieved" in goal_check_prompt.lower()
 
 
+_GOAL_CHECK_RESPONSE = '{"rationale": "Done", "result": "yes"}'
+
+
+@pytest.mark.parametrize(
+    ("user_model", "env_var", "provider_response", "expected_temperature"),
+    [
+        (
+            "anthropic:/claude-opus-5-5",
+            "ANTHROPIC_API_KEY",
+            {
+                "id": "msg_1",
+                "type": "message",
+                "role": "assistant",
+                "model": "claude-opus-5-5",
+                "content": [{"type": "text", "text": _GOAL_CHECK_RESPONSE}],
+                "stop_reason": "end_turn",
+                "usage": {"input_tokens": 1, "output_tokens": 1},
+            },
+            None,
+        ),
+        (
+            "openai:/gpt-4o-mini",
+            "OPENAI_API_KEY",
+            {
+                "id": "chatcmpl-1",
+                "object": "chat.completion",
+                "created": 0,
+                "model": "gpt-4o-mini",
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {"role": "assistant", "content": _GOAL_CHECK_RESPONSE},
+                        "finish_reason": "stop",
+                    }
+                ],
+                "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+            },
+            0.0,
+        ),
+    ],
+)
+def test_check_goal_achieved_temperature_in_provider_request(
+    monkeypatch, user_model, env_var, provider_response, expected_temperature
+):
+    monkeypatch.setenv(env_var, "test-key")
+    simulator = ConversationSimulator(test_cases=[{"goal": "Book a table"}], user_model=user_model)
+
+    with patch(
+        "mlflow.metrics.genai.model_utils._send_request", return_value=provider_response
+    ) as mock_send:
+        assert simulator._check_goal_achieved([], "Booked a table.", "Book a table")
+
+    mock_send.assert_called_once()
+    payload = mock_send.call_args.kwargs["payload"]
+    assert payload.get("temperature") == expected_temperature
+
+
+@pytest.mark.parametrize(
+    ("goal_check_result", "expected_turns"),
+    [("yes", 1), ("no", 2)],
+)
+def test_conversation_simulator_anthropic_goal_check_stopping(
+    simple_test_case, mock_predict_fn, simulation_mocks, goal_check_result, expected_turns
+):
+    goal_check_response = f'{{"rationale": "Checked", "result": "{goal_check_result}"}}'
+    simulation_mocks["invoke"].side_effect = ["Test message", goal_check_response] * 2
+
+    simulator = ConversationSimulator(
+        test_cases=[simple_test_case],
+        max_turns=2,
+        user_model="anthropic:/claude-opus-5-5",
+    )
+
+    all_traces = simulator.simulate(mock_predict_fn)
+
+    assert len(all_traces[0]) == expected_turns
+    assert simulation_mocks["invoke"].call_count == 2 * expected_turns
+    goal_check_calls = simulation_mocks["invoke"].call_args_list[1::2]
+    assert all(call.kwargs["inference_params"] is None for call in goal_check_calls)
+
+
 def test_conversation_simulator_context_passing(test_case_with_context, simulation_mocks):
     simulation_mocks["invoke"].side_effect = [
         "Test message",

@@ -12,7 +12,7 @@ import {
 } from '@databricks/design-system';
 import { GenAIMarkdownRenderer } from '../../../../shared/web-shared/genai-markdown-renderer/GenAIMarkdownRenderer';
 import { useNavigate, useParams } from '../../../../common/utils/RoutingUtils';
-import { RunPageTabName } from '../../../constants';
+import { ExperimentPageTabName, RunPageTabName } from '../../../constants';
 import Routes from '../../../routes';
 import Utils from '../../../../common/utils/Utils';
 import { useSearchIssuesQuery } from '../hooks/useSearchIssuesQuery';
@@ -72,9 +72,13 @@ export const IssueDetectionProgress = ({
     }
   };
 
+  // Goes to the experiment's Issues tab rather than this run's. The per-run tab filters by
+  // `source_run_id`, and a finding matched to an issue another run first reported keeps that
+  // run's id -- so a rerun whose findings all matched would report "1 issue" here and show none
+  // there. The experiment tab lists the issue either way, which is also where issues are headed.
   const handleViewIssues = () => {
-    if (experimentId && runUuid) {
-      navigate(Routes.getIssueDetectionRunDetailsTabRoute(experimentId, runUuid, RunPageTabName.ISSUES));
+    if (experimentId) {
+      navigate(Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Issues));
     }
   };
 
@@ -106,7 +110,10 @@ export const IssueDetectionProgress = ({
     pollingEnabled: !jobComplete,
   });
 
-  const identifiedIssues = issues.length;
+  // The run's own result, not a query by `source_run_id`: an issue this run re-found keeps the
+  // source run that first filed it, so counting by that ID reports zero for a run whose findings
+  // were all already known. The result counts what the run published, matched issues included.
+  const identifiedIssues = result?.issues ?? issues.length;
 
   useEffect(() => {
     if (isJobSucceeded && runUuid) {

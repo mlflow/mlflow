@@ -257,3 +257,41 @@ def test_invoke_issue_detection_job_failure_marks_run_failed():
         mock_client.set_terminated.assert_called_once_with(
             "run-123", RunStatus.to_string(RunStatus.FAILED)
         )
+
+
+def test_invoke_issue_detection_job_forwards_the_saved_priorities():
+    # The settings the experiment carries only mean something if they reach the pipeline, and
+    # the job is the one hop between the handler and `discover_issues` that can drop them.
+    mock_client = mock.MagicMock()
+    with (
+        mock.patch("mlflow.genai.discovery.job.MlflowClient", return_value=mock_client),
+        mock.patch("mlflow.genai.discovery.job.discover_issues") as discover,
+    ):
+        mock_client._tracing_client.batch_get_traces.return_value = [mock.MagicMock()]
+        invoke_issue_detection_job(
+            experiment_id="exp-123",
+            trace_ids=["trace-1"],
+            categories=["correctness"],
+            run_id="run-123",
+            model="openai:/gpt-4o",
+            instructions="Only report high severity issues.",
+        )
+
+    assert discover.call_args.kwargs["instructions"] == "Only report high severity issues."
+
+
+def test_invoke_issue_detection_job_without_priorities_passes_none():
+    mock_client = mock.MagicMock()
+    with (
+        mock.patch("mlflow.genai.discovery.job.MlflowClient", return_value=mock_client),
+        mock.patch("mlflow.genai.discovery.job.discover_issues") as discover,
+    ):
+        mock_client._tracing_client.batch_get_traces.return_value = [mock.MagicMock()]
+        invoke_issue_detection_job(
+            experiment_id="exp-123",
+            trace_ids=["trace-1"],
+            categories=["correctness"],
+            run_id="run-123",
+        )
+
+    assert discover.call_args.kwargs["instructions"] is None

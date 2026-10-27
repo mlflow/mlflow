@@ -262,6 +262,114 @@ describe('ModelTraceExplorerRightPane', () => {
     expect(contentTab).toHaveTextContent('req-custom-response');
   });
 
+  it('renders OpenAI Decisions in the v2 content tab and keeps the complete response in JSON', async () => {
+    // Captured from live OpenAI Decisions autolog trace tr-c04a0836a38a4411c8bae358e4bd52ad.
+    const inputs = {
+      model: 'gpt-6-luna',
+      input: 'Question: What is 2 + 2? Proposed answer: 4.',
+      questions: [
+        { type: 'predicate', name: 'correct', instructions: 'Is the proposed answer mathematically correct?' },
+      ],
+    };
+    const outputs = {
+      answers: [{ name: 'correct', probability: 1, type: 'predicate' }],
+      model: 'gpt-6-luna',
+      usage: {
+        input_tokens: 172,
+        input_tokens_details: { cache_write_tokens: 0, cached_tokens: 0 },
+        output_tokens: 0,
+        output_tokens_details: { reasoning_tokens: 0 },
+        total_tokens: 172,
+      },
+    };
+    const tokenUsage = {
+      input_tokens: 172,
+      output_tokens: 0,
+      total_tokens: 172,
+      cache_read_input_tokens: 0,
+      cache_creation_input_tokens: 0,
+    };
+    const span = normalizeNewSpanData(
+      {
+        ...DEFAULT_SPAN,
+        name: 'Decisions',
+        attributes: {
+          'mlflow.spanType': JSON.stringify('LLM'),
+          'mlflow.spanInputs': JSON.stringify(inputs),
+          'mlflow.spanOutputs': JSON.stringify(outputs),
+          'mlflow.message.format': JSON.stringify('openai_decisions'),
+          'mlflow.llm.model': JSON.stringify('gpt-6-luna'),
+          'mlflow.chat.tokenUsage': JSON.stringify(tokenUsage),
+        },
+      },
+      0,
+      0,
+      [],
+      {},
+      'tr-c04a0836a38a4411c8bae358e4bd52ad',
+    );
+    expect(span.chatMessageFormat).toBe('openai_decisions');
+    expect(span.inputs).toEqual(inputs);
+    expect(span.outputs).toEqual(outputs);
+    expect(span.tokenUsage).toEqual(tokenUsage);
+
+    render(<ModelTraceExplorerContentTab activeSpan={span} searchFilter="" activeMatch={null} />, {
+      wrapper: Wrapper,
+    });
+    const contentTab = screen.getByTestId('model-trace-explorer-content-tab');
+    expect(contentTab).toHaveTextContent('Question: What is 2 + 2? Proposed answer: 4.');
+    expect(within(screen.getByTestId('decision-questions')).getByText('correct')).toBeInTheDocument();
+    const answerSummary = within(screen.getByTestId('decision-answers')).getByText('correct').closest('summary');
+    expect(answerSummary).toHaveTextContent('Predicate');
+    expect(answerSummary).toHaveTextContent('100%');
+    expect(contentTab).not.toHaveTextContent('input_tokens');
+
+    await userEvent.click(screen.getAllByText('Pretty')[1]);
+    await userEvent.click(screen.getByRole('menuitemradio', { name: 'JSON' }));
+    expect(screen.queryByTestId('decision-answers')).not.toBeInTheDocument();
+    expect(contentTab).toHaveTextContent('answers');
+    expect(contentTab).toHaveTextContent('input_tokens');
+    expect(contentTab).toHaveTextContent('gpt-6-luna');
+    expect(contentTab).toHaveTextContent('172');
+  });
+
+  it('shows malformed OpenAI Decisions responses as raw fields', () => {
+    const outputs = {
+      answers: [{ type: 'predicate', name: 'policy', probability: 'unknown' }],
+      model: 'gpt-6-luna',
+    };
+    const span = normalizeNewSpanData(
+      {
+        ...DEFAULT_SPAN,
+        name: 'openai.decisions',
+        attributes: {
+          'mlflow.spanType': JSON.stringify('LLM'),
+          'mlflow.spanInputs': JSON.stringify({
+            input: 'Review the answer',
+            questions: [{ type: 'predicate', name: 'policy', instructions: 'Check policy compliance.' }],
+          }),
+          'mlflow.spanOutputs': JSON.stringify(outputs),
+          'mlflow.message.format': JSON.stringify('openai_decisions'),
+        },
+      },
+      0,
+      0,
+      [],
+      {},
+      'malformed-openai-decisions-trace',
+    );
+    render(<ModelTraceExplorerContentTab activeSpan={span} searchFilter="" activeMatch={null} />, {
+      wrapper: Wrapper,
+    });
+
+    const contentTab = screen.getByTestId('model-trace-explorer-content-tab');
+    expect(screen.queryByTestId('decision-questions')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('decision-answers')).not.toBeInTheDocument();
+    expect(contentTab).toHaveTextContent('answers');
+    expect(contentTab).toHaveTextContent('unknown');
+    expect(contentTab).toHaveTextContent('gpt-6-luna');
+  });
+
   it('renders selected span payloads with the pretty field renderers by default', () => {
     const { rerender } = render(
       <ModelTraceExplorerContentTab
@@ -373,6 +481,247 @@ describe('ModelTraceExplorerRightPane', () => {
 
     expect(screen.getAllByText('Nein, es gibt aktuell keine klassifizierten Artikel im System.')).toHaveLength(1);
     expect(screen.getAllByText('Assistant')).toHaveLength(1);
+  });
+
+  it('does not duplicate the PydanticAI user prompt in pretty mode', () => {
+    const userPrompt = 'Explain MLflow GenAI Platform in 3-4 sentences.';
+    const answer = 'MLflow is a platform.';
+    const span = normalizeNewSpanData(
+      {
+        ...DEFAULT_SPAN,
+        name: 'Agent.run',
+        attributes: {
+          'mlflow.spanType': JSON.stringify('AGENT'),
+          'mlflow.spanInputs': JSON.stringify({ user_prompt: userPrompt }),
+          'mlflow.spanOutputs': JSON.stringify({
+            output: answer,
+            _new_messages_serialized: [
+              { kind: 'request', parts: [{ part_kind: 'user-prompt', content: userPrompt }] },
+              { kind: 'response', parts: [{ part_kind: 'text', content: answer }] },
+            ],
+          }),
+          'mlflow.message.format': JSON.stringify('pydantic_ai'),
+        },
+      },
+      0,
+      0,
+      [],
+      {},
+      'pydantic-ai-trace',
+    );
+
+    render(<ModelTraceExplorerContentTab activeSpan={span} searchFilter="" activeMatch={null} />, {
+      wrapper: Wrapper,
+    });
+
+    expect(screen.getAllByText(userPrompt)).toHaveLength(1);
+    expect(screen.queryByText('user_prompt')).not.toBeInTheDocument();
+  });
+
+  it('shows a PydanticAI follow-up turn once across the history, prompt, and new messages', () => {
+    const userPrompt = 'Follow-up question';
+    const span = normalizeNewSpanData(
+      {
+        ...DEFAULT_SPAN,
+        name: 'Agent.run',
+        attributes: {
+          'mlflow.spanType': JSON.stringify('AGENT'),
+          'mlflow.spanInputs': JSON.stringify({
+            user_prompt: userPrompt,
+            message_history: [
+              { kind: 'request', parts: [{ part_kind: 'user-prompt', content: 'First question' }] },
+              { kind: 'response', parts: [{ part_kind: 'text', content: 'First answer' }] },
+            ],
+          }),
+          // Agent.run outputs carry new_messages(), which start with the current user prompt.
+          'mlflow.spanOutputs': JSON.stringify({
+            output: 'Second answer',
+            _new_messages_serialized: [
+              { kind: 'request', parts: [{ part_kind: 'user-prompt', content: userPrompt }] },
+              { kind: 'response', parts: [{ part_kind: 'text', content: 'Second answer' }] },
+            ],
+          }),
+          'mlflow.message.format': JSON.stringify('pydantic_ai'),
+        },
+      },
+      0,
+      0,
+      [],
+      {},
+      'pydantic-ai-trace',
+    );
+
+    render(<ModelTraceExplorerContentTab activeSpan={span} searchFilter="" activeMatch={null} />, {
+      wrapper: Wrapper,
+    });
+
+    expect(screen.getAllByText('First question')).toHaveLength(1);
+    expect(screen.getAllByText('First answer')).toHaveLength(1);
+    expect(screen.getAllByText(userPrompt)).toHaveLength(1);
+    expect(screen.getAllByText('Second answer')).toHaveLength(1);
+    expect(screen.queryByText('message_history')).not.toBeInTheDocument();
+    expect(screen.queryByText('user_prompt')).not.toBeInTheDocument();
+  });
+
+  it('shows a PydanticAI system prompt first and the user prompt once', () => {
+    const systemPrompt = 'Be concise.';
+    const userPrompt = 'What is MLflow?';
+    const span = normalizeNewSpanData(
+      {
+        ...DEFAULT_SPAN,
+        name: 'Agent.run',
+        attributes: {
+          'mlflow.spanType': JSON.stringify('AGENT'),
+          'mlflow.spanInputs': JSON.stringify({ user_prompt: userPrompt }),
+          'mlflow.spanOutputs': JSON.stringify({
+            output: 'A platform.',
+            _new_messages_serialized: [
+              {
+                kind: 'request',
+                parts: [
+                  { part_kind: 'system-prompt', content: systemPrompt },
+                  { part_kind: 'user-prompt', content: userPrompt },
+                ],
+              },
+              { kind: 'response', parts: [{ part_kind: 'text', content: 'A platform.' }] },
+            ],
+          }),
+          'mlflow.message.format': JSON.stringify('pydantic_ai'),
+        },
+      },
+      0,
+      0,
+      [],
+      {},
+      'pydantic-ai-trace',
+    );
+
+    render(<ModelTraceExplorerContentTab activeSpan={span} searchFilter="" activeMatch={null} />, {
+      wrapper: Wrapper,
+    });
+
+    expect(screen.getAllByText(systemPrompt)).toHaveLength(1);
+    expect(screen.getAllByText(userPrompt)).toHaveLength(1);
+    expect(screen.getAllByText('A platform.')).toHaveLength(1);
+    expect(screen.queryByText('user_prompt')).not.toBeInTheDocument();
+    expect(screen.queryByText('_new_messages_serialized')).not.toBeInTheDocument();
+  });
+
+  it('keeps PydanticAI retry feedback visible in pretty mode', () => {
+    const span = normalizeNewSpanData(
+      {
+        ...DEFAULT_SPAN,
+        name: 'Agent.run',
+        attributes: {
+          'mlflow.spanType': JSON.stringify('AGENT'),
+          'mlflow.spanInputs': JSON.stringify({ user_prompt: 'Give me JSON' }),
+          'mlflow.spanOutputs': JSON.stringify({
+            output: '{"ok": true}',
+            _new_messages_serialized: [
+              { kind: 'request', parts: [{ part_kind: 'user-prompt', content: 'Give me JSON' }] },
+              { kind: 'response', parts: [{ part_kind: 'text', content: 'not json' }] },
+              { kind: 'request', parts: [{ part_kind: 'retry-prompt', content: 'Output must be valid JSON' }] },
+              { kind: 'response', parts: [{ part_kind: 'text', content: '{"ok": true}' }] },
+            ],
+          }),
+          'mlflow.message.format': JSON.stringify('pydantic_ai'),
+        },
+      },
+      0,
+      0,
+      [],
+      {},
+      'pydantic-ai-trace',
+    );
+
+    render(<ModelTraceExplorerContentTab activeSpan={span} searchFilter="" activeMatch={null} />, {
+      wrapper: Wrapper,
+    });
+
+    expect(screen.getByText(/Output must be valid JSON/)).toBeInTheDocument();
+    expect(screen.queryByText('_new_messages_serialized')).not.toBeInTheDocument();
+  });
+
+  it('keeps multimodal PydanticAI history visible after hiding the raw field', () => {
+    const imageUrl = 'https://example.com/a.png';
+    const span = normalizeNewSpanData(
+      {
+        ...DEFAULT_SPAN,
+        name: 'Agent.run',
+        attributes: {
+          'mlflow.spanType': JSON.stringify('AGENT'),
+          'mlflow.spanInputs': JSON.stringify({
+            user_prompt: 'What color is it?',
+            message_history: [
+              {
+                kind: 'request',
+                parts: [
+                  { part_kind: 'user-prompt', content: ['Describe this image', { kind: 'image-url', url: imageUrl }] },
+                ],
+              },
+              { kind: 'response', parts: [{ part_kind: 'text', content: 'A cat.' }] },
+            ],
+          }),
+          'mlflow.spanOutputs': JSON.stringify({
+            output: 'Orange.',
+            _new_messages_serialized: [
+              { kind: 'request', parts: [{ part_kind: 'user-prompt', content: 'What color is it?' }] },
+              { kind: 'response', parts: [{ part_kind: 'text', content: 'Orange.' }] },
+            ],
+          }),
+          'mlflow.message.format': JSON.stringify('pydantic_ai'),
+        },
+      },
+      0,
+      0,
+      [],
+      {},
+      'pydantic-ai-trace',
+    );
+
+    render(<ModelTraceExplorerContentTab activeSpan={span} searchFilter="" activeMatch={null} />, {
+      wrapper: Wrapper,
+    });
+
+    expect(screen.getByText(/Describe this image/)).toBeInTheDocument();
+    expect(document.querySelector(`img[src="${imageUrl}"]`)).not.toBeNull();
+    expect(screen.getAllByText('A cat.')).toHaveLength(1);
+    expect(screen.getAllByText('What color is it?')).toHaveLength(1);
+    expect(screen.queryByText('message_history')).not.toBeInTheDocument();
+    expect(screen.queryByText('user_prompt')).not.toBeInTheDocument();
+  });
+
+  it('keeps hidden PydanticAI input fields visible while a search filter is active', () => {
+    const userPrompt = 'Explain MLflow GenAI Platform in 3-4 sentences.';
+    const span = normalizeNewSpanData(
+      {
+        ...DEFAULT_SPAN,
+        name: 'Agent.run',
+        attributes: {
+          'mlflow.spanType': JSON.stringify('AGENT'),
+          'mlflow.spanInputs': JSON.stringify({ user_prompt: userPrompt }),
+          'mlflow.spanOutputs': JSON.stringify({
+            output: 'MLflow is a platform.',
+            _new_messages_serialized: [
+              { kind: 'request', parts: [{ part_kind: 'user-prompt', content: userPrompt }] },
+              { kind: 'response', parts: [{ part_kind: 'text', content: 'MLflow is a platform.' }] },
+            ],
+          }),
+          'mlflow.message.format': JSON.stringify('pydantic_ai'),
+        },
+      },
+      0,
+      0,
+      [],
+      {},
+      'pydantic-ai-trace',
+    );
+
+    render(<ModelTraceExplorerContentTab activeSpan={span} searchFilter="user_prompt" activeMatch={null} />, {
+      wrapper: Wrapper,
+    });
+
+    expect(screen.getByText('user_prompt')).toBeInTheDocument();
   });
 
   it('shows raw input and output fields after switching render mode', async () => {

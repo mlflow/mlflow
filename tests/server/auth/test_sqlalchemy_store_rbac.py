@@ -2,14 +2,36 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.server.auth.entities import Role, RolePermission, UserRoleAssignment
-from mlflow.server.auth.permissions import DENY, EDIT, MANAGE, READ, USE, VALID_RESOURCE_TYPES
+from mlflow.server.auth.permissions import (
+    DENY,
+    EDIT,
+    MANAGE,
+    READ,
+    RESOURCE_TYPE_SKILL,
+    USE,
+    VALID_RESOURCE_TYPES,
+)
 
 # Every concrete resource type the resolver accepts, excluding the special
 # ``"workspace"`` (admin-only grant form) and ``"*"`` (workspace-wide grant
 # form). Those two carry their own validation rules and are exercised by
 # scope-specific tests rather than the shared parametrised matrix below.
 _CONCRETE_RESOURCE_TYPES = sorted(VALID_RESOURCE_TYPES - {"workspace", "*"})
+_SKILL_REGISTRY_RESOURCE_TYPES = {RESOURCE_TYPE_SKILL}
+_COMMON_CONCRETE_RESOURCE_TYPES = sorted(
+    set(_CONCRETE_RESOURCE_TYPES) - _SKILL_REGISTRY_RESOURCE_TYPES
+)
+_RESOURCE_GRANT_CASES = [
+    (resource_type, permission.name, permission)
+    for resource_type in _COMMON_CONCRETE_RESOURCE_TYPES
+    for permission in (READ, USE, EDIT, MANAGE)
+] + [
+    (resource_type, permission.name, permission)
+    for resource_type in sorted(_SKILL_REGISTRY_RESOURCE_TYPES)
+    for permission in (READ, EDIT, MANAGE)
+]
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.helper_functions import random_str
 
@@ -47,8 +69,41 @@ def test_create_role(store):
 
 def test_create_role_duplicate(store):
     store.create_role(name="viewer", workspace="ws1")
-    with pytest.raises(MlflowException, match="already exists"):
+    with pytest.raises(MlflowException, match="already exists") as exc:
         store.create_role(name="viewer", workspace="ws1")
+    assert exc.value.message == "Role (name=viewer, workspace=ws1) already exists."
+
+
+_INVALID_ROLE_FIELDS = [
+    ({"name": "a" * 256}, "'Role name' exceeds the maximum length of 255"),
+    ({"description": "d" * 1025}, "'Role description' exceeds the maximum length of 1024"),
+    ({"name": "role\x00name"}, "'Role name' cannot contain NUL"),
+    ({"description": "role\x00name"}, "'Role description' cannot contain NUL"),
+]
+
+
+@pytest.mark.parametrize(("kwargs", "match"), _INVALID_ROLE_FIELDS)
+def test_create_role_rejects_values_the_database_would_refuse(store, kwargs, match):
+    with pytest.raises(MlflowException, match=match) as exc:
+        store.create_role(**{"name": "viewer", "workspace": "ws1", **kwargs})
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    assert store.list_roles(["ws1"]) == []
+
+
+def test_create_role_accepts_max_length_fields(store):
+    role = store.create_role(name="a" * 255, workspace="ws1", description="d" * 1024)
+    assert len(role.name) == 255
+    assert len(role.description) == 1024
+
+
+@pytest.mark.parametrize(("kwargs", "match"), _INVALID_ROLE_FIELDS)
+def test_update_role_rejects_values_the_database_would_refuse(store, kwargs, match):
+    role = store.create_role(name="viewer", workspace="ws1", description="desc")
+    with pytest.raises(MlflowException, match=match):
+        store.update_role(role.id, **kwargs)
+    unchanged = store.get_role(role.id)
+    assert unchanged.name == "viewer"
+    assert unchanged.description == "desc"
 
 
 def test_create_role_same_name_different_workspace(store):
@@ -265,8 +320,12 @@ def test_add_role_permission_wildcard(store):
 def test_add_role_permission_duplicate(store):
     role = store.create_role(name="viewer", workspace="ws1")
     store.add_role_permission(role.id, "experiment", "123", "READ")
-    with pytest.raises(MlflowException, match="already exists"):
+    with pytest.raises(MlflowException, match="already exists") as exc:
         store.add_role_permission(role.id, "experiment", "123", "EDIT")
+    assert exc.value.message == (
+        f"Role permission (role_id={role.id}, resource_type=experiment, "
+        "resource_pattern=123) already exists."
+    )
 
 
 def test_add_role_permission_invalid_permission(store):
@@ -402,6 +461,86 @@ def test_update_role_permission_invalid_permission(store):
         store.update_role_permission(rp.id, "INVALID")
 
 
+# ---- User grant batches ----
+
+
+def test_grant_user_permissions_commits_batch(store, user):
+    store.grant_user_permissions(
+        user.username,
+        [
+            (RESOURCE_TYPE_SKILL, "demo-skill", MANAGE.name),
+            (RESOURCE_TYPE_SKILL, "@acme/other-skill", MANAGE.name),
+        ],
+    )
+    for key in ("demo-skill", "@acme/other-skill"):
+        assert (
+            store.get_role_permission_for_resource(
+                user.id, RESOURCE_TYPE_SKILL, key, DEFAULT_WORKSPACE_NAME
+            )
+            == MANAGE
+        )
+
+
+def test_grant_user_permissions_rolls_back_entire_batch(store, user):
+    store.grant_user_permission(user.username, RESOURCE_TYPE_SKILL, "existing", READ.name)
+    with pytest.raises(MlflowException, match="Invalid Skill Registry resource_id"):
+        store.grant_user_permissions(
+            user.username,
+            [
+                (RESOURCE_TYPE_SKILL, "new", MANAGE.name),
+                (RESOURCE_TYPE_SKILL, "existing", MANAGE.name),
+                (RESOURCE_TYPE_SKILL, "@acme/", MANAGE.name),
+            ],
+        )
+    assert (
+        store.get_role_permission_for_resource(
+            user.id, RESOURCE_TYPE_SKILL, "new", DEFAULT_WORKSPACE_NAME
+        )
+        is None
+    )
+    assert (
+        store.get_role_permission_for_resource(
+            user.id, RESOURCE_TYPE_SKILL, "existing", DEFAULT_WORKSPACE_NAME
+        )
+        == READ
+    )
+
+
+def test_grant_user_permissions_upserts_existing_grants(store, user):
+    store.grant_user_permission(user.username, RESOURCE_TYPE_SKILL, "demo", READ.name)
+    store.grant_user_permissions(user.username, [(RESOURCE_TYPE_SKILL, "demo", MANAGE.name)])
+    assert (
+        store.get_role_permission_for_resource(
+            user.id, RESOURCE_TYPE_SKILL, "demo", DEFAULT_WORKSPACE_NAME
+        )
+        == MANAGE
+    )
+
+
+@pytest.mark.parametrize("resource_pattern", ["acme/name", "@", "@acme/", "@acme/name/extra"])
+def test_skill_registry_grant_rejects_invalid_resource_pattern(store, user, resource_pattern):
+    with pytest.raises(MlflowException, match="Invalid Skill Registry resource_id"):
+        store.grant_user_permission(
+            user.username, RESOURCE_TYPE_SKILL, resource_pattern, MANAGE.name
+        )
+
+
+def test_skill_registry_role_permission_rejects_invalid_resource_pattern(store):
+    role = store.create_role("skill-admin", DEFAULT_WORKSPACE_NAME)
+    with pytest.raises(MlflowException, match="Invalid Skill Registry resource_id"):
+        store.add_role_permission(role.id, RESOURCE_TYPE_SKILL, "acme/name", MANAGE.name)
+
+
+def test_skill_registry_grant_allows_resource_type_wildcard(store, user):
+    store.grant_user_permission(user.username, RESOURCE_TYPE_SKILL, "*", MANAGE.name)
+    assert (
+        store.get_role_permission_for_resource(
+            user.id, RESOURCE_TYPE_SKILL, "any-skill", DEFAULT_WORKSPACE_NAME
+        )
+        == MANAGE
+    )
+
+
 # ---- UserRoleAssignment CRUD ----
 
 
@@ -513,6 +652,43 @@ def test_get_role_permission_deny_is_not_lifted_by_a_positive_grant(store, user,
         store.assign_role_to_user(user.id, role.id)
 
     assert store.get_role_permission_for_resource(user.id, "experiment", "1", "ws1") == expected
+
+
+@pytest.mark.parametrize("spelling", ["01", " 1", "+1"])
+def test_get_role_permission_matches_every_spelling_of_an_experiment_id(store, user, spelling):
+    role = store.create_role(name="denied", workspace="ws1")
+    store.add_role_permission(role.id, "experiment", "1", "DENY")
+    store.assign_role_to_user(user.id, role.id)
+
+    assert store.get_role_permission_for_resource(user.id, "experiment", spelling, "ws1") == DENY
+
+
+def test_add_role_permission_stores_the_canonical_experiment_id(store):
+    role = store.create_role(name="canonical", workspace="ws1")
+    store.add_role_permission(role.id, "experiment", "01", "READ")
+    store.add_role_permission(role.id, "scorer", "+1/my%2Fscorer", "DENY")
+
+    patterns = {(p.resource_type, p.resource_pattern) for p in store.list_role_permissions(role.id)}
+    assert patterns == {("experiment", "1"), ("scorer", "1/my%2Fscorer")}
+
+
+def test_user_grants_on_an_experiment_id_spelling_are_revoked_by_another(store, user):
+    store.grant_user_resource_permission(user.username, "experiment", "01", "READ")
+    assert store.get_experiment_permission("1", user.username).permission == "READ"
+
+    store.revoke_user_resource_permission(user.username, "experiment", " 1")
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_experiment_permission("1", user.username)
+
+
+def test_legacy_experiment_and_scorer_permissions_use_the_canonical_experiment_id(store, user):
+    store.create_experiment_permission("01", user.username, "READ")
+    assert store.get_experiment_permission("+1", user.username).permission == "READ"
+    store.delete_experiment_permission("1", user.username)
+
+    assert SqlAlchemyStore._scorer_pattern("01", "a/b") == "1/a%2Fb"
+    store.create_scorer_permission("01", "a/b", user.username, "READ")
+    assert store.get_scorer_permission("1", "a/b", user.username).permission == "READ"
 
 
 def test_get_role_permission_no_match(store, user):
@@ -802,15 +978,9 @@ def test_resolver_resource_type_filter(store, user):
 # ---- Resolver coverage: permission hierarchy matrix ----
 
 
-@pytest.mark.parametrize("resource_type", _CONCRETE_RESOURCE_TYPES)
 @pytest.mark.parametrize(
-    ("granted", "expected"),
-    [
-        ("READ", READ),
-        ("USE", USE),
-        ("EDIT", EDIT),
-        ("MANAGE", MANAGE),
-    ],
+    ("resource_type", "granted", "expected"),
+    _RESOURCE_GRANT_CASES,
 )
 def test_resolver_returns_granted_permission_for_each_resource_type(
     store, user, resource_type, granted, expected

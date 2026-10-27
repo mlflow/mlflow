@@ -1,5 +1,36 @@
 # CHANGELOG
 
+## 3.17.2 (2026-10-20)
+
+MLflow 3.17.2 is a patch release that contains a minor feature enhancement and bug fixes.
+
+Features:
+
+- [Evaluation] Record dataset, scorer, and agent lineage on `mlflow.genai.evaluate` runs (#26543, @joshuawong-db)
+
+Bug fixes:
+
+- [Tracking] Reseed sampler and forward batch settings on `MlflowSparkStudy` executors (#26714, @iyashk)
+- [Tracking] Fix `MlflowStorage` marking Optuna trials finished before their values are saved (#26713, @iyashk)
+
+## 3.17.1 (2026-10-13)
+
+MLflow 3.17.1 is a patch release that contains some minor feature enhancements, bug fixes, and documentation updates.
+
+Features:
+
+- [Docs / Evaluation] Support Decision API in `make_judge()` (#26578, @B-Step62)
+- [Evaluation] Add `mlflow.genai.databricks.review_queues` for managing review queues on Databricks (#26414, @harupy)
+
+Bug fixes:
+
+- [Tracing] Fix Claude Code OTel trace rendering in the MLflow UI (#26547, @joshuawong-db)
+- [Evaluation] Load latest Databricks scorers from the scheduled-scorers REST config so feedback records the scorer version (#26542, @joshuawong-db)
+
+Small bug fixes and documentation updates:
+
+#26680, @joshuawong-db; #26584, @copilot-swe-agent; #26705, @kriscon-db
+
 ## 3.17.0 (2026-10-06)
 
 MLflow 3.17.0 includes several major features and improvements.

@@ -43,8 +43,46 @@ MLFLOW_RUN_TYPE_TEST = "test"
 # The ID of the job that is running issue detection
 MLFLOW_ISSUE_DETECTION_JOB_ID = "mlflow.issueDetection.jobId"
 
+# An experiment's recurring issue-detection schedule: its cadence, timezone and paused flag
+MLFLOW_ISSUE_DETECTION_SCHEDULE = "mlflow.issueDetection.schedule"
+
+# The equality clauses narrowing which traces a scheduled issue-detection run analyzes
+MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER = "mlflow.issueDetection.scheduleTraceFilter"
+
+# What the server has dispatched for a schedule so far. Written only by the server, so an owner
+# editing the schedule and the server stamping an occurrence never overwrite each other.
+MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE = "mlflow.issueDetection.scheduleState"
+
+# Watermark of the traces scheduled issue detection has covered. Manual runs never touch it.
+MLFLOW_ISSUE_DETECTION_CHECKPOINT = "mlflow.issueDetection.checkpoint"
+
+# The experiment's saved detection priorities: free-text instructions and category selection
+MLFLOW_ISSUE_DETECTION_PRIORITIES = "mlflow.issueDetection.priorities"
+
+# How a detection run was started: "schedule" for a scheduled run, absent for a manual one
+MLFLOW_ISSUE_DETECTION_TRIGGER = "mlflow.issueDetection.trigger"
+MLFLOW_ISSUE_DETECTION_TRIGGER_SCHEDULE = "schedule"
+
 # The ID of the job that is running the UI-triggered mlflow.genai.evaluate flow
 MLFLOW_GENAI_EVALUATE_JOB_ID = "mlflow.genaiEvaluate.jobId"
+
+# JSON-encoded quality criteria passed to mlflow.genai.evaluate
+MLFLOW_GENAI_EVALUATE_QUALITY_CRITERIA = "mlflow.genaiEvaluate.qualityCriteria"
+# Lineage of a mlflow.genai.evaluate run. These tag formats are experimental and may change.
+# A different digest means the definition changed, but the same digest doesn't guarantee the same
+# behavior: the code and state that a definition calls aren't hashed.
+# JSON object {"digest": "sha256:<hex>", "hashed": <int>, "total": <int>} over the scorer
+# definitions. The digest is omitted when no scorer definition can be hashed.
+MLFLOW_GENAI_EVALUATE_SCORERS_DIGEST = "mlflow.genaiEvaluate.scorersDigest"
+# "<module>.<qualname>" of the evaluated predict function.
+MLFLOW_GENAI_EVALUATE_AGENT_FUNCTION = "mlflow.genaiEvaluate.agent.function"
+# The URI given to `mlflow.genai.to_predict_fn`, e.g. "endpoints:/my-agent".
+MLFLOW_GENAI_EVALUATE_AGENT_URI = "mlflow.genaiEvaluate.agent.uri"
+# "sha256:<hex>" of the source code of the evaluated predict function itself.
+MLFLOW_GENAI_EVALUATE_AGENT_DIGEST = "mlflow.genaiEvaluate.agent.digest"
+# `DataFrame.attrs` key (not a run tag) under which `EvaluationDataset.to_df()` records the dataset
+# identity, so that `mlflow.genai.evaluate(data=dataset.to_df())` can log the dataset.
+MLFLOW_GENAI_EVALUATE_DATASET_IDENTITY = "mlflow.genaiEvaluate.datasetIdentity"
 
 MLFLOW_DATABRICKS_NOTEBOOK_ID = "mlflow.databricks.notebookID"
 MLFLOW_DATABRICKS_NOTEBOOK_PATH = "mlflow.databricks.notebookPath"
@@ -115,6 +153,10 @@ MLFLOW_CUSTOM_VIEW_TAG_PREFIX = "mlflow.customView.view"
 MLFLOW_TRACE_SPANS_LOCATION = "mlflow.trace.spansLocation"
 MLFLOW_TRACE_ARCHIVE_LOCATION = "mlflow.trace.archiveLocation"
 MLFLOW_TRACE_ARCHIVAL_FAILURE = "mlflow.trace.archivalFailure"
+# Declares the session hierarchy levels of an experiment as JSON
+# {"version": 1, "levels": [{"name": ...}, ...]}, enabling scorers to group traces
+# by a hierarchy level of a hierarchical session ID.
+MLFLOW_EXPERIMENT_SESSION_HIERARCHY = "mlflow.experiment.sessionHierarchy"
 
 # For automatic model checkpointing
 LATEST_CHECKPOINT_ARTIFACT_TAG_KEY = "mlflow.latest_checkpoint_artifact"

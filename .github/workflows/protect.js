@@ -27,7 +27,10 @@ module.exports = async ({ github, context, core }) => {
   };
   const STATUS_ORDER = Object.values(STATE);
 
-  const IGNORED_WORKFLOWS = new Set([".github/workflows/trigger-rerun.yml"]);
+  const IGNORED_WORKFLOWS = new Set([
+    ".github/workflows/trigger-rerun.yml",
+    ".github/workflows/triage.yml",
+  ]);
 
   async function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));

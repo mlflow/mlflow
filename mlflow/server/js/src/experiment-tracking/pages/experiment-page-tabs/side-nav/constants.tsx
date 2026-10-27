@@ -3,6 +3,7 @@ import { ExperimentKind } from '../../../constants';
 import { ExperimentPageTabName } from '../../../constants';
 import {
   ChartLineIcon,
+  BugIcon,
   DatabaseIcon,
   ForkHorizontalIcon,
   GavelIcon,
@@ -15,8 +16,11 @@ import {
   UserGroupIcon,
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { shouldEnableExperimentOverviewTab } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
-import { SERVER_FEATURE_KEYS, useFeatureEnabled } from '../../../hooks/useServerInfo';
+import {
+  shouldEnableExperimentIssuesTab,
+  shouldEnableExperimentOverviewTab,
+} from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { SERVER_FEATURE_KEYS, useFeatureEnabled, useServerInfo } from '../../../hooks/useServerInfo';
 
 export const FULL_WIDTH_CLASS_NAME = 'mlflow-experiment-page-side-nav-full';
 export const COLLAPSED_CLASS_NAME = 'mlflow-experiment-page-side-nav-collapsed';
@@ -46,6 +50,23 @@ const ExperimentPageSideNavGenAIConfig = {
       icon: <ForkHorizontalIcon />,
       tabName: ExperimentPageTabName.Traces,
       componentId: 'mlflow.experiment-side-nav.genai.traces',
+    },
+    {
+      label: <FormattedMessage defaultMessage="Issues" description="Label for the experiment Issues tab" />,
+      icon: <BugIcon />,
+      tabName: ExperimentPageTabName.Issues,
+      componentId: 'mlflow.experiment-side-nav.genai.issues',
+    },
+    {
+      label: (
+        <FormattedMessage
+          defaultMessage="Dashboard"
+          description="Label for the dashboard tab in the MLflow experiment navbar"
+        />
+      ),
+      icon: <ChartLineIcon />,
+      tabName: ExperimentPageTabName.Dashboard,
+      componentId: 'mlflow.experiment-side-nav.genai.dashboard',
     },
     {
       label: (
@@ -208,14 +229,16 @@ export const useExperimentPageSideNavConfig = ({
   hasV4Location?: boolean;
 }): ExperimentPageSideNavConfig => {
   const gatewayEnabled = useFeatureEnabled(SERVER_FEATURE_KEYS.GATEWAY);
+  const { data: serverInfo } = useServerInfo();
 
   if (
     experimentKind === ExperimentKind.GENAI_DEVELOPMENT ||
     experimentKind === ExperimentKind.GENAI_DEVELOPMENT_INFERRED
   ) {
+    const overviewEnabled = shouldEnableExperimentOverviewTab(hasV4Location);
     const baseConfig = {
       'top-level': [
-        ...(shouldEnableExperimentOverviewTab(hasV4Location)
+        ...(overviewEnabled
           ? [
               {
                 label: (
@@ -247,6 +270,12 @@ export const useExperimentPageSideNavConfig = ({
           : []),
       ],
       ...ExperimentPageSideNavGenAIConfig,
+      observability: ExperimentPageSideNavGenAIConfig.observability.filter(
+        ({ tabName }) =>
+          (overviewEnabled || tabName !== ExperimentPageTabName.Dashboard) &&
+          (tabName !== ExperimentPageTabName.Issues ||
+            (shouldEnableExperimentIssuesTab() && serverInfo?.store_type === 'SqlStore')),
+      ),
       'prompts-versions': gatewayEnabled
         ? ExperimentPageSideNavGenAIConfig['prompts-versions']
         : ExperimentPageSideNavGenAIConfig['prompts-versions'].filter(

@@ -87,6 +87,13 @@ def test_model_save_and_load_with_custom_code(model_path, model_with_remote_code
     assert len(encoded_single) == 768
 
 
+def test_load_kwargs_do_not_trust_remote_code_when_model_code_execution_is_disallowed(
+    monkeypatch,
+):
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    assert not mlflow.sentence_transformers._get_load_kwargs().get("trust_remote_code")
+
+
 def test_dependency_mapping():
     pip_requirements = mlflow.sentence_transformers.get_default_pip_requirements()
 

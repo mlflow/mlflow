@@ -52,11 +52,17 @@ from mlflow.environment_variables import (
     MLFLOW_TRACE_ARCHIVAL_CONFIG,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.genai import scorer as scorer_decorator
 from mlflow.store.db.trace_rollups import run_sql_trace_rollups
 from mlflow.store.tracking.dbmodels.models import (
     SqlAssessmentDailyRollup,
     SqlEntityAssociation,
     SqlExperiment,
+    SqlSkill,
+    SqlSkillAlias,
+    SqlSkillTag,
+    SqlSkillVersion,
+    SqlSkillVersionTag,
     SqlSpanCostDailyRollup,
     SqlTraceInfo,
     SqlTraceMetricDailyRollup,
@@ -2631,6 +2637,34 @@ def test_get_active_online_scorers_workspace_scoped(workspace_tracking_store):
         assert active_scorers[0].online_config.experiment_id == exp_a
 
 
+def test_upsert_online_scoring_config_custom_scorer_workspace_scoped(
+    workspace_tracking_store, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "docker")
+
+    @scorer_decorator
+    def output_length(outputs) -> int:
+        return len(str(outputs))
+
+    with WorkspaceContext("team-custom-a"):
+        exp_a = workspace_tracking_store.create_experiment("exp-custom-a")
+        workspace_tracking_store.register_scorer(
+            exp_a, "output_length", json.dumps(output_length.model_dump())
+        )
+        workspace_tracking_store.upsert_online_scoring_config(
+            experiment_id=exp_a, scorer_name="output_length", sample_rate=0.5
+        )
+
+    with WorkspaceContext("team-custom-b"):
+        assert workspace_tracking_store.get_active_online_scorers() == []
+
+    with WorkspaceContext("team-custom-a"):
+        active_scorers = workspace_tracking_store.get_active_online_scorers()
+        assert [s.name for s in active_scorers] == ["output_length"]
+        assert active_scorers[0].online_config.experiment_id == exp_a
+
+
 def test_find_completed_sessions_workspace_scoped(workspace_tracking_store):
     with WorkspaceContext("team-sessions-a"):
         exp_a = workspace_tracking_store.create_experiment("exp-sessions-a")
@@ -3318,3 +3352,142 @@ def test_review_queue_question_lock_holds_in_workspace_store(workspace_tracking_
             workspace_tracking_store.update_review_queue(queue.queue_id, schema_ids=[ls1.schema_id])
         updated = workspace_tracking_store.update_review_queue(queue.queue_id, users=["alice"])
         assert updated.users == ["alice"]
+
+
+@pytest.mark.parametrize(
+    "order_by", [None, ["name ASC"], ["status ASC", "severity DESC", "last_seen_timestamp DESC"]]
+)
+def test_extended_issue_fields_and_paging_are_workspace_scoped(workspace_tracking_store, order_by):
+    store = workspace_tracking_store
+    with WorkspaceContext("team-a"):
+        experiment_id = store.create_experiment("extended-issues")
+        for index in range(2):
+            store.create_issue(
+                experiment_id,
+                f"Issue {index}",
+                "",
+                issue_id=f"iss-team-a-{index}",
+                categories=["Cost", " COST "],
+                metadata={"private": "value"},
+            )
+        page = store.search_issues(
+            categories=[" cOsT "], include_total_count=True, max_results=1, order_by=order_by
+        )
+        assert page.total_count == 2
+        assert page.token
+        run = store.create_run(experiment_id, "user", 1, [], "run")
+    with WorkspaceContext("team-b"):
+        other_experiment = store.create_experiment("extended-issues")
+        assert store.search_issues(categories=["cost"], include_total_count=True).total_count == 0
+        with pytest.raises(MlflowException, match="not found"):
+            store.update_issue("iss-team-a-0", metadata={"private": "changed"}, categories=[])
+        with pytest.raises(MlflowException, match="page token"):
+            store.search_issues(
+                categories=["cost"],
+                order_by=order_by,
+                include_total_count=True,
+                max_results=1,
+                page_token=page.token,
+            )
+        with pytest.raises(MlflowException, match="not found"):
+            store.create_issue(
+                other_experiment, "Foreign source", "", source_run_id=run.info.run_id
+            )
+    with WorkspaceContext("team-a"):
+        assert store.get_issue("iss-team-a-0").metadata == {"private": "value"}
+        second = store.search_issues(
+            categories=["COST"],
+            include_total_count=True,
+            max_results=1,
+            page_token=page.token,
+            order_by=order_by,
+        )
+        assert second.total_count == 2
+        assert second[0].issue_id != page[0].issue_id
+
+
+def _seed_skill_registry_graph(session, workspace):
+    """One row in every skill-registry table, all belonging to *workspace*."""
+    session.add(SqlSkill(workspace=workspace, organization="acme", name="code-review"))
+    session.add(
+        SqlSkillVersion(
+            workspace=workspace,
+            organization="acme",
+            name="code-review",
+            version=1,
+            source_type="git",
+            source="s.git",
+        )
+    )
+    session.add(
+        SqlSkillTag(
+            workspace=workspace, organization="acme", name="code-review", key="k", value="v"
+        )
+    )
+    session.add(
+        SqlSkillVersionTag(
+            workspace=workspace,
+            organization="acme",
+            name="code-review",
+            version=1,
+            key="k",
+            value="v",
+        )
+    )
+    session.add(
+        SqlSkillAlias(
+            workspace=workspace, organization="acme", name="code-review", alias="prod", version=1
+        )
+    )
+
+
+@pytest.mark.parametrize(
+    ("model", "workspace_attribute"),
+    [
+        (SqlSkill, "workspace"),
+        (SqlSkillVersion, "workspace"),
+        (SqlSkillTag, "workspace"),
+        (SqlSkillVersionTag, "workspace"),
+        (SqlSkillAlias, "workspace"),
+    ],
+)
+def test_get_query_scopes_skill_registry_models_to_active_workspace(
+    workspace_tracking_store, model, workspace_attribute
+):
+    # Identical rows in two workspaces: a query that forgot to filter returns both.
+    with workspace_tracking_store.ManagedSessionMaker(read_only=False) as session:
+        _seed_skill_registry_graph(session, "team-a")
+        _seed_skill_registry_graph(session, "team-b")
+
+    for workspace in ("team-a", "team-b"):
+        with WorkspaceContext(workspace):
+            with workspace_tracking_store.ManagedSessionMaker() as session:
+                rows = workspace_tracking_store._get_query(session, model).all()
+                assert [getattr(row, workspace_attribute) for row in rows] == [workspace]
+
+
+# ---------------------------------------------------------------------------
+# MCP access endpoint workspace isolation
+# ---------------------------------------------------------------------------
+
+
+def _mcp_server_json(name: str, version: str) -> dict[str, str]:
+    return {"name": name, "version": version, "title": f"Test {name}"}
+
+
+@pytest.mark.parametrize("workspaces_enabled", [True], indirect=True)
+def test_search_mcp_access_endpoints_is_workspace_scoped(store):
+    name = "io.github.test/workspace-endpoints"
+    with WorkspaceContext("team-a"):
+        store.create_mcp_server_version(_mcp_server_json(name, "1.0.0"))
+        store.create_mcp_access_endpoint(name, "https://team-a.example.com", server_version="1.0.0")
+
+    with WorkspaceContext("team-b"):
+        store.create_mcp_server_version(_mcp_server_json(name, "1.0.0"))
+        endpoint = store.create_mcp_access_endpoint(
+            name, "https://team-b.example.com", server_version="1.0.0"
+        )
+        endpoints = store.search_mcp_access_endpoints(server_name=name)
+
+    assert [e.id for e in endpoints] == [endpoint.id]
+    assert [e.url for e in endpoints] == ["https://team-b.example.com"]

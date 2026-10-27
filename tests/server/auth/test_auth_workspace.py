@@ -6,16 +6,33 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 from flask import Response, request
+from starlette.requests import Request as StarletteRequest
 
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.server import auth as auth_module
-from mlflow.server.auth.permissions import DENY, EDIT, MANAGE, NO_PERMISSIONS, READ, USE
+from mlflow.server import handlers
+from mlflow.server.auth.permissions import (
+    DENY,
+    EDIT,
+    MANAGE,
+    NO_PERMISSIONS,
+    READ,
+    RESOURCE_TYPE_SKILL,
+    USE,
+    _format_skill_registry_resource_key,
+)
 from mlflow.server.auth.requirements import ACTION_NOT_DENIED, Requirement
 from mlflow.server.auth.routes import (
+    ADD_ROLE_PERMISSION,
+    AJAX_ADD_ROLE_PERMISSION,
+    AJAX_CREATE_ROLE,
+    AJAX_REMOVE_ROLE_PERMISSION,
+    AJAX_UPDATE_ROLE_PERMISSION,
     CREATE_PROMPTLAB_RUN,
+    CREATE_ROLE,
     GET_ARTIFACT,
     GET_METRIC_HISTORY_BULK,
     GET_METRIC_HISTORY_BULK_INTERVAL,
@@ -24,10 +41,14 @@ from mlflow.server.auth.routes import (
     GET_TRACE_ARTIFACT_V3,
     INVOKE_GENAI_EVALUATE,
     INVOKE_ISSUE_DETECTION,
+    REMOVE_ROLE_PERMISSION,
     SEARCH_DATASETS,
+    UPDATE_ROLE_PERMISSION,
     UPLOAD_ARTIFACT,
 )
 from mlflow.server.auth.sqlalchemy_store import RoleGrantRow, SqlAlchemyStore
+from mlflow.store.tracking.dbmodels.models import SqlSkill
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as TrackingSqlAlchemyStore
 from mlflow.utils import workspace_context
 
 from tests.helper_functions import random_str
@@ -220,6 +241,7 @@ class _TrackingStore:
         gateway_endpoint_workspaces: dict[str, str] | None = None,
         gateway_model_def_workspaces: dict[str, str] | None = None,
         mcp_server_workspaces: dict[str, str] | None = None,
+        skill_workspaces: dict[tuple[str, str], str] | None = None,
         engine=None,
         ManagedSessionMaker=None,
     ):
@@ -232,6 +254,7 @@ class _TrackingStore:
         self._gateway_endpoint_workspaces = gateway_endpoint_workspaces or {}
         self._gateway_model_def_workspaces = gateway_model_def_workspaces or {}
         self._mcp_server_workspaces = mcp_server_workspaces or {}
+        self._skill_workspaces = skill_workspaces or {}
         self.engine = engine
         self.ManagedSessionMaker = ManagedSessionMaker
 
@@ -313,6 +336,15 @@ class _TrackingStore:
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
         return SimpleNamespace(workspace=self._mcp_server_workspaces[name])
+
+    def get_skill(self, name: str, organization: str = ""):
+        key = (organization, name)
+        if key not in self._skill_workspaces:
+            raise MlflowException(
+                f"Skill not found ({organization}/{name})",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+        return SimpleNamespace(workspace=self._skill_workspaces[key])
 
     def _create_mock_session(self):
         """Create a mock session that can query gateway SQL models."""
@@ -425,6 +457,10 @@ def workspace_permission_setup(tmp_path, monkeypatch):
         gateway_endpoint_workspaces={"endpoint-1": "team-a", "endpoint-2": "team-a"},
         gateway_model_def_workspaces={"model-def-1": "team-a", "model-def-2": "team-a"},
         mcp_server_workspaces={"server-1": "team-a", "server-2": "team-a"},
+        skill_workspaces={
+            ("", "skill-1"): "team-a",
+            ("acme", "skill-2"): "team-a",
+        },
         engine=MagicMock(),  # Mock engine for SQL model queries
     )
     # Set ManagedSessionMaker after creating the store
@@ -445,6 +481,144 @@ def workspace_permission_setup(tmp_path, monkeypatch):
     with workspace_context.WorkspaceContext("team-a"):
         yield {"store": auth_store, "username": username}
     auth_store.engine.dispose()
+
+
+def test_readable_skill_identities_keep_organization_in_auth_filter(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    auth_store = Mock()
+    auth_store.get_user.return_value = SimpleNamespace(id=7, is_admin=False)
+    auth_store.list_grants.return_value = [
+        RoleGrantRow(RESOURCE_TYPE_SKILL, "@acme/reviewer", READ.name),
+        RoleGrantRow(RESOURCE_TYPE_SKILL, "@other/reviewer", DENY.name),
+        RoleGrantRow("workspace", "*", USE.name),
+    ]
+    monkeypatch.setattr(auth_module, "store", auth_store)
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(
+            default_permission=NO_PERMISSIONS.name,
+            grant_default_workspace_access=False,
+        ),
+    )
+
+    with workspace_context.WorkspaceContext("team-a"):
+        assert auth_module.skill_search_permission_scope("alice") == (
+            [("acme", "reviewer")],
+            [],
+        )
+    auth_store.list_grants.assert_called_once_with(7, "team-a", {RESOURCE_TYPE_SKILL})
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=READ.name),
+    )
+    assert auth_module.skill_search_permission_scope("alice") == (
+        None,
+        [("other", "reviewer")],
+    )
+    auth_store.list_grants.return_value = [
+        RoleGrantRow(RESOURCE_TYPE_SKILL, "*", DENY.name),
+        RoleGrantRow(RESOURCE_TYPE_SKILL, "@acme/reviewer", READ.name),
+    ]
+    assert auth_module.skill_search_permission_scope("alice") == ([], [])
+
+
+@pytest.mark.parametrize("prefix", ["/api/2.0", "/ajax-api/2.0"])
+@pytest.mark.parametrize("method", ["GET", "PUT"])
+def test_concrete_artifact_path_cannot_be_replaced_by_query_identity(prefix, method, monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "false")
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: Mock())
+    monkeypatch.setattr(auth_module, "authorize", lambda *args: False)
+    monkeypatch.setattr(
+        auth_module, "_role_permission_for", lambda **kwargs: lambda: NO_PERMISSIONS
+    )
+    monkeypatch.setattr(auth_module, "_get_skill_permission", lambda *args: EDIT)
+    path = f"{prefix}/mlflow-artifacts/artifacts/17/run/artifacts/model.pkl"
+    assert (
+        auth_module._parse_artifact_auth_target(
+            auth_module._effective_artifact_proxy_path(path, "skills/owned")
+        ).skill
+        is None
+    )
+    assert (
+        auth_module._parse_artifact_auth_target(
+            auth_module._effective_artifact_proxy_path(path, "skills/owned")
+        ).experiment_id
+        == "17"
+    )
+    assert not auth_module._get_proxy_artifact_permission(path, "editor", "skills/owned").can_read
+    request = StarletteRequest({
+        "type": "http",
+        "method": method,
+        "path": path,
+        "query_string": b"path=skills/owned",
+        "headers": [],
+    })
+    validator = auth_module._get_fastapi_proxy_artifact_validator(path, method)
+    assert not asyncio.run(validator("editor", request))
+
+
+@pytest.mark.parametrize(
+    "suffix",
+    [
+        "skills//private/token/SKILL.md",
+        "skills/%2e/private/token/SKILL.md",
+        "%2e/skills/private/token/SKILL.md",
+    ],
+)
+@pytest.mark.parametrize("prefix", ["", "workspaces/team-a/"])
+def test_noncanonical_skill_artifact_path_cannot_use_default_permission(
+    suffix, prefix, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "false")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=READ.name),
+    )
+    monkeypatch.setattr(auth_module, "_get_skill_permission", lambda *args: NO_PERMISSIONS)
+    path = f"/api/2.0/mlflow-artifacts/artifacts/{prefix}{suffix}"
+    with pytest.raises(MlflowException, match="Invalid Skill artifact path") as error:
+        auth_module._get_proxy_artifact_permission(path, "reader")
+    assert error.value.get_http_status_code() in (400, 403)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "Skills/private/token/SKILL.md",
+        "sKiLlS/private/token/SKILL.md",
+        "Workspaces/team-a/skills/private/token/SKILL.md",
+        "workspaces/team-a/Skills/private/token/SKILL.md",
+        "%57orkspaces/team-a/%53kills/private/token/SKILL.md",
+    ],
+)
+def test_mixed_case_skill_artifacts_cannot_fall_back_or_be_mutated(path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "false")
+    monkeypatch.setattr(
+        auth_module, "auth_config", auth_module.auth_config._replace(default_permission=MANAGE.name)
+    )
+    permission = auth_module._get_proxy_artifact_permission(
+        f"/api/2.0/mlflow-artifacts/artifacts/{path}", "reader"
+    )
+    assert not permission.can_read
+    with pytest.raises(MlflowException, match="immutable") as error:
+        handlers._reject_skill_artifact_mutation(path)
+    assert error.value.get_http_status_code() == 403
+
+
+def test_skill_rest_create_requires_workspace_create_grant(workspace_permission_setup):
+    auth_store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(auth_store, username, NO_PERMISSIONS.name)
+
+    assert not auth_module.validate_can_create_skill(username)
+    assert not auth_module.validate_can_register_skill(
+        username, "", "new-skill", parent_exists=False
+    )
 
 
 def _set_workspace_permission(store: SqlAlchemyStore, username: str, permission: str):
@@ -804,6 +978,7 @@ def test_use_workspace_permission_allows_create_but_blocks_reads_and_writes_on_o
         assert auth_module.validate_can_create_experiment()
         assert auth_module.validate_can_create_registered_model()
         assert auth_module.validate_can_create_mcp_server(username)
+        assert auth_module.validate_can_create_skill(username)
 
     with auth_module.app.test_request_context(
         "/api/2.0/mlflow/experiments/get", method="GET", query_string={"experiment_id": "exp-1"}
@@ -833,6 +1008,9 @@ def test_use_workspace_permission_allows_create_but_blocks_reads_and_writes_on_o
         assert not auth_module.validate_can_delete_registered_model()
         assert not auth_module.validate_can_manage_registered_model()
 
+    with workspace_context.WorkspaceContext("team-a"):
+        assert not auth_module._get_skill_permission("", "skill-1", username).can_read
+
 
 def test_no_permissions_blocks_create(workspace_permission_setup):
     # Without any access to the workspace, create is denied.
@@ -845,6 +1023,7 @@ def test_no_permissions_blocks_create(workspace_permission_setup):
         assert not auth_module.validate_can_create_registered_model()
         assert not auth_module.validate_can_create_mcp_server(username)
         assert not auth_module.validate_can_create_gateway_secret()
+        assert not auth_module.validate_can_create_skill(username)
 
 
 def test_gateway_secret_create_requires_workspace_create_grant(workspace_permission_setup):
@@ -987,6 +1166,111 @@ def test_experiment_artifact_proxy_resolves_experiment_id_under_workspace_prefix
         assert auth_module.validate_can_update_experiment_artifact_proxy()
         # EDIT does not confer delete.
         assert not auth_module.validate_can_delete_experiment_artifact_proxy()
+
+
+def _skill_artifact_read_decisions(username: str) -> list[bool]:
+    token = "0123456789abcdef0123456789abcdef"
+    download_path = f"skills/skill-1/{token}/SKILL.md"
+    ancestor_path = "skills/skill-1"
+    scoped_ancestor_path = f"workspaces/team-a/{ancestor_path}"
+
+    decisions = []
+    with auth_module.app.test_request_context(
+        f"/ajax-api/2.0/mlflow-artifacts/artifacts/{download_path}",
+        method="GET",
+    ):
+        request.view_args = {"artifact_path": download_path}
+        decisions.append(auth_module.validate_can_read_experiment_artifact_proxy())
+
+    with auth_module.app.test_request_context(
+        "/ajax-api/2.0/mlflow-artifacts/artifacts",
+        method="GET",
+        query_string={"path": ancestor_path},
+    ):
+        decisions.append(auth_module.validate_can_read_experiment_artifact_proxy())
+
+    decisions.append(
+        auth_module._get_proxy_artifact_permission(
+            f"/api/2.0/mlflow-artifacts/artifacts/{download_path}",
+            username,
+        ).can_read
+    )
+    decisions.append(
+        auth_module._get_proxy_artifact_permission(
+            "/api/2.0/mlflow-artifacts/artifacts",
+            username,
+            query_path=ancestor_path,
+        ).can_read
+    )
+    decisions.append(
+        auth_module._get_proxy_artifact_permission(
+            f"/api/2.0/mlflow-artifacts/presigned/{download_path}",
+            username,
+        ).can_read
+    )
+    decisions.append(
+        auth_module._get_proxy_artifact_permission(
+            f"/api/2.0/mlflow-artifacts/artifacts/{scoped_ancestor_path}",
+            username,
+        ).can_read
+    )
+    return decisions
+
+
+def test_skill_artifact_proxy_requires_skill_read_permission(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+
+    # A workspace member can still read non-resource artifact paths through the
+    # workspace fallback, but that fallback must not authorize Skill Registry content.
+    assert auth_module._get_proxy_artifact_permission(
+        "/api/2.0/mlflow-artifacts/artifacts/uploads/path",
+        username,
+    ).can_read
+    assert _skill_artifact_read_decisions(username) == [False] * 6
+
+    role = store.create_role(name=random_str(), workspace="team-a")
+    store.add_role_permission(
+        role.id,
+        RESOURCE_TYPE_SKILL,
+        _format_skill_registry_resource_key("", "skill-1"),
+        READ.name,
+    )
+    store.assign_role_to_user(store.get_user(username).id, role.id)
+
+    assert _skill_artifact_read_decisions(username) == [True] * 6
+
+
+@pytest.mark.parametrize(
+    "ancestor_path",
+    [
+        "skills",
+        "skills/@acme",
+        "workspaces/team-a/skills",
+        "workspaces/team-a/skills/@acme",
+    ],
+)
+def test_skill_artifact_ancestor_listing_does_not_reveal_names(
+    workspace_permission_setup, ancestor_path
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+
+    for api_prefix in ("/api/2.0", "/ajax-api/2.0"):
+        assert not auth_module._get_proxy_artifact_permission(
+            f"{api_prefix}/mlflow-artifacts/artifacts",
+            username,
+            query_path=ancestor_path,
+        ).can_read
+
+    with auth_module.app.test_request_context(
+        "/ajax-api/2.0/mlflow-artifacts/artifacts",
+        method="GET",
+        query_string={"path": ancestor_path},
+    ):
+        assert not auth_module.validate_can_read_experiment_artifact_proxy()
 
 
 def test_filter_experiment_ids_respects_workspace_permissions(
@@ -3163,9 +3447,11 @@ def test_fastapi_artifact_proxy_root_listing_resolves_the_experiment(query_path)
     three lines above it already appended the separator.
     """
     assert (
-        auth_module._extract_experiment_id_from_artifact_proxy_path(
-            "/api/2.0/mlflow-artifacts/artifacts", query_path=query_path
-        )
+        auth_module._parse_artifact_auth_target(
+            auth_module._effective_artifact_proxy_path(
+                "/api/2.0/mlflow-artifacts/artifacts", query_path=query_path
+            )
+        ).experiment_id
         == "1"
     )
 
@@ -4026,6 +4312,194 @@ def test_role_in_other_workspace_does_not_grant_mcp_server_access(workspace_perm
 
 
 # =============================================================================
+# Authorization for Skill Registry parent resources
+# =============================================================================
+
+
+@pytest.mark.parametrize(
+    ("resource_type", "organization", "name", "permission_getter"),
+    [
+        (RESOURCE_TYPE_SKILL, "", "skill-1", auth_module._get_skill_permission),
+        (
+            RESOURCE_TYPE_SKILL,
+            "acme",
+            "skill-2",
+            auth_module._get_skill_permission,
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    ("granted", "expected_read", "expected_update", "expected_delete", "expected_manage"),
+    [
+        ("READ", True, False, False, False),
+        ("EDIT", True, True, False, False),
+        ("MANAGE", True, True, True, True),
+    ],
+)
+def test_role_grant_on_skill_registry_parent_gates_capabilities(
+    workspace_permission_setup,
+    resource_type,
+    organization,
+    name,
+    permission_getter,
+    granted,
+    expected_read,
+    expected_update,
+    expected_delete,
+    expected_manage,
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    resource_key = _format_skill_registry_resource_key(organization, name)
+
+    role = store.create_role(name=random_str(), workspace="team-a")
+    store.add_role_permission(role.id, resource_type, resource_key, granted)
+    store.assign_role_to_user(store.get_user(username).id, role.id)
+
+    perm = permission_getter(organization, name, username)
+    assert perm.can_read is expected_read
+    assert perm.can_update is expected_update
+    assert perm.can_delete is expected_delete
+    assert perm.can_manage is expected_manage
+
+
+@pytest.mark.parametrize(
+    ("resource_type", "resource_id"),
+    [
+        (RESOURCE_TYPE_SKILL, "skill-1"),
+        (RESOURCE_TYPE_SKILL, "@acme/skill-2"),
+    ],
+)
+def test_validate_can_manage_resource_supports_skill_registry_resource_ids(
+    workspace_permission_setup,
+    resource_type,
+    resource_id,
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, MANAGE.name)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/users/permissions/grant",
+        method="POST",
+        json={
+            "username": username,
+            "resource_type": resource_type,
+            "resource_id": resource_id,
+            "permission": READ.name,
+        },
+    ):
+        assert auth_module.validate_can_manage_resource()
+
+
+@pytest.mark.parametrize(
+    ("resource_type", "permission_getter", "organization", "name"),
+    [
+        (RESOURCE_TYPE_SKILL, auth_module._get_skill_permission, "", "skill-1"),
+    ],
+)
+def test_role_in_other_workspace_does_not_grant_skill_registry_access(
+    workspace_permission_setup,
+    resource_type,
+    permission_getter,
+    organization,
+    name,
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    resource_key = _format_skill_registry_resource_key(organization, name)
+
+    role = store.create_role(name=random_str(), workspace="team-b")
+    store.add_role_permission(role.id, resource_type, resource_key, MANAGE.name)
+    store.assign_role_to_user(store.get_user(username).id, role.id)
+
+    perm = permission_getter(organization, name, username)
+    assert perm.can_read is False
+
+
+@pytest.mark.parametrize(
+    ("resource_type", "permission_getter", "lower_org", "lower_name", "upper_org", "upper_name"),
+    [
+        (
+            RESOURCE_TYPE_SKILL,
+            auth_module._get_skill_permission,
+            "acme",
+            "skill-2",
+            "ACME",
+            "Skill-2",
+        ),
+    ],
+)
+def test_skill_registry_resource_keys_match_canonical_case(
+    workspace_permission_setup,
+    resource_type,
+    permission_getter,
+    lower_org,
+    lower_name,
+    upper_org,
+    upper_name,
+    monkeypatch,
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+
+    tracking_store = _TrackingStore(
+        experiment_workspaces={},
+        run_experiments={},
+        trace_experiments={},
+        skill_workspaces={
+            (lower_org, lower_name): "team-a",
+            (upper_org, upper_name): "team-a",
+        },
+    )
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: tracking_store)
+
+    role = store.create_role(name=random_str(), workspace="team-a")
+    store.add_role_permission(
+        role.id,
+        resource_type,
+        _format_skill_registry_resource_key(lower_org, lower_name),
+        READ.name,
+    )
+    store.assign_role_to_user(store.get_user(username).id, role.id)
+
+    assert permission_getter(lower_org, lower_name, username).can_read
+    assert not permission_getter(upper_org, upper_name, username).can_read
+
+
+def test_skill_registry_parent_primary_getter_rejects_other_workspace(
+    workspace_permission_setup,
+    monkeypatch,
+):
+    tracking_store = _TrackingStore(
+        experiment_workspaces={},
+        run_experiments={},
+        trace_experiments={},
+        skill_workspaces={("", "other-workspace-skill"): "team-b"},
+    )
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: tracking_store)
+
+    with pytest.raises(MlflowException, match="other-workspace-skill.*does not exist") as exc:
+        auth_module._get_skill_for_auth("other-workspace-skill")
+
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_skill_registry_parent_requires_store_getter(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setattr(auth_module, "_get_tracking_store", object)
+
+    with workspace_context.WorkspaceContext("team-a"):
+        with pytest.raises(MlflowException, match="Cannot load skill") as exc:
+            auth_module._get_skill_for_auth("skill-1")
+
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+# =============================================================================
 # Authorization for role management endpoints (Batch 5)
 # =============================================================================
 #
@@ -4453,6 +4927,134 @@ def test_validate_can_manage_roles_nonexistent_resource_denied(role_auth_setup, 
         )
     with ctx:
         assert auth_module.validate_can_manage_roles() is False
+
+
+@pytest.mark.parametrize(
+    ("path", "method"),
+    [
+        (UPDATE_ROLE_PERMISSION, "PATCH"),
+        (AJAX_UPDATE_ROLE_PERMISSION, "PATCH"),
+        (REMOVE_ROLE_PERMISSION, "DELETE"),
+        (AJAX_REMOVE_ROLE_PERMISSION, "DELETE"),
+    ],
+)
+def test_validate_can_manage_roles_denies_role_id_from_other_workspace(
+    role_auth_setup, path, method
+):
+    # The update/remove handlers act on role_permission_id, so a foo admin must not
+    # be able to authorize against their own role_id while
+    # targeting a permission row that belongs to a bar role.
+    role_auth_setup["login_as"]("ws_admin_foo")
+    body = {
+        "role_id": role_auth_setup["role_foo_id"],
+        "role_permission_id": role_auth_setup["role_permission_bar_id"],
+        "permission": MANAGE.name,
+    }
+    with auth_module.app.test_request_context(path, method=method, json=body):
+        assert auth_module.validate_can_manage_roles() is False
+
+
+@pytest.mark.parametrize("path", [ADD_ROLE_PERMISSION, AJAX_ADD_ROLE_PERMISSION])
+def test_validate_can_manage_roles_denies_role_permission_id_from_other_workspace(
+    role_auth_setup, path
+):
+    # Inverse pairing: add_role_permission acts on role_id, so a foo admin must not
+    # be able to authorize against a foo permission row while targeting a bar role.
+    role_auth_setup["login_as"]("ws_admin_foo")
+    body = {
+        "role_id": role_auth_setup["role_bar_id"],
+        "role_permission_id": role_auth_setup["role_permission_foo_id"],
+        "resource_type": "experiment",
+        "resource_pattern": "*",
+        "permission": MANAGE.name,
+    }
+    with auth_module.app.test_request_context(path, method="POST", json=body):
+        assert auth_module.validate_can_manage_roles() is False
+
+
+@pytest.mark.parametrize("path", [CREATE_ROLE, AJAX_CREATE_ROLE])
+def test_validate_can_manage_roles_denies_workspace_conflicting_with_role_id(role_auth_setup, path):
+    # create_role acts on ``workspace``, so a foo role_id must not authorize creating
+    # a role in bar.
+    role_auth_setup["login_as"]("ws_admin_foo")
+    body = {"name": "new-role", "workspace": "bar", "role_id": role_auth_setup["role_foo_id"]}
+    with auth_module.app.test_request_context(path, method="POST", json=body):
+        assert auth_module.validate_can_manage_roles() is False
+
+
+def test_validate_can_manage_roles_allows_consistent_role_id_and_role_permission_id(
+    role_auth_setup,
+):
+    # A redundant-but-consistent pair stays authorized, so the conflict check only
+    # bites on genuinely mismatched identifiers.
+    role_auth_setup["login_as"]("ws_admin_foo")
+    body = {
+        "role_id": role_auth_setup["role_foo_id"],
+        "role_permission_id": role_auth_setup["role_permission_foo_id"],
+        "workspace": "foo",
+        "permission": MANAGE.name,
+    }
+    with auth_module.app.test_request_context(UPDATE_ROLE_PERMISSION, method="PATCH", json=body):
+        assert auth_module.validate_can_manage_roles() is True
+
+
+@pytest.mark.parametrize(
+    "conflict",
+    [
+        "role_id_vs_role_permission_id",
+        "role_id_vs_workspace",
+        "role_permission_id_vs_workspace",
+        "missing_role_permission_id_with_valid_workspace",
+    ],
+)
+def test_get_role_workspace_from_request_returns_none_on_conflict(role_auth_setup, conflict):
+    # Exercise the resolver directly: the validators short-circuit for super admins
+    # before reaching it, so this is the only place the conflict branch is asserted
+    # independently of who is logged in.
+    match conflict:
+        case "role_id_vs_role_permission_id":
+            body = {
+                "role_id": role_auth_setup["role_foo_id"],
+                "role_permission_id": role_auth_setup["role_permission_bar_id"],
+            }
+        case "role_id_vs_workspace":
+            body = {"role_id": role_auth_setup["role_foo_id"], "workspace": "bar"}
+        case "role_permission_id_vs_workspace":
+            body = {
+                "role_permission_id": role_auth_setup["role_permission_foo_id"],
+                "workspace": "bar",
+            }
+        case "missing_role_permission_id_with_valid_workspace":
+            body = {"role_permission_id": 999_999, "workspace": "foo"}
+    with auth_module.app.test_request_context(UPDATE_ROLE_PERMISSION, method="PATCH", json=body):
+        assert auth_module._get_role_workspace_from_request() is None
+
+
+@pytest.mark.parametrize("exists", [True, False])
+def test_validate_can_manage_roles_malformed_role_id_rejected_regardless_of_existence(
+    role_auth_setup, exists
+):
+    # Format checks run before any lookup; otherwise a non-admin could tell existing
+    # from missing role_permission_ids by whether a malformed role_id yields a 400
+    # or a deny.
+    role_auth_setup["login_as"]("outsider")
+    rp_id = role_auth_setup["role_permission_bar_id"] if exists else 999_999
+    body = {"role_id": "not-an-int", "role_permission_id": rp_id, "permission": MANAGE.name}
+    with auth_module.app.test_request_context(UPDATE_ROLE_PERMISSION, method="PATCH", json=body):
+        with pytest.raises(MlflowException, match="must be an integer"):
+            auth_module.validate_can_manage_roles()
+
+
+@pytest.mark.parametrize("exists", [True, False])
+def test_validate_can_manage_roles_blank_workspace_rejected_regardless_of_existence(
+    role_auth_setup, exists
+):
+    role_auth_setup["login_as"]("outsider")
+    role_id = role_auth_setup["role_bar_id"] if exists else 999_999
+    body = {"name": "new-role", "workspace": "   ", "role_id": role_id}
+    with auth_module.app.test_request_context(CREATE_ROLE, method="POST", json=body):
+        with pytest.raises(MlflowException, match="non-empty string"):
+            auth_module.validate_can_manage_roles()
 
 
 def test_validate_can_manage_roles_nonexistent_role_id_bypassed_by_super_admin(
@@ -6191,6 +6793,110 @@ def test_mcp_server_delete_grants_workspace_isolated(tmp_path, monkeypatch):
     auth_store.engine.dispose()
 
 
+def test_skill_creator_grants_and_delete_cleanup_are_workspace_isolated(tmp_path, monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+
+    db_uri = f"sqlite:///{tmp_path / 'auth-skill-registry-iso.db'}"
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(db_uri)
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+
+    username = "alice"
+    auth_store.create_user(username, "supersecurepassword", is_admin=False)
+    user = auth_store.get_user(username)
+    organization, name = "", "shared-name"
+
+    with workspace_context.WorkspaceContext("team-a"):
+        auth_module.grant_manage_for_created_skills(username, organization, [name])
+
+    with workspace_context.WorkspaceContext("team-b"):
+        auth_module.grant_manage_for_created_skills(username, organization, [name])
+
+    with workspace_context.WorkspaceContext("team-a"):
+        auth_module.delete_skill_permissions(organization, name)
+
+    assert (
+        auth_store.get_role_permission_for_resource(user.id, RESOURCE_TYPE_SKILL, name, "team-a")
+        is None
+    )
+    assert (
+        auth_store.get_role_permission_for_resource(user.id, RESOURCE_TYPE_SKILL, name, "team-b")
+        == MANAGE
+    )
+
+    auth_store.engine.dispose()
+
+
+def test_bulk_skill_creator_grants_roll_back_together(workspace_permission_setup):
+    auth_store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+
+    with pytest.raises(MlflowException, match="Invalid Skill Registry resource_id"):
+        auth_module.grant_manage_for_created_skills(username, "acme", ["reviewer", "invalid/name"])
+
+    user = auth_store.get_user(username)
+    grants = auth_store.list_grants(user.id, "team-a", {RESOURCE_TYPE_SKILL})
+    assert not any(
+        grant.resource_type == RESOURCE_TYPE_SKILL and grant.resource_pattern == "@acme/reviewer"
+        for grant in grants
+    )
+
+    auth_module.grant_manage_for_created_skills(username, "acme", ["reviewer", "writer"])
+    grants = auth_store.list_grants(user.id, "team-a", {RESOURCE_TYPE_SKILL})
+    assert {"@acme/reviewer", "@acme/writer"} <= {
+        grant.resource_pattern
+        for grant in grants
+        if grant.resource_type == RESOURCE_TYPE_SKILL and grant.permission == MANAGE.name
+    }
+
+
+def test_skill_registry_creator_manage_survives_cached_missing_parent(
+    tmp_path,
+    monkeypatch,
+    db_uri,
+):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=NO_PERMISSIONS.name),
+        raising=False,
+    )
+
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(f"sqlite:///{tmp_path / 'auth-created-after-miss.db'}")
+    tracking_store = TrackingSqlAlchemyStore(
+        db_uri,
+        str(tmp_path / "artifacts"),
+    )
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: tracking_store)
+    auth_module._RESOURCE_WORKSPACE_CACHE.clear()
+
+    try:
+        username = "alice"
+        organization = ""
+        name = "created-after-miss-skill"
+        auth_store.create_user(username, "supersecurepassword", is_admin=False)
+        auth_store.set_workspace_permission("team-a", username, USE.name)
+        resource_key = _format_skill_registry_resource_key(organization, name)
+        cache_key = f"skill:team-a:{resource_key}"
+
+        with workspace_context.WorkspaceContext("team-a"):
+            assert auth_module._get_skill_permission(organization, name, username) == NO_PERMISSIONS
+            assert cache_key not in auth_module._RESOURCE_WORKSPACE_CACHE
+
+            with tracking_store.ManagedSessionMaker(read_only=False) as session:
+                session.add(SqlSkill(workspace="team-a", organization=organization, name=name))
+
+            auth_module.grant_manage_for_created_skills(username, organization, [name])
+            assert auth_module._get_skill_permission(organization, name, username) == MANAGE
+    finally:
+        auth_module._RESOURCE_WORKSPACE_CACHE.clear()
+        auth_store.engine.dispose()
+        tracking_store.engine.dispose()
+
+
 def test_list_mcp_server_permissions_scoped_to_active_workspace(tmp_path, monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
 
@@ -6340,6 +7046,67 @@ def test_scorer_point_routes_unchanged_without_a_version_grant(workspace_permiss
 
     assert _run_scorer_point_route("validate_can_read_scorer", "1", "s1") is True
     assert _run_scorer_point_route("validate_can_delete_scorer", "1", "s1") is True
+
+
+def _run_online_config_routes(monkeypatch, scorer_name):
+    """Run the online scoring config update and read rules for a scorer in experiment "1"."""
+    scorers = {"id-blocked": "blocked", "id-allowed": "allowed"}
+    scorer_id = next(i for i, name in scorers.items() if name == scorer_name)
+    tracking_store = auth_module._get_tracking_store()
+    monkeypatch.setattr(
+        tracking_store,
+        "get_online_scoring_configs",
+        lambda ids: [SimpleNamespace(experiment_id="1", scorer_id=i) for i in ids],
+        raising=False,
+    )
+    monkeypatch.setattr(
+        tracking_store,
+        "list_scorers_across_experiments",
+        lambda experiment_ids: [
+            SimpleNamespace(scorer_id=i, scorer_name=name) for i, name in scorers.items()
+        ],
+        raising=False,
+    )
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/scorers/online-config",
+        method="PUT",
+        json={"experiment_id": "1", "name": scorer_name, "sample_rate": 1.0},
+    ):
+        update = auth_module.validate_can_update_online_scoring_config()
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/scorers/online-configs", query_string={"scorer_ids": scorer_id}
+    ):
+        read = auth_module.validate_can_read_online_scoring_configs()
+    return update, read
+
+
+def test_online_config_routes_honor_a_scorer_deny(workspace_permission_setup, monkeypatch):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("experiment", "*", EDIT.name), ("scorer", "1/blocked", DENY.name)],
+    )
+
+    assert _run_online_config_routes(monkeypatch, "blocked") == (False, False)
+    assert _run_online_config_routes(monkeypatch, "allowed") == (True, True)
+
+
+def test_online_config_routes_honor_a_scorer_version_deny(workspace_permission_setup, monkeypatch):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("experiment", "*", EDIT.name), ("scorer_version", "*", DENY.name)],
+    )
+
+    assert _run_online_config_routes(monkeypatch, "allowed") == (False, False)
 
 
 def _run_queue_by_name(monkeypatch, experiment_id, queue_users):
@@ -6973,15 +7740,21 @@ def test_get_assessment_inherits_the_experiment(workspace_permission_setup, monk
     assert _run_get_assessment(monkeypatch, "exp-1") is True
 
 
-def _run_model_version_artifact(name="model-xyz", version="3"):
+def _run_model_version_artifact(name="model-xyz", version="3", presigned=False):
     with auth_module.app.test_request_context(
         "/model-versions/get-artifact",
-        query_string={"name": name, "version": version, "path": "MLmodel"},
+        query_string={
+            "name": name,
+            "version": version,
+            "path": "MLmodel",
+            "presigned": str(presigned).lower(),
+        },
     ):
         return auth_module.validate_can_read_model_version_artifact()
 
 
-def test_model_version_artifact_honors_a_version_deny(workspace_permission_setup):
+@pytest.mark.parametrize("presigned", [False, True])
+def test_model_version_artifact_honors_a_version_deny(workspace_permission_setup, presigned):
     """The artifact IS the version's content -- the handler streams
     get_model_version_download_uri(name, version) -- yet the route whose entire subject is a
     version resolved only the registered model.
@@ -6999,17 +7772,20 @@ def test_model_version_artifact_honors_a_version_deny(workspace_permission_setup
         ],
     )
 
-    assert _run_model_version_artifact() is False
+    assert _run_model_version_artifact(presigned=presigned) is False
 
 
-def test_model_version_artifact_unchanged_without_a_version_grant(workspace_permission_setup):
+@pytest.mark.parametrize("presigned", [False, True])
+def test_model_version_artifact_unchanged_without_a_version_grant(
+    workspace_permission_setup, presigned
+):
     # No version grant: the registered model tier decides, exactly as before.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
     _grant(store, username, "team-a", [("registered_model", "*", READ.name)])
 
-    assert _run_model_version_artifact() is True
+    assert _run_model_version_artifact(presigned=presigned) is True
 
 
 def _run_search_traces(filter_string, order_by=None):
@@ -9295,3 +10071,20 @@ def test_retention_gate_memoizes_and_fails_closed(workspace_permission_setup):
             [template],
         )
     assert closed.retains(auth_module.RESOURCE_TYPE_ASSESSMENT) is False
+
+
+@pytest.mark.parametrize("prefix", ["workspaces", "WORKSPACES", "Workspaces"])
+def test_parse_artifact_auth_target_workspace_prefix_ignores_case(prefix):
+    # A case-insensitive local store serves ``WORKSPACES/`` from ``workspaces/``, so the
+    # upper-case spelling must be judged against the experiment, not the workspace grant.
+    target = auth_module._parse_artifact_auth_target(f"{prefix}/team-a/17/models/m-1/model.pkl")
+    assert target.workspace == "team-a"
+    assert target.experiment_id == "17"
+    assert target.relative_path == "17/models/m-1/model.pkl"
+
+
+@pytest.mark.parametrize("prefix", ["workspaces", "WORKSPACES"])
+def test_experiment_id_from_canonical_proxy_path_workspace_prefix_ignores_case(prefix):
+    # ``filter_list_artifacts_proxy`` passes the full path, so the experiment-root listing filter
+    # must resolve the experiment for any spelling of the prefix.
+    assert auth_module._experiment_id_from_canonical_proxy_path(f"{prefix}/team-a/17") == "17"

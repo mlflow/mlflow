@@ -1616,6 +1616,17 @@ def test_set_tag_async():
         assert parent_run.data.tags[f"async batch tag {num}"] == str(num)
 
 
+def test_set_tag_async_applies_last_value():
+    final_values = []
+    for _ in range(5):
+        with mlflow.start_run() as run:
+            for i in range(20):
+                mlflow.set_tag("stage", str(i), synchronous=False)
+        final_values.append(mlflow.get_run(run.info.run_id).data.tags["stage"])
+
+    assert final_values == ["19"] * 5
+
+
 @pytest.fixture
 def spark_session_with_registry_uri(request):
     with mock.patch(

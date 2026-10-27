@@ -146,8 +146,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 512,
-        "max_output": 512,
-        "max_tokens": 512
+        "max_output": 512
       },
       "pricing": {
         "input_per_million_tokens": 0.03,
@@ -160,14 +159,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-14"
+      "last_updated_at": "2026-10-27"
     },
     "meta-llama/llama-prompt-guard-2-86m": {
       "mode": "chat",
       "context_window": {
         "max_input": 512,
-        "max_output": 512,
-        "max_tokens": 512
+        "max_output": 512
       },
       "pricing": {
         "input_per_million_tokens": 0.04,
@@ -180,7 +178,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-14"
+      "last_updated_at": "2026-10-27"
     },
     "moonshotai/kimi-k2-instruct-0905": {
       "mode": "chat",
@@ -207,8 +205,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 131072,
-        "max_output": 65536,
-        "max_tokens": 65536
+        "max_output": 65536
       },
       "pricing": {
         "input_per_million_tokens": 0.15,
@@ -229,14 +226,13 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-14"
+      "last_updated_at": "2026-10-27"
     },
     "openai/gpt-oss-20b": {
       "mode": "chat",
       "context_window": {
         "max_input": 131072,
-        "max_output": 65536,
-        "max_tokens": 65536
+        "max_output": 65536
       },
       "pricing": {
         "input_per_million_tokens": 0.075,
@@ -257,14 +253,13 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-14"
+      "last_updated_at": "2026-10-27"
     },
     "openai/gpt-oss-safeguard-20b": {
       "mode": "chat",
       "context_window": {
         "max_input": 131072,
-        "max_output": 65536,
-        "max_tokens": 65536
+        "max_output": 65536
       },
       "pricing": {
         "input_per_million_tokens": 0.075,
@@ -285,7 +280,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-06"
+      "last_updated_at": "2026-10-27"
     },
     "qwen/qwen3-32b": {
       "mode": "chat",
@@ -331,8 +326,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 131072,
-        "max_output": 16384,
-        "max_tokens": 16384
+        "max_output": 16384
       },
       "pricing": {
         "input_per_million_tokens": 0.8,
@@ -345,7 +339,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-30"
+      "last_updated_at": "2026-10-27"
     }
   }
 }
