@@ -73,6 +73,7 @@ crewai = LazyLoader("mlflow.crewai", globals(), "mlflow.crewai")
 diffusers = LazyLoader("mlflow.diffusers", globals(), "mlflow.diffusers")
 dspy = LazyLoader("mlflow.dspy", globals(), "mlflow.dspy")
 gemini = LazyLoader("mlflow.gemini", globals(), "mlflow.gemini")
+google_adk = LazyLoader("mlflow.google_adk", globals(), "mlflow.google_adk")
 groq = LazyLoader("mlflow.groq", globals(), "mlflow.groq")
 h2o = LazyLoader("mlflow.h2o", globals(), "mlflow.h2o")
 haystack = LazyLoader("mlflow.haystack", globals(), "mlflow.haystack")
@@ -129,6 +130,7 @@ if TYPE_CHECKING:
         diffusers,
         dspy,
         gemini,
+        google_adk,
         groq,
         h2o,
         haystack,

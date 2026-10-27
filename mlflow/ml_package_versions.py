@@ -107,6 +107,16 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "2.25.0"
         }
     },
+    "google_adk": {
+        "package_info": {
+            "pip_release": "google-adk",
+            "module_name": "google.adk"
+        },
+        "autologging": {
+            "minimum": "2.6.1",
+            "maximum": "2.13.0"
+        }
+    },
     "anthropic": {
         "package_info": {
             "pip_release": "anthropic"
@@ -467,6 +477,7 @@ GENAI_FLAVOR_TO_MODULE_NAME = {
     "ag2": "autogen",
     "autogen": "autogen_agentchat",
     "gemini": "google.genai",
+    "google_adk": "google.adk",
     "anthropic": "anthropic",
     "typesafe": "typesafe_sdk",
     "crewai": "crewai",

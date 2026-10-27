@@ -1591,6 +1591,7 @@ mlflow.get_run
 mlflow.get_trace
 mlflow.get_tracking_uri
 mlflow.get_workspace
+mlflow.google_adk.autolog
 mlflow.groq.autolog
 mlflow.h2o.get_default_conda_env
 mlflow.h2o.get_default_pip_requirements
