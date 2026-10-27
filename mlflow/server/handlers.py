@@ -6210,7 +6210,7 @@ def _finalize_logged_model(model_id: str):
         },
     )
     model = _get_tracking_store().finalize_logged_model(
-        request_message.model_id, LoggedModelStatus.from_int(request_message.status)
+        model_id, LoggedModelStatus.from_int(request_message.status)
     )
     response_message = FinalizeLoggedModel.Response(model=model.to_proto())
     return _wrap_response(response_message)

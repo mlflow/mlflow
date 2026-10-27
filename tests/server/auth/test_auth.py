@@ -9576,3 +9576,53 @@ def test_delete_with_double_encoded_body_cleans_up_permissions(client, monkeypat
     )
 
     assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_run_permission_checks_camel_case_run_id(client, monkeypatch):
+    victim, victim_password = create_user(client.tracking_uri)
+    attacker, attacker_password = create_user(client.tracking_uri)
+    with User(victim, victim_password, monkeypatch):
+        victim_run = client.create_run(client.create_experiment("victim_exp"))
+    with User(attacker, attacker_password, monkeypatch):
+        own_run = client.create_run(client.create_experiment("attacker_exp"))
+
+    response = requests.post(
+        url=client.tracking_uri + "/api/2.0/mlflow/runs/update",
+        json={"runId": victim_run.info.run_id, "run_uuid": own_run.info.run_id, "status": "FAILED"},
+        auth=(attacker, attacker_password),
+    )
+
+    assert response.status_code == 403
+    with User(victim, victim_password, monkeypatch):
+        assert client.get_run(victim_run.info.run_id).info.status == "RUNNING"
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_finalize_logged_model_acts_on_url_model_id(client, monkeypatch):
+    victim, victim_password = create_user(client.tracking_uri)
+    attacker, attacker_password = create_user(client.tracking_uri)
+    with User(victim, victim_password, monkeypatch):
+        victim_model = client.create_logged_model(client.create_experiment("victim_exp"))
+    with User(attacker, attacker_password, monkeypatch):
+        own_model = client.create_logged_model(client.create_experiment("attacker_exp"))
+
+    response = requests.patch(
+        url=client.tracking_uri + f"/api/2.0/mlflow/logged-models/{own_model.model_id}",
+        json={"model_id": victim_model.model_id, "status": LoggedModelStatus.FAILED.to_int()},
+        auth=(attacker, attacker_password),
+    )
+
+    assert response.status_code == 200
+    with User(victim, victim_password, monkeypatch):
+        assert client.get_logged_model(victim_model.model_id).status == LoggedModelStatus.PENDING
+    with User(attacker, attacker_password, monkeypatch):
+        assert client.get_logged_model(own_model.model_id).status == LoggedModelStatus.FAILED
