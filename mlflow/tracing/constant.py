@@ -105,6 +105,8 @@ class TraceSizeStatsKey:
 
 # A set of reserved attribute keys
 class SpanAttributeKey:
+    MCP_SERVER_NAME = "mlflow.mcp.server.name"
+    MCP_SERVER_VERSION = "mlflow.mcp.server.version"
     EXPERIMENT_ID = "mlflow.experimentId"
     REQUEST_ID = "mlflow.traceRequestId"
     INPUTS = "mlflow.spanInputs"

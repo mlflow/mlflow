@@ -39,6 +39,59 @@ from mlflow.utils.search_utils import (
 
 
 @pytest.mark.parametrize(
+    ("filter_string", "key", "value"),
+    [
+        ("mcp_server = 'com.example/weather'", "name", "com.example/weather"),
+        ('mcp_server.version = "1.0.0+Build.1"', "version", "1.0.0+Build.1"),
+    ],
+)
+def test_trace_mcp_server_filter_parsing(filter_string, key, value):
+    assert SearchTraceUtils.parse_search_filter_for_search_traces(filter_string) == [
+        {"type": "mcp_server", "key": key, "comparator": "=", "value": value}
+    ]
+
+
+@pytest.mark.parametrize("key", ["mcp_server", "mcp_server.version"])
+@pytest.mark.parametrize(
+    "comparison",
+    [
+        "!= 'value'",
+        "> 'value'",
+        ">= 'value'",
+        "< 'value'",
+        "<= 'value'",
+        "LIKE 'value'",
+        "ILIKE 'value'",
+        "RLIKE 'value'",
+        "IN ('value')",
+        "NOT IN ('value')",
+        "IS NULL",
+        "IS NOT NULL",
+    ],
+)
+def test_trace_mcp_server_filter_rejects_other_comparators(key, comparison):
+    with pytest.raises(MlflowException, match="MCP server comparator") as exc:
+        SearchTraceUtils.parse_search_filter_for_search_traces(f"{key} {comparison}")
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "match"),
+    [
+        ("mcp_server.alias = 'production'", "Invalid MCP server search key"),
+        ("mcp_server.workspace = 'other'", "Invalid MCP server search key"),
+        ("mcp_server.version = 123", "Expected a quoted string"),
+        ("mcp_server = 123", "Expected a quoted string"),
+        ("mcp_server.version = ('1.0.0', '2.0.0')", "Expected a quoted string"),
+    ],
+)
+def test_trace_mcp_server_filter_rejects_invalid_fields_and_values(filter_string, match):
+    with pytest.raises(MlflowException, match=match) as exc:
+        SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+@pytest.mark.parametrize(
     ("search_utils", "search_type"),
     [
         (SearchModelUtils, "registered model"),
@@ -1000,6 +1053,24 @@ def test_filter_runs_by_tag_and_param_is_null():
     assert [r.info.run_id for r in SearchUtils.filter(runs, "tags.env IS NULL")] == ["run2"]
     assert [r.info.run_id for r in SearchUtils.filter(runs, "params.lr IS NOT NULL")] == ["run2"]
     assert [r.info.run_id for r in SearchUtils.filter(runs, "params.lr IS NULL")] == ["run1"]
+
+
+@pytest.mark.parametrize(
+    "filter_string",
+    ["mcp_server = 'com.example/weather'", "mcp_server.version = '1.0.0'"],
+)
+def test_search_trace_utils_rejects_in_memory_mcp_filtering(filter_string):
+    trace = TraceInfo(
+        trace_id="t1",
+        trace_location=trace_location.TraceLocation.from_experiment_id("0"),
+        request_time=0,
+        state=TraceState.OK,
+    )
+    with pytest.raises(
+        MlflowException, match="MCP server filtering requires database support"
+    ) as exc:
+        SearchTraceUtils.filter([trace], filter_string)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
 def test_search_trace_utils_filter_tag_is_null():

@@ -43,6 +43,7 @@ from mlflow.entities.gateway_budget_policy import (
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_mcp_server_link import MCPServerSpanObservation, TraceMCPServerLink
 from mlflow.entities.trace_metrics import AggregationType, MetricAggregation, MetricViewType
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.workspace import TraceArchivalConfig
@@ -64,6 +65,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlSkillVersion,
     SqlSkillVersionTag,
     SqlSpanCostDailyRollup,
+    SqlSpanMCPServerLink,
     SqlTraceInfo,
     SqlTraceMetricDailyRollup,
     SqlTraceRollupRebuild,
@@ -1068,6 +1070,104 @@ def test_artifact_operations_enforce_workspace_isolation(workspace_tracking_stor
             ) as excinfo:
                 call()
             assert excinfo.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
+def test_mcp_links_are_workspace_scoped(workspace_tracking_store):
+    store = workspace_tracking_store
+    for workspace in ["team-a", "team-b"]:
+        with WorkspaceContext(workspace):
+            experiment_id = store.create_experiment("mcp-links")
+            _create_trace(store, f"trace-{workspace}", experiment_id=experiment_id)
+            store.upsert_span_mcp_server_links(
+                f"trace-{workspace}", [MCPServerSpanObservation("span-1", "com.example/weather")]
+            )
+            assert store.get_mcp_servers_for_trace(f"trace-{workspace}") == [
+                TraceMCPServerLink(workspace, "com.example/weather", None)
+            ]
+
+    for workspace, other_workspace in [("team-a", "team-b"), ("team-b", "team-a")]:
+        with WorkspaceContext(workspace):
+            trace_id = f"trace-{other_workspace}"
+            with pytest.raises(MlflowException, match="not found") as exc:
+                store.get_mcp_servers_for_trace(trace_id)
+            assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+            with pytest.raises(MlflowException, match="not found") as exc:
+                store.upsert_span_mcp_server_links(
+                    trace_id, [MCPServerSpanObservation("span-2", "com.example/weather", "2.0.0")]
+                )
+            assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+            assert store.get_mcp_servers_for_trace(f"trace-{workspace}") == [
+                TraceMCPServerLink(workspace, "com.example/weather", None)
+            ]
+
+
+def test_log_spans_mcp_links_use_trace_workspace(workspace_tracking_store):
+    store = workspace_tracking_store
+    for workspace in ["team-a", "team-b"]:
+        with WorkspaceContext(workspace):
+            experiment_id = store.create_experiment("mcp-ingestion")
+            span = create_test_span(
+                f"trace-mcp-{workspace}",
+                attributes={
+                    "mlflow.mcp.server.name": "com.example/weather",
+                    "mlflow.mcp.server.workspace": "untrusted-workspace",
+                },
+            )
+            store.log_spans(experiment_id, [span])
+            store.log_spans(experiment_id, [span])
+            assert store.get_mcp_servers_for_trace(span.trace_id) == [
+                TraceMCPServerLink(workspace, "com.example/weather", None)
+            ]
+    with WorkspaceContext("team-b"):
+        with pytest.raises(MlflowException, match="not found"):
+            store.get_mcp_servers_for_trace("trace-mcp-team-a")
+
+
+def test_search_traces_mcp_links_are_workspace_scoped(workspace_tracking_store):
+    store = workspace_tracking_store
+    experiment_ids = []
+    for workspace, version in [("team-a", "1.0.0"), ("team-b", "2.0.0")]:
+        with WorkspaceContext(workspace):
+            experiment_id = store.create_experiment("mcp-search")
+            experiment_ids.append(experiment_id)
+            _create_trace(store, f"trace-mcp-{workspace}", experiment_id=experiment_id)
+            store.upsert_span_mcp_server_links(
+                f"trace-mcp-{workspace}",
+                [MCPServerSpanObservation("span-1", "com.example/weather", version)],
+            )
+
+    for workspace, other_version in [("team-a", "2.0.0"), ("team-b", "1.0.0")]:
+        with WorkspaceContext(workspace):
+            traces, _ = store.search_traces(
+                experiment_ids, filter_string="mcp_server = 'com.example/weather'"
+            )
+            assert [trace.trace_id for trace in traces] == [f"trace-mcp-{workspace}"]
+            traces, _ = store.search_traces(
+                experiment_ids,
+                filter_string=(
+                    f"mcp_server = 'com.example/weather' AND mcp_server.version = '{other_version}'"
+                ),
+            )
+            assert traces == []
+
+    # Even an inconsistent observation inserted directly must not match another workspace.
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.add(
+            SqlSpanMCPServerLink(
+                trace_id="trace-mcp-team-a",
+                span_id="foreign-span",
+                mcp_workspace="team-b",
+                mcp_name="com.example/foreign",
+            )
+        )
+    with WorkspaceContext("team-a"):
+        traces, _ = store.search_traces(
+            experiment_ids, filter_string="mcp_server = 'com.example/foreign'"
+        )
+        assert traces == []
+        assert store.get_mcp_servers_for_trace("trace-mcp-team-a") == [
+            TraceMCPServerLink(workspace="team-a", name="com.example/weather", version="1.0.0")
+        ]
 
 
 def test_get_trace_is_workspace_scoped(workspace_tracking_store):

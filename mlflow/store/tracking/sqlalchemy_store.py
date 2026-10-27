@@ -68,6 +68,7 @@ from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
+from mlflow.entities.mcp_server import validate_mcp_server_name
 from mlflow.entities.metric import Metric, MetricWithRunId
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.span import LazySpan
@@ -75,6 +76,7 @@ from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Span
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_mcp_server_link import MCPServerSpanObservation, TraceMCPServerLink
 from mlflow.entities.trace_metrics import (
     MetricAggregation,
     MetricDataPoint,
@@ -175,6 +177,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlScorerVersion,
     SqlSpan,
     SqlSpanCostDailyRollup,
+    SqlSpanMCPServerLink,
     SqlTag,
     SqlTraceInfo,
     SqlTraceMetadata,
@@ -4257,6 +4260,61 @@ class SqlAlchemyStore(
                 )
             return _build_trace_infos_from_rows(session, [trace_row])[0]
 
+    def upsert_span_mcp_server_links(
+        self, trace_id: str, links: list[MCPServerSpanObservation]
+    ) -> None:
+        with self.ManagedSessionMaker(read_only=False) as session:
+            trace = self._get_sql_trace_info(session=session, trace_id=trace_id)
+            self._upsert_span_mcp_server_links(session=session, trace=trace, links=links)
+
+    @staticmethod
+    def _upsert_span_mcp_server_links(
+        session: Session, trace: SqlTraceInfo, links: list[MCPServerSpanObservation]
+    ) -> None:
+        if not links:
+            return
+        workspace = trace.experiment.workspace
+        # PostgreSQL cannot update the same conflict key twice in a single INSERT.
+        observations = {(link.span_id, link.mcp_name): link for link in links}
+        _bulk_upsert(
+            session,
+            SqlSpanMCPServerLink,
+            [
+                {
+                    "trace_id": trace.request_id,
+                    "span_id": link.span_id,
+                    "mcp_workspace": workspace,
+                    "mcp_name": link.mcp_name,
+                    "mcp_version": link.mcp_version,
+                }
+                for link in observations.values()
+            ],
+        )
+
+    def get_mcp_servers_for_trace(self, trace_id: str) -> list[TraceMCPServerLink]:
+        with self.ManagedSessionMaker() as session:
+            trace = self._get_sql_trace_info(session=session, trace_id=trace_id)
+            rows = (
+                session
+                .query(
+                    SqlSpanMCPServerLink.mcp_workspace,
+                    SqlSpanMCPServerLink.mcp_name,
+                    SqlSpanMCPServerLink.mcp_version,
+                )
+                .filter(
+                    SqlSpanMCPServerLink.trace_id == trace_id,
+                    SqlSpanMCPServerLink.mcp_workspace == trace.experiment.workspace,
+                )
+                .all()
+            )
+            # SQL DISTINCT follows database collation and can merge different version strings.
+            return list(
+                dict.fromkeys(
+                    TraceMCPServerLink(workspace=workspace, name=name, version=version)
+                    for workspace, name, version in rows
+                )
+            )
+
     def _get_sql_trace_info(
         self, session, trace_id, workspace=None, *, for_update=False
     ) -> SqlTraceInfo:
@@ -5851,6 +5909,7 @@ class SqlAlchemyStore(
 
         # Pre-compute per-trace aggregates outside the DB session (pure Python, no I/O)
         trace_aggregates: dict[str, _TraceAggregate] = {}
+        mcp_links_by_trace: dict[str, list[MCPServerSpanObservation]] = defaultdict(list)
         all_span_rows = []
         for trace_id, trace_spans in spans_by_trace.items():
             min_start_ms = min(s.start_time_ns for s in trace_spans) // 1_000_000
@@ -5865,6 +5924,8 @@ class SqlAlchemyStore(
             root_span_dict = None
             trace_tags_from_root_attr: dict[str, str] = {}
             for span in trace_spans:
+                if observation := _get_mcp_server_observation(span):
+                    mcp_links_by_trace[trace_id].append(observation)
                 span_dict = translate_span_when_storing(span)
                 span_cost = None
                 span_attributes = span_dict.get("attributes", {})
@@ -6160,6 +6221,10 @@ class SqlAlchemyStore(
 
             # --- Phase 3: Bulk upsert all spans ---
             _bulk_upsert(session, SqlSpan, all_span_rows)
+
+            for trace_id in all_trace_ids:
+                if links := mcp_links_by_trace.get(trace_id):
+                    self._upsert_span_mcp_server_links(session, existing_traces[trace_id], links)
 
             # --- Phase 4: Fetch trace finalization markers ---
             trace_ids_with_token_usage = {
@@ -10894,12 +10959,24 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect, scope
     span_filters = []
     run_id_filter = None
     span_start_time_lower_bound_ms = None
+    mcp_server_filters = []
 
     for clause in _parse_trace_filter(filter_string):
         key_type = clause.key_type
         key_name = clause.key
         value = clause.value
         comparator = clause.comparator.upper()
+
+        if SearchTraceUtils.is_mcp_server(key_type, key_name, comparator):
+            column = (
+                SqlSpanMCPServerLink.mcp_name
+                if key_name == "name"
+                else SqlSpanMCPServerLink.mcp_version
+            )
+            mcp_server_filters.append(
+                SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(column, value)
+            )
+            continue
 
         # Check if this is an issue filter (stored in assessments table)
         # Note: Issue filters use the format 'issue.id = "issue-123"', which differs
@@ -11164,6 +11241,22 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect, scope
                 session.query(entity).filter(key_filter, val_filter).subquery()
             )
 
+    if mcp_server_filters:
+        attribute_filters.append(
+            session
+            .query(SqlSpanMCPServerLink.trace_id)
+            .join(
+                SqlExperiment,
+                SqlExperiment.workspace == SqlSpanMCPServerLink.mcp_workspace,
+            )
+            .filter(
+                SqlSpanMCPServerLink.trace_id == SqlTraceInfo.request_id,
+                SqlExperiment.experiment_id == SqlTraceInfo.experiment_id,
+                *mcp_server_filters,
+            )
+            .exists()
+        )
+
     if span_attribute_filters:
         span_scope_filters = [SqlSpan.experiment_id == SqlTraceInfo.experiment_id]
         if span_start_time_lower_bound_ms is not None:
@@ -11302,6 +11395,31 @@ def _get_search_datasets_order_by_clauses(order_by):
         order_by_clauses.append((SqlEvaluationDataset.dataset_id, False))
 
     return [col.asc() if ascending else col.desc() for col, ascending in order_by_clauses]
+
+
+def _get_mcp_server_observation(span: Span) -> MCPServerSpanObservation | None:
+    name = span.get_attribute(SpanAttributeKey.MCP_SERVER_NAME)
+    version = span.get_attribute(SpanAttributeKey.MCP_SERVER_VERSION)
+    if name is None and version is None:
+        return None
+    if not isinstance(name, str) or len(name) > 256:
+        _logger.warning("Skipping malformed MCP server name for span %s", span.span_id)
+        return None
+    try:
+        validate_mcp_server_name(name)
+    except MlflowException:
+        _logger.warning("Skipping malformed MCP server name for span %s", span.span_id)
+        return None
+    if version is not None and (
+        not isinstance(version, str)
+        or not version.strip()
+        or len(version) > 256
+        or "\x00" in version
+        or any(0xD800 <= ord(char) <= 0xDFFF for char in version)
+    ):
+        _logger.warning("Ignoring malformed MCP server version for span %s", span.span_id)
+        version = None
+    return MCPServerSpanObservation(span_id=span.span_id, mcp_name=name, mcp_version=version)
 
 
 def _try_parse_json_string(value: str) -> str:
