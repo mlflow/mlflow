@@ -5808,6 +5808,17 @@ def create_role():
     description = body.get("description")
     if description is not None and not isinstance(description, str):
         raise MlflowException.invalid_parameter_value("Role description must be a string or null.")
+    if MLFLOW_ENABLE_WORKSPACES.get():
+        # A role created ahead of its workspace would take the name of a default role
+        # and make seeding skip it once the workspace is created.
+        try:
+            _get_workspace_store().get_workspace(workspace)
+        except MlflowException as e:
+            if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                raise MlflowException.invalid_parameter_value(
+                    f"Workspace '{workspace}' does not exist."
+                ) from e
+            raise
     role = store.create_role(name, workspace, description)
     return jsonify({"role": role.to_json()})
 

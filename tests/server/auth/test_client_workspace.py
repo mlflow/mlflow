@@ -13,7 +13,12 @@ from mlflow.environment_variables import (
     MLFLOW_TRACKING_USERNAME,
     MLFLOW_WORKSPACE_STORE_URI,
 )
-from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, UNAUTHENTICATED, ErrorCode
+from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
+    PERMISSION_DENIED,
+    UNAUTHENTICATED,
+    ErrorCode,
+)
 from mlflow.server.auth.client import AuthServiceClient
 from mlflow.utils.os import is_windows
 from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
@@ -254,6 +259,24 @@ def test_create_workspace_seeds_default_roles(workspace_client, monkeypatch):
     ]
     assert [(p.resource_type, p.resource_pattern, p.permission) for p in user_perms] == [
         ("workspace", "*", "USE")
+    ]
+
+
+def test_create_role_rejects_nonexistent_workspace(workspace_client, monkeypatch):
+    client, tracking_uri = workspace_client
+    workspace_name = f"team-{random_str(10)}"
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        with pytest.raises(MlflowException, match="does not exist") as exc_info:
+            client.create_role(workspace=workspace_name, name="admin")
+    assert exc_info.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    _create_workspace(tracking_uri, workspace_name)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        admin_role = next(r for r in client.list_roles(workspace_name) if r.name == "admin")
+        admin_perms = client.list_role_permissions(admin_role.id)
+    assert [(p.resource_type, p.resource_pattern, p.permission) for p in admin_perms] == [
+        ("workspace", "*", "MANAGE")
     ]
 
 
