@@ -675,9 +675,9 @@ def _get_request_param(param: str) -> str:
 
     args = args | (request.view_args or {})
     if param not in args:
-        # Handlers parse the body as protobuf JSON, which also accepts the lowerCamelCase name.
-        camel_param = _snake_to_camel(param)
-        if camel_param in args:
+        # Handlers parse a body as protobuf JSON, which also accepts the lowerCamelCase name.
+        # GET handlers read only the snake_case query keys, so don't look it up there.
+        if request.method != "GET" and (camel_param := _snake_to_camel(param)) in args:
             return args[camel_param]
         # Special handling for run_id
         if param == "run_id":

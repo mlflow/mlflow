@@ -9601,6 +9601,14 @@ def test_run_permission_checks_camel_case_run_id(client, monkeypatch):
     with User(victim, victim_password, monkeypatch):
         assert client.get_run(victim_run.info.run_id).info.status == "RUNNING"
 
+    # GET handlers ignore `runId` in the query string, so it must not be authorized either.
+    response = requests.get(
+        url=client.tracking_uri + "/api/2.0/mlflow/runs/get",
+        params={"runId": own_run.info.run_id, "run_uuid": victim_run.info.run_id},
+        auth=(attacker, attacker_password),
+    )
+    assert response.status_code == 403
+
 
 @pytest.mark.parametrize(
     "client",
