@@ -152,7 +152,9 @@ describe('IssueDetectionJobNotifications', () => {
     expect(screen.getByText('Found 4 issues across 48 traces.')).toBeInTheDocument();
 
     await userEvent.click(screen.getByText('View issues'));
-    expect(mockNavigate).toHaveBeenCalledWith(expect.stringContaining('/experiments/exp-1/evaluation-runs/run-1'));
+    // The Issues tab, not the per-run detection page this PR removes: the notification's own link
+    // was already pointed here, and only this expectation still named the deleted route.
+    expect(mockNavigate).toHaveBeenCalledWith(expect.stringContaining('/experiments/exp-1/issues'));
   });
 
   test('tracks concurrent submitted jobs from the current session', async () => {

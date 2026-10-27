@@ -1,0 +1,72 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+title: Nightly Failure Analysis
+type: object
+required: [groups]
+properties:
+  groups:
+    type: array
+    items:
+      $ref: "#/$defs/group"
+$defs:
+  job:
+    type: object
+    required: [workflow_name, job_name, job_run_url]
+    properties:
+      workflow_name:
+        type: string
+        minLength: 1
+      job_name:
+        type: string
+        minLength: 1
+      job_run_url:
+        type: string
+        pattern: '^https://github\.com/mlflow/mlflow/actions/runs/[0-9]+/attempts/[0-9]+/job/[0-9]+$'
+  group:
+    type: object
+    required: [verdict, summary, jobs, evidence]
+    properties:
+      verdict:
+        oneOf:
+          - const: new
+            description: investigated problem without a matching open nightly issue.
+          - const: already_reported
+            description: matches an open nightly issue.
+          - const: already_resolved
+            description: stopped failing; cite a later passing scheduled run or a closed issue.
+          - const: uncertain
+            description: insufficient evidence or an incomplete investigation.
+      summary:
+        type: string
+        minLength: 1
+        maxLength: 1000
+      jobs:
+        type: array
+        minItems: 1
+        uniqueItems: true
+        items:
+          $ref: "#/$defs/job"
+      evidence:
+        type: string
+        minLength: 1
+        maxLength: 2000
+      title:
+        type: string
+        minLength: 1
+        maxLength: 200
+        pattern: '^[^\r\n]+$'
+      issue_number:
+        type: integer
+        minimum: 1
+    allOf:
+      - if:
+          properties:
+            verdict:
+              const: new
+        then:
+          required: [title]
+      - if:
+          properties:
+            verdict:
+              const: already_reported
+        then:
+          required: [issue_number]

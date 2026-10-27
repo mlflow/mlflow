@@ -1070,6 +1070,8 @@ def register_periodic_tasks(huey_instance) -> None:
     """
     from huey import crontab
 
+    from mlflow.genai.discovery.schedule import POLL_INTERVAL_MINUTES
+
     cached_tracking_store = None
 
     def get_tracking_store():
@@ -1150,7 +1152,11 @@ def register_periodic_tasks(huey_instance) -> None:
     # A schedule is dispatched at the first pass at or after its fire time, so an off-grid fire
     # time runs up to 15 minutes late. It covers the same window either way: the window's upper
     # bound is the fire time, not the dispatch time, so arriving late skips nothing.
-    @huey_instance.periodic_task(crontab(minute="*/15"))
+    #
+    # Read from the timing module rather than written here twice: the re-anchor arithmetic in
+    # ``reanchor_timing`` assumes the previous pass was one interval ago, so a crontab that said
+    # something else would quietly make it wrong.
+    @huey_instance.periodic_task(crontab(minute=f"*/{POLL_INTERVAL_MINUTES}"))
     # Prevent concurrent execution if a pass takes longer than the interval.
     @huey_instance.lock_task("issue-detection-scheduler-lock")
     def issue_detection_scheduler():

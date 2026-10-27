@@ -5,9 +5,13 @@ import userEvent, { PointerEventsCheckLevel } from '@testing-library/user-event'
 import { renderWithDesignSystem, screen, waitFor } from '../../../common/utils/TestUtils.react18';
 import { setupServer } from '../../../common/utils/setup-msw';
 import { QueryClient, QueryClientProvider } from '../../../common/utils/reactQueryHooks';
-import { MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG, MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG } from '../../constants';
+import {
+  MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG,
+  MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG,
+  MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG,
+} from '../../constants';
 import { ExperimentIssuesScheduleControl } from './ExperimentIssuesScheduleControl';
-import { ISSUE_DETECTION_SCHEDULE_VERSION, MAX_TRACE_FILTERS } from './issueDetectionSchedule';
+import { ISSUE_DETECTION_SCHEDULE_VERSION, MAX_TRACE_FILTERS, scheduleTiming } from './issueDetectionSchedule';
 
 interface SavedTag {
   key: string;
@@ -21,6 +25,13 @@ let saveFails: boolean;
 let failWriteOfTag: string | null;
 /** Set to fail the experiment read, which is how a load failure is exercised. */
 let loadFails: boolean;
+/** How many times the experiment (and so the schedule) has been read. */
+let experimentReads: number;
+/** How many times a save asked the server to bring the dispatch state up to date. */
+let scheduleStateSyncs: number;
+/** What that call answers with, and whether it fails at all. */
+let syncedNextRunMs: number | null;
+let syncFails: boolean;
 let scheduledDetectionEnabled: boolean;
 let gatewayEndpoints: { name: string }[];
 let gatewaySecrets: { secret_id: string; secret_name: string; provider: string }[];
@@ -37,11 +48,12 @@ const server = setupServer(
       }),
     ),
   ),
-  rest.get('*/ajax-api/2.0/mlflow/experiments/get', (_req, res, ctx) =>
-    loadFails
+  rest.get('*/ajax-api/2.0/mlflow/experiments/get', (_req, res, ctx) => {
+    experimentReads += 1;
+    return loadFails
       ? res(ctx.status(500), ctx.json({ message: 'nope' }))
-      : res(ctx.json({ experiment: { experiment_id: '1', name: 'exp', tags: experimentTags } })),
-  ),
+      : res(ctx.json({ experiment: { experiment_id: '1', name: 'exp', tags: experimentTags } }));
+  }),
   rest.post('*/ajax-api/2.0/mlflow/experiments/set-experiment-tag', async (req, res, ctx) => {
     if (saveFails) {
       return res(ctx.status(500), ctx.json({ message: 'nope' }));
@@ -51,6 +63,7 @@ const server = setupServer(
       return res(ctx.status(500), ctx.json({ message: 'nope' }));
     }
     written.push({ key: body.key, value: body.value });
+    experimentTags = [...experimentTags.filter(({ key }) => key !== body.key), { key: body.key, value: body.value }];
     return res(ctx.json({}));
   }),
   rest.get('*/ajax-api/3.0/mlflow/gateway/endpoints/list', (_req, res, ctx) =>
@@ -68,6 +81,29 @@ const server = setupServer(
       }),
     ),
   ),
+  rest.post('*/ajax-api/3.0/mlflow/issues/schedule/state', (_req, res, ctx) => {
+    scheduleStateSyncs += 1;
+    if (syncFails) {
+      return res(ctx.status(500), ctx.json({ message: 'nope' }));
+    }
+    // What the server does: it writes the dispatch state against the schedule now stored, and
+    // only then answers. Stubbing the reply alone would have the next read find no state tag and
+    // drop the line again, which is not what a real save leaves behind.
+    const saved = JSON.parse(written.findLast(({ key }) => key === MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG)?.value ?? '{}');
+    experimentTags = [
+      ...experimentTags.filter(({ key }) => key !== MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG),
+      {
+        key: MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG,
+        value: JSON.stringify({
+          version: ISSUE_DETECTION_SCHEDULE_VERSION,
+          lastFireTimeMs: 1,
+          timing: scheduleTiming(saved.cadence, saved.fireTime, saved.weekday, saved.timezone),
+          nextFireTimeMs: syncedNextRunMs,
+        }),
+      },
+    ];
+    return res(ctx.json({ next_fire_time_ms: syncedNextRunMs }));
+  }),
   rest.post('*/ajax-api/3.0/mlflow/gateway/secrets/create', async (req, res, ctx) => {
     const body = (await req.json()) as (typeof createdSecrets)[number];
     createdSecrets.push(body);
@@ -77,13 +113,22 @@ const server = setupServer(
   }),
 );
 
-const scheduleTag = (cadence: string | null, paused = false, timezone = 'UTC'): SavedTag => ({
+/** `fireTime` is left out when not given, which is how a schedule saved before it is exercised. */
+const scheduleTag = (
+  cadence: string | null,
+  paused = false,
+  timezone = 'UTC',
+  fireTime?: unknown,
+  weekday?: unknown,
+): SavedTag => ({
   key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG,
   value: JSON.stringify({
     version: ISSUE_DETECTION_SCHEDULE_VERSION,
     cadence,
     timezone,
     paused,
+    ...(fireTime === undefined ? {} : { fireTime }),
+    ...(weekday === undefined ? {} : { weekday }),
   }),
 });
 
@@ -125,6 +170,20 @@ const chooseCadence = async (user: ReturnType<typeof setup>, cadence: string) =>
   await user.click(await screen.findByRole('option', { name: cadence }));
 };
 
+const hourSelect = () => screen.findByRole('combobox', { name: 'Hour' });
+const minuteSelect = () => screen.findByRole('combobox', { name: 'Minute' });
+const weekdaySelect = () => screen.findByRole('combobox', { name: 'Day' });
+
+const chooseOption = async (user: ReturnType<typeof setup>, select: HTMLElement, option: string) => {
+  await user.click(select);
+  await user.click(await screen.findByRole('option', { name: option }));
+};
+
+const chooseStartTime = async (user: ReturnType<typeof setup>, hour: string, minute: string) => {
+  await chooseOption(user, await hourSelect(), hour);
+  await chooseOption(user, await minuteSelect(), minute);
+};
+
 const save = async (user: ReturnType<typeof setup>) => user.click(await screen.findByRole('button', { name: 'Save' }));
 
 describe('ExperimentIssuesScheduleControl', () => {
@@ -134,6 +193,10 @@ describe('ExperimentIssuesScheduleControl', () => {
     saveFails = false;
     failWriteOfTag = null;
     loadFails = false;
+    experimentReads = 0;
+    scheduleStateSyncs = 0;
+    syncedNextRunMs = null;
+    syncFails = false;
     scheduledDetectionEnabled = true;
     gatewayEndpoints = [];
     gatewaySecrets = [];
@@ -324,6 +387,311 @@ describe('ExperimentIssuesScheduleControl', () => {
     await waitFor(() => expect(savedSchedule()['cadence']).toBe('daily'));
     expect(savedSchedule()['model']).toEqual({ endpointName: 'prod-gateway' });
     expect(screen.queryByTestId('schedule-api-key-view')).not.toBeInTheDocument();
+  });
+
+  test('prefills the stored start time and saves the one chosen instead', async () => {
+    experimentTags = [scheduleTag('daily', false, 'UTC', '06:45')];
+    const user = setup();
+    render();
+
+    await openModal(user, /scheduled: daily/i);
+    expect(await hourSelect()).toHaveTextContent('06');
+    expect(await minuteSelect()).toHaveTextContent('45');
+
+    await chooseStartTime(user, '21', '30');
+    await save(user);
+    await waitFor(() => expect(savedSchedule()['fireTime']).toBe('21:30'));
+  });
+
+  test('a schedule storing no start time keeps firing at the hour it already did', async () => {
+    // The compatibility property this control has to hold: opening and saving a schedule from
+    // before the start time existed must not move when it fires.
+    experimentTags = [scheduleTag('daily')];
+    const user = setup();
+    render();
+
+    await openModal(user, /scheduled: daily/i);
+    expect(await hourSelect()).toHaveTextContent('09');
+    expect(await minuteSelect()).toHaveTextContent('00');
+
+    await save(user);
+    await waitFor(() => expect(savedSchedule()['fireTime']).toBe('09:00'));
+  });
+
+  test('offers the weekday only for a weekly cadence, and saves the one chosen', async () => {
+    // Weekly is the only cadence with a day to choose; a daily one fires every day, so offering a
+    // day there would be a control with nothing to say.
+    experimentTags = [scheduleTag('weekly', false, 'UTC', '17:45', 3)];
+    const user = setup();
+    render();
+
+    await openModal(user, /scheduled: weekly/i);
+    expect(await weekdaySelect()).toHaveTextContent('Thursday');
+
+    await chooseOption(user, await weekdaySelect(), 'Sunday');
+    await save(user);
+    await waitFor(() => expect(savedSchedule()['weekday']).toBe(6));
+    expect(savedSchedule()['fireTime']).toBe('17:45');
+  });
+
+  test('drops the weekday when the cadence stops being weekly', async () => {
+    experimentTags = [scheduleTag('weekly', false, 'UTC', '17:45', 3)];
+    const user = setup();
+    render();
+
+    await openModal(user, /scheduled: weekly/i);
+    expect(await weekdaySelect()).toBeInTheDocument();
+
+    await chooseCadence(user, 'Daily');
+    await waitFor(() => expect(screen.queryByRole('combobox', { name: 'Day' })).not.toBeInTheDocument());
+
+    // Still stored, so switching back to weekly restores the day rather than resetting it.
+    await save(user);
+    await waitFor(() => expect(savedSchedule()['cadence']).toBe('daily'));
+    expect(savedSchedule()['weekday']).toBe(3);
+  });
+
+  test('shows the stored timezone with its offset, and saves the one chosen instead', async () => {
+    // A time of day says nothing without its zone: an owner editing a Tokyo schedule from
+    // anywhere else would otherwise read 17:45 as their own 17:45.
+    experimentTags = [scheduleTag('daily', false, 'Asia/Tokyo', '17:45')];
+    const user = setup();
+    render();
+
+    await openModal(user, /scheduled: daily/i);
+    const timezoneInput = await screen.findByPlaceholderText('Search timezones');
+    expect(timezoneInput).toHaveValue('(UTC+09:00) Asia/Tokyo');
+
+    await user.click(timezoneInput);
+    await user.keyboard('Berlin');
+    // By test id rather than by label: the label carries the zone's *current* offset, so matching
+    // on it would make this test fail twice a year when Berlin changes to summer time.
+    await user.click(await screen.findByTestId(`${COMPONENT_ID}.modal.timezone.option.Europe/Berlin`));
+    await save(user);
+
+    await waitFor(() => expect(savedSchedule()['timezone']).toBe('Europe/Berlin'));
+    // The wall-clock time is unchanged -- changing the zone moves the instant, not the time of day.
+    expect(savedSchedule()['fireTime']).toBe('17:45');
+  });
+
+  test('offers a stored start time that is not one of the quarter hours, and keeps it', async () => {
+    // The dispatcher polls every 15 minutes, so 09:08 fires at 09:15 -- late, but it does fire.
+    // Rounding it here would change when a schedule runs because someone opened the dialog.
+    experimentTags = [scheduleTag('daily', false, 'UTC', '09:08')];
+    const user = setup();
+    render();
+
+    await openModal(user, /scheduled: daily/i);
+    expect(await hourSelect()).toHaveTextContent('09');
+    expect(await minuteSelect()).toHaveTextContent('08');
+
+    await save(user);
+    await waitFor(() => expect(savedSchedule()['fireTime']).toBe('09:08'));
+  });
+
+  test('falls back to the default rather than blanking the control on an unreadable start time', async () => {
+    experimentTags = [scheduleTag('daily', false, 'UTC', 'at noon')];
+    const user = setup();
+    render();
+
+    await openModal(user, /scheduled: daily/i);
+    expect(await hourSelect()).toHaveTextContent('09');
+    expect(await minuteSelect()).toHaveTextContent('00');
+  });
+
+  test("shows when the saved schedule next runs, in the schedule's own zone", async () => {
+    // The question the controls cannot answer on their own: "daily at 16:00" does not say
+    // whether that means today or tomorrow.
+    const nextRun = Date.UTC(2026, 10, 3, 15, 0);
+    experimentTags = [
+      scheduleTag('daily', false, 'Europe/Berlin', '16:00', 0),
+      {
+        key: MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG,
+        value: JSON.stringify({
+          version: ISSUE_DETECTION_SCHEDULE_VERSION,
+          lastFireTimeMs: nextRun - 86_400_000,
+          timing: scheduleTiming('daily', '16:00', 0, 'Europe/Berlin'),
+          nextFireTimeMs: nextRun,
+        }),
+      },
+    ];
+    const user = setup();
+    render();
+
+    await openModal(user, /scheduled: daily/i);
+    // 15:00 UTC is 16:00 in Berlin, which is the zone the row above is read in.
+    expect(await screen.findByText(/Next run as saved:.*16:00/)).toBeInTheDocument();
+  });
+
+  test('says nothing about the next run when the schedule has been retimed since', async () => {
+    // The server has not recomputed it yet, and the old value names a time nothing will happen
+    // at, so the line is dropped rather than left to mislead.
+    experimentTags = [
+      scheduleTag('daily', false, 'Europe/Berlin', '16:00', 0),
+      {
+        key: MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG,
+        value: JSON.stringify({
+          version: ISSUE_DETECTION_SCHEDULE_VERSION,
+          lastFireTimeMs: 1,
+          timing: scheduleTiming('daily', '09:00', 0, 'Europe/Berlin'),
+          nextFireTimeMs: Date.UTC(2026, 10, 3, 8, 0),
+        }),
+      },
+    ];
+    const user = setup();
+    render();
+
+    await openModal(user, /scheduled: daily/i);
+    expect(await screen.findByRole('combobox', { name: 'Hour' })).toHaveTextContent('16');
+    expect(screen.queryByText(/Next run as saved:/)).not.toBeInTheDocument();
+  });
+
+  test('says nothing about the next run while the schedule is off', async () => {
+    experimentTags = [
+      scheduleTag('daily', true, 'Europe/Berlin', '16:00', 0),
+      {
+        key: MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG,
+        value: JSON.stringify({
+          version: ISSUE_DETECTION_SCHEDULE_VERSION,
+          lastFireTimeMs: 1,
+          timing: scheduleTiming('daily', '16:00', 0, 'Europe/Berlin'),
+          nextFireTimeMs: Date.UTC(2026, 10, 3, 15, 0),
+        }),
+      },
+    ];
+    const user = setup();
+    render();
+
+    await openModal(user);
+    expect(await screen.findByRole('combobox', { name: /cadence/i })).toHaveTextContent('Off');
+    expect(screen.queryByText(/Next run as saved:/)).not.toBeInTheDocument();
+  });
+
+  test('shows the next run as soon as the schedule is saved', async () => {
+    // The tags are written through the generic tag endpoint, so the save asks the server to
+    // bring the dispatch state up to date and answer with the next run -- otherwise there is
+    // nothing to show until the dispatcher's next pass, a quarter of an hour of silence at the
+    // one moment the owner wants to be told what they just scheduled.
+    syncedNextRunMs = Date.UTC(2026, 10, 3, 15, 0);
+    experimentTags = [scheduleTag('daily', false, 'Europe/Berlin', '09:00', 0)];
+    const user = setup();
+    render();
+
+    await openModal(user, /scheduled: daily/i);
+    await chooseStartTime(user, '16', '00');
+    await save(user);
+
+    await waitFor(() => expect(savedSchedule()['fireTime']).toBe('16:00'));
+    expect(scheduleStateSyncs).toBe(1);
+    await openModal(user, /scheduled: daily/i);
+    expect(await screen.findByText(/Next run as saved:.*16:00/)).toBeInTheDocument();
+  });
+
+  test('a save still succeeds when the state cannot be brought up to date', async () => {
+    // An older server has no such route and an authorization refusal looks the same. The
+    // schedule is already written by then, so this must not fail the save -- the dispatcher's
+    // next pass computes the next run, which is where it came from before.
+    syncFails = true;
+    const user = setup();
+    render();
+
+    await openModal(user);
+    await chooseCadence(user, 'Daily');
+    await save(user);
+
+    await waitFor(() => expect(savedSchedule()['cadence']).toBe('daily'));
+    expect(await screen.findByRole('button', { name: /scheduled: daily/i })).toBeInTheDocument();
+    expect(screen.queryByText(/Couldn't save the schedule/)).not.toBeInTheDocument();
+  });
+
+  test('reads the schedule again on open, so a saved next run appears without a reload', async () => {
+    // Only the dispatcher computes a next run, so a save resolves with none. Without this the
+    // line stayed missing for the rest of the session: the query does not poll and does not
+    // refetch on focus.
+    const nextRun = Date.UTC(2026, 10, 3, 15, 0);
+    experimentTags = [scheduleTag('daily', false, 'Europe/Berlin', '16:00', 0)];
+    const user = setup();
+    render();
+
+    await openModal(user, /scheduled: daily/i);
+    expect(screen.queryByText(/Next run as saved:/)).not.toBeInTheDocument();
+    const readsOnFirstOpen = experimentReads;
+
+    await user.click(await screen.findByRole('button', { name: 'Cancel' }));
+    // The dispatcher's pass lands between the two opens.
+    experimentTags = [
+      scheduleTag('daily', false, 'Europe/Berlin', '16:00', 0),
+      {
+        key: MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG,
+        value: JSON.stringify({
+          version: ISSUE_DETECTION_SCHEDULE_VERSION,
+          lastFireTimeMs: nextRun - 86_400_000,
+          timing: scheduleTiming('daily', '16:00', 0, 'Europe/Berlin'),
+          nextFireTimeMs: nextRun,
+        }),
+      },
+    ];
+
+    await openModal(user, /scheduled: daily/i);
+    expect(await screen.findByText(/Next run as saved:.*16:00/)).toBeInTheDocument();
+    expect(experimentReads).toBeGreaterThan(readsOnFirstOpen);
+  });
+
+  test('keeps naming the saved next run while the draft is edited', async () => {
+    // Only the server computes these, and it has not seen an unsaved edit -- so the value must
+    // not follow the draft, and the label has to say which schedule it is describing. Pinned
+    // because the alternative is a line that silently answers for the controls above it.
+    const nextRun = Date.UTC(2026, 10, 3, 15, 0);
+    experimentTags = [
+      scheduleTag('daily', false, 'Europe/Berlin', '16:00', 0),
+      {
+        key: MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG,
+        value: JSON.stringify({
+          version: ISSUE_DETECTION_SCHEDULE_VERSION,
+          lastFireTimeMs: nextRun - 86_400_000,
+          timing: scheduleTiming('daily', '16:00', 0, 'Europe/Berlin'),
+          nextFireTimeMs: nextRun,
+        }),
+      },
+    ];
+    const user = setup();
+    render();
+
+    await openModal(user, /scheduled: daily/i);
+    expect(await screen.findByText(/Next run as saved:.*16:00/)).toBeInTheDocument();
+
+    await chooseStartTime(user, '07', '45');
+    await chooseCadence(user, 'Weekly');
+
+    expect(await screen.findByRole('combobox', { name: 'Hour' })).toHaveTextContent('07');
+    // Still the saved schedule's next run, and still labelled as such.
+    expect(await screen.findByText(/Next run as saved:.*16:00/)).toBeInTheDocument();
+  });
+
+  test('drops the next run as soon as the draft is turned off', async () => {
+    // The line describes the saved schedule, but a draft set to Off is about to stop it, so
+    // leaving it on screen would describe a schedule the user has just turned off.
+    const nextRun = Date.UTC(2026, 10, 3, 15, 0);
+    experimentTags = [
+      scheduleTag('daily', false, 'Europe/Berlin', '16:00', 0),
+      {
+        key: MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG,
+        value: JSON.stringify({
+          version: ISSUE_DETECTION_SCHEDULE_VERSION,
+          lastFireTimeMs: nextRun - 86_400_000,
+          timing: scheduleTiming('daily', '16:00', 0, 'Europe/Berlin'),
+          nextFireTimeMs: nextRun,
+        }),
+      },
+    ];
+    const user = setup();
+    render();
+
+    await openModal(user, /scheduled: daily/i);
+    expect(await screen.findByText(/Next run as saved:/)).toBeInTheDocument();
+
+    await chooseCadence(user, 'Off');
+    await waitFor(() => expect(screen.queryByText(/Next run as saved:/)).not.toBeInTheDocument());
   });
 
   test('says the cost recurs while a cadence is selected, and not when off', async () => {
