@@ -4155,11 +4155,35 @@ class SqlAlchemyStore(
                         f"Trace with ID '{trace_id}' no longer exists.",
                         error_code=RESOURCE_DOES_NOT_EXIST,
                     )
+                if str(db_sql_trace_info.experiment_id) != str(trace_info.experiment_id):
+                    # Only merge a racing write into the same experiment's trace; never move
+                    # another experiment's trace into the caller's.
+                    raise MlflowException(
+                        f"Trace with ID '{trace_id}' already exists in another experiment.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
                 if not self._is_sql_trace_db_backed(db_sql_trace_info):
                     raise MlflowException(
                         f"Cannot update traces that are no longer DB-backed: '{trace_id}'.",
                         error_code=INVALID_STATE,
                     )
+                # Assessments are merged by ID alone, so one that belongs to another trace would
+                # be moved here and overwritten.
+                if assessment_ids := [a.assessment_id for a in sql_assessments]:
+                    if foreign := (
+                        session
+                        .query(SqlAssessments.assessment_id)
+                        .filter(
+                            SqlAssessments.assessment_id.in_(assessment_ids),
+                            SqlAssessments.trace_id != trace_id,
+                        )
+                        .first()
+                    ):
+                        raise MlflowException(
+                            f"Assessment with ID '{foreign.assessment_id}' belongs to another "
+                            "trace.",
+                            error_code=INVALID_PARAMETER_VALUE,
+                        )
                 # Advance the payload generation before staging ORM writes so a concurrent archival
                 # finalization cannot be hidden by autoflush re-publishing TRACKING_STORE.
                 self._advance_db_payload_generations_for_db_span_writes(session, [trace_id])
@@ -6107,6 +6131,18 @@ class SqlAlchemyStore(
 
             # Keep downstream per-trace updates aligned with the surviving span rows.
             all_trace_ids = [trace_id for trace_id in all_trace_ids if trace_id in existing_traces]
+
+            # Only add spans to traces in the experiment being logged to; never write into a
+            # trace stored in another experiment.
+            if foreign_trace_ids := sorted(
+                trace_id
+                for trace_id in all_trace_ids
+                if str(existing_traces[trace_id].experiment_id) != str(location)
+            ):
+                raise MlflowException(
+                    f"Trace with ID '{foreign_trace_ids[0]}' already exists in another experiment.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
 
             # Serialize concurrent log_spans() calls for the same trace, so that Phase 5's
             # recompute of the trace-level token usage/cost sees every span committed for the
