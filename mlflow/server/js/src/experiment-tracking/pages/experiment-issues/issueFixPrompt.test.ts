@@ -37,7 +37,7 @@ describe('buildIssueFixPrompt', () => {
     expect(prompt).toContain('Affected trace IDs (3 total):');
     expect(prompt).toContain('- tr-1');
     // How a fix is made belongs to the skill, so the prompt names it rather than restating it.
-    expect(prompt).toContain('Use the fix-agent-issue skill.');
+    expect(prompt).toContain('Use the mlflow-agent-improvement skill.');
     // The evidence lives on the traces, which the CLI reads.
     expect(prompt).toContain('mlflow traces get --trace-id');
     expect(prompt).toContain('https://github.com/mlflow/skills');

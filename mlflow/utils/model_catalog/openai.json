@@ -182,8 +182,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 400000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 5.0,
@@ -197,7 +196,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-09"
+      "last_updated_at": "2026-10-27"
     },
     "chatgpt-4o-latest": {
       "mode": "chat",
@@ -307,8 +306,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 922000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 4.0,
@@ -332,14 +330,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-17"
+      "last_updated_at": "2026-10-27"
     },
     "daybreak-red-latest": {
       "mode": "chat",
       "context_window": {
         "max_input": 400000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 12.5,
@@ -363,7 +360,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-3.5-turbo": {
       "mode": "chat",
@@ -644,8 +641,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 1047576,
-        "max_output": 32768,
-        "max_tokens": 32768
+        "max_output": 32768
       },
       "pricing": {
         "input_per_million_tokens": 2.0,
@@ -677,14 +673,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-17"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-4.1-2025-04-14": {
       "mode": "chat",
       "context_window": {
         "max_input": 1047576,
-        "max_output": 32768,
-        "max_tokens": 32768
+        "max_output": 32768
       },
       "pricing": {
         "input_per_million_tokens": 2.0,
@@ -717,14 +712,13 @@
         "response_schema": true
       },
       "deprecation_date": "2027-01-14",
-      "last_updated_at": "2026-10-16"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-4.1-mini": {
       "mode": "chat",
       "context_window": {
         "max_input": 1047576,
-        "max_output": 32768,
-        "max_tokens": 32768
+        "max_output": 32768
       },
       "pricing": {
         "input_per_million_tokens": 0.4,
@@ -756,14 +750,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-17"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-4.1-mini-2025-04-14": {
       "mode": "chat",
       "context_window": {
         "max_input": 1047576,
-        "max_output": 32768,
-        "max_tokens": 32768
+        "max_output": 32768
       },
       "pricing": {
         "input_per_million_tokens": 0.4,
@@ -796,7 +789,7 @@
         "response_schema": true
       },
       "deprecation_date": "2027-01-14",
-      "last_updated_at": "2026-10-16"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-4.1-nano": {
       "mode": "chat",
@@ -868,8 +861,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 16384,
-        "max_tokens": 16384
+        "max_output": 16384
       },
       "pricing": {
         "input_per_million_tokens": 2.5,
@@ -894,7 +886,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-4o-2024-05-13": {
       "mode": "chat",
@@ -931,8 +923,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 16384,
-        "max_tokens": 16384
+        "max_output": 16384
       },
       "pricing": {
         "input_per_million_tokens": 2.5,
@@ -958,14 +949,13 @@
         "response_schema": true
       },
       "deprecation_date": "2027-01-14",
-      "last_updated_at": "2026-10-16"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-4o-2024-11-20": {
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 16384,
-        "max_tokens": 16384
+        "max_output": 16384
       },
       "pricing": {
         "input_per_million_tokens": 2.5,
@@ -991,7 +981,7 @@
         "response_schema": true
       },
       "deprecation_date": "2027-01-14",
-      "last_updated_at": "2026-10-16"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-4o-audio-preview": {
       "mode": "chat",
@@ -1024,8 +1014,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 16384,
-        "max_tokens": 16384
+        "max_output": 16384
       },
       "pricing": {
         "input_per_million_tokens": 2.5,
@@ -1045,14 +1034,13 @@
         "response_schema": false
       },
       "deprecation_date": "2027-01-20",
-      "last_updated_at": "2026-08-12"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-4o-audio-preview-2025-06-03": {
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 16384,
-        "max_tokens": 16384
+        "max_output": 16384
       },
       "pricing": {
         "input_per_million_tokens": 2.5,
@@ -1072,14 +1060,13 @@
         "response_schema": false
       },
       "deprecation_date": "2027-01-20",
-      "last_updated_at": "2026-08-12"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-4o-mini": {
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 16384,
-        "max_tokens": 16384
+        "max_output": 16384
       },
       "pricing": {
         "input_per_million_tokens": 0.15,
@@ -1111,14 +1098,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-10"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-4o-mini-2024-07-18": {
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 16384,
-        "max_tokens": 16384
+        "max_output": 16384
       },
       "pricing": {
         "input_per_million_tokens": 0.15,
@@ -1151,7 +1137,7 @@
         "response_schema": true
       },
       "deprecation_date": "2027-01-14",
-      "last_updated_at": "2026-10-16"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-4o-mini-audio-preview": {
       "mode": "chat",
@@ -1184,8 +1170,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 16384,
-        "max_tokens": 16384
+        "max_output": 16384
       },
       "pricing": {
         "input_per_million_tokens": 0.15,
@@ -1205,7 +1190,7 @@
         "response_schema": false
       },
       "deprecation_date": "2027-01-20",
-      "last_updated_at": "2026-08-12"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-4o-mini-realtime-preview": {
       "mode": "chat",
@@ -1267,8 +1252,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 16384,
-        "max_tokens": 16384
+        "max_output": 16384
       },
       "pricing": {
         "input_per_million_tokens": 0.15,
@@ -1295,7 +1279,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-10"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-4o-mini-search-preview-2025-03-11": {
       "mode": "chat",
@@ -1409,8 +1393,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 16384,
-        "max_tokens": 16384
+        "max_output": 16384
       },
       "pricing": {
         "input_per_million_tokens": 2.5,
@@ -1437,7 +1420,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-10"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-4o-search-preview-2025-03-11": {
       "mode": "chat",
@@ -1470,8 +1453,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 272000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 1.25,
@@ -1509,14 +1491,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5-2025-08-07": {
       "mode": "chat",
       "context_window": {
         "max_input": 272000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 1.25,
@@ -1555,7 +1536,7 @@
         "response_schema": true
       },
       "deprecation_date": "2026-12-11",
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5-chat": {
       "mode": "chat",
@@ -1624,8 +1605,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 272000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 0.25,
@@ -1663,14 +1643,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5-mini-2025-08-07": {
       "mode": "chat",
       "context_window": {
         "max_input": 272000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 0.25,
@@ -1709,14 +1688,13 @@
         "response_schema": true
       },
       "deprecation_date": "2026-12-11",
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5-nano": {
       "mode": "chat",
       "context_window": {
         "max_input": 272000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 0.05,
@@ -1752,14 +1730,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5-nano-2025-08-07": {
       "mode": "chat",
       "context_window": {
         "max_input": 272000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 0.05,
@@ -1796,14 +1773,13 @@
         "response_schema": true
       },
       "deprecation_date": "2026-12-11",
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5-pro": {
       "mode": "responses",
       "context_window": {
         "max_input": 400000,
-        "max_output": 272000,
-        "max_tokens": 272000
+        "max_output": 272000
       },
       "pricing": {
         "input_per_million_tokens": 15.0,
@@ -1829,14 +1805,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5-pro-2025-10-06": {
       "mode": "responses",
       "context_window": {
         "max_input": 400000,
-        "max_output": 272000,
-        "max_tokens": 272000
+        "max_output": 272000
       },
       "pricing": {
         "input_per_million_tokens": 15.0,
@@ -1863,14 +1838,13 @@
         "response_schema": true
       },
       "deprecation_date": "2026-12-11",
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5-search-api": {
       "mode": "chat",
       "context_window": {
         "max_input": 272000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 1.25,
@@ -1891,14 +1865,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-17"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5-search-api-2025-10-14": {
       "mode": "chat",
       "context_window": {
         "max_input": 272000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 1.25,
@@ -1919,14 +1892,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-17"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5.1": {
       "mode": "chat",
       "context_window": {
         "max_input": 272000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 1.25,
@@ -1965,14 +1937,13 @@
         "response_schema": true
       },
       "deprecation_date": "2027-04-01",
-      "last_updated_at": "2026-10-05"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5.1-2025-11-13": {
       "mode": "chat",
       "context_window": {
         "max_input": 272000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 1.25,
@@ -2010,7 +1981,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5.1-chat-latest": {
       "mode": "chat",
@@ -2100,8 +2071,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 272000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 1.75,
@@ -2139,14 +2109,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5.2-2025-12-11": {
       "mode": "chat",
       "context_window": {
         "max_input": 272000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 1.75,
@@ -2184,7 +2153,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5.2-chat-latest": {
       "mode": "chat",
@@ -2232,8 +2201,7 @@
       "mode": "responses",
       "context_window": {
         "max_input": 272000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 21.0,
@@ -2259,14 +2227,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5.2-pro-2025-12-11": {
       "mode": "responses",
       "context_window": {
         "max_input": 272000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 21.0,
@@ -2292,7 +2259,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5.3-chat-latest": {
       "mode": "chat",
@@ -2319,8 +2286,7 @@
       "mode": "responses",
       "context_window": {
         "max_input": 272000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 1.75,
@@ -2349,14 +2315,13 @@
         "response_schema": true
       },
       "deprecation_date": "2027-04-01",
-      "last_updated_at": "2026-10-05"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5.4": {
       "mode": "chat",
       "context_window": {
         "max_input": 1050000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 2.5,
@@ -2395,14 +2360,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5.4-2026-03-05": {
       "mode": "chat",
       "context_window": {
         "max_input": 1050000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 2.5,
@@ -2441,14 +2405,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5.4-mini": {
       "mode": "chat",
       "context_window": {
         "max_input": 272000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 0.75,
@@ -2486,14 +2449,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5.4-mini-2026-03-17": {
       "mode": "chat",
       "context_window": {
         "max_input": 272000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 0.75,
@@ -2531,14 +2493,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5.4-nano": {
       "mode": "chat",
       "context_window": {
         "max_input": 272000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 0.2,
@@ -2572,14 +2533,13 @@
         "response_schema": true
       },
       "deprecation_date": "2027-04-01",
-      "last_updated_at": "2026-10-05"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5.4-nano-2026-03-17": {
       "mode": "chat",
       "context_window": {
         "max_input": 272000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 0.2,
@@ -2612,14 +2572,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5.4-pro": {
       "mode": "responses",
       "context_window": {
         "max_input": 1050000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 30.0,
@@ -2656,14 +2615,13 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5.4-pro-2026-03-05": {
       "mode": "responses",
       "context_window": {
         "max_input": 1050000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 30.0,
@@ -2700,14 +2658,13 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5.5": {
       "mode": "chat",
       "context_window": {
         "max_input": 1050000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 5.0,
@@ -2753,14 +2710,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5.5-2026-04-23": {
       "mode": "chat",
       "context_window": {
         "max_input": 1050000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 5.0,
@@ -2806,7 +2762,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5.5-cyber": {
       "mode": "chat",
@@ -2844,8 +2800,7 @@
       "mode": "responses",
       "context_window": {
         "max_input": 1050000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 30.0,
@@ -2882,14 +2837,13 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5.5-pro-2026-04-23": {
       "mode": "responses",
       "context_window": {
         "max_input": 1050000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 30.0,
@@ -2926,14 +2880,13 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5.6": {
       "mode": "chat",
       "context_window": {
         "max_input": 922000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 4.0,
@@ -2981,14 +2934,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5.6-cyber": {
       "mode": "chat",
       "context_window": {
         "max_input": 400000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 12.5,
@@ -3012,14 +2964,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5.6-luna": {
       "mode": "chat",
       "context_window": {
         "max_input": 922000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 0.2,
@@ -3067,14 +3018,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5.6-sol": {
       "mode": "chat",
       "context_window": {
         "max_input": 922000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 4.0,
@@ -3122,14 +3072,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-5.6-terra": {
       "mode": "chat",
       "context_window": {
         "max_input": 922000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 2.0,
@@ -3177,14 +3126,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-6-astra": {
       "mode": "chat",
       "context_window": {
         "max_input": 922000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 10.0,
@@ -3232,14 +3180,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-6-luna": {
       "mode": "chat",
       "context_window": {
         "max_input": 922000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 0.1,
@@ -3287,14 +3234,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-6-sol": {
       "mode": "chat",
       "context_window": {
         "max_input": 922000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 2.0,
@@ -3342,14 +3288,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-6.1-sol": {
       "mode": "chat",
       "context_window": {
         "max_input": 922000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 2.0,
@@ -3397,14 +3342,67 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-30"
+      "last_updated_at": "2026-10-27"
+    },
+    "gpt-6.1-terra": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 922000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.0,
+        "output_per_million_tokens": 5.0,
+        "cache_read_per_million_tokens": 0.05,
+        "cache_write_per_million_tokens": 1.25,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.5,
+            "output_per_million_tokens": 2.5,
+            "cache_read_per_million_tokens": 0.025
+          },
+          "flex": {
+            "input_per_million_tokens": 0.5,
+            "output_per_million_tokens": 2.5,
+            "cache_read_per_million_tokens": 0.025
+          },
+          "priority": {
+            "input_per_million_tokens": 2.0,
+            "output_per_million_tokens": 10.0,
+            "cache_read_per_million_tokens": 0.1
+          }
+        },
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "cache_write_per_million_tokens": 2.5,
+            "cache_read_per_million_tokens": 0.1,
+            "input_per_million_tokens": 2.0,
+            "output_per_million_tokens": 7.5
+          }
+        ],
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-27"
     },
     "gpt-audio": {
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 16384,
-        "max_tokens": 16384
+        "max_output": 16384
       },
       "pricing": {
         "input_per_million_tokens": 2.5,
@@ -3424,14 +3422,13 @@
         "response_schema": false
       },
       "deprecation_date": "2027-01-20",
-      "last_updated_at": "2026-08-12"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-audio-1.5": {
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 16384,
-        "max_tokens": 16384
+        "max_output": 16384
       },
       "pricing": {
         "input_per_million_tokens": 2.5,
@@ -3450,14 +3447,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-audio-2025-08-28": {
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 16384,
-        "max_tokens": 16384
+        "max_output": 16384
       },
       "pricing": {
         "input_per_million_tokens": 2.5,
@@ -3477,14 +3473,13 @@
         "response_schema": false
       },
       "deprecation_date": "2027-01-20",
-      "last_updated_at": "2026-08-12"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-audio-mini": {
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 16384,
-        "max_tokens": 16384
+        "max_output": 16384
       },
       "pricing": {
         "input_per_million_tokens": 0.6,
@@ -3504,7 +3499,7 @@
         "response_schema": false
       },
       "deprecation_date": "2027-01-20",
-      "last_updated_at": "2026-08-12"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-audio-mini-2025-10-06": {
       "mode": "chat",
@@ -3536,8 +3531,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 16384,
-        "max_tokens": 16384
+        "max_output": 16384
       },
       "pricing": {
         "input_per_million_tokens": 0.6,
@@ -3557,14 +3551,13 @@
         "response_schema": false
       },
       "deprecation_date": "2027-01-20",
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-daybreak-blue-latest": {
       "mode": "responses",
       "context_window": {
         "max_input": 922000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 4.0,
@@ -3588,14 +3581,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-daybreak-red-latest": {
       "mode": "responses",
       "context_window": {
         "max_input": 400000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 12.5,
@@ -3619,7 +3611,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-image-1": {
       "mode": "image_generation",
@@ -4293,8 +4285,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 200000,
-        "max_output": 100000,
-        "max_tokens": 100000
+        "max_output": 100000
       },
       "pricing": {
         "input_per_million_tokens": 2.0,
@@ -4331,14 +4322,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-15"
+      "last_updated_at": "2026-10-27"
     },
     "o3-2025-04-16": {
       "mode": "chat",
       "context_window": {
         "max_input": 200000,
-        "max_output": 100000,
-        "max_tokens": 100000
+        "max_output": 100000
       },
       "pricing": {
         "input_per_million_tokens": 2.0,
@@ -4376,7 +4366,7 @@
         "response_schema": true
       },
       "deprecation_date": "2026-12-11",
-      "last_updated_at": "2026-09-15"
+      "last_updated_at": "2026-10-27"
     },
     "o3-deep-research": {
       "mode": "responses",
@@ -4459,8 +4449,7 @@
       "mode": "responses",
       "context_window": {
         "max_input": 200000,
-        "max_output": 100000,
-        "max_tokens": 100000
+        "max_output": 100000
       },
       "pricing": {
         "input_per_million_tokens": 20.0,
@@ -4486,14 +4475,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "o3-pro-2025-06-10": {
       "mode": "responses",
       "context_window": {
         "max_input": 200000,
-        "max_output": 100000,
-        "max_tokens": 100000
+        "max_output": 100000
       },
       "pricing": {
         "input_per_million_tokens": 20.0,
@@ -4520,7 +4508,7 @@
         "response_schema": true
       },
       "deprecation_date": "2026-12-11",
-      "last_updated_at": "2026-09-23"
+      "last_updated_at": "2026-10-27"
     },
     "o4-mini": {
       "mode": "chat",
@@ -4693,8 +4681,7 @@
     "text-embedding-3-large": {
       "mode": "embedding",
       "context_window": {
-        "max_input": 8191,
-        "max_tokens": 8191
+        "max_input": 8191
       },
       "pricing": {
         "input_per_million_tokens": 0.13,
@@ -4713,13 +4700,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "text-embedding-3-small": {
       "mode": "embedding",
       "context_window": {
-        "max_input": 8191,
-        "max_tokens": 8191
+        "max_input": 8191
       },
       "pricing": {
         "input_per_million_tokens": 0.02,
@@ -4738,13 +4724,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "text-embedding-ada-002": {
       "mode": "embedding",
       "context_window": {
-        "max_input": 8191,
-        "max_tokens": 8191
+        "max_input": 8191
       },
       "pricing": {
         "input_per_million_tokens": 0.1,
@@ -4757,13 +4742,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "text-embedding-ada-002-v2": {
       "mode": "embedding",
       "context_window": {
-        "max_input": 8191,
-        "max_tokens": 8191
+        "max_input": 8191
       },
       "pricing": {
         "input_per_million_tokens": 0.1,
@@ -4782,7 +4766,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     }
   }
 }
