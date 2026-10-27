@@ -5822,6 +5822,69 @@ def _invoke_issue_detection_handler():
     return jsonify({"job_id": job.job_id, "run_id": run_id})
 
 
+def _sync_issue_detection_schedule_state_handler():
+    """
+    Bring a schedule's dispatch state in line with the schedule that is now stored, and answer
+    with when it next runs.
+
+    The dialog calls this straight after writing the schedule tags. Those writes go through the
+    generic tag endpoint, so nothing on the server knows a schedule was just saved -- the next
+    fire time was worked out only by the following dispatcher pass, up to a quarter of an hour
+    later, which is precisely the time the owner spends wanting to be told what they just
+    scheduled. The arithmetic was always available; nobody was asking for it.
+
+    It applies the dispatcher's own reasoning and adds none of its own: adopt the timing when the
+    state recorded none, re-anchor when it has changed, leave both alone when it has not. The
+    re-anchor is **exact here** -- this request is the moment of the edit, where a pass can only
+    bound it by the previous pass.
+
+    Dispatching is left to the dispatcher. A save says when a run should happen, not that one
+    should happen now, and a UI-triggered occurrence is not something anybody asked for.
+
+    Best-effort by design, and the client treats it as such: a failure, an older server without
+    this route, or an authorization refusal all leave the state exactly as the dispatcher would
+    have found it, and the next pass still corrects it.
+    """
+    from mlflow.genai.discovery.schedule import (
+        adopt_timing,
+        claim_first_occurrence,
+        read_detection_schedule,
+        read_detection_schedule_state,
+        reanchor_timing,
+        write_detection_schedule_state,
+    )
+    from mlflow.utils.time import get_current_time_millis
+
+    _validate_content_type(request, ["application/json"])
+    request_json = _get_validated_flask_request_json(
+        schema={"experiment_id": [_assert_required, _assert_string]}
+    )
+    experiment_id = request_json.get("experiment_id")
+
+    store = _get_tracking_store()
+    experiment = store.get_experiment(experiment_id)
+    schedule = read_detection_schedule(experiment)
+    if schedule is None:
+        # Nothing stored, or a schedule this server does not recognize. Either way there is no
+        # next run to report and no state worth writing.
+        return jsonify({"next_fire_time_ms": None})
+
+    now_ms = get_current_time_millis()
+    state = read_detection_schedule_state(experiment)
+    if state is None:
+        updated = claim_first_occurrence(now_ms, schedule)
+    elif state.timing is None:
+        updated = adopt_timing(state, schedule)
+    elif state.timing != schedule.timing:
+        updated = reanchor_timing(state, schedule, now_ms)
+    else:
+        updated = state
+
+    if updated is not state:
+        write_detection_schedule_state(store, experiment_id, updated)
+    return jsonify({"next_fire_time_ms": updated.next_fire_time_ms})
+
+
 def _get_registered_scorer(
     tracking_store: AbstractTrackingStore, experiment_id: str, name: str, version: int
 ) -> ScorerVersion:
@@ -6210,7 +6273,7 @@ def _finalize_logged_model(model_id: str):
         },
     )
     model = _get_tracking_store().finalize_logged_model(
-        request_message.model_id, LoggedModelStatus.from_int(request_message.status)
+        model_id, LoggedModelStatus.from_int(request_message.status)
     )
     response_message = FinalizeLoggedModel.Response(model=model.to_proto())
     return _wrap_response(response_message)
@@ -8074,6 +8137,11 @@ def get_issues_detection_endpoints():
         (
             _get_ajax_path("/mlflow/issues/invoke", version=3),
             _invoke_issue_detection_handler,
+            ["POST"],
+        ),
+        (
+            _get_ajax_path("/mlflow/issues/schedule/state", version=3),
+            _sync_issue_detection_schedule_state_handler,
             ["POST"],
         ),
     ]

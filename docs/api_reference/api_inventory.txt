@@ -942,6 +942,7 @@ mlflow.gateway.config.TypeSafeConfig
 mlflow.gateway.config.TypeSafeConfig.validate_typesafe_api_key
 mlflow.gateway.config.VertexAIConfig
 mlflow.gateway.config.VertexAIConfig.validate_vertex_anthropic_betas
+mlflow.gateway.config.VertexAIConfig.validate_vertex_location
 mlflow.gateway.get_gateway_uri
 mlflow.gateway.set_gateway_uri
 mlflow.gemini.autolog

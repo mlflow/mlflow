@@ -1,11 +1,11 @@
 """Storage and timing of an experiment's recurring issue-detection schedule.
 
 A schedule lives in experiment tags, the way the experiment's detection priorities already do:
-``mlflow.issueDetection.schedule`` holds the cadence, timezone and paused flag,
-``mlflow.issueDetection.scheduleTraceFilter`` the optional clauses narrowing which traces a run
-analyzes, and ``mlflow.issueDetection.scheduleState`` what the server has dispatched. The first
-two are written by whoever edits the schedule, the last only by the server, so neither can clobber
-the other.
+``mlflow.issueDetection.schedule`` holds the cadence, the time of day it fires, the timezone that
+time is read in and the paused flag, ``mlflow.issueDetection.scheduleTraceFilter`` the optional
+clauses narrowing which traces a run analyzes, and ``mlflow.issueDetection.scheduleState`` what the
+server has dispatched. The first two are written by whoever edits the schedule, the last only by
+the server, so neither can clobber the other.
 
 This module owns the storage contract and the timing arithmetic; dispatching and running are
 separate.
@@ -75,10 +75,20 @@ class DetectionCadence(str, Enum):
     WEEKLY = "weekly"
 
 
-# When each cadence fires, in the schedule's own timezone: hourly on the hour, daily at 09:00, and
-# weekly on Monday at 09:00.
-_FIRE_HOUR = 9
-_MONDAY = 0
+# Time of day a daily or weekly schedule fires in its own timezone, for a schedule that stores
+# none -- the hour every schedule fired at before the start time could be chosen, so one saved
+# before this reads back unchanged and keeps firing when it always did.
+DEFAULT_FIRE_TIME = "09:00"
+
+# Weekday a weekly schedule fires on when it stores none: Monday, numbered as
+# ``datetime.weekday()`` does, which is the numbering the stored value uses.
+DEFAULT_WEEKDAY = 0
+
+# How often the dispatcher polls. Defined here because the timing arithmetic depends on it --
+# see ``reanchor_timing`` -- and read by ``mlflow/server/jobs/utils.py`` to build the crontab, so
+# the two cannot drift apart.
+POLL_INTERVAL_MINUTES = 15
+POLL_INTERVAL_MS = POLL_INTERVAL_MINUTES * 60 * 1000
 
 
 @dataclass(frozen=True)
@@ -176,6 +186,36 @@ class DetectionSchedule:
     paused: bool = False
     trace_filters: tuple[ScheduleTraceFilter, ...] = ()
     model: ScheduleModel | None = None
+    # Time of day the cadence fires, ``"HH:MM"`` in ``timezone``. Daily and weekly use both
+    # halves; hourly uses the minute and ignores the hour.
+    fire_time: str = DEFAULT_FIRE_TIME
+    # Weekday a weekly cadence fires on, Monday as 0 like ``datetime.weekday()``. Ignored by the
+    # other cadences, which have no day to choose.
+    weekday: int = DEFAULT_WEEKDAY
+
+    @property
+    def timing(self) -> str:
+        """
+        A fingerprint of everything that decides *when* this schedule fires.
+
+        Recorded alongside the dispatch state so a poll can tell "the owner moved the schedule"
+        from "time passed": the first has to re-anchor, or an occurrence the new timing already
+        places in the past would fire the moment it was saved; the second must not, or a server
+        that was down would quietly skip the window it missed.
+
+        The model and the trace filters are deliberately absent -- they change what a run does,
+        not when it happens, so editing them should neither delay nor trigger one. So is
+        ``paused``: turning a schedule off and on again is not a change of timing.
+        """
+        return f"{self.cadence.value}|{self.fire_time}|{self.weekday}|{self.timezone}"
+
+    @property
+    def fire_hour_minute(self) -> tuple[int, int]:
+        """
+        ``fire_time`` as numbers. Parsed on the way in, so an unreadable value never reaches here.
+        """
+        hour, _, minute = self.fire_time.partition(":")
+        return int(hour), int(minute)
 
     def to_json(self) -> str:
         """Serialize the cadence tag. The filters live in their own tag."""
@@ -184,6 +224,8 @@ class DetectionSchedule:
             "cadence": self.cadence.value,
             "timezone": self.timezone,
             "paused": self.paused,
+            "fireTime": self.fire_time,
+            "weekday": self.weekday,
         }
         if self.model is not None:
             payload["model"] = self.model.to_dict()
@@ -208,11 +250,21 @@ class DetectionScheduleState:
         last_dispatched_at_ms: Wall-clock dispatch time (audit only). Differs from
             ``last_fire_time_ms`` when the server was busy or down at the fire time.
         last_run_id: The run that dispatch created (audit only).
+        timing: The schedule's ``timing`` fingerprint when this state was written, so the next
+            poll can tell whether the owner has moved the schedule since. ``None`` on a state
+            written before this was recorded.
+        next_fire_time_ms: When the next occurrence is due, as this server works it out. Written
+            for the dialog to show, since the arithmetic that produces it is DST-aware and
+            belongs on one side only -- a second implementation in the browser would be a second
+            answer. Read with ``timing``: a value whose fingerprint no longer matches the stored
+            schedule describes a schedule that has since been edited.
     """
 
     last_fire_time_ms: int
     last_dispatched_at_ms: int | None = None
     last_run_id: str | None = None
+    timing: str | None = None
+    next_fire_time_ms: int | None = None
 
     def to_json(self) -> str:
         payload: dict[str, object] = {
@@ -223,6 +275,10 @@ class DetectionScheduleState:
             payload["lastDispatchedAtMs"] = self.last_dispatched_at_ms
         if self.last_run_id is not None:
             payload["lastRunId"] = self.last_run_id
+        if self.timing is not None:
+            payload["timing"] = self.timing
+        if self.next_fire_time_ms is not None:
+            payload["nextFireTimeMs"] = self.next_fire_time_ms
         return json.dumps(payload)
 
 
@@ -265,6 +321,68 @@ def _parse_trace_filter(entry: object) -> ScheduleTraceFilter | None:
     if _has_control_char(key) or _has_control_char(value):
         return None
     return ScheduleTraceFilter(field=field, key=key, value=value)
+
+
+def _is_ascii_decimal(text: str, max_digits: int) -> bool:
+    """
+    Whether ``text`` is one to ``max_digits`` ASCII decimal digits.
+
+    Bounded, not just numeric: ``int("006")`` is 6, so an unbounded reader would run a schedule
+    stored as ``"006:45"`` at 06:45 while the modal -- which matches on one or two digits -- read
+    the same tag as the default and showed 09:00. The two have to agree about which values they
+    accept, or the dialog names an hour the dispatcher does not fire at.
+    """
+    return 1 <= len(text) <= max_digits and text.isascii() and text.isdecimal()
+
+
+def _parse_weekday(value: object) -> int:
+    """
+    The stored weekday a weekly schedule fires on, or the default when it is missing or unusable.
+
+    ``bool`` is excluded explicitly because it is an ``int`` in Python, and ``True`` would
+    otherwise read as Tuesday.
+    """
+    if value is None:
+        return DEFAULT_WEEKDAY
+    if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 6:
+        return value
+    _logger.warning(
+        "Issue-detection schedule names weekday %r, which is not a day this server can fire on; "
+        "firing it on weekday %d instead",
+        value,
+        DEFAULT_WEEKDAY,
+    )
+    return DEFAULT_WEEKDAY
+
+
+def _parse_fire_time(value: object) -> str:
+    """
+    The stored time of day a schedule fires at, as ``"HH:MM"``, or the default when unusable.
+
+    Falls back rather than refusing the schedule: a time this reader cannot make sense of should
+    cost the owner the hour they chose, not every run. Any minute is accepted, not just the
+    quarter hours the modal offers -- the dispatcher polls on a 15-minute grid, so an off-grid
+    minute fires at the first poll after it instead of not at all.
+    """
+    if value is None:
+        # Nothing stored, which is a schedule saved before a start time could be chosen rather
+        # than a bad value -- so it falls back silently instead of warning on every poll.
+        return DEFAULT_FIRE_TIME
+    if isinstance(value, str):
+        hour, separator, minute = value.strip().partition(":")
+        # ``isdecimal`` rather than ``isdigit`` because that also accepts characters like
+        # superscripts which ``int`` then refuses. Narrow on purpose: the modal reads this tag
+        # back with the same rule.
+        if separator and _is_ascii_decimal(hour, 2) and _is_ascii_decimal(minute, 2):
+            if 0 <= int(hour) <= 23 and 0 <= int(minute) <= 59:
+                return f"{int(hour):02d}:{int(minute):02d}"
+    _logger.warning(
+        "Issue-detection schedule names start time %r, which this server cannot read; firing it "
+        "at %s instead",
+        value,
+        DEFAULT_FIRE_TIME,
+    )
+    return DEFAULT_FIRE_TIME
 
 
 def _parse_model_identifier(value: object) -> str:
@@ -394,6 +512,8 @@ def parse_detection_schedule(
         paused=parsed.get("paused") is True,
         trace_filters=parse_trace_filters(raw_trace_filters),
         model=_parse_model(parsed.get("model")),
+        fire_time=_parse_fire_time(parsed.get("fireTime")),
+        weekday=_parse_weekday(parsed.get("weekday")),
     )
 
 
@@ -404,12 +524,18 @@ def parse_detection_schedule_state(raw_value: str | None) -> DetectionScheduleSt
     if isinstance(last_fire_time_ms, bool) or not isinstance(last_fire_time_ms, int):
         return None
     last_dispatched_at_ms = parsed.get("lastDispatchedAtMs")
+    next_fire_time_ms = parsed.get("nextFireTimeMs")
+    timing = parsed.get("timing")
     return DetectionScheduleState(
         last_fire_time_ms=last_fire_time_ms,
         last_dispatched_at_ms=last_dispatched_at_ms
         if isinstance(last_dispatched_at_ms, int) and not isinstance(last_dispatched_at_ms, bool)
         else None,
         last_run_id=parsed.get("lastRunId") if isinstance(parsed.get("lastRunId"), str) else None,
+        timing=timing if isinstance(timing, str) and timing else None,
+        next_fire_time_ms=next_fire_time_ms
+        if isinstance(next_fire_time_ms, int) and not isinstance(next_fire_time_ms, bool)
+        else None,
     )
 
 
@@ -472,18 +598,22 @@ def _fire_time_anchor(
     """
     zone = ZoneInfo(schedule.timezone)
     naive = datetime.fromtimestamp(reference_ms / 1000, tz=zone).replace(tzinfo=None)
+    hour, minute = schedule.fire_hour_minute
     if schedule.cadence is DetectionCadence.HOURLY:
-        return zone, naive.replace(minute=0, second=0, microsecond=0), timedelta(hours=1)
+        # The minute only: an hourly schedule fires every hour, so the chosen hour says nothing
+        # about it. The default start time's minute is 0, which is the on-the-hour behaviour an
+        # hourly schedule has always had.
+        return zone, naive.replace(minute=minute, second=0, microsecond=0), timedelta(hours=1)
     if schedule.cadence is DetectionCadence.DAILY:
         return (
             zone,
-            naive.replace(hour=_FIRE_HOUR, minute=0, second=0, microsecond=0),
+            naive.replace(hour=hour, minute=minute, second=0, microsecond=0),
             timedelta(days=1),
         )
-    monday = naive.replace(hour=_FIRE_HOUR, minute=0, second=0, microsecond=0) - timedelta(
-        days=(naive.weekday() - _MONDAY) % 7
+    chosen_day = naive.replace(hour=hour, minute=minute, second=0, microsecond=0) - timedelta(
+        days=(naive.weekday() - schedule.weekday) % 7
     )
-    return zone, monday, timedelta(weeks=1)
+    return zone, chosen_day, timedelta(weeks=1)
 
 
 def next_fire_time_ms(schedule: DetectionSchedule, after_ms: int) -> int:
@@ -551,24 +681,82 @@ def due_occurrence_ms(
     return fire_time_ms if latest_ms is None else max(fire_time_ms, latest_ms)
 
 
-def claim_first_occurrence(now_ms: int) -> DetectionScheduleState:
+def claim_first_occurrence(now_ms: int, schedule: DetectionSchedule) -> DetectionScheduleState:
     """
     The state to record for a schedule the server has not dispatched before.
 
     Anchoring at ``now_ms`` makes the first run happen at the schedule's next fire time rather
     than immediately, so saving a daily schedule in the afternoon does not run it on the spot.
     """
-    return DetectionScheduleState(last_fire_time_ms=now_ms, last_dispatched_at_ms=None)
+    return DetectionScheduleState(
+        last_fire_time_ms=now_ms,
+        last_dispatched_at_ms=None,
+        timing=schedule.timing,
+        next_fire_time_ms=next_fire_time_ms(schedule, now_ms),
+    )
 
 
 def claim_occurrence(
-    state: DetectionScheduleState, fire_time_ms: int, now_ms: int | None = None
+    state: DetectionScheduleState,
+    fire_time_ms: int,
+    schedule: DetectionSchedule,
+    now_ms: int | None = None,
 ) -> DetectionScheduleState:
     """The state to record when dispatching the occurrence that fired at ``fire_time_ms``."""
     return replace(
         state,
         last_fire_time_ms=fire_time_ms,
         last_dispatched_at_ms=now_ms if now_ms is not None else int(time.time() * 1000),
+        timing=schedule.timing,
+        next_fire_time_ms=next_fire_time_ms(schedule, fire_time_ms),
+    )
+
+
+def adopt_timing(
+    state: DetectionScheduleState, schedule: DetectionSchedule
+) -> DetectionScheduleState:
+    """
+    The state to record for a schedule dispatched before this server recorded timings.
+
+    The anchor is left exactly where it was: nothing about the schedule changed, this server
+    simply had not written down what its timing was, so delaying its next occurrence to record
+    that would punish a schedule for an upgrade.
+    """
+    return replace(
+        state,
+        timing=schedule.timing,
+        next_fire_time_ms=next_fire_time_ms(schedule, state.last_fire_time_ms),
+    )
+
+
+def reanchor_timing(
+    state: DetectionScheduleState, schedule: DetectionSchedule, anchor_ms: int
+) -> DetectionScheduleState:
+    """
+    The state to record when a schedule's timing has been edited.
+
+    Re-anchored at ``anchor_ms``, so the new timing takes effect from its next occurrence instead
+    of firing one on the spot: moving a daily schedule from 09:00 to 16:00 at 17:00 would
+    otherwise leave today's 16:00 looking like an occurrence the server had missed, and dispatch
+    it immediately. The next run is then tomorrow at 16:00, which is what the owner asked for.
+
+    The anchor is the moment the edit happened, and the callers know that moment to different
+    precision. A save knows it exactly. A dispatcher pass that notices the change afterwards does
+    not -- nothing records when the tag was written -- so it passes the previous pass's time,
+    which is the tightest bound available, and what keeps an occurrence the edit placed in the
+    near future from being stepped over.
+
+    No window is lost either way. The watermark, not the fire time, decides how far back a run
+    reads, so the occurrence that does fire still covers the traces that arrived in between.
+
+    ``last_run_id`` and ``last_dispatched_at_ms`` are kept: they record what this schedule has
+    actually done, which an edit does not undo.
+    """
+    return replace(
+        state,
+        last_fire_time_ms=anchor_ms,
+        timing=schedule.timing,
+        next_fire_time_ms=next_fire_time_ms(schedule, anchor_ms),
     )
 
 

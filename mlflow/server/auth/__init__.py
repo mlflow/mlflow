@@ -652,6 +652,11 @@ def _get_delete_request_args():
     return body if isinstance(body, dict) else {}
 
 
+def _snake_to_camel(name: str) -> str:
+    parts = name.split("_")
+    return parts[0] + "".join(p.capitalize() for p in parts[1:])
+
+
 def _get_request_param(param: str) -> str:
     if request.method == "GET":
         args = request.args
@@ -670,6 +675,10 @@ def _get_request_param(param: str) -> str:
 
     args = args | (request.view_args or {})
     if param not in args:
+        # Handlers parse a body as protobuf JSON, which also accepts the lowerCamelCase name.
+        # GET handlers read only the snake_case query keys, so don't look it up there.
+        if request.method != "GET" and (camel_param := _snake_to_camel(param)) in args:
+            return args[camel_param]
         # Special handling for run_id
         if param == "run_id":
             return _get_request_param("run_uuid")

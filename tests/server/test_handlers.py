@@ -5,6 +5,7 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest import mock
+from zoneinfo import ZoneInfo
 
 import pytest
 from flask import Response, g, request
@@ -10547,6 +10548,150 @@ def test_invoke_issue_detection_handler_rejects_a_second_concurrent_run(
     # Rejected before anything is created, so a blocked request leaves no orphan run behind.
     start_run.assert_not_called()
     submit_job.assert_not_called()
+
+
+def _schedule_experiment(mock_tracking_store, schedule_json, state_json=None):
+    from mlflow.entities.experiment import Experiment
+    from mlflow.entities.experiment_tag import ExperimentTag
+    from mlflow.utils.mlflow_tags import (
+        MLFLOW_ISSUE_DETECTION_SCHEDULE,
+        MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE,
+    )
+
+    tags = [ExperimentTag(MLFLOW_ISSUE_DETECTION_SCHEDULE, schedule_json)] if schedule_json else []
+    if state_json:
+        tags.append(ExperimentTag(MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE, state_json))
+    mock_tracking_store.get_experiment.return_value = Experiment(
+        experiment_id="exp-123",
+        name="exp",
+        artifact_location="loc",
+        lifecycle_stage="active",
+        tags=tags,
+    )
+
+
+def _written_state(mock_tracking_store):
+    from mlflow.utils.mlflow_tags import MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE
+
+    for call in mock_tracking_store.set_experiment_tag.call_args_list:
+        tag = call.args[1]
+        if tag.key == MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE:
+            return json.loads(tag.value)
+    return None
+
+
+def _ms(zone, *args):
+    return int(datetime(*args, tzinfo=ZoneInfo(zone)).timestamp() * 1000)
+
+
+def test_schedule_state_handler_answers_when_a_retimed_schedule_next_runs(mock_tracking_store):
+    # The reason this endpoint exists. The dialog writes the schedule through the generic tag
+    # endpoint, so without a call like this nothing on the server knows a schedule was saved and
+    # the next run is computed only by the following dispatcher pass -- up to a quarter of an
+    # hour of having nothing to show.
+    saved_at = _ms("UTC", 2026, 5, 4, 15, 59)
+    _schedule_experiment(
+        mock_tracking_store,
+        json.dumps({
+            "version": 1,
+            "cadence": "daily",
+            "timezone": "UTC",
+            "paused": False,
+            "fireTime": "16:00",
+            "weekday": 0,
+        }),
+        json.dumps({
+            "version": 1,
+            "lastFireTimeMs": _ms("UTC", 2026, 5, 4, 9),
+            "timing": "daily|09:00|0|UTC",
+        }),
+    )
+
+    with (
+        mock.patch("mlflow.utils.time.get_current_time_millis", return_value=saved_at),
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/ajax-api/3.0/mlflow/issues/schedule/state", json={"experiment_id": "exp-123"}
+        )
+
+    assert resp.status_code == 200
+    # Today's 16:00, a minute away -- not tomorrow's. The save is the moment of the edit, so the
+    # anchor is exact here, where a dispatcher pass can only bound it by the previous pass.
+    assert resp.get_json()["next_fire_time_ms"] == _ms("UTC", 2026, 5, 4, 16)
+    state = _written_state(mock_tracking_store)
+    assert state["timing"] == "daily|16:00|0|UTC"
+    assert state["lastFireTimeMs"] == saved_at
+
+
+def test_schedule_state_handler_anchors_a_schedule_the_server_has_not_seen(mock_tracking_store):
+    saved_at = _ms("UTC", 2026, 5, 4, 10)
+    _schedule_experiment(
+        mock_tracking_store,
+        json.dumps({
+            "version": 1,
+            "cadence": "daily",
+            "timezone": "UTC",
+            "paused": False,
+            "fireTime": "16:00",
+            "weekday": 0,
+        }),
+    )
+
+    with (
+        mock.patch("mlflow.utils.time.get_current_time_millis", return_value=saved_at),
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/ajax-api/3.0/mlflow/issues/schedule/state", json={"experiment_id": "exp-123"}
+        )
+
+    assert resp.get_json()["next_fire_time_ms"] == _ms("UTC", 2026, 5, 4, 16)
+    assert _written_state(mock_tracking_store)["timing"] == "daily|16:00|0|UTC"
+
+
+def test_schedule_state_handler_leaves_an_unchanged_schedule_alone(mock_tracking_store):
+    # Called on every save, including ones that changed the model or the filters. Rewriting the
+    # state then would re-anchor a schedule nobody retimed and delay its next occurrence.
+    next_run = _ms("UTC", 2026, 5, 5, 16)
+    _schedule_experiment(
+        mock_tracking_store,
+        json.dumps({
+            "version": 1,
+            "cadence": "daily",
+            "timezone": "UTC",
+            "paused": False,
+            "fireTime": "16:00",
+            "weekday": 0,
+        }),
+        json.dumps({
+            "version": 1,
+            "lastFireTimeMs": _ms("UTC", 2026, 5, 4, 16),
+            "timing": "daily|16:00|0|UTC",
+            "nextFireTimeMs": next_run,
+        }),
+    )
+
+    with app.test_client() as c:
+        resp = c.post(
+            "/ajax-api/3.0/mlflow/issues/schedule/state", json={"experiment_id": "exp-123"}
+        )
+
+    assert resp.get_json()["next_fire_time_ms"] == next_run
+    assert _written_state(mock_tracking_store) is None
+
+
+def test_schedule_state_handler_reports_no_next_run_without_a_schedule(mock_tracking_store):
+    _schedule_experiment(mock_tracking_store, None)
+
+    with app.test_client() as c:
+        resp = c.post(
+            "/ajax-api/3.0/mlflow/issues/schedule/state", json={"experiment_id": "exp-123"}
+        )
+
+    assert resp.status_code == 200
+    assert resp.get_json()["next_fire_time_ms"] is None
+    assert _written_state(mock_tracking_store) is None
 
 
 def test_invoke_issue_detection_handler_rejects_cross_experiment_traces(

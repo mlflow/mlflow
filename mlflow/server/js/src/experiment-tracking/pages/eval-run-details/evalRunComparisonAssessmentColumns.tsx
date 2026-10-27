@@ -15,6 +15,7 @@ import {
   isAssessmentColumnId,
   pickCellAssessment,
 } from '../../components/experiment-page/components/traces-v4/utils/assessmentColumns';
+import { PAIRWISE_PREFERENCE_ASSESSMENT_NAME } from '../../components/experiment-page/components/traces-v4/utils/pairwiseReview';
 import {
   EvalRunComparisonAssessmentCell,
   formatEvalRunComparisonAssessmentDelta,
@@ -69,7 +70,10 @@ export const withEvalRunComparisonAssessmentDeltas = (
       return column;
     }
     const assessmentName = assessmentNameFromColumnId(column.id);
-    if (getAssessmentColumnType(traces, assessmentName) !== 'numeric') {
+    if (
+      assessmentName === PAIRWISE_PREFERENCE_ASSESSMENT_NAME ||
+      getAssessmentColumnType(traces, assessmentName) !== 'numeric'
+    ) {
       return column;
     }
     const deltaTexts = rows.flatMap((row) =>
