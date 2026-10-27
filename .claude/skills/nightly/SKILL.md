@@ -72,7 +72,7 @@ these cached paths and the saved nightly inputs instead of fetching them again.
 3. Investigate each group in its worktree, one at a time. You may change code and run
    focused reproductions there.
    Check relevant upstream projects' issues, pull requests, and commits for
-   matching regressions or fixes, especially for cross-version failures. Record
+   matching regressions or fixes, especially for cross-version test failures. Record
    the verified SHA, relevant runtime and dependency versions, upstream URLs and
    their connection to the failure, commands, and outcomes.
 
