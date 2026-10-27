@@ -145,6 +145,64 @@ const Figure = ({ label, children }: { label: React.ReactNode; children: React.R
   );
 };
 
+/**
+ * What the page says instead of a table when a schedule has recorded nothing.
+ *
+ * Centred on the page, the way the Issues tab's own empty state is, and shown on its own: the
+ * figures above a table are all dashes and zeroes here, and a column header over no rows labels
+ * nothing, so both are withheld until there is a row to describe.
+ */
+const EmptyHistory = ({ isOff, nextRun }: { isOff: boolean; nextRun?: string }) => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div
+      css={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flex: 1,
+        minHeight: 400,
+        paddingBottom: theme.spacing.lg,
+      }}
+    >
+      <Empty
+        title={
+          isOff ? (
+            <FormattedMessage
+              defaultMessage="This schedule is off"
+              description="Experiment issues tab > Scheduled runs > Empty state title for a paused schedule"
+            />
+          ) : (
+            <FormattedMessage
+              defaultMessage="No occurrences yet"
+              description="Experiment issues tab > Scheduled runs > Empty state title before the first occurrence"
+            />
+          )
+        }
+        description={
+          isOff ? (
+            <FormattedMessage
+              defaultMessage="Turn the schedule on and the runs it fires will appear here."
+              description="Experiment issues tab > Scheduled runs > Empty state body for a paused schedule"
+            />
+          ) : nextRun ? (
+            <FormattedMessage
+              defaultMessage="The first one runs {when}."
+              description="Experiment issues tab > Scheduled runs > Empty state body naming the first run"
+              values={{ when: nextRun }}
+            />
+          ) : (
+            <FormattedMessage
+              defaultMessage="Occurrences appear here once the schedule has fired."
+              description="Experiment issues tab > Scheduled runs > Empty state body before the first run"
+            />
+          )
+        }
+      />
+    </div>
+  );
+};
+
 const ScheduledRunsContent = ({ experimentId }: { experimentId: string }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -304,6 +362,7 @@ const ScheduledRunsContent = ({ experimentId }: { experimentId: string }) => {
   // While pages remain, every figure below counts only what has loaded, so each is a lower bound
   // rather than the 30-day total its label promises. Marked, not silently approximated.
   const atLeast = (value: string) => (hasNextPage ? `${value}+` : value);
+  const isEmpty = rows.length === 0;
 
   if (isLoading) {
     return <TableSkeleton lines={5} />;
@@ -356,7 +415,9 @@ const ScheduledRunsContent = ({ experimentId }: { experimentId: string }) => {
               description="Experiment issues tab > Scheduled runs > Page title"
             />
           </Typography.Title>
-          {scheduleSummary && (
+          {/* Withheld on an empty page when the schedule is off: the centred block below already
+              says so as its title, and saying it twice reads as two separate statements. */}
+          {scheduleSummary && !(isEmpty && schedule.setting === 'off') && (
             <Typography.Text color="secondary" css={{ display: 'block', marginTop: theme.spacing.xs }}>
               {scheduleSummary}
             </Typography.Text>
@@ -366,220 +427,184 @@ const ScheduledRunsContent = ({ experimentId }: { experimentId: string }) => {
             mean leaving the page that shows what it has done. */}
         <ExperimentIssuesScheduleControl experimentId={experimentId} triggerVariant="editButton" />
       </div>
-      <Spacer size="sm" />
-      <div
-        css={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: theme.spacing.lg,
-          alignItems: 'flex-start',
-          // Each figure shares the row's width so the strip spans the page rather than leaving
-          // its right half empty, but never narrows past its own label: a basis small enough to
-          // stretch from also let the longest label break across two lines and push the figure
-          // after it onto a second row. Whole figures wrap instead, when there is no room.
-          '& > div': { flex: '1 1 auto', minWidth: 'fit-content' },
-        }}
-      >
-        <Figure
-          label={
-            <FormattedMessage
-              defaultMessage="Next run"
-              description="Experiment issues tab > Scheduled runs > Figure for when the schedule next fires"
-            />
-          }
-        >
-          {/* A dash rather than "Schedule is off" again: the line under the title already says
-              so, and repeating it here read as two separate statements of the same fact. */}
-          {nextRun ? <Typography.Text>{nextRun}</Typography.Text> : <Dash />}
-        </Figure>
-        <Figure
-          label={
-            <FormattedMessage
-              defaultMessage="Last outcome"
-              description="Experiment issues tab > Scheduled runs > Figure for how the newest settled occurrence ended"
-            />
-          }
-        >
-          {summary.lastOutcome ? <OutcomeCell outcome={summary.lastOutcome} /> : <Dash />}
-        </Figure>
-        <Figure
-          label={
-            <FormattedMessage
-              defaultMessage="Runs, last {days} days"
-              description="Experiment issues tab > Scheduled runs > Figure counting recent occurrences"
-              values={{ days: SUMMARY_WINDOW_DAYS }}
-            />
-          }
-        >
-          <Typography.Text>{atLeast(String(summary.runCount))}</Typography.Text>
-        </Figure>
-        <Figure
-          label={
-            // Named with its window like the figures either side of it: the total is scoped to
-            // the same 30 days, and "Traces scanned" alone read as an all-time count.
-            <FormattedMessage
-              defaultMessage="Traces scanned, last {days} days"
-              description="Experiment issues tab > Scheduled runs > Figure totalling traces analyzed over the summary window"
-              values={{ days: SUMMARY_WINDOW_DAYS }}
-            />
-          }
-        >
-          <Typography.Text>{atLeast(String(summary.tracesScanned))}</Typography.Text>
-        </Figure>
-        <Figure
-          label={
-            <FormattedMessage
-              defaultMessage="Spend, last {days} days"
-              description="Experiment issues tab > Scheduled runs > Figure totalling recent model spend"
-              values={{ days: SUMMARY_WINDOW_DAYS }}
-            />
-          }
-        >
-          <Typography.Text>{atLeast(formatCost(summary.spendUsd))}</Typography.Text>
-        </Figure>
-      </div>
-      <Spacer size="md" />
-      <Table
-        scrollable
-        onScroll={onScroll}
-        css={{ flex: 1 }}
-        empty={
-          rows.length === 0 ? (
-            <Empty
-              title={
-                schedule.setting === 'off' ? (
-                  <FormattedMessage
-                    defaultMessage="This schedule is off"
-                    description="Experiment issues tab > Scheduled runs > Empty state title for a paused schedule"
-                  />
-                ) : (
-                  <FormattedMessage
-                    defaultMessage="No occurrences yet"
-                    description="Experiment issues tab > Scheduled runs > Empty state title before the first occurrence"
-                  />
-                )
+      {isEmpty ? (
+        <EmptyHistory isOff={schedule.setting === 'off'} nextRun={nextRun} />
+      ) : (
+        <>
+          <Spacer size="sm" />
+          <div
+            css={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: theme.spacing.lg,
+              alignItems: 'flex-start',
+              // Each figure shares the row's width so the strip spans the page rather than leaving
+              // its right half empty, but never narrows past its own label: a basis small enough to
+              // stretch from also let the longest label break across two lines and push the figure
+              // after it onto a second row. Whole figures wrap instead, when there is no room.
+              '& > div': { flex: '1 1 auto', minWidth: 'fit-content' },
+            }}
+          >
+            <Figure
+              label={
+                <FormattedMessage
+                  defaultMessage="Next run"
+                  description="Experiment issues tab > Scheduled runs > Figure for when the schedule next fires"
+                />
               }
-              description={
-                schedule.setting === 'off' ? (
-                  <FormattedMessage
-                    defaultMessage="Past occurrences stay here. Turn the schedule back on to add to them."
-                    description="Experiment issues tab > Scheduled runs > Empty state body for a paused schedule"
-                  />
-                ) : nextRun ? (
-                  <FormattedMessage
-                    defaultMessage="The first one runs {when}."
-                    description="Experiment issues tab > Scheduled runs > Empty state body naming the first run"
-                    values={{ when: nextRun }}
-                  />
-                ) : (
-                  <FormattedMessage
-                    defaultMessage="Occurrences appear here once the schedule has fired."
-                    description="Experiment issues tab > Scheduled runs > Empty state body before the first run"
-                  />
-                )
+            >
+              {/* A dash rather than "Schedule is off" again: the line under the title already says
+                so, and repeating it here read as two separate statements of the same fact. */}
+              {nextRun ? <Typography.Text>{nextRun}</Typography.Text> : <Dash />}
+            </Figure>
+            <Figure
+              label={
+                <FormattedMessage
+                  defaultMessage="Last outcome"
+                  description="Experiment issues tab > Scheduled runs > Figure for how the newest settled occurrence ended"
+                />
               }
-            />
-          ) : undefined
-        }
-      >
-        <TableRow isHeader>
-          {columns.map(({ id, label }) => (
-            <TableHeader componentId={`${COMPONENT_ID}.header`} key={id} style={cellStyle(id)}>
-              {label}
-            </TableHeader>
-          ))}
-          <TableHeader componentId={`${COMPONENT_ID}.header.filler`} aria-hidden style={FILLER_CELL_STYLE} />
-        </TableRow>
-        {rows.flatMap((row) => [
-          <TableRow key={row.runId}>
-            <TableCell style={cellStyle('createdAt')} css={{ alignItems: 'center' }}>
-              <TimeAgo date={new Date(row.createdAtMs)} />
-            </TableCell>
-            <TableCell style={cellStyle('window')} css={{ alignItems: 'center' }}>
-              <WindowCell row={row} timezone={schedule.timezone} locale={intl.locale} />
-            </TableCell>
-            <TableCell style={cellStyle('outcome')} css={{ alignItems: 'center' }}>
-              <OutcomeCell outcome={row.outcome} />
-            </TableCell>
-            <TableCell style={cellStyle('scannedTraces')} css={{ alignItems: 'center' }}>
-              {row.scannedTraces === undefined ? <Dash /> : row.scannedTraces}
-            </TableCell>
-            <TableCell style={cellStyle('newIssues')} css={{ alignItems: 'center' }}>
-              {/* An occurrence still going has not finished filing, so its count so far would
-                  read as a result. A count that could not be read is blank for the same reason:
-                  zero is the claim that it found nothing. */}
-              {row.outcome === 'running' || newIssueCounts?.[row.runId] === undefined ? (
-                <Dash />
+            >
+              {summary.lastOutcome ? <OutcomeCell outcome={summary.lastOutcome} /> : <Dash />}
+            </Figure>
+            <Figure
+              label={
+                <FormattedMessage
+                  defaultMessage="Runs, last {days} days"
+                  description="Experiment issues tab > Scheduled runs > Figure counting recent occurrences"
+                  values={{ days: SUMMARY_WINDOW_DAYS }}
+                />
+              }
+            >
+              <Typography.Text>{atLeast(String(summary.runCount))}</Typography.Text>
+            </Figure>
+            <Figure
+              label={
+                // Named with its window like the figures either side of it: the total is scoped to
+                // the same 30 days, and "Traces scanned" alone read as an all-time count.
+                <FormattedMessage
+                  defaultMessage="Traces scanned, last {days} days"
+                  description="Experiment issues tab > Scheduled runs > Figure totalling traces analyzed over the summary window"
+                  values={{ days: SUMMARY_WINDOW_DAYS }}
+                />
+              }
+            >
+              <Typography.Text>{atLeast(String(summary.tracesScanned))}</Typography.Text>
+            </Figure>
+            <Figure
+              label={
+                <FormattedMessage
+                  defaultMessage="Spend, last {days} days"
+                  description="Experiment issues tab > Scheduled runs > Figure totalling recent model spend"
+                  values={{ days: SUMMARY_WINDOW_DAYS }}
+                />
+              }
+            >
+              <Typography.Text>{atLeast(formatCost(summary.spendUsd))}</Typography.Text>
+            </Figure>
+          </div>
+          <Spacer size="md" />
+          <Table scrollable onScroll={onScroll} css={{ flex: 1 }}>
+            <TableRow isHeader>
+              {columns.map(({ id, label }) => (
+                <TableHeader componentId={`${COMPONENT_ID}.header`} key={id} style={cellStyle(id)}>
+                  {label}
+                </TableHeader>
+              ))}
+              <TableHeader componentId={`${COMPONENT_ID}.header.filler`} aria-hidden style={FILLER_CELL_STYLE} />
+            </TableRow>
+            {rows.flatMap((row) => [
+              <TableRow key={row.runId}>
+                <TableCell style={cellStyle('createdAt')} css={{ alignItems: 'center' }}>
+                  <TimeAgo date={new Date(row.createdAtMs)} />
+                </TableCell>
+                <TableCell style={cellStyle('window')} css={{ alignItems: 'center' }}>
+                  <WindowCell row={row} timezone={schedule.timezone} locale={intl.locale} />
+                </TableCell>
+                <TableCell style={cellStyle('outcome')} css={{ alignItems: 'center' }}>
+                  <OutcomeCell outcome={row.outcome} />
+                </TableCell>
+                <TableCell style={cellStyle('scannedTraces')} css={{ alignItems: 'center' }}>
+                  {row.scannedTraces === undefined ? <Dash /> : row.scannedTraces}
+                </TableCell>
+                <TableCell style={cellStyle('newIssues')} css={{ alignItems: 'center' }}>
+                  {/* An occurrence still going has not finished filing, so its count so far would
+                    read as a result. A count that could not be read is blank for the same reason:
+                    zero is the claim that it found nothing. */}
+                  {row.outcome === 'running' || newIssueCounts?.[row.runId] === undefined ? (
+                    <Dash />
+                  ) : (
+                    newIssueCounts[row.runId]
+                  )}
+                </TableCell>
+                <TableCell style={cellStyle('model')} css={{ alignItems: 'center' }}>
+                  {row.model ? (
+                    <Typography.Text size="sm" ellipsis title={row.model}>
+                      {row.model}
+                    </Typography.Text>
+                  ) : (
+                    <Dash />
+                  )}
+                </TableCell>
+                <TableCell style={cellStyle('cost')} css={{ alignItems: 'center' }}>
+                  {row.costUsd === undefined ? <Dash /> : formatCost(row.costUsd)}
+                </TableCell>
+                <TableCell style={cellStyle('duration')} css={{ alignItems: 'center' }}>
+                  {formatDuration(scheduledRunDurationMs(row, nowMs))}
+                </TableCell>
+                <TableCell aria-hidden style={FILLER_CELL_STYLE} />
+              </TableRow>,
+              // Why it failed, on its own full-width row under the occurrence it belongs to. The
+              // message is the provider's own wording, which is the part worth acting on, so it is
+              // shown rather than summarized -- and only when the run recorded one, since occurrences
+              // from before that was recorded have nothing to show.
+              ...(row.outcome === 'failed' && row.error
+                ? [
+                    <TableRow key={`${row.runId}-error`} css={{ height: 'auto' }}>
+                      <TableCell
+                        css={{
+                          flex: 1,
+                          alignItems: 'flex-start',
+                          backgroundColor: theme.colors.backgroundValidationDanger,
+                          paddingTop: theme.spacing.sm,
+                          paddingBottom: theme.spacing.sm,
+                        }}
+                      >
+                        <div css={{ minWidth: 0 }}>
+                          <Typography.Text size="sm" bold color="error" css={{ display: 'block' }}>
+                            <FormattedMessage
+                              defaultMessage="Why it failed"
+                              description="Experiment issues tab > Scheduled runs > Label above the reason an occurrence failed"
+                            />
+                          </Typography.Text>
+                          <Typography.Text size="sm" css={{ wordBreak: 'break-word' }}>
+                            {row.error}
+                          </Typography.Text>
+                        </div>
+                      </TableCell>
+                    </TableRow>,
+                  ]
+                : []),
+            ])}
+          </Table>
+          {rows.length > 0 && (
+            <Typography.Hint css={{ marginLeft: 'auto', paddingTop: theme.spacing.xs, whiteSpace: 'nowrap' }}>
+              {hasNextPage ? (
+                <FormattedMessage
+                  defaultMessage="{count}+ runs loaded"
+                  description="Experiment issues tab > Scheduled runs > Count of loaded occurrences while more pages remain"
+                  values={{ count: rows.length }}
+                />
               ) : (
-                newIssueCounts[row.runId]
+                <FormattedMessage
+                  defaultMessage="{count, plural, one {# run} other {# runs}}"
+                  description="Experiment issues tab > Scheduled runs > Total count of occurrences"
+                  values={{ count: rows.length }}
+                />
               )}
-            </TableCell>
-            <TableCell style={cellStyle('model')} css={{ alignItems: 'center' }}>
-              {row.model ? (
-                <Typography.Text size="sm" ellipsis title={row.model}>
-                  {row.model}
-                </Typography.Text>
-              ) : (
-                <Dash />
-              )}
-            </TableCell>
-            <TableCell style={cellStyle('cost')} css={{ alignItems: 'center' }}>
-              {row.costUsd === undefined ? <Dash /> : formatCost(row.costUsd)}
-            </TableCell>
-            <TableCell style={cellStyle('duration')} css={{ alignItems: 'center' }}>
-              {formatDuration(scheduledRunDurationMs(row, nowMs))}
-            </TableCell>
-            <TableCell aria-hidden style={FILLER_CELL_STYLE} />
-          </TableRow>,
-          // Why it failed, on its own full-width row under the occurrence it belongs to. The
-          // message is the provider's own wording, which is the part worth acting on, so it is
-          // shown rather than summarized -- and only when the run recorded one, since occurrences
-          // from before that was recorded have nothing to show.
-          ...(row.outcome === 'failed' && row.error
-            ? [
-                <TableRow key={`${row.runId}-error`} css={{ height: 'auto' }}>
-                  <TableCell
-                    css={{
-                      flex: 1,
-                      alignItems: 'flex-start',
-                      backgroundColor: theme.colors.backgroundValidationDanger,
-                      paddingTop: theme.spacing.sm,
-                      paddingBottom: theme.spacing.sm,
-                    }}
-                  >
-                    <div css={{ minWidth: 0 }}>
-                      <Typography.Text size="sm" bold color="error" css={{ display: 'block' }}>
-                        <FormattedMessage
-                          defaultMessage="Why it failed"
-                          description="Experiment issues tab > Scheduled runs > Label above the reason an occurrence failed"
-                        />
-                      </Typography.Text>
-                      <Typography.Text size="sm" css={{ wordBreak: 'break-word' }}>
-                        {row.error}
-                      </Typography.Text>
-                    </div>
-                  </TableCell>
-                </TableRow>,
-              ]
-            : []),
-        ])}
-      </Table>
-      {rows.length > 0 && (
-        <Typography.Hint css={{ marginLeft: 'auto', paddingTop: theme.spacing.xs, whiteSpace: 'nowrap' }}>
-          {hasNextPage ? (
-            <FormattedMessage
-              defaultMessage="{count}+ runs loaded"
-              description="Experiment issues tab > Scheduled runs > Count of loaded occurrences while more pages remain"
-              values={{ count: rows.length }}
-            />
-          ) : (
-            <FormattedMessage
-              defaultMessage="{count, plural, one {# run} other {# runs}}"
-              description="Experiment issues tab > Scheduled runs > Total count of occurrences"
-              values={{ count: rows.length }}
-            />
+            </Typography.Hint>
           )}
-        </Typography.Hint>
+        </>
       )}
     </div>
   );

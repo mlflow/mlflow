@@ -359,12 +359,31 @@ describe('ExperimentIssueScheduledRunsPage', () => {
     expect(await screen.findByText(/The first one runs Jan 18, 2027, 21:15/)).toBeInTheDocument();
   });
 
-  test('a paused schedule with no occurrences says the history is kept', async () => {
+  test('an empty page shows the state on its own, with no figures or column headers', async () => {
+    // The figures are all dashes and zeroes with nothing to total, and a column header over no
+    // rows labels nothing, so neither earns its place until there is a row to describe.
     experimentTags = [scheduleTag('weekly', { paused: true })];
     storedRuns = [];
     renderPage();
 
     expect(await screen.findByText('This schedule is off')).toBeInTheDocument();
+    expect(await screen.findByText('Turn the schedule on and the runs it fires will appear here.')).toBeInTheDocument();
+    expect(screen.queryByText('Runs, last 30 days')).not.toBeInTheDocument();
+    expect(screen.queryByText('Spend, last 30 days')).not.toBeInTheDocument();
+    expect(screen.queryByText('Window covered')).not.toBeInTheDocument();
+    expect(screen.queryByText('Scanned traces')).not.toBeInTheDocument();
+    // And the schedule's own line, which would only repeat the title above.
+    expect(screen.queryByText('Schedule is off')).not.toBeInTheDocument();
+  });
+
+  test('an empty page for a live schedule keeps its cadence line', async () => {
+    // Nothing duplicated there: the title says no occurrences yet, the line says what it will do.
+    storedRuns = [];
+    renderPage();
+
+    expect(await screen.findByText('No occurrences yet')).toBeInTheDocument();
+    expect(screen.getByText('Weekly on Monday at 21:15 (UTC)')).toBeInTheDocument();
+    expect(screen.queryByText('Runs, last 30 days')).not.toBeInTheDocument();
   });
 
   test('opens the schedule dialog without leaving the page', async () => {

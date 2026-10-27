@@ -8287,10 +8287,6 @@
     "defaultMessage": "{agentFunction} (source digest: {digest})",
     "description": "Eval run detail: tooltip on the evaluated agent function with the digest of its source code"
   },
-  "OXKRq3": {
-    "defaultMessage": "Past occurrences stay here. Turn the schedule back on to add to them.",
-    "description": "Experiment issues tab > Scheduled runs > Empty state body for a paused schedule"
-  },
   "OXcY79": {
     "defaultMessage": "Profile",
     "description": "Label for the profile field in the V2 evaluation dataset metadata modal"
@@ -8834,6 +8830,10 @@
   "QK/Qyx": {
     "defaultMessage": "Total",
     "description": "Label for total token usage"
+  },
+  "QKamKA": {
+    "defaultMessage": "Turn the schedule on and the runs it fires will appear here.",
+    "description": "Experiment issues tab > Scheduled runs > Empty state body for a paused schedule"
   },
   "QL5BPA": {
     "defaultMessage": "{action} tool {name}",
