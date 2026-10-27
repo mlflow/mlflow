@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { useCallback, type ReactNode } from 'react';
 import type {
   ModelTraceInfoV3,
   RenderExportTracesToDatasetsModalParams,
@@ -14,6 +14,7 @@ import { ExportTracesToDatasetModal } from '@mlflow/mlflow/src/experiment-tracki
 import { AddToReviewQueueDropdown } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-review-queue/AddToReviewQueueDropdown';
 import { useEditExperimentTraceTags } from '@mlflow/mlflow/src/experiment-tracking/components/traces/hooks/useEditExperimentTraceTags';
 import { getTracesTagKeys } from '@databricks/web-shared/genai-traces-table';
+import type { TracesV4NotifyApi } from './useTracesV4Notifications';
 
 /**
  * The shared trace-action building blocks the v4 Traces tab wires into both the detail drawer and
@@ -56,6 +57,7 @@ export const useTracesV4TraceActions = (
   experimentId: string,
   pageTraces: ModelTraceInfoV3[],
   onTagsUpdated: () => void,
+  notify: TracesV4NotifyApi,
 ): TracesV4TraceActions => {
   const getTrace: GetTraceFunction = getTraceV3;
 
@@ -75,10 +77,15 @@ export const useTracesV4TraceActions = (
     existingTagKeys: getTracesTagKeys(pageTraces),
   });
 
+  const AddToReviewQueueDropdownWithNotifications = useCallback<typeof AddToReviewQueueDropdown>(
+    (props) => <AddToReviewQueueDropdown {...props} notify={notify} />,
+    [notify],
+  );
+
   const actions: TracesV4TraceActions = {
     getTrace,
     renderExportTracesToDatasetsModal: ExportTracesToDatasetModal,
-    AddToReviewQueueDropdown,
+    AddToReviewQueueDropdown: AddToReviewQueueDropdownWithNotifications,
     editTags: { showEditTagsModalForTrace, EditTagsModal },
     runJudges,
   };

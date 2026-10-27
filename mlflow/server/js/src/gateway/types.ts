@@ -43,6 +43,11 @@ export interface AuthMode {
 export interface ProviderConfig {
   auth_modes: AuthMode[];
   default_mode: string;
+  /**
+   * Whether the MLflow server's own environment already carries a credential for this provider
+   * (e.g. it was started with `OPENAI_API_KEY` set). Absent on servers that predate the field.
+   */
+  env_credentials_available?: boolean;
 }
 
 export interface ProvidersResponse {

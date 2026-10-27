@@ -39,8 +39,8 @@ on:
         required: false
         default: ""
   schedule:
-    # Run this workflow daily at 13:00 UTC
-    - cron: "0 13 * * *"
+    - cron: "0 2 * * *"
+      timezone: "Asia/Tokyo"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
@@ -62,10 +62,13 @@ jobs:
   set-matrix:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || github.event_name == 'pull_request'
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/mlflow') || github.event_name == 'pull_request'
     permissions:
+      actions: read
       contents: read
     outputs:
+      previous_run_id: ${{ steps.previous-run.outputs.run_id }}
+      previous_run_lookup_outcome: ${{ steps.previous-run.outcome }}
       matrix1: ${{ steps.set-matrix.outputs.matrix1 }}
       matrix2: ${{ steps.set-matrix.outputs.matrix2 }}
       is_matrix1_empty: ${{ steps.set-matrix.outputs.is_matrix1_empty }}
@@ -101,6 +104,19 @@ jobs:
       - name: Test flavors CLI
         run: |
           uv run --no-sync pytest --noconftest dev/flavors/tests
+      - name: Find previous scheduled run
+        id: previous-run
+        if: github.event_name == 'schedule'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          previous_run_id=$(gh api --method GET --paginate --slurp \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/cross-version-tests.yml/runs" \
+            -f branch="$GITHUB_REF_NAME" -f event=schedule -f status=completed -F per_page=100 |
+            jq --raw-output --argjson current "$GITHUB_RUN_NUMBER" \
+              '[.[].workflow_runs[] | select(.run_number < $current)] | max_by(.run_number).id // empty')
+          echo "run_id=$previous_run_id" >> "$GITHUB_OUTPUT"
       - id: set-matrix
         name: Set matrix
         env:
@@ -134,6 +150,7 @@ jobs:
     runs-on: ${{ matrix.runs_on }}
     timeout-minutes: 120
     permissions:
+      actions: read
       contents: read
     strategy:
       fail-fast: false
@@ -190,6 +207,67 @@ jobs:
         run: |
           eval "$MATRIX_INSTALL"
       - uses: ./.github/actions/show-versions
+        with:
+          output-json: ${{ github.event_name == 'schedule' && 'snapshot.json' || '' }}
+      - name: Upload snapshot
+        if: github.event_name == 'schedule' && !cancelled() && hashFiles('snapshot.json') != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: snapshot-${{ matrix.name }}-${{ matrix.category }}-${{ matrix.version }}
+          path: snapshot.json
+          retention-days: 7
+          if-no-files-found: error
+          overwrite: true
+      - name: Show snapshot changes
+        if: github.event_name == 'schedule' && !cancelled() && hashFiles('snapshot.json') != ''
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PREVIOUS_RUN_ID: ${{ needs.set-matrix.outputs.previous_run_id }}
+          PREVIOUS_RUN_LOOKUP_OUTCOME: ${{ needs.set-matrix.outputs.previous_run_lookup_outcome }}
+          ARTIFACT_NAME: snapshot-${{ matrix.name }}-${{ matrix.category }}-${{ matrix.version }}
+        run: |
+          echo '>>> snapshot changes'
+          trap 'echo "<<< snapshot changes"' EXIT
+          if [[ "$PREVIOUS_RUN_LOOKUP_OUTCOME" != 'success' ]]; then
+            echo 'Previous run lookup failed; comparison skipped. See the set-matrix job diagnostics.'
+            exit 1
+          fi
+          if [[ -z "$PREVIOUS_RUN_ID" ]]; then
+            echo 'No baseline: no earlier completed scheduled run available.'
+            exit 0
+          fi
+          echo "Baseline: [$PREVIOUS_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$PREVIOUS_RUN_ID)"
+          previous_dir=$(mktemp -d "$RUNNER_TEMP/previous-snapshot.XXXXXX")
+          if ! gh run download "$PREVIOUS_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name "$ARTIFACT_NAME" --dir "$previous_dir"; then
+            echo 'Could not retrieve the baseline snapshot; see the gh diagnostic above. Comparison skipped.'
+            exit 0
+          fi
+          if ! jq --exit-status '.packages | objects | select(all(.[]; type == "string"))' "$previous_dir/snapshot.json" > "$previous_dir/previous.json"; then
+            echo 'Invalid baseline snapshot packages; comparison skipped.'
+            exit 1
+          fi
+          if ! jq --exit-status '.packages | objects | select(all(.[]; type == "string"))' snapshot.json > "$previous_dir/current.json"; then
+            echo 'Invalid current snapshot packages; comparison skipped.'
+            exit 1
+          fi
+          jq --null-input --raw-output \
+            --slurpfile previous "$previous_dir/previous.json" \
+            --slurpfile current "$previous_dir/current.json" '
+            $previous[0] as $old | $current[0] as $new
+            | ($old + $new | keys[]) as $name
+            | select($old[$name] != $new[$name])
+            | if $old[$name] == null then "Added \($name) v\($new[$name])"
+              elif $new[$name] == null then "Removed \($name) v\($old[$name])"
+              else "Updated \($name) v\($old[$name]) -> v\($new[$name])"
+              end
+          ' > "$previous_dir/changes.txt"
+          if [[ -s "$previous_dir/changes.txt" ]]; then
+            cat "$previous_dir/changes.txt"
+          else
+            echo 'No package changes.'
+          fi
       - name: Pre-test
         if: matrix.pre_test
         env:
@@ -211,6 +289,7 @@ jobs:
     runs-on: ${{ matrix.runs_on }}
     timeout-minutes: 120
     permissions:
+      actions: read
       contents: read
     strategy:
       fail-fast: false

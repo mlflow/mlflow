@@ -46,9 +46,198 @@ import {
   parseTraceV4SerializedLocation,
   getRootSpanTimeToFirstTokenMs,
   tryDeserializeAttribute,
+  buildModelTraceComparisonForest,
+  getModelTraceTimelineRange,
+  pairModelTraceSpanTrees,
 } from './ModelTraceExplorer.utils';
 import { SPAN_ATTRIBUTE_TIME_TO_FIRST_TOKEN_MS_KEY } from '../constants';
 import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
+
+const createComparisonNode = (key: string, title: string, children: ModelTraceSpanNode[] = []): ModelTraceSpanNode => ({
+  key,
+  title,
+  children,
+  attributes: {},
+  start: 0,
+  end: 1,
+  type: ModelSpanType.CHAIN,
+  assessments: [],
+  traceId: 'test',
+});
+
+describe('buildModelTraceComparisonForest', () => {
+  it('keeps baseline order and appends candidate-only spans to the combined tree', () => {
+    const baselineShared = createComparisonNode('baseline-shared', 'shared');
+    const candidateShared = createComparisonNode('candidate-shared', 'shared');
+    const baselineRoot = createComparisonNode('baseline-root', 'root', [
+      baselineShared,
+      createComparisonNode('baseline-only', 'removed'),
+    ]);
+    const candidateRoot = createComparisonNode('candidate-root', 'root', [
+      candidateShared,
+      createComparisonNode('candidate-only', 'added'),
+    ]);
+
+    const result = buildModelTraceComparisonForest([baselineRoot], [candidateRoot]);
+
+    expect(result.topLevelNodes).toHaveLength(1);
+    expect(result.topLevelNodes[0].children?.map((node) => node.title)).toEqual(['shared', 'removed', 'added']);
+    expect(result.comparisonNodeMap['baseline-root']).toBe(candidateRoot);
+    expect(result.comparisonNodeMap['baseline-shared']).toBe(candidateShared);
+    expect(result.comparisonNodeRoleMap['baseline-only']).toBe('baseline');
+    expect(result.comparisonNodeRoleMap['candidate-only']).toBe('candidate');
+  });
+
+  it('remaps one-sided children to their displayed parent IDs', () => {
+    const baselineRoot = createComparisonNode('baseline-root', 'root');
+    const candidateOnlyChild = createComparisonNode('candidate-child', 'candidate-only');
+    const candidateOnlyGrandchild = createComparisonNode('candidate-grandchild', 'candidate-grandchild');
+    candidateOnlyChild.children = [candidateOnlyGrandchild];
+    const candidateRoot = createComparisonNode('candidate-root', 'root', [candidateOnlyChild]);
+
+    const result = buildModelTraceComparisonForest([baselineRoot], [candidateRoot]);
+    const displayedChild = result.topLevelNodes[0].children?.[0];
+
+    expect(displayedChild?.parentId).toBe('baseline-root');
+    expect(displayedChild?.children?.[0].parentId).toBe('candidate-child');
+    expect(result.topLevelNodes[0].parentId).toBeUndefined();
+  });
+
+  it.each([
+    {
+      description: 'candidate insertion between matching inputs',
+      baselineInputs: ['alpha', 'beta'],
+      candidateInputs: ['alpha', 'gamma', 'beta'],
+      expectedRows: ['alpha↔alpha', '—↔gamma', 'beta↔beta'],
+      expectedPairs: ['alpha↔alpha', 'beta↔beta'],
+    },
+    {
+      description: 'candidate removal between matching inputs',
+      baselineInputs: ['alpha', 'gamma', 'beta'],
+      candidateInputs: ['alpha', 'beta'],
+      expectedRows: ['alpha↔alpha', 'gamma↔—', 'beta↔beta'],
+      expectedPairs: ['alpha↔alpha', 'beta↔beta'],
+    },
+    {
+      description: 'changed inputs before a later matching input',
+      baselineInputs: ['gamma', 'beta'],
+      candidateInputs: ['alpha-timeout', 'alpha-success', 'beta'],
+      expectedRows: ['gamma↔alpha-timeout', '—↔alpha-success', 'beta↔beta'],
+      expectedPairs: ['gamma↔alpha-timeout', 'beta↔beta'],
+    },
+    {
+      description: 'reordered matching inputs',
+      baselineInputs: ['alpha', 'beta'],
+      candidateInputs: ['beta', 'alpha'],
+      expectedRows: ['—↔beta', 'alpha↔alpha', 'beta↔—'],
+      expectedPairs: ['alpha↔alpha'],
+    },
+    {
+      description: 'no matching inputs',
+      baselineInputs: ['gamma', 'delta'],
+      candidateInputs: ['alpha', 'beta', 'charlie'],
+      expectedRows: ['gamma↔alpha', 'delta↔beta', '—↔charlie'],
+      expectedPairs: ['gamma↔alpha', 'delta↔beta'],
+    },
+  ])(
+    'aligns repeated sibling spans with $description',
+    ({ baselineInputs, candidateInputs, expectedRows, expectedPairs }) => {
+      const baselineNodes = baselineInputs.map((inputs, index) => {
+        const node = createComparisonNode(`baseline-${index}`, 'search');
+        node.inputs = inputs;
+        return node;
+      });
+      const candidateNodes = candidateInputs.map((inputs, index) => {
+        const node = createComparisonNode(`candidate-${index}`, 'search');
+        node.inputs = inputs;
+        return node;
+      });
+
+      const forest = buildModelTraceComparisonForest(baselineNodes, candidateNodes);
+      const displayedRows = forest.topLevelNodes.map((displayNode) => {
+        const displayKey = String(displayNode.key);
+        if (forest.comparisonNodeRoleMap[displayKey] === 'candidate') {
+          return `—↔${String(displayNode.inputs)}`;
+        }
+        const candidateNode = forest.comparisonNodeMap[displayKey];
+        return `${String(displayNode.inputs)}↔${candidateNode ? String(candidateNode.inputs) : '—'}`;
+      });
+      expect(displayedRows).toEqual(expectedRows);
+
+      const baselineNodesByKey = Object.fromEntries(baselineNodes.map((node) => [String(node.key), node]));
+      const { baselineToCandidate } = pairModelTraceSpanTrees(baselineNodes, candidateNodes);
+      const pairs = Object.entries(baselineToCandidate).map(
+        ([baselineKey, candidateNode]) =>
+          `${String(baselineNodesByKey[baselineKey].inputs)}↔${String(candidateNode.inputs)}`,
+      );
+      expect(pairs).toEqual(expectedPairs);
+    },
+  );
+});
+
+describe('buildModelTraceComparisonForest at scale', () => {
+  const createLlmSiblings = (side: string, count: number) =>
+    Array.from({ length: count }, (_, index) => {
+      const node = createComparisonNode(`${side}-${index}`, 'llm');
+      node.inputs = {
+        messages: Array.from({ length: 20 }, (__, turn) => ({
+          role: 'user',
+          content: `turn ${turn} ${'x'.repeat(200)}`,
+        })),
+      };
+      return node;
+    });
+
+  it('aligns 1,000 same-name siblings with identical inputs on each side quickly', () => {
+    const start = performance.now();
+    const forest = buildModelTraceComparisonForest(
+      createLlmSiblings('baseline', 1000),
+      createLlmSiblings('candidate', 1000),
+    );
+
+    expect(performance.now() - start).toBeLessThan(2000);
+    expect(forest.topLevelNodes).toHaveLength(1000);
+    expect(forest.comparisonNodeMap['baseline-999'].key).toBe('candidate-999');
+  });
+
+  it('anchors inputs that differ only in key order', () => {
+    const baselineNode = createComparisonNode('baseline-0', 'search');
+    baselineNode.inputs = { query: 'alpha', limit: 5 };
+    const candidateInsert = createComparisonNode('candidate-0', 'search');
+    candidateInsert.inputs = { query: 'gamma' };
+    const candidateNode = createComparisonNode('candidate-1', 'search');
+    candidateNode.inputs = { limit: 5, query: 'alpha' };
+
+    const { baselineToCandidate } = pairModelTraceSpanTrees([baselineNode], [candidateInsert, candidateNode]);
+
+    expect(baselineToCandidate['baseline-0']).toBe(candidateNode);
+  });
+
+  it('pairs siblings by position when there are too many to align by inputs', () => {
+    const baselineNodes = createLlmSiblings('baseline', 1001);
+    const candidateNodes = createLlmSiblings('candidate', 1001);
+    candidateNodes[0].inputs = { query: 'inserted' };
+
+    const { baselineToCandidate } = pairModelTraceSpanTrees(baselineNodes, candidateNodes);
+
+    expect(baselineToCandidate['baseline-0'].key).toBe('candidate-0');
+    expect(baselineToCandidate['baseline-1000'].key).toBe('candidate-1000');
+  });
+});
+
+describe('getModelTraceTimelineRange', () => {
+  it('spans both sides of a comparison when the candidate runs longer', () => {
+    const baselineRoot = createComparisonNode('baseline-root', 'root');
+    const candidateRoot = { ...createComparisonNode('candidate-root', 'root'), start: 0, end: 5 };
+    const { topLevelNodes, comparisonNodeMap } = buildModelTraceComparisonForest([baselineRoot], [candidateRoot]);
+
+    expect(getModelTraceTimelineRange(topLevelNodes, comparisonNodeMap)).toEqual({
+      traceStartTime: 0,
+      traceEndTime: 5,
+    });
+    expect(getModelTraceTimelineRange([baselineRoot], {})).toEqual({ traceStartTime: 0, traceEndTime: 1 });
+  });
+});
 
 describe('parseTraceToTree', () => {
   it('should parse a trace into an MLflowSpanNode', () => {

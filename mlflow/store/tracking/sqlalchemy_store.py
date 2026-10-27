@@ -10,6 +10,7 @@ import threading
 import time
 import uuid
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from functools import lru_cache, reduce
 from pathlib import PurePath
@@ -81,6 +82,7 @@ from mlflow.entities.trace_metrics import (
 )
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.environment_variables import MLFLOW_TRACE_DELETE_MAX_WORKERS
 from mlflow.exceptions import (
     MlflowException,
     MlflowTraceArchivalMalformedTrace,
@@ -299,6 +301,7 @@ from mlflow.utils.search_utils import (
     SearchUtils,
 )
 from mlflow.utils.string_utils import is_string_type
+from mlflow.utils.thread_utils import map_with_context
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import (
     append_to_uri_path,
@@ -2904,7 +2907,9 @@ class SqlAlchemyStore(
 
         Raises:
             MlflowException: If the scorer name is invalid, if the model is invalid,
-                or if the scorer references a gateway endpoint that does not exist.
+                if the scorer references a gateway endpoint that does not exist, or if the
+                experiment has a scorer whose name differs from ``name`` but that the database
+                compares as equal (``RESOURCE_ALREADY_EXISTS``).
         """
         # Validate scorer name
         validate_scorer_name(name)
@@ -2933,22 +2938,21 @@ class SqlAlchemyStore(
                 )
                 serialized_scorer = json.dumps(serialized_data)
 
-            # First, check if the scorer exists in the scorers table
-            scorer = (
-                session
-                .query(SqlScorer)
-                .filter(
-                    # ``Experiment.experiment_id`` (the entity field) is a
-                    # string while the column is INTEGER; psycopg v3 binds
-                    # strings as typed VARCHAR, which PostgreSQL rejects
-                    # ("operator does not exist: integer = character
-                    # varying"), so compare through int(). Safe: the id of a
-                    # validated experiment is always a stringified integer.
-                    SqlScorer.experiment_id == int(experiment.experiment_id),
-                    SqlScorer.scorer_name == name,
-                )
-                .first()
+            scorer = self._find_sql_scorer_by_collation(
+                session, int(experiment.experiment_id), name
             )
+            if scorer is not None and scorer.scorer_name != name:
+                # Only on a database that compares names without case or accents. The scorer
+                # table allows one scorer per name there, so the only option would be to add a
+                # version to the existing scorer, which would bypass the permission grants on its
+                # real name. The message leaves out that name, which the caller may not be allowed
+                # to see.
+                raise MlflowException(
+                    f"Experiment {experiment_id} already has a scorer whose name this database "
+                    f"compares as equal to {name!r}, so a scorer named {name!r} cannot be "
+                    "registered. Use a different name.",
+                    RESOURCE_ALREADY_EXISTS,
+                )
 
             if scorer is None:
                 # Create the scorer record with a new UUID
@@ -3161,18 +3165,7 @@ class SqlAlchemyStore(
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
 
-            # First, get the scorer record
-            scorer = (
-                session
-                .query(SqlScorer)
-                .filter(
-                    # int(): see register_scorer — psycopg v3 VARCHAR binds
-                    # don't compare against the INTEGER column.
-                    SqlScorer.experiment_id == int(experiment.experiment_id),
-                    SqlScorer.scorer_name == name,
-                )
-                .first()
-            )
+            scorer = self._get_sql_scorer_exact(session, int(experiment.experiment_id), name)
 
             if scorer is None:
                 raise MlflowException(
@@ -3253,18 +3246,7 @@ class SqlAlchemyStore(
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
 
-            # First, get the scorer record
-            scorer = (
-                session
-                .query(SqlScorer)
-                .filter(
-                    # int(): see register_scorer — psycopg v3 VARCHAR binds
-                    # don't compare against the INTEGER column.
-                    SqlScorer.experiment_id == int(experiment.experiment_id),
-                    SqlScorer.scorer_name == name,
-                )
-                .first()
-            )
+            scorer = self._get_sql_scorer_exact(session, int(experiment.experiment_id), name)
 
             if scorer is None:
                 raise MlflowException(
@@ -3331,18 +3313,7 @@ class SqlAlchemyStore(
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
 
-            # First, get the scorer record
-            scorer = (
-                session
-                .query(SqlScorer)
-                .filter(
-                    # int(): see register_scorer — psycopg v3 VARCHAR binds
-                    # don't compare against the INTEGER column.
-                    SqlScorer.experiment_id == int(experiment.experiment_id),
-                    SqlScorer.scorer_name == name,
-                )
-                .first()
-            )
+            scorer = self._get_sql_scorer_exact(session, int(experiment.experiment_id), name)
 
             if scorer is None:
                 raise MlflowException(
@@ -3407,6 +3378,42 @@ class SqlAlchemyStore(
             )
 
             return [config.to_mlflow_entity() for config in results]
+
+    @staticmethod
+    def _find_sql_scorer_by_collation(session, experiment_id: int, name: str) -> SqlScorer | None:
+        """Return the experiment's scorer whose name equals ``name`` in SQL.
+
+        MySQL and SQL Server compare strings without case by default (MySQL also without accents,
+        and SQL Server without trailing spaces), so the scorer's name can differ from ``name``.
+        Use ``_get_sql_scorer_exact`` to act on the scorer that ``name`` names.
+        """
+        return (
+            session
+            .query(SqlScorer)
+            .filter(
+                # ``Experiment.experiment_id`` (the entity field) is a
+                # string while the column is INTEGER; psycopg v3 binds
+                # strings as typed VARCHAR, which PostgreSQL rejects
+                # ("operator does not exist: integer = character
+                # varying"), so callers pass int(). Safe: the id of a
+                # validated experiment is always a stringified integer.
+                SqlScorer.experiment_id == experiment_id,
+                SqlScorer.scorer_name == name,
+            )
+            .first()
+        )
+
+    @classmethod
+    def _get_sql_scorer_exact(cls, session, experiment_id: int, name: str) -> SqlScorer | None:
+        """Return the experiment's scorer named exactly ``name``, or None.
+
+        Permission grants on a scorer are keyed by the name in the request, so a scorer that
+        matches ``name`` only under the database's collation is not found here. Otherwise a
+        request for ``JUDGE`` would act on ``judge`` without the grants on ``judge``. Do not
+        replace this check with a case-insensitive comparison: collations also ignore accents.
+        """
+        scorer = cls._find_sql_scorer_by_collation(session, experiment_id, name)
+        return scorer if scorer is not None and scorer.scorer_name == name else None
 
     @staticmethod
     def _validate_online_judge(scorer_name: str, serialized_scorer: str) -> None:
@@ -3525,17 +3532,7 @@ class SqlAlchemyStore(
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
 
-            scorer = (
-                session
-                .query(SqlScorer)
-                .filter(
-                    # int(): see register_scorer — psycopg v3 VARCHAR binds
-                    # don't compare against the INTEGER column.
-                    SqlScorer.experiment_id == int(experiment.experiment_id),
-                    SqlScorer.scorer_name == scorer_name,
-                )
-                .first()
-            )
+            scorer = self._get_sql_scorer_exact(session, int(experiment.experiment_id), scorer_name)
             if scorer is None:
                 raise MlflowException(
                     f"Scorer with name '{scorer_name}' not found for experiment {experiment_id}.",
@@ -4158,16 +4155,39 @@ class SqlAlchemyStore(
                         f"Trace with ID '{trace_id}' no longer exists.",
                         error_code=RESOURCE_DOES_NOT_EXIST,
                     )
+                if str(db_sql_trace_info.experiment_id) != str(trace_info.experiment_id):
+                    # Only merge a racing write into the same experiment's trace; never move
+                    # another experiment's trace into the caller's.
+                    raise MlflowException(
+                        f"Trace with ID '{trace_id}' already exists in another experiment.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
                 if not self._is_sql_trace_db_backed(db_sql_trace_info):
                     raise MlflowException(
                         f"Cannot update traces that are no longer DB-backed: '{trace_id}'.",
                         error_code=INVALID_STATE,
                     )
+                # Assessments are merged by ID alone, so one that belongs to another trace would
+                # be moved here and overwritten.
+                if assessment_ids := [a.assessment_id for a in sql_assessments]:
+                    if foreign := (
+                        session
+                        .query(SqlAssessments.assessment_id)
+                        .filter(
+                            SqlAssessments.assessment_id.in_(assessment_ids),
+                            SqlAssessments.trace_id != trace_id,
+                        )
+                        .first()
+                    ):
+                        raise MlflowException(
+                            f"Assessment with ID '{foreign.assessment_id}' belongs to another "
+                            "trace.",
+                            error_code=INVALID_PARAMETER_VALUE,
+                        )
                 # Advance the payload generation before staging ORM writes so a concurrent archival
                 # finalization cannot be hidden by autoflush re-publishing TRACKING_STORE.
                 self._advance_db_payload_generations_for_db_span_writes(session, [trace_id])
 
-                db_sql_trace_info.experiment_id = trace_info.experiment_id
                 db_sql_trace_info.timestamp_ms = trace_info.request_time
                 db_sql_trace_info.execution_time_ms = trace_info.execution_duration
                 db_sql_trace_info.status = trace_info.state.value
@@ -5156,11 +5176,9 @@ class SqlAlchemyStore(
     def _delete_archived_trace_payloads(
         self, selected_traces: list[_TraceDeleteSelection]
     ) -> list[str]:
-        deleted_trace_ids = []
-        for selected_trace in selected_traces:
+        def delete_payload(selected_trace: _TraceDeleteSelection) -> str | None:
             if selected_trace.archived_artifact_uri is None:
-                deleted_trace_ids.append(selected_trace.trace_id)
-                continue
+                return selected_trace.trace_id
             try:
                 get_artifact_repository(selected_trace.archived_artifact_uri).delete_artifacts(
                     TRACE_ARCHIVAL_FILENAME
@@ -5173,9 +5191,20 @@ class SqlAlchemyStore(
                         selected_trace.trace_id,
                         exc_info=True,
                     )
-                    continue
-            deleted_trace_ids.append(selected_trace.trace_id)
-        return deleted_trace_ids
+                    return None
+            return selected_trace.trace_id
+
+        if len(selected_traces) <= 1:
+            deleted_trace_ids = [delete_payload(trace) for trace in selected_traces]
+        else:
+            with ThreadPoolExecutor(
+                max_workers=min(MLFLOW_TRACE_DELETE_MAX_WORKERS.get(), len(selected_traces)),
+                thread_name_prefix="mlflow-trace-delete",
+            ) as executor:
+                deleted_trace_ids = list(
+                    map_with_context(executor, delete_payload, selected_traces)
+                )
+        return [trace_id for trace_id in deleted_trace_ids if trace_id is not None]
 
     def create_assessment(self, assessment: Assessment) -> Assessment:
         """
@@ -6101,6 +6130,18 @@ class SqlAlchemyStore(
 
             # Keep downstream per-trace updates aligned with the surviving span rows.
             all_trace_ids = [trace_id for trace_id in all_trace_ids if trace_id in existing_traces]
+
+            # Only add spans to traces in the experiment being logged to; never write into a
+            # trace stored in another experiment.
+            if foreign_trace_ids := sorted(
+                trace_id
+                for trace_id in all_trace_ids
+                if str(existing_traces[trace_id].experiment_id) != str(location)
+            ):
+                raise MlflowException(
+                    f"Trace with ID '{foreign_trace_ids[0]}' already exists in another experiment.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
 
             # Serialize concurrent log_spans() calls for the same trace, so that Phase 5's
             # recompute of the trace-level token usage/cost sees every span committed for the

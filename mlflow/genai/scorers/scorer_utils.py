@@ -102,10 +102,20 @@ class FunctionBodyExtractor(ast.NodeVisitor):
         if not body:
             return
 
+        source_lines = self.source_code.splitlines(keepends=True)
+        # A body on the same line as the header (`def f(outputs): return True`) shares that line
+        # with the header, so taking whole lines would take the header too. Such a body has only
+        # simple statements on one logical line, so take each statement and put it on its own line.
+        first = node.body[0]
+        if source_lines[first.lineno - 1][: first.col_offset].strip():
+            self.function_body = "\n".join(
+                ast.get_source_segment(self.source_code, stmt) for stmt in body
+            )
+            return
+
         start_lineno = body[0].lineno
         end_lineno = body[-1].end_lineno
 
-        source_lines = self.source_code.splitlines(keepends=True)
         function_body_lines = source_lines[start_lineno - 1 : end_lineno]
 
         self.function_body = dedent("".join(function_body_lines)).rstrip("\n")

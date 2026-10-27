@@ -1210,6 +1210,28 @@ def test_load_table(file_type):
     reason="Skinny client does not support the np or pandas dependencies",
 )
 @pytest.mark.parametrize("file_type", ["json", "parquet"])
+def test_client_load_table_uses_client_tracking_uri(tmp_path, file_type):
+    mlflow.set_tracking_uri(f"sqlite:///{tmp_path / 'global.db'}")
+    client = MlflowClient(tracking_uri=f"sqlite:///{tmp_path / 'client.db'}")
+    experiment_id = client.create_experiment(
+        "table", artifact_location=(tmp_path / "artifacts").as_uri()
+    )
+    run_id = client.create_run(experiment_id).info.run_id
+    artifact_file = f"predictions.{file_type}"
+    client.log_table(run_id, {"prediction": ["hello"]}, artifact_file)
+
+    output_df = client.load_table(experiment_id, artifact_file, extra_columns=["run_id"])
+    assert output_df.to_dict("list") == {"prediction": ["hello"], "run_id": [run_id]}
+
+    output_df = client.load_table(experiment_id, artifact_file, run_ids=[run_id])
+    assert output_df.to_dict("list") == {"prediction": ["hello"]}
+
+
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny client does not support the np or pandas dependencies",
+)
+@pytest.mark.parametrize("file_type", ["json", "parquet"])
 def test_log_table_with_datetime_columns(file_type):
     import pandas as pd
 
@@ -1241,6 +1263,34 @@ def test_log_table_with_datetime_columns(file_type):
     else:
         df = pd.read_json(artifact_path, orient="split", convert_dates=False)
     assert df["start_time"][2] == start_time
+
+
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny client does not support the np or pandas dependencies",
+)
+def test_log_table_append_preserves_existing_json_values():
+    start_time = str(datetime.now(timezone.utc))
+    artifact_file = "results.json"
+    batches = [
+        {"zip_code": ["02108"], "id": ["12345678901234567890"], "start_time": [start_time]},
+        {"zip_code": ["10001"], "id": ["12345678901234567891"], "start_time": [start_time]},
+        {"zip_code": ["00501"], "id": ["12345678901234567892"], "start_time": [start_time]},
+    ]
+    with mlflow.start_run() as run:
+        for batch in batches:
+            mlflow.log_table(data=batch, artifact_file=artifact_file)
+
+    artifact_path = mlflow.artifacts.download_artifacts(
+        run_id=run.info.run_id, artifact_path=artifact_file
+    )
+    with open(artifact_path) as f:
+        saved = json.load(f)
+    assert saved["data"] == [
+        ["02108", "12345678901234567890", start_time],
+        ["10001", "12345678901234567891", start_time],
+        ["00501", "12345678901234567892", start_time],
+    ]
 
 
 @pytest.mark.skipif(

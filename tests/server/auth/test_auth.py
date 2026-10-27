@@ -370,6 +370,37 @@ def test_is_unprotected_route_handles_static_prefix(monkeypatch):
     assert not auth_module.is_unprotected_route("/mlflow/api/2.0/mlflow/users/list")
 
 
+@pytest.mark.parametrize("prefix", ["/static", "/static-ui", "/healthz", "/favicon.ico-app"])
+def test_is_unprotected_route_static_prefix_starting_with_exempt_path(monkeypatch, prefix):
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, prefix)
+    assert not auth_module.is_unprotected_route(f"{prefix}/api/2.0/mlflow/users/create")
+    assert not auth_module.is_unprotected_route(f"{prefix}/ajax-api/3.0/jobs/search")
+    assert not auth_module.is_unprotected_route(f"{prefix}/gateway/my-endpoint/mlflow/invocations")
+    assert auth_module.is_unprotected_route(f"{prefix}/health")
+    assert auth_module.is_unprotected_route(f"{prefix}/static-files/index.html")
+
+
+@pytest.mark.parametrize(
+    "client",
+    [
+        {
+            "MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini",
+            STATIC_PREFIX_ENV_VAR: "/static-ui",
+        }
+    ],
+    indirect=True,
+)
+def test_static_prefix_starting_with_exempt_path_requires_auth(client):
+    base = f"{client.tracking_uri}/static-ui"
+    response = requests.get(f"{base}/api/2.0/mlflow/users/get", params={"username": "admin"})
+    assert response.status_code == 401
+    response = requests.post(
+        f"{base}/api/2.0/mlflow/users/create", json={"username": "probe", "password": "x" * 12}
+    )
+    assert response.status_code == 401
+    assert requests.get(f"{base}/health").status_code == 200
+
+
 def test_find_fastapi_validator_handles_static_prefix(monkeypatch):
     monkeypatch.delenv(STATIC_PREFIX_ENV_VAR, raising=False)
     assert _find_fastapi_validator("/gateway/mlflow/v1/chat/completions", "GET") is not None
@@ -1363,6 +1394,26 @@ def test_search_experiments(client, monkeypatch):
 
         names = sorted([exp.name for exp in experiments])
         assert names == [f"exp{i}" for i in readable]
+
+
+@pytest.mark.parametrize("is_admin", [False, True])
+@pytest.mark.parametrize("tags", [[], [{"key": "mlflow.prompt.is_prompt", "value": "true"}]])
+def test_wildcard_registered_model_name_is_rejected(client, tags, is_admin):
+    auth = (ADMIN_USERNAME, ADMIN_PASSWORD) if is_admin else create_user(client.tracking_uri)
+    base = f"{client.tracking_uri}/api/2.0/mlflow/registered-models"
+
+    response = requests.post(f"{base}/create", json={"name": "*", "tags": tags}, auth=auth)
+    assert response.status_code == 400
+    assert "reserved for wildcard" in response.json()["message"]
+
+    name = f"model-{uuid.uuid4().hex}"
+    response = requests.post(f"{base}/create", json={"name": name, "tags": tags}, auth=auth)
+    assert response.status_code == 200
+    response = requests.post(f"{base}/rename", json={"name": name, "new_name": "*"}, auth=auth)
+    assert response.status_code == 400
+    assert "reserved for wildcard" in response.json()["message"]
+    response = requests.get(f"{base}/get", params={"name": name}, auth=auth)
+    assert response.status_code == 200
 
 
 @pytest.mark.parametrize(
@@ -9133,7 +9184,6 @@ def test_artifact_proxy_classifies_a_bare_run_id_as_a_run():
     # Shapes that are not a run id stay experiment-level on a point read, so an experiment-level
     # artifact is not swept into the run tier.
     for segment in (
-        run_id.upper(),  # run ids are lowercase hex
         run_id[:-1],  # 31 characters
         f"{run_id}3",  # 33 characters
         "notes.txt",
@@ -9148,6 +9198,21 @@ def test_artifact_proxy_classifies_a_bare_run_id_as_a_run():
     )
     assert classify("1", recursive=False) == ()
     assert classify("1", recursive=True) == auth_module._ARTIFACT_PROXY_EXPERIMENT_ROOT_TIERS
+
+
+def test_artifact_proxy_child_types_ignore_case():
+    # A case-insensitive local store serves ``MODELS`` from ``models``, so a case variant must be
+    # judged against the same tier as the canonical spelling.
+    run_id = "336fd361d5624171b792e03b99c69f63"
+    classify = auth_module._artifact_proxy_child_types
+    for path, expected in (
+        ("1/MODELS/m-1/artifacts/f", auth_module.RESOURCE_TYPE_LOGGED_MODEL),
+        ("1/Traces/tr-1/artifacts/f", auth_module.RESOURCE_TYPE_TRACE),
+        (f"1/{run_id.upper()}", auth_module.RESOURCE_TYPE_RUN),
+        (f"1/{run_id.upper()}/ARTIFACTS/f", auth_module.RESOURCE_TYPE_RUN),
+        ("workspaces/wsb/1/MODELS/m-1", auth_module.RESOURCE_TYPE_LOGGED_MODEL),
+    ):
+        assert classify(path, recursive=False) == (expected,)
 
 
 @pytest.mark.parametrize(
@@ -9493,3 +9558,99 @@ def test_a_deny_holds_for_every_spelling_of_the_experiment_id(client, monkeypatc
             auth=(experiment_denied, experiment_denied_pw),
         )
         assert response.status_code == 403, spelling
+
+
+@pytest.mark.parametrize("encode", [json.dumps, lambda body: json.dumps(json.dumps(body))])
+def test_delete_authorizes_body_params_regardless_of_content_type(client, monkeypatch, encode):
+    owner, owner_pw = create_user(client.tracking_uri)
+    other, other_pw = create_user(client.tracking_uri)
+    with User(owner, owner_pw, monkeypatch):
+        client.create_registered_model("victim_model")
+    with User(other, other_pw, monkeypatch):
+        client.create_registered_model("own_model")
+
+    # Handlers read the JSON body whatever the Content-Type, so auth must check the body name.
+    response = requests.delete(
+        url=client.tracking_uri + "/api/2.0/mlflow/registered-models/delete",
+        params={"name": "own_model"},
+        data=encode({"name": "victim_model"}),
+        headers={"Content-Type": "text/plain"},
+        auth=(other, other_pw),
+    )
+
+    assert response.status_code == 403
+    with User(owner, owner_pw, monkeypatch):
+        assert client.get_registered_model("victim_model").name == "victim_model"
+
+
+def test_delete_with_double_encoded_body_cleans_up_permissions(client, monkeypatch):
+    owner, owner_pw = create_user(client.tracking_uri)
+    with User(owner, owner_pw, monkeypatch):
+        client.create_registered_model("own_model")
+
+    response = requests.delete(
+        url=client.tracking_uri + "/api/2.0/mlflow/registered-models/delete",
+        data=json.dumps(json.dumps({"name": "own_model"})),
+        headers={"Content-Type": "text/plain"},
+        auth=(owner, owner_pw),
+    )
+
+    assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_run_permission_checks_camel_case_run_id(client, monkeypatch):
+    victim, victim_password = create_user(client.tracking_uri)
+    attacker, attacker_password = create_user(client.tracking_uri)
+    with User(victim, victim_password, monkeypatch):
+        victim_run = client.create_run(client.create_experiment("victim_exp"))
+    with User(attacker, attacker_password, monkeypatch):
+        own_run = client.create_run(client.create_experiment("attacker_exp"))
+
+    response = requests.post(
+        url=client.tracking_uri + "/api/2.0/mlflow/runs/update",
+        json={"runId": victim_run.info.run_id, "run_uuid": own_run.info.run_id, "status": "FAILED"},
+        auth=(attacker, attacker_password),
+    )
+
+    assert response.status_code == 403
+    with User(victim, victim_password, monkeypatch):
+        assert client.get_run(victim_run.info.run_id).info.status == "RUNNING"
+
+    # GET handlers ignore `runId` in the query string, so it must not be authorized either.
+    response = requests.get(
+        url=client.tracking_uri + "/api/2.0/mlflow/runs/get",
+        params={"runId": own_run.info.run_id, "run_uuid": victim_run.info.run_id},
+        auth=(attacker, attacker_password),
+    )
+    assert response.status_code == 403
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_finalize_logged_model_acts_on_url_model_id(client, monkeypatch):
+    victim, victim_password = create_user(client.tracking_uri)
+    attacker, attacker_password = create_user(client.tracking_uri)
+    with User(victim, victim_password, monkeypatch):
+        victim_model = client.create_logged_model(client.create_experiment("victim_exp"))
+    with User(attacker, attacker_password, monkeypatch):
+        own_model = client.create_logged_model(client.create_experiment("attacker_exp"))
+
+    response = requests.patch(
+        url=client.tracking_uri + f"/api/2.0/mlflow/logged-models/{own_model.model_id}",
+        json={"model_id": victim_model.model_id, "status": LoggedModelStatus.FAILED.to_int()},
+        auth=(attacker, attacker_password),
+    )
+
+    assert response.status_code == 200
+    with User(victim, victim_password, monkeypatch):
+        assert client.get_logged_model(victim_model.model_id).status == LoggedModelStatus.PENDING
+    with User(attacker, attacker_password, monkeypatch):
+        assert client.get_logged_model(own_model.model_id).status == LoggedModelStatus.FAILED

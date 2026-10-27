@@ -614,16 +614,16 @@ _UNPROTECTED_PATH_PREFIXES = ("/static", "/favicon.ico", "/health")
 
 def is_unprotected_route(path: str) -> bool:
     # When ``_MLFLOW_STATIC_PREFIX`` is set, the health/static routes are
-    # actually served from e.g. ``/mlflow/health``, not ``/health``. Match
-    # both the unprefixed and the prefixed forms so health checks don't end
-    # up requiring auth on prefixed deployments.
-    prefixed = tuple(_add_static_prefix(p) for p in _UNPROTECTED_PATH_PREFIXES)
-    if path.startswith(_UNPROTECTED_PATH_PREFIXES) or path.startswith(prefixed):
+    # actually served from e.g. ``/mlflow/health``, not ``/health``. Strip the
+    # prefix before matching: matching the full path would let a prefix that
+    # itself starts with an exempt path (e.g. ``/static-ui``) exempt every route.
+    bare_path = _strip_static_prefix(path)
+    if bare_path.startswith(_UNPROTECTED_PATH_PREFIXES):
         return True
     # Server-info is public, including on a basic-auth server, so a client can read
     # how the server is configured before logging in. Keep the payload free of
     # secrets; see build_server_info_payload.
-    return _matches_route_suffix(_strip_static_prefix(path), _PUBLIC_ROUTE_SUFFIXES)
+    return _matches_route_suffix(bare_path, _PUBLIC_ROUTE_SUFFIXES)
 
 
 def make_basic_auth_response() -> Response:
@@ -643,6 +643,20 @@ def make_forbidden_response() -> Response:
     return res
 
 
+def _get_delete_request_args():
+    # DELETE handlers read the body as JSON regardless of Content-Type (including
+    # double-encoded bodies), so authorize against the same values they will act on.
+    if not request.get_data():
+        return request.args
+    body = _get_normalized_request_json()
+    return body if isinstance(body, dict) else {}
+
+
+def _snake_to_camel(name: str) -> str:
+    parts = name.split("_")
+    return parts[0] + "".join(p.capitalize() for p in parts[1:])
+
+
 def _get_request_param(param: str) -> str:
     if request.method == "GET":
         args = request.args
@@ -652,11 +666,7 @@ def _get_request_param(param: str) -> str:
         body = request.get_json(silent=True)
         args = body if isinstance(body, dict) else {}
     elif request.method == "DELETE":
-        if request.is_json:
-            body = request.get_json(silent=True)
-            args = body if isinstance(body, dict) else {}
-        else:
-            args = request.args
+        args = _get_delete_request_args()
     else:
         raise MlflowException(
             f"Unsupported HTTP method '{request.method}'",
@@ -665,6 +675,10 @@ def _get_request_param(param: str) -> str:
 
     args = args | (request.view_args or {})
     if param not in args:
+        # Handlers parse a body as protobuf JSON, which also accepts the lowerCamelCase name.
+        # GET handlers read only the snake_case query keys, so don't look it up there.
+        if request.method != "GET" and (camel_param := _snake_to_camel(param)) in args:
+            return args[camel_param]
         # Special handling for run_id
         if param == "run_id":
             return _get_request_param("run_uuid")
@@ -1149,8 +1163,9 @@ def _get_experiment_permission(experiment_id: str, username: str) -> Permission:
 # workspaces are enabled, non-default workspaces prefix the path with
 # ``workspaces/<workspace>/``. Accept the optional prefix so the experiment id is
 # resolved in both layouts; otherwise the prefixed form fails to match and the
-# artifact-proxy validator falls back to the coarser workspace-tier grant.
-_EXPERIMENT_ID_PATTERN = re.compile(r"^(?:workspaces/[^/]+/)?(\d+)/")
+# artifact-proxy validator falls back to the coarser workspace-tier grant. Case-insensitive
+# like the artifact handler's reserved-prefix check.
+_EXPERIMENT_ID_PATTERN = re.compile(r"^(?:workspaces/[^/]+/)?(\d+)/", re.IGNORECASE)
 
 
 def _experiment_id_from_canonical_proxy_path(canonical: str) -> "str | None":
@@ -1188,7 +1203,8 @@ def _artifact_proxy_child_types(artifact_path: str, *, recursive: bool) -> "tupl
     can reach, so stripping a path segment cannot turn a denied delete into a permitted one.
     """
     remainder = _EXPERIMENT_ID_PATTERN.sub("", f"{artifact_path.lstrip('/')}/", count=1)
-    segments = [segment for segment in remainder.split("/") if segment]
+    # Lowercased because a case-insensitive local store serves ``MODELS`` as ``models``.
+    segments = [segment.lower() for segment in remainder.split("/") if segment]
     if not segments:
         # The experiment artifact root contains every child tier's subtree.
         return _ARTIFACT_PROXY_EXPERIMENT_ROOT_TIERS if recursive else ()
@@ -1233,7 +1249,8 @@ def _parse_artifact_auth_target(artifact_path: str | None) -> _ArtifactAuthTarge
     segments = canonical.strip("/").split("/")
     workspace = None
     relative_path = canonical
-    if segments[0] == "workspaces":
+    # Matches the artifact handler, which treats any case of ``workspaces`` as the reserved prefix.
+    if segments[0].lower() == "workspaces":
         if len(segments) < 3 or segments[1] in ("", ".", ".."):
             return _ArtifactAuthTarget(invalid=True)
         workspace = segments[1]
@@ -2301,6 +2318,22 @@ def _validate_can_update_registered_model_or_prompt():
     return _get_permission_from_registered_model_or_prompt_name().can_update
 
 
+def _reject_wildcard_model_name(name: str) -> None:
+    # Model and prompt grants are keyed by name, so "*" would become a wildcard grant.
+    if name == "*":
+        raise MlflowException.invalid_parameter_value(
+            "'*' is reserved for wildcard permission grants and cannot be used as a "
+            "registered model or prompt name."
+        )
+
+
+def validate_can_rename_registered_model() -> bool:
+    if not _validate_can_update_registered_model_or_prompt():
+        return False
+    _reject_wildcard_model_name(_get_request_message(RenameRegisteredModel()).new_name)
+    return True
+
+
 def _validate_can_delete_registered_model_or_prompt():
     return _get_permission_from_registered_model_or_prompt_name().can_delete
 
@@ -2633,6 +2666,7 @@ def validate_can_create_registered_model() -> bool:
             RESOURCE_TYPE_REGISTERED_MODEL
         ) and _workspace_create_not_denied(RESOURCE_TYPE_PROMPT)
     msg = _get_request_message(CreateRegisteredModel())
+    _reject_wildcard_model_name(msg.name)
     created_type = (
         RESOURCE_TYPE_PROMPT if _entity_is_prompt(msg) else RESOURCE_TYPE_REGISTERED_MODEL
     )
@@ -2859,9 +2893,7 @@ def _request_params() -> dict[str, object]:
     if request.method in ("POST", "PATCH"):
         return dict(request.get_json(silent=True) or {})
     if request.method == "DELETE":
-        if request.is_json:
-            return dict(request.get_json(silent=True) or {})
-        return dict(request.args)
+        return dict(_get_delete_request_args())
     return {}
 
 
@@ -4662,6 +4694,15 @@ def enforce_review_queue_name_not_username():
         _reject_rename_review_queue_shadowing_user(queue, _parse_update_review_queue_request())
 
 
+def enforce_model_name_not_wildcard():
+    """Apply the validators' wildcard-name check to admins, who skip the validators."""
+    validator = _find_validator(request)
+    if validator is validate_can_create_registered_model:
+        _reject_wildcard_model_name(_get_request_message(CreateRegisteredModel()).name)
+    elif validator is validate_can_rename_registered_model:
+        _reject_wildcard_model_name(_get_request_message(RenameRegisteredModel()).new_name)
+
+
 def validate_can_remove_items_from_review_queue():
     username = authenticate_request().username
     queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
@@ -4815,7 +4856,7 @@ BEFORE_REQUEST_HANDLERS = {
     GetRegisteredModel: _validate_can_read_registered_model_or_prompt,
     DeleteRegisteredModel: validate_can_delete_registered_model_or_prompt_cascade,
     UpdateRegisteredModel: _validate_can_update_registered_model_or_prompt,
-    RenameRegisteredModel: _validate_can_update_registered_model_or_prompt,
+    RenameRegisteredModel: validate_can_rename_registered_model,
     GetLatestVersions: validate_can_read_model_or_prompt_version,
     CreateModelVersion: validate_can_create_model_version,
     GetModelVersion: validate_can_read_model_or_prompt_version,
@@ -5696,6 +5737,7 @@ def _before_request():
     # inside the validators).
     if sender_is_admin():
         enforce_review_queue_name_not_username()
+        enforce_model_name_not_wildcard()
         return
 
     # authorization
@@ -5756,9 +5798,7 @@ def delete_can_manage_registered_model_permission(resp: Response):
     now. Names are unique within the registry, so exactly one of the two
     sweeps applies and the other is a no-op.
     """
-    # ``silent=True`` returns ``None`` on missing / unparsable bodies; the
-    # ``or {}`` guard prevents a ``TypeError`` from leaking out as a 500.
-    data = request.get_json(force=True, silent=True) or {}
+    data = _get_delete_request_args()
     name = data.get("name")
     if not name:
         raise MlflowException(
@@ -6366,7 +6406,7 @@ def set_can_manage_scorer_permission(resp: Response):
 
 
 def delete_scorer_permissions_cascade(resp: Response):
-    data = request.get_json(force=True, silent=True)
+    data = _get_delete_request_args()
     experiment_id = data.get("experiment_id")
     name = data.get("name")
     if experiment_id and name:
