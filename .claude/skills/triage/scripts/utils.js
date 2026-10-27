@@ -60,16 +60,17 @@ function isTrustedActor({ repo, actor, api = ghApi }) {
     if (/HTTP 404\b|404 Not Found/.test(detail)) return false;
     throw error;
   }
-  return ["admin", "maintain"].includes(permission.role_name);
+  return ["admin", "maintain", "write"].includes(permission.role_name);
 }
 
 function resolveIssueOptions({ repo, eventName, event, api = ghApi }) {
   if (eventName !== "issues" || event?.action !== "opened") return {};
   const issue = event.issue;
   const body = issue?.body ?? "";
-  if (!TRIAGE_MARKER.test(body)) return {};
+  if (issue.user?.type === "Bot") return {};
   if (!isTrustedActor({ repo, actor: issue.user, api })) return {};
-  return parseIssueFrontmatter(body);
+  // These authors usually file issues they plan to handle themselves; opt in with `skip: false`.
+  return { skip: true, ...(TRIAGE_MARKER.test(body) ? parseIssueFrontmatter(body) : {}) };
 }
 
 function findOpenPr(repo, issueNumber, api = ghApi) {
@@ -100,7 +101,9 @@ function prepareFollowup({ repo, issue, comment, dryRun = false, api = ghApi }) 
   }
   const instructions = parseCommand(comment.body);
   if (!isTrustedActor({ repo, actor: comment.user, api })) {
-    throw new Error("Only repository admins and maintainers can request follow-up triage.");
+    throw new Error(
+      "Only repository admins, maintainers, and collaborators can request follow-up triage."
+    );
   }
   checkExistingPr({ repo, issueNumber: issue.number, dryRun, api });
 
