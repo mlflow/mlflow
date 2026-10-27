@@ -54,7 +54,7 @@ describe('IssueProposedFixSection', () => {
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Copy' })).toBeEnabled());
     const prompt = screen.getByTestId('experiment-issue-proposed-fix').querySelector('pre')?.textContent ?? '';
-    expect(prompt).toContain('Use the fix-agent-issue skill.');
+    expect(prompt).toContain('Use the mlflow-agent-improvement skill.');
     expect(prompt).toContain('Issue: Refund falsely confirmed');
     expect(prompt).toContain('- tr-1');
   });
