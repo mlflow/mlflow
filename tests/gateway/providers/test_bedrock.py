@@ -1112,16 +1112,21 @@ async def test_bedrock_converse_rejects_assistant_tool_call_with_missing_name():
 _CLAUDE_MODEL_ID = "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
 
 
-def _make_api_key_provider(model_name: str = _CLAUDE_MODEL_ID) -> AmazonBedrockProvider:
+def _make_api_key_provider(
+    model_name: str = _CLAUDE_MODEL_ID, api_base: str | None = None
+) -> AmazonBedrockProvider:
+    provider_config = {
+        "aws_config": {"aws_bearer_token": "bedrock-api-key", "aws_region": "eu-west-1"}
+    }
+    if api_base is not None:
+        provider_config["api_base"] = api_base
     config = {
         "name": "claude",
         "endpoint_type": "llm/v1/chat",
         "model": {
             "provider": "bedrock",
             "name": model_name,
-            "config": {
-                "aws_config": {"aws_bearer_token": "bedrock-api-key", "aws_region": "eu-west-1"}
-            },
+            "config": provider_config,
         },
     }
     return AmazonBedrockProvider(EndpointConfig(**config))
@@ -1196,6 +1201,54 @@ def _bedrock_chunk(event: dict[str, Any]) -> bytes:
         {":event-type": "chunk", ":content-type": "application/json", ":message-type": "event"},
         json.dumps({"bytes": base64.b64encode(json.dumps(event).encode()).decode()}).encode(),
     )
+
+
+_VPCE_API_BASE = "https://bedrock-runtime.example-vpce.amazonaws.com"
+
+
+@pytest.mark.asyncio
+async def test_bedrock_token_auth_chat_posts_to_api_base():
+    provider = _make_api_key_provider(api_base=_VPCE_API_BASE)
+    mock_client = mock_http_client(MockAsyncResponse(_converse_response()))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        await provider.chat(chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}]))
+
+    url = mock_client.post.call_args.args[0]
+    assert url == f"{_VPCE_API_BASE}/model/{_CLAUDE_MODEL_ID}/converse"
+
+
+@pytest.mark.asyncio
+async def test_bedrock_token_auth_chat_defaults_to_regional_endpoint():
+    provider = _make_api_key_provider()
+    mock_client = mock_http_client(MockAsyncResponse(_converse_response()))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        await provider.chat(chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}]))
+
+    url = mock_client.post.call_args.args[0]
+    assert (
+        url == f"https://bedrock-runtime.eu-west-1.amazonaws.com/model/{_CLAUDE_MODEL_ID}/converse"
+    )
+
+
+@pytest.mark.asyncio
+async def test_bedrock_anthropic_passthrough_posts_to_api_base():
+    provider = _make_api_key_provider(api_base=_VPCE_API_BASE)
+    mock_client = mock_http_client(MockAsyncResponse(_anthropic_messages_response()))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        await provider.passthrough(
+            PassthroughAction.ANTHROPIC_MESSAGES,
+            {
+                "model": "claude",
+                "messages": [{"role": "user", "content": "Hello"}],
+                "max_tokens": 2048,
+            },
+        )
+
+    url = mock_client.post.call_args.args[0]
+    assert url == f"{_VPCE_API_BASE}/model/{_CLAUDE_MODEL_ID}/invoke"
 
 
 @pytest.mark.parametrize(

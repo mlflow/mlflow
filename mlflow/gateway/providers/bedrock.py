@@ -583,6 +583,8 @@ class AmazonBedrockProvider(BaseProvider):
     # ---- API methods ----
 
     def _get_token_auth_base_url(self) -> str:
+        if api_base := self.bedrock_config.api_base:
+            return api_base
         region = self.bedrock_config.aws_config.aws_region
         if not region:
             raise AIGatewayException(

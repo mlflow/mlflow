@@ -215,6 +215,8 @@ def test_build_endpoint_config_bedrock_api_base_defaults_to_none():
     assert isinstance(config.model.config, AmazonBedrockConfig)
     assert config.model.config.api_base is None
     
+
+
 @pytest.mark.parametrize(
     ("auth_config", "expected_base"),
     [

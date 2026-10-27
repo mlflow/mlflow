@@ -432,6 +432,17 @@ def cost_per_token(
 #
 # Includes both user-provided credential modes and a default credential chain mode
 # that uses ambient server credentials (instance profile, IRSA, ECS task role, etc.).
+
+# Every Bedrock auth mode accepts the same optional runtime endpoint override, so the four
+# modes below share one field definition.
+_BEDROCK_API_BASE_FIELD: FieldDict = {
+    "name": "api_base",
+    "description": "Bedrock runtime endpoint URL, e.g. a VPC endpoint "
+    "(defaults to the public regional endpoint)",
+    "secret": False,
+    "required": False,
+}
+
 _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
     "bedrock": {
         "api_key": {
@@ -451,6 +462,7 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                     "secret": False,
                     "required": True,
                 },
+                _BEDROCK_API_BASE_FIELD,
             ],
         },
         "access_keys": {
@@ -475,6 +487,7 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                     "secret": False,
                     "required": False,
                 },
+                _BEDROCK_API_BASE_FIELD,
             ],
         },
         "iam_role": {
@@ -494,6 +507,7 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                     "secret": False,
                     "required": False,
                 },
+                _BEDROCK_API_BASE_FIELD,
             ],
         },
         "default_chain": {
@@ -519,6 +533,7 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                     "secret": False,
                     "required": False,
                 },
+                _BEDROCK_API_BASE_FIELD,
             ],
         },
     },

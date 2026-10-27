@@ -284,8 +284,11 @@ class AmazonBedrockConfig(ConfigModel):
     # order here is important, at least for pydantic<2
     aws_config: AWSBearerToken | AWSRole | AWSIdAndKey | AWSBaseConfig
     # Optional Bedrock runtime base URL override, e.g. a VPC endpoint (PrivateLink)
-    # hostname. Reuses the gateway's standard ``api_base`` configuration and is passed
-    # to boto3's ``client(endpoint_url=...)``.
+    # hostname. Reuses the gateway's standard ``api_base`` configuration: it is passed to
+    # boto3's ``client(endpoint_url=...)`` for SigV4 auth modes and used as the request base
+    # URL for API key (bearer token) auth. A PrivateLink hostname resolves to a private
+    # address, which ``_validate_gateway_api_base`` rejects on write unless the server sets
+    # ``MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS=true``.
     api_base: str | None = None
 
 
