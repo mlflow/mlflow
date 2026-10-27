@@ -1,5 +1,38 @@
 from mlflow.exceptions import MlflowException
+from mlflow.utils import databricks_utils
 from mlflow.utils.uri import is_databricks_uri
+
+
+def get_default_trace_catalog(schema_name: str = "default") -> str | None:
+    """
+    Return the Databricks workspace default catalog if traces can be stored in
+    ``<catalog>.<schema_name>``, otherwise ``None``.
+
+    The catalog is returned only if it is ISOLATED (bound to this workspace, so traces are not
+    visible from other workspaces) and the current user has ``USE_CATALOG`` on it and
+    ``USE_SCHEMA`` and ``CREATE_TABLE`` on the schema.
+
+    Args:
+        schema_name: The schema in the default catalog to store traces in.
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.entities.trace_location import UnityCatalog
+
+        mlflow.set_tracking_uri("databricks")
+        if catalog := mlflow.tracing.get_default_trace_catalog():
+            mlflow.set_experiment("my-genai-app", trace_location=UnityCatalog(catalog, "default"))
+    """
+    from mlflow.tracking import get_tracking_uri
+
+    tracking_uri = get_tracking_uri()
+    if not is_databricks_uri(tracking_uri):
+        raise MlflowException(
+            "This function is only supported when the tracking URI is set to 'databricks'. "
+            f"Current tracking URI: {tracking_uri}"
+        )
+    return databricks_utils.get_default_trace_catalog(tracking_uri, schema_name)
 
 
 def set_databricks_monitoring_sql_warehouse_id(

@@ -194,12 +194,17 @@ def maybe_hint_default_trace_catalog(experiment_id: str, tracking_uri: str) -> N
                 return
             _EMITTED_HINTS.add(issue_id)
         # Kept to a single line for the same reason as `_HINT`.
+        # Phrased as a required step with its cost: agents treat a mere suggestion as optional
+        # once the task already "works", and report it instead of acting on it.
         _logger.warning(
-            "Experiment %s stores traces outside Unity Catalog. Store them in the workspace "
-            "default catalog instead: mlflow.set_experiment(experiment_id=%r, "
-            "trace_location=mlflow.entities.trace_location.UnityCatalog(%r, 'default')). "
+            "Action required: experiment %s is not linked to Unity Catalog, so its traces are "
+            "capped at 100,000 and cannot be queried with SQL. Before logging traces, resolve the "
+            "workspace default catalog (currently %r) with `mlflow.tracing.get_default_trace_"
+            "catalog()` and, if it returns a catalog, pass `trace_location=UnityCatalog(catalog, "
+            "'default')` (from mlflow.entities.trace_location) to the `mlflow.set_experiment` call "
+            "in your code. Linking only works while the experiment has no traces, so do this "
+            "before the first trace is logged, or use a new experiment name. "
             "Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this.",
-            experiment_id,
             experiment_id,
             catalog,
         )
