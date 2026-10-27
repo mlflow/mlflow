@@ -1547,15 +1547,26 @@ class SqlAlchemyStore(
             return
 
         is_single_metric = len(metrics) == 1
-        seen: set[Metric] = set()
-        sanitized_metrics: list[tuple[Metric, float]] = []
+        seen: set[tuple[Any, ...]] = set()
+        sanitized_metrics: list[tuple[Metric, float | None]] = []
         for idx, metric in enumerate(metrics):
             if metric.model_id is None:
                 continue
 
-            if metric in seen:
+            # Key on a tuple rather than the ``Metric`` itself because NaN != NaN, so two
+            # identical NaN metrics would otherwise both be inserted and violate the primary key.
+            metric_id = (
+                metric.model_id,
+                metric.key,
+                metric.timestamp,
+                metric.step,
+                None if math.isnan(metric.value) else metric.value,
+                metric.dataset_name,
+                metric.dataset_digest,
+            )
+            if metric_id in seen:
                 continue
-            seen.add(metric)
+            seen.add(metric_id)
 
             _validate_metric(
                 metric.key,
@@ -1564,8 +1575,10 @@ class SqlAlchemyStore(
                 metric.step,
                 path="" if is_single_metric else f"metrics[{idx}]",
             )
-            _, value = self.sanitize_metric_value(metric.value)
-            sanitized_metrics.append((metric, value))
+            is_nan, value = self.sanitize_metric_value(metric.value)
+            # ``logged_model_metrics`` has no ``is_nan`` column, so NaN is stored as NULL.
+            # NULL never satisfies a numeric comparison and is read back as NaN.
+            sanitized_metrics.append((metric, None if is_nan else value))
 
         if not sanitized_metrics:
             return
@@ -1608,9 +1621,14 @@ class SqlAlchemyStore(
                         )
                         .all()
                     )
-                    existing_metrics = {m.to_mlflow_entity() for m in existing_metrics}
+                    # Compare column values rather than ``Metric`` entities because NaN != NaN.
+                    # ``metric_value`` is included so that a conflicting value for an existing
+                    # primary key is still rejected.
+                    existing_metrics = {_logged_model_metric_id(m) for m in existing_metrics}
                     non_existing_metrics = [
-                        m for m in metric_instances if m.to_mlflow_entity() not in existing_metrics
+                        m
+                        for m in metric_instances
+                        if _logged_model_metric_id(m) not in existing_metrics
                     ]
                     session.add_all(non_existing_metrics)
 
@@ -3818,9 +3836,16 @@ class SqlAlchemyStore(
                 attr_filters.append(comp_func(getattr(SqlLoggedModel, comp.entity.key), value))
             elif comp.entity.type == EntityType.METRIC:
                 has_metric_filters = True
+                val_filter = comp_func(SqlLoggedModelMetric.metric_value, comp.value)
+                if comp.op == "!=":
+                    # NaN metrics are stored as NULL, and NULL != x is NULL rather than true.
+                    # Match them explicitly, as run metrics do.
+                    val_filter = sqlalchemy.or_(
+                        val_filter, SqlLoggedModelMetric.metric_value.is_(None)
+                    )
                 metric_filters = [
                     SqlLoggedModelMetric.metric_name == comp.entity.key,
-                    comp_func(SqlLoggedModelMetric.metric_value, comp.value),
+                    val_filter,
                 ]
                 if dataset_filters:
                     metric_filters.append(sqlalchemy.or_(*dataset_filters))
@@ -10394,6 +10419,19 @@ class SqlAlchemyStore(
                 row.completed_time_ms = now_ms
             session.flush()
             return row.to_mlflow_entity()
+
+
+def _logged_model_metric_id(metric: SqlLoggedModelMetric) -> tuple[Any, ...]:
+    return (
+        metric.model_id,
+        metric.metric_name,
+        metric.metric_timestamp_ms,
+        metric.metric_step,
+        metric.run_id,
+        metric.metric_value,
+        metric.dataset_name,
+        metric.dataset_digest,
+    )
 
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
