@@ -622,7 +622,7 @@ jobs:
               uv run --no-sync pre-commit run install-bin --files .pre-commit-config.yaml
           - name: Install system packages
             run: |
-              sudo tee /etc/apt/apt.conf.d/99-mlflow-ci-timeouts > /dev/null <<'EOF'
+              sudo tee /etc/apt/apt.conf.d/99-fail-fast > /dev/null <<'EOF'
               Acquire::http::Timeout "15";
               Acquire::https::Timeout "15";
               EOF
