@@ -12,13 +12,14 @@ import { shouldEnableRedesignedTraceExplorer } from './shouldEnableRedesignedTra
 
 export interface ModelTraceExplorerDrawerProps extends LegacyModelTraceExplorerDrawerProps {
   traceComparison?: ModelTraceExplorerV2DrawerProps['traceComparison'];
+  navigationLabel?: ModelTraceExplorerV2DrawerProps['navigationLabel'];
 }
 
 export const ModelTraceExplorerDrawer = (props: ModelTraceExplorerDrawerProps): JSX.Element => {
   const context = useModelTraceExplorerContext();
 
   if (!shouldEnableRedesignedTraceExplorer()) {
-    const { traceComparison: _traceComparison, ...legacyProps } = props;
+    const { traceComparison: _traceComparison, navigationLabel: _navigationLabel, ...legacyProps } = props;
     return <LegacyModelTraceExplorerDrawer {...legacyProps} />;
   }
 
