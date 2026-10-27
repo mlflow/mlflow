@@ -178,6 +178,36 @@ def maybe_append_agent_hint(issue_id: str, message: str) -> str:
     return message
 
 
+def maybe_hint_default_trace_catalog(experiment_id: str, tracking_uri: str) -> None:
+    """Point a coding agent at the workspace default catalog for a non-UC Databricks experiment."""
+    try:
+        issue_id = "databricks-experiment-without-uc-trace-location"
+        if issue_id in _EMITTED_HINTS or MLFLOW_DISABLE_AGENT_HINT.get() or not _is_agent_driving():
+            return
+
+        from mlflow.utils.databricks_utils import get_default_trace_catalog
+
+        if not (catalog := get_default_trace_catalog(tracking_uri)):
+            return
+        with _EMITTED_HINTS_LOCK:
+            if issue_id in _EMITTED_HINTS:
+                return
+            _EMITTED_HINTS.add(issue_id)
+        # Kept to a single line for the same reason as `_HINT`.
+        _logger.warning(
+            "Experiment %s stores traces outside Unity Catalog. Store them in the workspace "
+            "default catalog instead: mlflow.set_experiment(experiment_id=%r, "
+            "trace_location=mlflow.entities.trace_location.UnityCatalog(%r, 'default')). "
+            "Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this.",
+            experiment_id,
+            experiment_id,
+            catalog,
+        )
+    except Exception:
+        # Advisory only: a failed lookup must never break `set_experiment`.
+        return
+
+
 def maybe_warn_local_tracking_for_databricks() -> None:
     """Warn when a GenAI trace is going to local storage despite Databricks intent."""
     try:

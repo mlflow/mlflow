@@ -71,7 +71,6 @@ from mlflow.utils.autologging_utils import (
     is_testing,
 )
 from mlflow.utils.databricks_utils import (
-    get_databricks_workspace_client_config,
     get_sgc_job_run_id,
     is_in_databricks_model_serving_environment,
     is_in_databricks_runtime,
@@ -249,6 +248,11 @@ def set_experiment(
         and is_databricks_uri(_resolve_tracking_uri())
         and MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH not in experiment.tags
     ):
+        # `mlflow.agent` does not ship in the mlflow-tracing package.
+        with contextlib.suppress(ImportError):
+            from mlflow.agent.hint import maybe_hint_default_trace_catalog
+
+            maybe_hint_default_trace_catalog(experiment.experiment_id, _resolve_tracking_uri())
         if is_newly_created:
             show_new_experiment_upsell()
         else:
@@ -2416,99 +2420,6 @@ def create_experiment(
                 ) from e
 
     return experiment_id
-
-
-_DEFAULT_CATALOG_REQUIRED_PRIVILEGES = {
-    "catalog": {"USE_CATALOG"},
-    "schema": {"USE_SCHEMA", "CREATE_TABLE"},
-}
-
-
-def create_experiment_with_default_catalog(
-    name: str,
-    schema_name: str = "default",
-    artifact_location: str | None = None,
-    tags: dict[str, Any] | None = None,
-) -> str:
-    """
-    Create an experiment on Databricks whose traces are stored in the workspace's default
-    Unity Catalog catalog.
-
-    Resolves the workspace default catalog, requires it to be ISOLATED (bound to this workspace),
-    verifies that the current user can create tables in ``<default_catalog>.<schema_name>``, then
-    creates the experiment linked to that location.
-
-    Args:
-        name: The experiment name, must be a non-empty unique string.
-        schema_name: The schema in the default catalog to store traces in.
-        artifact_location: The location to store run artifacts.
-        tags: An optional dictionary of string keys and values to set as tags on the experiment.
-
-    Returns:
-        String ID of the created experiment.
-
-    .. code-block:: python
-
-        import mlflow
-
-        mlflow.set_tracking_uri("databricks")
-        experiment_id = mlflow.create_experiment_with_default_catalog("my-genai-app")
-        mlflow.set_experiment(experiment_id=experiment_id)
-    """
-    # databricks-sdk is an optional dependency
-    from databricks.sdk import WorkspaceClient
-    from databricks.sdk.service.catalog import CatalogIsolationMode
-
-    tracking_uri = _resolve_tracking_uri()
-    if not is_databricks_uri(tracking_uri):
-        raise MlflowException.invalid_parameter_value(
-            "`create_experiment_with_default_catalog` is only supported with a Databricks "
-            "tracking URI."
-        )
-
-    w = WorkspaceClient(config=get_databricks_workspace_client_config(tracking_uri))
-    catalog_name = w.settings.default_namespace.get().namespace.value
-    if not catalog_name:
-        raise MlflowException.invalid_parameter_value(
-            "The workspace has no default catalog configured."
-        )
-    # Only a workspace-bound catalog is safe to use implicitly: an OPEN catalog is shared
-    # across workspaces, so traces written there would be visible outside this workspace.
-    isolation_mode = w.catalogs.get(catalog_name).isolation_mode
-    if isolation_mode != CatalogIsolationMode.ISOLATED:
-        raise MlflowException.invalid_parameter_value(
-            f"The default catalog '{catalog_name}' has isolation mode "
-            f"{isolation_mode.value if isolation_mode else None}, but only ISOLATED "
-            "(workspace-bound) catalogs are supported. Use `mlflow.create_experiment` with an "
-            "explicit `trace_location` instead."
-        )
-
-    user = w.current_user.me().user_name
-    for securable_type, full_name in [
-        ("catalog", catalog_name),
-        ("schema", f"{catalog_name}.{schema_name}"),
-    ]:
-        effective = w.grants.get_effective(securable_type, full_name, principal=user)
-        granted = {
-            p.privilege.value
-            for a in effective.privilege_assignments or []
-            for p in a.privileges or []
-            if p.privilege
-        }
-        if "ALL_PRIVILEGES" in granted:
-            continue
-        if missing := _DEFAULT_CATALOG_REQUIRED_PRIVILEGES[securable_type] - granted:
-            raise MlflowException.invalid_parameter_value(
-                f"User '{user}' is missing {sorted(missing)} on {securable_type} '{full_name}', "
-                "which is required to store traces there."
-            )
-
-    return create_experiment(
-        name,
-        artifact_location=artifact_location,
-        tags=tags,
-        trace_location=UnityCatalog(catalog_name=catalog_name, schema_name=schema_name),
-    )
 
 
 def delete_experiment(experiment_id: str) -> None:
