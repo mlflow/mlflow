@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import pathlib
+import re
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -354,6 +355,16 @@ class VertexAIConfig(ConfigModel):
     # Client-supplied `anthropic-beta` values to forward to Claude models. None forwards the
     # header unchanged, an empty list drops it, and a non-empty list keeps only those values.
     vertex_anthropic_betas: list[str] | None = None
+
+    @field_validator("vertex_location")
+    def validate_vertex_location(cls, value):
+        # The location becomes part of the request host, so it must be a bare region name.
+        if value is not None and not re.fullmatch(r"[a-z0-9-]+", value):
+            raise ValueError(
+                "vertex_location must contain only lowercase letters, digits, and hyphens; "
+                f"got {value!r}"
+            )
+        return value
 
     @field_validator("vertex_anthropic_betas", mode="before")
     def validate_vertex_anthropic_betas(cls, value):

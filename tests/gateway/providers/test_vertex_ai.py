@@ -466,6 +466,41 @@ def test_custom_location():
     assert config.vertex_location == "europe-west4"
 
 
+@pytest.mark.parametrize(
+    "location",
+    [
+        "global",
+        "us",
+        "eu",
+        "us-central1",
+        "us-east5",
+        "europe-west4",
+        "asia-southeast1",
+    ],
+)
+def test_vertex_location_valid(location):
+    config = VertexAIConfig(vertex_project="my-project", vertex_location=location)
+    assert config.vertex_location == location
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        "evil.example",
+        "evil.example/#",
+        "x.evil.example?",
+        "example.com",
+        "https://example.com",
+        "example/path",
+        "location@host",
+        "us-central1\n",
+    ],
+)
+def test_vertex_location_invalid(location):
+    with pytest.raises(ValidationError, match="vertex_location"):
+        VertexAIConfig(vertex_project="my-project", vertex_location=location)
+
+
 def test_global_endpoint_when_no_location():
     endpoint_config = EndpointConfig(
         name="vertex-endpoint",
