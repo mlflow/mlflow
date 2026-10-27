@@ -35,20 +35,12 @@ const ellipsisCss = {
 interface BreadcrumbDescriptor {
   parentTab: ExperimentPageTabName;
   leafId?: string;
-  /**
-   * Leaf label for a sub-page whose name is fixed rather than an entity's.
-   *
-   * `leafId` carries an id the page then publishes a display name for; a page that is always
-   * called the same thing has nothing to look up, so it names itself here and needs no publish.
-   */
-  leafLabel?: string;
 }
 
 const getBreadcrumbDescriptor = (
   pathname: string,
   activeTab: ExperimentPageTabName | undefined,
   params: Record<string, string | undefined>,
-  scheduledRunsLabel: string,
 ): BreadcrumbDescriptor | undefined => {
   if (matchPath(RoutePaths.experimentPageTabDatasetDetail, pathname)) {
     return { parentTab: ExperimentPageTabName.Datasets, leafId: params['datasetId'] };
@@ -70,7 +62,7 @@ const getBreadcrumbDescriptor = (
     return { parentTab: ExperimentPageTabName.Prompts, leafId: params['promptName'] };
   }
   if (matchPath(RoutePaths.experimentPageTabIssueScheduledRuns, pathname)) {
-    return { parentTab: ExperimentPageTabName.Issues, leafLabel: scheduledRunsLabel };
+    return { parentTab: ExperimentPageTabName.Issues, leafId: 'scheduled-runs' };
   }
   return activeTab ? { parentTab: activeTab } : undefined;
 };
@@ -86,22 +78,12 @@ export const ExperimentPageBreadcrumbs = ({ experiment }: ExperimentPageBreadcru
   const params = useParams<'datasetId' | 'promptName' | 'runUuid' | 'sessionId'>();
   const { tabName } = useGetExperimentPageActiveTabByRoute();
   const publishedTitle = useExperimentBreadcrumbTitle();
-  const descriptor = getBreadcrumbDescriptor(
-    pathname,
-    tabName,
-    params,
-    intl.formatMessage({
-      defaultMessage: 'Scheduled detection runs',
-      description: "Breadcrumb leaf for the page listing a detection schedule's past runs",
-    }),
-  );
-  const leaf =
-    descriptor?.leafLabel ??
-    (descriptor?.leafId
-      ? (publishedTitle ?? descriptor.leafId)
-      : descriptor?.parentTab === ExperimentPageTabName.ReviewQueue
-        ? publishedTitle
-        : undefined);
+  const descriptor = getBreadcrumbDescriptor(pathname, tabName, params);
+  const leaf = descriptor?.leafId
+    ? (publishedTitle ?? descriptor.leafId)
+    : descriptor?.parentTab === ExperimentPageTabName.ReviewQueue
+      ? publishedTitle
+      : undefined;
   const experimentName = experiment.name.split('/').pop() ?? experiment.name;
   const runStatus = useExperimentBreadcrumbStatus();
   const pairwiseReviewAction = useExperimentBreadcrumbPairwiseReviewAction();

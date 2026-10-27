@@ -57,6 +57,8 @@ let issueSearchFails: boolean;
 let runSearchPages: number;
 /** Filters the page asked runs with, so the search can be asserted rather than assumed. */
 let runFilters: string[];
+/** Set to fail the run search, which is how a read failure is exercised. */
+let runSearchFails: boolean;
 
 const server = setupServer(
   rest.get('*/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) =>
@@ -66,6 +68,9 @@ const server = setupServer(
     res(ctx.json({ experiment: { experiment_id: '1', name: 'exp', tags: experimentTags } })),
   ),
   rest.post('*/ajax-api/2.0/mlflow/runs/search', async (req, res, ctx) => {
+    if (runSearchFails) {
+      return res(ctx.status(500), ctx.json({ message: 'nope' }));
+    }
     const body = (await req.json()) as { filter?: string; page_token?: string };
     runFilters.push(body.filter ?? '');
     const page = body.page_token ? Number(body.page_token) : 0;
@@ -177,6 +182,7 @@ beforeEach(() => {
   issueSearchFails = false;
   runSearchPages = 1;
   runFilters = [];
+  runSearchFails = false;
 });
 
 afterEach(() => {
@@ -372,6 +378,46 @@ describe('ExperimentIssueScheduledRunsPage', () => {
 
     expect(await screen.findByRole('button', { name: 'Save' })).toBeInTheDocument();
     expect(screen.getByText('Scheduled detection runs')).toBeInTheDocument();
+  });
+
+  test('a failed read says so instead of claiming the schedule never fired', async () => {
+    // Left to the empty state, a transient outage would tell someone their schedule has no
+    // history -- the one thing this page exists to answer.
+    runSearchFails = true;
+    renderPage();
+
+    expect(await screen.findByText("Could not load this schedule's history")).toBeInTheDocument();
+    expect(screen.queryByText('No occurrences yet')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+  });
+
+  test('a paused schedule names no next run even when its dispatch state still has one', async () => {
+    // The state tag keeps the fire time it was last given, and the dispatcher will not honour it
+    // while paused, so naming it beside "Schedule is off" would promise a run that never comes.
+    experimentTags = [scheduleTag('weekly', { paused: true }), scheduleStateTag(NEXT_FIRE_MS)];
+    renderPage();
+
+    expect(await screen.findByText('Schedule is off')).toBeInTheDocument();
+    expect(screen.getByText('Next run').parentElement).toHaveTextContent('—');
+    expect(screen.queryByText(/Jan 18, 2027/)).not.toBeInTheDocument();
+  });
+
+  test('the 30-day figures are marked as lower bounds while pages remain', async () => {
+    // They total the rows loaded so far, so presenting them as exact totals would understate a
+    // schedule with more occurrences than one page.
+    runSearchPages = 3;
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText('Runs, last 30 days').parentElement).toHaveTextContent('1+'));
+    expect(screen.getByText('Traces scanned, last 30 days').parentElement).toHaveTextContent('312+');
+    expect(screen.getByText('Spend, last 30 days').parentElement).toHaveTextContent('$0.42+');
+  });
+
+  test('the figures are exact once every page is loaded', async () => {
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText('Runs, last 30 days').parentElement).toHaveTextContent('1'));
+    expect(screen.getByText('Runs, last 30 days').parentElement).not.toHaveTextContent('1+');
   });
 
   test('is not reachable while the Issues tab is off', async () => {

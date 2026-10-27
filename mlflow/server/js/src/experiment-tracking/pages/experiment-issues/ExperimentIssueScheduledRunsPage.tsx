@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import {
   Button,
+  DangerIcon,
   Empty,
   Spacer,
   Table,
@@ -29,6 +30,7 @@ import {
   scheduledRunDurationMs,
 } from './scheduledRunHistory';
 import { ExperimentIssuesScheduleControl } from './ExperimentIssuesScheduleControl';
+import { useSetExperimentBreadcrumbTitle } from '../experiment-page-tabs/ExperimentPageRevampContext';
 import { useIssueDetectionSchedule } from './useIssueDetectionSchedule';
 import { useScheduledDetectionRuns } from './useScheduledDetectionRuns';
 
@@ -147,7 +149,15 @@ const ScheduledRunsContent = ({ experimentId }: { experimentId: string }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const schedule = useIssueDetectionSchedule({ experimentId });
-  const { rows, newIssueCounts, summary, hasNextPage, fetchNextPage, isLoading, isFetching } =
+  // Names this route's breadcrumb leaf, the way every other sub-page does -- eval run details
+  // publishes its run name here. The page title below is the same string, as it is there.
+  useSetExperimentBreadcrumbTitle(
+    intl.formatMessage({
+      defaultMessage: 'Scheduled detection runs',
+      description: "Experiment issues tab > Breadcrumb leaf for a schedule's past runs",
+    }),
+  );
+  const { rows, newIssueCounts, summary, hasNextPage, fetchNextPage, isLoading, isFetching, error, refetch } =
     useScheduledDetectionRuns(experimentId);
 
   const nowMs = Date.now();
@@ -189,10 +199,13 @@ const ScheduledRunsContent = ({ experimentId }: { experimentId: string }) => {
 
   const nextRun = useMemo(
     () =>
-      schedule.nextRunMs !== undefined && schedule.timezone
+      // A paused schedule can still carry a next fire time in its dispatch state, written before
+      // it was turned off. The dispatcher will not honour it, so naming it here -- beside a line
+      // that says the schedule is off -- would promise a run that is never coming.
+      schedule.setting !== 'off' && schedule.nextRunMs !== undefined && schedule.timezone
         ? formatScheduleInstant(schedule.nextRunMs, schedule.timezone, intl.locale)
         : undefined,
-    [schedule.nextRunMs, schedule.timezone, intl.locale],
+    [schedule.setting, schedule.nextRunMs, schedule.timezone, intl.locale],
   );
 
   const onScroll = useCallback(
@@ -288,8 +301,49 @@ const ScheduledRunsContent = ({ experimentId }: { experimentId: string }) => {
     flexBasis: COLUMN_WIDTHS[id],
   });
 
+  // While pages remain, every figure below counts only what has loaded, so each is a lower bound
+  // rather than the 30-day total its label promises. Marked, not silently approximated.
+  const atLeast = (value: string) => (hasNextPage ? `${value}+` : value);
+
   if (isLoading) {
     return <TableSkeleton lines={5} />;
+  }
+
+  // A failed read is not an empty history: left to the empty state, a transient outage would tell
+  // someone their schedule has never fired. The schedule's own read is checked the same way,
+  // because its fallback reads as "Schedule is off".
+  if (error || schedule.loadError) {
+    return (
+      <Empty
+        image={<DangerIcon />}
+        title={
+          <FormattedMessage
+            defaultMessage="Could not load this schedule's history"
+            description="Experiment issues tab > Scheduled runs > Title when the run history could not be read"
+          />
+        }
+        description={
+          <FormattedMessage
+            defaultMessage="The occurrences this schedule has recorded could not be read. Nothing has been lost."
+            description="Experiment issues tab > Scheduled runs > Body when the run history could not be read"
+          />
+        }
+        button={
+          <Button
+            componentId={`${COMPONENT_ID}.retry`}
+            onClick={() => {
+              void refetch();
+              schedule.reload();
+            }}
+          >
+            <FormattedMessage
+              defaultMessage="Retry"
+              description="Experiment issues tab > Scheduled runs > Action retrying a failed read"
+            />
+          </Button>
+        }
+      />
+    );
   }
 
   return (
@@ -357,7 +411,7 @@ const ScheduledRunsContent = ({ experimentId }: { experimentId: string }) => {
             />
           }
         >
-          <Typography.Text>{summary.runCount}</Typography.Text>
+          <Typography.Text>{atLeast(String(summary.runCount))}</Typography.Text>
         </Figure>
         <Figure
           label={
@@ -370,7 +424,7 @@ const ScheduledRunsContent = ({ experimentId }: { experimentId: string }) => {
             />
           }
         >
-          <Typography.Text>{summary.tracesScanned}</Typography.Text>
+          <Typography.Text>{atLeast(String(summary.tracesScanned))}</Typography.Text>
         </Figure>
         <Figure
           label={
@@ -381,7 +435,7 @@ const ScheduledRunsContent = ({ experimentId }: { experimentId: string }) => {
             />
           }
         >
-          <Typography.Text>{formatCost(summary.spendUsd)}</Typography.Text>
+          <Typography.Text>{atLeast(formatCost(summary.spendUsd))}</Typography.Text>
         </Figure>
       </div>
       <Spacer size="md" />

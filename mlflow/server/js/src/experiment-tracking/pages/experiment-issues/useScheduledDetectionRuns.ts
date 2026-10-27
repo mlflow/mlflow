@@ -32,6 +32,15 @@ export const SCHEDULED_RUN_NEW_ISSUES_QUERY_KEY = 'SCHEDULED_RUN_NEW_ISSUES';
  */
 export const MAX_COUNTED_OCCURRENCES = 50;
 
+/**
+ * How often an unsettled occurrence is checked.
+ *
+ * A detection run takes minutes, so this is about the page not going stale while someone watches
+ * it rather than about catching the moment it lands. Only ever on while a loaded occurrence is
+ * still going.
+ */
+export const RUNNING_POLL_INTERVAL_MS = 10_000;
+
 interface IssueCountResponse {
   total_count?: number;
 }
@@ -57,16 +66,21 @@ const fetchNewIssueCount = async (experimentId: string, runId: string, signal?: 
   return page.total_count ?? 0;
 };
 
-const useNewIssueCounts = (experimentId: string, runIds: string[], enabled: boolean) => {
+const useNewIssueCounts = (experimentId: string, runKeys: string[], enabled: boolean) => {
   const workspace = useActiveWorkspace();
   // One query keyed by the whole set rather than one per row: a hook cannot be called in a loop,
   // and the counts are only ever read together.
-  const counted = runIds.slice(0, MAX_COUNTED_OCCURRENCES);
+  //
+  // The keys carry each occurrence's outcome as well as its id, so an occurrence settling changes
+  // the key and its count is read again. Keyed on ids alone, a count fetched while a run was still
+  // filing issues would stay on screen after it finished.
+  const counted = runKeys.slice(0, MAX_COUNTED_OCCURRENCES);
+  const runIds = counted.map((key) => key.split(':')[0]);
   const { data } = useQuery<Record<string, number>, Error>({
     queryKey: [SCHEDULED_RUN_NEW_ISSUES_QUERY_KEY, workspace, experimentId, counted],
     queryFn: async ({ signal }) => {
       const counts = await Promise.all(
-        counted.map(async (runId) => {
+        runIds.map(async (runId) => {
           try {
             return [runId, await fetchNewIssueCount(experimentId, runId, signal)] as const;
           } catch {
@@ -98,14 +112,24 @@ export const useScheduledDetectionRuns = (experimentId: string, { enabled = true
     experimentId,
     enabled,
     filter: SCHEDULED_DETECTION_RUN_FILTER,
+    // An occurrence on screen while it runs would otherwise read `Running` for good: the run
+    // search neither polls nor refetches on focus, so its outcome, cost and failure reason would
+    // not arrive until the page was left and reopened. Asked again after each fetch, so polling
+    // stops by itself once every loaded occurrence has settled.
+    refetchInterval: (data) =>
+      (data?.pages ?? []).some((page) => (page.runs ?? []).some((run) => toScheduledRunRow(run)?.outcome === 'running'))
+        ? RUNNING_POLL_INTERVAL_MS
+        : false,
   });
 
   const rows = useMemo(
     () => (runs ?? []).map(toScheduledRunRow).filter((row): row is ScheduledRunRow => row !== undefined),
     [runs],
   );
-  const runIds = useMemo(() => rows.map((row) => row.runId), [rows]);
-  const newIssueCounts = useNewIssueCounts(experimentId, runIds, enabled && rows.length > 0);
+  // Carries each occurrence's outcome, so a count read while one was still filing is read again
+  // once it settles.
+  const runKeys = useMemo(() => rows.map((row) => `${row.runId}:${row.outcome}`), [rows]);
+  const newIssueCounts = useNewIssueCounts(experimentId, runKeys, enabled && rows.length > 0);
   // `Date.now()` is read once per render rather than per row, so every duration and the summary
   // window are measured from the same instant.
   const summary = useMemo(() => summarizeScheduledRuns(rows, Date.now()), [rows]);

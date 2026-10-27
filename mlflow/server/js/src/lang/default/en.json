@@ -5835,10 +5835,6 @@
     "defaultMessage": "Create experiment",
     "description": "Home page experiments empty state CTA"
   },
-  "GyMIJN": {
-    "defaultMessage": "Scheduled detection runs",
-    "description": "Breadcrumb leaf for the page listing a detection schedule's past runs"
-  },
   "GyyqO1": {
     "defaultMessage": "To submit:",
     "description": "Lead-in line of the popup shown when the playground Submit button is disabled"
@@ -15943,6 +15939,10 @@
     "defaultMessage": "Filter by active status",
     "description": "Aria label for active status filter toggle"
   },
+  "mYRxy1": {
+    "defaultMessage": "Retry",
+    "description": "Experiment issues tab > Scheduled runs > Action retrying a failed read"
+  },
   "mYcueV": {
     "defaultMessage": "The Overview tab requires a SQL-based tracking store for full functionality, file-based backend is not supported.",
     "description": "Warning banner shown on the Overview tab when using FileStore backend"
@@ -17039,6 +17039,10 @@
     "defaultMessage": "Select an endpoint",
     "description": "Placeholder for endpoint selection dropdown"
   },
+  "pyq0Bh": {
+    "defaultMessage": "The occurrences this schedule has recorded could not be read. Nothing has been lost.",
+    "description": "Experiment issues tab > Scheduled runs > Body when the run history could not be read"
+  },
   "pysVeT": {
     "defaultMessage": "Copy failed. Clipboard unavailable.",
     "description": "Tooltip text shown when copy operation fails"
@@ -17058,6 +17062,10 @@
   "q0fV0H": {
     "defaultMessage": "Latency",
     "description": "Issue category title for latency"
+  },
+  "q1Ur/I": {
+    "defaultMessage": "Scheduled detection runs",
+    "description": "Experiment issues tab > Breadcrumb leaf for a schedule's past runs"
   },
   "q1okqz": {
     "defaultMessage": "Registry URL",
@@ -19298,6 +19306,10 @@
   "xJAM/d": {
     "defaultMessage": "Add a set of guidelines for the conversation. {learnMore}",
     "description": "Hint text for session-level Guidelines section with documentation link"
+  },
+  "xKHwwJ": {
+    "defaultMessage": "Could not load this schedule's history",
+    "description": "Experiment issues tab > Scheduled runs > Title when the run history could not be read"
   },
   "xKpbD3": {
     "defaultMessage": "Chat",
