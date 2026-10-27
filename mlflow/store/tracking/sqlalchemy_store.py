@@ -4188,7 +4188,6 @@ class SqlAlchemyStore(
                 # finalization cannot be hidden by autoflush re-publishing TRACKING_STORE.
                 self._advance_db_payload_generations_for_db_span_writes(session, [trace_id])
 
-                db_sql_trace_info.experiment_id = trace_info.experiment_id
                 db_sql_trace_info.timestamp_ms = trace_info.request_time
                 db_sql_trace_info.execution_time_ms = trace_info.execution_duration
                 db_sql_trace_info.status = trace_info.state.value

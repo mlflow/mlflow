@@ -6957,7 +6957,7 @@ def test_log_spans_rejects_trace_in_another_experiment(store: SqlAlchemyStore):
     with pytest.raises(MlflowException, match="already exists in another experiment"):
         store.log_spans(exp2, [create_test_span(trace_id=trace_id, name="injected", span_id=2)])
 
-    trace = store.get_trace(trace_id)
+    trace = store.get_trace(trace_id, allow_partial=True)
     assert trace.info.experiment_id == exp1
     assert [span.name for span in trace.data.spans] == ["original"]
 
