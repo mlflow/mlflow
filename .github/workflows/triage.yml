@@ -148,6 +148,7 @@ jobs:
             echo 'mlflow/'
             echo 'tests/'
             echo 'docs/'
+            echo 'libs/typescript/'
             echo EOF
           } >> "$GITHUB_OUTPUT"
       - name: Clean issue content
