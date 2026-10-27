@@ -8,7 +8,7 @@ title: "[FR]"
 body:
   - type: checkboxes
     attributes:
-      label: Pull request contribution
+      label: PR policy
       options:
         - label: I understand that PRs for this issue are closed automatically unless a maintainer has applied the `ready` label, the issue isn't assigned to someone else, and no open PR already links it.
           required: true
