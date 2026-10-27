@@ -66,7 +66,10 @@ from mlflow.tracing.constant import (
 )
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import TraceJSONEncoder, exclude_immutable_tags, parse_trace_id_v4
-from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
+from mlflow.tracing.utils.artifact_utils import (
+    get_artifact_uri_for_trace,
+    trace_attachments_unsupported_message,
+)
 from mlflow.tracking._tracking_service.utils import _get_store, _resolve_tracking_uri
 from mlflow.utils import is_uuid
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
@@ -802,6 +805,11 @@ class TracingClient:
         trace_info: TraceInfo,
         attachments: dict[str, Attachment],
     ) -> None:
+        # Unity Catalog table traces have no artifact location. Say so directly
+        # instead of reporting the trace data as corrupted.
+        if message := trace_attachments_unsupported_message(trace_info):
+            raise MlflowException(message, error_code=INVALID_PARAMETER_VALUE)
+
         artifact_repo = self._get_artifact_repo_for_trace(trace_info)
         for attachment_id, attachment in attachments.items():
             try:

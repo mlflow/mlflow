@@ -1,9 +1,17 @@
 import base64
+import logging
+from contextlib import contextmanager
 
+import pytest
 from pydantic import BaseModel
 
+import mlflow.entities.span as span_module
 from mlflow.entities.span import LiveSpan
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_state import TraceState
 from mlflow.tracing.attachments import Attachment
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 
 
 def _make_live_span(trace_id="tr-test123"):
@@ -566,6 +574,149 @@ def test_two_pass_with_explicit_attachment_and_pydantic():
     assert outputs["thumbnail"].startswith("mlflow-attachment://")
     assert outputs["image"]["b64_json"].startswith("mlflow-attachment://")
     assert len(span._attachments) == 2
+
+
+# --- Unity Catalog table traces (no artifact store) ---
+
+UC_TRACE_ID = "trace:/cat.sch.mlflow_experiment/abc123"
+_NEXT_OTEL_TRACE_ID = 910_000
+
+
+@contextmanager
+def _registered_trace(trace_info: TraceInfo):
+    global _NEXT_OTEL_TRACE_ID
+    _NEXT_OTEL_TRACE_ID += 1
+    otel_trace_id = _NEXT_OTEL_TRACE_ID
+    manager = InMemoryTraceManager.get_instance()
+    manager.register_trace(otel_trace_id, trace_info)
+    try:
+        yield
+    finally:
+        manager.pop_trace(otel_trace_id)
+
+
+def _trace_info(trace_id: str, trace_location: TraceLocation) -> TraceInfo:
+    return TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location,
+        request_time=0,
+        state=TraceState.OK,
+    )
+
+
+def test_uc_table_trace_keeps_openai_image_data_uri_inline(caplog):
+    span_module._logged_uc_inline_attachment_notice = False
+    span = _make_live_span(trace_id=UC_TRACE_ID)
+    with caplog.at_level(logging.INFO, logger="mlflow.entities.span"):
+        span.set_inputs({
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "what is on this image?"},
+                        {"type": "image_url", "image_url": {"url": PNG_DATA_URI}},
+                    ],
+                }
+            ]
+        })
+        span.set_outputs({"image": PNG_DATA_URI})
+
+    url = span.inputs["messages"][0]["content"][1]["image_url"]["url"]
+    assert url == PNG_DATA_URI
+    assert span.outputs["image"] == PNG_DATA_URI
+    assert span._attachments == {}
+    notices = [
+        record
+        for record in caplog.records
+        if "not supported for Unity Catalog table traces" in record.message
+    ]
+    assert len(notices) == 1
+    assert notices[0].levelno == logging.INFO
+    assert "Trace data is corrupted" not in caplog.text
+
+
+@pytest.mark.parametrize(
+    "trace_location",
+    [
+        TraceLocation.from_databricks_uc_table_prefix("cat", "sch", "mlflow_experiment"),
+        TraceLocation.from_databricks_uc_schema("cat", "sch"),
+    ],
+)
+def test_registered_uc_location_keeps_data_uri_inline(trace_location):
+    # The trace id is intentionally not v4. The registered location decides.
+    info = _trace_info("tr-uc-location", trace_location)
+    with _registered_trace(info):
+        span = _make_live_span(trace_id=info.trace_id)
+        span.set_inputs({"image": PNG_DATA_URI})
+
+    assert span.inputs["image"] == PNG_DATA_URI
+    assert span._attachments == {}
+
+
+def test_registered_experiment_trace_still_extracts_data_uri():
+    info = _trace_info("tr-experiment", TraceLocation.from_experiment_id("0"))
+    with _registered_trace(info):
+        span = _make_live_span(trace_id=info.trace_id)
+        span.set_inputs({"image": PNG_DATA_URI})
+
+    assert span.inputs["image"].startswith("mlflow-attachment://")
+    assert len(span._attachments) == 1
+
+
+def test_v4_trace_id_with_experiment_location_still_extracts():
+    info = _trace_info("trace:/0/abc123", TraceLocation.from_experiment_id("0"))
+    with _registered_trace(info):
+        span = _make_live_span(trace_id=info.trace_id)
+        span.set_inputs({"image": PNG_DATA_URI})
+
+    assert span.inputs["image"].startswith("mlflow-attachment://")
+    assert len(span._attachments) == 1
+
+
+def test_uc_table_trace_leaves_structured_base64_inline():
+    span = _make_live_span(trace_id=UC_TRACE_ID)
+    span.set_inputs({
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "input_audio", "input_audio": {"data": WAV_B64, "format": "wav"}},
+                ],
+            }
+        ]
+    })
+
+    audio = span.inputs["messages"][0]["content"][0]["input_audio"]
+    assert audio["data"] == WAV_B64
+    assert span._attachments == {}
+
+
+def test_uc_table_trace_inlines_explicit_attachment():
+    span = _make_live_span(trace_id=UC_TRACE_ID)
+    span.set_inputs({"image": Attachment(content_type="image/png", content_bytes=PNG_BYTES)})
+
+    image = span.inputs["image"]
+    assert image.startswith("data:image/png;base64,")
+    assert base64.b64decode(image.split(",", 1)[1]) == PNG_BYTES
+    assert span._attachments == {}
+
+
+def test_uc_table_trace_inlines_explicit_attachment_when_extraction_disabled(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACE_EXTRACT_ATTACHMENTS", "false")
+    span = _make_live_span(trace_id=UC_TRACE_ID)
+    span.set_inputs({"image": Attachment(content_type="image/png", content_bytes=PNG_BYTES)})
+
+    assert span.inputs["image"].startswith("data:image/png;base64,")
+    assert span._attachments == {}
+
+
+def test_uc_table_trace_discards_explicit_attachment_over_size_limit(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACE_MAX_ATTACHMENT_SIZE", "1")
+    span = _make_live_span(trace_id=UC_TRACE_ID)
+    span.set_inputs({"image": Attachment(content_type="image/png", content_bytes=PNG_BYTES)})
+
+    assert "[Attachment too large:" in span.inputs["image"]
+    assert span._attachments == {}
 
 
 # --- Opt-out ---

@@ -720,6 +720,24 @@ def _encode_bytes_to_base64(bytes: bytes) -> str:
     return base64.b64encode(bytes).decode("utf-8")
 
 
+def _attachment_to_data_uri(attachment: Attachment) -> str:
+    encoded = _encode_bytes_to_base64(attachment.content_bytes)
+    return f"data:{attachment.content_type};base64,{encoded}"
+
+
+_logged_uc_inline_attachment_notice = False
+
+
+def _log_uc_inline_attachment_notice() -> None:
+    global _logged_uc_inline_attachment_notice
+    if _logged_uc_inline_attachment_notice:
+        return
+    from mlflow.tracing.utils.artifact_utils import UC_TABLE_ATTACHMENTS_UNSUPPORTED_MESSAGE
+
+    _logged_uc_inline_attachment_notice = True
+    _logger.info(UC_TABLE_ATTACHMENTS_UNSUPPORTED_MESSAGE)
+
+
 def _decode_id_from_byte(trace_or_span_id_b64: str) -> int:
     # Decoding the base64 encoded trace or span ID to bytes and then converting it to int.
     bytes = base64.b64decode(trace_or_span_id_b64)
@@ -876,8 +894,15 @@ class LiveSpan(Span):
     def _store_attachment(self, attachment: Attachment) -> str:
         from mlflow.environment_variables import MLFLOW_TRACE_MAX_ATTACHMENT_SIZE
 
+        # Unity Catalog table traces cannot upload attachment bytes. Keep the
+        # content in the span instead of a reference that cannot be resolved.
+        inline = not self._trace_supports_artifact_attachments()
+
         if not self._is_recording():
             _logger.debug("Skipping attachment storage because the span is no longer recording.")
+            if inline:
+                _log_uc_inline_attachment_notice()
+                return _attachment_to_data_uri(attachment)
             return attachment.ref(self.trace_id)
 
         max_size = MLFLOW_TRACE_MAX_ATTACHMENT_SIZE.get()
@@ -890,15 +915,44 @@ class LiveSpan(Span):
             _logger.warning(msg)
             self.record_exception(msg)
             return f"[Attachment too large: {size_bytes} bytes exceeds {max_size} bytes limit]"
+        if inline:
+            _log_uc_inline_attachment_notice()
+            return _attachment_to_data_uri(attachment)
         ref = attachment.ref(self.trace_id)
         self._attachments[attachment.id] = attachment
         return ref
 
-    @staticmethod
-    def _should_extract_base64() -> bool:
+    def _trace_supports_artifact_attachments(self) -> bool:
+        from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
+        from mlflow.tracing.trace_manager import InMemoryTraceManager
+        from mlflow.tracing.utils.artifact_utils import trace_location_supports_artifact_uploads
+
+        trace_id = self.trace_id
+        if not isinstance(trace_id, str):
+            return True
+
+        try:
+            with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
+                if trace is not None and trace.info.trace_location is not None:
+                    return trace_location_supports_artifact_uploads(trace.info.trace_location)
+        except Exception:
+            _logger.debug(
+                "Failed to resolve trace location for attachment extraction.", exc_info=True
+            )
+
+        # V4 IDs are minted only for Unity Catalog table destinations. A span can
+        # carry that ID before the in memory trace is visible.
+        return not trace_id.startswith(TRACE_ID_V4_PREFIX)
+
+    def _should_extract_base64(self) -> bool:
         from mlflow.environment_variables import MLFLOW_TRACE_EXTRACT_ATTACHMENTS
 
-        return MLFLOW_TRACE_EXTRACT_ATTACHMENTS.get()
+        if not MLFLOW_TRACE_EXTRACT_ATTACHMENTS.get():
+            return False
+        if not self._trace_supports_artifact_attachments():
+            _log_uc_inline_attachment_notice()
+            return False
+        return True
 
     def _try_convert_data_uri(self, value: str) -> str | None:
         if not value.startswith("data:") or ";base64," not in value:

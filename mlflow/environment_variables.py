@@ -884,6 +884,8 @@ MLFLOW_TRACE_BUFFER_MAX_SIZE = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_MAX_SIZ
 #: When enabled, automatically extracts base64-encoded multimodal content (images, audio) from
 #: span inputs/outputs and stores them as separate trace attachments. This keeps trace JSON
 #: lightweight while preserving the binary content as downloadable artifacts.
+#: Traces stored in Unity Catalog tables have no artifact location, so extraction is skipped
+#: there and the original content stays inline.
 #: (default: ``True``)
 MLFLOW_TRACE_EXTRACT_ATTACHMENTS = _BooleanEnvironmentVariable(
     "MLFLOW_TRACE_EXTRACT_ATTACHMENTS", True
