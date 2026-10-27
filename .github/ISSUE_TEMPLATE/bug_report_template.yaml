@@ -9,11 +9,15 @@ body:
   - type: markdown
     attributes:
       value: |
-        > [!WARNING]
-        > Wait for a maintainer to apply the `ready` label before opening a PR. PRs are closed automatically if the issue isn't `ready`, is assigned to someone else, or is already linked from an open PR.
-
         > [!NOTE]
         > A triage bot investigates new bug reports. For simple bugs with a straightforward fix, it may open a PR automatically, even if you offer to submit one.
+  - type: checkboxes
+    attributes:
+      label: Pull request contribution
+      description: PRs are closed automatically if the issue isn't `ready`, is assigned to someone else, or is already linked from an open PR.
+      options:
+        - label: I understand that I must wait for a maintainer to apply the `ready` label before opening a PR.
+          required: true
   - type: markdown
     attributes:
       value: |
