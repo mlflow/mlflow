@@ -1,6 +1,7 @@
 /* eslint-disable no-undef -- FEINF-2715 - convert to TS */
 import { configure } from 'enzyme';
 import Adapter from '@wojtekmaj/enzyme-adapter-react-17';
+import { cacheComputedStylesUntilDomChanges } from './common/utils/cacheComputedStyles';
 
 const setupMockFetch = () => {
   // eslint-disable-next-line import/no-extraneous-dependencies, no-unreachable
@@ -22,6 +23,8 @@ global.setImmediate = (cb) => {
 global.clearImmediate = (id) => {
   return clearTimeout(id);
 };
+
+cacheComputedStylesUntilDomChanges();
 
 // for plotly.js to work
 //

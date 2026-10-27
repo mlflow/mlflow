@@ -6,7 +6,6 @@ import { rest } from 'msw';
 import { setupServer } from '../../../common/utils/setup-msw';
 import { setupTestRouter } from '../../../common/utils/RoutingTestUtils';
 import { useLocation } from '../../../common/utils/RoutingUtils';
-import { cacheComputedStylesUntilDomChanges } from '../../components/experiment-page/components/traces-v4/test-utils/cacheComputedStyles';
 import { renderTracesV4Page } from '../../components/experiment-page/components/traces-v4/test-utils/renderTracesV4Page';
 import {
   makeFeedbackAssessment,
@@ -66,7 +65,6 @@ jest.mock('@databricks/design-system', () => ({
   ...jest.requireActual<typeof import('@databricks/design-system')>('@databricks/design-system'),
   TableSkeleton: () => null,
 }));
-cacheComputedStylesUntilDomChanges();
 
 describe('EvalRunTracesV4Table', () => {
   const { history } = setupTestRouter();

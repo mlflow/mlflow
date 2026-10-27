@@ -3,8 +3,8 @@ import { afterAll, beforeAll } from '@jest/globals';
 /**
  * jsdom's `getComputedStyle` matches every stylesheet rule against the element and again for each
  * ancestor, and role queries by name call it for every descendant of every candidate. Reuse each
- * element's computed style until the document or a stylesheet changes, so full-table suites stay
- * within CI limits.
+ * element's computed style until the document or a stylesheet changes, so suites that render large
+ * design-system pages stay within CI limits.
  */
 export const cacheComputedStylesUntilDomChanges = () => {
   const { getComputedStyle } = window;
@@ -51,7 +51,8 @@ export const cacheComputedStylesUntilDomChanges = () => {
     });
 
     window.getComputedStyle = (element, pseudoElement) => {
-      if (pseudoElement) {
+      // Changes inside a detached tree reach no observer, so only attached elements are cached.
+      if (pseudoElement || !element.isConnected) {
         return getComputedStyle.call(window, element, pseudoElement);
       }
       if (domChanges.takeRecords().length > 0 || stale) {

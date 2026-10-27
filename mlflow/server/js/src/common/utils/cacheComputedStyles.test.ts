@@ -1,7 +1,4 @@
 import { describe, expect, test } from '@jest/globals';
-import { cacheComputedStylesUntilDomChanges } from './cacheComputedStyles';
-
-cacheComputedStylesUntilDomChanges();
 
 describe('cacheComputedStylesUntilDomChanges', () => {
   test('reuses an element’s computed style until the document changes', () => {
@@ -72,5 +69,13 @@ describe('cacheComputedStylesUntilDomChanges', () => {
 
     style.sheet?.insertRule('.inserted { display: none; }');
     expect(window.getComputedStyle(element).display).toBe('none');
+  });
+
+  test('sees a change made to a detached element', () => {
+    const element = document.createElement('div');
+    expect(window.getComputedStyle(element).getPropertyValue('--offset')).toBe('');
+
+    element.style.setProperty('--offset', '4px');
+    expect(window.getComputedStyle(element).getPropertyValue('--offset')).toBe('4px');
   });
 });
