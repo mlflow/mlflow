@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test } from '@jest/globals';
 import { rest } from 'msw';
 import userEvent, { PointerEventsCheckLevel } from '@testing-library/user-event';
 
+import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 import { renderWithDesignSystem, screen, waitFor } from '../../../common/utils/TestUtils.react18';
 import { setupServer } from '../../../common/utils/setup-msw';
 import { QueryClient, QueryClientProvider } from '../../../common/utils/reactQueryHooks';
@@ -137,12 +138,19 @@ const traceFilterTag = (filters: unknown[]): SavedTag => ({
   value: JSON.stringify(filters),
 });
 
-const render = () => {
+/**
+ * `initialEntries` carries the URL the control was reached by, which is how arriving from the
+ * scheduled-runs page with the edit param is exercised. A router is required either way: the
+ * footer links out to that page, and the control reads the query string.
+ */
+const render = (initialEntries: string[] = ['/']) => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, cacheTime: 0 } } });
   return renderWithDesignSystem(
-    <QueryClientProvider client={client}>
-      <ExperimentIssuesScheduleControl experimentId="1" />
-    </QueryClientProvider>,
+    <MemoryRouter initialEntries={initialEntries}>
+      <QueryClientProvider client={client}>
+        <ExperimentIssuesScheduleControl experimentId="1" />
+      </QueryClientProvider>
+    </MemoryRouter>,
   );
 };
 
@@ -1226,5 +1234,53 @@ describe('ExperimentIssuesScheduleControl', () => {
     await user.click(await screen.findByRole('button', { name: /retry schedule/i }));
 
     expect(await screen.findByRole('button', { name: /scheduled: weekly/i })).toBeInTheDocument();
+  });
+
+  describe('run history', () => {
+    test("the footer links to this schedule's past occurrences", async () => {
+      experimentTags = [scheduleTag('weekly')];
+      const user = setup();
+      render();
+
+      await user.click(await screen.findByRole('button', { name: /scheduled: weekly/i }));
+
+      expect(await screen.findByRole('link', { name: 'View run history' })).toHaveAttribute(
+        'href',
+        '/experiments/1/issues/scheduled-runs',
+      );
+    });
+
+    test('the link is hidden on the API key step, which is mid-save', async () => {
+      // The step is reached by saving, so leaving a navigation link there would offer to walk away
+      // from a schedule that has not been stored yet.
+      experimentTags = [];
+      gatewaySecrets = [];
+      envCredentialsAvailable = false;
+      const user = setup();
+      render();
+      await openModal(user);
+      await chooseCadence(user, 'Daily');
+      await save(user);
+
+      expect(await screen.findByRole('button', { name: 'Continue and save' })).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'View run history' })).not.toBeInTheDocument();
+    });
+
+    test('arriving from the run history page with the edit param opens the dialog', async () => {
+      experimentTags = [scheduleTag('daily')];
+      render(['/experiments/1/issues?editSchedule=true']);
+
+      expect(await screen.findByRole('button', { name: 'Save' })).toBeInTheDocument();
+    });
+
+    test('the param is not honoured when the schedule could not be read', async () => {
+      // Opening the dialog over a failed read shows defaults, and saving those would overwrite
+      // whatever is really stored -- the same reason the trigger itself is withheld.
+      loadFails = true;
+      render(['/experiments/1/issues?editSchedule=true']);
+
+      expect(await screen.findByRole('button', { name: /retry schedule/i })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+    });
   });
 });

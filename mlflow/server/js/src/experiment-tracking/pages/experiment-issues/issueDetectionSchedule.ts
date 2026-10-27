@@ -411,6 +411,65 @@ export const normalizeTraceFilters = (filters: ScheduleTraceFilter[]): ScheduleT
  * is the fallback chain behind it. A schedule saved before the control existed keeps the zone it
  * was given, which is what stops an edit made elsewhere moving when it fires.
  */
+/**
+ * An instant the server computed, in the zone the schedule stores it in.
+ *
+ * Formatted in the stored zone rather than the browser's, because that is the zone the server
+ * read the instant in: naming the hour in any other zone would describe a time it is not going
+ * to fire at. 24-hour to match the start-time selects, where "16:00" and "4:00 PM" side by side
+ * would read as two different times.
+ *
+ * Returns undefined for a zone this browser cannot load -- older tzdata, or one added since --
+ * because `Intl` throws on those, and the server decides which zones it accepts, not the browser.
+ */
+/**
+ * The weekday names a schedule's stored weekday indexes into, Monday first.
+ *
+ * Monday-first because that is the order the schedule stores (Monday as 0), not a display
+ * preference -- the index has to line up with the stored value in every locale.
+ */
+export const weekdayLabels = (locale: string): string[] => {
+  const formatter = new Intl.DateTimeFormat(locale, { weekday: 'long', timeZone: 'UTC' });
+  // 2026-01-05 is a Monday, so walking forward from it walks the week in stored order.
+  return Array.from({ length: 7 }, (_, index) => formatter.format(new Date(Date.UTC(2026, 0, 5 + index))));
+};
+
+export const formatScheduleInstant = (ms: number, timezone: string, locale: string): string | undefined => {
+  try {
+    return new Intl.DateTimeFormat(locale, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      hourCycle: 'h23',
+      timeZone: timezone,
+    }).format(new Date(ms));
+  } catch {
+    return undefined;
+  }
+};
+
+/**
+ * One bound of a covered window, without the year.
+ *
+ * A window reaches back at most `STALE_WATERMARK_CAP_MS` -- eight days -- so the year is the same
+ * on both bounds in every case but one week of the year, and printing it twice per row made the
+ * column wide enough to push the rest of the table off screen. The occurrence's own date is on
+ * the row already, under Created at.
+ */
+export const formatScheduleWindowBound = (ms: number, timezone: string, locale: string): string | undefined => {
+  try {
+    return new Intl.DateTimeFormat(locale, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+      timeZone: timezone,
+    }).format(new Date(ms));
+  } catch {
+    return undefined;
+  }
+};
+
 export const resolveScheduleTimezone = (chosen?: string, stored?: string): string =>
   chosen?.trim() || stored?.trim() || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 

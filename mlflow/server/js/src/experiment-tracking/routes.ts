@@ -26,6 +26,7 @@ export enum PageId {
   experimentPageTabTraceDetail = 'mlflow.experiment.tab.trace-detail',
   experimentPageTabEvaluationRuns = 'mlflow.experiment.tab.evaluation-runs',
   experimentPageTabIssues = 'mlflow.experiment.tab.issues',
+  experimentPageTabIssueScheduledRuns = 'mlflow.experiment.tab.issue-scheduled-runs',
   experimentPageTabEvaluationRunDetails = 'mlflow.experiment.tab.evaluation-run-details',
   experimentPageTabDatasets = 'mlflow.experiment.tab.datasets',
   experimentPageTabDatasetDetail = 'mlflow.experiment.tab.dataset-detail',
@@ -91,6 +92,9 @@ export class RoutePaths {
   }
   static get experimentPageTabIssues() {
     return createMLflowRoutePath('/experiments/:experimentId/issues');
+  }
+  static get experimentPageTabIssueScheduledRuns() {
+    return createMLflowRoutePath('/experiments/:experimentId/issues/scheduled-runs');
   }
   static get experimentPageTabEvaluationRunDetails() {
     return createMLflowRoutePath('/experiments/:experimentId/evaluation-runs/:runUuid/details');
@@ -227,6 +231,10 @@ class Routes {
       });
     }
     return generatePath(RoutePaths.experimentPageTabbed, { experimentId, tabName });
+  }
+
+  static getIssueScheduledRunsRoute(experimentId: string) {
+    return generatePath(RoutePaths.experimentPageTabIssueScheduledRuns, { experimentId });
   }
 
   static getExperimentPageTabSingleChatSessionRoute(experimentId: string, sessionId: string) {

@@ -15,7 +15,10 @@ import {
 } from '@databricks/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
+import { Link, useSearchParams } from '../../../common/utils/RoutingUtils';
 import { generateRandomName } from '../../../common/utils/NameUtils';
+import { EDIT_ISSUE_DETECTION_SCHEDULE_PARAM } from '../../constants';
+import Routes from '../../routes';
 import { useApiKeyConfiguration } from '../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration';
 import { useCreateSecret } from '../../../gateway/hooks/useCreateSecret';
 import { useEndpointsQuery } from '../../../gateway/hooks/useEndpointsQuery';
@@ -28,12 +31,14 @@ import {
   DEFAULT_ISSUE_DETECTION_START_TIME,
   DEFAULT_ISSUE_DETECTION_WEEKDAY,
   MAX_TRACE_FILTERS,
+  formatScheduleInstant,
   joinStartTime,
   resolveScheduleTimezone,
   splitStartTime,
   startTimeHourOptions,
   startTimeMinuteOptions,
   unsupportedFilterCharacter,
+  weekdayLabels,
 } from './issueDetectionSchedule';
 import { allTimezones, recommendedTimezones, timezoneChoice } from './scheduleTimezones';
 import { NavigableCombobox } from '../../../common/components/navigable-combobox/NavigableCombobox';
@@ -69,12 +74,6 @@ type ModalView = 'main' | 'apiKey';
  * Localized through `Intl` rather than through seven translated messages, since every locale
  * already has these names.
  */
-const weekdayLabels = (locale: string): string[] => {
-  const formatter = new Intl.DateTimeFormat(locale, { weekday: 'long', timeZone: 'UTC' });
-  // 2026-01-05 is a Monday, so walking forward from it walks the week in stored order.
-  return Array.from({ length: 7 }, (_, index) => formatter.format(new Date(Date.UTC(2026, 0, 5 + index))));
-};
-
 /**
  * Width of the dialog.
  *
@@ -475,6 +474,29 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
   }, [reload, setting, storedStartTime, storedWeekday, storedTimezone, traceFilters, model, resetCreateSecret]);
   const closeModal = useCallback(() => setOpen(false), []);
 
+  // "Edit schedule" on the scheduled-runs page navigates here with this param rather than leaving
+  // the dialog to be found again. The param is dropped as the dialog opens, so closing it and
+  // reloading -- or sharing the URL -- does not reopen it, and it is only honoured once the
+  // schedule has loaded, since `openModal` seeds the draft from what is loaded.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedEdit = searchParams.get(EDIT_ISSUE_DETECTION_SCHEDULE_PARAM) !== null;
+  useEffect(() => {
+    if (!requestedEdit || isLoading) {
+      return;
+    }
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.delete(EDIT_ISSUE_DETECTION_SCHEDULE_PARAM);
+        return next;
+      },
+      { replace: true },
+    );
+    if (scheduledDetectionAvailable && !loadError) {
+      openModal();
+    }
+  }, [requestedEdit, isLoading, scheduledDetectionAvailable, loadError, openModal, setSearchParams]);
+
   // A schedule that names no model (or one saved before a model could be chosen) falls back to the
   // same default the ad-hoc dialog uses: the first AI Gateway endpoint, else the first provider.
   // Done in an effect so a modal opened before the endpoint list arrives still lands on it.
@@ -574,21 +596,12 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     if (nextRunMs === undefined || !storedTimezone) {
       return null;
     }
-    let when: string;
-    try {
-      when = new Intl.DateTimeFormat(intl.locale, {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-        // 24-hour, because the selects above are: "16:00" there and "4:00 PM" here would read as
-        // two different times.
-        hourCycle: 'h23',
-        timeZone: storedTimezone,
-      }).format(new Date(nextRunMs));
-    } catch {
-      // A zone this server can load but this browser cannot -- older tzdata, a zone added since
-      // -- makes `Intl` throw. Unguarded that took the whole Issues tab down rather than one
-      // line of it, since this runs whenever the control renders and not only when the modal is
-      // open. The schedule stays editable and its stored zone untouched; only the line is lost.
+    const when = formatScheduleInstant(nextRunMs, storedTimezone, intl.locale);
+    if (when === undefined) {
+      // A zone this server can load but this browser cannot makes `Intl` throw. Unguarded that
+      // took the whole Issues tab down rather than one line of it, since this runs whenever the
+      // control renders and not only when the modal is open. The schedule stays editable and its
+      // stored zone untouched; only the line is lost.
       return null;
     }
     return intl.formatMessage(
@@ -843,9 +856,20 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
         onCancel={isUpdating || isCreatingSecret ? undefined : closeModal}
         footer={
           <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            {/* Upstream's "View run history" link sits here. It opens the managed scheduler's own
-                run history, which OSS has no equivalent of yet, so the footer holds only the
-                buttons for now. */}
+            {/* Where upstream puts "View run history". Upstream's opens the managed scheduler's
+                own history; this one opens the occurrences the schedule has recorded here, which
+                are runs in this experiment. Hidden on the API-key step, which is mid-save. */}
+            {view === 'main' && (
+              <Link
+                componentId={`${COMPONENT_ID}.modal.footer.run-history`}
+                to={Routes.getIssueScheduledRunsRoute(experimentId)}
+              >
+                {intl.formatMessage({
+                  defaultMessage: 'View run history',
+                  description: 'Experiment issues tab > Schedule modal link to the past occurrences of this schedule',
+                })}
+              </Link>
+            )}
             <div css={{ marginLeft: 'auto' }}>
               {view === 'apiKey' ? (
                 <>

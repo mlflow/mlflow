@@ -67,6 +67,10 @@
     "defaultMessage": "Enter new password",
     "description": "Placeholder for the new-password input"
   },
+  "+Atrh9": {
+    "defaultMessage": "No occurrences yet",
+    "description": "Experiment issues tab > Scheduled runs > Empty state title before the first occurrence"
+  },
   "+BlSFl": {
     "defaultMessage": "Untitled custom view",
     "description": "Fallback label for a custom trace view that has not been saved or named yet"
@@ -222,6 +226,10 @@
   "+l0GmX": {
     "defaultMessage": "Last seen",
     "description": "Experiment issues tab > Sort by the most recent trace the issue affected option"
+  },
+  "+l7PrL": {
+    "defaultMessage": "Scheduled detection runs",
+    "description": "Experiment issues tab > Scheduled runs > Page title"
   },
   "+lNppY": {
     "defaultMessage": "Notes",
@@ -487,6 +495,10 @@
     "defaultMessage": "Share and manage machine learning models.",
     "description": "Default text for model registry onboarding on the model list page"
   },
+  "/gBFgQ": {
+    "defaultMessage": "Outcome",
+    "description": "Experiment issues tab > Scheduled runs > Column header for how an occurrence ended"
+  },
   "/gLx1m": {
     "defaultMessage": "Git commit",
     "description": "Eval run detail: git commit of the run's code"
@@ -598,6 +610,10 @@
   "0+djpP": {
     "defaultMessage": "or",
     "description": "Divider between model list and custom input"
+  },
+  "007nn6": {
+    "defaultMessage": "Occurrences appear here once the schedule has fired.",
+    "description": "Experiment issues tab > Scheduled runs > Empty state body before the first run"
   },
   "015x8a": {
     "defaultMessage": "Days",
@@ -3159,6 +3175,10 @@
     "defaultMessage": "Unhide group",
     "description": "A tooltip for the visibility icon button in the runs table next to the hidden run group"
   },
+  "8HHemG": {
+    "defaultMessage": "Window covered",
+    "description": "Experiment issues tab > Scheduled runs > Column header for the trace window an occurrence covered"
+  },
   "8HwtfM": {
     "defaultMessage": "New password",
     "description": "Label for the new-password field"
@@ -4611,6 +4631,10 @@
     "defaultMessage": "Add filter",
     "description": "Button to add a filter row in the eval-runs filter"
   },
+  "CfbybC": {
+    "defaultMessage": "Succeeded",
+    "description": "Experiment issues tab > Scheduled runs > Outcome of an occurrence that analyzed traces"
+  },
   "Chht41": {
     "defaultMessage": "Select at least 2 runs to compare",
     "description": "Tooltip for the eval-runs compare button when fewer than 2 runs are selected"
@@ -4942,6 +4966,10 @@
   "DxzCEr": {
     "defaultMessage": "Show less",
     "description": "Show less packages button"
+  },
+  "DyBoj8": {
+    "defaultMessage": "View run history",
+    "description": "Experiment issues tab > Schedule modal link to the past occurrences of this schedule"
   },
   "Dz/+6s": {
     "defaultMessage": "Usage tracking",
@@ -5442,6 +5470,10 @@
   "FnOQ44": {
     "defaultMessage": "{numFilteredEvals} of {numEvals}",
     "description": "Text displayed when showing a filtered subset evaluations in the evaluation review page"
+  },
+  "FnquNq": {
+    "defaultMessage": "Weekly on {weekday} at {time} ({zone})",
+    "description": "Experiment issues tab > Scheduled runs > Summary of a weekly schedule"
   },
   "FoMjFN": {
     "defaultMessage": "Scorer",
@@ -6126,6 +6158,10 @@
   "HrQbGZ": {
     "defaultMessage": "Format",
     "description": "Button that pretty-prints the tool parameters JSON in the playground"
+  },
+  "HsJ/PJ": {
+    "defaultMessage": "Running",
+    "description": "Experiment issues tab > Scheduled runs > Outcome of an occurrence still going"
   },
   "HsQKAa": {
     "defaultMessage": "Evaluation score trends. Use arrow keys to select a run.",
@@ -7679,6 +7715,10 @@
     "defaultMessage": "Webhooks",
     "description": "Webhooks settings section title"
   },
+  "Mv3FBD": {
+    "defaultMessage": "Cost",
+    "description": "Experiment issues tab > Scheduled runs > Column header for what an occurrence spent"
+  },
   "MxiIan": {
     "defaultMessage": "Add message",
     "description": "Button to insert a new chat message row"
@@ -7942,6 +7982,10 @@
   "NekUba": {
     "defaultMessage": "Add to dataset",
     "description": "Button text for adding a trace to an evaluation dataset"
+  },
+  "NfFYa0": {
+    "defaultMessage": "{count, plural, one {# run} other {# runs}}",
+    "description": "Experiment issues tab > Scheduled runs > Total count of occurrences"
   },
   "NfKgNa": {
     "defaultMessage": "Win",
@@ -8238,6 +8282,10 @@
   "OWlBCs": {
     "defaultMessage": "{agentFunction} (source digest: {digest})",
     "description": "Eval run detail: tooltip on the evaluated agent function with the digest of its source code"
+  },
+  "OXKRq3": {
+    "defaultMessage": "Past occurrences stay here. Turn the schedule back on to add to them.",
+    "description": "Experiment issues tab > Scheduled runs > Empty state body for a paused schedule"
   },
   "OXcY79": {
     "defaultMessage": "Profile",
@@ -8795,6 +8843,10 @@
     "defaultMessage": "Measure and compare LLM quality with built-in and custom scorers.",
     "description": "Feature card summary for evaluation"
   },
+  "QP9CM1": {
+    "defaultMessage": "Nothing to analyze",
+    "description": "Experiment issues tab > Scheduled runs > Outcome of an occurrence that fired over a window holding no traces it could use"
+  },
   "QPC4hV": {
     "defaultMessage": "Use other parameters or disable run grouping to continue.",
     "description": "Experiment page > compare runs > parallel coordinates chart > unsupported string values warning > description"
@@ -8982,6 +9034,10 @@
   "R1kmVV": {
     "defaultMessage": "Couldn't load reviewers. Try again.",
     "description": "Review queue: reviewers roster failed to load"
+  },
+  "R1pjzp": {
+    "defaultMessage": "{count}+ runs loaded",
+    "description": "Experiment issues tab > Scheduled runs > Count of loaded occurrences while more pages remain"
   },
   "R28jzs": {
     "defaultMessage": "Action",
@@ -9574,6 +9630,10 @@
   "SzvvXl": {
     "defaultMessage": "Failed to submit",
     "description": "Message text for failing to save changes in editable note in MLflow"
+  },
+  "T+8+An": {
+    "defaultMessage": "Runs, last {days} days",
+    "description": "Experiment issues tab > Scheduled runs > Figure counting recent occurrences"
   },
   "T+dwu8": {
     "defaultMessage": "Pre-built LLM-as-a-judge",
@@ -10239,6 +10299,10 @@
     "defaultMessage": "Explore MLflow's core features with pre-populated sample data including traces, evaluations, and prompts.",
     "description": "Demo banner description"
   },
+  "VDGbaP": {
+    "defaultMessage": "Model",
+    "description": "Experiment issues tab > Scheduled runs > Column header for the model an occurrence ran against"
+  },
   "VDf1X1": {
     "defaultMessage": "Quality Summary",
     "description": "Title for the quality summary table section"
@@ -10502,6 +10566,10 @@
   "VuCIj8": {
     "defaultMessage": "Couldn't check whether this name is already registered: {reason} Try again.",
     "description": "Error when the skill name availability check fails before registration"
+  },
+  "VuCPgc": {
+    "defaultMessage": "Cancelled",
+    "description": "Experiment issues tab > Scheduled runs > Outcome of an occurrence somebody stopped"
   },
   "VuqpXo": {
     "defaultMessage": "AI Registry",
@@ -11071,6 +11139,10 @@
     "defaultMessage": "Range {min}–{max}",
     "description": "Score range summary for a decision answer"
   },
+  "Xm2Lmw": {
+    "defaultMessage": "The first one runs {when}.",
+    "description": "Experiment issues tab > Scheduled runs > Empty state body naming the first run"
+  },
   "Xm5xxu": {
     "defaultMessage": "Request error",
     "description": "Error state title displayed in the logged models list page"
@@ -11094,6 +11166,10 @@
   "Xo3L6r": {
     "defaultMessage": "Analyze evaluation run with Assistant",
     "description": "Tooltip for the assistant analyze button in the evaluation run toolbar"
+  },
+  "XoquPZ": {
+    "defaultMessage": "Created at",
+    "description": "Experiment issues tab > Scheduled runs > Column header for when an occurrence started"
   },
   "XpfPyP": {
     "defaultMessage": "YAML",
@@ -11210,6 +11286,10 @@
   "Y7DzTT": {
     "defaultMessage": "Input",
     "description": "Label for the input tokens in the tooltip for the tokens cell."
+  },
+  "Y9NjdK": {
+    "defaultMessage": "Traces scanned",
+    "description": "Experiment issues tab > Scheduled runs > Figure totalling traces analyzed recently"
   },
   "Y9ZFyN": {
     "defaultMessage": "Download artifact",
@@ -11771,6 +11851,10 @@
     "defaultMessage": "Add tag",
     "description": "Aria label for add tag button in create MCP server modal"
   },
+  "a4NaOZ": {
+    "defaultMessage": "Failed",
+    "description": "Experiment issues tab > Scheduled runs > Outcome of an occurrence that broke"
+  },
   "a4aYdO": {
     "defaultMessage": "Remote endpoints provided by the server maintainer for direct connections.",
     "description": "Help text for MCP server official endpoints subsection"
@@ -12278,6 +12362,10 @@
   "blK7dt": {
     "defaultMessage": "No data for this assessment in the last 30 days",
     "description": "Monitor trend chart empty state"
+  },
+  "blWy/Z": {
+    "defaultMessage": "Duration",
+    "description": "Experiment issues tab > Scheduled runs > Column header for how long an occurrence took"
   },
   "bmBV9A": {
     "defaultMessage": "Average Value",
@@ -13535,6 +13623,10 @@
     "defaultMessage": "Registry type",
     "description": "Package registry type label"
   },
+  "fhZMLs": {
+    "defaultMessage": "Next run",
+    "description": "Experiment issues tab > Scheduled runs > Figure for when the schedule next fires"
+  },
   "fhaHvd": {
     "defaultMessage": "There was an unrecoverable error while loading the chart. Please try to reconfigure the chart and/or reload the window.",
     "description": "Description for the error message when the MLflow chart fails to load"
@@ -13846,6 +13938,10 @@
   "gXb1Ab": {
     "defaultMessage": "Create new workspace",
     "description": "Create workspace button"
+  },
+  "gXjurh": {
+    "defaultMessage": "This schedule is off",
+    "description": "Experiment issues tab > Scheduled runs > Empty state title for a paused schedule"
   },
   "gY9VVl": {
     "defaultMessage": "Instructions for reviewers on how to answer this question",
@@ -15067,6 +15163,10 @@
     "defaultMessage": "Detect Issues",
     "description": "Label for the detect issues button"
   },
+  "k+l4m4": {
+    "defaultMessage": "Issues",
+    "description": "Experiment issues tab > Scheduled runs > Breadcrumb back to the Issues tab"
+  },
   "k/76Sq": {
     "defaultMessage": "Open model parameters",
     "description": "Aria label for the wrench button that opens the playground parameters drawer"
@@ -15226,6 +15326,10 @@
   "kMCvRi": {
     "defaultMessage": "Evaluate traces",
     "description": "Label for the primary button that opens the run-evaluation modal"
+  },
+  "kMcfip": {
+    "defaultMessage": "Scanned traces",
+    "description": "Experiment issues tab > Scheduled runs > Column header for how many traces an occurrence analyzed"
   },
   "kMiKvK": {
     "defaultMessage": "OK",
@@ -17071,6 +17175,10 @@
     "defaultMessage": "Track and compare versions of your GenAI app",
     "description": "Empty state title displayed when no models are logged in the genai logged models list page"
   },
+  "qO0e5f": {
+    "defaultMessage": "Schedule is off",
+    "description": "Experiment issues tab > Scheduled runs > Summary of a paused schedule"
+  },
   "qP6omA": {
     "defaultMessage": "Probability distribution",
     "description": "Heading for a decision answer probability distribution"
@@ -17570,6 +17678,10 @@
   "s08zyd": {
     "defaultMessage": "View in evaluation runs tab",
     "description": "Button navigating to the evaluation runs page filtered to the current dataset"
+  },
+  "s1kDjy": {
+    "defaultMessage": "Hourly",
+    "description": "Experiment issues tab > Scheduled runs > Summary of an hourly schedule"
   },
   "s29iQg": {
     "defaultMessage": "Session",
@@ -18395,6 +18507,10 @@
     "defaultMessage": "Search issues by title",
     "description": "Experiment issues tab > Accessible label of the search box that matches issue titles"
   },
+  "utcs0c": {
+    "defaultMessage": "Daily at {time} ({zone})",
+    "description": "Experiment issues tab > Scheduled runs > Summary of a daily schedule"
+  },
   "utyagz": {
     "defaultMessage": "Feedback",
     "description": "Label for the feedback section in the assessments pane"
@@ -18951,9 +19067,17 @@
     "defaultMessage": "Constrain how the model formats its output:",
     "description": "Intro line in the info popover next to the Response format section header"
   },
+  "weiVTw": {
+    "defaultMessage": "Last outcome",
+    "description": "Experiment issues tab > Scheduled runs > Figure for how the newest settled occurrence ended"
+  },
   "wh+Eos": {
     "defaultMessage": "Create prompt",
     "description": "A header for the create prompt modal in the prompt management UI"
+  },
+  "whQNXS": {
+    "defaultMessage": "Edit schedule",
+    "description": "Experiment issues tab > Scheduled runs > Action opening the schedule dialog"
   },
   "whhlYC": {
     "defaultMessage": "Transport URL",
@@ -19074,6 +19198,10 @@
   "x1PYs6": {
     "defaultMessage": "Average",
     "description": "Average monitoring scorer value in a selected chart range"
+  },
+  "x1eEW3": {
+    "defaultMessage": "New issues",
+    "description": "Experiment issues tab > Scheduled runs > Column header for issues an occurrence filed for the first time"
   },
   "x2+7hZ": {
     "defaultMessage": "Are you sure you want to delete the prompt version?",
@@ -19502,6 +19630,10 @@
   "yPdr5F": {
     "defaultMessage": "Does app's response directly address the user's input?",
     "description": "Hint for RelevanceToQuery template"
+  },
+  "yQ+Kaj": {
+    "defaultMessage": "Spend, last {days} days",
+    "description": "Experiment issues tab > Scheduled runs > Figure totalling recent model spend"
   },
   "yQkV88": {
     "defaultMessage": "No endpoints are using this key",
