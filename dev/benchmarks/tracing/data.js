@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793116339220,
+  "lastUpdate": 1793129984302,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "1140387970@qq.com",
-            "name": "Mark Kuang",
-            "username": "iis-MarkKuang"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "659bfcedd120ab583c0cad42371c857d9071a274",
-          "message": "[tracking] Fix system metrics resume step without metric history mate… (#23401)\n\nSigned-off-by: mark <kuangyuan2014@163.com>\nCo-authored-by: mark <kuangyuan2014@163.com>",
-          "timestamp": "2026-08-13T04:10:05Z",
-          "tree_id": "69e1c05d8bbe434610a5c543542e6bc4e0588a92",
-          "url": "https://github.com/mlflow/mlflow/commit/659bfcedd120ab583c0cad42371c857d9071a274"
-        },
-        "date": 1786594283669,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 42.4430932000007,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 8.685764346156386,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 5.4537962251659815,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 6.287499529411675,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 5.783579807692263,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 9.093749599998091,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 25.983688200000188,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "89657709+a-gajam@users.noreply.github.com",
+            "name": "Anurag Gajam",
+            "username": "a-gajam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "beb5ab56a909626aaf9a070e762c7eca931a0984",
+          "message": "Reject `*` as a registered model or prompt name when auth is enabled (#27202)\n\nSigned-off-by: a-gajam <89657709+a-gajam@users.noreply.github.com>",
+          "timestamp": "2026-10-27T19:35:33Z",
+          "tree_id": "cf2dbef544268124358dc59007bff7c5cccb1c8d",
+          "url": "https://github.com/mlflow/mlflow/commit/beb5ab56a909626aaf9a070e762c7eca931a0984"
+        },
+        "date": 1793129979367,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 50.11552310000269,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 5.560559291665928,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 4.9136126086961625,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 4.960953327044326,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.329431485914458,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 5.348925833331464,
             "unit": "ms"
           }
         ]
