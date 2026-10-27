@@ -469,6 +469,7 @@ def test_custom_location():
 @pytest.mark.parametrize(
     "location",
     [
+        "",
         "global",
         "us",
         "eu",

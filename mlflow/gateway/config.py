@@ -359,7 +359,8 @@ class VertexAIConfig(ConfigModel):
     @field_validator("vertex_location")
     def validate_vertex_location(cls, value):
         # The location becomes part of the request host, so it must be a bare region name.
-        if value is not None and not re.fullmatch(r"[a-z0-9-]+", value):
+        # An empty value falls back to the default location, like None.
+        if value and not re.fullmatch(r"[a-z0-9-]+", value):
             raise ValueError(
                 "vertex_location must contain only lowercase letters, digits, and hyphens; "
                 f"got {value!r}"
