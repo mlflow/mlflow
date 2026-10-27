@@ -3,26 +3,60 @@ import { afterAll, beforeAll } from '@jest/globals';
 /**
  * jsdom's `getComputedStyle` matches every stylesheet rule against the element and again for each
  * ancestor, and role queries by name call it for every descendant of every candidate. Reuse each
- * element's computed style until the document changes, so full-table suites stay within CI limits.
+ * element's computed style until the document or a stylesheet changes, so full-table suites stay
+ * within CI limits.
  */
 export const cacheComputedStylesUntilDomChanges = () => {
   const { getComputedStyle } = window;
-  let observer: MutationObserver | undefined;
+  let restore = () => {};
 
   beforeAll(() => {
-    const domChanges = new MutationObserver(() => {});
-    domChanges.observe(document, { subtree: true, childList: true, attributes: true, characterData: true });
-    observer = domChanges;
     let styles = new WeakMap<Element, CSSStyleDeclaration>();
-    // shortcut: a rule inserted into an existing sheet without a DOM change is not seen; Emotion only does that in production.
-    let sheetCount = document.styleSheets.length;
+    let stale = false;
+    // Records reach the callback at the next microtask; `takeRecords()` catches those made since.
+    const domChanges = new MutationObserver(() => {
+      stale = true;
+    });
+    domChanges.observe(document, { subtree: true, childList: true, attributes: true, characterData: true });
+
+    // Emotion's speedy mode adds rules with `insertRule`, which changes styles without a DOM mutation.
+    const probe = document.createElement('style');
+    document.head.appendChild(probe);
+    const sheetPrototype = Object.getPrototypeOf(probe.sheet);
+    probe.remove();
+    const { insertRule, deleteRule } = sheetPrototype;
+    sheetPrototype.insertRule = function (...args: Parameters<CSSStyleSheet['insertRule']>) {
+      stale = true;
+      return insertRule.apply(this, args);
+    };
+    sheetPrototype.deleteRule = function (...args: Parameters<CSSStyleSheet['deleteRule']>) {
+      stale = true;
+      return deleteRule.apply(this, args);
+    };
+
+    // `:focus` and `:checked` rules follow state that changes without a DOM mutation.
+    // shortcut: an input `value` set from code without an event is not seen; extend this if a rule depends on one.
+    const markStale = () => {
+      stale = true;
+    };
+    const stateEvents = ['focusin', 'focusout', 'input', 'change'];
+    stateEvents.forEach((type) => document.addEventListener(type, markStale, true));
+    const checked = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked');
+    Object.defineProperty(HTMLInputElement.prototype, 'checked', {
+      ...checked,
+      set(value: boolean) {
+        stale = true;
+        checked?.set?.call(this, value);
+      },
+    });
+
     window.getComputedStyle = (element, pseudoElement) => {
       if (pseudoElement) {
         return getComputedStyle.call(window, element, pseudoElement);
       }
-      if (domChanges.takeRecords().length > 0 || document.styleSheets.length !== sheetCount) {
+      if (domChanges.takeRecords().length > 0 || stale) {
         styles = new WeakMap();
-        sheetCount = document.styleSheets.length;
+        stale = false;
       }
       let style = styles.get(element);
       if (!style) {
@@ -31,10 +65,18 @@ export const cacheComputedStylesUntilDomChanges = () => {
       }
       return style;
     };
+
+    restore = () => {
+      domChanges.disconnect();
+      sheetPrototype.insertRule = insertRule;
+      sheetPrototype.deleteRule = deleteRule;
+      stateEvents.forEach((type) => document.removeEventListener(type, markStale, true));
+      if (checked) {
+        Object.defineProperty(HTMLInputElement.prototype, 'checked', checked);
+      }
+      window.getComputedStyle = getComputedStyle;
+    };
   });
 
-  afterAll(() => {
-    observer?.disconnect();
-    window.getComputedStyle = getComputedStyle;
-  });
+  afterAll(() => restore());
 };
