@@ -6,17 +6,13 @@ labels: ["bug", "area/uiux"]
 title: "[UI-BUG]"
 
 body:
-  - type: markdown
-    attributes:
-      value: |
-        > [!NOTE]
-        > A triage bot investigates new bug reports. For simple bugs with a straightforward fix, it may open a PR automatically, even if you offer to submit one.
   - type: checkboxes
     attributes:
       label: Pull request contribution
-      description: PRs are closed automatically if the issue isn't `ready`, is assigned to someone else, or is already linked from an open PR.
       options:
-        - label: I understand that I must wait for a maintainer to apply the `ready` label before opening a PR.
+        - label: I understand that PRs for this issue are closed automatically unless a maintainer has applied the `ready` label, the issue isn't assigned to someone else, and no open PR already links it.
+          required: true
+        - label: I understand a triage bot may open a PR for this issue automatically, even if I offer to submit one.
           required: true
   - type: markdown
     attributes:
