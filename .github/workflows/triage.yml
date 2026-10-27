@@ -622,8 +622,25 @@ jobs:
               uv run --no-sync pre-commit run install-bin --files .pre-commit-config.yaml
           - name: Install system packages
             run: |
-              sudo apt-get update
-              sudo apt-get install -y --no-install-recommends bubblewrap socat ripgrep ffmpeg
+              for attempt in 1 2 3; do
+                echo "apt-get update attempt $attempt/3"
+                if sudo timeout --kill-after=10s 1m apt-get \
+                  -o Acquire::http::Timeout=15 \
+                  -o Acquire::https::Timeout=15 \
+                  update; then
+                  break
+                fi
+                if [ "$attempt" -eq 3 ]; then
+                  echo "::error::apt-get update failed after 3 attempts"
+                  exit 1
+                fi
+                echo "::warning::apt-get update failed or timed out; retrying in 5 seconds"
+                sleep 5
+              done
+              sudo apt-get \
+                -o Acquire::http::Timeout=15 \
+                -o Acquire::https::Timeout=15 \
+                install -y --no-install-recommends bubblewrap socat ripgrep ffmpeg
               if [ "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)" = 1 ]; then
                 sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
               fi
