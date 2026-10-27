@@ -26,9 +26,12 @@ from mlflow.server.jobs.utils import MLFLOW_SERVER_JOB_ID_ENV_VAR
 from mlflow.store.tracking import MAX_TRACE_LINKS_PER_REQUEST
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.mlflow_tags import (
+    MLFLOW_ISSUE_DETECTION_ERROR,
     MLFLOW_ISSUE_DETECTION_JOB_ID,
     MLFLOW_ISSUE_DETECTION_TRIGGER,
     MLFLOW_ISSUE_DETECTION_TRIGGER_SCHEDULE,
+    MLFLOW_ISSUE_DETECTION_WINDOW_END,
+    MLFLOW_ISSUE_DETECTION_WINDOW_START,
     MLFLOW_RUN_TYPE,
     MLFLOW_RUN_TYPE_ISSUE_DETECTION,
 )
@@ -127,7 +130,13 @@ def _detect_issues_into_run(
             "total_traces_analyzed": result.total_traces_analyzed,
             "total_cost_usd": result.total_cost_usd,
         }
-    except Exception:
+    except Exception as error:
+        # Recorded before the status so a run that reads as FAILED already carries its reason,
+        # and best-effort so a store that refuses the tag cannot swallow the original failure.
+        try:
+            client.set_tag(run_id, MLFLOW_ISSUE_DETECTION_ERROR, _describe_failure(error))
+        except Exception:
+            _logger.warning("Could not record why detection run %s failed", run_id, exc_info=True)
         client.set_terminated(run_id, RunStatus.to_string(RunStatus.FAILED))
         raise
 
@@ -151,12 +160,34 @@ def invoke_issue_detection_job(
     )
 
 
+# How much of a failure message a run tag carries. Long enough for a provider's own explanation,
+# short enough that a stack-trace-sized payload cannot land in a tag.
+MAX_ERROR_TAG_LENGTH = 500
+
+
+def _describe_failure(error: BaseException) -> str:
+    """
+    One line naming what went wrong, for the run tag a failed occurrence leaves behind.
+
+    The type is kept because the message alone is often empty, and the message is kept because the
+    type alone rarely says what to fix -- a missing key and a rejected key are both
+    ``MlflowException``. Truncated rather than summarized: a provider's wording is the useful part,
+    and rewriting it here would hide the detail someone needs.
+    """
+    message = str(error).strip()
+    described = f"{type(error).__name__}: {message}" if message else type(error).__name__
+    if len(described) <= MAX_ERROR_TAG_LENGTH:
+        return described
+    return described[: MAX_ERROR_TAG_LENGTH - 1] + "\u2026"
+
+
 def _create_scheduled_run(
     client: MlflowClient,
     experiment_id: str,
     categories: list[str],
     model: str | None,
     total_traces: int,
+    window: SampleWindow,
 ) -> str:
     """
     Create the run that records one scheduled occurrence.
@@ -173,6 +204,11 @@ def _create_scheduled_run(
         # Stringified because create_run stores tag values verbatim, unlike the fluent
         # start_run the manual path uses, which coerces them.
         "total_traces": str(total_traces),
+        # The stretch of trace history this occurrence was entitled to cover. Recorded here
+        # because the checkpoint keeps only the newest watermark, so after the next occurrence
+        # advances it there is nothing left that says how far back this one reached.
+        MLFLOW_ISSUE_DETECTION_WINDOW_START: str(window.lower_bound_ms),
+        MLFLOW_ISSUE_DETECTION_WINDOW_END: str(window.now_ms),
     }
     # The same tag the manual path sets from the submitting handler. Without it the Issues tab
     # cannot poll this run's job: it treats a RUNNING detection run carrying no job id as a
@@ -185,7 +221,11 @@ def _create_scheduled_run(
 
 
 def _record_quiet_occurrence(
-    client: MlflowClient, experiment_id: str, categories: list[str], model: str | None
+    client: MlflowClient,
+    experiment_id: str,
+    categories: list[str],
+    model: str | None,
+    window: SampleWindow,
 ) -> str:
     """
     Record an occurrence that had nothing to analyze: a finished run over zero traces.
@@ -195,7 +235,9 @@ def _record_quiet_occurrence(
     beyond the run itself, and it carries the same tags as any other scheduled run -- a
     ``total_traces`` of zero is what tells them apart.
     """
-    run_id = _create_scheduled_run(client, experiment_id, categories, model, total_traces=0)
+    run_id = _create_scheduled_run(
+        client, experiment_id, categories, model, total_traces=0, window=window
+    )
     client.set_tag(run_id, "total_cost_usd", 0.0)
     client.set_terminated(run_id, RunStatus.to_string(RunStatus.FINISHED))
     return run_id
@@ -268,7 +310,7 @@ def run_scheduled_issue_detection_job(
     # occurrence to re-scan the same stretch until the stale cap cut it off.
     newest = _newest_trace_matching(experiment_id, window_clause)
     if newest is None:
-        run_id = _record_quiet_occurrence(client, experiment_id, categories, model)
+        run_id = _record_quiet_occurrence(client, experiment_id, categories, model, window)
         _logger.info(
             "Scheduled issue detection found no traces for experiment %s in %s; recorded run %s "
             "over zero traces and left its watermark where it is",
@@ -288,7 +330,7 @@ def run_scheduled_issue_detection_job(
     if not traces:
         # Nothing matched, so there is nothing to analyze -- but the occurrence did cover its
         # window, so the watermark still moves past it.
-        run_id = _record_quiet_occurrence(client, experiment_id, categories, model)
+        run_id = _record_quiet_occurrence(client, experiment_id, categories, model, window)
         _logger.info(
             "Scheduled issue detection sampled no traces for experiment %s in %s; recorded run %s "
             "over zero traces and advanced its watermark across the window regardless",
@@ -300,7 +342,7 @@ def run_scheduled_issue_detection_job(
             write_detection_checkpoint(client, experiment_id, checkpoint)
         return {"traces_in_window": 0, "run_id": run_id}
 
-    run_id = _create_scheduled_run(client, experiment_id, categories, model, len(traces))
+    run_id = _create_scheduled_run(client, experiment_id, categories, model, len(traces), window)
     result = _detect_issues_into_run(
         client,
         experiment_id,

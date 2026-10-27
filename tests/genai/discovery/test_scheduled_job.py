@@ -10,6 +10,7 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
+from mlflow.exceptions import MlflowException
 from mlflow.genai.discovery.checkpoint import (
     MAX_SCHEDULED_SESSION_SAMPLE_SIZE,
     CheckpointTrace,
@@ -17,14 +18,21 @@ from mlflow.genai.discovery.checkpoint import (
     parse_detection_checkpoint,
 )
 from mlflow.genai.discovery.constants import SAMPLE_POOL_MULTIPLIER
-from mlflow.genai.discovery.job import run_scheduled_issue_detection_job
+from mlflow.genai.discovery.job import (
+    MAX_ERROR_TAG_LENGTH,
+    _describe_failure,
+    run_scheduled_issue_detection_job,
+)
 from mlflow.genai.discovery.sampling import sample_traces
 from mlflow.server.jobs.utils import MLFLOW_SERVER_JOB_ID_ENV_VAR
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.utils.mlflow_tags import (
     MLFLOW_ISSUE_DETECTION_CHECKPOINT,
+    MLFLOW_ISSUE_DETECTION_ERROR,
     MLFLOW_ISSUE_DETECTION_JOB_ID,
     MLFLOW_ISSUE_DETECTION_TRIGGER,
+    MLFLOW_ISSUE_DETECTION_WINDOW_END,
+    MLFLOW_ISSUE_DETECTION_WINDOW_START,
     MLFLOW_RUN_TYPE,
     MLFLOW_RUN_TYPE_ISSUE_DETECTION,
 )
@@ -556,3 +564,88 @@ def test_a_store_smaller_than_the_bound_is_sampled_whole(monkeypatch: pytest.Mon
         )
         == 15
     )
+
+
+def _created_tags(client) -> dict[str, str]:
+    client.create_run.assert_called_once()
+    return client.create_run.call_args.kwargs["tags"]
+
+
+def test_an_occurrence_records_the_window_it_covered(occurrence):
+    occurrence.run()
+
+    tags = _created_tags(occurrence.client)
+    assert tags[MLFLOW_ISSUE_DETECTION_WINDOW_START] == str(WINDOW_LOWER_MS)
+    assert tags[MLFLOW_ISSUE_DETECTION_WINDOW_END] == str(WINDOW_UPPER_MS)
+
+
+def test_an_occurrence_with_nothing_to_analyze_still_records_its_window(occurrence):
+    # The one case where the window is the only thing the run can say: without these tags a quiet
+    # occurrence carries no evidence of which stretch it found empty.
+    occurrence.newest.return_value = None
+
+    occurrence.run()
+
+    tags = _created_tags(occurrence.client)
+    assert tags[MLFLOW_ISSUE_DETECTION_WINDOW_START] == str(WINDOW_LOWER_MS)
+    assert tags[MLFLOW_ISSUE_DETECTION_WINDOW_END] == str(WINDOW_UPPER_MS)
+
+
+def test_a_queued_occurrence_records_the_window_it_actually_covered(occurrence):
+    # Its lower bound was raised to the watermark because another occurrence covered that stretch
+    # while this one sat in the queue, so the tag has to carry the raised bound rather than the
+    # one it was dispatched with -- otherwise the page claims coverage that never happened.
+    raised_to = WINDOW_LOWER_MS + 600_000
+    occurrence.client.get_experiment.return_value = _experiment_with_checkpoint(raised_to)
+
+    occurrence.run()
+
+    assert _created_tags(occurrence.client)[MLFLOW_ISSUE_DETECTION_WINDOW_START] == str(raised_to)
+
+
+def test_a_failed_occurrence_records_why(occurrence):
+    occurrence.discover.side_effect = RuntimeError("the judge was unreachable")
+
+    with pytest.raises(RuntimeError, match="the judge was unreachable"):
+        occurrence.run()
+
+    occurrence.client.set_tag.assert_any_call(
+        "run-scheduled",
+        MLFLOW_ISSUE_DETECTION_ERROR,
+        "RuntimeError: the judge was unreachable",
+    )
+
+
+def test_a_failure_that_cannot_be_recorded_still_raises_the_original(occurrence):
+    # The tag write is best-effort: a store that refuses it must not replace the failure an
+    # operator needs to see with one about tagging.
+    occurrence.discover.side_effect = RuntimeError("the judge was unreachable")
+    occurrence.client.set_tag.side_effect = MlflowException("tag rejected")
+
+    with pytest.raises(RuntimeError, match="the judge was unreachable"):
+        occurrence.run()
+
+    occurrence.client.set_terminated.assert_called_once_with(
+        "run-scheduled", RunStatus.to_string(RunStatus.FAILED)
+    )
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (RuntimeError("plain"), "RuntimeError: plain"),
+        # A bare raise carries no message, and "RuntimeError: " would read as a truncation.
+        (RuntimeError(), "RuntimeError"),
+        (RuntimeError("   "), "RuntimeError"),
+    ],
+)
+def test_a_failure_is_described_by_type_and_message(error, expected):
+    assert _describe_failure(error) == expected
+
+
+def test_a_long_failure_message_is_truncated_rather_than_dropped():
+    described = _describe_failure(RuntimeError("x" * 2000))
+
+    assert len(described) == MAX_ERROR_TAG_LENGTH
+    assert described.startswith("RuntimeError: xxx")
+    assert described.endswith("…")
