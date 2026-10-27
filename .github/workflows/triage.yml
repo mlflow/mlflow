@@ -622,10 +622,7 @@ jobs:
               uv run --no-sync pre-commit run install-bin --files .pre-commit-config.yaml
           - name: Install system packages
             run: |
-              sudo tee /etc/apt/apt.conf.d/99-fail-fast > /dev/null <<'EOF'
-              Acquire::http::Timeout "15";
-              Acquire::https::Timeout "15";
-              EOF
+              echo 'Acquire::http::Timeout "15";' | sudo tee /etc/apt/apt.conf.d/99-fail-fast > /dev/null
               for attempt in 1 2 3; do
                 echo "apt-get update attempt $attempt/3"
                 if sudo timeout --kill-after=10s 1m apt-get update --error-on=any; then
