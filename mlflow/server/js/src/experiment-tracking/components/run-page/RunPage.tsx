@@ -13,7 +13,7 @@ import React, { useMemo, useState } from 'react';
 import { PageContainer } from '../../../common/components/PageContainer';
 import { useNavigate, useParams } from '../../../common/utils/RoutingUtils';
 import Utils from '../../../common/utils/Utils';
-import { MLFLOW_ISSUE_DETECTION_JOB_ID_TAG, RunPageTabName } from '../../constants';
+import { RunPageTabName } from '../../constants';
 import { RenameRunModal } from '../modals/RenameRunModal';
 import { RunViewArtifactTab } from './RunViewArtifactTab';
 import { RunViewHeader, type RunViewHeaderProps } from './RunViewHeader';
