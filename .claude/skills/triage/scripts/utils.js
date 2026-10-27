@@ -50,7 +50,9 @@ function parseIssueFrontmatter(body) {
   return { skip: options.skip === "true" };
 }
 
-function isTrustedActor({ repo, actor, api = ghApi }) {
+const ISSUE_SKIP_ROLES = ["admin", "maintain", "write"];
+
+function isTrustedActor({ repo, actor, api = ghApi, roles = ["admin", "maintain"] }) {
   if (!actor?.login) return false;
   let permission;
   try {
@@ -60,16 +62,17 @@ function isTrustedActor({ repo, actor, api = ghApi }) {
     if (/HTTP 404\b|404 Not Found/.test(detail)) return false;
     throw error;
   }
-  return ["admin", "maintain"].includes(permission.role_name);
+  return roles.includes(permission.role_name);
 }
 
 function resolveIssueOptions({ repo, eventName, event, api = ghApi }) {
   if (eventName !== "issues" || event?.action !== "opened") return {};
   const issue = event.issue;
   const body = issue?.body ?? "";
-  if (!TRIAGE_MARKER.test(body)) return {};
-  if (!isTrustedActor({ repo, actor: issue.user, api })) return {};
-  return parseIssueFrontmatter(body);
+  if (issue.user?.type === "Bot") return {};
+  if (!isTrustedActor({ repo, actor: issue.user, api, roles: ISSUE_SKIP_ROLES })) return {};
+  // These authors usually file issues they plan to handle themselves; opt in with `skip: false`.
+  return { skip: true, ...(TRIAGE_MARKER.test(body) ? parseIssueFrontmatter(body) : {}) };
 }
 
 function findOpenPr(repo, issueNumber, api = ghApi) {

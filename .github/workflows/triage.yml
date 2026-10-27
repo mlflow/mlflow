@@ -6,11 +6,12 @@
 name: Triage
 
 on:
-  # On issues.opened, repo admins/maintainers may add this issue-body comment to skip triage:
+  # On issues.opened, triage is skipped by default for issues opened by repo admins, maintainers,
+  # and collaborators with write access (bots excluded). They can opt in with this issue-body comment:
   # <!-- triage
-  # skip: true
+  # skip: false
   # -->
-  # Missing/omitted skip defaults to false. Dispatch and /triage follow-ups ignore this metadata.
+  # For other authors and bots, skip is always false. Dispatch and /triage follow-ups ignore this metadata.
   issues:
     types: [opened]
   issue_comment:
