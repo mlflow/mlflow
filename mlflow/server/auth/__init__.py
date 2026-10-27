@@ -2968,9 +2968,8 @@ def validate_can_list_roles():
     user = store.get_user(username)
     if user.is_admin:
         return True
-    requested = {
-        w.strip() for w in request.args.getlist("workspace") if isinstance(w, str) and w.strip()
-    }
+    # Check the exact values list_roles queries; stripping here let "foo " pass as "foo".
+    requested = {w for w in request.args.getlist("workspace") if isinstance(w, str) and w.strip()}
     if not requested:
         return False
     # Single batch query — avoids N round-trips when multiple workspaces are
@@ -5808,6 +5807,16 @@ def create_role():
     description = body.get("description")
     if description is not None and not isinstance(description, str):
         raise MlflowException.invalid_parameter_value("Role description must be a string or null.")
+    # A role in a workspace that does not exist yet would pre-empt its default roles on creation.
+    if MLFLOW_ENABLE_WORKSPACES.get():
+        try:
+            _get_workspace_store().get_workspace(workspace)
+        except MlflowException as e:
+            if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                raise
+            raise MlflowException.invalid_parameter_value(
+                f"Workspace '{workspace}' does not exist."
+            ) from e
     role = store.create_role(name, workspace, description)
     return jsonify({"role": role.to_json()})
 
@@ -7965,7 +7974,10 @@ class GraphQLAuthorizationMiddleware:
                 return None
             username = authorization.username
 
-            if store.get_user(username).is_admin:
+            # Resolved once per request; this runs for every protected field.
+            if "_graphql_sender_is_admin" not in g:
+                g._graphql_sender_is_admin = sender_is_admin()
+            if g._graphql_sender_is_admin:
                 return next(root, info, **args)
         except Exception:
             _logger.warning("GraphQL authorization failed: auth system error", exc_info=True)
