@@ -31,6 +31,10 @@
     "defaultMessage": "Edit",
     "description": "Skill detail action that edits description and icons"
   },
+  "+5RdhF": {
+    "defaultMessage": "All endpoints and users in all workspaces",
+    "description": "Budget scope label covering every endpoint and user across every workspace"
+  },
   "+634bT": {
     "defaultMessage": "Feedback",
     "description": "Review question type: feedback"
@@ -134,6 +138,10 @@
   "+UM7um": {
     "defaultMessage": "Tool {number} parameters",
     "description": "Accessible label for an individual tool parameters JSON editor in the playground"
+  },
+  "+UY0M7": {
+    "defaultMessage": "Unavailable",
+    "description": "Tag marking a budget policy whose target endpoint is missing from the endpoint list"
   },
   "+VGmLL": {
     "defaultMessage": "Optional description",
@@ -5763,10 +5771,6 @@
     "defaultMessage": "Loading artifact failed",
     "description": "Run page > artifact view > error state > default error message"
   },
-  "Gn9BD6": {
-    "defaultMessage": "The endpoint this policy applied to ({endpointId}) no longer exists. Select another endpoint, or change this policy to apply to all endpoints and users.",
-    "description": "Validation error shown when a budget policy targets a deleted endpoint"
-  },
   "Gnn+ae": {
     "defaultMessage": "Link to \"{name}\" copied — anyone with access can open this view.",
     "description": "Confirmation toast shown after copying a saved traces view share link"
@@ -9211,6 +9215,10 @@
     "defaultMessage": "View all",
     "description": "Home page news section view more link"
   },
+  "RgW12o": {
+    "defaultMessage": "This endpoint was deleted, or you don't have access to it. If it was deleted, edit the policy to choose another endpoint, or delete the policy.",
+    "description": "Tooltip explaining that an endpoint-scoped budget policy points at an endpoint missing from the endpoint list"
+  },
   "RhQhT4": {
     "defaultMessage": "Model",
     "description": "Label for model name in span details"
@@ -10122,6 +10130,10 @@
   "UgF7ax": {
     "defaultMessage": "Status",
     "description": "Label for the status of a logged model on the logged model details page"
+  },
+  "UgVp7H": {
+    "defaultMessage": "Endpoint",
+    "description": "Accessible label for the budget policy endpoint selector"
   },
   "UhdPmo": {
     "defaultMessage": "Transition to",
@@ -12879,10 +12891,6 @@
     "defaultMessage": "Run name",
     "description": "Column label for run name"
   },
-  "dX4ABP": {
-    "defaultMessage": "This endpoint no longer exists. Edit the policy to pick another endpoint, or delete it.",
-    "description": "Tooltip explaining that an endpoint-scoped budget policy points at a deleted endpoint"
-  },
   "dY1g+4": {
     "defaultMessage": "Optional character limit for the free-form text. Leave blank for no limit.",
     "description": "Text max length hint"
@@ -13118,10 +13126,6 @@
   "eGhQB6": {
     "defaultMessage": "Override my view",
     "description": "Menu item that adopts the currently-applied shared view into the user's own view"
-  },
-  "eHuRhG": {
-    "defaultMessage": "(deleted)",
-    "description": "Suffix marking a budget policy whose target endpoint no longer exists"
   },
   "eIM9PU": {
     "defaultMessage": "Open dataset record {recordId} — tags",
@@ -18470,6 +18474,10 @@
   "uyNJ7b": {
     "defaultMessage": "Duration",
     "description": "Header for the traces table duration column"
+  },
+  "uyWLgQ": {
+    "defaultMessage": "The endpoint this policy applies to ({endpointId}) was deleted, or you don't have access to it. Select another endpoint, or choose \"{allLabel}\".",
+    "description": "Validation error shown when a budget policy targets an endpoint that is missing from the endpoint list"
   },
   "uydAT6": {
     "defaultMessage": "{start} – {end}",

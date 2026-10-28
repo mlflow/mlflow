@@ -47,13 +47,17 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
   const { data: endpoints, isLoading: isEndpointsLoading, error: endpointsError } = useEndpointsQuery();
   const scopeLabels = useBudgetScopeLabels();
   // Absence from an endpoint list we don't actually have yet (still loading, or
-  // the request failed) isn't evidence of deletion, so fall back to the plain id.
+  // the request failed) says nothing about the endpoint, so fall back to the plain id.
   const hasEndpointList = !isEndpointsLoading && !endpointsError;
 
   const endpointNamesById = useMemo(
     () => new Map(endpoints.map((endpoint) => [endpoint.endpoint_id, endpoint.name])),
     [endpoints],
   );
+
+  // The tag comes first and keeps its size, so a long id or username is
+  // ellipsized instead of pushing the tag out of the cell.
+  const taggedValueStyles = { display: 'flex', alignItems: 'center', gap: theme.spacing.xs, minWidth: 0 };
 
   const renderScope = (policy: BudgetPolicy) => {
     if (policy.target_scope === 'ENDPOINT') {
@@ -64,24 +68,28 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
       if (!hasEndpointList) {
         return <Typography.Text>{policy.target_value}</Typography.Text>;
       }
-      // The endpoint was deleted (deletion doesn't cascade to budget policies),
-      // so only the raw id survives. Flag it as stale instead of showing a bare
-      // id that reads like a name.
+      // The endpoint is missing from a list that did load. It was deleted
+      // (deletion doesn't cascade to budget policies), or auth filtered it out
+      // of the list for this user, and the two look the same from here.
       return (
         <Tooltip
-          componentId="mlflow.gateway.budgets-list.deleted-endpoint-tooltip"
+          componentId="mlflow.gateway.budgets-list.unavailable-endpoint-tooltip"
           content={formatMessage({
-            defaultMessage: 'This endpoint no longer exists. Edit the policy to pick another endpoint, or delete it.',
-            description: 'Tooltip explaining that an endpoint-scoped budget policy points at a deleted endpoint',
+            defaultMessage:
+              "This endpoint was deleted, or you don't have access to it. If it was deleted, edit the policy to choose another endpoint, or delete the policy.",
+            description:
+              'Tooltip explaining that an endpoint-scoped budget policy points at an endpoint missing from the endpoint list',
           })}
         >
-          <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
-            <Typography.Text color="secondary">{policy.target_value}</Typography.Text>
-            <Typography.Text color="secondary" size="sm">
+          <span css={taggedValueStyles}>
+            <Tag componentId="mlflow.gateway.budgets-list.unavailable-endpoint-tag" css={{ flexShrink: 0 }}>
               <FormattedMessage
-                defaultMessage="(deleted)"
-                description="Suffix marking a budget policy whose target endpoint no longer exists"
+                defaultMessage="Unavailable"
+                description="Tag marking a budget policy whose target endpoint is missing from the endpoint list"
               />
+            </Tag>
+            <Typography.Text color="secondary" ellipsis css={{ minWidth: 0 }}>
+              {policy.target_value}
             </Typography.Text>
           </span>
         </Tooltip>
@@ -90,15 +98,17 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
     if (policy.target_scope === 'USER') {
       // Tag the principal so a username is never mistaken for an endpoint name.
       return (
-        <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
-          <Tag componentId="mlflow.gateway.budgets-list.user-scope-tag">
+        <span css={taggedValueStyles}>
+          <Tag componentId="mlflow.gateway.budgets-list.user-scope-tag" css={{ flexShrink: 0 }}>
             <FormattedMessage defaultMessage="User" description="Tag marking a per-user budget policy" />
           </Tag>
-          <Typography.Text>{policy.target_value}</Typography.Text>
+          <Typography.Text ellipsis css={{ minWidth: 0 }}>
+            {policy.target_value}
+          </Typography.Text>
         </span>
       );
     }
-    return <Typography.Text>{scopeLabels.all}</Typography.Text>;
+    return <Typography.Text>{scopeLabels.all[policy.target_scope]}</Typography.Text>;
   };
 
   const handleNextPage = () => {

@@ -4,11 +4,12 @@ import { renderWithDesignSystem, screen, waitFor } from '../../../common/utils/T
 import { CreateBudgetPolicyModal } from './CreateBudgetPolicyModal';
 import { useCreateBudgetPolicy } from '../../hooks/useCreateBudgetPolicy';
 import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
+import { getWorkspacesEnabledSync } from '../../../experiment-tracking/hooks/useServerInfo';
 
 jest.mock('../../hooks/useCreateBudgetPolicy');
 jest.mock('../../hooks/useEndpointsQuery');
 jest.mock('../../../experiment-tracking/hooks/useServerInfo', () => ({
-  getWorkspacesEnabledSync: () => false,
+  getWorkspacesEnabledSync: jest.fn(),
 }));
 
 const mockMutateAsync = jest.fn().mockReturnValue(Promise.resolve());
@@ -21,6 +22,7 @@ const mockEndpoints = [
 describe('CreateBudgetPolicyModal', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(getWorkspacesEnabledSync).mockReturnValue(false);
     jest.mocked(useCreateBudgetPolicy).mockReturnValue({
       mutateAsync: mockMutateAsync,
       isLoading: false,
@@ -90,6 +92,36 @@ describe('CreateBudgetPolicyModal', () => {
 
     expect(screen.getByText('Applies to')).toBeInTheDocument();
     expect(screen.queryByText('Select an endpoint')).not.toBeInTheDocument();
+  });
+
+  test('creates a WORKSPACE policy for all endpoints and users when workspaces are enabled', async () => {
+    jest.mocked(getWorkspacesEnabledSync).mockReturnValue(true);
+
+    renderWithDesignSystem(<CreateBudgetPolicyModal open onClose={jest.fn()} />);
+
+    expect(screen.getByText('All endpoints and users in this workspace')).toBeInTheDocument();
+
+    await userEvent.type(screen.getByPlaceholderText('e.g., 100.00'), '50');
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    expect(mockMutateAsync).toHaveBeenCalledWith({
+      budget_unit: 'USD',
+      budget_amount: 50,
+      duration: { unit: 'MONTHS', value: 1 },
+      target_scope: 'WORKSPACE',
+      budget_action: 'REJECT',
+    });
+  });
+
+  test('gives the scope and endpoint selects accessible names', async () => {
+    renderWithDesignSystem(<CreateBudgetPolicyModal open onClose={jest.fn()} />);
+
+    await userEvent.click(screen.getAllByRole('combobox')[0]);
+    expect(screen.getByRole('listbox', { name: 'Applies to options' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('option', { name: 'Specific endpoint' }));
+
+    await userEvent.click(screen.getAllByRole('combobox')[1]);
+    expect(screen.getByRole('listbox', { name: 'Endpoint options' })).toBeInTheDocument();
   });
 
   test('requires an endpoint selection when scope is a specific endpoint', async () => {

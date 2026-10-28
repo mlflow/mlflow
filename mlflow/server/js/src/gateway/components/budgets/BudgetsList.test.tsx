@@ -5,11 +5,18 @@ import { BudgetsList } from './BudgetsList';
 import { useBudgetPoliciesQuery } from '../../hooks/useBudgetPoliciesQuery';
 import { useBudgetWindowsQuery } from '../../hooks/useBudgetWindowsQuery';
 import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
+import { getWorkspacesEnabledSync } from '../../../experiment-tracking/hooks/useServerInfo';
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 
 jest.mock('../../hooks/useBudgetPoliciesQuery');
 jest.mock('../../hooks/useBudgetWindowsQuery');
 jest.mock('../../hooks/useEndpointsQuery');
+jest.mock('../../../experiment-tracking/hooks/useServerInfo', () => ({
+  ...jest.requireActual<typeof import('../../../experiment-tracking/hooks/useServerInfo')>(
+    '../../../experiment-tracking/hooks/useServerInfo',
+  ),
+  getWorkspacesEnabledSync: jest.fn(),
+}));
 
 const now = Date.now() / 1000;
 
@@ -39,6 +46,7 @@ const mockPolicies = [
 describe('BudgetsList', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(getWorkspacesEnabledSync).mockReturnValue(false);
     jest.mocked(useBudgetWindowsQuery).mockReturnValue({
       data: {},
       isLoading: false,
@@ -110,6 +118,25 @@ describe('BudgetsList', () => {
     expect(screen.getAllByText('All endpoints and users')).toHaveLength(2);
   });
 
+  test('tells GLOBAL and WORKSPACE policies apart when workspaces are enabled', () => {
+    jest.mocked(getWorkspacesEnabledSync).mockReturnValue(true);
+    jest.mocked(useBudgetPoliciesQuery).mockReturnValue({
+      data: mockPolicies,
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <BudgetsList />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('All endpoints and users in all workspaces')).toBeInTheDocument();
+    expect(screen.getByText('All endpoints and users in this workspace')).toBeInTheDocument();
+  });
+
   test('renders endpoint name for ENDPOINT-scoped policy', () => {
     jest.mocked(useBudgetPoliciesQuery).mockReturnValue({
       data: [
@@ -135,14 +162,16 @@ describe('BudgetsList', () => {
     expect(screen.queryByText('All endpoints and users')).not.toBeInTheDocument();
   });
 
-  test('marks the endpoint id as deleted when the endpoint no longer exists', () => {
+  test('marks an endpoint missing from the endpoint list as unavailable', async () => {
+    // The endpoint may have been deleted, or auth may have filtered it out of
+    // the list for this user, so the marker must not claim either one.
     jest.mocked(useBudgetPoliciesQuery).mockReturnValue({
       data: [
         {
           ...mockPolicies[0],
           budget_policy_id: 'bp-ep',
           target_scope: 'ENDPOINT' as const,
-          target_value: 'e-deleted',
+          target_value: 'e-missing',
         },
       ],
       isLoading: false,
@@ -156,14 +185,17 @@ describe('BudgetsList', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('e-deleted')).toBeInTheDocument();
-    expect(screen.getByText('(deleted)')).toBeInTheDocument();
+    expect(screen.getByText('e-missing')).toBeInTheDocument();
+    await userEvent.hover(screen.getByText('Unavailable'));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      "This endpoint was deleted, or you don't have access to it. If it was deleted, edit the policy to choose another endpoint, or delete the policy.",
+    );
   });
 
   test.each([
     ['still loading', { data: [], isLoading: true, error: undefined }],
     ['failed', { data: [], isLoading: false, error: new Error('nope') }],
-  ])('does not mark an endpoint deleted when the endpoints request is %s', (_label, endpointsQuery) => {
+  ])('does not mark an endpoint unavailable when the endpoints request is %s', (_label, endpointsQuery) => {
     jest.mocked(useEndpointsQuery).mockReturnValue({ ...endpointsQuery, refetch: jest.fn() } as any);
     jest.mocked(useBudgetPoliciesQuery).mockReturnValue({
       data: [
@@ -187,7 +219,7 @@ describe('BudgetsList', () => {
 
     // 'e-1' is live; we just can't resolve its name yet.
     expect(screen.getByText('e-1')).toBeInTheDocument();
-    expect(screen.queryByText('(deleted)')).not.toBeInTheDocument();
+    expect(screen.queryByText('Unavailable')).not.toBeInTheDocument();
   });
 
   test('renders the applies-to column for user and non-user policies', () => {

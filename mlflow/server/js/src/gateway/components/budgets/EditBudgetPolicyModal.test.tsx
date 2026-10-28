@@ -4,12 +4,13 @@ import { renderWithDesignSystem, screen, waitFor } from '../../../common/utils/T
 import { EditBudgetPolicyModal } from './EditBudgetPolicyModal';
 import { useUpdateBudgetPolicy } from '../../hooks/useUpdateBudgetPolicy';
 import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
+import { getWorkspacesEnabledSync } from '../../../experiment-tracking/hooks/useServerInfo';
 import type { BudgetPolicy } from '../../types';
 
 jest.mock('../../hooks/useUpdateBudgetPolicy');
 jest.mock('../../hooks/useEndpointsQuery');
 jest.mock('../../../experiment-tracking/hooks/useServerInfo', () => ({
-  getWorkspacesEnabledSync: () => false,
+  getWorkspacesEnabledSync: jest.fn(),
 }));
 
 const mockMutateAsync = jest.fn().mockReturnValue(Promise.resolve());
@@ -43,6 +44,7 @@ const mockUserPolicy: BudgetPolicy = {
 describe('EditBudgetPolicyModal', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(getWorkspacesEnabledSync).mockReturnValue(false);
     jest.mocked(useUpdateBudgetPolicy).mockReturnValue({
       mutateAsync: mockMutateAsync,
       isLoading: false,
@@ -229,6 +231,57 @@ describe('EditBudgetPolicyModal', () => {
     }
   });
 
+  describe('with workspaces enabled', () => {
+    beforeEach(() => {
+      jest.mocked(getWorkspacesEnabledSync).mockReturnValue(true);
+    });
+
+    // GLOBAL and WORKSPACE share the form's single "all" choice, but the backend
+    // enforces them differently, so saving must not re-derive the scope.
+    test.each([
+      ['GLOBAL' as const, 'All endpoints and users in all workspaces'],
+      ['WORKSPACE' as const, 'All endpoints and users in this workspace'],
+    ])('keeps a %s policy at its scope when another field is edited', async (targetScope, scopeLabel) => {
+      renderWithDesignSystem(
+        <EditBudgetPolicyModal open policy={{ ...mockPolicy, target_scope: targetScope }} onClose={jest.fn()} />,
+      );
+
+      expect(screen.getByText(scopeLabel)).toBeInTheDocument();
+
+      const amountInput = screen.getByDisplayValue('200');
+      await userEvent.clear(amountInput);
+      await userEvent.type(amountInput, '300');
+      await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+      expect(mockMutateAsync).toHaveBeenCalledWith({
+        budget_policy_id: 'bp-1',
+        budget_unit: 'USD',
+        budget_amount: 300,
+        duration: { unit: 'WEEKS', value: 1 },
+        target_scope: targetScope,
+        budget_action: 'ALERT',
+      });
+    });
+
+    test('saves an ENDPOINT policy switched to all endpoints as WORKSPACE', async () => {
+      renderWithDesignSystem(<EditBudgetPolicyModal open policy={mockEndpointPolicy} onClose={jest.fn()} />);
+
+      const [scopeSelect] = screen.getAllByRole('combobox');
+      await userEvent.click(scopeSelect);
+      await userEvent.click(screen.getByRole('option', { name: 'All endpoints and users in this workspace' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+      expect(mockMutateAsync).toHaveBeenCalledWith({
+        budget_policy_id: 'bp-ep',
+        budget_unit: 'USD',
+        budget_amount: 200,
+        duration: { unit: 'WEEKS', value: 1 },
+        target_scope: 'WORKSPACE',
+        budget_action: 'ALERT',
+      });
+    });
+  });
+
   describe('when the target endpoint has been deleted', () => {
     // Endpoint deletion doesn't cascade to budget policies, so a policy can
     // outlive its endpoint. The picker has no option for the stale id, so it
@@ -245,10 +298,22 @@ describe('EditBudgetPolicyModal', () => {
       expect(screen.getByRole('button', { name: 'Save Changes' })).toBeDisabled();
       expect(
         screen.getByText(
-          'The endpoint this policy applied to (e-deleted) no longer exists. Select another endpoint, or change this policy to apply to all endpoints and users.',
+          'The endpoint this policy applies to (e-deleted) was deleted, or you don\'t have access to it. Select another endpoint, or choose "All endpoints and users".',
         ),
       ).toBeInTheDocument();
       expect(mockMutateAsync).not.toHaveBeenCalled();
+    });
+
+    test('names the workspace-scoped choice in the explanation when workspaces are enabled', () => {
+      jest.mocked(getWorkspacesEnabledSync).mockReturnValue(true);
+
+      renderWithDesignSystem(<EditBudgetPolicyModal open policy={stalePolicy} onClose={jest.fn()} />);
+
+      expect(
+        screen.getByText(
+          'The endpoint this policy applies to (e-deleted) was deleted, or you don\'t have access to it. Select another endpoint, or choose "All endpoints and users in this workspace".',
+        ),
+      ).toBeInTheDocument();
     });
 
     test('re-enables save once a live endpoint is selected', async () => {
@@ -321,7 +386,7 @@ describe('EditBudgetPolicyModal', () => {
 
     expect(
       screen.queryByText(
-        'The endpoint this policy applied to (e-1) no longer exists. Select another endpoint, or change this policy to apply to all endpoints and users.',
+        'The endpoint this policy applies to (e-1) was deleted, or you don\'t have access to it. Select another endpoint, or choose "All endpoints and users".',
       ),
     ).not.toBeInTheDocument();
     expect(screen.queryByText('No endpoints available')).not.toBeInTheDocument();

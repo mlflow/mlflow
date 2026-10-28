@@ -12,15 +12,15 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useCreateBudgetPolicy } from '../../hooks/useCreateBudgetPolicy';
-import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
 import type { BudgetAction, DurationUnit } from '../../types';
-import { getWorkspacesEnabledSync } from '../../../experiment-tracking/hooks/useServerInfo';
-import { useBudgetScopeLabels } from './useBudgetScopeLabels';
+import {
+  BudgetScopeField,
+  getBudgetScopePayload,
+  useBudgetScopeField,
+  type BudgetScopeFormValue,
+} from './BudgetScopeField';
 
 type DurationPreset = 'DAILY' | 'WEEKLY' | 'MONTHLY';
-
-// 'ALL' maps to WORKSPACE when workspaces are enabled, GLOBAL otherwise.
-type BudgetScopeChoice = 'ALL' | 'ENDPOINT' | 'USER';
 
 const DURATION_MAP: Record<DurationPreset, { unit: DurationUnit; value: number }> = {
   DAILY: { unit: 'DAYS', value: 1 },
@@ -34,13 +34,10 @@ interface CreateBudgetPolicyModalProps {
   onSuccess?: () => void;
 }
 
-interface FormData {
+interface FormData extends BudgetScopeFormValue {
   budgetAmount: string;
   duration: DurationPreset;
   budgetAction: BudgetAction;
-  scope: BudgetScopeChoice;
-  endpointId: string;
-  username: string;
 }
 
 const INITIAL_FORM_DATA: FormData = {
@@ -62,11 +59,7 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
     error: mutationError,
     reset: resetMutation,
   } = useCreateBudgetPolicy();
-  const { data: endpoints, isLoading: isEndpointsLoading, error: endpointsError } = useEndpointsQuery();
-  const scopeLabels = useBudgetScopeLabels();
-  // An empty list means "none exist" only once the request has actually
-  // succeeded; while loading or after a failure it says nothing.
-  const hasNoEndpoints = !isEndpointsLoading && !endpointsError && !endpoints.length;
+  const scopeField = useBudgetScopeField(formData);
 
   const handleClose = useCallback(() => {
     setFormData(INITIAL_FORM_DATA);
@@ -74,9 +67,9 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
     onClose();
   }, [onClose, resetMutation]);
 
-  const handleFieldChange = useCallback(
-    <K extends keyof FormData>(field: K, value: FormData[K]) => {
-      setFormData((prev) => ({ ...prev, [field]: value }));
+  const handleFormChange = useCallback(
+    (change: Partial<FormData>) => {
+      setFormData((prev) => ({ ...prev, ...change }));
       resetMutation();
     },
     [resetMutation],
@@ -84,27 +77,20 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
 
   const isFormValid = useMemo(() => {
     const amount = parseFloat(formData.budgetAmount);
-    if (isNaN(amount) || amount <= 0) return false;
-    if (formData.scope === 'ENDPOINT') return Boolean(formData.endpointId);
-    return formData.scope !== 'USER' || formData.username.trim().length > 0;
-  }, [formData.budgetAmount, formData.scope, formData.endpointId, formData.username]);
+    return !isNaN(amount) && amount > 0 && scopeField.isValid;
+  }, [formData.budgetAmount, scopeField.isValid]);
 
   const handleSubmit = useCallback(async () => {
     if (!isFormValid) return;
 
     const { unit, value } = DURATION_MAP[formData.duration];
-    const isUserScope = formData.scope === 'USER';
 
     try {
       await createBudgetPolicy({
         budget_unit: 'USD',
         budget_amount: parseFloat(formData.budgetAmount),
         duration: { unit, value },
-        ...(formData.scope === 'ENDPOINT'
-          ? { target_scope: 'ENDPOINT' as const, target_value: formData.endpointId }
-          : isUserScope
-            ? { target_scope: 'USER' as const, target_value: formData.username.trim() }
-            : { target_scope: getWorkspacesEnabledSync() ? ('WORKSPACE' as const) : ('GLOBAL' as const) }),
+        ...getBudgetScopePayload(formData),
         budget_action: formData.budgetAction,
       });
     } catch {
@@ -171,7 +157,7 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
             <Input
               componentId="mlflow.gateway.create-budget-policy-modal.budget-amount"
               value={formData.budgetAmount}
-              onChange={(e) => handleFieldChange('budgetAmount', e.target.value)}
+              onChange={(e) => handleFormChange({ budgetAmount: e.target.value })}
               placeholder={intl.formatMessage({
                 defaultMessage: 'e.g., 100.00',
                 description: 'Budget amount placeholder',
@@ -183,66 +169,12 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
           </div>
         </div>
 
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-          <Typography.Text bold>
-            <FormattedMessage defaultMessage="Applies to" description="Budget scope label" />
-          </Typography.Text>
-          <SimpleSelect
-            id="create-budget-policy-scope"
-            componentId="mlflow.gateway.create-budget-policy-modal.scope"
-            value={formData.scope}
-            onChange={({ target }) => handleFieldChange('scope', target.value as BudgetScopeChoice)}
-          >
-            <SimpleSelectOption value="ALL">{scopeLabels.all}</SimpleSelectOption>
-            <SimpleSelectOption value="ENDPOINT">{scopeLabels.endpoint}</SimpleSelectOption>
-            <SimpleSelectOption value="USER">{scopeLabels.user}</SimpleSelectOption>
-          </SimpleSelect>
-          {formData.scope === 'ENDPOINT' && (
-            <SimpleSelect
-              id="create-budget-policy-endpoint"
-              componentId="mlflow.gateway.create-budget-policy-modal.endpoint"
-              value={formData.endpointId}
-              onChange={({ target }) => handleFieldChange('endpointId', target.value)}
-              disabled={hasNoEndpoints}
-              placeholder={
-                hasNoEndpoints
-                  ? intl.formatMessage({
-                      defaultMessage: 'No endpoints available',
-                      description: 'Placeholder for the budget policy endpoint selector when no endpoints exist',
-                    })
-                  : intl.formatMessage({
-                      defaultMessage: 'Select an endpoint',
-                      description: 'Placeholder for budget policy endpoint selector',
-                    })
-              }
-            >
-              {endpoints.map((endpoint) => (
-                <SimpleSelectOption key={endpoint.endpoint_id} value={endpoint.endpoint_id}>
-                  {endpoint.name}
-                </SimpleSelectOption>
-              ))}
-            </SimpleSelect>
-          )}
-          {formData.scope === 'USER' && (
-            <>
-              <Input
-                componentId="mlflow.gateway.create-budget-policy-modal.username"
-                value={formData.username}
-                onChange={(e) => handleFieldChange('username', e.target.value)}
-                placeholder={intl.formatMessage({
-                  defaultMessage: 'Username, e.g., alice',
-                  description: 'Budget username placeholder',
-                })}
-              />
-              <Typography.Text color="secondary" size="sm">
-                <FormattedMessage
-                  defaultMessage="The budget applies only to requests made by this authenticated user. Requires server authentication to be enabled."
-                  description="Helper text for per-user budget scope"
-                />
-              </Typography.Text>
-            </>
-          )}
-        </div>
+        <BudgetScopeField
+          componentId="mlflow.gateway.create-budget-policy-modal"
+          value={formData}
+          onChange={handleFormChange}
+          field={scopeField}
+        />
 
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
           <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
@@ -276,8 +208,9 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
           <SimpleSelect
             id="create-budget-policy-duration"
             componentId="mlflow.gateway.create-budget-policy-modal.duration"
+            label={intl.formatMessage({ defaultMessage: 'Reset period', description: 'Budget reset period label' })}
             value={formData.duration}
-            onChange={({ target }) => handleFieldChange('duration', target.value as DurationPreset)}
+            onChange={({ target }) => handleFormChange({ duration: target.value as DurationPreset })}
           >
             <SimpleSelectOption value="DAILY">Daily</SimpleSelectOption>
             <SimpleSelectOption value="WEEKLY">Weekly</SimpleSelectOption>
@@ -292,8 +225,9 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
           <SimpleSelect
             id="create-budget-policy-on-exceeded"
             componentId="mlflow.gateway.create-budget-policy-modal.on-exceeded"
+            label={intl.formatMessage({ defaultMessage: 'On exceeded', description: 'Budget on exceeded label' })}
             value={formData.budgetAction}
-            onChange={({ target }) => handleFieldChange('budgetAction', target.value as BudgetAction)}
+            onChange={({ target }) => handleFormChange({ budgetAction: target.value as BudgetAction })}
           >
             <SimpleSelectOption value="ALERT">Alert</SimpleSelectOption>
             <SimpleSelectOption value="REJECT">Reject requests</SimpleSelectOption>
