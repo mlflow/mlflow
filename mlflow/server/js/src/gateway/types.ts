@@ -5,6 +5,7 @@ export interface Provider {
 export interface ProviderModel {
   model: string;
   provider: string;
+  mode?: string | null;
   supports_function_calling: boolean;
   supports_vision?: boolean;
   supports_reasoning?: boolean;
@@ -42,6 +43,11 @@ export interface AuthMode {
 export interface ProviderConfig {
   auth_modes: AuthMode[];
   default_mode: string;
+  /**
+   * Whether the MLflow server's own environment already carries a credential for this provider
+   * (e.g. it was started with `OPENAI_API_KEY` set). Absent on servers that predate the field.
+   */
+  env_credentials_available?: boolean;
 }
 
 export interface ProvidersResponse {

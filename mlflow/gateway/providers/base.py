@@ -29,6 +29,7 @@ class PassthroughAction(str, Enum):
     ANTHROPIC_MESSAGES = "anthropic_messages"
     GEMINI_GENERATE_CONTENT = "gemini_generate_content"
     GEMINI_STREAM_GENERATE_CONTENT = "gemini_stream_generate_content"
+    TYPESAFE_SYSTEM_ONE = "typesafe_system_one"
 
 
 # Mapping of passthrough actions to their gateway API routes
@@ -38,6 +39,7 @@ PASSTHROUGH_ROUTES = {
     PassthroughAction.OPENAI_RESPONSES: "/openai/v1/responses",
     PassthroughAction.OPENAI_RESPONSES_COMPACT: "/openai/v1/responses/compact",
     PassthroughAction.ANTHROPIC_MESSAGES: "/anthropic/v1/messages",
+    PassthroughAction.TYPESAFE_SYSTEM_ONE: "/typesafe/v1/systemone",
     PassthroughAction.GEMINI_GENERATE_CONTENT: "/gemini/v1beta/models/{endpoint_name}:generateContent",  # noqa: E501
     PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT: "/gemini/v1beta/models/{endpoint_name}:streamGenerateContent",  # noqa: E501
 }
@@ -71,6 +73,20 @@ def _client_provides_auth(headers: dict[str, str] | None) -> bool:
     is_credential_agent = any(agent in user_agent for agent in _USER_CREDENTIAL_AGENTS)
     has_auth = any(key in lower_headers for key in _CLIENT_AUTH_HEADERS)
     return is_credential_agent and has_auth
+
+
+def _drop_client_auth_headers(headers: dict[str, str]) -> dict[str, str]:
+    """Return a copy of headers with client-supplied auth headers removed.
+
+    Passthrough and raw-proxy routes forward the inbound request headers to the
+    upstream provider. The ASGI server lower-cases header names, so a client
+    Authorization arrives as "authorization" and would be sent *alongside* the
+    provider's own credential (e.g. Vertex AI OAuth "Authorization: Bearer")
+    instead of replacing it. Upstreams such as Google reject requests carrying two
+    conflicting Authorization headers with HTTP 401, so non-credential-agent clients
+    are never allowed to forward auth headers.
+    """
+    return {k: v for k, v in headers.items() if k.lower() not in _CLIENT_AUTH_HEADERS}
 
 
 def _get_nested(d: dict[str, Any], key: str) -> Any:

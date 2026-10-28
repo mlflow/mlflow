@@ -145,4 +145,19 @@ describe('ScorerFormRenderer', () => {
       expect(screen.getByText('Select traces')).toBeInTheDocument();
     });
   });
+
+  describe('Evaluation criteria model placement', () => {
+    it('shows model selection inside evaluation criteria instead of general', async () => {
+      const user = userEvent.setup();
+      render(<TestWrapper />);
+
+      expect(screen.getByRole('button', { name: /General/i })).toHaveAttribute('aria-expanded', 'true');
+      expect(screen.queryByRole('button', { name: /^Model$/i })).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: /Evaluation criteria/i }));
+
+      expect(screen.getByText('Model')).toBeInTheDocument();
+      expect(screen.getByTestId('endpoint-selector')).toBeInTheDocument();
+    });
+  });
 });

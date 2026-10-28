@@ -94,7 +94,7 @@ describe('RunEvaluationButton', () => {
     jest.clearAllMocks();
   });
 
-  const renderButton = (experimentId = 'exp-1') => {
+  const renderButton = (experimentId = 'exp-1', isPageAction = false) => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     });
@@ -102,12 +102,21 @@ describe('RunEvaluationButton', () => {
       <QueryClientProvider client={queryClient}>
         <MemoryRouter>
           <DesignSystemProvider>
-            <RunEvaluationButton experimentId={experimentId} />
+            <RunEvaluationButton experimentId={experimentId} isPageAction={isPageAction} />
           </DesignSystemProvider>
         </MemoryRouter>
       </QueryClientProvider>,
     );
   };
+
+  it('labels the page action Run evaluation and opens the same trace eval flow', async () => {
+    renderButton('exp-1', true);
+
+    expect(screen.queryByRole('button', { name: 'Evaluate traces' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+
+    expect(await screen.findByRole('dialog')).toHaveTextContent('Evaluate traces');
+  });
 
   it('opens straight into the trace eval flow (no tabs, no code-snippet content)', async () => {
     renderButton('exp-1');

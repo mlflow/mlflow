@@ -161,13 +161,7 @@ def test_model_version_search_from_uc_proto():
         status_message="status_message",
         aliases=[],
         tags=[],
-        deployment_job_state=ModelVersionDeploymentJobState(
-            "",
-            "",
-            "DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED",
-            "DEPLOYMENT_JOB_RUN_STATE_UNSPECIFIED",
-            "",
-        ),
+        deployment_job_state=None,
     )
     uc_proto = ProtoModelVersion(
         name="name",
@@ -493,6 +487,24 @@ def test_model_version_from_uc_native_proto():
     assert model_version_from_uc_native_proto(uc_proto) == expected_model_version
 
 
+def test_model_version_converters_without_deployment_job_state_return_none():
+    # A proto with no deployment_job_state must hydrate to None, not a truthy empty
+    # ModelVersionDeploymentJobState (mirrors the OSS ModelVersion.from_proto guard).
+    uc_proto = ProtoModelVersion(
+        name="name", version="1", status=ProtoModelVersionStatus.Value("READY")
+    )
+    assert model_version_from_uc_proto(uc_proto).deployment_job_state is None
+
+    native_proto = ModelVersionInfo(
+        model_name="model",
+        catalog_name="catalog",
+        schema_name="schema",
+        version=1,
+        status=OssProtoModelVersionStatus.Value("READY"),
+    )
+    assert model_version_from_uc_native_proto(native_proto).deployment_job_state is None
+
+
 def test_registered_model_search_from_uc_native_proto():
     expected_registered_model = RegisteredModelSearch(
         name="catalog.schema.name",
@@ -529,13 +541,7 @@ def test_model_version_search_from_uc_native_proto():
         status="READY",
         aliases=[],
         tags=[],
-        deployment_job_state=ModelVersionDeploymentJobState(
-            "",
-            "",
-            "DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED",
-            "DEPLOYMENT_JOB_RUN_STATE_UNSPECIFIED",
-            "",
-        ),
+        deployment_job_state=None,
     )
     uc_proto = ModelVersionInfo(
         model_name="model",

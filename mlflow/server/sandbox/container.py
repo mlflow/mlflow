@@ -8,31 +8,37 @@ privileges, read-only root filesystem, non-root user, memory / CPU / PID caps) a
 the container lifecycle (build image, run, wait with timeout, always clean up) live
 here so there is one place to audit and tighten the sandbox security posture.
 
-Network posture: sandbox containers run on a dedicated bridge network (isolating them from
-other containers on the host) with an added ``host.docker.internal`` route so a command can
-reach an MLflow tracking server on the host. An optional egress proxy
-(``MLFLOW_SANDBOX_EGRESS_PROXY``) steers HTTP(S) egress from cooperating clients through an
-operator-controlled chokepoint. Neither is a hard egress boundary: the container has network
-access, so code that opens raw sockets or ignores the proxy env (e.g. Node's fetch, which does
-not read ``HTTP_PROXY`` by default) can still reach other hosts, including the cloud metadata
-endpoint. A true egress boundary requires host-level firewalling. The sandbox is off by default
-and gated behind an experimental flag.
+Network posture: sandbox containers run on a dedicated bridge network (separating them from
+containers on other Docker networks, but not from each other) with an added
+``host.docker.internal`` route so a command can reach an MLflow tracking server on the host.
+An optional egress proxy (``MLFLOW_SANDBOX_EGRESS_PROXY``) steers HTTP(S) egress from
+cooperating clients through an operator-controlled chokepoint. Neither is a hard egress
+boundary: the container has network access, so code that opens raw sockets or ignores the proxy
+env (e.g. Node's fetch, which does not read ``HTTP_PROXY`` by default) can still reach other
+hosts, including the cloud metadata endpoint. A true egress boundary requires host-level
+firewalling. The sandbox is off by default and gated behind an experimental flag.
 """
 
 import logging
 import os
+import re
+import shutil
 import tempfile
 import urllib.parse
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
 import requests
+from packaging.version import Version
 
 from mlflow.environment_variables import (
     _MLFLOW_SERVER_BOOT_ID,
     MLFLOW_SANDBOX_DOCKER_IMAGE,
     MLFLOW_SANDBOX_EGRESS_PROXY,
 )
+from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
+from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
 
@@ -52,6 +58,36 @@ _WORKSPACE_MOUNT = "/workspace"
 # Marker exit code used when the container is killed for exceeding its timeout.
 _TIMEOUT_EXIT_CODE = -1
 
+# How many lines of ``docker build`` output to include when the fallback image build fails.
+_BUILD_LOG_TAIL_LINES = 30
+
+# The ``mlflow`` package directory this module belongs to. For a source checkout, its parent is
+# the checkout root.
+_MLFLOW_PACKAGE_DIR = Path(__file__).resolve().parents[2]
+_MLFLOW_PROJECT_NAME = re.compile(r'^name = "mlflow"$', re.MULTILINE)
+# What ``pip install`` needs from an MLflow source tree, besides the ``mlflow`` package itself.
+_SOURCE_INSTALL_FILES = ("pyproject.toml", "README.md", "LICENSE.txt")
+# Never copied from a source tree into the image: the non-Python parts of the package (the
+# frontend and the Java and R clients), caches, and local data such as a server's SQLite tracking
+# or auth database.
+_SOURCE_COPY_IGNORE = shutil.ignore_patterns(
+    "js",
+    "java",
+    "R",
+    "node_modules",
+    ".*",
+    "__pycache__",
+    "*.pyc",
+    "*.db",
+    "*.db-*",
+    "*.sqlite",
+    "*.sqlite3",
+    "*.sqlite-*",
+    "mlruns",
+    "mlartifacts",
+)
+_SOURCE_DIR_IN_CONTEXT = "mlflow-source"
+
 # Labels stamped on every sandbox container. The first marks it as a sandbox container; the
 # second carries the server's boot id so startup cleanup removes only containers from a
 # previous server generation, never one a sibling worker in the current generation launched.
@@ -66,8 +102,9 @@ def sandbox_container_labels() -> dict[str, str]:
     return labels
 
 
-# Dedicated bridge network for sandbox containers, so they are isolated from other containers
-# on the host's default bridge (they can still reach the host via host.docker.internal).
+# Dedicated bridge network for sandbox containers, so they are separated from containers on the
+# host's default bridge. All sandboxes share it, and they can still reach the host via
+# host.docker.internal.
 SANDBOX_NETWORK_NAME = "mlflow-sandbox"
 # Hosts a sandboxed command reaches directly instead of through the egress proxy: the MLflow
 # tracking host and loopback. The metadata endpoint is deliberately NOT here, so a
@@ -164,6 +201,83 @@ def _get_client():
     return client
 
 
+def _mlflow_source_root() -> Path | None:
+    """Return the root of the MLflow source checkout the server runs from, or ``None``.
+
+    Only a development build running from a checkout (for example an editable install) has one.
+    A released version, or a development build installed into site-packages, returns ``None``.
+    """
+    if not Version(VERSION).is_devrelease:
+        return None
+    root = _MLFLOW_PACKAGE_DIR.parent
+    pyproject = root / "pyproject.toml"
+    if pyproject.is_file() and _MLFLOW_PROJECT_NAME.search(pyproject.read_text()):
+        return root
+    return None
+
+
+def _copy_mlflow_source(source_root: Path, context_dir: str) -> str:
+    """Copy what ``pip install`` needs from an MLflow source tree into the build context.
+
+    Only the package and its build metadata are copied, never the whole tree: a checkout a server
+    runs from can also hold that server's local data (for example ``mlflow.db``), which must not
+    end up in an image that runs untrusted code. Returns the copy's path in the context.
+    """
+    destination = Path(context_dir, _SOURCE_DIR_IN_CONTEXT)
+    destination.mkdir()
+    for name in _SOURCE_INSTALL_FILES:
+        shutil.copy2(source_root / name, destination / name)
+    # Keep symlinks as links so a link pointing outside the tree never copies its target.
+    shutil.copytree(
+        source_root / "mlflow",
+        destination / "mlflow",
+        symlinks=True,
+        ignore=_SOURCE_COPY_IGNORE,
+    )
+    return _SOURCE_DIR_IN_CONTEXT
+
+
+def _minimal_sandbox_dockerfile(context_dir: str) -> str:
+    """Build the Dockerfile for the fallback sandbox image, matched to the server's environment.
+
+    The image is built to match the server that launches it, so a sandboxed ``mlflow`` command
+    speaks the same API as the server rather than whatever the base image ships or the latest PyPI
+    release happens to be: the base image uses the server's Python minor version. MLflow is
+    installed from ``MLFLOW_HOME`` if set. Otherwise a released version installs the same MLflow
+    version from PyPI, and a development build installs from the checkout the server runs from,
+    falling back to MLflow's development branch only when there is none. A source install copies
+    the package into ``context_dir``.
+    """
+    from mlflow.models.docker_utils import PYTHON_SLIM_BASE_IMAGE, _pip_mlflow_install_step
+
+    base_image = PYTHON_SLIM_BASE_IMAGE.format(version=get_major_minor_py_version(PYTHON_VERSION))
+    mlflow_home = os.environ.get("MLFLOW_HOME")
+    source_root = Path(mlflow_home) if mlflow_home else _mlflow_source_root()
+    if source_root is not None:
+        _logger.info("Installing MLflow into the sandbox image from %s.", source_root)
+        source_dir = _copy_mlflow_source(source_root, context_dir)
+        install_step = f"COPY {source_dir} /opt/mlflow\nRUN pip install /opt/mlflow"
+    else:
+        if Version(VERSION).is_devrelease:
+            _logger.warning(
+                "MLflow %s is a development build that is not running from a source checkout, so "
+                "the sandbox image installs MLflow's development branch, which may not match this "
+                "server. Set MLFLOW_HOME to this server's MLflow source tree to match it.",
+                VERSION,
+            )
+        install_step = _pip_mlflow_install_step(context_dir, None)
+    return f"FROM {base_image}\n{install_step}\n"
+
+
+def _build_log_tail(build_log: Iterable[dict[str, object]] | None) -> str:
+    """Return the last lines of ``docker build`` output from ``BuildError.build_log``."""
+    lines = []
+    for chunk in build_log or []:
+        if isinstance(text := chunk.get("stream"), str):
+            lines.extend(line for line in text.splitlines() if line.strip())
+    return "\n".join(lines[-_BUILD_LOG_TAIL_LINES:])
+
+
 def _ensure_image(client, image: str) -> None:
     """Build a minimal sandbox image if ``image`` is not already present locally."""
     import docker.errors
@@ -174,16 +288,26 @@ def _ensure_image(client, image: str) -> None:
     except docker.errors.ImageNotFound:
         pass
 
-    _logger.info("Sandbox image %s not found locally; building a minimal one.", image)
-    # This fallback build installs from the default package index only. It does not forward the
-    # operator's PIP_INDEX_URL/PIP_EXTRA_INDEX_URL: a private-index URL can embed credentials
-    # (https://user:pass@mirror/...) and Docker records build args in the image history, so
-    # forwarding them would persist those credentials in the built image. Operators behind a
-    # private mirror or an air-gapped index should build and provide their own image instead.
-    dockerfile = "FROM python:3.11-slim\nRUN pip install --no-cache-dir mlflow\n"
+    _logger.info(
+        "Sandbox image %s not found locally; building a minimal one. It is not rebuilt when MLflow "
+        "changes: delete the image to rebuild it.",
+        image,
+    )
+    # This fallback build does not forward the operator's PIP_INDEX_URL/PIP_EXTRA_INDEX_URL: a
+    # private-index URL can embed credentials (https://user:pass@mirror/...) and Docker records
+    # build args in the image history, so forwarding them would persist those credentials in the
+    # built image. Operators behind a private mirror or an air-gapped index should build and
+    # provide their own image instead.
     with tempfile.TemporaryDirectory(prefix="mlflow-sandbox-image-") as ctx:
-        Path(ctx, "Dockerfile").write_text(dockerfile)
-        client.images.build(path=ctx, tag=image, rm=True)
+        Path(ctx, "Dockerfile").write_text(_minimal_sandbox_dockerfile(ctx))
+        try:
+            client.images.build(path=ctx, tag=image, rm=True)
+        except docker.errors.BuildError as e:
+            # The error itself only names the failed step; the reason (for example pip's error)
+            # is in the build output.
+            raise SandboxUnavailableError(
+                f"{e.msg}\nBuild output:\n{_build_log_tail(e.build_log)}"
+            ) from e
 
 
 def to_container_host_uri(uri: str | None) -> str | None:

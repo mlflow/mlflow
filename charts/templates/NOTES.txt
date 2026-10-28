@@ -1,3 +1,4 @@
+{{- $svcPort := include "mlflow.servicePort" . }}
 MLflow has been deployed successfully.
 
 Access the UI:
@@ -10,8 +11,8 @@ Access the UI:
   export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
   http://$NODE_IP:$NODE_PORT
 {{- else if eq .Values.service.type "LoadBalancer" }}
-  http://<EXTERNAL-IP>:{{ .Values.server.value_options.port }}
+  http://<EXTERNAL-IP>:{{ $svcPort }}
 {{- else }}
-  kubectl port-forward --namespace {{ .Release.Namespace }} svc/{{ include "mlflow.fullname" . }} {{ .Values.server.value_options.port }}:{{ .Values.server.value_options.port }}
+  kubectl port-forward --namespace {{ .Release.Namespace }} svc/{{ include "mlflow.fullname" . }} {{ .Values.server.value_options.port }}:{{ $svcPort }}
   # Then open: http://127.0.0.1:{{ .Values.server.value_options.port }}
 {{- end }}

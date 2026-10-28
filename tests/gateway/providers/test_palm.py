@@ -83,6 +83,7 @@ async def test_completions():
                 "stopSequences": ["foobar"],
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
 
@@ -201,6 +202,7 @@ async def test_chat(payload, expected_llm_input):
             "https://generativelanguage.googleapis.com/v1beta3/models/chat-bison:generateMessage",
             json=expected_llm_input,
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
 

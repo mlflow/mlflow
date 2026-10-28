@@ -1,4 +1,3 @@
-import errno
 import json
 import subprocess
 import tempfile
@@ -7,49 +6,26 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from mlflow.assistant.config import PermissionsConfig, ProviderConfig
 from mlflow.assistant.providers.base import NotAuthenticatedError
 from mlflow.assistant.providers.claude_code import ClaudeCodeProvider
+from mlflow.assistant.providers.tool_executor import set_remote_caller
 from mlflow.assistant.types import EventType
 
 
-class AsyncIterator:
-    """Helper to mock async stdout iteration."""
-
-    def __init__(self, items):
-        self.items = iter(items)
-
-    def __aiter__(self):
-        return self
-
-    async def __anext__(self):
-        try:
-            return next(self.items)
-        except StopIteration:
-            raise StopAsyncIteration
-
-
-def _mock_process(stdout_lines=None, returncode=0, stderr=b"", pid=12345):
-    """Create a mock process with async stdout iteration and stdin support.
-
-    The provider pipes the user message via stdin, so mocks must support the
-    async stdin write/drain/close/wait_closed sequence.
-    """
+def _mock_process(stdout_lines=None, returncode=0, stderr=b"", killed=False, pid=12345):
     process = MagicMock()
     process.returncode = returncode
     process.pid = pid
+    process.killed = killed
 
-    process.stdin = MagicMock()
-    process.stdin.write = MagicMock()
-    process.stdin.drain = AsyncMock()
-    process.stdin.close = MagicMock()
-    process.stdin.wait_closed = AsyncMock()
+    async def _lines():
+        for line in stdout_lines or []:
+            yield line
 
-    process.stdout = AsyncIterator(stdout_lines or [])
-
-    process.stderr = MagicMock()
-    process.stderr.read = AsyncMock(return_value=stderr)
-
-    process.wait = AsyncMock()
+    process.lines = _lines
+    process.wait = AsyncMock(return_value=returncode)
+    process.read_stderr = AsyncMock(return_value=stderr)
     process.kill = MagicMock()
 
     return process
@@ -84,7 +60,10 @@ def test_uses_structured_client_tool_delivery():
     assert provider.client_tool_delivery == "structured"
 
 
-def test_check_connection_runs_auth_verification_prompt():
+def test_check_connection_runs_auth_verification_prompt(monkeypatch):
+    monkeypatch.setenv("_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY", "secret")
+    monkeypatch.setenv("_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", "secret")
+    monkeypatch.setenv("SOME_SETTING", "kept")
     completed = subprocess.CompletedProcess(
         args=["claude", "-p", "hi", "--max-turns", "1", "--output-format", "json"],
         returncode=0,
@@ -105,12 +84,19 @@ def test_check_connection_runs_auth_verification_prompt():
         provider = ClaudeCodeProvider()
         provider.check_connection()
 
+    env = mock_run.call_args.kwargs.pop("env")
     mock_run.assert_called_once_with(
         ["claude", "-p", "hi", "--max-turns", "1", "--output-format", "json"],
         capture_output=True,
         text=True,
         timeout=30,
     )
+    # The CLI gets this process's environment without the server's internal secrets.
+    assert not {
+        "_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY",
+        "_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN",
+    } & set(env)
+    assert env["SOME_SETTING"] == "kept"
 
 
 def test_check_connection_skips_host_probe_in_sandbox_mode(monkeypatch):
@@ -167,10 +153,11 @@ async def test_astream_builds_correct_command(tmp_path, monkeypatch):
     # since the provider deletes the file after the process exits.
     captured = {}
 
-    def _capture(*args, **kwargs):
-        idx = args.index("--append-system-prompt-file")
-        file_path = args[idx + 1]
-        captured["argv"] = args
+    def _capture(cmd, **kwargs):
+        idx = cmd.index("--append-system-prompt-file")
+        file_path = cmd[idx + 1]
+        captured["argv"] = cmd
+        captured["input_bytes"] = kwargs["input_bytes"]
         captured["file_path"] = file_path
         captured["file_contents"] = Path(file_path).read_text()
         return mock_process
@@ -181,7 +168,7 @@ async def test_astream_builds_correct_command(tmp_path, monkeypatch):
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.SubprocessLineStream",
             side_effect=_capture,
         ),
     ):
@@ -206,8 +193,7 @@ async def test_astream_builds_correct_command(tmp_path, monkeypatch):
 
     # The user message must NOT be an inline CLI arg either; it goes via stdin.
     assert "test prompt" not in call_args
-    stdin_bytes = mock_process.stdin.write.call_args[0][0]
-    assert b"test prompt" in stdin_bytes
+    assert b"test prompt" in captured["input_bytes"]
 
     # Regression guard: the full command line must stay well under the 8191-char
     # Windows cmd.exe limit even though the system prompt is ~9,900 chars.
@@ -218,6 +204,47 @@ async def test_astream_builds_correct_command(tmp_path, monkeypatch):
         call_args[i + 1] for i, arg in enumerate(call_args) if arg == "--allowed-tools"
     ]
     assert "Skill" in allowed_tools
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("remote", "bypass_expected"),
+    [(False, True), (True, False)],
+    ids=["local_keeps_full_access", "remote_dropped"],
+)
+async def test_astream_remote_caller_drops_bypass_permissions(tmp_path, remote, bypass_expected):
+    # A config-granted full_access unlocks bypassPermissions for a local caller, but is clamped
+    # away for a remote caller so it cannot bypass the CLI's permission checks.
+    captured = {}
+
+    def _capture(cmd, **kwargs):
+        captured["argv"] = cmd
+        return _mock_process(stdout_lines=[b'{"type": "result"}\n'])
+
+    set_remote_caller(remote)
+    try:
+        with (
+            patch(
+                "mlflow.assistant.providers.claude_code.shutil.which",
+                return_value="/usr/bin/claude",
+            ),
+            patch(
+                "mlflow.assistant.providers.claude_code.load_config_or_default",
+                return_value=ProviderConfig(
+                    model="x", permissions=PermissionsConfig(full_access=True)
+                ),
+            ),
+            patch(
+                "mlflow.assistant.providers.claude_code.SubprocessLineStream",
+                side_effect=_capture,
+            ),
+        ):
+            provider = ClaudeCodeProvider()
+            _ = [e async for e in provider.astream("hi", "http://localhost:5000", cwd=tmp_path)]
+    finally:
+        set_remote_caller(False)
+
+    assert ("bypassPermissions" in captured["argv"]) is bypass_expected
 
 
 @pytest.mark.asyncio
@@ -232,7 +259,7 @@ async def test_astream_passes_cwd_and_env(tmp_path, monkeypatch):
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.SubprocessLineStream",
             return_value=mock_process,
         ) as mock_exec,
     ):
@@ -278,7 +305,7 @@ async def test_astream_uses_custom_view_json_schema(tmp_path):
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.SubprocessLineStream",
             return_value=mock_process,
         ) as mock_exec,
     ):
@@ -294,7 +321,7 @@ async def test_astream_uses_custom_view_json_schema(tmp_path):
             )
         ]
 
-    args = mock_exec.call_args.args
+    args = mock_exec.call_args.args[0]
     schema = json.loads(args[args.index("--json-schema") + 1])
     assert schema["required"] == ["type", "text", "title", "messages"]
     assert args[args.index("--resume") + 1] == "previous-claude-session"
@@ -334,7 +361,7 @@ async def test_astream_forwards_empty_custom_view_messages_for_client_validation
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.SubprocessLineStream",
             return_value=process,
         ) as mock_exec,
     ):
@@ -386,7 +413,7 @@ async def test_astream_does_not_retry_invalid_custom_view_transport(tmp_path):
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.SubprocessLineStream",
             return_value=process,
         ) as mock_exec,
     ):
@@ -432,7 +459,7 @@ async def test_astream_requires_session_id_in_structured_result(tmp_path):
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.SubprocessLineStream",
             return_value=process,
         ),
     ):
@@ -479,9 +506,9 @@ async def test_astream_cleans_up_system_prompt_file(tmp_path):
 
     captured = {}
 
-    def _capture(*args, **kwargs):
-        idx = args.index("--append-system-prompt-file")
-        captured["file_path"] = args[idx + 1]
+    def _capture(cmd, **kwargs):
+        idx = cmd.index("--append-system-prompt-file")
+        captured["file_path"] = cmd[idx + 1]
         return mock_process
 
     with (
@@ -490,7 +517,7 @@ async def test_astream_cleans_up_system_prompt_file(tmp_path):
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.SubprocessLineStream",
             side_effect=_capture,
         ),
     ):
@@ -514,7 +541,7 @@ async def test_astream_temp_file_cleanup_failure_does_not_mask_result():
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.SubprocessLineStream",
             return_value=mock_process,
         ),
         patch(
@@ -527,40 +554,6 @@ async def test_astream_temp_file_cleanup_failure_does_not_mask_result():
 
     # The stream completes normally; the cleanup error is swallowed.
     assert events[-1].type == EventType.DONE
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "write_error",
-    [
-        BrokenPipeError("broken pipe"),
-        # POSIX EPIPE can surface as a bare OSError rather than BrokenPipeError.
-        OSError(errno.EPIPE, "broken pipe"),
-    ],
-)
-async def test_astream_surfaces_cli_error_when_stdin_pipe_breaks(write_error):
-    # If the CLI exits before reading stdin, writing the message raises a pipe
-    # error; the provider must swallow it and surface the CLI's real stderr
-    # instead of a bare "Broken pipe" message.
-    mock_process = _mock_process(stdout_lines=[], returncode=1, stderr=b"Invalid session id")
-    mock_process.stdin.write = MagicMock(side_effect=write_error)
-
-    with (
-        patch(
-            "mlflow.assistant.providers.claude_code.shutil.which",
-            return_value="/usr/bin/claude",
-        ),
-        patch(
-            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
-            return_value=mock_process,
-        ),
-    ):
-        provider = ClaudeCodeProvider()
-        events = [e async for e in provider.astream("test prompt", "http://localhost:5000")]
-
-    assert events[-1].type == EventType.ERROR
-    assert "Invalid session id" in events[-1].data["error"]
-    assert "broken pipe" not in events[-1].data["error"].lower()
 
 
 @pytest.mark.asyncio
@@ -585,7 +578,7 @@ async def test_astream_cleans_up_temp_file_when_subprocess_launch_fails():
             side_effect=_tracking_mkstemp,
         ),
         patch(
-            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.SubprocessLineStream",
             side_effect=OSError("boom"),
         ),
     ):
@@ -612,7 +605,7 @@ async def test_astream_streams_assistant_messages():
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.SubprocessLineStream",
             return_value=mock_process,
         ),
     ):
@@ -643,7 +636,7 @@ async def test_astream_emits_usage_event_before_done():
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.SubprocessLineStream",
             return_value=mock_process,
         ),
     ):
@@ -729,7 +722,7 @@ async def test_astream_handles_process_error():
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.SubprocessLineStream",
             return_value=mock_process,
         ),
     ):
@@ -750,7 +743,7 @@ async def test_astream_surfaces_non_empty_error_for_empty_exception():
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.SubprocessLineStream",
             side_effect=NotImplementedError(),
         ) as mock_exec,
     ):
@@ -773,7 +766,7 @@ async def test_astream_passes_session_id_for_resume():
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.SubprocessLineStream",
             return_value=mock_process,
         ) as mock_exec,
     ):
@@ -785,7 +778,7 @@ async def test_astream_passes_session_id_for_resume():
             )
         ]
 
-    call_args = mock_exec.call_args[0]
+    call_args = mock_exec.call_args[0][0]
     assert "--resume" in call_args
     assert "existing-session" in call_args
 
@@ -805,7 +798,7 @@ async def test_astream_handles_non_json_output():
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.SubprocessLineStream",
             return_value=mock_process,
         ),
     ):
@@ -830,7 +823,7 @@ async def test_astream_handles_error_message_type():
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.SubprocessLineStream",
             return_value=mock_process,
         ),
     ):
@@ -857,7 +850,7 @@ async def test_astream_skips_rate_limit_event():
             return_value="/usr/bin/claude",
         ),
         patch(
-            "mlflow.assistant.providers.claude_code.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.claude_code.SubprocessLineStream",
             return_value=mock_process,
         ),
     ):
@@ -946,6 +939,7 @@ async def test_astream_in_sandbox_streams_events_and_manages_container(monkeypat
     sid = "11111111-1111-1111-1111-111111111111"
     with (
         patch("mlflow.server.sandbox.start_sandbox_process", return_value=fake) as start,
+        patch("mlflow.assistant.providers.claude_code.SubprocessLineStream") as host_stream,
         patch("mlflow.assistant.providers.claude_code.save_container_id") as save_cid,
         patch("mlflow.assistant.providers.claude_code.clear_container_id") as clear_cid,
     ):
@@ -954,6 +948,7 @@ async def test_astream_in_sandbox_streams_events_and_manages_container(monkeypat
         ]
 
     start.assert_called_once()
+    host_stream.assert_not_called()
     save_cid.assert_called_once_with(sid, "container-abc")
     clear_cid.assert_called_once_with(sid)
     assert fake.cleaned_up is True
@@ -1096,9 +1091,9 @@ def test_is_available_true_in_sandbox_mode(monkeypatch):
         assert ClaudeCodeProvider().is_available() is True
 
 
-def test_allows_remote_access_follows_sandbox_mode(monkeypatch):
-    # The CLI provider serves remote clients only when sandboxed (isolated in a container);
-    # in local mode it runs on the host and must stay localhost-only.
+def test_never_allows_remote_access(monkeypatch):
+    # The CLI provider is local-only: it authenticates with host-side operator credentials, so it
+    # must never serve remote clients, even when sandboxed. Only the Gateway provider serves remote.
     provider = ClaudeCodeProvider()
     monkeypatch.setattr(
         "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: False
@@ -1107,7 +1102,7 @@ def test_allows_remote_access_follows_sandbox_mode(monkeypatch):
     monkeypatch.setattr(
         "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
     )
-    assert provider.allows_remote_access is True
+    assert provider.allows_remote_access is False
 
 
 @pytest.mark.asyncio

@@ -21,6 +21,7 @@ jest.mock('./api', () => ({
     listScorersLite: jest.fn(),
     listGatewaySecretsLite: jest.fn(),
     listGatewayEndpointsLite: jest.fn(),
+    listSkillsLite: jest.fn(),
     listUsers: jest.fn(),
     listRoles: jest.fn(),
     grantUserPermission: jest.fn(),
@@ -81,6 +82,24 @@ describe('useResourceOptionsQuery — happy paths per resource type', () => {
     expect(result.current.options).toEqual([
       { id: 'greeting', name: 'greeting' },
       { id: 'farewell', name: 'farewell' },
+    ]);
+  });
+
+  it('maps skills to their grant key: name, or @organization/name', async () => {
+    mockedApi.listSkillsLite.mockResolvedValueOnce({
+      skills: [
+        { name: 'release-notes', organization: '' },
+        { name: 'code-review', organization: 'acme' },
+      ],
+    });
+    const { result } = renderHook(() => useResourceOptionsQuery('skill', 'team-a'), {
+      wrapper: makeWrapper(),
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(mockedApi.listSkillsLite).toHaveBeenCalledWith('team-a');
+    expect(result.current.options).toEqual([
+      { id: 'release-notes', name: 'release-notes' },
+      { id: '@acme/code-review', name: '@acme/code-review' },
     ]);
   });
 

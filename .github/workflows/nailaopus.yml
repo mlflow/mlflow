@@ -24,6 +24,7 @@ defaults:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   # Auth gate: only users with admin or maintain role on the repo can trigger
@@ -75,13 +76,13 @@ jobs:
 
   review:
     needs: gate
-    # The workflow never uses the default GITHUB_TOKEN — every `gh api`
-    # call goes through the App installation token (steps.app_token.outputs.token).
-    # `permissions:` is set to a minimal `contents: read` purely to satisfy
-    # `.github/policy.rego`'s require-explicit-permissions rule.
+    # Every `gh api` call goes through the App installation token
+    # (steps.app_token.outputs.token). The default GITHUB_TOKEN only backs the
+    # sparse checkout of the gateway action, so `permissions:` is a minimal
+    # `contents: read`, which `.github/policy.rego` also requires explicitly.
     permissions:
       contents: read
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Resolve PR number
@@ -97,6 +98,7 @@ jobs:
           client-id: ${{ vars.NAILAOPUS_APP_CLIENT_ID }}
           private-key: ${{ secrets.NAILAOPUS_APP_KEY }}
           owner: mlflow
+          repositories: mlflow,internal
           # Least-privilege: explicitly request only what the workflow uses
           # on each repo. The App's installation permissions are the upper
           # bound; these inputs narrow the issued token further.
@@ -175,7 +177,7 @@ jobs:
           # open a new PR that updates this SHA to the latest mlflow/internal
           # main after reviewing the diff. We'll migrate to release tags once
           # the bump cadence is stable; see mlflow/internal for the policy.
-          ref: 5e5f9229e16b97822ea3349b31285370be36b4d1
+          ref: 4fc460b68b39735817301f55e1c3e5e705b849d3
           sparse-checkout: |
             nailaopus
           path: internal
@@ -203,13 +205,31 @@ jobs:
           if echo "$BODY" | grep -q -- '--hybrid'; then flags="$flags --hybrid"; fi
           echo "flags=$flags" >> "$GITHUB_OUTPUT"
 
+      # The gateway action receives the service principal's client secret, so run
+      # the default-branch copy, never the PR head checkout under ./mlflow.
+      - name: Checkout gateway action from the default branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          sparse-checkout: |
+            .github/actions/setup-gateway
+          path: trusted
+          persist-credentials: false
+
+      - id: gateway
+        uses: ./trusted/.github/actions/setup-gateway
+        with:
+          task: nailaopus-review
+          host: ${{ secrets.DATABRICKS_HOST }}
+          client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+
       - name: Run NaiLaOpus
         env:
-          # EXPERIMENTAL_ANTHROPIC_API_KEY isolates the bot's spend from
-          # any other workflow on this repo that uses Anthropic. The orchestrator
-          # reads from $ANTHROPIC_API_KEY, so the env var name passed to
-          # the process stays standard.
-          ANTHROPIC_API_KEY: ${{ secrets.EXPERIMENTAL_ANTHROPIC_API_KEY }}
+          # Short-lived AI Gateway bearer; the client secret stays in the gateway step.
+          ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway.outputs.token }}
+          ANTHROPIC_BASE_URL: ${{ steps.gateway.outputs.base-url }}/anthropic
+          ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
           GH_TOKEN: ${{ steps.app_token.outputs.token }}
           PR: ${{ steps.ctx.outputs.pr }}
           REPO: ${{ github.repository }}

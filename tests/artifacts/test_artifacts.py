@@ -1,3 +1,5 @@
+import builtins
+import json
 import os
 import pathlib
 import uuid
@@ -140,6 +142,64 @@ def test_load_text(run_with_text_artifact):
 def test_load_dict(run_with_json_artifact):
     artifact = run_with_json_artifact
     assert mlflow.artifacts.load_dict(artifact.uri) == artifact.content
+
+
+@pytest.mark.parametrize("file_name", ["data.json", "data.yaml", "data.yml"])
+def test_load_dict_round_trips_log_dict(file_name):
+    data = {"answer": 42, "nested": {"items": [1, "two"]}}
+    with mlflow.start_run() as run:
+        mlflow.log_dict(data, file_name)
+    uri = str(pathlib.PurePosixPath(run.info.artifact_uri) / file_name)
+    assert mlflow.artifacts.load_dict(uri) == data
+
+
+def test_load_dict_invalid_yaml(tmp_path):
+    path = tmp_path / "data.yaml"
+    path.write_text("key: [unclosed")
+    with mlflow.start_run() as run:
+        mlflow.log_artifact(path)
+    uri = str(pathlib.PurePosixPath(run.info.artifact_uri) / "data.yaml")
+    with pytest.raises(MlflowException, match="Unable to form a YAML object"):
+        mlflow.artifacts.load_dict(uri)
+
+
+def test_load_text_and_dict_read_utf8_regardless_of_default_encoding(monkeypatch):
+    text = "café 台北 🚀"
+    data = {"城市": "台北"}
+    with mlflow.start_run() as run:
+        mlflow.log_text(text, "text.txt")
+        mlflow.log_text(json.dumps(data, ensure_ascii=False), "data.json")
+    base = pathlib.PurePosixPath(run.info.artifact_uri)
+
+    # Make text-mode `open` in mlflow.artifacts default to cp1252, as it does on Windows
+    # with a legacy code page, so the test does not depend on the runner's locale.
+    def open_with_cp1252_default(file, mode="r", *args, encoding=None, **kwargs):
+        if "b" not in mode and encoding is None:
+            encoding = "cp1252"
+        return builtins.open(file, mode, *args, encoding=encoding, **kwargs)
+
+    monkeypatch.setattr(mlflow.artifacts, "open", open_with_cp1252_default, raising=False)
+    assert mlflow.artifacts.load_text(str(base / "text.txt")) == text
+    assert mlflow.artifacts.load_dict(str(base / "data.json")) == data
+
+
+@pytest.mark.parametrize(
+    ("load", "file_name", "content"),
+    [
+        (mlflow.artifacts.load_text, "text.txt", "café"),
+        (mlflow.artifacts.load_dict, "data.json", '{"city": "café"}'),
+    ],
+)
+def test_load_text_and_dict_explain_non_utf8_artifacts(tmp_path, load, file_name, content):
+    path = tmp_path / file_name
+    path.write_bytes(content.encode("cp1252"))
+    with mlflow.start_run() as run:
+        mlflow.log_artifact(path)
+    uri = str(pathlib.PurePosixPath(run.info.artifact_uri) / file_name)
+
+    with pytest.raises(MlflowException, match="is not valid UTF-8") as exc_info:
+        load(uri)
+    assert isinstance(exc_info.value.__cause__, UnicodeDecodeError)
 
 
 def test_load_json_invalid_json(run_with_text_artifact):

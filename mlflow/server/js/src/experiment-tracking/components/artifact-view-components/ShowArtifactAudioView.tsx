@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import WaveSurfer from 'wavesurfer.js';
-import { getArtifactBlob, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
+import { getArtifactBlob } from '../../../common/utils/ArtifactUtils';
 import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
+import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
+import { fetchArtifactUnified } from './utils/fetchArtifactUnified';
 
 const waveSurferStyling = {
   waveColor: '#1890ff',
@@ -14,30 +16,36 @@ export type ShowArtifactAudioViewProps = {
   runUuid: string;
   path: string;
   getArtifact?: (...args: any[]) => any;
-};
+} & LoggedModelArtifactViewerProps;
 
-const ShowArtifactAudioView = ({ runUuid, path, getArtifact = getArtifactBlob }: ShowArtifactAudioViewProps) => {
+const ShowArtifactAudioView = ({
+  runUuid,
+  path,
+  getArtifact = getArtifactBlob,
+  artifactRootUri,
+  isLoggedModelsMode,
+  loggedModelId,
+}: ShowArtifactAudioViewProps) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const wsRef = useRef<WaveSurfer | null>(null);
 
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<boolean>(false);
+  const [error, setError] = useState<Error>();
 
   useEffect(() => {
     if (!containerRef.current) return;
 
     setLoading(true);
-    setError(false);
+    setError(undefined);
 
     let blobUrl: string | undefined;
     let cancelled = false;
 
-    const artifactUrl = getArtifactLocationUrl(path, runUuid);
-    getArtifact(artifactUrl)
-      .then((blob: Blob) => {
+    fetchArtifactUnified({ runUuid, path, artifactRootUri, isLoggedModelsMode, loggedModelId }, getArtifact)
+      .then((result) => {
         if (cancelled || !containerRef.current) return;
 
-        blobUrl = URL.createObjectURL(blob);
+        blobUrl = URL.createObjectURL(result as Blob);
 
         const ws = WaveSurfer.create({
           mediaControls: true,
@@ -52,7 +60,7 @@ const ShowArtifactAudioView = ({ runUuid, path, getArtifact = getArtifactBlob }:
 
         ws.on('error', () => {
           setLoading(false);
-          setError(true);
+          setError(new Error('Audio playback failed'));
           ws.destroy();
           wsRef.current = null;
           if (blobUrl) {
@@ -63,10 +71,10 @@ const ShowArtifactAudioView = ({ runUuid, path, getArtifact = getArtifactBlob }:
 
         wsRef.current = ws;
       })
-      .catch(() => {
+      .catch((error: Error) => {
         if (!cancelled) {
           setLoading(false);
-          setError(true);
+          setError(error);
         }
       });
 
@@ -80,14 +88,14 @@ const ShowArtifactAudioView = ({ runUuid, path, getArtifact = getArtifactBlob }:
         URL.revokeObjectURL(blobUrl);
       }
     };
-  }, [containerRef, path, runUuid, getArtifact]);
+  }, [containerRef, path, runUuid, getArtifact, artifactRootUri, isLoggedModelsMode, loggedModelId]);
 
   const showLoading = loading && !error;
 
   return (
     <div data-testid="audio-artifact-preview">
       {showLoading && <ArtifactViewSkeleton />}
-      {error && <ArtifactViewErrorState />}
+      {error && <ArtifactViewErrorState error={error} />}
       {/* This div is always rendered, but its visibility is controlled by the loading and error states */}
       <div
         css={{

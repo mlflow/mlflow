@@ -52,10 +52,10 @@ class GatewaySecretInfo(_MlflowObject):
     created_by: str | None = None
     last_updated_by: str | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         object.__setattr__(self, "workspace", resolve_entity_workspace_name(self.workspace))
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoGatewaySecretInfo:
         proto = ProtoGatewaySecretInfo()
         proto.secret_id = self.secret_id
         proto.secret_name = self.secret_name
@@ -73,7 +73,7 @@ class GatewaySecretInfo(_MlflowObject):
         return proto
 
     @classmethod
-    def from_proto(cls, proto):
+    def from_proto(cls, proto: ProtoGatewaySecretInfo) -> "GatewaySecretInfo":
         # Empty map means no auth_config was provided
         auth_config = dict(proto.auth_config) or None
         return cls(

@@ -3,12 +3,18 @@ import { useState } from 'react';
 import { Alert, Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
+import { useModelTraceExplorerRunJudgesContext } from '../contexts/RunJudgesContext';
 import { CodeSnippetRenderMode, type AssessmentError } from '../ModelTrace.types';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 
 export const FeedbackErrorItem = ({ error }: { error: AssessmentError }) => {
   const { theme } = useDesignSystemTheme();
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const { formatErrorMessage } = useModelTraceExplorerRunJudgesContext();
+
+  // Prefer a feature-provided, user-facing message (e.g. "rewrite without {{ trace }}") over the
+  // raw backend detail. The raw text and stack trace remain available via "View stack trace".
+  const friendlyMessage = error.error_message ? formatErrorMessage?.(error.error_message) : null;
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
@@ -19,7 +25,7 @@ export const FeedbackErrorItem = ({ error }: { error: AssessmentError }) => {
         componentId="shared.model-trace-explorer.feedback-error-item"
         description={
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, overflowWrap: 'anywhere' }}>
-            <span>{error.error_message}</span>
+            <span>{friendlyMessage ?? error.error_message}</span>
             {error.stack_trace && (
               <Typography.Link
                 componentId="shared.model-trace-explorer.feedback-error-item-stack-trace-link"

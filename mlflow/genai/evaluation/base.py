@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Callable, NamedTuple
 
 import mlflow
 from mlflow.data.dataset import Dataset
+from mlflow.entities import Dataset as DatasetEntity
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -14,6 +15,17 @@ from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.genai.evaluation.constant import InputDatasetColumn
+from mlflow.genai.evaluation.lineage import (
+    AGENT_URI_ATTR,
+    get_dataset_entity_from_attrs,
+    log_lineage_tags,
+)
+from mlflow.genai.evaluation.quality_criteria import (
+    build_quality_criteria_tag,
+    get_extra_aggregations,
+    parse_quality_criteria,
+    warn_on_unmeasured_quality_criteria,
+)
 from mlflow.genai.evaluation.session_utils import validate_session_level_evaluation_inputs
 from mlflow.genai.evaluation.utils import (
     _convert_to_eval_set,
@@ -43,7 +55,11 @@ from mlflow.tracing.utils.copy import copy_trace_to_experiment
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import _get_experiment_id, _set_active_model
 from mlflow.utils.databricks_utils import invoke_databricks_app
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_GENAI_EVALUATE
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_GENAI_EVALUATE_QUALITY_CRITERIA,
+    MLFLOW_RUN_TYPE,
+    MLFLOW_RUN_TYPE_GENAI_EVALUATE,
+)
 
 if TYPE_CHECKING:
     from mlflow.genai.evaluation.entities import EvaluationResult
@@ -58,6 +74,7 @@ def evaluate(
     scorers: list[Scorer],
     predict_fn: Callable[..., Any] | None = None,
     model_id: str | None = None,
+    quality_criteria: str | None = None,
 ) -> "EvaluationResult":
     """
     Evaluate the performance of a generative AI model/application using specified
@@ -283,6 +300,27 @@ def evaluate(
             to associate with the evaluation results. Can be also set globally via the
             :py:func:`mlflow.set_active_model` function.
 
+        quality_criteria: *Experimental (added in MLflow 3.18.0)* This parameter may
+            change or be removed in a future release. The run-level metrics that the
+            evaluation run must clear, in a syntax like trace search filters: conditions joined by
+            ``AND``, each comparing a metric with ``>=`` or ``<=``. A bare scorer name checks
+            the scorer's mean. To check another aggregation, write
+            ``<scorer name>/<aggregation>`` in backticks, where the aggregation is one of
+            ``min``, ``max``, ``mean``, ``median``, ``variance``, or ``p90``. ``OR`` isn't
+            supported, and each metric can have only one condition. Each scorer name
+            must match exactly one scorer in ``scorers``. The run counts as passing only when
+            every condition holds. The criteria are recorded on the evaluation run; they
+            don't change how rows are scored.
+
+            .. code-block:: python
+
+                mlflow.genai.evaluate(
+                    data=data,
+                    predict_fn=predict_fn,
+                    scorers=[Correctness(), latency],
+                    quality_criteria="correctness >= 0.9 AND `latency/p90` <= 2",
+                )
+
     Returns:
         An :py:class:`mlflow.genai.evaluation.entities.EvaluationResult` object.
 
@@ -295,12 +333,14 @@ def evaluate(
         This function is not thread-safe. Please do not use it in multi-threaded
         environments.
     """
-    result, _ = _run_harness(data, scorers, predict_fn, model_id)
+    result, _ = _run_harness(data, scorers, predict_fn, model_id, quality_criteria)
     return result
 
 
 @record_usage_event(GenAIEvaluateEvent)
-def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult", dict[str, Any]]:
+def _run_harness(
+    data, scorers, predict_fn, model_id, quality_criteria=None
+) -> tuple["EvaluationResult", dict[str, Any]]:
     """
     Internal harness for running evaluation.
 
@@ -313,6 +353,11 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
     from mlflow.genai.evaluation import harness
 
     scorers = validate_scorers(scorers)
+    # Validate before the run starts so bad quality criteria don't leave an empty run behind.
+    quality_criteria_rules = parse_quality_criteria(scorers, quality_criteria)
+    quality_criteria_tag = build_quality_criteria_tag(quality_criteria_rules)
+    # Lineage records the user's function; `predict_fn` is wrapped or cleared for simulation below.
+    original_predict_fn = predict_fn
 
     # Handle ConversationSimulator: prepare for simulation, but run it inside the run context
     # so that traces are logged to the correct run.
@@ -369,6 +414,8 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
         # Validate session-level input if session-level scorers are present
         validate_session_level_evaluation_inputs(scorers, predict_fn)
 
+        # A DataFrame from `EvaluationDataset.to_df()` keeps the dataset identity if unchanged.
+        dataset_entity = None if is_managed_dataset else get_dataset_entity_from_attrs(data)
         df = _convert_to_eval_set(data)
 
         builtin_scorers = [
@@ -405,6 +452,9 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
         if isinstance(data, (EvaluationDataset, EntityEvaluationDataset)):
             mlflow_dataset = data
             df = data.to_df()
+        elif dataset_entity is not None:
+            mlflow_dataset = dataset_entity
+            df = data
         else:
             # Use precomputed name from ConversationSimulator, or default "dataset" for
             # other sources. Pass precomputed_digest if available (from ConversationSimulator).
@@ -426,13 +476,34 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
         # NB: Set this tag before run finishes to suppress the generic run URL printing.
         if run.data.tags.get(MLFLOW_RUN_TYPE) is None:
             MlflowClient().set_tag(run_id, MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_GENAI_EVALUATE)
+        log_lineage_tags(run_id, scorers, original_predict_fn)
+        # NB: Record the quality criteria before the harness runs, so a run that fails partway still
+        # shows the bar it was evaluated against (its criteria read as incomplete). The tags
+        # are read from the store rather than `run.data.tags` because a reused active run can
+        # predate a tag written by an earlier `evaluate` on the same run.
+        client = MlflowClient()
+        if quality_criteria_tag is not None:
+            # Synchronous, so the stale-tag check of a later `evaluate` on this run sees it.
+            client.set_tag(
+                run_id,
+                MLFLOW_GENAI_EVALUATE_QUALITY_CRITERIA,
+                quality_criteria_tag,
+                synchronous=True,
+            )
+        elif MLFLOW_GENAI_EVALUATE_QUALITY_CRITERIA in client.get_run(run_id).data.tags:
+            # This call sets no quality criteria, so a tag from an earlier `evaluate` on this run
+            # would judge the new metrics against a stale bar.
+            client.delete_tag(run_id, MLFLOW_GENAI_EVALUATE_QUALITY_CRITERIA)
 
         result = harness.run(
             predict_fn=predict_fn,
             eval_df=df,
             scorers=scorers,
             run_id=run_id,
+            dataset=mlflow_dataset if is_managed_dataset or dataset_entity is not None else None,
+            extra_aggregations=get_extra_aggregations(quality_criteria_rules),
         )
+        warn_on_unmeasured_quality_criteria(quality_criteria_rules, result.metrics)
 
     try:
         display_evaluation_output(run_id)
@@ -443,12 +514,13 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
 
 
 def _log_dataset_input(
-    data: Dataset,
+    data: Dataset | DatasetEntity,
     run_id: str,
     model_id: str | None = None,
 ):
     client = MlflowClient()
-    dataset_input = DatasetInput(dataset=data._to_mlflow_entity())
+    entity = data if isinstance(data, DatasetEntity) else data._to_mlflow_entity()
+    dataset_input = DatasetInput(dataset=entity)
     client.log_inputs(
         run_id=run_id,
         datasets=[dataset_input],
@@ -614,13 +686,15 @@ def to_predict_fn(endpoint_uri: str) -> Callable[..., Any]:
     match schema:
         case "apps":
             app_config = _setup_databricks_app_client(path)
-            return _create_app_predict_fn(app_config.app_invocation_url, app_config.config)
+            predict_fn = _create_app_predict_fn(app_config.app_invocation_url, app_config.config)
         case "endpoints":
-            return _create_endpoint_predict_fn(endpoint_uri, path)
+            predict_fn = _create_endpoint_predict_fn(endpoint_uri, path)
         case _:
             raise ValueError(
                 f"Unsupported endpoint schema: {schema}. Expected 'endpoints' or 'apps'."
             )
+    setattr(predict_fn, AGENT_URI_ATTR, endpoint_uri)
+    return predict_fn
 
 
 def _create_endpoint_predict_fn(endpoint_uri: str, endpoint: str) -> Callable[..., Any]:

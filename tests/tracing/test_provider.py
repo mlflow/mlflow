@@ -5,6 +5,10 @@ from unittest import mock
 
 import pytest
 from opentelemetry import trace
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider as SDKTracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 
 import mlflow
@@ -32,10 +36,12 @@ from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
 from mlflow.tracing.provider import (
+    _add_span_processor_first,
     _get_span_processor,
     _get_tracer,
     _initialize_tracer_provider,
     _IsolatedRandomIdGenerator,
+    detach_span_from_context,
     is_tracing_enabled,
     start_span_in_context,
     trace_disabled,
@@ -381,6 +387,30 @@ def test_disable_enable_tracing_not_mutate_otel_provider(monkeypatch):
 
     test_fn()
     assert trace.get_tracer_provider() is otel_tracer_provider
+
+
+def test_detach_span_from_context_ignores_cross_context_value_error(monkeypatch):
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "true")
+
+    token = (mock.sentinel.mlflow_token, None)
+    with mock.patch(
+        "mlflow.tracing.provider.mlflow_runtime_context.detach",
+        side_effect=ValueError("token was created in a different Context"),
+    ) as mock_detach:
+        detach_span_from_context(token)
+        mock_detach.assert_called_once_with(mock.sentinel.mlflow_token)
+
+
+def test_detach_span_from_context_reraises_unrelated_value_error(monkeypatch):
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "true")
+
+    token = (mock.sentinel.mlflow_token, None)
+    with mock.patch(
+        "mlflow.tracing.provider.mlflow_runtime_context.detach",
+        side_effect=ValueError("some other error"),
+    ):
+        with pytest.raises(ValueError, match="some other error"):
+            detach_span_from_context(token)
 
 
 def _count_batch_processor_threads() -> int:
@@ -815,6 +845,7 @@ def test_otel_resource_attributes(monkeypatch):
         attributes.pop("service.instance.id", None)
         return attributes
 
+    default_service_name = Resource.create({}).attributes["service.name"]
     tracer = _get_tracer("test")
     # By default, only MLflow's SDK attributes are set on an empty resource
     assert resource_attributes(tracer) == {
@@ -834,7 +865,7 @@ def test_otel_resource_attributes(monkeypatch):
         "telemetry.sdk.language": "python",
         "telemetry.sdk.name": "mlflow",
         "telemetry.sdk.version": mlflow.__version__,
-        "service.name": "unknown_service",
+        "service.name": default_service_name,
     }
 
     # Service name should be propagated from the env var
@@ -855,7 +886,7 @@ def test_otel_resource_attributes(monkeypatch):
     monkeypatch.delenv("OTEL_SERVICE_NAME", raising=False)
     tracer = _get_tracer("test")
     assert resource_attributes(tracer) == {
-        "service.name": "unknown_service",
+        "service.name": default_service_name,
         "telemetry.sdk.language": "python",
         "telemetry.sdk.name": "mlflow",
         "telemetry.sdk.version": mlflow.__version__,
@@ -1103,18 +1134,18 @@ def _serving_uc_experiment():
 
 
 def test_resolve_uc_location_in_serving_uses_databricks_store(
-    mock_databricks_serving_with_tracing_env,
+    mock_databricks_serving_with_tracing_env, monkeypatch
 ):
     from mlflow.tracing.provider import _resolve_experiment_uc_location
 
     mlflow.tracing.reset()
+    monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", "123")
 
     with (
         mock.patch(
             "mlflow.tracing.provider.mlflow.get_tracking_uri",
             return_value="sqlite:///mlflow.db",
         ),
-        mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value="123"),
         mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_store_fn,
     ):
         mock_store_fn.return_value.get_experiment.return_value = _serving_uc_experiment()
@@ -1123,21 +1154,53 @@ def test_resolve_uc_location_in_serving_uses_databricks_store(
 
         assert result == UnityCatalog("cat", "sch", table_prefix="pfx")
         mock_store_fn.assert_called_once_with("databricks")
+        mock_store_fn.return_value.get_experiment.assert_called_once_with("123")
 
     mlflow.tracing.reset()
 
 
-def test_serving_uc_bound_experiment_selects_uc_processor(
-    mock_databricks_serving_with_tracing_env,
+def test_resolve_uc_location_in_serving_bypasses_local_experiment_validation(
+    mock_databricks_serving_with_tracing_env, monkeypatch
 ):
+    # `_get_experiment_id()` raises in serving (local store); resolution falls back to the env var.
+    from mlflow.tracing.provider import _resolve_experiment_uc_location
+
     mlflow.tracing.reset()
+    monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", "123")
 
     with (
         mock.patch(
             "mlflow.tracing.provider.mlflow.get_tracking_uri",
             return_value="sqlite:///mlflow.db",
         ),
-        mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value="123"),
+        mock.patch(
+            "mlflow.tracking.fluent._get_experiment_id",
+            side_effect=MlflowException("does not exist in the tracking server"),
+        ) as mock_get_experiment_id,
+        mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_store_fn,
+    ):
+        mock_store_fn.return_value.get_experiment.return_value = _serving_uc_experiment()
+
+        result = _resolve_experiment_uc_location()
+
+        assert result == UnityCatalog("cat", "sch", table_prefix="pfx")
+        mock_get_experiment_id.assert_not_called()
+        mock_store_fn.return_value.get_experiment.assert_called_once_with("123")
+
+    mlflow.tracing.reset()
+
+
+def test_serving_uc_bound_experiment_selects_uc_processor(
+    mock_databricks_serving_with_tracing_env, monkeypatch
+):
+    mlflow.tracing.reset()
+    monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", "123")
+
+    with (
+        mock.patch(
+            "mlflow.tracing.provider.mlflow.get_tracking_uri",
+            return_value="sqlite:///mlflow.db",
+        ),
         mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_store_fn,
     ):
         mock_store_fn.return_value.get_experiment.return_value = _serving_uc_experiment()
@@ -1155,17 +1218,17 @@ def test_serving_uc_bound_experiment_selects_uc_processor(
 
 @pytest.mark.parametrize("tracking_uri", ["databricks", "databricks://myprofile"])
 def test_serving_keeps_explicit_databricks_tracking_uri(
-    mock_databricks_serving_with_tracing_env, tracking_uri
+    mock_databricks_serving_with_tracing_env, tracking_uri, monkeypatch
 ):
     # Substituting "databricks" in serving must not discard a configured profile.
     mlflow.tracing.reset()
+    monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", "123")
 
     with (
         mock.patch(
             "mlflow.tracing.provider.mlflow.get_tracking_uri",
             return_value=tracking_uri,
         ),
-        mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value="123"),
         mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_store_fn,
     ):
         mock_store_fn.return_value.get_experiment.return_value = _serving_uc_experiment()
@@ -1180,16 +1243,16 @@ def test_serving_keeps_explicit_databricks_tracking_uri(
 
 
 def test_serving_non_uc_experiment_retains_inference_table(
-    mock_databricks_serving_with_tracing_env,
+    mock_databricks_serving_with_tracing_env, monkeypatch
 ):
     mlflow.tracing.reset()
+    monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", "123")
 
     with (
         mock.patch(
             "mlflow.tracing.provider.mlflow.get_tracking_uri",
             return_value="sqlite:///mlflow.db",
         ),
-        mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value="123"),
         mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_store_fn,
     ):
         mock_store_fn.return_value.get_experiment.return_value = _experiment(tags={})
@@ -1231,3 +1294,19 @@ def test_serving_tracing_destination_env_wins_over_experiment_binding(
         assert spans_table == "envcat.envsch.mlflow_experiment_trace_otel_spans"
 
     mlflow.tracing.reset()
+
+
+def test_add_span_processor_first_runs_new_processor_before_existing_ones():
+    tracer_provider = SDKTracerProvider()
+    existing_a = SimpleSpanProcessor(InMemorySpanExporter())
+    existing_b = SimpleSpanProcessor(InMemorySpanExporter())
+    tracer_provider.add_span_processor(existing_a)
+    tracer_provider.add_span_processor(existing_b)
+    new = SimpleSpanProcessor(InMemorySpanExporter())
+
+    _add_span_processor_first(tracer_provider, new)
+
+    active = tracer_provider._active_span_processor
+    assert active._span_processors == (new, existing_a, existing_b)
+    # The reorder holds the composite's lock, and releases it.
+    assert not active._lock.locked()

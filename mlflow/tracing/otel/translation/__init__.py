@@ -14,6 +14,7 @@ from typing import Any
 from mlflow.entities.span import Span, SpanType
 from mlflow.tracing.constant import CostKey, SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
+from mlflow.tracing.otel.translation.claude_code import ClaudeCodeTranslator
 from mlflow.tracing.otel.translation.gemini_cli import GeminiCliTranslator
 from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
 from mlflow.tracing.otel.translation.google_adk import GoogleADKTranslator
@@ -36,6 +37,7 @@ _logger = logging.getLogger(__name__)
 _TRANSLATORS: list[OtelSchemaTranslator] = [
     OpenInferenceTranslator(),
     GeminiCliTranslator(),
+    ClaudeCodeTranslator(),
     GenAiTranslator(),
     SpringAiTranslator(),
     TraceloopTranslator(),
@@ -51,6 +53,7 @@ _TRANSLATORS: list[OtelSchemaTranslator] = [
 _EVENT_TRANSLATORS = [
     SpringAiTranslator(),
     LiveKitTranslator(),
+    ClaudeCodeTranslator(),
 ]
 
 
@@ -73,7 +76,7 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
         Translated span dictionary
     """
     span_dict = span.to_dict()
-    attributes = sanitize_attributes(span_dict.get("attributes", {}))
+    attributes = span_dict.get("attributes", {})
     events = span_dict.get("events", [])
 
     # Override UNKNOWN (the LiveSpan default) with the translator-determined type.
@@ -233,7 +236,7 @@ def _get_input_value(attributes: dict[str, Any], events: list[dict[str, Any]] | 
     if events:
         for translator in _EVENT_TRANSLATORS:
             if hasattr(translator, "get_input_value_from_events"):
-                if value := translator.get_input_value_from_events(events):
+                if value := translator.get_input_value_from_events(events, attributes):
                     return value
 
 
@@ -262,7 +265,7 @@ def _get_output_value(
     if events:
         for translator in _EVENT_TRANSLATORS:
             if hasattr(translator, "get_output_value_from_events"):
-                if value := translator.get_output_value_from_events(events):
+                if value := translator.get_output_value_from_events(events, attributes):
                     return value
 
 
@@ -373,8 +376,23 @@ def translate_loaded_span(span_dict: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Modified span dictionary
     """
-    attributes = span_dict.get("attributes", {})
+    translate_loaded_span_with_status(span_dict)
+    return span_dict
 
+
+def translate_loaded_span_with_status(span_dict: dict[str, Any]) -> bool:
+    """
+    Apply load-time span translations and report whether the dict changed.
+
+    Returns:
+        True if ``span_dict`` was modified, False otherwise.
+    """
+    attributes = span_dict.get("attributes")
+    created_attributes = attributes is None
+    if created_attributes:
+        attributes = {}
+
+    modified = False
     try:
         if current_raw := attributes.get(SpanAttributeKey.SPAN_TYPE):
             current_type = try_json_loads(current_raw)
@@ -383,11 +401,15 @@ def translate_loaded_span(span_dict: dict[str, Any]) -> dict[str, Any]:
         if current_type in (None, SpanType.UNKNOWN):
             if mlflow_type := translate_span_type_from_otel(attributes):
                 attributes[SpanAttributeKey.SPAN_TYPE] = dump_span_attribute_value(mlflow_type)
+                modified = True
     except Exception:
         _logger.debug("Failed to translate span type", exc_info=True)
 
-    span_dict["attributes"] = attributes
-    return span_dict
+    # Avoid injecting an empty attributes object when nothing changed so stored
+    # JSON can be passed through unchanged for artifact responses.
+    if modified or not created_attributes:
+        span_dict["attributes"] = attributes
+    return modified
 
 
 def update_token_usage(
@@ -458,11 +480,14 @@ def update_cost(
     return current_cost
 
 
-def sanitize_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
+def strip_otlp_double_encoding(attributes: dict[str, Any]) -> dict[str, Any]:
     """
-    Sanitize attributes by removing duplicate dumped attributes.
-    This is necessary because when spans are logged to sql store with otel_api, the
-    span attributes are dumped twice (once in Span.from_otel_proto and once in span.to_dict).
+    Strip the extra JSON encoding layer that Span.from_otel_proto adds to attribute values.
+
+    Only call this on spans received over OTLP. MLflow clients already JSON-encode attribute
+    values before export, so from_otel_proto encodes them a second time. A raw string from a
+    third-party OTel client that happens to be JSON (e.g. '{"a": 1}') is also unwrapped here,
+    so it is stored as a structured value. This is intended: the chat UI relies on it.
     """
     updated_attributes = {}
     for key, value in attributes.items():

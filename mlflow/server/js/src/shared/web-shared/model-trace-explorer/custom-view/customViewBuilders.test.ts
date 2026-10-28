@@ -1,4 +1,4 @@
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 
 import type { Assessment, ModelTrace, ModelTraceSpanNode } from '../ModelTrace.types';
 import {
@@ -10,6 +10,14 @@ import {
   getSpanAttributes,
   mapToAgentAssessments,
 } from './customViewBuilders';
+import { shouldEnableNewEvalRunsUi } from '../../../../common/utils/FeatureUtils';
+
+jest.mock('../../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('../../../../common/utils/FeatureUtils')>(
+    '../../../../common/utils/FeatureUtils',
+  ),
+  shouldEnableNewEvalRunsUi: jest.fn(() => false),
+}));
 
 const makeNode = (node: Partial<ModelTraceSpanNode> & { key: string }): ModelTraceSpanNode =>
   ({
@@ -74,6 +82,30 @@ describe('getMetricsFromTraceInfo', () => {
     });
     expect(getMetricsFromTraceInfo(asInfo({ execution_time_ms: 250 }), 0).latency).toBe('250ms');
     expect(getMetricsFromTraceInfo(asInfo({}), 0).latency).toBe('N/A');
+  });
+
+  describe('flag on: latency is formatted like the trace explorer', () => {
+    it.each([
+      { executionDuration: '0.071573452s', expected: '71.57ms' },
+      { executionDuration: '2.201498101s', expected: '2.20s' },
+    ])('formats V3 execution_duration $executionDuration', ({ executionDuration, expected }) => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      const info = asInfo({ trace_location: {}, state: 'OK', execution_duration: executionDuration });
+      expect(getMetricsFromTraceInfo(info, 0).latency).toBe(expected);
+    });
+
+    it('formats legacy trace-info latency', () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      expect(getMetricsFromTraceInfo(asInfo({ execution_time_ms: 1500 }), 0).latency).toBe('1.50s');
+      expect(getMetricsFromTraceInfo(asInfo({ execution_time_ms: 250 }), 0).latency).toBe('0.25s');
+      expect(getMetricsFromTraceInfo(asInfo({}), 0).latency).toBe('N/A');
+    });
+  });
+
+  it('flag off: keeps the raw V3 execution_duration', () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
+    const info = asInfo({ trace_location: {}, state: 'OK', execution_duration: '0.071573452s' });
+    expect(getMetricsFromTraceInfo(info, 0).latency).toBe('0.071573452s');
   });
 });
 
