@@ -147,6 +147,7 @@ def test_invoke_issue_detection_job_success():
     mock_result.issues = [mock.MagicMock(), mock.MagicMock(), mock.MagicMock()]
     mock_result.total_traces_analyzed = 2
     mock_result.total_cost_usd = 0.15
+    mock_result.new_issue_count = 1
 
     with (
         mock.patch("mlflow.genai.discovery.job.MlflowClient", return_value=mock_client),
@@ -171,6 +172,7 @@ def test_invoke_issue_detection_job_success():
 
         assert result["summary"] == "Found 3 issues"
         assert result["issues"] == 3
+        assert result["new_issue_count"] == 1
         assert result["total_traces_analyzed"] == 2
         assert result["total_cost_usd"] == 0.15
 

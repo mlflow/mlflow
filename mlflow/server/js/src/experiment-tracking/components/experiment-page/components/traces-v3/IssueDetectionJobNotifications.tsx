@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { NotFoundError } from '@databricks/web-shared/errors';
 import { Typography, useLegacyNotification } from '@databricks/design-system';
-import { FormattedMessage } from '@databricks/i18n';
+import { defineMessages, FormattedMessage, type MessageDescriptor } from '@databricks/i18n';
 import { useNavigate, useSearchParams } from '../../../../../common/utils/RoutingUtils';
 import LocalStorageUtils from '../../../../../common/utils/LocalStorageUtils';
 import Routes from '../../../../routes';
@@ -26,6 +26,52 @@ const ISSUE_DETECTION_JOB_STORAGE_COMPONENT = 'IssueDetectionJobWatcher';
 export const ISSUE_DETECTION_JOB_SUBMITTED_EVENT = 'mlflow.issueDetection.jobSubmitted';
 export const ISSUE_DETECTION_JOB_COMPLETED_EVENT = 'mlflow.issueDetection.jobCompleted';
 const ISSUE_DETECTION_JOB_TTL_MS = 60 * 60 * 1000;
+
+/* eslint-disable formatjs/no-multiple-plurals */
+const COMPLETION_MESSAGES = defineMessages({
+  total: {
+    defaultMessage:
+      'Found {issueCount, plural, =0 {no issues} one {1 issue} other {# issues}} across {traceCount, plural, one {1 trace} other {# traces}}.',
+    description: 'Notification body shown when an issue detection job finishes successfully',
+  },
+  allNew: {
+    defaultMessage:
+      'Found {newCount, plural, one {1 new issue} other {# new issues}} across {traceCount, plural, one {1 trace} other {# traces}}.',
+    description: 'Notification body shown when every issue an issue detection job found is newly reported',
+  },
+  newAndRefreshed: {
+    defaultMessage:
+      'Found {newCount, plural, =0 {no new issues} one {1 new issue} other {# new issues}} and refreshed {refreshedCount, plural, one {1 existing issue} other {# existing issues}} across {traceCount, plural, one {1 trace} other {# traces}}.',
+    description:
+      'Notification body shown when an issue detection job both filed new issues and re-found issues the experiment already carried',
+  },
+});
+/* eslint-enable formatjs/no-multiple-plurals */
+
+/**
+ * The completion wording, and the counts it needs.
+ *
+ * A run over a familiar failure mode reports findings without any of them being news, so the
+ * total alone cannot say whether there is anything to look at. An older server sends no
+ * `new_issue_count`: the total-only wording is kept for it rather than calling issues new with
+ * nothing to support it.
+ */
+const completionSummary = (
+  issueCount: number,
+  newCount: number | undefined,
+  traceCount: number,
+): { descriptor: MessageDescriptor; values: Record<string, number> } => {
+  if (newCount === undefined || issueCount === 0) {
+    return { descriptor: COMPLETION_MESSAGES.total, values: { issueCount, traceCount } };
+  }
+  const refreshedCount = Math.max(issueCount - newCount, 0);
+  return refreshedCount === 0
+    ? { descriptor: COMPLETION_MESSAGES.allNew, values: { newCount, traceCount } }
+    : {
+        descriptor: COMPLETION_MESSAGES.newAndRefreshed,
+        values: { newCount, refreshedCount, traceCount },
+      };
+};
 
 const getSubmittedJobStore = (experimentId: string) =>
   LocalStorageUtils.getSessionScopedStoreForComponent(ISSUE_DETECTION_JOB_STORAGE_COMPONENT, experimentId);
@@ -313,9 +359,14 @@ export const IssueDetectionJobNotifications = () => {
         if (status === JobStatus.SUCCEEDED) {
           const jobResult =
             typeof result === 'object' && result !== null
-              ? (result as { issues?: number; total_traces_analyzed?: number })
+              ? (result as { issues?: number; new_issue_count?: number; total_traces_analyzed?: number })
               : undefined;
           const issueCount = jobResult?.issues ?? 0;
+          const summary = completionSummary(
+            issueCount,
+            jobResult?.new_issue_count,
+            jobResult?.total_traces_analyzed ?? 0,
+          );
           notification.success({
             key: completedKey,
             placement: 'topRight',
@@ -328,12 +379,7 @@ export const IssueDetectionJobNotifications = () => {
             ),
             description: (
               <div>
-                {/* eslint-disable-next-line formatjs/no-multiple-plurals */}
-                <FormattedMessage
-                  defaultMessage="Found {issueCount, plural, =0 {no issues} one {1 issue} other {# issues}} across {traceCount, plural, one {1 trace} other {# traces}}."
-                  description="Notification body shown when an issue detection job finishes successfully"
-                  values={{ issueCount, traceCount: jobResult?.total_traces_analyzed ?? 0 }}
-                />{' '}
+                <FormattedMessage {...summary.descriptor} values={summary.values} />{' '}
                 <Typography.Link
                   componentId="mlflow.traces.issue-detection.completed-toast.view-results"
                   onClick={() => {

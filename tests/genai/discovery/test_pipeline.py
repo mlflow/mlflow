@@ -931,6 +931,98 @@ def test_discover_issues_tags_run_with_issue_detection_marker(make_trace):
     assert run.data.tags[MLFLOW_RUN_TYPE] == MLFLOW_RUN_TYPE_ISSUE_DETECTION
 
 
+def test_discover_issues_counts_only_the_issues_this_run_filed(make_trace):
+    """
+    A run that re-finds a known failure mode reports findings without any of them being news, so
+    the total alone cannot say whether there is anything new to look at.
+    """
+    traces = [make_trace() for _ in range(3)]
+    failing = traces[:2]
+    rationale_map = {trace.info.trace_id: "bad" for trace in failing}
+
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
+
+    # One finding filed by this run, one matched onto an issue an earlier run already reported.
+    filed = _make_issue(issue_id="filed-now", source_run_id=run_id)
+    refreshed = _make_issue(issue_id="already-reported", source_run_id="an-earlier-run")
+
+    with (
+        patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="0"),
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
+            return_value=_triage_eval(run_id),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=_TriageResult(failing, rationale_map, {}),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failure_labels",
+            return_value=(["label1", "label2"], [0, 1]),
+        ),
+        patch("mlflow.genai.discovery.pipeline.cluster_by_llm", return_value=[[0, 1]]),
+        patch(
+            "mlflow.genai.discovery.pipeline.summarize_cluster",
+            return_value=create_identified_issue(example_indices=[0, 1]),
+        ),
+        patch("mlflow.genai.discovery.pipeline.read_match_candidates", return_value=[]),
+        patch(
+            "mlflow.genai.discovery.pipeline._build_issues",
+            return_value=([filed, refreshed], {}),
+        ),
+        patch("mlflow.genai.discovery.pipeline._annotate_issue_traces"),
+    ):
+        result = discover_issues(traces=traces, run_id=run_id)
+
+    assert len(result.issues) == 2
+    assert result.new_issue_count == 1
+
+
+def test_discover_issues_reports_no_new_issues_when_none_were_filed(make_trace):
+    traces = [make_trace() for _ in range(3)]
+    failing = traces[:2]
+    rationale_map = {trace.info.trace_id: "bad" for trace in failing}
+
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
+
+    refreshed = _make_issue(issue_id="already-reported", source_run_id="an-earlier-run")
+
+    with (
+        patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="0"),
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
+            return_value=_triage_eval(run_id),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=_TriageResult(failing, rationale_map, {}),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failure_labels",
+            return_value=(["label1", "label2"], [0, 1]),
+        ),
+        patch("mlflow.genai.discovery.pipeline.cluster_by_llm", return_value=[[0, 1]]),
+        patch(
+            "mlflow.genai.discovery.pipeline.summarize_cluster",
+            return_value=create_identified_issue(example_indices=[0, 1]),
+        ),
+        patch("mlflow.genai.discovery.pipeline.read_match_candidates", return_value=[]),
+        patch(
+            "mlflow.genai.discovery.pipeline._build_issues",
+            return_value=([refreshed], {}),
+        ),
+        patch("mlflow.genai.discovery.pipeline._annotate_issue_traces"),
+    ):
+        result = discover_issues(traces=traces, run_id=run_id)
+
+    assert len(result.issues) == 1
+    assert result.new_issue_count == 0
+
+
 def test_discover_issues_returns_total_cost_usd_field(make_trace):
     from mlflow.entities.assessment import Feedback
     from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType

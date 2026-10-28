@@ -856,8 +856,8 @@ def discover_issues(
             redefine the task.
 
     Returns:
-        A :class:`DiscoverIssuesResult` with discovered issues, run IDs,
-        and a summary report.
+        A :class:`DiscoverIssuesResult` with discovered issues, how many of them are new,
+        run IDs, and a summary report.
 
     Raises:
         CandidateReadError: If the issues this experiment already carries could not be read.
@@ -1080,6 +1080,10 @@ def discover_issues(
     issues, issue_trace_ids = _build_issues(
         identified, analyses, exp_id, triage_eval.run_id, match_outcome
     )
+    # Counted off what was filed rather than off `match_outcome`, because a finding whose match
+    # was lost between matching and writing -- the issue was resolved, or the refresh failed --
+    # is filed as new, and the count a caller reports should say what happened.
+    new_issue_count = sum(1 for issue in issues if issue.source_run_id == triage_eval.run_id)
 
     trace_to_session: dict[str, str] = {}
     for session_id, traces_in_session in session_groups.items():
@@ -1115,6 +1119,7 @@ def discover_issues(
         summary=summary,
         total_traces_analyzed=len(triage_traces),
         total_cost_usd=token_counter.cost_usd,
+        new_issue_count=new_issue_count,
     )
 
     # Log artifacts to the triage run

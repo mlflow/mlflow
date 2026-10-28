@@ -124,6 +124,7 @@ def _detect_issues_into_run(
         return {
             "summary": result.summary,
             "issues": len(result.issues),
+            "new_issue_count": result.new_issue_count,
             "total_traces_analyzed": result.total_traces_analyzed,
             "total_cost_usd": result.total_cost_usd,
         }

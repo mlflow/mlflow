@@ -100,6 +100,10 @@ class DiscoverIssuesResult:
     summary: str
     total_traces_analyzed: int
     total_cost_usd: float | None = None
+    # How many of `issues` this run filed for the first time; the rest were already reported and
+    # were refreshed rather than duplicated. A run over a familiar failure mode reports findings
+    # without any of them being news, and the two are worth telling apart.
+    new_issue_count: int = 0
 
 
 _SIGNAL_SEPARATOR = "; "
