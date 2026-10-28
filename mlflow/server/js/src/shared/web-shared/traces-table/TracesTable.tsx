@@ -57,6 +57,7 @@ import type {
   TracesComparisonRow,
 } from './types';
 import { getVisibleColumnDefs, type TracesTableMeta } from './columns';
+import { NEW_TAB_LINK_PROPS } from './TraceCell';
 import { getContentColumnMaxSizes } from './getColumnMaxSizes';
 import { TraceColumnHeader } from './TraceColumnHeader';
 import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
@@ -571,11 +572,21 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
         onTraceSelected: metaOnTraceSelected,
         getTraceHref: metaGetTraceHref,
         getSessionHref,
+        openSessionsInNewTab: isComparison,
         onFilterByTag,
         renderRunName,
         previewLineClamp,
       }),
-      [intl, metaOnTraceSelected, metaGetTraceHref, getSessionHref, onFilterByTag, renderRunName, previewLineClamp],
+      [
+        intl,
+        metaOnTraceSelected,
+        metaGetTraceHref,
+        getSessionHref,
+        isComparison,
+        onFilterByTag,
+        renderRunName,
+        previewLineClamp,
+      ],
     );
 
     // Clamp the state TanStack is seeded with as well as the column definition. `getSize()` normally
@@ -874,6 +885,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
           componentId={`${COMPONENT_ID}.session-link`}
           to={sessionHref}
           onClick={(event) => event.stopPropagation()}
+          {...(isComparison && NEW_TAB_LINK_PROPS)}
         >
           {tag}
         </Link>

@@ -396,10 +396,13 @@ export const TraceOutputCell: React.MemoExoticComponent<(props: TracePreviewCell
   },
 );
 
+export const NEW_TAB_LINK_PROPS = { target: '_blank', rel: 'noopener noreferrer' } as const;
+
 interface TraceSessionCellProps {
   trace: ModelTraceInfoV3;
   /** Resolves the session link's destination, or `undefined` to render the session as plain text. */
   getSessionHref?: SessionHrefGetter;
+  openInNewTab?: boolean;
 }
 
 /**
@@ -408,7 +411,7 @@ interface TraceSessionCellProps {
  * Cmd/Ctrl-click still opens a new tab), with a hover-revealed arrow; otherwise plain text.
  */
 export const TraceSessionCell: React.MemoExoticComponent<(props: TraceSessionCellProps) => JSX.Element> = memo(
-  function TraceSessionCell({ trace, getSessionHref }: TraceSessionCellProps) {
+  function TraceSessionCell({ trace, getSessionHref, openInNewTab }: TraceSessionCellProps) {
     const { theme } = useDesignSystemTheme();
     const sessionId = trace.trace_metadata?.[SESSION_ID_METADATA_KEY];
     if (!sessionId) {
@@ -444,7 +447,12 @@ export const TraceSessionCell: React.MemoExoticComponent<(props: TraceSessionCel
             '& > a': { display: 'flex', alignItems: 'center', gap: theme.spacing.xs, minWidth: 0, flex: 1 },
           }}
         >
-          <Link componentId={`${COMPONENT_ID}.cell.session-link`} to={to} onClick={(event) => event.stopPropagation()}>
+          <Link
+            componentId={`${COMPONENT_ID}.cell.session-link`}
+            to={to}
+            onClick={(event) => event.stopPropagation()}
+            {...(openInNewTab && NEW_TAB_LINK_PROPS)}
+          >
             {text}
             <ArrowRightIcon
               className="session-jump"

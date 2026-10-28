@@ -178,6 +178,9 @@ describe('controlled session comparison rows', () => {
         'href',
         '/sessions/candidate-session',
       );
+      // Following a session from a comparison opens it in a new tab, leaving the comparison in place.
+      expect(baselineSessionCell.getByRole('link', { name: 'baseline-session' })).toHaveAttribute('target', '_blank');
+      expect(candidateSummary.getByRole('link', { name: 'candidate-session' })).toHaveAttribute('target', '_blank');
       expect(screen.queryByRole('rowgroup', { name: 'Baseline session turns' })).not.toBeInTheDocument();
       expect(screen.queryByRole('rowgroup', { name: 'Candidate session turns' })).not.toBeInTheDocument();
       expect(screen.getByRole('button', { name: `Expand ${firstRun} session ${firstSession}` })).toHaveAttribute(

@@ -37,6 +37,8 @@ export interface TracesTableMeta {
   getTraceHref?: TraceHrefGetter;
   /** Resolves the session cell's link destination; when absent the session renders as plain text. */
   getSessionHref?: SessionHrefGetter;
+  /** Open session links in a new tab, so following one doesn't leave a comparison. */
+  openSessionsInNewTab?: boolean;
   /** Toggle a tag filter — wired to the tag pills in the Tags cell; absent → non-clickable pills. */
   onFilterByTag?: (key: string, value: string) => void;
   /** Product-owned renderer for resolving an experiment-scoped run name. */
@@ -145,7 +147,13 @@ export const STANDARD_COLUMNS: StandardColumnDef[] = [
     id: 'session',
     ...COLUMN_SIZES.session,
     header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.session} />,
-    cell: (ctx) => <TraceSessionCell trace={ctx.row.original} getSessionHref={getTableMeta(ctx).getSessionHref} />,
+    cell: (ctx) => (
+      <TraceSessionCell
+        trace={ctx.row.original}
+        getSessionHref={getTableMeta(ctx).getSessionHref}
+        openInNewTab={getTableMeta(ctx).openSessionsInNewTab}
+      />
+    ),
   },
   {
     id: 'duration',
