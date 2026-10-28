@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793163891324,
+  "lastUpdate": 1793168338920,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "56187589+rrioh@users.noreply.github.com",
-            "name": "rrioh",
-            "username": "rrioh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "feeb0f76b4be8fe617799a708d7f024bf3089c8f",
-          "message": "Align `dtype` precedence across load and dict-input save paths (#25040)\n\nSigned-off-by: Ryo Hamada <rhj.nit@gmail.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
-          "timestamp": "2026-08-13T06:57:49Z",
-          "tree_id": "4f4f655ac2e4cdab6b5645f31127ab4267ea8ca0",
-          "url": "https://github.com/mlflow/mlflow/commit/feeb0f76b4be8fe617799a708d7f024bf3089c8f"
-        },
-        "date": 1786604348630,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 44.00392400000044,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 8.826260773583675,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 5.515121452056641,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 6.4034950747644075,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 5.753922155036896,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 9.530040200002077,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 5.4027098000005935,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "191841109+mlflow-app[bot]@users.noreply.github.com",
+            "name": "mlflow-app[bot]",
+            "username": "mlflow-app[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e4d6a0ac57e1959c7286424cdc3e4a2c88b52e9f",
+          "message": "Fix `HttpArtifactRepository.list_artifacts` dropping a file named like its directory (#27191)\n\nSigned-off-by: mlflow-app[bot] <191841109+mlflow-app[bot]@users.noreply.github.com>\nCo-authored-by: mlflow-app[bot] <191841109+mlflow-app[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-28T06:15:24Z",
+          "tree_id": "4a5480325f4a35a5292b7aa3e30bbf8fec841a50",
+          "url": "https://github.com/mlflow/mlflow/commit/e4d6a0ac57e1959c7286424cdc3e4a2c88b52e9f"
+        },
+        "date": 1793168335862,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 33.73604030000479,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 4.168569776605308,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 3.6864474009635906,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 4.65958859000466,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 4.0248584731242065,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 4.513983714299944,
             "unit": "ms"
           }
         ]
