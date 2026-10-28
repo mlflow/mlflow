@@ -9,13 +9,29 @@ from typing import Any, Callable, ParamSpec, TypeVar
 from mlflow.entities._job import Job as JobEntity
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
-from mlflow.server.handlers import _get_job_store
+from mlflow.server.handlers import _get_job_store, _get_tracking_store
 from mlflow.utils.environment import _PythonEnv
 
 _logger = logging.getLogger(__name__)
 
 P = ParamSpec("P")
 R = TypeVar("R")
+
+
+def use_backend_store_for_tracking() -> None:
+    """Point this process's tracking APIs at the backend store rather than the server's HTTP API.
+
+    The job runner inherits ``MLFLOW_TRACKING_URI`` pointing back at the server, which a job
+    cannot authenticate to -- its only credential, the internal gateway token, is gateway-only --
+    so on an auth-enabled server every tracking call fails with 401. Jobs are expected to opt out
+    of HTTP: the runner is handed ``MLFLOW_BACKEND_STORE_URI`` for exactly this, the executor
+    engine gives jobs the store URI as their tracking URI, and the scorer jobs already reach the
+    store directly. Authorization is unaffected, and is still done at submission.
+
+    Call this before building a client or using the fluent APIs.
+    """
+    # Resolving the store also redirects this process's tracking URI to it.
+    _get_tracking_store()
 
 
 _SUPPORTED_JOB_FUNCTION_LIST = [

@@ -21,7 +21,7 @@ from mlflow.genai.discovery.checkpoint import (
 from mlflow.genai.discovery.constants import DEFAULT_MODEL
 from mlflow.genai.discovery.pipeline import discover_issues
 from mlflow.genai.discovery.sampling import sample_traces
-from mlflow.server.jobs import job
+from mlflow.server.jobs import job, use_backend_store_for_tracking
 from mlflow.server.jobs.utils import MLFLOW_SERVER_JOB_ID_ENV_VAR
 from mlflow.store.tracking import MAX_TRACE_LINKS_PER_REQUEST
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -146,6 +146,7 @@ def invoke_issue_detection_job(
 
     Note: Provider credentials should be passed via environment variables set by submit_job().
     """
+    use_backend_store_for_tracking()
     return _detect_issues_into_run(
         MlflowClient(), experiment_id, trace_ids, categories, run_id, model, instructions
     )
@@ -235,6 +236,7 @@ def run_scheduled_issue_detection_job(
     send them, so a scheduled run analyzes an experiment the way its owner configured it. Its
     credentials arrive the same way, resolved by the dispatcher from the model's provider.
     """
+    use_backend_store_for_tracking()
     client = MlflowClient()
     # The bounds arrive fixed at dispatch time, but this job may have waited behind another
     # occurrence for the same experiment -- ``exclusive`` serializes them without refreshing what

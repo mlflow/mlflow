@@ -8,6 +8,7 @@ from unittest import mock
 
 import pytest
 
+import mlflow
 import mlflow.store.jobs.sqlalchemy_store
 from mlflow.entities._job import Job, JobProgress, JobScopedPermission
 from mlflow.entities._job_status import JobStatus
@@ -20,6 +21,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.job import invoke_scorer_job
 from mlflow.server import handlers
+from mlflow.server.constants import ARTIFACT_ROOT_ENV_VAR, BACKEND_STORE_URI_ENV_VAR
 from mlflow.server.handlers import _get_job_store
 from mlflow.server.job_api import Job as JobApiResponse
 from mlflow.server.jobs import (
@@ -29,6 +31,7 @@ from mlflow.server.jobs import (
     get_job,
     job,
     submit_job,
+    use_backend_store_for_tracking,
 )
 from mlflow.server.jobs._job_subproc_entry import _main
 from mlflow.server.jobs.utils import (
@@ -2336,3 +2339,23 @@ def test_remote_backend_rejects_direct_provider_scorer(monkeypatch, tmp_path):
                 submit_job(invoke_scorer_job, params)
         finally:
             shutdown_executor_registry()
+
+
+def test_use_backend_store_for_tracking_points_away_from_the_server(monkeypatch, tmp_path):
+    """
+    The job runner inherits a tracking URI pointing back at the server, which a job cannot
+    authenticate to -- on an auth-enabled server every tracking call it makes is a 401. Jobs opt
+    out by resolving the backend store, which also redirects the fluent APIs to it.
+    """
+    store_uri = f"sqlite:///{tmp_path / 'jobs-store.db'}"
+    monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, store_uri)
+    monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, str(tmp_path / "artifacts"))
+    monkeypatch.setattr(handlers, "_tracking_store", None)
+    previous = mlflow.get_tracking_uri()
+    mlflow.set_tracking_uri("http://127.0.0.1:1")
+    try:
+        assert mlflow.get_tracking_uri() == "http://127.0.0.1:1"
+        use_backend_store_for_tracking()
+        assert mlflow.get_tracking_uri() == store_uri
+    finally:
+        mlflow.set_tracking_uri(previous)

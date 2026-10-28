@@ -2,12 +2,16 @@ from unittest import mock
 
 import pytest
 
+import mlflow
 from mlflow.entities.run_status import RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.genai.discovery.job import (
     _fetch_provider_credentials,
     invoke_issue_detection_job,
+    run_scheduled_issue_detection_job,
 )
+from mlflow.server import handlers
+from mlflow.server.constants import ARTIFACT_ROOT_ENV_VAR, BACKEND_STORE_URI_ENV_VAR
 
 
 @pytest.mark.parametrize(
@@ -295,3 +299,70 @@ def test_invoke_issue_detection_job_without_priorities_passes_none():
         )
 
     assert discover.call_args.kwargs["instructions"] is None
+
+
+def _store_backed_tracking(monkeypatch, tmp_path, name):
+    """Stand in for the job runner's environment: tracking points at the server, the store is set.
+
+    Returns the store URI the job is expected to end up talking to.
+    """
+    store_uri = f"sqlite:///{tmp_path / name}"
+    monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, store_uri)
+    monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, str(tmp_path / "artifacts"))
+    monkeypatch.setattr(handlers, "_tracking_store", None)
+    mlflow.set_tracking_uri("http://127.0.0.1:1")
+    return store_uri
+
+
+def test_invoke_issue_detection_job_builds_its_client_against_the_store(monkeypatch, tmp_path):
+    """
+    A job cannot authenticate to the tracking API, so a client built against the server's HTTP
+    URI fails with 401 on an auth-enabled server. The client this job builds must see the store.
+    """
+    previous = mlflow.get_tracking_uri()
+    store_uri = _store_backed_tracking(monkeypatch, tmp_path, "detect-store.db")
+    seen: dict[str, str] = {}
+
+    def _build_client():
+        seen["tracking_uri"] = mlflow.get_tracking_uri()
+        return mock.MagicMock()
+
+    try:
+        with (
+            mock.patch("mlflow.genai.discovery.job.MlflowClient", side_effect=_build_client),
+            mock.patch("mlflow.genai.discovery.job.discover_issues"),
+        ):
+            invoke_issue_detection_job(
+                experiment_id="exp-123",
+                trace_ids=["trace-1"],
+                categories=["correctness"],
+                run_id="run-123",
+            )
+    finally:
+        mlflow.set_tracking_uri(previous)
+
+    assert seen["tracking_uri"] == store_uri
+
+
+def test_scheduled_issue_detection_job_builds_its_client_against_the_store(monkeypatch, tmp_path):
+    previous = mlflow.get_tracking_uri()
+    store_uri = _store_backed_tracking(monkeypatch, tmp_path, "scheduled-store.db")
+    seen: dict[str, str] = {}
+
+    def _build_client():
+        seen["tracking_uri"] = mlflow.get_tracking_uri()
+        raise RuntimeError("stop after the client is built")
+
+    try:
+        with mock.patch("mlflow.genai.discovery.job.MlflowClient", side_effect=_build_client):
+            with pytest.raises(RuntimeError, match="stop after the client is built"):
+                run_scheduled_issue_detection_job(
+                    experiment_id="exp-123",
+                    window_lower_bound_ms=0,
+                    window_upper_bound_ms=1,
+                    categories=["correctness"],
+                )
+    finally:
+        mlflow.set_tracking_uri(previous)
+
+    assert seen["tracking_uri"] == store_uri
