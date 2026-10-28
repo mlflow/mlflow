@@ -55,6 +55,13 @@ jobs:
           persist-credentials: false
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || null }}
       - uses: ./.github/actions/setup-python
+      - name: Allow R model XGBoost versions
+        run: |
+          # R model environments require the R package's XGBoost version. These tests do not
+          # use SHAP, so its XGBoost cap does not apply.
+          sed '/^xgboost[<=>!~]/d' "$PIP_CONSTRAINT" > "$RUNNER_TEMP/r-test-constraints.txt"
+          echo "PIP_CONSTRAINT=$RUNNER_TEMP/r-test-constraints.txt" >> "$GITHUB_ENV"
+          echo "UV_CONSTRAINT=$RUNNER_TEMP/r-test-constraints.txt" >> "$GITHUB_ENV"
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - uses: r-lib/actions/setup-r@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
