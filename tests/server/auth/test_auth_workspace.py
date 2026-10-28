@@ -335,7 +335,7 @@ class _TrackingStore:
                 f"MCP server not found ({name})",
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
-        return SimpleNamespace(workspace=self._mcp_server_workspaces[name])
+        return SimpleNamespace(name=name, workspace=self._mcp_server_workspaces[name])
 
     def get_skill(self, name: str, organization: str = ""):
         key = (organization, name)
@@ -425,6 +425,7 @@ class _RegistryStore:
             )
         is_prompt = name in self._prompts
         return SimpleNamespace(
+            name=name,
             workspace=self._model_workspaces[name],
             _is_prompt=lambda: is_prompt,
         )
@@ -10200,3 +10201,68 @@ def test_parse_artifact_auth_target_ignores_dot_segments(path):
     assert target.workspace == "team-a"
     assert target.experiment_id == "17"
     assert target.relative_path == "17/models/m-1/model.pkl"
+
+
+class _CaseInsensitiveRegistryStore(_RegistryStore):
+    # Mimics a case-insensitive collation (MySQL's default): any case of a name finds the row.
+    def get_registered_model(self, name: str):
+        stored = next((n for n in self._model_workspaces if n.lower() == name.lower()), name)
+        return super().get_registered_model(stored)
+
+
+@pytest.mark.parametrize(
+    ("route", "query", "validator"),
+    [
+        ("registered-models/get", {"name": "foo"}, "validate_can_read_registered_model"),
+        (
+            "model-versions/get",
+            {"name": "foo", "version": "1"},
+            "validate_can_read_model_or_prompt_version",
+        ),
+        (
+            "model-versions/get-artifact",
+            {"name": "foo", "version": "1", "path": "MLmodel"},
+            "validate_can_read_model_version_artifact",
+        ),
+    ],
+)
+def test_registered_model_deny_applies_to_name_case_variants(
+    workspace_permission_setup, monkeypatch, route, query, validator
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(
+        auth_module,
+        "_get_model_registry_store",
+        lambda: _CaseInsensitiveRegistryStore({"Foo": "team-a"}),
+    )
+    # The wildcard READ admits every model; only the DENY on the stored name withholds this one.
+    _set_workspace_permission(store, username, USE.name)
+    store.grant_user_resource_permission(username, "registered_model", "*", READ.name)
+    store.grant_user_resource_permission(username, "registered_model", "Foo", DENY.name)
+
+    with auth_module.app.test_request_context(
+        f"/api/2.0/mlflow/{route}", method="GET", query_string=query
+    ):
+        assert not getattr(auth_module, validator)()
+
+
+def test_mcp_server_deny_applies_to_name_case_variants(workspace_permission_setup, monkeypatch):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    # Mimics a case-insensitive collation: any case of the name finds the stored server.
+    monkeypatch.setattr(
+        auth_module._get_tracking_store(),
+        "get_mcp_server",
+        lambda name: SimpleNamespace(name="com.test/srv", workspace="team-a"),
+    )
+    # The wildcard READ admits every server; only the DENY on the stored name withholds this one.
+    _set_workspace_permission(store, username, USE.name)
+    store.grant_user_resource_permission(username, "mcp_server", "*", READ.name)
+    store.grant_user_resource_permission(username, "mcp_server", "com.test/srv", DENY.name)
+
+    for route in ("com.test/Srv", "com.test/Srv/versions/1"):
+        validator = auth_module._find_fastapi_validator(
+            f"/ajax-api/3.0/mlflow/mcp-servers/{route}", "GET"
+        )
+        assert not asyncio.run(validator(username, SimpleNamespace(method="GET")))

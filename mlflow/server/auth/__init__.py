@@ -1511,6 +1511,7 @@ def _get_permission_from_prompt_optimization_job_id() -> Permission:
 
 
 def _get_registered_model_permission(name: str) -> Permission:
+    name = _stored_registered_model_name(name)
     username = authenticate_request().username
     return _get_role_permission_or_default(
         _role_permission_for(
@@ -1533,7 +1534,7 @@ def _get_permission_from_prompt_name() -> Permission:
     # on the same name does not satisfy a prompt request, and vice versa.
     # Workspace resolution reuses the registry's ``get_registered_model``
     # (returns both shapes).
-    name = _get_request_param("name")
+    name = _stored_registered_model_name(_get_request_param("name"))
     username = authenticate_request().username
     return _get_role_permission_or_default(
         _role_permission_for(
@@ -1554,7 +1555,7 @@ def _get_registered_model_or_prompt_permission(name: str) -> Permission:
     resource_type = "prompt" if rm._is_prompt() else "registered_model"
     workspace_name = getattr(rm, "workspace", None)
     return _get_role_permission_or_default(
-        _role_permission_for_known_workspace(username, resource_type, name, workspace_name)
+        _role_permission_for_known_workspace(username, resource_type, rm.name, workspace_name)
     )
 
 
@@ -1683,7 +1684,12 @@ def _source_prompt_requirements(prompt_uri: str) -> "list[Requirement] | None":
         # rather than authorize a prompt the auth layer could not identify.
         return None
     return [
-        *(Requirement(RESOURCE_TYPE_PROMPT, name, ACTION_NOT_DENIED) for name in names),
+        *(
+            Requirement(
+                RESOURCE_TYPE_PROMPT, _stored_registered_model_name(name), ACTION_NOT_DENIED
+            )
+            for name in names
+        ),
         Requirement(RESOURCE_TYPE_PROMPT_VERSION, "*", ACTION_NOT_DENIED),
     ]
 
@@ -2053,6 +2059,15 @@ def validate_can_delete_experiment_artifact_proxy():
 # Runs
 def validate_can_read_run():
     return _authorize_run("read")
+
+
+def _stored_registered_model_name(name: str) -> str:
+    # Under a case-insensitive collation (MySQL's default), a case variant of a name fetches the
+    # stored row, while grants are keyed on the stored spelling. Judge the request against that.
+    if not name:
+        return name
+    rm = _fetch_or_none(_get_model_registry_store().get_registered_model, name)
+    return rm.name if rm is not None else name
 
 
 def _fetch_or_none(fetch: "Callable[[str], Any]", resource_id: str) -> Any | None:
@@ -2539,7 +2554,7 @@ def _registered_model_or_prompt_target() -> "tuple[str, str] | None":
     rm = _fetch_or_none(_get_model_registry_store().get_registered_model, name)
     if rm is None:
         return None
-    return (RESOURCE_TYPE_PROMPT if rm._is_prompt() else RESOURCE_TYPE_REGISTERED_MODEL), name
+    return (RESOURCE_TYPE_PROMPT if rm._is_prompt() else RESOURCE_TYPE_REGISTERED_MODEL), rm.name
 
 
 def _authorize_create_version(target: "tuple[str, str]") -> bool:
@@ -3870,17 +3885,7 @@ def _get_permission_from_model_version() -> Permission:
             "Request must specify name parameter",
             INVALID_PARAMETER_VALUE,
         )
-    username = authenticate_request().username
-    return _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="registered_model",
-            resource_key=name,
-            workspace_lookup_id=name,
-            workspace_fetcher=_get_model_registry_store().get_registered_model,
-            workspace_label="registered model",
-        ),
-    )
+    return _get_registered_model_permission(name)
 
 
 def validate_can_read_model_version_artifact():
@@ -7941,6 +7946,7 @@ def _graphql_get_permission_for_run(run_id: str, username: str) -> Permission:
 
 
 def _graphql_get_permission_for_model(model_name: str, username: str) -> Permission:
+    model_name = _stored_registered_model_name(model_name)
     return _get_role_permission_or_default(
         _role_permission_for(
             username=username,
@@ -8757,23 +8763,18 @@ def _get_mcp_server_validator(
         return root_validator
 
     # Server name is namespace/slug (first two path segments).
-    name = f"{parts[0]}/{parts[1]}"
-
-    def _server_exists() -> bool:
-        try:
-            _get_tracking_store().get_mcp_server(name)
-            return True
-        except MlflowException as e:
-            if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-                return False
-            raise
+    requested_name = f"{parts[0]}/{parts[1]}"
 
     async def validator(username: str, request: StarletteRequest) -> bool:
+        # Under a case-insensitive collation, a case variant of the name fetches the stored
+        # server, while grants are keyed on the stored spelling. Judge the request against that.
+        server = _fetch_or_none(_get_tracking_store().get_mcp_server, requested_name)
+        name = server.name if server is not None else requested_name
         if request.method == "POST" and _is_mcp_server_version_create_path(parts):
             request.state.mcp_server_can_update_existing_recheck = lambda: (
                 _get_mcp_server_permission(name, username).can_update
             )
-            parent_missing = not _server_exists()
+            parent_missing = server is None
             request.state.mcp_server_parent_auto_created = parent_missing
             if parent_missing:
                 return validate_can_create_mcp_server(username) and _mcp_auto_create_not_denied(
