@@ -145,3 +145,20 @@ def test_server_info_is_public_when_basic_auth_is_on(monkeypatch):
                 response = client.get(f"{prefix}{path}")
                 assert response.status_code == 200
                 assert "authorization" not in {name.lower() for name in response.request.headers}
+
+
+@pytest.mark.asyncio
+async def test_server_info_limiter_is_lazy_and_cached():
+    from mlflow.server.server_info_api import _get_server_info_limiter
+
+    _get_server_info_limiter.cache_clear()
+    assert _get_server_info_limiter.cache_info().currsize == 0
+
+    limiter1 = _get_server_info_limiter()
+    assert isinstance(limiter1, anyio.CapacityLimiter)
+    assert limiter1.total_tokens == 8
+    assert _get_server_info_limiter.cache_info().currsize == 1
+
+    limiter2 = _get_server_info_limiter()
+    assert limiter2 is limiter1
+    assert _get_server_info_limiter.cache_info().hits >= 1
