@@ -29,7 +29,7 @@ def traces_generator():
 
 def test_generator_attributes(evaluation_generator):
     assert evaluation_generator.name == DemoFeature.EVALUATION
-    assert evaluation_generator.version == 2
+    assert evaluation_generator.version == 3
 
 
 def test_data_exists_false_when_no_experiment(evaluation_generator):
@@ -125,10 +125,12 @@ def test_is_generated_checks_version(evaluation_generator):
     assert fresh_generator.is_generated() is False
 
 
-def test_demo_eval_runs_are_linked_to_their_datasets(evaluation_generator):
-    experiment_id = mlflow.set_experiment(DEMO_EXPERIMENT_NAME).experiment_id
-    evaluation_generator.generate()
+def test_demo_eval_runs_are_linked_to_their_datasets(evaluation_generator, traces_generator):
+    traces_generator.generate()
+    traces_generator.store_version()
+    experiment_id = mlflow.get_experiment_by_name(DEMO_EXPERIMENT_NAME).experiment_id
     trace_count = len(mlflow.search_traces(locations=[experiment_id], return_type="list"))
+    evaluation_generator.generate()
 
     client = mlflow.MlflowClient()
     datasets = {

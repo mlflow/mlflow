@@ -156,7 +156,7 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
     """
 
     name = DemoFeature.EVALUATION
-    version = 2
+    version = 3
 
     def generate(self) -> DemoResult:
         traces_generator = TracesDemoGenerator()
