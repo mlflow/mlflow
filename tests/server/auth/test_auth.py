@@ -9267,10 +9267,10 @@ def test_proxy_artifact_root_listing_withholds_denied_run_ids(fastapi_client, mo
     )
     assert upload.status_code == 200
 
-    def listed(auth):
+    def listed(auth, path=experiment_id):
         resp = requests.get(
             url=f"{base}/api/2.0/mlflow-artifacts/artifacts",
-            params={"path": experiment_id},
+            params={"path": path},
             auth=auth,
         )
         assert resp.status_code == 200
@@ -9282,6 +9282,8 @@ def test_proxy_artifact_root_listing_withholds_denied_run_ids(fastapi_client, mo
     # An explicit run DENY withholds the id itself, not merely its contents.
     grant_role_permission(base, owner, "run", "*", "DENY")
     assert run_id not in listed((owner, owner_pw))
+    # A `.` segment names the same experiment root, so it is filtered the same way.
+    assert run_id not in listed((owner, owner_pw), path=f"./{experiment_id}")
 
     # The point read a caller would attempt with that id is denied too, so the listing and the
     # point check agree rather than one being the softer path.
