@@ -179,7 +179,7 @@ describe('useEvalRunComparisonTracesV4Controller', () => {
       expect(result.current.totalRows).toBe(26);
       expect(result.current.rows).toHaveLength(25);
       expect(result.current.columnAggregates[pairwiseColumnId]?.values.map(({ displayValue }) => displayValue)).toEqual(
-        ['1/0', '0/1'],
+        ['1 W · 0 L', '0 W · 1 L'],
       );
     });
     expect(result.current.columnAggregates[pairwiseColumnId]?.label).toBe('WIN / LOSE');
@@ -193,8 +193,8 @@ describe('useEvalRunComparisonTracesV4Controller', () => {
     expect(reviewedRow.runs.map(({ trace }) => trace?.trace_id)).toEqual(['baseline-25', 'candidate-25']);
     act(() => result.current.setPageIndex(1));
     expect(result.current.columnAggregates[pairwiseColumnId]?.values.map(({ displayValue }) => displayValue)).toEqual([
-      '1/0',
-      '0/1',
+      '1 W · 0 L',
+      '0 W · 1 L',
     ]);
   });
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
-import { useIntl } from 'react-intl';
+import { defineMessages, useIntl } from 'react-intl';
 import {
   convertTraceInfoV3ToRunEvalEntry,
   createTraceLocationForExperiment,
@@ -65,6 +65,13 @@ import {
   getSessionComparisonSummaries,
   sortSessionComparisonRows,
 } from './evalRunComparisonSessionSummaries';
+
+const pairwisePreferenceMessages = defineMessages({
+  winsAndLosses: {
+    defaultMessage: '{wins, number} W · {losses, number} L',
+    description: 'Display format for pairwise preference wins and losses count',
+  },
+});
 
 /** The id the URL uses for a trace, as on the single-run page: the long id when the trace supports it, else the bare id. */
 export const getEvalRunComparisonTraceId = (trace: ModelTraceInfoV3): string =>
@@ -371,6 +378,7 @@ export const useEvalRunComparisonTracesV4Controller = ({
   // Pairwise review feedback: each run's wins and losses against the other runs' traces in the same rows.
   const pairwisePreferenceAggregate = useMemo<EvalRunComparisonColumnAggregate>(
     () => ({
+      // Identifies the aggregate; each value already reads as wins and losses, so it isn't shown.
       label: 'WIN / LOSE',
       values: summaryRuns.map((_, runIndex) => {
         let wins = 0;
@@ -390,7 +398,8 @@ export const useEvalRunComparisonTracesV4Controller = ({
           losses += counts.losses;
         }
         return {
-          displayValue: wins || losses ? `${intl.formatNumber(wins)}/${intl.formatNumber(losses)}` : '—',
+          displayValue:
+            wins || losses ? intl.formatMessage(pairwisePreferenceMessages.winsAndLosses, { wins, losses }) : '—',
         };
       }),
     }),

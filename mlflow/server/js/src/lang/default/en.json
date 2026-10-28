@@ -7947,6 +7947,10 @@
     "defaultMessage": "Win",
     "description": "Label for a winning pairwise preference assessment"
   },
+  "NfVWwD": {
+    "defaultMessage": "{wins, number} W · {losses, number} L",
+    "description": "Display format for pairwise preference wins and losses count"
+  },
   "NhEmyj": {
     "defaultMessage": "Training runs",
     "description": "Label for the training runs tab in the MLflow experiment navbar"
@@ -17714,10 +17718,6 @@
   "sLhmy7": {
     "defaultMessage": "New run",
     "description": "Experiment page > new run modal > modal title"
-  },
-  "sLrY50": {
-    "defaultMessage": "WIN / LOSE",
-    "description": "Win and loss count order in a pairwise preference column summary"
   },
   "sM0MBJ": {
     "defaultMessage": "Version {version}",

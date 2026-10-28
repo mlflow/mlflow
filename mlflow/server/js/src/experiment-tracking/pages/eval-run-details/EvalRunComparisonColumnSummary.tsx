@@ -271,27 +271,22 @@ export const EvalRunComparisonColumnSummary = ({
                 defaultMessage: 'MAX',
                 description: 'Maximum label in a comparison column summary',
               })
-            : aggregate.label === 'WIN / LOSE'
+            : aggregate.label === 'PASS'
               ? intl.formatMessage({
-                  defaultMessage: 'WIN / LOSE',
-                  description: 'Win and loss count order in a pairwise preference column summary',
+                  defaultMessage: 'PASS',
+                  description: 'Pass percentage label in a comparison column summary',
                 })
-              : aggregate.label === 'PASS'
+              : aggregate.label === 'TRUE'
                 ? intl.formatMessage({
-                    defaultMessage: 'PASS',
-                    description: 'Pass percentage label in a comparison column summary',
+                    defaultMessage: 'TRUE',
+                    description: 'True percentage label in a comparison column summary',
                   })
-                : aggregate.label === 'TRUE'
+                : aggregate.label === 'ERROR RATE'
                   ? intl.formatMessage({
-                      defaultMessage: 'TRUE',
-                      description: 'True percentage label in a comparison column summary',
+                      defaultMessage: 'ERROR RATE',
+                      description: 'Percentage of completed traces that failed in a comparison column summary',
                     })
-                  : aggregate.label === 'ERROR RATE'
-                    ? intl.formatMessage({
-                        defaultMessage: 'ERROR RATE',
-                        description: 'Percentage of completed traces that failed in a comparison column summary',
-                      })
-                    : undefined;
+                  : undefined;
   const isRateAggregate = aggregate.label === 'PASS' || aggregate.label === 'TRUE' || aggregate.label === 'ERROR RATE';
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, paddingTop: theme.spacing.xs }}>
