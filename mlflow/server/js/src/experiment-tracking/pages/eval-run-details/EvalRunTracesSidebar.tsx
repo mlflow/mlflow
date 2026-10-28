@@ -226,12 +226,13 @@ export const EvalRunTracesSidebar = ({ experimentId, runUuid, runName }: EvalRun
               ':hover': {
                 backgroundColor: theme.colors.actionDefaultBackgroundHover,
               },
-              '&&&': {
+              // Five ampersands for the same reason as the divider toggle: collapsed, this is icon-only.
+              '&&&&&': {
                 color: `${theme.colors.textSecondary} !important`,
                 justifyContent: `${collapsed ? 'center' : 'flex-start'} !important`,
                 '& .anticon, & .db-icon': { color: 'inherit !important' },
                 '&:hover, &:active': {
-                  backgroundColor: `${theme.colors.backgroundSecondary} !important`,
+                  background: `${theme.colors.backgroundSecondary} !important`,
                 },
               },
             }}
