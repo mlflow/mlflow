@@ -10179,6 +10179,10 @@
     "defaultMessage": "New icon URL",
     "description": "Registry icon editor label for the URL of an icon being added"
   },
+  "V/DNS4": {
+    "defaultMessage": "Show more",
+    "description": "Experiment issues tab > Evidence section > Loads the next page of evidence cards"
+  },
   "V/EeFG": {
     "defaultMessage": "Flag for review",
     "description": "Assign traces to reviewers via a review queue action"
@@ -17730,10 +17734,6 @@
   "sOQcFW": {
     "defaultMessage": "None",
     "description": "Label for the button disabling grouping in the logged model list page"
-  },
-  "sOhO4e": {
-    "defaultMessage": "Show {count} more",
-    "description": "Experiment issues tab > Evidence section > Loads the next page of evidence cards"
   },
   "sPjG+W": {
     "defaultMessage": "Assistant unavailable",

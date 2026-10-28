@@ -15,7 +15,7 @@ import {
 import { IssueEvidenceCard } from './IssueEvidenceCard';
 import { IssueDetailSectionTitle } from './IssueDetailSectionTitle';
 import { IssueTraceDrawer } from './IssueTraceDrawer';
-import { ISSUE_EVIDENCE_PAGE_SIZE, useIssueEvidenceTraces } from './useIssueEvidenceTraces';
+import { useIssueEvidenceTraces } from './useIssueEvidenceTraces';
 
 export interface IssueEvidenceSectionProps {
   experimentId: string;
@@ -261,10 +261,11 @@ export const IssueEvidenceSection = ({ experimentId, issueId, onViewTrace }: Iss
                 loading={traces.isFetchingNextPage}
                 onClick={() => traces.fetchNextPage()}
               >
+                {/* No count: the next page is fetched blind, so a page size is all this knew, and
+                    it promised "Show 5 more" above a last page that held fewer. */}
                 <FormattedMessage
-                  defaultMessage="Show {count} more"
+                  defaultMessage="Show more"
                   description="Experiment issues tab > Evidence section > Loads the next page of evidence cards"
-                  values={{ count: ISSUE_EVIDENCE_PAGE_SIZE }}
                 />
               </Button>
             </div>
