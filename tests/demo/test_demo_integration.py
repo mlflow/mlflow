@@ -20,6 +20,7 @@ from mlflow.demo.generators.evaluation import (
     EvaluationDemoGenerator,
 )
 from mlflow.demo.generators.issues import (
+    _DEMO_DETECTION_HISTORY,
     DEMO_ISSUE_DETECTION_RUN_NAME,
     IssuesDemoGenerator,
 )
@@ -502,6 +503,18 @@ def test_issues_creates_on_server(client, issues_prerequisites, issues_generator
     assert len(demo_issues) == len(result.entity_ids)
 
 
+def _filing_run(runs):
+    """
+    The detection run that filed the demo's issues, out of it and the history behind it.
+
+    Named rather than taken as the only one: the generator also records past runs so the run
+    history page has a history, and those carry neither the issues nor the result tags.
+    """
+    filing = [run for run in runs if run.info.run_name == DEMO_ISSUE_DETECTION_RUN_NAME]
+    assert len(filing) == 1
+    return filing[0]
+
+
 def test_issues_creates_detection_run(client, issues_prerequisites, issues_generator):
     issues_generator.generate()
     issues_generator.store_version()
@@ -513,8 +526,10 @@ def test_issues_creates_detection_run(client, issues_prerequisites, issues_gener
         max_results=100,
     )
 
-    assert len(runs) == 1
-    assert runs[0].info.run_name == DEMO_ISSUE_DETECTION_RUN_NAME
+    # The run that filed the issues, plus the history the run-history page lists behind it.
+    assert len(runs) == len(_DEMO_DETECTION_HISTORY) + 1
+    filing_runs = [run for run in runs if run.info.run_name == DEMO_ISSUE_DETECTION_RUN_NAME]
+    assert len(filing_runs) == 1
 
 
 def test_issues_has_result_tags(client, issues_prerequisites, issues_generator):
@@ -528,8 +543,7 @@ def test_issues_has_result_tags(client, issues_prerequisites, issues_generator):
         max_results=100,
     )
 
-    assert len(runs) == 1
-    run = runs[0]
+    run = _filing_run(runs)
     assert "mlflow.issueDetection.result.issues" in run.data.tags
     assert "mlflow.issueDetection.result.totalTracesAnalyzed" in run.data.tags
     assert int(run.data.tags["mlflow.issueDetection.result.issues"]) > 0
@@ -546,8 +560,7 @@ def test_issues_linked_to_traces(client, issues_prerequisites, issues_generator)
         filter_string=f"tags.`{MLFLOW_RUN_TYPE}` = '{MLFLOW_RUN_TYPE_ISSUE_DETECTION}'",
         max_results=100,
     )
-    assert len(runs) == 1
-    run_id = runs[0].info.run_id
+    run_id = _filing_run(runs).info.run_id
 
     traces = client.search_traces(
         locations=[experiment.experiment_id],
@@ -568,8 +581,7 @@ def test_issues_result_metadata(client, issues_prerequisites, issues_generator):
         max_results=100,
     )
 
-    assert len(runs) == 1
-    run = runs[0]
+    run = _filing_run(runs)
 
     # Check that result metadata is in tags
     issues = run.data.tags.get("mlflow.issueDetection.result.issues")
@@ -598,7 +610,7 @@ def test_issues_delete_removes_all(client, issues_prerequisites, issues_generato
         filter_string=f"tags.`{MLFLOW_RUN_TYPE}` = '{MLFLOW_RUN_TYPE_ISSUE_DETECTION}'",
         max_results=100,
     )
-    assert len(runs_before) == 1
+    assert len(runs_before) == len(_DEMO_DETECTION_HISTORY) + 1
 
     issues_generator.delete_demo()
 

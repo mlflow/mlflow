@@ -11,13 +11,34 @@ from mlflow.demo.base import (
     DemoFeature,
     DemoResult,
 )
-from mlflow.demo.data import ASSESSMENT_TO_ISSUE, ROOT_CAUSE_EXPLANATIONS
+from mlflow.demo.data import (
+    ASSESSMENT_TO_ISSUE,
+    ISSUE_EVIDENCE_WALKTHROUGHS,
+    ROOT_CAUSE_EXPLANATIONS,
+)
 from mlflow.demo.generators.traces import DEMO_VERSION_TAG
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.issue import IssueStatus
+from mlflow.entities.issue_evidence import IssueEvidence, IssueEvidenceStep
+from mlflow.entities.run_status import RunStatus
+from mlflow.genai.discovery.schedule import (
+    DetectionCadence,
+    DetectionSchedule,
+    write_detection_schedule,
+)
 from mlflow.store.tracking import MAX_TRACE_LINKS_PER_REQUEST
 from mlflow.tracking._tracking_service.utils import _get_store
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_ISSUE_DETECTION
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_ISSUE_DETECTION_ERROR,
+    MLFLOW_ISSUE_DETECTION_SCHEDULE,
+    MLFLOW_ISSUE_DETECTION_TRIGGER,
+    MLFLOW_ISSUE_DETECTION_TRIGGER_SCHEDULE,
+    MLFLOW_ISSUE_DETECTION_WINDOW_END,
+    MLFLOW_ISSUE_DETECTION_WINDOW_START,
+    MLFLOW_RUN_TYPE,
+    MLFLOW_RUN_TYPE_ISSUE_DETECTION,
+)
+from mlflow.utils.time import get_current_time_millis
 
 _logger = logging.getLogger(__name__)
 
@@ -25,6 +46,133 @@ _DEMO_CREATED_BY = "demo"
 
 DEMO_ISSUE_DETECTION_RUN_NAME = "Demo Issue Detection"
 _MAX_TRACES_PER_ISSUE = 5
+
+
+def _span_type(span) -> str:
+    """A span's type, upper-cased, or empty when it carries none."""
+    try:
+        return (span.span_type or "").upper()
+    except Exception:
+        return ""
+
+
+def _pick_span(spans, preferred_types: list[str], used_ids: set[str]):
+    """
+    The span a walkthrough step should cite, or ``None`` when the trace has no spans at all.
+
+    Preferred types first, and among them a span no earlier step has already cited, so a
+    two-step walkthrough reads as two places in the trace rather than the same one twice. A
+    trace with none of the preferred types falls back to its root span: the step's claim is still
+    true of the trace, and citing nothing would drop the step.
+    """
+    if not spans:
+        return None
+    for wanted in preferred_types:
+        matching = [span for span in spans if _span_type(span) == wanted]
+        unused = [span for span in matching if span.span_id not in used_ids]
+        if chosen := (unused or matching):
+            return chosen[0]
+    unused = [span for span in spans if span.span_id not in used_ids]
+    return (unused or spans)[0]
+
+
+def _build_evidence(assessment_name: str, rationale: str, spans) -> IssueEvidence | None:
+    """
+    The walkthrough to attach to one trace's issue reference, or ``None`` to leave it unattached.
+
+    The summary is the judge's own rationale for this trace rather than canned prose, so the card
+    still says something specific to the trace it is on; the steps are what the walkthrough adds,
+    pinning that finding to the spans it happened in.
+
+    Returns ``None`` -- rather than raising -- for a trace whose spans could not be read or an
+    assessment with no walkthrough defined, since the plain rationale is still worth linking.
+    """
+    steps_config = ISSUE_EVIDENCE_WALKTHROUGHS.get(assessment_name)
+    if not steps_config or not spans:
+        return None
+    steps: list[IssueEvidenceStep] = []
+    used_ids: set[str] = set()
+    for step_config in steps_config:
+        span = _pick_span(spans, step_config["span_types"], used_ids)
+        if span is None:
+            continue
+        used_ids.add(span.span_id)
+        steps.append(
+            IssueEvidenceStep(
+                span_id=span.span_id,
+                text=step_config["text"],
+                highlights=list(step_config["highlights"]),
+                highlight_tone=step_config["highlight_tone"],
+            )
+        )
+    if not steps:
+        return None
+    # The last step is the one that names the failure itself -- the earlier ones lead up to it --
+    # so its span is the one the finding belongs to.
+    return IssueEvidence(summary=rationale, steps=steps, primary_span_id=steps[-1].span_id)
+
+
+_DAY_MS = 24 * 60 * 60 * 1000
+
+# The model every demo detection run reports having analyzed with.
+_DEMO_DETECTION_MODEL = "openai:/gpt-4o-mini"
+
+# The runs behind the one that filed the demo's issues, so the Issue detection run history page has
+# a history to show rather than a single row. Each is a real run with the tags the detection job
+# writes, so the page reads them the way it reads a production experiment's.
+#
+# Between them they cover what the page has to be able to say: both triggers, three terminal
+# statuses, a run that analyzed nothing, and a failure with the provider's own wording on it. No
+# run is left RUNNING -- a demo row that spins forever reads as a broken demo, not a live one.
+_DEMO_DETECTION_HISTORY = (
+    {
+        "name": "Scheduled detection",
+        "days_ago": 2,
+        "duration_ms": 192_000,
+        "status": RunStatus.FINISHED,
+        "scheduled": True,
+        "total_traces": 180,
+        "cost_usd": "0.41",
+        "window_days": 7,
+    },
+    {
+        "name": "Scheduled detection",
+        "days_ago": 5,
+        "duration_ms": 61_000,
+        "status": RunStatus.FAILED,
+        "scheduled": True,
+        "total_traces": 164,
+        "cost_usd": None,
+        "window_days": 7,
+        "error": (
+            "AuthenticationError: No API key available for provider 'openai'. Save a key in "
+            "AI Gateway, then edit the schedule to use it."
+        ),
+    },
+    {
+        # A window with nothing in it: the schedule fired, found no traces to sample, and so
+        # reports a finished run over zero traces rather than a failure.
+        "name": "Scheduled detection",
+        "days_ago": 9,
+        "duration_ms": 4_000,
+        "status": RunStatus.FINISHED,
+        "scheduled": True,
+        "total_traces": 0,
+        "cost_usd": "0.00",
+        # Reaches back further than one cadence interval because the failure above left the
+        # watermark where it was.
+        "window_days": 11,
+    },
+    {
+        "name": "Issue detection",
+        "days_ago": 12,
+        "duration_ms": 22_000,
+        "status": RunStatus.KILLED,
+        "scheduled": False,
+        "total_traces": 240,
+        "cost_usd": None,
+    },
+)
 
 
 class IssuesDemoGenerator(BaseDemoGenerator):
@@ -37,7 +185,7 @@ class IssuesDemoGenerator(BaseDemoGenerator):
     """
 
     name = DemoFeature.ISSUES
-    version = 4
+    version = 5
 
     def generate(self) -> DemoResult:
         store = _get_store()
@@ -73,6 +221,9 @@ class IssuesDemoGenerator(BaseDemoGenerator):
                         failing_traces_by_assessment.setdefault(assessment_name, []).append({
                             "trace_id": trace_id,
                             "rationale": rationale,
+                            # Carried from the search, which already returned them, so building
+                            # the evidence walkthrough costs no further reads.
+                            "spans": (trace.data.spans if trace.data else None) or [],
                         })
 
         with mlflow.start_run(
@@ -122,6 +273,13 @@ class IssuesDemoGenerator(BaseDemoGenerator):
                         source=source,
                         run_id=run_id,
                         rationale=trace_info["rationale"],
+                        # Pins the judge's finding to the spans it happened in, so the Issues tab
+                        # shows the walkthrough a real detection run produces rather than a bare
+                        # sentence. `None` for a trace whose spans could not be read, which logs
+                        # the reference exactly as it did before.
+                        evidence=_build_evidence(
+                            assessment_name, trace_info["rationale"], trace_info["spans"]
+                        ),
                     )
                     all_linked_trace_ids.add(trace_info["trace_id"])
 
@@ -147,13 +305,93 @@ class IssuesDemoGenerator(BaseDemoGenerator):
                 "mlflow.issueDetection.result.issues": str(len(created_issue_ids)),
                 "mlflow.issueDetection.result.totalTracesAnalyzed": str(len(v1_traces)),
                 "mlflow.issueDetection.result.summary": summary,
+                # The same count under the key a real detection run writes, which is what the run
+                # history page reads. Without it the demo's newest row shows no scanned traces
+                # while the historical ones beneath it do.
+                "total_traces": str(len(v1_traces)),
+                "model": _DEMO_DETECTION_MODEL,
             })
+
+        # After the issue-filing run, so the history page lists that one newest and these behind
+        # it, which is the order they happened in.
+        self._generate_detection_history(MlflowClient(), experiment_id, get_current_time_millis())
+        self._write_paused_schedule(store, experiment_id)
 
         return DemoResult(
             feature=self.name,
             entity_ids=created_issue_ids,
             navigation_url=f"#/experiments/{experiment_id}/issues",
         )
+
+    def _write_paused_schedule(self, store, experiment_id: str) -> None:
+        """
+        Store the schedule the demo's scheduled runs came from, turned off.
+
+        Without it the Scheduled rows in the run history have no schedule behind them and their
+        covered windows cannot be rendered at all -- the page formats those bounds in the zone the
+        schedule stores, since that is the zone the server read them in, and there is no zone to
+        read without a schedule.
+
+        Paused, which is "Off" in the UI: a live schedule on the demo experiment would be picked
+        up by the dispatcher and start firing real detection runs against a provider the demo has
+        no key for. A paused one is never dispatched, and still fills in the schedule dialog.
+        """
+        try:
+            write_detection_schedule(
+                store,
+                experiment_id,
+                DetectionSchedule(cadence=DetectionCadence.DAILY, paused=True, fire_time="09:00"),
+            )
+        except Exception:
+            _logger.debug("Failed to write the demo detection schedule", exc_info=True)
+
+    def _generate_detection_history(self, client: MlflowClient, experiment_id: str, now_ms: int):
+        """
+        Create the past detection runs the history page lists, alongside the one that filed the
+        issues.
+
+        Runs rather than a mock: the page finds them with a run search, so anything less than a
+        real run with real tags would show an empty history. Written through
+        ``create_run``/``set_terminated`` because each needs a start and end time of its own --
+        the fluent API would stamp them all with now.
+
+        Best-effort: a store that refuses one of these is no reason to lose the issues the demo is
+        actually about.
+        """
+        for spec in _DEMO_DETECTION_HISTORY:
+            start_time = now_ms - spec["days_ago"] * _DAY_MS
+            tags = {
+                MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_ISSUE_DETECTION,
+                "categories": "correctness,relevance,safety",
+                "model": _DEMO_DETECTION_MODEL,
+                # Stringified because `create_run` stores tag values verbatim, unlike the fluent
+                # `start_run` the issue-filing run above goes through, which coerces them.
+                "total_traces": str(spec["total_traces"]),
+            }
+            if spec["scheduled"]:
+                tags[MLFLOW_ISSUE_DETECTION_TRIGGER] = MLFLOW_ISSUE_DETECTION_TRIGGER_SCHEDULE
+                tags[MLFLOW_ISSUE_DETECTION_WINDOW_START] = str(
+                    start_time - spec["window_days"] * _DAY_MS
+                )
+                tags[MLFLOW_ISSUE_DETECTION_WINDOW_END] = str(start_time)
+            if spec["cost_usd"] is not None:
+                tags["total_cost_usd"] = spec["cost_usd"]
+            if error := spec.get("error"):
+                tags[MLFLOW_ISSUE_DETECTION_ERROR] = error
+            try:
+                run = client.create_run(
+                    experiment_id=experiment_id,
+                    start_time=start_time,
+                    tags=tags,
+                    run_name=spec["name"],
+                )
+                client.set_terminated(
+                    run.info.run_id,
+                    status=RunStatus.to_string(spec["status"]),
+                    end_time=start_time + spec["duration_ms"],
+                )
+            except Exception:
+                _logger.debug("Failed to create a demo detection run", exc_info=True)
 
     def _generate_issue_summary(
         self, total_traces_analyzed: int, created_issues: list[dict[str, Any]]
@@ -228,5 +466,12 @@ class IssuesDemoGenerator(BaseDemoGenerator):
                     store.update_issue(issue_id=issue.issue_id, status=IssueStatus.REJECTED)
         except Exception:
             _logger.debug("Failed to reject old demo issues", exc_info=True)
+
+        try:
+            MlflowClient().delete_experiment_tag(
+                experiment.experiment_id, MLFLOW_ISSUE_DETECTION_SCHEDULE
+            )
+        except Exception:
+            _logger.debug("Failed to remove the demo detection schedule", exc_info=True)
 
         # Note: Issues are also automatically deleted when the experiment is deleted.
