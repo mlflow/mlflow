@@ -1553,6 +1553,13 @@ class SqlAlchemyStore(
             if metric.model_id is None:
                 continue
 
+            _validate_metric(
+                metric.key,
+                metric.value,
+                metric.timestamp,
+                metric.step,
+                path="" if is_single_metric else f"metrics[{idx}]",
+            )
             # Key on a tuple rather than the ``Metric`` itself because NaN != NaN, so two
             # identical NaN metrics would otherwise both be inserted and violate the primary key.
             metric_id = (
@@ -1568,13 +1575,6 @@ class SqlAlchemyStore(
                 continue
             seen.add(metric_id)
 
-            _validate_metric(
-                metric.key,
-                metric.value,
-                metric.timestamp,
-                metric.step,
-                path="" if is_single_metric else f"metrics[{idx}]",
-            )
             is_nan, value = self.sanitize_metric_value(metric.value)
             # ``logged_model_metrics`` has no ``is_nan`` column, so NaN is stored as NULL.
             # NULL never satisfies a numeric comparison and is read back as NaN.

@@ -4322,10 +4322,25 @@ def test_log_batch_nan_logged_model_metric_duplicates(store: SqlAlchemyStore):
     assert math.isnan(metric.value)
 
     # A different value for the same primary key is still rejected.
-    with pytest.raises(MlflowException, match="UNIQUE constraint failed|duplicate key"):
+    with pytest.raises(
+        MlflowException, match="UNIQUE constraint failed|duplicate key|Duplicate entry"
+    ):
         store.log_batch(
             run_id, metrics=[Metric("loss", 0.5, 100, 0, model_id=model_id)], params=[], tags=[]
         )
+
+
+@pytest.mark.parametrize("value", [None, "abc"])
+def test_log_metric_invalid_value_with_model_id(store: SqlAlchemyStore, value):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run_id = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="run"
+    ).info.run_id
+    model_id = store.create_logged_model(experiment_id=exp_id, name="model").model_id
+
+    with pytest.raises(MlflowException, match="parameter 'value'") as e:
+        store.log_metric(run_id, Metric("loss", value, 0, 0, model_id=model_id))
+    assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
 def test_search_logged_models_eager_loads_tags_params_and_metrics(store: SqlAlchemyStore):
