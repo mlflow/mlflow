@@ -528,6 +528,7 @@ const EvalRunComparisonTracesV4Content = (props: EvalRunComparisonTracesV4TableP
     activeFilterCount,
     filterFields: controller.filterFields,
     validateFilters: controller.validateFilters,
+    greySessionViewSwitch: true,
     filterDescription: isGroupedBySession
       ? intl.formatMessage({
           defaultMessage:

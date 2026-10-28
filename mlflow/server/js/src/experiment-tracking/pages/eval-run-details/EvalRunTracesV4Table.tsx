@@ -366,6 +366,7 @@ export const EvalRunTracesV4Table = ({
     filterModel: unifiedSearch.searchFilterModel,
     onFilterChange: unifiedSearch.setSearchFilters,
     hideFilterButton: true,
+    greySessionViewSwitch: true,
     traces: page.traces,
     onClearFilters: clearAllFilters,
     activeFilterCount: controller.activeFilterCount,
