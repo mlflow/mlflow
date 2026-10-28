@@ -461,7 +461,7 @@ def test_otlp_roundtrip_of_client_span_string_outputs(monkeypatch, db_uri, tmp_p
         span.set_outputs(output)
 
     request = ExportTraceServiceRequest()
-    request.resource_spans.add().scope_spans.add().spans.append(span.to_otel_proto())
+    request.resource_spans.add().scope_spans.add().spans.append(span.to_otel_proto(serialize_strings=True))
     response = _make_test_client().post(
         OTLP_TRACES_PATH,
         content=request.SerializeToString(),
