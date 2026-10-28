@@ -6,6 +6,10 @@ import { QueryClient, QueryClientProvider } from '../../query-client/queryClient
 
 import { useGenAiExperimentRunsForComparison } from './useGenAiExperimentRunsForComparison';
 import { makeRequest } from '../utils/FetchUtils';
+import {
+  MLFLOW_RUN_TYPE_TAG,
+  MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION,
+} from '@mlflow/mlflow/src/experiment-tracking/constants';
 
 jest.mock('../utils/FetchUtils', () => ({
   getAjaxUrl: jest.fn((path: string) => `http://localhost/api/${path}`),
@@ -41,7 +45,7 @@ describe('useGenAiExperimentRunsForComparison', () => {
         },
         {
           info: { run_uuid: 'run-2', run_name: 'Demo Issue Detection', start_time: 1625247700000 },
-          data: { tags: [{ key: 'mlflow.runType', value: 'issue_detection' }] },
+          data: { tags: [{ key: MLFLOW_RUN_TYPE_TAG, value: MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION }] },
         },
         {
           info: { run_uuid: 'run-3', run_name: 'Another Regular Run', start_time: 1625247800000 },
