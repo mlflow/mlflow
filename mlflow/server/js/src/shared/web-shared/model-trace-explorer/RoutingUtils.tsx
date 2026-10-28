@@ -17,6 +17,7 @@ import {
   generatePath,
   useParams as useParamsDirect,
   useHref as useHrefDirect,
+  useInRouterContext,
   Link as LinkDirect,
   useLocation as useLocationDirect,
   useNavigate as useNavigateDirect,
@@ -263,4 +264,4 @@ export const createMLflowRoutePath = (routePath: string) => {
   return routePath;
 };
 
-export { generatePath, useParams, Link, useLocation, useNavigate, useHref, BrowserRouter };
+export { generatePath, useParams, Link, useLocation, useNavigate, useHref, useInRouterContext, BrowserRouter };
