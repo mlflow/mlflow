@@ -1,7 +1,10 @@
+import copy
+
 import pytest
 from google.protobuf.duration_pb2 import Duration
 from google.protobuf.timestamp_pb2 import Timestamp
 
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
@@ -168,3 +171,23 @@ def test_trace_info_v3(trace_info):
         v3_proto.tags["k" * MAX_CHARS_IN_TRACE_INFO_TAGS_KEY]
         == "v" * MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE
     )
+
+
+def test_from_dict_does_not_mutate_input(trace_info):
+    d = trace_info.to_dict()
+    original = copy.deepcopy(d)
+
+    TraceInfoV2.from_dict(d)
+
+    assert type(d["status"]) is str
+    assert d == original
+
+
+def test_trace_info_from_dict_does_not_mutate_v2_input(trace_info):
+    d = trace_info.to_dict()
+    original = copy.deepcopy(d)
+
+    TraceInfo.from_dict(d)
+
+    assert type(d["status"]) is str
+    assert d == original
