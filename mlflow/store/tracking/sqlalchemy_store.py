@@ -6200,9 +6200,14 @@ class SqlAlchemyStore(
             stored_usage_nodes: defaultdict[str, list[SpanAggregationNode]] = defaultdict(list)
             stored_cost_nodes: defaultdict[str, list[SpanAggregationNode]] = defaultdict(list)
             if recompute_trace_ids:
+                # Stream the rows: each one carries the full span content, so fetching them all at
+                # once holds the entire stored trace in memory on every call. On MySQL this makes
+                # the locking read unbuffered. It still locks each row as it is read, but the
+                # connection cannot run another statement until the result is drained, so the
+                # loop below must not query.
                 stored_span_rows = self._stored_span_rows_query(
                     session, sorted(recompute_trace_ids)
-                ).all()
+                ).yield_per(16)
                 for row_trace_id, row_span_id, row_parent_span_id, row_content in stored_span_rows:
                     # Phase 3 already upserted this batch's spans, so a span re-sent in this batch
                     # is read back here as well. Skip it, otherwise it would be counted twice: once

@@ -5,6 +5,7 @@ import random
 import re
 import threading
 import time
+import tracemalloc
 import uuid
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -5663,6 +5664,52 @@ def test_log_spans_recompute_reads_only_locked_traces(store: SqlAlchemyStore) ->
 
     assert store.get_trace_info(preexisting_trace_id).token_usage["total_tokens"] == 300
     assert store.get_trace_info(new_trace_id).token_usage["total_tokens"] == 300
+
+
+def test_log_spans_recompute_does_not_hold_all_stored_spans(store: SqlAlchemyStore) -> None:
+    # The usage recompute reads every stored span of the trace, and each row carries the full
+    # span content. Adding one small span must not hold all of that content in memory at once.
+    experiment_id = store.create_experiment("test_log_spans_recompute_memory")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    num_stored = 128
+    payload = "x" * (64 * 1024)
+    usage = {"input_tokens": 10, "output_tokens": 1, "total_tokens": 11}
+
+    store.log_spans(experiment_id, [create_test_span(trace_id, name="agent", span_id=1)])
+    store.log_spans(
+        experiment_id,
+        [
+            create_test_span(
+                trace_id,
+                name=f"llm_{span_id}",
+                span_id=span_id,
+                parent_id=1,
+                attributes={SpanAttributeKey.INPUTS: payload, SpanAttributeKey.CHAT_USAGE: usage},
+            )
+            for span_id in range(2, num_stored + 2)
+        ],
+    )
+    new_span = create_test_span(
+        trace_id,
+        name="llm_new",
+        span_id=num_stored + 2,
+        parent_id=1,
+        attributes={SpanAttributeKey.CHAT_USAGE: usage},
+    )
+
+    tracemalloc.start()
+    try:
+        store.log_spans(experiment_id, [new_span])
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+
+    assert peak < num_stored * len(payload) / 2
+    assert store.get_trace_info(trace_id).token_usage == {
+        "input_tokens": 10 * (num_stored + 1),
+        "output_tokens": num_stored + 1,
+        "total_tokens": 11 * (num_stored + 1),
+    }
 
 
 def test_log_spans_does_not_overwrite_finalized_trace_info(store: SqlAlchemyStore) -> None:
