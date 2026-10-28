@@ -9035,13 +9035,16 @@ def _job_id_from_path(unprefixed_path: str) -> str | None:
 def _get_job_route_validator(
     path: str,
 ) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
-    # get/cancel by id are ownership-gated (admins bypass upstream); submit/search need only auth
-    # here. /jobs/search is narrowed to the caller's own jobs by ``_filter_search_jobs``.
+    # get/cancel by id are ownership-gated (admins bypass upstream). /jobs/search needs only auth
+    # here and is narrowed to the caller's own jobs by ``_filter_search_jobs``. Submit is
+    # admin-only: job params name experiments and traces that only the dedicated invoke routes
+    # authorize, and those routes submit jobs in-process rather than through this endpoint.
     job_id = _job_id_from_path(path)
+    is_search = path.split("/ajax-api/3.0/jobs", 1)[-1].strip("/") == "search"
 
     async def validator(username: str, request: StarletteRequest) -> bool:
         if job_id is None:
-            return True
+            return is_search
         from mlflow.server.jobs import get_job
 
         try:
