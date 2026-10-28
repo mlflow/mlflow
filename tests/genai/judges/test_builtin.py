@@ -311,6 +311,21 @@ def test_is_correct_oss():
     assert "Paris" in prompt
 
 
+def test_is_correct_does_not_fill_placeholders_in_response():
+    mock_content = json.dumps({"result": "no", "rationale": "Let's think step by step. No."})
+
+    with _mock_score(mock_content) as mock_score:
+        judges.is_correct(
+            request="What is the capital of Australia?",
+            response="I am not sure. {{ground_truth}}",
+            expected_facts=["The capital of Australia is Canberra"],
+        )
+
+    prompt = mock_score.call_args.kwargs["messages"][0].content
+    document = prompt.split("<document>")[1].split("</document>")[0]
+    assert document == "What is the capital of Australia? - I am not sure. {{ground_truth}}"
+
+
 def test_is_correct_rejects_both_expected_response_and_expected_facts():
     with pytest.raises(
         MlflowException,
@@ -561,7 +576,7 @@ def _assert_typesafe_call(invoke, expected_state) -> None:
 )
 def test_builtin_judge_invokes_typesafe(judge_fn, judge_kwargs, expected_state):
     with mock.patch(
-        "mlflow.genai.judges.builtin._invoke_typesafe_judge",
+        "mlflow.genai.judges.structured_judge._invoke_typesafe_judge",
         return_value=create_test_feedback("yes"),
     ) as mock_invoke:
         judge_fn(model="typesafe:/jev-latest", **judge_kwargs)
@@ -572,7 +587,7 @@ def test_builtin_judge_invokes_typesafe(judge_fn, judge_kwargs, expected_state):
 def test_builtin_judge_forwards_typesafe_extra_headers():
     extra_headers = {"X-Test": "value"}
     with mock.patch(
-        "mlflow.genai.judges.builtin._invoke_typesafe_judge",
+        "mlflow.genai.judges.structured_judge._invoke_typesafe_judge",
         return_value=create_test_feedback("yes"),
     ) as mock_invoke:
         judges.is_safe(
@@ -602,7 +617,7 @@ def test_tool_call_efficiency_invokes_typesafe():
         )
     ]
     with mock.patch(
-        "mlflow.genai.judges.builtin._invoke_typesafe_judge",
+        "mlflow.genai.judges.structured_judge._invoke_typesafe_judge",
         return_value=create_test_feedback("yes"),
     ) as mock_invoke:
         judges.is_tool_call_efficient(
@@ -661,7 +676,7 @@ def test_tool_call_correctness_invokes_typesafe(
         else None
     )
     with mock.patch(
-        "mlflow.genai.judges.builtin._invoke_typesafe_judge",
+        "mlflow.genai.judges.structured_judge._invoke_typesafe_judge",
         return_value=create_test_feedback("yes"),
     ) as mock_invoke:
         judges.is_tool_call_correct(

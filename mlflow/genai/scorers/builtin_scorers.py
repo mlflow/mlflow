@@ -79,7 +79,8 @@ from mlflow.genai.judges.prompts.user_frustration import (
     USER_FRUSTRATION_ASSESSMENT_NAME,
     USER_FRUSTRATION_PROMPT,
 )
-from mlflow.genai.judges.typesafe import _invoke_typesafe_judge, _is_typesafe_model
+from mlflow.genai.judges.structured_judge import _invoke_structured_builtin_judge
+from mlflow.genai.judges.typesafe import _is_typesafe_model
 from mlflow.genai.judges.utils import (
     CategoricalRating,
     get_chat_completions_with_structured_output,
@@ -344,6 +345,10 @@ class BuiltInScorer(Judge):
             description=self.description,
             aggregations=self.aggregations,
             is_session_level_scorer=self.is_session_level_scorer,
+            # Mirrors the value already inside `pydantic_model_data` so the top-level
+            # field stays consistent for consumers that read it; on deserialization
+            # the pydantic data wins.
+            session_level=self.session_level,
             mlflow_version=mlflow.__version__,
             serialization_version=_SERIALIZATION_VERSION,
             builtin_scorer_class=self.__class__.__name__,
@@ -525,25 +530,23 @@ class RetrievalRelevance(BuiltInScorer):
             )
         else:
             for i, chunk in enumerate(chunks):
-                if _is_typesafe_model(model):
-                    feedback = _invoke_typesafe_judge(
+                feedback = _invoke_structured_builtin_judge(
+                    model,
+                    chat_invoker=lambda chunk=chunk: invoke_judge_model(
                         model,
-                        instructions=RETRIEVAL_RELEVANCE_TYPESAFE_PROMPT_INSTRUCTIONS,
-                        state={"input": request, "doc": chunk["content"]},
-                        feedback_value_type=Literal["yes", "no"],
+                        get_prompt(request=request, context=chunk["content"]),
                         assessment_name=self.name,
                         inference_params=self.inference_params,
                         extra_headers=self.extra_headers,
-                    )
-                else:
-                    prompt = get_prompt(request=request, context=chunk["content"])
-                    feedback = invoke_judge_model(
-                        model,
-                        prompt,
-                        assessment_name=self.name,
-                        inference_params=self.inference_params,
-                        extra_headers=self.extra_headers,
-                    )
+                    ),
+                    decision_invoke_params={
+                        "instructions": RETRIEVAL_RELEVANCE_TYPESAFE_PROMPT_INSTRUCTIONS,
+                        "state": {"input": request, "doc": chunk["content"]},
+                        "assessment_name": self.name,
+                        "inference_params": self.inference_params,
+                        "extra_headers": self.extra_headers,
+                    },
+                )
                 sanitized_feedback = _sanitize_scorer_feedback(feedback)
                 sanitized_feedback.metadata = {
                     **(sanitized_feedback.metadata or {}),
@@ -2193,28 +2196,26 @@ class Equivalence(BuiltInScorer):
         model = self.model or get_default_model()
         assessment_name = self.name or EQUIVALENCE_FEEDBACK_NAME
 
-        if _is_typesafe_model(model):
-            feedback = _invoke_typesafe_judge(
+        feedback = _invoke_structured_builtin_judge(
+            model,
+            chat_invoker=lambda: invoke_judge_model(
                 model,
-                instructions=EQUIVALENCE_TYPESAFE_PROMPT_INSTRUCTIONS,
-                state={"output": actual_output, "expected_output": expected_output},
-                feedback_value_type=Literal["yes", "no"],
+                get_prompt(
+                    output=outputs_str,
+                    expected_output=expectations_str,
+                ),
                 assessment_name=assessment_name,
                 inference_params=self.inference_params,
                 extra_headers=self.extra_headers,
-            )
-        else:
-            prompt = get_prompt(
-                output=outputs_str,
-                expected_output=expectations_str,
-            )
-            feedback = invoke_judge_model(
-                model,
-                prompt,
-                assessment_name=assessment_name,
-                inference_params=self.inference_params,
-                extra_headers=self.extra_headers,
-            )
+            ),
+            decision_invoke_params={
+                "instructions": EQUIVALENCE_TYPESAFE_PROMPT_INSTRUCTIONS,
+                "state": {"output": actual_output, "expected_output": expected_output},
+                "assessment_name": assessment_name,
+                "inference_params": self.inference_params,
+                "extra_headers": self.extra_headers,
+            },
+        )
 
         return _sanitize_feedback(feedback)
 

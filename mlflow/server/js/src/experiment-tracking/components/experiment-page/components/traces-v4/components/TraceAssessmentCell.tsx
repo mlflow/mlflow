@@ -11,7 +11,10 @@ import { AssessmentDisplayValue } from '@databricks/web-shared/model-trace-explo
 import { AssessmentSourceName } from '@databricks/web-shared/model-trace-explorer/assessments-pane/AssessmentSourceName';
 import { getSourceIcon } from '@databricks/web-shared/model-trace-explorer/assessments-pane/utils';
 import { GenAIMarkdownRenderer } from '@databricks/web-shared/genai-markdown-renderer';
+import { shouldEnableNewEvalRunsUi } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { pickCellAssessment } from '../utils/assessmentColumns';
+import { PAIRWISE_PREFERENCE_ASSESSMENT_NAME } from '../utils/pairwiseReview';
+import { PairwiseScoreCell } from './PairwiseScoreCell';
 
 export interface TraceAssessmentCellProps {
   trace: ModelTraceInfoV3;
@@ -129,17 +132,16 @@ export const TraceAssessmentHoverContent = ({ assessment }: { assessment: Assess
   );
 };
 
-/**
- * Renders one trace's value for a single assessment column: the most recent assessment of that name
- * as a colored tag (mirrors the prior tab), wrapped in a hover card that reveals rationale, source,
- * and last-updated time. Renders nothing when the trace has no such assessment.
- */
-export const TraceAssessmentCell = ({ trace, assessmentName, columnType }: TraceAssessmentCellProps) => {
-  const assessment = pickCellAssessment(trace, assessmentName);
-  if (!assessment) {
-    return null;
-  }
+export interface AssessmentCellProps {
+  assessment: Assessment;
+  columnType: 'numeric' | 'categorical';
+}
 
+/**
+ * Renders one assessment value: a score bar for numeric columns, otherwise a colored tag (mirrors the
+ * prior tab), wrapped in a hover card that reveals rationale, source, and last-updated time.
+ */
+export const AssessmentCell = ({ assessment, columnType }: AssessmentCellProps) => {
   const value = getAssessmentValue(assessment);
 
   // Render error tag if the assessment failed validation (e.g., model errored).
@@ -166,7 +168,7 @@ export const TraceAssessmentCell = ({ trace, assessmentName, columnType }: Trace
         <span>
           <AssessmentDisplayValue
             jsonValue={value?.toString() ?? ''}
-            assessmentName={assessmentName}
+            assessmentName={assessment.assessment_name}
             // The hover card already reveals the full value, so the tag's own tooltip would be redundant.
             disableTooltip
           />
@@ -175,4 +177,16 @@ export const TraceAssessmentCell = ({ trace, assessmentName, columnType }: Trace
       content={<TraceAssessmentHoverContent assessment={assessment} />}
     />
   );
+};
+
+/**
+ * Renders one trace's value for a single assessment column: the most recent assessment of that name.
+ * Renders nothing when the trace has no such assessment.
+ */
+export const TraceAssessmentCell = ({ trace, assessmentName, columnType }: TraceAssessmentCellProps) => {
+  if (shouldEnableNewEvalRunsUi() && assessmentName === PAIRWISE_PREFERENCE_ASSESSMENT_NAME) {
+    return <PairwiseScoreCell trace={trace} />;
+  }
+  const assessment = pickCellAssessment(trace, assessmentName);
+  return assessment ? <AssessmentCell assessment={assessment} columnType={columnType} /> : null;
 };

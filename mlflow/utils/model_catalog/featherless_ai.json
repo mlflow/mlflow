@@ -5,8 +5,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 32768,
-        "max_output": 4096,
-        "max_tokens": 4096
+        "max_output": 4096
       },
       "capabilities": {
         "function_calling": false,
@@ -15,14 +14,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "featherless-ai/Qwerky-QwQ-32B": {
       "mode": "chat",
       "context_window": {
         "max_input": 32768,
-        "max_output": 4096,
-        "max_tokens": 4096
+        "max_output": 4096
       },
       "capabilities": {
         "function_calling": false,
@@ -31,7 +29,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     }
   }
 }

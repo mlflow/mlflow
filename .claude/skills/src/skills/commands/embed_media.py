@@ -4,13 +4,11 @@
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import sys
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 from skills.github.uploads import (
     MIME_TYPES,
@@ -32,7 +30,7 @@ def is_referenced(cited: str, text: str) -> bool:
 
 def standalone_pattern(cited: str) -> str:
     # GitHub renders a video player only for a bare URL alone in its own paragraph.
-    return rf"(?m)^[ \t]*!?\[[^\]]*{link_target(cited)}[ \t]*$"
+    return rf"(?m)^[ \t]*!?\[[^\]]*{link_target(cited)}(?P<trailing>[ \t]*)$"
 
 
 def substitute(text: str, urls: dict[str, str], unavailable: Iterable[str] = ()) -> str:
@@ -40,7 +38,11 @@ def substitute(text: str, urls: dict[str, str], unavailable: Iterable[str] = ())
         link = link_target(cited)
         if is_video(cited):
             # Promote a reference that already sits on its own line.
-            text = re.sub(standalone_pattern(cited), f"\n{url}\n", text)
+            text = re.sub(
+                standalone_pattern(cited),
+                lambda match: f"\n{url}\n{match['trailing']}",
+                text,
+            )
             # Whatever is left is mid-sentence, where ![]() around a video URL renders
             # as a broken image. Drop the bang so it degrades to a link instead.
             text = re.sub(rf"!(?=\[[^\]]*{link})", "", text)
@@ -73,21 +75,6 @@ def collect_files(directory: Path) -> tuple[list[Path], list[str]]:
     return files, symlinks
 
 
-def rewrite_payload(
-    payload: dict[str, Any], urls: dict[str, str], unavailable: Iterable[str] = ()
-) -> dict[str, Any]:
-    match payload:
-        case {"body": str(body)}:
-            payload["body"] = substitute(body, urls, unavailable)
-    match payload:
-        case {"comments": [*comments]}:
-            for comment in comments:
-                match comment:
-                    case {"body": str(body)}:
-                        comment["body"] = substitute(body, urls, unavailable)
-    return payload
-
-
 LINK = re.compile(r"!?\[[^\]]*\]\(([^)\s]+)\)")
 
 
@@ -96,25 +83,6 @@ class CheckReport:
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     cited: list[str] = field(default_factory=list)
-
-
-def iter_bodies(payload: dict[str, Any]) -> Iterator[str]:
-    match payload:
-        case {"body": str(body)}:
-            yield body
-    match payload:
-        case {"comments": [*comments]}:
-            for comment in comments:
-                match comment:
-                    case {"body": str(body)}:
-                        yield body
-
-
-def target_bodies(target: Path) -> list[str]:
-    text = target.read_text()
-    if target.suffix != ".json":
-        return [text]
-    return list(iter_bodies(json.loads(text)))
 
 
 def check_media(directory: Path, texts: list[str]) -> CheckReport:
@@ -173,38 +141,26 @@ def check_media(directory: Path, texts: list[str]) -> CheckReport:
 
 
 def run_check(args: argparse.Namespace) -> None:
-    if not args.target.is_file():
-        print(f"ERROR: no target at {args.target}", file=sys.stderr)
-        sys.exit(1)
-    try:
-        texts = target_bodies(args.target)
-    except json.JSONDecodeError as e:
-        print(f"ERROR: {args.target} is not valid JSON: {e}", file=sys.stderr)
-        sys.exit(1)
-
-    report = check_media(args.dir, texts)
+    report = check_media(args.dir, [sys.stdin.read()])
     for warning in report.warnings:
         print(f"  warning: {warning}", file=sys.stderr)
     if report.errors:
-        print(f"ERROR: {args.target} cites media that will not render", file=sys.stderr)
+        print("ERROR: input cites media that will not render", file=sys.stderr)
         for error in report.errors:
             print(f"  {error}", file=sys.stderr)
         sys.exit(1)
-    print(f"OK: {len(report.cited)} media reference(s) resolve, {len(report.warnings)} warning(s)")
+    print(
+        f"OK: {len(report.cited)} media reference(s) resolve, {len(report.warnings)} warning(s)",
+        file=sys.stderr,
+    )
 
 
 def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     parser = subparsers.add_parser(
         "embed-media",
-        help="Upload media to GitHub user-attachments and point a review at the URLs",
+        help="Upload referenced media and replace local paths in stdin text with attachment URLs",
     )
     parser.add_argument("--dir", type=Path, required=True, help="Directory holding the media")
-    parser.add_argument(
-        "--target",
-        type=Path,
-        required=True,
-        help="File to rewrite: a .json pr-review payload, or any Markdown file",
-    )
     parser.add_argument("--repository-id", help="Numeric repository id; required without --check")
     parser.add_argument(
         "--check",
@@ -221,17 +177,14 @@ def run(args: argparse.Namespace) -> None:
     if not args.repository_id:
         print("--repository-id is required without --check", file=sys.stderr)
         sys.exit(2)
-    if not args.target.is_file():
-        print(f"No target at {args.target}; nothing to rewrite", file=sys.stderr)
-        return
+    text = sys.stdin.read()
     files, symlinks = collect_files(args.dir) if args.dir.is_dir() else ([], [])
     for name in symlinks:
         print(f"  skip {name}: symlink", file=sys.stderr)
 
     # Only what the review actually cites gets published. Captures taken to reason
     # with and then left uncited are scratch work.
-    target_text = args.target.read_text()
-    referenced = [p for p in files if is_referenced(str(p), target_text)]
+    referenced = [p for p in files if is_referenced(str(p), text)]
     if unreferenced := [p.name for p in files if p not in referenced]:
         print(f"  not referenced, skipping: {', '.join(unreferenced)}", file=sys.stderr)
 
@@ -242,14 +195,14 @@ def run(args: argparse.Namespace) -> None:
     names = {p.name for p in files}
     stray = [
         raw
-        for raw in dict.fromkeys(LINK.findall(target_text))
+        for raw in dict.fromkeys(LINK.findall(text))
         if raw not in resolvable
         and (raw.startswith(f"{args.dir}/") or raw.removeprefix("./") in names)
     ]
     for raw in stray:
         print(f"  no such capture, stripping: {raw}", file=sys.stderr)
     if not referenced and not stray:
-        print(f"No media referenced by {args.target}")
+        sys.stdout.write(text)
         return
 
     # A missing credential must still reach the rewrite below, or every reference ships
@@ -259,7 +212,7 @@ def run(args: argparse.Namespace) -> None:
     if not token:
         print("no GitHub token; not uploading", file=sys.stderr)
     elif referenced:
-        print(f"Uploading {len(referenced)} referenced file(s) from {args.dir}")
+        print(f"Uploading {len(referenced)} referenced file(s) from {args.dir}", file=sys.stderr)
         for path in referenced:
             try:
                 urls[str(path)] = upload_asset(path, args.repository_id, token)
@@ -269,18 +222,13 @@ def run(args: argparse.Namespace) -> None:
                 # annotation this would silently stop attaching media on every future
                 # review.
                 if e.fatal:
-                    print(f"::warning::media upload stopped: {e}")
+                    print(f"::warning::media upload stopped: {e}", file=sys.stderr)
                     break
                 print(f"  failed {e}", file=sys.stderr)
             else:
-                print(f"  uploaded {path.name} -> {urls[str(path)]}")
+                print(f"  uploaded {path.name} -> {urls[str(path)]}", file=sys.stderr)
 
     unavailable = [str(p) for p in referenced if str(p) not in urls] + stray
 
-    if args.target.suffix == ".json":
-        payload = json.loads(target_text)
-        rewritten = rewrite_payload(payload, urls, unavailable)
-        args.target.write_text(json.dumps(rewritten, indent=2, ensure_ascii=False))
-    else:
-        args.target.write_text(substitute(target_text, urls, unavailable))
-    print(f"Embedded {len(urls)} of {len(referenced)} referenced file(s) into {args.target}")
+    sys.stdout.write(substitute(text, urls, unavailable))
+    print(f"Embedded {len(urls)} of {len(referenced)} referenced file(s)", file=sys.stderr)

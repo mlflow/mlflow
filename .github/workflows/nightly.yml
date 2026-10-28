@@ -1,0 +1,262 @@
+name: Nightly
+
+on:
+  schedule:
+    - cron: "0 4 * * *"
+      timezone: "Asia/Tokyo"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Analyze and print issue drafts without changing issues"
+        required: false
+        type: boolean
+        default: true
+      run_ids:
+        description: "Space-separated workflow run IDs; empty uses the latest scheduled runs"
+        required: false
+        type: string
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+cache-mode: none
+
+jobs:
+  prepare:
+    # Kill switch: set the repo variable NIGHTLY_DISABLED to "true" to skip Nightly.
+    if: >-
+      github.repository == 'mlflow/mlflow' && vars.NIGHTLY_DISABLED != 'true' &&
+      (github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ||
+       (github.event_name == 'workflow_dispatch' && inputs.dry_run))
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    permissions:
+      issues: write
+    steps:
+      - name: Close old nightly issues
+        if: github.event_name == 'schedule' || !inputs.dry_run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cutoff=$(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          gh api --paginate 'repos/mlflow/mlflow/issues?state=open&labels=nightly&per_page=100' \
+            --jq ".[] | select(has(\"pull_request\") | not) | select(.created_at <= \"$cutoff\") | .number" \
+            > "$RUNNER_TEMP/old-nightly-issues.txt"
+          while IFS= read -r issue_number; do
+            gh issue close "$issue_number" --repo mlflow/mlflow --reason 'not planned'
+          done < "$RUNNER_TEMP/old-nightly-issues.txt"
+
+  analyze:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      actions: read
+      contents: read
+      issues: read
+    outputs:
+      analysis_artifact_id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - name: Resolve run IDs
+        id: runs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_IDS: ${{ inputs.run_ids }}
+        run: |
+          if [ -z "$RUN_IDS" ]; then
+            # TODO: Add more nightly workflows.
+            workflow_files=(cross-version-tests.yml)
+            for workflow_file in "${workflow_files[@]}"; do
+              run_id=$(gh api "repos/mlflow/mlflow/actions/workflows/$workflow_file/runs?event=schedule&status=completed&per_page=1" \
+                --jq '.workflow_runs[0].id // empty')
+              RUN_IDS+=" $run_id"
+            done
+          fi
+          run_ids=$(jq -ern --arg ids "$RUN_IDS" '
+            [$ids | splits("\\s+") | select(length > 0)] | unique
+            | if length > 0 and all(test("^[1-9][0-9]*$")) then join(" ")
+              else error("Expected one or more numeric workflow run IDs") end
+          ')
+          printf 'run_ids=%s\n' "$run_ids" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-node
+      - parallel:
+          - name: Install sandbox dependencies
+            run: |
+              sudo apt-get update
+              sudo apt-get install -y --no-install-recommends bubblewrap socat ripgrep
+              if [ "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)" = 1 ]; then
+                sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+              fi
+          - name: Install Claude Code
+            run: |
+              .claude/scripts/install-claude.sh
+              claude --version
+          - name: Install sandbox runtime
+            run: |
+              export npm_config_before="$(date -u -d '7 days ago' +%Y-%m-%d)"
+              npm install -g @anthropic-ai/sandbox-runtime@0.0.80
+          - name: Install skill dependencies
+            run: uv sync --package skills
+      - uses: ./.github/actions/setup-gateway
+        id: gateway
+        with:
+          task: nightly
+          host: ${{ secrets.DATABRICKS_HOST }}
+          client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+      - name: Prepare sandbox paths
+        run: |
+          umask 077
+          mkdir -p "$RUNNER_TEMP/nightly-analysis" /tmp/nightly-out ~/.claude ~/.cache/uv ~/.npm
+          echo '{}' > ~/.claude.json
+      - name: Start gateway proxy
+        id: gateway-proxy
+        env:
+          GATEWAY_TOKEN: ${{ steps.gateway.outputs.token }}
+          GATEWAY_URL: ${{ steps.gateway.outputs.base-url }}
+        run: |
+          umask 077
+          proxy_token=$(openssl rand -hex 32)
+          echo "::add-mask::$proxy_token"
+          printf 'token=%s\n' "$proxy_token" >> "$GITHUB_OUTPUT"
+          printf '%s\n%s\n' "$GATEWAY_TOKEN" "$proxy_token" | env -u GATEWAY_TOKEN -u GH_TOKEN \
+            GATEWAY_URL="$GATEWAY_URL" node .claude/sandbox/gateway-proxy.mjs \
+            > "$RUNNER_TEMP/nightly-gateway-proxy.log" 2>&1 &
+          proxy_pid=$!
+          printf '%s\n' "$proxy_pid" > "$RUNNER_TEMP/nightly-gateway-proxy.pid"
+          unset GATEWAY_TOKEN proxy_token
+          curl --noproxy '*' --retry 30 --retry-connrefused --retry-delay 1 \
+            -fsS http://127.0.0.1:8080/healthz > /dev/null
+      - name: Configure sandbox access
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # analyze-ci follows GitHub's signed log-storage redirects.
+          gh api meta > "$RUNNER_TEMP/nightly-github-meta.json"
+          jq --arg trusted_analysis_dir "$RUNNER_TEMP/nightly-analysis" \
+            --slurpfile meta "$RUNNER_TEMP/nightly-github-meta.json" '
+            .network.allowedDomains += [
+              $meta[0].domains.actions[]
+              | select(test("^productionresultssa[0-9]+\\.blob\\.core\\.windows\\.net$"))
+              | . + ":443"
+            ]
+            | .filesystem.denyWrite += [$trusted_analysis_dir]
+          ' .claude/sandbox/srt.json > "$RUNNER_TEMP/nightly-srt.json"
+      - name: Analyze failures in worktrees
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_IDS: ${{ steps.runs.outputs.run_ids }}
+          ANTHROPIC_BASE_URL: http://localhost:8080/anthropic
+          ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway-proxy.outputs.token }}
+          ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
+          # The auto permission classifier requires this alias; investigators inherit the main model.
+          ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5
+          CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS: "1"
+          CLAUDE_CODE_FORK_SUBAGENT: "0"
+          CLAUDE_CODE_ENABLE_TELEMETRY: "0"
+          CLAUDE_CODE_ENHANCED_TELEMETRY_BETA: "0"
+          OTEL_TRACES_EXPORTER: none
+          OTEL_LOGS_EXPORTER: none
+          OTEL_METRICS_EXPORTER: none
+          XDG_DATA_HOME: /tmp/nightly-xdg-data
+          XDG_CONFIG_HOME: /tmp/nightly-xdg-config
+          XDG_CACHE_HOME: /tmp/nightly-xdg-cache
+        run: |
+          umask 077
+          token=$(cat /proc/sys/kernel/random/uuid)
+          echo "::stop-commands::$token"
+          trap 'echo "::$token::"' EXIT
+          timeout --kill-after=10s 35m srt --settings "$RUNNER_TEMP/nightly-srt.json" -- \
+            env -u NO_PROXY -u no_proxy claude \
+              --model databricks-claude-sonnet-5-5 \
+              --effort medium \
+              --permission-mode auto \
+              --disallowed-tools WebSearch \
+              --print --verbose --output-format stream-json \
+              "/nightly /tmp/nightly-out \"$RUN_IDS\"" \
+            | .claude/scripts/stream.sh "$RUNNER_TEMP/nightly-analysis/stream.jsonl"
+      - name: Stage analysis
+        run: |
+          umask 077
+          srt --settings "$RUNNER_TEMP/nightly-srt.json" -- cat /tmp/nightly-out/analysis.json \
+            > "$RUNNER_TEMP/nightly-analysis/analysis.json"
+      - name: Stop gateway proxy
+        if: always()
+        run: |
+          token=$(cat /proc/sys/kernel/random/uuid)
+          echo "::stop-commands::$token"
+          trap 'echo "::$token::"' EXIT
+          if [ -f "$RUNNER_TEMP/nightly-gateway-proxy.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/nightly-gateway-proxy.pid")" 2>/dev/null || true
+          fi
+          if [ -s "$RUNNER_TEMP/nightly-gateway-proxy.log" ]; then
+            cat "$RUNNER_TEMP/nightly-gateway-proxy.log"
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        id: upload
+        if: always()
+        with:
+          name: nightly-analysis-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/nightly-analysis
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: analyze
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.analyze.outputs.analysis_artifact_id }}
+          path: /tmp/nightly-analysis
+          merge-multiple: true
+      - name: Validate analysis
+        run: |
+          uvx check-jsonschema@0.37.4 \
+            --schemafile .claude/skills/nightly/output.schema.yaml /tmp/nightly-analysis/analysis.json
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app-token
+        if: github.event_name == 'schedule' || !inputs.dry_run
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: mlflow
+          repositories: mlflow
+          permission-issues: write
+      - name: Print or create nightly issues
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
+        run: |
+          token=$(cat /proc/sys/kernel/random/uuid)
+          echo "::stop-commands::$token"
+          trap 'echo "::$token::"' EXIT
+          args=()
+          if [ "$DRY_RUN" = true ]; then
+            args+=(--dry-run)
+          else
+            gh label create nightly --repo mlflow/mlflow --color 5319e7 \
+              --description 'Failures detected by scheduled CI jobs.' --force
+          fi
+          python .claude/skills/nightly/scripts/publish.py \
+            /tmp/nightly-analysis/analysis.json --run-url "$RUN_URL" "${args[@]}"

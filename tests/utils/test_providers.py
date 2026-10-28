@@ -91,7 +91,14 @@ def test_typesafe_models_and_credentials(monkeypatch):
     assert config["auth_modes"][0]["secret_fields"] == [
         {"name": "api_key", "type": "string", "description": "TypeSafe API Key", "required": True}
     ]
-    assert config["auth_modes"][0]["config_fields"] == []
+    assert config["auth_modes"][0]["config_fields"] == [
+        {
+            "name": "api_base",
+            "type": "string",
+            "description": "TypeSafe API Base URL (defaults to https://api.typesafe.ai/v1)",
+            "required": False,
+        }
+    ]
 
     input_cost, output_cost = cost_per_token(
         model="jev-preview",

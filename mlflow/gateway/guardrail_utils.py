@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 from fastapi import Request
 
 from mlflow.entities.gateway_guardrail import GuardrailStage
-from mlflow.gateway.guardrails import JudgeGuardrail
+from mlflow.gateway.guardrails import JudgeGuardrail, UnsupportedGuardrailScorerError
 from mlflow.gateway.schemas import chat
 from mlflow.server.asgi_utils import get_server_base_url
 from mlflow.types.chat import ChatCompletionResponse
@@ -39,6 +39,16 @@ def load_guardrails(
             resolved_scorer = store.resolve_endpoint_in_scorer(config.guardrail.scorer)
             guardrail = dataclasses.replace(config.guardrail, scorer=resolved_scorer)
             guardrails.append(JudgeGuardrail.from_entity(guardrail, server_url))
+        except UnsupportedGuardrailScorerError:
+            # A custom-scorer guardrail can never run in the server, so this is a lasting
+            # configuration error rather than a transient load failure. Fail the request instead
+            # of skipping, so the endpoint does not keep serving traffic without the guardrail.
+            _logger.error(
+                "Guardrail %s on endpoint %s uses an unsupported custom scorer; failing request",
+                config.guardrail_id,
+                endpoint_config.endpoint_id,
+            )
+            raise
         except Exception:
             _logger.warning(
                 "Failed to load guardrail %s, skipping", config.guardrail_id, exc_info=True

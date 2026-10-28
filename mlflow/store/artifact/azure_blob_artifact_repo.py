@@ -280,7 +280,9 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         )
         credentials = []
         for i in range(1, num_parts + 1):
-            block_id = f"mlflow_block_{i}"
+            # Azure requires all block IDs of a blob to have the same length. A blob can have at
+            # most 50,000 blocks, so 5 digits are enough.
+            block_id = f"mlflow_block_{i:05d}"
             # see https://github.com/Azure/azure-sdk-for-python/blob/18a66ef98c6f2153491489d3d7d2fe4a5849e4ac/sdk/storage/azure-storage-blob/azure/storage/blob/_blob_client.py#L2468
             safe_block_id = urllib.parse.quote(encode_base64(block_id), safe="")
             url = f"{blob_url}?comp=block&blockid={safe_block_id}&{sas_token}"

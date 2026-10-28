@@ -245,6 +245,18 @@ deny_ubuntu_slim_long_timeout contains msg if {
 	)
 }
 
+deny_ubuntu_latest contains msg if {
+	some job_id, job in input.jobs
+	job_uses_ubuntu_latest(job)
+	msg := sprintf(
+		concat("", [
+			"Job '%s' uses 'ubuntu-latest'. Use 'ubuntu-slim' for lightweight jobs or 'ubuntu-24.04' otherwise. ",
+			"See https://github.com/mlflow/mlflow/issues/26183 for details.",
+		]),
+		[job_id],
+	)
+}
+
 deny_unpinned_actions contains msg if {
 	actions := unpinned_actions(input)
 	count(actions) > 0
@@ -308,7 +320,7 @@ deny_github_script_without_retries contains msg if {
 deny_scheduled_workflow_without_repo_check contains msg if {
 	input["true"].schedule
 	not any_job_has_repo_check(input.jobs)
-	msg := "Scheduled workflows must have at least one job with 'if: github.repository == ...' condition"
+	msg := "Scheduled workflows must have at least one job with github.repository == 'mlflow/mlflow' in its 'if' condition"
 }
 
 deny_push_without_branches contains msg if {
@@ -407,6 +419,9 @@ step_entries(inp) := entries if {
 
 jobs_without_timeout(jobs) := {job_id |
 	some job_id, job in jobs
+
+	# Reusable workflow callers cannot set timeout-minutes; check the called jobs instead.
+	not job.uses
 	not job["timeout-minutes"]
 }
 
@@ -414,6 +429,16 @@ ubuntu_slim_jobs_with_long_timeout(jobs) := {job_id |
 	some job_id, job in jobs
 	job["runs-on"] == "ubuntu-slim"
 	job["timeout-minutes"] > 15
+}
+
+job_uses_ubuntu_latest(job) if {
+	job["runs-on"] == "ubuntu-latest"
+}
+
+job_uses_ubuntu_latest(job) if {
+	is_array(job["runs-on"])
+	some runner in job["runs-on"]
+	runner == "ubuntu-latest"
 }
 
 is_step_unpinned(step) if {
@@ -443,7 +468,7 @@ any_job_has_repo_check(jobs) if {
 }
 
 job_has_repo_check(job) if {
-	regex.match(`github\.repository\s*==\s*'mlflow/`, job["if"])
+	regex.match(`github\.repository\s*==\s*'mlflow/mlflow'`, job["if"])
 }
 
 deny_secrets_in_top_level_env contains msg if {

@@ -58,6 +58,14 @@ MODEL_DIR = "model"
 # The mock OpenAI endpoint simply echos the prompt back as the completion.
 # So the expected output will be the prompt itself.
 TEST_CONTENT = "What is MLflow?"
+# The chain under test ends with StrOutputParser, so its output is the JSON string the mock
+# returns. Logged directly to a database, it is stored as that string. Logged through
+# `mlflow server`, RestStore.log_spans sends the decoded value and the server cannot tell it
+# from a raw JSON string sent by a third-party OTel client, so it is parsed into a list.
+# That gap is tracked separately from https://github.com/mlflow/mlflow/issues/26941.
+_EXPECTED_CHAIN_OUTPUT = json.dumps([{"role": "user", "content": TEST_CONTENT}])
+if IS_TRACING_SDK_ONLY:
+    _EXPECTED_CHAIN_OUTPUT = json.loads(_EXPECTED_CHAIN_OUTPUT)
 
 _SIMPLE_MODEL_CODE_PATH = "tests/langchain/sample_code/simple_runnable.py"
 
@@ -614,7 +622,7 @@ def test_langchain_autolog_callback_injection_in_invoke(invoke_arg, config, asyn
     assert traces[0].info.status == "OK"
     assert traces[0].data.spans[0].name == "RunnableSequence"
     assert traces[0].data.spans[0].inputs == input
-    assert traces[0].data.spans[0].outputs == [{"role": "user", "content": "What is MLflow?"}]
+    assert traces[0].data.spans[0].outputs == _EXPECTED_CHAIN_OUTPUT
     # Original callback should not be mutated
     handlers = _extract_callback_handlers(config)
     assert handlers == original_handlers
@@ -656,7 +664,7 @@ async def test_langchain_autolog_callback_injection_in_ainvoke(
     assert traces[0].info.status == "OK"
     assert traces[0].data.spans[0].name == "RunnableSequence"
     assert traces[0].data.spans[0].inputs == input
-    assert traces[0].data.spans[0].outputs == [{"role": "user", "content": "What is MLflow?"}]
+    assert traces[0].data.spans[0].outputs == _EXPECTED_CHAIN_OUTPUT
 
     # Original callback should not be mutated
     handlers = _extract_callback_handlers(config)
@@ -702,7 +710,7 @@ def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config, async
         assert trace.info.status == "OK"
         assert trace.data.spans[0].name == "RunnableSequence"
         assert trace.data.spans[0].inputs == input
-        assert trace.data.spans[0].outputs == [{"role": "user", "content": "What is MLflow?"}]
+        assert trace.data.spans[0].outputs == _EXPECTED_CHAIN_OUTPUT
 
     # Original callback should not be mutated
     handlers = _extract_callback_handlers(config)
@@ -774,7 +782,7 @@ async def test_langchain_autolog_callback_injection_in_abatch(
         assert trace.info.status == "OK"
         assert trace.data.spans[0].name == "RunnableSequence"
         assert trace.data.spans[0].inputs == input
-        assert trace.data.spans[0].outputs == [{"role": "user", "content": "What is MLflow?"}]
+        assert trace.data.spans[0].outputs == _EXPECTED_CHAIN_OUTPUT
 
     # Original callback should not be mutated
     handlers = _extract_callback_handlers(config)
