@@ -247,6 +247,7 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
         run: |
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
@@ -259,4 +260,4 @@ jobs:
               --description 'Failures detected by scheduled CI jobs.' --force
           fi
           python .claude/skills/nightly/scripts/publish.py \
-            /tmp/nightly-analysis/analysis.json "${args[@]}"
+            /tmp/nightly-analysis/analysis.json --run-url "$RUN_URL" "${args[@]}"
