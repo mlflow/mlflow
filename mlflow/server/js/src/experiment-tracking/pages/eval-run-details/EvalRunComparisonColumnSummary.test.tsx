@@ -467,6 +467,7 @@ describe('EvalRunComparisonColumnSummary', () => {
 
   test('displays pairwise preference wins and losses on each run line with self-describing labels', () => {
     renderSummary({
+      label: 'WIN / LOSE',
       values: [{ displayValue: '2 W · 2 L' }, { displayValue: '3 W · 1 L' }, { displayValue: '—' }],
     });
 
@@ -477,12 +478,10 @@ describe('EvalRunComparisonColumnSummary', () => {
     ]);
     const baseline = screen.getByRole('group', { name: 'Baseline run' });
     expect(within(baseline).getByText('2 W · 2 L', { exact: true })).toBeVisible();
-    // No separate label should be shown for baseline (label was removed)
     expect(within(baseline).queryByText(/WIN|LOSE/)).not.toBeInTheDocument();
 
     const candidate = screen.getByRole('group', { name: 'Candidate run' });
     expect(within(candidate).getByText('3 W · 1 L', { exact: true })).toBeVisible();
-    // No separate label should be shown for non-baseline either
     expect(within(candidate).queryByText(/WIN|LOSE/)).not.toBeInTheDocument();
 
     const missing = screen.getByRole('group', { name: 'Missing run' });
