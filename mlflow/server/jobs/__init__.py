@@ -2,6 +2,7 @@ import json
 import logging
 import math
 import os
+import posixpath
 from dataclasses import dataclass
 from types import FunctionType
 from typing import Any, Callable, ParamSpec, TypeVar
@@ -9,13 +10,33 @@ from typing import Any, Callable, ParamSpec, TypeVar
 from mlflow.entities._job import Job as JobEntity
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
+from mlflow.server.constants import ARTIFACTS_DESTINATION_ENV_VAR
 from mlflow.server.handlers import _get_job_store, _get_tracking_store
+from mlflow.store.artifact.artifact_repository_registry import (
+    _artifact_repository_registry,
+    get_artifact_repository,
+)
 from mlflow.utils.environment import _PythonEnv
 
 _logger = logging.getLogger(__name__)
 
 P = ParamSpec("P")
 R = TypeVar("R")
+
+
+def _proxied_artifact_repository(artifact_uri, tracking_uri=None, registry_uri=None):
+    """Serve an ``mlflow-artifacts:/`` URI from the location the server serves it from.
+
+    The default handler for that scheme fetches through the server over HTTP and so demands an
+    HTTP tracking URI. Once tracking points at the store there is no such URI, so resolve the way
+    the server's own artifact routes do -- against ``--artifacts-destination`` -- and read and
+    write that location directly.
+    """
+    from mlflow.server.handlers import _get_proxied_run_artifact_destination_path
+
+    root = os.environ[ARTIFACTS_DESTINATION_ENV_VAR]
+    path = _get_proxied_run_artifact_destination_path(artifact_uri)
+    return get_artifact_repository(posixpath.join(root, path))
 
 
 def use_backend_store_for_tracking() -> None:
@@ -28,10 +49,17 @@ def use_backend_store_for_tracking() -> None:
     engine gives jobs the store URI as their tracking URI, and the scorer jobs already reach the
     store directly. Authorization is unaffected, and is still done at submission.
 
+    Artifacts move with it. An experiment created through a server has an ``mlflow-artifacts:/``
+    location, whose default handler needs the HTTP tracking URI this just gave up, so it is
+    pointed at the serving destination too -- otherwise the job reaches the store and then cannot
+    read a trace payload or write a run's artifacts.
+
     Call this before building a client or using the fluent APIs.
     """
     # Resolving the store also redirects this process's tracking URI to it.
     _get_tracking_store()
+    if os.environ.get(ARTIFACTS_DESTINATION_ENV_VAR):
+        _artifact_repository_registry.register("mlflow-artifacts", _proxied_artifact_repository)
 
 
 _SUPPORTED_JOB_FUNCTION_LIST = [

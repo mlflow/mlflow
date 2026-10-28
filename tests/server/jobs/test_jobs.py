@@ -21,7 +21,11 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.job import invoke_scorer_job
 from mlflow.server import handlers
-from mlflow.server.constants import ARTIFACT_ROOT_ENV_VAR, BACKEND_STORE_URI_ENV_VAR
+from mlflow.server.constants import (
+    ARTIFACT_ROOT_ENV_VAR,
+    ARTIFACTS_DESTINATION_ENV_VAR,
+    BACKEND_STORE_URI_ENV_VAR,
+)
 from mlflow.server.handlers import _get_job_store
 from mlflow.server.job_api import Job as JobApiResponse
 from mlflow.server.jobs import (
@@ -49,6 +53,7 @@ from mlflow.server.jobs.utils import (
     _PreparedJobSubprocess,
     _start_huey_consumer_proc,
 )
+from mlflow.store.artifact.artifact_repository_registry import _artifact_repository_registry
 from mlflow.store.jobs.abstract_store import JobTerminalStateUpdateException, JobUpdateStatus
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.store.jobs.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyJobStore
@@ -2357,5 +2362,44 @@ def test_use_backend_store_for_tracking_points_away_from_the_server(monkeypatch,
         assert mlflow.get_tracking_uri() == "http://127.0.0.1:1"
         use_backend_store_for_tracking()
         assert mlflow.get_tracking_uri() == store_uri
+    finally:
+        mlflow.set_tracking_uri(previous)
+
+
+def test_use_backend_store_for_tracking_keeps_proxied_artifacts_reachable(monkeypatch, tmp_path):
+    """
+    An experiment created through a server has an ``mlflow-artifacts:/`` location, whose default
+    handler needs the HTTP tracking URI the redirect gives up. Without moving artifacts too, a job
+    reaches the store and then cannot read a trace payload or write a run's artifacts.
+    """
+    from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+    from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
+
+    destination = tmp_path / "artifacts-destination"
+    destination.mkdir()
+    store_uri = f"sqlite:///{tmp_path / 'proxied.db'}"
+    monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, store_uri)
+    monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, str(tmp_path / "root"))
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, str(destination))
+    monkeypatch.setattr(handlers, "_tracking_store", None)
+    # Restored on teardown: the redirect replaces this handler for the whole process.
+    monkeypatch.setitem(
+        _artifact_repository_registry._registry,
+        "mlflow-artifacts",
+        _artifact_repository_registry._registry["mlflow-artifacts"],
+    )
+    previous = mlflow.get_tracking_uri()
+    mlflow.set_tracking_uri("http://127.0.0.1:1")
+    try:
+        use_backend_store_for_tracking()
+        assert mlflow.get_tracking_uri() == store_uri
+
+        # The default handler cannot serve the scheme once tracking is the store, which is what
+        # made the redirect lose artifacts.
+        with pytest.raises(MlflowException, match="must be a valid http or https URI"):
+            MlflowArtifactsRepository("mlflow-artifacts:/7/run-1/artifacts")
+
+        repo = get_artifact_repository("mlflow-artifacts:/7/run-1/artifacts")
+        assert repo.artifact_dir == str(destination / "7/run-1/artifacts")
     finally:
         mlflow.set_tracking_uri(previous)
