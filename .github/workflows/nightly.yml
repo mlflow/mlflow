@@ -178,8 +178,7 @@ jobs:
           echo "::stop-commands::$token"
           trap 'echo "::$token::"' EXIT
           timeout --kill-after=10s 35m srt --settings "$RUNNER_TEMP/nightly-srt.json" -- \
-            env -u NO_PROXY -u no_proxy -u GITHUB_OUTPUT -u GITHUB_ENV -u GITHUB_PATH \
-              -u GITHUB_STATE -u GITHUB_STEP_SUMMARY claude \
+            env -u NO_PROXY -u no_proxy claude \
               --model databricks-claude-sonnet-5-5 \
               --effort medium \
               --permission-mode auto \
