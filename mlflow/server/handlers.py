@@ -4345,11 +4345,13 @@ def _get_multipart_upload_file_name(path: str) -> str:
     # only use its basename. `ntpath.basename` splits on both "/" and "\\" so those clients keep
     # working; a backslash inside a POSIX file name is treated as a separator as a result.
     # `validate_path_is_safe` percent-decodes, so take the basename again on its result to drop
-    # separators that arrived encoded.
+    # separators that arrived encoded. That second basename can itself produce `..` (for example
+    # from `src%5C..` or `C%3A..` on a POSIX server, where a backslash or drive colon is not a
+    # separator for the validator), so check the final name too.
     file_name = ntpath.basename(path)
     if file_name:
         file_name = ntpath.basename(validate_path_is_safe(file_name))
-    if file_name in ("", "."):
+    if file_name in ("", ".", ".."):
         raise MlflowException("Invalid path", error_code=INVALID_PARAMETER_VALUE)
     return file_name
 

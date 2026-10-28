@@ -7869,7 +7869,21 @@ def test_multipart_upload_handlers_pass_basename_of_path_to_repo(
 )
 @pytest.mark.parametrize(
     "path",
-    ["src/", "/tmp/src/", "C:\\src\\", "/tmp/..", "src/%2E%2E", ".", "/tmp/src/.", "%2E", "src%2F"],
+    [
+        "src/",
+        "/tmp/src/",
+        "C:\\src\\",
+        "/tmp/..",
+        "src/%2E%2E",
+        ".",
+        "/tmp/src/.",
+        "%2E",
+        "src%2F",
+        # An encoded backslash or drive colon is not a separator for the validator on POSIX,
+        # but the final basename still reduces these to `..`.
+        "src%5C..",
+        "C%3A..",
+    ],
 )
 def test_multipart_upload_handlers_reject_invalid_file_name(
     enable_serve_artifacts, handler, repo_method, request_fields, path
