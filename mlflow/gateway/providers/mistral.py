@@ -55,7 +55,7 @@ class MistralAdapter(ProviderAdapter):
             choices=[
                 completions_schema.Choice(
                     index=idx,
-                    text=_text_content(c["message"]["content"]),
+                    text=_text_content(c["message"]["content"]) or "",
                     finish_reason=c["finish_reason"],
                 )
                 for idx, c in enumerate(resp["choices"])
