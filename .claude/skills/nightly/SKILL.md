@@ -87,7 +87,10 @@ closed issue covers the cause; if so, use `already_resolved` and cite it.
 
 Reconcile findings across groups and cover every non-transient failed job. Separate
 causes may share a job; several jobs may share one cause.
-Format `evidence` as Markdown.
+Format `evidence` as Markdown. Link code references as permalinks pinned to the run's
+head SHA, with line anchors (e.g.
+`https://github.com/mlflow/mlflow/blob/<head_sha>/mlflow/utils/server_info.py#L93-L104`),
+not bare `path:line` text, so readers can open the code the run executed.
 
 Write `$out_dir/analysis.json`, then validate it and fix any errors before finishing:
 

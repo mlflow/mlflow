@@ -56,7 +56,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2026-11-06",
+      "last_updated_at": "2026-10-28"
     },
     "MiniMaxAI/MiniMax-M3.1-Flash": {
       "mode": "chat",
@@ -1737,7 +1738,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2026-11-06",
+      "last_updated_at": "2026-10-28"
     },
     "thinkingmachines/Inkling-Small": {
       "mode": "chat",
