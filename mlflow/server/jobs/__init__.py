@@ -3,6 +3,7 @@ import logging
 import math
 import os
 import posixpath
+import urllib.parse
 from dataclasses import dataclass
 from types import FunctionType
 from typing import Any, Callable, ParamSpec, TypeVar
@@ -17,12 +18,20 @@ from mlflow.store.artifact.artifact_repository_registry import (
     get_artifact_repository,
 )
 from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
+from mlflow.tracking._tracking_service.utils import get_tracking_uri
 from mlflow.utils.environment import _PythonEnv
 
 _logger = logging.getLogger(__name__)
 
 P = ParamSpec("P")
 R = TypeVar("R")
+
+
+# The server's own HTTP URI, captured before tracking is redirected to the store. Resolving a
+# proxied artifact location this server does not serve still has to go over HTTP, and
+# `MlflowArtifactsRepository` validates the tracking URI even when the location names its own
+# host -- so the URI the redirect overwrites has to be kept.
+_http_tracking_uri: str | None = None
 
 
 def _proxied_artifact_repository(artifact_uri, tracking_uri=None, registry_uri=None):
@@ -43,8 +52,13 @@ def _proxied_artifact_repository(artifact_uri, tracking_uri=None, registry_uri=N
     )
 
     if not _is_servable_proxied_run_artifact_root(artifact_uri):
+        # Someone else's artifacts: a separate artifact server, or this server with artifact
+        # serving off. Keep them on HTTP rather than resolving them against a local directory
+        # that holds none of them.
         return MlflowArtifactsRepository(
-            artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
+            artifact_uri,
+            tracking_uri=tracking_uri or _http_tracking_uri or get_tracking_uri(),
+            registry_uri=registry_uri,
         )
 
     # Serving implies a destination, since it defaults. Name it rather than raising KeyError from
@@ -69,22 +83,27 @@ def use_backend_store_for_tracking() -> None:
     engine gives jobs the store URI as their tracking URI, and the scorer jobs already reach the
     store directly. Authorization is unaffected, and is still done at submission.
 
-    Artifacts move with it, when this server serves them. An experiment created through a
-    server has an ``mlflow-artifacts:/`` location, whose default handler needs the HTTP tracking
-    URI this just gave up, so it is pointed at the serving destination too -- otherwise the job
-    reaches the store and then cannot read a trace payload or write a run's artifacts. A server
-    that does not serve artifacts is left alone: that location belongs to someone else.
+    Artifacts move with it. An experiment created through a server has an ``mlflow-artifacts:/``
+    location, whose default handler needs the HTTP tracking URI this just gave up, so a location
+    this server serves is resolved against the serving destination instead -- otherwise the job
+    reaches the store and then cannot read a trace payload or write a run's artifacts. A location
+    this server does not serve belongs to someone else, and stays on HTTP against the URI kept
+    from before the redirect.
 
     Call this before building a client or using the fluent APIs.
     """
-    from mlflow.server.handlers import _is_serving_proxied_artifacts
+    global _http_tracking_uri
+
+    # Kept before the redirect overwrites it, for locations this server does not serve.
+    previous = get_tracking_uri()
+    if urllib.parse.urlparse(previous).scheme in ("http", "https"):
+        _http_tracking_uri = previous
 
     # Resolving the store also redirects this process's tracking URI to it.
     _get_tracking_store()
-    # Only when this server serves its own artifacts. `--artifacts-destination` defaults to
-    # `./mlartifacts` whether or not it is served, so the destination being set says nothing.
-    if _is_serving_proxied_artifacts():
-        _artifact_repository_registry.register("mlflow-artifacts", _proxied_artifact_repository)
+    # Registered whatever this server serves: the handler decides per location, resolving only
+    # what this server serves and leaving everything else on HTTP.
+    _artifact_repository_registry.register("mlflow-artifacts", _proxied_artifact_repository)
 
 
 _SUPPORTED_JOB_FUNCTION_LIST = [

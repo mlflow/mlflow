@@ -9,6 +9,7 @@ from unittest import mock
 import pytest
 
 import mlflow
+import mlflow.server.jobs
 import mlflow.store.jobs.sqlalchemy_store
 from mlflow.entities._job import Job, JobProgress, JobScopedPermission
 from mlflow.entities._job_status import JobStatus
@@ -55,8 +56,10 @@ from mlflow.server.jobs.utils import (
     _PreparedJobSubprocess,
     _start_huey_consumer_proc,
 )
-from mlflow.store.artifact.artifact_repository_registry import _artifact_repository_registry
-from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
+from mlflow.store.artifact.artifact_repository_registry import (
+    _artifact_repository_registry,
+    get_artifact_repository,
+)
 from mlflow.store.jobs.abstract_store import JobTerminalStateUpdateException, JobUpdateStatus
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.store.jobs.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyJobStore
@@ -2421,14 +2424,15 @@ def test_proxied_artifact_repository_without_a_destination_names_the_missing_set
         _proxied_artifact_repository("mlflow-artifacts:/7/run-1/artifacts")
 
 
-def test_use_backend_store_for_tracking_leaves_another_servers_artifacts_alone(
+def test_use_backend_store_for_tracking_keeps_a_separate_artifact_server_reachable(
     monkeypatch, tmp_path
 ):
     """
-    With ``--no-serve-artifacts`` the proxied location belongs to a separate artifact server.
-    ``--artifacts-destination`` still defaults to ``./mlartifacts``, so a job that resolved
-    against it would read and write a local directory holding none of those artifacts: trace
-    reads would fail and a run's reports would land where nothing can fetch them.
+    With ``--no-serve-artifacts`` the proxied location belongs to a separate artifact server, and
+    has to stay on HTTP. Two ways to get this wrong: resolve it against this server's own
+    ``--artifacts-destination``, which defaults to ``./mlartifacts`` and holds none of it, or
+    leave it to the default handler, which rejects the store URI the redirect installs even when
+    the location names its own host.
     """
     destination = tmp_path / "not-ours"
     destination.mkdir()
@@ -2436,7 +2440,11 @@ def test_use_backend_store_for_tracking_leaves_another_servers_artifacts_alone(
     monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, str(tmp_path / "root"))
     monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, str(destination))
     monkeypatch.delenv(SERVE_ARTIFACTS_ENV_VAR, raising=False)
+    # A host-addressed proxied location needs the server's own allowlist, which is how a
+    # deployment with a separate artifact server opts into this shape.
+    monkeypatch.setenv("MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES", "mlflow-artifacts")
     monkeypatch.setattr(handlers, "_tracking_store", None)
+    monkeypatch.setattr(mlflow.server.jobs, "_http_tracking_uri", None)
     monkeypatch.setitem(
         _artifact_repository_registry._registry,
         "mlflow-artifacts",
@@ -2444,18 +2452,15 @@ def test_use_backend_store_for_tracking_leaves_another_servers_artifacts_alone(
     )
     previous = mlflow.get_tracking_uri()
     try:
-        mlflow.set_tracking_uri("http://127.0.0.1:1")
+        mlflow.set_tracking_uri("http://tracking-host:5000")
         use_backend_store_for_tracking()
 
-        # The handler is untouched, so nothing is redirected into this server's own destination.
-        assert (
-            _artifact_repository_registry._registry["mlflow-artifacts"] is MlflowArtifactsRepository
-        )
-        # Called directly it hands the URI back to the default handler rather than resolving it
-        # locally. That handler has its own complaint about a non-HTTP tracking URI, which is the
-        # point: a location this server does not serve fails honestly instead of silently
-        # resolving to a directory that holds none of it.
-        with pytest.raises(MlflowException, match="must be a valid http or https URI"):
-            _proxied_artifact_repository("mlflow-artifacts:/7/run-1/artifacts")
+        repo = get_artifact_repository("mlflow-artifacts://artifact-host:6000/3/run-1/artifacts")
+
+        # Still reached over HTTP, at the host the location names.
+        assert repo.artifact_uri.startswith("http://artifact-host:6000/")
+        assert "3/run-1/artifacts" in repo.artifact_uri
+        # And not pulled into this server's own destination.
+        assert str(destination) not in repo.artifact_uri
     finally:
         mlflow.set_tracking_uri(previous)
