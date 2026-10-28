@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793170973773,
+  "lastUpdate": 1793172067505,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "45711841+darkdi@users.noreply.github.com",
-            "name": "Dmitry",
-            "username": "darkdi"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6bc06f1221a67cd3db6a21f19a5e21c2e4fcf1d7",
-          "message": "Fix docstring `Args` entries that name a parameter the function does not take (#24925)\n\nSigned-off-by: darkdi <rantovov5@gmail.com>\nCo-authored-by: darkdi <rantovov5@gmail.com>",
-          "timestamp": "2026-08-13T19:43:06+09:00",
-          "tree_id": "e18b905e59c906f356b23c90764d5a8609e605b2",
-          "url": "https://github.com/mlflow/mlflow/commit/6bc06f1221a67cd3db6a21f19a5e21c2e4fcf1d7"
-        },
-        "date": 1786617864043,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 42.1433750999995,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 8.493072735852133,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 5.546311625849109,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 6.3541219406789935,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 5.840644664120552,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 8.776342400005888,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 5.408536500001541,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "89657709+a-gajam@users.noreply.github.com",
+            "name": "Anurag Gajam",
+            "username": "a-gajam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "3acae42a9b0772a11aa272378d3b5db23f3b6953",
+          "message": "Validate `roles/list` and `create_role` workspaces; use `sender_is_admin` in GraphQL (#27171)\n\nSigned-off-by: Anurag Gajam <89657709+a-gajam@users.noreply.github.com>",
+          "timestamp": "2026-10-28T07:17:07Z",
+          "tree_id": "dea1fc04fa7231816696c00c482a8ccfe33a7dff",
+          "url": "https://github.com/mlflow/mlflow/commit/3acae42a9b0772a11aa272378d3b5db23f3b6953"
+        },
+        "date": 1793172064877,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 59.572165649999675,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 7.458058781817944,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.606509219511782,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.692145499999877,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 7.320484675675346,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 10.095548399993959,
             "unit": "ms"
           }
         ]
