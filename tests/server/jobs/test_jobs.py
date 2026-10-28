@@ -25,6 +25,7 @@ from mlflow.server.constants import (
     ARTIFACT_ROOT_ENV_VAR,
     ARTIFACTS_DESTINATION_ENV_VAR,
     BACKEND_STORE_URI_ENV_VAR,
+    SERVE_ARTIFACTS_ENV_VAR,
 )
 from mlflow.server.handlers import _get_job_store
 from mlflow.server.job_api import Job as JobApiResponse
@@ -55,6 +56,7 @@ from mlflow.server.jobs.utils import (
     _start_huey_consumer_proc,
 )
 from mlflow.store.artifact.artifact_repository_registry import _artifact_repository_registry
+from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
 from mlflow.store.jobs.abstract_store import JobTerminalStateUpdateException, JobUpdateStatus
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.store.jobs.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyJobStore
@@ -2382,6 +2384,7 @@ def test_use_backend_store_for_tracking_keeps_proxied_artifacts_reachable(monkey
     monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, store_uri)
     monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, str(tmp_path / "root"))
     monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, str(destination))
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
     monkeypatch.setattr(handlers, "_tracking_store", None)
     # Restored on teardown: the redirect replaces this handler for the whole process.
     monkeypatch.setitem(
@@ -2412,6 +2415,47 @@ def test_proxied_artifact_repository_without_a_destination_names_the_missing_set
     check, so the factory has to answer for itself rather than raising ``KeyError`` from inside
     an artifact read.
     """
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
     monkeypatch.delenv(ARTIFACTS_DESTINATION_ENV_VAR, raising=False)
-    with pytest.raises(MlflowException, match="does not serve artifacts"):
+    with pytest.raises(MlflowException, match="is unset"):
         _proxied_artifact_repository("mlflow-artifacts:/7/run-1/artifacts")
+
+
+def test_use_backend_store_for_tracking_leaves_another_servers_artifacts_alone(
+    monkeypatch, tmp_path
+):
+    """
+    With ``--no-serve-artifacts`` the proxied location belongs to a separate artifact server.
+    ``--artifacts-destination`` still defaults to ``./mlartifacts``, so a job that resolved
+    against it would read and write a local directory holding none of those artifacts: trace
+    reads would fail and a run's reports would land where nothing can fetch them.
+    """
+    destination = tmp_path / "not-ours"
+    destination.mkdir()
+    monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, f"sqlite:///{tmp_path / 'separate.db'}")
+    monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, str(tmp_path / "root"))
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, str(destination))
+    monkeypatch.delenv(SERVE_ARTIFACTS_ENV_VAR, raising=False)
+    monkeypatch.setattr(handlers, "_tracking_store", None)
+    monkeypatch.setitem(
+        _artifact_repository_registry._registry,
+        "mlflow-artifacts",
+        _artifact_repository_registry._registry["mlflow-artifacts"],
+    )
+    previous = mlflow.get_tracking_uri()
+    try:
+        mlflow.set_tracking_uri("http://127.0.0.1:1")
+        use_backend_store_for_tracking()
+
+        # The handler is untouched, so nothing is redirected into this server's own destination.
+        assert (
+            _artifact_repository_registry._registry["mlflow-artifacts"] is MlflowArtifactsRepository
+        )
+        # Called directly it hands the URI back to the default handler rather than resolving it
+        # locally. That handler has its own complaint about a non-HTTP tracking URI, which is the
+        # point: a location this server does not serve fails honestly instead of silently
+        # resolving to a directory that holds none of it.
+        with pytest.raises(MlflowException, match="must be a valid http or https URI"):
+            _proxied_artifact_repository("mlflow-artifacts:/7/run-1/artifacts")
+    finally:
+        mlflow.set_tracking_uri(previous)

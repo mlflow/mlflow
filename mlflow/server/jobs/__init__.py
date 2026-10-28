@@ -16,6 +16,7 @@ from mlflow.store.artifact.artifact_repository_registry import (
     _artifact_repository_registry,
     get_artifact_repository,
 )
+from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
 from mlflow.utils.environment import _PythonEnv
 
 _logger = logging.getLogger(__name__)
@@ -25,22 +26,34 @@ R = TypeVar("R")
 
 
 def _proxied_artifact_repository(artifact_uri, tracking_uri=None, registry_uri=None):
-    """Serve an ``mlflow-artifacts:/`` URI from the location the server serves it from.
+    """Serve an ``mlflow-artifacts:/`` URI from the location this server serves it from.
 
     The default handler for that scheme fetches through the server over HTTP and so demands an
     HTTP tracking URI. Once tracking points at the store there is no such URI, so resolve the way
     the server's own artifact routes do -- against ``--artifacts-destination`` -- and read and
     write that location directly.
-    """
-    from mlflow.server.handlers import _get_proxied_run_artifact_destination_path
 
-    # Registration is guarded on this being set, but the registry outlives the check: say which
-    # setting is missing rather than raising KeyError from inside an artifact read.
+    Only this server's own artifacts. Under ``--no-serve-artifacts`` the location belongs to a
+    separate artifact server, and resolving it here would read and write a local directory that
+    holds none of it, so the default handler is used instead.
+    """
+    from mlflow.server.handlers import (
+        _get_proxied_run_artifact_destination_path,
+        _is_servable_proxied_run_artifact_root,
+    )
+
+    if not _is_servable_proxied_run_artifact_root(artifact_uri):
+        return MlflowArtifactsRepository(
+            artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
+        )
+
+    # Serving implies a destination, since it defaults. Name it rather than raising KeyError from
+    # inside an artifact read if that ever stops holding.
     root = os.environ.get(ARTIFACTS_DESTINATION_ENV_VAR)
     if not root:
         raise MlflowException(
-            f"Cannot resolve the proxied artifact URI {artifact_uri}: this server does not serve "
-            f"artifacts, so {ARTIFACTS_DESTINATION_ENV_VAR} is unset."
+            f"Cannot resolve the proxied artifact URI {artifact_uri}: this server serves "
+            f"artifacts but {ARTIFACTS_DESTINATION_ENV_VAR} is unset."
         )
     path = _get_proxied_run_artifact_destination_path(artifact_uri)
     return get_artifact_repository(posixpath.join(root, path))
@@ -56,16 +69,21 @@ def use_backend_store_for_tracking() -> None:
     engine gives jobs the store URI as their tracking URI, and the scorer jobs already reach the
     store directly. Authorization is unaffected, and is still done at submission.
 
-    Artifacts move with it. An experiment created through a server has an ``mlflow-artifacts:/``
-    location, whose default handler needs the HTTP tracking URI this just gave up, so it is
-    pointed at the serving destination too -- otherwise the job reaches the store and then cannot
-    read a trace payload or write a run's artifacts.
+    Artifacts move with it, when this server serves them. An experiment created through a
+    server has an ``mlflow-artifacts:/`` location, whose default handler needs the HTTP tracking
+    URI this just gave up, so it is pointed at the serving destination too -- otherwise the job
+    reaches the store and then cannot read a trace payload or write a run's artifacts. A server
+    that does not serve artifacts is left alone: that location belongs to someone else.
 
     Call this before building a client or using the fluent APIs.
     """
+    from mlflow.server.handlers import _is_serving_proxied_artifacts
+
     # Resolving the store also redirects this process's tracking URI to it.
     _get_tracking_store()
-    if os.environ.get(ARTIFACTS_DESTINATION_ENV_VAR):
+    # Only when this server serves its own artifacts. `--artifacts-destination` defaults to
+    # `./mlartifacts` whether or not it is served, so the destination being set says nothing.
+    if _is_serving_proxied_artifacts():
         _artifact_repository_registry.register("mlflow-artifacts", _proxied_artifact_repository)
 
 
