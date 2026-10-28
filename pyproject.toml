@@ -260,6 +260,8 @@ exclude-newer = "P7D"
 exclude-newer-package = { torch = false, torchvision = false }
 required-version = ">=0.13.6"
 constraint-dependencies = [
+  # pandas 3 is incompatible with the pyspark<4.1 used by tests and documentation.
+  "pandas<3",
   # xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
   # https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept
   "xgboost<3.1.0",
