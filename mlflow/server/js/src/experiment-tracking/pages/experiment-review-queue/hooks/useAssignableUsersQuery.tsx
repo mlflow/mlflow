@@ -2,6 +2,7 @@ import { useQuery } from '@databricks/web-shared/query-client';
 
 import { AdminApi } from '../../../../admin/api';
 import type { ListUsersResponse } from '../../../../admin/types';
+import { useActiveWorkspace } from '../../../../workspaces/utils/WorkspaceUtils';
 
 export const ASSIGNABLE_USERS_QUERY_KEY = 'REVIEW_QUEUE_ASSIGNABLE_USERS';
 
@@ -15,9 +16,11 @@ const EMPTY_USERS: ListUsersResponse['users'] = [];
  * own. Callers pass `enabled` to skip the request on a no-auth server.
  */
 export const useAssignableUsersQuery = ({ enabled }: { enabled: boolean }) => {
+  // The roster is workspace-scoped, so cache it per workspace.
+  const workspace = useActiveWorkspace();
   const { data, isLoading, error } = useQuery<ListUsersResponse, Error>({
-    queryKey: [ASSIGNABLE_USERS_QUERY_KEY],
-    queryFn: () => AdminApi.listUsers(),
+    queryKey: [ASSIGNABLE_USERS_QUERY_KEY, workspace ?? ''],
+    queryFn: () => AdminApi.listUsers(workspace ?? undefined),
     enabled,
     retry: false,
     refetchOnWindowFocus: false,

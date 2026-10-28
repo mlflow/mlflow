@@ -5169,8 +5169,12 @@ def test_list_users_handler_eager_loads_scoped_roles(role_auth_setup):
     # Workspace admin: bulk response includes per-user roles, scoped to
     # workspaces the requester administers (plus self, unscoped).
     role_auth_setup["login_as"]("ws_admin_foo")
-    with auth_module.app.test_request_context("/api/2.0/mlflow/users/list", method="GET"):
-        response = auth_module.list_users()
+    token = workspace_context.set_server_request_workspace("foo")
+    try:
+        with auth_module.app.test_request_context("/api/2.0/mlflow/users/list", method="GET"):
+            response = auth_module.list_users()
+    finally:
+        workspace_context._WORKSPACE.reset(token)
     by_username = {u["username"]: u for u in response.get_json()["users"]}
 
     # Self: own admin role visible.
@@ -5201,6 +5205,75 @@ def test_list_users_handler_super_admin_sees_every_role(role_auth_setup):
     assert {(r["workspace"], r["name"]) for r in by_username["ws_member_foo"]["roles"]} == {
         ("foo", "member-foo")
     }
+
+
+_ALL_USERS = {"super_admin", "ws_admin_foo", "ws_admin_bar", "ws_member_foo", "outsider"}
+
+
+@pytest.mark.parametrize(
+    ("actor", "workspace", "expected"),
+    [
+        ("ws_member_foo", "foo", {"super_admin", "ws_admin_foo", "ws_member_foo"}),
+        # No request workspace fails closed to the caller (and super admins).
+        ("ws_member_foo", None, {"super_admin", "ws_member_foo"}),
+        # A manager sees the full roster in the workspace they manage.
+        ("ws_admin_foo", "foo", _ALL_USERS),
+        ("super_admin", "foo", _ALL_USERS),
+    ],
+)
+def test_list_users_handler_scopes_users_to_request_workspace(
+    role_auth_setup, actor, workspace, expected
+):
+    role_auth_setup["login_as"](actor)
+    token = workspace_context.set_server_request_workspace(workspace)
+    try:
+        with auth_module.app.test_request_context("/api/2.0/mlflow/users/list", method="GET"):
+            response = auth_module.list_users()
+    finally:
+        workspace_context._WORKSPACE.reset(token)
+    assert {u["username"] for u in response.get_json()["users"]} == expected
+
+
+@pytest.mark.parametrize(
+    ("actor", "default_permission", "workspace", "expected"),
+    [
+        # Open default workspace: role-less users are members, so everyone is listed.
+        ("outsider", USE.name, "default", _ALL_USERS),
+        # The inherited grant can't use the workspace, so it doesn't confer membership.
+        ("ws_member_foo", READ.name, "default", {"super_admin", "ws_member_foo"}),
+        # Other workspaces stay scoped to role holders.
+        ("ws_member_foo", USE.name, "foo", {"super_admin", "ws_admin_foo", "ws_member_foo"}),
+    ],
+)
+def test_list_users_handler_open_default_workspace(
+    role_auth_setup, monkeypatch, actor, default_permission, workspace, expected
+):
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(
+            default_permission=default_permission, grant_default_workspace_access=True
+        ),
+    )
+    monkeypatch.setattr(auth_module, "_get_workspace_store", lambda: None)
+    monkeypatch.setattr(
+        auth_module,
+        "get_default_workspace_optional",
+        lambda *args, **kwargs: (SimpleNamespace(name="default"), True),
+    )
+    # Give ws_member_foo a usable role in the workspace so it passes the list validator.
+    role = auth_module.store.create_role(name="member-user", workspace=workspace)
+    auth_module.store.add_role_permission(role.id, "workspace", "*", USE.name)
+    auth_module.store.assign_role_to_user(auth_module.store.get_user("ws_member_foo").id, role.id)
+    role_auth_setup["login_as"](actor)
+    token = workspace_context.set_server_request_workspace(workspace)
+    try:
+        with auth_module.app.test_request_context("/api/2.0/mlflow/users/list", method="GET"):
+            assert auth_module.validate_can_list_users()
+            response = auth_module.list_users()
+    finally:
+        workspace_context._WORKSPACE.reset(token)
+    assert {u["username"] for u in response.get_json()["users"]} == expected
 
 
 @pytest.mark.parametrize(

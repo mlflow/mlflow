@@ -6,6 +6,7 @@ import { AccountQueryKeys } from '../account/hooks';
 import { AdminApi, scorerResourcePattern } from './api';
 import { isSyntheticUserRole } from '../account/types';
 import { formatSkillIdentity } from '../skill-registry/utils';
+import { useActiveWorkspace } from '../workspaces/utils/WorkspaceUtils';
 import type {
   AddPermissionRequest,
   CreateRoleRequest,
@@ -60,11 +61,14 @@ export const AdminQueryKeys = {
 };
 
 // User queries and mutations
-export const useUsersQuery = () => {
+// ``workspace`` pins the roster to a workspace (e.g. a role's) instead of the active one.
+export const useUsersQuery = (workspace?: string) => {
+  // The roster is workspace-scoped, so cache it per workspace.
+  const activeWorkspace = useActiveWorkspace();
   return useQuery({
-    queryKey: AdminQueryKeys.users,
+    queryKey: [...AdminQueryKeys.users, workspace ?? activeWorkspace ?? ''],
     queryFn: async () => {
-      const data = await AdminApi.listUsers();
+      const data = await AdminApi.listUsers(workspace ?? activeWorkspace ?? undefined);
       // Drop synthetic ``__user_<id>__`` roles from each user's roles
       // list. They're a backend implementation detail for direct grants
       // and shouldn't appear in human-facing user/role tables.

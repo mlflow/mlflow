@@ -1,4 +1,5 @@
 import { matchPredefinedError, UnknownError } from '@databricks/web-shared/errors';
+import { workspaceHeader } from '../admin/api';
 import { fetchEndpoint } from '../common/utils/FetchUtils';
 import type {
   ProvidersResponse,
@@ -319,10 +320,11 @@ export const GatewayApi = {
   },
 
   // Auth Users
-  listUsers: () => {
+  listUsers: (workspace?: string) => {
     return fetchEndpoint({
       relativeUrl: 'ajax-api/2.0/mlflow/users/list',
       error: defaultErrorHandler,
+      ...workspaceHeader(workspace),
     }) as Promise<ListUsersResponse>;
   },
 

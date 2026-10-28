@@ -73,10 +73,10 @@ const PermissionsSection = ({ roleId }: { roleId: number }) => {
   );
 };
 
-const AssignedUsersSection = ({ roleId }: { roleId: number }) => {
+const AssignedUsersSection = ({ roleId, workspace }: { roleId: number; workspace?: string }) => {
   const { theme } = useDesignSystemTheme();
   const { data: assignmentsData, isLoading, error: queryError } = useRoleUsersQuery(roleId);
-  const { data: usersData, error: usersError } = useUsersQuery();
+  const { data: usersData, error: usersError } = useUsersQuery(workspace);
 
   const assignments = useMemo(() => assignmentsData?.assignments ?? [], [assignmentsData]);
   const userMap = useMemo(() => {
@@ -287,7 +287,7 @@ const RoleDetailPage = () => {
             <PermissionsSection roleId={roleId} />
           </Tabs.Content>
           <Tabs.Content value="users" css={{ paddingTop: theme.spacing.md }}>
-            <AssignedUsersSection roleId={roleId} />
+            <AssignedUsersSection roleId={roleId} workspace={workspacesEnabled ? role?.workspace : undefined} />
           </Tabs.Content>
         </Tabs.Root>
 

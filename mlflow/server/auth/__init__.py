@@ -7958,8 +7958,29 @@ def list_users():
         if requester_user.is_admin
         else store.list_workspace_admin_workspaces(requester_user.id)
     )
+    # Non-admins only see users who have a role in the requested workspace.
+    scope_to_workspace = MLFLOW_ENABLE_WORKSPACES.get() and not requester_user.is_admin
+    workspace = workspace_context.get_request_workspace() if scope_to_workspace else None
+    # Everyone is a member of the default workspace when it's opened to all users.
+    if (
+        workspace
+        and _user_inherits_default_workspace_grant(workspace)
+        and get_permission(auth_config.default_permission).can_use
+    ):
+        scope_to_workspace = False
+    # Workspace managers need the full roster to onboard users into their workspace.
+    if workspace and workspace in admin_workspaces:
+        scope_to_workspace = False
     response_users = []
     for u, roles in users_with_roles:
+        # Super admins can use every workspace; a missing workspace matches no one else.
+        if (
+            scope_to_workspace
+            and u.username != requester
+            and not u.is_admin
+            and not any(r.workspace == workspace for r in roles)
+        ):
+            continue
         if admin_workspaces is None or u.username == requester:
             visible_roles = roles
         else:
