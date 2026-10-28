@@ -2056,6 +2056,16 @@ def validate_can_read_run():
     return _authorize_run("read")
 
 
+def _require_stored_name_spelling(requested_name: str, stored_name: str) -> None:
+    # Renames and deletes sweep grants by the requested name after the handler runs, when the row
+    # can no longer be fetched. A case variant would miss the grants on the stored spelling and
+    # leave them for whatever is created under that name next.
+    if requested_name != stored_name:
+        raise MlflowException.invalid_parameter_value(
+            f"Use the exact name {stored_name!r} to rename or delete it, not {requested_name!r}."
+        )
+
+
 def _stored_registered_model_name(name: str) -> str:
     # See ``_registry_name_permission``: grants are keyed on the stored spelling of the name.
     if not name:
@@ -2348,6 +2358,8 @@ def _reject_wildcard_model_name(name: str) -> None:
 def validate_can_rename_registered_model() -> bool:
     if not _validate_can_update_registered_model_or_prompt():
         return False
+    if target := _registered_model_or_prompt_target():
+        _require_stored_name_spelling(_get_request_param("name"), target[1])
     _reject_wildcard_model_name(_get_request_message(RenameRegisteredModel()).new_name)
     return True
 
@@ -2412,6 +2424,7 @@ def validate_can_delete_registered_model_or_prompt_cascade():
     if target is None:
         return False
     container_type, name = target
+    _require_stored_name_spelling(_get_request_param("name"), name)
     version_type = (
         RESOURCE_TYPE_PROMPT_VERSION
         if container_type == RESOURCE_TYPE_PROMPT
@@ -8775,7 +8788,14 @@ def _get_mcp_server_validator(
             return _mcp_server_version_action_allowed(
                 username, name, _mcp_version_action(parts, request.method)
             )
-        perm = _get_mcp_server_permission(name, username)
+        if server is None:
+            perm = _get_mcp_server_permission(name, username)
+        else:
+            perm = _get_role_permission_or_default(
+                _role_permission_for_known_workspace(
+                    username, "mcp_server", server.name, server.workspace
+                )
+            )
         match request.method:
             case "GET":
                 allowed = perm.can_read
@@ -8799,6 +8819,8 @@ def _get_mcp_server_validator(
         ):
             return _mcp_server_version_not_denied(username, name)
         if request.method == "DELETE":
+            if len(parts) == 2:
+                _require_stored_name_spelling(requested_name, name)
             return _mcp_server_version_action_allowed(username, name, "delete")
         return True
 

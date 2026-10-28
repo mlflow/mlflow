@@ -10272,3 +10272,60 @@ def test_mcp_server_deny_applies_to_name_case_variants(workspace_permission_setu
             f"/ajax-api/3.0/mlflow/mcp-servers/{route}", "GET"
         )
         assert not asyncio.run(validator(username, SimpleNamespace(method="GET")))
+
+
+@pytest.mark.parametrize(
+    ("route", "method", "validator"),
+    [
+        ("registered-models/rename", "POST", "validate_can_rename_registered_model"),
+        (
+            "registered-models/delete",
+            "DELETE",
+            "validate_can_delete_registered_model_or_prompt_cascade",
+        ),
+    ],
+)
+def test_registered_model_rename_and_delete_require_stored_name_spelling(
+    workspace_permission_setup, monkeypatch, route, method, validator
+):
+    # The grant sweep after a rename or delete keys on the requested name, so a case variant
+    # would leave the stored name's grants behind.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(
+        auth_module,
+        "_get_model_registry_store",
+        lambda: _CaseInsensitiveRegistryStore({"Foo": "team-a"}),
+    )
+    _set_workspace_permission(store, username, USE.name)
+    store.grant_user_resource_permission(username, "registered_model", "*", MANAGE.name)
+
+    for name, allowed in (("Foo", True), ("foo", False)):
+        with auth_module.app.test_request_context(
+            f"/api/2.0/mlflow/{route}", method=method, json={"name": name, "new_name": "Bar"}
+        ):
+            if allowed:
+                assert getattr(auth_module, validator)()
+            else:
+                with pytest.raises(MlflowException, match="Use the exact name 'Foo'"):
+                    getattr(auth_module, validator)()
+
+
+def test_mcp_server_delete_requires_stored_name_spelling(workspace_permission_setup, monkeypatch):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(
+        auth_module._get_tracking_store(),
+        "get_mcp_server",
+        lambda name: SimpleNamespace(name="com.test/srv", workspace="team-a"),
+    )
+    _set_workspace_permission(store, username, USE.name)
+    store.grant_user_resource_permission(username, "mcp_server", "*", MANAGE.name)
+
+    request = SimpleNamespace(method="DELETE")
+    prefix = "/ajax-api/3.0/mlflow/mcp-servers"
+    validator = auth_module._find_fastapi_validator(f"{prefix}/com.test/srv", "DELETE")
+    assert asyncio.run(validator(username, request))
+    validator = auth_module._find_fastapi_validator(f"{prefix}/com.test/Srv", "DELETE")
+    with pytest.raises(MlflowException, match="Use the exact name 'com.test/srv'"):
+        asyncio.run(validator(username, request))
