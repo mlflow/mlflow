@@ -4280,6 +4280,69 @@ def test_search_logged_models_metric_filter_does_not_shrink_pages(store: SqlAlch
     assert len(actual_names) == len(set(actual_names))
 
 
+def test_search_logged_models_nan_metric(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="run"
+    )
+    diverged = store.create_logged_model(experiment_id=exp_id, name="diverged")
+    good = store.create_logged_model(experiment_id=exp_id, name="good")
+    store.log_metric(
+        run.info.run_id, Metric("loss", float("nan"), 0, 0, model_id=diverged.model_id)
+    )
+    store.log_metric(run.info.run_id, Metric("loss", 0.05, 0, 0, model_id=good.model_id))
+
+    (metric,) = store.get_logged_model(diverged.model_id).metrics
+    assert math.isnan(metric.value)
+
+    def search(**kwargs):
+        return [m.name for m in store.search_logged_models(experiment_ids=[exp_id], **kwargs)]
+
+    assert search(filter_string="metrics.loss < 0.1") == ["good"]
+    assert search(filter_string="metrics.loss = 0") == []
+    assert search(filter_string="metrics.loss != 0.05") == ["diverged"]
+    for ascending in [True, False]:
+        order_by = [{"field_name": "metrics.loss", "ascending": ascending}]
+        assert search(order_by=order_by) == ["good", "diverged"]
+
+
+def test_log_batch_nan_logged_model_metric_duplicates(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run_id = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="run"
+    ).info.run_id
+    model_id = store.create_logged_model(experiment_id=exp_id, name="model").model_id
+
+    def nan_metric():
+        return Metric("loss", float("nan"), 100, 0, model_id=model_id)
+
+    store.log_batch(run_id, metrics=[nan_metric(), nan_metric()], params=[], tags=[])
+    store.log_batch(run_id, metrics=[nan_metric()], params=[], tags=[])
+    (metric,) = store.get_logged_model(model_id).metrics
+    assert math.isnan(metric.value)
+
+    # A different value for the same primary key is still rejected.
+    with pytest.raises(
+        MlflowException, match="UNIQUE constraint failed|duplicate key|Duplicate entry"
+    ):
+        store.log_batch(
+            run_id, metrics=[Metric("loss", 0.5, 100, 0, model_id=model_id)], params=[], tags=[]
+        )
+
+
+@pytest.mark.parametrize("value", [None, "abc"])
+def test_log_metric_invalid_value_with_model_id(store: SqlAlchemyStore, value):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run_id = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="run"
+    ).info.run_id
+    model_id = store.create_logged_model(experiment_id=exp_id, name="model").model_id
+
+    with pytest.raises(MlflowException, match="parameter 'value'") as e:
+        store.log_metric(run_id, Metric("loss", value, 0, 0, model_id=model_id))
+    assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
 def test_search_logged_models_eager_loads_tags_params_and_metrics(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     run = store.create_run(
