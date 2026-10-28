@@ -1618,11 +1618,11 @@ def _optimizer_gateway_endpoint_requirement(optimizer_config_json: str):
 def _registered_scorer_names(names: "Sequence[str]") -> list[str]:
     # A built-in that instantiates is code, not a stored resource. Any other name makes the
     # worker load the REGISTERED scorer of that name (optimize.job._load_scorers).
-    from mlflow.genai.scorers import builtin_scorers
+    from mlflow.genai.scorers.builtin_scorers import _get_builtin_scorer_class
 
     registered = set()
     for name in names:
-        builtin = getattr(builtin_scorers, name, None)
+        builtin = _get_builtin_scorer_class(name)
         if builtin is not None:
             try:
                 builtin()
