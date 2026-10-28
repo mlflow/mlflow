@@ -226,6 +226,25 @@ def test_list_users_with_roles_eager_loads_in_one_batch(store, user, user2):
     assert {(r.workspace, r.name) for r in by_username[user2.username]} == {("ws3", "other")}
 
 
+def test_list_users_with_roles_scoped_to_workspace(store, user, user2):
+    admin = store.create_user(random_str(), random_str(), is_admin=True)
+    requester = store.create_user(random_str(), random_str())
+    outsider = store.create_user(random_str(), random_str())
+    store.assign_role_to_user(user.id, store.create_role(name="viewer", workspace="ws1").id)
+    store.assign_role_to_user(user2.id, store.create_role(name="editor", workspace="ws1").id)
+    store.assign_role_to_user(outsider.id, store.create_role(name="other", workspace="ws2").id)
+
+    scoped = store.list_users_with_roles(workspace="ws1", requester=requester.username)
+
+    assert {u.username for u, _ in scoped} == {
+        admin.username,
+        requester.username,
+        user.username,
+        user2.username,
+    }
+    assert outsider.username in {u.username for u, _ in store.list_users_with_roles()}
+
+
 def test_list_user_present_workspaces(store, user):
     # No assignments → empty set.
     assert store.list_user_present_workspaces(user.id) == set()

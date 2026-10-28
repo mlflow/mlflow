@@ -223,23 +223,32 @@ class SqlAlchemyStore:
             users = session.query(SqlUser).all()
             return [u.to_mlflow_entity() for u in users]
 
-    def list_users_with_roles(self) -> list[tuple[User, list[Role]]]:
+    def list_users_with_roles(
+        self, workspace: str | None = None, requester: str | None = None
+    ) -> list[tuple[User, list[Role]]]:
         """
         Return every user paired with their role assignments. Eager-loads
         assignments / roles / role-permissions in batched queries so the admin
         Users tab can render per-user role info without N per-row requests.
+        With ``workspace``, only admins, ``requester`` and users with a role there.
         """
         with self.ManagedSessionMaker() as session:
-            users = (
-                session
-                .query(SqlUser)
-                .options(
-                    selectinload(SqlUser.user_role_assignments)
-                    .selectinload(SqlUserRoleAssignment.role)
-                    .selectinload(SqlRole.permissions)
-                )
-                .all()
+            query = session.query(SqlUser).options(
+                selectinload(SqlUser.user_role_assignments)
+                .selectinload(SqlUserRoleAssignment.role)
+                .selectinload(SqlRole.permissions)
             )
+            if workspace is not None:
+                query = query.filter(
+                    or_(
+                        SqlUser.is_admin,
+                        SqlUser.username == requester,
+                        SqlUser.user_role_assignments.any(
+                            SqlUserRoleAssignment.role.has(SqlRole.workspace == workspace)
+                        ),
+                    )
+                )
+            users = query.all()
             return [
                 (u.to_mlflow_entity(), [a.role.to_mlflow_entity() for a in u.user_role_assignments])
                 for u in users
