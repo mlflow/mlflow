@@ -320,7 +320,6 @@ def test_invoke_issue_detection_job_builds_its_client_against_the_store(monkeypa
     URI fails with 401 on an auth-enabled server. The client this job builds must see the store.
     """
     previous = mlflow.get_tracking_uri()
-    store_uri = _store_backed_tracking(monkeypatch, tmp_path, "detect-store.db")
     seen: dict[str, str] = {}
 
     def _build_client():
@@ -328,6 +327,7 @@ def test_invoke_issue_detection_job_builds_its_client_against_the_store(monkeypa
         return mock.MagicMock()
 
     try:
+        store_uri = _store_backed_tracking(monkeypatch, tmp_path, "detect-store.db")
         with (
             mock.patch("mlflow.genai.discovery.job.MlflowClient", side_effect=_build_client),
             mock.patch("mlflow.genai.discovery.job.discover_issues"),
@@ -346,7 +346,6 @@ def test_invoke_issue_detection_job_builds_its_client_against_the_store(monkeypa
 
 def test_scheduled_issue_detection_job_builds_its_client_against_the_store(monkeypatch, tmp_path):
     previous = mlflow.get_tracking_uri()
-    store_uri = _store_backed_tracking(monkeypatch, tmp_path, "scheduled-store.db")
     seen: dict[str, str] = {}
 
     def _build_client():
@@ -354,6 +353,7 @@ def test_scheduled_issue_detection_job_builds_its_client_against_the_store(monke
         raise RuntimeError("stop after the client is built")
 
     try:
+        store_uri = _store_backed_tracking(monkeypatch, tmp_path, "scheduled-store.db")
         with mock.patch("mlflow.genai.discovery.job.MlflowClient", side_effect=_build_client):
             with pytest.raises(RuntimeError, match="stop after the client is built"):
                 run_scheduled_issue_detection_job(

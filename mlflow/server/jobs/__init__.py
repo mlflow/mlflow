@@ -34,7 +34,14 @@ def _proxied_artifact_repository(artifact_uri, tracking_uri=None, registry_uri=N
     """
     from mlflow.server.handlers import _get_proxied_run_artifact_destination_path
 
-    root = os.environ[ARTIFACTS_DESTINATION_ENV_VAR]
+    # Registration is guarded on this being set, but the registry outlives the check: say which
+    # setting is missing rather than raising KeyError from inside an artifact read.
+    root = os.environ.get(ARTIFACTS_DESTINATION_ENV_VAR)
+    if not root:
+        raise MlflowException(
+            f"Cannot resolve the proxied artifact URI {artifact_uri}: this server does not serve "
+            f"artifacts, so {ARTIFACTS_DESTINATION_ENV_VAR} is unset."
+        )
     path = _get_proxied_run_artifact_destination_path(artifact_uri)
     return get_artifact_repository(posixpath.join(root, path))
 

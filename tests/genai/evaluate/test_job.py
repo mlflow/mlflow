@@ -252,7 +252,6 @@ def test_invoke_genai_evaluate_job_builds_its_client_against_the_store(monkeypat
     monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, str(tmp_path / "artifacts"))
     monkeypatch.setattr(handlers, "_tracking_store", None)
     previous = mlflow.get_tracking_uri()
-    mlflow.set_tracking_uri("http://127.0.0.1:1")
 
     mock_client = mock.MagicMock()
     mock_client._tracing_client.batch_get_traces.return_value = [mock.MagicMock()]
@@ -263,6 +262,7 @@ def test_invoke_genai_evaluate_job_builds_its_client_against_the_store(monkeypat
         return mock_client
 
     try:
+        mlflow.set_tracking_uri("http://127.0.0.1:1")
         with (
             mock.patch("mlflow.genai.evaluation.job.MlflowClient", side_effect=_build_client),
             mock.patch("mlflow.genai.evaluation.job.Scorer.model_validate_json"),

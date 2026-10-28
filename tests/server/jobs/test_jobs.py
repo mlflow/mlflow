@@ -31,6 +31,7 @@ from mlflow.server.job_api import Job as JobApiResponse
 from mlflow.server.jobs import (
     TransientError,
     _job_runner,
+    _proxied_artifact_repository,
     cancel_job,
     get_job,
     job,
@@ -2357,8 +2358,8 @@ def test_use_backend_store_for_tracking_points_away_from_the_server(monkeypatch,
     monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, str(tmp_path / "artifacts"))
     monkeypatch.setattr(handlers, "_tracking_store", None)
     previous = mlflow.get_tracking_uri()
-    mlflow.set_tracking_uri("http://127.0.0.1:1")
     try:
+        mlflow.set_tracking_uri("http://127.0.0.1:1")
         assert mlflow.get_tracking_uri() == "http://127.0.0.1:1"
         use_backend_store_for_tracking()
         assert mlflow.get_tracking_uri() == store_uri
@@ -2389,8 +2390,8 @@ def test_use_backend_store_for_tracking_keeps_proxied_artifacts_reachable(monkey
         _artifact_repository_registry._registry["mlflow-artifacts"],
     )
     previous = mlflow.get_tracking_uri()
-    mlflow.set_tracking_uri("http://127.0.0.1:1")
     try:
+        mlflow.set_tracking_uri("http://127.0.0.1:1")
         use_backend_store_for_tracking()
         assert mlflow.get_tracking_uri() == store_uri
 
@@ -2403,3 +2404,14 @@ def test_use_backend_store_for_tracking_keeps_proxied_artifacts_reachable(monkey
         assert repo.artifact_dir == str(destination / "7/run-1/artifacts")
     finally:
         mlflow.set_tracking_uri(previous)
+
+
+def test_proxied_artifact_repository_without_a_destination_names_the_missing_setting(monkeypatch):
+    """
+    Registration is guarded on a destination being configured, but the registry outlives that
+    check, so the factory has to answer for itself rather than raising ``KeyError`` from inside
+    an artifact read.
+    """
+    monkeypatch.delenv(ARTIFACTS_DESTINATION_ENV_VAR, raising=False)
+    with pytest.raises(MlflowException, match="does not serve artifacts"):
+        _proxied_artifact_repository("mlflow-artifacts:/7/run-1/artifacts")
