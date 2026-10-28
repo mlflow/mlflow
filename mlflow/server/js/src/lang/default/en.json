@@ -5603,6 +5603,10 @@
     "defaultMessage": "Reset to defaults",
     "description": "Menu item that resets the traces table column visibility to defaults"
   },
+  "GCLJQD": {
+    "defaultMessage": "View run history",
+    "description": "Experiment issues tab > Empty state link to the detection run history"
+  },
   "GDenB3": {
     "defaultMessage": "Metrics",
     "description": "Field name text for metrics table in the model comparison page"

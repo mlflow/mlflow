@@ -15,9 +15,9 @@ import {
 } from '@databricks/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
-import { Link } from '../../../common/utils/RoutingUtils';
+import { Link, matchPath, useLocation } from '../../../common/utils/RoutingUtils';
 import { generateRandomName } from '../../../common/utils/NameUtils';
-import Routes from '../../routes';
+import Routes, { RoutePaths } from '../../routes';
 import { useApiKeyConfiguration } from '../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration';
 import { useCreateSecret } from '../../../gateway/hooks/useCreateSecret';
 import { useEndpointsQuery } from '../../../gateway/hooks/useEndpointsQuery';
@@ -344,6 +344,10 @@ export const ExperimentIssuesScheduleControl = ({
 }: ExperimentIssuesScheduleControlProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  // Whether the footer's "View run history" link would lead where the user already is. Read off
+  // the route rather than taken as a prop, so the link stays right by itself wherever this dialog
+  // is opened from -- including a surface that does not exist yet.
+  const isOnRunHistoryPage = Boolean(matchPath(RoutePaths.experimentPageTabIssueDetectionRuns, useLocation().pathname));
   // Replaces upstream's experiment-ACL check: OSS has no per-experiment write permission for
   // tags, but it does have servers that cannot run a schedule at all.
   const scheduledDetectionAvailable = useScheduledDetectionAvailable();
@@ -851,8 +855,9 @@ export const ExperimentIssuesScheduleControl = ({
           <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             {/* Where upstream puts "View run history". Upstream's opens the managed scheduler's
                 own history; this one opens every detection run this experiment has recorded, the
-                scheduled ones among them. Hidden on the API-key step, which is mid-save. */}
-            {view === 'main' && (
+                scheduled ones among them. Hidden on the API-key step, which is mid-save, and on
+                the history page itself, where it would lead nowhere. */}
+            {view === 'main' && !isOnRunHistoryPage && (
               <Link
                 componentId={`${COMPONENT_ID}.modal.footer.run-history`}
                 to={Routes.getIssueDetectionRunsRoute(experimentId)}

@@ -213,6 +213,10 @@ const DetectionRunsContent = ({ experimentId }: { experimentId: string }) => {
   const { rows, newIssueCounts, hasNextPage, fetchNextPage, isLoading, isFetching, error, refetch } =
     useDetectionRuns(experimentId);
 
+  // Read once per render rather than per row, so every duration on screen is measured from the
+  // same instant. An unfinished run is timed against it, so its duration sits still between
+  // renders -- bounded by `RUNNING_POLL_INTERVAL_MS`, since polling is what renders the page
+  // again. A ticking clock would buy a second-accurate figure for a run that takes minutes.
   const nowMs = Date.now();
   // What the schedule does, in the words the dialog uses for the same thing, so the page and the
   // dialog cannot describe one schedule two ways.

@@ -138,11 +138,14 @@ const traceFilterTag = (filters: unknown[]): SavedTag => ({
   value: JSON.stringify(filters),
 });
 
-/** A router is required because the dialog's footer links out to the run history page. */
-const renderWithVariant = (triggerVariant?: 'status' | 'editButton') => {
+/**
+ * A router is required because the dialog's footer links out to the run history page, and `at` is
+ * the route it is opened from, which decides whether that link leads anywhere.
+ */
+const renderWithVariant = (triggerVariant?: 'status' | 'editButton', at = '/experiments/1/issues') => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, cacheTime: 0 } } });
   return renderWithDesignSystem(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[at]}>
       <QueryClientProvider client={client}>
         <ExperimentIssuesScheduleControl experimentId="1" triggerVariant={triggerVariant} />
       </QueryClientProvider>
@@ -1260,6 +1263,18 @@ describe('ExperimentIssuesScheduleControl', () => {
       await openModal(user, 'Edit schedule');
 
       expect(await screen.findByRole('button', { name: 'Save' })).toBeInTheDocument();
+    });
+
+    test('the link is hidden on the run history page, where it would lead nowhere', async () => {
+      // The dialog opens in place there, from Edit schedule, so the link would point at the page
+      // the user is already reading.
+      experimentTags = [scheduleTag('weekly')];
+      const user = setup();
+      renderWithVariant('editButton', '/experiments/1/issues/runs');
+      await openModal(user, 'Edit schedule');
+
+      expect(await screen.findByRole('button', { name: 'Save' })).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'View run history' })).not.toBeInTheDocument();
     });
 
     test('the link is hidden on the API key step, which is mid-save', async () => {

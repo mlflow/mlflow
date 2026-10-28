@@ -402,27 +402,6 @@ export const normalizeTraceFilters = (filters: ScheduleTraceFilter[]): ScheduleT
     .filter((filter) => filter.key.length > 0);
 
 /**
- * The zone a save stores: the one already on the schedule, or the editor's browser zone when it
- * has none. Preserving it is what stops an edit made elsewhere moving when the schedule fires --
- * pausing a Tokyo daily schedule from Los Angeles would otherwise resume it at 09:00 Pacific.
- * There is no timezone control in the modal, so a stored zone is only ever changed by the server.
- *
- * The modal now offers a timezone control, so a zone the owner picked is passed in and wins; this
- * is the fallback chain behind it. A schedule saved before the control existed keeps the zone it
- * was given, which is what stops an edit made elsewhere moving when it fires.
- */
-/**
- * An instant the server computed, in the zone the schedule stores it in.
- *
- * Formatted in the stored zone rather than the browser's, because that is the zone the server
- * read the instant in: naming the hour in any other zone would describe a time it is not going
- * to fire at. 24-hour to match the start-time selects, where "16:00" and "4:00 PM" side by side
- * would read as two different times.
- *
- * Returns undefined for a zone this browser cannot load -- older tzdata, or one added since --
- * because `Intl` throws on those, and the server decides which zones it accepts, not the browser.
- */
-/**
  * The weekday names a schedule's stored weekday indexes into, Monday first.
  *
  * Monday-first because that is the order the schedule stores (Monday as 0), not a display
@@ -434,6 +413,17 @@ export const weekdayLabels = (locale: string): string[] => {
   return Array.from({ length: 7 }, (_, index) => formatter.format(new Date(Date.UTC(2026, 0, 5 + index))));
 };
 
+/**
+ * An instant the server computed, in the zone the schedule stores it in.
+ *
+ * Formatted in the stored zone rather than the browser's, because that is the zone the server
+ * read the instant in: naming the hour in any other zone would describe a time it is not going
+ * to fire at. 24-hour to match the start-time selects, where "16:00" and "4:00 PM" side by side
+ * would read as two different times.
+ *
+ * Returns undefined for a zone this browser cannot load -- older tzdata, or one added since --
+ * because `Intl` throws on those, and the server decides which zones it accepts, not the browser.
+ */
 export const formatScheduleInstant = (ms: number, timezone: string, locale: string): string | undefined => {
   try {
     return new Intl.DateTimeFormat(locale, {
@@ -470,6 +460,16 @@ export const formatScheduleWindowBound = (ms: number, timezone: string, locale: 
   }
 };
 
+/**
+ * The zone a save stores: the one already on the schedule, or the editor's browser zone when it
+ * has none. Preserving it is what stops an edit made elsewhere moving when the schedule fires --
+ * pausing a Tokyo daily schedule from Los Angeles would otherwise resume it at 09:00 Pacific.
+ * There is no timezone control in the modal, so a stored zone is only ever changed by the server.
+ *
+ * The modal now offers a timezone control, so a zone the owner picked is passed in and wins; this
+ * is the fallback chain behind it. A schedule saved before the control existed keeps the zone it
+ * was given, which is what stops an edit made elsewhere moving when it fires.
+ */
 export const resolveScheduleTimezone = (chosen?: string, stored?: string): string =>
   chosen?.trim() || stored?.trim() || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 

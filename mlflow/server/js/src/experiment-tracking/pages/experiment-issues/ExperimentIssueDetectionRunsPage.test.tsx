@@ -457,6 +457,8 @@ describe('ExperimentIssueDetectionRunsPage', () => {
 
     expect(await screen.findByRole('button', { name: 'Save' })).toBeInTheDocument();
     expect(screen.getByText('Issue detection run history')).toBeInTheDocument();
+    // And the footer's link to this page is withheld here: it would lead where the user is.
+    expect(screen.queryByRole('link', { name: 'View run history' })).not.toBeInTheDocument();
   });
 
   test('a failed read says so instead of claiming nothing has ever run', async () => {

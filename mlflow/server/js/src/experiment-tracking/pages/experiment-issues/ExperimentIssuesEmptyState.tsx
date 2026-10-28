@@ -11,6 +11,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
+import { Link } from '../../../common/utils/RoutingUtils';
 import { IssueDetectionIllustration } from './IssueDetectionIllustration';
 
 const IssueDetectionExampleBubbles = () => {
@@ -146,6 +147,15 @@ export interface ExperimentIssuesEmptyStateProps {
   isDetecting: boolean;
   detectionEnabled: boolean;
   onRunIssueDetection: () => void;
+  /**
+   * Route of the detection run history, when there is any to read.
+   *
+   * This state is where a detection that failed or found nothing lands, and the toolbar that
+   * normally carries the history button is not rendered behind it -- so without a link here the
+   * reason a run failed would be unreachable from the one screen that reports it. Absent on an
+   * experiment where nothing has ever run, since the page would be empty too.
+   */
+  runHistoryRoute?: string;
 }
 
 export const ExperimentIssuesEmptyState = ({
@@ -156,9 +166,18 @@ export const ExperimentIssuesEmptyState = ({
   isDetecting,
   detectionEnabled,
   onRunIssueDetection,
+  runHistoryRoute,
 }: ExperimentIssuesEmptyStateProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const secondaryLinkCss = {
+    '&&, &&:focus, &&:hover, &&:active': {
+      color: theme.colors.textSecondary,
+      '.anticon': {
+        color: theme.colors.textSecondary,
+      },
+    },
+  } as const;
   const buttonText =
     hasTimedOutDetectionRun || hasFailedDetectionRun
       ? intl.formatMessage({
@@ -238,24 +257,33 @@ export const ExperimentIssuesEmptyState = ({
               {buttonText}
             </Button>
           )}
-          <Typography.Link
-            componentId="mlflow.experiment-issues.empty-state.learn-how"
-            href="https://mlflow.org/docs/latest/genai/eval-monitor/ai-insights/detect-issues/"
-            openInNewTab
-            css={{
-              '&&, &&:focus, &&:hover, &&:active': {
-                color: theme.colors.textSecondary,
-                '.anticon': {
-                  color: theme.colors.textSecondary,
-                },
-              },
-            }}
-          >
-            <FormattedMessage
-              defaultMessage="Learn how it works"
-              description="Experiment issues tab > Empty state documentation link"
-            />
-          </Typography.Link>
+          {/* On one line so the stack stays two rows tall, and in the same muted grey, so neither
+              link competes with the action above them. */}
+          <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.md }}>
+            {runHistoryRoute && (
+              <Link
+                componentId="mlflow.experiment-issues.empty-state.run-history"
+                to={runHistoryRoute}
+                css={secondaryLinkCss}
+              >
+                <FormattedMessage
+                  defaultMessage="View run history"
+                  description="Experiment issues tab > Empty state link to the detection run history"
+                />
+              </Link>
+            )}
+            <Typography.Link
+              componentId="mlflow.experiment-issues.empty-state.learn-how"
+              href="https://mlflow.org/docs/latest/genai/eval-monitor/ai-insights/detect-issues/"
+              openInNewTab
+              css={secondaryLinkCss}
+            >
+              <FormattedMessage
+                defaultMessage="Learn how it works"
+                description="Experiment issues tab > Empty state documentation link"
+              />
+            </Typography.Link>
+          </div>
         </div>
       }
     />

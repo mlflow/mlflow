@@ -882,9 +882,29 @@ describe('Experiment Issues', () => {
       'href',
       'https://mlflow.org/docs/latest/genai/eval-monitor/ai-insights/detect-issues/',
     );
+    // Nothing has ever run here, so the history would be empty too.
+    expect(screen.queryByRole('link', { name: 'View run history' })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Run issue detection' }));
     expect(await screen.findByRole('dialog')).toHaveTextContent('Selected traces: trace-1, trace-2');
   });
+  test.each(['FAILED', 'SUCCEEDED'])('reaches the run history from the empty state after a %s run', async (status) => {
+    // This state hides the toolbar that normally carries the history button, and it is exactly
+    // where a detection that failed or found nothing lands -- so without a link here the reason a
+    // run failed is unreachable from the one screen that reports it.
+    issues = [];
+    latestRun = {
+      info: { run_id: 'run-1', status: 'RUNNING' },
+      data: { tags: [{ key: 'mlflow.issueDetection.jobId', value: 'job-1' }] },
+    };
+    jobStatus = status;
+    renderPage();
+
+    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+    await userEvent.click(await screen.findByRole('link', { name: 'View run history' }));
+
+    expect(screen.getByLabelText('Current URL')).toHaveTextContent('/experiments/1/issues/runs');
+  });
+
   test.each(['FAILED', 'TIMEOUT'])('offers a centered new detection after an empty %s run', async (status) => {
     issues = [];
     latestRun = {
