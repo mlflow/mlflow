@@ -638,3 +638,14 @@ def test_load_model_refuses_model_from_code_before_loading_settings(tmp_path, mo
     ):
         mlflow.llama_index.load_model(str(tmp_path))
     deserialize.assert_not_called()
+
+
+def test_load_model_refuses_settings_that_name_classes(tmp_path, monkeypatch):
+    (tmp_path / "MLmodel").write_text("flavors:\n  llama_index: {}\n")
+    (tmp_path / "settings.json").write_text(
+        json.dumps({"_llm": {"object_constructor": "not_a_module.Llm", "object_kwargs": {}}})
+    )
+
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with pytest.raises(MlflowException, match="LlamaIndex settings that name classes"):
+        mlflow.llama_index.load_model(str(tmp_path))
