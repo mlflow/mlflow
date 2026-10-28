@@ -20,7 +20,7 @@ $defs:
         minLength: 1
       job_run_url:
         type: string
-        pattern: '^https://github\.com/mlflow/mlflow/actions/runs/[0-9]+/attempts/[0-9]+/job/[0-9]+$'
+        pattern: '^https://github\.com/mlflow/mlflow/actions/runs/[0-9]+/job/[0-9]+$'
   group:
     type: object
     required: [verdict, summary, jobs, evidence]

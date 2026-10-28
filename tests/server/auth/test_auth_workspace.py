@@ -4719,6 +4719,53 @@ def test_validate_can_list_roles_blank_workspace_denied_for_non_admin(role_auth_
         assert auth_module.validate_can_list_roles() is False
 
 
+@pytest.mark.parametrize("workspace", ["foo ", " foo", "foo\t"])
+def test_validate_can_list_roles_checks_the_workspace_value_unstripped(role_auth_setup, workspace):
+    # list_roles queries the raw value, so a padded name is a different workspace.
+    role_auth_setup["login_as"]("ws_member_foo")
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/roles/list", method="GET", query_string={"workspace": workspace}
+    ):
+        assert auth_module.validate_can_list_roles() is False
+
+
+def _create_role_as_super_admin(role_auth_setup, monkeypatch, workspace_store, workspace):
+    monkeypatch.setattr(auth_module, "_get_workspace_store", lambda: workspace_store)
+    role_auth_setup["login_as"]("super_admin")
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/roles/create",
+        method="POST",
+        json={"name": "squatter", "workspace": workspace},
+    ):
+        return auth_module.create_role()
+
+
+def test_create_role_rejects_a_workspace_that_does_not_exist(role_auth_setup, monkeypatch):
+    # A role created ahead of its workspace would pre-empt the workspace's default roles.
+    workspace_store = Mock()
+    workspace_store.get_workspace.side_effect = MlflowException(
+        "not found", RESOURCE_DOES_NOT_EXIST
+    )
+    response = _create_role_as_super_admin(role_auth_setup, monkeypatch, workspace_store, "new")
+    assert response.status_code == 400
+    assert "Workspace 'new' does not exist." in response.get_json()["message"]
+    assert auth_module.store.list_roles(["new"]) == []
+
+
+def test_create_role_in_an_existing_workspace(role_auth_setup, monkeypatch):
+    response = _create_role_as_super_admin(role_auth_setup, monkeypatch, Mock(), "foo")
+    assert response.status_code == 200
+    assert response.get_json()["role"]["workspace"] == "foo"
+
+
+def test_create_role_skips_the_workspace_check_without_workspaces(role_auth_setup, monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    workspace_store = Mock()
+    response = _create_role_as_super_admin(role_auth_setup, monkeypatch, workspace_store, "foo")
+    assert response.status_code == 200
+    workspace_store.get_workspace.assert_not_called()
+
+
 @pytest.mark.parametrize(
     ("actor", "workspaces", "expected"),
     [
@@ -10088,3 +10135,51 @@ def test_experiment_id_from_canonical_proxy_path_workspace_prefix_ignores_case(p
     # ``filter_list_artifacts_proxy`` passes the full path, so the experiment-root listing filter
     # must resolve the experiment for any spelling of the prefix.
     assert auth_module._experiment_id_from_canonical_proxy_path(f"{prefix}/team-a/17") == "17"
+
+
+def _graphql_info(field_name="mlflowGetExperiment"):
+    return SimpleNamespace(field_name=field_name, parent_type=SimpleNamespace(name="Query"))
+
+
+def test_graphql_admin_check_honors_an_overridden_sender_is_admin(monkeypatch):
+    # An auth plugin can recognize an admin with no users row; GraphQL must agree with REST.
+    store = Mock()
+    store.get_user.side_effect = MlflowException("no users row", RESOURCE_DOES_NOT_EXIST)
+    monkeypatch.setattr(auth_module, "store", store)
+    monkeypatch.setattr(
+        auth_module, "authenticate_request", lambda: SimpleNamespace(username="plugin-admin")
+    )
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: True)
+    middleware = auth_module.GraphQLAuthorizationMiddleware()
+    with auth_module.app.test_request_context("/graphql", method="POST"):
+        result = middleware.resolve(lambda root, info, **args: "data", None, _graphql_info())
+    assert result == "data"
+    store.get_user.assert_not_called()
+
+
+def test_graphql_non_admin_is_still_authorized_per_field(monkeypatch):
+    monkeypatch.setattr(
+        auth_module, "authenticate_request", lambda: SimpleNamespace(username="alice")
+    )
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    middleware = auth_module.GraphQLAuthorizationMiddleware()
+    monkeypatch.setattr(middleware, "_check_authorization", lambda *args: False)
+    with auth_module.app.test_request_context("/graphql", method="POST"):
+        result = middleware.resolve(lambda root, info, **args: "data", None, _graphql_info())
+    assert result is None
+
+
+def test_graphql_admin_check_runs_once_per_request(monkeypatch):
+    monkeypatch.setattr(
+        auth_module, "authenticate_request", lambda: SimpleNamespace(username="admin")
+    )
+    sender_is_admin = Mock(return_value=True)
+    monkeypatch.setattr(auth_module, "sender_is_admin", sender_is_admin)
+    middleware = auth_module.GraphQLAuthorizationMiddleware()
+    with auth_module.app.test_request_context("/graphql", method="POST"):
+        for field_name in ["mlflowGetRun", "mlflowSearchRuns"]:
+            result = middleware.resolve(
+                lambda root, info, **args: "data", None, _graphql_info(field_name)
+            )
+            assert result == "data"
+    sender_is_admin.assert_called_once()

@@ -178,8 +178,7 @@ jobs:
           echo "::stop-commands::$token"
           trap 'echo "::$token::"' EXIT
           timeout --kill-after=10s 35m srt --settings "$RUNNER_TEMP/nightly-srt.json" -- \
-            env -u NO_PROXY -u no_proxy -u GITHUB_OUTPUT -u GITHUB_ENV -u GITHUB_PATH \
-              -u GITHUB_STATE -u GITHUB_STEP_SUMMARY claude \
+            env -u NO_PROXY -u no_proxy claude \
               --model databricks-claude-sonnet-5-5 \
               --effort medium \
               --permission-mode auto \
@@ -215,7 +214,7 @@ jobs:
 
   publish:
     needs: analyze
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -247,6 +246,7 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
         run: |
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
@@ -259,4 +259,4 @@ jobs:
               --description 'Failures detected by scheduled CI jobs.' --force
           fi
           python .claude/skills/nightly/scripts/publish.py \
-            /tmp/nightly-analysis/analysis.json "${args[@]}"
+            /tmp/nightly-analysis/analysis.json --run-url "$RUN_URL" "${args[@]}"

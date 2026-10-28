@@ -488,6 +488,14 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
             dataset_record_ids=record_ids,
         )
         self._records = None  # Clear cached records
+
+        # The deletion updates the profile in the backend; refresh it so this object's
+        # metadata matches its records when logged as a run input.
+        updated_dataset = tracking_store.get_dataset(self.dataset_id)
+        self._profile = updated_dataset.profile
+        self.last_update_time = updated_dataset.last_update_time
+        self.last_updated_by = updated_dataset.last_updated_by
+
         return deleted_count
 
     @record_usage_event(DatasetToDataFrameEvent)

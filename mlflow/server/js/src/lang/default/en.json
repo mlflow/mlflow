@@ -19,10 +19,6 @@
     "defaultMessage": "Registered At",
     "description": "Label name for registered timestamp metadata in model version page"
   },
-  "+2J6oE": {
-    "defaultMessage": "Medium",
-    "description": "Issue severity tag label for medium severity"
-  },
   "+33ShX": {
     "defaultMessage": "Cancel",
     "description": "Button label for cancelling the creation of an assessment"
@@ -358,10 +354,6 @@
   "/F/mYf": {
     "defaultMessage": "Skill folder",
     "description": "Aria label for the skill directory picker"
-  },
-  "/FWWkj": {
-    "defaultMessage": "Issue detection run",
-    "description": "Tooltip for the AI icon indicating this is an issue detection run"
   },
   "/G/eHs": {
     "defaultMessage": "Run judge",
@@ -887,10 +879,6 @@
     "defaultMessage": "User",
     "description": "Label for the user id section"
   },
-  "12WZU6": {
-    "defaultMessage": "Issues",
-    "description": "Run details page > tab selector > issues tab"
-  },
   "13uH6N": {
     "defaultMessage": "Complete or remove unsupported filters before applying.",
     "description": "Invalid or incomplete comparison trace filter"
@@ -1019,10 +1007,6 @@
     "defaultMessage": "Create judge",
     "description": "Create judge button text"
   },
-  "1XEl9S": {
-    "defaultMessage": "Save",
-    "description": "Button to save issue changes"
-  },
   "1YGQOY": {
     "defaultMessage": "Duplicate run",
     "description": "Experiment page > artifact compare view > run column header > \"duplicate run\" button label"
@@ -1143,10 +1127,6 @@
     "defaultMessage": "{count, plural, one {# improved comparison group} other {# improved comparison groups}} compared with baseline",
     "description": "Count of matched session summaries or standalone traces that improved against baseline"
   },
-  "1uyr/n": {
-    "defaultMessage": "View {count} {count, plural, one {issue} other {issues}}",
-    "description": "Issue detection summary > View issues button"
-  },
   "1v3p5x": {
     "defaultMessage": "This MLflow server is not configured to run scheduled detection. It needs a SQL backend store, job execution and periodic tasks enabled, and a job execution engine that can run scheduled detection.",
     "description": "Experiment issues tab > Tooltip explaining the scheduled-detection control is disabled because the server cannot run a schedule"
@@ -1250,10 +1230,6 @@
   "2IZ7j4": {
     "defaultMessage": "Trace",
     "description": "Experiment issues tab > Evidence card > Fallback trace name"
-  },
-  "2Im7IU": {
-    "defaultMessage": "Move to pending",
-    "description": "Button to move an issue back to pending status"
   },
   "2J+I80": {
     "defaultMessage": "State",
@@ -1386,10 +1362,6 @@
   "2bLoV1": {
     "defaultMessage": "No issues match these filters.",
     "description": "Experiment Issues no matching results"
-  },
-  "2cshW2": {
-    "defaultMessage": "Resolved ({count})",
-    "description": "Issue status filter > Resolved button label"
   },
   "2deqxk": {
     "defaultMessage": "We couldn't find any models matching your search criteria. Try changing your search filters.",
@@ -2059,10 +2031,6 @@
     "defaultMessage": "In progress",
     "description": "Running trace status in the trace drawer header"
   },
-  "4kSYNV": {
-    "defaultMessage": "No issues found",
-    "description": "Issue detection run details > Issues tab > Empty state title"
-  },
   "4mxOPT": {
     "defaultMessage": "Estimated cost",
     "description": "Accessible label for evaluation run estimated cost information"
@@ -2182,10 +2150,6 @@
   "5DuosT": {
     "defaultMessage": "{status, select, SCHEDULED {Scheduled} FAILED {Failed} FINISHED {Finished} RUNNING {Running} KILLED {Killed} other {Unknown}}",
     "description": "Human-readable status of an evaluation run"
-  },
-  "5EY1X7": {
-    "defaultMessage": "Small trace samples and weaker models can miss real issues. Ways to improve coverage:",
-    "description": "Introduction of the guidance callout on low-result issue detection runs"
   },
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
@@ -3719,14 +3683,6 @@
     "defaultMessage": "Add chart",
     "description": "Experiment tracking > runs charts > add chart menu"
   },
-  "9w0l9N": {
-    "defaultMessage": "Reject",
-    "description": "Button to reject an issue"
-  },
-  "9w1lBO": {
-    "defaultMessage": "Failed to update issue status: {error}",
-    "description": "Error message when issue status update fails"
-  },
   "9wWapn": {
     "defaultMessage": "Click 'Add chart' or drag and drop to add charts here.",
     "description": "Runs compare page > Charts tab > No charts placeholder description"
@@ -3902,10 +3858,6 @@
   "AP+v4+": {
     "defaultMessage": "Delete",
     "description": "MCP server detail delete server action"
-  },
-  "APwgn9": {
-    "defaultMessage": "Identifying issues from traces...",
-    "description": "Issue detection progress > Step label (fallback)"
   },
   "AQh8lf": {
     "defaultMessage": "Model",
@@ -4159,10 +4111,6 @@
     "defaultMessage": "Your saved view was overridden.",
     "description": "Experiment page > shared view > confirmation toast after overriding the user's saved view with a shared view"
   },
-  "BDnRzZ": {
-    "defaultMessage": "Total cost: {cost}",
-    "description": "Issue detection progress > Total cost in USD"
-  },
   "BEFBcB": {
     "defaultMessage": "We support multiple experiment types, each with its own set of features. Please select the type you'd like to use. You can change this later if needed.",
     "description": "Popover message displayed when the experiment type could not not inferred"
@@ -4278,10 +4226,6 @@
   "Bbm59f": {
     "defaultMessage": "100",
     "description": "Label for 100 first runs visible in run count selector within runs compare configuration modal"
-  },
-  "Bceyd0": {
-    "defaultMessage": "Issue detection summary",
-    "description": "Issue detection summary > Title"
   },
   "BcmFvf": {
     "defaultMessage": "Create endpoint",
@@ -4695,10 +4639,6 @@
     "defaultMessage": "Metrics",
     "description": "Table title text for metrics table in the model comparison page"
   },
-  "Cq6NMs": {
-    "defaultMessage": "Issue detection failed",
-    "description": "Issue detection progress > Step label when failed"
-  },
   "CruI7o": {
     "defaultMessage": "Latest version",
     "description": "Column title for latest model version in the registered model page"
@@ -4774,10 +4714,6 @@
   "D9NBgY": {
     "defaultMessage": "View progress",
     "description": "Link to the issue detection run page from the job-started notification"
-  },
-  "D9xvar": {
-    "defaultMessage": "Cancel",
-    "description": "Button to cancel editing"
   },
   "DAXO9O": {
     "defaultMessage": "{count, plural, one {# regression} other {# regressions}} for {column} in {run} compared with baseline",
@@ -5074,10 +5010,6 @@
   "EBwDIg": {
     "defaultMessage": "Delete",
     "description": "Delete evaluation runs modal button text"
-  },
-  "EC6A+w": {
-    "defaultMessage": "Edit",
-    "description": "Button to edit an issue"
   },
   "ECjBf5": {
     "defaultMessage": "Edit the request body below and click Send request to call the endpoint.",
@@ -5531,10 +5463,6 @@
     "defaultMessage": "Icon URL {number}",
     "description": "Registry icon editor label for an icon URL"
   },
-  "Ft2NsS": {
-    "defaultMessage": "High",
-    "description": "Issue severity tag label for high severity"
-  },
   "FxQYyX": {
     "defaultMessage": "Select your workflow type. Choose GenAI when working on apps and agents, and select model training when working on classical ML or deep learning problems.",
     "description": "Tooltip for workflow switch"
@@ -5962,10 +5890,6 @@
   "HGsGOJ": {
     "defaultMessage": "Select a version to view details.",
     "description": "Skill detail placeholder when no version is selected"
-  },
-  "HHRU4d": {
-    "defaultMessage": "Detection progress",
-    "description": "Issue detection progress > Title"
   },
   "HHruY/": {
     "defaultMessage": "Enter a remote Git, OCI, or ZIP location.",
@@ -6523,10 +6447,6 @@
     "defaultMessage": "{totalCount, plural, one {# run} other {# runs}}",
     "description": "Total count of evaluation runs when no filter is applied"
   },
-  "IxV+1g": {
-    "defaultMessage": "This stops the current run. You can start a new one at any time.",
-    "description": "Body of the confirmation dialog for canceling an issue detection run"
-  },
   "J+Mfua": {
     "defaultMessage": "Delete",
     "description": "Confirm-button text for the V2 evaluation dataset delete modal"
@@ -6710,10 +6630,6 @@
   "JYz7tl": {
     "defaultMessage": "Failed to load MCP server",
     "description": "MCP server detail page error title"
-  },
-  "JaA2me": {
-    "defaultMessage": "Failed to update issue: {error}",
-    "description": "Error message when issue update fails"
   },
   "JaanQY": {
     "defaultMessage": "Tools",
@@ -7235,10 +7151,6 @@
     "defaultMessage": "Open dataset",
     "description": "Text for the button that opens the dataset source URL in a new tab"
   },
-  "LBbyku": {
-    "defaultMessage": "Endpoint",
-    "description": "Run page > Overview > Endpoint used for issue detection"
-  },
   "LED2z5": {
     "defaultMessage": "To disable or enable this display, call {disableFunction} or {enableFunction} and re-run the cell",
     "description": "Content in an info popover that instructs the user on how to disable the display. The disable and enable functions are code snippets with the real function names"
@@ -7719,10 +7631,6 @@
     "defaultMessage": "Save",
     "description": "Experiment issues tab > Schedule modal confirm button"
   },
-  "MjypBt": {
-    "defaultMessage": "Pending ({count})",
-    "description": "Issue status filter > Pending button label"
-  },
   "MkP0XP": {
     "defaultMessage": "Could not remove traces: {error}",
     "description": "Review queue: error toast when removing traces from a queue fails"
@@ -7902,10 +7810,6 @@
   "NHPAjO": {
     "defaultMessage": "Trace display settings",
     "description": "Accessible label for trace display settings button"
-  },
-  "NHlNLj": {
-    "defaultMessage": "Description",
-    "description": "Label for issue description section"
   },
   "NI/ukG": {
     "defaultMessage": "N/A",
@@ -8431,10 +8335,6 @@
     "defaultMessage": "Registered at:",
     "description": "Skill version creation timestamp label"
   },
-  "Ortr1x": {
-    "defaultMessage": "<link>Add user feedback</link> to traces so real failures stand out",
-    "description": "Suggestion to collect user feedback on traces, with documentation link"
-  },
   "OtV8ht": {
     "defaultMessage": "Group by",
     "description": "Display menu item opening the evaluation-runs group-by submenu"
@@ -8555,10 +8455,6 @@
     "defaultMessage": "General",
     "description": "Sidebar link: Settings > General"
   },
-  "PIsgM0": {
-    "defaultMessage": "Experiments",
-    "description": "Issue detection run details > Breadcrumb > Experiments"
-  },
   "PJNUxu": {
     "defaultMessage": "Run judges",
     "description": "Run judges on selected traces action"
@@ -8666,10 +8562,6 @@
   "PcVvLL": {
     "defaultMessage": "Spans",
     "description": "Header for the spans column within the MLflow trace UI"
-  },
-  "PdoaF7": {
-    "defaultMessage": "Model",
-    "description": "Run page > Overview > Model used for issue detection"
   },
   "Pe0JMj": {
     "defaultMessage": "Failed to update password",
@@ -8814,10 +8706,6 @@
   "Q0i5xG": {
     "defaultMessage": "Scatter chart",
     "description": "Experiment tracking > runs charts > add chart menu > scatter plot"
-  },
-  "Q0tqO9": {
-    "defaultMessage": "Not an issue",
-    "description": "Issue severity tag label for not an issue"
   },
   "Q1cbfC": {
     "defaultMessage": "View evaluation runs",
@@ -8987,10 +8875,6 @@
     "defaultMessage": "Sort issues",
     "description": "Experiment issues tab > Accessible label for the sort toolbar button"
   },
-  "QevoXx": {
-    "defaultMessage": "Error details",
-    "description": "Issue detection error details > Title"
-  },
   "QfSTsy": {
     "defaultMessage": "Dismiss this banner. You'll keep viewing the shared view.",
     "description": "Tooltip on the shared view banner's dismiss button explaining it hides the banner but keeps the view"
@@ -9086,10 +8970,6 @@
   "QybNk9": {
     "defaultMessage": "Next unreviewed",
     "description": "Review focused view: jump to the next pending trace"
-  },
-  "R+r9jY": {
-    "defaultMessage": "Cancel issue detection?",
-    "description": "Title of the confirmation dialog for canceling an issue detection run"
   },
   "R/4/8G": {
     "defaultMessage": "Metric",
@@ -9659,10 +9539,6 @@
     "defaultMessage": "Previewing the first {numRows} rows",
     "description": "Title for showing the number of rows in the parsed data preview"
   },
-  "SrjuS9": {
-    "defaultMessage": "Resolve",
-    "description": "Button to resolve an issue"
-  },
   "Ssqs6b": {
     "defaultMessage": "Dashboard",
     "description": "Label for the dashboard tab in the MLflow experiment navbar"
@@ -9670,10 +9546,6 @@
   "SuVsDp": {
     "defaultMessage": "Custom code judge feedback",
     "description": "Tooltip content for custom code judge feedback"
-  },
-  "Sw9saQ": {
-    "defaultMessage": "Add more traces. Only {count, plural, one {1 trace was} other {# traces were}} analyzed.",
-    "description": "Suggestion to analyze more traces, with the number analyzed in this run"
   },
   "SwS1nm": {
     "defaultMessage": "Expand session {sessionId}",
@@ -10007,10 +9879,6 @@
     "defaultMessage": "An error occurred while updating the budget policy. Please try again.",
     "description": "Generic error message for budget policy update"
   },
-  "U0eQAT": {
-    "defaultMessage": "Only 1 issue found. There may be more.",
-    "description": "Title of the guidance callout when an issue detection run found a single issue"
-  },
   "U0joaT": {
     "defaultMessage": "Select traces",
     "description": "Title for the select traces modal"
@@ -10243,10 +10111,6 @@
     "defaultMessage": "using Prompt Engineering",
     "description": "String for creating a new run with prompt engineering modal"
   },
-  "UnQIPJ": {
-    "defaultMessage": "Created: {date}",
-    "description": "Issue creation date label"
-  },
   "UnRN5H": {
     "defaultMessage": "Create access endpoint",
     "description": "MCP registry create access endpoint modal title"
@@ -10315,6 +10179,10 @@
     "defaultMessage": "New icon URL",
     "description": "Registry icon editor label for the URL of an icon being added"
   },
+  "V/DNS4": {
+    "defaultMessage": "Show more",
+    "description": "Experiment issues tab > Evidence section > Loads the next page of evidence cards"
+  },
   "V/EeFG": {
     "defaultMessage": "Flag for review",
     "description": "Assign traces to reviewers via a review queue action"
@@ -10334,10 +10202,6 @@
   "V1kYC+": {
     "defaultMessage": "Select element type",
     "description": "Placeholder for list element type"
-  },
-  "V386Xy": {
-    "defaultMessage": "0 issues doesn't always mean all clear",
-    "description": "Title of the guidance callout when an issue detection run found no issues"
   },
   "V4CsL/": {
     "defaultMessage": "Unable to list artifacts stored under {artifactUri} for the current run. Please contact your tracking server administrator to notify them of this error, which can happen when the tracking server lacks permission to list artifacts under the current run's root artifact directory.",
@@ -10394,10 +10258,6 @@
   "VEuVfv": {
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
     "description": "Label showing number of traces selected in the run evaluation modal"
-  },
-  "VF2V6v": {
-    "defaultMessage": "Issues identified from traces will appear here.",
-    "description": "Issue detection run details > Issues tab > Empty state description"
   },
   "VGJhVI": {
     "defaultMessage": "Add New Tag",
@@ -10567,10 +10427,6 @@
     "defaultMessage": "Traces",
     "description": "Label for the traces tab in the MLflow experiment navbar"
   },
-  "VjeYic": {
-    "defaultMessage": "<link>Annotate traces</link> in the review queue to capture known issues",
-    "description": "Suggestion to annotate traces in the review queue, with link to the review queue"
-  },
   "Vjha2S": {
     "defaultMessage": "Guardrails",
     "description": "Tab label for endpoint guardrails"
@@ -10647,17 +10503,9 @@
     "defaultMessage": "Couldn't check whether this name is already registered: {reason} Try again.",
     "description": "Error when the skill name availability check fails before registration"
   },
-  "VuoTZe": {
-    "defaultMessage": "Cancel run",
-    "description": "Confirm button that cancels the issue detection run"
-  },
   "VuqpXo": {
     "defaultMessage": "AI Registry",
     "description": "Sidebar label for the AI Registry section"
-  },
-  "Vvs+79": {
-    "defaultMessage": "Low",
-    "description": "Issue severity tag label for low severity"
   },
   "VwxvII": {
     "defaultMessage": "forecasting",
@@ -11323,10 +11171,6 @@
     "defaultMessage": "In progress",
     "description": "Model trace header > status label > in progress"
   },
-  "Y31bI7": {
-    "defaultMessage": "Try a stronger model. Model quality directly affects detection accuracy.",
-    "description": "Suggestion to use a stronger model for issue detection"
-  },
   "Y3btxE": {
     "defaultMessage": "Toggle sort direction for {columnLabel}",
     "description": "Accessible label for the clickable sort-direction icon in the evaluation runs table header"
@@ -11727,10 +11571,6 @@
     "defaultMessage": "{count, plural, =1 {1 minute} other {# minutes}} ago",
     "description": "Time duration in minutes"
   },
-  "ZOV936": {
-    "defaultMessage": "Resolved",
-    "description": "Issue status tag label for resolved issues"
-  },
   "ZOsiNc": {
     "defaultMessage": "just now",
     "description": "Indicates a time duration that just passed"
@@ -12114,10 +11954,6 @@
   "acLHXI": {
     "defaultMessage": "Theme",
     "description": "Registry icon editor column header for icon themes"
-  },
-  "adOmg9": {
-    "defaultMessage": "Add more traces for broader coverage",
-    "description": "Suggestion to analyze more traces"
   },
   "adVHxN": {
     "defaultMessage": "Outputs",
@@ -12843,10 +12679,6 @@
     "defaultMessage": "Trace search limit reached",
     "description": "Accessible label for a potentially incomplete trace count"
   },
-  "d34yzQ": {
-    "defaultMessage": "Rejected",
-    "description": "Issue status tag label for rejected issues"
-  },
   "d44IPd": {
     "defaultMessage": "Reopen review",
     "description": "Evaluation review > assessments > reopen review tooltip"
@@ -12998,10 +12830,6 @@
   "dVh69l": {
     "defaultMessage": "Run name",
     "description": "Column label for run name"
-  },
-  "dWC3yM": {
-    "defaultMessage": "Scanned <tracesLink>{totalTraces, plural, one {1 trace} other {# traces}}</tracesLink>, <issuesLink>{identifiedIssues, plural, one {1 issue} other {# issues}}</issuesLink> found",
-    "description": "Issue detection progress > Progress summary when completed"
   },
   "dY1g+4": {
     "defaultMessage": "Optional character limit for the free-form text. Leave blank for no limit.",
@@ -13735,10 +13563,6 @@
     "defaultMessage": "You need to provide values for all defined inputs",
     "description": "Experiment page > new run modal > invalid state - no prompt inputs provided"
   },
-  "fnKCv5": {
-    "defaultMessage": "Cancel",
-    "description": "Issue detection progress > Cancel button"
-  },
   "fq8v6G": {
     "defaultMessage": "Trace name",
     "description": "Column label for trace name"
@@ -14155,10 +13979,6 @@
     "defaultMessage": "{agentName} uses its own credentials, so no API key is required. The provider and model are pre-configured.",
     "description": "Info message shown on coding agent endpoint creation form"
   },
-  "gt4t2m": {
-    "defaultMessage": "Issue detection completed",
-    "description": "Issue detection progress > Step label when completed"
-  },
   "gtvp+Q": {
     "defaultMessage": "Instructions",
     "description": "Guardrail instructions label"
@@ -14402,10 +14222,6 @@
   "hZ9EVM": {
     "defaultMessage": "Saved views",
     "description": "Header at the top of the saved views dropdown"
-  },
-  "hZFbZl": {
-    "defaultMessage": "Issue detection canceled",
-    "description": "Issue detection progress > Step label when canceled"
   },
   "hZNzKK": {
     "defaultMessage": "{value} ({label})",
@@ -15007,10 +14823,6 @@
     "defaultMessage": "Metrics",
     "description": "Tooltip for the metric icon in the evaluation runs chart"
   },
-  "j8JWDD": {
-    "defaultMessage": "Enter issue description",
-    "description": "Placeholder text for issue description field"
-  },
   "jClVwe": {
     "defaultMessage": "Point the OTLP exporter at this MLflow server by setting these environment variables. See the <a>OpenTelemetry export docs</a> for the full reference.",
     "description": "Step 1 description for OpenTelemetry traces onboarding"
@@ -15303,10 +15115,6 @@
     "defaultMessage": "Last 24 hours",
     "description": "Date range preset in the evaluation runs filters"
   },
-  "k4F8aJ": {
-    "defaultMessage": "Copy issue ID",
-    "description": "Tooltip to copy issue ID"
-  },
   "k4Pj5X": {
     "defaultMessage": "Select as compared version",
     "description": "Label for selecting compared MCP server version in the comparison view"
@@ -15318,10 +15126,6 @@
   "k5Aq77": {
     "defaultMessage": "Issue detection has completed. There are currently no issues in this experiment. Run it again as your application changes.",
     "description": "Experiment issues tab > Completed detection with an empty store and unknown or nonzero historical results"
-  },
-  "k5kAB3": {
-    "defaultMessage": "Rejected ({count})",
-    "description": "Issue status filter > Rejected button label"
   },
   "k6WAHi": {
     "defaultMessage": "View session",
@@ -15566,10 +15370,6 @@
   "kyC8/W": {
     "defaultMessage": "Debug the error in trace {traceId}.",
     "description": "Prompt sent to the assistant for analyzing a failed trace"
-  },
-  "kzfRC2": {
-    "defaultMessage": "Impacted traces: {count}",
-    "description": "Label showing the number of traces impacted by this issue"
   },
   "l+5Myp": {
     "defaultMessage": "Select all runs",
@@ -16323,10 +16123,6 @@
     "defaultMessage": "Trace view",
     "description": "Tooltip for traces preview mode toggle in evaluation runs table controls"
   },
-  "nIkC92": {
-    "defaultMessage": "Issue ID copied",
-    "description": "Tooltip after issue ID was copied"
-  },
   "nJtz4Y": {
     "defaultMessage": "No results recorded",
     "description": "Tooltip shown when an evaluation run has no result metrics"
@@ -16791,10 +16587,6 @@
     "defaultMessage": "Retrieval relevance",
     "description": "Evaluation results > known type of evaluation result assessment > retrieval relevance assessment. Used to indicate if the result is relevant to source data chunk in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Retrieval relevance: moderate\""
   },
-  "opk7FD": {
-    "defaultMessage": "Scanning <tracesLink>{totalTraces, plural, one {1 trace} other {# traces}}</tracesLink>, <issuesLink>{identifiedIssues, plural, one {1 issue} other {# issues}}</issuesLink> identified so far",
-    "description": "Issue detection progress > Progress summary while running"
-  },
   "oqBCfB": {
     "defaultMessage": "With the latest Model Registry UI, you can use <b>Model Aliases</b> for flexible references to specific model versions, streamlining deployment in a given environment. Use <b>Model Tags</b> to annotate model versions with metadata, like the status of pre-deployment checks.",
     "description": "Model registry > OSS Promo modal for model version aliases > description paragraph body"
@@ -17243,10 +17035,6 @@
     "defaultMessage": "Select as baseline version",
     "description": "Label for selecting baseline MCP server version in the comparison view"
   },
-  "qIHqi7": {
-    "defaultMessage": "Evaluation runs",
-    "description": "Issue detection run details > Breadcrumb > Evaluation runs"
-  },
   "qIsNL0": {
     "defaultMessage": "Value",
     "description": "Run page > Overview > Parameters table > Value column header"
@@ -17659,10 +17447,6 @@
     "defaultMessage": "For {run}, the {aggregate} value for {column} is {value}.",
     "description": "Summary of a comparison run aggregate value"
   },
-  "rXJqoL": {
-    "defaultMessage": "Adjust and run again",
-    "description": "Button to adjust issue detection settings and run from the low-results callout"
-  },
   "rY00Iw": {
     "defaultMessage": "Add filter",
     "description": "Button to add a new filter in the tags filter popover for experiments page search by tags"
@@ -17951,10 +17735,6 @@
     "defaultMessage": "None",
     "description": "Label for the button disabling grouping in the logged model list page"
   },
-  "sOhO4e": {
-    "defaultMessage": "Show {count} more",
-    "description": "Experiment issues tab > Evidence section > Loads the next page of evidence cards"
-  },
   "sPjG+W": {
     "defaultMessage": "Assistant unavailable",
     "description": "Empty state title shown when the custom view assistant connector is not available"
@@ -18182,10 +17962,6 @@
   "tEwQWS": {
     "defaultMessage": "Active",
     "description": "Webhook active status"
-  },
-  "tFVXU7": {
-    "defaultMessage": "Issue ID",
-    "description": "Label for issue ID in popover"
   },
   "tGfvEG": {
     "defaultMessage": "Example: Show me all the spans in this trace with their information",
@@ -18546,10 +18322,6 @@
   "udIOG1": {
     "defaultMessage": "Submit prompt",
     "description": "Overview assistant submit label"
-  },
-  "ue/dsm": {
-    "defaultMessage": "Pending",
-    "description": "Issue status tag label for pending issues"
   },
   "ueI+tl": {
     "defaultMessage": "Or browse all providers and models →",
@@ -19535,10 +19307,6 @@
     "defaultMessage": "Optional. Override how long traces stay in the tracking store before archival. Leave blank to use the server default.",
     "description": "Hint for workspace trace archival retention field"
   },
-  "xhAFcl": {
-    "defaultMessage": "Failed to cancel job: {error}",
-    "description": "Error message when job cancellation fails"
-  },
   "xhpUB1": {
     "defaultMessage": "The previous issue detection failed. Start a new detection to try again.",
     "description": "Experiment issues tab > Empty state description after issue detection failed"
@@ -19931,10 +19699,6 @@
     "defaultMessage": "Create an AI Gateway endpoint in AI Gateway → Endpoints tab to reuse it here",
     "description": "Tooltip suggesting to create an endpoint for reuse"
   },
-  "z6QxDs": {
-    "defaultMessage": "Issue detection",
-    "description": "Type pill text for an issue-detection run in the evaluation runs table"
-  },
   "z6qX4/": {
     "defaultMessage": "This endpoint may have been deleted",
     "description": "Tooltip for deleted endpoint"
@@ -20082,10 +19846,6 @@
   "zZCBR9": {
     "defaultMessage": "Metrics",
     "description": "Header for metric columns in the evaluation runs table column configuration"
-  },
-  "zZlPwp": {
-    "defaultMessage": "Categories",
-    "description": "Run page > Overview > Issue categories being detected"
   },
   "zc/Ask": {
     "defaultMessage": "Dataset",

@@ -6066,7 +6066,7 @@
     "global.openai.gpt-5.4": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1050000,
+        "max_input": 922000,
         "max_output": 128000
       },
       "pricing": {
@@ -6089,12 +6089,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-28"
     },
     "global.openai.gpt-5.5": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1050000,
+        "max_input": 922000,
         "max_output": 128000
       },
       "pricing": {
@@ -6117,12 +6117,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-28"
     },
     "global.openai.gpt-5.6-luna": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1050000,
+        "max_input": 922000,
         "max_output": 128000
       },
       "pricing": {
@@ -6147,12 +6147,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-28"
     },
     "global.openai.gpt-5.6-sol": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1050000,
+        "max_input": 922000,
         "max_output": 128000
       },
       "pricing": {
@@ -6177,12 +6177,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-28"
     },
     "global.openai.gpt-5.6-terra": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1050000,
+        "max_input": 922000,
         "max_output": 128000
       },
       "pricing": {
@@ -6207,12 +6207,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-28"
     },
     "global.openai.gpt-6-astra": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1050000,
+        "max_input": 922000,
         "max_output": 128000
       },
       "pricing": {
@@ -6237,12 +6237,12 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-28"
     },
     "global.openai.gpt-6-luna": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1050000,
+        "max_input": 922000,
         "max_output": 128000
       },
       "pricing": {
@@ -6267,12 +6267,12 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-28"
     },
     "global.openai.gpt-6-sol": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1050000,
+        "max_input": 922000,
         "max_output": 128000
       },
       "pricing": {
@@ -6297,7 +6297,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-28"
     },
     "global.openai.gpt-6.1-sol": {
       "mode": "chat",
@@ -8087,7 +8087,7 @@
     "openai.gpt-6-luna": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1050000,
+        "max_input": 922000,
         "max_output": 128000
       },
       "pricing": {
@@ -8112,12 +8112,12 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-28"
     },
     "openai.gpt-6-sol": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1050000,
+        "max_input": 922000,
         "max_output": 128000
       },
       "pricing": {
@@ -8142,7 +8142,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-28"
     },
     "openai.gpt-6.1-sol": {
       "mode": "chat",
@@ -12694,7 +12694,7 @@
     "us.openai.gpt-5.4": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1050000,
+        "max_input": 922000,
         "max_output": 128000
       },
       "pricing": {
@@ -12717,12 +12717,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-28"
     },
     "us.openai.gpt-5.5": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1050000,
+        "max_input": 922000,
         "max_output": 128000
       },
       "pricing": {
@@ -12745,12 +12745,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-28"
     },
     "us.openai.gpt-5.6-luna": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1050000,
+        "max_input": 922000,
         "max_output": 128000
       },
       "pricing": {
@@ -12775,12 +12775,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-28"
     },
     "us.openai.gpt-5.6-sol": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1050000,
+        "max_input": 922000,
         "max_output": 128000
       },
       "pricing": {
@@ -12805,12 +12805,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-28"
     },
     "us.openai.gpt-5.6-terra": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1050000,
+        "max_input": 922000,
         "max_output": 128000
       },
       "pricing": {
@@ -12835,12 +12835,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-28"
     },
     "us.openai.gpt-6-astra": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1050000,
+        "max_input": 922000,
         "max_output": 128000
       },
       "pricing": {
@@ -12865,12 +12865,12 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-28"
     },
     "us.openai.gpt-6-luna": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1050000,
+        "max_input": 922000,
         "max_output": 128000
       },
       "pricing": {
@@ -12895,12 +12895,12 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-28"
     },
     "us.openai.gpt-6-sol": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1050000,
+        "max_input": 922000,
         "max_output": 128000
       },
       "pricing": {
@@ -12925,7 +12925,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-28"
     },
     "us.openai.gpt-6.1-sol": {
       "mode": "chat",

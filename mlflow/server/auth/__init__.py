@@ -1618,11 +1618,11 @@ def _optimizer_gateway_endpoint_requirement(optimizer_config_json: str):
 def _registered_scorer_names(names: "Sequence[str]") -> list[str]:
     # A built-in that instantiates is code, not a stored resource. Any other name makes the
     # worker load the REGISTERED scorer of that name (optimize.job._load_scorers).
-    from mlflow.genai.scorers import builtin_scorers
+    from mlflow.genai.scorers.builtin_scorers import _get_builtin_scorer_class
 
     registered = set()
     for name in names:
-        builtin = getattr(builtin_scorers, name, None)
+        builtin = _get_builtin_scorer_class(name)
         if builtin is not None:
             try:
                 builtin()
@@ -2318,6 +2318,22 @@ def _validate_can_update_registered_model_or_prompt():
     return _get_permission_from_registered_model_or_prompt_name().can_update
 
 
+def _reject_wildcard_model_name(name: str) -> None:
+    # Model and prompt grants are keyed by name, so "*" would become a wildcard grant.
+    if name == "*":
+        raise MlflowException.invalid_parameter_value(
+            "'*' is reserved for wildcard permission grants and cannot be used as a "
+            "registered model or prompt name."
+        )
+
+
+def validate_can_rename_registered_model() -> bool:
+    if not _validate_can_update_registered_model_or_prompt():
+        return False
+    _reject_wildcard_model_name(_get_request_message(RenameRegisteredModel()).new_name)
+    return True
+
+
 def _validate_can_delete_registered_model_or_prompt():
     return _get_permission_from_registered_model_or_prompt_name().can_delete
 
@@ -2650,6 +2666,7 @@ def validate_can_create_registered_model() -> bool:
             RESOURCE_TYPE_REGISTERED_MODEL
         ) and _workspace_create_not_denied(RESOURCE_TYPE_PROMPT)
     msg = _get_request_message(CreateRegisteredModel())
+    _reject_wildcard_model_name(msg.name)
     created_type = (
         RESOURCE_TYPE_PROMPT if _entity_is_prompt(msg) else RESOURCE_TYPE_REGISTERED_MODEL
     )
@@ -2977,9 +2994,8 @@ def validate_can_list_roles():
     user = store.get_user(username)
     if user.is_admin:
         return True
-    requested = {
-        w.strip() for w in request.args.getlist("workspace") if isinstance(w, str) and w.strip()
-    }
+    # Check the exact values list_roles queries; stripping here let "foo " pass as "foo".
+    requested = {w for w in request.args.getlist("workspace") if isinstance(w, str) and w.strip()}
     if not requested:
         return False
     # Single batch query — avoids N round-trips when multiple workspaces are
@@ -4677,6 +4693,15 @@ def enforce_review_queue_name_not_username():
         _reject_rename_review_queue_shadowing_user(queue, _parse_update_review_queue_request())
 
 
+def enforce_model_name_not_wildcard():
+    """Apply the validators' wildcard-name check to admins, who skip the validators."""
+    validator = _find_validator(request)
+    if validator is validate_can_create_registered_model:
+        _reject_wildcard_model_name(_get_request_message(CreateRegisteredModel()).name)
+    elif validator is validate_can_rename_registered_model:
+        _reject_wildcard_model_name(_get_request_message(RenameRegisteredModel()).new_name)
+
+
 def validate_can_remove_items_from_review_queue():
     username = authenticate_request().username
     queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
@@ -4830,7 +4855,7 @@ BEFORE_REQUEST_HANDLERS = {
     GetRegisteredModel: _validate_can_read_registered_model_or_prompt,
     DeleteRegisteredModel: validate_can_delete_registered_model_or_prompt_cascade,
     UpdateRegisteredModel: _validate_can_update_registered_model_or_prompt,
-    RenameRegisteredModel: _validate_can_update_registered_model_or_prompt,
+    RenameRegisteredModel: validate_can_rename_registered_model,
     GetLatestVersions: validate_can_read_model_or_prompt_version,
     CreateModelVersion: validate_can_create_model_version,
     GetModelVersion: validate_can_read_model_or_prompt_version,
@@ -5711,6 +5736,7 @@ def _before_request():
     # inside the validators).
     if sender_is_admin():
         enforce_review_queue_name_not_username()
+        enforce_model_name_not_wildcard()
         return
 
     # authorization
@@ -5817,6 +5843,16 @@ def create_role():
     description = body.get("description")
     if description is not None and not isinstance(description, str):
         raise MlflowException.invalid_parameter_value("Role description must be a string or null.")
+    # A role in a workspace that does not exist yet would pre-empt its default roles on creation.
+    if MLFLOW_ENABLE_WORKSPACES.get():
+        try:
+            _get_workspace_store().get_workspace(workspace)
+        except MlflowException as e:
+            if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                raise
+            raise MlflowException.invalid_parameter_value(
+                f"Workspace '{workspace}' does not exist."
+            ) from e
     role = store.create_role(name, workspace, description)
     return jsonify({"role": role.to_json()})
 
@@ -7974,7 +8010,10 @@ class GraphQLAuthorizationMiddleware:
                 return None
             username = authorization.username
 
-            if store.get_user(username).is_admin:
+            # Resolved once per request; this runs for every protected field.
+            if "_graphql_sender_is_admin" not in g:
+                g._graphql_sender_is_admin = sender_is_admin()
+            if g._graphql_sender_is_admin:
                 return next(root, info, **args)
         except Exception:
             _logger.warning("GraphQL authorization failed: auth system error", exc_info=True)
@@ -8995,9 +9034,13 @@ def _get_require_authentication_validator() -> Callable[[str, StarletteRequest],
     return validator
 
 
+def _job_route_tail(unprefixed_path: str) -> str:
+    return unprefixed_path.split("/ajax-api/3.0/jobs", 1)[-1].strip("/")
+
+
 def _job_id_from_path(unprefixed_path: str) -> str | None:
     # get (/jobs/<id>) and cancel (/jobs/cancel/<id>) carry a job id; submit and search do not.
-    tail = unprefixed_path.split("/ajax-api/3.0/jobs", 1)[-1].strip("/")
+    tail = _job_route_tail(unprefixed_path)
     if not tail or tail == "search":
         return None
     if tail.startswith("cancel/"):
@@ -9008,13 +9051,16 @@ def _job_id_from_path(unprefixed_path: str) -> str | None:
 def _get_job_route_validator(
     path: str,
 ) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
-    # get/cancel by id are ownership-gated (admins bypass upstream); submit/search need only auth
-    # here. /jobs/search is narrowed to the caller's own jobs by ``_filter_search_jobs``.
+    # get/cancel by id are ownership-gated (admins bypass upstream). /jobs/search needs only auth
+    # here and is narrowed to the caller's own jobs by ``_filter_search_jobs``. Submit is
+    # admin-only: job params name experiments and traces that only the dedicated invoke routes
+    # authorize, and those routes submit jobs in-process rather than through this endpoint.
     job_id = _job_id_from_path(path)
+    is_search = _job_route_tail(path) == "search"
 
     async def validator(username: str, request: StarletteRequest) -> bool:
         if job_id is None:
-            return True
+            return is_search
         from mlflow.server.jobs import get_job
 
         try:

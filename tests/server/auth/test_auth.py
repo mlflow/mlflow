@@ -1396,6 +1396,26 @@ def test_search_experiments(client, monkeypatch):
         assert names == [f"exp{i}" for i in readable]
 
 
+@pytest.mark.parametrize("is_admin", [False, True])
+@pytest.mark.parametrize("tags", [[], [{"key": "mlflow.prompt.is_prompt", "value": "true"}]])
+def test_wildcard_registered_model_name_is_rejected(client, tags, is_admin):
+    auth = (ADMIN_USERNAME, ADMIN_PASSWORD) if is_admin else create_user(client.tracking_uri)
+    base = f"{client.tracking_uri}/api/2.0/mlflow/registered-models"
+
+    response = requests.post(f"{base}/create", json={"name": "*", "tags": tags}, auth=auth)
+    assert response.status_code == 400
+    assert "reserved for wildcard" in response.json()["message"]
+
+    name = f"model-{uuid.uuid4().hex}"
+    response = requests.post(f"{base}/create", json={"name": name, "tags": tags}, auth=auth)
+    assert response.status_code == 200
+    response = requests.post(f"{base}/rename", json={"name": name, "new_name": "*"}, auth=auth)
+    assert response.status_code == 400
+    assert "reserved for wildcard" in response.json()["message"]
+    response = requests.get(f"{base}/get", params={"name": name}, auth=auth)
+    assert response.status_code == 200
+
+
 @pytest.mark.parametrize(
     "client",
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
@@ -8972,6 +8992,18 @@ def test_genai_evaluate_invoke_respects_a_deny_on_the_registered_scorer(client, 
 )
 def test_registered_scorer_names_in_evaluate_request(body, expected):
     assert auth_module._registered_scorer_names_in_evaluate_request(body) == expected
+
+
+def test_registered_scorer_names_only_skips_concrete_builtin_scorers():
+    # Must agree with ``optimize.job._load_scorers``: any name that is not a concrete built-in
+    # scorer class is loaded from the registry, so it keeps the registered-scorer checks.
+    names = ["Correctness", "Feedback", "get_default_model", "BuiltInScorer", "custom"]
+    assert auth_module._registered_scorer_names(names) == [
+        "BuiltInScorer",
+        "Feedback",
+        "custom",
+        "get_default_model",
+    ]
 
 
 @pytest.mark.parametrize(

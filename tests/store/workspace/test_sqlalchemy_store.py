@@ -1,3 +1,4 @@
+import logging
 from unittest import mock
 
 import pytest
@@ -727,6 +728,14 @@ def test_delete_workspace_cascade_removes_resources(workspace_store):
 
     with pytest.raises(MlflowException, match="not found"):
         workspace_store.get_workspace("team-a")
+
+
+def test_delete_workspace_cascade_does_not_log_the_store_uri(workspace_store, caplog):
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+    with caplog.at_level(logging.INFO, logger="mlflow.store.workspace.sqlalchemy_store"):
+        workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.CASCADE)
+    assert "mlflow gc" in caplog.text
+    assert workspace_store._workspace_uri not in caplog.text
 
 
 def test_delete_workspace_cascade_removes_experiment_with_runs(workspace_store):

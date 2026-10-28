@@ -1268,3 +1268,29 @@ def test_third_party_scorer_session_level_round_trip_and_copy():
     with patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=False):
         copy = scorer._create_copy()
     assert copy.session_level == "episode"
+
+
+@pytest.mark.parametrize(
+    "class_name",
+    [
+        "invoke_judge_model",
+        "MlflowException",
+        "BuiltInScorer",
+        "InstructionsJudge",
+        "_LastTurnKnowledgeRetention",
+        "DoesNotExist",
+        123,
+    ],
+)
+def test_builtin_scorer_class_must_name_a_builtin_scorer(class_name):
+    data = {
+        "name": "probe",
+        "builtin_scorer_class": class_name,
+        "builtin_scorer_pydantic_data": {"model_uri": "openai:/gpt-4o-mini", "prompt": "x"},
+    }
+    with (
+        patch("mlflow.genai.scorers.builtin_scorers.invoke_judge_model") as mock_invoke,
+        pytest.raises(MlflowException, match="Unknown builtin scorer class"),
+    ):
+        Scorer.model_validate(data)
+    mock_invoke.assert_not_called()
