@@ -13,6 +13,7 @@ from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
 from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
+from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
     AmazonBedrockConfig,
     AWSBaseConfig,
@@ -865,6 +866,106 @@ async def test_bedrock_converse_chat_omits_guardrail_config_when_unset():
 
     mock_client.converse.assert_called_once()
     assert "guardrailConfig" not in mock_client.converse.call_args.kwargs
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_chat_wraps_system_prompt_in_guard_content():
+    provider = _make_converse_provider_with_guardrail()
+    mock_client = mock.Mock()
+    mock_client.converse.return_value = _converse_response()
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        await provider.chat(
+            chat.RequestPayload(
+                messages=[
+                    {"role": "system", "content": "You are helpful."},
+                    {"role": "user", "content": "Hello"},
+                ]
+            )
+        )
+
+    kwargs = mock_client.converse.call_args.kwargs
+    assert kwargs["system"] == [{"guardContent": {"text": {"text": "You are helpful."}}}]
+    # Regular messages stay untagged so the guardrail keeps assessing all of them.
+    assert kwargs["messages"] == [{"role": "user", "content": [{"text": "Hello"}]}]
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_chat_leaves_system_prompt_plain_without_guardrail():
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    mock_client.converse.return_value = _converse_response()
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        await provider.chat(
+            chat.RequestPayload(
+                messages=[
+                    {"role": "system", "content": "You are helpful."},
+                    {"role": "user", "content": "Hello"},
+                ]
+            )
+        )
+
+    assert mock_client.converse.call_args.kwargs["system"] == [{"text": "You are helpful."}]
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_chat_stream_wraps_system_prompt_in_guard_content():
+    provider = _make_converse_provider_with_guardrail()
+    mock_client = mock.Mock()
+    mock_client.converse_stream.return_value = _converse_stream_response()
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(
+            messages=[
+                {"role": "system", "content": "You are helpful."},
+                {"role": "user", "content": "Hello"},
+            ]
+        )
+        [chunk async for chunk in provider.chat_stream(payload)]
+
+    assert mock_client.converse_stream.call_args.kwargs["system"] == [
+        {"guardContent": {"text": {"text": "You are helpful."}}}
+    ]
+
+
+@pytest.mark.parametrize("endpoint_type", ["llm/v1/completions", "llm/v1/embeddings"])
+def test_bedrock_guardrail_rejected_on_non_chat_endpoint(endpoint_type):
+    config = {
+        "name": "not-chat",
+        "endpoint_type": endpoint_type,
+        "model": {
+            "provider": "bedrock",
+            "name": "amazon.titan-text-express-v1",
+            "config": {
+                "aws_config": {"aws_region": "us-east-1"},
+                "guardrail_config": {
+                    "guardrail_identifier": "gr-abc123",
+                    "guardrail_version": "DRAFT",
+                },
+            },
+        },
+    }
+    with pytest.raises(MlflowException, match="'guardrail_config' is only supported"):
+        EndpointConfig(**config)
+
+
+def test_bedrock_guardrail_allowed_on_chat_endpoint():
+    provider = _make_converse_provider_with_guardrail()
+    assert provider.bedrock_config.guardrail_config.guardrail_identifier == "gr-abc123"
+
+
+def test_bedrock_non_chat_endpoint_without_guardrail_is_accepted():
+    config = {
+        "name": "completions",
+        "endpoint_type": "llm/v1/completions",
+        "model": {
+            "provider": "bedrock",
+            "name": "amazon.titan-text-express-v1",
+            "config": {"aws_config": {"aws_region": "us-east-1"}},
+        },
+    }
+    assert EndpointConfig(**config).model.config.guardrail_config is None
 
 
 @pytest.mark.asyncio

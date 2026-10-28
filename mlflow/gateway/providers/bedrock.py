@@ -396,6 +396,7 @@ class AmazonBedrockProvider(BaseProvider):
         self, messages: list[dict[str, Any]], payload: dict[str, Any]
     ) -> dict[str, Any]:
         """Build kwargs for the Converse API call."""
+        guardrail_config = self._build_guardrail_config()
         system_prompts = []
         converse_messages = []
 
@@ -406,7 +407,14 @@ class AmazonBedrockProvider(BaseProvider):
             content = self._normalize_content_text(msg.get("content"))
 
             if role == "system":
-                system_prompts.append({"text": content})
+                # Bedrock assesses a system prompt against the guardrail only when it is wrapped
+                # in ``guardContent``; a plain ``text`` block would let a caller smuggle input
+                # past the guardrail's checks by sending it with the system role.
+                system_prompts.append(
+                    {"guardContent": {"text": {"text": content}}}
+                    if guardrail_config
+                    else {"text": content}
+                )
             elif role == "assistant":
                 assistant_content = []
                 if tool_calls := msg.get("tool_calls"):
@@ -519,7 +527,7 @@ class AmazonBedrockProvider(BaseProvider):
             if bedrock_tools:
                 kwargs["toolConfig"] = {"tools": bedrock_tools}
 
-        if guardrail_config := self._build_guardrail_config():
+        if guardrail_config:
             kwargs["guardrailConfig"] = guardrail_config
 
         return kwargs

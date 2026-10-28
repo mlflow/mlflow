@@ -558,6 +558,19 @@ class EndpointConfig(AliasedConfigModel):
                 f"An Unsupported AI21Labs model has been specified: '{self.model.name}'. "
                 f"Please see documentation for supported models."
             )
+        # Guardrails are forwarded only on the Converse (chat) path, so accepting the config on
+        # a non-chat endpoint would leave it silently unguarded.
+        if (
+            isinstance(self.model.config, AmazonBedrockConfig)
+            and self.model.config.guardrail_config
+            and self.endpoint_type != EndpointType.LLM_V1_CHAT
+        ):
+            raise MlflowException.invalid_parameter_value(
+                "'guardrail_config' is only supported for Amazon Bedrock endpoints with "
+                f"endpoint_type '{EndpointType.LLM_V1_CHAT.value}', but endpoint "
+                f"'{self.name}' has endpoint_type '{self.endpoint_type.value}'. Remove "
+                "'guardrail_config' or change the endpoint_type."
+            )
         return self
 
     @field_validator("endpoint_type", mode="before")
