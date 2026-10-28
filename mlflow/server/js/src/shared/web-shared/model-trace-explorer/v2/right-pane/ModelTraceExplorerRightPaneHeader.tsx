@@ -25,6 +25,7 @@ import { estimatedCostMessages } from '../../EstimatedCostValue';
 import { getExperimentChatSessionPageRoute } from '../../MlflowUtils';
 import type { ModelTrace, ModelTraceSpanNode, SpanCostInfo } from '../ModelTrace.types';
 import { createTraceV4LongIdentifier, getSpanExceptionCount, isV3ModelTraceInfo } from '../ModelTraceExplorer.utils';
+import { getNonIssueAssessmentCount } from '../../IssueAssessmentUtils';
 import { isTraceCostType, type TraceCost } from '../../ModelTraceExplorerCostHoverCard';
 import { useModelTraceExplorerContext } from '../ModelTraceExplorerContext';
 import { Link, useParams } from '../../RoutingUtils';
@@ -683,7 +684,9 @@ export const ModelTraceExplorerRightPaneHeader = ({
             }}
           >
             {rightPaneHeaderActions}
-            {showAssessmentsToggle && <AssessmentPaneToggle assessmentCount={activeSpan.assessments.length} />}
+            {showAssessmentsToggle && (
+              <AssessmentPaneToggle assessmentCount={getNonIssueAssessmentCount(activeSpan.assessments)} />
+            )}
           </div>
         )}
       </div>
