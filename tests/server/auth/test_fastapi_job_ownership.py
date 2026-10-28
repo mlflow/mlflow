@@ -1,10 +1,12 @@
 # The native FastAPI job routes gate fetch/cancel-by-id on ownership (the recorded
-# creator must match the caller); submit only requires authentication, and search is
+# creator must match the caller); submit is admin-only, and search is
 # narrowed to the caller's own jobs by a response filter.
 
 import asyncio
 import json
 from types import SimpleNamespace
+
+import pytest
 
 import mlflow.server.jobs as jobs_mod
 from mlflow.entities._job import Job as JobEntity
@@ -52,10 +54,10 @@ def test_cancel_non_owner_denied(monkeypatch):
     assert _decide(path, "PATCH", "bob", monkeypatch, creator="alice") is False
 
 
-def test_submit_requires_only_authentication():
-    # POST /jobs/ has no job id: any authenticated user may submit (creator is recorded).
-    validator = a._find_fastapi_validator("/ajax-api/3.0/jobs/", "POST")
-    assert asyncio.run(validator("anyone", None)) is True
+@pytest.mark.parametrize("path", ["/ajax-api/3.0/jobs", "/ajax-api/3.0/jobs/"])
+def test_submit_denied_for_non_admin(path):
+    validator = a._find_fastapi_validator(path, "POST")
+    assert asyncio.run(validator("anyone", None)) is False
 
 
 def test_search_requires_only_authentication():
