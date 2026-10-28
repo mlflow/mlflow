@@ -9022,9 +9022,13 @@ def _get_require_authentication_validator() -> Callable[[str, StarletteRequest],
     return validator
 
 
+def _job_route_tail(unprefixed_path: str) -> str:
+    return unprefixed_path.split("/ajax-api/3.0/jobs", 1)[-1].strip("/")
+
+
 def _job_id_from_path(unprefixed_path: str) -> str | None:
     # get (/jobs/<id>) and cancel (/jobs/cancel/<id>) carry a job id; submit and search do not.
-    tail = unprefixed_path.split("/ajax-api/3.0/jobs", 1)[-1].strip("/")
+    tail = _job_route_tail(unprefixed_path)
     if not tail or tail == "search":
         return None
     if tail.startswith("cancel/"):
@@ -9040,7 +9044,7 @@ def _get_job_route_validator(
     # admin-only: job params name experiments and traces that only the dedicated invoke routes
     # authorize, and those routes submit jobs in-process rather than through this endpoint.
     job_id = _job_id_from_path(path)
-    is_search = path.split("/ajax-api/3.0/jobs", 1)[-1].strip("/") == "search"
+    is_search = _job_route_tail(path) == "search"
 
     async def validator(username: str, request: StarletteRequest) -> bool:
         if job_id is None:
