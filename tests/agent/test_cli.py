@@ -373,7 +373,7 @@ def test_setup_configures_assistant_when_accepted(
     with (
         mock.patch("mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/claude"),
         mock.patch(
-            "mlflow.agent.setup.cli.install_skills", return_value=["analyze-mlflow-trace"]
+            "mlflow.agent.setup.cli.install_skills", return_value=["mlflow-trace-analysis"]
         ) as mock_install,
         mock.patch("mlflow.agent.setup.cli._record_event") as mock_record,
     ):

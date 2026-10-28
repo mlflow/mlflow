@@ -113,6 +113,7 @@ def test_json_deserialization(monkeypatch):
             "spans": [
                 {
                     "name": "predict",
+                    "kind": "SPAN_KIND_INTERNAL",
                     "trace_id": mock.ANY,
                     "span_id": mock.ANY,
                     "parent_span_id": None,
@@ -135,6 +136,7 @@ def test_json_deserialization(monkeypatch):
                 },
                 {
                     "name": "add_one_with_custom_name",
+                    "kind": "SPAN_KIND_INTERNAL",
                     "trace_id": mock.ANY,
                     "span_id": mock.ANY,
                     "parent_span_id": mock.ANY,

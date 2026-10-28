@@ -47,6 +47,42 @@ def test_get_trace_v4():
     )
 
 
+@pytest.mark.parametrize(
+    ("tracking_uri", "context"),
+    [("http://localhost:5000", {}), ("databricks", {"experiment_id": "1"})],
+)
+def test_issue_client_routes_experiment_context(tracking_uri, context):
+    store = Mock()
+    with patch("mlflow.tracing.client._get_store", return_value=store):
+        client = TracingClient(tracking_uri=tracking_uri)
+        assert client._get_issue("iss-123", experiment_id="1") is store.get_issue.return_value
+        assert (
+            client._update_issue(
+                "iss-123",
+                experiment_id="1",
+                name="Updated",
+                description="",
+                categories=[],
+                last_seen_timestamp=0,
+                metadata={},
+                delete_metadata_keys=["obsolete"],
+            )
+            is store.update_issue.return_value
+        )
+
+    store.get_issue.assert_called_once_with("iss-123", **context)
+    store.update_issue.assert_called_once_with(
+        issue_id="iss-123",
+        name="Updated",
+        description="",
+        categories=[],
+        last_seen_timestamp=0,
+        metadata={},
+        delete_metadata_keys=["obsolete"],
+        **context,
+    )
+
+
 def test_get_trace_v4_retry():
     mock_store = Mock()
     mock_store.batch_get_traces.side_effect = [[], ["dummy_trace"]]
@@ -793,3 +829,38 @@ def test_resolve_uc_trace_id_passes_through_malformed_v4_id():
         assert _resolve_uc_trace_id("trace:/malformed") == "trace:/malformed"
 
     mock_resolve.assert_not_called()
+
+
+def test_issue_client_forwards_extended_options():
+    store = Mock()
+    with patch("mlflow.tracing.client._get_store", return_value=store) as get_store:
+        client = TracingClient()
+        get_store.assert_called_once()
+        client._create_issue(
+            "0",
+            "Title",
+            "Description",
+            issue_id="iss-chosen",
+            last_seen_timestamp=0,
+        )
+        store.create_issue.assert_called_once()
+        assert "source_id" not in store.create_issue.call_args.kwargs
+        assert store.create_issue.call_args.kwargs["issue_id"] == "iss-chosen"
+        assert store.create_issue.call_args.kwargs["last_seen_timestamp"] == 0
+        client._update_issue(
+            "iss-chosen", categories=[], metadata={"key": "value"}, delete_metadata_keys=["owner"]
+        )
+        store.update_issue.assert_called_once_with(
+            issue_id="iss-chosen",
+            categories=[],
+            metadata={"key": "value"},
+            delete_metadata_keys=["owner"],
+        )
+        client._search_issues("0", statuses=["pending"], include_total_count=True, view="basic")
+        store.search_issues.assert_called_once_with(
+            experiment_id="0",
+            statuses=["pending"],
+            include_trace_count=False,
+            include_total_count=True,
+            view="basic",
+        )

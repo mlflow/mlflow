@@ -1,5 +1,8 @@
 import json
 import math
+import os
+import subprocess
+import sys
 import time
 import uuid
 from unittest import mock
@@ -21,7 +24,9 @@ from mlflow.entities.span import create_mlflow_span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
-from mlflow.store.tracking.dbmodels.models import SqlOnlineScoringConfig
+from mlflow.genai import scorer as scorer_decorator
+from mlflow.store.db.db_types import MSSQL, MYSQL
+from mlflow.store.tracking.dbmodels.models import SqlOnlineScoringConfig, SqlScorer
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils import TraceJSONEncoder
@@ -628,6 +633,73 @@ def _mock_gateway_endpoint():
     )
 
 
+def _compares_names_without_case(store: SqlAlchemyStore) -> bool:
+    # MySQL and SQL Server compare strings without case (MySQL also without accents) under their
+    # default collations, so these tests check the store's own exact-name check on those databases.
+    return store._get_dialect() in (MYSQL, MSSQL)
+
+
+@pytest.mark.parametrize(
+    "act",
+    [
+        lambda store, experiment_id: store.get_scorer(experiment_id, "JUDGE"),
+        lambda store, experiment_id: store.get_scorer(experiment_id, "judgé"),
+        lambda store, experiment_id: store.get_scorer(experiment_id, "JUDGE", version=1),
+        lambda store, experiment_id: store.list_scorer_versions(experiment_id, "JUDGE"),
+        lambda store, experiment_id: store.delete_scorer(experiment_id, "JUDGE"),
+        lambda store, experiment_id: store.upsert_online_scoring_config(
+            experiment_id=experiment_id, scorer_name="JUDGE", sample_rate=1.0
+        ),
+    ],
+)
+def test_scorer_name_in_another_case_is_not_found(store: SqlAlchemyStore, act):
+    experiment_id = store.create_experiment("test_scorer_name_case")
+    with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
+        store.register_scorer(experiment_id, "judge", _gateway_model_scorer_json())
+
+    with pytest.raises(MlflowException, match="not found") as e:
+        act(store, experiment_id)
+    assert e.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+    assert [v.scorer_version for v in store.list_scorer_versions(experiment_id, "judge")] == [1]
+    assert (
+        store.get_online_scoring_configs([store.get_scorer(experiment_id, "judge").scorer_id]) == []
+    )
+
+
+def test_register_scorer_name_in_another_case(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_register_scorer_name_case")
+    with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
+        store.register_scorer(experiment_id, "judge", _gateway_model_scorer_json())
+        if _compares_names_without_case(store):
+            with pytest.raises(MlflowException, match="compares as equal to 'JUDGE'") as e:
+                store.register_scorer(experiment_id, "JUDGE", _gateway_model_scorer_json())
+            assert e.value.error_code == "RESOURCE_ALREADY_EXISTS"
+        else:
+            other = store.register_scorer(experiment_id, "JUDGE", _gateway_model_scorer_json())
+            assert (other.scorer_name, other.scorer_version) == ("JUDGE", 1)
+
+    assert [v.scorer_version for v in store.list_scorer_versions(experiment_id, "judge")] == [1]
+
+
+def test_get_sql_scorer_requires_the_exact_name(store: SqlAlchemyStore):
+    # SQLite compares names exactly, so simulate a database that does not.
+    case_variant = SqlScorer(experiment_id=1, scorer_name="judge", scorer_id="id")
+    with (
+        store.ManagedSessionMaker() as session,
+        mock.patch.object(
+            SqlAlchemyStore, "_find_sql_scorer_by_collation", return_value=case_variant
+        ) as find,
+    ):
+        assert store._get_sql_scorer_exact(session, 1, "JUDGE") is None
+        assert store._get_sql_scorer_exact(session, 1, "judge ") is None
+        assert store._get_sql_scorer_exact(session, 1, "judgé") is None
+        assert store._get_sql_scorer_exact(session, 1, "judge") is case_variant
+    assert find.call_args_list == [
+        mock.call(session, 1, name) for name in ["JUDGE", "judge ", "judgé", "judge"]
+    ]
+
+
 def test_get_online_scoring_configs_batch(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_batch_configs")
     with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
@@ -769,6 +841,262 @@ def test_upsert_online_scoring_config_rejects_scorer_requiring_expectations(
             sample_rate=0.0,
         )
         assert config.sample_rate == 0.0
+
+
+def _custom_scorer_json() -> str:
+    @scorer_decorator
+    def output_length(outputs) -> int:
+        return len(str(outputs))
+
+    return json.dumps(output_length.model_dump())
+
+
+def test_upsert_online_scoring_config_accepts_custom_scorer_in_job_containers(
+    store: SqlAlchemyStore, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "docker")
+    experiment_id = store.create_experiment("test_online_config_custom_docker")
+    store.register_scorer(experiment_id, "output_length", _custom_scorer_json())
+
+    config = store.upsert_online_scoring_config(
+        experiment_id=experiment_id, scorer_name="output_length", sample_rate=0.5
+    )
+
+    assert config.sample_rate == 0.5
+
+
+def test_upsert_online_scoring_config_rejects_custom_scorer_without_job_containers(
+    store: SqlAlchemyStore, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    monkeypatch.delenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", raising=False)
+    experiment_id = store.create_experiment("test_online_config_custom_host")
+    store.register_scorer(experiment_id, "output_length", _custom_scorer_json())
+
+    with pytest.raises(MlflowException, match="does not use a gateway model"):
+        store.upsert_online_scoring_config(
+            experiment_id=experiment_id, scorer_name="output_length", sample_rate=0.5
+        )
+
+
+@pytest.mark.parametrize("backend", [None, "docker"])
+def test_get_active_online_scorers_includes_custom_scorers_only_in_job_containers(
+    store: SqlAlchemyStore, backend, monkeypatch, caplog
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "docker")
+    experiment_id = store.create_experiment(f"test_active_online_custom_{backend}")
+    store.register_scorer(experiment_id, "output_length", _custom_scorer_json())
+    store.upsert_online_scoring_config(
+        experiment_id=experiment_id, scorer_name="output_length", sample_rate=0.5
+    )
+    if not backend:
+        monkeypatch.delenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND")
+
+    names = [s.name for s in store.get_active_online_scorers()]
+
+    assert names == (["output_length"] if backend else [])
+    # Turning the job containers off after the config was saved is logged.
+    assert ("Skipping online scorer 'output_length'" in caplog.text) == (not backend)
+    assert ("only in job containers" in caplog.text) == (not backend)
+
+
+def test_upsert_online_scoring_config_rejects_custom_scorer_ensemble_in_job_containers(
+    store: SqlAlchemyStore, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "docker")
+    experiment_id = store.create_experiment("test_online_config_custom_ensemble")
+    ensemble = json.dumps({
+        "name": "ensemble",
+        "ensemble_scorer_data": {"scorers": [json.loads(_custom_scorer_json())]},
+    })
+    store.register_scorer(experiment_id, "ensemble", ensemble)
+
+    with pytest.raises(MlflowException, match="ensemble that includes custom scorers"):
+        store.upsert_online_scoring_config(
+            experiment_id=experiment_id, scorer_name="ensemble", sample_rate=0.5
+        )
+
+
+def _custom_scorer_requiring_expectations_json() -> str:
+    @scorer_decorator
+    def output_length(outputs, expectations) -> int:
+        return len(str(outputs))
+
+    return json.dumps(output_length.model_dump())
+
+
+def _custom_scorer_with_null_byte_in_signature_json() -> str:
+    data = json.loads(_custom_scorer_json())
+    data["call_signature"] = "(outputs\x00)"
+    return json.dumps(data)
+
+
+@pytest.mark.parametrize(
+    ("later_version", "reason"),
+    [
+        (
+            lambda: json.dumps({
+                "name": "output_length",
+                "ensemble_scorer_data": {"scorers": [json.loads(_custom_scorer_json())]},
+            }),
+            "ensemble",
+        ),
+        (_custom_scorer_requiring_expectations_json, "requires expectations"),
+        (_custom_scorer_with_null_byte_in_signature_json, "Invalid signature"),
+    ],
+    ids=["ensemble", "requires_expectations", "invalid_signature"],
+)
+def test_get_active_online_scorers_drops_a_later_custom_scorer_version_the_jobs_cannot_run(
+    store: SqlAlchemyStore, monkeypatch, caplog, later_version, reason
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "docker")
+    experiment_id = store.create_experiment("test_active_online_custom_later_version")
+    store.register_scorer(experiment_id, "output_length", _custom_scorer_json())
+    store.upsert_online_scoring_config(
+        experiment_id=experiment_id, scorer_name="output_length", sample_rate=0.5
+    )
+    assert [s.name for s in store.get_active_online_scorers()] == ["output_length"]
+
+    store.register_scorer(experiment_id, "output_length", later_version())
+
+    assert store.get_active_online_scorers() == []
+    assert "Skipping online scorer 'output_length'" in caplog.text
+    assert reason in caplog.text
+
+
+def test_get_active_online_scorers_keeps_a_later_custom_scorer_version_the_jobs_can_run(
+    store: SqlAlchemyStore, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "docker")
+    experiment_id = store.create_experiment("test_active_online_custom_valid_later_version")
+    store.register_scorer(experiment_id, "output_length", _custom_scorer_json())
+    store.upsert_online_scoring_config(
+        experiment_id=experiment_id, scorer_name="output_length", sample_rate=0.5
+    )
+
+    store.register_scorer(experiment_id, "output_length", _custom_scorer_json())
+
+    assert [(s.name, s.scorer_version) for s in store.get_active_online_scorers()] == [
+        ("output_length", 2)
+    ]
+
+
+def test_get_active_online_scorers_drops_custom_scorers_once_they_are_disabled(
+    store: SqlAlchemyStore, monkeypatch, caplog
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "docker")
+    experiment_id = store.create_experiment("test_active_online_custom_disabled")
+    store.register_scorer(experiment_id, "output_length", _custom_scorer_json())
+    store.upsert_online_scoring_config(
+        experiment_id=experiment_id, scorer_name="output_length", sample_rate=0.5
+    )
+    monkeypatch.delenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS")
+
+    assert store.get_active_online_scorers() == []
+    assert "custom scorers are disabled on this server" in caplog.text
+
+
+def test_upsert_online_scoring_config_rejects_custom_scorer_requiring_expectations(
+    store: SqlAlchemyStore, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "docker")
+
+    @scorer_decorator
+    def exact_match(outputs, expectations) -> bool:
+        return outputs == expectations
+
+    experiment_id = store.create_experiment("test_online_config_custom_expectations")
+    store.register_scorer(experiment_id, "exact_match", json.dumps(exact_match.model_dump()))
+
+    with pytest.raises(MlflowException, match="requires expectations.*not currently supported"):
+        store.upsert_online_scoring_config(
+            experiment_id=experiment_id, scorer_name="exact_match", sample_rate=0.5
+        )
+
+
+def test_upsert_online_scoring_config_names_a_custom_scorer_without_source(
+    store: SqlAlchemyStore, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "docker")
+    experiment_id = store.create_experiment("test_online_config_custom_without_source")
+    # A version saved before registration rejected custom scorers without source code.
+    data = json.loads(_custom_scorer_json())
+    data["call_source"] = ""
+    store.register_scorer(experiment_id, "output_length", json.dumps(data))
+
+    with pytest.raises(MlflowException, match="'output_length' has no source code"):
+        store.upsert_online_scoring_config(
+            experiment_id=experiment_id, scorer_name="output_length", sample_rate=0.5
+        )
+
+    # An ensemble keeps the ensemble error, even if a custom scorer in it has no source code.
+    store.register_scorer(
+        experiment_id,
+        "ensemble",
+        json.dumps({"name": "ensemble", "ensemble_scorer_data": {"scorers": [data]}}),
+    )
+    with pytest.raises(MlflowException, match="is not a single custom scorer"):
+        store.upsert_online_scoring_config(
+            experiment_id=experiment_id, scorer_name="ensemble", sample_rate=0.5
+        )
+
+
+def test_online_scoring_store_methods_do_not_load_the_server_package(tmp_path):
+    # Loading the server package in a client process changes how it loads custom scorers.
+    (tmp_path / "scorer.json").write_text(_custom_scorer_json())
+    code = """
+import pathlib
+import sys
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.utils.file_utils import path_to_local_sqlite_uri
+
+tmp_path = pathlib.Path(sys.argv[1])
+db_uri = path_to_local_sqlite_uri(tmp_path / "db.sqlite")
+store = SqlAlchemyStore(db_uri, str(tmp_path / "artifacts"))
+experiment_id = store.create_experiment("exp")
+store.register_scorer(experiment_id, "scorer", (tmp_path / "scorer.json").read_text())
+store.upsert_online_scoring_config(experiment_id, "scorer", 0.5)
+assert [s.name for s in store.get_active_online_scorers()] == ["scorer"]
+assert "mlflow.server" not in sys.modules
+"""
+    # The path is passed as an argument: written into the code, a Windows path's backslashes would
+    # be read as escapes.
+    subprocess.check_call(
+        [sys.executable, "-c", code, str(tmp_path)],
+        env={
+            **os.environ,
+            "MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND": "docker",
+            "MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS": "true",
+        },
+    )
+
+
+def test_upsert_online_scoring_config_rejects_custom_scorer_when_disabled(
+    store: SqlAlchemyStore, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "docker")
+    experiment_id = store.create_experiment("test_online_config_custom_disabled")
+    store.register_scorer(experiment_id, "output_length", _custom_scorer_json())
+    monkeypatch.delenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS")
+
+    with pytest.raises(MlflowException, match="custom scorers are disabled on this server"):
+        store.upsert_online_scoring_config(
+            experiment_id=experiment_id, scorer_name="output_length", sample_rate=0.5
+        )
+    # Turning automatic evaluation off still works.
+    config = store.upsert_online_scoring_config(
+        experiment_id=experiment_id, scorer_name="output_length", sample_rate=0.0
+    )
+    assert config.sample_rate == 0.0
 
 
 def test_upsert_online_scoring_config_nonexistent_scorer(store: SqlAlchemyStore):

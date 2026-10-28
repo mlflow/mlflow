@@ -5,8 +5,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 300000,
-        "max_output": 10000,
-        "max_tokens": 10000
+        "max_output": 10000
       },
       "pricing": {
         "input_per_million_tokens": 0.06,
@@ -19,14 +18,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "nova-micro-v1": {
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 10000,
-        "max_tokens": 10000
+        "max_output": 10000
       },
       "pricing": {
         "input_per_million_tokens": 0.035,
@@ -39,14 +37,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "nova-premier-v1": {
       "mode": "chat",
       "context_window": {
         "max_input": 1000000,
-        "max_output": 10000,
-        "max_tokens": 10000
+        "max_output": 10000
       },
       "pricing": {
         "input_per_million_tokens": 2.5,
@@ -59,14 +56,13 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "nova-pro-v1": {
       "mode": "chat",
       "context_window": {
         "max_input": 300000,
-        "max_output": 10000,
-        "max_tokens": 10000
+        "max_output": 10000
       },
       "pricing": {
         "input_per_million_tokens": 0.8,
@@ -79,7 +75,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     }
   }
 }

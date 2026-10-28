@@ -1,5 +1,6 @@
 import ast
 import base64
+import copy
 import json
 import logging
 from functools import cached_property
@@ -13,6 +14,7 @@ from opentelemetry.sdk.trace import Event as OTelEvent
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
 from opentelemetry.trace import Span as OTelSpan
+from opentelemetry.trace import SpanKind as OTelSpanKind
 from opentelemetry.trace import Status as OTelStatus
 from opentelemetry.trace import StatusCode as OTelStatusCode
 
@@ -57,6 +59,19 @@ def _normalize_link_trace_id(link_trace_id: str, source_trace_id: str | None) ->
     if link_location:
         return link_trace_id if link_location == source_location else None
     return construct_trace_id_v4(source_location, trace_id) if source_location else link_trace_id
+
+
+def _otel_proto_kind_to_sdk_kind(proto_kind: int) -> OTelSpanKind:
+    # OTLP span kinds are the SDK span kinds plus one, with 0 reserved for SPAN_KIND_UNSPECIFIED.
+    # Unspecified and unknown values fall back to INTERNAL, the SDK default.
+    try:
+        return OTelSpanKind(proto_kind - 1)
+    except ValueError:
+        return OTelSpanKind.INTERNAL
+
+
+def _sdk_kind_to_otel_proto_kind(kind: OTelSpanKind) -> int:
+    return kind.value + 1
 
 
 def _link_from_otel_link(otel_link, source_trace_id: str | None) -> Link:
@@ -365,6 +380,7 @@ class Span:
             if self._span.parent
             else None,
             "name": self.name,
+            "kind": OTelProtoSpan.SpanKind.Name(_sdk_kind_to_otel_proto_kind(self._span.kind)),
             "start_time_unix_nano": self.start_time_ns,
             "end_time_unix_nano": self.end_time_ns,
             "events": [
@@ -385,6 +401,22 @@ class Span:
             "attributes": dict(self._span.attributes),
             "links": [link.to_dict() for link in self.links],
         }
+
+    def __reduce__(self):
+        return (_reconstruct_span, (self.to_dict(), self._attachments))
+
+    def __copy__(self) -> "Span":
+        # Shallow copies keep sharing the underlying OTel span, as they did
+        # before the copy protocol was defined.
+        new_span = type(self).__new__(type(self))
+        new_span.__dict__.update(self.__dict__)
+        return new_span
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> "Span":
+        new_span = Span.from_dict(copy.deepcopy(self.to_dict(), memo))
+        new_span._attachments = copy.deepcopy(self._attachments, memo)
+        memo[id(self)] = new_span
+        return new_span
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Span":
@@ -432,10 +464,20 @@ class Span:
             end_time_ns = data.get("end_time_unix_nano")
             end_time_ns = int(end_time_ns) if end_time_ns else None
 
+            # Spans stored before the kind was serialized, and spans logged by the TypeScript
+            # SDK, have no "kind" key.
+            kind_name = data.get("kind")
+            kind = (
+                _otel_proto_kind_to_sdk_kind(OTelProtoSpan.SpanKind.Value(kind_name))
+                if kind_name
+                else OTelSpanKind.INTERNAL
+            )
+
             otel_span = OTelReadableSpan(
                 name=data["name"],
                 context=build_otel_context(otel_trace_id, span_id),
                 parent=build_otel_context(otel_trace_id, parent_id) if parent_id else None,
+                kind=kind,
                 start_time=int(data["start_time_unix_nano"]),
                 end_time=end_time_ns,
                 attributes=data["attributes"],
@@ -577,6 +619,7 @@ class Span:
             name=otel_proto_span.name,
             context=build_otel_context(trace_id, span_id),
             parent=build_otel_context(trace_id, parent_id) if parent_id else None,
+            kind=_otel_proto_kind_to_sdk_kind(otel_proto_span.kind),
             start_time=otel_proto_span.start_time_unix_nano,
             end_time=otel_proto_span.end_time_unix_nano,
             # we need to dump the attribute value to be consistent with span.set_attribute behavior
@@ -616,6 +659,7 @@ class Span:
         otel_span.span_id = bytes.fromhex(self.span_id)
 
         otel_span.name = self.name
+        otel_span.kind = _sdk_kind_to_otel_proto_kind(self._span.kind)
         otel_span.start_time_unix_nano = self.start_time_ns
         if self.end_time_ns:
             otel_span.end_time_unix_nano = self.end_time_ns
@@ -636,13 +680,21 @@ class Span:
 
         # Convert links to OTLP proto format
         for link in self.links:
-            proto_link = otel_span.links.add()
             # Convert MLflow trace ID (tr-xxx or trace:/loc/xxx) back to OTel bytes
             link_trace_id_hex = parse_trace_id_v4(link.trace_id)[1].removeprefix(
                 TRACE_REQUEST_ID_PREFIX
             )
-            proto_link.trace_id = decode_id(link_trace_id_hex).to_bytes(16, "big")
-            proto_link.span_id = decode_id(link.span_id).to_bytes(8, "big")
+            link_trace_id = decode_id(link_trace_id_hex)
+            link_span_id = decode_id(link.span_id)
+            # Some producers (e.g. Claude Code detailed beta tracing) emit IDs wider than the
+            # 16-byte trace / 8-byte span IDs OTLP allows. Drop such links rather than failing
+            # the whole trace.
+            if link_trace_id.bit_length() > 128 or link_span_id.bit_length() > 64:
+                _logger.debug("Skipping link with out-of-range IDs on span '%s'.", self.name)
+                continue
+            proto_link = otel_span.links.add()
+            proto_link.trace_id = link_trace_id.to_bytes(16, "big")
+            proto_link.span_id = link_span_id.to_bytes(8, "big")
 
             # Add link attributes
             if link.attributes:
@@ -727,6 +779,18 @@ class LiveSpan(Span):
         # and logs. As spans are logged, we incrementally add numeric suffixes (_1, _2, etc.) to
         # make each span uniquely identifiable within its trace
         self._original_name = otel_span.name
+
+    def __reduce__(self) -> NoReturn:
+        raise TypeError(
+            f"'{type(self).__name__}' cannot be pickled while active. "
+            "Call `span.to_immutable_span()` to serialize finished span data."
+        )
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> NoReturn:
+        raise TypeError(
+            f"'{type(self).__name__}' cannot be deepcopied while active. "
+            "Call `span.to_immutable_span()` to copy finished span data."
+        )
 
     def set_span_type(self, span_type: str):
         """Set the type of the span."""
@@ -1410,6 +1474,18 @@ class LazySpan(Span):
         except AttributeError:
             return super().__getattr__(name)
 
+    def __reduce__(self):
+        # Rebuild from the stored dict; the copy materializes on first access.
+        return (LazySpan, (self.__dict__["_span_dict"],))
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> "LazySpan":
+        new_lazy = LazySpan(
+            copy.deepcopy(self.__dict__["_span_dict"], memo),
+            raw_json=self.__dict__["_raw_json"],
+        )
+        memo[id(self)] = new_lazy
+        return new_lazy
+
     def __repr__(self):
         if self.__dict__.get("_materialized"):
             return super().__repr__()
@@ -1428,6 +1504,12 @@ class LazySpan(Span):
             f"span_id={span_dict.get('span_id')!r}, "
             f"parent_id={span_dict.get('parent_span_id')!r})"
         )
+
+
+def _reconstruct_span(span_dict: dict[str, Any], attachments: dict[str, Any]) -> Span:
+    span = Span.from_dict(span_dict)
+    span._attachments = attachments
+    return span
 
 
 class NoOpSpan(Span):
@@ -1454,6 +1536,14 @@ class NoOpSpan(Span):
         self._span = otel_span or NonRecordingSpan(context=None)
         self._attributes = {}
         self._links = []
+
+    def __reduce__(self):
+        return (NoOpSpan, (self._span,))
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> "NoOpSpan":
+        new_noop = NoOpSpan(copy.deepcopy(self._span, memo))
+        memo[id(self)] = new_noop
+        return new_noop
 
     @property
     def trace_id(self):

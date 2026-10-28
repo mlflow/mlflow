@@ -6,6 +6,8 @@ import logging
 import math
 import threading
 from collections import OrderedDict
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Callable
 
 from cachetools.func import cached
@@ -32,6 +34,7 @@ from mlflow.models.evaluation.utils.trace import configure_autologging_for_evalu
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracing.constant import (
     AssessmentMetadataKey,
+    GenAiSemconvKey,
     SpanAttributeKey,
     TraceMetadataKey,
     TraceTagKey,
@@ -39,6 +42,7 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.display import IPythonTraceDisplayHandler
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.tracing.utils.search import traces_to_df
+from mlflow.tracing.utils.session_hierarchy import parse_session_path, session_group_key
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.uri import is_databricks_uri
 
@@ -50,6 +54,12 @@ if TYPE_CHECKING:
     from mlflow.types.chat import ChatTool
 
 _logger = logging.getLogger(__name__)
+
+# A contextvar rather than a parameter so that judges nested inside built-in session
+# scorers, which call `validate_session` themselves, see the group being scored too.
+_session_level_group_key: ContextVar[str | None] = ContextVar(
+    "mlflow_session_level_group_key", default=None
+)
 
 _MESSAGE_KEY = "message"
 _MESSAGES_KEY = "messages"
@@ -200,6 +210,8 @@ def _extract_tool_name_from_span(span: Span) -> str:
         call_data = inputs.get("call")
         if isinstance(call_data, dict) and "tool_name" in call_data:
             return call_data["tool_name"]
+    if isinstance(tool_name := span.attributes.get(GenAiSemconvKey.TOOL_NAME), str):
+        return tool_name
     return span.name
 
 
@@ -277,9 +289,27 @@ def parse_tool_call_messages_from_trace(trace: Trace) -> list[dict[str, str]]:
     return tool_messages
 
 
+@contextmanager
+def _session_level_group(group_key: str):
+    """
+    Make `validate_session` accept traces grouped at a session-hierarchy level.
+
+    Within this context, traces whose hierarchical session ID starts with the
+    ``group_key`` path count as one session even if their full IDs differ.
+    """
+    token = _session_level_group_key.set(group_key)
+    try:
+        yield
+    finally:
+        _session_level_group_key.reset(token)
+
+
 def validate_session(session: list[Trace]) -> None:
     """
     Validate that all traces in session belong to the same session.
+
+    Inside :func:`_session_level_group`, traces are compared by their session ID
+    prefix at the group's hierarchy level instead of by their full session ID.
 
     Args:
         session: List of traces to validate.
@@ -287,6 +317,7 @@ def validate_session(session: list[Trace]) -> None:
     Raises:
         MlflowException: If traces are missing session_id or belong to different sessions.
     """
+    group_path = parse_session_path(_session_level_group_key.get())
     session_id_to_trace_ids: dict[str, list[str]] = {}
     for trace in session:
         session_id = trace.info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION)
@@ -298,6 +329,8 @@ def validate_session(session: list[Trace]) -> None:
                 f"for information on how to set session_id on traces.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        if group_path is not None:
+            session_id = session_group_key(session_id, len(group_path) - 1)
         if session_id not in session_id_to_trace_ids:
             session_id_to_trace_ids[session_id] = []
         session_id_to_trace_ids[session_id].append(trace.info.trace_id)
@@ -698,16 +731,22 @@ def _is_responses_api_output(maybe_output: Any) -> bool:
 
 
 def _extract_responses_api_content(output: list[dict[str, Any]]) -> str:
-    """Extract text content from OpenAI Responses API output format."""
+    """Extract text content from Responses API and ResponsesAgent output."""
     for item in reversed(output):
         if item.get("role") == "assistant" and "content" in item:
             content = item["content"]
             if isinstance(content, str):
                 return content
             if isinstance(content, list):
-                for part in content:
-                    if isinstance(part, dict) and part.get("type") in ("text", "output_text"):
-                        return part.get("text", json.dumps(output))
+                text_parts = [
+                    part.get("text")
+                    for part in content
+                    if isinstance(part, dict) and part.get("type") in ("text", "output_text")
+                ]
+                if text_parts:
+                    if all(isinstance(text, str) for text in text_parts):
+                        return "".join(text_parts)
+                    return json.dumps(output)
     return json.dumps(output)
 
 
@@ -873,6 +912,7 @@ def clean_up_extra_traces(
     eval_start_time: int,
     experiment_id: str,
     input_trace_ids: set[str] | None = None,
+    keep_untagged_run_traces: bool = False,
 ) -> None:
     """
     Clean up noisy traces generated outside predict function.
@@ -888,12 +928,21 @@ def clean_up_extra_traces(
         experiment_id: The experiment ID of the evaluation run.
         input_trace_ids: Set of trace IDs that were passed in the input DataFrame.
             These traces should never be deleted.
+        keep_untagged_run_traces: If True, do not delete traces that were created during
+            the evaluation run but lack ``mlflow.eval.requestId``. Use this when a
+            ``predict_fn`` row missed the eval tag so the failure is missing assessments
+            rather than deleted traces.
     """
     try:
         extra_trace_ids = [
             trace.info.trace_id
             for trace in traces
-            if not _should_keep_trace(trace, eval_start_time, input_trace_ids)
+            if not _should_keep_trace(
+                trace,
+                eval_start_time,
+                input_trace_ids,
+                keep_untagged_run_traces=keep_untagged_run_traces,
+            )
         ]
         if extra_trace_ids:
             _logger.debug(
@@ -919,6 +968,7 @@ def _should_keep_trace(
     trace: Trace,
     eval_start_time: int,
     input_trace_ids: set[str] | None = None,
+    keep_untagged_run_traces: bool = False,
 ) -> bool:
     # Never delete traces that were explicitly passed in the input DataFrame.
     if input_trace_ids and trace.info.trace_id in input_trace_ids:
@@ -936,7 +986,9 @@ def _should_keep_trace(
         return True
 
     # Otherwise, only keep traces from the prediction function.
-    return TraceTagKey.EVAL_REQUEST_ID in trace.info.tags
+    if TraceTagKey.EVAL_REQUEST_ID in trace.info.tags:
+        return True
+    return keep_untagged_run_traces
 
 
 def construct_eval_result_df(

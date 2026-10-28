@@ -12,6 +12,7 @@ import {
 const Q_PARAM = 'q';
 const PAGE_PARAM = 'page';
 const RECORD_ID_PARAM = 'recordId';
+const RUNS_PANEL_PARAM = 'runsPanel';
 const SORT_PARAM = 'sort';
 const DIR_PARAM = 'dir';
 
@@ -26,6 +27,9 @@ interface DatasetRecordsUrlState {
   setPageIndex: (next: number) => void;
   recordId: string | undefined;
   setRecordId: (next: string | undefined) => void;
+  /** The evaluation runs panel; it and the record panel are never open together. */
+  isRunsPanelOpen: boolean;
+  setRunsPanelOpen: (open: boolean) => void;
   /** Active sort column id. Falls back to the default when absent or unrecognized. */
   sort: RecordColumnId;
   dir: SortDirection;
@@ -47,6 +51,9 @@ export const useDatasetRecordsUrlState = (): DatasetRecordsUrlState => {
   const [search, setSearchParams] = useSearchParamSelector((params) => params.get(Q_PARAM) ?? '');
   const [pageIndex, setPageIndex] = useNumberSearchParam({ key: PAGE_PARAM, defaultValue: 1, min: 1 });
   const [recordId] = useSearchParamSelector((params) => params.get(RECORD_ID_PARAM) ?? undefined);
+  const [isRunsPanelOpen] = useSearchParamSelector(
+    (params) => !params.has(RECORD_ID_PARAM) && params.get(RUNS_PANEL_PARAM) === 'true',
+  );
   const [sortRaw] = useSearchParamSelector((params) => params.get(SORT_PARAM));
   const [dirRaw] = useSearchParamSelector((params) => params.get(DIR_PARAM));
 
@@ -76,6 +83,22 @@ export const useDatasetRecordsUrlState = (): DatasetRecordsUrlState => {
         } else {
           params.delete(RECORD_ID_PARAM);
         }
+        params.delete(RUNS_PANEL_PARAM);
+        return params;
+      });
+    },
+    [setSearchParams],
+  );
+
+  const setRunsPanelOpen = useCallback(
+    (open: boolean) => {
+      setSearchParams((params) => {
+        if (open) {
+          params.set(RUNS_PANEL_PARAM, 'true');
+          params.delete(RECORD_ID_PARAM);
+        } else {
+          params.delete(RUNS_PANEL_PARAM);
+        }
         return params;
       });
     },
@@ -101,5 +124,17 @@ export const useDatasetRecordsUrlState = (): DatasetRecordsUrlState => {
     [setSearchParams],
   );
 
-  return { search, setSearch, pageIndex, setPageIndex, recordId, setRecordId, sort, dir, setSort };
+  return {
+    search,
+    setSearch,
+    pageIndex,
+    setPageIndex,
+    recordId,
+    setRecordId,
+    isRunsPanelOpen,
+    setRunsPanelOpen,
+    sort,
+    dir,
+    setSort,
+  };
 };
