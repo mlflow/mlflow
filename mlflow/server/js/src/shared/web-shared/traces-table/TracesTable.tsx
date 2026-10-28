@@ -1041,10 +1041,10 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
               ? { ...pinnedComparisonInputStyle, zIndex: 2 }
               : undefined),
           }}
-          // The pinned column's resize bar would sit beside the scrolled columns' separators; the
-          // handle still resizes, it just isn't drawn.
+          // With summary separators, the pinned column's resize bar would sit beside the scrolled
+          // columns' separators; the handle still resizes, it just isn't drawn.
           css={
-            columnId === 'input' && !isSessionComparison
+            columnId === 'input' && !isSessionComparison && hasSummaryHeaders
               ? { '[aria-label="Resize Column"] > div': { visibility: 'hidden' } }
               : undefined
           }
@@ -1626,7 +1626,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                 style={columnStyles.get(comparisonRunHeader.column.id)}
                 wrapContent={false}
               >
-                {renderSummaryBorder(false)}
+                {renderSummaryBorder(comparisonValueHeaders.length === 0)}
                 <TraceColumnHeader
                   columnId={COMPARISON_RUN_COLUMN_ID}
                   label={intl.formatMessage({
