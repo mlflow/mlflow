@@ -216,14 +216,18 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             file_infos.append(file_info)
 
         # The list_artifacts API expects us to return an empty list if the
-        # the path references a single file.
+        # the path references a single file. Some artifact stores list a file as itself, which
+        # looks the same as a directory holding one file with the same name (e.g. `0/0`), so
+        # check the parent listing to tell them apart.
         if (
             len(file_infos) == 1
             and not file_infos[0].is_dir
             and path is not None
             and file_infos[0].path == posixpath.join(path, os.path.basename(path))
         ):
-            return []
+            parent = posixpath.dirname(path) or None
+            if not any(f.is_dir and f.path == path for f in self.list_artifacts(parent)):
+                return []
 
         return sorted(file_infos, key=lambda f: f.path)
 

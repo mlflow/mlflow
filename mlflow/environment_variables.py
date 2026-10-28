@@ -950,10 +950,18 @@ MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT = _EnvironmentVariable(
     "MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", str, "auto"
 )
 
-#: Maximum scorer calls per second during mlflow.genai.evaluate. A token-bucket
-#: rate limiter throttles individual scorer invocations across all worker threads.
-#: Accepted values: a positive number (fixed rate) or ``0`` to disable.
+#: Shared scorer budget per second during mlflow.genai.evaluate. A token-bucket
+#: rate limiter throttles scorer invocations across all worker threads.
+#: Accepted values: ``auto`` (adaptive rate starting at 10 rps), a positive number
+#: (fixed rate), or ``0`` to disable. The token bucket allows a one-second burst.
 #: When unset, the scorer rate is auto-derived as predict_rate x num_scorers.
+#:
+#: [Databricks users only] With databricks-agents SDK installed, RetrievalRelevance
+#: consumes this budget per judge HTTP attempt including chunk retries, instead of
+#: once per scorer invocation. Set
+#: ``ENABLE_RETRIEVAL_JUDGE_PER_REQUEST_RATE_LIMITING=false`` to disable per-request limiting.
+#: Older SDKs retain per-scorer invocation limits.
+#: Other scorers always rate limit by per-scorer invocation.
 MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT = _EnvironmentVariable(
     "MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT", str, None
 )
@@ -1761,6 +1769,16 @@ MLFLOW_TRACE_ROLLUPS_MAX_WORKERS = _EnvironmentVariable("MLFLOW_TRACE_ROLLUPS_MA
 #: (default: ``10``)
 MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS = _EnvironmentVariable(
     "MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS", int, 10
+)
+
+#: Specifies the maximum number of scheduled issue-detection occurrences that run concurrently.
+#: One occurrence per experiment at a time, so this bounds how many experiments are analyzed at
+#: once. Separate from judge invocation, and lower by default, for the same reason online scoring
+#: is separate from it: this work is unattended and recurring, so it should not claim as much of
+#: the server as something a user is waiting on.
+#: (default: ``5``)
+MLFLOW_SERVER_SCHEDULED_ISSUE_DETECTION_MAX_WORKERS = _EnvironmentVariable(
+    "MLFLOW_SERVER_SCHEDULED_ISSUE_DETECTION_MAX_WORKERS", int, 5
 )
 
 #: Number of traces to batch into a single scorer invocation job.

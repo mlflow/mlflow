@@ -6905,6 +6905,63 @@ def test_log_spans_then_start_trace_preserves_preview(store: SqlAlchemyStore):
     assert "Hi" in trace_info.response_preview
 
 
+def test_start_trace_rejects_experiment_change(store: SqlAlchemyStore):
+    exp1 = store.create_experiment("exp1")
+    exp2 = store.create_experiment("exp2")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    span = create_test_span(
+        trace_id=trace_id,
+        name="test_span",
+        span_id=111,
+        status=trace_api.StatusCode.OK,
+        start_ns=1_000_000_000,
+        end_ns=2_000_000_000,
+    )
+    store.log_spans(exp1, [span])
+
+    trace_info_for_start = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp1),
+        request_time=1000,
+        execution_duration=1000,
+        state=TraceState.OK,
+        trace_metadata={},
+    )
+    store.start_trace(trace_info_for_start)
+
+    trace_info_same_exp = store.get_trace_info(trace_id)
+    assert trace_info_same_exp.experiment_id == exp1
+
+    trace_info_different_exp = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp2),
+        request_time=2000,
+        execution_duration=2000,
+        state=TraceState.OK,
+        trace_metadata={},
+    )
+    with pytest.raises(MlflowException, match="already exists in another experiment"):
+        store.start_trace(trace_info_different_exp)
+
+    trace_info_final = store.get_trace_info(trace_id)
+    assert trace_info_final.experiment_id == exp1
+
+
+def test_log_spans_rejects_trace_in_another_experiment(store: SqlAlchemyStore):
+    exp1 = store.create_experiment("log_spans_owner")
+    exp2 = store.create_experiment("log_spans_other")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    store.log_spans(exp1, [create_test_span(trace_id=trace_id, name="original", span_id=1)])
+
+    with pytest.raises(MlflowException, match="already exists in another experiment"):
+        store.log_spans(exp2, [create_test_span(trace_id=trace_id, name="injected", span_id=2)])
+
+    trace = store.get_trace(trace_id, allow_partial=True)
+    assert trace.info.experiment_id == exp1
+    assert [span.name for span in trace.data.spans] == ["original"]
+
+
 def test_start_trace_replaces_nul_in_preview(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_start_trace_nul_preview")
     trace_id = f"tr-{uuid.uuid4().hex}"

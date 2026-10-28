@@ -480,6 +480,31 @@ def test_list_artifacts(http_artifact_repo):
         assert [a.path for a in http_artifact_repo.list_artifacts(path="path/1.txt/1.txt")] == []
 
 
+@pytest.mark.parametrize(
+    ("path", "listings", "expected"),
+    [
+        # A directory holding a single file with the same name
+        ("0", {"0": [("0", False)], "": [("0", True)]}, ["0/0"]),
+        ("a/0", {"a/0": [("0", False)], "a": [("0", True)]}, ["a/0/0"]),
+        # A file listed as itself
+        ("0", {"0": [("0", False)], "": [("0", False)]}, []),
+        ("a/0", {"a/0": [("0", False)], "a": [("0", False)]}, []),
+    ],
+)
+def test_list_artifacts_single_file_named_like_directory(
+    http_artifact_repo, path, listings, expected
+):
+    def mock_http_request(host_creds, endpoint, method, params):
+        files = [{"path": name, "is_dir": is_dir} for name, is_dir in listings[params["path"]]]
+        return MockResponse({"files": files}, 200)
+
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request", side_effect=mock_http_request
+    ) as mock_request:
+        assert [a.path for a in http_artifact_repo.list_artifacts(path=path)] == expected
+        assert mock_request.call_count == 2
+
+
 @pytest.mark.parametrize("path", ["/tmp/path", "../../path", "%2E%2E%2Fpath"])
 def test_list_artifacts_malicious_path(http_artifact_repo, path):
     with mock.patch(

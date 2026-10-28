@@ -105,13 +105,12 @@ def test_read_and_write_use_the_experiment_tag():
     assert read_detection_checkpoint(experiment) == checkpoint
     assert read_detection_checkpoint(_experiment({})) is None
 
-    store = mock.Mock()
-    write_detection_checkpoint(store, "1", checkpoint)
-    store.set_experiment_tag.assert_called_once()
-    experiment_id, tag = store.set_experiment_tag.call_args[0]
-    assert experiment_id == "1"
-    assert tag.key == MLFLOW_ISSUE_DETECTION_CHECKPOINT
-    assert parse_detection_checkpoint(tag.value) == checkpoint
+    client = mock.Mock()
+    write_detection_checkpoint(client, "1", checkpoint)
+    client.set_experiment_tag.assert_called_once()
+    experiment_id, key, value = client.set_experiment_tag.call_args.args
+    assert (experiment_id, key) == ("1", MLFLOW_ISSUE_DETECTION_CHECKPOINT)
+    assert parse_detection_checkpoint(value) == checkpoint
 
 
 def test_first_run_window_looks_back_one_cadence_interval():

@@ -34,6 +34,7 @@ from mlflow.models.evaluation.utils.trace import configure_autologging_for_evalu
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracing.constant import (
     AssessmentMetadataKey,
+    GenAiSemconvKey,
     SpanAttributeKey,
     TraceMetadataKey,
     TraceTagKey,
@@ -209,6 +210,8 @@ def _extract_tool_name_from_span(span: Span) -> str:
         call_data = inputs.get("call")
         if isinstance(call_data, dict) and "tool_name" in call_data:
             return call_data["tool_name"]
+    if isinstance(tool_name := span.attributes.get(GenAiSemconvKey.TOOL_NAME), str):
+        return tool_name
     return span.name
 
 

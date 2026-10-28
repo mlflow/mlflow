@@ -76,13 +76,13 @@ def _create_webhook_session() -> requests.Session:
     extra_kwargs = {}
     if Version(urllib3.__version__) >= Version("2.0"):
         extra_kwargs["backoff_jitter"] = 1.0  # Add up to 1 second of jitter
+        extra_kwargs["backoff_max"] = 60.0  # Cap maximum backoff at 60 seconds
 
     retry_strategy = Retry(
         total=max_retries,
         status_forcelist=[429, 500, 502, 503, 504],  # Retry on these status codes
         allowed_methods=["POST"],  # Only retry POST requests
         backoff_factor=1.0,  # Exponential backoff: 1s, 2s, 4s, etc.
-        backoff_max=60.0,  # Cap maximum backoff at 60 seconds
         respect_retry_after_header=True,  # Automatically handle Retry-After headers
         raise_on_status=False,  # Don't raise on these status codes
         **extra_kwargs,
@@ -291,13 +291,13 @@ def _deliver_webhook_impl(
     payload: WebhookPayload,
     store: AbstractStore,
 ) -> None:
-    session = _get_or_create_webhook_session()
     ttl_seconds = MLFLOW_WEBHOOK_CACHE_TTL.get()
 
     # Get only webhooks subscribed to this specific event (filtered at DB level when possible)
     webhooks = _get_cached_webhooks_by_event(store, event, ttl_seconds)
-    for webhook in webhooks:
-        if webhook.status.is_active():
+    if active_webhooks := [w for w in webhooks if w.status.is_active()]:
+        session = _get_or_create_webhook_session()
+        for webhook in active_webhooks:
             _webhook_delivery_executor.submit(
                 _send_webhook_with_error_handling,
                 webhook,

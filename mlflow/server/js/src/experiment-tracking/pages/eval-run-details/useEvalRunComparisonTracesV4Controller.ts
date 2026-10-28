@@ -31,9 +31,14 @@ import { useTracesV4AssessmentColumns } from '../../components/experiment-page/c
 import { useTracesV4Columns } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4Columns';
 import { useTracesV4ColumnSizing } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4ColumnSizing';
 import {
+  assessmentColumnId,
   assessmentNameFromColumnId,
   isAssessmentColumnId,
 } from '../../components/experiment-page/components/traces-v4/utils/assessmentColumns';
+import {
+  getPairwiseScoreCounts,
+  PAIRWISE_PREFERENCE_ASSESSMENT_NAME,
+} from '../../components/experiment-page/components/traces-v4/utils/pairwiseReview';
 import { isExactTraceIdSearch } from '../../components/experiment-page/components/traces-v4/utils/buildTracesV4SearchParams';
 import { useGetExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { useMonitoringConfig } from '../../hooks/useMonitoringConfig';
@@ -45,6 +50,7 @@ import { useEvalRunComparisonTraceInputs } from './useEvalRunComparisonTraceInpu
 import {
   getEvalRunComparisonColumnAggregates,
   getEvalRunComparisonOutcome,
+  type EvalRunComparisonColumnAggregate,
   type EvalRunComparisonOutcome,
   type NumericAggregateMethod,
 } from './evalRunComparisonColumnAggregates';
@@ -65,6 +71,7 @@ export const getEvalRunComparisonTraceId = (trace: ModelTraceInfoV3): string =>
   doesTraceSupportV4API(trace) ? createTraceV4LongIdentifier(trace) : trace.trace_id;
 
 const COMPARISON_DEFAULT_HIDDEN_COLUMNS: ReadonlySet<TraceColumnId> = new Set(['start_time']);
+const PAIRWISE_PREFERENCE_COLUMN_ID = assessmentColumnId(PAIRWISE_PREFERENCE_ASSESSMENT_NAME);
 
 export type { NumericAggregateMethod } from './evalRunComparisonColumnAggregates';
 
@@ -361,8 +368,36 @@ export const useEvalRunComparisonTracesV4Controller = ({
         : traceRows,
     [traceRows, outcomeFilters, traceAssessmentInfos],
   );
-  const columnAggregates = useMemo(
-    () =>
+  // Pairwise review feedback: each run's wins and losses against the other runs' traces in the same rows.
+  const pairwisePreferenceAggregate = useMemo<EvalRunComparisonColumnAggregate>(
+    () => ({
+      label: 'WIN / LOSE',
+      values: summaryRuns.map((_, runIndex) => {
+        let wins = 0;
+        let losses = 0;
+        for (const row of filteredTraceRows) {
+          const trace = row.runs[runIndex]?.trace;
+          if (!trace) {
+            continue;
+          }
+          const opponentTraceIds = new Set(
+            row.runs.flatMap((run, opponentIndex) =>
+              opponentIndex !== runIndex && run.trace ? [run.trace.trace_id] : [],
+            ),
+          );
+          const counts = getPairwiseScoreCounts(trace, opponentTraceIds);
+          wins += counts.wins;
+          losses += counts.losses;
+        }
+        return {
+          displayValue: wins || losses ? `${intl.formatNumber(wins)}/${intl.formatNumber(losses)}` : '—',
+        };
+      }),
+    }),
+    [filteredTraceRows, intl, summaryRuns],
+  );
+  const columnAggregates = useMemo(() => {
+    const aggregates =
       !isGroupedBySession && outcomeFilters.length
         ? getEvalRunComparisonColumnAggregates(
             filteredTraceRows,
@@ -372,18 +407,21 @@ export const useEvalRunComparisonTracesV4Controller = ({
             aggregateMethods,
             true,
           )
-        : filterOptionAggregates,
-    [
-      isGroupedBySession,
-      outcomeFilters.length,
-      filterOptionAggregates,
-      filteredTraceRows,
-      traceAssessmentInfos,
-      intl,
-      summaryRuns.length,
-      aggregateMethods,
-    ],
-  );
+        : filterOptionAggregates;
+    return isGroupedBySession || !aggregates[PAIRWISE_PREFERENCE_COLUMN_ID]
+      ? aggregates
+      : { ...aggregates, [PAIRWISE_PREFERENCE_COLUMN_ID]: pairwisePreferenceAggregate };
+  }, [
+    isGroupedBySession,
+    outcomeFilters.length,
+    filterOptionAggregates,
+    filteredTraceRows,
+    traceAssessmentInfos,
+    intl,
+    summaryRuns.length,
+    aggregateMethods,
+    pairwisePreferenceAggregate,
+  ]);
   const sortedRows = useMemo<TracesComparisonRow[]>(
     () =>
       isGroupedBySession

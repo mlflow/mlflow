@@ -177,6 +177,7 @@ const ExperimentEvaluationRunsPageImpl = ({ baseline }: { baseline?: EvalRunsBas
     experimentId,
     enabled: true,
     filter: filterString,
+    excludeIssueDetectionRuns: true,
   });
 
   // The filtered query cannot report the unfiltered total, so keep a first-page unfiltered query
@@ -572,7 +573,7 @@ const ExperimentEvaluationRunsPageImpl = ({ baseline }: { baseline?: EvalRunsBas
         filters={filters}
         setDatePreset={setDatePreset}
         setClauses={setClauses}
-        excludeIssueDetectionRuns={false}
+        excludeIssueDetectionRuns
         filterButtonRef={filterButtonRef}
         groupByConfig={groupBy}
         setGroupByConfig={setGroupBy}

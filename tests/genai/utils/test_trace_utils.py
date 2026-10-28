@@ -37,6 +37,7 @@ from mlflow.genai.utils.trace_utils import (
     extract_request_from_trace,
     extract_response_from_trace,
     extract_retrieval_context_from_trace,
+    extract_tools_called_from_trace,
     parse_inputs_to_str,
     parse_outputs_to_str,
     parse_tool_call_messages_from_trace,
@@ -1247,6 +1248,18 @@ def test_extract_tool_name_from_span_extracts_from_call_tool_name():
     tool_spans = trace.search_spans(span_type=SpanType.TOOL)
 
     assert _extract_tool_name_from_span(tool_spans[0]) == "list_client"
+
+
+def test_extract_tool_name_from_span_extracts_from_genai_semconv_tool_name():
+    with mlflow.start_span(name="root") as root_span:
+        with mlflow.start_span(name="execute_tool log_food", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_attribute("gen_ai.tool.name", "log_food")
+
+    trace = mlflow.get_trace(root_span.trace_id)
+    tool_spans = trace.search_spans(span_type=SpanType.TOOL)
+
+    assert _extract_tool_name_from_span(tool_spans[0]) == "log_food"
+    assert [call.name for call in extract_tools_called_from_trace(trace)] == ["log_food"]
 
 
 def test_resolve_conversation_from_session():
