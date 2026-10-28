@@ -8674,6 +8674,28 @@ def _validate_gateway_use_permission(endpoint_name: str, username: str) -> bool:
         return False
 
 
+def _get_playground_log_trace_validator() -> Callable[[str, StarletteRequest], Awaitable[bool]]:
+    """
+    Get a validator for the playground route that saves a run as a new trace in the experiment
+    named by the request body's ``experiment_id``.
+    """
+
+    async def validator(username: str, request: StarletteRequest) -> bool:
+        try:
+            body = await request.json()
+        except Exception as e:
+            raise MlflowException(f"Invalid JSON payload: {e}", error_code=BAD_REQUEST)
+        # The route handler reads the body from here; a request body can only be read once.
+        request.state.cached_body = body
+        experiment_id = body.get("experiment_id") if isinstance(body, dict) else None
+        if not experiment_id:
+            raise MlflowException("experiment_id is required", error_code=BAD_REQUEST)
+        # The handler logs a new trace, so this carries the same veto as StartTrace / StartTraceV3.
+        return _authorize_create_in_experiment_as(username, str(experiment_id), RESOURCE_TYPE_TRACE)
+
+    return validator
+
+
 def _get_gateway_validator(path: str) -> Callable[[str, StarletteRequest], Awaitable[bool]] | None:
     """
     Get a validator function for gateway routes.
@@ -8688,6 +8710,9 @@ def _get_gateway_validator(path: str) -> Callable[[str, StarletteRequest], Await
 
     if path == "/gateway/mlflow/v1/models":
         return _get_require_authentication_validator()
+
+    if path == "/gateway/mlflow/v1/playground/log-trace":
+        return _get_playground_log_trace_validator()
 
     async def validator(username: str, request: StarletteRequest) -> bool:
         body = None
