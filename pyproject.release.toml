@@ -45,7 +45,7 @@ dependencies = [
   "matplotlib<4",
   "numpy<3",
   "pandas<4",
-  "pyarrow<26,>=4.0.0",
+  "pyarrow<27,>=4.0.0",
   "scikit-learn<2",
   "scipy<2",
   "skops<1",
