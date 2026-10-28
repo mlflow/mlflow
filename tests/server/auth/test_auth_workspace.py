@@ -10183,3 +10183,20 @@ def test_graphql_admin_check_runs_once_per_request(monkeypatch):
             )
             assert result == "data"
     sender_is_admin.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "./workspaces/team-a/17/models/m-1/model.pkl",
+        "././workspaces/team-a/17/models/m-1/model.pkl",
+        "workspaces/team-a/./17/models/m-1/model.pkl",
+    ],
+)
+def test_parse_artifact_auth_target_ignores_dot_segments(path):
+    # The artifact store serves these from ``workspaces/team-a/17/...``, so they must be judged
+    # against that workspace and experiment, not the request's workspace grant.
+    target = auth_module._parse_artifact_auth_target(path)
+    assert target.workspace == "team-a"
+    assert target.experiment_id == "17"
+    assert target.relative_path == "17/models/m-1/model.pkl"

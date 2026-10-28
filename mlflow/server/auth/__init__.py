@@ -1224,9 +1224,12 @@ def _artifact_proxy_child_types(artifact_path: str, *, recursive: bool) -> "tupl
 
 def _canonical_artifact_proxy_path(artifact_path: str) -> "str | None":
     try:
-        return validate_path_is_safe(artifact_path)
+        path = validate_path_is_safe(artifact_path)
     except MlflowException:
         return None
+    # The artifact store resolves `.` segments, so `./workspaces/<ws>/...` and `./<exp_id>/...`
+    # serve the same files as the paths without them. Drop them so auth judges those files.
+    return "/".join(segment for segment in path.split("/") if segment != ".")
 
 
 @dataclass(frozen=True)

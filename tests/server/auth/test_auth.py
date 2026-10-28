@@ -448,6 +448,15 @@ def test_proxy_artifact_mpu_path_detection():
     assert not auth_module._is_proxy_artifact_path("/api/2.0/mlflow/experiments/get")
 
 
+@pytest.mark.parametrize("path", ["./42/run-id/artifacts/f", "42/./run-id/artifacts/f"])
+def test_parse_artifact_auth_target_ignores_dot_segments(path):
+    # The artifact store serves these from ``42/run-id/...``, so they must be judged against
+    # experiment 42 rather than falling back to the default permission.
+    target = auth_module._parse_artifact_auth_target(path)
+    assert target.experiment_id == "42"
+    assert target.relative_path == "42/run-id/artifacts/f"
+
+
 def test_extract_experiment_id_from_artifact_proxy_path():
     assert (
         auth_module._parse_artifact_auth_target(
