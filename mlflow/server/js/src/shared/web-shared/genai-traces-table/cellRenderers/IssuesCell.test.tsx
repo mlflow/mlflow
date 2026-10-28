@@ -74,8 +74,23 @@ describe('IssuesCell', () => {
 
     // Shown until the statuses arrive, so the dismissed one has to be waited out.
     await waitFor(() => expect(screen.queryByText('Not really a bug')).not.toBeInTheDocument());
-    // A resolved issue did happen on this trace, so the column still reports it.
     expect(screen.getByText('Genuinely slow')).toBeInTheDocument();
+    // Only the first survivor is tagged; the rest sit behind the overflow trigger, which is
+    // unopened here. So the resolved issue shows up as the count rather than by name: two left.
+    expect(screen.getByText('+1')).toBeInTheDocument();
+  });
+
+  it('keeps an issue that was resolved rather than dismissed', async () => {
+    // A resolved issue did happen on this trace, so the column still has to report it. It is the
+    // only survivor here, which puts its name in the cell instead of behind the overflow trigger.
+    givenIssueStatuses({ 'iss-dismissed': 'rejected', 'iss-resolved': 'resolved' });
+    renderCell([
+      { id: 'iss-dismissed', name: 'Not really a bug' },
+      { id: 'iss-resolved', name: 'Fixed since' },
+    ]);
+
+    await waitFor(() => expect(screen.queryByText('Not really a bug')).not.toBeInTheDocument());
+    expect(screen.getByText('Fixed since')).toBeInTheDocument();
   });
 
   it('falls back to the empty cell when every issue was dismissed', async () => {
