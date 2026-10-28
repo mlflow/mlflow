@@ -57,7 +57,9 @@ const completionSummary = (
   newCount: number | undefined,
   traceCount: number,
 ): { descriptor: MessageDescriptor; values: Record<string, number> } => {
-  if (newCount === undefined || issueCount === 0) {
+  // Not just `undefined`: the count is read off a JSON payload through a type assertion, so
+  // null, a numeric string and NaN reach here too, and none of them describe a count.
+  if (typeof newCount !== 'number' || !Number.isFinite(newCount) || issueCount === 0) {
     return { descriptor: COMPLETION_MESSAGES.total, values: { issueCount, traceCount } };
   }
   // Held inside the total it describes: outside that range the server disagreed with itself,

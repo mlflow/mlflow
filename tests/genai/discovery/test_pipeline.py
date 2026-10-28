@@ -18,6 +18,7 @@ from mlflow.genai.discovery.entities import (
     _IdentifiedIssue,
     _TriageResult,
 )
+from mlflow.genai.discovery.matching import MatchOutcome
 from mlflow.genai.discovery.pipeline import (
     _annotate_issue_traces,
     _dedup_issues,
@@ -965,6 +966,10 @@ def test_discover_issues_counts_only_the_issues_this_run_filed(make_trace):
         ),
         patch("mlflow.genai.discovery.pipeline.read_match_candidates", return_value=[refreshed]),
         patch(
+            "mlflow.genai.discovery.pipeline.match_findings_to_existing_issues",
+            return_value=MatchOutcome(matched={0: refreshed.issue_id}, candidates_considered=1),
+        ),
+        patch(
             "mlflow.genai.discovery.pipeline._build_issues",
             return_value=([filed, refreshed], {}),
         ),
@@ -1007,6 +1012,10 @@ def test_discover_issues_reports_no_new_issues_when_none_were_filed(make_trace):
             return_value=create_identified_issue(example_indices=[0, 1]),
         ),
         patch("mlflow.genai.discovery.pipeline.read_match_candidates", return_value=[refreshed]),
+        patch(
+            "mlflow.genai.discovery.pipeline.match_findings_to_existing_issues",
+            return_value=MatchOutcome(matched={0: refreshed.issue_id}, candidates_considered=1),
+        ),
         patch(
             "mlflow.genai.discovery.pipeline._build_issues",
             return_value=([refreshed], {}),
@@ -1057,6 +1066,10 @@ def test_an_issue_refreshed_by_the_run_that_filed_it_is_not_counted_as_new(make_
         patch(
             "mlflow.genai.discovery.pipeline.read_match_candidates",
             return_value=[already_filed],
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.match_findings_to_existing_issues",
+            return_value=MatchOutcome(matched={0: already_filed.issue_id}, candidates_considered=1),
         ),
         patch(
             "mlflow.genai.discovery.pipeline._build_issues",

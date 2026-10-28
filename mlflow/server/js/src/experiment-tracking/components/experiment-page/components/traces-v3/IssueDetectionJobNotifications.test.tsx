@@ -284,6 +284,23 @@ describe('IssueDetectionJobNotifications', () => {
       'Found 5 issues across 48 traces.',
     ],
     [
+      // The payload is read through a type assertion, so a count that is not a number is
+      // reachable without the type system noticing.
+      'falls back when the count is null rather than absent',
+      { issues: 5, new_issue_count: null, total_traces_analyzed: 48 },
+      'Found 5 issues across 48 traces.',
+    ],
+    [
+      'falls back when the count is not a number at all',
+      { issues: 5, new_issue_count: NaN, total_traces_analyzed: 48 },
+      'Found 5 issues across 48 traces.',
+    ],
+    [
+      'falls back when the count arrives as a string',
+      { issues: 5, new_issue_count: '2', total_traces_analyzed: 48 },
+      'Found 5 issues across 48 traces.',
+    ],
+    [
       // Only a server contradicting itself gets here; the wording still has to add up.
       'holds a new count larger than the total inside it',
       { issues: 3, new_issue_count: 5, total_traces_analyzed: 48 },
