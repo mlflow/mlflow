@@ -124,7 +124,7 @@ quiet_command(){
 
 minor_to_micro() {
   case $1 in
-    "3.10") echo "3.10.13" ;;
+    "3.11") echo "3.11.9" ;;
   esac
 }
 
@@ -235,7 +235,7 @@ check_and_install_min_py_version() {
   check_and_install_uv
 
   # Get the minimum supported version for development purposes
-  min_py_version="3.10"
+  min_py_version="3.11"
 
   echo "The minimum version of Python to ensure backwards compatibility for MLflow development is: $(
     tput bold
@@ -249,7 +249,7 @@ check_and_install_min_py_version() {
     elif [[ $version_levels -eq 2 ]]; then
       PY_INSTALL_VERSION=$override_py_ver
     else
-      echo "You must supply a python override version with either minor (e.g., '3.10') or micro (e.g., '3.10.13'). '$override_py_ver' is invalid."
+      echo "You must supply a python override version with either minor (e.g., '3.11') or micro (e.g., '3.11.9'). '$override_py_ver' is invalid."
       exit 1
     fi
   else
@@ -262,7 +262,7 @@ check_and_install_min_py_version() {
   pyenv install -s "$PY_INSTALL_VERSION"
   pyenv local "$PY_INSTALL_VERSION"
   # Add pyenv shims to PATH so uv and other tools resolve the pyenv-managed
-  # Python (e.g., 3.10.13) rather than the system Python (which may be
+  # Python (e.g., 3.11.9) rather than the system Python (which may be
   # PEP 668 externally managed on Ubuntu 24.04+).
   PYENV_SHIMS="${PYENV_ROOT:-$HOME/.pyenv}/shims"
   export PATH="$PYENV_SHIMS:$PATH"

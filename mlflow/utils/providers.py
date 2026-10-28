@@ -7,10 +7,9 @@ import urllib.parse
 import urllib.request
 from collections.abc import Iterator
 from pathlib import Path
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 import cachetools
-from typing_extensions import NotRequired
 
 from mlflow.environment_variables import MLFLOW_MODEL_CATALOG_CACHE_TTL, MLFLOW_MODEL_CATALOG_URI
 from mlflow.exceptions import MlflowException

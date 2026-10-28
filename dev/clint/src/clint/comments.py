@@ -2,9 +2,7 @@ import io
 import re
 import tokenize
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Iterator
-
-from typing_extensions import Self
+from typing import TYPE_CHECKING, Iterator, Self
 
 if TYPE_CHECKING:
     from clint.linter import Position
