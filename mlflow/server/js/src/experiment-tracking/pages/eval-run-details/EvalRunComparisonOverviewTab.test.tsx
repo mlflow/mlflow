@@ -85,6 +85,7 @@ describe('comparison Overview', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Compare with AI' }));
 
     expect(mockOpenPanel).toHaveBeenCalledTimes(1);
+    expect(mockSendMessageWhenReady).toHaveBeenCalledTimes(1);
     const prompt = mockSendMessageWhenReady.mock.calls[0][0] as string;
     expect(prompt).toContain('Baseline ID: "baseline"');
     expect(prompt).toContain('Comparison run 1 ID: "candidate"');
@@ -447,6 +448,7 @@ describe('comparison Overview', () => {
     expect(section.getByRole('row', { name: /Errors/ })).toHaveTextContent('10Lowest value-100%');
 
     await userEvent.click(screen.getByRole('button', { name: 'Compare with AI' }));
+    expect(mockSendMessageWhenReady).toHaveBeenCalledTimes(1);
     const prompt = mockSendMessageWhenReady.mock.calls[0][0] as string;
     expect(prompt).not.toContain('PRIVATE INPUT MUST NOT BE SENT');
     expect(prompt).not.toContain('PRIVATE OUTPUT MUST NOT BE SENT');
