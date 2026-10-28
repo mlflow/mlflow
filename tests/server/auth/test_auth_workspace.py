@@ -10213,7 +10213,11 @@ class _CaseInsensitiveRegistryStore(_RegistryStore):
 @pytest.mark.parametrize(
     ("route", "query", "validator"),
     [
-        ("registered-models/get", {"name": "foo"}, "validate_can_read_registered_model"),
+        (
+            "registered-models/get",
+            {"name": "foo"},
+            "_validate_can_read_registered_model_or_prompt",
+        ),
         (
             "model-versions/get",
             {"name": "foo", "version": "1"},
