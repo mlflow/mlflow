@@ -198,8 +198,8 @@ export const TracesV4ActionsButton = ({
               onClick={() => showAddToEvaluationDatasetModal?.(selectedEntries)}
             >
               <FormattedMessage
-                defaultMessage="Add to evaluation dataset"
-                description="Bulk action that adds the selected traces to an evaluation dataset"
+                defaultMessage="Add to evaluation datasets"
+                description="Bulk action that adds the selected traces to evaluation datasets"
               />
             </DropdownMenu.Item>
             <DropdownMenu.Item

@@ -4035,10 +4035,6 @@
     "defaultMessage": "Save",
     "description": "Save judge button text"
   },
-  "AyGE3g": {
-    "defaultMessage": "Add to evaluation dataset",
-    "description": "Bulk action that adds the selected traces to an evaluation dataset"
-  },
   "AyceYA": {
     "defaultMessage": "Served LLM model",
     "description": "Experiment page > new run modal > served LLM model endpoint label"
@@ -7866,6 +7862,10 @@
   "NMZBYc": {
     "defaultMessage": "From server.json: {url}",
     "description": "Tooltip for server.json icon"
+  },
+  "NMyCyV": {
+    "defaultMessage": "Add to evaluation datasets",
+    "description": "Bulk action that adds the selected traces to evaluation datasets"
   },
   "NN/30s": {
     "defaultMessage": "Create",
