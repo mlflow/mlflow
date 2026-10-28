@@ -1224,9 +1224,12 @@ def _artifact_proxy_child_types(artifact_path: str, *, recursive: bool) -> "tupl
 
 def _canonical_artifact_proxy_path(artifact_path: str) -> "str | None":
     try:
-        path = validate_path_is_safe(artifact_path)
+        return validate_path_is_safe(artifact_path)
     except MlflowException:
         return None
+
+
+def _without_dot_segments(path: str) -> str:
     # The artifact store resolves `.` segments, so `./workspaces/<ws>/...` and `./<exp_id>/...`
     # serve the same files as the paths without them. Drop them so auth judges those files.
     return "/".join(segment for segment in path.split("/") if segment != ".")
@@ -1249,9 +1252,10 @@ def _parse_artifact_auth_target(artifact_path: str | None) -> _ArtifactAuthTarge
     canonical = _canonical_artifact_proxy_path(artifact_path)
     if canonical is None:
         return _ArtifactAuthTarget(invalid=True)
-    segments = canonical.strip("/").split("/")
+    resolved = _without_dot_segments(canonical)
+    segments = resolved.strip("/").split("/")
     workspace = None
-    relative_path = canonical
+    relative_path = resolved
     # Matches the artifact handler, which treats any case of ``workspaces`` as the reserved prefix.
     if segments[0].lower() == "workspaces":
         if len(segments) < 3 or segments[1] in ("", ".", ".."):
@@ -7186,6 +7190,7 @@ def filter_list_artifacts_proxy(resp: Response) -> None:
     canonical = _canonical_artifact_proxy_path(artifact_path)
     if canonical is None:
         return
+    canonical = _without_dot_segments(canonical)
     experiment_id = _experiment_id_from_canonical_proxy_path(canonical)
     if experiment_id is None:
         return
