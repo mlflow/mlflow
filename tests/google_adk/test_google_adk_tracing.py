@@ -6,6 +6,7 @@ from google.adk.models.base_llm import BaseLlm
 from google.adk.models.llm_response import LlmResponse
 from google.adk.runners import InMemoryRunner
 from google.adk.tools import FunctionTool
+from google.adk.tools.agent_tool import AgentTool
 from google.genai import types
 
 import mlflow
@@ -144,22 +145,23 @@ async def test_confirmation_card_turns_are_labelled(confirmed, label):
 
 
 @pytest.mark.asyncio
-async def test_merged_parallel_tool_span_is_not_a_tool_call():
+async def test_agent_tool_run_stays_in_the_callers_session():
     mlflow.google_adk.autolog()
+    helper = LlmAgent(name="helper", model=ScriptedModel(model="s", replies=[[_text("1800 kcal")]]))
     runner = InMemoryRunner(
         agent=_agent(
-            [[_call("get_remaining"), _call("log_food", food="bread", qty=1)], [_text("Logged.")]],
-            tools=[get_remaining, log_food],
+            [[_call("helper", request="What is my goal?")], [_text("Your goal is 1800 kcal.")]],
+            tools=[AgentTool(agent=helper)],
         )
     )
+    session_id = await _session(runner)
 
-    await _send(runner, await _session(runner), _text("Log bread and tell me what is left"))
+    await _send(runner, session_id, _text("Ask the helper for my goal"))
 
     [trace] = get_traces()
-    assert sorted(call.name for call in extract_tools_called_from_trace(trace)) == [
-        "get_remaining",
-        "log_food",
-    ]
+    assert trace.info.trace_metadata["mlflow.trace.session"] == session_id
+    assert extract_request_from_trace(trace) == "Ask the helper for my goal"
+    assert extract_response_from_trace(trace) == "Your goal is 1800 kcal."
 
 
 @pytest.mark.asyncio
