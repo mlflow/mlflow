@@ -1,5 +1,6 @@
 import { useInfiniteQuery } from '@databricks/web-shared/query-client';
-import type { RunEntity, SearchRunsApiResponse } from '@mlflow/mlflow/src/experiment-tracking/types';
+import type { KeyValueEntity } from '@mlflow/mlflow/src/common/types';
+import type { SearchRunsApiResponse } from '@mlflow/mlflow/src/experiment-tracking/types';
 import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION } from '../../../constants';
 import { MlflowService } from '../../../sdk/MlflowService';
 import { useMemo } from 'react';
@@ -7,13 +8,15 @@ import { useMemo } from 'react';
 export const SEARCH_RUNS_QUERY_KEY = 'SEARCH_RUNS';
 const DEFAULT_ORDER_BY = ['attributes.start_time DESC'];
 
+type RunWithTags = { data?: { tags?: KeyValueEntity[] } };
+
 /**
  * Issue detection runs back the Issues tab rather than recording something a user evaluated, so
  * they are kept out of the evaluation runs list. Filtered here rather than in the search filter
  * because a `!=` clause on a tag matches only runs that carry that tag, which would also drop
  * every run with no run type at all -- that is, nearly all of them.
  */
-export const isIssueDetectionRun = (run: RunEntity) =>
+export const isIssueDetectionRun = (run: RunWithTags) =>
   Boolean(
     run.data?.tags?.some(
       ({ key, value }) => key === MLFLOW_RUN_TYPE_TAG && value === MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION,
