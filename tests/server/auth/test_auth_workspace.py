@@ -10207,7 +10207,7 @@ class _CaseInsensitiveRegistryStore(_RegistryStore):
     # Mimics a case-insensitive collation (MySQL's default): any case of a name finds the row.
     def get_registered_model(self, name: str):
         stored = next((n for n in self._model_workspaces if n.lower() == name.lower()), name)
-        return super().get_registered_model(stored)
+        return super().get_registered_model(stored)  # Raises for a name that matches no row.
 
 
 @pytest.mark.parametrize(
@@ -10251,11 +10251,13 @@ def test_mcp_server_deny_applies_to_name_case_variants(workspace_permission_setu
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     # Mimics a case-insensitive collation: any case of the name finds the stored server.
-    monkeypatch.setattr(
-        auth_module._get_tracking_store(),
-        "get_mcp_server",
-        lambda name: SimpleNamespace(name="com.test/srv", workspace="team-a"),
-    )
+
+    def get_mcp_server(name):
+        if name.lower() != "com.test/srv":
+            raise MlflowException("not found", error_code=RESOURCE_DOES_NOT_EXIST)
+        return SimpleNamespace(name="com.test/srv", workspace="team-a")
+
+    monkeypatch.setattr(auth_module._get_tracking_store(), "get_mcp_server", get_mcp_server)
     # The wildcard READ admits every server; only the DENY on the stored name withholds this one.
     _set_workspace_permission(store, username, USE.name)
     store.grant_user_resource_permission(username, "mcp_server", "*", READ.name)

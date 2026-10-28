@@ -1510,19 +1510,23 @@ def _get_permission_from_prompt_optimization_job_id() -> Permission:
     )
 
 
-def _get_registered_model_permission(name: str) -> Permission:
-    name = _stored_registered_model_name(name)
-    username = authenticate_request().username
+def _registry_name_permission(username: str, resource_type: str, name: str) -> Permission:
+    # Under a case-insensitive collation (MySQL's default), a case variant of a name fetches the
+    # stored row, while grants are keyed on the stored spelling. One fetch gives both that
+    # spelling and the workspace.
+    rm = _fetch_or_none(_get_model_registry_store().get_registered_model, name) if name else None
     return _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="registered_model",
-            resource_key=name,
-            workspace_lookup_id=name,
-            workspace_fetcher=_get_model_registry_store().get_registered_model,
-            workspace_label="registered model",
-        ),
+        _role_permission_for_known_workspace(
+            username,
+            resource_type,
+            rm.name if rm is not None else name,
+            getattr(rm, "workspace", None),
+        )
     )
+
+
+def _get_registered_model_permission(name: str) -> Permission:
+    return _registry_name_permission(authenticate_request().username, "registered_model", name)
 
 
 def _get_permission_from_registered_model_name() -> Permission:
@@ -1534,17 +1538,8 @@ def _get_permission_from_prompt_name() -> Permission:
     # on the same name does not satisfy a prompt request, and vice versa.
     # Workspace resolution reuses the registry's ``get_registered_model``
     # (returns both shapes).
-    name = _stored_registered_model_name(_get_request_param("name"))
-    username = authenticate_request().username
-    return _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="prompt",
-            resource_key=name,
-            workspace_lookup_id=name,
-            workspace_fetcher=_get_model_registry_store().get_registered_model,
-            workspace_label="prompt",
-        ),
+    return _registry_name_permission(
+        authenticate_request().username, "prompt", _get_request_param("name")
     )
 
 
@@ -2062,8 +2057,7 @@ def validate_can_read_run():
 
 
 def _stored_registered_model_name(name: str) -> str:
-    # Under a case-insensitive collation (MySQL's default), a case variant of a name fetches the
-    # stored row, while grants are keyed on the stored spelling. Judge the request against that.
+    # See ``_registry_name_permission``: grants are keyed on the stored spelling of the name.
     if not name:
         return name
     rm = _fetch_or_none(_get_model_registry_store().get_registered_model, name)
@@ -7946,17 +7940,7 @@ def _graphql_get_permission_for_run(run_id: str, username: str) -> Permission:
 
 
 def _graphql_get_permission_for_model(model_name: str, username: str) -> Permission:
-    model_name = _stored_registered_model_name(model_name)
-    return _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="registered_model",
-            resource_key=model_name,
-            workspace_lookup_id=model_name,
-            workspace_fetcher=_get_model_registry_store().get_registered_model,
-            workspace_label="registered model",
-        ),
-    )
+    return _registry_name_permission(username, "registered_model", model_name)
 
 
 def _graphql_can_read_experiment(experiment_id: str, username: str) -> bool:
