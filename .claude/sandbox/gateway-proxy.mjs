@@ -83,7 +83,7 @@ const server = http.createServer((request, response) => {
     response.writeHead(401, { "WWW-Authenticate": "Bearer" }).end();
     return;
   }
-  if (!local.pathname.startsWith("/anthropic/")) {
+  if (!local.pathname.startsWith("/anthropic/") && local.pathname !== "/openai/v1/responses") {
     response.writeHead(404).end();
     return;
   }
