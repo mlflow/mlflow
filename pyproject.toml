@@ -262,6 +262,8 @@ required-version = ">=0.13.6"
 constraint-dependencies = [
   # pandas 3 is incompatible with the pyspark<4.1 used by tests and documentation.
   "pandas<3",
+  # Keep the scikit-learn 1.7 test baseline compatible with xgboost<3.1.
+  "scikit-learn<1.8",
   # xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
   # https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept
   "xgboost<3.1.0",
