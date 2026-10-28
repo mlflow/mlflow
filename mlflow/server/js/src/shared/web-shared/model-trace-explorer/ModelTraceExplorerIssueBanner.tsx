@@ -10,7 +10,8 @@ import {
 } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
 
-import { getUniqueIssueReferences, type TraceIssueReference } from './IssueAssessmentUtils';
+import { type TraceIssueReference } from './IssueAssessmentUtils';
+import { useVisibleIssueReferences } from './hooks/useVisibleIssueReferences';
 import type { ModelTraceSpanNode } from './ModelTrace.types';
 import { Link } from './RoutingUtils';
 
@@ -45,7 +46,7 @@ export const ModelTraceExplorerIssueEvidence = ({
     defaultMessage: 'Open issue details in a new tab',
     description: 'Tooltip for opening the issue details page in a new browser tab',
   });
-  const issues = getUniqueIssueReferences(activeSpan.assessments ?? []);
+  const issues = useVisibleIssueReferences(activeSpan.assessments);
   if (issues.length === 0) {
     return null;
   }
@@ -120,7 +121,7 @@ export const ModelTraceExplorerIssueEvidence = ({
 export const ModelTraceExplorerIssueIndicator = ({ span }: { span: ModelTraceSpanNode }): JSX.Element | null => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
-  const issues = getUniqueIssueReferences(span.assessments ?? []);
+  const issues = useVisibleIssueReferences(span.assessments);
   if (issues.length === 0) {
     return null;
   }

@@ -4,6 +4,7 @@ import { render, screen } from '@testing-library/react';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
 
+import { QueryClient, QueryClientProvider } from '../../query-client/queryClient';
 import { AssessmentsPaneIssuesSection } from './AssessmentsPaneIssuesSection';
 import type { IssueReferenceAssessment } from '../ModelTrace.types';
 
@@ -25,7 +26,10 @@ const renderSection = (issues: IssueReferenceAssessment[]) =>
   render(
     <DesignSystemProvider>
       <IntlProvider locale="en">
-        <AssessmentsPaneIssuesSection issues={issues} />
+        {/* The section reads each issue's status to drop the ones dismissed as not an issue. */}
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <AssessmentsPaneIssuesSection issues={issues} />
+        </QueryClientProvider>
       </IntlProvider>
     </DesignSystemProvider>,
   );

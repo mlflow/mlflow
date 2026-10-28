@@ -6,11 +6,17 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
 
 import { SingleChatTurnMessages, extractSimpleChatMessages } from './SingleChatTurnMessages';
+import { QueryClient, QueryClientProvider } from '../../../query-client/queryClient';
 import type { ModelTrace, ModelTraceSpanV3 } from '../ModelTrace.types';
 
 const TestWrapper = ({ children }: { children: React.ReactNode }) => (
   <IntlProvider locale="en">
-    <DesignSystemProvider>{children}</DesignSystemProvider>
+    <DesignSystemProvider>
+      {/* The span view's issue cards read each issue's status to drop dismissed ones. */}
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        {children}
+      </QueryClientProvider>
+    </DesignSystemProvider>
   </IntlProvider>
 );
 

@@ -1,10 +1,13 @@
 import { HoverCard, Overflow, Tag, useDesignSystemTheme } from '@databricks/design-system';
+import { useMemo } from 'react';
 import { useNavigate } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import { ExperimentPageTabName } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { shouldEnableExperimentIssuesTab } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { getIssue } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useGetIssueQuery';
 import { SELECTED_ISSUE_ID_PARAM } from '@mlflow/mlflow/src/experiment-tracking/constants';
+
+import { useVisibleIssueIds } from '../../model-trace-explorer/hooks/useVisibleIssueReferences';
 
 import { NullCell } from './NullCell';
 import { StackedComponents } from './StackedComponents';
@@ -51,13 +54,21 @@ const IssueTag = ({ issue }: { issue: Issue }) => {
 
 const IssuesList = ({ issues, isComparing }: { issues: Issue[] | undefined; isComparing: boolean }) => {
   const { theme } = useDesignSystemTheme();
+  // A trace keeps its reference to an issue after someone marks it "Not an issue", so the column
+  // listed findings that had already been ruled out. Read per issue ID and cached, so rows sharing
+  // an issue -- which is the normal case for a detection run -- share one read.
+  const visibleIssueIds = useVisibleIssueIds(useMemo(() => (issues ?? []).map(({ id }) => id), [issues]));
+  const visibleIssues = useMemo(
+    () => (issues ?? []).filter(({ id }) => visibleIssueIds.has(id)),
+    [issues, visibleIssueIds],
+  );
 
-  if (!issues || issues.length === 0) {
+  if (visibleIssues.length === 0) {
     return <NullCell isComparing={isComparing} />;
   }
 
-  const firstIssue = issues[0];
-  const remainingIssues = issues.slice(1);
+  const firstIssue = visibleIssues[0];
+  const remainingIssues = visibleIssues.slice(1);
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, minWidth: 0 }}>
