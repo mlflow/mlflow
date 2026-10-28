@@ -1,12 +1,31 @@
-import { describe, expect, test } from '@jest/globals';
-import { render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, jest, test } from '@jest/globals';
+import { render, screen, waitFor } from '@testing-library/react';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
 
+import { getIssue } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useGetIssueQuery';
+
 import { QueryClient, QueryClientProvider } from '../../query-client/queryClient';
 import { AssessmentsPaneIssuesSection } from './AssessmentsPaneIssuesSection';
 import type { IssueReferenceAssessment } from '../ModelTrace.types';
+
+jest.mock('@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useGetIssueQuery', () => ({
+  ...jest.requireActual<
+    typeof import('@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useGetIssueQuery')
+  >('@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useGetIssueQuery'),
+  getIssue: jest.fn(),
+}));
+
+const mockGetIssue = jest.mocked(getIssue);
+
+/** Answers the status read for each issue ID; an ID left out resolves as still open. */
+const givenIssueStatuses = (statuses: Record<string, string>) =>
+  mockGetIssue.mockImplementation((issueId: string) =>
+    Promise.resolve({ issue_id: issueId, status: statuses[issueId] ?? 'pending' } as Awaited<
+      ReturnType<typeof getIssue>
+    >),
+  );
 
 const reference = (
   overrides: Partial<IssueReferenceAssessment> & Pick<IssueReferenceAssessment, 'assessment_id'>,
@@ -74,5 +93,32 @@ describe('AssessmentsPaneIssuesSection', () => {
     renderSection([reference({ assessment_id: 'a-invalid', valid: false })]);
 
     expect(screen.queryByText('High latency')).not.toBeInTheDocument();
+  });
+
+  describe('issues dismissed as not an issue', () => {
+    beforeEach(() => {
+      mockGetIssue.mockReset();
+    });
+
+    test('a rejected issue is dropped from the list and its count', async () => {
+      givenIssueStatuses({ 'iss-latency': 'rejected', 'iss-cost': 'pending' });
+      renderSection([
+        reference({ assessment_id: 'a-latency' }),
+        reference({ assessment_id: 'a-cost', assessment_name: 'iss-cost', issue: { issue_name: 'Runaway cost' } }),
+      ]);
+
+      // Shown until the statuses arrive, so the dismissed one has to be waited out.
+      await waitFor(() => expect(screen.queryByText('High latency')).not.toBeInTheDocument());
+      expect(screen.getByText('Runaway cost')).toBeInTheDocument();
+      expect(screen.getByText(/Issues\s*\(1\)/)).toBeInTheDocument();
+    });
+
+    test('a resolved issue is kept, because it did happen on this trace', async () => {
+      givenIssueStatuses({ 'iss-latency': 'resolved' });
+      renderSection([reference({ assessment_id: 'a-latency' })]);
+
+      await waitFor(() => expect(mockGetIssue).toHaveBeenCalled());
+      expect(screen.getByText('High latency')).toBeInTheDocument();
+    });
   });
 });

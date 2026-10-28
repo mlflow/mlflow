@@ -4,12 +4,12 @@ import {
   GET_ISSUE_QUERY_KEY,
   getIssue,
 } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useGetIssueQuery';
-import { useSelectedIssueId } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useSelectedIssueId';
 import type { IssueStatus } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useSearchIssuesQuery';
 
 import { useQueries } from '../../query-client/queryClient';
 
 import { useArrayMemo } from './useArrayMemo';
+import { useSafeSelectedIssueId } from './useSafeSelectedIssueId';
 import {
   getUniqueIssueReferenceAssessments,
   getUniqueIssueReferences,
@@ -29,22 +29,12 @@ const DISMISSED_ISSUE_STATUS: IssueStatus = 'rejected';
 
 /**
  * Status is changed by hand and rarely, and paging the drawer through a list of traces re-reads the
- * same few issues at every step.
+ * same few issues at every step. Set as `cacheTime` as well as `staleTime`: `useGetIssueQuery`
+ * shares this key with `cacheTime: 0`, so an entry only it was observing is dropped the moment it
+ * unmounts, and the reads here would not survive closing and reopening a pane. Triage invalidates
+ * the key, so a status changed in the Issues tab is still re-read rather than served from here.
  */
 const ISSUE_STATUS_STALE_TIME_MS = 5 * 60 * 1000;
-
-/**
- * The selected issue, or `undefined` outside a Router -- tests and the OSS notebook renderer mount
- * the explorer without one.
- */
-const useSafeSelectedIssueId = (): string | undefined => {
-  try {
-    const [selectedIssueId] = useSelectedIssueId();
-    return selectedIssueId;
-  } catch {
-    return undefined;
-  }
-};
 
 /**
  * Which of a span's referenced issues are still worth showing, by issue ID.
@@ -80,6 +70,7 @@ export const useVisibleIssueIds = (issueIds: string[]): Set<string> => {
       enabled: Boolean(issueId) && issueId !== selectedIssueId,
       refetchOnWindowFocus: false,
       staleTime: ISSUE_STATUS_STALE_TIME_MS,
+      cacheTime: ISSUE_STATUS_STALE_TIME_MS,
       retry: false,
     })),
   });

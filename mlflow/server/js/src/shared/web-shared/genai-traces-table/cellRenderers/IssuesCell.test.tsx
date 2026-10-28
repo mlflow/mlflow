@@ -27,18 +27,24 @@ const givenIssueStatuses = (statuses: Record<string, string>) =>
     >),
   );
 
-const renderCell = (issues: { id: string; name: string }[]) =>
+const newQueryClient = () => new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+const renderCells = (rows: { id: string; name: string }[][], queryClient = newQueryClient()) =>
   render(
     <IntlProvider locale="en">
       <DesignSystemProvider>
-        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <QueryClientProvider client={queryClient}>
           <MemoryRouter>
-            <IssuesCell issues={issues} otherIssues={undefined} isComparing={false} />
+            {rows.map((issues, index) => (
+              <IssuesCell key={index} issues={issues} otherIssues={undefined} isComparing={false} />
+            ))}
           </MemoryRouter>
         </QueryClientProvider>
       </DesignSystemProvider>
     </IntlProvider>,
   );
+
+const renderCell = (issues: { id: string; name: string }[]) => renderCells([issues]);
 
 describe('IssuesCell', () => {
   beforeEach(() => {
@@ -75,12 +81,20 @@ describe('IssuesCell', () => {
   });
 
   it('reads each issue once however many rows name it', async () => {
-    givenIssueStatuses({ 'iss-open': 'pending' });
-    renderCell([{ id: 'iss-open', name: 'Genuinely slow' }]);
-    renderCell([{ id: 'iss-open', name: 'Genuinely slow' }]);
+    givenIssueStatuses({ 'iss-open': 'pending', 'iss-other': 'pending' });
+    // Three rows naming the same issue, under one cache -- which is what makes this a dedup test
+    // rather than three independent renders that would each read once anyway.
+    renderCells([
+      [{ id: 'iss-open', name: 'Genuinely slow' }],
+      [{ id: 'iss-open', name: 'Genuinely slow' }],
+      [
+        { id: 'iss-open', name: 'Genuinely slow' },
+        { id: 'iss-other', name: 'Something else' },
+      ],
+    ]);
 
-    await waitFor(() => expect(mockGetIssue).toHaveBeenCalled());
-    // Both cells share the query cache, so the second render adds no request.
-    expect(new Set(mockGetIssue.mock.calls.map(([issueId]) => issueId))).toEqual(new Set(['iss-open']));
+    await waitFor(() => expect(mockGetIssue).toHaveBeenCalledWith('iss-other'));
+    // Four references to two issues, so dedup means exactly two reads.
+    expect(mockGetIssue.mock.calls.map(([issueId]) => issueId).sort()).toEqual(['iss-open', 'iss-other']);
   });
 });
