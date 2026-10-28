@@ -100,8 +100,6 @@ export interface TracesV4ToolbarParams {
   groupedLockedColumns?: readonly TraceColumnId[];
   /** Show a Traces/Sessions switch instead of the group-by-session toggle (default false). */
   showSessionViewSwitch?: boolean;
-  /** Render the Traces/Sessions switch in the grey segmented style (default false). */
-  greySessionViewSwitch?: boolean;
 }
 
 // Column-selector options: static componentIds (lint requires static ids) + localized labels. Adding
@@ -209,7 +207,6 @@ export const useTracesV4ToolbarSlots = ({
   showSessionGrouping = true,
   groupedLockedColumns,
   showSessionViewSwitch = false,
-  greySessionViewSwitch = false,
   isGroupedBySession,
   onToggleSessionGrouping,
   columnOrder,
@@ -377,7 +374,6 @@ export const useTracesV4ToolbarSlots = ({
         name="mlflow.traces-v4.table-view"
         componentId="mlflow.traces-v4.table-view"
         value={isGroupedBySession ? 'sessions' : 'traces'}
-        newStyleFlagOverride={greySessionViewSwitch}
       >
         <SegmentedControlButton
           value="traces"
