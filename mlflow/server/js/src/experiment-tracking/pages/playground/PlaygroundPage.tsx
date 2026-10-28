@@ -264,6 +264,7 @@ const PlaygroundPage = () => {
             ...(hasToolCalls && { tool_calls: assistant.tool_calls }),
             ...(response_format && { contentIsJson: true }),
             usage: response.usage,
+            isModelReply: true,
           };
           setMessages((current) => [...current, appended, { ...EMPTY_USER_MESSAGE }]);
         },
