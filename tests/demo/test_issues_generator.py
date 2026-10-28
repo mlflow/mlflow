@@ -37,15 +37,13 @@ class FakeSpan:
 
 
 def test_every_assessment_has_a_walkthrough():
-    # A failing assessment with no walkthrough would link a bare rationale, so the demo would show
-    # structured evidence on some issues and not others.
+    # Otherwise some demo issues get structured evidence and others a bare rationale.
     assert set(ISSUE_EVIDENCE_WALKTHROUGHS) == set(ASSESSMENT_TO_ISSUE)
 
 
 @pytest.mark.parametrize("assessment_name", sorted(ISSUE_EVIDENCE_WALKTHROUGHS))
 def test_highlights_are_exact_substrings(assessment_name):
-    # The UI emphasizes by searching the step's text, so a paraphrased highlight emphasizes
-    # nothing -- and `IssueEvidenceStep` rejects one outright, which would fail generation.
+    # The UI emphasizes by searching the text, and `IssueEvidenceStep` rejects a paraphrase.
     for step in ISSUE_EVIDENCE_WALKTHROUGHS[assessment_name]:
         for highlight in step["highlights"]:
             assert highlight in step["text"]
@@ -59,10 +57,8 @@ def test_pick_span_prefers_the_named_types_in_order():
 
 
 def test_pick_span_takes_the_last_match_for_a_response_step():
-    # A ReAct trace emits one LLM span per tool call -- `content: None`, a `tool_calls` finish
-    # reason -- before the LLM span holding the answer. A step about the response has to land on
-    # the answer, not on the decision to call a tool, which also precedes the tool output the
-    # step above it cites.
+    # A ReAct trace's earlier LLM spans are tool-call decisions (`content: None`); only the last
+    # holds the answer. A response step on an earlier one also precedes the tool output above it.
     spans = [
         FakeSpan("root", "CHAIN"),
         FakeSpan("llm-tool-call", "LLM"),
@@ -75,9 +71,7 @@ def test_pick_span_takes_the_last_match_for_a_response_step():
 
 
 def test_build_evidence_on_a_react_trace_cites_the_tool_then_the_answer():
-    # End to end over the shape that exposed the bug: the correctness walkthrough's first step is
-    # the tool, its second the response, and the response step must be the final LLM span so the
-    # two read in the order they happened.
+    # The shape that exposed the bug: the two steps must read in the order they happened.
     spans = [
         FakeSpan("root", "CHAIN"),
         FakeSpan("llm-tool-call", "LLM"),
@@ -92,23 +86,22 @@ def test_build_evidence_on_a_react_trace_cites_the_tool_then_the_answer():
 
 
 def test_pick_span_avoids_a_span_an_earlier_step_already_cited():
-    # Two steps on the same span read as one place in the trace described twice.
+    # Otherwise two steps describe the same place in the trace.
     spans = [FakeSpan("llm-1", "LLM"), FakeSpan("llm-2", "LLM")]
 
     assert _pick_span(spans, ["LLM"], {"llm-1"}).span_id == "llm-2"
 
 
 def test_pick_span_reuses_a_span_when_it_is_the_only_one_of_its_type():
-    # Better a second step on the same span than a step citing a span whose type cannot support
-    # the claim it makes.
+    # Better than citing a span whose type cannot support the claim.
     spans = [FakeSpan("root", "CHAIN"), FakeSpan("llm", "LLM")]
 
     assert _pick_span(spans, ["LLM"], {"llm"}).span_id == "llm"
 
 
 def test_pick_span_falls_back_when_no_preferred_type_is_present():
-    # The demo generates two trace shapes, so a step's preferred type is not in every trace. Its
-    # claim is still true of the trace, so it cites what the trace has rather than being dropped.
+    # A step's preferred type is not in every trace shape; the claim still holds, so it cites
+    # what the trace has rather than being dropped.
     spans = [FakeSpan("root", "CHAIN")]
 
     assert _pick_span(spans, ["RETRIEVER", "EMBEDDING"], set()).span_id == "root"
@@ -125,7 +118,7 @@ def test_build_evidence_cites_distinct_spans_and_keeps_the_rationale():
         "groundedness", "The answer cites a figure the context lacks.", spans
     )
 
-    # The judge's own rationale, not canned prose: it is the only part specific to this trace.
+    # The judge's own rationale: the only part specific to this trace.
     assert evidence.summary == "The answer cites a figure the context lacks."
     assert [step.span_id for step in evidence.steps] == ["retriever", "llm"]
     # The last step names the failure itself, so its span is the one the finding belongs to.
@@ -133,8 +126,7 @@ def test_build_evidence_cites_distinct_spans_and_keeps_the_rationale():
 
 
 def test_build_evidence_without_spans_or_a_walkthrough():
-    # Both leave the reference logged exactly as it was before evidence existed, which is still
-    # worth having -- better a bare rationale than no link at all.
+    # Both fall back to the bare rationale, which is still worth linking.
     assert _build_evidence("groundedness", "why", []) is None
     assert _build_evidence("not-an-assessment", "why", [FakeSpan("llm", "LLM")]) is None
 
@@ -144,18 +136,16 @@ def test_detection_history_covers_the_states_the_page_must_render():
     statuses = {spec["status"] for spec in _DEMO_DETECTION_HISTORY}
 
     assert triggers == {True, False}
-    # Three terminal statuses, and no run left RUNNING: a demo row that spins forever reads as a
-    # broken demo rather than a live one.
+    # Three terminal statuses, and none left RUNNING.
     assert len(statuses) == 3
     assert any(spec["total_traces"] == 0 for spec in _DEMO_DETECTION_HISTORY)
     assert any(spec.get("error") for spec in _DEMO_DETECTION_HISTORY)
-    # Every scheduled run needs a window, since that column is what tells the triggers apart.
+    # The window column is what tells the two triggers apart.
     assert all(spec.get("window_days") for spec in _DEMO_DETECTION_HISTORY if spec["scheduled"])
 
 
 def test_detection_history_windows_stay_within_the_production_cap():
-    # A window wider than the cap is one the scheduler could never have produced, so the history
-    # would be teaching the reader something untrue about the watermark.
+    # A wider window is one the scheduler could never have produced.
     cap_days = STALE_WATERMARK_CAP_MS / (24 * 60 * 60 * 1000)
 
     assert all(
@@ -164,8 +154,8 @@ def test_detection_history_windows_stay_within_the_production_cap():
 
 
 def test_the_widest_window_follows_the_failure_that_held_the_watermark():
-    # The point of the wide window is that the runs before it left the watermark alone, so it has
-    # to sit *after* them -- newer, i.e. fewer days ago.
+    # The wide window exists because the runs before it held the watermark, so it sits after
+    # them -- fewer days ago.
     scheduled = [spec for spec in _DEMO_DETECTION_HISTORY if spec["scheduled"]]
     widest = min(scheduled, key=lambda spec: -spec["window_days"])
     failure = next(spec for spec in scheduled if spec.get("error"))
@@ -176,10 +166,7 @@ def test_the_widest_window_follows_the_failure_that_held_the_watermark():
 
 @pytest.fixture
 def demo_experiment_with_failing_traces():
-    """
-    Traces shaped like the demo's own: a v1 chain with a retriever and an LLM child, each
-    carrying a failing judge assessment the generator knows how to turn into an issue.
-    """
+    """Demo-shaped traces: a v1 chain with retriever and LLM children, each failing a judge."""
     mlflow.set_experiment(DEMO_EXPERIMENT_NAME)
     trace_ids = []
     for index in range(2):
@@ -252,8 +239,7 @@ def test_generate_attaches_evidence_to_every_issue_reference(demo_experiment_wit
         payload = json.loads((reference.metadata or {})[ISSUE_EVIDENCE_METADATA_KEY])
         steps = payload["steps"]
         assert len(steps) == len(ISSUE_EVIDENCE_WALKTHROUGHS["groundedness"])
-        # Cited spans belong to the trace, which `log_issue` validates, and the reference opens
-        # on the one the walkthrough ends at.
+        # The reference opens on the span the walkthrough ends at.
         assert reference.span_id == steps[-1]["span_id"]
         for step in steps:
             assert all(highlight in step["text"] for highlight in step["highlights"])
@@ -276,8 +262,7 @@ def test_generate_records_the_run_history_the_page_lists(demo_experiment_with_fa
         )
     assert any(run.data.tags.get(MLFLOW_ISSUE_DETECTION_ERROR) for run in runs)
     assert {run.info.status for run in runs} >= {"FINISHED", "FAILED", "KILLED"}
-    # Every run is over: the page polls while one is unsettled, so a demo left RUNNING would poll
-    # for as long as the page is open and never settle.
+    # The page polls while a loaded run is unsettled, so none may be left RUNNING.
     assert all(run.info.end_time for run in runs)
 
 
@@ -289,7 +274,6 @@ def test_generate_stores_the_schedule_turned_off(demo_experiment_with_failing_tr
     schedule = json.loads(
         _get_store().get_experiment(experiment_id).tags[MLFLOW_ISSUE_DETECTION_SCHEDULE]
     )
-    # Paused, so the dispatcher never picks it up and starts firing real detection runs against a
-    # provider the demo has no key for. It is still what gives the covered windows a timezone.
+    # Paused, so it is never dispatched -- but still what gives the windows a timezone.
     assert schedule["paused"] is True
     assert schedule["timezone"]

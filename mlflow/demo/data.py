@@ -1232,22 +1232,16 @@ ASSESSMENT_TO_ISSUE = {
     },
 }
 
-# The evidence walkthrough each kind of failing assessment produces, as an ordered list of steps
-# over the trace's own spans. One per assessment in `ASSESSMENT_TO_ISSUE`.
+# The evidence walkthrough each failing assessment produces, over the trace's own spans. One per
+# assessment in `ASSESSMENT_TO_ISSUE`.
 #
-# `span_types` is a preference order, not a requirement: the demo generates two shapes of trace --
-# a ReAct agent (chain, llm, tool) and a RAG chain (chain, embedding, retriever, llm) -- so a step
-# cites the first type the trace in hand actually has, and the root span when it has none of them.
+# `span_types` is a preference order, not a requirement: the demo generates both a ReAct agent
+# (chain, llm, tool) and a RAG chain (chain, embedding, retriever, llm). `last` picks the newest
+# span of the type, which every step about the *response* sets -- a ReAct trace's earlier LLM
+# spans are tool-call decisions, and only the last one holds the answer.
 #
-# `last` picks the newest span of that type instead of the oldest, and every step that talks about
-# the *response* sets it. A ReAct trace emits one LLM span per tool call -- `content: None`, a
-# `tool_calls` finish reason -- before the LLM span that holds the answer, so the first LLM span is
-# a tool-call decision. A response-level step on it would open a span containing no response, and
-# would sit before the tool output the step above it cites.
-#
-# Every string in `highlights` must appear verbatim in `text`. The UI emphasizes by searching the
-# text, so a paraphrase would highlight nothing, and `IssueEvidenceStep` rejects one that does
-# not match.
+# Every `highlights` string must appear verbatim in `text`: the UI emphasizes by searching it, and
+# `IssueEvidenceStep` rejects a paraphrase.
 ISSUE_EVIDENCE_WALKTHROUGHS = {
     "relevance": [
         {

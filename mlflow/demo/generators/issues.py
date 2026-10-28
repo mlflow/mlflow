@@ -59,20 +59,14 @@ def _span_type(span) -> str:
 
 def _pick_span(spans, preferred_types: list[str], used_ids: set[str], last: bool = False):
     """
-    The span a walkthrough step should cite, or ``None`` when the trace has no spans at all.
+    The span a walkthrough step should cite, or ``None`` for a trace with no spans.
 
-    Preferred types first, and among them a span no earlier step has already cited, so a
-    two-step walkthrough reads as two places in the trace rather than the same one twice. A
-    trace with none of the preferred types falls back to its root span: the step's claim is still
-    true of the trace, and citing nothing would drop the step.
-
-    ``last`` takes the newest span of the preferred type rather than the oldest, which is what a
-    step about the response needs: a ReAct trace's first LLM span is the tool-call decision --
-    ``content: None`` -- and only its last one holds the answer.
+    Preferred types first, then a span no earlier step cited, then the root span. ``last`` takes
+    the newest span of the type: a ReAct trace's first LLM span is the tool-call decision
+    (``content: None``) and only its last one holds the answer.
     """
     if not spans:
         return None
-    # Ordered by the trace, so "newest" is simply the far end.
     order = list(reversed(spans)) if last else list(spans)
     for wanted in preferred_types:
         matching = [span for span in order if _span_type(span) == wanted]
@@ -85,14 +79,11 @@ def _pick_span(spans, preferred_types: list[str], used_ids: set[str], last: bool
 
 def _build_evidence(assessment_name: str, rationale: str, spans) -> IssueEvidence | None:
     """
-    The walkthrough to attach to one trace's issue reference, or ``None`` to leave it unattached.
+    The walkthrough for one trace's issue reference, or ``None`` to leave it unattached.
 
-    The summary is the judge's own rationale for this trace rather than canned prose, so the card
-    still says something specific to the trace it is on; the steps are what the walkthrough adds,
-    pinning that finding to the spans it happened in.
-
-    Returns ``None`` -- rather than raising -- for a trace whose spans could not be read or an
-    assessment with no walkthrough defined, since the plain rationale is still worth linking.
+    The summary is the judge's own rationale, so the card still says something specific to the
+    trace. ``None`` rather than raising when there is nothing to build from: the plain rationale
+    is still worth linking.
     """
     steps_config = ISSUE_EVIDENCE_WALKTHROUGHS.get(assessment_name)
     if not steps_config or not spans:
@@ -116,8 +107,7 @@ def _build_evidence(assessment_name: str, rationale: str, spans) -> IssueEvidenc
         )
     if not steps:
         return None
-    # The last step is the one that names the failure itself -- the earlier ones lead up to it --
-    # so its span is the one the finding belongs to.
+    # The last step names the failure itself, so its span is the one the finding belongs to.
     return IssueEvidence(summary=rationale, steps=steps, primary_span_id=steps[-1].span_id)
 
 
@@ -126,18 +116,13 @@ _DAY_MS = 24 * 60 * 60 * 1000
 # The model every demo detection run reports having analyzed with.
 _DEMO_DETECTION_MODEL = "openai:/gpt-4o-mini"
 
-# The runs behind the one that filed the demo's issues, so the Issue detection run history page has
-# a history to show rather than a single row. Each is a real run with the tags the detection job
-# writes, so the page reads them the way it reads a production experiment's.
-#
-# Between them they cover what the page has to be able to say: both triggers, three terminal
-# statuses, a run that analyzed nothing, and a failure with the provider's own wording on it. No
-# run is left RUNNING -- a demo row that spins forever reads as a broken demo, not a live one.
+# The runs behind the one that filed the demo's issues, so the run history page has more than a
+# single row. Between them: both triggers, three terminal statuses, a run that analyzed nothing,
+# and a failure with its reason. None is left RUNNING -- the page polls while one is unsettled.
 _DEMO_DETECTION_HISTORY = (
     {
-        # Newest, and the one that shows the cap: neither the quiet occurrence nor the failure
-        # below advanced the watermark, so this run was entitled to reach back to the occurrence
-        # before them -- 21 days -- and `STALE_WATERMARK_CAP_MS` clipped it to 8.
+        # Neither the quiet occurrence nor the failure below advanced the watermark, so this run
+        # was entitled to 21 days and `STALE_WATERMARK_CAP_MS` clipped it to 8.
         "name": "Scheduled detection",
         "days_ago": 2,
         "duration_ms": 192_000,
@@ -171,8 +156,7 @@ _DEMO_DETECTION_HISTORY = (
         "cost_usd": None,
     },
     {
-        # A window with nothing in it: the schedule fired, found no traces to sample, and so
-        # reports a finished run over zero traces rather than a failure.
+        # A window with nothing in it: finished over zero traces, not a failure.
         "name": "Scheduled detection",
         "days_ago": 16,
         "duration_ms": 4_000,
@@ -231,8 +215,7 @@ class IssuesDemoGenerator(BaseDemoGenerator):
                         failing_traces_by_assessment.setdefault(assessment_name, []).append({
                             "trace_id": trace_id,
                             "rationale": rationale,
-                            # Carried from the search, which already returned them, so building
-                            # the evidence walkthrough costs no further reads.
+                            # Already returned by the search, so the walkthrough costs no reads.
                             "spans": (trace.data.spans if trace.data else None) or [],
                         })
 
@@ -283,10 +266,8 @@ class IssuesDemoGenerator(BaseDemoGenerator):
                         source=source,
                         run_id=run_id,
                         rationale=trace_info["rationale"],
-                        # Pins the judge's finding to the spans it happened in, so the Issues tab
-                        # shows the walkthrough a real detection run produces rather than a bare
-                        # sentence. `None` for a trace whose spans could not be read, which logs
-                        # the reference exactly as it did before.
+                        # Pins the finding to the spans it happened in. `None` falls back to the
+                        # bare rationale, as before.
                         evidence=_build_evidence(
                             assessment_name, trace_info["rationale"], trace_info["spans"]
                         ),
@@ -315,15 +296,12 @@ class IssuesDemoGenerator(BaseDemoGenerator):
                 "mlflow.issueDetection.result.issues": str(len(created_issue_ids)),
                 "mlflow.issueDetection.result.totalTracesAnalyzed": str(len(v1_traces)),
                 "mlflow.issueDetection.result.summary": summary,
-                # The same count under the key a real detection run writes, which is what the run
-                # history page reads. Without it the demo's newest row shows no scanned traces
-                # while the historical ones beneath it do.
+                # The key a real detection run writes, which is what the run history page reads.
                 "total_traces": str(len(v1_traces)),
                 "model": _DEMO_DETECTION_MODEL,
             })
 
-        # After the issue-filing run, so the history page lists that one newest and these behind
-        # it, which is the order they happened in.
+        # After the issue-filing run, so the history lists that one newest and these behind it.
         self._generate_detection_history(MlflowClient(), experiment_id, get_current_time_millis())
         self._write_paused_schedule(store, experiment_id)
 
@@ -337,14 +315,10 @@ class IssuesDemoGenerator(BaseDemoGenerator):
         """
         Store the schedule the demo's scheduled runs came from, turned off.
 
-        Without it the Scheduled rows in the run history have no schedule behind them and their
-        covered windows cannot be rendered at all -- the page formats those bounds in the zone the
-        schedule stores, since that is the zone the server read them in, and there is no zone to
-        read without a schedule.
-
-        Paused, which is "Off" in the UI: a live schedule on the demo experiment would be picked
-        up by the dispatcher and start firing real detection runs against a provider the demo has
-        no key for. A paused one is never dispatched, and still fills in the schedule dialog.
+        Needed for the covered windows: the page formats those bounds in the zone the schedule
+        stores, so without a schedule there is no zone and every window renders as a dash.
+        Paused because a live one would be dispatched, firing real runs against a provider the
+        demo has no key for.
         """
         try:
             write_detection_schedule(
@@ -357,16 +331,11 @@ class IssuesDemoGenerator(BaseDemoGenerator):
 
     def _generate_detection_history(self, client: MlflowClient, experiment_id: str, now_ms: int):
         """
-        Create the past detection runs the history page lists, alongside the one that filed the
-        issues.
+        Create the past detection runs the history page lists.
 
-        Runs rather than a mock: the page finds them with a run search, so anything less than a
-        real run with real tags would show an empty history. Written through
-        ``create_run``/``set_terminated`` because each needs a start and end time of its own --
-        the fluent API would stamp them all with now.
-
-        Best-effort: a store that refuses one of these is no reason to lose the issues the demo is
-        actually about.
+        Real runs, because the page finds them with a run search. Through
+        ``create_run``/``set_terminated`` rather than the fluent API, which would stamp them all
+        with now. Best-effort: losing one is no reason to lose the issues.
         """
         for spec in _DEMO_DETECTION_HISTORY:
             start_time = now_ms - spec["days_ago"] * _DAY_MS
@@ -374,8 +343,7 @@ class IssuesDemoGenerator(BaseDemoGenerator):
                 MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_ISSUE_DETECTION,
                 "categories": "correctness,relevance,safety",
                 "model": _DEMO_DETECTION_MODEL,
-                # Stringified because `create_run` stores tag values verbatim, unlike the fluent
-                # `start_run` the issue-filing run above goes through, which coerces them.
+                # Stringified: `create_run` stores tag values verbatim, unlike `start_run`.
                 "total_traces": str(spec["total_traces"]),
             }
             if spec["scheduled"]:
@@ -398,10 +366,8 @@ class IssuesDemoGenerator(BaseDemoGenerator):
             except Exception:
                 _logger.debug("Failed to create a demo detection run", exc_info=True)
                 continue
-            # Its own block, because a run created and then left unterminated is worse than no
-            # run at all: it sits RUNNING, which is the one state this history must not contain,
-            # and the history page polls for as long as a loaded run has not settled. Deleted
-            # rather than left behind if it cannot be terminated.
+            # Its own block: a run left unterminated sits RUNNING, which keeps the history page
+            # polling for as long as it is open. Deleted rather than left in that state.
             try:
                 client.set_terminated(
                     run.info.run_id,

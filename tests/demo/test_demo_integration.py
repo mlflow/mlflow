@@ -507,8 +507,8 @@ def _filing_run(runs):
     """
     The detection run that filed the demo's issues, out of it and the history behind it.
 
-    Named rather than taken as the only one: the generator also records past runs so the run
-    history page has a history, and those carry neither the issues nor the result tags.
+    Named rather than taken as the only one: the history runs carry neither the issues nor the
+    result tags.
     """
     filing = [run for run in runs if run.info.run_name == DEMO_ISSUE_DETECTION_RUN_NAME]
     assert len(filing) == 1
