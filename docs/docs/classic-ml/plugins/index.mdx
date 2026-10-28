@@ -45,12 +45,13 @@ MLflow supports several types of plugins, each addressing different integration 
 
 ### **Storage & Persistence**
 
-| Plugin Type              | Purpose                           | Example Use Cases                                  |
-| ------------------------ | --------------------------------- | -------------------------------------------------- |
-| **Tracking Store**       | Custom experiment data storage    | Enterprise databases, cloud data warehouses        |
-| **Artifact Repository**  | Custom artifact storage           | In-house blob storage, specialized file systems    |
-| **Model Registry Store** | Custom model registry backend     | Enterprise model catalogs, version control systems |
-| **Workspace Provider**   | Custom workspace metadata backend | Kubernetes namespaces                              |
+| Plugin Type              | Purpose                                 | Example Use Cases                                   |
+| ------------------------ | --------------------------------------- | --------------------------------------------------- |
+| **Tracking Store**       | Custom experiment data storage          | Enterprise databases, cloud data warehouses         |
+| **Trace Backend**        | Independent trace storage and analytics | Dedicated trace databases, custom analytics engines |
+| **Artifact Repository**  | Custom artifact storage                 | In-house blob storage, specialized file systems     |
+| **Model Registry Store** | Custom model registry backend           | Enterprise model catalogs, version control systems  |
+| **Workspace Provider**   | Custom workspace metadata backend       | Kubernetes namespaces                               |
 
 ### **Authentication & Headers**
 
@@ -85,6 +86,7 @@ setup(
     entry_points={
         # Define plugin entry points
         "mlflow.tracking_store": "my-scheme=my_plugin.store:MyTrackingStore",
+        "mlflow.trace_backends": "my-traces=my_plugin.traces:build_backend",
         "mlflow.artifact_repository": "my-scheme=my_plugin.artifacts:MyArtifactRepo",
         "mlflow.run_context_provider": "unused=my_plugin.context:MyContextProvider",
         "mlflow.request_auth_provider": "unused=my_plugin.auth:MyAuthProvider",
@@ -259,6 +261,91 @@ For full details on workspace provider architecture, discovery, and configuratio
 
   </TabItem>
 </Tabs>
+
+### Trace Backend Plugins
+
+Trace backend plugins provide storage and search for traces, assessments, and issues without
+replacing experiment or run storage.
+Without a separate backend configured, the tracking store continues to handle traces directly.
+
+Implement `AbstractTraceBackend` and register a builder in your package:
+
+```toml
+# pyproject.toml
+[project.entry-points."mlflow.trace_backends"]
+my-traces = "my_plugin.traces:build_backend"
+```
+
+```python
+# my_plugin/traces.py
+from mlflow.exceptions import MlflowNotImplementedException
+from mlflow.store.tracking.abstract_trace_backend import AbstractTraceBackend
+
+
+class MyTraceBackend(AbstractTraceBackend):
+    def __init__(self, backend_config):
+        # Initialize your trace storage using provider-owned configuration.
+        ...
+
+    def start_trace(self, trace_info):
+        # Persist trace metadata and return the stored TraceInfo.
+        raise MlflowNotImplementedException()
+
+    def log_spans(self, location, spans, tracking_uri=None):
+        # Persist spans and return the logged Span entities.
+        raise MlflowNotImplementedException()
+
+    # Implement other supported AbstractTraceBackend operations.
+
+
+def build_backend(backend_config):
+    return MyTraceBackend(backend_config)
+```
+
+Providers read connection settings from their own environment variables or configuration files.
+The builder's configuration dictionary is currently empty. After initialization, `set_tracking_store`
+provides optional tracking-store access for metadata queries or hybrid storage.
+
+**Avoid recursive delegation in hybrid backends:**
+
+Trace operations on the supplied tracking store normally route back to your backend. When reusing
+the host's native SQL implementation, wrap the call in `disable_trace_backend()` to avoid calling
+your own method recursively:
+
+```python
+class HybridTraceBackend(AbstractTraceBackend):
+    def get_trace_info(self, trace_id):
+        with self._tracking_store.disable_trace_backend():
+            return self._tracking_store.get_trace_info(trace_id)
+```
+
+Routing is restored when the block exits, including on exceptions. This bypasses backend routing,
+not workspace access checks. Ordinary experiment and run metadata queries do not need the bypass.
+
+See the [AbstractTraceBackend interface](https://github.com/mlflow/mlflow/blob/master/mlflow/store/tracking/abstract_trace_backend.py)
+for operation, hybrid-access, and lifecycle cleanup requirements.
+
+**Usage:**
+
+Install the plugin in the server and worker environments, then select its registered kind:
+
+```bash
+mlflow server --backend-store-uri postgresql://... --trace-backend my-traces
+
+# Alternatively:
+export MLFLOW_TRACE_BACKEND=my-traces
+mlflow server --backend-store-uri postgresql://...
+```
+
+The CLI option takes precedence over the environment variable. SQL-backed servers support trace
+plugins; custom tracking stores must explicitly opt in. File and REST stores are not supported.
+Selection is server-side, so remote clients keep their existing tracking URI. Use the V3 tracing API;
+legacy V2 writes, `--artifacts-only`, and workspace reassignment are not supported with a backend.
+
+Run `mlflow gc` with the same backend and provider configuration as the server. Historical gateway
+budget reconstruction is best-effort; unavailable provider history can cause budgets to undercount.
+
+See [Backend Stores](/self-hosting/architecture/backend-store) for tracking storage configuration.
 
 ### Authentication Plugins
 

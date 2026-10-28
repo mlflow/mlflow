@@ -9,6 +9,7 @@ called server-side and never exposed to clients via MlflowClient.
 import json
 
 from mlflow.exceptions import MlflowException
+from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
@@ -25,7 +26,7 @@ from mlflow.utils.workspace_context import get_request_workspace
 def get_resource_endpoint_configs(
     resource_type: str,
     resource_id: str,
-    store: SqlAlchemyStore | None = None,
+    store: AbstractStore | None = None,
 ) -> list[GatewayEndpointConfig]:
     """
     Get complete endpoint configurations for a resource (server-side only).
@@ -42,8 +43,8 @@ def get_resource_endpoint_configs(
     Args:
         resource_type: Type of resource (e.g., "scorer").
         resource_id: Unique identifier for the resource instance.
-        store: Optional SqlAlchemyStore instance. If not provided, the current
-            tracking store is used.
+        store: Optional SQL tracking store or coordinator backed by one. If not provided,
+            the current tracking store is used.
 
     Returns:
         List of GatewayEndpointConfig entities, each containing endpoint_id,
@@ -146,7 +147,7 @@ def get_resource_endpoint_configs(
 
 def get_endpoint_config(
     endpoint_name: str,
-    store: SqlAlchemyStore | None = None,
+    store: AbstractStore | None = None,
 ) -> GatewayEndpointConfig:
     """
     Get complete endpoint configuration for a specific endpoint (server-side only).
@@ -161,8 +162,8 @@ def get_endpoint_config(
 
     Args:
         endpoint_name: Unique identifier for the endpoint.
-        store: Optional SqlAlchemyStore instance. If not provided, the current
-            tracking store is used.
+        store: Optional SQL tracking store or coordinator backed by one. If not provided,
+            the current tracking store is used.
 
     Returns:
         GatewayEndpointConfig entity containing endpoint_id, endpoint_name, and

@@ -15,7 +15,7 @@ from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import MlflowExperimentLocation
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MlflowNotImplementedException, RestException
 from mlflow.protos import service_pb2 as pb
 from mlflow.protos.databricks_pb2 import (
     PERMISSION_DENIED,
@@ -31,6 +31,36 @@ from mlflow.tracing.utils import generate_trace_id_v3
 from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
 
 _EXPERIMENT_ID = "dummy-experiment-id"
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        NotImplementedError(),
+        MlflowNotImplementedException(),
+        RestException({"error_code": "NOT_IMPLEMENTED", "message": "Span logging unavailable"}),
+        RestException({
+            "error_code": "INTERNAL_ERROR",
+            "message": "REST OTLP span logging is not supported",
+        }),
+    ],
+)
+def test_unsupported_span_logging_disables_incremental_export(error):
+    exporter = MlflowV3SpanExporter()
+    with mock.patch.object(exporter._client, "log_spans", side_effect=error) as log_spans:
+        exporter._log_spans("1", [])
+    log_spans.assert_called_once_with("1", [])
+    assert exporter._store_supports_log_spans is False
+
+
+@pytest.mark.parametrize("error_code", ["INTERNAL_ERROR", "PERMISSION_DENIED"])
+def test_other_rest_errors_do_not_disable_incremental_export(error_code):
+    exporter = MlflowV3SpanExporter()
+    error = RestException({"error_code": error_code, "message": "Span logging failed"})
+    with mock.patch.object(exporter._client, "log_spans", side_effect=error) as log_spans:
+        exporter._log_spans("1", [])
+    log_spans.assert_called_once_with("1", [])
+    assert exporter._store_supports_log_spans is True
 
 
 def join_thread_by_name_prefix(prefix: str, timeout: float = 5.0):

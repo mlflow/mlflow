@@ -186,7 +186,10 @@ from mlflow.utils.rest_utils import (
     http_request,
     verify_rest_response,
 )
-from mlflow.utils.validation import _resolve_experiment_ids_and_locations
+from mlflow.utils.validation import (
+    _resolve_experiment_ids_and_locations,
+    validate_delete_traces_parameters,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -468,13 +471,14 @@ class RestStore(
         )
         return trace_info_v2.to_v3()
 
-    def _delete_traces(
+    def delete_traces(
         self,
         experiment_id: str,
         max_timestamp_millis: int | None = None,
         max_traces: int | None = None,
         trace_ids: list[str] | None = None,
     ) -> int:
+        validate_delete_traces_parameters(max_timestamp_millis, max_traces, trace_ids)
         # If deleting by trace_ids, split into batches to avoid hitting the
         # Databricks server limit
         if trace_ids:

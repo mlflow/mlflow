@@ -124,6 +124,7 @@ from mlflow.utils.validation import (
     _validate_run_id,
     _validate_tag_name,
     invalid_value,
+    validate_delete_traces_parameters,
 )
 from mlflow.utils.yaml_utils import overwrite_yaml, read_yaml, write_yaml
 
@@ -2159,7 +2160,7 @@ class FileStore(AbstractStore):
             except MlflowException:
                 pass
 
-    def _delete_traces(
+    def delete_traces(
         self,
         experiment_id: str,
         max_timestamp_millis: int | None = None,
@@ -2184,6 +2185,7 @@ class FileStore(AbstractStore):
         Returns:
             The number of traces deleted.
         """
+        validate_delete_traces_parameters(max_timestamp_millis, max_traces, trace_ids)
         experiment_path = self._get_experiment_path(experiment_id, assert_exists=True)
         traces_path = os.path.join(experiment_path, FileStore.TRACES_FOLDER_NAME)
         deleted_traces = 0

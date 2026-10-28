@@ -364,7 +364,7 @@ def test_get_orderby_clauses(tmp_sqlite_uri):
         ("_search_datasets", lambda exp_id: ([exp_id],)),
         ("search_runs", lambda exp_id: ([exp_id], None, entities.ViewType.ALL, 10)),
         ("search_logged_models", lambda exp_id: ([exp_id],)),
-        ("_delete_traces", lambda exp_id: (exp_id, 1)),
+        ("delete_traces", lambda exp_id: (exp_id, 1)),
         ("calculate_trace_filter_correlation", lambda e: ([e], "name = 'a'", "name = 'b'")),
         ("search_issues", lambda exp_id: (exp_id,)),
         (
@@ -395,6 +395,6 @@ def test_store_methods_accept_valid_experiment_id(store):
     assert store.search_runs([exp_id], None, entities.ViewType.ALL, 10) == []
     assert store.search_runs([int(exp_id)], None, entities.ViewType.ALL, 10) == []
     assert store.search_logged_models([exp_id]) == []
-    assert store._delete_traces(exp_id, 1) == 0
+    assert store.delete_traces(exp_id, 1) == 0
     correlation = store.calculate_trace_filter_correlation([exp_id], "name = 'a'", "name = 'b'")
     assert correlation.total_count == 0
