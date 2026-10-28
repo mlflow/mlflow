@@ -11,7 +11,6 @@ from opentelemetry.proto.trace.v1.trace_pb2 import TracesData
 
 from mlflow.entities.span import Span
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.otel.translation import strip_otlp_double_encoding
 from mlflow.tracing.utils.otlp import resource_to_otel_proto
 
 TRACE_ARCHIVAL_FILENAME = "traces.pb"
@@ -120,10 +119,6 @@ def traces_data_pb_to_spans(data: bytes) -> list[Span]:
         for scope_spans in resource_spans.scope_spans
         for otel_span in scope_spans.spans
     ]
-    for span in spans:
-        # to_otel_proto sends serialized attribute strings, which from_otel_proto encodes a
-        # second time. Strip that layer so the restored attributes match the archived span.
-        span._span._attributes = strip_otlp_double_encoding(span._span._attributes)
     if not spans:
         raise MlflowException.invalid_parameter_value(
             "Archived trace payload must contain at least one span."

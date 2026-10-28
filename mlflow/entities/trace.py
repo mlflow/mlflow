@@ -330,14 +330,7 @@ class Trace(_MlflowObject):
 
     @classmethod
     def from_proto(cls, proto: ProtoTrace) -> "Trace":
-        # Imported here to avoid a circular import
-        from mlflow.tracing.otel.translation import strip_otlp_double_encoding
-
-        spans = []
-        for proto_span in proto.spans:
-            span = Span.from_otel_proto(proto_span)
-            # to_otel_proto sends serialized attribute strings, which from_otel_proto encodes
-            # a second time. Strip that layer so the attributes match the original span.
-            span._span._attributes = strip_otlp_double_encoding(span._span._attributes)
-            spans.append(span)
-        return cls(info=TraceInfo.from_proto(proto.trace_info), data=TraceData(spans=spans))
+        return cls(
+            info=TraceInfo.from_proto(proto.trace_info),
+            data=TraceData(spans=[Span.from_otel_proto(span) for span in proto.spans]),
+        )
