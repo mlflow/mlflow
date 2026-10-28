@@ -29,9 +29,17 @@ module.exports = async ({ github, context }) => {
     })
   ).map(({ name }) => name);
 
-  // Exclude labels that are not available in the repository or have been added/removed by a user
+  // Only labels with these prefixes can be managed via the issue/PR body. Anything else
+  // (e.g. `LGTM`) must be applied manually by a maintainer.
+  const allowedPrefixes = ["area/", "rn/", "domain/"];
+
+  // Exclude labels that are not allowed to be managed via the body, are not available in the
+  // repository, or have been added/removed by a user
   const labels = bodyLabels.filter(
-    ({ name }) => repoLabels.includes(name) && !userLabels.includes(name)
+    ({ name }) =>
+      allowedPrefixes.some((prefix) => name.startsWith(prefix)) &&
+      repoLabels.includes(name) &&
+      !userLabels.includes(name)
   );
   console.log("Labels to add/remove:", labels);
 

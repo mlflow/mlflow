@@ -1,9 +1,17 @@
 ---
 applyTo: "**"
-excludeAgent: ["coding-agent"]
+excludeAgent: "cloud-agent"
 ---
 
 # Code Review Instructions
+
+## Review Comment Format
+
+When you have a fix to recommend, use two short sections for the finding:
+
+**🐛 Issue:** State the trigger and concrete consequence that make the fix necessary.
+
+**🔧 Fix:** Start with the change you recommend, adding only the detail needed to implement it.
 
 ## Knowledge Cutoff
 
@@ -12,26 +20,13 @@ Your training data has a cutoff. Treat anything you don't recognize as **new, no
 - Model names (e.g., `gpt-5`)
 - GitHub runner types (e.g., `ubuntu-slim`)
 
-## Comment Format (MANDATORY)
+## Verify When It's Cheap
 
-Every comment MUST use this exact format: `<emoji> **<severity>:** <description>`
-
-| Severity | Emoji |
-| -------- | ----- |
-| CRITICAL | 🔴    |
-| MODERATE | 🟡    |
-| NIT      | 🟢    |
-
-Examples:
-
-- 🔴 **CRITICAL:** User input is passed directly into the SQL query without parameterization — SQL injection risk. Use a parameterized query instead.
-- 🟡 **MODERATE:** This loops over each item and issues a separate query — N+1 problem. Use a single batch query or a join.
-- 🟢 **NIT:** This nested `if/elif/else` is hard to follow. Consider using early returns to flatten the structure.
+Prefer verifying over reasoning whenever it's cheap. The repo is checked out and you can run whatever is installed. The review environment is configured in `.github/workflows/copilot-code-review.yml`. A quick command can confirm or kill a claim outright.
 
 ## Do NOT Comment On
 
 - Future dates, version numbers, model names, or runner types — your knowledge cutoff makes these unreliable
-- Discrepancies between PR description and code — focus on the code
 - Naming style preferences — only flag actively misleading names
 - Hypothetical or unlikely edge cases — if you'd write "while unlikely", "could potentially", or "edge case where", skip it. Only flag issues that realistically occur in practice.
 - Hardcoded values or magic numbers — do not suggest extracting constants for one-off values

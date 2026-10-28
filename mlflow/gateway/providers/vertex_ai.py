@@ -21,14 +21,20 @@ Three model types are supported:
 import json
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, AsyncIterable
 
 from mlflow.gateway.config import EndpointConfig, VertexAIConfig
 from mlflow.gateway.exceptions import AIGatewayException
-from mlflow.gateway.providers.anthropic import AnthropicProvider
-from mlflow.gateway.providers.base import BaseProvider
+from mlflow.gateway.providers.anthropic import AnthropicAdapter, AnthropicProvider
+from mlflow.gateway.providers.base import (
+    BaseProvider,
+    PassthroughAction,
+    ProviderAdapter,
+    _drop_client_auth_headers,
+)
 from mlflow.gateway.providers.gemini import GeminiAdapter, GeminiProvider
 from mlflow.gateway.providers.openai_compatible import OpenAICompatibleProvider
+from mlflow.gateway.providers.utils import send_proxy_request, send_request, send_stream_request
 
 _DEFAULT_SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
 
@@ -38,6 +44,28 @@ _VERTEX_ANTHROPIC_VERSION = "vertex-2023-10-16"
 # No-slash model name prefixes that belong to the MaaS (OpenAI-compatible) type
 # rather than the Google (Gemini API) type.
 _MAAS_PREFIXES = ("mistral", "codestral", "jamba")
+
+# Locations that span several regions instead of naming one. They are served from a
+# dedicated host rather than the "{location}-" prefixed regional one.
+_MULTI_REGION_LOCATIONS = frozenset({"eu", "us"})
+
+
+def _get_vertex_ai_host(location: str) -> str:
+    """Return the Vertex AI API host serving ``location``.
+
+    Vertex AI exposes three host shapes:
+
+    - global:       https://aiplatform.googleapis.com
+    - multi-region: https://aiplatform.{eu,us}.rep.googleapis.com
+    - regional:     https://{location}-aiplatform.googleapis.com
+
+    https://docs.cloud.google.com/vertex-ai/docs/general/googleapi-access-methods#regional-global-endpoints
+    """
+    if location == "global":
+        return "https://aiplatform.googleapis.com"
+    if location in _MULTI_REGION_LOCATIONS:
+        return f"https://aiplatform.{location}.rep.googleapis.com"
+    return f"https://{location}-aiplatform.googleapis.com"
 
 
 def _strip_function_call_ids(gemini_payload: dict[str, Any]) -> dict[str, Any]:
@@ -57,6 +85,18 @@ def _strip_function_call_ids(gemini_payload: dict[str, Any]) -> dict[str, Any]:
             if function_response := part.get("functionResponse"):
                 function_response.pop("id", None)
     return gemini_payload
+
+
+def _filter_anthropic_betas(headers: dict[str, str], allowed: list[str]) -> dict[str, str]:
+    """Keep only ``allowed`` values in the ``anthropic-beta`` header, dropping it if none remain."""
+    filtered = {}
+    for name, value in headers.items():
+        if name.lower() != "anthropic-beta":
+            filtered[name] = value
+            continue
+        if kept := [beta for beta in map(str.strip, value.split(",")) if beta in allowed]:
+            filtered[name] = ",".join(kept)
+    return filtered
 
 
 class _VertexGeminiAdapter(GeminiAdapter):
@@ -79,6 +119,29 @@ def _classify_model(model_name: str) -> str:
     return "gemini"
 
 
+class _VertexAIClaudeAdapter(AnthropicAdapter):
+    """AnthropicAdapter for Claude on Vertex AI.
+
+    Adds ``anthropic_version`` and drops ``model`` from the body, like
+    ``AmazonBedrockAnthropicAdapter`` does for Bedrock, so callers that format
+    through ``adapter_class`` alone still get a Vertex-valid payload.
+    """
+
+    @classmethod
+    def _apply_vertex_fields(cls, payload: dict[str, Any]) -> dict[str, Any]:
+        payload.pop("model", None)
+        payload["anthropic_version"] = _VERTEX_ANTHROPIC_VERSION
+        return payload
+
+    @classmethod
+    def chat_to_model(cls, payload: dict[str, Any], config) -> dict[str, Any]:
+        return cls._apply_vertex_fields(super().chat_to_model(payload, config))
+
+    # No `chat_streaming_to_model` override: `AnthropicAdapter.chat_streaming_to_model`
+    # delegates to `cls.chat_to_model`, which already applies the Vertex fields above.
+    # Overriding it here too would apply them twice.
+
+
 class _VertexAIClaudeProvider(AnthropicProvider):
     """AnthropicProvider adapted for Claude models hosted on Vertex AI.
 
@@ -89,10 +152,16 @@ class _VertexAIClaudeProvider(AnthropicProvider):
     DISPLAY_NAME = "Vertex AI"
     CONFIG_TYPE = VertexAIConfig
 
-    def __init__(self, config: EndpointConfig, vertex_config: VertexAIConfig, get_credentials_fn):
+    def __init__(
+        self,
+        config: EndpointConfig,
+        vertex_config: VertexAIConfig,
+        get_credentials_fn,
+        enable_tracing: bool = False,
+    ):
         # Call BaseProvider.__init__ directly — AnthropicProvider.__init__ would reject
         # VertexAIConfig since it expects AnthropicConfig.
-        BaseProvider.__init__(self, config)
+        BaseProvider.__init__(self, config, enable_tracing=enable_tracing)
         self.vertex_config = vertex_config
         self._get_creds = get_credentials_fn
 
@@ -105,10 +174,26 @@ class _VertexAIClaudeProvider(AnthropicProvider):
     def base_url(self) -> str:
         project = self.vertex_config.vertex_project
         location = self.vertex_config.vertex_location or "global"
-        prefix = "" if location == "global" else f"{location}-"
-        host = f"https://{prefix}aiplatform.googleapis.com"
+        host = _get_vertex_ai_host(location)
         path = f"/v1/projects/{project}/locations/{location}/publishers/anthropic/models"
         return f"{host}{path}"
+
+    def _get_headers(
+        self,
+        payload: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, str]:
+        # AnthropicProvider keeps a credential agent's own auth header in place of the
+        # server key. A client's Anthropic credential is never valid on Vertex, and Google
+        # rejects a request carrying two Authorization headers, so always drop it.
+        if headers:
+            headers = _drop_client_auth_headers(headers)
+        # Vertex validates `anthropic-beta` against the betas it supports and rejects the
+        # whole request on a value it does not know, where the Anthropic API ignores it.
+        # The endpoint config decides which client betas get through.
+        if headers and (allowed := self.vertex_config.vertex_anthropic_betas) is not None:
+            headers = _filter_anthropic_betas(headers, allowed)
+        return super()._get_headers(payload, headers)
 
     def get_endpoint_url(self, route_type: str) -> str:
         if route_type == "llm/v1/chat":
@@ -121,10 +206,78 @@ class _VertexAIClaudeProvider(AnthropicProvider):
     def _get_chat_stream_path(self) -> str:
         return f"{self.config.model.name}:streamRawPredict"
 
+    @property
+    def adapter_class(self) -> type[ProviderAdapter]:
+        return _VertexAIClaudeAdapter
+
     def _prepare_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
-        payload.pop("model", None)
-        payload["anthropic_version"] = _VERTEX_ANTHROPIC_VERSION
-        return payload
+        # Still needed: `_chat`/`_chat_stream` format via `AnthropicAdapter` directly,
+        # not `self.adapter_class`.
+        return _VertexAIClaudeAdapter._apply_vertex_fields(payload)
+
+    def _get_passthrough_path(self, payload: dict[str, Any]) -> str:
+        return self._get_chat_stream_path() if payload.get("stream") else self._get_chat_path()
+
+    async def _passthrough(
+        self,
+        action: PassthroughAction,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        # AnthropicProvider._passthrough posts to base_url + "messages" with the model in the
+        # body. Vertex addresses the model in the URL (:rawPredict / :streamRawPredict) and
+        # takes `anthropic_version` in the body instead, so reuse the hooks `_chat` uses.
+        self._validate_passthrough_action(action)
+        payload = self._prepare_payload(payload)
+        request_headers = self._get_headers(payload, headers)
+        path = self._get_passthrough_path(payload)
+
+        if payload.get("stream"):
+            stream = send_stream_request(
+                headers=request_headers,
+                base_url=self.base_url,
+                path=path,
+                payload=payload,
+            )
+            return self._stream_passthrough_with_usage(stream)
+        return await send_request(
+            headers=request_headers,
+            base_url=self.base_url,
+            path=path,
+            payload=payload,
+        )
+
+    async def _proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        # Vertex exposes Claude only through the Messages API, at a per-model
+        # :rawPredict / :streamRawPredict path, so the caller's path cannot be appended to
+        # base_url the way AnthropicProvider._proxy does. Accept the Anthropic API path and
+        # pick the streaming variant from the body.
+        if path.split("?", 1)[0].strip("/") not in ("v1/messages", "messages"):
+            raise AIGatewayException(
+                status_code=501,
+                detail=(
+                    f"The proxy path '{path}' is not supported for {self.config.model.name} on "
+                    "Vertex AI, which only exposes the Messages API. Use 'v1/messages'."
+                ),
+            )
+        payload = self._prepare_payload(payload)
+        gen = send_proxy_request(
+            self._get_headers(payload, headers),
+            self.base_url,
+            self._get_passthrough_path(payload),
+            payload,
+        )
+        meta = await gen.__anext__()
+        if meta["is_streaming"]:
+            return gen
+        body = await gen.__anext__()
+        await gen.aclose()
+        return body
 
 
 class _VertexAIMaaSProvider(OpenAICompatibleProvider):
@@ -138,10 +291,16 @@ class _VertexAIMaaSProvider(OpenAICompatibleProvider):
     DISPLAY_NAME = "Vertex AI"
     CONFIG_TYPE = VertexAIConfig
 
-    def __init__(self, config: EndpointConfig, vertex_config: VertexAIConfig, get_credentials_fn):
+    def __init__(
+        self,
+        config: EndpointConfig,
+        vertex_config: VertexAIConfig,
+        get_credentials_fn,
+        enable_tracing: bool = False,
+    ):
         # Call BaseProvider.__init__ directly — OpenAICompatibleProvider.__init__ would
         # reject VertexAIConfig since it expects an _OpenAICompatibleConfig.
-        BaseProvider.__init__(self, config)
+        BaseProvider.__init__(self, config, enable_tracing=enable_tracing)
         self.vertex_config = vertex_config
         self._get_creds = get_credentials_fn
 
@@ -150,13 +309,43 @@ class _VertexAIMaaSProvider(OpenAICompatibleProvider):
         creds = self._get_creds()
         return {"Authorization": f"Bearer {creds.token}"}
 
+    def _get_headers(self, headers: dict[str, str] | None = None) -> dict[str, str]:
+        # OpenAICompatibleProvider swaps the provider Authorization for a credential agent's
+        # own. On Vertex that would replace the OAuth token with an unusable client token,
+        # so always drop client auth headers first.
+        if headers:
+            headers = _drop_client_auth_headers(headers)
+        return super()._get_headers(headers)
+
     @property
     def _api_base(self) -> str:
         project = self.vertex_config.vertex_project
         location = self.vertex_config.vertex_location or "us-central1"
-        prefix = "" if location == "global" else f"{location}-"
-        host = f"https://{prefix}aiplatform.googleapis.com"
+        host = _get_vertex_ai_host(location)
         return f"{host}/v1/projects/{project}/locations/{location}/endpoints/openapi"
+
+    async def _proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        # OpenAICompatibleProvider._proxy strips the last segment of _api_base to undo a
+        # "/v1" suffix. Here that segment is "/openapi", which is part of the Vertex API
+        # root, so post to _api_base as is and drop the "v1/" prefix that OpenAI SDK
+        # clients put on the path instead.
+        gen = send_proxy_request(
+            self._get_headers(headers),
+            self._api_base,
+            path.lstrip("/").removeprefix("v1/"),
+            payload,
+        )
+        meta = await gen.__anext__()
+        if meta["is_streaming"]:
+            return gen
+        body = await gen.__anext__()
+        await gen.aclose()
+        return body
 
 
 class VertexAIProvider(GeminiProvider):
@@ -194,11 +383,11 @@ class VertexAIProvider(GeminiProvider):
         self._model_type = _classify_model(config.model.name)
         if self._model_type == "claude":
             self._delegate = _VertexAIClaudeProvider(
-                config, self.vertex_config, self._get_credentials
+                config, self.vertex_config, self._get_credentials, enable_tracing=enable_tracing
             )
         elif self._model_type == "maas":
             self._delegate = _VertexAIMaaSProvider(
-                config, self.vertex_config, self._get_credentials
+                config, self.vertex_config, self._get_credentials, enable_tracing=enable_tracing
             )
         else:
             self._delegate = None
@@ -249,10 +438,7 @@ class VertexAIProvider(GeminiProvider):
             return self._delegate._api_base
         project = self.vertex_config.vertex_project
         location = self.vertex_config.vertex_location or "global"
-        # Regional endpoints use a "{location}-" prefix; the global endpoint has no prefix.
-        # https://docs.cloud.google.com/vertex-ai/docs/general/googleapi-access-methods#regional-global-endpoints
-        prefix = "" if location == "global" else f"{location}-"
-        host = f"https://{prefix}aiplatform.googleapis.com"
+        host = _get_vertex_ai_host(location)
         publisher = "anthropic" if self._model_type == "claude" else "google"
         path = f"/v1/projects/{project}/locations/{location}/publishers/{publisher}/models"
         return f"{host}{path}"
@@ -274,6 +460,23 @@ class VertexAIProvider(GeminiProvider):
             return
         async for chunk in super()._chat_stream(payload):
             yield chunk
+
+    async def _passthrough(self, action, payload, headers=None):
+        if self._delegate:
+            return await self._delegate._passthrough(action, payload, headers)
+        return await super()._passthrough(action, payload, headers)
+
+    async def _proxy(self, path, payload, headers=None):
+        if self._delegate:
+            return await self._delegate._proxy(path, payload, headers)
+        return await super()._proxy(path, payload, headers)
+
+    def _extract_passthrough_token_usage(self, action, result):
+        # The public `passthrough` runs on this class, so the delegate's response
+        # format (Anthropic / OpenAI usage) has to be read through the delegate.
+        if self._delegate:
+            return self._delegate._extract_passthrough_token_usage(action, result)
+        return super()._extract_passthrough_token_usage(action, result)
 
     async def _completions(self, payload):
         if self._model_type in ("claude", "maas"):

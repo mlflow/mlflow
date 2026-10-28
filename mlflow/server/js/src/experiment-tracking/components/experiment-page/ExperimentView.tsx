@@ -2,7 +2,8 @@ import { LegacySkeleton, useDesignSystemTheme } from '@databricks/design-system'
 import { useEffect, useState } from 'react';
 import { ErrorCodes } from '../../../common/constants';
 import { getExperimentApi } from '../../actions';
-import { ExperimentKind } from '../../constants';
+import { ExperimentKind, EXPERIMENT_PAGE_VIEW_STATE_SHARE_URL_PARAM_KEY } from '../../constants';
+import { useSearchParams } from '../../../common/utils/RoutingUtils';
 import { ExperimentViewHeaderCompare } from './components/header/ExperimentViewHeaderCompare';
 import { ExperimentViewRuns } from './components/runs/ExperimentViewRuns';
 import { useExperiments } from './hooks/useExperiments';
@@ -16,6 +17,7 @@ import { shouldUsePredefinedErrorsInExperimentTracking } from '../../../common/u
 import { useExperimentPageSearchFacets } from './hooks/useExperimentPageSearchFacets';
 import { usePersistExperimentPageViewState } from './hooks/usePersistExperimentPageViewState';
 import { useSharedViewActions } from './hooks/useSharedViewActions';
+import { usePublishSharedViewActions } from './hooks/useSharedViewActionsBridge';
 import { ExperimentViewSharedViewBanner } from './components/header/ExperimentViewSharedViewBanner';
 import { useDispatch } from 'react-redux';
 import type { ThunkDispatch } from '../../../redux-types';
@@ -73,6 +75,31 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
     setUIState,
     exitSharedView,
   });
+
+  // Publish the shared-view state + actions up to the header Views dropdown (which lives in a higher
+  // tree), so Override/Discard stay reachable there after the banner is dismissed.
+  usePublishSharedViewActions({
+    active: sharedViewActive,
+    override: handleOverrideSavedView,
+    discard: handleDiscardSharedView,
+  });
+
+  // Lets the user hide the shared-view banner without leaving the view (Override/Discard remain in
+  // the Views menu). Ephemeral and keyed on the active share key (mirroring the traces tab) so that
+  // opening a DIFFERENT shared view re-shows its banner even though `sharedViewActive` stays latched
+  // true across the switch. Does NOT touch `sharedViewActive`, so the view stays applied and
+  // persistence stays paused while dismissed.
+  const [searchParams] = useSearchParams();
+  const activeShareKey = searchParams.get(EXPERIMENT_PAGE_VIEW_STATE_SHARE_URL_PARAM_KEY);
+  const [dismissedShareKey, setDismissedShareKey] = useState<string | null>(null);
+  const bannerDismissed = sharedViewActive && dismissedShareKey === activeShareKey;
+  // Clear the remembered dismissal once the shared view ends (Override/Discard), so re-opening the
+  // same view later in the session shows its banner again rather than staying hidden by stale state.
+  useEffect(() => {
+    if (!sharedViewActive) {
+      setDismissedShareKey(null);
+    }
+  }, [sharedViewActive]);
 
   // Get the maximized state from the new view state model if flag is set
   const isMaximized = uiState.viewMaximized;
@@ -211,8 +238,6 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
       <>
         <ExperimentViewHeader
           experiment={firstExperiment}
-          searchFacetsState={searchFacets || undefined}
-          uiState={uiState}
           setEditing={setEditing}
           experimentKindSelector={
             !enableWorkflowBasedNavigation && !isComparingExperiments && firstExperimentId ? (
@@ -290,8 +315,12 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
             {renderTaskSection()}
           </>
         )}
-        {sharedViewActive ? (
-          <ExperimentViewSharedViewBanner onOverride={handleOverrideSavedView} onDiscard={handleDiscardSharedView} />
+        {sharedViewActive && !bannerDismissed ? (
+          <ExperimentViewSharedViewBanner
+            onOverride={handleOverrideSavedView}
+            onDiscard={handleDiscardSharedView}
+            onDismiss={() => setDismissedShareKey(activeShareKey)}
+          />
         ) : null}
         {getRenderedView()}
       </div>

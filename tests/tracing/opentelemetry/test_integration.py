@@ -8,9 +8,12 @@ import mlflow
 from mlflow.entities.span import SpanStatusCode, encode_span_id
 from mlflow.entities.trace_location import MlflowExperimentLocation
 from mlflow.entities.trace_state import TraceState
-from mlflow.environment_variables import MLFLOW_USE_DEFAULT_TRACER_PROVIDER
+from mlflow.environment_variables import (
+    MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT,
+    MLFLOW_USE_DEFAULT_TRACER_PROVIDER,
+)
 from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
-from mlflow.tracing.provider import provider, set_destination
+from mlflow.tracing.provider import get_bridged_tracer_provider, provider, set_destination
 from mlflow.utils.os import is_windows
 
 from tests.tracing.helper import get_traces
@@ -309,3 +312,144 @@ def test_initialize_tracer_provider_without_otel_provider_set(
     processors = provider.get()._active_span_processor._span_processors
     assert len(processors) == 1
     assert isinstance(processors[0], MlflowV3SpanProcessor)
+
+
+def test_mlflow_span_does_not_leak_to_otel_context_by_default(monkeypatch):
+    """Regression test for https://github.com/mlflow/mlflow/issues/24105
+
+    In isolated tracer provider mode (the default), the MLflow span must NOT leak into the
+    process-global OTel context. This preserves the isolation guarantee so unrelated OTel
+    instrumentation (e.g. FastAPI, requests) does not accidentally nest under MLflow spans.
+    """
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "true")
+    monkeypatch.delenv(MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT.name, raising=False)
+    mlflow.set_experiment("test_experiment")
+
+    with mlflow.start_span(name="parent"):
+        current = otel_trace.get_current_span()
+        # Isolated mode keeps the MLflow span out of the global OTel context.
+        assert not current.is_recording()
+        assert isinstance(current, otel_trace.NonRecordingSpan)
+
+
+def test_mlflow_trace_decorator_sets_otel_parent_context_when_opted_in(monkeypatch):
+    """Regression test for https://github.com/mlflow/mlflow/issues/24105
+
+    With MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT enabled, @mlflow.trace should propagate the
+    span to the global OTel context so that pure-OTel libraries (e.g. strands-agents) can see
+    it as a parent and create properly nested child spans.
+    """
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "true")
+    monkeypatch.setenv(MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT.name, "true")
+    mlflow.set_experiment("test_experiment")
+
+    captured = {}
+
+    @mlflow.trace(name="parent")
+    def my_function():
+        current = otel_trace.get_current_span()
+        captured["is_recording"] = current.is_recording()
+        captured["is_non_recording"] = isinstance(current, otel_trace.NonRecordingSpan)
+        return 42
+
+    my_function()
+
+    assert captured["is_recording"], "OTel current span should be recording inside @mlflow.trace"
+    assert not captured["is_non_recording"]
+
+
+def test_mlflow_start_span_sets_otel_parent_context_when_opted_in(monkeypatch):
+    """Regression test for https://github.com/mlflow/mlflow/issues/24105
+
+    With MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT enabled, mlflow.start_span() should propagate
+    the span to the global OTel context so that pure-OTel libraries can nest under it.
+    """
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "true")
+    monkeypatch.setenv(MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT.name, "true")
+    mlflow.set_experiment("test_experiment")
+
+    with mlflow.start_span(name="parent"):
+        current = otel_trace.get_current_span()
+        is_recording = current.is_recording()
+        is_non_recording = isinstance(current, otel_trace.NonRecordingSpan)
+
+    assert is_recording, "OTel current span should be recording inside mlflow.start_span()"
+    assert not is_non_recording
+
+
+def test_mlflow_span_cleans_up_otel_context_after_exit(monkeypatch):
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "true")
+    monkeypatch.setenv(MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT.name, "true")
+    mlflow.set_experiment("test_experiment")
+
+    with mlflow.start_span(name="parent"):
+        inside = otel_trace.get_current_span()
+        assert inside.is_recording()
+
+    outside = otel_trace.get_current_span()
+    assert not outside.is_recording(), (
+        "OTel context should be cleaned up after the MLflow span exits"
+    )
+
+
+def test_nested_mlflow_spans_maintain_otel_context_when_opted_in(monkeypatch):
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "true")
+    monkeypatch.setenv(MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT.name, "true")
+    mlflow.set_experiment("test_experiment")
+
+    with mlflow.start_span(name="outer") as outer_span:
+        outer_otel = otel_trace.get_current_span()
+        assert outer_otel.is_recording()
+
+        with mlflow.start_span(name="inner") as inner_span:
+            inner_otel = otel_trace.get_current_span()
+            assert inner_otel.is_recording()
+            assert inner_span.parent_id == outer_span.span_id
+
+        after_inner = otel_trace.get_current_span()
+        assert after_inner.is_recording(), (
+            "Outer span's OTel context should be restored after inner span exits"
+        )
+
+
+def test_get_bridged_tracer_provider_returns_mlflow_provider_isolated(monkeypatch):
+    """get_bridged_tracer_provider should hand out MLflow's isolated provider by default.
+
+    This lets OTel instrumentors that accept `tracer_provider=` route spans through MLflow's
+    pipeline without depending on the process-global provider (issue #24105).
+    """
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "true")
+    experiment_id = mlflow.set_experiment("test_experiment").experiment_id
+    set_destination(MlflowExperimentLocation(experiment_id))
+
+    bridged = get_bridged_tracer_provider()
+    assert bridged is provider.get()
+    processors = bridged._active_span_processor._span_processors
+    assert any(isinstance(p, MlflowV3SpanProcessor) for p in processors)
+
+
+def test_get_bridged_tracer_provider_routes_spans_to_mlflow(monkeypatch):
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "true")
+    experiment_id = mlflow.set_experiment("test_experiment").experiment_id
+    set_destination(MlflowExperimentLocation(experiment_id))
+
+    bridged = get_bridged_tracer_provider()
+    otel_tracer = bridged.get_tracer("external_instrumentor")
+    with otel_tracer.start_as_current_span("external_span") as span:
+        span.set_attribute("key", "value")
+
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.trace_id.startswith("tr-")
+    assert trace.info.experiment_id == experiment_id
+    assert any(s.name == "external_span" for s in trace.data.spans)
+
+
+def test_get_bridged_tracer_provider_returns_global_provider_unified(monkeypatch):
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "false")
+    experiment_id = mlflow.set_experiment("test_experiment").experiment_id
+    set_destination(MlflowExperimentLocation(experiment_id))
+
+    bridged = get_bridged_tracer_provider()
+    assert bridged is otel_trace.get_tracer_provider()

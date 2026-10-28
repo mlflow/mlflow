@@ -18,7 +18,9 @@ import threading
 import urllib
 import uuid
 import warnings
-from typing import TYPE_CHECKING, Any, Literal, Sequence, Union
+from dataclasses import replace
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Literal, Mapping, Sequence, Union
 
 import yaml
 from pydantic import BaseModel
@@ -47,9 +49,15 @@ from mlflow.entities import (
     Workspace,
     WorkspaceDeletionMode,
 )
+from mlflow.entities.mcp_access_endpoint import MCPAccessEndpoint
+from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPServer, MCPStatus, MCPTool
+from mlflow.entities.mcp_server_version import ConnectOptionSettings, MCPServerVersion
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.model_registry.prompt_version import PromptModelConfig
+from mlflow.entities.skill import RegistryIcon, Skill
+from mlflow.entities.skill_source import GitSource, OCISource, SkillSourceType, ZipSource
+from mlflow.entities.skill_version import SkillVersion
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, NoOpSpan
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.webhook import (
@@ -66,6 +74,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
+    _CLIENT_PROMPT_SOURCE_PLACEHOLDER,
     IS_PROMPT_TAG_KEY,
     PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY,
     PROMPT_EXPERIMENT_IDS_TAG_KEY,
@@ -91,6 +100,7 @@ from mlflow.protos.databricks_pb2 import (
     FEATURE_DISABLED,
     INVALID_PARAMETER_VALUE,
     NOT_FOUND,
+    NOT_IMPLEMENTED,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
@@ -104,10 +114,13 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking import (
+    NOT_SET,
     SEARCH_EVALUATION_DATASETS_MAX_RESULTS,
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
+from mlflow.store.tracking.mcp_server_registry.abstract_mixin import MCPIcon
+from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, TraceMetadataKey
 from mlflow.tracing.display import get_display_handler
@@ -124,11 +137,13 @@ from mlflow.tracking._workspace.registry import UnsupportedWorkspaceStoreURIExce
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.multimedia import Image, compress_image_size, convert_to_pil_image
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
-from mlflow.utils import is_uuid, workspace_utils
-from mlflow.utils.annotations import deprecated, deprecated_parameter, experimental
+from mlflow.utils import get_results_from_paginated_fn, is_uuid, workspace_utils
+from mlflow.utils.annotations import deprecated, deprecated_parameter
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import (
     get_databricks_run_url,
+    get_workspace_id,
+    get_workspace_url,
     is_in_databricks_runtime,
 )
 from mlflow.utils.logging_utils import eprint
@@ -140,11 +155,17 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import is_databricks_unity_catalog_uri, is_databricks_uri
 from mlflow.utils.validation import (
+    _parse_skill_identities,
+    _validate_alias_name,
     _validate_list_param,
-    _validate_model_alias_name,
     _validate_model_name,
     _validate_model_version,
     _validate_model_version_or_stage_exists,
+    _validate_organization_name,
+    _validate_skill_alias,
+    _validate_skill_name,
+    _validate_skill_tag,
+    _validate_skill_version,
 )
 
 if TYPE_CHECKING:
@@ -169,6 +190,14 @@ def _model_not_found(name: str) -> MlflowException:
         f"Registered Model with name={name!r} not found.",
         RESOURCE_DOES_NOT_EXIST,
     )
+
+
+def _validate_skill_string_parameters(**parameters: str) -> None:
+    for name, value in parameters.items():
+        if not isinstance(value, str):
+            raise MlflowException.invalid_parameter_value(
+                f"Skill {name} must be a string, got {type(value).__name__}."
+            )
 
 
 def _validate_model_id_specified(model_id: str) -> None:
@@ -724,7 +753,7 @@ class MlflowClient:
                 Using PromptModelConfig provides validation and type safety.
 
         Returns:
-            A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
+            A :py:class:`PromptVersion <mlflow.entities.PromptVersion>` object that was created.
         """
         registry_client = self._get_registry_client()
 
@@ -752,7 +781,9 @@ class MlflowClient:
                 model_config=model_config,
             )
 
-            return registry_client.get_prompt_version(name, str(prompt_version.version))
+            prompt_version = registry_client.get_prompt_version(name, str(prompt_version.version))
+            self._log_prompt_ui_link(name, prompt_version.version)
+            return prompt_version
 
         # OSS approach using RegisteredModel with special tags
         is_new_prompt = False
@@ -810,7 +841,7 @@ class MlflowClient:
             mv: ModelVersion = registry_client.create_model_version(
                 name=name,
                 description=commit_message,
-                source="dummy-source",  # Required field, but not used for prompts
+                source=_CLIENT_PROMPT_SOURCE_PLACEHOLDER,  # Required field, unused for prompts
                 tags=tags,
             )
         except Exception:
@@ -824,7 +855,7 @@ class MlflowClient:
         prompt_tags = registry_client.get_registered_model(name)._tags
 
         # Invalidate "latest" cache entry since we just created a new version
-        PromptCache.get_instance().delete(name, alias="latest")
+        PromptCache.get_instance().delete(name, alias="latest", registry_uri=self._registry_uri)
 
         prompt_version = model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
 
@@ -835,6 +866,39 @@ class MlflowClient:
             self._link_prompt_to_experiment(prompt_version, experiment_id)
 
         return prompt_version
+
+    def _log_prompt_ui_link(self, name: str, version: int) -> None:
+        """Log the registered prompt in the active experiment's Prompts tab.
+
+        Emits an informational message only; never raises.
+        """
+        try:
+            workspace_url = get_workspace_url()
+            # Import here to avoid circular import.
+            from mlflow.tracking.fluent import _get_experiment_id
+
+            experiment_id = _get_experiment_id()
+            if not workspace_url or not experiment_id:
+                return
+            parts = name.split(".")
+            if len(parts) != 3:
+                return
+            workspace_id = get_workspace_id()
+            query = (
+                f"?o={workspace_id}&promptVersion={version}"
+                if workspace_id
+                else f"?promptVersion={version}"
+            )
+            _logger.info(
+                "Prompt registered. View in experiment Prompts tab: "
+                "%s/ml/experiments/%s/prompts/%s%s",
+                workspace_url.rstrip("/"),
+                experiment_id,
+                name,
+                query,
+            )
+        except Exception:
+            _logger.debug("Failed to log prompt UI link", exc_info=True)
 
     def _link_prompt_to_experiment(self, prompt_version: PromptVersion, experiment_id: str) -> None:
         """
@@ -878,6 +942,7 @@ class MlflowClient:
         filter_string: str | None = None,
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         page_token: str | None = None,
+        order_by: list[str] | None = None,
     ) -> PagedList[Prompt]:
         """
         Search for prompts in the MLflow Prompt Registry.
@@ -897,6 +962,9 @@ class MlflowClient:
             page_token (Optional[str]):
                 A pagination token from a previous `search_prompts` call; use this
                 to retrieve the next page of results.  Defaults to `None`.
+            order_by (Optional[list[str]]):
+                List of column names with ASC|DESC annotation to order the results by.
+                Not honored by Unity Catalog registries. Defaults to `None`.
 
         Returns:
             A pageable list of :py:class:`Prompt <mlflow.entities.Prompt>` objects
@@ -923,6 +991,9 @@ class MlflowClient:
                 # Get prompts by experiment
                 prompts = client.search_prompts(filter_string='experiment_id = "1"')
 
+                # Get prompts ordered by name
+                prompts = client.search_prompts(order_by=["name ASC"])
+
                 # Get specific version content
                 for prompt in prompts:
                     prompt_version = client.get_prompt_version(prompt.name, version="1")
@@ -936,6 +1007,7 @@ class MlflowClient:
         return registry_client.search_prompts(
             filter_string=filter_string,
             max_results=max_results,
+            order_by=order_by,
             page_token=page_token,
         )
 
@@ -995,7 +1067,7 @@ class MlflowClient:
         # Check cache if cache_ttl_seconds > 0 (0 means no caching)
         if cache_ttl_seconds > 0:
             cache = PromptCache.get_instance()
-            cache_key = PromptCacheKey.from_uri(prompt_uri)
+            cache_key = PromptCacheKey.from_uri(prompt_uri, registry_uri=self._registry_uri)
             if cached_prompt := cache.get(cache_key):
                 return cached_prompt
 
@@ -1226,7 +1298,7 @@ class MlflowClient:
         self._get_registry_client().set_prompt_alias(name, alias, version)
 
         # Invalidate cache for this alias since it now points to a different version
-        PromptCache.get_instance().delete(name, alias=alias)
+        PromptCache.get_instance().delete(name, alias=alias, registry_uri=self._registry_uri)
 
     @require_prompt_registry
     @translate_prompt_exception
@@ -1241,7 +1313,7 @@ class MlflowClient:
         self._get_registry_client().delete_prompt_alias(name, alias)
 
         # Invalidate cache for this alias
-        PromptCache.get_instance().delete(name, alias=alias)
+        PromptCache.get_instance().delete(name, alias=alias, registry_uri=self._registry_uri)
 
     @require_prompt_registry
     @translate_prompt_exception
@@ -1257,7 +1329,7 @@ class MlflowClient:
         """
         self._get_registry_client().set_prompt_version_tag(name, version, key, value)
 
-        PromptCache.get_instance().delete_all(name)
+        PromptCache.get_instance().delete_all(name, registry_uri=self._registry_uri)
 
     @require_prompt_registry
     @translate_prompt_exception
@@ -1272,7 +1344,7 @@ class MlflowClient:
         """
         self._get_registry_client().delete_prompt_version_tag(name, version, key)
 
-        PromptCache.get_instance().delete_all(name)
+        PromptCache.get_instance().delete_all(name, registry_uri=self._registry_uri)
 
     def _validate_prompt(self, name: str, version: int):
         registry_client = self._get_registry_client()
@@ -2958,8 +3030,8 @@ class MlflowClient:
 
             # If the file extension doesn't exist or match any of [".json", ".yaml", ".yml"],
             # JSON format is used.
-            mlflow.log_dict(run_id, dictionary, "data")
-            mlflow.log_dict(run_id, dictionary, "data.txt")
+            client.log_dict(run_id, dictionary, "data")
+            client.log_dict(run_id, dictionary, "data.txt")
 
         """
         extension = os.path.splitext(artifact_file)[1]
@@ -2973,7 +3045,6 @@ class MlflowClient:
                     # Stringify objects that can't be JSON-serialized
                     json.dump(dictionary, f, indent=2, default=str)
 
-    @experimental(version="3.9.0")
     def log_stream(
         self, run_id: str, stream: io.BufferedIOBase | io.RawIOBase, artifact_file: str
     ) -> None:
@@ -3274,7 +3345,7 @@ class MlflowClient:
                 )
 
             step = step or 0
-            timestamp = timestamp or get_current_time_millis()
+            timestamp = timestamp if timestamp is not None else get_current_time_millis()
 
             # Sanitize key to use in filename (replace / with ~ to avoid subdirectories).
             # '#' was previously used here but is rejected by validate_path_is_safe(),
@@ -3325,11 +3396,15 @@ class MlflowClient:
             if char in artifact_file:
                 raise ValueError(f"The artifact_file contains forbidden character: {char}")
 
-    def _read_from_file(self, artifact_path):
+    def _read_from_file(self, artifact_path, infer_dtypes=True):
         import pandas as pd
 
         if artifact_path.endswith(".json"):
-            return pd.read_json(artifact_path, orient="split")
+            if infer_dtypes:
+                return pd.read_json(artifact_path, orient="split")
+            # Keep the stored JSON values as-is so that rewriting the table doesn't alter them
+            # (e.g. "02108" -> 2108)
+            return pd.read_json(artifact_path, orient="split", dtype=False, convert_dates=False)
         if artifact_path.endswith(".parquet"):
             return pd.read_parquet(artifact_path)
         raise ValueError(f"Unsupported file type in {artifact_path}. Expected .json or .parquet")
@@ -3489,7 +3564,9 @@ class MlflowClient:
                 downloaded_artifact_path = self.download_artifacts(
                     run_id=run_id, path=artifact_file, dst_path=tmpdir
                 )
-                existing_predictions = self._read_from_file(downloaded_artifact_path)
+                existing_predictions = self._read_from_file(
+                    downloaded_artifact_path, infer_dtypes=False
+                )
             data = pd.concat([existing_predictions, data], ignore_index=True)
             _logger.debug(
                 "Appending new table to already existing artifact "
@@ -3607,7 +3684,25 @@ class MlflowClient:
             list_run_ids = ",".join(map(repr, run_ids))
             filter_string += f" and attributes.run_id IN ({list_run_ids})"
 
-        runs = mlflow.search_runs(experiment_ids=[experiment_id], filter_string=filter_string)
+        from mlflow.tracking.fluent import (
+            NUM_RUNS_PER_PAGE_PANDAS,
+            SEARCH_MAX_RESULTS_PANDAS,
+            _runs_to_pandas,
+        )
+
+        def pagination_wrapper_func(number_to_get, next_page_token):
+            return self.search_runs(
+                [experiment_id],
+                filter_string,
+                max_results=number_to_get,
+                page_token=next_page_token,
+            )
+
+        runs = _runs_to_pandas(
+            get_results_from_paginated_fn(
+                pagination_wrapper_func, NUM_RUNS_PER_PAGE_PANDAS, SEARCH_MAX_RESULTS_PANDAS
+            )
+        )
         if run_ids and len(run_ids) != len(runs):
             _logger.warning(
                 "Not all runs have the specified table artifact. Some runs will be skipped."
@@ -5580,7 +5675,7 @@ class MlflowClient:
             Aliases: ["test-alias"]
         """
         _validate_model_name(name)
-        _validate_model_alias_name(alias)
+        _validate_alias_name(alias)
         _validate_model_version(version)
         self._raise_if_prompt(name)
         self._get_registry_client().set_registered_model_alias(name, alias, version)
@@ -5678,7 +5773,7 @@ class MlflowClient:
             Aliases: []
         """
         _validate_model_name(name)
-        _validate_model_alias_name(alias)
+        _validate_alias_name(alias)
         self._raise_if_prompt(name)
         self._get_registry_client().delete_registered_model_alias(name, alias)
 
@@ -5945,31 +6040,39 @@ class MlflowClient:
         _validate_model_id_specified(model_id)
         return self._tracking_client.delete_logged_model_tag(model_id, key)
 
-    def log_model_artifact(self, model_id: str, local_path: str) -> None:
+    def log_model_artifact(
+        self, model_id: str, local_path: str, artifact_path: str | None = None
+    ) -> None:
         """
         Upload an artifact to the specified logged model.
 
         Args:
             model_id: ID of the model.
             local_path: Local path to the artifact to upload.
+            artifact_path: If provided, the directory in the model's artifact
+                directory to write to.
 
         Returns:
             None
         """
-        return self._tracking_client.log_model_artifact(model_id, local_path)
+        return self._tracking_client.log_model_artifact(model_id, local_path, artifact_path)
 
-    def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
+    def log_model_artifacts(
+        self, model_id: str, local_dir: str, artifact_path: str | None = None
+    ) -> None:
         """
         Upload a set of artifacts to the specified logged model.
 
         Args:
             model_id: ID of the model.
             local_dir: Local directory containing the artifacts to upload.
+            artifact_path: If provided, the directory in the model's artifact
+                directory to write to.
 
         Returns:
             None
         """
-        return self._tracking_client.log_model_artifacts(model_id, local_dir)
+        return self._tracking_client.log_model_artifacts(model_id, local_dir, artifact_path)
 
     def search_logged_models(
         self,
@@ -6217,7 +6320,7 @@ class MlflowClient:
         registry_client = self._get_registry_client()
         registry_client.delete_prompt_version(name, version)
 
-        PromptCache.get_instance().delete_all(name)
+        PromptCache.get_instance().delete_all(name, registry_uri=self._registry_uri)
 
     @require_prompt_registry
     @translate_prompt_exception
@@ -6348,12 +6451,13 @@ class MlflowClient:
 
         .. code-block:: python
 
+            import mlflow
             from mlflow import MlflowClient
 
             client = MlflowClient()
 
             # For Unity Catalog, delete all versions first
-            if client.get_registry_uri().startswith("databricks-uc"):
+            if mlflow.get_registry_uri().startswith("databricks-uc"):
                 versions = client.search_prompt_versions("my_prompt")
                 for version in versions:
                     client.delete_prompt_version("my_prompt", version.version)
@@ -6383,7 +6487,7 @@ class MlflowClient:
         with _prompt_experiment_link_lock:
             # For non-Unity Catalog registries, or if version check passes, delete the prompt
             registry_client.delete_prompt(name)
-            PromptCache.get_instance().delete_all(name)
+            PromptCache.get_instance().delete_all(name, registry_uri=self._registry_uri)
             return
 
     @_disable_in_databricks()
@@ -6762,3 +6866,506 @@ class MlflowClient:
             WebhookTestResult indicating success/failure and response details.
         """
         return self._get_registry_client().test_webhook(webhook_id, event)
+
+    # ---------------------------------------------------------------------------
+    # MCP Server Registry
+    # ---------------------------------------------------------------------------
+
+    def create_mcp_server(
+        self,
+        name: str,
+        description: str | None = None,
+        icons: list[MCPIcon] | None = None,
+    ) -> MCPServer:
+        return self._tracking_client.store.create_mcp_server(
+            name=name,
+            description=description,
+            icons=icons,
+        )
+
+    def get_mcp_server(self, name: str) -> MCPServer:
+        return self._tracking_client.store.get_mcp_server(name=name)
+
+    def search_mcp_servers(
+        self,
+        filter_string: str | None = None,
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[MCPServer]:
+        return self._tracking_client.store.search_mcp_servers(
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+
+    def update_mcp_server(
+        self,
+        name: str,
+        display_name: str | None = NOT_SET,
+        description: str | None = NOT_SET,
+        icons: list[MCPIcon] | None = NOT_SET,
+    ) -> MCPServer:
+        return self._tracking_client.store.update_mcp_server(
+            name=name,
+            display_name=display_name,
+            description=description,
+            icons=icons,
+        )
+
+    def delete_mcp_server(self, name: str) -> None:
+        self._tracking_client.store.delete_mcp_server(name=name)
+
+    def create_mcp_server_version(
+        self,
+        server_json: dict[str, Any],
+        source: str | None = None,
+        status: MCPStatus | None = None,
+        tools: list[MCPTool] | None = NOT_SET,
+        connect_options: dict[str, ConnectOptionSettings] | None = None,
+    ) -> MCPServerVersion:
+        from mlflow.genai.mcp_tool_discovery import resolve_tools_for_create
+
+        resolved_tools = resolve_tools_for_create(server_json=server_json, tools=tools)
+        return self._tracking_client.store.create_mcp_server_version(
+            server_json=server_json,
+            source=source,
+            status=status,
+            tools=resolved_tools,
+            connect_options=connect_options,
+        )
+
+    def get_mcp_server_version(self, name: str, version: str) -> MCPServerVersion:
+        return self._tracking_client.store.get_mcp_server_version(name=name, version=version)
+
+    def get_mcp_server_version_by_alias(self, name: str, alias: str) -> MCPServerVersion:
+        return self._tracking_client.store.get_mcp_server_version_by_alias(name=name, alias=alias)
+
+    def get_latest_mcp_server_version(self, name: str) -> MCPServerVersion:
+        return self._tracking_client.store.get_latest_mcp_server_version(name=name)
+
+    def search_mcp_server_versions(
+        self,
+        name: str,
+        filter_string: str | None = None,
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[MCPServerVersion]:
+        return self._tracking_client.store.search_mcp_server_versions(
+            name=name,
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+
+    def update_mcp_server_version(
+        self,
+        name: str,
+        version: str,
+        status: MCPStatus | None = NOT_SET,
+        tools: list[MCPTool] | None = NOT_SET,
+        connect_options: dict[str, ConnectOptionSettings] | None = NOT_SET,
+    ) -> MCPServerVersion:
+        return self._tracking_client.store.update_mcp_server_version(
+            name=name,
+            version=version,
+            status=status,
+            tools=tools,
+            connect_options=connect_options,
+        )
+
+    def refresh_mcp_server_version_tools(
+        self,
+        name: str,
+        version: str,
+        mcp_server_access_headers: Mapping[str, str] | None = None,
+        dry_run: bool = False,
+    ) -> MCPServerVersion:
+        from mlflow.genai.mcp_tool_discovery import discover_tools_for_version
+
+        current = self.get_mcp_server_version(name=name, version=version)
+        discovered_tools = discover_tools_for_version(
+            server_json=current.server_json,
+            version=version,
+            access_endpoints=self._search_all_mcp_access_endpoints(server_name=name),
+            headers=mcp_server_access_headers,
+        )
+        if dry_run:
+            return replace(current, tools=discovered_tools)
+        return self.update_mcp_server_version(name=name, version=version, tools=discovered_tools)
+
+    def _search_all_mcp_access_endpoints(self, server_name: str) -> list[MCPAccessEndpoint]:
+        endpoints: list[MCPAccessEndpoint] = []
+        page_token: str | None = None
+        queried_tokens: set[str | None] = set()
+        while page_token not in queried_tokens:
+            queried_tokens.add(page_token)
+            page = self.search_mcp_access_endpoints(server_name=server_name, page_token=page_token)
+            endpoints.extend(page)
+            page_token = page.token or None
+        return endpoints
+
+    def delete_mcp_server_version(self, name: str, version: str) -> None:
+        self._tracking_client.store.delete_mcp_server_version(name=name, version=version)
+
+    def create_mcp_access_endpoint(
+        self,
+        server_name: str,
+        url: str,
+        transport_type: MCPRemoteTransportType = MCPRemoteTransportType.STREAMABLE_HTTP,
+        server_version: str | None = None,
+        server_alias: str | None = None,
+    ) -> MCPAccessEndpoint:
+        return self._tracking_client.store.create_mcp_access_endpoint(
+            server_name=server_name,
+            url=url,
+            transport_type=transport_type,
+            server_version=server_version,
+            server_alias=server_alias,
+        )
+
+    def get_mcp_access_endpoint(self, server_name: str, endpoint_id: str) -> MCPAccessEndpoint:
+        return self._tracking_client.store.get_mcp_access_endpoint(
+            server_name=server_name, endpoint_id=endpoint_id
+        )
+
+    def search_mcp_access_endpoints(
+        self,
+        server_name: str | None = None,
+        server_version: str | None = None,
+        server_alias: str | None = None,
+        filter_string: str | None = None,
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[MCPAccessEndpoint]:
+        return self._tracking_client.store.search_mcp_access_endpoints(
+            server_name=server_name,
+            server_version=server_version,
+            server_alias=server_alias,
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+
+    def update_mcp_access_endpoint(
+        self,
+        server_name: str,
+        endpoint_id: str,
+        url: str | None = NOT_SET,
+        transport_type: MCPRemoteTransportType | None = NOT_SET,
+        server_version: str | None = NOT_SET,
+        server_alias: str | None = NOT_SET,
+    ) -> MCPAccessEndpoint:
+        return self._tracking_client.store.update_mcp_access_endpoint(
+            server_name=server_name,
+            endpoint_id=endpoint_id,
+            url=url,
+            transport_type=transport_type,
+            server_version=server_version,
+            server_alias=server_alias,
+        )
+
+    def delete_mcp_access_endpoint(self, server_name: str, endpoint_id: str) -> None:
+        self._tracking_client.store.delete_mcp_access_endpoint(
+            server_name=server_name, endpoint_id=endpoint_id
+        )
+
+    def set_mcp_server_tag(self, name: str, key: str, value: str) -> None:
+        self._tracking_client.store.set_mcp_server_tag(name=name, key=key, value=value)
+
+    def delete_mcp_server_tag(self, name: str, key: str) -> None:
+        self._tracking_client.store.delete_mcp_server_tag(name=name, key=key)
+
+    def set_mcp_server_version_tag(self, name: str, version: str, key: str, value: str) -> None:
+        self._tracking_client.store.set_mcp_server_version_tag(
+            name=name, version=version, key=key, value=value
+        )
+
+    def delete_mcp_server_version_tag(self, name: str, version: str, key: str) -> None:
+        self._tracking_client.store.delete_mcp_server_version_tag(
+            name=name, version=version, key=key
+        )
+
+    def set_mcp_server_alias(self, name: str, alias: str, version: str) -> None:
+        self._tracking_client.store.set_mcp_server_alias(name=name, alias=alias, version=version)
+
+    def delete_mcp_server_alias(self, name: str, alias: str) -> None:
+        self._tracking_client.store.delete_mcp_server_alias(name=name, alias=alias)
+
+    # ---------------------------------------------------------------------------
+    # Skill Registry
+    # ---------------------------------------------------------------------------
+
+    def create_skill(
+        self,
+        *,
+        name: str,
+        organization: str = "",
+        description: str | None = None,
+        icons: list[RegistryIcon] | None = None,
+    ) -> Skill:
+        _validate_skill_string_parameters(name=name)
+        _validate_skill_name(name)
+        _validate_organization_name(organization)
+        return self._tracking_client.store.create_skill(
+            name=name, organization=organization, description=description, icons=icons
+        )
+
+    def get_skill(self, *, name: str, organization: str = "") -> Skill:
+        return self._tracking_client.store.get_skill(name=name, organization=organization)
+
+    def search_skills(
+        self,
+        *,
+        filter_string: str | None = None,
+        max_results: int = 100,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+        include_skill_identities: list[str] | None = None,
+    ) -> PagedList[Skill]:
+        """Search Skills, optionally selecting ``reviewer`` or ``@acme/reviewer`` identities.
+
+        ``None`` leaves the selection unrestricted; an empty list selects no Skills.
+        Use the same filter and ordering when continuing with a page token. Identity selectors
+        may change between pages; pagination is best effort when the result set changes.
+        Results are also restricted by the caller's current permissions.
+        """
+        return self._tracking_client.store.search_skills(
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+            include_skill_identities=_parse_skill_identities(include_skill_identities),
+        )
+
+    def update_skill(
+        self,
+        *,
+        name: str,
+        organization: str = "",
+        description: str | None = NOT_SET,
+        icons: list[RegistryIcon] | None = NOT_SET,
+    ) -> Skill:
+        _validate_skill_string_parameters(name=name)
+        _validate_skill_name(name)
+        _validate_organization_name(organization)
+        return self._tracking_client.store.update_skill(
+            name=name, organization=organization, description=description, icons=icons
+        )
+
+    def delete_skill(self, *, name: str, organization: str = "") -> None:
+        self._tracking_client.store.delete_skill(name=name, organization=organization)
+
+    def create_skill_version(
+        self,
+        *,
+        name: str,
+        organization: str = "",
+        source: GitSource | OCISource | ZipSource | str | None = None,
+        digest: str | None = None,
+        status: str = "active",
+    ) -> SkillVersion:
+        """Create a skill version from an external source or upload a prepared local archive.
+
+        Local uploads require an HTTP tracking server serving artifacts. The server chooses
+        the artifact location; caller-supplied MLflow artifact sources are rejected. A local
+        source must be a gzip-compressed tar archive, which is validated before uploading.
+        The optional digest describes the unpacked skill tree and is forwarded unchanged;
+        omitting it leaves the digest unset. Use ``mlflow.genai.register_skill`` to inspect,
+        digest, and package a directory, with optional name inference.
+        An omitted or ``None`` source is passed to the store; the backend determines
+        whether it is accepted.
+        """
+        # mlflow.genai imports MlflowClient, so source resolution must be imported lazily.
+        from mlflow.genai.skill_content.sources import resolve_source_type
+
+        _validate_skill_string_parameters(name=name)
+        _validate_skill_name(name)
+        _validate_organization_name(organization)
+        resolved = resolve_source_type(source) if source is not None else None
+        if resolved is not None and resolved.is_local:
+            return self._register_local_skill(
+                archive=Path(resolved.source),
+                name=name,
+                organization=organization,
+                digest=digest,
+                status=status,
+            )
+
+        if resolved is not None and resolved.source_type == SkillSourceType.MLFLOW:
+            raise MlflowException.invalid_parameter_value(
+                "MLflow artifact locations are chosen by the server. "
+                "Pass a local gzip-compressed tar archive to upload skill content."
+            )
+
+        return self._tracking_client.store.create_skill_version(
+            name=name,
+            organization=organization,
+            source_type=resolved.source_type.value if resolved else None,
+            source=resolved.source if resolved else None,
+            ref=resolved.ref if resolved else None,
+            subpath=resolved.subpath if resolved else None,
+            digest=digest,
+            status=status,
+        )
+
+    def _register_local_skill(
+        self,
+        *,
+        archive: Path,
+        name: str,
+        digest: str | None = None,
+        organization: str = "",
+        status: str = "active",
+    ) -> SkillVersion:
+        """Validate and upload a prepared gzip-compressed tar, preserving its optional digest."""
+        # mlflow.genai imports MlflowClient, so content helpers must be imported lazily.
+        from mlflow.genai.skill_content.archive import validate_skill_archive
+
+        store = self._tracking_client.store
+        if not isinstance(store, RestStore):
+            raise MlflowException(
+                "Local skill uploads require an HTTP tracking server with --serve-artifacts.",
+                error_code=NOT_IMPLEMENTED,
+            )
+
+        if not archive.is_file():
+            raise MlflowException.invalid_parameter_value(
+                "Local skill source must be a gzip-compressed tar archive file. "
+                "Use mlflow.genai.register_skill() to package a directory."
+            )
+
+        validate_skill_archive(archive, compressed=True)
+        with archive.open("rb") as content:
+            return store._register_skill(
+                name=name, organization=organization, digest=digest, status=status, content=content
+            )
+
+    def bulk_register_skills(
+        self,
+        *,
+        skill_definitions: list[dict[str, Any]],
+        organization: str = "",
+    ) -> list[SkillVersion]:
+
+        _validate_organization_name(organization)
+        if not isinstance(skill_definitions, list):
+            raise MlflowException.invalid_parameter_value("Skill definitions must be a list.")
+
+        for definition in skill_definitions:
+            if not isinstance(definition, dict):
+                raise MlflowException.invalid_parameter_value(
+                    "Each skill definition must be a dictionary."
+                )
+            name = definition.get("name")
+            _validate_skill_string_parameters(name=name)
+            _validate_skill_name(name)
+
+        return self._tracking_client.store.bulk_register_skills(
+            skill_definitions=skill_definitions, organization=organization
+        )
+
+    def get_skill_version(self, *, name: str, version: int, organization: str = "") -> SkillVersion:
+        return self._tracking_client.store.get_skill_version(
+            name=name, version=version, organization=organization
+        )
+
+    def get_skill_version_by_alias(
+        self, *, name: str, alias: str, organization: str = ""
+    ) -> SkillVersion:
+        return self._tracking_client.store.get_skill_version_by_alias(
+            name=name, alias=alias, organization=organization
+        )
+
+    def get_latest_skill_version(self, *, name: str, organization: str = "") -> SkillVersion:
+        return self._tracking_client.store.get_latest_skill_version(
+            name=name, organization=organization
+        )
+
+    def search_skill_versions(
+        self,
+        *,
+        name: str,
+        organization: str = "",
+        filter_string: str | None = None,
+        max_results: int = 100,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[SkillVersion]:
+        return self._tracking_client.store.search_skill_versions(
+            name=name,
+            organization=organization,
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+
+    def update_skill_version(
+        self, *, name: str, version: int, organization: str = "", status: str | None = NOT_SET
+    ) -> SkillVersion:
+        _validate_skill_string_parameters(name=name)
+        _validate_skill_name(name)
+        _validate_organization_name(organization)
+        _validate_skill_version(version)
+        return self._tracking_client.store.update_skill_version(
+            name=name, version=version, organization=organization, status=status
+        )
+
+    def delete_skill_version(self, *, name: str, version: int, organization: str = "") -> None:
+        self._tracking_client.store.delete_skill_version(
+            name=name, version=version, organization=organization
+        )
+
+    def set_skill_tag(self, *, name: str, key: str, value: str, organization: str = "") -> None:
+        _validate_skill_string_parameters(name=name, key=key, value=value)
+        _validate_skill_name(name)
+        _validate_organization_name(organization)
+        _validate_skill_tag(key, value)
+        self._tracking_client.store.set_skill_tag(
+            name=name, key=key, value=value, organization=organization
+        )
+
+    def delete_skill_tag(self, *, name: str, key: str, organization: str = "") -> None:
+        self._tracking_client.store.delete_skill_tag(name=name, key=key, organization=organization)
+
+    def set_skill_version_tag(
+        self, *, name: str, version: int, key: str, value: str, organization: str = ""
+    ) -> None:
+        _validate_skill_string_parameters(name=name, key=key, value=value)
+        _validate_skill_name(name)
+        _validate_organization_name(organization)
+        _validate_skill_version(version)
+        _validate_skill_tag(key, value)
+        self._tracking_client.store.set_skill_version_tag(
+            name=name, version=version, key=key, value=value, organization=organization
+        )
+
+    def delete_skill_version_tag(
+        self, *, name: str, version: int, key: str, organization: str = ""
+    ) -> None:
+        self._tracking_client.store.delete_skill_version_tag(
+            name=name, version=version, key=key, organization=organization
+        )
+
+    def set_skill_alias(
+        self, *, name: str, alias: str, version: int, organization: str = ""
+    ) -> None:
+        _validate_skill_string_parameters(name=name, alias=alias)
+        _validate_skill_name(name)
+        _validate_organization_name(organization)
+        _validate_skill_alias(alias)
+        _validate_skill_version(version)
+        self._tracking_client.store.set_skill_alias(
+            name=name, alias=alias, version=version, organization=organization
+        )
+
+    def delete_skill_alias(self, *, name: str, alias: str, organization: str = "") -> None:
+        self._tracking_client.store.delete_skill_alias(
+            name=name, alias=alias, organization=organization
+        )

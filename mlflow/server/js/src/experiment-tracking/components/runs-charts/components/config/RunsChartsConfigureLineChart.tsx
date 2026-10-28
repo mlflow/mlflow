@@ -23,9 +23,9 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useCallback, useEffect, useState } from 'react';
 import {
+  RunsChartsCardConfig,
   RunsChartsLineChartYAxisType,
   type ChartRange,
-  type RunsChartsCardConfig,
   type RunsChartsLineCardConfig,
 } from '../../runs-charts.types';
 import { RunsChartsConfigureField } from './RunsChartsConfigure.common';
@@ -150,11 +150,15 @@ export const RunsChartsConfigureLineChart = ({
 
   const updateSelectedMetrics = useCallback(
     (metricKeys: string[]) => {
-      onStateChange((current) => ({
-        ...(current as RunsChartsLineCardConfig),
-        metricKey: metricKeys[0],
-        selectedMetricKeys: metricKeys,
-      }));
+      onStateChange((current) => {
+        const currentConfig = current as RunsChartsLineCardConfig;
+        return {
+          ...currentConfig,
+          metricKey: metricKeys[0],
+          selectedMetricKeys: metricKeys,
+          displayName: RunsChartsCardConfig.getDisplayNameForUpdatedMetricSelection(currentConfig, metricKeys),
+        };
+      });
     },
     [onStateChange],
   );

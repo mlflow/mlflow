@@ -21,6 +21,7 @@ export const ExperimentPageHeaderWithDescription = ({
   onNoteUpdated,
   error,
   experimentKindSelector,
+  savedViewsSlot,
   inferredExperimentKind,
 }: {
   experiment: GetExperimentReturnType;
@@ -28,6 +29,8 @@ export const ExperimentPageHeaderWithDescription = ({
   onNoteUpdated?: () => void;
   error: ApolloError | ReturnType<typeof useGetExperimentQuery>['apiError'];
   experimentKindSelector?: React.ReactNode;
+  // Forwarded to the header's saved-views slot (see ExperimentViewHeader).
+  savedViewsSlot?: React.ReactNode;
   inferredExperimentKind?: ExperimentKind;
 }) => {
   const { theme } = useDesignSystemTheme();
@@ -77,6 +80,7 @@ export const ExperimentPageHeaderWithDescription = ({
           inferredExperimentKind={inferredExperimentKind}
           setEditing={setEditing}
           experimentKindSelector={experimentKindSelector}
+          savedViewsSlot={savedViewsSlot}
         />
         <ExperimentViewMetadataEditor
           experiment={experimentEntity}

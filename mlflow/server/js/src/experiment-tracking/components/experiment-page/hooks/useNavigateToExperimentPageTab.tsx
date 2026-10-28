@@ -1,13 +1,15 @@
 import { useEffect, useMemo } from 'react';
-import { useNavigate } from '../../../../common/utils/RoutingUtils';
+import { useNavigate, useSearchParams } from '../../../../common/utils/RoutingUtils';
 import Routes from '../../../routes';
 import { ExperimentKind, ExperimentPageTabName } from '../../../constants';
 import { useGetExperimentQuery } from '../../../hooks/useExperimentQuery';
-import { useExperimentKind } from '../../../utils/ExperimentKindUtils';
+import { useExperimentKind, getWorkflowTypeForExperimentKind } from '../../../utils/ExperimentKindUtils';
 import { coerceToEnum } from '@databricks/web-shared/utils';
 import { shouldEnableExperimentOverviewTab } from '../../../../common/utils/FeatureUtils';
+import { WorkflowType } from '../../../../common/contexts/WorkflowTypeContext';
 import { useIsFileStore } from '../../../hooks/useServerInfo';
 import { useExperimentHasV4Location } from '../../../hooks/useExperimentHasV4Location';
+import { getPreservedQueryString } from '../../../pages/experiment-page-tabs/side-nav/utils';
 
 /**
  * This hook navigates user to the appropriate tab in the experiment page based on the experiment kind.
@@ -20,6 +22,7 @@ export const useNavigateToExperimentPageTab = ({
   experimentId: string;
 }) => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const isFileStore = useIsFileStore();
 
   const { data: experiment, loading: loadingExperiment } = useGetExperimentQuery({
@@ -66,8 +69,17 @@ export const useNavigateToExperimentPageTab = ({
           : ExperimentPageTabName.Traces;
     }
 
-    navigate(Routes.getExperimentPageTabRoute(experimentId, targetTab), { replace: true });
-  }, [navigate, experimentId, enabled, experimentKind, isFileStore, hasV4Location]);
+    const workflowType =
+      searchParams.get('workflowType') ??
+      getWorkflowTypeForExperimentKind(experimentKind) ??
+      WorkflowType.MACHINE_LEARNING;
+    const params = new URLSearchParams(searchParams);
+    params.set('workflowType', workflowType);
+    const search = getPreservedQueryString(params.toString()) ?? '';
+    navigate(`${Routes.getExperimentPageTabRoute(experimentId, targetTab)}${search}`, {
+      replace: true,
+    });
+  }, [navigate, experimentId, enabled, experimentKind, isFileStore, hasV4Location, searchParams]);
 
   return {
     isEnabled: enabled,

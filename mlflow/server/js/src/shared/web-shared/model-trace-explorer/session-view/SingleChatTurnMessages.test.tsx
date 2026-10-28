@@ -34,6 +34,52 @@ const createSpan = (
   },
 });
 
+const createSpanWithId = ({
+  spanId,
+  parentSpanId,
+  name,
+  inputs,
+  outputs,
+  extraAttributes = {},
+}: {
+  spanId: string;
+  parentSpanId: string | null;
+  name: string;
+  inputs?: unknown;
+  outputs?: unknown;
+  extraAttributes?: Record<string, unknown>;
+}): ModelTraceSpanV3 => ({
+  trace_id: 'trace-1',
+  span_id: spanId,
+  trace_state: '',
+  parent_span_id: parentSpanId,
+  name,
+  start_time_unix_nano: '1000000000',
+  end_time_unix_nano: '2000000000',
+  status: { code: 'STATUS_CODE_OK' },
+  attributes: {
+    'mlflow.spanType': JSON.stringify('UNKNOWN'),
+    ...(inputs === undefined ? {} : { 'mlflow.spanInputs': JSON.stringify(inputs) }),
+    ...(outputs === undefined ? {} : { 'mlflow.spanOutputs': JSON.stringify(outputs) }),
+    ...extraAttributes,
+  },
+});
+
+const createTraceFromSpans = (spans: ModelTraceSpanV3[]): ModelTrace => ({
+  data: { spans },
+  info: {
+    trace_id: 'trace-1',
+    request_time: '2025-04-19T09:04:07.875Z',
+    state: 'OK',
+    tags: {},
+    assessments: [],
+    trace_location: {
+      type: 'MLFLOW_EXPERIMENT',
+      mlflow_experiment: { experiment_id: 'exp-1' },
+    },
+  },
+});
+
 const createTrace = (span: ModelTraceSpanV3): ModelTrace => ({
   data: { spans: [span] },
   info: {
@@ -207,5 +253,94 @@ describe('SingleChatTurnMessages', () => {
 
     expect(screen.getByText('Inputs')).toBeInTheDocument();
     expect(screen.getByText('Outputs')).toBeInTheDocument();
+  });
+
+  it('falls back to a child span when the root has no inputs or outputs', () => {
+    // OpenTelemetry GenAI instrumentation puts the messages on the LLM span,
+    // which is a child of the agent span that starts the trace.
+    const root = createSpanWithId({ spanId: 'span-root', parentSpanId: null, name: 'invoke_agent' });
+    const child = createSpanWithId({
+      spanId: 'span-chat',
+      parentSpanId: 'span-root',
+      name: 'chat',
+      inputs: [{ role: 'user', content: 'This is an example Question?' }],
+      outputs: [{ role: 'assistant', content: 'This is an example answer.' }],
+    });
+
+    render(
+      <TestWrapper>
+        <SingleChatTurnMessages trace={createTraceFromSpans([root, child])} />
+      </TestWrapper>,
+    );
+
+    expect(screen.getByText('This is an example Question?')).toBeInTheDocument();
+    expect(screen.getByText('This is an example answer.')).toBeInTheDocument();
+  });
+
+  it('prefers the root span over a child that also has content', () => {
+    const root = createSpanWithId({
+      spanId: 'span-root',
+      parentSpanId: null,
+      name: 'invoke_agent',
+      inputs: [{ role: 'user', content: 'root question' }],
+      outputs: [{ role: 'assistant', content: 'root answer' }],
+    });
+    const child = createSpanWithId({
+      spanId: 'span-chat',
+      parentSpanId: 'span-root',
+      name: 'chat',
+      inputs: [{ role: 'user', content: 'child question' }],
+      outputs: [{ role: 'assistant', content: 'child answer' }],
+    });
+
+    render(
+      <TestWrapper>
+        <SingleChatTurnMessages trace={createTraceFromSpans([root, child])} />
+      </TestWrapper>,
+    );
+
+    expect(screen.getByText('root question')).toBeInTheDocument();
+    expect(screen.queryByText('child question')).not.toBeInTheDocument();
+  });
+
+  it('renders the empty root sections when no span in the trace has content', () => {
+    const root = createSpanWithId({ spanId: 'span-root', parentSpanId: null, name: 'invoke_agent' });
+    const child = createSpanWithId({ spanId: 'span-child', parentSpanId: 'span-root', name: 'noop' });
+
+    render(
+      <TestWrapper>
+        <SingleChatTurnMessages trace={createTraceFromSpans([root, child])} />
+      </TestWrapper>,
+    );
+
+    expect(screen.getByText('Inputs')).toBeInTheDocument();
+    expect(screen.getByText('Outputs')).toBeInTheDocument();
+  });
+
+  it('picks the shallowest span with content', () => {
+    const root = createSpanWithId({ spanId: 'span-root', parentSpanId: null, name: 'invoke_agent' });
+    const middle = createSpanWithId({
+      spanId: 'span-middle',
+      parentSpanId: 'span-root',
+      name: 'retrieve',
+      inputs: [{ role: 'user', content: 'shallow question' }],
+      outputs: [{ role: 'assistant', content: 'shallow answer' }],
+    });
+    const deep = createSpanWithId({
+      spanId: 'span-deep',
+      parentSpanId: 'span-middle',
+      name: 'chat',
+      inputs: [{ role: 'user', content: 'deep question' }],
+      outputs: [{ role: 'assistant', content: 'deep answer' }],
+    });
+
+    render(
+      <TestWrapper>
+        <SingleChatTurnMessages trace={createTraceFromSpans([root, middle, deep])} />
+      </TestWrapper>,
+    );
+
+    expect(screen.getByText('shallow question')).toBeInTheDocument();
+    expect(screen.queryByText('deep question')).not.toBeInTheDocument();
   });
 });

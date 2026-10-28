@@ -39,14 +39,21 @@ class OpenInferenceTranslator(OtelSchemaTranslator):
     INPUT_TOKEN_KEY = "llm.token_count.prompt"
     OUTPUT_TOKEN_KEY = "llm.token_count.completion"
     TOTAL_TOKEN_KEY = "llm.token_count.total"
+    CACHE_READ_INPUT_TOKEN_KEY = "llm.token_count.prompt_details.cache_read"
+    CACHE_CREATION_INPUT_TOKEN_KEY = "llm.token_count.prompt_details.cache_write"
 
     # Input/Output attribute keys
     # Reference: https://github.com/Arize-ai/openinference/blob/c80c81b8d6fa564598bd359cdd7313f4472ceca8/python/openinference-semantic-conventions/src/openinference/semconv/trace/__init__.py
     INPUT_VALUE_KEYS = ["input.value"]
     OUTPUT_VALUE_KEYS = ["output.value"]
 
-    # Model name attribute key
-    # Reference: https://github.com/Arize-ai/openinference/blob/c80c81b8d6fa564598bd359cdd7313f4472ceca8/python/openinference-semantic-conventions/src/openinference/semconv/trace/__init__.py#L45
-    MODEL_NAME_KEYS = ["llm.model_name", "embedding.model_name"]
+    # Prefer the resolved response model, retaining the legacy model before the request alias.
+    # Reference: https://github.com/Arize-ai/openinference/blob/a719562e20437d433a2e4cfb599256e22ec04531/python/openinference-semantic-conventions/src/openinference/semconv/trace/__init__.py#L72-L86
+    MODEL_NAME_KEYS = [
+        "llm.response.model_name",
+        "llm.model_name",
+        "llm.request.model_name",
+        "embedding.model_name",
+    ]
     # https://github.com/Arize-ai/openinference/blob/c80c81b8d6fa564598bd359cdd7313f4472ceca8/python/openinference-semantic-conventions/src/openinference/semconv/trace/__init__.py#L49
     LLM_PROVIDER_KEY = "llm.provider"

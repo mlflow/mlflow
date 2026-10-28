@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useDispatch } from 'react-redux';
 import { useIntl } from 'react-intl';
 import { EXPERIMENT_PAGE_QUERY_PARAM_KEYS, useUpdateExperimentPageSearchFacets } from './useExperimentPageSearchFacets';
 import { omit, pick } from 'lodash';
@@ -12,7 +13,9 @@ import type { ExperimentPageSearchFacetsState } from '../models/ExperimentPageSe
 import { createExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 import type { ExperimentEntity } from '../../../types';
 import type { KeyValueEntity } from '../../../../common/types';
+import type { ThunkDispatch } from '../../../../redux-types';
 import { useNavigate, useSearchParams } from '../../../../common/utils/RoutingUtils';
+import { getExperimentApi } from '../../../actions';
 import Utils from '../../../../common/utils/Utils';
 import {
   EXPERIMENT_PAGE_VIEW_STATE_SHARE_TAG_PREFIX,
@@ -20,6 +23,10 @@ import {
 } from '../../../constants';
 import Routes from '../../../routes';
 import { isTextCompressedDeflate, textDecompressDeflate } from '../../../../common/utils/StringUtils';
+import {
+  decodeSavedViewEnvelope,
+  deserializePersistedState as deserializeEnvelopeState,
+} from '../utils/savedViewEnvelope';
 
 const deserializePersistedState = async (state: string) => {
   if (isTextCompressedDeflate(state)) {
@@ -27,14 +34,6 @@ const deserializePersistedState = async (state: string) => {
   }
   return JSON.parse(state);
 };
-
-/**
- * URL-embedded shared links carry the (optionally compressed) view-state blob directly in the
- * viewStateShareKey URL param. Legacy links instead store a hash that points to an experiment
- * tag. A compressed blob carries the deflate header; an uncompressed blob is a JSON object
- * literal — both are distinguishable from a bare hash.
- */
-const isUrlEmbeddedShareState = (value: string) => isTextCompressedDeflate(value) || value.trimStart().startsWith('{');
 
 /**
  * Hook that handles loading shared view state from URL and updating the search facets/UI state accordingly
@@ -46,6 +45,7 @@ export const useSharedExperimentViewState = (
 ) => {
   const [searchParams] = useSearchParams();
   const intl = useIntl();
+  const dispatch = useDispatch<ThunkDispatch>();
   const viewStateShareKey = searchParams.get(EXPERIMENT_PAGE_VIEW_STATE_SHARE_URL_PARAM_KEY);
 
   const isViewStateShared = Boolean(viewStateShareKey);
@@ -86,9 +86,14 @@ export const useSharedExperimentViewState = (
   // Cleared once facets are present (the apply landed) or the key leaves the URL.
   const appliedShareKeyRef = useRef<string | null>(null);
 
+  // Tracks the share key we've already refetched the experiment for, so a genuinely-missing key
+  // errors instead of refetching forever. See the not-found branch below.
+  const refetchedShareKeyRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!viewStateShareKey) {
       appliedShareKeyRef.current = null;
+      refetchedShareKeyRef.current = null;
       return;
     }
 
@@ -100,6 +105,10 @@ export const useSharedExperimentViewState = (
     const hasFacetParams = EXPERIMENT_PAGE_QUERY_PARAM_KEYS.some((key) => searchParams.has(key));
     if (hasFacetParams) {
       appliedShareKeyRef.current = null;
+      // Deliberately NOT clearing refetchedShareKeyRef here: it's a once-ever-per-key latch (a stale
+      // cache is refetched at most once), whereas appliedShareKeyRef is a per-apply guard that must
+      // reset so a re-pasted bare link re-applies. Clearing it here would let a missing key refetch
+      // again on every facet-wipe cycle.
       return;
     }
 
@@ -147,33 +156,8 @@ export const useSharedExperimentViewState = (
       );
     };
 
-    // URL-embedded shared link: the view state is carried directly in the viewStateShareKey param
-    if (isUrlEmbeddedShareState(viewStateShareKey)) {
-      // Mark as acted-on synchronously so a fast re-run can't slip past the pending async parse.
-      appliedShareKeyRef.current = viewStateShareKey;
-      const parseUrlEmbeddedShareState = async () => {
-        try {
-          const parsedSharedViewState = await deserializePersistedState(viewStateShareKey);
-          // Must be a plain object: arrays are typeof 'object' but pick()ing them yields {},
-          // which would silently reset the recipient's view to defaults instead of erroring.
-          if (
-            !parsedSharedViewState ||
-            typeof parsedSharedViewState !== 'object' ||
-            Array.isArray(parsedSharedViewState)
-          ) {
-            reportInvalidShareState();
-            return;
-          }
-          applyParsedState(parsedSharedViewState);
-        } catch (e) {
-          reportInvalidShareState();
-        }
-      };
-      parseUrlEmbeddedShareState();
-      return;
-    }
-
-    // Legacy shared link: the param is a hash pointing to an experiment tag.
+    // The share key references an experiment tag by id: a saved-view envelope tag, or a legacy
+    // pre-#24152 tag storing the raw serialized state. Resolving it requires the experiment.
     if (!experiment) {
       return;
     }
@@ -188,6 +172,18 @@ export const useSharedExperimentViewState = (
     appliedShareKeyRef.current = viewStateShareKey;
 
     const tryParseSharedStateFromTag = async (shareViewTag: KeyValueEntity) => {
+      // A saved-view tag stores a {name, createdAt, state} envelope (state is the compressed
+      // view-state blob); a legacy pre-#24152 tag stores the raw serialized view state directly.
+      // Try the envelope first (all new writes use it); fall back to the raw parse so any
+      // straggler legacy tag still resolves. Only if both fail do we report an invalid share key.
+      try {
+        const envelope = decodeSavedViewEnvelope(shareViewTag.value);
+        const parsedSharedViewState = await deserializeEnvelopeState(envelope);
+        applyParsedState(parsedSharedViewState);
+        return;
+      } catch {
+        // Not an envelope — fall through to the legacy raw parse below.
+      }
       try {
         const parsedSharedViewState = await deserializePersistedState(shareViewTag.value);
         applyParsedState(parsedSharedViewState);
@@ -196,8 +192,7 @@ export const useSharedExperimentViewState = (
       }
     };
 
-    // If the tag exists, parse the view state from the tag value
-    if (!shareViewTag) {
+    const reportShareKeyNotFound = () => {
       setSharedSearchFacetsState(null);
       setSharedUiState(null);
       setSharedStateError(`Error loading shared view state: share key ${viewStateShareKey} does not exist`);
@@ -212,13 +207,40 @@ export const useSharedExperimentViewState = (
           },
         ),
       );
+    };
+
+    // If the tag exists, parse the view state from the tag value
+    if (!shareViewTag) {
+      // The tag may just be absent from our cached experiment.tags rather than truly missing: opening
+      // a link (paste, back/forward) in a tab whose experiment was loaded before the view was saved
+      // reads a stale cache, since a client-side nav doesn't refetch. Refetch the experiment ONCE for
+      // this key and resolve against the FRESH tags in the response — not the `experiment` prop, whose
+      // reference an isEqual selector would collapse if the tags happen to match. Only if the tag is
+      // still absent after the refetch (or it fails) do we report the key as missing.
+      if (refetchedShareKeyRef.current === viewStateShareKey) {
+        reportShareKeyNotFound();
+        return;
+      }
+      refetchedShareKeyRef.current = viewStateShareKey;
+      dispatch(getExperimentApi(experiment.experimentId))
+        .then((result) => {
+          const freshTag = (result?.value?.experiment?.tags ?? []).find(
+            ({ key }: KeyValueEntity) => key === `${EXPERIMENT_PAGE_VIEW_STATE_SHARE_TAG_PREFIX}${viewStateShareKey}`,
+          );
+          if (freshTag) {
+            tryParseSharedStateFromTag(freshTag);
+          } else {
+            reportShareKeyNotFound();
+          }
+        })
+        .catch(() => reportShareKeyNotFound());
       return;
     }
 
     tryParseSharedStateFromTag(shareViewTag);
     // `searchParams` is a dependency so the effect re-fires when the facet params change — in
     // particular when they get wiped while the key stays, so we re-apply instead of hanging.
-  }, [experiment, viewStateShareKey, searchParams, intl]);
+  }, [experiment, viewStateShareKey, searchParams, intl, dispatch]);
 
   useEffect(() => {
     if (!sharedSearchFacetsState || disabled) {

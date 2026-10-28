@@ -1,3 +1,6 @@
+from unittest import mock
+
+import numpy as np
 import pytest
 
 from mlflow.entities.assessment import Feedback
@@ -113,8 +116,82 @@ def test_compute_aggregated_metrics_with_namespace():
         # Case-insensitive
         ("Yes", 1.0),
         ("No", 0.0),
+        # NumPy scalars
+        (np.int64(5), 5.0),
+        (np.float32(0.5), 0.5),
+        (np.bool_(True), 1.0),
     ],
 )
 def test_cast_numeric_values(value, expected_float):
     assessment = Feedback(name="test", value=value)
     assert _cast_assessment_value_to_float(assessment) == expected_float
+
+
+@pytest.mark.parametrize("value", ["pass", ["good", "safe"], {"rating": "good"}])
+def test_non_aggregatable_output_warns_agent(value):
+    assessment = Feedback(name="quality", value=value)
+
+    with mock.patch("mlflow.agent.hint.maybe_warn_agent") as warn:
+        assert _cast_assessment_value_to_float(assessment) is None
+
+    warn.assert_called_once_with(
+        "non-aggregatable-scorer-output",
+        f"Scorer 'quality' returned a value of type {type(value).__name__!r}, which is not "
+        "included in aggregated metrics; return a boolean, number, or 'yes'/'no' instead.",
+    )
+
+
+def test_compute_aggregated_metrics_includes_extra_aggregations():
+    scorers = [
+        Scorer(name="default"),
+        Scorer(name="explicit", aggregations=["max"]),
+        Scorer(name="already_computed", aggregations=["mean"]),
+    ]
+    extra_aggregations = {"default": ["min"], "explicit": ["p90"], "already_computed": ["mean"]}
+    eval_results = [
+        EvalResult(
+            eval_item=_EVAL_ITEM,
+            assessments=[
+                Feedback(name="default", value=value),
+                Feedback(name="explicit", value=value),
+                Feedback(name="already_computed", value=value),
+            ],
+        )
+        for value in [0.2, 0.8]
+    ]
+
+    result = compute_aggregated_metrics(eval_results, scorers, extra_aggregations)
+
+    assert result == {
+        "default/mean": pytest.approx(0.5),
+        "default/min": pytest.approx(0.2),
+        "explicit/max": pytest.approx(0.8),
+        "explicit/p90": pytest.approx(0.74),
+        "already_computed/mean": pytest.approx(0.5),
+    }
+    # The scorer's own aggregations are not mutated.
+    assert scorers[1].aggregations == ["max"]
+
+
+def test_compute_aggregated_metrics_matches_scorer_name_containing_slash():
+    scorers = [Scorer(name="team/latency"), Scorer(name="correctness", aggregations=["min"])]
+    extra_aggregations = {"team/latency": ["max"]}
+    eval_results = [
+        EvalResult(
+            eval_item=_EVAL_ITEM,
+            assessments=[
+                Feedback(name="team/latency", value=value),
+                # Namespaced assessment names still resolve to the scorer by its own name.
+                Feedback(name="judges/correctness", value=value),
+            ],
+        )
+        for value in [1.0, 3.0]
+    ]
+
+    result = compute_aggregated_metrics(eval_results, scorers, extra_aggregations)
+
+    assert result == {
+        "team/latency/mean": pytest.approx(2.0),
+        "team/latency/max": pytest.approx(3.0),
+        "judges/correctness/min": pytest.approx(1.0),
+    }

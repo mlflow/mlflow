@@ -1,4 +1,3 @@
-import { Dash } from 'plotly.js';
 import { useMemo, useState } from 'react';
 import { IntlProvider } from 'react-intl';
 

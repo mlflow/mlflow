@@ -113,6 +113,75 @@ def test_parse_message(lc_msg, chat_agent_msg, name, attachments):
     assert parse_message(lc_msg, name, attachments) == chat_agent_msg
 
 
+@pytest.mark.parametrize(
+    ("content", "expected_content"),
+    [
+        # FMAPI / reasoning-model shape from #24176: keep user-facing text only.
+        # Reasoning summary is intentionally dropped so ChatAgentMessage stays a string schema.
+        (
+            [
+                {
+                    "type": "reasoning",
+                    "summary": [{"type": "summary_text", "text": "No need to retrieve."}],
+                },
+                {"type": "text", "text": "How can I help you today?"},
+            ],
+            "How can I help you today?",
+        ),
+        (
+            [
+                {
+                    "type": "reasoning",
+                    "summary": [{"type": "summary_text", "text": "No need to retrieve."}],
+                },
+            ],
+            "",
+        ),
+        (
+            [
+                {"type": "text", "text": "First part"},
+                {"type": "text", "text": "Second part"},
+            ],
+            "First part\nSecond part",
+        ),
+        ("plain string content", "plain string content"),
+    ],
+)
+def test_parse_message_normalizes_list_content_for_chat_agent(content, expected_content):
+    lc_msg = AIMessage(content=content, id="msg-reasoning-1")
+    result = parse_message(lc_msg)
+    assert result["role"] == "assistant"
+    assert result["content"] == expected_content
+    assert result["id"] == "msg-reasoning-1"
+    # Must be ChatAgent-compatible (string content), not ChatMessage list content.
+    ChatAgentMessage(**result)
+
+
+def test_parse_message_reasoning_content_with_tool_calls():
+    lc_msg = AIMessage(
+        content=[
+            {
+                "type": "reasoning",
+                "summary": [{"type": "summary_text", "text": "Need a tool."}],
+            },
+            {"type": "text", "text": "Calling the tool."},
+        ],
+        id="msg-tool-reasoning-1",
+        tool_calls=[
+            {
+                "name": "lookup",
+                "args": {"q": "x"},
+                "id": "call-1",
+                "type": "tool_call",
+            }
+        ],
+    )
+    result = parse_message(lc_msg)
+    assert result["content"] == "Calling the tool."
+    assert result["tool_calls"][0]["function"]["name"] == "lookup"
+    ChatAgentMessage(**result)
+
+
 def test_langgraph_chat_agent_save_as_code():
     # (role, content)
     expected_messages = [

@@ -3,7 +3,11 @@
  * In the OSS version, you can override them in local development by manually changing the return values.
  */
 
-import { getWorkspacesEnabledSync } from '../../experiment-tracking/hooks/useServerInfo';
+import {
+  getFeatureEnabledSync,
+  getWorkspacesEnabledSync,
+  SERVER_FEATURE_KEYS,
+} from '../../experiment-tracking/hooks/useServerInfo';
 
 // Returns the current workspaces enabled state from the cached server features.
 // This is synchronous and returns the cached value (false if not yet loaded).
@@ -34,6 +38,7 @@ export const shouldUseRegexpBasedAutoRunsSearchFilter = () => false;
 export const shouldUseRunRowsVisibilityMap = () => true;
 export const isUnstableNestedComponentsMigrated = () => true;
 export const shouldUsePredefinedErrorsInExperimentTracking = () => true;
+export const shouldUseTracesV4Tab = () => true;
 
 /**
  * Determines if logged models UI (part of model-centric IA shift) is enabled
@@ -47,13 +52,6 @@ export const isRunPageLoggedModelsTableEnabled = () => true;
 export const shouldEnableGraphQLRunDetailsPage = () => true;
 export const shouldEnableGraphQLSampledMetrics = () => false;
 export const shouldEnableGraphQLModelVersionsForRunDetails = () => false;
-
-/**
- * Feature flag to enable Scorers UI tab in experiment page
- */
-export const enableScorersUI = () => {
-  return true;
-};
 
 /**
  * Determines if the new GenAI experiment creation modal with table prefix onboarding is enabled.
@@ -212,6 +210,12 @@ export const shouldEnableExperimentOverviewTab = (hasV4Location?: boolean) => {
 };
 
 /**
+ * On by default; the per-server gates live elsewhere -- the side nav requires a SQL backend store,
+ * and `shouldEnableIssueDetection` requires AI Gateway.
+ */
+export const shouldEnableExperimentIssuesTab = () => true;
+
+/**
  * Determines if the top-level nested sidebar feature is enabled.
  * This enables the workflow type selector and nested navigation items in the main sidebar.
  */
@@ -227,15 +231,27 @@ export const shouldEnableImprovedEvalRunsComparison = () => {
   return false;
 };
 
+/**
+ * Enables the refreshed evaluation runs table: status in the run name cell, rounded metric values,
+ * group averages, the dataset version column and the restyled dataset cell.
+ */
+export const shouldEnableNewEvalRunsUi = () => {
+  return true;
+};
+
 export const isScorerModelSelectionEnabled = () => {
   return true;
 };
 
 /**
  * Determines if issue detection feature is enabled in the traces table toolbar.
+ * Issue detection currently uses AI Gateway endpoints and stored secrets, so it is hidden with
+ * Gateway until those dependencies are decoupled.
  */
 export const shouldEnableIssueDetection = () => {
-  return true;
+  // Also requires the Issues tab: it is the only place a detection run's findings are shown, so
+  // offering detection without it would start work whose results have nowhere to land.
+  return getFeatureEnabledSync(SERVER_FEATURE_KEYS.GATEWAY) && shouldEnableExperimentIssuesTab();
 };
 
 /**

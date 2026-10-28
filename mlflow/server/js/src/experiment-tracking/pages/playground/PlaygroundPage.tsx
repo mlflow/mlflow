@@ -24,6 +24,7 @@ import { withErrorBoundary } from '../../../common/utils/withErrorBoundary';
 import { RoutePaths } from '../../routes';
 import { buildPlaygroundPrefillFromTrace } from './traceToPlayground';
 import type { PrefillToolResult } from './traceToPlayground';
+import { AssistantAwareActionBar } from '../../../common/components/AssistantAwareActionBar';
 import { PlaygroundTopBar } from './components/PlaygroundTopBar';
 import { PromptInputPanel } from './components/PromptInputPanel';
 import { PromptRegistryPicker } from './components/PromptRegistryPicker';
@@ -649,7 +650,7 @@ const PlaygroundPage = () => {
               />
             );
           })()}
-        <div
+        <AssistantAwareActionBar
           css={{
             display: 'flex',
             justifyContent: 'flex-end',
@@ -735,7 +736,7 @@ const PlaygroundPage = () => {
               />
             );
           })()}
-        </div>
+        </AssistantAwareActionBar>
       </div>
 
       <PromptRegistryPicker

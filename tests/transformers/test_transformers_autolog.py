@@ -111,7 +111,6 @@ def transformers_trainer(tmp_path):
         output_dir=str(tmp_path.joinpath("results")),
         num_train_epochs=1,
         per_device_train_batch_size=4,
-        logging_dir=str(tmp_path.joinpath("logs")),
     )
 
     return Trainer(
@@ -165,7 +164,6 @@ def transformers_hyperparameter_trainer(tmp_path):
             num_train_epochs=1,
             per_device_train_batch_size=4,
             learning_rate=learning_rate,
-            logging_dir=str(tmp_path.joinpath("logs")),
             report_to="none",
         )
 
@@ -188,7 +186,6 @@ def transformers_hyperparameter_trainer(tmp_path):
         num_train_epochs=3,
         per_device_train_batch_size=4,
         learning_rate=best_params["learning_rate"],
-        logging_dir=str(tmp_path.joinpath("logs")),
     )
 
     return Trainer(
@@ -240,7 +237,6 @@ def transformers_hyperparameter_functional(tmp_path):
         output_dir=str(tmp_path.joinpath("results")),
         num_train_epochs=1,
         per_device_train_batch_size=4,
-        logging_dir=str(tmp_path.joinpath("logs")),
         report_to="none",
     )
 
@@ -273,7 +269,6 @@ def transformers_hyperparameter_functional(tmp_path):
         num_train_epochs=1,
         per_device_train_batch_size=4,
         learning_rate=best_run.hyperparameters["learning_rate"],
-        logging_dir=str(tmp_path.joinpath("best_logs")),
     )
 
     return Trainer(

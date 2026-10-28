@@ -29,6 +29,7 @@ from mlflow.tracing.constant import (
     TraceTagKey,
 )
 from mlflow.tracing.context import get_configured_trace_metadata, get_configured_trace_tags
+from mlflow.tracing.export.utils import flush_exporter
 from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.processor.otel_metrics_mixin import OtelMetricsMixin
 from mlflow.tracing.trace_manager import InMemoryTraceManager, _Trace
@@ -109,8 +110,7 @@ def flush_all_batch_processors(timeout_millis: float = 30000, terminate: bool = 
     for processor in processors:
         try:
             exporter = processor.span_exporter
-            if hasattr(exporter, "_async_queue"):
-                exporter._async_queue.flush(terminate=terminate)
+            flush_exporter(exporter, terminate=terminate)
         except Exception:
             _logger.debug(f"Failed to flush exporter queue for {processor}", exc_info=True)
     if terminate:
@@ -145,9 +145,7 @@ def retire_batch_processor(processor: "BaseMlflowSpanProcessor") -> None:
         )
     try:
         processor.force_flush()
-        exporter = processor.span_exporter
-        if hasattr(exporter, "_async_queue"):
-            exporter._async_queue.flush(terminate=True)
+        flush_exporter(processor.span_exporter, terminate=True)
     except Exception:
         _logger.debug(f"Failed to flush processor {processor} before retiring", exc_info=True)
     try:
@@ -365,12 +363,21 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
         })
 
         spans = trace.span_dict.values()
-        # Aggregate token usage information from all spans
-        if usage := aggregate_usage_from_spans(spans):
-            trace.info.request_metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(usage)
+        # Aggregate token usage and cost as best-effort: this metadata is optional, and a
+        # failure here must never abort root-span export / trace finalization (#24344).
+        try:
+            if usage := aggregate_usage_from_spans(spans):
+                trace.info.request_metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(usage)
 
-        if should_compute_cost_client_side() and (cost := aggregate_cost_from_spans(spans)):
-            trace.info.request_metadata[TraceMetadataKey.COST] = json.dumps(cost)
+            if should_compute_cost_client_side() and (cost := aggregate_cost_from_spans(spans)):
+                trace.info.request_metadata[TraceMetadataKey.COST] = json.dumps(cost)
+        except Exception as e:
+            _logger.warning(
+                f"Failed to aggregate token usage/cost for trace {trace.info.trace_id}: {e}. "
+                "Continuing finalization without it. For full traceback, set logging level "
+                "to debug.",
+                exc_info=_logger.isEnabledFor(logging.DEBUG),
+            )
 
     def _truncate_metadata(self, value: str | None) -> str:
         """Get truncated value of the attribute if it exceeds the maximum length."""

@@ -1,8 +1,14 @@
+import base64
+import gzip
+import hashlib
 import json
 import os
 import posixpath
 import tarfile
+import threading
+import urllib.parse
 from datetime import datetime, timezone
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest import mock
 from unittest.mock import ANY
 
@@ -16,10 +22,13 @@ from mlflow.entities.multipart_upload import MultipartUploadPart
 from mlflow.entities.span import Span, SpanAttributeKey
 from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
+from mlflow.store.artifact.optimized_s3_artifact_repo import (
+    OptimizedS3ArtifactRepository,
+)
 from mlflow.store.artifact.s3_artifact_repo import (
     _MAX_CACHE_SECONDS,
     S3ArtifactRepository,
+    _attachment_content_disposition,
     _cached_get_s3_client,
 )
 from mlflow.tracing.otel.otel_archival import TRACE_ARCHIVAL_FILENAME
@@ -111,7 +120,8 @@ def test_get_s3_client_hits_cache(s3_artifact_root, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    ("ignore_tls_env", "verify"), [("0", None), ("1", False), ("true", False), ("false", None)]
+    ("ignore_tls_env", "verify"),
+    [("0", None), ("1", False), ("true", False), ("false", None)],
 )
 def test_get_s3_client_verify_param_set_correctly(
     s3_artifact_root, ignore_tls_env, verify, monkeypatch
@@ -309,7 +319,8 @@ def test_get_s3_file_upload_extra_args_env_var_not_present():
 
 def test_get_s3_file_upload_extra_args_invalid_json():
     os.environ.setdefault(
-        "MLFLOW_S3_UPLOAD_EXTRA_ARGS", '"ServerSideEncryption": "aws:kms", "SSEKMSKeyId": "123456"}'
+        "MLFLOW_S3_UPLOAD_EXTRA_ARGS",
+        '"ServerSideEncryption": "aws:kms", "SSEKMSKeyId": "123456"}',
     )
 
     with pytest.raises(json.decoder.JSONDecodeError, match=r".+"):
@@ -356,6 +367,27 @@ def test_delete_artifacts_single_object(s3_artifact_repo, tmp_path):
     assert s3_artifact_repo.list_artifacts() == []
 
 
+def test_delete_artifacts_preserves_prefix_siblings(s3_artifact_repo, tmp_path):
+    target = tmp_path / "target.txt"
+    sibling_dir_file = tmp_path / "keep.txt"
+    sibling_file = tmp_path / "foo_baz.txt"
+    target.write_text("target")
+    sibling_dir_file.write_text("sibling directory file")
+    sibling_file.write_text("sibling file")
+
+    s3_artifact_repo.log_artifact(target, artifact_path="foo")
+    s3_artifact_repo.log_artifact(sibling_dir_file, artifact_path="foobar")
+    s3_artifact_repo.log_artifact(sibling_file)
+
+    s3_artifact_repo.delete_artifacts("foo")
+
+    assert s3_artifact_repo.list_artifacts("foo") == []
+    assert [artifact.path for artifact in s3_artifact_repo.list_artifacts("foobar")] == [
+        "foobar/keep.txt"
+    ]
+    assert "foo_baz.txt" in [artifact.path for artifact in s3_artifact_repo.list_artifacts()]
+
+
 @pytest.mark.parametrize("artifact_path", ["subdir", "subdir/"])
 def test_list_and_delete_artifacts_path(s3_artifact_repo, tmp_path, artifact_path):
     subdir = tmp_path / "subdir"
@@ -372,6 +404,33 @@ def test_list_and_delete_artifacts_path(s3_artifact_repo, tmp_path, artifact_pat
     s3_artifact_repo.delete_artifacts(artifact_path=artifact_path)
     assert s3_artifact_repo.list_artifacts(artifact_path) == []
     assert s3_artifact_repo.list_artifacts() == []
+
+
+def test_list_artifacts_directory_marker_filtering(s3_artifact_repo):
+    mock_s3 = mock.Mock()
+    mock_paginator = mock.Mock()
+    mock_s3.get_paginator.return_value = mock_paginator
+    mock_paginator.paginate.return_value = [
+        {
+            "Contents": [
+                {"Key": "some/path/b/", "Size": 0},
+                {"Key": "some/path/b/b", "Size": 0},
+                {"Key": "some/path/b/c.txt", "Size": 42},
+            ],
+            "CommonPrefixes": [{"Prefix": "some/path/b/d/"}],
+        }
+    ]
+
+    with mock.patch.object(s3_artifact_repo, "_get_s3_client", return_value=mock_s3):
+        artifacts = s3_artifact_repo.list_artifacts("b")
+
+    actual = [(f.path, f.is_dir, f.file_size) for f in artifacts]
+    expected = [
+        ("b/b", False, 0),
+        ("b/c.txt", False, 42),
+        ("b/d", True, None),
+    ]
+    assert actual == expected
 
 
 @pytest.mark.parametrize(
@@ -392,12 +451,14 @@ def test_list_artifacts_error_handling(s3_artifact_root, boto_error_code, expect
         mock_paginator = mock.Mock()
         boto_error_message = "Error message from the client"
         mock_paginator.paginate.side_effect = botocore.exceptions.ClientError(
-            {"Error": {"Code": boto_error_code, "Message": boto_error_message}}, "ListObjectsV2"
+            {"Error": {"Code": boto_error_code, "Message": boto_error_message}},
+            "ListObjectsV2",
         )
         mock_client.return_value.get_paginator.return_value = mock_paginator
 
         with pytest.raises(
-            MlflowException, match=f"Failed to list artifacts in {s3_repo.artifact_uri}:"
+            MlflowException,
+            match=f"Failed to list artifacts in {s3_repo.artifact_uri}:",
         ) as exc_info:
             s3_repo.list_artifacts(artifact_path)
         assert exc_info.value.error_code == expected_mlflow_error
@@ -436,6 +497,126 @@ def test_create_multipart_upload(s3_artifact_root):
     assert uploads[0]["UploadId"] == create.upload_id
 
 
+@pytest.mark.parametrize("algorithm", ["SHA256", "CRC32", "CRC32C"])
+def test_create_multipart_upload_rejects_unsupported_checksums_before_creating_upload(
+    tmp_path, monkeypatch, algorithm
+):
+    monkeypatch.setenv("MLFLOW_S3_UPLOAD_EXTRA_ARGS", json.dumps({"ChecksumAlgorithm": algorithm}))
+    local_file = tmp_path / "artifact.bin"
+    local_file.write_bytes(b"data")
+    repo = S3ArtifactRepository("s3://bucket/root")
+    with (
+        mock.patch.object(repo, "_get_s3_client") as get_client,
+        pytest.raises(MlflowException, match="Presigned artifact transfers are unavailable") as exc,
+    ):
+        repo.create_multipart_upload(str(local_file))
+    assert exc.value.error_code == "NOT_IMPLEMENTED"
+    get_client.assert_not_called()
+
+
+def test_create_multipart_upload_preserves_content_metadata_and_encryption_headers(
+    tmp_path, monkeypatch
+):
+    local_file = tmp_path / "model.json.gz"
+    local_file.write_bytes(b"content")
+    monkeypatch.setenv(
+        "MLFLOW_S3_UPLOAD_EXTRA_ARGS",
+        json.dumps({
+            "ServerSideEncryption": "aws:kms",
+            "SSEKMSKeyId": "kms-key",
+        }),
+    )
+    repo = S3ArtifactRepository("s3://bucket/root")
+    s3_client = mock.Mock()
+    s3_client.meta.service_model.operation_model.return_value.input_shape.members = {
+        "ContentType",
+        "ContentEncoding",
+        "ServerSideEncryption",
+        "SSEKMSKeyId",
+    }
+    s3_client.create_multipart_upload.return_value = {"UploadId": "upload-id"}
+    s3_client.generate_presigned_url.return_value = "https://example.com/upload"
+
+    with mock.patch.object(repo, "_get_s3_client", return_value=s3_client):
+        response = repo.create_multipart_upload(str(local_file))
+
+    s3_client.create_multipart_upload.assert_called_once_with(
+        Bucket="bucket",
+        Key="root/model.json.gz",
+        ContentType="application/json",
+        ContentEncoding="gzip",
+        ServerSideEncryption="aws:kms",
+        SSEKMSKeyId="kms-key",
+    )
+    s3_client.generate_presigned_url.assert_called_once_with(
+        "upload_part",
+        Params={
+            "Bucket": "bucket",
+            "Key": "root/model.json.gz",
+            "PartNumber": 1,
+            "UploadId": "upload-id",
+        },
+    )
+    assert response.credentials[0].headers == {}
+
+
+@pytest.mark.parametrize(
+    "presigned_method",
+    ["create_multipart_upload", "create_presigned_upload_url", "get_download_presigned_url"],
+)
+def test_presigned_transfers_reject_sse_customer_key_before_s3_calls(
+    tmp_path, monkeypatch, presigned_method
+):
+    monkeypatch.setenv(
+        "MLFLOW_S3_UPLOAD_EXTRA_ARGS",
+        json.dumps({"SSECustomerAlgorithm": "AES256", "SSECustomerKey": "customer-key"}),
+    )
+    local_file = tmp_path / "artifact.bin"
+    local_file.write_bytes(b"content")
+    repo = S3ArtifactRepository("s3://bucket/root")
+    argument = str(local_file) if presigned_method == "create_multipart_upload" else local_file.name
+    with (
+        mock.patch.object(repo, "_get_s3_client") as get_client,
+        pytest.raises(MlflowException, match="Presigned artifact transfers are unavailable") as exc,
+    ):
+        getattr(repo, presigned_method)(argument)
+    assert exc.value.error_code == "NOT_IMPLEMENTED"
+    get_client.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("extra_args", "expected_args"),
+    [
+        (
+            {"SSECustomerAlgorithm": "AES256", "SSECustomerKey": "customer-key"},
+            {
+                "SSECustomerAlgorithm": "AES256",
+                "SSECustomerKey": "Y3VzdG9tZXIta2V5",
+                "SSECustomerKeyMD5": "xUvIiqGwjknkCReLkVcZIw==",
+            },
+        ),
+        ({"RequestPayer": "requester"}, {"RequestPayer": "requester"}),
+    ],
+)
+def test_complete_multipart_upload_preserves_required_headers(
+    monkeypatch, extra_args, expected_args
+):
+    monkeypatch.setenv("MLFLOW_S3_UPLOAD_EXTRA_ARGS", json.dumps(extra_args))
+    repo = S3ArtifactRepository("s3://bucket/root")
+    parts = [MultipartUploadPart(part_number=1, etag="part-etag")]
+    with mock.patch.object(repo, "_get_s3_client") as get_client:
+        repo.complete_multipart_upload("artifact.bin", "upload-id", parts)
+
+    get_client.assert_called_once()
+    get_client.return_value.complete_multipart_upload.assert_called_once_with(
+        Bucket="bucket",
+        Key="root/artifact.bin",
+        UploadId="upload-id",
+        MultipartUpload={"Parts": [{"PartNumber": 1, "ETag": "part-etag"}]},
+        **expected_args,
+    )
+
+
 def test_complete_multipart_upload(s3_artifact_root):
     repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
     local_file = "local_file"
@@ -466,6 +647,18 @@ def test_complete_multipart_upload(s3_artifact_root):
     s3_client = repo._get_s3_client()
     response = s3_client.list_multipart_uploads(Bucket=bucket)
     assert response.get("Uploads") is None
+
+
+def test_abort_multipart_upload_preserves_request_payer(monkeypatch):
+    monkeypatch.setenv("MLFLOW_S3_UPLOAD_EXTRA_ARGS", json.dumps({"RequestPayer": "requester"}))
+    repo = S3ArtifactRepository("s3://bucket/root")
+    with mock.patch.object(repo, "_get_s3_client") as get_client:
+        repo.abort_multipart_upload("artifact.bin", "upload-id")
+
+    get_client.assert_called_once()
+    get_client.return_value.abort_multipart_upload.assert_called_once_with(
+        Bucket="bucket", Key="root/artifact.bin", UploadId="upload-id", RequestPayer="requester"
+    )
 
 
 def test_abort_multipart_upload(s3_artifact_root):
@@ -663,16 +856,19 @@ def test_list_artifacts_with_bucket_owner(s3_artifact_root, tmp_path, monkeypatc
     assert call_kwargs["ExpectedBucketOwner"] == "123456789012"
 
 
-def test_multipart_upload_with_bucket_owner(s3_artifact_root, monkeypatch):
+def test_multipart_upload_with_bucket_owner(monkeypatch):
     monkeypatch.setenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", "123456789012")
-    repo_with_owner = S3ArtifactRepository(s3_artifact_root)
+    repo_with_owner = S3ArtifactRepository("s3://bucket/root")
 
     mock_s3 = mock.Mock()
+    mock_s3.meta.service_model.operation_model.return_value.input_shape.members = {
+        "ExpectedBucketOwner"
+    }
     mock_s3.create_multipart_upload.return_value = {"UploadId": "test-upload-id"}
     mock_s3.generate_presigned_url.return_value = "https://example.com/presigned"
 
     with mock.patch.object(repo_with_owner, "_get_s3_client", return_value=mock_s3):
-        repo_with_owner.create_multipart_upload("local_file", num_parts=2)
+        response = repo_with_owner.create_multipart_upload("local_file", num_parts=2)
 
     mock_s3.create_multipart_upload.assert_called_once()
     call_kwargs = mock_s3.create_multipart_upload.call_args[1]
@@ -683,6 +879,10 @@ def test_multipart_upload_with_bucket_owner(s3_artifact_root, monkeypatch):
         params = call[1]["Params"]
         assert "ExpectedBucketOwner" in params
         assert params["ExpectedBucketOwner"] == "123456789012"
+    assert all(
+        credential.headers == {"x-amz-expected-bucket-owner": "123456789012"}
+        for credential in response.credentials
+    )
 
 
 def test_delete_artifacts_with_bucket_owner(s3_artifact_root, tmp_path, monkeypatch):
@@ -932,6 +1132,139 @@ def test_get_download_presigned_url(s3_artifact_root, tmp_path):
     assert response.text == file_text
 
 
+@pytest.mark.parametrize("chunk_size", [None, 17])
+def test_gzip_multipart_presigned_download_preserves_stored_bytes(
+    s3_artifact_root, tmp_path, chunk_size
+):
+    from mlflow.utils.request_utils import download_chunk
+
+    original = os.urandom(128)
+    compressed = gzip.compress(original)
+    local_file = tmp_path / "artifact.bin.gz"
+    local_file.write_bytes(compressed)
+    repo = S3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+    upload = repo.create_multipart_upload(str(local_file))
+    credential = upload.credentials[0]
+    part_response = requests.put(
+        credential.url, data=compressed, headers=credential.headers, timeout=10
+    )
+    part_response.raise_for_status()
+    repo.complete_multipart_upload(
+        str(local_file),
+        upload.upload_id,
+        [MultipartUploadPart(part_number=1, etag=part_response.headers["ETag"])],
+    )
+
+    presigned = repo.get_download_presigned_url(local_file.name)
+    query = urllib.parse.parse_qs(urllib.parse.urlparse(presigned.url).query)
+    assert query["response-content-encoding"] == ["identity"]
+    assert presigned.file_size == len(compressed)
+    bucket, root = repo.parse_s3_compliant_uri(repo.artifact_uri)
+    assert (
+        repo._get_s3_client().head_object(Bucket=bucket, Key=f"{root}/{local_file.name}")[
+            "ContentEncoding"
+        ]
+        == "gzip"
+    )
+
+    # Moto does not implement GetObject's response-content-encoding override. Use a
+    # real HTTP response to exercise Requests' decoder and Range handling with the
+    # signed override, while retaining the gzip metadata on the stored S3 object.
+    class StorageHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            override = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            start, end = (
+                int(value) for value in self.headers["Range"].removeprefix("bytes=").split("-")
+            )
+            content = compressed[start : end + 1]
+            self.send_response(206)
+            self.send_header(
+                "Content-Encoding", override.get("response-content-encoding", ["gzip"])[0]
+            )
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+
+        def log_message(self, *args):
+            pass
+
+    downloaded = tmp_path / "downloaded.gz"
+    downloaded.touch()
+    with HTTPServer(("127.0.0.1", 0), StorageHandler) as server:
+        thread = threading.Thread(
+            target=server.serve_forever, daemon=True, name="gzip-range-storage"
+        )
+        thread.start()
+        try:
+            local_url = (
+                urllib.parse
+                .urlparse(presigned.url)
+                ._replace(scheme="http", netloc=f"127.0.0.1:{server.server_port}")
+                .geturl()
+            )
+            size = chunk_size or len(compressed)
+            for offset in range(0, len(compressed), size):
+                download_chunk(
+                    range_start=offset,
+                    range_end=min(offset + size, len(compressed)) - 1,
+                    headers=presigned.headers,
+                    download_path=str(downloaded),
+                    http_uri=local_url,
+                )
+        finally:
+            server.shutdown()
+            thread.join(timeout=5)
+    assert downloaded.read_bytes() == compressed
+    assert gzip.decompress(downloaded.read_bytes()) == original
+
+
+@pytest.mark.parametrize("encoded_key", [False, True])
+def test_sse_customer_artifact_repository_round_trip(
+    s3_artifact_root, tmp_path, monkeypatch, encoded_key
+):
+    key = b"0123456789abcdef0123456789abcdef"
+    normalized_key = base64.b64encode(key).decode()
+    key_md5 = base64.b64encode(hashlib.md5(key, usedforsecurity=False).digest()).decode()
+    extra_args = {"SSECustomerAlgorithm": "AES256", "SSECustomerKey": key.decode()}
+    if encoded_key:
+        extra_args.update(SSECustomerKey=normalized_key, SSECustomerKeyMD5=key_md5)
+    monkeypatch.setenv("MLFLOW_S3_UPLOAD_EXTRA_ARGS", json.dumps(extra_args))
+    repo = S3ArtifactRepository(posixpath.join(s3_artifact_root, "root"))
+    local_file = tmp_path / "encrypted.txt"
+    content = b"encrypted artifact contents"
+    local_file.write_bytes(content)
+    repo.log_artifact(str(local_file))
+    with open(repo.download_artifacts(local_file.name), "rb") as downloaded:
+        assert downloaded.read() == content
+
+
+def test_sse_customer_download_preserves_expected_bucket_owner(tmp_path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", "123456789012")
+    monkeypatch.setenv(
+        "MLFLOW_S3_UPLOAD_EXTRA_ARGS",
+        json.dumps({"SSECustomerAlgorithm": "AES256", "SSECustomerKey": "customer-key"}),
+    )
+    repo = S3ArtifactRepository("s3://bucket/root")
+    client = mock.Mock()
+    local_file = tmp_path / "artifact.bin"
+
+    with mock.patch.object(repo, "_get_s3_client", return_value=client) as get_client:
+        repo._download_file("artifact.bin", str(local_file))
+
+    get_client.assert_called_once()
+    client.download_file.assert_called_once_with(
+        "bucket",
+        "root/artifact.bin",
+        str(local_file),
+        ExtraArgs={
+            "ExpectedBucketOwner": "123456789012",
+            "SSECustomerAlgorithm": "AES256",
+            "SSECustomerKey": "Y3VzdG9tZXIta2V5",
+            "SSECustomerKeyMD5": "xUvIiqGwjknkCReLkVcZIw==",
+        },
+    )
+
+
 def test_get_download_presigned_url_nested_path(s3_artifact_root, tmp_path):
     repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
 
@@ -1011,3 +1344,129 @@ def test_get_download_presigned_url_returns_file_size(s3_artifact_root, tmp_path
 
     # Verify file size matches
     assert presigned_response.file_size == len(file_content)
+
+
+@pytest.mark.parametrize(
+    ("filename", "expected"),
+    [
+        ("model.pkl", 'attachment; filename="model.pkl"'),
+        ('quo"ted.txt', 'attachment; filename="quo\\"ted.txt"'),
+        ("back\\slash.bin", 'attachment; filename="back\\\\slash.bin"'),
+        ("modèle.txt", "attachment; filename*=UTF-8''mod%C3%A8le.txt"),
+        # Control characters must never reach a header value verbatim (header
+        # injection); they are routed through the percent-encoded form.
+        ("new\nline.txt", "attachment; filename*=UTF-8''new%0Aline.txt"),
+    ],
+)
+def test_attachment_content_disposition(filename, expected):
+    assert _attachment_content_disposition(filename) == expected
+
+
+def test_get_download_presigned_url_sets_attachment_disposition(s3_artifact_root, tmp_path):
+    # The URL must carry an `attachment` Content-Disposition override so that a browser
+    # navigating to it saves the artifact under its own filename instead of rendering
+    # renderable types (text, HTML, images) inline. The override is part of the
+    # SigV4-signed query, so it cannot be stripped or altered without invalidating the URL.
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+
+    file_name = "report.html"
+    file_path = tmp_path / file_name
+    file_text = "<html><body>hello</body></html>"
+    file_path.write_text(file_text)
+    repo.log_artifact(file_path)
+
+    presigned_response = repo.get_download_presigned_url(file_name)
+    query = urllib.parse.parse_qs(urllib.parse.urlparse(presigned_response.url).query)
+    assert query.get("response-content-disposition") == ['attachment; filename="report.html"']
+
+    # The URL remains usable end to end. (Real S3 echoes the signed
+    # `response-content-disposition` override as the response Content-Disposition
+    # header; moto does not implement the echo, so only the URL shape is asserted
+    # here.)
+    response = requests.get(presigned_response.url, timeout=10)
+    assert response.status_code == 200
+    assert response.text == file_text
+
+
+def test_get_download_presigned_url_non_ascii_filename_disposition(s3_artifact_root, tmp_path):
+    # Non-ASCII filenames cannot be carried in the plain quoted `filename=` parameter;
+    # RFC 5987's `filename*=UTF-8''` form is used so browsers restore the original name.
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+
+    file_name = "modèle-final.txt"
+    file_path = tmp_path / file_name
+    file_path.write_text("bonjour")
+    repo.log_artifact(file_path)
+
+    presigned_response = repo.get_download_presigned_url(file_name)
+    query = urllib.parse.parse_qs(urllib.parse.urlparse(presigned_response.url).query)
+    assert query.get("response-content-disposition") == [
+        "attachment; filename*=UTF-8''mod%C3%A8le-final.txt"
+    ]
+
+    response = requests.get(presigned_response.url, timeout=10)
+    assert response.status_code == 200
+
+
+def test_get_download_presigned_url_missing_artifact(s3_artifact_root):
+    # A missing artifact must surface as RESOURCE_DOES_NOT_EXIST (HTTP 404), not
+    # INTERNAL_ERROR (500): `head_object` is a HEAD request with no error body, so
+    # botocore reports the bare HTTP status ("404") rather than "NoSuchKey".
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+
+    with pytest.raises(MlflowException, match="Not Found") as exc_info:
+        repo.get_download_presigned_url("does-not-exist.pkl")
+    assert exc_info.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
+def test_get_download_presigned_url_with_bucket_owner_signs_query(
+    s3_artifact_root, tmp_path, monkeypatch
+):
+    # When an expected bucket owner is configured, botocore would normally serialize it as a
+    # required `x-amz-expected-bucket-owner` request header and sign it, leaving the owner value
+    # out of the URL. A top-level browser navigation cannot attach that header, so the URL would
+    # be unusable. The `before-sign.s3.GetObject` hook moves the owner into the signed query
+    # instead. This test verifies the resulting URL shape.
+    monkeypatch.setenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", "123456789012")
+    repo = S3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+
+    file_name = "owner_test.txt"
+    file_path = tmp_path / file_name
+    file_text = "owner-scoped download"
+    file_path.write_text(file_text)
+    repo.log_artifact(file_path)
+
+    presigned_response = repo.get_download_presigned_url(file_name)
+    query = urllib.parse.parse_qs(urllib.parse.urlparse(presigned_response.url).query)
+
+    # The owner is carried in the SigV4-signed query, not a header the browser cannot send.
+    assert query.get("x-amz-expected-bucket-owner") == ["123456789012"]
+    # `host` is the only signed header, so a plain browser navigation matches the signature.
+    assert query.get("X-Amz-SignedHeaders") == ["host"]
+    # The response carries no headers for the client to attach.
+    assert presigned_response.headers == {}
+
+    # The URL remains usable end to end.
+    response = requests.get(presigned_response.url, timeout=10)
+    assert response.status_code == 200
+    assert response.text == file_text
+
+
+def test_get_download_presigned_url_head_object_pins_owner(s3_artifact_root, monkeypatch):
+    # The owner-hoisting hook must not weaken the existing owner check: the metadata lookup must
+    # still send `ExpectedBucketOwner` to `head_object`, and the presign call must still pass it.
+    monkeypatch.setenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", "123456789012")
+    repo = S3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+
+    mock_s3 = mock.Mock()
+    mock_s3.head_object.return_value = {"ContentLength": 42}
+    mock_s3.generate_presigned_url.return_value = "https://example.com/presigned"
+
+    with mock.patch.object(repo, "_get_s3_client", return_value=mock_s3):
+        repo.get_download_presigned_url("model.pkl")
+
+    head_kwargs = mock_s3.head_object.call_args[1]
+    assert head_kwargs["ExpectedBucketOwner"] == "123456789012"
+
+    presign_params = mock_s3.generate_presigned_url.call_args[1]["Params"]
+    assert presign_params["ExpectedBucketOwner"] == "123456789012"

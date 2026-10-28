@@ -2,7 +2,7 @@ import { Button, BeakerIcon } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import { getExperimentPagePlaygroundRoute } from './routes';
-import { useInRouterContext, useNavigate, useParams } from './RoutingUtils';
+import { useInRouterContext, useParams, useWorkspaceNavigate } from './RoutingUtils';
 
 interface OpenInPlaygroundButtonProps {
   traceId: string | undefined;
@@ -18,7 +18,7 @@ const OpenInPlaygroundButtonImpl = ({
   experimentId: experimentIdProp,
   size,
 }: OpenInPlaygroundButtonProps) => {
-  const navigate = useNavigate();
+  const navigate = useWorkspaceNavigate();
   const { experimentId: experimentIdFromRoute } = useParams<{ experimentId: string }>();
   const experimentId = experimentIdProp ?? experimentIdFromRoute;
 
@@ -51,7 +51,7 @@ const OpenInPlaygroundButtonImpl = ({
  * Renders nothing when the experiment id cannot be resolved from the current route (e.g. the trace
  * explorer is embedded outside an experiment page) or when there is no trace id to link to. The
  * router-context guard also keeps router-less embeddings (e.g. the OSS notebook renderer) working,
- * since `useNavigate`/`useParams` throw outside a `<Router>`.
+ * since `useWorkspaceNavigate`/`useParams` throw outside a `<Router>`.
  */
 export const OpenInPlaygroundButton = (props: OpenInPlaygroundButtonProps) => {
   const inRouterContext = useInRouterContext();

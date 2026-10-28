@@ -21,32 +21,32 @@ defaults:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   uv:
     # Skip scheduled runs on forks
     if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
     steps:
-      - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         if: github.event_name != 'pull_request'
         id: app-token
         with:
           client-id: ${{ secrets.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: mlflow
+          repositories: mlflow
           permission-contents: write
           permission-pull-requests: write
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: true
           token: ${{ steps.app-token.outputs.token || github.token }}
       - uses: ./.github/actions/setup-python
-        with:
-          pin-micro-version: false
       - name: Run uv lock --upgrade
         run: |
           uv lock --upgrade 2>&1 | tee /tmp/uv-lock-output.txt
@@ -56,6 +56,8 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           PR_TITLE: "Update `uv.lock`"
+          # Log API requests to diagnose labels occasionally being applied twice
+          GH_DEBUG: api
         run: |
           if git diff --quiet uv.lock; then
             echo "No changes to uv.lock, exiting early"
@@ -89,10 +91,11 @@ jobs:
             echo "Updating existing PR #$NUMBER on branch $BRANCH"
             git push --force origin "HEAD:$BRANCH"
             gh pr edit "$NUMBER" --body-file /tmp/pr-body.md
-            gh pr merge "$NUMBER" --auto
+            gh pr edit "$NUMBER" --add-label auto-rerun
+            gh pr merge "$NUMBER" --auto --squash
           else
             BRANCH="uv-lock-update-$(date -u +%Y-%m-%dT%H-%M-%S)"
             git push origin "HEAD:$BRANCH"
-            PR_URL=$(gh pr create --base master --head "$BRANCH" --title "$PR_TITLE" --body-file /tmp/pr-body.md --label team-review)
-            gh pr merge "$PR_URL" --auto
+            PR_URL=$(gh pr create --base master --head "$BRANCH" --title "$PR_TITLE" --body-file /tmp/pr-body.md --label team-review --label auto-rerun)
+            gh pr merge "$PR_URL" --auto --squash
           fi

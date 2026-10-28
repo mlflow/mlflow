@@ -7,7 +7,11 @@ import contextlib
 import logging
 import threading
 import time
-from typing import Callable
+from concurrent.futures import CancelledError
+from typing import TYPE_CHECKING, Callable, Iterator
+
+if TYPE_CHECKING:
+    from mlflow.genai.scorers.base import Scorer
 
 _logger = logging.getLogger(__name__)
 
@@ -16,15 +20,33 @@ _logger = logging.getLogger(__name__)
 def eval_retry_context():
     """Disable downstream 429 retries so errors bubble up to call_with_retry().
 
-    Sets flags on both the HTTP-layer retry (rest_utils) and the litellm
-    adapter so that rate-limit errors propagate to the evaluate pipeline's
-    own retry/AIMD logic.
+    Iterates the RateLimitRetryAdapter registry and disables internal retry loops
+    for every active provider, so that rate-limit errors propagate to the evaluate
+    pipeline's own retry/AIMD logic.
     """
-    # Lazy imports to avoid circular dependency: genai.evaluation → genai.judges/utils.
-    from mlflow.genai.judges.adapters.litellm_adapter import disable_litellm_rate_limit_retries
-    from mlflow.utils.rest_utils import disable_429_retry
+    # Lazy import to avoid circular dependency: genai.evaluation → genai.judges.
+    # Importing rate_limit_retry_adapters triggers all register_retry_adapter() calls.
+    from mlflow.genai.judges.adapters.rate_limit_retry_adapters import get_retry_adapters
 
-    with disable_litellm_rate_limit_retries(), disable_429_retry():
+    active_adapters = []
+    for adapter in get_retry_adapters():
+        try:
+            if adapter.is_adapter_active():
+                active_adapters.append(adapter)
+        except Exception:
+            _logger.warning(
+                f"eval_retry_context: is_adapter_active() raised for adapter "
+                f"'{adapter.name}', skipping",
+                exc_info=True,
+            )
+
+    _logger.debug(f"eval_retry_context: disabling retries for {[a.name for a in active_adapters]}")
+    # Adapters are disjoint (each targets a separate provider), so activation order
+    # does not matter — the ExitStack unwinds them in reverse order, but there are
+    # no shared resources between adapters that could be affected by ordering.
+    with contextlib.ExitStack() as stack:
+        for adapter in active_adapters:
+            stack.enter_context(adapter.disable_internal_retries())
         yield
 
 
@@ -53,7 +75,7 @@ def is_rate_limit_error(exc: BaseException) -> bool:
 
 class RateLimiter(abc.ABC):
     @abc.abstractmethod
-    def acquire(self) -> None: ...
+    def acquire(self, *, cancel_event: threading.Event | None = None) -> None: ...
 
     def report_throttle(self) -> None:
         """Called when a 429 / rate-limit error is observed. No-op by default."""
@@ -106,13 +128,15 @@ class RPSRateLimiter(RateLimiter):
         self._throttle_cooldown = 5.0  # seconds between consecutive decreases
         self._last_throttle_time = -float("inf")
 
-    def acquire(self) -> None:
+    def acquire(self, *, cancel_event: threading.Event | None = None) -> None:
         thread = threading.current_thread().name
         _logger.debug(
             f"[{thread}] acquire() called — rps={self._rps:.1f} tokens={self._tokens:.2f}"
         )
         while True:
             with self._lock:
+                if cancel_event is not None and cancel_event.is_set():
+                    raise CancelledError("Rate-limit admission was cancelled")
                 now = self._clock()
                 elapsed = now - self._last_refill
                 self._tokens = min(self._max_tokens, self._tokens + elapsed * self._rps)
@@ -126,7 +150,10 @@ class RPSRateLimiter(RateLimiter):
                 wait_time = (1.0 - self._tokens) / self._rps
 
             _logger.debug(f"[{thread}] acquire() sleeping {wait_time:.3f}s")
-            self._sleep(wait_time)
+            if cancel_event is not None and self._sleep is time.sleep:
+                cancel_event.wait(wait_time)
+            else:
+                self._sleep(wait_time)
 
     def report_throttle(self) -> None:
         if not self._adaptive:
@@ -161,8 +188,51 @@ class RPSRateLimiter(RateLimiter):
 
 
 class NoOpRateLimiter(RateLimiter):
-    def acquire(self) -> None:
-        pass
+    def acquire(self, *, cancel_event: threading.Event | None = None) -> None:
+        if cancel_event is not None and cancel_event.is_set():
+            raise CancelledError("Rate-limit admission was cancelled")
+
+
+@contextlib.contextmanager
+def scorer_rate_limit_context(scorer: Scorer, rate_limiter: RateLimiter) -> Iterator[RateLimiter]:
+    """Move admission to Databricks retrieval requests when the SDK activates it."""
+    if isinstance(rate_limiter, NoOpRateLimiter):
+        yield rate_limiter
+        return
+
+    # Lazy imports avoid the evaluation -> scorers -> judges import cycle.
+    from mlflow.genai.judges.utils import get_default_model
+    from mlflow.genai.scorers._scorer_execution import (
+        RequestLimitedScorerExecution,
+        scorer_execution_context,
+    )
+    from mlflow.genai.scorers.builtin_scorers import RetrievalRelevance
+
+    if (
+        not isinstance(scorer, RetrievalRelevance)
+        or (scorer.model or get_default_model()) != "databricks"
+    ):
+        yield rate_limiter
+        return
+
+    try:
+        from databricks.rag_eval.clients.managedrag.request_limiter import (
+            use_judge_request_execution,
+        )
+    except ImportError:
+        # Older SDKs still require admission at the scorer invocation.
+        yield rate_limiter
+        return
+
+    execution = RequestLimitedScorerExecution(rate_limiter)
+    with use_judge_request_execution(rate_limiter, execution) as request_limiting_enabled:
+        # Only skip invocation admission when the SDK confirms that it is charging
+        # each HTTP attempt. A disabled SDK setting retains the existing scorer limiter.
+        if request_limiting_enabled is True:
+            with scorer_execution_context(execution):
+                yield NoOpRateLimiter()
+        else:
+            yield rate_limiter
 
 
 def call_with_retry(

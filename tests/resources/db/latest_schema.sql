@@ -18,6 +18,7 @@ CREATE TABLE budget_policies (
 	last_updated_by VARCHAR(255),
 	last_updated_at BIGINT NOT NULL,
 	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	target_value VARCHAR(255),
 	CONSTRAINT budget_policies_pk PRIMARY KEY (budget_policy_id)
 )
 
@@ -93,7 +94,30 @@ CREATE TABLE jobs (
 	last_update_time BIGINT NOT NULL,
 	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	status_details JSON,
+	creator VARCHAR(255),
+	executor_backend VARCHAR(255),
+	lease_expires_at BIGINT,
+	status_message TEXT,
+	progress JSON,
+	progress_updated_at BIGINT,
+	token_hash VARCHAR(64),
+	scoped_permissions JSON,
+	next_attempt_at BIGINT,
 	CONSTRAINT jobs_pk PRIMARY KEY (id)
+)
+
+
+CREATE TABLE mcp_servers (
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	name VARCHAR(256) NOT NULL,
+	display_name VARCHAR(256),
+	description TEXT,
+	icons JSON,
+	created_by VARCHAR(256),
+	last_updated_by VARCHAR(256),
+	created_at BIGINT NOT NULL,
+	last_updated_at BIGINT NOT NULL,
+	CONSTRAINT mcp_servers_pk PRIMARY KEY (workspace, name)
 )
 
 
@@ -104,6 +128,14 @@ CREATE TABLE registered_models (
 	description VARCHAR(5000),
 	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	CONSTRAINT registered_model_pk PRIMARY KEY (workspace, name)
+)
+
+
+CREATE TABLE scheduler_leases (
+	lease_key VARCHAR(255) NOT NULL,
+	acquired_at BIGINT NOT NULL,
+	ttl_seconds INTEGER NOT NULL,
+	CONSTRAINT scheduler_leases_pk PRIMARY KEY (lease_key)
 )
 
 
@@ -124,6 +156,77 @@ CREATE TABLE secrets (
 	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	CONSTRAINT secrets_pk PRIMARY KEY (secret_id),
 	CONSTRAINT uq_secrets_workspace_secret_name UNIQUE (workspace, secret_name)
+)
+
+
+CREATE TABLE skills (
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	organization VARCHAR(64) DEFAULT '' NOT NULL,
+	name VARCHAR(128) NOT NULL,
+	description TEXT,
+	icons JSON,
+	search_text TEXT,
+	created_by VARCHAR(256),
+	last_updated_by VARCHAR(256),
+	created_at BIGINT NOT NULL,
+	last_updated_at BIGINT NOT NULL,
+	CONSTRAINT skills_pk PRIMARY KEY (workspace, organization, name)
+)
+
+
+CREATE TABLE sql_assessment_daily_rollups (
+	id INTEGER NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	rollup_day DATE NOT NULL,
+	metric_name VARCHAR(250) NOT NULL,
+	grouping_set VARCHAR(50) NOT NULL,
+	sample_count BIGINT NOT NULL,
+	sum_value FLOAT,
+	min_value FLOAT,
+	max_value FLOAT,
+	CONSTRAINT sql_assessment_daily_rollups_pk PRIMARY KEY (id)
+)
+
+
+CREATE TABLE sql_span_cost_daily_rollups (
+	id INTEGER NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	rollup_day DATE NOT NULL,
+	metric_name VARCHAR(250) NOT NULL,
+	grouping_set VARCHAR(50) NOT NULL,
+	model_name VARCHAR(500),
+	model_provider VARCHAR(500),
+	sample_count BIGINT NOT NULL,
+	sum_value FLOAT,
+	min_value FLOAT,
+	max_value FLOAT,
+	CONSTRAINT sql_span_cost_daily_rollups_pk PRIMARY KEY (id)
+)
+
+
+CREATE TABLE sql_trace_metric_daily_rollups (
+	id INTEGER NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	rollup_day DATE NOT NULL,
+	metric_name VARCHAR(250) NOT NULL,
+	grouping_set VARCHAR(50) NOT NULL,
+	trace_status VARCHAR(50),
+	sample_count BIGINT NOT NULL,
+	sum_value FLOAT,
+	min_value FLOAT,
+	max_value FLOAT,
+	p50_value FLOAT,
+	p90_value FLOAT,
+	p99_value FLOAT,
+	CONSTRAINT sql_trace_metric_daily_rollups_pk PRIMARY KEY (id)
+)
+
+
+CREATE TABLE sql_trace_rollup_rebuild_queue (
+	experiment_id INTEGER NOT NULL,
+	rollup_day DATE NOT NULL,
+	rollup_family VARCHAR(50) NOT NULL,
+	CONSTRAINT sql_trace_rollup_rebuild_queue_pk PRIMARY KEY (experiment_id, rollup_day, rollup_family)
 )
 
 
@@ -216,10 +319,19 @@ CREATE TABLE evaluation_dataset_tags (
 
 CREATE TABLE experiment_tags (
 	key VARCHAR(250) NOT NULL,
-	value VARCHAR(5000),
+	value TEXT,
 	experiment_id INTEGER NOT NULL,
 	CONSTRAINT experiment_tag_pk PRIMARY KEY (key, experiment_id),
 	FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+)
+
+
+CREATE TABLE job_locks (
+	lock_key VARCHAR(255) NOT NULL,
+	job_id VARCHAR(36) NOT NULL,
+	acquired_at BIGINT NOT NULL,
+	CONSTRAINT job_locks_pk PRIMARY KEY (lock_key),
+	CONSTRAINT fk_job_locks_job_id FOREIGN KEY(job_id) REFERENCES jobs (id) ON DELETE CASCADE
 )
 
 
@@ -257,6 +369,65 @@ CREATE TABLE logged_models (
 	CONSTRAINT logged_models_pk PRIMARY KEY (model_id),
 	CONSTRAINT fk_logged_models_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE,
 	CONSTRAINT logged_models_lifecycle_stage_check CHECK (lifecycle_stage IN ('active', 'deleted'))
+)
+
+
+CREATE TABLE mcp_access_endpoints (
+	id VARCHAR(36) NOT NULL,
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	server_name VARCHAR(256) NOT NULL,
+	server_version VARCHAR(128),
+	server_alias VARCHAR(256),
+	url VARCHAR(2048) NOT NULL,
+	transport_type VARCHAR(32) DEFAULT 'streamable-http' NOT NULL,
+	created_by VARCHAR(256),
+	last_updated_by VARCHAR(256),
+	created_at BIGINT NOT NULL,
+	last_updated_at BIGINT NOT NULL,
+	CONSTRAINT mcp_access_endpoints_pk PRIMARY KEY (id),
+	CONSTRAINT mcp_access_endpoints_server_fkey FOREIGN KEY(workspace, server_name) REFERENCES mcp_servers (workspace, name) ON DELETE CASCADE ON UPDATE CASCADE
+)
+
+
+CREATE TABLE mcp_server_aliases (
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	name VARCHAR(256) NOT NULL,
+	alias VARCHAR(256) NOT NULL,
+	version VARCHAR(128) NOT NULL,
+	CONSTRAINT mcp_server_aliases_pk PRIMARY KEY (workspace, name, alias),
+	CONSTRAINT mcp_server_aliases_server_fkey FOREIGN KEY(workspace, name) REFERENCES mcp_servers (workspace, name) ON DELETE CASCADE ON UPDATE CASCADE
+)
+
+
+CREATE TABLE mcp_server_tags (
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	name VARCHAR(256) NOT NULL,
+	key VARCHAR(250) NOT NULL,
+	value VARCHAR(5000),
+	CONSTRAINT mcp_server_tags_pk PRIMARY KEY (workspace, name, key),
+	CONSTRAINT mcp_server_tags_server_fkey FOREIGN KEY(workspace, name) REFERENCES mcp_servers (workspace, name) ON DELETE CASCADE ON UPDATE CASCADE
+)
+
+
+CREATE TABLE mcp_server_versions (
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	name VARCHAR(256) NOT NULL,
+	version VARCHAR(128) NOT NULL,
+	version_major INTEGER NOT NULL,
+	version_minor INTEGER NOT NULL,
+	version_patch INTEGER NOT NULL,
+	version_prerelease_sort_key VARCHAR(512) NOT NULL,
+	server_json JSON NOT NULL,
+	status VARCHAR(20) DEFAULT 'draft' NOT NULL,
+	tools JSON,
+	source VARCHAR(512),
+	connect_options JSON,
+	created_by VARCHAR(256),
+	last_updated_by VARCHAR(256),
+	created_at BIGINT NOT NULL,
+	last_updated_at BIGINT NOT NULL,
+	CONSTRAINT mcp_server_versions_pk PRIMARY KEY (workspace, name, version),
+	CONSTRAINT mcp_server_versions_server_fkey FOREIGN KEY(workspace, name) REFERENCES mcp_servers (workspace, name) ON DELETE CASCADE ON UPDATE CASCADE
 )
 
 
@@ -364,6 +535,48 @@ CREATE TABLE scorers (
 )
 
 
+CREATE TABLE skill_aliases (
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	organization VARCHAR(64) DEFAULT '' NOT NULL,
+	name VARCHAR(128) NOT NULL,
+	alias VARCHAR(256) NOT NULL,
+	version INTEGER NOT NULL,
+	CONSTRAINT skill_aliases_pk PRIMARY KEY (workspace, organization, name, alias),
+	CONSTRAINT skill_aliases_skill_fkey FOREIGN KEY(workspace, organization, name) REFERENCES skills (workspace, organization, name) ON DELETE CASCADE ON UPDATE CASCADE
+)
+
+
+CREATE TABLE skill_tags (
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	organization VARCHAR(64) DEFAULT '' NOT NULL,
+	name VARCHAR(128) NOT NULL,
+	key VARCHAR(250) NOT NULL,
+	value TEXT,
+	CONSTRAINT skill_tags_pk PRIMARY KEY (workspace, organization, name, key),
+	CONSTRAINT skill_tags_skill_fkey FOREIGN KEY(workspace, organization, name) REFERENCES skills (workspace, organization, name) ON DELETE CASCADE ON UPDATE CASCADE
+)
+
+
+CREATE TABLE skill_versions (
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	organization VARCHAR(64) DEFAULT '' NOT NULL,
+	name VARCHAR(128) NOT NULL,
+	version INTEGER NOT NULL,
+	source_type VARCHAR(20),
+	source VARCHAR(2048),
+	ref VARCHAR(2048),
+	subpath VARCHAR(2048),
+	digest VARCHAR(64),
+	status VARCHAR(20) DEFAULT 'active' NOT NULL,
+	created_by VARCHAR(256),
+	last_updated_by VARCHAR(256),
+	created_at BIGINT NOT NULL,
+	last_updated_at BIGINT NOT NULL,
+	CONSTRAINT skill_versions_pk PRIMARY KEY (workspace, organization, name, version),
+	CONSTRAINT skill_versions_skill_fkey FOREIGN KEY(workspace, organization, name) REFERENCES skills (workspace, organization, name) ON DELETE CASCADE ON UPDATE CASCADE
+)
+
+
 CREATE TABLE trace_info (
 	request_id VARCHAR(50) NOT NULL,
 	experiment_id INTEGER NOT NULL,
@@ -374,8 +587,19 @@ CREATE TABLE trace_info (
 	request_preview VARCHAR(1000),
 	response_preview VARCHAR(1000),
 	db_payload_generation INTEGER DEFAULT '0' NOT NULL,
+	trace_name VARCHAR(4096),
+	session_id VARCHAR(250),
+	input_tokens BIGINT,
+	output_tokens BIGINT,
+	total_tokens BIGINT,
+	cache_read_input_tokens BIGINT,
+	cache_creation_input_tokens BIGINT,
+	cache_creation_input_tokens_above_1hr BIGINT,
+	input_cost FLOAT,
+	output_cost FLOAT,
+	total_cost FLOAT,
 	CONSTRAINT trace_info_pk PRIMARY KEY (request_id),
-	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
 )
 
 
@@ -405,6 +629,10 @@ CREATE TABLE assessments (
 	overrides VARCHAR(50),
 	valid BOOLEAN NOT NULL,
 	assessment_metadata TEXT,
+	experiment_id INTEGER,
+	trace_timestamp_ms BIGINT,
+	aggregate_value FLOAT,
+	is_numeric_value BOOLEAN DEFAULT 0 NOT NULL,
 	CONSTRAINT assessments_pk PRIMARY KEY (assessment_id),
 	CONSTRAINT fk_assessments_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
 )
@@ -461,6 +689,9 @@ CREATE TABLE issues (
 	created_timestamp BIGINT NOT NULL,
 	last_updated_timestamp BIGINT NOT NULL,
 	created_by VARCHAR(255),
+	last_seen_timestamp BIGINT,
+	last_updated_by VARCHAR(255),
+	metadata TEXT,
 	CONSTRAINT issues_pk PRIMARY KEY (issue_id),
 	CONSTRAINT fk_issues_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE,
 	CONSTRAINT fk_issues_source_run_id FOREIGN KEY(source_run_id) REFERENCES runs (run_uuid) ON DELETE SET NULL
@@ -517,6 +748,17 @@ CREATE TABLE logged_model_tags (
 	CONSTRAINT logged_model_tags_pk PRIMARY KEY (model_id, tag_key),
 	CONSTRAINT fk_logged_model_tags_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
 	CONSTRAINT fk_logged_model_tags_model_id FOREIGN KEY(model_id) REFERENCES logged_models (model_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE mcp_server_version_tags (
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	name VARCHAR(256) NOT NULL,
+	version VARCHAR(128) NOT NULL,
+	key VARCHAR(250) NOT NULL,
+	value VARCHAR(5000),
+	CONSTRAINT mcp_server_version_tags_pk PRIMARY KEY (workspace, name, version, key),
+	CONSTRAINT mcp_server_version_tags_version_fkey FOREIGN KEY(workspace, name, version) REFERENCES mcp_server_versions (workspace, name, version) ON DELETE CASCADE ON UPDATE CASCADE
 )
 
 
@@ -605,6 +847,18 @@ CREATE TABLE scorer_versions (
 )
 
 
+CREATE TABLE skill_version_tags (
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	organization VARCHAR(64) DEFAULT '' NOT NULL,
+	name VARCHAR(128) NOT NULL,
+	version INTEGER NOT NULL,
+	key VARCHAR(250) NOT NULL,
+	value TEXT,
+	CONSTRAINT skill_version_tags_pk PRIMARY KEY (workspace, organization, name, version, key),
+	CONSTRAINT skill_version_tags_version_fkey FOREIGN KEY(workspace, organization, name, version) REFERENCES skill_versions (workspace, organization, name, version) ON DELETE CASCADE ON UPDATE CASCADE
+)
+
+
 CREATE TABLE spans (
 	trace_id VARCHAR(50) NOT NULL,
 	experiment_id INTEGER NOT NULL,
@@ -617,10 +871,14 @@ CREATE TABLE spans (
 	end_time_unix_nano BIGINT,
 	duration_ns BIGINT GENERATED ALWAYS AS (end_time_unix_nano - start_time_unix_nano) STORED,
 	content TEXT NOT NULL,
-	dimension_attributes JSON,
+	input_cost FLOAT,
+	output_cost FLOAT,
+	total_cost FLOAT,
+	model_name VARCHAR(500),
+	model_provider VARCHAR(500),
 	CONSTRAINT spans_pk PRIMARY KEY (trace_id, span_id),
-	CONSTRAINT fk_spans_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE,
-	CONSTRAINT fk_spans_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+	CONSTRAINT fk_spans_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
+	CONSTRAINT fk_spans_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
 )
 
 
@@ -679,6 +937,15 @@ CREATE TABLE guardrails (
 )
 
 
+CREATE TABLE issue_categories (
+	issue_id VARCHAR(36) NOT NULL,
+	category_hash VARCHAR(64) NOT NULL,
+	category TEXT NOT NULL,
+	CONSTRAINT issue_categories_pk PRIMARY KEY (issue_id, category_hash),
+	CONSTRAINT fk_issue_categories_issue_id FOREIGN KEY(issue_id) REFERENCES issues (issue_id) ON DELETE CASCADE
+)
+
+
 CREATE TABLE span_metrics (
 	trace_id VARCHAR(50) NOT NULL,
 	span_id VARCHAR(50) NOT NULL,
@@ -700,4 +967,3 @@ CREATE TABLE guardrail_configs (
 	CONSTRAINT fk_guardrail_configs_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE,
 	CONSTRAINT fk_guardrail_configs_guardrail_id FOREIGN KEY(guardrail_id) REFERENCES guardrails (guardrail_id) ON DELETE CASCADE
 )
-

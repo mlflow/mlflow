@@ -96,6 +96,7 @@ def test_summarize_cluster():
                     "example_indices": [],
                     "severity": "high",
                     "categories": [],
+                    "category_rationale": "",
                 })
             )
         )
@@ -162,6 +163,8 @@ def test_summarize_cluster_filters_invalid_categories():
                     "example_indices": [],
                     "severity": "high",
                     "categories": ["hallucination", "invalid_cat", "tool_error", "another_invalid"],
+                    "category_rationale": "hallucination: The agent made up facts. "
+                    "tool_error: The tool call failed.",
                 })
             )
         )

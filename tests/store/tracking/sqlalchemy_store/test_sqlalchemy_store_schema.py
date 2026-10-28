@@ -1,6 +1,7 @@
 import os
 import re
 import sqlite3
+from datetime import date
 
 import pytest
 import sqlalchemy
@@ -22,6 +23,7 @@ from mlflow.store.db.utils import _get_alembic_config, _verify_schema
 from mlflow.store.db.workspace_migration import migrate_to_default_workspace
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.utils.semver_utils import encode_prerelease_sort_key, parse_semver
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.integration.utils import invoke_cli_runner
@@ -45,8 +47,12 @@ def _assert_schema_files_equal(generated_schema_file, expected_schema_file):
     for generated_schema_table, expected_schema_table in zip(
         generated_schema_table_chunks, expected_schema_table_chunks
     ):
-        generated_lines = [x.strip() for x in sorted(generated_schema_table.split("\n"))]
-        expected_lines = [x.strip() for x in sorted(expected_schema_table.split("\n"))]
+        generated_lines = [
+            line.strip() for line in sorted(generated_schema_table.split("\n")) if line.strip()
+        ]
+        expected_lines = [
+            line.strip() for line in sorted(expected_schema_table.split("\n")) if line.strip()
+        ]
         assert generated_lines == expected_lines, (
             "Generated schema did not match expected schema. Generated schema had table "
             f"definition:\n{generated_schema_table}\nExpected schema had table definition:"
@@ -203,6 +209,22 @@ def test_create_index_on_metrics_run_uuid_key_step(tmp_path, db_url):
         assert columns == ["run_uuid", "key", "step"]
 
 
+@pytest.mark.parametrize("upgrade_from_initial_schema", [False, True])
+def test_trace_archival_candidate_index(tmp_path, db_url, upgrade_from_initial_schema):
+    if upgrade_from_initial_schema:
+        engine = sqlalchemy.create_engine(db_url)
+        InitialBase.metadata.create_all(engine)
+        invoke_cli_runner(mlflow.db.commands, ["upgrade", db_url])
+    else:
+        SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
+
+    with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA index_info('index_trace_info_timestamp_ms_request_id')")
+        columns = [row[2] for row in cursor.fetchall()]
+        assert columns == ["timestamp_ms", "request_id"]
+
+
 def test_index_for_dataset_tables(tmp_path, db_url):
     # Test for
     # mlflow/store/db_migrations/versions/7f2a7d5fae7d_add_datasets_inputs_input_tags_tables.py
@@ -217,6 +239,33 @@ def test_index_for_dataset_tables(tmp_path, db_url):
             "index_inputs_destination_type_destination_id_source_type",
         }
         assert new_index_names.issubset(all_index_names)
+
+
+def test_skill_registry_indexes(tmp_path, db_url):
+    # SqlAlchemyStore() on the empty db_url runs all migrations to build the schema
+    # from scratch; then assert the resulting indexes match `expected` (names + exact
+    # column order -- column order is what makes an index useful). `expected` is
+    # hardcoded on purpose: it's an independent statement catch a bad change. The
+    # golden schema dumps carry no index DDL, so nothing else guards these.
+    SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
+    expected = {
+        "ix_skill_versions_latest_lookup": [
+            "workspace",
+            "organization",
+            "name",
+            "status",
+            "version",
+        ],
+        "ix_skill_versions_digest": ["workspace", "organization", "name", "digest"],
+    }
+    with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type = 'index'")
+        all_index_names = {r[0] for r in cursor.fetchall()}
+        assert set(expected).issubset(all_index_names)
+        for index_name, columns in expected.items():
+            cursor.execute(f"PRAGMA index_info('{index_name}')")
+            assert [row[2] for row in cursor.fetchall()] == columns
 
 
 def test_secrets_and_endpoints_tables(tmp_path, db_url):
@@ -295,6 +344,7 @@ def test_workspace_migration_tables_include_all_workspace_tables(tmp_path, db_ur
 
 def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
     table = sqlalchemy.Table(table_name, sqlalchemy.MetaData(), autoload_with=conn)
+    mcp_server_version = f"{seed}.0.0"
     base_values = {
         "experiments": {
             "name": f"experiment_{seed}",
@@ -408,6 +458,117 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
             "retry_count": 0,
             "last_update_time": seed,
         },
+        "mcp_servers": {
+            "workspace": workspace,
+            "name": f"mcp_server_{seed}",
+            "created_at": seed,
+            "last_updated_at": seed,
+        },
+        "mcp_server_versions": {
+            "workspace": workspace,
+            "name": f"mcp_server_{seed}",
+            "version": mcp_server_version,
+            "server_json": "{}",
+            "status": "draft",
+            "created_at": seed,
+            "last_updated_at": seed,
+        },
+        "mcp_server_tags": {
+            "workspace": workspace,
+            "name": f"mcp_server_{seed}",
+            "key": f"tag_{seed}",
+            "value": f"value_{seed}",
+        },
+        "mcp_server_version_tags": {
+            "workspace": workspace,
+            "name": f"mcp_server_{seed}",
+            "version": mcp_server_version,
+            "key": f"vtag_{seed}",
+            "value": f"value_{seed}",
+        },
+        "mcp_server_aliases": {
+            "workspace": workspace,
+            "name": f"mcp_server_{seed}",
+            "alias": f"alias_{seed}",
+            "version": mcp_server_version,
+        },
+        "mcp_access_endpoints": {
+            "id": f"ae-{seed}",
+            "workspace": workspace,
+            "server_name": f"mcp_server_{seed}",
+            "url": f"http://localhost/{seed}",
+            "transport_type": "streamable-http",
+            "created_at": seed,
+            "last_updated_at": seed,
+        },
+        "sql_trace_metric_daily_rollups": {
+            "workspace": workspace,
+            "experiment_id": seed,
+            "rollup_day": date(2026, 1, 1),
+            "metric_name": f"metric_{seed}",
+            "grouping_set": "global",
+            "sample_count": seed,
+        },
+        "sql_span_cost_daily_rollups": {
+            "workspace": workspace,
+            "experiment_id": seed,
+            "rollup_day": date(2026, 1, 1),
+            "metric_name": f"metric_{seed}",
+            "grouping_set": "global",
+            "sample_count": seed,
+        },
+        "sql_assessment_daily_rollups": {
+            "workspace": workspace,
+            "experiment_id": seed,
+            "rollup_day": date(2026, 1, 1),
+            "metric_name": f"metric_{seed}",
+            "grouping_set": "global",
+            "sample_count": seed,
+        },
+        "sql_trace_rollup_rebuild_queue": {
+            "workspace": workspace,
+            "experiment_id": seed,
+            "rollup_day": date(2026, 1, 1),
+            "rollup_family": f"family_{seed}",
+        },
+        "skills": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"skill_{seed}",
+            "created_at": seed,
+            "last_updated_at": seed,
+        },
+        "skill_versions": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"skill_{seed}",
+            "version": seed,
+            "status": "active",
+            "created_at": seed,
+            "last_updated_at": seed,
+        },
+        "skill_tags": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"skill_{seed}",
+            "key": f"tag_{seed}",
+            "value": f"value_{seed}",
+        },
+        "skill_version_tags": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"skill_{seed}",
+            "version": seed,
+            "key": f"vtag_{seed}",
+            "value": f"value_{seed}",
+        },
+        "skill_aliases": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"skill_{seed}",
+            "alias": f"alias_{seed}",
+            "version": seed,
+        },
     }
     if table_name not in base_values:
         raise AssertionError(f"Unexpected table: {table_name}")
@@ -415,6 +576,16 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
     overrides = overrides or {}
     unknown = set(overrides) - set(table.c.keys())
     assert not unknown, f"Unknown columns for {table_name}: {unknown}"
+    if table_name == "mcp_server_versions":
+        parsed = parse_semver(values["version"])
+        if "version_major" in table.c:
+            values["version_major"] = parsed.major
+        if "version_minor" in table.c:
+            values["version_minor"] = parsed.minor
+        if "version_patch" in table.c:
+            values["version_patch"] = parsed.patch
+        if "version_prerelease_sort_key" in table.c:
+            values["version_prerelease_sort_key"] = encode_prerelease_sort_key(parsed)
     values.update(overrides)
     conn.execute(table.insert().values(**values))
 
@@ -448,6 +619,9 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
         ("secrets", ("secret_name",), "secrets with the same name"),
         ("endpoints", ("name",), "endpoints with the same name"),
         ("model_definitions", ("name",), "model definitions with the same name"),
+        ("mcp_servers", ("name",), "MCP servers with the same name"),
+        # Skills key their conflict on (organization, name)
+        ("skills", ("organization", "name"), "skills with the same organization and name"),
     ],
 )
 def test_migrate_to_default_workspace_conflict(tmp_path, table_name, conflict_columns, description):
@@ -509,4 +683,55 @@ def test_migrate_to_default_workspace_moves_rows(tmp_path):
                 table.c.workspace != DEFAULT_WORKSPACE_NAME
             )
             assert conn.execute(stmt).scalar_one() == 0
+    engine.dispose()
+
+
+@pytest.mark.parametrize("dry_run", [True, False])
+def test_migrate_to_default_workspace_blocks_mlflow_backed_skills(db_uri, dry_run):
+    engine = sqlalchemy.create_engine(db_uri)
+    with engine.begin() as conn:
+        _insert_row(conn, "skills", "team-a", seed=1)
+        _insert_row(
+            conn,
+            "skill_versions",
+            "team-a",
+            seed=1,
+            overrides={
+                "source_type": "mlflow",
+                "source": "mlflow-artifacts:/skills/org_1/skill_1/content",
+            },
+        )
+
+    with pytest.raises(RuntimeError, match="MLflow-backed skill versions"):
+        migrate_to_default_workspace(engine, dry_run=dry_run)
+
+    with engine.begin() as conn:
+        skill_versions = sqlalchemy.Table(
+            "skill_versions", sqlalchemy.MetaData(), autoload_with=conn
+        )
+        assert conn.execute(sqlalchemy.select(skill_versions.c.workspace)).scalar_one() == "team-a"
+    engine.dispose()
+
+
+def test_migrate_to_default_workspace_allows_external_skill_sources(db_uri):
+    engine = sqlalchemy.create_engine(db_uri)
+    with engine.begin() as conn:
+        _insert_row(conn, "skills", "team-a", seed=1)
+        _insert_row(
+            conn,
+            "skill_versions",
+            "team-a",
+            seed=1,
+            overrides={"source_type": "git", "source": "https://example.com/skills.git"},
+        )
+
+    migrate_to_default_workspace(engine)
+
+    with engine.begin() as conn:
+        skill_versions = sqlalchemy.Table(
+            "skill_versions", sqlalchemy.MetaData(), autoload_with=conn
+        )
+        assert conn.execute(sqlalchemy.select(skill_versions.c.workspace)).scalar_one() == (
+            DEFAULT_WORKSPACE_NAME
+        )
     engine.dispose()

@@ -1,4 +1,5 @@
 import json
+from typing import Literal
 from unittest import mock
 from unittest.mock import Mock, call, patch
 
@@ -56,6 +57,8 @@ from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.utils.uri import is_databricks_uri
 
 from tests.genai.conftest import databricks_only
+
+_EVALUATED_SENTINEL = "EVALUATED_USER_DATA_SENTINEL"
 
 
 @pytest.fixture
@@ -116,6 +119,7 @@ def test_retrieval_groundedness(sample_rag_trace):
                 ],
                 name="retrieval_groundedness",
                 model=None,
+                extra_headers=None,
             ),
             call(
                 request="{'question': 'query'}",
@@ -123,6 +127,7 @@ def test_retrieval_groundedness(sample_rag_trace):
                 context=[{"content": "content_3"}],
                 name="retrieval_groundedness",
                 model=None,
+                extra_headers=None,
             ),
         ],
     )
@@ -261,6 +266,39 @@ def test_retrieval_relevance_with_custom_model(sample_rag_trace):
         ]
 
 
+def test_retrieval_relevance_invokes_typesafe():
+    inference_params = {"temperature": 0}
+    extra_headers = {"X-Test": "value"}
+    with patch(
+        "mlflow.genai.judges.structured_judge._invoke_typesafe_judge",
+        return_value=Feedback(name="retrieval_relevance", value="yes"),
+    ) as mock_invoke:
+        RetrievalRelevance(
+            model="typesafe:/jev-latest",
+            inference_params=inference_params,
+            extra_headers=extra_headers,
+        )._compute_span_relevance(
+            "span-id",
+            _EVALUATED_SENTINEL,
+            [{"content": _EVALUATED_SENTINEL}],
+        )
+
+    mock_invoke.assert_called_once()
+    args, kwargs = mock_invoke.call_args
+    assert args == ("typesafe:/jev-latest",)
+    assert _EVALUATED_SENTINEL not in kwargs["instructions"]
+    assert kwargs["state"] == {
+        "input": _EVALUATED_SENTINEL,
+        "doc": _EVALUATED_SENTINEL,
+    }
+    assert kwargs["feedback_value_type"] == Literal["yes", "no"]
+    assert kwargs["assessment_name"] == "retrieval_relevance"
+    assert kwargs["inference_params"] == inference_params
+    assert kwargs["extra_headers"] == extra_headers
+    assert "json format" not in kwargs["instructions"].lower()
+    assert "rationale" not in kwargs["instructions"].lower()
+
+
 def test_retrieval_sufficiency(sample_rag_trace):
     # 1. Test with default scorer
     with patch(
@@ -284,6 +322,7 @@ def test_retrieval_sufficiency(sample_rag_trace):
                 expected_facts=["fact1", "fact2"],
                 name="retrieval_sufficiency",
                 model=None,
+                extra_headers=None,
             ),
             call(
                 request="{'question': 'query'}",
@@ -292,6 +331,7 @@ def test_retrieval_sufficiency(sample_rag_trace):
                 expected_facts=["fact1", "fact2"],
                 name="retrieval_sufficiency",
                 model=None,
+                extra_headers=None,
             ),
         ],
     )
@@ -315,6 +355,7 @@ def test_retrieval_sufficiency(sample_rag_trace):
         custom_scorer = RetrievalSufficiency(
             name="custom_sufficiency",
             model="openai:/gpt-4.1-mini",
+            extra_headers=None,
         )
         result = custom_scorer(trace=sample_rag_trace)
 
@@ -330,6 +371,7 @@ def test_retrieval_sufficiency(sample_rag_trace):
                 expected_facts=["fact1", "fact2"],
                 name="custom_sufficiency",
                 model="openai:/gpt-4.1-mini",
+                extra_headers=None,
             ),
             call(
                 request="{'question': 'query'}",
@@ -338,6 +380,7 @@ def test_retrieval_sufficiency(sample_rag_trace):
                 expected_facts=["fact1", "fact2"],
                 name="custom_sufficiency",
                 model="openai:/gpt-4.1-mini",
+                extra_headers=None,
             ),
         ],
     )
@@ -367,6 +410,7 @@ def test_retrieval_sufficiency_with_custom_expectations(sample_rag_trace):
                 expected_response="expected answer",
                 name="retrieval_sufficiency",
                 model=None,
+                extra_headers=None,
             ),
             call(
                 request="{'question': 'query'}",
@@ -375,6 +419,7 @@ def test_retrieval_sufficiency_with_custom_expectations(sample_rag_trace):
                 expected_response="expected answer",
                 name="retrieval_sufficiency",
                 model=None,
+                extra_headers=None,
             ),
         ],
     )
@@ -415,6 +460,7 @@ def test_guidelines():
         context={"request": "{'question': 'query'}", "response": "answer"},
         name="expectations_guidelines",
         model=None,
+        extra_headers=None,
     )
 
     # 2. Called with global guidelines
@@ -423,6 +469,7 @@ def test_guidelines():
             name="is_english",
             guidelines=["The response should be in English."],
             model="openai:/gpt-4.1-mini",
+            extra_headers=None,
         )
         is_english(inputs={"question": "query"}, outputs="answer")
 
@@ -431,6 +478,7 @@ def test_guidelines():
         context={"request": "{'question': 'query'}", "response": "answer"},
         name="is_english",
         model="openai:/gpt-4.1-mini",
+        extra_headers=None,
     )
 
     # 3. Test with string input (should wrap in list)
@@ -439,6 +487,7 @@ def test_guidelines():
             name="is_polite",
             guidelines="Be polite and respectful.",
             model="openai:/gpt-4.1-mini",
+            extra_headers=None,
         )
         is_polite(inputs={"question": "query"}, outputs="answer")
 
@@ -447,6 +496,7 @@ def test_guidelines():
         context={"request": "{'question': 'query'}", "response": "answer"},
         name="is_polite",
         model="openai:/gpt-4.1-mini",
+        extra_headers=None,
     )
 
 
@@ -463,6 +513,7 @@ def test_relevance_to_query():
         context="answer",
         name="relevance_to_query",
         model=None,
+        extra_headers=None,
     )
 
     # 2. Test with custom model parameter
@@ -470,6 +521,7 @@ def test_relevance_to_query():
         relevance_custom = RelevanceToQuery(
             name="custom_relevance",
             model="openai:/gpt-4.1-mini",
+            extra_headers=None,
         )
         relevance_custom(inputs={"question": "query"}, outputs="answer")
 
@@ -478,6 +530,7 @@ def test_relevance_to_query():
         context="answer",
         name="custom_relevance",
         model="openai:/gpt-4.1-mini",
+        extra_headers=None,
     )
 
 
@@ -564,12 +617,14 @@ def test_correctness():
         expected_response=None,
         name="correctness",
         model=None,
+        extra_headers=None,
     )
 
     with patch("mlflow.genai.judges.is_correct") as mock_is_correct:
         correctness_custom = Correctness(
             name="custom_correctness",
             model="openai:/gpt-4.1-mini",
+            extra_headers=None,
         )
         correctness_custom(
             inputs={"question": "query"},
@@ -584,6 +639,49 @@ def test_correctness():
         expected_response="expected answer",
         name="custom_correctness",
         model="openai:/gpt-4.1-mini",
+        extra_headers=None,
+    )
+
+
+@pytest.mark.parametrize("use_trace", [False, True])
+@pytest.mark.parametrize(
+    "model",
+    ["databricks", "openai:/gpt-4.1-mini", "anthropic:/claude-3-opus", "gemini:/gemini-2.5-flash"],
+)
+def test_correctness_with_multipart_response(use_trace, model):
+    inputs = {"question": "How do I configure retention?"}
+    outputs = {
+        "output": [
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": [
+                    {"type": "output_text", "text": "Open settings."},
+                    {"type": "output_text", "text": "\nSet retention to 30 days."},
+                    {"type": "output_text", "text": "\nSave the changes."},
+                ],
+            }
+        ]
+    }
+    kwargs = (
+        {"trace": create_simple_trace(inputs=inputs, outputs=outputs)}
+        if use_trace
+        else {"inputs": inputs, "outputs": outputs}
+    )
+
+    with patch("mlflow.genai.judges.is_correct") as mock_is_correct:
+        Correctness(model=model)(
+            **kwargs, expectations={"expected_facts": ["Retention is set to 30 days"]}
+        )
+
+    mock_is_correct.assert_called_once_with(
+        request="{'question': 'How do I configure retention?'}",
+        response="Open settings.\nSet retention to 30 days.\nSave the changes.",
+        expected_facts=["Retention is set to 30 days"],
+        expected_response=None,
+        name="correctness",
+        model=model,
+        extra_headers=None,
     )
 
 
@@ -1499,6 +1597,32 @@ def test_user_frustration_with_session():
         assert result.value == "none"
         assert result.rationale == "User is satisfied"
         mock_invoke_judge.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("scorer_cls", "kwargs"),
+    [
+        (UserFrustration, {}),
+        (ConversationCompleteness, {}),
+        (ConversationalSafety, {}),
+        (ConversationalToolCallEfficiency, {}),
+        (ConversationalRoleAdherence, {}),
+        (KnowledgeRetention, {}),
+        (ConversationalGuidelines, {"guidelines": "Be polite"}),
+    ],
+)
+def test_session_level_scorers_require_trace_column(scorer_cls, kwargs):
+    # BuiltInScorer precedes SessionLevelScorer in the MRO; without an explicit
+    # re-declaration its empty default shadows SessionLevelScorer's {"trace"}.
+    from mlflow.genai.scorers.builtin_scorers import MissingColumnsException
+
+    scorer = scorer_cls(**kwargs)
+    assert scorer.required_columns == {"trace"}
+
+    with pytest.raises(MissingColumnsException, match="trace"):
+        scorer.validate_columns(set())
+
+    scorer.validate_columns({"trace"})
 
 
 def test_user_frustration_with_custom_name_and_model(monkeypatch: pytest.MonkeyPatch):
@@ -2421,6 +2545,40 @@ def test_equivalence_passes_inference_params():
         mock_invoke.assert_called_once()
         _, kwargs = mock_invoke.call_args
         assert kwargs["inference_params"] == inference_params
+
+
+def test_equivalence_invokes_typesafe():
+    actual_output = f"actual_{_EVALUATED_SENTINEL}"
+    expected_output = f"expected_{_EVALUATED_SENTINEL}"
+    inference_params = {"temperature": 0}
+    extra_headers = {"X-Test": "value"}
+    with patch(
+        "mlflow.genai.judges.structured_judge._invoke_typesafe_judge",
+        return_value=Feedback(name="equivalence", value="yes"),
+    ) as mock_invoke:
+        Equivalence(
+            model="typesafe:/jev-latest",
+            inference_params=inference_params,
+            extra_headers=extra_headers,
+        )(
+            outputs=actual_output,
+            expectations={"expected_response": expected_output},
+        )
+
+    mock_invoke.assert_called_once()
+    args, kwargs = mock_invoke.call_args
+    assert args == ("typesafe:/jev-latest",)
+    assert _EVALUATED_SENTINEL not in kwargs["instructions"]
+    assert kwargs["state"] == {
+        "output": actual_output,
+        "expected_output": expected_output,
+    }
+    assert kwargs["feedback_value_type"] == Literal["yes", "no"]
+    assert kwargs["assessment_name"] == "equivalence"
+    assert kwargs["inference_params"] == inference_params
+    assert kwargs["extra_headers"] == extra_headers
+    assert "json format" not in kwargs["instructions"].lower()
+    assert "rationale" not in kwargs["instructions"].lower()
 
 
 def test_retrieval_relevance_passes_inference_params(sample_rag_trace):

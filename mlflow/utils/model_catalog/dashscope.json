@@ -1,12 +1,197 @@
 {
   "schema_version": "1.0",
   "models": {
+    "deepseek-v4-flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 393216
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.2,
+        "output_per_million_tokens": 0.4,
+        "cache_read_per_million_tokens": 0.04
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-27"
+    },
+    "deepseek-v4-flash-0731": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 393216
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.2,
+        "output_per_million_tokens": 0.4,
+        "cache_read_per_million_tokens": 0.04
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-27"
+    },
+    "deepseek-v4-pro": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 393216
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.4,
+        "output_per_million_tokens": 4.8,
+        "cache_read_per_million_tokens": 0.2
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-27"
+    },
+    "glm-5.1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 202745,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.4,
+        "output_per_million_tokens": 4.4,
+        "cache_read_per_million_tokens": 0.26
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-27"
+    },
+    "glm-5.2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.4,
+        "output_per_million_tokens": 4.4,
+        "cache_read_per_million_tokens": 0.28
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-27"
+    },
+    "happyhorse-1.0-i2v": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-15"
+    },
+    "happyhorse-1.0-r2v": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-15"
+    },
+    "happyhorse-1.0-t2v": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-15"
+    },
+    "happyhorse-1.1-i2v": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-15"
+    },
+    "happyhorse-1.1-r2v": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-15"
+    },
+    "happyhorse-1.1-t2v": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-15"
+    },
+    "kimi-k2.7-code": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 229376,
+        "max_output": 16384
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.95,
+        "output_per_million_tokens": 4.0,
+        "cache_read_per_million_tokens": 0.19
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-27"
+    },
     "qwen-coder": {
       "mode": "chat",
       "context_window": {
         "max_input": 1000000,
-        "max_output": 16384,
-        "max_tokens": 16384
+        "max_output": 16384
       },
       "pricing": {
         "input_per_million_tokens": 0.3,
@@ -19,14 +204,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen-flash": {
       "mode": "chat",
       "context_window": {
         "max_input": 997952,
-        "max_output": 32768,
-        "max_tokens": 32768
+        "max_output": 32768
       },
       "capabilities": {
         "function_calling": true,
@@ -35,14 +219,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen-flash-2025-07-28": {
       "mode": "chat",
       "context_window": {
         "max_input": 997952,
-        "max_output": 32768,
-        "max_tokens": 32768
+        "max_output": 32768
       },
       "capabilities": {
         "function_calling": true,
@@ -51,7 +234,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen-image-2.0": {
       "mode": "image_generation",
@@ -75,12 +258,33 @@
       },
       "last_updated_at": "2026-05-28"
     },
+    "qwen-image-3.0": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-31"
+    },
+    "qwen-image-3.0-pro": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-31"
+    },
     "qwen-max": {
       "mode": "chat",
       "context_window": {
         "max_input": 30720,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 8192
       },
       "pricing": {
         "input_per_million_tokens": 1.6,
@@ -93,14 +297,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen-plus": {
       "mode": "chat",
       "context_window": {
         "max_input": 129024,
-        "max_output": 16384,
-        "max_tokens": 16384
+        "max_output": 16384
       },
       "pricing": {
         "input_per_million_tokens": 0.4,
@@ -113,14 +316,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen-plus-2025-01-25": {
       "mode": "chat",
       "context_window": {
         "max_input": 129024,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 8192
       },
       "pricing": {
         "input_per_million_tokens": 0.4,
@@ -133,14 +335,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen-plus-2025-04-28": {
       "mode": "chat",
       "context_window": {
         "max_input": 129024,
-        "max_output": 16384,
-        "max_tokens": 16384
+        "max_output": 16384
       },
       "pricing": {
         "input_per_million_tokens": 0.4,
@@ -153,14 +354,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen-plus-2025-07-14": {
       "mode": "chat",
       "context_window": {
         "max_input": 129024,
-        "max_output": 16384,
-        "max_tokens": 16384
+        "max_output": 16384
       },
       "pricing": {
         "input_per_million_tokens": 0.4,
@@ -173,14 +373,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen-plus-2025-07-28": {
       "mode": "chat",
       "context_window": {
         "max_input": 997952,
-        "max_output": 32768,
-        "max_tokens": 32768
+        "max_output": 32768
       },
       "capabilities": {
         "function_calling": true,
@@ -189,14 +388,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen-plus-2025-09-11": {
       "mode": "chat",
       "context_window": {
         "max_input": 997952,
-        "max_output": 32768,
-        "max_tokens": 32768
+        "max_output": 32768
       },
       "capabilities": {
         "function_calling": true,
@@ -205,14 +403,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen-plus-latest": {
       "mode": "chat",
       "context_window": {
         "max_input": 997952,
-        "max_output": 32768,
-        "max_tokens": 32768
+        "max_output": 32768
       },
       "capabilities": {
         "function_calling": true,
@@ -221,14 +418,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen-turbo": {
       "mode": "chat",
       "context_window": {
         "max_input": 129024,
-        "max_output": 16384,
-        "max_tokens": 16384
+        "max_output": 16384
       },
       "pricing": {
         "input_per_million_tokens": 0.05,
@@ -241,14 +437,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen-turbo-2024-11-01": {
       "mode": "chat",
       "context_window": {
         "max_input": 1000000,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 8192
       },
       "pricing": {
         "input_per_million_tokens": 0.05,
@@ -261,14 +456,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen-turbo-2025-04-28": {
       "mode": "chat",
       "context_window": {
         "max_input": 1000000,
-        "max_output": 16384,
-        "max_tokens": 16384
+        "max_output": 16384
       },
       "pricing": {
         "input_per_million_tokens": 0.05,
@@ -281,14 +475,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen-turbo-latest": {
       "mode": "chat",
       "context_window": {
         "max_input": 1000000,
-        "max_output": 16384,
-        "max_tokens": 16384
+        "max_output": 16384
       },
       "pricing": {
         "input_per_million_tokens": 0.05,
@@ -301,14 +494,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen3-30b-a3b": {
       "mode": "chat",
       "context_window": {
         "max_input": 129024,
-        "max_output": 16384,
-        "max_tokens": 16384
+        "max_output": 16384
       },
       "capabilities": {
         "function_calling": true,
@@ -317,14 +509,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen3-coder-flash": {
       "mode": "chat",
       "context_window": {
         "max_input": 997952,
-        "max_output": 65536,
-        "max_tokens": 65536
+        "max_output": 65536
       },
       "capabilities": {
         "function_calling": true,
@@ -333,14 +524,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen3-coder-flash-2025-07-28": {
       "mode": "chat",
       "context_window": {
         "max_input": 997952,
-        "max_output": 65536,
-        "max_tokens": 65536
+        "max_output": 65536
       },
       "capabilities": {
         "function_calling": true,
@@ -349,14 +539,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen3-coder-plus": {
       "mode": "chat",
       "context_window": {
         "max_input": 997952,
-        "max_output": 65536,
-        "max_tokens": 65536
+        "max_output": 65536
       },
       "capabilities": {
         "function_calling": true,
@@ -365,14 +554,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen3-coder-plus-2025-07-22": {
       "mode": "chat",
       "context_window": {
         "max_input": 997952,
-        "max_output": 65536,
-        "max_tokens": 65536
+        "max_output": 65536
       },
       "capabilities": {
         "function_calling": true,
@@ -381,14 +569,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen3-max": {
       "mode": "chat",
       "context_window": {
         "max_input": 258048,
-        "max_output": 65536,
-        "max_tokens": 65536
+        "max_output": 65536
       },
       "capabilities": {
         "function_calling": true,
@@ -397,14 +584,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen3-max-2026-01-23": {
       "mode": "chat",
       "context_window": {
         "max_input": 258048,
-        "max_output": 65536,
-        "max_tokens": 65536
+        "max_output": 65536
       },
       "capabilities": {
         "function_calling": true,
@@ -413,14 +599,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen3-max-preview": {
       "mode": "chat",
       "context_window": {
         "max_input": 258048,
-        "max_output": 65536,
-        "max_tokens": 65536
+        "max_output": 65536
       },
       "capabilities": {
         "function_calling": true,
@@ -429,14 +614,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen3-next-80b-a3b-instruct": {
       "mode": "chat",
       "context_window": {
         "max_input": 262144,
-        "max_output": 65536,
-        "max_tokens": 65536
+        "max_output": 65536
       },
       "pricing": {
         "input_per_million_tokens": 0.15,
@@ -449,14 +633,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen3-next-80b-a3b-thinking": {
       "mode": "chat",
       "context_window": {
         "max_input": 262144,
-        "max_output": 65536,
-        "max_tokens": 65536
+        "max_output": 65536
       },
       "pricing": {
         "input_per_million_tokens": 0.15,
@@ -469,14 +652,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen3-vl-235b-a22b-instruct": {
       "mode": "chat",
       "context_window": {
         "max_input": 131072,
-        "max_output": 32768,
-        "max_tokens": 32768
+        "max_output": 32768
       },
       "pricing": {
         "input_per_million_tokens": 0.4,
@@ -489,14 +671,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen3-vl-235b-a22b-thinking": {
       "mode": "chat",
       "context_window": {
         "max_input": 131072,
-        "max_output": 32768,
-        "max_tokens": 32768
+        "max_output": 32768
       },
       "pricing": {
         "input_per_million_tokens": 0.4,
@@ -509,14 +690,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen3-vl-32b-instruct": {
       "mode": "chat",
       "context_window": {
         "max_input": 131072,
-        "max_output": 32768,
-        "max_tokens": 32768
+        "max_output": 32768
       },
       "pricing": {
         "input_per_million_tokens": 0.16,
@@ -529,14 +709,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen3-vl-32b-thinking": {
       "mode": "chat",
       "context_window": {
         "max_input": 131072,
-        "max_output": 32768,
-        "max_tokens": 32768
+        "max_output": 32768
       },
       "pricing": {
         "input_per_million_tokens": 0.16,
@@ -549,14 +728,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen3-vl-plus": {
       "mode": "chat",
       "context_window": {
         "max_input": 260096,
-        "max_output": 32768,
-        "max_tokens": 32768
+        "max_output": 32768
       },
       "capabilities": {
         "function_calling": true,
@@ -565,14 +743,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "qwen3.5-plus": {
       "mode": "chat",
       "context_window": {
         "max_input": 991808,
-        "max_output": 65536,
-        "max_tokens": 65536
+        "max_output": 65536
       },
       "capabilities": {
         "function_calling": true,
@@ -581,14 +758,110 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
+    },
+    "qwen3.7-max": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 991808,
+        "max_output": 65536
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.5,
+        "output_per_million_tokens": 7.5,
+        "cache_read_per_million_tokens": 0.5,
+        "cache_write_per_million_tokens": 3.125
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-27"
+    },
+    "qwen3.7-plus": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 991808,
+        "max_output": 65536
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-27"
+    },
+    "qwen3.8-flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 991808,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.47,
+        "cache_read_per_million_tokens": 0.016,
+        "cache_write_per_million_tokens": 0.2
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-27"
+    },
+    "qwen3.8-max": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 991808,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 6.0,
+        "cache_read_per_million_tokens": 0.25
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-27"
+    },
+    "qwen3.8-omni-flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 991808,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.47,
+        "cache_read_per_million_tokens": 0.016
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-27"
     },
     "qwq-plus": {
       "mode": "chat",
       "context_window": {
         "max_input": 98304,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 8192
       },
       "pricing": {
         "input_per_million_tokens": 0.8,
@@ -601,7 +874,62 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
+    },
+    "wan2.7-i2v": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-15"
+    },
+    "wan2.7-r2v": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-15"
+    },
+    "wan2.7-t2v": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-15"
+    },
+    "wan3.0-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-15"
+    },
+    "wan3.0-video-prime": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-15"
     }
   }
 }

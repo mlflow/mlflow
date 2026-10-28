@@ -16,6 +16,7 @@ import React, { useCallback, useMemo } from 'react';
 import {
   generatePath,
   useParams as useParamsDirect,
+  useHref as useHrefDirect,
   Link as LinkDirect,
   useLocation as useLocationDirect,
   useNavigate as useNavigateDirect,
@@ -231,25 +232,22 @@ const useParams = useParamsDirect;
 
 const useLocation = useLocationDirect;
 
+// Not workspace-prefixed: callers navigate to a path read from the current location, which already carries it.
+const useNavigate = useNavigateDirect;
+
 /**
- * Wrapper around react-router's useNavigate that applies the same workspace-prefixing as the
- * Link component, so programmatic navigation stays consistent with anchor-based navigation.
+ * Like `useNavigate`, but applies the same workspace prefixing as `Link`, for callers that
+ * navigate to a new route rather than to a path read from the current location.
  */
-const useNavigate = () => {
+const useWorkspaceNavigate = () => {
   const navigate = useNavigateDirect();
   return useCallback(
-    (to: To | number, options?: NavigateOptions) => {
-      // Numeric navigation (e.g. navigate(-1) for back) has no route to prefix; pass it through
-      // unchanged to match react-router's useNavigate signature.
-      if (typeof to === 'number') {
-        navigate(to);
-        return;
-      }
-      navigate(prefixRouteWithWorkspaceForTo(to), options);
-    },
+    (to: To, options?: NavigateOptions) => navigate(prefixRouteWithWorkspaceForTo(to), options),
     [navigate],
   );
 };
+
+const useHref = (to: To) => useHrefDirect(prefixRouteWithWorkspaceForTo(to));
 
 const Link = React.forwardRef<
   HTMLAnchorElement,
@@ -279,4 +277,14 @@ export const createMLflowRoutePath = (routePath: string) => {
   return routePath;
 };
 
-export { generatePath, useParams, Link, useLocation, useNavigate, useInRouterContext, BrowserRouter };
+export {
+  generatePath,
+  useParams,
+  Link,
+  useLocation,
+  useNavigate,
+  useWorkspaceNavigate,
+  useHref,
+  useInRouterContext,
+  BrowserRouter,
+};

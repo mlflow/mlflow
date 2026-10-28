@@ -13,6 +13,15 @@ import {
 
 import type { SubagentGroup, TokenUsage, ToolResultInfo, TranscriptEntry } from './types.js';
 import {
+  LLM_COST_ATTRIBUTE,
+  TRACE_COST_METADATA,
+  calculateCost,
+  setModelRates,
+  sumCosts,
+  type LlmCost,
+} from './pricing.js';
+import { loadCatalogRates } from './modelCatalog.js';
+import {
   extractTextContent,
   findFinalAssistantResponse,
   findLastUserMessageIndex,
@@ -27,6 +36,7 @@ import {
   METADATA_KEY_WORKING_DIRECTORY,
   buildUsageDict,
   extractContentAndTools,
+  getCurrentUser,
 } from './_internal.js';
 
 // ============================================================================
@@ -169,6 +179,36 @@ function setTokenUsageAttribute(span: LiveSpan, usage: TokenUsage | undefined): 
     return;
   }
   span.setAttribute(SpanAttributeKey.TOKEN_USAGE, buildUsageDict(usage));
+}
+
+type MsgContent = NonNullable<TranscriptEntry['message']>['content'];
+type LogicalMsg = { content: MsgContent; usage?: TokenUsage; model: string; lastIdx: number };
+function getLogicalAssistantMessage(transcript: TranscriptEntry[], startIdx: number): LogicalMsg {
+  const firstMessage = transcript[startIdx].message;
+  let content = firstMessage?.content ?? [];
+  let usage = firstMessage?.usage;
+  let model = firstMessage?.model ?? 'unknown';
+  const messageId = firstMessage?.id;
+  if (!messageId) {
+    return { content, usage, model, lastIdx: startIdx };
+  }
+  let lastIdx = startIdx;
+  for (let i = startIdx + 1; i < transcript.length; i++) {
+    const entry = transcript[i];
+    if (entry.type === 'progress') {
+      continue;
+    }
+    if (entry.type !== 'assistant' || entry.message?.id !== messageId) {
+      break;
+    }
+    lastIdx = i;
+    content = [content, entry.message.content].flatMap((part) =>
+      Array.isArray(part) ? part : [{ type: 'text' as const, text: part ?? '' }],
+    );
+    usage = entry.message.usage ? { ...usage, ...entry.message.usage } : usage;
+    model = model === 'unknown' ? (entry.message.model ?? model) : model;
+  }
+  return { content, usage, model, lastIdx };
 }
 
 // ============================================================================
@@ -339,6 +379,7 @@ function createLlmAndToolSpans(
   transcriptPath?: string,
 ): void {
   const subagentGroups = collectSubagentGroups(transcript, startIdx);
+  const emittedLlmMessageKeys = new Set<string>();
 
   for (let i = startIdx; i < transcript.length; i++) {
     const entry = transcript[i];
@@ -361,36 +402,62 @@ function createLlmAndToolSpans(
       continue;
     }
     const content = msg.content ?? [];
-    const usage = msg.usage;
 
-    const [textContent, toolUses] = extractContentAndTools(content);
+    const [, toolUses] = extractContentAndTools(content);
+    const messageKey = msg.id ? `id:${msg.id}` : `idx:${i}`;
+    const logicalMessage = getLogicalAssistantMessage(transcript, i);
+    const [logicalTextContent, logicalToolUses] = extractContentAndTools(logicalMessage.content);
+    const hasLogicalThinking =
+      Array.isArray(logicalMessage.content) &&
+      logicalMessage.content.some((part) => part?.type === 'thinking');
+    const shouldCreateLlmSpan =
+      !emittedLlmMessageKeys.has(messageKey) &&
+      (logicalTextContent.trim() || hasLogicalThinking || logicalMessage.usage);
+    emittedLlmMessageKeys.add(messageKey);
 
-    // Create LLM span if there's text content (no tools)
-    if (textContent.trim() && !toolUses.length) {
+    if (shouldCreateLlmSpan) {
+      const fallbackEndTimeNs =
+        (parseTimestampToNs(transcript[logicalMessage.lastIdx].timestamp) ?? timestampNs) +
+        NANOSECONDS_PER_S;
+      const nextLogicalTimestampNs = getNextTimestampNs(transcript, logicalMessage.lastIdx);
+      const llmEndTimeNs =
+        logicalToolUses.length && nextLogicalTimestampNs
+          ? Math.min(nextLogicalTimestampNs, fallbackEndTimeNs)
+          : (nextLogicalTimestampNs ?? fallbackEndTimeNs);
       const messages = getInputMessages(transcript, i);
-      const model = msg.model ?? 'unknown';
 
       const llmSpan = startSpan({
         name: 'llm',
         parent: parentSpan,
         spanType: SpanType.LLM,
         startTimeNs: timestampNs,
-        inputs: { model, messages },
+        inputs: { model: logicalMessage.model, messages },
         attributes: {
-          model,
-          'mlflow.llm.model': model,
+          model: logicalMessage.model,
+          'mlflow.llm.model': logicalMessage.model,
           [SpanAttributeKey.MESSAGE_FORMAT]: 'anthropic',
         },
       });
 
-      setTokenUsageAttribute(llmSpan, usage);
+      setTokenUsageAttribute(llmSpan, logicalMessage.usage);
+
+      // Compute cost from model + usage on every backend. Databricks does not
+      // compute it server-side, and the OSS server's computation
+      // (sqlalchemy_store.log_spans) never sees these spans because the TS SDK
+      // exports trace data as an artifact blob. If the SDK adopts the span-row
+      // export, scope this to Databricks like Python's
+      // should_compute_cost_client_side().
+      const cost = calculateCost(logicalMessage.model, logicalMessage.usage);
+      if (cost) {
+        llmSpan.setAttribute(LLM_COST_ATTRIBUTE, cost);
+      }
 
       llmSpan.setOutputs({
         type: 'message',
         role: 'assistant',
-        content,
+        content: logicalMessage.content,
       });
-      llmSpan.end({ endTimeNs: timestampNs + durationNs });
+      llmSpan.end({ endTimeNs: llmEndTimeNs });
     }
 
     // Create tool spans with proportional timing
@@ -485,6 +552,10 @@ export async function processTranscript(transcriptPath: string, sessionId?: stri
 
     const convStartNs = parseTimestampToNs(lastUserEntry.timestamp);
 
+    // Prefer fresh rates from the published model catalog (filesystem TTL cache);
+    // calculateCost falls back to the bundled snapshot when unavailable.
+    setModelRates(await loadCatalogRates());
+
     const parentSpan = startSpan({
       name: 'claude_code_conversation',
       inputs: { prompt: userPromptText },
@@ -513,7 +584,7 @@ export async function processTranscript(transcriptPath: string, sessionId?: stri
         const metadata: Record<string, string> = {
           ...trace.info.traceMetadata,
           [TraceMetadataKey.TRACE_SESSION]: sessionId,
-          [TraceMetadataKey.TRACE_USER]: process.env.USER ?? '',
+          [TraceMetadataKey.TRACE_USER]: getCurrentUser(),
           [METADATA_KEY_WORKING_DIRECTORY]: process.cwd(),
         };
 
@@ -532,6 +603,17 @@ export async function processTranscript(transcriptPath: string, sessionId?: stri
           metadata[METADATA_KEY_CLAUDE_CODE_VERSION] = claudeCodeVersion;
         }
 
+        // Aggregate per-call costs (including sub-agents, which share this trace)
+        // into a trace-level total so the trace's cost column is populated.
+        const traceCost = sumCosts(
+          Array.from(trace.spanDict.values())
+            .map((span) => span.getAttribute(LLM_COST_ATTRIBUTE) as LlmCost | undefined)
+            .filter((c): c is LlmCost => c != null),
+        );
+        if (traceCost) {
+          metadata[TRACE_COST_METADATA] = JSON.stringify(traceCost);
+        }
+
         trace.info.traceMetadata = metadata;
       }
     } catch (err) {
@@ -541,6 +623,9 @@ export async function processTranscript(transcriptPath: string, sessionId?: stri
     // Calculate end time
     const lastEntry = transcript[transcript.length - 1];
     let convEndNs = parseTimestampToNs(lastEntry.timestamp);
+    if (convEndNs) {
+      convEndNs += NANOSECONDS_PER_S;
+    }
     if (!convEndNs || (convStartNs && convEndNs <= convStartNs)) {
       convEndNs = (convStartNs ?? 0) + Math.floor(10 * NANOSECONDS_PER_S);
     }

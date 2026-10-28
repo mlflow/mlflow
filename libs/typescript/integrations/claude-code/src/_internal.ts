@@ -18,6 +18,10 @@ export const METADATA_KEY_CLAUDE_CODE_VERSION = 'mlflow.claude_code_version';
 export const METADATA_KEY_WORKING_DIRECTORY = 'mlflow.trace.working_directory';
 export const METADATA_KEY_PERMISSION_MODE = 'mlflow.trace.permission_mode';
 
+export function getCurrentUser(): string {
+  return process.env.USER || process.env.USERNAME || '';
+}
+
 // ============================================================================
 // Content / token helpers
 // ============================================================================
@@ -58,15 +62,16 @@ export function extractContentAndTools(
 
 /**
  * Normalize a Claude Code usage payload into the TOKEN_USAGE schema.
- * Stores fields as the Anthropic API reports them, matching
- * `mlflow.anthropic.autolog`: `input_tokens` is the non-cached input,
- * cache tokens are exposed as separate optional keys so consumers can
- * compute cache hit rate, and `total_tokens` follows the
- * `mlflow.anthropic` convention of `input_tokens + output_tokens`
- * (cache tokens excluded).
+ * Includes cache-read and cache-creation tokens in `input_tokens` and
+ * `total_tokens`, matching `mlflow.anthropic.autolog`. Cache tokens are also
+ * exposed as separate optional keys so consumers can compute cache hit rate.
  */
 export function buildUsageDict(usage: TokenUsage): Record<string, number> {
-  const inputTokens = usage.input_tokens ?? 0;
+  // Anthropic reports input_tokens excluding cache tokens.
+  const inputTokens =
+    (usage.input_tokens ?? 0) +
+    (usage.cache_read_input_tokens ?? 0) +
+    (usage.cache_creation_input_tokens ?? 0);
   const outputTokens = usage.output_tokens ?? 0;
 
   const usageDict: Record<string, number> = {

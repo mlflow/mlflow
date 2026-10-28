@@ -1,4 +1,4 @@
-import { Button, ChevronDownIcon, DropdownMenu, Modal } from '@databricks/design-system';
+import { Button, ChevronDownIcon, DropdownMenu, Modal, OverflowIcon } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
 import type { RowSelectionState } from '@tanstack/react-table';
 import { useCallback, useMemo, useState } from 'react';
@@ -14,7 +14,11 @@ export const ExperimentEvaluationRunsTableActions = ({
   selectedRunUuid,
   compareToRunUuid,
   enableImprovedComparison,
+  enableNewCompare = false,
+  foldCompareIntoMenu = false,
   setIsComparisonMode,
+  onFilterChartToSelectedRuns,
+  isChartFilteredToSelection = false,
 }: {
   rowSelection: RowSelectionState;
   setRowSelection: (selection: RowSelectionState) => void;
@@ -23,7 +27,13 @@ export const ExperimentEvaluationRunsTableActions = ({
   selectedRunUuid?: string;
   compareToRunUuid?: string;
   enableImprovedComparison?: boolean;
+  /** New-compare flag: the standalone Compare button owns navigation, so this menu hides Compare. */
+  enableNewCompare?: boolean;
+  /** V2 folds Compare into this menu and includes the selected-run count in the trigger label. */
+  foldCompareIntoMenu?: boolean;
   setIsComparisonMode?: (isComparisonMode: boolean) => void;
+  onFilterChartToSelectedRuns?: () => void;
+  isChartFilteredToSelection?: boolean;
 }) => {
   const intl = useIntl();
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
@@ -69,24 +79,63 @@ export const ExperimentEvaluationRunsTableActions = ({
 
   const isCompareDisabled = !isCompareEnabled || isAlreadyComparingSelectedRuns;
 
+  // The legacy toolbar with improved comparison renders its own Compare button; V2 always folds it in here.
+  const showCompareItem = !enableNewCompare && (foldCompareIntoMenu || !enableImprovedComparison);
+
   const noRunsSelected = selectedRunUuids.length === 0;
 
   return (
     <>
       <DropdownMenu.Root>
-        <DropdownMenu.Trigger asChild>
-          <Button
-            type="primary"
-            componentId="mlflow.eval-runs.actions-button"
-            disabled={noRunsSelected}
-            endIcon={<ChevronDownIcon />}
-          >
-            <FormattedMessage defaultMessage="Actions" description="Experiment evaluation runs table actions button" />
-          </Button>
+        <DropdownMenu.Trigger asChild disabled={noRunsSelected}>
+          {enableNewCompare ? (
+            <Button
+              componentId="mlflow.eval-runs.actions-button"
+              disabled={noRunsSelected}
+              icon={<OverflowIcon />}
+              aria-label={intl.formatMessage({
+                defaultMessage: 'Actions',
+                description: 'Accessible label for the experiment evaluation runs actions menu button',
+              })}
+            />
+          ) : (
+            <Button
+              type="primary"
+              componentId="mlflow.eval-runs.actions-button"
+              disabled={noRunsSelected}
+              endIcon={<ChevronDownIcon />}
+            >
+              {foldCompareIntoMenu ? (
+                <FormattedMessage
+                  defaultMessage="Actions ({numRuns})"
+                  description="Experiment evaluation runs table actions button, with the number of selected runs"
+                  values={{ numRuns: selectedRunUuids.length }}
+                />
+              ) : (
+                <FormattedMessage
+                  defaultMessage="Actions"
+                  description="Experiment evaluation runs table actions button"
+                />
+              )}
+            </Button>
+          )}
         </DropdownMenu.Trigger>
-        <DropdownMenu.Content>
-          {/* Original Compare option in dropdown (when flag is OFF) */}
-          {!enableImprovedComparison && (
+        <DropdownMenu.Content {...(enableNewCompare ? { align: 'end' as const } : {})}>
+          {onFilterChartToSelectedRuns && (
+            <DropdownMenu.CheckboxItem
+              componentId="mlflow.eval-runs.actions.filter-chart-to-selected"
+              checked={isChartFilteredToSelection}
+              onSelect={onFilterChartToSelectedRuns}
+              css={(theme) => ({ paddingLeft: theme.spacing.sm + theme.spacing.xs })}
+            >
+              <FormattedMessage
+                defaultMessage="Filter chart to selected runs"
+                description="Evaluation runs action to show only selected runs in the chart"
+              />
+              <DropdownMenu.ItemIndicator css={{ position: 'static', marginLeft: 'auto' }} />
+            </DropdownMenu.CheckboxItem>
+          )}
+          {showCompareItem && (
             <DropdownMenu.Item
               componentId="mlflow.eval-runs.actions.compare"
               onClick={handleCompare}
@@ -101,7 +150,23 @@ export const ExperimentEvaluationRunsTableActions = ({
               <FormattedMessage defaultMessage="Compare" description="Compare evaluation runs action" />
             </DropdownMenu.Item>
           )}
-          <DropdownMenu.Item componentId="mlflow.eval-runs.actions.delete" onClick={() => setDeleteModalVisible(true)}>
+          {/*
+            The Trigger above is disabled when no runs are selected, so this item is normally
+            unreachable in that state. We keep the item-level disabled guard (and tooltip, matching
+            Compare) as defense-in-depth: it stays correct if the Trigger is ever re-enabled, and it
+            prevents opening a "Delete 0 runs" modal.
+          */}
+          <DropdownMenu.Item
+            componentId="mlflow.eval-runs.actions.delete"
+            onClick={() => setDeleteModalVisible(true)}
+            disabled={noRunsSelected}
+            disabledReason={
+              <FormattedMessage
+                defaultMessage="Please select at least 1 run to delete"
+                description="Tooltip for disabled delete action in evaluation runs table actions"
+              />
+            }
+          >
             <FormattedMessage defaultMessage="Delete runs" description="Delete evaluation runs action" />
           </DropdownMenu.Item>
         </DropdownMenu.Content>

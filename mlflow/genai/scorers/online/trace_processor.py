@@ -1,12 +1,19 @@
 """Online scoring processor for executing scorers on traces."""
 
 import logging
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from mlflow.entities import Trace
-from mlflow.environment_variables import MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS
-from mlflow.genai.scorers.base import Scorer
+from mlflow.environment_variables import (
+    MLFLOW_GENAI_EVAL_MAX_RETRIES,
+    MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT,
+    MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS,
+)
+from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers.base import Scorer, _UnexecutedDecoratorScorer
 from mlflow.genai.scorers.online.constants import EXCLUDE_EVAL_RUN_TRACES_FILTER, MAX_TRACES_PER_JOB
 from mlflow.genai.scorers.online.entities import OnlineScorer
 from mlflow.genai.scorers.online.sampler import OnlineScorerSampler
@@ -16,6 +23,11 @@ from mlflow.genai.scorers.online.trace_checkpointer import (
 )
 from mlflow.genai.scorers.online.trace_loader import OnlineTraceLoader
 from mlflow.store.tracking.abstract_store import AbstractStore
+
+if TYPE_CHECKING:
+    # Type-only: importing the job container code here would import the server's job package,
+    # which imports this module back through the tracking store.
+    from mlflow.genai.scorers.online.container_scoring import OnlineContainerScorer
 
 _logger = logging.getLogger(__name__)
 
@@ -38,11 +50,13 @@ class OnlineTraceScoringProcessor:
         checkpoint_manager: OnlineTraceCheckpointManager,
         sampler: OnlineScorerSampler,
         experiment_id: str,
+        container_scorer: "OnlineContainerScorer | None" = None,
     ):
         self._trace_loader = trace_loader
         self._checkpoint_manager = checkpoint_manager
         self._sampler = sampler
         self._experiment_id = experiment_id
+        self._container_scorer = container_scorer
 
     @classmethod
     def create(
@@ -50,6 +64,7 @@ class OnlineTraceScoringProcessor:
         experiment_id: str,
         online_scorers: list[OnlineScorer],
         tracking_store: AbstractStore,
+        container_scorer: "OnlineContainerScorer | None" = None,
     ) -> "OnlineTraceScoringProcessor":
         """
         Factory method to create an OnlineTraceScoringProcessor with dependencies.
@@ -58,6 +73,8 @@ class OnlineTraceScoringProcessor:
             experiment_id: The experiment ID to process traces from.
             online_scorers: List of OnlineScorer instances.
             tracking_store: The tracking store instance.
+            container_scorer: If given, custom ``@scorer`` scorers run in job containers through
+                it, and their code never runs in this process.
 
         Returns:
             Configured OnlineTraceScoringProcessor instance.
@@ -65,8 +82,11 @@ class OnlineTraceScoringProcessor:
         return cls(
             trace_loader=OnlineTraceLoader(tracking_store),
             checkpoint_manager=OnlineTraceCheckpointManager(tracking_store, experiment_id),
-            sampler=OnlineScorerSampler(online_scorers),
+            sampler=OnlineScorerSampler(
+                online_scorers, run_custom_scorers_on_host=container_scorer is None
+            ),
             experiment_id=experiment_id,
+            container_scorer=container_scorer,
         )
 
     def process_traces(self) -> None:
@@ -84,6 +104,24 @@ class OnlineTraceScoringProcessor:
             f"time window [{time_window.min_trace_timestamp_ms}, "
             f"{time_window.max_trace_timestamp_ms}]"
         )
+
+        current_time_ms = int(time.time() * 1000)
+        if checkpoint is not None and checkpoint.timestamp_ms > current_time_ms:
+            _logger.warning(
+                f"Trace scoring checkpoint for experiment {self._experiment_id} is in the "
+                "future; resetting it to the current server time"
+            )
+            self._checkpoint_manager.persist_checkpoint(
+                OnlineTraceScoringCheckpoint(timestamp_ms=current_time_ms, trace_id=None)
+            )
+            return
+
+        # A checkpoint created before the completion buffer was enabled can be ahead
+        # of the buffered upper bound. Wait instead of querying an inverted window or
+        # overwriting its trace ID tie-breaker.
+        if checkpoint is not None and time_window.max_trace_timestamp_ms <= checkpoint.timestamp_ms:
+            _logger.debug("Buffered trace scoring window has not advanced, skipping")
+            return
 
         tasks = self._build_scoring_tasks(time_window, checkpoint)
 
@@ -110,9 +148,12 @@ class OnlineTraceScoringProcessor:
 
         # Find the trace with the latest timestamp to use for checkpoint
         if full_traces:
-            latest_trace = max(full_traces, key=lambda t: (t.info.timestamp_ms, t.info.trace_id))
+            latest_trace = max(
+                full_traces,
+                key=lambda t: (tasks[t.info.trace_id].timestamp_ms, t.info.trace_id),
+            )
             checkpoint = OnlineTraceScoringCheckpoint(
-                timestamp_ms=latest_trace.info.timestamp_ms,
+                timestamp_ms=tasks[latest_trace.info.trace_id].timestamp_ms,
                 trace_id=latest_trace.info.trace_id,
             )
         else:
@@ -216,16 +257,24 @@ class OnlineTraceScoringProcessor:
         """
         from mlflow.entities import AssessmentSource, AssessmentSourceType, Feedback
         from mlflow.genai.evaluation.harness import _log_assessments
+        from mlflow.genai.evaluation.utils import add_scorer_metadata
 
         error_feedbacks = [
             Feedback(
                 name=scorer.name,
                 error=error,
-                source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE),
+                # Custom scorers' errors have the same source as their results.
+                source=AssessmentSource(
+                    source_type=AssessmentSourceType.CODE, source_id=scorer.name
+                )
+                if isinstance(scorer, _UnexecutedDecoratorScorer)
+                else AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE),
                 trace_id=trace.info.trace_id,
             )
             for scorer in scorers
         ]
+        for scorer, feedback in zip(scorers, error_feedbacks, strict=True):
+            add_scorer_metadata(scorer, [feedback])
         try:
             _log_assessments(trace=trace, assessments=error_feedbacks, run_id=None)
         except Exception as log_error:
@@ -234,12 +283,51 @@ class OnlineTraceScoringProcessor:
                 exc_info=_logger.isEnabledFor(logging.DEBUG),
             )
 
-    def _execute_scoring(
-        self,
-        tasks: dict[str, TraceScoringTask],
-    ) -> None:
+    def _execute_scoring(self, tasks: dict[str, TraceScoringTask]) -> None:
         """
-        Execute trace scoring tasks in parallel.
+        Execute trace scoring tasks: custom scorers in job containers when a container scorer is
+        set, and all other scorers in parallel in this process.
+
+        Args:
+            tasks: Trace-level scoring tasks.
+        """
+        if self._container_scorer is None:
+            self._execute_scoring_on_host(tasks)
+            return
+
+        host_tasks: dict[str, TraceScoringTask] = {}
+        container_work: dict[str, tuple[OnlineScorer, list[Trace]]] = {}
+        for trace_id, task in tasks.items():
+            if task.trace is None:
+                _logger.warning(f"Skipping task with no trace for trace_id: {trace_id}")
+                continue
+            host_scorers = []
+            for scorer in task.scorers:
+                # The sampler loads custom scorers without their code in this mode.
+                if isinstance(scorer, _UnexecutedDecoratorScorer):
+                    online_scorer = self._sampler.online_scorer(scorer.name)
+                    container_work.setdefault(scorer.name, (online_scorer, []))[1].append(
+                        task.trace
+                    )
+                else:
+                    host_scorers.append(scorer)
+            if host_scorers:
+                host_tasks[trace_id] = TraceScoringTask(
+                    trace=task.trace, scorers=host_scorers, timestamp_ms=task.timestamp_ms
+                )
+
+        self._execute_scoring_on_host(host_tasks)
+
+        def on_failure(online_scorer: OnlineScorer, traces: list[Trace], error: str) -> None:
+            scorer = self._sampler.scorer(online_scorer.name)
+            for trace in traces:
+                self._log_error_assessments(MlflowException(error), [scorer], trace)
+
+        self._container_scorer.score(list(container_work.values()), on_failure)
+
+    def _execute_scoring_on_host(self, tasks: dict[str, TraceScoringTask]) -> None:
+        """
+        Execute trace scoring tasks in parallel in this process.
 
         Args:
             tasks: Trace-level scoring tasks.
@@ -247,7 +335,34 @@ class OnlineTraceScoringProcessor:
         # Import evaluation modules lazily to avoid pulling in pandas at module load
         # time, which would break the skinny client.
         from mlflow.genai.evaluation.entities import EvalItem
-        from mlflow.genai.evaluation.harness import _compute_eval_scores, _log_assessments
+        from mlflow.genai.evaluation.harness import (
+            _compute_eval_scores,
+            _get_scorer_rate_config,
+            _log_assessments,
+            _make_rate_limiter,
+            _parse_rate_limit,
+        )
+        from mlflow.genai.evaluation.rate_limiter import eval_retry_context
+
+        # No predict step here, so gate scorer calls via _get_scorer_rate_config (same as the
+        # programmatic path): it honors MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT, else scales by the
+        # count of distinct scorers running this tick.
+        predict_rps, predict_adaptive = _parse_rate_limit(
+            MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT.get()
+        )
+        num_scorers = len({scorer.name for task in tasks.values() for scorer in task.scorers}) or 1
+        scorer_rps, adaptive = _get_scorer_rate_config(predict_rps, predict_adaptive, num_scorers)
+        rate_limiter = _make_rate_limiter(scorer_rps, adaptive=adaptive)
+        max_retries = MLFLOW_GENAI_EVAL_MAX_RETRIES.get()
+
+        def _score_with_rate_limiting(eval_item, scorers):
+            with eval_retry_context():
+                return _compute_eval_scores(
+                    eval_item=eval_item,
+                    scorers=scorers,
+                    rate_limiter=rate_limiter,
+                    max_retries=max_retries,
+                )
 
         with ThreadPoolExecutor(
             max_workers=MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS.get(),
@@ -260,7 +375,9 @@ class OnlineTraceScoringProcessor:
                     continue
                 eval_item = EvalItem.from_trace(task.trace)
                 future = executor.submit(
-                    _compute_eval_scores, eval_item=eval_item, scorers=task.scorers
+                    _score_with_rate_limiting,
+                    eval_item=eval_item,
+                    scorers=task.scorers,
                 )
                 futures[future] = task
 

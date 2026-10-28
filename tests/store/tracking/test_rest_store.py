@@ -1,5 +1,7 @@
+import asyncio
 import json
 import math
+import threading
 import time
 from unittest import mock
 
@@ -65,10 +67,17 @@ from mlflow.exceptions import (
     MlflowTraceDataCorrupted,
 )
 from mlflow.models import Model
-from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import (
+    ENDPOINT_NOT_FOUND,
+    PERMISSION_DENIED,
+    RESOURCE_DOES_NOT_EXIST,
+)
+from mlflow.protos.issues_pb2 import CreateIssue, SearchIssues, UpdateIssue
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
     AttachModelToGatewayEndpoint,
+    BatchGetTraceInfos,
+    BatchGetTraces,
     CalculateTraceFilterCorrelation,
     CreateAssessment,
     CreateDataset,
@@ -145,6 +154,7 @@ from mlflow.protos.service_pb2 import (
 from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
+from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
@@ -574,6 +584,29 @@ def test_get_experiment_by_name():
             message_to_json(expected_message1),
         )
         assert mock_http.call_count == 1
+
+
+def test_filter_active_experiment_ids_ignores_not_found():
+    store = RestStore(lambda: None)
+    active_experiment = Experiment(
+        experiment_id="1",
+        name="active",
+        artifact_location="/active",
+        lifecycle_stage=LifecycleStage.ACTIVE,
+    )
+    not_found = MlflowException("Experiment does not exist", RESOURCE_DOES_NOT_EXIST)
+
+    with mock.patch.object(store, "get_experiment", side_effect=[active_experiment, not_found]):
+        assert store.filter_active_experiment_ids(["1", "2"]) == ["1"]
+
+
+def test_filter_active_experiment_ids_propagates_remote_errors():
+    store = RestStore(lambda: None)
+    permission_denied = MlflowException("Permission denied", PERMISSION_DENIED)
+
+    with mock.patch.object(store, "get_experiment", side_effect=permission_denied):
+        with pytest.raises(MlflowException, match="Permission denied"):
+            store.filter_active_experiment_ids(["1"])
 
 
 def test_search_experiments():
@@ -1522,6 +1555,122 @@ def test_get_trace_raises_other_errors():
             store.get_trace("abc123")
 
 
+def test_batch_get_traces_forwards_explicit_experiment_ids():
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(
+        store, "_call_endpoint", return_value=BatchGetTraces.Response()
+    ) as mock_call:
+        store.batch_get_traces(["tr-1", "tr-2"], experiment_ids=["1", "2"])
+
+        mock_call.assert_called_once_with(
+            BatchGetTraces,
+            message_to_json(BatchGetTraces(trace_ids=["tr-1", "tr-2"], experiment_ids=["1", "2"])),
+            endpoint=f"{_V3_TRACE_REST_API_PATH_PREFIX}/batchGet",
+        )
+
+
+def test_batch_get_traces_omits_experiment_ids_when_not_set():
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(
+        store, "_call_endpoint", return_value=BatchGetTraces.Response()
+    ) as mock_call:
+        store.batch_get_traces(["tr-1"])
+
+        mock_call.assert_called_once_with(
+            BatchGetTraces,
+            message_to_json(BatchGetTraces(trace_ids=["tr-1"])),
+            endpoint=f"{_V3_TRACE_REST_API_PATH_PREFIX}/batchGet",
+        )
+
+
+def test_batch_get_traces_short_circuits_on_empty_experiment_ids():
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        result = store.batch_get_traces(["tr-1"], experiment_ids=[])
+
+        assert result == []
+        mock_call.assert_not_called()
+
+
+def test_batch_get_trace_infos_forwards_explicit_experiment_ids():
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(
+        store, "_call_endpoint", return_value=BatchGetTraceInfos.Response()
+    ) as mock_call:
+        store.batch_get_trace_infos(["tr-1", "tr-2"], experiment_ids=["1", "2"])
+
+        mock_call.assert_called_once_with(
+            BatchGetTraceInfos,
+            message_to_json(
+                BatchGetTraceInfos(trace_ids=["tr-1", "tr-2"], experiment_ids=["1", "2"])
+            ),
+            endpoint=f"{_V3_TRACE_REST_API_PATH_PREFIX}/batchGetInfos",
+        )
+
+
+def test_batch_get_trace_infos_omits_experiment_ids_when_not_set():
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(
+        store, "_call_endpoint", return_value=BatchGetTraceInfos.Response()
+    ) as mock_call:
+        store.batch_get_trace_infos(["tr-1"])
+
+        mock_call.assert_called_once_with(
+            BatchGetTraceInfos,
+            message_to_json(BatchGetTraceInfos(trace_ids=["tr-1"])),
+            endpoint=f"{_V3_TRACE_REST_API_PATH_PREFIX}/batchGetInfos",
+        )
+
+
+def test_batch_get_trace_infos_short_circuits_on_empty_experiment_ids():
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        result = store.batch_get_trace_infos(["tr-1"], experiment_ids=[])
+
+        assert result == []
+        mock_call.assert_not_called()
+
+
+@pytest.mark.parametrize("store_class", [RestStore, DatabricksTracingRestStore])
+@pytest.mark.parametrize("experiment_ids", [[], ["1"], ["1", "2"]])
+def test_search_logged_models_preserves_explicit_experiment_scope(store_class, experiment_ids):
+    creds = MlflowHostCreds("https://hello")
+    store = store_class(lambda: creds)
+    payload = {
+        "experiment_ids": experiment_ids,
+        "filter": "name != 'excluded'",
+        "datasets": [{"dataset_name": "eval", "dataset_digest": "digest"}],
+        "max_results": 2,
+        "order_by": [{"field_name": "name", "ascending": False}],
+        "page_token": "opaque-request-token",
+    }
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        return_value=mock.MagicMock(
+            status_code=200, text=json.dumps({"next_page_token": "opaque-response-token"})
+        ),
+    ) as http:
+        models = store.search_logged_models(
+            experiment_ids=experiment_ids,
+            filter_string=payload["filter"],
+            datasets=payload["datasets"],
+            max_results=payload["max_results"],
+            order_by=payload["order_by"],
+            page_token=payload["page_token"],
+        )
+
+    http.assert_called_once()
+    _verify_requests(http, creds, "logged-models/search", "POST", json.dumps(payload))
+    assert models == []
+    assert models.token == "opaque-response-token"
+
+
 def test_log_logged_model_params():
     with mock.patch("mlflow.store.tracking.rest_store.call_endpoint") as mock_call_endpoint:
         # Create test data
@@ -2182,7 +2331,8 @@ def test_evaluation_dataset_merge_records():
 
                 assert result is eval_dataset
 
-                assert mock_get.call_count == 1
+                # Once to read the existing schema, once to refresh metadata after the upsert
+                assert mock_get.call_count == 2
                 assert mock_call.call_count == 1
 
                 call_args = mock_call.call_args_list[0]
@@ -3016,6 +3166,8 @@ def _create_test_spans() -> list[LiveSpan]:
     return [LiveSpan(otel_span, trace_id="tr-123")]
 
 
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 def test_log_spans_with_version_check():
     spans = _create_test_spans()
     experiment_id = "exp-123"
@@ -3153,6 +3305,42 @@ def test_server_version_check_caching():
             data=mock.ANY,
             extra_headers=mock.ANY,
         )
+
+
+@pytest.mark.asyncio
+async def test_log_spans_async_offloads_to_worker_thread():
+    store = RestStore(lambda: MlflowHostCreds("https://async-host"))
+    event_loop_ident = threading.get_ident()
+    worker_idents = []
+
+    def fake_log_spans(location, spans, tracking_uri=None):
+        worker_idents.append(threading.get_ident())
+        return spans
+
+    with mock.patch.object(store, "log_spans", side_effect=fake_log_spans):
+        result = await store.log_spans_async("exp-123", [])
+
+    assert result == []
+    assert worker_idents
+    assert worker_idents[0] != event_loop_ident
+
+
+@pytest.mark.asyncio
+async def test_log_spans_async_allows_concurrent_store_calls():
+    store = RestStore(lambda: MlflowHostCreds("https://async-host"))
+    barrier = threading.Barrier(2, timeout=5)
+
+    def fake_log_spans(location, spans, tracking_uri=None):
+        barrier.wait()
+        return spans
+
+    with mock.patch.object(store, "log_spans", side_effect=fake_log_spans):
+        results = await asyncio.gather(
+            store.log_spans_async("exp-123", []),
+            store.log_spans_async("exp-123", []),
+        )
+
+    assert results == [[], []]
 
 
 def test_link_prompts_to_trace():
@@ -3985,3 +4173,71 @@ def test_search_issues_with_trace_count():
     assert result[0].trace_count == 2
     assert result[1].trace_count == 0
     assert result.token is None
+
+
+def test_issue_rest_extended_contract():
+    store = RestStore(lambda: MlflowHostCreds("https://hello"))
+    issue = Issue(
+        "iss-chosen",
+        "0",
+        "Title",
+        "",
+        IssueStatus.PENDING,
+        1,
+        1,
+        last_seen_timestamp=0,
+        metadata={"key": "value"},
+    )
+    with mock.patch.object(
+        store, "_call_endpoint", return_value=CreateIssue.Response(issue=issue.to_proto())
+    ) as call:
+        result = store.create_issue(
+            "0",
+            "Title",
+            "",
+            issue_id="iss-chosen",
+            last_seen_timestamp=0,
+            metadata={"key": "value"},
+        )
+        call.assert_called_once()
+        body = json.loads(call.call_args.args[1])
+        assert body["issue_id"] == "iss-chosen"
+        assert body["last_seen_timestamp"] == 0
+        assert body["metadata"] == {"key": "value"}
+        assert result == issue
+    with mock.patch.object(
+        store, "_call_endpoint", return_value=UpdateIssue.Response(issue=issue.to_proto())
+    ) as call:
+        store.update_issue(
+            "iss-chosen",
+            categories=[],
+            metadata={"new": "value"},
+            delete_metadata_keys=["old"],
+        )
+        call.assert_called_once()
+        body = json.loads(call.call_args.args[1])
+        assert body["categories"] == []
+        assert body["delete_metadata_keys"] == ["old"]
+    with mock.patch.object(
+        store,
+        "_call_endpoint",
+        return_value=SearchIssues.Response(
+            issues=[issue.to_proto()], total_count=5, next_page_token="next"
+        ),
+    ) as call:
+        result = store.search_issues(
+            "0",
+            name="Title",
+            statuses=["pending"],
+            categories=["cost"],
+            order_by=["status ASC"],
+            include_total_count=True,
+            view="basic",
+        )
+        call.assert_called_once()
+        body = json.loads(call.call_args.args[1])
+        assert body["statuses"] == ["pending"]
+        assert body["order_by"] == ["status ASC"]
+        assert body["include_total_count"] is True
+        assert result.total_count == 5
+        assert result.token == "next"

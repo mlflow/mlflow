@@ -5,7 +5,7 @@ from mlflow.entities.model_registry.model_version_deployment_job_run_state impor
 from mlflow.entities.model_registry.registered_model_deployment_job_state import (
     RegisteredModelDeploymentJobState,
 )
-from mlflow.protos.databricks_uc_registry_messages_pb2 import (
+from mlflow.protos.model_registry_pb2 import (
     ModelVersionDeploymentJobState as ProtoModelVersionDeploymentJobState,
 )
 

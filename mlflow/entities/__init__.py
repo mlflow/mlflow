@@ -51,7 +51,8 @@ from mlflow.entities.gateway_guardrail import (
 )
 from mlflow.entities.gateway_secrets import GatewaySecretInfo
 from mlflow.entities.input_tag import InputTag
-from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
+from mlflow.entities.issue import Issue, IssueCategory, IssueSeverity, IssueStatus
+from mlflow.entities.issue_evidence import IssueEvidence, IssueEvidenceStep
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.link import Link
 from mlflow.entities.logged_model import LoggedModel
@@ -60,6 +61,14 @@ from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
+from mlflow.entities.mcp_access_endpoint import MCPAccessEndpoint
+from mlflow.entities.mcp_server import (
+    MCPRemoteTransportType,
+    MCPServer,
+    MCPStatus,
+    MCPTool,
+)
+from mlflow.entities.mcp_server_version import ConnectOptionSettings, MCPServerVersion
 from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import Prompt
 from mlflow.entities.param import Param
@@ -72,6 +81,15 @@ from mlflow.entities.run_status import RunStatus
 from mlflow.entities.run_tag import RunTag
 from mlflow.entities.scorer import ScorerVersion
 from mlflow.entities.session import Session
+from mlflow.entities.skill import Skill, SkillStatus
+from mlflow.entities.skill_source import (
+    GitSource,
+    MlflowSource,
+    OCISource,
+    SkillSourceType,
+    ZipSource,
+)
+from mlflow.entities.skill_version import SkillVersion
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.span import LiveSpan, NoOpSpan, Span, SpanType
 from mlflow.entities.span_event import SpanEvent
@@ -117,6 +135,9 @@ __all__ = [
     "Dataset",
     "InputTag",
     "Issue",
+    "IssueCategory",
+    "IssueEvidence",
+    "IssueEvidenceStep",
     "IssueSeverity",
     "IssueStatus",
     "DatasetInput",
@@ -193,6 +214,21 @@ __all__ = [
     "GatewayGuardrailConfig",
     "GuardrailAction",
     "GuardrailStage",
+    "MCPAccessEndpoint",
+    "MCPRemoteTransportType",
+    "MCPServer",
+    "ConnectOptionSettings",
+    "MCPServerVersion",
+    "MCPStatus",
+    "MCPTool",
+    "Skill",
+    "SkillStatus",
+    "SkillVersion",
+    "SkillSourceType",
+    "GitSource",
+    "MlflowSource",
+    "OCISource",
+    "ZipSource",
 ]
 
 

@@ -5,6 +5,7 @@ import pytest
 
 from mlflow import MlflowClient
 from mlflow.entities.model_registry import ModelVersion
+from mlflow.environment_variables import MLFLOW_TRACE_ARCHIVAL_CONFIG
 from mlflow.store.artifact.databricks_models_artifact_repo import DatabricksModelsArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
@@ -115,7 +116,8 @@ def test_models_artifact_repo_init_with_uc_oss_profile_inferred_from_context():
         )
 
 
-def test_models_artifact_repo_init_with_version_uri_and_not_using_databricks_registry():
+def test_models_artifact_repo_init_with_version_uri_and_not_using_databricks_registry(monkeypatch):
+    monkeypatch.delenv(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, raising=False)
     non_databricks_uri = "non_databricks_uri"
     artifact_location = "s3://blah_bucket/"
     with (
@@ -138,7 +140,8 @@ def test_models_artifact_repo_init_with_version_uri_and_not_using_databricks_reg
         )
 
 
-def test_models_artifact_repo_init_with_stage_uri_and_not_using_databricks_registry():
+def test_models_artifact_repo_init_with_stage_uri_and_not_using_databricks_registry(monkeypatch):
+    monkeypatch.delenv(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, raising=False)
     model_uri = "models:/MyModel/Staging"
     artifact_location = "s3://blah_bucket/"
     model_version_detailed = ModelVersion(
@@ -181,11 +184,8 @@ def test_models_artifact_repo_uses_repo_download_artifacts(tmp_path):
     dummy_file = tmp_path / "dummy_file.txt"
     dummy_file.touch()
 
-    with (
-        mock.patch.object(
-            MlflowClient, "get_model_version_download_uri", return_value=artifact_location
-        ),
-        mock.patch.object(ModelsArtifactRepository, "_add_registered_model_meta_file"),
+    with mock.patch.object(
+        MlflowClient, "get_model_version_download_uri", return_value=artifact_location
     ):
         model_uri = "models:/MyModel/12"
         models_repo = ModelsArtifactRepository(model_uri)
@@ -202,8 +202,8 @@ def test_models_artifact_repo_download_with_real_files(tmp_path):
     temp_remote_storage = tmp_path / "remote_storage"
     model_dir = temp_remote_storage / "model_dir"
     model_dir.mkdir(parents=True)
-    mlmodel_path = model_dir / "MLmodel"
-    mlmodel_path.touch()
+    (model_dir / "MLmodel").touch()
+    (model_dir / "model.pkl").touch()
 
     # Mock get_model_version_download_uri to return the path to the temp_remote_storage location
     with mock.patch.object(
@@ -216,69 +216,27 @@ def test_models_artifact_repo_download_with_real_files(tmp_path):
         temp_local_storage = tmp_path / "local_storage"
         temp_local_storage.mkdir()
 
-        # Download artifacts
         models_repo.download_artifacts("", str(temp_local_storage))
 
-        # Check if the files are downloaded correctly
-        downloaded_mlmodel_path = temp_local_storage / "MLmodel"
-        assert downloaded_mlmodel_path.exists()
-
-        # Check if the metadata file is created
-        metadata_file_path = temp_local_storage / "registered_model_meta"
-        assert metadata_file_path.exists()
+        # The download holds exactly the files that were logged
+        assert sorted(p.name for p in temp_local_storage.iterdir()) == ["MLmodel", "model.pkl"]
 
 
-def test_models_artifact_repo_does_not_add_meta_for_file(tmp_path):
-    artifact_path = "artifact_file.txt"
-    model_name = "MyModel"
-    model_version = "12"
-    artifact_location = f"s3://blah_bucket/{artifact_path}"
+def test_models_artifact_repo_download_leaves_local_model_unchanged(tmp_path):
+    # Without a destination, a model in local storage is returned in place, so the download
+    # must not write anything into the stored model.
+    model_dir = tmp_path / "model_dir"
+    model_dir.mkdir()
+    (model_dir / "MLmodel").touch()
+    (model_dir / "model.pkl").touch()
 
-    dummy_file = tmp_path / artifact_path
-    dummy_file.touch()
-
-    with (
-        mock.patch.object(
-            MlflowClient, "get_model_version_download_uri", return_value=artifact_location
-        ),
-        mock.patch.object(
-            ModelsArtifactRepository, "_add_registered_model_meta_file"
-        ) as add_meta_mock,
+    with mock.patch.object(
+        MlflowClient, "get_model_version_download_uri", return_value=str(model_dir)
     ):
-        models_repo = ModelsArtifactRepository(f"models:/{model_name}/{model_version}")
-        models_repo.repo = mock.Mock(**{"download_artifacts.return_value": str(dummy_file)})
+        local_path = ModelsArtifactRepository("models:/MyModel/1").download_artifacts("")
 
-        models_repo.download_artifacts(artifact_path, str(tmp_path))
-
-        add_meta_mock.assert_not_called()
-
-
-def test_models_artifact_repo_does_not_add_meta_for_directory_without_mlmodel(tmp_path):
-    artifact_path = "artifact_directory"
-    model_name = "MyModel"
-    model_version = "12"
-    artifact_location = f"s3://blah_bucket/{artifact_path}"
-
-    # Create a directory without an MLmodel file
-    dummy_dir = tmp_path / artifact_path
-    dummy_dir.mkdir()
-    dummy_file = dummy_dir / "dummy_file.txt"
-    dummy_file.touch()
-
-    with (
-        mock.patch.object(
-            MlflowClient, "get_model_version_download_uri", return_value=artifact_location
-        ),
-        mock.patch.object(
-            ModelsArtifactRepository, "_add_registered_model_meta_file"
-        ) as add_meta_mock,
-    ):
-        models_repo = ModelsArtifactRepository(f"models:/{model_name}/{model_version}")
-        models_repo.repo = mock.Mock(**{"download_artifacts.return_value": str(dummy_dir)})
-
-        models_repo.download_artifacts(artifact_path, str(tmp_path))
-
-        add_meta_mock.assert_not_called()
+    assert Path(local_path).resolve() == model_dir.resolve()
+    assert sorted(p.name for p in model_dir.iterdir()) == ["MLmodel", "model.pkl"]
 
 
 @pytest.mark.parametrize(

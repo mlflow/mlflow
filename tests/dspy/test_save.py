@@ -33,6 +33,9 @@ skip_if_2_6_23_or_older = pytest.mark.skipif(
 
 _REASONING_KEYWORD = "rationale" if _DSPY_UNDER_2_6 else "reasoning"
 
+# dspy 3.3.0 changed CoT's output field order: reasoning now precedes answer
+_DSPY_3_3_OR_NEWER = _DSPY_VERSION >= Version("3.3.0")
+
 
 @pytest.fixture
 def dummy_model():
@@ -372,6 +375,13 @@ def test_save_chat_model_with_string_output(dummy_model):
     assert response["choices"][0]["message"]["content"] == "4"
 
 
+def test_save_model_with_invalid_task(tmp_path):
+    with pytest.raises(MlflowException, match="Invalid task: llm/v1/unknown at"):
+        mlflow.dspy.save_model(
+            dspy.Predict("question -> answer"), tmp_path / "model", task="llm/v1/unknown"
+        )
+
+
 def test_serve_chat_model(dummy_model):
     class CoT(dspy.Module):
         def __init__(self):
@@ -450,10 +460,16 @@ def test_infer_signature_from_input_examples(dummy_model):
 
         loaded_model = Model.load(model_info.model_uri)
         assert loaded_model.signature.inputs == Schema([ColSpec("string")])
-        assert loaded_model.signature.outputs == Schema([
-            ColSpec(name="answer", type="string"),
-            ColSpec(name=_REASONING_KEYWORD, type="string"),
-        ])
+        if _DSPY_3_3_OR_NEWER:
+            assert loaded_model.signature.outputs == Schema([
+                ColSpec(name=_REASONING_KEYWORD, type="string"),
+                ColSpec(name="answer", type="string"),
+            ])
+        else:
+            assert loaded_model.signature.outputs == Schema([
+                ColSpec(name="answer", type="string"),
+                ColSpec(name=_REASONING_KEYWORD, type="string"),
+            ])
 
 
 @skip_if_2_6_23_or_older
@@ -570,8 +586,8 @@ def test_load_model_disallows_pickle_deserialization_legacy_pkl(monkeypatch):
             use_dspy_model_save=False,
         )
 
-    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
-    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_MODEL_CODE_EXECUTION"):
         mlflow.dspy.load_model(model_info.model_uri)
 
 
@@ -591,7 +607,7 @@ def test_load_model_forwards_allow_pickle_to_dspy(env_value, expected_allow_pick
             use_dspy_model_save=True,
         )
 
-    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", env_value)
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", env_value)
     with mock.patch("dspy.load") as mock_load:
         try:
             mlflow.dspy.load_model(model_info.model_uri)
@@ -617,7 +633,7 @@ def test_load_model_wraps_dspy_error_when_pickle_disabled(monkeypatch):
             use_dspy_model_save=True,
         )
 
-    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
     with mock.patch("dspy.load", side_effect=ValueError("pickle disallowed by dspy")):
-        with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+        with pytest.raises(MlflowException, match="MLFLOW_ALLOW_MODEL_CODE_EXECUTION"):
             mlflow.dspy.load_model(model_info.model_uri)

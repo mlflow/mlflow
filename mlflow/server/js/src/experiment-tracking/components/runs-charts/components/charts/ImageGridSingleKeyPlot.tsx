@@ -49,12 +49,18 @@ export const ImageGridSingleKeyPlot = ({
               },
             }}
           >
-            <ImageGridRunHeader displayName={run.displayName} color={run.color} params={run.params} />
+            <ImageGridRunHeader
+              displayName={run.displayName}
+              color={run.color}
+              params={run.params}
+              showParams={cardConfig.showRunParams !== false}
+            />
             <ImagePlotWithHistory
               key={run.uuid}
               step={cardConfig.step}
               metadataByStep={imageMetadataByStep}
               runUuid={run.uuid}
+              artifactRootUri={run.runInfo?.artifactUri ?? undefined}
             />
           </div>
         );

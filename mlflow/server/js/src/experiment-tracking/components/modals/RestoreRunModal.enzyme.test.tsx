@@ -10,21 +10,19 @@ import React from 'react';
 import { shallow } from 'enzyme';
 import { RestoreRunModalImpl } from './RestoreRunModal';
 import { ConfirmModal } from './ConfirmModal';
+import Utils from '../../../common/utils/Utils';
 
 describe('RestoreRunModal', () => {
   let wrapper: any;
   let minimalProps: any;
-  let mockOpenErrorModal: any;
   let mockRestoreRunApi: any;
 
   beforeEach(() => {
-    mockOpenErrorModal = jest.fn(() => Promise.resolve({}));
     mockRestoreRunApi = jest.fn(() => Promise.resolve({}));
     minimalProps = {
       isOpen: false,
       onClose: jest.fn(() => Promise.resolve({})),
       selectedRunIds: ['run1', 'run2'],
-      openErrorModal: mockOpenErrorModal,
       restoreRunApi: mockRestoreRunApi,
     };
 
@@ -47,16 +45,12 @@ describe('RestoreRunModal', () => {
 
   // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('handleRenameExperiment errors correctly', (done) => {
+    const logErrorSpy = jest.spyOn(Utils, 'logErrorAndNotifyUser').mockImplementation(() => {});
     const mockFailRestoreRunApi = jest.fn(
       () =>
         new Promise((resolve, reject) => {
           window.setTimeout(() => {
-            reject(
-              new Error('Limit exceeded', {
-                // @ts-expect-error TS(2554): Object literal may only specify known properties, and 'textJson' does not exist in type 'ErrorOptions'.
-                textJson: { error_code: 'RESOURCE_LIMIT_EXCEEDED', message: 'Limit exceeded' },
-              }),
-            );
+            reject(new Error('Limit exceeded'));
           }, 1000);
         }),
     );
@@ -65,9 +59,13 @@ describe('RestoreRunModal', () => {
 
     const promise = wrapper.find(ConfirmModal).prop('handleSubmit')();
     promise.finally(() => {
-      expect(mockFailRestoreRunApi).toHaveBeenCalledTimes(2);
-      expect(mockOpenErrorModal).toHaveBeenCalledTimes(1);
-      done();
+      try {
+        expect(mockFailRestoreRunApi).toHaveBeenCalledTimes(2);
+        expect(logErrorSpy).toHaveBeenCalled();
+      } finally {
+        logErrorSpy.mockRestore();
+        done();
+      }
     });
   });
 });

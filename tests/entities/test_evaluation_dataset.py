@@ -1,3 +1,4 @@
+import copy
 import json
 from unittest.mock import Mock, patch
 
@@ -16,6 +17,7 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.utils import build_otel_context
+from mlflow.utils.mlflow_tags import MLFLOW_USER
 
 
 def test_evaluation_dataset_creation():
@@ -160,6 +162,7 @@ def test_evaluation_dataset_to_from_dict():
         last_update_time=987654321,
         created_by="user1",
         last_updated_by="user2",
+        version={"version": 7, "created_by": "user1"},
     )
     dataset.experiment_ids = ["exp1", "exp2"]
 
@@ -184,6 +187,7 @@ def test_evaluation_dataset_to_from_dict():
     assert data["last_update_time"] == 987654321
     assert data["created_by"] == "user1"
     assert data["last_updated_by"] == "user2"
+    assert data["version"] == {"version": 7, "created_by": "user1"}
     assert data["experiment_ids"] == ["exp1", "exp2"]
     assert len(data["records"]) == 1
     assert data["records"][0]["inputs"]["question"] == "What is MLflow?"
@@ -199,6 +203,7 @@ def test_evaluation_dataset_to_from_dict():
     assert dataset2.last_update_time == dataset.last_update_time
     assert dataset2.created_by == dataset.created_by
     assert dataset2.last_updated_by == dataset.last_updated_by
+    assert dataset2.version == dataset.version
     assert dataset2._experiment_ids == ["exp1", "exp2"]
     assert dataset2.experiment_ids == ["exp1", "exp2"]
     assert len(dataset2._records) == 1
@@ -730,6 +735,14 @@ def test_delete_records():
 
     mock_store = Mock()
     mock_store.delete_dataset_records.return_value = 2
+    mock_store.get_dataset.return_value = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=987654321,
+        profile='{"num_records": 1}',
+    )
 
     with patch("mlflow.tracking._tracking_service.utils._get_store", return_value=mock_store):
         deleted_count = dataset.delete_records(["record1", "record2"])
@@ -741,3 +754,73 @@ def test_delete_records():
     )
     # Verify cache was cleared
     assert dataset._records is None
+    mock_store.get_dataset.assert_called_once_with("dataset123")
+    assert dataset.profile == '{"num_records": 1}'
+    assert dataset.last_update_time == 987654321
+
+
+def test_validate_schema_with_empty_records_after_to_dict():
+    """Regression test for https://github.com/mlflow/mlflow/issues/25490.
+
+    to_dict()/to_df() sets _records=[] on an empty dataset. A subsequent
+    merge_records() call must not raise IndexError in _get_existing_granularity().
+    """
+    dataset = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+
+    # Simulate the state after to_dict()/to_df() on an empty dataset
+    dataset._records = []
+
+    new_record = {
+        "inputs": {"question": "What is the capital of France?"},
+        "expectations": {"name": "expected_answer", "value": "Paris"},
+    }
+
+    mock_store = Mock()
+    mock_store.upsert_dataset_records.return_value = None
+    # schema=None forces _get_existing_granularity into the _records branch under test
+    mock_store.get_dataset.return_value.schema = None
+
+    with patch("mlflow.tracking._tracking_service.utils._get_store", return_value=mock_store):
+        dataset.merge_records([new_record])
+
+    mock_store.upsert_dataset_records.assert_called_once()
+
+
+def test_merge_records_does_not_modify_input_records():
+    dataset = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+    records = [
+        {"inputs": {"q": "a"}, "expectations": {"answer": "x"}, "tags": {"team": "eval"}},
+        {"inputs": {"q": "b"}, "tags": None},
+    ]
+    original = copy.deepcopy(records)
+
+    mock_store = Mock()
+    mock_store.get_dataset.return_value.schema = None
+
+    with (
+        patch("mlflow.tracking._tracking_service.utils._get_store", return_value=mock_store),
+        patch(
+            "mlflow.tracking.context.registry.resolve_tags",
+            return_value={MLFLOW_USER: "alice"},
+        ),
+    ):
+        dataset.merge_records(records)
+
+    assert records == original
+    upserted = mock_store.upsert_dataset_records.call_args.kwargs["records"]
+    assert [r["tags"] for r in upserted] == [
+        {"team": "eval", MLFLOW_USER: "alice"},
+        {MLFLOW_USER: "alice"},
+    ]

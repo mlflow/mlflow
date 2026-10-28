@@ -1,3 +1,4 @@
+import json
 from unittest import mock
 
 import httpx
@@ -339,6 +340,49 @@ async def test_responses_autolog_with_cached_tokens(client):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("use_context_manager", [False, True])
+@pytest.mark.parametrize("num_chunks", [0, 1, 3, 4])
+async def test_responses_stream_close(client, use_context_manager, num_chunks):
+    mlflow.openai.autolog()
+    stream = client.responses.create(input="Hello", model="gpt-4o", stream=True)
+
+    if client._is_async:
+        stream = await stream
+        if use_context_manager:
+            async with stream:
+                for _ in range(num_chunks):
+                    await anext(stream)
+        else:
+            for _ in range(num_chunks):
+                await anext(stream)
+            await stream.close()
+        await stream.close()
+    else:
+        if use_context_manager:
+            with stream:
+                for _ in range(num_chunks):
+                    next(stream)
+        else:
+            for _ in range(num_chunks):
+                next(stream)
+            stream.close()
+        stream.close()
+
+    assert stream.response.is_closed
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    span = traces[0].data.spans[0]
+    assert len(span.events) == num_chunks
+    if num_chunks == 0:
+        assert span.outputs is None
+    elif num_chunks == 4:
+        assert span.outputs["id"] == "responses-123"
+    else:
+        assert span.outputs["output"] == []
+
+
+@pytest.mark.asyncio
 async def test_responses_stream_autolog(client):
     mlflow.openai.autolog()
 
@@ -379,5 +423,81 @@ async def test_responses_stream_autolog(client):
         TokenUsageKey.INPUT_TOKENS: 36,
         TokenUsageKey.OUTPUT_TOKENS: 87,
         TokenUsageKey.TOTAL_TOKENS: 123,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("event_type", "status"),
+    [
+        ("response.incomplete", "incomplete"),
+        ("response.failed", "failed"),
+    ],
+)
+async def test_responses_stream_autolog_non_completed_final_event(client, event_type, status):
+    mlflow.openai.autolog()
+
+    response_payload = {
+        "id": "responses-123",
+        "object": "response",
+        "created_at": 1589478378,
+        "status": status,
+        "error": {"code": "server_error", "message": "boom"} if status == "failed" else None,
+        "incomplete_details": {"reason": "max_output_tokens"} if status == "incomplete" else None,
+        "model": "gpt-4o",
+        "output": [],
+        "parallel_tool_calls": True,
+        "tool_choice": "auto",
+        "tools": [],
+        "usage": {
+            "input_tokens": 10,
+            "input_tokens_details": {"cached_tokens": 0},
+            "output_tokens": 5,
+            "output_tokens_details": {"reasoning_tokens": 0},
+            "total_tokens": 15,
+        },
+    }
+    events = [{"type": event_type, "sequence_number": 0, "response": response_payload}]
+    content = "".join(f"event: {e['type']}\ndata: {json.dumps(e)}\n\n" for e in events).encode()
+
+    def _make_response(request):
+        return httpx.Response(
+            status_code=200,
+            request=request,
+            headers={"content-type": "text/event-stream"},
+            content=content,
+        )
+
+    if client._is_async:
+        patch_target = "httpx.AsyncClient.send"
+
+        async def send_patch(self, request, *args, **kwargs):
+            return _make_response(request)
+
+    else:
+        patch_target = "httpx.Client.send"
+
+        def send_patch(self, request, *args, **kwargs):
+            return _make_response(request)
+
+    with mock.patch(patch_target, send_patch):
+        stream = client.responses.create(input="Hello", model="gpt-4o", stream=True)
+        if client._is_async:
+            async for _ in await stream:
+                pass
+        else:
+            for _ in stream:
+                pass
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    assert span.outputs["id"] == "responses-123"
+    assert span.outputs["status"] == status
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 10,
+        TokenUsageKey.OUTPUT_TOKENS: 5,
+        TokenUsageKey.TOTAL_TOKENS: 15,
         TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
     }

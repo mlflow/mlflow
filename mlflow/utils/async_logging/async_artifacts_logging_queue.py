@@ -25,7 +25,7 @@ class AsyncArtifactsLoggingQueue:
     worker thread. This class is used to process artifacts saving in async fashion.
 
     Args:
-        logging_func: A callable function that takes in three arguments:
+        artifact_logging_func: A callable function that takes in three arguments:
             - filename: The name of the artifact file.
             - artifact_path: The path to the artifact.
             - artifact: The artifact to be logged.

@@ -7,7 +7,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.optimizers.dspy import DSPyAlignmentOptimizer
 from mlflow.genai.judges.optimizers.dspy_utils import create_gepa_metric_adapter
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
-from mlflow.utils.annotations import experimental
 
 # Import dspy - raise exception if not installed
 try:
@@ -21,7 +20,6 @@ except ImportError:
 _logger = logging.getLogger(__name__)
 
 
-@experimental(version="3.8.0")
 class GEPAAlignmentOptimizer(DSPyAlignmentOptimizer):
     """
     GEPA (Genetic-Pareto) alignment optimizer for judges.

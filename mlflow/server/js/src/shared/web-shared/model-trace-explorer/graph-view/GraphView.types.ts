@@ -1,4 +1,6 @@
+// eslint-disable-next-line no-restricted-imports -- TODO(FEINF-5856)
 import type { Node, Edge } from '@xyflow/react';
+import type { ReactNode } from 'react';
 
 import type { ModelTraceSpanNode } from '../ModelTrace.types';
 
@@ -13,6 +15,7 @@ export interface WorkflowNodeData extends Record<string, unknown> {
   isSelected: boolean;
   isOnHighlightedPath: boolean;
   onViewSpanDetails: (span: ModelTraceSpanNode) => void;
+  renderIcon?: (spanType: string, hasException: boolean) => ReactNode;
   nodeWidth: number;
   nodeHeight: number;
 }

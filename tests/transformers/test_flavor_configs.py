@@ -1,3 +1,5 @@
+from unittest import mock
+
 import pytest
 
 from mlflow.exceptions import MlflowException
@@ -6,6 +8,7 @@ from mlflow.transformers.flavor_config import (
     build_flavor_config,
     update_flavor_conf_to_persist_pretrained_model,
 )
+from mlflow.transformers.torch_utils import _get_torch_dtype_kwarg_name
 from mlflow.utils.huggingface_utils import is_valid_hf_repo_id
 
 from tests.transformers.helper import IS_NEW_FEATURE_EXTRACTION_API, IS_TRANSFORMERS_V5_OR_LATER
@@ -61,6 +64,21 @@ def test_flavor_config_torch_dtype_overridden_when_specified(small_qa_pipeline):
 
     conf = build_flavor_config(small_qa_pipeline, torch_dtype=torch.float16, save_pretrained=False)
     assert conf["torch_dtype"] == "torch.float16"
+
+
+@pytest.mark.parametrize(
+    ("version", "expected"),
+    [
+        ("4.55.0", "torch_dtype"),
+        ("4.56.0", "dtype"),
+        ("5.13.0", "dtype"),
+    ],
+)
+def test_get_torch_dtype_kwarg_name(version, expected):
+    # `_get_torch_dtype_kwarg_name` imports transformers lazily, so patch the attribute on the
+    # transformers module object itself (there is no module-level binding to scope the patch to).
+    with mock.patch("transformers.__version__", version):
+        assert _get_torch_dtype_kwarg_name() == expected
 
 
 def test_flavor_config_component_multi_modal(multi_modal_pipeline):

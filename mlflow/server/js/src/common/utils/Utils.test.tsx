@@ -5,11 +5,13 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import { test, expect, jest } from '@jest/globals';
+import { test, expect, jest, describe, beforeEach, afterEach } from '@jest/globals';
 import Utils from './Utils';
 import React from 'react';
 import { X_AXIS_RELATIVE, X_AXIS_STEP, X_AXIS_WALL } from '../../experiment-tracking/components/MetricsPlotControls';
 import { RunTag } from '../../experiment-tracking/sdk/MlflowMessages';
+import { PermissionError, UnauthorizedError } from '@databricks/web-shared/errors';
+import { ErrorWrapper } from './ErrorWrapper';
 
 test('formatMetric', () => {
   expect(Utils.formatMetric(0)).toEqual('0');
@@ -990,4 +992,44 @@ test('renderNotebookSource renders plain text for dangerous workspaceUrl', () =>
     Utils.renderNotebookSource(null, '789', 'rev1', null, '/Users/test/iris', 'javascript://evil.com', null),
   ).toEqual('iris');
   /* eslint-enable no-script-url */
+});
+
+describe('logErrorAndNotifyUser', () => {
+  let mockNotificationsApi: { error: ReturnType<typeof jest.fn> };
+
+  beforeEach(() => {
+    mockNotificationsApi = { error: jest.fn() };
+    Utils.registerNotificationsApi(mockNotificationsApi);
+  });
+
+  afterEach(() => {
+    Utils.registerNotificationsApi(null);
+  });
+
+  test('shows toast for plain string errors', () => {
+    Utils.logErrorAndNotifyUser('something went wrong');
+    expect(mockNotificationsApi.error).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'something went wrong' }),
+    );
+  });
+
+  test('shows toast for ErrorWrapper errors', () => {
+    const wrapper = new ErrorWrapper('{"error_code":"PERMISSION_DENIED","message":"not allowed"}', 403);
+    Utils.logErrorAndNotifyUser(wrapper);
+    expect(mockNotificationsApi.error).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'PERMISSION_DENIED: not allowed' }),
+    );
+  });
+
+  test('shows toast for PermissionError (PredefinedError) instead of silently dropping it', () => {
+    const error = new PermissionError({});
+    Utils.logErrorAndNotifyUser(error);
+    expect(mockNotificationsApi.error).toHaveBeenCalledWith(expect.objectContaining({ message: error.displayMessage }));
+  });
+
+  test('shows toast for UnauthorizedError (PredefinedError)', () => {
+    const error = new UnauthorizedError({});
+    Utils.logErrorAndNotifyUser(error);
+    expect(mockNotificationsApi.error).toHaveBeenCalledWith(expect.objectContaining({ message: error.displayMessage }));
+  });
 });

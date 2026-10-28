@@ -40,34 +40,34 @@ def test_non_databricks_model_cannot_register(
 
 def test_safety_with_databricks_model_can_register(mock_databricks_tracking_uri: mock.Mock):
     with mock.patch(
-        "mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer"
-    ) as mock_add:
+        "mlflow.genai.scorers.registry.DatabricksStore.register_scorer"
+    ) as mock_register:
         scorer = Safety(model="databricks:/my-judge-model")
         registered = scorer.register()
 
     assert registered.name == "safety"
-    mock_add.assert_called_once()
+    mock_register.assert_called_once()
     mock_databricks_tracking_uri.assert_called()
 
 
 def test_builtin_scorer_without_custom_model_can_register(mock_databricks_tracking_uri: mock.Mock):
     with mock.patch(
-        "mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer"
-    ) as mock_add:
+        "mlflow.genai.scorers.registry.DatabricksStore.register_scorer"
+    ) as mock_register:
         # Safety with default model (None)
         scorer = Safety()
         registered = scorer.register()
         assert registered.name == "safety"
-        mock_add.assert_called_once()
+        mock_register.assert_called_once()
 
-        mock_add.reset_mock()
+        mock_register.reset_mock()
 
         # RetrievalRelevance with default model (None)
         scorer = RetrievalRelevance()
         registered = scorer.register()
 
     assert registered.name == "retrieval_relevance"
-    mock_add.assert_called_once()
+    mock_register.assert_called_once()
     mock_databricks_tracking_uri.assert_called()
 
 

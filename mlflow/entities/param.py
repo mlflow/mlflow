@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 
 from mlflow.entities._mlflow_object import _MlflowObject
@@ -9,7 +11,7 @@ class Param(_MlflowObject):
     Parameter object.
     """
 
-    def __init__(self, key, value):
+    def __init__(self, key: str, value: str) -> None:
         if "pyspark.ml" in sys.modules:
             import pyspark.ml.param
 
@@ -20,30 +22,30 @@ class Param(_MlflowObject):
         self._value = value
 
     @property
-    def key(self):
+    def key(self) -> str:
         """String key corresponding to the parameter name."""
         return self._key
 
     @property
-    def value(self):
+    def value(self) -> str:
         """String value of the parameter."""
         return self._value
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoParam:
         param = ProtoParam()
         param.key = self.key
         param.value = self.value
         return param
 
     @classmethod
-    def from_proto(cls, proto):
+    def from_proto(cls, proto: ProtoParam) -> Param:
         return cls(proto.key, proto.value)
 
-    def __eq__(self, __o):
+    def __eq__(self, __o: object) -> bool:
         if isinstance(__o, self.__class__):
             return self._key == __o._key
 
         return False
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self._key)

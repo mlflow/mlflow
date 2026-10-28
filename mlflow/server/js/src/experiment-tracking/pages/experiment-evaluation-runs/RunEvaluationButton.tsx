@@ -38,7 +38,13 @@ type JudgeSelectionMode = 'llm' | 'template';
 const isTraceLevelLLMScorer = (scorer: ScheduledScorer): scorer is LLMScorer =>
   scorer.type === 'llm' && !scorer.isSessionLevelScorer;
 
-export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) => {
+export const RunEvaluationButton = ({
+  experimentId,
+  isPageAction = false,
+}: {
+  experimentId: string;
+  isPageAction?: boolean;
+}) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const navigate = useNavigate();
@@ -176,14 +182,21 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
     <>
       <Button
         componentId="mlflow.eval-runs.start-run-button"
-        icon={<ChartLineIcon />}
+        {...(isPageAction ? {} : { icon: <ChartLineIcon /> })}
         type="primary"
         onClick={() => setIsOpen(true)}
       >
-        <FormattedMessage
-          defaultMessage="Evaluate traces"
-          description="Label for the primary button that opens the run-evaluation modal"
-        />
+        {isPageAction ? (
+          <FormattedMessage
+            defaultMessage="Run evaluation"
+            description="Label for the page action button that opens the run-evaluation modal"
+          />
+        ) : (
+          <FormattedMessage
+            defaultMessage="Evaluate traces"
+            description="Label for the primary button that opens the run-evaluation modal"
+          />
+        )}
       </Button>
       <Modal
         componentId="mlflow.eval-runs.start-run-modal"
@@ -191,6 +204,7 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
           <FormattedMessage defaultMessage="Evaluate traces" description="Title for the run evaluation modal dialog" />
         }
         visible={isOpen}
+        destroyOnClose
         cancelText={intl.formatMessage({
           defaultMessage: 'Cancel',
           description: 'Cancel button text in the run evaluation modal',

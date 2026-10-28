@@ -1,5 +1,10 @@
 import { describe, test, expect } from '@jest/globals';
-import { RunsChartsCardConfig, RunsChartsLineCardConfig, RunsChartType } from './runs-charts.types';
+import {
+  RunsChartsBarCardConfig,
+  RunsChartsCardConfig,
+  RunsChartsLineCardConfig,
+  RunsChartType,
+} from './runs-charts.types';
 import type { RunsChartsRunData } from './components/RunsCharts.common';
 
 describe('RunsChartsCardConfig.getBaseChartAndSectionConfigs', () => {
@@ -195,5 +200,59 @@ describe('RunsChartsCardConfig.getBaseChartAndSectionConfigs', () => {
       expect(nodeSectionExists).toBe(false);
       expect(gpuSectionExists).toBe(false);
     });
+  });
+
+  test('uses section-relative display names for generated nested metric charts', () => {
+    const runsData = [
+      createMockRunData({
+        'train/losses/grouped_by_x/after_y/mae': {
+          key: 'train/losses/grouped_by_x/after_y/mae',
+          value: 0.1,
+          step: 0,
+        },
+        'system/gpu_1': {
+          key: 'system/gpu_1',
+          value: 10,
+          step: 2,
+        },
+      }),
+    ];
+
+    const { resultChartSet, resultSectionSet } = RunsChartsCardConfig.getBaseChartAndSectionConfigs({
+      runsData,
+    });
+
+    const nestedMetricChart = resultChartSet.find(
+      (chart) => 'metricKey' in chart && chart.metricKey === 'train/losses/grouped_by_x/after_y/mae',
+    );
+    const systemMetricChart = resultChartSet.find(
+      (chart) => 'metricKey' in chart && chart.metricKey === 'system/gpu_1',
+    );
+
+    expect(nestedMetricChart?.displayName).toBe('mae');
+    expect(systemMetricChart?.displayName).toBe('gpu_1');
+    expect(resultSectionSet.some((section) => section.name === 'train/losses/grouped_by_x/after_y')).toBe(true);
+    expect(resultSectionSet.some((section) => section.name === 'System metrics')).toBe(true);
+  });
+});
+
+describe('RunsChartsCardConfig.getDisplayNameForUpdatedMetricSelection', () => {
+  test('preserves the display name when a legacy chart selection is normalized', () => {
+    const config = new RunsChartsBarCardConfig(true);
+    config.metricKey = 'train/loss';
+    config.displayName = 'loss';
+
+    expect(RunsChartsCardConfig.getDisplayNameForUpdatedMetricSelection(config, ['train/loss'])).toBe('loss');
+  });
+
+  test('clears the display name when the selected metric changes', () => {
+    const config = new RunsChartsLineCardConfig(true);
+    config.metricKey = 'train/loss';
+    config.selectedMetricKeys = ['train/loss'];
+    config.displayName = 'loss';
+
+    expect(
+      RunsChartsCardConfig.getDisplayNameForUpdatedMetricSelection(config, ['validation/accuracy']),
+    ).toBeUndefined();
   });
 });

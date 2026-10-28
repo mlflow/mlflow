@@ -46,7 +46,6 @@ _logger = logging.getLogger(__name__)
 _FRAMEWORK_NAME = "deepeval"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class DeepEvalScorer(Scorer):
     """
@@ -58,6 +57,8 @@ class DeepEvalScorer(Scorer):
         model: {{ model }}
         model_kwargs: Parameters for the underlying LLM (e.g., temperature, max_tokens).
             Ignored for deterministic metrics.
+        session_level: Name of a session-hierarchy level to group traces by for
+            conversational metrics. See :py:class:`~mlflow.genai.scorers.Scorer`.
         metric_kwargs: Additional metric-specific parameters
     """
 
@@ -71,13 +72,14 @@ class DeepEvalScorer(Scorer):
         metric_name: str | None = None,
         model: str | None = None,
         model_kwargs: dict[str, Any] | None = None,
+        session_level: str | None = None,
         **metric_kwargs: Any,
     ):
         # Use class attribute if metric_name not provided
         if metric_name is None:
             metric_name = self.metric_name
 
-        super().__init__(name=metric_name)
+        super().__init__(name=metric_name, session_level=session_level)
 
         metric_class = get_metric_class(metric_name)
 
@@ -203,7 +205,6 @@ class DeepEvalScorer(Scorer):
                 )
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 def get_scorer(
     metric_name: str,

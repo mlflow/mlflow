@@ -4,7 +4,7 @@ import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING, Literal, Sequence
 
 import mlflow
 
@@ -70,6 +70,7 @@ from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
 from mlflow.tracking._tracking_service.utils import _get_store, _resolve_tracking_uri
 from mlflow.utils import is_uuid
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
+from mlflow.utils.thread_utils import map_with_context
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, is_databricks_uri
 
 _logger = logging.getLogger(__name__)
@@ -126,6 +127,30 @@ class TracingClient:
             spans=spans,
             tracking_uri=self.tracking_uri if is_databricks_uri(self.tracking_uri) else None,
         )
+
+    def _resolve_uc_trace_location(self, experiment_id: str | None) -> str | None:
+        """
+        Resolve the Unity Catalog trace location string (``catalog.schema.table_prefix``) for an
+        experiment.
+
+        Traces stored in Unity Catalog are addressed by a location rather than a plain trace ID.
+        The location is not derivable from the trace ID alone, so it is resolved from the
+        experiment's trace destination tag (see ``Experiment.trace_location``). Returns ``None``
+        for non-UC / non-Databricks experiments or on resolution failure.
+        """
+        if experiment_id is None or not is_databricks_uri(self.tracking_uri):
+            return None
+        try:
+            # `full_table_prefix` raises if the location carries no table prefix, so it is
+            # resolved inside the try to keep this a best-effort lookup.
+            location = self.store.get_experiment(experiment_id).trace_location
+            return location.full_table_prefix if location is not None else None
+        except Exception as e:
+            _logger.debug(
+                f"Failed to resolve Unity Catalog trace location for experiment "
+                f"{experiment_id}: {e}"
+            )
+            return None
 
     def delete_traces(
         self,
@@ -435,7 +460,7 @@ class TracingClient:
 
         batch_size = _MLFLOW_SEARCH_TRACES_MAX_BATCH_SIZE.get()
         batches = [trace_ids[i : i + batch_size] for i in range(0, len(trace_ids), batch_size)]
-        for minibatch_traces in executor.map(_fetch_minibatch, batches):
+        for minibatch_traces in map_with_context(executor, _fetch_minibatch, batches):
             traces.extend(minibatch_traces)
         return traces
 
@@ -449,7 +474,8 @@ class TracingClient:
             if location == SpansLocation.ARTIFACT_REPO:
                 traces.extend(
                     tr
-                    for tr in executor.map(
+                    for tr in map_with_context(
+                        executor,
                         self._download_spans_from_artifact_repo,
                         location_trace_infos,
                     )
@@ -855,6 +881,10 @@ class TracingClient:
         source_run_id: str | None = None,
         categories: list[str] | None = None,
         created_by: str | None = None,
+        *,
+        issue_id: str | None = None,
+        last_seen_timestamp: int | None = None,
+        metadata: dict[str, str] | None = None,
     ) -> Issue:
         """
         Create a new issue in the tracking store.
@@ -865,14 +895,26 @@ class TracingClient:
             description: Detailed description of the issue.
             status: Issue status. Defaults to IssueStatus.PENDING if not provided.
             severity: Optional severity level indicator.
-            root_causes: Optional list of root cause analyses.
+            root_causes: Deprecated. Use description and trace evidence for causal explanation.
             source_run_id: Optional MLflow run ID that discovered this issue.
             categories: Optional list of categories for the issue.
             created_by: Optional identifier for who created this issue.
+            issue_id: Optional iss-* ID (at most 36 characters); reuse returns a conflict.
+            last_seen_timestamp: Latest observation in milliseconds; defaults to creation time.
+            metadata: String metadata map (at most 100 entries).
 
         Returns:
             The created Issue entity.
         """
+        options = {
+            key: value
+            for key, value in {
+                "issue_id": issue_id,
+                "last_seen_timestamp": last_seen_timestamp,
+                "metadata": metadata,
+            }.items()
+            if value is not None
+        }
         return self.store.create_issue(
             experiment_id=experiment_id,
             name=name,
@@ -883,19 +925,139 @@ class TracingClient:
             source_run_id=source_run_id,
             categories=categories,
             created_by=created_by,
+            **options,
         )
 
-    def _get_issue(self, issue_id: str) -> Issue:
+    def _get_issue(self, issue_id: str, *, experiment_id: str | None = None) -> Issue:
         """
         Get an issue by ID.
 
         Args:
             issue_id: The ID of the issue to retrieve.
+            experiment_id: Parent experiment for Databricks routing.
 
         Returns:
             The Issue entity.
         """
+        if is_databricks_uri(self.tracking_uri):
+            return self.store.get_issue(issue_id, experiment_id=experiment_id)
         return self.store.get_issue(issue_id)
+
+    def _update_issue(
+        self,
+        issue_id: str,
+        status: IssueStatus | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        severity: IssueSeverity | None = None,
+        *,
+        categories: list[str] | None = None,
+        last_seen_timestamp: int | None = None,
+        last_updated_by: str | None = None,
+        metadata: dict[str, str] | None = None,
+        delete_metadata_keys: list[str] | None = None,
+        experiment_id: str | None = None,
+    ) -> Issue:
+        """
+        Update an existing issue.
+
+        Args:
+            issue_id: The ID of the issue to update.
+            status: Optional new status.
+            name: Optional new name for the issue.
+            description: Optional new description.
+            severity: Optional new severity level.
+            categories: Replacement categories; [] clears them and None leaves them unchanged.
+            last_seen_timestamp: Latest observation in milliseconds since the epoch.
+            last_updated_by: Update actor, overridden by the authenticated HTTP user when available.
+            metadata: Entries to merge with existing metadata.
+            delete_metadata_keys: Metadata keys to remove; cannot overlap metadata updates.
+            experiment_id: Parent experiment for Databricks routing.
+
+        Returns:
+            The updated Issue entity.
+        """
+        options = {
+            key: value
+            for key, value in {
+                "issue_id": issue_id,
+                "status": status,
+                "name": name,
+                "description": description,
+                "severity": severity,
+                "categories": categories,
+                "last_seen_timestamp": last_seen_timestamp,
+                "last_updated_by": last_updated_by,
+                "metadata": metadata,
+                "delete_metadata_keys": delete_metadata_keys,
+            }.items()
+            if value is not None
+        }
+        if is_databricks_uri(self.tracking_uri):
+            options["experiment_id"] = experiment_id
+        return self.store.update_issue(**options)
+
+    def _search_issues(
+        self,
+        experiment_id: str | None = None,
+        filter_string: str | None = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
+        include_trace_count: bool = False,
+        *,
+        name: str | None = None,
+        statuses: list[str] | None = None,
+        severities: list[str] | None = None,
+        categories: list[str] | None = None,
+        order_by: list[str] | None = None,
+        include_total_count: bool = False,
+        view: Literal["basic", "full"] | None = None,
+    ) -> PagedList[Issue]:
+        """
+        Search for issues matching the given filters.
+
+        Args:
+            experiment_id: Optional experiment ID to filter by.
+            filter_string: Optional filter string for advanced filtering.
+            max_results: Maximum number of results to return.
+            page_token: Token for pagination.
+            include_trace_count: Whether to include the count of traces impacted by each issue.
+            name: Case-insensitive literal substring of the name (not a wildcard pattern).
+            statuses: Accepted status values, ORed within the list.
+            severities: Accepted severity values, ORed within the list.
+            categories: Match any category, ignoring case and surrounding whitespace.
+                Different filter fields are ANDed.
+            order_by: Field and optional ASC/DESC; supports name, status, severity and timestamps.
+                Issue ID breaks ties. Omit to retain the legacy severity/count/creation ordering.
+            include_total_count: Return the matching count before pagination in total_count.
+            view: "basic" returns an empty description and may omit metadata, depending on
+                the backend. "full" returns complete issues.
+                The default is "full".
+
+        Returns:
+            A PagedList of Issue entities.
+        """
+        options = {
+            key: value
+            for key, value in {
+                "experiment_id": experiment_id,
+                "filter_string": filter_string,
+                "max_results": max_results,
+                "page_token": page_token,
+                "include_trace_count": include_trace_count,
+                "name": name,
+                "statuses": statuses,
+                "severities": severities,
+                "categories": categories,
+                "order_by": order_by,
+                "include_total_count": include_total_count,
+                "view": view,
+            }.items()
+            if value is not None
+        }
+        if not include_total_count:
+            options.pop("include_total_count")
+        return self.store.search_issues(**options)
 
     # ----- Label schemas (tracking-store CRUD) -----
 

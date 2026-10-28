@@ -15,8 +15,8 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { isV3ModelTraceInfo, isV4TraceId } from '../../model-trace-explorer/ModelTraceExplorer.utils';
-import { ModelTraceExplorer } from '../../model-trace-explorer/ModelTraceExplorer';
-import { ModelTraceExplorerDrawer } from '../../model-trace-explorer/ModelTraceExplorerDrawer';
+import { ModelTraceExplorer } from '../../model-trace-explorer/ModelTraceExplorerEntrypoint';
+import { ModelTraceExplorerDrawer } from '../../model-trace-explorer/ModelTraceExplorerDrawerEntrypoint';
 import { ModelTraceExplorerSkeleton } from '../../model-trace-explorer/ModelTraceExplorerSkeleton';
 import { shouldUseModelTraceExplorerDrawerUI } from '../../model-trace-explorer/FeatureUtils';
 import { useModelTraceExplorerContext } from '../../model-trace-explorer/ModelTraceExplorerContext';
@@ -61,6 +61,7 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
     assessmentInfos,
     getTrace,
     saveAssessmentsQuery,
+    selectedSpanId,
   }: {
     experimentId: string;
     runUuid?: string;
@@ -73,6 +74,8 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
     assessmentInfos: AssessmentInfo[];
     getTrace?: GetTraceFunction;
     saveAssessmentsQuery?: SaveAssessmentsQuery;
+    /** Opens the single-trace view on this span, for a caller that knows which span it means. */
+    selectedSpanId?: string;
   }) => {
     const { theme } = useDesignSystemTheme();
     const [showAddToEvaluationDatasetModal, setShowAddToEvaluationDatasetModal] = useState(false);
@@ -128,15 +131,6 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
     }, [evaluations, nextEvaluationIdx, onChangeEvaluationId]);
 
     const evaluation = useMemo(() => evaluations?.find(findEval), [evaluations, findEval]);
-    const nextEvaluation = useMemo(
-      () => (nextEvaluationIdx && evaluations ? evaluations?.[nextEvaluationIdx] : undefined),
-      [evaluations, nextEvaluationIdx],
-    );
-    const previousEvaluation = useMemo(
-      () => (previousEvaluationIdx && evaluations ? evaluations?.[previousEvaluationIdx] : undefined),
-      [evaluations, previousEvaluationIdx],
-    );
-
     const tracesTableConfig = useGenAITracesTableConfig();
 
     // --- Auto-polling until trace is complete if the backend supports returning partial spans ---
@@ -165,18 +159,6 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
       getTrace,
       shouldFetchTraceBySearchParamId ? selectedEvaluationId : undefined,
     );
-
-    // Prefetching the next and previous traces to optimize performance
-    // prettier-ignore
-    useGetTrace({
-      getTrace,
-      traceInfo: nextEvaluation?.currentRunValue?.traceInfo,
-    });
-    // prettier-ignore
-    useGetTrace({
-      getTrace,
-      traceInfo: previousEvaluation?.currentRunValue?.traceInfo,
-    });
 
     // is true if only one of the two runs has a trace
     const isSingleTraceView = Boolean(evaluation?.currentRunValue) !== Boolean(evaluation?.otherRunValue);
@@ -254,6 +236,7 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
               {/* prettier-ignore */}
               <ModelTraceExplorerModalBody
                 traceData={currentTraceQueryResult.data}
+                selectedSpanId={selectedSpanId}
               />
             </div>
           ) : (
@@ -515,12 +498,22 @@ const ModalWrapper = ({
 // prettier-ignore
 const ModelTraceExplorerModalBody = ({
   traceData,
+  selectedSpanId,
 }: {
   traceData: ModelTrace;
+  selectedSpanId?: string;
 }) => {
+  // The explorer picks its selected node up from `selectedSpanId` on mount only, so stepping to
+  // another trace would otherwise land on that trace's root while the URL names a span. Remount
+  // it per trace and span when a caller asks for one; callers that pass none keep one instance.
+  const spanSelectionKey = selectedSpanId
+    ? `${isV3ModelTraceInfo(traceData.info) ? traceData.info.trace_id : ''}-${selectedSpanId}`
+    : undefined;
   return (
     <ModelTraceExplorer
+      key={spanSelectionKey}
       modelTrace={traceData}
+      selectedSpanId={selectedSpanId}
     />
   );
 };

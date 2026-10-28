@@ -635,10 +635,10 @@ def test_aggregated_token_usage_from_multiple_spans(
 
     tracer = create_tracer(mlflow_server, experiment_id, "token-aggregation-service")
 
-    with tracer.start_as_current_span("parent-llm-call") as parent:
-        parent.set_attribute(translator.INPUT_TOKEN_KEY, 100)
-        parent.set_attribute(translator.OUTPUT_TOKEN_KEY, 50)
-
+    # Usage is set on sibling child spans only: a parent span carrying usage is treated
+    # as a rollup of its descendants and would win over the children (see
+    # aggregate_usage_from_spans).
+    with tracer.start_as_current_span("agent-run"):
         with tracer.start_as_current_span("child-llm-call-1") as child1:
             child1.set_attribute(translator.INPUT_TOKEN_KEY, 200)
             child1.set_attribute(translator.OUTPUT_TOKEN_KEY, 75)
@@ -658,6 +658,43 @@ def test_aggregated_token_usage_from_multiple_spans(
     retrieved_trace = mlflow.get_trace(trace_id)
 
     assert retrieved_trace.info.token_usage is not None
-    assert retrieved_trace.info.token_usage["input_tokens"] == 450
-    assert retrieved_trace.info.token_usage["output_tokens"] == 225
-    assert retrieved_trace.info.token_usage["total_tokens"] == 675
+    assert retrieved_trace.info.token_usage["input_tokens"] == 350
+    assert retrieved_trace.info.token_usage["output_tokens"] == 175
+    assert retrieved_trace.info.token_usage["total_tokens"] == 525
+
+
+@pytest.mark.parametrize(
+    "translator", [GenAiTranslator, OpenInferenceTranslator, TraceloopTranslator]
+)
+def test_token_usage_on_parent_span_deduplicates_children(
+    mlflow_server: str, is_async, translator: OtelSchemaTranslator
+):
+    experiment = mlflow.set_experiment("rollup-token-usage-test")
+    experiment_id = experiment.experiment_id
+
+    tracer = create_tracer(mlflow_server, experiment_id, "token-rollup-service")
+
+    with tracer.start_as_current_span("parent-llm-call") as parent:
+        parent.set_attribute(translator.INPUT_TOKEN_KEY, 100)
+        parent.set_attribute(translator.OUTPUT_TOKEN_KEY, 50)
+
+        with tracer.start_as_current_span("child-llm-call-1") as child1:
+            child1.set_attribute(translator.INPUT_TOKEN_KEY, 200)
+            child1.set_attribute(translator.OUTPUT_TOKEN_KEY, 75)
+
+    if is_async:
+        _flush_async_logging()
+
+    traces = mlflow.search_traces(
+        locations=[experiment_id], include_spans=False, return_type="list"
+    )
+
+    trace_id = traces[0].info.trace_id
+    retrieved_trace = mlflow.get_trace(trace_id)
+
+    # The parent's usage is authoritative for its subtree, matching the client-side
+    # aggregator's de-duplication of rollup parents (e.g. pydantic_ai, agno, dspy).
+    assert retrieved_trace.info.token_usage is not None
+    assert retrieved_trace.info.token_usage["input_tokens"] == 100
+    assert retrieved_trace.info.token_usage["output_tokens"] == 50
+    assert retrieved_trace.info.token_usage["total_tokens"] == 150

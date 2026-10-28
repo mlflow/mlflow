@@ -1,19 +1,29 @@
 // Auto-close PRs based on linked-issue policy:
-//   1. PRs that attempt to close an issue without the "ready" label.
-//   2. PRs that don't link to any issue and change more than LOC_THRESHOLD
+//   1. PRs that modify maintainer-only paths (see PROTECTED_PATHS).
+//   2. PRs that attempt to close an issue without the "ready" label.
+//   3. PRs that don't link to any issue and change more than LOC_THRESHOLD
 //      lines.
-// Skips PRs that reference multiple issues (ambiguous intent).
-// Only enforces on issues/PRs created on or after 2026-03-10.
+//   4. PRs that reference multiple issues, closed issues, or unassigned issues
+//      already claimed by an earlier open PR.
 
 const fs = require("fs");
 const path = require("path");
 
 const READY_LABEL = "ready";
 const PR_TEMPLATE_PATH = ".github/pull_request_template.md";
-// The date we introduced the "ready" label policy; skip older issues/PRs.
-const CUTOFF_DATE = new Date("2026-03-10T00:00:00Z");
 // PRs with more than this many LOC changed must link to an issue.
 const LOC_THRESHOLD = 100;
+// Paths only maintainers may change. Agent instruction files are listed here because a
+// coding agent silently obeys them, but any path that outside contributions shouldn't
+// touch can be added.
+const PROTECTED_PATHS = [
+  /(^|\/)AGENTS\.md$/,
+  /(^|\/)CLAUDE\.md$/,
+  /^\.agents\//,
+  /^\.claude\//,
+  /^\.claude-plugin\//,
+  /^\.github\/instructions\//,
+];
 
 const QUERY = `
   query($owner: String!, $repo: String!, $number: Int!) {
@@ -22,12 +32,28 @@ const QUERY = `
         closingIssuesReferences(first: 10) {
           nodes {
             number
-            createdAt
+            state
             labels(first: 50) {
               nodes { name }
             }
             assignees(first: 10) {
               nodes { login }
+            }
+            timelineItems(first: 100, itemTypes: [CROSS_REFERENCED_EVENT]) {
+              nodes {
+                __typename
+                ... on CrossReferencedEvent {
+                  willCloseTarget
+                  source {
+                    __typename
+                    ... on PullRequest {
+                      number
+                      state
+                      createdAt
+                    }
+                  }
+                }
+              }
             }
           }
         }
@@ -69,6 +95,17 @@ function getMissingHeadings(body, headings) {
   return headings.filter((h) => !bodyLines.has(h));
 }
 
+function getEarlierOpenLinkedPr(issue, currentPr) {
+  const currentCreatedAt = new Date(currentPr.created_at);
+  return issue.timelineItems.nodes
+    .filter((node) => node.__typename === "CrossReferencedEvent" && node.willCloseTarget)
+    .map((node) => node.source)
+    .filter((source) => source?.__typename === "PullRequest")
+    .filter((pr) => pr.number !== currentPr.number && pr.state === "OPEN")
+    .filter((pr) => new Date(pr.createdAt) < currentCreatedAt)
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))[0];
+}
+
 async function isDatabricksAuthor({ github, context }) {
   const prAuthor = context.payload.pull_request.user.login;
   const { owner, repo } = context.repo;
@@ -88,6 +125,27 @@ async function isDatabricksAuthor({ github, context }) {
   return commits.some((c) => /@databricks\.com$/i.test(c.commit.author.email || ""));
 }
 
+async function getProtectedPathHits({ github, context }) {
+  const { owner, repo } = context.repo;
+  const files = await github.paginate(github.rest.pulls.listFiles, {
+    owner,
+    repo,
+    pull_number: context.payload.pull_request.number,
+    per_page: 100,
+  });
+  // A rename reports the destination in `filename` and the source in `previous_filename`,
+  // so both must be checked to catch files moved out of a protected location.
+  const hits = new Set();
+  for (const { filename, previous_filename } of files) {
+    for (const name of [filename, previous_filename]) {
+      if (name && PROTECTED_PATHS.some((re) => re.test(name))) {
+        hits.add(name);
+      }
+    }
+  }
+  return [...hits];
+}
+
 async function getCloseReason({ github, context }) {
   const association = context.payload.pull_request.author_association;
   if (["OWNER", "MEMBER", "COLLABORATOR"].includes(association)) return undefined;
@@ -97,6 +155,16 @@ async function getCloseReason({ github, context }) {
     const prAuthor = context.payload.pull_request.user.login;
     console.log(`PR author @${prAuthor} has Databricks affiliation. Skipping.`);
     return undefined;
+  }
+
+  const protectedHits = await getProtectedPathHits({ github, context });
+  if (protectedHits.length > 0) {
+    console.log(`PR modifies protected paths: ${protectedHits.join(", ")}. Closing.`);
+    return [
+      "This PR was automatically closed because it modifies files that are maintained by the MLflow team:",
+      protectedHits.map((f) => `- \`${f}\``).join("\n"),
+      "Please open an issue if you'd like to propose a change.",
+    ].join("\n\n");
   }
 
   const prNumber = context.payload.pull_request.number;
@@ -131,12 +199,6 @@ async function getCloseReason({ github, context }) {
       return undefined;
     }
 
-    const prCreatedAt = new Date(context.payload.pull_request.created_at);
-    if (prCreatedAt < CUTOFF_DATE) {
-      console.log(`PR #${prNumber} was created before ${CUTOFF_DATE.toISOString()}. Skipping.`);
-      return undefined;
-    }
-
     const { additions, deletions } = context.payload.pull_request;
     const totalChanges = additions + deletions;
 
@@ -159,20 +221,25 @@ async function getCloseReason({ github, context }) {
 
   if (issues.length > 1) {
     console.log(
-      `Multiple issues referenced (${issues.map((i) => `#${i.number}`).join(", ")}). Skipping.`
+      `Multiple issues referenced (${issues.map((i) => `#${i.number}`).join(", ")}). Closing.`
     );
-    return undefined;
+    return [
+      "This PR was automatically closed because it links to multiple issues with closing keywords.",
+      "Please update the PR description to close one primary issue, reference any related issues without a closing keyword, and then reopen this PR.",
+      "Please do not force-push to or delete the PR branch so this PR can be reopened.",
+    ].join(" ");
   }
 
   const issue = issues[0];
   console.log(`PR #${prNumber} references issue #${issue.number}`);
 
-  // Skip issues created before the cutoff date
-  if (new Date(issue.createdAt) < CUTOFF_DATE) {
-    console.log(
-      `Issue #${issue.number} was created before ${CUTOFF_DATE.toISOString()}. Skipping.`
-    );
-    return undefined;
+  if (issue.state !== "OPEN") {
+    console.log(`Issue #${issue.number} is ${issue.state}. Closing PR #${prNumber}.`);
+    return [
+      `This PR was automatically closed because #${issue.number} is not open.`,
+      "Please open or link to an open issue before submitting a PR.",
+      "Please do not force-push to or delete the PR branch so this PR can be reopened.",
+    ].join(" ");
   }
 
   const hasReadyLabel = issue.labels.nodes.some((label) => label.name === READY_LABEL);
@@ -198,6 +265,20 @@ async function getCloseReason({ github, context }) {
       "If you believe this was done in error, please reach out to a maintainer.",
       "Please do not force-push to or delete the PR branch so this PR can be reopened.",
     ].join(" ");
+  }
+
+  if (assigneeLogins.length === 0) {
+    const earlierOpenPr = getEarlierOpenLinkedPr(issue, context.payload.pull_request);
+    if (earlierOpenPr !== undefined) {
+      console.log(
+        `Issue #${issue.number} is already claimed by earlier open PR #${earlierOpenPr.number}. Closing PR #${prNumber}.`
+      );
+      return [
+        `This PR was automatically closed because #${issue.number} is already linked from earlier open PR #${earlierOpenPr.number}.`,
+        "Please coordinate on the issue thread and ask a maintainer for reassignment if there is a valid reason.",
+        "Please do not force-push to or delete the PR branch so this PR can be reopened.",
+      ].join(" ");
+    }
   }
 
   console.log(`Issue #${issue.number} has the "${READY_LABEL}" label. No action needed.`);
@@ -227,4 +308,10 @@ async function main({ context, github }) {
   }
 }
 
-module.exports = { main, getCloseReason, isDatabricksAuthor };
+module.exports = {
+  main,
+  getCloseReason,
+  getEarlierOpenLinkedPr,
+  isDatabricksAuthor,
+  getProtectedPathHits,
+};

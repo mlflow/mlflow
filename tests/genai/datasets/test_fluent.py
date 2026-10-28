@@ -2,6 +2,7 @@ import json
 import os
 import sys
 import warnings
+from types import SimpleNamespace
 from unittest import mock
 
 import pandas as pd
@@ -17,6 +18,7 @@ from mlflow.entities.evaluation_dataset import (
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import (
     EvaluationDataset,
+    EvaluationDatasetVersion,
     create_dataset,
     delete_dataset,
     delete_dataset_tag,
@@ -446,6 +448,33 @@ def test_search_datasets_databricks(mock_databricks_environment, mock_client):
     assert call_kwargs.get("order_by") is None
 
 
+def test_search_datasets_databricks_preserves_version(mock_databricks_environment, mock_client):
+    mock_client.search_datasets.return_value = PagedList(
+        [
+            EntityEvaluationDataset(
+                dataset_id="id1",
+                name="catalog.schema.dataset1",
+                digest="digest1",
+                created_time=123456789,
+                last_update_time=123456789,
+                version={"version": 7},
+            )
+        ],
+        None,
+    )
+
+    result = search_datasets(experiment_ids=["exp1"])
+
+    assert result[0].version == 7
+
+
+def test_get_dataset_version_non_databricks_unsupported(monkeypatch):
+    monkeypatch.setattr("mlflow.genai.datasets.is_databricks_uri", lambda _: False)
+
+    with pytest.raises(NotImplementedError, match="only supported for Databricks datasets"):
+        get_dataset(name="dataset", version=1)
+
+
 def test_databricks_import_error():
     with (
         mock.patch("mlflow.genai.datasets.is_databricks_uri", return_value=True),
@@ -607,6 +636,40 @@ def test_databricks_dataset_merge_records_uses_profile(monkeypatch):
     assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
 
 
+def test_get_dataset_by_version_uses_versioning_sdk(monkeypatch):
+    calls = []
+
+    class MockAgentsDataset:
+        def list_versions(self):
+            return []
+
+    def db_get_dataset(name, version=None):
+        calls.append((name, version))
+        dataset = MockAgentsDataset()
+        dataset.name = name
+        dataset.dataset_id = name
+        dataset.digest = "digest"
+        dataset.version = version
+        return dataset
+
+    monkeypatch.setitem(
+        sys.modules,
+        "databricks.agents.datasets",
+        SimpleNamespace(Dataset=MockAgentsDataset, get_dataset=db_get_dataset),
+    )
+    monkeypatch.setattr("mlflow.genai.datasets.get_tracking_uri", lambda: "databricks")
+
+    assert get_dataset(name="catalog.schema.table", version=2).version == 2
+    assert (
+        get_dataset(
+            name="catalog.schema.table",
+            version=EvaluationDatasetVersion(version=3),
+        ).version
+        == 3
+    )
+    assert calls == [("catalog.schema.table", 2), ("catalog.schema.table", 3)]
+
+
 def test_create_dataset_with_user_tag(experiments):
     dataset = create_dataset(
         name="test_user_attribution",
@@ -745,6 +808,54 @@ def test_active_record_pattern_merge_records(experiments):
     assert docker_record["outputs"]["answer"] == "Docker is a popular containerization platform"
     assert docker_record["expectations"]["answer"] == "Docker is a containerization platform"
     assert docker_record["tags"]["difficulty"] == "medium"
+
+
+def test_merge_records_refreshes_logged_dataset_identity(experiments):
+    dataset = create_dataset(name="lineage_test", experiment_id=experiments[0])
+    dataset.merge_records([{"inputs": {"question": "2+2?"}, "expectations": {"answer": "4"}}])
+    dataset = get_dataset(dataset_id=dataset.dataset_id)
+    digest_before = dataset.digest
+
+    assert (
+        dataset.merge_records([{"inputs": {"question": "3+3?"}, "expectations": {"answer": "6"}}])
+        is dataset
+    )
+
+    fresh = get_dataset(dataset_id=dataset.dataset_id)
+    assert dataset.digest != digest_before
+    assert dataset.digest == fresh.digest
+    assert dataset.schema == fresh.schema
+    assert dataset.profile == fresh.profile
+    assert json.loads(dataset.profile)["num_records"] == 2
+    assert dataset.last_update_time == fresh.last_update_time
+
+    with mlflow.start_run(experiment_id=experiments[0]) as run:
+        mlflow.log_input(dataset, context="evaluation")
+
+    logged = mlflow.get_run(run.info.run_id).inputs.dataset_inputs[0].dataset
+    assert logged.digest == fresh.digest
+    assert json.loads(logged.profile)["num_records"] == 2
+
+
+def test_delete_records_refreshes_profile(experiments):
+    dataset = create_dataset(name="delete_profile_test", experiment_id=experiments[0])
+    dataset.merge_records([
+        {"inputs": {"question": "2+2?"}, "expectations": {"answer": "4"}},
+        {"inputs": {"question": "3+3?"}, "expectations": {"answer": "6"}},
+    ])
+    record_id = dataset.to_df()["dataset_record_id"].iloc[0]
+
+    assert dataset.delete_records([record_id]) == 1
+
+    fresh = get_dataset(dataset_id=dataset.dataset_id)
+    assert dataset.profile == fresh.profile
+    assert json.loads(dataset.profile)["num_records"] == 1
+
+    with mlflow.start_run(experiment_id=experiments[0]) as run:
+        mlflow.log_input(dataset, context="evaluation")
+
+    logged = mlflow.get_run(run.info.run_id).inputs.dataset_inputs[0].dataset
+    assert json.loads(logged.profile)["num_records"] == 1
 
 
 def test_dataset_with_dataframe_records(experiments):

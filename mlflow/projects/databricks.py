@@ -89,7 +89,7 @@ class DatabricksJobRunner:
     Helper class for running an MLflow project as a Databricks Job.
 
     Args:
-        databricks_profile: Optional Databricks CLI profile to use to fetch hostname &
+        databricks_profile_uri: Optional Databricks CLI profile to use to fetch hostname &
            authentication information when making Databricks API requests.
     """
 

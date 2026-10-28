@@ -13,7 +13,10 @@ from mlflow.genai.evaluation.constant import (
     AgentEvaluationReserverKey,
 )
 from mlflow.genai.scorers import Scorer
+from mlflow.genai.scorers.base import _to_python_scalar
+from mlflow.genai.scorers.scorer_utils import get_scorer_definition_digest
 from mlflow.models import EvaluationMetric
+from mlflow.tracing.constant import AssessmentMetadataKey
 from mlflow.tracing.utils.search import traces_to_df
 
 try:
@@ -270,7 +273,7 @@ def _extract_expectations_from_trace(df: "pd.DataFrame") -> "pd.DataFrame":
     Add `expectations` columns to the dataframe from assessments
     stored in the traces, if the "expectations" column is not already present.
     """
-    if "trace" not in df.columns:
+    if "trace" not in df.columns or "expectations" in df.columns:
         return df
 
     expectations_column = []
@@ -366,6 +369,8 @@ def standardize_scorer_value(scorer_name: str, value: Any) -> list[Feedback]:
     if value is None:
         return []
 
+    value = _to_python_scalar(value)
+
     # Primitives are valid metric values
     if isinstance(value, (int, float, bool, str)):
         return [
@@ -405,6 +410,31 @@ def standardize_scorer_value(scorer_name: str, value: Any) -> list[Feedback]:
         "or an Feedback, or a list of Feedbacks. "
         f"Got {value}.",
     )
+
+
+def add_scorer_metadata(scorer: "Scorer", feedbacks: list[Feedback]) -> None:
+    """
+    Attach scorer provenance to generated feedbacks: the definition digest of every scorer, plus
+    the name, version and resource name of a registered scorer.
+    """
+    metadata = {}
+    if scorer_digest := get_scorer_definition_digest(scorer):
+        metadata[AssessmentMetadataKey.SCORER_DIGEST] = scorer_digest
+    if (scorer_version := getattr(scorer, "scorer_version", None)) is not None:
+        metadata[AssessmentMetadataKey.SCORER_NAME] = scorer.name
+        metadata[AssessmentMetadataKey.SCORER_VERSION] = str(scorer_version)
+        if scorer_resource_name := getattr(scorer, "canonical_resource_name", None):
+            metadata[AssessmentMetadataKey.SCORER_RESOURCE_NAME] = scorer_resource_name
+        if scorer_resource_name_type := getattr(scorer, "canonical_resource_name_type", None):
+            metadata[AssessmentMetadataKey.SCORER_RESOURCE_NAME_TYPE] = scorer_resource_name_type
+    if not metadata:
+        return
+
+    for feedback in feedbacks:
+        feedback.metadata = {
+            **(feedback.metadata or {}),
+            **metadata,
+        }
 
 
 def _get_custom_assessment_name(assessment: Feedback, scorer_name: str) -> str:

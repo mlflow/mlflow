@@ -428,6 +428,7 @@ from mlflow.environment_variables import (
     _MLFLOW_IN_CAPTURE_MODULE_PROCESS,
     _MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT,
     _MLFLOW_TESTING,
+    MLFLOW_ALLOW_MODEL_CODE_EXECUTION,
     MLFLOW_DISABLE_SCHEMA_DETAILS,
     MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF,
     MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR,
@@ -551,6 +552,7 @@ from mlflow.utils.databricks_utils import (
     is_in_databricks_runtime,
     is_in_databricks_serverless_runtime,
     is_in_databricks_shared_cluster_runtime,
+    parse_dbr_runtime_major_minor,
 )
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
@@ -576,6 +578,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _get_flavor_configuration_from_ml_model_file,
     _get_overridden_pyfunc_model_config,
+    _is_model_code_loading_allowed,
     _validate_and_copy_file_to_directory,
     _validate_and_get_model_config_from_file,
     _validate_and_prepare_target_save_path,
@@ -1108,7 +1111,20 @@ def load_model(
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                 release without warning.
+
+    Set ``MLFLOW_ALLOW_MODEL_CODE_EXECUTION=false`` to refuse loading PyFunc models, because a
+    PyFunc model names the Python module that loads it. This setting also refuses trusted PyFunc
+    models outside Databricks Runtime and Databricks Model Serving.
     """
+
+    # Inferring pip requirements loads the user's own model while saving it.
+    if not _is_model_code_loading_allowed() and not _MLFLOW_IN_CAPTURE_MODULE_PROCESS.get():
+        raise MlflowException(
+            "Loading PyFunc models is disallowed because a PyFunc model names the Python module "
+            "that loads it, which can run arbitrary code. If you trust this model, set "
+            f"environment variable '{MLFLOW_ALLOW_MODEL_CODE_EXECUTION.name}' to 'true' to "
+            "load it."
+        )
 
     lineage_header_info = None
     if (
@@ -1966,7 +1982,7 @@ def build_model_env(model_uri, save_path, env_manager=_EnvManager.VIRTUALENV):
         versions or different platform machines. As such, if you connect to a different cluster
         that is running a different runtime version on Databricks, you will need to execute this
         API in a notebook and retrieve the generated archive to your local machine. Each
-        environment snapshot is unique to the the model, the runtime version of your remote
+        environment snapshot is unique to the model, the runtime version of your remote
         Databricks cluster, and the specification of the udf execution environment.
         When using the prebuilt env in `mlflow.pyfunc.spark_udf`, MLflow will verify
         whether the spark UDF sandbox environment matches the prebuilt env requirements and will
@@ -2285,15 +2301,17 @@ def spark_udf(
                 "Databricks Connect requires UDF sandbox image installed with MLflow "
                 "of version >= 2.18.0"
             )
-        # `udf_sandbox_info.runtime_version` format is like '<major_version>.<minor_version>'.
-        # It's safe to apply `Version`.
-        dbr_runtime_version = Version(udf_sandbox_info.runtime_version)
-        if dbr_runtime_version < Version("15.4"):
+        # Compare on the leading (major, minor) components instead of constructing a `Version`,
+        # which crashes with `InvalidVersion` on newer image strings whose minor is non-numeric
+        # (e.g. "18.x-aarch64-photon-scala2"). A `.x` minor denotes the latest uncut minor of that
+        # major, always ahead of any released minor, so it sorts above every concrete minor.
+        dbr_runtime_version = parse_dbr_runtime_major_minor(udf_sandbox_info.runtime_version)
+        if dbr_runtime_version < (15, 4):
             raise MlflowException(
                 "Using 'mlflow.pyfunc.spark_udf' in Databricks Serverless or in remote "
                 "Databricks Connect requires Databricks runtime version >= 15.4."
             )
-        if dbr_runtime_version == Version("15.4"):
+        if dbr_runtime_version == (15, 4):
             if spark.conf.get("spark.databricks.pyspark.udf.isolation.enabled").lower() == "true":
                 # The connected cluster is standard (shared) mode.
                 if (

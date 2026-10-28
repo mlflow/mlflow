@@ -27,6 +27,7 @@ interface Props {
   setSelectedColumns: (cols: TracesTableColumn[]) => void;
   isLoading?: boolean;
   isError?: boolean;
+  disabled?: boolean;
 }
 
 const OPTION_HEIGHT = 32;
@@ -46,6 +47,7 @@ export const EvaluationsOverviewColumnSelectorGrouped: React.FC<React.PropsWithC
   setSelectedColumns,
   isLoading,
   isError,
+  disabled,
 }) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
@@ -120,6 +122,7 @@ export const EvaluationsOverviewColumnSelectorGrouped: React.FC<React.PropsWithC
           endIcon={<ChevronDownIcon />}
           data-testid="column-selector-button"
           componentId="mlflow.evaluations_review.table_ui.filter_button"
+          disabled={disabled}
         >
           <div
             css={{

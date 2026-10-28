@@ -25,6 +25,9 @@ import { DatasetDetailKebabMenu } from './DatasetDetailKebabMenu';
 import { SidePanelResizeHandle } from './SidePanelResizeHandle';
 import { TraceModal } from './TraceModal';
 import { DEFAULT_RECORD_PAGE_SIZE } from '../utils/constants';
+import { useExperimentPageRevampContext } from '../../experiment-page-tabs/ExperimentPageRevampContext';
+import { shouldEnableNewEvalRunsUi } from '../../../../common/utils/FeatureUtils';
+import { DatasetUsedByRunsButton, DatasetUsedByRunsPanel } from './DatasetUsedByRunsDrawer';
 
 /**
  * OSS implementation of `useNavigationBlock` — what universe gets from
@@ -77,14 +80,15 @@ export interface DatasetDetailPageContentProps {
 
 export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: DatasetDetailPageContentProps) => {
   const { theme } = useDesignSystemTheme();
+  const { enabled: revampEnabled } = useExperimentPageRevampContext();
+  const enableNewEvalRunsUi = shouldEnableNewEvalRunsUi();
   const intl = useIntl();
   const { notify, notificationContainer } = useDatasetNotifications();
   const searchInputRef = useRef<InputRef>(null);
   useSlashFocusSearch(searchInputRef);
 
-  const { url, records, selectedRecord, bulk, columns, flags, searchInput, setPageIndex } = useDatasetRecordsController(
-    { experimentId, datasetId },
-  );
+  const { url, records, selectedRecord, bulk, tablePrefs, flags, searchInput, setPageIndex } =
+    useDatasetRecordsController({ experimentId, datasetId });
 
   const deleteRecordsMutation = useDeleteDatasetRecordsMutation(datasetId);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
@@ -131,7 +135,10 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
   const tableWrapperRef = useRef<HTMLDivElement | null>(null);
 
   const panelMode: 'edit' | 'create' | null = url.recordId ? 'edit' : pendingNewRecord !== null ? 'create' : null;
-  const panelOpen = panelMode !== null;
+  const recordPanelOpen = panelMode !== null;
+  // A record panel wins: Back can restore `runsPanel` while a new-record draft is still open.
+  const isRunsPanelOpen = enableNewEvalRunsUi && url.isRunsPanelOpen && !recordPanelOpen;
+  const panelOpen = recordPanelOpen || isRunsPanelOpen;
 
   // Dirty flag is owned by the side panel (drives its editor state) but consumed here so
   // every transition that would discard those edits — close, record-switch, mode-switch,
@@ -180,8 +187,8 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
   // fire that callback (the effect re-runs would flicker false→true). Reset here so closing
   // the panel doesn't leave the navigation block armed with nothing to guard.
   useEffect(() => {
-    if (!panelOpen) setIsPanelDirty(false);
-  }, [panelOpen]);
+    if (!recordPanelOpen) setIsPanelDirty(false);
+  }, [recordPanelOpen]);
 
   const handleOpenBulkDelete = useCallback(() => {
     setPendingDeleteIds(Array.from(bulk.selected));
@@ -244,6 +251,15 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
     [requestTransition, url],
   );
 
+  const handleOpenRunsPanel = useCallback(() => {
+    requestTransition(() => {
+      setPendingNewRecord(null);
+      url.setRunsPanelOpen(true);
+    });
+  }, [requestTransition, url]);
+
+  const handleCloseRunsPanel = useCallback(() => url.setRunsPanelOpen(false), [url]);
+
   const handleClosePanel = useCallback(() => {
     requestTransition(() => {
       url.setRecordId(undefined);
@@ -287,8 +303,8 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
         minHeight: 0,
         // Outer wrappers (PageWrapper + ExperimentPageTabs) already contribute spacing
         // on the right (24px) and bottom (8px); only top and left need padding here.
-        paddingTop: theme.spacing.md,
-        paddingLeft: theme.spacing.md,
+        paddingTop: revampEnabled ? 0 : theme.spacing.md,
+        paddingLeft: revampEnabled ? 0 : theme.spacing.md,
       }}
     >
       <div css={{ display: 'flex', flex: 1, minHeight: 0 }}>
@@ -310,7 +326,9 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
           <DatasetsBreadcrumbs
             experimentId={experimentId}
             datasetName={dataset.name}
+            dataset={dataset}
             rightActions={<DatasetDetailKebabMenu experimentId={experimentId} dataset={dataset} notify={notify} />}
+            hideTrail={revampEnabled}
           />
 
           {records.error instanceof Error && (
@@ -343,14 +361,17 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
                 isRefreshing={records.isFetching && !records.isLoading}
                 lastRefreshTime={records.dataUpdatedAt > 0 ? records.dataUpdatedAt : undefined}
                 onAddRecord={handleAddRecord}
+                beforeAddRecordControl={
+                  enableNewEvalRunsUi && dataset.name ? <DatasetUsedByRunsButton onClick={handleOpenRunsPanel} /> : null
+                }
                 searchInputRef={searchInputRef}
                 trailingControls={
                   panelOpen ? null : (
                     <>
                       <DatasetRecordsColumnSelector
-                        visibleColumns={columns.visibleColumns}
-                        onToggleColumn={columns.toggleColumn}
-                        onResetToDefaults={columns.resetToDefaults}
+                        visibleColumns={tablePrefs.visibleColumns}
+                        onToggleColumn={tablePrefs.toggleColumn}
+                        onResetToDefaults={tablePrefs.resetToDefaults}
                       />
                       {records.allRecords.length > 0 && (
                         // 1px nudge on top of the toolbar's `sm` gap to give the count
@@ -400,7 +421,9 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
                       isFetching={records.isFetching}
                       onRecordSelected={handleRecordSelected}
                       selectedRecordId={url.recordId}
-                      visibleColumns={columns.visibleColumns}
+                      visibleColumns={tablePrefs.visibleColumns}
+                      columnSizing={tablePrefs.columnSizing}
+                      setColumnSizing={tablePrefs.setColumnSizing}
                       selectedForBulk={bulk.selected}
                       isAllOnPageSelected={bulk.isAllVisibleChecked}
                       isSomeOnPageSelected={bulk.isSomeVisibleChecked}
@@ -459,28 +482,37 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
             }}
             handle={<SidePanelResizeHandle />}
           >
-            <DatasetRecordSidePanel
-              // Remount the side panel — including the Monaco editors — on every
-              // create↔edit mode flip. Both `useRecordSaveState` and `useRecordCreateState`
-              // run in the same instance to satisfy rules-of-hooks; without a key, the
-              // edit-mode editor's text drifts to '' during a create-mode interlude (its
-              // `record` becomes undefined, the recordId-change effect resets it), and the
-              // subsequent reset to the next selected row's text races with Monaco's
-              // change-tracking plugin. Keying on mode gives the next mode a fresh hook
-              // instance initialized synchronously with the correct content.
-              key={panelMode ?? 'edit'}
-              mode={panelMode ?? 'edit'}
-              datasetId={datasetId}
-              record={selectedRecord}
-              existingRecords={records.allRecords}
-              open={panelOpen}
-              onClose={handleClosePanel}
-              onSaveSuccess={panelMode === 'create' ? handleCreateSaveSuccess : handleEditSaveSuccess}
-              onSaveError={notify.error}
-              onPendingChange={setPendingNewRecord}
-              onDirtyChange={setIsPanelDirty}
-              onOpenTraceModal={handleOpenTraceModal}
-            />
+            {isRunsPanelOpen && dataset.name ? (
+              <DatasetUsedByRunsPanel
+                datasetName={dataset.name}
+                experimentId={experimentId}
+                open
+                onClose={handleCloseRunsPanel}
+              />
+            ) : (
+              <DatasetRecordSidePanel
+                // Remount the side panel — including the Monaco editors — on every
+                // create↔edit mode flip. Both `useRecordSaveState` and `useRecordCreateState`
+                // run in the same instance to satisfy rules-of-hooks; without a key, the
+                // edit-mode editor's text drifts to '' during a create-mode interlude (its
+                // `record` becomes undefined, the recordId-change effect resets it), and the
+                // subsequent reset to the next selected row's text races with Monaco's
+                // change-tracking plugin. Keying on mode gives the next mode a fresh hook
+                // instance initialized synchronously with the correct content.
+                key={panelMode ?? 'edit'}
+                mode={panelMode ?? 'edit'}
+                datasetId={datasetId}
+                record={selectedRecord}
+                existingRecords={records.allRecords}
+                open={recordPanelOpen}
+                onClose={handleClosePanel}
+                onSaveSuccess={panelMode === 'create' ? handleCreateSaveSuccess : handleEditSaveSuccess}
+                onSaveError={notify.error}
+                onPendingChange={setPendingNewRecord}
+                onDirtyChange={setIsPanelDirty}
+                onOpenTraceModal={handleOpenTraceModal}
+              />
+            )}
           </ResizableBox>
         )}
         {isResizing && <Global styles={{ 'body, :host': { userSelect: 'none' } }} />}

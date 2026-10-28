@@ -7,10 +7,6 @@ _EXPERIMENT_ID_FIXED_WIDTH = 18
 def _generate_unique_integer_id():
     """Utility function for generating a random fixed-length integer
 
-    Args:
-        id_length: The target length of the string representation of the integer without
-            leading zeros
-
     Returns:
         a fixed-width integer
     """

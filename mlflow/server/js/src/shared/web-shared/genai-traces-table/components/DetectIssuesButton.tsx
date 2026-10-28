@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button, CloseIcon, Popover, SparkleIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { useLocalStorage } from '../../hooks/useLocalStorage';
+import { getLocalStorageItem, setLocalStorageItem } from '../../hooks/useLocalStorage';
 import { getAiGradientBorderStyle } from '../../design-system/aiGradientBorderStyle';
+import { ToolbarCollapsibleLabel } from '../../traces-table/TracesToolbarResponsive';
 
 // Default storage key for tracking first-time user guidance
 export const DEFAULT_DETECT_ISSUES_GUIDANCE_STORAGE_KEY = 'mlflow.detectIssues.guidanceShown';
@@ -11,31 +12,48 @@ export const DETECT_ISSUES_GUIDANCE_STORAGE_VERSION = 1;
 // itself in the same session instead of waiting for a remount to re-read the storage flag.
 export const DETECT_ISSUES_GUIDANCE_DISMISSED_EVENT = 'mlflow.detectIssues.guidanceDismissed';
 
+export const markDetectIssuesGuidanceSeen = () => {
+  setLocalStorageItem(DEFAULT_DETECT_ISSUES_GUIDANCE_STORAGE_KEY, DETECT_ISSUES_GUIDANCE_STORAGE_VERSION, false, true);
+  window.dispatchEvent(new Event(DETECT_ISSUES_GUIDANCE_DISMISSED_EVENT));
+};
+
 interface DetectIssuesButtonProps {
   componentId: string;
   onClick: () => void;
+  loading?: boolean;
+  disabled?: boolean;
 }
 
-export const DetectIssuesButton: React.FC<DetectIssuesButtonProps> = ({ componentId, onClick }) => {
+export const DetectIssuesButton: React.FC<DetectIssuesButtonProps> = ({
+  componentId,
+  onClick,
+  loading = false,
+  disabled = false,
+}) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
-  // Track whether the user has seen the guidance
-  const [hasSeenGuidance, setHasSeenGuidance] = useLocalStorage({
-    key: DEFAULT_DETECT_ISSUES_GUIDANCE_STORAGE_KEY,
-    version: DETECT_ISSUES_GUIDANCE_STORAGE_VERSION,
-    initialValue: false,
-  });
-
-  const handleDismissGuidance = () => {
-    setHasSeenGuidance(true);
-    window.dispatchEvent(new Event(DETECT_ISSUES_GUIDANCE_DISMISSED_EVENT));
-  };
+  const [hasSeenGuidance, setHasSeenGuidance] = useState(() =>
+    getLocalStorageItem(
+      DEFAULT_DETECT_ISSUES_GUIDANCE_STORAGE_KEY,
+      DETECT_ISSUES_GUIDANCE_STORAGE_VERSION,
+      false,
+      false,
+    ),
+  );
+  useEffect(() => {
+    const onDismiss = () => setHasSeenGuidance(true);
+    window.addEventListener(DETECT_ISSUES_GUIDANCE_DISMISSED_EVENT, onDismiss);
+    return () => window.removeEventListener(DETECT_ISSUES_GUIDANCE_DISMISSED_EVENT, onDismiss);
+  }, []);
 
   const buttonContent = (
     <Button
       componentId={componentId}
       onClick={onClick}
+      loading={loading}
+      disabled={disabled || loading}
+      aria-busy={loading}
       aria-label={intl.formatMessage({
         defaultMessage: 'Detect issues in traces',
         description: 'Aria label for the detect issues button',
@@ -43,12 +61,14 @@ export const DetectIssuesButton: React.FC<DetectIssuesButtonProps> = ({ componen
       icon={<SparkleIcon color="ai" />}
       css={getAiGradientBorderStyle(theme)}
     >
-      <FormattedMessage defaultMessage="Detect Issues" description="Label for the detect issues button" />
+      <ToolbarCollapsibleLabel>
+        <FormattedMessage defaultMessage="Detect Issues" description="Label for the detect issues button" />
+      </ToolbarCollapsibleLabel>
     </Button>
   );
 
   // Wrap in Popover if guidance should be shown
-  if (!hasSeenGuidance) {
+  if (!hasSeenGuidance && !loading && !disabled) {
     return (
       <Popover.Root
         componentId="mlflow.detect_issues.guidance"
@@ -100,7 +120,7 @@ export const DetectIssuesButton: React.FC<DetectIssuesButtonProps> = ({ componen
             <Button
               componentId="mlflow.detect_issues.guidance.dismiss"
               icon={<CloseIcon />}
-              onClick={handleDismissGuidance}
+              onClick={markDetectIssuesGuidanceSeen}
               aria-label={intl.formatMessage({
                 defaultMessage: 'Close guidance',
                 description: 'Aria label for closing the detect issues guidance popover',
@@ -121,7 +141,7 @@ export const DetectIssuesButton: React.FC<DetectIssuesButtonProps> = ({ componen
           </div>
           <Button
             componentId="mlflow.detect_issues.guidance.got_it"
-            onClick={handleDismissGuidance}
+            onClick={markDetectIssuesGuidanceSeen}
             css={{ marginTop: theme.spacing.md, width: '100%' }}
           >
             <FormattedMessage defaultMessage="Got it" description="Detect issues guidance dismiss button" />

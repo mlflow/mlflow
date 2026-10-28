@@ -8,7 +8,7 @@ import { AgentActionCard } from './AgentActionCard';
 const mockOpenPanel = jest.fn();
 const mockPrefillPrompt = jest.fn();
 let mockSetupComplete = true;
-let mockIsLocalServer = true;
+let mockCanUseAssistant = true;
 
 jest.mock('../../../assistant', () => ({
   __esModule: true,
@@ -28,7 +28,8 @@ jest.mock('../../../assistant', () => ({
     currentStatus: null,
     activeTools: [],
     isLoadingConfig: false,
-    isLocalServer: mockIsLocalServer,
+    isLocalServer: true,
+    canUseAssistant: mockCanUseAssistant,
     closePanel: jest.fn(),
     regenerateLastMessage: jest.fn(),
     cancelSession: jest.fn(),
@@ -57,7 +58,7 @@ beforeEach(() => {
   mockOpenPanel.mockClear();
   mockPrefillPrompt.mockClear();
   mockSetupComplete = true;
-  mockIsLocalServer = true;
+  mockCanUseAssistant = true;
 });
 
 describe('AgentActionCard', () => {
@@ -74,8 +75,8 @@ describe('AgentActionCard', () => {
     expect(screen.getByTestId('assistant-sparkle-icon')).toBeInTheDocument();
   });
 
-  it('hides the MLflow assistant tab when not on a local server', () => {
-    mockIsLocalServer = false;
+  it('hides the MLflow assistant tab when assistant is not available', () => {
+    mockCanUseAssistant = false;
     renderCard();
     // Trigger (and its icon) gone...
     expect(screen.queryByRole('tab', { name: /MLflow assistant/ })).not.toBeInTheDocument();

@@ -46,10 +46,13 @@ def check(path: Path) -> list[str]:
     fm = parse_frontmatter(path.read_text(encoding="utf-8"))
     if fm is None:
         return ["missing frontmatter"]
-    return [
+    errors = [
         *validate_name(fm.get("name"), path.parent.name),
         *validate_description(fm.get("description")),
     ]
+    if "allowed-tools" in fm:
+        errors.append("remove `allowed-tools`: auto mode handles tool permissions")
+    return errors
 
 
 def main(argv: list[str]) -> bool:

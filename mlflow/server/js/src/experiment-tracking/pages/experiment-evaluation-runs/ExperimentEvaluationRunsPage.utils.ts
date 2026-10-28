@@ -1,7 +1,9 @@
-import type { RunEntity } from '../../types';
+import type { RunEntity, RunEntityWithChildren } from '../../types';
 import type { RunsGroupByConfig } from '../../components/experiment-page/utils/experimentPage.group-row-utils';
 import type { RunGroupByGroupingValue } from '../../components/experiment-page/utils/experimentPage.row-types';
 import { RunGroupingMode } from '../../components/experiment-page/utils/experimentPage.row-types';
+import { getParentRunTagName } from '../../actions';
+import { getEvalRunLineageGroupValue } from '../eval-run-details/evalRunLineage';
 
 export type ExperimentEvaluationRunsGroupData = {
   groupKey: string;
@@ -9,7 +11,7 @@ export type ExperimentEvaluationRunsGroupData = {
   subRuns: RunEntity[];
 };
 
-export type RunEntityOrGroupData = RunEntity | ExperimentEvaluationRunsGroupData;
+export type RunEntityOrGroupData = RunEntity | RunEntityWithChildren | ExperimentEvaluationRunsGroupData;
 
 // string key for easy access in the map object
 const createGroupKey = (groupData: RunGroupByGroupingValue) => {
@@ -46,11 +48,12 @@ const getGroupValues = (run: RunEntity, groupBy: RunsGroupByConfig): RunGroupByG
         });
         break;
       case RunGroupingMode.Tag:
-        const tag = run.data?.tags?.find((t) => t.key === groupByKey.groupByData);
+        const getTag = (key: string) => run.data?.tags?.find((t) => t.key === key)?.value;
+        const lineageValue = getEvalRunLineageGroupValue(groupByKey.groupByData, getTag);
         values.push({
           mode: RunGroupingMode.Tag,
           groupByData: groupByKey.groupByData,
-          value: tag?.value ?? null,
+          value: lineageValue !== undefined ? lineageValue : (getTag(groupByKey.groupByData) ?? null),
         });
         break;
       default:
@@ -97,4 +100,87 @@ export const getGroupByRunsData = (runs: RunEntity[], groupBy: RunsGroupByConfig
   });
 
   return runsWithGroupValues;
+};
+
+/**
+ * Nests child runs under their parent runs.
+ * Returns array with only top-level runs, children nested in 'children' property.
+ */
+export const getNestedRuns = (runs: RunEntity[]): RunEntityWithChildren[] => {
+  const parentToChildren: Record<string, RunEntity[]> = {};
+  const runToParentId: Record<string, string | null> = {};
+
+  runs.forEach((run) => {
+    const runId = run.info.runUuid;
+    const parentId = run.data?.tags?.find((t) => t.key === getParentRunTagName())?.value ?? null;
+    runToParentId[runId] = parentId;
+
+    if (parentId) {
+      if (!parentToChildren[parentId]) {
+        parentToChildren[parentId] = [];
+      }
+      parentToChildren[parentId].push(run);
+    }
+  });
+
+  const visited = new Set<string>();
+
+  const nestChildren = (run: RunEntity): RunEntityWithChildren => {
+    const runUuid = run.info.runUuid;
+
+    if (visited.has(runUuid)) {
+      return run;
+    }
+
+    visited.add(runUuid);
+
+    const children = parentToChildren[runUuid];
+    if (!children) {
+      return run;
+    }
+    return {
+      ...run,
+      children: children.map((child) => nestChildren(child)),
+    };
+  };
+
+  // Hide child runs until their parent has been fetched so that they are never rendered as roots.
+  const rootRuns = runs.filter((run) => !runToParentId[run.info.runUuid]);
+
+  return rootRuns.map((run) => nestChildren(run));
+};
+
+/**
+ * Flattens RunEntityOrGroupData[] into a flat array of RunEntity objects.
+ * Recursively extracts all actual run entities from groups and nested children.
+ */
+export const flattenRunEntityOrGroupData = (runs: RunEntityOrGroupData[]): RunEntity[] => {
+  const hasHierarchy = runs.some((row) => 'subRuns' in row || 'children' in row);
+  if (!hasHierarchy) {
+    return runs as RunEntity[];
+  }
+
+  const flatRuns: RunEntity[] = [];
+
+  const walkRows = (rows: RunEntityOrGroupData[]) => {
+    rows.forEach((row) => {
+      // Extract actual run entities (has 'info' property)
+      if ('info' in row) {
+        flatRuns.push(row);
+      }
+
+      // Recurse into subRuns (for grouped data)
+      if ('subRuns' in row && row.subRuns) {
+        walkRows(row.subRuns);
+      }
+
+      // Recurse into children (for nested parent-child runs)
+      if ('children' in row && row.children) {
+        walkRows(row.children);
+      }
+    });
+  };
+
+  walkRows(runs);
+  return flatRuns;
 };

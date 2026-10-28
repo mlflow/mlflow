@@ -12,21 +12,6 @@ class PullRequest(BaseModel):
     head: GitRef
 
 
-class ReviewComment(BaseModel):
-    id: int
-    body: str
-    author: str
-    createdAt: str
-
-
-class ReviewThread(BaseModel):
-    thread_id: str
-    line: int | None
-    startLine: int | None
-    diffHunk: str | None
-    comments: list[ReviewComment]
-
-
 class JobStep(BaseModel):
     name: str
     status: str

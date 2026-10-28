@@ -1,4 +1,3 @@
-import importlib.metadata
 import json
 from dataclasses import asdict, is_dataclass
 from typing import TYPE_CHECKING, Any
@@ -14,6 +13,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.pyfunc import PythonModel
 from mlflow.types.schema import DataType, Schema
+from mlflow.utils import get_installed_version
 
 _INVALID_SIZE_MESSAGE = (
     "Dspy model doesn't support batch inference or empty input. Please provide a single input."
@@ -137,7 +137,10 @@ class DspyModelWrapper(PythonModel):
     def _validate_streaming(
         self,
     ):
-        if Version(importlib.metadata.version("dspy")) <= Version("2.6.23"):
+        # This is a hard gate: block streaming unless we can confirm dspy >= 2.6.24. An
+        # undeterminable version (None) is not safer than an old one, so refuse it too.
+        dspy_version = get_installed_version("dspy")
+        if dspy_version is None or dspy_version <= Version("2.6.23"):
             raise MlflowException(
                 "Streaming API is only supported in dspy 2.6.24 or later. "
                 "Please upgrade your dspy version."

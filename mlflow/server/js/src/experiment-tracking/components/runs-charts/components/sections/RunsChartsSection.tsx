@@ -22,6 +22,7 @@ export interface RunsChartsSectionProps {
   autoRefreshEnabled?: boolean;
   hideEmptyCharts?: boolean;
   globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
+  useMetricDisplayName?: boolean;
 }
 
 export const RunsChartsSection = ({
@@ -39,6 +40,7 @@ export const RunsChartsSection = ({
   autoRefreshEnabled,
   hideEmptyCharts,
   globalLineChartConfig,
+  useMetricDisplayName,
   sectionConfig,
 }: RunsChartsSectionProps) => {
   return (
@@ -54,6 +56,7 @@ export const RunsChartsSection = ({
       autoRefreshEnabled={autoRefreshEnabled}
       hideEmptyCharts={hideEmptyCharts}
       globalLineChartConfig={globalLineChartConfig}
+      useMetricDisplayName={useMetricDisplayName}
     />
   );
 };

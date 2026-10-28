@@ -33,10 +33,14 @@ export async function getTrace(
   // only set when the backend is OSS SQLAlchemyStore.
   if (getSpansLocation(traceInfo as ModelTraceInfoV3) === TRACKING_STORE_SPANS_LOCATION) {
     const traceResp = await getExperimentTraceV3({ traceId });
-    if (traceResp?.trace && traceResp.trace.data) {
+    // The get-trace response is { trace: { trace_info, spans } } (see GetTrace.Response),
+    // so the spans live under trace.spans. Reshape into the { info, data: { spans } } shape
+    // the UI expects, mirroring getTraceV4. Returning here avoids falling through to the
+    // artifact route, which would issue a second full-trace request for the same trace.
+    if (traceResp?.trace) {
       return {
         info: traceResp.trace.trace_info || {},
-        data: traceResp.trace.data,
+        data: { spans: traceResp.trace.spans ?? [] },
       };
     }
   }

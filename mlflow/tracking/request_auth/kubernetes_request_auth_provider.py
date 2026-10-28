@@ -155,6 +155,71 @@ def _get_kubeconfig_cache_key() -> str:
     return f"{kubeconfig_path}:{context_name}"
 
 
+def _normalize_bearer_token(value: str | None) -> str | None:
+    """Return a raw token string, stripping an optional ``Bearer `` prefix.
+
+    Non-bearer schemes such as ``Basic ...`` are rejected: values that contain
+    whitespace are only accepted when they use a ``Bearer `` prefix. Otherwise
+    they would later be re-emitted as ``Bearer Basic ...``.
+    """
+    if not isinstance(value, str):
+        return None
+    token = value.strip()
+    if not token:
+        return None
+    if token.lower().startswith("bearer "):
+        token = token[7:].strip()
+        return token or None
+    # Reject other auth schemes (e.g. "Basic ...") and malformed values.
+    if any(ch.isspace() for ch in token):
+        return None
+    return token
+
+
+def _extract_token_from_api_client(api_client) -> str | None:
+    """Extract a bearer token from a Kubernetes ``ApiClient``.
+
+    Token storage differs across kubernetes-client versions and auth flows:
+    - Some flows put the resolved token in ``default_headers``.
+    - kubernetes-client <36 stores it under ``configuration.api_key["authorization"]``.
+    - kubernetes-client 36+ stores it under ``configuration.api_key["BearerToken"]``.
+    - ``configuration.auth_settings()`` is the canonical resolution path and
+      works across these layouts.
+    """
+    # 1) Try default_headers first (where some auth flows put the resolved token)
+    auth = api_client.default_headers.get("Authorization") or api_client.default_headers.get(
+        "authorization"
+    )
+    if token := _normalize_bearer_token(auth if isinstance(auth, str) else None):
+        return token
+
+    # 2) Fallback: configuration.api_key (key name varies by kubernetes-client version)
+    api_key = getattr(api_client.configuration, "api_key", None) or {}
+    for key in ("authorization", "BearerToken", "Authorization"):
+        if token := _normalize_bearer_token(api_key.get(key)):
+            return token
+
+    # 3) Fallback: auth_settings() — works for kubernetes-client 36+ and exec plugins
+    try:
+        auth_settings = api_client.configuration.auth_settings()
+    except Exception as e:
+        _logger.debug("Could not read kubernetes auth_settings: %s", e)
+        return None
+
+    if not isinstance(auth_settings, dict):
+        return None
+
+    for setting in auth_settings.values():
+        if not isinstance(setting, dict):
+            continue
+        if str(setting.get("key", "")).lower() != "authorization":
+            continue
+        if token := _normalize_bearer_token(setting.get("value")):
+            return token
+
+    return None
+
+
 def _get_token_from_kubeconfig_uncached() -> str | None:
     from kubernetes import client, config
     from kubernetes.config.config_exception import ConfigException
@@ -166,26 +231,9 @@ def _get_token_from_kubeconfig_uncached() -> str | None:
         return None
 
     with client.ApiClient() as api_client:
-        token = None
-
-        # 1) Try default_headers first (where most auth flows put the resolved token)
-        auth = api_client.default_headers.get("Authorization") or api_client.default_headers.get(
-            "authorization"
-        )
-        if isinstance(auth, str) and auth.lower().startswith("bearer "):
-            token = auth[7:].strip()
-
-        # 2) Fallback: configuration.api_key (some versions/auth flows store it here)
-        if not token:
-            api_key = api_client.configuration.api_key.get("authorization")
-            if isinstance(api_key, str):
-                token = api_key.strip()
-                if token.lower().startswith("bearer "):
-                    token = token[7:].strip()
-
+        token = _extract_token_from_api_client(api_client)
         if not token:
             return None
-
         return f"Bearer {token}"
 
 

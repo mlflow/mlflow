@@ -19,6 +19,7 @@ import GatewayRoutes from '../../routes';
 import Routes from '../../../experiment-tracking/routes';
 import { SETTINGS_SECTION_LLM_CONNECTIONS } from '../../../settings/settingsSectionConstants';
 import { GatewayLabel } from '../../../common/components/GatewayNewTag';
+import { AssistantAwareActionBar } from '../../../common/components/AssistantAwareActionBar';
 import { LongFormSummary } from '../../../common/components/long-form/LongFormSummary';
 import type { EditEndpointFormData } from '../../hooks/useEditEndpointForm';
 import { TrafficSplitConfigurator } from './TrafficSplitConfigurator';
@@ -29,6 +30,7 @@ import type { CodingAgentType } from '../../types';
 import { EditableEndpointName } from './EditableEndpointName';
 import { GatewayUsageSection } from './GatewayUsageSection';
 import type { Endpoint, EndpointModelMapping } from '../../types';
+import { hasMixedTypeSafeProviders } from '../../utils/gatewayUtils';
 import { GuardrailsTabContent } from '../guardrails/GuardrailsTabContent';
 import { TracesV3Logs } from '../../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3Logs';
 import { MonitoringConfigProvider } from '../../../experiment-tracking/hooks/useMonitoringConfig';
@@ -186,6 +188,12 @@ export const EditEndpointFormRenderer = ({
 
   const totalWeight = trafficSplitModels.reduce((sum, m) => sum + m.weight, 0);
   const isValidTotal = Math.abs(totalWeight - 100) < 0.01;
+  const providerCompatibilityError = hasMixedTypeSafeProviders([...trafficSplitModels, ...fallbackModels])
+    ? intl.formatMessage({
+        defaultMessage: 'TypeSafe endpoints require all primary and fallback models to use TypeSafe.',
+        description: 'Validation error for mixing TypeSafe evaluation models with other providers',
+      })
+    : undefined;
 
   const uniqueSecretNames = useMemo(
     () => [
@@ -421,6 +429,15 @@ export const EditEndpointFormRenderer = ({
                               />
                             )}
                           />
+                          {providerCompatibilityError && (
+                            <Alert
+                              componentId="mlflow.gateway.edit-endpoint.provider-compatibility-error"
+                              type="error"
+                              closable={false}
+                              message={providerCompatibilityError}
+                              css={{ marginTop: theme.spacing.md }}
+                            />
+                          )}
                         </div>
                       )}
 
@@ -583,7 +600,7 @@ export const EditEndpointFormRenderer = ({
       </Tabs.Root>
 
       {hasChanges && activeTab === 'overview' && (
-        <div
+        <AssistantAwareActionBar
           css={{
             display: 'flex',
             justifyContent: 'flex-end',
@@ -599,7 +616,8 @@ export const EditEndpointFormRenderer = ({
           <Tooltip
             componentId="mlflow.gateway.edit-endpoint.save-tooltip"
             content={
-              !isFormComplete && trafficSplitModels.length > 0 && !isValidTotal
+              providerCompatibilityError ??
+              (!isFormComplete && trafficSplitModels.length > 0 && !isValidTotal
                 ? intl.formatMessage({
                     defaultMessage: 'Traffic split percentages must total 100%',
                     description: 'Tooltip shown when save button is disabled due to invalid traffic split total',
@@ -609,7 +627,7 @@ export const EditEndpointFormRenderer = ({
                       defaultMessage: 'Please configure at least one model in traffic split',
                       description: 'Tooltip shown when save button is disabled due to incomplete form',
                     })
-                  : undefined
+                  : undefined)
             }
           >
             <Button
@@ -617,12 +635,12 @@ export const EditEndpointFormRenderer = ({
               type="primary"
               onClick={form.handleSubmit(onSubmit)}
               loading={isSubmitting}
-              disabled={!isFormComplete}
+              disabled={!isFormComplete || Boolean(providerCompatibilityError)}
             >
               <FormattedMessage defaultMessage="Save changes" description="Save changes button" />
             </Button>
           </Tooltip>
-        </div>
+        </AssistantAwareActionBar>
       )}
     </div>
   );

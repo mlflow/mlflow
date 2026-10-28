@@ -1,6 +1,9 @@
 import json
+import math
+from datetime import datetime, timezone
+from types import SimpleNamespace
 from typing import Any
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pandas as pd
 import pytest
@@ -16,7 +19,12 @@ from mlflow.genai.datasets.databricks_evaluation_dataset_source import (
     DatabricksEvaluationDatasetSource,
     DatabricksUCTableDatasetSource,
 )
-from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
+from mlflow.genai.datasets.entities import EvaluationDatasetVersion
+from mlflow.genai.datasets.evaluation_dataset import (
+    EvaluationDataset,
+    compute_records_sha256,
+)
+from mlflow.utils.mlflow_tags import MLFLOW_GENAI_EVALUATE_DATASET_IDENTITY
 
 
 def create_test_source_json(table_name: str = "main.default.testtable") -> str:
@@ -41,6 +49,7 @@ def create_mock_managed_dataset(source_value: Any) -> Mock:
     mock_dataset.created_by = "test-user"
     mock_dataset.last_update_time = "2024-01-02T00:00:00"
     mock_dataset.last_updated_by = "test-user-2"
+    mock_dataset.version = None
 
     # Mock methods
     mock_dataset.to_df.return_value = pd.DataFrame({"col1": [1, 2, 3], "col2": ["a", "b", "c"]})
@@ -156,6 +165,21 @@ def test_evaluation_dataset_to_mlflow_entity_with_existing_source():
     assert entity.profile == "test-profile"
 
 
+def test_evaluation_dataset_to_mlflow_entity_preserves_version():
+    source = DatabricksEvaluationDatasetSource(
+        table_name="catalog.schema.table",
+        dataset_id="test-dataset-id",
+        version=7,
+    )
+    dataset = create_dataset_with_source(source)
+    dataset._databricks_dataset.version = {"version": 7}
+
+    assert dataset.version == 7
+
+    entity = dataset._to_mlflow_entity()
+    assert json.loads(entity.source)["version"] == 7
+
+
 def test_evaluation_dataset_set_profile(mock_managed_dataset):
     dataset = EvaluationDataset(mock_managed_dataset)
 
@@ -179,6 +203,46 @@ def test_evaluation_dataset_delete_records(mock_managed_dataset):
     record_ids = ["record-1", "record-2"]
     dataset.delete_records(record_ids)
     mock_managed_dataset.delete_records.assert_called_once_with(record_ids)
+
+
+def test_evaluation_dataset_list_versions(mock_managed_dataset):
+    mock_managed_dataset.list_versions.return_value = [
+        SimpleNamespace(version=1),
+        SimpleNamespace(
+            version=2,
+            create_time="2026-07-08T22:37:21Z",
+            created_by="user@example.com",
+            operation="WRITE",
+        ),
+    ]
+
+    dataset = EvaluationDataset(mock_managed_dataset)
+    versions = dataset.list_versions()
+
+    assert versions == [
+        EvaluationDatasetVersion(version=1),
+        EvaluationDatasetVersion(
+            version=2,
+            created_at=datetime(2026, 7, 8, 22, 37, 21, tzinfo=timezone.utc),
+            created_by="user@example.com",
+            operation="WRITE",
+        ),
+    ]
+    mock_managed_dataset.list_versions.assert_called_once_with()
+
+
+def test_evaluation_dataset_version_repr_formats_created_at():
+    version = EvaluationDatasetVersion(
+        version=4,
+        created_at=datetime(2026, 7, 8, 22, 37, 21, tzinfo=timezone.utc),
+        created_by="user@example.com",
+        operation="OPTIMIZE",
+    )
+
+    assert repr(version) == (
+        "EvaluationDatasetVersion(version=4, created_at='2026-07-08 22:37:21 UTC', "
+        "created_by='user@example.com', operation='OPTIMIZE')"
+    )
 
 
 def test_evaluation_dataset_digest_computation(mock_managed_dataset):
@@ -254,3 +318,148 @@ def test_classify_input_fields(
     dataset = _create_mlflow_evaluation_dataset()
     result = dataset._classify_input_fields(input_keys)
     assert result == expected_granularity
+
+
+def test_evaluation_dataset_pinned_version_is_kept(mock_managed_dataset):
+    mock_managed_dataset.version = 2
+    dataset = EvaluationDataset(mock_managed_dataset)
+
+    assert json.loads(dataset._to_mlflow_entity().source)["version"] == 2
+    mock_managed_dataset.list_versions.assert_not_called()
+
+
+def test_evaluation_dataset_latest_handle_resolves_newest_version(mock_managed_dataset):
+    mock_managed_dataset.list_versions.return_value = [
+        SimpleNamespace(version=1),
+        SimpleNamespace(version=3),
+        SimpleNamespace(version=2),
+    ]
+    dataset = EvaluationDataset(mock_managed_dataset)
+
+    assert dataset.version is None
+    assert dataset.source.version == 3
+    assert json.loads(dataset._to_mlflow_entity().source)["version"] == 3
+    mock_managed_dataset.list_versions.assert_called_once_with()
+
+
+def test_evaluation_dataset_latest_version_lookup_failure_omits_version(mock_managed_dataset):
+    mock_managed_dataset.list_versions.side_effect = Exception("boom")
+    dataset = EvaluationDataset(mock_managed_dataset)
+
+    assert "version" not in json.loads(dataset._to_mlflow_entity().source)
+
+
+def test_evaluation_dataset_oss_store_source_is_unchanged():
+    mlflow_dataset = _create_mlflow_evaluation_dataset()
+    dataset = EvaluationDataset(mlflow_dataset)
+
+    assert dataset.source is mlflow_dataset.source
+
+
+def test_evaluation_dataset_to_df_records_identity(mock_managed_dataset):
+    mock_managed_dataset.list_versions.return_value = [SimpleNamespace(version=5)]
+    dataset = EvaluationDataset(mock_managed_dataset)
+
+    df = dataset.to_df()
+
+    identity = df.attrs[MLFLOW_GENAI_EVALUATE_DATASET_IDENTITY]
+    assert identity == {
+        "name": "catalog.schema.table",
+        "digest": "test-digest",
+        "source_type": "databricks-uc-table",
+        "source": dataset.source.to_json(),
+        "schema": "test-schema",
+        "profile": "test-profile",
+        "records_sha256": compute_records_sha256(df),
+    }
+    assert json.loads(identity["source"]) == {
+        "table_name": "catalog.schema.table",
+        "dataset_id": "test-dataset-id",
+        "version": 5,
+    }
+    json.dumps(identity)
+
+
+def test_evaluation_dataset_to_df_identity_with_computed_digest(mock_managed_dataset):
+    mock_managed_dataset.digest = None
+    dataset = EvaluationDataset(mock_managed_dataset)
+
+    df = dataset.to_df()
+
+    assert df.attrs[MLFLOW_GENAI_EVALUATE_DATASET_IDENTITY]["digest"] == dataset.digest
+    mock_managed_dataset.to_df.assert_called_once()
+
+
+def test_evaluation_dataset_oss_store_to_df_records_identity():
+    mlflow_dataset = _create_mlflow_evaluation_dataset()
+    records = pd.DataFrame({"inputs": [{"q": "a"}], "expectations": [{"e": 1}]})
+    dataset = EvaluationDataset(mlflow_dataset)
+
+    with patch.object(MLflowEvaluationDataset, "to_df", return_value=records):
+        df = dataset.to_df()
+
+    identity = df.attrs[MLFLOW_GENAI_EVALUATE_DATASET_IDENTITY]
+    assert identity["name"] == "test-dataset"
+    assert identity["digest"] == "test-digest"
+    assert identity["source"] == mlflow_dataset.source.to_json()
+    assert identity["records_sha256"] == compute_records_sha256(df)
+
+
+def test_compute_records_sha256_hashes_dict_columns():
+    df = pd.DataFrame({"inputs": [{"q": "a"}]})
+    edited = pd.DataFrame({"inputs": [{"q": "b"}]})
+
+    assert compute_records_sha256(df) != compute_records_sha256(edited)
+
+
+@pytest.mark.parametrize(
+    ("original", "edited"),
+    [
+        ([0.12345678901], [0.12345678902]),
+        ([None], [math.nan]),
+        ([{"when": datetime(2026, 1, 1)}], [{"when": "2026-01-01 00:00:00"}]),
+    ],
+    ids=["close_floats", "none_and_nan", "datetime_and_string"],
+)
+def test_compute_records_sha256_detects_small_edits(original, edited):
+    df = pd.DataFrame({"inputs": [{"q": "a"}], "value": original})
+    edited_df = pd.DataFrame({"inputs": [{"q": "a"}], "value": edited})
+
+    assert compute_records_sha256(df) != compute_records_sha256(edited_df)
+
+
+def test_compute_records_sha256_ignores_column_order():
+    df = pd.DataFrame({"inputs": [{"q": "a"}], "outputs": ["x"]})
+
+    assert compute_records_sha256(df) == compute_records_sha256(df[["outputs", "inputs"]])
+
+
+def test_evaluation_dataset_latest_version_is_resolved_after_the_records_are_read(
+    mock_managed_dataset,
+):
+    mock_managed_dataset.list_versions.return_value = [SimpleNamespace(version=5)]
+    dataset = EvaluationDataset(mock_managed_dataset)
+    assert dataset.source.version == 5
+
+    mock_managed_dataset.list_versions.return_value = [
+        SimpleNamespace(version=5),
+        SimpleNamespace(version=6),
+    ]
+    df = dataset.to_df()
+
+    assert dataset.source.version == 6
+    assert json.loads(df.attrs[MLFLOW_GENAI_EVALUATE_DATASET_IDENTITY]["source"])["version"] == 6
+
+
+def test_evaluation_dataset_failed_version_lookup_after_reading_records_omits_version(
+    mock_managed_dataset,
+):
+    mock_managed_dataset.list_versions.return_value = [SimpleNamespace(version=5)]
+    dataset = EvaluationDataset(mock_managed_dataset)
+    assert dataset.source.version == 5
+
+    mock_managed_dataset.list_versions.side_effect = Exception("boom")
+    df = dataset.to_df()
+
+    assert dataset.source.version is None
+    assert "version" not in json.loads(df.attrs[MLFLOW_GENAI_EVALUATE_DATASET_IDENTITY]["source"])

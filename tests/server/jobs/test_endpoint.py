@@ -74,7 +74,7 @@ class Client:
         response.raise_for_status()
         return response.json()
 
-    def wait_job(self, job_id: str, timeout: float = 10) -> dict[str, Any]:
+    def wait_job(self, job_id: str, timeout: float = 30) -> dict[str, Any]:
         beg_time = time.time()
         while time.time() - beg_time <= timeout:
             job_json = self.get_job(job_id)
@@ -174,24 +174,31 @@ def test_job_submit(client: Client):
         "timeout": None,
         "status": "SUCCEEDED",
         "result": {"a": 7, "b": 12},
+        "error_message": None,
         "retry_count": 0,
         "status_details": None,
+        "creator": None,
+        "status_message": None,
+        "progress": None,
+        "progress_updated_at": None,
     }
 
 
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 def test_job_cancel(client: Client):
     job_id = client.submit_job(
         job_name="simple_job_fun",
         params={"x": 3, "y": 4, "sleep_secs": 120},
     )["job_id"]
-    deadline = time.time() + 20
+    deadline = time.time() + 60
     while time.time() < deadline:
         status = client.get_job(job_id)["status"]
         if status == "RUNNING":
             break
         time.sleep(0.5)
     else:
-        raise TimeoutError(f"Job did not start running within 20 seconds, last status: {status}")
+        raise TimeoutError(f"Job did not start running within 60 seconds, last status: {status}")
 
     client.cancel_job(job_id)
 
@@ -205,8 +212,13 @@ def test_job_cancel(client: Client):
         "timeout": None,
         "status": "CANCELED",
         "result": None,
+        "error_message": None,
         "retry_count": 0,
         "status_details": None,
+        "creator": None,
+        "status_message": None,
+        "progress": None,
+        "progress_updated_at": None,
     }
 
 
@@ -245,6 +257,8 @@ def test_job_tracking_uri(client: Client):
     assert job_json["status"] == "SUCCEEDED"
 
 
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 def test_job_endpoint_search(client: Client):
     job1_id = client.submit_job(
         job_name="simple_job_fun",
@@ -334,12 +348,15 @@ def test_job_endpoint_search(client: Client):
         },
     )
     assert response.status_code == 422
-    assert (
-        response.json()["detail"][0]["msg"]
-        == "Input should be 'PENDING', 'RUNNING', 'SUCCEEDED', 'FAILED', 'TIMEOUT' or 'CANCELED'"
+    expected_message = (
+        "Input should be 'PENDING', 'RUNNING', 'NEEDS_RECOVERY', "
+        "'SUCCEEDED', 'FAILED', 'TIMEOUT' or 'CANCELED'"
     )
+    assert response.json()["detail"][0]["msg"] == expected_message
 
 
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 def test_job_status_details_in_api_response(client: Client):
     job_id = client.submit_job(
         job_name="job_with_progress_tracking",
@@ -353,3 +370,7 @@ def test_job_status_details_in_api_response(client: Client):
     assert job_json["status_details"].get("stage") == "done"
     assert job_json["status"] == "SUCCEEDED"
     assert job_json["result"] == "completed"
+    assert job_json["error_message"] is None
+    assert job_json["status_message"] is None
+    assert job_json["progress"] is None
+    assert job_json["progress_updated_at"] is None

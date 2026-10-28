@@ -29,6 +29,7 @@ describe('validateWorkspaceName', () => {
     expect(validateWorkspaceName('workspace1')).toEqual({ valid: true });
     expect(validateWorkspaceName('a1')).toEqual({ valid: true });
     expect(validateWorkspaceName('team-a-project-1')).toEqual({ valid: true });
+    expect(validateWorkspaceName('team--a')).toEqual({ valid: true });
   });
 
   it('rejects names shorter than minimum length', () => {
@@ -50,10 +51,8 @@ describe('validateWorkspaceName', () => {
     expect(result.error).toContain('lowercase alphanumeric');
   });
 
-  it('rejects names with consecutive hyphens', () => {
-    const result = validateWorkspaceName('my--workspace');
-    expect(result.valid).toBe(false);
-    expect(result.error).toContain('no consecutive hyphens');
+  it('accepts names with consecutive hyphens', () => {
+    expect(validateWorkspaceName('my--workspace')).toEqual({ valid: true });
   });
 
   it('rejects names starting with hyphen', () => {
@@ -208,7 +207,7 @@ describe('WorkspaceUtils', () => {
       expect(extractWorkspaceFromSearchParams('workspace=a')).toBeNull();
       expect(extractWorkspaceFromSearchParams(`workspace=${'a'.repeat(64)}`)).toBeNull();
       expect(extractWorkspaceFromSearchParams('workspace=has spaces')).toBeNull();
-      expect(extractWorkspaceFromSearchParams('workspace=has--double-hyphen')).toBeNull();
+      expect(extractWorkspaceFromSearchParams('workspace=has--double-hyphen')).toBe('has--double-hyphen');
     });
 
     it('handles URL-encoded workspace names', () => {

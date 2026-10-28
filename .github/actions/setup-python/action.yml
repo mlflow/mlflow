@@ -1,13 +1,13 @@
 name: "setup-python"
-description: "Ensures to install a python version that's available on Anaconda"
+description: "Sets up Python and uv, optionally pinning a compatible patch version for conda/pyenv environment recreation"
 inputs:
   python-version:
     description: "The python version to install. If unspecified, install the minimum python version mlflow supports."
     required: false
   pin-micro-version:
-    description: "Whether to pin to a specific micro version for Anaconda compatibility. Set to false for workflows that don't need conda/pyenv to hit the runner's pre-installed Python cache and avoid a ~9s download."
+    description: "Optionally pin a compatible Python patch version for conda/pyenv. Defaults to false to use the runner's cached minor version; enable for workflows that recreate model environments."
     required: false
-    default: "true"
+    default: "false"
 outputs:
   python-version:
     description: "The installed python version"
@@ -28,20 +28,22 @@ runs:
       run: |
         python_version="$PYTHON_VERSION_INPUT"
         if [ -z "$python_version" ]; then
-          python_version=$(cat .python-version)
+          # Relative to the action, so callers that check out into a
+          # subdirectory still resolve it.
+          python_version=$(cat "$GITHUB_ACTION_PATH/../../../.python-version")
         fi
         if [[ "$PIN_MICRO_VERSION" == "true" ]]; then
           if [[ "$python_version" == "3.10" ]]; then
             if [ "$RUNNER_OS" == "Linux" ]; then
-              python_version="3.10.20"
+              python_version="3.10.21"
             else
               python_version="3.10.11"
             fi
           elif [[ "$python_version" == "3.11" ]]; then
-            if [ "$RUNNER_OS" == "Windows" ]; then
-              python_version="3.11.9"
+            if [ "$RUNNER_OS" == "Linux" ]; then
+              python_version="3.11.16"
             else
-              python_version="3.11.15"
+              python_version="3.11.9"
             fi
           elif [[ "$python_version" == "3.12" ]]; then
             if [ "$RUNNER_OS" == "Windows" ]; then
@@ -55,14 +57,26 @@ runs:
           fi
         fi
         echo "version=$python_version" >> $GITHUB_OUTPUT
-    - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+    - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
       with:
         python-version: ${{ steps.get-python-version.outputs.version }}
-    - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+    - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       with:
-        version: "0.11.14"
+        version-file: ${{ github.action_path }}/../../../pyproject.toml
+        resolution-strategy: lowest
         # Caching disabled to avoid cache-poisoning exposure across CI workflows.
         enable-cache: false
+    - name: Check uv Python support
+      shell: bash
+      env:
+        PYTHON_VERSION: ${{ steps.get-python-version.outputs.version }}
+      run: |
+        downloads=$(uv python list "$PYTHON_VERSION" --all-versions --only-downloads)
+        if [[ -z "$downloads" ]]; then
+          echo "::error::$(uv --version) cannot download Python $PYTHON_VERSION for this platform. Update required-version in pyproject.toml."
+          exit 1
+        fi
+        echo "$downloads"
     - run: |
         # The default `first-index` strategy is too strict. Use `unsafe-first-match` instead.
         # https://docs.astral.sh/uv/configuration/environment/#uv_index_strategy

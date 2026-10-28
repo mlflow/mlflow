@@ -15,6 +15,9 @@ import {
   createTagColumnId,
   convertTraceInfoV3ToRunEvalEntry,
   getSpansLocation,
+  decodeOtelAnyValue,
+  getSpanAttribute,
+  isOtelAnyValue,
 } from './TraceUtils';
 import { KnownEvaluationResultAssessmentName } from '../components/GenAiEvaluationTracesReview.utils';
 import type { RunEvaluationResultAssessment, RunEvaluationTracesDataEntry } from '../types';
@@ -1091,5 +1094,103 @@ describe('getSpansLocation', () => {
     } as any;
 
     expect(getSpansLocation(traceInfo)).toBe('TRACKING_STORE');
+  });
+});
+
+describe('decodeOtelAnyValue', () => {
+  it('decodes primitive values', () => {
+    expect(decodeOtelAnyValue({ string_value: 'hello' })).toBe('hello');
+    expect(decodeOtelAnyValue({ bool_value: false })).toBe(false);
+    expect(decodeOtelAnyValue({ int_value: 42 })).toBe(42);
+    expect(decodeOtelAnyValue({ int_value: '9007199254740000' })).toBe(9007199254740000);
+    // int64 strings beyond the safe integer range are kept as strings to avoid losing precision
+    expect(decodeOtelAnyValue({ int_value: '9007199254740993' })).toBe('9007199254740993');
+    expect(decodeOtelAnyValue({ double_value: 3.14 })).toBe(3.14);
+    expect(decodeOtelAnyValue({ bytes_value: 'aGVsbG8=' })).toBe('aGVsbG8=');
+  });
+
+  it('decodes unset values to null', () => {
+    expect(decodeOtelAnyValue(undefined)).toBeNull();
+    expect(decodeOtelAnyValue({})).toBeNull();
+  });
+
+  it('recursively decodes kvlist and array values', () => {
+    expect(
+      decodeOtelAnyValue({
+        kvlist_value: {
+          values: [
+            {
+              key: 'messages',
+              value: {
+                array_value: {
+                  values: [
+                    {
+                      kvlist_value: {
+                        values: [
+                          { key: 'role', value: { string_value: 'user' } },
+                          { key: 'content', value: { string_value: 'How are you?' } },
+                        ],
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+            // null fields are serialized as kvlist entries without a value
+            { key: 'stop' },
+          ],
+        },
+      }),
+    ).toEqual({
+      messages: [{ role: 'user', content: 'How are you?' }],
+      stop: null,
+    });
+  });
+
+  it('decodes empty kvlist and array values', () => {
+    expect(decodeOtelAnyValue({ kvlist_value: {} })).toEqual({});
+    expect(decodeOtelAnyValue({ array_value: {} })).toEqual([]);
+  });
+});
+
+describe('isOtelAnyValue', () => {
+  it('returns true for OTLP AnyValue shapes', () => {
+    expect(isOtelAnyValue({ string_value: 'hello' })).toBe(true);
+    expect(isOtelAnyValue({ kvlist_value: { values: [] } })).toBe(true);
+    expect(isOtelAnyValue({ array_value: { values: [] } })).toBe(true);
+    // an empty object is how OTLP represents null
+    expect(isOtelAnyValue({})).toBe(true);
+  });
+
+  it('returns false for other values', () => {
+    expect(isOtelAnyValue('hello')).toBe(false);
+    expect(isOtelAnyValue(42)).toBe(false);
+    expect(isOtelAnyValue(null)).toBe(false);
+    expect(isOtelAnyValue([])).toBe(false);
+    expect(isOtelAnyValue({ custom_field: 'value' })).toBe(false);
+  });
+});
+
+describe('getSpanAttribute', () => {
+  it('returns values from V3 flat object attributes', () => {
+    expect(getSpanAttribute({ 'mlflow.spanInputs': '{"x": 10}' }, 'mlflow.spanInputs')).toBe('{"x": 10}');
+  });
+
+  it('decodes typed values from OTLP array attributes', () => {
+    const attributes = [
+      { key: 'mlflow.spanType', value: { string_value: 'LLM' } },
+      {
+        key: 'mlflow.spanInputs',
+        value: {
+          kvlist_value: {
+            values: [{ key: 'question', value: { string_value: 'How are you?' } }],
+          },
+        },
+      },
+    ] as any;
+
+    expect(getSpanAttribute(attributes, 'mlflow.spanType')).toBe('LLM');
+    expect(getSpanAttribute(attributes, 'mlflow.spanInputs')).toEqual({ question: 'How are you?' });
+    expect(getSpanAttribute(attributes, 'nonexistent')).toBeUndefined();
   });
 });

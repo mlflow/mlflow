@@ -13,6 +13,7 @@ class ToolNames:
     GET_TRACE_INFO = "get_trace_info"
     GET_ROOT_SPAN = "get_root_span"
     GET_SPAN = "get_span"
+    GET_SPAN_IMAGE = "get_span_image"
     LIST_SPANS = "list_spans"
     SEARCH_TRACE_REGEX = "search_trace_regex"
     GET_SPAN_PERFORMANCE_AND_TIMING_REPORT = "get_span_performance_and_timing_report"

@@ -9,6 +9,8 @@ from llama_index.core.base.embeddings.base import BaseEmbedding
 from llama_index.core.callbacks.base import CallbackManager
 from llama_index.core.schema import BaseComponent
 
+from mlflow.utils.model_utils import _check_model_code_loading_allowed
+
 _logger = logging.getLogger(__name__)
 
 
@@ -123,6 +125,9 @@ def _deserialize_dict_of_objects(path: str) -> dict[str, Any]:
     with open(path) as f:
         to_deserialize = json.load(f)
 
+        if to_deserialize:
+            # Each entry names a class to import and construct with arguments from the file.
+            _check_model_code_loading_allowed("LlamaIndex settings that name classes to construct")
         output = {}
         for k, v in to_deserialize.items():
             if isinstance(v, list):

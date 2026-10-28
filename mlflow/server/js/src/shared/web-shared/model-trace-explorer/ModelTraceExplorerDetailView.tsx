@@ -25,6 +25,7 @@ import { computeWorkflowPathToRoot } from './graph-view/GraphView.utils';
 import { computeWorkflowLayout } from './graph-view/GraphView.workflow';
 import { GraphViewSpanNavigator } from './graph-view/GraphViewSpanNavigator';
 import { useGraphTreeLinkedState } from './graph-view/useGraphTreeLinkedState';
+import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
 
 const GraphViewWorkflowCanvas = React.lazy(() =>
   import('./graph-view/GraphViewWorkflowCanvas').then((m) => ({ default: m.GraphViewWorkflowCanvas })),
@@ -37,7 +38,12 @@ const GRAPH_MIN_HEIGHT = 120;
 const TREE_MIN_HEIGHT = 200;
 // Default ratio of vertical space allocated to the graph canvas (below the tree).
 // Kept small so the span tree remains the primary view.
-const DEFAULT_GRAPH_HEIGHT_RATIO = 0.25;
+const LEGACY_DEFAULT_GRAPH_HEIGHT_RATIO = 0.25;
+// With the new eval runs UI, the graph opens near half-height so it is usable on load without a
+// manual resize, while the tree above it stays above TREE_MIN_HEIGHT.
+const NEW_UI_DEFAULT_GRAPH_HEIGHT_RATIO = 0.45;
+const getDefaultGraphHeightRatio = () =>
+  shouldEnableNewEvalRunsUi() ? NEW_UI_DEFAULT_GRAPH_HEIGHT_RATIO : LEGACY_DEFAULT_GRAPH_HEIGHT_RATIO;
 // Expanded ratio when the user clicks the expand button on the graph.
 const EXPANDED_GRAPH_HEIGHT_RATIO = 0.75;
 // Ratio of the container width the left pane occupies when graph is fully expanded.
@@ -98,7 +104,7 @@ export const ModelTraceExplorerDetailView = ({
   // When containerHeight is not yet available (first render before ResizeObserver fires),
   // we fall back to a pure CSS flex layout so the graph always occupies the same
   // proportional space regardless of timing.
-  const graphHeightRatio = useRef(DEFAULT_GRAPH_HEIGHT_RATIO);
+  const graphHeightRatio = useRef(getDefaultGraphHeightRatio());
   const containerHeight = outerSize?.height ?? 0;
   const hasContainerMeasurement = containerHeight > 0;
   const maxGraphHeight = Math.max(GRAPH_MIN_HEIGHT, containerHeight - TREE_MIN_HEIGHT);
@@ -110,11 +116,14 @@ export const ModelTraceExplorerDetailView = ({
     rootNode,
     activeTab,
     setActiveTab,
+    setSelectedNodeAndTab,
     showGraph,
     setShowGraph,
     updatePaneSizeRatios,
     getPaneSizeRatios,
     topLevelNodes,
+    selectedNode: viewStateSelectedNode,
+    setSelectedNode: setViewStateSelectedNode,
   } = useModelTraceExplorerViewState();
 
   const activeLayoutConfig = isGraphExpanded ? EXPANDED_WORKFLOW_LAYOUT_CONFIG : DEFAULT_WORKFLOW_LAYOUT_CONFIG;
@@ -135,7 +144,12 @@ export const ModelTraceExplorerDetailView = ({
     handleNavigateSpan,
     selectedNode,
     setSelectedNode,
-  } = useGraphTreeLinkedState(workflowLayout.nodes);
+  } = useGraphTreeLinkedState({
+    workflowNodes: workflowLayout.nodes,
+    selectedNode: viewStateSelectedNode,
+    setSelectedNode: setViewStateSelectedNode,
+    topLevelNodes,
+  });
   const graphAvailable = Boolean(rootNode) && workflowLayout.nodes.length > 0;
   const hasGraph = showGraph && graphAvailable;
 
@@ -153,7 +167,7 @@ export const ModelTraceExplorerDetailView = ({
     // Reset graph height ratio to default when toggling on,
     // so the graph always opens at the same proportional size
     if (newShowGraph) {
-      graphHeightRatio.current = DEFAULT_GRAPH_HEIGHT_RATIO;
+      graphHeightRatio.current = getDefaultGraphHeightRatio();
     }
 
     // If graph was expanded, restore pane width to pre-expand state
@@ -179,7 +193,7 @@ export const ModelTraceExplorerDetailView = ({
       const next = !prev;
 
       // Update vertical ratio
-      graphHeightRatio.current = next ? EXPANDED_GRAPH_HEIGHT_RATIO : DEFAULT_GRAPH_HEIGHT_RATIO;
+      graphHeightRatio.current = next ? EXPANDED_GRAPH_HEIGHT_RATIO : getDefaultGraphHeightRatio();
 
       // Update horizontal pane width
       const containerWidth = paneRef.current?.getContainerWidth();
@@ -219,7 +233,9 @@ export const ModelTraceExplorerDetailView = ({
         graphHeightRatio.current = size.height / containerHeight;
         // Sync the expanded state with the actual ratio so the button icon
         // reflects the current size after a manual drag.
-        setIsGraphExpanded(graphHeightRatio.current >= (DEFAULT_GRAPH_HEIGHT_RATIO + EXPANDED_GRAPH_HEIGHT_RATIO) / 2);
+        setIsGraphExpanded(
+          graphHeightRatio.current >= (getDefaultGraphHeightRatio() + EXPANDED_GRAPH_HEIGHT_RATIO) / 2,
+        );
       }
     },
     [containerHeight],
@@ -257,7 +273,7 @@ export const ModelTraceExplorerDetailView = ({
     treeNodes: topLevelNodes,
     selectedNode,
     setSelectedNode,
-    setActiveTab,
+    setSelectedNodeAndTab,
     setExpandedKeys,
     modelTraceInfo,
   });

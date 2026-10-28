@@ -1,3 +1,5 @@
+import base64
+import hashlib
 import json
 import logging
 import os
@@ -24,6 +26,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
+    NOT_IMPLEMENTED,
     PERMISSION_DENIED,
     RESOURCE_DOES_NOT_EXIST,
     UNAUTHENTICATED,
@@ -33,6 +36,7 @@ from mlflow.store.artifact.artifact_repo import (
     MultipartDownloadMixin,
     MultipartUploadMixin,
     PresignedUploadMixin,
+    _is_object_key_within_path,
 )
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
@@ -46,6 +50,10 @@ BOTO_TO_MLFLOW_ERROR = {
     "NoSuchKey": RESOURCE_DOES_NOT_EXIST,
     "InvalidAccessKeyId": UNAUTHENTICATED,
     "SignatureDoesNotMatch": UNAUTHENTICATED,
+    # HEAD responses (e.g. head_object) carry no error body, so botocore reports the
+    # bare HTTP status code instead of an S3 error code.
+    "403": PERMISSION_DENIED,
+    "404": RESOURCE_DOES_NOT_EXIST,
 }
 
 # Maps boto3 put_object parameter names to their HTTP header equivalents.
@@ -57,6 +65,7 @@ _S3_PARAM_TO_HEADER = {
     "ContentDisposition": "Content-Disposition",
     "ContentEncoding": "Content-Encoding",
     "ContentLanguage": "Content-Language",
+    "ExpectedBucketOwner": "x-amz-expected-bucket-owner",
     "Expires": "Expires",
     "GrantFullControl": "x-amz-grant-full-control",
     "GrantRead": "x-amz-grant-read",
@@ -66,6 +75,7 @@ _S3_PARAM_TO_HEADER = {
     "ObjectLockMode": "x-amz-object-lock-mode",
     "ObjectLockRetainUntilDate": "x-amz-object-lock-retain-until-date",
     "RequestPayer": "x-amz-request-payer",
+    "ChecksumAlgorithm": "x-amz-sdk-checksum-algorithm",
     "SSECustomerAlgorithm": "x-amz-server-side-encryption-customer-algorithm",
     "SSECustomerKey": "x-amz-server-side-encryption-customer-key",
     "SSECustomerKeyMD5": "x-amz-server-side-encryption-customer-key-MD5",
@@ -77,9 +87,79 @@ _S3_PARAM_TO_HEADER = {
     "WebsiteRedirectLocation": "x-amz-website-redirect-location",
 }
 
+_S3_MULTIPART_REQUEST_ARGS = {
+    "ExpectedBucketOwner",
+    "RequestPayer",
+    "SSECustomerAlgorithm",
+    "SSECustomerKey",
+    "SSECustomerKeyMD5",
+}
+
+
+def _normalize_sse_customer_args(upload_part_args):
+    """Match Botocore's SSE-C header transformation for multipart requests."""
+    if "SSECustomerKey" not in upload_part_args or "SSECustomerKeyMD5" in upload_part_args:
+        return upload_part_args
+
+    key = upload_part_args["SSECustomerKey"]
+    key_bytes = key.encode("utf-8") if isinstance(key, str) else key
+    return {
+        **upload_part_args,
+        "SSECustomerKey": base64.b64encode(key_bytes).decode("utf-8"),
+        "SSECustomerKeyMD5": base64.b64encode(
+            hashlib.md5(key_bytes, usedforsecurity=False).digest()
+        ).decode("utf-8"),
+    }
+
+
+def _reject_sse_customer_key_for_presigned_transfer(extra_args):
+    if extra_args and "SSECustomerKey" in extra_args:
+        _logger.error(
+            "Presigned S3 transfers cannot be used with SSECustomerKey in "
+            "MLFLOW_S3_UPLOAD_EXTRA_ARGS because they would disclose the key to clients. "
+            "Remove SSECustomerKey to use presigned transfers."
+        )
+        raise MlflowException(
+            "Presigned artifact transfers are unavailable.", error_code=NOT_IMPLEMENTED
+        )
+
 
 def _get_utcnow_timestamp():
     return datetime.now(timezone.utc).timestamp()
+
+
+def _hoist_expected_bucket_owner(request, **kwargs):
+    """Make ``ExpectedBucketOwner`` usable from a top-level browser navigation.
+
+    For a presigned GET, botocore serializes ``ExpectedBucketOwner`` as the
+    ``x-amz-expected-bucket-owner`` request header and signs it, leaving the owner value out
+    of the URL (``X-Amz-SignedHeaders=host;x-amz-expected-bucket-owner``). A browser
+    navigating directly to the URL cannot attach that header, so S3 rejects it with
+    ``SignatureDoesNotMatch``. Moving the value into the signed query before signing keeps the
+    owner enforced (it is covered by the SigV4 signature and cannot be tampered with) while the
+    browser needs no custom header (``X-Amz-SignedHeaders=host``). Presign-only, so regular S3
+    calls are unaffected.
+    """
+    if not request.context.get("is_presign_request"):
+        return
+    if owner := request.headers.get("x-amz-expected-bucket-owner"):
+        del request.headers["x-amz-expected-bucket-owner"]
+        request.params["x-amz-expected-bucket-owner"] = owner
+
+
+def _attachment_content_disposition(filename):
+    """Build an RFC 6266 ``attachment`` Content-Disposition value for ``filename``.
+
+    Printable-ASCII filenames use the plain ``filename=`` parameter (quoted-string
+    form, with ``\\`` and ``"`` escaped). Anything else — non-ASCII names (RFC 5987)
+    or names containing control characters, which must never reach a header value
+    verbatim — uses the percent-encoded ``filename*=UTF-8''...`` extended parameter,
+    which browsers decode natively.
+    """
+    if not filename.isascii() or not filename.isprintable():
+        return f"attachment; filename*=UTF-8''{urllib.parse.quote(filename)}"
+    escaped = filename.replace("\\", "\\\\").replace('"', '\\"')
+    return f'attachment; filename="{escaped}"'
 
 
 @lru_cache(maxsize=64)
@@ -117,7 +197,7 @@ def _cached_get_s3_client(
 
         signature_version = UNSIGNED
 
-    return boto3.client(
+    s3_client = boto3.client(
         "s3",
         config=Config(
             signature_version=signature_version, s3={"addressing_style": addressing_style}
@@ -129,6 +209,15 @@ def _cached_get_s3_client(
         aws_session_token=session_token,
         region_name=region_name,
     )
+    # Move a signed ``ExpectedBucketOwner`` from a request header into the presigned query so
+    # presigned GET URLs are usable from a top-level browser navigation. See
+    # _hoist_expected_bucket_owner for details.
+    s3_client.meta.events.register(
+        "before-sign.s3.GetObject",
+        _hoist_expected_bucket_owner,
+        unique_id="mlflow-hoist-expected-bucket-owner",
+    )
+    return s3_client
 
 
 def _get_s3_client(
@@ -169,6 +258,11 @@ def _get_s3_client(
         session_token=session_token,
         region_name=region_name,
     )
+
+
+def _file_is_directory_marker(file_path, file_size):
+    """Check if a file is a standard S3 directory marker."""
+    return file_size == 0 and bool(file_path) and file_path.endswith("/")
 
 
 class S3ArtifactRepository(
@@ -281,6 +375,10 @@ class S3ArtifactRepository(
             return None
 
     def _upload_file(self, s3_client, local_file, bucket, key):
+        extra_args = self._get_upload_extra_args(local_file)
+        s3_client.upload_file(Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args)
+
+    def _get_upload_extra_args(self, local_file):
         extra_args = {}
         guessed_type, guessed_encoding = guess_type(local_file)
         if guessed_type is not None:
@@ -291,7 +389,7 @@ class S3ArtifactRepository(
         environ_extra_args = self.get_s3_file_upload_extra_args()
         if environ_extra_args is not None:
             extra_args.update(environ_extra_args)
-        s3_client.upload_file(Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args)
+        return extra_args
 
     def log_artifact(self, local_file, artifact_path=None):
         """
@@ -449,8 +547,11 @@ class S3ArtifactRepository(
                 self._verify_listed_object_contains_artifact_path_prefix(
                     listed_object_path=file_path, artifact_path=artifact_path
                 )
-                file_rel_path = posixpath.relpath(path=file_path, start=artifact_path)
                 file_size = int(obj.get("Size"))
+                if _file_is_directory_marker(file_path, file_size):
+                    continue
+
+                file_rel_path = posixpath.relpath(path=file_path, start=artifact_path)
                 infos.append(FileInfo(file_rel_path, False, file_size))
         return sorted(infos, key=lambda f: f.path)
 
@@ -479,9 +580,14 @@ class S3ArtifactRepository(
         (bucket, s3_root_path) = self.parse_s3_compliant_uri(self.artifact_uri)
         s3_full_path = posixpath.join(s3_root_path, remote_file_path)
         s3_client = self._get_s3_client()
-        download_kwargs = (
-            {"ExtraArgs": self._bucket_owner_params} if self._bucket_owner_params else {}
-        )
+        download_args = _normalize_sse_customer_args({
+            name: value
+            for name, value in (self.get_s3_file_upload_extra_args() or {}).items()
+            if name
+            in {"SSECustomerAlgorithm", "SSECustomerKey", "SSECustomerKeyMD5", "RequestPayer"}
+        })
+        download_args.update(self._bucket_owner_params)
+        download_kwargs = {"ExtraArgs": download_args} if download_args else {}
         s3_client.download_file(bucket, s3_full_path, local_path, **download_kwargs)
 
     def delete_artifacts(self, artifact_path=None):
@@ -500,7 +606,8 @@ class S3ArtifactRepository(
                 self._verify_listed_object_contains_artifact_path_prefix(
                     listed_object_path=file_path, artifact_path=dest_path
                 )
-                keys.append({"Key": file_path})
+                if _is_object_key_within_path(file_path, dest_path):
+                    keys.append({"Key": file_path})
             if keys:
                 s3_client.delete_objects(
                     Bucket=bucket, Delete={"Objects": keys}, **self._bucket_owner_params
@@ -533,13 +640,37 @@ class S3ArtifactRepository(
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
         dest_path = posixpath.join(dest_path, os.path.basename(local_file))
+        upload_extra_args = self._get_upload_extra_args(local_file)
+        _reject_sse_customer_key_for_presigned_transfer(upload_extra_args)
+        if "ChecksumAlgorithm" in upload_extra_args:
+            _logger.error(
+                "Presigned multipart uploads do not support ChecksumAlgorithm in "
+                "MLFLOW_S3_UPLOAD_EXTRA_ARGS. Remove this option or upload directly to S3 "
+                "with a client that computes and submits checksums for every part."
+            )
+            raise MlflowException(
+                "Presigned artifact transfers are unavailable.", error_code=NOT_IMPLEMENTED
+            )
         s3_client = self._get_s3_client()
+        create_allowed_args = s3_client.meta.service_model.operation_model(
+            "CreateMultipartUpload"
+        ).input_shape.members
         create_response = s3_client.create_multipart_upload(
             Bucket=bucket,
             Key=dest_path,
-            **self._bucket_owner_params,
+            **{
+                key: value for key, value in upload_extra_args.items() if key in create_allowed_args
+            },
         )
         upload_id = create_response["UploadId"]
+        upload_part_args = _normalize_sse_customer_args({
+            key: value
+            for key, value in upload_extra_args.items()
+            if key in _S3_MULTIPART_REQUEST_ARGS
+        })
+        upload_part_headers = {
+            _S3_PARAM_TO_HEADER[key]: str(value) for key, value in upload_part_args.items()
+        }
         credentials = []
         for i in range(1, num_parts + 1):  # part number must be in [1, 10000]
             url = s3_client.generate_presigned_url(
@@ -549,14 +680,14 @@ class S3ArtifactRepository(
                     "Key": dest_path,
                     "PartNumber": i,
                     "UploadId": upload_id,
-                    **self._bucket_owner_params,
+                    **upload_part_args,
                 },
             )
             credentials.append(
                 MultipartUploadCredential(
                     url=url,
                     part_number=i,
-                    headers={},
+                    headers=upload_part_headers,
                 )
             )
         return CreateMultipartUploadResponse(
@@ -588,12 +719,17 @@ class S3ArtifactRepository(
         dest_path = posixpath.join(dest_path, os.path.basename(local_file))
         parts = [{"PartNumber": part.part_number, "ETag": part.etag} for part in parts]
         s3_client = self._get_s3_client()
+        complete_args = _normalize_sse_customer_args({
+            key: value
+            for key, value in self._get_upload_extra_args(local_file).items()
+            if key in _S3_MULTIPART_REQUEST_ARGS
+        })
         s3_client.complete_multipart_upload(
             Bucket=bucket,
             Key=dest_path,
             UploadId=upload_id,
             MultipartUpload={"Parts": parts},
-            **self._bucket_owner_params,
+            **complete_args,
         )
 
     def abort_multipart_upload(self, local_file, upload_id, artifact_path=None):
@@ -616,11 +752,16 @@ class S3ArtifactRepository(
             dest_path = posixpath.join(dest_path, artifact_path)
         dest_path = posixpath.join(dest_path, os.path.basename(local_file))
         s3_client = self._get_s3_client()
+        abort_args = {
+            key: value
+            for key, value in self._get_upload_extra_args(local_file).items()
+            if key in {"ExpectedBucketOwner", "RequestPayer"}
+        }
         s3_client.abort_multipart_upload(
             Bucket=bucket,
             Key=dest_path,
             UploadId=upload_id,
-            **self._bucket_owner_params,
+            **abort_args,
         )
 
     def create_presigned_upload_url(self, artifact_path, expiration=900):
@@ -640,8 +781,6 @@ class S3ArtifactRepository(
         (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)
         dest_path = posixpath.join(dest_path, artifact_path)
 
-        s3_client = self._get_s3_client()
-
         content_type, _ = guess_type(artifact_path)
         if not content_type:
             content_type = "application/octet-stream"
@@ -658,9 +797,11 @@ class S3ArtifactRepository(
         # x-amz-server-side-encryption) would reject the presigned PUT with 403.
         # This matches the behavior of _upload_file() for direct S3 uploads.
         environ_extra_args = self.get_s3_file_upload_extra_args()
+        _reject_sse_customer_key_for_presigned_transfer(environ_extra_args)
         if environ_extra_args:
             params.update(environ_extra_args)
 
+        s3_client = self._get_s3_client()
         presigned_url = s3_client.generate_presigned_url(
             "put_object",
             Params=params,
@@ -696,11 +837,19 @@ class S3ArtifactRepository(
 
         (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)
         key = posixpath.join(dest_path, artifact_path) if artifact_path else dest_path
+        upload_extra_args = self.get_s3_file_upload_extra_args() or {}
+        _reject_sse_customer_key_for_presigned_transfer(upload_extra_args)
+        download_args = _normalize_sse_customer_args({
+            name: value
+            for name, value in upload_extra_args.items()
+            if name
+            in {"SSECustomerAlgorithm", "SSECustomerKey", "SSECustomerKeyMD5", "RequestPayer"}
+        })
         s3_client = self._get_s3_client()
 
         try:
             head_response = s3_client.head_object(
-                Bucket=bucket, Key=key, **self._bucket_owner_params
+                Bucket=bucket, Key=key, **download_args, **self._bucket_owner_params
             )
         except ClientError as error:
             error_code = error.response["Error"]["Code"]
@@ -711,9 +860,28 @@ class S3ArtifactRepository(
             )
         file_size = head_response.get("ContentLength")
 
+        # Serve the object as a download with the artifact's own filename. Without an
+        # `attachment` disposition, a browser navigating to the URL would render
+        # renderable types (text, HTML, images, PDF) inline instead of saving them.
+        # The override is part of the SigV4-signed query, so it cannot be stripped or
+        # altered without invalidating the URL, and it is ignored for programmatic
+        # clients and subresource loads (e.g. `<img>`), which do not honor
+        # Content-Disposition. The stored Content-Type is deliberately NOT overridden,
+        # so the downloaded file keeps its correct MIME metadata.
         url = s3_client.generate_presigned_url(
             "get_object",
-            Params={"Bucket": bucket, "Key": key, **self._bucket_owner_params},
+            Params={
+                "Bucket": bucket,
+                "Key": key,
+                "ResponseContentDisposition": _attachment_content_disposition(
+                    posixpath.basename(key)
+                ),
+                # Range offsets refer to stored bytes. Prevent automatic gzip decompression.
+                "ResponseContentEncoding": "identity",
+                **download_args,
+                **self._bucket_owner_params,
+            },
             ExpiresIn=expiration,
         )
-        return PresignedDownloadUrlResponse(url=url, headers={}, file_size=file_size)
+        headers = {_S3_PARAM_TO_HEADER[name]: str(value) for name, value in download_args.items()}
+        return PresignedDownloadUrlResponse(url=url, headers=headers, file_size=file_size)

@@ -5,6 +5,8 @@ This module provides a tool for retrieving traces from the same session
 to enable multi-turn evaluation capabilities.
 """
 
+import json
+
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.tools.base import JudgeTool
@@ -14,6 +16,26 @@ from mlflow.genai.judges.tools.types import JudgeToolTraceInfo
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.types.llm import FunctionToolDefinition, ToolDefinition, ToolParamsSchema
+
+
+def _is_valid_session_id(session_id: str) -> bool:
+    """Whether a session ID is safe to interpolate into a single-quoted filter.
+
+    Accepts plain IDs (alphanumerics, hyphens, underscores) and hierarchical IDs (a
+    JSON array of strings). Values containing a quote are always rejected because
+    the ID is interpolated into the filter string as-is.
+    """
+    if "'" in session_id:
+        return False
+    if session_id.replace("-", "").replace("_", "").isalnum():
+        return True
+    try:
+        parsed = json.loads(session_id)
+    except json.JSONDecodeError:
+        return False
+    return (
+        isinstance(parsed, list) and bool(parsed) and all(isinstance(item, str) for item in parsed)
+    )
 
 
 class GetTracesInSession(JudgeTool):
@@ -77,10 +99,14 @@ class GetTracesInSession(JudgeTool):
             order_by: List of order by clauses for sorting results
 
         Returns:
-            List of JudgeToolTraceInfo objects containing trace metadata, request, and response
+            List of JudgeToolTraceInfo objects containing trace metadata, request, and response.
+            Traces are looked up by exact match on the session ID of the current trace (for a
+            hierarchical session ID, the leaf session, not a level prefix).
 
         Raises:
-            MlflowException: If session ID is not found or has invalid format
+            MlflowException: If session ID is not found or has invalid format. Session IDs
+                containing a single quote (``'``) are not supported because the ID is
+                interpolated into the search filter as-is.
         """
         session_id = trace.info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION)
 
@@ -91,11 +117,12 @@ class GetTracesInSession(JudgeTool):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        if not session_id.replace("-", "").replace("_", "").isalnum():
+        if not _is_valid_session_id(session_id):
             raise MlflowException(
                 (
                     f"Invalid session ID format: {session_id}. Session IDs should contain only "
-                    "alphanumeric characters, hyphens, and underscores."
+                    "alphanumeric characters, hyphens, and underscores, or be a JSON array of "
+                    "strings (a hierarchical session ID)."
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
             )
