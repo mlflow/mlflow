@@ -194,26 +194,28 @@ describe('issues dismissed as not an issue', () => {
     mockGetIssue.mockReset();
   });
 
+  // Named apart from each other, so every assertion below says which issue it matched. The
+  // same-title fixtures above would let a card or a label survive either filtering decision.
+  const dismissed: Assessment = {
+    ...issueReference,
+    assessment_name: 'iss-dismissed',
+    issue: { issue_name: 'Not really a bug' },
+  };
+  const kept: Assessment = {
+    ...issueReference,
+    assessment_id: 'a-kept',
+    assessment_name: 'iss-kept',
+    issue: { issue_name: 'Genuinely slow' },
+  };
+
   const renderEvidence = (assessments: Assessment[]) =>
     renderInProviders(
       <ModelTraceExplorerIssueEvidence activeSpan={makeSpan(assessments)} experimentId="experiment-1" />,
     );
 
   it('drops a rejected issue from the cards and keeps a resolved one', async () => {
-    // Named apart, so the assertions can tell which card went.
-    const dismissed = {
-      ...issueReference,
-      assessment_name: 'iss-dismissed',
-      issue: { issue_name: 'Not really a bug' },
-    };
-    const resolved = {
-      ...issueReference,
-      assessment_id: 'a-resolved',
-      assessment_name: 'iss-resolved',
-      issue: { issue_name: 'Genuinely slow' },
-    };
-    givenIssueStatuses({ 'iss-dismissed': 'rejected', 'iss-resolved': 'resolved' });
-    renderEvidence([dismissed, resolved]);
+    givenIssueStatuses({ 'iss-dismissed': 'rejected', 'iss-kept': 'resolved' });
+    renderEvidence([dismissed, kept]);
 
     // Both show until their statuses arrive, so the dismissed one has to be waited out.
     await waitFor(() => expect(screen.queryByText('Not really a bug')).not.toBeInTheDocument());
@@ -251,12 +253,12 @@ describe('issues dismissed as not an issue', () => {
   });
 
   it('stops counting a rejected issue on the span tree', async () => {
-    givenIssueStatuses({ 'iss-latency': 'rejected', 'iss-other': 'pending' });
-    renderInProviders(<ModelTraceExplorerIssueIndicator span={makeSpan(distinctIssues)} />);
+    givenIssueStatuses({ 'iss-dismissed': 'rejected', 'iss-kept': 'pending' });
+    renderInProviders(<ModelTraceExplorerIssueIndicator span={makeSpan([dismissed, kept])} />);
 
     // Both are counted until the statuses arrive, then the dismissed one drops out and the tag
-    // falls back to naming the single issue that is left.
+    // falls back to naming the one issue left -- by name, so it is the survivor being asserted on.
     expect(screen.getByLabelText('2 issues detected')).toHaveTextContent('2');
-    expect(await screen.findByLabelText('Issue detected: High latency')).toHaveTextContent('1');
+    expect(await screen.findByLabelText('Issue detected: Genuinely slow')).toHaveTextContent('1');
   });
 });

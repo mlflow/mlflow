@@ -46,6 +46,19 @@ const renderCells = (rows: { id: string; name: string }[][], queryClient = newQu
 
 const renderCell = (issues: { id: string; name: string }[]) => renderCells([issues]);
 
+const renderComparingCell = (issues: { id: string; name: string }[], otherIssues: { id: string; name: string }[]) =>
+  render(
+    <IntlProvider locale="en">
+      <DesignSystemProvider>
+        <QueryClientProvider client={newQueryClient()}>
+          <MemoryRouter>
+            <IssuesCell issues={issues} otherIssues={otherIssues} isComparing />
+          </MemoryRouter>
+        </QueryClientProvider>
+      </DesignSystemProvider>
+    </IntlProvider>,
+  );
+
 describe('IssuesCell', () => {
   beforeEach(() => {
     mockGetIssue.mockReset();
@@ -78,6 +91,14 @@ describe('IssuesCell', () => {
 
     await waitFor(() => expect(mockGetIssue).toHaveBeenCalled());
     expect(screen.getByText('Genuinely slow')).toBeInTheDocument();
+  });
+
+  it('reads an issue named by both compared columns once', async () => {
+    givenIssueStatuses({ 'iss-open': 'pending' });
+    renderComparingCell([{ id: 'iss-open', name: 'Genuinely slow' }], [{ id: 'iss-open', name: 'Genuinely slow' }]);
+
+    await waitFor(() => expect(mockGetIssue).toHaveBeenCalledWith('iss-open'));
+    expect(mockGetIssue.mock.calls.map(([issueId]) => issueId)).toEqual(['iss-open']);
   });
 
   it('reads each issue once however many rows name it', async () => {
