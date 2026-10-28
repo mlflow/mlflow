@@ -227,7 +227,7 @@ const DetectionRunsContent = ({ experimentId }: { experimentId: string }) => {
     if (schedule.setting === 'weekly') {
       return intl.formatMessage(
         {
-          defaultMessage: 'Weekly on {weekday} at {time} ({zone})',
+          defaultMessage: 'Scheduled weekly on {weekday} at {time} ({zone})',
           description: 'Experiment issues tab > Run history > Summary of a weekly schedule',
         },
         { ...at, weekday: weekdayLabels(intl.locale)[schedule.weekday] },
@@ -236,7 +236,7 @@ const DetectionRunsContent = ({ experimentId }: { experimentId: string }) => {
     if (schedule.setting === 'daily') {
       return intl.formatMessage(
         {
-          defaultMessage: 'Daily at {time} ({zone})',
+          defaultMessage: 'Scheduled daily at {time} ({zone})',
           description: 'Experiment issues tab > Run history > Summary of a daily schedule',
         },
         at,
@@ -245,7 +245,7 @@ const DetectionRunsContent = ({ experimentId }: { experimentId: string }) => {
     // A schedule stored as hourly before the dialog stopped offering it. The dispatcher still
     // runs it, so the page still has to be able to describe it.
     return intl.formatMessage({
-      defaultMessage: 'Hourly',
+      defaultMessage: 'Scheduled hourly',
       description: 'Experiment issues tab > Run history > Summary of an hourly schedule',
     });
   }, [schedule.setting, schedule.startTime, schedule.timezone, schedule.weekday, intl]);

@@ -217,7 +217,7 @@ describe('ExperimentIssueDetectionRunsPage', () => {
   test('describes the schedule and when it next fires', async () => {
     renderPage();
 
-    expect(await screen.findByText(/Weekly on Monday at 21:15 \(UTC\)/)).toBeInTheDocument();
+    expect(await screen.findByText(/Scheduled weekly on Monday at 21:15 \(UTC\)/)).toBeInTheDocument();
     expect(await screen.findByText(/Jan 18, 2027, 21:15/)).toBeInTheDocument();
   });
 
@@ -443,7 +443,7 @@ describe('ExperimentIssueDetectionRunsPage', () => {
     renderPage();
 
     expect(await screen.findByText('No detection runs yet')).toBeInTheDocument();
-    expect(screen.getByText(/Weekly on Monday at 21:15 \(UTC\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Scheduled weekly on Monday at 21:15 \(UTC\)/)).toBeInTheDocument();
   });
 
   test('opens the schedule dialog without leaving the page', async () => {

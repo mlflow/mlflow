@@ -3611,6 +3611,10 @@
     "defaultMessage": "Select parameter or metric",
     "description": "Placeholder text for parameter/metric selector in box plot comparison in MLflow"
   },
+  "9dh1iS": {
+    "defaultMessage": "Scheduled weekly on {weekday} at {time} ({zone})",
+    "description": "Experiment issues tab > Run history > Summary of a weekly schedule"
+  },
   "9e0bkg": {
     "defaultMessage": "Base",
     "description": "Small label shown inside the baseline run selector in eval-run comparison mode"
@@ -12223,10 +12227,6 @@
     "defaultMessage": "An unknown error occurred.",
     "description": "Generic message for an unknown error"
   },
-  "bKf7fs": {
-    "defaultMessage": "Hourly",
-    "description": "Experiment issues tab > Run history > Summary of an hourly schedule"
-  },
   "bMUODD": {
     "defaultMessage": "Cancel detection",
     "description": "Experiment issues tab > Action to cancel the issue detection in progress"
@@ -14583,10 +14583,6 @@
     "defaultMessage": "Auth Type",
     "description": "Auth type label"
   },
-  "iNQGNB": {
-    "defaultMessage": "Weekly on {weekday} at {time} ({zone})",
-    "description": "Experiment issues tab > Run history > Summary of a weekly schedule"
-  },
   "iNVXhw": {
     "defaultMessage": "{count} {count, plural, one {day} other {days}}",
     "description": "Formatted trace archival retention in days"
@@ -14962,6 +14958,10 @@
   "jIrCsp": {
     "defaultMessage": "Knowledge retention",
     "description": "LLM template option"
+  },
+  "jKlmnP": {
+    "defaultMessage": "Scheduled daily at {time} ({zone})",
+    "description": "Experiment issues tab > Run history > Summary of a daily schedule"
   },
   "jMUqD1": {
     "defaultMessage": "Safety",
@@ -17115,6 +17115,10 @@
     "defaultMessage": "You need another endpoint to use guardrails.",
     "description": "Guidance shown when no alternate endpoint exists for guardrail model selection"
   },
+  "qEwZJV": {
+    "defaultMessage": "Scheduled hourly",
+    "description": "Experiment issues tab > Run history > Summary of an hourly schedule"
+  },
   "qF4j6q": {
     "defaultMessage": "Off",
     "description": "Experiment issues tab > Scheduled detection option that disables automatic runs"
@@ -17810,10 +17814,6 @@
   "sIhtPb": {
     "defaultMessage": "JSON",
     "description": "Label for the JSON render mode in the model trace explorer attributes tab"
-  },
-  "sJDMtx": {
-    "defaultMessage": "Daily at {time} ({zone})",
-    "description": "Experiment issues tab > Run history > Summary of a daily schedule"
   },
   "sKaamx": {
     "defaultMessage": "Sort",

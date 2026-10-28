@@ -83,9 +83,10 @@ export const ExperimentIssuesActionBar = ({
         />
       </div>
       <ExperimentIssuesFilterControl controls={controls} align="start" />
-      {/* Not gated on `detectionEnabled`, unlike the actions on the right: this reads the runs an
-          experiment has already recorded, which outlive whatever made them possible. A tooltip
-          because the icon alone does not say which history it means. */}
+      <div css={{ flex: 1 }} />
+      {/* Leads the detection group on the right, but outside its `detectionEnabled` gate: this
+          reads the runs an experiment has already recorded, which outlive whatever made them
+          possible. A tooltip because the icon alone does not say which history it means. */}
       <Tooltip
         componentId={`${COMPONENT_ID}.run-history.tooltip`}
         content={
@@ -105,7 +106,6 @@ export const ExperimentIssuesActionBar = ({
           onClick={() => navigate(Routes.getIssueDetectionRunsRoute(experimentId))}
         />
       </Tooltip>
-      <div css={{ flex: 1 }} />
       {detectionEnabled && (
         <>
           <IssueDetectionSettingsControl experimentId={experimentId} />
