@@ -448,6 +448,15 @@ def test_proxy_artifact_mpu_path_detection():
     assert not auth_module._is_proxy_artifact_path("/api/2.0/mlflow/experiments/get")
 
 
+@pytest.mark.parametrize("path", ["./42/run-id/artifacts/f", "42/./run-id/artifacts/f"])
+def test_parse_artifact_auth_target_ignores_dot_segments(path):
+    # The artifact store serves these from ``42/run-id/...``, so they must be judged against
+    # experiment 42 rather than falling back to the default permission.
+    target = auth_module._parse_artifact_auth_target(path)
+    assert target.experiment_id == "42"
+    assert target.relative_path == "42/run-id/artifacts/f"
+
+
 def test_extract_experiment_id_from_artifact_proxy_path():
     assert (
         auth_module._parse_artifact_auth_target(
@@ -9258,10 +9267,10 @@ def test_proxy_artifact_root_listing_withholds_denied_run_ids(fastapi_client, mo
     )
     assert upload.status_code == 200
 
-    def listed(auth):
+    def listed(auth, path=experiment_id):
         resp = requests.get(
             url=f"{base}/api/2.0/mlflow-artifacts/artifacts",
-            params={"path": experiment_id},
+            params={"path": path},
             auth=auth,
         )
         assert resp.status_code == 200
@@ -9273,6 +9282,8 @@ def test_proxy_artifact_root_listing_withholds_denied_run_ids(fastapi_client, mo
     # An explicit run DENY withholds the id itself, not merely its contents.
     grant_role_permission(base, owner, "run", "*", "DENY")
     assert run_id not in listed((owner, owner_pw))
+    # A `.` segment names the same experiment root, so it is filtered the same way.
+    assert run_id not in listed((owner, owner_pw), path=f"./{experiment_id}")
 
     # The point read a caller would attempt with that id is denied too, so the listing and the
     # point check agree rather than one being the softer path.
