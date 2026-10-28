@@ -154,6 +154,7 @@ from mlflow.protos.service_pb2 import (
 from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
+from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
@@ -1634,6 +1635,40 @@ def test_batch_get_trace_infos_short_circuits_on_empty_experiment_ids():
 
         assert result == []
         mock_call.assert_not_called()
+
+
+@pytest.mark.parametrize("store_class", [RestStore, DatabricksTracingRestStore])
+@pytest.mark.parametrize("experiment_ids", [[], ["1"], ["1", "2"]])
+def test_search_logged_models_preserves_explicit_experiment_scope(store_class, experiment_ids):
+    creds = MlflowHostCreds("https://hello")
+    store = store_class(lambda: creds)
+    payload = {
+        "experiment_ids": experiment_ids,
+        "filter": "name != 'excluded'",
+        "datasets": [{"dataset_name": "eval", "dataset_digest": "digest"}],
+        "max_results": 2,
+        "order_by": [{"field_name": "name", "ascending": False}],
+        "page_token": "opaque-request-token",
+    }
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        return_value=mock.MagicMock(
+            status_code=200, text=json.dumps({"next_page_token": "opaque-response-token"})
+        ),
+    ) as http:
+        models = store.search_logged_models(
+            experiment_ids=experiment_ids,
+            filter_string=payload["filter"],
+            datasets=payload["datasets"],
+            max_results=payload["max_results"],
+            order_by=payload["order_by"],
+            page_token=payload["page_token"],
+        )
+
+    http.assert_called_once()
+    _verify_requests(http, creds, "logged-models/search", "POST", json.dumps(payload))
+    assert models == []
+    assert models.token == "opaque-response-token"
 
 
 def test_log_logged_model_params():

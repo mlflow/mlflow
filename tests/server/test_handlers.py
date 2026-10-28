@@ -4956,6 +4956,19 @@ def test_raw_request_has_field_get_query_string():
         assert _raw_request_has_field(experiment_ids_field) is False
 
 
+@pytest.mark.parametrize("experiment_ids", [None, "1"])
+def test_get_request_message_ignores_get_experiment_alias(experiment_ids):
+    query = {"trace_ids": "tr-1", "experimentIds": "2"}
+    if experiment_ids is not None:
+        query["experiment_ids"] = experiment_ids
+    with app.test_request_context(method="GET", query_string=query):
+        message = _get_request_message(BatchGetTraces())
+        assert list(message.experiment_ids) == ([] if experiment_ids is None else [experiment_ids])
+        assert _raw_request_has_field(message.DESCRIPTOR.fields_by_name["experiment_ids"]) is (
+            experiment_ids is not None
+        )
+
+
 def test_raw_request_has_field_post_json_body():
     experiment_ids_field = BatchGetTraceInfos.DESCRIPTOR.fields_by_name["experiment_ids"]
 

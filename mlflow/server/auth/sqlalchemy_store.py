@@ -71,6 +71,7 @@ from mlflow.utils.validation import (
     MAX_ROLE_DESCRIPTION_LENGTH,
     MAX_ROLE_NAME_LENGTH,
     MAX_USERNAME_LENGTH,
+    _parse_experiment_id,
     _validate_password,
     _validate_text_field,
     _validate_username,
@@ -1976,6 +1977,8 @@ class SqlAlchemyStore:
         permission: str,
     ) -> RolePermission:
         _validate_permission_for_resource_type(permission, resource_type)
+        if resource_type == RESOURCE_TYPE_EXPERIMENT and resource_pattern != "*":
+            resource_pattern = str(_parse_experiment_id(str(resource_pattern)))
         resource_pattern = self._validate_resource_pattern(resource_type, resource_pattern)
         _validate_resource_pattern(resource_pattern, resource_type)
         with self.ManagedSessionMaker(read_only=False) as session:
@@ -2308,16 +2311,12 @@ class SqlAlchemyStore:
         self, user_id: int, workspace: str, resource_type: str
     ) -> list[tuple[str, str]]:
         """
-        Return the user's **role-based** permission grants in ``workspace`` that apply
-        to resources of ``resource_type``. Direct per-resource grants (e.g. rows in
-        ``experiment_permissions``) are intentionally **not** included — callers that
-        need the full authorization picture fold them in separately (see
-        ``filter_experiment_ids``, which unions the result of this query with
-        ``list_experiment_permissions`` from the legacy table).
+        Return the user's role-based permission grants in ``workspace`` that apply
+        to resources of ``resource_type``.
 
-        Includes both grants on the specific resource_type and workspace-wide grants
-        (``resource_type='workspace'``, ``resource_pattern='*'``) since those apply to
-        every resource type.
+        Workspace-wide MANAGE applies to every resource type. Workspace USE applies
+        only to workspace queries, matching ``get_role_permission_for_resource``;
+        membership does not grant read access to every resource.
 
         Returns a list of ``(resource_pattern, permission)`` tuples.
         """
@@ -2336,6 +2335,7 @@ class SqlAlchemyStore:
                         and_(
                             SqlRolePermission.resource_type == RESOURCE_TYPE_WORKSPACE,
                             SqlRolePermission.resource_pattern == "*",
+                            SqlRolePermission.permission == MANAGE.name,
                         ),
                     ),
                 )
