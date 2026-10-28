@@ -3634,7 +3634,7 @@ class ResponseLength(BuiltInScorer):
         )
 
 
-def _get_builtin_scorer_class(name: Any) -> type[BuiltInScorer] | None:
+def _get_builtin_scorer_class(name: object) -> type[BuiltInScorer] | None:
     """The concrete built-in scorer class named ``name``, or ``None``.
 
     The module also holds imported helpers and abstract bases, so a plain ``getattr`` would
@@ -3642,7 +3642,8 @@ def _get_builtin_scorer_class(name: Any) -> type[BuiltInScorer] | None:
     """
     if not isinstance(name, str):
         return None
-    return next((cls for cls in _get_all_concrete_builtin_scorers() if cls.__name__ == name), None)
+    cls = globals().get(name)
+    return cls if cls in _get_all_concrete_builtin_scorers() else None
 
 
 def _get_all_concrete_builtin_scorers() -> list[type[BuiltInScorer]]:
