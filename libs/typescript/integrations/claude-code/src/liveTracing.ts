@@ -210,6 +210,7 @@ export class LiveTracingContext {
         name: `tool_${toolUse.name}`,
         spanType: SpanType.TOOL,
         parent: parentSpan,
+        startTimeNs: timestampNs,
         inputs: toolUse.input ?? {},
         attributes: { tool_name: toolUse.name, tool_id: toolUse.id },
       });
@@ -224,6 +225,7 @@ export class LiveTracingContext {
           name: `subagent_${subagentType}`,
           spanType: SpanType.AGENT,
           parent: toolSpan,
+          startTimeNs: timestampNs,
           inputs: {
             prompt: toolUse.input?.prompt,
             description: toolUse.input?.description,

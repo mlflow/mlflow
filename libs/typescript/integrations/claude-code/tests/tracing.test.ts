@@ -848,6 +848,30 @@ describe.each([
 });
 
 describe('LiveTracingContext usage', () => {
+  it.each(['Skill', 'Task', 'Agent'])(
+    'does not start %s or its subagent before the response that calls it',
+    async (toolName) => {
+      const context = new LiveTracingContext('Use the tool');
+      context.onAssistantMessage({
+        type: 'assistant',
+        message: {
+          id: 'msg_tool',
+          role: 'assistant',
+          content: [{ type: 'tool_use', id: 'tool_1', name: toolName, input: {} }],
+        },
+      });
+      await context.finalize();
+
+      const llm = getSpansByType('LLM')[0];
+      const tool = getSpansByType('TOOL')[0];
+      expect(llm.startTimeNs).toBeDefined();
+      expect(tool.startTimeNs).toBeGreaterThanOrEqual(llm.endTimeNs!);
+      for (const subagent of getChildSpans(tool.spanId)) {
+        expect(subagent.startTimeNs).toBeGreaterThanOrEqual(tool.startTimeNs!);
+      }
+    },
+  );
+
   it('captures tool-only responses once across repeated SDK content blocks', async () => {
     const context = new LiveTracingContext('Read and check the file');
     const entries = readFileSync(resolve(FIXTURES_DIR, 'repeated-messages.jsonl'), 'utf-8')
