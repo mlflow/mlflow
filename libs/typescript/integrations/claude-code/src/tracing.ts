@@ -567,7 +567,11 @@ export async function processTranscript(transcriptPath: string, sessionId?: stri
       sessionId = `claude-${new Date().toISOString().replace(/[:.]/g, '').slice(0, 15)}`;
     }
 
-    const convStartNs = parseTimestampToNs(lastUserEntry.timestamp);
+    const timestamps = transcript
+      .slice(lastUserIdx)
+      .map((entry) => parseTimestampToNs(entry.timestamp))
+      .filter((timestamp): timestamp is number => timestamp != null);
+    const convStartNs = timestamps[0];
 
     // Prefer fresh rates from the published model catalog (filesystem TTL cache);
     // calculateCost falls back to the bundled snapshot when unavailable.
@@ -641,15 +645,10 @@ export async function processTranscript(transcriptPath: string, sessionId?: stri
       console.error('[mlflow] Failed to update trace metadata:', err);
     }
 
-    // Calculate end time
-    const lastEntry = transcript[transcript.length - 1];
-    let convEndNs = parseTimestampToNs(lastEntry.timestamp);
-    if (convEndNs) {
-      convEndNs += NANOSECONDS_PER_S;
-    }
-    if (!convEndNs || (convStartNs && convEndNs <= convStartNs)) {
-      convEndNs = (convStartNs ?? 0) + Math.floor(10 * NANOSECONDS_PER_S);
-    }
+    // Transcript metadata appended after the response may not have a timestamp.
+    const convEndNs = timestamps.length
+      ? timestamps[timestamps.length - 1] + NANOSECONDS_PER_S
+      : undefined;
 
     const outputs: Record<string, string> = { status: 'completed' };
     if (finalResponse) {

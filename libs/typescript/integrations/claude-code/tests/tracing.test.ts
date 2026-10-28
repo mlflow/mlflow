@@ -685,6 +685,54 @@ describe('processTranscript', () => {
       expect(root.endTimeNs!).toBeGreaterThan(root.startTimeNs!);
     });
 
+    it.each([undefined, 'invalid-timestamp'])(
+      'ignores trailing metadata with timestamp %s when ending the root span',
+      async (timestamp) => {
+        const tmpDir = mkdtempSync(resolve(tmpdir(), 'cc-test-'));
+        const transcriptPath = resolve(tmpDir, 'trailing-metadata.jsonl');
+        const entries = [
+          {
+            type: 'user',
+            message: { role: 'user', content: 'Hello' },
+            timestamp: '2025-01-15T10:00:00.000Z',
+          },
+          {
+            type: 'assistant',
+            message: { role: 'assistant', content: [{ type: 'text', text: 'Hi' }] },
+            timestamp: '2025-01-15T10:00:20.000Z',
+          },
+          { type: 'last-prompt', lastPrompt: 'Hello', timestamp },
+        ];
+        writeFileSync(transcriptPath, entries.map((entry) => JSON.stringify(entry)).join('\n'));
+
+        await processTranscript(transcriptPath, 'trailing-metadata');
+
+        const root = getSpansByName('claude_code_conversation')[0];
+        expect(root.endTimeNs! - root.startTimeNs!).toBe(21_000_000_000);
+        expect(root.endTimeNs).toBe(getSpansByType('LLM')[0].endTimeNs);
+      },
+    );
+
+    it('uses the first valid timestamp when the user entry has none', async () => {
+      const tmpDir = mkdtempSync(resolve(tmpdir(), 'cc-test-'));
+      const transcriptPath = resolve(tmpDir, 'missing-start-timestamp.jsonl');
+      const entries = [
+        { type: 'user', message: { role: 'user', content: 'Hello' } },
+        {
+          type: 'assistant',
+          message: { role: 'assistant', content: [{ type: 'text', text: 'Hi' }] },
+          timestamp: '2025-01-15T10:00:20.000Z',
+        },
+      ];
+      writeFileSync(transcriptPath, entries.map((entry) => JSON.stringify(entry)).join('\n'));
+
+      await processTranscript(transcriptPath, 'missing-start-timestamp');
+
+      const root = getSpansByName('claude_code_conversation')[0];
+      expect(root.startTimeNs).toBe(Date.parse('2025-01-15T10:00:20.000Z') * 1_000_000);
+      expect(root.endTimeNs! - root.startTimeNs!).toBe(1_000_000_000);
+    });
+
     it('sets start and end times on child spans', async () => {
       await processTranscript(resolve(FIXTURES_DIR, 'basic.jsonl'), 'test-session-123');
 
