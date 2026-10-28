@@ -64,3 +64,29 @@ def test_update_budget_policy_omits_target_value_when_unset():
     store.update_budget_policy(budget_policy_id="bp-1", budget_amount=50.0)
     (_, body) = store.calls[0]
     assert "target_value" not in body
+
+
+def test_create_budget_policy_passes_username_target():
+    store = _StubRestStore()
+    store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=25.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.USER,
+        budget_action=BudgetAction.REJECT,
+        target_value="alice",
+    )
+    (_, body) = store.calls[0]
+    assert body["target_value"] == "alice"
+    assert body["target_scope"] == "USER"
+
+
+def test_update_budget_policy_passes_username_target():
+    store = _StubRestStore()
+    store.update_budget_policy(
+        budget_policy_id="bp-1",
+        target_scope=BudgetTargetScope.USER,
+        target_value="bob",
+    )
+    (_, body) = store.calls[0]
+    assert body["target_value"] == "bob"

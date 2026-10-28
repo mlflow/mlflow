@@ -2,10 +2,12 @@
 import io
 import json
 import logging
+import ntpath
 import os
 import pathlib
 import posixpath
 import re
+import sys
 import tempfile
 import threading
 import time
@@ -18,7 +20,16 @@ from zlib import adler32
 
 import requests
 from cachetools import TTLCache
-from flask import Request, Response, current_app, g, jsonify, request, send_file
+from flask import (
+    Request,
+    Response,
+    current_app,
+    g,
+    has_request_context,
+    jsonify,
+    request,
+    send_file,
+)
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
 from werkzeug.exceptions import RequestedRangeNotSatisfiable
@@ -33,7 +44,6 @@ from mlflow.entities import (
     Expectation,
     ExperimentTag,
     FallbackConfig,
-    FallbackStrategy,
     Feedback,
     FileInfo,
     GatewayEndpointModelConfig,
@@ -47,6 +57,7 @@ from mlflow.entities import (
     Param,
     RunStatus,
     RunTag,
+    ScorerVersion,
     ViewType,
     Workspace,
     WorkspaceDeletionMode,
@@ -76,10 +87,15 @@ from mlflow.entities.trace_metrics import MetricAggregation, MetricViewType
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent, WebhookStatus
 from mlflow.environment_variables import (
+    MLFLOW_ARTIFACTS_PRESIGNED_ONLY,
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
+    MLFLOW_ENABLE_AI_GATEWAY,
+    MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD,
+    MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS,
+    MLFLOW_SERVER_INFO_TRACKING_AUTH,
 )
 from mlflow.exceptions import (
     MlflowException,
@@ -93,13 +109,25 @@ from mlflow.exceptions import (
 )
 from mlflow.gateway.budget import maybe_refresh_budget_policies
 from mlflow.gateway.budget_tracker import get_budget_tracker
+from mlflow.gateway.constants import GATEWAY_DISABLED_MESSAGE
 from mlflow.gateway.utils import is_valid_endpoint_name
+from mlflow.genai.discovery.schedule import scheduled_detection_available
 from mlflow.genai.label_schemas.label_schemas import LabelSchemaType, _input_from_proto
 from mlflow.genai.review_queues import ReviewItemType, ReviewQueueType, ReviewStatus
 from mlflow.genai.review_queues.validation import validate_item_ids_for_attach
-from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
+from mlflow.genai.scorers.scorer_utils import (
+    DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR,
+    custom_scorer_execution_blocked,
+    custom_scorer_without_source_error_message,
+    find_custom_scorer_without_source,
+)
+from mlflow.genai.skill_content.archive import MAX_ARCHIVE_ENTRIES, get_max_decompressed_size
 from mlflow.models import Model
-from mlflow.prompt.constants import PROMPT_TEXT_TAG_KEY, PROMPT_TYPE_TAG_KEY
+from mlflow.prompt.constants import (
+    _PROMPT_SOURCE_PLACEHOLDERS,
+    PROMPT_TEXT_TAG_KEY,
+    PROMPT_TYPE_TAG_KEY,
+)
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -107,7 +135,11 @@ from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
+    NOT_IMPLEMENTED,
+    PERMISSION_DENIED,
+    RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
 )
 from mlflow.protos.issues_pb2 import (
     CreateIssue,
@@ -317,12 +349,19 @@ from mlflow.protos.webhooks_pb2 import (
     UpdateWebhook,
     WebhookService,
 )
+from mlflow.server._request_keys import SCOPED_EXPERIMENT_FILTER, SCOPED_EXPERIMENT_IDS
+from mlflow.server._search_limits import translate_scoped_search_limits
+from mlflow.server.artifact_transfer import (
+    reject_proxied_artifact_download,
+    reject_proxied_artifact_upload,
+)
 from mlflow.server.validation import _validate_content_type
 from mlflow.server.workspace_helpers import (
     _get_workspace_store,
 )
 from mlflow.store.artifact.artifact_repo import (
     ARTIFACT_STREAM_CHUNK_SIZE,
+    ArtifactRepository,
     MultipartDownloadMixin,
     MultipartUploadMixin,
     PresignedUploadMixin,
@@ -330,6 +369,14 @@ from mlflow.store.artifact.artifact_repo import (
     _validate_attachment_path,
 )
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.store.artifact.host_policy import (
+    host_addressed_rejection_message,
+    rejected_host_addressed_scheme,
+    validate_artifact_uri_host,
+)
+from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
+from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.store.artifact.utils.models import _parse_model_uri, get_model_name_and_version
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
@@ -367,8 +414,10 @@ from mlflow.utils import workspace_context
 from mlflow.utils.crypto import CRYPTO_KEK_PASSPHRASE_ENV_VAR
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import local_file_uri_to_path
+from mlflow.utils.issue_utils import validate_issue_fields
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.mlflow_tags import (
+    MLFLOW_ARTIFACT_LOCATION,
     MLFLOW_CUSTOM_VIEW_TAG_PREFIX,
     MLFLOW_GENAI_EVALUATE_JOB_ID,
     MLFLOW_ISSUE_DETECTION_JOB_ID,
@@ -387,20 +436,39 @@ from mlflow.utils.providers import (
     get_provider_config_response,
 )
 from mlflow.utils.server_info import (
+    SERVER_INFO_ARTIFACT_SERVING_ENABLED,
+    SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY,
+    SERVER_INFO_FEATURES_ENABLED,
+    SERVER_INFO_MODEL_ARTIFACT_PRESIGNED_DOWNLOADS_SUPPORTED,
     SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
     SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
+    SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED,
+    SERVER_INFO_PRESIGNED_UPLOAD_RUN_ID_SUPPORTED,
+    SERVER_INFO_SKILL_CONTENT_MAX_FILES,
+    SERVER_INFO_SKILL_CONTENT_MAX_SIZE,
     SERVER_INFO_STORE_TYPE,
     SERVER_INFO_TRACE_ARCHIVAL_ENABLED,
+    SERVER_INFO_TRACKING_AUTH,
     SERVER_INFO_WORKSPACES_ENABLED,
 )
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
-from mlflow.utils.uri import is_local_uri, validate_path_is_safe, validate_query_string
+from mlflow.utils.uri import (
+    append_to_uri_path,
+    get_uri_scheme,
+    is_local_uri,
+    validate_path_is_safe,
+    validate_query_string,
+)
 from mlflow.utils.validation import (
     MAX_CUSTOM_VIEWS_PER_EXPERIMENT,
     _validate_batch_log_api_req,
     _validate_experiment_artifact_location,
     _validate_experiment_artifact_location_length,
+    _validate_experiment_id,
+    _validate_gateway_secret_auth_config,
+    _validate_gateway_secret_value,
+    _validate_third_party_scorer_data,
     _validate_trace_archival_location,
     _validate_trace_archival_retention_string,
     invalid_value,
@@ -614,7 +682,7 @@ def _get_trace_repo_from_uri(artifact_uri: str):
         # e.g. s3://<experiment_id>/traces/<request_id>
         artifact_repo = get_artifact_repository(artifact_uri)
     else:
-        artifact_repo = get_artifact_repository(artifact_uri)
+        artifact_repo = _get_artifact_repository_for_uri(artifact_uri)
     return artifact_repo
 
 
@@ -1068,7 +1136,71 @@ def _validate_request_json_with_schema(
             )
 
 
-def _get_request_message(request_message, flask_request=request, schema=None):
+def _reject_conflicting_field_aliases(request_json: Any, message_descriptor: Any) -> None:
+    """
+    Reject a JSON object that spells one protobuf field two ways.
+
+    ``ParseDict`` accepts both a field's proto name (``secret_id``) and its JSON name
+    (``secretId``) and silently lets whichever key comes later win. Authorization
+    layers that key off the raw body would then authorize one value while the handler
+    acts on another, so a body carrying both spellings is ambiguous and refused.
+    """
+    if not isinstance(request_json, dict):
+        return
+    for field in message_descriptor.fields:
+        if (
+            field.name != field.json_name
+            and field.name in request_json
+            and field.json_name in request_json
+        ):
+            raise MlflowException.invalid_parameter_value(
+                f"Request specifies both '{field.name}' and '{field.json_name}'; "
+                "provide only one of them."
+            )
+        if field.type != descriptor.FieldDescriptor.TYPE_MESSAGE:
+            continue
+        nested = field.message_type
+        # Map entries and well-known types carry caller-chosen keys, not proto fields.
+        if nested.GetOptions().map_entry or nested.full_name.startswith("google.protobuf."):
+            continue
+        value = request_json.get(field.name, request_json.get(field.json_name))
+        for item in value if isinstance(value, list) else [value]:
+            _reject_conflicting_field_aliases(item, nested)
+
+
+def _raw_request_has_field(field: descriptor.FieldDescriptor) -> bool:
+    """Check whether a protobuf field was present in the incoming HTTP request.
+
+    Protobuf ``repeated`` fields deserialise to ``[]`` whether the caller
+    sent an empty list *or* omitted the field entirely.  For
+    fields where the difference matters (e.g. ``experiment_ids``) :
+
+    * absent  → no auth restriction (``None``)
+    * ``[]``  → deny-all (empty authorised set)
+
+    This helper inspects the raw Flask request (query-string for GET,
+    JSON body for POST) to distinguish the two cases.
+    """
+    try:
+        if request.method == "GET" and request.args:
+            return field.name in request.args
+        request_json = _get_normalized_request_json()
+        return field.name in request_json or field.json_name in request_json
+    except RuntimeError:
+        return False
+
+
+def _get_scoped_experiment_ids() -> list[str] | None:
+    return getattr(g, SCOPED_EXPERIMENT_IDS, None) if has_request_context() else None
+
+
+def _get_scoped_experiment_filter() -> str | None:
+    return getattr(g, SCOPED_EXPERIMENT_FILTER, None) if has_request_context() else None
+
+
+def _get_request_message(
+    request_message, flask_request=request, schema=None, *, raise_on_parse_error=False
+):
     if flask_request.method == "GET" and flask_request.args:
         # Convert atomic values of repeated fields to lists before calling protobuf deserialization.
         # Context: We parse the parameter string into a dictionary outside of protobuf since
@@ -1101,13 +1233,21 @@ def _get_request_message(request_message, flask_request=request, schema=None):
     else:
         request_json = _get_normalized_request_json(flask_request)
 
+    _reject_conflicting_field_aliases(request_json, request_message.DESCRIPTOR)
     proto_parsing_succeeded = True
+    parse_error = None
     try:
         parse_dict(request_json, request_message)
-    except ParseError:
+    except ParseError as e:
         proto_parsing_succeeded = False
+        parse_error = e
 
     _validate_request_json_with_schema(request_json, schema, proto_parsing_succeeded)
+    # Auth scopers must reject partial messages before rewriting authorization fields.
+    if raise_on_parse_error and parse_error is not None:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid request: {parse_error}"
+        ) from parse_error
 
     return request_message
 
@@ -1346,6 +1486,33 @@ def _disable_if_artifacts_only(func):
     return wrapper
 
 
+def _disable_if_artifacts_presigned_only(*, upload=False, allow_presigned=False):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            if allow_presigned and request.args.get("presigned") == "true":
+                return func(*args, **kwargs)
+            if upload:
+                reject_proxied_artifact_upload()
+            else:
+                reject_proxied_artifact_download()
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+def _disable_if_gateway_disabled(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if not MLFLOW_ENABLE_AI_GATEWAY.get():
+            raise MlflowException(GATEWAY_DISABLED_MESSAGE, NOT_IMPLEMENTED)
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
 def _disable_if_workspaces_disabled(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -1367,6 +1534,25 @@ def _workspace_not_supported(message: str) -> MlflowException:
     return MlflowException(message, FEATURE_DISABLED)
 
 
+def _validate_artifact_uri_scheme(uri: str, field_name: str) -> None:
+    scheme = rejected_host_addressed_scheme(uri)
+    if scheme is not None:
+        raise MlflowException.invalid_parameter_value(
+            host_addressed_rejection_message(scheme, field_name=field_name)
+        )
+
+
+def _get_artifact_repository_for_uri(artifact_uri: str) -> ArtifactRepository:
+    """
+    Build the artifact repository for a stored location the server did not configure itself,
+    refusing to connect to hosts outside its configured artifact storage. The registry applies the
+    same policy to every repository built in a server process; this explicit check keeps the
+    handlers covered when the server is run without the `mlflow server` CLI environment.
+    """
+    validate_artifact_uri_host(artifact_uri)
+    return get_artifact_repository(artifact_uri)
+
+
 def _validate_storage_location_uri(value: str, field_name: str) -> str:
     """Validate a storage URI shared by experiment and workspace settings."""
     parsed = urllib.parse.urlparse(value)
@@ -1376,6 +1562,7 @@ def _validate_storage_location_uri(value: str, field_name: str) -> str:
         )
 
     validate_query_string(parsed.query)
+    _validate_artifact_uri_scheme(value, field_name)
     _validate_experiment_artifact_location(value)
     _validate_experiment_artifact_location_length(value)
     return value
@@ -1393,7 +1580,23 @@ def _validate_optional_workspace_storage_location(value: str | None, field_name:
 
 
 def _validate_workspace_default_artifact_root(value: str | None) -> str | None:
-    return _validate_optional_workspace_storage_location(value, "default_artifact_root")
+    validated = _validate_optional_workspace_storage_location(value, "default_artifact_root")
+    if validated in (None, ""):
+        return validated
+    # A scheme-less relative value is resolved by tracking clients against their own working
+    # directory, so artifacts would silently be written to the client machine. Classify with
+    # ``get_uri_scheme``, the same call the artifact repository registry and
+    # ``_validate_prompt_source`` use, so that values they treat as local paths (including
+    # single-letter "schemes" such as 'C:team-a') are rejected here. Unlike a prompt source, an
+    # absolute path is a legitimate artifact root on a shared filesystem, mirroring the
+    # server-level ``--default-artifact-root``, so it stays accepted.
+    if not get_uri_scheme(validated) and not os.path.isabs(validated):
+        raise MlflowException.invalid_parameter_value(
+            "Invalid value for 'default_artifact_root'. Expected a URI (for example "
+            "'s3://bucket/prefix' or 'mlflow-artifacts:/prefix') or an absolute path, got "
+            f"'{validated}'."
+        )
+    return validated
 
 
 def _validate_workspace_trace_archival_location(value: str | None) -> str | None:
@@ -1443,6 +1646,7 @@ def _get_workspace_request_message(
             proto_parsing_succeeded=None,
         )
 
+    _reject_conflicting_field_aliases(request_json, request_message.DESCRIPTOR)
     parse_dict(request_json, request_message)
     return request_message, request_json
 
@@ -1649,6 +1853,7 @@ def _delete_workspace_handler(workspace_name: str):
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_artifacts_presigned_only()
 def get_artifact_handler():
     run_id = request.args.get("run_id") or request.args.get("run_uuid")
     path = request.args["path"]
@@ -2544,12 +2749,13 @@ def create_promptlab_run_handler():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_artifacts_presigned_only(upload=True)
 def upload_artifact_handler():
     args = request.args
-    run_uuid = args.get("run_uuid")
-    if not run_uuid:
+    run_id = args.get("run_id") or args.get("run_uuid")
+    if not run_id:
         raise MlflowException(
-            message="Request must specify run_uuid.",
+            message="Request must specify run_id or run_uuid.",
             error_code=INVALID_PARAMETER_VALUE,
         )
     path = args.get("path")
@@ -2579,7 +2785,7 @@ def upload_artifact_handler():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    run = _get_tracking_store().get_run(run_uuid)
+    run = _get_tracking_store().get_run(run_id)
     artifact_dir = run.info.artifact_uri
 
     basename = posixpath.basename(path)
@@ -2597,7 +2803,7 @@ def upload_artifact_handler():
             )
             path_to_log = _get_workspace_scoped_repo_path_if_enabled(path_to_log)
         else:
-            artifact_repo = get_artifact_repository(artifact_dir)
+            artifact_repo = _get_artifact_repository_for_uri(artifact_dir)
             path_to_log = dirname
 
         artifact_repo.log_artifact(file, path_to_log)
@@ -2630,13 +2836,14 @@ def _search_experiments():
         },
     )
 
-    experiment_entities = _get_tracking_store().search_experiments(
-        view_type=request_message.view_type,
-        max_results=request_message.max_results,
-        order_by=request_message.order_by,
-        filter_string=request_message.filter,
-        page_token=request_message.page_token or None,
-    )
+    with translate_scoped_search_limits(_get_scoped_experiment_filter() is not None):
+        experiment_entities = _get_tracking_store().search_experiments(
+            view_type=request_message.view_type,
+            max_results=request_message.max_results,
+            order_by=request_message.order_by,
+            filter_string=request_message.filter,
+            page_token=request_message.page_token or None,
+        )
     response_message = SearchExperiments.Response()
     response_message.experiments.extend([e.to_proto() for e in experiment_entities])
     if experiment_entities.token:
@@ -2646,12 +2853,12 @@ def _search_experiments():
     return response
 
 
-@catch_mlflow_exception
 def _get_artifact_repo(run):
-    return get_artifact_repository(run.info.artifact_uri)
+    return _get_artifact_repository_for_uri(run.info.artifact_uri)
 
 
 _HANDLER_BLOCKED_TRACE_TAGS = frozenset({
+    MLFLOW_ARTIFACT_LOCATION,
     MLFLOW_TRACE_SPANS_LOCATION,
     MLFLOW_TRACE_ARCHIVE_LOCATION,
     MLFLOW_TRACE_ARCHIVAL_FAILURE,
@@ -3014,11 +3221,18 @@ def _validate_non_local_source_contains_relative_paths(source: str):
         raise MlflowException(invalid_source_error_message, INVALID_PARAMETER_VALUE)
 
 
+def _validate_prompt_source(source: str) -> None:
+    if source not in _PROMPT_SOURCE_PLACEHOLDERS:
+        raise MlflowException(
+            f"Invalid prompt source: '{source}'. Prompt sources must use an MLflow placeholder.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+
 def _validate_source_run(source: str, run_id: str) -> None:
     if is_local_uri(source):
         if run_id:
-            store = _get_tracking_store()
-            run = store.get_run(run_id)
+            run = _get_source_run(run_id, source)
             source = pathlib.Path(local_file_uri_to_path(source)).resolve()
             if is_local_uri(run.info.artifact_uri):
                 run_artifact_dir = pathlib.Path(
@@ -3038,12 +3252,33 @@ def _validate_source_run(source: str, run_id: str) -> None:
     # raises an Exception.
     _validate_non_local_source_contains_relative_paths(source)
 
+    parsed_source = urllib.parse.urlparse(source)
+    if parsed_source.scheme == "runs":
+        if parsed_source.netloc:
+            _raise_invalid_model_version_source(source, "run_id")
+        source_run_id, _ = RunsArtifactRepository.parse_runs_uri(source)
+        if run_id and source_run_id == run_id:
+            return
+        _raise_invalid_model_version_source(source, "run_id")
+
+    if parsed_source.scheme == "models":
+        if parsed_source.netloc:
+            _raise_invalid_model_version_source(source, "model_id")
+        if _parse_model_version_source(source).model_id is not None:
+            _raise_invalid_model_version_source(source, "model_id")
+
+    if _is_mlflow_artifact_source(source):
+        if run_id:
+            run = _get_source_run(run_id, source)
+            if _is_uri_within_root(source, run.info.artifact_uri):
+                return
+        _raise_invalid_model_version_source(source, "run_id")
+
 
 def _validate_source_model(source: str, model_id: str) -> None:
     if is_local_uri(source):
         if model_id:
-            store = _get_tracking_store()
-            model = store.get_logged_model(model_id)
+            model = _get_source_model(model_id, source)
             source = pathlib.Path(local_file_uri_to_path(source)).resolve()
             if is_local_uri(model.artifact_location):
                 run_artifact_dir = pathlib.Path(
@@ -3062,6 +3297,139 @@ def _validate_source_model(source: str, model_id: str) -> None:
     # Checks if relative paths are present in the source (a security threat). If any are present,
     # raises an Exception.
     _validate_non_local_source_contains_relative_paths(source)
+
+    parsed_source = urllib.parse.urlparse(source)
+    if parsed_source.scheme == "models":
+        if parsed_source.netloc:
+            _raise_invalid_model_version_source(source, "model_id")
+        if (source_model_id := _parse_model_version_source(source).model_id) is not None:
+            if model_id and source_model_id == model_id:
+                return
+            _raise_invalid_model_version_source(source, "model_id")
+
+    if parsed_source.scheme == "runs":
+        _raise_invalid_model_version_source(source, "model_id")
+
+    if _is_mlflow_artifact_source(source):
+        if model_id:
+            model = _get_source_model(model_id, source)
+            if _is_uri_within_root(source, model.artifact_location):
+                return
+        _raise_invalid_model_version_source(source, "model_id")
+
+
+def _iteratively_unquote(value: str) -> str:
+    while (unquoted := urllib.parse.unquote(value)) != value:
+        value = unquoted
+    return value
+
+
+def _normalized_uri_parts(uri: str) -> tuple[str, str, tuple[str, ...]]:
+    parsed = urllib.parse.urlsplit(uri)
+    path_parts = tuple(_iteratively_unquote(part) for part in parsed.path.split("/") if part)
+    return parsed.scheme.lower(), parsed.netloc.lower(), path_parts
+
+
+def _is_uri_within_root(source: str, root: str) -> bool:
+    source_scheme, source_authority, source_parts = _normalized_uri_parts(source)
+    root_scheme, root_authority, root_parts = _normalized_uri_parts(root)
+    return (
+        source_scheme == root_scheme
+        and source_authority == root_authority
+        and bool(root_parts)
+        and source_parts[: len(root_parts)] == root_parts
+    )
+
+
+def _is_mlflow_artifact_source(source: str) -> bool:
+    scheme, _, path_parts = _normalized_uri_parts(source)
+    if scheme == "mlflow-artifacts":
+        return True
+    route_parts = ("api", "2.0", "mlflow-artifacts", "artifacts")
+    return scheme in {"http", "https"} and any(
+        path_parts[i : i + len(route_parts)] == route_parts
+        for i in range(len(path_parts) - len(route_parts) + 1)
+    )
+
+
+def _parse_model_version_source(source: str):
+    try:
+        return _parse_model_uri(source)
+    except MlflowException:
+        _raise_invalid_model_version_source(source, "model_id")
+
+
+def _get_source_run(run_id: str, source: str):
+    try:
+        return _get_tracking_store().get_run(run_id)
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            _raise_invalid_model_version_source(source, "run_id")
+        raise
+
+
+def _get_source_model(model_id: str, source: str):
+    try:
+        return _get_tracking_store().get_logged_model(model_id)
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            _raise_invalid_model_version_source(source, "model_id")
+        raise
+
+
+def _resolve_registered_model_source_lineage(
+    source: str,
+    run_id: str,
+    model_id: str,
+    *,
+    has_run_id: bool,
+    has_model_id: bool,
+) -> tuple[str, str | None, str | None]:
+    parsed_source = urllib.parse.urlparse(source)
+    if parsed_source.scheme != "models":
+        return source, run_id, model_id
+    if parsed_source.netloc:
+        raise MlflowException(
+            f"Invalid model version source: '{source}'. Registered model sources must use the "
+            "active model registry.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+    parsed_model_uri = _parse_model_version_source(source)
+    if parsed_model_uri.model_id is not None:
+        return source, run_id, model_id
+
+    store = _get_model_registry_store()
+    source_registered_model = store.get_registered_model(parsed_model_uri.name)
+    if source_registered_model._is_prompt():
+        raise MlflowException(
+            f"Invalid model version source: '{source}'. Prompt versions cannot be used as "
+            "model version sources.",
+            INVALID_PARAMETER_VALUE,
+        )
+    name, version = get_model_name_and_version(store, source)
+    source_model_version = store.get_model_version(name, version)
+    if (has_run_id and (run_id or "") != (source_model_version.run_id or "")) or (
+        has_model_id and (model_id or "") != (source_model_version.model_id or "")
+    ):
+        raise MlflowException(
+            f"Invalid model version source: '{source}'. The run_id and model_id request "
+            "parameters must match the referenced model version.",
+            INVALID_PARAMETER_VALUE,
+        )
+    return (
+        f"models:/{name}/{source_model_version.version}",
+        run_id if has_run_id else source_model_version.run_id,
+        model_id if has_model_id else source_model_version.model_id,
+    )
+
+
+def _raise_invalid_model_version_source(source: str, source_id_name: str) -> None:
+    raise MlflowException(
+        f"Invalid model version source: '{source}'. The {source_id_name} request parameter must "
+        "identify the resource that contains the source.",
+        INVALID_PARAMETER_VALUE,
+    )
 
 
 @catch_mlflow_exception
@@ -3091,43 +3459,39 @@ def _create_model_version():
 
     is_prompt = _is_prompt_request(request_message)
     if is_prompt:
-        # Prompt sources must not point to local filesystem paths.
-        # Block file:// URIs and absolute paths (e.g. /etc/passwd) but allow
-        # the legitimate schemeless placeholder sources used internally
-        # (e.g. "prompt-template", "dummy-source").
-        source = request_message.source
-        parsed = urllib.parse.urlparse(source)
-        if parsed.scheme == "file" or (parsed.scheme == "" and source.startswith("/")):
-            raise MlflowException(
-                f"Invalid prompt source: '{source}'. "
-                "Local source paths are not allowed for prompts.",
-                INVALID_PARAMETER_VALUE,
-            )
-        # Only validate traversal for sources with a URL scheme (http, https, etc.)
-        if parsed.scheme:
-            _validate_non_local_source_contains_relative_paths(source)
-    else:
-        if request_message.model_id:
-            _validate_source_model(request_message.source, request_message.model_id)
+        _validate_prompt_source(request_message.source)
+    _validate_artifact_uri_scheme(request_message.source, "source")
+    source = request_message.source
+    run_id = request_message.run_id
+    model_id = request_message.model_id
+    if not is_prompt:
+        source, run_id, model_id = _resolve_registered_model_source_lineage(
+            source,
+            run_id,
+            model_id,
+            has_run_id=request_message.HasField("run_id"),
+            has_model_id=request_message.HasField("model_id"),
+        )
+        if model_id:
+            _validate_source_model(source, model_id)
         else:
-            _validate_source_run(request_message.source, request_message.run_id)
-
+            _validate_source_run(source, run_id)
     store = _get_model_registry_store()
     model_version = store.create_model_version(
         name=request_message.name,
-        source=request_message.source,
-        run_id=request_message.run_id,
+        source=source,
+        run_id=run_id,
         run_link=request_message.run_link,
         tags=request_message.tags,
         description=request_message.description,
-        model_id=request_message.model_id,
+        model_id=model_id,
     )
-    if not is_prompt and request_message.model_id:
+    if not is_prompt and model_id:
         tracking_store = _get_tracking_store()
         tracking_store.set_model_versions_tags(
             name=request_message.name,
             version=model_version.version,
-            model_id=request_message.model_id,
+            model_id=model_id,
         )
     response_message = CreateModelVersion.Response(model_version=model_version.to_proto())
 
@@ -3158,8 +3522,8 @@ def _create_model_version():
             payload=ModelVersionCreatedPayload(
                 name=request_message.name,
                 version=str(model_version.version),
-                source=request_message.source,
-                run_id=request_message.run_id or None,
+                source=source,
+                run_id=run_id or None,
                 tags={t.key: t.value for t in request_message.tags},
                 description=request_message.description or None,
             ),
@@ -3170,7 +3534,10 @@ def _create_model_version():
 
 
 def _is_prompt_request(request_message):
-    return any(tag.key == IS_PROMPT_TAG_KEY for tag in request_message.tags)
+    # Mirror ModelVersion._is_prompt: tags collapse by key with the last value winning, and only a
+    # true-valued tag selects the prompt code path.
+    tags = {tag.key: tag.value for tag in request_message.tags}
+    return tags.get(IS_PROMPT_TAG_KEY, "false").lower() == "true"
 
 
 def _is_prompt(name: str) -> bool:
@@ -3180,12 +3547,25 @@ def _is_prompt(name: str) -> bool:
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_artifacts_presigned_only(allow_presigned=True)
 def get_model_version_artifact_handler():
     name = request.args.get("name")
     version = request.args.get("version")
     path = request.args["path"]
     path = validate_path_is_safe(path)
     artifact_uri = _get_model_registry_store().get_model_version_download_uri(name, version)
+    if request.args.get("presigned") == "true" and RunsArtifactRepository.is_runs_uri(artifact_uri):
+        run_id, source_path = RunsArtifactRepository.parse_runs_uri(artifact_uri)
+        if urllib.parse.urlparse(artifact_uri).netloc:
+            raise MlflowException.invalid_parameter_value(
+                "Run artifact sources cannot include a host."
+            )
+        source_path = validate_path_is_safe(source_path or "")
+        # Use the workspace-scoped store directly: model-version READ is sufficient,
+        # even when the caller cannot read the source run through the tracking API.
+        run_root = _get_tracking_store().get_run(run_id).info.artifact_uri
+        artifact_uri = append_to_uri_path(run_root, source_path)
+        validate_artifact_uri_host(artifact_uri)
     if _is_servable_proxied_run_artifact_root(artifact_uri):
         artifact_repo = _get_artifact_repo_mlflow_artifacts()
         artifact_path = _get_proxied_run_artifact_destination_path(
@@ -3194,9 +3574,17 @@ def get_model_version_artifact_handler():
         )
         artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
     else:
-        artifact_repo = get_artifact_repository(artifact_uri)
+        artifact_repo = _get_artifact_repository_for_uri(artifact_uri)
         artifact_path = path
 
+    if request.args.get("presigned") == "true":
+        # This route already checks model-version READ permission, independently of
+        # access to the source run. Signing must retain that authorization boundary.
+        _validate_support_presigned_download(artifact_repo)
+        presigned = artifact_repo.get_download_presigned_url(
+            artifact_path, expiration=MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS.get()
+        )
+        return jsonify(presigned.to_dict())
     return _send_artifact(artifact_repo, artifact_path)
 
 
@@ -3585,14 +3973,16 @@ def _update_webhook(webhook_id: str):
     webhook = _get_model_registry_store().update_webhook(
         webhook_id=webhook_id,
         name=request_message.name or None,
-        description=request_message.description or None,
+        description=(
+            request_message.description if request_message.HasField("description") else None
+        ),
         url=request_message.url or None,
         events=(
             [WebhookEvent.from_proto(e) for e in request_message.events]
             if request_message.events
             else None
         ),
-        secret=request_message.secret or None,
+        secret=request_message.secret if request_message.HasField("secret") else None,
         status=(
             WebhookStatus.from_proto(request_message.status)
             if request_message.HasField("status")
@@ -3665,13 +4055,15 @@ def _get_workspace_scoped_repo_path_if_enabled(artifact_path: str | None) -> str
         # so root operations continue to see the existing layout.
         return base if workspace != DEFAULT_WORKSPACE_NAME else artifact_path
 
-    if workspace == DEFAULT_WORKSPACE_NAME and not normalized.startswith("workspaces/"):
+    # Case-insensitive because a case-insensitive local store serves ``WORKSPACES/`` as
+    # ``workspaces/``.
+    if workspace == DEFAULT_WORKSPACE_NAME and not normalized.lower().startswith("workspaces/"):
         # Legacy default-workspace artifacts never had the workspace prefix; allow them to be served
         # without rewriting as long as the path isn't trying to opt into the reserved namespace.
         return artifact_path
 
     leading_segments = normalized.split("/", 2)
-    if leading_segments and leading_segments[0] == "workspaces":
+    if leading_segments and leading_segments[0].lower() == "workspaces":
         if len(leading_segments) == 1 or not leading_segments[1]:
             raise MlflowException.invalid_parameter_value(
                 "Artifact paths prefixed with 'workspaces/' must include a workspace name."
@@ -3689,6 +4081,7 @@ def _get_workspace_scoped_repo_path_if_enabled(artifact_path: str | None) -> str
 
 @catch_mlflow_exception
 @_disable_unless_serve_artifacts
+@_disable_if_artifacts_presigned_only()
 def _download_artifact(artifact_path):
     """
     A request handler for `GET /mlflow-artifacts/artifacts/<artifact_path>` to download an artifact
@@ -3710,14 +4103,26 @@ def _download_artifact(artifact_path):
         raise
 
 
+def _reject_skill_artifact_mutation(artifact_path: str) -> None:
+    from mlflow.store.tracking.skill_registry.artifact_paths import is_skill_upload_namespace
+
+    if is_skill_upload_namespace(artifact_path):
+        raise MlflowException(
+            "Skill upload content is immutable; register a new version instead",
+            error_code=PERMISSION_DENIED,
+        )
+
+
 @catch_mlflow_exception
 @_disable_unless_serve_artifacts
+@_disable_if_artifacts_presigned_only(upload=True)
 def _upload_artifact(artifact_path):
     """
     A request handler for `PUT /mlflow-artifacts/artifacts/<artifact_path>` to upload an artifact
     to `artifact_path` (a relative path from the root artifact directory).
     """
     artifact_path = validate_path_is_safe(artifact_path)
+    _reject_skill_artifact_mutation(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
     head, tail = posixpath.split(artifact_path)
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
@@ -3766,6 +4171,7 @@ def _delete_artifact_mlflow_artifacts(artifact_path):
     `path` (a relative path from the root artifact directory).
     """
     artifact_path = validate_path_is_safe(artifact_path)
+    _reject_skill_artifact_mutation(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
     _get_request_message(DeleteArtifact())
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
@@ -3856,32 +4262,47 @@ def _create_presigned_upload_url():
     """
     Handler for POST /api/2.0/mlflow/artifacts/presigned-upload-url.
     Generates a presigned URL for uploading an artifact directly to cloud storage.
+    Supports run artifacts (``run_id``) and logged model artifacts (``model_id``);
+    exactly one of the two must be provided.
 
     Client reference: https://github.com/aws/sagemaker-mlflow
     """
     request_message = _get_request_message(
         CreatePresignedUploadUrl(),
         schema={
-            "run_id": [_assert_required, _assert_string],
+            "run_id": [_assert_string],
+            "model_id": [_assert_string],
             "path": [_assert_required, _assert_string],
             "expiration": [_assert_intlike],
         },
     )
     run_id = request_message.run_id
+    model_id = request_message.model_id
+    if bool(run_id) == bool(model_id):
+        raise MlflowException(
+            "Exactly one of run_id and model_id must be provided.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
     path = validate_path_is_safe(request_message.path)
     expiration = request_message.expiration if request_message.HasField("expiration") else 900
 
-    run = _get_tracking_store().get_run(run_id)
-    artifact_uri = run.info.artifact_uri
+    if run_id:
+        run = _get_tracking_store().get_run(run_id)
+        artifact_uri = run.info.artifact_uri
+    else:
+        logged_model = _get_tracking_store().get_logged_model(model_id)
+        artifact_uri = logged_model.artifact_location
     artifact_uri_scheme = urllib.parse.urlparse(artifact_uri).scheme
     if artifact_uri_scheme in ("http", "https", "mlflow-artifacts"):
         raise MlflowException(
-            "Presigned upload is not supported for runs with proxied artifact storage "
+            "Presigned upload is not supported for proxied artifact storage "
             f"(artifact URI scheme: {artifact_uri_scheme}). "
-            "This endpoint requires a run with a direct cloud storage artifact URI.",
+            "This endpoint requires a direct cloud storage artifact URI.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    artifact_repo = _get_artifact_repo(run)
+    artifact_repo = (
+        _get_artifact_repo(run) if run_id else _get_artifact_repository_for_uri(artifact_uri)
+    )
     _validate_support_presigned_upload(artifact_repo)
 
     response = artifact_repo.create_presigned_upload_url(path, expiration=expiration)
@@ -3947,6 +4368,23 @@ def _create_presigned_download_url():
     return resp
 
 
+def _get_multipart_upload_file_name(path: str) -> str:
+    # The `path` field carries the name of the file being uploaded. Clients before 3.18 sent
+    # their local file path, which may be absolute or a Windows path, and artifact repositories
+    # only use its basename. `ntpath.basename` splits on both "/" and "\\" so those clients keep
+    # working; a backslash inside a POSIX file name is treated as a separator as a result.
+    # `validate_path_is_safe` percent-decodes, so take the basename again on its result to drop
+    # separators that arrived encoded. That second basename can itself produce `..` (for example
+    # from `src%5C..` or `C%3A..` on a POSIX server, where a backslash or drive colon is not a
+    # separator for the validator), so check the final name too.
+    file_name = ntpath.basename(path)
+    if file_name:
+        file_name = ntpath.basename(validate_path_is_safe(file_name))
+    if file_name in ("", ".", ".."):
+        raise MlflowException("Invalid path", error_code=INVALID_PARAMETER_VALUE)
+    return file_name
+
+
 @catch_mlflow_exception
 @_disable_unless_serve_artifacts
 def _create_multipart_upload_artifact(artifact_path):
@@ -3955,6 +4393,7 @@ def _create_multipart_upload_artifact(artifact_path):
     to `artifact_path` (a relative path from the root artifact directory).
     """
     artifact_path = validate_path_is_safe(artifact_path)
+    _reject_skill_artifact_mutation(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
 
     request_message = _get_request_message(
@@ -3964,8 +4403,9 @@ def _create_multipart_upload_artifact(artifact_path):
             "num_parts": [_assert_intlike],
         },
     )
-    path = request_message.path
+    path = _get_multipart_upload_file_name(request_message.path)
     num_parts = request_message.num_parts
+    _reject_skill_artifact_mutation(posixpath.join(artifact_path, path))
 
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     _validate_support_multipart_upload(artifact_repo)
@@ -3989,6 +4429,7 @@ def _complete_multipart_upload_artifact(artifact_path):
     to `artifact_path` (a relative path from the root artifact directory).
     """
     artifact_path = validate_path_is_safe(artifact_path)
+    _reject_skill_artifact_mutation(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
 
     request_message = _get_request_message(
@@ -3999,9 +4440,10 @@ def _complete_multipart_upload_artifact(artifact_path):
             "parts": [_assert_required],
         },
     )
-    path = request_message.path
+    path = _get_multipart_upload_file_name(request_message.path)
     upload_id = request_message.upload_id
     parts = [MultipartUploadPart.from_proto(part) for part in request_message.parts]
+    _reject_skill_artifact_mutation(posixpath.join(artifact_path, path))
 
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     _validate_support_multipart_upload(artifact_repo)
@@ -4023,6 +4465,7 @@ def _abort_multipart_upload_artifact(artifact_path):
     to `artifact_path` (a relative path from the root artifact directory).
     """
     artifact_path = validate_path_is_safe(artifact_path)
+    _reject_skill_artifact_mutation(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
 
     request_message = _get_request_message(
@@ -4032,8 +4475,9 @@ def _abort_multipart_upload_artifact(artifact_path):
             "upload_id": [_assert_string],
         },
     )
-    path = request_message.path
+    path = _get_multipart_upload_file_name(request_message.path)
     upload_id = request_message.upload_id
+    _reject_skill_artifact_mutation(posixpath.join(artifact_path, path))
 
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     _validate_support_multipart_upload(artifact_repo)
@@ -4121,9 +4565,23 @@ def _batch_get_traces() -> Response:
     """
     request_message = _get_request_message(
         BatchGetTraces(),
-        schema={"trace_ids": [_assert_array, _assert_required, _assert_item_type_string]},
+        schema={
+            "trace_ids": [_assert_array, _assert_required, _assert_item_type_string],
+            "experiment_ids": [_assert_array, _assert_item_type_string],
+        },
     )
-    traces = _get_tracking_store().batch_get_traces(request_message.trace_ids, None)
+    store = _get_tracking_store()
+    experiment_ids_field = request_message.DESCRIPTOR.fields_by_name["experiment_ids"]
+    has_experiment_ids = _raw_request_has_field(experiment_ids_field)
+    if has_experiment_ids:
+        with translate_scoped_search_limits(_get_scoped_experiment_ids() is not None):
+            traces = store.batch_get_traces(
+                request_message.trace_ids,
+                None,
+                experiment_ids=list(request_message.experiment_ids),
+            )
+    else:
+        traces = store.batch_get_traces(request_message.trace_ids, None)
     response_message = BatchGetTraces.Response()
     response_message.traces.extend([t.to_proto() for t in traces])
     return _wrap_response(response_message, pretty=False)
@@ -4134,9 +4592,22 @@ def _batch_get_traces() -> Response:
 def _batch_get_trace_infos() -> Response:
     request_message = _get_request_message(
         BatchGetTraceInfos(),
-        schema={"trace_ids": [_assert_array, _assert_required, _assert_item_type_string]},
+        schema={
+            "trace_ids": [_assert_array, _assert_required, _assert_item_type_string],
+            "experiment_ids": [_assert_array, _assert_item_type_string],
+        },
     )
-    trace_infos = _get_tracking_store().batch_get_trace_infos(request_message.trace_ids)
+    store = _get_tracking_store()
+    experiment_ids_field = request_message.DESCRIPTOR.fields_by_name["experiment_ids"]
+    has_experiment_ids = _raw_request_has_field(experiment_ids_field)
+    if has_experiment_ids:
+        with translate_scoped_search_limits(_get_scoped_experiment_ids() is not None):
+            trace_infos = store.batch_get_trace_infos(
+                request_message.trace_ids,
+                experiment_ids=list(request_message.experiment_ids),
+            )
+    else:
+        trace_infos = store.batch_get_trace_infos(request_message.trace_ids)
     response_message = BatchGetTraceInfos.Response()
     response_message.trace_infos.extend([ti.to_proto() for ti in trace_infos])
     return _wrap_trace_info_response(response_message)
@@ -4391,13 +4862,11 @@ def _link_prompts_to_trace():
     return _wrap_response(LinkPromptsToTrace.Response())
 
 
-def _fetch_trace_data_from_store(
-    store: AbstractTrackingStore, request_id: str
-) -> dict[str, Any] | None:
+def _fetch_trace_data_from_store(store: AbstractTrackingStore, request_id: str) -> bytes | None:
     try:
         # allow partial so the frontend can render in-progress traces
         trace = store.get_trace(request_id, allow_partial=True)
-        return trace.data.to_dict()
+        return trace.data.to_json_bytes()
     except MlflowTraceDataException:
         raise
     except MlflowTracingException:
@@ -4410,7 +4879,7 @@ def _fetch_trace_data_from_store(
         traces = store.batch_get_traces([request_id], None)
         match traces:
             case [trace]:
-                return trace.data.to_dict()
+                return trace.data.to_json_bytes()
             case _:
                 raise MlflowException(
                     f"Trace with id={request_id} not found.",
@@ -4484,7 +4953,7 @@ def get_trace_artifact_handler() -> Response:
         trace_info = store.get_trace_info(request_id)
         if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == SpansLocation.ARCHIVE_REPO.value:
             trace_data = (
-                _get_trace_archive_repo(trace_info).download_archived_trace_data().to_dict()
+                _get_trace_archive_repo(trace_info).download_archived_trace_data().to_json_bytes()
             )
         else:
             repo = _get_trace_artifact_repo(trace_info)
@@ -4511,7 +4980,7 @@ def get_trace_artifact_handler() -> Response:
                 raise
 
     buf = io.BytesIO()
-    buf.write(json.dumps(trace_data).encode())
+    buf.write(trace_data)
     buf.seek(0)
 
     file_sender_response = send_file(
@@ -4668,6 +5137,16 @@ def _delete_assessment(trace_id, assessment_id):
     return _wrap_response(response_message)
 
 
+def _validate_issue_last_seen_timestamp(value):
+    # Protobuf JSON also accepts decimal strings for int64 fields.
+    if isinstance(value, str):
+        try:
+            value = int(value)
+        except ValueError:
+            pass
+    validate_issue_fields(last_seen_timestamp=value)
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _create_issue():
@@ -4680,7 +5159,21 @@ def _create_issue():
             "name": [_assert_required, _assert_string],
             "description": [_assert_required, _assert_string],
             "experiment_id": [_assert_required, _assert_string],
+            "status": [_assert_string],
+            "severity": [_assert_string],
+            "root_causes": [_assert_array, _assert_item_type_string],
+            "source_run_id": [_assert_string],
+            "created_by": [_assert_string],
+            "categories": [_assert_array, _assert_item_type_string],
+            "issue_id": [_assert_string],
+            "last_seen_timestamp": [_validate_issue_last_seen_timestamp],
+            "metadata": [lambda value: validate_issue_fields(metadata=value)],
         },
+    )
+
+    validate_issue_fields(
+        status=request_message.status if request_message.HasField("status") else None,
+        severity=request_message.severity if request_message.HasField("severity") else None,
     )
 
     # Build kwargs for create_issue
@@ -4691,7 +5184,7 @@ def _create_issue():
         "source_run_id": request_message.source_run_id or None,
         "root_causes": list(request_message.root_causes) or None,
         "categories": list(request_message.categories) or None,
-        "created_by": request_message.created_by or None,
+        "created_by": _get_request_username() or request_message.created_by or None,
     }
 
     if request_message.HasField("status"):
@@ -4699,6 +5192,11 @@ def _create_issue():
     if request_message.HasField("severity"):
         create_kwargs["severity"] = IssueSeverity(request_message.severity)
 
+    for field in ("issue_id", "last_seen_timestamp"):
+        if request_message.HasField(field):
+            create_kwargs[field] = getattr(request_message, field)
+    if request_message.metadata:
+        create_kwargs["metadata"] = dict(request_message.metadata)
     created_issue = _get_tracking_store().create_issue(**create_kwargs)
 
     response_message = CreateIssue.Response(issue=created_issue.to_proto())
@@ -4714,8 +5212,22 @@ def _update_issue(issue_id):
     request_message = _get_request_message(
         UpdateIssue(),
         schema={
-            "issue_id": [_assert_required],
+            "issue_id": [_assert_required, _assert_string],
+            "name": [_assert_string],
+            "description": [_assert_string],
+            "status": [_assert_string],
+            "severity": [_assert_string],
+            "categories": [_assert_array, _assert_item_type_string],
+            "last_seen_timestamp": [_validate_issue_last_seen_timestamp],
+            "last_updated_by": [_assert_string],
+            "metadata": [lambda value: validate_issue_fields(metadata=value)],
+            "delete_metadata_keys": [_assert_array, _assert_item_type_string],
         },
+    )
+
+    validate_issue_fields(
+        status=request_message.status if request_message.HasField("status") else None,
+        severity=request_message.severity if request_message.HasField("severity") else None,
     )
 
     status = IssueStatus(request_message.status) if request_message.HasField("status") else None
@@ -4723,12 +5235,26 @@ def _update_issue(issue_id):
         IssueSeverity(request_message.severity) if request_message.HasField("severity") else None
     )
 
+    options = {}
+    if _get_normalized_request_json().get("categories") is not None:
+        options["categories"] = list(request_message.categories)
+    if request_message.HasField("last_seen_timestamp"):
+        options["last_seen_timestamp"] = request_message.last_seen_timestamp
+    if actor := _get_request_username() or request_message.last_updated_by:
+        options["last_updated_by"] = actor
+    if request_message.metadata:
+        options["metadata"] = dict(request_message.metadata)
+    if request_message.delete_metadata_keys:
+        options["delete_metadata_keys"] = list(request_message.delete_metadata_keys)
     updated_issue = _get_tracking_store().update_issue(
         issue_id=issue_id,
         status=status,
-        name=request_message.name or None,
-        description=request_message.description or None,
+        name=request_message.name if request_message.HasField("name") else None,
+        description=request_message.description
+        if request_message.HasField("description")
+        else None,
         severity=severity,
+        **options,
     )
 
     response_message = UpdateIssue.Response(issue=updated_issue.to_proto())
@@ -4753,7 +5279,23 @@ def _search_issues():
     """
     A request handler for `POST /mlflow/issues/search` to search for issues.
     """
-    request_message = _get_request_message(SearchIssues())
+    request_message = _get_request_message(
+        SearchIssues(),
+        schema={
+            "experiment_id": [_assert_string],
+            "filter_string": [_assert_string],
+            "max_results": [_assert_intlike],
+            "page_token": [_assert_string],
+            "include_trace_count": [_assert_bool],
+            "name": [_assert_string],
+            "statuses": [_assert_array, _assert_item_type_string],
+            "severities": [_assert_array, _assert_item_type_string],
+            "categories": [_assert_array, _assert_item_type_string],
+            "order_by": [_assert_array, _assert_item_type_string],
+            "include_total_count": [_assert_bool],
+            "view": [_assert_string],
+        },
+    )
 
     # Build kwargs for search_issues
     search_kwargs = {
@@ -4768,11 +5310,19 @@ def _search_issues():
     if request_message.HasField("include_trace_count"):
         search_kwargs["include_trace_count"] = request_message.include_trace_count
 
+    for field in ("name", "view", "include_total_count"):
+        if request_message.HasField(field):
+            search_kwargs[field] = getattr(request_message, field)
+    for field in ("statuses", "severities", "categories", "order_by"):
+        if values := list(getattr(request_message, field)):
+            search_kwargs[field] = values
     issues = _get_tracking_store().search_issues(**search_kwargs)
 
     issue_protos = [issue.to_proto() for issue in issues]
     response_message = SearchIssues.Response(
-        issues=issue_protos, next_page_token=issues.token or ""
+        issues=issue_protos,
+        next_page_token=issues.token or "",
+        total_count=issues.total_count if request_message.include_total_count else None,
     )
     return _wrap_response(response_message)
 
@@ -5165,6 +5715,41 @@ def _set_review_queue_item_status():
     return _wrap_response(SetReviewQueueItemStatus.Response(item=item.to_proto()))
 
 
+def _validate_trace_ids_in_experiment(
+    tracking_store: AbstractTrackingStore, trace_ids: list[str], experiment_id: str
+) -> None:
+    """
+    Reject the request if any requested trace that exists belongs to an experiment other
+    than ``experiment_id``. The route validators only check the caller's permission on the
+    request's ``experiment_id``, so this binds the caller-supplied ``trace_ids`` to that
+    authorized experiment. Missing traces are not rejected here; they are left to fail
+    downstream in the job, which preserves the existing contract for missing traces.
+    """
+    try:
+        # Deliberately not scoped with `experiment_ids`: scoping would hide foreign traces and
+        # make the ownership check below vacuous.
+        trace_infos = tracking_store.batch_get_trace_infos(trace_ids)
+    except (MlflowNotImplementedException, NotImplementedError):
+        # Fallback to per-trace fetches for stores that don't implement batch_get_trace_infos.
+        # A missing trace is simply absent, matching the partial list the batch path returns.
+        # A store that implements neither lookup cannot prove ownership, so its error is
+        # left to propagate rather than letting the request through unchecked.
+        trace_infos = []
+        for trace_id in trace_ids:
+            try:
+                trace_infos.append(tracking_store.get_trace_info(trace_id))
+            except MlflowException as e:
+                if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                    raise
+
+    for trace_info in trace_infos:
+        if str(trace_info.experiment_id) != str(experiment_id):
+            raise MlflowException(
+                "Not all requested traces could be accessed.",
+                error_code=PERMISSION_DENIED,
+            )
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _invoke_issue_detection_handler():
@@ -5174,6 +5759,7 @@ def _invoke_issue_detection_handler():
     This is a UI-only AJAX endpoint for running issue detection from the frontend.
     """
     from mlflow.genai.discovery.job import _fetch_provider_credentials, invoke_issue_detection_job
+    from mlflow.genai.discovery.utils import in_flight_detection_run
     from mlflow.server.jobs import submit_job
 
     _validate_content_type(request, ["application/json"])
@@ -5181,8 +5767,9 @@ def _invoke_issue_detection_handler():
     request_json = _get_validated_flask_request_json(
         schema={
             "experiment_id": [_assert_required, _assert_string],
-            "trace_ids": [_assert_required, _assert_array],
+            "trace_ids": [_assert_required, _assert_array, _assert_item_type_string],
             "categories": [_assert_required, _assert_array],
+            "instructions": [_assert_string],
             "provider": [_assert_required, _assert_string],
             "model": [_assert_string],
             "secret_id": [_assert_string],
@@ -5191,14 +5778,21 @@ def _invoke_issue_detection_handler():
     )
 
     experiment_id = request_json.get("experiment_id")
-    trace_ids = request_json.get("trace_ids", [])
+    # Deduplicate while preserving order so a repeated trace_id is not fetched or analyzed twice.
+    trace_ids = list(dict.fromkeys(request_json.get("trace_ids", [])))
     categories = request_json.get("categories", [])
+    instructions = request_json.get("instructions")
     provider = request_json.get("provider")
     model = request_json.get("model")
     secret_id = request_json.get("secret_id")
     endpoint_name = request_json.get("endpoint_name")
     provider_name = provider.lower() if provider else provider
 
+    if not trace_ids:
+        raise MlflowException(
+            "Please select at least one trace to analyze.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
     if not endpoint_name and not (provider and model):
         raise MlflowException(
             "Either 'endpoint_name' or both 'provider' and 'model' must be provided"
@@ -5206,30 +5800,39 @@ def _invoke_issue_detection_handler():
 
     # Fail fast when no credential source exists, instead of submitting a job doomed to fail
     if not endpoint_name and not secret_id:
-        from mlflow.utils.providers import _CORE_PROVIDER_ENV_VARS
+        from mlflow.utils.providers import has_env_credentials, provider_credential_env_vars
 
-        env_config = _CORE_PROVIDER_ENV_VARS.get(provider_name)
-        if not env_config:
+        env_vars = provider_credential_env_vars(provider_name)
+        if not env_vars:
             raise MlflowException.invalid_parameter_value(
                 f"Unsupported provider '{provider}'. Choose a supported provider or "
                 "AI Gateway endpoint."
             )
-        if isinstance(env_config, dict):
-            env_vars = (
-                [env_config["api_key"]] if "api_key" in env_config else list(env_config.values())
-            )
-        else:
-            env_vars = [env_config]
-        if not any(os.environ.get(env_var) for env_var in env_vars):
+        if not has_env_credentials(provider_name):
             env_var_hint = env_vars[0] if len(env_vars) == 1 else f"one of {', '.join(env_vars)}"
             raise MlflowException.invalid_parameter_value(
                 f"No API key available for provider '{provider}'. Save an API key in "
                 f"AI Gateway, or set {env_var_hint} on the MLflow server."
             )
 
+    store = _get_tracking_store()
+    _validate_trace_ids_in_experiment(store, trace_ids, experiment_id)
+
+    # After the checks above rather than before, so request validation stays free of database
+    # reads and the "fails fast" contract on an unsupported provider or a missing key holds. The
+    # cost is that a caller with neither a key nor a free slot is told about the key first, which
+    # sends the dialog to its API-key step before this refusal; the opposite order would make
+    # every invoke read the run table before validating its own arguments.
+    if in_flight_run_id := in_flight_detection_run(store, experiment_id):
+        raise MlflowException(
+            "Issue detection is already running for this experiment "
+            f"(run {in_flight_run_id}). Wait for it to finish, or cancel it, before starting "
+            "another.",
+            error_code=RESOURCE_ALREADY_EXISTS,
+        )
+
     # Fetch credentials required for executing the job
     if secret_id:
-        store = _get_tracking_store()
         credentials = _fetch_provider_credentials(store, provider_name, secret_id)
     else:
         credentials = None
@@ -5258,6 +5861,7 @@ def _invoke_issue_detection_handler():
             "categories": categories,
             "run_id": run_id,
             "model": model_name,
+            "instructions": instructions,
         },
         extra_envs=credentials,
     )
@@ -5266,6 +5870,89 @@ def _invoke_issue_detection_handler():
     mlflow.end_run(RunStatus.to_string(RunStatus.RUNNING))
 
     return jsonify({"job_id": job.job_id, "run_id": run_id})
+
+
+def _sync_issue_detection_schedule_state_handler():
+    """
+    Bring a schedule's dispatch state in line with the schedule that is now stored, and answer
+    with when it next runs.
+
+    The dialog calls this straight after writing the schedule tags. Those writes go through the
+    generic tag endpoint, so nothing on the server knows a schedule was just saved -- the next
+    fire time was worked out only by the following dispatcher pass, up to a quarter of an hour
+    later, which is precisely the time the owner spends wanting to be told what they just
+    scheduled. The arithmetic was always available; nobody was asking for it.
+
+    It applies the dispatcher's own reasoning and adds none of its own: adopt the timing when the
+    state recorded none, re-anchor when it has changed, leave both alone when it has not. The
+    re-anchor is **exact here** -- this request is the moment of the edit, where a pass can only
+    bound it by the previous pass.
+
+    Dispatching is left to the dispatcher. A save says when a run should happen, not that one
+    should happen now, and a UI-triggered occurrence is not something anybody asked for.
+
+    Best-effort by design, and the client treats it as such: a failure, an older server without
+    this route, or an authorization refusal all leave the state exactly as the dispatcher would
+    have found it, and the next pass still corrects it.
+    """
+    from mlflow.genai.discovery.schedule import (
+        adopt_timing,
+        claim_first_occurrence,
+        read_detection_schedule,
+        read_detection_schedule_state,
+        reanchor_timing,
+        write_detection_schedule_state,
+    )
+    from mlflow.utils.time import get_current_time_millis
+
+    _validate_content_type(request, ["application/json"])
+    request_json = _get_validated_flask_request_json(
+        schema={"experiment_id": [_assert_required, _assert_string]}
+    )
+    experiment_id = request_json.get("experiment_id")
+
+    store = _get_tracking_store()
+    experiment = store.get_experiment(experiment_id)
+    schedule = read_detection_schedule(experiment)
+    if schedule is None:
+        # Nothing stored, or a schedule this server does not recognize. Either way there is no
+        # next run to report and no state worth writing.
+        return jsonify({"next_fire_time_ms": None})
+
+    now_ms = get_current_time_millis()
+    state = read_detection_schedule_state(experiment)
+    if state is None:
+        updated = claim_first_occurrence(now_ms, schedule)
+    elif state.timing is None:
+        updated = adopt_timing(state, schedule)
+    elif state.timing != schedule.timing:
+        updated = reanchor_timing(state, schedule, now_ms)
+    else:
+        updated = state
+
+    if updated is not state:
+        write_detection_schedule_state(store, experiment_id, updated)
+    return jsonify({"next_fire_time_ms": updated.next_fire_time_ms})
+
+
+def _get_registered_scorer(
+    tracking_store: AbstractTrackingStore, experiment_id: str, name: str, version: int
+) -> ScorerVersion:
+    """The registered scorer named exactly ``name``, which is the scorer the permission checks
+    were made for.
+
+    MySQL and SQL Server compare names without case by default, and can also ignore trailing
+    spaces or accents. The SQLAlchemy store already treats such a match as not found; this check
+    keeps the same guarantee for other tracking stores.
+    """
+    registered_scorer = tracking_store.get_scorer(experiment_id, name, version)
+    if registered_scorer.scorer_name != name:
+        raise MlflowException(
+            f"Scorer with name '{name}' and version {version} not found for experiment "
+            f"{experiment_id}.",
+            RESOURCE_DOES_NOT_EXIST,
+        )
+    return registered_scorer
 
 
 @catch_mlflow_exception
@@ -5286,14 +5973,17 @@ def _invoke_genai_evaluate_handler():
     request_json = _get_validated_flask_request_json(
         schema={
             "experiment_id": [_assert_required, _assert_string],
-            "trace_ids": [_assert_required, _assert_array],
+            "trace_ids": [_assert_required, _assert_array, _assert_item_type_string],
             "serialized_scorers": [_assert_required, _assert_array],
+            "scorer_versions": [_assert_array],
         }
     )
 
     experiment_id = request_json["experiment_id"]
-    trace_ids = request_json["trace_ids"]
+    # Deduplicate while preserving order so a repeated trace_id is not fetched or scored twice.
+    trace_ids = list(dict.fromkeys(request_json["trace_ids"]))
     serialized_scorers = request_json["serialized_scorers"]
+    scorer_versions = request_json.get("scorer_versions", [None] * len(serialized_scorers))
 
     if not trace_ids:
         raise MlflowException(
@@ -5305,6 +5995,39 @@ def _invoke_genai_evaluate_handler():
             "Please select at least one judge.",
             error_code=INVALID_PARAMETER_VALUE,
         )
+    if len(scorer_versions) != len(serialized_scorers):
+        raise MlflowException.invalid_parameter_value(
+            "scorer_versions must have the same length as serialized_scorers"
+        )
+
+    tracking_store = _get_tracking_store()
+    _validate_trace_ids_in_experiment(tracking_store, trace_ids, experiment_id)
+    for index, (serialized_scorer, scorer_version) in enumerate(
+        zip(serialized_scorers, scorer_versions, strict=True)
+    ):
+        if scorer_version is None:
+            continue
+        if not isinstance(scorer_version, int) or isinstance(scorer_version, bool):
+            raise MlflowException.invalid_parameter_value(
+                "Each scorer version must be an integer or null"
+            )
+        try:
+            scorer_name = json.loads(serialized_scorer)["name"]
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            raise MlflowException.invalid_parameter_value(
+                "A registered scorer must contain a valid name"
+            ) from e
+        registered_scorer = _get_registered_scorer(
+            tracking_store, experiment_id, scorer_name, scorer_version
+        )
+        # The stored JSON; the entity's `serialized_scorer` property is the parsed object.
+        serialized_scorers[index] = registered_scorer._serialized_scorer
+        scorer_versions[index] = registered_scorer.scorer_version
+
+    # The job deserializes and runs these scorers, so validate the final payloads (inline and
+    # resolved from the store) before a run is created.
+    for serialized_scorer in serialized_scorers:
+        _validate_serialized_scorer_payload(serialized_scorer)
 
     # Create the run upfront so we can return run_id immediately, so the run
     # shows up on /evaluation-runs even before the job has produced artifacts.
@@ -5321,6 +6044,8 @@ def _invoke_genai_evaluate_handler():
             params={
                 "trace_ids": trace_ids,
                 "serialized_scorers": serialized_scorers,
+                "scorer_versions": scorer_versions,
+                "experiment_id": experiment_id,
                 "run_id": run_id,
                 "username": username,
             },
@@ -5342,7 +6067,11 @@ def _get_job(job_id):
     return jsonify({
         "status": str(job.status),
         "result": job.parsed_result,
+        "error_message": job.error_message,
         "status_details": job.status_details,
+        "status_message": job.status_message,
+        "progress": (job.progress.to_dict() if job.progress is not None else None),
+        "progress_updated_at": job.progress_updated_at,
     })
 
 
@@ -5355,6 +6084,11 @@ def _cancel_job(job_id):
     return jsonify({
         "status": str(job.status),
         "result": job.parsed_result,
+        "error_message": job.error_message,
+        "status_details": job.status_details,
+        "status_message": job.status_message,
+        "progress": (job.progress.to_dict() if job.progress is not None else None),
+        "progress_updated_at": job.progress_updated_at,
     })
 
 
@@ -5406,7 +6140,11 @@ def _deprecated_end_trace_v2(request_id):
         },
     )
     request_metadata = {e.key: e.value for e in request_message.request_metadata}
-    tags = {e.key: e.value for e in request_message.tags}
+    # Legacy clients send back all trace tags, including server-managed ones, so drop
+    # blocked tags instead of rejecting the request.
+    tags = {
+        e.key: e.value for e in request_message.tags if e.key not in _HANDLER_BLOCKED_TRACE_TAGS
+    }
 
     trace_info = _get_tracking_store().deprecated_end_trace_v2(
         request_id=request_id,
@@ -5480,6 +6218,7 @@ def _deprecated_search_traces_v2():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_artifacts_presigned_only(allow_presigned=True)
 def get_logged_model_artifact_handler(model_id: str):
     artifact_file_path = request.args.get("artifact_file_path")
     if not artifact_file_path:
@@ -5498,9 +6237,15 @@ def get_logged_model_artifact_handler(model_id: str):
         )
         artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
     else:
-        artifact_repo = get_artifact_repository(logged_model.artifact_location)
+        artifact_repo = _get_artifact_repository_for_uri(logged_model.artifact_location)
         artifact_path = artifact_file_path
 
+    if request.args.get("presigned") == "true":
+        _validate_support_presigned_download(artifact_repo)
+        presigned = artifact_repo.get_download_presigned_url(
+            artifact_path, expiration=MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS.get()
+        )
+        return jsonify(presigned.to_dict())
     return _send_artifact(artifact_repo, artifact_path)
 
 
@@ -5578,7 +6323,7 @@ def _finalize_logged_model(model_id: str):
         },
     )
     model = _get_tracking_store().finalize_logged_model(
-        request_message.model_id, LoggedModelStatus.from_int(request_message.status)
+        model_id, LoggedModelStatus.from_int(request_message.status)
     )
     response_message = FinalizeLoggedModel.Response(model=model.to_proto())
     return _wrap_response(response_message)
@@ -5628,38 +6373,39 @@ def _search_logged_models():
             "page_token": [_assert_string],
         },
     )
-    models = _get_tracking_store().search_logged_models(
-        # Convert `RepeatedScalarContainer` objects (experiment_ids and order_by) to `list`
-        # to avoid serialization issues
-        experiment_ids=list(request_message.experiment_ids),
-        filter_string=request_message.filter or None,
-        datasets=(
-            [
-                {
-                    "dataset_name": d.dataset_name,
-                    "dataset_digest": d.dataset_digest or None,
-                }
-                for d in request_message.datasets
-            ]
-            if request_message.datasets
-            else None
-        ),
-        max_results=request_message.max_results or None,
-        order_by=(
-            [
-                {
-                    "field_name": ob.field_name,
-                    "ascending": ob.ascending,
-                    "dataset_name": ob.dataset_name or None,
-                    "dataset_digest": ob.dataset_digest or None,
-                }
-                for ob in request_message.order_by
-            ]
-            if request_message.order_by
-            else None
-        ),
-        page_token=request_message.page_token or None,
-    )
+    with translate_scoped_search_limits(_get_scoped_experiment_ids() is not None):
+        models = _get_tracking_store().search_logged_models(
+            # Convert `RepeatedScalarContainer` objects (experiment_ids and order_by) to `list`
+            # to avoid serialization issues
+            experiment_ids=list(request_message.experiment_ids),
+            filter_string=request_message.filter or None,
+            datasets=(
+                [
+                    {
+                        "dataset_name": d.dataset_name,
+                        "dataset_digest": d.dataset_digest or None,
+                    }
+                    for d in request_message.datasets
+                ]
+                if request_message.datasets
+                else None
+            ),
+            max_results=request_message.max_results or None,
+            order_by=(
+                [
+                    {
+                        "field_name": ob.field_name,
+                        "ascending": ob.ascending,
+                        "dataset_name": ob.dataset_name or None,
+                        "dataset_digest": ob.dataset_digest or None,
+                    }
+                    for ob in request_message.order_by
+                ]
+                if request_message.order_by
+                else None
+            ),
+            page_token=request_message.page_token or None,
+        )
     response_message = SearchLoggedModels.Response()
     response_message.models.extend([e.to_proto() for e in models])
     if models.token:
@@ -5693,7 +6439,7 @@ def _list_logged_model_artifacts_impl(
             relative_path=artifact_directory_path,
         )
     else:
-        artifacts = get_artifact_repository(logged_model.artifact_location).list_artifacts(
+        artifacts = _get_artifact_repository_for_uri(logged_model.artifact_location).list_artifacts(
             artifact_directory_path
         )
 
@@ -5707,6 +6453,34 @@ def _list_logged_model_artifacts_impl(
 # =============================================================================
 
 
+def _validate_serialized_scorer_payload(serialized_scorer: str) -> None:
+    """Reject serialized scorers the server must never reconstruct.
+
+    Decorator scorers carry a `call_source` field that is executed via exec() when the scorer
+    is deserialized. Reconstructing them server-side is blocked unless the operator opts in with
+    `MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS`; the check is recursive, so a decorator nested inside an
+    ensemble is caught too (see `custom_scorer_execution_blocked`). Decorator scorers with empty
+    source code, which can never run, are rejected too. Third-party scorer kwargs that
+    would steer the judge's outbound requests are always rejected, independent of that flag.
+    Applied to caller payloads and to registered scorers fetched from the store, since rows
+    written before these checks existed can carry the same fields.
+    """
+    try:
+        serialized_data = json.loads(serialized_scorer)
+    except json.JSONDecodeError as e:
+        raise MlflowException.invalid_parameter_value("serialized_scorer must be valid JSON") from e
+    if custom_scorer_execution_blocked(serialized_data):
+        raise MlflowException.invalid_parameter_value(
+            DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
+        )
+    # Such a custom scorer can never run.
+    if (name := find_custom_scorer_without_source(serialized_data)) is not None:
+        raise MlflowException.invalid_parameter_value(
+            custom_scorer_without_source_error_message(name)
+        )
+    _validate_third_party_scorer_data(serialized_data)
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _register_scorer():
@@ -5718,19 +6492,7 @@ def _register_scorer():
             "serialized_scorer": [_assert_required, _assert_string],
         },
     )
-    # Decorator scorers contain a `call_source` field that is executed via exec() during
-    # deserialization. The Python client blocks this via `_check_can_be_registered()`, but
-    # that check is client-side only and can be bypassed by calling the REST API directly.
-    # Enforce the same restriction here in the server handler so it applies regardless of
-    # how the request arrives.
-    try:
-        serialized_data = json.loads(request_message.serialized_scorer)
-    except json.JSONDecodeError as e:
-        raise MlflowException.invalid_parameter_value("serialized_scorer must be valid JSON") from e
-    if serialized_data.get("call_source") is not None:
-        raise MlflowException.invalid_parameter_value(
-            DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
-        )
+    _validate_serialized_scorer_payload(request_message.serialized_scorer)
     scorer_version = _get_tracking_store().register_scorer(
         request_message.experiment_id,
         request_message.name,
@@ -5748,35 +6510,65 @@ def _register_scorer():
     return response
 
 
+def _search_active_experiment_ids(store):
+    """
+    Workspace-aware paginated walk of ALL ACTIVE experiments via the general
+    ``search_experiments`` search API. Use this only for genuine open-ended
+    enumeration where the result size is unknown ahead of time and must be
+    discovered by paging. For validating a bounded, caller-supplied ID list,
+    use ``store.filter_active_experiment_ids`` instead — stuffing an
+    arbitrarily large ID list into a ``search_experiments`` filter string
+    risks the SQLite bound-parameter limit that the narrow batch API avoids
+    by chunking.
+    """
+    experiment_ids: list[str] = []
+    page_token: str | None = None
+    while True:
+        page = store.search_experiments(
+            view_type=ViewType.ACTIVE_ONLY,
+            max_results=1000,
+            page_token=page_token,
+        )
+        experiment_ids.extend(e.experiment_id for e in page)
+        if not (page_token := page.token):
+            break
+    return experiment_ids
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _list_scorers():
     request_message = _get_request_message(
         ListScorers(),
-        schema={"experiment_id": [_assert_string]},
+        schema={
+            "experiment_id": [_assert_string],
+            "experiment_ids": [_assert_array, _assert_item_type_string],
+        },
     )
     response_message = ListScorers.Response()
     store = _get_tracking_store()
-    if request_message.experiment_id:
+    experiment_ids_field = request_message.DESCRIPTOR.fields_by_name["experiment_ids"]
+    has_experiment_ids = _raw_request_has_field(experiment_ids_field)
+    if request_message.experiment_id and has_experiment_ids:
+        raise MlflowException(
+            "Cannot specify both 'experiment_id' and 'experiment_ids'. Use "
+            "'experiment_ids' to scope the query to multiple experiments, or "
+            "'experiment_id' to scope it to a single experiment.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if has_experiment_ids:
+        requested_experiment_ids = list(dict.fromkeys(request_message.experiment_ids))
+        for eid in requested_experiment_ids:
+            _validate_experiment_id(eid)
+        valid_experiment_ids = store.filter_active_experiment_ids(requested_experiment_ids)
+        scorers = store.list_scorers_across_experiments(valid_experiment_ids)
+    elif request_message.experiment_id:
         scorers = store.list_scorers(request_message.experiment_id)
     else:
         # Cross-experiment listing: walk the active workspace's experiments
         # via the workspace-aware ``search_experiments`` pagination, then
         # batch the scorer fetch through ``list_scorers_across_experiments``.
-        # Auth-side ``filter_list_scorers`` applies per-row RBAC filtering on
-        # the response.
-        experiment_ids: list[str] = []
-        page_token: str | None = None
-        while True:
-            page = store.search_experiments(
-                view_type=ViewType.ACTIVE_ONLY,
-                max_results=1000,
-                page_token=page_token,
-            )
-            experiment_ids.extend(e.experiment_id for e in page)
-            if not (page_token := page.token):
-                break
-        scorers = store.list_scorers_across_experiments(experiment_ids)
+        scorers = store.list_scorers_across_experiments(_search_active_experiment_ids(store))
     response_message.scorers.extend([scorer.to_proto() for scorer in scorers])
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
@@ -5928,6 +6720,7 @@ def _upsert_online_scoring_config():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _create_gateway_secret():
     request_message = _get_request_message(
         CreateGatewaySecret(),
@@ -5938,12 +6731,16 @@ def _create_gateway_secret():
             "created_by": [_assert_string],
         },
     )
-    # Empty map means no auth_config was provided
-    auth_config = dict(request_message.auth_config) or None
+    # Empty map means no auth_config was provided. Unlike update, the store's create path
+    # persists {} and None identically (NULL), so a map that normalizes to empty is folded
+    # into None here.
+    auth_config = _validate_gateway_secret_auth_config(dict(request_message.auth_config)) or None
+    secret_value = dict(request_message.secret_value)
+    _validate_gateway_secret_value(secret_value)
 
     secret = _get_tracking_store().create_gateway_secret(
         secret_name=request_message.secret_name,
-        secret_value=dict(request_message.secret_value),
+        secret_value=secret_value,
         provider=request_message.provider or None,
         auth_config=auth_config,
         created_by=request_message.created_by or None,
@@ -5955,6 +6752,7 @@ def _create_gateway_secret():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _get_gateway_secret_info():
     request_message = _get_request_message(
         GetGatewaySecretInfo(),
@@ -5970,6 +6768,7 @@ def _get_gateway_secret_info():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _update_gateway_secret():
     request_message = _get_request_message(
         UpdateGatewaySecret(),
@@ -5978,11 +6777,14 @@ def _update_gateway_secret():
             "updated_by": [_assert_string],
         },
     )
-    # Empty map means no auth_config was provided
-    auth_config = dict(request_message.auth_config) or None
+    # Empty map means no auth_config was provided. A map that normalizes to empty (e.g. only
+    # a blank api_base) is an explicit clear and is passed through as {}.
+    raw_auth_config = dict(request_message.auth_config)
+    auth_config = _validate_gateway_secret_auth_config(raw_auth_config) if raw_auth_config else None
 
     # Empty map means no update to secret_value
     secret_value = dict(request_message.secret_value) or None
+    _validate_gateway_secret_value(secret_value)
 
     secret = _get_tracking_store().update_gateway_secret(
         secret_id=request_message.secret_id,
@@ -5997,6 +6799,7 @@ def _update_gateway_secret():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _delete_gateway_secret():
     request_message = _get_request_message(
         DeleteGatewaySecret(),
@@ -6011,6 +6814,7 @@ def _delete_gateway_secret():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _list_gateway_secrets():
     request_message = _get_request_message(
         ListGatewaySecretInfos(),
@@ -6053,6 +6857,7 @@ def _assert_linkage_type_specified(model_config, index: int | None = None) -> No
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _create_gateway_endpoint():
     request_message = _get_request_message(
         CreateGatewayEndpoint(),
@@ -6069,16 +6874,11 @@ def _create_gateway_endpoint():
             "Name can only contain letters, numbers, underscores, hyphens, and dots."
         )
     # Convert proto fallback_config to entity FallbackConfig
-    fallback_config = None
-    if request_message.HasField("fallback_config"):
-        fallback_config = FallbackConfig(
-            strategy=FallbackStrategy.from_proto(request_message.fallback_config.strategy)
-            if request_message.fallback_config.HasField("strategy")
-            else None,
-            max_attempts=request_message.fallback_config.max_attempts
-            if request_message.fallback_config.HasField("max_attempts")
-            else None,
-        )
+    fallback_config = (
+        FallbackConfig.from_proto(request_message.fallback_config)
+        if request_message.HasField("fallback_config")
+        else None
+    )
 
     for index, config in enumerate(request_message.model_configs):
         _assert_linkage_type_specified(config, index)
@@ -6113,6 +6913,7 @@ def _create_gateway_endpoint():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _get_gateway_endpoint():
     request_message = _get_request_message(
         GetGatewayEndpoint(),
@@ -6132,6 +6933,7 @@ def _get_gateway_endpoint():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _update_gateway_endpoint():
     request_message = _get_request_message(
         UpdateGatewayEndpoint(),
@@ -6148,16 +6950,11 @@ def _update_gateway_endpoint():
             "Name can only contain letters, numbers, underscores, hyphens, and dots."
         )
     # Convert proto fallback_config to entity FallbackConfig
-    fallback_config = None
-    if request_message.HasField("fallback_config"):
-        fallback_config = FallbackConfig(
-            strategy=FallbackStrategy.from_proto(request_message.fallback_config.strategy)
-            if request_message.fallback_config.HasField("strategy")
-            else None,
-            max_attempts=request_message.fallback_config.max_attempts
-            if request_message.fallback_config.HasField("max_attempts")
-            else None,
-        )
+    fallback_config = (
+        FallbackConfig.from_proto(request_message.fallback_config)
+        if request_message.HasField("fallback_config")
+        else None
+    )
 
     # Convert proto model_configs to entity GatewayEndpointModelConfig list
     model_configs = None
@@ -6197,6 +6994,7 @@ def _update_gateway_endpoint():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _delete_gateway_endpoint():
     request_message = _get_request_message(
         DeleteGatewayEndpoint(),
@@ -6211,6 +7009,7 @@ def _delete_gateway_endpoint():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _list_gateway_endpoints():
     request_message = _get_request_message(
         ListGatewayEndpoints(),
@@ -6233,6 +7032,7 @@ def _list_gateway_endpoints():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _create_gateway_model_definition():
     request_message = _get_request_message(
         CreateGatewayModelDefinition(),
@@ -6258,6 +7058,7 @@ def _create_gateway_model_definition():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _get_gateway_model_definition():
     request_message = _get_request_message(
         GetGatewayModelDefinition(),
@@ -6275,6 +7076,7 @@ def _get_gateway_model_definition():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _list_gateway_model_definitions():
     request_message = _get_request_message(
         ListGatewayModelDefinitions(),
@@ -6294,6 +7096,7 @@ def _list_gateway_model_definitions():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _update_gateway_model_definition():
     request_message = _get_request_message(
         UpdateGatewayModelDefinition(),
@@ -6321,6 +7124,7 @@ def _update_gateway_model_definition():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _delete_gateway_model_definition():
     request_message = _get_request_message(
         DeleteGatewayModelDefinition(),
@@ -6340,6 +7144,7 @@ def _delete_gateway_model_definition():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _attach_model_to_gateway_endpoint():
     request_message = _get_request_message(
         AttachModelToGatewayEndpoint(),
@@ -6366,6 +7171,7 @@ def _attach_model_to_gateway_endpoint():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _detach_model_from_gateway_endpoint():
     request_message = _get_request_message(
         DetachModelFromGatewayEndpoint(),
@@ -6389,6 +7195,7 @@ def _detach_model_from_gateway_endpoint():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _create_gateway_endpoint_binding():
     request_message = _get_request_message(
         CreateGatewayEndpointBinding(),
@@ -6412,6 +7219,7 @@ def _create_gateway_endpoint_binding():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _delete_gateway_endpoint_binding():
     request_message = _get_request_message(
         DeleteGatewayEndpointBinding(),
@@ -6432,6 +7240,7 @@ def _delete_gateway_endpoint_binding():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _list_gateway_endpoint_bindings():
     request_message = _get_request_message(
         ListGatewayEndpointBindings(),
@@ -6453,6 +7262,7 @@ def _list_gateway_endpoint_bindings():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _set_gateway_endpoint_tag():
     request_message = _get_request_message(
         SetGatewayEndpointTag(),
@@ -6472,6 +7282,7 @@ def _set_gateway_endpoint_tag():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _delete_gateway_endpoint_tag():
     request_message = _get_request_message(
         DeleteGatewayEndpointTag(),
@@ -6494,14 +7305,14 @@ def _delete_gateway_endpoint_tag():
 # =============================================================================
 
 
-_TARGETED_BUDGET_SCOPES = (BudgetTargetScope.ENDPOINT,)
+_TARGETED_BUDGET_SCOPES = (BudgetTargetScope.ENDPOINT, BudgetTargetScope.USER)
 
 
 def _validate_budget_target_scope(target_scope, target_value):
     """Validate the target_value / target_scope relationship for budget policies.
 
-    ENDPOINT-scoped policies must carry a ``target_value`` (the ID of the endpoint
-    to match); policies with any other scope must not.
+    ENDPOINT- and USER-scoped policies must carry a ``target_value`` (the endpoint ID
+    or username to match); policies with any other scope must not.
     """
     if target_scope in _TARGETED_BUDGET_SCOPES:
         if not target_value:
@@ -6511,13 +7322,43 @@ def _validate_budget_target_scope(target_scope, target_value):
             )
     elif target_value:
         raise MlflowException(
-            message="target_value can only be set when target_scope is ENDPOINT.",
+            message="target_value can only be set when target_scope is ENDPOINT or USER.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
+def _is_server_auth_enabled() -> bool:
+    """Whether MLflow server authentication is active.
+
+    Checked without importing the auth app (mirrors ``gateway_api``): the gateway
+    only populates ``request.state.username`` when auth is initialized, so USER-scoped
+    budgets cannot attribute spend to a user unless this is True.
+    """
+    auth_mod = sys.modules.get("mlflow.server.auth")
+    return bool(auth_mod and auth_mod.is_auth_enabled())
+
+
+def _assert_user_scope_enforceable(target_scope: BudgetTargetScope) -> None:
+    """Reject USER-scoped budgets when auth is off, since they would never match.
+
+    Without authentication the gateway has no request username, so a USER-scoped
+    policy is silently inert (a REJECT cap never rejects, an ALERT never fires).
+    Fail loudly at write time rather than let an admin create a non-functional cap.
+    """
+    if target_scope == BudgetTargetScope.USER and not _is_server_auth_enabled():
+        raise MlflowException(
+            message=(
+                "USER-scoped budget policies require server authentication to be enabled. "
+                "Without auth the gateway cannot attribute requests to a user, so the "
+                "policy would never take effect."
+            ),
             error_code=INVALID_PARAMETER_VALUE,
         )
 
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _create_budget_policy():
     request_message = _get_request_message(
         CreateGatewayBudgetPolicy(),
@@ -6563,6 +7404,7 @@ def _create_budget_policy():
         )
     target_value = request_message.target_value or None
     _validate_budget_target_scope(target_scope, target_value)
+    _assert_user_scope_enforceable(target_scope)
     store = _get_tracking_store()
     policy = store.create_budget_policy(
         budget_unit=budget_unit,
@@ -6582,6 +7424,7 @@ def _create_budget_policy():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _get_budget_policy():
     request_message = _get_request_message(
         GetGatewayBudgetPolicy(),
@@ -6599,6 +7442,7 @@ def _get_budget_policy():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _update_budget_policy():
     request_message = _get_request_message(
         UpdateGatewayBudgetPolicy(),
@@ -6651,10 +7495,11 @@ def _update_budget_policy():
     target_value = (request_message.target_value or None) if target_value_provided else None
     store = _get_tracking_store()
     # Validate the *effective* scope/target_value after the partial update is applied,
-    # so clients that echo back the current scope (or update target_value alone on an
-    # ENDPOINT policy) are not rejected, while updates that would produce an ENDPOINT
-    # policy without a target_value (a silently non-enforcing policy) still are. A
-    # target only carries over within the same scope, so switching scope requires an
+    # mirroring the create-handler guards: clients that echo back the current scope (or
+    # update one field alone) are not rejected, while updates that would produce a
+    # targeted (ENDPOINT/USER) policy without a target_value — a silently non-enforcing
+    # policy — still are. A target only carries over within the same scope: an endpoint
+    # ID is meaningless as a username and vice versa, so switching scope requires an
     # explicit new target_value.
     if target_scope is not None or target_value_provided:
         existing = store.get_budget_policy(budget_policy_id=request_message.budget_policy_id)
@@ -6664,6 +7509,7 @@ def _update_budget_policy():
         )
         effective_target = target_value if target_value_provided else inherited_target
         _validate_budget_target_scope(effective_scope, effective_target)
+        _assert_user_scope_enforceable(effective_scope)
     policy = store.update_budget_policy(
         budget_policy_id=request_message.budget_policy_id,
         budget_unit=budget_unit,
@@ -6685,6 +7531,7 @@ def _update_budget_policy():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _delete_budget_policy():
     request_message = _get_request_message(
         DeleteGatewayBudgetPolicy(),
@@ -6702,6 +7549,7 @@ def _delete_budget_policy():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _list_budget_policies():
     request_message = _get_request_message(
         ListGatewayBudgetPolicies(),
@@ -6737,6 +7585,7 @@ def _get_request_workspace_for_budget_windows():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _list_budget_windows():
     _get_request_message(ListGatewayBudgetWindows())
     workspace = _get_request_workspace_for_budget_windows()
@@ -6744,9 +7593,11 @@ def _list_budget_windows():
     maybe_refresh_budget_policies(store)
     windows = get_budget_tracker().get_all_windows()
     if workspace is not None:
-        # GLOBAL policies are always shown; WORKSPACE/ENDPOINT policies are shown
-        # only for the requesting workspace (ENDPOINT policies still carry an
-        # owning workspace even though enforcement matches on endpoint_id).
+        # GLOBAL policies are always shown. Every other scope is filtered to the
+        # requesting workspace by the policy's owning workspace, so current-spend
+        # figures never leak across workspaces. WORKSPACE/ENDPOINT/USER policies all
+        # carry an owning workspace even when enforcement matches on target_value
+        # (an endpoint ID or a username) rather than on the workspace itself.
         windows = [
             w
             for w in windows
@@ -6766,6 +7617,7 @@ def _list_budget_windows():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _create_gateway_guardrail():
     request_message = _get_request_message(
         CreateGatewayGuardrail(),
@@ -6808,6 +7660,7 @@ def _create_gateway_guardrail():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _get_gateway_guardrail():
     request_message = _get_request_message(
         GetGatewayGuardrail(),
@@ -6823,6 +7676,7 @@ def _get_gateway_guardrail():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _delete_gateway_guardrail():
     request_message = _get_request_message(
         DeleteGatewayGuardrail(),
@@ -6834,6 +7688,7 @@ def _delete_gateway_guardrail():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _list_gateway_guardrails():
     request_message = _get_request_message(
         ListGatewayGuardrails(),
@@ -6855,6 +7710,7 @@ def _list_gateway_guardrails():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _add_guardrail_to_endpoint():
     request_message = _get_request_message(
         AddGuardrailToEndpoint(),
@@ -6879,6 +7735,7 @@ def _add_guardrail_to_endpoint():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _remove_guardrail_from_endpoint():
     request_message = _get_request_message(
         RemoveGuardrailFromEndpoint(),
@@ -6896,6 +7753,7 @@ def _remove_guardrail_from_endpoint():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _list_endpoint_guardrail_configs():
     request_message = _get_request_message(
         ListEndpointGuardrailConfigs(),
@@ -6910,6 +7768,7 @@ def _list_endpoint_guardrail_configs():
 
 
 @catch_mlflow_exception
+@_disable_if_gateway_disabled
 def _update_endpoint_guardrail_config():
     request_message = _get_request_message(
         UpdateEndpointGuardrailConfig(),
@@ -6930,41 +7789,93 @@ def _update_endpoint_guardrail_config():
     return _wrap_response(response_message)
 
 
-@catch_mlflow_exception
-def _get_server_info():
+def build_server_info_payload() -> dict[str, Any]:
+    # This JSON is returned with no login, including when basic auth is on.
+    # Clients use it to learn how the server is set up before they authenticate.
+    # Do not add secrets, credentials, tenant data, or internal addresses.
+    from mlflow.server import ARTIFACTS_ONLY_ENV_VAR
     from mlflow.store.tracking.file_store import FileStore
     from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
-    store = _get_tracking_store()
     try:
-        trace_archival_config = get_trace_archival_server_config()
+        s3_extra_args = S3ArtifactRepository.get_s3_file_upload_extra_args() or {}
+        presigned_transfers_supported = "SSECustomerKey" not in s3_extra_args
+    except (TypeError, ValueError):
+        presigned_transfers_supported = False
+
+    # The limits a skill upload is checked against, so a client can refuse an oversized folder
+    # before packaging it. A malformed limit setting leaves them out rather than failing the
+    # whole response, which every client reads at startup.
+    try:
+        skill_content_limits = {
+            SERVER_INFO_SKILL_CONTENT_MAX_SIZE: get_max_decompressed_size(),
+            SERVER_INFO_SKILL_CONTENT_MAX_FILES: MAX_ARCHIVE_ENTRIES,
+        }
     except Exception:
         _logger.warning(
-            "Failed to load trace archival config while serving server-info; "
-            + "defaulting to disabled.",
+            "Invalid skill content size limit while serving server-info; leaving it out.",
             exc_info=True,
         )
-        trace_archival_config = None
-    trace_archival_enabled = bool(
-        trace_archival_config
-        and trace_archival_config.enabled
-        and _store_supports_trace_archival(store)
-    )
+        skill_content_limits = {}
 
-    if isinstance(store, FileStore):
-        store_type = "FileStore"
-    elif isinstance(store, SqlAlchemyStore):
-        store_type = "SqlStore"
-    else:
+    if os.environ.get(ARTIFACTS_ONLY_ENV_VAR):
         store_type = None
+        trace_archival_enabled = False
+    else:
+        store = _get_tracking_store()
+        try:
+            trace_archival_config = get_trace_archival_server_config()
+        except Exception:
+            _logger.warning(
+                "Failed to load trace archival config while serving server-info; "
+                + "defaulting to disabled.",
+                exc_info=True,
+            )
+            trace_archival_config = None
+        trace_archival_enabled = bool(
+            trace_archival_config
+            and trace_archival_config.enabled
+            and _store_supports_trace_archival(store)
+        )
+
+        if isinstance(store, FileStore):
+            store_type = "FileStore"
+        elif isinstance(store, SqlAlchemyStore):
+            store_type = "SqlStore"
+        else:
+            store_type = None
+
+    # Whether a saved issue-detection schedule would actually run here. A client asks so it can
+    # say the schedule cannot run instead of offering a switch that silently does nothing. This
+    # response is served before login, so an unavailable capability reports as False rather than
+    # failing the whole payload every client reads at startup.
+    try:
+        scheduled_issue_detection_enabled = scheduled_detection_available()
+    except Exception:
+        _logger.debug(
+            "Failed to resolve scheduled issue detection availability while serving server-info; "
+            "defaulting to disabled.",
+            exc_info=True,
+        )
+        scheduled_issue_detection_enabled = False
 
     multipart_uploads_enabled = False
     multipart_downloads_enabled = False
     if _is_serving_proxied_artifacts():
         try:
             artifact_repo = _get_artifact_repo_mlflow_artifacts()
-            multipart_uploads_enabled = isinstance(artifact_repo, MultipartUploadMixin)
-            multipart_downloads_enabled = isinstance(artifact_repo, MultipartDownloadMixin)
+            # Multipart transfers use presigned URLs that clients access directly, bypassing the
+            # proxy, so they're only advertised when the server operator opts in.
+            multipart_uploads_enabled = (
+                presigned_transfers_supported
+                and MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD.get()
+                and isinstance(artifact_repo, MultipartUploadMixin)
+            )
+            multipart_downloads_enabled = (
+                presigned_transfers_supported
+                and MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD.get()
+                and isinstance(artifact_repo, MultipartDownloadMixin)
+            )
         except Exception:
             _logger.debug(
                 "Failed to resolve artifact repo for multipart capability advertisement; "
@@ -6972,17 +7883,39 @@ def _get_server_info():
                 exc_info=True,
             )
 
-    return jsonify({
+    return {
         SERVER_INFO_STORE_TYPE: store_type,
         SERVER_INFO_WORKSPACES_ENABLED: MLFLOW_ENABLE_WORKSPACES.get(),
         SERVER_INFO_TRACE_ARCHIVAL_ENABLED: trace_archival_enabled,
         SERVER_INFO_MULTIPART_UPLOADS_ENABLED: multipart_uploads_enabled,
         SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED: multipart_downloads_enabled,
-    })
+        # Whether the server proxies artifact storage (`--serve-artifacts`), which content the
+        # server stores itself, such as uploaded skills, requires. Unlike the multipart flags, it
+        # doesn't depend on the artifact repository's capabilities.
+        SERVER_INFO_ARTIFACT_SERVING_ENABLED: _is_serving_proxied_artifacts(),
+        **skill_content_limits,
+        # These advertise request-contract support; repository support is checked per resource.
+        # SSE-C is process-wide and cannot be exposed in presigned response headers.
+        SERVER_INFO_PRESIGNED_UPLOAD_RUN_ID_SUPPORTED: presigned_transfers_supported,
+        SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED: presigned_transfers_supported,
+        SERVER_INFO_MODEL_ARTIFACT_PRESIGNED_DOWNLOADS_SUPPORTED: presigned_transfers_supported,
+        SERVER_INFO_FEATURES_ENABLED: {
+            "gateway": MLFLOW_ENABLE_AI_GATEWAY.get(),
+            "scheduled_issue_detection": scheduled_issue_detection_enabled,
+        },
+        SERVER_INFO_TRACKING_AUTH: MLFLOW_SERVER_INFO_TRACKING_AUTH.get() or "",
+        SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY: MLFLOW_ARTIFACTS_PRESIGNED_ONLY.get(),
+    }
+
+
+@catch_mlflow_exception
+def _get_server_info():
+    return jsonify(build_server_info_payload())
 
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _list_supported_providers():
     try:
         providers = get_all_providers()
@@ -6993,6 +7926,7 @@ def _list_supported_providers():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _list_supported_models():
     try:
         provider_filter = request.args.get("provider")
@@ -7004,10 +7938,20 @@ def _list_supported_models():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _get_provider_config():
+    from mlflow.utils.providers import has_env_credentials
+
     try:
         provider = request.args.get("provider")
+        # Normalized here rather than relying on `has_env_credentials` to lower-case internally,
+        # which is how a mixed-case provider works today -- by accident rather than by contract.
+        provider_name = provider.lower() if provider else provider
         config = get_provider_config_response(provider)
+        # Reported so a client can tell whether this provider needs a key saved at all. A server
+        # started with the provider's own environment variable set already has a credential, and
+        # asking for another would be asking for one it would not use.
+        config["env_credentials_available"] = has_env_credentials(provider_name)
         return jsonify(config)
     except (ImportError, ValueError) as e:
         raise MlflowException(str(e), error_code=INVALID_PARAMETER_VALUE)
@@ -7015,6 +7959,7 @@ def _get_provider_config():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _get_secrets_config():
     using_default_passphrase = not os.environ.get(CRYPTO_KEK_PASSPHRASE_ENV_VAR)
     return jsonify({
@@ -7036,6 +7981,8 @@ def _invoke_scorer_handler():
     args = request.json
     experiment_id = args.get("experiment_id")
     serialized_scorer = args.get("serialized_scorer")
+    scorer_name = args.get("scorer_name")
+    scorer_version = args.get("scorer_version")
     trace_ids = args.get("trace_ids", [])
     log_assessments = args.get("log_assessments", False)
 
@@ -7054,27 +8001,42 @@ def _invoke_scorer_handler():
             "Please select at least one trace to evaluate.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-
-    # Decorator scorers carry a `call_source` field that is executed via exec() when the
-    # scorer is deserialized. Reject such payloads before deserialization so this endpoint
-    # never reconstructs attacker-supplied source code, regardless of the server's tracking
-    # URI. This mirrors the server-side guard in `_register_scorer`.
-    try:
-        serialized_data = json.loads(serialized_scorer)
-    except json.JSONDecodeError as e:
-        raise MlflowException.invalid_parameter_value("serialized_scorer must be valid JSON") from e
-    if serialized_data.get("call_source") is not None:
+    if not isinstance(trace_ids, list) or not all(isinstance(t, str) for t in trace_ids):
+        raise MlflowException.invalid_parameter_value("trace_ids must be a list of strings")
+    # Deduplicate while preserving order so a repeated trace_id is not fetched or scored twice.
+    trace_ids = list(dict.fromkeys(trace_ids))
+    if (scorer_name is None) != (scorer_version is None):
         raise MlflowException.invalid_parameter_value(
-            DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
+            "scorer_name and scorer_version must be specified together"
         )
+    if scorer_name is not None and (
+        not isinstance(scorer_name, str)
+        or not isinstance(scorer_version, int)
+        or isinstance(scorer_version, bool)
+    ):
+        raise MlflowException.invalid_parameter_value(
+            "scorer_name must be a string and scorer_version must be an integer"
+        )
+
+    _validate_serialized_scorer_payload(serialized_scorer)
 
     from mlflow.genai.scorers.base import Scorer
     from mlflow.genai.scorers.job import get_trace_batches_for_scorer, invoke_scorer_job
     from mlflow.server.jobs import submit_job
 
+    tracking_store = _get_tracking_store()
+    if scorer_name is not None:
+        registered_scorer = _get_registered_scorer(
+            tracking_store, experiment_id, scorer_name, scorer_version
+        )
+        # The stored JSON; the entity's `serialized_scorer` property is the parsed object.
+        serialized_scorer = registered_scorer._serialized_scorer
+        scorer_version = registered_scorer.scorer_version
+        _validate_serialized_scorer_payload(serialized_scorer)
+
     scorer = Scorer.model_validate_json(serialized_scorer)
 
-    tracking_store = _get_tracking_store()
+    _validate_trace_ids_in_experiment(tracking_store, trace_ids, experiment_id)
     batches = get_trace_batches_for_scorer(trace_ids, scorer, tracking_store)
 
     # Extract the authenticated username so that job subprocesses can make
@@ -7088,6 +8050,7 @@ def _invoke_scorer_handler():
             params={
                 "experiment_id": experiment_id,
                 "serialized_scorer": serialized_scorer,
+                "scorer_version": scorer_version,
                 "trace_ids": batch_trace_ids,
                 "log_assessments": log_assessments,
                 "username": username,
@@ -7222,6 +8185,11 @@ def get_issues_detection_endpoints():
         (
             _get_ajax_path("/mlflow/issues/invoke", version=3),
             _invoke_issue_detection_handler,
+            ["POST"],
+        ),
+        (
+            _get_ajax_path("/mlflow/issues/schedule/state", version=3),
+            _sync_issue_detection_schedule_state_handler,
             ["POST"],
         ),
     ]
@@ -7853,11 +8821,20 @@ def _create_prompt_optimization_job():
 
 
 def _build_prompt_optimization_job_from_entity(job_entity):
+    from mlflow.entities._job_status import JobStatus as EntityJobStatus
     from mlflow.genai.optimize.job import OptimizerType
 
     optimization_job = PromptOptimizationJobProto()
     optimization_job.job_id = job_entity.job_id
     optimization_job.state.status = job_entity.status.to_proto()
+    if job_entity.status_message is not None:
+        optimization_job.state.status_message = job_entity.status_message
+    if job_entity.progress is not None:
+        progress_dict = job_entity.progress.to_dict()
+        if progress_dict:
+            optimization_job.state.progress.CopyFrom(job_entity.progress.to_proto())
+    if job_entity.progress_updated_at is not None:
+        optimization_job.state.progress_updated_at = job_entity.progress_updated_at
     optimization_job.creation_timestamp_ms = job_entity.creation_time
 
     params = json.loads(job_entity.params)
@@ -7896,14 +8873,17 @@ def _build_prompt_optimization_job_from_entity(job_entity):
             config.optimizer_config_json = optimizer_config
 
     # Get optimized_prompt_uri from job result (only available when job succeeds)
-    if job_entity.status.name == "SUCCEEDED" and job_entity.parsed_result:
+    if job_entity.status == EntityJobStatus.SUCCEEDED and job_entity.parsed_result:
         result = job_entity.parsed_result
         if isinstance(result, dict) and result.get("optimized_prompt_uri"):
             optimization_job.optimized_prompt_uri = result["optimized_prompt_uri"]
 
-    # If job failed, add error message to state
-    if job_entity.status.name == "FAILED" and job_entity.parsed_result:
-        optimization_job.state.error_message = str(job_entity.parsed_result)
+    # Job.error_message already preserves the legacy fallback to terminal result text.
+    if (
+        job_entity.status in {EntityJobStatus.FAILED, EntityJobStatus.TIMEOUT}
+        and job_entity.error_message is not None
+    ):
+        optimization_job.state.error_message = job_entity.error_message
 
     return optimization_job
 

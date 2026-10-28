@@ -1,8 +1,16 @@
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, jest, test } from '@jest/globals';
 import { renderHook } from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
 import { FilterOp, type FilterClause } from '@databricks/web-shared/traces-table';
 import { compileFilterModel, compileTagFilters, useMlflowTraceFilterFields } from './filterModel';
+
+// These tests cover the filter fields with the new eval runs UI off; filterModel.newEvalRunsUi.test.tsx covers it on.
+jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('@mlflow/mlflow/src/common/utils/FeatureUtils')>(
+    '@mlflow/mlflow/src/common/utils/FeatureUtils',
+  ),
+  shouldEnableNewEvalRunsUi: jest.fn(() => false),
+}));
 
 describe('compileFilterModel', () => {
   test('the empty model compiles to no clauses', () => {
@@ -178,19 +186,45 @@ describe('compileFilterModel', () => {
       );
     });
   });
+
+  describe('expectation clauses (single field, key = expectation name, expectation.`<name>` with backtick-escaping)', () => {
+    test('compiles an expectation equality clause via the clause key', () => {
+      expect(
+        compileFilterModel([{ field: 'expectation', operator: FilterOp.EQUALS, value: 'yes', key: 'relevance' }]),
+      ).toEqual(["expectation.`relevance` = 'yes'"]);
+    });
+
+    test('compiles an expectation not-equals clause via the clause key', () => {
+      expect(
+        compileFilterModel([{ field: 'expectation', operator: FilterOp.NOT_EQUALS, value: 'bad', key: 'safety' }]),
+      ).toEqual(["expectation.`safety` != 'bad'"]);
+    });
+
+    test('backtick-escapes expectation names with dots or spaces', () => {
+      expect(
+        compileFilterModel([{ field: 'expectation', operator: FilterOp.EQUALS, value: '5', key: 'my.expected score' }]),
+      ).toEqual(["expectation.`my.expected score` = '5'"]);
+    });
+
+    test('an expectation clause with a blank key is dropped (incomplete)', () => {
+      expect(compileFilterModel([{ field: 'expectation', operator: FilterOp.EQUALS, value: 'yes', key: '' }])).toEqual(
+        [],
+      );
+    });
+  });
 });
 
 describe('useMlflowTraceFilterFields', () => {
   const wrapper = ({ children }: { children: React.ReactNode }) => <IntlProvider locale="en">{children}</IntlProvider>;
 
-  test('offers one combobox "Assessment" field whose keyOptions are the assessment names', () => {
+  test('offers one combobox "Feedback" field whose keyOptions are the assessment names', () => {
     const { result } = renderHook(() => useMlflowTraceFilterFields(['relevance', 'safety']), { wrapper });
 
     const assessmentFields = result.current.filter((field) => field.id === 'assessment');
     expect(assessmentFields).toHaveLength(1);
     expect(assessmentFields[0]).toEqual({
       id: 'assessment',
-      label: 'Assessment',
+      label: 'Feedback',
       operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS],
       valueInput: 'text',
       requiresKey: true,
@@ -199,17 +233,37 @@ describe('useMlflowTraceFilterFields', () => {
         { value: 'relevance', label: 'relevance' },
         { value: 'safety', label: 'safety' },
       ],
-      keyPlaceholder: 'Assessment name',
+      keyPlaceholder: 'Feedback name',
     });
   });
 
-  test('still offers the "Assessment" field with empty keyOptions when no names are given', () => {
+  test('still offers the "Feedback" field with empty keyOptions when no names are given', () => {
     const { result } = renderHook(() => useMlflowTraceFilterFields(), { wrapper });
     const assessment = result.current.find((field) => field.id === 'assessment');
     expect(assessment?.keyInput).toBe('combobox');
     expect(assessment?.keyOptions).toEqual([]);
     // No legacy per-name assessment:<name> fields remain.
     expect(result.current.some((field) => field.id.startsWith('assessment:'))).toBe(false);
+  });
+
+  test('offers one combobox "Expectation" field whose keyOptions are the assessment names', () => {
+    const { result } = renderHook(() => useMlflowTraceFilterFields(['expected_answer', 'ground_truth']), { wrapper });
+
+    const expectationFields = result.current.filter((field) => field.id === 'expectation');
+    expect(expectationFields).toHaveLength(1);
+    expect(expectationFields[0]).toEqual({
+      id: 'expectation',
+      label: 'Expectation',
+      operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS],
+      valueInput: 'text',
+      requiresKey: true,
+      keyInput: 'combobox',
+      keyOptions: [
+        { value: 'expected_answer', label: 'expected_answer' },
+        { value: 'ground_truth', label: 'ground_truth' },
+      ],
+      keyPlaceholder: 'Expectation name',
+    });
   });
 
   test('offers span fields and requiresKey tag/metadata fields', () => {

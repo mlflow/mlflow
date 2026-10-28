@@ -175,6 +175,22 @@ def test_update_webhook_partial(client: MlflowClient):
     assert updated_webhook.status == WebhookStatus.DISABLED
 
 
+def test_update_webhook_clears_empty_description_and_secret(client: MlflowClient):
+    webhook = client.create_webhook(
+        name="test_webhook",
+        url="https://example.com/webhook",
+        events=[WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)],
+        description="Original description",
+        secret="Original secret",
+    )
+
+    client.update_webhook(webhook.webhook_id, description="", secret="")
+
+    stored_webhook = handlers._model_registry_store.get_webhook(webhook.webhook_id)
+    assert stored_webhook.description == ""
+    assert stored_webhook.secret == ""
+
+
 def test_update_webhook_not_found(client: MlflowClient):
     with pytest.raises(MlflowException, match="Webhook with ID nonexistent not found"):
         client.update_webhook(webhook_id="nonexistent", name="new_name")

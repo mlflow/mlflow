@@ -2,7 +2,6 @@ const ACTIVITY_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 const MAX_REPOS_TO_DISPLAY = 10;
 
 const UI_FILE = /^mlflow\/server\/js\/src\/.+\.(tsx|jsx|ts|js|css|scss|less)$/;
-const STACKED_PR_SECTION = /^(#{1,6}|>)\s.*\bStacked (?:PRs?|on)\b/m;
 const MEDIA =
   /!\[[^\]]*\]\([^)]+\)|<(img|video)\b|https:\/\/github\.com\/user-attachments\/|https?:\/\/\S+\.(png|jpe?g|gif|webp|mp4|mov|webm)\b/i;
 
@@ -12,6 +11,12 @@ function sleep(ms) {
 
 function hasUiChanges(files) {
   return files.some(({ filename }) => UI_FILE.test(filename) && !filename.includes(".test."));
+}
+
+// Release PRs (e.g. version bumps) are filed by org members from `release/*` branches
+// and don't need these checks.
+function isMemberReleasePr(pr) {
+  return ["MEMBER", "OWNER"].includes(pr.author_association) && pr.head.ref.startsWith("release/");
 }
 
 function hasVisibleMedia(body) {
@@ -158,8 +163,8 @@ ${activitySection}
     });
   }
 
-  // Exit early if the PR author is a bot
-  if (user.type === "Bot") {
+  // Exit early if the PR author is a bot or an org member filing a release PR
+  if (user.type === "Bot" || isMemberReleasePr(context.payload.pull_request)) {
     return;
   }
 
@@ -188,15 +193,6 @@ ${activitySection}
       "#### &#x274C; Invalid PR template\n\n" +
         "The PR description is missing required sections. " +
         "Please use the [PR template](https://raw.githubusercontent.com/mlflow/mlflow/master/.github/pull_request_template.md)."
-    );
-  }
-
-  if (STACKED_PR_SECTION.test(body || "")) {
-    messages.push(
-      "#### &#x1F95E; Not a GitHub stack\n\n" +
-        "GitHub now supports " +
-        "[stacked pull requests](https://docs.github.com/en/pull-requests/get-started/about-stacked-prs) " +
-        "natively. Please use those instead."
     );
   }
 

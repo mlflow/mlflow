@@ -1207,7 +1207,7 @@ def log_metric(
             Metric(
                 key=key,
                 value=value,
-                timestamp=timestamp or get_current_time_millis(),
+                timestamp=timestamp if timestamp is not None else get_current_time_millis(),
                 step=step or 0,
                 model_id=model_id,
                 dataset_name=dataset.name if dataset is not None else None,
@@ -1216,7 +1216,7 @@ def log_metric(
         ],
         datasets=[dataset] if dataset is not None else None,
     )
-    timestamp = timestamp or get_current_time_millis()
+    timestamp = timestamp if timestamp is not None else get_current_time_millis()
     step = step or 0
     model_ids = (
         [model_id]
@@ -1352,7 +1352,7 @@ def log_metrics(
     """
     run = _get_or_start_run() if run_id is None else MlflowClient().get_run(run_id)
     run_id = run.info.run_id
-    timestamp = timestamp or get_current_time_millis()
+    timestamp = timestamp if timestamp is not None else get_current_time_millis()
     step = step or 0
     dataset_name = dataset.name if dataset is not None else None
     dataset_digest = dataset.digest if dataset is not None else None
@@ -2384,11 +2384,35 @@ def create_experiment(
                 trace_location=trace_location,
             )
         except MlflowException as e:
-            raise MlflowException.invalid_parameter_value(
-                f"Experiment '{name}' (ID: {experiment_id}) was created "
-                f"but linking to trace location '{trace_location.full_table_prefix}' failed: "
-                f"{e.message} Please delete the experiment and retry."
-            ) from e
+            # Attempt to soft-delete the experiment we just created so a failed
+            # trace-location link does not leave an active experiment behind.
+            # Note: delete_experiment is a soft delete; the experiment name
+            # remains reserved until permanently removed via `mlflow gc`.
+            cleanup_succeeded = False
+            try:
+                client.delete_experiment(experiment_id)
+                cleanup_succeeded = True
+            except Exception:
+                _logger.warning(
+                    "Failed to soft-delete experiment '%s' (ID: %s) after linking it to "
+                    "trace location '%s' failed. The experiment may remain active.",
+                    name,
+                    experiment_id,
+                    trace_location.full_table_prefix,
+                    exc_info=True,
+                )
+            if cleanup_succeeded:
+                raise MlflowException.invalid_parameter_value(
+                    f"Experiment '{name}' (ID: {experiment_id}) was created but linking to "
+                    f"trace location '{trace_location.full_table_prefix}' failed, so the "
+                    f"experiment was soft-deleted (its name remains reserved): {e.message}"
+                ) from e
+            else:
+                raise MlflowException.invalid_parameter_value(
+                    f"Experiment '{name}' (ID: {experiment_id}) was created but linking to "
+                    f"trace location '{trace_location.full_table_prefix}' failed; the "
+                    f"experiment could not be cleaned up and may remain active: {e.message}"
+                ) from e
 
     return experiment_id
 
@@ -2426,6 +2450,55 @@ def delete_experiment(experiment_id: str) -> None:
 
     """
     MlflowClient().delete_experiment(experiment_id)
+
+
+def restore_experiment(experiment_id: str) -> None:
+    """
+    Restore a deleted experiment unless permanently deleted.
+
+    Args:
+        experiment_id: The string-ified experiment ID returned from ``create_experiment``.
+
+    .. code-block:: python
+        :test:
+        :caption: Example
+
+        import mlflow
+
+        experiment_id = mlflow.create_experiment("New Experiment")
+        mlflow.delete_experiment(experiment_id)
+
+        # Examine the deleted experiment details.
+        experiment = mlflow.get_experiment(experiment_id)
+        print(f"Name: {experiment.name}")
+        print(f"Artifact Location: {experiment.artifact_location}")
+        print(f"Lifecycle_stage: {experiment.lifecycle_stage}")
+        print(f"Last Updated timestamp: {experiment.last_update_time}")
+        print("--")
+
+        # Restore the experiment and examine the details.
+        mlflow.restore_experiment(experiment_id)
+        experiment = mlflow.get_experiment(experiment_id)
+        print(f"Name: {experiment.name}")
+        print(f"Artifact Location: {experiment.artifact_location}")
+        print(f"Lifecycle_stage: {experiment.lifecycle_stage}")
+        print(f"Last Updated timestamp: {experiment.last_update_time}")
+
+    .. code-block:: text
+        :caption: Output
+
+        Name: New Experiment
+        Artifact Location: file:///.../mlruns/2
+        Lifecycle_stage: deleted
+        Last Updated timestamp: 1662004217511
+        --
+        Name: New Experiment
+        Artifact Location: file:///.../mlruns/2
+        Lifecycle_stage: active
+        Last Updated timestamp: 1662004217512
+
+    """
+    MlflowClient().restore_experiment(experiment_id)
 
 
 def initialize_logged_model(
@@ -3092,6 +3165,41 @@ def delete_run(run_id: str) -> None:
     MlflowClient().delete_run(run_id)
 
 
+def restore_run(run_id: str) -> None:
+    """
+    Restores a deleted run with the given ID.
+
+    Args:
+        run_id: Unique identifier for the run to restore.
+
+    .. code-block:: python
+        :test:
+        :caption: Example
+
+        import mlflow
+
+        with mlflow.start_run() as run:
+            mlflow.log_param("p", 0)
+
+        run_id = run.info.run_id
+        mlflow.delete_run(run_id)
+        lifecycle_stage = mlflow.get_run(run_id).info.lifecycle_stage
+        print(f"run_id: {run_id}; lifecycle_stage: {lifecycle_stage}")
+
+        mlflow.restore_run(run_id)
+        lifecycle_stage = mlflow.get_run(run_id).info.lifecycle_stage
+        print(f"run_id: {run_id}; lifecycle_stage: {lifecycle_stage}")
+
+    .. code-block:: text
+        :caption: Output
+
+        run_id: 45f4af3e6fd349e58579b27fcb0b8277; lifecycle_stage: deleted
+        run_id: 45f4af3e6fd349e58579b27fcb0b8277; lifecycle_stage: active
+
+    """
+    MlflowClient().restore_run(run_id)
+
+
 def set_logged_model_tags(model_id: str, tags: dict[str, Any]) -> None:
     """
     Set tags on the specified logged model.
@@ -3385,81 +3493,85 @@ def search_runs(
     if output_format == "list":
         return runs  # List[mlflow.entities.run.Run]
     elif output_format == "pandas":
-        import numpy as np
-        import pandas as pd
-
-        info = {
-            "run_id": [],
-            "experiment_id": [],
-            "status": [],
-            "artifact_uri": [],
-            "start_time": [],
-            "end_time": [],
-        }
-        params = {}
-        metrics = {}
-        tags = {}
-        PARAM_NULL = None
-        METRIC_NULL = np.nan
-        TAG_NULL = None
-        for i, run in enumerate(runs):
-            info["run_id"].append(run.info.run_id)
-            info["experiment_id"].append(run.info.experiment_id)
-            info["status"].append(run.info.status)
-            info["artifact_uri"].append(run.info.artifact_uri)
-            info["start_time"].append(pd.to_datetime(run.info.start_time, unit="ms", utc=True))
-            info["end_time"].append(pd.to_datetime(run.info.end_time, unit="ms", utc=True))
-
-            # Params
-            param_keys = set(params.keys())
-            for key in param_keys:
-                if key in run.data.params:
-                    params[key].append(run.data.params[key])
-                else:
-                    params[key].append(PARAM_NULL)
-            new_params = set(run.data.params.keys()) - param_keys
-            for p in new_params:
-                params[p] = [PARAM_NULL] * i  # Fill in null values for all previous runs
-                params[p].append(run.data.params[p])
-
-            # Metrics
-            metric_keys = set(metrics.keys())
-            for key in metric_keys:
-                if key in run.data.metrics:
-                    metrics[key].append(run.data.metrics[key])
-                else:
-                    metrics[key].append(METRIC_NULL)
-            new_metrics = set(run.data.metrics.keys()) - metric_keys
-            for m in new_metrics:
-                metrics[m] = [METRIC_NULL] * i
-                metrics[m].append(run.data.metrics[m])
-
-            # Tags
-            tag_keys = set(tags.keys())
-            for key in tag_keys:
-                if key in run.data.tags:
-                    tags[key].append(run.data.tags[key])
-                else:
-                    tags[key].append(TAG_NULL)
-            new_tags = set(run.data.tags.keys()) - tag_keys
-            for t in new_tags:
-                tags[t] = [TAG_NULL] * i
-                tags[t].append(run.data.tags[t])
-
-        data = {}
-        data.update(info)
-        for key, value in metrics.items():
-            data["metrics." + key] = value
-        for key, value in params.items():
-            data["params." + key] = value
-        for key, value in tags.items():
-            data["tags." + key] = value
-        return pd.DataFrame(data)
+        return _runs_to_pandas(runs)
     else:
         raise ValueError(
             f"Unsupported output format: {output_format}. Supported string values are 'pandas' "
             "or 'list'"
         )
+
+
+def _runs_to_pandas(runs: list[Run]) -> "pandas.DataFrame":
+    import numpy as np
+    import pandas as pd
+
+    info = {
+        "run_id": [],
+        "experiment_id": [],
+        "status": [],
+        "artifact_uri": [],
+        "start_time": [],
+        "end_time": [],
+    }
+    params = {}
+    metrics = {}
+    tags = {}
+    PARAM_NULL = None
+    METRIC_NULL = np.nan
+    TAG_NULL = None
+    for i, run in enumerate(runs):
+        info["run_id"].append(run.info.run_id)
+        info["experiment_id"].append(run.info.experiment_id)
+        info["status"].append(run.info.status)
+        info["artifact_uri"].append(run.info.artifact_uri)
+        info["start_time"].append(pd.to_datetime(run.info.start_time, unit="ms", utc=True))
+        info["end_time"].append(pd.to_datetime(run.info.end_time, unit="ms", utc=True))
+
+        # Params
+        param_keys = set(params.keys())
+        for key in param_keys:
+            if key in run.data.params:
+                params[key].append(run.data.params[key])
+            else:
+                params[key].append(PARAM_NULL)
+        new_params = set(run.data.params.keys()) - param_keys
+        for p in new_params:
+            params[p] = [PARAM_NULL] * i  # Fill in null values for all previous runs
+            params[p].append(run.data.params[p])
+
+        # Metrics
+        metric_keys = set(metrics.keys())
+        for key in metric_keys:
+            if key in run.data.metrics:
+                metrics[key].append(run.data.metrics[key])
+            else:
+                metrics[key].append(METRIC_NULL)
+        new_metrics = set(run.data.metrics.keys()) - metric_keys
+        for m in new_metrics:
+            metrics[m] = [METRIC_NULL] * i
+            metrics[m].append(run.data.metrics[m])
+
+        # Tags
+        tag_keys = set(tags.keys())
+        for key in tag_keys:
+            if key in run.data.tags:
+                tags[key].append(run.data.tags[key])
+            else:
+                tags[key].append(TAG_NULL)
+        new_tags = set(run.data.tags.keys()) - tag_keys
+        for t in new_tags:
+            tags[t] = [TAG_NULL] * i
+            tags[t].append(run.data.tags[t])
+
+    data = {}
+    data.update(info)
+    for key, value in metrics.items():
+        data["metrics." + key] = value
+    for key, value in params.items():
+        data["params." + key] = value
+    for key, value in tags.items():
+        data["tags." + key] = value
+    return pd.DataFrame(data)
 
 
 def _get_or_start_run():
@@ -3686,6 +3798,7 @@ def autolog(
         "boto3": "mlflow.bedrock",
         "mistralai": "mlflow.mistral",
         "pydantic_ai": "mlflow.pydantic_ai",
+        "typesafe_sdk": "mlflow.typesafe",
     }
 
     # Currently, GenAI libraries are not enabled by `mlflow.autolog` in Databricks,

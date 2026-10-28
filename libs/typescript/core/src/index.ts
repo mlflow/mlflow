@@ -1,4 +1,4 @@
-import { init } from './core/config';
+import { init, parseUnityCatalogTraceLocation } from './core/config';
 import {
   getLastActiveTraceId,
   getCurrentActiveSpan,
@@ -20,6 +20,7 @@ export {
   tracingContext,
   flushTraces,
   init,
+  parseUnityCatalogTraceLocation,
   startSpan,
   trace,
   withSpan,
@@ -51,6 +52,7 @@ export type {
 } from './core/entities/assessment';
 export type { TraceData } from './core/entities/trace_data';
 export type { TraceLocation, UnityCatalogLocation } from './core/entities/trace_location';
+export type { UnityCatalogLocationOptions } from './core/config';
 export type { SearchTracesOptions, SearchTracesResult } from './clients';
 export { TraceLocationType } from './core/entities/trace_location';
 export { SpanStatusCode } from './core/entities/span_status';

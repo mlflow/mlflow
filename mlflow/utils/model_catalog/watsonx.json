@@ -1,16 +1,15 @@
 {
   "schema_version": "1.0",
   "models": {
-    "bigscience/mt0-xxl-13b": {
+    "bigscience/mt0-xxl": {
       "mode": "chat",
       "context_window": {
-        "max_input": 8192,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_input": 4096,
+        "max_output": 4096
       },
       "pricing": {
-        "input_per_million_tokens": 500.0,
-        "output_per_million_tokens": 2000.0
+        "input_per_million_tokens": 1.908,
+        "output_per_million_tokens": 1.908
       },
       "capabilities": {
         "function_calling": false,
@@ -19,14 +18,32 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
+    },
+    "bigscience/mt0-xxl-13b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.908,
+        "output_per_million_tokens": 1.908
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-27"
     },
     "core42/jais-13b-chat": {
       "mode": "chat",
       "context_window": {
         "max_input": 8192,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 8192
       },
       "pricing": {
         "input_per_million_tokens": 500.0,
@@ -39,14 +56,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "google/flan-t5-xl-3b": {
       "mode": "chat",
       "context_window": {
         "max_input": 8192,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 8192
       },
       "pricing": {
         "input_per_million_tokens": 0.6,
@@ -59,14 +75,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "ibm/granite-13b-chat-v2": {
       "mode": "chat",
       "context_window": {
         "max_input": 8192,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 8192
       },
       "pricing": {
         "input_per_million_tokens": 0.6,
@@ -79,14 +94,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "ibm/granite-13b-instruct-v2": {
       "mode": "chat",
       "context_window": {
         "max_input": 8192,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 8192
       },
       "pricing": {
         "input_per_million_tokens": 0.6,
@@ -99,14 +113,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "ibm/granite-3-3-8b-instruct": {
       "mode": "chat",
       "context_window": {
         "max_input": 8192,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 8192
       },
       "pricing": {
         "input_per_million_tokens": 0.2,
@@ -119,14 +132,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "ibm/granite-3-8b-instruct": {
       "mode": "chat",
       "context_window": {
         "max_input": 8192,
-        "max_output": 1024,
-        "max_tokens": 1024
+        "max_output": 1024
       },
       "pricing": {
         "input_per_million_tokens": 0.2,
@@ -139,18 +151,17 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "ibm/granite-4-h-small": {
       "mode": "chat",
       "context_window": {
-        "max_input": 20480,
-        "max_output": 20480,
-        "max_tokens": 20480
+        "max_input": 131072,
+        "max_output": 131072
       },
       "pricing": {
-        "input_per_million_tokens": 0.06,
-        "output_per_million_tokens": 0.25
+        "input_per_million_tokens": 0.0636,
+        "output_per_million_tokens": 0.265
       },
       "capabilities": {
         "function_calling": true,
@@ -159,14 +170,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "ibm/granite-guardian-3-2-2b": {
       "mode": "chat",
       "context_window": {
         "max_input": 8192,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 8192
       },
       "pricing": {
         "input_per_million_tokens": 0.1,
@@ -179,14 +189,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "ibm/granite-guardian-3-3-8b": {
       "mode": "chat",
       "context_window": {
         "max_input": 8192,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 8192
       },
       "pricing": {
         "input_per_million_tokens": 0.2,
@@ -199,14 +208,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "ibm/granite-ttm-1024-96-r2": {
       "mode": "chat",
       "context_window": {
         "max_input": 512,
-        "max_output": 512,
-        "max_tokens": 512
+        "max_output": 512
       },
       "pricing": {
         "input_per_million_tokens": 0.38,
@@ -219,14 +227,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "ibm/granite-ttm-1536-96-r2": {
       "mode": "chat",
       "context_window": {
         "max_input": 512,
-        "max_output": 512,
-        "max_tokens": 512
+        "max_output": 512
       },
       "pricing": {
         "input_per_million_tokens": 0.38,
@@ -239,14 +246,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "ibm/granite-ttm-512-96-r2": {
       "mode": "chat",
       "context_window": {
         "max_input": 512,
-        "max_output": 512,
-        "max_tokens": 512
+        "max_output": 512
       },
       "pricing": {
         "input_per_million_tokens": 0.38,
@@ -259,14 +265,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "ibm/granite-vision-3-2-2b": {
       "mode": "chat",
       "context_window": {
         "max_input": 8192,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 8192
       },
       "pricing": {
         "input_per_million_tokens": 0.1,
@@ -279,14 +284,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "meta-llama/llama-3-2-11b-vision-instruct": {
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 0.35,
@@ -299,14 +303,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "meta-llama/llama-3-2-1b-instruct": {
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 0.1,
@@ -319,14 +322,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "meta-llama/llama-3-2-3b-instruct": {
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 0.15,
@@ -339,14 +341,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "meta-llama/llama-3-2-90b-vision-instruct": {
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 2.0,
@@ -359,18 +360,17 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "meta-llama/llama-3-3-70b-instruct": {
       "mode": "chat",
       "context_window": {
-        "max_input": 128000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_input": 131072,
+        "max_output": 131072
       },
       "pricing": {
-        "input_per_million_tokens": 0.71,
-        "output_per_million_tokens": 0.71
+        "input_per_million_tokens": 0.7526,
+        "output_per_million_tokens": 0.7526
       },
       "capabilities": {
         "function_calling": true,
@@ -379,18 +379,17 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "meta-llama/llama-4-maverick-17b": {
       "mode": "chat",
       "context_window": {
-        "max_input": 128000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_input": 131072,
+        "max_output": 8192
       },
       "pricing": {
-        "input_per_million_tokens": 0.35,
-        "output_per_million_tokens": 1.4
+        "input_per_million_tokens": 0.371,
+        "output_per_million_tokens": 1.484
       },
       "capabilities": {
         "function_calling": true,
@@ -399,14 +398,32 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
+    },
+    "meta-llama/llama-4-maverick-17b-128e-instruct-fp8": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.371,
+        "output_per_million_tokens": 1.484
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-27"
     },
     "meta-llama/llama-guard-3-11b-vision": {
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 0.35,
@@ -419,14 +436,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "mistralai/mistral-large": {
       "mode": "chat",
       "context_window": {
         "max_input": 131072,
-        "max_output": 16384,
-        "max_tokens": 16384
+        "max_output": 16384
       },
       "pricing": {
         "input_per_million_tokens": 3.0,
@@ -439,14 +455,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "mistralai/mistral-medium-2505": {
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 3.0,
@@ -459,14 +474,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "mistralai/mistral-small-2503": {
       "mode": "chat",
       "context_window": {
         "max_input": 32000,
-        "max_output": 32000,
-        "max_tokens": 32000
+        "max_output": 32000
       },
       "pricing": {
         "input_per_million_tokens": 0.1,
@@ -479,18 +493,17 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "mistralai/mistral-small-3-1-24b-instruct-2503": {
       "mode": "chat",
       "context_window": {
-        "max_input": 32000,
-        "max_output": 32000,
-        "max_tokens": 32000
+        "max_input": 131072,
+        "max_output": 16384
       },
       "pricing": {
-        "input_per_million_tokens": 0.1,
-        "output_per_million_tokens": 0.3
+        "input_per_million_tokens": 0.106,
+        "output_per_million_tokens": 0.318
       },
       "capabilities": {
         "function_calling": true,
@@ -499,14 +512,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "mistralai/pixtral-12b-2409": {
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 0.35,
@@ -519,18 +531,17 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "openai/gpt-oss-120b": {
       "mode": "chat",
       "context_window": {
-        "max_input": 8192,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_input": 131072,
+        "max_output": 131072
       },
       "pricing": {
-        "input_per_million_tokens": 0.15,
-        "output_per_million_tokens": 0.6
+        "input_per_million_tokens": 0.159,
+        "output_per_million_tokens": 0.636
       },
       "capabilities": {
         "function_calling": false,
@@ -539,14 +550,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "sdaia/allam-1-13b-instruct": {
       "mode": "chat",
       "context_window": {
         "max_input": 8192,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 8192
       },
       "pricing": {
         "input_per_million_tokens": 1.8,
@@ -559,7 +569,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     }
   }
 }

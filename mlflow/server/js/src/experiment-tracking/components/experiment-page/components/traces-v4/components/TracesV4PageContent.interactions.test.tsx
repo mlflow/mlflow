@@ -7,6 +7,7 @@ import { TRACE_DENSITY_STORAGE_KEY_PREFIX } from '../utils/constants';
 import { DENSITY_STORAGE_VERSION } from '../hooks/useTracesV4Density';
 import { setLocalStorageItem } from '@databricks/web-shared/hooks';
 import { slowlyTypeEachKey } from '@databricks/web-shared/test-utils/slowlyTypeEachKey';
+import { shouldEnableNewEvalRunsUi } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import {
   renderPage,
   findTraceRow,
@@ -23,6 +24,18 @@ import {
   SEARCH_ENDPOINT,
   type SearchCall,
 } from '../test-utils/tracesV4PageContentTestBed';
+
+// These tests cover the Traces tab with the new eval runs UI off; the unified search has its own tests in TracesV4PageContent.unifiedSearch.test.tsx.
+jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('@mlflow/mlflow/src/common/utils/FeatureUtils')>(
+    '@mlflow/mlflow/src/common/utils/FeatureUtils',
+  ),
+  shouldEnableNewEvalRunsUi: jest.fn(() => false),
+  // Detection is enabled here so the toolbar renders its button. The real flag also requires the
+  // Issues tab, which is where a detection run's findings are read, and mocking that export would
+  // not reach the call inside FeatureUtils itself.
+  shouldEnableIssueDetection: jest.fn(() => true),
+}));
 
 // The saved-views hook (mounted via the toolbar's Views button) reads experiment tags through the
 // Apollo experiment query. These page tests exercise the table/filter/pagination flows, not saved
@@ -74,7 +87,7 @@ describe('TracesV4PageContent (interactions)', () => {
 
       await applyErrorStateClause(user);
       expect(state.searchCalls.some((c) => c.filter?.includes("attributes.status = 'ERROR'"))).toBe(true);
-    }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
+    }, 20000); // heavy full-page userEvent render; bump off the flaky 5s default under parallel jsdom load
 
     // TODO(traces-v4): service_name filtering was dropped in OSS (the SearchTracesV3 parser rejects span.service_name). Field + clause removed by design.
 
@@ -379,6 +392,60 @@ describe('TracesV4PageContent (interactions)', () => {
   describe('trace drawer navigation', () => {
     // The drawer binds ArrowLeft/ArrowRight at the window level; driving it via the keyboard is the
     // user-faithful way to exercise nav (the header's chevron buttons are icon-only, no a11y name).
+    test('adds the drawer trace to a review queue without closing the drawer', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
+      let addItemsRequest: unknown;
+      server.use(
+        rest.get('*/ajax-api/3.0/mlflow/review-queues/list', (req, res, ctx) =>
+          res(
+            ctx.json({
+              review_queues: req.url.searchParams.has('item_id')
+                ? []
+                : [
+                    {
+                      queue_id: 'rq-relevance',
+                      experiment_id: EXPERIMENT_ID,
+                      name: 'Relevance',
+                      queue_type: 'CUSTOM',
+                      schema_ids: ['schema-relevance'],
+                      creation_time_ms: 1,
+                      last_update_time_ms: 1,
+                    },
+                  ],
+            }),
+          ),
+        ),
+        rest.get('*/ajax-api/3.0/mlflow/label-schemas/list', (_req, res, ctx) =>
+          res(
+            ctx.json({
+              label_schemas: [
+                {
+                  schema_id: 'schema-relevance',
+                  experiment_id: EXPERIMENT_ID,
+                  name: 'Relevance',
+                  type: 'FEEDBACK',
+                  input: { text: {} },
+                },
+              ],
+            }),
+          ),
+        ),
+        rest.post('*/ajax-api/3.0/mlflow/review-queues/items/add', async (req, res, ctx) => {
+          addItemsRequest = await req.json();
+          return res(ctx.json({ items: [] }));
+        }),
+      );
+      renderPage();
+      await user.click(await findTraceRow('tr-000'));
+
+      const drawer = await screen.findByRole('dialog');
+      await user.click(within(drawer).getByRole('button', { name: 'Flag for review' }));
+      await user.click(await screen.findByRole('checkbox', { name: 'Relevance' }));
+      await waitFor(() => expect(addItemsRequest).toEqual({ queue_id: 'rq-relevance', item_ids: ['tr-000'] }));
+      expect(await screen.findByText('Added 1 trace to review.')).toBeInTheDocument();
+      expect(drawer).toBeInTheDocument();
+    }, 40000); // heavy full-page render + mutation under parallel jsdom load
+
     test('ArrowRight advances to the next row, writing its V4 long id to the URL', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
       renderPage();
@@ -417,7 +484,26 @@ describe('TracesV4PageContent (interactions)', () => {
   describe('toolbar order', () => {
     // Assert the always-present V4 control ordering. Views pins far left (before the date selector);
     // column/sort/row-height controls consolidate into the Display popover; Refresh then Detect Issues
-    // pin far right (Detect Issues renders whenever issue detection is enabled, true in OSS).
+    // pin far right (Detect Issues renders when issue detection is enabled, which needs the gateway
+    // feature and the Issues tab -- both mocked on above).
+    test('puts the Traces/Sessions switch right after Views with the new eval runs UI', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      try {
+        renderPage();
+        await findTraceRow('tr-000');
+        const views = screen.getByTestId('trace-v4-saved-views-trigger');
+        const traces = screen.getByRole('radio', { name: 'Traces' });
+        const date = screen.getByTestId('time-range-select-dropdown');
+        expect(traces).toBeChecked();
+        expect(screen.getByRole('radio', { name: 'Sessions' })).not.toBeChecked();
+        expect(screen.queryByRole('button', { name: 'Group traces by session' })).not.toBeInTheDocument();
+        expect(views.compareDocumentPosition(traces) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(traces.compareDocumentPosition(date) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      } finally {
+        jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
+      }
+    }, 20000);
+
     test('renders Views → Date → Search → Filter → Display → Refresh → Detect Issues', async () => {
       renderPage();
       await findTraceRow('tr-000');

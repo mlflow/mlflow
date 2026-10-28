@@ -93,8 +93,10 @@ def model_version_from_uc_proto(uc_proto: ProtoModelVersion) -> ModelVersion:
             )
             for metric in (uc_proto.model_metrics or [])
         ],
-        deployment_job_state=ModelVersionDeploymentJobState.from_proto(
-            uc_proto.deployment_job_state
+        deployment_job_state=(
+            ModelVersionDeploymentJobState.from_proto(uc_proto.deployment_job_state)
+            if uc_proto.HasField("deployment_job_state")
+            else None
         ),
     )
 
@@ -113,8 +115,10 @@ def model_version_search_from_uc_proto(uc_proto: ProtoModelVersion) -> ModelVers
         status_message=uc_proto.status_message,
         aliases=[],
         tags=[],
-        deployment_job_state=ModelVersionDeploymentJobState.from_proto(
-            uc_proto.deployment_job_state
+        deployment_job_state=(
+            ModelVersionDeploymentJobState.from_proto(uc_proto.deployment_job_state)
+            if uc_proto.HasField("deployment_job_state")
+            else None
         ),
     )
 

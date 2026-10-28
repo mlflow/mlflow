@@ -12,8 +12,8 @@ def test_install_skills_copies_to_destination(tmp_path):
     installed = install_skills(destination)
 
     assert destination.exists()
-    assert "agent-evaluation" in installed
-    assert (destination / "agent-evaluation" / "SKILL.md").exists()
+    assert "mlflow-evaluation" in installed
+    assert (destination / "mlflow-evaluation" / "SKILL.md").exists()
 
 
 def test_install_skills_overwrites_existing(tmp_path):
@@ -21,7 +21,7 @@ def test_install_skills_overwrites_existing(tmp_path):
     destination.mkdir(parents=True)
 
     install_skills(destination)
-    assert (destination / "agent-evaluation" / "SKILL.md").exists()
+    assert (destination / "mlflow-evaluation" / "SKILL.md").exists()
 
 
 def test_list_installed_skills(tmp_path):
@@ -63,7 +63,7 @@ def test_list_bundled_skills():
     skills = list_bundled_skills()
 
     by_name = {skill.name: skill for skill in skills}
-    assert "agent-evaluation" in by_name
-    assert by_name["agent-evaluation"].description
-    assert (by_name["agent-evaluation"].path / "SKILL.md").is_file()
+    assert "mlflow-evaluation" in by_name
+    assert by_name["mlflow-evaluation"].description
+    assert (by_name["mlflow-evaluation"].path / "SKILL.md").is_file()
     assert [skill.name for skill in skills] == sorted(skill.name for skill in skills)

@@ -16,8 +16,10 @@ import React, { useCallback, useMemo } from 'react';
 import {
   generatePath,
   useParams as useParamsDirect,
+  useHref as useHrefDirect,
   Link as LinkDirect,
   useLocation as useLocationDirect,
+  useNavigate as useNavigateDirect,
   BrowserRouter,
   type To,
 } from 'react-router-dom';
@@ -228,6 +230,11 @@ const useParams = useParamsDirect;
 
 const useLocation = useLocationDirect;
 
+// Not workspace-prefixed: callers navigate to a path read from the current location, which already carries it.
+const useNavigate = useNavigateDirect;
+
+const useHref = (to: To) => useHrefDirect(prefixRouteWithWorkspaceForTo(to));
+
 const Link = React.forwardRef<
   HTMLAnchorElement,
   ComponentProps<typeof LinkDirect> & { disableWorkspacePrefix?: boolean; componentId: string }
@@ -256,4 +263,4 @@ export const createMLflowRoutePath = (routePath: string) => {
   return routePath;
 };
 
-export { generatePath, useParams, Link, useLocation, BrowserRouter };
+export { generatePath, useParams, Link, useLocation, useNavigate, useHref, BrowserRouter };

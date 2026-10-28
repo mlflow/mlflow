@@ -6,7 +6,7 @@ import { AssistantSparkleIcon, useAssistant } from '../../../assistant';
 import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
 import { CodeSnippet, type CodeSnippetLanguage } from '@mlflow/mlflow/src/shared/web-shared/snippet';
 
-const AGENT_SETUP_COMMAND = 'uvx mlflow@latest agent setup';
+const AGENT_SETUP_COMMAND = 'curl -LsSf https://mlflow.org/wizard/setup.sh | sh';
 
 type TabKey = 'agent-setup' | 'copy-prompt' | 'code-snippet' | 'assistant';
 
@@ -113,7 +113,7 @@ export const AgentActionCard = ({
             <Tabs.Trigger value="agent-setup">
               <FormattedMessage
                 defaultMessage="One-line setup"
-                description="Tab label for the mlflow agent setup CLI path in the agent action card"
+                description="Tab label for the MLflow setup wizard path in the agent action card"
               />
             </Tabs.Trigger>
           )}
@@ -147,14 +147,16 @@ export const AgentActionCard = ({
           <Tabs.Content value="agent-setup" css={{ paddingTop: 0 }}>
             <Typography.Text color="secondary" css={{ fontSize: 13, display: 'block', marginBottom: theme.spacing.sm }}>
               <FormattedMessage
-                defaultMessage="Run this in your terminal to install MLflow skills into your project and launch your coding agent (Claude Code, Codex, or OpenCode) with instructions to instrument your app."
-                description="Description above the mlflow agent setup terminal command in the agent action card"
+                defaultMessage="Run this from your project's Git repository to connect to MLflow and launch your coding agent to add tracing. Have Claude Code, Codex, or OpenCode installed first."
+                description="Description above the MLflow setup wizard terminal command in the agent action card"
               />
             </Typography.Text>
             <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
               <code
                 css={{
                   flex: 1,
+                  minWidth: 0,
+                  overflowWrap: 'anywhere',
                   fontSize: 13,
                   padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
                   borderRadius: theme.borders.borderRadiusSm,

@@ -1,13 +1,20 @@
 # The native FastAPI job routes gate fetch/cancel-by-id on ownership (the recorded
-# creator must match the caller); submit and search only require authentication.
+# creator must match the caller); submit is admin-only, and search is
+# narrowed to the caller's own jobs by a response filter.
 
 import asyncio
+import json
 from types import SimpleNamespace
 
+import pytest
+
 import mlflow.server.jobs as jobs_mod
+from mlflow.entities._job import Job as JobEntity
+from mlflow.entities._job_status import JobStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.server import auth as a
+from mlflow.server import job_api
 
 
 def _decide(path, method, username, monkeypatch, *, creator="alice", missing=False):
@@ -47,15 +54,70 @@ def test_cancel_non_owner_denied(monkeypatch):
     assert _decide(path, "PATCH", "bob", monkeypatch, creator="alice") is False
 
 
-def test_submit_requires_only_authentication():
-    # POST /jobs/ has no job id: any authenticated user may submit (creator is recorded).
-    validator = a._find_fastapi_validator("/ajax-api/3.0/jobs/", "POST")
-    assert asyncio.run(validator("anyone", None)) is True
+@pytest.mark.parametrize("path", ["/ajax-api/3.0/jobs", "/ajax-api/3.0/jobs/"])
+def test_submit_denied_for_non_admin(path):
+    validator = a._find_fastapi_validator(path, "POST")
+    assert asyncio.run(validator("anyone", None)) is False
 
 
 def test_search_requires_only_authentication():
     validator = a._find_fastapi_validator("/ajax-api/3.0/jobs/search", "POST")
     assert asyncio.run(validator("anyone", None)) is True
+
+
+def _job_dict(job_id, creator):
+    return {"job_id": job_id, "job_name": "fn", "params": {"secret": job_id}, "creator": creator}
+
+
+def test_search_response_filter_registered_for_search_endpoint():
+    request = SimpleNamespace(scope={"endpoint": job_api.search_jobs})
+    assert a._find_fastapi_response_filter(request) is a._filter_search_jobs
+
+
+def test_search_response_filter_keeps_only_callers_jobs():
+    body = json.dumps({
+        "jobs": [
+            _job_dict("alice-1", "alice"),
+            _job_dict("bob-1", "bob"),
+            _job_dict("legacy-1", None),
+            _job_dict("alice-2", "alice"),
+        ]
+    }).encode()
+
+    filtered = json.loads(a._filter_search_jobs("alice", body, SimpleNamespace()))
+
+    assert [job["job_id"] for job in filtered["jobs"]] == ["alice-1", "alice-2"]
+
+
+def test_search_response_filter_hides_creatorless_jobs_from_non_admins():
+    # A job with no recorded creator has no owner to match, so it must stay hidden, mirroring
+    # the fail-closed ownership check on the per-id routes.
+    body = json.dumps({"jobs": [_job_dict("legacy-1", None), _job_dict("bob-1", "bob")]}).encode()
+
+    filtered = json.loads(a._filter_search_jobs("alice", body, SimpleNamespace()))
+
+    assert filtered["jobs"] == []
+
+
+def test_search_response_filter_handles_empty_result():
+    filtered = json.loads(a._filter_search_jobs("alice", b'{"jobs": []}', SimpleNamespace()))
+    assert filtered == {"jobs": []}
+
+
+def test_job_response_model_carries_creator():
+    entity = JobEntity(
+        job_id="job-1",
+        creation_time=1,
+        job_name="fn",
+        params="{}",
+        timeout=None,
+        status=JobStatus.PENDING,
+        result=None,
+        retry_count=0,
+        last_update_time=1,
+        creator="alice",
+    )
+    assert job_api.Job.from_job_entity(entity).creator == "alice"
 
 
 def test_job_id_from_path():

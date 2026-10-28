@@ -88,7 +88,7 @@ def capture_exception(logging_message: str):
                 return func(*args, **kwargs)
             except Exception:
                 _logger.debug(logging_message)
-                if _MLFLOW_TESTING:
+                if _MLFLOW_TESTING.get():
                     raise
 
         return wrapper

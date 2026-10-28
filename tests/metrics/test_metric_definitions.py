@@ -1,8 +1,10 @@
 import inspect
 import io
+import math
 import sys
 from unittest import mock
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -359,6 +361,59 @@ def test_ndcg_at_k():
     targets = pd.Series([["a", "b"]])
     result = ndcg_at_k(k=3).eval_fn(predictions, targets)
     assert result.scores[0] == 0.0
+
+
+@pytest.mark.parametrize(
+    ("predictions", "targets", "expected"),
+    [
+        (["a", "a", "z"], ["a_bc574ae_2"], 0.0),
+        (["a", "a", "a"], ["a_bc574ae_3"], 0.0),
+        (["a", "a_bc574ae_2", "a"], ["a"], 1.5 / (1 + 1 / math.log2(3))),
+        (["a", "a", "a_bc574ae_2"], ["a_bc574ae_2"], 0.5),
+        ([7, 7, "7_bc574ae_2"], ["7_bc574ae_2"], 0.5),
+        (["7", 7, "7"], [7], 1 / math.log2(3)),
+        (["a_bc574ae_2", "a_bc574ae_2", "z"], ["a_bc574ae_2_bc574ae_2"], 0.0),
+        (["a", "a", "a_bc574ae_2"], ["a", "a_bc574ae_2"], 1.0),
+    ],
+)
+def test_ndcg_at_k_preserves_relevance_when_ids_are_renamed(predictions, targets, expected):
+    document_ids = dict.fromkeys(predictions + targets)
+    renamed_ids = {doc_id: f"doc-{i}" for i, doc_id in enumerate(document_ids)}
+    renamed_predictions = [renamed_ids[doc_id] for doc_id in predictions]
+    renamed_targets = [renamed_ids[doc_id] for doc_id in targets]
+
+    result = ndcg_at_k(len(predictions)).eval_fn(
+        pd.Series([predictions, renamed_predictions]),
+        pd.Series([targets, renamed_targets]),
+    )
+
+    assert result.scores == pytest.approx([expected, expected])
+
+
+@pytest.mark.parametrize(
+    ("metric", "expected"),
+    [
+        (precision_at_k, 2 / 3),
+        (recall_at_k, 1.0),
+        (ndcg_at_k, 1.0),
+    ],
+)
+@pytest.mark.parametrize("dtype", [np.int8, np.int16, np.int32, np.int64, np.uint8])
+def test_retriever_metrics_accept_numpy_integer_ids(metric, expected, dtype):
+    predictions = pd.Series([np.array([1, 2, 9], dtype=dtype)])
+    targets = pd.Series([np.array([1, 2], dtype=dtype)])
+
+    result = metric(3).eval_fn(predictions, targets)
+
+    assert result.scores == pytest.approx([expected])
+
+
+@pytest.mark.parametrize("metric", [precision_at_k, recall_at_k, ndcg_at_k])
+def test_retriever_metrics_reject_numpy_float_ids(metric):
+    predictions = pd.Series([np.array([1.0, 2.0])])
+    targets = pd.Series([np.array([1.0, 2.0])])
+
+    assert metric(2).eval_fn(predictions, targets) is None
 
 
 def test_bleu():

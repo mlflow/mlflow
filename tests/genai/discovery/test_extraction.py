@@ -129,6 +129,25 @@ def test_extract_failure_labels_multi_label():
     assert "[api_tool] empty response body" in labels
 
 
+def test_extract_failure_labels_keeps_leading_hyphen():
+    analyses = [
+        _ConversationAnalysis(
+            full_rationale="Returned a sentinel instead of an error",
+            affected_trace_ids=["t1"],
+            execution_path="api_tool",
+        ),
+    ]
+
+    with mock.patch(
+        "mlflow.genai.discovery.extraction._call_llm",
+        return_value=_make_llm_response("- -1 returned instead of error\n* -inf score emitted"),
+    ):
+        labels, _ = extract_failure_labels(analyses, "openai:/gpt-5-mini")
+
+    assert "[api_tool] -1 returned instead of error" in labels
+    assert "[api_tool] -inf score emitted" in labels
+
+
 # ---- extract_failing_traces ----
 
 _SOURCE = AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="test")

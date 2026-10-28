@@ -29,6 +29,7 @@ from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.llama_index.tracer import (
     StreamResolver,
+    active_span_id,
     remove_llama_index_tracer,
     set_llama_index_tracer,
 )
@@ -882,6 +883,58 @@ async def test_tracer_parallel_workflow_with_custom_spans():
     inner_result_span = next(s for s in spans if s.name == "custom_inner_result_span")
     assert inner_result_span.inputs is not None
     assert inner_result_span.outputs == result
+
+
+def test_stream_resolver_restores_pending_parent_context():
+    parent = mlflow.start_span_no_context("parent")
+    child = mlflow.start_span_no_context("child", parent_span=parent)
+    original_span = mlflow.get_current_active_span()
+    original_span_id = original_span.span_id if original_span else None
+    original_llama_span_id = active_span_id.get() if active_span_id else None
+
+    def stream():
+        for chunk in ("a", "b"):
+            assert mlflow.get_current_active_span().span_id == child.span_id
+            if active_span_id:
+                assert active_span_id.get() == "child"
+            yield chunk
+
+    response = StreamingResponse(response_gen=stream())
+    resolver = StreamResolver()
+    try:
+        assert resolver.register_stream_span(child, response.response_gen, llama_span_id="child")
+        assert resolver.register_stream_span(parent, response, llama_span_id="parent")
+
+        for chunk in ("a", "b"):
+            assert next(response.response_gen) == chunk
+            current_span = mlflow.get_current_active_span()
+            assert (current_span.span_id if current_span else None) == original_span_id
+            if active_span_id:
+                assert active_span_id.get() == original_llama_span_id
+        assert list(response.response_gen) == []
+    finally:
+        child.end()
+        parent.end()
+
+
+def test_stream_resolver_does_not_leak_context_when_attachment_fails(monkeypatch):
+    span = mlflow.start_span_no_context("parent")
+    response = StreamingResponse(response_gen=(chunk for chunk in ("a",)))
+    resolver = StreamResolver()
+    original_llama_span_id = active_span_id.get() if active_span_id else None
+    try:
+        assert resolver.register_stream_span(span, response, llama_span_id="parent")
+
+        def fail_to_attach(_span):
+            raise RuntimeError("failed to attach")
+
+        monkeypatch.setattr("mlflow.llama_index.tracer.set_span_in_context", fail_to_attach)
+        with pytest.raises(RuntimeError, match="failed to attach"):
+            next(response.response_gen)
+        if active_span_id:
+            assert active_span_id.get() == original_llama_span_id
+    finally:
+        span.end()
 
 
 @pytest.mark.asyncio

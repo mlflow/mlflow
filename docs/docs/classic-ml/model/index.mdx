@@ -93,13 +93,6 @@ See [Model Input Example](/ml/model/signatures) for more details.
 When logging a model, model metadata files (`MLmodel`, `conda.yaml`, `python_env.yaml`, `requirements.txt`) are copied to a subdirectory named `metadata`.
 For wheeled models, `original_requirements.txt` file is also copied.
 
-:::note
-When a model registered in the MLflow Model Registry is downloaded, a YAML file named
-`registered_model_meta` is added to the model directory on the downloader's side.
-This file contains the name and version of the model referenced in the MLflow Model Registry,
-and will be used for deployment and other purposes.
-:::
-
 :::warning[attention]
 If you log a model within Databricks, MLflow also creates a `metadata` subdirectory within
 the model directory. This subdirectory contains the lightweight copy of aforementioned

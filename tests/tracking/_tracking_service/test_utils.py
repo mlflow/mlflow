@@ -6,10 +6,9 @@ import uuid
 from importlib import reload
 from pathlib import Path
 from unittest import mock
-from urllib.parse import urlparse
-from urllib.request import url2pathname
 
 import pytest
+from sqlalchemy.engine import make_url
 
 import mlflow
 from mlflow.environment_variables import (
@@ -31,6 +30,7 @@ from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.tracking._tracking_service.utils import (
     _get_store,
     _get_tracking_scheme,
+    _has_existing_mlruns_data,
     _resolve_custom_scheme,
     _resolve_tracking_uri,
     _use_tracking_uri,
@@ -70,6 +70,52 @@ def test_tracking_scheme_without_existing_mlruns(tmp_path, monkeypatch):
     assert isinstance(store, SqlAlchemyStore)
 
 
+@pytest.mark.parametrize(
+    ("setup", "expected"),
+    [
+        (lambda mlruns_dir: None, False),
+        (
+            lambda mlruns_dir: (
+                (mlruns_dir / "not-an-experiment").mkdir(),
+                (mlruns_dir / "not-an-experiment" / "meta.yaml").touch(),
+            ),
+            False,
+        ),
+        (lambda mlruns_dir: (mlruns_dir / "0").mkdir(), False),
+        (
+            lambda mlruns_dir: (
+                (mlruns_dir / "0").mkdir(),
+                (mlruns_dir / "0" / "meta.yaml").touch(),
+            ),
+            True,
+        ),
+    ],
+)
+def test_has_existing_mlruns_data(tmp_path, monkeypatch, setup, expected):
+    monkeypatch.chdir(tmp_path)
+    mlruns_dir = tmp_path / "mlruns"
+    mlruns_dir.mkdir()
+    setup(mlruns_dir)
+
+    assert _has_existing_mlruns_data() is expected
+
+
+def test_has_existing_mlruns_data_when_mlruns_is_missing(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    assert _has_existing_mlruns_data() is False
+
+
+def test_has_existing_mlruns_data_handles_filesystem_errors():
+    with mock.patch(
+        "mlflow.tracking._tracking_service.utils.os.scandir",
+        side_effect=OSError,
+    ) as scandir:
+        assert _has_existing_mlruns_data() is False
+
+    scandir.assert_called_once()
+
+
 @pytest.mark.skip(reason="FileStore is no longer supported")
 def test_get_store_with_existing_mlruns_data(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
@@ -103,22 +149,18 @@ def test_get_store_with_mlruns_dir_but_no_meta_yaml(tmp_path, monkeypatch):
     assert isinstance(store, SqlAlchemyStore)
 
 
-def test_default_sqlite_tracking_uri_respects_cwd(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
+@pytest.mark.parametrize("dirname", ["cwd", "a+b", "a%2Bb", "a#b", "a b"])
+def test_default_sqlite_tracking_uri_respects_cwd(tmp_path, monkeypatch, dirname):
+    cwd = tmp_path / dirname
+    cwd.mkdir()
+    monkeypatch.chdir(cwd)
     with _use_tracking_uri(None):
         store = _get_store()
 
     assert isinstance(store, SqlAlchemyStore)
-    sqlite_uri = store.db_uri
-    assert sqlite_uri.startswith("sqlite:")
-    parsed = urlparse(sqlite_uri)
-    path = parsed.path
-    if not parsed.netloc and path.startswith("//"):
-        path = path[1:]
-    if parsed.netloc:
-        path = f"//{parsed.netloc}{path}"
-    db_path = Path(url2pathname(path))
-    assert db_path.parent == tmp_path
+    db_path = Path(make_url(store.db_uri).database)
+    assert db_path.parent == cwd
+    assert db_path.exists()
 
 
 @pytest.mark.skip(reason="FileStore is no longer supported")

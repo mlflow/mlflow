@@ -196,8 +196,14 @@ def _glob_to_regex(pattern: str) -> re.Pattern[str]:
     return re.compile("".join(parts))
 
 
-def _list_tracked_files() -> list[str]:
-    return subprocess.check_output(["git", "ls-files"], text=True).splitlines()
+def _list_repo_files() -> list[str]:
+    # `--others --exclude-standard` also lists files that exist on disk but are not
+    # in the index yet, so a new workflow whose `paths` filter names itself does not
+    # fail before it is staged.
+    return subprocess.check_output(
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
+        text=True,
+    ).splitlines()
 
 
 def _pattern_matches(pattern: str, files: list[str]) -> bool:
@@ -228,13 +234,13 @@ def _iter_workflow_files() -> Iterator[Path]:
 
 
 def _check_paths() -> Iterator[str]:
-    files = _list_tracked_files()
+    files = _list_repo_files()
     for path in sorted(_iter_workflow_files()):
         for event, key, pattern in _iter_path_patterns(path):
             if not _pattern_matches(pattern, files):
                 yield (
                     f"{path}: [on.{event}.{key}] pattern {pattern!r} does not"
-                    " match any tracked file"
+                    " match any file in the repository"
                 )
 
 

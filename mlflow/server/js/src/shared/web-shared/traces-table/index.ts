@@ -13,13 +13,22 @@ export type {
   SessionSelectionHandler,
   TraceHrefGetter,
   TraceColumnHeaderAction,
+  TraceSortColumnId,
+  TraceComparisonRow,
+  SessionComparisonRow,
+  TracesComparisonRow,
+  ComparisonCellRenderer,
+  TraceColumnHeaderSummary,
 } from './types';
 
 // Constants
 export {
   TRACE_COLUMN_IDS,
+  isTraceColumnId,
   SORTABLE_TRACE_COLUMNS,
+  getSortableTraceColumns,
   isSortableTraceColumn,
+  isComparisonSortableTraceColumn,
   DEFAULT_SORT_COLUMN,
   DEFAULT_SORT_DIR,
   PAGE_SIZE_OPTIONS,
@@ -32,7 +41,7 @@ export {
 export { STANDARD_COLUMNS, getVisibleColumnDefs, getTableMeta, openLabel, type TracesTableMeta } from './columns';
 
 // Presentational components
-export { TracesTable, type TracesTableProps } from './TracesTable';
+export { GROUPED_LEADING_COLUMNS, TracesTable, type TracesTableProps } from './TracesTable';
 export { TracesTableToolbar, type TracesTableToolbarProps } from './TracesTableToolbar';
 export { ToolbarCollapsibleLabel, TRACES_TOOLBAR_COLLAPSE_QUERY } from './TracesToolbarResponsive';
 export { TracesPaginationBar, type TracesPaginationBarProps } from './TracesPaginationBar';
@@ -43,6 +52,11 @@ export {
   type GenericColumnOption,
   type ColumnSelectorGroup,
 } from './TraceColumnSelector';
+export {
+  ReorderableTraceColumnList,
+  type ReorderableTraceColumnListProps,
+  type ReorderableTraceColumnOption,
+} from './ReorderableTraceColumnList';
 export { TraceFilterButton, type TraceFilterButtonProps } from './TraceFilterButton';
 export { TracesTableView, type TracesTableViewProps, type TracesTableViewState } from './TracesTableView';
 
@@ -94,7 +108,7 @@ export {
 } from './filterModel';
 
 // Helpers
-export { formatTraceDuration } from './formatTraceDuration';
+export { formatTraceDuration, formatTraceDurationMs, parseTraceDurationToMs } from './formatTraceDuration';
 export { getTextColumnMaxSize } from './getColumnMaxSizes';
 
 // Hooks (presentational state)

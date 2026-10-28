@@ -18,6 +18,7 @@ from mlflow.genai.discovery.entities import (
     _IdentifiedIssue,
     _TriageResult,
 )
+from mlflow.genai.discovery.matching import MatchOutcome
 from mlflow.genai.discovery.pipeline import (
     _annotate_issue_traces,
     _dedup_issues,
@@ -931,6 +932,157 @@ def test_discover_issues_tags_run_with_issue_detection_marker(make_trace):
     assert run.data.tags[MLFLOW_RUN_TYPE] == MLFLOW_RUN_TYPE_ISSUE_DETECTION
 
 
+def test_discover_issues_counts_only_the_issues_this_run_filed(make_trace):
+    traces = [make_trace() for _ in range(3)]
+    failing = traces[:2]
+    rationale_map = {trace.info.trace_id: "bad" for trace in failing}
+
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
+
+    # One finding filed by this run, one matched onto an issue an earlier run already reported.
+    filed = _make_issue(issue_id="filed-now", source_run_id=run_id)
+    refreshed = _make_issue(issue_id="already-reported", source_run_id="an-earlier-run")
+
+    with (
+        patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="0"),
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
+            return_value=_triage_eval(run_id),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=_TriageResult(failing, rationale_map, {}),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failure_labels",
+            return_value=(["label1", "label2"], [0, 1]),
+        ),
+        patch("mlflow.genai.discovery.pipeline.cluster_by_llm", return_value=[[0, 1]]),
+        patch(
+            "mlflow.genai.discovery.pipeline.summarize_cluster",
+            return_value=create_identified_issue(example_indices=[0, 1]),
+        ),
+        patch("mlflow.genai.discovery.pipeline.read_match_candidates", return_value=[refreshed]),
+        patch(
+            "mlflow.genai.discovery.pipeline.match_findings_to_existing_issues",
+            return_value=MatchOutcome(matched={0: refreshed.issue_id}, candidates_considered=1),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline._build_issues",
+            return_value=([filed, refreshed], {}),
+        ),
+        patch("mlflow.genai.discovery.pipeline._annotate_issue_traces"),
+    ):
+        result = discover_issues(traces=traces, run_id=run_id)
+
+    assert len(result.issues) == 2
+    assert result.new_issue_count == 1
+
+
+def test_discover_issues_reports_no_new_issues_when_none_were_filed(make_trace):
+    traces = [make_trace() for _ in range(3)]
+    failing = traces[:2]
+    rationale_map = {trace.info.trace_id: "bad" for trace in failing}
+
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
+
+    refreshed = _make_issue(issue_id="already-reported", source_run_id="an-earlier-run")
+
+    with (
+        patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="0"),
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
+            return_value=_triage_eval(run_id),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=_TriageResult(failing, rationale_map, {}),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failure_labels",
+            return_value=(["label1", "label2"], [0, 1]),
+        ),
+        patch("mlflow.genai.discovery.pipeline.cluster_by_llm", return_value=[[0, 1]]),
+        patch(
+            "mlflow.genai.discovery.pipeline.summarize_cluster",
+            return_value=create_identified_issue(example_indices=[0, 1]),
+        ),
+        patch("mlflow.genai.discovery.pipeline.read_match_candidates", return_value=[refreshed]),
+        patch(
+            "mlflow.genai.discovery.pipeline.match_findings_to_existing_issues",
+            return_value=MatchOutcome(matched={0: refreshed.issue_id}, candidates_considered=1),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline._build_issues",
+            return_value=([refreshed], {}),
+        ),
+        patch("mlflow.genai.discovery.pipeline._annotate_issue_traces"),
+    ):
+        result = discover_issues(traces=traces, run_id=run_id)
+
+    assert len(result.issues) == 1
+    assert result.new_issue_count == 0
+
+
+def test_an_issue_refreshed_by_the_run_that_filed_it_is_not_counted_as_new(make_trace):
+    """
+    `run_id` lets a second detection attach to the run that filed the candidates it is now
+    offered, so the run that filed an issue does not separate new from refreshed.
+    """
+    traces = [make_trace() for _ in range(3)]
+    failing = traces[:2]
+    rationale_map = {trace.info.trace_id: "bad" for trace in failing}
+
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
+
+    # Filed by an earlier detection against this same run.
+    already_filed = _make_issue(issue_id="filed-earlier", source_run_id=run_id)
+
+    with (
+        patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="0"),
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
+            return_value=_triage_eval(run_id),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=_TriageResult(failing, rationale_map, {}),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failure_labels",
+            return_value=(["label1", "label2"], [0, 1]),
+        ),
+        patch("mlflow.genai.discovery.pipeline.cluster_by_llm", return_value=[[0, 1]]),
+        patch(
+            "mlflow.genai.discovery.pipeline.summarize_cluster",
+            return_value=create_identified_issue(example_indices=[0, 1]),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.read_match_candidates",
+            return_value=[already_filed],
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.match_findings_to_existing_issues",
+            return_value=MatchOutcome(matched={0: already_filed.issue_id}, candidates_considered=1),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline._build_issues",
+            return_value=([already_filed], {}),
+        ),
+        patch("mlflow.genai.discovery.pipeline._annotate_issue_traces"),
+    ):
+        result = discover_issues(traces=traces, run_id=run_id)
+
+    assert len(result.issues) == 1
+    assert result.new_issue_count == 0
+
+
 def test_discover_issues_returns_total_cost_usd_field(make_trace):
     from mlflow.entities.assessment import Feedback
     from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
@@ -1246,6 +1398,73 @@ def test_dedup_issues_dissimilar_issues_not_merged():
     assert len(result) == 2
 
 
+@pytest.mark.parametrize(
+    "indices",
+    [[], [0], [0, 3], [0, -1], [-4, 0], [0, 0], [0, 1, 1]],
+    ids=["empty", "singleton", "out-of-range", "negative", "below-range", "self-merge", "repeated"],
+)
+def test_dedup_issues_invalid_group_preserves_issues(indices):
+    issues = [create_identified_issue(name=f"Issue: {i}", example_indices=[i]) for i in range(3)]
+    original = [issue.model_dump() for issue in issues]
+    with patch(
+        "mlflow.genai.discovery.pipeline._call_llm",
+        return_value=_make_dedup_response([indices]),
+    ) as mock_call:
+        result = _dedup_issues(issues)
+
+    assert [issue.model_dump() for issue in result] == original
+    mock_call.assert_called_once()
+
+
+@pytest.mark.parametrize("invalid_indices", [[0, 1, 4], [0, 1, -1], [0, 1, 1]])
+@pytest.mark.parametrize("invalid_first", [True, False])
+def test_dedup_issues_skips_invalid_group_and_merges_valid_group(invalid_indices, invalid_first):
+    issues = [create_identified_issue(name=f"Issue: {i}", example_indices=[i]) for i in range(4)]
+    original = [issue.model_dump() for issue in issues]
+    groups = [invalid_indices, [2, 3]] if invalid_first else [[2, 3], invalid_indices]
+    names = (
+        ["Issue: Invalid", "Issue: Valid"] if invalid_first else ["Issue: Valid", "Issue: Invalid"]
+    )
+    with patch(
+        "mlflow.genai.discovery.pipeline._call_llm",
+        return_value=_make_dedup_response(groups, names=names),
+    ) as mock_call:
+        result = _dedup_issues(issues)
+
+    assert len(result) == 3
+    assert [issue.model_dump() for issue in result[:2]] == original[:2]
+    assert result[2].name == "Issue: Valid"
+    assert result[2].description == "Merged description"
+    assert result[2].root_cause == "Merged root cause"
+    assert set(result[2].example_indices) == {2, 3}
+    mock_call.assert_called_once()
+
+
+@pytest.mark.parametrize("invalid_first", [True, False], ids=["invalid-first", "invalid-last"])
+def test_dedup_issues_invalid_group_cannot_overwrite_valid_merge(invalid_first):
+    issues = [create_identified_issue(name=f"Issue: {i}", example_indices=[i]) for i in range(3)]
+    untouched = issues[2].model_dump()
+    groups = [[0, 2, 3], [0, 1]] if invalid_first else [[0, 1], [0, 2, 3]]
+    names = (
+        ["Issue: Invalid", "Issue: Valid"] if invalid_first else ["Issue: Valid", "Issue: Invalid"]
+    )
+    with patch(
+        "mlflow.genai.discovery.pipeline._call_llm",
+        return_value=_make_dedup_response(
+            groups, names=names, descriptions=names, root_causes=names
+        ),
+    ) as mock_call:
+        result = _dedup_issues(issues)
+
+    assert len(result) == 2
+    assert set(result[0].example_indices) == {0, 1}
+    assert result[0].name == "Issue: Valid"
+    assert result[0].description == "Issue: Valid"
+    assert result[0].root_cause == "Issue: Valid"
+    assert result[1].model_dump() == untouched
+    mock_call.assert_called_once()
+
+
 def test_dedup_issues_merges_example_indices_deduped():
     issue1 = create_identified_issue(example_indices=[0, 1])
     issue2 = create_identified_issue(example_indices=[1, 2])
@@ -1289,3 +1508,240 @@ def test_dedup_issues_llm_failure_returns_original():
     with patch("mlflow.genai.discovery.pipeline._call_llm", side_effect=Exception("API error")):
         result = _dedup_issues(issues)
     assert result == issues
+
+
+# ---- structured evidence on annotations ----
+
+
+def _evidence_trace():
+    import mlflow as _mlflow
+    from mlflow.entities.span import SpanType
+
+    @_mlflow.trace(name="agent", span_type=SpanType.AGENT)
+    def _run():
+        with _mlflow.start_span(name="retrieve", span_type=SpanType.RETRIEVER) as span:
+            span.set_outputs({"documents": []})
+        with _mlflow.start_span(name="generate", span_type=SpanType.LLM) as span:
+            span.set_outputs({"text": "You have 45 days."})
+        return "You have 45 days."
+
+    _run()
+    return _mlflow.get_trace(_mlflow.get_last_active_trace_id())
+
+
+def test_annotate_traces_stores_a_span_anchored_walkthrough():
+    trace = _evidence_trace()
+    retrieve = next(s.span_id for s in trace.data.spans if s.name == "retrieve")
+    issues = [
+        _make_issue(
+            name="Answers from an empty context",
+            description="The agent answers when retrieval returned nothing",
+            root_causes=["retrieve_documents returns no documents"],
+        )
+    ]
+    generated = json.dumps({
+        "summary": "Retrieval returned nothing and the agent answered anyway.",
+        "steps": [
+            {
+                "span_id": retrieve,
+                "text": "Retrieval returned 0 documents for the refund question.",
+                "highlights": ["0 documents"],
+                "highlight_tone": "error",
+            }
+        ],
+        "primary_span_id": retrieve,
+    })
+
+    with (
+        patch(
+            "mlflow.genai.discovery.evidence._call_llm",
+            return_value=_make_litellm_response(generated),
+        ),
+        patch("mlflow.genai.discovery.pipeline.mlflow.log_issue") as mock_log_issue,
+    ):
+        _annotate_issue_traces(
+            issues,
+            {issues[0].issue_id: [trace.info.trace_id]},
+            {trace.info.trace_id: "answered from an empty context"},
+            {trace.info.trace_id: trace},
+            "openai:/gpt-5-mini",
+        )
+
+    evidence = mock_log_issue.call_args.kwargs["evidence"]
+    assert evidence is not None
+    assert [step.span_id for step in evidence.steps] == [retrieve]
+    assert evidence.primary_span_id == retrieve
+    # The summary doubles as the rationale, so a reader without the schema still sees it.
+    assert mock_log_issue.call_args.kwargs["rationale"] == evidence.summary
+
+
+def test_annotate_traces_falls_back_to_prose_when_evidence_generation_fails():
+    trace = _evidence_trace()
+    issues = [
+        _make_issue(
+            name="Answers from an empty context",
+            description="The agent answers when retrieval returned nothing",
+            root_causes=["retrieve_documents returns no documents"],
+        )
+    ]
+
+    with (
+        patch(
+            "mlflow.genai.discovery.evidence._call_llm",
+            side_effect=Exception("evidence model unavailable"),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline._call_llm",
+            return_value=_make_litellm_response("The agent answered from an empty context."),
+        ),
+        patch("mlflow.genai.discovery.pipeline.mlflow.log_issue") as mock_log_issue,
+    ):
+        _annotate_issue_traces(
+            issues,
+            {issues[0].issue_id: [trace.info.trace_id]},
+            {trace.info.trace_id: "answered from an empty context"},
+            {trace.info.trace_id: trace},
+            "openai:/gpt-5-mini",
+        )
+
+    # The finding is still recorded; only its navigability is lost.
+    mock_log_issue.assert_called_once()
+    assert mock_log_issue.call_args.kwargs["evidence"] is None
+    assert "empty context" in mock_log_issue.call_args.kwargs["rationale"]
+
+
+def test_evidence_the_store_refuses_still_records_the_issue_reference():
+    # Reported in review. Nothing bounds how many steps the generator emits, so evidence that
+    # passes validation can still overflow the 65,535-byte assessment metadata column. A single
+    # `except` around `log_issue` dropped the entire reference, so the trace stopped showing the
+    # issue at all -- strictly worse than showing it without the span-anchored walkthrough.
+    from mlflow.entities.issue_evidence import IssueEvidence, IssueEvidenceStep
+    from mlflow.exceptions import MlflowException
+
+    oversized = IssueEvidence(
+        summary="Retrieval returned nothing and the agent answered anyway.",
+        steps=[
+            IssueEvidenceStep(
+                span_id=f"span{index:04d}",
+                text="x" * 900,
+                highlights=["x" * 20],
+                highlight_tone="error",
+            )
+            for index in range(80)
+        ],
+    )
+    issues = [_make_issue(name="Refund falsely confirmed")]
+    issue_trace_ids = {issues[0].issue_id: ["t1"]}
+
+    def reject_evidence(**kwargs):
+        if kwargs.get("evidence") is not None:
+            raise MlflowException.invalid_parameter_value("exceeds the 65535-byte limit")
+
+    with (
+        patch("mlflow.genai.discovery.pipeline.format_trace_content", return_value="content"),
+        patch(
+            "mlflow.genai.discovery.pipeline.generate_trace_evidence",
+            return_value=(oversized, "Retrieval returned nothing."),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.log_issue", side_effect=reject_evidence
+        ) as mock_log_issue,
+    ):
+        _annotate_issue_traces(
+            issues, issue_trace_ids, {"t1": "triage said so"}, {"t1": MagicMock()}, DEFAULT_MODEL
+        )
+
+    # Attempted with the walkthrough, then retried without it rather than giving up.
+    assert mock_log_issue.call_count == 2
+    assert mock_log_issue.call_args_list[0].kwargs["evidence"] is oversized
+    retry = mock_log_issue.call_args_list[1].kwargs
+    assert retry["evidence"] is None
+    # The prose the generator produced is kept, so the reference still explains itself.
+    assert retry["rationale"] == "Retrieval returned nothing."
+    assert retry["issue_id"] == issues[0].issue_id
+
+
+def test_a_reference_that_cannot_be_stored_at_all_is_given_up_on_quietly():
+    # The retry must not turn one unstorable reference into an endless pair of failures.
+    issues = [_make_issue(name="Refund falsely confirmed")]
+
+    with (
+        patch("mlflow.genai.discovery.pipeline.format_trace_content", return_value="content"),
+        patch(
+            "mlflow.genai.discovery.pipeline.generate_trace_evidence",
+            return_value=(None, "prose only"),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.log_issue",
+            side_effect=Exception("store is down"),
+        ) as mock_log_issue,
+    ):
+        _annotate_issue_traces(
+            issues,
+            {issues[0].issue_id: ["t1"]},
+            {"t1": "triage"},
+            {"t1": MagicMock()},
+            DEFAULT_MODEL,
+        )
+
+    # No evidence to drop, so there is nothing to retry: one attempt, no exception escaping.
+    mock_log_issue.assert_called_once()
+
+
+def test_an_issue_of_unknown_severity_does_not_break_the_final_sort():
+    # Reported in review. An issue matched onto one already in the store carries that row's
+    # severity, and the column is nullable -- so one untyped row raised TypeError from this
+    # sort. It runs after every database write but before evidence annotation, so the run
+    # published its issues and then lost all of their trace annotations.
+    from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
+    from mlflow.genai.discovery.pipeline import _severity_sort_key
+
+    def _issue(issue_id, severity):
+        return Issue(
+            issue_id=issue_id,
+            experiment_id="1",
+            name=issue_id,
+            description="d",
+            status=IssueStatus.PENDING,
+            severity=severity,
+            created_timestamp=1,
+            last_updated_timestamp=1,
+        )
+
+    # Mixed types on purpose: a newly created issue carries the enum, a row read back from
+    # the store carries a plain string, and this list holds both after matching.
+    issues = [
+        _issue("unknown", None),
+        _issue("low", "low"),
+        _issue("high", IssueSeverity.HIGH),
+        _issue("medium", "medium"),
+    ]
+
+    issues.sort(key=_severity_sort_key, reverse=True)
+
+    # Ordered by severity, not alphabetically. Before the fix a plain string fell back to
+    # `str` comparison, which put "high" below "low" and the most severe issues last.
+    assert [issue.issue_id for issue in issues] == ["high", "medium", "low", "unknown"]
+
+
+def test_only_unknown_severities_still_sort():
+    from mlflow.entities.issue import Issue, IssueStatus
+    from mlflow.genai.discovery.pipeline import _severity_sort_key
+
+    issues = [
+        Issue(
+            issue_id=f"iss-{index}",
+            experiment_id="1",
+            name="n",
+            description="d",
+            status=IssueStatus.PENDING,
+            severity=None,
+            created_timestamp=1,
+            last_updated_timestamp=1,
+        )
+        for index in range(3)
+    ]
+
+    # Two unknowns compare against each other, which is where a naive sentinel would raise.
+    issues.sort(key=_severity_sort_key, reverse=True)
+    assert len(issues) == 3

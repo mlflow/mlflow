@@ -65,6 +65,7 @@ from mlflow.telemetry.events import (
     AiCommandRunEvent,
     AlignJudgeEvent,
     AutologgingEvent,
+    CompareEvaluationsEvent,
     CreateDatasetEvent,
     CreateExperimentEvent,
     CreateLoggedModelEvent,
@@ -354,6 +355,28 @@ def test_create_model_version(mock_requests, mlflow_client, mock_telemetry_clien
         mock_requests,
         event_name,
         {"is_prompt": True},
+    )
+
+
+def test_log_model(mock_requests, mock_telemetry_client: TelemetryClient):
+    # End-to-end Model.log event, distinct from the create_logged_model sub-step.
+    mlflow.pyfunc.log_model(name="model", python_model=TestModel())
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        "log_model",
+        {"flavor": "pyfunc", "registered": False},
+    )
+
+
+def test_register_model(mock_requests, mlflow_client, mock_telemetry_client: TelemetryClient):
+    model_info = mlflow.pyfunc.log_model(name="model", python_model=TestModel())
+    mlflow.register_model(model_info.model_uri, "test_model")
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        "register_model",
+        {"env_pack": None, "source_scheme": "models"},
     )
 
 
@@ -1407,6 +1430,19 @@ def test_align_judge(mock_requests, mock_telemetry_client: TelemetryClient):
     expected_params = {"trace_count": 2, "optimizer_type": "MockOptimizer"}
     validate_telemetry_record(
         mock_telemetry_client, mock_requests, AlignJudgeEvent.name, expected_params
+    )
+
+
+def test_compare_evaluations(mock_requests, mock_telemetry_client: TelemetryClient):
+    with patch("mlflow.genai.evaluation.comparison.comparison._load_eval_rows", return_value=[]):
+        mlflow.genai.compare_evaluations("candidate", "baseline", greater_is_better={"a": False})
+
+    expected_params = {
+        "greater_is_better_provided": True,
+        "log_results": False,
+    }
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, CompareEvaluationsEvent.name, expected_params
     )
 
 

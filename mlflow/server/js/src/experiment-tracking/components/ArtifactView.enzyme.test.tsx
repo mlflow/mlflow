@@ -23,11 +23,12 @@ import configureStore from 'redux-mock-store';
 import promiseMiddleware from 'redux-promise-middleware';
 import thunk from 'redux-thunk';
 import Utils from '../../common/utils/Utils';
-import { getArtifactBlob } from '../../common/utils/ArtifactUtils';
+import { getArtifactDownloadBlob } from '../../common/utils/ArtifactUtils';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { MlflowService } from '../sdk/MlflowService';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { ServerInfoProvider } from '../hooks/useServerInfo';
+import * as ServerInfo from '../hooks/useServerInfo';
 
 const { Text } = Typography;
 
@@ -38,7 +39,7 @@ jest.mock('../../common/utils/ArtifactUtils', () => ({
   getArtifactContent: jest.fn().mockResolvedValue(),
   // @ts-expect-error TS(2554): Expected 1 arguments, but got 0.
   getArtifactBytesContent: jest.fn().mockResolvedValue(),
-  getArtifactBlob: jest
+  getArtifactDownloadBlob: jest
     .fn<() => Promise<Blob>>()
     .mockResolvedValue(new Blob(['dummy content'], { type: 'text/plain' })),
 }));
@@ -147,6 +148,13 @@ describe('ArtifactView', () => {
     wrapper = shallowWithIntl(<ArtifactViewImpl {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
+  test.each([
+    ['logged model fallback', { isFallbackToLoggedModelArtifacts: true }, undefined],
+    ['run artifacts', {}, 'test_root'],
+  ])('resolves the artifact root for %s', (_mode, modeProps, expectedRoot) => {
+    wrapper = getWrapper(minimalStore, { ...minimalProps, artifactRootUri: undefined, ...modeProps });
+    expect(wrapper.find(ArtifactViewImpl).prop('artifactRootUri')).toBe(expectedRoot);
+  });
   test('should render NoArtifactView when no artifacts are present', () => {
     // @ts-expect-error TS(2554): Expected 3 arguments, but got 2.
     const emptyNode = new ArtifactNode(true, undefined);
@@ -251,8 +259,6 @@ describe('ArtifactView', () => {
         options.cachedMultipartDownloadsEnabled === undefined
           ? getWrapper(getMockStore(rootNode), mockProps)
           : getWrapperWithServerInfo(getMockStore(rootNode), mockProps, options.cachedMultipartDownloadsEnabled);
-      wrapper.find('NodeHeader').at(0).simulate('click');
-      wrapper.update();
       // Mock the DOM download plumbing only after enzyme has mounted the component:
       // enzyme itself needs the real document.createElement to create its container.
       createObjectURLSpy = jest.spyOn(URL, 'createObjectURL').mockReturnValue('blob:fake-url');
@@ -268,7 +274,7 @@ describe('ArtifactView', () => {
     };
 
     const expectBlobDownload = (expectedUrlPart: string) => {
-      expect(getArtifactBlob).toHaveBeenCalledWith(expect.stringContaining(expectedUrlPart));
+      expect(getArtifactDownloadBlob).toHaveBeenCalledWith(expect.stringContaining(expectedUrlPart), undefined);
       expect(createObjectURLSpy).toHaveBeenCalled();
       expect(anchor.download).toBe('summary.txt');
       expect(anchor.click).toHaveBeenCalled();
@@ -288,7 +294,8 @@ describe('ArtifactView', () => {
       });
       presignedSpy = jest.spyOn(MlflowService, 'createPresignedDownloadUrl');
       proxiedPresignedSpy = jest.spyOn(MlflowService, 'getMlflowArtifactsPresignedDownloadUrl');
-      jest.mocked(getArtifactBlob).mockClear();
+      jest.spyOn(MlflowService, 'getCredentialsForLoggedModelArtifactRead').mockResolvedValue({ credentials: [] });
+      jest.mocked(getArtifactDownloadBlob).mockClear();
     });
 
     afterEach(() => {
@@ -306,7 +313,7 @@ describe('ArtifactView', () => {
 
       expect(presignedSpy).toHaveBeenCalledWith({ run_id: 'fakeUuid', path: 'summary.txt' });
       expect(assignMock).toHaveBeenCalledWith('https://s3.example.com/signed');
-      expect(getArtifactBlob).not.toHaveBeenCalled();
+      expect(getArtifactDownloadBlob).not.toHaveBeenCalled();
     });
 
     test('should navigate to the proxied artifact presigned URL when server-info enables multipart downloads', async () => {
@@ -318,21 +325,24 @@ describe('ArtifactView', () => {
       expect(proxiedPresignedSpy).toHaveBeenCalledWith('0/fakeUuid/artifacts/summary.txt');
       expect(presignedSpy).not.toHaveBeenCalled();
       expect(assignMock).toHaveBeenCalledWith('https://s3.example.com/proxied-signed');
-      expect(getArtifactBlob).not.toHaveBeenCalled();
+      expect(getArtifactDownloadBlob).not.toHaveBeenCalled();
     });
 
-    test('should ignore the authority for mlflow-artifacts URIs', async () => {
+    test('should use an explicit same-origin authority for mlflow-artifacts URIs', async () => {
       proxiedPresignedSpy.mockResolvedValue({ url: 'https://s3.example.com/proxied-signed', file_size: 100 });
 
       const implInstance = getImplInstance({
-        artifactRootUri: 'mlflow-artifacts://tracking.example.com/0/fakeUuid/artifacts',
+        artifactRootUri: `mlflow-artifacts://${window.location.host}/0/fakeUuid/artifacts`,
       });
       await implInstance.onDownloadClick('fakeUuid', 'summary.txt');
 
-      expect(proxiedPresignedSpy).toHaveBeenCalledWith('0/fakeUuid/artifacts/summary.txt');
+      expect(proxiedPresignedSpy).toHaveBeenCalledWith(
+        '0/fakeUuid/artifacts/summary.txt',
+        `${window.location.origin}/`,
+      );
       expect(presignedSpy).not.toHaveBeenCalled();
       expect(assignMock).toHaveBeenCalledWith('https://s3.example.com/proxied-signed');
-      expect(getArtifactBlob).not.toHaveBeenCalled();
+      expect(getArtifactDownloadBlob).not.toHaveBeenCalled();
     });
 
     test('should use cached server-info when deciding proxied artifact presigned downloads', async () => {
@@ -350,24 +360,24 @@ describe('ArtifactView', () => {
       expect(proxiedPresignedSpy).toHaveBeenCalledWith('0/my run/artifacts/summary.txt');
       expect(presignedSpy).not.toHaveBeenCalled();
       expect(assignMock).toHaveBeenCalledWith('https://s3.example.com/proxied-signed');
-      expect(getArtifactBlob).not.toHaveBeenCalled();
+      expect(getArtifactDownloadBlob).not.toHaveBeenCalled();
     });
 
     test('should decode and preserve proxied HTTP artifact root paths before route encoding', async () => {
       proxiedPresignedSpy.mockResolvedValue({ url: 'https://s3.example.com/proxied-signed', file_size: 100 });
 
       const implInstance = getImplInstance({
-        artifactRootUri:
-          'https://mlflow.example.com/prefix/api/2.0/mlflow-artifacts/artifacts/0/my%20run/api/2.0/mlflow-artifacts/artifacts/artifacts',
+        artifactRootUri: `${window.location.origin}/prefix/api/2.0/mlflow-artifacts/artifacts/0/my%20run/api/2.0/mlflow-artifacts/artifacts/artifacts`,
       });
       await implInstance.onDownloadClick('fakeUuid', 'summary.txt');
 
       expect(proxiedPresignedSpy).toHaveBeenCalledWith(
         '0/my run/api/2.0/mlflow-artifacts/artifacts/artifacts/summary.txt',
+        `${window.location.origin}/prefix/`,
       );
       expect(presignedSpy).not.toHaveBeenCalled();
       expect(assignMock).toHaveBeenCalledWith('https://s3.example.com/proxied-signed');
-      expect(getArtifactBlob).not.toHaveBeenCalled();
+      expect(getArtifactDownloadBlob).not.toHaveBeenCalled();
     });
 
     test('should use the run-scoped presigned URL for direct artifact roots when multipart downloads are disabled', async () => {
@@ -379,7 +389,7 @@ describe('ArtifactView', () => {
       expect(presignedSpy).toHaveBeenCalledWith({ run_id: 'fakeUuid', path: 'summary.txt' });
       expect(proxiedPresignedSpy).not.toHaveBeenCalled();
       expect(assignMock).toHaveBeenCalledWith('https://s3.example.com/signed');
-      expect(getArtifactBlob).not.toHaveBeenCalled();
+      expect(getArtifactDownloadBlob).not.toHaveBeenCalled();
     });
 
     test('should use the proxied download for proxied artifact roots when server-info disables multipart downloads', async () => {
@@ -395,23 +405,61 @@ describe('ArtifactView', () => {
       expect(presignedSpy).not.toHaveBeenCalled();
       expect(proxiedPresignedSpy).not.toHaveBeenCalled();
       expect(assignMock).not.toHaveBeenCalled();
-      expectBlobDownload('get-artifact?path=summary.txt&run_uuid=fakeUuid');
+      expectBlobDownload('mlflow-artifacts/artifacts/0/fakeUuid/artifacts/summary.txt');
     });
 
-    test('should use the proxied download for HTTP proxied artifact roots when server-info disables multipart downloads', async () => {
+    test('should discover presigned downloads from HTTP artifact roots when local multipart downloads are disabled', async () => {
       presignedSpy.mockResolvedValue({ presigned_url: 'https://s3.example.com/signed', file_size: 100 });
       proxiedPresignedSpy.mockResolvedValue({ url: 'https://s3.example.com/proxied-signed', file_size: 100 });
 
       const implInstance = getImplInstance({
-        artifactRootUri: 'https://mlflow.example.com/api/2.0/mlflow-artifacts/artifacts/0/fakeUuid/artifacts',
+        artifactRootUri: `${window.location.origin}/api/2.0/mlflow-artifacts/artifacts/0/fakeUuid/artifacts`,
         multipartDownloadsEnabled: false,
       });
       await implInstance.onDownloadClick('fakeUuid', 'summary.txt');
 
       expect(presignedSpy).not.toHaveBeenCalled();
-      expect(proxiedPresignedSpy).not.toHaveBeenCalled();
+      expect(proxiedPresignedSpy).toHaveBeenCalledWith(
+        '0/fakeUuid/artifacts/summary.txt',
+        `${window.location.origin}/`,
+      );
+      expect(assignMock).toHaveBeenCalledWith('https://s3.example.com/proxied-signed');
+      expect(getArtifactDownloadBlob).not.toHaveBeenCalled();
+    });
+
+    test('downloads from the original service prefix when signing is unsupported', async () => {
+      proxiedPresignedSpy.mockRejectedValue(new ErrorWrapper('unsupported signing', 501));
+      const implInstance = getImplInstance({
+        artifactRootUri: `${window.location.origin}/artifacts/api/2.0/mlflow-artifacts/artifacts/custom/run/root`,
+      });
+      await implInstance.onDownloadClick('fakeUuid', 'summary.txt');
+      expectBlobDownload('/artifacts/api/2.0/mlflow-artifacts/artifacts/custom/run/root/summary.txt');
+      expect(presignedSpy).not.toHaveBeenCalled();
       expect(assignMock).not.toHaveBeenCalled();
-      expectBlobDownload('get-artifact?path=summary.txt&run_uuid=fakeUuid');
+    });
+
+    test('retains a discovered model root through storage failure without a second metadata request', async () => {
+      const root = `${window.location.origin}/artifacts/api/2.0/mlflow-artifacts/artifacts/custom/model/root`;
+      const model = jest
+        .spyOn(MlflowService, 'getLoggedModel')
+        .mockResolvedValue({ model: { info: { artifact_uri: root } } } as any);
+      proxiedPresignedSpy.mockResolvedValue({
+        url: 'https://storage.example/model',
+        headers: { 'x-required': 'value' },
+      });
+      const implInstance = getImplInstance({
+        isLoggedModelsMode: true,
+        loggedModelId: 'model-123',
+        artifactRootUri: undefined,
+      });
+      expect(implInstance.props.artifactRootUri).toBeUndefined();
+      jest.mocked(getArtifactDownloadBlob).mockRejectedValueOnce(new TypeError('storage CORS'));
+      await implInstance.onDownloadClick(undefined, 'summary.txt', 'model-123');
+      expect(model).toHaveBeenCalledTimes(1);
+      expect(model).toHaveBeenCalledWith('model-123');
+      expectBlobDownload('/artifacts/api/2.0/mlflow-artifacts/artifacts/custom/model/root/summary.txt');
+      expect(getArtifactDownloadBlob).toHaveBeenCalledTimes(2);
+      expect(assignMock).not.toHaveBeenCalled();
     });
 
     test.each([400, 404, 501, 503])(
@@ -437,7 +485,7 @@ describe('ArtifactView', () => {
 
         expect(presignedSpy).not.toHaveBeenCalled();
         expect(assignMock).not.toHaveBeenCalled();
-        expectBlobDownload('get-artifact?path=summary.txt&run_uuid=fakeUuid');
+        expectBlobDownload('mlflow-artifacts/artifacts/0/fakeUuid/artifacts/summary.txt');
       },
     );
 
@@ -450,7 +498,7 @@ describe('ArtifactView', () => {
 
       expect(notifySpy).toHaveBeenCalled();
       expect(assignMock).not.toHaveBeenCalled();
-      expect(getArtifactBlob).not.toHaveBeenCalled();
+      expect(getArtifactDownloadBlob).not.toHaveBeenCalled();
     });
 
     test('should notify the user when the proxied fallback download itself fails', async () => {
@@ -458,16 +506,16 @@ describe('ArtifactView', () => {
       presignedSpy.mockRejectedValue(new ErrorWrapper('older server', 404));
 
       const implInstance = getImplInstance();
-      jest.mocked(getArtifactBlob).mockRejectedValueOnce(new ErrorWrapper('missing artifact', 404));
+      jest.mocked(getArtifactDownloadBlob).mockRejectedValueOnce(new ErrorWrapper('missing artifact', 404));
       await implInstance.onDownloadClick('fakeUuid', 'summary.txt');
 
-      expect(getArtifactBlob).toHaveBeenCalled();
+      expect(getArtifactDownloadBlob).toHaveBeenCalled();
       expect(notifySpy).toHaveBeenCalled();
       expect(assignMock).not.toHaveBeenCalled();
       expect(createObjectURLSpy).not.toHaveBeenCalled();
     });
 
-    test('should use the proxied download when the presigned URL requires request headers', async () => {
+    test('should fetch the presigned URL directly when it requires request headers', async () => {
       presignedSpy.mockResolvedValue({
         presigned_url: 'https://s3.example.com/signed',
         headers: { 'x-required-header': 'value' },
@@ -477,7 +525,12 @@ describe('ArtifactView', () => {
       await implInstance.onDownloadClick('fakeUuid', 'summary.txt');
 
       expect(assignMock).not.toHaveBeenCalled();
-      expectBlobDownload('get-artifact?path=summary.txt&run_uuid=fakeUuid');
+      expect(getArtifactDownloadBlob).toHaveBeenCalledWith('https://s3.example.com/signed', {
+        headers: { 'x-required-header': 'value' },
+      });
+      expect(createObjectURLSpy).toHaveBeenCalled();
+      expect(anchor.download).toBe('summary.txt');
+      expect(anchor.click).toHaveBeenCalled();
     });
 
     test('should download logged-model artifacts via the proxied path without a presigned request', async () => {
@@ -488,5 +541,46 @@ describe('ArtifactView', () => {
       expect(assignMock).not.toHaveBeenCalled();
       expectBlobDownload('model-123');
     });
+
+    test.each([false, true])(
+      'falls back after a header-bearing download transport failure (logged model: %s)',
+      async (loggedModel) => {
+        jest.spyOn(ServerInfo, 'getLoggedModelArtifactReadCredentialsSupportedSync').mockReturnValue(true);
+        const signedUrl = 'https://storage.example/signed';
+        const headers = { 'x-required': 'value' };
+        presignedSpy.mockResolvedValue({ presigned_url: signedUrl, headers });
+        jest.mocked(MlflowService.getCredentialsForLoggedModelArtifactRead).mockResolvedValue({
+          credentials: [
+            { credential_info: { type: 'AWS_PRESIGNED_URL', signed_uri: signedUrl, path: 'summary.txt', headers } },
+          ],
+        });
+        const implInstance = getImplInstance({ isLoggedModelsMode: loggedModel });
+        jest.mocked(getArtifactDownloadBlob).mockRejectedValueOnce(new TypeError('CORS blocked'));
+        await implInstance.onDownloadClick('fakeUuid', 'summary.txt', loggedModel ? 'model-123' : undefined);
+        expectBlobDownload(
+          loggedModel ? 'logged-models/model-123/artifacts/files' : 'get-artifact?path=summary.txt&run_uuid=fakeUuid',
+        );
+        expect(getArtifactDownloadBlob).toHaveBeenCalledTimes(2);
+      },
+    );
+
+    test.each([false, true])(
+      'never falls back for a forbidden or enforced download (presigned-only: %s)',
+      async (presignedOnly) => {
+        jest.spyOn(ServerInfo, 'getArtifactsPresignedOnlySync').mockReturnValue(presignedOnly);
+        const error = presignedOnly ? new TypeError('CORS blocked') : new ErrorWrapper('denied', 403);
+        const notify = jest.spyOn(Utils, 'logErrorAndNotifyUser').mockImplementation(() => {});
+        presignedSpy.mockResolvedValue({
+          presigned_url: 'https://storage.example/signed',
+          headers: { 'x-required': 'value' },
+        });
+        const implInstance = getImplInstance();
+        jest.mocked(getArtifactDownloadBlob).mockRejectedValueOnce(error);
+        await implInstance.onDownloadClick('fakeUuid', 'summary.txt');
+        expect(getArtifactDownloadBlob).toHaveBeenCalledTimes(1);
+        expect(anchor.click).not.toHaveBeenCalled();
+        expect(notify).toHaveBeenCalledWith(error);
+      },
+    );
   });
 });

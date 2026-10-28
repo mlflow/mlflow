@@ -61,6 +61,22 @@ def test_none_read_uri_skips_replica(store_no_replica):
 # --- TestReadWriteRouting ---
 
 
+def test_bootstrap_reads_can_bypass_stale_replica(store_with_replica):
+    # The admin bootstrap must see users that exist on the primary even when the replica lags.
+    store_with_replica.create_user("primary_only_admin", "primary-only-password", is_admin=True)
+    assert store_with_replica.has_user("primary_only_admin") is False
+    assert store_with_replica.has_user("primary_only_admin", use_primary=True) is True
+    assert (
+        store_with_replica.authenticate_user("primary_only_admin", "primary-only-password") is False
+    )
+    assert (
+        store_with_replica.authenticate_user(
+            "primary_only_admin", "primary-only-password", use_primary=True
+        )
+        is True
+    )
+
+
 def test_write_goes_to_primary(store_with_replica):
     user = store_with_replica.create_user("test_user", "password12345678")
     assert user.username == "test_user"

@@ -1,3 +1,3 @@
-FROM python:3.11-slim-trixie@sha256:90744cff8f32887f075c47d747a173ff333e9e98801667af93c357fa9f5e28ff
+FROM python:3.11-slim-trixie@sha256:ae952e0a57138a4317b9b61caaa19a8217c2f356803f8d7e63aad08769950937
 ARG VERSION
 RUN pip install --no-cache mlflow==$VERSION
