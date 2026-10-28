@@ -31,6 +31,7 @@ from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.utils.mlflow_tags import (
     MLFLOW_ISSUE_DETECTION_ERROR,
     MLFLOW_ISSUE_DETECTION_SCHEDULE,
+    MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER,
     MLFLOW_ISSUE_DETECTION_TRIGGER,
     MLFLOW_ISSUE_DETECTION_TRIGGER_SCHEDULE,
     MLFLOW_ISSUE_DETECTION_WINDOW_END,
@@ -56,7 +57,7 @@ def _span_type(span) -> str:
         return ""
 
 
-def _pick_span(spans, preferred_types: list[str], used_ids: set[str]):
+def _pick_span(spans, preferred_types: list[str], used_ids: set[str], last: bool = False):
     """
     The span a walkthrough step should cite, or ``None`` when the trace has no spans at all.
 
@@ -64,16 +65,22 @@ def _pick_span(spans, preferred_types: list[str], used_ids: set[str]):
     two-step walkthrough reads as two places in the trace rather than the same one twice. A
     trace with none of the preferred types falls back to its root span: the step's claim is still
     true of the trace, and citing nothing would drop the step.
+
+    ``last`` takes the newest span of the preferred type rather than the oldest, which is what a
+    step about the response needs: a ReAct trace's first LLM span is the tool-call decision --
+    ``content: None`` -- and only its last one holds the answer.
     """
     if not spans:
         return None
+    # Ordered by the trace, so "newest" is simply the far end.
+    order = list(reversed(spans)) if last else list(spans)
     for wanted in preferred_types:
-        matching = [span for span in spans if _span_type(span) == wanted]
+        matching = [span for span in order if _span_type(span) == wanted]
         unused = [span for span in matching if span.span_id not in used_ids]
         if chosen := (unused or matching):
             return chosen[0]
-    unused = [span for span in spans if span.span_id not in used_ids]
-    return (unused or spans)[0]
+    unused = [span for span in order if span.span_id not in used_ids]
+    return (unused or order)[0]
 
 
 def _build_evidence(assessment_name: str, rationale: str, spans) -> IssueEvidence | None:
@@ -93,7 +100,9 @@ def _build_evidence(assessment_name: str, rationale: str, spans) -> IssueEvidenc
     steps: list[IssueEvidenceStep] = []
     used_ids: set[str] = set()
     for step_config in steps_config:
-        span = _pick_span(spans, step_config["span_types"], used_ids)
+        span = _pick_span(
+            spans, step_config["span_types"], used_ids, last=step_config.get("last", False)
+        )
         if span is None:
             continue
         used_ids.add(span.span_id)
@@ -126,6 +135,9 @@ _DEMO_DETECTION_MODEL = "openai:/gpt-4o-mini"
 # run is left RUNNING -- a demo row that spins forever reads as a broken demo, not a live one.
 _DEMO_DETECTION_HISTORY = (
     {
+        # Newest, and the one that shows the cap: neither the quiet occurrence nor the failure
+        # below advanced the watermark, so this run was entitled to reach back to the occurrence
+        # before them -- 21 days -- and `STALE_WATERMARK_CAP_MS` clipped it to 8.
         "name": "Scheduled detection",
         "days_ago": 2,
         "duration_ms": 192_000,
@@ -133,11 +145,11 @@ _DEMO_DETECTION_HISTORY = (
         "scheduled": True,
         "total_traces": 180,
         "cost_usd": "0.41",
-        "window_days": 7,
+        "window_days": 8,
     },
     {
         "name": "Scheduled detection",
-        "days_ago": 5,
+        "days_ago": 9,
         "duration_ms": 61_000,
         "status": RunStatus.FAILED,
         "scheduled": True,
@@ -150,20 +162,6 @@ _DEMO_DETECTION_HISTORY = (
         ),
     },
     {
-        # A window with nothing in it: the schedule fired, found no traces to sample, and so
-        # reports a finished run over zero traces rather than a failure.
-        "name": "Scheduled detection",
-        "days_ago": 9,
-        "duration_ms": 4_000,
-        "status": RunStatus.FINISHED,
-        "scheduled": True,
-        "total_traces": 0,
-        "cost_usd": "0.00",
-        # Reaches back further than one cadence interval because the failure above left the
-        # watermark where it was.
-        "window_days": 11,
-    },
-    {
         "name": "Issue detection",
         "days_ago": 12,
         "duration_ms": 22_000,
@@ -171,6 +169,18 @@ _DEMO_DETECTION_HISTORY = (
         "scheduled": False,
         "total_traces": 240,
         "cost_usd": None,
+    },
+    {
+        # A window with nothing in it: the schedule fired, found no traces to sample, and so
+        # reports a finished run over zero traces rather than a failure.
+        "name": "Scheduled detection",
+        "days_ago": 16,
+        "duration_ms": 4_000,
+        "status": RunStatus.FINISHED,
+        "scheduled": True,
+        "total_traces": 0,
+        "cost_usd": "0.00",
+        "window_days": 7,
     },
 )
 
@@ -340,7 +350,7 @@ class IssuesDemoGenerator(BaseDemoGenerator):
             write_detection_schedule(
                 store,
                 experiment_id,
-                DetectionSchedule(cadence=DetectionCadence.DAILY, paused=True, fire_time="09:00"),
+                DetectionSchedule(cadence=DetectionCadence.WEEKLY, paused=True, fire_time="09:00"),
             )
         except Exception:
             _logger.debug("Failed to write the demo detection schedule", exc_info=True)
@@ -385,13 +395,25 @@ class IssuesDemoGenerator(BaseDemoGenerator):
                     tags=tags,
                     run_name=spec["name"],
                 )
+            except Exception:
+                _logger.debug("Failed to create a demo detection run", exc_info=True)
+                continue
+            # Its own block, because a run created and then left unterminated is worse than no
+            # run at all: it sits RUNNING, which is the one state this history must not contain,
+            # and the history page polls for as long as a loaded run has not settled. Deleted
+            # rather than left behind if it cannot be terminated.
+            try:
                 client.set_terminated(
                     run.info.run_id,
                     status=RunStatus.to_string(spec["status"]),
                     end_time=start_time + spec["duration_ms"],
                 )
             except Exception:
-                _logger.debug("Failed to create a demo detection run", exc_info=True)
+                _logger.debug("Failed to terminate a demo detection run", exc_info=True)
+                try:
+                    client.delete_run(run.info.run_id)
+                except Exception:
+                    _logger.debug("Failed to clean up an unterminated run", exc_info=True)
 
     def _generate_issue_summary(
         self, total_traces_analyzed: int, created_issues: list[dict[str, Any]]
@@ -467,11 +489,11 @@ class IssuesDemoGenerator(BaseDemoGenerator):
         except Exception:
             _logger.debug("Failed to reject old demo issues", exc_info=True)
 
-        try:
-            MlflowClient().delete_experiment_tag(
-                experiment.experiment_id, MLFLOW_ISSUE_DETECTION_SCHEDULE
-            )
-        except Exception:
-            _logger.debug("Failed to remove the demo detection schedule", exc_info=True)
+        # Both tags `write_detection_schedule` wrote, or the trace-filter tag outlives the demo.
+        for tag in (MLFLOW_ISSUE_DETECTION_SCHEDULE, MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER):
+            try:
+                MlflowClient().delete_experiment_tag(experiment.experiment_id, tag)
+            except Exception:
+                _logger.debug("Failed to remove demo detection schedule tag %s", tag, exc_info=True)
 
         # Note: Issues are also automatically deleted when the experiment is deleted.

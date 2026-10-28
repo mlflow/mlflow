@@ -15,6 +15,7 @@ from mlflow.demo.generators.traces import DEMO_VERSION_TAG
 from mlflow.entities import SpanType
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.issue_evidence import ISSUE_EVIDENCE_METADATA_KEY
+from mlflow.genai.discovery.checkpoint import STALE_WATERMARK_CAP_MS
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.utils.mlflow_tags import (
     MLFLOW_ISSUE_DETECTION_ERROR,
@@ -55,6 +56,39 @@ def test_pick_span_prefers_the_named_types_in_order():
 
     assert _pick_span(spans, ["TOOL", "LLM"], set()).span_id == "tool"
     assert _pick_span(spans, ["LLM", "TOOL"], set()).span_id == "llm"
+
+
+def test_pick_span_takes_the_last_match_for_a_response_step():
+    # A ReAct trace emits one LLM span per tool call -- `content: None`, a `tool_calls` finish
+    # reason -- before the LLM span holding the answer. A step about the response has to land on
+    # the answer, not on the decision to call a tool, which also precedes the tool output the
+    # step above it cites.
+    spans = [
+        FakeSpan("root", "CHAIN"),
+        FakeSpan("llm-tool-call", "LLM"),
+        FakeSpan("tool", "TOOL"),
+        FakeSpan("llm-final", "LLM"),
+    ]
+
+    assert _pick_span(spans, ["LLM"], set(), last=True).span_id == "llm-final"
+    assert _pick_span(spans, ["LLM"], set()).span_id == "llm-tool-call"
+
+
+def test_build_evidence_on_a_react_trace_cites_the_tool_then_the_answer():
+    # End to end over the shape that exposed the bug: the correctness walkthrough's first step is
+    # the tool, its second the response, and the response step must be the final LLM span so the
+    # two read in the order they happened.
+    spans = [
+        FakeSpan("root", "CHAIN"),
+        FakeSpan("llm-tool-call", "LLM"),
+        FakeSpan("tool", "TOOL"),
+        FakeSpan("llm-final", "LLM"),
+    ]
+
+    evidence = _build_evidence("correctness", "The total is wrong.", spans)
+
+    assert [step.span_id for step in evidence.steps] == ["tool", "llm-final"]
+    assert evidence.primary_span_id == "llm-final"
 
 
 def test_pick_span_avoids_a_span_an_earlier_step_already_cited():
@@ -117,6 +151,27 @@ def test_detection_history_covers_the_states_the_page_must_render():
     assert any(spec.get("error") for spec in _DEMO_DETECTION_HISTORY)
     # Every scheduled run needs a window, since that column is what tells the triggers apart.
     assert all(spec.get("window_days") for spec in _DEMO_DETECTION_HISTORY if spec["scheduled"])
+
+
+def test_detection_history_windows_stay_within_the_production_cap():
+    # A window wider than the cap is one the scheduler could never have produced, so the history
+    # would be teaching the reader something untrue about the watermark.
+    cap_days = STALE_WATERMARK_CAP_MS / (24 * 60 * 60 * 1000)
+
+    assert all(
+        spec["window_days"] <= cap_days for spec in _DEMO_DETECTION_HISTORY if spec["scheduled"]
+    )
+
+
+def test_the_widest_window_follows_the_failure_that_held_the_watermark():
+    # The point of the wide window is that the runs before it left the watermark alone, so it has
+    # to sit *after* them -- newer, i.e. fewer days ago.
+    scheduled = [spec for spec in _DEMO_DETECTION_HISTORY if spec["scheduled"]]
+    widest = min(scheduled, key=lambda spec: -spec["window_days"])
+    failure = next(spec for spec in scheduled if spec.get("error"))
+
+    assert widest["days_ago"] < failure["days_ago"]
+    assert widest["window_days"] > failure["window_days"]
 
 
 @pytest.fixture

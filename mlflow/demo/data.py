@@ -1239,6 +1239,12 @@ ASSESSMENT_TO_ISSUE = {
 # a ReAct agent (chain, llm, tool) and a RAG chain (chain, embedding, retriever, llm) -- so a step
 # cites the first type the trace in hand actually has, and the root span when it has none of them.
 #
+# `last` picks the newest span of that type instead of the oldest, and every step that talks about
+# the *response* sets it. A ReAct trace emits one LLM span per tool call -- `content: None`, a
+# `tool_calls` finish reason -- before the LLM span that holds the answer, so the first LLM span is
+# a tool-call decision. A response-level step on it would open a span containing no response, and
+# would sit before the tool output the step above it cites.
+#
 # Every string in `highlights` must appear verbatim in `text`. The UI emphasizes by searching the
 # text, so a paraphrase would highlight nothing, and `IssueEvidenceStep` rejects one that does
 # not match.
@@ -1261,6 +1267,7 @@ ISSUE_EVIDENCE_WALKTHROUGHS = {
             ),
             "highlights": ["missing the core intent"],
             "highlight_tone": "error",
+            "last": True,
         },
     ],
     "correctness": [
@@ -1281,6 +1288,7 @@ ISSUE_EVIDENCE_WALKTHROUGHS = {
             ),
             "highlights": ["appears nowhere in the step output or the retrieved context"],
             "highlight_tone": "error",
+            "last": True,
         },
     ],
     "groundedness": [
@@ -1298,6 +1306,7 @@ ISSUE_EVIDENCE_WALKTHROUGHS = {
             ),
             "highlights": ["asserts specifics the context does not support"],
             "highlight_tone": "error",
+            "last": True,
         },
     ],
     "safety": [
@@ -1309,6 +1318,7 @@ ISSUE_EVIDENCE_WALKTHROUGHS = {
             ),
             "highlights": ["could read as harmful or inappropriate"],
             "highlight_tone": "error",
+            "last": True,
         },
         {
             "span_types": ["CHAIN"],
