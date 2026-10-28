@@ -1,10 +1,10 @@
 /**
- * The scheduled detection occurrences an experiment has recorded, newest first.
+ * The issue detection runs an experiment has recorded, newest first.
  *
- * Runs come from the same paged search the Evaluation runs tab uses, narrowed to the occurrences
- * a schedule fired. The issue counts come from the issues themselves rather than from the run:
- * an issue records the run that first filed it, and a run that re-finds a known issue refreshes
- * that issue instead of filing another, so this counts what each occurrence found that was new.
+ * Runs come from the same paged search the Evaluation runs tab uses, narrowed to detection runs.
+ * The issue counts come from the issues themselves rather than from the run: an issue records the
+ * run that first filed it, and a run that re-finds a known issue refreshes that issue instead of
+ * filing another, so this counts what each run found that was new.
  */
 
 import { useMemo } from 'react';
@@ -15,29 +15,29 @@ import { fetchAPI, getAjaxUrl } from '../../../common/utils/FetchUtils';
 import { useActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
 import { useExperimentEvaluationRunsData } from '../../components/experiment-page/hooks/useExperimentEvaluationRunsData';
 import {
-  SCHEDULED_DETECTION_RUN_FILTER,
-  type ScheduledRunRow,
-  summarizeScheduledRuns,
-  toScheduledRunRow,
-} from './scheduledRunHistory';
+  DETECTION_RUN_FILTER,
+  type DetectionRunRow,
+  isDetectionRunSettled,
+  toDetectionRunRow,
+} from './detectionRunHistory';
 
-export const SCHEDULED_RUN_NEW_ISSUES_QUERY_KEY = 'SCHEDULED_RUN_NEW_ISSUES';
+export const DETECTION_RUN_NEW_ISSUES_QUERY_KEY = 'DETECTION_RUN_NEW_ISSUES';
 
 /**
- * How many occurrences' issue counts are fetched.
+ * How many runs' issue counts are fetched.
  *
- * One request per occurrence, because the issue filter grammar compares a single `source_run_id`
- * at a time and has no `IN`. Bounded so that scrolling a long history cannot turn into hundreds
- * of requests; past it the count is left blank rather than guessed at.
+ * One request per run, because the issue filter grammar compares a single `source_run_id` at a
+ * time and has no `IN`. Bounded so that scrolling a long history cannot turn into hundreds of
+ * requests; past it the count is left blank rather than guessed at.
  */
-export const MAX_COUNTED_OCCURRENCES = 50;
+export const MAX_COUNTED_RUNS = 50;
 
 /**
- * How often an unsettled occurrence is checked.
+ * How often an unfinished run is checked.
  *
  * A detection run takes minutes, so this is about the page not going stale while someone watches
- * it rather than about catching the moment it lands. Only ever on while a loaded occurrence is
- * still going.
+ * it rather than about catching the moment it lands. Only ever on while a loaded run is still
+ * going.
  */
 export const RUNNING_POLL_INTERVAL_MS = 10_000;
 
@@ -46,7 +46,7 @@ interface IssueCountResponse {
 }
 
 /**
- * How many issues this occurrence filed that were new.
+ * How many issues this run filed that were new.
  *
  * Asks for the count alone -- one issue at most comes back -- because the page shows a number and
  * the Issues tab is where the issues themselves are read.
@@ -71,13 +71,13 @@ const useNewIssueCounts = (experimentId: string, runKeys: string[], enabled: boo
   // One query keyed by the whole set rather than one per row: a hook cannot be called in a loop,
   // and the counts are only ever read together.
   //
-  // The keys carry each occurrence's outcome as well as its id, so an occurrence settling changes
-  // the key and its count is read again. Keyed on ids alone, a count fetched while a run was still
-  // filing issues would stay on screen after it finished.
-  const counted = runKeys.slice(0, MAX_COUNTED_OCCURRENCES);
+  // The keys carry each run's status as well as its id, so a run finishing changes the key and its
+  // count is read again. Keyed on ids alone, a count fetched while a run was still filing issues
+  // would stay on screen after it finished.
+  const counted = runKeys.slice(0, MAX_COUNTED_RUNS);
   const runIds = counted.map((key) => key.split(':')[0]);
   const { data } = useQuery<Record<string, number>, Error>({
-    queryKey: [SCHEDULED_RUN_NEW_ISSUES_QUERY_KEY, workspace, experimentId, counted],
+    queryKey: [DETECTION_RUN_NEW_ISSUES_QUERY_KEY, workspace, experimentId, counted],
     queryFn: async ({ signal }) => {
       const counts = await Promise.all(
         runIds.map(async (runId) => {
@@ -99,7 +99,7 @@ const useNewIssueCounts = (experimentId: string, runKeys: string[], enabled: boo
   return data;
 };
 
-export const useScheduledDetectionRuns = (experimentId: string, { enabled = true } = {}) => {
+export const useDetectionRuns = (experimentId: string, { enabled = true } = {}) => {
   const {
     data: runs,
     hasNextPage,
@@ -111,33 +111,34 @@ export const useScheduledDetectionRuns = (experimentId: string, { enabled = true
   } = useExperimentEvaluationRunsData({
     experimentId,
     enabled,
-    filter: SCHEDULED_DETECTION_RUN_FILTER,
-    // An occurrence on screen while it runs would otherwise read `Running` for good: the run
-    // search neither polls nor refetches on focus, so its outcome, cost and failure reason would
-    // not arrive until the page was left and reopened. Asked again after each fetch, so polling
-    // stops by itself once every loaded occurrence has settled.
+    filter: DETECTION_RUN_FILTER,
+    // A run on screen while it works would otherwise read `Running` for good: the run search
+    // neither polls nor refetches on focus, so its status, cost and failure reason would not
+    // arrive until the page was left and reopened. Asked again after each fetch, so polling stops
+    // by itself once every loaded run has finished.
     refetchInterval: (data) =>
-      (data?.pages ?? []).some((page) => (page.runs ?? []).some((run) => toScheduledRunRow(run)?.outcome === 'running'))
+      (data?.pages ?? []).some((page) =>
+        (page.runs ?? []).some((run) => {
+          const row = toDetectionRunRow(run);
+          return row !== undefined && !isDetectionRunSettled(row.status);
+        }),
+      )
         ? RUNNING_POLL_INTERVAL_MS
         : false,
   });
 
   const rows = useMemo(
-    () => (runs ?? []).map(toScheduledRunRow).filter((row): row is ScheduledRunRow => row !== undefined),
+    () => (runs ?? []).map(toDetectionRunRow).filter((row): row is DetectionRunRow => row !== undefined),
     [runs],
   );
-  // Carries each occurrence's outcome, so a count read while one was still filing is read again
-  // once it settles.
-  const runKeys = useMemo(() => rows.map((row) => `${row.runId}:${row.outcome}`), [rows]);
+  // Carries each run's status, so a count read while one was still filing is read again once it
+  // finishes.
+  const runKeys = useMemo(() => rows.map((row) => `${row.runId}:${row.status}`), [rows]);
   const newIssueCounts = useNewIssueCounts(experimentId, runKeys, enabled && rows.length > 0);
-  // `Date.now()` is read once per render rather than per row, so every duration and the summary
-  // window are measured from the same instant.
-  const summary = useMemo(() => summarizeScheduledRuns(rows, Date.now()), [rows]);
 
   return {
     rows,
     newIssueCounts,
-    summary,
     hasNextPage,
     fetchNextPage,
     isLoading,

@@ -61,8 +61,8 @@ const getBreadcrumbDescriptor = (
   if (matchPath(RoutePaths.experimentPageTabPromptDetails, pathname)) {
     return { parentTab: ExperimentPageTabName.Prompts, leafId: params['promptName'] };
   }
-  if (matchPath(RoutePaths.experimentPageTabIssueScheduledRuns, pathname)) {
-    return { parentTab: ExperimentPageTabName.Issues, leafId: 'scheduled-runs' };
+  if (matchPath(RoutePaths.experimentPageTabIssueDetectionRuns, pathname)) {
+    return { parentTab: ExperimentPageTabName.Issues, leafId: 'runs' };
   }
   return activeTab ? { parentTab: activeTab } : undefined;
 };

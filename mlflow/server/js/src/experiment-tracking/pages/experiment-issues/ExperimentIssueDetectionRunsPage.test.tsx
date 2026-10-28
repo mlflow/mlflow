@@ -11,10 +11,11 @@ import {
   MLFLOW_ISSUE_DETECTION_ERROR_TAG,
   MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG,
   MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG,
+  MLFLOW_ISSUE_DETECTION_TRIGGER_TAG,
   MLFLOW_ISSUE_DETECTION_WINDOW_END_TAG,
   MLFLOW_ISSUE_DETECTION_WINDOW_START_TAG,
 } from '../../constants';
-import ExperimentIssueScheduledRunsPage from './ExperimentIssueScheduledRunsPage';
+import ExperimentIssueDetectionRunsPage from './ExperimentIssueDetectionRunsPage';
 import { ISSUE_DETECTION_SCHEDULE_VERSION } from './issueDetectionSchedule';
 
 jest.mock('../../../common/utils/FeatureUtils', () => ({
@@ -132,12 +133,14 @@ const scheduleStateTag = (nextFireTimeMs: number) => ({
   }),
 });
 
-const succeeded = (overrides: Partial<StoredRun> = {}): StoredRun => ({
+/** A scheduled occurrence that finished: the tags the scheduled job writes, window included. */
+const scheduled = (overrides: Partial<StoredRun> = {}): StoredRun => ({
   runUuid: 'run-ok',
   status: 'FINISHED',
   startTime: nowMs - 7 * DAY_MS,
   endTime: nowMs - 7 * DAY_MS + 192_000,
   tags: {
+    [MLFLOW_ISSUE_DETECTION_TRIGGER_TAG]: 'schedule',
     total_traces: '312',
     total_cost_usd: '0.42',
     model: 'openai:/gpt-5-mini',
@@ -147,12 +150,22 @@ const succeeded = (overrides: Partial<StoredRun> = {}): StoredRun => ({
   ...overrides,
 });
 
+/** A run somebody started from the Issues tab: no trigger tag, and no window to record. */
+const adhoc = (overrides: Partial<StoredRun> = {}): StoredRun => ({
+  runUuid: 'run-adhoc',
+  status: 'FINISHED',
+  startTime: nowMs - 4 * 60 * 60 * 1000,
+  endTime: nowMs - 4 * 60 * 60 * 1000 + 71_000,
+  tags: { total_traces: '40', total_cost_usd: '0.08', model: 'openai:/gpt-5.6-sol' },
+  ...overrides,
+});
+
 /**
  * Held so it can be torn down between tests.
  *
- * The page issues one request per occurrence for its issue counts. Left in flight past the end of
- * a test they settle against a torn-down renderer, which jest reports as a log after the test
- * finished -- intermittently, and attributed to whichever suite happened to be running.
+ * The page issues one request per run for its issue counts. Left in flight past the end of a test
+ * they settle against a torn-down renderer, which jest reports as a log after the test finished --
+ * intermittently, and attributed to whichever suite happened to be running.
  */
 let queryClient: QueryClient;
 
@@ -161,26 +174,23 @@ const renderPage = () => {
   queryClient = client;
   return renderWithDesignSystem(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={['/experiments/1/issues/scheduled-runs']}>
+      <MemoryRouter initialEntries={['/experiments/1/issues/runs']}>
         <Routes>
-          <Route
-            path="/experiments/:experimentId/issues/scheduled-runs"
-            element={<ExperimentIssueScheduledRunsPage />}
-          />
+          <Route path="/experiments/:experimentId/issues/runs" element={<ExperimentIssueDetectionRunsPage />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   );
 };
 
-/** The row an occurrence rendered, found by the model cell so the outcome can be asserted on it. */
+/** The row a run rendered, found by the model cell so the rest of the row can be asserted on it. */
 const rowFor = async (text: string | RegExp) => (await screen.findByText(text)).closest('[role="row"]') as HTMLElement;
 
 beforeEach(() => {
   jest.mocked(shouldEnableExperimentIssuesTab).mockReturnValue(true);
   nowMs = Date.now();
   experimentTags = [scheduleTag('weekly'), scheduleStateTag(NEXT_FIRE_MS)];
-  storedRuns = [succeeded()];
+  storedRuns = [scheduled()];
   issueSourceRunIds = [];
   issueSearchFails = false;
   runSearchPages = 1;
@@ -194,38 +204,38 @@ afterEach(() => {
   queryClient?.clear();
 });
 
-describe('ExperimentIssueScheduledRunsPage', () => {
-  test('asks only for the occurrences a schedule fired', async () => {
+describe('ExperimentIssueDetectionRunsPage', () => {
+  test('asks for every detection run, however it was started', async () => {
     renderPage();
 
     await waitFor(() => expect(runFilters.length).toBeGreaterThan(0));
-    // Searching by run type instead would list every manual detection run as a scheduled one.
-    expect(runFilters[0]).toBe("tags.`mlflow.issueDetection.trigger` = 'schedule'");
+    // Searching on the trigger tag instead would find the scheduled runs and miss the ad-hoc
+    // ones, which have no such tag at all.
+    expect(runFilters[0]).toBe("tags.`mlflow.runType` = 'issue_detection'");
   });
 
   test('describes the schedule and when it next fires', async () => {
     renderPage();
 
-    expect(await screen.findByText('Weekly on Monday at 21:15 (UTC)')).toBeInTheDocument();
+    expect(await screen.findByText(/Weekly on Monday at 21:15 \(UTC\)/)).toBeInTheDocument();
     expect(await screen.findByText(/Jan 18, 2027, 21:15/)).toBeInTheDocument();
   });
 
-  test('a paused schedule says so once, and names no next run', async () => {
+  test('a paused schedule says so, and names no next run', async () => {
     experimentTags = [scheduleTag('weekly', { paused: true })];
     renderPage();
 
-    // Said under the title, where the cadence would otherwise be. The Next run figure shows a
-    // dash rather than repeating it, which is what having both read like two separate facts.
     expect(await screen.findByText('Schedule is off')).toBeInTheDocument();
-    expect(screen.getByText('Next run').parentElement).toHaveTextContent('—');
+    expect(screen.queryByText(/Next run/)).not.toBeInTheDocument();
   });
 
-  test('shows what the occurrence did', async () => {
+  test('shows what a scheduled run did', async () => {
     issueSourceRunIds = ['run-ok', 'run-ok'];
     renderPage();
 
     const row = await rowFor('openai:/gpt-5-mini');
-    expect(await within(row).findByText('Succeeded')).toBeInTheDocument();
+    expect(await within(row).findByText('Finished')).toBeInTheDocument();
+    expect(within(row).getByText('Scheduled')).toBeInTheDocument();
     expect(within(row).getByText('312')).toBeInTheDocument();
     expect(within(row).getByText('$0.42')).toBeInTheDocument();
     expect(within(row).getByText('3m 12s')).toBeInTheDocument();
@@ -239,11 +249,33 @@ describe('ExperimentIssueScheduledRunsPage', () => {
     await waitFor(() => expect(within(row).getByText('2')).toBeInTheDocument());
   });
 
-  test('an occurrence that analyzed nothing is not reported as a success', async () => {
-    // A finished run over zero traces fired over a window with nothing in it. "Succeeded" would
-    // claim an analysis that never happened.
+  test('an ad-hoc run is told apart from a scheduled one, and covers no window', async () => {
+    // It was handed a chosen set of traces rather than a stretch of time, so there is no window
+    // for the column to name.
+    storedRuns = [adhoc()];
+    renderPage();
+
+    const row = await rowFor('openai:/gpt-5.6-sol');
+    expect(await within(row).findByText('Ad hoc')).toBeInTheDocument();
+    expect(within(row).queryByText('Scheduled')).not.toBeInTheDocument();
+    expect(row).not.toHaveTextContent(/Jan 1, 12:00/);
+    expect(within(row).getByText('40')).toBeInTheDocument();
+  });
+
+  test('lists both kinds together, newest first as the search returned them', async () => {
+    storedRuns = [adhoc(), scheduled()];
+    renderPage();
+
+    expect(await within(await rowFor('openai:/gpt-5.6-sol')).findByText('Ad hoc')).toBeInTheDocument();
+    expect(await within(await rowFor('openai:/gpt-5-mini')).findByText('Scheduled')).toBeInTheDocument();
+    expect(await screen.findByText('2 runs')).toBeInTheDocument();
+  });
+
+  test('a run that analyzed nothing reads as finished over zero traces', async () => {
+    // Rather than a word of this page's own for it: "Finished" beside a scanned count of 0 says
+    // the window held nothing it could use, and keeps the status column to the run's own status.
     storedRuns = [
-      succeeded({
+      scheduled({
         runUuid: 'run-quiet',
         tags: { total_traces: '0', total_cost_usd: '0.0', model: 'openai:/gpt-5-mini' },
       }),
@@ -251,21 +283,32 @@ describe('ExperimentIssueScheduledRunsPage', () => {
     renderPage();
 
     const row = await rowFor('openai:/gpt-5-mini');
-    expect(await within(row).findByText('Nothing to analyze')).toBeInTheDocument();
-    expect(within(row).queryByText('Succeeded')).not.toBeInTheDocument();
+    expect(await within(row).findByText('Finished')).toBeInTheDocument();
+    // Scanned traces and new issues both read 0, which together say what happened: it ran, and
+    // there was nothing in the window for it to look at.
+    await waitFor(() => expect(within(row).getAllByText('0')).toHaveLength(2));
   });
 
-  test('a cancelled occurrence is told apart from one that broke', async () => {
-    storedRuns = [succeeded({ runUuid: 'run-killed', status: 'KILLED' })];
+  test('a cancelled run is told apart from one that broke', async () => {
+    storedRuns = [scheduled({ runUuid: 'run-killed', status: 'KILLED' })];
     renderPage();
 
     const row = await rowFor('openai:/gpt-5-mini');
-    expect(await within(row).findByText('Cancelled')).toBeInTheDocument();
+    expect(await within(row).findByText('Killed')).toBeInTheDocument();
+    expect(within(row).queryByText('Failed')).not.toBeInTheDocument();
   });
 
-  test('a failed occurrence reports as failed and claims no cost', async () => {
+  test('a status this build does not know is named rather than left blank', async () => {
+    // A newer server can introduce one; the row still has to say something about it.
+    storedRuns = [scheduled({ runUuid: 'run-new', status: 'SOMETHING_NEW' })];
+    renderPage();
+
+    expect(await within(await rowFor('openai:/gpt-5-mini')).findByText('Unknown')).toBeInTheDocument();
+  });
+
+  test('a failed run reports as failed and claims no cost', async () => {
     storedRuns = [
-      succeeded({
+      scheduled({
         runUuid: 'run-bad',
         status: 'FAILED',
         tags: {
@@ -286,9 +329,9 @@ describe('ExperimentIssueScheduledRunsPage', () => {
     expect(await screen.findByText('MlflowException: no API key available')).toBeInTheDocument();
   });
 
-  test('an occurrence that failed before the reason was recorded shows no empty detail row', async () => {
+  test('a run that failed before the reason was recorded shows no empty detail row', async () => {
     storedRuns = [
-      succeeded({ runUuid: 'run-bad', status: 'FAILED', tags: { total_traces: '1', model: 'openai:/gpt-5-mini' } }),
+      scheduled({ runUuid: 'run-bad', status: 'FAILED', tags: { total_traces: '1', model: 'openai:/gpt-5-mini' } }),
     ];
     renderPage();
 
@@ -297,10 +340,10 @@ describe('ExperimentIssueScheduledRunsPage', () => {
     expect(screen.queryByText('Why it failed')).not.toBeInTheDocument();
   });
 
-  test('an occurrence still going claims no issue count yet', async () => {
+  test('a run still going claims no issue count yet', async () => {
     // Its count so far would read as a result; it has not finished filing.
     issueSourceRunIds = [];
-    storedRuns = [succeeded({ runUuid: 'run-live', status: 'RUNNING', endTime: undefined })];
+    storedRuns = [scheduled({ runUuid: 'run-live', status: 'RUNNING', endTime: undefined })];
     renderPage();
 
     const row = await rowFor('openai:/gpt-5-mini');
@@ -308,9 +351,9 @@ describe('ExperimentIssueScheduledRunsPage', () => {
     expect(within(row).queryByText('0')).not.toBeInTheDocument();
   });
 
-  test('an occurrence still going shows no cost and no issue count', async () => {
+  test('a run still going shows no cost, and is timed against now', async () => {
     storedRuns = [
-      succeeded({ runUuid: 'run-live', status: 'RUNNING', startTime: nowMs - 124_000, endTime: undefined }),
+      scheduled({ runUuid: 'run-live', status: 'RUNNING', startTime: nowMs - 124_000, endTime: undefined }),
     ];
     renderPage();
 
@@ -320,24 +363,30 @@ describe('ExperimentIssueScheduledRunsPage', () => {
     expect(within(row).getByText(/^2m 0[45]s$/)).toBeInTheDocument();
   });
 
-  test('totals only the occurrences inside the summary window', async () => {
-    storedRuns = [succeeded(), succeeded({ runUuid: 'run-old', startTime: nowMs - 40 * DAY_MS })];
+  test('a run abandoned by a dead worker is timed in hours, not in hundreds of minutes', async () => {
+    // It stays RUNNING, so it is timed against now. Minutes alone read as "915m 04s" by the next
+    // morning, which says less about the run than it does about the formatter.
+    storedRuns = [
+      scheduled({
+        runUuid: 'run-stuck',
+        status: 'RUNNING',
+        startTime: nowMs - 15 * 60 * 60 * 1000,
+        endTime: undefined,
+      }),
+    ];
     renderPage();
 
-    await waitFor(() => expect(screen.getByText('Runs, last 30 days').parentElement).toHaveTextContent('1'));
-    // Every scoped figure names its window: all three are over the same 30 days, and a bare
-    // "Traces scanned" read as an all-time count beside two that said otherwise.
-    expect(screen.getByText('Traces scanned, last 30 days').parentElement).toHaveTextContent('312');
-    expect(screen.getByText('Spend, last 30 days').parentElement).toHaveTextContent('$0.42');
+    const row = await rowFor('openai:/gpt-5-mini');
+    expect(await within(row).findByText(/^15h 0[01]m$/)).toBeInTheDocument();
   });
 
   test('an issue count that cannot be read leaves the cell blank rather than reading zero', async () => {
-    // Zero would say the occurrence found nothing, which is a different claim from "unknown".
+    // Zero would say the run found nothing, which is a different claim from "unknown".
     issueSearchFails = true;
     renderPage();
 
     const row = await rowFor('openai:/gpt-5-mini');
-    await waitFor(() => expect(within(row).getByText('Succeeded')).toBeInTheDocument());
+    await waitFor(() => expect(within(row).getByText('Finished')).toBeInTheDocument());
     expect(within(row).queryByText('0')).not.toBeInTheDocument();
   });
 
@@ -355,39 +404,46 @@ describe('ExperimentIssueScheduledRunsPage', () => {
     expect(await screen.findByText('1 run')).toBeInTheDocument();
   });
 
-  test('a schedule with no occurrences yet names when the first one runs', async () => {
+  test('an experiment with no detection runs names when the schedule first fires', async () => {
     storedRuns = [];
     renderPage();
 
-    expect(await screen.findByText('No occurrences yet')).toBeInTheDocument();
-    expect(await screen.findByText(/The first one runs Jan 18, 2027, 21:15/)).toBeInTheDocument();
+    expect(await screen.findByText('No detection runs yet')).toBeInTheDocument();
+    expect(await screen.findByText(/The schedule next runs Jan 18, 2027, 21:15/)).toBeInTheDocument();
   });
 
-  test('an empty page shows the state on its own, with no figures or column headers', async () => {
-    // The figures are all dashes and zeroes with nothing to total, and a column header over no
-    // rows labels nothing, so neither earns its place until there is a row to describe.
-    experimentTags = [scheduleTag('weekly', { paused: true })];
+  test('an empty page shows the state on its own, with no column headers', async () => {
+    // A column header over no rows labels nothing, so it is withheld until there is a row.
     storedRuns = [];
     renderPage();
 
-    expect(await screen.findByText('This schedule is off')).toBeInTheDocument();
-    expect(await screen.findByText('Turn the schedule on and the runs it fires will appear here.')).toBeInTheDocument();
-    expect(screen.queryByText('Runs, last 30 days')).not.toBeInTheDocument();
-    expect(screen.queryByText('Spend, last 30 days')).not.toBeInTheDocument();
+    expect(await screen.findByText('No detection runs yet')).toBeInTheDocument();
     expect(screen.queryByText('Window covered')).not.toBeInTheDocument();
     expect(screen.queryByText('Scanned traces')).not.toBeInTheDocument();
-    // And the schedule's own line, which would only repeat the title above.
-    expect(screen.queryByText('Schedule is off')).not.toBeInTheDocument();
+    expect(screen.queryByText('Trigger')).not.toBeInTheDocument();
   });
 
-  test('an empty page for a live schedule keeps its cadence line', async () => {
-    // Nothing duplicated there: the title says no occurrences yet, the line says what it will do.
+  test('an empty page with no schedule points at the Issues tab instead', async () => {
+    // Nothing to promise: without a schedule the only way a run appears here is somebody asking
+    // for one, so naming a first run would be naming a run that is not coming.
+    experimentTags = [scheduleTag(null)];
     storedRuns = [];
     renderPage();
 
-    expect(await screen.findByText('No occurrences yet')).toBeInTheDocument();
-    expect(screen.getByText('Weekly on Monday at 21:15 (UTC)')).toBeInTheDocument();
-    expect(screen.queryByText('Runs, last 30 days')).not.toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        'Runs appear here once you detect issues from the Issues tab, or once you turn on a schedule.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  test('an empty page keeps the schedule line above it', async () => {
+    // Nothing duplicated there: the title says no runs yet, the line says what the schedule will do.
+    storedRuns = [];
+    renderPage();
+
+    expect(await screen.findByText('No detection runs yet')).toBeInTheDocument();
+    expect(screen.getByText(/Weekly on Monday at 21:15 \(UTC\)/)).toBeInTheDocument();
   });
 
   test('opens the schedule dialog without leaving the page', async () => {
@@ -400,27 +456,27 @@ describe('ExperimentIssueScheduledRunsPage', () => {
     await user.click(await screen.findByRole('button', { name: 'Edit schedule' }));
 
     expect(await screen.findByRole('button', { name: 'Save' })).toBeInTheDocument();
-    expect(screen.getByText('Scheduled detection runs')).toBeInTheDocument();
+    expect(screen.getByText('Issue detection run history')).toBeInTheDocument();
   });
 
-  test('a failed read says so instead of claiming the schedule never fired', async () => {
-    // Left to the empty state, a transient outage would tell someone their schedule has no
+  test('a failed read says so instead of claiming nothing has ever run', async () => {
+    // Left to the empty state, a transient outage would tell someone this experiment has no
     // history -- the one thing this page exists to answer.
     runSearchFails = true;
     renderPage();
 
-    expect(await screen.findByText("Could not load this schedule's history")).toBeInTheDocument();
-    expect(screen.queryByText('No occurrences yet')).not.toBeInTheDocument();
+    expect(await screen.findByText("Could not load this experiment's run history")).toBeInTheDocument();
+    expect(screen.queryByText('No detection runs yet')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
   });
 
-  test('a later page failing keeps the occurrences already read', async () => {
+  test('a later page failing keeps the runs already read', async () => {
     // The same error covers the first page and the fiftieth. Taking the page over on the second
     // would discard what the user is reading to report what could not be loaded next.
     runSearchPages = 3;
     renderPage();
     const row = await rowFor('openai:/gpt-5-mini');
-    expect(await within(row).findByText('Succeeded')).toBeInTheDocument();
+    expect(await within(row).findByText('Finished')).toBeInTheDocument();
 
     // Scrolling is what asks for the next page; jsdom reports every dimension as 0, which the
     // page reads as "at the bottom".
@@ -429,8 +485,8 @@ describe('ExperimentIssueScheduledRunsPage', () => {
     fireEvent.scroll(scroller);
     await waitFor(() => expect(runSearchFailures).toBeGreaterThan(0));
 
-    expect(await within(await rowFor('openai:/gpt-5-mini')).findByText('Succeeded')).toBeInTheDocument();
-    expect(screen.queryByText("Could not load this schedule's history")).not.toBeInTheDocument();
+    expect(await within(await rowFor('openai:/gpt-5-mini')).findByText('Finished')).toBeInTheDocument();
+    expect(screen.queryByText("Could not load this experiment's run history")).not.toBeInTheDocument();
   });
 
   test('a paused schedule names no next run even when its dispatch state still has one', async () => {
@@ -440,26 +496,7 @@ describe('ExperimentIssueScheduledRunsPage', () => {
     renderPage();
 
     expect(await screen.findByText('Schedule is off')).toBeInTheDocument();
-    expect(screen.getByText('Next run').parentElement).toHaveTextContent('—');
     expect(screen.queryByText(/Jan 18, 2027/)).not.toBeInTheDocument();
-  });
-
-  test('the 30-day figures are marked as lower bounds while pages remain', async () => {
-    // They total the rows loaded so far, so presenting them as exact totals would understate a
-    // schedule with more occurrences than one page.
-    runSearchPages = 3;
-    renderPage();
-
-    await waitFor(() => expect(screen.getByText('Runs, last 30 days').parentElement).toHaveTextContent('1+'));
-    expect(screen.getByText('Traces scanned, last 30 days').parentElement).toHaveTextContent('312+');
-    expect(screen.getByText('Spend, last 30 days').parentElement).toHaveTextContent('$0.42+');
-  });
-
-  test('the figures are exact once every page is loaded', async () => {
-    renderPage();
-
-    await waitFor(() => expect(screen.getByText('Runs, last 30 days').parentElement).toHaveTextContent('1'));
-    expect(screen.getByText('Runs, last 30 days').parentElement).not.toHaveTextContent('1+');
   });
 
   test('is not reachable while the Issues tab is off', async () => {

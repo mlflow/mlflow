@@ -131,11 +131,11 @@ describe('ExperimentPageBreadcrumbs', () => {
       title: 'Helpful queue',
     },
     {
-      entry: '/experiments/123/issues/scheduled-runs',
-      route: '/experiments/:experimentId/issues/scheduled-runs',
+      entry: '/experiments/123/issues/runs',
+      route: '/experiments/:experimentId/issues/runs',
       tab: 'Issues',
-      leaf: 'Scheduled detection runs',
-      title: 'Scheduled detection runs',
+      leaf: 'Issue detection run history',
+      title: 'Issue detection run history',
     },
   ])('shows $leaf under $tab', async ({ entry, route, tab, leaf, title }) => {
     renderAt(entry, route, title);

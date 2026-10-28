@@ -99,8 +99,8 @@ export const MLFLOW_ISSUE_DETECTION_WINDOW_START_TAG = 'mlflow.issueDetection.wi
 export const MLFLOW_ISSUE_DETECTION_WINDOW_END_TAG = 'mlflow.issueDetection.windowEnd';
 // Why a detection run failed, as "<ExceptionType>: <message>".
 export const MLFLOW_ISSUE_DETECTION_ERROR_TAG = 'mlflow.issueDetection.error';
-// How a detection run was started. Scheduled occurrences carry "schedule"; a manual run has no
-// value for this tag at all, which is what separates the two in a run search.
+// How a detection run was started. Scheduled occurrences carry "schedule"; an ad-hoc run has no
+// value for this tag at all, which is what tells the two apart once the runs are read.
 export const MLFLOW_ISSUE_DETECTION_TRIGGER_TAG = 'mlflow.issueDetection.trigger';
 export const MLFLOW_ISSUE_DETECTION_TRIGGER_VALUE_SCHEDULE = 'schedule';
 // Experiment-level detection settings, stored as one JSON value: instructions plus category toggles.

@@ -404,6 +404,16 @@ describe('Experiment Issues', () => {
     );
     expect(screen.getByRole('textbox', { name: 'Search issues by title' })).toHaveValue('Slow');
   });
+  test('opens the detection run history from the toolbar, beside the filter', async () => {
+    // The schedule dialog's footer link was the only way in, which is a narrow door for a page
+    // that lists the ad-hoc runs started from this very toolbar.
+    renderPage();
+    await screen.findByRole('button', { name: /Slow response/ });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Issue detection run history' }));
+
+    expect(screen.getByLabelText('Current URL')).toHaveTextContent('/experiments/1/issues/runs');
+  });
   test('lists category options without search and preserves custom-category links', async () => {
     issues[0].categories = ['CustomerSupport'];
     renderPage('?issueCategory=CustomerSupport');

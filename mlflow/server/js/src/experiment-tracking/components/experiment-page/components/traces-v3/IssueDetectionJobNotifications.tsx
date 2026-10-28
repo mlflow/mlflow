@@ -181,7 +181,14 @@ export const recordSubmittedIssueDetectionJob = (
   window.dispatchEvent(new CustomEvent(ISSUE_DETECTION_JOB_SUBMITTED_EVENT, { detail: submittedJob }));
 };
 
-const getIssueDetectionRunRoute = (experimentId: string) =>
+/**
+ * Where "View issues" goes once a run has succeeded: the tab that lists what it found.
+ *
+ * The other two toasts link to the run history page instead. A run in flight and a run that broke
+ * both have nothing for the Issues tab to show, while the history page has the row for this run --
+ * its status while it works, and the reason underneath it if it failed.
+ */
+const getIssuesTabRoute = (experimentId: string) =>
   Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Issues);
 
 const TrackedIssueDetectionJobNotification = ({
@@ -289,12 +296,14 @@ export const IssueDetectionJobNotifications = () => {
               componentId="mlflow.traces.issue-detection.started-toast.view-progress"
               onClick={() => {
                 notification.close(startedKey);
-                navigate(withPreservedQueryString(getIssueDetectionRunRoute(startedNotificationJob.experimentId)));
+                navigate(
+                  withPreservedQueryString(Routes.getIssueDetectionRunsRoute(startedNotificationJob.experimentId)),
+                );
               }}
             >
               <FormattedMessage
                 defaultMessage="View progress"
-                description="Link to the issue detection run page from the job-started notification"
+                description="Link to the issue detection run history from the job-started notification"
               />
             </Typography.Link>
           </div>
@@ -338,13 +347,13 @@ export const IssueDetectionJobNotifications = () => {
                   componentId="mlflow.traces.issue-detection.completed-toast.view-results"
                   onClick={() => {
                     notification.close(completedKey);
-                    navigate(withPreservedQueryString(getIssueDetectionRunRoute(experimentId)));
+                    navigate(withPreservedQueryString(getIssuesTabRoute(experimentId)));
                   }}
                 >
                   {issueCount <= 1 ? (
                     <FormattedMessage
                       defaultMessage="View details"
-                      description="Link to the issue detection run overview from the completion notification"
+                      description="Link to the Issues tab from the completion notification"
                     />
                   ) : (
                     <FormattedMessage
@@ -372,12 +381,12 @@ export const IssueDetectionJobNotifications = () => {
                 componentId="mlflow.traces.issue-detection.failed-toast.view-details"
                 onClick={() => {
                   notification.close(completedKey);
-                  navigate(withPreservedQueryString(getIssueDetectionRunRoute(experimentId)));
+                  navigate(withPreservedQueryString(Routes.getIssueDetectionRunsRoute(experimentId)));
                 }}
               >
                 <FormattedMessage
                   defaultMessage="View details"
-                  description="Link to the issue detection run page from the failure notification"
+                  description="Link to the issue detection run history from the failure notification"
                 />
               </Typography.Link>
             ),

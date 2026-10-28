@@ -152,9 +152,42 @@ describe('IssueDetectionJobNotifications', () => {
     expect(screen.getByText('Found 4 issues across 48 traces.')).toBeInTheDocument();
 
     await userEvent.click(screen.getByText('View issues'));
-    // The Issues tab, not the per-run detection page this PR removes: the notification's own link
-    // was already pointed here, and only this expectation still named the deleted route.
-    expect(mockNavigate).toHaveBeenCalledWith(expect.stringContaining('/experiments/exp-1/issues'));
+    // The Issues tab, and asserted exactly: the run history route begins with the same path, so a
+    // `stringContaining` here would pass for either destination.
+    expect(mockNavigate).toHaveBeenCalledWith('/experiments/exp-1/issues');
+  });
+
+  test('the started notification links to the run history, where the run in flight has a row', async () => {
+    // Not the Issues tab: a run that has only just been submitted has nothing for it to list, and
+    // the thing the user asked to see is how the run itself is getting on.
+    mockJobStatus(JobStatus.PENDING);
+    renderWithDesignSystem(<IssueDetectionJobNotifications />);
+
+    act(() => {
+      recordSubmittedIssueDetectionJob(submittedJob);
+    });
+    await userEvent.click(await screen.findByText('View progress'));
+
+    expect(mockNavigate).toHaveBeenCalledWith('/experiments/exp-1/issues/runs');
+  });
+
+  test('the failure notification links to the run history, which carries the reason', async () => {
+    // The Issues tab has nothing to show for a run that broke. The history page has its row, and
+    // the exception the run recorded underneath it.
+    mockJobStatus(JobStatus.RUNNING);
+    const { rerender } = renderWithDesignSystem(<IssueDetectionJobNotifications />);
+
+    act(() => {
+      recordSubmittedIssueDetectionJob(submittedJob);
+    });
+    await screen.findByText('Issue detection started');
+
+    mockJobStatus(JobStatus.FAILED, undefined, 'boom');
+    rerender(<IssueDetectionJobNotifications />);
+    await screen.findByText('Issue detection failed');
+    await userEvent.click(screen.getByText('View details'));
+
+    expect(mockNavigate).toHaveBeenCalledWith('/experiments/exp-1/issues/runs');
   });
 
   test('tracks concurrent submitted jobs from the current session', async () => {

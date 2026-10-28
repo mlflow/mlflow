@@ -456,7 +456,7 @@ export const ExperimentIssuesScheduleControl = ({
   const triggerContent = isEditButton ? (
     intl.formatMessage({
       defaultMessage: 'Edit schedule',
-      description: 'Experiment issues tab > Button that opens the schedule dialog from the scheduled runs page',
+      description: 'Experiment issues tab > Button that opens the schedule dialog from the run history page',
     })
   ) : isScheduled && !isUpdating ? (
     <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
@@ -850,16 +850,16 @@ export const ExperimentIssuesScheduleControl = ({
         footer={
           <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             {/* Where upstream puts "View run history". Upstream's opens the managed scheduler's
-                own history; this one opens the occurrences the schedule has recorded here, which
-                are runs in this experiment. Hidden on the API-key step, which is mid-save. */}
+                own history; this one opens every detection run this experiment has recorded, the
+                scheduled ones among them. Hidden on the API-key step, which is mid-save. */}
             {view === 'main' && (
               <Link
                 componentId={`${COMPONENT_ID}.modal.footer.run-history`}
-                to={Routes.getIssueScheduledRunsRoute(experimentId)}
+                to={Routes.getIssueDetectionRunsRoute(experimentId)}
               >
                 {intl.formatMessage({
                   defaultMessage: 'View run history',
-                  description: 'Experiment issues tab > Schedule modal link to the past occurrences of this schedule',
+                  description: "Experiment issues tab > Schedule modal link to this experiment's detection run history",
                 })}
               </Link>
             )}

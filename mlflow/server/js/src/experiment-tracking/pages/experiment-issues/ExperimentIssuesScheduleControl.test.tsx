@@ -1235,7 +1235,7 @@ describe('ExperimentIssuesScheduleControl', () => {
   });
 
   describe('run history', () => {
-    test("the footer links to this schedule's past occurrences", async () => {
+    test('the footer links to the detection run history', async () => {
       experimentTags = [scheduleTag('weekly')];
       const user = setup();
       render();
@@ -1244,12 +1244,12 @@ describe('ExperimentIssuesScheduleControl', () => {
 
       expect(await screen.findByRole('link', { name: 'View run history' })).toHaveAttribute(
         'href',
-        '/experiments/1/issues/scheduled-runs',
+        '/experiments/1/issues/runs',
       );
     });
 
     test('a surface that states the schedule beside it gets a plain Edit schedule button', async () => {
-      // The scheduled-runs page says what the schedule is in its own header, so the trigger there
+      // The run history page says what the schedule is in its own header, so the trigger there
       // is an action rather than a readout -- and it opens this same dialog in place.
       experimentTags = [scheduleTag('weekly')];
       const user = setup();
