@@ -8,12 +8,12 @@ import { useGenAiExperimentRunsForComparison } from './useGenAiExperimentRunsFor
 import { makeRequest } from '../utils/FetchUtils';
 
 jest.mock('../utils/FetchUtils', () => ({
-  getAjaxUrl: jest.fn().mockImplementation((path: string) => `http://localhost/api/${path}`),
+  getAjaxUrl: jest.fn((path: string) => `http://localhost/api/${path}`),
   makeRequest: jest.fn(),
 }));
 
 describe('useGenAiExperimentRunsForComparison', () => {
-  const mockMakeRequest = makeRequest as jest.Mock;
+  const mockMakeRequest = jest.mocked(makeRequest);
 
   beforeEach(() => {
     jest.clearAllMocks();

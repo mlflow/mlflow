@@ -2,10 +2,7 @@ import type { QueryFunctionContext } from '../../query-client/queryClient';
 import { useQuery } from '../../query-client/queryClient';
 
 import { getAjaxUrl, makeRequest } from '../utils/FetchUtils';
-import {
-  MLFLOW_RUN_TYPE_TAG,
-  MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION,
-} from '@mlflow/mlflow/src/experiment-tracking/constants';
+import { isIssueDetectionRun } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/hooks/useExperimentEvaluationRunsData';
 
 type UseExperimentRunsForTraceComparisonQueryKey = ['EXPERIMENT_RUNS_FOR_TRACE_COMPARISON', { experimentId: string }];
 
@@ -35,14 +32,6 @@ const queryFn = async ({
     experiment_ids: [experimentId],
   });
 };
-
-// Same exclusion as the evaluation runs list; see `isIssueDetectionRun` in useExperimentEvaluationRunsData.
-const isIssueDetectionRun = (run: RawSearchRunsResponse['runs'][0]): boolean =>
-  Boolean(
-    run.data?.tags?.some(
-      ({ key, value }) => key === MLFLOW_RUN_TYPE_TAG && value === MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION,
-    ),
-  );
 
 /**
  * Fetches the runs for the given experiment, used for the "compare to" dropdown in the eval page.
