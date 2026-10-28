@@ -2,6 +2,10 @@ import type { QueryFunctionContext } from '../../query-client/queryClient';
 import { useQuery } from '../../query-client/queryClient';
 
 import { getAjaxUrl, makeRequest } from '../utils/FetchUtils';
+import {
+  MLFLOW_RUN_TYPE_TAG,
+  MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION,
+} from '@mlflow/mlflow/src/experiment-tracking/constants';
 
 type UseExperimentRunsForTraceComparisonQueryKey = ['EXPERIMENT_RUNS_FOR_TRACE_COMPARISON', { experimentId: string }];
 
@@ -17,6 +21,9 @@ type RawSearchRunsResponse = {
       run_name?: string;
       start_time?: number | string | null;
     };
+    data?: {
+      tags?: Array<{ key: string; value: string }>;
+    };
   }[];
 };
 
@@ -28,6 +35,14 @@ const queryFn = async ({
     experiment_ids: [experimentId],
   });
 };
+
+// Same exclusion as the evaluation runs list; see `isIssueDetectionRun` in useExperimentEvaluationRunsData.
+const isIssueDetectionRun = (run: RawSearchRunsResponse['runs'][0]): boolean =>
+  Boolean(
+    run.data?.tags?.some(
+      ({ key, value }) => key === MLFLOW_RUN_TYPE_TAG && value === MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION,
+    ),
+  );
 
 /**
  * Fetches the runs for the given experiment, used for the "compare to" dropdown in the eval page.
@@ -59,18 +74,20 @@ export const useGenAiExperimentRunsForComparison = (
     staleTime: Infinity,
   });
 
-  const runInfos = data?.runs?.map((run) => {
-    const startTime = run.info?.start_time;
-    const parsedStartTime =
-      startTime === undefined || startTime === null || (typeof startTime === 'string' && startTime.trim() === '')
-        ? undefined
-        : Number(startTime);
-    return {
-      runUuid: run.info?.run_uuid,
-      runName: run.info?.run_name,
-      startTime: parsedStartTime !== undefined && Number.isFinite(parsedStartTime) ? parsedStartTime : undefined,
-    };
-  });
+  const runInfos = data?.runs
+    ?.filter((run) => !isIssueDetectionRun(run))
+    .map((run) => {
+      const startTime = run.info?.start_time;
+      const parsedStartTime =
+        startTime === undefined || startTime === null || (typeof startTime === 'string' && startTime.trim() === '')
+          ? undefined
+          : Number(startTime);
+      return {
+        runUuid: run.info?.run_uuid,
+        runName: run.info?.run_name,
+        startTime: parsedStartTime !== undefined && Number.isFinite(parsedStartTime) ? parsedStartTime : undefined,
+      };
+    });
 
   return {
     requestError: error,
