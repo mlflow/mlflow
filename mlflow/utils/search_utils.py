@@ -2798,13 +2798,16 @@ class SearchLoggedModelsPaginationToken:
                 f"Expected: {experiment_ids}. Found: {self.experiment_ids}"
             )
 
-        if self.filter_string != filter_string:
+        # Clients may send "" or [] on one page and omit the value on another, and `decode`
+        # already collapses the token side to None. Normalize both sides so an unchanged
+        # search still validates across pages.
+        if (self.filter_string or None) != (filter_string or None):
             raise MlflowException.invalid_parameter_value(
                 f"Filter string in the page token does not match the requested filter string. "
                 f"Expected: {filter_string}. Found: {self.filter_string}"
             )
 
-        if self.order_by != order_by:
+        if (self.order_by or None) != (order_by or None):
             raise MlflowException.invalid_parameter_value(
                 f"Order by in the page token does not match the requested order by. "
                 f"Expected: {order_by}. Found: {self.order_by}"

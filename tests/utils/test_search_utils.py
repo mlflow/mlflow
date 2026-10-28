@@ -27,6 +27,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
 from mlflow.utils.search_utils import (
     SearchEvaluationDatasetsUtils,
     SearchExperimentsUtils,
+    SearchLoggedModelsPaginationToken,
     SearchLoggedModelsUtils,
     SearchMCPAccessEndpointUtils,
     SearchMCPServerUtils,
@@ -1116,3 +1117,45 @@ def test_sql_expression_comparison_func_delegates_on_other_dialects(dialect, com
     expression_func = SearchUtils.get_sql_expression_comparison_func(comparator, dialect)
     column_func = SearchUtils.get_sql_comparison_func(comparator, dialect)
     assert expression_func(column, "act%").compare(column_func(column, "act%"))
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "order_by"),
+    [("", None), (None, None), ("", []), (None, [])],
+)
+def test_search_logged_models_page_token_survives_roundtrip_for_empty_query(
+    filter_string,
+    order_by,
+):
+    # GIVEN a page token issued by a request that left filter_string or order_by empty
+    token = SearchLoggedModelsPaginationToken(
+        experiment_ids=["1"],
+        filter_string=filter_string,
+        order_by=order_by,
+        offset=100,
+    )
+
+    # WHEN it comes back decoded for the next page
+    decoded = SearchLoggedModelsPaginationToken.decode(token.encode())
+
+    # THEN validating it against the same request arguments still matches, so the caller
+    # gets the second page instead of an "does not match" error
+    decoded.validate(["1"], filter_string, order_by)
+
+
+def test_search_logged_models_page_token_rejects_different_filter():
+    token = SearchLoggedModelsPaginationToken(experiment_ids=["1"], filter_string="name = 'a'")
+    decoded = SearchLoggedModelsPaginationToken.decode(token.encode())
+
+    with pytest.raises(MlflowException, match="does not match the requested filter string"):
+        decoded.validate(["1"], "name = 'b'", None)
+
+
+def test_search_logged_models_page_token_rejects_different_order_by():
+    token = SearchLoggedModelsPaginationToken(
+        experiment_ids=["1"], order_by=[{"field": "timestamp"}]
+    )
+    decoded = SearchLoggedModelsPaginationToken.decode(token.encode())
+
+    with pytest.raises(MlflowException, match="does not match the requested order by"):
+        decoded.validate(["1"], None, [{"field": "name"}])
