@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793168338920,
+  "lastUpdate": 1793170372490,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "45089264+yangbaechu@users.noreply.github.com",
-            "name": "yangbaechu",
-            "username": "yangbaechu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6af9543433a01b44a7f612a11a6fa0dfc1b43b01",
-          "message": "Prevent object-store artifact deletion from removing sibling paths (#25024)\n\nSigned-off-by: Yang Geonhee <abab_1212@naver.com>",
-          "timestamp": "2026-08-13T07:14:51Z",
-          "tree_id": "545e29d463ce903172dda0a8d5e766fb21e307cc",
-          "url": "https://github.com/mlflow/mlflow/commit/6af9543433a01b44a7f612a11a6fa0dfc1b43b01"
-        },
-        "date": 1786605373929,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 44.95905825000008,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 9.313340307690838,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 6.023603158621034,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 7.3114108932047195,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 6.537452839285481,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 10.374106800003347,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 4.513983714299944,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "matas.cereskevicius@vaultspeed.com",
+            "name": "Matas Čereškevičius",
+            "username": "MatasVS"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "248877b3cd24f57becf5fac3e88417a96d0b89dd",
+          "message": "Add a seekable leading bound to the `spans` keyset in trace analytics migration `75868b020152` (#26710)\n\nSigned-off-by: Matas Čereškevičius <matas.cereskevicius@vaultspeed.com>\nSigned-off-by: harupy <17039389+harupy@users.noreply.github.com>\nCo-authored-by: Claude <noreply@anthropic.com>\nCo-authored-by: harupy <17039389+harupy@users.noreply.github.com>\nCo-authored-by: Harutaka Kawamura <hkawamura0130@gmail.com>",
+          "timestamp": "2026-10-28T06:49:10Z",
+          "tree_id": "41d478b12c76d9f3b5af44404e950d8d3007a8bd",
+          "url": "https://github.com/mlflow/mlflow/commit/248877b3cd24f57becf5fac3e88417a96d0b89dd"
+        },
+        "date": 1793170369532,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 61.32204824999974,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 5.582837657535937,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 4.913479584904965,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 4.950538484277427,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.303206587413957,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 5.7359770000052395,
             "unit": "ms"
           }
         ]
