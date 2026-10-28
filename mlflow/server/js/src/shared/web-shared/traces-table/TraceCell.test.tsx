@@ -2,10 +2,11 @@ import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import { TraceCostCell, TraceIdCell } from './TraceCell';
+import { TraceCostCell, TraceIdCell, TraceSessionCell } from './TraceCell';
 import { makeTrace } from './test-utils/mockTraces';
 import { renderWithProviders } from './test-utils/renderWithProviders';
 import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
+import { SESSION_ID_METADATA_KEY } from '../model-trace-explorer/constants';
 
 jest.mock('../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
@@ -70,5 +71,22 @@ describe('TraceCostCell', () => {
 
     expect(screen.getByText('$0.003')).toBeVisible();
     expect(screen.queryByText('≈$0.003')).not.toBeInTheDocument();
+  });
+});
+
+describe('TraceSessionCell', () => {
+  const trace = makeTrace('session-trace', { trace_metadata: { [SESSION_ID_METADATA_KEY]: 'session-1' } });
+
+  test.each([
+    { openInNewTab: true, target: '_blank', rel: 'noopener noreferrer' },
+    { openInNewTab: false, target: null, rel: null },
+  ])('opens the session in a new tab: $openInNewTab', async ({ openInNewTab, target, rel }) => {
+    await renderWithProviders(
+      <TraceSessionCell trace={trace} getSessionHref={() => '/sessions/session-1'} openInNewTab={openInNewTab} />,
+    );
+
+    const link = screen.getByRole('link', { name: 'session-1' });
+    expect(link.getAttribute('target')).toBe(target);
+    expect(link.getAttribute('rel')).toBe(rel);
   });
 });
