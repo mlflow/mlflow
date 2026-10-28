@@ -19,24 +19,33 @@ def post(endpoint: str, data: Any = None) -> dict[str, Any]:
     return cast(dict[str, Any], json.loads(result.stdout)) if result.stdout.strip() else {}
 
 
-def issue_body(group: dict[str, Any]) -> str:
+def issue_body(group: dict[str, Any], run_url: str) -> str:
     # Triage treats issues from mlflow-app with this frontmatter as Nightly failures.
     frontmatter = "<!-- triage\ntype: nightly\n-->"
-    body = f"{frontmatter}\n\n{group['summary']}\n\n### Evidence\n\n{group['evidence']}"
+    note = (
+        f"> [!NOTE]\n> Created by the [Nightly workflow run]({run_url}). "
+        "Please verify the findings."
+    )
     jobs = "\n".join(
         f"- [{job['workflow_name']} / {job['job_name']}]({job['job_run_url']})"
         for job in group["jobs"]
     )
-    return f"{body}\n\n### Failed jobs\n\n{jobs}"
+    return "\n\n".join([
+        frontmatter,
+        note,
+        f"### Summary\n\n{group['summary']}",
+        f"### Evidence\n\n{group['evidence']}",
+        f"### Failed jobs\n\n{jobs}",
+    ])
 
 
-def publish(analysis: dict[str, Any], *, dry_run: bool) -> None:
+def publish(analysis: dict[str, Any], *, run_url: str, dry_run: bool) -> None:
     new_count = 0
     for group in analysis["groups"]:
         if group["verdict"] != "new":
             sys.stdout.write(f"{group['verdict']}: {group['summary']}\n")
             continue
-        body = issue_body(group)
+        body = issue_body(group, run_url)
         new_count += 1
         if dry_run:
             sys.stdout.write(f"Would create issue: {group['title']}\n\n{body}\n\n")
@@ -52,8 +61,9 @@ def publish(analysis: dict[str, Any], *, dry_run: bool) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Print or create nightly issues")
     parser.add_argument("analysis", type=Path)
+    parser.add_argument("--run-url", required=True, help="URL of the Nightly workflow run")
     parser.add_argument(
         "--dry-run", action="store_true", help="Print issue drafts without creating issues"
     )
     args = parser.parse_args()
-    publish(json.loads(args.analysis.read_text()), dry_run=args.dry_run)
+    publish(json.loads(args.analysis.read_text()), run_url=args.run_url, dry_run=args.dry_run)
