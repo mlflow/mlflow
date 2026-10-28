@@ -10,12 +10,12 @@ import { createComparisonTrace } from './evalRunComparisonTestUtils';
 import { EvalRunComparisonTestProviders } from './EvalRunComparisonTestProviders';
 
 const mockOpenPanel = jest.fn();
-const mockPrefillPrompt = jest.fn();
+const mockSendMessageWhenReady = jest.fn();
 let mockCanUseAssistant = true;
 jest.mock('@mlflow/mlflow/src/assistant', () => ({
   useAssistant: () => ({
     openPanel: mockOpenPanel,
-    prefillPrompt: mockPrefillPrompt,
+    sendMessageWhenReady: mockSendMessageWhenReady,
     canUseAssistant: mockCanUseAssistant,
   }),
 }));
@@ -50,7 +50,7 @@ describe('comparison Overview', () => {
   beforeEach(() => {
     process.env['MLFLOW_USE_ABSOLUTE_AJAX_URLS'] = 'true';
     mockOpenPanel.mockReset();
-    mockPrefillPrompt.mockReset();
+    mockSendMessageWhenReady.mockReset();
     mockCanUseAssistant = true;
     server.use(
       rest.post('*/ajax-api/2.0/mlflow/runs/search', (_req, res, ctx) =>
@@ -85,7 +85,7 @@ describe('comparison Overview', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Compare with AI' }));
 
     expect(mockOpenPanel).toHaveBeenCalledTimes(1);
-    const prompt = mockPrefillPrompt.mock.calls[0][0] as string;
+    const prompt = mockSendMessageWhenReady.mock.calls[0][0] as string;
     expect(prompt).toContain('Baseline ID: "baseline"');
     expect(prompt).toContain('Comparison run 1 ID: "candidate"');
     expect(prompt).toContain('Comparison run 2 ID: "third"');
@@ -375,7 +375,7 @@ describe('comparison Overview', () => {
     renderOverview({ compareRunUuids: ['baseline', 'baseline'] });
     expect(await screen.findByText('Add a comparison run to see comparison insights.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Compare with AI' })).not.toBeInTheDocument();
-    expect(mockPrefillPrompt).not.toHaveBeenCalled();
+    expect(mockSendMessageWhenReady).not.toHaveBeenCalled();
   });
 
   test('distinguishes failed searches from empty data and retries the full selection', async () => {
@@ -392,7 +392,7 @@ describe('comparison Overview', () => {
     await user.click(screen.getByRole('button', { name: 'Retry' }));
     expect(await screen.findByRole('heading', { name: 'Comparison Insights' })).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: 'Compare with AI' })).toBeInTheDocument();
-    expect(mockPrefillPrompt).not.toHaveBeenCalled();
+    expect(mockSendMessageWhenReady).not.toHaveBeenCalled();
   });
 
   test('warns when a run reaches the trace search limit', async () => {
@@ -447,7 +447,7 @@ describe('comparison Overview', () => {
     expect(section.getByRole('row', { name: /Errors/ })).toHaveTextContent('10Lowest value-100%');
 
     await userEvent.click(screen.getByRole('button', { name: 'Compare with AI' }));
-    const prompt = mockPrefillPrompt.mock.calls[0][0] as string;
+    const prompt = mockSendMessageWhenReady.mock.calls[0][0] as string;
     expect(prompt).not.toContain('PRIVATE INPUT MUST NOT BE SENT');
     expect(prompt).not.toContain('PRIVATE OUTPUT MUST NOT BE SENT');
   });
