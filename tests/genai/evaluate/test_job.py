@@ -3,13 +3,10 @@ from unittest import mock
 
 import pytest
 
-import mlflow
 from mlflow.entities.run_status import RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.job import invoke_genai_evaluate_job
 from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING
-from mlflow.server import handlers
-from mlflow.server.constants import ARTIFACT_ROOT_ENV_VAR, BACKEND_STORE_URI_ENV_VAR
 
 
 def _serialized_scorer(name: str = "scorer") -> str:
@@ -240,41 +237,3 @@ def test_invoke_genai_evaluate_job_skips_username_propagation_when_none(monkeypa
 
         mock_evaluate.assert_called_once()
         assert os.environ["MLFLOW_TRACKING_USERNAME"] == "unchanged"
-
-
-def test_invoke_genai_evaluate_job_builds_its_client_against_the_store(monkeypatch, tmp_path):
-    """
-    A job cannot authenticate to the tracking API, so a client built against the server's HTTP
-    URI fails with 401 on an auth-enabled server. The client this job builds must see the store.
-    """
-    store_uri = f"sqlite:///{tmp_path / 'eval-store.db'}"
-    monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, store_uri)
-    monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, str(tmp_path / "artifacts"))
-    monkeypatch.setattr(handlers, "_tracking_store", None)
-    previous = mlflow.get_tracking_uri()
-
-    mock_client = mock.MagicMock()
-    mock_client._tracing_client.batch_get_traces.return_value = [mock.MagicMock()]
-    seen: dict[str, str] = {}
-
-    def _build_client():
-        seen["tracking_uri"] = mlflow.get_tracking_uri()
-        return mock_client
-
-    try:
-        mlflow.set_tracking_uri("http://127.0.0.1:1")
-        with (
-            mock.patch("mlflow.genai.evaluation.job.MlflowClient", side_effect=_build_client),
-            mock.patch("mlflow.genai.evaluation.job.Scorer.model_validate_json"),
-            mock.patch("mlflow.start_run"),
-            mock.patch("mlflow.genai.evaluate"),
-        ):
-            invoke_genai_evaluate_job(
-                trace_ids=["trace-1"],
-                serialized_scorers=[_serialized_scorer()],
-                run_id="run-123",
-            )
-    finally:
-        mlflow.set_tracking_uri(previous)
-
-    assert seen["tracking_uri"] == store_uri

@@ -15,6 +15,8 @@ import traceback
 from contextlib import nullcontext
 
 from mlflow.environment_variables import MLFLOW_WORKSPACE
+from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR
+from mlflow.server.jobs import use_backend_store_for_tracking
 from mlflow.server.jobs.logging_utils import configure_logging_for_jobs
 from mlflow.server.jobs.progress import JobTracker, _set_job_tracker
 from mlflow.server.jobs.utils import (
@@ -73,6 +75,11 @@ def _main():
 
     try:
         with ctx:
+            # A job reaches the backend store directly: it cannot authenticate to the server's
+            # HTTP API. A job container is handed no store (and has no network), so its job
+            # keeps the tracking URI it was given.
+            if os.environ.get(BACKEND_STORE_URI_ENV_VAR):
+                use_backend_store_for_tracking()
             value = function(**params)
         job_result = _SubprocessJobResult(
             succeeded=True,

@@ -20,7 +20,7 @@ from mlflow.genai.scorers.base import (
     Scorer,
     _job_executor_scorer_context,
 )
-from mlflow.server.jobs import job, use_backend_store_for_tracking
+from mlflow.server.jobs import job
 from mlflow.store.tracking import MAX_TRACE_LINKS_PER_REQUEST
 
 _logger = logging.getLogger(__name__)
@@ -43,13 +43,13 @@ def invoke_genai_evaluate_job(
     the pre-existing run identified by `run_id`.
     """
     # Propagate the original user identity to gateway requests, as `invoke_scorer_job` does.
-    # This authenticates judge LLM calls, not the tracking API -- see the redirect below.
+    # This authenticates judge LLM calls, not the tracking API: the job subprocess entry has
+    # already pointed tracking at the backend store.
     if username is not None:
         os.environ["MLFLOW_TRACKING_USERNAME"] = username
         if internal_token := _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.get():
             os.environ["MLFLOW_TRACKING_PASSWORD"] = internal_token
 
-    use_backend_store_for_tracking()
     client = MlflowClient()
 
     try:
