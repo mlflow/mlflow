@@ -8635,6 +8635,10 @@
     "defaultMessage": "Select endpoint",
     "description": "Placeholder for endpoint selector"
   },
+  "PuAOdF": {
+    "defaultMessage": "Found {newCount, plural, one {1 new issue} other {# new issues}} across {traceCount, plural, one {1 trace} other {# traces}}.",
+    "description": "Notification body shown when every issue an issue detection job found is newly reported"
+  },
   "PuXTcZ": {
     "defaultMessage": "Welcome to MLflow",
     "description": "Workspace landing page title"
@@ -18858,6 +18862,10 @@
   "wOupuD": {
     "defaultMessage": "Expected facts for evaluation",
     "description": "Tooltip description for the Expected facts column in the traces table"
+  },
+  "wPAp5o": {
+    "defaultMessage": "Found {newCount, plural, =0 {no new issues} one {1 new issue} other {# new issues}} and refreshed {refreshedCount, plural, one {1 existing issue} other {# existing issues}} across {traceCount, plural, one {1 trace} other {# traces}}.",
+    "description": "Notification body shown when an issue detection job both filed new issues and re-found issues the experiment already carried"
   },
   "wQvMnu": {
     "defaultMessage": "Hide column",

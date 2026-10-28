@@ -251,6 +251,81 @@ describe('IssueDetectionJobNotifications', () => {
     expect(screen.queryByText('View issues')).not.toBeInTheDocument();
   });
 
+  test.each([
+    [
+      'tells new findings apart from re-found ones',
+      { issues: 5, new_issue_count: 2, total_traces_analyzed: 48 },
+      'Found 2 new issues and refreshed 3 existing issues across 48 traces.',
+    ],
+    [
+      'says so when nothing found was new',
+      { issues: 3, new_issue_count: 0, total_traces_analyzed: 48 },
+      'Found no new issues and refreshed 3 existing issues across 48 traces.',
+    ],
+    [
+      'drops the refreshed clause when every finding was new',
+      { issues: 2, new_issue_count: 2, total_traces_analyzed: 48 },
+      'Found 2 new issues across 48 traces.',
+    ],
+    [
+      'reads in the singular for one of each',
+      { issues: 2, new_issue_count: 1, total_traces_analyzed: 1 },
+      'Found 1 new issue and refreshed 1 existing issue across 1 trace.',
+    ],
+    [
+      'reports a clean scan as no issues rather than no new ones',
+      { issues: 0, new_issue_count: 0, total_traces_analyzed: 48 },
+      'Found no issues across 48 traces.',
+    ],
+    [
+      // An older server sends no count, so the total-only wording is kept.
+      'keeps the total-only wording when the server sends no breakdown',
+      { issues: 5, total_traces_analyzed: 48 },
+      'Found 5 issues across 48 traces.',
+    ],
+    [
+      // The payload is read through a type assertion, so a count that is not a number is
+      // reachable without the type system noticing.
+      'falls back when the count is null rather than absent',
+      { issues: 5, new_issue_count: null, total_traces_analyzed: 48 },
+      'Found 5 issues across 48 traces.',
+    ],
+    [
+      'falls back when the count is not a number at all',
+      { issues: 5, new_issue_count: NaN, total_traces_analyzed: 48 },
+      'Found 5 issues across 48 traces.',
+    ],
+    [
+      'falls back when the count arrives as a string',
+      { issues: 5, new_issue_count: '2', total_traces_analyzed: 48 },
+      'Found 5 issues across 48 traces.',
+    ],
+    [
+      // Only a server contradicting itself gets here; the wording still has to add up.
+      'holds a new count larger than the total inside it',
+      { issues: 3, new_issue_count: 5, total_traces_analyzed: 48 },
+      'Found 3 new issues across 48 traces.',
+    ],
+    [
+      'treats a negative new count as none of them being new',
+      { issues: 3, new_issue_count: -2, total_traces_analyzed: 48 },
+      'Found no new issues and refreshed 3 existing issues across 48 traces.',
+    ],
+  ])('%s', async (_name, jobResult, expected) => {
+    mockJobStatus(JobStatus.RUNNING);
+    const { rerender } = renderWithDesignSystem(<IssueDetectionJobNotifications />);
+
+    act(() => {
+      recordSubmittedIssueDetectionJob(submittedJob);
+    });
+    await screen.findByText('Issue detection started');
+
+    mockJobStatus(JobStatus.SUCCEEDED, undefined, jobResult);
+    rerender(<IssueDetectionJobNotifications />);
+
+    expect(await screen.findByText(expected)).toBeInTheDocument();
+  });
+
   test('shows failure notification when job fails', async () => {
     mockJobStatus(JobStatus.RUNNING);
     const { rerender } = renderWithDesignSystem(<IssueDetectionJobNotifications />);

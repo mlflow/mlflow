@@ -18,6 +18,7 @@ from mlflow.genai.discovery.entities import (
     _IdentifiedIssue,
     _TriageResult,
 )
+from mlflow.genai.discovery.matching import MatchOutcome
 from mlflow.genai.discovery.pipeline import (
     _annotate_issue_traces,
     _dedup_issues,
@@ -929,6 +930,157 @@ def test_discover_issues_tags_run_with_issue_detection_marker(make_trace):
 
     run = mlflow.get_run(result.triage_run_id)
     assert run.data.tags[MLFLOW_RUN_TYPE] == MLFLOW_RUN_TYPE_ISSUE_DETECTION
+
+
+def test_discover_issues_counts_only_the_issues_this_run_filed(make_trace):
+    traces = [make_trace() for _ in range(3)]
+    failing = traces[:2]
+    rationale_map = {trace.info.trace_id: "bad" for trace in failing}
+
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
+
+    # One finding filed by this run, one matched onto an issue an earlier run already reported.
+    filed = _make_issue(issue_id="filed-now", source_run_id=run_id)
+    refreshed = _make_issue(issue_id="already-reported", source_run_id="an-earlier-run")
+
+    with (
+        patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="0"),
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
+            return_value=_triage_eval(run_id),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=_TriageResult(failing, rationale_map, {}),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failure_labels",
+            return_value=(["label1", "label2"], [0, 1]),
+        ),
+        patch("mlflow.genai.discovery.pipeline.cluster_by_llm", return_value=[[0, 1]]),
+        patch(
+            "mlflow.genai.discovery.pipeline.summarize_cluster",
+            return_value=create_identified_issue(example_indices=[0, 1]),
+        ),
+        patch("mlflow.genai.discovery.pipeline.read_match_candidates", return_value=[refreshed]),
+        patch(
+            "mlflow.genai.discovery.pipeline.match_findings_to_existing_issues",
+            return_value=MatchOutcome(matched={0: refreshed.issue_id}, candidates_considered=1),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline._build_issues",
+            return_value=([filed, refreshed], {}),
+        ),
+        patch("mlflow.genai.discovery.pipeline._annotate_issue_traces"),
+    ):
+        result = discover_issues(traces=traces, run_id=run_id)
+
+    assert len(result.issues) == 2
+    assert result.new_issue_count == 1
+
+
+def test_discover_issues_reports_no_new_issues_when_none_were_filed(make_trace):
+    traces = [make_trace() for _ in range(3)]
+    failing = traces[:2]
+    rationale_map = {trace.info.trace_id: "bad" for trace in failing}
+
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
+
+    refreshed = _make_issue(issue_id="already-reported", source_run_id="an-earlier-run")
+
+    with (
+        patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="0"),
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
+            return_value=_triage_eval(run_id),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=_TriageResult(failing, rationale_map, {}),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failure_labels",
+            return_value=(["label1", "label2"], [0, 1]),
+        ),
+        patch("mlflow.genai.discovery.pipeline.cluster_by_llm", return_value=[[0, 1]]),
+        patch(
+            "mlflow.genai.discovery.pipeline.summarize_cluster",
+            return_value=create_identified_issue(example_indices=[0, 1]),
+        ),
+        patch("mlflow.genai.discovery.pipeline.read_match_candidates", return_value=[refreshed]),
+        patch(
+            "mlflow.genai.discovery.pipeline.match_findings_to_existing_issues",
+            return_value=MatchOutcome(matched={0: refreshed.issue_id}, candidates_considered=1),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline._build_issues",
+            return_value=([refreshed], {}),
+        ),
+        patch("mlflow.genai.discovery.pipeline._annotate_issue_traces"),
+    ):
+        result = discover_issues(traces=traces, run_id=run_id)
+
+    assert len(result.issues) == 1
+    assert result.new_issue_count == 0
+
+
+def test_an_issue_refreshed_by_the_run_that_filed_it_is_not_counted_as_new(make_trace):
+    """
+    `run_id` lets a second detection attach to the run that filed the candidates it is now
+    offered, so the run that filed an issue does not separate new from refreshed.
+    """
+    traces = [make_trace() for _ in range(3)]
+    failing = traces[:2]
+    rationale_map = {trace.info.trace_id: "bad" for trace in failing}
+
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
+
+    # Filed by an earlier detection against this same run.
+    already_filed = _make_issue(issue_id="filed-earlier", source_run_id=run_id)
+
+    with (
+        patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="0"),
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
+            return_value=_triage_eval(run_id),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=_TriageResult(failing, rationale_map, {}),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failure_labels",
+            return_value=(["label1", "label2"], [0, 1]),
+        ),
+        patch("mlflow.genai.discovery.pipeline.cluster_by_llm", return_value=[[0, 1]]),
+        patch(
+            "mlflow.genai.discovery.pipeline.summarize_cluster",
+            return_value=create_identified_issue(example_indices=[0, 1]),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.read_match_candidates",
+            return_value=[already_filed],
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.match_findings_to_existing_issues",
+            return_value=MatchOutcome(matched={0: already_filed.issue_id}, candidates_considered=1),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline._build_issues",
+            return_value=([already_filed], {}),
+        ),
+        patch("mlflow.genai.discovery.pipeline._annotate_issue_traces"),
+    ):
+        result = discover_issues(traces=traces, run_id=run_id)
+
+    assert len(result.issues) == 1
+    assert result.new_issue_count == 0
 
 
 def test_discover_issues_returns_total_cost_usd_field(make_trace):
