@@ -11,6 +11,7 @@ import pytest
 import mlflow
 import mlflow.server.jobs
 import mlflow.store.jobs.sqlalchemy_store
+from mlflow.client import MlflowClient
 from mlflow.entities._job import Job, JobProgress, JobScopedPermission
 from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import (
@@ -2461,6 +2462,49 @@ def test_use_backend_store_for_tracking_keeps_a_separate_artifact_server_reachab
         assert repo.artifact_uri.startswith("http://artifact-host:6000/")
         assert "3/run-1/artifacts" in repo.artifact_uri
         # And not pulled into this server's own destination.
+        assert str(destination) not in repo.artifact_uri
+    finally:
+        mlflow.set_tracking_uri(previous)
+
+
+def test_a_client_built_after_the_redirect_still_reaches_a_separate_artifact_server(
+    monkeypatch, tmp_path
+):
+    """
+    ``TrackingServiceClient._get_artifact_repo`` passes ``self.tracking_uri`` explicitly, and
+    after the redirect that is the store URI -- the one URI a proxied location cannot be resolved
+    against. Honoring a caller's URI unconditionally therefore put the failure straight back.
+    """
+    destination = tmp_path / "not-ours"
+    destination.mkdir()
+    store_uri = f"sqlite:///{tmp_path / 'client.db'}"
+    monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, store_uri)
+    monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, str(tmp_path / "root"))
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, str(destination))
+    monkeypatch.delenv(SERVE_ARTIFACTS_ENV_VAR, raising=False)
+    monkeypatch.setenv("MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES", "mlflow-artifacts")
+    monkeypatch.setattr(handlers, "_tracking_store", None)
+    monkeypatch.setattr(mlflow.server.jobs, "_http_tracking_uri", None)
+    monkeypatch.setitem(
+        _artifact_repository_registry._registry,
+        "mlflow-artifacts",
+        _artifact_repository_registry._registry["mlflow-artifacts"],
+    )
+    previous = mlflow.get_tracking_uri()
+    try:
+        mlflow.set_tracking_uri("http://tracking-host:5000")
+        use_backend_store_for_tracking()
+
+        # A real run on the store, with a location a separate artifact server owns.
+        experiment_id = MlflowClient().create_experiment(
+            "separate-artifacts", artifact_location="mlflow-artifacts://artifact-host:6000/9"
+        )
+        client = MlflowClient()
+        run = client.create_run(experiment_id)
+        assert client.tracking_uri == store_uri
+
+        repo = client._tracking_client._get_artifact_repo(run.info.run_id)
+        assert repo.artifact_uri.startswith("http://artifact-host:6000/")
         assert str(destination) not in repo.artifact_uri
     finally:
         mlflow.set_tracking_uri(previous)

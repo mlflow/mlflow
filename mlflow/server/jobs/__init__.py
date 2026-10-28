@@ -34,6 +34,18 @@ R = TypeVar("R")
 _http_tracking_uri: str | None = None
 
 
+def _http_uri_for_artifacts(tracking_uri: str | None) -> str | None:
+    """The URI to resolve a proxied artifact location against.
+
+    A caller's own URI is honored only when it can serve the purpose: a client built after the
+    redirect passes the store URI explicitly (``TrackingServiceClient._get_artifact_repo`` hands
+    over ``self.tracking_uri``), and that is the one thing this cannot be.
+    """
+    if tracking_uri and urllib.parse.urlparse(tracking_uri).scheme in ("http", "https"):
+        return tracking_uri
+    return _http_tracking_uri or tracking_uri or get_tracking_uri()
+
+
 def _proxied_artifact_repository(artifact_uri, tracking_uri=None, registry_uri=None):
     """Serve an ``mlflow-artifacts:/`` URI from the location this server serves it from.
 
@@ -57,7 +69,7 @@ def _proxied_artifact_repository(artifact_uri, tracking_uri=None, registry_uri=N
         # that holds none of them.
         return MlflowArtifactsRepository(
             artifact_uri,
-            tracking_uri=tracking_uri or _http_tracking_uri or get_tracking_uri(),
+            tracking_uri=_http_uri_for_artifacts(tracking_uri),
             registry_uri=registry_uri,
         )
 
