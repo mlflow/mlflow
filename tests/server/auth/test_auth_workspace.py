@@ -10250,9 +10250,9 @@ def test_registered_model_deny_applies_to_name_case_variants(
 def test_mcp_server_deny_applies_to_name_case_variants(workspace_permission_setup, monkeypatch):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
-    # Mimics a case-insensitive collation: any case of the name finds the stored server.
 
     def get_mcp_server(name):
+        # Mimics a case-insensitive collation: any case of the name finds the stored server.
         if name.lower() != "com.test/srv":
             raise MlflowException("not found", error_code=RESOURCE_DOES_NOT_EXIST)
         return SimpleNamespace(name="com.test/srv", workspace="team-a")
