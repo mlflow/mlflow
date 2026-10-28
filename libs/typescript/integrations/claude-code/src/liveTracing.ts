@@ -7,7 +7,7 @@
  *
  * Span tree (matches CLI integration):
  *   claude_code_conversation (AGENT)
- *   ├── llm (LLM)              per assistant turn with text/thinking
+ *   ├── llm (LLM)              per assistant response, including tool-only responses
  *   ├── tool_<name> (TOOL)     per tool_use block at root
  *   │   └── subagent_<type> (AGENT)   lazily created for Task/Agent tool calls
  *   │       ├── llm
@@ -38,6 +38,7 @@ import {
   buildUsageDict,
   extractContentAndTools,
   getCurrentUser,
+  mergeAssistantMessage,
   sanitizeForSpan,
 } from './_internal.js';
 
@@ -52,6 +53,13 @@ type ConversationKey = string | null;
 interface InputMessage {
   role: 'user' | 'assistant';
   content: string | ContentBlock[];
+}
+
+interface PendingLlmMessage {
+  message: MessageContent;
+  span: LiveSpan;
+  conversationEntry: InputMessage;
+  endTimeNs: number;
 }
 
 /**
@@ -97,6 +105,9 @@ export class LiveTracingContext {
   private subagentSpans = new Map<string, LiveSpan>();
   private conversations = new Map<ConversationKey, InputMessage[]>();
   private lastAssistantText = new Map<ConversationKey, string>();
+  // Split content records update the same span; close it at the final record's timestamp.
+  private pendingLlmMessages = new Map<ConversationKey, PendingLlmMessage>();
+  private emittedToolIds = new Set<string>();
   private sessionId: string | undefined;
   private model: string | undefined;
   private permissionMode: string | undefined;
@@ -140,44 +151,61 @@ export class LiveTracingContext {
   }
 
   /**
-   * Emit an LLM span (if the message has text/thinking) and open TOOL spans
+   * Emit an LLM span for each response and open TOOL spans
    * for each tool_use block. Sub-agent routing is keyed on parent_tool_use_id.
    */
   onAssistantMessage(msg: SDKAssistantLike): void {
     const parentKey: ConversationKey = msg.parent_tool_use_id ?? null;
     const parentSpan = this.resolveParent(parentKey);
-    const content = msg.message.content;
-    const [textContent, toolUses] = extractContentAndTools(content);
-
     const conversation = this.getConversation(parentKey);
-    const priorMessages = conversation.slice();
-    conversation.push({ role: 'assistant', content });
-
-    const model = msg.message.model ?? this.model ?? 'unknown';
-    if (textContent.trim() || hasThinking(content)) {
+    let pending = this.pendingLlmMessages.get(parentKey);
+    const timestampNs = (performance.timeOrigin + performance.now()) * 1e6;
+    if (pending && msg.message.id && pending.message.id === msg.message.id) {
+      pending.message = mergeAssistantMessage(pending.message, msg.message);
+      pending.conversationEntry.content = pending.message.content;
+      pending.endTimeNs = timestampNs;
+    } else {
+      this.closeLlmMessage(parentKey);
+      const model = msg.message.model ?? this.model ?? 'unknown';
       const llmSpan = startSpan({
         name: 'llm',
         spanType: SpanType.LLM,
         parent: parentSpan,
-        inputs: { model, messages: priorMessages },
+        startTimeNs: timestampNs,
+        inputs: { model, messages: conversation.slice() },
         attributes: {
           model,
           'mlflow.llm.model': model,
           [SpanAttributeKey.MESSAGE_FORMAT]: 'anthropic',
         },
       });
-      if (msg.message.usage) {
-        llmSpan.setAttribute(SpanAttributeKey.TOKEN_USAGE, buildUsageDict(msg.message.usage));
-      }
-      llmSpan.setOutputs({ type: 'message', role: 'assistant', content });
-      llmSpan.end();
-
-      if (textContent.trim()) {
-        this.lastAssistantText.set(parentKey, textContent);
-      }
+      const conversationEntry: InputMessage = { role: 'assistant', content: msg.message.content };
+      conversation.push(conversationEntry);
+      pending = { message: msg.message, span: llmSpan, conversationEntry, endTimeNs: timestampNs };
+      this.pendingLlmMessages.set(parentKey, pending);
+    }
+    if (pending.message.usage) {
+      pending.span.setAttribute(
+        SpanAttributeKey.TOKEN_USAGE,
+        buildUsageDict(pending.message.usage),
+      );
+    }
+    pending.span.setOutputs({
+      type: 'message',
+      role: 'assistant',
+      content: pending.message.content,
+    });
+    const [textContent] = extractContentAndTools(pending.message.content);
+    if (textContent.trim()) {
+      this.lastAssistantText.set(parentKey, textContent);
     }
 
+    const [, toolUses] = extractContentAndTools(msg.message.content);
     for (const toolUse of toolUses) {
+      if (this.emittedToolIds.has(toolUse.id)) {
+        continue;
+      }
+      this.emittedToolIds.add(toolUse.id);
       const toolSpan = startSpan({
         name: `tool_${toolUse.name}`,
         spanType: SpanType.TOOL,
@@ -243,6 +271,7 @@ export class LiveTracingContext {
       // wrapper span first so it nests under the TOOL span correctly.
       const subagentSpan = this.subagentSpans.get(toolUseId);
       if (subagentSpan) {
+        this.closeLlmMessage(toolUseId);
         const lastText = this.lastAssistantText.get(toolUseId);
         if (lastText) {
           subagentSpan.setOutputs({ response: lastText });
@@ -273,6 +302,7 @@ export class LiveTracingContext {
 
   /** Record aggregate usage and final result text from the SDK's result message. */
   onResultMessage(msg: SDKResultLike): void {
+    this.closeLlmMessage(null);
     if (msg.usage) {
       this.rootSpan.setAttribute(SpanAttributeKey.TOKEN_USAGE, buildUsageDict(msg.usage));
     }
@@ -311,6 +341,10 @@ export class LiveTracingContext {
     }
     this.ended = true;
 
+    for (const key of this.pendingLlmMessages.keys()) {
+      this.closeLlmMessage(key);
+    }
+
     // Defensive: close anything still open (shouldn't happen in normal completion).
     for (const span of this.openToolSpans.values()) {
       span.end();
@@ -347,6 +381,14 @@ export class LiveTracingContext {
     return conv;
   }
 
+  private closeLlmMessage(key: ConversationKey): void {
+    const pending = this.pendingLlmMessages.get(key);
+    if (pending) {
+      pending.span.end({ endTimeNs: pending.endTimeNs });
+      this.pendingLlmMessages.delete(key);
+    }
+  }
+
   private resolveParent(parentKey: ConversationKey): LiveSpan {
     if (parentKey == null) {
       return this.rootSpan;
@@ -379,6 +421,10 @@ export class LiveTracingContext {
       }
 
       const metadata: Record<string, string> = { ...trace.info.traceMetadata };
+      const runId = process.env.MLFLOW_RUN_ID;
+      if (runId) {
+        metadata[TraceMetadataKey.SOURCE_RUN] = runId;
+      }
       if (this.sessionId) {
         metadata[TraceMetadataKey.TRACE_SESSION] = this.sessionId;
       }
@@ -398,13 +444,6 @@ export class LiveTracingContext {
       console.error('[mlflow] Failed to apply trace metadata:', err);
     }
   }
-}
-
-function hasThinking(content: string | ContentBlock[]): boolean {
-  return (
-    Array.isArray(content) &&
-    content.some((b) => typeof b === 'object' && b != null && 'type' in b && b.type === 'thinking')
-  );
 }
 
 /**

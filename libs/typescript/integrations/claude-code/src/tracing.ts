@@ -6,6 +6,7 @@ import {
   flushTraces,
   InMemoryTraceManager,
   SpanType,
+  SpanStatusCode,
   SpanAttributeKey,
   TraceMetadataKey,
   type LiveSpan,
@@ -37,6 +38,7 @@ import {
   buildUsageDict,
   extractContentAndTools,
   getCurrentUser,
+  mergeAssistantMessage,
 } from './_internal.js';
 
 // ============================================================================
@@ -184,31 +186,34 @@ function setTokenUsageAttribute(span: LiveSpan, usage: TokenUsage | undefined): 
 type MsgContent = NonNullable<TranscriptEntry['message']>['content'];
 type LogicalMsg = { content: MsgContent; usage?: TokenUsage; model: string; lastIdx: number };
 function getLogicalAssistantMessage(transcript: TranscriptEntry[], startIdx: number): LogicalMsg {
-  const firstMessage = transcript[startIdx].message;
-  let content = firstMessage?.content ?? [];
-  let usage = firstMessage?.usage;
-  let model = firstMessage?.model ?? 'unknown';
-  const messageId = firstMessage?.id;
+  let message = transcript[startIdx].message;
+  if (!message) {
+    return { content: [], model: 'unknown', lastIdx: startIdx };
+  }
+  const messageId = message.id;
   if (!messageId) {
-    return { content, usage, model, lastIdx: startIdx };
+    return {
+      content: message.content,
+      usage: message.usage,
+      model: message.model ?? 'unknown',
+      lastIdx: startIdx,
+    };
   }
   let lastIdx = startIdx;
   for (let i = startIdx + 1; i < transcript.length; i++) {
     const entry = transcript[i];
-    if (entry.type === 'progress') {
+    if (entry.type !== 'assistant' || entry.message?.id !== messageId) {
       continue;
     }
-    if (entry.type !== 'assistant' || entry.message?.id !== messageId) {
-      break;
-    }
     lastIdx = i;
-    content = [content, entry.message.content].flatMap((part) =>
-      Array.isArray(part) ? part : [{ type: 'text' as const, text: part ?? '' }],
-    );
-    usage = entry.message.usage ? { ...usage, ...entry.message.usage } : usage;
-    model = model === 'unknown' ? (entry.message.model ?? model) : model;
+    message = mergeAssistantMessage(message, entry.message);
   }
-  return { content, usage, model, lastIdx };
+  return {
+    content: message.content,
+    usage: message.usage,
+    model: message.model ?? 'unknown',
+    lastIdx,
+  };
 }
 
 // ============================================================================
@@ -380,6 +385,7 @@ function createLlmAndToolSpans(
 ): void {
   const subagentGroups = collectSubagentGroups(transcript, startIdx);
   const emittedLlmMessageKeys = new Set<string>();
+  const emittedToolIds = new Set<string>();
 
   for (let i = startIdx; i < transcript.length; i++) {
     const entry = transcript[i];
@@ -403,7 +409,14 @@ function createLlmAndToolSpans(
     }
     const content = msg.content ?? [];
 
-    const [, toolUses] = extractContentAndTools(content);
+    const [, extractedTools] = extractContentAndTools(content);
+    const toolUses = extractedTools.filter((tool) => {
+      if (tool.id && emittedToolIds.has(tool.id)) {
+        return false;
+      }
+      emittedToolIds.add(tool.id);
+      return true;
+    });
     const messageKey = msg.id ? `id:${msg.id}` : `idx:${i}`;
     const logicalMessage = getLogicalAssistantMessage(transcript, i);
     const [logicalTextContent, logicalToolUses] = extractContentAndTools(logicalMessage.content);
@@ -412,7 +425,10 @@ function createLlmAndToolSpans(
       logicalMessage.content.some((part) => part?.type === 'thinking');
     const shouldCreateLlmSpan =
       !emittedLlmMessageKeys.has(messageKey) &&
-      (logicalTextContent.trim() || hasLogicalThinking || logicalMessage.usage);
+      (logicalTextContent.trim() ||
+        hasLogicalThinking ||
+        logicalToolUses.length ||
+        logicalMessage.usage);
     emittedLlmMessageKeys.add(messageKey);
 
     if (shouldCreateLlmSpan) {
@@ -512,6 +528,7 @@ function createLlmAndToolSpans(
 
         if (toolResultInfo?.isError) {
           const errorMessage = toolResult || 'Tool execution failed';
+          toolSpan.setStatus(SpanStatusCode.ERROR, errorMessage);
           toolSpan.recordException(new Error(errorMessage));
         }
 
@@ -587,6 +604,10 @@ export async function processTranscript(transcriptPath: string, sessionId?: stri
           [TraceMetadataKey.TRACE_USER]: getCurrentUser(),
           [METADATA_KEY_WORKING_DIRECTORY]: process.cwd(),
         };
+        const runId = process.env.MLFLOW_RUN_ID;
+        if (runId) {
+          metadata[TraceMetadataKey.SOURCE_RUN] = runId;
+        }
 
         // Capture permission mode
         const permissionMode = lastUserEntry.permissionMode;

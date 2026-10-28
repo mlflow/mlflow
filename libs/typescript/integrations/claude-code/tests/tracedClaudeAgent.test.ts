@@ -246,7 +246,7 @@ describe('createTracedQuery (integration)', () => {
     expect(root.name).toBe('claude_code_conversation');
 
     const llmSpans = spansByType(spans, SpanType.LLM);
-    expect(llmSpans).toHaveLength(2);
+    expect(llmSpans).toHaveLength(3);
     expect(llmSpans.every((s) => s.parentId === root.spanId)).toBe(true);
 
     const toolSpans = spansByType(spans, SpanType.TOOL);
