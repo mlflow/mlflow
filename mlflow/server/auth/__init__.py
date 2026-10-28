@@ -2424,21 +2424,24 @@ def validate_can_delete_registered_model_or_prompt_cascade():
     if target is None:
         return False
     container_type, name = target
-    _require_stored_name_spelling(_get_request_param("name"), name)
     version_type = (
         RESOURCE_TYPE_PROMPT_VERSION
         if container_type == RESOURCE_TYPE_PROMPT
         else RESOURCE_TYPE_REGISTERED_MODEL_VERSION
     )
     container = (container_type, name)
-    return authorize(
+    if not authorize(
         authenticate_request().username,
         container,
         [
             Requirement(container_type, name, "delete"),
             Requirement(version_type, "*", "delete", fallback_if_no_grant=(container,)),
         ],
-    )
+    ):
+        return False
+    # Checked after authorization so the error cannot reveal the stored name to a denied caller.
+    _require_stored_name_spelling(_get_request_param("name"), name)
+    return True
 
 
 def _filter_selects_attribute(

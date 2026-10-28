@@ -10310,6 +10310,13 @@ def test_registered_model_rename_and_delete_require_stored_name_spelling(
                 with pytest.raises(MlflowException, match="Use the exact name 'Foo'"):
                     getattr(auth_module, validator)()
 
+    # A caller who may not change the model is denied plainly, without learning the stored name.
+    store.revoke_user_resource_permission(username, "registered_model", "*")
+    with auth_module.app.test_request_context(
+        f"/api/2.0/mlflow/{route}", method=method, json={"name": "foo", "new_name": "Bar"}
+    ):
+        assert not getattr(auth_module, validator)()
+
 
 def test_mcp_server_delete_requires_stored_name_spelling(workspace_permission_setup, monkeypatch):
     store = workspace_permission_setup["store"]
