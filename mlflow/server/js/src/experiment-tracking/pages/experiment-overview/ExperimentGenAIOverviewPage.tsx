@@ -263,6 +263,8 @@ const ExperimentGenAIOverviewPageImpl = () => {
             display: 'flex',
             alignItems: 'center',
             gap: theme.spacing.sm,
+            // Matches the content padding below, which keeps the button clear of its scroll bar.
+            paddingRight: theme.spacing.md,
           }}
         >
           {activeTab === OverviewTab.Usage && (
