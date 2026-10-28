@@ -940,12 +940,9 @@ def discover_issues(
     )
 
     update_status_details({"stage": "Identifying issues from traces..."})
-    # The run stays open for the whole pipeline, not just the triage evaluation: exiting this
-    # block terminates the run, and every consumer -- the Issues tab, the Traces tab, the
-    # scheduled runs page -- reads the run to decide whether a detection has finished. Closed
-    # after the evaluation, the phases below would file their issues against a run that already
-    # read FINISHED, so the tab reported a completed detection that had found nothing until the
-    # issues landed minutes later.
+    # Open for the whole pipeline, not just the triage evaluation: leaving this block terminates
+    # the run, and every consumer reads the run to decide whether a detection has finished. The
+    # phases below would otherwise file their issues against a run that already read FINISHED.
     with mlflow.start_run(run_id=run_id, tags={MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_ISSUE_DETECTION}):
         triage_eval = mlflow.genai.evaluate(
             data=triage_traces,

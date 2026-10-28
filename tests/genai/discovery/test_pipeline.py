@@ -1085,10 +1085,8 @@ def test_an_issue_refreshed_by_the_run_that_filed_it_is_not_counted_as_new(make_
 
 def test_the_run_reads_running_until_its_issues_have_been_filed(make_trace):
     """
-    Every surface that reports a detection as finished reads the run, not the pipeline, so a run
-    that terminates before its issues exist is read as a detection that completed and found
-    nothing -- which is what the Issues tab then says, until the issues land and it changes its
-    mind.
+    Every consumer reads the run, not the pipeline, so a run that settles before its issues
+    exist reads as a detection that completed and found nothing.
     """
     traces = [make_trace() for _ in range(3)]
     failing = traces[:2]
@@ -1123,6 +1121,7 @@ def test_the_run_reads_running_until_its_issues_have_been_filed(make_trace):
             "mlflow.genai.discovery.pipeline.summarize_cluster",
             return_value=create_identified_issue(name="slow_response", example_indices=[0, 1]),
         ),
+        patch("mlflow.genai.discovery.pipeline.read_match_candidates", return_value=[]),
         patch("mlflow.tracing.client.TracingClient._create_issue", side_effect=_file_issue),
         patch("mlflow.genai.discovery.pipeline._annotate_issue_traces"),
     ):
@@ -1130,15 +1129,11 @@ def test_the_run_reads_running_until_its_issues_have_been_filed(make_trace):
 
     assert len(result.issues) == 1
     assert status_when_filed == ["RUNNING"]
-    # And the run is still finished once the pipeline is done, rather than left dangling for the
-    # caller to notice.
+    # Still settles once the pipeline is done, rather than being left dangling.
     assert mlflow.get_run(run_id).info.status == "FINISHED"
 
+
 def test_a_run_whose_later_phase_raises_reads_failed(make_trace):
-    """
-    The counterpart: a run closed after the triage evaluation read FINISHED even when clustering
-    went on to raise, so a detection that crashed reported success.
-    """
     traces = [make_trace() for _ in range(3)]
     failing = traces[:2]
     rationale_map = {trace.info.trace_id: "bad" for trace in failing}
@@ -1166,6 +1161,7 @@ def test_a_run_whose_later_phase_raises_reads_failed(make_trace):
         discover_issues(traces=traces, run_id=run_id)
 
     assert mlflow.get_run(run_id).info.status == "FAILED"
+
 
 def test_discover_issues_returns_total_cost_usd_field(make_trace):
     from mlflow.entities.assessment import Feedback
