@@ -1,23 +1,27 @@
+import type { ReactNode } from 'react';
 import { Button, BeakerIcon } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import { getExperimentPagePlaygroundRoute } from './routes';
 import { useInRouterContext, useParams, useWorkspaceNavigate } from './RoutingUtils';
 
-interface OpenInPlaygroundButtonProps {
+interface OpenInPlaygroundTarget {
   traceId: string | undefined;
   spanId?: string;
   // Falls back to the experiment id in the current route when not provided.
   experimentId?: string;
-  size?: 'small' | 'middle';
 }
 
-const OpenInPlaygroundButtonImpl = ({
+interface OpenInPlaygroundActionProps extends OpenInPlaygroundTarget {
+  children: (openInPlayground: () => void) => ReactNode;
+}
+
+const OpenInPlaygroundActionImpl = ({
   traceId,
   spanId,
   experimentId: experimentIdProp,
-  size,
-}: OpenInPlaygroundButtonProps) => {
+  children,
+}: OpenInPlaygroundActionProps) => {
   const navigate = useWorkspaceNavigate();
   const { experimentId: experimentIdFromRoute } = useParams<{ experimentId: string }>();
   const experimentId = experimentIdProp ?? experimentIdFromRoute;
@@ -26,25 +30,14 @@ const OpenInPlaygroundButtonImpl = ({
     return null;
   }
 
-  return (
-    <Button
-      componentId="shared.model-trace-explorer.open-in-playground"
-      icon={<BeakerIcon />}
-      size={size}
-      onClick={() => navigate(getExperimentPagePlaygroundRoute(experimentId, { traceId, spanId }))}
-    >
-      <FormattedMessage
-        defaultMessage="Open in Playground"
-        description="Button on the trace UI that opens the MLflow playground pre-filled with the trace's input and prompt so the user can test different prompts"
-      />
-    </Button>
-  );
+  return <>{children(() => navigate(getExperimentPagePlaygroundRoute(experimentId, { traceId, spanId })))}</>;
 };
 
 /**
- * "Open in Playground" action shown on the trace UI (both trace-level and span-level).
+ * "Open in Playground" action shown on the trace UI (both trace-level and span-level). Renders
+ * `children` with a callback that opens the playground, so each surface keeps its own trigger style.
  *
- * Clicking it navigates to the experiment's playground page, passing the trace id (and, at the
+ * The callback navigates to the experiment's playground page, passing the trace id (and, at the
  * span level, the span id) as query params. The playground reads those params to pre-fill itself
  * with the captured input + prompt/model so users can iterate on the prompt without leaving MLflow.
  *
@@ -53,12 +46,30 @@ const OpenInPlaygroundButtonImpl = ({
  * router-context guard also keeps router-less embeddings (e.g. the OSS notebook renderer) working,
  * since `useWorkspaceNavigate`/`useParams` throw outside a `<Router>`.
  */
-export const OpenInPlaygroundButton = (props: OpenInPlaygroundButtonProps) => {
+export const OpenInPlaygroundAction = (props: OpenInPlaygroundActionProps) => {
   const inRouterContext = useInRouterContext();
 
   if (!inRouterContext) {
     return null;
   }
 
-  return <OpenInPlaygroundButtonImpl {...props} />;
+  return <OpenInPlaygroundActionImpl {...props} />;
 };
+
+export const OpenInPlaygroundButton = ({ size, ...target }: OpenInPlaygroundTarget & { size?: 'small' | 'middle' }) => (
+  <OpenInPlaygroundAction {...target}>
+    {(openInPlayground) => (
+      <Button
+        componentId="shared.model-trace-explorer.open-in-playground"
+        icon={<BeakerIcon />}
+        size={size}
+        onClick={openInPlayground}
+      >
+        <FormattedMessage
+          defaultMessage="Open in Playground"
+          description="Button on the trace UI that opens the MLflow playground pre-filled with the trace's input and prompt so the user can test different prompts"
+        />
+      </Button>
+    )}
+  </OpenInPlaygroundAction>
+);

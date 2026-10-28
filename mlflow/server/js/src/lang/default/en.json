@@ -4827,6 +4827,10 @@
     "defaultMessage": "Permission denied",
     "description": "Title for Skill detail permission-denied state"
   },
+  "DUP3v8": {
+    "defaultMessage": "Open span in Playground",
+    "description": "Accessible label and tooltip for opening the playground pre-filled with the selected span's input"
+  },
   "DUnrWL": {
     "defaultMessage": "Run Name:",
     "description": "Row title for the run name on the experiment compare runs page"
@@ -9727,6 +9731,10 @@
     "defaultMessage": "{runName} session turns",
     "description": "Trace block for one run in an expanded session comparison"
   },
+  "TUMb+k": {
+    "defaultMessage": "Playground",
+    "description": "Visible label for opening the playground pre-filled with the trace's input"
+  },
   "TWnsnV": {
     "defaultMessage": "Run Name",
     "description": "Column header for run name in the evaluation runs table"
@@ -11638,6 +11646,10 @@
   "ZaEvv/": {
     "defaultMessage": "Delete",
     "description": "Dropdown item label to delete a V2 evaluation dataset row"
+  },
+  "ZaZ08Z": {
+    "defaultMessage": "Open in Playground",
+    "description": "Accessible label and tooltip for opening the playground pre-filled with the trace's input"
   },
   "Zb1znQ": {
     "defaultMessage": "Clear demo data",
