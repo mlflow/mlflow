@@ -28,7 +28,7 @@ from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.autologging_utils import (
     get_autologging_config,
 )
-from mlflow.version import IS_TRACING_SDK_ONLY
+from mlflow.version import HAS_MODEL_LOGGING_DEPS
 
 _logger = logging.getLogger(__name__)
 _lock = threading.Lock()
@@ -347,7 +347,7 @@ class MlflowCallback(BaseCallback):
         inputs: dict[str, Any],
         attributes: dict[str, Any],
     ):
-        if not IS_TRACING_SDK_ONLY:
+        if HAS_MODEL_LOGGING_DEPS:
             from mlflow.pyfunc.context import get_prediction_context
 
             prediction_context = get_prediction_context()
