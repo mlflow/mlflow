@@ -3686,6 +3686,7 @@ class SqlAlchemyStore(
         models: sqlalchemy.orm.Query,
         session: sqlalchemy.orm.Session,
         order_by: list[dict[str, Any]] | None = None,
+        experiment_ids: list[int] | None = None,
         datasets: list[dict[str, Any]] | None = None,
     ) -> sqlalchemy.orm.Query:
         order_by_clauses = []
@@ -3730,7 +3731,9 @@ class SqlAlchemyStore(
             if dataset_digest := ob.get("dataset_digest"):
                 dataset_filter.append(SqlLoggedModelMetric.dataset_digest == dataset_digest)
 
-            subquery = _get_latest_logged_model_metrics_subquery(session, name, dataset_filter)
+            subquery = _get_latest_logged_model_metrics_subquery(
+                session, name, dataset_filter, experiment_ids=experiment_ids
+            )
             models = models.outerjoin(subquery)
             # Why not use `nulls_last`? Because it's not supported by all dialects (e.g., MySQL)
             order_by_clauses.extend([
@@ -3757,6 +3760,7 @@ class SqlAlchemyStore(
         from mlflow.utils.search_logged_model_utils import EntityType, parse_filter_string
 
         comparisons = parse_filter_string(filter_string)
+        experiment_ids = _parse_experiment_ids(experiment_ids)
         dialect = self._get_dialect()
         attr_filters: list[sqlalchemy.BinaryExpression] = []
         non_attr_filters: list[sqlalchemy.BinaryExpression] = []
@@ -3791,6 +3795,7 @@ class SqlAlchemyStore(
                     session,
                     comp.entity.key,
                     [] if datasets_filter is None else [datasets_filter],
+                    experiment_ids=experiment_ids,
                 )
                 non_attr_filters.append(
                     select(latest_metrics.c.model_id)
@@ -3833,7 +3838,6 @@ class SqlAlchemyStore(
             )
             models = models.join(subquery)
 
-        experiment_ids = _parse_experiment_ids(experiment_ids)
         return models.filter(
             SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED,
             SqlLoggedModel.experiment_id.in_(experiment_ids),
@@ -3868,7 +3872,11 @@ class SqlAlchemyStore(
                 models, session, experiment_ids, filter_string, datasets
             )
             models = self._apply_order_by_search_logged_models(
-                models, session, order_by, datasets=datasets
+                models,
+                session,
+                order_by,
+                experiment_ids=_parse_experiment_ids(experiment_ids),
+                datasets=datasets,
             )
             models = (
                 models
@@ -10383,6 +10391,7 @@ def _get_latest_logged_model_metrics_subquery(
     session: sqlalchemy.orm.Session,
     metric_name: str,
     filters: list[sqlalchemy.ColumnElement[bool]],
+    experiment_ids: list[int] | None = None,
 ) -> sqlalchemy.Subquery:
     """
     Returns a subquery with the latest ``(model_id, metric_value)`` row of ``metric_name`` per
@@ -10390,8 +10399,21 @@ def _get_latest_logged_model_metrics_subquery(
     picked.
 
     The latest row is the one with the highest step, then timestamp, then value, which is how
-    run metrics and ``FileStore`` pick the latest value.
+    run metrics and ``FileStore`` pick the latest value. If ``experiment_ids`` is given, only
+    metrics of logged models in those experiments are ranked.
     """
+    if experiment_ids is not None:
+        # Scope by the model's experiment rather than `SqlLoggedModelMetric.experiment_id`,
+        # which is the experiment of the run that logged the metric and can differ from the
+        # model's (e.g. an evaluation run in another experiment).
+        filters = [
+            *filters,
+            SqlLoggedModelMetric.model_id.in_(
+                select(SqlLoggedModel.model_id).where(
+                    SqlLoggedModel.experiment_id.in_(experiment_ids)
+                )
+            ),
+        ]
     ranked = (
         session
         .query(

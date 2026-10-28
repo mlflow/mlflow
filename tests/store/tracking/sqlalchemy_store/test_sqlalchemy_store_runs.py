@@ -4592,6 +4592,61 @@ def test_search_logged_models_paginates_metric_on_several_datasets(
 
 
 @pytest.mark.parametrize(
+    ("experiments", "filter_string", "order_by_key", "expected_names"),
+    [
+        (["a"], "metrics.loss < 0.1", "loss", ["model_a"]),
+        (["b"], "metrics.loss < 0.1", "loss", ["model_b"]),
+        (["a", "b"], "metrics.loss < 0.1", "loss", ["model_a", "model_b"]),
+        # `accuracy` was logged by a run in experiment "eval", which is not searched.
+        (["a"], "metrics.accuracy > 0.5", "accuracy", ["model_a"]),
+        (["a", "b"], None, "accuracy", ["model_a", "model_b"]),
+    ],
+)
+def test_search_logged_models_metrics_are_scoped_to_searched_experiments(
+    store: SqlAlchemyStore, experiments, filter_string, order_by_key, expected_names
+):
+    exp_ids = {name: store.create_experiment(f"exp-{name}-{uuid.uuid4()}") for name in "abce"}
+    runs = {
+        name: store.create_run(
+            experiment_id=exp_ids[name], user_id="user", start_time=0, run_name=name, tags=[]
+        ).info.run_id
+        for name in exp_ids
+    }
+    histories = {
+        "a": {"loss": [0.5, 0.05]},
+        "b": {"loss": [0.5, 0.08]},
+        # Models in other experiments that would match and rank first if they leaked.
+        "c": {"loss": [0.01]},
+        "e": {"loss": [0.01], "accuracy": [0.99]},
+    }
+    for name, metrics in histories.items():
+        model = store.create_logged_model(experiment_id=exp_ids[name], name=f"model_{name}")
+        store.log_batch(
+            runs[name],
+            metrics=[
+                Metric(key, value, 1000 + step, step, model_id=model.model_id)
+                for key, values in metrics.items()
+                for step, value in enumerate(values)
+            ],
+            params=[],
+            tags=[],
+        )
+        if name in ("a", "b"):
+            # Logged against the model by a run in another experiment.
+            store.log_metric(
+                runs["e"],
+                Metric("accuracy", 0.9 if name == "a" else 0.95, 1000, 0, model_id=model.model_id),
+            )
+
+    models = store.search_logged_models(
+        experiment_ids=[exp_ids[name] for name in experiments],
+        filter_string=filter_string,
+        order_by=[{"field_name": f"metrics.{order_by_key}", "ascending": True}],
+    )
+    assert [m.name for m in models] == expected_names
+
+
+@pytest.mark.parametrize(
     ("filter_string", "expected_names"),
     [
         ("metrics.loss < 0.1", {"nan_then_good"}),
