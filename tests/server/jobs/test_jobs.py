@@ -1193,6 +1193,8 @@ def check_python_env_fn():
 
 
 def test_job_with_python_env(monkeypatch, tmp_path):
+    monkeypatch.delenv("PIP_CONSTRAINT", raising=False)
+    monkeypatch.delenv("UV_CONSTRAINT", raising=False)
     monkeypatch.setenv("MLFLOW_HOME", _get_mlflow_repo_home())
     monkeypatch.setenv(MLFLOW_ENV_ROOT.name, str(tmp_path / "envs"))
 

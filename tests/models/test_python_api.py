@@ -93,9 +93,13 @@ def test_predict(input_data, expected_data, content_type, env_manager):
     [VIRTUALENV, CONDA, UV],
 )
 def test_predict_with_pip_requirements_override(env_manager):
+    extra_pip_requirements = ["scikit-learn==1.3.2", "pytest"]
     if env_manager == CONDA:
         if sys.platform == "win32":
             pytest.skip("Skipping conda tests on Windows")
+        # Conda installs SciPy 1.15 for the overrides below. Keep the initial pip install
+        # on the same version series to avoid mixing incompatible binary layouts.
+        extra_pip_requirements.append("scipy<1.16")
 
     class TestModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input):
@@ -104,20 +108,21 @@ def test_predict_with_pip_requirements_override(env_manager):
 
             assert xgboost.__version__ == "1.7.3"
 
-            # Scikit-learn version should be overridden to 1.3.0 by pip_requirements_override
+            # Scikit-learn version should be overridden to 1.3.1 by pip_requirements_override
             import sklearn
 
-            assert sklearn.__version__ == "1.3.0"
+            assert sklearn.__version__ == "1.3.1"
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             name="model",
             python_model=TestModel(),
-            extra_pip_requirements=["scikit-learn==1.3.2", "pytest"],
+            extra_pip_requirements=extra_pip_requirements,
         )
 
-    requirements_override = ["xgboost==1.7.3", "scikit-learn==1.3.0"]
+    requirements_override = ["xgboost==1.7.3", "scikit-learn==1.3.1"]
     if env_manager == CONDA:
+        requirements_override.append("scipy<1.16")
         # Install charset-normalizer with conda-forge to work around pip-vs-conda issue during
         # CI tests. At the beginning of the CI test, it installs MLflow dependencies via pip,
         # which includes charset-normalizer. Then when it runs this test case, the conda env
