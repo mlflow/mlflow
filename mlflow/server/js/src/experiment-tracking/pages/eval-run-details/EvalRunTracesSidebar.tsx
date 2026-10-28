@@ -102,15 +102,17 @@ export const EvalRunTracesSidebar = ({ experimentId, runUuid, runName }: EvalRun
                 top: '50%',
                 left: '50%',
                 transform: 'translate(-50%, -50%)',
-                // Native buttons enforce their visual styles with !important.
-                '&&&': {
+                // Native buttons enforce their visual styles with !important, and icon-only buttons
+                // force a transparent `background` at four-class specificity, so outrank that here or
+                // the divider behind the toggle shows through it.
+                '&&&&&': {
                   borderRadius: '50% !important',
                   height: `${theme.spacing.lg}px !important`,
                   border: `1px solid ${theme.colors.border} !important`,
-                  backgroundColor: `${theme.colors.backgroundPrimary} !important`,
+                  background: `${theme.colors.backgroundPrimary} !important`,
                   color: `${theme.colors.textSecondary} !important`,
                   '&:hover, &:active': {
-                    backgroundColor: `${theme.colors.backgroundSecondary} !important`,
+                    background: `${theme.colors.backgroundSecondary} !important`,
                   },
                   '& .anticon, & .db-icon': { color: 'inherit !important' },
                 },
@@ -224,12 +226,13 @@ export const EvalRunTracesSidebar = ({ experimentId, runUuid, runName }: EvalRun
               ':hover': {
                 backgroundColor: theme.colors.actionDefaultBackgroundHover,
               },
-              '&&&': {
+              // Five ampersands for the same reason as the divider toggle: collapsed, this is icon-only.
+              '&&&&&': {
                 color: `${theme.colors.textSecondary} !important`,
                 justifyContent: `${collapsed ? 'center' : 'flex-start'} !important`,
                 '& .anticon, & .db-icon': { color: 'inherit !important' },
                 '&:hover, &:active': {
-                  backgroundColor: `${theme.colors.backgroundSecondary} !important`,
+                  background: `${theme.colors.backgroundSecondary} !important`,
                 },
               },
             }}
