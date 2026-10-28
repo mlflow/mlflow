@@ -205,13 +205,32 @@ jobs:
           if echo "$BODY" | grep -q -- '--hybrid'; then flags="$flags --hybrid"; fi
           echo "flags=$flags" >> "$GITHUB_OUTPUT"
 
+      # The gateway action receives the service principal's client secret, so run
+      # the default-branch copy, never the PR head checkout under ./mlflow.
+      - name: Checkout gateway action from the default branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          sparse-checkout: |
+            .github/actions/setup-gateway
+          path: trusted
+          token: ${{ steps.app_token.outputs.token }}
+          persist-credentials: false
+
+      - id: gateway
+        uses: ./trusted/.github/actions/setup-gateway
+        with:
+          task: nailaopus-review
+          host: ${{ secrets.DATABRICKS_HOST }}
+          client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+
       - name: Run NaiLaOpus
         env:
-          # EXPERIMENTAL_ANTHROPIC_API_KEY isolates the bot's spend from
-          # any other workflow on this repo that uses Anthropic. The orchestrator
-          # reads from $ANTHROPIC_API_KEY, so the env var name passed to
-          # the process stays standard.
-          ANTHROPIC_API_KEY: ${{ secrets.EXPERIMENTAL_ANTHROPIC_API_KEY }}
+          # Short-lived AI Gateway bearer; the client secret stays in the gateway step.
+          ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway.outputs.token }}
+          ANTHROPIC_BASE_URL: ${{ steps.gateway.outputs.base-url }}/anthropic
+          ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
           GH_TOKEN: ${{ steps.app_token.outputs.token }}
           PR: ${{ steps.ctx.outputs.pr }}
           REPO: ${{ github.repository }}
