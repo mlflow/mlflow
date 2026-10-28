@@ -1,9 +1,6 @@
-import json
 import logging
 import threading
 
-from google.adk.plugins.base_plugin import BasePlugin
-from opentelemetry import trace
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
@@ -19,7 +16,7 @@ from opentelemetry.trace import (
 
 from mlflow.entities import SpanType
 from mlflow.entities.span import create_mlflow_span
-from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import (
     _add_span_processor_first,
     _get_tracer_for_span_end,
@@ -34,10 +31,7 @@ from mlflow.tracing.utils import (
 
 _logger = logging.getLogger(__name__)
 
-# ADK pauses a tool behind a confirmation card by calling this function; the user answers it
-# with a function response of the same name.
-_CONFIRMATION_CALL = "adk_request_confirmation"
-_PLUGIN_NAME = "mlflow_google_adk"
+PLUGIN_NAME = "mlflow_google_adk"
 
 _SPAN_TYPE_BY_OPERATION = {
     "invoke_agent": SpanType.AGENT,
@@ -81,7 +75,7 @@ class GoogleADKSpanProcessor(SimpleSpanProcessor):
                     if span_type := _span_type(span):
                         mlflow_span.set_span_type(span_type)
             tracer, should_forward = _get_tracer_for_span_end(self, __name__)
-            if should_forward:
+            if should_forward and not isinstance(tracer, NoOpTracer):
                 tracer.span_processor.on_end(span)
         finally:
             self._processing_local.in_on_end = False
@@ -96,117 +90,14 @@ def _span_type(span: OTelReadableSpan) -> str | None:
     return _SPAN_TYPE_BY_OPERATION.get(attributes.get("gen_ai.operation.name"))
 
 
-def _confirmed(response: dict) -> bool:
-    # ADK's web client wraps the answer as {"response": "<json>"}. Parsed here rather than with
-    # ToolConfirmation.from_response_dict, which some ADK releases don't have.
-    if set(response) == {"response"} and isinstance(response["response"], str):
-        try:
-            response = json.loads(response["response"])
-        except ValueError:
-            return False
-    return bool(response.get("confirmed"))
-
-
-def _message_text(content) -> str:
-    """The user's side of a turn as text: typed text, or the answer to a confirmation card."""
-    texts, answers = [], []
-    for part in (content.parts if content else None) or []:
-        if part.text and not part.thought:
-            texts.append(part.text)
-        elif part.function_response and part.function_response.name == _CONFIRMATION_CALL:
-            confirmed = _confirmed(part.function_response.response or {})
-            answers.append(f"[confirmation {'accepted' if confirmed else 'declined'}]")
-    return " ".join(filter(None, ["".join(texts), *answers]))
-
-
-def _visible_reply(event) -> str:
-    """Text the user sees from one event; same filter as ADK's BigQuery analytics plugin."""
-    if not (
-        event.content
-        and event.content.parts
-        and event.is_final_response()
-        and event.partial is not True
-        and not event.get_function_calls()
-        and not event.get_function_responses()
-        and not event.long_running_tool_ids
-    ):
-        return ""
-    return "".join(p.text for p in event.content.parts if p.text and not p.thought)
-
-
-class MlflowTurnPlugin(BasePlugin):
-    """
-    Records each turn's user message and visible reply on ADK's invocation span, which ADK
-    leaves without inputs or outputs. MLflow reads the turn from the trace's root span.
-    """
-
-    def __init__(self):
-        super().__init__(name=_PLUGIN_NAME)
-        self._turns = {}
-
-    async def on_user_message_callback(self, *, invocation_context, user_message):
-        try:
-            _set_json_attribute(
-                SpanAttributeKey.INPUTS,
-                {"messages": [{"role": "user", "content": _message_text(user_message)}]},
-            )
-            _set_trace_session(invocation_context.session)
-            self._turns[invocation_context.invocation_id] = {"replies": [], "cards": []}
-        except Exception as e:
-            _logger.debug("Failed to record the ADK turn input", exc_info=e)
-
-    async def on_event_callback(self, *, invocation_context, event):
-        try:
-            if turn := self._turns.get(invocation_context.invocation_id):
-                turn["cards"] += [
-                    call.args["originalFunctionCall"]["name"]
-                    for call in event.get_function_calls()
-                    if call.name == _CONFIRMATION_CALL
-                ]
-                if reply := _visible_reply(event):
-                    turn["replies"].append(reply)
-        except Exception as e:
-            _logger.debug("Failed to record the ADK turn output", exc_info=e)
-
-    async def after_run_callback(self, *, invocation_context):
-        try:
-            if turn := self._turns.pop(invocation_context.invocation_id, None):
-                reply = "\n".join(turn["replies"])
-                if not reply and turn["cards"]:
-                    reply = f"[confirmation requested: {', '.join(turn['cards'])}]"
-                _set_json_attribute(SpanAttributeKey.OUTPUTS, reply)
-        except Exception as e:
-            _logger.debug("Failed to record the ADK turn output", exc_info=e)
-
-
-def _set_trace_session(session) -> None:
-    """
-    Group the trace under the session of the runner that started it. Runners nested in the turn
-    (e.g. an ``AgentTool``) have their own ADK sessions, which would otherwise be picked up from
-    their spans.
-    """
-    span = trace.get_current_span()
-    if getattr(span, "parent", None) is not None:
-        return
-    trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
-    if trace_id is None:
-        return
-    with InMemoryTraceManager.get_instance().get_trace(trace_id) as mlflow_trace:
-        if mlflow_trace:
-            mlflow_trace.info.trace_metadata[TraceMetadataKey.TRACE_SESSION] = session.id
-            mlflow_trace.info.trace_metadata[TraceMetadataKey.TRACE_USER] = session.user_id
-
-
-def _set_json_attribute(key: str, value) -> None:
-    span = trace.get_current_span()
-    if span.is_recording():
-        span.set_attribute(key, json.dumps(value, ensure_ascii=False))
-
-
 def patched_runner_init(original, self, *args, **kwargs):
     original(self, *args, **kwargs)
     plugin_manager = getattr(self, "plugin_manager", None)
-    if plugin_manager is not None and plugin_manager.get_plugin(_PLUGIN_NAME) is None:
+    if plugin_manager is not None and plugin_manager.get_plugin(PLUGIN_NAME) is None:
+        # Imported here: the plugin subclasses ADK's BasePlugin, and this module must load
+        # without google-adk installed.
+        from mlflow.google_adk.plugin import MlflowTurnPlugin
+
         plugin_manager.register_plugin(MlflowTurnPlugin())
 
 
