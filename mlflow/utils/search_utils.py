@@ -1341,6 +1341,9 @@ class SearchModelUtils(SearchUtils):
         #
         #   However, models do not have this tag, so lhs is None in this case. Instead of returning
         #   False like normal tag filter, we need to return True here.
+        if key == IS_PROMPT_TAG_KEY and comparator in ("=", "!="):
+            lhs = lhs.lower() if lhs is not None else None
+            value = value.lower()
         if key == IS_PROMPT_TAG_KEY and lhs is None:
             return (comparator == "=" and value == "false") or (
                 comparator == "!=" and value == "true"
@@ -1536,6 +1539,9 @@ class SearchModelVersionUtils(SearchUtils):
         #
         #   However, models do not have this tag, so lhs is None in this case. Instead of returning
         #   False like normal tag filter, we need to return True here.
+        if key == IS_PROMPT_TAG_KEY and comparator in ("=", "!="):
+            lhs = lhs.lower() if lhs is not None else None
+            value = value.lower()
         if key == IS_PROMPT_TAG_KEY and lhs is None:
             return (comparator == "=" and value == "false") or (
                 comparator == "!=" and value == "true"
