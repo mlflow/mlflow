@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793191766131,
+  "lastUpdate": 1793192291469,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "haoji.tang@databricks.com",
-            "name": "Haoji Tang",
-            "username": "tanghaoji"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a3b3f574a62d28d74def9f339fab0da397a70a1c",
-          "message": "[Custom View] Enforce saved view limit per experiment (#25064)\n\nSigned-off-by: Haoji Tang <haoji.tang@databricks.com>",
-          "timestamp": "2026-08-14T18:16:14+09:00",
-          "tree_id": "9bd506c423eb8c391a876a74eb55cc0acb4cdbb0",
-          "url": "https://github.com/mlflow/mlflow/commit/a3b3f574a62d28d74def9f339fab0da397a70a1c"
-        },
-        "date": 1786699055315,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 39.09231009999985,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 6.2034783684204715,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 5.343889302013274,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 6.2177988319323925,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 5.633398742186824,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 6.896373000000722,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 21.884922600000323,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "joshua.wong@databricks.com",
+            "name": "joshuawong-db",
+            "username": "joshuawong-db"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "3fe14d04d7b5869db50016939c4026fd50014b9a",
+          "message": "Respect `MLFLOW_ALLOW_MODEL_CODE_EXECUTION` when loading LlamaIndex settings (#27231)\n\nSigned-off-by: Joshua Wong <joshua.wong@databricks.com>\nCo-authored-by: Isaac <no-reply@databricks.com>",
+          "timestamp": "2026-10-28T12:54:17Z",
+          "tree_id": "152009d3f03114528081c71ec5c3926b2692adf8",
+          "url": "https://github.com/mlflow/mlflow/commit/3fe14d04d7b5869db50016939c4026fd50014b9a"
+        },
+        "date": 1793192287884,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 82.0098669500009,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.386430076923069,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.678895969465724,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 5.591028833332956,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.931415205882682,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 5.1783926000013025,
             "unit": "ms"
           }
         ]
