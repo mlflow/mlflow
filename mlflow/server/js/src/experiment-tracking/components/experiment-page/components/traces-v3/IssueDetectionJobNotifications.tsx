@@ -49,12 +49,8 @@ const COMPLETION_MESSAGES = defineMessages({
 /* eslint-enable formatjs/no-multiple-plurals */
 
 /**
- * The completion wording, and the counts it needs.
- *
- * A run over a familiar failure mode reports findings without any of them being news, so the
- * total alone cannot say whether there is anything to look at. An older server sends no
- * `new_issue_count`: the total-only wording is kept for it rather than calling issues new with
- * nothing to support it.
+ * The completion wording, and the counts it needs. An older server sends no `new_issue_count`,
+ * so the total-only wording is kept for it rather than calling issues new with nothing behind it.
  */
 const completionSummary = (
   issueCount: number,
@@ -64,12 +60,15 @@ const completionSummary = (
   if (newCount === undefined || issueCount === 0) {
     return { descriptor: COMPLETION_MESSAGES.total, values: { issueCount, traceCount } };
   }
-  const refreshedCount = Math.max(issueCount - newCount, 0);
+  // Held inside the total it describes: outside that range the server disagreed with itself,
+  // and "5 new" beside a total of 3 is worse than the nearest coherent answer.
+  const filedCount = Math.min(Math.max(newCount, 0), issueCount);
+  const refreshedCount = issueCount - filedCount;
   return refreshedCount === 0
-    ? { descriptor: COMPLETION_MESSAGES.allNew, values: { newCount, traceCount } }
+    ? { descriptor: COMPLETION_MESSAGES.allNew, values: { newCount: filedCount, traceCount } }
     : {
         descriptor: COMPLETION_MESSAGES.newAndRefreshed,
-        values: { newCount, refreshedCount, traceCount },
+        values: { newCount: filedCount, refreshedCount, traceCount },
       };
 };
 

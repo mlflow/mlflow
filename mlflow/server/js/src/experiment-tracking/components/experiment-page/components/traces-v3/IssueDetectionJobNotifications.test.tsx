@@ -278,11 +278,21 @@ describe('IssueDetectionJobNotifications', () => {
       'Found no issues across 48 traces.',
     ],
     [
-      // An older server sends no count, so the total-only wording is kept rather than calling
-      // findings new on no evidence.
+      // An older server sends no count, so the total-only wording is kept.
       'keeps the total-only wording when the server sends no breakdown',
       { issues: 5, total_traces_analyzed: 48 },
       'Found 5 issues across 48 traces.',
+    ],
+    [
+      // Only a server contradicting itself gets here; the wording still has to add up.
+      'holds a new count larger than the total inside it',
+      { issues: 3, new_issue_count: 5, total_traces_analyzed: 48 },
+      'Found 3 new issues across 48 traces.',
+    ],
+    [
+      'treats a negative new count as none of them being new',
+      { issues: 3, new_issue_count: -2, total_traces_analyzed: 48 },
+      'Found no new issues and refreshed 3 existing issues across 48 traces.',
     ],
   ])('%s', async (_name, jobResult, expected) => {
     mockJobStatus(JobStatus.RUNNING);

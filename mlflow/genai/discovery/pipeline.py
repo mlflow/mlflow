@@ -1080,10 +1080,11 @@ def discover_issues(
     issues, issue_trace_ids = _build_issues(
         identified, analyses, exp_id, triage_eval.run_id, match_outcome
     )
-    # Counted off what was filed rather than off `match_outcome`, because a finding whose match
-    # was lost between matching and writing -- the issue was resolved, or the refresh failed --
-    # is filed as new, and the count a caller reports should say what happened.
-    new_issue_count = sum(1 for issue in issues if issue.source_run_id == triage_eval.run_id)
+    # An ID that was not offered as a candidate can only be one this call filed: matching never
+    # maps a finding onto an issue it was not shown. Counted this way because a lost match is
+    # filed as new, and because `run_id` can be reused across detections.
+    offered = {candidate.issue_id for candidate in candidates}
+    new_issue_count = sum(1 for issue in issues if issue.issue_id not in offered)
 
     trace_to_session: dict[str, str] = {}
     for session_id, traces_in_session in session_groups.items():
