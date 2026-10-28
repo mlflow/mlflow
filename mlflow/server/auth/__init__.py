@@ -1262,6 +1262,8 @@ def _parse_artifact_auth_target(artifact_path: str | None) -> _ArtifactAuthTarge
             return _ArtifactAuthTarget(invalid=True)
         workspace = segments[1]
         relative_path = "/".join(segments[2:])
+    # The Skill checks get the path as requested: they reject `.` segments under the Skill root
+    # rather than resolving them, so they must still see them.
     skill = _parse_skill_upload_path_for_auth(canonical)
     return _ArtifactAuthTarget(
         relative_path=relative_path,
