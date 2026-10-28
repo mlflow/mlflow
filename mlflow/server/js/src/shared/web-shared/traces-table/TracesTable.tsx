@@ -1003,6 +1003,24 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
         : {}),
     };
 
+    // Each separator belongs to the column on its right, so the pinned Input column draws none on its
+    // edge: scrolled separators slide under it instead of doubling up beside it.
+    const renderSummaryBorder = (isLastColumn: boolean) =>
+      hasSummaryHeaders && (
+        <div
+          aria-hidden
+          data-testid="traces-table-comparison-summary-border"
+          css={{
+            position: 'absolute',
+            insetBlock: theme.spacing.sm,
+            insetInline: 0,
+            borderInlineStart: `1px solid ${theme.colors.borderDecorative}`,
+            borderInlineEnd: isLastColumn ? `1px solid ${theme.colors.borderDecorative}` : undefined,
+            pointerEvents: 'none',
+          }}
+        />
+      );
+
     const renderComparisonHeader = (header: (typeof leafHeaders)[number]) => {
       const columnId = header.column.id;
       const columnDef = header.column.columnDef as TraceTableColumn;
@@ -1023,26 +1041,16 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
               ? { ...pinnedComparisonInputStyle, zIndex: 2 }
               : undefined),
           }}
+          // The pinned column's resize bar would sit beside the scrolled columns' separators; the
+          // handle still resizes, it just isn't drawn.
+          css={
+            columnId === 'input' && !isSessionComparison
+              ? { '[aria-label="Resize Column"] > div': { visibility: 'hidden' } }
+              : undefined
+          }
           wrapContent={false}
         >
-          {hasSummaryHeaders && (
-            <div
-              aria-hidden
-              data-testid="traces-table-comparison-summary-border"
-              css={{
-                position: 'absolute',
-                insetBlock: theme.spacing.sm,
-                insetInline: 0,
-                borderInlineStart: `1px solid ${theme.colors.borderDecorative}`,
-                // Adjacent headers share one separator instead of doubling its width.
-                borderInlineEnd:
-                  columnId === 'input' || leafHeaders.indexOf(header) === leafHeaders.length - 1
-                    ? `1px solid ${theme.colors.borderDecorative}`
-                    : undefined,
-                pointerEvents: 'none',
-              }}
-            />
-          )}
+          {renderSummaryBorder(leafHeaders.indexOf(header) === leafHeaders.length - 1)}
           <TraceColumnHeader
             columnId={columnId}
             label={labelNode}
@@ -1618,6 +1626,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                 style={columnStyles.get(comparisonRunHeader.column.id)}
                 wrapContent={false}
               >
+                {renderSummaryBorder(false)}
                 <TraceColumnHeader
                   columnId={COMPARISON_RUN_COLUMN_ID}
                   label={intl.formatMessage({
