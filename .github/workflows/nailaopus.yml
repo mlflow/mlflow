@@ -76,10 +76,10 @@ jobs:
 
   review:
     needs: gate
-    # The workflow never uses the default GITHUB_TOKEN — every `gh api`
-    # call goes through the App installation token (steps.app_token.outputs.token).
-    # `permissions:` is set to a minimal `contents: read` purely to satisfy
-    # `.github/policy.rego`'s require-explicit-permissions rule.
+    # Every `gh api` call goes through the App installation token
+    # (steps.app_token.outputs.token). The default GITHUB_TOKEN only backs the
+    # sparse checkout of the gateway action, so `permissions:` is a minimal
+    # `contents: read`, which `.github/policy.rego` also requires explicitly.
     permissions:
       contents: read
     runs-on: ubuntu-24.04
@@ -214,7 +214,6 @@ jobs:
           sparse-checkout: |
             .github/actions/setup-gateway
           path: trusted
-          token: ${{ steps.app_token.outputs.token }}
           persist-credentials: false
 
       - id: gateway
