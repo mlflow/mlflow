@@ -22,10 +22,7 @@ def post(endpoint: str, data: Any = None) -> dict[str, Any]:
 def issue_body(group: dict[str, Any], run_url: str) -> str:
     # Triage treats issues from mlflow-app with this frontmatter as Nightly failures.
     frontmatter = "<!-- triage\ntype: nightly\n-->"
-    note = (
-        f"> [!NOTE]\n> Created by the [Nightly workflow run]({run_url}). "
-        "Please verify the findings."
-    )
+    note = f"> [!NOTE]\n> Created by the [Nightly workflow run]({run_url})."
     jobs = "\n".join(
         f"- [{job['workflow_name']} / {job['job_name']}]({job['job_run_url']})"
         for job in group["jobs"]
