@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793256800723,
+  "lastUpdate": 1793257603524,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "82044803+serena-ruan@users.noreply.github.com",
-            "name": "Serena Ruan",
-            "username": "serena-ruan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e07bf239b9dcf95e23fce5e59dff091df17669bc",
-          "message": "Skip `entry_point.getLogger()` when unavailable in dynamic token config provider (#25207)\n\nSigned-off-by: Serena Ruan <serena.rxy@gmail.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
-          "timestamp": "2026-08-19T15:37:54-07:00",
-          "tree_id": "e9f0f4b1bf051022ee44c58d929d9baa0c1830ad",
-          "url": "https://github.com/mlflow/mlflow/commit/e07bf239b9dcf95e23fce5e59dff091df17669bc"
-        },
-        "date": 1787179178115,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 45.239543900004264,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 6.322823566036724,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 5.472308912750777,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 6.524887982905747,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 7.054712893443221,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 9.160467399993877,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 11.236636400008138,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ruslan@hadrian.io",
+            "name": "Ruslan Hamzatov",
+            "username": "rhamzatov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6dbda4afbb6b30e170522c8bf050bac90fae80de",
+          "message": "Emit a named `error` event for Anthropic passthrough streaming failures (#25978)\n\nSigned-off-by: Ruslan Hamzatov <ruslan@hadrian.io>\nCo-authored-by: Claude Opus 5 <noreply@anthropic.com>\nCo-authored-by: joshuawong-db <joshua.wong@databricks.com>",
+          "timestamp": "2026-10-29T07:03:01Z",
+          "tree_id": "e7eb2a5bf30e80661e2c4ab114b9e4dfbc91ac25",
+          "url": "https://github.com/mlflow/mlflow/commit/6dbda4afbb6b30e170522c8bf050bac90fae80de"
+        },
+        "date": 1793257600289,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 36.72611304999904,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 4.268109681318806,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 3.7388566585365917,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 4.50106000500071,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 3.977395159340487,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 28.224725250000304,
             "unit": "ms"
           }
         ]
