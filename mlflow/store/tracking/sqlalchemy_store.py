@@ -183,6 +183,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceTag,
     _input_to_dict,
 )
+from mlflow.store.tracking.file_store import _validate_new_trace_id
 from mlflow.store.tracking.gateway.sqlalchemy_mixin import SqlAlchemyGatewayStoreMixin
 from mlflow.store.tracking.mcp_server_registry.sqlalchemy_mixin import (
     SqlAlchemyMCPServerRegistryMixin,
@@ -3909,6 +3910,9 @@ class SqlAlchemyStore(
     # Below are Tracing APIs. We may refactor them to be in a separate class in the future.
     #######################################################################################
     def _get_trace_artifact_location_tag(self, experiment, trace_id: str) -> SqlTraceTag:
+        # Validate new trace ids before embedding them in the artifact location, like
+        # FileStore.start_trace does.
+        _validate_new_trace_id(trace_id)
         # Trace data is stored as file artifacts regardless of the tracking backend choice.
         # We use subdirectory "/traces" under the experiment's artifact location to isolate
         # them from run artifacts.
