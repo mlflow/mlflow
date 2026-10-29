@@ -89,7 +89,12 @@ def test_workspace_support_error_uses_store_neutral_uri_guidance(store):
 
 
 def _args(host_creds, endpoint, method, json_body):
-    res = {"host_creds": host_creds, "endpoint": f"/api/2.0/mlflow/{endpoint}", "method": method}
+    res = {
+        "host_creds": host_creds,
+        "endpoint": f"/api/2.0/mlflow/{endpoint}",
+        "method": method,
+        "raise_on_status": False,
+    }
     if method == "GET":
         res["params"] = json.loads(json_body)
     else:
