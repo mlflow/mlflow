@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793285881754,
+  "lastUpdate": 1793287529492,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "pattara.sk127@gmail.com",
-            "name": "Pat Sukprasert",
-            "username": "PattaraS"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "9f7c4692338266cde8e643617f1e101b52c6e3b7",
-          "message": "[5/6] basic-auth: gate gateway guardrail/budget/config/discovery + filter list endpoints (#25070)\n\nSigned-off-by: Pat Sukprasert <pattara.sk127@gmail.com>",
-          "timestamp": "2026-08-24T12:48:28+08:00",
-          "tree_id": "2dc53bfc1a6e1a250aa4b1bdaf2443dc9b3bb85c",
-          "url": "https://github.com/mlflow/mlflow/commit/9f7c4692338266cde8e643617f1e101b52c6e3b7"
-        },
-        "date": 1787546991109,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 44.74036569999953,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 6.27392535185078,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 5.444698690789451,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 6.244969043103325,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 6.554935492537202,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 9.74632439999823,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 15.793492000000242,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "84737625+kriscon-db@users.noreply.github.com",
+            "name": "Kris Concepcion",
+            "username": "kriscon-db"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "399762d45141d205f06253f52c08f1654dee861b",
+          "message": "Handle system trace tags consistently when traces are written (#27307)\n\nSigned-off-by: Kris Concepcion <kris.concepcion@databricks.com>\nCo-authored-by: Isaac <no-reply@databricks.com>",
+          "timestamp": "2026-10-29T15:22:06Z",
+          "tree_id": "356495389e962185cf5501dd349f0769d84ec74e",
+          "url": "https://github.com/mlflow/mlflow/commit/399762d45141d205f06253f52c08f1654dee861b"
+        },
+        "date": 1793287526467,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 30.98693530000034,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 4.2289493707871415,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 3.7341254170853366,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 4.000625025907122,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 4.839021256830376,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 16.73528242857206,
             "unit": "ms"
           }
         ]
