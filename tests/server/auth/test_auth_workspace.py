@@ -1587,9 +1587,7 @@ def test_filter_experiment_ids_role_specific_grant(workspace_permission_setup, m
         workspace_context._WORKSPACE.reset(token)
 
 
-@pytest.mark.parametrize(
-    ("permission", "expected_ids"), [(USE, ["exp-1", "exp-2"]), (MANAGE, ["exp-1", "exp-2"])]
-)
+@pytest.mark.parametrize(("permission", "expected_ids"), [(USE, []), (MANAGE, ["exp-1", "exp-2"])])
 def test_filter_experiment_ids_workspace_scope_role(
     workspace_permission_setup, monkeypatch, permission, expected_ids
 ):
@@ -7789,6 +7787,37 @@ def test_scorer_list_filter_honors_an_experiment_deny(workspace_permission_setup
     assert _run_scorer_list_filter(rows) == ["s2"]
 
 
+def test_scorer_list_filter_needs_no_experiment_grant(workspace_permission_setup):
+    # Like GetScorer, a scorer grant is enough; only an experiment DENY drops its scorers.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    _grant(
+        store,
+        username,
+        "team-a",
+        [
+            ("experiment", "1", DENY.name),
+            ("scorer", "*", READ.name),
+        ],
+    )
+
+    rows = [
+        {"experiment_id": 1, "scorer_name": "s1"},
+        {"experiment_id": 2, "scorer_name": "s2"},
+    ]
+    assert _run_scorer_list_filter(rows) == ["s2"]
+
+
+def test_scorer_list_filter_hides_scorers_from_workspace_use_alone(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+
+    rows = [{"experiment_id": 1, "scorer_name": "s1"}]
+    assert _run_scorer_list_filter(rows) == []
+
+
 # ==========================================================================================
 # Trace assessment redaction
 # ==========================================================================================
@@ -7898,7 +7927,7 @@ def test_guardrail_configs_keep_a_permitted_scorer(workspace_permission_setup):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [("experiment", "*", EDIT.name)])
+    _grant(store, username, "team-a", [("scorer", "*", READ.name)])
 
     out = _run_guardrail_redaction(_guardrail_config_payload())
 
@@ -8978,7 +9007,12 @@ def test_registered_model_latest_versions_also_lose_denied_siblings(
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [("run", "*", DENY.name)])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("registered_model", "*", READ.name), ("run", "*", DENY.name)],
+    )
     payload = {
         "registered_model": {
             "name": "model-xyz",

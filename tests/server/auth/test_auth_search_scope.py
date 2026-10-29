@@ -2435,6 +2435,7 @@ def test_run_search_experiment_deny_applies_to_numeric_aliases(
     denied = tracking.create_experiment("denied")
     visible_run = tracking.create_run(readable, username, 0, [], "visible")
     tracking.create_run(denied, username, 0, [], "hidden")
+    auth_store.add_role_permission(role.id, "experiment", readable, READ.name)
     auth_store.add_role_permission(role.id, "experiment", denied, DENY.name)
     requested_ids = [
         {
@@ -2579,3 +2580,71 @@ def test_request_scopes_resolve_large_grant_sets_with_linear_work(
     fold.assert_called()
     search.assert_called_once()
     assert sum(scanned) < 12 * grant_count
+
+
+@pytest.mark.parametrize("workspace_permission", [USE, MANAGE])
+def test_search_matches_point_read_for_workspace_grant(
+    large_scope_search_setup, workspace_permission
+):
+    auth_store, tracking, registry, role, username, password = large_scope_search_setup
+    auth_store.add_role_permission(role.id, "workspace", "*", workspace_permission.name)
+    experiment_id = tracking.create_experiment("other-experiment")
+    run_id = tracking.create_run(experiment_id, "other-user", 0, [], "other-run").info.run_id
+    registry.create_registered_model("other-model")
+    registry.create_model_version("other-model", source="/model", run_id=None)
+
+    app = Flask(__name__)
+    app.before_request(auth._before_request)
+    app.after_request(auth._after_request)
+    for path, handler, method in [
+        ("/api/2.0/mlflow/registered-models/get", handlers._get_registered_model, "GET"),
+        ("/api/2.0/mlflow/registered-models/search", handlers._search_registered_models, "GET"),
+        ("/api/2.0/mlflow/model-versions/search", handlers._search_model_versions, "GET"),
+        ("/api/2.0/mlflow/experiments/get", handlers._get_experiment, "GET"),
+        ("/api/2.0/mlflow/experiments/search", handlers._search_experiments, "POST"),
+        ("/api/2.0/mlflow/runs/search", handlers._search_runs, "POST"),
+    ]:
+        app.add_url_rule(path, view_func=handler, methods=[method])
+    headers = {
+        "Authorization": Authorization(
+            "basic", {"username": username, "password": password}
+        ).to_header()
+    }
+    client = app.test_client()
+
+    # Only a workspace admin grant reaches rows it holds no grant on, for point reads and search.
+    readable = workspace_permission is MANAGE
+    model = client.get(
+        "/api/2.0/mlflow/registered-models/get",
+        query_string={"name": "other-model"},
+        headers=headers,
+    )
+    experiment = client.get(
+        "/api/2.0/mlflow/experiments/get",
+        query_string={"experiment_id": experiment_id},
+        headers=headers,
+    )
+    assert model.status_code == experiment.status_code == (200 if readable else 403)
+
+    models = client.get("/api/2.0/mlflow/registered-models/search", headers=headers)
+    versions = client.get("/api/2.0/mlflow/model-versions/search", headers=headers)
+    experiments = client.post(
+        "/api/2.0/mlflow/experiments/search", json={"max_results": 100}, headers=headers
+    )
+    runs = client.post(
+        "/api/2.0/mlflow/runs/search", json={"experiment_ids": [experiment_id]}, headers=headers
+    )
+    assert models.status_code == versions.status_code == 200
+    assert experiments.status_code == runs.status_code == 200
+    assert [row["name"] for row in models.json.get("registered_models", [])] == (
+        ["other-model"] if readable else []
+    )
+    assert [row["name"] for row in versions.json.get("model_versions", [])] == (
+        ["other-model"] if readable else []
+    )
+    assert (
+        experiment_id in [row["experiment_id"] for row in experiments.json.get("experiments", [])]
+    ) == readable
+    assert [row["info"]["run_id"] for row in runs.json.get("runs", [])] == (
+        [run_id] if readable else []
+    )

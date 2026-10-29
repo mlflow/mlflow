@@ -3400,21 +3400,11 @@ def _role_based_read_predicate(
     which. A veto is spelled out as ``ACTION_NOT_DENIED`` because that is what the route means;
     a positive action would be honoured too, and reads honestly if a caller ever needs one.
 
-    The row requirement falls back to the workspace tier, which is what the loader this replaced
-    did by folding ``(workspace, "*")`` rows in for every resource type. Tier override makes that
-    strictly safer than before: a grant on the row's own key now decides, so
-    ``(experiment, "*", DENY)`` is honoured, where previously any workspace-level grant that could
-    read still listed everything.
-
-    NOTE a pre-existing inconsistency this preserves rather than introduces: master folds a
-    workspace grant into a POINT permission only at ``MANAGE``
-    (``get_role_permission_for_resource``, mirrored here by ``is_workspace_admin_grant``), but its
-    predicate loader folded workspace rows in at ANY level. So ``(workspace, "*", USE)`` lists
-    experiments it cannot then read. Closing that would deny a caller master allows, so it is left
-    alone and reported as design feedback.
+    The row requirement has no workspace fallback, matching the point routes: a workspace grant
+    reaches a row only at ``MANAGE`` (``is_workspace_admin_grant``, applied by
+    ``retention_gate``), so ``(workspace, "*", USE)`` does not list rows it cannot then read.
     """
-    workspace_fallback = ((RESOURCE_TYPE_WORKSPACE, "*"),)
-    row_template = Requirement(resource_type, "*", "read", fallback_if_no_grant=workspace_fallback)
+    row_template = Requirement(resource_type, "*", "read")
     gate = retention_gate(username, (RESOURCE_TYPE_WORKSPACE, "*"), [row_template, *also_require])
     for requirement in also_require:
         if not gate.retains(requirement.resource_type, requirement.resource_id):
@@ -6715,16 +6705,13 @@ def _scorer_row_keys(scorer) -> "tuple[str, str]":
 
 
 def _withhold_denied_guardrail_scorers(configs) -> bool:
-    workspace_fallback = ((RESOURCE_TYPE_WORKSPACE, "*"),)
     gate = retention_gate(
         authenticate_request().username,
         (RESOURCE_TYPE_WORKSPACE, "*"),
         [
             Requirement(RESOURCE_TYPE_SCORER_VERSION, "*", ACTION_NOT_DENIED),
-            Requirement(
-                RESOURCE_TYPE_EXPERIMENT, "*", "read", fallback_if_no_grant=workspace_fallback
-            ),
-            Requirement(RESOURCE_TYPE_SCORER, "*", "read", fallback_if_no_grant=workspace_fallback),
+            Requirement(RESOURCE_TYPE_EXPERIMENT, "*", ACTION_NOT_DENIED),
+            Requirement(RESOURCE_TYPE_SCORER, "*", "read"),
         ],
     )
     withheld = False
@@ -6779,16 +6766,13 @@ def filter_list_scorers(resp: Response) -> None:
     if not response_message.scorers:
         return
 
-    workspace_fallback = ((RESOURCE_TYPE_WORKSPACE, "*"),)
     gate = retention_gate(
         authenticate_request().username,
         (RESOURCE_TYPE_WORKSPACE, "*"),
         [
             Requirement(RESOURCE_TYPE_SCORER_VERSION, "*", ACTION_NOT_DENIED),
-            Requirement(
-                RESOURCE_TYPE_EXPERIMENT, "*", "read", fallback_if_no_grant=workspace_fallback
-            ),
-            Requirement(RESOURCE_TYPE_SCORER, "*", "read", fallback_if_no_grant=workspace_fallback),
+            Requirement(RESOURCE_TYPE_EXPERIMENT, "*", ACTION_NOT_DENIED),
+            Requirement(RESOURCE_TYPE_SCORER, "*", "read"),
         ],
     )
     kept = []
