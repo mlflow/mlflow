@@ -1833,6 +1833,27 @@ def test_chat_to_model_string_content_unchanged():
     assert result["messages"] == [{"role": "user", "content": "just text"}]
 
 
+def test_chat_to_model_system_list_content():
+    payload = {
+        "messages": [
+            {
+                "role": "system",
+                "content": [
+                    {"type": "text", "text": "Be terse."},
+                    {"type": "text", "text": "Use metric units."},
+                ],
+            },
+            {"role": "system", "content": "Answer in English."},
+            {"role": "user", "content": "hi"},
+        ]
+    }
+
+    result = AnthropicAdapter.chat_to_model(payload, EndpointConfig(**chat_config()))
+
+    assert result["system"] == "Be terse.\nUse metric units.\nAnswer in English."
+    assert result["messages"] == [{"role": "user", "content": "hi"}]
+
+
 def test_chat_finish_reason_tool_use_is_tool_calls():
     resp = {
         "id": "msg_1",

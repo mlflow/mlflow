@@ -56,6 +56,13 @@ def _to_anthropic_content_parts(content: list[Any]) -> list[dict[str, Any]]:
     return parts
 
 
+def _system_text(content: Any) -> str:
+    """Return a system message's text, joining the text parts of list-form content."""
+    if isinstance(content, list):
+        return "\n".join(part.get("text", "") for part in content if part.get("type") == "text")
+    return content
+
+
 def _normalize_anthropic_input_tokens(
     token_usage: dict[str, int] | None,
 ) -> dict[str, int] | None:
@@ -202,7 +209,7 @@ class AnthropicAdapter(ProviderAdapter):
         # Cohere uses `system` to set the system message
         # we concatenate all system messages from the user with a newline
         if system_messages := [m for m in payload["messages"] if m["role"] == "system"]:
-            payload["system"] = "\n".join(m["content"] for m in system_messages)
+            payload["system"] = "\n".join(_system_text(m["content"]) for m in system_messages)
 
         # remaining messages are chat history
         # we want to include only user, assistant or tool messages
