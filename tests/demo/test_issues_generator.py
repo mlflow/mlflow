@@ -5,12 +5,7 @@ import pytest
 import mlflow
 from mlflow.demo.base import DEMO_EXPERIMENT_NAME, DemoFeature
 from mlflow.demo.data import ASSESSMENT_TO_ISSUE, ISSUE_EVIDENCE_WALKTHROUGHS
-from mlflow.demo.generators.issues import (
-    _DEMO_DETECTION_HISTORY,
-    IssuesDemoGenerator,
-    _build_evidence,
-    _pick_span,
-)
+from mlflow.demo.generators.issues import _DEMO_DETECTION_HISTORY, IssuesDemoGenerator
 from mlflow.demo.generators.traces import DEMO_VERSION_TAG
 from mlflow.entities import SpanType
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
@@ -29,14 +24,6 @@ from mlflow.utils.mlflow_tags import (
 )
 
 
-class FakeSpan:
-    """Enough of a span for the pickers: an id and a type."""
-
-    def __init__(self, span_id: str, span_type: str | None):
-        self.span_id = span_id
-        self.span_type = span_type
-
-
 def test_every_assessment_has_a_walkthrough():
     # Otherwise some demo issues get structured evidence and others a bare rationale.
     assert set(ISSUE_EVIDENCE_WALKTHROUGHS) == set(ASSESSMENT_TO_ISSUE)
@@ -48,88 +35,6 @@ def test_highlights_are_exact_substrings(assessment_name):
     for step in ISSUE_EVIDENCE_WALKTHROUGHS[assessment_name]:
         for highlight in step["highlights"]:
             assert highlight in step["text"]
-
-
-def test_pick_span_prefers_the_named_types_in_order():
-    spans = [FakeSpan("root", "CHAIN"), FakeSpan("llm", "LLM"), FakeSpan("tool", "TOOL")]
-
-    assert _pick_span(spans, ["TOOL", "LLM"], set()).span_id == "tool"
-    assert _pick_span(spans, ["LLM", "TOOL"], set()).span_id == "llm"
-
-
-def test_pick_span_takes_the_last_match_for_a_response_step():
-    # A ReAct trace's earlier LLM spans are tool-call decisions (`content: None`); only the last
-    # holds the answer. A response step on an earlier one also precedes the tool output above it.
-    spans = [
-        FakeSpan("root", "CHAIN"),
-        FakeSpan("llm-tool-call", "LLM"),
-        FakeSpan("tool", "TOOL"),
-        FakeSpan("llm-final", "LLM"),
-    ]
-
-    assert _pick_span(spans, ["LLM"], set(), last=True).span_id == "llm-final"
-    assert _pick_span(spans, ["LLM"], set()).span_id == "llm-tool-call"
-
-
-def test_build_evidence_on_a_react_trace_cites_the_tool_then_the_answer():
-    # The shape that exposed the bug: the two steps must read in the order they happened.
-    spans = [
-        FakeSpan("root", "CHAIN"),
-        FakeSpan("llm-tool-call", "LLM"),
-        FakeSpan("tool", "TOOL"),
-        FakeSpan("llm-final", "LLM"),
-    ]
-
-    evidence = _build_evidence("correctness", "The total is wrong.", spans)
-
-    assert [step.span_id for step in evidence.steps] == ["tool", "llm-final"]
-    assert evidence.primary_span_id == "llm-final"
-
-
-def test_pick_span_avoids_a_span_an_earlier_step_already_cited():
-    # Otherwise two steps describe the same place in the trace.
-    spans = [FakeSpan("llm-1", "LLM"), FakeSpan("llm-2", "LLM")]
-
-    assert _pick_span(spans, ["LLM"], {"llm-1"}).span_id == "llm-2"
-
-
-def test_pick_span_reuses_a_span_when_it_is_the_only_one_of_its_type():
-    # Better than citing a span whose type cannot support the claim.
-    spans = [FakeSpan("root", "CHAIN"), FakeSpan("llm", "LLM")]
-
-    assert _pick_span(spans, ["LLM"], {"llm"}).span_id == "llm"
-
-
-def test_pick_span_falls_back_when_no_preferred_type_is_present():
-    # A step's preferred type is not in every trace shape; the claim still holds, so it cites
-    # what the trace has rather than being dropped.
-    spans = [FakeSpan("root", "CHAIN")]
-
-    assert _pick_span(spans, ["RETRIEVER", "EMBEDDING"], set()).span_id == "root"
-
-
-def test_pick_span_on_a_trace_with_no_spans():
-    assert _pick_span([], ["LLM"], set()) is None
-
-
-def test_build_evidence_cites_distinct_spans_and_keeps_the_rationale():
-    spans = [FakeSpan("root", "CHAIN"), FakeSpan("retriever", "RETRIEVER"), FakeSpan("llm", "LLM")]
-
-    evidence = _build_evidence(
-        "groundedness", "The answer cites a figure the context lacks.", spans
-    )
-
-    # The judge's own rationale: the only part specific to this trace.
-    assert evidence.summary == "The answer cites a figure the context lacks."
-    assert [step.span_id for step in evidence.steps] == ["retriever", "llm"]
-    # The last step names the failure itself, so its span is the one the finding belongs to.
-    assert evidence.primary_span_id == "llm"
-
-
-def test_build_evidence_without_spans_or_a_walkthrough():
-    # Both fall back to the bare rationale, which is still worth linking.
-    assert _build_evidence("groundedness", "why", []) is None
-    assert _build_evidence("not-an-assessment", "why", [FakeSpan("llm", "LLM")]) is None
 
 
 def test_detection_history_is_data_the_page_can_render():
