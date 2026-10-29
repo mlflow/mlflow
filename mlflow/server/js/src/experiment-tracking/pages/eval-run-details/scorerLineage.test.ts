@@ -1,6 +1,10 @@
 import { describe, expect, test } from '@jest/globals';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
-import { getConsistentScorerReference, parseRegisteredScorerReference } from './scorerLineage';
+import {
+  getConsistentScorerDigest,
+  getConsistentScorerReference,
+  parseRegisteredScorerReference,
+} from './scorerLineage';
 
 const registeredScorerMetadata = (scorerName: string, scorerVersion?: string): Record<string, string> => ({
   'mlflow.assessment.scorerName': scorerName,
@@ -87,5 +91,36 @@ describe('getConsistentScorerReference', () => {
   test('returns nothing when no assessment has the name', () => {
     expect(getConsistentScorerReference([traceWithAssessments([{ name: 'safety' }])], 'quality')).toBeUndefined();
     expect(getConsistentScorerReference([], 'quality')).toBeUndefined();
+  });
+});
+
+describe('getConsistentScorerDigest', () => {
+  const digestMetadata = (digest: string) => ({ 'mlflow.assessment.scorerDigest': digest });
+
+  test('returns the digest when every assessment with the name reports the same one', () => {
+    const traces = [
+      traceWithAssessments([{ name: 'quality', metadata: digestMetadata('sha256:aaa') }, { name: 'tone' }]),
+      traceWithAssessments([{ name: 'quality', metadata: digestMetadata('sha256:aaa') }]),
+    ];
+    expect(getConsistentScorerDigest(traces, 'quality')).toBe('sha256:aaa');
+    expect(getConsistentScorerDigest(traces, 'tone')).toBeUndefined();
+  });
+
+  test('returns nothing when the digests differ or some assessments have none', () => {
+    expect(
+      getConsistentScorerDigest(
+        [
+          traceWithAssessments([{ name: 'quality', metadata: digestMetadata('sha256:aaa') }]),
+          traceWithAssessments([{ name: 'quality', metadata: digestMetadata('sha256:bbb') }]),
+        ],
+        'quality',
+      ),
+    ).toBeUndefined();
+    expect(
+      getConsistentScorerDigest(
+        [traceWithAssessments([{ name: 'quality', metadata: digestMetadata('sha256:aaa') }, { name: 'quality' }])],
+        'quality',
+      ),
+    ).toBeUndefined();
   });
 });

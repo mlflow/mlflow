@@ -1,7 +1,7 @@
 import ast
 import logging
 from contextvars import ContextVar
-from typing import Any, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Optional, Sequence
 from uuid import UUID
 
 import pydantic
@@ -34,9 +34,8 @@ from mlflow.tracing.utils import (
 from mlflow.tracing.utils.token import SpanWithToken
 from mlflow.types.chat import ChatTool, FunctionToolDefinition
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
-from mlflow.version import IS_TRACING_SDK_ONLY
 
-if not IS_TRACING_SDK_ONLY:
+if TYPE_CHECKING:
     from mlflow.pyfunc.context import Context
 
 

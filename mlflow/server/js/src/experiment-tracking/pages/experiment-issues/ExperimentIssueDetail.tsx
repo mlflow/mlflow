@@ -17,24 +17,13 @@ import { IssueDetailSectionTitle } from './IssueDetailSectionTitle';
 import { IssueDetailColumn } from './IssueDetailColumn';
 import { useTriageExperimentIssue } from './useExperimentIssues';
 import { IssueEvidenceSection } from './IssueEvidenceSection';
-import { Link } from '../../../common/utils/RoutingUtils';
-import Routes from '../../routes';
+import { IssueProposedFixSection } from './IssueProposedFixSection';
 
 const IssueAge = ({ issue }: { issue: Issue }) => {
   const timeAgo = Utils.timeSinceStr(issue.created_timestamp);
 
   return <Typography.Text color="secondary">{timeAgo}</Typography.Text>;
 };
-
-const IssueSourceRun = ({ issue }: { issue: Issue }) =>
-  issue.source_run_id ? (
-    <Link
-      componentId="mlflow.experiment-issues.source-run"
-      to={Routes.getRunPageRoute(issue.experiment_id, issue.source_run_id)}
-    >
-      <FormattedMessage defaultMessage="Source run" description="Experiment Issue source run link" />
-    </Link>
-  ) : null;
 
 export interface ExperimentIssueDetailProps {
   issue: Issue;
@@ -123,7 +112,6 @@ export const ExperimentIssueDetailHeader = ({
           <IssueCategoryTag key={category} category={category} componentId="mlflow.experiment-issues.detail.category" />
         ))}
         <IssueAge issue={issue} />
-        <IssueSourceRun issue={issue} />
       </div>
     </div>
   );
@@ -187,6 +175,7 @@ export const ExperimentIssueDetail = ({
       )}
       <ExperimentIssueDescription description={issue.description ?? ''} />
       <IssueEvidenceSection experimentId={issue.experiment_id} issueId={issue.issue_id} onViewTrace={onViewTrace} />
+      <IssueProposedFixSection experimentId={issue.experiment_id} issue={issue} />
     </IssueDetailColumn>
   );
 };

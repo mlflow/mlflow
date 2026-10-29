@@ -65,6 +65,7 @@ from mlflow.telemetry.events import (
     AiCommandRunEvent,
     AlignJudgeEvent,
     AutologgingEvent,
+    CompareEvaluationsEvent,
     CreateDatasetEvent,
     CreateExperimentEvent,
     CreateLoggedModelEvent,
@@ -1429,6 +1430,19 @@ def test_align_judge(mock_requests, mock_telemetry_client: TelemetryClient):
     expected_params = {"trace_count": 2, "optimizer_type": "MockOptimizer"}
     validate_telemetry_record(
         mock_telemetry_client, mock_requests, AlignJudgeEvent.name, expected_params
+    )
+
+
+def test_compare_evaluations(mock_requests, mock_telemetry_client: TelemetryClient):
+    with patch("mlflow.genai.evaluation.comparison.comparison._load_eval_rows", return_value=[]):
+        mlflow.genai.compare_evaluations("candidate", "baseline", greater_is_better={"a": False})
+
+    expected_params = {
+        "greater_is_better_provided": True,
+        "log_results": False,
+    }
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, CompareEvaluationsEvent.name, expected_params
     )
 
 

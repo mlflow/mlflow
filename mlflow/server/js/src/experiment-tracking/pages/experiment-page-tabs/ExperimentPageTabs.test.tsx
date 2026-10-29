@@ -21,6 +21,7 @@ import { shouldEnableNewEvalRunsUi, shouldEnableWorkflowBasedNavigation } from '
 import { WorkflowTypeProvider } from '../../../common/contexts/WorkflowTypeContext';
 import ExperimentTracesPage from '../experiment-traces/ExperimentTracesPage';
 import { useHeaderVisibility } from './ExperimentPageHeaderVisibilityContext';
+import { useExperimentPageLayoutContainer } from './ExperimentPageLayout';
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(60000); // Larger timeout for integration testing
@@ -55,6 +56,17 @@ const ExperimentPageTabsWithWorkflowType = () => (
   </WorkflowTypeProvider>
 );
 
+const LayoutContainerReportingTracesPage = () => {
+  const layoutContainer = useExperimentPageLayoutContainer();
+  return (
+    <div>
+      {layoutContainer?.getAttribute('data-experiment-page-layout') === 'true'
+        ? 'Has experiment page layout container'
+        : 'No experiment page layout container'}
+    </div>
+  );
+};
+
 const FocusModeTracesPage = () => {
   const { setHeaderHidden } = useHeaderVisibility();
   React.useEffect(() => {
@@ -65,6 +77,12 @@ const FocusModeTracesPage = () => {
 };
 
 jest.mock('../experiment-overview/ExperimentGenAIOverviewPage', () => ({
+  // mock default export
+  __esModule: true,
+  default: () => <div>Experiment overview page</div>,
+}));
+
+jest.mock('../experiment-overview/ExperimentGenAIJourneyOverviewPage', () => ({
   // mock default export
   __esModule: true,
   default: () => <div>Experiment overview page</div>,
@@ -128,6 +146,13 @@ describe('ExperimentLoggedModelListPage', () => {
                         withWorkflowType ? ExperimentPageTabsWithWorkflowType : ExperimentPageTabs,
                       ),
                       children: [
+                        {
+                          path: RoutePaths.experimentPageTabJourneyOverview,
+                          pageId: PageId.experimentPageTabJourneyOverview,
+                          element: createLazyRouteElement(
+                            () => import('../experiment-overview/ExperimentGenAIJourneyOverviewPage'),
+                          ),
+                        },
                         {
                           path: RoutePaths.experimentPageTabOverview,
                           pageId: PageId.experimentPageTabOverview,
@@ -485,6 +510,32 @@ describe('ExperimentLoggedModelListPage', () => {
 
       expect(await screen.findByTestId('experiment-view-header-back-button')).toBeInTheDocument();
       expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).not.toBeInTheDocument();
+    });
+
+    test('flag on: provides the experiment page layout container to page content', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      jest.mocked(ExperimentTracesPage).mockImplementation(LayoutContainerReportingTracesPage);
+      try {
+        renderTestComponent('/experiments/12345678/traces');
+
+        const pageContent = await screen.findByText('Has experiment page layout container');
+        expect(screen.getByTestId('experiment-page-layout')).toContainElement(pageContent);
+      } finally {
+        jest.mocked(ExperimentTracesPage).mockImplementation(() => <div>Experiment traces page</div>);
+      }
+    });
+
+    test('flag off: provides no experiment page layout container', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
+      jest.mocked(ExperimentTracesPage).mockImplementation(LayoutContainerReportingTracesPage);
+      try {
+        renderTestComponent('/experiments/12345678/traces');
+
+        expect(await screen.findByText('No experiment page layout container')).toBeInTheDocument();
+        expect(screen.queryByTestId('experiment-page-layout')).not.toBeInTheDocument();
+      } finally {
+        jest.mocked(ExperimentTracesPage).mockImplementation(() => <div>Experiment traces page</div>);
+      }
     });
 
     test('flag on: hides the breadcrumb row while a page hides the header', async () => {

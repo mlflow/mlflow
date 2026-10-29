@@ -58,11 +58,11 @@ def _codex_sandbox_mode() -> str:
 _CODEX_NO_PROGRESS_TIMEOUT = 60.0
 
 # Environment variables forwarded into the sandbox so the Codex CLI can authenticate. Host secrets
-# outside this allowlist are intentionally NOT passed through. Codex authenticates via
-# OPENAI_API_KEY or an interactive ``codex login`` whose credentials live in the per-session HOME;
-# OPENAI_BASE_URL lets an operator point at a custom endpoint, and the proxy vars cover outbound
-# proxy configuration.
+# outside this allowlist are intentionally NOT passed through. Codex authenticates with an API key
+# (CODEX_API_KEY, or OPENAI_API_KEY passed under that name); OPENAI_BASE_URL lets an operator point
+# at a custom endpoint, and the proxy vars cover outbound proxy configuration.
 _SANDBOX_AUTH_ENV_PASSTHROUGH = (
+    "CODEX_API_KEY",
     "OPENAI_API_KEY",
     "OPENAI_BASE_URL",
     "HTTP_PROXY",
@@ -154,7 +154,7 @@ class CodexProvider(AssistantProvider):
                 or "unauthorized" in stderr
                 or "api key" in stderr
             ):
-                error_msg = "Not authenticated. Please set OPENAI_API_KEY or run: codex login"
+                error_msg = "Not authenticated. Please set CODEX_API_KEY or run: codex login"
             else:
                 error_msg = (
                     result.stderr.decode("utf-8", errors="replace").strip()
@@ -442,8 +442,13 @@ class CodexProvider(AssistantProvider):
                 # OPENAI_BASE_URL is an endpoint the CLI connects to from inside the container, so
                 # a loopback value must be rewritten to reach the host; other vars pass through.
                 env[var] = to_container_host_uri(value) if var == "OPENAI_BASE_URL" else value
+        # `codex exec` reads its API key from CODEX_API_KEY and ignores OPENAI_API_KEY (verified
+        # with Codex CLI 0.164.0). The per-session HOME starts empty, with no `codex login` to fall
+        # back on, so pass OPENAI_API_KEY under that name too when CODEX_API_KEY is not set.
+        if "CODEX_API_KEY" not in env and "OPENAI_API_KEY" in env:
+            env["CODEX_API_KEY"] = env["OPENAI_API_KEY"]
 
-        # Persist Codex's HOME (login credentials and session/thread state) across turns of the
+        # Persist Codex's HOME (its session and thread state) across turns of the
         # same session so multi-turn conversations resume correctly.
         home_dir = get_session_sandbox_home(mlflow_session_id) if mlflow_session_id else None
 

@@ -321,6 +321,13 @@ class OpenAICompatibleProvider(AssistantProvider):
             return {"Authorization": f"Bearer {api_key}"}
         return {}
 
+    def _request_kwargs(self, chat_url: str) -> dict[str, Any]:
+        """Extra keyword arguments for the chat-completions request to ``chat_url``.
+
+        Raise ``ProviderNotConfiguredError`` to end the turn with that message instead.
+        """
+        return {}
+
     def check_connection(self, echo: Callable[[str], None] | None = None) -> None:
         if self._list_models_fn is None:
             # Presets without a backend listing strategy (e.g. the in-server
@@ -466,6 +473,11 @@ class OpenAICompatibleProvider(AssistantProvider):
         tools = build_tools_schema()
 
         headers = self._auth_headers(api_key)
+        try:
+            request_kwargs = self._request_kwargs(chat_url)
+        except ProviderNotConfiguredError as e:
+            yield Event.from_error(f"Cannot connect to {self._display_name}: {e}")
+            return
 
         try:
             async with aiohttp.ClientSession() as session:
@@ -516,6 +528,7 @@ class OpenAICompatibleProvider(AssistantProvider):
                             json=payload,
                             headers=headers,
                             timeout=aiohttp.ClientTimeout(total=300),
+                            **request_kwargs,
                         ) as resp:
                             if resp.status != 200:
                                 body = await resp.text()

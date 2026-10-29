@@ -125,10 +125,14 @@ def _parse_tools(tools):
     return [_inner_get_tool_attributes(tool) for tool in tools]
 
 
+# smolagents models keep the provider API key or HF token in `client_kwargs`.
+_CREDENTIAL_ATTRIBUTES = {"api_key", "token", "client_kwargs"}
+
+
 def _get_model_attributes(instance):
     model = {SpanAttributeKey.MESSAGE_FORMAT: "smolagents"}
     for key, value in instance.__dict__.items():
-        if value is None or key == "api_key":
+        if value is None or key in _CREDENTIAL_ATTRIBUTES:
             continue
         model[key] = str(value)
     return model

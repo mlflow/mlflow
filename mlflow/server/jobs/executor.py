@@ -10,6 +10,10 @@ from mlflow.utils.environment import _PythonEnv
 
 _MIN_JOB_LEASE_TTL = 0.6
 
+# Exit code of the executor-engine job runner when it stops because of an error (for example when
+# it cannot prepare the docker job image). `mlflow server` stops when its job runner exits with it.
+EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE = 70
+
 
 @dataclass
 class JobExecutorConfig:
@@ -158,7 +162,9 @@ class AbstractJobExecutor(ABC):
         """Whether this executor can run a job with the given job function name and parameters.
 
         Consulted when routing a custom scorer job to a separate custom-scorer backend: a job that
-        backend does not support runs on the default backend instead. Defaults to ``True``.
+        backend does not support is refused, except an online scoring job, which runs on the
+        default backend (see ``mlflow.server.jobs.router.select_executor_backend``). Defaults to
+        ``True``.
         """
         return True
 

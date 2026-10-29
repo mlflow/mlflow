@@ -27,7 +27,18 @@ from tests.genai.skill_content.conftest import SKILL_MD
 
 def _git(*args, cwd):
     subprocess.check_call(
-        ["git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args],
+        [
+            "git",
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@example.com",
+            # Commit working-tree bytes verbatim so a fixture tree's digest matches the
+            # committed blobs the fetcher hashes, whatever core.autocrlf the host sets.
+            "-c",
+            "core.autocrlf=false",
+            *args,
+        ],
         cwd=cwd,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,

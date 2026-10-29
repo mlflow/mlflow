@@ -25,7 +25,7 @@ If no URLs are listed above, ask for a job, run, or PR URL and stop. `fetch-logs
    uv run --package skills skills fetch-logs '<url>' ['<url>' ...]
    ```
 
-   The command prints one block per failed job containing the workflow/job name, URL, failed step, and paths to the cached raw log, failed-step log, and (optional) package versions file.
+   The command prints one block per failed job containing the workflow/job name, URL, failed step, and paths to the cached raw log, failed-step log, and optional package versions and snapshot changes files. Snapshot changes are extracted from the existing raw log, not fetched or compared separately.
 
 2. **Read each failed-step log and summarize it.** For every block, Read the file at its `Failed step log:` path, then identify:
 
@@ -33,6 +33,8 @@ If no URLs are listed above, ask for a job, run, or PR URL and stop. `fetch-logs
    - Specific error messages (assertion errors, exceptions, stack traces).
    - Full pytest test names where applicable (e.g. `tests/test_foo.py::test_bar`).
    - A short log snippet showing the error context.
+
+   If `Snapshot changes:` is present, read that file too and summarize relevant package changes alongside the failure, including the baseline run link when available. Changes use uv's `Updated name vold -> vnew`, `Added name vversion`, and `Removed name vversion` format. Treat changes as diagnostic evidence, not proof of the root cause. Report unavailable baselines or comparison errors as such, not as package removals. Do not fetch artifacts or perform another comparison. Older or non-cross-version logs may have no snapshot changes block; analyze them normally.
 
 3. **Format each summary** with these fields, then a blank line, then the 1-2 paragraph summary.
 
@@ -42,8 +44,9 @@ If no URLs are listed above, ask for a job, run, or PR URL and stop. `fetch-logs
    - `Raw log: <raw_log_path>`
    - `Failed step log: <failed_step_log_path>`
    - `Package versions: <package_versions_path>` (if present)
+   - `Snapshot changes: <snapshot_changes_path>` (if present)
 
-   Preserve the `Raw log:`, `Failed step log:`, and `Package versions:` paths verbatim from step 1 so downstream agents can grep deeper.
+   Preserve the `Raw log:`, `Failed step log:`, `Package versions:`, and `Snapshot changes:` paths verbatim from step 1 so downstream agents can grep deeper.
 
 ## Invocation examples
 

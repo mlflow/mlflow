@@ -1,6 +1,6 @@
 import { has, isArray, isNil, isObject, isString } from 'lodash';
 
-import type { ModelTraceChatMessage, ModelTraceToolCall } from '../ModelTrace.types';
+import type { ModelTraceChatMessage, ModelTraceContentType, ModelTraceToolCall } from '../ModelTrace.types';
 import { prettyPrintChatMessage } from '../ModelTraceExplorer.utils';
 
 // Request part types
@@ -11,7 +11,8 @@ type SystemPromptPart = {
 
 type UserPromptPart = {
   part_kind: 'user-prompt';
-  content: string;
+  // A plain string, or a sequence of strings and URL/binary content items (ImageUrl, AudioUrl, ...).
+  content: string | any[];
 };
 
 type ToolReturnPart = {
@@ -26,7 +27,15 @@ type BuiltinToolReturnPart = {
   tool_call_id: string;
 };
 
-type ModelRequestPart = SystemPromptPart | UserPromptPart | ToolReturnPart | BuiltinToolReturnPart;
+// Sent back to the model when output validation or a tool call fails; the model retries.
+type RetryPromptPart = {
+  part_kind: 'retry-prompt';
+  content: string | any[];
+  tool_name?: string | null;
+  tool_call_id?: string | null;
+};
+
+type ModelRequestPart = SystemPromptPart | UserPromptPart | ToolReturnPart | BuiltinToolReturnPart | RetryPromptPart;
 
 // Response part types
 type TextPart = {
@@ -102,6 +111,33 @@ const normalizePydanticAIToolCall = (part: ToolCallPart | BuiltinToolCallPart): 
   };
 };
 
+/**
+ * Convert PydanticAI user content (a string or a sequence of strings and URL/binary items) into
+ * the content parts the chat renderer understands. Strings become text parts and `ImageUrl`
+ * becomes an image part; other media is shown as a labelled link so nothing is silently dropped.
+ */
+const normalizeUserContent = (content: string | any[]): ModelTraceContentType => {
+  if (isString(content)) {
+    return content;
+  }
+  return content.map((item) => {
+    if (isString(item)) {
+      return { type: 'text' as const, text: item };
+    }
+    if (isObject(item) && (item as any).kind === 'image-url' && isString((item as any).url)) {
+      return { type: 'image_url' as const, image_url: { url: (item as any).url } };
+    }
+    if (isObject(item) && isString((item as any).kind) && isString((item as any).url)) {
+      const label = (item as any).kind.replace(/-url$/, '');
+      return { type: 'text' as const, text: `[${label}: ${(item as any).url}]` };
+    }
+    if (isObject(item) && (item as any).kind === 'binary') {
+      return { type: 'text' as const, text: `[binary: ${(item as any).media_type ?? 'unknown media type'}]` };
+    }
+    return { type: 'text' as const, text: JSON.stringify(item) };
+  });
+};
+
 const normalizeModelRequest = (request: PydanticAIModelRequest): ModelTraceChatMessage[] => {
   const messages: ModelTraceChatMessage[] = [];
 
@@ -118,7 +154,7 @@ const normalizeModelRequest = (request: PydanticAIModelRequest): ModelTraceChatM
       case 'user-prompt': {
         const message = prettyPrintChatMessage({
           role: 'user',
-          content: part.content,
+          content: normalizeUserContent(part.content),
         });
         if (message) messages.push(message);
         break;
@@ -131,6 +167,21 @@ const normalizeModelRequest = (request: PydanticAIModelRequest): ModelTraceChatM
           content: contentStr,
           tool_call_id: part.tool_call_id,
         });
+        if (message) messages.push(message);
+        break;
+      }
+      case 'retry-prompt': {
+        // Mirror the text PydanticAI sends to the model so the transcript shows why it retried.
+        const feedback = isString(part.content)
+          ? part.content
+          : `Validation feedback:\n${JSON.stringify(part.content, null, 2)}`;
+        const content = `${feedback}\n\nFix the errors and try again.`;
+        // PydanticAI always assigns a tool_call_id; only retries tied to a tool call carry a tool_name.
+        const message = prettyPrintChatMessage(
+          part.tool_name && part.tool_call_id
+            ? { role: 'tool', content, tool_call_id: part.tool_call_id }
+            : { role: 'user', content },
+        );
         if (message) messages.push(message);
         break;
       }
@@ -188,11 +239,13 @@ export const normalizePydanticAIChatInput = (obj: unknown): ModelTraceChatMessag
     return null;
   }
 
-  if (isObject(obj) && has(obj, 'message_history')) {
-    const messageHistory = (obj as any).message_history;
-    if (isArray(messageHistory) && messageHistory.length > 0) {
-      const messages: ModelTraceChatMessage[] = [];
+  // Agent.run inputs: `message_history` holds prior turns and `user_prompt` is the new turn.
+  // Append the prompt so the input transcript is the full conversation sent to the model.
+  if (isObject(obj) && (has(obj, 'message_history') || has(obj, 'user_prompt'))) {
+    const messages: ModelTraceChatMessage[] = [];
 
+    const messageHistory = (obj as any).message_history;
+    if (isArray(messageHistory)) {
       for (const item of messageHistory) {
         if (isPydanticAIModelRequest(item)) {
           messages.push(...normalizeModelRequest(item));
@@ -200,8 +253,16 @@ export const normalizePydanticAIChatInput = (obj: unknown): ModelTraceChatMessag
           messages.push(...normalizeModelResponse(item));
         }
       }
+    }
 
-      return messages.length > 0 ? messages : null;
+    const userPrompt = (obj as any).user_prompt;
+    if (isString(userPrompt) || isArray(userPrompt)) {
+      const message = prettyPrintChatMessage({ role: 'user', content: normalizeUserContent(userPrompt) });
+      if (message) messages.push(message);
+    }
+
+    if (messages.length > 0) {
+      return messages;
     }
   }
 

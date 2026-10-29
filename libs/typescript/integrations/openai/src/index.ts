@@ -38,6 +38,7 @@ type AccumulatedChoice = {
   message: {
     role: string;
     content: string;
+    refusal?: string;
     tool_calls?: Array<{
       id?: string;
       type: string;
@@ -289,6 +290,12 @@ async function* wrapChatCompletionIterator(
         }
         if (delta.content) {
           accumulated.message.content = appendBounded(accumulated.message.content, delta.content);
+        }
+        if (delta.refusal) {
+          accumulated.message.refusal = appendBounded(
+            accumulated.message.refusal ?? '',
+            delta.refusal,
+          );
         }
         if (delta.tool_calls) {
           accumulated.message.tool_calls ??= [];

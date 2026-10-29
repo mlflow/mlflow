@@ -48,6 +48,17 @@ describe('matchesEvalRunAssessmentFilter', () => {
     expect(matchesEvalRunAssessmentFilter(runScopedTrace, feedbackClause('correctness', 'yes'))).toBe(true);
   });
 
+  test('matches a session judge on the turn it is attached to', () => {
+    const sessionJudge = (value: string) =>
+      makeFeedbackAssessment('conversation_completeness', value, { metadata: { 'mlflow.trace.session': 's1' } });
+    const carrier = makeTrace('tr-1', { assessments: [sessionJudge('no')] });
+    const otherTurn = makeTrace('tr-2', { assessments: [] });
+
+    expect(matchesEvalRunAssessmentFilter(carrier, feedbackClause('conversation_completeness', 'no'))).toBe(true);
+    expect(matchesEvalRunAssessmentFilter(carrier, feedbackClause('conversation_completeness', 'yes'))).toBe(false);
+    expect(matchesEvalRunAssessmentFilter(otherTurn, feedbackClause('conversation_completeness', 'no'))).toBe(false);
+  });
+
   test('compares numeric values as numbers, on a single assessment', () => {
     const trace = makeTrace('tr-1', { assessments: [makeFeedbackAssessment('relevance', 4)] });
 

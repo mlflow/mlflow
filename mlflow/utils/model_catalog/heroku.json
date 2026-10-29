@@ -5,8 +5,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 200000,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 8192
       },
       "capabilities": {
         "function_calling": true,
@@ -15,14 +14,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-27"
+      "last_updated_at": "2026-10-27"
     },
     "claude-3-5-sonnet-latest": {
       "mode": "chat",
       "context_window": {
         "max_input": 200000,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 8192
       },
       "capabilities": {
         "function_calling": true,
@@ -31,14 +29,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-27"
+      "last_updated_at": "2026-10-27"
     },
     "claude-3-7-sonnet": {
       "mode": "chat",
       "context_window": {
         "max_input": 200000,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 8192
       },
       "capabilities": {
         "function_calling": true,
@@ -47,14 +44,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-27"
+      "last_updated_at": "2026-10-27"
     },
     "claude-4-sonnet": {
       "mode": "chat",
       "context_window": {
         "max_input": 200000,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 8192
       },
       "capabilities": {
         "function_calling": true,
@@ -63,7 +59,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-27"
+      "last_updated_at": "2026-10-27"
     }
   }
 }

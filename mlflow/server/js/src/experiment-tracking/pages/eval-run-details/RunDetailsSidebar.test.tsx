@@ -4,6 +4,9 @@ import userEvent from '@testing-library/user-event';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from 'react-intl';
+import { rest } from 'msw';
+import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { setupServer } from '../../../common/utils/setup-msw';
 import {
   setupTestRouter,
   testRoute,
@@ -223,5 +226,150 @@ describe('RunDetailsSidebar layout', () => {
     expect(link).toHaveAttribute('target', '_blank');
     expect(screen.getByText('Tone')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'View scorer Tone' })).not.toBeInTheDocument();
+  });
+});
+
+describe('RunDetailsSidebar evaluation lineage', () => {
+  const { history } = setupTestRouter();
+  const server = setupServer();
+
+  const renderSidebar = async (props: Partial<RunDetailsSidebarProps> = {}) => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<RunDetailsSidebar experimentId="exp-123" stats={{}} scorers={[]} tags={[]} {...props} />, {
+      wrapper: ({ children }) => (
+        <TestRouter
+          history={history}
+          initialEntries={['/experiments/exp-123/evaluation-runs/run-123/details']}
+          routes={[
+            testRoute(
+              <QueryClientProvider client={client}>
+                <IntlProvider locale="en">
+                  <DesignSystemProvider>{children}</DesignSystemProvider>
+                </IntlProvider>
+              </QueryClientProvider>,
+              '/experiments/:experimentId/evaluation-runs/:runUuid/details',
+            ),
+          ]}
+        />
+      ),
+    });
+    await waitForRoutesToBeRendered();
+  };
+
+  it('shows no lineage rows when the run has no lineage', async () => {
+    await renderSidebar({ scorers: [createScorer()] });
+
+    expect(screen.queryByText('Agent')).not.toBeInTheDocument();
+    expect(screen.queryByText('Git commit')).not.toBeInTheDocument();
+    expect(screen.queryByText(/^[0-9a-f]{7}$/)).not.toBeInTheDocument();
+  });
+
+  it('shows the scorers digest only in the Scorers heading tooltip', async () => {
+    const user = userEvent.setup();
+    await renderSidebar({
+      scorers: [createScorer()],
+      scorersDigest: { digest: 'sha256:complete', hashed: 2, total: 2, coverage: 'complete' },
+    });
+
+    expect(screen.queryByText(/sha256:complete/)).not.toBeInTheDocument();
+    await user.hover(screen.getByText('Scorers (1)'));
+    const tooltip = await screen.findByRole('tooltip');
+    expect(tooltip).toHaveTextContent('Scorers digest: sha256:complete');
+    expect(tooltip).toHaveTextContent('A fingerprint of all scorers in this run.');
+  });
+
+  it('puts the coverage of a partial scorers digest in the tooltip', async () => {
+    const user = userEvent.setup();
+    await renderSidebar({
+      scorers: [createScorer()],
+      scorersDigest: { digest: 'sha256:partial', hashed: 1, total: 3, coverage: 'partial' },
+    });
+
+    await user.hover(screen.getByText('Scorers (1)'));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      'A fingerprint of 1 of 3 scorers in this run. MLflow could not read the others.',
+    );
+  });
+
+  it('explains an unavailable scorers digest in the tooltip', async () => {
+    const user = userEvent.setup();
+    await renderSidebar({
+      scorers: [createScorer()],
+      scorersDigest: { hashed: 0, total: 2, coverage: 'unavailable' },
+    });
+
+    await user.hover(screen.getByText('Scorers (1)'));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      'No scorers digest. MLflow could not read any scorer in this run.',
+    );
+  });
+
+  it('shows a short definition digest next to each scorer that has one, and keeps the scorer link', async () => {
+    const user = userEvent.setup();
+    await renderSidebar({
+      scorers: [
+        createScorer({
+          name: 'quality',
+          displayName: 'quality',
+          digest: 'sha256:3f9a1c2d4e5f',
+          scorerReference: { scorerName: 'quality' },
+        }),
+        createScorer({ name: 'safety', displayName: 'safety' }),
+      ],
+    });
+
+    expect(screen.getByRole('link', { name: 'View scorer quality' })).toBeInTheDocument();
+    expect(screen.getByText('safety')).toBeInTheDocument();
+    expect(screen.getAllByText(/^[0-9a-f]{7}$/)).toHaveLength(1);
+    await user.hover(screen.getByText('3f9a1c2'));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('sha256:3f9a1c2d4e5f');
+  });
+
+  it('shows the agent lineage and links the logged model', async () => {
+    const user = userEvent.setup();
+    server.use(
+      rest.get('*/ajax-api/2.0/mlflow/logged-models/m-123', (_req, res, ctx) =>
+        res(
+          ctx.json({ model: { info: { model_id: 'm-123', experiment_id: 'exp-model', name: 'support-agent-model' } } }),
+        ),
+      ),
+    );
+    await renderSidebar({
+      agent: {
+        function: 'my_pkg.agent.predict',
+        uri: 'endpoints:/support-agent',
+        digest: 'sha256:agent',
+        loggedModelId: 'm-123',
+      },
+      gitCommit: '0123456789abcdef',
+    });
+
+    expect(screen.getByText('Agent')).toBeInTheDocument();
+    expect(screen.getByText('endpoints:/support-agent')).toBeInTheDocument();
+    expect(screen.queryByText('Source digest')).not.toBeInTheDocument();
+    await user.hover(screen.getByText('my_pkg.agent.predict'));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('my_pkg.agent.predict (source digest: sha256:agent)');
+    expect(screen.getByTitle('0123456789abcdef')).toHaveTextContent('0123456');
+    const modelLink = await screen.findByRole('link', { name: 'View logged model support-agent-model' });
+    // The model may come from another experiment than the evaluation run's.
+    expect(modelLink).toHaveAttribute('href', expect.stringContaining('/experiments/exp-model/models/m-123'));
+    expect(modelLink).toHaveAttribute('target', '_blank');
+  });
+
+  it('shows a short source digest when the agent has no function', async () => {
+    const user = userEvent.setup();
+    await renderSidebar({ agent: { digest: 'sha256:0123456789abcdef' } });
+
+    expect(screen.getByText('Source digest')).toBeInTheDocument();
+    await user.hover(screen.getByText('0123456'));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('sha256:0123456789abcdef');
+  });
+
+  it('shows the git commit in Run Details for a run without agent lineage', async () => {
+    await renderSidebar({ gitCommit: 'fedcba9876543210' });
+
+    expect(screen.getByText('Git commit')).toBeInTheDocument();
+    expect(screen.getByTitle('fedcba9876543210')).toHaveTextContent('fedcba9');
+    expect(screen.queryByText('Agent')).not.toBeInTheDocument();
   });
 });

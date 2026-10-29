@@ -1,0 +1,66 @@
+{{- if .Values.autoscaling.enabled }}
+{{- /* Validation: fail if SQLite backend is detected */ -}}
+{{- if hasPrefix "sqlite://" .Values.mlflow.backendStoreUri }}
+{{- fail "autoscaling.enabled cannot be used with SQLite backend (sqlite://) due to concurrency limitations; use an external database instead" }}
+{{- end }}
+
+{{- /* Validation: fail if RWO storage is enabled (blocks multi-replica) */ -}}
+{{- if and .Values.storage.enabled (eq .Values.storage.accessMode "ReadWriteOnce") }}
+{{- fail "autoscaling.enabled cannot be used with storage.accessMode=ReadWriteOnce (blocks multi-replica); use ReadWriteMany or external storage instead" }}
+{{- end }}
+
+{{- /* Validation: ensure at least one metric target is set */ -}}
+{{- if and (not .Values.autoscaling.targetCPUUtilizationPercentage) (not .Values.autoscaling.targetMemoryUtilizationPercentage) }}
+{{- fail "autoscaling.enabled requires at least one metric target: set targetCPUUtilizationPercentage or targetMemoryUtilizationPercentage to a non-empty value" }}
+{{- end }}
+
+{{- /* Validation: CPU target requires resource requests */ -}}
+{{- if and .Values.autoscaling.targetCPUUtilizationPercentage (not (dig "requests" "cpu" "" .Values.resources)) }}
+{{- fail "autoscaling with targetCPUUtilizationPercentage requires resources.requests.cpu to be set" }}
+{{- end }}
+
+{{- /* Validation: memory target requires resource requests */ -}}
+{{- if and .Values.autoscaling.targetMemoryUtilizationPercentage (not (dig "requests" "memory" "" .Values.resources)) }}
+{{- fail "autoscaling with targetMemoryUtilizationPercentage requires resources.requests.memory to be set" }}
+{{- end }}
+
+{{- /* Validation: minReplicas must not exceed maxReplicas */ -}}
+{{- if gt (int .Values.autoscaling.minReplicas) (int .Values.autoscaling.maxReplicas) }}
+{{- fail (printf "autoscaling.minReplicas (%d) must not exceed maxReplicas (%d)" (int .Values.autoscaling.minReplicas) (int .Values.autoscaling.maxReplicas)) }}
+{{- end }}
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "mlflow.fullname" . }}
+  labels:
+    {{- include "mlflow.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "mlflow.fullname" . }}
+  minReplicas: {{ .Values.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+  metrics:
+    {{- if .Values.autoscaling.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}
+    {{- end }}
+    {{- if .Values.autoscaling.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.autoscaling.targetMemoryUtilizationPercentage }}
+    {{- end }}
+  {{- with .Values.autoscaling.behavior }}
+  behavior:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

@@ -151,7 +151,6 @@ describe('bounded artifact previews', () => {
 
   test.each([
     ['text', getArtifactContent],
-    ['chunked text', getArtifactChunkedText],
     ['bytes', getArtifactBytesContent],
     ['blob', getArtifactBlob],
   ])('%s cancels a preview after 50 MiB without reading the remaining response', async (_, readArtifact) => {
@@ -258,6 +257,15 @@ describe('getArtifactChunkedText', () => {
     jest.spyOn(global, 'fetch').mockResolvedValue(streamedResponse(['hel', 'lo']));
 
     await expect(getArtifactChunkedText('artifact')).resolves.toBe('hello');
+  });
+
+  test('reads evaluation data larger than the preview limit', async () => {
+    const bytes = new Uint8Array(MAX_ARTIFACT_PREVIEW_BYTES + 1).fill(0x61);
+    const { cancel, releaseLock } = mockArtifactStream([bytes]);
+
+    await expect(getArtifactChunkedText('artifact')).resolves.toHaveLength(bytes.length);
+    expect(cancel).not.toHaveBeenCalled();
+    expect(releaseLock).toHaveBeenCalledTimes(1);
   });
 
   test('rejects when the request itself fails', async () => {

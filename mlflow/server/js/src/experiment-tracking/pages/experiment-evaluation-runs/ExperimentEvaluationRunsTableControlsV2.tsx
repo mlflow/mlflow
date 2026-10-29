@@ -1,6 +1,7 @@
 import { useMemo, type Ref } from 'react';
 import {
   useDesignSystemTheme,
+  ArrowsUpDownIcon,
   Button,
   SyncIcon,
   PinCancelIcon,
@@ -62,6 +63,8 @@ export const ExperimentEvaluationRunsTableControlsV2 = ({
   selectedRunUuid,
   compareToRunUuid,
   setIsComparisonMode,
+  enableNRunComparison = false,
+  onCompareNavigate,
   onSetBaseline,
   onClearBaseline,
   baselineRunUuid,
@@ -99,6 +102,9 @@ export const ExperimentEvaluationRunsTableControlsV2 = ({
   selectedRunUuid?: string;
   compareToRunUuid?: string;
   setIsComparisonMode: (isComparisonMode: boolean) => void;
+  /** When true, render a standalone "Compare (N)" button that navigates to the compare page. */
+  enableNRunComparison?: boolean;
+  onCompareNavigate?: (runUuids: string[]) => void;
   onSetBaseline?: (runUuid: string) => void;
   onClearBaseline?: () => void;
   baselineRunUuid?: string;
@@ -265,7 +271,7 @@ export const ExperimentEvaluationRunsTableControlsV2 = ({
             </Tooltip>
           )}
 
-        {hasSelection && (
+        {hasSelection && !enableNRunComparison && (
           <ExperimentEvaluationRunsTableActions
             rowSelection={rowSelection}
             setRowSelection={setRowSelection}
@@ -356,6 +362,55 @@ export const ExperimentEvaluationRunsTableControlsV2 = ({
           </Typography.Text>
         </Button>
       </Tooltip>
+
+      {enableNRunComparison && hasSelection && (
+        <ExperimentEvaluationRunsTableActions
+          rowSelection={rowSelection}
+          setRowSelection={setRowSelection}
+          refetchRuns={refetchRuns}
+          onCompare={onCompare}
+          selectedRunUuid={selectedRunUuid}
+          compareToRunUuid={compareToRunUuid}
+          foldCompareIntoMenu
+          setIsComparisonMode={setIsComparisonMode}
+          enableNewCompare
+          onFilterChartToSelectedRuns={onFilterChartToSelectedRuns}
+          isChartFilteredToSelection={isChartFilteredToSelection}
+        />
+      )}
+
+      {enableNRunComparison && hasSelection && (
+        <Tooltip
+          componentId="mlflow.eval-runs.compare-navigate-button.tooltip"
+          content={
+            selectedRunUuids.length >= 2 ? (
+              <FormattedMessage
+                defaultMessage="Compare selected runs"
+                description="Tooltip for the eval-runs compare button when at least 2 runs are selected"
+              />
+            ) : (
+              <FormattedMessage
+                defaultMessage="Select at least 2 runs to compare"
+                description="Tooltip for the eval-runs compare button when fewer than 2 runs are selected"
+              />
+            )
+          }
+        >
+          <Button
+            componentId="mlflow.eval-runs.compare-navigate-button"
+            type="primary"
+            icon={<ArrowsUpDownIcon rotate={90} />}
+            disabled={selectedRunUuids.length < 2}
+            onClick={() => onCompareNavigate?.(selectedRunUuids)}
+          >
+            <FormattedMessage
+              defaultMessage="Compare ({numRuns})"
+              description="Standalone eval-runs compare button label with the number of selected runs"
+              values={{ numRuns: selectedRunUuids.length }}
+            />
+          </Button>
+        </Tooltip>
+      )}
     </div>
   );
 };

@@ -163,7 +163,7 @@ You may set some MLflow environment variables to troubleshoot GCS read-timeouts 
 
 - `MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT` - (Experimental, may be changed or removed) Sets the standard timeout for transfer operations in seconds (Default: 60 for GCS). Use -1 for indefinite timeout.
 - `MLFLOW_GCS_UPLOAD_CHUNK_SIZE` - Sets the standard upload chunk size for bigger files in bytes (Default: 104857600 ≙ 100MiB), must be multiple of 256 KB.
-- `MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE` - Sets the standard download chunk size for bigger files in bytes (Default: 104857600 ≙ 100MiB), must be multiple of 256 KB
+- `MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE` - Sets the standard download chunk size for bigger files in bytes (Default: not set; the file is downloaded in a single request), must be multiple of 256 KB.
 
 ### Backblaze B2
 
@@ -179,6 +179,27 @@ in your Backblaze dashboard (the master application key is not compatible with t
 export AWS_ACCESS_KEY_ID="your_b2_application_key_id"
 export AWS_SECRET_ACCESS_KEY="your_b2_application_key"
 export AWS_DEFAULT_REGION="us-east-005"
+```
+
+### Hugging Face Storage Buckets
+
+[Hugging Face Storage Buckets](https://huggingface.co/docs/hub/storage-buckets) can be used as an artifact store through their [S3-compatible API](https://huggingface.co/docs/hub/storage-buckets-s3).
+Specify a URI of the form `s3://<bucket>/<path>` and set `MLFLOW_S3_ENDPOINT_URL` to `https://s3.hf.co/<namespace>`, where `<namespace>` is the user or organization that owns the bucket.
+
+To get credentials, open your [Access Tokens settings](https://huggingface.co/settings/tokens), and choose **Generate S3 credentials** from a token's menu.
+The credentials have the same permissions as the token, so use a token with write access.
+
+You must also run `pip install boto3` on the server (and on any client that accesses the bucket directly).
+
+```bash
+export MLFLOW_S3_ENDPOINT_URL="https://s3.hf.co/<namespace>"
+export AWS_ACCESS_KEY_ID="HFAK..."
+export AWS_SECRET_ACCESS_KEY="your_secret_access_key"
+export AWS_DEFAULT_REGION="us-east-1"
+
+mlflow server \
+    --backend-store-uri sqlite:///mlflow.db \
+    --artifacts-destination s3://<bucket>/mlflow
 ```
 
 ### FTP server
@@ -270,6 +291,10 @@ byte-stream endpoints return HTTP 403 with instructions to install a compatible 
 version or newer. Listing and deleting artifacts remain available through the Tracking Server. The server validates
 at startup that the artifact destination supports
 both presigned multipart uploads and downloads. Currently, only S3 compatible storage is supported.
+S3 presigned transfers cannot be used with `SSECustomerKey` in `MLFLOW_S3_UPLOAD_EXTRA_ARGS`
+because they would expose the customer key to clients. The server rejects this combination at startup;
+this also applies when `MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD` or
+`MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD` is enabled. Remove `SSECustomerKey` to use presigned transfers.
 
 Compatible clients use presigned transfers for artifacts of every size in this mode, even when the optional
 `MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD` and `MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD` client settings are disabled.

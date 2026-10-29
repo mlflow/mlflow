@@ -152,8 +152,8 @@ def test_load_model_disallows_pickle_deserialization(model_path, monkeypatch, lo
     ols = ols_model()
     mlflow.statsmodels.save_model(statsmodels_model=ols.model, path=model_path)
 
-    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
-    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_MODEL_CODE_EXECUTION"):
         load_fn(model_path)
 
 

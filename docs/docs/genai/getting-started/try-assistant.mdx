@@ -149,13 +149,13 @@ Prompt engineering is still a critical part of building LLM applications, yet ma
 
 :::warning
 
-Currently, MLflow AI Assistant is in beta and only available for **local MLflow tracking server**. Support for remote tracking servers is coming soon.
+MLflow AI Assistant is in beta. By default, it works only in a browser on the machine that runs the MLflow server. Using it from other machines is experimental: set `MLFLOW_ENABLE_REMOTE_ASSISTANT=true` on a server that has Docker, which runs the assistant's tools in a Docker sandbox, for local users too (Claude Code and Codex then run only in a sandbox image that you build). Users on other machines can use only MLflow AI Gateway endpoints, and they can change Assistant settings only on a server with authentication. See the [Assistant sandbox guide](https://github.com/mlflow/mlflow/blob/master/mlflow/server/sandbox/README.md).
 
 :::
 
 ## Getting Started
 
-Set up MLflow AI Assistant with your preferred coding agent. Currently, **Claude Code** is fully supported, with more agents coming soon.
+Set up MLflow AI Assistant with the backend you prefer: the **Claude Code** or **Codex** CLI, local models through **Ollama**, or a hosted model (for example from OpenAI, Anthropic, or Gemini) through an **MLflow AI Gateway** endpoint.
 
 ### 1. Open MLflow UI
 
@@ -178,27 +178,21 @@ Once the setup is complete, you can start chatting with the assistant. Note that
 <details>
 <summary><strong>Is MLflow AI Assistant really free?</strong></summary>
 
-Yes! MLflow AI Assistant uses your existing coding agent subscription. You pay for the agent (Claude Code, etc.), but MLflow provides the knowledge and integration at no cost. There are no additional fees, premium tiers, or usage limits from MLflow's side.
+Yes! MLflow AI Assistant uses your existing coding agent subscription or model provider account. You pay for the agent or model you use (for example Claude Code, or a hosted model's API charges), but MLflow provides the knowledge and integration at no cost. There are no additional fees, premium tiers, or usage limits from MLflow's side.
 
 </details>
 
 <details>
-<summary><strong>Which coding agents are supported?</strong></summary>
+<summary><strong>Which backends are supported?</strong></summary>
 
-Currently, **Claude Code** is fully supported. We're actively working on integrations for:
-
-- OpenAI Codex
-- Gemini CLI
-- Open Code
-
-Check back for updates as we add support for more agents.
+**Claude Code** and the **Codex** CLI. The assistant can also use local models through **Ollama**, and hosted models (for example from OpenAI, Anthropic, or Gemini) through an **MLflow AI Gateway** endpoint.
 
 </details>
 
 <details>
 <summary><strong>Does the assistant have access to my data?</strong></summary>
 
-The assistant runs entirely on your local machine through your coding agent. Your code and data never leave your environment unless you explicitly configure the project path during the setup.
+The assistant runs on the machine that runs the MLflow server. To answer you, it sends your messages, and the MLflow data and code it reads, to the model of the backend you choose: the model provider of Claude Code or Codex, the provider of a hosted model behind an MLflow AI Gateway endpoint, or a local Ollama model, which keeps everything on your machine. Linking a project path in the settings sets the folder the assistant works in, but it does not limit what the assistant can read: without the sandbox, the coding agent can read files that the server's user can read, depending on the backend and the permissions you grant (with **Full access**, any of them).
 
 </details>
 

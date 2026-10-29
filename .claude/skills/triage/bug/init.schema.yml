@@ -4,7 +4,7 @@ description: Bug triage result, posted to the issue as a label and a comment.
 type: object
 additionalProperties: false
 required:
-  - label
+  - verdict
   - comment
 properties:
   issue_title:
@@ -13,19 +13,19 @@ properties:
     pattern: '^[^\r\n]+$'
     minLength: 1
     maxLength: 120
-  label:
-    description: Bug triage outcome label.
+  verdict:
+    description: Bug triage verdict.
     type: string
     oneOf:
-      - const: "triage: reproduced"
+      - const: "reproduced"
         description: The bug exists at the current checkout.
-      - const: "triage: already-fixed"
+      - const: "already-fixed"
         description: The reported version reproduces it, but the current checkout does not.
-      - const: "triage: not-reproduced"
+      - const: "not-reproduced"
         description: Neither version reproduces it with the information given.
-      - const: "triage: needs-info"
+      - const: "needs-info"
         description: The issue is too incomplete to attempt a reproduction.
-      - const: "triage: skipped"
+      - const: "skipped"
         description: Reproduction needs resources the sandbox lacks.
   comment:
     description: |
@@ -41,7 +41,10 @@ properties:
       - Expected: <what should happen>
       - Actual: <what happens, in one line, e.g. the exception and its message>
       - Fails at: <only for Reproduced: permalink to the line that raises or returns the wrong value>
-      - Missing information: <what the reporter should add>
+      - Missing information: <what the reporter should add; for an external API integration report,
+        such as OpenAI or Anthropic, without a live call to the provider's real endpoint, ask for
+        the request and response against that endpoint, the integration package version, and any
+        applicable provider API or model version>
 
       ### How to reproduce
 
@@ -68,7 +71,10 @@ properties:
       maintainers review it. Otherwise, anyone else who wants to open a PR must wait for a maintainer
       to add the `ready` issue label.>
 
-      - Reporter: <e.g. "Test the PR." or "Wait for the `ready` label before opening a PR." or "Share a minimal reproduction.">
+      - Reporter: <e.g. "Test the PR." or "Wait for the `ready` label before opening a PR." or
+        "Share a minimal reproduction; for an external API integration such as OpenAI or
+        Anthropic, use a live call to the provider's real endpoint and include the integration
+        package version.">
       - Maintainers: <e.g. "Review the PR." or "Review findings and add the `ready` label if appropriate." or "Choose a fix direction.">
     type: string
     minLength: 1
@@ -96,8 +102,8 @@ properties:
         maxLength: 20000
 if:
   properties:
-    label:
-      const: "triage: reproduced"
+    verdict:
+      const: "reproduced"
 else:
   not:
     required:

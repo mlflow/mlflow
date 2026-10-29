@@ -1532,6 +1532,40 @@ def test_logged_model_operations_are_workspace_scoped(workspace_tracking_store):
             workspace_tracking_store.delete_logged_model_tag(model_a.model_id, "key")
 
 
+def test_search_logged_models_latest_metric_filter_is_workspace_scoped(
+    workspace_tracking_store,
+):
+    exp_ids = {}
+    # The two workspaces log the same history in opposite order, so only "team-metric-b"
+    # has a latest loss below the threshold.
+    for workspace, losses in [("team-metric-a", [0.05, 5.0]), ("team-metric-b", [5.0, 0.05])]:
+        exp_id, run = _create_run(workspace_tracking_store, workspace, f"exp-{workspace}", "run")
+        exp_ids[workspace] = exp_id
+        with WorkspaceContext(workspace):
+            model = workspace_tracking_store.create_logged_model(exp_id, f"model-{workspace}")
+            workspace_tracking_store.log_batch(
+                run.info.run_id,
+                metrics=[
+                    Metric("loss", loss, 1000 + step, step, model_id=model.model_id)
+                    for step, loss in enumerate(losses)
+                ],
+                params=[],
+                tags=[],
+            )
+
+    for workspace, expected_names in [
+        ("team-metric-a", []),
+        ("team-metric-b", ["model-team-metric-b"]),
+    ]:
+        with WorkspaceContext(workspace):
+            models = workspace_tracking_store.search_logged_models(
+                experiment_ids=list(exp_ids.values()),
+                filter_string="metrics.loss < 0.1",
+                order_by=[{"field_name": "metrics.loss", "ascending": True}],
+            )
+        assert [m.name for m in models] == expected_names
+
+
 def test_trace_tag_operations_are_workspace_scoped(workspace_tracking_store):
     with WorkspaceContext("team-trace-a"):
         exp_a = workspace_tracking_store.create_experiment("exp-trace-a")
@@ -2338,6 +2372,33 @@ def test_user_budget_policies_are_workspace_scoped_rows(gateway_workspace_store)
         policies = store.list_budget_policies()
         assert [p.budget_policy_id for p in policies] == [policy_a.budget_policy_id]
         assert policies[0].target_value == "alice"
+
+
+def test_list_budget_policies_across_workspaces_ignores_the_active_workspace(
+    gateway_workspace_store,
+):
+    # The budget tracker keeps one set of windows for the whole server, so it needs every
+    # workspace's policies. The REST-facing listing stays workspace-scoped.
+    store = gateway_workspace_store
+    created = {}
+    for workspace in ("team-all-budget-a", "team-all-budget-b"):
+        with WorkspaceContext(workspace):
+            created[workspace] = store.create_budget_policy(
+                budget_unit=BudgetUnit.USD,
+                budget_amount=100.0,
+                duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+                target_scope=BudgetTargetScope.WORKSPACE,
+                budget_action=BudgetAction.REJECT,
+            ).budget_policy_id
+
+    with WorkspaceContext("team-all-budget-a"):
+        assert [p.budget_policy_id for p in store.list_budget_policies()] == [
+            created["team-all-budget-a"]
+        ]
+        assert {p.budget_policy_id for p in store.list_budget_policies_across_workspaces()} == set(
+            created.values()
+        )
+        assert {p.workspace for p in store.list_budget_policies_across_workspaces()} == set(created)
 
 
 def test_model_definitions_are_workspace_scoped(gateway_workspace_store):
@@ -3464,3 +3525,30 @@ def test_get_query_scopes_skill_registry_models_to_active_workspace(
             with workspace_tracking_store.ManagedSessionMaker() as session:
                 rows = workspace_tracking_store._get_query(session, model).all()
                 assert [getattr(row, workspace_attribute) for row in rows] == [workspace]
+
+
+# ---------------------------------------------------------------------------
+# MCP access endpoint workspace isolation
+# ---------------------------------------------------------------------------
+
+
+def _mcp_server_json(name: str, version: str) -> dict[str, str]:
+    return {"name": name, "version": version, "title": f"Test {name}"}
+
+
+@pytest.mark.parametrize("workspaces_enabled", [True], indirect=True)
+def test_search_mcp_access_endpoints_is_workspace_scoped(store):
+    name = "io.github.test/workspace-endpoints"
+    with WorkspaceContext("team-a"):
+        store.create_mcp_server_version(_mcp_server_json(name, "1.0.0"))
+        store.create_mcp_access_endpoint(name, "https://team-a.example.com", server_version="1.0.0")
+
+    with WorkspaceContext("team-b"):
+        store.create_mcp_server_version(_mcp_server_json(name, "1.0.0"))
+        endpoint = store.create_mcp_access_endpoint(
+            name, "https://team-b.example.com", server_version="1.0.0"
+        )
+        endpoints = store.search_mcp_access_endpoints(server_name=name)
+
+    assert [e.id for e in endpoints] == [endpoint.id]
+    assert [e.url for e in endpoints] == ["https://team-b.example.com"]

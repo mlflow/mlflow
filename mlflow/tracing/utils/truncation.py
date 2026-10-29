@@ -48,12 +48,18 @@ def _get_truncated_preview(
             msg = _get_last_message(messages, role=role)
             content = _get_text_content_from_message(msg)
 
-    content = content or request_or_response
+    content = _replace_nul(content or request_or_response)
 
     if len(content) <= max_length:
         return content
 
     return content[: max_length - 3] + "..."
+
+
+def _replace_nul(preview: str | None) -> str | None:
+    # PostgreSQL text columns cannot store NUL characters, and a preview containing one makes
+    # the whole trace fail to be stored.
+    return preview.replace("\x00", "\ufffd") if preview else preview
 
 
 @lru_cache(maxsize=1)
