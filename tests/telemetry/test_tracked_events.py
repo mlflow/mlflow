@@ -1453,7 +1453,8 @@ def test_compare_evaluations(mock_requests, mock_telemetry_client: TelemetryClie
         ("invoke_issue_detection", "adhoc", "job-123"),
         ("invoke_issue_detection", "adhoc", None),
         ("scheduled_issue_detection", "schedule", "job-123"),
-        ("another_job", "sdk", "job-123"),
+        ("another_job", "unknown", "job-123"),
+        ("", "unknown", "job-123"),
     ],
 )
 def test_discover_issues(

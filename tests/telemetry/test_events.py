@@ -789,7 +789,12 @@ def test_discover_issues_parse_params(arguments, expected_params, monkeypatch):
 
 @pytest.mark.parametrize(
     ("job_name", "trigger"),
-    [("invoke_issue_detection", "adhoc"), ("scheduled_issue_detection", "schedule")],
+    [
+        ("invoke_issue_detection", "adhoc"),
+        ("scheduled_issue_detection", "schedule"),
+        ("another_job", "unknown"),
+        ("", "unknown"),
+    ],
 )
 @pytest.mark.parametrize("job_id", [None, "job-123"])
 def test_discover_issues_job_params(monkeypatch, job_name, trigger, job_id):
@@ -811,7 +816,7 @@ def test_discover_issues_job_params(monkeypatch, job_name, trigger, job_id):
         DiscoverIssuesEvent.parse({
             "model": "openai:/gpt-4",
             "traces": [Mock(), Mock()],
-            "categories": ["correctness", "private category"],
+            "categories": [" Correctness ", "CORRECTNESS", "private category"],
             "run_id": "source-run-id",
         })
         == expected

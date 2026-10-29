@@ -32,6 +32,8 @@ def record_usage_event(event: type[Event]) -> Callable[[Callable[P, R]], Callabl
                 result = func(*args, **kwargs)
                 return result
             except (KeyboardInterrupt, AsyncCancelledError, FutureCancelledError):
+                # Only propagated interruptions reach here. Server job cancellation uses SIGKILL,
+                # which bypasses this handler, the recording below, and the telemetry flush.
                 status = Status.CANCELED
                 raise
             except Exception:

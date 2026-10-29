@@ -9,7 +9,10 @@ from urllib.parse import urlparse
 from mlflow.entities import Feedback
 from mlflow.entities.issue import IssueSeverity, IssueStatus
 from mlflow.entities.mcp_server import MCPStatus
-from mlflow.environment_variables import MLFLOW_ENABLE_OTEL_GENAI_SEMCONV
+from mlflow.environment_variables import (
+    _MLFLOW_SERVER_JOB_ID,
+    MLFLOW_ENABLE_OTEL_GENAI_SEMCONV,
+)
 from mlflow.telemetry.constant import (
     GENAI_MODULES,
     KNOWN_FLAVORS,
@@ -1004,7 +1007,7 @@ class DiscoverIssuesEvent(Event):
             "trace_count": len(arguments.get("traces") or []),
             "categories": normalize_issue_categories(arguments.get("categories")),
         }
-        if trigger != "sdk" and (job_id := os.environ.get("_MLFLOW_SERVER_JOB_ID")):
+        if trigger != "sdk" and (job_id := _MLFLOW_SERVER_JOB_ID.get()):
             params["job_id"] = job_id
         return params
 
