@@ -651,14 +651,9 @@ def _get_trace_archive_repo(trace_info: TraceInfo):
 
 
 def _get_servable_proxied_artifact_repo(artifact_uri: str) -> ArtifactRepository:
-    """
-    Build the repository for a proxied location this server serves, at its place under
-    ``--artifacts-destination``. Callers check ``_is_servable_proxied_run_artifact_root`` first.
-    """
+    """Build the repository for a proxied location this server serves, under its destination."""
     from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR
 
-    # Serving implies a destination, since it defaults. Name it rather than raising KeyError from
-    # inside an artifact read if that ever stops holding.
     root = os.environ.get(ARTIFACTS_DESTINATION_ENV_VAR)
     if not root:
         raise MlflowException(
@@ -679,8 +674,7 @@ def _get_trace_repo_from_uri(artifact_uri: str):
                 "Trace artifact URI must contain subpath to the trace data directory.",
                 error_code=BAD_REQUEST,
             )
-        # Not cached in a global, unlike the run artifact repo: a trace repo is built with the
-        # full trace artifact URI, request_id included (s3://<experiment_id>/traces/<request_id>).
+        # Not cached like the run artifact repo: the URI includes the trace's request_id.
         artifact_repo = _get_servable_proxied_artifact_repo(artifact_uri)
     else:
         artifact_repo = _get_artifact_repository_for_uri(artifact_uri)

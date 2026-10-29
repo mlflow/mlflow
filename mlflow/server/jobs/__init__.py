@@ -27,10 +27,8 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-# The server's own HTTP URI, kept when tracking is redirected to the store. A proxied artifact
-# location this server does not serve is still fetched over HTTP, and `MlflowArtifactsRepository`
-# validates the tracking URI even when the location names its own host -- so the URI the redirect
-# overwrites has to be kept.
+# The server's HTTP URI, kept when tracking is redirected to the store: a proxied artifact
+# location this server does not serve is still fetched over HTTP.
 _http_tracking_uri: str | None = None
 
 
@@ -39,31 +37,17 @@ def _is_http_uri(uri: str | None) -> bool:
 
 
 def _http_uri_for_artifacts(tracking_uri: str | None) -> str | None:
-    """The URI to resolve a proxied artifact location against.
-
-    A caller's own URI is honored only when it can serve the purpose: a client built after the
-    redirect passes the store URI explicitly (``TrackingServiceClient._get_artifact_repo`` hands
-    over ``self.tracking_uri``), and that is the one thing this cannot be.
-    """
+    # A client built after the redirect passes the store URI, which cannot serve here.
     if _is_http_uri(tracking_uri):
         return tracking_uri
     return _http_tracking_uri or tracking_uri or get_tracking_uri()
 
 
 def _proxied_artifact_repository(artifact_uri, tracking_uri=None, registry_uri=None):
-    """Serve an ``mlflow-artifacts:/`` URI from the location this server serves it from.
+    """Resolve an ``mlflow-artifacts:/`` URI the way the server's own artifact routes do.
 
-    The default handler for that scheme fetches through the server over HTTP and so demands an
-    HTTP tracking URI. Once tracking points at the store there is no such URI, so resolve the way
-    the server's own artifact routes do -- against ``--artifacts-destination`` -- and read and
-    write that location directly.
-
-    The rule is the server's own: with artifact serving on, every proxied location is taken to be
-    this server's, whatever host it names (see ``_is_servable_proxied_run_artifact_root``). Under
-    ``--no-serve-artifacts`` the location belongs to a separate artifact server, and resolving it
-    here would read and write a local directory that holds none of it, so it stays on HTTP. An
-    auth-enabled server rejects that request, as it did before the redirect: the job holds no
-    credential its artifact routes accept.
+    A location this server serves is read from ``--artifacts-destination`` directly; any other
+    stays on HTTP, where an auth-enabled server still rejects the job's request.
     """
     if _is_servable_proxied_run_artifact_root(artifact_uri):
         return _get_servable_proxied_artifact_repo(artifact_uri)
@@ -75,24 +59,11 @@ def _proxied_artifact_repository(artifact_uri, tracking_uri=None, registry_uri=N
 
 
 def use_backend_store_for_tracking() -> None:
-    """Point this process's tracking APIs at the backend store rather than the server's HTTP API.
+    """Point this process's tracking APIs at the backend store instead of the server's HTTP API.
 
-    The job runner inherits ``MLFLOW_TRACKING_URI`` pointing back at the server, which a job
-    cannot authenticate to -- its only credential, the internal gateway token, is gateway-only --
-    so on an auth-enabled server every tracking call fails with 401. Jobs are expected to opt out
-    of HTTP: the runner is handed ``MLFLOW_BACKEND_STORE_URI`` for exactly this, the executor
-    engine gives jobs the store URI as their tracking URI, and the scorer jobs already reach the
-    store directly. Authorization is unaffected, and is still done at submission.
-
-    Artifacts move with it. An experiment created through a server has an ``mlflow-artifacts:/``
-    location, whose default handler needs the HTTP tracking URI this just gave up, so a location
-    this server serves is resolved against the serving destination instead -- otherwise the job
-    reaches the store and then cannot read a trace payload or write a run's artifacts. A location
-    this server does not serve stays on HTTP, against the server's URI kept from before the
-    redirect.
-
-    The job subprocess entry calls this before it runs any job function, so a job need not.
-    Raises when no backend store is configured rather than leaving tracking where it was.
+    A job cannot authenticate to the server (its only credential is gateway-only), so the job
+    subprocess entry calls this before running any job function. Proxied artifact locations are
+    redirected with it, since their default handler needs the HTTP tracking URI this gives up.
     """
     global _http_tracking_uri
 
@@ -103,20 +74,16 @@ def use_backend_store_for_tracking() -> None:
             f"{BACKEND_STORE_URI_ENV_VAR} is unset in this job's environment."
         )
 
-    # Kept for locations this server does not serve. Under the default engine the tracking URI
-    # is the server's own; under the executor engine it is already the store URI, and the gateway
-    # URI -- the server's own unless an operator pointed it elsewhere -- is the HTTP URI left.
+    # Under the executor engine tracking is already the store URI; the gateway URI is the
+    # server's HTTP URI there.
     if _http_tracking_uri is None:
         _http_tracking_uri = next(
             (uri for uri in (get_tracking_uri(), MLFLOW_GATEWAY_URI.get()) if _is_http_uri(uri)),
             None,
         )
 
-    # Assigned outright rather than left to `_get_tracking_store()`, whose redirect runs only the
-    # first time a process resolves the store.
+    # Not left to `_get_tracking_store()`, whose redirect runs only on the first resolution.
     set_tracking_uri(store_uri)
-    # Registered whatever this server serves: the handler decides per location, resolving only
-    # what this server serves and leaving everything else on HTTP.
     _artifact_repository_registry.register("mlflow-artifacts", _proxied_artifact_repository)
 
 

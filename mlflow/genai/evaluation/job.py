@@ -42,9 +42,7 @@ def invoke_genai_evaluate_job(
     writing all outputs (dataset input, assessments, aggregate metrics) into
     the pre-existing run identified by `run_id`.
     """
-    # Propagate the original user identity to gateway requests, as `invoke_scorer_job` does.
-    # This authenticates judge LLM calls, not the tracking API: the job subprocess entry has
-    # already pointed tracking at the backend store.
+    # Identifies the caller to the gateway for judge calls; tracking itself goes to the store.
     if username is not None:
         os.environ["MLFLOW_TRACKING_USERNAME"] = username
         if internal_token := _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.get():

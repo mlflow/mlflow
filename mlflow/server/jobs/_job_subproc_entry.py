@@ -75,9 +75,7 @@ def _main():
 
     try:
         with ctx:
-            # A job reaches the backend store directly: it cannot authenticate to the server's
-            # HTTP API. A job container is handed no store (and has no network), so its job
-            # keeps the tracking URI it was given.
+            # Jobs reach the backend store directly; a job container has none and keeps its URI.
             if os.environ.get(BACKEND_STORE_URI_ENV_VAR):
                 use_backend_store_for_tracking()
             value = function(**params)
