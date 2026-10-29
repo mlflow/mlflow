@@ -229,7 +229,15 @@ class AnthropicAdapter(ProviderAdapter):
                         }
                         for tool_call in m["tool_calls"]
                     ]
-                    m["content"] = tool_use_contents
+                    # Keep any text the assistant wrote before calling tools.
+                    content = m.get("content")
+                    texts = (
+                        [p.get("text") for p in content if p.get("type") == "text"]
+                        if isinstance(content, list)
+                        else [content]
+                    )
+                    text_contents = [{"type": "text", "text": t} for t in texts if t]
+                    m["content"] = text_contents + tool_use_contents
                     m.pop("tool_calls")
                 converted_messages.append(m)
             elif m["role"] == "tool":

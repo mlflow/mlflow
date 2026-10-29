@@ -1900,3 +1900,37 @@ def test_chat_stream_finish_reason(stop_reason, expected):
     result = AnthropicAdapter.model_to_chat_streaming(resp, EndpointConfig(**chat_config()))
 
     assert result.choices[0].finish_reason == expected
+
+
+@pytest.mark.parametrize(
+    "content",
+    ["Let me check.", [{"type": "text", "text": "Let me check."}]],
+)
+def test_chat_to_model_keeps_assistant_text_with_tool_calls(content):
+    payload = {
+        "messages": [
+            {"role": "user", "content": "Weather in Paris?"},
+            {
+                "role": "assistant",
+                "content": content,
+                "tool_calls": [
+                    {
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {"name": "get_weather", "arguments": '{"city": "Paris"}'},
+                    }
+                ],
+            },
+            {"role": "tool", "tool_call_id": "call_1", "content": "Sunny"},
+        ]
+    }
+
+    result = AnthropicAdapter.chat_to_model(payload, EndpointConfig(**chat_config()))
+
+    assert result["messages"][1] == {
+        "role": "assistant",
+        "content": [
+            {"type": "text", "text": "Let me check."},
+            {"type": "tool_use", "id": "call_1", "name": "get_weather", "input": {"city": "Paris"}},
+        ],
+    }

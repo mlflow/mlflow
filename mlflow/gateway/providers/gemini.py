@@ -227,7 +227,11 @@ class GeminiAdapter(ProviderAdapter):
 
                             gemini_function_calls.append(part)
                 if gemini_function_calls:
-                    contents.append({"role": "model", "parts": gemini_function_calls})
+                    # Keep any text the assistant wrote before calling tools.
+                    text_parts = (
+                        _to_gemini_parts(content) if (content := message.get("content")) else []
+                    )
+                    contents.append({"role": "model", "parts": text_parts + gemini_function_calls})
                 else:
                     # _to_gemini_parts translates multimodal list content (e.g. an image_url
                     # part) to Gemini parts; string content stays a single text part.
