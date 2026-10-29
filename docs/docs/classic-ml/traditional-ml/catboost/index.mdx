@@ -1,0 +1,675 @@
+---
+sidebar_position: 2
+sidebar_label: CatBoost
+---
+
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+import { Zap, Package, TrendingUp, Database, BarChart3, Rocket, Server } from "lucide-react";
+
+# MLflow CatBoost Integration
+
+## Introduction
+
+**CatBoost** is a gradient boosting library developed by Yandex that excels at handling categorical features and provides state-of-the-art performance on structured data. MLflow provides native integration with CatBoost for experiment tracking, model management, and deployment.
+
+This integration supports CatBoost's native formats including Pool objects and .cbm model files, making it easy to track experiments and deploy models using CatBoost best practices.
+
+## Why MLflow + CatBoost?
+
+<FeatureHighlights features={[
+  {
+    icon: Zap,
+    title: "Automatic Logging",
+    description: "Single line of code (mlflow.catboost.autolog()) captures all parameters, metrics per boosting round, and training datasets without manual instrumentation."
+  },
+  {
+    icon: Package,
+    title: "Complete Model Recording",
+    description: "Logs trained models with support for .cbm format, input/output signatures, model dependencies, and Python environment for reproducible deployments."
+  },
+  {
+    icon: TrendingUp,
+    title: "Rich Metrics Tracking",
+    description: "Automatically logs training and validation metrics including custom metrics (F1, AUC, PRAUC, R2, MAPE) for comprehensive model evaluation."
+  },
+  {
+    icon: Database,
+    title: "Native Format Support",
+    description: "Works seamlessly with CatBoost Pool objects and .cbm model format, supporting categorical features, feature names, and efficient data handling."
+  }
+]} />
+
+## Getting Started
+
+Get started with CatBoost and MLflow in just a few lines of code:
+
+```python
+import mlflow
+from catboost import CatBoostRegressor, Pool
+from sklearn.datasets import load_diabetes
+from sklearn.model_selection import train_test_split
+
+# Enable autologging - captures everything automatically
+mlflow.catboost.autolog()
+
+# Load and prepare data
+data = load_diabetes()
+X_train, X_test, y_train, y_test = train_test_split(
+    data.data, data.target, test_size=0.2, random_state=42
+)
+
+# Create Pool objects (best practice for CatBoost)
+train_pool = Pool(data=X_train, label=y_train, feature_names=data.feature_names)
+eval_pool = Pool(data=X_test, label=y_test, feature_names=data.feature_names)
+
+# Train model - MLflow automatically logs everything!
+with mlflow.start_run():
+    model = CatBoostRegressor(
+        iterations=100,
+        learning_rate=0.1,
+        depth=6,
+        verbose=False,
+    )
+    model.fit(train_pool, eval_set=eval_pool)
+```
+
+Autologging captures parameters, metrics per iteration, and the trained model with proper feature names.
+
+:::tip Tracking Server Setup
+Running locally? MLflow stores experiments in the current directory by default. For team collaboration or remote tracking, **[set up a tracking server](/ml/tracking/tutorials/remote-server)**.
+:::
+
+## Autologging
+
+Enable autologging to automatically track CatBoost experiments with a single line of code:
+
+<Tabs>
+  <TabItem value="classifier" label="CatBoost Classifier" default>
+
+```python
+import mlflow
+from catboost import CatBoostClassifier, Pool
+from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import train_test_split
+
+# Load data
+dataset = load_breast_cancer()
+X_train, X_test, y_train, y_test = train_test_split(
+    dataset.data, dataset.target, test_size=0.2, random_state=42, stratify=dataset.target
+)
+
+# Create Pool objects with feature names
+train_pool = Pool(
+    data=X_train,
+    label=y_train,
+    feature_names=dataset.feature_names.tolist(),
+)
+eval_pool = Pool(
+    data=X_test,
+    label=y_test,
+    feature_names=dataset.feature_names.tolist(),
+)
+
+# Enable autologging
+mlflow.catboost.autolog()
+
+# Train with automatic tracking
+with mlflow.start_run():
+    model = CatBoostClassifier(
+        iterations=100,
+        learning_rate=0.1,
+        depth=6,
+        custom_metric=["F1", "AUC", "PRAUC"],  # Track additional metrics
+        verbose=False,
+    )
+    model.fit(train_pool, eval_set=eval_pool)
+```
+
+  </TabItem>
+  <TabItem value="regressor" label="CatBoost Regressor">
+
+```python
+import mlflow
+from catboost import CatBoostRegressor, Pool
+from sklearn.datasets import load_diabetes
+from sklearn.model_selection import train_test_split
+
+# Load data
+dataset = load_diabetes()
+X_train, X_test, y_train, y_test = train_test_split(
+    dataset.data, dataset.target, test_size=0.2, random_state=42
+)
+
+# Create Pool objects with feature names
+train_pool = Pool(
+    data=X_train,
+    label=y_train,
+    feature_names=dataset.feature_names,
+)
+eval_pool = Pool(
+    data=X_test,
+    label=y_test,
+    feature_names=dataset.feature_names,
+)
+
+# Enable autologging
+mlflow.catboost.autolog()
+
+# Train with automatic tracking
+with mlflow.start_run():
+    model = CatBoostRegressor(
+        iterations=100,
+        learning_rate=0.1,
+        depth=6,
+        custom_metric=["R2", "MAPE"],  # Track additional metrics
+        verbose=False,
+    )
+    model.fit(train_pool, eval_set=eval_pool)
+```
+
+  </TabItem>
+</Tabs>
+
+### What Gets Logged
+
+When autologging is enabled, MLflow automatically captures:
+
+- **Parameters**: All model parameters and training configuration
+- **Metrics**: Training and validation metrics for each boosting round (including custom metrics)
+- **Datasets**: Training and evaluation data with feature names preserved
+- **Model**: The trained model in CatBoost's native format
+- **Signature**: Inferred input/output schema for model validation
+
+### Autolog Configuration
+
+Customize autologging behavior:
+
+```python
+mlflow.catboost.autolog(
+    log_input_examples=True,
+    log_model_signatures=True,
+    log_models=True,
+    log_datasets=True,
+    registered_model_name="CatBoostModel",
+    extra_tags={"team": "data-science", "project": "churn-prediction"},
+)
+```
+
+## Working with Pool Objects
+
+Pool objects are the recommended way to work with CatBoost, providing efficient data handling and support for categorical features:
+
+```python
+import mlflow
+from catboost import CatBoostClassifier, Pool
+import pandas as pd
+
+# Create DataFrame with categorical features
+data = pd.DataFrame({
+    "age": [25, 30, 35, 40, 45],
+    "city": ["NYC", "LA", "NYC", "SF", "LA"],  # Categorical
+    "income": [50000, 60000, 70000, 80000, 90000],
+    "purchased": [0, 1, 0, 1, 1],
+})
+
+# Create Pool with categorical feature specification
+train_pool = Pool(
+    data=data[["age", "city", "income"]],
+    label=data["purchased"],
+    cat_features=["city"],  # Specify categorical features
+    feature_names=["age", "city", "income"],
+)
+
+mlflow.catboost.autolog()
+
+with mlflow.start_run():
+    model = CatBoostClassifier(iterations=50, verbose=False)
+    model.fit(train_pool)
+```
+
+## Advanced Feature Types
+
+CatBoost supports specialized column types that go beyond standard numerical and categorical features. MLflow preserves these feature specifications when logging models.
+
+### Text Features
+
+CatBoost can directly process text columns without manual preprocessing. It automatically extracts features using built-in tokenization and text processing:
+
+```python
+import mlflow
+from catboost import CatBoostClassifier, Pool
+import pandas as pd
+
+# Create dataset with text features
+data = pd.DataFrame({
+    "product_review": [
+        "Great product, highly recommend!",
+        "Terrible quality, waste of money",
+        "Good value for the price",
+        "Not worth it, very disappointed",
+        "Excellent! Will buy again",
+    ],
+    "category": ["electronics", "clothing", "electronics", "clothing", "electronics"],
+    "price": [29.99, 49.99, 19.99, 39.99, 24.99],
+    "rating": [1, 0, 1, 0, 1],  # Binary: positive/negative
+})
+
+# Create Pool with text features
+train_pool = Pool(
+    data=data[["product_review", "category", "price"]],
+    label=data["rating"],
+    text_features=["product_review"],  # Specify text columns
+    cat_features=["category"],
+    feature_names=["product_review", "category", "price"],
+)
+
+mlflow.catboost.autolog()
+
+with mlflow.start_run():
+    model = CatBoostClassifier(
+        iterations=100,
+        text_processing={
+            "tokenizers": [{"tokenizer_id": "Sense", "delimiter": " "}],
+            "dictionaries": [{"dictionary_id": "Word", "max_dictionary_size": "50000"}],
+        },
+        verbose=False,
+    )
+    model.fit(train_pool)
+```
+
+When you load the logged model, CatBoost automatically applies the same text processing pipeline.
+
+### Embedding Features
+
+CatBoost efficiently handles pre-computed embeddings (from models like BERT, Word2Vec, etc.) as multi-dimensional features:
+
+```python
+import mlflow
+from catboost import CatBoostClassifier, Pool
+import pandas as pd
+import numpy as np
+
+# Simulate data with embeddings (e.g., from a sentence transformer)
+data = pd.DataFrame({
+    "user_id": [1, 2, 3, 4, 5],
+    "category": ["A", "B", "A", "C", "B"],
+    # Pre-computed embeddings (e.g., 384-dim from sentence-transformers)
+    "text_embedding": [
+        np.random.randn(128).tolist(),
+        np.random.randn(128).tolist(),
+        np.random.randn(128).tolist(),
+        np.random.randn(128).tolist(),
+        np.random.randn(128).tolist(),
+    ],
+    "clicked": [1, 0, 1, 0, 1],
+})
+
+# Prepare embedding features - CatBoost expects them as separate columns
+embedding_df = pd.DataFrame(
+    data["text_embedding"].tolist(),
+    columns=[f"emb_{i}" for i in range(128)]
+)
+
+# Combine with other features
+features = pd.concat([
+    data[["user_id", "category"]],
+    embedding_df
+], axis=1)
+
+# Create Pool with embedding features
+train_pool = Pool(
+    data=features,
+    label=data["clicked"],
+    cat_features=["category"],
+    embedding_features=[f"emb_{i}" for i in range(128)],  # Specify embedding columns
+)
+
+mlflow.catboost.autolog()
+
+with mlflow.start_run():
+    model = CatBoostClassifier(
+        iterations=100,
+        depth=6,
+        verbose=False,
+    )
+    model.fit(train_pool)
+```
+
+:::tip Embedding Features
+CatBoost treats embedding features differently from regular numerical features, using specialized algorithms that account for the high-dimensional, dense nature of embeddings. This often leads to better performance than treating them as standard numerical features.
+:::
+
+## Multiple Evaluation Sets
+
+CatBoost natively supports multiple evaluation sets for comprehensive model monitoring. MLflow automatically logs metrics for all eval sets:
+
+```python
+import mlflow
+from catboost import CatBoostRegressor, Pool
+from sklearn.datasets import load_diabetes
+from sklearn.model_selection import train_test_split
+
+# Load and split data into train, validation, and holdout sets
+dataset = load_diabetes()
+X_temp, X_holdout, y_temp, y_holdout = train_test_split(
+    dataset.data, dataset.target, test_size=0.2, random_state=42
+)
+X_train, X_val, y_train, y_val = train_test_split(
+    X_temp, y_temp, test_size=0.25, random_state=42  # 60/20/20 split
+)
+
+# Create Pool objects for all datasets
+train_pool = Pool(X_train, y_train, feature_names=dataset.feature_names)
+val_pool = Pool(X_val, y_val, feature_names=dataset.feature_names)
+holdout_pool = Pool(X_holdout, y_holdout, feature_names=dataset.feature_names)
+
+mlflow.catboost.autolog()
+
+with mlflow.start_run():
+    model = CatBoostRegressor(
+        iterations=100,
+        learning_rate=0.1,
+        depth=6,
+        custom_metric=["R2", "MAPE"],
+        verbose=False,
+    )
+
+    # Pass multiple eval sets as a list
+    # MLflow logs metrics for each set: validation-RMSE, holdout-RMSE, etc.
+    model.fit(
+        train_pool,
+        eval_set=[val_pool, holdout_pool],
+    )
+```
+
+When using multiple eval sets, MLflow creates separate metric tracks for each dataset (e.g., `validation-RMSE`, `holdout-RMSE`, `validation-R2`, `holdout-R2`), making it easy to monitor overfitting and model generalization.
+
+## Hyperparameter Tuning
+
+### Grid Search
+
+MLflow automatically creates child runs for hyperparameter tuning:
+
+```python
+import mlflow
+from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import GridSearchCV, train_test_split
+from catboost import CatBoostClassifier
+
+# Load data
+data = load_breast_cancer()
+X_train, X_test, y_train, y_test = train_test_split(
+    data.data, data.target, test_size=0.2, random_state=42
+)
+
+# Enable autologging
+mlflow.catboost.autolog()
+
+# Define parameter grid
+param_grid = {
+    "iterations": [50, 100, 200],
+    "depth": [4, 6, 8],
+    "learning_rate": [0.01, 0.1, 0.3],
+}
+
+# Run grid search - MLflow logs each combination as a child run
+with mlflow.start_run():
+    model = CatBoostClassifier(verbose=False, random_state=42)
+    grid_search = GridSearchCV(
+        model, param_grid, cv=5, scoring="roc_auc", n_jobs=-1
+    )
+    grid_search.fit(X_train, y_train)
+
+    print(f"Best score: {grid_search.best_score_}")
+```
+
+### Optuna Integration
+
+For more advanced hyperparameter optimization:
+
+```python
+import mlflow
+import optuna
+from catboost import CatBoostClassifier, Pool
+from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import train_test_split
+
+# Load data
+data = load_breast_cancer()
+X_train, X_test, y_train, y_test = train_test_split(
+    data.data, data.target, test_size=0.2, random_state=42
+)
+
+train_pool = Pool(X_train, y_train)
+eval_pool = Pool(X_test, y_test)
+
+mlflow.catboost.autolog()
+
+
+def objective(trial):
+    params = {
+        "iterations": trial.suggest_int("iterations", 50, 300),
+        "depth": trial.suggest_int("depth", 4, 10),
+        "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3, log=True),
+        "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 1e-8, 10.0, log=True),
+        "random_strength": trial.suggest_float("random_strength", 1e-8, 10.0, log=True),
+        "verbose": False,
+    }
+
+    with mlflow.start_run(nested=True):
+        model = CatBoostClassifier(**params, random_state=42)
+        model.fit(train_pool, eval_set=eval_pool)
+        score = model.score(X_test, y_test)
+        return score
+
+
+with mlflow.start_run():
+    study = optuna.create_study(direction="maximize")
+    study.optimize(objective, n_trials=50)
+
+    mlflow.log_params({f"best_{k}": v for k, v in study.best_params.items()})
+    mlflow.log_metric("best_score", study.best_value)
+```
+
+## Model Management
+
+Log models with specific configurations:
+
+```python
+import mlflow.catboost
+from catboost import CatBoostRegressor, Pool
+from sklearn.datasets import load_diabetes
+from sklearn.model_selection import train_test_split
+
+# Load data
+data = load_diabetes()
+X_train, X_test, y_train, y_test = train_test_split(
+    data.data, data.target, test_size=0.2, random_state=42
+)
+
+train_pool = Pool(X_train, y_train, feature_names=data.feature_names)
+
+with mlflow.start_run():
+    model = CatBoostRegressor(iterations=100, depth=6, verbose=False)
+    model.fit(train_pool)
+
+    # Log model with .cbm format (CatBoost native format)
+    mlflow.catboost.log_model(
+        cb_model=model,
+        name="model",
+        registered_model_name="production_model",
+    )
+```
+
+:::tip Model Format
+CatBoost models are saved in their native .cbm format by default, which provides the best compatibility and performance with CatBoost's inference engine.
+:::
+
+Load models for inference:
+
+```python
+# Load as native CatBoost model (recommended for CatBoost-specific features)
+model = mlflow.catboost.load_model("runs:/<run_id>/model")
+
+# Load as PyFunc for generic interface
+pyfunc_model = mlflow.pyfunc.load_model("runs:/<run_id>/model")
+
+# Load native CatBoost model from registry using alias
+model = mlflow.catboost.load_model("models:/CatBoostModel@champion")
+
+# Or load as PyFunc from registry
+pyfunc_model = mlflow.pyfunc.load_model("models:/CatBoostModel@champion")
+```
+
+## Model Registry Integration
+
+Register and manage model versions:
+
+```python
+import mlflow.catboost
+from catboost import CatBoostClassifier, Pool
+from mlflow import MlflowClient
+from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import train_test_split
+
+# Load and prepare data
+data = load_breast_cancer()
+X_train, X_test, y_train, y_test = train_test_split(
+    data.data, data.target, test_size=0.2, random_state=42
+)
+
+train_pool = Pool(X_train, y_train, feature_names=data.feature_names.tolist())
+
+# Register model during training
+with mlflow.start_run():
+    model = CatBoostClassifier(iterations=100, depth=6, verbose=False)
+    model.fit(train_pool)
+
+    mlflow.catboost.log_model(
+        cb_model=model,
+        name="model",
+        registered_model_name="CatBoostModel",
+    )
+
+# Set alias for deployment
+client = MlflowClient()
+client.set_registered_model_alias(
+    name="CatBoostModel",
+    alias="champion",
+    version=1,
+)
+
+# Load the native CatBoost model using the alias
+champion_model = mlflow.catboost.load_model("models:/CatBoostModel@champion")
+
+# Make predictions with the loaded model
+predictions = champion_model.predict(X_test)
+```
+
+## Model Serving
+
+Serve models locally for testing:
+
+```bash
+mlflow models serve -m "models:/CatBoostModel@champion" -p 5000
+```
+
+Make predictions via REST API:
+
+```python
+import requests
+import pandas as pd
+
+data = pd.DataFrame(
+    {
+        "feature1": [1.2, 2.3],
+        "feature2": [0.8, 1.5],
+        "feature3": [3.4, 4.2],
+    }
+)
+
+response = requests.post(
+    "http://localhost:5000/invocations",
+    headers={"Content-Type": "application/json"},
+    json={"dataframe_split": data.to_dict(orient="split")},
+)
+
+predictions = response.json()
+```
+
+Deploy to cloud platforms:
+
+```bash
+# Deploy to AWS SageMaker
+mlflow deployments create \
+    -t sagemaker \
+    --name catboost-endpoint \
+    -m models:/CatBoostModel@champion
+
+# Deploy to Azure ML
+mlflow deployments create \
+    -t azureml \
+    --name catboost-service \
+    -m models:/CatBoostModel@champion
+```
+
+## Custom Metrics
+
+Track additional metrics beyond the default loss function:
+
+```python
+import mlflow
+from catboost import CatBoostClassifier, Pool
+from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import train_test_split
+
+# Load data
+data = load_breast_cancer()
+X_train, X_test, y_train, y_test = train_test_split(
+    data.data, data.target, test_size=0.2, random_state=42
+)
+
+train_pool = Pool(X_train, y_train)
+eval_pool = Pool(X_test, y_test)
+
+mlflow.catboost.autolog()
+
+with mlflow.start_run():
+    model = CatBoostClassifier(
+        iterations=100,
+        depth=6,
+        # Track multiple custom metrics
+        custom_metric=["F1", "MCC", "AUC", "PRAUC", "Precision", "Recall"],
+        verbose=False,
+    )
+    model.fit(train_pool, eval_set=eval_pool)
+```
+
+All custom metrics are automatically logged per iteration, allowing you to visualize and compare different metrics during training.
+
+## Learn More
+
+<TilesGrid>
+  <TileCard
+    icon={Server}
+    title="Tracking Server Setup"
+    description="Set up a self-hosted MLflow tracking server for team collaboration and remote experiment tracking."
+    href="/ml/tracking/tutorials/remote-server"
+  />
+  <TileCard
+    icon={BarChart3}
+    title="Model Evaluation"
+    description="Evaluate CatBoost models using MLflow's comprehensive evaluation framework with built-in metrics and custom evaluators."
+    href="/ml/evaluation"
+  />
+  <TileCard
+    icon={Rocket}
+    title="Model Deployment"
+    description="Deploy CatBoost models locally, to Kubernetes, AWS SageMaker, or other cloud platforms using MLflow's deployment tools."
+    href="/ml/deployment"
+  />
+</TilesGrid>
