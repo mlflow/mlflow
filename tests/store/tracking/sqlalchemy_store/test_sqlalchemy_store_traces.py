@@ -721,6 +721,36 @@ def test_search_traces_pagination(store_with_traces):
     assert token is None
 
 
+@pytest.mark.parametrize("page_size", [5, 2, 1])
+def test_search_traces_last_full_page_offers_no_token(store, page_size):
+    # A page that ends exactly on the last trace used to hand back a token anyway, because the
+    # token was issued whenever the page came back full. The page behind it was empty, so a UI
+    # that trusts the token -- as the Issues tab's evidence list does -- showed a "Show more"
+    # button that loaded nothing.
+    exp = store.create_experiment("exp-boundary")
+    total = 5
+    for index in range(total):
+        _create_trace(store, f"tr-{index}", exp, request_time=index)
+
+    seen = []
+    token = None
+    pages = 0
+    while True:
+        traces, token = store.search_traces([exp], max_results=page_size, page_token=token)
+        seen.extend(trace.trace_id for trace in traces)
+        pages += 1
+        if token is None:
+            break
+        # Every page a token promises has to contain something, or the promise was false.
+        assert traces, "a token was issued for an empty page"
+        assert pages <= total + 1, "pagination did not terminate"
+
+    assert len(seen) == total
+    # No empty trailing page: `total` divides evenly by each page size under test except 2, and
+    # the even cases are exactly the ones the old condition got wrong.
+    assert pages == -(-total // page_size)
+
+
 @pytest.mark.parametrize("order_by", [None, ["timestamp DESC"]])
 def test_search_traces_pagination_tie_breaker(store, order_by):
     # This test is for ensuring the tie breaker for ordering traces with the same timestamp

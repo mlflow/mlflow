@@ -735,6 +735,14 @@ def test_delete_records():
 
     mock_store = Mock()
     mock_store.delete_dataset_records.return_value = 2
+    mock_store.get_dataset.return_value = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=987654321,
+        profile='{"num_records": 1}',
+    )
 
     with patch("mlflow.tracking._tracking_service.utils._get_store", return_value=mock_store):
         deleted_count = dataset.delete_records(["record1", "record2"])
@@ -746,6 +754,9 @@ def test_delete_records():
     )
     # Verify cache was cleared
     assert dataset._records is None
+    mock_store.get_dataset.assert_called_once_with("dataset123")
+    assert dataset.profile == '{"num_records": 1}'
+    assert dataset.last_update_time == 987654321
 
 
 def test_validate_schema_with_empty_records_after_to_dict():

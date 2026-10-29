@@ -3072,7 +3072,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2027-04-08",
+      "last_updated_at": "2026-10-29"
     },
     "claude_platform/claude-fable-5": {
       "mode": "chat",
@@ -9761,7 +9762,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 200000,
-        "max_output": 8192
+        "max_output": 64000
       },
       "pricing": {
         "input_per_million_tokens": 3.6,
@@ -9777,7 +9778,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2027-04-08",
+      "last_updated_at": "2026-10-29"
     },
     "us-gov-east-1/anthropic.claude-sonnet-5": {
       "mode": "chat",
@@ -9827,7 +9829,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 200000,
-        "max_output": 8192
+        "max_output": 64000
       },
       "pricing": {
         "input_per_million_tokens": 3.6,
@@ -9843,7 +9845,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2027-04-08",
+      "last_updated_at": "2026-10-29"
     },
     "us-gov-east-1/meta.llama3-70b-instruct-v1:0": {
       "mode": "chat",
@@ -10390,7 +10393,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 200000,
-        "max_output": 8192
+        "max_output": 64000
       },
       "pricing": {
         "input_per_million_tokens": 3.6,
@@ -10406,7 +10409,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2027-04-08",
+      "last_updated_at": "2026-10-29"
     },
     "us-gov-west-1/anthropic.claude-sonnet-5": {
       "mode": "chat",
@@ -10456,7 +10460,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 200000,
-        "max_output": 8192
+        "max_output": 64000
       },
       "pricing": {
         "input_per_million_tokens": 3.6,
@@ -10472,7 +10476,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2027-04-08",
+      "last_updated_at": "2026-10-29"
     },
     "us-gov-west-1/meta.llama3-70b-instruct-v1:0": {
       "mode": "chat",
@@ -10799,7 +10804,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2027-04-08",
+      "last_updated_at": "2026-10-29"
     },
     "us-gov.anthropic.claude-sonnet-5": {
       "mode": "chat",

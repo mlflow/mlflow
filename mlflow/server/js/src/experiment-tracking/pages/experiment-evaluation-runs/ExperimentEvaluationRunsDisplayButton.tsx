@@ -192,7 +192,7 @@ export const ExperimentEvaluationRunsDisplayButton = ({
       <DropdownMenu.Trigger asChild>
         <Button
           componentId={`${COMPONENT_ID}.trigger`}
-          icon={<SlidersIcon css={{ color: theme.colors.textSecondary }} />}
+          icon={<SlidersIcon />}
           endIcon={<ChevronDownIcon />}
           aria-label={displayLabel}
         >

@@ -1262,6 +1262,20 @@ def test_extract_tool_name_from_span_extracts_from_genai_semconv_tool_name():
     assert [call.name for call in extract_tools_called_from_trace(trace)] == ["log_food"]
 
 
+def test_extract_tools_called_from_trace_skips_google_adk_merged_tool_span():
+    with mlflow.start_span(name="root") as root_span:
+        with mlflow.start_span(name="execute_tool log_food", span_type=SpanType.TOOL) as span:
+            span.set_attribute("gen_ai.tool.name", "log_food")
+            span.set_inputs({"food": "bread"})
+        with mlflow.start_span(name="execute_tool (merged)", span_type=SpanType.TOOL) as span:
+            span.set_attribute("gen_ai.tool.name", "(merged tools)")
+            span.set_inputs("N/A")
+
+    trace = mlflow.get_trace(root_span.trace_id)
+
+    assert [call.name for call in extract_tools_called_from_trace(trace)] == ["log_food"]
+
+
 def test_resolve_conversation_from_session():
     session_id = "test_session_resolve"
     traces = []

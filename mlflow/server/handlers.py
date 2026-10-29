@@ -2,6 +2,7 @@
 import io
 import json
 import logging
+import ntpath
 import os
 import pathlib
 import posixpath
@@ -19,7 +20,16 @@ from zlib import adler32
 
 import requests
 from cachetools import TTLCache
-from flask import Request, Response, current_app, g, jsonify, request, send_file
+from flask import (
+    Request,
+    Response,
+    current_app,
+    g,
+    has_request_context,
+    jsonify,
+    request,
+    send_file,
+)
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
 from werkzeug.exceptions import RequestedRangeNotSatisfiable
@@ -339,6 +349,8 @@ from mlflow.protos.webhooks_pb2 import (
     UpdateWebhook,
     WebhookService,
 )
+from mlflow.server._request_keys import SCOPED_EXPERIMENT_FILTER, SCOPED_EXPERIMENT_IDS
+from mlflow.server._search_limits import translate_scoped_search_limits
 from mlflow.server.artifact_transfer import (
     reject_proxied_artifact_download,
     reject_proxied_artifact_upload,
@@ -649,26 +661,32 @@ def _get_trace_archive_repo(trace_info: TraceInfo):
     return _get_trace_repo_from_uri(get_archive_uri_for_trace(trace_info))
 
 
+def _get_servable_proxied_artifact_repo(artifact_uri: str) -> ArtifactRepository:
+    """Build the repository for a proxied location this server serves, under its destination."""
+    from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR
+
+    root = os.environ.get(ARTIFACTS_DESTINATION_ENV_VAR)
+    if not root:
+        raise MlflowException(
+            f"Cannot resolve the proxied artifact URI {artifact_uri}: this server serves "
+            f"artifacts but {ARTIFACTS_DESTINATION_ENV_VAR} is unset."
+        )
+    path = _get_proxied_run_artifact_destination_path(artifact_uri)
+    return get_artifact_repository(posixpath.join(root, path))
+
+
 def _get_trace_repo_from_uri(artifact_uri: str):
     if _is_servable_proxied_run_artifact_root(artifact_uri):
         # If the artifact location is a proxied run artifact root (e.g. mlflow-artifacts://...),
         # we need to resolve it to the actual artifact location.
-        from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR
-
-        path = _get_proxied_run_artifact_destination_path(artifact_uri)
-        if not path:
+        if not _get_proxied_run_artifact_destination_path(artifact_uri):
             raise MlflowException(
-                f"Failed to resolve the proxied run artifact URI: {artifact_uri}. ",
+                f"Failed to resolve the proxied run artifact URI: {artifact_uri}. "
                 "Trace artifact URI must contain subpath to the trace data directory.",
                 error_code=BAD_REQUEST,
             )
-        root = os.environ[ARTIFACTS_DESTINATION_ENV_VAR]
-        artifact_uri = posixpath.join(root, path)
-
-        # We don't set it to global var unlike run artifact, because the artifact repo has
-        # to be created with full trace artifact URI including request_id.
-        # e.g. s3://<experiment_id>/traces/<request_id>
-        artifact_repo = get_artifact_repository(artifact_uri)
+        # Not cached like the run artifact repo: the URI includes the trace's request_id.
+        artifact_repo = _get_servable_proxied_artifact_repo(artifact_uri)
     else:
         artifact_repo = _get_artifact_repository_for_uri(artifact_uri)
     return artifact_repo
@@ -1170,7 +1188,7 @@ def _raw_request_has_field(field: descriptor.FieldDescriptor) -> bool:
     JSON body for POST) to distinguish the two cases.
     """
     try:
-        if request.method == "GET":
+        if request.method == "GET" and request.args:
             return field.name in request.args
         request_json = _get_normalized_request_json()
         return field.name in request_json or field.json_name in request_json
@@ -1178,7 +1196,17 @@ def _raw_request_has_field(field: descriptor.FieldDescriptor) -> bool:
         return False
 
 
-def _get_request_message(request_message, flask_request=request, schema=None):
+def _get_scoped_experiment_ids() -> list[str] | None:
+    return getattr(g, SCOPED_EXPERIMENT_IDS, None) if has_request_context() else None
+
+
+def _get_scoped_experiment_filter() -> str | None:
+    return getattr(g, SCOPED_EXPERIMENT_FILTER, None) if has_request_context() else None
+
+
+def _get_request_message(
+    request_message, flask_request=request, schema=None, *, raise_on_parse_error=False
+):
     if flask_request.method == "GET" and flask_request.args:
         # Convert atomic values of repeated fields to lists before calling protobuf deserialization.
         # Context: We parse the parameter string into a dictionary outside of protobuf since
@@ -1213,12 +1241,19 @@ def _get_request_message(request_message, flask_request=request, schema=None):
 
     _reject_conflicting_field_aliases(request_json, request_message.DESCRIPTOR)
     proto_parsing_succeeded = True
+    parse_error = None
     try:
         parse_dict(request_json, request_message)
-    except ParseError:
+    except ParseError as e:
         proto_parsing_succeeded = False
+        parse_error = e
 
     _validate_request_json_with_schema(request_json, schema, proto_parsing_succeeded)
+    # Auth scopers must reject partial messages before rewriting authorization fields.
+    if raise_on_parse_error and parse_error is not None:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid request: {parse_error}"
+        ) from parse_error
 
     return request_message
 
@@ -2807,13 +2842,14 @@ def _search_experiments():
         },
     )
 
-    experiment_entities = _get_tracking_store().search_experiments(
-        view_type=request_message.view_type,
-        max_results=request_message.max_results,
-        order_by=request_message.order_by,
-        filter_string=request_message.filter,
-        page_token=request_message.page_token or None,
-    )
+    with translate_scoped_search_limits(_get_scoped_experiment_filter() is not None):
+        experiment_entities = _get_tracking_store().search_experiments(
+            view_type=request_message.view_type,
+            max_results=request_message.max_results,
+            order_by=request_message.order_by,
+            filter_string=request_message.filter,
+            page_token=request_message.page_token or None,
+        )
     response_message = SearchExperiments.Response()
     response_message.experiments.extend([e.to_proto() for e in experiment_entities])
     if experiment_entities.token:
@@ -4338,6 +4374,23 @@ def _create_presigned_download_url():
     return resp
 
 
+def _get_multipart_upload_file_name(path: str) -> str:
+    # The `path` field carries the name of the file being uploaded. Clients before 3.18 sent
+    # their local file path, which may be absolute or a Windows path, and artifact repositories
+    # only use its basename. `ntpath.basename` splits on both "/" and "\\" so those clients keep
+    # working; a backslash inside a POSIX file name is treated as a separator as a result.
+    # `validate_path_is_safe` percent-decodes, so take the basename again on its result to drop
+    # separators that arrived encoded. That second basename can itself produce `..` (for example
+    # from `src%5C..` or `C%3A..` on a POSIX server, where a backslash or drive colon is not a
+    # separator for the validator), so check the final name too.
+    file_name = ntpath.basename(path)
+    if file_name:
+        file_name = ntpath.basename(validate_path_is_safe(file_name))
+    if file_name in ("", ".", ".."):
+        raise MlflowException("Invalid path", error_code=INVALID_PARAMETER_VALUE)
+    return file_name
+
+
 @catch_mlflow_exception
 @_disable_unless_serve_artifacts
 def _create_multipart_upload_artifact(artifact_path):
@@ -4356,7 +4409,7 @@ def _create_multipart_upload_artifact(artifact_path):
             "num_parts": [_assert_intlike],
         },
     )
-    path = validate_path_is_safe(request_message.path)
+    path = _get_multipart_upload_file_name(request_message.path)
     num_parts = request_message.num_parts
     _reject_skill_artifact_mutation(posixpath.join(artifact_path, path))
 
@@ -4393,7 +4446,7 @@ def _complete_multipart_upload_artifact(artifact_path):
             "parts": [_assert_required],
         },
     )
-    path = validate_path_is_safe(request_message.path)
+    path = _get_multipart_upload_file_name(request_message.path)
     upload_id = request_message.upload_id
     parts = [MultipartUploadPart.from_proto(part) for part in request_message.parts]
     _reject_skill_artifact_mutation(posixpath.join(artifact_path, path))
@@ -4428,7 +4481,7 @@ def _abort_multipart_upload_artifact(artifact_path):
             "upload_id": [_assert_string],
         },
     )
-    path = validate_path_is_safe(request_message.path)
+    path = _get_multipart_upload_file_name(request_message.path)
     upload_id = request_message.upload_id
     _reject_skill_artifact_mutation(posixpath.join(artifact_path, path))
 
@@ -4527,11 +4580,12 @@ def _batch_get_traces() -> Response:
     experiment_ids_field = request_message.DESCRIPTOR.fields_by_name["experiment_ids"]
     has_experiment_ids = _raw_request_has_field(experiment_ids_field)
     if has_experiment_ids:
-        traces = store.batch_get_traces(
-            request_message.trace_ids,
-            None,
-            experiment_ids=list(request_message.experiment_ids),
-        )
+        with translate_scoped_search_limits(_get_scoped_experiment_ids() is not None):
+            traces = store.batch_get_traces(
+                request_message.trace_ids,
+                None,
+                experiment_ids=list(request_message.experiment_ids),
+            )
     else:
         traces = store.batch_get_traces(request_message.trace_ids, None)
     response_message = BatchGetTraces.Response()
@@ -4553,9 +4607,11 @@ def _batch_get_trace_infos() -> Response:
     experiment_ids_field = request_message.DESCRIPTOR.fields_by_name["experiment_ids"]
     has_experiment_ids = _raw_request_has_field(experiment_ids_field)
     if has_experiment_ids:
-        trace_infos = store.batch_get_trace_infos(
-            request_message.trace_ids, experiment_ids=list(request_message.experiment_ids)
-        )
+        with translate_scoped_search_limits(_get_scoped_experiment_ids() is not None):
+            trace_infos = store.batch_get_trace_infos(
+                request_message.trace_ids,
+                experiment_ids=list(request_message.experiment_ids),
+            )
     else:
         trace_infos = store.batch_get_trace_infos(request_message.trace_ids)
     response_message = BatchGetTraceInfos.Response()
@@ -6323,38 +6379,39 @@ def _search_logged_models():
             "page_token": [_assert_string],
         },
     )
-    models = _get_tracking_store().search_logged_models(
-        # Convert `RepeatedScalarContainer` objects (experiment_ids and order_by) to `list`
-        # to avoid serialization issues
-        experiment_ids=list(request_message.experiment_ids),
-        filter_string=request_message.filter or None,
-        datasets=(
-            [
-                {
-                    "dataset_name": d.dataset_name,
-                    "dataset_digest": d.dataset_digest or None,
-                }
-                for d in request_message.datasets
-            ]
-            if request_message.datasets
-            else None
-        ),
-        max_results=request_message.max_results or None,
-        order_by=(
-            [
-                {
-                    "field_name": ob.field_name,
-                    "ascending": ob.ascending,
-                    "dataset_name": ob.dataset_name or None,
-                    "dataset_digest": ob.dataset_digest or None,
-                }
-                for ob in request_message.order_by
-            ]
-            if request_message.order_by
-            else None
-        ),
-        page_token=request_message.page_token or None,
-    )
+    with translate_scoped_search_limits(_get_scoped_experiment_ids() is not None):
+        models = _get_tracking_store().search_logged_models(
+            # Convert `RepeatedScalarContainer` objects (experiment_ids and order_by) to `list`
+            # to avoid serialization issues
+            experiment_ids=list(request_message.experiment_ids),
+            filter_string=request_message.filter or None,
+            datasets=(
+                [
+                    {
+                        "dataset_name": d.dataset_name,
+                        "dataset_digest": d.dataset_digest or None,
+                    }
+                    for d in request_message.datasets
+                ]
+                if request_message.datasets
+                else None
+            ),
+            max_results=request_message.max_results or None,
+            order_by=(
+                [
+                    {
+                        "field_name": ob.field_name,
+                        "ascending": ob.ascending,
+                        "dataset_name": ob.dataset_name or None,
+                        "dataset_digest": ob.dataset_digest or None,
+                    }
+                    for ob in request_message.order_by
+                ]
+                if request_message.order_by
+                else None
+            ),
+            page_token=request_message.page_token or None,
+        )
     response_message = SearchLoggedModels.Response()
     response_message.models.extend([e.to_proto() for e in models])
     if models.token:
@@ -6507,9 +6564,8 @@ def _list_scorers():
         )
     if has_experiment_ids:
         requested_experiment_ids = list(dict.fromkeys(request_message.experiment_ids))
-        if requested_experiment_ids:
-            for eid in requested_experiment_ids:
-                _validate_experiment_id(eid)
+        for eid in requested_experiment_ids:
+            _validate_experiment_id(eid)
         valid_experiment_ids = store.filter_active_experiment_ids(requested_experiment_ids)
         scorers = store.list_scorers_across_experiments(valid_experiment_ids)
     elif request_message.experiment_id:
@@ -6518,8 +6574,6 @@ def _list_scorers():
         # Cross-experiment listing: walk the active workspace's experiments
         # via the workspace-aware ``search_experiments`` pagination, then
         # batch the scorer fetch through ``list_scorers_across_experiments``.
-        # Auth-side ``filter_list_scorers`` applies per-row RBAC filtering on
-        # the response.
         scorers = store.list_scorers_across_experiments(_search_active_experiment_ids(store))
     response_message.scorers.extend([scorer.to_proto() for scorer in scorers])
     response = Response(mimetype="application/json")

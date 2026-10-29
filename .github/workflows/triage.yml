@@ -902,6 +902,8 @@ jobs:
           if [ -S "$TELEMETRY_SOCKET" ]; then
             relay=(bash -c 'socat TCP-LISTEN:8081,bind=127.0.0.1,fork,reuseaddr "UNIX-CONNECT:$0" & exec "$@"' "$TELEMETRY_SOCKET")
           fi
+          # Claude's native WebSearch is unavailable through the Databricks gateway.
+          # WebFetch's domain safety check calls api.anthropic.com, which the triage sandbox cannot reach.
           timeout 30m srt --settings "$RUNNER_TEMP/triage-srt.json" -- \
             "${relay[@]}" env -u NO_PROXY -u no_proxy claude \
             --model "$MODEL" \
@@ -909,7 +911,7 @@ jobs:
             --effort "$EFFORT" \
             --max-budget-usd 5 \
             --permission-mode auto \
-            --disallowed-tools WebSearch \
+            --disallowed-tools "WebSearch,WebFetch" \
             --print \
             --verbose \
             --output-format stream-json \

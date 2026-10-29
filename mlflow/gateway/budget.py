@@ -90,7 +90,7 @@ def maybe_refresh_budget_policies(store: SqlAlchemyStore) -> None:
     tracker = get_budget_tracker()
     if tracker.needs_refresh():
         try:
-            policies = store.list_budget_policies()
+            policies = store.list_budget_policies_across_workspaces()
             windows = tracker.refresh_policies(policies)
             existing_spend = calculate_existing_cost_for_windows(store, windows)
             tracker.backfill_spend(existing_spend)
