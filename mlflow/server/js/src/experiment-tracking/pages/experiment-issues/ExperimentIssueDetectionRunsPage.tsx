@@ -66,6 +66,9 @@ const ERROR_TOOLTIP_MAX_WIDTH = 420;
  * A run that recorded why it failed carries that reason in a tooltip here, rather than in a row
  * of its own under the table: the message is the provider's own wording and can run to a few
  * hundred characters, which as a row pushed the next run down the page.
+ *
+ * The tooltip is the only place that reason appears, so its trigger has to be reachable without a
+ * pointer: focusable, with a focus ring, the way `IssueCategoryTag` exposes its descriptions.
  */
 const StatusCell = ({ status, error }: { status: string; error?: string }) => {
   const { theme } = useDesignSystemTheme();
@@ -90,7 +93,22 @@ const StatusCell = ({ status, error }: { status: string; error?: string }) => {
       maxWidth={ERROR_TOOLTIP_MAX_WIDTH}
       content={<span css={{ wordBreak: 'break-word' }}>{error}</span>}
     >
-      {label}
+      <span
+        // A focus stop that does nothing when activated, because the tooltip it opens on focus is
+        // the only place the failure reason appears. `IssueCategoryTag` does the same.
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+        tabIndex={0}
+        css={{
+          display: 'inline-flex',
+          borderRadius: theme.borders.borderRadiusSm,
+          '&:focus-visible': {
+            outline: `2px solid ${theme.colors.actionDefaultBorderFocus}`,
+            outlineOffset: 2,
+          },
+        }}
+      >
+        {label}
+      </span>
     </Tooltip>
   );
 };
@@ -243,7 +261,11 @@ const DetectionRunsContent = ({ experimentId }: { experimentId: string }) => {
     isFetching,
     error,
     refetch,
-  } = useDetectionRuns(experimentId);
+  } = useDetectionRuns(experimentId, {
+    // An experiment with a schedule and no runs yet has a first run coming, so the page waits for
+    // it rather than settling on "No detection runs yet" for the rest of the session.
+    awaitingFirstRun: schedule.setting !== 'off',
+  });
 
   // Read once per render rather than per row, so every duration on screen is measured from the
   // same instant. An unfinished run is timed against it, so its duration sits still between
@@ -291,10 +313,15 @@ const DetectionRunsContent = ({ experimentId }: { experimentId: string }) => {
       // A paused schedule can still carry a next fire time in its dispatch state, written before
       // it was turned off. The dispatcher will not honour it, so naming it here -- beside a line
       // that says the schedule is off -- would promise a run that is never coming.
-      schedule.setting !== 'off' && schedule.nextRunMs !== undefined && schedule.timezone
+      //
+      // Nor is a time that has already passed named. The dispatcher moves it when it fires, and
+      // this page holds what it read: on a page left open across a fire time, or opened in the
+      // minutes between the occurrence and the pass that re-anchors it, the stored time is in the
+      // past. "Next run yesterday" is worse than saying nothing about the next run.
+      schedule.setting !== 'off' && schedule.nextRunMs !== undefined && schedule.nextRunMs > nowMs && schedule.timezone
         ? formatScheduleInstant(schedule.nextRunMs, schedule.timezone, intl.locale)
         : undefined,
-    [schedule.setting, schedule.nextRunMs, schedule.timezone, intl.locale],
+    [schedule.setting, schedule.nextRunMs, schedule.timezone, nowMs, intl.locale],
   );
 
   const columns: { id: keyof typeof COLUMN_WIDTHS; label: React.ReactNode }[] = [
@@ -397,8 +424,10 @@ const DetectionRunsContent = ({ experimentId }: { experimentId: string }) => {
    * and nothing a page number could be worked out from.
    *
    * Shown beside the failure state as well as beside the table. A page that could not be read
-   * leaves no rows, so the error takes the table over -- and without this the page the user was
-   * reading a moment ago would have nothing left to click.
+   * leaves no rows, so the error takes the table over -- and without this a *later* page failing
+   * would leave the page the user was reading a moment ago with nothing left to click. On the
+   * first page there is nothing behind it, so the retry in the failure state is the whole of the
+   * way out, and this is `null`.
    */
   const pagination =
     hasNextPage || hasPreviousPage ? (

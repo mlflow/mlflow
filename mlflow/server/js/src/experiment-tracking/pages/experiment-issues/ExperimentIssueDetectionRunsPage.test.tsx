@@ -6,7 +6,7 @@ import { shouldEnableExperimentIssuesTab } from '../../../common/utils/FeatureUt
 import { MemoryRouter, Route, Routes } from '../../../common/utils/RoutingUtils';
 import { QueryClient, QueryClientProvider } from '../../../common/utils/reactQueryHooks';
 import { setupServer } from '../../../common/utils/setup-msw';
-import { renderWithDesignSystem, screen, waitFor, within } from '../../../common/utils/TestUtils.react18';
+import { fireEvent, renderWithDesignSystem, screen, waitFor, within } from '../../../common/utils/TestUtils.react18';
 import {
   MLFLOW_ISSUE_DETECTION_ERROR_TAG,
   MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG,
@@ -194,6 +194,9 @@ const renderPage = () => {
   );
 };
 
+/** The status cell of one row, which is where the failure reason's trigger lives. */
+const statusCell = (row: HTMLElement) => within(row).getAllByRole('cell')[1];
+
 /** The row a run rendered, found by the model cell so the rest of the row can be asserted on it. */
 const rowFor = async (text: string | RegExp) => (await screen.findByText(text)).closest('[role="row"]') as HTMLElement;
 
@@ -355,6 +358,41 @@ describe('ExperimentIssueDetectionRunsPage', () => {
     // that something broke, and the exception reaches nowhere an experiment's owner can read it.
     await user.hover(within(row).getByText('Failed'));
     expect(await screen.findByRole('tooltip')).toHaveTextContent('MlflowException: no API key available');
+  });
+
+  test('the failure reason is reachable without a pointer', async () => {
+    // The tooltip is the only place it appears, so a hover-only trigger would put the one thing
+    // this page exists to report out of reach of anyone not using a mouse.
+    storedRuns = [
+      scheduled({
+        runUuid: 'run-bad',
+        status: 'FAILED',
+        tags: {
+          total_traces_analyzed: '184',
+          model: 'openai:/gpt-5-mini',
+          [MLFLOW_ISSUE_DETECTION_ERROR_TAG]: 'MlflowException: no API key available',
+        },
+      }),
+    ];
+    renderPage();
+
+    const row = await rowFor('openai:/gpt-5-mini');
+    // Scoped to the status cell: the design system's table is itself a focus target, so looking
+    // for the nearest focusable ancestor would find that instead.
+    const trigger = statusCell(row).querySelector('[tabindex="0"]') as HTMLElement;
+    expect(trigger).toBeInTheDocument();
+
+    fireEvent.focus(trigger);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('MlflowException: no API key available');
+  });
+
+  test('a status with nothing to explain is not a focus stop', async () => {
+    // Every row would otherwise be another tab stop on the way down a page of them.
+    renderPage();
+
+    const row = await rowFor('openai:/gpt-5-mini');
+    expect(await within(row).findByText('Finished')).toBeInTheDocument();
+    expect(statusCell(row).querySelector('[tabindex="0"]')).toBeNull();
   });
 
   test('a run that failed before the reason was recorded shows no empty detail row', async () => {
@@ -519,6 +557,9 @@ describe('ExperimentIssueDetectionRunsPage', () => {
     expect(await screen.findByText("Could not load this experiment's run history")).toBeInTheDocument();
     expect(screen.queryByText('No detection runs yet')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+    // And no pagination beside it: there is no page behind the first one, so the retry is the
+    // whole of the way out.
+    expect(screen.queryByRole('button', { name: /previous/i })).not.toBeInTheDocument();
   });
 
   test('a page that fails to load leaves the way back to the one before it', async () => {
@@ -538,6 +579,17 @@ describe('ExperimentIssueDetectionRunsPage', () => {
     runSearchFails = false;
     await user.click(await screen.findByRole('button', { name: /previous/i }));
     expect(await screen.findByText('openai:/m-0')).toBeInTheDocument();
+  });
+
+  test('a next run that has already passed is not named', async () => {
+    // The dispatcher moves that time when it fires and this page holds what it read, so on a page
+    // left open across a fire time the stored value is in the past. "Next run yesterday" reads as
+    // a schedule that is broken rather than as a page that is a few minutes behind.
+    experimentTags = [scheduleTag('weekly'), scheduleStateTag(nowMs - 60_000)];
+    renderPage();
+
+    expect(await screen.findByText(/Scheduled weekly on Monday at 21:15 \(UTC\)/)).toBeInTheDocument();
+    expect(screen.queryByText(/Next run/)).not.toBeInTheDocument();
   });
 
   test('a paused schedule names no next run even when its dispatch state still has one', async () => {

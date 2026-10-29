@@ -9,7 +9,10 @@ import {
 import type { RunEntity } from '../../types';
 import {
   DETECTION_RUN_FILTER,
+  EMPTY_HISTORY_POLL_INTERVAL_MS,
+  RUNNING_POLL_INTERVAL_MS,
   detectionRunDurationMs,
+  detectionRunPollIntervalMs,
   isDetectionRunSettled,
   toDetectionRunRow,
   type DetectionRunRow,
@@ -57,6 +60,41 @@ describe('isDetectionRunSettled', () => {
     ['SOMETHING_NEW', false],
   ])('%s is settled: %s', (status, expected) => {
     expect(isDetectionRunSettled(status as string | undefined)).toBe(expected);
+  });
+});
+
+describe('detectionRunPollIntervalMs', () => {
+  const row = (status: string): DetectionRunRow => ({
+    runId: `run-${status}`,
+    createdAtMs: START_MS,
+    status,
+    trigger: 'schedule',
+  });
+  const settled = { awaitingFirstRun: true, onFirstPage: true };
+
+  test('a run still going is checked on the live interval', () => {
+    expect(detectionRunPollIntervalMs([row('FINISHED'), row('RUNNING')], settled)).toBe(RUNNING_POLL_INTERVAL_MS);
+  });
+
+  test('a page of finished runs is not checked again', () => {
+    expect(detectionRunPollIntervalMs([row('FINISHED'), row('FAILED')], settled)).toBe(false);
+  });
+
+  test('an empty history with a schedule on waits for its first run', () => {
+    // Nothing else would ever replace "No detection runs yet" with the occurrence that ran while
+    // the page sat open.
+    expect(detectionRunPollIntervalMs([], settled)).toBe(EMPTY_HISTORY_POLL_INTERVAL_MS);
+  });
+
+  test('an empty history with no schedule is not waited on', () => {
+    // Without a schedule the only way a run appears is somebody asking for one, from another
+    // page, which is not something to poll for.
+    expect(detectionRunPollIntervalMs([], { awaitingFirstRun: false, onFirstPage: true })).toBe(false);
+  });
+
+  test('an empty later page is not waited on', () => {
+    // That stretch of history is already written, so an empty one is not going to fill in.
+    expect(detectionRunPollIntervalMs([], { awaitingFirstRun: true, onFirstPage: false })).toBe(false);
   });
 });
 

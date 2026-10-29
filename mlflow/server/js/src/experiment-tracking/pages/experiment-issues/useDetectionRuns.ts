@@ -18,6 +18,7 @@ import type { SearchRunsApiResponse } from '../../types';
 import {
   DETECTION_RUN_FILTER,
   type DetectionRunRow,
+  detectionRunPollIntervalMs,
   isDetectionRunSettled,
   toDetectionRunRow,
 } from './detectionRunHistory';
@@ -29,15 +30,6 @@ export const DETECTION_RUN_NEW_ISSUES_QUERY_KEY = 'DETECTION_RUN_NEW_ISSUES';
 export const DETECTION_RUNS_PAGE_SIZE = 25;
 
 const DETECTION_RUN_ORDER_BY = ['attributes.start_time DESC'];
-
-/**
- * How often an unfinished run is checked.
- *
- * A detection run takes minutes, so this is about the page not going stale while someone watches
- * it rather than about catching the moment it lands. Only ever on while a run on the page is
- * still going.
- */
-export const RUNNING_POLL_INTERVAL_MS = 10_000;
 
 interface IssueCountResponse {
   total_count?: number;
@@ -97,7 +89,14 @@ const useNewIssueCounts = (experimentId: string, rows: DetectionRunRow[], enable
   return counts;
 };
 
-export const useDetectionRuns = (experimentId: string, { enabled = true } = {}) => {
+export const useDetectionRuns = (
+  experimentId: string,
+  {
+    enabled = true,
+    /** Whether a schedule is on, and so whether an empty history is a history still to come. */
+    awaitingFirstRun = false,
+  } = {},
+) => {
   const workspace = useActiveWorkspace();
   // Page cursors, newest page last. `[undefined]` is the first page. Tokens stay in component
   // state rather than in the URL, the way the datasets and prompts lists hold theirs: they are
@@ -116,17 +115,14 @@ export const useDetectionRuns = (experimentId: string, { enabled = true } = {}) 
         max_results: DETECTION_RUNS_PAGE_SIZE,
         page_token: pageToken,
       }),
-    // A run on screen while it works would otherwise read `Running` for good: the search neither
-    // polls nor refetches on focus, so its status, cost and failure reason would not arrive until
-    // the page was left and reopened. Asked again after each fetch, so polling stops by itself
-    // once every run on the page has finished.
+    // Asked again after each fetch, so the page stops polling by itself once there is nothing
+    // left to wait for. The rule itself is in `detectionRunHistory`, where it is testable without
+    // a clock.
     refetchInterval: (page) =>
-      (page?.runs ?? []).some((run) => {
-        const row = toDetectionRunRow(run);
-        return row !== undefined && !isDetectionRunSettled(row.status);
-      })
-        ? RUNNING_POLL_INTERVAL_MS
-        : false,
+      detectionRunPollIntervalMs(
+        (page?.runs ?? []).map(toDetectionRunRow).filter((row): row is DetectionRunRow => row !== undefined),
+        { awaitingFirstRun, onFirstPage: tokenHistory.length === 1 },
+      ),
     // Paging forward and back keeps the rows that are up while the next page is read, so the
     // table does not collapse to a skeleton on every click.
     keepPreviousData: true,

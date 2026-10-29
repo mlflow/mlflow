@@ -119,6 +119,45 @@ const SETTLED_RUN_STATUSES = ['FINISHED', 'FAILED', 'KILLED'];
 export const isDetectionRunSettled = (status: string | undefined): boolean =>
   SETTLED_RUN_STATUSES.includes(status ?? '');
 
+/**
+ * How often an unfinished run is checked.
+ *
+ * A detection run takes minutes, so this is about the page not going stale while someone watches
+ * it rather than about catching the moment it lands.
+ */
+export const RUNNING_POLL_INTERVAL_MS = 10_000;
+
+/**
+ * How often an experiment with no detection runs at all is checked, while a schedule is on.
+ *
+ * Without it a page opened before the first occurrence reads "No detection runs yet" for as long
+ * as it stays open, including after that occurrence has run and filed issues. Slower than the
+ * live-run poll because an occurrence lands on a cadence rather than in the next few seconds.
+ */
+export const EMPTY_HISTORY_POLL_INTERVAL_MS = 60_000;
+
+/**
+ * How long to wait before asking for this page again, or `false` to stop asking.
+ *
+ * A run still going is the usual reason: left alone it would read `Running` for good, because the
+ * search neither polls nor refetches on focus. An empty first page is the other -- an experiment
+ * whose schedule has not fired yet has a history still to come, and nothing else would ever
+ * replace "No detection runs yet" with it. Both stop of their own accord: the first once every
+ * run has settled, the second as soon as there is a run.
+ *
+ * A later page is never waited on: that stretch of history is already written, so an empty one is
+ * not something that will fill in.
+ */
+export const detectionRunPollIntervalMs = (
+  rows: DetectionRunRow[],
+  { awaitingFirstRun, onFirstPage }: { awaitingFirstRun: boolean; onFirstPage: boolean },
+): number | false => {
+  if (rows.some((row) => !isDetectionRunSettled(row.status))) {
+    return RUNNING_POLL_INTERVAL_MS;
+  }
+  return awaitingFirstRun && onFirstPage && rows.length === 0 ? EMPTY_HISTORY_POLL_INTERVAL_MS : false;
+};
+
 /** The row one run describes, or `undefined` for a run with no usable identity or start time. */
 export const toDetectionRunRow = (run: RunEntity): DetectionRunRow | undefined => {
   const runId = run.info?.runUuid;
