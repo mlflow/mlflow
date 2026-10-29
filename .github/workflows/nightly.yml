@@ -72,28 +72,20 @@ jobs:
             workflow_files=(cross-version-tests.yml)
             for workflow_file in "${workflow_files[@]}"; do
               run_id=$(gh api "repos/mlflow/mlflow/actions/workflows/$workflow_file/runs?event=schedule&status=completed&per_page=1" \
-                --jq '.workflow_runs[0].id // empty')
+                --jq '.workflow_runs[0] | select(.conclusion | IN("failure", "timed_out", "cancelled", "action_required", "startup_failure")) | .id')
               RUN_IDS+=" $run_id"
             done
+            if [ -z "${RUN_IDS// /}" ]; then
+              echo "No failed scheduled runs. Skipping analysis." | tee -a "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
           fi
           run_ids=$(jq -ern --arg ids "$RUN_IDS" '
             [$ids | splits("\\s+") | select(length > 0)] | unique
             | if length > 0 and all(test("^[1-9][0-9]*$")) then join(" ")
               else error("Expected one or more numeric workflow run IDs") end
           ')
-          failed_run_ids=()
-          for run_id in $run_ids; do
-            conclusion=$(gh api "repos/mlflow/mlflow/actions/runs/$run_id" --jq '.conclusion')
-            case "$conclusion" in
-              failure | timed_out | cancelled | action_required | startup_failure)
-                failed_run_ids+=("$run_id")
-                ;;
-            esac
-          done
-          if [ ${#failed_run_ids[@]} -eq 0 ]; then
-            echo "No failed runs among: $run_ids. Skipping analysis." | tee -a "$GITHUB_STEP_SUMMARY"
-          fi
-          printf 'run_ids=%s\n' "${failed_run_ids[*]}" >> "$GITHUB_OUTPUT"
+          printf 'run_ids=%s\n' "$run_ids" >> "$GITHUB_OUTPUT"
 
   analyze:
     needs: resolve
