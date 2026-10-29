@@ -1,6 +1,7 @@
 from unittest import mock
 
 import pytest
+from databricks.sdk.errors import NotFound, PermissionDenied
 from databricks.sdk.service.catalog import (
     CatalogInfo,
     CatalogIsolationMode,
@@ -138,6 +139,21 @@ def test_get_default_trace_catalog_accepts_all_privileges():
 )
 def test_get_default_trace_catalog_returns_none(kwargs):
     w = _mock_workspace_client(**kwargs)
+    with mock.patch("databricks.sdk.WorkspaceClient", return_value=w):
+        assert get_default_trace_catalog() is None
+
+
+@pytest.mark.usefixtures("databricks_tracking_uri")
+@pytest.mark.parametrize(
+    ("service", "method", "error"),
+    [
+        ("catalogs", "get", PermissionDenied("no access to catalog")),
+        ("grants", "get_effective", NotFound("schema does not exist")),
+    ],
+)
+def test_get_default_trace_catalog_returns_none_on_lookup_errors(service, method, error):
+    w = _mock_workspace_client()
+    getattr(getattr(w, service), method).side_effect = error
     with mock.patch("databricks.sdk.WorkspaceClient", return_value=w):
         assert get_default_trace_catalog() is None
 

@@ -8,9 +8,10 @@ def get_default_trace_catalog(schema_name: str = "default") -> str | None:
     Return the Databricks workspace default catalog if traces can be stored in
     ``<catalog>.<schema_name>``, otherwise ``None``.
 
-    The catalog is returned only if it is ISOLATED (bound to this workspace, so traces are not
-    visible from other workspaces) and the current user has ``USE_CATALOG`` on it and
-    ``USE_SCHEMA`` and ``CREATE_TABLE`` on the schema.
+    The catalog is returned only if it is ISOLATED (reachable only from the workspaces it is
+    bound to, rather than from every workspace attached to the metastore) and the current user
+    has ``USE_CATALOG`` on it and ``USE_SCHEMA`` and ``CREATE_TABLE`` on the schema. ``None`` is
+    also returned if the catalog or schema does not exist or is not accessible.
 
     Args:
         schema_name: The schema in the default catalog to store traces in.
