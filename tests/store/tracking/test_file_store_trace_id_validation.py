@@ -14,6 +14,7 @@ from mlflow.entities import (
 from mlflow.environment_variables import MLFLOW_ALLOW_FILE_STORE
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.file_store import FileStore
+from mlflow.utils.os import is_windows
 from mlflow.utils.time import get_current_time_millis
 
 # Templates for trace ids that resolve outside <experiment>/traces: an absolute path, a
@@ -162,7 +163,7 @@ def _feedback(trace_id: str, **kwargs) -> Feedback:
         "tr-a\x7fb",
     ],
 )
-def test_trace_ids_with_uri_special_or_control_characters_are_rejected(
+def test_start_trace_rejects_trace_ids_with_uri_special_or_control_characters(
     store: FileStore, tmp_path: Path, trace_id: str
 ):
     exp_id = store.create_experiment("exp")
@@ -172,8 +173,40 @@ def test_trace_ids_with_uri_special_or_control_characters_are_rejected(
     assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
     assert not _traces_dir(tmp_path, exp_id).exists()
 
-    with pytest.raises(MlflowException, match="parameter 'trace_id'"):
-        store.delete_traces(exp_id, trace_ids=[trace_id])
+
+_POSIX_ONLY = pytest.mark.skipif(is_windows(), reason="Not a valid directory name on Windows")
+
+
+@pytest.mark.parametrize(
+    "trace_id",
+    [
+        "tr-50%",
+        "tr-a#b",
+        pytest.param("tr-a?b", marks=_POSIX_ONLY),
+        pytest.param("tr-a\nb", marks=_POSIX_ONLY),
+    ],
+)
+def test_existing_traces_with_uri_special_characters_can_be_deleted_by_id(
+    store: FileStore, tmp_path: Path, trace_id: str
+):
+    exp_id = store.create_experiment("exp")
+    trace_dir = _traces_dir(tmp_path, exp_id) / trace_id
+    trace_dir.mkdir(parents=True)
+
+    assert store.delete_traces(exp_id, trace_ids=[trace_id]) == 1
+    assert not trace_dir.exists()
+
+
+@pytest.mark.parametrize("trace_id", ["%2e%2e%2f%2e%2e%2fvictim", "tr-a\x00b"])
+def test_delete_traces_matches_encoded_or_nul_trace_ids_literally(
+    store: FileStore, tmp_path: Path, victim_dir: Path, trace_id: str
+):
+    exp_id = store.create_experiment("exp")
+    store.start_trace(_trace_info(exp_id, "tr-seed"))
+
+    assert store.delete_traces(exp_id, trace_ids=[trace_id]) == 0
+    assert (victim_dir / "data.txt").is_file()
+    assert (_traces_dir(tmp_path, exp_id) / "tr-seed").is_dir()
 
 
 @pytest.mark.parametrize("template", ["{target}", "{target_relpath}"])

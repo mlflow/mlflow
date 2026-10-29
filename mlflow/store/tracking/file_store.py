@@ -142,20 +142,24 @@ def _validate_path_component(value: str, field_name: str) -> None:
     # that resolves elsewhere (an absolute path, a path separator, "." or "..") must be rejected
     # before it reaches `mkdir` or `shutil.rmtree`. Windows strips trailing spaces and periods from
     # path components, which turns ids such as ".. " back into "..", so ids that normalization
-    # would alter are rejected too. Ids are also embedded in artifact URIs, where "%", "?" and
-    # "#" change how the path is decoded and URL parsing drops tabs and newlines, so ids with those
-    # or other control characters are rejected as well.
-    if (
-        not value
-        or value.rstrip(" .") != value
-        or os.path.basename(value) != value
-        or any(c in "%?#" or ord(c) < 32 or ord(c) == 127 for c in value)
-    ):
+    # would alter are rejected too.
+    if not value or value.rstrip(" .") != value or os.path.basename(value) != value:
+        raise MlflowException(
+            invalid_value(field_name, value, "must be a single path component"),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_new_trace_id(trace_id: str) -> None:
+    _validate_path_component(trace_id, "trace_id")
+    # New trace ids are also embedded in the trace artifact URI, where "%", "?" and "#" change how
+    # the path is decoded and URL parsing drops tabs and newlines, so those and other control
+    # characters are rejected. Only `start_trace` applies this, so traces created before it can
+    # still be deleted by id.
+    if any(c in "%?#" or ord(c) < 32 or ord(c) == 127 for c in trace_id):
         raise MlflowException(
             invalid_value(
-                field_name,
-                value,
-                "must be a single path component without '%', '?', '#' or control characters",
+                "trace_id", trace_id, "must not contain '%', '?', '#' or control characters"
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )
@@ -1789,7 +1793,7 @@ class FileStore(AbstractStore):
             The created TraceInfo object from the backend.
         """
         _validate_experiment_id(trace_info.experiment_id)
-        _validate_path_component(trace_info.trace_id, "trace_id")
+        _validate_new_trace_id(trace_info.trace_id)
         experiment_dir = self._get_experiment_path(
             trace_info.experiment_id, view_type=ViewType.ACTIVE_ONLY, assert_exists=True
         )
