@@ -1447,15 +1447,26 @@ def test_compare_evaluations(mock_requests, mock_telemetry_client: TelemetryClie
 
 
 @pytest.mark.parametrize(
-    "job_name", [None, "invoke_issue_detection", "scheduled_issue_detection", "another_job"]
+    ("job_name", "trigger", "job_id"),
+    [
+        (None, "sdk", None),
+        ("invoke_issue_detection", "adhoc", "job-123"),
+        ("invoke_issue_detection", "adhoc", None),
+        ("scheduled_issue_detection", "schedule", "job-123"),
+        ("another_job", "sdk", "job-123"),
+    ],
 )
 def test_discover_issues(
-    mock_requests, mock_telemetry_client: TelemetryClient, monkeypatch, job_name
+    mock_requests, mock_telemetry_client: TelemetryClient, monkeypatch, job_name, trigger, job_id
 ):
     if job_name is None:
         monkeypatch.delenv("_MLFLOW_SERVER_JOB_NAME", raising=False)
     else:
         monkeypatch.setenv("_MLFLOW_SERVER_JOB_NAME", job_name)
+    if job_id is None:
+        monkeypatch.delenv("_MLFLOW_SERVER_JOB_ID", raising=False)
+    else:
+        monkeypatch.setenv("_MLFLOW_SERVER_JOB_ID", job_id)
     traces = [
         mock.MagicMock(spec=Trace),
         mock.MagicMock(spec=Trace),
@@ -1487,35 +1498,44 @@ def test_discover_issues(
         )
 
     expected_params = {
-        "trigger": "sdk",
+        "trigger": trigger,
         "model": "openai:/gpt-4",
         "trace_count": 3,
         "categories": ["Custom"],
-        "source_run_id": None,
         "issue_count": 0,
         "issue_counts_by_category": {},
         "total_traces_analyzed": 3,
         "total_cost_usd": None,
-        "triage_run_id": mock_triage_run_id,
     }
-    if job_name in ("invoke_issue_detection", "scheduled_issue_detection"):
-        mock_telemetry_client.flush()
-        assert all(
-            record["data"]["event_name"] != DiscoverIssuesEvent.name for record in mock_requests
-        )
-    else:
-        validate_telemetry_record(
-            mock_telemetry_client, mock_requests, DiscoverIssuesEvent.name, expected_params
-        )
+    if trigger == "sdk":
+        expected_params |= {"source_run_id": None, "triage_run_id": mock_triage_run_id}
+    elif job_id:
+        expected_params["job_id"] = job_id
+    mock_telemetry_client.flush()
+    assert (
+        sum(record["data"]["event_name"] == DiscoverIssuesEvent.name for record in mock_requests)
+        == 1
+    )
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, DiscoverIssuesEvent.name, expected_params
+    )
 
 
 @pytest.mark.parametrize(
     ("error_type", "status"), [(ValueError, "failure"), (KeyboardInterrupt, "canceled")]
 )
+@pytest.mark.parametrize(
+    ("job_name", "trigger"),
+    [(None, "sdk"), ("invoke_issue_detection", "adhoc"), ("scheduled_issue_detection", "schedule")],
+)
 def test_discover_issues_records_failure_or_cancellation(
-    mock_requests, mock_telemetry_client, monkeypatch, error_type, status
+    mock_requests, mock_telemetry_client, monkeypatch, error_type, status, job_name, trigger
 ):
-    monkeypatch.delenv("_MLFLOW_SERVER_JOB_NAME", raising=False)
+    if job_name is None:
+        monkeypatch.delenv("_MLFLOW_SERVER_JOB_NAME", raising=False)
+    else:
+        monkeypatch.setenv("_MLFLOW_SERVER_JOB_NAME", job_name)
+    monkeypatch.delenv("_MLFLOW_SERVER_JOB_ID", raising=False)
     with patch(
         "mlflow.genai.discovery.pipeline.sample_traces", side_effect=error_type("sampling failed")
     ) as mock_sample:
@@ -1527,22 +1547,28 @@ def test_discover_issues_records_failure_or_cancellation(
             )
 
     mock_sample.assert_called_once()
+    expected_params = {
+        "trigger": trigger,
+        "model": "openai:/gpt-4",
+        "trace_count": 0,
+        "categories": ["correctness", "Custom"],
+        "issue_count": None,
+        "issue_counts_by_category": None,
+        "total_traces_analyzed": None,
+        "total_cost_usd": None,
+    }
+    if trigger == "sdk":
+        expected_params |= {"source_run_id": None, "triage_run_id": None}
+    mock_telemetry_client.flush()
+    assert (
+        sum(record["data"]["event_name"] == DiscoverIssuesEvent.name for record in mock_requests)
+        == 1
+    )
     validate_telemetry_record(
         mock_telemetry_client,
         mock_requests,
         DiscoverIssuesEvent.name,
-        {
-            "trigger": "sdk",
-            "model": "openai:/gpt-4",
-            "trace_count": 0,
-            "categories": ["correctness", "Custom"],
-            "source_run_id": None,
-            "issue_count": None,
-            "issue_counts_by_category": None,
-            "total_traces_analyzed": None,
-            "total_cost_usd": None,
-            "triage_run_id": None,
-        },
+        expected_params,
         status=status,
     )
 

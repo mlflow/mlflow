@@ -1,8 +1,20 @@
+import os
 from collections import Counter
+from typing import Literal
 
 from mlflow.entities.issue import Issue, IssueCategory
 
 _BUILTIN_CATEGORIES = frozenset(category.value for category in IssueCategory)
+
+
+def get_issue_detection_trigger() -> Literal["sdk", "adhoc", "schedule"]:
+    match os.environ.get("_MLFLOW_SERVER_JOB_NAME"):
+        case "invoke_issue_detection":
+            return "adhoc"
+        case "scheduled_issue_detection":
+            return "schedule"
+        case _:
+            return "sdk"
 
 
 def normalize_issue_categories(categories: list[str] | None) -> list[str] | None:
@@ -24,14 +36,3 @@ def count_issues_by_category(issues: list[Issue]) -> dict[str, int]:
             for category in normalize_issue_categories(issue.categories) or []
         )
     )
-
-
-def normalize_issue_category_counts(counts: dict[str, int] | None) -> dict[str, int] | None:
-    if not isinstance(counts, dict):
-        return None
-    normalized = Counter()
-    for category, count in counts.items():
-        if type(count) is int and count >= 0:
-            category = str(category) if category in _BUILTIN_CATEGORIES else "Custom"
-            normalized[category] += count
-    return dict(normalized)

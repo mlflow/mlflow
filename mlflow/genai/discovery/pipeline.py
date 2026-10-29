@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -72,7 +71,6 @@ from mlflow.genai.judges.make_judge import make_judge
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.utils.llm_utils import _call_llm, _TokenCounter
 from mlflow.telemetry.events import DiscoverIssuesEvent
-from mlflow.telemetry.issue_detection import ISSUE_DETECTION_JOB_NAMES
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 from mlflow.tracking.fluent import _get_experiment_id
@@ -814,10 +812,7 @@ def _merge_cost_findings(
     return added
 
 
-@record_usage_event(
-    DiscoverIssuesEvent,
-    enabled=lambda: os.environ.get("_MLFLOW_SERVER_JOB_NAME") not in ISSUE_DETECTION_JOB_NAMES,
-)
+@record_usage_event(DiscoverIssuesEvent)
 def discover_issues(
     experiment_id: str | None = None,
     traces: list[Trace] | None = None,

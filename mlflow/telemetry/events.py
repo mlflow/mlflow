@@ -17,6 +17,7 @@ from mlflow.telemetry.constant import (
 )
 from mlflow.telemetry.issue_detection_utils import (
     count_issues_by_category,
+    get_issue_detection_trigger,
     normalize_issue_categories,
 )
 
@@ -996,23 +997,30 @@ class DiscoverIssuesEvent(Event):
 
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
-        return {
-            "trigger": "sdk",
+        trigger = get_issue_detection_trigger()
+        params = {
+            "trigger": trigger,
             "model": arguments.get("model"),
             "trace_count": len(arguments.get("traces") or []),
             "categories": normalize_issue_categories(arguments.get("categories")),
-            "source_run_id": arguments.get("run_id"),
         }
+        if trigger == "sdk":
+            params["source_run_id"] = arguments.get("run_id")
+        elif job_id := os.environ.get("_MLFLOW_SERVER_JOB_ID"):
+            params["job_id"] = job_id
+        return params
 
     @classmethod
     def parse_result(cls, result: Any) -> dict[str, Any] | None:
-        return {
+        params = {
             "issue_count": len(result.issues) if result else None,
             "issue_counts_by_category": count_issues_by_category(result.issues) if result else None,
             "total_traces_analyzed": result.total_traces_analyzed if result else None,
             "total_cost_usd": result.total_cost_usd if result else None,
-            "triage_run_id": result.triage_run_id if result else None,
         }
+        if get_issue_detection_trigger() == "sdk":
+            params["triage_run_id"] = result.triage_run_id if result else None
+        return params
 
 
 class UpdateIssueEvent(Event):

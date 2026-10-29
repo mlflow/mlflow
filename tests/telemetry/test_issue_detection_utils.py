@@ -5,9 +5,26 @@ import pytest
 from mlflow.entities.issue import IssueCategory
 from mlflow.telemetry.issue_detection_utils import (
     count_issues_by_category,
+    get_issue_detection_trigger,
     normalize_issue_categories,
-    normalize_issue_category_counts,
 )
+
+
+@pytest.mark.parametrize(
+    ("job_name", "expected"),
+    [
+        (None, "sdk"),
+        ("another_job", "sdk"),
+        ("invoke_issue_detection", "adhoc"),
+        ("scheduled_issue_detection", "schedule"),
+    ],
+)
+def test_get_issue_detection_trigger(monkeypatch, job_name, expected):
+    if job_name is None:
+        monkeypatch.delenv("_MLFLOW_SERVER_JOB_NAME", raising=False)
+    else:
+        monkeypatch.setenv("_MLFLOW_SERVER_JOB_NAME", job_name)
+    assert get_issue_detection_trigger() == expected
 
 
 @pytest.mark.parametrize(
@@ -30,16 +47,3 @@ def test_count_each_issue_once_per_normalized_category():
         SimpleNamespace(categories=None),
     ]
     assert count_issues_by_category(issues) == {"correctness": 2, "Custom": 1, "cost": 1}
-
-
-@pytest.mark.parametrize(
-    ("counts", "expected"),
-    [
-        (None, None),
-        ({}, {}),
-        ({"safety": 2, "private": 1, "private two": 1}, {"safety": 2, "Custom": 2}),
-        ({"correctness": 0, "invalid": "private text", "safety": -1}, {"correctness": 0}),
-    ],
-)
-def test_normalize_issue_category_counts(counts, expected):
-    assert normalize_issue_category_counts(counts) == expected
