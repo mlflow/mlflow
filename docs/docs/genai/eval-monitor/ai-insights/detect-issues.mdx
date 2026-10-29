@@ -1,4 +1,6 @@
 import ImageBox from '@site/src/components/ImageBox';
+import WorkflowSteps from '@site/src/components/WorkflowSteps';
+import { Bot, Search, CheckCircle, FileText, Lightbulb } from 'lucide-react';
 import { APILink } from '@site/src/components/APILink';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 
@@ -22,13 +24,45 @@ The following demo shows how to run detection, review evidence, open a source tr
   aria-label="Issue detection: analyze traces, review evidence, resolve an issue, and schedule weekly detection"
 />
 
+## How it works
+
+Issue detection uses a multi-stage AI analysis pipeline:
+
+<WorkflowSteps
+  steps={[
+    {
+      icon: Bot,
+      title: "Identify issues from traces",
+      description: "Automatically identify issues from your selected traces, based on the chosen categories and model"
+    },
+    {
+      icon: Search,
+      title: "Analyze triage results",
+      description: "Build per-session analyses from triage results, combining triage rationales, human feedback and agent execution logic"
+    },
+    {
+      icon: CheckCircle,
+      title: "Cluster issues",
+      description: "Cluster analyses into identified issues via LLM-based labeling and grouping"
+    },
+    {
+      icon: FileText,
+      title: "Annotate issues",
+      description: "Annotate traces with corresponding issues, including the rationales"
+    },
+    {
+      icon: Lightbulb,
+      title: "Summary",
+      description: "Generate a summary of identified issues and root causes"
+    }
+  ]}
+/>
+
 ## Requirements
 
 - An MLflow experiment with [recorded traces](/genai/tracing/quickstart).
 - An MLflow tracking server on Linux or macOS with a SQL database backend, such as SQLite or PostgreSQL, and background job execution enabled. See [Self-hosting MLflow](/self-hosting).
 - Access to a supported model through a provider API key or an [MLflow AI Gateway](/genai/governance/ai-gateway) endpoint.
-
-Issue detection analyzes the data recorded in your traces. It does not read your application repository. Include relevant instructions, tool inputs, and tool outputs in traces so the detection model has enough context to assess the behavior.
 
 ## Start issue detection
 
@@ -36,21 +70,29 @@ Issue detection analyzes the data recorded in your traces. It does not read your
 2. Click **Run issue detection**. If the experiment already has issues, click **Detect Issues** instead.
 3. Choose a provider and model, such as OpenAI, Anthropic, or Google Gemini, or select an AI Gateway endpoint. Supply an API key when prompted, or use a saved credential.
 4. Review the selected traces and estimated cost, then click **Run Analysis**.
-5. Click **View progress** in the notification to open **Issue detection run history**.
 
 You can also start detection from the **Traces** tab. Filter or select traces there to analyze a specific subset. For multi-turn applications, record [session IDs](/genai/tracing/track-users-sessions) to preserve conversation context.
 
-Analysis runs in the background. You can leave the page and return later. When the completion notification appears, click **View issues** to return to the Issues tab.
+Analysis runs in the background. You can leave the page and return later.
 
-### View run history
+## View run history
 
-Click the **Issue detection run history** icon beside the settings icon on the Issues tab to see manual (**Ad hoc**) and **Scheduled** runs. The table shows each run's status, analyzed trace count, new issue count, model, cost, and duration when available. Hover over a failed run's status to see its error details.
+**Issue detection run history** lists manual (**Ad hoc**) and **Scheduled** runs, including runs that find no issues or fail. You can open it in any of these ways:
+
+- **After starting detection**: Click **View progress** in the notification.
+- **If detection fails**: Click **View details** in the failure notification.
+- **If the Issues tab has no issues after a run**: Click **View run history** beneath the **Run issue detection** or **Start new detection** button.
+- **If the Issues tab lists issues**: Click the **Issue detection run history** icon beside the settings icon.
+
+The table shows each run's status, analyzed trace count, new issue count, model, cost, and duration when available. Hover over a failed run's status to see its error details.
 
 **Window covered** shows the trace time range for a scheduled run. It is empty for an ad hoc run, which analyzes a selected set of traces. When a schedule is active, the page also shows its cadence and next run time.
 
 ## Review issues
 
-The Issues tab lists detected problems and shows details for the selected issue: its description, severity, categories, and affected trace count.
+After the analysis finishes, the Issues tab lists detected problems and shows supporting evidence for the selected issue. Each piece of evidence links to an affected source trace. The issue details also show its description, severity, categories, and affected trace count.
+
+Click **View issues** or **View details** in the completion notification to return to the Issues tab.
 
 Expand an entry in **Evidence** to read why that trace supports the finding. Evidence can include a walkthrough of the relevant spans, with highlighted inputs, tool results, and responses. Click **Open trace** to inspect the source trace in the drawer, or **View span** to jump to a particular span.
 
@@ -59,9 +101,9 @@ Expand an entry in **Evidence** to read why that trace supports the finding. Evi
   alt="An issue with evidence linking an out-of-stock tool result to an incorrect availability claim"
 />
 
-Use the evidence to verify the finding and understand its cause before changing your application. Trace data can be incomplete, and model-generated findings can be incorrect.
-
 ### Triage issues
+
+If a finding is not applicable, update the status to **Not an issue** using the dropdown in the upper-right corner. MLflow uses this feedback to avoid surfacing the same issue again in later detection runs: matching findings retain **Not an issue** status rather than becoming new open issues.
 
 Use the status dropdown in the upper-right corner of the issue details to change its status:
 
@@ -134,18 +176,37 @@ Click **Save** to apply the settings to future detection runs. If no focus areas
 
 ## Access issues programmatically
 
-Use <APILink fn="mlflow.genai.search_issues" /> and <APILink fn="mlflow.genai.update_issue" /> to integrate issue triage with your own workflows.
+Use <APILink fn="mlflow.genai.create_issue" />, <APILink fn="mlflow.genai.search_issues" />, and <APILink fn="mlflow.genai.update_issue" /> to integrate issue triage with your own workflows.
 
-The following example searches for open, high-severity issues in an experiment:
+### Create an issue
+
+Create an issue for a problem identified through manual review or another workflow:
 
 ```python
 import mlflow
-from mlflow.entities import IssueSeverity
+from mlflow.entities import IssueCategory, IssueSeverity
 
 mlflow.set_tracking_uri("http://localhost:5000")
+experiment_id = "<experiment-id>"
 
+created_issue = mlflow.genai.create_issue(
+    experiment_id=experiment_id,
+    name="Incorrect refund policy",
+    description="The agent promises refunds outside the documented 30-day return window.",
+    severity=IssueSeverity.HIGH,
+    categories=[IssueCategory.CORRECTNESS],
+)
+```
+
+New issues default to **Open** (`pending`). The returned issue contains an `issue_id` you can use to retrieve or update it.
+
+### Search issues
+
+The following example searches for open, high-severity issues in the same experiment:
+
+```python
 issues = mlflow.genai.search_issues(
-    experiment_id="<experiment-id>",
+    experiment_id=experiment_id,
     filter_string="status = 'pending'",
     severities=[IssueSeverity.HIGH],
     max_results=100,
@@ -158,14 +219,16 @@ for issue in issues:
 
 Search also supports name and category filters, sorting, and pagination. Pass `issues.token` as `page_token` to retrieve the next page when the token is present.
 
+### Update an issue
+
 After verifying a fix, update the issue by ID:
 
 ```python
 from mlflow.entities import IssueStatus
 
 mlflow.genai.update_issue(
-    issue_id="<issue-id>",
-    experiment_id="<experiment-id>",
+    issue_id=created_issue.issue_id,
+    experiment_id=experiment_id,
     status=IssueStatus.RESOLVED,
 )
 ```
