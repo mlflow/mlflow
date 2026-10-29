@@ -153,6 +153,58 @@ jobs:
           unset GATEWAY_TOKEN proxy_token
           curl --noproxy '*' --retry 30 --retry-connrefused --retry-delay 1 \
             -fsS http://127.0.0.1:8080/healthz > /dev/null
+      # Claude Code exports OpenTelemetry traces and logs to MLflow through a local proxy that holds
+      # the token, like the gateway proxy. Disabled unless NIGHTLY_MLFLOW_TRACE_LOCATION is set to the
+      # <catalog>.<schema>.<table_prefix> of a UC-linked experiment.
+      - id: telemetry
+        name: Mint telemetry token
+        if: vars.NIGHTLY_MLFLOW_TRACE_LOCATION != ''
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+        run: |
+          # The OTLP ingest endpoint rejects narrower scopes such as ai-gateway or mlflow. The proxy
+          # only forwards to the OTLP routes, so the agent can't use the token elsewhere.
+          response=$(curl -sS --max-time 15 \
+            -u "$DATABRICKS_CLIENT_ID:$DATABRICKS_CLIENT_SECRET" \
+            -d grant_type=client_credentials -d scope=all-apis \
+            "$DATABRICKS_HOST/oidc/v1/token")
+          token=$(jq -r '.access_token // empty' <<< "$response")
+          if [ -z "$token" ]; then
+            echo "::error::Telemetry token exchange failed: $(jq -r '.error_description // .error // "no access_token"' <<< "$response")"
+            exit 1
+          fi
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Start telemetry proxy
+        if: steps.telemetry.outcome == 'success'
+        env:
+          TELEMETRY_TOKEN: ${{ steps.telemetry.outputs.token }}
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          TRACE_LOCATION: ${{ vars.NIGHTLY_MLFLOW_TRACE_LOCATION }}
+          TELEMETRY_SOCKET: ${{ runner.temp }}/nightly-telemetry.sock
+        run: |
+          umask 077
+          printf '%s\n' "$TELEMETRY_TOKEN" | env -u TELEMETRY_TOKEN \
+            DATABRICKS_HOST="$DATABRICKS_HOST" TRACE_LOCATION="$TRACE_LOCATION" \
+            TELEMETRY_SOCKET="$TELEMETRY_SOCKET" node .claude/sandbox/otel-proxy.mjs \
+            > "$RUNNER_TEMP/nightly-telemetry-proxy.log" 2>&1 &
+          proxy_pid=$!
+          unset TELEMETRY_TOKEN
+          printf '%s\n' "$proxy_pid" > "$RUNNER_TEMP/nightly-telemetry-proxy.pid"
+          for _ in $(seq 1 30); do
+            if ! kill -0 "$proxy_pid" 2>/dev/null; then
+              break
+            fi
+            if [ -S "$TELEMETRY_SOCKET" ] && curl -fsS http://127.0.0.1:8081/healthz > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/nightly-telemetry-proxy.log"
+          echo "::error::Telemetry proxy did not become ready"
+          exit 1
       - name: Configure sandbox access
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -179,11 +231,24 @@ jobs:
           ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5
           CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS: "1"
           CLAUDE_CODE_FORK_SUBAGENT: "0"
-          CLAUDE_CODE_ENABLE_TELEMETRY: "0"
-          CLAUDE_CODE_ENHANCED_TELEMETRY_BETA: "0"
-          OTEL_TRACES_EXPORTER: none
-          OTEL_LOGS_EXPORTER: none
-          OTEL_METRICS_EXPORTER: none
+          # OpenTelemetry export through the telemetry proxy. Spans need the enhanced telemetry beta;
+          # logs carry per-call cost and the final response; metrics carry session counters. The
+          # OTEL_LOG_* flags include prompt, response, and tool content, which are redacted by default.
+          CLAUDE_CODE_ENABLE_TELEMETRY: ${{ steps.telemetry.outcome == 'success' && '1' || '0' }}
+          CLAUDE_CODE_ENHANCED_TELEMETRY_BETA: ${{ steps.telemetry.outcome == 'success' && '1' || '0' }}
+          OTEL_TRACES_EXPORTER: ${{ steps.telemetry.outcome == 'success' && 'otlp' || 'none' }}
+          OTEL_LOGS_EXPORTER: ${{ steps.telemetry.outcome == 'success' && 'otlp' || 'none' }}
+          OTEL_METRICS_EXPORTER: ${{ steps.telemetry.outcome == 'success' && 'otlp' || 'none' }}
+          OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+          OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://localhost:8081/v1/traces
+          OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: http://localhost:8081/v1/logs
+          OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: http://localhost:8081/v1/metrics
+          OTEL_LOG_USER_PROMPTS: "1"
+          OTEL_LOG_ASSISTANT_RESPONSES: "1"
+          OTEL_LOG_TOOL_DETAILS: "1"
+          OTEL_LOG_TOOL_CONTENT: "1"
+          OTEL_RESOURCE_ATTRIBUTES: github.run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TELEMETRY_SOCKET: ${{ runner.temp }}/nightly-telemetry.sock
           XDG_DATA_HOME: /tmp/nightly-xdg-data
           XDG_CONFIG_HOME: /tmp/nightly-xdg-config
           XDG_CACHE_HOME: /tmp/nightly-xdg-cache
@@ -192,8 +257,14 @@ jobs:
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
           trap 'echo "::$token::"' EXIT
+          # Claude Code's OTel exporter may connect to localhost:8081 directly rather than through
+          # srt's HTTP proxy, so relay that port inside the sandbox to the telemetry proxy's socket.
+          relay=()
+          if [ -S "$TELEMETRY_SOCKET" ]; then
+            relay=(bash -c 'socat TCP-LISTEN:8081,bind=127.0.0.1,fork,reuseaddr "UNIX-CONNECT:$0" & exec "$@"' "$TELEMETRY_SOCKET")
+          fi
           timeout --kill-after=10s 35m srt --settings "$RUNNER_TEMP/nightly-srt.json" -- \
-            env -u NO_PROXY -u no_proxy claude \
+            "${relay[@]}" env -u NO_PROXY -u no_proxy claude \
               --model databricks-claude-sonnet-5-5 \
               --effort medium \
               --permission-mode auto \
@@ -206,18 +277,20 @@ jobs:
           umask 077
           srt --settings "$RUNNER_TEMP/nightly-srt.json" -- cat /tmp/nightly-out/analysis.json \
             > "$RUNNER_TEMP/nightly-analysis/analysis.json"
-      - name: Stop gateway proxy
+      - name: Stop proxies
         if: always()
         run: |
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
           trap 'echo "::$token::"' EXIT
-          if [ -f "$RUNNER_TEMP/nightly-gateway-proxy.pid" ]; then
-            kill "$(cat "$RUNNER_TEMP/nightly-gateway-proxy.pid")" 2>/dev/null || true
-          fi
-          if [ -s "$RUNNER_TEMP/nightly-gateway-proxy.log" ]; then
-            cat "$RUNNER_TEMP/nightly-gateway-proxy.log"
-          fi
+          for proxy in gateway telemetry; do
+            if [ -f "$RUNNER_TEMP/nightly-$proxy-proxy.pid" ]; then
+              kill "$(cat "$RUNNER_TEMP/nightly-$proxy-proxy.pid")" 2>/dev/null || true
+            fi
+            if [ -s "$RUNNER_TEMP/nightly-$proxy-proxy.log" ]; then
+              cat "$RUNNER_TEMP/nightly-$proxy-proxy.log"
+            fi
+          done
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         id: upload
         if: always()
