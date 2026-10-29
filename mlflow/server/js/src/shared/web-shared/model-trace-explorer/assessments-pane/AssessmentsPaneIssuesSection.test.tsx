@@ -4,28 +4,25 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
 
-import { getIssue } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useGetIssueQuery';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+
+import { searchIssueIdsByStatus } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useSearchIssuesQuery';
 
 import { QueryClient, QueryClientProvider } from '../../query-client/queryClient';
 import { AssessmentsPaneIssuesSection } from './AssessmentsPaneIssuesSection';
 import type { IssueReferenceAssessment } from '../ModelTrace.types';
 
-jest.mock('@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useGetIssueQuery', () => ({
+jest.mock('@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useSearchIssuesQuery', () => ({
   ...jest.requireActual<
-    typeof import('@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useGetIssueQuery')
-  >('@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useGetIssueQuery'),
-  getIssue: jest.fn(),
+    typeof import('@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useSearchIssuesQuery')
+  >('@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useSearchIssuesQuery'),
+  searchIssueIdsByStatus: jest.fn(),
 }));
 
-const mockGetIssue = jest.mocked(getIssue);
+const mockSearchIssueIdsByStatus = jest.mocked(searchIssueIdsByStatus);
 
-/** Answers the status read for each issue ID; an ID left out resolves as still open. */
-const givenIssueStatuses = (statuses: Record<string, string>) =>
-  mockGetIssue.mockImplementation((issueId: string) =>
-    Promise.resolve({ issue_id: issueId, status: statuses[issueId] ?? 'pending' } as Awaited<
-      ReturnType<typeof getIssue>
-    >),
-  );
+/** Answers the experiment's dismissed-issue lookup. */
+const givenDismissedIssueIds = (issueIds: string[]) => mockSearchIssueIdsByStatus.mockResolvedValue(issueIds);
 
 const reference = (
   overrides: Partial<IssueReferenceAssessment> & Pick<IssueReferenceAssessment, 'assessment_id'>,
@@ -45,9 +42,13 @@ const renderSection = (issues: IssueReferenceAssessment[]) =>
   render(
     <DesignSystemProvider>
       <IntlProvider locale="en">
-        {/* The section reads each issue's status to drop the ones dismissed as not an issue. */}
+        {/* The section looks up the experiment's dismissed issues, which it reads off the route. */}
         <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-          <AssessmentsPaneIssuesSection issues={issues} />
+          <MemoryRouter initialEntries={['/experiments/experiment-1/traces']}>
+            <Routes>
+              <Route path="/experiments/:experimentId/*" element={<AssessmentsPaneIssuesSection issues={issues} />} />
+            </Routes>
+          </MemoryRouter>
         </QueryClientProvider>
       </IntlProvider>
     </DesignSystemProvider>,
@@ -97,27 +98,27 @@ describe('AssessmentsPaneIssuesSection', () => {
 
   describe('issues dismissed as not an issue', () => {
     beforeEach(() => {
-      mockGetIssue.mockReset();
+      mockSearchIssueIdsByStatus.mockReset();
     });
 
     test('a rejected issue is dropped from the list and its count', async () => {
-      givenIssueStatuses({ 'iss-latency': 'rejected', 'iss-cost': 'pending' });
+      givenDismissedIssueIds(['iss-latency']);
       renderSection([
         reference({ assessment_id: 'a-latency' }),
         reference({ assessment_id: 'a-cost', assessment_name: 'iss-cost', issue: { issue_name: 'Runaway cost' } }),
       ]);
 
-      // Shown until the statuses arrive, so the dismissed one has to be waited out.
+      // Shown until the lookup answers, so the dismissed one is waited out.
       await waitFor(() => expect(screen.queryByText('High latency')).not.toBeInTheDocument());
       expect(screen.getByText('Runaway cost')).toBeInTheDocument();
       expect(screen.getByText(/Issues\s*\(1\)/)).toBeInTheDocument();
     });
 
-    test('a resolved issue is kept, because it did happen on this trace', async () => {
-      givenIssueStatuses({ 'iss-latency': 'resolved' });
+    test('only dismissed issues are looked up, so a resolved one is kept', async () => {
+      givenDismissedIssueIds([]);
       renderSection([reference({ assessment_id: 'a-latency' })]);
 
-      await waitFor(() => expect(mockGetIssue).toHaveBeenCalled());
+      await waitFor(() => expect(mockSearchIssueIdsByStatus).toHaveBeenCalledWith('experiment-1', 'rejected'));
       expect(screen.getByText('High latency')).toBeInTheDocument();
     });
   });

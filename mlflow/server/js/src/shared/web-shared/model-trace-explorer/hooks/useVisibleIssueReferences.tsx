@@ -1,14 +1,11 @@
-import { useMemo } from 'react';
-
 import {
-  GET_ISSUE_QUERY_KEY,
-  getIssue,
-} from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useGetIssueQuery';
-import type { IssueStatus } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useSearchIssuesQuery';
+  SEARCH_ISSUES_QUERY_KEY,
+  searchIssueIdsByStatus,
+  type IssueStatus,
+} from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useSearchIssuesQuery';
 
-import { useQueries } from '../../query-client/queryClient';
+import { useQuery } from '../../query-client/queryClient';
 
-import { useArrayMemo } from './useArrayMemo';
 import { useSafeSelectedIssueId } from './useSafeSelectedIssueId';
 import {
   getUniqueIssueReferenceAssessments,
@@ -16,93 +13,74 @@ import {
   type TraceIssueReference,
 } from '../IssueAssessmentUtils';
 import type { Assessment, IssueReferenceAssessment } from '../ModelTrace.types';
+import { useParams } from '../RoutingUtils';
 
-/**
- * The status meaning someone looked at the issue and said it is not one -- the Issues tab labels it
- * "Not an issue". Detection filed it anyway, so the trace's reference to it is a false positive
- * that a reader has already ruled on.
- *
- * `resolved` deliberately stays visible: a resolved issue did happen in this trace, and the trace is
- * the record of that. Only an explicit "this was never a problem" is worth suppressing.
- */
+/** The status the Issues tab labels "Not an issue". `resolved` is not dismissed: it did happen. */
 const DISMISSED_ISSUE_STATUS: IssueStatus = 'rejected';
 
+/** Status is changed by hand and rarely, and paging through traces re-reads the same experiment. */
+const DISMISSED_ISSUE_IDS_STALE_TIME_MS = 5 * 60 * 1000;
+
+const NO_DISMISSED_ISSUE_IDS: ReadonlySet<string> = new Set();
+
 /**
- * Status is changed by hand and rarely, and paging the drawer through a list of traces re-reads the
- * same few issues at every step. Set as `cacheTime` as well as `staleTime`: `useGetIssueQuery`
- * shares this key with `cacheTime: 0`, so an entry only it was observing is dropped the moment it
- * unmounts, and the reads here would not survive closing and reopening a pane. Triage invalidates
- * the key, so a status changed in the Issues tab is still re-read rather than served from here.
+ * Every issue in the experiment that someone dismissed, by ID.
+ *
+ * One request per experiment, not one per issue on screen: the span tree, the span's cards, the
+ * assessments pane and the traces table share this entry, so a table page naming forty issues reads
+ * once. A trace referencing no issue asks for nothing.
+ *
+ * Keyed under `SEARCH_ISSUES_QUERY_KEY` so that triaging an issue invalidates this alongside the
+ * Issues tab's own reads.
+ *
+ * The experiment comes from the route, as it does elsewhere in this package. Off an experiment
+ * route there is nothing to look up, so nothing is hidden -- the same outcome as a lookup that
+ * fails, since failing to reach the issues API is not evidence that anyone dismissed anything.
  */
-const ISSUE_STATUS_STALE_TIME_MS = 5 * 60 * 1000;
+const useDismissedIssueIds = (enabled: boolean): ReadonlySet<string> => {
+  const { experimentId } = useParams();
+  const { data } = useQuery({
+    queryKey: [SEARCH_ISSUES_QUERY_KEY, 'dismissed', experimentId],
+    queryFn: async () => new Set(await searchIssueIdsByStatus(experimentId ?? '', DISMISSED_ISSUE_STATUS)),
+    enabled: enabled && Boolean(experimentId),
+    refetchOnWindowFocus: false,
+    staleTime: DISMISSED_ISSUE_IDS_STALE_TIME_MS,
+    retry: false,
+  });
+
+  return data ?? NO_DISMISSED_ISSUE_IDS;
+};
 
 /**
  * Which of a span's referenced issues are still worth showing, by issue ID.
  *
- * A trace keeps its issue references forever -- marking an issue "Not an issue" does not retract the
- * reference detection wrote -- so every surface that read the references alone kept presenting
- * findings a reader had already dismissed. The status lives on the issue rather than on the
- * reference, so it has to be read separately.
+ * A trace keeps its issue references forever -- marking an issue "Not an issue" does not retract
+ * the reference detection wrote -- and the status lives on the issue rather than on the reference,
+ * so it has to be read separately.
  *
- * Keyed per issue ID, so the span tree's indicators, the detail pane's banner and the assessments
- * pane share one request per distinct issue, however many spans it touches and however many are on
- * screen. A trace referencing no issue -- the overwhelming majority -- asks for nothing.
- *
- * An issue named in the URL is always kept, and never read: arriving from that issue's own page is
- * how a reader reviews the evidence behind it, so hiding the card they followed would leave the
- * trace explaining nothing. A status that cannot be read also keeps its issue, because failing to
- * reach the issues API is not evidence that anyone dismissed anything.
- *
- * An issue is shown until its status is known to be dismissed, rather than withheld until every
- * status has arrived. Withholding would delay the cards on every trace that has an issue -- almost
- * all of which are open -- to avoid briefly showing the few that are dismissed, and it would make
- * the common case slower to serve the rare one. The status is cached per issue, so the brief
- * appearance happens at most once per issue.
+ * An issue named in the URL is kept even when dismissed: arriving from that issue's own page is how
+ * a reader reviews the evidence behind it. Issues also show until the dismissed set arrives rather
+ * than being withheld until it does, so a trace whose issues are all open is never held back.
  */
-export const useVisibleIssueIds = (issueIds: string[]): Set<string> => {
+export const useVisibleIssueIds = (issueIds: string[]): ReadonlySet<string> => {
   const selectedIssueId = useSafeSelectedIssueId();
-  const queries = useQueries({
-    // Same key and fetcher as `useGetIssueQuery`, so an issue read here and an issue read there are
-    // one entry rather than two requests for the same row.
-    queries: issueIds.map((issueId) => ({
-      queryKey: [GET_ISSUE_QUERY_KEY, issueId],
-      queryFn: () => getIssue(issueId),
-      enabled: Boolean(issueId) && issueId !== selectedIssueId,
-      refetchOnWindowFocus: false,
-      staleTime: ISSUE_STATUS_STALE_TIME_MS,
-      cacheTime: ISSUE_STATUS_STALE_TIME_MS,
-      retry: false,
-    })),
-  });
+  const dismissedIssueIds = useDismissedIssueIds(issueIds.length > 0);
 
-  const statuses = queries.map((query) => query.data?.status);
-  const statusKey = statuses.join('\u0000');
-
-  const visibleIssueIds = useMemo(
-    () =>
-      new Set(
-        issueIds.filter((issueId, index) => issueId === selectedIssueId || statuses[index] !== DISMISSED_ISSUE_STATUS),
-      ),
-    // `statuses` is a fresh array every render; `statusKey` changes only when a status really does.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [issueIds, statusKey, selectedIssueId],
-  );
-
-  return visibleIssueIds;
+  return new Set(issueIds.filter((issueId) => issueId === selectedIssueId || !dismissedIssueIds.has(issueId)));
 };
 
 /** The issues a span is flagged for that nobody has dismissed, as the cards need them. */
 export const useVisibleIssueReferences = (assessments: Assessment[] | undefined): TraceIssueReference[] => {
-  const references = useArrayMemo(getUniqueIssueReferences(assessments ?? []));
-  const visibleIssueIds = useVisibleIssueIds(useArrayMemo(references.map(({ id }) => id)));
-  return useArrayMemo(references.filter(({ id }) => visibleIssueIds.has(id)));
+  const references = getUniqueIssueReferences(assessments ?? []);
+  const visibleIssueIds = useVisibleIssueIds(references.map(({ id }) => id));
+  return references.filter(({ id }) => visibleIssueIds.has(id));
 };
 
 /** The same selection, as the assessments they came from. */
 export const useVisibleIssueReferenceAssessments = (
   assessments: IssueReferenceAssessment[],
 ): IssueReferenceAssessment[] => {
-  const references = useArrayMemo(getUniqueIssueReferenceAssessments(assessments));
-  const visibleIssueIds = useVisibleIssueIds(useArrayMemo(references.map(({ assessment_name }) => assessment_name)));
-  return useArrayMemo(references.filter(({ assessment_name }) => visibleIssueIds.has(assessment_name)));
+  const references = getUniqueIssueReferenceAssessments(assessments);
+  const visibleIssueIds = useVisibleIssueIds(references.map(({ assessment_name }) => assessment_name));
+  return references.filter(({ assessment_name }) => visibleIssueIds.has(assessment_name));
 };

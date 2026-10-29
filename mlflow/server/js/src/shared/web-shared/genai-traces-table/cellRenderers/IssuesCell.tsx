@@ -1,5 +1,4 @@
 import { HoverCard, Overflow, Tag, useDesignSystemTheme } from '@databricks/design-system';
-import { useMemo } from 'react';
 import { useNavigate } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import { ExperimentPageTabName } from '@mlflow/mlflow/src/experiment-tracking/constants';
@@ -55,13 +54,9 @@ const IssueTag = ({ issue }: { issue: Issue }) => {
 const IssuesList = ({ issues, isComparing }: { issues: Issue[] | undefined; isComparing: boolean }) => {
   const { theme } = useDesignSystemTheme();
   // A trace keeps its reference to an issue after someone marks it "Not an issue", so the column
-  // listed findings that had already been ruled out. Read per issue ID and cached, so rows sharing
-  // an issue -- which is the normal case for a detection run -- share one read.
-  const visibleIssueIds = useVisibleIssueIds(useMemo(() => (issues ?? []).map(({ id }) => id), [issues]));
-  const visibleIssues = useMemo(
-    () => (issues ?? []).filter(({ id }) => visibleIssueIds.has(id)),
-    [issues, visibleIssueIds],
-  );
+  // listed findings that had already been ruled out.
+  const visibleIssueIds = useVisibleIssueIds((issues ?? []).map(({ id }) => id));
+  const visibleIssues = (issues ?? []).filter(({ id }) => visibleIssueIds.has(id));
 
   if (visibleIssues.length === 0) {
     return <NullCell isComparing={isComparing} />;
