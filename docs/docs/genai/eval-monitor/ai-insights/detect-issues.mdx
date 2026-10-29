@@ -1,6 +1,6 @@
 import ImageBox from '@site/src/components/ImageBox';
 import WorkflowSteps from '@site/src/components/WorkflowSteps';
-import { Bot, Search, CheckCircle, FileText, Lightbulb } from 'lucide-react';
+import { Bot, Search, CheckCircle, GitMerge, FileText } from 'lucide-react';
 import { APILink } from '@site/src/components/APILink';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 
@@ -32,28 +32,28 @@ Issue detection uses a multi-stage AI analysis pipeline:
   steps={[
     {
       icon: Bot,
-      title: "Identify issues from traces",
-      description: "Automatically identify issues from your selected traces, based on the chosen categories and model"
+      title: "Identify potential problems",
+      description: "Analyze sampled traces with your chosen model, focus areas, and detection priorities. Use conversation context when traces have session IDs."
     },
     {
       icon: Search,
-      title: "Analyze triage results",
-      description: "Build per-session analyses from triage results, combining triage rationales, human feedback and agent execution logic"
+      title: "Combine findings and context",
+      description: "Combine the model's findings with human feedback and recorded execution paths, grouping traces by session when available."
     },
     {
       icon: CheckCircle,
-      title: "Cluster issues",
-      description: "Cluster analyses into identified issues via LLM-based labeling and grouping"
+      title: "Group findings into issues",
+      description: "Group related failures, merge duplicates, and identify each issue's description, root cause, severity, and categories."
+    },
+    {
+      icon: GitMerge,
+      title: "Match existing issues",
+      description: "Compare findings with existing Open and Not an issue entries. Reuse matching issues while preserving their status."
     },
     {
       icon: FileText,
-      title: "Annotate issues",
-      description: "Annotate traces with corresponding issues, including the rationales"
-    },
-    {
-      icon: Lightbulb,
-      title: "Summary",
-      description: "Generate a summary of identified issues and root causes"
+      title: "Attach evidence for review",
+      description: "Save new issues or refresh matching ones, and link affected traces with explanations and, when available, walkthroughs of relevant spans. Review the evidence in the Issues tab."
     }
   ]}
 />
