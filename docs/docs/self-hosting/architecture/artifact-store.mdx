@@ -189,6 +189,8 @@ Specify a URI of the form `s3://<bucket>/<path>` and set `MLFLOW_S3_ENDPOINT_URL
 To get credentials, open your [Access Tokens settings](https://huggingface.co/settings/tokens), and choose **Generate S3 credentials** from a token's menu.
 The credentials have the same permissions as the token, so use a token with write access.
 
+You must also run `pip install boto3` on the server (and on any client that accesses the bucket directly).
+
 ```bash
 export MLFLOW_S3_ENDPOINT_URL="https://s3.hf.co/<namespace>"
 export AWS_ACCESS_KEY_ID="HFAK..."
