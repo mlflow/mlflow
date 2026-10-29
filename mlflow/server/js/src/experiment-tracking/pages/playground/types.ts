@@ -27,6 +27,10 @@ export interface ConversationMessage extends ChatMessage {
   // at generation time so toggling the response-format control afterward does not
   // retroactively reformat past replies. Display-only; stripped before sending.
   contentIsJson?: boolean;
+  // True when the endpoint generated this message. Replies render read-only, while
+  // a message the user writes stays editable even with the assistant role (e.g. an
+  // example response for priming). Display-only; stripped before sending.
+  isModelReply?: boolean;
 }
 
 export type ResponseFormatType = 'text' | 'json_object' | 'json_schema';
