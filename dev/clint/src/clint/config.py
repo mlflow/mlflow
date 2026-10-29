@@ -1,9 +1,9 @@
 import re
 import typing
 from dataclasses import dataclass, field
+from typing import Self
 
 import tomli
-from typing_extensions import Self
 
 from clint.rules import ALL_RULES
 from clint.utils import get_repo_root

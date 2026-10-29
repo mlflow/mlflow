@@ -3,7 +3,7 @@ name = "flavors"
 version = "0.1.0"
 description = "CLI and shared helpers for cooking mlflow/ml-package-versions.yml."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = ["packaging", "pydantic>=2.0", "pypi", "pyyaml", "requests"]
 
 [project.scripts]

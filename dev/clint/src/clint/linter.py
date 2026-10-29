@@ -6,9 +6,7 @@ import textwrap
 import tokenize
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Iterator, TypeAlias
-
-from typing_extensions import Self
+from typing import Any, Iterable, Iterator, Self, TypeAlias
 
 from clint import rules
 from clint.comments import Noqa, iter_comments

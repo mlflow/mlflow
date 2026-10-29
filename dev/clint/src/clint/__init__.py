@@ -7,9 +7,7 @@ import tempfile
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
-
-from typing_extensions import Self
+from typing import Literal, Self
 
 from clint.config import Config
 from clint.index import SymbolIndex

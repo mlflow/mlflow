@@ -11,9 +11,7 @@ import json
 import threading
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
-from typing import Any
-
-from typing_extensions import Self
+from typing import Any, Self
 
 
 def _make_handler(wheel_dir: Path) -> type[SimpleHTTPRequestHandler]:

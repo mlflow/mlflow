@@ -1,4 +1,10 @@
 pytest==9.1.1
+# Keep the existing pandas 2 test baseline while using pyspark<4.1.
+pandas<3
+# Keep the scikit-learn 1.7 test baseline compatible with xgboost<3.1.
+scikit-learn<1.8
+# pyarrow 26 requires NumPy 2 at runtime, while several flavor tests require NumPy 1.x.
+pyarrow<26
 # xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
 # https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept
 xgboost<3.1.0

@@ -23,7 +23,7 @@ pip install mlflow
 mlflow server --backend-store-uri sqlite:///mlruns.db --port 5000
 ```
 
-Self-hosting MLflow server requires Python 3.10 or higher. If you don't have one, you can also use [managed MLflow service](https://mlflow.org/#get-started) for free to get started quickly.
+Self-hosting MLflow server requires Python 3.11 or higher. If you don't have one, you can also use [managed MLflow service](https://mlflow.org/#get-started) for free to get started quickly.
 
 Instantiate MLflow SDK in your application:
 

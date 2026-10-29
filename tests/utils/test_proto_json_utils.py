@@ -3,6 +3,7 @@ import datetime
 import json
 from unittest import mock
 
+import google.protobuf
 import numpy as np
 import pandas as pd
 import pytest
@@ -12,6 +13,7 @@ from google.protobuf.descriptor_pb2 import MethodOptions
 from google.protobuf.json_format import MessageToDict
 from google.protobuf.text_format import Parse as ParseTextIntoProto
 from google.protobuf.wrappers_pb2 import Int64Value
+from packaging.version import Version
 
 from mlflow.entities import Experiment, Metric
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
@@ -286,7 +288,11 @@ def repeated_int64_extension():
     field.label = descriptor_pb2.FieldDescriptorProto.LABEL_REPEATED
     field.type = descriptor_pb2.FieldDescriptorProto.TYPE_INT64
     descriptor = descriptor_pool.Default().AddSerializedFile(proto.SerializeToString())
-    return descriptor.extensions_by_name[field.name]
+    extension = descriptor.extensions_by_name[field.name]
+    # Protobuf 3's pure-Python implementation requires explicit extension registration.
+    if Version(google.protobuf.__version__).major == 3:
+        SampleMessage.RegisterExtension(extension)
+    return extension
 
 
 @pytest.mark.parametrize("packed", [False, True])

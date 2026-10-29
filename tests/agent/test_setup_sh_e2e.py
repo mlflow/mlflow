@@ -120,7 +120,8 @@ def mlflow_server(tmp_path_factory: pytest.TempPathFactory, cached_db: Path) -> 
         start_new_session=True,
     )
     try:
-        for _ in range(60):
+        deadline = time.monotonic() + 60
+        while time.monotonic() < deadline:
             if process.poll() is not None:
                 pytest.fail(f"MLflow server exited with status {process.returncode}")
             try:

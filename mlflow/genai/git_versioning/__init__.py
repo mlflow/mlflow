@@ -1,6 +1,5 @@
 import logging
-
-from typing_extensions import Self
+from typing import Self
 
 import mlflow
 from mlflow.genai.git_versioning.git_info import GitInfo, GitOperationError
