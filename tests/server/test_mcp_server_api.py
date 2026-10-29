@@ -32,6 +32,7 @@ from mlflow.server.mcp_server_api import (
 )
 from mlflow.store.tracking.dbmodels.models import SqlMCPServer
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 PREFIX = "/ajax-api/3.0/mlflow/mcp-servers"
 
@@ -594,6 +595,7 @@ def test_server_responses_return_allowed_actions_for_authenticated_user(
 
     with (
         mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch("mlflow.server.auth._get_tracking_store", return_value=store),
         mock.patch(
             "mlflow.server.auth._authenticate_fastapi_request",
             return_value=SimpleNamespace(username="alice", id=1, is_admin=False),
@@ -609,6 +611,10 @@ def test_server_responses_return_allowed_actions_for_authenticated_user(
             "mlflow.server.auth._get_mcp_server_permission",
             return_value=get_permission(permission),
         ) as permission_resolver,
+        mock.patch(
+            "mlflow.server.auth._role_permission_for_known_workspace",
+            return_value=lambda: get_permission(permission),
+        ) as stored_server_permission_resolver,
     ):
         response = TestClient(app).get(PREFIX + suffix)
 
@@ -617,6 +623,12 @@ def test_server_responses_return_allowed_actions_for_authenticated_user(
     assert server["name"] == "com.example/alpha"
     assert server["allowed_actions"] == actions
     permission_resolver.assert_called_with("com.example/alpha", "alice")
+    if suffix:
+        stored_server_permission_resolver.assert_called_once_with(
+            "alice", "mcp_server", "com.example/alpha", DEFAULT_WORKSPACE_NAME
+        )
+    else:
+        stored_server_permission_resolver.assert_not_called()
     can_read.assert_not_called()
 
 
