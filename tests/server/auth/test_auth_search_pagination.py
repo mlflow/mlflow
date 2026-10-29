@@ -226,6 +226,11 @@ def test_retained_registry_filter_fills_pages_with_opaque_tokens(
 
     search = Mock(side_effect=search_page)
     monkeypatch.setattr(registry, "search_registered_models", search)
+    scope = (
+        "name IN ('visible-a', 'visible-b', 'visible-c')"
+        if grant == "named"
+        else "name NOT IN ('hidden-0', 'hidden-1', 'hidden-2', 'hidden-3')"
+    )
     params = {"filter": "name != 'excluded'", "max_results": 2, "order_by": "name ASC"}
     pages = []
     for _ in range(3):
@@ -239,7 +244,7 @@ def test_retained_registry_filter_fills_pages_with_opaque_tokens(
     assert pages == [["visible-a", "visible-b"], ["visible-c"]]
     search.assert_called()
     for call in search.call_args_list:
-        assert call.kwargs["filter_string"] == "name != 'excluded'"
+        assert call.kwargs["filter_string"] == f"name != 'excluded' AND {scope}"
         assert call.kwargs["order_by"] == ["name ASC"]
         assert 0 < call.kwargs["max_results"] <= 2
         assert call.kwargs["page_token"] is None or call.kwargs["page_token"] in cursors
@@ -383,9 +388,14 @@ def test_retained_search_preserves_progressing_opaque_continuations(
 @pytest.mark.parametrize("grant", ["named", "wildcard-deny"])
 @pytest.mark.parametrize("refill", [False, True])
 def test_retained_search_stops_at_full_page_without_lookahead(
-    retained_search_setup, monkeypatch, refill
+    retained_search_setup, monkeypatch, refill, collection, grant
 ):
     backend, method, visible, hidden, result_key, search_request = retained_search_setup
+    expected_filter = "name != 'excluded'"
+    if collection == "registered-models":
+        expected_filter += (
+            " AND name IN ('visible')" if grant == "named" else " AND name NOT IN ('hidden')"
+        )
     token = "opaque-unreadable-tail"
     search = Mock(
         side_effect=[
@@ -415,5 +425,5 @@ def test_retained_search_stops_at_full_page_without_lookahead(
     assert search.call_args.kwargs["page_token"] == token
     for call in search.call_args_list:
         assert call.kwargs["max_results"] == 1
-        assert call.kwargs["filter_string"] == "name != 'excluded'"
+        assert call.kwargs["filter_string"] == expected_filter
         assert call.kwargs["order_by"] == ["name ASC"]

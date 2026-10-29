@@ -8,6 +8,8 @@ These form a contract across files; centralising them here prevents mismatches.
 SCOPED_EXPERIMENT_IDS = "mlflow_scoped_experiment_ids"
 # Flask g key: effective filter retained for scoped-query error reporting.
 SCOPED_EXPERIMENT_FILTER = "mlflow_scoped_experiment_filter"
+# Flask g key: effective registered model filter retained for scoped-query error reporting.
+SCOPED_REGISTERED_MODEL_FILTER = "mlflow_scoped_registered_model_filter"
 
 # Starlette request.state keys (FastAPI request scope)
 SCOPED_MCP_SERVER_FILTER = "mlflow_scoped_mcp_server_filter"
