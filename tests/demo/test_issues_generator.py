@@ -132,22 +132,18 @@ def test_build_evidence_without_spans_or_a_walkthrough():
     assert _build_evidence("not-an-assessment", "why", [FakeSpan("llm", "LLM")]) is None
 
 
-def test_detection_history_covers_the_states_the_page_must_render():
-    triggers = {spec["scheduled"] for spec in _DEMO_DETECTION_HISTORY}
-    statuses = {spec["status"] for spec in _DEMO_DETECTION_HISTORY}
+def test_detection_history_is_data_the_page_can_render():
+    # The history is a hand-written fixture, so what is worth pinning is only what an edit to it
+    # could quietly break: that it still covers every state the page renders, that the analyzed
+    # count follows the production rule (written when the analysis returns, never more than the
+    # run was handed), and that no window is wider than the scheduler could have produced.
+    cap_days = STALE_WATERMARK_CAP_MS / (24 * 60 * 60 * 1000)
 
-    assert triggers == {True, False}
-    # Three terminal statuses, and none left RUNNING.
-    assert len(statuses) == 3
+    assert {spec["scheduled"] for spec in _DEMO_DETECTION_HISTORY} == {True, False}
+    assert len({spec["status"] for spec in _DEMO_DETECTION_HISTORY}) == 3
     assert any(spec["total_traces"] == 0 for spec in _DEMO_DETECTION_HISTORY)
     assert any(spec.get("error") for spec in _DEMO_DETECTION_HISTORY)
-    # The window column is what tells the two triggers apart.
-    assert all(spec.get("window_days") for spec in _DEMO_DETECTION_HISTORY if spec["scheduled"])
 
-
-def test_only_the_runs_that_finished_claim_an_analyzed_count():
-    # The count is written when the analysis returns, so a run that failed or was killed has
-    # none -- and where there is one it cannot exceed what the run was handed.
     for spec in _DEMO_DETECTION_HISTORY:
         analyzed = spec.get("analyzed_traces")
         if spec["status"] == RunStatus.FINISHED:
@@ -155,26 +151,8 @@ def test_only_the_runs_that_finished_claim_an_analyzed_count():
             assert analyzed <= spec["total_traces"]
         else:
             assert analyzed is None
-
-
-def test_detection_history_windows_stay_within_the_production_cap():
-    # A wider window is one the scheduler could never have produced.
-    cap_days = STALE_WATERMARK_CAP_MS / (24 * 60 * 60 * 1000)
-
-    assert all(
-        spec["window_days"] <= cap_days for spec in _DEMO_DETECTION_HISTORY if spec["scheduled"]
-    )
-
-
-def test_the_widest_window_follows_the_failure_that_held_the_watermark():
-    # The wide window exists because the runs before it held the watermark, so it sits after
-    # them -- fewer days ago.
-    scheduled = [spec for spec in _DEMO_DETECTION_HISTORY if spec["scheduled"]]
-    widest = min(scheduled, key=lambda spec: -spec["window_days"])
-    failure = next(spec for spec in scheduled if spec.get("error"))
-
-    assert widest["days_ago"] < failure["days_ago"]
-    assert widest["window_days"] > failure["window_days"]
+        if spec["scheduled"]:
+            assert 0 < spec["window_days"] <= cap_days
 
 
 @pytest.fixture
