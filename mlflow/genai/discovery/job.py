@@ -126,7 +126,6 @@ def _detect_issues_into_run(
             "issue_counts_by_category": count_issues_by_category(result.issues),
             "trace_count": len(trace_ids),
             "total_traces_analyzed": result.total_traces_analyzed,
-            "triage_run_id": result.triage_run_id,
             "total_cost_usd": result.total_cost_usd,
         }
         update_status_details(counts)
@@ -192,9 +191,7 @@ def _create_scheduled_run(
     # because nothing passes the id into a running job.
     if job_id := os.environ.get(MLFLOW_SERVER_JOB_ID_ENV_VAR):
         tags[MLFLOW_ISSUE_DETECTION_JOB_ID] = job_id
-    run_id = client.create_run(experiment_id=experiment_id, tags=tags).info.run_id
-    update_status_details({"run_id": run_id})
-    return run_id
+    return client.create_run(experiment_id=experiment_id, tags=tags).info.run_id
 
 
 def _record_quiet_occurrence(
@@ -211,7 +208,6 @@ def _record_quiet_occurrence(
     update_status_details({
         "trace_count": 0,
         "total_traces_analyzed": 0,
-        "triage_run_id": None,
         "total_cost_usd": 0.0,
         "issues": 0,
         "issue_counts_by_category": {},
@@ -302,7 +298,6 @@ def run_scheduled_issue_detection_job(
             "run_id": run_id,
             "trace_count": 0,
             "total_traces_analyzed": 0,
-            "triage_run_id": None,
             "total_cost_usd": 0.0,
             "issues": 0,
             "issue_counts_by_category": {},
@@ -334,7 +329,6 @@ def run_scheduled_issue_detection_job(
             "run_id": run_id,
             "trace_count": 0,
             "total_traces_analyzed": 0,
-            "triage_run_id": None,
             "total_cost_usd": 0.0,
             "issues": 0,
             "issue_counts_by_category": {},

@@ -44,8 +44,6 @@ _ISSUE_DETECTION_ATTEMPT_FIELDS = (
     "trace_count",
     "total_traces_analyzed",
     "total_cost_usd",
-    "triage_run_id",
-    "run_id",
 )
 _logger = logging.getLogger(__name__)
 

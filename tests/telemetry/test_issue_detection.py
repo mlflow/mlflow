@@ -91,16 +91,6 @@ def test_record_terminal_issue_detection_job(job_status, event_status, job_name,
             "trace_count": expected_input,
             "total_traces_analyzed": 3 if job_status == JobStatus.SUCCEEDED else 2,
             "trigger": trigger,
-            "source_run_id": (
-                "adhoc-run"
-                if trigger == "adhoc"
-                else "result-run"
-                if job_status == JobStatus.SUCCEEDED
-                else "detail-run"
-            ),
-            "triage_run_id": "result-triage"
-            if job_status == JobStatus.SUCCEEDED
-            else "detail-triage",
             "total_cost_usd": 0.12 if job_status == JobStatus.SUCCEEDED else 0.06,
         },
         status=event_status,
@@ -141,8 +131,6 @@ def test_unknown_findings_remain_unknown(result):
             "trace_count": None,
             "total_traces_analyzed": None,
             "trigger": "schedule",
-            "source_run_id": None,
-            "triage_run_id": None,
             "total_cost_usd": None,
         },
         status=Status.SUCCESS,
@@ -175,8 +163,6 @@ def test_quiet_schedule_records_zero_counts():
         "trace_count": 0,
         "total_traces_analyzed": 0,
         "trigger": "schedule",
-        "source_run_id": "quiet-run",
-        "triage_run_id": None,
         "total_cost_usd": 0.0,
     }
 

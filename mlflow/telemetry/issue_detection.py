@@ -64,12 +64,6 @@ def record_issue_detection_job_event(job: Job) -> None:
                     total_traces_analyzed if type(total_traces_analyzed) is int else None
                 ),
                 "trigger": "schedule" if scheduled else "adhoc",
-                "source_run_id": (
-                    result.get("run_id", details.get("run_id"))
-                    if scheduled
-                    else params.get("run_id")
-                ),
-                "triage_run_id": result.get("triage_run_id", details.get("triage_run_id")),
                 "total_cost_usd": result.get("total_cost_usd", details.get("total_cost_usd")),
             },
             status=status,

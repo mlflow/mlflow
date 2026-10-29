@@ -147,8 +147,6 @@ def test_start_and_retry_clear_stale_counts_without_emitting(job_store, monkeypa
                 "trace_count": 10,
                 "total_traces_analyzed": 8,
                 "total_cost_usd": 0.1,
-                "triage_run_id": "triage-run",
-                "run_id": "source-run",
             },
         )
         if reschedule == "requeue":
@@ -274,8 +272,6 @@ def test_committed_job_emits_summary_payload(job_store):
             "job_id": job.job_id,
             "model": None,
             "categories": None,
-            "source_run_id": None,
-            "triage_run_id": None,
             "total_cost_usd": None,
             "issue_count": 2,
             "issue_counts_by_category": {"correctness": 1, "Custom": 1},

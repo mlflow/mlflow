@@ -147,7 +147,6 @@ def test_invoke_issue_detection_job_success():
     mock_result.summary = "Found 3 issues"
     mock_result.issues = [mock.MagicMock(), mock.MagicMock(), mock.MagicMock()]
     mock_result.total_traces_analyzed = 2
-    mock_result.triage_run_id = "triage-run-123"
     mock_result.total_cost_usd = 0.15
     mock_result.new_issue_count = 1
 
@@ -176,7 +175,6 @@ def test_invoke_issue_detection_job_success():
         assert result["issues"] == 3
         assert result["new_issue_count"] == 1
         assert result["total_traces_analyzed"] == 2
-        assert result["triage_run_id"] == "triage-run-123"
         assert result["total_cost_usd"] == 0.15
         assert result["trace_count"] == 2
 
@@ -201,7 +199,6 @@ def test_invoke_issue_detection_job_records_issue_counts(issue_categories, expec
     discovery_result = mock.MagicMock(
         issues=[mock.MagicMock(categories=categories) for categories in issue_categories],
         total_traces_analyzed=1,
-        triage_run_id="triage-run-123",
         total_cost_usd=0.15,
     )
     with (
@@ -225,7 +222,6 @@ def test_invoke_issue_detection_job_records_issue_counts(issue_categories, expec
         "issue_counts_by_category": expected,
         "trace_count": 2,
         "total_traces_analyzed": 1,
-        "triage_run_id": "triage-run-123",
         "total_cost_usd": 0.15,
     }
     assert update.call_args_list == [
@@ -233,6 +229,7 @@ def test_invoke_issue_detection_job_records_issue_counts(issue_categories, expec
         mock.call(counts),
     ]
     assert {key: result[key] for key in counts} == counts
+    assert "triage_run_id" not in result
 
 
 def test_invoke_issue_detection_job_with_endpoint():
@@ -243,7 +240,6 @@ def test_invoke_issue_detection_job_with_endpoint():
     mock_result.summary = "Found 1 issue"
     mock_result.issues = [mock.MagicMock()]
     mock_result.total_traces_analyzed = 1
-    mock_result.triage_run_id = "triage-run-123"
     mock_result.total_cost_usd = 0.05
 
     with (
@@ -276,7 +272,6 @@ def test_invoke_issue_detection_job_batches_large_trace_list():
     mock_result.summary = "Summary"
     mock_result.issues = []
     mock_result.total_traces_analyzed = 250
-    mock_result.triage_run_id = "triage-run-123"
     mock_result.total_cost_usd = 1.0
 
     with (
