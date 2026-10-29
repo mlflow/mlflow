@@ -182,3 +182,71 @@ def test_generate_stores_the_schedule_turned_off(demo_experiment_with_failing_tr
     # Paused, so it is never dispatched -- but still what gives the windows a timezone.
     assert schedule["paused"] is True
     assert schedule["timezone"]
+
+
+@pytest.fixture
+def demo_experiment_with_a_react_trace():
+    """A ReAct-shaped trace, whose answer is in its *last* LLM span rather than its first."""
+    mlflow.set_experiment(DEMO_EXPERIMENT_NAME)
+    root = mlflow.start_span_no_context(
+        name="react_agent",
+        span_type=SpanType.CHAIN,
+        inputs={"question": "what was the total?"},
+        metadata={DEMO_VERSION_TAG: "v1"},
+    )
+    decision = mlflow.start_span_no_context(
+        name="choose_tool", span_type=SpanType.LLM, parent_span=root
+    )
+    decision.end()
+    tool = mlflow.start_span_no_context(
+        name="lookup_total", span_type=SpanType.TOOL, parent_span=root
+    )
+    tool.end()
+    answer = mlflow.start_span_no_context(
+        name="write_answer", span_type=SpanType.LLM, parent_span=root
+    )
+    answer.end()
+    root.end()
+
+    mlflow.log_feedback(
+        trace_id=root.trace_id,
+        name="correctness",
+        value="no",
+        rationale="The answer states a total the tool never returned.",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.LLM_JUDGE, source_id="judges/correctness"
+        ),
+    )
+
+    experiment = mlflow.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    return experiment.experiment_id, decision.span_id, tool.span_id, answer.span_id
+
+
+def test_evidence_cites_the_last_llm_span_of_a_react_trace(demo_experiment_with_a_react_trace):
+    # The response step of a walkthrough is marked `last`, because a ReAct trace's first LLM span
+    # is the tool-call decision and only the final one holds the answer. A trace with a single LLM
+    # span cannot tell that rule apart from taking the first, so it is pinned on this shape.
+    experiment_id, decision_span_id, tool_span_id, answer_span_id = (
+        demo_experiment_with_a_react_trace
+    )
+
+    IssuesDemoGenerator().generate()
+
+    issue_ids = {
+        issue.issue_id for issue in _get_store().search_issues(experiment_id=experiment_id)
+    }
+    traces = mlflow.search_traces(locations=[experiment_id], return_type="list", flush=True)
+    references = [
+        assessment
+        for trace in traces
+        for assessment in (trace.info.assessments or [])
+        if assessment.name in issue_ids
+    ]
+    assert references
+
+    for reference in references:
+        payload = json.loads((reference.metadata or {})[ISSUE_EVIDENCE_METADATA_KEY])
+        assert [step["span_id"] for step in payload["steps"]] == [tool_span_id, answer_span_id]
+        assert decision_span_id not in {step["span_id"] for step in payload["steps"]}
+        # The finding belongs to the span the walkthrough ends at.
+        assert reference.span_id == answer_span_id
