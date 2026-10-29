@@ -248,11 +248,6 @@ def set_experiment(
         and is_databricks_uri(_resolve_tracking_uri())
         and MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH not in experiment.tags
     ):
-        # `mlflow.agent` does not ship in the mlflow-tracing package.
-        with contextlib.suppress(ImportError):
-            from mlflow.agent.hint import maybe_hint_default_trace_catalog
-
-            maybe_hint_default_trace_catalog(experiment.experiment_id, _resolve_tracking_uri())
         if is_newly_created:
             show_new_experiment_upsell()
         else:

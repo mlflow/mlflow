@@ -61,7 +61,7 @@ _AGENT_ENV_VALUES_WITHOUT_TTY = {"TERM_PROGRAM": "kiro"}
 
 # The skill that teaches supported autologging and span input/output recording.
 # Lives in https://github.com/mlflow/skills and is installed by `mlflow agent setup`.
-TRACING_SKILL = "instrumenting-with-mlflow-tracing"
+TRACING_SKILL = "mlflow-trace-instrumentation"
 
 # All hints in this module are process-local. An agent only needs to see a
 # particular problem once to change course; repeating it on every span or row
@@ -176,42 +176,6 @@ def maybe_append_agent_hint(issue_id: str, message: str) -> str:
     except Exception:
         pass
     return message
-
-
-def maybe_hint_default_trace_catalog(experiment_id: str, tracking_uri: str) -> None:
-    """Point a coding agent at the workspace default catalog for a non-UC Databricks experiment."""
-    try:
-        issue_id = "databricks-experiment-without-uc-trace-location"
-        if issue_id in _EMITTED_HINTS or MLFLOW_DISABLE_AGENT_HINT.get() or not _is_agent_driving():
-            return
-
-        from mlflow.utils.databricks_utils import get_default_trace_catalog
-
-        if not (catalog := get_default_trace_catalog(tracking_uri)):
-            return
-        with _EMITTED_HINTS_LOCK:
-            if issue_id in _EMITTED_HINTS:
-                return
-            _EMITTED_HINTS.add(issue_id)
-        # Kept to a single line for the same reason as `_HINT`.
-        # Asks the agent to involve the user rather than switch on its own: agents treat a
-        # storage change as outside a task's scope and decline it, but do relay it to the user.
-        _logger.warning(
-            "Experiment %s is not linked to Unity Catalog, so its traces are capped at 100,000 "
-            "and cannot be queried with SQL. Ask the user whether to store traces in the "
-            "workspace default catalog (%r.default). If they agree, pass "
-            "`trace_location=UnityCatalog(catalog, 'default')` (from "
-            "mlflow.entities.trace_location), with `catalog` from "
-            "`mlflow.tracing.get_default_trace_catalog()`, to the `mlflow.set_experiment` call. "
-            "Linking only works while the experiment has no traces, so ask before the first "
-            "trace is logged or use a new experiment name. "
-            "Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this.",
-            experiment_id,
-            catalog,
-        )
-    except Exception:
-        # Advisory only: a failed lookup must never break `set_experiment`.
-        return
 
 
 def maybe_warn_local_tracking_for_databricks() -> None:
