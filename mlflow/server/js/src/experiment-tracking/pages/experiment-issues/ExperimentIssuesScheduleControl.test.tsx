@@ -169,16 +169,7 @@ const openModal = async (user: ReturnType<typeof setup>, name: RegExp | string =
   // Re-queried inside the wait rather than captured once: until `server-info` answers, the control
   // renders its disabled branch, and becoming available swaps in a different button. Waiting on the
   // element found first would wait forever on a node that has been detached.
-  //
-  // With a timeout of its own, because `waitFor` defaults to one second while a test here has
-  // twenty: nearly every test in this file opens the dialog through here, and on a loaded CI
-  // runner -- where this file takes two minutes rather than one -- a `server-info` round trip plus
-  // the re-render it causes does not always land inside that second. Measured, not guessed: that
-  // is how this helper failed on https://github.com/mlflow/mlflow/pull/27181 while every
-  // assertion in the test it was serving was still true.
-  await waitFor(async () => expect(await screen.findByRole('button', { name })).not.toBeDisabled(), {
-    timeout: 5000,
-  });
+  await waitFor(async () => expect(await screen.findByRole('button', { name })).not.toBeDisabled());
   await user.click(await screen.findByRole('button', { name }));
   return screen.findByRole('dialog');
 };
