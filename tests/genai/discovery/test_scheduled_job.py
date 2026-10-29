@@ -52,8 +52,9 @@ def _trace(trace_id: str):
 def _result(cost: float = 0.25):
     result = mock.MagicMock()
     result.summary = "Found 1 issue"
-    result.issues = [mock.MagicMock()]
+    result.issues = [mock.MagicMock(categories=["correctness"])]
     result.total_traces_analyzed = 2
+    result.triage_run_id = "triage-run-scheduled"
     result.total_cost_usd = cost
     return result
 
@@ -122,6 +123,7 @@ def test_an_empty_window_records_a_finished_run_and_leaves_the_watermark_alone(c
         mock.patch("mlflow.genai.discovery.job._newest_trace_matching", return_value=None),
         mock.patch("mlflow.genai.discovery.job.sample_traces") as sample,
         mock.patch("mlflow.genai.discovery.job.discover_issues") as discover,
+        mock.patch("mlflow.genai.discovery.job.update_status_details") as update,
     ):
         result = run_scheduled_issue_detection_job(
             experiment_id="exp-1",
@@ -132,7 +134,27 @@ def test_an_empty_window_records_a_finished_run_and_leaves_the_watermark_alone(c
 
     # A quiet window still leaves a run behind: "fired and found nothing" has to be
     # distinguishable from "never fired". Nothing is analyzed, so the model is never called.
-    assert result == {"traces_in_window": 0, "run_id": "run-scheduled"}
+    assert result == {
+        "traces_in_window": 0,
+        "run_id": "run-scheduled",
+        "trace_count": 0,
+        "total_traces_analyzed": 0,
+        "triage_run_id": None,
+        "total_cost_usd": 0.0,
+        "issues": 0,
+        "issue_counts_by_category": {},
+    }
+    assert update.call_args_list == [
+        mock.call({
+            "trace_count": 0,
+            "total_traces_analyzed": 0,
+            "triage_run_id": None,
+            "total_cost_usd": 0.0,
+            "issues": 0,
+            "issue_counts_by_category": {},
+        }),
+        mock.call({"run_id": "run-scheduled"}),
+    ]
     tags = client.create_run.call_args.kwargs["tags"]
     assert tags["total_traces"] == "0"
     assert tags[MLFLOW_RUN_TYPE] == MLFLOW_RUN_TYPE_ISSUE_DETECTION
@@ -155,6 +177,7 @@ def test_a_window_whose_sample_comes_back_empty_records_a_run_over_zero_traces(c
         ),
         mock.patch("mlflow.genai.discovery.job.sample_traces", return_value=[]) as sample,
         mock.patch("mlflow.genai.discovery.job.write_detection_checkpoint") as write_checkpoint,
+        mock.patch("mlflow.genai.discovery.job.update_status_details") as update,
     ):
         result = run_scheduled_issue_detection_job(
             experiment_id="exp-1",
@@ -163,7 +186,28 @@ def test_a_window_whose_sample_comes_back_empty_records_a_run_over_zero_traces(c
             categories=CATEGORIES,
         )
 
-    assert result == {"traces_in_window": 0, "run_id": "run-scheduled"}
+    assert result == {
+        "traces_in_window": 0,
+        "run_id": "run-scheduled",
+        "trace_count": 0,
+        "total_traces_analyzed": 0,
+        "triage_run_id": None,
+        "total_cost_usd": 0.0,
+        "issues": 0,
+        "issue_counts_by_category": {},
+    }
+    assert update.call_args_list == [
+        mock.call({"trace_count": 0}),
+        mock.call({
+            "trace_count": 0,
+            "total_traces_analyzed": 0,
+            "triage_run_id": None,
+            "total_cost_usd": 0.0,
+            "issues": 0,
+            "issue_counts_by_category": {},
+        }),
+        mock.call({"run_id": "run-scheduled"}),
+    ]
     assert client.create_run.call_args.kwargs["tags"]["total_traces"] == "0"
     sample.assert_called_once()
     # The window was still covered, so the watermark moves, and it names the run that covered it.
@@ -184,6 +228,7 @@ def test_a_successful_occurrence_records_a_run_and_advances_the_watermark(client
         mock.patch(
             "mlflow.genai.discovery.job.discover_issues", return_value=_result()
         ) as discover,
+        mock.patch("mlflow.genai.discovery.job.update_status_details") as update,
     ):
         client._tracing_client.batch_get_traces.return_value = [_trace("tr-1"), _trace("tr-2")]
         result = run_scheduled_issue_detection_job(
@@ -229,6 +274,24 @@ def test_a_successful_occurrence_records_a_run_and_advances_the_watermark(client
 
     assert result["traces_in_window"] == 2
     assert result["run_id"] == "run-scheduled"
+    assert result["issues"] == 1
+    assert result["issue_counts_by_category"] == {"correctness": 1}
+    assert result["trace_count"] == 2
+    assert result["total_traces_analyzed"] == 2
+    assert result["triage_run_id"] == "triage-run-scheduled"
+    assert result["total_cost_usd"] == 0.25
+    assert update.call_args_list == [
+        mock.call({"trace_count": 2}),
+        mock.call({"run_id": "run-scheduled"}),
+        mock.call({
+            "issues": 1,
+            "issue_counts_by_category": {"correctness": 1},
+            "trace_count": 2,
+            "total_traces_analyzed": 2,
+            "triage_run_id": "triage-run-scheduled",
+            "total_cost_usd": 0.25,
+        }),
+    ]
 
 
 def test_a_window_with_no_schedule_filter_uses_only_its_own_bounds(client):
@@ -267,6 +330,7 @@ def test_a_failed_occurrence_fails_its_run_and_leaves_the_watermark_alone(client
             "mlflow.genai.discovery.job.discover_issues",
             side_effect=RuntimeError("the judge was unreachable"),
         ) as discover,
+        mock.patch("mlflow.genai.discovery.job.update_status_details") as update,
         pytest.raises(RuntimeError, match="the judge was unreachable"),
     ):
         run_scheduled_issue_detection_job(
@@ -282,6 +346,44 @@ def test_a_failed_occurrence_fails_its_run_and_leaves_the_watermark_alone(client
     )
     # The next occurrence must cover this window again.
     client.set_experiment_tag.assert_not_called()
+    assert update.call_args_list == [
+        mock.call({"trace_count": 1}),
+        mock.call({"run_id": "run-scheduled"}),
+    ]
+
+
+def test_a_sampling_failure_leaves_the_trace_count_unknown(occurrence):
+    occurrence.sample.side_effect = RuntimeError("trace search unavailable")
+    with (
+        mock.patch("mlflow.genai.discovery.job.update_status_details") as update,
+        pytest.raises(RuntimeError, match="trace search unavailable"),
+    ):
+        occurrence.run()
+
+    occurrence.sample.assert_called_once()
+    occurrence.discover.assert_not_called()
+    occurrence.write_checkpoint.assert_not_called()
+    update.assert_not_called()
+
+
+def test_a_checkpoint_failure_preserves_issue_counts(occurrence):
+    occurrence.write_checkpoint.side_effect = RuntimeError("checkpoint unavailable")
+    with (
+        mock.patch("mlflow.genai.discovery.job.update_status_details") as update,
+        pytest.raises(RuntimeError, match="checkpoint unavailable"),
+    ):
+        occurrence.run()
+
+    occurrence.discover.assert_called_once()
+    occurrence.write_checkpoint.assert_called_once()
+    update.assert_called_with({
+        "issues": 1,
+        "issue_counts_by_category": {"correctness": 1},
+        "trace_count": 2,
+        "total_traces_analyzed": 2,
+        "triage_run_id": "triage-run-scheduled",
+        "total_cost_usd": 0.25,
+    })
 
 
 def test_the_default_model_is_recorded_when_the_schedule_names_none(client):
@@ -379,7 +481,16 @@ def test_a_window_whose_traces_all_fail_the_filter_still_advances_the_watermark(
     # watermark moves to the window's newest.
     discover.assert_not_called()
     assert client.create_run.call_args.kwargs["tags"]["total_traces"] == "0"
-    assert result == {"traces_in_window": 0, "run_id": "run-scheduled"}
+    assert result == {
+        "traces_in_window": 0,
+        "run_id": "run-scheduled",
+        "trace_count": 0,
+        "total_traces_analyzed": 0,
+        "triage_run_id": None,
+        "total_cost_usd": 0.0,
+        "issues": 0,
+        "issue_counts_by_category": {},
+    }
     assert write_checkpoint.call_args.args[2].last_scanned_trace_time_ms == newest.time_ms
 
 

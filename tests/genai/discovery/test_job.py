@@ -2,6 +2,7 @@ from unittest import mock
 
 import pytest
 
+from mlflow.entities.issue import IssueCategory
 from mlflow.entities.run_status import RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.genai.discovery.job import (
@@ -146,6 +147,7 @@ def test_invoke_issue_detection_job_success():
     mock_result.summary = "Found 3 issues"
     mock_result.issues = [mock.MagicMock(), mock.MagicMock(), mock.MagicMock()]
     mock_result.total_traces_analyzed = 2
+    mock_result.triage_run_id = "triage-run-123"
     mock_result.total_cost_usd = 0.15
     mock_result.new_issue_count = 1
 
@@ -174,7 +176,63 @@ def test_invoke_issue_detection_job_success():
         assert result["issues"] == 3
         assert result["new_issue_count"] == 1
         assert result["total_traces_analyzed"] == 2
+        assert result["triage_run_id"] == "triage-run-123"
         assert result["total_cost_usd"] == 0.15
+        assert result["trace_count"] == 2
+
+
+@pytest.mark.parametrize(
+    ("issue_categories", "expected"),
+    [
+        ([], {}),
+        ([None, []], {}),
+        (
+            [
+                [IssueCategory.CORRECTNESS, "safety", "safety"],
+                ["correctness", "private category", "another private category"],
+                ["private category"],
+            ],
+            {"correctness": 2, "safety": 1, "Custom": 2},
+        ),
+    ],
+)
+def test_invoke_issue_detection_job_records_issue_counts(issue_categories, expected):
+    client = mock.MagicMock()
+    discovery_result = mock.MagicMock(
+        issues=[mock.MagicMock(categories=categories) for categories in issue_categories],
+        total_traces_analyzed=1,
+        triage_run_id="triage-run-123",
+        total_cost_usd=0.15,
+    )
+    with (
+        mock.patch("mlflow.genai.discovery.job.MlflowClient", return_value=client) as create_client,
+        mock.patch(
+            "mlflow.genai.discovery.job.discover_issues", return_value=discovery_result
+        ) as discover,
+        mock.patch("mlflow.genai.discovery.job.update_status_details") as update,
+    ):
+        result = invoke_issue_detection_job(
+            experiment_id="exp-123",
+            trace_ids=["trace-1", "trace-2"],
+            categories=["correctness", "safety", "private category", "another private category"],
+            run_id="run-123",
+        )
+
+    create_client.assert_called_once_with()
+    discover.assert_called_once()
+    counts = {
+        "issues": len(issue_categories),
+        "issue_counts_by_category": expected,
+        "trace_count": 2,
+        "total_traces_analyzed": 1,
+        "triage_run_id": "triage-run-123",
+        "total_cost_usd": 0.15,
+    }
+    assert update.call_args_list == [
+        mock.call({"trace_count": 2}),
+        mock.call(counts),
+    ]
+    assert {key: result[key] for key in counts} == counts
 
 
 def test_invoke_issue_detection_job_with_endpoint():
@@ -185,6 +243,7 @@ def test_invoke_issue_detection_job_with_endpoint():
     mock_result.summary = "Found 1 issue"
     mock_result.issues = [mock.MagicMock()]
     mock_result.total_traces_analyzed = 1
+    mock_result.triage_run_id = "triage-run-123"
     mock_result.total_cost_usd = 0.05
 
     with (
@@ -217,6 +276,7 @@ def test_invoke_issue_detection_job_batches_large_trace_list():
     mock_result.summary = "Summary"
     mock_result.issues = []
     mock_result.total_traces_analyzed = 250
+    mock_result.triage_run_id = "triage-run-123"
     mock_result.total_cost_usd = 1.0
 
     with (
@@ -246,7 +306,10 @@ def test_invoke_issue_detection_job_failure_marks_run_failed():
     mock_client = mock.MagicMock()
     mock_client._tracing_client.batch_get_traces.side_effect = Exception("API error")
 
-    with mock.patch("mlflow.genai.discovery.job.MlflowClient", return_value=mock_client):
+    with (
+        mock.patch("mlflow.genai.discovery.job.MlflowClient", return_value=mock_client),
+        mock.patch("mlflow.genai.discovery.job.update_status_details") as update,
+    ):
         with pytest.raises(Exception, match="API error"):
             invoke_issue_detection_job(
                 experiment_id="exp-123",
@@ -259,6 +322,7 @@ def test_invoke_issue_detection_job_failure_marks_run_failed():
         mock_client.set_terminated.assert_called_once_with(
             "run-123", RunStatus.to_string(RunStatus.FAILED)
         )
+        update.assert_called_once_with({"trace_count": 1})
 
 
 def test_invoke_issue_detection_job_forwards_the_saved_priorities():

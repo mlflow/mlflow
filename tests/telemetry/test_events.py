@@ -738,15 +738,17 @@ def test_optimize_prompts_job_parse_params(arguments, expected_params):
                 "run_id": "run-1",
             },
             {
+                "trigger": "sdk",
                 "model": "openai:/gpt-4",
                 "trace_count": 2,
-                "categories": ["hallucination"],
+                "categories": ["Custom"],
                 "source_run_id": "run-1",
             },
         ),
         (
             {"model": "databricks:/dbrx", "traces": [Mock()], "categories": None},
             {
+                "trigger": "sdk",
                 "model": "databricks:/dbrx",
                 "trace_count": 1,
                 "categories": None,
@@ -756,17 +758,33 @@ def test_optimize_prompts_job_parse_params(arguments, expected_params):
         (
             {"model": None, "traces": [], "categories": ["accuracy", "safety"]},
             {
+                "trigger": "sdk",
                 "model": None,
                 "trace_count": 0,
-                "categories": ["accuracy", "safety"],
+                "categories": ["Custom", "safety"],
                 "source_run_id": None,
             },
         ),
         (
             {"traces": None, "categories": []},
-            {"model": None, "trace_count": 0, "categories": [], "source_run_id": None},
+            {
+                "trigger": "sdk",
+                "model": None,
+                "trace_count": 0,
+                "categories": [],
+                "source_run_id": None,
+            },
         ),
-        ({}, {"model": None, "trace_count": 0, "categories": None, "source_run_id": None}),
+        (
+            {},
+            {
+                "trigger": "sdk",
+                "model": None,
+                "trace_count": 0,
+                "categories": None,
+                "source_run_id": None,
+            },
+        ),
     ],
 )
 def test_discover_issues_parse_params(arguments, expected_params):
@@ -787,6 +805,7 @@ def test_discover_issues_parse_params(arguments, expected_params):
                         status=IssueStatus.PENDING,
                         created_timestamp=0,
                         last_updated_timestamp=0,
+                        categories=["correctness", "private category", "another private category"],
                     ),
                     Issue(
                         issue_id="2",
@@ -796,6 +815,7 @@ def test_discover_issues_parse_params(arguments, expected_params):
                         status=IssueStatus.PENDING,
                         created_timestamp=0,
                         last_updated_timestamp=0,
+                        categories=["correctness", "cost"],
                     ),
                     Issue(
                         issue_id="3",
@@ -814,6 +834,7 @@ def test_discover_issues_parse_params(arguments, expected_params):
             ),
             {
                 "issue_count": 3,
+                "issue_counts_by_category": {"correctness": 2, "Custom": 1, "cost": 1},
                 "total_traces_analyzed": 100,
                 "total_cost_usd": 2.5,
                 "triage_run_id": "run",
@@ -839,6 +860,7 @@ def test_discover_issues_parse_params(arguments, expected_params):
             ),
             {
                 "issue_count": 1,
+                "issue_counts_by_category": {},
                 "total_traces_analyzed": 50,
                 "total_cost_usd": 1.0,
                 "triage_run_id": "run",
@@ -854,6 +876,7 @@ def test_discover_issues_parse_params(arguments, expected_params):
             ),
             {
                 "issue_count": 0,
+                "issue_counts_by_category": {},
                 "total_traces_analyzed": 10,
                 "total_cost_usd": 0.0,
                 "triage_run_id": "run",
@@ -869,7 +892,18 @@ def test_discover_issues_parse_params(arguments, expected_params):
             ),
             {
                 "issue_count": 0,
+                "issue_counts_by_category": {},
                 "total_traces_analyzed": 0,
+                "total_cost_usd": None,
+                "triage_run_id": None,
+            },
+        ),
+        (
+            None,
+            {
+                "issue_count": None,
+                "issue_counts_by_category": None,
+                "total_traces_analyzed": None,
                 "total_cost_usd": None,
                 "triage_run_id": None,
             },

@@ -15,6 +15,10 @@ from mlflow.telemetry.constant import (
     KNOWN_FLAVORS,
     MODULES_TO_CHECK_IMPORT,
 )
+from mlflow.telemetry.issue_detection_utils import (
+    count_issues_by_category,
+    normalize_issue_categories,
+)
 
 if TYPE_CHECKING:
     from mlflow.genai.scorers.base import Scorer
@@ -993,19 +997,21 @@ class DiscoverIssuesEvent(Event):
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
         return {
+            "trigger": "sdk",
             "model": arguments.get("model"),
             "trace_count": len(arguments.get("traces") or []),
-            "categories": arguments.get("categories"),
+            "categories": normalize_issue_categories(arguments.get("categories")),
             "source_run_id": arguments.get("run_id"),
         }
 
     @classmethod
     def parse_result(cls, result: Any) -> dict[str, Any] | None:
         return {
-            "issue_count": len(result.issues),
-            "total_traces_analyzed": result.total_traces_analyzed,
-            "total_cost_usd": result.total_cost_usd,
-            "triage_run_id": result.triage_run_id,
+            "issue_count": len(result.issues) if result else None,
+            "issue_counts_by_category": count_issues_by_category(result.issues) if result else None,
+            "total_traces_analyzed": result.total_traces_analyzed if result else None,
+            "total_cost_usd": result.total_cost_usd if result else None,
+            "triage_run_id": result.triage_run_id if result else None,
         }
 
 

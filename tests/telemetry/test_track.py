@@ -1,4 +1,6 @@
 import time
+from asyncio import CancelledError as AsyncCancelledError
+from concurrent.futures import CancelledError as FutureCancelledError
 from unittest import mock
 
 import pytest
@@ -12,7 +14,11 @@ from mlflow.telemetry.client import (
 )
 from mlflow.telemetry.events import CreateLoggedModelEvent, Event
 from mlflow.telemetry.schemas import Status
-from mlflow.telemetry.track import _is_telemetry_disabled_for_event, record_usage_event
+from mlflow.telemetry.track import (
+    _is_telemetry_disabled_for_event,
+    _record_event,
+    record_usage_event,
+)
 from mlflow.telemetry.utils import is_telemetry_disabled
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.version import VERSION
@@ -64,6 +70,89 @@ def test_record_usage_event(mock_requests, mock_telemetry_client: TelemetryClien
     telemetry_info = mock_telemetry_client.info
     assert telemetry_info.items() <= succeed_record.items()
     assert telemetry_info.items() <= fail_record.items()
+
+
+@pytest.mark.parametrize("error", [KeyboardInterrupt, AsyncCancelledError, FutureCancelledError])
+def test_record_usage_event_cancellation_propagates(error, mock_requests, mock_telemetry_client):
+    @record_usage_event(TestEvent)
+    def cancel_func():
+        raise error("canceled")
+
+    with (
+        mock.patch(
+            "mlflow.telemetry.track.get_telemetry_client", return_value=mock_telemetry_client
+        ) as mock_get_client,
+        pytest.raises(error, match="canceled"),
+    ):
+        cancel_func()
+    mock_get_client.assert_called()
+
+    mock_telemetry_client.flush()
+    records = [
+        record["data"] for record in mock_requests if record["data"]["event_name"] == TestEvent.name
+    ]
+    assert len(records) == 1
+    assert records[0]["status"] == Status.CANCELED.value
+
+
+@pytest.mark.parametrize(
+    ("status", "success", "expected"),
+    [
+        (None, True, Status.SUCCESS),
+        (None, False, Status.FAILURE),
+        (Status.CANCELED, True, Status.CANCELED),
+        (Status.SUCCESS, False, Status.SUCCESS),
+        (Status.FAILURE, True, Status.FAILURE),
+    ],
+)
+def test_record_event_explicit_status(
+    status, success, expected, mock_requests, mock_telemetry_client
+):
+    with mock.patch(
+        "mlflow.telemetry.track.get_telemetry_client", return_value=mock_telemetry_client
+    ) as mock_get_client:
+        _record_event(TestEvent, {"count": 2}, status=status, success=success, duration_ms=123)
+    mock_get_client.assert_called()
+    mock_telemetry_client.flush()
+    records = [
+        record["data"] for record in mock_requests if record["data"]["event_name"] == TestEvent.name
+    ]
+    assert len(records) == 1
+    assert records[0]["status"] == expected.value
+    assert records[0]["duration_ms"] == 123
+
+
+@pytest.mark.parametrize("enabled", [True, False])
+def test_record_usage_event_enabled_predicate(enabled, mock_telemetry_client, mock_requests):
+    @record_usage_event(TestEvent, enabled=lambda: enabled)
+    def func(value):
+        return value
+
+    with mock.patch(
+        "mlflow.telemetry.track.get_telemetry_client", return_value=mock_telemetry_client
+    ) as mock_get_client:
+        assert func(42) == 42
+
+    if enabled:
+        mock_get_client.assert_called()
+    else:
+        mock_get_client.assert_not_called()
+    mock_telemetry_client.flush()
+    records = [record for record in mock_requests if record["data"]["event_name"] == TestEvent.name]
+    assert len(records) == int(enabled)
+
+
+def test_record_usage_event_predicate_failure_does_not_affect_function():
+    predicate = mock.Mock(side_effect=RuntimeError("unavailable"))
+    function = mock.Mock(return_value=42)
+    wrapped = record_usage_event(TestEvent, enabled=predicate)(function)
+
+    with mock.patch("mlflow.telemetry.track.get_telemetry_client") as mock_get_client:
+        assert wrapped("argument") == 42
+
+    predicate.assert_called_once_with()
+    function.assert_called_once_with("argument")
+    mock_get_client.assert_not_called()
 
 
 def test_backend_store_info(tmp_path, mock_telemetry_client: TelemetryClient, monkeypatch):

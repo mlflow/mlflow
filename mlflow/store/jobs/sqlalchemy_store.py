@@ -27,6 +27,10 @@ from mlflow.store.jobs.abstract_store import (
     JobUpdateStatus,
 )
 from mlflow.store.tracking.dbmodels.models import SqlJob
+from mlflow.telemetry.issue_detection import (
+    ISSUE_DETECTION_JOB_NAMES,
+    record_issue_detection_job_event,
+)
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
@@ -34,6 +38,15 @@ from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 sqlalchemy.orm.configure_mappers()
 
 _LIST_JOB_PAGE_SIZE = 100
+_ISSUE_DETECTION_ATTEMPT_FIELDS = (
+    "issues",
+    "issue_counts_by_category",
+    "trace_count",
+    "total_traces_analyzed",
+    "total_cost_usd",
+    "triage_run_id",
+    "run_id",
+)
 _logger = logging.getLogger(__name__)
 
 
@@ -179,6 +192,14 @@ class SqlAlchemyJobStore(AbstractJobStore):
             .update(values, synchronize_session=False)
         )
         if rows_updated > 0:
+            if (status := values.get(SqlJob.status)) is not None:
+                status = JobStatus.from_int(status)
+                if JobStatus.is_finalized(status):
+                    self._record_terminal_job_event(session, job_id)
+                elif status == JobStatus.PENDING:
+                    self._reset_issue_detection_job_attempt(
+                        session, job_id, values[SqlJob.last_update_time]
+                    )
             return JobUpdateStatus.APPLIED
 
         # Distinguish "job not found" from "job exists but not in the
@@ -195,6 +216,45 @@ class SqlAlchemyJobStore(AbstractJobStore):
                 f"Job with ID {job_id} not found", error_code=RESOURCE_DOES_NOT_EXIST
             )
         return JobUpdateStatus.WRONG_STATE
+
+    def _get_issue_detection_job(self, session, job_id: str):
+        return (
+            self
+            ._get_query(session, SqlJob)
+            .filter(SqlJob.id == job_id, SqlJob.job_name.in_(ISSUE_DETECTION_JOB_NAMES))
+            .populate_existing()
+            .one_or_none()
+        )
+
+    def _record_terminal_job_event(self, session, job_id: str) -> None:
+        job = self._get_issue_detection_job(session, job_id)
+        if job is None:
+            return
+
+        snapshot = job.to_mlflow_entity()
+
+        def record_event(_session):
+            try:
+                record_issue_detection_job_event(snapshot)
+            except Exception:
+                _logger.debug("Failed to record issue detection job telemetry", exc_info=True)
+
+        # Emit only after the winning terminal transition commits. Rolled-back updates and
+        # competing completion/cancellation attempts must not produce an event.
+        sqlalchemy.event.listen(session, "after_commit", record_event, once=True)
+
+    def _reset_issue_detection_job_attempt(self, session, job_id: str, update_time: int) -> None:
+        job = self._get_issue_detection_job(session, job_id)
+        if job is None or job.status_details is None:
+            return
+        details = dict(job.status_details)
+        if (start_time_ms := details.pop("start_time_ms", None)) is not None:
+            details["execution_duration_ms"] = details.get("execution_duration_ms", 0) + max(
+                update_time - start_time_ms, 0
+            )
+        for key in _ISSUE_DETECTION_ATTEMPT_FIELDS:
+            details.pop(key, None)
+        job.status_details = details
 
     def _raise_invalid_transition(
         self,
@@ -266,7 +326,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
         self, session, job_id: str, lease_duration: float | None = None
     ) -> JobUpdateStatus:
         update_time = get_current_time_millis()
-        return self._conditional_status_update(
+        status = self._conditional_status_update(
             session,
             job_id,
             (JobStatus.PENDING,),
@@ -284,6 +344,15 @@ class SqlAlchemyJobStore(AbstractJobStore):
                 ),
             ),
         )
+        if status == JobUpdateStatus.APPLIED and (
+            job := self._get_issue_detection_job(session, job_id)
+        ):
+            # A retry starts a fresh attempt; do not report counts left by its predecessor.
+            details = dict(job.status_details or {})
+            for key in _ISSUE_DETECTION_ATTEMPT_FIELDS:
+                details.pop(key, None)
+            job.status_details = details | {"start_time_ms": update_time}
+        return status
 
     def claim_job(self, job_id: str, lease_duration: float | None = None) -> JobUpdateStatus:
         with self.ManagedSessionMaker(read_only=False) as session:

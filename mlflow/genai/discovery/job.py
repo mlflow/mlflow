@@ -22,9 +22,11 @@ from mlflow.genai.discovery.constants import DEFAULT_MODEL
 from mlflow.genai.discovery.pipeline import discover_issues
 from mlflow.genai.discovery.sampling import sample_traces
 from mlflow.server.jobs import job
+from mlflow.server.jobs.progress import update_status_details
 from mlflow.server.jobs.utils import MLFLOW_SERVER_JOB_ID_ENV_VAR
 from mlflow.store.tracking import MAX_TRACE_LINKS_PER_REQUEST
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.telemetry.issue_detection_utils import count_issues_by_category
 from mlflow.utils.mlflow_tags import (
     MLFLOW_ISSUE_DETECTION_JOB_ID,
     MLFLOW_ISSUE_DETECTION_TRIGGER,
@@ -119,14 +121,21 @@ def _detect_issues_into_run(
             categories=categories,
             instructions=instructions,
         )
+        counts = {
+            "issues": len(result.issues),
+            "issue_counts_by_category": count_issues_by_category(result.issues),
+            "trace_count": len(trace_ids),
+            "total_traces_analyzed": result.total_traces_analyzed,
+            "triage_run_id": result.triage_run_id,
+            "total_cost_usd": result.total_cost_usd,
+        }
+        update_status_details(counts)
         client.set_terminated(run_id, RunStatus.to_string(RunStatus.FINISHED))
         client.set_tag(run_id, "total_cost_usd", result.total_cost_usd)
         return {
             "summary": result.summary,
-            "issues": len(result.issues),
+            **counts,
             "new_issue_count": result.new_issue_count,
-            "total_traces_analyzed": result.total_traces_analyzed,
-            "total_cost_usd": result.total_cost_usd,
         }
     except Exception:
         client.set_terminated(run_id, RunStatus.to_string(RunStatus.FAILED))
@@ -147,6 +156,7 @@ def invoke_issue_detection_job(
 
     Note: Provider credentials should be passed via environment variables set by submit_job().
     """
+    update_status_details({"trace_count": len(trace_ids)})
     return _detect_issues_into_run(
         MlflowClient(), experiment_id, trace_ids, categories, run_id, model, instructions
     )
@@ -182,7 +192,9 @@ def _create_scheduled_run(
     # because nothing passes the id into a running job.
     if job_id := os.environ.get(MLFLOW_SERVER_JOB_ID_ENV_VAR):
         tags[MLFLOW_ISSUE_DETECTION_JOB_ID] = job_id
-    return client.create_run(experiment_id=experiment_id, tags=tags).info.run_id
+    run_id = client.create_run(experiment_id=experiment_id, tags=tags).info.run_id
+    update_status_details({"run_id": run_id})
+    return run_id
 
 
 def _record_quiet_occurrence(
@@ -196,6 +208,14 @@ def _record_quiet_occurrence(
     beyond the run itself, and it carries the same tags as any other scheduled run -- a
     ``total_traces`` of zero is what tells them apart.
     """
+    update_status_details({
+        "trace_count": 0,
+        "total_traces_analyzed": 0,
+        "triage_run_id": None,
+        "total_cost_usd": 0.0,
+        "issues": 0,
+        "issue_counts_by_category": {},
+    })
     run_id = _create_scheduled_run(client, experiment_id, categories, model, total_traces=0)
     client.set_tag(run_id, "total_cost_usd", 0.0)
     client.set_terminated(run_id, RunStatus.to_string(RunStatus.FINISHED))
@@ -277,7 +297,16 @@ def run_scheduled_issue_detection_job(
             window_clause,
             run_id,
         )
-        return {"traces_in_window": 0, "run_id": run_id}
+        return {
+            "traces_in_window": 0,
+            "run_id": run_id,
+            "trace_count": 0,
+            "total_traces_analyzed": 0,
+            "triage_run_id": None,
+            "total_cost_usd": 0.0,
+            "issues": 0,
+            "issue_counts_by_category": {},
+        }
 
     filter_string = " AND ".join(filter(None, [window_clause, trace_filter]))
     # Whole sessions, so a multi-turn conversation is analyzed together rather than cut in half.
@@ -286,6 +315,7 @@ def run_scheduled_issue_detection_job(
         MAX_SCHEDULED_SESSION_SAMPLE_SIZE,
         search_kwargs={"experiment_ids": [experiment_id], "filter_string": filter_string},
     )
+    update_status_details({"trace_count": len(traces)})
     if not traces:
         # Nothing matched, so there is nothing to analyze -- but the occurrence did cover its
         # window, so the watermark still moves past it.
@@ -299,7 +329,16 @@ def run_scheduled_issue_detection_job(
         )
         if checkpoint := advance_checkpoint(newest, run_id=run_id):
             write_detection_checkpoint(client, experiment_id, checkpoint)
-        return {"traces_in_window": 0, "run_id": run_id}
+        return {
+            "traces_in_window": 0,
+            "run_id": run_id,
+            "trace_count": 0,
+            "total_traces_analyzed": 0,
+            "triage_run_id": None,
+            "total_cost_usd": 0.0,
+            "issues": 0,
+            "issue_counts_by_category": {},
+        }
 
     run_id = _create_scheduled_run(client, experiment_id, categories, model, len(traces))
     result = _detect_issues_into_run(

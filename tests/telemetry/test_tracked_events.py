@@ -1446,7 +1446,16 @@ def test_compare_evaluations(mock_requests, mock_telemetry_client: TelemetryClie
     )
 
 
-def test_discover_issues(mock_requests, mock_telemetry_client: TelemetryClient):
+@pytest.mark.parametrize(
+    "job_name", [None, "invoke_issue_detection", "scheduled_issue_detection", "another_job"]
+)
+def test_discover_issues(
+    mock_requests, mock_telemetry_client: TelemetryClient, monkeypatch, job_name
+):
+    if job_name is None:
+        monkeypatch.delenv("_MLFLOW_SERVER_JOB_NAME", raising=False)
+    else:
+        monkeypatch.setenv("_MLFLOW_SERVER_JOB_NAME", job_name)
     traces = [
         mock.MagicMock(spec=Trace),
         mock.MagicMock(spec=Trace),
@@ -1478,17 +1487,63 @@ def test_discover_issues(mock_requests, mock_telemetry_client: TelemetryClient):
         )
 
     expected_params = {
+        "trigger": "sdk",
         "model": "openai:/gpt-4",
         "trace_count": 3,
-        "categories": ["hallucination", "accuracy"],
+        "categories": ["Custom"],
         "source_run_id": None,
         "issue_count": 0,
+        "issue_counts_by_category": {},
         "total_traces_analyzed": 3,
         "total_cost_usd": None,
         "triage_run_id": mock_triage_run_id,
     }
+    if job_name in ("invoke_issue_detection", "scheduled_issue_detection"):
+        mock_telemetry_client.flush()
+        assert all(
+            record["data"]["event_name"] != DiscoverIssuesEvent.name for record in mock_requests
+        )
+    else:
+        validate_telemetry_record(
+            mock_telemetry_client, mock_requests, DiscoverIssuesEvent.name, expected_params
+        )
+
+
+@pytest.mark.parametrize(
+    ("error_type", "status"), [(ValueError, "failure"), (KeyboardInterrupt, "canceled")]
+)
+def test_discover_issues_records_failure_or_cancellation(
+    mock_requests, mock_telemetry_client, monkeypatch, error_type, status
+):
+    monkeypatch.delenv("_MLFLOW_SERVER_JOB_NAME", raising=False)
+    with patch(
+        "mlflow.genai.discovery.pipeline.sample_traces", side_effect=error_type("sampling failed")
+    ) as mock_sample:
+        with pytest.raises(error_type, match="sampling failed"):
+            discover_issues(
+                experiment_id="exp",
+                model="openai:/gpt-4",
+                categories=["correctness", "private category"],
+            )
+
+    mock_sample.assert_called_once()
     validate_telemetry_record(
-        mock_telemetry_client, mock_requests, DiscoverIssuesEvent.name, expected_params
+        mock_telemetry_client,
+        mock_requests,
+        DiscoverIssuesEvent.name,
+        {
+            "trigger": "sdk",
+            "model": "openai:/gpt-4",
+            "trace_count": 0,
+            "categories": ["correctness", "Custom"],
+            "source_run_id": None,
+            "issue_count": None,
+            "issue_counts_by_category": None,
+            "total_traces_analyzed": None,
+            "total_cost_usd": None,
+            "triage_run_id": None,
+        },
+        status=status,
     )
 
 
