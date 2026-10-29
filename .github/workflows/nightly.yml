@@ -52,18 +52,16 @@ jobs:
             gh issue close "$issue_number" --repo mlflow/mlflow --reason 'not planned'
           done < "$RUNNER_TEMP/old-nightly-issues.txt"
 
-  analyze:
+  resolve:
     needs: prepare
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
     permissions:
       actions: read
-      contents: read
-      issues: read
     outputs:
-      analysis_artifact_id: ${{ steps.upload.outputs.artifact-id }}
+      run_ids: ${{ steps.runs.outputs.run_ids }}
     steps:
-      - name: Resolve run IDs
+      - name: Resolve failed run IDs
         id: runs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -74,9 +72,13 @@ jobs:
             workflow_files=(cross-version-tests.yml)
             for workflow_file in "${workflow_files[@]}"; do
               run_id=$(gh api "repos/mlflow/mlflow/actions/workflows/$workflow_file/runs?event=schedule&status=completed&per_page=1" \
-                --jq '.workflow_runs[0].id // empty')
+                --jq '.workflow_runs[0] | select(.conclusion | IN("failure", "timed_out", "cancelled", "action_required", "startup_failure")) | .id')
               RUN_IDS+=" $run_id"
             done
+            if [ -z "${RUN_IDS// /}" ]; then
+              echo "No failed scheduled runs. Skipping analysis." | tee -a "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
           fi
           run_ids=$(jq -ern --arg ids "$RUN_IDS" '
             [$ids | splits("\\s+") | select(length > 0)] | unique
@@ -84,6 +86,19 @@ jobs:
               else error("Expected one or more numeric workflow run IDs") end
           ')
           printf 'run_ids=%s\n' "$run_ids" >> "$GITHUB_OUTPUT"
+
+  analyze:
+    needs: resolve
+    if: needs.resolve.outputs.run_ids != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      actions: read
+      contents: read
+      issues: read
+    outputs:
+      analysis_artifact_id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
@@ -156,7 +171,7 @@ jobs:
       - name: Analyze failures in worktrees
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RUN_IDS: ${{ steps.runs.outputs.run_ids }}
+          RUN_IDS: ${{ needs.resolve.outputs.run_ids }}
           ANTHROPIC_BASE_URL: http://localhost:8080/anthropic
           ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway-proxy.outputs.token }}
           ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}

@@ -117,6 +117,26 @@
       },
       "last_updated_at": "2026-10-27"
     },
+    "deepseek-v4-1-flash-1017": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 1.2,
+        "cache_read_per_million_tokens": 0.007
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-29"
+    },
     "devstral-2512": {
       "mode": "chat",
       "context_window": {
@@ -151,11 +171,11 @@
       "capabilities": {
         "function_calling": true,
         "vision": false,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-29"
     },
     "devstral-medium-2507": {
       "mode": "chat",
@@ -191,11 +211,11 @@
       "capabilities": {
         "function_calling": true,
         "vision": false,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-29"
     },
     "devstral-small-2505": {
       "mode": "chat",
@@ -251,11 +271,11 @@
       "capabilities": {
         "function_calling": true,
         "vision": false,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-29"
     },
     "glm-5-2": {
       "mode": "chat",
@@ -670,11 +690,11 @@
       "capabilities": {
         "function_calling": true,
         "vision": false,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-29"
     },
     "mistral-code-fim-latest": {
       "mode": "chat",
@@ -857,9 +877,9 @@
         "max_output": 1048576
       },
       "pricing": {
-        "input_per_million_tokens": 0.68,
-        "output_per_million_tokens": 2.09,
-        "cache_read_per_million_tokens": 0.068
+        "input_per_million_tokens": 1.36,
+        "output_per_million_tokens": 4.18,
+        "cache_read_per_million_tokens": 0.14
       },
       "capabilities": {
         "function_calling": true,
@@ -868,7 +888,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-29"
     },
     "mistral-large-4-0": {
       "mode": "chat",
@@ -877,9 +897,9 @@
         "max_output": 1048576
       },
       "pricing": {
-        "input_per_million_tokens": 0.68,
-        "output_per_million_tokens": 2.09,
-        "cache_read_per_million_tokens": 0.068
+        "input_per_million_tokens": 1.36,
+        "output_per_million_tokens": 4.18,
+        "cache_read_per_million_tokens": 0.14
       },
       "capabilities": {
         "function_calling": true,
@@ -888,7 +908,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-29"
     },
     "mistral-large-latest": {
       "mode": "chat",
@@ -1127,11 +1147,11 @@
       "capabilities": {
         "function_calling": true,
         "vision": false,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-29"
     },
     "mistral-small-2603": {
       "mode": "chat",

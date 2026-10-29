@@ -272,6 +272,23 @@ def test_load_guardrails_converts_real_entity():
     assert called_guardrail.guardrail_id == config.guardrail.guardrail_id
 
 
+def test_load_guardrails_judge_gateway_uri_ignores_host_header():
+    config = _make_guardrail_config(stage="BEFORE", action="VALIDATION")
+    store = mock.MagicMock()
+    store.list_endpoint_guardrail_configs.return_value = [config]
+    endpoint_config = mock.MagicMock()
+    endpoint_config.endpoint_id = "ep-1"
+    request = mock.MagicMock()
+    request.base_url = "http://attacker.example/"
+    request.scope = {"server": ("127.0.0.1", 5000)}
+
+    with mock.patch("mlflow.gateway.guardrails.JudgeGuardrail.from_entity") as mock_from_entity:
+        mock_from_entity.return_value = _make_judge("BEFORE")
+        load_guardrails(store, endpoint_config, request)
+
+    assert mock_from_entity.call_args.kwargs["gateway_uri"] == "http://127.0.0.1:5000"
+
+
 def test_load_guardrails_server_url_includes_static_prefix(monkeypatch):
     monkeypatch.setenv("_MLFLOW_STATIC_PREFIX", "/myprefix")
     config = _make_guardrail_config(stage="BEFORE", action="VALIDATION")
@@ -345,7 +362,7 @@ def test_load_guardrails_skips_failed_conversion():
 
     good_judge = _make_judge("BEFORE")
 
-    def from_entity_side_effect(entity, server_url):
+    def from_entity_side_effect(entity, server_url, gateway_uri=None):
         if entity.stage == GuardrailStage.AFTER:
             raise ValueError("bad scorer")
         return good_judge

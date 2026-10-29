@@ -1083,6 +1083,86 @@ def test_an_issue_refreshed_by_the_run_that_filed_it_is_not_counted_as_new(make_
     assert result.new_issue_count == 0
 
 
+def test_the_run_reads_running_until_its_issues_have_been_filed(make_trace):
+    """
+    Every consumer reads the run, not the pipeline, so a run that settles before its issues
+    exist reads as a detection that completed and found nothing.
+    """
+    traces = [make_trace() for _ in range(3)]
+    failing = traces[:2]
+    rationale_map = {trace.info.trace_id: "bad" for trace in failing}
+
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
+
+    status_when_filed = []
+
+    def _file_issue(*args, **kwargs):
+        status_when_filed.append(mlflow.get_run(run_id).info.status)
+        return _make_issue(name="slow_response")
+
+    with (
+        patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="0"),
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
+            return_value=_triage_eval(run_id),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=_TriageResult(failing, rationale_map, {}),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failure_labels",
+            return_value=(["label1", "label2"], [0, 1]),
+        ),
+        patch("mlflow.genai.discovery.pipeline.cluster_by_llm", return_value=[[0, 1]]),
+        patch(
+            "mlflow.genai.discovery.pipeline.summarize_cluster",
+            return_value=create_identified_issue(name="slow_response", example_indices=[0, 1]),
+        ),
+        patch("mlflow.genai.discovery.pipeline.read_match_candidates", return_value=[]),
+        patch("mlflow.tracing.client.TracingClient._create_issue", side_effect=_file_issue),
+        patch("mlflow.genai.discovery.pipeline._annotate_issue_traces"),
+    ):
+        result = discover_issues(traces=traces, run_id=run_id)
+
+    assert len(result.issues) == 1
+    assert status_when_filed == ["RUNNING"]
+    # Still settles once the pipeline is done, rather than being left dangling.
+    assert mlflow.get_run(run_id).info.status == "FINISHED"
+
+
+def test_a_run_whose_later_phase_raises_reads_failed(make_trace):
+    traces = [make_trace() for _ in range(3)]
+    failing = traces[:2]
+    rationale_map = {trace.info.trace_id: "bad" for trace in failing}
+
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
+
+    with (
+        patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="0"),
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
+            return_value=_triage_eval(run_id),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=_TriageResult(failing, rationale_map, {}),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline._cluster_and_identify",
+            side_effect=RuntimeError("clustering failed"),
+        ),
+        pytest.raises(RuntimeError, match="clustering failed"),
+    ):
+        discover_issues(traces=traces, run_id=run_id)
+
+    assert mlflow.get_run(run_id).info.status == "FAILED"
+
+
 def test_discover_issues_returns_total_cost_usd_field(make_trace):
     from mlflow.entities.assessment import Feedback
     from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
