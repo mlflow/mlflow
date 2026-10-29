@@ -64,6 +64,7 @@ jobs:
       - uses: ./.github/actions/setup-python
 
       - name: Detect flaky tests
+        id: detect
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
@@ -76,11 +77,28 @@ jobs:
           python dev/detect_flaky_tests.py "${ARGS[@]}"
           # Mirror the report into the run's step summary for at-a-glance viewing.
           cat flakes.md >> "$GITHUB_STEP_SUMMARY"
+          if jq -e 'any(.[]; (.test // "") != "")' flakes.json > /dev/null; then
+            echo "has-test-flakes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has-test-flakes=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - id: gateway
+        if: steps.detect.outputs.has-test-flakes == 'true'
+        uses: ./.github/actions/setup-gateway
+        with:
+          task: flaky-test-classifier
+          host: ${{ secrets.DATABRICKS_HOST }}
+          client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
 
       - name: Classify flaky tests
         if: hashFiles('flakes.json') != ''
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.EXPERIMENTAL_ANTHROPIC_API_KEY }}
+          ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway.outputs.token }}
+          ANTHROPIC_BASE_URL: ${{ steps.gateway.outputs.base-url }}/anthropic
+          ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
+          FLAKY_CLASSIFIER_MODEL: databricks-claude-sonnet-5
         run: |
           python dev/classify_flaky_tests.py --in flakes.json --out classified.json
 

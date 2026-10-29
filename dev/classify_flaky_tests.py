@@ -10,9 +10,11 @@ a retry masks a genuine product bug and should not be applied blindly.
 The verdict is advisory: it is written into the report / PR body so a human reviewer
 sees the rationale, and the annotate step only ever acts on `action == "annotate"`.
 
-Auth uses an `ANTHROPIC_API_KEY` secret and a direct call to the Anthropic Messages
-API. `ANTHROPIC_BASE_URL` / `FLAKY_CLASSIFIER_MODEL` may override the endpoint and
-model (e.g. to route through an internal gateway).
+Gateway callers can provide `ANTHROPIC_AUTH_TOKEN` and optional
+`ANTHROPIC_CUSTOM_HEADERS`; requests use bearer authentication and the configured
+base URL. Local callers can continue to use `ANTHROPIC_API_KEY` for direct Anthropic
+access. `ANTHROPIC_BASE_URL` / `FLAKY_CLASSIFIER_MODEL` may override the endpoint and
+model.
 
 Usage:
   python dev/classify_flaky_tests.py --in flakes.json --out classified.json
@@ -126,6 +128,11 @@ def _auth_headers() -> dict[str, str]:
         headers["Authorization"] = f"Bearer {token}"
     else:
         headers["x-api-key"] = os.environ["ANTHROPIC_API_KEY"]
+    if custom_headers := os.environ.get("ANTHROPIC_CUSTOM_HEADERS"):
+        name, separator, value = custom_headers.partition(":")
+        if not separator:
+            raise ValueError("ANTHROPIC_CUSTOM_HEADERS must contain an HTTP header line")
+        headers[name.strip()] = value.strip()
     return headers
 
 
