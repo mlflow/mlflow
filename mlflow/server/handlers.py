@@ -661,26 +661,32 @@ def _get_trace_archive_repo(trace_info: TraceInfo):
     return _get_trace_repo_from_uri(get_archive_uri_for_trace(trace_info))
 
 
+def _get_servable_proxied_artifact_repo(artifact_uri: str) -> ArtifactRepository:
+    """Build the repository for a proxied location this server serves, under its destination."""
+    from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR
+
+    root = os.environ.get(ARTIFACTS_DESTINATION_ENV_VAR)
+    if not root:
+        raise MlflowException(
+            f"Cannot resolve the proxied artifact URI {artifact_uri}: this server serves "
+            f"artifacts but {ARTIFACTS_DESTINATION_ENV_VAR} is unset."
+        )
+    path = _get_proxied_run_artifact_destination_path(artifact_uri)
+    return get_artifact_repository(posixpath.join(root, path))
+
+
 def _get_trace_repo_from_uri(artifact_uri: str):
     if _is_servable_proxied_run_artifact_root(artifact_uri):
         # If the artifact location is a proxied run artifact root (e.g. mlflow-artifacts://...),
         # we need to resolve it to the actual artifact location.
-        from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR
-
-        path = _get_proxied_run_artifact_destination_path(artifact_uri)
-        if not path:
+        if not _get_proxied_run_artifact_destination_path(artifact_uri):
             raise MlflowException(
-                f"Failed to resolve the proxied run artifact URI: {artifact_uri}. ",
+                f"Failed to resolve the proxied run artifact URI: {artifact_uri}. "
                 "Trace artifact URI must contain subpath to the trace data directory.",
                 error_code=BAD_REQUEST,
             )
-        root = os.environ[ARTIFACTS_DESTINATION_ENV_VAR]
-        artifact_uri = posixpath.join(root, path)
-
-        # We don't set it to global var unlike run artifact, because the artifact repo has
-        # to be created with full trace artifact URI including request_id.
-        # e.g. s3://<experiment_id>/traces/<request_id>
-        artifact_repo = get_artifact_repository(artifact_uri)
+        # Not cached like the run artifact repo: the URI includes the trace's request_id.
+        artifact_repo = _get_servable_proxied_artifact_repo(artifact_uri)
     else:
         artifact_repo = _get_artifact_repository_for_uri(artifact_uri)
     return artifact_repo
