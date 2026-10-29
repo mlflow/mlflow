@@ -258,8 +258,7 @@ def test_chat_complete_autolog_tool_calling(sdk_tool_models):
     span = traces[0].data.spans[0]
     assert span.name == "Chat.complete"
     assert span.span_type == SpanType.CHAT_MODEL
-    if not sdk_tool_models:
-        assert span.inputs == DUMMY_CHAT_COMPLETION_WITH_TOOLS_REQUEST
+    assert span.inputs == DUMMY_CHAT_COMPLETION_WITH_TOOLS_REQUEST
     assert span.outputs == DUMMY_CHAT_COMPLETION_WITH_TOOLS_RESPONSE.model_dump()
     assert span.model_name == "test_model"
 
