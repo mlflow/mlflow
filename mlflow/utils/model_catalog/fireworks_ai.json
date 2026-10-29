@@ -2964,12 +2964,12 @@
       },
       "capabilities": {
         "function_calling": true,
-        "vision": false,
+        "vision": true,
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-29"
     },
     "accounts/fireworks/models/minimax-m3p1-flash": {
       "mode": "chat",
@@ -6644,12 +6644,12 @@
       },
       "capabilities": {
         "function_calling": true,
-        "vision": false,
+        "vision": true,
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-29"
     },
     "muse-glimmer-30b": {
       "mode": "chat",
