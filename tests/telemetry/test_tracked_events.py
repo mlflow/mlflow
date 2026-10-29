@@ -1507,9 +1507,7 @@ def test_discover_issues(
         "total_traces_analyzed": 3,
         "total_cost_usd": None,
     }
-    if trigger == "sdk":
-        expected_params |= {"source_run_id": None, "triage_run_id": mock_triage_run_id}
-    elif job_id:
+    if trigger != "sdk" and job_id:
         expected_params["job_id"] = job_id
     mock_telemetry_client.flush()
     assert (
@@ -1544,6 +1542,7 @@ def test_discover_issues_records_failure_or_cancellation(
                 experiment_id="exp",
                 model="openai:/gpt-4",
                 categories=["correctness", "private category"],
+                run_id="source-run-id",
             )
 
     mock_sample.assert_called_once()
@@ -1557,8 +1556,6 @@ def test_discover_issues_records_failure_or_cancellation(
         "total_traces_analyzed": None,
         "total_cost_usd": None,
     }
-    if trigger == "sdk":
-        expected_params |= {"source_run_id": None, "triage_run_id": None}
     mock_telemetry_client.flush()
     assert (
         sum(record["data"]["event_name"] == DiscoverIssuesEvent.name for record in mock_requests)

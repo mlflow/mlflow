@@ -742,7 +742,6 @@ def test_optimize_prompts_job_parse_params(arguments, expected_params):
                 "model": "openai:/gpt-4",
                 "trace_count": 2,
                 "categories": ["Custom"],
-                "source_run_id": "run-1",
             },
         ),
         (
@@ -752,7 +751,6 @@ def test_optimize_prompts_job_parse_params(arguments, expected_params):
                 "model": "databricks:/dbrx",
                 "trace_count": 1,
                 "categories": None,
-                "source_run_id": None,
             },
         ),
         (
@@ -762,7 +760,6 @@ def test_optimize_prompts_job_parse_params(arguments, expected_params):
                 "model": None,
                 "trace_count": 0,
                 "categories": ["Custom", "safety"],
-                "source_run_id": None,
             },
         ),
         (
@@ -772,7 +769,6 @@ def test_optimize_prompts_job_parse_params(arguments, expected_params):
                 "model": None,
                 "trace_count": 0,
                 "categories": [],
-                "source_run_id": None,
             },
         ),
         (
@@ -782,7 +778,6 @@ def test_optimize_prompts_job_parse_params(arguments, expected_params):
                 "model": None,
                 "trace_count": 0,
                 "categories": None,
-                "source_run_id": None,
             },
         ),
     ],
@@ -797,7 +792,7 @@ def test_discover_issues_parse_params(arguments, expected_params, monkeypatch):
     [("invoke_issue_detection", "adhoc"), ("scheduled_issue_detection", "schedule")],
 )
 @pytest.mark.parametrize("job_id", [None, "job-123"])
-def test_discover_issues_job_params_omit_run_ids(monkeypatch, job_name, trigger, job_id):
+def test_discover_issues_job_params(monkeypatch, job_name, trigger, job_id):
     monkeypatch.setenv("_MLFLOW_SERVER_JOB_NAME", job_name)
     if job_id is None:
         monkeypatch.delenv("_MLFLOW_SERVER_JOB_ID", raising=False)
@@ -869,7 +864,6 @@ def test_discover_issues_job_params_omit_run_ids(monkeypatch, job_name, trigger,
                 "issue_counts_by_category": {"correctness": 2, "Custom": 1, "cost": 1},
                 "total_traces_analyzed": 100,
                 "total_cost_usd": 2.5,
-                "triage_run_id": "run",
             },
         ),
         (
@@ -895,7 +889,6 @@ def test_discover_issues_job_params_omit_run_ids(monkeypatch, job_name, trigger,
                 "issue_counts_by_category": {},
                 "total_traces_analyzed": 50,
                 "total_cost_usd": 1.0,
-                "triage_run_id": "run",
             },
         ),
         (
@@ -911,7 +904,6 @@ def test_discover_issues_job_params_omit_run_ids(monkeypatch, job_name, trigger,
                 "issue_counts_by_category": {},
                 "total_traces_analyzed": 10,
                 "total_cost_usd": 0.0,
-                "triage_run_id": "run",
             },
         ),
         (
@@ -927,7 +919,6 @@ def test_discover_issues_job_params_omit_run_ids(monkeypatch, job_name, trigger,
                 "issue_counts_by_category": {},
                 "total_traces_analyzed": 0,
                 "total_cost_usd": None,
-                "triage_run_id": None,
             },
         ),
         (
@@ -937,37 +928,17 @@ def test_discover_issues_job_params_omit_run_ids(monkeypatch, job_name, trigger,
                 "issue_counts_by_category": None,
                 "total_traces_analyzed": None,
                 "total_cost_usd": None,
-                "triage_run_id": None,
             },
         ),
     ],
 )
-def test_discover_issues_parse_result(result, expected_params, monkeypatch):
-    monkeypatch.delenv("_MLFLOW_SERVER_JOB_NAME", raising=False)
+@pytest.mark.parametrize("job_name", [None, "invoke_issue_detection", "scheduled_issue_detection"])
+def test_discover_issues_parse_result(result, expected_params, monkeypatch, job_name):
+    if job_name is None:
+        monkeypatch.delenv("_MLFLOW_SERVER_JOB_NAME", raising=False)
+    else:
+        monkeypatch.setenv("_MLFLOW_SERVER_JOB_NAME", job_name)
     assert DiscoverIssuesEvent.parse_result(result) == expected_params
-
-
-@pytest.mark.parametrize("job_name", ["invoke_issue_detection", "scheduled_issue_detection"])
-@pytest.mark.parametrize("has_result", [True, False])
-def test_discover_issues_job_result_omits_run_ids(monkeypatch, job_name, has_result):
-    monkeypatch.setenv("_MLFLOW_SERVER_JOB_NAME", job_name)
-    result = (
-        DiscoverIssuesResult(
-            issues=[],
-            triage_run_id="triage-run-id",
-            summary="summary",
-            total_traces_analyzed=3,
-            total_cost_usd=0.5,
-        )
-        if has_result
-        else None
-    )
-    assert DiscoverIssuesEvent.parse_result(result) == {
-        "issue_count": 0 if has_result else None,
-        "issue_counts_by_category": {} if has_result else None,
-        "total_traces_analyzed": 3 if has_result else None,
-        "total_cost_usd": 0.5 if has_result else None,
-    }
 
 
 @pytest.mark.parametrize(
