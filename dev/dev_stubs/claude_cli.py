@@ -4,15 +4,14 @@ The MLflow Assistant's "Claude Code" provider only reveals its chat panel after
 an auth probe succeeds: it shells out to
 ``claude -p hi --max-turns 1 --output-format json`` and unlocks the UI when that
 exits 0 (see ``mlflow/assistant/providers/claude_code.py``). When the dev server
-runs without ``ANTHROPIC_API_KEY`` -- the CI ui-review bot (to keep secrets out
-of PR backend code), or a local dev who hasn't installed/authed the real CLI --
-the provider reports "not authenticated" and the panel never renders, leaving
-provider-gated UI (e.g. restore-chat-on-reload) unreviewable.
+cannot authenticate through the CLI, the provider reports "not authenticated"
+and the panel never renders, leaving provider-gated UI (e.g. restore-chat-on-reload)
+unreviewable.
 
 This script stands in for ``claude``. ``run_dev_server.py --stub-providers claude``
 wraps it in a ``claude`` shim and prepends its directory to the dev server's PATH
 (only the dev server process and its children; a real ``claude`` elsewhere on the
-machine -- e.g. the ui-review bot's own review step -- is untouched).
+machine is untouched).
 
 It never contacts Anthropic, so it costs nothing, needs no credentials, and is
 deterministic:

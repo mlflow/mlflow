@@ -7,7 +7,6 @@ without real keys, cost, or nondeterminism.
 - ``claude`` -- a fake ``claude`` CLI on PATH, satisfying the MLflow Assistant's
   Claude Code provider auth probe (see ``claude_cli.py``).
 
-The CI ui-review bot passes the names a PR needs; locally, pass them yourself.
 """
 
 from __future__ import annotations
