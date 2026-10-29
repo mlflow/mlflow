@@ -57,6 +57,19 @@ describe('calculateCost', () => {
     expect(cost!.input_cost).toBeCloseTo(5, 6);
   });
 
+  it.each(['system.ai.claude-sonnet-5-5', 'anthropic/claude-sonnet-5-5'])(
+    'prices routed model name %s',
+    (model) => {
+      const cost = calculateCost(model, {
+        input_tokens: 1_000_000,
+        output_tokens: 1_000_000,
+      });
+
+      expect(cost!.input_cost).toBeCloseTo(2, 6);
+      expect(cost!.output_cost).toBeCloseTo(10, 6);
+    },
+  );
+
   it('returns null for unknown models', () => {
     expect(calculateCost('gpt-4o', { input_tokens: 100, output_tokens: 100 })).toBeNull();
     // Models absent from the catalog (e.g. deprecated ones) get no cost,

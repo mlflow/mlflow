@@ -451,6 +451,7 @@ function createLlmAndToolSpans(
         attributes: {
           model: logicalMessage.model,
           'mlflow.llm.model': logicalMessage.model,
+          'mlflow.llm.provider': 'anthropic',
           [SpanAttributeKey.MESSAGE_FORMAT]: 'anthropic',
         },
       });

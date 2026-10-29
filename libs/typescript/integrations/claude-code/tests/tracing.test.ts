@@ -238,12 +238,13 @@ describe('processTranscript', () => {
       expect(firstLlm!.outputs.content).toBeDefined();
     });
 
-    it('sets MESSAGE_FORMAT attribute on LLM spans', async () => {
+    it('sets Anthropic attributes on LLM spans', async () => {
       await processTranscript(resolve(FIXTURES_DIR, 'basic.jsonl'), 'test-session-123');
 
       const llms = getSpansByType('LLM');
       for (const llm of llms) {
         expect(llm.attributes['mlflow.message.format']).toBe('anthropic');
+        expect(llm.attributes['mlflow.llm.provider']).toBe('anthropic');
       }
     });
 
@@ -864,6 +865,7 @@ describe('LiveTracingContext usage', () => {
 
       const llm = getSpansByType('LLM')[0];
       const tool = getSpansByType('TOOL')[0];
+      expect(llm.attributes['mlflow.llm.provider']).toBe('anthropic');
       expect(llm.startTimeNs).toBeDefined();
       expect(tool.startTimeNs).toBeGreaterThanOrEqual(llm.endTimeNs!);
       for (const subagent of getChildSpans(tool.spanId)) {

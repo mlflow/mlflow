@@ -176,6 +176,7 @@ export class LiveTracingContext {
         attributes: {
           model,
           'mlflow.llm.model': model,
+          'mlflow.llm.provider': 'anthropic',
           [SpanAttributeKey.MESSAGE_FORMAT]: 'anthropic',
         },
       });

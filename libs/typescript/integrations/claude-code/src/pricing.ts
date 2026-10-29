@@ -43,14 +43,22 @@ export function setModelRates(rates: ModelRates | null): void {
 }
 
 function lookupRate(model: string): AnthropicModelRate | undefined {
-  const exact = activeRates[model];
-  if (exact) {
-    return exact;
+  const slash = model.indexOf('/');
+  const bareModel = (slash === -1 ? model : model.slice(slash + 1)).replace(/^system\.ai\./, '');
+
+  for (const candidate of new Set([model, bareModel])) {
+    const rate = activeRates[candidate];
+    if (rate) {
+      return rate;
+    }
+
+    // A dated snapshot newer than the catalog (e.g. claude-opus-4-8-20260901)
+    // falls back to its undated family alias.
+    const undated = candidate.replace(/-\d{8}$/, '');
+    if (undated !== candidate && activeRates[undated]) {
+      return activeRates[undated];
+    }
   }
-  // A dated snapshot newer than the catalog (e.g. claude-opus-4-8-20260901)
-  // falls back to its undated family alias.
-  const undated = model.replace(/-\d{8}$/, '');
-  return undated === model ? undefined : activeRates[undated];
 }
 
 /**
