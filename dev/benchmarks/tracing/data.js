@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793281504414,
+  "lastUpdate": 1793285523061,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "128332426+adamgurary@users.noreply.github.com",
-            "name": "adamgurary",
-            "username": "adamgurary"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4d5280fba0799411375a160efc3e80bb83743730",
-          "message": "Read top-level cache_read/creation token counts in `openai` autolog (#24618)\n\nSigned-off-by: Adam Gurary <guraryadam@gmail.com>\nSigned-off-by: B-Step62 <yuki.watanabe@databricks.com>\nCo-authored-by: B-Step62 <yuki.watanabe@databricks.com>",
-          "timestamp": "2026-08-22T05:58:16Z",
-          "tree_id": "31c23dd7278def85fb8205a2baedfe19f125ae01",
-          "url": "https://github.com/mlflow/mlflow/commit/4d5280fba0799411375a160efc3e80bb83743730"
-        },
-        "date": 1787378377879,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 42.57206519999954,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 6.2597285636369095,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 5.40011980666596,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 6.301400932774865,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 6.59360831818282,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 9.18146380000735,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 11.402015999999549,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "72928639+SaiTeja-Erukude@users.noreply.github.com",
+            "name": "Sai Teja Erukude",
+            "username": "SaiTeja-Erukude"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "d64cc8b673f71d29d93a7845fc179946ad56a881",
+          "message": "Fix FileStore trace path traversal (CVE-2026-53995) (#26842)\n\nSigned-off-by: Sai Teja Erukude <erukude.saiteja@gmail.com>\nSigned-off-by: Kris Concepcion <kris.concepcion@databricks.com>\nCo-authored-by: Kris Concepcion <kris.concepcion@databricks.com>\nCo-authored-by: Isaac <no-reply@databricks.com>\nCo-authored-by: Kris Concepcion <84737625+kriscon-db@users.noreply.github.com>",
+          "timestamp": "2026-10-29T14:48:27Z",
+          "tree_id": "fe7695184e25cb7f9c7dbbdb37d95e9f7b58c4ff",
+          "url": "https://github.com/mlflow/mlflow/commit/d64cc8b673f71d29d93a7845fc179946ad56a881"
+        },
+        "date": 1793285519859,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 35.7636669000005,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 4.5346233999998065,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 4.0058095136616805,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 4.007550819148203,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.281348150601409,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 4.547211571426552,
             "unit": "ms"
           }
         ]
