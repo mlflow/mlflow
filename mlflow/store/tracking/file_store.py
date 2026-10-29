@@ -106,7 +106,6 @@ from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import (
     append_to_uri_path,
     resolve_uri_if_local,
-    validate_path_within_directory,
 )
 from mlflow.utils.validation import (
     _resolve_experiment_ids_and_locations,
@@ -116,7 +115,6 @@ from mlflow.utils.validation import (
     _validate_experiment_id,
     _validate_experiment_name,
     _validate_experiment_tag,
-    _validate_file_store_trace_id,
     _validate_logged_model_name,
     _validate_metric,
     _validate_metric_name,
@@ -144,10 +142,21 @@ def _validate_path_component(value: str, field_name: str) -> None:
     # that resolves elsewhere (an absolute path, a path separator, "." or "..") must be rejected
     # before it reaches `mkdir` or `shutil.rmtree`. Windows strips trailing spaces and periods from
     # path components, which turns ids such as ".. " back into "..", so ids that normalization
-    # would alter are rejected too.
-    if not value or value.rstrip(" .") != value or os.path.basename(value) != value:
+    # would alter are rejected too. Ids are also embedded in artifact URIs, where "%", "?" and
+    # "#" change how the path is decoded and URL parsing drops tabs and newlines, so ids with those
+    # or other control characters are rejected as well.
+    if (
+        not value
+        or value.rstrip(" .") != value
+        or os.path.basename(value) != value
+        or any(c in "%?#" or ord(c) < 32 or ord(c) == 127 for c in value)
+    ):
         raise MlflowException(
-            invalid_value(field_name, value, "must be a single path component"),
+            invalid_value(
+                field_name,
+                value,
+                "must be a single path component without '%', '?', '#' or control characters",
+            ),
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -1692,20 +1701,7 @@ class FileStore(AbstractStore):
 
         return _read_helper(root, file_name, attempts_remaining=retries)
 
-    def _get_traces_dir(self, experiment_dir):
-        traces_dir = os.path.join(experiment_dir, FileStore.TRACES_FOLDER_NAME)
-        return validate_path_within_directory(experiment_dir, traces_dir)
-
-    def _get_safe_trace_dir(self, experiment_dir, trace_id):
-        _validate_file_store_trace_id(trace_id)
-        traces_dir = self._get_traces_dir(experiment_dir)
-        return validate_path_within_directory(traces_dir, os.path.join(traces_dir, trace_id))
-
-    def _get_trace_subfolder(self, trace_dir, subfolder):
-        return validate_path_within_directory(trace_dir, os.path.join(trace_dir, subfolder))
-
     def _get_traces_artifact_dir(self, experiment_id, trace_id):
-        _validate_file_store_trace_id(trace_id)
         return append_to_uri_path(
             self.get_experiment(experiment_id).artifact_location,
             FileStore.TRACES_FOLDER_NAME,
@@ -1732,9 +1728,6 @@ class FileStore(AbstractStore):
         |   - run_id1 ...
         |   - run_id2 ...
         """
-        validate_path_within_directory(
-            trace_dir, os.path.join(trace_dir, FileStore.TRACE_INFO_FILE_NAME)
-        )
         # Save basic trace info to TRACE_INFO_FILE_NAME
         trace_info_dict = self._convert_trace_info_to_dict(trace_info)
         write_yaml(
@@ -1768,25 +1761,19 @@ class FileStore(AbstractStore):
         return trace_info_dict
 
     def _write_dict_to_trace_sub_folder(self, trace_dir, sub_folder, dictionary):
-        parent_path = self._get_trace_subfolder(trace_dir, sub_folder)
-        paths = []
+        mkdir(trace_dir, sub_folder)
         for key, value in dictionary.items():
             # always validate as tag name to make sure the file name is valid
             _validate_tag_name(key)
-            tag_path = validate_path_within_directory(parent_path, os.path.join(parent_path, key))
-            paths.append((tag_path, value))
-        mkdir(parent_path)
-        for tag_path, value in paths:
+            tag_path = os.path.join(trace_dir, sub_folder, key)
             # value are written as strings
             write_to(tag_path, self._writeable_value(value))
 
     def _get_dict_from_trace_sub_folder(self, trace_dir, sub_folder):
-        self._get_trace_subfolder(trace_dir, sub_folder)
         parent_path, files = self._get_resource_files(trace_dir, sub_folder)
         dictionary = {}
         for file_name in files:
             _validate_tag_name(file_name)
-            validate_path_within_directory(parent_path, os.path.join(parent_path, file_name))
             value = read_file(parent_path, file_name)
             dictionary[file_name] = value
         return dictionary
@@ -1801,15 +1788,17 @@ class FileStore(AbstractStore):
         Returns:
             The created TraceInfo object from the backend.
         """
-        _validate_file_store_trace_id(trace_info.trace_id)
         _validate_experiment_id(trace_info.experiment_id)
         _validate_path_component(trace_info.trace_id, "trace_id")
         experiment_dir = self._get_experiment_path(
             trace_info.experiment_id, view_type=ViewType.ACTIVE_ONLY, assert_exists=True
         )
 
-        trace_dir = self._get_safe_trace_dir(experiment_dir, trace_info.trace_id)
-        mkdir(trace_dir)
+        # Create traces directory structure
+        mkdir(experiment_dir, FileStore.TRACES_FOLDER_NAME)
+        traces_dir = os.path.join(experiment_dir, FileStore.TRACES_FOLDER_NAME)
+        mkdir(traces_dir, trace_info.trace_id)
+        trace_dir = os.path.join(traces_dir, trace_info.trace_id)
 
         # Add artifact location to tags
         artifact_uri = self._get_traces_artifact_dir(trace_info.experiment_id, trace_info.trace_id)
@@ -1844,13 +1833,13 @@ class FileStore(AbstractStore):
         return trace_info, trace_dir
 
     def _find_trace_dir(self, trace_id, assert_exists=False):
-        _validate_file_store_trace_id(trace_id)
         self._check_root_dir()
         all_experiments = self._get_active_experiments(True) + self._get_deleted_experiments(True)
         for experiment_dir in all_experiments:
-            trace_dir = self._get_safe_trace_dir(experiment_dir, trace_id)
-            if exists(trace_dir):
-                return trace_dir
+            traces_dir = os.path.join(experiment_dir, FileStore.TRACES_FOLDER_NAME)
+            if exists(traces_dir):
+                if traces := find(traces_dir, trace_id, full_path=True):
+                    return traces[0]
         if assert_exists:
             raise MlflowException(
                 f"Trace with ID '{trace_id}' not found",
@@ -1858,10 +1847,7 @@ class FileStore(AbstractStore):
             )
 
     def _get_trace_info_from_dir(self, trace_dir) -> TraceInfo | None:
-        info_path = validate_path_within_directory(
-            trace_dir, os.path.join(trace_dir, FileStore.TRACE_INFO_FILE_NAME)
-        )
-        if not os.path.exists(info_path):
+        if not os.path.exists(os.path.join(trace_dir, FileStore.TRACE_INFO_FILE_NAME)):
             return None
         trace_info_dict = FileStore._read_yaml(trace_dir, FileStore.TRACE_INFO_FILE_NAME)
         trace_info = TraceInfo.from_dict(trace_info_dict)
@@ -1898,8 +1884,7 @@ class FileStore(AbstractStore):
         """
         _validate_tag_name(key)
         trace_dir = self._find_trace_dir(trace_id, assert_exists=True)
-        tags_dir = self._get_trace_subfolder(trace_dir, FileStore.TRACE_TAGS_FOLDER_NAME)
-        tag_path = validate_path_within_directory(tags_dir, os.path.join(tags_dir, key))
+        tag_path = os.path.join(trace_dir, FileStore.TRACE_TAGS_FOLDER_NAME, key)
         if not exists(tag_path):
             raise MlflowException(
                 f"No tag with name: {key} in trace with ID {trace_id}.",
@@ -1909,13 +1894,12 @@ class FileStore(AbstractStore):
 
     def _get_assessments_dir(self, trace_id: str) -> str:
         trace_dir = self._find_trace_dir(trace_id, assert_exists=True)
-        return self._get_trace_subfolder(trace_dir, FileStore.ASSESSMENTS_FOLDER_NAME)
+        return os.path.join(trace_dir, FileStore.ASSESSMENTS_FOLDER_NAME)
 
     def _get_assessment_path(self, trace_id: str, assessment_id: str) -> str:
+        _validate_path_component(assessment_id, "assessment_id")
         assessments_dir = self._get_assessments_dir(trace_id)
-        return validate_path_within_directory(
-            assessments_dir, os.path.join(assessments_dir, f"{assessment_id}.yaml")
-        )
+        return os.path.join(assessments_dir, f"{assessment_id}.yaml")
 
     def _save_assessment(self, assessment: Assessment) -> None:
         assessment_path = self._get_assessment_path(assessment.trace_id, assessment.assessment_id)
@@ -2195,14 +2179,10 @@ class FileStore(AbstractStore):
             The number of traces deleted.
         """
         experiment_path = self._get_experiment_path(experiment_id, assert_exists=True)
-        traces_path = self._get_traces_dir(experiment_path)
+        traces_path = os.path.join(experiment_path, FileStore.TRACES_FOLDER_NAME)
         deleted_traces = 0
         if max_timestamp_millis is not None:
             trace_paths = list_all(traces_path, lambda x: os.path.isdir(x), full_path=True)
-            trace_paths = [
-                self._get_safe_trace_dir(experiment_path, os.path.basename(path))
-                for path in trace_paths
-            ]
             trace_info_and_paths = []
             for trace_path in trace_paths:
                 try:
@@ -2286,14 +2266,10 @@ class FileStore(AbstractStore):
 
     def _list_trace_infos(self, experiment_id):
         experiment_path = self._get_experiment_path(experiment_id, assert_exists=True)
-        traces_path = self._get_traces_dir(experiment_path)
+        traces_path = os.path.join(experiment_path, FileStore.TRACES_FOLDER_NAME)
         if not os.path.exists(traces_path):
             return []
         trace_paths = list_all(traces_path, lambda x: os.path.isdir(x), full_path=True)
-        trace_paths = [
-            self._get_safe_trace_dir(experiment_path, os.path.basename(path))
-            for path in trace_paths
-        ]
         trace_infos = []
         for trace_path in trace_paths:
             try:
@@ -2824,8 +2800,10 @@ class FileStore(AbstractStore):
         experiment_dir = self._get_experiment_path(
             experiment_id, view_type=ViewType.ACTIVE_ONLY, assert_exists=True
         )
-        trace_dir = self._get_safe_trace_dir(experiment_dir, request_id)
-        mkdir(trace_dir)
+        mkdir(experiment_dir, FileStore.TRACES_FOLDER_NAME)
+        traces_dir = os.path.join(experiment_dir, FileStore.TRACES_FOLDER_NAME)
+        mkdir(traces_dir, request_id)
+        trace_dir = os.path.join(traces_dir, request_id)
         artifact_uri = self._get_traces_artifact_dir(experiment_id, request_id)
         tags.update({MLFLOW_ARTIFACT_LOCATION: artifact_uri})
         trace_info = TraceInfoV2(

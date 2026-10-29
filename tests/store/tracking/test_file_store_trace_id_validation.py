@@ -3,7 +3,14 @@ from pathlib import Path
 
 import pytest
 
-from mlflow.entities import TraceInfo, TraceLocation, TraceState
+from mlflow.entities import (
+    AssessmentSource,
+    AssessmentSourceType,
+    Feedback,
+    TraceInfo,
+    TraceLocation,
+    TraceState,
+)
 from mlflow.environment_variables import MLFLOW_ALLOW_FILE_STORE
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.file_store import FileStore
@@ -38,6 +45,13 @@ def victim_dir(tmp_path: Path) -> Path:
     victim = tmp_path / "victim"
     victim.mkdir()
     (victim / "data.txt").write_text("data")
+    return victim
+
+
+@pytest.fixture
+def victim_assessment(tmp_path: Path) -> Path:
+    victim = tmp_path / "victim.yaml"
+    victim.write_text("data")
     return victim
 
 
@@ -123,3 +137,76 @@ def test_start_and_delete_trace_with_a_plain_trace_id(store: FileStore, tmp_path
 
     assert store.delete_traces(exp_id, trace_ids=["tr-abc123"]) == 1
     assert not trace_dir.exists()
+
+
+def _feedback(trace_id: str, **kwargs) -> Feedback:
+    return Feedback(
+        trace_id=trace_id,
+        name="correctness",
+        value=True,
+        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+        **kwargs,
+    )
+
+
+@pytest.mark.parametrize(
+    "trace_id",
+    [
+        "%2e%2e%2f%2e%2e%2foutside",
+        "tr-a?b",
+        "tr-a#b",
+        "..\t",
+        "..\n",
+        "tr-a\x00b",
+        "tr-a\x1fb",
+        "tr-a\x7fb",
+    ],
+)
+def test_trace_ids_with_uri_special_or_control_characters_are_rejected(
+    store: FileStore, tmp_path: Path, trace_id: str
+):
+    exp_id = store.create_experiment("exp")
+
+    with pytest.raises(MlflowException, match="parameter 'trace_id'") as exc_info:
+        store.start_trace(_trace_info(exp_id, trace_id))
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+    assert not _traces_dir(tmp_path, exp_id).exists()
+
+    with pytest.raises(MlflowException, match="parameter 'trace_id'"):
+        store.delete_traces(exp_id, trace_ids=[trace_id])
+
+
+@pytest.mark.parametrize("template", ["{target}", "{target_relpath}"])
+def test_assessment_ids_that_escape_the_assessments_dir_are_rejected(
+    store: FileStore, tmp_path: Path, victim_assessment: Path, template: str
+):
+    exp_id = store.create_experiment("exp")
+    store.start_trace(_trace_info(exp_id, "tr-seed"))
+    store.create_assessment(_feedback("tr-seed"))
+    assessments_dir = _traces_dir(tmp_path, exp_id) / "tr-seed" / FileStore.ASSESSMENTS_FOLDER_NAME
+    assessment_id = _escaping_trace_id(template, assessments_dir, victim_assessment.with_suffix(""))
+
+    with pytest.raises(MlflowException, match="parameter 'assessment_id'") as exc_info:
+        store.get_assessment("tr-seed", assessment_id)
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+    with pytest.raises(MlflowException, match="parameter 'assessment_id'"):
+        store.delete_assessment("tr-seed", assessment_id)
+    with pytest.raises(MlflowException, match="parameter 'assessment_id'"):
+        store.create_assessment(_feedback("tr-seed", overrides=assessment_id))
+
+    assert victim_assessment.read_text() == "data"
+
+
+def test_create_get_and_delete_an_assessment_with_a_generated_id(store: FileStore):
+    exp_id = store.create_experiment("exp")
+    store.start_trace(_trace_info(exp_id, "tr-seed"))
+
+    created = store.create_assessment(_feedback("tr-seed"))
+    assert created.assessment_id.startswith("a-")
+    assert store.get_assessment("tr-seed", created.assessment_id).value is True
+    assert [a.assessment_id for a in store.get_trace_info("tr-seed").assessments] == [
+        created.assessment_id
+    ]
+
+    store.delete_assessment("tr-seed", created.assessment_id)
+    assert store.get_trace_info("tr-seed").assessments == []
