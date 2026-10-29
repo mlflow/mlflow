@@ -154,7 +154,7 @@ def _validate_new_trace_id(trace_id: str) -> None:
     _validate_path_component(trace_id, "trace_id")
     # New trace ids are also embedded in the trace artifact URI, where "%", "?" and "#" change how
     # the path is decoded and URL parsing drops tabs and newlines, so those and other control
-    # characters are rejected. Only `start_trace` applies this, so traces created before it can
+    # characters are rejected. Only trace creation applies this, so traces created before it can
     # still be deleted by id.
     if any(c in "%?#" or ord(c) < 32 or ord(c) == 127 for c in trace_id):
         raise MlflowException(

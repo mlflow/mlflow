@@ -294,6 +294,95 @@ def test_start_trace(store: SqlAlchemyStore):
 
 
 @pytest.mark.parametrize(
+    "trace_id",
+    [
+        "",
+        "..",
+        ".",
+        "tr-seed/..",
+        "a/b",
+        "/tmp/escaped",
+        ".. ",
+        ". ",
+        "...",
+        " ..",
+        "%2e%2e",
+        "%2e%2e%2fx",
+        "tr-a?b",
+        "tr-a#b",
+        "..\t",
+    ],
+)
+def test_start_trace_rejects_trace_ids_that_are_not_single_path_components(
+    store: SqlAlchemyStore, trace_id: str
+):
+    experiment_id = store.create_experiment("test_experiment")
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        state=TraceState.OK,
+    )
+
+    with pytest.raises(MlflowException, match="parameter 'trace_id'") as exc_info:
+        store.start_trace(trace_info)
+
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_trace_info(trace_id)
+
+
+def test_start_trace_allows_custom_single_component_trace_ids(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_experiment")
+    trace_info = TraceInfo(
+        trace_id="tr-custom.id",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        state=TraceState.OK,
+    )
+
+    assert store.start_trace(trace_info).trace_id == "tr-custom.id"
+    assert store.get_trace_info("tr-custom.id").trace_id == "tr-custom.id"
+
+
+def test_log_spans_rejects_a_batch_with_an_invalid_new_trace_id(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_experiment")
+    spans = [
+        create_test_span("tr-valid", span_id=1, trace_num=1),
+        create_test_span("..", span_id=2, trace_num=2),
+    ]
+
+    with pytest.raises(MlflowException, match="parameter 'trace_id'") as exc_info:
+        store.log_spans(experiment_id, spans)
+
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_trace_info("tr-valid")
+
+
+@pytest.mark.parametrize("trace_id", ["%2e%2e", "tr-a?b", "tr-a#b"])
+def test_existing_traces_with_uri_special_characters_accept_spans_and_can_be_deleted(
+    store: SqlAlchemyStore, trace_id: str
+):
+    experiment_id = store.create_experiment("test_experiment")
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        state=TraceState.OK,
+    )
+    with mock.patch(
+        "mlflow.store.tracking.sqlalchemy_store._validate_new_trace_id"
+    ) as mock_validate:
+        store.start_trace(trace_info)
+    mock_validate.assert_called_once_with(trace_id)
+
+    store.log_spans(experiment_id, [create_test_span(trace_id)])
+
+    assert store.delete_traces(experiment_id, trace_ids=[trace_id]) == 1
+
+
+@pytest.mark.parametrize(
     ("tags", "trace_metadata", "limit"),
     [
         (
