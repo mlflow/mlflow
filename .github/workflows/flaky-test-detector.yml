@@ -98,7 +98,9 @@ jobs:
           ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway.outputs.token }}
           ANTHROPIC_BASE_URL: ${{ steps.gateway.outputs.base-url }}/anthropic
           ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
-          FLAKY_CLASSIFIER_MODEL: databricks-claude-sonnet-5
+          FLAKY_CLASSIFIER_MODEL: databricks-claude-sonnet-5-5
+          FLAKY_CLASSIFIER_TEMPERATURE: ""
+          FLAKY_CLASSIFIER_MAX_TOKENS: "4096"
         run: |
           python dev/classify_flaky_tests.py --in flakes.json --out classified.json
 

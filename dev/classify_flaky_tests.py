@@ -14,7 +14,8 @@ Gateway callers can provide `ANTHROPIC_AUTH_TOKEN` and optional
 `ANTHROPIC_CUSTOM_HEADERS`; requests use bearer authentication and the configured
 base URL. Local callers can continue to use `ANTHROPIC_API_KEY` for direct Anthropic
 access. `ANTHROPIC_BASE_URL` / `FLAKY_CLASSIFIER_MODEL` may override the endpoint and
-model.
+model. `FLAKY_CLASSIFIER_TEMPERATURE` defaults to 0; set it to an empty string for
+models that reject sampling parameters. `FLAKY_CLASSIFIER_MAX_TOKENS` defaults to 1024.
 
 Usage:
   python dev/classify_flaky_tests.py --in flakes.json --out classified.json
@@ -142,16 +143,15 @@ def classify(nodeid: str, count: int, error: str, retry_mechanism: str) -> dict[
     )
     request_body = {
         "model": DEFAULT_MODEL,
-        "max_tokens": 1024,
-        # temperature=0 for the most deterministic verdict we can get: the same flake
-        # should classify the same way run-to-run so the report/PR stays stable.
-        "temperature": 0,
+        "max_tokens": int(os.environ.get("FLAKY_CLASSIFIER_MAX_TOKENS", "1024")),
         "messages": [{"role": "user", "content": prompt}],
         # Constrain the reply to `_SCHEMA` so the model emits exactly the fields the
         # downstream stages read — no prose to parse, and an off-schema reply is rejected
         # by the API rather than reaching us.
         "output_config": {"format": {"type": "json_schema", "schema": _SCHEMA}},
     }
+    if temperature := os.environ.get("FLAKY_CLASSIFIER_TEMPERATURE", "0"):
+        request_body["temperature"] = float(temperature)
     req = urllib.request.Request(
         f"{BASE_URL}/v1/messages",
         data=json.dumps(request_body).encode(),
@@ -165,9 +165,13 @@ def classify(nodeid: str, count: int, error: str, retry_mechanism: str) -> dict[
         # there is no per-test fallback, so a failed call aborts the classify step.
         print(f"API Error {e.code}: {e.read().decode()}", file=sys.stderr)
         raise
-    # Two-level decode: the outer envelope is the Messages API response; the schema-
-    # constrained verdict is itself a JSON string in the first content block's `text`.
-    verdict: dict[str, Any] = json.loads(response["content"][0]["text"])
+    if response["stop_reason"] != "end_turn":
+        raise ValueError(f"Classifier response stopped with {response['stop_reason']}")
+    # Thinking blocks can precede the text block containing the schema-constrained verdict.
+    text = next((block["text"] for block in response["content"] if block["type"] == "text"), None)
+    if text is None:
+        raise ValueError("Classifier response contains no text block")
+    verdict: dict[str, Any] = json.loads(text)
     return verdict
 
 
