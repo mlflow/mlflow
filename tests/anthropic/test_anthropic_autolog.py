@@ -1,11 +1,16 @@
 import asyncio
+import importlib.util
 import re
 from typing import Any
 from unittest.mock import ANY, patch
 
 import anthropic
 import pytest
+from anthropic import beta_async_tool, beta_tool
 from anthropic.types import Message, TextBlock, ToolUseBlock, Usage
+from anthropic.types.beta import BetaMessage, BetaTextBlock, BetaToolUseBlock, BetaUsage
+from packaging.version import Version
+from pydantic import BaseModel
 
 import mlflow.anthropic
 from mlflow.entities import SpanLogLevel
@@ -14,6 +19,12 @@ from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
+
+# anthropic>=1.0 is built on httpx2 instead of httpx.
+if Version(anthropic.__version__).major >= 1:
+    import httpx2 as httpx
+else:
+    import httpx
 
 DUMMY_CREATE_MESSAGE_REQUEST = {
     "model": "test_model",
@@ -562,3 +573,248 @@ def test_tracing_headers_preserve_user_extra_headers(is_async):
     span = traces[0].data.spans[0]
     # User-provided extra_headers should be recorded in span inputs and take precedence
     assert span.inputs.get("extra_headers", {}).get("X-Custom") == "my-value"
+
+
+class _Unit(BaseModel):
+    unit: str
+
+
+_UNIT_RESPONSE = Message(
+    id="test_id",
+    content=[TextBlock(text='{"unit": "celsius"}', type="text", citations=None)],
+    model="test_model",
+    role="assistant",
+    stop_reason="end_turn",
+    stop_sequence=None,
+    type="message",
+    usage=Usage(
+        input_tokens=50,
+        output_tokens=20,
+        cache_creation_input_tokens=15,
+        cache_read_input_tokens=25,
+    ),
+)
+
+
+def _mock_http_client(responses, is_async, requests=None):
+    # Mock the transport rather than `post` so the SDK's own response handling runs, e.g.
+    # `parse()` building the parsed output and tool runners reading response metadata.
+    def handler(request):
+        if requests is not None:
+            requests.append(request)
+        return httpx.Response(200, json=responses.pop(0).to_dict())
+
+    transport = httpx.MockTransport(handler)
+    if is_async:
+        return anthropic.DefaultAsyncHttpxClient(transport=transport)
+    return anthropic.DefaultHttpxClient(transport=transport)
+
+
+@pytest.mark.parametrize(
+    ("get_resource", "method_name"),
+    [
+        (lambda client: client.messages, "parse"),
+        (lambda client: client.beta.messages, "create"),
+        (lambda client: client.beta.messages, "parse"),
+    ],
+    ids=["parse", "beta-create", "beta-parse"],
+)
+def test_messages_autolog_parse_and_beta(is_async, get_resource, method_name, mock_litellm_cost):
+    mlflow.anthropic.autolog()
+    requests = []
+    http_client = _mock_http_client([_UNIT_RESPONSE], is_async, requests)
+    client_cls = anthropic.AsyncAnthropic if is_async else anthropic.Anthropic
+    resource = get_resource(client_cls(api_key="test_key", http_client=http_client))
+    # `parse` was added in anthropic 0.73.0 (beta) and 0.77.0.
+    if not hasattr(resource, method_name):
+        pytest.skip(f"anthropic {anthropic.__version__} has no {method_name}")
+    request = DUMMY_CREATE_MESSAGE_REQUEST
+    if method_name == "parse":
+        request = {**request, "output_format": _Unit}
+    response = getattr(resource, method_name)(**request)
+    if is_async:
+        response = asyncio.run(response)
+
+    if method_name == "parse":
+        assert response.parsed_output == _Unit(unit="celsius")
+    traces = get_traces()
+    assert len(traces) == 1
+    assert len(traces[0].data.spans) == 1
+    span = traces[0].data.spans[0]
+    class_name = "AsyncMessages" if is_async else "Messages"
+    assert span.name == f"{class_name}.{method_name}"
+    assert span.span_type == SpanType.CHAT_MODEL
+    assert span.inputs["messages"] == DUMMY_CREATE_MESSAGE_REQUEST["messages"]
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 90,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 110,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 25,
+        TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 15,
+    }
+    assert span.model_name == "test_model"
+    assert span.get_attribute(SpanAttributeKey.MODEL_PROVIDER) == "anthropic"
+    if not IS_TRACING_SDK_ONLY:
+        # The litellm mock prices 1.0 per input token and 2.0 per output token.
+        assert span.llm_cost == {"input_cost": 90.0, "output_cost": 40.0, "total_cost": 130.0}
+
+    span_ctx = span._span.get_span_context()
+    trace_id = format(span_ctx.trace_id, "032x")
+    span_id = format(span_ctx.span_id, "016x")
+    assert requests[0].headers["traceparent"].startswith(f"00-{trace_id}-{span_id}-")
+
+
+@pytest.mark.parametrize(
+    "make_client",
+    [
+        pytest.param(
+            lambda is_async, http_client: (
+                anthropic.AsyncAnthropicBedrock if is_async else anthropic.AnthropicBedrock
+            )(
+                aws_access_key="test",
+                aws_secret_key="test",
+                aws_region="us-east-1",
+                http_client=http_client,
+            ),
+            id="bedrock",
+            marks=pytest.mark.skipif(
+                importlib.util.find_spec("boto3") is None,
+                reason="AnthropicBedrock signs requests with boto3",
+            ),
+        ),
+        pytest.param(
+            lambda is_async, http_client: (
+                anthropic.AsyncAnthropicVertex if is_async else anthropic.AnthropicVertex
+            )(
+                region="us-east5",
+                project_id="test-project",
+                access_token="test-token",
+                http_client=http_client,
+            ),
+            id="vertex",
+        ),
+    ],
+)
+@pytest.mark.parametrize("method_name", ["create", "parse"])
+def test_beta_messages_autolog_on_cloud_clients(is_async, make_client, method_name):
+    mlflow.anthropic.autolog()
+    resource = make_client(is_async, _mock_http_client([_UNIT_RESPONSE], is_async)).beta.messages
+    if not hasattr(resource, method_name):
+        pytest.skip(f"anthropic {anthropic.__version__} has no {method_name} on this client")
+    request = DUMMY_CREATE_MESSAGE_REQUEST
+    if method_name == "parse":
+        request = {**request, "output_format": _Unit}
+    response = getattr(resource, method_name)(**request)
+    if is_async:
+        asyncio.run(response)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    class_name = "AsyncMessages" if is_async else "Messages"
+    assert span.name == f"{class_name}.{method_name}"
+    assert span.span_type == SpanType.CHAT_MODEL
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE)[TokenUsageKey.INPUT_TOKENS] == 90
+
+
+def _beta_message(content, stop_reason):
+    return BetaMessage(
+        id="test_id",
+        content=content,
+        model="test_model",
+        role="assistant",
+        stop_reason=stop_reason,
+        stop_sequence=None,
+        type="message",
+        usage=BetaUsage(
+            input_tokens=10,
+            output_tokens=18,
+            cache_creation_input_tokens=15,
+            cache_read_input_tokens=25,
+        ),
+    )
+
+
+def _get_unit(location: str) -> str:
+    return "celsius"
+
+
+async def _get_unit_async(location: str) -> str:
+    return "celsius"
+
+
+def test_beta_tool_runner_autolog(is_async):
+    mlflow.anthropic.autolog()
+    responses = [
+        _beta_message(
+            [
+                BetaToolUseBlock(
+                    id="tool_123",
+                    name="get_unit",
+                    input={"location": "San Francisco"},
+                    type="tool_use",
+                )
+            ],
+            "tool_use",
+        ),
+        _beta_message([BetaTextBlock(text="celsius", type="text", citations=None)], "end_turn"),
+    ]
+    request = {
+        "model": "test_model",
+        "max_tokens": 1024,
+        "messages": [{"role": "user", "content": "Which unit is used in San Francisco?"}],
+    }
+    description = "Get the temperature unit commonly used in a given location"
+    http_client = _mock_http_client(responses, is_async)
+
+    if is_async:
+
+        @mlflow.trace
+        async def run_agent():
+            client = anthropic.AsyncAnthropic(api_key="test_key", http_client=http_client)
+            tool = beta_async_tool(_get_unit_async, name="get_unit", description=description)
+            runner = client.beta.messages.tool_runner(tools=[tool], **request)
+            return await runner.until_done()
+
+        asyncio.run(run_agent())
+    else:
+
+        @mlflow.trace
+        def run_agent():
+            client = anthropic.Anthropic(api_key="test_key", http_client=http_client)
+            tool = beta_tool(_get_unit, name="get_unit", description=description)
+            runner = client.beta.messages.tool_runner(tools=[tool], **request)
+            return runner.until_done()
+
+        run_agent()
+
+    traces = get_traces()
+    assert len(traces) == 1
+    root, *children = traces[0].data.spans
+    assert root.name == "run_agent"
+    assert [span.span_type for span in children] == [SpanType.CHAT_MODEL, SpanType.CHAT_MODEL]
+    assert all(span.parent_id == root.span_id for span in children)
+    # Each turn reports 10 input + 25 cache-read + 15 cache-write tokens and 18 output tokens.
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 100,
+        TokenUsageKey.OUTPUT_TOKENS: 36,
+        TokenUsageKey.TOTAL_TOKENS: 136,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 50,
+        TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 30,
+    }
+
+
+def test_beta_messages_autolog_records_tool_objects():
+    if Version(anthropic.__version__) < Version("1.5.0"):
+        pytest.skip("The beta Messages API accepts tool objects from anthropic 1.5.0")
+    mlflow.anthropic.autolog()
+    client = anthropic.Anthropic(
+        api_key="test_key", http_client=_mock_http_client([_UNIT_RESPONSE], is_async=False)
+    )
+    tool = beta_tool(_get_unit, name="get_unit", description="Get the temperature unit")
+    client.beta.messages.create(tools=[tool], **DUMMY_CREATE_MESSAGE_REQUEST)
+
+    span = get_traces()[0].data.spans[0]
+    assert [tool["name"] for tool in span.inputs["tools"]] == ["get_unit"]
+    tools = span.get_attribute(SpanAttributeKey.CHAT_TOOLS)
+    assert [tool["function"]["name"] for tool in tools] == ["get_unit"]

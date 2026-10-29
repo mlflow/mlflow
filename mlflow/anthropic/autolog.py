@@ -95,6 +95,7 @@ class TracingSession:
         self.original = original
         self.instance = instance
         self.inputs = construct_full_inputs(original, instance, *args, **kwargs)
+        _convert_tool_objects(self.inputs)
 
         # These attributes are set outside the constructor.
         self.span = None
@@ -135,8 +136,8 @@ class TracingSession:
             # Client-side cost computation (used for Databricks backends) resolves
             # litellm pricing by provider; without it, Claude model names don't
             # match and cost is silently dropped while token usage is still
-            # recorded. This autolog patches the Anthropic SDK, so the provider
-            # is always Anthropic.
+            # recorded. Spans from the Bedrock and Vertex AI clients get this
+            # provider too, so their model IDs may not be priced.
             self.span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, "anthropic")
             _set_token_usage_attribute(self.span, self.output)
             self.span.end(outputs=self.output)
@@ -154,12 +155,22 @@ def _inject_tracing_headers(kwargs: dict[str, Any], span: LiveSpan | None):
 
 
 def _get_span_type(task_name: str) -> str:
-    # Anthropic has a few APIs in beta, e.g., count_tokens.
-    # Once they are stable, we can add them to the mapping.
+    # Only the methods patched in `autolog()` reach this mapping.
     span_type_mapping = {
         "create": SpanType.CHAT_MODEL,
+        "parse": SpanType.CHAT_MODEL,
     }
     return span_type_mapping.get(task_name, SpanType.UNKNOWN)
+
+
+def _convert_tool_objects(inputs: dict[str, Any]):
+    # The beta Messages API also accepts tool objects (e.g. `@beta_tool` functions), which
+    # serialize to their tool definitions with `to_dict()`.
+    if tools := inputs.get("tools"):
+        try:
+            inputs["tools"] = [tool if isinstance(tool, dict) else tool.to_dict() for tool in tools]
+        except Exception as e:
+            _logger.debug(f"Failed to convert tools to dicts. Error: {e}")
 
 
 def _set_tool_attribute(span: LiveSpan, inputs: dict[str, Any]):

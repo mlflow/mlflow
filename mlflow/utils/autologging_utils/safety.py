@@ -939,6 +939,9 @@ _VALIDATION_EXEMPT_ARGUMENTS = [
     ValidationExemptArgument(
         "anthropic", "create", lambda x: isinstance(x, (dict, type(None))), None, "extra_headers"
     ),
+    ValidationExemptArgument(
+        "anthropic", "parse", lambda x: isinstance(x, (dict, type(None))), None, "extra_headers"
+    ),
     # Mistral and Groq also forward the client span's traceparent to the gateway. The
     # SDKs accept mapping-valued headers, and the injected value may differ from the user input.
     ValidationExemptArgument(

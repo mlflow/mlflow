@@ -137,6 +137,8 @@ MLflow supports automatic tracing for the following Anthropic APIs:
 
 </div>
 
+MLflow also traces `messages.parse()` and the beta Messages API's `create()` and `parse()` (`client.beta.messages`) on the Anthropic, Amazon Bedrock, and Vertex AI clients, including the calls a non-streaming `client.beta.messages.tool_runner` makes.
+
 To request support for additional APIs, please open a [feature request](https://github.com/mlflow/mlflow/issues) on GitHub.
 
 :::tip[Image Support in Anthropic Traces]
