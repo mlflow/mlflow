@@ -2370,6 +2370,51 @@ def test_log_batch(store: SqlAlchemyStore):
     assert set(metrics) == {("m1", 0.87, 12345, 0), ("m2", 0.49, 12345, 1)}
 
 
+@pytest.mark.parametrize("fail_metrics", [False, True])
+def test_log_batch_releases_validation_connection(store: SqlAlchemyStore, fail_metrics):
+    run_id = _run_factory(store).info.run_id
+    active_connections = 0
+    peak_connections = 0
+
+    def checkout(*_args):
+        nonlocal active_connections, peak_connections
+        active_connections += 1
+        peak_connections = max(peak_connections, active_connections)
+
+    def checkin(*_args):
+        nonlocal active_connections
+        active_connections -= 1
+
+    sqlalchemy.event.listen(store.engine, "checkout", checkout)
+    sqlalchemy.event.listen(store.engine, "checkin", checkin)
+    try:
+        with contextlib.ExitStack() as stack:
+            if fail_metrics:
+                stack.enter_context(
+                    mock.patch.object(
+                        store, "_log_metrics", side_effect=RuntimeError("write failed")
+                    )
+                )
+                stack.enter_context(pytest.raises(MlflowException, match="write failed"))
+            store.log_batch(
+                run_id,
+                metrics=[Metric("metric", 1.0, 1, 1)],
+                params=[Param("parameter", "value")],
+                tags=[RunTag("tag", "value")],
+            )
+    finally:
+        sqlalchemy.event.remove(store.engine, "checkout", checkout)
+        sqlalchemy.event.remove(store.engine, "checkin", checkin)
+
+    assert active_connections == 0
+    assert peak_connections == 1
+    run = store.get_run(run_id)
+    assert run.data.params == {"parameter": "value"}
+    if not fail_metrics:
+        assert run.data.metrics == {"metric": 1.0}
+        assert run.data.tags["tag"] == "value"
+
+
 def test_log_batch_limits(store: SqlAlchemyStore):
     # Test that log batch at the maximum allowed request size succeeds (i.e doesn't hit
     # SQL limitations, etc)
