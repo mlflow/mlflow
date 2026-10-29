@@ -21,6 +21,7 @@ import { shouldEnableNewEvalRunsUi, shouldEnableWorkflowBasedNavigation } from '
 import { WorkflowTypeProvider } from '../../../common/contexts/WorkflowTypeContext';
 import ExperimentTracesPage from '../experiment-traces/ExperimentTracesPage';
 import { useHeaderVisibility } from './ExperimentPageHeaderVisibilityContext';
+import { useExperimentPageLayoutContainer } from './ExperimentPageLayout';
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(60000); // Larger timeout for integration testing
@@ -55,6 +56,17 @@ const ExperimentPageTabsWithWorkflowType = () => (
   </WorkflowTypeProvider>
 );
 
+const LayoutContainerReportingTracesPage = () => {
+  const layoutContainer = useExperimentPageLayoutContainer();
+  return (
+    <div>
+      {layoutContainer?.getAttribute('data-experiment-page-layout') === 'true'
+        ? 'Has experiment page layout container'
+        : 'No experiment page layout container'}
+    </div>
+  );
+};
+
 const FocusModeTracesPage = () => {
   const { setHeaderHidden } = useHeaderVisibility();
   React.useEffect(() => {
@@ -65,6 +77,12 @@ const FocusModeTracesPage = () => {
 };
 
 jest.mock('../experiment-overview/ExperimentGenAIOverviewPage', () => ({
+  // mock default export
+  __esModule: true,
+  default: () => <div>Experiment overview page</div>,
+}));
+
+jest.mock('../experiment-overview/ExperimentGenAIJourneyOverviewPage', () => ({
   // mock default export
   __esModule: true,
   default: () => <div>Experiment overview page</div>,
@@ -128,6 +146,13 @@ describe('ExperimentLoggedModelListPage', () => {
                         withWorkflowType ? ExperimentPageTabsWithWorkflowType : ExperimentPageTabs,
                       ),
                       children: [
+                        {
+                          path: RoutePaths.experimentPageTabJourneyOverview,
+                          pageId: PageId.experimentPageTabJourneyOverview,
+                          element: createLazyRouteElement(
+                            () => import('../experiment-overview/ExperimentGenAIJourneyOverviewPage'),
+                          ),
+                        },
                         {
                           path: RoutePaths.experimentPageTabOverview,
                           pageId: PageId.experimentPageTabOverview,
@@ -405,6 +430,75 @@ describe('ExperimentLoggedModelListPage', () => {
       expect(screen.queryByRole('button', { name: 'Run evaluation' })).not.toBeInTheDocument();
     });
 
+    test('flag on: keeps the experiment info, Edit / Delete menu and archival badge in the breadcrumb header', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      server.use(
+        graphql.query('MlflowGetExperimentQuery', (req, res, ctx) =>
+          res(ctx.data(createTestExperimentResponse({ ...genAIExperiment, effectiveTraceArchivalRetention: '30d' }))),
+        ),
+      );
+      renderTestComponent('/experiments/12345678/traces');
+
+      const main = within(await screen.findByRole('main'));
+      expect(await main.findByText('Archive after: 30 days')).toBeInTheDocument();
+      await userEvent.click(main.getByRole('button', { name: 'Info' }));
+      expect(await screen.findByTestId('experiment-view-header-info-tooltip-content')).toHaveTextContent(
+        'Experiment ID: 12345678',
+      );
+
+      await userEvent.click(main.getByRole('button', { name: 'Open header dropdown menu' }));
+      expect(await screen.findByRole('menuitem', { name: 'Edit experiment' })).toBeInTheDocument();
+      expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeInTheDocument();
+      expect(screen.queryByTestId('experiment-view-header-back-button')).not.toBeInTheDocument();
+    });
+
+    test('flag on: Edit experiment from the evaluation runs breadcrumb header opens the experiment editor', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      renderTestComponent('/experiments/12345678/evaluation-runs');
+
+      const main = within(await screen.findByRole('main'));
+      expect(await main.findByRole('button', { name: 'Run evaluation' })).toBeInTheDocument();
+      expect(main.getByRole('button', { name: 'Info' })).toBeInTheDocument();
+      await userEvent.click(main.getByRole('button', { name: 'Open header dropdown menu' }));
+      await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit experiment' }));
+      expect(await screen.findByRole('dialog', { name: 'Edit experiment' })).toBeInTheDocument();
+    });
+
+    test('flag on: shows the experiment description under the breadcrumb row, not in it', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      server.use(
+        graphql.query('MlflowGetExperimentQuery', (req, res, ctx) =>
+          res(
+            ctx.data(
+              createTestExperimentResponse({
+                ...genAIExperiment,
+                tags: [...genAIExperiment.tags, { key: NOTE_CONTENT_TAG, value: 'Nightly support agent evals' }],
+              }),
+            ),
+          ),
+        ),
+      );
+      renderTestComponent('/experiments/12345678/traces');
+
+      const description = await screen.findByText('Nightly support agent evals');
+      const breadcrumb = screen.getByRole('navigation', { name: 'Breadcrumb' });
+      const breadcrumbRow = screen.getByRole('main').firstElementChild;
+      expect(breadcrumbRow).toContainElement(breadcrumb);
+      expect(breadcrumbRow).not.toContainElement(description);
+      expect(screen.getByRole('main')).toContainElement(description);
+
+      await userEvent.click(screen.getByTestId('experiment-metadata-editor-edit-button'));
+      expect(await screen.findByRole('dialog', { name: 'Edit experiment' })).toBeInTheDocument();
+    });
+
+    test('flag on: shows no description area when the experiment has no description', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      renderTestComponent('/experiments/12345678/traces');
+
+      expect(await screen.findByRole('navigation', { name: 'Breadcrumb' })).toBeInTheDocument();
+      expect(screen.queryByTestId('experiment-metadata-editor-edit-button')).not.toBeInTheDocument();
+    });
+
     test('flag on: keeps the experiment title header for non-GenAI experiments', async () => {
       jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
       server.use(
@@ -416,6 +510,32 @@ describe('ExperimentLoggedModelListPage', () => {
 
       expect(await screen.findByTestId('experiment-view-header-back-button')).toBeInTheDocument();
       expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).not.toBeInTheDocument();
+    });
+
+    test('flag on: provides the experiment page layout container to page content', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      jest.mocked(ExperimentTracesPage).mockImplementation(LayoutContainerReportingTracesPage);
+      try {
+        renderTestComponent('/experiments/12345678/traces');
+
+        const pageContent = await screen.findByText('Has experiment page layout container');
+        expect(screen.getByTestId('experiment-page-layout')).toContainElement(pageContent);
+      } finally {
+        jest.mocked(ExperimentTracesPage).mockImplementation(() => <div>Experiment traces page</div>);
+      }
+    });
+
+    test('flag off: provides no experiment page layout container', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
+      jest.mocked(ExperimentTracesPage).mockImplementation(LayoutContainerReportingTracesPage);
+      try {
+        renderTestComponent('/experiments/12345678/traces');
+
+        expect(await screen.findByText('No experiment page layout container')).toBeInTheDocument();
+        expect(screen.queryByTestId('experiment-page-layout')).not.toBeInTheDocument();
+      } finally {
+        jest.mocked(ExperimentTracesPage).mockImplementation(() => <div>Experiment traces page</div>);
+      }
     });
 
     test('flag on: hides the breadcrumb row while a page hides the header', async () => {

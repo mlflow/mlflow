@@ -16,12 +16,14 @@ import { getActiveChildIndex, SPAN_ROW_HEIGHT, TimelineTreeZIndex } from './Time
 import { TimelineTreeHierarchyBars } from './TimelineTreeHierarchyBars';
 import { TimelineTreeSpanTooltip } from './TimelineTreeSpanTooltip';
 import { type ModelTraceSpanNode } from '../ModelTrace.types';
+import { ModelTraceExplorerIssueIndicator } from '../../ModelTraceExplorerIssueBanner';
 import { getSpanExceptionCount } from '../ModelTraceExplorer.utils';
+import { getNonIssueAssessmentCount } from '../../IssueAssessmentUtils';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import { useGatewayTraceLink } from '../../hooks/useGatewayTraceLink';
 import { Link } from '../../RoutingUtils';
 import { useModelTraceExplorerPreferences } from '../ModelTraceExplorerPreferencesContext';
-import { getTimelineTreeMetricValue } from './TimelineTreeMetrics';
+import { getTimelineTreeComparisonMetricValues, getTimelineTreeMetricValue } from './TimelineTreeMetrics';
 
 const ROW_HEIGHT = SPAN_ROW_HEIGHT;
 const ROW_HEIGHT_WITH_METADATA = 48;
@@ -94,11 +96,15 @@ export const TimelineTreeNode = ({
   linesToRender: Array<HierarchyBar>;
 }): React.ReactElement => {
   const expanded = expandedKeys.has(node.key);
+  const assessmentCount = getNonIssueAssessmentCount(node.assessments);
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const { timelineTreeMetrics } = useModelTraceExplorerPreferences();
   const hasChildren = (node.children ?? []).length > 0;
-  const { setActiveTab, setAssessmentsPaneExpanded } = useModelTraceExplorerViewState();
+  const { setActiveTab, setAssessmentsPaneExpanded, comparisonNodeMap, comparisonNodeRoleMap } =
+    useModelTraceExplorerViewState();
+  const comparisonSpan = comparisonNodeMap[String(node.key)];
+  const nodeComparisonRole = comparisonNodeRoleMap[String(node.key)];
 
   const isActive = selectedKey === node.key;
   const activeChildIndex = getActiveChildIndex(node, String(selectedKey));
@@ -107,10 +113,37 @@ export const TimelineTreeNode = ({
 
   const hasException = getSpanExceptionCount(node) > 0;
   const gatewayTraceHref = useGatewayTraceLink(node.linkedGatewayTraceId);
-  const metricValues = timelineTreeMetrics.flatMap((metric) => {
-    const value = getTimelineTreeMetricValue(metric, node, intl);
-    return value ? [value] : [];
-  });
+  const baselineNode = nodeComparisonRole === 'candidate' ? comparisonSpan : node;
+  const candidateNode = nodeComparisonRole === 'candidate' ? node : comparisonSpan;
+  const comparisonMetricValues = nodeComparisonRole
+    ? getTimelineTreeComparisonMetricValues(baselineNode, candidateNode, intl)
+    : [];
+  const metricValues = nodeComparisonRole
+    ? timelineTreeMetrics.flatMap((metric) => {
+        const value = comparisonMetricValues.find((comparisonMetric) => comparisonMetric.key === metric);
+        return value
+          ? [
+              {
+                key: value.key,
+                value: value.unchanged ? (
+                  value.baseline
+                ) : (
+                  <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
+                    <span css={{ color: theme.colors.textSecondary }}>{value.baseline}</span>
+                    <span>→</span>
+                    <span css={{ color: theme.colors.actionLinkDefault }}>{value.candidate}</span>
+                  </span>
+                ),
+                title: value.title,
+                icon: value.icon,
+              },
+            ]
+          : [];
+      })
+    : timelineTreeMetrics.flatMap((metric) => {
+        const value = getTimelineTreeMetricValue(metric, node, intl);
+        return value ? [value] : [];
+      });
   const inlineMetric = timelineTreeMetrics.length === 1 ? metricValues[0] : undefined;
   const hasMetricRow = timelineTreeMetrics.length > 1 && metricValues.length > 0;
   const rowHeight = hasMetricRow ? ROW_HEIGHT_WITH_METADATA : ROW_HEIGHT;
@@ -120,7 +153,7 @@ export const TimelineTreeNode = ({
 
   return (
     <>
-      <TimelineTreeSpanTooltip span={node}>
+      <TimelineTreeSpanTooltip span={node} comparisonSpan={comparisonSpan} comparisonRole={nodeComparisonRole}>
         <div
           data-testid={`timeline-tree-node-${node.key}`}
           css={{
@@ -276,6 +309,7 @@ export const TimelineTreeNode = ({
                         {node.title}
                       </Typography.Text>
                     </div>
+                    <ModelTraceExplorerIssueIndicator span={node} />
                     {gatewayTraceHref && (
                       <Tooltip
                         content="View linked gateway trace"
@@ -300,7 +334,7 @@ export const TimelineTreeNode = ({
                         </Link>
                       </Tooltip>
                     )}
-                    {node.assessments.length > 0 && (
+                    {assessmentCount > 0 && (
                       <Tag
                         color="indigo"
                         data-testid={`assessment-tag-${node.key}`}
@@ -313,9 +347,7 @@ export const TimelineTreeNode = ({
                         onClick={() => setAssessmentsPaneExpanded?.(true)}
                       >
                         <GavelIcon />
-                        <Typography.Text css={{ marginLeft: theme.spacing.xs }}>
-                          {node.assessments.length}
-                        </Typography.Text>
+                        <Typography.Text css={{ marginLeft: theme.spacing.xs }}>{assessmentCount}</Typography.Text>
                       </Tag>
                     )}
                     {(node.links?.length ?? 0) > 0 && (

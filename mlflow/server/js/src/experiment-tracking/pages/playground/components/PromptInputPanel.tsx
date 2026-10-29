@@ -93,7 +93,7 @@ export const PromptInputPanel = ({ messages, onChange }: Props) => {
           }}
           data-testid={`mlflow.playground.prompt_input.message.${message.role}`}
         >
-          {message.role === 'assistant' ? (
+          {message.isModelReply ? (
             <>
               <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography.Text

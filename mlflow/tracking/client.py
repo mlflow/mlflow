@@ -137,7 +137,7 @@ from mlflow.tracking._workspace.registry import UnsupportedWorkspaceStoreURIExce
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.multimedia import Image, compress_image_size, convert_to_pil_image
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
-from mlflow.utils import is_uuid, workspace_utils
+from mlflow.utils import get_results_from_paginated_fn, is_uuid, workspace_utils
 from mlflow.utils.annotations import deprecated, deprecated_parameter
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import (
@@ -3030,8 +3030,8 @@ class MlflowClient:
 
             # If the file extension doesn't exist or match any of [".json", ".yaml", ".yml"],
             # JSON format is used.
-            mlflow.log_dict(run_id, dictionary, "data")
-            mlflow.log_dict(run_id, dictionary, "data.txt")
+            client.log_dict(run_id, dictionary, "data")
+            client.log_dict(run_id, dictionary, "data.txt")
 
         """
         extension = os.path.splitext(artifact_file)[1]
@@ -3345,7 +3345,7 @@ class MlflowClient:
                 )
 
             step = step or 0
-            timestamp = timestamp or get_current_time_millis()
+            timestamp = timestamp if timestamp is not None else get_current_time_millis()
 
             # Sanitize key to use in filename (replace / with ~ to avoid subdirectories).
             # '#' was previously used here but is rejected by validate_path_is_safe(),
@@ -3396,11 +3396,15 @@ class MlflowClient:
             if char in artifact_file:
                 raise ValueError(f"The artifact_file contains forbidden character: {char}")
 
-    def _read_from_file(self, artifact_path):
+    def _read_from_file(self, artifact_path, infer_dtypes=True):
         import pandas as pd
 
         if artifact_path.endswith(".json"):
-            return pd.read_json(artifact_path, orient="split")
+            if infer_dtypes:
+                return pd.read_json(artifact_path, orient="split")
+            # Keep the stored JSON values as-is so that rewriting the table doesn't alter them
+            # (e.g. "02108" -> 2108)
+            return pd.read_json(artifact_path, orient="split", dtype=False, convert_dates=False)
         if artifact_path.endswith(".parquet"):
             return pd.read_parquet(artifact_path)
         raise ValueError(f"Unsupported file type in {artifact_path}. Expected .json or .parquet")
@@ -3562,7 +3566,9 @@ class MlflowClient:
                 downloaded_artifact_path = self.download_artifacts(
                     run_id=run_id, path=artifact_file, dst_path=tmpdir
                 )
-                existing_predictions = self._read_from_file(downloaded_artifact_path)
+                existing_predictions = self._read_from_file(
+                    downloaded_artifact_path, infer_dtypes=False
+                )
             data = pd.concat([existing_predictions, data], ignore_index=True)
             _logger.debug(
                 "Appending new table to already existing artifact "
@@ -3680,7 +3686,25 @@ class MlflowClient:
             list_run_ids = ",".join(map(repr, run_ids))
             filter_string += f" and attributes.run_id IN ({list_run_ids})"
 
-        runs = mlflow.search_runs(experiment_ids=[experiment_id], filter_string=filter_string)
+        from mlflow.tracking.fluent import (
+            NUM_RUNS_PER_PAGE_PANDAS,
+            SEARCH_MAX_RESULTS_PANDAS,
+            _runs_to_pandas,
+        )
+
+        def pagination_wrapper_func(number_to_get, next_page_token):
+            return self.search_runs(
+                [experiment_id],
+                filter_string,
+                max_results=number_to_get,
+                page_token=next_page_token,
+            )
+
+        runs = _runs_to_pandas(
+            get_results_from_paginated_fn(
+                pagination_wrapper_func, NUM_RUNS_PER_PAGE_PANDAS, SEARCH_MAX_RESULTS_PANDAS
+            )
+        )
         if run_ids and len(run_ids) != len(runs):
             _logger.warning(
                 "Not all runs have the specified table artifact. Some runs will be skipped."
@@ -6429,12 +6453,13 @@ class MlflowClient:
 
         .. code-block:: python
 
+            import mlflow
             from mlflow import MlflowClient
 
             client = MlflowClient()
 
             # For Unity Catalog, delete all versions first
-            if client.get_registry_uri().startswith("databricks-uc"):
+            if mlflow.get_registry_uri().startswith("databricks-uc"):
                 versions = client.search_prompt_versions("my_prompt")
                 for version in versions:
                     client.delete_prompt_version("my_prompt", version.version)
@@ -6961,16 +6986,29 @@ class MlflowClient:
         mcp_server_access_headers: Mapping[str, str] | None = None,
         dry_run: bool = False,
     ) -> MCPServerVersion:
-        from mlflow.genai.mcp_tool_discovery import discover_tools_for_server_json
+        from mlflow.genai.mcp_tool_discovery import discover_tools_for_version
 
         current = self.get_mcp_server_version(name=name, version=version)
-        discovered_tools = discover_tools_for_server_json(
+        discovered_tools = discover_tools_for_version(
             server_json=current.server_json,
+            version=version,
+            access_endpoints=self._search_all_mcp_access_endpoints(server_name=name),
             headers=mcp_server_access_headers,
         )
         if dry_run:
             return replace(current, tools=discovered_tools)
         return self.update_mcp_server_version(name=name, version=version, tools=discovered_tools)
+
+    def _search_all_mcp_access_endpoints(self, server_name: str) -> list[MCPAccessEndpoint]:
+        endpoints: list[MCPAccessEndpoint] = []
+        page_token: str | None = None
+        queried_tokens: set[str | None] = set()
+        while page_token not in queried_tokens:
+            queried_tokens.add(page_token)
+            page = self.search_mcp_access_endpoints(server_name=server_name, page_token=page_token)
+            endpoints.extend(page)
+            page_token = page.token or None
+        return endpoints
 
     def delete_mcp_server_version(self, name: str, version: str) -> None:
         self._tracking_client.store.delete_mcp_server_version(name=name, version=version)

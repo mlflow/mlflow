@@ -26,6 +26,8 @@ import { SidePanelResizeHandle } from './SidePanelResizeHandle';
 import { TraceModal } from './TraceModal';
 import { DEFAULT_RECORD_PAGE_SIZE } from '../utils/constants';
 import { useExperimentPageRevampContext } from '../../experiment-page-tabs/ExperimentPageRevampContext';
+import { shouldEnableNewEvalRunsUi } from '../../../../common/utils/FeatureUtils';
+import { DatasetUsedByRunsButton, DatasetUsedByRunsPanel } from './DatasetUsedByRunsDrawer';
 
 /**
  * OSS implementation of `useNavigationBlock` — what universe gets from
@@ -79,6 +81,7 @@ export interface DatasetDetailPageContentProps {
 export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: DatasetDetailPageContentProps) => {
   const { theme } = useDesignSystemTheme();
   const { enabled: revampEnabled } = useExperimentPageRevampContext();
+  const enableNewEvalRunsUi = shouldEnableNewEvalRunsUi();
   const intl = useIntl();
   const { notify, notificationContainer } = useDatasetNotifications();
   const searchInputRef = useRef<InputRef>(null);
@@ -132,7 +135,10 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
   const tableWrapperRef = useRef<HTMLDivElement | null>(null);
 
   const panelMode: 'edit' | 'create' | null = url.recordId ? 'edit' : pendingNewRecord !== null ? 'create' : null;
-  const panelOpen = panelMode !== null;
+  const recordPanelOpen = panelMode !== null;
+  // A record panel wins: Back can restore `runsPanel` while a new-record draft is still open.
+  const isRunsPanelOpen = enableNewEvalRunsUi && url.isRunsPanelOpen && !recordPanelOpen;
+  const panelOpen = recordPanelOpen || isRunsPanelOpen;
 
   // Dirty flag is owned by the side panel (drives its editor state) but consumed here so
   // every transition that would discard those edits — close, record-switch, mode-switch,
@@ -181,8 +187,8 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
   // fire that callback (the effect re-runs would flicker false→true). Reset here so closing
   // the panel doesn't leave the navigation block armed with nothing to guard.
   useEffect(() => {
-    if (!panelOpen) setIsPanelDirty(false);
-  }, [panelOpen]);
+    if (!recordPanelOpen) setIsPanelDirty(false);
+  }, [recordPanelOpen]);
 
   const handleOpenBulkDelete = useCallback(() => {
     setPendingDeleteIds(Array.from(bulk.selected));
@@ -244,6 +250,15 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
     },
     [requestTransition, url],
   );
+
+  const handleOpenRunsPanel = useCallback(() => {
+    requestTransition(() => {
+      setPendingNewRecord(null);
+      url.setRunsPanelOpen(true);
+    });
+  }, [requestTransition, url]);
+
+  const handleCloseRunsPanel = useCallback(() => url.setRunsPanelOpen(false), [url]);
 
   const handleClosePanel = useCallback(() => {
     requestTransition(() => {
@@ -346,6 +361,9 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
                 isRefreshing={records.isFetching && !records.isLoading}
                 lastRefreshTime={records.dataUpdatedAt > 0 ? records.dataUpdatedAt : undefined}
                 onAddRecord={handleAddRecord}
+                beforeAddRecordControl={
+                  enableNewEvalRunsUi && dataset.name ? <DatasetUsedByRunsButton onClick={handleOpenRunsPanel} /> : null
+                }
                 searchInputRef={searchInputRef}
                 trailingControls={
                   panelOpen ? null : (
@@ -464,28 +482,37 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
             }}
             handle={<SidePanelResizeHandle />}
           >
-            <DatasetRecordSidePanel
-              // Remount the side panel — including the Monaco editors — on every
-              // create↔edit mode flip. Both `useRecordSaveState` and `useRecordCreateState`
-              // run in the same instance to satisfy rules-of-hooks; without a key, the
-              // edit-mode editor's text drifts to '' during a create-mode interlude (its
-              // `record` becomes undefined, the recordId-change effect resets it), and the
-              // subsequent reset to the next selected row's text races with Monaco's
-              // change-tracking plugin. Keying on mode gives the next mode a fresh hook
-              // instance initialized synchronously with the correct content.
-              key={panelMode ?? 'edit'}
-              mode={panelMode ?? 'edit'}
-              datasetId={datasetId}
-              record={selectedRecord}
-              existingRecords={records.allRecords}
-              open={panelOpen}
-              onClose={handleClosePanel}
-              onSaveSuccess={panelMode === 'create' ? handleCreateSaveSuccess : handleEditSaveSuccess}
-              onSaveError={notify.error}
-              onPendingChange={setPendingNewRecord}
-              onDirtyChange={setIsPanelDirty}
-              onOpenTraceModal={handleOpenTraceModal}
-            />
+            {isRunsPanelOpen && dataset.name ? (
+              <DatasetUsedByRunsPanel
+                datasetName={dataset.name}
+                experimentId={experimentId}
+                open
+                onClose={handleCloseRunsPanel}
+              />
+            ) : (
+              <DatasetRecordSidePanel
+                // Remount the side panel — including the Monaco editors — on every
+                // create↔edit mode flip. Both `useRecordSaveState` and `useRecordCreateState`
+                // run in the same instance to satisfy rules-of-hooks; without a key, the
+                // edit-mode editor's text drifts to '' during a create-mode interlude (its
+                // `record` becomes undefined, the recordId-change effect resets it), and the
+                // subsequent reset to the next selected row's text races with Monaco's
+                // change-tracking plugin. Keying on mode gives the next mode a fresh hook
+                // instance initialized synchronously with the correct content.
+                key={panelMode ?? 'edit'}
+                mode={panelMode ?? 'edit'}
+                datasetId={datasetId}
+                record={selectedRecord}
+                existingRecords={records.allRecords}
+                open={recordPanelOpen}
+                onClose={handleClosePanel}
+                onSaveSuccess={panelMode === 'create' ? handleCreateSaveSuccess : handleEditSaveSuccess}
+                onSaveError={notify.error}
+                onPendingChange={setPendingNewRecord}
+                onDirtyChange={setIsPanelDirty}
+                onOpenTraceModal={handleOpenTraceModal}
+              />
+            )}
           </ResizableBox>
         )}
         {isResizing && <Global styles={{ 'body, :host': { userSelect: 'none' } }} />}

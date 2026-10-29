@@ -23,8 +23,14 @@ from mlflow.genai.datasets import (
     search_datasets,
     set_dataset_tags,
 )
-from mlflow.genai.evaluation import evaluate, to_predict_fn
+from mlflow.genai.evaluation import compare_evaluations, evaluate, to_predict_fn
 from mlflow.genai.git_versioning import disable_git_model_versioning, enable_git_model_versioning
+from mlflow.genai.issues import (
+    create_issue,
+    get_issue,
+    search_issues,
+    update_issue,
+)
 from mlflow.genai.judges import make_judge
 from mlflow.genai.labeling import (
     Agent,
@@ -100,6 +106,11 @@ __all__ = [
     "datasets",
     "test_agent",
     "evaluate",
+    "compare_evaluations",
+    "create_issue",
+    "get_issue",
+    "update_issue",
+    "search_issues",
     "to_predict_fn",
     "Scorer",
     "scorer",

@@ -20,7 +20,7 @@ import { defaultUrlTransform } from 'react-markdown-10';
 
 const LARGE_MARKDOWN_SIZE = 100 * 1024;
 
-interface ShowArtifactMarkdownViewProps extends Omit<LoggedModelArtifactViewerProps, 'experimentId' | 'entityTags'> {
+interface ShowArtifactMarkdownViewProps extends LoggedModelArtifactViewerProps {
   runUuid: string;
   path: string;
   size?: number;
@@ -31,6 +31,7 @@ const ShowArtifactMarkdownView = ({
   path,
   isLoggedModelsMode,
   loggedModelId,
+  artifactRootUri,
   size,
 }: ShowArtifactMarkdownViewProps) => {
   const isLargeFile = (size || 0) > LARGE_MARKDOWN_SIZE;
@@ -53,6 +54,7 @@ const ShowArtifactMarkdownView = ({
       {
         runUuid,
         path,
+        artifactRootUri,
         isLoggedModelsMode,
         loggedModelId,
       },
@@ -72,13 +74,13 @@ const ShowArtifactMarkdownView = ({
     return () => {
       cancelled = true;
     };
-  }, [runUuid, path, isLoggedModelsMode, loggedModelId]);
+  }, [runUuid, path, isLoggedModelsMode, loggedModelId, artifactRootUri]);
 
   if (loading) {
     return <ArtifactViewSkeleton className="artifact-markdown-view-loading" />;
   }
   if (error) {
-    return <ArtifactViewErrorState className="artifact-markdown-view-error" />;
+    return <ArtifactViewErrorState error={error} className="artifact-markdown-view-error" />;
   }
 
   return (

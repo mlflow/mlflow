@@ -716,6 +716,51 @@ async def test_bedrock_converse_chat_stream_cache_tokens():
     mock_client.converse_stream.assert_called_once()
 
 
+_STOP_REASON_CASES = [
+    ("end_turn", "stop"),
+    ("tool_use", "tool_calls"),
+    ("max_tokens", "length"),
+    ("model_context_window_exceeded", "length"),
+    ("content_filtered", "content_filter"),
+    ("guardrail_intervened", "content_filter"),
+]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("stop_reason", "expected"), _STOP_REASON_CASES)
+async def test_bedrock_converse_chat_finish_reason(stop_reason, expected):
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    response = _converse_response()
+    response["stopReason"] = stop_reason
+    mock_client.converse.return_value = response
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}])
+        result = jsonable_encoder(await provider.chat(payload))
+
+    assert result["choices"][0]["finish_reason"] == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("stop_reason", "expected"), _STOP_REASON_CASES)
+async def test_bedrock_converse_chat_stream_finish_reason(stop_reason, expected):
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    mock_client.converse_stream.return_value = {
+        "stream": iter([
+            {"contentBlockDelta": {"delta": {"text": "Hello"}}},
+            {"messageStop": {"stopReason": stop_reason}},
+        ])
+    }
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}])
+        chunks = [jsonable_encoder(chunk) async for chunk in provider.chat_stream(payload)]
+
+    assert chunks[-1]["choices"][0]["finish_reason"] == expected
+
+
 def _tool_stream_events(*blocks):
     events = [{"messageStart": {"role": "assistant"}}]
     for i, block in enumerate(blocks):

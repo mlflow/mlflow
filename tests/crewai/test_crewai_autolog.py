@@ -7,6 +7,7 @@ from crewai import Agent, Crew, Task
 from crewai.flow.flow import Flow, start
 from crewai.tools import BaseTool
 from packaging.version import Version
+from pydantic import BaseModel
 
 import mlflow
 from mlflow.crewai.autolog import (
@@ -910,3 +911,21 @@ def test_kickoff_trace_does_not_expose_llm_api_key(agent_with_api_key, autolog, 
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
     assert _FAKE_API_KEY not in traces[0].to_json()
+
+
+def test_sanitize_value_does_not_expose_bound_method_owner():
+    fake_key = "tvly-fake-tool-key"
+
+    class FakeTool(BaseModel):
+        name: str = "fake_tool"
+        api_key: str = fake_key
+
+        def _run(self, query: str) -> str:
+            return query
+
+    tool = FakeTool()
+    sanitized = _sanitize_value({"tool": tool, "run": tool._run})
+
+    assert fake_key not in json.dumps(sanitized, cls=TraceJSONEncoder)
+    assert sanitized["tool"] == {"name": "fake_tool"}
+    assert sanitized["run"].endswith("FakeTool._run")

@@ -2,6 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
+import mlflow
 from mlflow.entities.span import Span, SpanAttributeKey, SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.deepeval.models import create_deepeval_model
@@ -85,6 +86,22 @@ def test_extract_tool_calls_from_trace():
     assert tool_calls[0].input_parameters == {"query": "test"}
     assert tool_calls[0].output == {"results": ["result1", "result2"]}
     trace.search_spans.assert_called_once_with(span_type=SpanType.TOOL)
+
+
+def test_extract_tool_calls_from_trace_skips_google_adk_merged_tool_span():
+    with mlflow.start_span(name="root") as root_span:
+        with mlflow.start_span(name="execute_tool log_food", span_type=SpanType.TOOL) as span:
+            span.set_attribute("gen_ai.tool.name", "log_food")
+            span.set_inputs({"food": "bread"})
+        with mlflow.start_span(name="execute_tool (merged)", span_type=SpanType.TOOL) as span:
+            span.set_attribute("gen_ai.tool.name", "(merged tools)")
+            span.set_inputs("N/A")
+
+    trace = mlflow.get_trace(root_span.trace_id)
+    tool_calls = _extract_tool_calls_from_trace(trace)
+
+    assert [tool_call.name for tool_call in tool_calls] == ["log_food"]
+    assert tool_calls[0].input_parameters == {"food": "bread"}
 
 
 def test_extract_tool_calls_from_trace_returns_none_when_no_tools():

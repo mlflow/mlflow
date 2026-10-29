@@ -1,9 +1,10 @@
-import { jest, describe, test, expect, beforeEach } from '@jest/globals';
+import { jest, describe, test, expect, beforeEach, afterEach } from '@jest/globals';
 import { act, render, screen, waitFor } from '../../../common/utils/TestUtils.react18';
 import ShowArtifactAudioView from './ShowArtifactAudioView';
 
 import { IntlProvider } from 'react-intl';
 import WaveSurfer from 'wavesurfer.js';
+import { MlflowService } from '../../sdk/MlflowService';
 
 jest.mock('wavesurfer.js', () => {
   const mWaveSurfer = {
@@ -27,14 +28,22 @@ const mockGetArtifact = jest.fn((_artifactUrl: string) => Promise.resolve(fakeBl
 
 beforeEach(() => {
   jest.clearAllMocks();
+  jest
+    .spyOn(MlflowService, 'getLoggedModel')
+    .mockResolvedValue({ model: { info: { artifact_uri: 's3://bucket/model/artifacts' } } });
+  jest.spyOn(MlflowService, 'getCredentialsForLoggedModelArtifactRead').mockResolvedValue({ credentials: [] });
   global.URL.createObjectURL = jest.fn(() => fakeBlobUrl) as any;
   global.URL.revokeObjectURL = jest.fn() as any;
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
 });
 
 const minimalProps = {
   path: 'fakepath',
   runUuid: 'fakeUuid',
-  experimentId: 'fakeExperimentId',
+  artifactRootUri: 'mlflow-artifacts:/1/fakeUuid/artifacts',
   getArtifact: mockGetArtifact,
 };
 
@@ -68,7 +77,7 @@ describe('ShowArtifactAudioView tests', () => {
     });
   });
 
-  test('fetches artifact from the run artifact endpoint by default', async () => {
+  test('fetches artifact from its configured run artifact root by default', async () => {
     await act(async () => {
       render(
         <IntlProvider locale="en">
@@ -78,7 +87,7 @@ describe('ShowArtifactAudioView tests', () => {
     });
 
     expect(mockGetArtifact).toHaveBeenCalledWith(
-      expect.stringContaining('get-artifact?path=fakepath&run_uuid=fakeUuid'),
+      'ajax-api/2.0/mlflow-artifacts/artifacts/1/fakeUuid/artifacts/fakepath',
     );
   });
 
@@ -86,7 +95,12 @@ describe('ShowArtifactAudioView tests', () => {
     await act(async () => {
       render(
         <IntlProvider locale="en">
-          <ShowArtifactAudioView {...minimalProps} isLoggedModelsMode loggedModelId="m-123" />
+          <ShowArtifactAudioView
+            {...minimalProps}
+            artifactRootUri={undefined}
+            isLoggedModelsMode
+            loggedModelId="m-123"
+          />
         </IntlProvider>,
       );
     });

@@ -238,11 +238,74 @@ describe('PydanticAI message normalization', () => {
       const result = normalizeConversation(inputWithMessageHistory, 'pydantic_ai');
 
       expect(result).not.toBeNull();
-      expect(result).toHaveLength(3); // system + user + assistant from message_history
+      expect(result).toHaveLength(4); // system + user + assistant from message_history, then user_prompt
 
       expect(result![0].role).toBe('system');
       expect(result![1].role).toBe('user');
       expect(result![2].role).toBe('assistant');
+      expect(result![3].role).toBe('user');
+      expect(result![3].content).toBe('I am doing well thank you.');
+    });
+
+    it('should normalize a first-turn input that only has user_prompt', () => {
+      const result = normalizeConversation({ user_prompt: 'Hello there' }, 'pydantic_ai');
+
+      expect(result).toEqual([{ role: 'user', content: 'Hello there' }]);
+    });
+
+    it('should render a multimodal user_prompt as text and image content', () => {
+      const inputWithPartsPrompt = {
+        user_prompt: ['Describe this image', { kind: 'image-url', url: 'https://example.com/a.png' }],
+        message_history: [MOCK_PYDANTIC_AI_REQUEST, MOCK_PYDANTIC_AI_RESPONSE],
+      };
+
+      const result = normalizeConversation(inputWithPartsPrompt, 'pydantic_ai');
+
+      expect(result).toHaveLength(4);
+      expect(result![3].role).toBe('user');
+      expect(result![3].content).toBe('Describe this image\n\n![](https://example.com/a.png)');
+    });
+
+    it('should render multimodal user prompts inside message_history', () => {
+      const history = {
+        message_history: [
+          {
+            kind: 'request',
+            parts: [
+              {
+                part_kind: 'user-prompt',
+                content: ['Describe this image', { kind: 'image-url', url: 'https://example.com/a.png' }],
+              },
+            ],
+          },
+          { kind: 'response', parts: [{ part_kind: 'text', content: 'A cat.' }] },
+        ],
+      };
+
+      const result = normalizeConversation(history, 'pydantic_ai');
+
+      expect(result).toHaveLength(2);
+      expect(result![0].content).toBe('Describe this image\n\n![](https://example.com/a.png)');
+      expect(result![1].content).toBe('A cat.');
+    });
+
+    it('should label non-image media and binary content instead of dropping it', () => {
+      const request = {
+        kind: 'request',
+        parts: [
+          {
+            part_kind: 'user-prompt',
+            content: [
+              { kind: 'document-url', url: 'https://example.com/a.pdf' },
+              { kind: 'binary', media_type: 'audio/wav', data: 'AAAA' },
+            ],
+          },
+        ],
+      };
+
+      const result = normalizeConversation(request, 'pydantic_ai');
+
+      expect(result![0].content).toBe('[document: https://example.com/a.pdf]\n\n[binary: audio/wav]');
     });
 
     it('should handle response with thinking parts', () => {
@@ -367,6 +430,49 @@ describe('PydanticAI message normalization', () => {
           },
         ],
       });
+    });
+
+    it('should render an output-validation retry prompt as user feedback', () => {
+      // PydanticAI assigns a tool_call_id even when the retry is not tied to a tool call.
+      const request = {
+        kind: 'request',
+        parts: [
+          {
+            part_kind: 'retry-prompt',
+            content: 'Output must be valid JSON',
+            tool_name: null,
+            tool_call_id: 'pyd_ai_1',
+          },
+        ],
+      };
+
+      const result = normalizeConversation(request, 'pydantic_ai');
+
+      expect(result).toHaveLength(1);
+      expect(result![0].role).toBe('user');
+      expect(result![0].content).toBe('Output must be valid JSON\n\nFix the errors and try again.');
+    });
+
+    it('should render a retry prompt for a tool call as a tool message with validation details', () => {
+      const request = {
+        kind: 'request',
+        parts: [
+          {
+            part_kind: 'retry-prompt',
+            content: [{ type: 'missing', loc: ['city'], msg: 'Field required' }],
+            tool_name: 'get_weather',
+            tool_call_id: 'call_1',
+          },
+        ],
+      };
+
+      const result = normalizeConversation(request, 'pydantic_ai');
+
+      expect(result).toHaveLength(1);
+      expect(result![0].role).toBe('tool');
+      expect(result![0].tool_call_id).toBe('call_1');
+      expect(result![0].content).toContain('Validation feedback:');
+      expect(result![0].content).toContain('Field required');
     });
 
     it('should return null for non-PydanticAI messages', () => {

@@ -364,9 +364,11 @@ class MlflowStorage(BaseStorage):
         runs = self._mlflow_client.search_runs(experiment_ids=[self._experiment_id])
         studies = []
         for run in runs:
+            # Trial runs share the experiment with study runs but have no study direction tag
+            if (directions_str := run.data.tags.get("optuna.study_direction")) is None:
+                continue
             study_id = run.info.run_id
             study_name = run.data.tags["mlflow.runName"]
-            directions_str = run.data.tags["optuna.study_direction"]
             directions = [StudyDirection[name] for name in directions_str.split(",")]
             studies.append(
                 FrozenStudy(

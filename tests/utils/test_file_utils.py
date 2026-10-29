@@ -171,6 +171,14 @@ def test_path_to_local_sqlite_uri_preserves_literal_path(tmp_path, dirname):
     assert Path(make_url(uri).database) == db_path
 
 
+def test_path_to_local_sqlite_uri_without_sqlalchemy(tmp_path):
+    db_path = tmp_path / "a%2Bb" / "mlflow.db"
+    with mock.patch("importlib.util.find_spec", return_value=None) as mock_find_spec:
+        uri = path_to_local_sqlite_uri(db_path)
+    mock_find_spec.assert_called_once_with("sqlalchemy")
+    assert uri == f"sqlite:///{db_path.as_posix()}"
+
+
 def test_shutil_copytree_without_file_permissions(tmp_path):
     src_dir = tmp_path.joinpath("src-dir")
     src_dir.mkdir()
@@ -487,3 +495,22 @@ def test_remove_on_error_logs_nothing_for_nonexistent_path(tmp_path, file_utils_
             raise ValueError("root cause")
 
     assert file_utils_caplog.records == []
+
+
+@pytest.mark.parametrize("verify", [None, True, False])
+def test_download_file_using_http_uri_tls_verification(tmp_path, verify):
+    destination = tmp_path / "artifact"
+    with mock.patch("mlflow.utils.file_utils.cloud_storage_http_request") as request:
+        request.return_value.__enter__.return_value.iter_content.return_value = [b"content"]
+        kwargs = {} if verify is None else {"verify": verify}
+        file_utils.download_file_using_http_uri(
+            "https://storage.example/artifact", destination, **kwargs
+        )
+    request.assert_called_once_with(
+        "get",
+        "https://storage.example/artifact",
+        stream=True,
+        headers={},
+        verify=True if verify is None else verify,
+    )
+    assert destination.read_bytes() == b"content"
