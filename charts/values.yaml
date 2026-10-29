@@ -16,9 +16,24 @@ imagePullSecrets: []
 # would produce an undesirable resource name.
 fullnameOverride: ""
 
-# Number of MLflow server replicas. Use 1 when storage.enabled is true and
-# the PVC access mode is ReadWriteOnce, as only one pod can mount the volume.
+# Number of MLflow server replicas. Ignored when autoscaling.enabled is true.
+# Use 1 when storage.enabled is true and the PVC access mode is ReadWriteOnce,
+# as only one pod can mount the volume.
 replicaCount: 1
+
+# Horizontal Pod Autoscaler (HPA) for scaling MLflow based on resource utilization.
+# When enabled, scales between minReplicas and maxReplicas based on CPU and/or
+# memory targets. Requires external storage (not SQLite) and resource requests.
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  # Target CPU utilization percentage. Set to null or "" to disable CPU-based scaling.
+  targetCPUUtilizationPercentage: 75
+  # Target memory utilization percentage. Set to null or "" to disable memory-based scaling.
+  targetMemoryUtilizationPercentage: 80
+  # Optional HPA behavior (scaleUp/scaleDown policies, stabilization windows).
+  behavior: {}
 
 # Deployment update strategy. When not set, defaults to Recreate if the storage
 # PVC access mode is ReadWriteOnce or a SQLite backend store URI is configured;

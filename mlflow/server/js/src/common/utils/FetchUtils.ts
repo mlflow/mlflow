@@ -58,7 +58,8 @@ export const getDefaultHeaders = (cookieStr: any) => {
 };
 
 export const getAjaxUrl = (relativeUrl: any) => {
-  if (process.env['MLFLOW_USE_ABSOLUTE_AJAX_URLS'] === 'true' && !relativeUrl.startsWith('/')) {
+  const isFullyQualifiedUrl = /^https?:\/\//i.test(relativeUrl);
+  if (process.env['MLFLOW_USE_ABSOLUTE_AJAX_URLS'] === 'true' && !relativeUrl.startsWith('/') && !isFullyQualifiedUrl) {
     return '/' + relativeUrl;
   }
   return relativeUrl;

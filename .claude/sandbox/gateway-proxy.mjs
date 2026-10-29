@@ -1,13 +1,17 @@
 import http from "node:http";
 import https from "node:https";
 
-let token = "";
+let credentials = "";
 for await (const chunk of process.stdin) {
-  token += chunk.toString("utf8");
-  if (token.length > 16_384) throw new Error("Gateway bearer is too large");
+  credentials += chunk.toString("utf8");
+  if (credentials.length > 16_384) {
+    throw new Error("Gateway proxy credentials are too large");
+  }
 }
-token = token.trimEnd();
-if (!token) throw new Error("Gateway bearer is missing");
+const [token, proxyToken, ...extra] = credentials.trimEnd().split("\n");
+if (!token?.trim()) throw new Error("Gateway bearer is missing");
+if (!proxyToken?.trim()) throw new Error("Proxy bearer is missing");
+if (extra.length) throw new Error("Unexpected gateway proxy credentials");
 delete process.env.GATEWAY_TOKEN;
 
 const base = new URL(process.env.GATEWAY_URL);
@@ -32,6 +36,18 @@ function forwardedHeaders(headers) {
     delete result[name];
   }
   return result;
+}
+
+let tokens = 10;
+let lastRefill = performance.now();
+
+function retryAfterSeconds() {
+  const now = performance.now();
+  tokens = Math.min(10, tokens + (now - lastRefill) / 1000);
+  lastRefill = now;
+  if (tokens < 1) return Math.ceil(1 - tokens);
+  tokens -= 1;
+  return 0;
 }
 
 const server = http.createServer((request, response) => {
@@ -63,8 +79,18 @@ const server = http.createServer((request, response) => {
     response.writeHead(200).end();
     return;
   }
+  if (request.headers.authorization !== "Bearer " + proxyToken) {
+    response.writeHead(401, { "WWW-Authenticate": "Bearer" }).end();
+    return;
+  }
   if (!local.pathname.startsWith("/anthropic/")) {
     response.writeHead(404).end();
+    return;
+  }
+
+  const retryAfter = retryAfterSeconds();
+  if (retryAfter > 0) {
+    response.writeHead(429, { "Retry-After": String(retryAfter) }).end();
     return;
   }
 

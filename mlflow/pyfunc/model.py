@@ -23,7 +23,6 @@ import yaml
 import mlflow.pyfunc
 from mlflow.entities.span import SpanType
 from mlflow.environment_variables import (
-    MLFLOW_ALLOW_PICKLE_DESERIALIZATION,
     MLFLOW_LOG_MODEL_COMPRESSION,
     MLFLOW_UV_AUTO_DETECT,
 )
@@ -81,8 +80,6 @@ from mlflow.types.utils import _is_list_dict_str, _is_list_str
 from mlflow.utils.annotations import deprecated
 from mlflow.utils.databricks_utils import (
     _get_databricks_serverless_env_vars,
-    is_in_databricks_model_serving_environment,
-    is_in_databricks_runtime,
     is_in_databricks_serverless_runtime,
 )
 from mlflow.utils.environment import (
@@ -96,7 +93,13 @@ from mlflow.utils.environment import (
     _PythonEnv,
 )
 from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
-from mlflow.utils.model_utils import _get_flavor_configuration, _validate_infer_and_copy_code_paths
+from mlflow.utils.model_utils import (
+    _check_model_code_loading_allowed,
+    _deprecated_pickle_variable_hint,
+    _get_flavor_configuration,
+    _is_pickle_loading_allowed,
+    _validate_infer_and_copy_code_paths,
+)
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.uri import validate_path_within_directory
 from mlflow.utils.uv_utils import copy_uv_project_files
@@ -1391,6 +1394,8 @@ def _load_context_model_and_signature(model_path: str, model_config: dict[str, A
     signature = mlflow.models.Model.load(model_path).signature
 
     if MODEL_CODE_PATH in pyfunc_config:
+        # Pip requirement inference skips the PyFunc load check, so check model code here too.
+        _check_model_code_loading_allowed("a model from code")
         conf_model_code_path = pyfunc_config.get(MODEL_CODE_PATH)
         model_code_path = os.path.join(model_path, os.path.basename(conf_model_code_path))
         python_model = _load_model_code_path(model_code_path, model_config)
@@ -1398,19 +1403,15 @@ def _load_context_model_and_signature(model_path: str, model_config: dict[str, A
         if callable(python_model):
             python_model = _FunctionPythonModel(python_model, signature=signature)
     else:
-        if (
-            not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get()
-            and not is_in_databricks_runtime()
-            and not is_in_databricks_model_serving_environment()
-        ):
+        if not _is_pickle_loading_allowed():
             raise MlflowException(
                 "Deserializing model using pickle is disallowed, but this model is saved "
                 "in cloudpickle format. The recommended way is to save the model as "
                 "models-from-code artifacts, see "
                 "https://mlflow.org/docs/latest/ml/model/models-from-code/ for details. "
                 "Another workaround is to set environment "
-                "variable 'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true' to allow "
-                "deserializing model using pickle."
+                "variable 'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' to 'true' to allow "
+                "deserializing model using pickle." + _deprecated_pickle_variable_hint()
             )
         python_model_cloudpickle_version = pyfunc_config.get(CONFIG_KEY_CLOUDPICKLE_VERSION, None)
         if python_model_cloudpickle_version is None:

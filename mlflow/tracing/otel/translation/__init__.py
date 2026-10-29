@@ -76,7 +76,7 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
         Translated span dictionary
     """
     span_dict = span.to_dict()
-    attributes = sanitize_attributes(span_dict.get("attributes", {}))
+    attributes = span_dict.get("attributes", {})
     events = span_dict.get("events", [])
 
     # Override UNKNOWN (the LiveSpan default) with the translator-determined type.
@@ -480,11 +480,14 @@ def update_cost(
     return current_cost
 
 
-def sanitize_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
+def strip_otlp_double_encoding(attributes: dict[str, Any]) -> dict[str, Any]:
     """
-    Sanitize attributes by removing duplicate dumped attributes.
-    This is necessary because when spans are logged to sql store with otel_api, the
-    span attributes are dumped twice (once in Span.from_otel_proto and once in span.to_dict).
+    Strip the extra JSON encoding layer that Span.from_otel_proto adds to attribute values.
+
+    Only call this on spans received over OTLP. MLflow clients already JSON-encode attribute
+    values before export, so from_otel_proto encodes them a second time. A raw string from a
+    third-party OTel client that happens to be JSON (e.g. '{"a": 1}') is also unwrapped here,
+    so it is stored as a structured value. This is intended: the chat UI relies on it.
     """
     updated_attributes = {}
     for key, value in attributes.items():

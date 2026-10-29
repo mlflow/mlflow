@@ -24,12 +24,16 @@ export const ModelTraceExplorerContent = ({
   selectedSpanId,
   onSelectSpan,
   enableGraphView = true,
+  showSpanTree = true,
+  onShowSpanTreeChange,
 }: {
   modelTraceInfo: ModelTrace['info'];
   className?: string;
   selectedSpanId?: string;
   onSelectSpan?: (selectedSpanId?: string) => void;
   enableGraphView?: boolean;
+  showSpanTree?: boolean;
+  onShowSpanTreeChange?: (showSpanTree: boolean) => void;
 }): JSX.Element => {
   const { activeView } = useModelTraceExplorerViewState();
   const { traceExplorerDisplayMode } = useModelTraceExplorerContext();
@@ -65,6 +69,8 @@ export const ModelTraceExplorerContent = ({
       selectedSpanId={selectedSpanId}
       onSelectSpan={onSelectSpan}
       enableGraphView={enableGraphView}
+      showSpanTree={showSpanTree}
+      onShowSpanTreeChange={onShowSpanTreeChange}
     />
   );
 };

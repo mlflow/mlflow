@@ -5,10 +5,14 @@ import { FormattedMessage } from 'react-intl';
 import { PageNotFoundView } from '../../../common/components/PageNotFoundView';
 import { shouldEnableExperimentIssuesTab } from '../../../common/utils/FeatureUtils';
 import { useParams, useSearchParams } from '../../../common/utils/RoutingUtils';
+
 import { useActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
 import { IssueDetectionModal } from '../../components/experiment-page/components/traces-v3/IssueDetectionModal';
 import { JobStatus, isJobComplete } from '../../components/run-page/hooks/useFetchJobStatus';
-import { SELECTED_ISSUE_ID_PARAM } from '../../constants';
+import { useCancelJob } from '../../components/run-page/hooks/useCancelJob';
+import type { Issue } from '../../components/run-page/hooks/useSearchIssuesQuery';
+import { SELECTED_EVALUATION_ID_PARAM } from '../../../shared/web-shared/genai-traces-table';
+import { SELECTED_ISSUE_ID_PARAM, SELECTED_ISSUE_SPAN_ID_PARAM } from '../../constants';
 import { SERVER_FEATURE_KEYS, useFeatureEnabled, useServerInfo } from '../../hooks/useServerInfo';
 import { ExperimentIssueDetail } from './ExperimentIssueDetail';
 import { ExperimentIssueRow } from './ExperimentIssueRow';
@@ -17,9 +21,11 @@ import { useIssueListControls } from './useExperimentIssuesListControls';
 import { ExperimentIssuesActionBar } from './ExperimentIssuesActionBar';
 import { IssueSplitPane } from './IssueSplitPane';
 import { markDetectIssuesGuidanceSeen } from '../../../shared/web-shared/genai-traces-table/components/DetectIssuesButton';
+import { ExperimentIssuesDetectionProgress } from './ExperimentIssuesDetectionProgress';
 import { ExperimentIssuesEmptyState } from './ExperimentIssuesEmptyState';
 import { useDetectionTraceIds, useLatestIssueDetection } from './useIssueDetection';
 import { useExperimentIssue, useExperimentIssues, useHasExperimentIssues } from './useExperimentIssues';
+import { IssueTraceDrawerProviders } from './IssueTraceDrawer';
 
 const CenteredState = ({ children }: { children: ReactNode }) => (
   <div
@@ -80,7 +86,13 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
   const { theme } = useDesignSystemTheme();
   const controls = useIssueListControls();
   const search = useExperimentIssues(experimentId, controls.filters);
-  const issues = useMemo(() => search.data?.pages.flatMap((page) => page.issues ?? []) ?? [], [search.data]);
+  const issues = useMemo(() => {
+    // Later pages update an Issue's data while keeping its first-seen position, so loading more
+    // does not reshuffle existing rows. Refreshing the list establishes a new sort order.
+    const byId = new Map<string, Issue>();
+    search.data?.pages.forEach((page) => page.issues?.forEach((issue) => byId.set(issue.issue_id, issue)));
+    return Array.from(byId.values());
+  }, [search.data]);
   const hasRestrictiveFilters = Boolean(
     controls.filters.name ||
     controls.filters.statuses.length ||
@@ -97,6 +109,25 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
   const [showDetection, setShowDetection] = useState(false);
   const traces = useDetectionTraceIds(experimentId, showDetection);
   const isDetectionButtonLoading = isDetecting || (showDetection && traces.isFetching);
+  const { cancelJobAsync } = useCancelJob();
+  // Gated on a run actually being in flight, not merely on a job ID existing: a completed run
+  // keeps its job ID, so gating on that alone would offer to cancel a terminal job whenever the
+  // button went busy again -- which it does while the modal loads traces for the next run.
+  const onCancelDetection =
+    isDetecting && detection.jobId
+      ? async () => {
+          try {
+            // The run is passed so the hook terminates it too: the server cancels the job
+            // without touching the run it belongs to, which would otherwise stay RUNNING.
+            await cancelJobAsync({ jobId: detection.jobId as string, runUuid: detection.run?.info.run_id });
+          } finally {
+            // Refreshed even when the cancel fails, for the reason given in
+            // `TracesV4PageContent`: "already finalized" is precisely the case where this
+            // client's job status is stale, so the refresh is what recovers the page.
+            await detection.refetch();
+          }
+        }
+      : undefined;
   const [params, setParams] = useSearchParams();
   const requestedIssueId = params.get(SELECTED_ISSUE_ID_PARAM) ?? undefined;
   const firstIssueId = issues[0]?.issue_id;
@@ -108,6 +139,8 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
       setParams(
         (current) => {
           current.set(SELECTED_ISSUE_ID_PARAM, firstIssueId);
+          current.delete(SELECTED_EVALUATION_ID_PARAM);
+          current.delete(SELECTED_ISSUE_SPAN_ID_PARAM);
           return current;
         },
         { replace: true },
@@ -125,6 +158,8 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
         (current) => {
           if (firstIssueId) current.set(SELECTED_ISSUE_ID_PARAM, firstIssueId);
           else current.delete(SELECTED_ISSUE_ID_PARAM);
+          current.delete(SELECTED_EVALUATION_ID_PARAM);
+          current.delete(SELECTED_ISSUE_SPAN_ID_PARAM);
           return current;
         },
         { replace: true },
@@ -132,9 +167,26 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
     }
   }, [search.isLoading, search.error, controls.filters.name, issues, selectedId, firstIssueId, setParams]);
 
+  // A trace selection travels in the URL, next to the selected Issue, so a copied link reopens
+  // the same trace on the same span.
+  const viewTrace = (linkableTraceId: string, spanId?: string) =>
+    setParams((current) => {
+      current.set(SELECTED_EVALUATION_ID_PARAM, linkableTraceId);
+      if (spanId) {
+        current.set(SELECTED_ISSUE_SPAN_ID_PARAM, spanId);
+      } else {
+        current.delete(SELECTED_ISSUE_SPAN_ID_PARAM);
+      }
+      return current;
+    });
+
   const selectIssue = (issueId: string) =>
     setParams((current) => {
       current.set(SELECTED_ISSUE_ID_PARAM, issueId);
+      // Another Issue's evidence names other traces, so a trace left open from the previous one
+      // would keep its drawer mounted over a selection the new Issue does not contain.
+      current.delete(SELECTED_EVALUATION_ID_PARAM);
+      current.delete(SELECTED_ISSUE_SPAN_ID_PARAM);
       return current;
     });
   const total = search.data?.pages[0]?.total_count;
@@ -276,13 +328,14 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
       <TableSkeleton lines={5} />
     </div>
   ) : detail.data ? (
-    <ExperimentIssueDetail key={selectedId} issue={detail.data} />
+    <ExperimentIssueDetail key={selectedId} issue={detail.data} onViewTrace={viewTrace} />
   ) : undefined;
   return (
     <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, height: '100%' }}>
       {(hasShownIssues.current || (!isEmptyState && !isResolvingEmptyState)) && (
         <div css={{ flexShrink: 0, paddingBottom: theme.spacing.md, borderBottom: `1px solid ${theme.colors.border}` }}>
           <ExperimentIssuesActionBar
+            experimentId={experimentId}
             controls={controls}
             searchInput={controls.search.input}
             onSearchInputChange={controls.search.setInput}
@@ -291,6 +344,7 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
             isDetecting={isDetectionButtonLoading}
             detectionEnabled={detectionEnabled}
             onRunDetection={startDetection}
+            onCancelDetection={onCancelDetection}
           />
         </div>
       )}
@@ -346,6 +400,10 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
       )}
       {isResolvingEmptyState ? (
         <TableSkeleton lines={5} />
+      ) : isEmptyState && isDetecting ? (
+        <CenteredState>
+          <ExperimentIssuesDetectionProgress experimentId={experimentId} onCancelDetection={onCancelDetection} />
+        </CenteredState>
       ) : isEmptyState ? (
         <CenteredState>
           <ExperimentIssuesEmptyState
@@ -407,7 +465,11 @@ const ExperimentIssuesPage = () => {
     );
   }
   if (!experimentId) return null;
-  return <ExperimentIssuesContent key={`${workspace}:${experimentId}`} experimentId={experimentId} />;
+  return (
+    <IssueTraceDrawerProviders experimentId={experimentId}>
+      <ExperimentIssuesContent key={`${workspace}:${experimentId}`} experimentId={experimentId} />
+    </IssueTraceDrawerProviders>
+  );
 };
 
 export default ExperimentIssuesPage;

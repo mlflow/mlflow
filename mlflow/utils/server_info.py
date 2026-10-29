@@ -22,8 +22,12 @@ SERVER_INFO_MULTIPART_UPLOADS_ENABLED = "multipart_uploads_enabled"
 SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED = "multipart_downloads_enabled"
 SERVER_INFO_PRESIGNED_UPLOAD_RUN_ID_SUPPORTED = "presigned_upload_run_id_supported"
 SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED = "presigned_upload_model_id_supported"
+SERVER_INFO_MODEL_ARTIFACT_PRESIGNED_DOWNLOADS_SUPPORTED = (
+    "model_artifact_presigned_downloads_supported"
+)
 SERVER_INFO_FEATURES_ENABLED = "features_enabled"
 SERVER_INFO_TRACKING_AUTH = "tracking_auth"
+SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY = "artifacts_presigned_only"
 
 _SERVER_INFO_CACHE_MAXSIZE = 16
 _SERVER_INFO_CACHE_TTL_SECONDS = 60.0

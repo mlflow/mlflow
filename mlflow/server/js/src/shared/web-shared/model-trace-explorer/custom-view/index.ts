@@ -45,3 +45,11 @@ export {
   type CustomViewApplyResult,
 } from './assistant/customViewSpecApplier';
 export { RENDER_CUSTOM_VIEW_TOOL_NAME, buildCustomViewAuthoringGuide } from './agent/buildAgentPrompt';
+export {
+  ModelTraceExplorerCustomViewSelector,
+  type ModelTraceExplorerCustomViewSelectorProps,
+} from '../v2/ModelTraceExplorerCustomViewSelector';
+export {
+  ModelTraceExplorerCustomViewRenderer,
+  type ModelTraceExplorerCustomViewRendererProps,
+} from '../v2/custom-view/ModelTraceExplorerCustomViewRenderer';

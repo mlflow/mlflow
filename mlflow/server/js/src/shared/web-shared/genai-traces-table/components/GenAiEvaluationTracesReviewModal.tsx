@@ -61,6 +61,7 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
     assessmentInfos,
     getTrace,
     saveAssessmentsQuery,
+    selectedSpanId,
   }: {
     experimentId: string;
     runUuid?: string;
@@ -73,6 +74,8 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
     assessmentInfos: AssessmentInfo[];
     getTrace?: GetTraceFunction;
     saveAssessmentsQuery?: SaveAssessmentsQuery;
+    /** Opens the single-trace view on this span, for a caller that knows which span it means. */
+    selectedSpanId?: string;
   }) => {
     const { theme } = useDesignSystemTheme();
     const [showAddToEvaluationDatasetModal, setShowAddToEvaluationDatasetModal] = useState(false);
@@ -233,6 +236,7 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
               {/* prettier-ignore */}
               <ModelTraceExplorerModalBody
                 traceData={currentTraceQueryResult.data}
+                selectedSpanId={selectedSpanId}
               />
             </div>
           ) : (
@@ -494,12 +498,22 @@ const ModalWrapper = ({
 // prettier-ignore
 const ModelTraceExplorerModalBody = ({
   traceData,
+  selectedSpanId,
 }: {
   traceData: ModelTrace;
+  selectedSpanId?: string;
 }) => {
+  // The explorer picks its selected node up from `selectedSpanId` on mount only, so stepping to
+  // another trace would otherwise land on that trace's root while the URL names a span. Remount
+  // it per trace and span when a caller asks for one; callers that pass none keep one instance.
+  const spanSelectionKey = selectedSpanId
+    ? `${isV3ModelTraceInfo(traceData.info) ? traceData.info.trace_id : ''}-${selectedSpanId}`
+    : undefined;
   return (
     <ModelTraceExplorer
+      key={spanSelectionKey}
       modelTrace={traceData}
+      selectedSpanId={selectedSpanId}
     />
   );
 };

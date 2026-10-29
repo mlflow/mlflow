@@ -299,13 +299,39 @@ def _validate_permission_for_resource_type(permission: str, resource_type: str) 
         )
 
 
+def _canonical_experiment_id(experiment_id: str) -> str:
+    # The SQL tracking store reads an experiment ID with int(), so "01", " 1" and "+1" all name
+    # experiment 1. A grant on one of these spellings must apply to all of them.
+    try:
+        return str(int(experiment_id))
+    except (ValueError, TypeError, OverflowError):
+        return experiment_id
+
+
+def canonical_resource_id(resource_type: str, resource_id: str) -> str:
+    """The form of ``resource_id`` that grants are stored and compared in.
+
+    Experiment IDs, and the experiment ID in a scorer key (``<experiment_id>/<name>``), take the
+    form the SQL tracking store reads them in. Other IDs are kept as they are.
+    """
+    if resource_type == RESOURCE_TYPE_EXPERIMENT:
+        return _canonical_experiment_id(resource_id)
+    if resource_type == RESOURCE_TYPE_SCORER:
+        experiment_id, separator, name = resource_id.partition("/")
+        return f"{_canonical_experiment_id(experiment_id)}{separator}{name}"
+    return resource_id
+
+
 def matches(resource_pattern: str, resource_type: str, resource_id: str | None) -> bool:
     """Does a grant's ``resource_pattern`` on ``resource_type`` apply to ``resource_id``?"""
     patterns = TYPE.get(resource_type)
     if patterns is None:
         return False
     return (PatternKind.WILDCARD in patterns and resource_pattern == "*") or (
-        PatternKind.ID in patterns and resource_pattern == resource_id
+        PatternKind.ID in patterns
+        and resource_id is not None
+        # Grants are stored in this form (see SqlAlchemyStore._validate_resource_pattern).
+        and resource_pattern == canonical_resource_id(resource_type, resource_id)
     )
 
 

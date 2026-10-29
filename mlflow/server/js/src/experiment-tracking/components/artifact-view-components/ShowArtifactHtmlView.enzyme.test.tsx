@@ -10,6 +10,7 @@ import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
 import { shallow } from 'enzyme';
 import ShowArtifactHtmlView from './ShowArtifactHtmlView';
+import { ArtifactPreviewTooLargeError } from '../../../common/utils/ArtifactUtils';
 import Iframe from 'react-iframe';
 
 describe('ShowArtifactHtmlView', () => {
@@ -84,4 +85,54 @@ describe('ShowArtifactHtmlView', () => {
     expect(instance.fetchArtifacts).toHaveBeenCalled();
     expect(instance.props.getArtifact).toHaveBeenCalled();
   });
+  test('recovers after an oversized preview when a valid artifact is selected', async () => {
+    const content = '<p>current</p>';
+    const getArtifact = jest
+      .fn<() => Promise<string>>()
+      .mockRejectedValueOnce(new ArtifactPreviewTooLargeError())
+      .mockResolvedValueOnce(content);
+    wrapper = shallow(<ShowArtifactHtmlView {...minimalProps} getArtifact={getArtifact} />);
+    await new Promise(setImmediate);
+    expect(wrapper.find('.artifact-html-view-error')).toHaveLength(1);
+    wrapper.setProps({ path: 'valid.html' });
+    await new Promise(setImmediate);
+    expect(wrapper.instance().state.error).toBeUndefined();
+    expect(wrapper.instance().state.loading).toBe(false);
+    expect(wrapper.instance().state.html).toBe(content);
+  });
+
+  test.each([false, true])('ignores a stale artifact completion (failure: %s)', async (failure) => {
+    let resolvePrevious!: (content: string) => void;
+    let rejectPrevious!: (error: Error) => void;
+    const previous = new Promise<string>((resolve, reject) => {
+      resolvePrevious = resolve;
+      rejectPrevious = reject;
+    });
+    const content = '<p>current</p>';
+    const getArtifact = jest.fn<() => Promise<string>>().mockReturnValueOnce(previous).mockResolvedValueOnce(content);
+    wrapper = shallow(<ShowArtifactHtmlView {...minimalProps} getArtifact={getArtifact} />);
+    wrapper.setProps({ path: 'current.html' });
+    await new Promise(setImmediate);
+    if (failure) {
+      rejectPrevious(new ArtifactPreviewTooLargeError());
+    } else {
+      resolvePrevious('stale');
+    }
+    await new Promise(setImmediate);
+    expect(wrapper.instance().state.error).toBeUndefined();
+    expect(wrapper.instance().state.loading).toBe(false);
+    expect(wrapper.instance().state.html).toBe(content);
+  });
+
+  test.each([{ artifactRootUri: 's3://another-root' }, { isLoggedModelsMode: true, loggedModelId: 'another-model' }])(
+    'refetches the same path when its source changes: %j',
+    async (source) => {
+      const getArtifact = jest.fn<() => Promise<string>>().mockResolvedValue('<p>current</p>');
+      wrapper = shallow(<ShowArtifactHtmlView {...minimalProps} getArtifact={getArtifact} />);
+      await new Promise(setImmediate);
+      wrapper.setProps(source);
+      await new Promise(setImmediate);
+      expect(getArtifact).toHaveBeenCalledTimes(2);
+    },
+  );
 });

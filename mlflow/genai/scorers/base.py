@@ -7,6 +7,7 @@ import math
 import os
 import sys
 import threading
+import tokenize
 from contextlib import contextmanager
 from contextvars import ContextVar, copy_context
 from dataclasses import asdict, dataclass, fields
@@ -25,6 +26,7 @@ from mlflow.environment_variables import (
     MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers._scorer_execution import get_scorer_execution
 from mlflow.genai.scorers.ensemble import (
     BOOL_ENSEMBLES,
     BUILTIN_ENSEMBLES,
@@ -38,6 +40,8 @@ from mlflow.genai.scorers.scorer_utils import (
     THIRD_PARTY_SCORER_REGISTRATION_NOT_SUPPORTED_ON_DATABRICKS_ERROR,
     _obj_has_call_source,
     _parse_serialized_scorer,
+    custom_scorer_without_source_error_message,
+    extract_function_body,
 )
 from mlflow.telemetry.events import ScorerCallEvent
 from mlflow.telemetry.track import record_usage_event
@@ -1053,6 +1057,10 @@ class Scorer(BaseModel):
         # scorer directly, so a Scorer.run frame stays on its stack for telemetry callsite lookup.
         ctx = copy_context()
         outcome: dict[str, Any] = {}
+        execution = get_scorer_execution()
+        done = threading.Event() if execution is not None else None
+        if execution is not None:
+            execution.start()
 
         def _target() -> None:
             _in_scorer_timeout.set(True)
@@ -1060,14 +1068,22 @@ class Scorer(BaseModel):
                 outcome["value"] = self.run(**kwargs)
             except BaseException as e:  # re-surface whatever the scorer raised on the caller
                 outcome["error"] = e
+            finally:
+                if execution is not None:
+                    done.set()
+                    execution.notify_completion()
 
         thread = threading.Thread(
             target=lambda: ctx.run(_target), name=f"MlflowScorer-{self.name}", daemon=True
         )
         thread.start()
         # Thread.join rejects values above TIMEOUT_MAX; clamp so a huge timeout just means "wait".
-        thread.join(min(timeout, threading.TIMEOUT_MAX))
-        if thread.is_alive():
+        if execution is None:
+            thread.join(min(timeout, threading.TIMEOUT_MAX))
+            completed = not thread.is_alive()
+        else:
+            completed = execution.wait(done, timeout)
+        if not completed:
             # Warn so a climbing thread count from timed-out scorers is diagnosable.
             _logger.warning("Scorer '%s' timed out after %s seconds.", self.name, timeout)
             raise MlflowTimeoutError(
@@ -1232,6 +1248,7 @@ class Scorer(BaseModel):
         from mlflow.genai.scorers.registry import DatabricksStore, _get_scorer_store
 
         self._check_can_be_registered()
+        self._check_has_source_code()
         store = _get_scorer_store()
         # Create a new scorer instance
         new_scorer = self._create_copy()
@@ -1302,6 +1319,7 @@ class Scorer(BaseModel):
         )
 
         self._check_can_be_registered()
+        self._check_has_source_code()
 
         sample_rate = sampling_config.sample_rate
         if not isinstance(sample_rate, (int, float)):
@@ -1527,6 +1545,32 @@ class Scorer(BaseModel):
         if self._cached_dump is not None:
             object.__setattr__(copy, "_cached_dump", dict(self._cached_dump))
         return copy
+
+    def _check_has_source_code(self) -> None:
+        """Reject a custom scorer whose function body is empty or cannot be read.
+
+        Such a scorer would be saved without source code, and could never run. This reads the
+        body without caching a serialized form on the scorer, so later changes to it still apply.
+        """
+        if self.kind == ScorerKind.ENSEMBLE:
+            for sub_scorer in self._scorers:
+                sub_scorer._check_has_source_code()
+            return
+        if self.kind != ScorerKind.DECORATOR:
+            return
+        if self._cached_dump is not None:
+            call_source = self._cached_dump.get("call_source")
+        else:
+            try:
+                call_source, _ = extract_function_body(self._original_func)
+            except (OSError, TypeError, SyntaxError, tokenize.TokenError):
+                # For example, a function defined with `exec` or in a REPL, or one whose file was
+                # changed after it was imported and no longer parses.
+                call_source = None
+        if not (call_source or "").strip():
+            raise MlflowException.invalid_parameter_value(
+                custom_scorer_without_source_error_message(self.name)
+            )
 
     def _check_can_be_registered(self, error_message: str | None = None) -> None:
         from mlflow.genai.scorers.registry import DatabricksStore, _get_scorer_store

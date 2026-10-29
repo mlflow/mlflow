@@ -61,6 +61,7 @@ def create_mock_otel_span(
             status=trace_api.Status(trace_api.StatusCode.UNSET),
         ):
             self._name = name
+            self._kind = trace_api.SpanKind.INTERNAL
             self._parent = parent
             self._context = context
             self._start_time = start_time if start_time is not None else int(time.time() * 1e9)

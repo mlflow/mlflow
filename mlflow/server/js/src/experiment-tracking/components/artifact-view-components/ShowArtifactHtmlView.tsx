@@ -6,14 +6,11 @@
  */
 
 import React, { Component } from 'react';
-import {
-  getArtifactContent,
-  getArtifactLocationUrl,
-  getLoggedModelArtifactLocationUrl,
-} from '../../../common/utils/ArtifactUtils';
+import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactHtmlView.css';
 import Iframe from 'react-iframe';
 import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
+import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 import { fetchArtifactUnified, type FetchArtifactUnifiedFn } from './utils/fetchArtifactUnified';
 
@@ -36,6 +33,12 @@ class ShowArtifactHtmlView extends Component<ShowArtifactHtmlViewProps, ShowArti
     this.fetchArtifacts = this.fetchArtifacts.bind(this);
   }
 
+  private artifactRequestId = 0;
+
+  componentWillUnmount() {
+    this.artifactRequestId += 1;
+  }
+
   static defaultProps = {
     getArtifact: fetchArtifactUnified,
   };
@@ -52,7 +55,13 @@ class ShowArtifactHtmlView extends Component<ShowArtifactHtmlViewProps, ShowArti
   }
 
   componentDidUpdate(prevProps: ShowArtifactHtmlViewProps) {
-    if (this.props.path !== prevProps.path || this.props.runUuid !== prevProps.runUuid) {
+    if (
+      this.props.path !== prevProps.path ||
+      this.props.runUuid !== prevProps.runUuid ||
+      this.props.artifactRootUri !== prevProps.artifactRootUri ||
+      this.props.isLoggedModelsMode !== prevProps.isLoggedModelsMode ||
+      this.props.loggedModelId !== prevProps.loggedModelId
+    ) {
       this.fetchArtifacts();
     }
   }
@@ -62,8 +71,7 @@ class ShowArtifactHtmlView extends Component<ShowArtifactHtmlViewProps, ShowArti
       return <ArtifactViewSkeleton className="artifact-html-view-loading" />;
     }
     if (this.state.error) {
-      // error is rendered to the user below
-      return <div className="artifact-html-view-error">Oops we couldn't load your file because of an error.</div>;
+      return <ArtifactViewErrorState error={this.state.error} className="artifact-html-view-error" />;
     } else {
       return (
         <div className="mlflow-artifact-html-view">
@@ -90,15 +98,19 @@ class ShowArtifactHtmlView extends Component<ShowArtifactHtmlViewProps, ShowArti
 
   /** Fetches artifacts and updates component state with the result */
   fetchArtifacts() {
-    const { path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags } = this.props;
+    const requestId = ++this.artifactRequestId;
+    const { artifactRootUri, path, runUuid, isLoggedModelsMode, loggedModelId } = this.props;
+    this.setState({ loading: true, error: undefined, html: '', path });
 
     this.props
-      .getArtifact?.({ path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags }, getArtifactContent)
+      .getArtifact?.({ artifactRootUri, path, runUuid, isLoggedModelsMode, loggedModelId }, getArtifactContent)
       .then((html: string) => {
-        this.setState({ html: html, loading: false, path: this.props.path });
+        if (requestId !== this.artifactRequestId) return;
+        this.setState({ html, error: undefined, loading: false, path });
       })
       .catch((error: Error) => {
-        this.setState({ error: error, loading: false, path: this.props.path });
+        if (requestId !== this.artifactRequestId) return;
+        this.setState({ error, loading: false, path });
       });
   }
 }

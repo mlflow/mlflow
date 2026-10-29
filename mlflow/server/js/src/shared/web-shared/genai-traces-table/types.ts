@@ -129,6 +129,12 @@ export interface AssessmentAggregates {
   // Numeric aggregate counts for the current run.
   currentNumericAggregate?: NumericAggregate;
 
+  // Per-run aggregates in baseline-first order, set by the N-run comparison.
+  countsByRun?: (AssessmentRunCounts | undefined)[];
+  numericAverageByRun?: (number | undefined)[];
+  numRootCauseByRun?: number[];
+  numericAggregateByRun?: (NumericAggregate | undefined)[];
+
   assessmentFilters: AssessmentFilter[];
 }
 
@@ -294,6 +300,8 @@ export type RunEvaluationTracesDataEntry = {
 export interface EvalTraceComparisonEntry {
   currentRunValue?: RunEvaluationTracesDataEntry;
   otherRunValue?: RunEvaluationTracesDataEntry;
+  /** Per-run values in baseline-first order, set by the N-run comparison. */
+  runValues?: (RunEvaluationTracesDataEntry | undefined)[];
 }
 
 export interface SaveAssessmentsQuery {

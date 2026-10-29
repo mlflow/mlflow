@@ -10,6 +10,7 @@ import threading
 import time
 import uuid
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from functools import lru_cache, reduce
 from pathlib import PurePath
@@ -81,6 +82,7 @@ from mlflow.entities.trace_metrics import (
 )
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.environment_variables import MLFLOW_TRACE_DELETE_MAX_WORKERS
 from mlflow.exceptions import (
     MlflowException,
     MlflowTraceArchivalMalformedTrace,
@@ -106,8 +108,10 @@ from mlflow.genai.scorers.scorer_utils import (
     build_gateway_model,
     container_scoring_enabled,
     custom_scorer_execution_blocked,
+    custom_scorer_without_source_error_message,
     extract_endpoint_ref,
     extract_model_from_serialized_scorer,
+    has_empty_call_source,
     is_gateway_model,
     update_model_in_serialized_scorer,
     validate_scorer_model,
@@ -267,12 +271,13 @@ from mlflow.tracing.utils import (
 from mlflow.tracing.utils.artifact_utils import (
     get_archive_uri_for_trace,
 )
-from mlflow.tracing.utils.truncation import _get_truncated_preview
+from mlflow.tracing.utils.truncation import _get_truncated_preview, _replace_nul
 from mlflow.utils import chunk_list
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.issue_utils import (
     issue_category_hash,
-    issue_page_offset,
+    issue_keyset_token,
+    issue_page_position,
     issue_page_token,
     issue_query_fingerprint,
     validate_issue_fields,
@@ -296,6 +301,7 @@ from mlflow.utils.search_utils import (
     SearchUtils,
 )
 from mlflow.utils.string_utils import is_string_type
+from mlflow.utils.thread_utils import map_with_context
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import (
     append_to_uri_path,
@@ -2901,7 +2907,9 @@ class SqlAlchemyStore(
 
         Raises:
             MlflowException: If the scorer name is invalid, if the model is invalid,
-                or if the scorer references a gateway endpoint that does not exist.
+                if the scorer references a gateway endpoint that does not exist, or if the
+                experiment has a scorer whose name differs from ``name`` but that the database
+                compares as equal (``RESOURCE_ALREADY_EXISTS``).
         """
         # Validate scorer name
         validate_scorer_name(name)
@@ -2930,22 +2938,21 @@ class SqlAlchemyStore(
                 )
                 serialized_scorer = json.dumps(serialized_data)
 
-            # First, check if the scorer exists in the scorers table
-            scorer = (
-                session
-                .query(SqlScorer)
-                .filter(
-                    # ``Experiment.experiment_id`` (the entity field) is a
-                    # string while the column is INTEGER; psycopg v3 binds
-                    # strings as typed VARCHAR, which PostgreSQL rejects
-                    # ("operator does not exist: integer = character
-                    # varying"), so compare through int(). Safe: the id of a
-                    # validated experiment is always a stringified integer.
-                    SqlScorer.experiment_id == int(experiment.experiment_id),
-                    SqlScorer.scorer_name == name,
-                )
-                .first()
+            scorer = self._find_sql_scorer_by_collation(
+                session, int(experiment.experiment_id), name
             )
+            if scorer is not None and scorer.scorer_name != name:
+                # Only on a database that compares names without case or accents. The scorer
+                # table allows one scorer per name there, so the only option would be to add a
+                # version to the existing scorer, which would bypass the permission grants on its
+                # real name. The message leaves out that name, which the caller may not be allowed
+                # to see.
+                raise MlflowException(
+                    f"Experiment {experiment_id} already has a scorer whose name this database "
+                    f"compares as equal to {name!r}, so a scorer named {name!r} cannot be "
+                    "registered. Use a different name.",
+                    RESOURCE_ALREADY_EXISTS,
+                )
 
             if scorer is None:
                 # Create the scorer record with a new UUID
@@ -3158,18 +3165,7 @@ class SqlAlchemyStore(
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
 
-            # First, get the scorer record
-            scorer = (
-                session
-                .query(SqlScorer)
-                .filter(
-                    # int(): see register_scorer — psycopg v3 VARCHAR binds
-                    # don't compare against the INTEGER column.
-                    SqlScorer.experiment_id == int(experiment.experiment_id),
-                    SqlScorer.scorer_name == name,
-                )
-                .first()
-            )
+            scorer = self._get_sql_scorer_exact(session, int(experiment.experiment_id), name)
 
             if scorer is None:
                 raise MlflowException(
@@ -3250,18 +3246,7 @@ class SqlAlchemyStore(
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
 
-            # First, get the scorer record
-            scorer = (
-                session
-                .query(SqlScorer)
-                .filter(
-                    # int(): see register_scorer — psycopg v3 VARCHAR binds
-                    # don't compare against the INTEGER column.
-                    SqlScorer.experiment_id == int(experiment.experiment_id),
-                    SqlScorer.scorer_name == name,
-                )
-                .first()
-            )
+            scorer = self._get_sql_scorer_exact(session, int(experiment.experiment_id), name)
 
             if scorer is None:
                 raise MlflowException(
@@ -3328,18 +3313,7 @@ class SqlAlchemyStore(
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
 
-            # First, get the scorer record
-            scorer = (
-                session
-                .query(SqlScorer)
-                .filter(
-                    # int(): see register_scorer — psycopg v3 VARCHAR binds
-                    # don't compare against the INTEGER column.
-                    SqlScorer.experiment_id == int(experiment.experiment_id),
-                    SqlScorer.scorer_name == name,
-                )
-                .first()
-            )
+            scorer = self._get_sql_scorer_exact(session, int(experiment.experiment_id), name)
 
             if scorer is None:
                 raise MlflowException(
@@ -3406,6 +3380,42 @@ class SqlAlchemyStore(
             return [config.to_mlflow_entity() for config in results]
 
     @staticmethod
+    def _find_sql_scorer_by_collation(session, experiment_id: int, name: str) -> SqlScorer | None:
+        """Return the experiment's scorer whose name equals ``name`` in SQL.
+
+        MySQL and SQL Server compare strings without case by default (MySQL also without accents,
+        and SQL Server without trailing spaces), so the scorer's name can differ from ``name``.
+        Use ``_get_sql_scorer_exact`` to act on the scorer that ``name`` names.
+        """
+        return (
+            session
+            .query(SqlScorer)
+            .filter(
+                # ``Experiment.experiment_id`` (the entity field) is a
+                # string while the column is INTEGER; psycopg v3 binds
+                # strings as typed VARCHAR, which PostgreSQL rejects
+                # ("operator does not exist: integer = character
+                # varying"), so callers pass int(). Safe: the id of a
+                # validated experiment is always a stringified integer.
+                SqlScorer.experiment_id == experiment_id,
+                SqlScorer.scorer_name == name,
+            )
+            .first()
+        )
+
+    @classmethod
+    def _get_sql_scorer_exact(cls, session, experiment_id: int, name: str) -> SqlScorer | None:
+        """Return the experiment's scorer named exactly ``name``, or None.
+
+        Permission grants on a scorer are keyed by the name in the request, so a scorer that
+        matches ``name`` only under the database's collation is not found here. Otherwise a
+        request for ``JUDGE`` would act on ``judge`` without the grants on ``judge``. Do not
+        replace this check with a case-insensitive comparison: collations also ignore accents.
+        """
+        scorer = cls._find_sql_scorer_by_collation(session, experiment_id, name)
+        return scorer if scorer is not None and scorer.scorer_name == name else None
+
+    @staticmethod
     def _validate_online_judge(scorer_name: str, serialized_scorer: str) -> None:
         serialized_data = json.loads(serialized_scorer)
         model = extract_model_from_serialized_scorer(serialized_data)
@@ -3452,6 +3462,10 @@ class SqlAlchemyStore(
                 "'MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS' to 'true'.",
                 INVALID_PARAMETER_VALUE,
             )
+        if has_empty_call_source(serialized_data):
+            raise MlflowException(
+                custom_scorer_without_source_error_message(scorer_name), INVALID_PARAMETER_VALUE
+            )
         # Online scoring jobs run custom scorers in job containers one at a time, so a custom
         # scorer in an ensemble cannot run there (the jobs skip it).
         serialized = SerializedScorer.from_dict(serialized_data)
@@ -3494,8 +3508,9 @@ class SqlAlchemyStore(
                 filter_string syntax is invalid, if the scorer is not found, or if the
                 scorer does not use a gateway model. When online scoring runs custom scorers
                 in job containers, a custom scorer is accepted instead, unless custom scorers
-                are disabled on the server or it is not a single custom scorer (for example,
-                an ensemble that includes one).
+                are disabled on the server, it has no source code, it is not a single custom
+                scorer (for example, an ensemble that includes one), or it requires
+                expectations.
         """
         if not isinstance(sample_rate, (int, float)):
             raise MlflowException.invalid_parameter_value(
@@ -3517,17 +3532,7 @@ class SqlAlchemyStore(
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
 
-            scorer = (
-                session
-                .query(SqlScorer)
-                .filter(
-                    # int(): see register_scorer — psycopg v3 VARCHAR binds
-                    # don't compare against the INTEGER column.
-                    SqlScorer.experiment_id == int(experiment.experiment_id),
-                    SqlScorer.scorer_name == scorer_name,
-                )
-                .first()
-            )
+            scorer = self._get_sql_scorer_exact(session, int(experiment.experiment_id), scorer_name)
             if scorer is None:
                 raise MlflowException(
                     f"Scorer with name '{scorer_name}' not found for experiment {experiment_id}.",
@@ -3681,8 +3686,11 @@ class SqlAlchemyStore(
         models: sqlalchemy.orm.Query,
         session: sqlalchemy.orm.Session,
         order_by: list[dict[str, Any]] | None = None,
+        experiment_ids: list[int] | None = None,
+        datasets: list[dict[str, Any]] | None = None,
     ) -> sqlalchemy.orm.Query:
         order_by_clauses = []
+        datasets_filter = _get_logged_model_metric_datasets_filter(datasets)
         has_creation_timestamp = False
         has_model_id = False
         for ob in order_by or []:
@@ -3717,41 +3725,15 @@ class SqlAlchemyStore(
                     f"Invalid order by field name: {field_name}. Only metrics are supported."
                 )
 
-            # Sub query to get the latest metrics value for each (model_id, metric_name) pair
-            dataset_filter = []
+            dataset_filter = [] if datasets_filter is None else [datasets_filter]
             if dataset_name := ob.get("dataset_name"):
                 dataset_filter.append(SqlLoggedModelMetric.dataset_name == dataset_name)
             if dataset_digest := ob.get("dataset_digest"):
                 dataset_filter.append(SqlLoggedModelMetric.dataset_digest == dataset_digest)
 
-            subquery = (
-                session
-                .query(
-                    SqlLoggedModelMetric.model_id,
-                    SqlLoggedModelMetric.metric_value,
-                    func
-                    .row_number()
-                    .over(
-                        partition_by=[
-                            SqlLoggedModelMetric.model_id,
-                            SqlLoggedModelMetric.metric_name,
-                        ],
-                        order_by=[
-                            SqlLoggedModelMetric.metric_timestamp_ms.desc(),
-                            SqlLoggedModelMetric.metric_step.desc(),
-                            SqlLoggedModelMetric.run_id.asc(),
-                        ],
-                    )
-                    .label("row_num"),
-                )
-                .filter(
-                    SqlLoggedModelMetric.metric_name == name,
-                    *dataset_filter,
-                )
-                .subquery()
+            subquery = _get_latest_logged_model_metrics_subquery(
+                session, name, dataset_filter, experiment_ids=experiment_ids
             )
-            subquery = select(subquery.c).where(subquery.c.row_num == 1).subquery()
-
             models = models.outerjoin(subquery)
             # Why not use `nulls_last`? Because it's not supported by all dialects (e.g., MySQL)
             order_by_clauses.extend([
@@ -3778,19 +3760,12 @@ class SqlAlchemyStore(
         from mlflow.utils.search_logged_model_utils import EntityType, parse_filter_string
 
         comparisons = parse_filter_string(filter_string)
+        experiment_ids = _parse_experiment_ids(experiment_ids)
         dialect = self._get_dialect()
         attr_filters: list[sqlalchemy.BinaryExpression] = []
         non_attr_filters: list[sqlalchemy.BinaryExpression] = []
 
-        dataset_filters = []
-        if datasets:
-            for dataset in datasets:
-                dataset_filter = SqlLoggedModelMetric.dataset_name == dataset["dataset_name"]
-                if "dataset_digest" in dataset:
-                    dataset_filter = dataset_filter & (
-                        SqlLoggedModelMetric.dataset_digest == dataset["dataset_digest"]
-                    )
-                dataset_filters.append(dataset_filter)
+        datasets_filter = _get_logged_model_metric_datasets_filter(datasets)
 
         has_metric_filters = False
         for comp in comparisons:
@@ -3813,22 +3788,18 @@ class SqlAlchemyStore(
                 attr_filters.append(comp_func(getattr(SqlLoggedModel, comp.entity.key), value))
             elif comp.entity.type == EntityType.METRIC:
                 has_metric_filters = True
-                metric_filters = [
-                    SqlLoggedModelMetric.metric_name == comp.entity.key,
-                    comp_func(SqlLoggedModelMetric.metric_value, comp.value),
-                ]
-                if dataset_filters:
-                    metric_filters.append(sqlalchemy.or_(*dataset_filters))
-                # Select distinct model IDs rather than whole metric rows. A model
-                # can log the same metric at several steps, runs or datasets, and
-                # joining those rows would duplicate the model before OFFSET/LIMIT
-                # is applied, so a page could hold fewer models than requested and
-                # pagination could stop while matches remain.
+                # Compare against the same latest value that `order_by` uses rather than
+                # against every logged step. The subquery has one row per model, so joining
+                # it cannot duplicate a model before OFFSET/LIMIT is applied.
+                latest_metrics = _get_latest_logged_model_metrics_subquery(
+                    session,
+                    comp.entity.key,
+                    [] if datasets_filter is None else [datasets_filter],
+                    experiment_ids=experiment_ids,
+                )
                 non_attr_filters.append(
-                    session
-                    .query(SqlLoggedModelMetric.model_id)
-                    .filter(*metric_filters)
-                    .distinct()
+                    select(latest_metrics.c.model_id)
+                    .where(comp_func(latest_metrics.c.metric_value, comp.value))
                     .subquery()
                 )
             elif comp.entity.type == EntityType.PARAM:
@@ -3857,17 +3828,16 @@ class SqlAlchemyStore(
 
         # If there are dataset filters but no metric filters,
         # filter for models that have any metrics on the datasets
-        if dataset_filters and not has_metric_filters:
+        if datasets_filter is not None and not has_metric_filters:
             subquery = (
                 session
                 .query(SqlLoggedModelMetric.model_id)
-                .filter(sqlalchemy.or_(*dataset_filters))
+                .filter(datasets_filter)
                 .distinct()
                 .subquery()
             )
             models = models.join(subquery)
 
-        experiment_ids = _parse_experiment_ids(experiment_ids)
         return models.filter(
             SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED,
             SqlLoggedModel.experiment_id.in_(experiment_ids),
@@ -3901,7 +3871,13 @@ class SqlAlchemyStore(
             models = self._apply_filter_string_datasets_search_logged_models(
                 models, session, experiment_ids, filter_string, datasets
             )
-            models = self._apply_order_by_search_logged_models(models, session, order_by)
+            models = self._apply_order_by_search_logged_models(
+                models,
+                session,
+                order_by,
+                experiment_ids=_parse_experiment_ids(experiment_ids),
+                datasets=datasets,
+            )
             models = (
                 models
                 .options(
@@ -4003,8 +3979,8 @@ class SqlAlchemyStore(
                 execution_time_ms=trace_info.execution_duration,
                 status=trace_info.state.value,
                 client_request_id=trace_info.client_request_id,
-                request_preview=trace_info.request_preview,
-                response_preview=trace_info.response_preview,
+                request_preview=_replace_nul(trace_info.request_preview),
+                response_preview=_replace_nul(trace_info.response_preview),
                 trace_name=trace_name,
                 **analytics_columns,
             )
@@ -4150,16 +4126,39 @@ class SqlAlchemyStore(
                         f"Trace with ID '{trace_id}' no longer exists.",
                         error_code=RESOURCE_DOES_NOT_EXIST,
                     )
+                if str(db_sql_trace_info.experiment_id) != str(trace_info.experiment_id):
+                    # Only merge a racing write into the same experiment's trace; never move
+                    # another experiment's trace into the caller's.
+                    raise MlflowException(
+                        f"Trace with ID '{trace_id}' already exists in another experiment.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
                 if not self._is_sql_trace_db_backed(db_sql_trace_info):
                     raise MlflowException(
                         f"Cannot update traces that are no longer DB-backed: '{trace_id}'.",
                         error_code=INVALID_STATE,
                     )
+                # Assessments are merged by ID alone, so one that belongs to another trace would
+                # be moved here and overwritten.
+                if assessment_ids := [a.assessment_id for a in sql_assessments]:
+                    if foreign := (
+                        session
+                        .query(SqlAssessments.assessment_id)
+                        .filter(
+                            SqlAssessments.assessment_id.in_(assessment_ids),
+                            SqlAssessments.trace_id != trace_id,
+                        )
+                        .first()
+                    ):
+                        raise MlflowException(
+                            f"Assessment with ID '{foreign.assessment_id}' belongs to another "
+                            "trace.",
+                            error_code=INVALID_PARAMETER_VALUE,
+                        )
                 # Advance the payload generation before staging ORM writes so a concurrent archival
                 # finalization cannot be hidden by autoflush re-publishing TRACKING_STORE.
                 self._advance_db_payload_generations_for_db_span_writes(session, [trace_id])
 
-                db_sql_trace_info.experiment_id = trace_info.experiment_id
                 db_sql_trace_info.timestamp_ms = trace_info.request_time
                 db_sql_trace_info.execution_time_ms = trace_info.execution_duration
                 db_sql_trace_info.status = trace_info.state.value
@@ -4169,9 +4168,9 @@ class SqlAlchemyStore(
                 for column, value in analytics_columns.items():
                     setattr(db_sql_trace_info, column, value)
                 if trace_info.request_preview is not None:
-                    db_sql_trace_info.request_preview = trace_info.request_preview
+                    db_sql_trace_info.request_preview = _replace_nul(trace_info.request_preview)
                 if trace_info.response_preview is not None:
-                    db_sql_trace_info.response_preview = trace_info.response_preview
+                    db_sql_trace_info.response_preview = _replace_nul(trace_info.response_preview)
 
                 for tag in tags:
                     session.merge(tag)
@@ -4408,13 +4407,20 @@ class SqlAlchemyStore(
             if location_filter is not None:
                 stmt = stmt.filter(location_filter)
 
-            stmt = stmt.order_by(*parsed_orderby).offset(offset).limit(max_results)
+            # One row past the page, so the token is issued only when something actually follows
+            # it. Reading exactly `max_results` cannot tell a full page with more behind it from
+            # one that ends on the boundary, and every other paginated search in this store
+            # already looks ahead this way.
+            stmt = stmt.order_by(*parsed_orderby).offset(offset).limit(max_results + 1)
 
             trace_rows = stmt.all()
-            trace_infos = _build_trace_infos_from_rows(session, trace_rows)
+            has_more = len(trace_rows) > max_results
+            # Built after trimming: the look-ahead row is only ever counted, and building its
+            # trace info would read its tags, assessments and request metadata for nothing.
+            trace_infos = _build_trace_infos_from_rows(session, trace_rows[:max_results])
 
             # Compute next search token
-            if max_results == len(trace_infos):
+            if has_more:
                 final_offset = offset + max_results
                 next_token = SearchTraceUtils.create_page_token(final_offset)
             else:
@@ -5148,11 +5154,9 @@ class SqlAlchemyStore(
     def _delete_archived_trace_payloads(
         self, selected_traces: list[_TraceDeleteSelection]
     ) -> list[str]:
-        deleted_trace_ids = []
-        for selected_trace in selected_traces:
+        def delete_payload(selected_trace: _TraceDeleteSelection) -> str | None:
             if selected_trace.archived_artifact_uri is None:
-                deleted_trace_ids.append(selected_trace.trace_id)
-                continue
+                return selected_trace.trace_id
             try:
                 get_artifact_repository(selected_trace.archived_artifact_uri).delete_artifacts(
                     TRACE_ARCHIVAL_FILENAME
@@ -5165,9 +5169,20 @@ class SqlAlchemyStore(
                         selected_trace.trace_id,
                         exc_info=True,
                     )
-                    continue
-            deleted_trace_ids.append(selected_trace.trace_id)
-        return deleted_trace_ids
+                    return None
+            return selected_trace.trace_id
+
+        if len(selected_traces) <= 1:
+            deleted_trace_ids = [delete_payload(trace) for trace in selected_traces]
+        else:
+            with ThreadPoolExecutor(
+                max_workers=min(MLFLOW_TRACE_DELETE_MAX_WORKERS.get(), len(selected_traces)),
+                thread_name_prefix="mlflow-trace-delete",
+            ) as executor:
+                deleted_trace_ids = list(
+                    map_with_context(executor, delete_payload, selected_traces)
+                )
+        return [trace_id for trace_id in deleted_trace_ids if trace_id is not None]
 
     def create_assessment(self, assessment: Assessment) -> Assessment:
         """
@@ -6093,6 +6108,18 @@ class SqlAlchemyStore(
 
             # Keep downstream per-trace updates aligned with the surviving span rows.
             all_trace_ids = [trace_id for trace_id in all_trace_ids if trace_id in existing_traces]
+
+            # Only add spans to traces in the experiment being logged to; never write into a
+            # trace stored in another experiment.
+            if foreign_trace_ids := sorted(
+                trace_id
+                for trace_id in all_trace_ids
+                if str(existing_traces[trace_id].experiment_id) != str(location)
+            ):
+                raise MlflowException(
+                    f"Trace with ID '{foreign_trace_ids[0]}' already exists in another experiment.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
 
             # Serialize concurrent log_spans() calls for the same trace, so that Phase 5's
             # recompute of the trace-level token usage/cost sees every span committed for the
@@ -9027,7 +9054,10 @@ class SqlAlchemyStore(
             categories: Match any category, ignoring case and surrounding whitespace.
                 Different filter fields are ANDed.
             order_by: Field and optional ASC/DESC; supports name, status, severity and timestamps.
-                Issue ID breaks ties. Omit to retain the legacy severity/count/creation ordering.
+                Issue ID breaks ties. Explicit ordering uses a cursor over the last row's sort
+                values, so inserts or removals before it do not shift subsequent pages.
+                This is a live list, not a snapshot: edits to sort/filter fields can move rows
+                across the cursor. Omit to retain the legacy severity/count/creation ordering.
             include_total_count: Return the matching count before pagination in total_count.
             view: "basic" returns an empty description and omits root_causes and metadata.
                 The default is "full".
@@ -9068,7 +9098,7 @@ class SqlAlchemyStore(
             view=view,
         )
         with self.ManagedSessionMaker() as session:
-            offset = issue_page_offset(page_token, fingerprint, allow_legacy=not enhanced)
+            position = issue_page_position(page_token, fingerprint, allow_legacy=not enhanced)
 
             query = self._get_query(session, SqlIssue)
 
@@ -9134,6 +9164,7 @@ class SqlAlchemyStore(
                 SqlIssue.created_timestamp.desc(),
                 SqlIssue.issue_id.desc(),
             ])
+            sort_columns = []
             if order_by:
                 sortable = {
                     "name": func.lower(SqlIssue.name),
@@ -9159,12 +9190,38 @@ class SqlAlchemyStore(
                             f"Invalid issue order_by: {order!r}"
                         )
                     column = sortable[parts[0]]
-                    order_clauses.append(
-                        column.desc()
-                        if len(parts) == 2 and parts[1].upper() == "DESC"
-                        else column.asc()
+                    descending = len(parts) == 2 and parts[1].upper() == "DESC"
+                    sort_columns.append((column, descending))
+                sort_columns.append((SqlIssue.issue_id, True))
+                order_clauses = [
+                    column.desc() if descending else column.asc()
+                    for column, descending in sort_columns
+                ]
+            if position.values is not None:
+                value_types = [
+                    str if order.split()[0] == "name" else int for order in order_by or []
+                ] + [str]
+                if (
+                    not sort_columns
+                    or len(position.values) != len(value_types)
+                    or any(
+                        type(value) is not expected
+                        for value, expected in zip(position.values, value_types)
                     )
-                order_clauses.append(SqlIssue.issue_id.desc())
+                ):
+                    raise MlflowException.invalid_parameter_value("Invalid issue page token")
+                equal_prefix = []
+                after_cursor = []
+                for (column, descending), value in zip(sort_columns, position.values):
+                    after_cursor.append(
+                        and_(*equal_prefix, column < value if descending else column > value)
+                    )
+                    equal_prefix.append(column == value)
+                query = query.filter(or_(*after_cursor))
+            if sort_columns:
+                # Read the effective keys from SQL (including LOWER/COALESCE/CASE), not from
+                # the entity or the anchor row on a later request; the anchor may be deleted.
+                query = query.add_columns(*(column for column, _ in sort_columns))
             query = query.order_by(*order_clauses)
             if view == "basic":
                 query = query.options(
@@ -9173,19 +9230,24 @@ class SqlAlchemyStore(
                     defer(SqlIssue.issue_metadata),
                 )
 
-            query = query.offset(offset).limit(max_results + 1)
+            query = query.offset(position.offset).limit(max_results + 1)
 
             results = query.all()
             has_next_page = len(results) > max_results
-            next_token = (
-                (
-                    issue_page_token(offset + max_results, fingerprint)
-                    if enhanced
-                    else SearchTraceUtils.create_page_token(offset + max_results)
-                )
-                if has_next_page
-                else None
-            )
+            next_token = None
+            if has_next_page:
+                if sort_columns:
+                    next_token = issue_keyset_token(
+                        list(results[max_results - 1][-len(sort_columns) :]), fingerprint
+                    )
+                elif enhanced:
+                    next_token = issue_page_token(position.offset + max_results, fingerprint)
+                else:
+                    next_token = SearchTraceUtils.create_page_token(position.offset + max_results)
+            if sort_columns:
+                # Sort keys follow the optional trace count: (SqlIssue, trace_count, *sort_keys)
+                # when requested, otherwise (SqlIssue, *sort_keys).
+                results = [(row[0], row[1]) if include_trace_count else row[0] for row in results]
 
             if include_trace_count:
                 issues = [
@@ -10310,6 +10372,76 @@ class SqlAlchemyStore(
                 row.completed_time_ms = now_ms
             session.flush()
             return row.to_mlflow_entity()
+
+
+def _get_logged_model_metric_datasets_filter(
+    datasets: list[dict[str, Any]] | None,
+) -> sqlalchemy.ColumnElement[bool] | None:
+    """
+    Returns a filter matching logged model metrics on any of ``datasets``, or None if no
+    datasets are given.
+    """
+    if not datasets:
+        return None
+    dataset_filters = []
+    for dataset in datasets:
+        dataset_filter = SqlLoggedModelMetric.dataset_name == dataset["dataset_name"]
+        if "dataset_digest" in dataset:
+            dataset_filter = dataset_filter & (
+                SqlLoggedModelMetric.dataset_digest == dataset["dataset_digest"]
+            )
+        dataset_filters.append(dataset_filter)
+    return sqlalchemy.or_(*dataset_filters)
+
+
+def _get_latest_logged_model_metrics_subquery(
+    session: sqlalchemy.orm.Session,
+    metric_name: str,
+    filters: list[sqlalchemy.ColumnElement[bool]],
+    experiment_ids: list[int] | None = None,
+) -> sqlalchemy.Subquery:
+    """
+    Returns a subquery with the latest ``(model_id, metric_value)`` row of ``metric_name`` per
+    logged model. ``filters`` (e.g. dataset filters) are applied before the latest row is
+    picked.
+
+    The latest row is the one with the highest step, then timestamp, then value, which is how
+    run metrics and ``FileStore`` pick the latest value. If ``experiment_ids`` is given, only
+    metrics of logged models in those experiments are ranked.
+    """
+    if experiment_ids is not None:
+        # Scope by the model's experiment rather than `SqlLoggedModelMetric.experiment_id`,
+        # which is the experiment of the run that logged the metric and can differ from the
+        # model's (e.g. an evaluation run in another experiment).
+        filters = [
+            *filters,
+            SqlLoggedModelMetric.model_id.in_(
+                select(SqlLoggedModel.model_id).where(
+                    SqlLoggedModel.experiment_id.in_(experiment_ids)
+                )
+            ),
+        ]
+    ranked = (
+        session
+        .query(
+            SqlLoggedModelMetric.model_id,
+            SqlLoggedModelMetric.metric_value,
+            func
+            .row_number()
+            .over(
+                partition_by=[SqlLoggedModelMetric.model_id, SqlLoggedModelMetric.metric_name],
+                order_by=[
+                    SqlLoggedModelMetric.metric_step.desc(),
+                    SqlLoggedModelMetric.metric_timestamp_ms.desc(),
+                    SqlLoggedModelMetric.metric_value.desc(),
+                ],
+            )
+            .label("row_num"),
+        )
+        .filter(SqlLoggedModelMetric.metric_name == metric_name, *filters)
+        .subquery()
+    )
+    return select(ranked.c).where(ranked.c.row_num == 1).subquery()
 
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):

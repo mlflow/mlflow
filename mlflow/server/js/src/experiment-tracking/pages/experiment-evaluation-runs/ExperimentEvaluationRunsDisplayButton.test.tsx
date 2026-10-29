@@ -11,10 +11,10 @@ import { ExperimentEvaluationRunsPageMode } from './hooks/useExperimentEvaluatio
 
 const { history } = setupTestRouter();
 
-const makeRun = (): RunEntity => ({
+const makeRun = (tags: RunEntity['data']['tags'] = []): RunEntity => ({
   data: {
     params: [{ key: 'model', value: 'gpt-4o' }],
-    tags: [],
+    tags,
     metrics: [],
   },
   info: {
@@ -96,6 +96,41 @@ describe('ExperimentEvaluationRunsDisplayButton', () => {
       aggregateFunction: 'average',
       groupByKeys: [{ mode: 'dataset', groupByData: 'dataset' }],
     });
+  });
+
+  test('offers lineage group-by options only for runs that have lineage tags', async () => {
+    const user = userEvent.setup();
+    const { setGroupByConfig } = renderDisplay({
+      runs: [
+        makeRun([
+          { key: 'mlflow.genaiEvaluate.scorersDigest', value: '{"digest":"sha256:a","hashed":1,"total":1}' },
+          { key: 'mlflow.genaiEvaluate.agent.function', value: 'pkg.predict' },
+        ]),
+      ],
+    });
+
+    await user.click(await screen.findByRole('button', { name: 'Display' }));
+    await user.click(screen.getByRole('menuitem', { name: /^Group by/ }));
+    expect(await screen.findByRole('menuitemcheckbox', { name: 'Agent' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('menuitemcheckbox', { name: 'mlflow.genaiEvaluate.scorersDigest' }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Scorers' }));
+    expect(setGroupByConfig).toHaveBeenCalledWith({
+      aggregateFunction: 'average',
+      groupByKeys: [{ mode: 'tag', groupByData: 'mlflow.genaiEvaluate.scorersDigest' }],
+    });
+  });
+
+  test('hides lineage group-by options when no run has lineage tags', async () => {
+    const user = userEvent.setup();
+    renderDisplay();
+
+    await user.click(await screen.findByRole('button', { name: 'Display' }));
+    await user.click(screen.getByRole('menuitem', { name: /^Group by/ }));
+    expect(await screen.findByRole('menuitemcheckbox', { name: 'Dataset' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitemcheckbox', { name: 'Scorers' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitemcheckbox', { name: 'Agent' })).not.toBeInTheDocument();
   });
 
   test('offers the legacy charts view from the display menu', async () => {

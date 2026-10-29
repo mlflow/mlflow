@@ -53,6 +53,10 @@ const mockVersion1 = createMockSkillVersion({
   created_by: 'carol@example.com',
 });
 
+const removeTagChip = async (dialog: HTMLElement, key: string) => {
+  await userEvent.click(within(within(dialog).getAllByTitle(key)[0]).getByRole('button'));
+};
+
 const changeSimpleSelect = async (componentId: string, optionLabel: string) => {
   const trigger = document.querySelector<HTMLElement>(`[data-component-id="${componentId}"]`);
   if (!trigger) throw new Error(`SimpleSelect "${componentId}" not found`);
@@ -355,6 +359,47 @@ describe('SkillDetailPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
     expect(await screen.findByRole('menuitem', { name: 'Edit' })).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: 'Delete' })).not.toBeInTheDocument();
+  });
+
+  it('lets a user who can edit but not delete remove skill tags but not version tags', async () => {
+    const deletedSkillTags: string[] = [];
+    const deletedVersionTags: string[] = [];
+    const tagKey = (pathname: string) => decodeURIComponent(pathname.split('/').pop() ?? '');
+    server.use(
+      ...getMockedSkillDetailHandlers({ ...mockSkill, allowed_actions: [SkillAction.USE, SkillAction.UPDATE] }, [
+        mockVersion2,
+        mockVersion1,
+      ]),
+      rest.delete(/\/code-review\/tags\/[^/]+$/, (req, res, ctx) => {
+        deletedSkillTags.push(tagKey(req.url.pathname));
+        return res(ctx.json({}));
+      }),
+      rest.delete(/\/versions\/\d+\/tags\/[^/]+$/, (req, res, ctx) => {
+        deletedVersionTags.push(tagKey(req.url.pathname));
+        return res(ctx.json({}));
+      }),
+    );
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit tags' }));
+    const skillTagsDialog = await screen.findByRole('dialog');
+    await removeTagChip(skillTagsDialog, 'team');
+    await userEvent.click(within(skillTagsDialog).getByRole('button', { name: 'Save tags' }));
+    await waitFor(() => {
+      expect(deletedSkillTags).toEqual(['team']);
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit version tags' }));
+    const versionTagsDialog = await screen.findByRole('dialog');
+    await removeTagChip(versionTagsDialog, 'env');
+    await userEvent.click(within(versionTagsDialog).getByRole('button', { name: 'Save tags' }));
+    expect(
+      await within(versionTagsDialog).findByText('Removing version tags requires the Manage permission on this skill.'),
+    ).toBeInTheDocument();
+    expect(deletedVersionTags).toEqual([]);
   });
 
   it('renders a permission-denied empty state', async () => {

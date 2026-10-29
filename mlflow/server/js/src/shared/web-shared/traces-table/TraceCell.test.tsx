@@ -2,9 +2,15 @@ import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import { TraceIdCell } from './TraceCell';
+import { TraceCostCell, TraceIdCell } from './TraceCell';
 import { makeTrace } from './test-utils/mockTraces';
 import { renderWithProviders } from './test-utils/renderWithProviders';
+import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
+
+jest.mock('../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
+  shouldEnableNewEvalRunsUi: jest.fn(() => false),
+}));
 
 // Observe the clipboard write at its boundary: useCopyController copies via `use-clipboard-copy`'s
 // `useClipboard().copy(text)`, and jsdom has no real clipboard. Stubbing this third-party library
@@ -42,5 +48,27 @@ describe('TraceIdCell copy button', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Copy' }));
 
     expect(mockClipboardCopy).toHaveBeenCalledWith(expectedCopy);
+  });
+});
+
+describe('TraceCostCell', () => {
+  test('flag on: renders the ≈-prefixed cost with an accessible label and an estimation tooltip', async () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+    await renderWithProviders(<TraceCostCell trace={makeTrace('cost-trace')} />);
+
+    expect(screen.getByText('≈$0.003')).toBeVisible();
+    expect(screen.getByLabelText('Estimated cost: $0.003')).toBeVisible();
+    await userEvent.hover(screen.getByText('≈$0.003'));
+    const tooltip = await screen.findByRole('tooltip');
+    expect(tooltip).toHaveTextContent('Input $0.001 · Output $0.002');
+    expect(tooltip).toHaveTextContent('Cost is estimated from token usage and public model pricing.');
+  });
+
+  test('flag off: renders the plain cost', async () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
+    await renderWithProviders(<TraceCostCell trace={makeTrace('cost-trace')} />);
+
+    expect(screen.getByText('$0.003')).toBeVisible();
+    expect(screen.queryByText('≈$0.003')).not.toBeInTheDocument();
   });
 });

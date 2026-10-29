@@ -2,6 +2,7 @@ import base64
 import json
 import time
 from unittest import mock
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from google.protobuf.json_format import MessageToDict
@@ -15,6 +16,7 @@ from mlflow.entities.assessment import (
     Feedback,
     FeedbackValue,
 )
+from mlflow.entities.issue import IssueCategory, IssueSeverity, IssueStatus
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
@@ -26,7 +28,7 @@ from mlflow.environment_variables import (
     MLFLOW_SQL_WAREHOUSE_AUTO_START,
     MLFLOW_TRACING_SQL_WAREHOUSE_ID,
 )
-from mlflow.exceptions import MlflowException, MlflowNotImplementedException, RestException
+from mlflow.exceptions import MlflowException, RestException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND
 from mlflow.protos.databricks_tracing_pb2 import (
@@ -2175,49 +2177,329 @@ def test_search_datasets_exact_match_no_offset():
         mock_http.assert_called_once()
 
 
-def test_create_issue_not_implemented():
-    creds = MlflowHostCreds("https://hello")
-    store = DatabricksTracingRestStore(lambda: creds)
-
-    with pytest.raises(
-        MlflowNotImplementedException, match="Issue management is not supported in Databricks"
-    ):
-        store.create_issue(
-            experiment_id="exp-123",
-            name="Test Issue",
-            description="Test description",
-            status="pending",
-        )
-
-
-def test_get_issue_not_implemented():
-    creds = MlflowHostCreds("https://hello")
-    store = DatabricksTracingRestStore(lambda: creds)
-
-    with pytest.raises(
-        MlflowNotImplementedException, match="Issue management is not supported in Databricks"
-    ):
-        store.get_issue(issue_id="issue-123")
-
-
-def test_update_issue_not_implemented():
-    creds = MlflowHostCreds("https://hello")
-    store = DatabricksTracingRestStore(lambda: creds)
-
-    with pytest.raises(
-        MlflowNotImplementedException, match="Issue management is not supported in Databricks"
-    ):
-        store.update_issue(issue_id="issue-123", status="resolved")
+@pytest.fixture
+def issue_http():
+    issue_id = "iss-" + "a" * 32
+    wire_issue = {
+        "name": f"experiments/123/issues/{issue_id}",
+        "issue_id": issue_id,
+        "title": "Slow response",
+        "description": "Slow tool calls",
+        "status": "PENDING",
+        "severity": "HIGH",
+        "categories": ["latency", "custom-category"],
+        "source_type": "ADHOC_RUN",
+        "source_id": "b" * 32,
+        "create_time": "1970-01-01T00:00:00.123Z",
+        "update_time": "1970-01-01T00:00:00.456Z",
+        "last_seen_time": "1970-01-01T00:00:00.789Z",
+        "created_by": "creator@example.com",
+        "last_updated_by": "reviewer@example.com",
+        "metadata": {"owner": "agent"},
+    }
+    store = DatabricksTracingRestStore(lambda: MlflowHostCreds("https://hello"))
+    response = mock.Mock(status_code=200, text=json.dumps(wire_issue))
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as http:
+        yield store, http, wire_issue
 
 
-def test_search_issues_not_implemented():
-    creds = MlflowHostCreds("https://hello")
-    store = DatabricksTracingRestStore(lambda: creds)
+def test_create_issue_databricks_contract(issue_http):
+    store, http, wire_issue = issue_http
+    result = store.create_issue(
+        experiment_id="123",
+        name="Slow response",
+        description="Slow tool calls",
+        status=IssueStatus.PENDING,
+        severity=IssueSeverity.HIGH,
+        categories=[IssueCategory.LATENCY, "custom-category"],
+        issue_id=wire_issue["issue_id"],
+        last_seen_timestamp=0,
+        source_run_id="b" * 32,
+        metadata={"owner": "agent"},
+    )
 
-    with pytest.raises(
-        MlflowNotImplementedException, match="Issue management is not supported in Databricks"
-    ):
-        store.search_issues(experiment_id="exp-123")
+    request = http.call_args.kwargs
+    endpoint = urlsplit(request["endpoint"])
+    assert http.call_count == 1
+    assert request["method"] == "POST"
+    assert endpoint.path == "/api/2.0/mlflow/experiments/123/issues"
+    assert parse_qs(endpoint.query) == {"issue_id": [wire_issue["issue_id"]]}
+    assert request["json"] == {
+        "title": "Slow response",
+        "description": "Slow tool calls",
+        "status": "PENDING",
+        "severity": "HIGH",
+        "categories": ["latency", "custom-category"],
+        "last_seen_time": "1970-01-01T00:00:00Z",
+        "source_type": "ADHOC_RUN",
+        "source_id": "b" * 32,
+        "metadata": {"owner": "agent"},
+    }
+    assert result.issue_id == wire_issue["issue_id"]
+    assert result.name == "Slow response"
+
+
+def test_get_issue_normalizes_databricks_response(issue_http):
+    store, http, wire_issue = issue_http
+    result = store.get_issue(wire_issue["issue_id"], experiment_id="123")
+
+    request = http.call_args.kwargs
+    assert http.call_count == 1
+    assert request["method"] == "GET"
+    assert request["endpoint"] == f"/api/2.0/mlflow/{wire_issue['name']}"
+    assert request.get("params") in (None, {})
+    assert result.experiment_id == "123"
+    assert result.name == wire_issue["title"]
+    assert result.description == wire_issue["description"]
+    assert result.status is IssueStatus.PENDING
+    assert result.severity is IssueSeverity.HIGH
+    assert result.categories == [IssueCategory.LATENCY, "custom-category"]
+    assert result.source_run_id == "b" * 32
+    assert result.created_timestamp == 123
+    assert result.last_updated_timestamp == 456
+    assert result.last_seen_timestamp == 789
+    assert result.created_by == "creator@example.com"
+    assert result.last_updated_by == "reviewer@example.com"
+    assert result.metadata == {"owner": "agent"}
+
+
+def test_get_issue_single_trace_source_is_not_a_run(issue_http):
+    store, http, wire_issue = issue_http
+    wire_issue.update(source_type="SINGLE_TRACE_ANALYSIS", source_id="tr-" + "b" * 32)
+    http.return_value.text = json.dumps(wire_issue)
+
+    result = store.get_issue(wire_issue["issue_id"], experiment_id="123")
+
+    assert result.source_run_id is None
+
+
+@pytest.mark.parametrize("method", ["get_issue", "update_issue"])
+def test_issue_requires_experiment_on_databricks(issue_http, method):
+    store, http, wire_issue = issue_http
+    with pytest.raises(MlflowException, match="experiment_id"):
+        getattr(store, method)(wire_issue["issue_id"])
+    http.assert_not_called()
+
+
+def test_update_issue_sparse_mask_and_clears(issue_http):
+    store, http, wire_issue = issue_http
+    result = store.update_issue(
+        wire_issue["issue_id"],
+        experiment_id="123",
+        description="",
+        categories=[],
+        status=IssueStatus.RESOLVED,
+        last_seen_timestamp=0,
+        metadata={"owner": "new-agent"},
+        delete_metadata_keys=["old"],
+    )
+
+    request = http.call_args.kwargs
+    endpoint = urlsplit(request["endpoint"])
+    assert http.call_count == 1
+    assert request["method"] == "PATCH"
+    assert endpoint.path == f"/api/2.0/mlflow/{wire_issue['name']}"
+    assert set(parse_qs(endpoint.query)["update_mask"][0].split(",")) == {
+        "description",
+        "categories",
+        "status",
+        "last_seen_time",
+        "metadata.owner",
+        "metadata.old",
+    }
+    assert request["json"] == {
+        "name": wire_issue["name"],
+        "description": "",
+        "categories": [],
+        "status": "RESOLVED",
+        "last_seen_time": "1970-01-01T00:00:00Z",
+        "metadata": {"owner": "new-agent"},
+    }
+    assert result.issue_id == wire_issue["issue_id"]
+
+
+@pytest.mark.parametrize(
+    ("key", "mask"),
+    [
+        ("MixedCaseKey", "metadata.MixedCaseKey"),
+        ("MixedCase.Key", "metadata.`MixedCase.Key`"),
+    ],
+)
+@pytest.mark.parametrize("delete", [False, True])
+def test_update_issue_preserves_metadata_key_case(issue_http, key, mask, delete):
+    store, http, wire_issue = issue_http
+    kwargs = {"delete_metadata_keys": [key]} if delete else {"metadata": {key: "value"}}
+
+    store.update_issue(wire_issue["issue_id"], experiment_id="123", **kwargs)
+
+    http.assert_called_once()
+    request = http.call_args.kwargs
+    assert parse_qs(urlsplit(request["endpoint"]).query)["update_mask"] == [mask]
+    if delete:
+        assert "metadata" not in request["json"]
+    else:
+        assert request["json"]["metadata"] == {key: "value"}
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "expected_statuses"),
+    [
+        ("status = 'pending'", {"PENDING"}),
+        ("status != 'resolved'", {"PENDING", "REJECTED"}),
+        ("status != 'resolved' AND status != 'rejected'", {"PENDING"}),
+    ],
+)
+def test_search_issues_translates_status_filter(issue_http, filter_string, expected_statuses):
+    store, http, wire_issue = issue_http
+    http.return_value.text = json.dumps({"issues": [wire_issue], "total_size": 1})
+    result = store.search_issues(
+        experiment_id="123", filter_string=filter_string, include_total_count=True
+    )
+
+    request = http.call_args.kwargs
+    assert request["method"] == "POST"
+    assert request["endpoint"] == "/api/2.0/mlflow/experiments/123/issues:search"
+    assert set(request["json"]["statuses"]) == expected_statuses
+    assert request["json"]["view"] == "FULL"
+    assert "filter_string" not in request["json"]
+    assert len(result) == 1
+    assert result[0].issue_id == wire_issue["issue_id"]
+    assert result.total_count == 1
+    assert result.token is None
+
+
+@pytest.mark.parametrize("include_total_count", [False, True])
+@pytest.mark.parametrize(
+    ("statuses", "filter_string"),
+    [
+        (None, "status = 'pending' AND status = 'resolved'"),
+        (["resolved"], "status = 'pending'"),
+        (None, "status != 'pending' AND status != 'resolved' AND status != 'rejected'"),
+    ],
+)
+def test_search_issues_contradictory_status_filter_avoids_unfiltered_request(
+    issue_http, include_total_count, statuses, filter_string
+):
+    store, http, _ = issue_http
+    result = store.search_issues(
+        experiment_id="123",
+        statuses=statuses,
+        filter_string=filter_string,
+        include_total_count=include_total_count,
+    )
+    assert result == []
+    assert result.token is None
+    assert result.total_count == (0 if include_total_count else None)
+    http.assert_not_called()
+
+
+@pytest.mark.parametrize("include_total_count", [False, True])
+@pytest.mark.parametrize("total_size", [None, 0, 2])
+def test_search_issues_total_count_is_opt_in(issue_http, include_total_count, total_size):
+    store, http, _ = issue_http
+    response = {"issues": []}
+    if total_size is not None:
+        response["total_size"] = total_size
+    http.return_value.text = json.dumps(response)
+
+    result = store.search_issues(experiment_id="123", include_total_count=include_total_count)
+
+    assert result.total_count == (total_size if include_total_count else None)
+    http.assert_called_once()
+
+
+@pytest.mark.parametrize("max_results", [None, 1, 100])
+def test_search_issues_max_results_boundary(issue_http, max_results):
+    store, http, _ = issue_http
+    http.return_value.text = json.dumps({"issues": []})
+
+    store.search_issues(experiment_id="123", max_results=max_results)
+
+    http.assert_called_once()
+    body = http.call_args.kwargs["json"]
+    if max_results is None:
+        assert "page_size" not in body
+    else:
+        assert body["page_size"] == max_results
+
+
+@pytest.mark.parametrize("max_results", [-1, 0, 101, True, 1.5, "10"])
+def test_search_issues_rejects_invalid_max_results(issue_http, max_results):
+    store, http, _ = issue_http
+
+    with pytest.raises(MlflowException, match="max_results.*between 1 and 100") as error:
+        store.search_issues(experiment_id="123", max_results=max_results)
+
+    assert error.value.error_code == "INVALID_PARAMETER_VALUE"
+    http.assert_not_called()
+
+
+def test_search_issues_pagination_and_basic_view(issue_http):
+    store, http, wire_issue = issue_http
+    basic_issue = {key: value for key, value in wire_issue.items() if key != "description"}
+    http.side_effect = [
+        mock.Mock(
+            status_code=200,
+            text=json.dumps({"issues": [basic_issue], "next_page_token": "next", "total_size": 2}),
+        ),
+        mock.Mock(status_code=200, text=json.dumps({"issues": [], "total_size": 2})),
+    ]
+    kwargs = {
+        "experiment_id": "123",
+        "max_results": 1,
+        "order_by": ["last_seen_timestamp ASC"],
+        "include_total_count": True,
+        "view": "basic",
+    }
+    first = store.search_issues(**kwargs)
+    second = store.search_issues(**kwargs, page_token=first.token)
+
+    assert first[0].description == ""
+    assert first.token == "next"
+    assert first.total_count == second.total_count == 2
+    assert second == []
+    assert second.token is None
+    first_body = http.call_args_list[0].kwargs["json"]
+    assert first_body["page_size"] == 1
+    assert first_body["sort_key"] == "LAST_SEEN_TIME"
+    assert first_body["sort_order"] == "ASCENDING"
+    assert first_body["view"] == "BASIC"
+    assert http.call_args_list[1].kwargs["json"] == {**first_body, "page_token": "next"}
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"filter_string": "source_run_id = 'run'"}, "source_run_id"),
+        ({"order_by": ["name ASC"]}, "order_by"),
+        ({"order_by": ["severity DESC", "created_timestamp ASC"]}, "order_by"),
+        ({"include_trace_count": True}, "trace counts"),
+    ],
+)
+def test_search_issues_rejects_unsupported_databricks_options(issue_http, kwargs, message):
+    store, http, _ = issue_http
+    with pytest.raises(MlflowException, match=message):
+        store.search_issues(experiment_id="123", **kwargs)
+    http.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("status_code", "error_code", "message"),
+    [
+        (403, "PERMISSION_DENIED", "No access to experiment"),
+        (404, "NOT_FOUND", "Issues is not enabled for this workspace."),
+    ],
+)
+def test_issue_backend_error_propagates_without_fallback(
+    issue_http, status_code, error_code, message
+):
+    store, http, wire_issue = issue_http
+    http.return_value.status_code = status_code
+    http.return_value.text = json.dumps({"error_code": error_code, "message": message})
+    with pytest.raises(RestException, match=message) as error:
+        store.get_issue(wire_issue["issue_id"], experiment_id="123")
+    assert error.value.error_code == error_code
+    http.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

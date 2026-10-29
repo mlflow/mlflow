@@ -6,13 +6,15 @@ import { ErrorCodes } from '../../../common/constants';
 import { getGraphQLErrorMessage } from '../../../graphql/get-graphql-error';
 
 const TERMINAL_STATUSES = [MlflowRunStatus.FINISHED, MlflowRunStatus.FAILED, MlflowRunStatus.KILLED];
+const EMPTY_METRICS: { key?: string | null; value?: number | null }[] = [];
 
-/** Loads the run behind the evaluation run details page: its name, status, experiment and tags. */
+/** Loads the run behind the evaluation run details page: its name, status, experiment, metrics and tags. */
 export const useEvalRunProgress = ({ runUuid }: { runUuid: string }) => {
   const { data: run, loading, apiError, apolloError } = useGetRunQuery({ runUuid });
   const status = run?.info?.status ?? undefined;
   const runName = run?.info?.runName ?? undefined;
   const experiment = run?.experiment ?? undefined;
+  const runMetrics = run?.data?.metrics ?? EMPTY_METRICS;
   const runTags = useMemo<Record<string, KeyValueEntity>>(
     () =>
       Object.fromEntries(
@@ -38,6 +40,7 @@ export const useEvalRunProgress = ({ runUuid }: { runUuid: string }) => {
     status,
     runName,
     experiment,
+    runMetrics,
     runTags,
     isFinished,
   };

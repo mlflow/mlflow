@@ -161,6 +161,22 @@ def test_missing_result_fails_with_container_logs(executor, client):
     assert client.started[0].logs_tail == jc._LOG_TAIL_LINES
 
 
+def test_container_out_of_memory_names_the_scorer_run_setting(executor, client, monkeypatch):
+    monkeypatch.setitem(de._JOB_PLANNERS, "invoke_scorer", f"{__name__}._fake_planner")
+
+    def on_wait(container):
+        container.oom_killed = True
+        return {"StatusCode": 137}
+
+    client.on_wait = on_wait
+    _submit(executor, job_name="invoke_scorer")
+    result = executor.wait_for_job("job-1")
+
+    assert result.status == JobStatus.FAILED
+    assert "ran out of memory (its memory limit is 1Gi)" in result.error_message
+    assert "MLFLOW_JOB_RESOURCE_LIMITS_invoke_scorer" in result.error_message
+
+
 def test_failed_job_reports_transient_flag(executor, client):
     def on_wait(container):
         _SubprocessJobResult(succeeded=False, is_transient_error=True, error="boom").dump(

@@ -135,6 +135,38 @@ describe('EvalRunsUnifiedSearch', () => {
     expect(screen.getByTestId('compiled-search')).toHaveTextContent("attributes.run_name ILIKE 'foo'");
   });
 
+  test.each([
+    "metric.f1_score > 0.9 AND params.model = 'tree'",
+    "dataset.name IN ('dataset1', 'dataset2')",
+    "attributes.run_id IN ('a1b2c3d4', 'e5f6g7h8')",
+    "tags.model_class LIKE 'sklearn.linear_model%'",
+  ])('submits the search help example %s as a raw SearchRuns expression', async (expression) => {
+    const user = userEvent.setup();
+    renderWithDesignSystem(<Harness />);
+
+    const search = screen.getByRole('combobox', { name: 'Search evaluation runs' });
+    await user.click(search);
+    await user.paste(expression);
+    await user.keyboard('{Enter}');
+
+    // Exact match: a run-name search would wrap the expression in `attributes.run_name ILIKE '%…%'`.
+    expect(screen.getByTestId('compiled-search').textContent).toBe(expression);
+  });
+
+  test('shows the search syntax help with examples and a docs link', async () => {
+    const user = userEvent.setup();
+    renderWithDesignSystem(<Harness />);
+
+    await user.click(screen.getByRole('button', { name: 'Search syntax help' }));
+
+    expect(await screen.findByText(/Type part of a run name to search by name/)).toBeInTheDocument();
+    expect(screen.getByText(/metrics\.rmse >= 0\.8/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Learn more' })).toHaveAttribute(
+      'href',
+      expect.stringContaining('search-runs'),
+    );
+  });
+
   test('owns suggestions, the filter editor, pills, run-name search, and recents in one control', async () => {
     const user = userEvent.setup();
     renderWithDesignSystem(<Harness />);

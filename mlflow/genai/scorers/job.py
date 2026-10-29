@@ -52,7 +52,7 @@ from mlflow.server.jobs import job, submit_job
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
-from mlflow.utils.workspace_context import WorkspaceContext
+from mlflow.utils.workspace_context import ServerWorkspaceContext
 
 if TYPE_CHECKING:
     from mlflow.server.jobs.job_container import DockerJobPlan
@@ -857,4 +857,6 @@ def _get_online_scoring_workspace_contexts():
         _logger.info("Online scoring scheduler found no workspaces; skipping.")
         return []
 
-    return [WorkspaceContext(workspace.name) for workspace in workspaces]
+    # The scheduler runs on a thread of the periodic tasks consumer, next to other periodic tasks,
+    # so each workspace is set only for this thread rather than in MLFLOW_WORKSPACE.
+    return [ServerWorkspaceContext(workspace.name) for workspace in workspaces]

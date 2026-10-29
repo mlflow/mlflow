@@ -94,7 +94,7 @@ describe('AutoComplete', () => {
     const groups = props.options;
     expect(props.open).toBe(true);
     expect(groups.length).toBe(1);
-    expect(groups[0].options[0].value).toBe('metrics.met1');
+    expect(groups[0].options[0].value).toBe('metrics.`met1`');
   });
 
   test('Dialog closes when typing entity name and comparator', () => {
@@ -165,8 +165,8 @@ describe('AutoComplete', () => {
     expect(groups.length).toBe(1);
     expect(groups[0].label).toBe('Parameters');
     expect(groups[0].options.length).toBe(3); // all params should be shown here
-    expect(groups[0].options[0].value).toBe('params.p1');
-    expect(groups[0].options[1].value).toBe('params.p2');
+    expect(groups[0].options[0].value).toBe('params.`p1`');
+    expect(groups[0].options[1].value).toBe('params.`p2`');
 
     searchBox.simulate('change', { target: { value: 'metrics.met < 3 and params.p < 2' } });
     wrapper.update();
@@ -174,8 +174,8 @@ describe('AutoComplete', () => {
     expect(groups.length).toBe(1);
     expect(groups[0].label).toBe('Metrics');
     expect(groups[0].options.length).toBe(3);
-    expect(groups[0].options[0].value).toBe('metrics.met1');
-    expect(groups[0].options[2].value).toBe('metrics.met3');
+    expect(groups[0].options[0].value).toBe('metrics.`met1`');
+    expect(groups[0].options[2].value).toBe('metrics.`met3`');
   });
 
   test('Dialog stays open when typing an entity name with it', () => {
@@ -190,21 +190,13 @@ describe('AutoComplete', () => {
     expect(groups[0].label).toBe('Tags');
     expect(groups[0].options.length).toBe(4);
 
+    // Every option value is quoted, so a lone backtick keeps all tags.
     searchBox.simulate('change', { target: { value: 'tags.`' } });
     wrapper.update();
     groups = (wrapper.find('AutoComplete').props() as any).options;
     expect(groups.length).toBe(1);
     expect(groups[0].label).toBe('Tags');
-    expect(groups[0].options.length).toBe(1);
-    expect(groups[0].options[0].value).toBe('tags.`tag with a space`');
-
-    searchBox.simulate('change', { target: { value: 'tags.` ' } });
-    wrapper.update();
-    groups = (wrapper.find('AutoComplete').props() as any).options;
-    expect(groups.length).toBe(1);
-    expect(groups[0].label).toBe('Tags');
-    expect(groups[0].options.length).toBe(1);
-    expect(groups[0].options[0].value).toBe('tags.`tag with a space`');
+    expect(groups[0].options.length).toBe(4);
 
     searchBox.simulate('change', { target: { value: 'tags.`tag w' } });
     wrapper.update();

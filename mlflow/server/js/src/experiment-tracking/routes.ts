@@ -18,6 +18,8 @@ export enum PageId {
   experimentPage = 'mlflow.experiment.details',
   // Child routes for experiment page:
   experimentPageTabOverview = 'mlflow.experiment.tab.overview',
+  experimentPageTabJourneyOverview = 'mlflow.experiment.tab.journey-overview',
+  experimentPageTabDashboard = 'mlflow.experiment.tab.dashboard',
   experimentPageTabRuns = 'mlflow.experiment.tab.runs',
   experimentPageTabModels = 'mlflow.experiment.tab.models',
   experimentPageTabTraces = 'mlflow.experiment.tab.traces',
@@ -60,6 +62,12 @@ export class RoutePaths {
   static get experimentPageTabOverview() {
     return createMLflowRoutePath('/experiments/:experimentId/overview/:overviewTab');
   }
+  static get experimentPageTabJourneyOverview() {
+    return createMLflowRoutePath('/experiments/:experimentId/overview');
+  }
+  static get experimentPageTabDashboard() {
+    return createMLflowRoutePath('/experiments/:experimentId/dashboard/:overviewTab');
+  }
   static get experimentPageTabRuns() {
     return createMLflowRoutePath('/experiments/:experimentId/runs');
   }
@@ -80,12 +88,6 @@ export class RoutePaths {
   }
   static get experimentPageTabEvaluationRuns() {
     return createMLflowRoutePath('/experiments/:experimentId/evaluation-runs');
-  }
-  static get experimentPageTabIssueDetectionRunDetails() {
-    return createMLflowRoutePath('/experiments/:experimentId/evaluation-runs/:runUuid');
-  }
-  static get experimentPageTabIssueDetectionRunDetailsWithTab() {
-    return createMLflowRoutePath('/experiments/:experimentId/evaluation-runs/:runUuid/*');
   }
   static get experimentPageTabIssues() {
     return createMLflowRoutePath('/experiments/:experimentId/issues');
@@ -216,7 +218,10 @@ class Routes {
 
   static getExperimentPageTabRoute(experimentId: string, tabName: ExperimentPageTabName) {
     if (tabName === TabName.Overview) {
-      return generatePath(RoutePaths.experimentPageTabOverview, {
+      return generatePath(RoutePaths.experimentPageTabJourneyOverview, { experimentId });
+    }
+    if (tabName === TabName.Dashboard) {
+      return generatePath(RoutePaths.experimentPageTabDashboard, {
         experimentId,
         overviewTab: OverviewTab.Usage,
       });
@@ -275,14 +280,6 @@ class Routes {
 
   static getEvaluationRunDetailsRoute(experimentId: string, runUuid: string) {
     return generatePath(RoutePaths.experimentPageTabEvaluationRunDetails, { experimentId, runUuid });
-  }
-
-  static getIssueDetectionRunDetailsRoute(experimentId: string, runUuid: string) {
-    return generatePath(RoutePaths.experimentPageTabIssueDetectionRunDetails, { experimentId, runUuid });
-  }
-
-  static getIssueDetectionRunDetailsTabRoute(experimentId: string, runUuid: string, tabName: string) {
-    return `${generatePath(RoutePaths.experimentPageTabIssueDetectionRunDetails, { experimentId, runUuid })}/${tabName}`;
   }
 
   /**

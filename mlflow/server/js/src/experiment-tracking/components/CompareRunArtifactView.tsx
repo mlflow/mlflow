@@ -81,12 +81,7 @@ export const CompareRunArtifactView = ({
                 overflow: 'auto',
               }}
             >
-              <ShowArtifactPage
-                runUuid={runUuid}
-                artifactRootUri={runInfos[index].artifactUri}
-                path={artifactPath}
-                experimentId={runInfos[index].experimentId}
-              />
+              <ShowArtifactPage runUuid={runUuid} artifactRootUri={runInfos[index].artifactUri} path={artifactPath} />
             </div>
           ))}
         </div>

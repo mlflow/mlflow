@@ -5,6 +5,7 @@ import inspect
 import json
 import logging
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -41,7 +42,7 @@ from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.environment import _PythonEnv
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.process import _exec_cmd
-from mlflow.utils.workspace_context import WorkspaceContext
+from mlflow.utils.workspace_context import ServerWorkspaceContext
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 if TYPE_CHECKING:
@@ -509,7 +510,9 @@ def _exec_job(
     """
     from mlflow.server.handlers import _get_job_store
 
-    workspace_ctx = WorkspaceContext(workspace) if workspace else nullcontext()
+    # Huey runs jobs on threads of one consumer process, so the job's workspace is set only for
+    # this thread: setting MLFLOW_WORKSPACE would change it for the other threads' jobs too.
+    workspace_ctx = ServerWorkspaceContext(workspace) if workspace else nullcontext()
     with workspace_ctx:
         job_store = _get_job_store()
 
@@ -896,7 +899,7 @@ def _workspace_contexts_for_recovery() -> list[ContextManager[str | None]]:
     from mlflow.server.workspace_helpers import _get_workspace_store  # avoid circular import
 
     store = _get_workspace_store()
-    return [WorkspaceContext(workspace.name) for workspace in store.list_workspaces()]
+    return [ServerWorkspaceContext(workspace.name) for workspace in store.list_workspaces()]
 
 
 def _for_each_unfinished_job(
@@ -1067,6 +1070,8 @@ def register_periodic_tasks(huey_instance) -> None:
     """
     from huey import crontab
 
+    from mlflow.genai.discovery.schedule import POLL_INTERVAL_MINUTES
+
     cached_tracking_store = None
 
     def get_tracking_store():
@@ -1075,6 +1080,15 @@ def register_periodic_tasks(huey_instance) -> None:
             cached_tracking_store = initialize_periodic_tasks_tracking_store()
         return cached_tracking_store
 
+    # The error each minute-ly scheduler last failed with, so that a failure that repeats every
+    # minute (for example while the Docker daemon is unreachable) is logged once.
+    scheduler_error = None
+    detection_scheduler_error = None
+
+    def error_key(e: Exception) -> str:
+        # Memory addresses in a message (for example "object at 0x10a2b3c4d") differ each time.
+        return f"{type(e).__name__}: {re.sub(r'0x[0-9a-fA-F]+', '0x', str(e))}"
+
     @huey_instance.periodic_task(crontab(minute="*/1"))
     # Prevent concurrent execution if scheduler takes longer than 1 minute.
     @huey_instance.lock_task("online-scoring-scheduler-lock")
@@ -1082,10 +1096,25 @@ def register_periodic_tasks(huey_instance) -> None:
         """Runs every minute to fetch active scorer configs and submit scoring jobs."""
         from mlflow.genai.scorers.job import run_online_scoring_scheduler
 
+        nonlocal scheduler_error
         try:
             run_online_scoring_scheduler()
         except Exception as e:
-            _logger.exception(f"Online scoring scheduler failed: {e!r}")
+            error = error_key(e)
+            if error == scheduler_error:
+                _logger.debug(f"Online scoring scheduler failed again: {e!r}")
+            else:
+                _logger.exception(
+                    f"Online scoring scheduler failed: {e!r}. It runs again every minute; this "
+                    "error is not logged again while it repeats."
+                )
+                scheduler_error = error
+            return
+        if scheduler_error is not None:
+            _logger.info(
+                f"Online scoring scheduler recovered after failing with: {scheduler_error}"
+            )
+            scheduler_error = None
 
     _logger.info("Registered online_scoring_scheduler periodic task (runs every 1 minute)")
 
@@ -1107,6 +1136,61 @@ def register_periodic_tasks(huey_instance) -> None:
     _logger.info(
         "Registered trace_archival_scheduler periodic task (polls every 1 minute and "
         "no-ops when trace archival is disabled or unconfigured)"
+    )
+
+    # Every 15 minutes rather than every minute: the cadences offered are daily and weekly, so a
+    # minute-ly pass mostly repeats a query over every experiment carrying a schedule tag to find
+    # the same nothing. Measured at the dispatch bound of 500 scheduled experiments, that is
+    # ~2.1s of query time an hour against ~140ms here.
+    #
+    # Fifteen minutes rather than an hour because every current IANA UTC offset is a multiple of
+    # 15 minutes (:00, :30 or :45 -- Kolkata, Kathmandu, Eucla and the rest), so a fire time on a
+    # local quarter hour always lands exactly on a pass, in every zone. An hourly pass would be
+    # punctual only in the whole-offset zones and 30-45 minutes late in the others, which is a
+    # worse trade than the ~100ms an hour it saves over this.
+    #
+    # A schedule is dispatched at the first pass at or after its fire time, so an off-grid fire
+    # time runs up to 15 minutes late. It covers the same window either way: the window's upper
+    # bound is the fire time, not the dispatch time, so arriving late skips nothing.
+    #
+    # Read from the timing module rather than written here twice: the re-anchor arithmetic in
+    # ``reanchor_timing`` assumes the previous pass was one interval ago, so a crontab that said
+    # something else would quietly make it wrong.
+    @huey_instance.periodic_task(crontab(minute=f"*/{POLL_INTERVAL_MINUTES}"))
+    # Prevent concurrent execution if a pass takes longer than the interval.
+    @huey_instance.lock_task("issue-detection-scheduler-lock")
+    def issue_detection_scheduler():
+        """Runs every 15 minutes, submitting detection for each schedule whose fire time came."""
+        from mlflow.genai.discovery.scheduler import run_issue_detection_scheduler
+
+        nonlocal detection_scheduler_error
+        try:
+            run_issue_detection_scheduler()
+        except Exception as e:
+            # Same repeat-suppression the online scoring scheduler uses: this runs every minute,
+            # so an outage that persists would otherwise log one traceback per minute. The
+            # message is left to `exception`, which appends it, rather than interpolated here
+            # and then repeated by the traceback.
+            error = error_key(e)
+            if error == detection_scheduler_error:
+                _logger.debug("Issue detection scheduler failed again", exc_info=True)
+            else:
+                _logger.exception(
+                    "Issue detection scheduler failed. It runs again every minute; this error "
+                    "is not logged again while it repeats."
+                )
+                detection_scheduler_error = error
+            return
+        if detection_scheduler_error is not None:
+            _logger.info(
+                f"Issue detection scheduler recovered after failing with: "
+                f"{detection_scheduler_error}"
+            )
+            detection_scheduler_error = None
+
+    _logger.info(
+        "Registered issue_detection_scheduler periodic task (polls every 15 minutes and no-ops "
+        "when no experiment has a detection schedule)"
     )
 
     from mlflow.tracing.trace_rollup_service import (

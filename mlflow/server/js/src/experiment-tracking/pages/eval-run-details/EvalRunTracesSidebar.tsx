@@ -12,6 +12,7 @@ import {
 } from '@databricks/design-system';
 import { RunDetailsSidebar } from './RunDetailsSidebar';
 import { useEvalRunSidebarData } from './useEvalRunSidebarData';
+import { EvalRunComparisonsSection } from './EvalRunComparisonsSection';
 
 const MIN_SIDEBAR_WIDTH = 320;
 const MAX_SIDEBAR_WIDTH = 640;
@@ -19,9 +20,10 @@ const MAX_SIDEBAR_WIDTH = 640;
 export interface EvalRunTracesSidebarProps {
   experimentId: string;
   runUuid: string;
+  runName?: string;
 }
 
-export const EvalRunTracesSidebar = ({ experimentId, runUuid }: EvalRunTracesSidebarProps) => {
+export const EvalRunTracesSidebar = ({ experimentId, runUuid, runName }: EvalRunTracesSidebarProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [collapsed, setCollapsed] = useState(false);
@@ -100,15 +102,17 @@ export const EvalRunTracesSidebar = ({ experimentId, runUuid }: EvalRunTracesSid
                 top: '50%',
                 left: '50%',
                 transform: 'translate(-50%, -50%)',
-                // Native buttons enforce their visual styles with !important.
-                '&&&': {
+                // Native buttons enforce their visual styles with !important, and icon-only buttons
+                // force a transparent `background` at four-class specificity, so outrank that here or
+                // the divider behind the toggle shows through it.
+                '&&&&&': {
                   borderRadius: '50% !important',
                   height: `${theme.spacing.lg}px !important`,
                   border: `1px solid ${theme.colors.border} !important`,
-                  backgroundColor: `${theme.colors.backgroundPrimary} !important`,
+                  background: `${theme.colors.backgroundPrimary} !important`,
                   color: `${theme.colors.textSecondary} !important`,
                   '&:hover, &:active': {
-                    backgroundColor: `${theme.colors.backgroundSecondary} !important`,
+                    background: `${theme.colors.backgroundSecondary} !important`,
                   },
                   '& .anticon, & .db-icon': { color: 'inherit !important' },
                 },
@@ -140,6 +144,7 @@ export const EvalRunTracesSidebar = ({ experimentId, runUuid }: EvalRunTracesSid
       >
         <div id="eval-run-sidebar-content" hidden={collapsed}>
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
+            <EvalRunComparisonsSection experimentId={experimentId} runUuid={runUuid} runName={runName ?? ''} />
             {isLoading ? (
               <ParagraphSkeleton
                 label={intl.formatMessage({
@@ -221,12 +226,13 @@ export const EvalRunTracesSidebar = ({ experimentId, runUuid }: EvalRunTracesSid
               ':hover': {
                 backgroundColor: theme.colors.actionDefaultBackgroundHover,
               },
-              '&&&': {
+              // Five ampersands for the same reason as the divider toggle: collapsed, this is icon-only.
+              '&&&&&': {
                 color: `${theme.colors.textSecondary} !important`,
                 justifyContent: `${collapsed ? 'center' : 'flex-start'} !important`,
                 '& .anticon, & .db-icon': { color: 'inherit !important' },
                 '&:hover, &:active': {
-                  backgroundColor: `${theme.colors.backgroundSecondary} !important`,
+                  background: `${theme.colors.backgroundSecondary} !important`,
                 },
               },
             }}

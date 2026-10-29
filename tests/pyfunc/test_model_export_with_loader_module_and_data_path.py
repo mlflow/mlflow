@@ -1,6 +1,8 @@
 import os
 import pickle
+import sys
 import types
+import uuid
 from unittest import mock
 
 import cloudpickle
@@ -12,6 +14,7 @@ import yaml
 
 import mlflow
 import mlflow.pyfunc
+from mlflow.environment_variables import MLFLOW_ALLOW_MODEL_CODE_EXECUTION
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
@@ -98,6 +101,45 @@ def test_model_save_load(sklearn_knn_model, iris_data, tmp_path, model_path):
     np.testing.assert_array_equal(
         sklearn_knn_model.predict(iris_data[0]), reloaded_model.predict(iris_data[0])
     )
+
+
+@pytest.mark.parametrize("allowed", [None, "true", "false"])
+def test_load_model_refused_when_model_code_execution_disallowed(allowed, tmp_path, monkeypatch):
+    module_name = f"payload_{uuid.uuid4().hex}"
+    marker = tmp_path / "imported"
+    (tmp_path / f"{module_name}.py").write_text(
+        f"from pathlib import Path\nPath({str(marker)!r}).write_text('imported')\n"
+        "class Model:\n"
+        "    def predict(self, data):\n"
+        "        return data\n"
+        "def _load_pyfunc(data_path):\n"
+        "    return Model()\n"
+    )
+    Model().add_flavor("python_function", loader_module=module_name, code=".").save(
+        tmp_path / "MLmodel"
+    )
+    monkeypatch.setattr(sys, "path", sys.path.copy())
+    original_path = sys.path.copy()
+    if allowed is None:
+        monkeypatch.delenv(MLFLOW_ALLOW_MODEL_CODE_EXECUTION.name, raising=False)
+    else:
+        monkeypatch.setenv(MLFLOW_ALLOW_MODEL_CODE_EXECUTION.name, allowed)
+
+    try:
+        if allowed == "false":
+            with mock.patch(
+                "mlflow.pyfunc._download_artifact_from_uri", return_value=str(tmp_path)
+            ) as download_mock:
+                with pytest.raises(MlflowException, match="Loading PyFunc models is disallowed"):
+                    mlflow.pyfunc.load_model(tmp_path, suppress_warnings=True)
+                download_mock.assert_not_called()
+            assert not marker.exists()
+            assert sys.path == original_path
+        else:
+            mlflow.pyfunc.load_model(tmp_path, suppress_warnings=True)
+            assert marker.read_text() == "imported"
+    finally:
+        sys.modules.pop(module_name, None)
 
 
 def test_signature_and_examples_are_saved_correctly(sklearn_knn_model, iris_data):

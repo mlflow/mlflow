@@ -13,6 +13,12 @@ function hasUiChanges(files) {
   return files.some(({ filename }) => UI_FILE.test(filename) && !filename.includes(".test."));
 }
 
+// Release PRs (e.g. version bumps) are filed by org members from `release/*` branches
+// and don't need these checks.
+function isMemberReleasePr(pr) {
+  return ["MEMBER", "OWNER"].includes(pr.author_association) && pr.head.ref.startsWith("release/");
+}
+
 function hasVisibleMedia(body) {
   // Strip HTML comments first. The PR template ships a "screenshot, video" hint as a comment,
   // and media pasted inside a comment block isn't rendered either.
@@ -157,8 +163,8 @@ ${activitySection}
     });
   }
 
-  // Exit early if the PR author is a bot
-  if (user.type === "Bot") {
+  // Exit early if the PR author is a bot or an org member filing a release PR
+  if (user.type === "Bot" || isMemberReleasePr(context.payload.pull_request)) {
     return;
   }
 
