@@ -2,6 +2,26 @@ import { describe, it, expect } from '@jest/globals';
 import { ErrorWrapper } from './ErrorWrapper';
 
 describe('ErrorWrapper', () => {
+  it('prompts a stale tab to reload only for a marked artifact-mode rejection', () => {
+    const error = new ErrorWrapper(
+      {
+        error_code: 'PERMISSION_DENIED',
+        message: 'This server requires artifacts to be downloaded directly from storage.',
+        artifacts_presigned_only: true,
+      },
+      403,
+    );
+    expect(error.renderHttpError()).toBe('The server artifact settings have changed. Reload this page to continue.');
+    expect(error.getMessageField()).toBe(error.renderHttpError());
+    expect(error.translateToErrorInstance().message).toBe(error.renderHttpError());
+  });
+
+  it('preserves ordinary permission errors instead of prompting a reload', () => {
+    const error = new ErrorWrapper({ error_code: 'PERMISSION_DENIED', message: 'Access denied' }, 403);
+    expect(error.renderHttpError()).toBe('PERMISSION_DENIED: Access denied');
+    expect(error.getMessageField()).toBe('Access denied');
+  });
+
   it('renderHttpError works on DatabricksServiceExceptions', () => {
     const error = new ErrorWrapper('{ "error_code": "INVALID_REQUEST", "message": "Foo!" }', 400).renderHttpError();
     expect(error).toEqual('INVALID_REQUEST: Foo!');

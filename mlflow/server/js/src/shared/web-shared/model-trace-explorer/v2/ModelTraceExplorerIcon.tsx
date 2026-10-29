@@ -18,6 +18,16 @@ import {
 } from '@databricks/design-system';
 
 import { ModelIconType } from './ModelTrace.types';
+import { shouldEnableNewEvalRunsUi } from '../../../../common/utils/FeatureUtils';
+
+// With the new eval runs UI, these span types reuse the accent colors of a related type.
+const NEW_UI_ICON_COLOR_ALIASES: Partial<Record<ModelIconType, ModelIconType>> = {
+  [ModelIconType.SAVE]: ModelIconType.SEARCH,
+  [ModelIconType.NUMBERS]: ModelIconType.MODELS,
+  [ModelIconType.SORT]: ModelIconType.MODELS,
+  [ModelIconType.FUNCTION]: ModelIconType.WRENCH,
+  [ModelIconType.CODE]: ModelIconType.WRENCH,
+};
 
 export const ModelTraceExplorerIcon = ({
   type = ModelIconType.CONNECT,
@@ -35,6 +45,7 @@ export const ModelTraceExplorerIcon = ({
   neutral?: boolean;
 }): React.ReactElement => {
   const { theme } = useDesignSystemTheme();
+  const isNewEvalRunsUi = shouldEnableNewEvalRunsUi();
 
   // base icon colors depending on span attributes
   let iconColor: 'ai' | 'danger' | undefined;
@@ -55,7 +66,7 @@ export const ModelTraceExplorerIcon = ({
     [ModelIconType.SORT]: <SortUnsortedIcon color={iconColor} />,
     [ModelIconType.UNKNOWN]: <QuestionMarkIcon color={iconColor} />,
     [ModelIconType.WRENCH]: <WrenchIcon color={iconColor} />,
-    [ModelIconType.AGENT]: <UserSparkleIcon color={iconColor} />,
+    [ModelIconType.AGENT]: <UserSparkleIcon color={isNewEvalRunsUi ? (iconColor ?? 'ai') : iconColor} />,
     [ModelIconType.CHAIN]: <ChainIcon color={iconColor} />,
     [ModelIconType.USER]: <UserIcon color={iconColor} />,
     [ModelIconType.SYSTEM]: <GearIcon color={iconColor} />,
@@ -69,7 +80,8 @@ export const ModelTraceExplorerIcon = ({
   let color: string = theme.isDarkMode ? theme.colors.grey300 : theme.colors.grey650;
   let tooltipColor: string = theme.colors.actionPrimaryIcon;
   let backgroundColor: string = theme.isDarkMode ? theme.colors.grey700 : theme.colors.grey100;
-  switch (neutral ? undefined : type) {
+  const colorType = isNewEvalRunsUi ? (NEW_UI_ICON_COLOR_ALIASES[type] ?? type) : type;
+  switch (neutral ? undefined : colorType) {
     case ModelIconType.SEARCH:
       color = theme.colors.textValidationSuccess;
       tooltipColor = theme.colors.green500;
@@ -90,6 +102,9 @@ export const ModelTraceExplorerIcon = ({
       tooltipColor = theme.colors.indigo;
       backgroundColor = theme.isDarkMode ? `${theme.colors.indigo}40` : `${theme.colors.indigo}24`;
       break;
+  }
+  if (isNewEvalRunsUi && !neutral && type === ModelIconType.AGENT) {
+    backgroundColor = theme.isDarkMode ? theme.colors.blue800 : theme.colors.blue100;
   }
 
   return (

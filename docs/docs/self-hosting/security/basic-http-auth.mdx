@@ -879,7 +879,7 @@ Required Permissions for accessing scorers:
       <td>Register Scorer</td>
       <td>`3.0/mlflow/scorers/register`</td>
       <td>`POST`</td>
-      <td>can_update (on experiment)</td>
+      <td>can_update (on experiment), and no `DENY` on the scorer or its versions</td>
     </tr>
     <tr>
       <td>List Scorers</td>
@@ -904,6 +904,18 @@ Required Permissions for accessing scorers:
       <td>`3.0/mlflow/scorers/list-versions`</td>
       <td>`GET`</td>
       <td>can_read</td>
+    </tr>
+    <tr>
+      <td>Get Online Scoring Configs</td>
+      <td>`3.0/mlflow/scorers/online-configs`</td>
+      <td>`GET`</td>
+      <td>can_read (on each config's experiment), and no `DENY` on the scorer or its versions</td>
+    </tr>
+    <tr>
+      <td>Update Online Scoring Config</td>
+      <td>`3.0/mlflow/scorers/online-config`</td>
+      <td>`PUT`</td>
+      <td>can_update (on experiment), and no `DENY` on the scorer or its versions</td>
     </tr>
   </tbody>
 </table>

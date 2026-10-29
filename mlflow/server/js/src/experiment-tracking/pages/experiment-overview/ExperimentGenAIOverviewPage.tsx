@@ -263,6 +263,11 @@ const ExperimentGenAIOverviewPageImpl = () => {
             display: 'flex',
             alignItems: 'center',
             gap: theme.spacing.sm,
+            // Reserve the tab content's scroll bar width plus its padding so the controls line up
+            // with the charts below instead of sitting against the scroll bar.
+            paddingRight: theme.spacing.md,
+            overflow: 'hidden',
+            scrollbarGutter: 'stable',
           }}
         >
           {activeTab === OverviewTab.Usage && (

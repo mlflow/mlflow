@@ -5,6 +5,7 @@ const PRESERVED_QUERY_PARAMS = ['startTimeLabel', 'startTime', 'endTime', 'workf
 export const isTracesRelatedTab = (tabName: ExperimentPageTabName) => {
   return (
     tabName === ExperimentPageTabName.Overview ||
+    tabName === ExperimentPageTabName.Dashboard ||
     tabName === ExperimentPageTabName.Traces ||
     tabName === ExperimentPageTabName.SingleChatSession ||
     tabName === ExperimentPageTabName.ChatSessions

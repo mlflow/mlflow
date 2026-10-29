@@ -145,11 +145,11 @@ def test_model_save_load(pd_model, model_path):
 def test_load_model_disallows_pickle_deserialization(pd_model, model_path, monkeypatch, load_fn):
     mlflow.paddle.save_model(pd_model=pd_model.model, path=model_path)
 
-    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
-    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_MODEL_CODE_EXECUTION"):
         load_fn(model_path)
 
-    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "true")
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "true")
     load_fn(model_path)
 
 
@@ -162,8 +162,8 @@ def test_load_model_allows_pickle_deserialization_in_databricks(
 ):
     mlflow.paddle.save_model(pd_model=pd_model.model, path=model_path)
 
-    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
-    with mock.patch(f"mlflow.paddle.{databricks_env_fn}", return_value=True):
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with mock.patch(f"mlflow.utils.model_utils.{databricks_env_fn}", return_value=True):
         load_fn(model_path)
 
 
@@ -174,11 +174,11 @@ def test_load_model_with_paddle_model_disallows_pickle_deserialization(
         pd_model=pd_model_built_in_high_level_api.model, path=model_path, training=True
     )
 
-    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
-    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_MODEL_CODE_EXECUTION"):
         mlflow.paddle.load_model(model_uri=model_path, model=paddle.Model(UCIHousing()))
 
-    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "true")
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "true")
     mlflow.paddle.load_model(model_uri=model_path, model=paddle.Model(UCIHousing()))
 
 

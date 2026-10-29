@@ -449,7 +449,12 @@ class AnthropicAdapter(ProviderAdapter):
 
     @classmethod
     def _to_finish_reason(cls, stop_reason):
-        return {"max_tokens": "length", "tool_use": "tool_calls"}.get(stop_reason, "stop")
+        return {
+            "max_tokens": "length",
+            "model_context_window_exceeded": "length",
+            "tool_use": "tool_calls",
+            "refusal": "content_filter",
+        }.get(stop_reason, "stop")
 
     @classmethod
     def chat_streaming_to_model(cls, payload, config):

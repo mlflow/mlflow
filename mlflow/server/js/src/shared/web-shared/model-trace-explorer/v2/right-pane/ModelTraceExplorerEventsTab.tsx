@@ -7,6 +7,7 @@ import { CodeSnippetRenderMode, type ModelTraceSpanNode, type SearchMatch } from
 import { getEventAttributeKey } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
+import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 
 export function ModelTraceExplorerEventsTab({
   activeSpan,
@@ -18,7 +19,16 @@ export function ModelTraceExplorerEventsTab({
   activeMatch: SearchMatch | null;
 }): React.ReactElement | null {
   const { theme } = useDesignSystemTheme();
-  const { events } = activeSpan;
+  const { selectedComparisonNode } = useModelTraceExplorerViewState();
+  const displayedSpans = selectedComparisonNode ? [activeSpan, selectedComparisonNode] : [activeSpan];
+  const events = displayedSpans.flatMap((span, spanIndex) =>
+    (Array.isArray(span.events) ? span.events : []).map((event, index) => ({
+      event,
+      index,
+      spanIndex,
+      spanKey: String(span.key),
+    })),
+  );
   const isActiveMatchSpan = !isNil(activeMatch) && activeMatch.span.key === activeSpan.key;
 
   if (!Array.isArray(events) || events.length === 0) {
@@ -43,7 +53,7 @@ export function ModelTraceExplorerEventsTab({
         paddingRight: theme.spacing.md + theme.spacing.xs,
       }}
     >
-      {events.map((event, index) => {
+      {events.map(({ event, index, spanIndex, spanKey }) => {
         const attributes = event.attributes;
         const title =
           event.name === 'exception' ? (
@@ -61,7 +71,7 @@ export function ModelTraceExplorerEventsTab({
 
         return (
           <ModelTraceExplorerCollapsibleSection
-            key={`${event.name}-${index}`}
+            key={`${spanIndex}-${spanKey}-${event.name}-${index}`}
             css={{
               marginBottom: theme.spacing.sm,
               // avoid double border clashing with the tab bar

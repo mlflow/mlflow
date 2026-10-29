@@ -9,7 +9,11 @@ import type {
   SortDirection,
   TraceColumnId,
   TraceColumnHeaderAction,
+  TraceColumnHeaderSummary,
+  TraceComparisonRow,
+  TracesComparisonRow,
   TraceHrefGetter,
+  TraceSortColumnId,
   TraceTableColumn,
 } from './types';
 import { TracesTable } from './TracesTable';
@@ -40,6 +44,15 @@ export interface TracesTableViewProps {
 
   // Table passthrough (see TracesTableProps).
   traces: ModelTraceInfoV3[];
+  comparisonRows?: TracesComparisonRow[];
+  /** With trace `comparisonRows`: opens a matched row with at least two traces as a comparison. */
+  onComparisonRowSelected?: (row: TraceComparisonRow) => void;
+  /** Session comparison groups that are open; with `comparisonRows` grouped by session. */
+  expandedComparisonGroups?: ReadonlySet<string>;
+  onToggleComparisonGroup?: (comparisonId: string) => void;
+  /** Runs whose turns are open within each session comparison group. */
+  expandedComparisonRuns?: ReadonlyMap<string, ReadonlySet<string>>;
+  onToggleComparisonRun?: (comparisonId: string, runUuid: string) => void;
   visibleColumns: TraceColumnId[];
   extraColumns?: TraceTableColumn[];
   columnOrder?: string[];
@@ -57,9 +70,12 @@ export interface TracesTableViewProps {
   /** Toggle-select every trace in a session header row; omit to disable session-level selection. */
   onToggleBulkRows?: (traces: ModelTraceInfoV3[]) => void;
   onToggleBulkAll: () => void;
-  sort: TraceColumnId;
+  sort: TraceSortColumnId;
   dir: SortDirection;
   onSort: (column: TraceColumnId, direction: SortDirection) => void;
+  enableSorting?: boolean;
+  sortTooltip?: string;
+  columnHeaderSummaries?: Readonly<Partial<Record<string, TraceColumnHeaderSummary>>>;
   getTraceHref?: TraceHrefGetter;
   getSessionHref?: SessionHrefGetter;
   /** Handles clicks on a grouped session summary row — forwarded to the table. */
@@ -75,6 +91,8 @@ export interface TracesTableViewProps {
   sessionsMayBeIncomplete?: boolean;
   /** Maximum lines shown by input and output previews before truncation. Defaults to one line. */
   previewLineClamp?: number;
+  /** Control rendered over the bottom edge of the table header row. */
+  headerBottomOverlay?: React.ReactNode;
   onReorderColumn?: (activeColumn: string, targetColumn: string) => void;
 
   // Toolbar passthrough.
@@ -84,6 +102,11 @@ export interface TracesTableViewProps {
   searchInputRef?: RefObject<InputRef>;
   searchPlaceholder?: string;
   searchSuffix?: React.ReactNode;
+  /** Consumer-owned search experience, rendered in place of the standard search input. */
+  searchControl?: React.ReactNode;
+  /** Let a consumer search containing filter pills fill the available toolbar width. */
+  expandSearch?: boolean;
+  searchMinimumWidth?: number;
   onSearchSubmit?: () => void;
   leftControls?: React.ReactNode;
   rightControls?: React.ReactNode;
@@ -101,10 +124,15 @@ export interface TracesTableViewProps {
   traceCount?: number;
   traceTotal?: number;
   isTraceCountLoading?: boolean;
+  /** Grouped-by-session footer count, shown ahead of the trace count (see `TracesPaginationBar`). */
+  sessionCount?: number;
+  sessionTotal?: number;
   /** Hide the whole pagination bar — grouped-by-session mode when the one big page holds everything. */
   hidePagination?: boolean;
   /** Hide just the page-size selector — grouped mode fetches one large page, so it's moot. */
   hidePageSizeSelector?: boolean;
+  /** Content pinned to the left of the pagination bar (e.g. a result-count label). */
+  paginationLeadingContent?: React.ReactNode;
 
   // State handling.
   /** Clear active search/filters — wired to the no-results state's clear affordance. */
@@ -147,6 +175,9 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
     searchInputRef,
     searchPlaceholder,
     searchSuffix,
+    searchControl,
+    expandSearch,
+    searchMinimumWidth,
     onSearchSubmit,
     onClearFilters,
     onRetry,
@@ -172,7 +203,10 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
       count={props.traceCount}
       total={props.traceTotal}
       isCountLoading={props.isTraceCountLoading}
+      sessionCount={props.sessionCount}
+      sessionTotal={props.sessionTotal}
       hidePageSizeSelector={props.hidePageSizeSelector}
+      leadingContent={props.paginationLeadingContent}
     />
   );
   // Wrap the bar in the consumer's obstruction-aware shell when provided (else render it bare). When
@@ -186,6 +220,12 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
   const table = (
     <TracesTable
       traces={props.traces}
+      comparisonRows={props.comparisonRows}
+      onComparisonRowSelected={props.onComparisonRowSelected}
+      expandedComparisonGroups={props.expandedComparisonGroups}
+      onToggleComparisonGroup={props.onToggleComparisonGroup}
+      expandedComparisonRuns={props.expandedComparisonRuns}
+      onToggleComparisonRun={props.onToggleComparisonRun}
       visibleColumns={props.visibleColumns}
       extraColumns={props.extraColumns}
       columnOrder={props.columnOrder}
@@ -205,6 +245,9 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
       sort={props.sort}
       dir={props.dir}
       onSort={props.onSort}
+      enableSorting={props.enableSorting}
+      sortTooltip={props.sortTooltip}
+      columnHeaderSummaries={props.columnHeaderSummaries}
       getTraceHref={props.getTraceHref}
       getSessionHref={props.getSessionHref}
       onSessionSelected={props.onSessionSelected}
@@ -215,6 +258,7 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
       isGroupedBySession={props.isGroupedBySession}
       sessionsMayBeIncomplete={props.sessionsMayBeIncomplete}
       previewLineClamp={props.previewLineClamp}
+      headerBottomOverlay={props.headerBottomOverlay}
       onReorderColumn={props.onReorderColumn}
     />
   );
@@ -259,6 +303,9 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
         searchInputRef={searchInputRef}
         searchPlaceholder={searchPlaceholder}
         searchSuffix={searchSuffix}
+        searchControl={searchControl}
+        expandSearch={expandSearch}
+        searchMinimumWidth={searchMinimumWidth}
         onSearchSubmit={onSearchSubmit}
         leftControls={leftControls}
         rightControls={rightControls}

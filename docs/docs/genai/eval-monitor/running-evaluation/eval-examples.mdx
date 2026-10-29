@@ -119,6 +119,8 @@ results = mlflow.genai.evaluate(
 
 ## Common `predict_fn` patterns
 
+If `predict_fn` starts the traced agent on another thread, submit that work with `contextvars.copy_context().run` so MLflow can tag the trace with `mlflow.eval.requestId`. See [My trace is split into multiple traces when doing multi-threading](/genai/tracing/faq#q-my-trace-is-split-into-multiple-traces-when-doing-multi-threading-how-can-i-combine-them-into-a-single-trace).
+
 ### Call your app directly
 
 Pass your app directly as `predict_fn` when parameter names match your evaluation dataset keys. This is useful for apps that have parameter names that match the `inputs` in your evaluation dataset.

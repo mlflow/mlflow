@@ -1,17 +1,29 @@
 import { useMemo } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { SchemaIcon, ToggleButton, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  ForkHorizontalIcon,
+  SchemaIcon,
+  SegmentedControlButton,
+  SegmentedControlGroup,
+  SpeechBubbleIcon,
+  ToggleButton,
+  Tooltip,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { DetectIssuesButton, shouldEnableSessionGrouping } from '@databricks/web-shared/genai-traces-table';
 import {
   TraceFilterButton,
+  type TraceFilterButtonProps,
   type ColumnSelectorOption,
+  type FilterFieldDef,
   type SortDirection,
   type ReorderableTraceColumnOption,
   type TraceColumnId,
   type TraceFilterModel,
 } from '@databricks/web-shared/traces-table';
 import { shouldEnableIssueDetection } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { CancelIssueDetectionButton } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-issues/CancelIssueDetectionButton';
 import { type TracesV4AssessmentColumns } from '../hooks/useTracesV4AssessmentColumns';
 import { type TracesV4CustomColumns } from '../hooks/useTracesV4CustomColumns';
 import { type TracesV4Density } from '../hooks/useTracesV4Density';
@@ -37,8 +49,8 @@ export interface TracesV4ToolbarParams {
   onReorderColumn: (activeColumn: string, targetColumn: string) => void;
   /** Assessment column selection (dynamic, per-page) rendered as a group in the column selector. */
   assessmentColumns: TracesV4AssessmentColumns;
-  /** Custom (tag + metadata) column selection (dynamic, per-page). */
-  customColumns: TracesV4CustomColumns;
+  /** Custom (tag + metadata) column selection (dynamic, per-page). Omit to offer no custom columns. */
+  customColumns?: TracesV4CustomColumns;
   /** Active sort column + direction, and its setter — surfaced in the Display popover's Sort submenu. */
   sort: TraceColumnId;
   dir: SortDirection;
@@ -61,8 +73,33 @@ export interface TracesV4ToolbarParams {
   selectedTraceInfos: ModelTraceInfoV3[];
   /** Opens the AI issue-detection modal (seeded with the current selection). Omit to hide the button. */
   onDetectIssues?: () => void;
+  /**
+   * A detection already in flight, which the button offers to cancel rather than starting a
+   * second one. Omit when none is running. `isStarting` covers the gap before the run exists:
+   * the button spins, since there is nothing to cancel yet.
+   */
+  inProgressIssueDetection?: { isStarting: boolean; onCancel?: () => Promise<void> };
   /** The "Views" saved-views dropdown, rendered far left (before the date selector). Omit to hide it. */
   savedViewsButton?: React.ReactNode;
+  /**
+   * Leave the Filters button and the spacer after it out of the right controls, for a toolbar whose
+   * search renders the filter editor itself (through `renderFilterEditor`).
+   */
+  hideFilterButton?: boolean;
+  /** Traces on the current page; with the new evaluation runs UI the filter editor suggests their values. */
+  traces?: ModelTraceInfoV3[];
+  /** Replaces the Filters button's fields (default: the trace filter fields for these traces). */
+  filterFields?: FilterFieldDef[];
+  /** Explains the Filters button's matching semantics (default: none). */
+  filterDescription?: TraceFilterButtonProps['description'];
+  /** Rejects an Apply in the Filters button while keeping the draft editable (default: none). */
+  validateFilters?: TraceFilterButtonProps['validateFilters'];
+  /** Offer the session grouping toggle (default true, when session grouping is enabled). */
+  showSessionGrouping?: boolean;
+  /** Columns the table force-shows while grouped by session, locked in the Display column list (default none). */
+  groupedLockedColumns?: readonly TraceColumnId[];
+  /** Show a Traces/Sessions switch instead of the group-by-session toggle (default false). */
+  showSessionViewSwitch?: boolean;
 }
 
 // Column-selector options: static componentIds (lint requires static ids) + localized labels. Adding
@@ -121,10 +158,16 @@ const COLUMN_OPTIONS: ColumnSelectorOption[] = [
 ];
 
 export interface TracesV4ToolbarSlots {
-  /** Rendered before the shared search box: the Views dropdown, then the date-range selector. */
+  /** The filter editor anchored to a consumer-rendered trigger, such as the unified search box. */
+  renderFilterEditor: (
+    renderTrigger: (openEditor: (filterIndex?: number) => void) => React.ReactNode,
+  ) => React.ReactNode;
+  /** Rendered before the shared search box: the Views dropdown, the Traces/Sessions switch, then the date range. */
   leftControls: React.ReactNode;
   /** Rendered after the shared search box: filters, columns, a spacer, Detect Issues, and refresh. */
   rightControls: React.ReactNode;
+  /** The Traces/Sessions switch alone, for tables whose left slot has no Views dropdown or date range. */
+  sessionViewSwitch: React.ReactNode;
 }
 
 /**
@@ -154,7 +197,16 @@ export const useTracesV4ToolbarSlots = ({
   actions,
   selectedTraceInfos,
   onDetectIssues,
+  inProgressIssueDetection,
   savedViewsButton,
+  hideFilterButton = false,
+  traces,
+  filterFields: filterFieldsOverride,
+  filterDescription,
+  validateFilters,
+  showSessionGrouping = true,
+  groupedLockedColumns,
+  showSessionViewSwitch = false,
   isGroupedBySession,
   onToggleSessionGrouping,
   columnOrder,
@@ -163,7 +215,16 @@ export const useTracesV4ToolbarSlots = ({
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const hasSelection = selectionCount > 0;
-  const filterFields = useMlflowTraceFilterFields(assessmentColumns.candidateNames);
+  const tracesViewLabel = intl.formatMessage({
+    defaultMessage: 'Traces',
+    description: 'Trace table view switcher option',
+  });
+  const sessionsViewLabel = intl.formatMessage({
+    defaultMessage: 'Sessions',
+    description: 'Session table view switcher option',
+  });
+  const defaultFilterFields = useMlflowTraceFilterFields(assessmentColumns.candidateNames, traces);
+  const filterFields = filterFieldsOverride ?? defaultFilterFields;
 
   // While grouped by session the table force-shows the Session column, so lock its column-selector
   // toggle (checked + disabled) rather than letting an unchecking click silently no-op.
@@ -203,7 +264,14 @@ export const useTracesV4ToolbarSlots = ({
   // label; assessment columns use their name. Ids unknown on this page (a stored assessment not in the
   // current data) are dropped by the flatMap.
   const reorderableColumns = useMemo<ReorderableTraceColumnOption[]>(() => {
-    const standardById = new Map(COLUMN_OPTIONS.map((option) => [option.id, option]));
+    // Force-shown columns stay checked and disabled, so unchecking them can't silently no-op.
+    const lockedColumns = isGroupedBySession ? groupedLockedColumns : undefined;
+    const standardById = new Map(
+      COLUMN_OPTIONS.map((option) => [
+        option.id,
+        lockedColumns?.includes(option.id) ? { ...option, disabled: true } : option,
+      ]),
+    );
     const assessmentById = new Map(assessmentColumns.selectorOptions.map((option) => [option.id, option]));
     const reorderLabelFor = (name: string) =>
       intl.formatMessage(
@@ -224,7 +292,14 @@ export const useTracesV4ToolbarSlots = ({
       }
       return [];
     });
-  }, [columnOrder, assessmentColumns.selectorOptions, columnDisplayText, intl]);
+  }, [
+    columnOrder,
+    assessmentColumns.selectorOptions,
+    columnDisplayText,
+    intl,
+    isGroupedBySession,
+    groupedLockedColumns,
+  ]);
 
   // A single toggle that routes to the right handler by id: assessment ids go to the assessment
   // toggle, standard ids to the column toggle. The reorderable list is a flat list of both.
@@ -246,7 +321,7 @@ export const useTracesV4ToolbarSlots = ({
   // the bulk "show/hide all assessments" affordance via its toggle-all header. Each group is included
   // only when the page has relevant candidates.
   const columnGroups: TracesV4ColumnGroup[] = [];
-  if (customColumns.tags.selectorOptions.length > 0) {
+  if (customColumns && customColumns.tags.selectorOptions.length > 0) {
     columnGroups.push({
       label: (
         <FormattedMessage
@@ -260,7 +335,7 @@ export const useTracesV4ToolbarSlots = ({
       onToggleAll: customColumns.tags.setAllVisible,
     });
   }
-  if (customColumns.metadata.selectorOptions.length > 0) {
+  if (customColumns && customColumns.metadata.selectorOptions.length > 0) {
     columnGroups.push({
       label: (
         <FormattedMessage
@@ -292,6 +367,45 @@ export const useTracesV4ToolbarSlots = ({
     });
   }
 
+  // Shown before the search box, after the Views dropdown where there is one.
+  const sessionViewSwitch =
+    showSessionGrouping && shouldEnableSessionGrouping() && showSessionViewSwitch ? (
+      <SegmentedControlGroup
+        name="mlflow.traces-v4.table-view"
+        componentId="mlflow.traces-v4.table-view"
+        value={isGroupedBySession ? 'sessions' : 'traces'}
+      >
+        <SegmentedControlButton
+          value="traces"
+          aria-label={tracesViewLabel}
+          onClick={() => onToggleSessionGrouping(false)}
+          icon={
+            <Tooltip
+              componentId="mlflow.traces-v4.table-view-traces-tooltip"
+              content={tracesViewLabel}
+              delayDuration={0}
+            >
+              <ForkHorizontalIcon />
+            </Tooltip>
+          }
+        />
+        <SegmentedControlButton
+          value="sessions"
+          aria-label={sessionsViewLabel}
+          onClick={() => onToggleSessionGrouping(true)}
+          icon={
+            <Tooltip
+              componentId="mlflow.traces-v4.table-view-sessions-tooltip"
+              content={sessionsViewLabel}
+              delayDuration={0}
+            >
+              <SpeechBubbleIcon />
+            </Tooltip>
+          }
+        />
+      </SegmentedControlGroup>
+    ) : null;
+
   // Note: the Databricks build disables Delete for UC-backed traces (with a "delete from the Delta
   // table instead" tooltip). OSS traces are always deletable via the standard path, so that gate is
   // dropped here and Delete is always enabled.
@@ -299,19 +413,37 @@ export const useTracesV4ToolbarSlots = ({
     leftControls: (
       <>
         {savedViewsButton}
+        {sessionViewSwitch}
         <TracesV4DateSelector experimentId={experimentId} />
       </>
     ),
+    sessionViewSwitch,
+    renderFilterEditor: (renderTrigger) => (
+      <TraceFilterButton
+        fields={filterFields}
+        filterModel={filterModel}
+        onChange={onFilterChange}
+        onClearAll={onClearFilters}
+        activeCount={activeFilterCount}
+        renderTrigger={renderTrigger}
+        description={filterDescription}
+        validateFilters={validateFilters}
+      />
+    ),
     rightControls: (
       <>
-        <TraceFilterButton
-          fields={filterFields}
-          filterModel={filterModel}
-          onChange={onFilterChange}
-          onClearAll={onClearFilters}
-          activeCount={activeFilterCount}
-        />
-        {shouldEnableSessionGrouping() && (
+        {!hideFilterButton && (
+          <TraceFilterButton
+            fields={filterFields}
+            filterModel={filterModel}
+            onChange={onFilterChange}
+            onClearAll={onClearFilters}
+            activeCount={activeFilterCount}
+            description={filterDescription}
+            validateFilters={validateFilters}
+          />
+        )}
+        {showSessionGrouping && shouldEnableSessionGrouping() && !showSessionViewSwitch && (
           <Tooltip
             componentId="mlflow.traces-v4.group-by-session.tooltip"
             content={intl.formatMessage({
@@ -362,12 +494,23 @@ export const useTracesV4ToolbarSlots = ({
             selectedTraceInfos={selectedTraceInfos}
           />
         )}
-        <div css={{ flex: 1 }} />
+        {!hideFilterButton && <div css={{ flex: 1 }} />}
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
           <TracesV4RefreshButton isFetching={isRefreshing} />
-          {shouldEnableIssueDetection() && onDetectIssues && (
-            <DetectIssuesButton componentId="mlflow.traces-v4.detect-issues-button" onClick={onDetectIssues} />
-          )}
+          {shouldEnableIssueDetection() &&
+            onDetectIssues &&
+            (inProgressIssueDetection && !inProgressIssueDetection.isStarting ? (
+              <CancelIssueDetectionButton
+                componentId="mlflow.traces-v4.cancel-issue-detection-button"
+                onCancel={inProgressIssueDetection.onCancel}
+              />
+            ) : (
+              <DetectIssuesButton
+                componentId="mlflow.traces-v4.detect-issues-button"
+                onClick={onDetectIssues}
+                loading={Boolean(inProgressIssueDetection?.isStarting)}
+              />
+            ))}
         </div>
       </>
     ),

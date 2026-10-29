@@ -10,7 +10,13 @@ import qs from 'qs';
 import { connect } from 'react-redux';
 import { getRunApi } from '../../experiment-tracking/actions';
 import { getUUID } from '../../common/utils/ActionUtils';
-import { getRegisteredModelApi, getModelVersionApi, getModelVersionArtifactApi, parseMlModelFile } from '../actions';
+import {
+  getRegisteredModelApi,
+  getModelVersionApi,
+  getModelVersionArtifactApi,
+  shouldNotifyModelVersionArtifactError,
+  parseMlModelFile,
+} from '../actions';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import { CompareModelVersionsView } from './CompareModelVersionsView';
 import { without } from 'lodash';
@@ -19,6 +25,8 @@ import { withRouterNext } from '../../common/utils/withRouterNext';
 import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
+import Utils from '../../common/utils/Utils';
+import { getProtoField } from '../utils';
 
 type CompareModelVersionsPageImplProps = {
   modelName: string;
@@ -61,11 +69,22 @@ export class CompareModelVersionsPageImpl extends Component<
 
   componentDidMount() {
     this.props.getRegisteredModelApi(this.props.modelName, this.registeredModelRequestId);
+    const runRoots = new Map<string, Promise<string | undefined>>();
+    const getRunArtifactRootUri = (runId: string) => {
+      let root = runRoots.get(runId);
+      if (!root) {
+        root = Promise.resolve(this.props.getRunApi(runId, this.runRequestId)).then(
+          (response: any) => response?.value?.run?.info?.artifactUri,
+        );
+        runRoots.set(runId, root);
+      }
+      return root;
+    };
     for (const modelVersion in this.props.versionsToRuns) {
       if ({}.hasOwnProperty.call(this.props.versionsToRuns, modelVersion)) {
         const runID = this.props.versionsToRuns[modelVersion];
         if (runID) {
-          this.props.getRunApi(runID, this.runRequestId).catch(() => {
+          getRunArtifactRootUri(runID).catch(() => {
             // Failure of this call should not block the page. Here we remove
             // `runRequestId` from `requestIds` to unblock RequestStateWrapper
             // from rendering its content
@@ -75,13 +94,21 @@ export class CompareModelVersionsPageImpl extends Component<
           this.removeRunRequestId();
         }
         const { modelName } = this.props;
-        this.props.getModelVersionApi(modelName, modelVersion, this.versionRequestId);
+        const versionMetadata = Promise.resolve(
+          this.props.getModelVersionApi(modelName, modelVersion, this.versionRequestId),
+        ).then((response: any) => response?.value?.[getProtoField('model_version')]);
+        // The request wrapper displays metadata errors independently of the optional artifact.
+        versionMetadata.catch(() => undefined);
         this.props
-          .getModelVersionArtifactApi(modelName, modelVersion)
+          .getModelVersionArtifactApi(modelName, modelVersion, undefined, {
+            modelVersion: versionMetadata,
+            getRunArtifactRootUri,
+          })
           .then((content: any) =>
             this.props.parseMlModelFile(modelName, modelVersion, content.value, this.getMlModelFileRequestId),
           )
-          .catch(() => {
+          .catch((error: unknown) => {
+            if (shouldNotifyModelVersionArtifactError(error)) Utils.logErrorAndNotifyUser(error);
             // Failure of this call chain should not block the page. Here we remove
             // `getMlModelFileRequestId` from `requestIds` to unblock RequestStateWrapper
             // from rendering its content

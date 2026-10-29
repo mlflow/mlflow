@@ -325,8 +325,8 @@ def test_load_model_with_custom_objects_disallows_pickle_deserialization(
     # Loading must then fail when pickle deserialization is disabled.
     mlflow.tensorflow.save_model(model, path=model_path, custom_objects={"dummy": object()})
 
-    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
-    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_MODEL_CODE_EXECUTION"):
         mlflow.tensorflow.load_model(model_path)
 
 
@@ -743,3 +743,22 @@ def test_model_log_with_signature_inference(tf_keras_model, data, model_signatur
 
     mlflow_model = Model.load(model_info.model_uri)
     assert mlflow_model.signature == model_signature
+
+
+def test_load_model_refuses_keras_module_on_python_path_when_model_code_execution_disallowed(
+    tmp_path, monkeypatch
+):
+    model_name = f"crafted_keras_model_{os.getpid()}"
+    marker = tmp_path / "marker"
+    model_dir = tmp_path / model_name
+    model_dir.mkdir()
+    (model_dir / "evil.py").write_text(f"open({str(marker)!r}, 'w').close()\n")
+    (model_dir / "MLmodel").write_text(
+        f"flavors:\n  tensorflow:\n    model_type: keras\n    keras_module: {model_name}.evil\n"
+    )
+
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with pytest.raises(MlflowException, match="on the Python path"):
+        mlflow.tensorflow.load_model(str(model_dir))
+    assert not marker.exists()

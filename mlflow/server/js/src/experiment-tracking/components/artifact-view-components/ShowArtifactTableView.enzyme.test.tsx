@@ -22,6 +22,7 @@ describe('ShowArtifactTableView', () => {
     minimalProps = {
       path: 'fakePath.csv',
       runUuid: 'fakeUuid',
+      artifactRootUri: 'mlflow-artifacts:/1/fakeUuid/artifacts',
     };
     // Mock the `getArtifact` function to avoid spurious network errors
     // during testing

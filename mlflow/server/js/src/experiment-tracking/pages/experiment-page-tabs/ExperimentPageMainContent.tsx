@@ -4,6 +4,8 @@ import { useDesignSystemTheme } from '@databricks/design-system';
 export interface ExperimentPageMainContentProps {
   breadcrumbs?: ReactNode;
   pageActions?: ReactNode;
+  // Rendered under the breadcrumb row, e.g. the experiment description.
+  headerDescription?: ReactNode;
   children: ReactNode;
 }
 
@@ -12,7 +14,12 @@ export interface ExperimentPageMainContentProps {
  * padding preserves the established datasets-v2 and traces-v4 content position:
  * PageWrapper supplies the remaining horizontal viewport gutter.
  */
-export const ExperimentPageMainContent = ({ breadcrumbs, pageActions, children }: ExperimentPageMainContentProps) => {
+export const ExperimentPageMainContent = ({
+  breadcrumbs,
+  pageActions,
+  headerDescription,
+  children,
+}: ExperimentPageMainContentProps) => {
   const { theme } = useDesignSystemTheme();
   const verticalOffset = theme.spacing.xs + theme.spacing.xs / 4;
   const alignedTopPaddingAndContentGap = theme.spacing.lg - verticalOffset;
@@ -42,6 +49,7 @@ export const ExperimentPageMainContent = ({ breadcrumbs, pageActions, children }
           {pageActions}
         </div>
       )}
+      {headerDescription}
       <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, minHeight: 0 }}>{children}</div>
     </main>
   );

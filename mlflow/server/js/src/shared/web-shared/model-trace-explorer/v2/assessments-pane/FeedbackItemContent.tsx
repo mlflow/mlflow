@@ -15,6 +15,8 @@ import { Link, useParams } from '../../RoutingUtils';
 import { MLFLOW_ASSESSMENT_JUDGE_COST, MLFLOW_ASSESSMENT_SCORER_TRACE_ID } from '../../constants';
 import { getExperimentPageTracesTabRoute } from '../../routes';
 import { formatCostUSD } from '../../CostUtils';
+import { EstimatedCostValue } from '../../EstimatedCostValue';
+import { shouldEnableNewEvalRunsUi } from '../../../../../common/utils/FeatureUtils';
 
 export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment }): JSX.Element => {
   const [isHistoryModalVisible, setIsHistoryModalVisible] = useState(false);
@@ -136,7 +138,11 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
               description="Label for the cost metadata associated with scorer feedback"
             />
           </Typography.Text>
-          <Typography.Text style={{ color: theme.colors.textSecondary }}>{formattedCost}</Typography.Text>
+          {shouldEnableNewEvalRunsUi() ? (
+            <EstimatedCostValue cost={Number(judgeCost)} />
+          ) : (
+            <Typography.Text style={{ color: theme.colors.textSecondary }}>{formattedCost}</Typography.Text>
+          )}
         </div>
       )}
       {judgeTraceHref && (

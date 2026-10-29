@@ -73,13 +73,30 @@ def _create_import_hook_from_string(name):
     return import_hook
 
 
-def register_generic_import_hook(hook, name, hook_dict, overwrite):
+def register_generic_import_hook(hook, name, hook_dict, overwrite, lock):
     # Create a deferred import hook if hook is a string name rather than
     # a callable function.
 
     if isinstance(hook, string_types):
         hook = _create_import_hook_from_string(hook)
 
+    # Update the registry under the lock, but fire the hook only after
+    # releasing it. Hooks may trigger imports of modules that another
+    # thread is loading, and that thread may be waiting for this lock in
+    # `ImportHookFinder.find_spec`, which would deadlock.
+
+    with lock:
+        module = _register_generic_import_hook(hook, name, hook_dict, overwrite)
+
+    if module is not None:
+        hook(module)
+
+
+def _register_generic_import_hook(hook, name, hook_dict, overwrite):
+    """
+    Registers the hook and returns the target module if it has already been
+    imported and the hook should be fired immediately, otherwise None.
+    """
     # Automatically install the import hook finder if it has not already
     # been installed.
 
@@ -105,18 +122,16 @@ def register_generic_import_hook(hook, name, hook_dict, overwrite):
 
         if module is not None:
             hook_dict[name] = []
-            hook(module)
+            return module
 
-        else:
-            hook_dict[name] = [hook]
+        hook_dict[name] = [hook]
 
     elif hooks == []:
         # A prior registration of import hooks for the target
         # module was done and the hooks already fired. Fire the hook
         # immediately.
 
-        module = sys.modules[name]
-        hook(module)
+        return sys.modules[name]
 
     else:
         # A prior registration of import hooks for the target
@@ -137,8 +152,9 @@ def register_generic_import_hook(hook, name, hook_dict, overwrite):
 
         hook_dict[name].append(hook)
 
+    return None
 
-@synchronized(_import_error_hooks_lock)
+
 def register_import_error_hook(hook, name, overwrite=True):
     """
     Args:
@@ -150,10 +166,11 @@ def register_import_error_hook(hook, name, overwrite=True):
             all preexisting hooks matching the specified function / entrypoint will be
             removed and replaced with a single instance of the specified `hook`.
     """
-    register_generic_import_hook(hook, name, _import_error_hooks, overwrite)
+    register_generic_import_hook(
+        hook, name, _import_error_hooks, overwrite, _import_error_hooks_lock
+    )
 
 
-@synchronized(_post_import_hooks_lock)
 def register_post_import_hook(hook, name, overwrite=True):
     """
     Args:
@@ -164,7 +181,7 @@ def register_post_import_hook(hook, name, overwrite=True):
             all preexisting hooks matching the specified function / entrypoint will be
             removed and replaced with a single instance of the specified `hook`.
     """
-    register_generic_import_hook(hook, name, _post_import_hooks, overwrite)
+    register_generic_import_hook(hook, name, _post_import_hooks, overwrite, _post_import_hooks_lock)
 
 
 @synchronized(_post_import_hooks_lock)

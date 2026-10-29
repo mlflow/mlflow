@@ -2,7 +2,7 @@ import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 import { renderHook } from '@testing-library/react';
 
 import { useTracesV4TraceCount } from './useTracesV4TraceCount';
-import { AggregationType } from '@databricks/web-shared/model-trace-explorer';
+import { AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 
 const mockUseTraceMetricsQuery = jest.fn();
 jest.mock('../../../../../pages/experiment-overview/hooks/useTraceMetricsQuery', () => ({
@@ -27,8 +27,60 @@ describe('useTracesV4TraceCount', () => {
     const { result } = renderHook(() => useTracesV4TraceCount('exp-1', 10, timeRange));
 
     expect(result.current).toEqual({ currentCount: 10, totalCount: 42, isTotalLoading: false });
-    // The metrics query is enabled when the search isn't an exact trace-id.
-    expect(mockUseTraceMetricsQuery).toHaveBeenCalledWith(expect.objectContaining({ enabled: true }));
+    // The metrics query is enabled when the search isn't an exact trace-id; sessions aren't counted.
+    expect(mockUseTraceMetricsQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ enabled: true, metricName: TraceMetricKey.TRACE_COUNT }),
+    );
+    expect(mockUseTraceMetricsQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ enabled: false, metricName: TraceMetricKey.SESSION_COUNT }),
+    );
+  });
+
+  it('also counts sessions from the session_count metric, scoped to the same time range', () => {
+    mockUseTraceMetricsQuery.mockImplementation(({ metricName }: any) => ({
+      data: {
+        data_points: [{ values: { [AggregationType.COUNT]: metricName === TraceMetricKey.SESSION_COUNT ? 60 : 524 } }],
+      },
+      isLoading: false,
+      isFetching: false,
+    }));
+
+    const { result } = renderHook(() => useTracesV4TraceCount('exp-1', 500, timeRange, { pageSessionCount: 58 }));
+
+    expect(result.current).toEqual({
+      currentCount: 500,
+      totalCount: 524,
+      isTotalLoading: false,
+      sessions: { currentCount: 58, totalCount: 60 },
+    });
+    for (const metricName of [TraceMetricKey.TRACE_COUNT, TraceMetricKey.SESSION_COUNT]) {
+      expect(mockUseTraceMetricsQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          experimentIds: ['exp-1'],
+          metricName,
+          startTimeMs: 1000,
+          endTimeMs: 2000,
+          enabled: true,
+        }),
+      );
+    }
+  });
+
+  it('keeps the totals loading until the session total resolves too', () => {
+    mockUseTraceMetricsQuery.mockImplementation(({ metricName }: any) =>
+      metricName === TraceMetricKey.SESSION_COUNT
+        ? { data: undefined, isLoading: true, isFetching: true }
+        : {
+            data: { data_points: [{ values: { [AggregationType.COUNT]: 524 } }] },
+            isLoading: false,
+            isFetching: false,
+          },
+    );
+
+    const { result } = renderHook(() => useTracesV4TraceCount('exp-1', 500, timeRange, { pageSessionCount: 58 }));
+
+    expect(result.current.isTotalLoading).toBe(true);
+    expect(result.current.sessions).toEqual({ currentCount: 58, totalCount: undefined });
   });
 
   it('spins (undefined total) while the metrics query is fetching, even with cached data', () => {
@@ -61,5 +113,22 @@ describe('useTracesV4TraceCount', () => {
     );
 
     expect(result.current).toEqual({ currentCount: 50, totalCount: undefined, isTotalLoading: true });
+  });
+
+  it('reports the resolved sessions as the session total for an exact trace-id search', () => {
+    // A matched trace with no session resolves to zero sessions, so the footer shows the trace alone.
+    const { result } = renderHook(() =>
+      useTracesV4TraceCount('exp-1', 1, timeRange, { isExactTraceIdSearch: true, pageSessionCount: 0 }),
+    );
+
+    expect(result.current).toEqual({
+      currentCount: 1,
+      totalCount: 1,
+      isTotalLoading: false,
+      sessions: { currentCount: 0, totalCount: 0 },
+    });
+    expect(mockUseTraceMetricsQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ enabled: false, metricName: TraceMetricKey.SESSION_COUNT }),
+    );
   });
 });

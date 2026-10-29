@@ -182,6 +182,10 @@ cost rather than adding to it, and since this repo squash-merges, they land as
 one commit that can't be reverted piece by piece and is hard to reason about
 later. When in doubt, split.
 
+### Stacked PRs
+
+Use [gh-stack](https://github.com/github/gh-stack) to manage stacked pull requests.
+
 ### Creating Pull Requests
 
 - Follow the instructions at the top of [the PR template](./.github/pull_request_template.md) carefully.

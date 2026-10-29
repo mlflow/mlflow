@@ -43,6 +43,9 @@ pytorch:
       # imports on torch 2.5/2.6 CPU:
       # https://github.com/huggingface/transformers/issues/49380
       ">= 2.5, < 2.7": ["transformers<5.19,!=5.10.*"]
+      # transformers 5.20.0 references torch.distributed.checkpoint.hf_storage at
+      # import time, which only exists in torch >= 2.8. Torch 2.7.1 lacks this module.
+      ">= 2.7, < 2.8": ["transformers<5.20"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py
 

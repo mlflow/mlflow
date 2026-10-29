@@ -9,7 +9,7 @@ from unittest import mock
 import pytest
 
 import mlflow
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, RestException
 from mlflow.legacy_databricks_cli.configure.provider import (
     DatabricksConfig,
     DatabricksModelServingConfigProvider,
@@ -32,6 +32,7 @@ from mlflow.utils.databricks_utils import (
     get_workspace_url,
     is_databricks_default_tracking_uri,
     is_running_in_ipython_environment,
+    stage_model_for_databricks_model_serving,
 )
 from mlflow.utils.os import is_windows
 
@@ -1515,3 +1516,18 @@ def test_get_databricks_host_creds_workspace_id_none_on_full_failure(monkeypatch
         result = get_databricks_host_creds("databricks")
         assert result.workspace_id is None
         assert not result.use_databricks_sdk
+
+
+def test_stage_model_for_databricks_model_serving_raises_rest_exception_with_error_code():
+    response = mock.Mock(
+        status_code=400,
+        text=json.dumps({"error_code": "INVALID_PARAMETER_VALUE", "message": "Not supported."}),
+    )
+    with (
+        mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+        mock.patch("mlflow.utils.databricks_utils.http_request", return_value=response),
+        pytest.raises(RestException, match="Not supported.") as exc_info,
+    ):
+        stage_model_for_databricks_model_serving(model_name="main.default.m", model_version="1")
+
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"

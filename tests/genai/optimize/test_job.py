@@ -132,6 +132,14 @@ def test_load_scorer_not_found_raises_error():
     mlflow.delete_experiment(experiment_id)
 
 
+@pytest.mark.parametrize("name", ["Feedback", "get_default_model", "BuiltInScorer"])
+def test_load_scorers_loads_non_scorer_module_names_from_registry(name):
+    registered = mock.Mock()
+    with mock.patch("mlflow.genai.optimize.job.get_scorer", return_value=registered) as get_scorer:
+        assert _load_scorers([name], "exp-123") == [registered]
+    get_scorer.assert_called_once_with(name=name, experiment_id="exp-123")
+
+
 def test_build_predict_fn_success():
     mock_prompt = mock.MagicMock()
     mock_prompt.model_config = {"provider": "openai", "model_name": "gpt-4o"}

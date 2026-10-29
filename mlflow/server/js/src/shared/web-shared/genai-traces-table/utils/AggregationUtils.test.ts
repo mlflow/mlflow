@@ -8,6 +8,7 @@ import {
   ERROR_KEY,
   getAssessmentAggregateOverallFraction,
   getAssessmentInfos,
+  getAssessmentNumericAggregates,
   getBarChartData,
   getUniqueValueCountsBySourceId,
 } from './AggregationUtils';
@@ -1392,5 +1393,69 @@ describe('buildAggregatesFromCountMetrics', () => {
     const result = buildAggregatesFromCountMetrics(info, [], filters);
     expect(result.assessmentFilters).toHaveLength(1);
     expect(result.assessmentFilters[0].assessmentName).toBe('quality');
+  });
+});
+
+describe('excludeErroredValues', () => {
+  const stringInfo: AssessmentInfo = {
+    name: 'test_assessment',
+    displayName: 'Test Assessment',
+    isKnown: true,
+    isOverall: false,
+    metricName: 'test_metric',
+    isCustomMetric: false,
+    isEditable: false,
+    isRetrievalAssessment: false,
+    dtype: 'string',
+    uniqueValues: new Set(['false']),
+    docsLink: '',
+    missingTooltip: '',
+    description: '',
+  };
+  const valid: RunEvaluationResultAssessment = { name: 'test_assessment', stringValue: 'false', timestamp: 2 };
+  const errored: RunEvaluationResultAssessment = {
+    name: 'test_assessment',
+    stringValue: 'false',
+    errorCode: 'FAILED',
+    timestamp: 1,
+  };
+
+  it('counts an errored assessment as a value by default', () => {
+    expect(getUniqueValueCountsBySourceId(stringInfo, [valid, errored])).toEqual([
+      { value: 'false', count: 2, latestAssessment: valid },
+      { value: ERROR_KEY, count: 1, latestAssessment: errored },
+    ]);
+  });
+
+  it('counts an errored assessment only as an error when excluding errored values', () => {
+    expect(getUniqueValueCountsBySourceId(stringInfo, [valid, errored], true)).toEqual([
+      { value: 'false', count: 1, latestAssessment: valid },
+      { value: ERROR_KEY, count: 1, latestAssessment: errored },
+    ]);
+  });
+
+  it('leaves errored scores out of numeric averages only when excluding errored values', () => {
+    const numericInfo: AssessmentInfo = { ...stringInfo, dtype: 'numeric', uniqueValues: new Set([1, 5]) };
+    const evalResults = [
+      {
+        evaluationId: 'eval-1',
+        requestId: 'request-1',
+        inputs: {},
+        inputsId: 'inputs-1',
+        outputs: {},
+        targets: {},
+        overallAssessments: [],
+        responseAssessmentsByName: {
+          test_assessment: [
+            { name: 'test_assessment', numericValue: 5 },
+            { name: 'test_assessment', numericValue: 1, errorMessage: 'Scorer failed' },
+          ],
+        },
+        metrics: {},
+      },
+    ] as RunEvaluationTracesDataEntry[];
+
+    expect(getAssessmentNumericAggregates(numericInfo, evalResults)?.average).toBe(3);
+    expect(getAssessmentNumericAggregates(numericInfo, evalResults, true)?.average).toBe(5);
   });
 });

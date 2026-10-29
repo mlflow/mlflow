@@ -1,17 +1,21 @@
 import base64
+import json
 import logging
 import time
 from collections import defaultdict
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import quote, urlencode
 
+from google.protobuf.json_format import MessageToDict
+from google.protobuf.struct_pb2 import Value
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 from pydantic import BaseModel
 
 from mlflow.entities import (
     Assessment,
     Issue,
+    IssueCategory,
     IssueSeverity,
     IssueStatus,
     Span,
@@ -64,6 +68,7 @@ from mlflow.protos.databricks_tracing_pb2 import (
     UpdateAssessment,
 )
 from mlflow.protos.databricks_tracing_pb2 import TraceInfo as ProtoTraceInfo
+from mlflow.protos.issues_pb2 import CreateIssue, GetIssue, SearchIssues, UpdateIssue
 from mlflow.protos.service_pb2 import GetOnlineTraceDetails, MlflowService, SearchUnifiedTraces
 from mlflow.store.entities import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
@@ -81,7 +86,12 @@ from mlflow.utils.databricks_tracing_utils import (
     uc_table_prefix_location_to_proto,
 )
 from mlflow.utils.databricks_utils import get_databricks_workspace_client_config
-from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.issue_utils import validate_issue_fields, validate_issue_search
+from mlflow.utils.proto_json_utils import (
+    message_to_json,
+    milliseconds_to_proto_timestamp,
+    proto_timestamp_to_milliseconds,
+)
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     _V4_REST_API_PATH_PREFIX,
@@ -92,6 +102,8 @@ from mlflow.utils.rest_utils import (
     http_request,
     verify_rest_response,
 )
+from mlflow.utils.time import get_current_time_millis
+from mlflow.utils.uri import append_to_uri_path, append_to_uri_query_params
 
 DATABRICKS_UC_TABLE_HEADER = "X-Databricks-UC-Table-Name"
 _V5_TRACE_LOCATION_ENDPOINT = "/api/5.0/mlflow/tracing/locations"
@@ -1164,6 +1176,42 @@ class DatabricksTracingRestStore(RestStore):
 
         return PagedList(results_to_return, next_token)
 
+    @staticmethod
+    def _get_issue_endpoint(experiment_id: str, issue_id: str | None = None) -> str:
+        endpoint = append_to_uri_path(
+            _REST_API_PATH_PREFIX, "mlflow/experiments", quote(experiment_id, safe=""), "issues"
+        )
+        if issue_id is not None:
+            endpoint = append_to_uri_path(endpoint, quote(issue_id, safe=""))
+        return endpoint
+
+    @staticmethod
+    def _issue_from_databricks_dict(resource: dict[str, Any], experiment_id: str) -> Issue:
+        categories = {category.value: category for category in IssueCategory}
+        issue_dict = {
+            "issue_id": resource["issue_id"],
+            "experiment_id": experiment_id,
+            "name": resource["title"],
+            "description": resource.get("description", ""),
+            "status": resource["status"].lower(),
+            "created_timestamp": proto_timestamp_to_milliseconds(resource["create_time"]),
+            "last_updated_timestamp": proto_timestamp_to_milliseconds(resource["update_time"]),
+            "categories": [
+                categories.get(category, category) for category in resource.get("categories", [])
+            ],
+            "created_by": resource.get("created_by"),
+            "last_updated_by": resource.get("last_updated_by"),
+            "metadata": resource.get("metadata"),
+        }
+        severity = resource.get("severity")
+        if severity and severity != "ISSUE_SEVERITY_UNSPECIFIED":
+            issue_dict["severity"] = severity.lower()
+        if last_seen_time := resource.get("last_seen_time"):
+            issue_dict["last_seen_timestamp"] = proto_timestamp_to_milliseconds(last_seen_time)
+        if resource.get("source_type") in {"ADHOC_RUN", "SCHEDULED_RUN"}:
+            issue_dict["source_run_id"] = resource.get("source_id")
+        return Issue.from_dictionary(issue_dict)
+
     def create_issue(
         self,
         experiment_id: str,
@@ -1175,37 +1223,65 @@ class DatabricksTracingRestStore(RestStore):
         source_run_id: str | None = None,
         categories: list[str] | None = None,
         created_by: str | None = None,
+        *,
+        issue_id: str | None = None,
+        last_seen_timestamp: int | None = None,
+        metadata: dict[str, str] | None = None,
     ) -> Issue:
-        """
-        Create a new issue.
+        if not isinstance(experiment_id, str) or not experiment_id:
+            raise MlflowException.invalid_parameter_value("experiment_id must be specified")
+        validate_issue_fields(
+            name=name,
+            status=status,
+            severity=severity,
+            categories=categories,
+            metadata=metadata,
+            last_seen_timestamp=last_seen_timestamp,
+            issue_id=issue_id,
+        )
+        if severity == IssueSeverity.NOT_AN_ISSUE:
+            raise MlflowException.invalid_parameter_value(
+                "The Databricks Issues API supports low, medium, and high severity"
+            )
+        if root_causes:
+            # Preserve the deprecated argument for older internal callers.
+            description += "\n\nRoot causes:\n" + "\n".join(f"- {cause}" for cause in root_causes)
+        body = {
+            "title": name,
+            "description": description,
+            "status": IssueStatus(status).name,
+            "source_type": "ADHOC_RUN" if source_run_id else "MANUAL",
+        }
+        if severity is not None:
+            body["severity"] = IssueSeverity(severity).name
+        if categories is not None:
+            body["categories"] = categories
+        if metadata is not None:
+            body["metadata"] = metadata
+        if source_run_id:
+            body["source_id"] = source_run_id
+            if last_seen_timestamp is None:
+                last_seen_timestamp = get_current_time_millis()
+        if last_seen_timestamp is not None:
+            body["last_seen_time"] = milliseconds_to_proto_timestamp(last_seen_timestamp)
+        endpoint = self._get_issue_endpoint(experiment_id)
+        if issue_id is not None:
+            endpoint = append_to_uri_query_params(endpoint, ("issue_id", issue_id))
+        response = self._call_endpoint(
+            CreateIssue, json.dumps(body), endpoint=endpoint, response_proto=Value()
+        )
+        return self._issue_from_databricks_dict(MessageToDict(response), experiment_id)
 
-        Args:
-            experiment_id: The experiment ID.
-            name: Short descriptive name for the issue.
-            description: Detailed description of the issue.
-            status: Issue status. Defaults to IssueStatus.PENDING.
-            severity: Optional severity level indicator.
-            root_causes: Optional list of root cause analyses.
-            source_run_id: Optional MLflow run ID that discovered this issue.
-            categories: Optional list of categories for the issue.
-            created_by: Optional identifier for who created this issue.
-
-        Returns:
-            The created Issue entity.
-        """
-        raise MlflowNotImplementedException("Issue management is not supported in Databricks")
-
-    def get_issue(self, issue_id: str) -> Issue:
-        """
-        Get an issue by ID.
-
-        Args:
-            issue_id: The ID of the issue to retrieve.
-
-        Returns:
-            The Issue entity.
-        """
-        raise MlflowNotImplementedException("Issue management is not supported in Databricks")
+    def get_issue(self, issue_id: str, *, experiment_id: str | None = None) -> Issue:
+        if not isinstance(experiment_id, str) or not experiment_id:
+            raise MlflowException.invalid_parameter_value(
+                "experiment_id must be specified to get a Databricks issue"
+            )
+        if not isinstance(issue_id, str) or not issue_id:
+            raise MlflowException.invalid_parameter_value("issue_id must be a nonempty string")
+        endpoint = self._get_issue_endpoint(experiment_id, issue_id)
+        response = self._call_endpoint(GetIssue, endpoint=endpoint, response_proto=Value())
+        return self._issue_from_databricks_dict(MessageToDict(response), experiment_id)
 
     def update_issue(
         self,
@@ -1214,21 +1290,62 @@ class DatabricksTracingRestStore(RestStore):
         name: str | None = None,
         description: str | None = None,
         severity: IssueSeverity | None = None,
+        *,
+        categories: list[str] | None = None,
+        last_seen_timestamp: int | None = None,
+        last_updated_by: str | None = None,
+        metadata: dict[str, str] | None = None,
+        delete_metadata_keys: list[str] | None = None,
+        experiment_id: str | None = None,
     ) -> Issue:
-        """
-        Update an existing issue.
-
-        Args:
-            issue_id: The ID of the issue to update.
-            status: Optional new status.
-            name: Optional new name for the issue.
-            description: Optional new description.
-            severity: Optional new severity level.
-
-        Returns:
-            The updated Issue entity.
-        """
-        raise MlflowNotImplementedException("Issue management is not supported in Databricks")
+        if not isinstance(experiment_id, str) or not experiment_id:
+            raise MlflowException.invalid_parameter_value(
+                "experiment_id must be specified to update a Databricks issue"
+            )
+        if not isinstance(issue_id, str) or not issue_id:
+            raise MlflowException.invalid_parameter_value("issue_id must be a nonempty string")
+        validate_issue_fields(
+            name=name,
+            status=status,
+            severity=severity,
+            categories=categories,
+            metadata=metadata,
+            last_seen_timestamp=last_seen_timestamp,
+            delete_metadata_keys=delete_metadata_keys,
+        )
+        if severity == IssueSeverity.NOT_AN_ISSUE:
+            raise MlflowException.invalid_parameter_value(
+                "The Databricks Issues API supports low, medium, and high severity"
+            )
+        fields = {
+            "title": name,
+            "description": description,
+            "status": IssueStatus(status).name if status is not None else None,
+            "severity": IssueSeverity(severity).name if severity is not None else None,
+            "categories": categories,
+            "last_seen_time": milliseconds_to_proto_timestamp(last_seen_timestamp)
+            if last_seen_timestamp is not None
+            else None,
+        }
+        body = {field: value for field, value in fields.items() if value is not None}
+        paths = list(body)
+        for key in [*(metadata or {}), *(delete_metadata_keys or [])]:
+            if "," in key or "`" in key:
+                raise MlflowException.invalid_parameter_value(
+                    "Metadata update keys cannot contain commas or backticks"
+                )
+            paths.append(f"metadata.`{key}`" if "." in key else f"metadata.{key}")
+        if not paths:
+            return self.get_issue(issue_id, experiment_id=experiment_id)
+        if metadata:
+            body["metadata"] = metadata
+        body["name"] = f"experiments/{experiment_id}/issues/{issue_id}"
+        endpoint = self._get_issue_endpoint(experiment_id, issue_id)
+        endpoint = append_to_uri_query_params(endpoint, ("update_mask", ",".join(paths)))
+        response = self._call_endpoint(
+            UpdateIssue, json.dumps(body), endpoint=endpoint, response_proto=Value()
+        )
+        return self._issue_from_databricks_dict(MessageToDict(response), experiment_id)
 
     def search_issues(
         self,
@@ -1237,21 +1354,109 @@ class DatabricksTracingRestStore(RestStore):
         max_results: int | None = None,
         page_token: str | None = None,
         include_trace_count: bool = False,
+        *,
+        name: str | None = None,
+        statuses: list[str] | None = None,
+        severities: list[str] | None = None,
+        categories: list[str] | None = None,
+        order_by: list[str] | None = None,
+        include_total_count: bool = False,
+        view: Literal["basic", "full"] | None = None,
     ) -> PagedList[Issue]:
-        """
-        Search for issues matching the given filters.
+        from mlflow.utils.search_utils import SearchIssuesUtils, SearchUtils
 
-        Args:
-            experiment_id: Optional experiment ID to filter by.
-            filter_string: Optional filter string for advanced filtering.
-            max_results: Maximum number of results to return.
-            page_token: Token for pagination.
-            include_trace_count: Whether to include the count of traces impacted by each issue.
-
-        Returns:
-            A PagedList of Issue entities.
-        """
-        raise MlflowNotImplementedException("Issue management is not supported in Databricks")
+        if not isinstance(experiment_id, str) or not experiment_id:
+            raise MlflowException.invalid_parameter_value(
+                "experiment_id must be specified to search Databricks issues"
+            )
+        if max_results is not None and (
+            type(max_results) is not int or not 1 <= max_results <= 100
+        ):
+            raise MlflowException.invalid_parameter_value(
+                "max_results must be an integer between 1 and 100"
+            )
+        if include_trace_count:
+            raise MlflowNotImplementedException(
+                "The Databricks Issues API does not return trace counts"
+            )
+        validate_issue_search(name, statuses, severities, order_by)
+        validate_issue_fields(categories=categories)
+        accepted_statuses = set(IssueStatus)
+        if statuses:
+            for status in statuses:
+                validate_issue_fields(status=status.lower())
+            accepted_statuses = {IssueStatus(status.lower()) for status in statuses}
+        for comparison in SearchIssuesUtils.parse_search_filter(filter_string):
+            if comparison["key"] != "status":
+                raise MlflowNotImplementedException(
+                    f"{comparison['key']} filters are not supported by the Databricks Issues API"
+                )
+            status = comparison["value"].lower()
+            validate_issue_fields(status=status)
+            if comparison["comparator"] == "=":
+                accepted_statuses.intersection_update({IssueStatus(status)})
+            else:
+                accepted_statuses.discard(IssueStatus(status))
+        if view is not None and view not in {"basic", "full"}:
+            raise MlflowException.invalid_parameter_value("view must be 'basic' or 'full'")
+        body = {
+            "parent": f"experiments/{experiment_id}",
+            "statuses": [status.name for status in IssueStatus if status in accepted_statuses],
+            "view": "FULL" if view is None else view.upper(),
+        }
+        if name is not None:
+            body["query"] = name
+        if categories is not None:
+            body["categories"] = categories
+        if severities is not None:
+            for severity in severities:
+                validate_issue_fields(severity=severity.lower())
+                if severity.lower() == IssueSeverity.NOT_AN_ISSUE:
+                    raise MlflowException.invalid_parameter_value(
+                        "The Databricks Issues API supports low, medium, and high severity"
+                    )
+            body["severities"] = [IssueSeverity(severity.lower()).name for severity in severities]
+        if max_results is not None:
+            body["page_size"] = max_results
+        if page_token is not None:
+            body["page_token"] = page_token
+        if order_by:
+            if len(order_by) != 1:
+                raise MlflowException.invalid_parameter_value(
+                    "Databricks issue search supports one order_by field"
+                )
+            field, ascending = SearchUtils._parse_order_by_string(order_by[0])
+            sort_keys = {
+                "severity": "SEVERITY",
+                "last_seen_timestamp": "LAST_SEEN_TIME",
+                "last_updated_timestamp": "UPDATE_TIME",
+                "created_timestamp": "CREATE_TIME",
+            }
+            if field not in sort_keys:
+                raise MlflowException.invalid_parameter_value(
+                    f"Unsupported issue order_by field {field!r}. Expected one of {list(sort_keys)}"
+                )
+            body["sort_key"] = sort_keys[field]
+            body["sort_order"] = "ASCENDING" if ascending else "DESCENDING"
+        if not accepted_statuses:
+            return PagedList([], None, total_count=0 if include_total_count else None)
+        response = self._call_endpoint(
+            SearchIssues,
+            json.dumps(body),
+            endpoint=f"{self._get_issue_endpoint(experiment_id)}:search",
+            response_proto=Value(),
+        )
+        result = MessageToDict(response)
+        return PagedList(
+            [
+                self._issue_from_databricks_dict(issue, experiment_id)
+                for issue in result.get("issues", [])
+            ],
+            result.get("next_page_token") or None,
+            total_count=int(result["total_size"])
+            if include_total_count and "total_size" in result
+            else None,
+        )
 
     def _append_sql_warehouse_id_param(self, endpoint: str) -> str:
         if sql_warehouse_id := self._resolve_sql_warehouse_id():

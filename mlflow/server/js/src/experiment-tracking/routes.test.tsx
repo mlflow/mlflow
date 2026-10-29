@@ -1,5 +1,6 @@
 import { jest, describe, test, expect } from '@jest/globals';
 import Routes from './routes';
+import { ExperimentPageTabName } from './constants';
 
 jest.mock('../common/utils/RoutingUtils', () => ({
   ...jest.requireActual<typeof import('../common/utils/RoutingUtils')>('../common/utils/RoutingUtils'),
@@ -16,12 +17,21 @@ describe('experiment tracking page routes', () => {
 
   test('yields correct route paths for experiment page routes', () => {
     expect(Routes.getExperimentPageRoute('123')).toEqual('/experiments/123');
+    expect(Routes.getEvaluationRunDetailsRoute('123', 'run-1')).toEqual(
+      '/experiments/123/evaluation-runs/run-1/details',
+    );
     expect(Routes.getCompareExperimentsPageRoute(['123', '124'])).toEqual(
       '/compare-experiments/s?experiments=["123","124"]',
     );
     expect(Routes.searchRunsByLifecycleStage('123', 'ACTIVE')).toEqual('/experiments/123?lifecycleFilter=ACTIVE');
     expect(Routes.searchRunsByUser('123', '987654321')).toEqual(
       "/experiments/123?searchFilter=attributes.user_id%20%3D%20'987654321'",
+    );
+    expect(Routes.getExperimentPageTabRoute('123', ExperimentPageTabName.Overview)).toEqual(
+      '/experiments/123/overview',
+    );
+    expect(Routes.getExperimentPageTabRoute('123', ExperimentPageTabName.Dashboard)).toEqual(
+      '/experiments/123/dashboard/usage',
     );
   });
 

@@ -140,8 +140,8 @@ def save_model(
             )
     if task and task not in SIGNATURE_FOR_LLM_INFERENCE_TASK:
         raise MlflowException(
-            "Invalid task: {task} at `mlflow.dspy.save_model()` call. The task must be None or one "
-            f"of: {list(SIGNATURE_FOR_LLM_INFERENCE_TASK.keys())}",
+            f"Invalid task: {task} at `mlflow.dspy.save_model()` call. The task must be None or "
+            f"one of: {list(SIGNATURE_FOR_LLM_INFERENCE_TASK.keys())}",
             error_code=INVALID_PARAMETER_VALUE,
         )
     if not use_dspy_model_save and not is_in_databricks_runtime():

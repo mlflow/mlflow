@@ -39,10 +39,16 @@ export class ErrorWrapper {
   }
 
   getMessageField() {
+    if (this.status === 403 && this.textJson?.artifacts_presigned_only === true) {
+      return 'The server artifact settings have changed. Reload this page to continue.';
+    }
     return this.textJson ? this.textJson.message : ErrorCodes.INTERNAL_ERROR;
   }
 
   renderHttpError() {
+    if (this.status === 403 && this.textJson?.artifacts_presigned_only === true) {
+      return this.getMessageField();
+    }
     if (this.textJson) {
       if (this.textJson.error_code && this.textJson.message) {
         const message = this.textJson.error_code + ': ' + this.textJson.message;

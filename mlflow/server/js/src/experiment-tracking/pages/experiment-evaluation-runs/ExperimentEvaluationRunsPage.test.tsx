@@ -14,6 +14,14 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { invalidateMlflowSearchTracesCache } from '@databricks/web-shared/genai-traces-table';
 
+// These tests cover the evaluation runs page with the new eval runs UI off; opening a run in its details page is covered in ExperimentEvaluationRunsTable.test.tsx.
+jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('@mlflow/mlflow/src/common/utils/FeatureUtils')>(
+    '@mlflow/mlflow/src/common/utils/FeatureUtils',
+  ),
+  shouldEnableNewEvalRunsUi: jest.fn(() => false),
+}));
+
 jest.mock('../../hooks/useExperimentQuery', () => ({
   useGetExperimentQuery: jest.fn(() => ({ refetch: jest.fn() })),
 }));

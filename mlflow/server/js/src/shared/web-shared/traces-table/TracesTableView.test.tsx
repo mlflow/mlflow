@@ -109,6 +109,24 @@ describe('TracesTableView', () => {
     expect(screen.getByText(/Rows per page/)).toBeInTheDocument();
   });
 
+  test.each([
+    { counts: { traceCount: 25, traceTotal: 524 }, expected: '25 of 524 traces' },
+    { counts: { traceCount: 1, traceTotal: 1 }, expected: '1 of 1 trace' },
+    {
+      counts: { traceCount: 5, traceTotal: 42, sessionCount: 2, sessionTotal: 7 },
+      expected: '2 of 7 sessions · 5 of 42 traces',
+    },
+    {
+      counts: { traceCount: 1, traceTotal: 1, sessionCount: 1, sessionTotal: 1 },
+      expected: '1 of 1 session · 1 of 1 trace',
+    },
+    // Grouped with no sessions in range: the session count is dropped rather than reading "0 of 0".
+    { counts: { traceCount: 5, traceTotal: 42, sessionCount: 0, sessionTotal: 0 }, expected: '5 of 42 traces' },
+  ])('footer count reads "$expected"', async ({ counts, expected }) => {
+    await renderWithProviders(<TracesTableView {...baseProps({ viewState: 'ready', ...counts })} />);
+    expect(screen.getByText(expected)).toBeInTheDocument();
+  });
+
   test('forwards sessionsMayBeIncomplete so paginated grouped sessions hide partial aggregates', async () => {
     const traces = [makeSessionTrace('s1-turn-1', 's1'), makeSessionTrace('s1-turn-2', 's1')];
     const grouped = { traces, visibleColumns: ['tokens' as const], isGroupedBySession: true };

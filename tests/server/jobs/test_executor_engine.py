@@ -19,7 +19,12 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import TEMPORARILY_UNAVAILABLE
 from mlflow.server.jobs import _ALLOWED_JOB_NAME_LIST, _SUPPORTED_JOB_FUNCTION_LIST, job, submit_job
 from mlflow.server.jobs import _executor_runner as runner
-from mlflow.server.jobs.executor import JobExecutorConfig, JobRecoveryResult, JobResult
+from mlflow.server.jobs.executor import (
+    EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE,
+    JobExecutorConfig,
+    JobRecoveryResult,
+    JobResult,
+)
 from mlflow.server.jobs.executor_registry import (
     get_executor_registry,
     shutdown_executor_registry,
@@ -1531,9 +1536,9 @@ def test_main_stops_a_backend_whose_start_failed(monkeypatch):
     )
     monkeypatch.setattr("mlflow.server.jobs.utils._launch_periodic_tasks_consumer", lambda: None)
 
-    with mock.patch.object(runner.os, "kill") as kill:
+    with mock.patch.object(runner.os, "_exit") as exit_:
         runner.main()
 
     ok.stop_executor.assert_called_once()
     broken.stop_executor.assert_called_once()
-    kill.assert_called_once_with(runner.os.getpid(), runner.signal.SIGTERM)
+    exit_.assert_called_once_with(EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE)

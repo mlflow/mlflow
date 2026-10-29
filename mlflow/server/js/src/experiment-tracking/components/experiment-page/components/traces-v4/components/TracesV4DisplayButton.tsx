@@ -12,7 +12,7 @@ import {
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import {
   ReorderableTraceColumnList,
-  SORTABLE_TRACE_COLUMNS,
+  getSortableTraceColumns,
   ToolbarCollapsibleLabel,
   type ColumnSelectorGroup,
   type ReorderableTraceColumnOption,
@@ -109,7 +109,7 @@ export const TracesV4DisplayButton = ({
       <DropdownMenu.Trigger asChild>
         <Button
           componentId={`${COMPONENT_ID}.trigger`}
-          icon={<SlidersIcon css={{ color: theme.colors.textSecondary }} />}
+          icon={<SlidersIcon />}
           endIcon={<ChevronDownIcon />}
           // Names the button when its label collapses to icon-only.
           aria-label={intl.formatMessage({
@@ -227,7 +227,7 @@ export const TracesV4DisplayButton = ({
                 onSort(column as TraceColumnId, direction as SortDirection);
               }}
             >
-              {SORTABLE_TRACE_COLUMNS.map((column) => (
+              {getSortableTraceColumns().map((column) => (
                 <Fragment key={column}>
                   <DropdownMenu.RadioItem value={`${column}${SORT_VALUE_SEPARATOR}desc`}>
                     <DropdownMenu.ItemIndicator />

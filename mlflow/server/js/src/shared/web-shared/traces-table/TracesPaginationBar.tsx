@@ -24,7 +24,7 @@ export interface TracesPaginationBarProps {
   hasNext: boolean;
   hasPrev: boolean;
   /**
-   * Optional "{n} of {total}" row count shown bottom-left. `count` is the current page's row count;
+   * Optional "{n} of {total} traces" row count shown bottom-left. `count` is the current page's row count;
    * `total` is the grand total (from a separate count source, since the cursor API returns none).
    * Omit `count` to hide the count entirely; pass `count` with an undefined `total` while it loads
    * to show a spinner in place of the total.
@@ -32,8 +32,17 @@ export interface TracesPaginationBarProps {
   count?: number;
   total?: number;
   isCountLoading?: boolean;
+  /**
+   * Grouped-by-session mode: the page's sessions out of the session total, shown ahead of the trace
+   * count as "{sessions} of {total} sessions · {count} of {total} traces". Omitted, or when there are
+   * no sessions, the footer shows the trace count alone.
+   */
+  sessionCount?: number;
+  sessionTotal?: number;
   /** Hide the page-size selector — grouped-by-session mode fetches one large page, so it's moot. */
   hidePageSizeSelector?: boolean;
+  /** Content pinned to the left of the bar (e.g. a result-count label), opposite the controls. */
+  leadingContent?: React.ReactNode;
 }
 
 /**
@@ -51,10 +60,14 @@ export const TracesPaginationBar: React.FC<TracesPaginationBarProps> = ({
   count,
   total,
   isCountLoading,
+  sessionCount,
+  sessionTotal,
   hidePageSizeSelector,
+  leadingContent,
 }: TracesPaginationBarProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const hasSessions = sessionCount !== undefined && (sessionTotal ?? sessionCount) > 0;
 
   return (
     <div
@@ -74,13 +87,24 @@ export const TracesPaginationBar: React.FC<TracesPaginationBarProps> = ({
             <Spinner size="small" />
           ) : (
             <Typography.Text color="secondary" size="sm">
+              {hasSessions && (
+                <>
+                  <FormattedMessage
+                    defaultMessage="{count} of {total, plural, one {# session} other {# sessions}}"
+                    description="Traces table footer when grouped by session, showing how many sessions are loaded out of the total"
+                    values={{ count: sessionCount, total: sessionTotal ?? sessionCount }}
+                  />
+                  {' · '}
+                </>
+              )}
               <FormattedMessage
-                defaultMessage="{count} of {total}"
+                defaultMessage="{count} of {total, plural, one {# trace} other {# traces}}"
                 description="Traces table footer showing how many traces are loaded out of the total"
                 values={{ count, total: total ?? count }}
               />
             </Typography.Text>
           ))}
+        {leadingContent}
       </span>
 
       <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.md }}>

@@ -146,7 +146,11 @@ export { groupTracesBySession } from './sessions-table/utils';
 export { GenAITracesTableBodySkeleton } from './GenAITracesTableBodySkeleton';
 export { useGetTraces } from './hooks/useGetTraces';
 export { useGetTrace } from './hooks/useGetTrace';
-export { ActiveEvaluationContext, useActiveEvaluation } from './hooks/useActiveEvaluation';
+export {
+  ActiveEvaluationContext,
+  SELECTED_EVALUATION_ID_PARAM,
+  useActiveEvaluation,
+} from './hooks/useActiveEvaluation';
 export { isSqlWarehouseTimeoutError } from './utils/ErrorUtils';
 export {
   GenAiTraceTableRowSelectionProvider,

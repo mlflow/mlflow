@@ -10,6 +10,9 @@ from mlflow.server.auth.permissions import (
     PERMISSION_PRIORITY,
     READ,
     RESOURCE_GRANTABLE_PERMISSIONS,
+    RESOURCE_TYPE_EXPERIMENT,
+    RESOURCE_TYPE_REGISTERED_MODEL,
+    RESOURCE_TYPE_SCORER,
     RESOURCE_TYPE_SKILL,
     SKILL_REGISTRY_GRANTABLE_PERMISSIONS,
     SKILL_REGISTRY_RESOURCE_TYPES,
@@ -19,7 +22,9 @@ from mlflow.server.auth.permissions import (
     _validate_permission,
     _validate_permission_for_resource_type,
     _validate_resource_type,
+    canonical_resource_id,
     get_permission,
+    matches,
     max_permission,
 )
 
@@ -265,3 +270,47 @@ def test_validate_permission_for_resource_type_rejects_unknown():
         _validate_permission_for_resource_type("ADMIN", "experiment")
     with pytest.raises(MlflowException, match="Invalid resource type"):
         _validate_permission_for_resource_type(USE.name, "traces")
+
+
+@pytest.mark.parametrize(
+    ("resource_type", "resource_id", "expected"),
+    [
+        (RESOURCE_TYPE_EXPERIMENT, "1", "1"),
+        (RESOURCE_TYPE_EXPERIMENT, "01", "1"),
+        (RESOURCE_TYPE_EXPERIMENT, " 1", "1"),
+        (RESOURCE_TYPE_EXPERIMENT, "+1", "1"),
+        (RESOURCE_TYPE_EXPERIMENT, "1_0", "10"),
+        (RESOURCE_TYPE_EXPERIMENT, "-0", "0"),
+        (RESOURCE_TYPE_EXPERIMENT, "\uff11", "1"),
+        (RESOURCE_TYPE_EXPERIMENT, "*", "*"),
+        (RESOURCE_TYPE_EXPERIMENT, "not-a-number", "not-a-number"),
+        (RESOURCE_TYPE_SCORER, "01/my%2Fscorer", "1/my%2Fscorer"),
+        (RESOURCE_TYPE_SCORER, "1/name", "1/name"),
+        (RESOURCE_TYPE_SCORER, "01", "1"),
+        (RESOURCE_TYPE_REGISTERED_MODEL, "01", "01"),
+    ],
+)
+def test_canonical_resource_id(resource_type, resource_id, expected):
+    assert canonical_resource_id(resource_type, resource_id) == expected
+
+
+@pytest.mark.parametrize(
+    ("resource_pattern", "resource_type", "resource_id", "expected"),
+    [
+        ("1", RESOURCE_TYPE_EXPERIMENT, "01", True),
+        # Grants are written in the canonical form, so only the request's ID is converted.
+        ("01", RESOURCE_TYPE_EXPERIMENT, "1", False),
+        ("1", RESOURCE_TYPE_EXPERIMENT, "2", False),
+        ("1/name", RESOURCE_TYPE_SCORER, "+1/name", True),
+        ("1/name", RESOURCE_TYPE_SCORER, "1/other", False),
+        ("1", RESOURCE_TYPE_REGISTERED_MODEL, "01", False),
+        ("1", RESOURCE_TYPE_EXPERIMENT, None, False),
+        # Values from a JSON body that the tracking store would reject.
+        ("1", RESOURCE_TYPE_EXPERIMENT, ["1"], False),
+        ("1", RESOURCE_TYPE_EXPERIMENT, float("inf"), False),
+    ],
+)
+def test_matches_compares_experiment_ids_as_the_tracking_store_reads_them(
+    resource_pattern, resource_type, resource_id, expected
+):
+    assert matches(resource_pattern, resource_type, resource_id) is expected

@@ -5,7 +5,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 1048576,
-        "max_tokens": 1048576
+        "max_output": 1048576
       },
       "pricing": {
         "input_per_million_tokens": 0.01,
@@ -20,13 +20,13 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-13"
+      "last_updated_at": "2026-10-27"
     },
     "deepseek-v4.1-flash-fast": {
       "mode": "chat",
       "context_window": {
         "max_input": 1048576,
-        "max_tokens": 1048576
+        "max_output": 1048576
       },
       "pricing": {
         "input_per_million_tokens": 0.01,
@@ -41,13 +41,13 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-13"
+      "last_updated_at": "2026-10-27"
     },
     "deepseek-v4.1-flash-fast-fp4": {
       "mode": "chat",
       "context_window": {
         "max_input": 1048576,
-        "max_tokens": 1048576
+        "max_output": 1048576
       },
       "pricing": {
         "input_per_million_tokens": 0.01,
@@ -62,13 +62,13 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-13"
+      "last_updated_at": "2026-10-27"
     },
     "glm-5.3": {
       "mode": "chat",
       "context_window": {
         "max_input": 1048576,
-        "max_tokens": 1048576
+        "max_output": 1048576
       },
       "pricing": {
         "input_per_million_tokens": 1.12,
@@ -83,13 +83,13 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-13"
+      "last_updated_at": "2026-10-27"
     },
     "glm-5.3-fast": {
       "mode": "chat",
       "context_window": {
         "max_input": 1048576,
-        "max_tokens": 1048576
+        "max_output": 1048576
       },
       "pricing": {
         "input_per_million_tokens": 1.12,
@@ -104,13 +104,13 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-13"
+      "last_updated_at": "2026-10-27"
     },
     "glm-5.3-fp4": {
       "mode": "chat",
       "context_window": {
         "max_input": 1048576,
-        "max_tokens": 1048576
+        "max_output": 1048576
       },
       "pricing": {
         "input_per_million_tokens": 1.12,
@@ -125,7 +125,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-13"
+      "last_updated_at": "2026-10-27"
     }
   }
 }

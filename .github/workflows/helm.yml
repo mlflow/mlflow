@@ -118,6 +118,81 @@ jobs:
           echo "$spread" | grep -q '^          topologyKey: topology.kubernetes.io/zone$'
           echo "$spread" | grep -q '^          whenUnsatisfiable: DoNotSchedule'
 
+      - name: Render HPA
+        run: |
+          render() {
+            helm template mlflow charts/ \
+              --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db" "$@" \
+              -s templates/deployment.yaml
+          }
+          # No HPA is rendered by default, replicas field is present.
+          default=$(render)
+          if echo "$default" | grep -q '^  horizontalPodAutoscaler:'; then
+            echo "HPA should not render by default" >&2
+            exit 1
+          fi
+          echo "$default" | grep -q '^  replicas: 1$'
+
+          # HPA is omitted and validation fails with SQLite backend.
+          sqlite_err=$(helm template mlflow charts/ \
+            --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db" \
+            --set autoscaling.enabled=true 2>&1 || true)
+          echo "$sqlite_err" | grep -q "autoscaling.enabled cannot be used with SQLite"
+
+          # HPA renders when enabled with proper resources and external backend.
+          hpa=$(helm template mlflow charts/ \
+            --set mlflow.backendStoreUri="postgresql://localhost/mlflow" \
+            --set autoscaling.enabled=true \
+            --set autoscaling.minReplicas=2 \
+            --set autoscaling.maxReplicas=5 \
+            --set 'resources.requests.cpu=250m' \
+            --set 'resources.requests.memory=256Mi' \
+            -s templates/hpa.yaml)
+          echo "$hpa" | grep -q '^kind: HorizontalPodAutoscaler$'
+          echo "$hpa" | grep -q '^  minReplicas: 2$'
+          echo "$hpa" | grep -q '^  maxReplicas: 5$'
+          echo "$hpa" | grep -q 'name: cpu'
+          echo "$hpa" | grep -q 'name: memory'
+
+          # Deployment omits replicas when HPA is enabled.
+          deploy=$(helm template mlflow charts/ \
+            --set mlflow.backendStoreUri="postgresql://localhost/mlflow" \
+            --set autoscaling.enabled=true \
+            --set 'resources.requests.cpu=250m' \
+            --set 'resources.requests.memory=256Mi' \
+            -s templates/deployment.yaml)
+          if echo "$deploy" | grep -q '^  replicas:'; then
+            echo "Deployment replicas field should be omitted when HPA is enabled" >&2
+            exit 1
+          fi
+
+          # Validation fails when memory target is set but memory requests are missing.
+          mem_err=$(helm template mlflow charts/ \
+            --set mlflow.backendStoreUri="postgresql://localhost/mlflow" \
+            --set autoscaling.enabled=true \
+            --set 'resources.requests.cpu=250m' 2>&1 || true)
+          echo "$mem_err" | grep -q "requires resources.requests.memory to be set"
+
+          # Validation fails cleanly (not a nil-pointer error) when resources are left at the default.
+          nores_err=$(helm template mlflow charts/ \
+            --set mlflow.backendStoreUri="postgresql://localhost/mlflow" \
+            --set autoscaling.enabled=true 2>&1 || true)
+          echo "$nores_err" | grep -q "requires resources.requests.cpu to be set"
+          if echo "$nores_err" | grep -q "nil pointer"; then
+            echo "resources-unset path should not hit a nil pointer" >&2
+            exit 1
+          fi
+
+          # Overriding only one replica bound via --set still renders (float64 vs int64 comparison).
+          maxonly=$(helm template mlflow charts/ \
+            --set mlflow.backendStoreUri="postgresql://localhost/mlflow" \
+            --set autoscaling.enabled=true \
+            --set 'resources.requests.cpu=250m' \
+            --set 'resources.requests.memory=256Mi' \
+            --set autoscaling.maxReplicas=5 \
+            -s templates/hpa.yaml)
+          echo "$maxonly" | grep -q '^  maxReplicas: 5$'
+
       - name: Render probes
         run: |
           render() {
