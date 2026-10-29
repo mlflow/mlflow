@@ -260,6 +260,10 @@ exclude-newer = "P7D"
 exclude-newer-package = { torch = false, torchvision = false }
 required-version = ">=0.13.6"
 constraint-dependencies = [
+  # The released MLflow package used by the migration check currently requires pyarrow<26.
+  # TODO: Remove once the latest released MLflow version supports pyarrow>=26.
+  # Then run `uv lock --upgrade-package pyarrow` to update only PyArrow.
+  "pyarrow<26",
   # xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
   # https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept
   "xgboost<3.1.0",
