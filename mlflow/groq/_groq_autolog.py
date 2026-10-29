@@ -138,6 +138,7 @@ def _reconstruct_completion_from_chunks(chunks: list[Any]) -> dict[str, Any] | N
         return None
 
     content = ""
+    reasoning = ""
     tool_calls = {}
     finish_reason = None
     for chunk in chunks:
@@ -146,6 +147,7 @@ def _reconstruct_completion_from_chunks(chunks: list[Any]) -> dict[str, Any] | N
         choice = chunk.choices[0]
         finish_reason = choice.finish_reason or finish_reason
         content += choice.delta.content or ""
+        reasoning += getattr(choice.delta, "reasoning", None) or ""
         for tool_call in choice.delta.tool_calls or []:
             if tool_call.index not in tool_calls:
                 tool_calls[tool_call.index] = tool_call.model_dump(exclude={"index"})
@@ -155,6 +157,8 @@ def _reconstruct_completion_from_chunks(chunks: list[Any]) -> dict[str, Any] | N
                 merged["arguments"] = (merged["arguments"] or "") + tool_call.function.arguments
 
     message = {"role": "assistant", "content": content}
+    if reasoning:
+        message["reasoning"] = reasoning
     if tool_calls:
         message["tool_calls"] = [tool_calls[index] for index in sorted(tool_calls)]
 
@@ -179,7 +183,7 @@ def _inject_tracing_headers(kwargs, span):
 
 def _parse_chunk_usage(chunk: Any) -> dict[str, int] | None:
     # Groq reports the usage of a streaming response in ``x_groq.usage`` of the last chunk,
-    # or in ``usage`` when ``stream_options={"include_usage": True}`` is set.
+    # or in ``usage`` when ``stream_options={"include_usage": True}`` is set (via ``extra_body``).
     return _parse_usage(chunk) or _parse_usage(getattr(chunk, "x_groq", None))
 
 

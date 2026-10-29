@@ -449,7 +449,8 @@ def _streaming_client(chunks):
     "chunks",
     [
         DUMMY_STREAM_CHUNKS,
-        # With stream_options={"include_usage": True}, the usage is sent in a separate last chunk
+        # With extra_body={"stream_options": {"include_usage": True}}, the usage is sent in a
+        # separate last chunk
         [
             *DUMMY_STREAM_CHUNKS[:-1],
             _stream_chunk({}, finish_reason="stop"),
@@ -495,6 +496,24 @@ def test_chat_completion_streaming_autolog(chunks):
         "input_tokens": 20,
         "output_tokens": 3,
         "total_tokens": 23,
+    }
+
+
+def test_chat_completion_streaming_autolog_with_reasoning():
+    mlflow.groq.autolog()
+    client = _streaming_client([
+        _stream_chunk({"role": "assistant", "reasoning": "The user"}),
+        _stream_chunk({"reasoning": " wants a test."}),
+        *DUMMY_STREAM_CHUNKS[1:],
+    ])
+
+    list(client.chat.completions.create(**DUMMY_CHAT_COMPLETION_REQUEST, stream=True))
+
+    span = get_traces()[0].data.spans[0]
+    assert span.outputs["choices"][0]["message"] == {
+        "role": "assistant",
+        "content": "test response",
+        "reasoning": "The user wants a test.",
     }
 
 
