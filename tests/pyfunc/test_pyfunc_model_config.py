@@ -158,13 +158,13 @@ def test_pyfunc_loader_without_model_config(model_path):
 @pytest.mark.parametrize("extension", [".yaml", ".json"])
 def test_log_model_with_utf8_model_config(tmp_path, extension):
     config_path = tmp_path / f"config{extension}"
-    prompt = "You\\u2019re a helpful assistant — reply in 日本語"
+    prompt = "You\u2019re a helpful assistant — reply in 日本語"
     if extension == ".json":
         config_path.write_text(
             '{"system_prompt": "' + prompt + '"}', encoding="utf-8"
         )
     else:
-        config_path.write_text(f'system_prompt: "{prompt}"\\n', encoding="utf-8")
+        config_path.write_text(f'system_prompt: "{prompt}"\n', encoding="utf-8")
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
@@ -181,9 +181,9 @@ def test_log_model_with_utf8_model_config(tmp_path, extension):
 def test_log_model_rejects_non_utf8_model_config(tmp_path, extension):
     config_path = tmp_path / f"invalid{extension}"
     invalid_content = (
-        b'{"system_prompt": "\\xff"}'
+        b'{"system_prompt": "\xff"}'
         if extension == ".json"
-        else b"system_prompt: \\xff"
+        else b"system_prompt: \xff"
     )
     config_path.write_bytes(invalid_content)
 
