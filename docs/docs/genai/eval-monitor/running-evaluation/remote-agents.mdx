@@ -1,0 +1,189 @@
+---
+description: Evaluate an agent hosted behind an HTTP endpoint using distributed tracing to score its responses and tool calls.
+---
+
+import { APILink } from "@site/src/components/APILink";
+
+# Evaluate Remote Agents
+
+You can evaluate a remotely hosted agent by passing an HTTP prediction function to <APILink fn="mlflow.genai.evaluate" />. To evaluate the agent's intermediate behavior, such as tool calls, use [distributed tracing](/genai/tracing/app-instrumentation/distributed-tracing) to connect the prediction function's trace with spans from the remote service.
+
+## How evaluation with a remote agent works
+
+MLflow associates each evaluation task, or dataset row, with a prediction trace. When the agent runs in the same process, its instrumented LLM and tool calls become spans in that trace. When the agent runs in a remote service, its spans are created in another process. Wrapping the HTTP call in a trace does not automatically include those remote spans.
+
+Distributed tracing connects the two processes:
+
+1. The client's traced `predict_fn` creates a root span for each evaluation task.
+2. The client sends the active trace context in the HTTP `traceparent` header. This identifies the trace and parent span for the request.
+3. The service restores that context **before** invoking the instrumented agent. Its agent, LLM, and tool spans become children in the same trace.
+4. MLflow evaluation uses the returned answer and the combined trace to run the scorers.
+
+Response-quality scorers such as <APILink fn="mlflow.genai.scorers.Correctness">Correctness</APILink> can score the answer without the remote spans. Scorers such as <APILink fn="mlflow.genai.scorers.ToolCallCorrectness">ToolCallCorrectness</APILink> need those spans to evaluate the agent's behavior.
+
+The following example uses two Python processes: a FastAPI service hosting a tool-calling agent, and a client running evaluation. The same pattern applies when the service is deployed on another host.
+
+## Prerequisites
+
+- An MLflow tracking server that both the client and service can reach. Both processes must log to the **same tracking server and experiment**. See [Tracking Server Setup](/self-hosting).
+- An OpenAI API key for the example agent and LLM judges. Other agent frameworks and [judge models](/genai/eval-monitor/scorers/llm-judge/custom-judges/supported-models) can use the same context-propagation pattern.
+
+Install the example dependencies:
+
+```bash
+pip install --upgrade mlflow openai-agents fastapi uvicorn requests litellm
+```
+
+Set the following environment variables in **both** processes. MLflow and the OpenAI SDK read them automatically:
+
+```bash
+export MLFLOW_TRACKING_URI="https://<tracking-server>"
+export MLFLOW_EXPERIMENT_NAME="remote-agent-evaluation"
+export OPENAI_API_KEY="<your-api-key>"
+```
+
+Configure any authentication required by your tracking server and agent endpoint for your deployment.
+
+## Step 1: Host an instrumented agent
+
+Save the following as `server.py`. The agent uses the [OpenAI Agents SDK](/genai/tracing/integrations/listing/openai-agent) and calls calculator tools through an LLM. If you already have an instrumented agent, apply the context-restoration block around its invocation instead.
+
+```python title="server.py"
+from contextlib import nullcontext
+
+import mlflow
+from agents import Agent, Runner, function_tool
+from fastapi import FastAPI, Request
+from mlflow.tracing import set_tracing_context_from_http_request_headers
+
+# Capture the agent's LLM calls and tool executions.
+mlflow.openai.autolog()
+
+
+@function_tool
+def add(a: float, b: float) -> float:
+    """Add two numbers."""
+    return a + b
+
+
+@function_tool
+def multiply(a: float, b: float) -> float:
+    """Multiply two numbers."""
+    return a * b
+
+
+agent = Agent(
+    name="Math agent",
+    model="gpt-5-mini",
+    instructions="Use the calculator tools to answer math questions. Give a concise answer.",
+    tools=[add, multiply],
+)
+app = FastAPI()
+
+
+@app.post("/invoke")
+async def invoke(request: Request):
+    body = await request.json()
+    headers = dict(request.headers)
+    # Also accept ordinary requests that have no parent trace context.
+    context = (
+        set_tracing_context_from_http_request_headers(headers)
+        if "traceparent" in headers
+        else nullcontext()
+    )
+    with context:
+        # Restore context before creating any spans or invoking the agent.
+        with mlflow.start_span(name="remote-agent") as span:
+            span.set_inputs(body)
+            result = await Runner.run(agent, body["question"])
+            answer = result.final_output
+            span.set_outputs(answer)
+    return {"answer": answer}
+```
+
+Start the service:
+
+```bash
+uvicorn server:app --host 127.0.0.1 --port 8000
+```
+
+The <APILink fn="mlflow.tracing.set_tracing_context_from_http_request_headers" /> context manager restores the caller's parent context for this request. Autologging then records the agent's internal spans under that parent. The context manager resets the context when the request finishes.
+
+## Step 2: Run evaluation from the client
+
+Save the following as `evaluate.py`. The `inputs` keys match the arguments of `predict_fn`, and `expected_response` supplies the reference answer for the correctness judge.
+
+```python title="evaluate.py"
+import os
+
+import mlflow
+import requests
+from mlflow.genai.scorers import Correctness, RelevanceToQuery, ToolCallCorrectness
+from mlflow.tracing import get_tracing_context_headers_for_http_request
+
+
+@mlflow.trace
+def predict_fn(question: str) -> str:
+    # Serialize the active trace and parent span into the traceparent header.
+    headers = get_tracing_context_headers_for_http_request()
+    response = requests.post(
+        os.environ["AGENT_URL"],
+        json={"question": question},
+        headers=headers,
+        timeout=120,
+    )
+    response.raise_for_status()
+    return response.json()["answer"]
+
+
+eval_dataset = [
+    {
+        "inputs": {"question": "I have 17 notebooks and buy 25 more. How many do I have?"},
+        "expectations": {"expected_response": "42 notebooks."},
+    },
+    {
+        "inputs": {"question": "There are 12 boxes with 7 pens each. How many pens are there?"},
+        "expectations": {"expected_response": "84 pens."},
+    },
+    {
+        "inputs": {"question": "I buy 3 items at $8 each and pay $5 shipping. What is the total?"},
+        "expectations": {"expected_response": "The total is $29."},
+    },
+]
+
+results = mlflow.genai.evaluate(
+    data=eval_dataset,
+    predict_fn=predict_fn,
+    scorers=[
+        Correctness(model="openai:/gpt-5-mini"),
+        RelevanceToQuery(model="openai:/gpt-5-mini"),
+        ToolCallCorrectness(model="openai:/gpt-5-mini"),
+    ],
+)
+print(results.metrics)
+```
+
+The <APILink fn="mlflow.tracing.get_tracing_context_headers_for_http_request" /> function generates the W3C headers from the active span. Call it **inside** the traced prediction function so each task passes its own context.
+
+Run the client in a second terminal with the same tracking and experiment configuration:
+
+```bash
+export AGENT_URL="http://127.0.0.1:8000/invoke"
+python evaluate.py
+```
+
+For a deployed service, set `AGENT_URL` to its endpoint URL and add the service's authentication headers to the request.
+
+## Step 3: Inspect the results
+
+Open the evaluation run in the MLflow UI to compare scores and judge rationales for each dataset row. Open a row's trace to see the client's `predict_fn` span, the service's `remote-agent` span, and the agent's LLM and tool spans in one hierarchy.
+
+`Correctness` compares the answer with `expected_response`. `RelevanceToQuery` evaluates whether it answers the question. `ToolCallCorrectness` inspects the remote spans to judge whether tool choices and arguments are appropriate.
+
+## Deployment considerations
+
+- The service must be instrumented; propagating headers alone does not record its internal operations.
+- Proxies and middleware must preserve the `traceparent` header. Restore the context that identifies the client's prediction span before invoking the agent.
+- Spans are exported independently by the client and service. An HTTP response does not guarantee that every remote span has reached the tracking server. Trace-dependent scorers need the remote spans to be available when scoring begins.
+
+See [Distributed Tracing](/genai/tracing/app-instrumentation/distributed-tracing) for more detail on context propagation, and [Evaluate Traces](/genai/eval-monitor/running-evaluation/traces) to score traces collected from existing agent executions.

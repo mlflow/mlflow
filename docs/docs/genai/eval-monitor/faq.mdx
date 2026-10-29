@@ -96,6 +96,12 @@ with mlflow.start_run(run_name="My Evaluation Run") as run:
     mlflow.genai.evaluate(...)
 ```
 
+## How do I evaluate a remotely hosted agent?
+
+Wrap the HTTP request in a traced `predict_fn` and pass it to <APILink fn="mlflow.genai.evaluate" />. For scorers that inspect agent behavior, propagate the active trace context to the service and restore it before invoking the instrumented agent. This connects the client and remote spans into one trace per evaluation task.
+
+See [Evaluate Remote Agents](/genai/eval-monitor/running-evaluation/remote-agents) for a complete client and service example.
+
 ## How do I use Databricks Model Serving endpoints as the predict function?
 
 MLflow provides <APILink fn="mlflow.genai.to_predict_fn" />, which wraps a Databricks Model Serving endpoint so it behaves like a predict function compatible with the evaluation framework.

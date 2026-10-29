@@ -674,6 +674,11 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'doc',
+              id: 'eval-monitor/running-evaluation/remote-agents',
+              label: 'Evaluate Remote Agents',
+            },
+            {
+              type: 'doc',
               id: 'eval-monitor/running-evaluation/traces',
               label: 'Evaluate Traces',
             },
