@@ -10,6 +10,7 @@ from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
 from mlflow.tracing.export.span_batcher import SpanBatcher
 from mlflow.tracing.export.utils import flush_exporter
 from mlflow.tracing.utils import get_active_spans_table_name
+from mlflow.utils.databricks_utils import is_in_databricks_job
 
 _logger = logging.getLogger(__name__)
 
@@ -65,6 +66,10 @@ class DatabricksUCTableSpanExporter(MlflowV3SpanExporter):
                 self._has_raised_span_export_error = True
 
     def _should_enable_async_logging(self) -> bool:
+        if not MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.is_set() and is_in_databricks_job():
+            # Job completion does not wait for Python exit hooks. Export while the task
+            # is running instead of leaving a partial batch for process shutdown.
+            return False
         return MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
 
     # Override this to False since spans are logged to UC table instead of artifacts.
