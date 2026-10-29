@@ -15,6 +15,7 @@ from mlflow.demo.generators.traces import DEMO_VERSION_TAG
 from mlflow.entities import SpanType
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.issue_evidence import ISSUE_EVIDENCE_METADATA_KEY
+from mlflow.entities.run_status import RunStatus
 from mlflow.genai.discovery.checkpoint import STALE_WATERMARK_CAP_MS
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.utils.mlflow_tags import (
@@ -144,6 +145,18 @@ def test_detection_history_covers_the_states_the_page_must_render():
     assert all(spec.get("window_days") for spec in _DEMO_DETECTION_HISTORY if spec["scheduled"])
 
 
+def test_only_the_runs_that_finished_claim_an_analyzed_count():
+    # The count is written when the analysis returns, so a run that failed or was killed has
+    # none -- and where there is one it cannot exceed what the run was handed.
+    for spec in _DEMO_DETECTION_HISTORY:
+        analyzed = spec.get("analyzed_traces")
+        if spec["status"] == RunStatus.FINISHED:
+            assert analyzed is not None
+            assert analyzed <= spec["total_traces"]
+        else:
+            assert analyzed is None
+
+
 def test_detection_history_windows_stay_within_the_production_cap():
     # A wider window is one the scheduler could never have produced.
     cap_days = STALE_WATERMARK_CAP_MS / (24 * 60 * 60 * 1000)
@@ -261,6 +274,15 @@ def test_generate_records_the_run_history_the_page_lists(demo_experiment_with_fa
             run.data.tags[MLFLOW_ISSUE_DETECTION_WINDOW_END]
         )
     assert any(run.data.tags.get(MLFLOW_ISSUE_DETECTION_ERROR) for run in runs)
+    # The column reads the analyzed count, so a finished run has to carry one and one that
+    # stopped short must not -- a blank cell is the honest answer there.
+    for run in runs:
+        analyzed = run.data.tags.get("total_traces_analyzed")
+        if run.info.status == "FINISHED":
+            assert analyzed is not None
+            assert int(analyzed) <= int(run.data.tags["total_traces"])
+        else:
+            assert analyzed is None
     assert {run.info.status for run in runs} >= {"FINISHED", "FAILED", "KILLED"}
     # The page polls while a loaded run is unsettled, so none may be left RUNNING.
     assert all(run.info.end_time for run in runs)

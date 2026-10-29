@@ -119,6 +119,9 @@ _DEMO_DETECTION_MODEL = "openai:/gpt-4o-mini"
 # The runs behind the one that filed the demo's issues, so the run history page has more than a
 # single row. Between them: both triggers, three terminal statuses, a run that analyzed nothing,
 # and a failure with its reason. None is left RUNNING -- the page polls while one is unsettled.
+#
+# ``total_traces`` is what was handed in and ``analyzed_traces`` what the sampler left; a run that
+# did not finish records only the first, since the second is written when the analysis returns.
 _DEMO_DETECTION_HISTORY = (
     {
         # Neither the quiet occurrence nor the failure below advanced the watermark, so this run
@@ -129,6 +132,7 @@ _DEMO_DETECTION_HISTORY = (
         "status": RunStatus.FINISHED,
         "scheduled": True,
         "total_traces": 180,
+        "analyzed_traces": 120,
         "cost_usd": "0.41",
         "window_days": 8,
     },
@@ -163,6 +167,7 @@ _DEMO_DETECTION_HISTORY = (
         "status": RunStatus.FINISHED,
         "scheduled": True,
         "total_traces": 0,
+        "analyzed_traces": 0,
         "cost_usd": "0.00",
         "window_days": 7,
     },
@@ -179,7 +184,7 @@ class IssuesDemoGenerator(BaseDemoGenerator):
     """
 
     name = DemoFeature.ISSUES
-    version = 5
+    version = 6
 
     def generate(self) -> DemoResult:
         store = _get_store()
@@ -296,8 +301,10 @@ class IssuesDemoGenerator(BaseDemoGenerator):
                 "mlflow.issueDetection.result.issues": str(len(created_issue_ids)),
                 "mlflow.issueDetection.result.totalTracesAnalyzed": str(len(v1_traces)),
                 "mlflow.issueDetection.result.summary": summary,
-                # The key a real detection run writes, which is what the run history page reads.
+                # The keys a real detection run writes, which is what the run history page reads.
+                # Every trace it was given was analyzed, so the two counts agree here.
                 "total_traces": str(len(v1_traces)),
+                "total_traces_analyzed": str(len(v1_traces)),
                 "model": _DEMO_DETECTION_MODEL,
             })
 
@@ -352,6 +359,8 @@ class IssuesDemoGenerator(BaseDemoGenerator):
                     start_time - spec["window_days"] * _DAY_MS
                 )
                 tags[MLFLOW_ISSUE_DETECTION_WINDOW_END] = str(start_time)
+            if (analyzed := spec.get("analyzed_traces")) is not None:
+                tags["total_traces_analyzed"] = str(analyzed)
             if spec["cost_usd"] is not None:
                 tags["total_cost_usd"] = spec["cost_usd"]
             if error := spec.get("error"):
