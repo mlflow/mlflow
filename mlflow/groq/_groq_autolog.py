@@ -70,11 +70,15 @@ def _inject_tracing_headers(kwargs, span):
 def _parse_usage(output: Any) -> dict[str, int] | None:
     try:
         if usage := getattr(output, "usage", None):
-            return {
-                TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
-                TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
-                TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
-            }
+            # Embedding usage has no `completion_tokens`, so read each field only if present.
+            usage_dict = {}
+            if (prompt_tokens := getattr(usage, "prompt_tokens", None)) is not None:
+                usage_dict[TokenUsageKey.INPUT_TOKENS] = prompt_tokens
+            if (completion_tokens := getattr(usage, "completion_tokens", None)) is not None:
+                usage_dict[TokenUsageKey.OUTPUT_TOKENS] = completion_tokens
+            if (total_tokens := getattr(usage, "total_tokens", None)) is not None:
+                usage_dict[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+            return usage_dict or None
     except Exception as e:
         _logger.debug(f"Failed to parse token usage from output: {e}")
     return None
