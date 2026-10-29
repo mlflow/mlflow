@@ -92,10 +92,10 @@ def test_config_development_config_to_dict():
     }
 
 
-def test_config_utf8_encoding(tmp_path):
+def test_config_utf8_encoding(tmp_path, monkeypatch):
     config_path = tmp_path / "utf8_config.yaml"
-    expected_prompt = "You\u2019re a helpful assistant — reply in 日本語"
-    config_path.write_text(f'system_prompt: "{expected_prompt}"\n', encoding="utf-8")
+    expected_prompt = "You\\u2019re a helpful assistant — reply in 日本語"
+    config_path.write_text(f'system_prompt: "{expected_prompt}"\\n', encoding="utf-8")
 
     real_open = open
 
@@ -104,6 +104,15 @@ def test_config_utf8_encoding(tmp_path):
             encoding = "cp1252"
         return real_open(file, mode, buffering, encoding, *args, **kwargs)
 
-    with mock.patch("builtins.open", side_effect=cp1252_open):
-        config = ModelConfig(development_config=str(config_path))
-        assert config.get("system_prompt") == expected_prompt
+    monkeypatch.setattr("mlflow.models.model_config.open", cp1252_open, raising=False)
+    config = ModelConfig(development_config=str(config_path))
+    assert config.get("system_prompt") == expected_prompt
+
+
+def test_config_rejects_non_utf8_encoding(tmp_path):
+    config_path = tmp_path / "invalid_encoding.yaml"
+    config_path.write_bytes(b"system_prompt: \\xff")
+
+    config = ModelConfig(development_config=str(config_path))
+    with pytest.raises(MlflowException, match="must be UTF-8 encoded"):
+        config.get("system_prompt")
