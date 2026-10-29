@@ -2431,6 +2431,10 @@
     "defaultMessage": "No data found for trace ID: {traceId}",
     "description": "Body shown in the V4 trace drawer when a trace has no data"
   },
+  "65nX7o": {
+    "defaultMessage": "Analyzed traces",
+    "description": "Experiment issues tab > Run history > Column header for how many traces a run analyzed"
+  },
   "66SAEx": {
     "defaultMessage": "Swap baseline and candidate",
     "description": "Accessible label for reversing the trace comparison order"
@@ -6019,10 +6023,6 @@
     "defaultMessage": "Add tag",
     "description": "Aria label for the add-tag button in the V2 dataset record side panel (create mode)"
   },
-  "Hadg0k": {
-    "defaultMessage": "Why it failed",
-    "description": "Experiment issues tab > Run history > Label above the reason a run failed"
-  },
   "Hay/ss": {
     "defaultMessage": "Select up to 2 runs to compare",
     "description": "Tooltip for the compare button when disabled"
@@ -8651,10 +8651,6 @@
     "defaultMessage": "\"{name}\" was deleted while the assistant was working, so it was not updated.",
     "description": "Error shown when the assistant finishes building a custom view that the user deleted while the request was running"
   },
-  "PjCKlR": {
-    "defaultMessage": "{count}+ runs loaded",
-    "description": "Experiment issues tab > Run history > Count of loaded runs while more pages remain"
-  },
   "PlP56F": {
     "defaultMessage": "Enter value",
     "description": "Usage overview > filter row > value input placeholder"
@@ -9166,10 +9162,6 @@
   "RSPGtl": {
     "defaultMessage": "@latest",
     "description": "MCP registry latest alias option"
-  },
-  "RUOgp3": {
-    "defaultMessage": "{count, plural, one {# run} other {# runs}}",
-    "description": "Experiment issues tab > Run history > Total count of runs"
   },
   "RUju4k": {
     "defaultMessage": "Charts",
@@ -11962,10 +11954,6 @@
   "aSnHN9": {
     "defaultMessage": "Tool Call Efficiency",
     "description": "LLM template option"
-  },
-  "aT0Q1L": {
-    "defaultMessage": "Edit schedule",
-    "description": "Experiment issues tab > Button that opens the schedule dialog from the run history page"
   },
   "aTO9J7": {
     "defaultMessage": "Manage workspace",
@@ -15918,10 +15906,6 @@
   "mOrkdv": {
     "defaultMessage": "Create evaluation datasets in order to iteratively evaluate and improve your app. For example, build a dataset from production traces with negative feedback. {learnMoreLink}",
     "description": "Description for the V2 evaluation datasets empty state"
-  },
-  "mPzSfT": {
-    "defaultMessage": "Scanned traces",
-    "description": "Experiment issues tab > Run history > Column header for how many traces a run analyzed"
   },
   "mRc7MY": {
     "defaultMessage": "Expand rows",

@@ -1,8 +1,9 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import {
   Button,
   CalendarClockIcon,
+  CursorPagination,
   DangerIcon,
   Empty,
   Spacer,
@@ -12,6 +13,7 @@ import {
   TableRow,
   TableSkeleton,
   Tag,
+  Tooltip,
   Typography,
   UserIcon,
   useDesignSystemTheme,
@@ -38,21 +40,21 @@ import { useDetectionRuns } from './useDetectionRuns';
 
 const COMPONENT_ID = 'mlflow.experiment-issues.detection-runs';
 
-/** How close to the bottom of the list fetches the next page, matching the Evaluation runs tab. */
-const OFFSET_FROM_BOTTOM_TO_FETCH_MORE = 200;
-
 /** Column widths, flex-basis style, since the design system's table is a flex grid. */
 const COLUMN_WIDTHS = {
   createdAt: 120,
   status: 100,
   trigger: 105,
   window: 200,
-  scannedTraces: 120,
+  analyzedTraces: 130,
   newIssues: 95,
   model: 170,
   cost: 85,
   duration: 95,
 } as const;
+
+/** How wide the failure tooltip may grow, sized for the 500 characters a run tag can hold. */
+const ERROR_TOOLTIP_MAX_WIDTH = 420;
 
 /**
  * The run's status, shown the way the Evaluation runs table shows it.
@@ -60,10 +62,14 @@ const COLUMN_WIDTHS = {
  * The same `RunStatusIcon` and the same five words, so a run listed here and the same run listed
  * there cannot read as two different things. `other` covers a status a newer server introduces,
  * which `RunStatusIcon` draws nothing for.
+ *
+ * A run that recorded why it failed carries that reason in a tooltip here, rather than in a row
+ * of its own under the table: the message is the provider's own wording and can run to a few
+ * hundred characters, which as a row pushed the next run down the page.
  */
-const StatusCell = ({ status }: { status: string }) => {
+const StatusCell = ({ status, error }: { status: string; error?: string }) => {
   const { theme } = useDesignSystemTheme();
-  return (
+  const label = (
     <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs, whiteSpace: 'nowrap' }}>
       <RunStatusIcon status={status} />
       <Typography.Text size="sm">
@@ -75,22 +81,38 @@ const StatusCell = ({ status }: { status: string }) => {
       </Typography.Text>
     </span>
   );
+  if (!error) {
+    return label;
+  }
+  return (
+    <Tooltip
+      componentId={`${COMPONENT_ID}.status.error`}
+      maxWidth={ERROR_TOOLTIP_MAX_WIDTH}
+      content={<span css={{ wordBreak: 'break-word' }}>{error}</span>}
+    >
+      {label}
+    </Tooltip>
+  );
 };
 
-/** Whether the run was fired by the schedule or asked for by a person. */
+/**
+ * Whether the run was fired by the schedule or asked for by a person.
+ *
+ * The icon goes in the `Tag`'s own slot rather than among its children, which is how the traces
+ * table builds the same pill: the slot sizes the icon to the label and spaces it, where a child
+ * icon renders full size against the text.
+ */
 const TriggerCell = ({ trigger }: { trigger: DetectionRunTrigger }) => {
-  const pillCss = { display: 'inline-flex', alignItems: 'center', gap: 4, margin: 0 } as const;
+  const pillCss = { width: 'fit-content', maxWidth: '100%' } as const;
   return trigger === 'schedule' ? (
-    <Tag componentId={`${COMPONENT_ID}.trigger.schedule`} color="indigo" css={pillCss}>
-      <CalendarClockIcon />
+    <Tag componentId={`${COMPONENT_ID}.trigger.schedule`} color="indigo" icon={<CalendarClockIcon />} css={pillCss}>
       <FormattedMessage
         defaultMessage="Scheduled"
         description="Experiment issues tab > Run history > Trigger pill for a run the schedule fired"
       />
     </Tag>
   ) : (
-    <Tag componentId={`${COMPONENT_ID}.trigger.adhoc`} css={pillCss}>
-      <UserIcon />
+    <Tag componentId={`${COMPONENT_ID}.trigger.adhoc`} icon={<UserIcon />} css={pillCss}>
       <FormattedMessage
         defaultMessage="Ad hoc"
         description="Experiment issues tab > Run history > Trigger pill for a run somebody started by hand"
@@ -210,8 +232,18 @@ const DetectionRunsContent = ({ experimentId }: { experimentId: string }) => {
       description: 'Experiment issues tab > Breadcrumb leaf for the detection runs an experiment has recorded',
     }),
   );
-  const { rows, newIssueCounts, hasNextPage, fetchNextPage, isLoading, isFetching, error, refetch } =
-    useDetectionRuns(experimentId);
+  const {
+    rows,
+    newIssueCounts,
+    hasNextPage,
+    hasPreviousPage,
+    goToNextPage,
+    goToPreviousPage,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = useDetectionRuns(experimentId);
 
   // Read once per render rather than per row, so every duration on screen is measured from the
   // same instant. An unfinished run is timed against it, so its duration sits still between
@@ -265,16 +297,6 @@ const DetectionRunsContent = ({ experimentId }: { experimentId: string }) => {
     [schedule.setting, schedule.nextRunMs, schedule.timezone, intl.locale],
   );
 
-  const onScroll = useCallback(
-    (event: React.UIEvent<HTMLDivElement>) => {
-      const { scrollHeight, scrollTop, clientHeight } = event.currentTarget;
-      if (scrollHeight - scrollTop - clientHeight < OFFSET_FROM_BOTTOM_TO_FETCH_MORE && !isFetching && hasNextPage) {
-        fetchNextPage();
-      }
-    },
-    [fetchNextPage, isFetching, hasNextPage],
-  );
-
   const columns: { id: keyof typeof COLUMN_WIDTHS; label: React.ReactNode }[] = [
     {
       id: 'createdAt',
@@ -313,10 +335,10 @@ const DetectionRunsContent = ({ experimentId }: { experimentId: string }) => {
       ),
     },
     {
-      id: 'scannedTraces',
+      id: 'analyzedTraces',
       label: (
         <FormattedMessage
-          defaultMessage="Scanned traces"
+          defaultMessage="Analyzed traces"
           description="Experiment issues tab > Run history > Column header for how many traces a run analyzed"
         />
       ),
@@ -369,6 +391,28 @@ const DetectionRunsContent = ({ experimentId }: { experimentId: string }) => {
 
   const isEmpty = rows.length === 0;
 
+  /**
+   * Paged rather than scrolled, the way the experiment, prompt, scorer and dataset lists page: a
+   * run search answers with a cursor and no total, so there is no count to put beside the rows
+   * and nothing a page number could be worked out from.
+   *
+   * Shown beside the failure state as well as beside the table. A page that could not be read
+   * leaves no rows, so the error takes the table over -- and without this the page the user was
+   * reading a moment ago would have nothing left to click.
+   */
+  const pagination =
+    hasNextPage || hasPreviousPage ? (
+      <div css={{ display: 'flex', justifyContent: 'flex-end', paddingTop: theme.spacing.xs }}>
+        <CursorPagination
+          componentId={`${COMPONENT_ID}.pagination`}
+          hasNextPage={hasNextPage && !isFetching}
+          hasPreviousPage={hasPreviousPage && !isFetching}
+          onNextPage={goToNextPage}
+          onPreviousPage={goToPreviousPage}
+        />
+      </div>
+    ) : null;
+
   if (isLoading) {
     return <TableSkeleton lines={5} />;
   }
@@ -376,41 +420,40 @@ const DetectionRunsContent = ({ experimentId }: { experimentId: string }) => {
   // A failed read is not an empty history: left to the empty state, a transient outage would tell
   // someone nothing has ever run here. The schedule's own read is checked the same way, because
   // its fallback reads as "Schedule is off".
-  //
-  // Only when there is nothing to show, though. A later page failing also sets this error, and
-  // taking the page over then would throw away the runs already read to report that the next fifty
-  // could not be -- the hedged count below already says the list is incomplete.
   if ((error || schedule.loadError) && isEmpty) {
     return (
-      <Empty
-        image={<DangerIcon />}
-        title={
-          <FormattedMessage
-            defaultMessage="Could not load this experiment's run history"
-            description="Experiment issues tab > Run history > Title when the run history could not be read"
-          />
-        }
-        description={
-          <FormattedMessage
-            defaultMessage="The detection runs this experiment has recorded could not be read. Nothing has been lost."
-            description="Experiment issues tab > Run history > Body when the run history could not be read"
-          />
-        }
-        button={
-          <Button
-            componentId={`${COMPONENT_ID}.retry`}
-            onClick={() => {
-              void refetch();
-              schedule.reload();
-            }}
-          >
+      <>
+        <Empty
+          image={<DangerIcon />}
+          title={
             <FormattedMessage
-              defaultMessage="Retry"
-              description="Experiment issues tab > Run history > Action retrying a failed read"
+              defaultMessage="Could not load this experiment's run history"
+              description="Experiment issues tab > Run history > Title when the run history could not be read"
             />
-          </Button>
-        }
-      />
+          }
+          description={
+            <FormattedMessage
+              defaultMessage="The detection runs this experiment has recorded could not be read. Nothing has been lost."
+              description="Experiment issues tab > Run history > Body when the run history could not be read"
+            />
+          }
+          button={
+            <Button
+              componentId={`${COMPONENT_ID}.retry`}
+              onClick={() => {
+                void refetch();
+                schedule.reload();
+              }}
+            >
+              <FormattedMessage
+                defaultMessage="Retry"
+                description="Experiment issues tab > Run history > Action retrying a failed read"
+              />
+            </Button>
+          }
+        />
+        {pagination}
+      </>
     );
   }
 
@@ -443,14 +486,14 @@ const DetectionRunsContent = ({ experimentId }: { experimentId: string }) => {
         </div>
         {/* The same dialog the Issues tab opens, rendered here so editing a schedule does not
             mean leaving the page that shows what it has done. */}
-        <ExperimentIssuesScheduleControl experimentId={experimentId} triggerVariant="editButton" />
+        <ExperimentIssuesScheduleControl experimentId={experimentId} />
       </div>
       {isEmpty ? (
         <EmptyHistory nextRun={nextRun} />
       ) : (
         <>
           <Spacer size="md" />
-          <Table scrollable onScroll={onScroll} css={{ flex: 1 }}>
+          <Table scrollable css={{ flex: 1 }}>
             <TableRow isHeader>
               {columns.map(({ id, label }) => (
                 <TableHeader componentId={`${COMPONENT_ID}.header`} key={id} style={cellStyle(id)}>
@@ -459,13 +502,13 @@ const DetectionRunsContent = ({ experimentId }: { experimentId: string }) => {
               ))}
               <TableHeader componentId={`${COMPONENT_ID}.header.filler`} aria-hidden style={FILLER_CELL_STYLE} />
             </TableRow>
-            {rows.flatMap((row) => [
+            {rows.map((row) => (
               <TableRow key={row.runId}>
                 <TableCell style={cellStyle('createdAt')} css={{ alignItems: 'center' }}>
                   <TimeAgo date={new Date(row.createdAtMs)} />
                 </TableCell>
                 <TableCell style={cellStyle('status')} css={{ alignItems: 'center' }}>
-                  <StatusCell status={row.status} />
+                  <StatusCell status={row.status} error={row.status === 'FAILED' ? row.error : undefined} />
                 </TableCell>
                 <TableCell style={cellStyle('trigger')} css={{ alignItems: 'center' }}>
                   <TriggerCell trigger={row.trigger} />
@@ -473,8 +516,11 @@ const DetectionRunsContent = ({ experimentId }: { experimentId: string }) => {
                 <TableCell style={cellStyle('window')} css={{ alignItems: 'center' }}>
                   <WindowCell row={row} timezone={schedule.timezone} locale={intl.locale} />
                 </TableCell>
-                <TableCell style={cellStyle('scannedTraces')} css={{ alignItems: 'center' }}>
-                  {row.scannedTraces === undefined ? <Dash /> : row.scannedTraces}
+                <TableCell style={cellStyle('analyzedTraces')} css={{ alignItems: 'center' }}>
+                  {/* The count the run recorded when it finished, which is what the model was
+                    shown rather than what was handed in: a run still going, or one from before
+                    that count was recorded, has none. */}
+                  {row.analyzedTraces === undefined ? <Dash /> : row.analyzedTraces}
                 </TableCell>
                 <TableCell style={cellStyle('newIssues')} css={{ alignItems: 'center' }}>
                   {/* A run still going has not finished filing, so its count so far would read as
@@ -502,55 +548,10 @@ const DetectionRunsContent = ({ experimentId }: { experimentId: string }) => {
                   {formatDuration(detectionRunDurationMs(row, nowMs))}
                 </TableCell>
                 <TableCell aria-hidden style={FILLER_CELL_STYLE} />
-              </TableRow>,
-              // Why it failed, on its own full-width row under the run it belongs to. The message
-              // is the provider's own wording, which is the part worth acting on, so it is shown
-              // rather than summarized -- and only when the run recorded one, since runs from
-              // before that was recorded have nothing to show.
-              ...(row.status === 'FAILED' && row.error
-                ? [
-                    <TableRow key={`${row.runId}-error`} css={{ height: 'auto' }}>
-                      <TableCell
-                        css={{
-                          flex: 1,
-                          alignItems: 'flex-start',
-                          backgroundColor: theme.colors.backgroundValidationDanger,
-                          paddingTop: theme.spacing.sm,
-                          paddingBottom: theme.spacing.sm,
-                        }}
-                      >
-                        <div css={{ minWidth: 0 }}>
-                          <Typography.Text size="sm" bold color="error" css={{ display: 'block' }}>
-                            <FormattedMessage
-                              defaultMessage="Why it failed"
-                              description="Experiment issues tab > Run history > Label above the reason a run failed"
-                            />
-                          </Typography.Text>
-                          <Typography.Text size="sm" css={{ wordBreak: 'break-word' }}>
-                            {row.error}
-                          </Typography.Text>
-                        </div>
-                      </TableCell>
-                    </TableRow>,
-                  ]
-                : []),
-            ])}
+              </TableRow>
+            ))}
           </Table>
-          <Typography.Hint css={{ marginLeft: 'auto', paddingTop: theme.spacing.xs, whiteSpace: 'nowrap' }}>
-            {hasNextPage ? (
-              <FormattedMessage
-                defaultMessage="{count}+ runs loaded"
-                description="Experiment issues tab > Run history > Count of loaded runs while more pages remain"
-                values={{ count: rows.length }}
-              />
-            ) : (
-              <FormattedMessage
-                defaultMessage="{count, plural, one {# run} other {# runs}}"
-                description="Experiment issues tab > Run history > Total count of runs"
-                values={{ count: rows.length }}
-              />
-            )}
-          </Typography.Hint>
+          {pagination}
         </>
       )}
     </div>

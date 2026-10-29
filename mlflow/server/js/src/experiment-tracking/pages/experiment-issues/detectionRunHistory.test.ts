@@ -66,7 +66,9 @@ describe('toDetectionRunRow', () => {
       run({
         tags: {
           [MLFLOW_ISSUE_DETECTION_TRIGGER_TAG]: 'schedule',
-          total_traces: '312',
+          // What was submitted, and what the sampler left to analyze. The row carries the second.
+          total_traces: '640',
+          total_traces_analyzed: '312',
           total_cost_usd: '0.42',
           model: 'openai:/gpt-5-mini',
           [MLFLOW_ISSUE_DETECTION_WINDOW_START_TAG]: String(START_MS - 604_800_000),
@@ -83,7 +85,7 @@ describe('toDetectionRunRow', () => {
       trigger: 'schedule',
       windowStartMs: START_MS - 604_800_000,
       windowEndMs: START_MS,
-      scannedTraces: 312,
+      analyzedTraces: 312,
       model: 'openai:/gpt-5-mini',
       costUsd: 0.42,
       error: undefined,
@@ -93,12 +95,12 @@ describe('toDetectionRunRow', () => {
   test('a run with no trigger tag is ad hoc, and covers no window', () => {
     // Ad-hoc detection is given an explicit set of trace IDs rather than a stretch of time, so
     // the absence of both the tag and the bounds is what that run actually was.
-    const row = toDetectionRunRow(run({ tags: { total_traces: '40', model: 'openai:/gpt-5-mini' } }));
+    const row = toDetectionRunRow(run({ tags: { total_traces_analyzed: '40', model: 'openai:/gpt-5-mini' } }));
 
     expect(row?.trigger).toBe('adhoc');
     expect(row?.windowStartMs).toBeUndefined();
     expect(row?.windowEndMs).toBeUndefined();
-    expect(row?.scannedTraces).toBe(40);
+    expect(row?.analyzedTraces).toBe(40);
   });
 
   test('a trigger value this build does not know reads as ad hoc', () => {
@@ -142,7 +144,7 @@ describe('toDetectionRunRow', () => {
     ['1.5', undefined],
     ['1e3', 1000],
   ])('a trace count of %p reads as %p', (value, expected) => {
-    expect(toDetectionRunRow(run({ tags: { total_traces: value } }))?.scannedTraces).toBe(expected);
+    expect(toDetectionRunRow(run({ tags: { total_traces_analyzed: value } }))?.analyzedTraces).toBe(expected);
   });
 
   test('a cost of Python None does not read as a number', () => {

@@ -51,8 +51,14 @@ export interface DetectionRunRow {
   /** The trace window a scheduled run covered. An ad-hoc run has none: it is given trace IDs. */
   windowStartMs?: number;
   windowEndMs?: number;
-  /** Traces sampled for analysis, which the sampler caps -- not the number the window held. */
-  scannedTraces?: number;
+  /**
+   * How many traces the model was shown.
+   *
+   * The count the run recorded when it finished, not the number handed to it: the sampler caps
+   * what it analyzes, so a run given 200 sessionless traces analyzes 100. Absent on a run still
+   * going, and on a run from before that count was recorded.
+   */
+  analyzedTraces?: number;
   model?: string;
   costUsd?: number;
   /** Why it failed, when the run recorded a reason. */
@@ -131,7 +137,7 @@ export const toDetectionRunRow = (run: RunEntity): DetectionRunRow | undefined =
         : 'adhoc',
     windowStartMs: parseTimestamp(readTag(run, MLFLOW_ISSUE_DETECTION_WINDOW_START_TAG)),
     windowEndMs: parseTimestamp(readTag(run, MLFLOW_ISSUE_DETECTION_WINDOW_END_TAG)),
-    scannedTraces: parseCount(readTag(run, 'total_traces')),
+    analyzedTraces: parseCount(readTag(run, 'total_traces_analyzed')),
     model: readTag(run, 'model') || undefined,
     costUsd: parseAmount(readTag(run, 'total_cost_usd')),
     error: readTag(run, MLFLOW_ISSUE_DETECTION_ERROR_TAG) || undefined,

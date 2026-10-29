@@ -6,7 +6,7 @@ import { shouldEnableExperimentIssuesTab } from '../../../common/utils/FeatureUt
 import { MemoryRouter, Route, Routes } from '../../../common/utils/RoutingUtils';
 import { QueryClient, QueryClientProvider } from '../../../common/utils/reactQueryHooks';
 import { setupServer } from '../../../common/utils/setup-msw';
-import { fireEvent, renderWithDesignSystem, screen, waitFor, within } from '../../../common/utils/TestUtils.react18';
+import { renderWithDesignSystem, screen, waitFor, within } from '../../../common/utils/TestUtils.react18';
 import {
   MLFLOW_ISSUE_DETECTION_ERROR_TAG,
   MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG,
@@ -17,6 +17,7 @@ import {
 } from '../../constants';
 import ExperimentIssueDetectionRunsPage from './ExperimentIssueDetectionRunsPage';
 import { ISSUE_DETECTION_SCHEDULE_VERSION } from './issueDetectionSchedule';
+import { DETECTION_RUNS_PAGE_SIZE } from './useDetectionRuns';
 
 jest.mock('../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
@@ -55,7 +56,6 @@ let storedRuns: StoredRun[];
 /** `source_run_id` of each issue, which is what the new-issue count is derived from. */
 let issueSourceRunIds: string[];
 let issueSearchFails: boolean;
-let runSearchPages: number;
 /** Filters the page asked runs with, so the search can be asserted rather than assumed. */
 let runFilters: string[];
 /** Set to fail the run search, which is how a read failure is exercised. */
@@ -75,12 +75,15 @@ const server = setupServer(
       runSearchFailures += 1;
       return res(ctx.status(500), ctx.json({ message: 'nope' }));
     }
-    const body = (await req.json()) as { filter?: string; page_token?: string };
+    const body = (await req.json()) as { filter?: string; page_token?: string; max_results?: number };
     runFilters.push(body.filter ?? '');
-    const page = body.page_token ? Number(body.page_token) : 0;
+    // The store's own paging, so the token the page sends back decides what it is answered with.
+    const offset = body.page_token ? Number(body.page_token) : 0;
+    const pageSize = body.max_results ?? storedRuns.length;
+    const nextOffset = offset + pageSize;
     return res(
       ctx.json({
-        runs: storedRuns.map(({ runUuid, status, startTime, endTime, tags }) => ({
+        runs: storedRuns.slice(offset, nextOffset).map(({ runUuid, status, startTime, endTime, tags }) => ({
           info: {
             run_uuid: runUuid,
             run_id: runUuid,
@@ -90,7 +93,7 @@ const server = setupServer(
           },
           data: { tags: Object.entries(tags).map(([key, value]) => ({ key, value })) },
         })),
-        ...(page + 1 < runSearchPages ? { next_page_token: String(page + 1) } : {}),
+        ...(nextOffset < storedRuns.length ? { next_page_token: String(nextOffset) } : {}),
       }),
     );
   }),
@@ -141,7 +144,9 @@ const scheduled = (overrides: Partial<StoredRun> = {}): StoredRun => ({
   endTime: nowMs - 7 * DAY_MS + 192_000,
   tags: {
     [MLFLOW_ISSUE_DETECTION_TRIGGER_TAG]: 'schedule',
-    total_traces: '312',
+    // What was handed in, and what the sampler left to analyze. The column shows the second.
+    total_traces: '640',
+    total_traces_analyzed: '312',
     total_cost_usd: '0.42',
     model: 'openai:/gpt-5-mini',
     [MLFLOW_ISSUE_DETECTION_WINDOW_START_TAG]: String(WINDOW_START_MS),
@@ -156,9 +161,15 @@ const adhoc = (overrides: Partial<StoredRun> = {}): StoredRun => ({
   status: 'FINISHED',
   startTime: nowMs - 4 * 60 * 60 * 1000,
   endTime: nowMs - 4 * 60 * 60 * 1000 + 71_000,
-  tags: { total_traces: '40', total_cost_usd: '0.08', model: 'openai:/gpt-5.6-sol' },
+  tags: { total_traces_analyzed: '40', total_cost_usd: '0.08', model: 'openai:/gpt-5.6-sol' },
   ...overrides,
 });
+
+/** Enough runs to fill a page and start another, each nameable by its model. */
+const manyRuns = (count: number): StoredRun[] =>
+  Array.from({ length: count }, (_, index) =>
+    adhoc({ runUuid: `run-${index}`, tags: { total_traces_analyzed: '1', model: `openai:/m-${index}` } }),
+  );
 
 /**
  * Held so it can be torn down between tests.
@@ -193,7 +204,6 @@ beforeEach(() => {
   storedRuns = [scheduled()];
   issueSourceRunIds = [];
   issueSearchFails = false;
-  runSearchPages = 1;
   runFilters = [];
   runSearchFails = false;
   runSearchFailures = 0;
@@ -236,7 +246,10 @@ describe('ExperimentIssueDetectionRunsPage', () => {
     const row = await rowFor('openai:/gpt-5-mini');
     expect(await within(row).findByText('Finished')).toBeInTheDocument();
     expect(within(row).getByText('Scheduled')).toBeInTheDocument();
+    // The count the run recorded when it finished, not the 640 it was handed: the sampler caps
+    // what it analyzes, so reporting the submitted count would overstate what was looked at.
     expect(within(row).getByText('312')).toBeInTheDocument();
+    expect(within(row).queryByText('640')).not.toBeInTheDocument();
     expect(within(row).getByText('$0.42')).toBeInTheDocument();
     expect(within(row).getByText('3m 12s')).toBeInTheDocument();
     expect(within(row).getByText('7 days ago')).toBeInTheDocument();
@@ -268,7 +281,6 @@ describe('ExperimentIssueDetectionRunsPage', () => {
 
     expect(await within(await rowFor('openai:/gpt-5.6-sol')).findByText('Ad hoc')).toBeInTheDocument();
     expect(await within(await rowFor('openai:/gpt-5-mini')).findByText('Scheduled')).toBeInTheDocument();
-    expect(await screen.findByText('2 runs')).toBeInTheDocument();
   });
 
   test('a run that analyzed nothing reads as finished over zero traces', async () => {
@@ -277,7 +289,7 @@ describe('ExperimentIssueDetectionRunsPage', () => {
     storedRuns = [
       scheduled({
         runUuid: 'run-quiet',
-        tags: { total_traces: '0', total_cost_usd: '0.0', model: 'openai:/gpt-5-mini' },
+        tags: { total_traces_analyzed: '0', total_cost_usd: '0.0', model: 'openai:/gpt-5-mini' },
       }),
     ];
     renderPage();
@@ -287,6 +299,17 @@ describe('ExperimentIssueDetectionRunsPage', () => {
     // Scanned traces and new issues both read 0, which together say what happened: it ran, and
     // there was nothing in the window for it to look at.
     await waitFor(() => expect(within(row).getAllByText('0')).toHaveLength(2));
+  });
+
+  test('a run from before the analyzed count was recorded claims no count', async () => {
+    // The submitted count it does carry is a different number -- the sampler caps what is
+    // analyzed below it -- so reporting that one would overstate what the run looked at.
+    storedRuns = [scheduled({ runUuid: 'run-old', tags: { total_traces: '640', model: 'openai:/gpt-5-mini' } })];
+    renderPage();
+
+    const row = await rowFor('openai:/gpt-5-mini');
+    expect(await within(row).findByText('Finished')).toBeInTheDocument();
+    expect(within(row).queryByText('640')).not.toBeInTheDocument();
   });
 
   test('a cancelled run is told apart from one that broke', async () => {
@@ -312,7 +335,7 @@ describe('ExperimentIssueDetectionRunsPage', () => {
         runUuid: 'run-bad',
         status: 'FAILED',
         tags: {
-          total_traces: '184',
+          total_traces_analyzed: '184',
           model: 'openai:/gpt-5-mini',
           [MLFLOW_ISSUE_DETECTION_ERROR_TAG]: 'MlflowException: no API key available',
         },
@@ -320,24 +343,38 @@ describe('ExperimentIssueDetectionRunsPage', () => {
     ];
     renderPage();
 
+    const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
     const row = await rowFor('openai:/gpt-5-mini');
     expect(await within(row).findByText('Failed')).toBeInTheDocument();
     expect(within(row).queryByText(/^\$/)).not.toBeInTheDocument();
+    // Not on the page until it is asked for: a row of its own pushed the next run down the page,
+    // and a message that runs to a few hundred characters cannot be read in a cell.
+    expect(screen.queryByText('MlflowException: no API key available')).not.toBeInTheDocument();
+
     // The provider's own wording, which is the part worth acting on. Without it the row says only
     // that something broke, and the exception reaches nowhere an experiment's owner can read it.
-    expect(await screen.findByText('Why it failed')).toBeInTheDocument();
-    expect(await screen.findByText('MlflowException: no API key available')).toBeInTheDocument();
+    await user.hover(within(row).getByText('Failed'));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('MlflowException: no API key available');
   });
 
   test('a run that failed before the reason was recorded shows no empty detail row', async () => {
     storedRuns = [
-      scheduled({ runUuid: 'run-bad', status: 'FAILED', tags: { total_traces: '1', model: 'openai:/gpt-5-mini' } }),
+      scheduled({
+        runUuid: 'run-bad',
+        status: 'FAILED',
+        tags: { total_traces_analyzed: '1', model: 'openai:/gpt-5-mini' },
+      }),
     ];
     renderPage();
 
+    const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
     const row = await rowFor('openai:/gpt-5-mini');
     expect(await within(row).findByText('Failed')).toBeInTheDocument();
-    expect(screen.queryByText('Why it failed')).not.toBeInTheDocument();
+
+    // Nothing to show, so hovering the status offers nothing rather than an empty popup. The
+    // tooltip opens in 10ms under test, so a fifth of a second is long enough to be sure.
+    await user.hover(within(row).getByText('Failed'));
+    await expect(screen.findByRole('tooltip', {}, { timeout: 200 })).rejects.toThrow();
   });
 
   test('a run still going claims no issue count yet', async () => {
@@ -390,18 +427,28 @@ describe('ExperimentIssueDetectionRunsPage', () => {
     expect(within(row).queryByText('0')).not.toBeInTheDocument();
   });
 
-  test('hedges the count while more pages remain', async () => {
-    runSearchPages = 3;
+  test('pages forward and back, the way the other list pages do', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
+    storedRuns = manyRuns(DETECTION_RUNS_PAGE_SIZE + 2);
     renderPage();
 
-    // A run search returns no total, so an exact count would be a guess stated as a fact.
-    expect(await screen.findByText(/\+ runs loaded/)).toBeInTheDocument();
+    expect(await screen.findByText(`openai:/m-${DETECTION_RUNS_PAGE_SIZE - 1}`)).toBeInTheDocument();
+    expect(screen.queryByText(`openai:/m-${DETECTION_RUNS_PAGE_SIZE}`)).not.toBeInTheDocument();
+
+    await user.click(await screen.findByRole('button', { name: /next/i }));
+    expect(await screen.findByText(`openai:/m-${DETECTION_RUNS_PAGE_SIZE + 1}`)).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText('openai:/m-0')).not.toBeInTheDocument());
+
+    // Back to the cursor it came from, rather than to a fresh first page.
+    await user.click(await screen.findByRole('button', { name: /previous/i }));
+    expect(await screen.findByText('openai:/m-0')).toBeInTheDocument();
   });
 
-  test('states the count exactly once every page is loaded', async () => {
+  test('a single page offers no pagination at all', async () => {
     renderPage();
 
-    expect(await screen.findByText('1 run')).toBeInTheDocument();
+    expect(await screen.findByText('openai:/gpt-5-mini')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /next/i })).not.toBeInTheDocument();
   });
 
   test('an experiment with no detection runs names when the schedule first fires', async () => {
@@ -419,7 +466,7 @@ describe('ExperimentIssueDetectionRunsPage', () => {
 
     expect(await screen.findByText('No detection runs yet')).toBeInTheDocument();
     expect(screen.queryByText('Window covered')).not.toBeInTheDocument();
-    expect(screen.queryByText('Scanned traces')).not.toBeInTheDocument();
+    expect(screen.queryByText('Analyzed traces')).not.toBeInTheDocument();
     expect(screen.queryByText('Trigger')).not.toBeInTheDocument();
   });
 
@@ -447,13 +494,15 @@ describe('ExperimentIssueDetectionRunsPage', () => {
   });
 
   test('opens the schedule dialog without leaving the page', async () => {
-    // Editing used to mean navigating back to the Issues tab to find the dialog there.
+    // The Issues tab's own schedule control, rather than a button of this page's: editing used to
+    // mean navigating back to the tab to find the dialog there.
     const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
     renderPage();
 
     // Disabled until the schedule has loaded, so the dialog never opens against unknown state.
-    await waitFor(async () => expect(await screen.findByRole('button', { name: 'Edit schedule' })).not.toBeDisabled());
-    await user.click(await screen.findByRole('button', { name: 'Edit schedule' }));
+    const trigger = { name: /scheduled: weekly/i };
+    await waitFor(async () => expect(await screen.findByRole('button', trigger)).not.toBeDisabled());
+    await user.click(await screen.findByRole('button', trigger));
 
     expect(await screen.findByRole('button', { name: 'Save' })).toBeInTheDocument();
     expect(screen.getByText('Issue detection run history')).toBeInTheDocument();
@@ -472,23 +521,23 @@ describe('ExperimentIssueDetectionRunsPage', () => {
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
   });
 
-  test('a later page failing keeps the runs already read', async () => {
-    // The same error covers the first page and the fiftieth. Taking the page over on the second
-    // would discard what the user is reading to report what could not be loaded next.
-    runSearchPages = 3;
+  test('a page that fails to load leaves the way back to the one before it', async () => {
+    // Reporting the failure is right -- the user asked for that page -- but the error state is
+    // the whole table, so without the pagination beside it there is nothing left to click and
+    // the page they were reading is unreachable.
+    const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
+    storedRuns = manyRuns(DETECTION_RUNS_PAGE_SIZE + 2);
     renderPage();
-    const row = await rowFor('openai:/gpt-5-mini');
-    expect(await within(row).findByText('Finished')).toBeInTheDocument();
+    expect(await screen.findByText('openai:/m-0')).toBeInTheDocument();
 
-    // Scrolling is what asks for the next page; jsdom reports every dimension as 0, which the
-    // page reads as "at the bottom".
     runSearchFails = true;
-    const scroller = document.querySelector('[role="table"]') as HTMLElement;
-    fireEvent.scroll(scroller);
+    await user.click(await screen.findByRole('button', { name: /next/i }));
     await waitFor(() => expect(runSearchFailures).toBeGreaterThan(0));
+    expect(await screen.findByText("Could not load this experiment's run history")).toBeInTheDocument();
 
-    expect(await within(await rowFor('openai:/gpt-5-mini')).findByText('Finished')).toBeInTheDocument();
-    expect(screen.queryByText("Could not load this experiment's run history")).not.toBeInTheDocument();
+    runSearchFails = false;
+    await user.click(await screen.findByRole('button', { name: /previous/i }));
+    expect(await screen.findByText('openai:/m-0')).toBeInTheDocument();
   });
 
   test('a paused schedule names no next run even when its dispatch state still has one', async () => {

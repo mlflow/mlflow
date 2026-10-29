@@ -1,5 +1,4 @@
 import { useInfiniteQuery } from '@databricks/web-shared/query-client';
-import type { InfiniteData } from '@databricks/web-shared/query-client';
 import type { RunEntity, SearchRunsApiResponse } from '@mlflow/mlflow/src/experiment-tracking/types';
 import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION } from '../../../constants';
 import { MlflowService } from '../../../sdk/MlflowService';
@@ -28,7 +27,6 @@ export const useExperimentEvaluationRunsData = ({
   orderBy = DEFAULT_ORDER_BY,
   fetchAllPages = false,
   excludeIssueDetectionRuns = false,
-  refetchInterval,
 }: {
   experimentId: string;
   enabled: boolean;
@@ -36,14 +34,6 @@ export const useExperimentEvaluationRunsData = ({
   orderBy?: string[];
   fetchAllPages?: boolean;
   excludeIssueDetectionRuns?: boolean;
-  /**
-   * Poll while a caller is watching runs that have not settled.
-   *
-   * Off by default, which is what every existing caller wants: a run list the user is reading does
-   * not change under them. Given a function, it is asked again after each fetch, so a caller can
-   * poll only while the loaded runs include one still going and stop once they all settle.
-   */
-  refetchInterval?: number | false | ((data: InfiniteData<SearchRunsApiResponse> | undefined) => number | false);
 }) => {
   const { data, fetchNextPage, hasNextPage, isLoading, isFetching, refetch, error, dataUpdatedAt } = useInfiniteQuery<
     SearchRunsApiResponse,
@@ -81,7 +71,6 @@ export const useExperimentEvaluationRunsData = ({
     refetchOnWindowFocus: false,
     retry: false,
     enabled,
-    refetchInterval,
     getNextPageParam: (lastPage) => lastPage.next_page_token,
   });
 

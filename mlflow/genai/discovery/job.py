@@ -124,6 +124,10 @@ def _detect_issues_into_run(
         )
         client.set_terminated(run_id, RunStatus.to_string(RunStatus.FINISHED))
         client.set_tag(run_id, "total_cost_usd", result.total_cost_usd)
+        # How many traces the model was actually shown, which the sampler caps below the number
+        # submitted: the ``total_traces`` tag written when the run was created counts what was
+        # handed in, so a run given 200 sessionless traces carries 200 there and 100 here.
+        client.set_tag(run_id, "total_traces_analyzed", result.total_traces_analyzed)
         return {
             "summary": result.summary,
             "issues": len(result.issues),
@@ -239,6 +243,7 @@ def _record_quiet_occurrence(
         client, experiment_id, categories, model, total_traces=0, window=window
     )
     client.set_tag(run_id, "total_cost_usd", 0.0)
+    client.set_tag(run_id, "total_traces_analyzed", 0)
     client.set_terminated(run_id, RunStatus.to_string(RunStatus.FINISHED))
     return run_id
 

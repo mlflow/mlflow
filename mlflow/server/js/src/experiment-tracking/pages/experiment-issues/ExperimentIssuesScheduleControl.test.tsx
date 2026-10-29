@@ -142,18 +142,18 @@ const traceFilterTag = (filters: unknown[]): SavedTag => ({
  * A router is required because the dialog's footer links out to the run history page, and `at` is
  * the route it is opened from, which decides whether that link leads anywhere.
  */
-const renderWithVariant = (triggerVariant?: 'status' | 'editButton', at = '/experiments/1/issues') => {
+const renderAt = (at = '/experiments/1/issues') => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, cacheTime: 0 } } });
   return renderWithDesignSystem(
     <MemoryRouter initialEntries={[at]}>
       <QueryClientProvider client={client}>
-        <ExperimentIssuesScheduleControl experimentId="1" triggerVariant={triggerVariant} />
+        <ExperimentIssuesScheduleControl experimentId="1" />
       </QueryClientProvider>
     </MemoryRouter>,
   );
 };
 
-const render = () => renderWithVariant();
+const render = () => renderAt();
 
 const setup = () => userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
 
@@ -1251,27 +1251,13 @@ describe('ExperimentIssuesScheduleControl', () => {
       );
     });
 
-    test('a surface that states the schedule beside it gets a plain Edit schedule button', async () => {
-      // The run history page says what the schedule is in its own header, so the trigger there
-      // is an action rather than a readout -- and it opens this same dialog in place.
-      experimentTags = [scheduleTag('weekly')];
-      const user = setup();
-      renderWithVariant('editButton');
-
-      expect(await screen.findByRole('button', { name: 'Edit schedule' })).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /scheduled: weekly/i })).not.toBeInTheDocument();
-      await openModal(user, 'Edit schedule');
-
-      expect(await screen.findByRole('button', { name: 'Save' })).toBeInTheDocument();
-    });
-
     test('the link is hidden on the run history page, where it would lead nowhere', async () => {
-      // The dialog opens in place there, from Edit schedule, so the link would point at the page
-      // the user is already reading.
+      // The same trigger opens this dialog there, so the link would point at the page the user is
+      // already reading.
       experimentTags = [scheduleTag('weekly')];
       const user = setup();
-      renderWithVariant('editButton', '/experiments/1/issues/runs');
-      await openModal(user, 'Edit schedule');
+      renderAt('/experiments/1/issues/runs');
+      await openModal(user, /scheduled: weekly/i);
 
       expect(await screen.findByRole('button', { name: 'Save' })).toBeInTheDocument();
       expect(screen.queryByRole('link', { name: 'View run history' })).not.toBeInTheDocument();

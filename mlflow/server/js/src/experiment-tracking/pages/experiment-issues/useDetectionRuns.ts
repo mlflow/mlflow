@@ -1,19 +1,20 @@
 /**
- * The issue detection runs an experiment has recorded, newest first.
+ * One page of the issue detection runs an experiment has recorded, newest first.
  *
- * Runs come from the same paged search the Evaluation runs tab uses, narrowed to detection runs.
- * The issue counts come from the issues themselves rather than from the run: an issue records the
- * run that first filed it, and a run that re-finds a known issue refreshes that issue instead of
- * filing another, so this counts what each run found that was new.
+ * Runs are MLflow runs, so the history is a run search narrowed to detection runs. The issue
+ * counts come from the issues themselves rather than from the run: an issue records the run that
+ * first filed it, and a run that re-finds a known issue refreshes that issue instead of filing
+ * another, so this counts what each run found that was new.
  */
 
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
-import { useQuery } from '@databricks/web-shared/query-client';
+import { useQueries, useQuery } from '@databricks/web-shared/query-client';
 
 import { fetchAPI, getAjaxUrl } from '../../../common/utils/FetchUtils';
 import { useActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
-import { useExperimentEvaluationRunsData } from '../../components/experiment-page/hooks/useExperimentEvaluationRunsData';
+import { MlflowService } from '../../sdk/MlflowService';
+import type { SearchRunsApiResponse } from '../../types';
 import {
   DETECTION_RUN_FILTER,
   type DetectionRunRow,
@@ -21,23 +22,20 @@ import {
   toDetectionRunRow,
 } from './detectionRunHistory';
 
+export const DETECTION_RUNS_QUERY_KEY = 'DETECTION_RUNS';
 export const DETECTION_RUN_NEW_ISSUES_QUERY_KEY = 'DETECTION_RUN_NEW_ISSUES';
 
-/**
- * How many runs' issue counts are fetched.
- *
- * One request per run, because the issue filter grammar compares a single `source_run_id` at a
- * time and has no `IN`. Bounded so that scrolling a long history cannot turn into hundreds of
- * requests; past it the count is left blank rather than guessed at.
- */
-export const MAX_COUNTED_RUNS = 50;
+/** Runs per page, and so the number of issue-count requests one page can cost. */
+export const DETECTION_RUNS_PAGE_SIZE = 25;
+
+const DETECTION_RUN_ORDER_BY = ['attributes.start_time DESC'];
 
 /**
  * How often an unfinished run is checked.
  *
  * A detection run takes minutes, so this is about the page not going stale while someone watches
- * it rather than about catching the moment it lands. Only ever on while a loaded run is still
- * going.
+ * it rather than about catching the moment it lands. Only ever on while a run on the page is
+ * still going.
  */
 export const RUNNING_POLL_INTERVAL_MS = 10_000;
 
@@ -66,81 +64,101 @@ const fetchNewIssueCount = async (experimentId: string, runId: string, signal?: 
   return page.total_count ?? 0;
 };
 
-const useNewIssueCounts = (experimentId: string, runKeys: string[], enabled: boolean) => {
+/**
+ * Each run's new-issue count, one query per run so a run finishing re-reads its own count alone.
+ *
+ * One request per run because the issue filter grammar compares a single `source_run_id` at a
+ * time and has no `IN`; bounded by the page size rather than by a cap of its own. A run still
+ * going is not asked about at all: it has not finished filing, so its count so far would read as
+ * a result.
+ */
+const useNewIssueCounts = (experimentId: string, rows: DetectionRunRow[], enabled: boolean) => {
   const workspace = useActiveWorkspace();
-  // One query keyed by the whole set rather than one per row: a hook cannot be called in a loop,
-  // and the counts are only ever read together.
-  //
-  // The keys carry each run's status as well as its id, so a run finishing changes the key and its
-  // count is read again. Keyed on ids alone, a count fetched while a run was still filing issues
-  // would stay on screen after it finished.
-  const counted = runKeys.slice(0, MAX_COUNTED_RUNS);
-  const runIds = counted.map((key) => key.split(':')[0]);
-  const { data } = useQuery<Record<string, number>, Error>({
-    queryKey: [DETECTION_RUN_NEW_ISSUES_QUERY_KEY, workspace, experimentId, counted],
-    queryFn: async ({ signal }) => {
-      const counts = await Promise.all(
-        runIds.map(async (runId) => {
-          try {
-            return [runId, await fetchNewIssueCount(experimentId, runId, signal)] as const;
-          } catch {
-            // A count that cannot be read leaves that one cell blank; the rest of the row, and
-            // every other row, is still worth showing.
-            return [runId, undefined] as const;
-          }
-        }),
-      );
-      return Object.fromEntries(counts.filter(([, count]) => count !== undefined)) as Record<string, number>;
-    },
-    enabled: enabled && counted.length > 0,
-    retry: false,
-    refetchOnWindowFocus: false,
+  const results = useQueries({
+    queries: rows.map((row) => ({
+      // The status is part of the key, so a count read while the run was still filing is read
+      // again once it finishes rather than staying on screen.
+      queryKey: [DETECTION_RUN_NEW_ISSUES_QUERY_KEY, workspace, experimentId, row.runId, row.status],
+      queryFn: ({ signal }: { signal?: AbortSignal }) => fetchNewIssueCount(experimentId, row.runId, signal),
+      enabled: enabled && isDetectionRunSettled(row.status),
+      retry: false,
+      refetchOnWindowFocus: false,
+    })),
   });
-  return data;
+  const counts: Record<string, number> = {};
+  rows.forEach((row, index) => {
+    const count = results[index]?.data;
+    // A count that cannot be read leaves that one cell blank; the rest of the row, and every
+    // other row, is still worth showing.
+    if (typeof count === 'number') {
+      counts[row.runId] = count;
+    }
+  });
+  return counts;
 };
 
 export const useDetectionRuns = (experimentId: string, { enabled = true } = {}) => {
-  const {
-    data: runs,
-    hasNextPage,
-    fetchNextPage,
-    isLoading,
-    isFetching,
-    error,
-    refetch,
-  } = useExperimentEvaluationRunsData({
-    experimentId,
-    enabled,
-    filter: DETECTION_RUN_FILTER,
-    // A run on screen while it works would otherwise read `Running` for good: the run search
-    // neither polls nor refetches on focus, so its status, cost and failure reason would not
-    // arrive until the page was left and reopened. Asked again after each fetch, so polling stops
-    // by itself once every loaded run has finished.
-    refetchInterval: (data) =>
-      (data?.pages ?? []).some((page) =>
-        (page.runs ?? []).some((run) => {
-          const row = toDetectionRunRow(run);
-          return row !== undefined && !isDetectionRunSettled(row.status);
-        }),
-      )
+  const workspace = useActiveWorkspace();
+  // Page cursors, newest page last. `[undefined]` is the first page. Tokens stay in component
+  // state rather than in the URL, the way the datasets and prompts lists hold theirs: they are
+  // opaque and they expire.
+  const [tokenHistory, setTokenHistory] = useState<(string | undefined)[]>([undefined]);
+  const pageToken = tokenHistory[tokenHistory.length - 1];
+
+  const { data, isLoading, isFetching, error, refetch } = useQuery<SearchRunsApiResponse, Error>({
+    queryKey: [DETECTION_RUNS_QUERY_KEY, workspace, experimentId, pageToken],
+    queryFn: () =>
+      MlflowService.searchRuns({
+        experiment_ids: [experimentId],
+        order_by: DETECTION_RUN_ORDER_BY,
+        run_view_type: 'ACTIVE_ONLY',
+        filter: DETECTION_RUN_FILTER,
+        max_results: DETECTION_RUNS_PAGE_SIZE,
+        page_token: pageToken,
+      }),
+    // A run on screen while it works would otherwise read `Running` for good: the search neither
+    // polls nor refetches on focus, so its status, cost and failure reason would not arrive until
+    // the page was left and reopened. Asked again after each fetch, so polling stops by itself
+    // once every run on the page has finished.
+    refetchInterval: (page) =>
+      (page?.runs ?? []).some((run) => {
+        const row = toDetectionRunRow(run);
+        return row !== undefined && !isDetectionRunSettled(row.status);
+      })
         ? RUNNING_POLL_INTERVAL_MS
         : false,
+    // Paging forward and back keeps the rows that are up while the next page is read, so the
+    // table does not collapse to a skeleton on every click.
+    keepPreviousData: true,
+    refetchOnWindowFocus: false,
+    retry: false,
+    enabled,
   });
 
   const rows = useMemo(
-    () => (runs ?? []).map(toDetectionRunRow).filter((row): row is DetectionRunRow => row !== undefined),
-    [runs],
+    () => (data?.runs ?? []).map(toDetectionRunRow).filter((row): row is DetectionRunRow => row !== undefined),
+    [data?.runs],
   );
-  // Carries each run's status, so a count read while one was still filing is read again once it
-  // finishes.
-  const runKeys = useMemo(() => rows.map((row) => `${row.runId}:${row.status}`), [rows]);
-  const newIssueCounts = useNewIssueCounts(experimentId, runKeys, enabled && rows.length > 0);
+  const newIssueCounts = useNewIssueCounts(experimentId, rows, enabled);
+
+  const nextPageToken = data?.next_page_token;
+  const goToNextPage = useCallback(() => {
+    if (nextPageToken) {
+      setTokenHistory((previous) => [...previous, nextPageToken]);
+    }
+  }, [nextPageToken]);
+  const goToPreviousPage = useCallback(
+    () => setTokenHistory((previous) => (previous.length > 1 ? previous.slice(0, -1) : previous)),
+    [],
+  );
 
   return {
     rows,
     newIssueCounts,
-    hasNextPage,
-    fetchNextPage,
+    hasNextPage: Boolean(nextPageToken),
+    hasPreviousPage: tokenHistory.length > 1,
+    goToNextPage,
+    goToPreviousPage,
     isLoading,
     isFetching,
     error,

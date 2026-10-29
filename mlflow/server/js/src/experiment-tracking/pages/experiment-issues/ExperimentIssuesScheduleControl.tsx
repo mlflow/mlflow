@@ -252,15 +252,6 @@ const TraceFilterRow = ({ index, filter, disabled, onChange, onRemove }: TraceFi
 
 export interface ExperimentIssuesScheduleControlProps {
   experimentId: string;
-  /**
-   * What the control's own button looks like.
-   *
-   * `status` -- the default -- is the Issues-tab trigger, which doubles as the readout of whether
-   * a schedule is on. `editButton` is a plain "Edit schedule" button for a surface that already
-   * states the schedule beside it, so the same dialog opens there rather than sending someone back
-   * to the tab to find it.
-   */
-  triggerVariant?: 'status' | 'editButton';
 }
 
 const emptyFilterRow = (): ScheduleTraceFilter => ({
@@ -338,10 +329,7 @@ const toSelection = (model: IssueDetectionScheduleModel | undefined): IssueDetec
  * and/or tags. The trigger opens a modal so the cadence and the trace filters are chosen and saved
  * together; "Off" pauses the schedule. Manual detection is unaffected.
  */
-export const ExperimentIssuesScheduleControl = ({
-  experimentId,
-  triggerVariant = 'status',
-}: ExperimentIssuesScheduleControlProps) => {
+export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssuesScheduleControlProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   // Whether the footer's "View run history" link would lead where the user already is. Read off
@@ -454,22 +442,17 @@ export const ExperimentIssuesScheduleControl = ({
   // the label, not in `icon`: a default Button paints its leading icon with the button's own colour,
   // which would hide the green.
   const isScheduled = setting !== 'off';
-  const isEditButton = triggerVariant === 'editButton';
-  const triggerIcon = isEditButton || isScheduled ? undefined : <ClockIcon />;
+  const triggerIcon = isScheduled ? undefined : <ClockIcon />;
   // While saving, the button's spinner stands in for the checkmark.
-  const triggerContent = isEditButton ? (
-    intl.formatMessage({
-      defaultMessage: 'Edit schedule',
-      description: 'Experiment issues tab > Button that opens the schedule dialog from the run history page',
-    })
-  ) : isScheduled && !isUpdating ? (
-    <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
-      <CheckCircleIcon color="success" data-testid="schedule-on-icon" />
-      {triggerLabel}
-    </span>
-  ) : (
-    triggerLabel
-  );
+  const triggerContent =
+    isScheduled && !isUpdating ? (
+      <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
+        <CheckCircleIcon color="success" data-testid="schedule-on-icon" />
+        {triggerLabel}
+      </span>
+    ) : (
+      triggerLabel
+    );
 
   // Seed the modal from the current schedule + filters so it opens showing what is active. With no
   // filters we show no rows — just the "Add filter" button — so the user opts in explicitly.

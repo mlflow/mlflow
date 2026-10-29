@@ -603,6 +603,29 @@ def test_a_queued_occurrence_records_the_window_it_actually_covered(occurrence):
     assert _created_tags(occurrence.client)[MLFLOW_ISSUE_DETECTION_WINDOW_START] == str(raised_to)
 
 
+def test_an_occurrence_records_how_many_traces_it_analyzed(occurrence):
+    # Two were sampled and handed in; the sampler left one of them to analyze. The run has to
+    # carry both, because the submitted count is the one the run already recorded at creation and
+    # reporting it as the analyzed count overstates what the model was shown.
+    result = _result()
+    result.total_traces_analyzed = 1
+    occurrence.discover.return_value = result
+
+    occurrence.run()
+
+    assert _created_tags(occurrence.client)["total_traces"] == "2"
+    occurrence.client.set_tag.assert_any_call("run-scheduled", "total_traces_analyzed", 1)
+
+
+def test_an_occurrence_with_nothing_to_analyze_says_it_analyzed_nothing(occurrence):
+    # Not left absent: a blank count reads as unknown, and this one is known to be zero.
+    occurrence.newest.return_value = None
+
+    occurrence.run()
+
+    occurrence.client.set_tag.assert_any_call("run-scheduled", "total_traces_analyzed", 0)
+
+
 def test_a_failed_occurrence_records_why(occurrence):
     occurrence.discover.side_effect = RuntimeError("the judge was unreachable")
 
