@@ -2,6 +2,8 @@
 
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING,
+    MLFLOW_SYSTEM_METRICS_INCLUDE_CHILD_PROCESSES,
+    MLFLOW_SYSTEM_METRICS_INCLUDE_PROCESS,
     MLFLOW_SYSTEM_METRICS_NODE_ID,
     MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING,
     MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL,
@@ -59,3 +61,37 @@ def set_system_metrics_node_id(node_id):
         MLFLOW_SYSTEM_METRICS_NODE_ID.unset()
     else:
         MLFLOW_SYSTEM_METRICS_NODE_ID.set(node_id)
+
+
+def enable_process_metrics(include_children=True):
+    """Enable process-level metrics logging.
+
+    When enabled, MLflow will log CPU, memory, thread count, and file descriptor metrics
+    specific to the current Python process (and optionally its child processes), rather than
+    just system-wide metrics. This is particularly useful in shared environments where
+    multiple processes run on the same machine.
+
+    Args:
+        include_children: If True (default), also aggregate metrics from child processes.
+            This is useful for tracking resource usage of subprocesses spawned by your
+            training script.
+
+    Example:
+        >>> import mlflow
+        >>> mlflow.enable_system_metrics_logging()
+        >>> mlflow.enable_process_metrics()  # Enable process-level tracking
+        >>> with mlflow.start_run():
+        ...     # Your training code here
+        ...     pass
+        >>> # Process metrics like system/process_cpu_percentage will be logged
+    """
+    MLFLOW_SYSTEM_METRICS_INCLUDE_PROCESS.set(True)
+    MLFLOW_SYSTEM_METRICS_INCLUDE_CHILD_PROCESSES.set(include_children)
+
+
+def disable_process_metrics():
+    """Disable process-level metrics logging.
+
+    After calling this, only system-wide metrics will be logged (the default behavior).
+    """
+    MLFLOW_SYSTEM_METRICS_INCLUDE_PROCESS.set(False)
