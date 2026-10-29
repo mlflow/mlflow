@@ -109,6 +109,7 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
     extra_files=None,
+    uv=None,
 ):
     """
     Save a statsmodels model to a path on the local file system.
@@ -129,6 +130,7 @@ def save_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
         extra_files: {{ extra_files }}
+        uv: {{ uv }}
     """
     import statsmodels
 
@@ -198,6 +200,7 @@ def save_model(
                 path,
                 FLAVOR_NAME,
                 fallback=default_reqs,
+                uv=uv,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
@@ -219,6 +222,14 @@ def save_model(
 
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+
+    # Copy uv project files if configured
+    if uv is not None:
+        from mlflow.utils.uv_utils import copy_uv_project_files, resolve_uv_source_dir
+
+        uv_source = resolve_uv_source_dir(uv)
+        if uv_source is not None:
+            copy_uv_project_files(dest_dir=path, source_dir=uv_source)
 
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
@@ -244,6 +255,7 @@ def log_model(
     model_type: str | None = None,
     step: int = 0,
     model_id: str | None = None,
+    uv=None,
     **kwargs,
 ):
     """
@@ -275,6 +287,7 @@ def log_model(
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        uv: {{ uv }}
         kwargs: Extra kwargs to pass to ``mlflow.models.Model.log``.
 
     Returns:
@@ -302,6 +315,7 @@ def log_model(
         model_type=model_type,
         step=step,
         model_id=model_id,
+        uv=uv,
         **kwargs,
     )
 

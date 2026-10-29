@@ -24,7 +24,6 @@ import mlflow.pyfunc
 from mlflow.entities.span import SpanType
 from mlflow.environment_variables import (
     MLFLOW_LOG_MODEL_COMPRESSION,
-    MLFLOW_UV_AUTO_DETECT,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -102,7 +101,7 @@ from mlflow.utils.model_utils import (
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.uri import validate_path_within_directory
-from mlflow.utils.uv_utils import copy_uv_project_files
+from mlflow.utils.uv_utils import copy_uv_project_files, resolve_uv_source_dir
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
 CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
@@ -1142,9 +1141,7 @@ def _save_model_with_class_artifacts_params(
     streamable=None,
     model_code_path=None,
     infer_code_paths=False,
-    uv_project_path=None,
-    uv_groups=None,
-    uv_extras=None,
+    uv=None,
 ):
     """
     Args:
@@ -1184,10 +1181,6 @@ def _save_model_with_class_artifacts_params(
                     If None, MLflow will try to inspect if the model supports streaming
                     by checking if `predict_stream` method exists. Default None.
     """
-    # Capture original working directory for uv project detection
-    # This must be done before any operations that might change cwd
-    original_cwd = Path.cwd()
-
     if mlflow_model is None:
         mlflow_model = Model()
 
@@ -1333,12 +1326,7 @@ def _save_model_with_class_artifacts_params(
     # `mlflow_model.code` is updated, re-generate `MLmodel` file.
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
-    if uv_project_path is not None:
-        uv_source_dir = uv_project_path
-    elif MLFLOW_UV_AUTO_DETECT.get():
-        uv_source_dir = original_cwd
-    else:
-        uv_source_dir = None
+    uv_source_dir = resolve_uv_source_dir(uv)
 
     if conda_env is None:
         if pip_requirements is None:
@@ -1355,9 +1343,7 @@ def _save_model_with_class_artifacts_params(
                 mlflow.pyfunc.FLAVOR_NAME,
                 fallback=default_reqs,
                 extra_env_vars=extra_env_vars,
-                uv_project_dir=uv_source_dir,
-                uv_groups=uv_groups,
-                uv_extras=uv_extras,
+                uv=uv,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
