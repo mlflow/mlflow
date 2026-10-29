@@ -5556,7 +5556,7 @@ Export Traces
 
 Export trace spans to MLflow via the OpenTelemetry protocol.
 
-This endpoint accepts OTLP/HTTP protobuf trace export requests.
+This endpoint accepts OTLP/HTTP protobuf and JSON trace export requests.
 Protobuf format reference: https://opentelemetry.io/docs/specs/otlp/#binary-protobuf-encoding
 
 Note: All spans in the batch are persisted in a single log_spans() call. If that
@@ -5654,6 +5654,24 @@ Example::
 
 
 
+.. _fastapiGETgatewaymlflowv1models:
+
+List Models
+-----------
+
++-------------------------------+-------------+
+|           Endpoint            | HTTP Method |
++===============================+=============+
+| ``/gateway/mlflow/v1/models`` | ``GET``     |
++-------------------------------+-------------+
+
+OpenAI-compatible models listing endpoint.
+
+The returned model ``id`` is the MLflow gateway endpoint name expected by
+``/gateway/mlflow/v1/chat/completions`` and related OpenAI-style routes.
+
+
+
 .. _fastapiPOSTgatewayopenaiv1chatcompletions:
 
 OpenAI Passthrough Chat
@@ -5709,6 +5727,24 @@ Example::
         "model": "my-openai-endpoint",
         "input": "The food was delicious and the waiter..."
     }
+
+
+
+.. _fastapiPOSTgatewaytypesafev1systemone:
+
+Typesafe Passthrough System One
+-------------------------------
+
++------------------------------------+-------------+
+|              Endpoint              | HTTP Method |
++====================================+=============+
+| ``/gateway/typesafe/v1/systemone`` | ``POST``    |
++------------------------------------+-------------+
+
+Evaluate TypeSafe questions using the credentials and model of a gateway endpoint.
+
+The request uses TypeSafe's native ``state`` and ``questions`` fields. The ``model``
+field selects an MLflow gateway endpoint, whose configured model is sent to TypeSafe.
 
 
 
@@ -6017,6 +6053,8 @@ Successful Response
 | creation_timestamp     | ``INTEGER`` OR ``NULL``                                    |                         |
 +------------------------+------------------------------------------------------------+-------------------------+
 | last_updated_timestamp | ``INTEGER`` OR ``NULL``                                    |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| allowed_actions        | An array of ``STRING``                                     |                         |
 +------------------------+------------------------------------------------------------+-------------------------+
 
 .. _fastapiGETapi30mlflowmcpservers:
@@ -7153,6 +7191,8 @@ Successful Response
 +------------------------+------------------------------------------------------------+-------------------------+
 | last_updated_timestamp | ``INTEGER`` OR ``NULL``                                    |                         |
 +------------------------+------------------------------------------------------------+-------------------------+
+| allowed_actions        | An array of ``STRING``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
 
 .. _fastapiPATCHapi30mlflowmcpserversname:
 
@@ -7225,6 +7265,8 @@ Successful Response
 | creation_timestamp     | ``INTEGER`` OR ``NULL``                                    |                         |
 +------------------------+------------------------------------------------------------+-------------------------+
 | last_updated_timestamp | ``INTEGER`` OR ``NULL``                                    |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| allowed_actions        | An array of ``STRING``                                     |                         |
 +------------------------+------------------------------------------------------------+-------------------------+
 
 .. _fastapiDELETEapi30mlflowmcpserversname:
@@ -8893,6 +8935,28 @@ Reference to an issue associated with this trace
 | issue_name | ``STRING`` | The name of the issue this assessment references This field is required. |
 +------------+------------+--------------------------------------------------------------------------+
 
+.. _mlflowJobProgress:
+
+JobProgress
+-----------
+
+
+
+Structured best-effort progress payload for a running job.
+
+
++------------+------------+----------------------------------------------------------------------------------+
+| Field Name |    Type    |                                   Description                                    |
++============+============+==================================================================================+
+| phase      | ``STRING`` | Current phase or stage of the job, e.g. ``"scoring traces"``.                    |
++------------+------------+----------------------------------------------------------------------------------+
+| completed  | ``INT64``  | Amount of work completed so far, e.g. ``42``.                                    |
++------------+------------+----------------------------------------------------------------------------------+
+| total      | ``INT64``  | Total amount of work, if known, e.g. ``100``.                                    |
++------------+------------+----------------------------------------------------------------------------------+
+| unit       | ``STRING`` | Unit for the ``completed`` and ``total`` values, e.g. ``"trace"`` or ``"file"``. |
++------------+------------+----------------------------------------------------------------------------------+
+
 .. _mlflowJobState:
 
 JobState
@@ -8904,15 +8968,21 @@ Generic job state message combining status with metadata.
 Provides a unified way to represent job state across different job types.
 
 
-+---------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
-|  Field Name   |                      Type                      |                                         Description                                          |
-+===============+================================================+==============================================================================================+
-| status        | :ref:`mlflowjobstatus`                         | Current status of the job.                                                                   |
-+---------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
-| error_message | ``STRING``                                     | Error message if the job failed. Only set when status is JOB_STATUS_FAILED.                  |
-+---------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
-| metadata      | An array of :ref:`mlflowjobstatemetadataentry` | Additional metadata as key-value pairs. Can be used to store job-specific state information. |
-+---------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
++---------------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
+|     Field Name      |                      Type                      |                                         Description                                          |
++=====================+================================================+==============================================================================================+
+| status              | :ref:`mlflowjobstatus`                         | Current status of the job.                                                                   |
++---------------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
+| error_message       | ``STRING``                                     | Error message for a terminal failure or timeout outcome, when available.                     |
++---------------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
+| metadata            | An array of :ref:`mlflowjobstatemetadataentry` | Additional metadata as key-value pairs. Can be used to store job-specific state information. |
++---------------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
+| status_message      | ``STRING``                                     | Latest best-effort in-flight status message, e.g. ``"Processed 42 / 100 traces"``.           |
++---------------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
+| progress            | :ref:`mlflowjobprogress`                       | Latest best-effort structured progress, e.g. ``phase="scoring", completed=42``.              |
++---------------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
+| progress_updated_at | ``INT64``                                      | Timestamp of the latest progress update in milliseconds since epoch.                         |
++---------------------+------------------------------------------------+----------------------------------------------------------------------------------------------+
 
 .. _mlflowLinkPromptsToTrace:
 
@@ -11546,6 +11616,8 @@ MCP Server Response
 +------------------------+------------------------------------------------------------+-------------------------+
 | last_updated_timestamp | ``INTEGER`` OR ``NULL``                                    |                         |
 +------------------------+------------------------------------------------------------+-------------------------+
+| allowed_actions        | An array of ``STRING``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
 
 .. _fastapiMCPServerVersionResponse:
 
@@ -12084,21 +12156,23 @@ JobStatus
 Generic status enum for MLflow jobs.
 Can be used across different job types (optimization, scorer, etc.).
 
-+------------------------+----------------------------------+
-|          Name          |           Description            |
-+========================+==================================+
-| JOB_STATUS_UNSPECIFIED |                                  |
-+------------------------+----------------------------------+
-| JOB_STATUS_PENDING     | Job is queued, waiting to start. |
-+------------------------+----------------------------------+
-| JOB_STATUS_IN_PROGRESS | Job is currently running.        |
-+------------------------+----------------------------------+
-| JOB_STATUS_COMPLETED   | Job completed successfully.      |
-+------------------------+----------------------------------+
-| JOB_STATUS_FAILED      | Job failed with an error.        |
-+------------------------+----------------------------------+
-| JOB_STATUS_CANCELED    | Job was canceled by user.        |
-+------------------------+----------------------------------+
++---------------------------+----------------------------------------------------------------------------+
+|           Name            |                                Description                                 |
++===========================+============================================================================+
+| JOB_STATUS_UNSPECIFIED    |                                                                            |
++---------------------------+----------------------------------------------------------------------------+
+| JOB_STATUS_PENDING        | Job is queued, waiting to start.                                           |
++---------------------------+----------------------------------------------------------------------------+
+| JOB_STATUS_IN_PROGRESS    | Job is currently running.                                                  |
++---------------------------+----------------------------------------------------------------------------+
+| JOB_STATUS_COMPLETED      | Job completed successfully.                                                |
++---------------------------+----------------------------------------------------------------------------+
+| JOB_STATUS_FAILED         | Job failed with an error.                                                  |
++---------------------------+----------------------------------------------------------------------------+
+| JOB_STATUS_CANCELED       | Job was canceled by user.                                                  |
++---------------------------+----------------------------------------------------------------------------+
+| JOB_STATUS_NEEDS_RECOVERY | Job backend work may still exist, but the current watcher is unresponsive. |
++---------------------------+----------------------------------------------------------------------------+
 
 .. _mlflowLoggedModelStatus:
 

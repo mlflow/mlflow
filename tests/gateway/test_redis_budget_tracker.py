@@ -46,6 +46,17 @@ def _make_tracker():
     return RedisBudgetTracker(_client=client)
 
 
+def _make_shared_trackers():
+    """Two trackers on one Redis, standing in for two gateway processes."""
+    from mlflow.gateway.budget_tracker.redis import RedisBudgetTracker
+
+    server = fakeredis.FakeServer()
+    return (
+        RedisBudgetTracker(_client=fakeredis.FakeRedis(server=server, decode_responses=True)),
+        RedisBudgetTracker(_client=fakeredis.FakeRedis(server=server, decode_responses=True)),
+    )
+
+
 def test_redis_tracker_is_budget_tracker():
     tracker = _make_tracker()
     assert isinstance(tracker, BudgetTracker)
@@ -395,6 +406,99 @@ def test_window_rollover_resets_spend():
     window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 10.0
     assert window.exceeded is False
+
+
+def test_should_reject_request_ignores_window_from_another_policy_version():
+    # A budget edit reaches one process before the other. The process still on the old
+    # 1 MONTHS / $500 version rewrites the shared window to monthly bounds, so the
+    # process already on 1 DAYS / $100 must not measure them against its daily limit.
+    stale_proc, fresh_proc = _make_shared_trackers()
+    monthly = _make_policy(
+        budget_policy_id="bp-edited",
+        budget_amount=500.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.MONTHS, value=1),
+    )
+    daily = _make_policy(
+        budget_policy_id="bp-edited",
+        budget_amount=100.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        budget_action=BudgetAction.REJECT,
+    )
+
+    fresh_proc.refresh_policies([daily])
+    stale_proc.refresh_policies([monthly])
+    stale_proc.record_cost(150.0)
+
+    exceeded, window = fresh_proc.should_reject_request()
+    assert exceeded is False
+    assert window is None
+
+
+def test_should_reject_request_uses_window_once_the_durations_agree():
+    stale_proc, fresh_proc = _make_shared_trackers()
+    daily = _make_policy(
+        budget_policy_id="bp-edited",
+        budget_amount=100.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        budget_action=BudgetAction.REJECT,
+    )
+
+    fresh_proc.refresh_policies([daily])
+    stale_proc.refresh_policies([daily])
+    stale_proc.record_cost(150.0)
+
+    exceeded, window = fresh_proc.should_reject_request()
+    assert exceeded is True
+    assert window.cumulative_spend == 150.0
+
+
+def test_window_rolls_when_duration_changes_without_changing_window_start():
+    # On the first of a month, MONTHS and DAYS windows begin at the same instant, so
+    # the stored window_start on its own cannot tell the two budget periods apart.
+    tracker = _make_tracker()
+    first_of_month = datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
+
+    with patch("mlflow.gateway.budget_tracker.redis.datetime") as mock_dt:
+        mock_dt.now.return_value = first_of_month
+        mock_dt.fromisoformat = datetime.fromisoformat
+
+        tracker.refresh_policies([
+            _make_policy(
+                budget_amount=500.0,
+                duration=BudgetDuration(unit=BudgetDurationUnit.MONTHS, value=1),
+            )
+        ])
+        tracker.record_cost(150.0)
+
+        rolled = tracker.refresh_policies([
+            _make_policy(
+                budget_amount=100.0,
+                duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+            )
+        ])
+
+    assert len(rolled) == 1
+    window = tracker._get_window_info("bp-test")
+    assert window.window_start == datetime(2026, 9, 1, tzinfo=timezone.utc)
+    assert window.window_end == datetime(2026, 9, 2, tzinfo=timezone.utc)
+    assert window.cumulative_spend == 0.0
+
+
+def test_window_written_without_a_duration_rolls_once():
+    # Windows stored before the duration was recorded alongside the bounds are rolled
+    # once, after which the caller reseeds them from trace history.
+    from mlflow.gateway.budget_tracker.redis import _window_key
+
+    tracker = _make_tracker()
+    policy = _make_policy(budget_amount=100.0)
+    tracker.refresh_policies([policy])
+    tracker.record_cost(50.0)
+
+    tracker._client.hdel(_window_key("bp-test"), "duration_unit", "duration_value")
+
+    rolled = tracker.refresh_policies([policy])
+    assert len(rolled) == 1
+    assert tracker._get_window_info("bp-test").cumulative_spend == 0.0
 
 
 def test_get_budget_tracker_returns_redis_when_configured():

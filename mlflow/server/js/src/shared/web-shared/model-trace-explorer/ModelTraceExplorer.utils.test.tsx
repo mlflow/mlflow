@@ -48,6 +48,7 @@ import {
   isSessionLevelAssessment,
   createTraceV4SerializedLocation,
   parseTraceV4SerializedLocation,
+  tryDeserializeAttribute,
 } from './ModelTraceExplorer.utils';
 import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
 
@@ -371,6 +372,52 @@ describe('searchTree', () => {
         matchIndex: 0,
       }),
     ]);
+  });
+
+  // searchTree used to recurse once per span and merge results with push(...spread),
+  // so a large trace could exhaust the call stack or exceed the argument limit --
+  // which threw inside a useMemo and took down the whole panel.
+  const buildSearchableNode = (key: string, children: ModelTraceSpanNode[] = []): ModelTraceSpanNode => ({
+    key,
+    title: key,
+    start: 0,
+    end: 1,
+    inputs: { question: `${key}-needle` },
+    outputs: {},
+    attributes: {},
+    events: [],
+    assessments: [],
+    traceId: 'trace-id',
+    children,
+  });
+
+  it('should handle a tree deeper than the call stack allows', () => {
+    // ~2-3 stack frames per level in the old recursive implementation, so this is
+    // comfortably past the engine limit while staying cheap to build
+    const depth = 12000;
+    let node = buildSearchableNode('span-0');
+    for (let i = 1; i < depth; i++) {
+      node = buildSearchableNode(`span-${i}`, [node]);
+    }
+
+    const matchesPerSpan = searchTree(buildSearchableNode('solo'), 'needle', TEST_SPAN_FILTER_STATE).matches.length;
+    expect(matchesPerSpan).toBeGreaterThan(0);
+
+    const { filteredTreeNodes, matches } = searchTree(node, 'needle', TEST_SPAN_FILTER_STATE);
+
+    expect(filteredTreeNodes).toHaveLength(1);
+    expect(matches).toHaveLength(depth * matchesPerSpan);
+  });
+
+  it('should preserve match ordering across a very wide level', () => {
+    const width = 5000;
+    const children = Array.from({ length: width }, (_, i) => buildSearchableNode(`child-${i}`));
+    const root = buildSearchableNode('root', children);
+
+    const { matches } = searchTree(root, 'needle', TEST_SPAN_FILTER_STATE);
+
+    // a span's own matches come before its children's, and children keep their order
+    expect(matches.map((match) => match.span.key)).toEqual(['root', ...children.map((child) => child.key)]);
   });
 });
 
@@ -1639,6 +1686,54 @@ describe('parseTraceV4SerializedLocation', () => {
       type: 'UC_TABLE_PREFIX',
       uc_table_prefix: { catalog_name: 'catalog', schema_name: 'schema', table_prefix: 'prefix' },
     });
+  });
+});
+
+describe('tryDeserializeAttribute', () => {
+  it.each([
+    ['small int', '42', 42],
+    ['float', '3.14', 3.14],
+    // These are floats whose JSON text is not JS's canonical number formatting; they must keep
+    // deserializing to numbers (the round-trip precision guard applies only to integer literals).
+    ['float with trailing .0', '1.0', 1],
+    ['scientific notation float', '1e-05', 0.00001],
+    ['string', '"hello"', 'hello'],
+    ['object', '{"a":1}', { a: 1 }],
+    ['array', '[1,2,3]', [1, 2, 3]],
+  ])('parses %s into its JSON value', (_label, raw, expected) => {
+    expect(tryDeserializeAttribute(raw)).toEqual(expected);
+  });
+
+  it.each([
+    ['non-JSON string', 'not json'],
+    ['malformed JSON', '{'],
+  ])('returns the original string unchanged for %s', (_label, raw) => {
+    expect(tryDeserializeAttribute(raw)).toBe(raw);
+  });
+
+  it('keeps a large int64-range numeric string as-is instead of losing precision', () => {
+    // 2051281657916407550 and 2051281657916407549 differ only in the last digit, well within
+    // IEEE-754 double's rounding granularity at this magnitude (~512) — JSON.parse would
+    // otherwise silently collapse both to the same corrupted number, 2051281657916407600.
+    expect(tryDeserializeAttribute('2051281657916407550')).toBe('2051281657916407550');
+    expect(tryDeserializeAttribute('2051281657916407549')).toBe('2051281657916407549');
+  });
+
+  it('keeps an unsafe integer whose shortest representation matches its input text', () => {
+    // 1000000000000000100 parses to the double 1000000000000000128, but JS prints the shortest
+    // text that round-trips ('1000000000000000100'), so a re-stringify check would wrongly
+    // accept the corrupted number — only the safe-integer range check catches this.
+    expect(tryDeserializeAttribute('1000000000000000100')).toBe('1000000000000000100');
+  });
+
+  it('keeps a whitespace-padded unsafe integer as-is', () => {
+    // `JSON.parse` accepts surrounding whitespace, so the guard has to match on trimmed text.
+    expect(tryDeserializeAttribute(' 9007199254740993 ')).toBe(' 9007199254740993 ');
+  });
+
+  it('keeps a numeric string far beyond int64 range as-is', () => {
+    const huge = '1' + '0'.repeat(400);
+    expect(tryDeserializeAttribute(huge)).toBe(huge);
   });
 });
 

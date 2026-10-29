@@ -173,6 +173,50 @@ describe('tracedOpenAI', () => {
       });
     });
 
+    it('should record refusals of streamed chat completions', async () => {
+      openAIMswServer.use(
+        http.post('https://api.openai.com/v1/chat/completions', () => {
+          return new HttpResponse(
+            [
+              'data: {"id":"chatcmpl-stream","object":"chat.completion.chunk","created":123,"model":"gpt-4","choices":[{"index":0,"delta":{"role":"assistant","content":null,"refusal":"I\'m sorry, "},"finish_reason":null}]}\n\n',
+              'data: {"id":"chatcmpl-stream","object":"chat.completion.chunk","created":123,"model":"gpt-4","choices":[{"index":0,"delta":{"refusal":"I can\'t help with that."},"finish_reason":"stop"}]}\n\n',
+              'data: [DONE]\n\n',
+            ].join(''),
+            { headers: { 'Content-Type': 'text/event-stream' } },
+          );
+        }),
+      );
+
+      const openai = new OpenAI({ apiKey: 'test-key' });
+      const wrappedOpenAI = tracedOpenAI(openai);
+
+      const stream = await wrappedOpenAI.chat.completions.create({
+        model: 'gpt-4',
+        messages: [{ role: 'user', content: 'Hello!' }],
+        stream: true,
+      });
+
+      for await (const _chunk of stream) {
+        // Drain the stream
+      }
+
+      const trace = await getLastActiveTrace();
+      const span = trace.data.spans[0];
+      expect(span.outputs).toEqual({
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: '',
+              refusal: "I'm sorry, I can't help with that.",
+            },
+            finish_reason: 'stop',
+          },
+        ],
+      });
+    });
+
     it('should end spans when streaming chat completions are terminated early', async () => {
       const openai = new OpenAI({ apiKey: 'test-key' });
       const wrappedOpenAI = tracedOpenAI(openai);
@@ -406,6 +450,84 @@ describe('tracedOpenAI', () => {
         temperature: 0,
       });
       expect(span.outputs).toEqual(response);
+    });
+  });
+
+  describe('Decisions API', () => {
+    it('traces a decision with its probability and token usage', async () => {
+      const request = {
+        model: 'gpt-6-luna',
+        input: 'The answer is Paris.',
+        questions: [{ type: 'predicate', name: 'correct', instructions: 'Is the answer correct?' }],
+      };
+      const response = {
+        model: 'gpt-6-luna-2026-09-30',
+        answers: [{ type: 'predicate', name: 'correct', probability: 0.91 }],
+        usage: {
+          input_tokens: 172,
+          input_tokens_details: { cached_tokens: 40, cache_write_tokens: 12 },
+          output_tokens: 0,
+          total_tokens: 172,
+        },
+      };
+      class Decisions {
+        create(input: typeof request) {
+          expect(input).toEqual(request);
+          return Promise.resolve(response);
+        }
+      }
+
+      const client = tracedOpenAI({ decisions: new Decisions() });
+      const result = await client.decisions.create(request);
+
+      expect(result).toBe(response);
+      const trace = await getLastActiveTrace();
+      expect(trace.info.state).toBe('OK');
+      expect(trace.info.tokenUsage).toEqual({
+        input_tokens: 172,
+        output_tokens: 0,
+        total_tokens: 172,
+        cache_read_input_tokens: 40,
+        cache_creation_input_tokens: 12,
+      });
+
+      const span = trace.data.spans[0];
+      expect(span.name).toBe('Decisions');
+      expect(span.spanType).toBe(mlflow.SpanType.LLM);
+      expect(span.inputs).toEqual(request);
+      expect(span.outputs).toEqual(response);
+      expect(span.attributes[mlflow.SpanAttributeKey.MESSAGE_FORMAT]).toBe('openai_decisions');
+      expect(span.attributes['mlflow.llm.model']).toBe(response.model);
+      expect(span.attributes['mlflow.llm.provider']).toBe('openai');
+      expect(span.attributes[mlflow.SpanAttributeKey.TOKEN_USAGE]).toEqual({
+        input_tokens: 172,
+        output_tokens: 0,
+        total_tokens: 172,
+        cache_read_input_tokens: 40,
+        cache_creation_input_tokens: 12,
+      });
+    });
+
+    it('records decision errors', async () => {
+      const request = { model: 'gpt-6-luna', input: 'Hello', questions: [] };
+      class Decisions {
+        create(_input: typeof request) {
+          return Promise.reject(new Error('Decision request failed'));
+        }
+      }
+
+      const client = tracedOpenAI({ decisions: new Decisions() });
+      await expect(client.decisions.create(request)).rejects.toThrow('Decision request failed');
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.state).toBe('ERROR');
+      const span = trace.data.spans[0];
+      expect(span.name).toBe('Decisions');
+      expect(span.status.statusCode).toBe(mlflow.SpanStatusCode.ERROR);
+      expect(span.inputs).toEqual(request);
+      expect(span.attributes[mlflow.SpanAttributeKey.MESSAGE_FORMAT]).toBe('openai_decisions');
+      expect(span.attributes['mlflow.llm.model']).toBe('gpt-6-luna');
+      expect(span.outputs).toBeUndefined();
     });
   });
 

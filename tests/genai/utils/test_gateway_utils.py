@@ -4,7 +4,12 @@ from unittest import mock
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.genai.utils.gateway_utils import GatewayLiteLLMConfig, get_gateway_litellm_config
+from mlflow.genai.utils.gateway_utils import (
+    GatewayLiteLLMConfig,
+    _resolve_gateway_uri,
+    get_gateway_litellm_config,
+    server_gateway_uri,
+)
 from mlflow.utils.credentials import MlflowCreds
 
 GATEWAY_URI = "http://localhost:5000"
@@ -118,3 +123,22 @@ def test_get_gateway_litellm_config_invalid_uri(tracking_uri, monkeypatch):
     with mock.patch("mlflow.genai.utils.gateway_utils.get_tracking_uri", return_value=tracking_uri):
         with pytest.raises(MlflowException, match="Gateway provider requires an HTTP"):
             get_gateway_litellm_config("chat")
+
+
+def test_server_gateway_uri_is_used_when_tracking_uri_is_not_http(monkeypatch):
+    monkeypatch.delenv("MLFLOW_GATEWAY_URI", raising=False)
+
+    with mock.patch(
+        "mlflow.genai.utils.gateway_utils.get_tracking_uri", return_value="sqlite:///mlflow.db"
+    ):
+        with server_gateway_uri("http://127.0.0.1:5000"):
+            assert _resolve_gateway_uri() == "http://127.0.0.1:5000"
+        with pytest.raises(MlflowException, match="Gateway provider requires an HTTP"):
+            _resolve_gateway_uri()
+
+
+def test_mlflow_gateway_uri_takes_precedence_over_server_gateway_uri(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_URI", GATEWAY_URI)
+
+    with server_gateway_uri("http://127.0.0.1:5000"):
+        assert _resolve_gateway_uri() == GATEWAY_URI

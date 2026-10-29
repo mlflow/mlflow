@@ -17,11 +17,16 @@ import os
 import posixpath
 import tempfile
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 
 from mlflow.exceptions import MlflowException
+from mlflow.server.artifact_transfer import (
+    reject_proxied_artifact_download,
+    reject_proxied_artifact_upload,
+)
 from mlflow.store.artifact.artifact_repo import ARTIFACT_STREAM_CHUNK_SIZE, StreamUploadMixin
+from mlflow.store.tracking.skill_registry.artifact_paths import is_skill_upload_namespace
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.uri import validate_path_is_safe
 
@@ -57,8 +62,14 @@ def _content_disposition(filename: str) -> str:
     return _content_disposition_attachment(filename)
 
 
-@artifact_router.get("/api/2.0/mlflow-artifacts/artifacts/{artifact_path:path}")
-@artifact_router.get("/ajax-api/2.0/mlflow-artifacts/artifacts/{artifact_path:path}")
+@artifact_router.get(
+    "/api/2.0/mlflow-artifacts/artifacts/{artifact_path:path}",
+    dependencies=[Depends(reject_proxied_artifact_download)],
+)
+@artifact_router.get(
+    "/ajax-api/2.0/mlflow-artifacts/artifacts/{artifact_path:path}",
+    dependencies=[Depends(reject_proxied_artifact_download)],
+)
 async def download_artifact(artifact_path: str):
     if not _is_serving_proxied_artifacts():
         raise HTTPException(
@@ -132,8 +143,14 @@ async def download_artifact(artifact_path: str):
         )
 
 
-@artifact_router.put("/api/2.0/mlflow-artifacts/artifacts/{artifact_path:path}")
-@artifact_router.put("/ajax-api/2.0/mlflow-artifacts/artifacts/{artifact_path:path}")
+@artifact_router.put(
+    "/api/2.0/mlflow-artifacts/artifacts/{artifact_path:path}",
+    dependencies=[Depends(reject_proxied_artifact_upload)],
+)
+@artifact_router.put(
+    "/ajax-api/2.0/mlflow-artifacts/artifacts/{artifact_path:path}",
+    dependencies=[Depends(reject_proxied_artifact_upload)],
+)
 async def upload_artifact(artifact_path: str, request: Request):
     if not _is_serving_proxied_artifacts():
         raise HTTPException(
@@ -146,6 +163,11 @@ async def upload_artifact(artifact_path: str, request: Request):
 
     try:
         artifact_path = validate_path_is_safe(artifact_path)
+        if is_skill_upload_namespace(artifact_path):
+            raise HTTPException(
+                status_code=403,
+                detail="Skill upload content is immutable; register a new version instead",
+            )
         artifact_path = _get_workspace_scoped_path(artifact_path)
         head, tail = posixpath.split(artifact_path)
 

@@ -245,6 +245,64 @@ describe('PromptsPage', () => {
     expect(createButton).toBeEnabled();
   });
 
+  it('should reset pagination when the search filter changes', async () => {
+    const requestedPageTokens: (string | null)[] = [];
+    server.use(
+      rest.get('/ajax-api/2.0/mlflow/registered-models/search', (req, res, ctx) => {
+        const pageToken = req.url.searchParams.get('page_token');
+        const isSearch = req.url.searchParams.get('filter')?.includes('name ILIKE');
+        requestedPageTokens.push(pageToken);
+        if (isSearch) {
+          return res(
+            ctx.json({
+              registered_models: pageToken
+                ? []
+                : [{ name: 'prompt1', last_updated_timestamp: 1620000000000, latest_versions: [{ version: 1 }] }],
+            }),
+          );
+        }
+        return res(
+          ctx.json(
+            pageToken
+              ? {
+                  registered_models: [
+                    { name: 'prompt2', last_updated_timestamp: 1620000000000, latest_versions: [{ version: 1 }] },
+                  ],
+                }
+              : {
+                  registered_models: [
+                    { name: 'prompt1', last_updated_timestamp: 1620000000000, latest_versions: [{ version: 1 }] },
+                  ],
+                  next_page_token: 'page2',
+                },
+          ),
+        );
+      }),
+    );
+
+    renderTestComponent();
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'prompt1' })).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: /Next/ }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'prompt2' })).toBeInTheDocument();
+    });
+
+    await userEvent.type(screen.getByPlaceholderText('Search prompts by name'), 'prompt1');
+
+    await waitFor(
+      () => {
+        expect(screen.getByRole('link', { name: 'prompt1' })).toBeInTheDocument();
+      },
+      { timeout: 3000 },
+    );
+    expect(requestedPageTokens.at(-1)).toBeNull();
+  });
+
   describe('Experiment-scoped prompts', () => {
     it('should render experiment-scoped prompts with filtering', async () => {
       const experimentId = '123';

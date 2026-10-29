@@ -49,7 +49,7 @@ def capture_function_input_args(func, args, kwargs) -> dict[str, Any] | None:
         bound_arguments.apply_defaults()
 
         # Remove `self` from bound arguments if it exists
-        if bound_arguments.arguments.get("self"):
+        if "self" in bound_arguments.arguments:
             del bound_arguments.arguments["self"]
 
         # Remove `cls` from bound arguments if it's the first parameter and it's a type
@@ -914,6 +914,22 @@ def parse_trace_id_v4(trace_id: str | None) -> tuple[str | None, str | None]:
     return None, trace_id
 
 
+def serialize_session_id(session_id: Any) -> Any:
+    """
+    Convert a session ID to its trace metadata form. A list identifies a hierarchical session
+    (outermost level first) and is stored as a compact JSON array string. Any other value is
+    returned unchanged to preserve the existing handling of non-list session IDs.
+    """
+    if not isinstance(session_id, list):
+        return session_id
+    if session_id and all(isinstance(level, str) for level in session_id):
+        return json.dumps(session_id, separators=(",", ":"), ensure_ascii=False)
+    raise MlflowException.invalid_parameter_value(
+        "The `session_id` parameter must be a string or a non-empty list of strings, "
+        f"but got {session_id!r}."
+    )
+
+
 def construct_trace_id_v4(location: str, trace_id: str) -> str:
     """
     Construct a trace ID for the given location and trace ID.
@@ -943,21 +959,25 @@ def set_span_model_attribute(span: LiveSpan, inputs: dict[str, Any]) -> None:
 def should_compute_cost_client_side() -> bool:
     """Whether LLM cost should be computed on the client side.
 
-    Returns True only for Databricks backends where server-side
-    translate_span_when_storing() does not run. For non-Databricks backends,
-    cost is computed server-side in sqlalchemy_store.log_spans().
+    Databricks and SageMaker MLflow tracking backends need client-side cost.
+    Other backends compute it in translate_span_when_storing(), called by
+    SqlAlchemyStore._log_spans_once() before the span is saved.
     """
     from mlflow.tracking._tracking_service.utils import get_tracking_uri
-    from mlflow.utils.uri import is_databricks_uri
+    from mlflow.utils.uri import is_databricks_uri, is_sagemaker_mlflow_tracking_uri
 
-    return is_databricks_uri(get_tracking_uri())
+    tracking_uri = get_tracking_uri()
+    return is_databricks_uri(tracking_uri) or is_sagemaker_mlflow_tracking_uri(tracking_uri)
 
 
 def set_span_cost_attribute(span: LiveSpan) -> None:
     """
-    Set the cost attribute on a span using calculated cost information.
+    Set the calculated cost on a span unless a cost was already provided.
     """
     try:
+        # An explicitly set null cost should not be replaced by a calculated cost.
+        if SpanAttributeKey.LLM_COST in span._span.attributes:
+            return
         if cost := calculate_span_cost(span):
             span.set_attribute(SpanAttributeKey.LLM_COST, cost)
     except Exception as e:

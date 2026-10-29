@@ -42,6 +42,31 @@ def is_spark_connect_mode() -> bool:
     return is_remote()
 
 
+def _load_study_on_executor(
+    study_name: str,
+    sampler: samplers.BaseSampler,
+    pruner: pruners.BasePruner,
+    experiment_id: str,
+    batch_flush_interval: float,
+    batch_size_threshold: int,
+    reseed_sampler: bool,
+) -> "optuna.Study":
+    storage = MlflowStorage(
+        experiment_id=experiment_id,
+        batch_flush_interval=batch_flush_interval,
+        batch_size_threshold=batch_size_threshold,
+    )
+    study = optuna.load_study(
+        study_name=study_name, sampler=sampler, pruner=pruner, storage=storage
+    )
+    # Every Spark task unpickles an identical copy of the sampler, including its RNG state.
+    # With parallel tasks, reseed it so they don't suggest the same parameters. A single
+    # task keeps the seeded RNG so runs stay reproducible, matching Optuna's n_jobs handling.
+    if reseed_sampler:
+        study.sampler.reseed_rng()
+    return study
+
+
 def _optimize_sequential(
     study: "optuna.Study",
     func: "optuna.study.study.ObjectiveFuncType",
@@ -357,18 +382,30 @@ class MlflowSparkStudy(Study):
             _logger.info("Starting optimization for new study")
 
         experiment_id = self._storage._experiment_id
+        batch_flush_interval = self._storage._batch_flush_interval
+        batch_size_threshold = self._storage._batch_size_threshold
         study_name = self.study_name
         mlflow_tracking_env = self._mlflow_tracking_env
         sampler = self.sampler
         pruner = self.pruner
 
+        num_tasks = n_trials
+        if n_jobs == -1:
+            n_jobs = num_tasks
+        reseed_sampler = n_jobs > 1
+
         def run_task_on_executor_pd(iterator):
             mlflow.set_tracking_uri(mlflow_tracking_env)
             mlflow_client = MlflowClient()
 
-            storage = MlflowStorage(experiment_id=experiment_id)
-            study = optuna.load_study(
-                study_name=study_name, sampler=sampler, pruner=pruner, storage=storage
+            study = _load_study_on_executor(
+                study_name=study_name,
+                sampler=sampler,
+                pruner=pruner,
+                experiment_id=experiment_id,
+                batch_flush_interval=batch_flush_interval,
+                batch_size_threshold=batch_size_threshold,
+                reseed_sampler=reseed_sampler,
             )
             num_trials = sum(map(len, iterator))
 
@@ -387,9 +424,6 @@ class MlflowSparkStudy(Study):
                 error_message = traceback.format_exc()
             yield pd.DataFrame({"error": [error_message]})
 
-        num_tasks = n_trials
-        if n_jobs == -1:
-            n_jobs = num_tasks
         input_df = self.spark.range(start=0, end=num_tasks, step=1, numPartitions=n_jobs)
         trial_tag = f"optuna_trial_{study_name}_{experiment_id}"
         if self._is_spark_connect_mode:

@@ -116,7 +116,7 @@ describe('MCPServerDetailPage', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Mainline').length).toBeGreaterThanOrEqual(1);
     });
-    expect(screen.getAllByText('MCP Registry').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('MCP').length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders version list with status badge', async () => {
@@ -516,6 +516,23 @@ describe('MCPServerDetailPage', () => {
         expect(screen.getByText('Unavailable')).toBeInTheDocument();
       });
     });
+  });
+
+  it('shows a deprecated-only server as deprecated, since it still resolves', async () => {
+    server.use(
+      getMockedGetMCPServerResponse(
+        createMockMCPServer({
+          name: 'dev.mainline/mcp',
+          display_name: 'Mainline',
+          status: MCPStatus.DEPRECATED,
+          latest_version: '1',
+        }),
+      ),
+    );
+    renderPage();
+
+    expect(await screen.findByText('Deprecated')).toBeInTheDocument();
+    expect(screen.queryByText('Unavailable')).not.toBeInTheDocument();
   });
 
   it('switches to compare view when Compare button is clicked', async () => {

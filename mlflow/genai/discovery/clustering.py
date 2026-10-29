@@ -103,6 +103,7 @@ def summarize_cluster(
     categories: list[str],
     label_to_analysis: list[int] | None = None,
     token_counter: _TokenCounter | None = None,
+    instructions: str | None = None,
 ) -> _IdentifiedIssue:
     """
     Summarize a cluster of analyses into a single identified issue.
@@ -119,6 +120,8 @@ def summarize_cluster(
         label_to_analysis: Mapping from label index to analysis index.
             When ``None``, label indices are used as analysis indices directly.
         token_counter: Optional token counter for tracking LLM usage.
+        instructions: The experiment's saved detection priorities, which steer severity and
+            what is worth reporting.
 
     Returns:
         An ``_IdentifiedIssue`` with synthesized fields and analysis indices.
@@ -140,7 +143,7 @@ def summarize_cluster(
         parts.append(entry)
     analyses_text = "\n\n".join(parts)
 
-    system_prompt = build_cluster_summary_prompt(categories=categories)
+    system_prompt = build_cluster_summary_prompt(categories=categories, instructions=instructions)
     response = _call_llm(
         model,
         [
@@ -174,6 +177,7 @@ def recluster_singletons(
     max_issues: int,
     categories: list[str],
     token_counter: _TokenCounter | None = None,
+    instructions: str | None = None,
 ) -> list[_IdentifiedIssue]:
     """
     Re-cluster singleton issues via a second LLM pass to find better groupings.
@@ -186,6 +190,9 @@ def recluster_singletons(
         max_issues: Maximum number of groups to produce.
         categories: List of valid category names to filter extracted categories.
         token_counter: Optional token counter for tracking LLM usage.
+        instructions: The experiment's saved detection priorities. The summary produced here
+            replaces the per-singleton ones, so omitting them would quietly undo the
+            priorities for merged issues only.
 
     Returns:
         List of issues after re-clustering (merged or original singletons).
@@ -208,7 +215,12 @@ def recluster_singletons(
         # Each singleton has exactly one analysis index in example_indices
         merged_indices = [singletons[group_idx].example_indices[0] for group_idx in group]
         merged_issue = summarize_cluster(
-            merged_indices, analyses, model, categories=categories, token_counter=token_counter
+            merged_indices,
+            analyses,
+            model,
+            categories=categories,
+            token_counter=token_counter,
+            instructions=instructions,
         )
         if merged_issue.severity >= IssueSeverity.LOW:
             result.append(merged_issue)

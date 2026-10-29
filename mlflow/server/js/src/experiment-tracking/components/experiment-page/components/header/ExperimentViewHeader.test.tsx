@@ -212,17 +212,20 @@ describe('ExperimentViewHeader', () => {
       expect(mockNavigate).toHaveBeenCalledWith(createMLflowRoutePath('/experiments/1/chat-sessions'));
     });
 
-    it('navigates to /experiments from overview sub-tab pages', async () => {
-      renderComponent(defaultExperiment, '/experiments/1/overview/usage');
+    it.each(['/experiments/1/overview/usage', '/experiments/1/dashboard/usage'])(
+      'navigates to /experiments from dashboard sub-tab page %s',
+      async (path) => {
+        renderComponent(defaultExperiment, path);
 
-      await waitFor(() => {
-        expect(screen.getByTestId('experiment-view-header-back-button')).toBeInTheDocument();
-      });
+        await waitFor(() => {
+          expect(screen.getByTestId('experiment-view-header-back-button')).toBeInTheDocument();
+        });
 
-      await userEvent.click(screen.getByTestId('experiment-view-header-back-button'));
+        await userEvent.click(screen.getByTestId('experiment-view-header-back-button'));
 
-      expect(mockNavigate).toHaveBeenCalledWith(createMLflowRoutePath('/experiments'));
-    });
+        expect(mockNavigate).toHaveBeenCalledWith(createMLflowRoutePath('/experiments'));
+      },
+    );
   });
 
   describe('headerActionsHidden', () => {

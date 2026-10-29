@@ -19,8 +19,8 @@ from mlflow.entities.gateway_guardrail import (
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.providers.utils import send_request
 from mlflow.genai.judges.utils import CategoricalRating
-from mlflow.metrics.genai.model_utils import _parse_model_uri
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.genai.utils.gateway_utils import server_gateway_uri
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INVALID_STATE
 
 if TYPE_CHECKING:
     from mlflow.genai.scorers import Scorer
@@ -63,6 +63,23 @@ class GuardrailViolation(MlflowException):
         super().__init__(
             f"Guardrail '{guardrail_name}' blocked: {rationale}",
             error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
+class UnsupportedGuardrailScorerError(MlflowException):
+    """Raised when a guardrail is configured with a custom ``@scorer`` scorer.
+
+    A guardrail runs its scorer in the server process, which never executes custom scorer code.
+    This is a configuration error that must fail the request rather than silently drop the
+    guardrail, so an endpoint never serves traffic without a guardrail it is configured to run.
+    """
+
+    def __init__(self, guardrail_name: str) -> None:
+        super().__init__(
+            f"Guardrail '{guardrail_name}' uses a custom scorer defined with the @scorer "
+            "decorator, which gateway guardrails do not support. Replace it with a built-in "
+            "scorer or a judge created with make_judge, or remove it from this endpoint.",
+            error_code=INVALID_STATE,
         )
 
 
@@ -137,6 +154,8 @@ class JudgeGuardrail(Guardrail):
         name: Human-readable name for error messages.
         action_llm_url: Full gateway invocations URL for the sanitization LLM.
             Built by the caller from the endpoint name and server address.
+        gateway_uri: URL at which this server reaches itself. ``gateway:/`` judge models
+            are routed here, because inside the server the tracking URI is the backend store.
     """
 
     def __init__(
@@ -147,6 +166,7 @@ class JudgeGuardrail(Guardrail):
         name: str,
         action_llm_url: str | None = None,
         action_endpoint_name: str | None = None,
+        gateway_uri: str | None = None,
     ) -> None:
         self.scorer = scorer
         self.stage = stage
@@ -154,6 +174,7 @@ class JudgeGuardrail(Guardrail):
         self.name = name
         self.action_llm_url = action_llm_url
         self.action_endpoint_name = action_endpoint_name
+        self.gateway_uri = gateway_uri
 
     def _invoke_judge(
         self,
@@ -166,7 +187,8 @@ class JudgeGuardrail(Guardrail):
             kwargs["inputs"] = inputs
         if outputs is not None:
             kwargs["outputs"] = outputs
-        return self.scorer(**kwargs)
+        with server_gateway_uri(self.gateway_uri):
+            return self.scorer(**kwargs)
 
     def _is_passing(self, result: ScorerResult) -> bool:
         """Determine whether the judge result indicates a pass.
@@ -402,7 +424,12 @@ class JudgeGuardrail(Guardrail):
             return output
 
     @classmethod
-    def from_entity(cls, entity: GatewayGuardrail, server_url: str | None = None) -> JudgeGuardrail:
+    def from_entity(
+        cls,
+        entity: GatewayGuardrail,
+        server_url: str | None = None,
+        gateway_uri: str | None = None,
+    ) -> JudgeGuardrail:
         """Convert a ``GatewayGuardrail`` entity into a callable ``JudgeGuardrail``.
 
         Deserializes the scorer stored in ``entity.scorer`` (a ``ScorerVersion``)
@@ -413,41 +440,31 @@ class JudgeGuardrail(Guardrail):
             server_url: Base URL of the MLflow server (e.g. ``http://localhost:5000``).
                 Used to build the sanitization invocations URL from
                 ``entity.action_endpoint_name``.
+            gateway_uri: URL at which this server reaches itself, used by ``gateway:/``
+                judge models.
 
         Returns:
             A ``JudgeGuardrail`` ready to process requests/responses.
         """
-        from mlflow.genai.judges.instructions_judge import (
-            InstructionsJudge,  # lazy: heavy transitive deps
-        )
         from mlflow.genai.scorers import Scorer  # lazy: heavy transitive deps
+        from mlflow.genai.scorers.base import _serialized_scorer_is_custom_code
 
         action_llm_url = (
             server_url.rstrip("/") if entity.action_endpoint_name and server_url else None
         )
 
-        scorer = Scorer.model_validate(entity.scorer.serialized_scorer)
-
-        # Inside the server process MLFLOW_TRACKING_URI points to the backend store
-        # (e.g. sqlite://), so _resolve_gateway_uri() would fail for gateway:/ URIs.
-        # Pass base_url explicitly so _get_provider_instance can skip _resolve_gateway_uri().
-        if server_url and isinstance(scorer, InstructionsJudge) and scorer.model:
-            provider, endpoint_name = _parse_model_uri(scorer.model)
-            if provider == "gateway":
-                scorer = InstructionsJudge(
-                    name=scorer.name,
-                    instructions=scorer._instructions,
-                    model=f"gateway:/{endpoint_name}",
-                    base_url=f"{server_url.rstrip('/')}/gateway/mlflow/v1/chat/completions",
-                    feedback_value_type=scorer._feedback_value_type,
-                    inference_params=scorer._inference_params,
-                )
+        # A guardrail runs its scorer in the server process. Custom scorers defined with the
+        # @scorer decorator would execute their stored source here, so they are not supported as
+        # guardrails (this also covers one registered before guardrail creation rejected them).
+        if _serialized_scorer_is_custom_code(entity.scorer.serialized_scorer):
+            raise UnsupportedGuardrailScorerError(entity.name)
 
         return cls(
-            scorer=scorer,
+            scorer=Scorer.model_validate(entity.scorer.serialized_scorer),
             stage=entity.stage,
             action=entity.action,
             name=entity.name,
             action_llm_url=action_llm_url,
             action_endpoint_name=entity.action_endpoint_name,
+            gateway_uri=gateway_uri,
         )

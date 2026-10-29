@@ -10,9 +10,10 @@ class PagedList(list[T]):
     elements, if any are available
     """
 
-    def __init__(self, items: list[T], token):
+    def __init__(self, items: list[T], token, total_count: int | None = None):
         super().__init__(items)
         self.token = token
+        self.total_count = total_count
 
     def to_list(self):
         return list(self)

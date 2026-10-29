@@ -165,7 +165,22 @@ export function getDisplayNameForSpanType(spanType: ModelSpanType | string): str
 
 export function tryDeserializeAttribute(value: string): any {
   try {
-    return JSON.parse(value);
+    const parsed = JSON.parse(value);
+    // Guard against precision loss for a top-level integer-literal value (e.g. an int64-range
+    // ID like "2051281657916407550"): anything outside the safe-integer range has already been
+    // rounded by `JSON.parse`, so keep the original string instead of the corrupted number.
+    // Re-stringifying is not a sufficient check — JS prints the shortest text that round-trips
+    // to the same double, so a rounded value like `1000000000000000100` (stored as
+    // ...0128) reproduces its input text exactly. This matches the `Number.isSafeInteger`
+    // policy in `decodeOtelAnyValue`. Only integer literals are checked — floats like "1.0" or
+    // "1e-05" deserialize losslessly and are left alone. Numbers nested inside a JSON-encoded
+    // attribute value (e.g. `mlflow.spanInputs`) are out of scope here and can still lose
+    // precision. The text is trimmed before matching because `JSON.parse` accepts surrounding
+    // whitespace; the untrimmed original is what gets returned.
+    if (typeof parsed === 'number' && /^-?\d+$/.test(value.trim()) && !Number.isSafeInteger(parsed)) {
+      return value;
+    }
+    return parsed;
   } catch (e) {
     return value;
   }
@@ -358,51 +373,102 @@ export function searchTree(
     };
   }
 
-  const children = rootNode.children ?? [];
-  const filteredChildren: ModelTraceSpanNode[] = [];
-  const matches: SearchMatch[] = [];
-  children.forEach((child) => {
-    const { filteredTreeNodes: childNodes, matches: childMatches } = searchTree(
-      child,
-      searchFilterLowercased,
-      spanFilterState,
+  // A span tree can be deeper and wider than the JS call stack allows, so recursing
+  // here exhausted the stack on large traces and took down the whole panel.
+  // Walk iteratively instead, resolving every child before the parent that consumes it.
+  type SearchTreeEntry = {
+    filteredTreeNodes: ModelTraceSpanNode[];
+    // this span's own matches only. Accumulating each subtree's matches here instead
+    // retains O(spans^2) entries on a deep trace, which just trades the stack overflow
+    // for an out-of-memory -- the full list is assembled in one pass at the end.
+    ownMatches: SearchMatch[];
+  };
+
+  const postOrder: ModelTraceSpanNode[] = [];
+  const visited = new Set<ModelTraceSpanNode>();
+  const pending: ModelTraceSpanNode[] = [rootNode];
+  while (pending.length > 0) {
+    const node = pending.pop();
+    // `visited` also stops a malformed trace whose spans form a cycle from looping forever
+    if (!node || visited.has(node)) {
+      continue;
+    }
+    visited.add(node);
+    postOrder.push(node);
+    for (const child of node.children ?? []) {
+      pending.push(child);
+    }
+  }
+  // parents were emitted before their children, so reversing yields post-order
+  postOrder.reverse();
+
+  const entriesByNode = new Map<ModelTraceSpanNode, SearchTreeEntry>();
+
+  for (const node of postOrder) {
+    const filteredChildren: ModelTraceSpanNode[] = [];
+
+    for (const child of node.children ?? []) {
+      const childEntry = entriesByNode.get(child);
+      if (!childEntry) {
+        continue;
+      }
+      // appended element-wise rather than with push(...spread), which passes every
+      // entry as a call argument and throws once a subtree accumulates enough of them
+      for (const childNode of childEntry.filteredTreeNodes) {
+        filteredChildren.push(childNode);
+      }
+    }
+
+    const spanName = typeof node.title === 'string' ? node.title.toLowerCase() : '';
+    const spanMatches = getMatchesFromSpan(node, searchFilterLowercased);
+
+    // check if the span passes the text, type, and log-level filters
+    const nodeMatchesSearch = spanMatches.length > 0 || spanName.includes(searchFilterLowercased);
+    const spanTypeIsDisplayed = node.type ? spanFilterState.spanTypeDisplayState[node.type] : true;
+    const spanPassesLogLevel = getSpanLogLevel(node) >= spanFilterState.minLogLevel;
+    const nodePassesSpanFilters = nodeMatchesSearch && spanTypeIsDisplayed && spanPassesLogLevel;
+
+    const hasMatchingChild = filteredChildren.length > 0;
+    const hasException = getSpanExceptionCount(node) > 0;
+
+    const nodeShouldBeDisplayed =
+      nodePassesSpanFilters ||
+      // the `showParents` and `showExceptions` flags override the
+      // search filters, so we always show the node if they pass
+      (spanFilterState.showParents && hasMatchingChild) ||
+      (spanFilterState.showExceptions && hasException);
+
+    entriesByNode.set(
+      node,
+      nodeShouldBeDisplayed
+        ? { filteredTreeNodes: [{ ...node, children: filteredChildren }], ownMatches: spanMatches }
+        : // otherwise cut the span out of the tree by returning the children directly
+          { filteredTreeNodes: filteredChildren, ownMatches: [] },
     );
-
-    filteredChildren.push(...childNodes);
-    matches.push(...childMatches);
-  });
-
-  const spanName = ((rootNode.title as string) ?? '').toLowerCase();
-  const spanMatches = getMatchesFromSpan(rootNode, searchFilterLowercased);
-
-  // check if the span passes the text, type, and log-level filters
-  const nodeMatchesSearch = spanMatches.length > 0 || spanName.includes(searchFilterLowercased);
-  const spanTypeIsDisplayed = rootNode.type ? spanFilterState.spanTypeDisplayState[rootNode.type] : true;
-  const spanPassesLogLevel = getSpanLogLevel(rootNode) >= spanFilterState.minLogLevel;
-  const nodePassesSpanFilters = nodeMatchesSearch && spanTypeIsDisplayed && spanPassesLogLevel;
-
-  const hasMatchingChild = filteredChildren.length > 0;
-  const hasException = getSpanExceptionCount(rootNode) > 0;
-
-  const nodeShouldBeDisplayed =
-    nodePassesSpanFilters ||
-    // the `showParents` and `showExceptions` flags override the
-    // search filters, so we always show the node if they pass
-    (spanFilterState.showParents && hasMatchingChild) ||
-    (spanFilterState.showExceptions && hasException);
-
-  if (nodeShouldBeDisplayed) {
-    return {
-      filteredTreeNodes: [{ ...rootNode, children: filteredChildren }],
-      matches: spanMatches.concat(matches),
-    };
   }
 
-  // otherwise cut the span out of the tree by returning the children directly
-  return {
-    filteredTreeNodes: filteredChildren,
-    matches,
-  };
+  // a span's own matches precede its children's, so walk the tree in pre-order to
+  // concatenate them in the same order the recursive implementation produced
+  const matches: SearchMatch[] = [];
+  const collected = new Set<ModelTraceSpanNode>();
+  const toCollect: ModelTraceSpanNode[] = [rootNode];
+  while (toCollect.length > 0) {
+    const node = toCollect.pop();
+    if (!node || collected.has(node)) {
+      continue;
+    }
+    collected.add(node);
+    for (const match of entriesByNode.get(node)?.ownMatches ?? []) {
+      matches.push(match);
+    }
+    const children = node.children ?? [];
+    // pushed in reverse so siblings pop in their original order
+    for (let i = children.length - 1; i >= 0; i--) {
+      toCollect.push(children[i]);
+    }
+  }
+
+  return { filteredTreeNodes: entriesByNode.get(rootNode)?.filteredTreeNodes ?? [], matches };
 }
 
 export function searchTreeBySpanId(
@@ -428,6 +494,51 @@ export function searchTreeBySpanId(
   return undefined;
 }
 
+/**
+ * Drops the leading output messages that repeat the trailing input messages. This covers
+ * frameworks that echo the whole input as a prefix of the output (e.g. LangGraph state) as
+ * well as those that only repeat the last turn (e.g. PydanticAI's new_messages()).
+ */
+export const removeOverlappingInputMessages = (
+  outputMessages: ModelTraceChatMessage[],
+  inputMessages: ModelTraceChatMessage[],
+): ModelTraceChatMessage[] => {
+  const maxOverlap = Math.min(outputMessages.length, inputMessages.length);
+  for (let overlap = maxOverlap; overlap > 0; overlap--) {
+    const inputTail = inputMessages.slice(inputMessages.length - overlap);
+    const matches = inputTail.every(
+      (message, index) => JSON.stringify(message) === JSON.stringify(outputMessages[index]),
+    );
+    if (matches) {
+      return outputMessages.slice(overlap);
+    }
+  }
+  return outputMessages;
+};
+
+/**
+ * Agent-level system prompts (e.g. PydanticAI `Agent(system_prompt=...)`) are recorded only in
+ * the first model request, which is part of the run's new messages rather than the inputs.
+ * Move such leading system messages ahead of the input transcript so the conversation reads in
+ * order and the overlap with the outputs lines up.
+ */
+export const hoistLeadingSystemMessages = (
+  inputMessages: ModelTraceChatMessage[],
+  outputMessages: ModelTraceChatMessage[],
+): ModelTraceChatMessage[] => {
+  if (inputMessages.some((message) => message.role === 'system')) {
+    return inputMessages;
+  }
+  const leadingSystemMessages: ModelTraceChatMessage[] = [];
+  for (const message of outputMessages) {
+    if (message.role !== 'system') {
+      break;
+    }
+    leadingSystemMessages.push(message);
+  }
+  return leadingSystemMessages.length > 0 ? leadingSystemMessages.concat(inputMessages) : inputMessages;
+};
+
 const getChatMessagesFromSpan = (
   messagesAttributeValue: any,
   inputs: any,
@@ -448,9 +559,11 @@ const getChatMessagesFromSpan = (
   const messagesFromInputs = normalizeConversation(inputs, messageFormat) ?? [];
   const messagesFromOutputs = normalizeConversation(outputs, messageFormat) ?? [];
 
-  // PydanticAI's new_messages() returns complete conversation including user prompt
+  // PydanticAI's new_messages() starts with the user prompt that the inputs already end with,
+  // so drop that overlap before joining the two halves of the conversation.
   if (messageFormat === 'pydantic_ai' && messagesFromOutputs.length > 0) {
-    return messagesFromInputs.length > 0 ? messagesFromInputs.concat(messagesFromOutputs) : messagesFromOutputs;
+    const inputMessages = hoistLeadingSystemMessages(messagesFromInputs, messagesFromOutputs);
+    return inputMessages.concat(removeOverlappingInputMessages(messagesFromOutputs, inputMessages));
   }
 
   // For VoltAgent format, synthesize messages from child spans (tool executions)

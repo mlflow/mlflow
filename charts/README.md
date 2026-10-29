@@ -9,6 +9,7 @@ A production-ready Helm chart for deploying [MLflow](https://mlflow.org) on Kube
 - **External Secrets Operator integration** to create the backend store credential Secret from AWS Secrets Manager, GCP Secret Manager, Vault, or any other supported provider
 - **Persistent storage** with a PersistentVolumeClaim for SQLite or file-based artifact stores
 - **Ingress** for external access
+- **Horizontal Pod Autoscaling (HPA)** to automatically scale replicas based on CPU and memory utilization
 - **Prometheus metrics** and optional ServiceMonitor for the Prometheus Operator
 - **NetworkPolicy** restricting ingress and egress to required ports
 - **RBAC** with independent namespace-scoped (`namespace_rbac`) and cluster-scoped (`cluster_rbac`) rules
@@ -33,7 +34,14 @@ helm install mlflow oci://ghcr.io/mlflow/charts/mlflow \
 ```
 
 Available versions are listed under the [mlflow organization packages](https://github.com/orgs/mlflow/packages).
-New chart versions are published by the MLflow release automation.
+Each stable MLflow release publishes its chart after the Docker images succeed.
+Chart version and `appVersion` both match the MLflow version: chart `X.Y.Z`
+defaults to `ghcr.io/mlflow/mlflow:vX.Y.Z-full`. Release candidates do not publish charts.
+
+Release-aligned versions replace the original `0.1.x` chart numbering. Existing
+`0.1.x` artifacts remain available, but version constraints pinned to `0.1.x`
+must be updated to receive new releases. Check the available versions before installing;
+older MLflow releases may not have a corresponding chart.
 
 ### From a local checkout
 
@@ -219,6 +227,32 @@ serviceMonitor:
   enabled: true
 ```
 
+### Autoscaling
+
+Automatically scale MLflow replicas based on CPU and memory utilization. Requires external storage (not SQLite) and resource requests to be configured:
+
+```yaml
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 75
+  targetMemoryUtilizationPercentage: 80
+
+# Also required:
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+mlflow:
+  backendStoreUri: "postgresql://user:password@postgres:5432/mlflow"
+  defaultArtifactRoot: "s3://my-bucket/mlflow"
+```
+
 ### Garbage collection
 
 Periodically remove soft-deleted runs, experiments, and their artifacts:
@@ -254,6 +288,15 @@ helm install mlflow ./charts \
 ```
 
 ## Upgrading
+
+Choose the published MLflow version to deploy:
+
+```bash
+helm upgrade mlflow oci://ghcr.io/mlflow/charts/mlflow \
+  --version <version> --namespace mlflow -f my-values.yaml
+```
+
+From a local checkout:
 
 ```bash
 helm upgrade mlflow ./charts --namespace mlflow -f my-values.yaml

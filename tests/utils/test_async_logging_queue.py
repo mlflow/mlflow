@@ -63,7 +63,7 @@ def test_single_thread_publish_consume_queue(monkeypatch):
             AsyncLoggingQueue, "_batch_status_check_threadpool", create=True
         ) as mock_check_threadpool,
     ):
-        mock_worker_threadpool.submit = MagicMock()
+        mock_worker_threadpool.submit = MagicMock(side_effect=lambda fn, *args: fn(*args))
         mock_check_threadpool.submit = MagicMock()
         mock_worker_threadpool.shutdown = MagicMock()
         mock_check_threadpool.shutdown = MagicMock()
@@ -82,6 +82,7 @@ def test_single_thread_publish_consume_queue(monkeypatch):
             async_logging_queue.flush()
             # 2 batches are sent to the worker thread pool due to grouping, otherwise it would be 5.
             assert mock_worker_threadpool.submit.call_count == 2
+            assert run_data.batch_count == 2
             assert async_logging_queue.is_active()
             assert mock_check_threadpool.shutdown.call_count == 1
             assert mock_worker_threadpool.shutdown.call_count == 1
@@ -437,3 +438,177 @@ def test_batch_split(monkeypatch):
         async_logging_queue.flush()
 
         assert run_data.batch_count == 2
+
+
+@pytest.mark.parametrize("buffering_seconds", [None, "1"])
+def test_batches_of_same_run_are_logged_in_submission_order(monkeypatch, buffering_seconds):
+    if buffering_seconds:
+        monkeypatch.setenv("MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS", buffering_seconds)
+        # Keep every batch separate so coalescing cannot hide out of order dispatch.
+        monkeypatch.setattr(
+            mlflow.utils.async_logging.async_logging_queue, "_MAX_TAGS_PER_BATCH", 1
+        )
+
+    logged_values = []
+    later_batch_logged = threading.Event()
+
+    def logging_func(run_id, metrics, params, tags):
+        value = tags[0].value
+        if value == "0":
+            # The first batch is slow. Later batches of the same run must not overtake it.
+            later_batch_logged.wait(timeout=0.2)
+        logged_values.append(value)
+        later_batch_logged.set()
+
+    async_logging_queue = AsyncLoggingQueue(logging_func)
+    async_logging_queue.activate()
+    try:
+        run_operations = [
+            async_logging_queue.log_batch_async(
+                run_id="run", params=[], tags=[RunTag("stage", str(i))], metrics=[]
+            )
+            for i in range(5)
+        ]
+        for run_operation in run_operations:
+            run_operation.wait()
+    finally:
+        async_logging_queue.shut_down_async_logging()
+
+    assert logged_values == ["0", "1", "2", "3", "4"]
+
+
+def test_batches_of_different_runs_are_logged_concurrently(monkeypatch):
+    monkeypatch.delenv("MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE", raising=False)
+    run_b_logged = threading.Event()
+    run_b_logged_while_run_a_in_progress = []
+
+    def logging_func(run_id, metrics, params, tags):
+        if run_id == "run_a":
+            run_b_logged_while_run_a_in_progress.append(run_b_logged.wait(timeout=5))
+        else:
+            run_b_logged.set()
+
+    async_logging_queue = AsyncLoggingQueue(logging_func)
+    async_logging_queue.activate()
+    try:
+        run_operations = [
+            async_logging_queue.log_batch_async(
+                run_id=run_id, params=[], tags=[RunTag("key", "value")], metrics=[]
+            )
+            for run_id in ["run_a", "run_b"]
+        ]
+        for run_operation in run_operations:
+            run_operation.wait()
+    finally:
+        async_logging_queue.shut_down_async_logging()
+
+    assert run_b_logged_while_run_a_in_progress == [True]
+
+
+def test_metric_only_batches_of_same_run_are_logged_concurrently(monkeypatch):
+    monkeypatch.delenv("MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE", raising=False)
+    second_batch_logged = threading.Event()
+    logged_while_first_in_progress = []
+
+    def logging_func(run_id, metrics, params, tags):
+        if metrics[0].value == 0:
+            logged_while_first_in_progress.append(second_batch_logged.wait(timeout=5))
+        else:
+            second_batch_logged.set()
+
+    async_logging_queue = AsyncLoggingQueue(logging_func)
+    async_logging_queue.activate()
+    try:
+        run_operations = [
+            async_logging_queue.log_batch_async(
+                run_id="run",
+                params=[],
+                tags=[],
+                metrics=[Metric("metric", value, timestamp=0, step=0)],
+            )
+            for value in [0, 1]
+        ]
+        for run_operation in run_operations:
+            run_operation.wait()
+    finally:
+        async_logging_queue.shut_down_async_logging()
+
+    assert logged_while_first_in_progress == [True]
+
+
+def _wait_until(condition, timeout=5):
+    deadline = time.monotonic() + timeout
+    while not condition():
+        assert time.monotonic() < deadline, "Timed out waiting for condition"
+        time.sleep(0.01)
+
+
+def _log_tag(async_logging_queue, value, run_id="run"):
+    return async_logging_queue.log_batch_async(
+        run_id=run_id, params=[], tags=[RunTag("stage", value)], metrics=[]
+    )
+
+
+def test_tag_batch_fails_when_submit_raises():
+    async_logging_queue = AsyncLoggingQueue(lambda run_id, metrics, params, tags: None)
+    async_logging_queue.activate()
+    try:
+        with patch.object(
+            async_logging_queue._batch_logging_worker_threadpool,
+            "submit",
+            side_effect=RuntimeError("cannot schedule new futures"),
+        ):
+            with pytest.raises(MlflowException, match="cannot schedule new futures"):
+                _log_tag(async_logging_queue, "0").wait()
+        assert async_logging_queue._pending_batches_by_run == {}
+    finally:
+        async_logging_queue.shut_down_async_logging()
+
+
+def test_tag_batch_logged_after_previous_drain_of_same_run_finished():
+    logged_values = []
+    async_logging_queue = AsyncLoggingQueue(
+        lambda run_id, metrics, params, tags: logged_values.append(tags[0].value)
+    )
+    async_logging_queue.activate()
+    try:
+        _log_tag(async_logging_queue, "0").wait()
+        _wait_until(lambda: not async_logging_queue._pending_batches_by_run)
+        _log_tag(async_logging_queue, "1").wait()
+        _wait_until(lambda: not async_logging_queue._pending_batches_by_run)
+    finally:
+        async_logging_queue.shut_down_async_logging()
+
+    assert logged_values == ["0", "1"]
+
+
+class _EscapingError(BaseException):
+    pass
+
+
+def test_failure_escaping_batch_logging_does_not_block_later_batches_of_same_run():
+    logged_values = []
+    second_batch_logged = threading.Event()
+
+    def logging_func(run_id, metrics, params, tags):
+        value = tags[0].value
+        if value == "0":
+            raise _EscapingError("escapes the per batch error handling")
+        logged_values.append(value)
+        second_batch_logged.set()
+
+    async_logging_queue = AsyncLoggingQueue(logging_func)
+    async_logging_queue.activate()
+    try:
+        _log_tag(async_logging_queue, "0").wait()
+        _log_tag(async_logging_queue, "1")
+        assert second_batch_logged.wait(timeout=5)
+        _wait_until(lambda: not async_logging_queue._pending_batches_by_run)
+    finally:
+        # Release batches left without a worker so a failure here cannot hang the shutdown.
+        for pending in list(async_logging_queue._pending_batches_by_run.values()):
+            for run_batch in pending:
+                run_batch.complete()
+        async_logging_queue.shut_down_async_logging()
+
+    assert logged_values == ["1"]

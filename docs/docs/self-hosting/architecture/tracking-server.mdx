@@ -245,6 +245,12 @@ and archival failure / retry behavior, and [Getting Started with Workspaces](/se
 
 ### Server Jobs And Redis
 
+:::warning
+The opt-in executor engine currently supports only single-replica MLflow deployments; overlapping
+rolling restarts are also unsupported. Multi-replica coordination will be supported after
+scheduler leadership and stale-lease recovery are implemented.
+:::
+
 MLflow server jobs use local SQLite-backed Huey queues by default. To use a shared Redis-backed
 queue, set `MLFLOW_SERVER_JOB_HUEY_REDIS_URL` on every server instance.
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  DollarIcon,
   SearchIcon,
   ShieldIcon,
   LightningIcon,
@@ -9,7 +10,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
-export type IssueCategory = 'correctness' | 'latency' | 'execution' | 'adherence' | 'relevance' | 'safety';
+export type IssueCategory = 'correctness' | 'latency' | 'execution' | 'adherence' | 'relevance' | 'safety' | 'cost';
 
 interface IssueCategoryDefinition {
   id: IssueCategory;
@@ -25,7 +26,7 @@ export const ISSUE_CATEGORY_DEFINITIONS: IssueCategoryDefinition[] = [
     title: <FormattedMessage defaultMessage="Correctness" description="Issue category title for correctness" />,
     description: (
       <FormattedMessage
-        defaultMessage="Output is factually accurate and grounded in provided data"
+        defaultMessage="The output is factually inaccurate or grounded incorrectly."
         description="Issue category description for correctness"
       />
     ),
@@ -36,7 +37,7 @@ export const ISSUE_CATEGORY_DEFINITIONS: IssueCategoryDefinition[] = [
     title: <FormattedMessage defaultMessage="Latency" description="Issue category title for latency" />,
     description: (
       <FormattedMessage
-        defaultMessage="Agent responds within acceptable time bounds"
+        defaultMessage="The response is unusually slow, overall or in a single span."
         description="Issue category description for latency"
       />
     ),
@@ -47,7 +48,7 @@ export const ISSUE_CATEGORY_DEFINITIONS: IssueCategoryDefinition[] = [
     title: <FormattedMessage defaultMessage="Execution" description="Issue category title for execution" />,
     description: (
       <FormattedMessage
-        defaultMessage="Agent successfully completes actions (tool calls, API steps)"
+        defaultMessage="The agent errors, a tool call fails, or an action does not complete."
         description="Issue category description for execution"
       />
     ),
@@ -58,7 +59,7 @@ export const ISSUE_CATEGORY_DEFINITIONS: IssueCategoryDefinition[] = [
     title: <FormattedMessage defaultMessage="Adherence" description="Issue category title for adherence" />,
     description: (
       <FormattedMessage
-        defaultMessage="Response follows instructions, constraints, policies, and formatting"
+        defaultMessage="The response violates instructions, constraints, or formatting."
         description="Issue category description for adherence"
       />
     ),
@@ -69,7 +70,7 @@ export const ISSUE_CATEGORY_DEFINITIONS: IssueCategoryDefinition[] = [
     title: <FormattedMessage defaultMessage="Relevance" description="Issue category title for relevance" />,
     description: (
       <FormattedMessage
-        defaultMessage="Output is useful, directly addresses the user's request, and leaves the user satisfied with the interaction"
+        defaultMessage="The response does not address the user's actual request."
         description="Issue category description for relevance"
       />
     ),
@@ -80,8 +81,19 @@ export const ISSUE_CATEGORY_DEFINITIONS: IssueCategoryDefinition[] = [
     title: <FormattedMessage defaultMessage="Safety" description="Issue category title for safety" />,
     description: (
       <FormattedMessage
-        defaultMessage="Response avoids harmful, sensitive, or inappropriate content"
+        defaultMessage="The output is harmful, biased, or policy-violating."
         description="Issue category description for safety"
+      />
+    ),
+  },
+  {
+    id: 'cost',
+    icon: <DollarIcon />,
+    title: <FormattedMessage defaultMessage="Cost" description="Issue category title for cost" />,
+    description: (
+      <FormattedMessage
+        defaultMessage="The agent's token or tool-call spend is anomalous against its own baseline."
+        description="Issue category description for cost"
       />
     ),
   },

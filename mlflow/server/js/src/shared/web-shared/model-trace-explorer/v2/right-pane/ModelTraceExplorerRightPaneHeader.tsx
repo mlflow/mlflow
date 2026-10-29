@@ -7,6 +7,8 @@ import {
   ListIcon,
   ModelsIcon,
   NewWindowIcon,
+  SidebarCollapseIcon,
+  SidebarExpandIcon,
   SpeechBubbleIcon,
   Tag,
   TokenIcon,
@@ -18,19 +20,23 @@ import { FormattedMessage, useIntl } from '@databricks/i18n';
 
 import { useCopyController } from '../../../copy/useCopyController';
 import { doesTraceSupportV4API } from '../../../genai-traces-table/utils/TraceLocationUtils';
-import { formatCostUSD } from '../../CostUtils';
+import { formatCostUSD, formatEstimatedCostUSD } from '../../CostUtils';
+import { estimatedCostMessages } from '../../EstimatedCostValue';
 import { getExperimentChatSessionPageRoute } from '../../MlflowUtils';
 import type { ModelTrace, ModelTraceSpanNode, SpanCostInfo } from '../ModelTrace.types';
 import { createTraceV4LongIdentifier, getSpanExceptionCount, isV3ModelTraceInfo } from '../ModelTraceExplorer.utils';
+import { getNonIssueAssessmentCount } from '../../IssueAssessmentUtils';
 import { isTraceCostType, type TraceCost } from '../../ModelTraceExplorerCostHoverCard';
 import { useModelTraceExplorerContext } from '../ModelTraceExplorerContext';
 import { Link, useParams } from '../../RoutingUtils';
 import { SELECTED_TRACE_ID_QUERY_PARAM, SESSION_ID_METADATA_KEY } from '../../constants';
 import { isUserFacingTag, truncateToFirstLineWithMaxLength } from '../../TagUtils';
 import { AssessmentPaneToggle } from '../assessments-pane/AssessmentPaneToggle';
-import { getSpanTokenUsage, type SpanTokenUsage } from '../ModelTraceTokenUsage.utils';
+import { formatCompactNumber, getSpanTokenUsage, type SpanTokenUsage } from '../ModelTraceTokenUsage.utils';
 import { ModelTraceExplorerLinkedPromptsPopover } from '../../linked-prompts/ModelTraceExplorerLinkedPromptsPopover';
 import { MLFLOW_LINKED_PROMPTS_TAG, parseLinkedPrompts } from '../../linked-prompts/utils';
+import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { shouldEnableNewEvalRunsUi } from '../../../../../common/utils/FeatureUtils';
 
 export type HeaderTokenUsage = SpanTokenUsage;
 
@@ -208,11 +214,19 @@ export const TokenUsageMetadataItem = ({ tokenUsage }: { tokenUsage: HeaderToken
         >
           <TokenIcon />
           <Typography.Text color="secondary" size="sm">
-            <FormattedMessage
-              defaultMessage="{tokenCount, number} tokens"
-              description="Compact token count in the trace details header"
-              values={{ tokenCount: tokenUsage.total_tokens }}
-            />
+            {shouldEnableNewEvalRunsUi() ? (
+              <FormattedMessage
+                defaultMessage="{tokenCount} tokens"
+                description="Compact token count in the trace details header, abbreviated (e.g. 1.2K)"
+                values={{ tokenCount: formatCompactNumber(tokenUsage.total_tokens) }}
+              />
+            ) : (
+              <FormattedMessage
+                defaultMessage="{tokenCount, number} tokens"
+                description="Compact token count in the trace details header"
+                values={{ tokenCount: tokenUsage.total_tokens }}
+              />
+            )}
           </Typography.Text>
         </span>
       }
@@ -279,25 +293,38 @@ export const TokenUsageMetadataItem = ({ tokenUsage }: { tokenUsage: HeaderToken
 
 export const CostMetadataItem = ({
   cost,
-  formatTotalCost = formatCostUSD,
+  formatTotalCost,
 }: {
   cost: TraceCost | SpanCostInfo;
   formatTotalCost?: (cost: number) => string;
 }): JSX.Element => {
   const { theme } = useDesignSystemTheme();
-  const totalCost = formatTotalCost(cost.total_cost);
+  const intl = useIntl();
+  // The new eval runs UI marks pricing-table costs as estimated (≈ prefix and an explanation).
+  const isNewEvalRunsUi = shouldEnableNewEvalRunsUi();
+  const totalCost = (formatTotalCost ?? (isNewEvalRunsUi ? formatEstimatedCostUSD : formatCostUSD))(cost.total_cost);
+  // aria-label announces the plain dollar amount so screen readers say "Estimated cost: $X" regardless of how the
+  // visual value is formatted.
+  const estimatedAriaLabel = isNewEvalRunsUi
+    ? intl.formatMessage(estimatedCostMessages.ariaLabel, { cost: formatCostUSD(cost.total_cost) })
+    : undefined;
 
   return (
     <HoverCard
       trigger={
         <span
-          css={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: theme.spacing.xs,
-            minWidth: 0,
-            color: theme.colors.textSecondary,
-          }}
+          aria-label={estimatedAriaLabel}
+          css={
+            isNewEvalRunsUi
+              ? { display: 'inline-flex', alignItems: 'center', minWidth: 0 }
+              : {
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: theme.spacing.xs,
+                  minWidth: 0,
+                  color: theme.colors.textSecondary,
+                }
+          }
         >
           <Typography.Text color="secondary" size="sm">
             {totalCost}
@@ -329,6 +356,11 @@ export const CostMetadataItem = ({
               bold
             />
           </div>
+          {isNewEvalRunsUi && (
+            <Typography.Text color="secondary" size="sm">
+              <FormattedMessage {...estimatedCostMessages.tooltip} />
+            </Typography.Text>
+          )}
         </div>
       }
       side="bottom"
@@ -393,12 +425,18 @@ export const ModelTraceExplorerRightPaneHeader = ({
   activeSpan,
   modelTraceInfo,
   showAssessmentsToggle,
+  showSpanTree,
+  onShowSpanTreeChange,
 }: {
   activeSpan: ModelTraceSpanNode;
   modelTraceInfo?: ModelTrace['info'];
   showAssessmentsToggle: boolean;
+  showSpanTree?: boolean;
+  onShowSpanTreeChange?: (showSpanTree: boolean) => void;
 }): React.ReactElement | null => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+  const { selectedComparisonNode, selectedNodeComparisonRole: comparisonRole } = useModelTraceExplorerViewState();
   const { experimentId: experimentIdFromParams } = useParams();
   const { experimentId: experimentIdFromContext, rightPaneHeaderActions } = useModelTraceExplorerContext();
   const experimentId = experimentIdFromContext ?? experimentIdFromParams;
@@ -406,6 +444,14 @@ export const ModelTraceExplorerRightPaneHeader = ({
   const hasException = getSpanExceptionCount(activeSpan) > 0;
   const isRootSpan = !activeSpan.parentId;
   const modelName = activeSpan.modelName;
+  const baselineModelName = comparisonRole === 'candidate' ? selectedComparisonNode?.modelName : modelName;
+  const candidateModelName = comparisonRole === 'candidate' ? modelName : selectedComparisonNode?.modelName;
+  const hasComparisonModelName = Boolean(comparisonRole && (baselineModelName || candidateModelName));
+  const comparisonModelNameUnchanged = Boolean(
+    baselineModelName && candidateModelName && baselineModelName === candidateModelName,
+  );
+  const formattedBaselineModelName = baselineModelName ?? '—';
+  const formattedCandidateModelName = candidateModelName ?? '—';
 
   const tokenUsage = useMemo<HeaderTokenUsage | undefined>(() => getSpanTokenUsage(activeSpan), [activeSpan]);
   const cost = activeSpan.cost;
@@ -434,8 +480,19 @@ export const ModelTraceExplorerRightPaneHeader = ({
     isV3ModelTraceInfo(modelTraceInfo) &&
     parseLinkedPrompts(modelTraceInfo.tags?.[MLFLOW_LINKED_PROMPTS_TAG]).length > 0;
 
-  const hasMetadata =
-    modelName || tokenUsage || isTraceCostType(cost) || sessionId || tags.length > 0 || hasLinkedPrompts;
+  const hasSpanMetadata = comparisonRole
+    ? hasComparisonModelName
+    : Boolean(modelName || tokenUsage || isTraceCostType(cost));
+  const hasMetadata = hasSpanMetadata || sessionId || tags.length > 0 || hasLinkedPrompts;
+  const spanTreeToggleLabel = showSpanTree
+    ? intl.formatMessage({
+        defaultMessage: 'Hide span tree',
+        description: 'Accessible label for hiding the span tree in the trace explorer',
+      })
+    : intl.formatMessage({
+        defaultMessage: 'Show span tree',
+        description: 'Accessible label for showing the span tree in the trace explorer',
+      });
 
   return (
     <div
@@ -468,6 +525,20 @@ export const ModelTraceExplorerRightPaneHeader = ({
             flexShrink: 1,
           }}
         >
+          {onShowSpanTreeChange && (
+            <Tooltip componentId="shared.model-trace-explorer.span-tree-toggle-tooltip" content={spanTreeToggleLabel}>
+              <Button
+                componentId="shared.model-trace-explorer.span-tree-toggle"
+                type="tertiary"
+                size="small"
+                icon={showSpanTree ? <SidebarCollapseIcon /> : <SidebarExpandIcon />}
+                aria-label={spanTreeToggleLabel}
+                aria-pressed={showSpanTree}
+                onClick={() => onShowSpanTreeChange(!showSpanTree)}
+                css={showSpanTree ? { backgroundColor: theme.colors.actionDefaultBackgroundHover } : undefined}
+              />
+            </Tooltip>
+          )}
           <span
             css={{
               display: 'inline-flex',
@@ -518,7 +589,51 @@ export const ModelTraceExplorerRightPaneHeader = ({
               },
             }}
           >
-            {modelName && (
+            {comparisonRole && hasComparisonModelName ? (
+              <MetadataItem
+                tooltip={
+                  comparisonModelNameUnchanged
+                    ? intl.formatMessage(
+                        {
+                          defaultMessage: 'Model: {modelName}',
+                          description: 'Tooltip for an unchanged model name in a trace comparison',
+                        },
+                        { modelName: formattedBaselineModelName },
+                      )
+                    : intl.formatMessage(
+                        {
+                          defaultMessage: 'Model: {baselineModelName} → {candidateModelName}',
+                          description: 'Tooltip for baseline and candidate model names in a trace comparison',
+                        },
+                        {
+                          baselineModelName: formattedBaselineModelName,
+                          candidateModelName: formattedCandidateModelName,
+                        },
+                      )
+                }
+              >
+                <ModelsIcon />
+                {comparisonModelNameUnchanged ? (
+                  <Typography.Text color="secondary" size="sm" title={formattedBaselineModelName}>
+                    {formattedBaselineModelName}
+                  </Typography.Text>
+                ) : (
+                  <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs, minWidth: 0 }}>
+                    <Typography.Text color="secondary" size="sm" title={formattedBaselineModelName}>
+                      {formattedBaselineModelName}
+                    </Typography.Text>
+                    <span>→</span>
+                    <Typography.Text
+                      size="sm"
+                      title={formattedCandidateModelName}
+                      css={{ '&&': { color: theme.colors.actionLinkDefault } }}
+                    >
+                      {formattedCandidateModelName}
+                    </Typography.Text>
+                  </span>
+                )}
+              </MetadataItem>
+            ) : modelName ? (
               <MetadataItem
                 tooltip={<FormattedMessage defaultMessage="Model" description="Tooltip for span model metadata item" />}
               >
@@ -548,9 +663,9 @@ export const ModelTraceExplorerRightPaneHeader = ({
                   {modelName}
                 </Typography.Text>
               </MetadataItem>
-            )}
-            {tokenUsage && <TokenUsageMetadataItem tokenUsage={tokenUsage} />}
-            {isTraceCostType(cost) && <CostMetadataItem cost={cost} />}
+            ) : null}
+            {!comparisonRole && tokenUsage && <TokenUsageMetadataItem tokenUsage={tokenUsage} />}
+            {!comparisonRole && isTraceCostType(cost) && <CostMetadataItem cost={cost} />}
             {sessionId && <SessionMetadataItem sessionId={sessionId} sessionPageUrl={sessionPageUrl} />}
             <TagsMetadataItem tags={tags} />
             {hasLinkedPrompts && isV3ModelTraceInfo(modelTraceInfo) && (
@@ -558,7 +673,7 @@ export const ModelTraceExplorerRightPaneHeader = ({
             )}
           </div>
         )}
-        {(showAssessmentsToggle || rightPaneHeaderActions) && (
+        {!comparisonRole && (showAssessmentsToggle || rightPaneHeaderActions) && (
           <div
             css={{
               display: 'flex',
@@ -569,7 +684,9 @@ export const ModelTraceExplorerRightPaneHeader = ({
             }}
           >
             {rightPaneHeaderActions}
-            {showAssessmentsToggle && <AssessmentPaneToggle assessmentCount={activeSpan.assessments.length} />}
+            {showAssessmentsToggle && (
+              <AssessmentPaneToggle assessmentCount={getNonIssueAssessmentCount(activeSpan.assessments)} />
+            )}
           </div>
         )}
       </div>

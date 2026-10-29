@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING, Any, Literal
 
 from fastapi import APIRouter, Query, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import Response
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -26,12 +25,19 @@ from mlflow.entities.mcp_server import (
 from mlflow.entities.mcp_server_version import ConnectOptionSettings, MCPServerVersion
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, RESOURCE_ALREADY_EXISTS, ErrorCode
+from mlflow.server._request_keys import (
+    MCP_SERVER_ALLOWED_ACTIONS,
+    SCOPED_MCP_ACCESS_ENDPOINT_FILTER,
+    SCOPED_MCP_SERVER_FILTER,
+)
+from mlflow.server._search_limits import scoped_search_limit_error
+from mlflow.server.mlflow_response import mlflow_exception_response
 from mlflow.utils.validation import (
-    _MAX_MCP_ICONS_PER_LIST,
     _MAX_MCP_TOOLS_PER_LIST,
+    _MAX_REGISTRY_ICONS_PER_LIST,
     _strip_mcp_icon_response_fields,
-    _validate_mcp_icon_mime_type,
-    _validate_mcp_icon_url,
+    _validate_icon_mime_type,
+    _validate_icon_url,
 )
 
 if TYPE_CHECKING:
@@ -55,6 +61,15 @@ def is_mcp_server_api_path(path: str) -> bool:
         path == prefix or path.startswith(f"{prefix}/")
         for prefix in get_mcp_server_api_route_prefixes()
     )
+
+
+def scoped_mcp_search_limit_error(request: Request, error: MlflowException) -> MlflowException:
+    if any(
+        hasattr(request.state, key)
+        for key in (SCOPED_MCP_SERVER_FILTER, SCOPED_MCP_ACCESS_ENDPOINT_FILTER)
+    ):
+        return scoped_search_limit_error(error)
+    return error
 
 
 class _BaseMCPIconPayload(BaseModel):
@@ -84,13 +99,13 @@ class MCPIconRequestPayload(_BaseMCPIconPayload):
     @field_validator("src")
     @classmethod
     def _validate_src(cls, value: str) -> str:
-        _validate_mcp_icon_url(value)
+        _validate_icon_url(value)
         return value
 
     @field_validator("mimeType")
     @classmethod
     def _validate_mime_type(cls, value: str | None) -> str | None:
-        _validate_mcp_icon_mime_type(value)
+        _validate_icon_mime_type(value)
         return None if value is None else value.strip().lower()
 
 
@@ -121,7 +136,7 @@ class ServerJSONPayload(BaseModel):
     title: str | None = None
     description: str | None = None
     icons: list[MCPIconRequestPayload] | None = Field(
-        default=None, max_length=_MAX_MCP_ICONS_PER_LIST
+        default=None, max_length=_MAX_REGISTRY_ICONS_PER_LIST
     )
     packages: list[ServerJSONPackagePayload] | None = None
     remotes: list[ServerJSONRemotePayload] | None = None
@@ -165,7 +180,7 @@ class MCPToolRequestPayload(BaseModel):
     outputSchema: dict[str, Any] | None = None
     annotations: dict[str, Any] | None = None
     icons: list[MCPIconRequestPayload] | None = Field(
-        default=None, max_length=_MAX_MCP_ICONS_PER_LIST
+        default=None, max_length=_MAX_REGISTRY_ICONS_PER_LIST
     )
     execution: dict[str, Any] | None = None
 
@@ -185,7 +200,7 @@ class CreateMCPServerRequest(BaseModel):
     name: str
     description: str | None = None
     icons: list[MCPIconRequestPayload] | None = Field(
-        default=None, max_length=_MAX_MCP_ICONS_PER_LIST
+        default=None, max_length=_MAX_REGISTRY_ICONS_PER_LIST
     )
 
 
@@ -193,7 +208,7 @@ class UpdateMCPServerRequest(BaseModel):
     display_name: str | None = None
     description: str | None = None
     icons: list[MCPIconRequestPayload] | None = Field(
-        default=None, max_length=_MAX_MCP_ICONS_PER_LIST
+        default=None, max_length=_MAX_REGISTRY_ICONS_PER_LIST
     )
 
     @model_validator(mode="before")
@@ -339,6 +354,9 @@ class MCPServerResponse(BaseModel):
     last_updated_by: str | None = None
     creation_timestamp: int | None = None
     last_updated_timestamp: int | None = None
+    allowed_actions: list[str] = Field(
+        default_factory=lambda: ["USE", "UPDATE", "DELETE", "MANAGE"]
+    )
 
     @classmethod
     def from_entity(cls, entity: MCPServer) -> MCPServerResponse:
@@ -360,6 +378,12 @@ class MCPServerResponse(BaseModel):
             creation_timestamp=entity.creation_timestamp,
             last_updated_timestamp=entity.last_updated_timestamp,
         )
+
+
+def _mcp_server_response_with_actions(server: MCPServer, request: Request) -> MCPServerResponse:
+    resolver = getattr(request.state, MCP_SERVER_ALLOWED_ACTIONS, None)
+    actions = resolver(server.name) if resolver else ["USE", "UPDATE", "DELETE", "MANAGE"]
+    return MCPServerResponse.from_entity(server).model_copy(update={"allowed_actions": actions})
 
 
 class MCPServerVersionResponse(BaseModel):
@@ -473,13 +497,6 @@ def _parse_transport_type(value: str) -> MCPRemoteTransportType:
         ) from None
 
 
-def _mlflow_error_response(e: MlflowException) -> JSONResponse:
-    return JSONResponse(
-        status_code=e.get_http_status_code(),
-        content=json.loads(e.serialize_as_json()),
-    )
-
-
 def _format_validation_errors(exc: RequestValidationError) -> str:
     messages = []
     for error in exc.errors():
@@ -490,11 +507,12 @@ def _format_validation_errors(exc: RequestValidationError) -> str:
     return "; ".join(messages)
 
 
-def _request_validation_error_response(exc: RequestValidationError) -> JSONResponse:
-    return _mlflow_error_response(
+def _request_validation_error_response(exc: RequestValidationError) -> Response:
+    return mlflow_exception_response(
         MlflowException.invalid_parameter_value(
             f"Invalid request: {_format_validation_errors(exc)}"
-        )
+        ),
+        handler_name="_request_validation_error_response",
     )
 
 
@@ -592,11 +610,12 @@ def create_mcp_server(body: CreateMCPServerRequest, request: Request) -> MCPServ
         icons=_icon_payloads_to_entities(body.icons),
         created_by=username,
     )
-    return MCPServerResponse.from_entity(server)
+    return _mcp_server_response_with_actions(server, request)
 
 
 @mcp_server_router.get("", response_model=SearchMCPServersResponse)
 def search_mcp_servers(
+    request: Request,
     filter_string: str | None = Query(None),
     max_results: int = Query(100),
     order_by: list[str] | None = Query(None),
@@ -605,20 +624,19 @@ def search_mcp_servers(
     from mlflow.server.handlers import _get_tracking_store
 
     results = _get_tracking_store().search_mcp_servers(
-        filter_string=filter_string,
+        filter_string=getattr(request.state, SCOPED_MCP_SERVER_FILTER, filter_string),
         max_results=max_results,
         order_by=order_by,
         page_token=page_token,
     )
-    return SearchMCPServersResponse(
-        mcp_servers=[MCPServerResponse.from_entity(s) for s in results],
-        next_page_token=results.token,
-    )
+    servers = [_mcp_server_response_with_actions(server, request) for server in results]
+    return SearchMCPServersResponse(mcp_servers=servers, next_page_token=results.token)
 
 
 # Static route — must be registered before /{name:path} routes
 @mcp_server_router.get("/endpoints", response_model=SearchMCPAccessEndpointsResponse)
 def search_all_access_endpoints(
+    request: Request,
     filter_string: str | None = Query(None),
     max_results: int = Query(100),
     order_by: list[str] | None = Query(None),
@@ -630,7 +648,7 @@ def search_all_access_endpoints(
 
     store = _get_tracking_store()
     results = store.search_mcp_access_endpoints(
-        filter_string=filter_string,
+        filter_string=getattr(request.state, SCOPED_MCP_ACCESS_ENDPOINT_FILTER, filter_string),
         max_results=max_results,
         order_by=order_by,
         page_token=page_token,
@@ -883,11 +901,11 @@ def delete_mcp_server_alias(name: str, alias: str) -> dict[str, Any]:
 
 # Catch-all — must be registered last so {name:path} doesn't swallow sub-resource routes
 @mcp_server_router.get("/{name:path}", response_model=MCPServerResponse)
-def get_mcp_server(name: str) -> MCPServerResponse:
+def get_mcp_server(name: str, request: Request) -> MCPServerResponse:
     from mlflow.server.handlers import _get_tracking_store
 
     server = _get_tracking_store().get_mcp_server(name)
-    return MCPServerResponse.from_entity(server)
+    return _mcp_server_response_with_actions(server, request)
 
 
 @mcp_server_router.patch("/{name:path}", response_model=MCPServerResponse)
@@ -900,7 +918,7 @@ def update_mcp_server(
     server = _get_tracking_store().update_mcp_server(
         **_update_mcp_server_kwargs(name, body), last_updated_by=username
     )
-    return MCPServerResponse.from_entity(server)
+    return _mcp_server_response_with_actions(server, request)
 
 
 @mcp_server_router.delete("/{name:path}")

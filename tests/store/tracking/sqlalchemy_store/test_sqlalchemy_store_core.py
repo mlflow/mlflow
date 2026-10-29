@@ -8,7 +8,9 @@ import sqlalchemy
 
 import mlflow.db
 from mlflow import entities
+from mlflow.entities.trace_metrics import AggregationType, MetricAggregation, MetricViewType
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.db.db_types import MSSQL, MYSQL
 from mlflow.store.db.utils import (
     _get_latest_schema_revision,
@@ -354,3 +356,45 @@ def test_get_orderby_clauses(tmp_sqlite_uri):
         assert "value IS NULL" in select_clause[0]
         # test that clause name is in parsed
         assert "clause_1" in parsed[0]
+
+
+@pytest.mark.parametrize(
+    ("method_name", "make_args"),
+    [
+        ("_search_datasets", lambda exp_id: ([exp_id],)),
+        ("search_runs", lambda exp_id: ([exp_id], None, entities.ViewType.ALL, 10)),
+        ("search_logged_models", lambda exp_id: ([exp_id],)),
+        ("_delete_traces", lambda exp_id: (exp_id, 1)),
+        ("calculate_trace_filter_correlation", lambda e: ([e], "name = 'a'", "name = 'b'")),
+        ("search_issues", lambda exp_id: (exp_id,)),
+        (
+            "query_trace_metrics",
+            lambda exp_id: (
+                [exp_id],
+                MetricViewType.TRACES,
+                "trace_count",
+                [MetricAggregation(aggregation_type=AggregationType.COUNT)],
+            ),
+        ),
+    ],
+)
+@pytest.mark.parametrize("bad_experiment_id", ["not-a-number", "12abc", ""])
+def test_store_methods_reject_non_numeric_experiment_id(
+    store, method_name, make_args, bad_experiment_id
+):
+    with pytest.raises(MlflowException, match="Experiment ID must be a valid integer") as exc_info:
+        getattr(store, method_name)(*make_args(bad_experiment_id))
+
+    assert exc_info.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_store_methods_accept_valid_experiment_id(store):
+    exp_id = store.create_experiment("valid-experiment-id")
+
+    assert store._search_datasets([exp_id]) == []
+    assert store.search_runs([exp_id], None, entities.ViewType.ALL, 10) == []
+    assert store.search_runs([int(exp_id)], None, entities.ViewType.ALL, 10) == []
+    assert store.search_logged_models([exp_id]) == []
+    assert store._delete_traces(exp_id, 1) == 0
+    correlation = store.calculate_trace_filter_correlation([exp_id], "name = 'a'", "name = 'b'")
+    assert correlation.total_count == 0

@@ -105,7 +105,7 @@ def test_autolog_with_tool_calls(client, capture_otel_export):
     assert input_msgs[2]["role"] == "tool"
     assert input_msgs[2]["parts"][0]["type"] == "tool_call_response"
     assert input_msgs[2]["parts"][0]["id"] == "tool_123"
-    assert input_msgs[2]["parts"][0]["result"] == "celsius"
+    assert input_msgs[2]["parts"][0]["response"] == "celsius"
 
     output_msgs = json.loads(chat_span.attributes[GenAiSemconvKey.OUTPUT_MESSAGES])
     assert len(output_msgs) == 1

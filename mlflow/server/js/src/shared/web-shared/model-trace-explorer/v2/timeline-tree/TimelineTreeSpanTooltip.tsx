@@ -2,24 +2,36 @@ import React from 'react';
 
 import { Tooltip, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
+import { useIntl } from '@databricks/i18n';
 
 import { spanTimeFormatter } from './TimelineTree.utils';
 import type { ModelTraceSpanNode } from '../ModelTrace.types';
 import { ModelSpanType } from '../ModelTrace.types';
 import { getIconTypeForSpan } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerIcon } from '../ModelTraceExplorerIcon';
+import { getTimelineTreeComparisonMetricValues } from './TimelineTreeMetrics';
 
 export const TimelineTreeSpanTooltip = ({
   span,
   children,
+  comparisonSpan,
+  comparisonRole,
 }: {
   span: ModelTraceSpanNode;
   children: React.ReactNode;
+  comparisonSpan?: ModelTraceSpanNode;
+  comparisonRole?: 'baseline' | 'candidate';
 }): JSX.Element => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const iconType = getIconTypeForSpan(span.type ?? ModelSpanType.UNKNOWN);
   const primaryTextColor = theme.isDarkMode ? theme.colors.grey800 : theme.colors.grey100;
   const secondaryTextColor = theme.isDarkMode ? theme.colors.grey500 : theme.colors.grey350;
+  const baselineSpan = comparisonRole === 'candidate' ? comparisonSpan : span;
+  const candidateSpan = comparisonRole === 'candidate' ? span : comparisonSpan;
+  const comparisonMetrics = comparisonRole
+    ? getTimelineTreeComparisonMetricValues(baselineSpan, candidateSpan, intl)
+    : [];
 
   return (
     <Tooltip
@@ -50,13 +62,45 @@ export const TimelineTreeSpanTooltip = ({
               {spanTimeFormatter(span.end - span.start)}
             </span>
           </div>
-          <div css={{ display: 'flex', flexDirection: 'row', color: primaryTextColor }}>
-            <FormattedMessage defaultMessage="Start:" description="Label for the start time of a span" />{' '}
-            {spanTimeFormatter(span.start)}
-            {' | '}
-            <FormattedMessage defaultMessage="End:" description="Label for the end time of a span" />{' '}
-            {spanTimeFormatter(span.end)}
-          </div>
+          {comparisonRole ? (
+            <div
+              css={{
+                display: 'grid',
+                gridTemplateColumns: 'auto auto auto auto',
+                gap: `${theme.spacing.xs}px ${theme.spacing.md}px`,
+                color: primaryTextColor,
+                marginTop: theme.spacing.xs,
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              <span />
+              <span css={{ color: theme.colors.textSecondary }}>
+                <FormattedMessage defaultMessage="Baseline" description="Trace comparison metric column" />
+              </span>
+              <span css={{ color: theme.colors.actionLinkDefault }}>
+                <FormattedMessage defaultMessage="Candidate" description="Trace comparison metric column" />
+              </span>
+              <span>
+                <FormattedMessage defaultMessage="Change" description="Trace comparison metric column" />
+              </span>
+              {comparisonMetrics.map((metric) => (
+                <React.Fragment key={metric.key}>
+                  <span>{metric.label}</span>
+                  <span css={{ color: theme.colors.textSecondary }}>{metric.baseline}</span>
+                  <span css={{ color: theme.colors.actionLinkDefault }}>{metric.candidate}</span>
+                  <span>{metric.change}</span>
+                </React.Fragment>
+              ))}
+            </div>
+          ) : (
+            <div css={{ display: 'flex', flexDirection: 'row', color: primaryTextColor }}>
+              <FormattedMessage defaultMessage="Start:" description="Label for the start time of a span" />{' '}
+              {spanTimeFormatter(span.start)}
+              {' | '}
+              <FormattedMessage defaultMessage="End:" description="Label for the end time of a span" />{' '}
+              {spanTimeFormatter(span.end)}
+            </div>
+          )}
         </div>
       }
       side="right"

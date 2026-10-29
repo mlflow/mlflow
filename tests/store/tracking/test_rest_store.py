@@ -72,6 +72,7 @@ from mlflow.protos.databricks_pb2 import (
     PERMISSION_DENIED,
     RESOURCE_DOES_NOT_EXIST,
 )
+from mlflow.protos.issues_pb2 import CreateIssue, SearchIssues, UpdateIssue
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
     AttachModelToGatewayEndpoint,
@@ -153,6 +154,7 @@ from mlflow.protos.service_pb2 import (
 from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
+from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
@@ -1635,6 +1637,40 @@ def test_batch_get_trace_infos_short_circuits_on_empty_experiment_ids():
         mock_call.assert_not_called()
 
 
+@pytest.mark.parametrize("store_class", [RestStore, DatabricksTracingRestStore])
+@pytest.mark.parametrize("experiment_ids", [[], ["1"], ["1", "2"]])
+def test_search_logged_models_preserves_explicit_experiment_scope(store_class, experiment_ids):
+    creds = MlflowHostCreds("https://hello")
+    store = store_class(lambda: creds)
+    payload = {
+        "experiment_ids": experiment_ids,
+        "filter": "name != 'excluded'",
+        "datasets": [{"dataset_name": "eval", "dataset_digest": "digest"}],
+        "max_results": 2,
+        "order_by": [{"field_name": "name", "ascending": False}],
+        "page_token": "opaque-request-token",
+    }
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        return_value=mock.MagicMock(
+            status_code=200, text=json.dumps({"next_page_token": "opaque-response-token"})
+        ),
+    ) as http:
+        models = store.search_logged_models(
+            experiment_ids=experiment_ids,
+            filter_string=payload["filter"],
+            datasets=payload["datasets"],
+            max_results=payload["max_results"],
+            order_by=payload["order_by"],
+            page_token=payload["page_token"],
+        )
+
+    http.assert_called_once()
+    _verify_requests(http, creds, "logged-models/search", "POST", json.dumps(payload))
+    assert models == []
+    assert models.token == "opaque-response-token"
+
+
 def test_log_logged_model_params():
     with mock.patch("mlflow.store.tracking.rest_store.call_endpoint") as mock_call_endpoint:
         # Create test data
@@ -2295,7 +2331,8 @@ def test_evaluation_dataset_merge_records():
 
                 assert result is eval_dataset
 
-                assert mock_get.call_count == 1
+                # Once to read the existing schema, once to refresh metadata after the upsert
+                assert mock_get.call_count == 2
                 assert mock_call.call_count == 1
 
                 call_args = mock_call.call_args_list[0]
@@ -4136,3 +4173,71 @@ def test_search_issues_with_trace_count():
     assert result[0].trace_count == 2
     assert result[1].trace_count == 0
     assert result.token is None
+
+
+def test_issue_rest_extended_contract():
+    store = RestStore(lambda: MlflowHostCreds("https://hello"))
+    issue = Issue(
+        "iss-chosen",
+        "0",
+        "Title",
+        "",
+        IssueStatus.PENDING,
+        1,
+        1,
+        last_seen_timestamp=0,
+        metadata={"key": "value"},
+    )
+    with mock.patch.object(
+        store, "_call_endpoint", return_value=CreateIssue.Response(issue=issue.to_proto())
+    ) as call:
+        result = store.create_issue(
+            "0",
+            "Title",
+            "",
+            issue_id="iss-chosen",
+            last_seen_timestamp=0,
+            metadata={"key": "value"},
+        )
+        call.assert_called_once()
+        body = json.loads(call.call_args.args[1])
+        assert body["issue_id"] == "iss-chosen"
+        assert body["last_seen_timestamp"] == 0
+        assert body["metadata"] == {"key": "value"}
+        assert result == issue
+    with mock.patch.object(
+        store, "_call_endpoint", return_value=UpdateIssue.Response(issue=issue.to_proto())
+    ) as call:
+        store.update_issue(
+            "iss-chosen",
+            categories=[],
+            metadata={"new": "value"},
+            delete_metadata_keys=["old"],
+        )
+        call.assert_called_once()
+        body = json.loads(call.call_args.args[1])
+        assert body["categories"] == []
+        assert body["delete_metadata_keys"] == ["old"]
+    with mock.patch.object(
+        store,
+        "_call_endpoint",
+        return_value=SearchIssues.Response(
+            issues=[issue.to_proto()], total_count=5, next_page_token="next"
+        ),
+    ) as call:
+        result = store.search_issues(
+            "0",
+            name="Title",
+            statuses=["pending"],
+            categories=["cost"],
+            order_by=["status ASC"],
+            include_total_count=True,
+            view="basic",
+        )
+        call.assert_called_once()
+        body = json.loads(call.call_args.args[1])
+        assert body["statuses"] == ["pending"]
+        assert body["order_by"] == ["status ASC"]
+        assert body["include_total_count"] is True
+        assert result.total_count == 5
+        assert result.token == "next"

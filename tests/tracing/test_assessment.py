@@ -12,6 +12,11 @@ from mlflow.entities.assessment import (
 )
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.issue import IssueStatus
+from mlflow.entities.issue_evidence import (
+    ISSUE_EVIDENCE_METADATA_KEY,
+    IssueEvidence,
+    IssueEvidenceStep,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.distributed import (
     get_tracing_context_headers_for_http_request,
@@ -502,6 +507,246 @@ def test_log_issue(trace_id, tracking_uri):
     assert assessment.issue.issue_name == "timeout_error"
     assert assessment.rationale == "Request exceeded 30 second timeout"
     assert assessment.metadata == {"severity": "high", "affected_count": "150"}
+
+
+def test_log_issue_with_evidence(trace_id, tracking_uri):
+    if tracking_uri.startswith("file:"):
+        pytest.skip("Issue APIs are not supported with file-based tracking URI")
+
+    tracing_client = mlflow.MlflowClient()._tracing_client
+    issue = tracing_client._create_issue(
+        experiment_id="0",
+        name="empty_retrieval",
+        description="The retriever returned nothing",
+        status=IssueStatus.PENDING,
+    )
+    span_id = mlflow.get_trace(trace_id).data.spans[0].span_id
+    evidence = IssueEvidence(
+        summary="The agent answered from an empty context",
+        steps=[
+            IssueEvidenceStep(
+                span_id=span_id,
+                text="The retriever returned 0 documents",
+                highlights=["0 documents"],
+                highlight_tone="error",
+            )
+        ],
+        primary_span_id=span_id,
+    )
+
+    mlflow.log_issue(
+        trace_id=trace_id,
+        issue_id=issue.issue_id,
+        evidence=evidence,
+    )
+
+    assessment = mlflow.get_trace(trace_id).info.assessments[0]
+    assert isinstance(assessment, IssueReference)
+    # The summary doubles as the rationale, so a client without this schema still explains it.
+    assert assessment.rationale == "The agent answered from an empty context"
+    assert assessment.span_id == span_id
+    stored = IssueEvidence.from_assessment(assessment)
+    assert stored.steps == evidence.steps
+    assert stored.primary_span_id == span_id
+
+
+def test_log_issue_with_evidence_as_a_dict_preserves_explicit_fields(trace_id, tracking_uri):
+    if tracking_uri.startswith("file:"):
+        pytest.skip("Issue APIs are not supported with file-based tracking URI")
+
+    tracing_client = mlflow.MlflowClient()._tracing_client
+    issue = tracing_client._create_issue(
+        experiment_id="0",
+        name="empty_retrieval",
+        description="The retriever returned nothing",
+        status=IssueStatus.PENDING,
+    )
+    span_id = mlflow.get_trace(trace_id).data.spans[0].span_id
+
+    mlflow.log_issue(
+        trace_id=trace_id,
+        issue_id=issue.issue_id,
+        rationale="An explicit rationale wins",
+        metadata={"detector": "offline"},
+        evidence={
+            "summary": "A summary that does not overwrite the rationale",
+            "steps": [
+                {
+                    "span_id": span_id,
+                    "text": "The retriever returned 0 documents",
+                    "highlights": ["0 documents"],
+                    "highlight_tone": "warning",
+                }
+            ],
+        },
+    )
+
+    assessment = mlflow.get_trace(trace_id).info.assessments[0]
+    assert assessment.rationale == "An explicit rationale wins"
+    assert assessment.metadata["detector"] == "offline"
+    assert IssueEvidence.from_assessment(assessment) is not None
+    # Evidence that names no primary span leaves the reference span-free.
+    assert assessment.span_id is None
+
+
+def test_log_issue_rejects_evidence_citing_a_span_outside_the_trace(trace_id, tracking_uri):
+    if tracking_uri.startswith("file:"):
+        pytest.skip("Issue APIs are not supported with file-based tracking URI")
+
+    tracing_client = mlflow.MlflowClient()._tracing_client
+    issue = tracing_client._create_issue(
+        experiment_id="0",
+        name="empty_retrieval",
+        description="The retriever returned nothing",
+        status=IssueStatus.PENDING,
+    )
+
+    with pytest.raises(MlflowException, match="not part of the trace"):
+        mlflow.log_issue(
+            trace_id=trace_id,
+            issue_id=issue.issue_id,
+            evidence={
+                "summary": "Cites a span this trace never recorded",
+                "steps": [
+                    {
+                        "span_id": "span-does-not-exist",
+                        "text": "The retriever returned 0 documents",
+                        "highlights": ["0 documents"],
+                        "highlight_tone": "error",
+                    }
+                ],
+            },
+        )
+
+    assert mlflow.get_trace(trace_id).info.assessments == []
+
+
+def test_log_issue_rejects_a_span_override_the_evidence_does_not_explain(trace_id, tracking_uri):
+    if tracking_uri.startswith("file:"):
+        pytest.skip("Issue APIs are not supported with file-based tracking URI")
+
+    tracing_client = mlflow.MlflowClient()._tracing_client
+    issue = tracing_client._create_issue(
+        experiment_id="0",
+        name="empty_retrieval",
+        description="The retriever returned nothing",
+        status=IssueStatus.PENDING,
+    )
+    span_id = mlflow.get_trace(trace_id).data.spans[0].span_id
+    evidence = {
+        "summary": "Explains one span",
+        "steps": [
+            {
+                "span_id": span_id,
+                "text": "The retriever returned 0 documents",
+                "highlights": ["0 documents"],
+                "highlight_tone": "error",
+            }
+        ],
+    }
+
+    # The card opens the reference's span, so an override no step explains is refused rather than
+    # pointing the reader at a span the walkthrough never mentions.
+    with pytest.raises(MlflowException, match="is not cited by any evidence step"):
+        mlflow.log_issue(
+            trace_id=trace_id,
+            issue_id=issue.issue_id,
+            span_id="span-not-in-the-evidence",
+            evidence=evidence,
+        )
+    assert mlflow.get_trace(trace_id).info.assessments == []
+
+    mlflow.log_issue(trace_id=trace_id, issue_id=issue.issue_id, span_id=span_id, evidence=evidence)
+    assert mlflow.get_trace(trace_id).info.assessments[0].span_id == span_id
+
+
+def test_log_issue_with_evidence_from_inside_the_traced_call(tracking_uri):
+    if tracking_uri.startswith("file:"):
+        pytest.skip("Issue APIs are not supported with file-based tracking URI")
+
+    tracing_client = mlflow.MlflowClient()._tracing_client
+    issue = tracing_client._create_issue(
+        experiment_id="0",
+        name="empty_retrieval",
+        description="The retriever returned nothing",
+        status=IssueStatus.PENDING,
+    )
+
+    # The trace has not been exported yet, so the cited spans can only come from the active trace.
+    with mlflow.start_span(name="answer_question") as root:
+        with mlflow.start_span(name="retrieve_documents") as retrieve:
+            pass
+        mlflow.log_issue(
+            trace_id=root.trace_id,
+            issue_id=issue.issue_id,
+            evidence={
+                "summary": "Retrieved nothing",
+                "steps": [
+                    {
+                        "span_id": retrieve.span_id,
+                        "text": "The retriever returned 0 documents",
+                        "highlights": ["0 documents"],
+                        "highlight_tone": "error",
+                    }
+                ],
+                "primary_span_id": retrieve.span_id,
+            },
+        )
+
+    mlflow.flush_trace_async_logging()
+    assessment = mlflow.get_trace(root.trace_id).info.assessments[0]
+    assert assessment.span_id == retrieve.span_id
+    assert IssueEvidence.from_assessment(assessment).steps[0].span_id == retrieve.span_id
+
+
+def test_log_issue_from_inside_the_traced_call_still_rejects_an_unknown_span(tracking_uri):
+    if tracking_uri.startswith("file:"):
+        pytest.skip("Issue APIs are not supported with file-based tracking URI")
+
+    tracing_client = mlflow.MlflowClient()._tracing_client
+    issue = tracing_client._create_issue(
+        experiment_id="0",
+        name="empty_retrieval",
+        description="The retriever returned nothing",
+        status=IssueStatus.PENDING,
+    )
+
+    with mlflow.start_span(name="answer_question") as root:
+        with pytest.raises(MlflowException, match="not part of the trace"):
+            mlflow.log_issue(
+                trace_id=root.trace_id,
+                issue_id=issue.issue_id,
+                evidence={
+                    "summary": "Cites a span this trace never recorded",
+                    "steps": [
+                        {
+                            "span_id": "span-does-not-exist",
+                            "text": "The retriever returned 0 documents",
+                            "highlights": ["0 documents"],
+                            "highlight_tone": "error",
+                        }
+                    ],
+                },
+            )
+
+
+def test_log_issue_without_evidence_stays_rationale_only(trace_id, tracking_uri):
+    if tracking_uri.startswith("file:"):
+        pytest.skip("Issue APIs are not supported with file-based tracking URI")
+
+    tracing_client = mlflow.MlflowClient()._tracing_client
+    issue = tracing_client._create_issue(
+        experiment_id="0",
+        name="empty_retrieval",
+        description="The retriever returned nothing",
+        status=IssueStatus.PENDING,
+    )
+
+    mlflow.log_issue(trace_id=trace_id, issue_id=issue.issue_id, rationale="Only a rationale")
+
+    assessment = mlflow.get_trace(trace_id).info.assessments[0]
+    assert assessment.metadata is None or ISSUE_EVIDENCE_METADATA_KEY not in assessment.metadata
+    assert IssueEvidence.from_assessment(assessment) is None
 
 
 def test_log_issue_default_source(trace_id, tracking_uri):

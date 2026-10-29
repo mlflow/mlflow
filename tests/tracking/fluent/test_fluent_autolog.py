@@ -27,6 +27,7 @@ import sklearn
 import statsmodels
 import tensorflow
 import transformers
+import typesafe_sdk
 import xgboost
 
 import mlflow
@@ -75,6 +76,7 @@ library_to_mlflow_module_genai = {
     boto3: mlflow.bedrock,
     groq: mlflow.groq,
     mistralai: mlflow.mistral,
+    typesafe_sdk: mlflow.typesafe,
     autogen: mlflow.ag2,
     # TODO: once Python 3.10 is introduced, enable smolagents
     # smolagents: mlflow.smolagents,

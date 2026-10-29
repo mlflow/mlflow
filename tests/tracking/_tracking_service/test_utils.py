@@ -6,10 +6,9 @@ import uuid
 from importlib import reload
 from pathlib import Path
 from unittest import mock
-from urllib.parse import urlparse
-from urllib.request import url2pathname
 
 import pytest
+from sqlalchemy.engine import make_url
 
 import mlflow
 from mlflow.environment_variables import (
@@ -150,22 +149,18 @@ def test_get_store_with_mlruns_dir_but_no_meta_yaml(tmp_path, monkeypatch):
     assert isinstance(store, SqlAlchemyStore)
 
 
-def test_default_sqlite_tracking_uri_respects_cwd(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
+@pytest.mark.parametrize("dirname", ["cwd", "a+b", "a%2Bb", "a#b", "a b"])
+def test_default_sqlite_tracking_uri_respects_cwd(tmp_path, monkeypatch, dirname):
+    cwd = tmp_path / dirname
+    cwd.mkdir()
+    monkeypatch.chdir(cwd)
     with _use_tracking_uri(None):
         store = _get_store()
 
     assert isinstance(store, SqlAlchemyStore)
-    sqlite_uri = store.db_uri
-    assert sqlite_uri.startswith("sqlite:")
-    parsed = urlparse(sqlite_uri)
-    path = parsed.path
-    if not parsed.netloc and path.startswith("//"):
-        path = path[1:]
-    if parsed.netloc:
-        path = f"//{parsed.netloc}{path}"
-    db_path = Path(url2pathname(path))
-    assert db_path.parent == tmp_path
+    db_path = Path(make_url(store.db_uri).database)
+    assert db_path.parent == cwd
+    assert db_path.exists()
 
 
 @pytest.mark.skip(reason="FileStore is no longer supported")

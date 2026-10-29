@@ -52,6 +52,10 @@ export interface EndpointFormRendererProps {
   componentId?: string;
   /** When true, adapts layout for use inside containers like modals */
   embedded?: boolean;
+  /** Keep the provider fixed when creating an endpoint for a specific evaluator. */
+  providerDisabled?: boolean;
+  /** Lifts the model selector modal above a raised host. See `ModelSelectorModalProps.zIndex`. */
+  modelSelectorZIndex?: number;
 }
 
 /**
@@ -79,6 +83,8 @@ export const EndpointFormRenderer = ({
   onNameBlur,
   componentId = `mlflow.gateway.endpoint`,
   embedded = false,
+  providerDisabled = false,
+  modelSelectorZIndex,
 }: EndpointFormRendererProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -270,6 +276,7 @@ export const EndpointFormRenderer = ({
                   rules={{ required: 'Provider is required' }}
                   render={({ field, fieldState }) => (
                     <ProviderSelect
+                      disabled={providerDisabled}
                       value={field.value}
                       onChange={(value) => {
                         field.onChange(value);
@@ -299,6 +306,7 @@ export const EndpointFormRenderer = ({
                       onChange={field.onChange}
                       error={fieldState.error?.message}
                       componentId={`${componentId}.model`}
+                      modalZIndex={modelSelectorZIndex}
                     />
                   )}
                 />

@@ -69,19 +69,25 @@ def run_interactive(
             os.write(fd, response)
 
         deadline = time.monotonic() + 10
+        eof = False
         while time.monotonic() < deadline:
-            readable, _, _ = select.select([fd], [], [], 0.1)
+            readable, _, _ = select.select([] if eof else [fd], [], [], 0.1)
             if readable:
                 try:
-                    output.extend(os.read(fd, 4096))
+                    chunk = os.read(fd, 4096)
                 except OSError as error:
                     if error.errno != errno.EIO:
                         raise
-            waited_pid, status = os.waitpid(pid, os.WNOHANG)
-            if waited_pid == pid:
-                reaped = True
+                    chunk = b""
+                output.extend(chunk)
+                eof = not chunk
+            if not reaped:
+                waited_pid, status = os.waitpid(pid, os.WNOHANG)
+                reaped = waited_pid == pid
+            # The child can exit while its final output is still buffered in the PTY.
+            if reaped and eof:
                 return os.waitstatus_to_exitcode(status), output.decode(errors="replace")
-        pytest.fail(f"Interactive process did not exit:\n{output.decode(errors='replace')}")
+        pytest.fail(f"Interactive process did not finish:\n{output.decode(errors='replace')}")
     finally:
         os.close(fd)
         if not reaped:

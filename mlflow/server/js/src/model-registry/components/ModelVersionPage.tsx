@@ -14,8 +14,10 @@ import {
   deleteModelVersionApi,
   transitionModelVersionStageApi,
   getModelVersionArtifactApi,
+  shouldNotifyModelVersionArtifactError,
   parseMlModelFile,
 } from '../actions';
+import type { ModelVersionArtifactMetadata } from '../actions';
 import { getRunApi } from '../../experiment-tracking/actions';
 import { getModelVersion, getModelVersionSchemas } from '../reducers';
 import { ModelVersionView } from './ModelVersionView';
@@ -77,6 +79,7 @@ const ModelVersionAssistantContextProvider = ({ modelName, version }: { modelNam
 export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplProps, ModelVersionPageImplState> {
   listTransitionRequestId: any;
   pollIntervalId: any;
+  artifactMetadata?: ModelVersionArtifactMetadata;
 
   initGetModelVersionDetailsRequestId = getUUID();
   getRunRequestId = getUUID();
@@ -123,29 +126,45 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
   // be removed after the availability of experimentId.
   getModelVersionDetailAndRunInfo(isInitialLoading: any) {
     const { modelName, version } = this.props;
-    return this.props
-      .getModelVersionApi(
+    const modelVersion = Promise.resolve(
+      this.props.getModelVersionApi(
         modelName,
         version,
         isInitialLoading === true ? this.initGetModelVersionDetailsRequestId : this.getModelVersionDetailsRequestId,
-      )
-      .then(({ value }: any) => {
-        // Do not fetch run info if there is no run_id (e.g. model version created directly from a logged model)
-        if (value && !value[getProtoField('model_version')].run_link && value[getProtoField('model_version')]?.run_id) {
-          this.props.getRunApi(value[getProtoField('model_version')].run_id, this.getRunRequestId);
-        }
-      });
+      ),
+    ).then((response: any) => response?.value?.[getProtoField('model_version')]);
+    const runRoots = new Map<string, Promise<string | undefined>>();
+    const getRunArtifactRootUri = (runId: string) => {
+      let root = runRoots.get(runId);
+      if (!root) {
+        root = Promise.resolve(this.props.getRunApi(runId, this.getRunRequestId)).then(
+          (response: any) => response?.value?.run?.info?.artifactUri,
+        );
+        runRoots.set(runId, root);
+      }
+      return root;
+    };
+    this.artifactMetadata = { modelVersion, getRunArtifactRootUri };
+    return modelVersion.then((value) => {
+      // Do not fetch run info if there is no run_id (e.g. model version created directly from a logged model)
+      if (value && !value.run_link && value.run_id) {
+        // Run metadata is optional for the page and may be inaccessible to registry readers.
+        return getRunArtifactRootUri(value.run_id).catch(() => undefined);
+      }
+      return undefined;
+    });
   }
   // We need this for getting mlModel artifact file,
   // this will be replaced with a single backend call in the future when supported
   getModelVersionMlModelFile() {
     const { modelName, version } = this.props;
     this.props
-      .getModelVersionArtifactApi(modelName, version)
+      .getModelVersionArtifactApi(modelName, version, undefined, this.artifactMetadata)
       .then((content: any) =>
         this.props.parseMlModelFile(modelName, version, content.value, this.initGetMlModelFileRequestId),
       )
-      .catch(() => {
+      .catch((error: unknown) => {
+        if (shouldNotifyModelVersionArtifactError(error)) Utils.logErrorAndNotifyUser(error);
         // Failure of this call chain should not block the page. Here we remove
         // `initGetMlModelFileRequestId` from `criticalInitialRequestIds`
         // to unblock RequestStateWrapper from rendering its content

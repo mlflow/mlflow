@@ -2,6 +2,7 @@ import functools
 import importlib.resources
 import json
 import logging
+import os
 import urllib.parse
 import urllib.request
 from collections.abc import Iterator
@@ -22,7 +23,7 @@ from mlflow.utils.request_utils import cloud_storage_http_request
 
 _logger = logging.getLogger(__name__)
 
-_SUPPORTED_MODEL_MODES = ("chat", "completion", "embedding", None)
+_SUPPORTED_MODEL_MODES = ("chat", "completion", "embedding", "evaluation", "responses", None)
 
 _REMOTE_FETCH_MAX_RETRIES = 3
 _REMOTE_FETCH_TIMEOUT = 5
@@ -235,7 +236,7 @@ def _catalog_pkg() -> Path:
 def _list_provider_names() -> list[str]:
     """Return provider names available in the bundled catalog (cheap directory listing)."""
     try:
-        return [p.stem for p in _catalog_pkg().glob("*.json") if p.is_file()]
+        return sorted(p.stem for p in _catalog_pkg().glob("*.json") if p.is_file())
     except (FileNotFoundError, TypeError):
         return []
 
@@ -813,6 +814,27 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
             ],
         },
     },
+    "typesafe": {
+        "api_key": {
+            "display_name": "API Key",
+            "description": "Use TypeSafe API Key",
+            "default": True,
+            "fields": [
+                {
+                    "name": "api_key",
+                    "description": "TypeSafe API Key",
+                    "secret": True,
+                    "required": True,
+                },
+                {
+                    "name": "api_base",
+                    "description": "TypeSafe API Base URL (defaults to https://api.typesafe.ai/v1)",
+                    "secret": False,
+                    "required": False,
+                },
+            ],
+        },
+    },
 }
 
 _BEDROCK_PROVIDERS = {"bedrock", "bedrock_converse"}
@@ -968,8 +990,8 @@ def get_models(provider: str | None = None) -> list[ModelDict]:
     """
     Get a list of models from LiteLLM, optionally filtered by provider.
 
-    Returns models that support chat, completion, or embedding capabilities,
-    excluding image generation, audio, and other non-text services.
+    Returns models that support chat, completion, embedding, evaluation, or responses
+    capabilities, excluding image generation, audio, and other non-text services.
 
     Args:
         provider: Optional provider name to filter by (e.g., 'openai', 'anthropic').
@@ -980,7 +1002,7 @@ def get_models(provider: str | None = None) -> list[ModelDict]:
         List of model dictionaries with keys:
             - model: Model name
             - provider: Provider name (normalized, e.g., vertex_ai instead of vertex_ai-anthropic)
-            - mode: Model mode (e.g., 'chat', 'completion', 'embedding')
+            - mode: Model mode (e.g., 'chat', 'completion', 'embedding', 'evaluation')
             - supports_function_calling: Whether model supports tool/function calling
             - supports_vision: Whether model supports image/vision input
             - supports_reasoning: Whether model supports extended thinking (o1-style)
@@ -1096,9 +1118,40 @@ _CORE_PROVIDER_ENV_VARS = {
     "xai": "XAI_API_KEY",
     "openrouter": "OPENROUTER_API_KEY",
     "togetherai": "TOGETHERAI_API_KEY",
+    "typesafe": "TYPESAFE_API_KEY",
     "bedrock": {
         "aws_access_key_id": "AWS_ACCESS_KEY_ID",
         "aws_secret_access_key": "AWS_SECRET_ACCESS_KEY",
         "aws_session_token": "AWS_SESSION_TOKEN",  # Optional
     },
 }
+
+
+def provider_credential_env_vars(provider: str) -> list[str] | None:
+    """
+    The environment variables a core provider reads its credentials from.
+
+    Returns ``None`` for a provider MLflow has no direct support for, which is how a caller
+    distinguishes "no credential configured" from "not a provider we can configure at all".
+    Where a provider takes several variables, only the credential ones are returned: the api_key
+    of a key-based provider, or every variable of one authenticated by a set of them.
+    """
+    env_config = _CORE_PROVIDER_ENV_VARS.get(provider.lower())
+    if not env_config:
+        return None
+    if isinstance(env_config, dict):
+        return [env_config["api_key"]] if "api_key" in env_config else list(env_config.values())
+    return [env_config]
+
+
+def has_env_credentials(provider: str) -> bool:
+    """
+    Whether this server's own environment already carries a credential for ``provider``.
+
+    A server started with, say, ``OPENAI_API_KEY`` set needs no stored secret, so a client can
+    ask this before prompting for a key the server would not have used.
+    """
+    env_vars = provider_credential_env_vars(provider)
+    if not env_vars:
+        return False
+    return any(os.environ.get(env_var) for env_var in env_vars)

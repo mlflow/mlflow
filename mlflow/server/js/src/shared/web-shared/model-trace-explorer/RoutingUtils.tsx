@@ -19,6 +19,7 @@ import {
   useHref as useHrefDirect,
   Link as LinkDirect,
   useLocation as useLocationDirect,
+  useNavigate as useNavigateDirect,
   BrowserRouter,
   type To,
 } from 'react-router-dom';
@@ -229,6 +230,9 @@ const useParams = useParamsDirect;
 
 const useLocation = useLocationDirect;
 
+// Not workspace-prefixed: callers navigate to a path read from the current location, which already carries it.
+const useNavigate = useNavigateDirect;
+
 const useHref = (to: To) => useHrefDirect(prefixRouteWithWorkspaceForTo(to));
 
 const Link = React.forwardRef<
@@ -259,4 +263,4 @@ export const createMLflowRoutePath = (routePath: string) => {
   return routePath;
 };
 
-export { generatePath, useParams, Link, useLocation, useHref, BrowserRouter };
+export { generatePath, useParams, Link, useLocation, useNavigate, useHref, BrowserRouter };

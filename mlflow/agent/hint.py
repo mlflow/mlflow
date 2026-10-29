@@ -61,7 +61,7 @@ _AGENT_ENV_VALUES_WITHOUT_TTY = {"TERM_PROGRAM": "kiro"}
 
 # The skill that teaches supported autologging and span input/output recording.
 # Lives in https://github.com/mlflow/skills and is installed by `mlflow agent setup`.
-TRACING_SKILL = "instrumenting-with-mlflow-tracing"
+TRACING_SKILL = "mlflow-trace-instrumentation"
 
 # All hints in this module are process-local. An agent only needs to see a
 # particular problem once to change course; repeating it on every span or row

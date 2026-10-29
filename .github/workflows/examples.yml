@@ -9,12 +9,16 @@ on:
       - ".github/workflows/copilot-*.yml"
       - ".github/workflows/docs.yml"
       - ".github/workflows/preview-docs.yml"
+      - ".github/workflows/triage.yml"
+      - ".github/workflows/nightly.yml"
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
+      - "libs/typescript/**"
+      - ".github/workflows/typescript.yml"
       - ".claude/**"
   schedule:
-    # Run this action daily at 13:00 UTC
-    - cron: "0 13 * * *"
+    - cron: "0 2 * * *"
+      timezone: "Asia/Tokyo"
   workflow_dispatch:
     inputs:
       repository:
@@ -51,11 +55,11 @@ cache-mode: none
 
 jobs:
   examples:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
       contents: read
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || github.event_name == 'pull_request'
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/mlflow') || github.event_name == 'pull_request'
     strategy:
       fail-fast: false
       matrix:
@@ -89,6 +93,8 @@ jobs:
           echo "examples_changed=$EXAMPLES_CHANGED" >> $GITHUB_OUTPUT
 
       - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: true
       - uses: ./.github/actions/setup-pyenv
 
       - name: Install dependencies
@@ -118,11 +124,11 @@ jobs:
           df -h
 
   docker:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
       contents: read
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || github.event_name == 'pull_request'
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/mlflow') || github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
