@@ -1,6 +1,10 @@
 import { describe, expect, test } from '@jest/globals';
 
-import { getUniqueIssueReferenceAssessments, getUniqueIssueReferences } from './IssueAssessmentUtils';
+import {
+  getUniqueIssueReferenceAssessments,
+  getUniqueIssueReferences,
+  getNonIssueAssessmentCount,
+} from './IssueAssessmentUtils';
 import type { Assessment, IssueReferenceAssessment } from './ModelTrace.types';
 
 const reference = (
@@ -81,5 +85,23 @@ describe('getUniqueIssueReferenceAssessments', () => {
     expect(getUniqueIssueReferences(assessments).map(({ id }) => id)).toEqual(
       getUniqueIssueReferenceAssessments(assessments).map(({ assessment_name }) => assessment_name),
     );
+  });
+});
+
+describe('getNonIssueAssessmentCount', () => {
+  test('counts feedback assessments and excludes issue references', () => {
+    const feedback: Assessment = {
+      assessment_id: 'a-feedback',
+      assessment_name: 'quality',
+      trace_id: 'trace-1',
+      span_id: 'span-1',
+      source: { source_type: 'LLM_JUDGE', source_id: 'mlflow.issue_detection' },
+      create_time: '2026-10-05T05:35:58Z',
+      last_update_time: '2026-10-05T05:35:58Z',
+      feedback: { value: true },
+    };
+    const issueRef = reference({ assessment_id: 'a-issue' });
+
+    expect(getNonIssueAssessmentCount([feedback, issueRef])).toBe(1);
   });
 });

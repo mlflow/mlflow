@@ -3,6 +3,7 @@ import { useIntl } from 'react-intl';
 import { DetectIssuesButton } from '@databricks/web-shared/genai-traces-table/components/DetectIssuesButton';
 import { CancelIssueDetectionButton } from './CancelIssueDetectionButton';
 import { IssueDetectionSettingsControl } from './IssueDetectionSettingsControl';
+import { ExperimentIssuesScheduleControl } from './ExperimentIssuesScheduleControl';
 import { ExperimentIssuesFilterControl } from './ExperimentIssuesToolbar';
 import type { ExperimentIssuesToolbarControls } from './useExperimentIssuesListControls';
 
@@ -80,7 +81,12 @@ export const ExperimentIssuesActionBar = ({
       </div>
       <ExperimentIssuesFilterControl controls={controls} align="start" />
       <div css={{ flex: 1 }} />
-      {detectionEnabled && <IssueDetectionSettingsControl experimentId={experimentId} />}
+      {detectionEnabled && (
+        <>
+          <IssueDetectionSettingsControl experimentId={experimentId} />
+          <ExperimentIssuesScheduleControl experimentId={experimentId} />
+        </>
+      )}
       {detectionEnabled &&
         // A run that exists can be cancelled, so the action becomes that rather than a disabled
         // button with no way out of a run that has stopped reporting progress. While one is still

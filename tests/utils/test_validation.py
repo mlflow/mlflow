@@ -37,6 +37,7 @@ from mlflow.utils.validation import (
     _validate_public_https_url,
     _validate_run_id,
     _validate_tag_name,
+    _validate_text_field,
     _validate_third_party_scorer_data,
     _validate_webhook_url,
     path_not_unique,
@@ -1166,3 +1167,21 @@ def test_validate_gateway_secret_auth_config_accepts_public_api_base():
             "auth_mode": "api_key",
             "api_base": "https://api.example.com/v1",
         })
+
+
+@pytest.mark.parametrize("value", [None, "", "a" * 5])
+def test_validate_text_field_accepts_values_within_limit(value):
+    _validate_text_field("Field", value, 5)
+
+
+@pytest.mark.parametrize(
+    ("value", "match"),
+    [
+        ("a" * 6, "'Field' exceeds the maximum length of 5"),
+        ("a\x00b", "'Field' cannot contain NUL"),
+    ],
+)
+def test_validate_text_field_rejects_values_the_database_would_refuse(value, match):
+    with pytest.raises(MlflowException, match=match) as exc:
+        _validate_text_field("Field", value, 5)
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)

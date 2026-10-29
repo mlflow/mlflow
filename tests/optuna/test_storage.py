@@ -287,6 +287,16 @@ def test_create_new_study(setup_storage):
     assert all(s.study_name.startswith(DEFAULT_STUDY_NAME_PREFIX) for s in frozen_studies)
 
 
+def test_get_all_studies_ignores_trial_runs(setup_storage):
+    storage = setup_storage
+    study_id = storage.create_new_study(directions=[StudyDirection.MINIMIZE], study_name="study")
+    storage.create_new_trial(study_id)
+    frozen_studies = storage.get_all_studies()
+    assert len(frozen_studies) == 1
+    assert frozen_studies[0]._study_id == study_id
+    assert frozen_studies[0].study_name == "study"
+
+
 def test_delete_study(setup_storage):
     storage = setup_storage
     study_id = storage.create_new_study(directions=[StudyDirection.MINIMIZE])

@@ -2,6 +2,7 @@ import functools
 import importlib.resources
 import json
 import logging
+import os
 import urllib.parse
 import urllib.request
 from collections.abc import Iterator
@@ -1124,3 +1125,33 @@ _CORE_PROVIDER_ENV_VARS = {
         "aws_session_token": "AWS_SESSION_TOKEN",  # Optional
     },
 }
+
+
+def provider_credential_env_vars(provider: str) -> list[str] | None:
+    """
+    The environment variables a core provider reads its credentials from.
+
+    Returns ``None`` for a provider MLflow has no direct support for, which is how a caller
+    distinguishes "no credential configured" from "not a provider we can configure at all".
+    Where a provider takes several variables, only the credential ones are returned: the api_key
+    of a key-based provider, or every variable of one authenticated by a set of them.
+    """
+    env_config = _CORE_PROVIDER_ENV_VARS.get(provider.lower())
+    if not env_config:
+        return None
+    if isinstance(env_config, dict):
+        return [env_config["api_key"]] if "api_key" in env_config else list(env_config.values())
+    return [env_config]
+
+
+def has_env_credentials(provider: str) -> bool:
+    """
+    Whether this server's own environment already carries a credential for ``provider``.
+
+    A server started with, say, ``OPENAI_API_KEY`` set needs no stored secret, so a client can
+    ask this before prompting for a key the server would not have used.
+    """
+    env_vars = provider_credential_env_vars(provider)
+    if not env_vars:
+        return False
+    return any(os.environ.get(env_var) for env_var in env_vars)

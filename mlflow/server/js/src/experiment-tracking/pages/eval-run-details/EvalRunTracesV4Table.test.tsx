@@ -358,6 +358,17 @@ describe('EvalRunTracesV4Table', () => {
       expect(within(otherRow).queryByText('complete-yes')).not.toBeInTheDocument();
     });
 
+    test('switches between traces and sessions with the Traces/Sessions switch', async () => {
+      state.traces = [sessionTurn('tr-turn-2'), sessionTurn('tr-turn-1', [sessionJudge])];
+      renderTable();
+
+      expect(await screen.findByRole('radio', { name: 'Traces' })).toBeChecked();
+      expect(screen.queryByRole('button', { name: 'Group traces by session' })).not.toBeInTheDocument();
+      await userEvent.click(screen.getByRole('radio', { name: 'Sessions' }));
+      await waitFor(() => expect(new URLSearchParams(lastSearch).get('groupBy')).toBe('session'));
+      expect(screen.getByRole('radio', { name: 'Sessions' })).toBeChecked();
+    });
+
     test('grouped: shows session feedback once, on the session row', async () => {
       state.traces = [sessionTurn('tr-turn-2'), sessionTurn('tr-turn-1', [sessionJudge])];
       renderTable(`${RUN_URL}?groupBy=session`);

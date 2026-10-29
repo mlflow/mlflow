@@ -130,7 +130,7 @@ describe('ExperimentEvaluationRunsPage baseline', () => {
         .getQueryCache()
         .getAll()
         .map((query) => query.queryKey),
-    ).toEqual([['SEARCH_RUNS', 'exp-1', '', ['attributes.start_time DESC'], false]]);
+    ).toEqual([['SEARCH_RUNS', 'exp-1', '', ['attributes.start_time DESC'], false, true]]);
     expect(requests.filter((request) => /users\/|runs\/get/.test(request))).toEqual([]);
   });
 
@@ -217,18 +217,16 @@ describe('ExperimentEvaluationRunsPage baseline', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Set baseline' })).toBeEnabled());
   });
 
-  test('disables setting an issue detection run as baseline', async () => {
+  test('leaves issue detection runs out of the list, so none can be selected or baselined', async () => {
     useRuns([
       createMockRun({ index: 0, tags: [{ key: MLFLOW_RUN_TYPE_TAG, value: MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION }] }),
+      createMockRun({ index: 1 }),
     ]);
     renderPage();
-    await waitForRun(0);
+    await waitForRun(1);
 
-    await selectRun(0);
-    const setBaseline = await screen.findByRole('button', { name: 'Set baseline' });
-    expect(setBaseline).toBeDisabled();
-    await userEvent.hover(setBaseline);
-    expect(await screen.findAllByText('Issue detection runs cannot be used as a baseline')).not.toHaveLength(0);
+    expect(screen.queryByTestId('eval-runs-table-cell-checkbox-run-0')).not.toBeInTheDocument();
+    expect(screen.queryByText('Test Run 0')).not.toBeInTheDocument();
   });
 
   test('replaces or clears an existing baseline', async () => {

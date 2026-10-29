@@ -42,6 +42,10 @@ const isDisplayableSessionAssessment = (assessment: Assessment): boolean =>
   assessment.assessment_name !== NOTES_ASSESSMENT_NAME &&
   assessment.assessment_name !== INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE;
 
+/** Whether a session-level assessment is worth a column; `isAssessmentColumnEligible` is its trace-level twin. */
+export const isSessionAssessmentColumnEligible = (assessment: Assessment): boolean =>
+  isDisplayableSessionAssessment(assessment);
+
 /** Names of the displayable session-level assessments on these traces. */
 export const getSessionAssessmentNames = (traces: ModelTraceInfoV3[]): Set<string> => {
   const names = new Set<string>();

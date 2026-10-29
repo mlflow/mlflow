@@ -721,6 +721,36 @@ def test_search_traces_pagination(store_with_traces):
     assert token is None
 
 
+@pytest.mark.parametrize("page_size", [5, 2, 1])
+def test_search_traces_last_full_page_offers_no_token(store, page_size):
+    # A page that ends exactly on the last trace used to hand back a token anyway, because the
+    # token was issued whenever the page came back full. The page behind it was empty, so a UI
+    # that trusts the token -- as the Issues tab's evidence list does -- showed a "Show more"
+    # button that loaded nothing.
+    exp = store.create_experiment("exp-boundary")
+    total = 5
+    for index in range(total):
+        _create_trace(store, f"tr-{index}", exp, request_time=index)
+
+    seen = []
+    token = None
+    pages = 0
+    while True:
+        traces, token = store.search_traces([exp], max_results=page_size, page_token=token)
+        seen.extend(trace.trace_id for trace in traces)
+        pages += 1
+        if token is None:
+            break
+        # Every page a token promises has to contain something, or the promise was false.
+        assert traces, "a token was issued for an empty page"
+        assert pages <= total + 1, "pagination did not terminate"
+
+    assert len(seen) == total
+    # No empty trailing page: `total` divides evenly by each page size under test except 2, and
+    # the even cases are exactly the ones the old condition got wrong.
+    assert pages == -(-total // page_size)
+
+
 @pytest.mark.parametrize("order_by", [None, ["timestamp DESC"]])
 def test_search_traces_pagination_tie_breaker(store, order_by):
     # This test is for ensuring the tie breaker for ordering traces with the same timestamp
@@ -6903,6 +6933,63 @@ def test_log_spans_then_start_trace_preserves_preview(store: SqlAlchemyStore):
     assert trace_info.response_preview is not None
     assert "Hello" in trace_info.request_preview
     assert "Hi" in trace_info.response_preview
+
+
+def test_start_trace_rejects_experiment_change(store: SqlAlchemyStore):
+    exp1 = store.create_experiment("exp1")
+    exp2 = store.create_experiment("exp2")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    span = create_test_span(
+        trace_id=trace_id,
+        name="test_span",
+        span_id=111,
+        status=trace_api.StatusCode.OK,
+        start_ns=1_000_000_000,
+        end_ns=2_000_000_000,
+    )
+    store.log_spans(exp1, [span])
+
+    trace_info_for_start = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp1),
+        request_time=1000,
+        execution_duration=1000,
+        state=TraceState.OK,
+        trace_metadata={},
+    )
+    store.start_trace(trace_info_for_start)
+
+    trace_info_same_exp = store.get_trace_info(trace_id)
+    assert trace_info_same_exp.experiment_id == exp1
+
+    trace_info_different_exp = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp2),
+        request_time=2000,
+        execution_duration=2000,
+        state=TraceState.OK,
+        trace_metadata={},
+    )
+    with pytest.raises(MlflowException, match="already exists in another experiment"):
+        store.start_trace(trace_info_different_exp)
+
+    trace_info_final = store.get_trace_info(trace_id)
+    assert trace_info_final.experiment_id == exp1
+
+
+def test_log_spans_rejects_trace_in_another_experiment(store: SqlAlchemyStore):
+    exp1 = store.create_experiment("log_spans_owner")
+    exp2 = store.create_experiment("log_spans_other")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    store.log_spans(exp1, [create_test_span(trace_id=trace_id, name="original", span_id=1)])
+
+    with pytest.raises(MlflowException, match="already exists in another experiment"):
+        store.log_spans(exp2, [create_test_span(trace_id=trace_id, name="injected", span_id=2)])
+
+    trace = store.get_trace(trace_id, allow_partial=True)
+    assert trace.info.experiment_id == exp1
+    assert [span.name for span in trace.data.spans] == ["original"]
 
 
 def test_start_trace_replaces_nul_in_preview(store: SqlAlchemyStore):

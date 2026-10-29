@@ -7,9 +7,8 @@ import math
 import time
 from dataclasses import dataclass
 
+from mlflow.client import MlflowClient
 from mlflow.entities.experiment import Experiment
-from mlflow.entities.experiment_tag import ExperimentTag
-from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.utils.mlflow_tags import MLFLOW_ISSUE_DETECTION_CHECKPOINT
 
 # Schema version of the envelope stored in the ``mlflow.issueDetection.checkpoint`` experiment
@@ -18,8 +17,15 @@ from mlflow.utils.mlflow_tags import MLFLOW_ISSUE_DETECTION_CHECKPOINT
 # breaking value-shape change and teach the parser to recognize the new shape.
 CHECKPOINT_VERSION = 1
 
-# Cap on how many traces one scheduled run samples from its window.
-MAX_SCHEDULED_SAMPLE_SIZE = 100
+# How many sessions one scheduled run samples from its window -- sessions, not traces, because
+# the sampler selects whole sessions so a multi-turn conversation is analyzed together. Matches
+# `MLFLOW_GENAI_DISCOVERY_TRIAGE_SAMPLE_SIZE`, which the manual path uses the same way.
+#
+# This bounds traces as well, which is why there is no separate trace cap: ``sample_traces``
+# fetches a pool of ``sample_size * SAMPLE_POOL_MULTIPLIER`` traces and returns a subset of that
+# pool, so one occurrence analyzes at most 100 * 5 = 500 traces -- and exactly 100 when the
+# traces carry no session metadata, since each trace is then its own session.
+MAX_SCHEDULED_SESSION_SAMPLE_SIZE = 100
 
 # One cadence interval each, so a schedule with no checkpoint yet starts from "the last interval"
 # rather than the whole history. See ``sample_window`` for where this applies.
@@ -126,12 +132,17 @@ def read_detection_checkpoint(experiment: Experiment) -> DetectionCheckpoint | N
 
 
 def write_detection_checkpoint(
-    store: AbstractStore, experiment_id: str, checkpoint: DetectionCheckpoint
+    client: MlflowClient, experiment_id: str, checkpoint: DetectionCheckpoint
 ) -> None:
-    """Persist the checkpoint tag. Only the scheduled sampling path calls this."""
-    store.set_experiment_tag(
-        experiment_id,
-        ExperimentTag(MLFLOW_ISSUE_DETECTION_CHECKPOINT, checkpoint.to_json()),
+    """
+    Persist the checkpoint tag. Only the scheduled run calls this.
+
+    It takes a client rather than a tracking store because the writer is the detection job, which
+    runs in its own subprocess and reaches the tracking server over its configured URI. The
+    schedule's dispatch state is written by the dispatcher instead, which runs next to the store.
+    """
+    client.set_experiment_tag(
+        experiment_id, MLFLOW_ISSUE_DETECTION_CHECKPOINT, checkpoint.to_json()
     )
 
 

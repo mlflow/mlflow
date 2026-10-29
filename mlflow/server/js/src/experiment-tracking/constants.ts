@@ -95,6 +95,14 @@ export const MLFLOW_ISSUE_DETECTION_RESULT_TOTAL_TRACES_TAG = 'mlflow.issueDetec
 export const MLFLOW_ISSUE_DETECTION_RESULT_SUMMARY_TAG = 'mlflow.issueDetection.result.summary';
 // Experiment-level detection settings, stored as one JSON value: instructions plus category toggles.
 export const MLFLOW_ISSUE_DETECTION_PRIORITIES_TAG = 'mlflow.issueDetection.priorities';
+// The experiment's recurring detection schedule: cadence, start time, weekday, timezone and
+// paused flag.
+export const MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG = 'mlflow.issueDetection.schedule';
+// The equality clauses narrowing which traces a scheduled detection run analyzes.
+export const MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG = 'mlflow.issueDetection.scheduleTraceFilter';
+// What the server has dispatched for that schedule, and when it will next run. Written only by
+// the server; read here to show the next run, never written from the browser.
+export const MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG = 'mlflow.issueDetection.scheduleState';
 
 export const MLFLOW_RUN_GIT_SOURCE_BRANCH_TAG = 'mlflow.source.git.branch';
 export const MLFLOW_PROMPT_VERSION_COUNT_TAG = 'PromptVersionCount';
@@ -110,7 +118,6 @@ export const MLFLOW_PROMPT_ENGINEERING_ARTIFACT_NAME = 'eval_results_table.json'
 export enum RunPageTabName {
   OVERVIEW = 'overview',
   TRACES = 'traces',
-  ISSUES = 'issues',
   MODEL_METRIC_CHARTS = 'model-metrics',
   SYSTEM_METRIC_CHARTS = 'system-metrics',
   ARTIFACTS = 'artifacts',

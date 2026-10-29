@@ -1,5 +1,5 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from 'react-intl';
@@ -7,7 +7,11 @@ import { createMLflowRoutePath, useLocation, useNavigate } from '../../../common
 import { setupTestRouter, testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
 import type { ExperimentEntity } from '../../types';
 import { ExperimentPageBreadcrumbs } from './ExperimentPageBreadcrumbs';
-import { ExperimentPageRevampProvider, useSetExperimentBreadcrumbTitle } from './ExperimentPageRevampContext';
+import {
+  ExperimentPageRevampProvider,
+  useSetExperimentBreadcrumbPairwiseReviewAction,
+  useSetExperimentBreadcrumbTitle,
+} from './ExperimentPageRevampContext';
 import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
 
 jest.mock('../../../common/utils/FeatureUtils', () => ({
@@ -39,6 +43,27 @@ const RouteAwareBreadcrumbHarness = () => {
       <ExperimentPageBreadcrumbs experiment={experiment} />
       <button onClick={() => navigate(createMLflowRoutePath('/experiments/123/datasets/dataset-2'))}>
         Open another dataset
+      </button>
+    </>
+  );
+};
+
+const ReviewActionHarness = ({ action }: { action?: () => void }) => {
+  const { pathname } = useLocation();
+  // Publishes only on run-1's page, so another run's page must not pick up run-1's action.
+  useSetExperimentBreadcrumbPairwiseReviewAction(pathname.includes('/run-1/') ? action : undefined);
+  const navigate = useNavigate();
+  return (
+    <>
+      <ExperimentPageBreadcrumbs experiment={experiment} />
+      <button
+        onClick={() =>
+          navigate(
+            createMLflowRoutePath('/experiments/123/evaluation-runs/run-9/details?compare=true&compareRuns=run-2'),
+          )
+        }
+      >
+        Open another run
       </button>
     </>
   );
@@ -210,5 +235,71 @@ describe('ExperimentPageBreadcrumbs', () => {
 
     await screen.findByRole('navigation', { name: 'Breadcrumb' });
     expect(screen.queryByRole('button', { name: 'Back to Reference Run' })).not.toBeInTheDocument();
+  });
+
+  const renderWithReviewAction = (entry: string, action?: () => void, enabled = true) =>
+    render(
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <TestRouter
+            history={history}
+            initialEntries={[createMLflowRoutePath(entry)]}
+            routes={[
+              testRoute(
+                <ExperimentPageRevampProvider enabled={enabled}>
+                  <ReviewActionHarness action={action} />
+                </ExperimentPageRevampProvider>,
+                createMLflowRoutePath('/experiments/:experimentId/evaluation-runs/:runUuid/details'),
+              ),
+            ]}
+          />
+        </DesignSystemProvider>
+      </IntlProvider>,
+    );
+  const COMPARE_ENTRY = '/experiments/123/evaluation-runs/run-1/details?compare=true&compareRuns=run-2';
+
+  test('shows Review next to Back to Reference Run while a review action is published, and runs it', async () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+    const onReview = jest.fn();
+    renderWithReviewAction(COMPARE_ENTRY, onReview);
+
+    const review = await screen.findByRole('button', { name: 'Review' });
+    expect(review).toHaveAttribute('aria-keyshortcuts', 'R');
+    expect(screen.getByRole('button', { name: 'Back to Reference Run' }).parentElement).toBe(review.parentElement);
+    await userEvent.click(review);
+    expect(onReview).toHaveBeenCalledTimes(1);
+  });
+
+  test('shows no Review without a published action, outside comparisons, or with the shell disabled', async () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+    const { unmount } = renderWithReviewAction(COMPARE_ENTRY, undefined);
+    await screen.findByRole('button', { name: 'Back to Reference Run' });
+    expect(screen.queryByRole('button', { name: 'Review' })).not.toBeInTheDocument();
+    unmount();
+
+    const second = renderWithReviewAction('/experiments/123/evaluation-runs/run-1/details', jest.fn());
+    await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    expect(screen.queryByRole('button', { name: 'Review' })).not.toBeInTheDocument();
+    second.unmount();
+
+    renderWithReviewAction(COMPARE_ENTRY, jest.fn(), false);
+    expect(screen.queryByRole('button', { name: 'Review' })).not.toBeInTheDocument();
+  });
+
+  test('drops a review action published for a previous route', async () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+    renderWithReviewAction(COMPARE_ENTRY, jest.fn());
+    await screen.findByRole('button', { name: 'Review' });
+    await userEvent.click(screen.getByRole('button', { name: 'Open another run' }));
+    // Still comparing on run-9, so Back to Reference Run stays; run-1's Review doesn't follow.
+    await screen.findByRole('button', { name: 'Back to Reference Run' });
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Review' })).not.toBeInTheDocument());
+  });
+
+  test('shows no Review with the flag off, even with a published action', async () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
+    renderWithReviewAction(COMPARE_ENTRY, jest.fn());
+    await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    expect(screen.queryByRole('button', { name: 'Review' })).not.toBeInTheDocument();
   });
 });
