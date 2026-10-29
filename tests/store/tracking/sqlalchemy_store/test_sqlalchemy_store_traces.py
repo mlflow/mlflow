@@ -371,8 +371,11 @@ def test_existing_traces_with_uri_special_characters_accept_spans_and_can_be_del
         request_time=1234,
         state=TraceState.OK,
     )
-    with mock.patch("mlflow.store.tracking.sqlalchemy_store._validate_new_trace_id"):
+    with mock.patch(
+        "mlflow.store.tracking.sqlalchemy_store._validate_new_trace_id"
+    ) as mock_validate:
         store.start_trace(trace_info)
+    mock_validate.assert_called_once_with(trace_id)
 
     store.log_spans(experiment_id, [create_test_span(trace_id)])
 
