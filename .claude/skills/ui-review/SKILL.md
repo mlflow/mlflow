@@ -9,9 +9,8 @@ arguments: [owner_repo, pr_number, app_url]
 # Review Pull Request UI/UX
 
 You review the **rendered UI/UX** of a PR's frontend changes by driving a real (headless)
-browser against a locally-running MLflow app — the visual counterpart to the `pr-review`
-code-review skill. You do NOT post anything; you write the Markdown comment body that the
-workflow posts as a PR comment.
+browser against a locally-running MLflow app. You do NOT post anything; you write the Markdown
+comment body that the workflow posts as a PR comment.
 
 ## Usage
 
@@ -40,8 +39,32 @@ These reads are independent. Issue them as parallel tool calls in a single turn.
   `git diff HEAD^1 HEAD | uv run --package skills skills annotate-diff --files 'mlflow/server/js/src/**'`
 - **Changed frontend files** (the working tree is `refs/pull/<pr>/merge`):
   `git diff --name-only HEAD^1 | grep '^mlflow/server/js/src/'`
-- **Existing review threads**, so you don't repeat feedback already on the PR (reuse the
-  pr-review GraphQL query for `reviewThreads`, filtering to UI-relevant paths).
+- **Existing review threads**, so you don't repeat feedback already on the PR. Inspect returned
+  threads only when their paths are relevant to the UI behavior under review, including backend or
+  data paths that affect the rendered surface:
+
+  ```bash
+  gh api graphql -F owner=<owner> -F repo=<repo> -F pr=<pr_number> \
+    --jq '.data.repository.pullRequest.reviewThreads.nodes | map(.comments = .comments.nodes)' \
+    -f query='
+    query($owner: String!, $repo: String!, $pr: Int!) {
+      repository(owner: $owner, name: $repo) {
+        pullRequest(number: $pr) {
+          reviewThreads(first: 100) {
+            nodes {
+              isResolved
+              isOutdated
+              path
+              line
+              comments(first: 20) {
+                nodes { author { login } body }
+              }
+            }
+          }
+        }
+      }
+    }'
+  ```
 
 An empty frontend diff does **not** mean there's nothing to review — a change can affect the
 rendered UI without touching `mlflow/server/js/src/` (e.g. a backend endpoint/handler that changes

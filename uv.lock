@@ -10272,7 +10272,6 @@ version = "0.1.0"
 source = { editable = ".claude/skills" }
 dependencies = [
     { name = "aiohttp" },
-    { name = "jsonschema" },
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "typing-extensions" },
@@ -10281,7 +10280,6 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "aiohttp" },
-    { name = "jsonschema" },
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "typing-extensions" },
