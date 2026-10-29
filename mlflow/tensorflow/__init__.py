@@ -163,6 +163,7 @@ def log_model(
     model_type: str | None = None,
     step: int = 0,
     model_id: str | None = None,
+    uv=None,
     **kwargs,
 ):
     """
@@ -224,6 +225,7 @@ def log_model(
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        uv: {{ uv }}
         kwargs: Extra arguments to pass to :py:func:`mlflow.models.Model.log`.
 
     Returns
@@ -254,6 +256,7 @@ def log_model(
         model_type=model_type,
         step=step,
         model_id=model_id,
+        uv=uv,
         **kwargs,
     )
 
@@ -303,6 +306,7 @@ def save_model(
     keras_model_kwargs=None,
     metadata=None,
     extra_files=None,
+    uv=None,
 ):
     """
     Save a TF2 core model (inheriting tf.Module) or Keras model in MLflow Model format to a path on
@@ -353,6 +357,7 @@ def save_model(
             to be saved is a keras model.
         metadata: {{ metadata }}
         extra_files: {{ extra_files }}
+        uv: {{ uv }}
     """
     import tensorflow as tf
     from tensorflow.keras.models import Model as KerasModel
@@ -514,7 +519,7 @@ def save_model(
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
-                path, FLAVOR_NAME, fallback=default_reqs
+                path, FLAVOR_NAME, fallback=default_reqs, uv=uv
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
@@ -536,6 +541,14 @@ def save_model(
 
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+
+    # Copy uv project files if configured
+    if uv is not None:
+        from mlflow.utils.uv_utils import copy_uv_project_files, resolve_uv_source_dir
+
+        uv_source = resolve_uv_source_dir(uv)
+        if uv_source is not None:
+            copy_uv_project_files(dest_dir=path, source_dir=uv_source)
 
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 

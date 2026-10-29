@@ -47,6 +47,7 @@ from mlflow.utils.requirements_utils import (
 )
 from mlflow.utils.timeout import MlflowTimeoutError, run_with_timeout
 from mlflow.utils.uv_utils import (
+    _resolve_uv_param_compat,
     detect_uv_project,
     export_uv_requirements,
     extract_index_urls_from_uv_lock,
@@ -416,6 +417,7 @@ def infer_pip_requirements(
     uv_project_dir=None,
     uv_groups=None,
     uv_extras=None,
+    uv=None,
 ):
     """Infers the pip requirements of the specified model by creating a subprocess and loading
     the model in it to determine which packages are imported.
@@ -433,18 +435,32 @@ def infer_pip_requirements(
         timeout: If specified, the inference operation is bound by the timeout (in seconds).
         extra_env_vars: A dictionary of extra environment variables to pass to the subprocess.
             Default to None.
-        uv_project_dir: Explicit path to a uv project directory. When provided, overrides
-            the ``MLFLOW_UV_AUTO_DETECT`` environment variable and searches the specified
-            directory instead of cwd. Default to None (auto-detect from cwd).
-        uv_groups: Optional list of uv dependency groups to include when exporting
-            requirements. Maps to ``uv export --group <name>``.
-        uv_extras: Optional list of uv extras (optional dependency sets) to include
-            when exporting requirements. Maps to ``uv export --extra <name>``.
+        uv_project_dir: Deprecated. Use ``uv=UvConfig(project_path=...)`` instead.
+            Kept for backwards compatibility with MLflow 3.11 and will be removed
+            in a future release.
+        uv_groups: Deprecated. Use ``uv=UvConfig(groups=...)`` instead. Kept for
+            backwards compatibility with MLflow 3.11 and will be removed in a
+            future release.
+        uv_extras: Deprecated. Use ``uv=UvConfig(extras=...)`` instead. Kept for
+            backwards compatibility with MLflow 3.11 and will be removed in a
+            future release.
+        uv: An instance of :py:class:`~mlflow.utils.uv_utils.UvConfig` that configures
+            uv-based dependency export. When provided, MLflow uses ``uv export`` to generate
+            pinned requirements from a uv lockfile. Default to None (auto-detect from cwd
+            when ``MLFLOW_UV_AUTO_DETECT`` is enabled).
 
     Returns:
         A list of inferred pip requirements (e.g. ``["scikit-learn==0.24.2", ...]``).
 
     """
+    uv = _resolve_uv_param_compat(
+        uv, uv_project_dir, uv_groups, uv_extras, project_path_param="uv_project_dir"
+    )
+
+    uv_project_dir = uv.project_path if uv is not None else None
+    uv_groups = uv.groups if uv is not None else None
+    uv_extras = uv.extras if uv is not None else None
+
     # Check for uv project first - if detected, use uv export instead of
     # inferring model dependencies by capturing imported packages during model inference.
     # An explicit uv_project_dir overrides the MLFLOW_UV_AUTO_DETECT env var.
@@ -473,7 +489,7 @@ def infer_pip_requirements(
                 )
         elif uv_groups or uv_extras:
             _logger.warning(
-                "uv_groups and/or uv_extras were specified but no uv project was detected. "
+                "UvConfig groups and/or extras were specified but no uv project was detected. "
                 "These parameters will be ignored. Falling back to package capture based inference."
             )
 

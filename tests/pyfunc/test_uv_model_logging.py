@@ -6,14 +6,17 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
+from sklearn.linear_model import LinearRegression
 
 import mlflow
 import mlflow.pyfunc
+import mlflow.sklearn
 from mlflow.utils.os import is_windows
 from mlflow.utils.uv_utils import (
     _PYPROJECT_FILE,
     _PYTHON_VERSION_FILE,
     _UV_LOCK_FILE,
+    UvConfig,
     is_uv_available,
 )
 
@@ -168,7 +171,7 @@ def test_pyfunc_log_model_with_explicit_uv_project_path_parameter(
         mlflow.pyfunc.log_model(
             name="model",
             python_model=python_model,
-            uv_project_path=tmp_uv_project,
+            uv=UvConfig(project_path=tmp_uv_project),
         )
 
         artifact_path = mlflow.artifacts.download_artifacts(
@@ -318,7 +321,7 @@ def test_pyfunc_save_model_with_explicit_uv_project_path(
     mlflow.pyfunc.save_model(
         model_path,
         python_model=python_model,
-        uv_project_path=tmp_uv_project,
+        uv=UvConfig(project_path=tmp_uv_project),
     )
 
     assert (model_path / _UV_LOCK_FILE).exists()
@@ -501,3 +504,150 @@ def test_run_uv_sync_real(tmp_uv_project, tmp_path):
     python_bin = sync_dir / "bin" / "python"
 
     subprocess.check_call([python_bin, "-c", "import numpy"])
+
+
+# --- Deprecated parameter backwards-compatibility (3.11 surface) ---
+
+
+@requires_uv
+def test_pyfunc_log_model_with_legacy_uv_project_path(
+    tmp_path, tmp_uv_project, python_model, monkeypatch
+):
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+    monkeypatch.chdir(work_dir)
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "false")
+
+    with mlflow.start_run() as run, pytest.warns(FutureWarning, match="uv_project_path"):
+        mlflow.pyfunc.log_model(
+            name="m",
+            python_model=python_model,
+            uv_project_path=str(tmp_uv_project),
+        )
+
+    artifact_dir = Path(
+        mlflow.artifacts.download_artifacts(run_id=run.info.run_id, artifact_path="m")
+    )
+    assert (artifact_dir / _UV_LOCK_FILE).exists()
+    assert (artifact_dir / _PYPROJECT_FILE).exists()
+
+
+@requires_uv
+def test_pyfunc_save_model_with_legacy_uv_groups_and_extras(
+    uv_project_with_groups, python_model, tmp_path
+):
+    model_path = tmp_path / "saved_model"
+    with pytest.warns(FutureWarning, match="uv_groups"):
+        mlflow.pyfunc.save_model(
+            path=model_path,
+            python_model=python_model,
+            uv_project_path=str(uv_project_with_groups),
+            uv_groups=["serving"],
+            uv_extras=["gpu"],
+        )
+
+    assert (model_path / _REQUIREMENTS_FILE_NAME).exists()
+    requirements = (model_path / _REQUIREMENTS_FILE_NAME).read_text()
+    # `serving` group adds gunicorn; `gpu` extra adds scipy. Both should appear.
+    assert "gunicorn" in requirements.lower()
+    assert "scipy" in requirements.lower()
+
+
+@requires_uv
+def test_pyfunc_log_model_mixing_legacy_and_uv_raises(tmp_uv_project, python_model):
+    with mlflow.start_run():
+        with pytest.raises(Exception, match="Cannot specify both"):
+            mlflow.pyfunc.log_model(
+                name="m",
+                python_model=python_model,
+                uv=UvConfig(project_path=str(tmp_uv_project)),
+                uv_project_path=str(tmp_uv_project),
+            )
+
+
+@requires_uv
+def test_pyfunc_log_model_with_uvconfig_does_not_warn(
+    tmp_path, tmp_uv_project, python_model, monkeypatch, recwarn
+):
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+    monkeypatch.chdir(work_dir)
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "false")
+
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model(
+            name="m",
+            python_model=python_model,
+            uv=UvConfig(project_path=str(tmp_uv_project)),
+        )
+
+    future_warnings = [
+        w for w in recwarn if issubclass(w.category, FutureWarning) and "uv_" in str(w.message)
+    ]
+    assert not future_warnings
+
+
+@requires_uv
+def test_legacy_and_uvconfig_produce_equivalent_requirements(
+    tmp_uv_project, python_model, tmp_path
+):
+    legacy_path = tmp_path / "legacy"
+    new_path = tmp_path / "new"
+
+    with pytest.warns(FutureWarning, match="uv_project_path"):
+        mlflow.pyfunc.save_model(
+            path=legacy_path,
+            python_model=python_model,
+            uv_project_path=str(tmp_uv_project),
+        )
+
+    mlflow.pyfunc.save_model(
+        path=new_path,
+        python_model=python_model,
+        uv=UvConfig(project_path=str(tmp_uv_project)),
+    )
+
+    legacy_reqs = (legacy_path / _REQUIREMENTS_FILE_NAME).read_text()
+    new_reqs = (new_path / _REQUIREMENTS_FILE_NAME).read_text()
+    assert legacy_reqs == new_reqs
+
+
+# --- UvConfig without project_path, and flavors other than pyfunc ---
+
+
+@requires_uv
+def test_pyfunc_log_model_uvconfig_without_project_path_uses_detected_project(
+    tmp_uv_project, python_model, monkeypatch
+):
+    monkeypatch.chdir(tmp_uv_project)
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "true")
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(name="model", python_model=python_model, uv=UvConfig())
+
+        artifact_dir = Path(
+            mlflow.artifacts.download_artifacts(run_id=run.info.run_id, artifact_path="model")
+        )
+
+    assert (artifact_dir / _UV_LOCK_FILE).exists()
+    assert (artifact_dir / _PYPROJECT_FILE).exists()
+    assert "numpy" in (artifact_dir / _REQUIREMENTS_FILE_NAME).read_text().lower()
+
+
+@requires_uv
+def test_sklearn_save_model_with_uvconfig_copies_uv_artifacts(
+    tmp_path, tmp_uv_project, monkeypatch
+):
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+    monkeypatch.chdir(work_dir)
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "false")
+    model = LinearRegression().fit([[0.0], [1.0]], [0.0, 1.0])
+    model_path = tmp_path / "sklearn_model"
+
+    mlflow.sklearn.save_model(model, model_path, uv=UvConfig(project_path=tmp_uv_project))
+
+    assert (model_path / _UV_LOCK_FILE).exists()
+    assert (model_path / _PYPROJECT_FILE).exists()
+    assert "test_uv_project" in (model_path / _PYPROJECT_FILE).read_text()
+    assert (model_path / _REQUIREMENTS_FILE_NAME).exists()
