@@ -4,11 +4,15 @@
 \alias{mlflow_client}
 \title{Initialize an MLflow Client}
 \usage{
-mlflow_client(tracking_uri = NULL)
+mlflow_client(tracking_uri = NULL, registry_uri = NULL)
 }
 \arguments{
 \item{tracking_uri}{The tracking URI. If not provided, defaults to the service
 set by `mlflow_set_tracking_uri()`.}
+
+\item{registry_uri}{The registry URI. If not provided, defaults to
+`mlflow_get_registry_uri()`. For Databricks model registry, use `databricks-uc`
+or `databricks-uc://<profile>`.}
 }
 \description{
 Initializes and returns an MLflow client that communicates with the tracking server or store
