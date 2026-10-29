@@ -167,10 +167,12 @@ const savedTraceFilters = (): unknown[] =>
 
 const openModal = async (user: ReturnType<typeof setup>, name: RegExp | string = /schedule detection/i) => {
   // Re-queried inside the wait rather than captured once: until `server-info` answers, the control
-  // renders its disabled branch, and becoming available swaps in a different button. Waiting on the
-  // element found first would wait forever on a node that has been detached.
-  await waitFor(async () => expect(await screen.findByRole('button', { name })).not.toBeDisabled());
-  await user.click(await screen.findByRole('button', { name }));
+  // renders its disabled branch, and becoming available swaps in a different button, detaching the
+  // element found first. Queried synchronously, because a nested `findByRole` carries a poll loop
+  // of its own and spends this wait's whole budget on one attempt, leaving the timeout unbounded.
+  // The two round trips it waits for do not reliably fit in the default second.
+  await waitFor(() => expect(screen.getByRole('button', { name })).not.toBeDisabled(), { timeout: 5000 });
+  await user.click(screen.getByRole('button', { name }));
   return screen.findByRole('dialog');
 };
 
@@ -591,7 +593,8 @@ describe('ExperimentIssuesScheduleControl', () => {
     await save(user);
 
     await waitFor(() => expect(savedSchedule()['fireTime']).toBe('16:00'));
-    expect(scheduleStateSyncs).toBe(1);
+    // A request of its own, made once the schedule is stored, so it can lag the tag write.
+    await waitFor(() => expect(scheduleStateSyncs).toBe(1));
     await openModal(user, /scheduled: daily/i);
     expect(await screen.findByText(/Next run as saved:.*16:00/)).toBeInTheDocument();
   });
