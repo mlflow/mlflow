@@ -10,6 +10,7 @@ from mlflow.entities._job import Job as JobEntity
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_job_store
+from mlflow.telemetry.issue_detection import record_issue_detection_cancellation
 from mlflow.utils.environment import _PythonEnv
 
 _logger = logging.getLogger(__name__)
@@ -410,4 +411,6 @@ def cancel_job(job_id: str) -> JobEntity:
         MlflowException: If job with the given ID is not found
     """
     job_store = _get_job_store()
-    return job_store.cancel_job(job_id)
+    job = job_store.cancel_job(job_id)
+    record_issue_detection_cancellation(job)
+    return job

@@ -32,11 +32,11 @@ def record_usage_event(event: type[Event]) -> Callable[[Callable[P, R]], Callabl
                 result = func(*args, **kwargs)
                 return result
             except (KeyboardInterrupt, AsyncCancelledError, FutureCancelledError):
-                # Only propagated interruptions reach here. Server job cancellation uses SIGKILL,
-                # which bypasses this handler, the recording below, and the telemetry flush.
+                # Server job cancellation uses SIGKILL, so its event is recorded by the server
+                # accepting the cancellation instead of this worker.
                 status = Status.CANCELED
                 raise
-            except Exception:
+            except BaseException:
                 status = Status.FAILURE
                 raise
             finally:
@@ -89,7 +89,8 @@ def _record_event(
     params: dict[str, Any],
     *,
     success: bool = True,
-    duration_ms: int = 0,
+    duration_ms: int | None = 0,
+    status: Status | None = None,
 ) -> None:
     try:
         if _is_telemetry_disabled_for_event(event):
@@ -104,7 +105,9 @@ def _record_event(
                     event_name=event.name,
                     params=record_params or None,
                     timestamp_ns=time.time_ns(),
-                    status=Status.SUCCESS if success else Status.FAILURE,
+                    status=status
+                    if status is not None
+                    else (Status.SUCCESS if success else Status.FAILURE),
                     duration_ms=duration_ms,
                 )
             )
