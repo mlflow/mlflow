@@ -146,6 +146,8 @@ from mlflow.tracing import set_tracing_context_from_http_request_headers
 mlflow.langchain.autolog()
 
 # Inside the request handler:
+# Normalize names for frameworks that preserve the original header casing.
+headers = {key.lower(): value for key, value in headers.items()}
 parent_context = (
     set_tracing_context_from_http_request_headers(headers)
     if "traceparent" in headers
