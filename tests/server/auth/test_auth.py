@@ -9508,7 +9508,7 @@ def test_delete_scorer_version_is_gated_on_the_version_tier(client, monkeypatch)
     assert vetoed.status_code == 403
 
 
-def test_source_prompt_requirements_resolves_the_name_like_load_prompt():
+def test_source_prompt_requirements_resolves_the_name_like_load_prompt(monkeypatch):
     """The gate must name the prompt `load_prompt` will actually load.
 
     `_parse_model_uri` takes the name as everything before the LAST `@`, so splitting at the
@@ -9518,6 +9518,19 @@ def test_source_prompt_requirements_resolves_the_name_like_load_prompt():
     gate delegates to the parser rather than re-deriving the name.
     """
     from mlflow.store.artifact.utils.models import _parse_model_uri
+
+    # No prompt is stored, so each name is required as parsed. Without this the lookup hits the
+    # process-wide registry store, which may point at a database an earlier test removed.
+    class FakeRegistryStore:
+        def __init__(self):
+            self.asked_for = []
+
+        def get_registered_model(self, name):
+            self.asked_for.append(name)
+            raise MlflowException(f"Registered Model {name!r} not found", RESOURCE_DOES_NOT_EXIST)
+
+    fake = FakeRegistryStore()
+    monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: fake)
 
     def gated_names(uri):
         requirements = auth_module._source_prompt_requirements(uri)
@@ -9559,6 +9572,7 @@ def test_source_prompt_requirements_resolves_the_name_like_load_prompt():
 
     # An absent source prompt adds no requirement at all.
     assert gated_names("") == "NO_REQUIREMENT"
+    assert "my@weird" in fake.asked_for
 
 
 def test_optimizer_gateway_endpoint_requirement_is_keyed_by_id(monkeypatch):
