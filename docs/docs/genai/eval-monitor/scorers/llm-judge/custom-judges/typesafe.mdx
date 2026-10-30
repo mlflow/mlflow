@@ -34,6 +34,43 @@ print(feedback.value)
 print(feedback.metadata["typesafe.probability"])
 ```
 
+## Databricks AI Gateway
+
+To invoke a System One model service through Databricks AI Gateway, use its Unity Catalog name
+with a `databricks:/` URI and explicitly select `model_api="decisions"`:
+
+```python
+import mlflow
+from mlflow.genai.judges import make_judge
+
+mlflow.set_tracking_uri("databricks")  # Or databricks://<profile>
+
+issue_present = make_judge(
+    name="issue_present",
+    instructions="Does {{ outputs }} exhibit the issue described in {{ expectations }}?",
+    model="databricks:/system.ai.typesafeai-jev-1-14-0",
+    model_api="decisions",
+    feedback_value_type=bool,
+)
+```
+
+MLflow sends the request to `/ai-gateway/typesafe/v1/systemone` using Databricks workspace
+authentication. A Databricks tracking profile selects the workspace; with an OSS tracking
+server, the default Databricks credentials select it. Credentials are resolved when the judge
+runs and are not stored in its serialized definition. No `TYPESAFE_API_KEY` is needed.
+
+The model must be an accessible Unity Catalog model service backed by a System One model.
+For TypeSafe-hosted Jev, an account admin must enable the
+**Externally-hosted TypeSafe AI Models** preview. See the
+[Databricks System One documentation](https://docs.databricks.com/aws/en/machine-learning/model-serving/query-systemone-models).
+
+`gateway:/` targets an OSS MLflow Gateway endpoint. To call Databricks AI Gateway directly,
+use `databricks:/<catalog>.<schema>.<model>`. Databricks judges use chat completions by default;
+selecting a Jev model alone does not switch the API. This integration requires a Boolean or
+finite categorical output and does not support `{{ trace }}` tool calling or generated rationales.
+Configure workspace authentication for the identity executing a registered judge, and use an
+MLflow version containing this integration in the evaluation or monitoring runtime as well.
+
 ## Supported output types
 
 TypeSafe judge models support the following `feedback_value_type` values:
