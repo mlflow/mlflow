@@ -1,8 +1,8 @@
 # File a PR from an upstream branch (not a fork) when changing this workflow or the files it
 # runs, so the change can be tested with `gh workflow run triage.yml --ref <branch>` before merging.
-# Sonnet/medium is the dispatch default for workflow smoke tests. Use Opus/high for
-# triage quality checks, matching automatic issue runs:
-# `-f model=databricks-claude-opus-5-5 -f effort=high`.
+# Sonnet/medium is the dispatch default for workflow smoke tests. Opus/medium matches
+# automatic issue runs:
+# `-f model=databricks-claude-opus-5-5 -f effort=medium`.
 name: Triage
 
 on:
@@ -875,7 +875,7 @@ jobs:
           AGENT_BROWSER_ARGS: --no-sandbox
           AGENT_BROWSER_SCREENSHOT_DIR: /tmp/triage-out/media
           MODEL: ${{ inputs.model || 'databricks-claude-opus-5-5' }}
-          EFFORT: ${{ inputs.effort || 'high' }}
+          EFFORT: ${{ inputs.effort || (github.event_name == 'issues' && 'medium' || 'high') }}
           SESSION_ID: ${{ steps.session.outputs.id }}
           ISSUE_PATH: ${{ runner.temp }}/issue-context/issue-context.json
           TRIAGE_ACTION: ${{ needs.issue.outputs.action }}
