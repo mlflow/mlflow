@@ -860,6 +860,61 @@ def test_start_run_existing_run_from_environment_with_set_environment(
             start_run()
 
 
+def test_start_run_with_parent_run_id_ignores_env_run_id(empty_active_run_stack, monkeypatch):
+    # https://github.com/mlflow/mlflow/issues/15713
+    # When MLFLOW_RUN_ID is set (e.g. an orchestrator exports the parent run into the
+    # job environment), an explicit parent_run_id must still create a new child run.
+    # Resuming the env-var run instead overwrites that run's name and status and
+    # logs the child's data into it.
+    with mlflow.start_run(run_name="parent") as parent_run:
+        parent_run_id = parent_run.info.run_id
+        monkeypatch.setenv(MLFLOW_RUN_ID.name, parent_run_id)
+        with mlflow.start_run(
+            nested=True, run_name="child", parent_run_id=parent_run_id
+        ) as child_run:
+            child_run_id = child_run.info.run_id
+            # The env var is not consumed: start_run left it for the parent to resume later
+            assert os.environ[MLFLOW_RUN_ID.name] == parent_run_id
+
+    client = MlflowClient()
+    # A new run was created rather than resuming the parent
+    assert child_run_id != parent_run_id
+    assert client.get_run(child_run_id).data.tags[mlflow_tags.MLFLOW_PARENT_RUN_ID] == parent_run_id
+    # The parent run was not overwritten by the child
+    parent = client.get_run(parent_run_id)
+    assert parent.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME) == "parent"
+    assert parent.info.status == RunStatus.to_string(RunStatus.FINISHED)
+
+
+def test_start_run_with_parent_run_id_skips_sgc_resumption(empty_active_run_stack, monkeypatch):
+    # An explicit parent_run_id must also win over SGC job-tag resumption: resuming
+    # the job's previous run would silently discard the requested parent linkage.
+    client = MlflowClient()
+    experiment_id = mlflow.create_experiment("test_parent_run_id_overrides_sgc")
+    sgc_job_run_id = "99999"
+
+    with mlflow.start_run(experiment_id=experiment_id, run_name="parent") as parent_run:
+        parent_run_id = parent_run.info.run_id
+    with mlflow.start_run(experiment_id=experiment_id, run_name="job-run") as job_run:
+        job_run_id = job_run.info.run_id
+
+    sgc_tag_key = (
+        f"{mlflow_tags.MLFLOW_DATABRICKS_SGC_RESUME_RUN_JOB_RUN_ID_PREFIX}.{sgc_job_run_id}"
+    )
+    client.set_experiment_tag(experiment_id, sgc_tag_key, job_run_id)
+
+    with mock.patch("mlflow.tracking.fluent.get_sgc_job_run_id", return_value=sgc_job_run_id):
+        with mlflow.start_run(
+            experiment_id=experiment_id, run_name="child", parent_run_id=parent_run_id
+        ) as child_run:
+            child_run_id = child_run.info.run_id
+
+    # Neither the SGC job run nor the parent was resumed
+    assert child_run_id not in (job_run_id, parent_run_id)
+    assert client.get_run(child_run_id).data.tags[mlflow_tags.MLFLOW_PARENT_RUN_ID] == parent_run_id
+    assert client.get_run(job_run_id).info.status == RunStatus.to_string(RunStatus.FINISHED)
+
+
 def test_start_run_existing_run_deleted(empty_active_run_stack):
     mock_run = mock.Mock()
     mock_run.info.lifecycle_stage = LifecycleStage.DELETED

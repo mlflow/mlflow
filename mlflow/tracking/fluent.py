@@ -464,6 +464,9 @@ def start_run(
     If you pass a ``run_id`` or the ``MLFLOW_RUN_ID`` environment variable is set,
     ``start_run`` attempts to resume a run with the specified run ID and
     other parameters are ignored. ``run_id`` takes precedence over ``MLFLOW_RUN_ID``.
+    An explicit ``parent_run_id`` takes precedence over both resumption sources
+    (``MLFLOW_RUN_ID`` and SGC job-tag resumption), since requesting a parent
+    means a new child run must be created rather than resuming an existing one.
 
     If resuming an existing run, the run status is set to ``RunStatus.RUNNING``.
 
@@ -486,7 +489,9 @@ def start_run(
             a random name will be generated for the run.
         nested: Controls whether run is nested in parent run. ``True`` creates a nested run.
         parent_run_id: If specified, the current run will be nested under the run with
-            the specified UUID. The parent run must be in the ACTIVE state.
+            the specified UUID. The parent run must be in the ACTIVE state. When
+            specified, resumption sources such as the ``MLFLOW_RUN_ID`` environment
+            variable are ignored so the referenced run is never resumed or modified.
         tags: An optional dictionary of string keys and values to set as tags on the run.
             If a run is being resumed, these tags are set on the resumed run. If a new run is
             being created, these tags are set on the new run.
@@ -575,6 +580,14 @@ def start_run(
     sgc_job_run_id_tag_key: str | None = None
     if run_id:
         existing_run_id = run_id
+    elif parent_run_id is not None:
+        # An explicit parent run always means "create a new child run", so skip
+        # the resumption sources below. Resuming here would silently reuse (and
+        # overwrite the name/status of) the run referenced by MLFLOW_RUN_ID or
+        # the SGC job tag, which is often the parent itself when an orchestrator
+        # exports MLFLOW_RUN_ID into the job environment.
+        existing_run_id = None
+        sgc_job_run_id_tag_key = None
     elif run_id := MLFLOW_RUN_ID.get():
         existing_run_id = run_id
         del os.environ[MLFLOW_RUN_ID.name]
