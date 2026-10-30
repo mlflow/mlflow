@@ -100,7 +100,7 @@ with mlflow.start_run(run_name="My Evaluation Run") as run:
 
 Yes. Use a traced HTTP `predict_fn` to call your endpoint and [distributed tracing](/genai/tracing/app-instrumentation/distributed-tracing) to connect the remote agent's spans to each evaluation task. The service must restore the incoming trace context before invoking the instrumented agent, and both processes must use the same tracking server and experiment. See the example in [Evaluating Agents](/genai/eval-monitor/running-evaluation/agents).
 
-Response-quality scorers can evaluate the returned answer without remote spans. Scorers that inspect tool calls need those spans in the evaluation trace. The client and service export spans independently, so an HTTP response does not guarantee that every span is available when scoring begins.
+Response-quality scorers can evaluate the returned answer without remote spans. Scorers that inspect tool calls need those spans in the evaluation trace. The client and service export spans independently, so an HTTP response does not guarantee that every span is available when scoring begins. If spans arrive after scoring, [evaluate the collected trace](/genai/eval-monitor/running-evaluation/traces) again after its remote spans have arrived.
 
 ## How do I use Databricks Model Serving endpoints as the predict function?
 

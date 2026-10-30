@@ -57,6 +57,8 @@ Both scripts use the tracking server and experiment environment variables from t
 Create a `server.py` file with the following content:
 
 ```python title="server.py"
+from contextlib import nullcontext
+
 import mlflow
 import uvicorn
 from fastapi import FastAPI, Request
@@ -69,7 +71,13 @@ app = FastAPI()
 async def handle(request: Request):
     headers = dict(request.headers)
     body = await request.json()
-    with set_tracing_context_from_http_request_headers(headers):
+    # Ordinary requests, including evaluation's preliminary call, may have no parent.
+    parent_context = (
+        set_tracing_context_from_http_request_headers(headers)
+        if "traceparent" in headers
+        else nullcontext()
+    )
+    with parent_context:
         # Create the service span after restoring the client's parent context.
         with mlflow.start_span("server-handler") as span:
             span.set_inputs(body)
@@ -129,11 +137,21 @@ Open the MLflow UI at `http://localhost:5000` and navigate to the **distributed-
 To apply the same pattern to an agent service, enable the agent framework's [tracing integration](/genai/tracing/integrations) once at service startup, then invoke the agent inside the restored context. For example, for an existing [LangGraph agent](/genai/tracing/integrations/listing/langgraph) named `agent`:
 
 ```python
+from contextlib import nullcontext
+
+import mlflow
+from mlflow.tracing import set_tracing_context_from_http_request_headers
+
 # At service startup, after configuring the tracking destination:
 mlflow.langchain.autolog()
 
 # Inside the request handler:
-with set_tracing_context_from_http_request_headers(headers):
+parent_context = (
+    set_tracing_context_from_http_request_headers(headers)
+    if "traceparent" in headers
+    else nullcontext()
+)
+with parent_context:
     with mlflow.start_span("server-handler"):
         result = agent.invoke({"messages": body["messages"]})
 ```

@@ -36,7 +36,7 @@ def predict_fn(question: str) -> str:
     return response.json()["answer"]
 ```
 
-The service must restore the incoming context **before** invoking the instrumented agent, and both processes must log to the same tracking server and experiment. Pass this `predict_fn` to `mlflow.genai.evaluate()` with your dataset and scorers. See [Distributed Tracing](/genai/tracing/app-instrumentation/distributed-tracing) for the service code.
+Set `AGENT_URL` to your endpoint's full URL. The service must restore the incoming context **before** invoking the instrumented agent, and both processes must log to the same tracking server and experiment. It must also accept requests without trace headers: evaluation makes a preliminary prediction call with client tracing disabled. Pass this `predict_fn` to `mlflow.genai.evaluate()` with your dataset and scorers. See [Distributed Tracing](/genai/tracing/app-instrumentation/distributed-tracing) for the service code.
 
 :::
 
