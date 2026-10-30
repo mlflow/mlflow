@@ -287,6 +287,7 @@ def _args(host_creds, endpoint, method, json_body, use_v3=False, retry_timeout_s
         "host_creds": host_creds,
         "endpoint": f"/api/{version}/mlflow/{endpoint}",
         "method": method,
+        "raise_on_status": False,
     }
     if retry_timeout_seconds is not None:
         res["retry_timeout_seconds"] = retry_timeout_seconds
