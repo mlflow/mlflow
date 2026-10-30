@@ -5372,7 +5372,7 @@ requires-dist = [
     { name = "graphene", specifier = "<4" },
     { name = "gunicorn", marker = "sys_platform != 'win32'", specifier = "<27" },
     { name = "huey", specifier = ">=2.5.4,<4" },
-    { name = "importlib-metadata", specifier = ">=3.7.0,!=4.7.0,<10" },
+    { name = "importlib-metadata", specifier = ">=3.7.0,!=4.7.0,<11" },
     { name = "kubernetes", marker = "extra == 'extras'" },
     { name = "kubernetes", marker = "extra == 'kubernetes'" },
     { name = "langchain", marker = "extra == 'langchain'", specifier = ">=1.0.0,<=1.4.3" },
