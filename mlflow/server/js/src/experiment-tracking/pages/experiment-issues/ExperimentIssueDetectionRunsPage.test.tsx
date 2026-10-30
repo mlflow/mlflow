@@ -427,9 +427,15 @@ describe('ExperimentIssueDetectionRunsPage', () => {
   });
 
   test('a run still going claims no duration yet, however long ago it started', async () => {
-    // How long it has been going is on the row already, in a self-ticking Created at cell.
+    // The end time is the one `end_run(RUNNING)` stamps at creation, which is what made this
+    // read "0s". How long it has been going is on the row already, in a self-ticking Created at.
     storedRuns = [
-      scheduled({ runUuid: 'run-live', status: 'RUNNING', startTime: nowMs - 124_000, endTime: undefined }),
+      scheduled({
+        runUuid: 'run-live',
+        status: 'RUNNING',
+        startTime: nowMs - 124_000,
+        endTime: nowMs - 124_000,
+      }),
     ];
     renderPage();
 
@@ -445,7 +451,7 @@ describe('ExperimentIssueDetectionRunsPage', () => {
         runUuid: 'run-stuck',
         status: 'RUNNING',
         startTime: nowMs - 15 * 60 * 60 * 1000,
-        endTime: undefined,
+        endTime: nowMs - 15 * 60 * 60 * 1000,
       }),
     ];
     renderPage();

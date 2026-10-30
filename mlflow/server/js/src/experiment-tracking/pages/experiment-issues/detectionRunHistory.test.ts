@@ -219,6 +219,12 @@ describe('detectionRunDurationMs', () => {
     expect(detectionRunDurationMs(row({ status: 'RUNNING' }))).toBeUndefined();
   });
 
+  test('ignores the end time an unfinished run already carries', () => {
+    // `end_run(RUNNING)` in the submitting handler stamps one at creation, so measuring from it
+    // read `0s` for as long as the run went on.
+    expect(detectionRunDurationMs(row({ status: 'RUNNING', endedAtMs: START_MS }))).toBeUndefined();
+  });
+
   test('does not time a settled run that recorded no end time', () => {
     expect(detectionRunDurationMs(row({ status: 'FINISHED' }))).toBeUndefined();
   });

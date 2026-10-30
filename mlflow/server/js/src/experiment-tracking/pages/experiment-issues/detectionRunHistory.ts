@@ -186,8 +186,15 @@ export const toDetectionRunRow = (run: RunEntity): DetectionRunRow | undefined =
 /**
  * How long the run took, or `undefined` while it is still going.
  *
- * Deliberately not timed against now: a row stops changing once its run is under way, so a
- * figure measured from render time stood still -- at `0s` when the run had just started.
+ * The end time is read only once the status says the run has stopped, because an unfinished
+ * detection run carries one anyway: the handler that submits the job releases its fluent run
+ * with `end_run(RUNNING)`, which stamps an end time while leaving the status alone. Measured
+ * from that, every run reads `0s` for as long as it is going -- its end time is its start time.
+ *
+ * Timing an unfinished run against now instead would make the figure a function of when the page
+ * last rendered, and a row stops changing once its run is under way.
  */
 export const detectionRunDurationMs = (row: DetectionRunRow): number | undefined =>
-  row.endedAtMs === undefined ? undefined : Math.max(0, row.endedAtMs - row.createdAtMs);
+  isDetectionRunSettled(row.status) && row.endedAtMs !== undefined
+    ? Math.max(0, row.endedAtMs - row.createdAtMs)
+    : undefined;
