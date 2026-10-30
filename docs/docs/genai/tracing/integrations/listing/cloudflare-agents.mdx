@@ -17,7 +17,7 @@ import { OTelIntegrationCard } from "@site/src/components/TracingIntegrations/OT
 
 <ImageBox src="/images/llms/tracing/cloudflare-agents/trace.png" alt="MLflow displaying a real Cloudflare CalculatorAgent trace with model messages, a multiply tool call, and token usage" />
 
-The trace above shows a real agent calling a local Llama model, executing `multiply(17, 23)`, and responding with `391`. MLflow recognizes the agent, model, and tool spans from their OpenTelemetry GenAI attributes.
+The trace above shows a real agent calling the local `llama3.2:1b` model, executing `multiply(17, 23)`, and responding with `391`. The deployment example below uses OpenAI `gpt-4o-mini`; see [Local Development](#local-development) for how the screenshot's traces reached MLflow. MLflow recognizes the agent, model, and tool spans from their OpenTelemetry GenAI attributes.
 
 ## What Gets Traced
 
