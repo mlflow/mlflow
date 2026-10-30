@@ -1,0 +1,191 @@
+---
+title: Tracing Cloudflare Agents
+description: Send Cloudflare Agents traces to MLflow through Workers OpenTelemetry export to inspect model calls, tool executions, and token usage.
+sidebar_label: Cloudflare Agents
+keywords: [cloudflare, agents, workers, durable objects, tracing, mlflow, opentelemetry, typescript]
+image: /images/llms/tracing/cloudflare-agents/trace.png
+---
+
+import ImageBox from "@site/src/components/ImageBox";
+import { OTelIntegrationCard } from "@site/src/components/TracingIntegrations/OTelIntegrationCard";
+
+# Tracing Cloudflare Agents
+
+[Cloudflare Agents](https://github.com/cloudflare/agents) is a TypeScript SDK for building stateful agents on Cloudflare Workers and Durable Objects. Its native tracing records agent operations, model calls, and tool executions. You can send these traces to [MLflow Tracing](/genai/tracing) through Cloudflare's OpenTelemetry export.
+
+<OTelIntegrationCard name="Cloudflare Agents" logoPath="/images/logos/cloudflare-logo.svg" />
+
+<ImageBox src="/images/llms/tracing/cloudflare-agents/trace.png" alt="MLflow displaying a real Cloudflare CalculatorAgent trace with model messages, a multiply tool call, and token usage" />
+
+The trace above shows a real agent calling a local Llama model, executing `multiply(17, 23)`, and responding with `391`. MLflow recognizes the agent, model, and tool spans from their OpenTelemetry GenAI attributes.
+
+## What Gets Traced
+
+- Agent invocations and their child operations
+- Model prompts, generated responses, and tool calls when message storage is enabled
+- Tool arguments and results when tool storage is enabled
+- Input, output, and cache token usage when the model provider reports it
+- Workers HTTP requests and Durable Object storage operations
+
+## Step 1: Start the MLflow Tracking Server
+
+Use an MLflow server that supports OTLP/HTTP JSON ingestion with a SQL-based backend store:
+
+```bash
+pip install --upgrade mlflow
+mlflow server --backend-store-uri sqlite:///mlflow.db --port 5000
+```
+
+In another terminal, create an experiment on this server and note its ID:
+
+```bash
+export MLFLOW_TRACKING_URI=http://localhost:5000
+mlflow experiments create --experiment-name cloudflare-agents
+```
+
+For deployed Workers, the server must be reachable from Cloudflare. Expose it through an HTTPS endpoint using your [self-hosted MLflow deployment](/self-hosting). A server listening only on `localhost` cannot receive Cloudflare's hosted exports.
+
+## Step 2: Create a Cloudflare OpenTelemetry Destination
+
+In the Cloudflare dashboard, go to **Observability > Destinations**, select **Add destination**, and configure:
+
+| Setting          | Value                                          |
+| ---------------- | ---------------------------------------------- |
+| Destination name | `mlflow-traces`                                |
+| Destination type | **Traces**                                     |
+| OTLP endpoint    | `https://<your-mlflow-host>/v1/traces`         |
+| Custom headers   | `x-mlflow-experiment-id: <your-experiment-id>` |
+
+Add any authentication headers required by your MLflow deployment, then save the destination. Cloudflare exports OTLP as JSON, which MLflow accepts at `/v1/traces`.
+
+See [Cloudflare's OpenTelemetry destination documentation](https://developers.cloudflare.com/observability/export/opentelemetry/) for destination configuration and delivery status.
+
+## Step 3: Enable Workers Tracing
+
+Add the destination name to your existing Wrangler configuration. The name must match the destination created in the dashboard:
+
+```json title="wrangler.jsonc"
+{
+  "name": "mlflow-calculator-agent",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-19",
+  "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    "bindings": [
+      { "name": "CalculatorAgent", "class_name": "CalculatorAgent" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["CalculatorAgent"] }
+  ],
+  "observability": {
+    "enabled": true,
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "destinations": ["mlflow-traces"]
+    }
+  }
+}
+```
+
+This example samples every request. Adjust `head_sampling_rate` for your workload. For an existing agent, keep its Durable Object bindings and migrations, and add the `observability` configuration.
+
+## Step 4: Trace Model and Tool Calls
+
+For agents that call the Vercel AI SDK directly, wrap the SDK with Cloudflare's native instrumentation. This example uses AI SDK v6:
+
+```bash
+npm install agents ai@6 @ai-sdk/openai@3 zod@4
+npm install --save-dev wrangler
+```
+
+```typescript title="src/index.ts"
+import { Agent, routeAgentRequest } from "agents";
+import { wrapAISDK } from "agents/observability/ai";
+import * as ai from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
+import { z } from "zod";
+
+const { generateText } = wrapAISDK(ai, {
+  storeMessages: true,
+  storeTools: true,
+});
+
+type Env = {
+  OPENAI_API_KEY: string;
+  CalculatorAgent: DurableObjectNamespace<CalculatorAgent>;
+};
+
+export class CalculatorAgent extends Agent<Env> {
+  async onRequest(request: Request): Promise<Response> {
+    const { prompt } = await request.json<{ prompt: string }>();
+    const openai = createOpenAI({ apiKey: this.env.OPENAI_API_KEY });
+
+    const result = await generateText({
+      model: openai.chat("gpt-4o-mini"),
+      system: "Use the multiply tool to multiply numbers.",
+      prompt,
+      stopWhen: ai.stepCountIs(4),
+      tools: {
+        multiply: ai.tool({
+          description: "Multiply two numbers.",
+          inputSchema: z.object({ a: z.number(), b: z.number() }),
+          execute: async ({ a, b }) => ({ product: a * b }),
+        }),
+      },
+      experimental_telemetry: {
+        functionId: "CalculatorAgent",
+        metadata: { agentId: this.name },
+      },
+    });
+
+    return Response.json({ text: result.text });
+  }
+}
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    return (
+      (await routeAgentRequest(request, env)) ??
+      new Response("Not found", { status: 404 })
+    );
+  },
+} satisfies ExportedHandler<Env>;
+```
+
+`storeMessages` records model inputs and outputs, and `storeTools` records tool arguments and results. Both are off by default. Enable them for the payloads you want to inspect in MLflow.
+
+The wrapper creates native Workers spans and uses the export destination configured above. It does not require a separate OpenTelemetry SDK or MLflow TypeScript SDK. See [Cloudflare's AI SDK tracing documentation](https://github.com/cloudflare/agents/blob/main/docs/agents/observability.md#ai-sdk-tracing) for additional options.
+
+## Step 5: Deploy and View Traces
+
+Store the model provider key as a Worker secret, then deploy the Worker with your project's Wrangler CLI:
+
+```bash
+npm exec -- wrangler secret put OPENAI_API_KEY
+npm exec -- wrangler deploy
+```
+
+Send a request to the deployed agent:
+
+```bash
+curl https://<your-worker-host>/agents/calculator-agent/demo \
+  --json '{"prompt":"What is 17 multiplied by 23?"}'
+```
+
+Open your MLflow experiment and select the **Traces** tab. Expand `invoke_agent CalculatorAgent` and select a `chat` or `execute_tool` span to inspect its inputs and outputs. Cloudflare delivery can take several minutes; check the destination's status if traces do not appear.
+
+The outer `POST` spans contain HTTP metadata. Model messages and tool payloads appear on their respective child spans. Spans named `durable_object_storage_exec` record SQL operations performed by the agent SDK and runtime.
+
+## Local Development
+
+`wrangler dev` records native spans in Local Explorer but does not forward them to Cloudflare's hosted export destinations. Setting `destinations` alone therefore does not send local development traces to MLflow.
+
+The screenshot on this page comes from a real local Workers run using Agents 0.30.1 and MLflow 3.17.2. Its native spans were read from Local Explorer and relayed to MLflow as OTLP/HTTP JSON. This validated native span ingestion and model/tool payloads; Cloudflare's hosted delivery path was not exercised for that example.
+
+## Next Steps
+
+- [Collect OpenTelemetry traces into MLflow](/genai/tracing/opentelemetry/ingest)
+- [Track token usage and cost](/genai/tracing/token-usage-cost)
+- [Evaluate agents using traces](/genai/eval-monitor/running-evaluation/traces)

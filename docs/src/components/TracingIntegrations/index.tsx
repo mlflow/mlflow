@@ -266,6 +266,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Agent Frameworks (TypeScript)',
   },
   {
+    id: 'cloudflare-agents',
+    name: 'Cloudflare Agents',
+    logoPath: '/images/logos/cloudflare-logo.svg',
+    link: '/genai/tracing/integrations/listing/cloudflare-agents',
+    category: 'Agent Frameworks (TypeScript)',
+  },
+  {
     id: 'spring-ai',
     name: 'Spring AI',
     logoPath: '/images/logos/spring-ai-logo.png',
