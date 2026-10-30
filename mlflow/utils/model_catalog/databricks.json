@@ -583,7 +583,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2026-11-05",
+      "last_updated_at": "2026-10-30"
     },
     "databricks-deepseek-v4-pro-0813": {
       "mode": "chat",
@@ -604,7 +605,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2026-10-30",
+      "last_updated_at": "2026-10-30"
     },
     "databricks-gemini-2-5-flash": {
       "mode": "chat",
@@ -2077,7 +2079,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-07"
+      "deprecation_date": "2026-10-30",
+      "last_updated_at": "2026-10-30"
     },
     "databricks-kimi-k2-7": {
       "mode": "chat",

@@ -797,7 +797,7 @@
     "zai-org/GLM-5.2": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1049000,
+        "max_input": 262000,
         "max_output": 262144
       },
       "pricing": {
@@ -812,7 +812,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-30"
     },
     "zai-org/GLM-5.3": {
       "mode": "chat",
