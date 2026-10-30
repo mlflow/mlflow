@@ -216,8 +216,6 @@ describe('detectionRunDurationMs', () => {
   });
 
   test('does not time a run that is still going', () => {
-    // Timing it against now made the figure depend on when the page last rendered, and a row
-    // stops changing once its run is under way, so it stood still at whatever it first read.
     expect(detectionRunDurationMs(row({ status: 'RUNNING' }))).toBeUndefined();
   });
 
@@ -226,8 +224,7 @@ describe('detectionRunDurationMs', () => {
   });
 
   test('never reads as negative', () => {
-    // Clock skew between the server that stamped the run and this browser would otherwise show a
-    // run whose end time precedes its start as having run for minus two minutes.
+    // An end time preceding its start would otherwise read as minus two minutes.
     expect(detectionRunDurationMs(row({ endedAtMs: START_MS - 120_000 }))).toBe(0);
   });
 });

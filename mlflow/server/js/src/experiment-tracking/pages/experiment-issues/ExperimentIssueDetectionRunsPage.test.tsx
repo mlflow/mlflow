@@ -427,10 +427,7 @@ describe('ExperimentIssueDetectionRunsPage', () => {
   });
 
   test('a run still going claims no duration yet, however long ago it started', async () => {
-    // Timing it against now made the figure a function of when the page last rendered: the row
-    // stops changing once the run is under way, so the duration stood still at whatever it read
-    // when the row appeared -- "0s" for a run just started from the Issues tab. How long it has
-    // been going is on the row already, in a Created at cell that keeps its own clock.
+    // How long it has been going is on the row already, in a self-ticking Created at cell.
     storedRuns = [
       scheduled({ runUuid: 'run-live', status: 'RUNNING', startTime: nowMs - 124_000, endTime: undefined }),
     ];
@@ -459,18 +456,13 @@ describe('ExperimentIssueDetectionRunsPage', () => {
   });
 
   test('a finished run that ran over an hour is timed in hours', async () => {
-    storedRuns = [
-      scheduled({
-        runUuid: 'run-long',
-        status: 'FINISHED',
-        startTime: nowMs - 15 * 60 * 60 * 1000,
-        endTime: nowMs - 25_000,
-      }),
-    ];
+    // Measured end to end, so it is this span whatever the clock reads when the row renders.
+    const ranForMs = 14 * 60 * 60 * 1000 + 59 * 60 * 1000 + 35_000;
+    storedRuns = [scheduled({ runUuid: 'run-long', status: 'FINISHED', startTime: nowMs - ranForMs, endTime: nowMs })];
     renderPage();
 
     const row = await rowFor('openai:/gpt-5-mini');
-    // Minutes alone read as "899m 35s", which says less about the run than about the formatter.
+    // Minutes alone would read as "899m 35s".
     expect(await within(row).findByText('14h 59m')).toBeInTheDocument();
   });
 

@@ -142,8 +142,8 @@ const TriggerCell = ({ trigger }: { trigger: DetectionRunTrigger }) => {
 /**
  * `3m 12s`, or `4s` under a minute, or `15h 02m` over an hour.
  *
- * A detection run takes minutes, so the hours are for the outliers: a large experiment, or a run
- * that sat retrying. Without them one reads as `915m 04s`.
+ * The hours are for the outliers -- a large experiment, or a run that sat retrying -- which
+ * would otherwise read as `915m 04s`.
  */
 const formatDuration = (ms: number): string => {
   const seconds = Math.round(ms / 1000);
@@ -273,8 +273,7 @@ const DetectionRunsContent = ({ experimentId }: { experimentId: string }) => {
   });
 
   // Only for deciding whether the schedule's next run is still ahead. Nothing on a row is timed
-  // against it: a figure measured from render time stands still, because a row stops changing
-  // once its run is under way.
+  // against it, since a figure measured from render time stands still.
   const nowMs = Date.now();
   // What the schedule does, in the words the dialog uses for the same thing, so the page and the
   // dialog cannot describe one schedule two ways.
