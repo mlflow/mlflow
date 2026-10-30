@@ -80,7 +80,7 @@ line. The workflow uploads cited media and replaces the paths; do not upload med
 Before finishing, validate the payload against the workflow's copy of the schema:
 
 ```bash
-uvx check-jsonschema@0.37.4 --schemafile /tmp/verify-context/payload.schema.json \
+uvx check-jsonschema@0.37.4 --schemafile /tmp/verify-context/payload.schema.yml \
   /tmp/verify-out/payload.json
 ```
 
