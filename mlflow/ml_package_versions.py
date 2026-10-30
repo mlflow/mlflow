@@ -133,7 +133,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "1.3.0",
-            "maximum": "1.15.29"
+            "maximum": "1.15.23"
         }
     },
     "agno": {
@@ -153,7 +153,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "1.9.1",
-            "maximum": "2.60.0"
+            "maximum": "2.51.0"
         }
     },
     "smolagents": {

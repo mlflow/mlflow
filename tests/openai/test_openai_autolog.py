@@ -1415,8 +1415,8 @@ def test_reconstruct_response_from_stream():
     from mlflow.openai.autolog import _reconstruct_response_from_stream
     from mlflow.types.responses_helpers import OutputItem
 
-    content1 = ResponseOutputText(annotations=[], text="Hello", type="output_text")
-    content2 = ResponseOutputText(annotations=[], text=" world", type="output_text")
+    content1 = ResponseOutputText(annotations=[], logprobs=[], text="Hello", type="output_text")
+    content2 = ResponseOutputText(annotations=[], logprobs=[], text=" world", type="output_text")
 
     message1 = ResponseOutputMessage(
         id="test-1", content=[content1], role="assistant", status="completed", type="message"
