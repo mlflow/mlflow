@@ -426,7 +426,11 @@ describe('ExperimentIssueDetectionRunsPage', () => {
     expect(within(row).queryByText('0')).not.toBeInTheDocument();
   });
 
-  test('a run still going shows no cost, and is timed against now', async () => {
+  test('a run still going claims no duration yet, however long ago it started', async () => {
+    // Timing it against now made the figure a function of when the page last rendered: the row
+    // stops changing once the run is under way, so the duration stood still at whatever it read
+    // when the row appeared -- "0s" for a run just started from the Issues tab. How long it has
+    // been going is on the row already, in a Created at cell that keeps its own clock.
     storedRuns = [
       scheduled({ runUuid: 'run-live', status: 'RUNNING', startTime: nowMs - 124_000, endTime: undefined }),
     ];
@@ -434,13 +438,11 @@ describe('ExperimentIssueDetectionRunsPage', () => {
 
     const row = await rowFor('openai:/gpt-5-mini');
     expect(await within(row).findByText('Running')).toBeInTheDocument();
-    // Measured against now, so a run with no end time does not read as having started in 1970.
-    expect(within(row).getByText(/^2m 0[45]s$/)).toBeInTheDocument();
+    expect(within(row).queryByText(/^\d+m \d\ds$/)).not.toBeInTheDocument();
+    expect(within(row).queryByText('0s')).not.toBeInTheDocument();
   });
 
-  test('a run abandoned by a dead worker is timed in hours, not in hundreds of minutes', async () => {
-    // It stays RUNNING, so it is timed against now. Minutes alone read as "915m 04s" by the next
-    // morning, which says less about the run than it does about the formatter.
+  test('a run abandoned by a dead worker reads as running, not as a duration', async () => {
     storedRuns = [
       scheduled({
         runUuid: 'run-stuck',
@@ -452,7 +454,24 @@ describe('ExperimentIssueDetectionRunsPage', () => {
     renderPage();
 
     const row = await rowFor('openai:/gpt-5-mini');
-    expect(await within(row).findByText(/^15h 0[01]m$/)).toBeInTheDocument();
+    expect(await within(row).findByText('Running')).toBeInTheDocument();
+    expect(within(row).queryByText(/^\d+h \d\dm$/)).not.toBeInTheDocument();
+  });
+
+  test('a finished run that ran over an hour is timed in hours', async () => {
+    storedRuns = [
+      scheduled({
+        runUuid: 'run-long',
+        status: 'FINISHED',
+        startTime: nowMs - 15 * 60 * 60 * 1000,
+        endTime: nowMs - 25_000,
+      }),
+    ];
+    renderPage();
+
+    const row = await rowFor('openai:/gpt-5-mini');
+    // Minutes alone read as "899m 35s", which says less about the run than about the formatter.
+    expect(await within(row).findByText('14h 59m')).toBeInTheDocument();
   });
 
   test('an issue count that cannot be read leaves the cell blank rather than reading zero', async () => {

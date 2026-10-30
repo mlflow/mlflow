@@ -142,9 +142,8 @@ const TriggerCell = ({ trigger }: { trigger: DetectionRunTrigger }) => {
 /**
  * `3m 12s`, or `4s` under a minute, or `15h 02m` over an hour.
  *
- * A detection run takes minutes, so the hours are not for the runs that work: they are for a run
- * whose worker died, which stays `RUNNING` and is therefore timed against now. Without them an
- * abandoned run from yesterday reads as `915m 04s`.
+ * A detection run takes minutes, so the hours are for the outliers: a large experiment, or a run
+ * that sat retrying. Without them one reads as `915m 04s`.
  */
 const formatDuration = (ms: number): string => {
   const seconds = Math.round(ms / 1000);
@@ -189,6 +188,12 @@ const WindowCell = ({ row, timezone, locale }: { row: DetectionRunRow; timezone?
       {start} &rarr; {end}
     </Typography.Text>
   );
+};
+
+/** How long the run took, or a dash while it is still going. */
+const DurationCell = ({ row }: { row: DetectionRunRow }) => {
+  const durationMs = detectionRunDurationMs(row);
+  return durationMs === undefined ? <Dash /> : <>{formatDuration(durationMs)}</>;
 };
 
 /**
@@ -267,10 +272,9 @@ const DetectionRunsContent = ({ experimentId }: { experimentId: string }) => {
     awaitingFirstRun: schedule.setting !== 'off',
   });
 
-  // Read once per render rather than per row, so every duration on screen is measured from the
-  // same instant. An unfinished run is timed against it, so its duration sits still between
-  // renders -- bounded by `RUNNING_POLL_INTERVAL_MS`, since polling is what renders the page
-  // again. A ticking clock would buy a second-accurate figure for a run that takes minutes.
+  // Only for deciding whether the schedule's next run is still ahead. Nothing on a row is timed
+  // against it: a figure measured from render time stands still, because a row stops changing
+  // once its run is under way.
   const nowMs = Date.now();
   // What the schedule does, in the words the dialog uses for the same thing, so the page and the
   // dialog cannot describe one schedule two ways.
@@ -574,7 +578,7 @@ const DetectionRunsContent = ({ experimentId }: { experimentId: string }) => {
                   {row.costUsd === undefined ? <Dash /> : formatCost(row.costUsd)}
                 </TableCell>
                 <TableCell style={cellStyle('duration')} css={{ alignItems: 'center' }}>
-                  {formatDuration(detectionRunDurationMs(row, nowMs))}
+                  <DurationCell row={row} />
                 </TableCell>
                 <TableCell aria-hidden style={FILLER_CELL_STYLE} />
               </TableRow>

@@ -183,6 +183,16 @@ export const toDetectionRunRow = (run: RunEntity): DetectionRunRow | undefined =
   };
 };
 
-/** How long a run took, or how long it has been going when it has not finished. */
-export const detectionRunDurationMs = (row: DetectionRunRow, nowMs: number): number =>
-  Math.max(0, (row.endedAtMs ?? nowMs) - row.createdAtMs);
+/**
+ * How long the run took, or `undefined` while it is still going.
+ *
+ * A run with no end time is not timed against now. Doing that made the figure a function of when
+ * the page last rendered rather than of the clock: the row's data stops changing once the run is
+ * under way, so the duration stood still at whatever it read when the row first appeared -- `0s`
+ * for a run started from the Issues tab, which is the usual way to arrive here. The elapsed time
+ * is already on the row, in a Created at cell that keeps its own clock, and every other run
+ * surface in MLflow leaves this blank until the run lands (`Utils.getDuration` returns `null`
+ * without an end time).
+ */
+export const detectionRunDurationMs = (row: DetectionRunRow): number | undefined =>
+  row.endedAtMs === undefined ? undefined : Math.max(0, row.endedAtMs - row.createdAtMs);

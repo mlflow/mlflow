@@ -212,16 +212,22 @@ describe('detectionRunDurationMs', () => {
   });
 
   test('measures a finished run end to end', () => {
-    expect(detectionRunDurationMs(row({ endedAtMs: START_MS + 5_000 }), START_MS + 900_000)).toBe(5_000);
+    expect(detectionRunDurationMs(row({ endedAtMs: START_MS + 5_000 }))).toBe(5_000);
   });
 
-  test('measures one still going against now', () => {
-    expect(detectionRunDurationMs(row({ status: 'RUNNING' }), START_MS + 7_000)).toBe(7_000);
+  test('does not time a run that is still going', () => {
+    // Timing it against now made the figure depend on when the page last rendered, and a row
+    // stops changing once its run is under way, so it stood still at whatever it first read.
+    expect(detectionRunDurationMs(row({ status: 'RUNNING' }))).toBeUndefined();
+  });
+
+  test('does not time a settled run that recorded no end time', () => {
+    expect(detectionRunDurationMs(row({ status: 'FINISHED' }))).toBeUndefined();
   });
 
   test('never reads as negative', () => {
     // Clock skew between the server that stamped the run and this browser would otherwise show a
-    // run that has not started yet as having run for minus two minutes.
-    expect(detectionRunDurationMs(row({ status: 'RUNNING' }), START_MS - 120_000)).toBe(0);
+    // run whose end time precedes its start as having run for minus two minutes.
+    expect(detectionRunDurationMs(row({ endedAtMs: START_MS - 120_000 }))).toBe(0);
   });
 });
