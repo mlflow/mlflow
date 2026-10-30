@@ -139,7 +139,11 @@ def test_rest_client_url_encodes_slashed_name():
         (
             "POST",
             False,
-            {"retry_codes": _UNPROCESSED_REQUEST_RESPONSE_CODES, "retry_read_errors": False},
+            {
+                "retry_codes": _UNPROCESSED_REQUEST_RESPONSE_CODES,
+                "retry_read_errors": False,
+                "retry_on_retry_after": False,
+            },
         ),
         ("POST", True, {}),
         ("GET", False, {}),
@@ -159,7 +163,7 @@ def test_mcp_request_retries_post_writes_only_when_unprocessed(
     retry_options = {
         key: value
         for key, value in request.call_args.kwargs.items()
-        if key in {"retry_codes", "retry_read_errors"}
+        if key in {"retry_codes", "retry_read_errors", "retry_on_retry_after"}
     }
     assert retry_options == expected_retry_options
 

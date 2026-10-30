@@ -444,7 +444,11 @@ def test_skill_request_preserves_server_errors(store, status_code, error_code):
         (
             "POST",
             False,
-            {"retry_codes": _UNPROCESSED_REQUEST_RESPONSE_CODES, "retry_read_errors": False},
+            {
+                "retry_codes": _UNPROCESSED_REQUEST_RESPONSE_CODES,
+                "retry_read_errors": False,
+                "retry_on_retry_after": False,
+            },
         ),
         ("POST", True, {}),
         ("GET", False, {}),
@@ -462,7 +466,7 @@ def test_skill_request_retries_post_writes_only_when_unprocessed(
     retry_options = {
         key: value
         for key, value in request.call_args.kwargs.items()
-        if key in {"retry_codes", "retry_read_errors"}
+        if key in {"retry_codes", "retry_read_errors", "retry_on_retry_after"}
     }
     assert retry_options == expected_retry_options
 
@@ -497,7 +501,11 @@ def test_skill_post_writes_mark_only_upserts_retry_safe(store, method, kwargs, r
 
 def _without_retry_options(kwargs):
     # Retry options only apply to a real HTTP session.
-    return {k: v for k, v in kwargs.items() if k not in {"retry_codes", "retry_read_errors"}}
+    return {
+        k: v
+        for k, v in kwargs.items()
+        if k not in {"retry_codes", "retry_read_errors", "retry_on_retry_after"}
+    }
 
 
 @pytest.fixture

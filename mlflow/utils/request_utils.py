@@ -148,6 +148,19 @@ def download_chunk(*, range_start, range_end, headers, download_path, http_uri, 
             f.write(response.content)
 
 
+class _StatusForcelistOnlyRetry(Retry):
+    """
+    Retries only the statuses in ``status_forcelist``. ``Retry`` also retries a 413, 429 or 503
+    that has a ``Retry-After`` header; a retried status still waits as long as the header asks.
+    """
+
+    RETRY_AFTER_STATUS_CODES = frozenset()
+
+
+class _StatusForcelistOnlyJitteredRetry(JitteredRetry):
+    RETRY_AFTER_STATUS_CODES = frozenset()
+
+
 @lru_cache(maxsize=64)
 def _cached_get_request_session(
     max_retries,
@@ -161,6 +174,7 @@ def _cached_get_request_session(
     _pid,
     respect_retry_after_header=True,
     retry_read_errors=True,
+    retry_on_retry_after=True,
 ):
     """
     This function should not be called directly. Instead, use `_get_request_session` below.
@@ -186,9 +200,10 @@ def _cached_get_request_session(
         retry_kwargs["method_whitelist"] = None
 
     if urllib3_version < Version("2.0"):
-        retry = JitteredRetry(**retry_kwargs)
+        retry_cls = JitteredRetry if retry_on_retry_after else _StatusForcelistOnlyJitteredRetry
     else:
-        retry = Retry(**retry_kwargs)
+        retry_cls = Retry if retry_on_retry_after else _StatusForcelistOnlyRetry
+    retry = retry_cls(**retry_kwargs)
     from mlflow.environment_variables import (
         MLFLOW_HTTP_POOL_CONNECTIONS,
         MLFLOW_HTTP_POOL_MAXSIZE,
@@ -213,6 +228,7 @@ def _get_request_session(
     raise_on_status,
     respect_retry_after_header,
     retry_read_errors=True,
+    retry_on_retry_after=True,
 ):
     """Returns a `Requests.Session` object for making an HTTP request.
 
@@ -229,6 +245,9 @@ def _get_request_session(
             as Retry.RETRY_AFTER_STATUS_CODES or not.
         retry_read_errors: Whether to retry errors raised once the request may have reached the
             server, such as a read timeout or a reset connection.
+        retry_on_retry_after: Whether to retry a 413, 429 or 503 response that has a
+            ``Retry-After`` header even when its status isn't in ``retry_codes``. Only applies when
+            ``respect_retry_after_header`` is true.
 
     Returns:
         requests.Session object.
@@ -243,6 +262,7 @@ def _get_request_session(
         _pid=os.getpid(),
         respect_retry_after_header=respect_retry_after_header,
         retry_read_errors=retry_read_errors,
+        retry_on_retry_after=retry_on_retry_after,
     )
 
 
@@ -257,6 +277,7 @@ def _get_http_response_with_retries(
     allow_redirects=None,
     respect_retry_after_header=True,
     retry_read_errors=True,
+    retry_on_retry_after=True,
     **kwargs,
 ):
     """Performs an HTTP request using Python's `requests` module with an automatic retry policy.
@@ -274,6 +295,9 @@ def _get_http_response_with_retries(
             in retry_codes range and retries have been exhausted.
         retry_read_errors: Whether to retry errors raised once the request may have reached the
             server, such as a read timeout or a reset connection.
+        retry_on_retry_after: Whether to retry a 413, 429 or 503 response that has a
+            ``Retry-After`` header even when its status isn't in ``retry_codes``. Only applies when
+            ``respect_retry_after_header`` is true.
         kwargs: Additional keyword arguments to pass to `requests.Session.request()`
 
     Returns:
@@ -287,6 +311,7 @@ def _get_http_response_with_retries(
         raise_on_status,
         respect_retry_after_header,
         retry_read_errors,
+        retry_on_retry_after,
     )
 
     # the environment variable is hardcoded here to avoid importing mlflow.

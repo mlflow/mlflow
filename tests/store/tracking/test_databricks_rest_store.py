@@ -133,7 +133,11 @@ def _args(
     if retry_timeout_seconds is not None:
         res["retry_timeout_seconds"] = retry_timeout_seconds
     if retries_unprocessed_only:
-        res |= {"retry_codes": _UNPROCESSED_REQUEST_RESPONSE_CODES, "retry_read_errors": False}
+        res |= {
+            "retry_codes": _UNPROCESSED_REQUEST_RESPONSE_CODES,
+            "retry_read_errors": False,
+            "retry_on_retry_after": False,
+        }
     if method == "GET":
         res["params"] = json.loads(json_body) if json_body is not None else None
     else:
@@ -1637,6 +1641,7 @@ def test_link_traces_to_run_with_v4_trace_ids_uses_batch_v4_endpoint():
             raise_on_status=False,
             retry_codes=_UNPROCESSED_REQUEST_RESPONSE_CODES,
             retry_read_errors=False,
+            retry_on_retry_after=False,
             json=expected_json,
         )
 
@@ -1666,6 +1671,7 @@ def test_link_traces_to_run_with_v3_trace_ids_uses_v3_endpoint():
             raise_on_status=False,
             retry_codes=_UNPROCESSED_REQUEST_RESPONSE_CODES,
             retry_read_errors=False,
+            retry_on_retry_after=False,
             json=expected_json,
         )
 

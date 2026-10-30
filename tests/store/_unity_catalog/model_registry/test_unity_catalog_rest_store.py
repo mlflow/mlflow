@@ -159,7 +159,11 @@ def _args(endpoint, method, json_body, host_creds, extra_headers, retries_unproc
     if extra_headers is None:
         del res["extra_headers"]
     if retries_unprocessed_only:
-        res |= {"retry_codes": _UNPROCESSED_REQUEST_RESPONSE_CODES, "retry_read_errors": False}
+        res |= {
+            "retry_codes": _UNPROCESSED_REQUEST_RESPONSE_CODES,
+            "retry_read_errors": False,
+            "retry_on_retry_after": False,
+        }
     if method == "GET":
         res["params"] = json.loads(json_body)
     else:

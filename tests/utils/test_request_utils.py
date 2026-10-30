@@ -5,6 +5,7 @@ from unittest import mock
 
 import pytest
 from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 
 from mlflow.utils import request_utils
 from mlflow.utils.request_utils import (
@@ -304,9 +305,18 @@ def test_session_retries_errors_after_sending_by_default():
     retry = _get_session_retry()
     assert retry.read == 3
     assert retry.connect == 3
+    assert retry.RETRY_AFTER_STATUS_CODES == Retry.RETRY_AFTER_STATUS_CODES
 
 
 def test_session_without_read_error_retries_still_retries_connection_errors():
     retry = _get_session_retry(retry_read_errors=False)
     assert retry.read is False
     assert retry.connect == 3
+
+
+def test_session_without_retry_on_retry_after_keeps_waiting_for_retried_statuses():
+    retry = _get_session_retry(retry_on_retry_after=False)
+    assert retry.RETRY_AFTER_STATUS_CODES == frozenset()
+    assert retry.respect_retry_after_header is True
+    # `Retry.new()` builds each retry attempt, so the setting must survive it.
+    assert retry.new().RETRY_AFTER_STATUS_CODES == frozenset()

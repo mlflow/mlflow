@@ -84,8 +84,6 @@ _DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING = (
 )
 # Responses that show the server didn't process the request, so a write that isn't safe to repeat
 # can be sent again. MLflow's own server can return 503 after it commits a write, so 503 isn't one.
-# urllib3 still retries a 413, 429 or 503 that carries a `Retry-After` header unless
-# `MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER` is false; MLflow's server doesn't send that header.
 _UNPROCESSED_REQUEST_RESPONSE_CODES = frozenset([408, 429])
 # `POST` APIs that are safe to send again even if the server already processed them, keyed by
 # response message name: reads and credential requests, and writes the server applies
@@ -144,7 +142,13 @@ def _non_idempotent_write_retry_kwargs(host_creds: "MlflowHostCreds") -> dict[st
     # itself, and `_retry_databricks_sdk_call_with_exponential_backoff` retries 5xx responses.
     if host_creds.use_databricks_sdk:
         return {}
-    return {"retry_codes": _UNPROCESSED_REQUEST_RESPONSE_CODES, "retry_read_errors": False}
+    return {
+        "retry_codes": _UNPROCESSED_REQUEST_RESPONSE_CODES,
+        "retry_read_errors": False,
+        # A proxy can add `Retry-After` to a 413 or 503 sent after the write committed, which
+        # urllib3 would otherwise retry.
+        "retry_on_retry_after": False,
+    }
 
 
 def _should_include_workspace_header(endpoint: str) -> bool:
@@ -177,6 +181,7 @@ def http_request(
     respect_retry_after_header=None,
     retry_timeout_seconds=None,
     retry_read_errors=True,
+    retry_on_retry_after=True,
     **kwargs,
 ):
     """Makes an HTTP request with the specified method to the specified hostname/endpoint. Transient
@@ -206,6 +211,9 @@ def http_request(
         retry_read_errors: Whether to retry errors raised once the request may have reached the
             server, such as a read timeout or a reset connection. Not used with the
             Databricks SDK.
+        retry_on_retry_after: Whether to retry a 413, 429 or 503 response that has a
+            ``Retry-After`` header even when its status isn't in ``retry_codes``. Only applies when
+            ``respect_retry_after_header`` is true. Not used with the Databricks SDK.
         kwargs: Additional keyword arguments to pass to `requests.Session.request()`
 
     Returns:
@@ -375,6 +383,7 @@ def http_request(
             timeout=timeout,
             respect_retry_after_header=respect_retry_after_header,
             retry_read_errors=retry_read_errors,
+            retry_on_retry_after=retry_on_retry_after,
             **kwargs,
         )
     except requests.exceptions.Timeout as to:

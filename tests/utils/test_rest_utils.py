@@ -121,7 +121,7 @@ def test_call_endpoint_surfaces_server_error_after_retries_on_5xx(monkeypatch, m
     assert request_count == max_retries + 1
 
 
-def _send_post(response_proto, status_code=200, delay_seconds=0):
+def _send_post(response_proto, status_code=200, delay_seconds=0, headers=None):
     request_count = 0
     client_done = threading.Event()
 
@@ -134,6 +134,8 @@ def _send_post(response_proto, status_code=200, delay_seconds=0):
                 return
             body = json.dumps({"error_code": "TEMPORARILY_UNAVAILABLE", "message": "Failure"})
             self.send_response(status_code)
+            for name, value in (headers or {}).items():
+                self.send_header(name, value)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
@@ -181,6 +183,39 @@ def test_call_endpoint_retries_post_writes_only_when_unprocessed(
     request_count, _ = _send_post(response_proto, status_code)
 
     assert request_count == expected_requests
+
+
+@pytest.mark.parametrize(
+    ("response_proto", "status_code", "expected_requests"),
+    [
+        # A proxy can add `Retry-After` to a 503 sent after the server committed the write.
+        (CreateRun.Response(), 503, 1),
+        (CreateRun.Response(), 413, 1),
+        (CreateRun.Response(), 429, 3),
+        # 413 isn't in the default retry codes, so reads retry it only because of the header.
+        (SearchRuns.Response(), 413, 3),
+    ],
+)
+def test_call_endpoint_retries_on_retry_after_only_for_retry_safe_requests(
+    monkeypatch, response_proto, status_code, expected_requests
+):
+    monkeypatch.setenv(MLFLOW_HTTP_REQUEST_MAX_RETRIES.name, "2")
+    monkeypatch.setenv(MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR.name, "0")
+
+    request_count, _ = _send_post(response_proto, status_code, headers={"Retry-After": "0"})
+
+    assert request_count == expected_requests
+
+
+def test_call_endpoint_waits_for_retry_after_before_retrying_a_write(monkeypatch):
+    monkeypatch.setenv(MLFLOW_HTTP_REQUEST_MAX_RETRIES.name, "1")
+    monkeypatch.setenv(MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR.name, "0")
+
+    start = time.monotonic()
+    request_count, _ = _send_post(CreateRun.Response(), 429, headers={"Retry-After": "1"})
+
+    assert request_count == 2
+    assert time.monotonic() - start >= 1
 
 
 @pytest.mark.parametrize(
@@ -763,6 +798,7 @@ def test_http_request_customize_config(monkeypatch):
             timeout=120,
             respect_retry_after_header=True,
             retry_read_errors=True,
+            retry_on_retry_after=True,
         )
         mock_get_http_response_with_retries.reset_mock()
         monkeypatch.setenv("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "8")
@@ -784,6 +820,7 @@ def test_http_request_customize_config(monkeypatch):
             timeout=300,
             respect_retry_after_header=False,
             retry_read_errors=True,
+            retry_on_retry_after=True,
         )
 
 
