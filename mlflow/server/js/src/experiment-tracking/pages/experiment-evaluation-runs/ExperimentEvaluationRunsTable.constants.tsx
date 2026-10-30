@@ -79,6 +79,8 @@ export const EVAL_RUNS_KEYED_COLUMN_SIZE: EvalRunsColumnSizeSpec = { size: 140, 
 // callsite's `?? EVAL_RUNS_KEYED_COLUMN_SIZE` supplies the default for ids not listed here.
 export const EVAL_RUNS_COLUMN_SIZES: Partial<Record<string, EvalRunsColumnSizeSpec>> = {
   [EvalRunsTableColumnId.runName]: { size: 260, minSize: 160, maxSize: 600 },
+  // Icon only; the header truncates when narrow.
+  [EvalRunsTableColumnId.status]: { size: 72, minSize: 48, maxSize: 200 },
   [EvalRunsTableColumnId.type]: { size: 100, minSize: 80, maxSize: 160 },
   [EvalRunsTableColumnId.createdAt]: { size: 140, minSize: 100, maxSize: 320 },
   [EvalRunsTableColumnId.dataset]: { size: 180, minSize: 100, maxSize: 480 },
@@ -97,18 +99,16 @@ export const EVAL_RUNS_TABLE_BASE_SELECTION_STATE: { [key: string]: boolean } = 
   [EvalRunsTableColumnId.modelVersion]: false,
 };
 
-// New UI drops the standalone Status column (folded into Run Name) and defaults Dataset version off.
+// New UI shows the status in Run Name, so the Status column (kept for sorting) and Dataset version default off.
 export const getEvalRunsBaseSelectionState = (enableNewEvalRunsUi?: boolean): { [key: string]: boolean } => {
   if (!enableNewEvalRunsUi) {
     return EVAL_RUNS_TABLE_BASE_SELECTION_STATE;
   }
-  // Explicit index signature: the spread drops the base's, and without it `delete` can't index by enum.
-  const nextState: { [key: string]: boolean } = {
+  return {
     ...EVAL_RUNS_TABLE_BASE_SELECTION_STATE,
+    [EvalRunsTableColumnId.status]: false,
     [EvalRunsTableColumnId.datasetVersion]: false,
   };
-  delete nextState[EvalRunsTableColumnId.status];
-  return nextState;
 };
 
 export const EVAL_RUNS_COLUMN_LABELS: Record<EvalRunsTableColumnId, MessageDescriptor> = {
@@ -217,33 +217,30 @@ export const getExperimentEvalRunsDefaultColumns = (
         },
       },
     },
-    ...(enableNewEvalRunsUi
-      ? []
-      : [
-          {
-            id: EvalRunsTableColumnId.status,
-            header: () => <FormattedMessage {...EVAL_RUNS_COLUMN_LABELS[EvalRunsTableColumnId.status]} />,
-            accessorFn: (row: RunEntityOrGroupData) => {
-              if ('subRuns' in row) {
-                return undefined;
-              }
-              return row.info.status;
-            },
-            cell: StatusCell,
-            enableResizing: false,
-            meta: {
-              styles: {
-                minWidth: 60,
-                maxWidth: 80,
-              },
-            },
-          } satisfies EvalRunsTableColumnDef,
-        ]),
+    {
+      id: EvalRunsTableColumnId.status,
+      header: () => <FormattedMessage {...EVAL_RUNS_COLUMN_LABELS[EvalRunsTableColumnId.status]} />,
+      accessorFn: (row: RunEntityOrGroupData) => {
+        if ('subRuns' in row) {
+          return undefined;
+        }
+        return row.info.status;
+      },
+      cell: StatusCell,
+      enableResizing: Boolean(enableNewEvalRunsUi),
+      ...(enableNewEvalRunsUi ? { enableSorting: true, sortingFn: 'alphanumeric' as const } : {}),
+      meta: {
+        styles: {
+          minWidth: 60,
+          maxWidth: 80,
+        },
+      },
+    } satisfies EvalRunsTableColumnDef,
     {
       id: EvalRunsTableColumnId.type,
       header: () => <FormattedMessage {...EVAL_RUNS_COLUMN_LABELS[EvalRunsTableColumnId.type]} />,
       cell: TypeCell,
-      enableResizing: false,
+      enableResizing: Boolean(enableNewEvalRunsUi),
       meta: {
         styles: {
           minWidth: 80,

@@ -4,8 +4,7 @@
     "WhereIsAI/UAE-Large-V1": {
       "mode": "embedding",
       "context_window": {
-        "max_input": 512,
-        "max_tokens": 512
+        "max_input": 512
       },
       "pricing": {
         "input_per_million_tokens": 0.016,
@@ -18,13 +17,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "nomic-ai/nomic-embed-text-v1": {
       "mode": "embedding",
       "context_window": {
-        "max_input": 8192,
-        "max_tokens": 8192
+        "max_input": 8192
       },
       "pricing": {
         "input_per_million_tokens": 0.008,
@@ -37,13 +35,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "nomic-ai/nomic-embed-text-v1.5": {
       "mode": "embedding",
       "context_window": {
-        "max_input": 8192,
-        "max_tokens": 8192
+        "max_input": 8192
       },
       "pricing": {
         "input_per_million_tokens": 0.008,
@@ -56,13 +53,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "thenlper/gte-base": {
       "mode": "embedding",
       "context_window": {
-        "max_input": 512,
-        "max_tokens": 512
+        "max_input": 512
       },
       "pricing": {
         "input_per_million_tokens": 0.008,
@@ -75,13 +71,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "thenlper/gte-large": {
       "mode": "embedding",
       "context_window": {
-        "max_input": 512,
-        "max_tokens": 512
+        "max_input": 512
       },
       "pricing": {
         "input_per_million_tokens": 0.016,
@@ -94,7 +89,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     }
   }
 }

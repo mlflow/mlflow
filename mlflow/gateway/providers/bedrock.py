@@ -645,9 +645,9 @@ class AmazonBedrockProvider(BaseProvider):
         match stop_reason:
             case "tool_use":
                 return "tool_calls"
-            case "max_tokens":
+            case "max_tokens" | "model_context_window_exceeded":
                 return "length"
-            case "content_filtered":
+            case "content_filtered" | "guardrail_intervened":
                 return "content_filter"
             case _:
                 return "stop"

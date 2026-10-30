@@ -10,9 +10,9 @@ if [ "${CI:-}" != "true" ]; then
   exit 1
 fi
 
-VERSION="0.38.1"
+VERSION="0.39.1"
 PLATFORM="linux-x64"
-CHECKSUM="5100149a1903211c889de4e545bf36d90803740cea4f99aa22651649f9205ea1"
+CHECKSUM="6906d3a2a67b05809932a93d99e53d1132373f0a52a617b2d6032dbb954df6fc"
 
 URL="https://github.com/vercel-labs/agent-browser/releases/download/v$VERSION/agent-browser-$PLATFORM"
 

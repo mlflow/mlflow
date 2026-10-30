@@ -1,13 +1,4 @@
-import {
-  Button,
-  ChevronDownIcon,
-  CodeIcon,
-  GavelIcon,
-  SparkleDoubleIcon,
-  Typography,
-  UserIcon,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { Button, ChevronDownIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import type { HeaderContext } from '@tanstack/react-table';
 import { useIntl } from 'react-intl';
 import type { AssessmentFilter, AssessmentValueType } from '@databricks/web-shared/genai-traces-table';
@@ -19,6 +10,7 @@ import {
   assessmentNameFromColumnId,
   isAssessmentColumnId,
 } from '../../components/experiment-page/components/traces-v4/utils/assessmentColumns';
+import { AssessmentSourceIcon } from '../../components/experiment-page/components/traces-v4/components/AssessmentSourceIcon';
 import type { EvalRunAssessmentAggregate } from './useEvalRunAssessmentAggregates';
 import { EvalRunBaselineDeltaPill } from './EvalRunBaselineDeltaPill';
 
@@ -41,21 +33,6 @@ const hasEvalRunAssessmentColumnMeta = (meta: unknown): meta is EvalRunAssessmen
 /** Pass/fail and boolean scorers have a chart in the header; the others show only their summary value. */
 const hasCollapsibleChart = (scorer: EvalRunAssessmentAggregate) =>
   scorer.dtype === 'pass-fail' || scorer.dtype === 'boolean';
-
-const EvalRunAssessmentSourceIcon = ({ sourceType }: { sourceType?: string }) => {
-  const iconCss = { fontSize: 16, flexShrink: 0 };
-  switch (sourceType) {
-    case 'AI_JUDGE':
-    case 'LLM_JUDGE':
-      return <SparkleDoubleIcon aria-hidden data-testid="eval-run-assessment-judge-icon" css={iconCss} />;
-    case 'HUMAN':
-      return <UserIcon aria-hidden data-testid="eval-run-assessment-human-icon" css={iconCss} />;
-    case 'CODE':
-      return <CodeIcon aria-hidden data-testid="eval-run-assessment-code-icon" css={iconCss} />;
-    default:
-      return <GavelIcon aria-hidden data-testid="eval-run-assessment-icon" css={iconCss} />;
-  }
-};
 
 /** Assessment header with the scorer's summary over the run: rate or value, and a chart for pass/fail scores. */
 const EvalRunAssessmentColumnHeader = ({ column }: HeaderContext<ModelTraceInfoV3, unknown>) => {
@@ -80,7 +57,10 @@ const EvalRunAssessmentColumnHeader = ({ column }: HeaderContext<ModelTraceInfoV
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
       <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, minWidth: 0 }}>
-        <EvalRunAssessmentSourceIcon sourceType={scorer.assessmentInfo.source?.sourceType} />
+        <AssessmentSourceIcon
+          sourceType={scorer.assessmentInfo.source?.sourceType}
+          testIdPrefix="eval-run-assessment"
+        />
         <Typography.Text bold size="sm" color="secondary" ellipsis>
           {scorer.displayName}
         </Typography.Text>

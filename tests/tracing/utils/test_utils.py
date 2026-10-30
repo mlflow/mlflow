@@ -41,6 +41,7 @@ from mlflow.tracing.utils import (
     parse_trace_id_v4,
     should_compute_cost_client_side,
 )
+from mlflow.utils.providers import cost_per_token as builtin_cost_per_token
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import create_mock_otel_span
@@ -941,6 +942,31 @@ def test_builtin_cost_fallback_with_provider_case_insensitive(model_provider):
     assert result["total_cost"] == pytest.approx(0.0075)
 
 
+def test_builtin_cost_uses_databricks_catalog_for_databricks_names_with_provider_hint(monkeypatch):
+    # Like mlflow-tracing, which bundles no catalogs for the provider-less fallback scan.
+    monkeypatch.setenv("MLFLOW_MODEL_CATALOG_URI", "")
+    with (
+        mock.patch.dict("sys.modules", {"litellm": None}),
+        mock.patch("mlflow.utils.providers._list_provider_names", return_value=[]),
+        mock.patch(
+            "mlflow.utils.providers.cost_per_token", wraps=builtin_cost_per_token
+        ) as cost_per_token,
+    ):
+        result = calculate_cost_by_model_and_token_usage(
+            "databricks-claude-sonnet-4-6",
+            {"input_tokens": 1000, "output_tokens": 500},
+            model_provider="anthropic",
+        )
+    cost_per_token.assert_called_once_with(
+        model="databricks-claude-sonnet-4-6",
+        prompt_tokens=1000,
+        completion_tokens=500,
+        custom_llm_provider="databricks",
+    )
+    assert result is not None
+    assert result["total_cost"] > 0
+
+
 @pytest.mark.parametrize("model_name", ["gateway:/my-endpoint", "endpoints:/my-endpoint"])
 def test_cost_skipped_for_internal_routing_uris(model_name):
     result = calculate_cost_by_model_and_token_usage(
@@ -1013,6 +1039,8 @@ def test_dump_span_attribute_value_handles_type_error():
         ("databricks-claude-opus-4-8", None, "databricks"),
         ("databricks/databricks-claude-opus-4-8", None, "databricks"),
         ("databricks-claude-opus-4-8", "databricks", "databricks"),
+        ("databricks-claude-opus-4-8", "anthropic", "databricks"),
+        ("databricks/databricks-claude-opus-4-8", "anthropic", "databricks"),
         ("gpt-4o", None, None),
     ],
 )

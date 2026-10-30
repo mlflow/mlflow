@@ -60,7 +60,7 @@ export const FeedbackThumbsUpDownButtons: ReactComponentImplementation = createC
   ({ props }) => {
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();
-    const { enabled, traceId } = useFeedbackStatus();
+    const { enabled, traceId, sourceId } = useFeedbackStatus();
 
     const [status, setStatus] = useState<SubmitStatus>('idle');
 
@@ -100,7 +100,7 @@ export const FeedbackThumbsUpDownButtons: ReactComponentImplementation = createC
         assessment: {
           assessment_name: name,
           trace_id: traceId,
-          source: { source_type: 'HUMAN', source_id: getUser() ?? '' },
+          source: { source_type: 'HUMAN', source_id: sourceId ?? getUser() ?? '' },
           ...(spanId ? { span_id: spanId } : {}),
           ...feedbackValue,
         },

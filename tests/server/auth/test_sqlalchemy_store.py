@@ -42,6 +42,7 @@ def test_create_user(store):
     ) as exception_context:
         _user_maker(store, username1, password1)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
+    assert exception_context.value.message == f"User (username={username1}) already exists."
 
     # slightly different name is ok
     username2 = username1 + "_2"
@@ -57,6 +58,19 @@ def test_create_user(store):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     with pytest.raises(MlflowException, match=r"Username cannot be empty") as exception_context:
         _user_maker(store, "", "")
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.parametrize(
+    ("username", "match"),
+    [
+        ("u" * 256, "'Username' exceeds the maximum length of 255"),
+        ("user\x00name", "'Username' cannot contain NUL"),
+    ],
+)
+def test_create_user_rejects_values_the_database_would_refuse(store, username, match):
+    with pytest.raises(MlflowException, match=match) as exception_context:
+        _user_maker(store, username, random_str())
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 

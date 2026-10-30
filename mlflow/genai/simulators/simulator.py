@@ -832,13 +832,18 @@ class ConversationSimulator:
             last_response=last_response,
         )
         messages = [ChatMessage(role="user", content=eval_prompt)]
+        # Claude Opus 4.7+ and Claude 5 models reject non-default sampling params with a 400,
+        # so let Anthropic models use their default temperature.
+        inference_params = (
+            None if self.user_model.startswith("anthropic:/") else {"temperature": 0.0}
+        )
 
         try:
             text_result = invoke_model_without_tracing(
                 model_uri=self.user_model,
                 messages=messages,
                 num_retries=3,
-                inference_params={"temperature": 0.0},
+                inference_params=inference_params,
                 response_format=GoalCheckResult,
             )
             result = GoalCheckResult.model_validate_json(text_result)

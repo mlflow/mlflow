@@ -18,6 +18,8 @@ interface ModelSelectProps {
   label?: React.ReactNode;
   /** If true, hides the model capabilities tags (Tools, Reasoning, Caching) */
   hideCapabilities?: boolean;
+  /** Lifts the model selector modal above a raised host. See `ModelSelectorModalProps.zIndex`. */
+  modalZIndex?: number;
 }
 
 export const ModelSelect = ({
@@ -29,6 +31,7 @@ export const ModelSelect = ({
   componentId = 'mlflow.gateway.model-select',
   label,
   hideCapabilities,
+  modalZIndex,
 }: ModelSelectProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -96,6 +99,7 @@ export const ModelSelect = ({
         onSelect={handleSelect}
         provider={provider}
         initialValue={value}
+        zIndex={modalZIndex}
       />
     </div>
   );

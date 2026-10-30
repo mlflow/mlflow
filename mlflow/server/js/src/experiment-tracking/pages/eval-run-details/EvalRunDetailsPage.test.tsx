@@ -1,5 +1,6 @@
 import { describe, test, expect, jest, beforeEach } from '@jest/globals';
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from 'react-intl';
 import { setupTestRouter, testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
@@ -8,7 +9,10 @@ import { MlflowRunStatus } from '../../../graphql/__generated__/graphql';
 import EvalRunDetailsPage, { getEvalRunScores } from './EvalRunDetailsPage';
 import { useEvalRunProgress } from './useEvalRunProgress';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
-import { ExperimentPageRevampProvider } from '../experiment-page-tabs/ExperimentPageRevampContext';
+import {
+  ExperimentPageRevampProvider,
+  useExperimentBreadcrumbPairwiseReviewAction,
+} from '../experiment-page-tabs/ExperimentPageRevampContext';
 
 jest.mock('../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
@@ -38,19 +42,40 @@ jest.mock('../../components/evaluations/RunViewEvaluationsTab', () => ({
 jest.mock('./EvalRunTracesSidebar', () => ({
   EvalRunTracesSidebar: () => <div role="region" aria-label="Run sidebar" />,
 }));
-jest.mock('./EvalRunCompareView', () => ({
-  EvalRunCompareView: ({
-    baselineRunUuid,
-    compareRunUuids,
-  }: {
-    baselineRunUuid: string;
-    compareRunUuids: string[];
-  }) => (
-    <div data-testid="eval-run-compare-view">
-      base:{baselineRunUuid} compare:{compareRunUuids.join(',')}
-    </div>
-  ),
-}));
+const mockStartReview = jest.fn();
+jest.mock('./EvalRunCompareView', () => {
+  const { useEffect: useMockEffect } = jest.requireActual<typeof import('react')>('react');
+  return {
+    EvalRunCompareView: ({
+      baselineRunUuid,
+      compareRunUuids,
+      onPairwiseReviewActionChange,
+    }: {
+      baselineRunUuid: string;
+      compareRunUuids: string[];
+      onPairwiseReviewActionChange?: (action: (() => void) | undefined) => void;
+    }) => {
+      useMockEffect(() => {
+        onPairwiseReviewActionChange?.(mockStartReview);
+        return () => onPairwiseReviewActionChange?.(undefined);
+      }, [onPairwiseReviewActionChange]);
+      return (
+        <div data-testid="eval-run-compare-view">
+          base:{baselineRunUuid} compare:{compareRunUuids.join(',')}
+        </div>
+      );
+    },
+  };
+});
+// Reads the breadcrumb's published "start pairwise review" action, as ExperimentPageBreadcrumbs does.
+const ReviewActionProbe = () => {
+  const action = useExperimentBreadcrumbPairwiseReviewAction();
+  return action ? (
+    <button type="button" onClick={action}>
+      Published review
+    </button>
+  ) : null;
+};
 jest.mock('./EvalRunTracesV4Table', () => ({
   EvalRunTracesV4Table: ({
     runUuid,
@@ -118,6 +143,7 @@ describe('EvalRunDetailsPage', () => {
                 testRoute(
                   <ExperimentPageRevampProvider enabled={revampEnabled}>
                     <EvalRunDetailsPage />
+                    <ReviewActionProbe />
                   </ExperimentPageRevampProvider>,
                   '/experiments/:experimentId/evaluation-runs/:runUuid/details',
                 ),
@@ -160,6 +186,19 @@ describe('EvalRunDetailsPage', () => {
     expect(await screen.findByTestId('eval-run-compare-view')).toHaveTextContent('base:run-1 compare:run-2,run-3');
     expect(screen.queryByTestId('eval-results-v4')).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Run sidebar' })).not.toBeInTheDocument();
+  });
+
+  test('publishes the compare view’s pairwise review action for the breadcrumb while comparing', async () => {
+    mockStartReview.mockClear();
+    renderAt('/experiments/123/evaluation-runs/run-1/details?compare=true&compareFrom=runs&compareRuns=run-2', true);
+    await userEvent.click(await screen.findByRole('button', { name: 'Published review' }));
+    expect(mockStartReview).toHaveBeenCalledTimes(1);
+  });
+
+  test('publishes no pairwise review action for a single run', async () => {
+    renderAt('/experiments/123/evaluation-runs/run-1/details', true);
+    expect(await screen.findByTestId('eval-results-v4')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Published review' })).not.toBeInTheDocument();
   });
 
   test('keeps the single-run view when compare mode is off', async () => {

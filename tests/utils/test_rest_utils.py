@@ -1,6 +1,9 @@
+import json
 import re
+import threading
 import time
 import warnings
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from unittest import mock
 
 import numpy
@@ -10,6 +13,8 @@ import requests
 from mlflow.deployments.databricks import DatabricksDeploymentClient
 from mlflow.environment_variables import (
     _MLFLOW_DATABRICKS_TRAFFIC_ID,
+    MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR,
+    MLFLOW_HTTP_REQUEST_MAX_RETRIES,
     MLFLOW_HTTP_REQUEST_TIMEOUT,
 )
 from mlflow.exceptions import InvalidUrlException, MlflowException, RestException
@@ -55,6 +60,40 @@ def test_malformed_json_error_response(response_mock):
             MlflowException, match="API request to endpoint /my/endpoint failed with error code 400"
         ):
             call_endpoint(host_only, "/my/endpoint", "GET", None, response_proto)
+
+
+@pytest.mark.parametrize("max_retries", [0, 2])
+def test_call_endpoint_surfaces_server_error_after_retries_on_5xx(monkeypatch, max_retries):
+    monkeypatch.setenv(MLFLOW_HTTP_REQUEST_MAX_RETRIES.name, str(max_retries))
+    monkeypatch.setenv(MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR.name, "0")
+    request_count = 0
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            nonlocal request_count
+            request_count += 1
+            body = json.dumps({"error_code": "INTERNAL_ERROR", "message": "Server-side failure"})
+            self.send_response(500)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body.encode())
+
+        def log_message(self, *args):
+            pass
+
+    with ThreadingHTTPServer(("127.0.0.1", 0), Handler) as server:
+        thread = threading.Thread(target=server.serve_forever, name="test-5xx-server", daemon=True)
+        thread.start()
+        try:
+            host_creds = MlflowHostCreds(f"http://127.0.0.1:{server.server_port}")
+            with pytest.raises(RestException, match="INTERNAL_ERROR: Server-side failure"):
+                call_endpoint(host_creds, "/my/endpoint", "GET", None, GetRun.Response())
+        finally:
+            server.shutdown()
+            thread.join()
+
+    assert request_count == max_retries + 1
 
 
 def test_call_endpoints():

@@ -15,7 +15,8 @@ on:
       - "dev/test-dev-env-setup.sh"
       - ".github/workflows/dev-setup.yml"
   schedule:
-    - cron: "42 7 * * 0"
+    - cron: "0 2 * * 0"
+      timezone: "Asia/Tokyo"
   workflow_dispatch:
     inputs:
       repository:
@@ -49,7 +50,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-    if: github.event_name != 'schedule' || github.repository == 'mlflow/dev'
+    if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

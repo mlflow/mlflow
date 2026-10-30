@@ -60,6 +60,13 @@ def test_silent_without_a_coding_agent(clean_env: Path):
     assert hint_message() is None
 
 
+def test_tracing_skill_is_bundled():
+    manifest = (
+        Path(hint.__file__).parents[1] / "assistant" / "skills" / hint.TRACING_SKILL / "SKILL.md"
+    )
+    assert manifest.is_file()
+
+
 @pytest.mark.parametrize("marker", hint._AGENT_ENV_MARKERS)
 def test_hints_under_each_supported_agent(
     clean_env: Path,

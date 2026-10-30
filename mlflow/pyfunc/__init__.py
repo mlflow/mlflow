@@ -428,7 +428,7 @@ from mlflow.environment_variables import (
     _MLFLOW_IN_CAPTURE_MODULE_PROCESS,
     _MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT,
     _MLFLOW_TESTING,
-    MLFLOW_DISABLE_PYFUNC_LOADER_MODULE,
+    MLFLOW_ALLOW_MODEL_CODE_EXECUTION,
     MLFLOW_DISABLE_SCHEMA_DETAILS,
     MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF,
     MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR,
@@ -578,6 +578,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _get_flavor_configuration_from_ml_model_file,
     _get_overridden_pyfunc_model_config,
+    _is_model_code_loading_allowed,
     _validate_and_copy_file_to_directory,
     _validate_and_get_model_config_from_file,
     _validate_and_prepare_target_save_path,
@@ -591,7 +592,11 @@ from mlflow.utils.requirements_utils import (
 )
 from mlflow.utils.spark_utils import is_spark_connect_mode
 from mlflow.utils.uv_utils import copy_uv_project_files
-from mlflow.utils.virtualenv import _get_python_env, _get_virtualenv_name
+from mlflow.utils.virtualenv import (
+    _get_python_env,
+    _get_virtualenv_name,
+    _normalize_env_symlinks,
+)
 from mlflow.utils.warnings_utils import color_warning
 
 try:
@@ -1111,16 +1116,18 @@ def load_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                 release without warning.
 
-    PyFunc model loading is enabled by default. Set
-    ``MLFLOW_DISABLE_PYFUNC_LOADER_MODULE=true`` to prevent imports of code specified by a
-    model artifact. This setting also prevents trusted PyFunc models from loading.
+    Set ``MLFLOW_ALLOW_MODEL_CODE_EXECUTION=false`` to refuse loading PyFunc models, because a
+    PyFunc model names the Python module that loads it. This setting also refuses trusted PyFunc
+    models outside Databricks Runtime and Databricks Model Serving.
     """
 
-    if MLFLOW_DISABLE_PYFUNC_LOADER_MODULE.get():
+    # Inferring pip requirements loads the user's own model while saving it.
+    if not _is_model_code_loading_allowed() and not _MLFLOW_IN_CAPTURE_MODULE_PROCESS.get():
         raise MlflowException(
-            "PyFunc model loading via loader_module is disabled because importing code from "
-            "untrusted model artifacts can execute arbitrary code. Set "
-            "MLFLOW_DISABLE_PYFUNC_LOADER_MODULE=false to enable it for trusted models."
+            "Loading PyFunc models is disallowed because a PyFunc model names the Python module "
+            "that loads it, which can run arbitrary code. If you trust this model, set "
+            f"environment variable '{MLFLOW_ALLOW_MODEL_CODE_EXECUTION.name}' to 'true' to "
+            "load it."
         )
 
     lineage_header_info = None
@@ -1912,6 +1919,7 @@ def _prebuild_env_internal(local_model_path, archive_name, save_path, env_manage
         if os.path.exists(cache_path):
             shutil.rmtree(cache_path)
 
+        _normalize_env_symlinks(env_root_dir)
         return archive_directory(env_root_dir, archive_path)
     finally:
         shutil.rmtree(env_root_dir, ignore_errors=True)
@@ -2032,8 +2040,8 @@ def build_model_env(model_uri, save_path, env_manager=_EnvManager.VIRTUALENV):
     # Archive the environment directory as a `tar.gz` format archive file,
     # and then move the archive file to the destination directory.
     # Note:
-    # - all symlink files in the input directory are kept as it is in the
-    #  archive file.
+    # - internal symlinks are relative, and external symlink targets are copied
+    #  into the environment before archiving for safe extraction by Spark.
     # - the destination directory could be UC-volume fuse mounted directory
     #  which only supports limited filesystem operations, so to ensure it works,
     #  we generate the archive file under /tmp and then move it into the

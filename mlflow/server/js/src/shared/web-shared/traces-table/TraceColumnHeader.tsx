@@ -6,6 +6,7 @@ import {
   DropdownMenu,
   SortAscendingIcon,
   SortDescendingIcon,
+  Tooltip,
   Typography,
   UserIcon,
   useDesignSystemTheme,
@@ -28,6 +29,8 @@ interface TraceColumnHeaderMenuProps {
   /** Omit → no Hide item (and, on a non-sortable column, no menu at all). */
   onHide?: () => void;
   action?: TraceColumnHeaderAction;
+  /** Product options rendered above Hide column. */
+  menuContent?: React.ReactNode;
   triggerLabel: string;
 }
 
@@ -39,6 +42,7 @@ export const TraceColumnHeaderMenu = ({
   onSortDescending,
   onHide,
   action,
+  menuContent,
   triggerLabel,
 }: TraceColumnHeaderMenuProps): JSX.Element => {
   const { theme } = useDesignSystemTheme();
@@ -92,7 +96,8 @@ export const TraceColumnHeaderMenu = ({
             {action.label}
           </DropdownMenu.Item>
         )}
-        {onHide && (sortable || action) && <DropdownMenu.Separator />}
+        {menuContent}
+        {onHide && (sortable || action || menuContent) && <DropdownMenu.Separator />}
         {onHide && (
           <DropdownMenu.Item componentId={`${COMPONENT_ID}.hide-column`} onClick={onHide}>
             <VisibleOffIcon css={iconCss} />
@@ -118,8 +123,15 @@ export interface TraceColumnHeaderProps {
   onSortDescending: () => void;
   onHide?: () => void;
   action?: TraceColumnHeaderAction;
+  /** Product options rendered in the column menu, above Hide column. */
+  menuContent?: React.ReactNode;
+  /** Consumer-owned explanation shown on the active sort toggle. */
+  sortTooltip?: string;
   /** `'rich'` renders the label as a block that fills the header and overlays the menu trigger. */
   headerVariant?: 'standard' | 'rich';
+  /** Consumer-computed summary rendered beneath the column title. */
+  summary?: React.ReactNode;
+  titleMinHeight?: number;
 }
 
 /**
@@ -136,7 +148,11 @@ export const TraceColumnHeader = ({
   onSortDescending,
   onHide,
   action,
+  menuContent,
+  sortTooltip,
   headerVariant = 'standard',
+  summary,
+  titleMinHeight,
 }: TraceColumnHeaderProps): JSX.Element => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -154,7 +170,10 @@ export const TraceColumnHeader = ({
         description: 'Accessible label for the per-column options menu button in the traces table header',
       });
 
-  const showMenu = sortable || Boolean(onHide) || Boolean(action);
+  const showMenu = sortable || Boolean(onHide) || Boolean(action) || Boolean(menuContent);
+  const hasSummary = summary !== undefined && summary !== null;
+  // A summary stacks under the title, so the menu trigger pins to the title's top like a rich header.
+  const isBlockHeader = headerVariant === 'rich' || hasSummary;
 
   const columnIcon =
     columnId === 'input' ? (
@@ -176,7 +195,24 @@ export const TraceColumnHeader = ({
         description: 'Accessible label for the clickable sort-direction toggle in a traces table column header',
       });
 
-  return (
+  const sortToggle = (
+    <Button
+      componentId={`${COMPONENT_ID}.sort-toggle`}
+      size="small"
+      icon={sortDirection === 'asc' ? <SortAscendingIcon /> : <SortDescendingIcon />}
+      aria-label={sortToggleLabel}
+      onClick={(event) => {
+        stopPropagation(event);
+        if (sortDirection === 'asc') {
+          onSortDescending();
+        } else {
+          onSortAscending();
+        }
+      }}
+    />
+  );
+
+  const title = (
     <div
       css={{
         display: 'flex',
@@ -184,7 +220,8 @@ export const TraceColumnHeader = ({
         gap: theme.spacing.xs,
         width: '100%',
         minWidth: 0,
-        position: headerVariant === 'rich' ? 'relative' : undefined,
+        position: isBlockHeader ? 'relative' : undefined,
+        ...(titleMinHeight !== undefined ? { minHeight: titleMinHeight } : {}),
       }}
     >
       {columnIcon && (
@@ -210,20 +247,13 @@ export const TraceColumnHeader = ({
       {sortable && sortDirection !== 'none' && (
         // Clicking the active-sort icon flips direction, so reversing sort doesn't need the menu.
         <span css={{ flexShrink: 0 }}>
-          <Button
-            componentId={`${COMPONENT_ID}.sort-toggle`}
-            size="small"
-            icon={sortDirection === 'asc' ? <SortAscendingIcon /> : <SortDescendingIcon />}
-            aria-label={sortToggleLabel}
-            onClick={(event) => {
-              stopPropagation(event);
-              if (sortDirection === 'asc') {
-                onSortDescending();
-              } else {
-                onSortAscending();
-              }
-            }}
-          />
+          {sortTooltip ? (
+            <Tooltip componentId={`${COMPONENT_ID}.sort-tooltip`} content={sortTooltip}>
+              {sortToggle}
+            </Tooltip>
+          ) : (
+            sortToggle
+          )}
         </span>
       )}
       {showMenu && (
@@ -234,7 +264,7 @@ export const TraceColumnHeader = ({
             flexShrink: 0,
             opacity: 0,
             transition: 'opacity 0.1s ease',
-            ...(headerVariant === 'rich'
+            ...(isBlockHeader
               ? { position: 'absolute', top: 0, right: 0, backgroundColor: theme.colors.backgroundPrimary }
               : {}),
           }}
@@ -246,10 +276,20 @@ export const TraceColumnHeader = ({
             onSortDescending={onSortDescending}
             onHide={onHide}
             action={action}
+            menuContent={menuContent}
             triggerLabel={triggerLabel}
           />
         </span>
       )}
     </div>
+  );
+
+  return hasSummary ? (
+    <div css={{ width: '100%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+      {title}
+      {summary}
+    </div>
+  ) : (
+    title
   );
 };
