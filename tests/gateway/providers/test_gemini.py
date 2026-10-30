@@ -2265,6 +2265,39 @@ def test_gemini_adapter_build_chat_usage_without_cached_tokens():
     assert usage.prompt_tokens_details is None
 
 
+@pytest.mark.parametrize("endpoint", ["chat", "chat_streaming", "completions"])
+@pytest.mark.parametrize(
+    ("counts", "expected_prompt"),
+    [
+        ({"promptTokenCount": 10, "toolUsePromptTokenCount": 40}, 50),
+        ({"promptTokenCount": 10}, 10),
+        ({"toolUsePromptTokenCount": 40}, 40),
+        ({"promptTokenCount": 0, "toolUsePromptTokenCount": 0}, 0),
+        ({"promptTokenCount": None, "toolUsePromptTokenCount": 40}, 40),
+        ({}, None),
+    ],
+)
+def test_gemini_adapter_prompt_tokens_include_tool_use(endpoint, counts, expected_prompt):
+    config = EndpointConfig(
+        **(completions_config() if endpoint == "completions" else chat_config())
+    )
+    usage_metadata = {
+        "candidatesTokenCount": 2,
+        "totalTokenCount": (expected_prompt or 0) + 2,
+        **counts,
+    }
+    response = getattr(GeminiAdapter, f"model_to_{endpoint}")(
+        {"usageMetadata": usage_metadata}, config
+    )
+
+    assert response.usage.prompt_tokens == expected_prompt
+    assert response.usage.completion_tokens == 2
+    assert response.usage.total_tokens == usage_metadata["totalTokenCount"]
+    if endpoint != "completions" and "toolUsePromptTokenCount" in counts:
+        dumped = response.usage.model_dump()
+        assert dumped["toolUsePromptTokenCount"] == counts["toolUsePromptTokenCount"]
+
+
 def test_gemini_adapter_build_chat_usage_preserves_provider_specific_fields():
     usage_metadata = {
         "promptTokenCount": 50,
@@ -2309,6 +2342,35 @@ def test_gemini_adapter_completion_tokens_include_thoughts(endpoint, counts, exp
     assert response.usage.total_tokens == usage_metadata["totalTokenCount"]
     if endpoint != "completions" and "thoughtsTokenCount" in counts:
         assert response.usage.model_dump()["thoughtsTokenCount"] == counts["thoughtsTokenCount"]
+
+
+@pytest.mark.parametrize("streaming", [False, True])
+def test_gemini_passthrough_token_usage_includes_tool_use_prompt(streaming):
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    usage_metadata = {
+        "promptTokenCount": 10,
+        "toolUsePromptTokenCount": 40,
+        "candidatesTokenCount": 2,
+        "totalTokenCount": 52,
+    }
+    original_usage_metadata = usage_metadata.copy()
+    response = {"usageMetadata": usage_metadata}
+
+    if streaming:
+        token_usage = provider._extract_streaming_token_usage(
+            f"data: {json.dumps(response)}\n".encode()
+        )
+    else:
+        token_usage = provider._extract_passthrough_token_usage(
+            PassthroughAction.GEMINI_GENERATE_CONTENT, response
+        )
+
+    assert token_usage == {
+        "input_tokens": 50,
+        "output_tokens": 2,
+        "total_tokens": 52,
+    }
+    assert response["usageMetadata"] == original_usage_metadata
 
 
 @pytest.mark.parametrize("streaming", [False, True])

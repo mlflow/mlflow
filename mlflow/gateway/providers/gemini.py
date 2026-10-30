@@ -64,6 +64,20 @@ def _get_completion_tokens(usage_metadata: dict[str, Any]) -> int | None:
     return completion_tokens
 
 
+def _get_prompt_tokens(usage_metadata: dict[str, Any]) -> int | None:
+    """Prompt tokens plus tokens of content fetched by built-in tools.
+
+    Google Search grounding and URL context are billed and included in
+    ``totalTokenCount``, but Gemini reports them as ``toolUsePromptTokenCount``
+    rather than as part of ``promptTokenCount``.
+    """
+    prompt_tokens = usage_metadata.get("promptTokenCount")
+    tool_use_prompt_tokens = usage_metadata.get("toolUsePromptTokenCount")
+    if prompt_tokens is None and tool_use_prompt_tokens is None:
+        return None
+    return (prompt_tokens or 0) + (tool_use_prompt_tokens or 0)
+
+
 def _to_gemini_parts(content: Any) -> list[dict[str, Any]]:
     """Translate a user message's content into Gemini ``parts``.
 
@@ -437,7 +451,7 @@ class GeminiAdapter(ProviderAdapter):
             )
         return chat_schema.ChatUsage(
             **extra,
-            prompt_tokens=usage_metadata.get("promptTokenCount"),
+            prompt_tokens=_get_prompt_tokens(usage_metadata),
             completion_tokens=_get_completion_tokens(usage_metadata),
             total_tokens=usage_metadata.get("totalTokenCount"),
             prompt_tokens_details=prompt_tokens_details,
@@ -672,7 +686,7 @@ class GeminiAdapter(ProviderAdapter):
             model=config.model.name,
             choices=choices,
             usage=completions_schema.CompletionsUsage(
-                prompt_tokens=usage_metadata.get("promptTokenCount", None),
+                prompt_tokens=_get_prompt_tokens(usage_metadata),
                 completion_tokens=_get_completion_tokens(usage_metadata),
                 total_tokens=usage_metadata.get("totalTokenCount", None),
             ),
@@ -1047,6 +1061,10 @@ class GeminiProvider(BaseProvider):
                 **usage_metadata,
                 "candidatesTokenCount": _get_completion_tokens(usage_metadata),
             }
+            # Fold tool-use prompt tokens into the input count on the copy so the
+            # caller's usageMetadata is left unchanged.
+            if (prompt_tokens := _get_prompt_tokens(usage_metadata)) is not None:
+                usage_metadata["promptTokenCount"] = prompt_tokens
         return self._extract_token_usage_from_dict(
             usage_metadata,
             "promptTokenCount",

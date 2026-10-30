@@ -664,6 +664,42 @@ def test_generate_content_thoughts_tokens(is_async, mock_litellm_cost):
     }
 
 
+def test_generate_content_tool_use_prompt_tokens(is_async, mock_litellm_cost):
+    grounded_response = _generate_content_response(
+        _CONTENT,
+        {
+            "prompt_token_count": 10,
+            "tool_use_prompt_token_count": 40,
+            "candidates_token_count": 2,
+            "total_token_count": 52,
+        },
+    )
+
+    if is_async:
+
+        async def _generate_content(self, model, contents, config):
+            return grounded_response
+
+    else:
+
+        def _generate_content(self, model, contents, config):
+            return grounded_response
+
+    cls = "AsyncModels" if is_async else "Models"
+    with patch(f"google.genai.models.{cls}._generate_content", new=_generate_content):
+        mlflow.gemini.autolog()
+        _call_generate_content(is_async, "test content")
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 50,
+        TokenUsageKey.OUTPUT_TOKENS: 2,
+        TokenUsageKey.TOTAL_TOKENS: 52,
+    }
+
+
 def test_tracing_headers_injected_in_config(is_async):
     captured_config = {}
 
