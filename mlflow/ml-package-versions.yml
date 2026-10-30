@@ -939,7 +939,7 @@ crewai:
     minimum: "1.3.0"
     # crewai 1.15.29 removes crewai.agents.crew_agent_executor, which autologging imports.
     maximum: "1.15.23"
-    unsupported: [">1.15.23"]
+    unsupported: [">=1.15.29"]
     requirements:
       # crewai tests import litellm directly (ModelResponse, litellm.completion mock).
       # The tracing-sdk install path skips test-requirements.txt, so litellm must be listed here.
