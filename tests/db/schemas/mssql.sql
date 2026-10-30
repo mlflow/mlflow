@@ -849,6 +849,18 @@ CREATE TABLE skill_version_tags (
 )
 
 
+CREATE TABLE span_mcp_server_links (
+	trace_id VARCHAR(50) NOT NULL,
+	span_id VARCHAR(50) NOT NULL,
+	mcp_workspace VARCHAR(63) NOT NULL,
+	mcp_name VARCHAR(256) NOT NULL,
+	mcp_version VARCHAR(256),
+	created_at BIGINT NOT NULL,
+	CONSTRAINT span_mcp_server_links_pk PRIMARY KEY (trace_id, span_id, mcp_workspace, mcp_name),
+	CONSTRAINT fk_span_mcp_server_links_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
+)
+
+
 CREATE TABLE spans (
 	trace_id VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	experiment_id INTEGER NOT NULL,

@@ -9,17 +9,21 @@ import sqlalchemy as sa
 from mlflow.entities import ExperimentTag, TraceInfo
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_mcp_server_link import MCPServerSpanObservation, TraceMCPServerLink
 from mlflow.entities.trace_state import TraceState
-from mlflow.entities.workspace import Workspace
+from mlflow.entities.workspace import Workspace, WorkspaceDeletionMode
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
+from mlflow.store.db.workspace_migration import migrate_to_default_workspace
 from mlflow.store.db.workspace_move import _SPEC_BY_MODEL, MoveResult, move_resources
+from mlflow.store.db.workspace_utils import move_trace_mcp_server_links
 from mlflow.store.model_registry.sqlalchemy_workspace_store import (
     WorkspaceAwareSqlAlchemyStore as WorkspaceAwareRegistryStore,
 )
 from mlflow.store.tracking.dbmodels.models import (
     SqlAssessmentDailyRollup,
     SqlSpanCostDailyRollup,
+    SqlSpanMCPServerLink,
     SqlTraceMetricDailyRollup,
     SqlTraceRollupRebuild,
 )
@@ -31,6 +35,8 @@ from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
+
+from tests.store.tracking.sqlalchemy_store.conftest import _create_trace
 
 
 @pytest.fixture(autouse=True)
@@ -106,6 +112,150 @@ def test_move_experiments_by_name(tracking_store, workspace_store, engine):
     with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
         assert tracking_store.get_experiment_by_name("exp-2") is not None
         assert tracking_store.get_experiment_by_name("exp-1") is None
+
+
+@pytest.mark.parametrize(
+    ("operation", "dry_run"),
+    [
+        (operation, dry_run)
+        for operation in ["names", "tags", "all", "migrate"]
+        for dry_run in [False, True]
+    ]
+    + [("set-default", False)],
+)
+def test_workspace_relocation_preserves_mcp_links(
+    tracking_store, workspace_store, engine, operation, dry_run
+):
+    _create_workspace(workspace_store, "team-a")
+    target = DEFAULT_WORKSPACE_NAME if operation in {"migrate", "set-default"} else "team-b"
+    if target != DEFAULT_WORKSPACE_NAME:
+        _create_workspace(workspace_store, target)
+    experiments = {}
+    for workspace, name in [
+        ("team-a", "selected"),
+        ("team-a", "unselected"),
+        (DEFAULT_WORKSPACE_NAME, "resident"),
+    ]:
+        with WorkspaceContext(workspace):
+            experiment_id = tracking_store.create_experiment(name)
+            experiments[name] = experiment_id
+            tracking_store.set_experiment_tag(experiment_id, ExperimentTag("move", name))
+            _create_trace(tracking_store, name, experiment_id=experiment_id)
+            tracking_store.upsert_span_mcp_server_links(
+                trace_id=name,
+                links=[
+                    MCPServerSpanObservation("span-1", "com.example/weather", "1.0.0"),
+                    MCPServerSpanObservation("span-2", "com.example/weather"),
+                ],
+            )
+    with tracking_store.ManagedSessionMaker(read_only=False) as session:
+        session.query(SqlSpanMCPServerLink).update({"created_at": 123})
+        session.add(
+            SqlSpanMCPServerLink(
+                trace_id="selected",
+                span_id="foreign-span",
+                mcp_workspace="foreign",
+                mcp_name="com.example/foreign",
+                created_at=123,
+            )
+        )
+
+    if operation == "migrate":
+        migrate_to_default_workspace(engine=engine, dry_run=dry_run)
+    elif operation == "set-default":
+        workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.SET_DEFAULT)
+    else:
+        move_resources(
+            engine=engine,
+            workspace_store=workspace_store,
+            source_workspace="team-a",
+            target_workspace=target,
+            resource_type="experiments",
+            names=["selected"] if operation == "names" else None,
+            tags=[("move", "selected")] if operation == "tags" else None,
+            dry_run=dry_run,
+        )
+
+    for name, experiment_id in experiments.items():
+        moved = (
+            not dry_run
+            and name != "resident"
+            and (name == "selected" or operation in {"all", "migrate", "set-default"})
+        )
+        workspace = (
+            target if moved else (DEFAULT_WORKSPACE_NAME if name == "resident" else "team-a")
+        )
+        with WorkspaceContext(workspace):
+            assert set(tracking_store.get_mcp_servers_for_trace(trace_id=name)) == {
+                TraceMCPServerLink(workspace=workspace, name="com.example/weather", version=version)
+                for version in ["1.0.0", None]
+            }
+            traces, _ = tracking_store.search_traces(
+                [experiment_id],
+                filter_string="mcp_server = 'com.example/weather' AND mcp_server.version = '1.0.0'",
+            )
+            assert [trace.trace_id for trace in traces] == [name]
+    with tracking_store.ManagedSessionMaker() as session:
+        assert session.query(SqlSpanMCPServerLink).count() == 7
+        assert {row.created_at for row in session.query(SqlSpanMCPServerLink)} == {123}
+        assert (
+            session
+            .query(SqlSpanMCPServerLink)
+            .filter_by(span_id="foreign-span")
+            .one()
+            .mcp_workspace
+        ) == "foreign"
+
+
+@pytest.mark.parametrize("operation", ["move", "migrate", "set-default"])
+def test_workspace_relocation_rolls_back_mcp_links(
+    tracking_store, workspace_store, engine, operation
+):
+    _create_workspace(workspace_store, "team-a")
+    with WorkspaceContext("team-a"):
+        experiment_id = tracking_store.create_experiment("rollback")
+        _create_trace(tracking_store, "rollback", experiment_id=experiment_id)
+        tracking_store.upsert_span_mcp_server_links(
+            trace_id="rollback",
+            links=[MCPServerSpanObservation("span-1", "com.example/weather", "1.0.0")],
+        )
+
+    def move_then_fail(**kwargs):
+        move_trace_mcp_server_links(**kwargs)
+        raise RuntimeError("failure after moving MCP links")
+
+    module = {
+        "move": "mlflow.store.db.workspace_move",
+        "migrate": "mlflow.store.db.workspace_migration",
+        "set-default": "mlflow.store.workspace.sqlalchemy_store",
+    }[operation]
+
+    def relocate():
+        if operation == "move":
+            move_resources(
+                engine=engine,
+                workspace_store=workspace_store,
+                source_workspace="team-a",
+                target_workspace=DEFAULT_WORKSPACE_NAME,
+                resource_type="experiments",
+            )
+        elif operation == "migrate":
+            migrate_to_default_workspace(engine=engine)
+        else:
+            workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.SET_DEFAULT)
+
+    error = MlflowException if operation == "set-default" else RuntimeError
+    with mock.patch(f"{module}.move_trace_mcp_server_links", side_effect=move_then_fail) as moved:
+        with pytest.raises(error, match="failure after moving MCP links"):
+            relocate()
+        moved.assert_called_once()
+
+    with WorkspaceContext("team-a"):
+        assert tracking_store.get_experiment(experiment_id).workspace == "team-a"
+        assert tracking_store.get_mcp_servers_for_trace(trace_id="rollback") == [
+            TraceMCPServerLink(workspace="team-a", name="com.example/weather", version="1.0.0")
+        ]
+    assert workspace_store.get_workspace("team-a").name == "team-a"
 
 
 def test_move_experiment_by_tag(tracking_store, workspace_store, engine):

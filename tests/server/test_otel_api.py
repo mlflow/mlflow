@@ -10,18 +10,22 @@ from unittest.mock import patch
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from google.protobuf.json_format import ParseDict
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 from prometheus_client import REGISTRY
 
 from mlflow.entities import Workspace
+from mlflow.entities.trace_mcp_server_link import TraceMCPServerLink
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.server.fastapi_app import add_fastapi_workspace_middleware, create_fastapi_app
 from mlflow.server.otel_api import otel_router
 from mlflow.store.tracking.abstract_store import AbstractStore
+from mlflow.store.tracking.dbmodels.models import SqlSpanMCPServerLink
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH, _set_otel_proto_anyvalue
 from mlflow.utils import workspace_context
 from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
@@ -448,6 +452,314 @@ def test_otlp_json_string_attributes(monkeypatch, db_uri, tmp_path, key, sent_va
     assert response.status_code == 200
     stored_span = store.get_trace(f"tr-{trace_id}").data.spans[0]
     assert stored_span.get_attribute(key) == expected
+
+
+@pytest.mark.parametrize("content_type", ["application/json", "application/x-protobuf"])
+@pytest.mark.parametrize("version", [None, "1.0.0"])
+def test_otlp_materializes_mcp_links(monkeypatch, db_uri, tmp_path, content_type, version):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    store = WorkspaceAwareSqlAlchemyStore(db_uri, tmp_path.as_uri())
+    with workspace_context.WorkspaceContext("team-a"):
+        experiment_id = store.create_experiment("otlp-mcp-links")
+    monkeypatch.setattr("mlflow.server.otel_api._get_tracking_store", lambda: store)
+    monkeypatch.setattr(
+        "mlflow.server.fastapi_app.resolve_workspace_for_request_if_enabled",
+        lambda _path, header_workspace: Workspace(name=header_workspace),
+    )
+    trace_id = "0af7651916cd43dd8448eb211c80319c"
+    attributes = [
+        {"key": "mlflow.mcp.server.name", "value": {"stringValue": "com.example/weather"}},
+        {"key": "mlflow.mcp.server.workspace", "value": {"stringValue": "untrusted"}},
+    ]
+    if version is not None:
+        attributes.append({"key": "mlflow.mcp.server.version", "value": {"stringValue": version}})
+    payload = {
+        "resourceSpans": [
+            {
+                "scopeSpans": [
+                    {
+                        "spans": [
+                            {
+                                "traceId": trace_id,
+                                "spanId": "b7ad6b7169203331",
+                                "name": "mcp-span",
+                                "startTimeUnixNano": "1000000000",
+                                "endTimeUnixNano": "2000000000",
+                                "attributes": attributes,
+                            }
+                        ]
+                    }
+                ]
+            }
+        ],
+    }
+    if content_type == "application/json":
+        content = json.dumps(payload).encode()
+    else:
+        request = ParseDict(payload, ExportTraceServiceRequest())
+        proto_span = request.resource_spans[0].scope_spans[0].spans[0]
+        # OTLP JSON uses hex IDs; protobuf's generic JSON parser interprets bytes as base64.
+        proto_span.trace_id = bytes.fromhex(trace_id)
+        proto_span.span_id = bytes.fromhex("b7ad6b7169203331")
+        content = request.SerializeToString()
+    client = _make_test_client()
+    for _ in range(2):
+        response = client.post(
+            OTLP_TRACES_PATH,
+            content=content,
+            headers={
+                "Content-Type": content_type,
+                "X-MLflow-Experiment-Id": experiment_id,
+                WORKSPACE_HEADER_NAME: "team-a",
+            },
+        )
+        assert response.status_code == 200
+    with workspace_context.WorkspaceContext("team-a"):
+        assert store.get_mcp_servers_for_trace(f"tr-{trace_id}") == [
+            TraceMCPServerLink("team-a", "com.example/weather", version)
+        ]
+        assert len(store.get_trace(f"tr-{trace_id}").data.spans) == 1
+    with workspace_context.WorkspaceContext("team-b"):
+        with pytest.raises(MlflowException, match="not found"):
+            store.get_mcp_servers_for_trace(f"tr-{trace_id}")
+
+
+def _mcp_span(trace_id, span_id, server_name=None, version=None):
+    attributes = []
+    if server_name is not None:
+        attributes.append({"key": "mlflow.mcp.server.name", "value": {"stringValue": server_name}})
+    if version is not None:
+        attributes.append({"key": "mlflow.mcp.server.version", "value": {"stringValue": version}})
+    return {
+        "traceId": f"{trace_id:032x}",
+        "spanId": f"{span_id:016x}",
+        "name": "test-span",
+        "startTimeUnixNano": str(trace_id * 1_000_000_000),
+        "endTimeUnixNano": str(trace_id * 1_000_000_000 + 100_000_000),
+        "attributes": attributes,
+    }
+
+
+@pytest.mark.parametrize("content_type", ["application/json", "application/x-protobuf"])
+@pytest.mark.parametrize(
+    ("name_value", "version_value", "expected_name", "warning"),
+    [
+        ({"intValue": "123"}, None, None, "name"),
+        ({"stringValue": "https://example.com/mcp"}, None, None, "name"),
+        (None, {"stringValue": "1.0.0"}, None, "name"),
+        (
+            {"stringValue": "com.example/weather"},
+            {"intValue": "123"},
+            "com.example/weather",
+            "version",
+        ),
+        (
+            {"stringValue": "com.example/weather"},
+            {"stringValue": "1.0.0\x00invalid"},
+            "com.example/weather",
+            "version",
+        ),
+    ],
+)
+def test_otlp_malformed_mcp_attributes_preserve_batch(
+    monkeypatch,
+    db_uri,
+    tmp_path,
+    caplog,
+    content_type,
+    name_value,
+    version_value,
+    expected_name,
+    warning,
+):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    store = WorkspaceAwareSqlAlchemyStore(db_uri, tmp_path.as_uri())
+    with workspace_context.WorkspaceContext("team-a"):
+        experiment_id = store.create_experiment("malformed-otlp-mcp")
+    monkeypatch.setattr("mlflow.server.otel_api._get_tracking_store", lambda: store)
+    monkeypatch.setattr(
+        "mlflow.server.fastapi_app.resolve_workspace_for_request_if_enabled",
+        lambda _path, header_workspace: Workspace(name=header_workspace),
+    )
+    malformed_span = _mcp_span(1, 1)
+    for key, value in [
+        ("mlflow.mcp.server.name", name_value),
+        ("mlflow.mcp.server.version", version_value),
+    ]:
+        if value is not None:
+            malformed_span["attributes"].append({"key": key, "value": value})
+    spans = [malformed_span, _mcp_span(2, 2, "com.example/other", "2.0.0")]
+    payload = {"resourceSpans": [{"scopeSpans": [{"spans": spans}]}]}
+    if content_type == "application/json":
+        content = json.dumps(payload).encode()
+    else:
+        request = ParseDict(payload, ExportTraceServiceRequest())
+        for proto_span, span in zip(request.resource_spans[0].scope_spans[0].spans, spans):
+            proto_span.trace_id = bytes.fromhex(span["traceId"])
+            proto_span.span_id = bytes.fromhex(span["spanId"])
+        content = request.SerializeToString()
+    response = _make_test_client().post(
+        OTLP_TRACES_PATH,
+        content=content,
+        headers={
+            "Content-Type": content_type,
+            "X-MLflow-Experiment-Id": experiment_id,
+            WORKSPACE_HEADER_NAME: "team-a",
+        },
+    )
+    assert response.status_code == 200
+    with workspace_context.WorkspaceContext("team-a"):
+        for trace_id in [f"tr-{index:032x}" for index in [1, 2]]:
+            assert len(store.get_trace(trace_id).data.spans) == 1
+        assert store.get_mcp_servers_for_trace(f"tr-{1:032x}") == (
+            [TraceMCPServerLink("team-a", expected_name, None)] if expected_name else []
+        )
+        assert store.get_mcp_servers_for_trace(f"tr-{2:032x}") == [
+            TraceMCPServerLink("team-a", "com.example/other", "2.0.0")
+        ]
+    assert f"malformed MCP server {warning}" in caplog.text
+
+
+@pytest.fixture(params=["application/json", "application/x-protobuf"])
+def mcp_trace_client(request, monkeypatch, db_uri, tmp_path):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    store = WorkspaceAwareSqlAlchemyStore(db_uri, tmp_path.as_uri())
+    with workspace_context.WorkspaceContext("team-a"):
+        experiment_id = store.create_experiment("mcp-export-to-search")
+    monkeypatch.setattr("mlflow.server.otel_api._get_tracking_store", lambda: store)
+    monkeypatch.setattr("mlflow.server.handlers._tracking_store", store)
+    monkeypatch.setattr(
+        "mlflow.server.fastapi_app.resolve_workspace_for_request_if_enabled",
+        lambda _path, header_workspace: Workspace(name=header_workspace),
+    )
+    client = TestClient(create_fastapi_app(), base_url="http://localhost")
+    client.headers[WORKSPACE_HEADER_NAME] = "team-a"
+    spans = [
+        _mcp_span(1, 1, "com.example/weather", "1.0.0"),
+        _mcp_span(1, 2, "com.example/weather", "1.0.0"),
+        _mcp_span(1, 3, "com.example/search", "2.0.0"),
+        _mcp_span(2, 4, "com.example/weather"),
+        _mcp_span(3, 5, "com.example/weather", "2.0.0"),
+        _mcp_span(4, 6),
+    ]
+    payload = {"resourceSpans": [{"scopeSpans": [{"spans": spans}]}]}
+    if request.param == "application/json":
+        content = json.dumps(payload).encode()
+    else:
+        proto_request = ParseDict(payload, ExportTraceServiceRequest())
+        for proto_span, span in zip(proto_request.resource_spans[0].scope_spans[0].spans, spans):
+            proto_span.trace_id = bytes.fromhex(span["traceId"])
+            proto_span.span_id = bytes.fromhex(span["spanId"])
+        content = proto_request.SerializeToString()
+    for _ in range(2):
+        response = client.post(
+            OTLP_TRACES_PATH,
+            content=content,
+            headers={"Content-Type": request.param, "X-MLflow-Experiment-Id": experiment_id},
+        )
+        assert response.status_code == 200
+    return client, experiment_id, store
+
+
+def _search_exported_traces(client, experiment_id, filter_string="", **kwargs):
+    return client.post(
+        "/api/3.0/mlflow/traces/search",
+        json={
+            "locations": [{"mlflow_experiment": {"experiment_id": experiment_id}}],
+            "filter": filter_string,
+            "order_by": ["timestamp ASC"],
+            "max_results": 100,
+            **kwargs,
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "expected_ids"),
+    [
+        ("mcp_server = 'com.example/weather'", [1, 2, 3]),
+        ("mcp_server = 'com.example/weather' AND mcp_server.version = '1.0.0'", [1]),
+        ("mcp_server = 'com.example/weather' AND mcp_server.version = '2.0.0'", [3]),
+        ("mcp_server = 'com.example/search' AND mcp_server.version = '1.0.0'", []),
+        ("", [1, 2, 3, 4]),
+    ],
+)
+def test_otlp_export_then_search_mcp_traces(mcp_trace_client, filter_string, expected_ids):
+    client, experiment_id, _ = mcp_trace_client
+    response = _search_exported_traces(client, experiment_id, filter_string)
+    assert response.status_code == 200
+    traces = response.json().get("traces", [])
+    assert [trace["trace_id"] for trace in traces] == [f"tr-{i:032x}" for i in expected_ids]
+    assert "next_page_token" not in response.json()
+    for trace in traces:
+        assert {"trace_id", "trace_location", "request_time", "state"} <= trace.keys()
+        assert "linked_mcp_servers" not in trace
+        assert trace["trace_location"] == {
+            "type": "MLFLOW_EXPERIMENT",
+            "mlflow_experiment": {"experiment_id": experiment_id},
+        }
+
+
+def test_otlp_export_then_search_mcp_traces_pagination(mcp_trace_client):
+    client, experiment_id, _ = mcp_trace_client
+    trace_ids = []
+    token = None
+    for _ in range(4):
+        kwargs = {"page_token": token} if token else {}
+        response = _search_exported_traces(
+            client, experiment_id, "mcp_server = 'com.example/weather'", max_results=1, **kwargs
+        )
+        assert response.status_code == 200
+        trace_ids.extend(trace["trace_id"] for trace in response.json().get("traces", []))
+        token = response.json().get("next_page_token")
+        if token is None:
+            break
+    assert trace_ids == [f"tr-{i:032x}" for i in [1, 2, 3]]
+    assert token is None
+
+
+@pytest.mark.parametrize(
+    "filter_string",
+    [
+        "mcp_server != 'com.example/weather'",
+        "mcp_server.version LIKE '1.%'",
+        "mcp_server.alias = 'prod'",
+    ],
+)
+def test_otlp_export_then_search_rejects_invalid_mcp_filters(mcp_trace_client, filter_string):
+    client, experiment_id, _ = mcp_trace_client
+    response = _search_exported_traces(client, experiment_id, filter_string)
+    assert response.status_code == 400
+    assert response.json()["error_code"] == "INVALID_PARAMETER_VALUE"
+
+
+def test_otlp_export_then_search_mcp_traces_workspace_scope(mcp_trace_client):
+    client, experiment_id, _ = mcp_trace_client
+    client.headers[WORKSPACE_HEADER_NAME] = "team-b"
+    response = _search_exported_traces(client, experiment_id, "mcp_server = 'com.example/weather'")
+    assert response.status_code == 200
+    assert response.json().get("traces", []) == []
+
+
+def test_otlp_export_then_delete_mcp_trace(mcp_trace_client):
+    client, experiment_id, store = mcp_trace_client
+    with store.ManagedSessionMaker() as session:
+        assert session.query(SqlSpanMCPServerLink).count() == 5
+    response = client.post(
+        "/api/3.0/mlflow/traces/delete-traces",
+        json={"experiment_id": experiment_id, "request_ids": [f"tr-{1:032x}"]},
+    )
+    assert response.status_code == 200
+    assert response.json()["traces_deleted"] == 1
+    with store.ManagedSessionMaker() as session:
+        remaining_links = session.query(SqlSpanMCPServerLink).all()
+        assert len(remaining_links) == 2
+        assert {link.trace_id for link in remaining_links} == {f"tr-{i:032x}" for i in [2, 3]}
+    response = _search_exported_traces(client, experiment_id, "mcp_server = 'com.example/weather'")
+    assert response.status_code == 200
+    assert [trace["trace_id"] for trace in response.json()["traces"]] == [
+        f"tr-{i:032x}" for i in [2, 3]
+    ]
 
 
 @pytest.mark.parametrize("content_type", ["application/json", "application/json; charset=utf-8"])
