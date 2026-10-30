@@ -47,6 +47,7 @@ def _args(endpoint, method, json_body, host_creds, extra_headers):
         "host_creds": host_creds,
         "endpoint": f"/api/2.1/unity-catalog/{endpoint}",
         "method": method,
+        "raise_on_status": False,
         "extra_headers": extra_headers,
     }
     if extra_headers is None:

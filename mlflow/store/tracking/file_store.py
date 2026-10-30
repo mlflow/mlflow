@@ -154,7 +154,7 @@ def _validate_new_trace_id(trace_id: str) -> None:
     _validate_path_component(trace_id, "trace_id")
     # New trace ids are also embedded in the trace artifact URI, where "%", "?" and "#" change how
     # the path is decoded and URL parsing drops tabs and newlines, so those and other control
-    # characters are rejected. Only `start_trace` applies this, so traces created before it can
+    # characters are rejected. Only trace creation applies this, so traces created before it can
     # still be deleted by id.
     if any(c in "%?#" or ord(c) < 32 or ord(c) == 127 for c in trace_id):
         raise MlflowException(
@@ -1750,9 +1750,6 @@ class FileStore(AbstractStore):
         self._write_dict_to_trace_sub_folder(
             trace_dir, FileStore.TRACE_TAGS_FOLDER_NAME, trace_info.tags
         )
-        # Save assessments to its own folder
-        for assessment in trace_info.assessments:
-            self.create_assessment(assessment)
 
     def _convert_trace_info_to_dict(self, trace_info: TraceInfo):
         """
@@ -1812,6 +1809,11 @@ class FileStore(AbstractStore):
         # Create updated TraceInfo with artifact location tag
         trace_info.tags.update(tags)
         self._save_trace_info(trace_info, trace_dir)
+        # Save assessments to its own folder. They belong to the trace being saved, so
+        # override any trace id they carry, like SqlAlchemyStore.start_trace does.
+        for assessment in trace_info.assessments:
+            assessment.trace_id = trace_info.trace_id
+            self.create_assessment(assessment)
         return trace_info
 
     def get_trace_info(self, trace_id: str) -> TraceInfo:

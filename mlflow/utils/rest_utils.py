@@ -661,6 +661,9 @@ def call_endpoint(
         "host_creds": host_creds,
         "endpoint": endpoint,
         "method": method,
+        # Return 5xx responses after retries are exhausted so that `verify_rest_response`
+        # can surface the server's error message
+        "raise_on_status": False,
     }
     if extra_headers is not None:
         call_kwargs["extra_headers"] = extra_headers
