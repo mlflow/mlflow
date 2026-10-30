@@ -1,9 +1,10 @@
 import { describe, jest, it, expect, beforeEach } from '@jest/globals';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 
 import { AdminApi } from './api';
+import { setActiveWorkspace } from '../workspaces/utils/WorkspaceUtils';
 import {
   useResourceOptionsQuery,
   useRolesQuery,
@@ -296,6 +297,38 @@ describe('useUsersQuery', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.users[0].roles).toEqual([namedRole]);
     expect(result.current.data?.users[1].roles).toEqual([]);
+  });
+
+  it('re-fetches the roster when the active workspace changes', async () => {
+    mockedApi.listUsers.mockResolvedValueOnce({ users: [{ id: 1, username: 'pat', is_admin: false, roles: [] }] });
+    mockedApi.listUsers.mockResolvedValueOnce({ users: [{ id: 2, username: 'alex', is_admin: false, roles: [] }] });
+    setActiveWorkspace('wsA');
+    try {
+      const { result } = renderHook(() => useUsersQuery(), { wrapper: makeWrapper() });
+      await waitFor(() => expect(result.current.data?.users[0].username).toBe('pat'));
+
+      act(() => setActiveWorkspace('wsB'));
+      await waitFor(() => expect(result.current.data?.users[0].username).toBe('alex'));
+      expect(mockedApi.listUsers.mock.calls).toEqual([['wsA'], ['wsB']]);
+    } finally {
+      setActiveWorkspace(null);
+    }
+  });
+
+  it('keeps a pinned workspace roster when the active workspace changes', async () => {
+    mockedApi.listUsers.mockResolvedValue({ users: [{ id: 1, username: 'pat', is_admin: false, roles: [] }] });
+    setActiveWorkspace('wsB');
+    try {
+      const { result } = renderHook(() => useUsersQuery('wsA'), { wrapper: makeWrapper() });
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(mockedApi.listUsers).toHaveBeenCalledWith('wsA');
+
+      act(() => setActiveWorkspace('wsC'));
+      expect(result.current.data?.users[0].username).toBe('pat');
+      expect(mockedApi.listUsers).toHaveBeenCalledTimes(1);
+    } finally {
+      setActiveWorkspace(null);
+    }
   });
 });
 
