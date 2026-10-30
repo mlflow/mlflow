@@ -229,7 +229,6 @@ jobs:
           ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
           # The auto permission classifier requires this alias; investigators inherit the main model.
           ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5
-          CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS: "1"
           CLAUDE_CODE_FORK_SUBAGENT: "0"
           # OpenTelemetry export through the telemetry proxy. Spans need the enhanced telemetry beta;
           # logs carry per-call cost and the final response; metrics carry session counters. The
