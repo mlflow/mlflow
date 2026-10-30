@@ -17,7 +17,7 @@ import { OTelIntegrationCard } from "@site/src/components/TracingIntegrations/OT
 
 <ImageBox src="/images/llms/tracing/cloudflare-agents/trace.png" alt="MLflow displaying a real Cloudflare CalculatorAgent trace with model messages, a multiply tool call, and token usage" />
 
-The trace above shows a real agent calling the local `llama3.2:1b` model, executing `multiply(17, 23)`, and responding with `391`. The deployment example below uses OpenAI `gpt-5.4-mini`; see [Local Development](#local-development) for how the screenshot's traces reached MLflow. MLflow recognizes the agent, model, and tool spans from their OpenTelemetry GenAI attributes.
+The trace above shows a real agent calling the local `llama3.2:1b` model, executing `multiply(17, 23)`, and responding with `391`. The deployment example below uses OpenAI [GPT-6.1 Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol) through the Responses API; see [Local Development](#local-development) for how the screenshot's traces reached MLflow. MLflow recognizes the agent, model, and tool spans from their OpenTelemetry GenAI attributes.
 
 ## Step 1: Start the MLflow Tracking Server
 
@@ -118,7 +118,7 @@ export class CalculatorAgent extends Agent<Env> {
     const openai = createOpenAI({ apiKey: this.env.OPENAI_API_KEY });
 
     const result = await generateText({
-      model: openai.chat("gpt-5.4-mini"),
+      model: openai.responses("gpt-6.1-sol"),
       system: "Use the multiply tool to multiply numbers.",
       prompt,
       stopWhen: ai.stepCountIs(4),
