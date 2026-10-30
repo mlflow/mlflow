@@ -119,6 +119,7 @@ def _args(host_creds, endpoint, method, json_body, version, retry_timeout_second
         "host_creds": host_creds,
         "endpoint": f"/api/{version}/mlflow/{endpoint}",
         "method": method,
+        "raise_on_status": False,
     }
     if retry_timeout_seconds is not None:
         res["retry_timeout_seconds"] = retry_timeout_seconds
@@ -331,6 +332,7 @@ def test_set_trace_tag():
             host_creds=creds,
             endpoint=f"/api/4.0/mlflow/traces/{location}/{trace_id}/tags",
             method="PATCH",
+            raise_on_status=False,
             json=expected_json,
         )
         assert res is None
@@ -389,6 +391,7 @@ def test_delete_trace_tag(monkeypatch):
             host_creds=creds,
             endpoint=f"/api/4.0/mlflow/traces/{location}/{trace_id}/tags/{request.key}?sql_warehouse_id={sql_warehouse_id}",
             method="DELETE",
+            raise_on_status=False,
             json=None,
         )
         assert res is None
@@ -416,6 +419,7 @@ def test_delete_trace_tag_with_special_characters(monkeypatch):
             host_creds=creds,
             endpoint=f"/api/4.0/mlflow/traces/{location}/{trace_id}/tags/foo%2Fbar?sql_warehouse_id={sql_warehouse_id}",
             method="DELETE",
+            raise_on_status=False,
             json=None,
         )
         assert res is None
@@ -1602,6 +1606,7 @@ def test_link_traces_to_run_with_v4_trace_ids_uses_batch_v4_endpoint():
             host_creds=creds,
             endpoint=f"/api/4.0/mlflow/traces/{location}/link-to-run/batchCreate",
             method="POST",
+            raise_on_status=False,
             json=expected_json,
         )
 
@@ -1628,6 +1633,7 @@ def test_link_traces_to_run_with_v3_trace_ids_uses_v3_endpoint():
             host_creds=creds,
             endpoint="/api/2.0/mlflow/traces/link-to-run",
             method="POST",
+            raise_on_status=False,
             json=expected_json,
         )
 
@@ -1747,6 +1753,7 @@ def test_unlink_traces_from_run_with_v4_trace_ids_uses_batch_v4_endpoint():
             host_creds=creds,
             endpoint=f"/api/4.0/mlflow/traces/{location}/unlink-from-run/batchDelete",
             method="DELETE",
+            raise_on_status=False,
             json=expected_json,
         )
 

@@ -130,6 +130,13 @@ describe('ExperimentPageBreadcrumbs', () => {
       leaf: 'Helpful queue',
       title: 'Helpful queue',
     },
+    {
+      entry: '/experiments/123/issues/runs',
+      route: '/experiments/:experimentId/issues/runs',
+      tab: 'Issues',
+      leaf: 'Issue detection run history',
+      title: 'Issue detection run history',
+    },
   ])('shows $leaf under $tab', async ({ entry, route, tab, leaf, title }) => {
     renderAt(entry, route, title);
 

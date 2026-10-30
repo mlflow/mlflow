@@ -1635,6 +1635,74 @@
       },
       "last_updated_at": "2026-10-27"
     },
+    "ap-northeast-1/mistral.voxtral-mini-3b-2507": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32768,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.05,
+        "output_per_million_tokens": 0.05,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.03,
+            "output_per_million_tokens": 0.03
+          },
+          "flex": {
+            "input_per_million_tokens": 0.03,
+            "output_per_million_tokens": 0.03
+          },
+          "priority": {
+            "input_per_million_tokens": 0.09,
+            "output_per_million_tokens": 0.09
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "deprecation_date": "2027-03-30",
+      "last_updated_at": "2026-10-29"
+    },
+    "ap-northeast-1/mistral.voxtral-small-24b-2507": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32768,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.12,
+        "output_per_million_tokens": 0.36,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.06,
+            "output_per_million_tokens": 0.18
+          },
+          "flex": {
+            "input_per_million_tokens": 0.06,
+            "output_per_million_tokens": 0.18
+          },
+          "priority": {
+            "input_per_million_tokens": 0.21,
+            "output_per_million_tokens": 0.63
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "deprecation_date": "2027-03-30",
+      "last_updated_at": "2026-10-29"
+    },
     "ap-northeast-1/moonshotai.kimi-k2-thinking": {
       "mode": "chat",
       "context_window": {
@@ -1965,6 +2033,74 @@
         "response_schema": true
       },
       "last_updated_at": "2026-10-27"
+    },
+    "ap-southeast-2/mistral.voxtral-mini-3b-2507": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32768,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.0412,
+        "output_per_million_tokens": 0.0412,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.0206,
+            "output_per_million_tokens": 0.0206
+          },
+          "flex": {
+            "input_per_million_tokens": 0.0206,
+            "output_per_million_tokens": 0.0206
+          },
+          "priority": {
+            "input_per_million_tokens": 0.0721,
+            "output_per_million_tokens": 0.0721
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "deprecation_date": "2027-03-30",
+      "last_updated_at": "2026-10-29"
+    },
+    "ap-southeast-2/mistral.voxtral-small-24b-2507": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32768,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.103,
+        "output_per_million_tokens": 0.309,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.0515,
+            "output_per_million_tokens": 0.1545
+          },
+          "flex": {
+            "input_per_million_tokens": 0.0515,
+            "output_per_million_tokens": 0.1545
+          },
+          "priority": {
+            "input_per_million_tokens": 0.18025,
+            "output_per_million_tokens": 0.54075
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "deprecation_date": "2027-03-30",
+      "last_updated_at": "2026-10-29"
     },
     "ap-southeast-2/qwen.qwen3-next-80b-a3b": {
       "mode": "chat",
@@ -4414,6 +4550,74 @@
         "response_schema": true
       },
       "last_updated_at": "2026-10-27"
+    },
+    "eu-west-2/mistral.voxtral-mini-3b-2507": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32768,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.06,
+        "output_per_million_tokens": 0.06,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.03,
+            "output_per_million_tokens": 0.03
+          },
+          "flex": {
+            "input_per_million_tokens": 0.03,
+            "output_per_million_tokens": 0.03
+          },
+          "priority": {
+            "input_per_million_tokens": 0.11,
+            "output_per_million_tokens": 0.11
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "deprecation_date": "2027-03-30",
+      "last_updated_at": "2026-10-29"
+    },
+    "eu-west-2/mistral.voxtral-small-24b-2507": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32768,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.16,
+        "output_per_million_tokens": 0.47,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.08,
+            "output_per_million_tokens": 0.23
+          },
+          "flex": {
+            "input_per_million_tokens": 0.08,
+            "output_per_million_tokens": 0.23
+          },
+          "priority": {
+            "input_per_million_tokens": 0.28,
+            "output_per_million_tokens": 0.82
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "deprecation_date": "2027-03-30",
+      "last_updated_at": "2026-10-29"
     },
     "eu-west-2/nvidia.nemotron-super-3-120b": {
       "mode": "chat",

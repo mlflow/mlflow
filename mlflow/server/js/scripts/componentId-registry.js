@@ -1114,6 +1114,7 @@ module.exports = {
   "mlflow.experiment-issues.detection-progress.go-to-traces": "",
   "mlflow.experiment-issues.empty-state.learn-how": "",
   "mlflow.experiment-issues.empty-state.run-detection": "",
+  "mlflow.experiment-issues.empty-state.run-history": "",
   "mlflow.experiment-issues.evidence.expand-toggle": "",
   "mlflow.experiment-issues.evidence.load-error": "",
   "mlflow.experiment-issues.evidence.page-error": "",

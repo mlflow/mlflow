@@ -193,10 +193,11 @@ class AnthropicAdapter(ProviderAdapter):
             )
         payload["max_tokens"] = max_tokens
 
-        if payload.pop("n", 1) != 1:
+        n = payload.pop("n", 1)
+        if n != 1:
             raise AIGatewayException(
                 status_code=422,
-                detail="'n' must be '1' for the Anthropic provider. Received value: '{n}'.",
+                detail=f"'n' must be '1' for the Anthropic provider. Received value: '{n}'.",
             )
 
         # Cohere uses `system` to set the system message

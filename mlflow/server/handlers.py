@@ -661,26 +661,32 @@ def _get_trace_archive_repo(trace_info: TraceInfo):
     return _get_trace_repo_from_uri(get_archive_uri_for_trace(trace_info))
 
 
+def _get_servable_proxied_artifact_repo(artifact_uri: str) -> ArtifactRepository:
+    """Build the repository for a proxied location this server serves, under its destination."""
+    from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR
+
+    root = os.environ.get(ARTIFACTS_DESTINATION_ENV_VAR)
+    if not root:
+        raise MlflowException(
+            f"Cannot resolve the proxied artifact URI {artifact_uri}: this server serves "
+            f"artifacts but {ARTIFACTS_DESTINATION_ENV_VAR} is unset."
+        )
+    path = _get_proxied_run_artifact_destination_path(artifact_uri)
+    return get_artifact_repository(posixpath.join(root, path))
+
+
 def _get_trace_repo_from_uri(artifact_uri: str):
     if _is_servable_proxied_run_artifact_root(artifact_uri):
         # If the artifact location is a proxied run artifact root (e.g. mlflow-artifacts://...),
         # we need to resolve it to the actual artifact location.
-        from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR
-
-        path = _get_proxied_run_artifact_destination_path(artifact_uri)
-        if not path:
+        if not _get_proxied_run_artifact_destination_path(artifact_uri):
             raise MlflowException(
-                f"Failed to resolve the proxied run artifact URI: {artifact_uri}. ",
+                f"Failed to resolve the proxied run artifact URI: {artifact_uri}. "
                 "Trace artifact URI must contain subpath to the trace data directory.",
                 error_code=BAD_REQUEST,
             )
-        root = os.environ[ARTIFACTS_DESTINATION_ENV_VAR]
-        artifact_uri = posixpath.join(root, path)
-
-        # We don't set it to global var unlike run artifact, because the artifact repo has
-        # to be created with full trace artifact URI including request_id.
-        # e.g. s3://<experiment_id>/traces/<request_id>
-        artifact_repo = get_artifact_repository(artifact_uri)
+        # Not cached like the run artifact repo: the URI includes the trace's request_id.
+        artifact_repo = _get_servable_proxied_artifact_repo(artifact_uri)
     else:
         artifact_repo = _get_artifact_repository_for_uri(artifact_uri)
     return artifact_repo
@@ -2866,6 +2872,10 @@ _HANDLER_BLOCKED_TRACE_TAGS = frozenset({
 _HANDLER_TRACE_TAGS_MUTABLE_ON_DELETE = frozenset({MLFLOW_TRACE_ARCHIVAL_FAILURE})
 
 
+def _drop_blocked_trace_tags(tags: dict[str, str]) -> dict[str, str]:
+    return {key: value for key, value in tags.items() if key not in _HANDLER_BLOCKED_TRACE_TAGS}
+
+
 def _validate_trace_tag_handler_mutation(key: str, operation: str) -> None:
     # `mlflow.trace.archivalFailure` is system-managed for writes, but deleting it is the
     # supported way to clear a terminal archival failure and allow a later retry.
@@ -4539,6 +4549,9 @@ def _start_trace_v3():
         schema={"trace": [_assert_required]},
     )
     trace_info = TraceInfo.from_proto(request_message.trace.trace_info)
+    # Trace tags such as the artifact location are system-managed, so drop blocked tags from
+    # client requests the same way the V2 end-trace handler does.
+    trace_info.tags = _drop_blocked_trace_tags(trace_info.tags)
     trace_info = _get_tracking_store().start_trace(trace_info)
     response_message = StartTraceV3.Response(trace=ProtoTrace(trace_info=trace_info.to_proto()))
     return _wrap_trace_info_response(response_message)
@@ -6111,7 +6124,7 @@ def _deprecated_start_trace_v2():
         },
     )
     request_metadata = {e.key: e.value for e in request_message.request_metadata}
-    tags = {e.key: e.value for e in request_message.tags}
+    tags = _drop_blocked_trace_tags({e.key: e.value for e in request_message.tags})
 
     trace_info = _get_tracking_store().deprecated_start_trace_v2(
         experiment_id=request_message.experiment_id,
@@ -6142,9 +6155,7 @@ def _deprecated_end_trace_v2(request_id):
     request_metadata = {e.key: e.value for e in request_message.request_metadata}
     # Legacy clients send back all trace tags, including server-managed ones, so drop
     # blocked tags instead of rejecting the request.
-    tags = {
-        e.key: e.value for e in request_message.tags if e.key not in _HANDLER_BLOCKED_TRACE_TAGS
-    }
+    tags = _drop_blocked_trace_tags({e.key: e.value for e in request_message.tags})
 
     trace_info = _get_tracking_store().deprecated_end_trace_v2(
         request_id=request_id,
