@@ -154,8 +154,10 @@ parent_context = (
     else nullcontext()
 )
 with parent_context:
-    with mlflow.start_span("server-handler"):
+    with mlflow.start_span("server-handler") as span:
+        span.set_inputs(body)
         result = agent.invoke({"messages": body["messages"]})
+        span.set_outputs(result)
 ```
 
 The autologged agent, model, and tool spans become descendants of `server-handler` in the client's trace. Extracting the headers after invoking the agent is too late: its spans have already been created with their own trace context.
