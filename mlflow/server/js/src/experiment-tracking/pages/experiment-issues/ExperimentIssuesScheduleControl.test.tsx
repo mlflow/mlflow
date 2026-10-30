@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test } from '@jest/globals';
 import { rest } from 'msw';
 import userEvent, { PointerEventsCheckLevel } from '@testing-library/user-event';
 
+import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 import { renderWithDesignSystem, screen, waitFor } from '../../../common/utils/TestUtils.react18';
 import { setupServer } from '../../../common/utils/setup-msw';
 import { QueryClient, QueryClientProvider } from '../../../common/utils/reactQueryHooks';
@@ -23,7 +24,7 @@ let written: SavedTag[];
 let saveFails: boolean;
 /** Key of a tag whose write should fail, to exercise a partial save. */
 let failWriteOfTag: string | null;
-/** Set to fail the experiment read, which is how a load failure is exercised. */
+/** Fails the experiment read, to exercise a load failure. */
 let loadFails: boolean;
 /** How many times the experiment (and so the schedule) has been read. */
 let experimentReads: number;
@@ -86,9 +87,8 @@ const server = setupServer(
     if (syncFails) {
       return res(ctx.status(500), ctx.json({ message: 'nope' }));
     }
-    // What the server does: it writes the dispatch state against the schedule now stored, and
-    // only then answers. Stubbing the reply alone would have the next read find no state tag and
-    // drop the line again, which is not what a real save leaves behind.
+    // The real route writes the state tag against the schedule now stored and only then answers;
+    // stubbing the reply alone would leave the next read with no state tag.
     const saved = JSON.parse(written.findLast(({ key }) => key === MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG)?.value ?? '{}');
     experimentTags = [
       ...experimentTags.filter(({ key }) => key !== MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG),
@@ -137,14 +137,19 @@ const traceFilterTag = (filters: unknown[]): SavedTag => ({
   value: JSON.stringify(filters),
 });
 
-const render = () => {
+/** `at` is the route the dialog opens from, which decides whether its history link leads anywhere. */
+const renderAt = (at = '/experiments/1/issues') => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, cacheTime: 0 } } });
   return renderWithDesignSystem(
-    <QueryClientProvider client={client}>
-      <ExperimentIssuesScheduleControl experimentId="1" />
-    </QueryClientProvider>,
+    <MemoryRouter initialEntries={[at]}>
+      <QueryClientProvider client={client}>
+        <ExperimentIssuesScheduleControl experimentId="1" />
+      </QueryClientProvider>
+    </MemoryRouter>,
   );
 };
+
+const render = () => renderAt();
 
 const setup = () => userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
 
@@ -156,12 +161,12 @@ const savedSchedule = (): Record<string, unknown> =>
 const savedTraceFilters = (): unknown[] =>
   JSON.parse(written.find(({ key }) => key === MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG)?.value ?? 'null');
 
-const openModal = async (user: ReturnType<typeof setup>, name = /schedule detection/i) => {
-  // Re-queried inside the wait rather than captured once: until `server-info` answers, the control
-  // renders its disabled branch, and becoming available swaps in a different button. Waiting on the
-  // element found first would wait forever on a node that has been detached.
-  await waitFor(async () => expect(await screen.findByRole('button', { name })).not.toBeDisabled());
-  await user.click(await screen.findByRole('button', { name }));
+const openModal = async (user: ReturnType<typeof setup>, name: RegExp | string = /schedule detection/i) => {
+  // Re-queried each poll, because `server-info` answering swaps the control's disabled branch for
+  // a different button and detaches the element found first. Synchronously, because a nested
+  // `findByRole` polls too and spends this wait's whole budget on one attempt.
+  await waitFor(() => expect(screen.getByRole('button', { name })).not.toBeDisabled(), { timeout: 5000 });
+  await user.click(screen.getByRole('button', { name }));
   return screen.findByRole('dialog');
 };
 
@@ -201,8 +206,7 @@ describe('ExperimentIssuesScheduleControl', () => {
     gatewayEndpoints = [];
     gatewaySecrets = [];
     createdSecrets = [];
-    // The default server here already has a credential of its own, which is what keeps the
-    // schedule tests about cadence and filters rather than about keys.
+    // A credential of its own, so these tests stay about cadence and filters rather than keys.
     envCredentialsAvailable = true;
   });
 
@@ -353,10 +357,8 @@ describe('ExperimentIssuesScheduleControl', () => {
   });
 
   test('holds Save until the model selection resolves, so an active schedule never saves without one', async () => {
-    // The endpoint list is what the default selection is derived from, and the credential queries
-    // can settle before it. Saving in that gap stored no model -- the run would fall back to the
-    // server default rather than the endpoint this dialog was about to show -- and skipped the key
-    // step, since that only applies to a direct provider selection.
+    // The default selection derives from the endpoint list, which can settle after the credential
+    // queries. Saving in that gap stored no model, so the run fell back to the server default.
     envCredentialsAvailable = false;
     gatewayEndpoints = [{ name: 'prod-gateway' }];
     let releaseEndpoints: () => void = () => {};
@@ -404,8 +406,7 @@ describe('ExperimentIssuesScheduleControl', () => {
   });
 
   test('a schedule storing no start time keeps firing at the hour it already did', async () => {
-    // The compatibility property this control has to hold: opening and saving a schedule from
-    // before the start time existed must not move when it fires.
+    // Opening and saving a schedule from before the start time existed must not move when it fires.
     experimentTags = [scheduleTag('daily')];
     const user = setup();
     render();
@@ -419,8 +420,7 @@ describe('ExperimentIssuesScheduleControl', () => {
   });
 
   test('offers the weekday only for a weekly cadence, and saves the one chosen', async () => {
-    // Weekly is the only cadence with a day to choose; a daily one fires every day, so offering a
-    // day there would be a control with nothing to say.
+    // Weekly is the only cadence with a day to choose; a daily one fires every day.
     experimentTags = [scheduleTag('weekly', false, 'UTC', '17:45', 3)];
     const user = setup();
     render();
@@ -452,8 +452,7 @@ describe('ExperimentIssuesScheduleControl', () => {
   });
 
   test('shows the stored timezone with its offset, and saves the one chosen instead', async () => {
-    // A time of day says nothing without its zone: an owner editing a Tokyo schedule from
-    // anywhere else would otherwise read 17:45 as their own 17:45.
+    // A time of day says nothing without its zone: 17:45 in Tokyo is not the reader's 17:45.
     experimentTags = [scheduleTag('daily', false, 'Asia/Tokyo', '17:45')];
     const user = setup();
     render();
@@ -464,8 +463,7 @@ describe('ExperimentIssuesScheduleControl', () => {
 
     await user.click(timezoneInput);
     await user.keyboard('Berlin');
-    // By test id rather than by label: the label carries the zone's *current* offset, so matching
-    // on it would make this test fail twice a year when Berlin changes to summer time.
+    // By test id, not label: the label carries the current offset, which changes twice a year.
     await user.click(await screen.findByTestId(`${COMPONENT_ID}.modal.timezone.option.Europe/Berlin`));
     await save(user);
 
@@ -475,8 +473,8 @@ describe('ExperimentIssuesScheduleControl', () => {
   });
 
   test('offers a stored start time that is not one of the quarter hours, and keeps it', async () => {
-    // The dispatcher polls every 15 minutes, so 09:08 fires at 09:15 -- late, but it does fire.
-    // Rounding it here would change when a schedule runs because someone opened the dialog.
+    // The dispatcher polls every 15 minutes, so 09:08 fires late but does fire; rounding it here
+    // would change when a schedule runs because someone opened the dialog.
     experimentTags = [scheduleTag('daily', false, 'UTC', '09:08')];
     const user = setup();
     render();
@@ -500,8 +498,7 @@ describe('ExperimentIssuesScheduleControl', () => {
   });
 
   test("shows when the saved schedule next runs, in the schedule's own zone", async () => {
-    // The question the controls cannot answer on their own: "daily at 16:00" does not say
-    // whether that means today or tomorrow.
+    // "Daily at 16:00" does not say whether that means today or tomorrow.
     const nextRun = Date.UTC(2026, 10, 3, 15, 0);
     experimentTags = [
       scheduleTag('daily', false, 'Europe/Berlin', '16:00', 0),
@@ -524,8 +521,7 @@ describe('ExperimentIssuesScheduleControl', () => {
   });
 
   test('says nothing about the next run when the schedule has been retimed since', async () => {
-    // The server has not recomputed it yet, and the old value names a time nothing will happen
-    // at, so the line is dropped rather than left to mislead.
+    // The server has not recomputed it, so the stored value names a time nothing will happen at.
     experimentTags = [
       scheduleTag('daily', false, 'Europe/Berlin', '16:00', 0),
       {
@@ -568,10 +564,8 @@ describe('ExperimentIssuesScheduleControl', () => {
   });
 
   test('shows the next run as soon as the schedule is saved', async () => {
-    // The tags are written through the generic tag endpoint, so the save asks the server to
-    // bring the dispatch state up to date and answer with the next run -- otherwise there is
-    // nothing to show until the dispatcher's next pass, a quarter of an hour of silence at the
-    // one moment the owner wants to be told what they just scheduled.
+    // Tags are written through the generic endpoint, so the save asks the server for the next run
+    // itself; otherwise there is nothing to show until the dispatcher's next pass 15 minutes on.
     syncedNextRunMs = Date.UTC(2026, 10, 3, 15, 0);
     experimentTags = [scheduleTag('daily', false, 'Europe/Berlin', '09:00', 0)];
     const user = setup();
@@ -582,15 +576,15 @@ describe('ExperimentIssuesScheduleControl', () => {
     await save(user);
 
     await waitFor(() => expect(savedSchedule()['fireTime']).toBe('16:00'));
-    expect(scheduleStateSyncs).toBe(1);
+    // A request of its own, made once the schedule is stored, so it can lag the tag write.
+    await waitFor(() => expect(scheduleStateSyncs).toBe(1));
     await openModal(user, /scheduled: daily/i);
     expect(await screen.findByText(/Next run as saved:.*16:00/)).toBeInTheDocument();
   });
 
   test('a save still succeeds when the state cannot be brought up to date', async () => {
-    // An older server has no such route and an authorization refusal looks the same. The
-    // schedule is already written by then, so this must not fail the save -- the dispatcher's
-    // next pass computes the next run, which is where it came from before.
+    // An older server has no such route, and a refusal looks the same. The schedule is already
+    // written by then, and the dispatcher's next pass computes the next run anyway.
     syncFails = true;
     const user = setup();
     render();
@@ -605,9 +599,8 @@ describe('ExperimentIssuesScheduleControl', () => {
   });
 
   test('reads the schedule again on open, so a saved next run appears without a reload', async () => {
-    // Only the dispatcher computes a next run, so a save resolves with none. Without this the
-    // line stayed missing for the rest of the session: the query does not poll and does not
-    // refetch on focus.
+    // The query neither polls nor refetches on focus, so without re-reading on open the line
+    // stayed missing for the rest of the session.
     const nextRun = Date.UTC(2026, 10, 3, 15, 0);
     experimentTags = [scheduleTag('daily', false, 'Europe/Berlin', '16:00', 0)];
     const user = setup();
@@ -638,9 +631,8 @@ describe('ExperimentIssuesScheduleControl', () => {
   });
 
   test('keeps naming the saved next run while the draft is edited', async () => {
-    // Only the server computes these, and it has not seen an unsaved edit -- so the value must
-    // not follow the draft, and the label has to say which schedule it is describing. Pinned
-    // because the alternative is a line that silently answers for the controls above it.
+    // The server has not seen an unsaved edit, so the value must not follow the draft -- otherwise
+    // the line silently answers for the controls above it.
     const nextRun = Date.UTC(2026, 10, 3, 15, 0);
     experimentTags = [
       scheduleTag('daily', false, 'Europe/Berlin', '16:00', 0),
@@ -669,8 +661,7 @@ describe('ExperimentIssuesScheduleControl', () => {
   });
 
   test('drops the next run as soon as the draft is turned off', async () => {
-    // The line describes the saved schedule, but a draft set to Off is about to stop it, so
-    // leaving it on screen would describe a schedule the user has just turned off.
+    // The line describes the saved schedule, which a draft set to Off is about to stop.
     const nextRun = Date.UTC(2026, 10, 3, 15, 0);
     experimentTags = [
       scheduleTag('daily', false, 'Europe/Berlin', '16:00', 0),
@@ -724,9 +715,7 @@ describe('ExperimentIssuesScheduleControl', () => {
   });
 
   test("keeps a schedule's stored timezone when it is edited from somewhere else", async () => {
-    // The modal has no timezone control, so a save made elsewhere must not move when the schedule
-    // fires: pausing a Tokyo daily schedule from another zone would otherwise resume it at 09:00
-    // local to whoever paused it.
+    // Pausing a Tokyo schedule from another zone must not resume it at 09:00 local to the pauser.
     experimentTags = [scheduleTag('daily', false, 'Asia/Tokyo')];
     const user = setup();
     render();
@@ -800,21 +789,15 @@ describe('ExperimentIssuesScheduleControl', () => {
     render();
 
     // Only the unavailable branch wraps the trigger in a tooltip, so that attribute is what says
-    // the control took it. Waiting on `toBeDisabled` alone would not discriminate: the ordinary
-    // trigger is disabled too while the schedule loads, so that assertion can hold for the wrong
-    // reason. The capability itself reads false until `server-info` answers
-    // (`useFeatureEnabled(SCHEDULED_ISSUE_DETECTION, false)`), which is the fail-closed direction
-    // for a capability question -- a control that looks available and saves a schedule the server
-    // cannot run is the worse default.
+    // the control took it. `toBeDisabled` alone would not discriminate, because the ordinary
+    // trigger is disabled too while the schedule loads.
     await waitFor(async () =>
       expect(await screen.findByRole('button', { name: /schedule detection/i })).toHaveAttribute('tooltip-data-state'),
     );
     expect(await screen.findByRole('button', { name: /schedule detection/i })).toBeDisabled();
 
-    // The reason itself is not asserted here: the design system makes the disabled button its own
-    // tooltip trigger, and jsdom delivers no pointer or focus event to a disabled element, so no
-    // unit test can open it. Driving it with a simulated hover passed only intermittently, which is
-    // worse than not asserting it. The wording is covered by the screenshots on the pull request.
+    // The wording is not asserted: the disabled button is its own tooltip trigger, and jsdom
+    // delivers no pointer or focus event to a disabled element, so no unit test can open it.
   });
 
   test('saves the model the picker is left on, defaulting to the first provider', async () => {
@@ -886,9 +869,8 @@ describe('ExperimentIssuesScheduleControl', () => {
   });
 
   test('keeps the credential the schedule is pinned to when an unrelated edit is saved', async () => {
-    // The hazard: re-reading the provider's first secret on every save would re-point the
-    // schedule at whichever key that provider happens to list first -- on a server with more than
-    // one user, somebody else's. Changing the cadence must not touch which credential runs.
+    // Re-reading the provider's first secret on every save would re-point the schedule at
+    // whichever key is listed first -- on a multi-user server, somebody else's.
     experimentTags = [
       {
         key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG,
@@ -920,8 +902,8 @@ describe('ExperimentIssuesScheduleControl', () => {
   });
 
   test('keeps the pin when the provider lists no secrets, rather than dropping it', async () => {
-    // A read that comes back empty -- or fails -- says nothing about which key the schedule was
-    // pinned to. Dropping the pin would send the next occurrence to the server's own credential.
+    // An empty read says nothing about the pin; dropping it would send the next occurrence to the
+    // server's own credential.
     experimentTags = [
       {
         key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG,
@@ -950,8 +932,8 @@ describe('ExperimentIssuesScheduleControl', () => {
   });
 
   test('rejects a pasted control character, naming it by code point', async () => {
-    // The server drops a clause carrying one, so storing it would leave the modal showing a filter
-    // that every run ignores -- and a tab shows nothing in the field, hence the code point.
+    // The server drops a clause carrying one, and a tab shows nothing in the field -- hence naming
+    // the code point rather than echoing the value.
     const user = setup();
     render();
     await openModal(user);
@@ -986,8 +968,7 @@ describe('ExperimentIssuesScheduleControl', () => {
     expect(createdSecrets).toEqual([
       { secret_name: expect.any(String), provider: 'openai', secret_value: { api_key: 'sk-test-key' } },
     ]);
-    // The schedule names the secret just created, so the dispatcher runs on that key and not on
-    // whichever one a later read happens to find first.
+    // Named explicitly, so the dispatcher runs on this key and not whichever a later read finds.
     expect(savedSchedule()['model']).toEqual({
       provider: 'openai',
       model: 'gpt-5.6-sol',
@@ -996,8 +977,8 @@ describe('ExperimentIssuesScheduleControl', () => {
   });
 
   test('names the existing secret when AI Gateway already holds one for the provider', async () => {
-    // No key step here -- a key already exists -- but the schedule must still record *which* one,
-    // or the dispatcher would be back to guessing among a provider's secrets at fire time.
+    // No key step, since one exists -- but the schedule must still record which one, or the
+    // dispatcher is back to guessing among the provider's secrets at fire time.
     gatewaySecrets = [{ secret_id: 'sec-existing', secret_name: 'my-openai-key', provider: 'openai' }];
     const user = setup();
     render();
@@ -1014,11 +995,9 @@ describe('ExperimentIssuesScheduleControl', () => {
   });
 
   test('stores one key when "Continue and save" is clicked again while the first is in flight', async () => {
-    // Each click mints a fresh secret name, so a second one lands a duplicate key for the same
-    // schedule. `loading` hides the button's label but still accepts a click, so the guard has to
-    // be `disabled`. Reproduced by holding the create response open and clicking again before the
-    // first settles -- awaiting the first click instead lets the in-flight state propagate, which
-    // hides the race.
+    // Each click mints a fresh secret name, so a second lands a duplicate key. `loading` hides the
+    // label but still accepts a click, so the guard has to be `disabled`. The create response is
+    // held open because awaiting the first click lets the in-flight state propagate and hides it.
     envCredentialsAvailable = false;
     let releaseCreate: () => void = () => {};
     const createHeld = new Promise<void>((resolve) => {
@@ -1046,8 +1025,8 @@ describe('ExperimentIssuesScheduleControl', () => {
     const firstClick = user.click(continueAndSave);
     await waitFor(() => expect(createdSecrets).toHaveLength(1));
 
-    // Found by component id rather than name: the in-flight button hides its label, so its
-    // accessible name no longer matches. This is the node a second click would land on.
+    // By component id, because the in-flight button hides its label and so its name no longer
+    // matches. This is the node a second click would land on.
     const inFlight = () =>
       // eslint-disable-next-line testing-library/no-node-access
       document.querySelector(`[data-component-id="${COMPONENT_ID}.modal.footer.api-key-continue"]`);
@@ -1061,9 +1040,8 @@ describe('ExperimentIssuesScheduleControl', () => {
   });
 
   test('reuses the key it already stored when a failed save is retried', async () => {
-    // The secret is created before the schedule is written, and the two writes can still fail.
-    // Minting a second key on retry would leave an unused credential in AI Gateway per attempt,
-    // named randomly, with nothing tying it to this schedule.
+    // The secret is created before the schedule is written, and that write can fail. Minting a
+    // second key on retry would leave an unused, randomly named credential per attempt.
     envCredentialsAvailable = false;
     failWriteOfTag = MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG;
     const user = setup();
@@ -1129,8 +1107,8 @@ describe('ExperimentIssuesScheduleControl', () => {
   });
 
   test('saves without asking for a key when the server does not report whether it has one', async () => {
-    // An older server, or one whose gateway cannot be reached: a schedule that could be saved
-    // before this step existed must not become unsavable because the check cannot answer.
+    // A schedule savable before this step existed must not become unsavable because the check
+    // cannot answer -- an older server, or one whose gateway is unreachable.
     envCredentialsAvailable = undefined;
     const user = setup();
     render();
@@ -1167,8 +1145,8 @@ describe('ExperimentIssuesScheduleControl', () => {
     await save(user);
 
     await waitFor(() => expect(written).toHaveLength(2));
-    // The cadence is what makes the dispatcher pick the schedule up, so it must land last: written
-    // first, a failed second write or a poll in between could run against clauses not yet stored.
+    // The cadence is what makes the dispatcher pick the schedule up, so it must land last --
+    // written first, a poll in between could run against clauses not yet stored.
     expect(written.map(({ key }) => key)).toEqual([
       MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG,
       MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG,
@@ -1216,8 +1194,8 @@ describe('ExperimentIssuesScheduleControl', () => {
     const user = setup();
     render();
 
-    // Opening the modal against a failed read would show "Off" with no filters, and saving that
-    // would replace whatever is really stored.
+    // Against a failed read the modal would show "Off" with no filters, and saving that would
+    // replace whatever is really stored.
     expect(await screen.findByRole('button', { name: /retry schedule/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /schedule detection/i })).not.toBeInTheDocument();
 
@@ -1226,5 +1204,47 @@ describe('ExperimentIssuesScheduleControl', () => {
     await user.click(await screen.findByRole('button', { name: /retry schedule/i }));
 
     expect(await screen.findByRole('button', { name: /scheduled: weekly/i })).toBeInTheDocument();
+  });
+
+  describe('run history', () => {
+    test('the footer links to the detection run history', async () => {
+      experimentTags = [scheduleTag('weekly')];
+      const user = setup();
+      render();
+
+      await user.click(await screen.findByRole('button', { name: /scheduled: weekly/i }));
+
+      expect(await screen.findByRole('link', { name: 'View run history' })).toHaveAttribute(
+        'href',
+        '/experiments/1/issues/runs',
+      );
+    });
+
+    test('the link is hidden on the run history page, where it would lead nowhere', async () => {
+      // The same trigger opens this dialog there, so the link would lead to the current page.
+      experimentTags = [scheduleTag('weekly')];
+      const user = setup();
+      renderAt('/experiments/1/issues/runs');
+      await openModal(user, /scheduled: weekly/i);
+
+      expect(await screen.findByRole('button', { name: 'Save' })).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'View run history' })).not.toBeInTheDocument();
+    });
+
+    test('the link is hidden on the API key step, which is mid-save', async () => {
+      // The step is reached by saving, so a link here offers to walk away from an unstored
+      // schedule.
+      experimentTags = [];
+      gatewaySecrets = [];
+      envCredentialsAvailable = false;
+      const user = setup();
+      render();
+      await openModal(user);
+      await chooseCadence(user, 'Daily');
+      await save(user);
+
+      expect(await screen.findByRole('button', { name: 'Continue and save' })).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'View run history' })).not.toBeInTheDocument();
+    });
   });
 });

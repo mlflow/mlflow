@@ -129,6 +129,7 @@ def test_downstream_notebook_job_lineage(
                 host_creds=mock.ANY,
                 endpoint=mock.ANY,
                 method=mock.ANY,
+                raise_on_status=False,
                 json=mock.ANY,
                 extra_headers=extra_headers,
             )

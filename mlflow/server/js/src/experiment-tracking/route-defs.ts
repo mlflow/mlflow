@@ -234,6 +234,14 @@ const getExperimentPageRouteDefs = () => {
           } satisfies RouteHandle,
         },
         {
+          path: RoutePaths.experimentPageTabIssueDetectionRuns,
+          pageId: PageId.experimentPageTabIssueDetectionRuns,
+          element: createLazyRouteElement(() => import('./pages/experiment-issues/ExperimentIssueDetectionRunsPage')),
+          handle: {
+            getPageTitle: (params) => `Issue detection run history - Experiment ${params['experimentId']}`,
+          } satisfies RouteHandle,
+        },
+        {
           path: RoutePaths.experimentPageTabDatasets,
           pageId: PageId.experimentPageTabDatasets,
           element: createLazyRouteElement(() => {

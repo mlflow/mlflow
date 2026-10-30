@@ -2872,6 +2872,10 @@ _HANDLER_BLOCKED_TRACE_TAGS = frozenset({
 _HANDLER_TRACE_TAGS_MUTABLE_ON_DELETE = frozenset({MLFLOW_TRACE_ARCHIVAL_FAILURE})
 
 
+def _drop_blocked_trace_tags(tags: dict[str, str]) -> dict[str, str]:
+    return {key: value for key, value in tags.items() if key not in _HANDLER_BLOCKED_TRACE_TAGS}
+
+
 def _validate_trace_tag_handler_mutation(key: str, operation: str) -> None:
     # `mlflow.trace.archivalFailure` is system-managed for writes, but deleting it is the
     # supported way to clear a terminal archival failure and allow a later retry.
@@ -4545,6 +4549,9 @@ def _start_trace_v3():
         schema={"trace": [_assert_required]},
     )
     trace_info = TraceInfo.from_proto(request_message.trace.trace_info)
+    # Trace tags such as the artifact location are system-managed, so drop blocked tags from
+    # client requests the same way the V2 end-trace handler does.
+    trace_info.tags = _drop_blocked_trace_tags(trace_info.tags)
     trace_info = _get_tracking_store().start_trace(trace_info)
     response_message = StartTraceV3.Response(trace=ProtoTrace(trace_info=trace_info.to_proto()))
     return _wrap_trace_info_response(response_message)
@@ -6117,7 +6124,7 @@ def _deprecated_start_trace_v2():
         },
     )
     request_metadata = {e.key: e.value for e in request_message.request_metadata}
-    tags = {e.key: e.value for e in request_message.tags}
+    tags = _drop_blocked_trace_tags({e.key: e.value for e in request_message.tags})
 
     trace_info = _get_tracking_store().deprecated_start_trace_v2(
         experiment_id=request_message.experiment_id,
@@ -6148,9 +6155,7 @@ def _deprecated_end_trace_v2(request_id):
     request_metadata = {e.key: e.value for e in request_message.request_metadata}
     # Legacy clients send back all trace tags, including server-managed ones, so drop
     # blocked tags instead of rejecting the request.
-    tags = {
-        e.key: e.value for e in request_message.tags if e.key not in _HANDLER_BLOCKED_TRACE_TAGS
-    }
+    tags = _drop_blocked_trace_tags({e.key: e.value for e in request_message.tags})
 
     trace_info = _get_tracking_store().deprecated_end_trace_v2(
         request_id=request_id,

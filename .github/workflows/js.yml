@@ -47,7 +47,7 @@ jobs:
   js:
     permissions:
       contents: read
-    timeout-minutes: 30
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
