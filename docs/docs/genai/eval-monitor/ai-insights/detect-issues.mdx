@@ -75,24 +75,11 @@ You can also start detection from the **Traces** tab. Filter or select traces th
 
 Analysis runs in the background. You can leave the page and return later.
 
-## View run history
-
-**Issue detection run history** lists manual (**Ad hoc**) and **Scheduled** runs, including runs that find no issues or fail. You can open it in any of these ways:
-
-- **After starting detection**: Click **View progress** in the notification.
-- **If detection fails**: Click **View details** in the failure notification.
-- **If the Issues tab has no issues after a run**: Click **View run history** beneath the **Run issue detection** or **Start new detection** button.
-- **If the Issues tab lists issues**: Click the **Issue detection run history** icon beside the settings icon.
-
-The table shows each run's status, analyzed trace count, new issue count, model, cost, and duration when available. Hover over a failed run's status to see its error details.
-
-**Window covered** shows the trace time range for a scheduled run. It is empty for an ad hoc run, which analyzes a selected set of traces. When a schedule is active, the page also shows its cadence and next run time.
-
 ## Review issues
 
 After the analysis finishes, the Issues tab lists detected problems and shows supporting evidence for the selected issue. Each piece of evidence links to an affected source trace. The issue details also show its description, severity, categories, and affected trace count.
 
-Click **View issues** or **View details** in the completion notification to return to the Issues tab.
+Click **View issues** in the completion notification to return to the Issues tab.
 
 Expand an entry in **Evidence** to read why that trace supports the finding. Evidence can include a walkthrough of the relevant spans, with highlighted inputs, tool results, and responses. Click **Open trace** to inspect the source trace in the drawer, or **View span** to jump to a particular span.
 
@@ -103,7 +90,7 @@ Expand an entry in **Evidence** to read why that trace supports the finding. Evi
 
 ### Triage issues
 
-If a finding is not applicable, update the status to **Not an issue** using the dropdown in the upper-right corner. MLflow uses this feedback to avoid surfacing the same issue again in later detection runs: matching findings retain **Not an issue** status rather than becoming new open issues.
+If a finding is not applicable, update the status to **Not an issue** using the dropdown in the upper-right corner. MLflow uses this feedback to avoid surfacing the same issue again in later detection runs.
 
 Use the status dropdown in the upper-right corner of the issue details to change its status:
 
@@ -112,8 +99,6 @@ Use the status dropdown in the upper-right corner of the issue details to change
 | **Open**         | A newly detected issue that needs investigation.                   |
 | **Resolved**     | You have fixed the issue and verified the change.                  |
 | **Not an issue** | The finding is a false positive or describes intentional behavior. |
-
-Use **Filter issues** to filter by status, severity, or category. For example, select **Resolved** and deselect **Open** to review resolved issues. You can also search by title and sort the list.
 
 ## Fix issues with coding agents
 
@@ -141,8 +126,6 @@ Schedule issue detection to analyze new traces regularly:
   alt="Weekly issue detection scheduled for Monday at 09:00 in the Asia/Tokyo timezone"
   width="75%"
 />
-
-The toolbar shows **Scheduled: Weekly** or **Scheduled: Daily** when enabled. Click it to edit the schedule. To pause future runs, set **Cadence** to **Off** and save. You can still run detection manually.
 
 Scheduled runs require the server's periodic tasks and background job execution to be enabled. If **Schedule detection** is unavailable, check the server configuration. Each scheduled run incurs model usage costs.
 
@@ -173,6 +156,19 @@ The built-in focus areas are:
 | **Cost**        | Unusual token or tool-call spending compared with the agent's baseline.     |
 
 Click **Save** to apply the settings to future detection runs. If no focus areas are selected, detection considers all of them.
+
+## View run history
+
+**Issue detection run history** lists manual (**Ad hoc**) and **Scheduled** runs, including runs that find no issues or fail. You can open it in any of these ways:
+
+- **After starting detection**: Click **View progress** in the notification.
+- **If detection fails**: Click **View details** in the failure notification.
+- **If the Issues tab has no issues after a run**: Click **View run history** beneath the **Run issue detection** or **Start new detection** button.
+- **If the Issues tab lists issues**: Click the **Issue detection run history** icon beside the settings icon.
+
+The table shows each run's status, analyzed trace count, new issue count, model, cost, and duration when available. Hover over a failed run's status to see its error details.
+
+**Window covered** shows the trace time range for a scheduled run. It is empty for an ad hoc run, which analyzes a selected set of traces. When a schedule is active, the page also shows its cadence and next run time.
 
 ## Access issues programmatically
 
