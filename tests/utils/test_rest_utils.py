@@ -1,4 +1,6 @@
+import importlib
 import json
+import pkgutil
 import re
 import threading
 import time
@@ -9,7 +11,9 @@ from unittest import mock
 import numpy
 import pytest
 import requests
+from google.protobuf import descriptor_pool
 
+import mlflow.protos
 from mlflow.deployments.databricks import DatabricksDeploymentClient
 from mlflow.environment_variables import (
     _MLFLOW_DATABRICKS_TRAFFIC_ID,
@@ -18,8 +22,28 @@ from mlflow.environment_variables import (
     MLFLOW_HTTP_REQUEST_TIMEOUT,
 )
 from mlflow.exceptions import InvalidUrlException, MlflowException, RestException
+
+# Imported to register the response messages they define with the default descriptor pool.
+from mlflow.protos import (
+    databricks_artifacts_pb2,  # noqa: F401
+    databricks_filesystem_service_pb2,  # noqa: F401
+    databricks_pb2,
+    databricks_tracing_pb2,  # noqa: F401
+    databricks_uc_registry_messages_pb2,  # noqa: F401
+    unity_catalog_messages_pb2,  # noqa: F401
+    unity_catalog_prompt_service_pb2,  # noqa: F401
+)
 from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, ErrorCode
-from mlflow.protos.service_pb2 import GetRun
+from mlflow.protos.model_registry_pb2 import CreateModelVersion, CreateRegisteredModel
+from mlflow.protos.service_pb2 import (
+    CreateExperiment,
+    CreateLoggedModel,
+    CreateRun,
+    DeleteTag,
+    GetRun,
+    LogBatch,
+    SearchRuns,
+)
 from mlflow.pyfunc.scoring_server import NumpyEncoder
 from mlflow.tracking.request_header.default_request_header_provider import (
     _CLIENT_VERSION,
@@ -28,6 +52,7 @@ from mlflow.tracking.request_header.default_request_header_provider import (
 )
 from mlflow.utils.rest_utils import (
     _DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING,
+    _RETRY_SAFE_POST_RESPONSES,
     MlflowHostCreds,
     _can_parse_as_json_object,
     augmented_raise_for_status,
@@ -94,6 +119,160 @@ def test_call_endpoint_surfaces_server_error_after_retries_on_5xx(monkeypatch, m
             thread.join()
 
     assert request_count == max_retries + 1
+
+
+def _send_post(response_proto, status_code=200, delay_seconds=0):
+    request_count = 0
+    client_done = threading.Event()
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            nonlocal request_count
+            request_count += 1
+            self.rfile.read(int(self.headers["Content-Length"]))
+            if client_done.wait(delay_seconds):
+                return
+            body = json.dumps({"error_code": "TEMPORARILY_UNAVAILABLE", "message": "Failure"})
+            self.send_response(status_code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body.encode())
+
+        def log_message(self, *args):
+            pass
+
+    with ThreadingHTTPServer(("127.0.0.1", 0), Handler) as server:
+        thread = threading.Thread(target=server.serve_forever, name="test-post-server", daemon=True)
+        thread.start()
+        try:
+            host_creds = MlflowHostCreds(f"http://127.0.0.1:{server.server_port}")
+            with pytest.raises(MlflowException, match=r"Failure|timeout") as exc_info:
+                call_endpoint(host_creds, "/my/endpoint", "POST", "{}", response_proto)
+        finally:
+            client_done.set()
+            server.shutdown()
+            thread.join()
+    return request_count, str(exc_info.value)
+
+
+@pytest.mark.parametrize(
+    ("response_proto", "status_code", "expected_requests"),
+    [
+        # The write may have been committed before these responses, so it isn't sent again.
+        (CreateRun.Response(), 500, 1),
+        (CreateRun.Response(), 502, 1),
+        (CreateRun.Response(), 503, 1),
+        (CreateRun.Response(), 504, 1),
+        # These mean the server didn't receive the request, so the write is retried.
+        (CreateRun.Response(), 408, 3),
+        (CreateRun.Response(), 429, 3),
+        # Reads and idempotent writes keep the full retry policy.
+        (SearchRuns.Response(), 504, 3),
+        (LogBatch.Response(), 504, 3),
+    ],
+)
+def test_call_endpoint_retries_post_writes_only_when_unprocessed(
+    monkeypatch, response_proto, status_code, expected_requests
+):
+    monkeypatch.setenv(MLFLOW_HTTP_REQUEST_MAX_RETRIES.name, "2")
+    monkeypatch.setenv(MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR.name, "0")
+
+    request_count, _ = _send_post(response_proto, status_code)
+
+    assert request_count == expected_requests
+
+
+@pytest.mark.parametrize(
+    ("response_proto", "expected_requests"),
+    [(CreateRun.Response(), 1), (SearchRuns.Response(), 2), (LogBatch.Response(), 2)],
+)
+def test_call_endpoint_retries_post_read_timeout_only_when_retry_safe(
+    monkeypatch, response_proto, expected_requests
+):
+    monkeypatch.setenv(MLFLOW_HTTP_REQUEST_MAX_RETRIES.name, "1")
+    monkeypatch.setenv(MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR.name, "0")
+    monkeypatch.setenv(MLFLOW_HTTP_REQUEST_TIMEOUT.name, "1")
+
+    request_count, _ = _send_post(response_proto, delay_seconds=2)
+
+    assert request_count == expected_requests
+
+
+def test_call_endpoint_explains_how_to_increase_timeout_for_a_write(monkeypatch):
+    monkeypatch.setenv(MLFLOW_HTTP_REQUEST_TIMEOUT.name, "1")
+
+    _, message = _send_post(CreateRun.Response(), delay_seconds=2)
+
+    assert MLFLOW_HTTP_REQUEST_TIMEOUT.name in message
+
+
+def test_call_endpoint_leaves_databricks_sdk_retries_unchanged():
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = "{}"
+    host_creds = MlflowHostCreds("https://my-host", use_databricks_sdk=True)
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        call_endpoint(host_creds, "/my/endpoint", "POST", "{}", CreateRun.Response())
+
+    mock_http.assert_called_once_with(
+        host_creds=host_creds,
+        endpoint="/my/endpoint",
+        method="POST",
+        raise_on_status=False,
+        json={},
+    )
+
+
+@pytest.mark.parametrize("name", sorted(_RETRY_SAFE_POST_RESPONSES))
+def test_retry_safe_post_responses_are_proto_messages(name):
+    descriptor_pool.Default().FindMessageTypeByName(name)
+
+
+def _post_rpcs():
+    for module_info in pkgutil.iter_modules(mlflow.protos.__path__):
+        if not module_info.name.endswith("_pb2"):
+            continue
+        module = importlib.import_module(f"mlflow.protos.{module_info.name}")
+        for service in module.DESCRIPTOR.services_by_name.values():
+            for method in service.methods:
+                options = method.GetOptions()
+                if options.HasExtension(databricks_pb2.rpc) and any(
+                    endpoint.method == "POST"
+                    for endpoint in options.Extensions[databricks_pb2.rpc].endpoints
+                ):
+                    yield method
+
+
+def test_read_post_rpcs_are_retry_safe():
+    # Matches RPC names against their declared response messages. Some stores pass a different
+    # response message (e.g. Unity Catalog credential requests), so this doesn't cover every call.
+    # Read-style names for RPCs that change server state.
+    writes_with_read_names = {"mlflow.review_queues.GetOrCreateUserQueue"}
+    missing = [
+        method.full_name
+        for method in _post_rpcs()
+        if method.input_type.name.startswith(("Search", "Get", "BatchGet", "Query", "Calculate"))
+        and method.input_type.full_name not in writes_with_read_names
+        and method.output_type.full_name not in _RETRY_SAFE_POST_RESPONSES
+    ]
+    assert missing == []
+
+
+@pytest.mark.parametrize(
+    "response_proto",
+    [
+        # These allocate a new ID or version, or fail when repeated.
+        CreateExperiment.Response(),
+        CreateLoggedModel.Response(),
+        CreateModelVersion.Response(),
+        CreateRegisteredModel.Response(),
+        CreateRun.Response(),
+        DeleteTag.Response(),
+    ],
+)
+def test_non_idempotent_writes_are_not_retry_safe(response_proto):
+    assert response_proto.DESCRIPTOR.full_name not in _RETRY_SAFE_POST_RESPONSES
 
 
 def test_call_endpoints():
@@ -583,6 +762,7 @@ def test_http_request_customize_config(monkeypatch):
             verify=mock.ANY,
             timeout=120,
             respect_retry_after_header=True,
+            retry_read_errors=True,
         )
         mock_get_http_response_with_retries.reset_mock()
         monkeypatch.setenv("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "8")
@@ -603,6 +783,7 @@ def test_http_request_customize_config(monkeypatch):
             verify=mock.ANY,
             timeout=300,
             respect_retry_after_header=False,
+            retry_read_errors=True,
         )
 
 

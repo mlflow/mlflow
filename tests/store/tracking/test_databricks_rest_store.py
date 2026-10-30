@@ -56,6 +56,7 @@ from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
 from mlflow.utils.databricks_tracing_utils import assessment_to_proto, trace_to_proto
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
+    _UNPROCESSED_REQUEST_RESPONSE_CODES,
     _V3_TRACE_REST_API_PATH_PREFIX,
     _V4_TRACE_REST_API_PATH_PREFIX,
     MlflowHostCreds,
@@ -114,7 +115,15 @@ def _to_v4_trace(trace: Trace) -> Trace:
     return trace
 
 
-def _args(host_creds, endpoint, method, json_body, version, retry_timeout_seconds=None):
+def _args(
+    host_creds,
+    endpoint,
+    method,
+    json_body,
+    version,
+    retry_timeout_seconds=None,
+    retries_unprocessed_only=False,
+):
     res = {
         "host_creds": host_creds,
         "endpoint": f"/api/{version}/mlflow/{endpoint}",
@@ -123,6 +132,8 @@ def _args(host_creds, endpoint, method, json_body, version, retry_timeout_second
     }
     if retry_timeout_seconds is not None:
         res["retry_timeout_seconds"] = retry_timeout_seconds
+    if retries_unprocessed_only:
+        res |= {"retry_codes": _UNPROCESSED_REQUEST_RESPONSE_CODES, "retry_read_errors": False}
     if method == "GET":
         res["params"] = json.loads(json_body) if json_body is not None else None
     else:
@@ -138,6 +149,7 @@ def _verify_requests(
     json_body,
     version="4.0",
     retry_timeout_seconds=None,
+    retries_unprocessed_only=False,
 ):
     """
     Verify HTTP requests in tests.
@@ -150,9 +162,19 @@ def _verify_requests(
         json_body: The request body as a JSON string
         version: The version of the API to use (e.g., "2.0", "3.0", "4.0")
         retry_timeout_seconds: The retry timeout seconds to use for the request
+        retries_unprocessed_only: Whether the request is a write that is retried only when the
+            server didn't process it
     """
     http_request.assert_any_call(
-        **(_args(host_creds, endpoint, method, json_body, version, retry_timeout_seconds))
+        **_args(
+            host_creds,
+            endpoint,
+            method,
+            json_body,
+            version,
+            retry_timeout_seconds,
+            retries_unprocessed_only,
+        )
     )
 
 
@@ -192,6 +214,7 @@ def test_create_trace_v4_uc_location(monkeypatch):
             message_to_json(trace_info.to_proto()),
             version="4.0",
             retry_timeout_seconds=1,
+            retries_unprocessed_only=True,
         )
         assert result.trace_id == "trace:/catalog.schema/123"
 
@@ -1309,6 +1332,7 @@ def test_create_assessment(sql_warehouse_id):
             "POST",
             message_to_json(assessment_to_proto(feedback)),
             version="4.0",
+            retries_unprocessed_only=True,
         )
         assert isinstance(res, Feedback)
         assert res.assessment_id is not None
@@ -1607,6 +1631,8 @@ def test_link_traces_to_run_with_v4_trace_ids_uses_batch_v4_endpoint():
             endpoint=f"/api/4.0/mlflow/traces/{location}/link-to-run/batchCreate",
             method="POST",
             raise_on_status=False,
+            retry_codes=_UNPROCESSED_REQUEST_RESPONSE_CODES,
+            retry_read_errors=False,
             json=expected_json,
         )
 
@@ -1634,6 +1660,8 @@ def test_link_traces_to_run_with_v3_trace_ids_uses_v3_endpoint():
             endpoint="/api/2.0/mlflow/traces/link-to-run",
             method="POST",
             raise_on_status=False,
+            retry_codes=_UNPROCESSED_REQUEST_RESPONSE_CODES,
+            retry_read_errors=False,
             json=expected_json,
         )
 

@@ -283,3 +283,30 @@ def test_session_uses_tcp_keepalive_adapter():
     assert isinstance(session.get_adapter("https://example.com"), TCPKeepAliveHTTPAdapter)
     assert isinstance(session.get_adapter("http://example.com"), TCPKeepAliveHTTPAdapter)
     request_utils._cached_get_request_session.cache_clear()
+
+
+def _get_session_retry(**kwargs):
+    request_utils._cached_get_request_session.cache_clear()
+    session = request_utils._get_request_session(
+        max_retries=3,
+        backoff_factor=1,
+        backoff_jitter=0.5,
+        retry_codes=(500,),
+        raise_on_status=True,
+        respect_retry_after_header=True,
+        **kwargs,
+    )
+    request_utils._cached_get_request_session.cache_clear()
+    return session.get_adapter("https://example.com").max_retries
+
+
+def test_session_retries_errors_after_sending_by_default():
+    retry = _get_session_retry()
+    assert retry.read == 3
+    assert retry.connect == 3
+
+
+def test_session_without_read_error_retries_still_retries_connection_errors():
+    retry = _get_session_retry(retry_read_errors=False)
+    assert retry.read is False
+    assert retry.connect == 3

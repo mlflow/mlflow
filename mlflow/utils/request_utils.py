@@ -160,6 +160,7 @@ def _cached_get_request_session(
     # such as https://stackoverflow.com/q/3724900.
     _pid,
     respect_retry_after_header=True,
+    retry_read_errors=True,
 ):
     """
     This function should not be called directly. Instead, use `_get_request_session` below.
@@ -168,7 +169,8 @@ def _cached_get_request_session(
     retry_kwargs = {
         "total": max_retries,
         "connect": max_retries,
-        "read": max_retries,
+        # `False` raises the original error, such as a read timeout, instead of `MaxRetryError`.
+        "read": max_retries if retry_read_errors else False,
         "redirect": max_retries,
         "status": max_retries,
         "status_forcelist": retry_codes,
@@ -210,6 +212,7 @@ def _get_request_session(
     retry_codes,
     raise_on_status,
     respect_retry_after_header,
+    retry_read_errors=True,
 ):
     """Returns a `Requests.Session` object for making an HTTP request.
 
@@ -224,6 +227,8 @@ def _get_request_session(
             in retry_codes range and retries have been exhausted.
         respect_retry_after_header: Whether to respect Retry-After header on status codes defined
             as Retry.RETRY_AFTER_STATUS_CODES or not.
+        retry_read_errors: Whether to retry errors raised once the request may have reached the
+            server, such as a read timeout or a reset connection.
 
     Returns:
         requests.Session object.
@@ -237,6 +242,7 @@ def _get_request_session(
         raise_on_status,
         _pid=os.getpid(),
         respect_retry_after_header=respect_retry_after_header,
+        retry_read_errors=retry_read_errors,
     )
 
 
@@ -250,6 +256,7 @@ def _get_http_response_with_retries(
     raise_on_status=True,
     allow_redirects=None,
     respect_retry_after_header=True,
+    retry_read_errors=True,
     **kwargs,
 ):
     """Performs an HTTP request using Python's `requests` module with an automatic retry policy.
@@ -265,6 +272,8 @@ def _get_http_response_with_retries(
         retry_codes: A list of HTTP response error codes that qualifies for retry.
         raise_on_status: Whether to raise an exception, or return a response, if status falls
             in retry_codes range and retries have been exhausted.
+        retry_read_errors: Whether to retry errors raised once the request may have reached the
+            server, such as a read timeout or a reset connection.
         kwargs: Additional keyword arguments to pass to `requests.Session.request()`
 
     Returns:
@@ -277,6 +286,7 @@ def _get_http_response_with_retries(
         retry_codes,
         raise_on_status,
         respect_retry_after_header,
+        retry_read_errors,
     )
 
     # the environment variable is hardcoded here to avoid importing mlflow.

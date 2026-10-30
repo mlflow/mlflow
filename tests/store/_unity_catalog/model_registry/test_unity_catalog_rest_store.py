@@ -107,6 +107,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_NOTEBOOK_ID,
 )
 from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.rest_utils import _UNPROCESSED_REQUEST_RESPONSE_CODES
 
 from tests.helper_functions import mock_http_200
 from tests.resources.data.dataset_source import SampleDatasetSource
@@ -147,7 +148,7 @@ def spark_session(request):
         yield spark
 
 
-def _args(endpoint, method, json_body, host_creds, extra_headers):
+def _args(endpoint, method, json_body, host_creds, extra_headers, retries_unprocessed_only=False):
     res = {
         "host_creds": host_creds,
         "endpoint": f"/api/2.0/mlflow/unity-catalog/{endpoint}",
@@ -157,6 +158,8 @@ def _args(endpoint, method, json_body, host_creds, extra_headers):
     }
     if extra_headers is None:
         del res["extra_headers"]
+    if retries_unprocessed_only:
+        res |= {"retry_codes": _UNPROCESSED_REQUEST_RESPONSE_CODES, "retry_read_errors": False}
     if method == "GET":
         res["params"] = json.loads(json_body)
     else:
@@ -171,10 +174,13 @@ def _verify_requests(
     proto_message,
     host_creds=_REGISTRY_HOST_CREDS,
     extra_headers=None,
+    retries_unprocessed_only=False,
 ):
     json_body = message_to_json(proto_message)
-    call_args = _args(endpoint, method, json_body, host_creds, extra_headers)
-    http_request.assert_any_call(**(call_args))
+    call_args = _args(
+        endpoint, method, json_body, host_creds, extra_headers, retries_unprocessed_only
+    )
+    http_request.assert_any_call(**call_args)
 
 
 def _expected_unsupported_method_error_message(method):
@@ -202,6 +208,7 @@ def test_create_registered_model(mock_http, store):
             description=description,
             tags=uc_registered_model_tag_from_mlflow_tags(tags),
         ),
+        retries_unprocessed_only=True,
     )
 
 
@@ -1644,7 +1651,8 @@ def _assert_create_model_version_endpoints_called(
     `request_mock`
     """
     uc_tags = uc_model_version_tag_from_mlflow_tags(tags) if tags is not None else []
-    for endpoint, proto_message in [
+    # Creating and finalizing a version are retried only when the server didn't process the request.
+    for endpoint, proto_message, retries_unprocessed_only in [
         (
             "model-versions/create",
             CreateModelVersionRequest(
@@ -1658,16 +1666,19 @@ def _assert_create_model_version_endpoints_called(
                 model_version_dependencies=model_version_dependencies,
                 model_id=model_id,
             ),
+            True,
         ),
         (
             "model-versions/generate-temporary-credentials",
             GenerateTemporaryModelVersionCredentialsRequest(
                 name=name, version=version, operation=MODEL_VERSION_OPERATION_READ_WRITE
             ),
+            False,
         ),
         (
             "model-versions/finalize",
             FinalizeModelVersionRequest(name=name, version=version),
+            True,
         ),
     ]:
         if endpoint == "model-versions/create" and extra_headers is not None:
@@ -1677,6 +1688,7 @@ def _assert_create_model_version_endpoints_called(
                 method="POST",
                 proto_message=proto_message,
                 extra_headers=extra_headers,
+                retries_unprocessed_only=retries_unprocessed_only,
             )
         else:
             _verify_requests(
@@ -1684,6 +1696,7 @@ def _assert_create_model_version_endpoints_called(
                 endpoint=endpoint,
                 method="POST",
                 proto_message=proto_message,
+                retries_unprocessed_only=retries_unprocessed_only,
             )
 
 
