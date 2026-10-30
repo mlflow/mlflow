@@ -1,6 +1,7 @@
 /* eslint-disable no-undef -- FEINF-2715 - convert to TS */
 import { configure } from 'enzyme';
 import Adapter from '@wojtekmaj/enzyme-adapter-react-17';
+import { cacheComputedStylesUntilDomChanges } from './common/utils/cacheComputedStyles';
 
 const setupMockFetch = () => {
   // eslint-disable-next-line import/no-extraneous-dependencies, no-unreachable
@@ -22,6 +23,16 @@ global.setImmediate = (cb) => {
 global.clearImmediate = (id) => {
   return clearTimeout(id);
 };
+
+cacheComputedStylesUntilDomChanges();
+
+// Ant Design's icons re-inject their stylesheet from an effect in every icon that mounts, and
+// finding the node already there means scanning every `<style>` in `document.head`. See
+// `reuseInjectedStyles`.
+jest.mock('rc-util/lib/Dom/dynamicCSS', () => {
+  const { reuseInjectedStyles } = jest.requireActual('./common/utils/reuseInjectedStyles');
+  return reuseInjectedStyles(jest.requireActual('rc-util/lib/Dom/dynamicCSS'));
+});
 
 // for plotly.js to work
 //
