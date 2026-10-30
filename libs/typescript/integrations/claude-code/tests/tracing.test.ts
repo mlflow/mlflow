@@ -38,6 +38,7 @@ const mockSpans: Record<
     attributes: Record<string, any>;
     startTimeNs?: number;
     endTimeNs?: number;
+    statusCode?: string;
     exceptions: Error[];
   }
 > = {};
@@ -76,6 +77,7 @@ jest.mock('@mlflow/core', () => {
         attributes: { ...(options.attributes ?? {}) },
         startTimeNs: options.startTimeNs,
         endTimeNs: undefined as number | undefined,
+        statusCode: undefined as string | undefined,
         exceptions: [] as Error[],
         setAttribute: jest.fn((key: string, value: any) => {
           span.attributes[key] = value;
@@ -90,6 +92,9 @@ jest.mock('@mlflow/core', () => {
         recordException: jest.fn((err: Error) => {
           span.exceptions.push(err);
         }),
+        setStatus: jest.fn((statusCode: string) => {
+          span.statusCode = statusCode;
+        }),
       };
       mockSpans[id] = span;
       return span;
@@ -102,11 +107,13 @@ jest.mock('@mlflow/core', () => {
       TOOL: 'TOOL',
       UNKNOWN: 'UNKNOWN',
     },
+    SpanStatusCode: { ERROR: 'ERROR' },
     SpanAttributeKey: {
       TOKEN_USAGE: 'mlflow.chat.tokenUsage',
       MESSAGE_FORMAT: 'mlflow.message.format',
     },
     TraceMetadataKey: {
+      SOURCE_RUN: 'mlflow.sourceRun',
       TRACE_SESSION: 'mlflow.trace.session',
       TRACE_USER: 'mlflow.trace.user',
       TOKEN_USAGE: 'mlflow.trace.tokenUsage',
@@ -131,6 +138,7 @@ jest.mock('@mlflow/core', () => {
 
 // Import after mock
 import { processTranscript } from '../src/tracing';
+import { LiveTracingContext } from '../src/liveTracing';
 import { startSpan, flushTraces } from '@mlflow/core';
 
 const FIXTURES_DIR = resolve(__dirname, 'fixtures');
@@ -203,7 +211,7 @@ describe('processTranscript', () => {
 
       expect(agents).toHaveLength(1);
       expect(agents[0].name).toBe('claude_code_conversation');
-      expect(llms).toHaveLength(2);
+      expect(llms).toHaveLength(3);
       expect(tools).toHaveLength(1);
       expect(tools[0].name).toBe('tool_Bash');
     });
@@ -230,12 +238,13 @@ describe('processTranscript', () => {
       expect(firstLlm!.outputs.content).toBeDefined();
     });
 
-    it('sets MESSAGE_FORMAT attribute on LLM spans', async () => {
+    it('sets Anthropic attributes on LLM spans', async () => {
       await processTranscript(resolve(FIXTURES_DIR, 'basic.jsonl'), 'test-session-123');
 
       const llms = getSpansByType('LLM');
       for (const llm of llms) {
         expect(llm.attributes['mlflow.message.format']).toBe('anthropic');
+        expect(llm.attributes['mlflow.llm.provider']).toBe('anthropic');
       }
     });
 
@@ -254,8 +263,8 @@ describe('processTranscript', () => {
 
       const root = getSpansByName('claude_code_conversation')[0];
       const children = getChildSpans(root.spanId);
-      // 2 LLM + 1 TOOL
-      expect(children).toHaveLength(3);
+      // 3 LLM + 1 TOOL, including the tool-only assistant response.
+      expect(children).toHaveLength(4);
     });
 
     it('calls flushTraces after processing', async () => {
@@ -405,6 +414,43 @@ describe('processTranscript', () => {
       expect(root.endTimeNs).toBeGreaterThanOrEqual(Math.max(...llms.map((llm) => llm.endTimeNs!)));
       const traceCost = JSON.parse(mockTraceInfo.traceMetadata['mlflow.trace.cost']);
       expect(traceCost.total_cost).toBeCloseTo(0.000792 * 3, 9);
+    });
+
+    it('merges repeated response records without duplicating tool calls or counting usage twice', async () => {
+      await processTranscript(resolve(FIXTURES_DIR, 'repeated-messages.jsonl'), 'repeated-session');
+
+      const llms = getSpansByType('LLM');
+      expect(llms).toHaveLength(2);
+      expect(getSpansByType('TOOL')).toHaveLength(2);
+      expect(llms[0].attributes['mlflow.chat.tokenUsage']).toEqual({
+        input_tokens: 1110,
+        output_tokens: 25,
+        total_tokens: 1135,
+        cache_read_input_tokens: 1000,
+        cache_creation_input_tokens: 100,
+      });
+      expect(llms[0].outputs.content).toHaveLength(2);
+      expect(getSpansByName('tool_Read')[0].outputs).toEqual({ result: 'file content' });
+      expect(getSpansByName('tool_Bash')[0].statusCode).toBe('ERROR');
+    });
+
+    it('captures tool-only responses without usage', async () => {
+      const tmpDir = mkdtempSync(resolve(tmpdir(), 'cc-test-'));
+      const transcriptPath = resolve(tmpDir, 'tool-only.jsonl');
+      const entries: TranscriptEntry[] = [
+        { type: 'user', message: { role: 'user', content: 'Read a file' }, timestamp: 1000 },
+        {
+          type: 'assistant',
+          message: {
+            role: 'assistant',
+            content: [{ type: 'tool_use', id: 'tool', name: 'Read', input: {} }],
+          },
+          timestamp: 2000,
+        },
+      ];
+      writeFileSync(transcriptPath, entries.map((entry) => JSON.stringify(entry)).join('\n'));
+      await processTranscript(transcriptPath);
+      expect(getSpansByType('LLM')).toHaveLength(1);
     });
   });
 
@@ -584,6 +630,7 @@ describe('processTranscript', () => {
       expect(bashTools).toHaveLength(1);
 
       const toolSpan = bashTools[0];
+      expect(toolSpan.statusCode).toBe('ERROR');
       expect(toolSpan.exceptions).toHaveLength(1);
       expect(toolSpan.exceptions[0].message).toContain("doesn't want to proceed");
     });
@@ -637,6 +684,54 @@ describe('processTranscript', () => {
       expect(root.startTimeNs).toBeDefined();
       expect(root.endTimeNs).toBeDefined();
       expect(root.endTimeNs!).toBeGreaterThan(root.startTimeNs!);
+    });
+
+    it.each([undefined, 'invalid-timestamp'])(
+      'ignores trailing metadata with timestamp %s when ending the root span',
+      async (timestamp) => {
+        const tmpDir = mkdtempSync(resolve(tmpdir(), 'cc-test-'));
+        const transcriptPath = resolve(tmpDir, 'trailing-metadata.jsonl');
+        const entries = [
+          {
+            type: 'user',
+            message: { role: 'user', content: 'Hello' },
+            timestamp: '2025-01-15T10:00:00.000Z',
+          },
+          {
+            type: 'assistant',
+            message: { role: 'assistant', content: [{ type: 'text', text: 'Hi' }] },
+            timestamp: '2025-01-15T10:00:20.000Z',
+          },
+          { type: 'last-prompt', lastPrompt: 'Hello', timestamp },
+        ];
+        writeFileSync(transcriptPath, entries.map((entry) => JSON.stringify(entry)).join('\n'));
+
+        await processTranscript(transcriptPath, 'trailing-metadata');
+
+        const root = getSpansByName('claude_code_conversation')[0];
+        expect(root.endTimeNs! - root.startTimeNs!).toBe(21_000_000_000);
+        expect(root.endTimeNs).toBe(getSpansByType('LLM')[0].endTimeNs);
+      },
+    );
+
+    it('uses the first valid timestamp when the user entry has none', async () => {
+      const tmpDir = mkdtempSync(resolve(tmpdir(), 'cc-test-'));
+      const transcriptPath = resolve(tmpDir, 'missing-start-timestamp.jsonl');
+      const entries = [
+        { type: 'user', message: { role: 'user', content: 'Hello' } },
+        {
+          type: 'assistant',
+          message: { role: 'assistant', content: [{ type: 'text', text: 'Hi' }] },
+          timestamp: '2025-01-15T10:00:20.000Z',
+        },
+      ];
+      writeFileSync(transcriptPath, entries.map((entry) => JSON.stringify(entry)).join('\n'));
+
+      await processTranscript(transcriptPath, 'missing-start-timestamp');
+
+      const root = getSpansByName('claude_code_conversation')[0];
+      expect(root.startTimeNs).toBe(Date.parse('2025-01-15T10:00:20.000Z') * 1_000_000);
+      expect(root.endTimeNs! - root.startTimeNs!).toBe(1_000_000_000);
     });
 
     it('sets start and end times on child spans', async () => {
@@ -708,6 +803,127 @@ describe('processTranscript', () => {
       const steerMessages = inputMessages.filter((m) => m.content === 'also tell me about Java');
       expect(steerMessages).toHaveLength(1);
       expect(steerMessages[0].role).toBe('user');
+    });
+  });
+});
+
+describe.each([
+  ['Stop hook', () => processTranscript(resolve(FIXTURES_DIR, 'basic.jsonl'))],
+  ['Agent SDK', () => new LiveTracingContext('Hello').finalize()],
+] as const)('%s run metadata', (_name, traceConversation) => {
+  const originalRunId = process.env.MLFLOW_RUN_ID;
+
+  afterEach(() => {
+    if (originalRunId === undefined) {
+      delete process.env.MLFLOW_RUN_ID;
+    } else {
+      process.env.MLFLOW_RUN_ID = originalRunId;
+    }
+  });
+
+  it('sets source run from the environment', async () => {
+    process.env.MLFLOW_RUN_ID = 'parent-run-id';
+    mockTraceInfo.traceMetadata['mlflow.sourceRun'] = 'context-run-id';
+
+    await traceConversation();
+
+    expect(mockTraceInfo.traceMetadata['mlflow.sourceRun']).toBe('parent-run-id');
+  });
+
+  it('omits source run when the environment is unset', async () => {
+    delete process.env.MLFLOW_RUN_ID;
+
+    await traceConversation();
+
+    expect(mockTraceInfo.traceMetadata).not.toHaveProperty('mlflow.sourceRun');
+  });
+
+  it('preserves source run from tracing context when the environment is unset', async () => {
+    delete process.env.MLFLOW_RUN_ID;
+    mockTraceInfo.traceMetadata['mlflow.sourceRun'] = 'context-run-id';
+
+    await traceConversation();
+
+    expect(mockTraceInfo.traceMetadata['mlflow.sourceRun']).toBe('context-run-id');
+  });
+});
+
+describe('LiveTracingContext usage', () => {
+  it.each(['Skill', 'Task', 'Agent'])(
+    'does not start %s or its subagent before the response that calls it',
+    async (toolName) => {
+      const context = new LiveTracingContext('Use the tool');
+      context.onAssistantMessage({
+        type: 'assistant',
+        message: {
+          id: 'msg_tool',
+          role: 'assistant',
+          content: [{ type: 'tool_use', id: 'tool_1', name: toolName, input: {} }],
+        },
+      });
+      await context.finalize();
+
+      const llm = getSpansByType('LLM')[0];
+      const tool = getSpansByType('TOOL')[0];
+      expect(llm.attributes['mlflow.llm.provider']).toBe('anthropic');
+      expect(llm.startTimeNs).toBeDefined();
+      expect(tool.startTimeNs).toBeGreaterThanOrEqual(llm.endTimeNs!);
+      for (const subagent of getChildSpans(tool.spanId)) {
+        expect(subagent.startTimeNs).toBeGreaterThanOrEqual(tool.startTimeNs!);
+      }
+    },
+  );
+
+  it('captures tool-only responses once across repeated SDK content blocks', async () => {
+    const context = new LiveTracingContext('Read and check the file');
+    const entries = readFileSync(resolve(FIXTURES_DIR, 'repeated-messages.jsonl'), 'utf-8')
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as TranscriptEntry);
+
+    for (const entry of entries.slice(1)) {
+      if (entry.type === 'assistant' && entry.message) {
+        context.onAssistantMessage({ type: 'assistant', message: entry.message });
+      } else if (entry.type === 'user' && entry.message) {
+        context.onUserMessage({
+          type: 'user',
+          message: { role: 'user', content: entry.message.content },
+        });
+      }
+    }
+    context.onResultMessage({
+      type: 'result',
+      subtype: 'success',
+      usage: {
+        input_tokens: 21,
+        output_tokens: 55,
+        cache_read_input_tokens: 2100,
+        cache_creation_input_tokens: 210,
+      },
+    });
+    await context.finalize();
+
+    const llms = getSpansByType('LLM');
+    expect(llms).toHaveLength(2);
+    expect(getSpansByType('TOOL')).toHaveLength(2);
+    expect(llms[0].attributes['mlflow.chat.tokenUsage']).toEqual({
+      input_tokens: 1110,
+      output_tokens: 25,
+      total_tokens: 1135,
+      cache_read_input_tokens: 1000,
+      cache_creation_input_tokens: 100,
+    });
+    expect(llms[0].outputs.content).toHaveLength(2);
+    expect(llms.every((span) => span.endTimeNs !== undefined)).toBe(true);
+    expect(getSpansByName('tool_Bash')[0].statusCode).toBe('ERROR');
+    expect(
+      getSpansByName('claude_code_conversation')[0].attributes['mlflow.chat.tokenUsage'],
+    ).toEqual({
+      input_tokens: 2331,
+      output_tokens: 55,
+      total_tokens: 2386,
+      cache_read_input_tokens: 2100,
+      cache_creation_input_tokens: 210,
     });
   });
 });

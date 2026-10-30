@@ -276,7 +276,11 @@ export class DatabricksUCTableSpanExporter implements SpanExporter {
       // Step 2: upload spans via OTLP.
       try {
         await this._client.exportOtlpSpansToUc(
-          trace.data.spans.map((s) => s._span),
+          trace.data.spans.map((s) =>
+            // UC serializes OTLP attribute values. Decode MLflow's in-memory
+            // JSON strings first, matching Python's Span.to_otel_proto().
+            Object.create(s._span, { attributes: { value: s.attributes } }),
+          ),
           spansTable,
         );
       } catch (error) {

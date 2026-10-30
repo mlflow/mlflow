@@ -27,6 +27,8 @@ export MLFLOW_TRACKING_URI=http://localhost:5000
 export MLFLOW_EXPERIMENT_ID=<experiment-id>
 ```
 
+Optionally, set `MLFLOW_RUN_ID=<existing-run-id>` to associate CLI and Agent SDK traces with an existing MLflow run through the `mlflow.sourceRun` trace metadata. The integration does not create a run.
+
 ### Tracing the Claude Code CLI
 
 Install the bundled Stop-hook plugin once; it will trace every CLI session automatically. See the [docs](https://mlflow.org/docs/latest/genai/tracing/integrations/claude-code) for plugin setup.
