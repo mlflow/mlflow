@@ -53,35 +53,5 @@ provides `caption(text, theme, position)` for short on-screen explanations, such
 `agent-browser eval 'caption("Click Save")'`; use `caption()` to hide one. Stop the browser,
 servers, and their child processes before finishing.
 
-Write /tmp/verify-out/payload.json as a JSON object with these fields:
-
-- `event`: `APPROVE` or `COMMENT`.
-- `body`: a concise Markdown review describing the behavior investigated, the commands or
-  interactions performed, their results, and any material gaps or behavioral problems.
-- `comments`: an array of objects with `path`, `line`, `side`, and `body`. Use a repository-relative
-  path and a line in a PR diff hunk: `RIGHT` for added or context lines, `LEFT` for deleted or
-  context lines. To cover a range, include both `start_line` and `start_side`, with `start_line`
-  before `line` in the same hunk. Inline comments should describe a significant behavioral
-  finding or show evidence that is most useful next to the relevant change. Start each finding
-  with `🔴 **CRITICAL:** `; evidence without a finding needs no severity prefix. If no appropriate
-  changed line exists, put the finding in the review body instead.
-- `commit_id`: optional head SHA. The workflow pins the review to the head it checked out.
-
-Choose `APPROVE` only when you directly verified the PR's material intended behavior and found no
-significant behavioral problems. Choose `COMMENT` for an established significant problem or when
-important behavior could not be verified. A lack of findings is not evidence that a change works.
-Never request changes, create a review, or approve the PR yourself. Avoid @-mentions.
-
-Save useful screenshots or recordings in /tmp/verify-out/media and cite the exact absolute path
-in either the review body or an inline comment, for example
-`![Observed behavior](/tmp/verify-out/media/observed.png)`. Put a video citation on its own
-line. The workflow uploads cited media and replaces the paths; do not upload media yourself.
-
-Before finishing, validate the payload against the workflow's copy of the schema:
-
-```bash
-uvx check-jsonschema@0.37.4 --schemafile /tmp/verify-context/payload.schema.yml \
-  /tmp/verify-out/payload.json
-```
-
-Fix validation errors before finishing.
+Read /tmp/verify-context/payload.schema.yml and follow its descriptions to write and validate
+/tmp/verify-out/payload.json.

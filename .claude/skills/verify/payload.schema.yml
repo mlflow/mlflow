@@ -1,6 +1,18 @@
 $schema: https://json-schema.org/draft/2020-12/schema
 title: PR Behavior Verification Review
-description: Review payload produced by the verify skill for GitHub's pull request reviews API.
+description: |
+  Write /tmp/verify-out/payload.json as a JSON object matching this schema. Never request changes,
+  create a review, or approve the PR yourself. Avoid @-mentions.
+
+  Save useful screenshots or recordings in /tmp/verify-out/media and cite their exact absolute
+  paths in the review body or an inline comment, for example:
+  ![Observed behavior](/tmp/verify-out/media/observed.png)
+  Put a video citation on its own line. The workflow uploads cited media and replaces the paths;
+  do not upload media yourself.
+
+  Before finishing, validate the payload with:
+  uvx check-jsonschema@0.37.4 --schemafile /tmp/verify-context/payload.schema.yml /tmp/verify-out/payload.json
+  Fix validation errors before finishing.
 type: object
 additionalProperties: false
 required:
@@ -9,15 +21,20 @@ required:
   - comments
 properties:
   event:
-    description:
-      APPROVE only when the intended behavior was verified; COMMENT for a behavioral issue
-      or incomplete verification.
+    description: >-
+      Choose APPROVE only when you directly verified the PR's material intended behavior and found
+      no significant behavioral problems. Choose COMMENT for an established significant problem
+      or when important behavior could not be verified. A lack of findings is not evidence that a
+      change works.
     type: string
     enum:
       - APPROVE
       - COMMENT
   body:
-    description: Summary of the behavior, verification performed, results, and material gaps.
+    description: >-
+      A concise Markdown review describing the behavior investigated, the commands or interactions
+      performed, their results, and any material gaps or behavioral problems. Put a finding here
+      if no appropriate changed line exists for an inline comment.
     type: string
     minLength: 1
     maxLength: 12000
@@ -27,7 +44,9 @@ properties:
     type: string
     pattern: ^[0-9a-f]{40}$
   comments:
-    description: Inline behavioral findings or useful visual evidence on the PR diff.
+    description: >-
+      Inline comments describing a significant behavioral finding or showing evidence that is most
+      useful next to the relevant change. Use a line in a PR diff hunk.
     type: array
     maxItems: 10
     items:
@@ -73,9 +92,9 @@ $defs:
         maxLength: 1024
         pattern: \S
       body:
-        description:
-          Start a significant behavioral finding with '🔴 **CRITICAL:** '. Evidence without
-          a finding needs no severity prefix.
+        description: >-
+          Start each significant behavioral finding with '🔴 **CRITICAL:** '. Evidence without a
+          finding needs no severity prefix.
         type: string
         minLength: 1
         maxLength: 3000
@@ -85,12 +104,14 @@ $defs:
         type: integer
         minimum: 1
       side:
+        description: RIGHT for added or context lines; LEFT for deleted or context lines.
         $ref: "#/$defs/side"
       start_line:
         description: First line of a multi-line comment; must be before line and in the same hunk.
         type: integer
         minimum: 1
       start_side:
+        description: Side of start_line in the same hunk as line.
         $ref: "#/$defs/side"
     dependentRequired:
       start_line:
