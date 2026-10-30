@@ -875,6 +875,7 @@ module.exports = {
   "mlflow.eval-runs.actions.compare": "",
   "mlflow.eval-runs.actions.delete": "",
   "mlflow.eval-runs.actions.filter-chart-to-selected": "",
+  "mlflow.eval-runs.actions.rename": "",
   "mlflow.eval-runs.baseline-action": "",
   "mlflow.eval-runs.baseline-action.tooltip": "",
   "mlflow.eval-runs.baseline-tag": "",
