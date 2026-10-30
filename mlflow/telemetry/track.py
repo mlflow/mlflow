@@ -92,6 +92,7 @@ def _record_event(
     duration_ms: int | None = 0,
     status: Status | None = None,
 ) -> None:
+    """Record an event; an explicit status takes precedence over success."""
     try:
         if _is_telemetry_disabled_for_event(event):
             return
