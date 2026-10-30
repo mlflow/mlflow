@@ -208,6 +208,54 @@ jobs:
           done
           echo '::error::Gateway proxy did not become ready.'
           exit 1
+      # The proxy holds the telemetry token and forwards only OTLP requests. Set the variable
+      # to the <catalog>.<schema>.<table_prefix> of a UC-linked experiment to enable export.
+      - id: telemetry
+        name: Mint telemetry token
+        if: vars.TRIAGE_MLFLOW_TRACE_LOCATION != ''
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+        run: |
+          response=$(curl -sS --max-time 15 \
+            -u "$DATABRICKS_CLIENT_ID:$DATABRICKS_CLIENT_SECRET" \
+            -d grant_type=client_credentials -d scope=all-apis \
+            "$DATABRICKS_HOST/oidc/v1/token")
+          token=$(jq -r '.access_token // empty' <<< "$response")
+          if [ -z "$token" ]; then
+            echo "::error::Telemetry token exchange failed: $(jq -r '.error_description // .error // "no access_token"' <<< "$response")"
+            exit 1
+          fi
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Start telemetry proxy
+        if: steps.telemetry.outcome == 'success'
+        env:
+          TELEMETRY_TOKEN: ${{ steps.telemetry.outputs.token }}
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          TRACE_LOCATION: ${{ vars.TRIAGE_MLFLOW_TRACE_LOCATION }}
+        run: |
+          umask 077
+          printf '%s\n' "$TELEMETRY_TOKEN" | env -u TELEMETRY_TOKEN \
+            DATABRICKS_HOST="$DATABRICKS_HOST" TRACE_LOCATION="$TRACE_LOCATION" \
+            node trusted/.claude/sandbox/otel-proxy.mjs \
+            > "$RUNNER_TEMP/verify-telemetry-proxy.log" 2>&1 &
+          proxy_pid=$!
+          unset TELEMETRY_TOKEN
+          echo "$proxy_pid" > "$RUNNER_TEMP/verify-telemetry-proxy.pid"
+          for _ in $(seq 1 30); do
+            if ! kill -0 "$proxy_pid" 2>/dev/null; then
+              break
+            fi
+            if curl --noproxy '*' -fsS http://127.0.0.1:8081/healthz > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/verify-telemetry-proxy.log"
+          echo '::error::Telemetry proxy did not become ready.'
+          exit 1
       - name: Prepare unprivileged agent
         id: agent
         run: |
@@ -218,7 +266,7 @@ jobs:
           sudo chown -R verify-agent:verify-agent /tmp/verify-work
           mkdir -p /tmp/verify-context
           cp "$RUNNER_TEMP/verify-context/"{pr.json,diff.patch,diff.annotated} /tmp/verify-context/
-          cp trusted/.claude/skills/verify/{SKILL.md,payload.schema.json} /tmp/verify-context/
+          cp trusted/.claude/skills/verify/{SKILL.md,payload.schema.yml} /tmp/verify-context/
           cp trusted/.claude/skills/verify/scripts/init.js /tmp/verify-context/
           chmod 755 /tmp/verify-context
           chmod 644 /tmp/verify-context/*
@@ -235,6 +283,15 @@ jobs:
               exit 1
             fi
           done
+          if [ -f "$RUNNER_TEMP/verify-telemetry-proxy.pid" ]; then
+            telemetry_pid=$(cat "$RUNNER_TEMP/verify-telemetry-proxy.pid")
+            if ! kill -0 "$telemetry_pid" 2>/dev/null || \
+              sudo -u verify-agent cat "/proc/$telemetry_pid/environ" > /dev/null 2>&1 || \
+              ! sudo -u verify-agent curl --noproxy '*' -fsS http://127.0.0.1:8081/healthz > /dev/null; then
+              echo '::error::Telemetry proxy is not safely accessible to the agent.'
+              exit 1
+            fi
+          fi
           if sudo -u verify-agent test -x "$RUNNER_TEMP" || \
             sudo -u verify-agent test -r "$GITHUB_WORKSPACE/trusted/.claude/skills/verify/SKILL.md" || \
             sudo -u verify-agent sudo -n true > /dev/null 2>&1 || \
@@ -249,7 +306,17 @@ jobs:
           NODE_DIR: ${{ steps.agent.outputs.node_dir }}
           MODEL: ${{ inputs.model || 'databricks-claude-opus-5-5' }}
           EFFORT: ${{ inputs.effort || 'high' }}
+          CLAUDE_CODE_ENABLE_TELEMETRY: ${{ steps.telemetry.outcome == 'success' && '1' || '0' }}
+          CLAUDE_CODE_ENHANCED_TELEMETRY_BETA: ${{ steps.telemetry.outcome == 'success' && '1' || '0' }}
+          OTEL_TRACES_EXPORTER: ${{ steps.telemetry.outcome == 'success' && 'otlp' || 'none' }}
+          OTEL_LOGS_EXPORTER: ${{ steps.telemetry.outcome == 'success' && 'otlp' || 'none' }}
+          OTEL_METRICS_EXPORTER: ${{ steps.telemetry.outcome == 'success' && 'otlp' || 'none' }}
+          OTEL_RESOURCE_ATTRIBUTES: github.pr_number=${{ github.event.issue.number || inputs.pr_number }},github.pr_url=${{ github.server_url }}/${{ github.repository }}/pull/${{ github.event.issue.number || inputs.pr_number }},github.run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          session_id=$(cat /proc/sys/kernel/random/uuid)
+          if [ "$CLAUDE_CODE_ENABLE_TELEMETRY" = 1 ]; then
+            echo "MLflow telemetry session: \`$session_id\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
           # Safe mode ignores PR-authored settings and skills; load the trusted skill explicitly.
@@ -266,11 +333,24 @@ jobs:
             ANTHROPIC_CUSTOM_HEADERS="$ANTHROPIC_CUSTOM_HEADERS" \
             ANTHROPIC_DEFAULT_SONNET_MODEL=databricks-claude-sonnet-5 \
             MODEL="$MODEL" EFFORT="$EFFORT" \
+            SESSION_ID="$session_id" \
+            CLAUDE_CODE_ENABLE_TELEMETRY="$CLAUDE_CODE_ENABLE_TELEMETRY" \
+            CLAUDE_CODE_ENHANCED_TELEMETRY_BETA="$CLAUDE_CODE_ENHANCED_TELEMETRY_BETA" \
+            OTEL_TRACES_EXPORTER="$OTEL_TRACES_EXPORTER" \
+            OTEL_LOGS_EXPORTER="$OTEL_LOGS_EXPORTER" \
+            OTEL_METRICS_EXPORTER="$OTEL_METRICS_EXPORTER" \
+            OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \
+            OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://localhost:8081/v1/traces \
+            OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=http://localhost:8081/v1/logs \
+            OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://localhost:8081/v1/metrics \
+            OTEL_LOG_USER_PROMPTS=1 OTEL_LOG_ASSISTANT_RESPONSES=1 \
+            OTEL_LOG_TOOL_DETAILS=1 OTEL_LOG_TOOL_CONTENT=1 \
+            OTEL_RESOURCE_ATTRIBUTES="$OTEL_RESOURCE_ATTRIBUTES" \
             AGENT_BROWSER_ARGS=--no-sandbox \
             AGENT_BROWSER_SCREENSHOT_DIR=/tmp/verify-out/media \
             bash -c 'cd /tmp/verify-work && exec claude \
               --safe-mode --strict-mcp-config \
-              --model "$MODEL" --effort "$EFFORT" --max-budget-usd 5 \
+              --model "$MODEL" --effort "$EFFORT" --session-id "$SESSION_ID" --max-budget-usd 5 \
               --permission-mode auto --disallowed-tools "WebSearch,WebFetch" \
               --append-system-prompt "$(cat /tmp/verify-context/SKILL.md)" \
               --print --verbose --output-format stream-json \
@@ -343,6 +423,15 @@ jobs:
           if [ -f "$RUNNER_TEMP/verify-gateway-proxy.pid" ]; then
             kill "$(cat "$RUNNER_TEMP/verify-gateway-proxy.pid")" 2>/dev/null || true
           fi
+      - name: Stop telemetry proxy
+        if: always() && steps.telemetry.outcome == 'success'
+        run: |
+          if [ -s "$RUNNER_TEMP/verify-telemetry-proxy.log" ]; then
+            cat "$RUNNER_TEMP/verify-telemetry-proxy.log"
+          fi
+          if [ -f "$RUNNER_TEMP/verify-telemetry-proxy.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/verify-telemetry-proxy.pid")" 2>/dev/null || true
+          fi
 
   post_review:
     needs: [gate, verify]
@@ -400,7 +489,7 @@ jobs:
         if: steps.check.outputs.post == 'true' && needs.verify.result == 'success'
         run: |
           payload=/tmp/verify-out/payload.json
-          schema=.claude/skills/verify/payload.schema.json
+          schema=.claude/skills/verify/payload.schema.yml
           uvx check-jsonschema@0.37.4 --schemafile "$schema" "$payload"
           sanitize() {
             node -e '
