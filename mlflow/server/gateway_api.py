@@ -80,7 +80,7 @@ from mlflow.gateway.tracing_utils import (
     aggregate_openai_responses_stream_chunks,
     maybe_traced_gateway_call,
 )
-from mlflow.gateway.utils import safe_stream, to_sse_chunk, translate_http_exception
+from mlflow.gateway.utils import safe_stream, to_sse_stream, translate_http_exception
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.gateway.config_resolver import get_endpoint_config
@@ -853,7 +853,7 @@ async def invocations(endpoint_name: str, request: Request):
                 ),
             )(payload)
             return StreamingResponse(
-                safe_stream(to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
+                safe_stream(to_sse_stream(stream)),
                 media_type="text/event-stream",
             )
         else:
@@ -1004,7 +1004,7 @@ async def chat_completions(request: Request):
             ),
         )(payload)
         return StreamingResponse(
-            safe_stream(to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
+            safe_stream(to_sse_stream(stream)),
             media_type="text/event-stream",
         )
     else:

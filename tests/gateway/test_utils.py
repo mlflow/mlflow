@@ -2,6 +2,7 @@ import json
 
 import pytest
 from fastapi import HTTPException
+from pydantic import BaseModel
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.exceptions import AIGatewayException
@@ -20,6 +21,7 @@ from mlflow.gateway.utils import (
     set_gateway_uri,
     stream_sse_data,
     to_sse_error_chunk,
+    to_sse_stream,
     translate_http_exception,
 )
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -485,3 +487,33 @@ async def test_safe_stream_no_exception():
 
     results = [chunk async for chunk in safe_stream(mock_stream())]
     assert results == ["data1", "data2"]
+
+
+class _Chunk(BaseModel):
+    content: str
+
+
+@pytest.mark.asyncio
+async def test_to_sse_stream_ends_with_done():
+    async def mock_stream():
+        yield _Chunk(content="Hello")
+        yield _Chunk(content=" world")
+
+    results = [chunk async for chunk in to_sse_stream(mock_stream())]
+    assert results == [
+        'data: {"content":"Hello"}\n\n',
+        'data: {"content":" world"}\n\n',
+        "data: [DONE]\n\n",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_to_sse_stream_omits_done_when_stream_fails():
+    async def mock_stream():
+        yield _Chunk(content="Hello")
+        raise RuntimeError("Stream failed")
+
+    results = [chunk async for chunk in safe_stream(to_sse_stream(mock_stream()))]
+    assert len(results) == 2
+    assert results[0] == 'data: {"content":"Hello"}\n\n'
+    assert '"message": "Stream failed"' in results[1]
