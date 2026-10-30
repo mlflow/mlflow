@@ -14,8 +14,10 @@ from werkzeug.exceptions import RequestedRangeNotSatisfiable
 
 import mlflow
 from mlflow.entities import (
+    AssessmentSource,
     Experiment,
     FallbackStrategy,
+    Feedback,
     GatewayBudgetPolicy,
     Issue,
     IssueSeverity,
@@ -270,6 +272,7 @@ from mlflow.server.handlers import (
     _set_trace_tag_v3,
     _start_trace_v3,
     _transition_stage,
+    _update_assessment,
     _update_gateway_secret,
     _update_issue,
     _update_model_version,
@@ -12482,6 +12485,59 @@ def test_update_gateway_secret_rejects_model_list_in_auth_config(
     assert response.status_code == 400
     assert "auth_config must not contain 'model_list'" in json.loads(response.get_data())["message"]
     mock_tracking_store.update_gateway_secret.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("editor", "source_type", "source_id", "records_override"),
+    [
+        ("bob", "HUMAN", "alice", True),
+        # The author's own feedback, a judge's, or a server without auth: updated in place.
+        ("alice", "HUMAN", "alice", False),
+        ("bob", "LLM_JUDGE", "correctness_judge", False),
+        (None, "HUMAN", "alice", False),
+    ],
+)
+def test_update_assessment_records_an_edit_of_someone_elses_feedback_as_the_editors(
+    editor, source_type, source_id, records_override
+):
+    existing = Feedback(
+        name="correctness",
+        value=True,
+        source=AssessmentSource(source_type=source_type, source_id=source_id),
+        trace_id="tr-1",
+        rationale="Accurate.",
+        metadata={"keep": "value"},
+    )
+    existing.assessment_id = "a-1"
+    with (
+        app.test_request_context(
+            method="PATCH",
+            json={
+                "assessment": {"feedback": {"value": False}, "rationale": "Answer is wrong."},
+                "update_mask": "feedback,rationale",
+            },
+        ),
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+    ):
+        if editor is not None:
+            g.mlflow_authenticated_user = editor
+        store = mock_store.return_value
+        store.get_assessment.return_value = existing
+        store.create_assessment.side_effect = lambda assessment: assessment
+        store.update_assessment.return_value = existing
+        assert _update_assessment("tr-1", "a-1").status_code == 200
+
+    if records_override:
+        store.update_assessment.assert_not_called()
+        override = store.create_assessment.call_args.args[0]
+        assert override.source == AssessmentSource(source_type="HUMAN", source_id=editor)
+        assert override.overrides == "a-1"
+        assert override.value is False
+        assert override.rationale == "Answer is wrong."
+        assert override.metadata == {"keep": "value"}
+    else:
+        store.create_assessment.assert_not_called()
+        store.update_assessment.assert_called_once()
 
 
 def test_issue_handlers_extended_fields_and_authenticated_actor():
