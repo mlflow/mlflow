@@ -757,6 +757,15 @@ jobs:
           mkdir -p ~/.claude ~/.cache/uv ~/.npm
           # Claude Code rejects an empty config file.
           echo '{}' > ~/.claude.json
+          # srt mounts read-only placeholders over missing mandatory deny paths in the checkout.
+          # Git inside the sandbox lists them as untracked and `git clean` can't remove them, so
+          # exclude them. Mirrors DANGEROUS_FILES and getDangerousDirectories() in the pinned srt:
+          # https://github.com/anthropics/sandbox-runtime/blob/626a59671ee2be556d70a290a8036224be996193/src/sandbox/sandbox-utils.ts#L21-L50
+          # https://github.com/anthropics/sandbox-runtime/issues/740
+          for name in .gitconfig .gitmodules .bashrc .bash_profile .zshrc .zprofile .profile \
+            .ripgreprc .mcp.json .vscode .idea .claude/commands .claude/agents; do
+            [ -e "$name" ] || printf '/%s\n' "$name"
+          done >> .git/info/exclude
       - name: Configure sandbox log access
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
