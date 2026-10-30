@@ -19,14 +19,6 @@ import { OTelIntegrationCard } from "@site/src/components/TracingIntegrations/OT
 
 The trace above shows a real agent calling the local `llama3.2:1b` model, executing `multiply(17, 23)`, and responding with `391`. The deployment example below uses OpenAI `gpt-4o-mini`; see [Local Development](#local-development) for how the screenshot's traces reached MLflow. MLflow recognizes the agent, model, and tool spans from their OpenTelemetry GenAI attributes.
 
-## What Gets Traced
-
-- Agent invocations and their child operations
-- Model prompts, generated responses, and tool calls when message storage is enabled
-- Tool arguments and results when tool storage is enabled
-- Input, output, and cache token usage when the model provider reports it
-- Workers HTTP requests and Durable Object storage operations
-
 ## Step 1: Start the MLflow Tracking Server
 
 Use an MLflow server that supports OTLP/HTTP JSON ingestion with a SQL-based backend store:
@@ -53,7 +45,7 @@ Hosted delivery to MLflow was not tested for this guide. The screenshot uses a l
 
 :::
 
-In the Cloudflare dashboard, go to **Observability > Destinations**, select **Add destination**, and configure:
+In the Cloudflare dashboard, go to **Observability > Destinations**, select **Add destination**, and configure the [OpenTelemetry destination](https://developers.cloudflare.com/observability/export/opentelemetry/):
 
 | Setting          | Value                                          |
 | ---------------- | ---------------------------------------------- |
@@ -63,8 +55,6 @@ In the Cloudflare dashboard, go to **Observability > Destinations**, select **Ad
 | Custom headers   | `x-mlflow-experiment-id: <your-experiment-id>` |
 
 Add any authentication headers required by your MLflow deployment, then save the destination. Cloudflare exports OTLP as JSON, which MLflow accepts at `/v1/traces`.
-
-See [Cloudflare's OpenTelemetry destination documentation](https://developers.cloudflare.com/observability/export/opentelemetry/) for destination configuration and delivery status.
 
 ## Step 3: Enable Workers Tracing
 
@@ -160,22 +150,18 @@ export default {
 } satisfies ExportedHandler<Env>;
 ```
 
-`storeMessages` records model inputs and outputs, and `storeTools` records tool arguments and results. Both are off by default. Enable them for the payloads you want to inspect in MLflow.
+`storeMessages` records model inputs and outputs, and `storeTools` records tool arguments and results. Both are off by default. Enable them for the payloads you want to inspect in MLflow. Input, output, and cache token usage is recorded when the model provider reports it.
 
 The wrapper creates native Workers spans and uses the export destination configured above. It does not require a separate OpenTelemetry SDK or MLflow TypeScript SDK. See [Cloudflare's AI SDK tracing documentation](https://github.com/cloudflare/agents/blob/main/docs/agents/observability.md#ai-sdk-tracing) for additional options.
 
 ## Step 5: Deploy and View Traces
 
-Store the model provider key as a Worker secret, then deploy the Worker with your project's Wrangler CLI:
+Store the model provider key as a Worker secret, deploy with your project's Wrangler CLI, then send a request:
 
 ```bash
 npm exec -- wrangler secret put OPENAI_API_KEY
 npm exec -- wrangler deploy
-```
 
-Send a request to the deployed agent:
-
-```bash
 curl https://<your-worker-host>/agents/calculator-agent/demo \
   --json '{"prompt":"What is 17 multiplied by 23?"}'
 ```
