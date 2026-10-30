@@ -853,6 +853,42 @@ def test_start_trace(monkeypatch):
         )
 
 
+def test_start_trace_assigns_ids_to_assessments_without_one():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    shared = Feedback(name="new", value=True)
+    existing = Feedback(name="existing", value=True)
+    existing.assessment_id = "a-existing"
+
+    def trace_info(trace_id):
+        return TraceInfo(
+            trace_id=trace_id,
+            trace_location=TraceLocation.from_experiment_id("123"),
+            request_time=123,
+            execution_duration=10,
+            state=TraceState.OK,
+            assessments=[shared, existing],
+        )
+
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps({})
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        store.start_trace(trace_info("tr-1"))
+        store.start_trace(trace_info("tr-2"))
+
+    sent = [
+        call.kwargs["json"]["trace"]["trace_info"]["assessments"]
+        for call in mock_http.call_args_list
+    ]
+    assert all(assessments[0]["assessment_id"].startswith("a-") for assessments in sent)
+    # Each request gets its own ID, so an assessment object logged to several traces doesn't
+    # carry one trace's ID into another.
+    assert sent[0][0]["assessment_id"] != sent[1][0]["assessment_id"]
+    assert [assessments[1]["assessment_id"] for assessments in sent] == ["a-existing"] * 2
+    assert shared.assessment_id is None
+
+
 def test_deprecated_end_trace_v2():
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)

@@ -235,6 +235,7 @@ def test_create_trace_experiment_location_fallback_to_v3(monkeypatch):
         request_preview="preview",
         response_preview="response",
         trace_metadata={"key": "value"},
+        assessments=[Feedback(name="quality", value=True)],
     )
 
     trace = Trace(info=trace_info, data=TraceData())
@@ -249,6 +250,9 @@ def test_create_trace_experiment_location_fallback_to_v3(monkeypatch):
         call_args = mock_call_endpoint.call_args_list[0]
         assert call_args[0][0] == StartTraceV3
         assert result.trace_id == "tr-456"
+        # The Databricks backend assigns assessment IDs itself.
+        sent = json.loads(call_args[0][1])["trace"]["trace_info"]["assessments"]
+        assert "assessment_id" not in sent[0]
 
 
 def test_get_trace_info(monkeypatch):
