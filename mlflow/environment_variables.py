@@ -1886,6 +1886,10 @@ MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS = _BooleanEnvironmentVariable(
 #: by users. (default: ``False``)
 _MLFLOW_IN_JOB_EXECUTOR = _BooleanEnvironmentVariable("_MLFLOW_IN_JOB_EXECUTOR", False)
 
+#: Internal job identity set by the server in worker subprocesses.
+_MLFLOW_SERVER_JOB_NAME = _EnvironmentVariable("_MLFLOW_SERVER_JOB_NAME", str, None)
+_MLFLOW_SERVER_JOB_ID = _EnvironmentVariable("_MLFLOW_SERVER_JOB_ID", str, None)
+
 #: Opt-in switch for the executor job-execution engine. Leave unset to use the default engine
 #: (currently the built-in Huey consumers); set to ``"executor"`` to route job execution through
 #: the ``AbstractJobExecutor`` framework (``LocalJobExecutor`` by default). It is intentionally

@@ -1,5 +1,4 @@
 import inspect
-import os
 import sys
 from collections import Counter
 from enum import Enum
@@ -9,11 +8,20 @@ from urllib.parse import urlparse
 from mlflow.entities import Feedback
 from mlflow.entities.issue import IssueSeverity, IssueStatus
 from mlflow.entities.mcp_server import MCPStatus
-from mlflow.environment_variables import MLFLOW_ENABLE_OTEL_GENAI_SEMCONV
+from mlflow.environment_variables import (
+    _MLFLOW_SERVER_JOB_ID,
+    _MLFLOW_SERVER_JOB_NAME,
+    MLFLOW_ENABLE_OTEL_GENAI_SEMCONV,
+)
 from mlflow.telemetry.constant import (
     GENAI_MODULES,
     KNOWN_FLAVORS,
     MODULES_TO_CHECK_IMPORT,
+)
+from mlflow.telemetry.issue_detection_utils import (
+    count_issues_by_category,
+    get_issue_detection_trigger,
+    normalize_issue_categories,
 )
 
 if TYPE_CHECKING:
@@ -951,9 +959,8 @@ class ScorerCallEvent(Event):
             ONLINE_SESSION_SCORER_JOB_NAME,
             ONLINE_TRACE_SCORER_JOB_NAME,
         )
-        from mlflow.server.jobs.utils import MLFLOW_SERVER_JOB_NAME_ENV_VAR
 
-        job_name = os.environ.get(MLFLOW_SERVER_JOB_NAME_ENV_VAR)
+        job_name = _MLFLOW_SERVER_JOB_NAME.get()
         if job_name in (ONLINE_TRACE_SCORER_JOB_NAME, ONLINE_SESSION_SCORER_JOB_NAME):
             callsite = "online_scoring"
         else:
@@ -992,20 +999,24 @@ class DiscoverIssuesEvent(Event):
 
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
-        return {
+        trigger = get_issue_detection_trigger()
+        params = {
+            "trigger": trigger,
             "model": arguments.get("model"),
             "trace_count": len(arguments.get("traces") or []),
-            "categories": arguments.get("categories"),
-            "source_run_id": arguments.get("run_id"),
+            "categories": normalize_issue_categories(arguments.get("categories")),
         }
+        if trigger != "sdk" and (job_id := _MLFLOW_SERVER_JOB_ID.get()):
+            params["job_id"] = job_id
+        return params
 
     @classmethod
     def parse_result(cls, result: Any) -> dict[str, Any] | None:
         return {
-            "issue_count": len(result.issues),
-            "total_traces_analyzed": result.total_traces_analyzed,
-            "total_cost_usd": result.total_cost_usd,
-            "triage_run_id": result.triage_run_id,
+            "issue_count": len(result.issues) if result else None,
+            "issue_counts_by_category": count_issues_by_category(result.issues) if result else None,
+            "total_traces_analyzed": result.total_traces_analyzed if result else None,
+            "total_cost_usd": result.total_cost_usd if result else None,
         }
 
 

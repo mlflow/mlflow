@@ -18,6 +18,7 @@ from mlflow.server.handlers import (
 )
 from mlflow.store.artifact.artifact_repository_registry import _artifact_repository_registry
 from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
+from mlflow.telemetry.issue_detection import record_issue_detection_cancellation
 from mlflow.tracking._tracking_service.utils import get_tracking_uri, set_tracking_uri
 from mlflow.utils.environment import _PythonEnv
 
@@ -479,4 +480,6 @@ def cancel_job(job_id: str) -> JobEntity:
         MlflowException: If job with the given ID is not found
     """
     job_store = _get_job_store()
-    return job_store.cancel_job(job_id)
+    job = job_store.cancel_job(job_id)
+    record_issue_detection_cancellation(job)
+    return job
