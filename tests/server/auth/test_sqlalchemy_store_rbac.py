@@ -69,8 +69,41 @@ def test_create_role(store):
 
 def test_create_role_duplicate(store):
     store.create_role(name="viewer", workspace="ws1")
-    with pytest.raises(MlflowException, match="already exists"):
+    with pytest.raises(MlflowException, match="already exists") as exc:
         store.create_role(name="viewer", workspace="ws1")
+    assert exc.value.message == "Role (name=viewer, workspace=ws1) already exists."
+
+
+_INVALID_ROLE_FIELDS = [
+    ({"name": "a" * 256}, "'Role name' exceeds the maximum length of 255"),
+    ({"description": "d" * 1025}, "'Role description' exceeds the maximum length of 1024"),
+    ({"name": "role\x00name"}, "'Role name' cannot contain NUL"),
+    ({"description": "role\x00name"}, "'Role description' cannot contain NUL"),
+]
+
+
+@pytest.mark.parametrize(("kwargs", "match"), _INVALID_ROLE_FIELDS)
+def test_create_role_rejects_values_the_database_would_refuse(store, kwargs, match):
+    with pytest.raises(MlflowException, match=match) as exc:
+        store.create_role(**{"name": "viewer", "workspace": "ws1", **kwargs})
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    assert store.list_roles(["ws1"]) == []
+
+
+def test_create_role_accepts_max_length_fields(store):
+    role = store.create_role(name="a" * 255, workspace="ws1", description="d" * 1024)
+    assert len(role.name) == 255
+    assert len(role.description) == 1024
+
+
+@pytest.mark.parametrize(("kwargs", "match"), _INVALID_ROLE_FIELDS)
+def test_update_role_rejects_values_the_database_would_refuse(store, kwargs, match):
+    role = store.create_role(name="viewer", workspace="ws1", description="desc")
+    with pytest.raises(MlflowException, match=match):
+        store.update_role(role.id, **kwargs)
+    unchanged = store.get_role(role.id)
+    assert unchanged.name == "viewer"
+    assert unchanged.description == "desc"
 
 
 def test_create_role_same_name_different_workspace(store):
@@ -287,8 +320,12 @@ def test_add_role_permission_wildcard(store):
 def test_add_role_permission_duplicate(store):
     role = store.create_role(name="viewer", workspace="ws1")
     store.add_role_permission(role.id, "experiment", "123", "READ")
-    with pytest.raises(MlflowException, match="already exists"):
+    with pytest.raises(MlflowException, match="already exists") as exc:
         store.add_role_permission(role.id, "experiment", "123", "EDIT")
+    assert exc.value.message == (
+        f"Role permission (role_id={role.id}, resource_type=experiment, "
+        "resource_pattern=123) already exists."
+    )
 
 
 def test_add_role_permission_invalid_permission(store):
@@ -781,9 +818,25 @@ def test_list_role_grants_for_user_in_workspace(store, user):
     store.assign_role_to_user(user.id, role.id)
 
     grants = store.list_role_grants_for_user_in_workspace(user.id, "ws1", "experiment")
-    # Should include specific experiment grant, wildcard experiment grant,
-    # and the workspace-wide grant. Should NOT include the registered_model grant.
-    assert sorted(grants) == sorted([("42", "EDIT"), ("*", "READ"), ("*", "USE")])
+    assert sorted(grants) == sorted([("42", "EDIT"), ("*", "READ")])
+
+
+@pytest.mark.parametrize("resource_type", sorted(VALID_RESOURCE_TYPES))
+@pytest.mark.parametrize("permission", [USE, MANAGE])
+def test_list_role_grants_workspace_tier_matches_resource_resolution(
+    store, user, resource_type, permission
+):
+    role = store.create_role(name="workspace-role", workspace="ws1")
+    store.add_role_permission(role.id, "workspace", "*", permission.name)
+    store.assign_role_to_user(user.id, role.id)
+
+    expected = (
+        [("*", permission.name)] if resource_type == "workspace" or permission == MANAGE else []
+    )
+    assert store.list_role_grants_for_user_in_workspace(user.id, "ws1", resource_type) == expected
+    assert store.get_role_permission_for_resource(user.id, resource_type, "42", "ws1") == (
+        permission if expected else None
+    )
 
 
 def test_list_role_grants_for_user_in_workspace_cross_workspace(store, user):

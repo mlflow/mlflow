@@ -6,11 +6,12 @@ labels: ["bug", "area/docs"]
 title: "[DOC-FIX]"
 
 body:
-  - type: markdown
+  - type: checkboxes
     attributes:
-      value: |
-        > [!WARNING]
-        > Wait for a maintainer to apply the `ready` label before opening a PR. PRs are closed automatically if the issue isn't `ready`, is assigned to someone else, or is already linked from an open PR.
+      label: PR policy
+      options:
+        - label: I understand that PRs for this issue are closed automatically unless a maintainer has applied the `ready` label, the issue isn't assigned to someone else, and no open PR already links it.
+          required: true
   - type: markdown
     attributes:
       value: |

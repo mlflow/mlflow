@@ -329,6 +329,121 @@ describe('TracesTable comparison rows', () => {
     expect((baselineOutput.closest('[role="cell"]') as HTMLElement).style.backgroundColor).toBe('');
   });
 
+  test('activates a matched comparison row from its input, run, and output cells', async () => {
+    const first = makeTrace('first', { request_preview: 'Shared input', response_preview: 'First answer' });
+    const second = makeTrace('second', { request_preview: 'Shared input', response_preview: 'Second answer' });
+    const comparisonRow = {
+      id: 'matched',
+      input: 'Shared input',
+      runs: [
+        { runUuid: 'a', label: 'Baseline', color: 'blue', trace: first },
+        { runUuid: 'b', label: 'Candidate', color: 'red', trace: second },
+      ],
+    };
+    const onComparisonRowSelected = jest.fn();
+    const onTraceSelected = jest.fn();
+    await renderWithProviders(
+      <TracesTable
+        {...baseProps({
+          traces: [first, second],
+          visibleColumns: ['input', 'output'],
+          comparisonRows: [comparisonRow],
+          onComparisonRowSelected,
+          onTraceSelected,
+          getTraceHref: (trace) => `/trace/${trace.trace_id}`,
+        })}
+      />,
+    );
+
+    const rowGroup = screen.getByRole('rowgroup', { name: 'Open trace comparison' });
+    await userEvent.click(within(rowGroup).getByText('Shared input'));
+    expect(onComparisonRowSelected).toHaveBeenLastCalledWith(comparisonRow);
+
+    onComparisonRowSelected.mockClear();
+    await userEvent.click(within(rowGroup).getByText('First answer'));
+    expect(onComparisonRowSelected).toHaveBeenLastCalledWith(comparisonRow);
+    expect(onTraceSelected).not.toHaveBeenCalled();
+
+    onComparisonRowSelected.mockClear();
+    await userEvent.click(within(rowGroup).getByRole('button', { name: 'Baseline' }));
+    expect(onComparisonRowSelected).toHaveBeenLastCalledWith(comparisonRow);
+    expect(onTraceSelected).not.toHaveBeenCalled();
+
+    within(rowGroup).getByRole('button', { name: 'Open trace comparison' }).focus();
+    await userEvent.keyboard('{Enter}');
+    expect(onComparisonRowSelected).toHaveBeenCalledWith(comparisonRow);
+  });
+
+  test('keeps a row with one trace as ordinary trace links, without row activation', async () => {
+    const first = makeTrace('first', { request_preview: 'Only input', response_preview: 'Only answer' });
+    const onComparisonRowSelected = jest.fn();
+    const onTraceSelected = jest.fn();
+    await renderWithProviders(
+      <TracesTable
+        {...baseProps({
+          traces: [first],
+          visibleColumns: ['input', 'output'],
+          comparisonRows: [
+            {
+              id: 'single',
+              input: 'Only input',
+              runs: [
+                { runUuid: 'a', label: 'Baseline', color: 'blue', trace: first },
+                { runUuid: 'b', label: 'Candidate', color: 'red' },
+              ],
+            },
+          ],
+          onComparisonRowSelected,
+          onTraceSelected,
+        })}
+      />,
+    );
+
+    expect(screen.queryByRole('rowgroup', { name: 'Open trace comparison' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Open trace comparison' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Baseline' }));
+    expect(onTraceSelected).toHaveBeenCalledWith(first);
+    expect(onComparisonRowSelected).not.toHaveBeenCalled();
+  });
+
+  test('keeps the caller’s own trace handlers in table meta without activatable comparison rows', async () => {
+    const seenMeta: { onTraceSelected?: unknown; getTraceHref?: unknown }[] = [];
+    const probeColumn = {
+      id: 'probe',
+      header: () => 'Probe',
+      cell: ({ table }: { table: { options: { meta?: unknown } } }) => {
+        seenMeta.push(table.options.meta as { onTraceSelected?: unknown; getTraceHref?: unknown });
+        return 'probe';
+      },
+    };
+    const onTraceSelected = jest.fn();
+    const getTraceHref = jest.fn((trace: { trace_id: string }) => `/trace/${trace.trace_id}`);
+    const props = comparisonProps({
+      visibleColumns: ['input'],
+      extraColumns: [probeColumn as never],
+      columnOrder: ['input', 'probe'],
+      onTraceSelected,
+      getTraceHref,
+    });
+
+    // Matched rows without onComparisonRowSelected, and ordinary rows: the handlers pass through as-is.
+    const { unmount } = await renderWithProviders(<TracesTable {...props} />);
+    unmount();
+    await renderWithProviders(
+      <TracesTable {...baseProps({ extraColumns: [probeColumn as never], onTraceSelected, getTraceHref })} />,
+    );
+    expect(seenMeta.length).toBeGreaterThan(0);
+    for (const meta of seenMeta) {
+      expect(meta.onTraceSelected).toBe(onTraceSelected);
+      expect(meta.getTraceHref).toBe(getTraceHref);
+    }
+
+    seenMeta.length = 0;
+    await renderWithProviders(<TracesTable {...props} onComparisonRowSelected={jest.fn()} />);
+    expect(seenMeta.length).toBeGreaterThan(0);
+    expect(seenMeta.every((meta) => meta.onTraceSelected !== onTraceSelected)).toBe(true);
+  });
+
   test('renders skeleton rows under the comparison header while loading', async () => {
     await renderWithProviders(<TracesTable {...comparisonProps({ isLoading: true, skeletonRowCount: 3 })} />);
     expect(screen.getByRole('columnheader', { name: 'Run' })).toBeVisible();

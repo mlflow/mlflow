@@ -56,7 +56,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2026-11-06",
+      "last_updated_at": "2026-10-28"
     },
     "MiniMaxAI/MiniMax-M3.1-Flash": {
       "mode": "chat",
@@ -538,9 +539,9 @@
         "max_output": 1000000
       },
       "pricing": {
-        "input_per_million_tokens": 1.5,
-        "output_per_million_tokens": 4.5,
-        "cache_read_per_million_tokens": 0.3
+        "input_per_million_tokens": 2.5,
+        "output_per_million_tokens": 7.5,
+        "cache_read_per_million_tokens": 0.5
       },
       "capabilities": {
         "function_calling": false,
@@ -549,7 +550,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-29"
     },
     "Qwen/Qwen3.7-Plus": {
       "mode": "chat",
@@ -1737,7 +1738,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2026-11-06",
+      "last_updated_at": "2026-10-28"
     },
     "thinkingmachines/Inkling-Small": {
       "mode": "chat",

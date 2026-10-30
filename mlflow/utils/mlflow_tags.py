@@ -63,6 +63,18 @@ MLFLOW_ISSUE_DETECTION_PRIORITIES = "mlflow.issueDetection.priorities"
 MLFLOW_ISSUE_DETECTION_TRIGGER = "mlflow.issueDetection.trigger"
 MLFLOW_ISSUE_DETECTION_TRIGGER_SCHEDULE = "schedule"
 
+# The trace window a scheduled occurrence covered, as epoch-ms bounds. Recorded on the run because
+# the checkpoint tag keeps only the latest watermark, so a past occurrence's window cannot be
+# derived from it afterwards. Absent on a manual run, which analyzes a chosen set of traces rather
+# than a window.
+MLFLOW_ISSUE_DETECTION_WINDOW_START = "mlflow.issueDetection.windowStart"
+MLFLOW_ISSUE_DETECTION_WINDOW_END = "mlflow.issueDetection.windowEnd"
+
+# Why a detection run failed, as "<ExceptionType>: <message>". The exception itself reaches only
+# the server log, which an experiment's owner has no way to read, so a failed occurrence would
+# otherwise say nothing about what went wrong.
+MLFLOW_ISSUE_DETECTION_ERROR = "mlflow.issueDetection.error"
+
 # The ID of the job that is running the UI-triggered mlflow.genai.evaluate flow
 MLFLOW_GENAI_EVALUATE_JOB_ID = "mlflow.genaiEvaluate.jobId"
 

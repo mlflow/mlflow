@@ -28,7 +28,7 @@ export interface TraceIssueReference {
   evidence?: IssueEvidence;
 }
 
-const isIssueReferenceAssessment = (assessment: Assessment): assessment is IssueReferenceAssessment =>
+export const isIssueReferenceAssessment = (assessment: Assessment): assessment is IssueReferenceAssessment =>
   'issue' in assessment && assessment.issue !== undefined;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -153,3 +153,7 @@ export const getUniqueIssueReferences = (assessments: Assessment[]): TraceIssueR
   getUniqueIssueReferenceAssessments(assessments).flatMap(
     (assessment) => getIssueReferenceFromAssessment(assessment) ?? [],
   );
+
+/** Issue references are listed in their own section of the assessments pane, so they don't count as assessments. */
+export const getNonIssueAssessmentCount = (assessments: Assessment[]): number =>
+  assessments.filter((assessment) => !isIssueReferenceAssessment(assessment)).length;

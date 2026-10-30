@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@databricks/web-shared/qu
 import { useActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
 import { SERVER_FEATURE_KEYS, useFeatureEnabled } from '../../hooks/useServerInfo';
 import {
+  DEFAULT_ISSUE_DETECTION_START_TIME,
+  DEFAULT_ISSUE_DETECTION_WEEKDAY,
   loadIssueDetectionSchedule,
   noIssueDetectionSchedule,
   saveIssueDetectionSchedule,
@@ -34,6 +36,18 @@ export interface UseIssueDetectionScheduleResult {
   setting: IssueDetectionScheduleSetting;
   /** Current trace filter clauses (persisted independently of pause) for prefilling the modal. */
   traceFilters: ScheduleTraceFilter[];
+  /** Time of day the cadence fires, `HH:MM`, read in `timezone`. */
+  startTime: string;
+  /** Weekday a weekly cadence fires on, Monday as 0. */
+  weekday: number;
+  /** When the server says the schedule next runs, or undefined when it has not said yet. */
+  nextRunMs: number | undefined;
+  /**
+   * The zone `startTime` is read in: the stored one, or undefined on a schedule with none, where
+   * a save adopts the editor's browser zone. A time of day means nothing without it, so the modal
+   * both shows it and lets it be changed.
+   */
+  timezone: string | undefined;
   /** The stored model selection, or undefined on a schedule that names none. */
   model: IssueDetectionScheduleModel | undefined;
   isLoading: boolean;
@@ -46,8 +60,16 @@ export interface UseIssueDetectionScheduleResult {
    * over them would replace a real schedule with this one's defaults.
    */
   loadError: Error | null;
-  /** Retry the read, so a transient failure does not strand the control until a remount. */
-  retryLoad: () => void;
+  /**
+   * Read the schedule again.
+   *
+   * Two callers, one reason: the stored state is the only source of `nextRunMs`, and this query
+   * neither polls nor refetches on focus. A failed read needs a retry that does not strand the
+   * control until a remount, and opening the dialog needs the current state -- a save resolves
+   * with no next run, since only the dispatcher computes one, so without this the line stayed
+   * missing for the rest of the session.
+   */
+  reload: () => void;
   /**
    * Apply the desired cadence + clauses. Resolves once the writes succeed and rejects if any
    * fail, so the modal can await it -- keeping itself open on failure instead of closing and
@@ -104,12 +126,16 @@ export const useIssueDetectionSchedule = ({
   return {
     setting: schedule?.setting ?? noIssueDetectionSchedule().setting,
     traceFilters: schedule?.traceFilters ?? [],
+    startTime: schedule?.startTime ?? DEFAULT_ISSUE_DETECTION_START_TIME,
+    weekday: schedule?.weekday ?? DEFAULT_ISSUE_DETECTION_WEEKDAY,
+    nextRunMs: schedule?.nextRunMs,
+    timezone: schedule?.timezone,
     model: schedule?.model,
     isLoading,
     isUpdating: mutation.isLoading,
     error: error ?? (mutation.error instanceof Error ? mutation.error : null),
     loadError: error ?? null,
-    retryLoad: () => {
+    reload: () => {
       void refetch();
     },
     setSetting,

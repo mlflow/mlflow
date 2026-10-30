@@ -2964,12 +2964,12 @@
       },
       "capabilities": {
         "function_calling": true,
-        "vision": false,
+        "vision": true,
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-29"
     },
     "accounts/fireworks/models/minimax-m3p1-flash": {
       "mode": "chat",
@@ -5545,6 +5545,46 @@
       },
       "last_updated_at": "2026-09-29"
     },
+    "accounts/fireworks/routers/deepseek-v4p1-flash-1017-spot": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 393216
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.21,
+        "output_per_million_tokens": 0.84,
+        "cache_read_per_million_tokens": 0.0042
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-29"
+    },
+    "accounts/fireworks/routers/deepseek-v4p1-flash-spot": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 393216
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.21,
+        "output_per_million_tokens": 0.84,
+        "cache_read_per_million_tokens": 0.0042
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-29"
+    },
     "accounts/fireworks/routers/deepseek-v4p1-flash-us": {
       "mode": "chat",
       "context_window": {
@@ -5695,6 +5735,26 @@
       "deprecation_date": "2026-11-07",
       "last_updated_at": "2026-10-27"
     },
+    "accounts/fireworks/routers/glm-5p3-spot": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.98,
+        "output_per_million_tokens": 3.08,
+        "cache_read_per_million_tokens": 0.182
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-29"
+    },
     "accounts/fireworks/routers/glm-5p3-us": {
       "mode": "chat",
       "context_window": {
@@ -5783,6 +5843,26 @@
         "response_schema": true
       },
       "last_updated_at": "2026-10-27"
+    },
+    "accounts/fireworks/routers/kimi-k3-spot": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.1,
+        "output_per_million_tokens": 10.5,
+        "cache_read_per_million_tokens": 0.21
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-29"
     },
     "accounts/fireworks/routers/kimi-k3-us": {
       "mode": "chat",
@@ -6564,12 +6644,12 @@
       },
       "capabilities": {
         "function_calling": true,
-        "vision": false,
+        "vision": true,
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-29"
     },
     "muse-glimmer-30b": {
       "mode": "chat",

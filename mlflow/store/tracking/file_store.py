@@ -150,6 +150,21 @@ def _validate_path_component(value: str, field_name: str) -> None:
         )
 
 
+def _validate_new_trace_id(trace_id: str) -> None:
+    _validate_path_component(trace_id, "trace_id")
+    # New trace ids are also embedded in the trace artifact URI, where "%", "?" and "#" change how
+    # the path is decoded and URL parsing drops tabs and newlines, so those and other control
+    # characters are rejected. Only trace creation applies this, so traces created before it can
+    # still be deleted by id.
+    if any(c in "%?#" or ord(c) < 32 or ord(c) == 127 for c in trace_id):
+        raise MlflowException(
+            invalid_value(
+                "trace_id", trace_id, "must not contain '%', '?', '#' or control characters"
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
 def _read_persisted_experiment_dict(experiment_dict):
     dict_copy = experiment_dict.copy()
 
@@ -1735,9 +1750,6 @@ class FileStore(AbstractStore):
         self._write_dict_to_trace_sub_folder(
             trace_dir, FileStore.TRACE_TAGS_FOLDER_NAME, trace_info.tags
         )
-        # Save assessments to its own folder
-        for assessment in trace_info.assessments:
-            self.create_assessment(assessment)
 
     def _convert_trace_info_to_dict(self, trace_info: TraceInfo):
         """
@@ -1778,7 +1790,7 @@ class FileStore(AbstractStore):
             The created TraceInfo object from the backend.
         """
         _validate_experiment_id(trace_info.experiment_id)
-        _validate_path_component(trace_info.trace_id, "trace_id")
+        _validate_new_trace_id(trace_info.trace_id)
         experiment_dir = self._get_experiment_path(
             trace_info.experiment_id, view_type=ViewType.ACTIVE_ONLY, assert_exists=True
         )
@@ -1797,6 +1809,11 @@ class FileStore(AbstractStore):
         # Create updated TraceInfo with artifact location tag
         trace_info.tags.update(tags)
         self._save_trace_info(trace_info, trace_dir)
+        # Save assessments to its own folder. They belong to the trace being saved, so
+        # override any trace id they carry, like SqlAlchemyStore.start_trace does.
+        for assessment in trace_info.assessments:
+            assessment.trace_id = trace_info.trace_id
+            self.create_assessment(assessment)
         return trace_info
 
     def get_trace_info(self, trace_id: str) -> TraceInfo:
@@ -1886,6 +1903,7 @@ class FileStore(AbstractStore):
         return os.path.join(trace_dir, FileStore.ASSESSMENTS_FOLDER_NAME)
 
     def _get_assessment_path(self, trace_id: str, assessment_id: str) -> str:
+        _validate_path_component(assessment_id, "assessment_id")
         assessments_dir = self._get_assessments_dir(trace_id)
         return os.path.join(assessments_dir, f"{assessment_id}.yaml")
 

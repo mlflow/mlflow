@@ -93,12 +93,26 @@ export const MLFLOW_ISSUE_DETECTION_JOB_ID_TAG = 'mlflow.issueDetection.jobId';
 export const MLFLOW_ISSUE_DETECTION_RESULT_ISSUES_TAG = 'mlflow.issueDetection.result.issues';
 export const MLFLOW_ISSUE_DETECTION_RESULT_TOTAL_TRACES_TAG = 'mlflow.issueDetection.result.totalTracesAnalyzed';
 export const MLFLOW_ISSUE_DETECTION_RESULT_SUMMARY_TAG = 'mlflow.issueDetection.result.summary';
+// The trace window a scheduled occurrence covered, as epoch-ms bounds. Written only by the
+// scheduled job: a manual run analyzes a chosen set of traces rather than a window.
+export const MLFLOW_ISSUE_DETECTION_WINDOW_START_TAG = 'mlflow.issueDetection.windowStart';
+export const MLFLOW_ISSUE_DETECTION_WINDOW_END_TAG = 'mlflow.issueDetection.windowEnd';
+// Why a detection run failed, as "<ExceptionType>: <message>".
+export const MLFLOW_ISSUE_DETECTION_ERROR_TAG = 'mlflow.issueDetection.error';
+// How a detection run was started. Scheduled occurrences carry "schedule"; an ad-hoc run has no
+// value for this tag at all, which is what tells the two apart once the runs are read.
+export const MLFLOW_ISSUE_DETECTION_TRIGGER_TAG = 'mlflow.issueDetection.trigger';
+export const MLFLOW_ISSUE_DETECTION_TRIGGER_VALUE_SCHEDULE = 'schedule';
 // Experiment-level detection settings, stored as one JSON value: instructions plus category toggles.
 export const MLFLOW_ISSUE_DETECTION_PRIORITIES_TAG = 'mlflow.issueDetection.priorities';
-// The experiment's recurring detection schedule: cadence, timezone and paused flag.
+// The experiment's recurring detection schedule: cadence, start time, weekday, timezone and
+// paused flag.
 export const MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG = 'mlflow.issueDetection.schedule';
 // The equality clauses narrowing which traces a scheduled detection run analyzes.
 export const MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG = 'mlflow.issueDetection.scheduleTraceFilter';
+// What the server has dispatched for that schedule, and when it will next run. Written only by
+// the server; read here to show the next run, never written from the browser.
+export const MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG = 'mlflow.issueDetection.scheduleState';
 
 export const MLFLOW_RUN_GIT_SOURCE_BRANCH_TAG = 'mlflow.source.git.branch';
 export const MLFLOW_PROMPT_VERSION_COUNT_TAG = 'PromptVersionCount';
@@ -114,7 +128,6 @@ export const MLFLOW_PROMPT_ENGINEERING_ARTIFACT_NAME = 'eval_results_table.json'
 export enum RunPageTabName {
   OVERVIEW = 'overview',
   TRACES = 'traces',
-  ISSUES = 'issues',
   MODEL_METRIC_CHARTS = 'model-metrics',
   SYSTEM_METRIC_CHARTS = 'system-metrics',
   ARTIFACTS = 'artifacts',

@@ -1,10 +1,19 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { fireEvent, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
+import { MemoryRouter, useLocation } from '../../../../common/utils/RoutingUtils';
 import { renderWithDesignSystem } from '../../../../common/utils/TestUtils.react18';
 import type { GenAIOverviewEvalScorePoint } from '../hooks/useGenAIOverviewEvalState';
 import { GenAIOverviewEvalScoresChart, type GenAIOverviewEvalScoresChartProps } from './GenAIOverviewEvalScoresChart';
+
+const CurrentTestLocation = () => {
+  const { pathname } = useLocation();
+  return (
+    <div role="status" aria-label="Current test location">
+      {pathname}
+    </div>
+  );
+};
 
 describe('GenAIOverviewEvalScoresChart', () => {
   test('limits Assistant context to ten scores while preserving the total count', async () => {
@@ -38,6 +47,30 @@ describe('GenAIOverviewEvalScoresChart', () => {
           }),
         ],
       }),
+    );
+  });
+  test("opens the selected point's own evaluation run, not the experiment Issues tab", async () => {
+    // Every point on this chart is an evaluation run, so the selected run id is the whole answer:
+    // sending it to a shared destination would discard what the user picked.
+    const scorePoints: GenAIOverviewEvalScorePoint[] = [
+      { runUuid: 'run-7', runName: 'candidate', timestampMs: 100, scores: { correctness: 0.5 } },
+    ];
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <GenAIOverviewEvalScoresChart
+          experimentId="experiment-1"
+          assessmentScoreNames={['correctness']}
+          scorePoints={scorePoints}
+        />
+        <CurrentTestLocation />
+      </MemoryRouter>,
+    );
+
+    fireEvent.keyDown(screen.getByRole('button', { name: /Evaluation score trends/ }), { key: 'Enter' });
+    await userEvent.click(await screen.findByRole('button', { name: 'Open eval run' }));
+
+    expect(screen.getByRole('status', { name: 'Current test location' })).toHaveTextContent(
+      '/experiments/experiment-1/evaluation-runs/run-7/details',
     );
   });
 });

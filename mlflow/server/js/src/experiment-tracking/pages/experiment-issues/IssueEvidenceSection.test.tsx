@@ -351,11 +351,11 @@ describe('IssueEvidenceSection', () => {
     ];
     renderSection();
 
-    await userEvent.click(await screen.findByRole('button', { name: /Show \d+ more/ }));
+    await userEvent.click(await screen.findByRole('button', { name: /Show more/ }));
 
     expect(await screen.findByRole('button', { name: /trace_tr-2/ })).toBeInTheDocument();
     expect(searchBodies[1]).toEqual(expect.objectContaining({ page_token: 'page-2' }));
-    expect(screen.queryByRole('button', { name: /Show \d+ more/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Show more/ })).not.toBeInTheDocument();
   });
 
   test('distinguishes an issue with no affected traces from a failed search', async () => {

@@ -18,6 +18,7 @@ import { TimelineTreeSpanTooltip } from './TimelineTreeSpanTooltip';
 import { type ModelTraceSpanNode } from '../ModelTrace.types';
 import { ModelTraceExplorerIssueIndicator } from '../../ModelTraceExplorerIssueBanner';
 import { getSpanExceptionCount } from '../ModelTraceExplorer.utils';
+import { getNonIssueAssessmentCount } from '../../IssueAssessmentUtils';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import { useGatewayTraceLink } from '../../hooks/useGatewayTraceLink';
 import { Link } from '../../RoutingUtils';
@@ -95,6 +96,7 @@ export const TimelineTreeNode = ({
   linesToRender: Array<HierarchyBar>;
 }): React.ReactElement => {
   const expanded = expandedKeys.has(node.key);
+  const assessmentCount = getNonIssueAssessmentCount(node.assessments);
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const { timelineTreeMetrics } = useModelTraceExplorerPreferences();
@@ -332,7 +334,7 @@ export const TimelineTreeNode = ({
                         </Link>
                       </Tooltip>
                     )}
-                    {node.assessments.length > 0 && (
+                    {assessmentCount > 0 && (
                       <Tag
                         color="indigo"
                         data-testid={`assessment-tag-${node.key}`}
@@ -345,9 +347,7 @@ export const TimelineTreeNode = ({
                         onClick={() => setAssessmentsPaneExpanded?.(true)}
                       >
                         <GavelIcon />
-                        <Typography.Text css={{ marginLeft: theme.spacing.xs }}>
-                          {node.assessments.length}
-                        </Typography.Text>
+                        <Typography.Text css={{ marginLeft: theme.spacing.xs }}>{assessmentCount}</Typography.Text>
                       </Tag>
                     )}
                     {(node.links?.length ?? 0) > 0 && (

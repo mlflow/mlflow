@@ -4,6 +4,7 @@ This directory contains automation scripts for MLflow developers and the build i
 
 ## Job Statuses
 
+[![Nightly Status](https://img.shields.io/github/actions/workflow/status/mlflow/mlflow/nightly.yml.svg?branch=master&event=schedule&label=Nightly&style=for-the-badge&logo=github)](https://github.com/mlflow/mlflow/actions/workflows/nightly.yml?query=event%3Aschedule)
 [![Examples Action Status](https://img.shields.io/github/actions/workflow/status/mlflow/mlflow/examples.yml.svg?branch=master&event=schedule&label=Examples&style=for-the-badge&logo=github)](https://github.com/mlflow/mlflow/actions/workflows/examples.yml?query=event%3Aschedule)
 [![Cross Version Tests Status](https://img.shields.io/github/actions/workflow/status/mlflow/mlflow/cross-version-tests.yml.svg?branch=master&event=schedule&label=Cross%20version%20tests&style=for-the-badge&logo=github)](https://github.com/mlflow/mlflow/actions/workflows/cross-version-tests.yml?query=event%3Aschedule)
 [![R-devel Action Status](https://img.shields.io/github/actions/workflow/status/mlflow/mlflow/r.yml.svg?branch=master&event=schedule&label=r-devel&style=for-the-badge&logo=github)](https://github.com/mlflow/mlflow/actions/workflows/r.yml?query=event%3Aschedule)

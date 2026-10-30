@@ -8,10 +8,15 @@ import { ExperimentPageTabName } from '../../constants';
 import Routes, { RoutePaths } from '../../routes';
 import { getTabDisplayName } from '../../components/experiment-page/components/header/ExperimentViewHeader.utils';
 import { useGetExperimentPageActiveTabByRoute } from '../../components/experiment-page/hooks/useGetExperimentPageActiveTabByRoute';
-import { useExperimentBreadcrumbStatus, useExperimentBreadcrumbTitle } from './ExperimentPageRevampContext';
+import {
+  useExperimentBreadcrumbPairwiseReviewAction,
+  useExperimentBreadcrumbStatus,
+  useExperimentBreadcrumbTitle,
+} from './ExperimentPageRevampContext';
 import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
 import { useEvalRunsCompareMode } from '../../components/evaluations/hooks/useEvalRunsCompareMode';
 import { EvalRunComparisonBackButton } from '../eval-run-details/EvalRunComparisonBackButton';
+import { EvalRunComparisonReviewButton } from '../eval-run-details/EvalRunComparisonReviewButton';
 
 const breadcrumbLabelCss = {
   display: 'inline-flex',
@@ -56,6 +61,9 @@ const getBreadcrumbDescriptor = (
   if (matchPath(RoutePaths.experimentPageTabPromptDetails, pathname)) {
     return { parentTab: ExperimentPageTabName.Prompts, leafId: params['promptName'] };
   }
+  if (matchPath(RoutePaths.experimentPageTabIssueDetectionRuns, pathname)) {
+    return { parentTab: ExperimentPageTabName.Issues, leafId: 'runs' };
+  }
   return activeTab ? { parentTab: activeTab } : undefined;
 };
 
@@ -78,6 +86,7 @@ export const ExperimentPageBreadcrumbs = ({ experiment }: ExperimentPageBreadcru
       : undefined;
   const experimentName = experiment.name.split('/').pop() ?? experiment.name;
   const runStatus = useExperimentBreadcrumbStatus();
+  const pairwiseReviewAction = useExperimentBreadcrumbPairwiseReviewAction();
   const { compareMode } = useEvalRunsCompareMode();
   // Only the new eval-run detail page hosts this compare view. Keep an exit action while comparing,
   // but start comparisons from the run sidebar instead of a top-level toggle.
@@ -161,6 +170,7 @@ export const ExperimentPageBreadcrumbs = ({ experiment }: ExperimentPageBreadcru
       {showExitCompareAction && compareMode && (
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, flexShrink: 0 }}>
           <EvalRunComparisonBackButton />
+          {pairwiseReviewAction && <EvalRunComparisonReviewButton onReview={pairwiseReviewAction} />}
         </div>
       )}
       <div css={{ flexShrink: 0 }}>

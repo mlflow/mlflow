@@ -5,6 +5,7 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest import mock
+from zoneinfo import ZoneInfo
 
 import pytest
 from flask import Response, g, request
@@ -46,6 +47,7 @@ from mlflow.entities.model_registry import (
     RegisteredModelTag,
 )
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
+from mlflow.entities.multipart_upload import CreateMultipartUploadResponse
 from mlflow.entities.presigned_download import PresignedDownloadUrlResponse
 from mlflow.entities.presigned_upload import CreatePresignedUploadResponse
 from mlflow.entities.trace_info_v2 import TraceInfoV2
@@ -152,6 +154,8 @@ from mlflow.protos.service_pb2 import (
     SetExperimentTag,
     SetTraceTag,
     SetTraceTagV3,
+    StartTrace,
+    StartTraceV3,
     TraceLocation,
     TraceTag,
     UpdateGatewaySecret,
@@ -162,6 +166,7 @@ from mlflow.protos.service_pb2 import (
 from mlflow.protos.service_pb2 import (
     GatewayModelLinkageType as ProtoGatewayModelLinkageType,
 )
+from mlflow.protos.service_pb2 import Trace as ProtoTrace
 from mlflow.protos.webhooks_pb2 import ListWebhooks
 from mlflow.server import (
     ARTIFACT_ROOT_ENV_VAR,
@@ -211,6 +216,7 @@ from mlflow.server.handlers import (
     _delete_workspace_handler,
     _deprecated_end_trace_v2,
     _deprecated_search_traces_v2,
+    _deprecated_start_trace_v2,
     _download_artifact,
     _get_ajax_path,
     _get_dataset_experiment_ids_handler,
@@ -262,6 +268,7 @@ from mlflow.server.handlers import (
     _set_review_queue_item_status,
     _set_trace_tag,
     _set_trace_tag_v3,
+    _start_trace_v3,
     _transition_stage,
     _update_gateway_secret,
     _update_issue,
@@ -4954,6 +4961,19 @@ def test_raw_request_has_field_get_query_string():
         assert _raw_request_has_field(experiment_ids_field) is False
 
 
+@pytest.mark.parametrize("experiment_ids", [None, "1"])
+def test_get_request_message_ignores_get_experiment_alias(experiment_ids):
+    query = {"trace_ids": "tr-1", "experimentIds": "2"}
+    if experiment_ids is not None:
+        query["experiment_ids"] = experiment_ids
+    with app.test_request_context(method="GET", query_string=query):
+        message = _get_request_message(BatchGetTraces())
+        assert list(message.experiment_ids) == ([] if experiment_ids is None else [experiment_ids])
+        assert _raw_request_has_field(message.DESCRIPTOR.fields_by_name["experiment_ids"]) is (
+            experiment_ids is not None
+        )
+
+
 def test_raw_request_has_field_post_json_body():
     experiment_ids_field = BatchGetTraceInfos.DESCRIPTOR.fields_by_name["experiment_ids"]
 
@@ -5749,6 +5769,61 @@ def test_deprecated_end_trace_v2_handler_drops_immutable_tags(
 
     assert response.status_code == 200
     assert mock_tracking_store.deprecated_end_trace_v2.call_args.kwargs["tags"] == {"user_tag": "v"}
+
+
+def test_start_trace_v3_handler_drops_immutable_tags(mock_get_request_message, mock_tracking_store):
+    trace_info = TraceInfo(
+        trace_id="tr-123",
+        trace_location=EntityTraceLocation.from_experiment_id("0"),
+        request_time=0,
+        state=TraceState.OK,
+        tags={
+            MLFLOW_ARTIFACT_LOCATION: "file:///tmp/other",
+            TraceTagKey.SPANS_LOCATION: "archive_repo",
+            TraceTagKey.ARCHIVE_LOCATION: "file:///tmp/archive",
+            TraceTagKey.ARCHIVAL_FAILURE: "failed",
+            "user_tag": "v",
+        },
+    )
+    mock_get_request_message.return_value = StartTraceV3(
+        trace=ProtoTrace(trace_info=trace_info.to_proto())
+    )
+    mock_tracking_store.start_trace.side_effect = lambda trace_info: trace_info
+
+    response = _start_trace_v3()
+
+    assert response.status_code == 200
+    assert mock_tracking_store.start_trace.call_args.args[0].tags == {"user_tag": "v"}
+
+
+def test_deprecated_start_trace_v2_handler_drops_immutable_tags(
+    mock_get_request_message, mock_tracking_store
+):
+    mock_get_request_message.return_value = StartTrace(
+        experiment_id="0",
+        timestamp_ms=0,
+        tags=[
+            TraceTag(key=MLFLOW_ARTIFACT_LOCATION, value="file:///tmp/other"),
+            TraceTag(key=TraceTagKey.SPANS_LOCATION, value="archive_repo"),
+            TraceTag(key=TraceTagKey.ARCHIVE_LOCATION, value="file:///tmp/archive"),
+            TraceTag(key=TraceTagKey.ARCHIVAL_FAILURE, value="failed"),
+            TraceTag(key="user_tag", value="v"),
+        ],
+    )
+    mock_tracking_store.deprecated_start_trace_v2.return_value = TraceInfoV2(
+        request_id="tr-123",
+        experiment_id="0",
+        timestamp_ms=0,
+        execution_time_ms=None,
+        status=TraceStatus.IN_PROGRESS,
+    )
+
+    response = _deprecated_start_trace_v2()
+
+    assert response.status_code == 200
+    assert mock_tracking_store.deprecated_start_trace_v2.call_args.kwargs["tags"] == {
+        "user_tag": "v"
+    }
 
 
 def test_link_prompts_to_trace_handler(mock_get_request_message, mock_tracking_store):
@@ -7807,6 +7882,96 @@ def test_skill_content_cannot_be_mutated_through_multipart_artifact_handlers(
     with app.test_request_context(method="POST"):
         response = handler("skills/private/token")
     assert response.status_code == 403
+
+
+_MULTIPART_UPLOAD_HANDLER_CASES = [
+    (_create_multipart_upload_artifact, "create_multipart_upload", {"num_parts": 1}),
+    (
+        _complete_multipart_upload_artifact,
+        "complete_multipart_upload",
+        {"upload_id": "upload", "parts": [{"part_number": 1, "etag": "etag"}]},
+    ),
+    (_abort_multipart_upload_artifact, "abort_multipart_upload", {"upload_id": "upload"}),
+]
+
+
+@pytest.mark.parametrize(
+    ("handler", "repo_method", "request_fields"), _MULTIPART_UPLOAD_HANDLER_CASES
+)
+@pytest.mark.parametrize(
+    "path",
+    [
+        "model.bin",
+        "src/model.bin",
+        "/tmp/src/model.bin",
+        "C:\\Users\\me\\model.bin",
+        # A separator that arrives percent-encoded is only visible after decoding.
+        "src%2Fmodel.bin",
+    ],
+)
+def test_multipart_upload_handlers_pass_basename_of_path_to_repo(
+    enable_serve_artifacts, handler, repo_method, request_fields, path
+):
+    repo = mock.MagicMock()
+    repo.create_multipart_upload.return_value = CreateMultipartUploadResponse(
+        upload_id="upload", credentials=[]
+    )
+    with (
+        app.test_request_context(method="POST", json={"path": path, **request_fields}),
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts", return_value=repo
+        ) as get_repo,
+        mock.patch("mlflow.server.handlers._validate_support_multipart_upload") as validate,
+        mock.patch(
+            "mlflow.server.handlers._reject_skill_artifact_mutation", wraps=lambda _: None
+        ) as reject_skill_mutation,
+    ):
+        response = handler("0/run/artifacts")
+
+    assert response.status_code == 200
+    get_repo.assert_called_once()
+    validate.assert_called_once_with(repo)
+    getattr(repo, repo_method).assert_called_once()
+    assert getattr(repo, repo_method).call_args.args[0] == "model.bin"
+    # The skill guard must evaluate the key that is actually written.
+    assert reject_skill_mutation.call_args_list[-1].args == ("0/run/artifacts/model.bin",)
+
+
+@pytest.mark.parametrize(
+    ("handler", "repo_method", "request_fields"), _MULTIPART_UPLOAD_HANDLER_CASES
+)
+@pytest.mark.parametrize(
+    "path",
+    [
+        "src/",
+        "/tmp/src/",
+        "C:\\src\\",
+        "/tmp/..",
+        "src/%2E%2E",
+        ".",
+        "/tmp/src/.",
+        "%2E",
+        "src%2F",
+        # An encoded backslash or drive colon is not a separator for the validator on POSIX,
+        # but the final basename still reduces these to `..`.
+        "src%5C..",
+        "C%3A..",
+    ],
+)
+def test_multipart_upload_handlers_reject_invalid_file_name(
+    enable_serve_artifacts, handler, repo_method, request_fields, path
+):
+    with (
+        app.test_request_context(method="POST", json={"path": path, **request_fields}),
+        mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as get_repo,
+    ):
+        response = handler("0/run/artifacts")
+
+    assert response.status_code == 400
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert json_response["message"] == "Invalid path"
+    get_repo.assert_not_called()
 
 
 def test_create_multipart_upload_with_unsupported_checksum_returns_generic_error(
@@ -10547,6 +10712,150 @@ def test_invoke_issue_detection_handler_rejects_a_second_concurrent_run(
     # Rejected before anything is created, so a blocked request leaves no orphan run behind.
     start_run.assert_not_called()
     submit_job.assert_not_called()
+
+
+def _schedule_experiment(mock_tracking_store, schedule_json, state_json=None):
+    from mlflow.entities.experiment import Experiment
+    from mlflow.entities.experiment_tag import ExperimentTag
+    from mlflow.utils.mlflow_tags import (
+        MLFLOW_ISSUE_DETECTION_SCHEDULE,
+        MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE,
+    )
+
+    tags = [ExperimentTag(MLFLOW_ISSUE_DETECTION_SCHEDULE, schedule_json)] if schedule_json else []
+    if state_json:
+        tags.append(ExperimentTag(MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE, state_json))
+    mock_tracking_store.get_experiment.return_value = Experiment(
+        experiment_id="exp-123",
+        name="exp",
+        artifact_location="loc",
+        lifecycle_stage="active",
+        tags=tags,
+    )
+
+
+def _written_state(mock_tracking_store):
+    from mlflow.utils.mlflow_tags import MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE
+
+    for call in mock_tracking_store.set_experiment_tag.call_args_list:
+        tag = call.args[1]
+        if tag.key == MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE:
+            return json.loads(tag.value)
+    return None
+
+
+def _ms(zone, *args):
+    return int(datetime(*args, tzinfo=ZoneInfo(zone)).timestamp() * 1000)
+
+
+def test_schedule_state_handler_answers_when_a_retimed_schedule_next_runs(mock_tracking_store):
+    # The reason this endpoint exists. The dialog writes the schedule through the generic tag
+    # endpoint, so without a call like this nothing on the server knows a schedule was saved and
+    # the next run is computed only by the following dispatcher pass -- up to a quarter of an
+    # hour of having nothing to show.
+    saved_at = _ms("UTC", 2026, 5, 4, 15, 59)
+    _schedule_experiment(
+        mock_tracking_store,
+        json.dumps({
+            "version": 1,
+            "cadence": "daily",
+            "timezone": "UTC",
+            "paused": False,
+            "fireTime": "16:00",
+            "weekday": 0,
+        }),
+        json.dumps({
+            "version": 1,
+            "lastFireTimeMs": _ms("UTC", 2026, 5, 4, 9),
+            "timing": "daily|09:00|0|UTC",
+        }),
+    )
+
+    with (
+        mock.patch("mlflow.utils.time.get_current_time_millis", return_value=saved_at),
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/ajax-api/3.0/mlflow/issues/schedule/state", json={"experiment_id": "exp-123"}
+        )
+
+    assert resp.status_code == 200
+    # Today's 16:00, a minute away -- not tomorrow's. The save is the moment of the edit, so the
+    # anchor is exact here, where a dispatcher pass can only bound it by the previous pass.
+    assert resp.get_json()["next_fire_time_ms"] == _ms("UTC", 2026, 5, 4, 16)
+    state = _written_state(mock_tracking_store)
+    assert state["timing"] == "daily|16:00|0|UTC"
+    assert state["lastFireTimeMs"] == saved_at
+
+
+def test_schedule_state_handler_anchors_a_schedule_the_server_has_not_seen(mock_tracking_store):
+    saved_at = _ms("UTC", 2026, 5, 4, 10)
+    _schedule_experiment(
+        mock_tracking_store,
+        json.dumps({
+            "version": 1,
+            "cadence": "daily",
+            "timezone": "UTC",
+            "paused": False,
+            "fireTime": "16:00",
+            "weekday": 0,
+        }),
+    )
+
+    with (
+        mock.patch("mlflow.utils.time.get_current_time_millis", return_value=saved_at),
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/ajax-api/3.0/mlflow/issues/schedule/state", json={"experiment_id": "exp-123"}
+        )
+
+    assert resp.get_json()["next_fire_time_ms"] == _ms("UTC", 2026, 5, 4, 16)
+    assert _written_state(mock_tracking_store)["timing"] == "daily|16:00|0|UTC"
+
+
+def test_schedule_state_handler_leaves_an_unchanged_schedule_alone(mock_tracking_store):
+    # Called on every save, including ones that changed the model or the filters. Rewriting the
+    # state then would re-anchor a schedule nobody retimed and delay its next occurrence.
+    next_run = _ms("UTC", 2026, 5, 5, 16)
+    _schedule_experiment(
+        mock_tracking_store,
+        json.dumps({
+            "version": 1,
+            "cadence": "daily",
+            "timezone": "UTC",
+            "paused": False,
+            "fireTime": "16:00",
+            "weekday": 0,
+        }),
+        json.dumps({
+            "version": 1,
+            "lastFireTimeMs": _ms("UTC", 2026, 5, 4, 16),
+            "timing": "daily|16:00|0|UTC",
+            "nextFireTimeMs": next_run,
+        }),
+    )
+
+    with app.test_client() as c:
+        resp = c.post(
+            "/ajax-api/3.0/mlflow/issues/schedule/state", json={"experiment_id": "exp-123"}
+        )
+
+    assert resp.get_json()["next_fire_time_ms"] == next_run
+    assert _written_state(mock_tracking_store) is None
+
+
+def test_schedule_state_handler_reports_no_next_run_without_a_schedule(mock_tracking_store):
+    _schedule_experiment(mock_tracking_store, None)
+
+    with app.test_client() as c:
+        resp = c.post(
+            "/ajax-api/3.0/mlflow/issues/schedule/state", json={"experiment_id": "exp-123"}
+        )
+
+    assert resp.status_code == 200
+    assert resp.get_json()["next_fire_time_ms"] is None
+    assert _written_state(mock_tracking_store) is None
 
 
 def test_invoke_issue_detection_handler_rejects_cross_experiment_traces(

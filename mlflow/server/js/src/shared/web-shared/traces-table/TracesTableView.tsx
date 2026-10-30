@@ -10,6 +10,7 @@ import type {
   TraceColumnId,
   TraceColumnHeaderAction,
   TraceColumnHeaderSummary,
+  TraceComparisonRow,
   TracesComparisonRow,
   TraceHrefGetter,
   TraceSortColumnId,
@@ -44,6 +45,8 @@ export interface TracesTableViewProps {
   // Table passthrough (see TracesTableProps).
   traces: ModelTraceInfoV3[];
   comparisonRows?: TracesComparisonRow[];
+  /** With trace `comparisonRows`: opens a matched row with at least two traces as a comparison. */
+  onComparisonRowSelected?: (row: TraceComparisonRow) => void;
   /** Session comparison groups that are open; with `comparisonRows` grouped by session. */
   expandedComparisonGroups?: ReadonlySet<string>;
   onToggleComparisonGroup?: (comparisonId: string) => void;
@@ -218,6 +221,7 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
     <TracesTable
       traces={props.traces}
       comparisonRows={props.comparisonRows}
+      onComparisonRowSelected={props.onComparisonRowSelected}
       expandedComparisonGroups={props.expandedComparisonGroups}
       onToggleComparisonGroup={props.onToggleComparisonGroup}
       expandedComparisonRuns={props.expandedComparisonRuns}

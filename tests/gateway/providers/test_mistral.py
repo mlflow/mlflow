@@ -1,3 +1,4 @@
+import json
 import math
 from unittest import mock
 
@@ -478,3 +479,88 @@ async def test_chat_stream_includes_usage_from_final_chunk():
     assert chunks[-1].usage.prompt_tokens == 12
     assert chunks[-1].usage.completion_tokens == 34
     assert chunks[-1].usage.total_tokens == 46
+
+
+def reasoning_content():
+    return [
+        {
+            "type": "thinking",
+            "thinking": [{"type": "text", "text": "The user greets me."}],
+            "closed": True,
+        },
+        {"type": "text", "text": "Hello! How can I help you today?"},
+    ]
+
+
+def reasoning_chat_response():
+    return {
+        "id": "chatcmpl-abc123",
+        "object": "chat.completion",
+        "created": 1677858242,
+        "model": "mistral-large-latest",
+        "usage": {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3},
+        "choices": [
+            {
+                "message": {"role": "assistant", "content": reasoning_content()},
+                "finish_reason": "stop",
+                "index": 0,
+            }
+        ],
+    }
+
+
+@pytest.mark.asyncio
+async def test_chat_drops_thinking_content():
+    provider = MistralProvider(EndpointConfig(**chat_config()))
+    with mock.patch(TARGET, return_value=MockAsyncResponse(reasoning_chat_response())) as mock_post:
+        payload = {"messages": [{"role": "user", "content": "Hi"}]}
+        response = await provider.chat(chat.RequestPayload(**payload))
+
+    mock_post.assert_called_once()
+    assert response.choices[0].message.content == "Hello! How can I help you today?"
+    assert response.usage.total_tokens == 3
+
+
+@pytest.mark.asyncio
+async def test_completions_drops_thinking_content():
+    provider = MistralProvider(EndpointConfig(**completions_config()))
+    with mock.patch(TARGET, return_value=MockAsyncResponse(reasoning_chat_response())) as mock_post:
+        response = await provider.completions(completions.RequestPayload(prompt="Hi"))
+
+    mock_post.assert_called_once()
+    assert response.choices[0].text == "Hello! How can I help you today?"
+
+
+def _stream_chunk(content, finish_reason=None):
+    chunk = {
+        "id": "test-id",
+        "object": "chat.completion.chunk",
+        "created": 1677858242,
+        "model": "mistral-large-latest",
+        "choices": [{"index": 0, "finish_reason": finish_reason, "delta": {"content": content}}],
+    }
+    return f"data: {json.dumps(chunk)}\n\n".encode()
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_drops_thinking_content():
+    provider = MistralProvider(EndpointConfig(**chat_config()))
+    resp = [
+        _stream_chunk(reasoning_content()[:1]),
+        _stream_chunk(reasoning_content()),
+        _stream_chunk(" Bye", finish_reason="stop"),
+        b"data: [DONE]\n\n",
+    ]
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_session:
+        payload = {"messages": [{"role": "user", "content": "Hi"}]}
+        chunks = [c async for c in provider.chat_stream(chat.RequestPayload(**payload))]
+
+    mock_session.assert_called_once()
+    mock_client.post.assert_called_once()
+    assert [c.choices[0].delta.content for c in chunks] == [
+        None,
+        "Hello! How can I help you today?",
+        " Bye",
+    ]

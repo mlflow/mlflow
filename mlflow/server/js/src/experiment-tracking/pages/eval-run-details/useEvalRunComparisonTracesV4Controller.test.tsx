@@ -14,6 +14,13 @@ import {
   makeFeedbackAssessment,
   makeTrace,
 } from '../../components/experiment-page/components/traces-v4/test-utils/mockTraces';
+import { assessmentColumnId } from '../../components/experiment-page/components/traces-v4/utils/assessmentColumns';
+import {
+  PAIRWISE_PREFERENCE_ASSESSMENT_NAME,
+  PAIRWISE_SCORE_LOSE_VALUE,
+  PAIRWISE_SCORE_OPPONENT_TRACE_ID_METADATA_KEY,
+  PAIRWISE_SCORE_WIN_VALUE,
+} from '../../components/experiment-page/components/traces-v4/utils/pairwiseReview';
 import { useEvalRunComparisonTracesV4Controller } from './useEvalRunComparisonTracesV4Controller';
 
 const runUuidInFilter = (filter: string) => filter.match(/attributes\.run_id = '([^']*)'/)?.[1];
@@ -131,6 +138,99 @@ describe('useEvalRunComparisonTracesV4Controller', () => {
         }),
       ],
     });
+
+  it('keeps pairwise preference totals from a reviewed row on page 2 when viewing page 1', async () => {
+    const makeRunTraces = (run: 'baseline' | 'candidate') =>
+      Array.from({ length: 26 }, (_, index) => {
+        const traceId = `${run}-${index}`;
+        const opponentTraceId = `${run === 'baseline' ? 'candidate' : 'baseline'}-${index}`;
+        return makeTrace(traceId, {
+          request_preview: `input-${index}`,
+          request_time: new Date(Date.UTC(2026, 0, 1, 0, 0, 30 - index)).toISOString(),
+          assessments:
+            index === 25
+              ? [
+                  makeFeedbackAssessment(
+                    PAIRWISE_PREFERENCE_ASSESSMENT_NAME,
+                    run === 'baseline' ? PAIRWISE_SCORE_WIN_VALUE : PAIRWISE_SCORE_LOSE_VALUE,
+                    {
+                      trace_id: traceId,
+                      source: { source_type: 'HUMAN', source_id: 'reviewer' },
+                      metadata: { [PAIRWISE_SCORE_OPPONENT_TRACE_ID_METADATA_KEY]: opponentTraceId },
+                    },
+                  ),
+                ]
+              : [],
+        });
+      });
+    const tracesByRun = { baseline: makeRunTraces('baseline'), candidate: makeRunTraces('candidate') };
+    server.use(
+      rest.post('*/ajax-api/3.0/mlflow/traces/search', async (req, res, ctx) => {
+        const body = await req.json<{ filter: string }>();
+        const runUuid = runUuidInFilter(body.filter);
+        return res(ctx.json({ traces: runUuid === 'baseline' || runUuid === 'candidate' ? tracesByRun[runUuid] : [] }));
+      }),
+    );
+
+    const { result } = await renderController();
+    const pairwiseColumnId = assessmentColumnId(PAIRWISE_PREFERENCE_ASSESSMENT_NAME);
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.totalRows).toBe(26);
+      expect(result.current.rows).toHaveLength(25);
+      expect(result.current.columnAggregates[pairwiseColumnId]?.values.map(({ displayValue }) => displayValue)).toEqual(
+        ['1/0', '0/1'],
+      );
+    });
+    expect(result.current.columnAggregates[pairwiseColumnId]?.label).toBe('WIN / LOSE');
+
+    act(() => result.current.setPageIndex(2));
+    expect(result.current.rows).toHaveLength(1);
+    const reviewedRow = result.current.rows[0];
+    if (reviewedRow.kind === 'session') {
+      throw new Error('Expected a trace comparison row');
+    }
+    expect(reviewedRow.runs.map(({ trace }) => trace?.trace_id)).toEqual(['baseline-25', 'candidate-25']);
+    act(() => result.current.setPageIndex(1));
+    expect(result.current.columnAggregates[pairwiseColumnId]?.values.map(({ displayValue }) => displayValue)).toEqual([
+      '1/0',
+      '0/1',
+    ]);
+  });
+
+  it('shows no pairwise aggregate in session mode', async () => {
+    const reviewed = (id: string, value: number, opponent: string) =>
+      makeTrace(id, {
+        trace_metadata: { [SESSION_ID_METADATA_KEY]: `session-${id}` },
+        assessments: [
+          makeFeedbackAssessment(PAIRWISE_PREFERENCE_ASSESSMENT_NAME, value, {
+            trace_id: id,
+            source: { source_type: 'HUMAN', source_id: 'reviewer' },
+            metadata: { [PAIRWISE_SCORE_OPPONENT_TRACE_ID_METADATA_KEY]: opponent },
+          }),
+        ],
+      });
+    server.use(
+      rest.post('*/ajax-api/3.0/mlflow/traces/search', async (req, res, ctx) => {
+        const body = await req.json<{ filter: string }>();
+        const runUuid = runUuidInFilter(body.filter);
+        return res(
+          ctx.json({
+            traces:
+              runUuid === 'baseline'
+                ? [reviewed('b-1', PAIRWISE_SCORE_WIN_VALUE, 'c-1')]
+                : [reviewed('c-1', PAIRWISE_SCORE_LOSE_VALUE, 'b-1')],
+          }),
+        );
+      }),
+    );
+    const { result } = await renderController({ query: '&comparisonGroupBy=session' });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await waitFor(() => expect(result.current.totalRows).toBeGreaterThan(0));
+    expect(result.current.columnAggregates[assessmentColumnId(PAIRWISE_PREFERENCE_ASSESSMENT_NAME)]?.label).not.toBe(
+      'WIN / LOSE',
+    );
+  });
 
   it('filters all loaded groups before aggregation and pagination, and restores results on clear', async () => {
     pageTraces = Array.from({ length: 30 }, (_, index) =>

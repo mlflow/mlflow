@@ -147,6 +147,7 @@ def test_invoke_issue_detection_job_success():
     mock_result.issues = [mock.MagicMock(), mock.MagicMock(), mock.MagicMock()]
     mock_result.total_traces_analyzed = 2
     mock_result.total_cost_usd = 0.15
+    mock_result.new_issue_count = 1
 
     with (
         mock.patch("mlflow.genai.discovery.job.MlflowClient", return_value=mock_client),
@@ -167,10 +168,14 @@ def test_invoke_issue_detection_job_success():
         mock_client.set_terminated.assert_called_once_with(
             "run-123", RunStatus.to_string(RunStatus.FINISHED)
         )
-        mock_client.set_tag.assert_called_once_with("run-123", "total_cost_usd", 0.15)
+        mock_client.set_tag.assert_any_call("run-123", "total_cost_usd", 0.15)
+        # The count the sampler actually analyzed, which the run's own `total_traces` tag -- set
+        # from the submitted trace ids when the run was created -- can be larger than.
+        mock_client.set_tag.assert_any_call("run-123", "total_traces_analyzed", 2)
 
         assert result["summary"] == "Found 3 issues"
         assert result["issues"] == 3
+        assert result["new_issue_count"] == 1
         assert result["total_traces_analyzed"] == 2
         assert result["total_cost_usd"] == 0.15
 

@@ -229,7 +229,7 @@ async def test_completions_throws_with_unsupported_n():
     }
     with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
-    assert "'n' must be '1' for the Anthropic provider" in e.value.detail
+    assert e.value.detail == "'n' must be '1' for the Anthropic provider. Received value: '5'."
     assert e.value.status_code == 422
 
 
@@ -407,6 +407,16 @@ async def test_chat_with_max_completion_tokens():
         call_kwargs = mock_post.call_args[1]
         assert call_kwargs["json"]["max_tokens"] == 500
         assert "max_completion_tokens" not in call_kwargs["json"]
+
+
+@pytest.mark.asyncio
+async def test_chat_throws_with_unsupported_n():
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    payload = {"messages": [{"role": "user", "content": "Hello"}], "n": 3}
+    with pytest.raises(AIGatewayException, match=r".*") as e:
+        await provider.chat(chat.RequestPayload(**payload))
+    assert e.value.detail == "'n' must be '1' for the Anthropic provider. Received value: '3'."
+    assert e.value.status_code == 422
 
 
 def chat_function_calling_payload(stream: bool = False):

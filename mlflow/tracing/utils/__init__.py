@@ -370,7 +370,9 @@ def calculate_cost_by_model_and_token_usage(
     if model_name.startswith(_SKIP_COST_PREFIXES):
         return None
 
-    if not model_provider and model_name.startswith(("databricks-", "databricks/")):
+    # Databricks endpoint names are priced from the Databricks catalog, even when the span
+    # names the upstream provider (e.g. Anthropic autolog calling the Databricks AI Gateway).
+    if model_name.startswith(("databricks-", "databricks/")):
         model_provider = "databricks"
 
     prompt_tokens = usage.get(TokenUsageKey.INPUT_TOKENS, 0)
