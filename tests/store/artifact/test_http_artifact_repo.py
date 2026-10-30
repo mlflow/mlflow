@@ -33,6 +33,7 @@ from mlflow.utils.server_info import (
     SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY,
     SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
     SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
+    ServerInfoRequestError,
     ServerInfoResponse,
 )
 
@@ -67,6 +68,40 @@ def test_canonical_http_artifact_uri_discovers_server_capabilities(monkeypatch):
 
     host_creds = mock_fetch_server_info.call_args.args[0]
     assert host_creds.host == "https://artifacts.example.com/mlflow"
+    mock_fetch_server_info.assert_called_once()
+
+
+def test_server_capabilities_fetch_failure_is_not_cached():
+    repo = HttpArtifactRepository(
+        "https://artifacts.example.com/api/2.0/mlflow-artifacts/artifacts/run-id"
+    )
+    response = ServerInfoResponse(
+        status_code=200, data={SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY: True}
+    )
+
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.fetch_server_info",
+        side_effect=[ServerInfoRequestError("Read timed out"), response],
+    ) as mock_fetch_server_info:
+        assert repo._is_artifacts_presigned_only() is False
+        assert repo._is_artifacts_presigned_only() is True
+        assert repo._is_artifacts_presigned_only() is True
+
+    assert mock_fetch_server_info.call_count == 2
+
+
+def test_server_capabilities_non_200_response_is_cached():
+    repo = HttpArtifactRepository(
+        "https://artifacts.example.com/api/2.0/mlflow-artifacts/artifacts/run-id"
+    )
+
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.fetch_server_info",
+        return_value=ServerInfoResponse(status_code=404, text="Not Found"),
+    ) as mock_fetch_server_info:
+        assert repo._is_artifacts_presigned_only() is False
+        assert repo._is_artifacts_presigned_only() is False
+
     mock_fetch_server_info.assert_called_once()
 
 

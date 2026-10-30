@@ -150,7 +150,8 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                     SERVER_INFO_ENDPOINT,
                     exc_info=True,
                 )
-                self._server_capabilities = {}
+                # Don't cache transient failures (e.g. timeouts) so the next call retries.
+                return {}
 
             return self._server_capabilities
 
