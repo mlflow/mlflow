@@ -433,7 +433,7 @@ jobs:
             kill "$(cat "$RUNNER_TEMP/verify-telemetry-proxy.pid")" 2>/dev/null || true
           fi
 
-  post_review:
+  publish:
     needs: [gate, verify]
     if: always() && needs.gate.result == 'success' && needs.gate.outputs.allowed == 'true'
     runs-on: ubuntu-24.04
