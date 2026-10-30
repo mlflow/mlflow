@@ -1,6 +1,6 @@
 # MLflow evaluation examples
 
-This page presents some common usage patterns for the evaluation harness, including data patterns and `predict_fn` patterns.
+This page presents some common usage patterns for the evaluation harness, including data patterns, `predict_fn` patterns, and measuring consistency across repeated runs.
 
 ## Common data input patterns
 
@@ -274,4 +274,4 @@ per_case["pass^k"] = [
 print(per_case["pass^k"].mean(), "over", per_case["pass^k"].count(), "of", len(per_case), "cases")
 ```
 
-Scorer errors are skipped, not counted as fails. A case with fewer than k scored rows gets NaN and is left out of the mean, which is why the count is printed. Check `per_case["n"]` to see which cases errored. Rows are matched on their inputs, so test cases with the same inputs count as one. Do not match by row position, because rows whose trace cannot be read back are left out of `result_df`.
+Scorer errors are skipped, not counted as fails. A case with fewer than k scored rows gets NaN and is left out of the mean, which is why the count is printed. Check `per_case["n"]` to see which cases errored. Rows are matched on their inputs, so test cases with the same inputs count as one.
