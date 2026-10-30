@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PR Behavior Verification Review",
+  "description": "Review payload produced by the verify skill for GitHub's pull request reviews API.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event", "body", "comments"],
+  "properties": {
+    "event": {
+      "description": "APPROVE only when the intended behavior was verified; COMMENT for a behavioral issue or incomplete verification.",
+      "type": "string",
+      "enum": ["APPROVE", "COMMENT"]
+    },
+    "body": {
+      "description": "Summary of the behavior, verification performed, results, and material gaps.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 12000,
+      "pattern": "\\S"
+    },
+    "commit_id": {
+      "description": "Optional head SHA; the workflow always sets the pinned head when publishing.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "comments": {
+      "description": "Inline behavioral findings or useful visual evidence on the PR diff.",
+      "type": "array",
+      "maxItems": 10,
+      "items": { "$ref": "#/$defs/comment" }
+    }
+  },
+  "if": {
+    "properties": {
+      "comments": { "contains": { "$ref": "#/$defs/criticalComment" } }
+    },
+    "required": ["comments"]
+  },
+  "then": { "properties": { "event": { "const": "COMMENT" } } },
+  "$defs": {
+    "side": { "type": "string", "enum": ["LEFT", "RIGHT"] },
+    "criticalComment": {
+      "type": "object",
+      "properties": {
+        "body": { "type": "string", "pattern": "^🔴 \\*\\*CRITICAL:\\*\\* " }
+      },
+      "required": ["body"]
+    },
+    "comment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "body", "line", "side"],
+      "properties": {
+        "path": {
+          "description": "Repository-relative path with a hunk in the PR diff.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": "\\S"
+        },
+        "body": {
+          "description": "Start a significant behavioral finding with '🔴 **CRITICAL:** '. Evidence without a finding needs no severity prefix.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 3000,
+          "pattern": "\\S"
+        },
+        "line": {
+          "description": "Last line of the comment, inside a diff hunk on the chosen side.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "side": { "$ref": "#/$defs/side" },
+        "start_line": {
+          "description": "First line of a multi-line comment; must be before line and in the same hunk.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "start_side": { "$ref": "#/$defs/side" }
+      },
+      "dependentRequired": {
+        "start_line": ["start_side"],
+        "start_side": ["start_line"]
+      }
+    }
+  }
+}
