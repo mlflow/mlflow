@@ -50,10 +50,24 @@ export type {
   FeedbackValueType,
   SerializedAssessment,
 } from './core/entities/assessment';
+export { Issue, IssueCategory, IssueSeverity, IssueStatus } from './core/entities/issue';
+export type {
+  IssueCategoryName,
+  IssueSeverityName,
+  IssueStatusName,
+  SerializedIssue,
+} from './core/entities/issue';
 export type { TraceData } from './core/entities/trace_data';
 export type { TraceLocation, UnityCatalogLocation } from './core/entities/trace_location';
 export type { UnityCatalogLocationOptions } from './core/config';
-export type { SearchTracesOptions, SearchTracesResult } from './clients';
+export type {
+  SearchTracesOptions,
+  SearchTracesResult,
+  CreateIssueOptions,
+  UpdateIssueOptions,
+  SearchIssuesOptions,
+  SearchIssuesResult,
+} from './clients';
 export { TraceLocationType } from './core/entities/trace_location';
 export { SpanStatusCode } from './core/entities/span_status';
 export { SpanLink } from './core/entities/span_link';
