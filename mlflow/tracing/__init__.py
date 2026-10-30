@@ -1,6 +1,9 @@
 from mlflow.tracing.config import configure
 from mlflow.tracing.context import context
-from mlflow.tracing.databricks import set_databricks_monitoring_sql_warehouse_id
+from mlflow.tracing.databricks import (
+    get_default_trace_catalog,
+    set_databricks_monitoring_sql_warehouse_id,
+)
 from mlflow.tracing.display import disable_notebook_display, enable_notebook_display
 from mlflow.tracing.distributed import (
     get_tracing_context_headers_for_http_request,
@@ -24,6 +27,7 @@ __all__ = [
     "disable_notebook_display",
     "enable_notebook_display",
     "get_bridged_tracer_provider",
+    "get_default_trace_catalog",
     "get_tracing_context_headers_for_http_request",
     "set_experiment_trace_location",
     "set_span_chat_tools",
