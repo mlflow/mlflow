@@ -991,10 +991,10 @@ pydantic_ai:
         "git+https://github.com/pydantic/pydantic-ai.git#egg=pydantic-ai"
   autologging:
     minimum: "1.9.1"
-    # pydantic-ai 2.60.0 requires a retry context that the tracing tests do not supply yet.
+    # pydantic-ai 2.60.0 adds retry-context access that the tracing tests do not supply yet.
     # https://github.com/mlflow/mlflow/pull/27350
     maximum: "2.51.0"
-    unsupported: [">=2.0.0,<2.5.0", ">2.51.0"]
+    unsupported: [">=2.0.0,<2.5.0", ">=2.60.0"]
     requirements:
       # pydantic-ai < 2.0.0 does `from mcp.client.streamable_http import GetSessionIdCallback`,
       # but doesn't cap mcp, so it floats to 2.0.0 which removed `GetSessionIdCallback`,
