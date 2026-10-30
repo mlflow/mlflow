@@ -511,6 +511,7 @@ def test_single_native_tool_call_preserves_result_or_exception(raises, tool_call
     assert span.name == "test_tool"
     assert span.span_type == SpanType.TOOL
     assert span.inputs == {"tool_name": "test_tool", "tool_args": {"argument": "a"}}
+    assert span.outputs == (None if raises else {"result": "Tool Answer"})
     assert span.status.status_code == ("ERROR" if raises else "OK")
 
 
