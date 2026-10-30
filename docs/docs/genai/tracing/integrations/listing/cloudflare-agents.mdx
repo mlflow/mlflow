@@ -17,22 +17,21 @@ import { OTelIntegrationCard } from "@site/src/components/TracingIntegrations/OT
 
 <ImageBox src="/images/llms/tracing/cloudflare-agents/trace.png" alt="MLflow displaying a real Cloudflare CalculatorAgent trace with model messages, a multiply tool call, and token usage" />
 
-The trace above shows a real agent calling the local `llama3.2:1b` model, executing `multiply(17, 23)`, and responding with `391`. The deployment example below uses OpenAI `gpt-4o-mini`; see [Local Development](#local-development) for how the screenshot's traces reached MLflow. MLflow recognizes the agent, model, and tool spans from their OpenTelemetry GenAI attributes.
+The trace above shows a real agent calling the local `llama3.2:1b` model, executing `multiply(17, 23)`, and responding with `391`. The deployment example below uses OpenAI `gpt-5.4-mini`; see [Local Development](#local-development) for how the screenshot's traces reached MLflow. MLflow recognizes the agent, model, and tool spans from their OpenTelemetry GenAI attributes.
 
 ## Step 1: Start the MLflow Tracking Server
 
-Use an MLflow server that supports OTLP/HTTP JSON ingestion with a SQL-based backend store:
+Start the MLflow server with [uv](https://docs.astral.sh/uv/). MLflow uses SQLite by default:
 
 ```bash
-pip install --upgrade mlflow
-mlflow server --backend-store-uri sqlite:///mlflow.db --port 5000
+uvx mlflow server --port 5000
 ```
 
 In another terminal, create an experiment on this server and note its ID:
 
 ```bash
 export MLFLOW_TRACKING_URI=http://localhost:5000
-mlflow experiments create --experiment-name cloudflare-agents
+uvx mlflow experiments create --experiment-name cloudflare-agents
 ```
 
 For deployed Workers, the server must be reachable from Cloudflare. Expose it through an HTTPS endpoint using your [self-hosted MLflow deployment](/self-hosting). A server listening only on `localhost` cannot receive Cloudflare's hosted exports.
@@ -119,7 +118,7 @@ export class CalculatorAgent extends Agent<Env> {
     const openai = createOpenAI({ apiKey: this.env.OPENAI_API_KEY });
 
     const result = await generateText({
-      model: openai.chat("gpt-4o-mini"),
+      model: openai.chat("gpt-5.4-mini"),
       system: "Use the multiply tool to multiply numbers.",
       prompt,
       stopWhen: ai.stepCountIs(4),
