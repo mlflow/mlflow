@@ -14,6 +14,7 @@ import type { Issue } from '../../components/run-page/hooks/useSearchIssuesQuery
 import { SELECTED_EVALUATION_ID_PARAM } from '../../../shared/web-shared/genai-traces-table';
 import { SELECTED_ISSUE_ID_PARAM, SELECTED_ISSUE_SPAN_ID_PARAM } from '../../constants';
 import { SERVER_FEATURE_KEYS, useFeatureEnabled, useServerInfo } from '../../hooks/useServerInfo';
+import Routes from '../../routes';
 import { ExperimentIssueDetail } from './ExperimentIssueDetail';
 import { ExperimentIssueRow } from './ExperimentIssueRow';
 import { ExperimentIssuesFilterChips, ExperimentIssuesSortControl } from './ExperimentIssuesToolbar';
@@ -414,6 +415,12 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
             isDetecting={isDetectionButtonLoading}
             detectionEnabled={detectionEnabled}
             onRunIssueDetection={startDetection}
+            // Only once something has run. `detection.run` is the newest detection run, found with
+            // the same search the history page uses, and a stalled submission still left one
+            // behind -- which is exactly a run somebody would want to go and look at.
+            runHistoryRoute={
+              detection.run || detection.submissionStalled ? Routes.getIssueDetectionRunsRoute(experimentId) : undefined
+            }
           />
         </CenteredState>
       ) : (
