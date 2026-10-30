@@ -5505,6 +5505,13 @@ TRACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS = {
     if "<" in path and "/mlflow/traces/" in path
 }
 
+# Workspace routes with a path parameter (e.g. /mlflow/workspaces/<workspace_name>).
+WORKSPACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS = {
+    (_re_compile_path(path), method): handler
+    for (path, method), handler in BEFORE_REQUEST_VALIDATORS.items()
+    if "<" in path and "/mlflow/workspaces/" in path
+}
+
 LOGGED_MODEL_BEFORE_REQUEST_HANDLERS = {
     CreateLoggedModel: validate_can_create_logged_model,
     # Request scoping authorizes experiment IDs; this gates only the
@@ -5935,6 +5942,16 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
 
     if validator := BEFORE_REQUEST_VALIDATORS.get((req.path, req.method)):
         return validator
+
+    if "/mlflow/workspaces/" in req.path:
+        return next(
+            (
+                v
+                for (pat, method), v in WORKSPACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS.items()
+                if pat.fullmatch(req.path) and method == req.method
+            ),
+            None,
+        )
 
     # Whole /mlflow/datasets/ family; unknown paths under the prefix fail closed.
     if "/mlflow/datasets/" in req.path:
