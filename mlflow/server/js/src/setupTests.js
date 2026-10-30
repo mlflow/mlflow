@@ -26,6 +26,14 @@ global.clearImmediate = (id) => {
 
 cacheComputedStylesUntilDomChanges();
 
+// Ant Design's icons re-inject their stylesheet from an effect in every icon that mounts, and
+// finding the node already there means scanning every `<style>` in `document.head`. See
+// `reuseInjectedStyles`.
+jest.mock('rc-util/lib/Dom/dynamicCSS', () => {
+  const { reuseInjectedStyles } = jest.requireActual('./common/utils/reuseInjectedStyles');
+  return reuseInjectedStyles(jest.requireActual('rc-util/lib/Dom/dynamicCSS'));
+});
+
 // for plotly.js to work
 //
 window.URL.createObjectURL = function createObjectURL() {};
