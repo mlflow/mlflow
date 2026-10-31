@@ -16,6 +16,7 @@ Example usage:
 
 from __future__ import annotations
 
+import copy
 import logging
 from typing import Any
 
@@ -172,11 +173,14 @@ class DeepEvalScorer(Scorer):
                     trace=trace,
                 )
 
-            self._metric.measure(test_case, _show_indicator=False)
+            # DeepEval metrics store results on the instance, so measure a per-call copy to
+            # keep concurrent calls (e.g., from mlflow.genai.evaluate) from overwriting each other.
+            metric = copy.copy(self._metric)
+            metric.measure(test_case, _show_indicator=False)
 
-            score = self._metric.score
-            reason = self._metric.reason
-            success = self._metric.is_successful()
+            score = metric.score
+            reason = metric.reason
+            success = metric.is_successful()
 
             return Feedback(
                 name=self.name,
@@ -185,7 +189,7 @@ class DeepEvalScorer(Scorer):
                 source=assessment_source,
                 metadata={
                     "score": score,
-                    "threshold": self._metric.threshold,
+                    "threshold": metric.threshold,
                     FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME,
                 },
             )
