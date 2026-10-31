@@ -54,6 +54,23 @@ issue_present = make_judge(
 )
 ```
 
+Built-in `Guidelines` and `ExpectationsGuidelines` scorers also accept this API selection:
+
+```python
+from mlflow.genai.scorers import Guidelines
+
+politeness = Guidelines(
+    name="politeness",
+    guidelines=["Be polite and respectful."],
+    model="databricks:/system.ai.typesafeai-jev-1-14-0",
+    model_api="decisions",
+)
+```
+
+These scorers use the existing System One guideline instructions and convert the yes/no
+decision to Boolean feedback. The registered scorer preserves `model_api` for evaluation
+and monitoring jobs. The lower-level `meets_guidelines` judge accepts the same argument.
+
 MLflow sends the request to `/ai-gateway/typesafe/v1/systemone` using Databricks workspace
 authentication. A Databricks tracking profile selects the workspace; with an OSS tracking
 server, the default Databricks credentials select it. Credentials are resolved when the judge
