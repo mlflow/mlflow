@@ -161,14 +161,18 @@ describe('buildIssueFixPrompt', () => {
     expect(prompt).not.toContain('rm -rf');
   });
 
-  test("finds the issue's traces with the issue.id trace filter, a page at a time", () => {
+  test("finds the issue's traces with the issue.id trace filter, without their spans", () => {
     // The prompt lists only the first ten; the filter reads every reference the store holds now,
     // including ones a later detection run added.
     const prompt = buildIssueFixPrompt('1', makeIssue(), ISSUE_URL, { traceIds: ['tr-1'] });
 
     expect(prompt).toContain(
-      `\`mlflow traces search --experiment-id 1 --filter-string "issue.id = 'iss-a'"\` lists the traces the issue affects, 100 at a time (pass the next page token it prints as \`--page-token\` for more), and each of those traces carries an issue assessment named iss-a with the evidence.`,
+      `\`mlflow traces search --experiment-id 1 --filter-string "issue.id = 'iss-a'" --no-include-spans\` lists the traces the issue affects, and each of those traces carries an issue assessment named iss-a with the evidence.`,
     );
+    // Paging, and fetching the traces worth reading in full, are mlflow-trace-retrieval's.
+    expect(prompt).not.toContain('--page-token');
+    expect(prompt).not.toContain('100 at a time');
+    expect(prompt).toContain('The `mlflow-trace-analysis` and `mlflow-trace-retrieval` skills cover reading them.');
   });
 
   test('leaves fetching and reading a trace to the trace skills', () => {

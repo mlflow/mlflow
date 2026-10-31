@@ -105,7 +105,7 @@ ${issue.source_run_id ? `Detection run ID: ${issue.source_run_id}\n` : ''}${issu
     ...traceIdLines(traceIds, totalTraceCount, hasMoreTraces),
   ])}
 
-To read the issue's traces, use the MLflow CLI on this machine with \`MLFLOW_TRACKING_URI\` set to \`${trackingUri}\`${workspaceSetup}. \`mlflow traces search --experiment-id ${experimentId} --filter-string "issue.id = '${issue.issue_id}'"\` lists the traces the issue affects, 100 at a time (pass the next page token it prints as \`--page-token\` for more), and each of those traces carries an issue assessment named ${issue.issue_id} with the evidence. The \`mlflow-trace-analysis\` and \`mlflow-trace-retrieval\` skills cover reading them.
+To read the issue's traces, use the MLflow CLI on this machine with \`MLFLOW_TRACKING_URI\` set to \`${trackingUri}\`${workspaceSetup}. \`mlflow traces search --experiment-id ${experimentId} --filter-string "issue.id = '${issue.issue_id}'" --no-include-spans\` lists the traces the issue affects, and each of those traces carries an issue assessment named ${issue.issue_id} with the evidence. The \`mlflow-trace-analysis\` and \`mlflow-trace-retrieval\` skills cover reading them.
 
 ${FIX_PROMPT_OUTRO}`;
 };
