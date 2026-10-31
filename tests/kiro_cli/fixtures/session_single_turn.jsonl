@@ -1,0 +1,2 @@
+{"kind": "Prompt", "message_id": "msg-001", "content": [{"kind": "text", "data": "What is 2 + 2?"}], "meta": {"timestamp": 1736946000}}
+{"kind": "AssistantMessage", "message_id": "msg-002", "content": [{"kind": "text", "data": "The answer is 4."}]}
