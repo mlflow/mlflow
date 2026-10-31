@@ -10,6 +10,8 @@ from typing import Iterator
 import requests
 
 import mlflow
+from mlflow.tracing.attachments import Attachment
+from mlflow.tracing.client import TracingClient
 from mlflow.tracing.distributed import (
     get_tracing_context_headers_for_http_request,
     set_tracing_context_from_http_request_headers,
@@ -205,3 +207,38 @@ def test_distributed_tracing_e2e_nested_call(tmp_path):
     assert child_span2.name == "server-handler2"
     assert child_span1.span_id == child_span1_id
     assert child_span2.span_id == child_span2_id
+
+
+@skip_when_testing_trace_sdk
+def test_remote_span_attachments_are_uploaded(async_logging_enabled, monkeypatch):
+    # The batch span processor can export the server span after the remote context has exited,
+    # which drops the whole span, so the async path is tested with the async export queue only.
+    monkeypatch.setenv("MLFLOW_USE_BATCH_SPAN_PROCESSOR", "false")
+
+    with mlflow.start_span("client-root") as client_span:
+        client_span.set_inputs({
+            "image": Attachment(content_type="image/png", content_bytes=b"client image")
+        })
+        headers = get_tracing_context_headers_for_http_request()
+    mlflow.flush_trace_async_logging()
+
+    # The client trace is no longer in memory, so the server side registers a remote trace,
+    # the same as in a separate process.
+    with set_tracing_context_from_http_request_headers(headers):
+        with mlflow.start_span("server-handler") as server_span:
+            server_span.set_inputs({
+                "image": Attachment(content_type="image/png", content_bytes=b"server image")
+            })
+
+    trace = _wait_for_trace(client_span.trace_id, expected_span_count=2)
+    artifact_repo = TracingClient()._get_artifact_repo_for_trace(trace.info)
+    stored_attachments = {
+        span.name: artifact_repo.download_trace_attachment(
+            Attachment.parse_ref(span.inputs["image"])["attachment_id"]
+        )
+        for span in trace.data.spans
+    }
+    assert stored_attachments == {
+        "client-root": b"client image",
+        "server-handler": b"server image",
+    }

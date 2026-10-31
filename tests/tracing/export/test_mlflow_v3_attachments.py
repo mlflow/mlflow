@@ -123,3 +123,68 @@ def test_log_trace_skips_upload_when_no_attachments():
 
     mock_client._upload_trace_data.assert_called_once()
     mock_client._upload_attachments.assert_not_called()
+
+
+def _make_span(trace_id, attachments_map=None):
+    span = MagicMock()
+    span.trace_id = trace_id
+    span._attachments = attachments_map or {}
+    return span
+
+
+def test_log_spans_uploads_attachments_of_remote_trace():
+    att = Attachment(content_type="image/png", content_bytes=b"img")
+    span = _make_span("tr-remote", {att.id: att})
+
+    mock_client = MagicMock()
+    stored_info = _make_trace_info_mock()
+    mock_client.store.get_trace_info.return_value = stored_info
+
+    exporter = _make_exporter(mock_client)
+    exporter._log_spans("0", [span], remote_trace_ids={"tr-remote"})
+
+    mock_client.log_spans.assert_called_once_with("0", [span])
+    mock_client.store.get_trace_info.assert_called_once_with("tr-remote")
+    mock_client._upload_attachments.assert_called_once_with(stored_info, {att.id: att})
+
+
+def test_log_spans_skips_attachments_of_local_trace():
+    att = Attachment(content_type="image/png", content_bytes=b"img")
+    span = _make_span("tr-local", {att.id: att})
+
+    mock_client = MagicMock()
+    exporter = _make_exporter(mock_client)
+    exporter._log_spans("0", [span], remote_trace_ids=set())
+
+    mock_client.log_spans.assert_called_once()
+    mock_client.store.get_trace_info.assert_not_called()
+    mock_client._upload_attachments.assert_not_called()
+
+
+def test_log_spans_skips_remote_attachments_when_log_spans_fails():
+    att = Attachment(content_type="image/png", content_bytes=b"img")
+    span = _make_span("tr-remote", {att.id: att})
+
+    mock_client = MagicMock()
+    mock_client.log_spans.side_effect = Exception("server error")
+    exporter = _make_exporter(mock_client)
+    exporter._log_spans("0", [span], remote_trace_ids={"tr-remote"})
+
+    mock_client.store.get_trace_info.assert_not_called()
+    mock_client._upload_attachments.assert_not_called()
+
+
+def test_log_spans_warns_when_remote_attachment_upload_fails():
+    att = Attachment(content_type="image/png", content_bytes=b"img")
+    span = _make_span("tr-remote", {att.id: att})
+
+    mock_client = MagicMock()
+    mock_client.store.get_trace_info.side_effect = Exception("trace not found")
+    exporter = _make_exporter(mock_client)
+
+    with patch("mlflow.tracing.export.mlflow_v3._logger") as mock_logger:
+        exporter._log_spans("0", [span], remote_trace_ids={"tr-remote"})
+
+    mock_logger.warning.assert_called_once()
+    assert "tr-remote" in mock_logger.warning.call_args[0][0]
+    mock_client._upload_attachments.assert_not_called()
