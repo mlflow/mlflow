@@ -1,4 +1,4 @@
-import { test, expect, jest } from '@jest/globals';
+import { test, expect } from '@jest/globals';
 import LocalStorageUtils from './LocalStorageUtils';
 import { ExperimentPagePersistedState } from '../../experiment-tracking/sdk/MlflowLocalStorageMessages';
 
@@ -60,3 +60,5 @@ test('Session scoped storage works', () => {
     expect(otherStore.loadComponentState().searchInput).toEqual('metrics.ok');
   });
 });
+
+// Quota-exceeded behavior is covered in LocalStorageUtils.quota.test.ts.
