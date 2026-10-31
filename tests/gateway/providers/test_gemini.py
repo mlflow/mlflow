@@ -2402,6 +2402,22 @@ def test_chat_to_model_unknown_content_part_passed_through():
     assert result["contents"] == [{"role": "user", "parts": [{"text": "transcribe"}, audio_part]}]
 
 
+def test_chat_to_model_system_list_content():
+    payload = {
+        "messages": [
+            {"role": "system", "content": [{"type": "text", "text": "Be terse."}]},
+            {"role": "system", "content": "Answer in English."},
+            {"role": "user", "content": "hi"},
+        ]
+    }
+
+    result = GeminiAdapter.chat_to_model(payload, EndpointConfig(**chat_config()))
+
+    assert result["system_instruction"] == {
+        "parts": [{"text": "Be terse."}, {"text": "Answer in English."}]
+    }
+
+
 @pytest.mark.parametrize("stream", [False, True])
 def test_gemini_finish_reason_is_tool_calls_for_function_call(stream):
     resp = {

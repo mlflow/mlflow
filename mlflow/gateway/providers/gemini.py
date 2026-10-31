@@ -235,7 +235,7 @@ class GeminiAdapter(ProviderAdapter):
             elif role == "system":
                 if system_message is None:
                     system_message = {"parts": []}
-                system_message["parts"].append({"text": message["content"]})
+                system_message["parts"].extend(_to_gemini_parts(message["content"]))
             elif role == "tool":
                 call_id = message.get("tool_call_id")
                 if call_id not in call_id_to_function_name_map:
