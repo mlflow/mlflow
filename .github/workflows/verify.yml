@@ -324,7 +324,7 @@ jobs:
           # shellcheck disable=SC2016 # Expanded by the child shell.
           timeout 30m setsid bash -c '
             echo "$$" > "$RUNNER_TEMP/verify-agent.pgid"
-            printf -v skill_inputs "PR context: %s\nRaw diff: %s\nAnnotated diff: %s\nPayload schema: %s\nBrowser init: %s" \
+            printf -v skill_inputs "\"%s\" \"%s\" \"%s\" \"%s\" \"%s\"" \
               "$RUNNER_TEMP/verify-context/pr.json" \
               "$RUNNER_TEMP/verify-context/diff.patch" \
               "$RUNNER_TEMP/verify-context/diff.annotated" \
