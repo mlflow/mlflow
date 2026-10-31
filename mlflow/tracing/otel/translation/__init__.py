@@ -80,11 +80,13 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
     events = span_dict.get("events", [])
 
     # Override UNKNOWN (the LiveSpan default) with the translator-determined type.
-    if mlflow_type := translate_span_type_from_otel(attributes):
-        current_raw = attributes.get(SpanAttributeKey.SPAN_TYPE)
-        current_type = try_json_loads(current_raw) if current_raw else None
-        if current_type in (None, SpanType.UNKNOWN):
-            attributes[SpanAttributeKey.SPAN_TYPE] = dump_span_attribute_value(mlflow_type)
+    span_type_raw = attributes.get(SpanAttributeKey.SPAN_TYPE)
+    span_type = try_json_loads(span_type_raw) if span_type_raw else None
+    if span_type in (None, SpanType.UNKNOWN) and (
+        mlflow_type := translate_span_type_from_otel(attributes)
+    ):
+        span_type = mlflow_type
+        attributes[SpanAttributeKey.SPAN_TYPE] = dump_span_attribute_value(mlflow_type)
 
     # Translate inputs and outputs (check both attributes and events)
     if SpanAttributeKey.INPUTS not in attributes and (
@@ -124,13 +126,12 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
     ):
         attributes[SpanAttributeKey.MODEL_PROVIDER] = dump_span_attribute_value(model_provider)
 
-    # Calculate cost if both token usage and model are available. Agent spans are skipped
-    # because their usage is rolled up over the agent run (possibly spanning several models
-    # and missing cache breakdowns), so the trace cost is aggregated from the LLM call spans.
-    span_type_raw = attributes.get(SpanAttributeKey.SPAN_TYPE)
+    # Calculate cost if both token usage and model are available. Agent spans are skipped:
+    # their usage is a rollup of the run (possibly several models, no cache breakdown), and a
+    # priced agent span would hide its LLM call spans when the trace cost is aggregated.
     if (
         SpanAttributeKey.LLM_COST not in attributes
-        and (try_json_loads(span_type_raw) if span_type_raw else None) != SpanType.AGENT
+        and span_type != SpanType.AGENT
         and SpanAttributeKey.CHAT_USAGE in attributes
         and SpanAttributeKey.MODEL in attributes
     ):

@@ -1,3 +1,4 @@
+import importlib.metadata
 import json
 from collections.abc import AsyncIterator, Sequence
 from typing import Any
@@ -6,6 +7,7 @@ import pytest
 from opentelemetry import trace as otel_trace
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+from packaging.version import Version
 from strands import Agent
 from strands.models.model import Model
 from strands.tools.tools import PythonAgentTool
@@ -296,6 +298,10 @@ def test_multiple_agents_single_trace():
     }
 
 
+@pytest.mark.skipif(
+    Version(importlib.metadata.version("strands-agents")) < Version("1.54.0"),
+    reason="strands-agents < 1.54.0 does not emit semconv cache token attributes",
+)
 def test_strands_autolog_chat_span_records_cache_tokens():
     mlflow.strands.autolog()
 
