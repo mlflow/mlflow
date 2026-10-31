@@ -5,8 +5,11 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock
 
 import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 from flask import Flask, Response, request
 from starlette.requests import Request as StarletteRequest
+from starlette.responses import PlainTextResponse
 from werkzeug.datastructures import Authorization
 
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
@@ -2297,6 +2300,39 @@ def test_admin_rename_with_name_case_variant_rejected(
     ):
         with pytest.raises(MlflowException, match=match):
             auth_module.enforce_model_name_rules()
+
+
+@pytest.mark.parametrize(
+    ("name", "match"),
+    [
+        ("secret", "Use the exact name 'Secret'"),
+        ("Secret", None),
+        # A name that matches no model is left for the handler to report as not found.
+        ("missing", None),
+    ],
+    ids=["case-variant", "exact", "missing"],
+)
+def test_admin_delete_with_name_case_variant_rejected(
+    workspace_permission_setup, monkeypatch, name, match
+):
+    # The grant sweep after a delete keys on the requested name, so a case variant would leave
+    # the grants on the stored spelling for the next model or prompt created under that name.
+    store = workspace_permission_setup["store"]
+    store.update_user(workspace_permission_setup["username"], is_admin=True)
+    monkeypatch.setattr(
+        auth_module,
+        "_get_model_registry_store",
+        lambda: _CaseInsensitiveRegistryStore({"Secret": "team-a"}),
+    )
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/delete", method="DELETE", json={"name": name}
+    ):
+        if match is None:
+            auth_module.enforce_model_name_rules()
+        else:
+            with pytest.raises(MlflowException, match=match):
+                auth_module.enforce_model_name_rules()
 
 
 def test_rename_rejected_when_named_role_grants_old_name_without_workspaces(
@@ -11046,3 +11082,45 @@ def test_mcp_server_delete_requires_stored_name_spelling(workspace_permission_se
     validator = auth_module._find_fastapi_validator(f"{prefix}/com.test/Srv", "DELETE")
     with pytest.raises(MlflowException, match="Use the exact name 'com.test/srv'"):
         asyncio.run(validator(username, request))
+
+
+@pytest.mark.parametrize(
+    ("server_path", "status_code"),
+    [("com.test/Srv", 400), ("com.test/srv", 200), ("com.test/srv/versions/1", 200)],
+    ids=["case-variant", "exact", "version"],
+)
+def test_admin_mcp_server_delete_requires_stored_name_spelling(
+    workspace_permission_setup, monkeypatch, server_path, status_code
+):
+    admin = SimpleNamespace(username="admin", id=1, is_admin=True)
+    monkeypatch.setattr(auth_module, "_authenticate_fastapi_request", lambda _: admin)
+    monkeypatch.setattr(
+        auth_module,
+        "resolve_workspace_for_request_if_enabled",
+        lambda *_: SimpleNamespace(name="team-a"),
+    )
+    lookups = []
+
+    def get_mcp_server(name):
+        lookups.append((name, workspace_context.get_request_workspace()))
+        return SimpleNamespace(name="com.test/srv", workspace="team-a")
+
+    monkeypatch.setattr(auth_module._get_tracking_store(), "get_mcp_server", get_mcp_server)
+    monkeypatch.setattr(auth_module.store, "delete_grants_for_resource", Mock())
+    handler = Mock(return_value=PlainTextResponse("deleted"))
+    app = FastAPI()
+    app.delete("/api/3.0/mlflow/mcp-servers/{name:path}")(lambda name: handler())
+    auth_module.add_fastapi_permission_middleware(app)
+
+    response = TestClient(app).delete(f"/api/3.0/mlflow/mcp-servers/{server_path}")
+
+    assert response.status_code == status_code
+    if status_code == 400:
+        assert "Use the exact name 'com.test/srv'" in response.text
+        handler.assert_not_called()
+    else:
+        handler.assert_called_once()
+    if server_path.count("/") == 1:
+        assert lookups == [(server_path, "team-a")]
+    else:
+        assert lookups == []

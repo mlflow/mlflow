@@ -5065,6 +5065,9 @@ def enforce_model_name_rules():
         _reject_wildcard_model_name(_get_request_message(CreateRegisteredModel()).name)
     elif validator is validate_can_rename_registered_model:
         _enforce_rename_name_rules()
+    elif validator is validate_can_delete_registered_model_or_prompt_cascade:
+        if target := _registered_model_or_prompt_target():
+            _require_stored_name_spelling(_get_request_param("name"), target[1])
 
 
 def validate_can_remove_items_from_review_queue():
@@ -9201,6 +9204,17 @@ def _mcp_server_after_create(username: str, request: StarletteRequest) -> None:
         store.grant_user_permission(username, "mcp_server", name, MANAGE.name)
 
 
+def _require_mcp_server_delete_spelling(path: str) -> None:
+    # Admins skip validators, but ``_mcp_server_after_delete`` still sweeps grants by the
+    # requested name, so hold an admin delete to the stored spelling as the validator does.
+    parts = _mcp_server_suffix(path).split("/")
+    if len(parts) != 2:
+        return
+    requested_name = f"{parts[0]}/{parts[1]}"
+    if server := _fetch_or_none(_get_tracking_store().get_mcp_server, requested_name):
+        _require_stored_name_spelling(requested_name, server.name)
+
+
 def _mcp_server_after_delete(username: str, request: StarletteRequest) -> None:
     suffix = _mcp_server_suffix(get_routed_asgi_path(request))
     parts = suffix.split("/") if suffix else []
@@ -9821,7 +9835,13 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
             finally:
                 workspace_context.clear_server_request_workspace()
         else:
-            workspace_context.clear_server_request_workspace()
+            try:
+                if after_handler is _mcp_server_after_delete:
+                    _require_mcp_server_delete_spelling(path)
+            except MlflowException as e:
+                return PlainTextResponse(e.message, status_code=e.get_http_status_code())
+            finally:
+                workspace_context.clear_server_request_workspace()
 
         response = await call_next(request)
 
