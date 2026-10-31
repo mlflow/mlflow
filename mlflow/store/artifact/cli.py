@@ -3,6 +3,7 @@ import logging
 import click
 
 from mlflow.artifacts import download_artifacts as _download_artifacts
+from mlflow.mcp.decorator import mlflow_mcp
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking import _get_store
 from mlflow.utils.proto_json_utils import message_to_json
@@ -67,6 +68,7 @@ def log_artifacts(local_dir, run_id, artifact_path):
 
 
 @commands.command("list")
+@mlflow_mcp(tool_name="list_artifacts")
 @click.option("--run-id", "-r", required=True, help="Run ID to be listed")
 @click.option(
     "--artifact-path",
@@ -92,6 +94,7 @@ def _file_infos_to_json(file_infos):
 
 
 @commands.command("download")
+@mlflow_mcp(tool_name="download_artifact")
 @click.option("--run-id", "-r", help="Run ID from which to download")
 @click.option(
     "--artifact-path",
