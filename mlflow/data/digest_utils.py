@@ -23,10 +23,15 @@ def compute_pandas_digest(df) -> str:
     trimmed_df = df.head(MAX_ROWS)
 
     # keep string and number columns, drop other column types
-    # Check element types directly, since `df.map` preserves extension dtypes such as
-    # Arrow-backed strings on empty columns, which don't support comparison against `str`
+    # Check element types on an object array, since `df.map` keeps extension dtypes such as
+    # Arrow-backed strings on empty columns, and those don't support comparison against `str`.
+    # The first-element check skips the object conversion for most non-string columns.
     string_columns = trimmed_df.columns[
-        [all(type(x) is str for x in column) for _, column in df.items()]
+        [
+            all(type(x) is str for x in column.iloc[:1])
+            and all(type(x) is str for x in column.to_numpy(dtype=object))
+            for _, column in df.items()
+        ]
     ]
     numeric_columns = trimmed_df.select_dtypes(include=[np.number]).columns
 

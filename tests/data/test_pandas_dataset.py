@@ -276,6 +276,15 @@ def test_digest_with_empty_string_dtype_columns(dtype):
     assert dataset1.profile == {"num_rows": 0, "num_elements": 0}
 
 
+def test_digest_with_arrow_string_columns_has_expected_value():
+    df = pd.DataFrame({
+        "id": pd.Series([1, 2, 3], dtype="int64"),
+        "label": pd.Series(["a", "b", None], dtype="string[pyarrow]"),
+        "name": pd.Series(["x", "y", "z"], dtype="string[pyarrow]"),
+    })
+    assert mlflow.data.from_pandas(df).digest == "3a299151"
+
+
 def test_df_hashing_with_dicts():
     source_uri = "test:/my/test/uri"
     source = SampleDatasetSource._resolve(source_uri)
