@@ -6,6 +6,8 @@ import json
 import re
 from types import SimpleNamespace
 
+import pytest
+
 from mlflow.server import auth as a
 from mlflow.server.handlers import get_endpoints
 
@@ -459,3 +461,16 @@ def test_parameterized_trace_route_redacts_assessments():
             f"GET {path} dispatches to {[h.__name__ for h in matched]}, "
             "so assessments ride out unredacted"
         )
+
+
+@pytest.mark.parametrize("prefix", ["/api/3.0", "/ajax-api/3.0"])
+@pytest.mark.parametrize(
+    ("method", "expected"),
+    [
+        ("GET", a.validate_can_view_workspace),
+        ("PATCH", a.sender_is_admin),
+        ("DELETE", a.sender_is_admin),
+    ],
+)
+def test_workspace_routes_resolve_validator_for_concrete_name(prefix, method, expected):
+    assert a._find_validator(_Req(f"{prefix}/mlflow/workspaces/ws", method)) is expected
