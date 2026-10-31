@@ -898,6 +898,20 @@ gemini:
     test_tracing_sdk: true
     test_every_n_versions: 10
 
+google_adk:
+  package_info:
+    genai: true
+    repo: https://github.com/google/adk-python/tree/HEAD
+    pip_release: "google-adk"
+    module_name: "google.adk"
+    install_dev: |
+      uv pip install --system git+https://github.com/google/adk-python
+  autologging:
+    minimum: "2.6.1"
+    maximum: "2.13.0"
+    run: pytest tests/google_adk
+    test_tracing_sdk: true
+
 anthropic:
   package_info:
     genai: true

@@ -16,6 +16,23 @@ import { APILink } from "@site/src/components/APILink";
 
 [MLflow Tracing](/genai/tracing) provides automatic tracing capability for [Google ADK](https://google.github.io/adk-docs/), a flexible and modular AI agents framework developed by Google. MLflow supports tracing for Google ADK through the [OpenTelemetry](/genai/tracing/opentelemetry) integration.
 
+## Autologging
+
+Call <APILink fn="mlflow.google_adk.autolog" /> before creating your runners:
+
+```python
+import mlflow
+
+mlflow.set_experiment("Google ADK")
+mlflow.google_adk.autolog()
+
+# Create and run your ADK Runner as usual
+```
+
+Each turn is logged as one trace containing ADK's agent, LLM and tool spans. The trace's request is the user's message and its response is the text the user saw, so trace-level and [session-level](/genai/eval-monitor/running-evaluation/multi-turn) evaluation read the conversation. Turns of the same ADK session are grouped into one MLflow session. Thought parts and streaming chunks are left out of the response, and confirmation cards (`require_confirmation=True`) are recorded as `[confirmation requested: <tool>]`, `[confirmation accepted]` or `[confirmation declined]`.
+
+Autologging needs no MLflow server or OpenTelemetry exporter. To send ADK's spans to a tracking server over OTLP instead, follow the steps below.
+
 ## Step 1: Install libraries
 
 ```bash
