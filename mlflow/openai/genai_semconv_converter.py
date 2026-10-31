@@ -7,6 +7,7 @@ Two converters handle the two OpenAI API shapes:
 """
 
 import json
+import mimetypes
 from typing import Any
 
 from mlflow.tracing.constant import GenAiSemconvKey
@@ -126,6 +127,11 @@ class OpenAIResponsesConverter(GenAiSemconvConverter):
                     }
                 ],
             }
+        elif item_type == "reasoning":
+            return {"role": "assistant", "parts": _convert_reasoning(item)}
+        elif item_type and "role" not in item and item_type != "message":
+            # Built-in tool calls can be replayed as Responses API conversation history.
+            return OpenAIResponsesConverter._convert_output_item(item)
         else:
             return _convert_message(item)
 
@@ -133,13 +139,10 @@ class OpenAIResponsesConverter(GenAiSemconvConverter):
     def _convert_output_item(item: dict[str, Any]) -> dict[str, Any]:
         item_type = item.get("type")
         if item_type == "message":
-            parts = []
-            for ci in item.get("content", []):
-                if ci.get("type") == "output_text":
-                    parts.append({"type": "text", "content": ci["text"]})
-                else:
-                    parts.append({"type": "text", "content": json.dumps(ci)})
-            return {"role": item.get("role", "assistant"), "parts": parts}
+            return {
+                "role": item.get("role", "assistant"),
+                "parts": _convert_content(item.get("content", [])),
+            }
         elif item_type == "function_call":
             return {
                 "role": "assistant",
@@ -152,10 +155,22 @@ class OpenAIResponsesConverter(GenAiSemconvConverter):
                     }
                 ],
             }
+        elif item_type == "reasoning":
+            return {"role": "assistant", "parts": _convert_reasoning(item)}
+        elif item_type == "image_generation_call" and (data := item.get("result")) is not None:
+            part = {
+                **{k: v for k, v in item.items() if k not in ("type", "result")},
+                "type": "blob",
+                "modality": "image",
+                "content": data,
+            }
+            if output_format := item.get("output_format"):
+                part["mime_type"] = f"image/{output_format}"
+            return {"role": "assistant", "parts": [part]}
         else:
             return {
                 "role": "assistant",
-                "parts": [{"type": "text", "content": json.dumps(item)}],
+                "parts": [{**item, "type": item_type or "unknown"}],
             }
 
 
@@ -173,6 +188,14 @@ def _convert_message(msg: dict[str, Any]) -> dict[str, Any]:
             case {"audio": {"transcript": str(transcript)}}:
                 parts = [{"type": "text", "content": transcript}]
 
+    if isinstance(audio := msg.get("audio"), dict) and (data := audio.get("data")) is not None:
+        parts.append({
+            **{k: v for k, v in audio.items() if k not in ("data", "transcript")},
+            "type": "blob",
+            "modality": "audio",
+            "content": data,
+        })
+
     if tool_calls := msg.get("tool_calls"):
         parts.extend(_convert_tool_call(tc) for tc in tool_calls)
 
@@ -189,14 +212,19 @@ def _convert_content(content: Any) -> list[dict[str, Any]]:
         parts = []
         for item in content:
             item_type = item.get("type") if isinstance(item, dict) else None
-            if item_type in ("text", "input_text"):
+            if item_type in ("text", "input_text", "output_text"):
                 parts.append({"type": "text", "content": item["text"]})
             elif item_type == "image_url":
                 # Chat completion format
                 parts.append(_convert_image_url(item["image_url"]["url"]))
             elif item_type == "input_image":
                 # Responses API format
-                parts.append(_convert_image_url(item["image_url"]))
+                if image_url := item.get("image_url"):
+                    parts.append(_convert_image_url(image_url))
+                elif file_id := item.get("file_id"):
+                    parts.append({"type": "file", "modality": "image", "file_id": file_id})
+                else:
+                    parts.append(dict(item))
             elif item_type == "input_audio":
                 audio = item["input_audio"]
                 parts.append({
@@ -205,12 +233,51 @@ def _convert_content(content: Any) -> list[dict[str, Any]]:
                     "mime_type": f"audio/{audio['format']}",
                     "content": audio["data"],
                 })
+            elif item_type in ("file", "input_file"):
+                file = item.get("file", item)
+                parts.append(_convert_file(file))
+            elif isinstance(item, dict):
+                parts.append({**item, "type": item_type or "unknown"})
             else:
                 parts.append({"type": "text", "content": json.dumps(item)})
         return parts
     if content is not None:
         return [{"type": "text", "content": str(content)}]
     return []
+
+
+def _convert_file(file: dict[str, Any]) -> dict[str, Any]:
+    metadata = {"filename": file["filename"]} if file.get("filename") else {}
+    if file_id := file.get("file_id"):
+        return {**metadata, "type": "file", "modality": "document", "file_id": file_id}
+    if file_url := file.get("file_url"):
+        return {**metadata, "type": "uri", "modality": "document", "uri": file_url}
+    if (data := file.get("file_data")) is not None:
+        mime_type = mimetypes.guess_type(file.get("filename", ""))[0]
+        if isinstance(data, str) and data.startswith("data:"):
+            header, _, data = data.partition(",")
+            mime_type = header.removeprefix("data:").removesuffix(";base64")
+        part = {**metadata, "type": "blob", "modality": "document", "content": data}
+        if mime_type:
+            part["mime_type"] = mime_type
+        return part
+    return {**file, "type": file.get("type") or "file"}
+
+
+def _convert_reasoning(item: dict[str, Any]) -> list[dict[str, Any]]:
+    metadata = {k: v for k, v in item.items() if k not in ("type", "content", "summary")}
+    parts = []
+    for block in [*(item.get("content") or []), *(item.get("summary") or [])]:
+        if isinstance(block, dict) and isinstance(text := block.get("text"), str):
+            parts.append({**metadata, "type": "reasoning", "content": text})
+        elif isinstance(block, dict):
+            parts.append({**block, "type": block.get("type") or "unknown"})
+        else:
+            parts.append({"type": "unknown", "content": block})
+    if parts:
+        return parts
+    # Encrypted reasoning does not expose plaintext. Preserve it without inventing content.
+    return [{**item, "type": "redacted_reasoning" if item.get("encrypted_content") else "unknown"}]
 
 
 def _convert_image_url(url: str) -> dict[str, Any]:

@@ -1,8 +1,7 @@
-import json
 from typing import Any
 
 from mlflow.tracing.constant import GenAiSemconvKey
-from mlflow.tracing.export.genai_semconv.converter import GenAiSemconvConverter
+from mlflow.tracing.export.genai_semconv.converter import GenAiSemconvConverter, _encode_binary
 
 
 class GeminiConverter(GenAiSemconvConverter):
@@ -84,33 +83,41 @@ def _convert_content_dict(content: dict[str, Any]) -> dict[str, Any]:
 
 
 def _convert_part(part: Any) -> dict[str, Any]:
+    result = _convert_part_content(part)
+    if isinstance(part, dict) and (signature := part.get("thought_signature")) is not None:
+        result["thought_signature"] = (
+            _encode_binary(signature) if isinstance(signature, (bytes, bytearray)) else signature
+        )
+    return result
+
+
+def _convert_part_content(part: Any) -> dict[str, Any]:
     if isinstance(part, str):
         return {"type": "text", "content": part}
     if not isinstance(part, dict):
         return {"type": "text", "content": str(part)}
 
     if (text := part.get("text")) is not None:
-        return {"type": "text", "content": text}
+        return {"type": "reasoning" if part.get("thought") else "text", "content": text}
     elif inline := part.get("inline_data"):
         mime_type = inline.get("mime_type", "")
         result = {
             "type": "blob",
             "mime_type": mime_type,
+            "modality": _get_modality(mime_type),
             "content": inline.get("data", ""),
         }
-        if mime_type:
-            result["modality"] = mime_type.split("/")[0]
+        if isinstance(result["content"], (bytes, bytearray)):
+            result["content"] = _encode_binary(result["content"])
         return result
     elif file_data := part.get("file_data"):
         mime_type = file_data.get("mime_type", "")
-        result = {
+        return {
             "type": "uri",
             "mime_type": mime_type,
+            "modality": _get_modality(mime_type),
             "uri": file_data.get("file_uri", ""),
         }
-        if mime_type:
-            result["modality"] = mime_type.split("/")[0]
-        return result
     elif fc := part.get("function_call"):
         return {
             "type": "tool_call",
@@ -123,4 +130,10 @@ def _convert_part(part: Any) -> dict[str, Any]:
             "name": fr.get("name", ""),
             "response": fr.get("response", {}),
         }
-    return {"type": "text", "content": json.dumps(part)}
+    return {**part, "type": part.get("type") or "unknown"}
+
+
+def _get_modality(mime_type: str) -> str:
+    if mime_type.startswith(("application/", "text/")):
+        return "document"
+    return mime_type.split("/")[0] or "unknown"

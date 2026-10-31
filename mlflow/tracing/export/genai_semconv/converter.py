@@ -6,6 +6,7 @@ Converters translate these provider-specific formats into the GenAI Semantic Con
 attributes: gen_ai.input.messages, gen_ai.output.messages, request params, and response attrs.
 """
 
+import base64
 import json
 import logging
 from abc import ABC, abstractmethod
@@ -23,6 +24,12 @@ _REQUEST_PARAM_KEYS = {
     "stop": GenAiSemconvKey.REQUEST_STOP_SEQUENCES,
     "tools": GenAiSemconvKey.TOOL_DEFINITIONS,
 }
+
+
+def _encode_binary(value: Any) -> str:
+    if isinstance(value, (bytes, bytearray)):
+        return base64.b64encode(value).decode("utf-8")
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
 
 
 class GenAiSemconvConverter(ABC):
@@ -68,16 +75,22 @@ class GenAiSemconvConverter(ABC):
         if inputs is not None:
             messages = self.convert_inputs(inputs)
             if messages is not None:
-                result[GenAiSemconvKey.INPUT_MESSAGES] = json.dumps(messages)
+                result[GenAiSemconvKey.INPUT_MESSAGES] = json.dumps(
+                    messages, default=_encode_binary
+                )
             system_instructions = self.convert_system_instructions(inputs)
             if system_instructions is not None:
-                result[GenAiSemconvKey.SYSTEM_INSTRUCTIONS] = json.dumps(system_instructions)
+                result[GenAiSemconvKey.SYSTEM_INSTRUCTIONS] = json.dumps(
+                    system_instructions, default=_encode_binary
+                )
             result.update(self.extract_request_params(inputs))
 
         if outputs is not None:
             messages = self.convert_outputs(outputs)
             if messages is not None:
-                result[GenAiSemconvKey.OUTPUT_MESSAGES] = json.dumps(messages)
+                result[GenAiSemconvKey.OUTPUT_MESSAGES] = json.dumps(
+                    messages, default=_encode_binary
+                )
             result.update(self.extract_response_attrs(outputs))
 
         return result

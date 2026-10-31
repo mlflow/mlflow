@@ -8,6 +8,7 @@ from packaging.version import Version
 import mlflow
 from mlflow.openai.genai_semconv_converter import (
     OpenAIChatCompletionConverter,
+    OpenAIResponsesConverter,
     _convert_content,
     _convert_message,
 )
@@ -291,7 +292,16 @@ def test_convert_message_audio_transcript_fallback():
     result = _convert_message(msg)
     assert result == {
         "role": "assistant",
-        "parts": [{"type": "text", "content": "Yes, I am."}],
+        "parts": [
+            {"type": "text", "content": "Yes, I am."},
+            {
+                "type": "blob",
+                "modality": "audio",
+                "content": "SGVsbG8=",
+                "id": "audio_abc123",
+                "expires_at": 9999999999,
+            },
+        ],
     }
 
 
@@ -309,7 +319,16 @@ def test_convert_message_audio_no_override():
     result = _convert_message(msg)
     assert result == {
         "role": "assistant",
-        "parts": [{"type": "text", "content": "I have text."}],
+        "parts": [
+            {"type": "text", "content": "I have text."},
+            {
+                "type": "blob",
+                "modality": "audio",
+                "content": "SGVsbG8=",
+                "id": "audio_abc123",
+                "expires_at": 9999999999,
+            },
+        ],
     }
 
 
@@ -341,3 +360,158 @@ def test_chat_completion_system_instructions(system_content):
     assert converter.convert_inputs(inputs) == [
         {"role": "user", "parts": [{"type": "text", "content": "hi"}]}
     ]
+
+
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    [
+        (
+            {"type": "input_image", "file_id": "file-image"},
+            {"type": "file", "modality": "image", "file_id": "file-image"},
+        ),
+        (
+            {"type": "input_file", "file_id": "file-pdf"},
+            {"type": "file", "modality": "document", "file_id": "file-pdf"},
+        ),
+        (
+            {"type": "input_file", "file_url": "https://example.com/report.pdf"},
+            {"type": "uri", "modality": "document", "uri": "https://example.com/report.pdf"},
+        ),
+        (
+            {"type": "input_file", "file_data": "data:application/pdf;base64,JVBERg=="},
+            {
+                "type": "blob",
+                "modality": "document",
+                "mime_type": "application/pdf",
+                "content": "JVBERg==",
+            },
+        ),
+        (
+            {"type": "file", "file": {"filename": "report.pdf", "file_data": "JVBERg=="}},
+            {
+                "type": "blob",
+                "modality": "document",
+                "filename": "report.pdf",
+                "mime_type": "application/pdf",
+                "content": "JVBERg==",
+            },
+        ),
+        (
+            {"type": "custom_media", "url": "https://example.com/media", "detail": "high"},
+            {"type": "custom_media", "url": "https://example.com/media", "detail": "high"},
+        ),
+    ],
+)
+def test_convert_file_and_generic_content(content, expected):
+    assert _convert_content([content]) == [expected]
+
+
+def test_responses_reasoning_and_image_export():
+    converter = OpenAIResponsesConverter()
+    attrs = converter.translate(
+        {"input": "Draw the answer."},
+        {
+            "id": "resp-1",
+            "model": "gpt-5",
+            "status": "completed",
+            "output": [
+                {
+                    "id": "reasoning-1",
+                    "type": "reasoning",
+                    "summary": [{"type": "summary_text", "text": "I will illustrate the result."}],
+                    "encrypted_content": "encrypted",
+                },
+                {
+                    "id": "image-1",
+                    "type": "image_generation_call",
+                    "status": "completed",
+                    "output_format": "png",
+                    "result": "aW1hZ2U=",
+                },
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "Here is the answer."}],
+                },
+            ],
+        },
+    )
+    messages = json.loads(attrs["gen_ai.output.messages"])
+    assert len(messages) == 3
+    assert messages[0]["parts"] == [
+        {
+            "type": "reasoning",
+            "content": "I will illustrate the result.",
+            "id": "reasoning-1",
+            "encrypted_content": "encrypted",
+        }
+    ]
+    assert messages[1]["parts"] == [
+        {
+            "type": "blob",
+            "modality": "image",
+            "mime_type": "image/png",
+            "content": "aW1hZ2U=",
+            "id": "image-1",
+            "status": "completed",
+            "output_format": "png",
+        }
+    ]
+    assert messages[2]["parts"] == [{"type": "text", "content": "Here is the answer."}]
+    assert attrs["gen_ai.response.id"] == "resp-1"
+    assert attrs["gen_ai.response.model"] == "gpt-5"
+
+
+def test_responses_reasoning_history_and_redacted_content():
+    reasoning = {
+        "type": "reasoning",
+        "id": "reasoning-1",
+        "content": [{"type": "reasoning_text", "text": "The returned reasoning."}],
+        "summary": [],
+    }
+    redacted = {
+        "type": "reasoning",
+        "id": "reasoning-2",
+        "summary": [],
+        "encrypted_content": "encrypted",
+    }
+    converter = OpenAIResponsesConverter()
+    inputs = converter.convert_inputs({"input": [reasoning, redacted]})
+    outputs = converter.convert_outputs({"output": [reasoning, redacted]})
+    assert (
+        inputs
+        == outputs
+        == [
+            {
+                "role": "assistant",
+                "parts": [
+                    {"type": "reasoning", "id": "reasoning-1", "content": "The returned reasoning."}
+                ],
+            },
+            {"role": "assistant", "parts": [{**redacted, "type": "redacted_reasoning"}]},
+        ]
+    )
+
+
+def test_responses_preserve_unknown_output():
+    item = {"type": "custom_call", "id": "custom-1", "result": {"location": "Paris"}}
+    assert OpenAIResponsesConverter().convert_outputs({"output": [item]}) == [
+        {"role": "assistant", "parts": [item]}
+    ]
+
+
+@pytest.mark.parametrize(
+    "item",
+    [
+        {"type": "image_generation_call", "id": "image-1", "result": "aW1hZ2U="},
+        {"type": "web_search_call", "id": "search-1", "status": "completed"},
+        {"type": "custom_call", "id": "custom-1", "result": {"location": "Paris"}},
+    ],
+)
+def test_responses_preserve_replayed_builtin_history(item):
+    converter = OpenAIResponsesConverter()
+    history = converter.convert_inputs({"input": [item]})
+    assert history == converter.convert_outputs({"output": [item]})
+    assert history[0]["role"] == "assistant"
+    assert history[0]["parts"]
+    assert history[0]["parts"][0]["id"] == item["id"]
