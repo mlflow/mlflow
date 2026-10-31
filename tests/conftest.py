@@ -1117,7 +1117,7 @@ def clean_up_envs():
         from mlflow.utils.virtualenv import _get_mlflow_virtualenv_root
 
         shutil.rmtree(_get_mlflow_virtualenv_root(), ignore_errors=True)
-        if not is_windows():
+        if not is_windows() and shutil.which("conda"):
             conda_info = json.loads(subprocess.check_output(["conda", "info", "--json"], text=True))
             root_prefix = conda_info["root_prefix"]
             regex = re.compile(r"mlflow-\w{32,}")

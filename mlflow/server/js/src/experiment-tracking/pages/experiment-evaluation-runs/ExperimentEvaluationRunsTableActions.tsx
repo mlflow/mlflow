@@ -1,4 +1,4 @@
-import { Button, ChevronDownIcon, DropdownMenu, Modal } from '@databricks/design-system';
+import { Button, ChevronDownIcon, DropdownMenu, Modal, OverflowIcon } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
 import type { RowSelectionState } from '@tanstack/react-table';
 import { useCallback, useMemo, useState } from 'react';
@@ -14,6 +14,7 @@ export const ExperimentEvaluationRunsTableActions = ({
   selectedRunUuid,
   compareToRunUuid,
   enableImprovedComparison,
+  enableNewCompare = false,
   foldCompareIntoMenu = false,
   setIsComparisonMode,
   onFilterChartToSelectedRuns,
@@ -26,6 +27,8 @@ export const ExperimentEvaluationRunsTableActions = ({
   selectedRunUuid?: string;
   compareToRunUuid?: string;
   enableImprovedComparison?: boolean;
+  /** New-compare flag: the standalone Compare button owns navigation, so this menu hides Compare. */
+  enableNewCompare?: boolean;
   /** V2 folds Compare into this menu and includes the selected-run count in the trigger label. */
   foldCompareIntoMenu?: boolean;
   setIsComparisonMode?: (isComparisonMode: boolean) => void;
@@ -77,7 +80,7 @@ export const ExperimentEvaluationRunsTableActions = ({
   const isCompareDisabled = !isCompareEnabled || isAlreadyComparingSelectedRuns;
 
   // The legacy toolbar with improved comparison renders its own Compare button; V2 always folds it in here.
-  const showCompareItem = foldCompareIntoMenu || !enableImprovedComparison;
+  const showCompareItem = !enableNewCompare && (foldCompareIntoMenu || !enableImprovedComparison);
 
   const noRunsSelected = selectedRunUuids.length === 0;
 
@@ -85,27 +88,39 @@ export const ExperimentEvaluationRunsTableActions = ({
     <>
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild disabled={noRunsSelected}>
-          <Button
-            type="primary"
-            componentId="mlflow.eval-runs.actions-button"
-            disabled={noRunsSelected}
-            endIcon={<ChevronDownIcon />}
-          >
-            {foldCompareIntoMenu ? (
-              <FormattedMessage
-                defaultMessage="Actions ({numRuns})"
-                description="Experiment evaluation runs table actions button, with the number of selected runs"
-                values={{ numRuns: selectedRunUuids.length }}
-              />
-            ) : (
-              <FormattedMessage
-                defaultMessage="Actions"
-                description="Experiment evaluation runs table actions button"
-              />
-            )}
-          </Button>
+          {enableNewCompare ? (
+            <Button
+              componentId="mlflow.eval-runs.actions-button"
+              disabled={noRunsSelected}
+              icon={<OverflowIcon />}
+              aria-label={intl.formatMessage({
+                defaultMessage: 'Actions',
+                description: 'Accessible label for the experiment evaluation runs actions menu button',
+              })}
+            />
+          ) : (
+            <Button
+              type="primary"
+              componentId="mlflow.eval-runs.actions-button"
+              disabled={noRunsSelected}
+              endIcon={<ChevronDownIcon />}
+            >
+              {foldCompareIntoMenu ? (
+                <FormattedMessage
+                  defaultMessage="Actions ({numRuns})"
+                  description="Experiment evaluation runs table actions button, with the number of selected runs"
+                  values={{ numRuns: selectedRunUuids.length }}
+                />
+              ) : (
+                <FormattedMessage
+                  defaultMessage="Actions"
+                  description="Experiment evaluation runs table actions button"
+                />
+              )}
+            </Button>
+          )}
         </DropdownMenu.Trigger>
-        <DropdownMenu.Content>
+        <DropdownMenu.Content {...(enableNewCompare ? { align: 'end' as const } : {})}>
           {onFilterChartToSelectedRuns && (
             <DropdownMenu.CheckboxItem
               componentId="mlflow.eval-runs.actions.filter-chart-to-selected"

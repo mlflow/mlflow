@@ -1,4 +1,4 @@
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, jest, test } from '@jest/globals';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -8,6 +8,12 @@ import { setupTestRouter, testRoute, TestRouter } from '../../../common/utils/Ro
 import type { ExperimentEntity } from '../../types';
 import { ExperimentPageBreadcrumbs } from './ExperimentPageBreadcrumbs';
 import { ExperimentPageRevampProvider, useSetExperimentBreadcrumbTitle } from './ExperimentPageRevampContext';
+import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
+
+jest.mock('../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
+  shouldEnableNewEvalRunsUi: jest.fn(() => false),
+}));
 
 const experiment: ExperimentEntity = {
   experimentId: '123',
@@ -181,5 +187,28 @@ describe('ExperimentPageBreadcrumbs', () => {
 
     expect(await screen.findByText('dataset-2')).toBeInTheDocument();
     expect(screen.queryByText('First dataset')).not.toBeInTheDocument();
+  });
+  test.each([
+    { flag: true, entry: '/experiments/123/evaluation-runs/run-1/details?compare=true&compareRuns=run-2', shown: true },
+    { flag: true, entry: '/experiments/123/evaluation-runs/run-1/details?compareRuns=run-2', shown: false },
+    {
+      flag: false,
+      entry: '/experiments/123/evaluation-runs/run-1/details?compare=true&compareRuns=run-2',
+      shown: false,
+    },
+  ])('shows the exit-comparison action only while comparing on the run page (%o)', async ({ flag, entry, shown }) => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(flag);
+    renderAt(entry, '/experiments/:experimentId/evaluation-runs/:runUuid/details', 'Run one');
+
+    await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    expect(Boolean(screen.queryByRole('button', { name: 'Back to Reference Run' }))).toBe(shown);
+  });
+
+  test('keeps the exit-comparison action off other pages', async () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+    renderAt('/experiments/123/datasets?compare=true', '/experiments/:experimentId/datasets');
+
+    await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    expect(screen.queryByRole('button', { name: 'Back to Reference Run' })).not.toBeInTheDocument();
   });
 });
