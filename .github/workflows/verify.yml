@@ -106,6 +106,32 @@ jobs:
             echo "base_ref=$base_ref"
             echo 'allowed=true'
           } >> "$GITHUB_OUTPUT"
+      - name: Create comment token
+        id: comment-token
+        if: steps.pr.outputs.allowed == 'true' && github.event_name == 'issue_comment'
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: mlflow
+          repositories: mlflow
+          permission-issues: write
+      - name: Add run link to trigger comment
+        if: steps.pr.outputs.allowed == 'true' && github.event_name == 'issue_comment' && steps.comment-token.outcome == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.comment-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}?pr=${{ github.event.issue.number }}
+        run: |
+          marker="<!-- verify-run:$GITHUB_RUN_ID -->"
+          body=$(gh api "repos/$REPO/issues/comments/$COMMENT_ID" --jq .body)
+          if [[ "$body" != *"$marker"* ]]; then
+            body=$(printf '%s\n\n---\n\n[Verification run](%s) %s' "$body" "$RUN_URL" "$marker")
+            gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -f body="$body" > /dev/null
+          fi
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: steps.pr.outputs.allowed == 'true'
         with:
