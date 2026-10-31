@@ -57,7 +57,12 @@ def _is_internal_flow(instance) -> bool:
     # Agent.execute_task. Skip span creation for it since the Agent span already
     # bounds the same work and crewai marks it with suppress_flow_events=True.
     try:
-        from crewai.experimental.agent_executor import AgentExecutor
+        import crewai
+
+        if Version(crewai.__version__) >= Version("1.15.29"):
+            from crewai.agents.agent_executor import AgentExecutor
+        else:
+            from crewai.experimental.agent_executor import AgentExecutor
     except ImportError:
         return False
     return isinstance(instance, AgentExecutor)
@@ -157,6 +162,26 @@ def patched_native_tool_call(original, self, *args, **kwargs):
         return result
 
 
+def patched_single_native_tool_call(original, self, tool_call, *args, **kwargs):
+    config = AutoLoggingConfig.init(flavor_name=mlflow.crewai.FLAVOR_NAME)
+
+    if not config.log_traces:
+        return original(self, tool_call, *args, **kwargs)
+
+    tool_name = _extract_native_tool_name([tool_call])
+    if not tool_name:
+        return original(self, tool_call, *args, **kwargs)
+
+    with mlflow.start_span(name=tool_name, span_type=SpanType.TOOL) as span:
+        span.set_inputs({
+            "tool_name": tool_name,
+            "tool_args": _extract_native_tool_args([tool_call]),
+        })
+        result = original(self, tool_call, *args, **kwargs)
+        span.set_outputs({"result": result.get("result")})
+        return result
+
+
 def _extract_native_tool_name(tool_calls):
     if not tool_calls:
         return None
@@ -185,7 +210,9 @@ def _extract_native_tool_args(tool_calls):
         args = tool_call.input
     elif isinstance(tool_call, dict):
         func_info = tool_call.get("function", {})
-        args = func_info.get("arguments", "{}") or tool_call.get("input", {})
+        args = (
+            func_info.get("arguments") or tool_call.get("arguments") or tool_call.get("input") or {}
+        )
     else:
         return {}
 
