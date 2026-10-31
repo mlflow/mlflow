@@ -6,7 +6,7 @@ from unittest import mock
 
 import boto3
 import pytest
-from botocore.exceptions import NoCredentialsError
+from botocore.exceptions import EventStreamError, NoCredentialsError
 from botocore.response import StreamingBody
 from packaging.version import Version
 
@@ -1094,6 +1094,91 @@ def test_bedrock_autolog_converse_stream_with_redacted_reasoning():
     assert len(span.events) == len(stream_events)
     assert span.outputs["output"]["message"]["content"] == [{"text": "No."}]
     _assert_token_usage_matches(span, {"input_tokens": 18, "output_tokens": 27, "total_tokens": 45})
+
+
+def _anthropic_stream_events():
+    chunks = [
+        {"type": "message_start", "message": {"usage": {"input_tokens": 8, "output_tokens": 1}}},
+        {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "Hi"}},
+        {"type": "message_delta", "usage": {"output_tokens": 12}},
+    ]
+    for chunk in chunks:
+        yield {"chunk": {"bytes": json.dumps(chunk).encode("utf-8")}}
+
+
+def test_bedrock_autolog_invoke_model_stream_ends_span_on_early_exit():
+    mlflow.bedrock.autolog()
+
+    client = boto3.client("bedrock-runtime", region_name="us-west-2")
+    with mock.patch(
+        "botocore.client.BaseClient._make_api_call",
+        return_value={"body": _anthropic_stream_events()},
+    ):
+        response = client.invoke_model_with_response_stream(
+            body=json.dumps(_ANTHROPIC_REQUEST), modelId=_ANTHROPIC_MODEL_ID
+        )
+
+    for _ in response["body"]:
+        break
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    span = traces[0].data.spans[0]
+    assert len(span.events) == 1
+    _assert_token_usage_matches(span, {"input_tokens": 8, "output_tokens": 1, "total_tokens": 9})
+
+
+@pytest.mark.skipif(not _IS_CONVERSE_API_AVAILABLE, reason="Converse API is not available")
+def test_bedrock_autolog_converse_stream_ends_span_on_close():
+    mlflow.bedrock.autolog()
+
+    client = boto3.client("bedrock-runtime", region_name="us-west-2")
+    stream = _event_stream(_CONVERSE_RESPONSE)
+    with mock.patch(
+        "botocore.client.BaseClient._make_api_call",
+        return_value={"stream": stream},
+    ):
+        response = client.converse_stream(**_CONVERSE_REQUEST)
+
+    response["stream"].close()
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert traces[0].data.spans[0].events == []
+    # The original stream is closed too
+    assert list(stream) == []
+
+
+@pytest.mark.skipif(not _IS_CONVERSE_API_AVAILABLE, reason="Converse API is not available")
+def test_bedrock_autolog_converse_stream_ends_span_on_error():
+    mlflow.bedrock.autolog()
+
+    client = boto3.client("bedrock-runtime", region_name="us-west-2")
+
+    def failing_stream():
+        yield {"messageStart": {"role": "assistant"}}
+        raise EventStreamError(
+            {"Error": {"Code": "modelStreamErrorException", "Message": "boom"}},
+            "ConverseStream",
+        )
+
+    with mock.patch(
+        "botocore.client.BaseClient._make_api_call",
+        return_value={"stream": failing_stream()},
+    ):
+        response = client.converse_stream(**_CONVERSE_REQUEST)
+
+    with pytest.raises(EventStreamError, match="boom"):
+        list(response["stream"])
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "ERROR"
+    span = traces[0].data.spans[0]
+    assert span.status.status_code == "ERROR"
+    assert [event.name for event in span.events] == ["messageStart", "exception"]
 
 
 def _event_stream(raw_response, chunk_size=10):

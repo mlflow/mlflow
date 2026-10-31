@@ -11,6 +11,7 @@ from mlflow.bedrock.utils import (
 )
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.span_event import SpanEvent
+from mlflow.entities.span_status import SpanStatusCode
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils import TraceJSONEncoder
 
@@ -22,7 +23,8 @@ class BaseEventStreamWrapper:
     A wrapper class for a event stream to record events and accumulated response
     in an MLflow span if possible.
 
-    A span should be ended when the stream is exhausted rather than when it is created.
+    A span should be ended when the stream is exhausted, closed or fails rather than when
+    it is created.
 
     Args:
         stream: The original event stream to wrap.
@@ -39,18 +41,42 @@ class BaseEventStreamWrapper:
         self._stream = stream
         self._span = span
         self._inputs = inputs
+        self._finished = False
 
     def __iter__(self):
-        for event in self._stream:
-            self._handle_event(self._span, event)
-            yield event
-
-        # End the span when the stream is exhausted
-        self._close()
+        try:
+            for event in self._stream:
+                self._handle_event(self._span, event)
+                yield event
+        except Exception as e:
+            # The stream raised mid-way (e.g. a modelStreamErrorException event). End the
+            # span with an error status, otherwise the trace is never exported.
+            self._finish(e)
+            raise
+        finally:
+            # Also reached when the caller stops early and the generator is closed.
+            self._finish()
 
     def __getattr__(self, attr):
         """Delegate all other attributes to the original stream."""
         return getattr(self._stream, attr)
+
+    def close(self):
+        """Close the original stream and end the span if iteration did not."""
+        try:
+            if close := getattr(self._stream, "close", None):
+                close()
+        finally:
+            self._finish()
+
+    def _finish(self, error: Exception | None = None):
+        if self._finished:
+            return
+        self._finished = True
+        if error is None:
+            self._close()
+        else:
+            self._end_span_on_exception(error)
 
     def _handle_event(self, span, event):
         """Process a single event from the stream."""
@@ -64,6 +90,11 @@ class BaseEventStreamWrapper:
     def _end_span(self):
         """End the span."""
         self._span.end()
+
+    @capture_exception("Failed to end the span on a stream error")
+    def _end_span_on_exception(self, error: Exception):
+        self._span.add_event(SpanEvent.from_exception(error))
+        self._span.end(status=SpanStatusCode.ERROR)
 
 
 def _extract_token_usage_from_chunk(chunk: dict[str, Any]) -> dict[str, int] | None:
