@@ -13,6 +13,7 @@ import { APILink } from "@site/src/components/APILink";
 - Decorator-based function registration (`@invoke`, `@stream`) for easy agent development
 - Automatic request and response validation for Responses API schema agents
 - Automatic MLflow tracing integration and aggregation
+- Agent metadata via [`AgentInfo`](/genai/serving/agent-info) for runtime discovery through the `GET /agent/info` endpoint
 
 ## Full Example
 
@@ -54,11 +55,19 @@ In this example, we'll use the openai-agents-sdk to define our Responses API com
    # Need to import the agent to register the functions with the server
    import agent  # noqa: F401
    from mlflow.genai.agent_server import (
+       AgentInfo,
        AgentServer,
        setup_mlflow_git_based_version_tracking,
    )
 
-   agent_server = AgentServer("ResponsesAgent")
+   agent_server = AgentServer(
+       "ResponsesAgent",
+       agent_info=AgentInfo(
+           name="MathTutor",
+           description="A math tutoring agent that explains its reasoning",
+           version="1.0.0",
+       ),
+   )
    app = agent_server.app
 
    # Optionally, set up MLflow git-based version tracking
@@ -106,6 +115,27 @@ curl -X POST http://localhost:8000/invocations \
     "input": [{ "role": "user", "content": "What is the 14th Fibonacci number?"}],
     "stream": true
     }'
+```
+
+## Agent Info Endpoint
+
+The `GET /agent/info` endpoint returns metadata about the running agent. See [Agent Info](/genai/serving/agent-info) for full details on configuring `AgentInfo`.
+
+```bash
+curl http://localhost:8000/agent/info
+```
+
+With the example above, the response is:
+
+```json
+{
+  "name": "MathTutor",
+  "use_case": "agent",
+  "mlflow_version": "3.6.0",
+  "agent_api": "responses",
+  "description": "A math tutoring agent that explains its reasoning",
+  "version": "1.0.0"
+}
 ```
 
 ## Evaluating Your Agent

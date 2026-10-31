@@ -1385,6 +1385,11 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
+          id: 'serving/agent-info',
+          label: 'Agent Info',
+        },
+        {
+          type: 'doc',
           id: 'serving/responses-agent',
           label: 'Responses Agent',
         },
