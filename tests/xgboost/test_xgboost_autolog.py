@@ -16,6 +16,7 @@ from sklearn import datasets
 import mlflow
 import mlflow.xgboost
 from mlflow import MlflowClient
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
 from mlflow.types.utils import _infer_schema
@@ -427,6 +428,34 @@ def test_xgb_autolog_logs_specified_feature_importance(bst_params, dtrain):
             loaded_imp = json.load(f)
 
         assert loaded_imp == model.get_score(importance_type=imp_type)
+
+
+def test_xgb_autolog_logs_feature_importance_max_features(bst_params, dtrain):
+    with mock.patch("matplotlib.axes.Axes.set_yticklabels") as mock_set_yticklabels:
+        mlflow.xgboost.autolog(max_features_to_plot=2)
+        model = xgb.train(bst_params, dtrain)
+        assert mock_set_yticklabels.called
+        plotted_features = mock_set_yticklabels.call_args[0][0]
+        assert len(plotted_features) == 2
+        all_scores = model.get_score(importance_type="weight")
+        sorted_features = sorted(all_scores.keys(), key=lambda k: all_scores[k])
+        assert list(plotted_features) == sorted_features[-2:]
+
+    run = get_latest_run()
+    artifacts = [x.path for x in MlflowClient().list_artifacts(run.info.run_id)]
+    assert "feature_importance_weight.png" in artifacts
+    assert "feature_importance_weight.json" in artifacts
+    artifacts_dir = local_file_uri_to_path(run.info.artifact_uri)
+    with open(os.path.join(artifacts_dir, "feature_importance_weight.json")) as f:
+        assert json.load(f) == all_scores
+
+
+def test_xgb_autolog_invalid_max_features_to_plot():
+    for invalid_val in [0, -1, -10, "5", 2.5, True]:
+        with pytest.raises(
+            MlflowException, match="`max_features_to_plot` must be a positive integer"
+        ):
+            mlflow.xgboost.autolog(max_features_to_plot=invalid_val)
 
 
 @pytest.mark.skipif(

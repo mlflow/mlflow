@@ -17,6 +17,7 @@ from sklearn import datasets
 import mlflow
 import mlflow.lightgbm
 from mlflow import MlflowClient
+from mlflow.exceptions import MlflowException
 from mlflow.lightgbm import _autolog_callback
 from mlflow.models import Model
 from mlflow.types.utils import _infer_schema
@@ -591,6 +592,32 @@ def test_lgb_autolog_logs_feature_importance(bst_params, train_set):
         imp = dict(zip(features, importance.tolist()))
 
         assert loaded_imp == imp
+
+
+def test_lgb_autolog_logs_feature_importance_max_features(bst_params, train_set):
+    with mock.patch("matplotlib.axes.Axes.set_yticklabels") as mock_set_yticklabels:
+        mlflow.lightgbm.autolog(max_features_to_plot=2)
+        model = lgb.train(bst_params, train_set, num_boost_round=10)
+        assert mock_set_yticklabels.called
+        plotted_features = mock_set_yticklabels.call_args[0][0]
+        assert len(plotted_features) == 2
+
+    run = get_latest_run()
+    artifacts = [x.path for x in MlflowClient().list_artifacts(run.info.run_id)]
+    assert "feature_importance_split.png" in artifacts
+    assert "feature_importance_split.json" in artifacts
+    artifacts_dir = run.info.artifact_uri.replace("file://", "")
+    with open(os.path.join(artifacts_dir, "feature_importance_split.json")) as f:
+        loaded_imp = json.load(f)
+    assert len(loaded_imp) == len(model.feature_name())
+
+
+def test_lgb_autolog_invalid_max_features_to_plot():
+    for invalid_val in [0, -1, -10, "5", 2.5, True]:
+        with pytest.raises(
+            MlflowException, match="`max_features_to_plot` must be a positive integer"
+        ):
+            mlflow.lightgbm.autolog(max_features_to_plot=invalid_val)
 
 
 def test_no_figure_is_opened_after_logging(bst_params, train_set):
