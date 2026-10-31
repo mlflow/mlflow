@@ -1321,9 +1321,9 @@ async def test_invocations_handler_streaming(store: SqlAlchemyStore):
         assert isinstance(response, StreamingResponse)
         assert response.media_type == "text/event-stream"
         # chat_stream is inside a lazy async generator; consume the body to trigger execution
-        async for _ in response.body_iterator:
-            pass
+        body = "".join([chunk async for chunk in response.body_iterator])
         assert mock_provider.chat_stream.called
+        assert body.endswith("data: [DONE]\n\n")
 
 
 def test_create_provider_from_endpoint_name_no_models(store: SqlAlchemyStore):
@@ -1657,9 +1657,9 @@ async def test_chat_completions_endpoint_streaming(store: SqlAlchemyStore):
         assert isinstance(response, StreamingResponse)
         assert response.media_type == "text/event-stream"
         # chat_stream is inside a lazy async generator; consume the body to trigger execution
-        async for _ in response.body_iterator:
-            pass
+        body = "".join([chunk async for chunk in response.body_iterator])
         assert mock_provider.chat_stream.called
+        assert body.endswith("data: [DONE]\n\n")
 
 
 @pytest.mark.asyncio
