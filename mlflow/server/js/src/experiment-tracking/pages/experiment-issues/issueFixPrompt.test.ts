@@ -63,7 +63,7 @@ describe('buildIssueFixPrompt', () => {
 
     expect(prompt).toContain(`\n\nIssue URL: ${ISSUE_URL}\nExperiment ID: 1\n`);
     expect(prompt).toContain(
-      "use the MLflow CLI on this machine with `MLFLOW_TRACKING_URI` set to the issue URL's server (the part before `#`). ",
+      'use the MLflow CLI on this machine with `MLFLOW_TRACKING_URI` set to `https://mlflow.example`. ',
     );
     // A server without workspaces rejects any workspace header, so with none active it goes unmentioned.
     expect(prompt).not.toContain('MLFLOW_WORKSPACE');
@@ -147,7 +147,7 @@ describe('buildIssueFixPrompt', () => {
     const prompt = buildIssueFixPrompt('1', makeIssue(), ISSUE_URL, { traceIds: ['tr-1'], workspace: 'team-a' });
 
     expect(prompt).toContain(
-      "with `MLFLOW_TRACKING_URI` set to the issue URL's server (the part before `#`), and `MLFLOW_WORKSPACE` set to `team-a`. ",
+      'with `MLFLOW_TRACKING_URI` set to `https://mlflow.example`, and `MLFLOW_WORKSPACE` set to `team-a`. ',
     );
   });
 

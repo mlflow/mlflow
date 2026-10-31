@@ -108,6 +108,8 @@ describe('IssueProposedFixSection', () => {
       await waitFor(() => expect(screen.getByRole('button', { name: 'Copy' })).toBeEnabled());
       const prompt = screen.getByTestId('experiment-issue-proposed-fix').querySelector('pre')?.textContent ?? '';
       expect(prompt).toContain(`${window.location.origin}/mlflow/#`);
+      // The CLI reaches the REST API under the same prefix.
+      expect(prompt).toContain(`\`MLFLOW_TRACKING_URI\` set to \`${window.location.origin}/mlflow\``);
     } finally {
       document.head.removeChild(base);
     }

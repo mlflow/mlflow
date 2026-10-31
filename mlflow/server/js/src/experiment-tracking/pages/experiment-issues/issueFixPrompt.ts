@@ -80,6 +80,10 @@ export const buildIssueFixPrompt = (
   { traceIds, totalTraceCount, hasMoreTraces = false, workspace }: IssueFixPromptOptions,
 ): string => {
   const categories = issue.categories ?? [];
+  // The tracking server is the issue URL without its hash route: the origin plus any static prefix,
+  // under which the server also serves its REST API. A CLI given the whole URL would send the route
+  // as a fragment, which never reaches the server.
+  const trackingUri = issueUrl.split('#')[0].replace(/\/+$/, '');
   // The active workspace comes from the URL, so a crafted link can set it to anything; only a name
   // the server would accept is written into the prompt, outside the escaped block.
   const workspaceSetup =
@@ -101,7 +105,7 @@ ${issue.source_run_id ? `Detection run ID: ${issue.source_run_id}\n` : ''}${issu
     ...traceIdLines(traceIds, totalTraceCount, hasMoreTraces),
   ])}
 
-To read the issue's traces, use the MLflow CLI on this machine with \`MLFLOW_TRACKING_URI\` set to the issue URL's server (the part before \`#\`)${workspaceSetup}. \`mlflow traces search --experiment-id ${experimentId} --filter-string "issue.id = '${issue.issue_id}'"\` lists the traces the issue affects, 100 at a time (pass the next page token it prints as \`--page-token\` for more), and each of those traces carries an issue assessment named ${issue.issue_id} with the evidence. The \`mlflow-trace-analysis\` and \`mlflow-trace-retrieval\` skills cover reading them.
+To read the issue's traces, use the MLflow CLI on this machine with \`MLFLOW_TRACKING_URI\` set to \`${trackingUri}\`${workspaceSetup}. \`mlflow traces search --experiment-id ${experimentId} --filter-string "issue.id = '${issue.issue_id}'"\` lists the traces the issue affects, 100 at a time (pass the next page token it prints as \`--page-token\` for more), and each of those traces carries an issue assessment named ${issue.issue_id} with the evidence. The \`mlflow-trace-analysis\` and \`mlflow-trace-retrieval\` skills cover reading them.
 
 ${FIX_PROMPT_OUTRO}`;
 };
