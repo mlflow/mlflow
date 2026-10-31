@@ -41,7 +41,7 @@ jest.mock('../../FeatureUtils', () => ({
 
 jest.mock('../../../global-settings/getUser', () => ({
   ...jest.requireActual<typeof import('../../../global-settings/getUser')>('../../../global-settings/getUser'),
-  getUser: jest.fn(() => 'test-user'),
+  useUserIdentity: jest.fn(() => ({ user: 'test-user', isResolved: true })),
 }));
 
 const mockUseCustomViewAssistantBridge = jest.mocked(useCustomViewAssistantBridge);
