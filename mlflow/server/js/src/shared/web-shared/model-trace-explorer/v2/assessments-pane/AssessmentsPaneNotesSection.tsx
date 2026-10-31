@@ -13,7 +13,7 @@ import { FormattedMessage } from '@databricks/i18n';
 
 import type { FeedbackAssessment } from '../ModelTrace.types';
 import type { CreateAssessmentPayload, UpdateAssessmentPayload } from '../../api';
-import { getUser } from '../../../global-settings/getUser';
+import { useUserIdentity } from '../../../global-settings/getUser';
 import { useCreateAssessment } from '../../hooks/useCreateAssessment';
 import { useUpdateAssessment } from '../../hooks/useUpdateAssessment';
 
@@ -27,7 +27,7 @@ export const AssessmentsPaneNotesSection = ({
   feedbacks: FeedbackAssessment[];
 }): JSX.Element => {
   const { theme } = useDesignSystemTheme();
-  const user = getUser() ?? '';
+  const { user, isResolved: isUserResolved } = useUserIdentity();
 
   const existingNotes = useMemo(
     () => feedbacks.find((f) => f.assessment_name === NOTES_ASSESSMENT_NAME && f.source.source_id === user),
@@ -57,7 +57,7 @@ export const AssessmentsPaneNotesSection = ({
   const isDirty = notesText !== serverText;
 
   const handleSave = () => {
-    if (!isDirty) return;
+    if (!isDirty || !isUserResolved) return;
     if (existingNotes) {
       const payload: UpdateAssessmentPayload = {
         assessment: { feedback: { value: notesText } },
@@ -105,7 +105,7 @@ export const AssessmentsPaneNotesSection = ({
           icon={<CheckIcon />}
           onClick={handleSave}
           loading={isLoading}
-          disabled={!isDirty || isLoading}
+          disabled={!isDirty || isLoading || !isUserResolved}
         >
           <FormattedMessage defaultMessage="Save" description="Button to save notes assessment" />
         </Button>

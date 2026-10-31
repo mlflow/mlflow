@@ -11,7 +11,7 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import { getUser } from '../../../global-settings/getUser';
+import { useUserIdentity } from '../../../global-settings/getUser';
 
 import { AssessmentCreateNameTypeahead } from './AssessmentCreateNameTypeahead';
 import type { AssessmentFormInputDataType } from '../../assessments-pane/AssessmentsPane.utils';
@@ -59,6 +59,7 @@ export const AssessmentCreateForm: ForwardRefExoticComponent<
   ) => {
     const { theme } = useDesignSystemTheme();
     const { schemas } = useAssessmentSchemas();
+    const { user, isResolved: isUserResolved } = useUserIdentity();
 
     const [name, setName] = useState('');
     const [dataType, setDataType] = useState<AssessmentFormInputDataType>('boolean');
@@ -79,6 +80,10 @@ export const AssessmentCreateForm: ForwardRefExoticComponent<
     });
 
     const handleCreate = useCallback(async () => {
+      if (!isUserResolved) {
+        return;
+      }
+
       if (dataType === 'json') {
         try {
           // validate JSON
@@ -116,7 +121,7 @@ export const AssessmentCreateForm: ForwardRefExoticComponent<
           trace_id: traceId,
           source: {
             source_type: 'HUMAN',
-            source_id: getUser() ?? '',
+            source_id: user,
           },
           span_id: spanId,
           rationale,
@@ -136,6 +141,8 @@ export const AssessmentCreateForm: ForwardRefExoticComponent<
       spanId,
       rationale,
       createAssessmentMutation,
+      isUserResolved,
+      user,
     ]);
 
     const handleChangeSchema = useCallback(
@@ -294,6 +301,7 @@ export const AssessmentCreateForm: ForwardRefExoticComponent<
             componentId="shared.model-trace-explorer.assessment-create-button"
             onClick={handleCreate}
             loading={isLoading}
+            disabled={isLoading || !isUserResolved}
           >
             <FormattedMessage defaultMessage="Create" description="Button label for creating an assessment" />
           </Button>

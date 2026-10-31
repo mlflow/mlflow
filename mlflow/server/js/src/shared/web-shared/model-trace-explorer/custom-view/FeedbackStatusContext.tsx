@@ -22,8 +22,7 @@ export interface FeedbackStatusContextValue {
   enabled: boolean;
   // The current trace id, so a thumb can build its CreateAssessment payload.
   traceId: string;
-  // Who feedback is attributed to. Hosts that know the signed-in user (e.g. a review queue) set it;
-  // otherwise `getUser()` is used.
+  // Who feedback is attributed to. Hosts set the signed-in username, or the OSS placeholder when auth is unavailable.
   sourceId?: string;
   // Whether there is staged feedback with a submittable value ready to submit.
   // A submit owns exactly one form, identified by `formId`: it counts only the

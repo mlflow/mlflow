@@ -1,6 +1,6 @@
 import { PencilIcon, TrashIcon, OverflowIcon, Button, DropdownMenu } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import { getUser } from '../../global-settings/getUser';
+import { getUser, useUserIdentity } from '../../global-settings/getUser';
 
 import type { Assessment } from '../ModelTrace.types';
 
@@ -14,10 +14,12 @@ export const AssessmentActionsOverflowMenu = ({
   setShowDeleteModal: (showDeleteModal: boolean) => void;
 }) => {
   const isFeedback = 'feedback' in assessment;
-  const user = getUser() ?? '';
+  const { user, isResolved: isUserResolved } = useUserIdentity();
+  const isLegacyPlaceholder = assessment.source.source_id === getUser();
 
   const doesUserHavePermissions =
-    user === assessment.source.source_id || (isFeedback && assessment.source.source_type !== 'HUMAN');
+    (isUserResolved && (user === assessment.source.source_id || isLegacyPlaceholder)) ||
+    (isFeedback && assessment.source.source_type !== 'HUMAN');
   const showEditButton = doesUserHavePermissions && setIsEditing;
 
   return (

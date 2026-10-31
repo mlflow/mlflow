@@ -16,7 +16,6 @@ import { useIntl } from '@databricks/i18n';
 
 import type { Feedback } from '../../ModelTrace.types';
 import { useCreateAssessment } from '../../hooks/useCreateAssessment';
-import { getUser } from '../../../global-settings/getUser';
 import { asString } from '../catalogPrimitiveUtils';
 import { useFeedbackStatus } from '../FeedbackStatusContext';
 
@@ -55,7 +54,7 @@ export const FeedbackThumbsUpDownButtons: ReactComponentImplementation = createC
   ({ props }) => {
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();
-    const { enabled, traceId } = useFeedbackStatus();
+    const { enabled, traceId, sourceId } = useFeedbackStatus();
     const [status, setStatus] = useState<SubmitStatus>('idle');
     const boundValue = typeof props.value === 'boolean' ? props.value : undefined;
     const [selected, setSelected] = useState<boolean | undefined>(boundValue);
@@ -90,7 +89,7 @@ export const FeedbackThumbsUpDownButtons: ReactComponentImplementation = createC
         assessment: {
           assessment_name: name,
           trace_id: traceId,
-          source: { source_type: 'HUMAN', source_id: getUser() ?? '' },
+          source: { source_type: 'HUMAN', source_id: sourceId ?? '' },
           ...(spanId ? { span_id: spanId } : {}),
           ...feedbackValue,
         },

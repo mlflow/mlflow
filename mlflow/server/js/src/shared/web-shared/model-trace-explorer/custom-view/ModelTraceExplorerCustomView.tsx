@@ -32,7 +32,7 @@ import { ModelSpanType } from '../ModelTrace.types';
 import { isV3ModelTraceInfo } from '../ModelTraceExplorer.utils';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import type { CreateAssessmentPayload } from '../api';
-import { getUser } from '../../global-settings/getUser';
+import { useUserIdentity } from '../../global-settings/getUser';
 import { shouldUseTracesV4API } from '../FeatureUtils';
 import { useCreateAssessment } from '../hooks/useCreateAssessment';
 import { useTraceCachedActions } from '../hooks/useTraceCachedActions';
@@ -171,6 +171,7 @@ export const ModelTraceExplorerCustomView = ({
 }): JSX.Element => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const { user, isResolved: isUserResolved } = useUserIdentity();
 
   const { nodeMap } = useModelTraceExplorerViewState();
 
@@ -284,6 +285,9 @@ export const ModelTraceExplorerCustomView = ({
   };
 
   const submitStagedFeedback = async (formId?: string): Promise<{ submitted: number }> => {
+    if (!isUserResolved) {
+      throw new Error('The current user could not be resolved.');
+    }
     const activeSurfaceId = activeView ? surfaceIdForView(activeView) : undefined;
     const surfaceBuffer = activeSurfaceId ? pendingFeedbackRef.current.get(activeSurfaceId) : undefined;
     if (!activeSurfaceId || !surfaceBuffer || surfaceBuffer.size === 0) {
@@ -308,7 +312,7 @@ export const ModelTraceExplorerCustomView = ({
           assessment: {
             assessment_name: entry.name,
             trace_id: traceId,
-            source: { source_type: 'HUMAN', source_id: getUser() ?? '' },
+            source: { source_type: 'HUMAN', source_id: user },
             ...(entry.spanId ? { span_id: entry.spanId } : {}),
             ...feedbackValue,
             ...(hasRationale ? { rationale: entry.rationale } : {}),
@@ -1274,8 +1278,9 @@ export const ModelTraceExplorerCustomView = ({
             {surface && (
               <FeedbackStatusProvider
                 value={{
-                  enabled: true,
+                  enabled: isUserResolved,
                   traceId,
+                  sourceId: user,
                   hasStagedFeedback,
                   getStagedFeedbackValue,
                   submitStagedFeedback,

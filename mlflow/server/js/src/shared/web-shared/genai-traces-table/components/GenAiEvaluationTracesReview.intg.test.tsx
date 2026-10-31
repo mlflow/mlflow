@@ -20,6 +20,7 @@ jest.setTimeout(120000); // This is quite expensive test
 // Mock necessary modules
 jest.mock('../../global-settings/getUser', () => ({
   getUser: jest.fn(),
+  useUserIdentity: jest.fn(() => ({ user: 'test.user@mlflow.org', isResolved: true })),
 }));
 
 const testRunUuid = 'test-run-uuid';

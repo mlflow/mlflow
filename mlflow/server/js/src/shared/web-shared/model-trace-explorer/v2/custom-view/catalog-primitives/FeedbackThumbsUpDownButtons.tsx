@@ -15,7 +15,6 @@ import { useIntl } from '@databricks/i18n';
 
 import type { Feedback } from '../../ModelTrace.types';
 import { useCreateAssessment } from '../../../hooks/useCreateAssessment';
-import { getUser } from '../../../../global-settings/getUser';
 import { asString } from '../../../custom-view/catalogPrimitiveUtils';
 import { useFeedbackStatus } from '../../../custom-view/FeedbackStatusContext';
 
@@ -100,7 +99,7 @@ export const FeedbackThumbsUpDownButtons: ReactComponentImplementation = createC
         assessment: {
           assessment_name: name,
           trace_id: traceId,
-          source: { source_type: 'HUMAN', source_id: sourceId ?? getUser() ?? '' },
+          source: { source_type: 'HUMAN', source_id: sourceId ?? '' },
           ...(spanId ? { span_id: spanId } : {}),
           ...feedbackValue,
         },

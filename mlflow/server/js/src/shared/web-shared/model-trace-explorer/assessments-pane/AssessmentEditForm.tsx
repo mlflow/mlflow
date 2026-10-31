@@ -12,7 +12,7 @@ import {
   FormUI,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import { getUser } from '../../global-settings/getUser';
+import { useUserIdentity } from '../../global-settings/getUser';
 
 import type { AssessmentFormInputDataType } from './AssessmentsPane.utils';
 import { getCreateAssessmentPayloadValue } from './AssessmentsPane.utils';
@@ -77,7 +77,7 @@ export const AssessmentEditForm = ({
   const initialValue = getAssessmentValue(assessment);
   const defaultType = getDefaultType(initialValue, isFeedback);
   const defaultValue = getDefaultValue(initialValue);
-  const user = getUser() ?? '';
+  const { user, isResolved: isUserResolved } = useUserIdentity();
 
   const { theme } = useDesignSystemTheme();
   const [dataType, setDataType] = useState<AssessmentFormInputDataType>(defaultType);
@@ -100,6 +100,10 @@ export const AssessmentEditForm = ({
   const isLoading = isUpdating || isOverwriting;
 
   const handleUpdate = useCallback(async () => {
+    if (isFeedback && !isUserResolved) {
+      return;
+    }
+
     if (dataType === 'json') {
       try {
         JSON.parse(value as string);
@@ -140,7 +144,17 @@ export const AssessmentEditForm = ({
         ...(rationale ? { rationale } : {}),
       });
     }
-  }, [dataType, value, isFeedback, user, assessment, rationale, updateAssessmentMutation, overrideAssessmentMutation]);
+  }, [
+    dataType,
+    value,
+    isFeedback,
+    isUserResolved,
+    user,
+    assessment,
+    rationale,
+    updateAssessmentMutation,
+    overrideAssessmentMutation,
+  ]);
 
   return (
     <div
@@ -287,6 +301,7 @@ export const AssessmentEditForm = ({
           componentId="shared.model-trace-explorer.assessment-edit-save-button"
           onClick={handleUpdate}
           loading={isLoading}
+          disabled={isLoading || (isFeedback && !isUserResolved)}
         >
           <FormattedMessage defaultMessage="Save" description="Button label for saving an edit to an assessment" />
         </Button>

@@ -39,7 +39,7 @@ jest.mock('../FeatureUtils', () => ({
 
 jest.mock('../../global-settings/getUser', () => ({
   ...jest.requireActual<typeof import('../../global-settings/getUser')>('../../global-settings/getUser'),
-  getUser: jest.fn(() => 'test-user@example.com'),
+  useUserIdentity: jest.fn(() => ({ user: 'test-user@example.com', isResolved: true })),
 }));
 
 const { server } = setupServer();
