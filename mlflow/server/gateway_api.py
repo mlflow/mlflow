@@ -477,34 +477,31 @@ def _build_endpoint_config(
         auth_mode = auth_config.get(_AuthConfigKey.AUTH_MODE, "api_key")
         if auth_mode == "api_key":
             # Bearer token auth — bypasses boto3 SigV4
-            provider_config = AmazonBedrockConfig(
-                aws_config={
-                    "aws_bearer_token": model_config.secret_value.get(_AuthConfigKey.API_KEY),
-                    "aws_region": auth_config.get("aws_region_name"),
-                }
-            )
+            aws_config = {
+                "aws_bearer_token": model_config.secret_value.get(_AuthConfigKey.API_KEY),
+                "aws_region": auth_config.get("aws_region_name"),
+            }
         elif auth_mode == "access_keys":
-            provider_config = AmazonBedrockConfig(
-                aws_config={
-                    "aws_access_key_id": model_config.secret_value.get("aws_access_key_id"),
-                    "aws_secret_access_key": model_config.secret_value.get("aws_secret_access_key"),
-                    "aws_region": auth_config.get("aws_region_name"),
-                }
-            )
+            aws_config = {
+                "aws_access_key_id": model_config.secret_value.get("aws_access_key_id"),
+                "aws_secret_access_key": model_config.secret_value.get("aws_secret_access_key"),
+                "aws_region": auth_config.get("aws_region_name"),
+            }
         elif auth_mode == "iam_role":
-            provider_config = AmazonBedrockConfig(
-                aws_config={
-                    "aws_role_arn": auth_config.get("aws_role_name"),
-                    "aws_region": auth_config.get("aws_region_name"),
-                }
-            )
+            aws_config = {
+                "aws_role_arn": auth_config.get("aws_role_name"),
+                "aws_region": auth_config.get("aws_region_name"),
+            }
         else:
             # default_chain — boto3 resolves credentials from the
             # environment (env vars, ~/.aws/credentials, instance profile, etc.)
             aws_config = {"aws_region": auth_config.get("aws_region_name")}
             if role_arn := auth_config.get("aws_role_name"):
                 aws_config["aws_role_arn"] = role_arn
-            provider_config = AmazonBedrockConfig(aws_config=aws_config)
+        provider_config = AmazonBedrockConfig(
+            aws_config=aws_config,
+            api_base=auth_config.get(_AuthConfigKey.API_BASE),
+        )
         model_config.provider = Provider.BEDROCK
     elif model_config.provider == Provider.VERTEX_AI:
         auth_config = model_config.auth_config or {}
