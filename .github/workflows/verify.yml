@@ -324,6 +324,12 @@ jobs:
           # shellcheck disable=SC2016 # Expanded by the child shell.
           timeout 30m setsid bash -c '
             echo "$$" > "$RUNNER_TEMP/verify-agent.pgid"
+            printf -v skill_inputs "PR context: %s\nRaw diff: %s\nAnnotated diff: %s\nPayload schema: %s\nBrowser init: %s" \
+              "$RUNNER_TEMP/verify-context/pr.json" \
+              "$RUNNER_TEMP/verify-context/diff.patch" \
+              "$RUNNER_TEMP/verify-context/diff.annotated" \
+              "$RUNNER_TEMP/verify-context/payload.schema.yml" \
+              "$RUNNER_TEMP/verify-context/init.js"
             exec claude \
               --setting-sources "" \
               --plugin-dir "$RUNNER_TEMP/verify-plugin" \
@@ -337,7 +343,7 @@ jobs:
               --print \
               --verbose \
               --output-format stream-json \
-              "/mlflow-verify:verify $RUNNER_TEMP/verify-context/pr.json $RUNNER_TEMP/verify-context/diff.patch $RUNNER_TEMP/verify-context/diff.annotated $RUNNER_TEMP/verify-context/payload.schema.yml $RUNNER_TEMP/verify-context/init.js"
+              "/mlflow-verify:verify $skill_inputs"
           ' | timeout 31m "$GITHUB_WORKSPACE/trusted/.claude/scripts/stream.sh" || { echo "::$token::"; exit 1; }
           echo "::$token::"
       - name: Stop agent processes
