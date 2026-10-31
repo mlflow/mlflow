@@ -330,6 +330,278 @@ def test_move_model_cascades_to_child_tables(registry_store, workspace_store, en
 
 
 # ---------------------------------------------------------------------------
+# Skills
+# ---------------------------------------------------------------------------
+
+
+def test_move_skills_by_name(tracking_store, workspace_store, engine):
+    _create_workspace(workspace_store, "team-a")
+    with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+        tracking_store.create_skill("skill-1", description="desc 1")
+        tracking_store.create_skill("skill-2", organization="acme", description="desc 2")
+        tracking_store.create_skill("skill-3")
+
+    result = move_resources(
+        engine,
+        workspace_store,
+        source_workspace=DEFAULT_WORKSPACE_NAME,
+        target_workspace="team-a",
+        resource_type="skills",
+        names=["skill-1", "@acme/skill-2"],
+    )
+
+    assert result.names == ["@acme/skill-2", "skill-1"]
+    assert result.row_count == 2
+
+    with WorkspaceContext("team-a"):
+        s1 = tracking_store.get_skill("skill-1")
+        assert s1 is not None
+        assert s1.description == "desc 1"
+        s2 = tracking_store.get_skill("skill-2", organization="acme")
+        assert s2 is not None
+        assert s2.description == "desc 2"
+    with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+        with pytest.raises(MlflowException, match="not found"):
+            tracking_store.get_skill("skill-1")
+        with pytest.raises(MlflowException, match="not found"):
+            tracking_store.get_skill("skill-2", organization="acme")
+        assert tracking_store.get_skill("skill-3") is not None
+
+
+def test_move_skills_all(tracking_store, workspace_store, engine):
+    _create_workspace(workspace_store, "team-a")
+    with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+        tracking_store.create_skill("s-all-1")
+        tracking_store.create_skill("s-all-2", organization="org-a")
+
+    result = move_resources(
+        engine,
+        workspace_store,
+        source_workspace=DEFAULT_WORKSPACE_NAME,
+        target_workspace="team-a",
+        resource_type="skills",
+    )
+
+    assert result.names == ["@org-a/s-all-2", "s-all-1"]
+    assert result.row_count == 2
+
+    with WorkspaceContext("team-a"):
+        assert tracking_store.get_skill("s-all-1") is not None
+        assert tracking_store.get_skill("s-all-2", organization="org-a") is not None
+    with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+        with pytest.raises(MlflowException, match="not found"):
+            tracking_store.get_skill("s-all-1")
+        with pytest.raises(MlflowException, match="not found"):
+            tracking_store.get_skill("s-all-2", organization="org-a")
+
+
+def test_move_skills_by_tag(tracking_store, workspace_store, engine):
+    _create_workspace(workspace_store, "team-a")
+    with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+        tracking_store.create_skill("skill-tagged")
+        tracking_store.set_skill_tag("skill-tagged", "team", "ai")
+        tracking_store.create_skill("skill-tagged-org", organization="acme")
+        tracking_store.set_skill_tag("skill-tagged-org", "team", "ai", organization="acme")
+        tracking_store.create_skill("skill-untagged")
+
+    result = move_resources(
+        engine,
+        workspace_store,
+        source_workspace=DEFAULT_WORKSPACE_NAME,
+        target_workspace="team-a",
+        resource_type="skills",
+        tags=[("team", "ai")],
+    )
+
+    assert result.names == ["@acme/skill-tagged-org", "skill-tagged"]
+    assert result.row_count == 2
+
+    with WorkspaceContext("team-a"):
+        assert tracking_store.get_skill("skill-tagged") is not None
+        assert tracking_store.get_skill("skill-tagged-org", organization="acme") is not None
+    with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+        assert tracking_store.get_skill("skill-untagged") is not None
+        with pytest.raises(MlflowException, match="not found"):
+            tracking_store.get_skill("skill-tagged")
+        with pytest.raises(MlflowException, match="not found"):
+            tracking_store.get_skill("skill-tagged-org", organization="acme")
+
+
+def test_move_skills_cascades_to_child_tables(tracking_store, workspace_store, engine):
+    _create_workspace(workspace_store, "team-a")
+    with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+        tracking_store.create_skill("cascade-skill", description="Standalone")
+        tracking_store.create_skill(
+            "cascade-org-skill", organization="acme", description="Org-scoped"
+        )
+
+        tracking_store.create_skill_version(
+            "cascade-skill", source_type="git", source="https://example.com/repo.git"
+        )
+        tracking_store.create_skill_version(
+            "cascade-skill",
+            source_type="mlflow",
+            source="mlflow-artifacts:/skills/cascade-skill/abc123token",
+        )
+        tracking_store.create_skill_version(
+            "cascade-org-skill",
+            organization="acme",
+            source_type="mlflow",
+            source="mlflow-artifacts:/skills/@acme/cascade-org-skill/def456token",
+        )
+
+        tracking_store.set_skill_tag("cascade-skill", "purpose", "testing")
+        tracking_store.set_skill_tag(
+            "cascade-org-skill", "purpose", "testing-org", organization="acme"
+        )
+
+        tracking_store.set_skill_version_tag("cascade-skill", 1, "release", "canary")
+        tracking_store.set_skill_version_tag("cascade-skill", 2, "release", "stable")
+        tracking_store.set_skill_version_tag(
+            "cascade-org-skill", 1, "tier", "gold", organization="acme"
+        )
+
+        tracking_store.set_skill_alias("cascade-skill", "prod", 2)
+        tracking_store.set_skill_alias("cascade-org-skill", "champion", 1, organization="acme")
+
+    result = move_resources(
+        engine,
+        workspace_store,
+        source_workspace=DEFAULT_WORKSPACE_NAME,
+        target_workspace="team-a",
+        resource_type="skills",
+        names=["cascade-skill", "@acme/cascade-org-skill"],
+    )
+
+    assert result.names == ["@acme/cascade-org-skill", "cascade-skill"]
+    assert result.row_count == 2
+
+    with WorkspaceContext("team-a"):
+        s1 = tracking_store.get_skill("cascade-skill")
+        assert s1.tags == {"purpose": "testing"}
+        assert s1.aliases == {"prod": 2}
+
+        v1 = tracking_store.get_skill_version("cascade-skill", 1)
+        assert v1.source_type.value == "git"
+        assert v1.source.url == "https://example.com/repo.git"
+        assert v1.tags == {"release": "canary"}
+
+        v2 = tracking_store.get_skill_version("cascade-skill", 2)
+        assert v2.source_type.value == "mlflow"
+        assert v2.source.artifact_path == "mlflow-artifacts:/skills/cascade-skill/abc123token"
+        assert v2.tags == {"release": "stable"}
+        assert v2.aliases == ["prod"]
+
+        s2 = tracking_store.get_skill("cascade-org-skill", organization="acme")
+        assert s2.tags == {"purpose": "testing-org"}
+        assert s2.aliases == {"champion": 1}
+
+        s2_v1 = tracking_store.get_skill_version("cascade-org-skill", 1, organization="acme")
+        assert s2_v1.source_type.value == "mlflow"
+        assert (
+            s2_v1.source.artifact_path
+            == "mlflow-artifacts:/skills/@acme/cascade-org-skill/def456token"
+        )
+        assert s2_v1.tags == {"tier": "gold"}
+        assert s2_v1.aliases == ["champion"]
+
+    with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+        with pytest.raises(MlflowException, match="not found"):
+            tracking_store.get_skill("cascade-skill")
+        with pytest.raises(MlflowException, match="not found"):
+            tracking_store.get_skill("cascade-org-skill", organization="acme")
+
+
+def test_move_skills_conflict_detection(tracking_store, workspace_store, engine):
+    _create_workspace(workspace_store, "team-a")
+    with WorkspaceContext("team-a"):
+        tracking_store.create_skill("common-skill")
+        tracking_store.create_skill("common-skill", organization="acme")
+
+    with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+        tracking_store.create_skill("common-skill")
+        tracking_store.create_skill("common-skill", organization="acme")
+        tracking_store.create_skill("common-skill", organization="other-org")
+        tracking_store.create_skill("distinct-skill")
+
+    # Conflict on standalone skill
+    with pytest.raises(RuntimeError, match="'common-skill'") as exc:
+        move_resources(
+            engine,
+            workspace_store,
+            source_workspace=DEFAULT_WORKSPACE_NAME,
+            target_workspace="team-a",
+            resource_type="skills",
+            names=["common-skill"],
+        )
+    assert "'@acme/common-skill'" not in str(exc.value)
+
+    # Conflict on org-scoped skill
+    with pytest.raises(RuntimeError, match="'@acme/common-skill'") as exc:
+        move_resources(
+            engine,
+            workspace_store,
+            source_workspace=DEFAULT_WORKSPACE_NAME,
+            target_workspace="team-a",
+            resource_type="skills",
+            names=["@acme/common-skill"],
+        )
+    assert "'common-skill'" not in str(exc.value)
+
+    # Conflict on move-all reports both conflicting skills
+    with pytest.raises(RuntimeError, match="common-skill") as exc:
+        move_resources(
+            engine,
+            workspace_store,
+            source_workspace=DEFAULT_WORKSPACE_NAME,
+            target_workspace="team-a",
+            resource_type="skills",
+        )
+    assert "'common-skill'" in str(exc.value)
+    assert "'@acme/common-skill'" in str(exc.value)
+
+    # Non-conflicting skills move successfully
+    result = move_resources(
+        engine,
+        workspace_store,
+        source_workspace=DEFAULT_WORKSPACE_NAME,
+        target_workspace="team-a",
+        resource_type="skills",
+        names=["distinct-skill", "@other-org/common-skill"],
+    )
+    assert result.names == ["@other-org/common-skill", "distinct-skill"]
+    assert result.row_count == 2
+
+
+def test_move_skills_dry_run(tracking_store, workspace_store, engine):
+    _create_workspace(workspace_store, "team-a")
+    with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+        tracking_store.create_skill("dry-skill")
+        tracking_store.create_skill("dry-org-skill", organization="acme")
+
+    result = move_resources(
+        engine,
+        workspace_store,
+        source_workspace=DEFAULT_WORKSPACE_NAME,
+        target_workspace="team-a",
+        resource_type="skills",
+        dry_run=True,
+    )
+
+    assert result.names == ["@acme/dry-org-skill", "dry-skill"]
+    assert result.row_count == 2
+
+    with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+        assert tracking_store.get_skill("dry-skill") is not None
+        assert tracking_store.get_skill("dry-org-skill", organization="acme") is not None
+    with WorkspaceContext("team-a"):
+        with pytest.raises(MlflowException, match="not found"):
+            tracking_store.get_skill("dry-skill")
+        with pytest.raises(MlflowException, match="not found"):
+            tracking_store.get_skill("dry-org-skill", organization="acme")
+
+
+# ---------------------------------------------------------------------------
 # Conflict detection, dry run, and error handling
 # ---------------------------------------------------------------------------
 
@@ -468,6 +740,7 @@ def test_move_all_resource_types(
         tracking_store.create_experiment("move-exp")
         tracking_store.create_dataset("move-ds")
         registry_store.create_registered_model("move-model")
+        tracking_store.create_skill("move-skill")
         registry_store.create_webhook(
             name="move-webhook",
             url="https://example.com/hook",
@@ -479,6 +752,7 @@ def test_move_all_resource_types(
         "experiments": "move-exp",
         "evaluation_datasets": "move-ds",
         "registered_models": "move-model",
+        "skills": "move-skill",
         "webhooks": "move-webhook",
         "jobs": "move-job",
     }
@@ -508,22 +782,17 @@ def test_all_workspace_root_models_have_spec():
         SqlGatewayGuardrail,
         SqlGatewayModelDefinition,
         SqlGatewaySecret,
-        SqlSkill,
     )
     from mlflow.store.workspace.sqlalchemy_store import _WORKSPACE_ROOT_MODELS
 
     # Gateway resources are intentionally excluded due to inter-table FK
     # dependencies that make moving them independently unsafe.
-    #
-    # Skills are handled for workspace CASCADE/RESTRICT delete. They can also move
-    # to the `default` workspace with delete(mode=set-default) and the migrate-to-default API.
     _INTENTIONALLY_OMITTED = {
         SqlGatewaySecret,
         SqlGatewayEndpoint,
         SqlGatewayModelDefinition,
         SqlGatewayBudgetPolicy,
         SqlGatewayGuardrail,
-        SqlSkill,
     }
 
     missing = {
