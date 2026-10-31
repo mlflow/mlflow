@@ -30,7 +30,7 @@ _RESOURCE_GRANT_CASES = [
     for resource_type in sorted(_SKILL_REGISTRY_RESOURCE_TYPES)
     for permission in (READ, EDIT, MANAGE)
 ]
-from mlflow.server.auth.sqlalchemy_store import NamedRoleGrant, SqlAlchemyStore
+from mlflow.server.auth.sqlalchemy_store import NamedRoleGrant, PerUserGrant, SqlAlchemyStore
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.helper_functions import random_str
@@ -1281,3 +1281,19 @@ def test_list_named_role_grants_for_resource_ignores_wildcard_and_per_user_grant
     assert store.list_named_role_grants_for_resource(resource_types, ["*", "renamed"]) == [
         NamedRoleGrant("readers", "prompt", "renamed", DENY.name)
     ]
+
+
+def test_list_per_user_grants_for_resource_ignores_named_roles_and_wildcards(store, user, user2):
+    role = store.create_role(name="readers", workspace=DEFAULT_WORKSPACE_NAME)
+    store.add_role_permission(role.id, "registered_model", "renamed", DENY.name)
+    store.grant_user_permission(user.username, "registered_model", "*", READ.name)
+    resource_types = ["registered_model", "prompt"]
+
+    assert store.list_per_user_grants_for_resource(resource_types, ["*", "renamed"]) == []
+
+    store.grant_user_permission(user2.username, "prompt", "renamed", MANAGE.name)
+    store.grant_user_permission(user.username, "registered_model", "renamed", READ.name)
+    assert store.list_per_user_grants_for_resource(resource_types, ["*", "renamed"]) == sorted([
+        PerUserGrant(user.username, "registered_model", "renamed", READ.name),
+        PerUserGrant(user2.username, "prompt", "renamed", MANAGE.name),
+    ])
