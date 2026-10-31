@@ -623,6 +623,26 @@ Advanced model validation framework:
 pip install trubrics-sdk
 ```
 
+#### **Falsify Plugin**
+
+Bind each run to pre-declared evaluation criteria and record their manifest hash with the run:
+
+```bash
+pip install mlflow-falsify
+```
+
+```python
+import mlflow, mlflow_falsify
+
+# A .prml.yaml in the working directory or any ancestor declares the
+# metric, comparator and threshold for the evaluation.
+with mlflow_falsify.locked_run():
+    mlflow.log_metric("accuracy", 0.95)
+
+# Run tags: prml.manifest_hash, prml.metric, prml.comparator,
+# prml.threshold, prml.dataset_id, prml.verdict
+```
+
   </TabItem>
   <TabItem value="execution" label="Execution Backends">
 
