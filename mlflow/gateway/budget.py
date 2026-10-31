@@ -5,6 +5,7 @@ firing exceeded-budget webhooks, and creating on_complete callbacks for budget r
 """
 
 import logging
+import sys
 
 from fastapi import HTTPException
 
@@ -30,6 +31,59 @@ from mlflow.webhooks.types import BudgetPolicyExceededPayload
 _logger = logging.getLogger(__name__)
 
 
+def _get_auth_store():
+    """Return the basic-auth store when server authentication is enabled, else None.
+
+    Looked up via ``sys.modules`` so the auth app is never imported as a side effect
+    (mirrors ``mlflow.server.handlers._is_server_auth_enabled``).
+    """
+    auth_mod = sys.modules.get("mlflow.server.auth")
+    if auth_mod and auth_mod.is_auth_enabled():
+        return auth_mod.store
+    return None
+
+
+def _get_user_role_ids(username: str | None) -> frozenset[str]:
+    """Return the IDs of the auth roles assigned to ``username``, used to match ROLE policies.
+
+    Skips the auth-store lookup entirely when no ROLE policy is loaded.
+    """
+    if not username or not get_budget_tracker().has_role_policies():
+        return frozenset()
+    if (auth_store := _get_auth_store()) is None:
+        return frozenset()
+    try:
+        user = auth_store.get_user(username)
+        return frozenset(str(role.id) for role in auth_store.list_user_roles(user.id))
+    except Exception:
+        _logger.debug("Failed to resolve roles for user %s", username, exc_info=True)
+        return frozenset()
+
+
+def _get_role_member_usernames(role_id: str) -> list[str]:
+    """Return the usernames of the users currently assigned to the auth role ``role_id``."""
+    if (auth_store := _get_auth_store()) is None:
+        return []
+    member_ids = {assignment.user_id for assignment in auth_store.list_role_users(int(role_id))}
+    return [user.username for user in auth_store.list_users() if user.id in member_ids]
+
+
+def _sum_role_member_cost(
+    store: SqlAlchemyStore, role_id: str, start_time_ms: int, end_time_ms: int
+) -> float:
+    """Sum the recorded spend of the current members of a role within a window.
+
+    A ROLE budget is shared by the role's members. Every trace carries a single auth
+    username, so summing per member never double counts.
+    """
+    return sum(
+        store.sum_gateway_trace_cost(
+            start_time_ms=start_time_ms, end_time_ms=end_time_ms, username=username
+        )
+        for username in _get_role_member_usernames(role_id)
+    )
+
+
 def calculate_existing_cost_for_windows(
     store: SqlAlchemyStore, windows: list[BudgetWindow]
 ) -> dict[str, float]:
@@ -49,6 +103,12 @@ def calculate_existing_cost_for_windows(
         try:
             start_ms = int(window.window_start.timestamp() * 1000)
             end_ms = int(window.window_end.timestamp() * 1000)
+            if window.policy.target_scope == BudgetTargetScope.ROLE:
+                if spend := _sum_role_member_cost(
+                    store, window.policy.target_value, start_ms, end_ms
+                ):
+                    result[window.policy.budget_policy_id] = spend
+                continue
             workspace = (
                 window.policy.workspace
                 if window.policy.target_scope == BudgetTargetScope.WORKSPACE
@@ -183,7 +243,10 @@ def check_budget_limit(
     maybe_refresh_budget_policies(store)
     tracker = get_budget_tracker()
     exceeded, window = tracker.should_reject_request(
-        workspace=workspace, endpoint_id=endpoint_config.endpoint_id, username=username
+        workspace=workspace,
+        endpoint_id=endpoint_config.endpoint_id,
+        username=username,
+        role_ids=_get_user_role_ids(username),
     )
     if exceeded:
         policy = window.policy
@@ -230,7 +293,11 @@ def make_budget_on_complete(
             maybe_refresh_budget_policies(store)
             tracker = get_budget_tracker()
             if newly_exceeded := tracker.record_cost(
-                total_cost, workspace=workspace, endpoint_id=endpoint_id, username=username
+                total_cost,
+                workspace=workspace,
+                endpoint_id=endpoint_id,
+                username=username,
+                role_ids=_get_user_role_ids(username),
             ):
                 if registry_store:
                     fire_budget_exceeded_webhooks(newly_exceeded, workspace, registry_store)

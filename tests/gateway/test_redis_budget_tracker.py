@@ -596,3 +596,36 @@ def test_multiple_user_policies_are_independent():
     assert {w.policy.budget_policy_id for w in exceeded} == {"bp-alice"}
     assert tracker._get_window_info("bp-alice").cumulative_spend == 150.0
     assert tracker._get_window_info("bp-bob").cumulative_spend == 0.0
+
+
+# --- ROLE-scope tests ---
+
+
+def test_role_scoped_budget_is_shared_by_members():
+    tracker = _make_tracker()
+    tracker.refresh_policies([
+        _make_policy(
+            target_scope=BudgetTargetScope.ROLE,
+            target_value="7",
+            budget_amount=100.0,
+            budget_action=BudgetAction.REJECT,
+        )
+    ])
+
+    tracker.record_cost(60.0, username="alice", role_ids={"7"})
+    tracker.record_cost(500.0, username="carol", role_ids={"3"})
+    assert tracker._get_window_info("bp-test").cumulative_spend == 60.0
+    assert tracker.should_reject_request(username="bob", role_ids={"7"}) == (False, None)
+
+    tracker.record_cost(40.0, username="bob", role_ids={"7"})
+    assert tracker.should_reject_request(username="alice", role_ids={"7"})[0] is True
+    assert tracker.should_reject_request(username="carol", role_ids={"3"}) == (False, None)
+
+
+def test_has_role_policies():
+    tracker = _make_tracker()
+    tracker.refresh_policies([_make_policy(target_scope=BudgetTargetScope.USER, target_value="a")])
+    assert tracker.has_role_policies() is False
+
+    tracker.refresh_policies([_make_policy(target_scope=BudgetTargetScope.ROLE, target_value="7")])
+    assert tracker.has_role_policies() is True

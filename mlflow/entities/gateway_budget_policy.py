@@ -42,6 +42,7 @@ class BudgetTargetScope(str, Enum):
     WORKSPACE = "WORKSPACE"
     ENDPOINT = "ENDPOINT"
     USER = "USER"
+    ROLE = "ROLE"
 
     @classmethod
     def from_proto(cls, proto: ProtoBudgetTargetScope) -> BudgetTargetScope | None:
@@ -123,14 +124,14 @@ class GatewayBudgetPolicy(_MlflowObject):
     Represents a budget policy for the AI Gateway.
 
     Budget policies set limits with fixed time windows,
-    supporting global, per-workspace, per-endpoint, or per-user scoping.
+    supporting global, per-workspace, per-endpoint, per-user, or per-role scoping.
 
     Args:
         budget_policy_id: Unique identifier for this budget policy.
         budget_unit: Budget measurement unit (e.g. USD).
         budget_amount: Budget limit amount.
         duration: Fixed time window (unit + length pair).
-        target_scope: Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, or USER).
+        target_scope: Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, USER, or ROLE).
         budget_action: Action when budget is exceeded (ALERT, REJECT).
         created_at: Timestamp (milliseconds) when the policy was created.
         last_updated_at: Timestamp (milliseconds) when the policy was last updated.
@@ -139,7 +140,8 @@ class GatewayBudgetPolicy(_MlflowObject):
         workspace: Workspace that owns the policy.
         target_value: Target the policy applies to, interpreted per ``target_scope``:
             a gateway endpoint ID for ENDPOINT scope, a username for
-            USER scope. ``None`` for GLOBAL and WORKSPACE scopes.
+            USER scope, an auth role ID for ROLE scope. ``None`` for GLOBAL
+            and WORKSPACE scopes.
     """
 
     budget_policy_id: str

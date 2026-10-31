@@ -88,6 +88,13 @@ def test_user_policy_proto_roundtrip_preserves_username_target():
     assert restored.target_value == "alice@example.com"
 
 
+def test_role_policy_proto_roundtrip_preserves_role_id_target():
+    policy = _make_policy(target_scope=BudgetTargetScope.ROLE, target_value="7")
+    restored = GatewayBudgetPolicy.from_proto(policy.to_proto())
+    assert restored.target_scope == BudgetTargetScope.ROLE
+    assert restored.target_value == "7"
+
+
 def test_string_target_scope_coerced_to_enum():
     policy = _make_policy(target_scope="USER", target_value="bob")
     assert policy.target_scope is BudgetTargetScope.USER

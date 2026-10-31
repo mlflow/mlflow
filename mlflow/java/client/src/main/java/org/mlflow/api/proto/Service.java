@@ -1597,6 +1597,15 @@ public final class Service {
      * <code>USER = 4;</code>
      */
     USER(4),
+    /**
+     * <pre>
+     * Applies to requests made by any member of a specific auth role; members share
+     * one budget
+     * </pre>
+     *
+     * <code>ROLE = 5;</code>
+     */
+    ROLE(5),
     ;
 
     /**
@@ -1627,6 +1636,15 @@ public final class Service {
      * <code>USER = 4;</code>
      */
     public static final int USER_VALUE = 4;
+    /**
+     * <pre>
+     * Applies to requests made by any member of a specific auth role; members share
+     * one budget
+     * </pre>
+     *
+     * <code>ROLE = 5;</code>
+     */
+    public static final int ROLE_VALUE = 5;
 
 
     public final int getNumber() {
@@ -1654,6 +1672,7 @@ public final class Service {
         case 2: return WORKSPACE;
         case 3: return ENDPOINT;
         case 4: return USER;
+        case 5: return ROLE;
         default: return null;
       }
     }
@@ -262026,7 +262045,7 @@ public final class Service {
 
     /**
      * <pre>
-     * Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, or USER)
+     * Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, USER, or ROLE)
      * </pre>
      *
      * <code>optional .mlflow.BudgetTargetScope target_scope = 5;</code>
@@ -262035,7 +262054,7 @@ public final class Service {
     boolean hasTargetScope();
     /**
      * <pre>
-     * Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, or USER)
+     * Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, USER, or ROLE)
      * </pre>
      *
      * <code>optional .mlflow.BudgetTargetScope target_scope = 5;</code>
@@ -262161,8 +262180,8 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-     * for ENDPOINT scope, a username for USER scope. Required for those
-     * scopes; unset for GLOBAL and WORKSPACE.
+     * for ENDPOINT scope, a username for USER scope, a role ID for ROLE scope. Required
+     * for those scopes; unset for GLOBAL and WORKSPACE.
      * </pre>
      *
      * <code>optional string target_value = 11;</code>
@@ -262172,8 +262191,8 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-     * for ENDPOINT scope, a username for USER scope. Required for those
-     * scopes; unset for GLOBAL and WORKSPACE.
+     * for ENDPOINT scope, a username for USER scope, a role ID for ROLE scope. Required
+     * for those scopes; unset for GLOBAL and WORKSPACE.
      * </pre>
      *
      * <code>optional string target_value = 11;</code>
@@ -262183,8 +262202,8 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-     * for ENDPOINT scope, a username for USER scope. Required for those
-     * scopes; unset for GLOBAL and WORKSPACE.
+     * for ENDPOINT scope, a username for USER scope, a role ID for ROLE scope. Required
+     * for those scopes; unset for GLOBAL and WORKSPACE.
      * </pre>
      *
      * <code>optional string target_value = 11;</code>
@@ -262527,7 +262546,7 @@ public final class Service {
     private int targetScope_;
     /**
      * <pre>
-     * Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, or USER)
+     * Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, USER, or ROLE)
      * </pre>
      *
      * <code>optional .mlflow.BudgetTargetScope target_scope = 5;</code>
@@ -262538,7 +262557,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, or USER)
+     * Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, USER, or ROLE)
      * </pre>
      *
      * <code>optional .mlflow.BudgetTargetScope target_scope = 5;</code>
@@ -262756,8 +262775,8 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-     * for ENDPOINT scope, a username for USER scope. Required for those
-     * scopes; unset for GLOBAL and WORKSPACE.
+     * for ENDPOINT scope, a username for USER scope, a role ID for ROLE scope. Required
+     * for those scopes; unset for GLOBAL and WORKSPACE.
      * </pre>
      *
      * <code>optional string target_value = 11;</code>
@@ -262770,8 +262789,8 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-     * for ENDPOINT scope, a username for USER scope. Required for those
-     * scopes; unset for GLOBAL and WORKSPACE.
+     * for ENDPOINT scope, a username for USER scope, a role ID for ROLE scope. Required
+     * for those scopes; unset for GLOBAL and WORKSPACE.
      * </pre>
      *
      * <code>optional string target_value = 11;</code>
@@ -262795,8 +262814,8 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-     * for ENDPOINT scope, a username for USER scope. Required for those
-     * scopes; unset for GLOBAL and WORKSPACE.
+     * for ENDPOINT scope, a username for USER scope, a role ID for ROLE scope. Required
+     * for those scopes; unset for GLOBAL and WORKSPACE.
      * </pre>
      *
      * <code>optional string target_value = 11;</code>
@@ -263780,7 +263799,7 @@ public final class Service {
       private int targetScope_ = 0;
       /**
        * <pre>
-       * Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, or USER)
+       * Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, USER, or ROLE)
        * </pre>
        *
        * <code>optional .mlflow.BudgetTargetScope target_scope = 5;</code>
@@ -263791,7 +263810,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, or USER)
+       * Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, USER, or ROLE)
        * </pre>
        *
        * <code>optional .mlflow.BudgetTargetScope target_scope = 5;</code>
@@ -263805,7 +263824,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, or USER)
+       * Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, USER, or ROLE)
        * </pre>
        *
        * <code>optional .mlflow.BudgetTargetScope target_scope = 5;</code>
@@ -263823,7 +263842,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, or USER)
+       * Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, USER, or ROLE)
        * </pre>
        *
        * <code>optional .mlflow.BudgetTargetScope target_scope = 5;</code>
@@ -264225,8 +264244,8 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-       * for ENDPOINT scope, a username for USER scope. Required for those
-       * scopes; unset for GLOBAL and WORKSPACE.
+       * for ENDPOINT scope, a username for USER scope, a role ID for ROLE scope. Required
+       * for those scopes; unset for GLOBAL and WORKSPACE.
        * </pre>
        *
        * <code>optional string target_value = 11;</code>
@@ -264238,8 +264257,8 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-       * for ENDPOINT scope, a username for USER scope. Required for those
-       * scopes; unset for GLOBAL and WORKSPACE.
+       * for ENDPOINT scope, a username for USER scope, a role ID for ROLE scope. Required
+       * for those scopes; unset for GLOBAL and WORKSPACE.
        * </pre>
        *
        * <code>optional string target_value = 11;</code>
@@ -264262,8 +264281,8 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-       * for ENDPOINT scope, a username for USER scope. Required for those
-       * scopes; unset for GLOBAL and WORKSPACE.
+       * for ENDPOINT scope, a username for USER scope, a role ID for ROLE scope. Required
+       * for those scopes; unset for GLOBAL and WORKSPACE.
        * </pre>
        *
        * <code>optional string target_value = 11;</code>
@@ -264285,8 +264304,8 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-       * for ENDPOINT scope, a username for USER scope. Required for those
-       * scopes; unset for GLOBAL and WORKSPACE.
+       * for ENDPOINT scope, a username for USER scope, a role ID for ROLE scope. Required
+       * for those scopes; unset for GLOBAL and WORKSPACE.
        * </pre>
        *
        * <code>optional string target_value = 11;</code>
@@ -264306,8 +264325,8 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-       * for ENDPOINT scope, a username for USER scope. Required for those
-       * scopes; unset for GLOBAL and WORKSPACE.
+       * for ENDPOINT scope, a username for USER scope, a role ID for ROLE scope. Required
+       * for those scopes; unset for GLOBAL and WORKSPACE.
        * </pre>
        *
        * <code>optional string target_value = 11;</code>
@@ -264322,8 +264341,8 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-       * for ENDPOINT scope, a username for USER scope. Required for those
-       * scopes; unset for GLOBAL and WORKSPACE.
+       * for ENDPOINT scope, a username for USER scope, a role ID for ROLE scope. Required
+       * for those scopes; unset for GLOBAL and WORKSPACE.
        * </pre>
        *
        * <code>optional string target_value = 11;</code>
@@ -264476,7 +264495,7 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
-     * scope). Required for those scopes.
+     * scope, role ID for ROLE scope). Required for those scopes.
      * </pre>
      *
      * <code>optional string target_value = 7;</code>
@@ -264486,7 +264505,7 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
-     * scope). Required for those scopes.
+     * scope, role ID for ROLE scope). Required for those scopes.
      * </pre>
      *
      * <code>optional string target_value = 7;</code>
@@ -264496,7 +264515,7 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
-     * scope). Required for those scopes.
+     * scope, role ID for ROLE scope). Required for those scopes.
      * </pre>
      *
      * <code>optional string target_value = 7;</code>
@@ -265442,7 +265461,7 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
-     * scope). Required for those scopes.
+     * scope, role ID for ROLE scope). Required for those scopes.
      * </pre>
      *
      * <code>optional string target_value = 7;</code>
@@ -265455,7 +265474,7 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
-     * scope). Required for those scopes.
+     * scope, role ID for ROLE scope). Required for those scopes.
      * </pre>
      *
      * <code>optional string target_value = 7;</code>
@@ -265479,7 +265498,7 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
-     * scope). Required for those scopes.
+     * scope, role ID for ROLE scope). Required for those scopes.
      * </pre>
      *
      * <code>optional string target_value = 7;</code>
@@ -266350,7 +266369,7 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
-       * scope). Required for those scopes.
+       * scope, role ID for ROLE scope). Required for those scopes.
        * </pre>
        *
        * <code>optional string target_value = 7;</code>
@@ -266362,7 +266381,7 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
-       * scope). Required for those scopes.
+       * scope, role ID for ROLE scope). Required for those scopes.
        * </pre>
        *
        * <code>optional string target_value = 7;</code>
@@ -266385,7 +266404,7 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
-       * scope). Required for those scopes.
+       * scope, role ID for ROLE scope). Required for those scopes.
        * </pre>
        *
        * <code>optional string target_value = 7;</code>
@@ -266407,7 +266426,7 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
-       * scope). Required for those scopes.
+       * scope, role ID for ROLE scope). Required for those scopes.
        * </pre>
        *
        * <code>optional string target_value = 7;</code>
@@ -266427,7 +266446,7 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
-       * scope). Required for those scopes.
+       * scope, role ID for ROLE scope). Required for those scopes.
        * </pre>
        *
        * <code>optional string target_value = 7;</code>
@@ -266442,7 +266461,7 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
-       * scope). Required for those scopes.
+       * scope, role ID for ROLE scope). Required for those scopes.
        * </pre>
        *
        * <code>optional string target_value = 7;</code>
@@ -267850,7 +267869,7 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
-     * scope). Required for those scopes.
+     * scope, role ID for ROLE scope). Required for those scopes.
      * </pre>
      *
      * <code>optional string target_value = 8;</code>
@@ -267860,7 +267879,7 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
-     * scope). Required for those scopes.
+     * scope, role ID for ROLE scope). Required for those scopes.
      * </pre>
      *
      * <code>optional string target_value = 8;</code>
@@ -267870,7 +267889,7 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
-     * scope). Required for those scopes.
+     * scope, role ID for ROLE scope). Required for those scopes.
      * </pre>
      *
      * <code>optional string target_value = 8;</code>
@@ -268871,7 +268890,7 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
-     * scope). Required for those scopes.
+     * scope, role ID for ROLE scope). Required for those scopes.
      * </pre>
      *
      * <code>optional string target_value = 8;</code>
@@ -268884,7 +268903,7 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
-     * scope). Required for those scopes.
+     * scope, role ID for ROLE scope). Required for those scopes.
      * </pre>
      *
      * <code>optional string target_value = 8;</code>
@@ -268908,7 +268927,7 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
-     * scope). Required for those scopes.
+     * scope, role ID for ROLE scope). Required for those scopes.
      * </pre>
      *
      * <code>optional string target_value = 8;</code>
@@ -269889,7 +269908,7 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
-       * scope). Required for those scopes.
+       * scope, role ID for ROLE scope). Required for those scopes.
        * </pre>
        *
        * <code>optional string target_value = 8;</code>
@@ -269901,7 +269920,7 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
-       * scope). Required for those scopes.
+       * scope, role ID for ROLE scope). Required for those scopes.
        * </pre>
        *
        * <code>optional string target_value = 8;</code>
@@ -269924,7 +269943,7 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
-       * scope). Required for those scopes.
+       * scope, role ID for ROLE scope). Required for those scopes.
        * </pre>
        *
        * <code>optional string target_value = 8;</code>
@@ -269946,7 +269965,7 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
-       * scope). Required for those scopes.
+       * scope, role ID for ROLE scope). Required for those scopes.
        * </pre>
        *
        * <code>optional string target_value = 8;</code>
@@ -269966,7 +269985,7 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
-       * scope). Required for those scopes.
+       * scope, role ID for ROLE scope). Required for those scopes.
        * </pre>
        *
        * <code>optional string target_value = 8;</code>
@@ -269981,7 +270000,7 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
-       * scope). Required for those scopes.
+       * scope, role ID for ROLE scope). Required for those scopes.
        * </pre>
        *
        * <code>optional string target_value = 8;</code>
@@ -311265,651 +311284,651 @@ public final class Service {
       "MARY\020\001\022\014\n\010FALLBACK\020\002*r\n\022BudgetDurationUn" +
       "it\022#\n\031DURATION_UNIT_UNSPECIFIED\020\000\032\004\360\206\031\003\022" +
       "\013\n\007MINUTES\020\001\022\t\n\005HOURS\020\002\022\010\n\004DAYS\020\003\022\t\n\005WEE" +
-      "KS\020\004\022\n\n\006MONTHS\020\005*j\n\021BudgetTargetScope\022\"\n" +
+      "KS\020\004\022\n\n\006MONTHS\020\005*t\n\021BudgetTargetScope\022\"\n" +
       "\030TARGET_SCOPE_UNSPECIFIED\020\000\032\004\360\206\031\003\022\n\n\006GLO" +
       "BAL\020\001\022\r\n\tWORKSPACE\020\002\022\014\n\010ENDPOINT\020\003\022\010\n\004US" +
-      "ER\020\004*J\n\014BudgetAction\022#\n\031BUDGET_ACTION_UN" +
-      "SPECIFIED\020\000\032\004\360\206\031\003\022\t\n\005ALERT\020\001\022\n\n\006REJECT\020\002" +
-      "*8\n\nBudgetUnit\022!\n\027BUDGET_UNIT_UNSPECIFIE" +
-      "D\020\000\032\004\360\206\031\003\022\007\n\003USD\020\001*N\n\016GuardrailStage\022%\n\033",
-      "GUARDRAIL_STAGE_UNSPECIFIED\020\000\032\004\360\206\031\003\022\n\n\006B" +
-      "EFORE\020\001\022\t\n\005AFTER\020\002*[\n\017GuardrailAction\022&\n" +
-      "\034GUARDRAIL_ACTION_UNSPECIFIED\020\000\032\004\360\206\031\003\022\016\n" +
-      "\nVALIDATION\020\001\022\020\n\014SANITIZATION\020\0022\337\305\001\n\rMlf" +
-      "lowService\022\246\001\n\023getExperimentByName\022\033.mlf" +
-      "low.GetExperimentByName\032$.mlflow.GetExpe" +
-      "rimentByName.Response\"L\362\206\031H\n,\n\003GET\022\037/mlf" +
-      "low/experiments/get-by-name\032\004\010\002\020\000\020\001*\026Get" +
-      " Experiment By Name\022\224\001\n\020createExperiment" +
-      "\022\030.mlflow.CreateExperiment\032!.mlflow.Crea" +
-      "teExperiment.Response\"C\362\206\031?\n(\n\004POST\022\032/ml" +
-      "flow/experiments/create\032\004\010\002\020\000\020\001*\021Create " +
-      "Experiment\022\301\001\n\021searchExperiments\022\031.mlflo" +
-      "w.SearchExperiments\032\".mlflow.SearchExper" +
-      "iments.Response\"m\362\206\031i\n(\n\004POST\022\032/mlflow/e" +
-      "xperiments/search\032\004\010\002\020\000\n\'\n\003GET\022\032/mlflow/" +
-      "experiments/search\032\004\010\002\020\000\020\001*\022Search Exper" +
-      "iments\022\210\001\n\rgetExperiment\022\025.mlflow.GetExp" +
-      "eriment\032\036.mlflow.GetExperiment.Response\"" +
-      "@\362\206\0318\n$\n\003GET\022\027/mlflow/experiments/get\032\004\010" +
-      "\002\020\000\020\001*\016Get Experiment\272\214\031\000\022\224\001\n\020deleteExpe" +
-      "riment\022\030.mlflow.DeleteExperiment\032!.mlflo" +
-      "w.DeleteExperiment.Response\"C\362\206\031?\n(\n\004POS" +
-      "T\022\032/mlflow/experiments/delete\032\004\010\002\020\000\020\001*\021D" +
-      "elete Experiment\022\231\001\n\021restoreExperiment\022\031" +
-      ".mlflow.RestoreExperiment\032\".mlflow.Resto" +
-      "reExperiment.Response\"E\362\206\031A\n)\n\004POST\022\033/ml" +
-      "flow/experiments/restore\032\004\010\002\020\000\020\001*\022Restor" +
-      "e Experiment\022\224\001\n\020updateExperiment\022\030.mlfl" +
-      "ow.UpdateExperiment\032!.mlflow.UpdateExper" +
-      "iment.Response\"C\362\206\031?\n(\n\004POST\022\032/mlflow/ex" +
-      "periments/update\032\004\010\002\020\000\020\001*\021Update Experim" +
-      "ent\022q\n\tcreateRun\022\021.mlflow.CreateRun\032\032.ml" +
-      "flow.CreateRun.Response\"5\362\206\0311\n!\n\004POST\022\023/" +
-      "mlflow/runs/create\032\004\010\002\020\000\020\001*\nCreate Run\022q" +
-      "\n\tupdateRun\022\021.mlflow.UpdateRun\032\032.mlflow." +
-      "UpdateRun.Response\"5\362\206\0311\n!\n\004POST\022\023/mlflo" +
-      "w/runs/update\032\004\010\002\020\000\020\001*\nUpdate Run\022q\n\tdel" +
-      "eteRun\022\021.mlflow.DeleteRun\032\032.mlflow.Delet" +
-      "eRun.Response\"5\362\206\0311\n!\n\004POST\022\023/mlflow/run" +
-      "s/delete\032\004\010\002\020\000\020\001*\nDelete Run\022v\n\nrestoreR" +
-      "un\022\022.mlflow.RestoreRun\032\033.mlflow.RestoreR" +
-      "un.Response\"7\362\206\0313\n\"\n\004POST\022\024/mlflow/runs/" +
-      "restore\032\004\010\002\020\000\020\001*\013Restore Run\022u\n\tlogMetri" +
-      "c\022\021.mlflow.LogMetric\032\032.mlflow.LogMetric." +
-      "Response\"9\362\206\0315\n%\n\004POST\022\027/mlflow/runs/log" +
-      "-metric\032\004\010\002\020\000\020\001*\nLog Metric\022t\n\010logParam\022" +
-      "\020.mlflow.LogParam\032\031.mlflow.LogParam.Resp" +
-      "onse\";\362\206\0317\n(\n\004POST\022\032/mlflow/runs/log-par" +
-      "ameter\032\004\010\002\020\000\020\001*\tLog Param\022\241\001\n\020setExperim" +
-      "entTag\022\030.mlflow.SetExperimentTag\032!.mlflo" +
-      "w.SetExperimentTag.Response\"P\362\206\031L\n4\n\004POS" +
-      "T\022&/mlflow/experiments/set-experiment-ta" +
-      "g\032\004\010\002\020\000\020\001*\022Set Experiment Tag\022\260\001\n\023delete" +
-      "ExperimentTag\022\033.mlflow.DeleteExperimentT" +
-      "ag\032$.mlflow.DeleteExperimentTag.Response" +
-      "\"V\362\206\031R\n7\n\004POST\022)/mlflow/experiments/dele" +
-      "te-experiment-tag\032\004\010\002\020\000\020\001*\025Delete Experi" +
-      "ment Tag\022f\n\006setTag\022\016.mlflow.SetTag\032\027.mlf" +
-      "low.SetTag.Response\"3\362\206\031/\n\"\n\004POST\022\024/mlfl" +
-      "ow/runs/set-tag\032\004\010\002\020\000\020\001*\007Set Tag\022\210\001\n\013set" +
-      "TraceTag\022\023.mlflow.SetTraceTag\032\034.mlflow.S" +
-      "etTraceTag.Response\"F\362\206\031B\n/\n\005PATCH\022 /mlf" +
-      "low/traces/{request_id}/tags\032\004\010\002\020\000\020\003*\rSe" +
-      "t Trace Tag\022\217\001\n\rsetTraceTagV3\022\025.mlflow.S" +
-      "etTraceTagV3\032\036.mlflow.SetTraceTagV3.Resp" +
-      "onse\"G\362\206\031C\n-\n\005PATCH\022\036/mlflow/traces/{tra" +
-      "ce_id}/tags\032\004\010\003\020\000\020\003*\020Set Trace Tag V3\022\225\001" +
-      "\n\016deleteTraceTag\022\026.mlflow.DeleteTraceTag" +
-      "\032\037.mlflow.DeleteTraceTag.Response\"J\362\206\031F\n" +
-      "0\n\006DELETE\022 /mlflow/traces/{request_id}/t" +
-      "ags\032\004\010\002\020\000\020\003*\020Delete Trace Tag\022\234\001\n\020delete" +
-      "TraceTagV3\022\030.mlflow.DeleteTraceTagV3\032!.m" +
-      "lflow.DeleteTraceTagV3.Response\"K\362\206\031G\n.\n" +
-      "\006DELETE\022\036/mlflow/traces/{trace_id}/tags\032" +
-      "\004\010\003\020\000\020\003*\023Delete Trace Tag V3\022u\n\tdeleteTa" +
-      "g\022\021.mlflow.DeleteTag\032\032.mlflow.DeleteTag." +
-      "Response\"9\362\206\0315\n%\n\004POST\022\027/mlflow/runs/del" +
-      "ete-tag\032\004\010\002\020\000\020\001*\nDelete Tag\022e\n\006getRun\022\016." +
-      "mlflow.GetRun\032\027.mlflow.GetRun.Response\"2" +
-      "\362\206\031*\n\035\n\003GET\022\020/mlflow/runs/get\032\004\010\002\020\000\020\001*\007G" +
-      "et Run\272\214\031\000\022y\n\nsearchRuns\022\022.mlflow.Search" +
-      "Runs\032\033.mlflow.SearchRuns.Response\":\362\206\0312\n" +
-      "!\n\004POST\022\023/mlflow/runs/search\032\004\010\002\020\000\020\001*\013Se" +
-      "arch Runs\272\214\031\000\022\207\001\n\rlistArtifacts\022\025.mlflow" +
-      ".ListArtifacts\032\036.mlflow.ListArtifacts.Re" +
-      "sponse\"?\362\206\0317\n#\n\003GET\022\026/mlflow/artifacts/l" +
-      "ist\032\004\010\002\020\000\020\001*\016List Artifacts\272\214\031\000\022\302\001\n\030crea" +
-      "tePresignedUploadUrl\022 .mlflow.CreatePres" +
-      "ignedUploadUrl\032).mlflow.CreatePresignedU" +
-      "ploadUrl.Response\"Y\362\206\031U\n4\n\004POST\022&/mlflow" +
-      "/artifacts/presigned-upload-url\032\004\010\002\020\000\020\001*" +
-      "\033Create Presigned Upload URL\022\314\001\n\032createP" +
-      "resignedDownloadUrl\022\".mlflow.CreatePresi" +
-      "gnedDownloadUrl\032+.mlflow.CreatePresigned" +
-      "DownloadUrl.Response\"]\362\206\031Y\n6\n\004POST\022(/mlf" +
-      "low/artifacts/presigned-download-url\032\004\010\002" +
-      "\020\000\020\001*\035Create Presigned Download URL\022\225\001\n\020" +
-      "getMetricHistory\022\030.mlflow.GetMetricHisto" +
-      "ry\032!.mlflow.GetMetricHistory.Response\"D\362" +
-      "\206\031@\n(\n\003GET\022\033/mlflow/metrics/get-history\032" +
-      "\004\010\002\020\000\020\001*\022Get Metric History\022\267\001\n\034getMetri" +
-      "cHistoryBulkInterval\022$.mlflow.GetMetricH" +
-      "istoryBulkInterval\032-.mlflow.GetMetricHis" +
-      "toryBulkInterval.Response\"B\362\206\031:\n6\n\003GET\022)" +
-      "/mlflow/metrics/get-history-bulk-interva" +
-      "l\032\004\010\002\020\013\020\003\272\214\031\000\022p\n\010logBatch\022\020.mlflow.LogBa" +
-      "tch\032\031.mlflow.LogBatch.Response\"7\362\206\0313\n$\n\004" +
-      "POST\022\026/mlflow/runs/log-batch\032\004\010\002\020\000\020\001*\tLo" +
-      "g Batch\022p\n\010logModel\022\020.mlflow.LogModel\032\031." +
-      "mlflow.LogModel.Response\"7\362\206\0313\n$\n\004POST\022\026" +
-      "/mlflow/runs/log-model\032\004\010\002\020\000\020\001*\tLog Mode" +
-      "l\022u\n\tlogInputs\022\021.mlflow.LogInputs\032\032.mlfl" +
-      "ow.LogInputs.Response\"9\362\206\0315\n%\n\004POST\022\027/ml" +
-      "flow/runs/log-inputs\032\004\010\002\020\000\020\001*\nLog Inputs" +
-      "\022v\n\nlogOutputs\022\022.mlflow.LogOutputs\032\033.mlf" +
-      "low.LogOutputs.Response\"7\362\206\0313\n\"\n\004POST\022\024/" +
-      "mlflow/runs/outputs\032\004\010\002\020\000\020\003*\013Log Outputs" +
-      "\022\207\001\n\016searchDatasets\022\026.mlflow.SearchDatas" +
-      "ets\032\037.mlflow.SearchDatasets.Response\"<\362\206" +
-      "\0314\n0\n\004POST\022\"mlflow/experiments/search-da" +
-      "tasets\032\004\010\002\020\000\020\003\272\214\031\000\022p\n\nstartTrace\022\022.mlflo" +
-      "w.StartTrace\032\033.mlflow.StartTrace.Respons" +
-      "e\"1\362\206\031-\n\034\n\004POST\022\016/mlflow/traces\032\004\010\002\020\000\020\003*" +
-      "\013Start Trace\022v\n\010endTrace\022\020.mlflow.EndTra" +
-      "ce\032\031.mlflow.EndTrace.Response\"=\362\206\0319\n*\n\005P" +
-      "ATCH\022\033/mlflow/traces/{request_id}\032\004\010\002\020\000\020" +
-      "\003*\tEnd Trace\022\211\001\n\014getTraceInfo\022\024.mlflow.G" +
-      "etTraceInfo\032\035.mlflow.GetTraceInfo.Respon" +
-      "se\"D\362\206\031@\n-\n\003GET\022 /mlflow/traces/{request" +
-      "_id}/info\032\004\010\002\020\000\020\003*\rGet TraceInfo\022\213\001\n\016get" +
-      "TraceInfoV3\022\026.mlflow.GetTraceInfoV3\032\037.ml" +
-      "flow.GetTraceInfoV3.Response\"@\362\206\031<\n&\n\003GE" +
-      "T\022\031/mlflow/traces/{trace_id}\032\004\010\003\020\000\020\003*\020Ge" +
-      "t TraceInfo v3\022n\n\010getTrace\022\020.mlflow.GetT" +
-      "race\032\031.mlflow.GetTrace.Response\"5\362\206\0311\n\037\n" +
-      "\003GET\022\022/mlflow/traces/get\032\004\010\003\020\000\020\003*\014Get Tr" +
-      "ace v3\022\203\001\n\016batchGetTraces\022\026.mlflow.Batch" +
-      "GetTraces\032\037.mlflow.BatchGetTraces.Respon" +
-      "se\"8\362\206\0314\n$\n\003GET\022\027/mlflow/traces/batchGet" +
-      "\032\004\010\003\020\000\020\003*\nGet Traces\022\240\001\n\022batchGetTraceIn" +
-      "fos\022\032.mlflow.BatchGetTraceInfos\032#.mlflow" +
-      ".BatchGetTraceInfos.Response\"I\362\206\031E\n*\n\004PO" +
-      "ST\022\034/mlflow/traces/batchGetInfos\032\004\010\003\020\000\020\003" +
-      "*\025Batch Get Trace Infos\022w\n\014searchTraces\022" +
-      "\024.mlflow.SearchTraces\032\035.mlflow.SearchTra" +
-      "ces.Response\"2\362\206\031.\n\033\n\003GET\022\016/mlflow/trace" +
-      "s\032\004\010\002\020\000\020\003*\rSearch Traces\022\210\001\n\016searchTrace" +
-      "sV3\022\026.mlflow.SearchTracesV3\032\037.mlflow.Sea" +
-      "rchTracesV3.Response\"=\362\206\0319\n#\n\004POST\022\025/mlf" +
-      "low/traces/search\032\004\010\003\020\000\020\003*\020Search Traces" +
-      " V3\022i\n\014startTraceV3\022\024.mlflow.StartTraceV" +
-      "3\032\035.mlflow.StartTraceV3.Response\"$\362\206\031 \n\034" +
-      "\n\004POST\022\016/mlflow/traces\032\004\010\003\020\000\020\003\022\222\001\n\017linkT" +
-      "racesToRun\022\027.mlflow.LinkTracesToRun\032 .ml" +
-      "flow.LinkTracesToRun.Response\"D\362\206\031@\n(\n\004P" +
-      "OST\022\032/mlflow/traces/link-to-run\032\004\010\002\020\000\020\003*" +
-      "\022Link Traces to Run\022\237\001\n\022linkPromptsToTra" +
-      "ce\022\032.mlflow.LinkPromptsToTrace\032#.mlflow." +
-      "LinkPromptsToTrace.Response\"H\362\206\031D\n)\n\004POS" +
-      "T\022\033/mlflow/traces/link-prompts\032\004\010\002\020\000\020\003*\025" +
-      "Link Prompts to Trace\022\242\001\n\031searchUnifiedT" +
-      "raceHandler\022\033.mlflow.SearchUnifiedTraces" +
-      "\032$.mlflow.SearchUnifiedTraces.Response\"B" +
-      "\362\206\031>\n#\n\003GET\022\026/mlflow/unified-traces\032\004\010\002\020" +
-      "\000\020\003*\025Search Unified Traces\022\257\001\n\025getOnline" +
-      "TraceDetails\022\035.mlflow.GetOnlineTraceDeta" +
-      "ils\032&.mlflow.GetOnlineTraceDetails.Respo" +
-      "nse\"O\362\206\031K\n-\n\003GET\022 /mlflow/get-online-tra" +
-      "ce-details\032\004\010\002\020\000\020\003*\030Get Online Trace Det" +
-      "ails\022\206\001\n\014deleteTraces\022\024.mlflow.DeleteTra" +
-      "ces\032\035.mlflow.DeleteTraces.Response\"A\362\206\031=" +
-      "\n*\n\004POST\022\034/mlflow/traces/delete-traces\032\004" +
-      "\010\002\020\000\020\003*\rDelete Traces\022\217\001\n\016deleteTracesV3" +
-      "\022\026.mlflow.DeleteTracesV3\032\037.mlflow.Delete" +
-      "TracesV3.Response\"D\362\206\031@\n*\n\004POST\022\034/mlflow" +
-      "/traces/delete-traces\032\004\010\003\020\000\020\003*\020Delete Tr" +
-      "aces V3\022\343\001\n\037calculateTraceFilterCorrelat" +
-      "ion\022\'.mlflow.CalculateTraceFilterCorrela" +
-      "tion\0320.mlflow.CalculateTraceFilterCorrel" +
-      "ation.Response\"e\362\206\031a\n9\n\004POST\022+/mlflow/tr" +
-      "aces/calculate-filter-correlation\032\004\010\003\020\000\020" +
-      "\003*\"Calculate Trace Filter Correlation\022\225\001" +
-      "\n\021queryTraceMetrics\022\031.mlflow.QueryTraceM" +
-      "etrics\032\".mlflow.QueryTraceMetrics.Respon" +
-      "se\"A\362\206\031=\n$\n\004POST\022\026/mlflow/traces/metrics" +
-      "\032\004\010\003\020\000\020\003*\023Query Trace Metrics\022\203\001\n\016listWo" +
-      "rkspaces\022\026.mlflow.ListWorkspaces\032\037.mlflo" +
-      "w.ListWorkspaces.Response\"8\362\206\0314\n\037\n\003GET\022\022" +
-      "/mlflow/workspaces\032\004\010\003\020\000\020\003*\017List Workspa" +
-      "ces\022\210\001\n\017createWorkspace\022\027.mlflow.CreateW" +
-      "orkspace\032 .mlflow.CreateWorkspace.Respon" +
-      "se\":\362\206\0316\n \n\004POST\022\022/mlflow/workspaces\032\004\010\003" +
-      "\020\000\020\003*\020Create Workspace\022\214\001\n\014getWorkspace\022" +
-      "\024.mlflow.GetWorkspace\032\035.mlflow.GetWorksp" +
-      "ace.Response\"G\362\206\031C\n0\n\003GET\022#/mlflow/works" +
-      "paces/{workspace_name}\032\004\010\003\020\000\020\003*\rGet Work" +
-      "space\022\232\001\n\017updateWorkspace\022\027.mlflow.Updat" +
-      "eWorkspace\032 .mlflow.UpdateWorkspace.Resp" +
-      "onse\"L\362\206\031H\n2\n\005PATCH\022#/mlflow/workspaces/" +
-      "{workspace_name}\032\004\010\003\020\000\020\003*\020Update Workspa" +
-      "ce\022\233\001\n\017deleteWorkspace\022\027.mlflow.DeleteWo" +
-      "rkspace\032 .mlflow.DeleteWorkspace.Respons" +
-      "e\"M\362\206\031I\n3\n\006DELETE\022#/mlflow/workspaces/{w" +
-      "orkspace_name}\032\004\010\003\020\000\020\003*\020Delete Workspace" +
-      "\022\224\001\n\021createLoggedModel\022\031.mlflow.CreateLo" +
-      "ggedModel\032\".mlflow.CreateLoggedModel.Res" +
-      "ponse\"@\362\206\031<\n#\n\004POST\022\025/mlflow/logged-mode" +
-      "ls\032\004\010\002\020\000\020\003*\023Create Logged Model\022\250\001\n\023fina" +
-      "lizeLoggedModel\022\033.mlflow.FinalizeLoggedM" +
-      "odel\032$.mlflow.FinalizeLoggedModel.Respon" +
-      "se\"N\362\206\031J\n/\n\005PATCH\022 /mlflow/logged-models" +
-      "/{model_id}\032\004\010\002\020\000\020\003*\025Finalize Logged Mod" +
-      "el\022\222\001\n\016getLoggedModel\022\026.mlflow.GetLogged" +
-      "Model\032\037.mlflow.GetLoggedModel.Response\"G" +
-      "\362\206\031C\n-\n\003GET\022 /mlflow/logged-models/{mode" +
-      "l_id}\032\004\010\002\020\000\020\003*\020Get Logged Model\022\243\001\n\021dele" +
-      "teLoggedModel\022\031.mlflow.DeleteLoggedModel" +
-      "\032\".mlflow.DeleteLoggedModel.Response\"O\362\206" +
-      "\031K\n0\n\006DELETE\022 /mlflow/logged-models/{mod" +
-      "el_id}\032\004\010\002\020\000\020\003*\025Delete a Logged Model\022\236\001" +
-      "\n\022searchLoggedModels\022\032.mlflow.SearchLogg" +
-      "edModels\032#.mlflow.SearchLoggedModels.Res" +
-      "ponse\"G\362\206\031C\n*\n\004POST\022\034/mlflow/logged-mode" +
-      "ls/search\032\004\010\002\020\000\020\003*\023Search LoggedModels\022\251" +
-      "\001\n\022setLoggedModelTags\022\032.mlflow.SetLogged" +
-      "ModelTags\032#.mlflow.SetLoggedModelTags.Re" +
-      "sponse\"R\362\206\031N\n4\n\005PATCH\022%/mlflow/logged-mo" +
-      "dels/{model_id}/tags\032\004\010\002\020\000\020\003*\024Set Logged" +
-      " Model Tag\022\275\001\n\024deleteLoggedModelTag\022\034.ml" +
-      "flow.DeleteLoggedModelTag\032%.mlflow.Delet" +
-      "eLoggedModelTag.Response\"`\362\206\031\\\n?\n\006DELETE" +
-      "\022//mlflow/logged-models/{model_id}/tags/" +
-      "{tag_key}\032\004\010\002\020\000\020\003*\027Delete Logged Model T" +
-      "ag\022\326\001\n\030listLoggedModelArtifacts\022 .mlflow" +
-      ".ListLoggedModelArtifacts\032).mlflow.ListL" +
-      "oggedModelArtifacts.Response\"m\362\206\031i\nC\n\003GE" +
-      "T\0226/mlflow/logged-models/{model_id}/arti" +
-      "facts/directories\032\004\010\002\020\000\020\003* List Artifact" +
-      "s for Logged Models\022\301\001\n\024LogLoggedModelPa" +
-      "rams\022#.mlflow.LogLoggedModelParamsReques" +
-      "t\032,.mlflow.LogLoggedModelParamsRequest.R" +
-      "esponse\"V\362\206\031R\n5\n\004POST\022\'/mlflow/logged-mo" +
-      "dels/{model_id}/params\032\004\010\002\020\000\020\003*\027Log Logg" +
-      "ed Model Params\022\260\001\n\rGetAssessment\022\034.mlfl" +
-      "ow.GetAssessmentRequest\032%.mlflow.GetAsse" +
-      "ssmentRequest.Response\"Z\362\206\031V\nB\n\003GET\0225/ml" +
-      "flow/traces/{trace_id}/assessments/{asse" +
-      "ssment_id}\032\004\010\003\020\000\020\003*\016Get Assessment\022\337\001\n\020c" +
-      "reateAssessment\022\030.mlflow.CreateAssessmen" +
-      "t\032!.mlflow.CreateAssessment.Response\"\215\001\362" +
-      "\206\031\210\001\n>\n\004POST\0220/mlflow/traces/{assessment" +
-      ".trace_id}/assessments\032\004\010\003\020\000\020\003\030\350\007\030\356\007\030\014\030\001" +
-      "*:Create an assessment of a trace or a s" +
-      "pan within the trace\022\320\001\n\020updateAssessmen" +
-      "t\022\030.mlflow.UpdateAssessment\032!.mlflow.Upd" +
-      "ateAssessment.Response\"\177\362\206\031{\nD\n\005PATCH\0225/" +
-      "mlflow/traces/{trace_id}/assessments/{as" +
-      "sessment_id}\032\004\010\003\020\000\020\003\030\350\007\030\356\007\030\001*)Update an " +
-      "existing assessment on a trace.\022\261\001\n\020dele" +
-      "teAssessment\022\030.mlflow.DeleteAssessment\032!" +
-      ".mlflow.DeleteAssessment.Response\"`\362\206\031\\\n" +
-      "E\n\006DELETE\0225/mlflow/traces/{trace_id}/ass" +
-      "essments/{assessment_id}\032\004\010\003\020\000\020\003*\021Delete" +
-      " Assessment\022\205\001\n\013createIssue\022\032.mlflow.iss" +
-      "ues.CreateIssue\032#.mlflow.issues.CreateIs" +
-      "sue.Response\"5\362\206\0311\n\034\n\004POST\022\016/mlflow/issu" +
-      "es\032\004\010\003\020\000\020\003*\017Create an issue\022\232\001\n\013updateIs" +
-      "sue\022\032.mlflow.issues.UpdateIssue\032#.mlflow" +
-      ".issues.UpdateIssue.Response\"J\362\206\031F\n(\n\005PA" +
-      "TCH\022\031/mlflow/issues/{issue_id}\032\004\010\003\020\000\020\003*\030" +
-      "Update an existing issue\022\211\001\n\010getIssue\022\027." +
-      "mlflow.issues.GetIssue\032 .mlflow.issues.G" +
-      "etIssue.Response\"B\362\206\031>\n&\n\003GET\022\031/mlflow/i" +
-      "ssues/{issue_id}\032\004\010\003\020\000\020\003*\022Get an issue b" +
-      "y ID\022\215\001\n\014searchIssues\022\033.mlflow.issues.Se" +
-      "archIssues\032$.mlflow.issues.SearchIssues." +
-      "Response\":\362\206\0316\n#\n\004POST\022\025/mlflow/issues/s" +
-      "earch\032\004\010\003\020\000\020\003*\rSearch issues\022\303\001\n\021createL" +
-      "abelSchema\022\'.mlflow.label_schemas.Create" +
-      "LabelSchema\0320.mlflow.label_schemas.Creat" +
-      "eLabelSchema.Response\"S\362\206\031O\n*\n\004POST\022\034/ml" +
-      "flow/label-schemas/create\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030" +
-      "\014\030\001*\025Create a label schema\022\267\001\n\016getLabelS" +
-      "chema\022$.mlflow.label_schemas.GetLabelSch" +
-      "ema\032-.mlflow.label_schemas.GetLabelSchem" +
-      "a.Response\"P\362\206\031L\n&\n\003GET\022\031/mlflow/label-s" +
-      "chemas/get\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\030Get a label " +
-      "schema by ID\022\323\001\n\024getLabelSchemaByName\022*." +
-      "mlflow.label_schemas.GetLabelSchemaByNam" +
-      "e\0323.mlflow.label_schemas.GetLabelSchemaB" +
-      "yName.Response\"Z\362\206\031V\n.\n\003GET\022!/mlflow/lab" +
-      "el-schemas/get-by-name\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\032" +
-      "Get a label schema by name\022\270\001\n\020listLabel" +
-      "Schemas\022&.mlflow.label_schemas.ListLabel" +
-      "Schemas\032/.mlflow.label_schemas.ListLabel" +
-      "Schemas.Response\"K\362\206\031G\n\'\n\003GET\022\032/mlflow/l" +
-      "abel-schemas/list\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\022List " +
-      "label schemas\022\304\001\n\021updateLabelSchema\022\'.ml" +
-      "flow.label_schemas.UpdateLabelSchema\0320.m" +
-      "lflow.label_schemas.UpdateLabelSchema.Re" +
-      "sponse\"T\362\206\031P\n+\n\005PATCH\022\034/mlflow/label-sch" +
-      "emas/update\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\014\030\001*\025Update a " +
-      "label schema\022\300\001\n\021deleteLabelSchema\022\'.mlf" +
-      "low.label_schemas.DeleteLabelSchema\0320.ml" +
-      "flow.label_schemas.DeleteLabelSchema.Res" +
-      "ponse\"P\362\206\031L\n,\n\006DELETE\022\034/mlflow/label-sch" +
-      "emas/delete\032\004\010\003\020\000\020\003\030\350\007\030\001*\025Delete a label" +
-      " schema\022\232\001\n\rcreateDataset\022\025.mlflow.Creat" +
-      "eDataset\032\036.mlflow.CreateDataset.Response" +
-      "\"R\362\206\031N\n%\n\004POST\022\027/mlflow/datasets/create\032" +
-      "\004\010\003\020\000\020\003\030\350\007\030\356\007\030\014\030\001*\031Create Evaluation Dat" +
-      "aset\022\221\001\n\ngetDataset\022\022.mlflow.GetDataset\032" +
-      "\033.mlflow.GetDataset.Response\"R\362\206\031N\n*\n\003GE" +
-      "T\022\035/mlflow/datasets/{dataset_id}\032\004\010\003\020\000\020\003" +
-      "\030\350\007\030\272\027\030\001*\026Get Evaluation Dataset\022\240\001\n\rdel" +
-      "eteDataset\022\025.mlflow.DeleteDataset\032\036.mlfl" +
-      "ow.DeleteDataset.Response\"X\362\206\031T\n-\n\006DELET" +
-      "E\022\035/mlflow/datasets/{dataset_id}\032\004\010\003\020\000\020\003" +
-      "\030\350\007\030\272\027\030\001*\031Delete Evaluation Dataset\022\335\001\n\030" +
-      "searchEvaluationDatasets\022 .mlflow.Search" +
-      "EvaluationDatasets\032).mlflow.SearchEvalua" +
-      "tionDatasets.Response\"t\362\206\031p\n%\n\004POST\022\027/ml" +
-      "flow/datasets/search\032\004\010\003\020\000\n$\n\003GET\022\027/mlfl" +
-      "ow/datasets/search\032\004\010\003\020\000\020\003\030\350\007\030\001*\032Search " +
-      "Evaluation Datasets\022\251\001\n\016setDatasetTags\022\026" +
-      ".mlflow.SetDatasetTags\032\037.mlflow.SetDatas" +
-      "etTags.Response\"^\362\206\031Z\n1\n\005PATCH\022\"/mlflow/" +
-      "datasets/{dataset_id}/tags\032\004\010\003\020\000\020\003\030\350\007\030\272\027" +
-      "\030\001*\033Set Evaluation Dataset Tags\022\270\001\n\020dele" +
-      "teDatasetTag\022\030.mlflow.DeleteDatasetTag\032!" +
-      ".mlflow.DeleteDatasetTag.Response\"g\362\206\031c\n" +
-      "8\n\006DELETE\022(/mlflow/datasets/{dataset_id}" +
-      "/tags/{key}\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\035Delete Eval" +
-      "uation Dataset Tag\022\303\001\n\024upsertDatasetReco" +
-      "rds\022\034.mlflow.UpsertDatasetRecords\032%.mlfl" +
-      "ow.UpsertDatasetRecords.Response\"f\362\206\031b\n3" +
-      "\n\004POST\022%/mlflow/datasets/{dataset_id}/re" +
-      "cords\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*!Upsert Evaluation" +
-      " Dataset Records\022\326\001\n\027getDatasetExperimen" +
-      "tIds\022\037.mlflow.GetDatasetExperimentIds\032(." +
-      "mlflow.GetDatasetExperimentIds.Response\"" +
-      "p\362\206\031l\n9\n\003GET\022,/mlflow/datasets/{dataset_" +
-      "id}/experiment-ids\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*%Get " +
-      "Evaluation Dataset Experiment IDs\022\212\001\n\016re" +
-      "gisterScorer\022\026.mlflow.RegisterScorer\032\037.m" +
-      "lflow.RegisterScorer.Response\"?\362\206\031;\n&\n\004P" +
-      "OST\022\030/mlflow/scorers/register\032\004\010\003\020\000\020\001*\017R" +
-      "egister Scorer\022y\n\013listScorers\022\023.mlflow.L" +
-      "istScorers\032\034.mlflow.ListScorers.Response" +
-      "\"7\362\206\0313\n!\n\003GET\022\024/mlflow/scorers/list\032\004\010\003\020" +
-      "\000\020\001*\014List Scorers\022\232\001\n\022listScorerVersions" +
-      "\022\032.mlflow.ListScorerVersions\032#.mlflow.Li" +
-      "stScorerVersions.Response\"C\362\206\031?\n%\n\003GET\022\030" +
-      "/mlflow/scorers/versions\032\004\010\003\020\000\020\001*\024List S" +
-      "corer Versions\022p\n\tgetScorer\022\021.mlflow.Get" +
-      "Scorer\032\032.mlflow.GetScorer.Response\"4\362\206\0310" +
-      "\n \n\003GET\022\023/mlflow/scorers/get\032\004\010\003\020\000\020\001*\nGe" +
-      "t Scorer\022\202\001\n\014deleteScorer\022\024.mlflow.Delet" +
-      "eScorer\032\035.mlflow.DeleteScorer.Response\"=" +
-      "\362\206\0319\n&\n\006DELETE\022\026/mlflow/scorers/delete\032\004" +
-      "\010\003\020\000\020\001*\rDelete Scorer\022\266\001\n\021getDatasetReco" +
-      "rds\022\031.mlflow.GetDatasetRecords\032\".mlflow." +
-      "GetDatasetRecords.Response\"b\362\206\031^\n2\n\003GET\022" +
-      "%/mlflow/datasets/{dataset_id}/records\032\004" +
-      "\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\036Get Evaluation Dataset R" +
-      "ecords\022\305\001\n\024deleteDatasetRecords\022\034.mlflow" +
-      ".DeleteDatasetRecords\032%.mlflow.DeleteDat" +
-      "asetRecords.Response\"h\362\206\031d\n5\n\006DELETE\022%/m" +
-      "lflow/datasets/{dataset_id}/records\032\004\010\003\020" +
-      "\000\020\003\030\350\007\030\272\027\030\001*!Delete Evaluation Dataset R" +
-      "ecords\022\315\001\n\027addDatasetToExperiments\022\037.mlf" +
-      "low.AddDatasetToExperiments\032(.mlflow.Add" +
-      "DatasetToExperiments.Response\"g\362\206\031c\n;\n\004P" +
-      "OST\022-/mlflow/datasets/{dataset_id}/add-e" +
-      "xperiments\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\032Add Dataset " +
-      "to Experiments\022\344\001\n\034removeDatasetFromExpe" +
-      "riments\022$.mlflow.RemoveDatasetFromExperi" +
-      "ments\032-.mlflow.RemoveDatasetFromExperime" +
-      "nts.Response\"o\362\206\031k\n>\n\004POST\0220/mlflow/data" +
-      "sets/{dataset_id}/remove-experiments\032\004\010\003" +
-      "\020\000\020\003\030\350\007\030\272\027\030\001*\037Remove Dataset from Experi" +
-      "ments\022\245\001\n\023createGatewaySecret\022\033.mlflow.C" +
-      "reateGatewaySecret\032$.mlflow.CreateGatewa" +
-      "ySecret.Response\"K\362\206\031G\n,\n\004POST\022\036/mlflow/" +
-      "gateway/secrets/create\032\004\010\003\020\000\020\001*\025Create G" +
-      "ateway Secret\022\246\001\n\024getGatewaySecretInfo\022\034" +
-      ".mlflow.GetGatewaySecretInfo\032%.mlflow.Ge" +
-      "tGatewaySecretInfo.Response\"I\362\206\031E\n(\n\003GET" +
-      "\022\033/mlflow/gateway/secrets/get\032\004\010\003\020\000\020\001*\027G" +
-      "et Gateway Secret Info\022\245\001\n\023updateGateway" +
-      "Secret\022\033.mlflow.UpdateGatewaySecret\032$.ml" +
-      "flow.UpdateGatewaySecret.Response\"K\362\206\031G\n" +
-      ",\n\004POST\022\036/mlflow/gateway/secrets/update\032" +
-      "\004\010\003\020\000\020\001*\025Update Gateway Secret\022\247\001\n\023delet" +
-      "eGatewaySecret\022\033.mlflow.DeleteGatewaySec" +
-      "ret\032$.mlflow.DeleteGatewaySecret.Respons" +
-      "e\"M\362\206\031I\n.\n\006DELETE\022\036/mlflow/gateway/secre" +
-      "ts/delete\032\004\010\003\020\000\020\001*\025Delete Gateway Secret" +
-      "\022\252\001\n\026listGatewaySecretInfos\022\036.mlflow.Lis",
-      "tGatewaySecretInfos\032\'.mlflow.ListGateway" +
-      "SecretInfos.Response\"G\362\206\031C\n)\n\003GET\022\034/mlfl" +
-      "ow/gateway/secrets/list\032\004\010\003\020\000\020\001*\024List Ga" +
-      "teway Secrets\022\257\001\n\025createGatewayEndpoint\022" +
-      "\035.mlflow.CreateGatewayEndpoint\032&.mlflow." +
-      "CreateGatewayEndpoint.Response\"O\362\206\031K\n.\n\004" +
-      "POST\022 /mlflow/gateway/endpoints/create\032\004" +
-      "\010\003\020\000\020\001*\027Create Gateway Endpoint\022\237\001\n\022getG" +
-      "atewayEndpoint\022\032.mlflow.GetGatewayEndpoi" +
-      "nt\032#.mlflow.GetGatewayEndpoint.Response\"" +
-      "H\362\206\031D\n*\n\003GET\022\035/mlflow/gateway/endpoints/" +
-      "get\032\004\010\003\020\000\020\001*\024Get Gateway Endpoint\022\257\001\n\025up" +
-      "dateGatewayEndpoint\022\035.mlflow.UpdateGatew" +
-      "ayEndpoint\032&.mlflow.UpdateGatewayEndpoin" +
-      "t.Response\"O\362\206\031K\n.\n\004POST\022 /mlflow/gatewa" +
-      "y/endpoints/update\032\004\010\003\020\000\020\001*\027Update Gatew" +
-      "ay Endpoint\022\261\001\n\025deleteGatewayEndpoint\022\035." +
-      "mlflow.DeleteGatewayEndpoint\032&.mlflow.De" +
-      "leteGatewayEndpoint.Response\"Q\362\206\031M\n0\n\006DE" +
-      "LETE\022 /mlflow/gateway/endpoints/delete\032\004" +
-      "\010\003\020\000\020\001*\027Delete Gateway Endpoint\022\250\001\n\024list" +
-      "GatewayEndpoints\022\034.mlflow.ListGatewayEnd" +
-      "points\032%.mlflow.ListGatewayEndpoints.Res" +
-      "ponse\"K\362\206\031G\n+\n\003GET\022\036/mlflow/gateway/endp" +
-      "oints/list\032\004\010\003\020\000\020\001*\026List Gateway Endpoin" +
-      "ts\022\324\001\n\034createGatewayModelDefinition\022$.ml" +
-      "flow.CreateGatewayModelDefinition\032-.mlfl" +
-      "ow.CreateGatewayModelDefinition.Response" +
-      "\"_\362\206\031[\n6\n\004POST\022(/mlflow/gateway/model-de" +
-      "finitions/create\032\004\010\003\020\000\020\001*\037Create Gateway" +
-      " Model Definition\022\304\001\n\031getGatewayModelDef" +
-      "inition\022!.mlflow.GetGatewayModelDefiniti" +
-      "on\032*.mlflow.GetGatewayModelDefinition.Re" +
-      "sponse\"X\362\206\031T\n2\n\003GET\022%/mlflow/gateway/mod" +
-      "el-definitions/get\032\004\010\003\020\000\020\001*\034Get Gateway " +
-      "Model Definition\022\315\001\n\033listGatewayModelDef" +
-      "initions\022#.mlflow.ListGatewayModelDefini" +
-      "tions\032,.mlflow.ListGatewayModelDefinitio" +
-      "ns.Response\"[\362\206\031W\n3\n\003GET\022&/mlflow/gatewa" +
-      "y/model-definitions/list\032\004\010\003\020\000\020\001*\036List G" +
-      "ateway Model Definitions\022\324\001\n\034updateGatew" +
-      "ayModelDefinition\022$.mlflow.UpdateGateway" +
-      "ModelDefinition\032-.mlflow.UpdateGatewayMo" +
-      "delDefinition.Response\"_\362\206\031[\n6\n\004POST\022(/m" +
-      "lflow/gateway/model-definitions/update\032\004" +
-      "\010\003\020\000\020\001*\037Update Gateway Model Definition\022" +
-      "\326\001\n\034deleteGatewayModelDefinition\022$.mlflo" +
-      "w.DeleteGatewayModelDefinition\032-.mlflow." +
-      "DeleteGatewayModelDefinition.Response\"a\362" +
-      "\206\031]\n8\n\006DELETE\022(/mlflow/gateway/model-def" +
-      "initions/delete\032\004\010\003\020\000\020\001*\037Delete Gateway " +
-      "Model Definition\022\305\001\n\025attachModelToEndpoi" +
-      "nt\022$.mlflow.AttachModelToGatewayEndpoint" +
-      "\032-.mlflow.AttachModelToGatewayEndpoint.R" +
-      "esponse\"W\362\206\031S\n5\n\004POST\022\'/mlflow/gateway/e" +
-      "ndpoints/models/attach\032\004\010\003\020\000\020\001*\030Attach M" +
-      "odel to Endpoint\022\315\001\n\027detachModelFromEndp" +
-      "oint\022&.mlflow.DetachModelFromGatewayEndp" +
-      "oint\032/.mlflow.DetachModelFromGatewayEndp" +
-      "oint.Response\"Y\362\206\031U\n5\n\004POST\022\'/mlflow/gat" +
-      "eway/endpoints/models/detach\032\004\010\003\020\000\020\001*\032De" +
-      "tach Model from Endpoint\022\306\001\n\025createEndpo" +
-      "intBinding\022$.mlflow.CreateGatewayEndpoin" +
-      "tBinding\032-.mlflow.CreateGatewayEndpointB" +
-      "inding.Response\"X\362\206\031T\n7\n\004POST\022)/mlflow/g" +
-      "ateway/endpoints/bindings/create\032\004\010\003\020\000\020\001" +
-      "*\027Create Endpoint Binding\022\310\001\n\025deleteEndp" +
-      "ointBinding\022$.mlflow.DeleteGatewayEndpoi" +
-      "ntBinding\032-.mlflow.DeleteGatewayEndpoint" +
-      "Binding.Response\"Z\362\206\031V\n9\n\006DELETE\022)/mlflo" +
-      "w/gateway/endpoints/bindings/delete\032\004\010\003\020" +
-      "\000\020\001*\027Delete Endpoint Binding\022\277\001\n\024listEnd" +
-      "pointBindings\022#.mlflow.ListGatewayEndpoi" +
-      "ntBindings\032,.mlflow.ListGatewayEndpointB" +
-      "indings.Response\"T\362\206\031P\n4\n\003GET\022\'/mlflow/g" +
-      "ateway/endpoints/bindings/list\032\004\010\003\020\000\020\001*\026" +
-      "List Endpoint Bindings\022\261\001\n\025setGatewayEnd" +
-      "pointTag\022\035.mlflow.SetGatewayEndpointTag\032" +
-      "&.mlflow.SetGatewayEndpointTag.Response\"" +
-      "Q\362\206\031M\n/\n\004POST\022!/mlflow/gateway/endpoints" +
-      "/set-tag\032\004\010\003\020\000\020\001*\030Gateway Set Endpoint T" +
-      "ag\022\302\001\n\030deleteGatewayEndpointTag\022 .mlflow" +
-      ".DeleteGatewayEndpointTag\032).mlflow.Delet" +
-      "eGatewayEndpointTag.Response\"Y\362\206\031U\n4\n\006DE" +
-      "LETE\022$/mlflow/gateway/endpoints/delete-t" +
-      "ag\032\004\010\003\020\000\020\001*\033Gateway Delete Endpoint Tag\022" +
-      "\257\001\n\022createBudgetPolicy\022!.mlflow.CreateGa" +
-      "tewayBudgetPolicy\032*.mlflow.CreateGateway" +
-      "BudgetPolicy.Response\"J\362\206\031F\n,\n\004POST\022\036/ml" +
-      "flow/gateway/budgets/create\032\004\010\003\020\000\020\001*\024Cre" +
-      "ate Budget Policy\022\237\001\n\017getBudgetPolicy\022\036." +
-      "mlflow.GetGatewayBudgetPolicy\032\'.mlflow.G" +
-      "etGatewayBudgetPolicy.Response\"C\362\206\031?\n(\n\003" +
-      "GET\022\033/mlflow/gateway/budgets/get\032\004\010\003\020\000\020\001" +
-      "*\021Get Budget Policy\022\257\001\n\022updateBudgetPoli" +
-      "cy\022!.mlflow.UpdateGatewayBudgetPolicy\032*." +
-      "mlflow.UpdateGatewayBudgetPolicy.Respons" +
-      "e\"J\362\206\031F\n,\n\004POST\022\036/mlflow/gateway/budgets" +
-      "/update\032\004\010\003\020\000\020\001*\024Update Budget Policy\022\261\001" +
-      "\n\022deleteBudgetPolicy\022!.mlflow.DeleteGate" +
-      "wayBudgetPolicy\032*.mlflow.DeleteGatewayBu" +
-      "dgetPolicy.Response\"L\362\206\031H\n.\n\006DELETE\022\036/ml" +
-      "flow/gateway/budgets/delete\032\004\010\003\020\000\020\001*\024Del" +
-      "ete Budget Policy\022\254\001\n\022listBudgetPolicies" +
-      "\022!.mlflow.ListGatewayBudgetPolicies\032*.ml" +
-      "flow.ListGatewayBudgetPolicies.Response\"" +
-      "G\362\206\031C\n)\n\003GET\022\034/mlflow/gateway/budgets/li" +
-      "st\032\004\010\003\020\000\020\001*\024List Budget Policies\022\253\001\n\021lis" +
-      "tBudgetWindows\022 .mlflow.ListGatewayBudge" +
-      "tWindows\032).mlflow.ListGatewayBudgetWindo" +
-      "ws.Response\"I\362\206\031E\n,\n\003GET\022\037/mlflow/gatewa" +
-      "y/budgets/windows\032\004\010\003\020\000\020\001*\023List Budget W" +
-      "indows\022\254\001\n\026createGatewayGuardrail\022\036.mlfl" +
-      "ow.CreateGatewayGuardrail\032\'.mlflow.Creat" +
-      "eGatewayGuardrail.Response\"I\362\206\031E\n/\n\004POST" +
-      "\022!/mlflow/gateway/guardrails/create\032\004\010\003\020" +
-      "\000\020\001*\020Create Guardrail\022\234\001\n\023getGatewayGuar" +
-      "drail\022\033.mlflow.GetGatewayGuardrail\032$.mlf" +
-      "low.GetGatewayGuardrail.Response\"B\362\206\031>\n+" +
-      "\n\003GET\022\036/mlflow/gateway/guardrails/get\032\004\010" +
-      "\003\020\000\020\001*\rGet Guardrail\022\256\001\n\026deleteGatewayGu" +
-      "ardrail\022\036.mlflow.DeleteGatewayGuardrail\032" +
-      "\'.mlflow.DeleteGatewayGuardrail.Response" +
-      "\"K\362\206\031G\n1\n\006DELETE\022!/mlflow/gateway/guardr" +
-      "ails/delete\032\004\010\003\020\000\020\001*\020Delete Guardrail\022\245\001" +
-      "\n\025listGatewayGuardrails\022\035.mlflow.ListGat" +
-      "ewayGuardrails\032&.mlflow.ListGatewayGuard" +
-      "rails.Response\"E\362\206\031A\n,\n\003GET\022\037/mlflow/gat" +
-      "eway/guardrails/list\032\004\010\003\020\000\020\001*\017List Guard" +
-      "rails\022\276\001\n\026addGuardrailToEndpoint\022\036.mlflo" +
-      "w.AddGuardrailToEndpoint\032\'.mlflow.AddGua" +
-      "rdrailToEndpoint.Response\"[\362\206\031W\n8\n\004POST\022" +
-      "*/mlflow/gateway/guardrails/add-to-endpo" +
-      "int\032\004\010\003\020\000\020\001*\031Add Guardrail to Endpoint\022\331" +
-      "\001\n\033removeGuardrailFromEndpoint\022#.mlflow." +
-      "RemoveGuardrailFromEndpoint\032,.mlflow.Rem" +
-      "oveGuardrailFromEndpoint.Response\"g\362\206\031c\n" +
-      "?\n\006DELETE\022//mlflow/gateway/guardrails/re" +
-      "move-from-endpoint\032\004\010\003\020\000\020\001*\036Remove Guard" +
-      "rail from Endpoint\022\327\001\n\034listEndpointGuard" +
-      "railConfigs\022$.mlflow.ListEndpointGuardra" +
-      "ilConfigs\032-.mlflow.ListEndpointGuardrail" +
-      "Configs.Response\"b\362\206\031^\n9\n\003GET\022,/mlflow/g" +
-      "ateway/guardrails/list-for-endpoint\032\004\010\003\020" +
-      "\000\020\001*\037List Endpoint Guardrail Configs\022\331\001\n" +
-      "\035updateEndpointGuardrailConfig\022%.mlflow." +
-      "UpdateEndpointGuardrailConfig\032..mlflow.U" +
-      "pdateEndpointGuardrailConfig.Response\"a\362" +
-      "\206\031]\n7\n\005PATCH\022(/mlflow/gateway/guardrails" +
-      "/update-config\032\004\010\003\020\000\020\001* Update Endpoint " +
-      "Guardrail Config\022\320\001\n\033createPromptOptimiz" +
-      "ationJob\022#.mlflow.CreatePromptOptimizati" +
-      "onJob\032,.mlflow.CreatePromptOptimizationJ" +
-      "ob.Response\"^\362\206\031Z\n.\n\004POST\022 /mlflow/promp" +
-      "t-optimization/jobs\032\004\010\003\020\000\020\001\030\350\007\030\272\027\030\001*\036Cre" +
-      "ate Prompt Optimization Job\022\314\001\n\030getPromp" +
-      "tOptimizationJob\022 .mlflow.GetPromptOptim" +
-      "izationJob\032).mlflow.GetPromptOptimizatio" +
-      "nJob.Response\"c\362\206\031_\n6\n\003GET\022)/mlflow/prom" +
-      "pt-optimization/jobs/{job_id}\032\004\010\003\020\000\020\001\030\350\007" +
-      "\030\272\027\030\001*\033Get Prompt Optimization Job\022\220\002\n\034s" +
-      "earchPromptOptimizationJobs\022$.mlflow.Sea" +
-      "rchPromptOptimizationJobs\032-.mlflow.Searc" +
-      "hPromptOptimizationJobs.Response\"\232\001\362\206\031\225\001" +
-      "\n5\n\004POST\022\'/mlflow/prompt-optimization/jo" +
-      "bs/search\032\004\010\003\020\000\n4\n\003GET\022\'/mlflow/prompt-o" +
-      "ptimization/jobs/search\032\004\010\003\020\000\020\001\030\350\007\030\001*\037Se" +
-      "arch Prompt Optimization Jobs\022\343\001\n\033cancel" +
-      "PromptOptimizationJob\022#.mlflow.CancelPro" +
-      "mptOptimizationJob\032,.mlflow.CancelPrompt" +
-      "OptimizationJob.Response\"q\362\206\031m\n>\n\004POST\0220" +
-      "/mlflow/prompt-optimization/jobs/{job_id" +
-      "}/cancel\032\004\010\003\020\000\020\001\030\350\007\030\272\027\030\353\007\030\001*\036Cancel Prom" +
-      "pt Optimization Job\022\333\001\n\033deletePromptOpti" +
-      "mizationJob\022#.mlflow.DeletePromptOptimiz" +
-      "ationJob\032,.mlflow.DeletePromptOptimizati" +
-      "onJob.Response\"i\362\206\031e\n9\n\006DELETE\022)/mlflow/" +
-      "prompt-optimization/jobs/{job_id}\032\004\010\003\020\000\020" +
-      "\001\030\350\007\030\272\027\030\001*\036Delete Prompt Optimization Jo" +
-      "b\022\304\001\n\021createReviewQueue\022\'.mlflow.review_" +
-      "queues.CreateReviewQueue\0320.mlflow.review" +
-      "_queues.CreateReviewQueue.Response\"T\362\206\031P" +
-      "\n*\n\004POST\022\034/mlflow/review-queues/create\032\004" +
-      "\010\003\020\000\020\003\030\350\007\030\272\027\030\271\027\030\001*\025Create a review queue" +
-      "\022\345\001\n\024getOrCreateUserQueue\022*.mlflow.revie" +
-      "w_queues.GetOrCreateUserQueue\0323.mlflow.r" +
-      "eview_queues.GetOrCreateUserQueue.Respon" +
-      "se\"l\362\206\031h\n6\n\004POST\022(/mlflow/review-queues/" +
-      "get-or-create-user\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\271\027\030\001*!G" +
-      "et or create a user review queue\022\261\001\n\016get" +
-      "ReviewQueue\022$.mlflow.review_queues.GetRe" +
-      "viewQueue\032-.mlflow.review_queues.GetRevi" +
-      "ewQueue.Response\"J\362\206\031F\n&\n\003GET\022\031/mlflow/r" +
-      "eview-queues/get\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\022Get a " +
-      "review queue\022\323\001\n\024getReviewQueueByName\022*." +
-      "mlflow.review_queues.GetReviewQueueByNam" +
-      "e\0323.mlflow.review_queues.GetReviewQueueB" +
-      "yName.Response\"Z\362\206\031V\n.\n\003GET\022!/mlflow/rev" +
-      "iew-queues/get-by-name\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\032" +
-      "Get a review queue by name\022\270\001\n\020listRevie" +
-      "wQueues\022&.mlflow.review_queues.ListRevie" +
-      "wQueues\032/.mlflow.review_queues.ListRevie" +
-      "wQueues.Response\"K\362\206\031G\n\'\n\003GET\022\032/mlflow/r" +
-      "eview-queues/list\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\022List " +
-      "review queues\022\301\001\n\021updateReviewQueue\022\'.ml" +
-      "flow.review_queues.UpdateReviewQueue\0320.m" +
-      "lflow.review_queues.UpdateReviewQueue.Re" +
-      "sponse\"Q\362\206\031M\n*\n\004POST\022\034/mlflow/review-que" +
-      "ues/update\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\025Update a rev" +
-      "iew queue\022\301\001\n\021deleteReviewQueue\022\'.mlflow" +
-      ".review_queues.DeleteReviewQueue\0320.mlflo" +
-      "w.review_queues.DeleteReviewQueue.Respon" +
-      "se\"Q\362\206\031M\n*\n\004POST\022\034/mlflow/review-queues/" +
-      "delete\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\025Delete a review " +
-      "queue\022\326\001\n\025addItemsToReviewQueue\022+.mlflow" +
-      ".review_queues.AddItemsToReviewQueue\0324.m" +
-      "lflow.review_queues.AddItemsToReviewQueu" +
-      "e.Response\"Z\362\206\031V\n-\n\004POST\022\037/mlflow/review" +
-      "-queues/items/add\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\033Add i" +
-      "tems to a review queue\022\355\001\n\032removeItemsFr" +
-      "omReviewQueue\0220.mlflow.review_queues.Rem" +
-      "oveItemsFromReviewQueue\0329.mlflow.review_" +
-      "queues.RemoveItemsFromReviewQueue.Respon" +
-      "se\"b\362\206\031^\n0\n\004POST\022\"/mlflow/review-queues/" +
-      "items/remove\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001* Remove ite" +
-      "ms from a review queue\022\317\001\n\024listReviewQue" +
-      "ueItems\022*.mlflow.review_queues.ListRevie" +
-      "wQueueItems\0323.mlflow.review_queues.ListR" +
-      "eviewQueueItems.Response\"V\362\206\031R\n-\n\003GET\022 /" +
-      "mlflow/review-queues/items/list\032\004\010\003\020\000\020\003\030" +
-      "\350\007\030\272\027\030\001*\027List review queue items\022\347\001\n\030set" +
-      "ReviewQueueItemStatus\022..mlflow.review_qu" +
-      "eues.SetReviewQueueItemStatus\0327.mlflow.r" +
-      "eview_queues.SetReviewQueueItemStatus.Re" +
-      "sponse\"b\362\206\031^\n4\n\004POST\022&/mlflow/review-que" +
-      "ues/items/set-status\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\034Se" +
-      "t review queue item statusB\036\n\024org.mlflow" +
-      ".api.proto\220\001\001\342?\002\020\001"
+      "ER\020\004\022\010\n\004ROLE\020\005*J\n\014BudgetAction\022#\n\031BUDGET" +
+      "_ACTION_UNSPECIFIED\020\000\032\004\360\206\031\003\022\t\n\005ALERT\020\001\022\n" +
+      "\n\006REJECT\020\002*8\n\nBudgetUnit\022!\n\027BUDGET_UNIT_" +
+      "UNSPECIFIED\020\000\032\004\360\206\031\003\022\007\n\003USD\020\001*N\n\016Guardrai",
+      "lStage\022%\n\033GUARDRAIL_STAGE_UNSPECIFIED\020\000\032" +
+      "\004\360\206\031\003\022\n\n\006BEFORE\020\001\022\t\n\005AFTER\020\002*[\n\017Guardrai" +
+      "lAction\022&\n\034GUARDRAIL_ACTION_UNSPECIFIED\020" +
+      "\000\032\004\360\206\031\003\022\016\n\nVALIDATION\020\001\022\020\n\014SANITIZATION\020" +
+      "\0022\337\305\001\n\rMlflowService\022\246\001\n\023getExperimentBy" +
+      "Name\022\033.mlflow.GetExperimentByName\032$.mlfl" +
+      "ow.GetExperimentByName.Response\"L\362\206\031H\n,\n" +
+      "\003GET\022\037/mlflow/experiments/get-by-name\032\004\010" +
+      "\002\020\000\020\001*\026Get Experiment By Name\022\224\001\n\020create" +
+      "Experiment\022\030.mlflow.CreateExperiment\032!.m" +
+      "lflow.CreateExperiment.Response\"C\362\206\031?\n(\n" +
+      "\004POST\022\032/mlflow/experiments/create\032\004\010\002\020\000\020" +
+      "\001*\021Create Experiment\022\301\001\n\021searchExperimen" +
+      "ts\022\031.mlflow.SearchExperiments\032\".mlflow.S" +
+      "earchExperiments.Response\"m\362\206\031i\n(\n\004POST\022" +
+      "\032/mlflow/experiments/search\032\004\010\002\020\000\n\'\n\003GET" +
+      "\022\032/mlflow/experiments/search\032\004\010\002\020\000\020\001*\022Se" +
+      "arch Experiments\022\210\001\n\rgetExperiment\022\025.mlf" +
+      "low.GetExperiment\032\036.mlflow.GetExperiment" +
+      ".Response\"@\362\206\0318\n$\n\003GET\022\027/mlflow/experime" +
+      "nts/get\032\004\010\002\020\000\020\001*\016Get Experiment\272\214\031\000\022\224\001\n\020" +
+      "deleteExperiment\022\030.mlflow.DeleteExperime" +
+      "nt\032!.mlflow.DeleteExperiment.Response\"C\362" +
+      "\206\031?\n(\n\004POST\022\032/mlflow/experiments/delete\032" +
+      "\004\010\002\020\000\020\001*\021Delete Experiment\022\231\001\n\021restoreEx" +
+      "periment\022\031.mlflow.RestoreExperiment\032\".ml" +
+      "flow.RestoreExperiment.Response\"E\362\206\031A\n)\n" +
+      "\004POST\022\033/mlflow/experiments/restore\032\004\010\002\020\000" +
+      "\020\001*\022Restore Experiment\022\224\001\n\020updateExperim" +
+      "ent\022\030.mlflow.UpdateExperiment\032!.mlflow.U" +
+      "pdateExperiment.Response\"C\362\206\031?\n(\n\004POST\022\032" +
+      "/mlflow/experiments/update\032\004\010\002\020\000\020\001*\021Upda" +
+      "te Experiment\022q\n\tcreateRun\022\021.mlflow.Crea" +
+      "teRun\032\032.mlflow.CreateRun.Response\"5\362\206\0311\n" +
+      "!\n\004POST\022\023/mlflow/runs/create\032\004\010\002\020\000\020\001*\nCr" +
+      "eate Run\022q\n\tupdateRun\022\021.mlflow.UpdateRun" +
+      "\032\032.mlflow.UpdateRun.Response\"5\362\206\0311\n!\n\004PO" +
+      "ST\022\023/mlflow/runs/update\032\004\010\002\020\000\020\001*\nUpdate " +
+      "Run\022q\n\tdeleteRun\022\021.mlflow.DeleteRun\032\032.ml" +
+      "flow.DeleteRun.Response\"5\362\206\0311\n!\n\004POST\022\023/" +
+      "mlflow/runs/delete\032\004\010\002\020\000\020\001*\nDelete Run\022v" +
+      "\n\nrestoreRun\022\022.mlflow.RestoreRun\032\033.mlflo" +
+      "w.RestoreRun.Response\"7\362\206\0313\n\"\n\004POST\022\024/ml" +
+      "flow/runs/restore\032\004\010\002\020\000\020\001*\013Restore Run\022u" +
+      "\n\tlogMetric\022\021.mlflow.LogMetric\032\032.mlflow." +
+      "LogMetric.Response\"9\362\206\0315\n%\n\004POST\022\027/mlflo" +
+      "w/runs/log-metric\032\004\010\002\020\000\020\001*\nLog Metric\022t\n" +
+      "\010logParam\022\020.mlflow.LogParam\032\031.mlflow.Log" +
+      "Param.Response\";\362\206\0317\n(\n\004POST\022\032/mlflow/ru" +
+      "ns/log-parameter\032\004\010\002\020\000\020\001*\tLog Param\022\241\001\n\020" +
+      "setExperimentTag\022\030.mlflow.SetExperimentT" +
+      "ag\032!.mlflow.SetExperimentTag.Response\"P\362" +
+      "\206\031L\n4\n\004POST\022&/mlflow/experiments/set-exp" +
+      "eriment-tag\032\004\010\002\020\000\020\001*\022Set Experiment Tag\022" +
+      "\260\001\n\023deleteExperimentTag\022\033.mlflow.DeleteE" +
+      "xperimentTag\032$.mlflow.DeleteExperimentTa" +
+      "g.Response\"V\362\206\031R\n7\n\004POST\022)/mlflow/experi" +
+      "ments/delete-experiment-tag\032\004\010\002\020\000\020\001*\025Del" +
+      "ete Experiment Tag\022f\n\006setTag\022\016.mlflow.Se" +
+      "tTag\032\027.mlflow.SetTag.Response\"3\362\206\031/\n\"\n\004P" +
+      "OST\022\024/mlflow/runs/set-tag\032\004\010\002\020\000\020\001*\007Set T" +
+      "ag\022\210\001\n\013setTraceTag\022\023.mlflow.SetTraceTag\032" +
+      "\034.mlflow.SetTraceTag.Response\"F\362\206\031B\n/\n\005P" +
+      "ATCH\022 /mlflow/traces/{request_id}/tags\032\004" +
+      "\010\002\020\000\020\003*\rSet Trace Tag\022\217\001\n\rsetTraceTagV3\022" +
+      "\025.mlflow.SetTraceTagV3\032\036.mlflow.SetTrace" +
+      "TagV3.Response\"G\362\206\031C\n-\n\005PATCH\022\036/mlflow/t" +
+      "races/{trace_id}/tags\032\004\010\003\020\000\020\003*\020Set Trace" +
+      " Tag V3\022\225\001\n\016deleteTraceTag\022\026.mlflow.Dele" +
+      "teTraceTag\032\037.mlflow.DeleteTraceTag.Respo" +
+      "nse\"J\362\206\031F\n0\n\006DELETE\022 /mlflow/traces/{req" +
+      "uest_id}/tags\032\004\010\002\020\000\020\003*\020Delete Trace Tag\022" +
+      "\234\001\n\020deleteTraceTagV3\022\030.mlflow.DeleteTrac" +
+      "eTagV3\032!.mlflow.DeleteTraceTagV3.Respons" +
+      "e\"K\362\206\031G\n.\n\006DELETE\022\036/mlflow/traces/{trace" +
+      "_id}/tags\032\004\010\003\020\000\020\003*\023Delete Trace Tag V3\022u" +
+      "\n\tdeleteTag\022\021.mlflow.DeleteTag\032\032.mlflow." +
+      "DeleteTag.Response\"9\362\206\0315\n%\n\004POST\022\027/mlflo" +
+      "w/runs/delete-tag\032\004\010\002\020\000\020\001*\nDelete Tag\022e\n" +
+      "\006getRun\022\016.mlflow.GetRun\032\027.mlflow.GetRun." +
+      "Response\"2\362\206\031*\n\035\n\003GET\022\020/mlflow/runs/get\032" +
+      "\004\010\002\020\000\020\001*\007Get Run\272\214\031\000\022y\n\nsearchRuns\022\022.mlf" +
+      "low.SearchRuns\032\033.mlflow.SearchRuns.Respo" +
+      "nse\":\362\206\0312\n!\n\004POST\022\023/mlflow/runs/search\032\004" +
+      "\010\002\020\000\020\001*\013Search Runs\272\214\031\000\022\207\001\n\rlistArtifact" +
+      "s\022\025.mlflow.ListArtifacts\032\036.mlflow.ListAr" +
+      "tifacts.Response\"?\362\206\0317\n#\n\003GET\022\026/mlflow/a" +
+      "rtifacts/list\032\004\010\002\020\000\020\001*\016List Artifacts\272\214\031" +
+      "\000\022\302\001\n\030createPresignedUploadUrl\022 .mlflow." +
+      "CreatePresignedUploadUrl\032).mlflow.Create" +
+      "PresignedUploadUrl.Response\"Y\362\206\031U\n4\n\004POS" +
+      "T\022&/mlflow/artifacts/presigned-upload-ur" +
+      "l\032\004\010\002\020\000\020\001*\033Create Presigned Upload URL\022\314" +
+      "\001\n\032createPresignedDownloadUrl\022\".mlflow.C" +
+      "reatePresignedDownloadUrl\032+.mlflow.Creat" +
+      "ePresignedDownloadUrl.Response\"]\362\206\031Y\n6\n\004" +
+      "POST\022(/mlflow/artifacts/presigned-downlo" +
+      "ad-url\032\004\010\002\020\000\020\001*\035Create Presigned Downloa" +
+      "d URL\022\225\001\n\020getMetricHistory\022\030.mlflow.GetM" +
+      "etricHistory\032!.mlflow.GetMetricHistory.R" +
+      "esponse\"D\362\206\031@\n(\n\003GET\022\033/mlflow/metrics/ge" +
+      "t-history\032\004\010\002\020\000\020\001*\022Get Metric History\022\267\001" +
+      "\n\034getMetricHistoryBulkInterval\022$.mlflow." +
+      "GetMetricHistoryBulkInterval\032-.mlflow.Ge" +
+      "tMetricHistoryBulkInterval.Response\"B\362\206\031" +
+      ":\n6\n\003GET\022)/mlflow/metrics/get-history-bu" +
+      "lk-interval\032\004\010\002\020\013\020\003\272\214\031\000\022p\n\010logBatch\022\020.ml" +
+      "flow.LogBatch\032\031.mlflow.LogBatch.Response" +
+      "\"7\362\206\0313\n$\n\004POST\022\026/mlflow/runs/log-batch\032\004" +
+      "\010\002\020\000\020\001*\tLog Batch\022p\n\010logModel\022\020.mlflow.L" +
+      "ogModel\032\031.mlflow.LogModel.Response\"7\362\206\0313" +
+      "\n$\n\004POST\022\026/mlflow/runs/log-model\032\004\010\002\020\000\020\001" +
+      "*\tLog Model\022u\n\tlogInputs\022\021.mlflow.LogInp" +
+      "uts\032\032.mlflow.LogInputs.Response\"9\362\206\0315\n%\n" +
+      "\004POST\022\027/mlflow/runs/log-inputs\032\004\010\002\020\000\020\001*\n" +
+      "Log Inputs\022v\n\nlogOutputs\022\022.mlflow.LogOut" +
+      "puts\032\033.mlflow.LogOutputs.Response\"7\362\206\0313\n" +
+      "\"\n\004POST\022\024/mlflow/runs/outputs\032\004\010\002\020\000\020\003*\013L" +
+      "og Outputs\022\207\001\n\016searchDatasets\022\026.mlflow.S" +
+      "earchDatasets\032\037.mlflow.SearchDatasets.Re" +
+      "sponse\"<\362\206\0314\n0\n\004POST\022\"mlflow/experiments" +
+      "/search-datasets\032\004\010\002\020\000\020\003\272\214\031\000\022p\n\nstartTra" +
+      "ce\022\022.mlflow.StartTrace\032\033.mlflow.StartTra" +
+      "ce.Response\"1\362\206\031-\n\034\n\004POST\022\016/mlflow/trace" +
+      "s\032\004\010\002\020\000\020\003*\013Start Trace\022v\n\010endTrace\022\020.mlf" +
+      "low.EndTrace\032\031.mlflow.EndTrace.Response\"" +
+      "=\362\206\0319\n*\n\005PATCH\022\033/mlflow/traces/{request_" +
+      "id}\032\004\010\002\020\000\020\003*\tEnd Trace\022\211\001\n\014getTraceInfo\022" +
+      "\024.mlflow.GetTraceInfo\032\035.mlflow.GetTraceI" +
+      "nfo.Response\"D\362\206\031@\n-\n\003GET\022 /mlflow/trace" +
+      "s/{request_id}/info\032\004\010\002\020\000\020\003*\rGet TraceIn" +
+      "fo\022\213\001\n\016getTraceInfoV3\022\026.mlflow.GetTraceI" +
+      "nfoV3\032\037.mlflow.GetTraceInfoV3.Response\"@" +
+      "\362\206\031<\n&\n\003GET\022\031/mlflow/traces/{trace_id}\032\004" +
+      "\010\003\020\000\020\003*\020Get TraceInfo v3\022n\n\010getTrace\022\020.m" +
+      "lflow.GetTrace\032\031.mlflow.GetTrace.Respons" +
+      "e\"5\362\206\0311\n\037\n\003GET\022\022/mlflow/traces/get\032\004\010\003\020\000" +
+      "\020\003*\014Get Trace v3\022\203\001\n\016batchGetTraces\022\026.ml" +
+      "flow.BatchGetTraces\032\037.mlflow.BatchGetTra" +
+      "ces.Response\"8\362\206\0314\n$\n\003GET\022\027/mlflow/trace" +
+      "s/batchGet\032\004\010\003\020\000\020\003*\nGet Traces\022\240\001\n\022batch" +
+      "GetTraceInfos\022\032.mlflow.BatchGetTraceInfo" +
+      "s\032#.mlflow.BatchGetTraceInfos.Response\"I" +
+      "\362\206\031E\n*\n\004POST\022\034/mlflow/traces/batchGetInf" +
+      "os\032\004\010\003\020\000\020\003*\025Batch Get Trace Infos\022w\n\014sea" +
+      "rchTraces\022\024.mlflow.SearchTraces\032\035.mlflow" +
+      ".SearchTraces.Response\"2\362\206\031.\n\033\n\003GET\022\016/ml" +
+      "flow/traces\032\004\010\002\020\000\020\003*\rSearch Traces\022\210\001\n\016s" +
+      "earchTracesV3\022\026.mlflow.SearchTracesV3\032\037." +
+      "mlflow.SearchTracesV3.Response\"=\362\206\0319\n#\n\004" +
+      "POST\022\025/mlflow/traces/search\032\004\010\003\020\000\020\003*\020Sea" +
+      "rch Traces V3\022i\n\014startTraceV3\022\024.mlflow.S" +
+      "tartTraceV3\032\035.mlflow.StartTraceV3.Respon" +
+      "se\"$\362\206\031 \n\034\n\004POST\022\016/mlflow/traces\032\004\010\003\020\000\020\003" +
+      "\022\222\001\n\017linkTracesToRun\022\027.mlflow.LinkTraces" +
+      "ToRun\032 .mlflow.LinkTracesToRun.Response\"" +
+      "D\362\206\031@\n(\n\004POST\022\032/mlflow/traces/link-to-ru" +
+      "n\032\004\010\002\020\000\020\003*\022Link Traces to Run\022\237\001\n\022linkPr" +
+      "omptsToTrace\022\032.mlflow.LinkPromptsToTrace" +
+      "\032#.mlflow.LinkPromptsToTrace.Response\"H\362" +
+      "\206\031D\n)\n\004POST\022\033/mlflow/traces/link-prompts" +
+      "\032\004\010\002\020\000\020\003*\025Link Prompts to Trace\022\242\001\n\031sear" +
+      "chUnifiedTraceHandler\022\033.mlflow.SearchUni" +
+      "fiedTraces\032$.mlflow.SearchUnifiedTraces." +
+      "Response\"B\362\206\031>\n#\n\003GET\022\026/mlflow/unified-t" +
+      "races\032\004\010\002\020\000\020\003*\025Search Unified Traces\022\257\001\n" +
+      "\025getOnlineTraceDetails\022\035.mlflow.GetOnlin" +
+      "eTraceDetails\032&.mlflow.GetOnlineTraceDet" +
+      "ails.Response\"O\362\206\031K\n-\n\003GET\022 /mlflow/get-" +
+      "online-trace-details\032\004\010\002\020\000\020\003*\030Get Online" +
+      " Trace Details\022\206\001\n\014deleteTraces\022\024.mlflow" +
+      ".DeleteTraces\032\035.mlflow.DeleteTraces.Resp" +
+      "onse\"A\362\206\031=\n*\n\004POST\022\034/mlflow/traces/delet" +
+      "e-traces\032\004\010\002\020\000\020\003*\rDelete Traces\022\217\001\n\016dele" +
+      "teTracesV3\022\026.mlflow.DeleteTracesV3\032\037.mlf" +
+      "low.DeleteTracesV3.Response\"D\362\206\031@\n*\n\004POS" +
+      "T\022\034/mlflow/traces/delete-traces\032\004\010\003\020\000\020\003*" +
+      "\020Delete Traces V3\022\343\001\n\037calculateTraceFilt" +
+      "erCorrelation\022\'.mlflow.CalculateTraceFil" +
+      "terCorrelation\0320.mlflow.CalculateTraceFi" +
+      "lterCorrelation.Response\"e\362\206\031a\n9\n\004POST\022+" +
+      "/mlflow/traces/calculate-filter-correlat" +
+      "ion\032\004\010\003\020\000\020\003*\"Calculate Trace Filter Corr" +
+      "elation\022\225\001\n\021queryTraceMetrics\022\031.mlflow.Q" +
+      "ueryTraceMetrics\032\".mlflow.QueryTraceMetr" +
+      "ics.Response\"A\362\206\031=\n$\n\004POST\022\026/mlflow/trac" +
+      "es/metrics\032\004\010\003\020\000\020\003*\023Query Trace Metrics\022" +
+      "\203\001\n\016listWorkspaces\022\026.mlflow.ListWorkspac" +
+      "es\032\037.mlflow.ListWorkspaces.Response\"8\362\206\031" +
+      "4\n\037\n\003GET\022\022/mlflow/workspaces\032\004\010\003\020\000\020\003*\017Li" +
+      "st Workspaces\022\210\001\n\017createWorkspace\022\027.mlfl" +
+      "ow.CreateWorkspace\032 .mlflow.CreateWorksp" +
+      "ace.Response\":\362\206\0316\n \n\004POST\022\022/mlflow/work" +
+      "spaces\032\004\010\003\020\000\020\003*\020Create Workspace\022\214\001\n\014get" +
+      "Workspace\022\024.mlflow.GetWorkspace\032\035.mlflow" +
+      ".GetWorkspace.Response\"G\362\206\031C\n0\n\003GET\022#/ml" +
+      "flow/workspaces/{workspace_name}\032\004\010\003\020\000\020\003" +
+      "*\rGet Workspace\022\232\001\n\017updateWorkspace\022\027.ml" +
+      "flow.UpdateWorkspace\032 .mlflow.UpdateWork" +
+      "space.Response\"L\362\206\031H\n2\n\005PATCH\022#/mlflow/w" +
+      "orkspaces/{workspace_name}\032\004\010\003\020\000\020\003*\020Upda" +
+      "te Workspace\022\233\001\n\017deleteWorkspace\022\027.mlflo" +
+      "w.DeleteWorkspace\032 .mlflow.DeleteWorkspa" +
+      "ce.Response\"M\362\206\031I\n3\n\006DELETE\022#/mlflow/wor" +
+      "kspaces/{workspace_name}\032\004\010\003\020\000\020\003*\020Delete" +
+      " Workspace\022\224\001\n\021createLoggedModel\022\031.mlflo" +
+      "w.CreateLoggedModel\032\".mlflow.CreateLogge" +
+      "dModel.Response\"@\362\206\031<\n#\n\004POST\022\025/mlflow/l" +
+      "ogged-models\032\004\010\002\020\000\020\003*\023Create Logged Mode" +
+      "l\022\250\001\n\023finalizeLoggedModel\022\033.mlflow.Final" +
+      "izeLoggedModel\032$.mlflow.FinalizeLoggedMo" +
+      "del.Response\"N\362\206\031J\n/\n\005PATCH\022 /mlflow/log" +
+      "ged-models/{model_id}\032\004\010\002\020\000\020\003*\025Finalize " +
+      "Logged Model\022\222\001\n\016getLoggedModel\022\026.mlflow" +
+      ".GetLoggedModel\032\037.mlflow.GetLoggedModel." +
+      "Response\"G\362\206\031C\n-\n\003GET\022 /mlflow/logged-mo" +
+      "dels/{model_id}\032\004\010\002\020\000\020\003*\020Get Logged Mode" +
+      "l\022\243\001\n\021deleteLoggedModel\022\031.mlflow.DeleteL" +
+      "oggedModel\032\".mlflow.DeleteLoggedModel.Re" +
+      "sponse\"O\362\206\031K\n0\n\006DELETE\022 /mlflow/logged-m" +
+      "odels/{model_id}\032\004\010\002\020\000\020\003*\025Delete a Logge" +
+      "d Model\022\236\001\n\022searchLoggedModels\022\032.mlflow." +
+      "SearchLoggedModels\032#.mlflow.SearchLogged" +
+      "Models.Response\"G\362\206\031C\n*\n\004POST\022\034/mlflow/l" +
+      "ogged-models/search\032\004\010\002\020\000\020\003*\023Search Logg" +
+      "edModels\022\251\001\n\022setLoggedModelTags\022\032.mlflow" +
+      ".SetLoggedModelTags\032#.mlflow.SetLoggedMo" +
+      "delTags.Response\"R\362\206\031N\n4\n\005PATCH\022%/mlflow" +
+      "/logged-models/{model_id}/tags\032\004\010\002\020\000\020\003*\024" +
+      "Set Logged Model Tag\022\275\001\n\024deleteLoggedMod" +
+      "elTag\022\034.mlflow.DeleteLoggedModelTag\032%.ml" +
+      "flow.DeleteLoggedModelTag.Response\"`\362\206\031\\" +
+      "\n?\n\006DELETE\022//mlflow/logged-models/{model" +
+      "_id}/tags/{tag_key}\032\004\010\002\020\000\020\003*\027Delete Logg" +
+      "ed Model Tag\022\326\001\n\030listLoggedModelArtifact" +
+      "s\022 .mlflow.ListLoggedModelArtifacts\032).ml" +
+      "flow.ListLoggedModelArtifacts.Response\"m" +
+      "\362\206\031i\nC\n\003GET\0226/mlflow/logged-models/{mode" +
+      "l_id}/artifacts/directories\032\004\010\002\020\000\020\003* Lis" +
+      "t Artifacts for Logged Models\022\301\001\n\024LogLog" +
+      "gedModelParams\022#.mlflow.LogLoggedModelPa" +
+      "ramsRequest\032,.mlflow.LogLoggedModelParam" +
+      "sRequest.Response\"V\362\206\031R\n5\n\004POST\022\'/mlflow" +
+      "/logged-models/{model_id}/params\032\004\010\002\020\000\020\003" +
+      "*\027Log Logged Model Params\022\260\001\n\rGetAssessm" +
+      "ent\022\034.mlflow.GetAssessmentRequest\032%.mlfl" +
+      "ow.GetAssessmentRequest.Response\"Z\362\206\031V\nB" +
+      "\n\003GET\0225/mlflow/traces/{trace_id}/assessm" +
+      "ents/{assessment_id}\032\004\010\003\020\000\020\003*\016Get Assess" +
+      "ment\022\337\001\n\020createAssessment\022\030.mlflow.Creat" +
+      "eAssessment\032!.mlflow.CreateAssessment.Re" +
+      "sponse\"\215\001\362\206\031\210\001\n>\n\004POST\0220/mlflow/traces/{" +
+      "assessment.trace_id}/assessments\032\004\010\003\020\000\020\003" +
+      "\030\350\007\030\356\007\030\014\030\001*:Create an assessment of a tr" +
+      "ace or a span within the trace\022\320\001\n\020updat" +
+      "eAssessment\022\030.mlflow.UpdateAssessment\032!." +
+      "mlflow.UpdateAssessment.Response\"\177\362\206\031{\nD" +
+      "\n\005PATCH\0225/mlflow/traces/{trace_id}/asses" +
+      "sments/{assessment_id}\032\004\010\003\020\000\020\003\030\350\007\030\356\007\030\001*)" +
+      "Update an existing assessment on a trace" +
+      ".\022\261\001\n\020deleteAssessment\022\030.mlflow.DeleteAs" +
+      "sessment\032!.mlflow.DeleteAssessment.Respo" +
+      "nse\"`\362\206\031\\\nE\n\006DELETE\0225/mlflow/traces/{tra" +
+      "ce_id}/assessments/{assessment_id}\032\004\010\003\020\000" +
+      "\020\003*\021Delete Assessment\022\205\001\n\013createIssue\022\032." +
+      "mlflow.issues.CreateIssue\032#.mlflow.issue" +
+      "s.CreateIssue.Response\"5\362\206\0311\n\034\n\004POST\022\016/m" +
+      "lflow/issues\032\004\010\003\020\000\020\003*\017Create an issue\022\232\001" +
+      "\n\013updateIssue\022\032.mlflow.issues.UpdateIssu" +
+      "e\032#.mlflow.issues.UpdateIssue.Response\"J" +
+      "\362\206\031F\n(\n\005PATCH\022\031/mlflow/issues/{issue_id}" +
+      "\032\004\010\003\020\000\020\003*\030Update an existing issue\022\211\001\n\010g" +
+      "etIssue\022\027.mlflow.issues.GetIssue\032 .mlflo" +
+      "w.issues.GetIssue.Response\"B\362\206\031>\n&\n\003GET\022" +
+      "\031/mlflow/issues/{issue_id}\032\004\010\003\020\000\020\003*\022Get " +
+      "an issue by ID\022\215\001\n\014searchIssues\022\033.mlflow" +
+      ".issues.SearchIssues\032$.mlflow.issues.Sea" +
+      "rchIssues.Response\":\362\206\0316\n#\n\004POST\022\025/mlflo" +
+      "w/issues/search\032\004\010\003\020\000\020\003*\rSearch issues\022\303" +
+      "\001\n\021createLabelSchema\022\'.mlflow.label_sche" +
+      "mas.CreateLabelSchema\0320.mlflow.label_sch" +
+      "emas.CreateLabelSchema.Response\"S\362\206\031O\n*\n" +
+      "\004POST\022\034/mlflow/label-schemas/create\032\004\010\003\020" +
+      "\000\020\003\030\350\007\030\272\027\030\014\030\001*\025Create a label schema\022\267\001\n" +
+      "\016getLabelSchema\022$.mlflow.label_schemas.G" +
+      "etLabelSchema\032-.mlflow.label_schemas.Get" +
+      "LabelSchema.Response\"P\362\206\031L\n&\n\003GET\022\031/mlfl" +
+      "ow/label-schemas/get\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\030Ge" +
+      "t a label schema by ID\022\323\001\n\024getLabelSchem" +
+      "aByName\022*.mlflow.label_schemas.GetLabelS" +
+      "chemaByName\0323.mlflow.label_schemas.GetLa" +
+      "belSchemaByName.Response\"Z\362\206\031V\n.\n\003GET\022!/" +
+      "mlflow/label-schemas/get-by-name\032\004\010\003\020\000\020\003" +
+      "\030\350\007\030\272\027\030\001*\032Get a label schema by name\022\270\001\n" +
+      "\020listLabelSchemas\022&.mlflow.label_schemas" +
+      ".ListLabelSchemas\032/.mlflow.label_schemas" +
+      ".ListLabelSchemas.Response\"K\362\206\031G\n\'\n\003GET\022" +
+      "\032/mlflow/label-schemas/list\032\004\010\003\020\000\020\003\030\350\007\030\272" +
+      "\027\030\001*\022List label schemas\022\304\001\n\021updateLabelS" +
+      "chema\022\'.mlflow.label_schemas.UpdateLabel" +
+      "Schema\0320.mlflow.label_schemas.UpdateLabe" +
+      "lSchema.Response\"T\362\206\031P\n+\n\005PATCH\022\034/mlflow" +
+      "/label-schemas/update\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\014\030\001*" +
+      "\025Update a label schema\022\300\001\n\021deleteLabelSc" +
+      "hema\022\'.mlflow.label_schemas.DeleteLabelS" +
+      "chema\0320.mlflow.label_schemas.DeleteLabel" +
+      "Schema.Response\"P\362\206\031L\n,\n\006DELETE\022\034/mlflow" +
+      "/label-schemas/delete\032\004\010\003\020\000\020\003\030\350\007\030\001*\025Dele" +
+      "te a label schema\022\232\001\n\rcreateDataset\022\025.ml" +
+      "flow.CreateDataset\032\036.mlflow.CreateDatase" +
+      "t.Response\"R\362\206\031N\n%\n\004POST\022\027/mlflow/datase" +
+      "ts/create\032\004\010\003\020\000\020\003\030\350\007\030\356\007\030\014\030\001*\031Create Eval" +
+      "uation Dataset\022\221\001\n\ngetDataset\022\022.mlflow.G" +
+      "etDataset\032\033.mlflow.GetDataset.Response\"R" +
+      "\362\206\031N\n*\n\003GET\022\035/mlflow/datasets/{dataset_i" +
+      "d}\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\026Get Evaluation Datas" +
+      "et\022\240\001\n\rdeleteDataset\022\025.mlflow.DeleteData" +
+      "set\032\036.mlflow.DeleteDataset.Response\"X\362\206\031" +
+      "T\n-\n\006DELETE\022\035/mlflow/datasets/{dataset_i" +
+      "d}\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\031Delete Evaluation Da" +
+      "taset\022\335\001\n\030searchEvaluationDatasets\022 .mlf" +
+      "low.SearchEvaluationDatasets\032).mlflow.Se" +
+      "archEvaluationDatasets.Response\"t\362\206\031p\n%\n" +
+      "\004POST\022\027/mlflow/datasets/search\032\004\010\003\020\000\n$\n\003" +
+      "GET\022\027/mlflow/datasets/search\032\004\010\003\020\000\020\003\030\350\007\030" +
+      "\001*\032Search Evaluation Datasets\022\251\001\n\016setDat" +
+      "asetTags\022\026.mlflow.SetDatasetTags\032\037.mlflo" +
+      "w.SetDatasetTags.Response\"^\362\206\031Z\n1\n\005PATCH" +
+      "\022\"/mlflow/datasets/{dataset_id}/tags\032\004\010\003" +
+      "\020\000\020\003\030\350\007\030\272\027\030\001*\033Set Evaluation Dataset Tag" +
+      "s\022\270\001\n\020deleteDatasetTag\022\030.mlflow.DeleteDa" +
+      "tasetTag\032!.mlflow.DeleteDatasetTag.Respo" +
+      "nse\"g\362\206\031c\n8\n\006DELETE\022(/mlflow/datasets/{d" +
+      "ataset_id}/tags/{key}\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\035D" +
+      "elete Evaluation Dataset Tag\022\303\001\n\024upsertD" +
+      "atasetRecords\022\034.mlflow.UpsertDatasetReco" +
+      "rds\032%.mlflow.UpsertDatasetRecords.Respon" +
+      "se\"f\362\206\031b\n3\n\004POST\022%/mlflow/datasets/{data" +
+      "set_id}/records\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*!Upsert " +
+      "Evaluation Dataset Records\022\326\001\n\027getDatase" +
+      "tExperimentIds\022\037.mlflow.GetDatasetExperi" +
+      "mentIds\032(.mlflow.GetDatasetExperimentIds" +
+      ".Response\"p\362\206\031l\n9\n\003GET\022,/mlflow/datasets" +
+      "/{dataset_id}/experiment-ids\032\004\010\003\020\000\020\003\030\350\007\030" +
+      "\272\027\030\001*%Get Evaluation Dataset Experiment " +
+      "IDs\022\212\001\n\016registerScorer\022\026.mlflow.Register" +
+      "Scorer\032\037.mlflow.RegisterScorer.Response\"" +
+      "?\362\206\031;\n&\n\004POST\022\030/mlflow/scorers/register\032" +
+      "\004\010\003\020\000\020\001*\017Register Scorer\022y\n\013listScorers\022" +
+      "\023.mlflow.ListScorers\032\034.mlflow.ListScorer" +
+      "s.Response\"7\362\206\0313\n!\n\003GET\022\024/mlflow/scorers" +
+      "/list\032\004\010\003\020\000\020\001*\014List Scorers\022\232\001\n\022listScor" +
+      "erVersions\022\032.mlflow.ListScorerVersions\032#" +
+      ".mlflow.ListScorerVersions.Response\"C\362\206\031" +
+      "?\n%\n\003GET\022\030/mlflow/scorers/versions\032\004\010\003\020\000" +
+      "\020\001*\024List Scorer Versions\022p\n\tgetScorer\022\021." +
+      "mlflow.GetScorer\032\032.mlflow.GetScorer.Resp" +
+      "onse\"4\362\206\0310\n \n\003GET\022\023/mlflow/scorers/get\032\004" +
+      "\010\003\020\000\020\001*\nGet Scorer\022\202\001\n\014deleteScorer\022\024.ml" +
+      "flow.DeleteScorer\032\035.mlflow.DeleteScorer." +
+      "Response\"=\362\206\0319\n&\n\006DELETE\022\026/mlflow/scorer" +
+      "s/delete\032\004\010\003\020\000\020\001*\rDelete Scorer\022\266\001\n\021getD" +
+      "atasetRecords\022\031.mlflow.GetDatasetRecords" +
+      "\032\".mlflow.GetDatasetRecords.Response\"b\362\206" +
+      "\031^\n2\n\003GET\022%/mlflow/datasets/{dataset_id}" +
+      "/records\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\036Get Evaluation" +
+      " Dataset Records\022\305\001\n\024deleteDatasetRecord" +
+      "s\022\034.mlflow.DeleteDatasetRecords\032%.mlflow" +
+      ".DeleteDatasetRecords.Response\"h\362\206\031d\n5\n\006" +
+      "DELETE\022%/mlflow/datasets/{dataset_id}/re" +
+      "cords\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*!Delete Evaluation" +
+      " Dataset Records\022\315\001\n\027addDatasetToExperim" +
+      "ents\022\037.mlflow.AddDatasetToExperiments\032(." +
+      "mlflow.AddDatasetToExperiments.Response\"" +
+      "g\362\206\031c\n;\n\004POST\022-/mlflow/datasets/{dataset" +
+      "_id}/add-experiments\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\032Ad" +
+      "d Dataset to Experiments\022\344\001\n\034removeDatas" +
+      "etFromExperiments\022$.mlflow.RemoveDataset" +
+      "FromExperiments\032-.mlflow.RemoveDatasetFr" +
+      "omExperiments.Response\"o\362\206\031k\n>\n\004POST\0220/m" +
+      "lflow/datasets/{dataset_id}/remove-exper" +
+      "iments\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\037Remove Dataset f" +
+      "rom Experiments\022\245\001\n\023createGatewaySecret\022" +
+      "\033.mlflow.CreateGatewaySecret\032$.mlflow.Cr" +
+      "eateGatewaySecret.Response\"K\362\206\031G\n,\n\004POST" +
+      "\022\036/mlflow/gateway/secrets/create\032\004\010\003\020\000\020\001" +
+      "*\025Create Gateway Secret\022\246\001\n\024getGatewaySe" +
+      "cretInfo\022\034.mlflow.GetGatewaySecretInfo\032%" +
+      ".mlflow.GetGatewaySecretInfo.Response\"I\362" +
+      "\206\031E\n(\n\003GET\022\033/mlflow/gateway/secrets/get\032" +
+      "\004\010\003\020\000\020\001*\027Get Gateway Secret Info\022\245\001\n\023upd" +
+      "ateGatewaySecret\022\033.mlflow.UpdateGatewayS" +
+      "ecret\032$.mlflow.UpdateGatewaySecret.Respo" +
+      "nse\"K\362\206\031G\n,\n\004POST\022\036/mlflow/gateway/secre" +
+      "ts/update\032\004\010\003\020\000\020\001*\025Update Gateway Secret" +
+      "\022\247\001\n\023deleteGatewaySecret\022\033.mlflow.Delete" +
+      "GatewaySecret\032$.mlflow.DeleteGatewaySecr" +
+      "et.Response\"M\362\206\031I\n.\n\006DELETE\022\036/mlflow/gat" +
+      "eway/secrets/delete\032\004\010\003\020\000\020\001*\025Delete Gate" +
+      "way Secret\022\252\001\n\026listGatewaySecretInfos\022\036.",
+      "mlflow.ListGatewaySecretInfos\032\'.mlflow.L" +
+      "istGatewaySecretInfos.Response\"G\362\206\031C\n)\n\003" +
+      "GET\022\034/mlflow/gateway/secrets/list\032\004\010\003\020\000\020" +
+      "\001*\024List Gateway Secrets\022\257\001\n\025createGatewa" +
+      "yEndpoint\022\035.mlflow.CreateGatewayEndpoint" +
+      "\032&.mlflow.CreateGatewayEndpoint.Response" +
+      "\"O\362\206\031K\n.\n\004POST\022 /mlflow/gateway/endpoint" +
+      "s/create\032\004\010\003\020\000\020\001*\027Create Gateway Endpoin" +
+      "t\022\237\001\n\022getGatewayEndpoint\022\032.mlflow.GetGat" +
+      "ewayEndpoint\032#.mlflow.GetGatewayEndpoint" +
+      ".Response\"H\362\206\031D\n*\n\003GET\022\035/mlflow/gateway/" +
+      "endpoints/get\032\004\010\003\020\000\020\001*\024Get Gateway Endpo" +
+      "int\022\257\001\n\025updateGatewayEndpoint\022\035.mlflow.U" +
+      "pdateGatewayEndpoint\032&.mlflow.UpdateGate" +
+      "wayEndpoint.Response\"O\362\206\031K\n.\n\004POST\022 /mlf" +
+      "low/gateway/endpoints/update\032\004\010\003\020\000\020\001*\027Up" +
+      "date Gateway Endpoint\022\261\001\n\025deleteGatewayE" +
+      "ndpoint\022\035.mlflow.DeleteGatewayEndpoint\032&" +
+      ".mlflow.DeleteGatewayEndpoint.Response\"Q" +
+      "\362\206\031M\n0\n\006DELETE\022 /mlflow/gateway/endpoint" +
+      "s/delete\032\004\010\003\020\000\020\001*\027Delete Gateway Endpoin" +
+      "t\022\250\001\n\024listGatewayEndpoints\022\034.mlflow.List" +
+      "GatewayEndpoints\032%.mlflow.ListGatewayEnd" +
+      "points.Response\"K\362\206\031G\n+\n\003GET\022\036/mlflow/ga" +
+      "teway/endpoints/list\032\004\010\003\020\000\020\001*\026List Gatew" +
+      "ay Endpoints\022\324\001\n\034createGatewayModelDefin" +
+      "ition\022$.mlflow.CreateGatewayModelDefinit" +
+      "ion\032-.mlflow.CreateGatewayModelDefinitio" +
+      "n.Response\"_\362\206\031[\n6\n\004POST\022(/mlflow/gatewa" +
+      "y/model-definitions/create\032\004\010\003\020\000\020\001*\037Crea" +
+      "te Gateway Model Definition\022\304\001\n\031getGatew" +
+      "ayModelDefinition\022!.mlflow.GetGatewayMod" +
+      "elDefinition\032*.mlflow.GetGatewayModelDef" +
+      "inition.Response\"X\362\206\031T\n2\n\003GET\022%/mlflow/g" +
+      "ateway/model-definitions/get\032\004\010\003\020\000\020\001*\034Ge" +
+      "t Gateway Model Definition\022\315\001\n\033listGatew" +
+      "ayModelDefinitions\022#.mlflow.ListGatewayM" +
+      "odelDefinitions\032,.mlflow.ListGatewayMode" +
+      "lDefinitions.Response\"[\362\206\031W\n3\n\003GET\022&/mlf" +
+      "low/gateway/model-definitions/list\032\004\010\003\020\000" +
+      "\020\001*\036List Gateway Model Definitions\022\324\001\n\034u" +
+      "pdateGatewayModelDefinition\022$.mlflow.Upd" +
+      "ateGatewayModelDefinition\032-.mlflow.Updat" +
+      "eGatewayModelDefinition.Response\"_\362\206\031[\n6" +
+      "\n\004POST\022(/mlflow/gateway/model-definition" +
+      "s/update\032\004\010\003\020\000\020\001*\037Update Gateway Model D" +
+      "efinition\022\326\001\n\034deleteGatewayModelDefiniti" +
+      "on\022$.mlflow.DeleteGatewayModelDefinition" +
+      "\032-.mlflow.DeleteGatewayModelDefinition.R" +
+      "esponse\"a\362\206\031]\n8\n\006DELETE\022(/mlflow/gateway" +
+      "/model-definitions/delete\032\004\010\003\020\000\020\001*\037Delet" +
+      "e Gateway Model Definition\022\305\001\n\025attachMod" +
+      "elToEndpoint\022$.mlflow.AttachModelToGatew" +
+      "ayEndpoint\032-.mlflow.AttachModelToGateway" +
+      "Endpoint.Response\"W\362\206\031S\n5\n\004POST\022\'/mlflow" +
+      "/gateway/endpoints/models/attach\032\004\010\003\020\000\020\001" +
+      "*\030Attach Model to Endpoint\022\315\001\n\027detachMod" +
+      "elFromEndpoint\022&.mlflow.DetachModelFromG" +
+      "atewayEndpoint\032/.mlflow.DetachModelFromG" +
+      "atewayEndpoint.Response\"Y\362\206\031U\n5\n\004POST\022\'/" +
+      "mlflow/gateway/endpoints/models/detach\032\004" +
+      "\010\003\020\000\020\001*\032Detach Model from Endpoint\022\306\001\n\025c" +
+      "reateEndpointBinding\022$.mlflow.CreateGate" +
+      "wayEndpointBinding\032-.mlflow.CreateGatewa" +
+      "yEndpointBinding.Response\"X\362\206\031T\n7\n\004POST\022" +
+      ")/mlflow/gateway/endpoints/bindings/crea" +
+      "te\032\004\010\003\020\000\020\001*\027Create Endpoint Binding\022\310\001\n\025" +
+      "deleteEndpointBinding\022$.mlflow.DeleteGat" +
+      "ewayEndpointBinding\032-.mlflow.DeleteGatew" +
+      "ayEndpointBinding.Response\"Z\362\206\031V\n9\n\006DELE" +
+      "TE\022)/mlflow/gateway/endpoints/bindings/d" +
+      "elete\032\004\010\003\020\000\020\001*\027Delete Endpoint Binding\022\277" +
+      "\001\n\024listEndpointBindings\022#.mlflow.ListGat" +
+      "ewayEndpointBindings\032,.mlflow.ListGatewa" +
+      "yEndpointBindings.Response\"T\362\206\031P\n4\n\003GET\022" +
+      "\'/mlflow/gateway/endpoints/bindings/list" +
+      "\032\004\010\003\020\000\020\001*\026List Endpoint Bindings\022\261\001\n\025set" +
+      "GatewayEndpointTag\022\035.mlflow.SetGatewayEn" +
+      "dpointTag\032&.mlflow.SetGatewayEndpointTag" +
+      ".Response\"Q\362\206\031M\n/\n\004POST\022!/mlflow/gateway" +
+      "/endpoints/set-tag\032\004\010\003\020\000\020\001*\030Gateway Set " +
+      "Endpoint Tag\022\302\001\n\030deleteGatewayEndpointTa" +
+      "g\022 .mlflow.DeleteGatewayEndpointTag\032).ml" +
+      "flow.DeleteGatewayEndpointTag.Response\"Y" +
+      "\362\206\031U\n4\n\006DELETE\022$/mlflow/gateway/endpoint" +
+      "s/delete-tag\032\004\010\003\020\000\020\001*\033Gateway Delete End" +
+      "point Tag\022\257\001\n\022createBudgetPolicy\022!.mlflo" +
+      "w.CreateGatewayBudgetPolicy\032*.mlflow.Cre" +
+      "ateGatewayBudgetPolicy.Response\"J\362\206\031F\n,\n" +
+      "\004POST\022\036/mlflow/gateway/budgets/create\032\004\010" +
+      "\003\020\000\020\001*\024Create Budget Policy\022\237\001\n\017getBudge" +
+      "tPolicy\022\036.mlflow.GetGatewayBudgetPolicy\032" +
+      "\'.mlflow.GetGatewayBudgetPolicy.Response" +
+      "\"C\362\206\031?\n(\n\003GET\022\033/mlflow/gateway/budgets/g" +
+      "et\032\004\010\003\020\000\020\001*\021Get Budget Policy\022\257\001\n\022update" +
+      "BudgetPolicy\022!.mlflow.UpdateGatewayBudge" +
+      "tPolicy\032*.mlflow.UpdateGatewayBudgetPoli" +
+      "cy.Response\"J\362\206\031F\n,\n\004POST\022\036/mlflow/gatew" +
+      "ay/budgets/update\032\004\010\003\020\000\020\001*\024Update Budget" +
+      " Policy\022\261\001\n\022deleteBudgetPolicy\022!.mlflow." +
+      "DeleteGatewayBudgetPolicy\032*.mlflow.Delet" +
+      "eGatewayBudgetPolicy.Response\"L\362\206\031H\n.\n\006D" +
+      "ELETE\022\036/mlflow/gateway/budgets/delete\032\004\010" +
+      "\003\020\000\020\001*\024Delete Budget Policy\022\254\001\n\022listBudg" +
+      "etPolicies\022!.mlflow.ListGatewayBudgetPol" +
+      "icies\032*.mlflow.ListGatewayBudgetPolicies" +
+      ".Response\"G\362\206\031C\n)\n\003GET\022\034/mlflow/gateway/" +
+      "budgets/list\032\004\010\003\020\000\020\001*\024List Budget Polici" +
+      "es\022\253\001\n\021listBudgetWindows\022 .mlflow.ListGa" +
+      "tewayBudgetWindows\032).mlflow.ListGatewayB" +
+      "udgetWindows.Response\"I\362\206\031E\n,\n\003GET\022\037/mlf" +
+      "low/gateway/budgets/windows\032\004\010\003\020\000\020\001*\023Lis" +
+      "t Budget Windows\022\254\001\n\026createGatewayGuardr" +
+      "ail\022\036.mlflow.CreateGatewayGuardrail\032\'.ml" +
+      "flow.CreateGatewayGuardrail.Response\"I\362\206" +
+      "\031E\n/\n\004POST\022!/mlflow/gateway/guardrails/c" +
+      "reate\032\004\010\003\020\000\020\001*\020Create Guardrail\022\234\001\n\023getG" +
+      "atewayGuardrail\022\033.mlflow.GetGatewayGuard" +
+      "rail\032$.mlflow.GetGatewayGuardrail.Respon" +
+      "se\"B\362\206\031>\n+\n\003GET\022\036/mlflow/gateway/guardra" +
+      "ils/get\032\004\010\003\020\000\020\001*\rGet Guardrail\022\256\001\n\026delet" +
+      "eGatewayGuardrail\022\036.mlflow.DeleteGateway" +
+      "Guardrail\032\'.mlflow.DeleteGatewayGuardrai" +
+      "l.Response\"K\362\206\031G\n1\n\006DELETE\022!/mlflow/gate" +
+      "way/guardrails/delete\032\004\010\003\020\000\020\001*\020Delete Gu" +
+      "ardrail\022\245\001\n\025listGatewayGuardrails\022\035.mlfl" +
+      "ow.ListGatewayGuardrails\032&.mlflow.ListGa" +
+      "tewayGuardrails.Response\"E\362\206\031A\n,\n\003GET\022\037/" +
+      "mlflow/gateway/guardrails/list\032\004\010\003\020\000\020\001*\017" +
+      "List Guardrails\022\276\001\n\026addGuardrailToEndpoi" +
+      "nt\022\036.mlflow.AddGuardrailToEndpoint\032\'.mlf" +
+      "low.AddGuardrailToEndpoint.Response\"[\362\206\031" +
+      "W\n8\n\004POST\022*/mlflow/gateway/guardrails/ad" +
+      "d-to-endpoint\032\004\010\003\020\000\020\001*\031Add Guardrail to " +
+      "Endpoint\022\331\001\n\033removeGuardrailFromEndpoint" +
+      "\022#.mlflow.RemoveGuardrailFromEndpoint\032,." +
+      "mlflow.RemoveGuardrailFromEndpoint.Respo" +
+      "nse\"g\362\206\031c\n?\n\006DELETE\022//mlflow/gateway/gua" +
+      "rdrails/remove-from-endpoint\032\004\010\003\020\000\020\001*\036Re" +
+      "move Guardrail from Endpoint\022\327\001\n\034listEnd" +
+      "pointGuardrailConfigs\022$.mlflow.ListEndpo" +
+      "intGuardrailConfigs\032-.mlflow.ListEndpoin" +
+      "tGuardrailConfigs.Response\"b\362\206\031^\n9\n\003GET\022" +
+      ",/mlflow/gateway/guardrails/list-for-end" +
+      "point\032\004\010\003\020\000\020\001*\037List Endpoint Guardrail C" +
+      "onfigs\022\331\001\n\035updateEndpointGuardrailConfig" +
+      "\022%.mlflow.UpdateEndpointGuardrailConfig\032" +
+      "..mlflow.UpdateEndpointGuardrailConfig.R" +
+      "esponse\"a\362\206\031]\n7\n\005PATCH\022(/mlflow/gateway/" +
+      "guardrails/update-config\032\004\010\003\020\000\020\001* Update" +
+      " Endpoint Guardrail Config\022\320\001\n\033createPro" +
+      "mptOptimizationJob\022#.mlflow.CreatePrompt" +
+      "OptimizationJob\032,.mlflow.CreatePromptOpt" +
+      "imizationJob.Response\"^\362\206\031Z\n.\n\004POST\022 /ml" +
+      "flow/prompt-optimization/jobs\032\004\010\003\020\000\020\001\030\350\007" +
+      "\030\272\027\030\001*\036Create Prompt Optimization Job\022\314\001" +
+      "\n\030getPromptOptimizationJob\022 .mlflow.GetP" +
+      "romptOptimizationJob\032).mlflow.GetPromptO" +
+      "ptimizationJob.Response\"c\362\206\031_\n6\n\003GET\022)/m" +
+      "lflow/prompt-optimization/jobs/{job_id}\032" +
+      "\004\010\003\020\000\020\001\030\350\007\030\272\027\030\001*\033Get Prompt Optimization" +
+      " Job\022\220\002\n\034searchPromptOptimizationJobs\022$." +
+      "mlflow.SearchPromptOptimizationJobs\032-.ml" +
+      "flow.SearchPromptOptimizationJobs.Respon" +
+      "se\"\232\001\362\206\031\225\001\n5\n\004POST\022\'/mlflow/prompt-optim" +
+      "ization/jobs/search\032\004\010\003\020\000\n4\n\003GET\022\'/mlflo" +
+      "w/prompt-optimization/jobs/search\032\004\010\003\020\000\020" +
+      "\001\030\350\007\030\001*\037Search Prompt Optimization Jobs\022" +
+      "\343\001\n\033cancelPromptOptimizationJob\022#.mlflow" +
+      ".CancelPromptOptimizationJob\032,.mlflow.Ca" +
+      "ncelPromptOptimizationJob.Response\"q\362\206\031m" +
+      "\n>\n\004POST\0220/mlflow/prompt-optimization/jo" +
+      "bs/{job_id}/cancel\032\004\010\003\020\000\020\001\030\350\007\030\272\027\030\353\007\030\001*\036C" +
+      "ancel Prompt Optimization Job\022\333\001\n\033delete" +
+      "PromptOptimizationJob\022#.mlflow.DeletePro" +
+      "mptOptimizationJob\032,.mlflow.DeletePrompt" +
+      "OptimizationJob.Response\"i\362\206\031e\n9\n\006DELETE" +
+      "\022)/mlflow/prompt-optimization/jobs/{job_" +
+      "id}\032\004\010\003\020\000\020\001\030\350\007\030\272\027\030\001*\036Delete Prompt Optim" +
+      "ization Job\022\304\001\n\021createReviewQueue\022\'.mlfl" +
+      "ow.review_queues.CreateReviewQueue\0320.mlf" +
+      "low.review_queues.CreateReviewQueue.Resp" +
+      "onse\"T\362\206\031P\n*\n\004POST\022\034/mlflow/review-queue" +
+      "s/create\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\271\027\030\001*\025Create a re" +
+      "view queue\022\345\001\n\024getOrCreateUserQueue\022*.ml" +
+      "flow.review_queues.GetOrCreateUserQueue\032" +
+      "3.mlflow.review_queues.GetOrCreateUserQu" +
+      "eue.Response\"l\362\206\031h\n6\n\004POST\022(/mlflow/revi" +
+      "ew-queues/get-or-create-user\032\004\010\003\020\000\020\003\030\350\007\030" +
+      "\272\027\030\271\027\030\001*!Get or create a user review que" +
+      "ue\022\261\001\n\016getReviewQueue\022$.mlflow.review_qu" +
+      "eues.GetReviewQueue\032-.mlflow.review_queu" +
+      "es.GetReviewQueue.Response\"J\362\206\031F\n&\n\003GET\022" +
+      "\031/mlflow/review-queues/get\032\004\010\003\020\000\020\003\030\350\007\030\272\027" +
+      "\030\001*\022Get a review queue\022\323\001\n\024getReviewQueu" +
+      "eByName\022*.mlflow.review_queues.GetReview" +
+      "QueueByName\0323.mlflow.review_queues.GetRe" +
+      "viewQueueByName.Response\"Z\362\206\031V\n.\n\003GET\022!/" +
+      "mlflow/review-queues/get-by-name\032\004\010\003\020\000\020\003" +
+      "\030\350\007\030\272\027\030\001*\032Get a review queue by name\022\270\001\n" +
+      "\020listReviewQueues\022&.mlflow.review_queues" +
+      ".ListReviewQueues\032/.mlflow.review_queues" +
+      ".ListReviewQueues.Response\"K\362\206\031G\n\'\n\003GET\022" +
+      "\032/mlflow/review-queues/list\032\004\010\003\020\000\020\003\030\350\007\030\272" +
+      "\027\030\001*\022List review queues\022\301\001\n\021updateReview" +
+      "Queue\022\'.mlflow.review_queues.UpdateRevie" +
+      "wQueue\0320.mlflow.review_queues.UpdateRevi" +
+      "ewQueue.Response\"Q\362\206\031M\n*\n\004POST\022\034/mlflow/" +
+      "review-queues/update\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\025Up" +
+      "date a review queue\022\301\001\n\021deleteReviewQueu" +
+      "e\022\'.mlflow.review_queues.DeleteReviewQue" +
+      "ue\0320.mlflow.review_queues.DeleteReviewQu" +
+      "eue.Response\"Q\362\206\031M\n*\n\004POST\022\034/mlflow/revi" +
+      "ew-queues/delete\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\025Delete" +
+      " a review queue\022\326\001\n\025addItemsToReviewQueu" +
+      "e\022+.mlflow.review_queues.AddItemsToRevie" +
+      "wQueue\0324.mlflow.review_queues.AddItemsTo" +
+      "ReviewQueue.Response\"Z\362\206\031V\n-\n\004POST\022\037/mlf" +
+      "low/review-queues/items/add\032\004\010\003\020\000\020\003\030\350\007\030\272" +
+      "\027\030\001*\033Add items to a review queue\022\355\001\n\032rem" +
+      "oveItemsFromReviewQueue\0220.mlflow.review_" +
+      "queues.RemoveItemsFromReviewQueue\0329.mlfl" +
+      "ow.review_queues.RemoveItemsFromReviewQu" +
+      "eue.Response\"b\362\206\031^\n0\n\004POST\022\"/mlflow/revi" +
+      "ew-queues/items/remove\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001* " +
+      "Remove items from a review queue\022\317\001\n\024lis" +
+      "tReviewQueueItems\022*.mlflow.review_queues" +
+      ".ListReviewQueueItems\0323.mlflow.review_qu" +
+      "eues.ListReviewQueueItems.Response\"V\362\206\031R" +
+      "\n-\n\003GET\022 /mlflow/review-queues/items/lis" +
+      "t\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\027List review queue ite" +
+      "ms\022\347\001\n\030setReviewQueueItemStatus\022..mlflow" +
+      ".review_queues.SetReviewQueueItemStatus\032" +
+      "7.mlflow.review_queues.SetReviewQueueIte" +
+      "mStatus.Response\"b\362\206\031^\n4\n\004POST\022&/mlflow/" +
+      "review-queues/items/set-status\032\004\010\003\020\000\020\003\030\350" +
+      "\007\030\272\027\030\001*\034Set review queue item statusB\036\n\024" +
+      "org.mlflow.api.proto\220\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
