@@ -89,7 +89,7 @@ exception out of a broad grant. `(experiment, *, EDIT)` together with
 level; the only way to withhold access is to leave the grant out.
 :::
 
-Two limits are worth knowing before relying on it:
+Three limits are worth knowing before relying on it:
 
 - A **workspace administrator is not restrictable**. A
   `(workspace, *, MANAGE)` grant short-circuits resolution to `MANAGE`
@@ -106,9 +106,10 @@ Two limits are worth knowing before relying on it:
   while any role in the workspace has an exact-name grant (of any permission)
   on the old or new name, for every caller including admins. An admin must
   update or remove those role grants first, then retry the rename and
-  re-add the grants under the new name if they should still apply. Wildcard
-  (`*`) grants and the per-user grants created by the legacy permission APIs
-  do not block a rename; per-user grants follow the model to its new name.
+  re-add the grants under the new name if they should still apply. Only
+  admins see which role grants blocked the rename. Wildcard (`*`) grants and
+  direct grants (see [Direct grants without a role](#direct-grants-without-a-role))
+  do not block a rename; direct grants follow the model to its new name.
 
 ### Sub-resource tiers
 
