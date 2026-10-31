@@ -8,6 +8,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointConfig, LiteLLMConfig
 from mlflow.gateway.providers.anthropic import _normalize_anthropic_input_tokens
 from mlflow.gateway.providers.base import BaseProvider, PassthroughAction, ProviderAdapter
+from mlflow.gateway.providers.gemini import _get_completion_tokens
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.utils import parse_sse_lines
 from mlflow.tracing.constant import TokenUsageKey
@@ -32,6 +33,13 @@ def _usage_to_dict(usage: Any) -> dict[str, Any]:
     if cached_tokens is not None:
         result["prompt_tokens_details"] = {"cached_tokens": cached_tokens}
     return result
+
+
+def _include_gemini_thoughts(usage_metadata: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Count Gemini thinking tokens as output, as the Gemini provider does."""
+    if not usage_metadata:
+        return usage_metadata
+    return {**usage_metadata, "candidatesTokenCount": _get_completion_tokens(usage_metadata)}
 
 
 class LiteLLMAdapter(ProviderAdapter):
@@ -349,7 +357,7 @@ class LiteLLMProvider(BaseProvider):
 
         # Try Gemini format
         return self._extract_token_usage_from_dict(
-            result.get("usageMetadata"),
+            _include_gemini_thoughts(result.get("usageMetadata")),
             "promptTokenCount",
             "candidatesTokenCount",
             "totalTokenCount",
@@ -439,7 +447,7 @@ class LiteLLMProvider(BaseProvider):
 
         # Gemini format
         if token_usage := self._extract_token_usage_from_dict(
-            data.get("usageMetadata"),
+            _include_gemini_thoughts(data.get("usageMetadata")),
             "promptTokenCount",
             "candidatesTokenCount",
             "totalTokenCount",
