@@ -60,28 +60,12 @@ export interface IssueFixPromptOptions {
 }
 
 /**
- * A prompt a coding agent can run to fix `issue` in the repository of the agent that logs traces to the
- * experiment.
+ * A prompt a coding agent can run to fix `issue` in the developer's agent.
  *
- * The issue's own text is carried inline rather than fetched: the agent needs no Issues API call,
- * only the traces, which it reads with the MLflow CLI. That text is untrusted — a detection model
- * wrote it and any experiment editor can rewrite it — so it travels escaped inside a delimited
- * block the prompt tells the agent to read as evidence.
- *
- * Deprecated `root_causes` are left out, as the issue detail pane leaves them out: the description
- * carries the diagnosis. The agent gets the traces, which is better evidence than a stale field.
- *
- * The diagnosis-and-verification discipline is deferred to the `mlflow-agent-improvement` skill rather than
- * restated here, so this prompt stays about the issue and the skill stays the one place that
- * defines how a fix is made.
- *
- * The prompt does not tell the agent how to re-read the issue itself, only its traces: there is no
- * `mlflow issues` CLI yet, and the issue's text is inlined here instead. Add that once one exists,
- * so the agent can follow status and later references rather than only what was copied.
- *
- * The issue URL comes first because it also tells the agent which tracking server and workspace to
- * point the CLI at: the CLI on the developer's machine may default to another one, where the traces
- * aren't found.
+ * The issue's text is inlined because there is no `mlflow issues` CLI yet; the agent reads only the
+ * traces itself. That text is untrusted, since a detection model wrote it and any experiment editor
+ * can change it, so it goes in an escaped, delimited block the prompt marks as evidence. Deprecated
+ * `root_causes` are left out, and how to make the fix is left to the `mlflow-agent-improvement` skill.
  */
 export const buildIssueFixPrompt = (
   experimentId: string,
