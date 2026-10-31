@@ -4198,20 +4198,29 @@ def test_role_grant_on_mcp_server_gates_capabilities(
 
 @pytest.mark.parametrize("prefix", ["/api", "/ajax-api"])
 @pytest.mark.parametrize(
-    ("permission", "server_tag_allowed", "version_tag_allowed"),
+    ("suffix", "permission", "expected"),
     [
-        (READ.name, False, False),
-        (EDIT.name, True, False),
-        (MANAGE.name, True, True),
+        ("/tags/k", READ.name, False),
+        ("/tags/k", EDIT.name, True),
+        ("/tags/k", MANAGE.name, True),
+        ("/versions/1/tags/k", READ.name, False),
+        ("/versions/1/tags/k", EDIT.name, False),
+        ("/versions/1/tags/k", MANAGE.name, True),
+        ("", EDIT.name, False),
+        ("", MANAGE.name, True),
+        ("/aliases/prod", EDIT.name, False),
+        ("/aliases/prod", MANAGE.name, True),
+        ("/endpoints/ep-1", EDIT.name, False),
+        ("/endpoints/ep-1", MANAGE.name, True),
     ],
 )
-def test_mcp_tag_deletion_permissions(
+def test_mcp_delete_permissions(
     workspace_permission_setup,
     monkeypatch,
     prefix,
+    suffix,
     permission,
-    server_tag_allowed,
-    version_tag_allowed,
+    expected,
 ):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
@@ -4221,14 +4230,10 @@ def test_mcp_tag_deletion_permissions(
     _grant(store, username, "team-a", [("mcp_server", "com.test/srv", permission)])
 
     request = SimpleNamespace(method="DELETE", state=SimpleNamespace(), query_params={})
-    for suffix, expected in [
-        ("/tags/k", server_tag_allowed),
-        ("/versions/1/tags/k", version_tag_allowed),
-    ]:
-        validator = auth_module._get_mcp_server_validator(
-            f"{prefix}/3.0/mlflow/mcp-servers/com.test/srv{suffix}"
-        )
-        assert asyncio.run(validator(username, request)) is expected
+    validator = auth_module._get_mcp_server_validator(
+        f"{prefix}/3.0/mlflow/mcp-servers/com.test/srv{suffix}"
+    )
+    assert asyncio.run(validator(username, request)) is expected
 
 
 @pytest.mark.parametrize(
