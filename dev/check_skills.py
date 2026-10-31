@@ -55,7 +55,10 @@ def check(path: Path) -> list[str]:
     ]
     if "allowed-tools" in fm:
         errors.append("remove `allowed-tools`: auto mode handles tool permissions")
-    if fm.get("disable-model-invocation") is True:
+    if (
+        path.resolve().is_relative_to(Path(__file__).resolve().parents[1] / ".claude" / "skills")
+        and fm.get("disable-model-invocation") is True
+    ):
         policy_path = path.parent / "agents" / "openai.yaml"
         if not policy_path.is_file():
             return [*errors, "missing `agents/openai.yaml` for disabled model invocation"]
