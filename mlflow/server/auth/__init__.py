@@ -5505,7 +5505,8 @@ TRACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS = {
     if "<" in path and "/mlflow/traces/" in path
 }
 
-# Workspace routes with a path parameter (e.g. /mlflow/workspaces/<workspace_name>).
+# Workspace endpoints with a path parameter (e.g. /mlflow/workspaces/<workspace_name>) need
+# regex matching for the same reason as the trace endpoints above.
 WORKSPACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS = {
     (_re_compile_path(path), method): handler
     for (path, method), handler in BEFORE_REQUEST_VALIDATORS.items()
@@ -5943,6 +5944,8 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
     if validator := BEFORE_REQUEST_VALIDATORS.get((req.path, req.method)):
         return validator
 
+    # Unlike the families below, a miss here returns None rather than denying: mlflow-artifacts
+    # paths can contain "/mlflow/workspaces/" and must fall through to the artifact validators.
     if "/mlflow/workspaces/" in req.path:
         return next(
             (
