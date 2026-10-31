@@ -3,12 +3,17 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
+from urllib3.util.retry import Retry
 
 from mlflow.entities.webhook import Webhook, WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.store.model_registry.file_store import FileStore
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
-from mlflow.webhooks.delivery import _send_webhook_request, deliver_webhook
+from mlflow.webhooks.delivery import (
+    _create_webhook_session,
+    _send_webhook_request,
+    deliver_webhook,
+)
 from mlflow.webhooks.delivery import test_webhook as send_test_webhook
 
 
@@ -120,6 +125,38 @@ def test_deliver_webhook_no_exception_for_file_store(
         # _deliver_webhook_impl should not be called, so no error should be logged
         mock_impl.assert_not_called()
         mock_logger.error.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("urllib3_version", "expected_kwargs"),
+    [
+        ("1.26.18", {}),
+        ("2.0.0", {"backoff_max": 60.0, "backoff_jitter": 1.0}),
+    ],
+)
+def test_create_webhook_session_retry_kwargs_depend_on_urllib3_version(
+    urllib3_version: str, expected_kwargs: dict[str, float]
+):
+    with (
+        patch("mlflow.webhooks.delivery.urllib3.__version__", urllib3_version),
+        patch("mlflow.webhooks.delivery.Retry", return_value=Retry(total=0)) as mock_retry,
+    ):
+        _create_webhook_session()
+
+    mock_retry.assert_called_once()
+    kwargs = mock_retry.call_args.kwargs
+    assert {k: kwargs[k] for k in ("backoff_max", "backoff_jitter") if k in kwargs} == (
+        expected_kwargs
+    )
+
+
+def test_deliver_webhook_does_not_create_session_without_webhooks(
+    sql_store: SqlAlchemyStore, webhook_event: WebhookEvent, webhook_payload: dict[str, str]
+):
+    with patch("mlflow.webhooks.delivery._get_or_create_webhook_session") as mock_get_session:
+        deliver_webhook(event=webhook_event, payload=webhook_payload, store=sql_store)
+
+    mock_get_session.assert_not_called()
 
 
 def test_test_webhook_rejects_private_ip():

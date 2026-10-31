@@ -100,6 +100,7 @@ export { EstimatedCostValue, estimatedCostMessages, type EstimatedCostValueProps
 export { SimplifiedAssessmentView } from './right-pane/SimplifiedAssessmentView';
 export {
   getIssueReferenceFromAssessment,
+  getUniqueIssueReferenceAssessments,
   getUniqueIssueReferences,
   ISSUE_EVIDENCE_METADATA_KEY,
   type IssueEvidence,

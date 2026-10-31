@@ -53,6 +53,10 @@ export interface TraceFilterButtonProps {
    * ones; `openEditor(index)` opens it on that one applied clause.
    */
   renderTrigger?: (openEditor: (filterIndex?: number) => void) => React.ReactNode;
+  /** Explains the consumer's matching semantics above the clauses. */
+  description?: React.ReactNode;
+  /** Consumer validation runs before Apply; rejected drafts remain editable. */
+  validateFilters?: (model: TraceFilterModel) => string | undefined;
 }
 
 interface FilterClauseRowProps {
@@ -383,11 +387,20 @@ export const TraceFilterButton: React.FC<TraceFilterButtonProps> = ({
   onClearAll,
   activeCount,
   renderTrigger,
+  description,
+  validateFilters,
 }: TraceFilterButtonProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<FilterClause[]>([]);
+  // A rejected Apply shows the consumer's error until the editor closes.
+  const [attemptedApply, setAttemptedApply] = useState(false);
+  useEffect(() => {
+    if (!open) {
+      setAttemptedApply(false);
+    }
+  }, [open]);
   // The applied clause being edited on its own; only a custom trigger opens the editor this way.
   const [editIndex, setEditIndex] = useState<number>();
   const hasCustomTrigger = Boolean(renderTrigger);
@@ -445,14 +458,24 @@ export const TraceFilterButton: React.FC<TraceFilterButtonProps> = ({
 
   const addClause = () => setDraft((prev) => [...prev, makeEmptyClause(fields)]);
 
-  const applyFilters = () => {
+  // The model Apply commits: the edited clause in place, or the whole draft.
+  const getAppliedModel = (): TraceFilterModel => {
     if (editIndex !== undefined) {
-      if (!isClauseComplete(draft[0])) return;
-      onChange(filterModel.map((clause, index) => (index === editIndex ? draft[0] : clause)));
-    } else {
-      // A custom trigger shows only complete clauses, so it doesn't keep a blank row it can't display.
-      onChange(hasCustomTrigger ? draft.filter(isClauseComplete) : draft);
+      return filterModel.map((clause, index) => (index === editIndex ? draft[0] : clause));
     }
+    // A custom trigger shows only complete clauses, so it doesn't keep a blank row it can't display.
+    return hasCustomTrigger ? draft.filter(isClauseComplete) : draft;
+  };
+  const validationError = attemptedApply ? validateFilters?.(getAppliedModel()) : undefined;
+
+  const applyFilters = () => {
+    if (editIndex !== undefined && !isClauseComplete(draft[0])) return;
+    const next = getAppliedModel();
+    if (validateFilters?.(next)) {
+      setAttemptedApply(true);
+      return;
+    }
+    onChange(next);
     setOpen(false);
   };
 
@@ -585,6 +608,7 @@ export const TraceFilterButton: React.FC<TraceFilterButtonProps> = ({
         }}
       >
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
+          {description && <Typography.Text color="secondary">{description}</Typography.Text>}
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
             {draft.map((clause, index) => (
               <FilterClauseRow
@@ -597,6 +621,7 @@ export const TraceFilterButton: React.FC<TraceFilterButtonProps> = ({
               />
             ))}
           </div>
+          {validationError && <FormUI.Message type="error" message={validationError} />}
           {editIndex === undefined && (
             <div>
               <Button componentId={`${COMPONENT_ID}.filter.add-clause`} icon={<PlusIcon />} onClick={addClause}>

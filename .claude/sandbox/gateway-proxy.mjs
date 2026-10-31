@@ -1,13 +1,17 @@
 import http from "node:http";
 import https from "node:https";
 
-let token = "";
+let credentials = "";
 for await (const chunk of process.stdin) {
-  token += chunk.toString("utf8");
-  if (token.length > 16_384) throw new Error("Gateway bearer is too large");
+  credentials += chunk.toString("utf8");
+  if (credentials.length > 16_384) {
+    throw new Error("Gateway proxy credentials are too large");
+  }
 }
-token = token.trimEnd();
-if (!token) throw new Error("Gateway bearer is missing");
+const [token, proxyToken, ...extra] = credentials.trimEnd().split("\n");
+if (!token?.trim()) throw new Error("Gateway bearer is missing");
+if (!proxyToken?.trim()) throw new Error("Proxy bearer is missing");
+if (extra.length) throw new Error("Unexpected gateway proxy credentials");
 delete process.env.GATEWAY_TOKEN;
 
 const base = new URL(process.env.GATEWAY_URL);
@@ -48,6 +52,7 @@ function retryAfterSeconds() {
 
 const server = http.createServer((request, response) => {
   let bodyBytes = 0;
+  let hasSafeguards = null;
   let logged = false;
   const logAccess = () => {
     if (logged) return;
@@ -58,6 +63,7 @@ const server = http.createServer((request, response) => {
         path: request.url,
         status: response.writableFinished ? response.statusCode : 499,
         bytes: bodyBytes,
+        has_safeguards: hasSafeguards,
       })}\n`,
     );
   };
@@ -73,6 +79,10 @@ const server = http.createServer((request, response) => {
   }
   if (local.pathname === "/healthz") {
     response.writeHead(200).end();
+    return;
+  }
+  if (request.headers.authorization !== "Bearer " + proxyToken) {
+    response.writeHead(401, { "WWW-Authenticate": "Bearer" }).end();
     return;
   }
   if (!local.pathname.startsWith("/anthropic/")) {
@@ -109,6 +119,41 @@ const server = http.createServer((request, response) => {
   response.on("close", () => {
     if (!response.writableFinished) outgoing.destroy();
   });
+  if (
+    request.method === "POST" &&
+    local.pathname === "/anthropic/v1/messages" &&
+    String(request.headers["content-encoding"] ?? "identity").toLowerCase() === "identity"
+  ) {
+    const maxRequestBodyBytes = 16 * 1024 * 1024;
+    const requestChunks = [];
+    let requestBytes = 0;
+    request.on("data", (chunk) => {
+      requestBytes += chunk.length;
+      if (requestBytes <= maxRequestBodyBytes) {
+        requestChunks.push(chunk);
+      } else {
+        requestChunks.length = 0;
+      }
+    });
+    request.on("end", () => {
+      if (requestBytes <= maxRequestBodyBytes) {
+        try {
+          const body = JSON.parse(
+            new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(requestChunks)),
+          );
+          if (body !== null && typeof body === "object" && !Array.isArray(body)) {
+            hasSafeguards = Object.hasOwn(body, "safeguards");
+          }
+        } catch {
+          // Leave presence unknown when the request is not readable JSON.
+        }
+      }
+      requestChunks.length = 0;
+    });
+    request.on("aborted", () => {
+      requestChunks.length = 0;
+    });
+  }
   request.pipe(outgoing);
 });
 server.requestTimeout = 0;

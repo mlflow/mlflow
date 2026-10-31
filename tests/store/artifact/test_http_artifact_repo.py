@@ -33,6 +33,7 @@ from mlflow.utils.server_info import (
     SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY,
     SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
     SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
+    ServerInfoRequestError,
     ServerInfoResponse,
 )
 
@@ -67,6 +68,40 @@ def test_canonical_http_artifact_uri_discovers_server_capabilities(monkeypatch):
 
     host_creds = mock_fetch_server_info.call_args.args[0]
     assert host_creds.host == "https://artifacts.example.com/mlflow"
+    mock_fetch_server_info.assert_called_once()
+
+
+def test_server_capabilities_fetch_failure_is_not_cached():
+    repo = HttpArtifactRepository(
+        "https://artifacts.example.com/api/2.0/mlflow-artifacts/artifacts/run-id"
+    )
+    response = ServerInfoResponse(
+        status_code=200, data={SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY: True}
+    )
+
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.fetch_server_info",
+        side_effect=[ServerInfoRequestError("Read timed out"), response],
+    ) as mock_fetch_server_info:
+        assert repo._is_artifacts_presigned_only() is False
+        assert repo._is_artifacts_presigned_only() is True
+        assert repo._is_artifacts_presigned_only() is True
+
+    assert mock_fetch_server_info.call_count == 2
+
+
+def test_server_capabilities_non_200_response_is_cached():
+    repo = HttpArtifactRepository(
+        "https://artifacts.example.com/api/2.0/mlflow-artifacts/artifacts/run-id"
+    )
+
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.fetch_server_info",
+        return_value=ServerInfoResponse(status_code=404, text="Not Found"),
+    ) as mock_fetch_server_info:
+        assert repo._is_artifacts_presigned_only() is False
+        assert repo._is_artifacts_presigned_only() is False
+
     mock_fetch_server_info.assert_called_once()
 
 
@@ -478,6 +513,31 @@ def test_list_artifacts(http_artifact_repo):
         ),
     ):
         assert [a.path for a in http_artifact_repo.list_artifacts(path="path/1.txt/1.txt")] == []
+
+
+@pytest.mark.parametrize(
+    ("path", "listings", "expected"),
+    [
+        # A directory holding a single file with the same name
+        ("0", {"0": [("0", False)], "": [("0", True)]}, ["0/0"]),
+        ("a/0", {"a/0": [("0", False)], "a": [("0", True)]}, ["a/0/0"]),
+        # A file listed as itself
+        ("0", {"0": [("0", False)], "": [("0", False)]}, []),
+        ("a/0", {"a/0": [("0", False)], "a": [("0", False)]}, []),
+    ],
+)
+def test_list_artifacts_single_file_named_like_directory(
+    http_artifact_repo, path, listings, expected
+):
+    def mock_http_request(host_creds, endpoint, method, params):
+        files = [{"path": name, "is_dir": is_dir} for name, is_dir in listings[params["path"]]]
+        return MockResponse({"files": files}, 200)
+
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request", side_effect=mock_http_request
+    ) as mock_request:
+        assert [a.path for a in http_artifact_repo.list_artifacts(path=path)] == expected
+        assert mock_request.call_count == 2
 
 
 @pytest.mark.parametrize("path", ["/tmp/path", "../../path", "%2E%2E%2Fpath"])

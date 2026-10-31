@@ -12,6 +12,7 @@ class Status(str, Enum):
     UNKNOWN = "unknown"
     SUCCESS = "success"
     FAILURE = "failure"
+    CANCELED = "canceled"
 
 
 @dataclass

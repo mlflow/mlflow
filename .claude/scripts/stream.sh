@@ -14,8 +14,11 @@ tee "${1:-/dev/null}" \
       if .type == "text" then
         "🤖 \(.text)"
       elif .type == "tool_use" then
-        (if .name == "Bash" and (.input | type == "object") and (.input | has("description")) then
-          .input | {description} + del(.description)
+        (if .name == "Bash" and (.input | type == "object") then
+          .input as $i
+          | (if $i | has("timeout") then {timeout: "\($i.timeout / 1000)s"} else {} end)
+            + ($i | if has("description") then {description} else {} end)
+            + ($i | del(.timeout, .description))
         else
           .input
         end) as $input

@@ -9,7 +9,11 @@ from mlflow.entities.skill_version import SkillVersion
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import NOT_SET, SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.utils.rest_utils import http_request, verify_rest_response
+from mlflow.utils.rest_utils import (
+    _non_idempotent_write_retry_kwargs,
+    http_request,
+    verify_rest_response,
+)
 from mlflow.utils.validation import (
     _validate_organization_name,
     _validate_skill_name,
@@ -45,11 +49,21 @@ class RestSkillRegistryMixin:
     registry endpoints use Pydantic/JSON.
     """
 
-    def _skill_request(self, method: str, path: str, json=None, params=None, **kwargs):
+    def _skill_request(
+        self, method: str, path: str, json=None, params=None, retry_safe=False, **kwargs
+    ):
+        """
+        Args:
+            retry_safe: Whether a ``POST`` can be sent again after the server processed it. Other
+                ``POST`` requests are retried only when the server didn't process them.
+        """
         self._validate_workspace_support_if_specified()
         endpoint = f"{_SKILL_API_PREFIX}{path}"
+        host_creds = self.get_host_creds()
+        if method == "POST" and not retry_safe:
+            kwargs |= _non_idempotent_write_retry_kwargs(host_creds)
         response = http_request(
-            host_creds=self.get_host_creds(),
+            host_creds=host_creds,
             endpoint=endpoint,
             method=method,
             json=json,
@@ -304,7 +318,10 @@ class RestSkillRegistryMixin:
         organization: str = "",
     ) -> None:
         self._skill_request(
-            "POST", f"{_skill_path(name, organization)}/tags", json={"key": key, "value": value}
+            "POST",
+            f"{_skill_path(name, organization)}/tags",
+            json={"key": key, "value": value},
+            retry_safe=True,
         )
 
     def delete_skill_tag(
@@ -330,6 +347,7 @@ class RestSkillRegistryMixin:
             "POST",
             f"{_skill_path(name, organization)}/versions/{version}/tags",
             json={"key": key, "value": value},
+            retry_safe=True,
         )
 
     def delete_skill_version_tag(
@@ -356,6 +374,7 @@ class RestSkillRegistryMixin:
             "POST",
             f"{_skill_path(name, organization)}/aliases",
             json={"alias": alias, "version": version},
+            retry_safe=True,
         )
 
     def delete_skill_alias(

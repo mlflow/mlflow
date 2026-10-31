@@ -15,7 +15,9 @@ import mlflow
 from mlflow import MlflowClient
 from mlflow.artifacts import download_artifacts
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.os import is_windows
+from mlflow.utils.server_info import ServerInfoRequestError, fetch_server_info
 
 from tests.helper_functions import LOCALHOST, get_safe_port, kill_process_tree
 from tests.tracking.integration_test_utils import _await_server_up_or_die
@@ -29,6 +31,19 @@ def _launch_service(cmd, port, *, env=None, cwd=None):
             yield process
         finally:
             kill_process_tree(process.pid)
+
+
+def _warm_server_info_cache(server_url):
+    # The client gives up on server-info after 3s, which slow CI runners can exceed. Warm the
+    # per-host cache so the client sees the server's actual capabilities.
+    host_creds = get_default_host_creds(server_url)
+    for _ in range(5):
+        try:
+            if fetch_server_info(host_creds).status_code == 200:
+                return
+        except ServerInfoRequestError:
+            pass
+    pytest.fail(f"Failed to fetch server info from {server_url}")
 
 
 @contextmanager
@@ -228,6 +243,21 @@ def test_list_artifacts(artifacts_server, tmp_path):
     assert artifacts == ["dir/b.txt"]
 
 
+def test_list_and_download_file_named_like_its_directory(artifacts_server, tmp_path):
+    mlflow.set_tracking_uri(artifacts_server.url)
+    src = tmp_path.joinpath("src")
+    src.joinpath("0").mkdir(parents=True)
+    src.joinpath("0", "0").write_text("0")
+    client = MlflowClient()
+    with mlflow.start_run() as run:
+        mlflow.log_artifacts(src)
+
+    assert [a.path for a in client.list_artifacts(run.info.run_id, "0")] == ["0/0"]
+    assert client.list_artifacts(run.info.run_id, "0/0") == []
+    dst = download_artifacts(run_id=run.info.run_id, dst_path=tmp_path / "dst")
+    assert read_file(os.path.join(dst, "0", "0")) == "0"
+
+
 def test_download_artifacts(artifacts_server, tmp_path):
     url = artifacts_server.url
     mlflow.set_tracking_uri(url)
@@ -332,6 +362,7 @@ def test_http_artifact_root_uses_presigned_only_split_server(tmp_path):
                 local_file.write_text("presigned transfer")
 
                 assert run.info.artifact_uri.startswith(default_artifact_root)
+                _warm_server_info_cache(artifact_server_url)
                 client.log_artifact(run.info.run_id, str(local_file))
 
                 object_key = f"{experiment_id}/{run.info.run_id}/artifacts/{local_file.name}"

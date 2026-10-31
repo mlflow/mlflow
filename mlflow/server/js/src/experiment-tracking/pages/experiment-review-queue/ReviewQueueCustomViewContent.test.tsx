@@ -82,7 +82,7 @@ const renderSavedView = (
             onPersistView={definitionProps.onPersistView}
             canModifyPersistedViews={Boolean(definitionProps.onPersistView)}
           >
-            <ReviewQueueCustomViewRenderer modelTrace={MOCK_V3_TRACE} enableFeedback />
+            <ReviewQueueCustomViewRenderer modelTrace={MOCK_V3_TRACE} enableFeedback feedbackSourceId="reviewer" />
             <SelectViewProbe selectViewRef={selectViewRef} />
           </CustomViewDefinitionProvider>
         </QueryClientProvider>

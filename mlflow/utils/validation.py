@@ -93,6 +93,9 @@ MAX_REGISTERED_MODEL_ALIAS_LENGTH = 255
 MAX_TRACE_TAG_KEY_LENGTH = 250
 MAX_TRACE_TAG_VAL_LENGTH = 8000
 MAX_TRACE_ARCHIVAL_RETENTION_LENGTH = 32
+MAX_USERNAME_LENGTH = 255
+MAX_ROLE_NAME_LENGTH = 255
+MAX_ROLE_DESCRIPTION_LENGTH = 1024
 _TRACE_ARCHIVAL_RETENTION_REGEX = re.compile(r"^[1-9][0-9]*[mhd]$")
 
 PARAM_VALIDATION_MSG = """
@@ -559,6 +562,17 @@ def _validate_length_limit(entity_name, limit, value, *, truncate=False):
         exceeds_maximum_length(entity_name, limit),
         error_code=INVALID_PARAMETER_VALUE,
     )
+
+
+def _validate_text_field(field: str, value: str | None, limit: int) -> None:
+    """Reject values the database would refuse, so callers get a 400 instead of a DB error."""
+    if value is None:
+        return
+    if "\x00" in value:
+        raise MlflowException.invalid_parameter_value(
+            f"'{field}' cannot contain NUL (0x00) characters"
+        )
+    _validate_length_limit(field, limit, value)
 
 
 def _validate_run_id(run_id, path="run_id"):

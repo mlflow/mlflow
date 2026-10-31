@@ -14,6 +14,7 @@ from opentelemetry.sdk.trace import Event as OTelEvent
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
 from opentelemetry.trace import Span as OTelSpan
+from opentelemetry.trace import SpanKind as OTelSpanKind
 from opentelemetry.trace import Status as OTelStatus
 from opentelemetry.trace import StatusCode as OTelStatusCode
 
@@ -58,6 +59,19 @@ def _normalize_link_trace_id(link_trace_id: str, source_trace_id: str | None) ->
     if link_location:
         return link_trace_id if link_location == source_location else None
     return construct_trace_id_v4(source_location, trace_id) if source_location else link_trace_id
+
+
+def _otel_proto_kind_to_sdk_kind(proto_kind: int) -> OTelSpanKind:
+    # OTLP span kinds are the SDK span kinds plus one, with 0 reserved for SPAN_KIND_UNSPECIFIED.
+    # Unspecified and unknown values fall back to INTERNAL, the SDK default.
+    try:
+        return OTelSpanKind(proto_kind - 1)
+    except ValueError:
+        return OTelSpanKind.INTERNAL
+
+
+def _sdk_kind_to_otel_proto_kind(kind: OTelSpanKind) -> int:
+    return kind.value + 1
 
 
 def _link_from_otel_link(otel_link, source_trace_id: str | None) -> Link:
@@ -366,6 +380,7 @@ class Span:
             if self._span.parent
             else None,
             "name": self.name,
+            "kind": OTelProtoSpan.SpanKind.Name(_sdk_kind_to_otel_proto_kind(self._span.kind)),
             "start_time_unix_nano": self.start_time_ns,
             "end_time_unix_nano": self.end_time_ns,
             "events": [
@@ -449,10 +464,20 @@ class Span:
             end_time_ns = data.get("end_time_unix_nano")
             end_time_ns = int(end_time_ns) if end_time_ns else None
 
+            # Spans stored before the kind was serialized, and spans logged by the TypeScript
+            # SDK, have no "kind" key.
+            kind_name = data.get("kind")
+            kind = (
+                _otel_proto_kind_to_sdk_kind(OTelProtoSpan.SpanKind.Value(kind_name))
+                if kind_name
+                else OTelSpanKind.INTERNAL
+            )
+
             otel_span = OTelReadableSpan(
                 name=data["name"],
                 context=build_otel_context(otel_trace_id, span_id),
                 parent=build_otel_context(otel_trace_id, parent_id) if parent_id else None,
+                kind=kind,
                 start_time=int(data["start_time_unix_nano"]),
                 end_time=end_time_ns,
                 attributes=data["attributes"],
@@ -594,6 +619,7 @@ class Span:
             name=otel_proto_span.name,
             context=build_otel_context(trace_id, span_id),
             parent=build_otel_context(trace_id, parent_id) if parent_id else None,
+            kind=_otel_proto_kind_to_sdk_kind(otel_proto_span.kind),
             start_time=otel_proto_span.start_time_unix_nano,
             end_time=otel_proto_span.end_time_unix_nano,
             # we need to dump the attribute value to be consistent with span.set_attribute behavior
@@ -633,6 +659,7 @@ class Span:
         otel_span.span_id = bytes.fromhex(self.span_id)
 
         otel_span.name = self.name
+        otel_span.kind = _sdk_kind_to_otel_proto_kind(self._span.kind)
         otel_span.start_time_unix_nano = self.start_time_ns
         if self.end_time_ns:
             otel_span.end_time_unix_nano = self.end_time_ns
