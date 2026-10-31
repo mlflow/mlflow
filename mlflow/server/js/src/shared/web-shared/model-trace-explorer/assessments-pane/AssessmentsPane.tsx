@@ -19,21 +19,7 @@ import { AssessmentsPaneFeedbackSection } from './AssessmentsPaneFeedbackSection
 import { AssessmentsPaneIssuesSection } from './AssessmentsPaneIssuesSection';
 import { AssessmentsPaneNotesSection } from './AssessmentsPaneNotesSection';
 import { useModelTraceExplorerRunJudgesContext } from '../contexts/RunJudgesContext';
-import { useSelectedIssueId } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useSelectedIssueId';
-
-/**
- * Safely calls useSelectedIssueId hook, returning undefined if not in a Router context.
- * This prevents crashes when AssessmentsPane is rendered outside a Router (e.g., tests, OSS notebook).
- */
-const useSafeSelectedIssueId = (): string | undefined => {
-  try {
-    const [selectedIssueId] = useSelectedIssueId();
-    return selectedIssueId;
-  } catch (error) {
-    // Hook throws when not in a Router context
-    return undefined;
-  }
-};
+import { useSafeSelectedIssueId } from '../hooks/useSafeSelectedIssueId';
 
 export const AssessmentsPane = ({
   assessments,

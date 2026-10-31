@@ -86,3 +86,42 @@ export const useSearchIssuesQuery = ({
     error,
   };
 };
+
+/** The server defaults to 100 issues per page. Past the cap the overflow is simply not reported. */
+const SEARCH_ISSUE_IDS_PAGE_SIZE = 1000;
+const SEARCH_ISSUE_IDS_MAX_PAGES = 5;
+
+/**
+ * The IDs of an experiment's issues with the given status.
+ *
+ * Search is the only issues read that answers for many issues at once -- `GetIssue` is one request
+ * per ID -- so a caller needing the status of every issue on screen asks for the IDs in the status
+ * it cares about and tests membership.
+ */
+export const searchIssueIdsByStatus = async (experimentId: string, status: IssueStatus): Promise<string[]> => {
+  const issueIds: string[] = [];
+  let pageToken: string | undefined;
+
+  for (let page = 0; page < SEARCH_ISSUE_IDS_MAX_PAGES; page++) {
+    const response = (await fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/issues/search'), {
+      method: 'POST',
+      body: {
+        experiment_id: experimentId,
+        statuses: [status],
+        // Only the IDs are read, so skip the trace counts and the long-form fields.
+        include_trace_count: false,
+        view: 'basic',
+        max_results: SEARCH_ISSUE_IDS_PAGE_SIZE,
+        ...(pageToken ? { page_token: pageToken } : {}),
+      },
+    })) as SearchIssuesResponse;
+
+    issueIds.push(...(response.issues ?? []).map(({ issue_id }) => issue_id));
+    pageToken = response.next_page_token;
+    if (!pageToken) {
+      break;
+    }
+  }
+
+  return issueIds;
+};

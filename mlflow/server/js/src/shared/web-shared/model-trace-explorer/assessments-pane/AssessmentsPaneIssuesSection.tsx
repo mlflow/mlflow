@@ -1,5 +1,5 @@
 import { Button, ChevronDownIcon, ChevronRightIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
-import { getUniqueIssueReferenceAssessments } from '../IssueAssessmentUtils';
+import { useVisibleIssueReferenceAssessments } from '../hooks/useVisibleIssueReferences';
 import type { IssueReferenceAssessment } from '../ModelTrace.types';
 import { useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
@@ -76,16 +76,14 @@ export const AssessmentsPaneIssuesSection = ({
   issues: IssueReferenceAssessment[];
   selectedIssueId?: string;
 }) => {
-  // Deduped here, where the count below is rendered: every detection run leaves its own
-  // reference on a trace it flags, so taking them as they come showed a card per run and an
-  // "Issues (n)" that climbed with each rerun. Same selection the issue banner makes -- the
-  // newest valid reference per issue.
+  // Deduped and status-filtered here, where the count below is rendered: every detection run leaves
+  // its own reference on a trace it flags, so taking them as they come showed a card per run and an
+  // "Issues (n)" that climbed with each rerun, counting issues already dismissed as not an issue.
+  // Same selection the issue banner makes -- the newest valid, undismissed reference per issue.
+  const visibleIssues = useVisibleIssueReferenceAssessments(issues);
   const sortedIssues = useMemo(
-    () =>
-      getUniqueIssueReferenceAssessments(issues).toSorted((left, right) =>
-        left.assessment_name.localeCompare(right.assessment_name),
-      ),
-    [issues],
+    () => visibleIssues.toSorted((left, right) => left.assessment_name.localeCompare(right.assessment_name)),
+    [visibleIssues],
   );
 
   // Filter issues to only show the selected issue if one is selected
