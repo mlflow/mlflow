@@ -212,15 +212,24 @@ def test_skill_routes_are_available_under_each_prefix(prefix: str, tmp_path: Pat
         assert response.json()["organization"] == "acme"
 
 
-def test_invalid_skill_name_is_rejected_before_store_call(tmp_path: Path, db_uri: str):
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        ({"name": "invalid_name"}, "Invalid skill name"),
+        ({"name": "code-review", "organization": "InvalidOrg"}, "Invalid organization name"),
+    ],
+)
+def test_invalid_skill_identity_is_rejected_before_store_call(
+    payload, message, tmp_path: Path, db_uri: str
+):
     client, store = _create_client(tmp_path, db_uri)
     with mock.patch(
         "mlflow.server.handlers._get_tracking_store", return_value=store
     ) as get_tracking_store:
-        response = client.post(PREFIX, json={"name": "invalid_name"})
+        response = client.post(PREFIX, json=payload)
 
     assert response.status_code == 400, response.text
-    assert "Invalid skill name" in response.json()["message"]
+    assert message in response.json()["message"]
     get_tracking_store.assert_not_called()
 
 
@@ -446,6 +455,14 @@ def test_create_and_get_organization_skill(tmp_path: Path, db_uri: str):
         assert response.status_code == 200, response.text
         assert response.json()["name"] == "code-review"
         assert response.json()["organization"] == "acme"
+
+        response = client.delete(f"{PREFIX}/@acme/code-review")
+        assert response.status_code == 200, response.text
+        assert response.json() == {}
+
+        response = client.get(f"{PREFIX}/@acme/code-review")
+        assert response.status_code == 404, response.text
+        assert response.json()["error_code"] == "RESOURCE_DOES_NOT_EXIST"
 
 
 def test_update_skill_distinguishes_omitted_and_explicit_null_fields(
@@ -885,6 +902,8 @@ def test_create_get_and_update_skill_version(tmp_path: Path, db_uri: str):
         )
         assert response.status_code == 200, response.text
         assert response.json()["version"] == 1
+        # The request sends no status, so the route's default applies.
+        assert response.json()["status"] == "active"
         assert response.json()["source_type"] == "git"
         assert response.json()["source"] == "https://github.com/acme/skills.git"
         assert response.json()["ref"] == "v1.0.0"
@@ -900,6 +919,14 @@ def test_create_get_and_update_skill_version(tmp_path: Path, db_uri: str):
         )
         assert response.status_code == 200, response.text
         assert response.json()["status"] == "deprecated"
+
+        response = client.delete(f"{PREFIX}/code-review/versions/1")
+        assert response.status_code == 200, response.text
+        assert response.json() == {}
+
+        response = client.get(f"{PREFIX}/code-review/versions/1")
+        assert response.status_code == 404, response.text
+        assert response.json()["error_code"] == "RESOURCE_DOES_NOT_EXIST"
 
 
 def test_create_and_get_organization_skill_version(tmp_path: Path, db_uri: str):
@@ -1113,6 +1140,38 @@ def test_multipart_registration_rejects_oversized_metadata(
     register.assert_not_called()
 
 
+@pytest.mark.parametrize(
+    ("content_type", "body", "message"),
+    [
+        pytest.param(
+            "application/json",
+            b"not-json",
+            "The request body must contain a valid JSON object.",
+            id="malformed-json",
+        ),
+        pytest.param(
+            "text/plain",
+            b"name=code-review",
+            "Skill registration requires an application/json or multipart/form-data request.",
+            id="unsupported-content-type",
+        ),
+    ],
+)
+def test_registration_rejects_unparsable_request_body(
+    content_type, body, message, tmp_path: Path, db_uri: str
+):
+    client, _ = _create_client(tmp_path, db_uri)
+
+    with mock.patch("mlflow.server.skill_registry_api.register_skill_version") as register:
+        response = client.post(
+            f"{PREFIX}/code-review/versions", content=body, headers={"content-type": content_type}
+        )
+
+    assert response.status_code == 400, response.text
+    assert response.json()["message"] == message
+    register.assert_not_called()
+
+
 def test_multipart_registration_rejects_extra_file_parts(tmp_path: Path, db_uri: str):
     client, _ = _create_client(tmp_path, db_uri)
 
@@ -1147,23 +1206,46 @@ def test_multipart_registration_rejects_extra_form_fields(tmp_path: Path, db_uri
     register.assert_not_called()
 
 
-def test_multipart_registration_rejects_unknown_part_with_expected_files(
-    tmp_path: Path, db_uri: str
+_METADATA_PART = ("metadata.json", '{"name": "code-review"}', "application/json")
+_CONTENT_PART = ("content.tar.gz", b"archive", "application/gzip")
+_MULTIPART_PARTS_MESSAGE = (
+    "Multipart registration requires exactly one 'metadata' part and one 'content' part."
+)
+
+
+@pytest.mark.parametrize(
+    ("data", "files", "message"),
+    [
+        pytest.param(
+            {"extra": "unexpected"},
+            {"metadata": _METADATA_PART, "content": _CONTENT_PART},
+            _MULTIPART_PARTS_MESSAGE,
+            id="unknown-part",
+        ),
+        pytest.param(
+            {}, {"metadata": _METADATA_PART}, _MULTIPART_PARTS_MESSAGE, id="missing-content"
+        ),
+        pytest.param(
+            {}, {"content": _CONTENT_PART}, _MULTIPART_PARTS_MESSAGE, id="missing-metadata"
+        ),
+        pytest.param(
+            {"content": "not-a-file"},
+            {"metadata": _METADATA_PART},
+            "Multipart registration requires a 'content' file part.",
+            id="content-is-not-a-file",
+        ),
+    ],
+)
+def test_multipart_registration_rejects_missing_or_unexpected_parts(
+    data, files, message, tmp_path: Path, db_uri: str
 ):
     client, _ = _create_client(tmp_path, db_uri)
 
     with mock.patch("mlflow.server.skill_registry_api.register_skill_version") as register:
-        response = client.post(
-            f"{PREFIX}/code-review/versions",
-            data={"extra": "unexpected"},
-            files={
-                "metadata": ("metadata.json", '{"name": "code-review"}', "application/json"),
-                "content": ("content.tar.gz", io.BytesIO(b"archive"), "application/gzip"),
-            },
-        )
+        response = client.post(f"{PREFIX}/code-review/versions", data=data, files=files)
 
     assert response.status_code == 400, response.text
-    assert "exactly one 'metadata' part" in response.json()["message"]
+    assert response.json()["message"] == message
     register.assert_not_called()
 
 
