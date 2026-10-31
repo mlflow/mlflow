@@ -1,4 +1,5 @@
 import base64
+import datetime
 import json
 import os
 import posixpath
@@ -8,15 +9,17 @@ from unittest import mock
 import pytest
 from azure.core.credentials import AzureSasCredential
 from azure.core.exceptions import HttpResponseError, ResourceNotFoundError
-from azure.storage.blob import BlobPrefix, BlobProperties, BlobServiceClient
+from azure.storage.blob import BlobClient, BlobPrefix, BlobProperties, BlobServiceClient
 
 from mlflow.entities.multipart_upload import MultipartUploadPart
 from mlflow.exceptions import (
     MlflowException,
     MlflowTraceDataCorrupted,
     _UnsupportedMultipartUploadException,
+    _UnsupportedPresignedDownloadException,
 )
-from mlflow.store.artifact.artifact_repo import try_read_trace_data
+from mlflow.protos.databricks_pb2 import NOT_IMPLEMENTED, RESOURCE_DOES_NOT_EXIST, ErrorCode
+from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin, try_read_trace_data
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
 
@@ -706,3 +709,239 @@ def test_delete_artifacts_folder_with_nested_folders_and_files(mock_client):
     mock_client.get_container_client().delete_blob.assert_any_call(blob_props_1.name)
     mock_client.get_container_client().delete_blob.assert_any_call(blob_props_2.name)
     mock_client.get_container_client().delete_blob.assert_any_call(blob_props_3.name)
+
+
+def test_azure_repo_supports_presigned_download(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    assert isinstance(repo, MultipartDownloadMixin)
+
+
+def test_supports_presigned_download_with_account_key():
+    account_key = base64.b64encode(b"some-key").decode("utf-8")
+    client = BlobServiceClient(
+        account_url="https://account.blob.core.windows.net", credential=account_key
+    )
+    assert AzureBlobArtifactRepository(TEST_URI, client=client).supports_presigned_download()
+
+
+def test_supports_presigned_download_with_connection_string_account_key():
+    account_key = base64.b64encode(b"some-key").decode("utf-8")
+    client = BlobServiceClient.from_connection_string(
+        "DefaultEndpointsProtocol=https;AccountName=account;"
+        f"AccountKey={account_key};EndpointSuffix=core.windows.net"
+    )
+    assert AzureBlobArtifactRepository(TEST_URI, client=client).supports_presigned_download()
+
+
+@pytest.mark.parametrize(
+    "client",
+    [
+        # Microsoft Entra ID (e.g. DefaultAzureCredential): can sign only via a user delegation
+        # key, which needs a network call, so it is not advertised.
+        BlobServiceClient(
+            account_url="https://account.blob.core.windows.net",
+            credential=mock.Mock(spec=["get_token"]),
+        ),
+        BlobServiceClient(
+            account_url="https://account.blob.core.windows.net",
+            credential=AzureSasCredential("sv=2021&sig=abc"),
+        ),
+        BlobServiceClient.from_connection_string(
+            "BlobEndpoint=https://account.blob.core.windows.net;"
+            "SharedAccessSignature=sv=2021&sig=abc"
+        ),
+        BlobServiceClient(account_url="https://account.blob.core.windows.net"),
+    ],
+    ids=["token_credential", "sas_credential", "sas_connection_string", "anonymous"],
+)
+def test_supports_presigned_download_without_account_key(client):
+    assert not AzureBlobArtifactRepository(TEST_URI, client=client).supports_presigned_download()
+
+
+def test_supports_presigned_download_with_client_without_credential_attribute():
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock.Mock(spec=["get_blob_client"]))
+    assert repo.supports_presigned_download() is False
+
+
+def test_supports_presigned_download_with_mocked_credential(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    mock_client.credential = None
+    assert repo.supports_presigned_download() is False
+    mock_client.credential = mock.Mock(account_key="key")
+    assert repo.supports_presigned_download() is True
+    mock_client.credential = mock.Mock(account_key=None)
+    assert repo.supports_presigned_download() is False
+
+
+def test_get_download_presigned_url_with_account_key(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    mock_client.account_name = "some-account"
+    account_key = base64.b64encode(b"some-key").decode("utf-8")
+    mock_client.credential.account_key = account_key
+    blob_client = mock_client.get_blob_client.return_value
+    blob_client.url = "some-url/container/some/path/dir/model.pkl"
+    blob_client.get_blob_properties.return_value.size = 123
+
+    with mock.patch("azure.storage.blob.generate_blob_sas", return_value="sas") as generate_sas:
+        response = repo.get_download_presigned_url("dir/model.pkl", expiration=60)
+
+    mock_client.get_blob_client.assert_called_once_with("container", "some/path/dir/model.pkl")
+    assert response.url == "some-url/container/some/path/dir/model.pkl?sas"
+    assert response.headers == {}
+    assert response.file_size == 123
+    kwargs = generate_sas.call_args.kwargs
+    assert kwargs["account_name"] == "some-account"
+    assert kwargs["container_name"] == "container"
+    assert kwargs["blob_name"] == "some/path/dir/model.pkl"
+    assert kwargs["account_key"] == account_key
+    assert kwargs["permission"].read is True
+    assert kwargs["permission"].write is False
+    assert kwargs["content_disposition"] == 'attachment; filename="model.pkl"'
+    assert kwargs["expiry"].tzinfo is not None
+    remaining = kwargs["expiry"] - datetime.datetime.now(datetime.timezone.utc)
+    assert datetime.timedelta(seconds=55) < remaining <= datetime.timedelta(seconds=60)
+    mock_client.get_user_delegation_key.assert_not_called()
+
+
+def test_get_download_presigned_url_without_artifact_path(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    mock_client.credential.account_key = "key"
+
+    with mock.patch("azure.storage.blob.generate_blob_sas", return_value="sas"):
+        repo.get_download_presigned_url("")
+
+    mock_client.get_blob_client.assert_called_once_with("container", "some/path")
+
+
+def test_get_download_presigned_url_with_real_sas_signing():
+    # Sign with the real azure-storage-blob SAS generation (no network access needed).
+    account_key = base64.b64encode(b"some-key").decode("utf-8")
+    client = BlobServiceClient(
+        account_url="https://account.blob.core.windows.net", credential=account_key
+    )
+    repo = AzureBlobArtifactRepository(TEST_URI, client=client)
+    with mock.patch.object(
+        BlobClient, "get_blob_properties", return_value=mock.Mock(size=123)
+    ) as get_blob_properties:
+        response = repo.get_download_presigned_url("my model.pkl")
+
+    get_blob_properties.assert_called_once()
+    parsed = urllib.parse.urlparse(response.url)
+    query = urllib.parse.parse_qs(parsed.query)
+    assert parsed.netloc == "account.blob.core.windows.net"
+    assert parsed.path == "/container/some/path/my%20model.pkl"
+    assert query["sp"] == ["r"]
+    assert query["sr"] == ["b"]
+    assert query["rscd"] == ['attachment; filename="my model.pkl"']
+    assert "se" in query
+    assert "sig" in query
+    assert response.file_size == 123
+
+
+def test_get_download_presigned_url_with_token_credential(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    mock_client.credential = mock.Mock(spec=["get_token"])
+    blob_client = mock_client.get_blob_client.return_value
+    blob_client.url = "some-url/container/some/path/model.pkl"
+    user_delegation_key = mock_client.get_user_delegation_key.return_value
+
+    with mock.patch("azure.storage.blob.generate_blob_sas", return_value="sas") as generate_sas:
+        response = repo.get_download_presigned_url("model.pkl")
+
+    assert response.url == "some-url/container/some/path/model.pkl?sas"
+    kwargs = generate_sas.call_args.kwargs
+    assert kwargs["user_delegation_key"] is user_delegation_key
+    assert "account_key" not in kwargs
+    assert kwargs["start"].tzinfo is not None
+    assert kwargs["start"] < kwargs["expiry"]
+    mock_client.get_user_delegation_key.assert_called_once_with(kwargs["start"], kwargs["expiry"])
+
+
+def test_get_download_presigned_url_missing_blob_raises(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    mock_client.get_blob_client.return_value.get_blob_properties.side_effect = (
+        ResourceNotFoundError("not found")
+    )
+
+    with pytest.raises(MlflowException, match="No such file or directory") as exc_info:
+        repo.get_download_presigned_url("missing.pkl")
+
+    assert exc_info.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_get_download_presigned_url_raises_not_implemented_when_delegation_key_is_forbidden(
+    mock_client,
+):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    mock_client.credential = mock.Mock(spec=["get_token"])
+    error = HttpResponseError(response=mock.Mock(status_code=403))
+    error.error_code = "AuthorizationPermissionMismatch"
+    mock_client.get_user_delegation_key.side_effect = error
+
+    with pytest.raises(
+        _UnsupportedPresignedDownloadException,
+        match=_UnsupportedPresignedDownloadException.MESSAGE,
+    ) as exc_info:
+        repo.get_download_presigned_url("model.pkl")
+
+    assert exc_info.value.error_code == ErrorCode.Name(NOT_IMPLEMENTED)
+    assert exc_info.value.__cause__ is error
+
+
+def test_get_download_presigned_url_propagates_other_forbidden_errors(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    mock_client.credential = mock.Mock(spec=["get_token"])
+    error = HttpResponseError(response=mock.Mock(status_code=403))
+    error.error_code = "AuthorizationFailure"
+    mock_client.get_user_delegation_key.side_effect = error
+
+    with pytest.raises(HttpResponseError, match="Operation returned an invalid status") as exc_info:
+        repo.get_download_presigned_url("model.pkl")
+
+    assert exc_info.value is error
+
+
+def test_get_download_presigned_url_propagates_other_delegation_key_errors(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    mock_client.credential = mock.Mock(spec=["get_token"])
+    error = HttpResponseError(response=mock.Mock(status_code=500))
+    mock_client.get_user_delegation_key.side_effect = error
+
+    with pytest.raises(HttpResponseError, match="Operation returned an invalid status") as exc_info:
+        repo.get_download_presigned_url("model.pkl")
+
+    assert exc_info.value is error
+
+
+@pytest.mark.parametrize("credential", [None, object(), AzureSasCredential("sas")])
+def test_get_download_presigned_url_raises_not_implemented_for_unsupported_credentials(
+    mock_client, credential
+):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    mock_client.credential = credential
+
+    with pytest.raises(
+        _UnsupportedPresignedDownloadException,
+        match=_UnsupportedPresignedDownloadException.MESSAGE,
+    ) as exc_info:
+        repo.get_download_presigned_url("model.pkl")
+
+    assert exc_info.value.error_code == ErrorCode.Name(NOT_IMPLEMENTED)
+    mock_client.get_user_delegation_key.assert_not_called()
+
+
+def test_get_download_presigned_url_raises_not_implemented_for_connection_string_with_sas():
+    # A connection string with a SharedAccessSignature yields a client with no credential object
+    client = BlobServiceClient.from_connection_string(
+        "BlobEndpoint=https://account.blob.core.windows.net;SharedAccessSignature=sv=2021&sig=abc"
+    )
+    repo = AzureBlobArtifactRepository(TEST_URI, client=client)
+
+    with (
+        mock.patch.object(BlobClient, "get_blob_properties", return_value=mock.Mock(size=1)),
+        pytest.raises(
+            _UnsupportedPresignedDownloadException,
+            match=_UnsupportedPresignedDownloadException.MESSAGE,
+        ),
+    ):
+        repo.get_download_presigned_url("model.pkl")
