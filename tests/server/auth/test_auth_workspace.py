@@ -54,6 +54,7 @@ from mlflow.store.tracking.dbmodels.models import SqlSkill
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as TrackingSqlAlchemyStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.utils import workspace_context
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.helper_functions import random_str
 from tests.store.tracking.sqlalchemy_store.conftest import create_test_span
@@ -2190,6 +2191,132 @@ def test_rename_registered_model_permission_sweeps_prompt_namespace(
     }
     assert ("prompt", "foo") not in after
     assert ("prompt", "bar") in after
+
+
+@pytest.mark.parametrize(
+    ("resource_type", "pattern", "permission", "prompts"),
+    [
+        ("registered_model", "model-xyz", DENY.name, set()),
+        ("registered_model", "renamed", READ.name, set()),
+        ("prompt", "model-xyz", DENY.name, {"model-xyz"}),
+        ("prompt", "renamed", READ.name, {"model-xyz"}),
+    ],
+)
+@pytest.mark.parametrize("caller", ["user", "workspace_admin", "admin"])
+def test_rename_rejected_when_named_role_grants_old_or_new_name(
+    workspace_permission_setup, monkeypatch, resource_type, pattern, permission, prompts, caller
+):
+    # Named-role grants are keyed by name and not rewritten on rename, so a rename would move
+    # the model out from under a grant on the old name, or under a grant on the new name.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(
+        auth_module,
+        "_get_model_registry_store",
+        lambda: _RegistryStore({"model-xyz": "team-a"}, prompts),
+    )
+    # The fixture makes the caller a workspace admin of team-a.
+    if caller == "user":
+        _set_workspace_permission(store, username, USE.name)
+    elif caller == "admin":
+        store.update_user(username, is_admin=True)
+    store.grant_user_resource_permission(username, resource_type, "*", MANAGE.name)
+    role = store.create_role(name="readers", workspace="team-a")
+    store.add_role_permission(role.id, resource_type, "*", READ.name)
+    exact_grant = store.add_role_permission(role.id, resource_type, pattern, permission)
+
+    def rename():
+        with auth_module.app.test_request_context(
+            "/api/2.0/mlflow/registered-models/rename",
+            method="POST",
+            json={"name": "model-xyz", "new_name": "renamed"},
+        ):
+            if caller == "admin":
+                auth_module.enforce_model_name_rules()
+            else:
+                assert auth_module.validate_can_rename_registered_model()
+
+    with pytest.raises(MlflowException, match="An admin must update or remove") as exc_info:
+        rename()
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+    # Only callers who can manage roles see which roles hold the grants.
+    shown = caller != "user"
+    details = f"role 'readers' has {permission} on {resource_type} '{pattern}'"
+    assert (details in exc_info.value.message) is shown
+    assert ("readers" in exc_info.value.message) is shown
+
+    # Once an admin removes the exact-name grant, the rename goes through.
+    store.remove_role_permission(exact_grant.id)
+    rename()
+
+
+def test_rename_allowed_with_only_wildcard_named_role_grants_and_other_workspaces(
+    workspace_permission_setup,
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.grant_user_resource_permission(username, "registered_model", "*", MANAGE.name)
+    # Direct grants live on the per-user role and follow the model, so they don't block.
+    store.grant_user_permission(username, "registered_model", "model-xyz", MANAGE.name)
+    role = store.create_role(name="readers", workspace="team-a")
+    store.add_role_permission(role.id, "registered_model", "*", READ.name)
+    store.add_role_permission(role.id, "registered_model", "other-model", DENY.name)
+    other = store.create_role(name="readers", workspace="team-b")
+    store.add_role_permission(other.id, "registered_model", "model-xyz", DENY.name)
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/rename",
+        method="POST",
+        json={"name": "model-xyz", "new_name": "renamed"},
+    ):
+        assert auth_module.validate_can_rename_registered_model()
+
+
+@pytest.mark.parametrize(
+    ("name", "match"),
+    [("secret", "Use the exact name 'Secret'"), ("Secret", "role 'readers'")],
+)
+def test_admin_rename_with_name_case_variant_rejected(
+    workspace_permission_setup, monkeypatch, name, match
+):
+    # Grants are keyed on the stored spelling, so a case variant would miss the role's DENY.
+    store = workspace_permission_setup["store"]
+    store.update_user(workspace_permission_setup["username"], is_admin=True)
+    monkeypatch.setattr(
+        auth_module,
+        "_get_model_registry_store",
+        lambda: _CaseInsensitiveRegistryStore({"Secret": "team-a"}),
+    )
+    role = store.create_role(name="readers", workspace="team-a")
+    store.add_role_permission(role.id, "registered_model", "Secret", DENY.name)
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/rename",
+        method="POST",
+        json={"name": name, "new_name": "renamed"},
+    ):
+        with pytest.raises(MlflowException, match=match):
+            auth_module.enforce_model_name_rules()
+
+
+def test_rename_rejected_when_named_role_grants_old_name_without_workspaces(
+    workspace_permission_setup, monkeypatch
+):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.grant_user_resource_permission(username, "registered_model", "*", MANAGE.name)
+    role = store.create_role(name="readers", workspace=DEFAULT_WORKSPACE_NAME)
+    store.add_role_permission(role.id, "registered_model", "model-xyz", DENY.name)
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/rename",
+        method="POST",
+        json={"name": "model-xyz", "new_name": "renamed"},
+    ):
+        with pytest.raises(MlflowException, match="An admin must update or remove") as exc_info:
+            auth_module.validate_can_rename_registered_model()
+    assert "readers" not in exc_info.value.message
 
 
 def test_delete_can_manage_registered_model_permission_sweeps_prompt_namespace(

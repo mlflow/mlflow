@@ -2395,10 +2395,42 @@ def _reject_wildcard_model_name(name: str) -> None:
 def validate_can_rename_registered_model() -> bool:
     if not _validate_can_update_registered_model_or_prompt():
         return False
+    _enforce_rename_name_rules()
+    return True
+
+
+def _enforce_rename_name_rules() -> None:
     if target := _registered_model_or_prompt_target():
         _require_stored_name_spelling(_get_request_param("name"), target[1])
-    _reject_wildcard_model_name(_get_request_message(RenameRegisteredModel()).new_name)
-    return True
+    request_message = _get_request_message(RenameRegisteredModel())
+    _reject_wildcard_model_name(request_message.new_name)
+    _reject_rename_with_named_role_grants(request_message.name, request_message.new_name)
+
+
+def _reject_rename_with_named_role_grants(name: str, new_name: str) -> None:
+    # Model and prompt grants are keyed by name, and a rename only rewrites per-user grants.
+    # An admin-created role's grant on the old name would stop applying (lifting a DENY), and
+    # one on the new name would start applying to the renamed model, so reject the rename.
+    grants = store.list_named_role_grants_for_resource(
+        (RESOURCE_TYPE_REGISTERED_MODEL, RESOURCE_TYPE_PROMPT), (name, new_name)
+    )
+    if not grants:
+        return
+    details = ""
+    # Only callers who can manage roles can act on these grants, so only they get the details.
+    user = store.get_user(authenticate_request().username)
+    workspace = _request_auth_workspace()
+    if user.is_admin or (workspace is not None and _is_workspace_admin(user.id, workspace)):
+        listed = ", ".join(
+            f"role '{g.role_name}' has {g.permission} on {g.resource_type} '{g.resource_pattern}'"
+            for g in grants
+        )
+        details = f" ({listed})"
+    raise MlflowException.invalid_parameter_value(
+        f"Cannot rename '{name}' to '{new_name}' because role grants reference these names by "
+        f"exact name{details}. Renaming would change which model or prompt those grants apply "
+        "to. An admin must update or remove these role grants before the rename."
+    )
 
 
 def _validate_can_delete_registered_model_or_prompt():
@@ -5026,13 +5058,13 @@ def enforce_review_queue_name_not_username():
         _reject_rename_review_queue_shadowing_user(queue, _parse_update_review_queue_request())
 
 
-def enforce_model_name_not_wildcard():
-    """Apply the validators' wildcard-name check to admins, who skip the validators."""
+def enforce_model_name_rules():
+    """Apply the validators' model-name checks to admins, who skip the validators."""
     validator = _find_validator(request)
     if validator is validate_can_create_registered_model:
         _reject_wildcard_model_name(_get_request_message(CreateRegisteredModel()).name)
     elif validator is validate_can_rename_registered_model:
-        _reject_wildcard_model_name(_get_request_message(RenameRegisteredModel()).new_name)
+        _enforce_rename_name_rules()
 
 
 def validate_can_remove_items_from_review_queue():
@@ -6124,7 +6156,7 @@ def _before_request():
     # inside the validators).
     if sender_is_admin():
         enforce_review_queue_name_not_username()
-        enforce_model_name_not_wildcard()
+        enforce_model_name_rules()
         return
 
     # authorization
