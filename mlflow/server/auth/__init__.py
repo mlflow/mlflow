@@ -426,8 +426,8 @@ from mlflow.server.auth.routes import (
     UPDATE_USER_PASSWORD,
     UPLOAD_ARTIFACT,
 )
+from mlflow.server.auth.sqlalchemy_store import NamedRoleGrant, SqlAlchemyStore
 from mlflow.server.auth.sqlalchemy_store import RoleGrantRow as RoleGrantRow
-from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.fastapi_app import create_fastapi_app
 from mlflow.server.gateway_api import list_models as _list_gateway_models_endpoint
 from mlflow.server.handlers import (
@@ -2414,28 +2414,54 @@ def _caller_can_manage_roles() -> bool:
     return user.is_admin or (workspace is not None and _is_workspace_admin(user.id, workspace))
 
 
-def _reject_rename_with_named_role_grants(name: str, new_name: str) -> None:
-    # Model and prompt grants are keyed by name, and a rename only rewrites per-user grants.
-    # An admin-created role's grant on the old name would stop applying (lifting a DENY), and
-    # one on the new name would start applying to the renamed model, so reject the rename.
-    grants = store.list_named_role_grants_for_resource(
-        (RESOURCE_TYPE_REGISTERED_MODEL, RESOURCE_TYPE_PROMPT), (name, new_name)
+def _list_named_role_grants_on_names(names: tuple[str, ...]) -> list[NamedRoleGrant]:
+    # Model and prompt grants are keyed by name, and renames and deletes only rewrite or sweep
+    # per-user grants, so an admin-created role's exact-name grant would be left pointing at
+    # whatever model or prompt holds the name next.
+    return store.list_named_role_grants_for_resource(
+        (RESOURCE_TYPE_REGISTERED_MODEL, RESOURCE_TYPE_PROMPT), names
     )
-    if not grants:
-        return
-    details = ""
+
+
+def _named_role_grants_error_details(grants: list[NamedRoleGrant]) -> str:
     # Only callers who can manage roles can act on these grants, so only they get the details.
-    if _caller_can_manage_roles():
-        listed = ", ".join(
-            f"role '{g.role_name}' has {g.permission} on {g.resource_type} '{g.resource_pattern}'"
-            for g in grants
-        )
-        details = f" ({listed})"
-    raise MlflowException.invalid_parameter_value(
-        f"Cannot rename '{name}' to '{new_name}' because role grants reference these names by "
-        f"exact name{details}. Renaming would change which model or prompt those grants apply "
-        "to. An admin must update or remove these role grants before the rename."
+    if not _caller_can_manage_roles():
+        return ""
+    listed = ", ".join(
+        f"role '{g.role_name}' has {g.permission} on {g.resource_type} '{g.resource_pattern}'"
+        for g in grants
     )
+    return f" ({listed})"
+
+
+def _reject_rename_with_named_role_grants(name: str, new_name: str) -> None:
+    # A grant on the old name would stop applying (lifting a DENY), and one on the new name
+    # would start applying to the renamed model.
+    if grants := _list_named_role_grants_on_names((name, new_name)):
+        raise MlflowException.invalid_parameter_value(
+            f"Cannot rename '{name}' to '{new_name}' because role grants reference these names "
+            f"by exact name{_named_role_grants_error_details(grants)}. Renaming would change "
+            "which model or prompt those grants apply to. An admin must update or remove these "
+            "role grants before the rename."
+        )
+
+
+def _reject_delete_with_named_role_grants(name: str) -> None:
+    # A grant that allows access would outlive the deleted model and apply to the next one
+    # created with the name. Unlike rename, delete moves no model out from under a grant, so a
+    # leftover DENY only fails closed and does not block.
+    grants = [
+        g
+        for g in _list_named_role_grants_on_names((name,))
+        if get_permission(g.permission).can_read
+    ]
+    if grants:
+        raise MlflowException.invalid_parameter_value(
+            f"Cannot delete '{name}' because role grants reference it by exact name"
+            f"{_named_role_grants_error_details(grants)}. Those grants would apply to the next "
+            "model or prompt created with this name. An admin must update or remove these role "
+            "grants before the delete."
+        )
 
 
 def _reject_rename_onto_per_user_grants(name: str, new_name: str) -> None:
@@ -2551,6 +2577,7 @@ def validate_can_delete_registered_model_or_prompt_cascade():
         return False
     # Checked after authorization so the error cannot reveal the stored name to a denied caller.
     _require_stored_name_spelling(_get_request_param("name"), name)
+    _reject_delete_with_named_role_grants(name)
     return True
 
 
@@ -5109,6 +5136,7 @@ def enforce_model_name_rules():
     elif validator is validate_can_delete_registered_model_or_prompt_cascade:
         if target := _registered_model_or_prompt_target():
             _require_stored_name_spelling(_get_request_param("name"), target[1])
+            _reject_delete_with_named_role_grants(target[1])
 
 
 def validate_can_remove_items_from_review_queue():
