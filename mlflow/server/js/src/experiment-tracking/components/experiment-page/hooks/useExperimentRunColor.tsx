@@ -8,14 +8,14 @@ import {
   RUN_COLOR_ACTION_INITIALIZE_RUN_COLORS,
   RUN_COLOR_ACTION_SET_RUN_COLOR,
 } from '../../../reducers/RunColorReducer';
+import { getStorageItem, setStorageItem } from '../../../../common/utils/LocalStorageUtils';
 
 const STORAGE_KEY = 'experimentRunColors';
 
 export type SaveExperimentRunColorFn = (args: { runUuid?: string; groupUuid?: string; colorValue: string }) => void;
 
 const loadSavedColors = () => {
-  // eslint-disable-next-line @databricks/no-direct-storage -- go/no-direct-storage
-  const savedColorsRaw = window.localStorage.getItem(STORAGE_KEY);
+  const savedColorsRaw = getStorageItem(window.localStorage, STORAGE_KEY);
   try {
     return savedColorsRaw ? JSON.parse(savedColorsRaw) : {};
   } catch {
@@ -53,8 +53,7 @@ export const useSaveExperimentRunColor = () => {
       if (groupUuid) {
         const colors = loadSavedColors();
         colors[groupUuid] = colorValue;
-        // eslint-disable-next-line @databricks/no-direct-storage -- go/no-direct-storage
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(colors));
+        setStorageItem(window.localStorage, STORAGE_KEY, JSON.stringify(colors));
       }
     },
     [dispatch],
