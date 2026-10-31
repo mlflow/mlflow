@@ -1524,6 +1524,16 @@ def test_param_spec_with_success():
     )
 
 
+def test_param_spec_with_nanosecond_datetime64():
+    value = np.datetime64("2023-06-06T01:02:03.123456789", "ns")
+    expected = datetime.datetime(2023, 6, 6, 1, 2, 3, 123456)
+    assert ParamSpec("a", DataType.datetime, value).default == expected
+    assert ParamSpec("a", DataType.datetime, np.array([value]), (-1,)).default == [expected]
+    assert _enforce_params_schema(
+        {"a": value}, ParamSchema([ParamSpec("a", DataType.datetime, None)])
+    ) == {"a": expected}
+
+
 def test_param_spec_errors():
     # Raise error if default value can not be converted to specified type
     with pytest.raises(MlflowException, match=r"Failed to validate type and shape for 'a'"):
