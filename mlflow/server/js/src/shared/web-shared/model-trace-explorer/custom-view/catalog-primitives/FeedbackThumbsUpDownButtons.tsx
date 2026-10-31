@@ -54,7 +54,7 @@ export const FeedbackThumbsUpDownButtons: ReactComponentImplementation = createC
   ({ props }) => {
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();
-    const { enabled, traceId, sourceId } = useFeedbackStatus();
+    const { enabled, traceId, sourceId, isSourceResolved } = useFeedbackStatus();
     const [status, setStatus] = useState<SubmitStatus>('idle');
     const boundValue = typeof props.value === 'boolean' ? props.value : undefined;
     const [selected, setSelected] = useState<boolean | undefined>(boundValue);
@@ -70,8 +70,11 @@ export const FeedbackThumbsUpDownButtons: ReactComponentImplementation = createC
     const label = typeof props.label === 'string' ? props.label : '';
     const weight = typeof props.weight === 'number' ? props.weight : undefined;
 
+    // A click while the source is unknown would show a value that is never saved.
+    const isWaitingForSource = enabled && !isSourceResolved;
+
     const submit = (value: boolean) => {
-      if (isLoading) {
+      if (isLoading || isWaitingForSource) {
         return;
       }
       setSelected(value);
@@ -127,7 +130,7 @@ export const FeedbackThumbsUpDownButtons: ReactComponentImplementation = createC
               componentId="shared.model-trace-explorer.custom-view.feedback-button-up"
               icon={<ThumbsUpIcon />}
               type={selected === true ? 'primary' : undefined}
-              disabled={isLoading}
+              disabled={isLoading || isWaitingForSource}
               onClick={() => submit(true)}
               aria-pressed={selected === true}
               aria-label={intl.formatMessage({
@@ -139,7 +142,7 @@ export const FeedbackThumbsUpDownButtons: ReactComponentImplementation = createC
               componentId="shared.model-trace-explorer.custom-view.feedback-button-down"
               icon={<ThumbsDownIcon />}
               type={selected === false ? 'primary' : undefined}
-              disabled={isLoading}
+              disabled={isLoading || isWaitingForSource}
               onClick={() => submit(false)}
               aria-pressed={selected === false}
               aria-label={intl.formatMessage({

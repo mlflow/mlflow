@@ -15,10 +15,12 @@ export const AssessmentActionsOverflowMenu = ({
 }) => {
   const isFeedback = 'feedback' in assessment;
   const { user, isResolved: isUserResolved } = useUserIdentity();
-  const isLegacyPlaceholder = assessment.source.source_id === getUser();
+  // `User` can be a legacy placeholder or a real username. An edit of someone else's feedback is saved as an override
+  // under the editor, so it is safe either way. Expectation edits update in place, so they do not get this exception.
+  const isLegacyPlaceholderFeedback = isFeedback && assessment.source.source_id === getUser();
 
   const doesUserHavePermissions =
-    (isUserResolved && (user === assessment.source.source_id || isLegacyPlaceholder)) ||
+    (isUserResolved && (user === assessment.source.source_id || isLegacyPlaceholderFeedback)) ||
     (isFeedback && assessment.source.source_type !== 'HUMAN');
   const showEditButton = doesUserHavePermissions && setIsEditing;
 

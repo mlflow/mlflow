@@ -22,6 +22,7 @@ import {
   type ModelTraceExplorerViewState,
 } from '../ModelTraceExplorerViewStateContext';
 import { setupServer } from '../../test-utils/setup-msw';
+import { useUserIdentity } from '../../global-settings/getUser';
 
 // Mock the assistant bridge so the tests drive the component purely off its
 // return value (availability / openAssistant / applyError), without the
@@ -480,6 +481,7 @@ describe('ModelTraceExplorerCustomView', () => {
   beforeEach(() => {
     mockUseCustomViewAssistantBridge.mockReset();
     jest.mocked(shouldUseTracesV4API).mockReturnValue(false);
+    jest.mocked(useUserIdentity).mockReturnValue({ user: 'test-user@example.com', isResolved: true });
     // The latch is module-level state owned by the page's context plugin; clear
     // it so a test that sets it can't retarget a later test's apply.
     latchDispatchedCustomViewApplyTarget(undefined);
@@ -1265,6 +1267,22 @@ describe('ModelTraceExplorerCustomView', () => {
         source: { source_type: 'HUMAN', source_id: 'test-user@example.com' },
         feedback: { value: true },
       });
+    });
+
+    it('does not accept thumbs or submit feedback while the current user is unresolved', async () => {
+      jest.mocked(useUserIdentity).mockReturnValue({ user: 'previous-user', isResolved: false });
+      const posted = captureAssessmentPosts();
+      setBridge();
+      renderWithViews([feedbackPrimitivesView]);
+      await selectView(/name-feedback-primitives/);
+
+      const thumbsUp = await screen.findByRole('button', { name: 'Thumbs up' });
+      expect(thumbsUp).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Thumbs down' })).toBeDisabled();
+      fireEvent.click(thumbsUp);
+
+      expect(thumbsUp).toHaveAttribute('aria-pressed', 'false');
+      expect(posted).toHaveLength(0);
     });
 
     it('keeps staged form values when thumbs feedback refreshes the view', async () => {

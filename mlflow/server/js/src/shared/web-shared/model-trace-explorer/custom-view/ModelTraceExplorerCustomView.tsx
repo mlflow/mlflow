@@ -1278,9 +1278,10 @@ export const ModelTraceExplorerCustomView = ({
             {surface && (
               <FeedbackStatusProvider
                 value={{
-                  enabled: isUserResolved,
+                  enabled: true,
                   traceId,
                   sourceId: user,
+                  isSourceResolved: isUserResolved,
                   hasStagedFeedback,
                   getStagedFeedbackValue,
                   submitStagedFeedback,

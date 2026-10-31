@@ -59,7 +59,7 @@ export const FeedbackThumbsUpDownButtons: ReactComponentImplementation = createC
   ({ props }) => {
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();
-    const { enabled, traceId, sourceId } = useFeedbackStatus();
+    const { enabled, traceId, sourceId, isSourceResolved } = useFeedbackStatus();
 
     const [status, setStatus] = useState<SubmitStatus>('idle');
 
@@ -75,11 +75,14 @@ export const FeedbackThumbsUpDownButtons: ReactComponentImplementation = createC
     const label = typeof props.label === 'string' ? props.label : '';
     const weight = typeof props.weight === 'number' ? props.weight : undefined;
 
+    // A click while the source is unknown would show a value that is never saved.
+    const isWaitingForSource = enabled && !isSourceResolved;
+
     const submit = (value: boolean) => {
       // Ignore clicks while a request is in flight. On success the thumbs are
       // replaced by a check (so no further click is possible); an error keeps the
       // thumbs so the user can retry or switch.
-      if (isLoading) {
+      if (isLoading || isWaitingForSource) {
         return;
       }
       // Reflect the choice into the data model (no-op if `value` isn't bound).
@@ -131,7 +134,7 @@ export const FeedbackThumbsUpDownButtons: ReactComponentImplementation = createC
             <Button
               componentId="shared.model-trace-explorer.custom-view.feedback-up"
               icon={<ThumbsUpIcon />}
-              disabled={isPending}
+              disabled={isPending || isWaitingForSource}
               onClick={() => submit(true)}
               aria-label={intl.formatMessage({
                 defaultMessage: 'Thumbs up',
@@ -141,7 +144,7 @@ export const FeedbackThumbsUpDownButtons: ReactComponentImplementation = createC
             <Button
               componentId="shared.model-trace-explorer.custom-view.feedback-down"
               icon={<ThumbsDownIcon />}
-              disabled={isPending}
+              disabled={isPending || isWaitingForSource}
               onClick={() => submit(false)}
               aria-label={intl.formatMessage({
                 defaultMessage: 'Thumbs down',

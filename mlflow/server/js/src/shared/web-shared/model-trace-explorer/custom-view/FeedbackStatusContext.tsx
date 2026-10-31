@@ -24,6 +24,9 @@ export interface FeedbackStatusContextValue {
   traceId: string;
   // Who feedback is attributed to. Hosts set the signed-in username, or the OSS placeholder when auth is unavailable.
   sourceId?: string;
+  // False while the host still resolves `sourceId`. Writes wait for it, unlike `enabled`, which only selects
+  // reflect-only mode.
+  isSourceResolved: boolean;
   // Whether there is staged feedback with a submittable value ready to submit.
   // A submit owns exactly one form, identified by `formId`: it counts only the
   // entries staged under that same `formId`. Reactive: flips as RadioGroup /
@@ -51,6 +54,7 @@ export interface FeedbackStatusContextValue {
 const FeedbackStatusContext = createContext<FeedbackStatusContextValue>({
   enabled: false,
   traceId: '',
+  isSourceResolved: true,
   hasStagedFeedback: () => false,
   getStagedFeedbackValue: () => undefined,
   submitStagedFeedback: () => Promise.resolve({ submitted: 0 }),
