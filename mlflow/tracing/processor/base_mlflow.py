@@ -44,6 +44,7 @@ from mlflow.tracing.utils import (
     update_trace_state_from_span_conditionally,
 )
 from mlflow.tracing.utils.environment import resolve_env_metadata
+from mlflow.tracing.utils.suppression import _IN_TRACE_EXPORT
 from mlflow.tracking.fluent import (
     _get_active_model_id_global,
     _get_latest_active_run,
@@ -226,6 +227,9 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
             return
 
         if span.parent is None:
+            # Don't record MLflow's own export I/O as a trace, e.g. a storage SDK's native spans.
+            if _IN_TRACE_EXPORT.get():
+                return
             trace_info = self._start_trace(span)
             if trace_info is None:
                 return

@@ -28,6 +28,7 @@ from mlflow.tracing.utils import (
     get_experiment_id_for_trace,
     maybe_get_request_id,
 )
+from mlflow.tracing.utils.suppression import suppress_export_tracing
 from mlflow.utils.databricks_utils import is_in_databricks_notebook
 from mlflow.utils.uri import get_db_info_from_uri, is_databricks_uri
 from mlflow.utils.workspace_context import ServerWorkspaceContext
@@ -100,6 +101,7 @@ class MlflowV3SpanExporter(SpanExporter):
         self._deferred_root_spans: dict[int, ReadableSpan] = {}
         self._deferred_lock = threading.Lock()
 
+    @suppress_export_tracing()
     def export(self, spans: Sequence[ReadableSpan]) -> None:
         """
         Export the spans to the destination.

@@ -6,6 +6,7 @@ import warnings
 from unittest import mock
 
 import pytest
+from opentelemetry import context as otel_context
 
 import mlflow
 from mlflow.environment_variables import (
@@ -504,6 +505,35 @@ def test_log_suppression_in_consumer_thread(mock_requests, capsys, mock_telemetr
     assert "TEST LOG FROM MAIN THREAD" in captured.err
     # Verify that the consumer thread log was suppressed
     assert "TEST LOG FROM CONSUMER THREAD" not in captured.err
+
+
+@pytest.mark.no_mock_requests_get
+def test_telemetry_requests_run_with_instrumentation_suppressed():
+    config = {
+        "mlflow_version": VERSION,
+        "disable_telemetry": False,
+        "ingestion_url": "http://localhost:9999",
+    }
+    sent = []
+
+    def send(url, **kwargs):
+        sent.append((url, otel_context.get_value(otel_context._SUPPRESS_INSTRUMENTATION_KEY)))
+        return mock.Mock(status_code=200, json=mock.Mock(return_value=config))
+
+    with (
+        mock.patch("mlflow.telemetry.client.requests.get", side_effect=send) as mock_get,
+        mock.patch("mlflow.telemetry.client.requests.post", side_effect=send) as mock_post,
+        TelemetryClient() as client,
+    ):
+        client.add_record(
+            Record(event_name="test_event", timestamp_ns=time.time_ns(), status=Status.SUCCESS)
+        )
+        client.flush()
+
+    mock_get.assert_called_once()
+    mock_post.assert_called_once()
+    # Other OpenTelemetry instrumentation (e.g. of `requests`) must not trace telemetry's own calls.
+    assert sent == [(mock.ANY, True), ("http://localhost:9999", True)]
 
 
 def test_consumer_thread_no_stderr_output(mock_requests, capsys, mock_telemetry_client):

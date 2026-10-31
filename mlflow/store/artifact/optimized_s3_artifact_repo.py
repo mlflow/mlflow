@@ -3,6 +3,7 @@ import logging
 import os
 import posixpath
 import urllib.parse
+from io import BytesIO
 from mimetypes import guess_type
 
 from mlflow.entities import FileInfo
@@ -15,14 +16,22 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.store.artifact.artifact_repo import _is_object_key_within_path, _retry_with_new_creds
+from mlflow.store.artifact.artifact_repo import (
+    _is_object_key_within_path,
+    _retry_with_new_creds,
+    _validate_attachment_path,
+)
 from mlflow.store.artifact.cloud_artifact_repo import (
     CloudArtifactRepository,
     _complete_futures,
     _compute_num_chunks,
     _validate_chunk_size_aws,
 )
-from mlflow.store.artifact.s3_artifact_repo import _file_is_directory_marker, _get_s3_client
+from mlflow.store.artifact.s3_artifact_repo import (
+    _file_is_directory_marker,
+    _get_s3_client,
+)
+from mlflow.tracing.utils.artifact_utils import TRACE_DATA_FILE_NAME
 from mlflow.utils.file_utils import read_chunk
 from mlflow.utils.request_utils import cloud_storage_http_request
 from mlflow.utils.rest_utils import augmented_raise_for_status
@@ -177,10 +186,10 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         }
         return {key: value for key, value in extra_args.items() if key in encryption_arg_names}
 
-    def _upload_file(self, s3_client, local_file, bucket, key):
+    def _get_upload_extra_args(self, path):
         extra_args = {}
         extra_args.update(self._s3_upload_extra_args)
-        guessed_type, guessed_encoding = guess_type(local_file)
+        guessed_type, guessed_encoding = guess_type(path)
         if guessed_type is not None:
             extra_args["ContentType"] = guessed_type
         if guessed_encoding is not None:
@@ -189,6 +198,10 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         environ_extra_args = self.get_s3_file_upload_extra_args()
         if environ_extra_args is not None:
             extra_args.update(environ_extra_args)
+        return extra_args
+
+    def _upload_file(self, s3_client, local_file, bucket, key):
+        extra_args = self._get_upload_extra_args(local_file)
 
         def try_func(creds):
             creds.upload_file(Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args)
@@ -198,6 +211,37 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             creds_func=self._refresh_credentials,
             orig_creds=s3_client,
         )
+
+    def _upload_bytes(self, artifact_path, body):
+        from boto3.s3.transfer import TransferConfig
+
+        # Threads are off so the upload runs on the calling thread: s3transfer's worker threads
+        # don't inherit the suppressed-instrumentation context that trace export runs in.
+        # Large bodies still use multipart.
+        key = posixpath.normpath(posixpath.join(self.bucket_path, artifact_path))
+        extra_args = self._get_upload_extra_args(artifact_path)
+
+        def try_func(creds):
+            creds.upload_fileobj(
+                BytesIO(body),
+                self.bucket,
+                key,
+                ExtraArgs=extra_args,
+                Config=TransferConfig(use_threads=False),
+            )
+
+        _retry_with_new_creds(
+            try_func=try_func,
+            creds_func=self._refresh_credentials,
+            orig_creds=self._get_s3_client(),
+        )
+
+    def upload_trace_data(self, trace_data: str) -> None:
+        self._upload_bytes(TRACE_DATA_FILE_NAME, trace_data.encode("utf-8"))
+
+    def upload_attachment(self, attachment_id: str, content_bytes: bytes) -> None:
+        _validate_attachment_path(attachment_id)
+        self._upload_bytes(posixpath.join("attachments", attachment_id), content_bytes)
 
     def log_artifact(self, local_file, artifact_path=None):
         artifact_file_path = os.path.basename(local_file)

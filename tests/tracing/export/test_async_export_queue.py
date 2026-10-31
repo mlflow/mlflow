@@ -5,8 +5,10 @@ from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
 import pytest
+from opentelemetry import context as otel_context
 
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
+from mlflow.tracing.utils.suppression import _IN_TRACE_EXPORT
 
 from tests.tracing.helper import skip_when_testing_trace_sdk
 
@@ -225,3 +227,39 @@ def test_flush_waits_for_in_progress_flush():
     assert not first_flush_thread.is_alive()
     assert not second_flush_thread.is_alive()
     assert completed_when_second_flush_returns == [3]
+
+
+def _record_thread_and_suppression(seen):
+    suppressed = bool(otel_context.get_value(otel_context._SUPPRESS_INSTRUMENTATION_KEY))
+    seen.append((threading.current_thread(), suppressed))
+
+
+def test_task_runs_with_instrumentation_suppressed_on_worker_thread():
+    queue = AsyncTraceExportQueue()
+    seen = []
+
+    queue.put(Task(handler=_record_thread_and_suppression, args=(seen,)))
+    queue.flush(terminate=True)
+
+    [(thread, suppressed)] = seen
+    assert thread.name.startswith("MlflowTraceLoggingWorker")
+    assert suppressed
+
+
+def test_task_runs_with_instrumentation_suppressed_when_queue_inactive():
+    queue = AsyncTraceExportQueue()
+    queue.activate()
+    queue.flush(terminate=True)
+    seen = []
+
+    def interrupted_handler():
+        _record_thread_and_suppression(seen)
+        raise KeyboardInterrupt("export interrupted")
+
+    # Task.handle() swallows Exception, so only a BaseException checks the cleanup in `finally`.
+    with pytest.raises(KeyboardInterrupt, match="export interrupted"):
+        queue.put(Task(handler=interrupted_handler, args=()))
+
+    assert seen == [(threading.current_thread(), True)]
+    assert otel_context.get_value(otel_context._SUPPRESS_INSTRUMENTATION_KEY) is None
+    assert not _IN_TRACE_EXPORT.get()
