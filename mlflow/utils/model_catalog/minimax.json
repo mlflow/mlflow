@@ -128,6 +128,26 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "MiniMax-M3.1-Flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.6,
+        "cache_read_per_million_tokens": 0.015
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-21"
+    },
     "MiniMax-M3": {
       "mode": "chat",
       "context_window": {
