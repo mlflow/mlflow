@@ -5,7 +5,7 @@ description: |
   create a review, or approve the PR yourself. Avoid @-mentions.
 
   Save useful screenshots or recordings in /tmp/verify-out/media and cite their exact absolute
-  paths in the review body or an inline comment, for example:
+  paths in the review body or a line or file comment, for example:
   ![Observed behavior](/tmp/verify-out/media/observed.png)
   Put a video citation on its own line. The workflow uploads cited media and replaces the paths;
   do not upload media yourself.
@@ -32,12 +32,12 @@ properties:
       - COMMENT
   body:
     description: >-
-      A concise Markdown review describing the behavior investigated, the commands or interactions
-      performed, their results, and any material gaps or behavioral problems. Put a finding here
-      if no appropriate changed line exists for an inline comment.
+      Always use one to three short sentences: state the outcome and the most important behavior
+      checked or material gap. Do not restate the PR, list every command, or repeat findings in
+      comments. Briefly summarize a finding here if it cannot be placed on a changed file.
     type: string
     minLength: 1
-    maxLength: 12000
+    maxLength: 400
     pattern: \S
   commit_id:
     description: Optional head SHA; the workflow always sets the pinned head when publishing.
@@ -45,8 +45,10 @@ properties:
     pattern: ^[0-9a-f]{40}$
   comments:
     description: >-
-      Inline comments describing a significant behavioral finding or showing evidence that is most
-      useful next to the relevant change. Use a line in a PR diff hunk.
+      Put each significant behavioral finding in a line comment on the most relevant changed line
+      whenever possible. Use a file-level comment if no appropriate line exists. If the issue is
+      outside the diff, use the most relevant changed line or file as the anchor and identify the
+      affected location in the comment. Comments can also show evidence next to the relevant change.
     type: array
     maxItems: 10
     items:
@@ -82,11 +84,9 @@ $defs:
     required:
       - path
       - body
-      - line
-      - side
     properties:
       path:
-        description: Repository-relative path with a hunk in the PR diff.
+        description: Repository-relative path of a changed file in the PR.
         type: string
         minLength: 1
         maxLength: 1024
@@ -113,6 +113,22 @@ $defs:
       start_side:
         description: Side of start_line in the same hunk as line.
         $ref: "#/$defs/side"
+      subject_type:
+        description: Set to file for a file-level comment; omit line, side, start_line, and start_side.
+        const: file
+    if:
+      required:
+        - subject_type
+    then:
+      properties:
+        line: false
+        side: false
+        start_line: false
+        start_side: false
+    else:
+      required:
+        - line
+        - side
     dependentRequired:
       start_line:
         - start_side
