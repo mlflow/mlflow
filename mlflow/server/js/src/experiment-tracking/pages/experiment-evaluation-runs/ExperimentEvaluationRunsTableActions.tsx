@@ -4,12 +4,15 @@ import type { RowSelectionState } from '@tanstack/react-table';
 import { useCallback, useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { useDeleteRuns } from '../../components/experiment-page/hooks/useDeleteRuns';
+import { RenameRunModal } from '../../components/modals/RenameRunModal';
+import type { RunEntity } from '../../types';
 import { ErrorWrapper } from '@mlflow/mlflow/src/common/utils/ErrorWrapper';
 
 export const ExperimentEvaluationRunsTableActions = ({
   rowSelection,
   setRowSelection,
   refetchRuns,
+  runs = [],
   onCompare,
   selectedRunUuid,
   compareToRunUuid,
@@ -23,6 +26,8 @@ export const ExperimentEvaluationRunsTableActions = ({
   rowSelection: RowSelectionState;
   setRowSelection: (selection: RowSelectionState) => void;
   refetchRuns: () => void;
+  /** Table rows; needed to prefill the rename modal with the selected run's current name. */
+  runs?: RunEntity[];
   onCompare?: (runUuid1: string, runUuid2: string) => void;
   selectedRunUuid?: string;
   compareToRunUuid?: string;
@@ -37,6 +42,7 @@ export const ExperimentEvaluationRunsTableActions = ({
 }) => {
   const intl = useIntl();
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [renameModalVisible, setRenameModalVisible] = useState(false);
 
   const selectedRunUuids = useMemo(
     () =>
@@ -44,6 +50,11 @@ export const ExperimentEvaluationRunsTableActions = ({
         .filter(([_, value]) => value)
         .map(([key]) => key),
     [rowSelection],
+  );
+
+  const runToRename = useMemo(
+    () => (selectedRunUuids.length === 1 ? runs.find((run) => run.info.runUuid === selectedRunUuids[0]) : undefined),
+    [runs, selectedRunUuids],
   );
 
   const { mutate, isLoading } = useDeleteRuns({
@@ -150,6 +161,19 @@ export const ExperimentEvaluationRunsTableActions = ({
               <FormattedMessage defaultMessage="Compare" description="Compare evaluation runs action" />
             </DropdownMenu.Item>
           )}
+          <DropdownMenu.Item
+            componentId="mlflow.eval-runs.actions.rename"
+            onClick={() => setRenameModalVisible(true)}
+            disabled={!runToRename}
+            disabledReason={
+              <FormattedMessage
+                defaultMessage="Please select 1 run to rename"
+                description="Tooltip for disabled rename action in evaluation runs table actions"
+              />
+            }
+          >
+            <FormattedMessage defaultMessage="Rename" description="Rename evaluation runs action" />
+          </DropdownMenu.Item>
           {/*
             The Trigger above is disabled when no runs are selected, so this item is normally
             unreachable in that state. We keep the item-level disabled guard (and tooltip, matching
@@ -197,6 +221,18 @@ export const ExperimentEvaluationRunsTableActions = ({
           description="Delete evaluation runs modal confirmation text"
         />
       </Modal>
+      {runToRename && (
+        <RenameRunModal
+          isOpen={renameModalVisible}
+          runUuid={runToRename.info.runUuid}
+          runName={runToRename.info.runName}
+          onClose={() => setRenameModalVisible(false)}
+          onSuccess={() => {
+            refetchRuns();
+            setRenameModalVisible(false);
+          }}
+        />
+      )}
     </>
   );
 };
