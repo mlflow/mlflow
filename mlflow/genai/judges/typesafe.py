@@ -31,15 +31,18 @@ from mlflow.telemetry.events import InvokeCustomJudgeModelEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.constant import AssessmentMetadataKey
 from mlflow.tracing.utils import TraceJSONEncoder
+from mlflow.tracking import get_tracking_uri
 from mlflow.utils.credentials import get_default_host_creds
+from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.request_utils import _get_http_response_with_retries
 from mlflow.utils.rest_utils import http_request
-from mlflow.utils.uri import append_to_uri_path
+from mlflow.utils.uri import append_to_uri_path, is_databricks_uri
 
 _RETRY_CODES = (408, 429, 500, 502, 503, 504, 529)
 _GATEWAY_PROVIDER = "gateway"
 _TYPESAFE_PROVIDER = "typesafe"
-_SUPPORTED_PROVIDERS = frozenset({_GATEWAY_PROVIDER, _TYPESAFE_PROVIDER})
+_DATABRICKS_PROVIDER = "databricks"
+_SUPPORTED_PROVIDERS = frozenset({_GATEWAY_PROVIDER, _TYPESAFE_PROVIDER, _DATABRICKS_PROVIDER})
 # Older gateway servers reject a non-System-One endpoint on the System One route with this
 # legacy wording; current servers return _NON_TYPESAFE_GATEWAY_DETAIL. Both are accepted so a
 # new client keeps detecting "not a System One endpoint" against a server that predates the
@@ -111,7 +114,7 @@ def _invoke_typesafe_judge(
     provider, model_name = _parse_model_uri(model_uri)
     if provider not in _SUPPORTED_PROVIDERS:
         raise MlflowException.invalid_parameter_value(
-            f"Expected a typesafe:/ or gateway:/ model URI, got {model_uri!r}."
+            f"Expected a typesafe:/, gateway:/, or databricks:/ model URI, got {model_uri!r}."
         )
     _validate_options(provider, inference_params, base_url, extra_headers)
     _validate_input(instructions, state)
@@ -124,11 +127,12 @@ def _invoke_typesafe_judge(
         "questions": {_QUESTION_NAME: question},
     }
 
-    response = (
-        _send_gateway_request(payload, num_retries)
-        if provider == _GATEWAY_PROVIDER
-        else _send_request(payload, num_retries, base_url, extra_headers)
-    )
+    if provider == _DATABRICKS_PROVIDER:
+        response = _send_databricks_request(payload, num_retries)
+    elif provider == _GATEWAY_PROVIDER:
+        response = _send_gateway_request(payload, num_retries)
+    else:
+        response = _send_request(payload, num_retries, base_url, extra_headers)
     response_data = _parse_json_response(
         response, allow_gateway_fallback=provider == _GATEWAY_PROVIDER
     )
@@ -153,7 +157,7 @@ def _validate_options(
     extra_headers: dict[str, str] | None,
 ) -> None:
     unsupported_options = ["inference_params"] if inference_params is not None else []
-    if provider == _GATEWAY_PROVIDER:
+    if provider in {_GATEWAY_PROVIDER, _DATABRICKS_PROVIDER}:
         unsupported_options.extend(
             name
             for name, value in (("base_url", base_url), ("extra_headers", extra_headers))
@@ -248,6 +252,32 @@ def _send_request(
             "Failed to connect to the TypeSafe evaluation endpoint.",
             error_code=INTERNAL_ERROR,
         ) from None
+
+
+def _send_databricks_request(payload: dict[str, Any], num_retries: int):
+    from mlflow.gateway.utils import _is_unity_catalog_model_name
+
+    if not _is_unity_catalog_model_name(payload["model"]):
+        raise MlflowException.invalid_parameter_value(
+            "Databricks System One judges require a Unity Catalog model service name, "
+            "such as databricks:/system.ai.typesafeai-jev-1-14-0."
+        )
+    tracking_uri = get_tracking_uri()
+    host_creds = get_databricks_host_creds(
+        tracking_uri if is_databricks_uri(tracking_uri) else None
+    )
+    return http_request(
+        host_creds=host_creds,
+        endpoint="/ai-gateway/typesafe/v1/systemone",
+        method="POST",
+        max_retries=num_retries,
+        backoff_factor=1,
+        backoff_jitter=0.1,
+        retry_codes=_RETRY_CODES,
+        timeout=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get(),
+        raise_on_status=False,
+        json=payload,
+    )
 
 
 def _send_gateway_request(payload: dict[str, Any], num_retries: int):
