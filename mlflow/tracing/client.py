@@ -54,6 +54,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.telemetry.events import LogAssessmentEvent, StartTraceEvent, TraceAttachmentsEvent
@@ -71,7 +72,11 @@ from mlflow.tracking._tracking_service.utils import _get_store, _resolve_trackin
 from mlflow.utils import is_uuid
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 from mlflow.utils.thread_utils import map_with_context
-from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, is_databricks_uri
+from mlflow.utils.uri import (
+    add_databricks_profile_info_to_artifact_uri,
+    get_uri_scheme,
+    is_databricks_uri,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -481,6 +486,12 @@ class TracingClient:
                     )
                     if tr
                 )
+            elif location is None and get_uri_scheme(self.tracking_uri) in DATABASE_ENGINES:
+                # The 10-trace batch size is a limit of the REST BatchGetTraces endpoint. A SQL
+                # tracking store loads any number of traces with one query per table, while
+                # fanning small batches out to threads only makes them contend for the GIL.
+                trace_ids = [t.trace_id for t in location_trace_infos]
+                traces.extend(self.store.batch_get_traces(trace_ids, location) or [])
             else:
                 batch_get_location = None if location == SpansLocation.ARCHIVE_REPO else location
                 traces.extend(
