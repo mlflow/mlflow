@@ -44,7 +44,7 @@ let createdSecrets: { secret_name: string; provider?: string; secret_value: Reco
  * trace filters, then the schedule, then syncs the dispatch state, so a test that stops waiting after
  * an earlier step would let the rest land in the next test's tags.
  */
-let savesInFlight = 0;
+let savesInFlight: number;
 
 const server = setupServer(
   rest.get('*/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) =>
@@ -214,6 +214,7 @@ describe('ExperimentIssuesScheduleControl', () => {
     loadFails = false;
     experimentReads = 0;
     scheduleStateSyncs = 0;
+    savesInFlight = 0;
     syncedNextRunMs = null;
     syncFails = false;
     scheduledDetectionEnabled = true;
@@ -226,8 +227,14 @@ describe('ExperimentIssuesScheduleControl', () => {
 
   afterEach(async () => {
     await waitFor(() => {
+      // Below zero means a state sync arrived that no save started, so the counting above has fallen
+      // behind how a save works; fail on it rather than clamp it away.
       if (savesInFlight !== 0) {
-        throw new Error(`${savesInFlight} save(s) still in flight`);
+        throw new Error(
+          savesInFlight > 0
+            ? `${savesInFlight} save(s) still in flight`
+            : `${-savesInFlight} state sync(s) arrived that no save started`,
+        );
       }
     });
   });
