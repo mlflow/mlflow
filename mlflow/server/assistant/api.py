@@ -40,7 +40,7 @@ from mlflow.assistant.providers.base import (
     assistant_sandbox_enabled,
     clear_config_cache,
 )
-from mlflow.assistant.providers.mlflow_gateway import set_server_url
+from mlflow.assistant.providers.mlflow_gateway import CALLER_CREDENTIAL_HEADERS, set_server_url
 from mlflow.assistant.providers.tool_executor import is_remote_caller, set_remote_caller
 from mlflow.assistant.skill_installer import install_skills, list_installed_skills
 from mlflow.assistant.types import EventType
@@ -663,11 +663,17 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
             # the client's Host header, which a caller could point at a host they control. The
             # call still presents this request's Host header, which the server's Host allowlist
             # has already admitted, and its workspace header, so the gateway resolves the same
-            # workspace as this request.
+            # workspace as this request. Its credential headers authenticate the call when the
+            # server's auth app does not accept the internal gateway token.
             set_server_url(
                 get_server_self_url(request),
                 host_header=request.headers.get("host"),
                 workspace_header=request.headers.get(WORKSPACE_HEADER_NAME),
+                credential_headers={
+                    name: value
+                    for name in CALLER_CREDENTIAL_HEADERS
+                    if (value := request.headers.get(name))
+                },
             )
             # The in-server gateway enforces a per-endpoint USE permission. The Assistant's
             # managed endpoints are created outside the HTTP route that would grant it, so
