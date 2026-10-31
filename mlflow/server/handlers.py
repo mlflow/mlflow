@@ -40,6 +40,8 @@ import mlflow
 from mlflow.client import MlflowClient
 from mlflow.entities import (
     Assessment,
+    AssessmentSource,
+    AssessmentSourceType,
     DatasetInput,
     Expectation,
     ExperimentTag,
@@ -5129,9 +5131,36 @@ def _update_assessment(trace_id, assessment_id):
         elif path == "valid":
             kwargs["valid"] = assessment_proto.valid
 
-    updated_assessment = _get_tracking_store().update_assessment(
-        trace_id=trace_id, assessment_id=assessment_id, **kwargs
-    )
+    store = _get_tracking_store()
+    editor = _get_request_username()
+    existing = store.get_assessment(trace_id, assessment_id) if editor is not None else None
+    if (
+        isinstance(existing, Feedback)
+        and existing.source.source_type == AssessmentSourceType.HUMAN
+        and existing.source.source_id != editor
+        and kwargs.keys() <= {"name", "feedback", "rationale", "metadata"}
+    ):
+        # An update keeps the stored source, so editing someone else's feedback in place would
+        # show the edit under their name. Record it as the editor's own feedback overriding
+        # theirs, as the UI does; the original is kept, marked as overridden.
+        feedback = kwargs.get("feedback")
+        updated_assessment = store.create_assessment(
+            Feedback(
+                name=kwargs.get("name", existing.name),
+                value=feedback.value if feedback else existing.value,
+                error=feedback.error if feedback else existing.error,
+                source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id=editor),
+                trace_id=trace_id,
+                metadata={**(existing.metadata or {}), **kwargs.get("metadata", {})} or None,
+                span_id=existing.span_id,
+                rationale=kwargs.get("rationale", existing.rationale),
+                overrides=existing.assessment_id,
+            )
+        )
+    else:
+        updated_assessment = store.update_assessment(
+            trace_id=trace_id, assessment_id=assessment_id, **kwargs
+        )
 
     response_message = UpdateAssessment.Response(assessment=updated_assessment.to_proto())
     return _wrap_response(response_message)
