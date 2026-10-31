@@ -1,0 +1,32 @@
+name: Verify PR behavior
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Pull request number to verify"
+        required: true
+        type: number
+      dry_run:
+        description: "Preview without posting a review or uploading media"
+        required: false
+        type: boolean
+        default: true
+
+concurrency:
+  group: verify-bootstrap-${{ github.run_id }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+cache-mode: none
+
+jobs:
+  placeholder:
+    runs-on: ubuntu-slim
+    timeout-minutes: 1
+    steps:
+      - run: echo 'Placeholder for manual dispatch. The full verifier is being developed in PR #27338.'
