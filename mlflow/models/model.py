@@ -1004,7 +1004,7 @@ class Model:
                     try:
                         file_extension = os.path.splitext(model_config)[1].lower()
                         if file_extension == ".json":
-                            with open(model_config) as f:
+                            with open(model_config, encoding="utf-8") as f:
                                 model_config = json.load(f)
                         elif file_extension in [".yaml", ".yml"]:
                             model_config = _validate_and_get_model_config_from_file(model_config)
@@ -1014,6 +1014,11 @@ class Model:
                                 "Failed to load model config.",
                                 model_config,
                             )
+                    except UnicodeDecodeError as e:
+                        raise MlflowException(
+                            f"Model config file '{model_config}' must be UTF-8 encoded.",
+                            error_code=INVALID_PARAMETER_VALUE,
+                        ) from e
                     except Exception as e:
                         _logger.warning("Failed to load model config from %s: %s", model_config, e)
 
@@ -1334,7 +1339,7 @@ class Model:
                         try:
                             file_extension = os.path.splitext(model_config)[1].lower()
                             if file_extension == ".json":
-                                with open(model_config) as f:
+                                with open(model_config, encoding="utf-8") as f:
                                     model_config = json.load(f)
                             elif file_extension in [".yaml", ".yml"]:
                                 from mlflow.utils.model_utils import (
@@ -1350,6 +1355,11 @@ class Model:
                                     "Failed to load model config.",
                                     model_config,
                                 )
+                        except UnicodeDecodeError as e:
+                            raise MlflowException(
+                                f"Model config file '{model_config}' must be UTF-8 encoded.",
+                                error_code=INVALID_PARAMETER_VALUE,
+                            ) from e
                         except Exception as e:
                             _logger.warning(
                                 "Failed to load model config from %s: %s", model_config, e
