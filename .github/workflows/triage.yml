@@ -73,7 +73,7 @@ jobs:
       base: ${{ steps.pr.outputs.base }}
       base_ref: ${{ steps.pr.outputs.base_ref }}
     steps:
-      - name: Check maintainer and PR author
+      - name: Check maintainer and snapshot PR
         id: pr
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -94,16 +94,6 @@ jobs:
           mkdir -p "$RUNNER_TEMP/verify-context"
           gh api "repos/$REPO/pulls/$PR_NUMBER" > "$RUNNER_TEMP/pr.json"
           jq -e '.state == "open"' "$RUNNER_TEMP/pr.json" > /dev/null
-          author=$(jq -r '.user.login // empty' "$RUNNER_TEMP/pr.json")
-          if [ -z "$author" ]; then
-            echo 'The PR author is unavailable.' >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-          author_permission=$(gh api "repos/$REPO/collaborators/$author/permission" --jq .permission)
-          if [[ "$author_permission" != admin && "$author_permission" != write ]]; then
-            echo 'The PR author does not have write access to the repository.' >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
           head=$(jq -er '.head.sha | select(test("^[0-9a-f]{40}$"))' "$RUNNER_TEMP/pr.json")
           base=$(jq -er '.base.sha | select(test("^[0-9a-f]{40}$"))' "$RUNNER_TEMP/pr.json")
           base_ref=$(jq -er '.base.ref | strings | select(test("^[^\\r\\n]+$"))' "$RUNNER_TEMP/pr.json")
@@ -116,6 +106,31 @@ jobs:
             echo "base_ref=$base_ref"
             echo 'allowed=true'
           } >> "$GITHUB_OUTPUT"
+      - name: Create comment token
+        id: comment-token
+        if: steps.pr.outputs.allowed == 'true'
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: mlflow
+          repositories: mlflow
+          permission-issues: write
+      - name: Add run link to trigger comment
+        if: steps.pr.outputs.allowed == 'true' && github.event_name == 'issue_comment' && steps.comment-token.outcome == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.comment-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}?pr=${{ github.event.issue.number }}
+        run: |
+          marker="<!-- verify-run:$GITHUB_RUN_ID -->"
+          body=$(gh api "repos/$REPO/issues/comments/$COMMENT_ID" --jq .body)
+          if [[ "$body" != *"$marker"* ]]; then
+            body=$(printf '%s\n\n---\n\n[Verification run](%s) %s' "$body" "$RUN_URL" "$marker")
+            gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -f body="$body" > /dev/null
+          fi
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: steps.pr.outputs.allowed == 'true'
         with:
@@ -304,14 +319,23 @@ jobs:
           echo "::stop-commands::$token"
           # Safe mode ignores PR-authored settings and skills; load the trusted skill explicitly.
           # shellcheck disable=SC2016 # Expanded by the agent shell.
-          timeout 30m setsid bash -c 'echo "$$" > "$RUNNER_TEMP/verify-agent.pgid"; exec claude \
-              --safe-mode --strict-mcp-config \
-              --model "$MODEL" --effort "$EFFORT" --session-id "$SESSION_ID" --max-budget-usd 5 \
-              --permission-mode auto --disallowed-tools "WebSearch,WebFetch" \
+          timeout 30m setsid bash -c '
+            echo "$$" > "$RUNNER_TEMP/verify-agent.pgid"
+            exec claude \
+              --safe-mode \
+              --strict-mcp-config \
+              --model "$MODEL" \
+              --effort "$EFFORT" \
+              --session-id "$SESSION_ID" \
+              --max-budget-usd 5 \
+              --permission-mode auto \
+              --disallowed-tools "WebSearch,WebFetch" \
               --append-system-prompt "$(cat "$RUNNER_TEMP/verify-context/SKILL.md")" \
-              --print --verbose --output-format stream-json \
-              "Verify the pull request and write the requested payload."' \
-            | timeout 31m "$GITHUB_WORKSPACE/trusted/.claude/scripts/stream.sh" || { echo "::$token::"; exit 1; }
+              --print \
+              --verbose \
+              --output-format stream-json \
+              "Verify the pull request and write the requested payload."
+          ' | timeout 31m "$GITHUB_WORKSPACE/trusted/.claude/scripts/stream.sh" || { echo "::$token::"; exit 1; }
           echo "::$token::"
       - name: Stop agent processes
         if: always()
