@@ -39,7 +39,7 @@ describe('buildIssueFixPrompt', () => {
     // How a fix is made belongs to the skill, so the prompt names it rather than restating it.
     expect(prompt).toContain('Use the mlflow-agent-improvement skill.');
     // The evidence lives on the traces, which the CLI reads.
-    expect(prompt).toContain('mlflow traces get --trace-id');
+    expect(prompt).toContain('mlflow traces search --experiment-id 1 --filter-string "issue.id = \'iss-a\'"');
     expect(prompt).toContain('https://github.com/mlflow/skills');
     expect(prompt).toContain(ISSUE_URL);
   });
@@ -171,12 +171,12 @@ describe('buildIssueFixPrompt', () => {
     );
   });
 
-  test('tells the agent to redirect the trace command rather than look for a file', () => {
-    // `mlflow traces get` prints JSON to stdout; an agent told it "writes a file" would hunt for one.
+  test('leaves fetching and reading a trace to the trace skills', () => {
+    // mlflow-trace-retrieval already says to redirect `mlflow traces get`, whose output can be large.
     const prompt = buildIssueFixPrompt('1', makeIssue(), ISSUE_URL, { traceIds: ['tr-1'] });
 
-    expect(prompt).toContain('mlflow traces get --trace-id <ID> > trace.json');
-    expect(prompt).toContain('prints a trace as JSON');
+    expect(prompt).not.toContain('mlflow traces get');
+    expect(prompt).toContain('The `mlflow-trace-analysis` and `mlflow-trace-retrieval` skills cover reading them.');
   });
 
   test('summarises the trace list beyond the first ten', () => {

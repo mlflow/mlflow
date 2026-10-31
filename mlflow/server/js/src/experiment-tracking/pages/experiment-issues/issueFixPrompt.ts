@@ -101,7 +101,7 @@ ${issue.source_run_id ? `Detection run ID: ${issue.source_run_id}\n` : ''}${issu
     ...traceIdLines(traceIds, totalTraceCount, hasMoreTraces),
   ])}
 
-To read the issue's traces, use the MLflow CLI on this machine with \`MLFLOW_TRACKING_URI\` set to the issue URL's server (the part before \`#\`)${workspaceSetup}. \`mlflow traces search --experiment-id ${experimentId} --filter-string "issue.id = '${issue.issue_id}'"\` lists the traces the issue affects, 100 at a time (pass the next page token it prints as \`--page-token\` for more), and each of those traces carries an issue assessment named ${issue.issue_id} with the evidence. \`mlflow traces get --trace-id <ID> > trace.json\` prints a trace as JSON, worth redirecting because a trace can be large. The \`mlflow-trace-analysis\` and \`mlflow-trace-retrieval\` skills cover reading them.
+To read the issue's traces, use the MLflow CLI on this machine with \`MLFLOW_TRACKING_URI\` set to the issue URL's server (the part before \`#\`)${workspaceSetup}. \`mlflow traces search --experiment-id ${experimentId} --filter-string "issue.id = '${issue.issue_id}'"\` lists the traces the issue affects, 100 at a time (pass the next page token it prints as \`--page-token\` for more), and each of those traces carries an issue assessment named ${issue.issue_id} with the evidence. The \`mlflow-trace-analysis\` and \`mlflow-trace-retrieval\` skills cover reading them.
 
 ${FIX_PROMPT_OUTRO}`;
 };
