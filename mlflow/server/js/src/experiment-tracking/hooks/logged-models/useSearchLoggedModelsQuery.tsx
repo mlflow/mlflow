@@ -29,8 +29,13 @@ export const useSearchLoggedModelsQuery = (
   },
   {
     enabled = true,
+    includeMetrics = true,
   }: {
     enabled?: boolean;
+    /**
+     * Set to false to omit metric values from the response when only model identity is needed.
+     */
+    includeMetrics?: boolean;
   } = {},
 ) => {
   // Uniquely identify the query by the experiment IDs, order by, filter query and datasets, and order by asc
@@ -43,6 +48,7 @@ export const useSearchLoggedModelsQuery = (
     JSON.stringify(selectedFilterDatasets),
     orderByDatasetName,
     orderByDatasetDigest,
+    includeMetrics,
   ];
 
   const { data, isLoading, isFetching, fetchNextPage, refetch, error } = useInfiniteQuery<
@@ -65,6 +71,7 @@ export const useSearchLoggedModelsQuery = (
         page_token: pageParam,
         filter: searchQuery,
         datasets: !isEmpty(selectedFilterDatasets) ? selectedFilterDatasets : undefined,
+        include_metrics: includeMetrics,
       };
 
       return fetchAPI(getAjaxUrl('ajax-api/2.0/mlflow/logged-models/search'), { method: 'POST', body: requestBody });
