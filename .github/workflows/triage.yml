@@ -281,15 +281,19 @@ jobs:
       - name: Prepare agent context
         run: |
           mkdir -p /tmp/verify-home /tmp/verify-out/media /tmp/verify-out/work
-          cp trusted/.claude/skills/verify/{SKILL.md,payload.schema.yml} "$RUNNER_TEMP/verify-context/"
+          mkdir -p "$RUNNER_TEMP/verify-plugin"/{.claude-plugin,skills/verify}
+          printf '%s\n' '{"name":"mlflow-verify"}' > "$RUNNER_TEMP/verify-plugin/.claude-plugin/plugin.json"
+          cp trusted/.claude/skills/verify/SKILL.md "$RUNNER_TEMP/verify-plugin/skills/verify/"
+          cp trusted/.claude/skills/verify/payload.schema.yml "$RUNNER_TEMP/verify-context/"
           cp trusted/.claude/skills/verify/scripts/init.js "$RUNNER_TEMP/verify-context/"
       - name: Verify PR behavior
         working-directory: pr
         env:
           HOME: /tmp/verify-home
           ANTHROPIC_BASE_URL: http://localhost:8080/anthropic
-          ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway-proxy.outputs.token }}
-          ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
+          ANTHROPIC_CUSTOM_HEADERS: |-
+            Authorization: Bearer ${{ steps.gateway-proxy.outputs.token }}
+            ${{ steps.gateway.outputs.custom-headers }}
           ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5
           MODEL: ${{ inputs.model || 'databricks-claude-opus-5-5' }}
           EFFORT: ${{ inputs.effort || 'high' }}
@@ -317,12 +321,14 @@ jobs:
           fi
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
-          # Safe mode ignores PR-authored settings and skills; load the trusted skill explicitly.
+          # Bare mode skips PR customizations; load only the trusted skill as a plugin.
           # shellcheck disable=SC2016 # Expanded by the agent shell.
           timeout 30m setsid bash -c '
             echo "$$" > "$RUNNER_TEMP/verify-agent.pgid"
             exec claude \
-              --safe-mode \
+              --bare \
+              --setting-sources "" \
+              --plugin-dir "$RUNNER_TEMP/verify-plugin" \
               --strict-mcp-config \
               --model "$MODEL" \
               --effort "$EFFORT" \
@@ -330,11 +336,10 @@ jobs:
               --max-budget-usd 5 \
               --permission-mode auto \
               --disallowed-tools "WebSearch,WebFetch" \
-              --append-system-prompt "$(cat "$RUNNER_TEMP/verify-context/SKILL.md")" \
               --print \
               --verbose \
               --output-format stream-json \
-              "Verify the pull request and write the requested payload."
+              "/mlflow-verify:verify $RUNNER_TEMP/verify-context/pr.json $RUNNER_TEMP/verify-context/diff.patch $RUNNER_TEMP/verify-context/diff.annotated $RUNNER_TEMP/verify-context/payload.schema.yml $RUNNER_TEMP/verify-context/init.js"
           ' | timeout 31m "$GITHUB_WORKSPACE/trusted/.claude/scripts/stream.sh" || { echo "::$token::"; exit 1; }
           echo "::$token::"
       - name: Stop agent processes
@@ -513,7 +518,7 @@ jobs:
               jq . "$RUNNER_TEMP/review.json" | jq -Rrs '"<pre>\(. | @html)</pre>"'
             } >> "$GITHUB_STEP_SUMMARY"
           elif jq -e '.comments[]? | select(.subject_type == "file")' "$RUNNER_TEMP/review.json" > /dev/null; then
-            # The REST review API cannot add file comments, so attach them to a pending review.
+            # The REST create-review endpoint rejects file comments, so attach them to a pending review.
             jq 'del(.event) | .comments = [.comments[] | select(.subject_type != "file")]' \
               "$RUNNER_TEMP/review.json" > "$RUNNER_TEMP/pending-review.json"
             gh api "repos/$REPO/pulls/$PR_NUMBER/reviews" -X POST \
