@@ -47,11 +47,11 @@ In mlflow/server/js, run `yarn install --immutable`, then start the frontend wit
 `PORT=3000 BROWSER=none CI=false yarn start`. Run both servers as background tasks. Wait for
 `curl --noproxy '*' http://localhost:5000/health` and `curl --noproxy '*' http://localhost:3000/`
 to succeed. Use agent-browser on local MLflow URLs, and start each browser session with
-`--init-script /tmp/verify-context/init.js` on its first
+`--init-script "$RUNNER_TEMP/verify-context/init.js"` on its first
 `open`. When a recording would make the behavior clearer, use `agent-browser record start /tmp/verify-out/media/<name>.mp4 --cursor --contact-sheet` and `record stop`. The init script
 provides `caption(text, theme, position)` for short on-screen explanations, such as
 `agent-browser eval 'caption("Click Save")'`; use `caption()` to hide one. Stop the browser,
 servers, and their child processes before finishing.
 
-Read /tmp/verify-context/payload.schema.yml and follow its descriptions to write and validate
+Read $RUNNER_TEMP/verify-context/payload.schema.yml and follow its descriptions to write and validate
 /tmp/verify-out/payload.json.

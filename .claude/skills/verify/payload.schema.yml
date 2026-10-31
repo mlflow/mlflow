@@ -11,7 +11,7 @@ description: |
   do not upload media yourself.
 
   Before finishing, validate the payload with:
-  uvx check-jsonschema@0.37.4 --schemafile /tmp/verify-context/payload.schema.yml /tmp/verify-out/payload.json
+  uvx check-jsonschema@0.37.4 --schemafile "$RUNNER_TEMP/verify-context/payload.schema.yml" /tmp/verify-out/payload.json
   Fix validation errors before finishing.
 type: object
 additionalProperties: false
