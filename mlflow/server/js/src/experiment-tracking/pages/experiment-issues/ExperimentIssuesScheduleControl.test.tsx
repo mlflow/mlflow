@@ -67,7 +67,9 @@ const server = setupServer(
     }
     const body = (await req.json()) as SavedTag;
     if (failWriteOfTag === body.key) {
-      // A failed schedule write ends the save before its sync.
+      // A failed trace filter write, like `saveFails`, ends the save before it is counted, since the
+      // save throws without writing anything more. A failed schedule write ends a counted save
+      // before its sync.
       if (body.key === MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG) {
         savesInFlight -= 1;
       }
@@ -226,17 +228,21 @@ describe('ExperimentIssuesScheduleControl', () => {
   });
 
   afterEach(async () => {
-    await waitFor(() => {
-      // Below zero means a state sync arrived that no save started, so the counting above has fallen
-      // behind how a save works; fail on it rather than clamp it away.
-      if (savesInFlight !== 0) {
-        throw new Error(
-          savesInFlight > 0
-            ? `${savesInFlight} save(s) still in flight`
-            : `${-savesInFlight} state sync(s) arrived that no save started`,
-        );
-      }
-    });
+    await waitFor(
+      () => {
+        // Below zero means a state sync arrived that no save started, so the counting above has fallen
+        // behind how a save works; fail on it rather than clamp it away.
+        if (savesInFlight !== 0) {
+          throw new Error(
+            savesInFlight > 0
+              ? `${savesInFlight} save(s) still in flight`
+              : `${-savesInFlight} state sync(s) arrived that no save started`,
+          );
+        }
+      },
+      // As long as `openModal` waits, for the same slow runners.
+      { timeout: 5000 },
+    );
   });
 
   test('labels the trigger "Schedule detection" when off and shows the cadence when scheduled', async () => {
