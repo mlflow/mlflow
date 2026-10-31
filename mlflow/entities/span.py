@@ -646,10 +646,16 @@ class Span:
         span._links = links
         return span
 
-    def to_otel_proto(self) -> OTelProtoSpan:
+    def to_otel_proto(self, *, serialize_strings: bool = False) -> OTelProtoSpan:
         """
         Convert to OpenTelemetry protobuf span format for OTLP export.
         This is an internal method used by the REST store for logging spans.
+
+        Args:
+            serialize_strings: If True, send string attributes in their serialized form, as the
+                OTel exporter does, so that the receiving server (which strips the extra encoding
+                layer from OTLP spans) does not parse a JSON-looking string into a dict or list.
+                Leave False for a round trip through `Span.from_otel_proto`.
 
         Returns:
             An OpenTelemetry protobuf Span message.
@@ -672,6 +678,8 @@ class Span:
         for key, value in self.attributes.items():
             attr = otel_span.attributes.add()
             attr.key = key
+            if serialize_strings and isinstance(value, str):
+                value = self._span.attributes[key]
             _set_otel_proto_anyvalue(attr.value, value)
 
         for event in self.events:
