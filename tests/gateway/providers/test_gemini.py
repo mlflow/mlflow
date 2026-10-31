@@ -1396,6 +1396,28 @@ def chat_stream_response_incomplete():
     ]
 
 
+@pytest.mark.asyncio
+async def test_gemini_chat_stream_raises_on_in_band_error():
+    resp = [
+        *chat_stream_response()[:2],
+        b'data: {"error": {"code": 500, "message": "Internal error", "status": "INTERNAL"}}\n',
+        b"\n",
+    ]
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    payload = {"messages": [{"role": "user", "content": "Tell me a joke"}]}
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        stream = provider.chat_stream(chat.RequestPayload(**payload))
+        first = await anext(stream)
+        with pytest.raises(
+            AIGatewayException, match="Gemini returned INTERNAL while streaming: Internal error"
+        ) as exc_info:
+            await anext(stream)
+    assert first.choices[0].delta.content == "a"
+    assert exc_info.value.status_code == 502
+
+
 @pytest.mark.parametrize("resp", [chat_stream_response(), chat_stream_response_incomplete()])
 @pytest.mark.asyncio
 async def test_gemini_chat_stream(resp, api_base):
@@ -1656,6 +1678,28 @@ def completions_stream_response_incomplete():
         b'"created":1,"model":"test"}\n\n',
         b"data: [DONE]\n",
     ]
+
+
+@pytest.mark.asyncio
+async def test_gemini_completions_stream_raises_on_in_band_error():
+    resp = [
+        *completions_stream_response()[:2],
+        b'data: {"error": {"code": 500, "message": "Internal error", "status": "INTERNAL"}}\n',
+        b"\n",
+    ]
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+    provider = GeminiProvider(EndpointConfig(**completions_config()))
+    payload = {"prompt": "Recite the song jhony jhony yes papa"}
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        stream = provider.completions_stream(completions.RequestPayload(**payload))
+        first = await anext(stream)
+        with pytest.raises(
+            AIGatewayException, match="Gemini returned INTERNAL while streaming: Internal error"
+        ) as exc_info:
+            await anext(stream)
+    assert first.choices[0].text == "a"
+    assert exc_info.value.status_code == 502
 
 
 @pytest.mark.parametrize(

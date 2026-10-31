@@ -15,6 +15,7 @@ from mlflow.gateway.utils import (
     get_gateway_uri,
     handle_incomplete_chunks,
     is_valid_endpoint_name,
+    make_streaming_response,
     parse_sse_lines,
     resolve_route_url,
     safe_stream,
@@ -517,3 +518,13 @@ async def test_to_sse_stream_omits_done_when_stream_fails():
     assert len(results) == 2
     assert results[0] == 'data: {"content":"Hello"}\n\n'
     assert '"message": "Stream failed"' in results[1]
+
+
+@pytest.mark.asyncio
+async def test_make_streaming_response_ends_with_done():
+    async def mock_stream():
+        yield _Chunk(content="Hello")
+
+    response = await make_streaming_response(mock_stream())
+    body = [chunk async for chunk in response.body_iterator]
+    assert body == ['data: {"content":"Hello"}\n\n', "data: [DONE]\n\n"]
