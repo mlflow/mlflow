@@ -100,6 +100,7 @@ async def test_responses_image_input_autolog(client):
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
+    assert traces[0].info.request_preview == "what is in this image?"
     assert len(traces[0].data.spans) == 1
     span = traces[0].data.spans[0]
     assert span.span_type == SpanType.CHAT_MODEL
