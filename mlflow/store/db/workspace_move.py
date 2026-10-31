@@ -4,7 +4,9 @@ from dataclasses import dataclass
 from typing import Literal
 
 import sqlalchemy as sa
+from sqlalchemy.sql.elements import ColumnElement
 
+from mlflow.entities import SkillSourceType
 from mlflow.store.db.workspace_utils import (
     MODEL_CHILD_TABLES,
     format_truncated_list,
@@ -27,8 +29,10 @@ from mlflow.store.tracking.dbmodels.models import (
 )
 from mlflow.store.workspace.abstract_store import AbstractStore
 from mlflow.store.workspace.sqlalchemy_store import _WORKSPACE_ROOT_MODELS
+from mlflow.utils import chunk_list
 from mlflow.utils.uri import append_to_uri_path
-from mlflow.utils.workspace_utils import WORKSPACES_DIR_NAME
+from mlflow.utils.validation import _parse_skill_identities
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME, WORKSPACES_DIR_NAME
 
 
 @dataclass(frozen=True)
@@ -133,6 +137,7 @@ _RESOURCE_SPECS: dict[str, _ResourceSpec] = {
     if model in _SPEC_BY_MODEL
 }
 RESOURCE_TYPE_CHOICES = sorted(_RESOURCE_SPECS)
+_SKILL_ID_CHUNK_SIZE = 500
 
 
 def _parse_skill_name(raw_name: str) -> tuple[str, str]:
@@ -140,11 +145,8 @@ def _parse_skill_name(raw_name: str) -> tuple[str, str]:
 
     Accepts '@org/name' or 'name'.
     """
-    if raw_name.startswith("@"):
-        org, sep, name = raw_name[1:].partition("/")
-        if sep and org and name:
-            return org, name
-    return "", raw_name
+    identities = _parse_skill_identities([raw_name])
+    return identities[0] if identities else ("", raw_name)
 
 
 def _format_skill_name(organization: str, name: str) -> str:
@@ -154,7 +156,7 @@ def _format_skill_name(organization: str, name: str) -> str:
 
 def _skill_filter_condition(
     table: sa.Table, identities: list[tuple[str, str]]
-) -> sa.BinaryExpression:
+) -> ColumnElement[bool]:
     """Build a dialect-agnostic WHERE condition matching (organization, name) pairs."""
     names_by_org: dict[str, set[str]] = {}
     for org, name in identities:
@@ -174,7 +176,10 @@ def _tag_names_subquery(
     """Build a SELECT subquery of resource names matching ALL given tags.
 
     The intersection logic uses ``GROUP BY … HAVING COUNT`` so the entire
-    resolution stays in SQL and avoids materializing a large parameter list.
+    resolution stays in SQL and avoids materializing a large parameter list
+    for resources with scalar names. For skills, the caller materializes
+    identities up front because subsequent updates to ``skill_tags`` would
+    cause a live subquery to return empty.
     """
     table = spec.table
     tag_table = spec.tag_table
@@ -235,8 +240,15 @@ def _resolve_names(
     if spec.model is SqlSkill:
         stmt = sa.select(table.c.organization, table.c.name).where(table.c.workspace == workspace)
         if names is not None:
-            identities = [_parse_skill_name(n) for n in names]
-            stmt = stmt.where(_skill_filter_condition(table, identities))
+            identities = _parse_skill_identities(names)
+            resolved = set()
+            for chunk in chunk_list(identities, _SKILL_ID_CHUNK_SIZE):
+                chunk_stmt = stmt.where(_skill_filter_condition(table, chunk))
+                resolved.update({
+                    _format_skill_name(row[0], row[1])
+                    for row in conn.execute(chunk_stmt).fetchall()
+                })
+            return resolved
         return {_format_skill_name(row[0], row[1]) for row in conn.execute(stmt).fetchall()}
 
     name_col = table.c[spec.name_column]
@@ -267,7 +279,14 @@ def _find_conflicts(
             table.c.workspace == target_workspace
         )
         if name_filter is not None:
-            stmt = stmt.where(_skill_filter_condition(table, name_filter))
+            conflicts = []
+            for chunk in chunk_list(name_filter, _SKILL_ID_CHUNK_SIZE):
+                chunk_stmt = stmt.where(_skill_filter_condition(table, chunk))
+                rows = conn.execute(
+                    chunk_stmt.order_by(table.c.organization, table.c.name)
+                ).fetchall()
+                conflicts.extend([_format_skill_name(org, name) for org, name in rows])
+            return sorted(conflicts)
         else:
             source_table = table.alias("source_skills")
             stmt = stmt.where(
@@ -279,8 +298,8 @@ def _find_conflicts(
                     )
                 )
             )
-        rows = conn.execute(stmt.order_by(table.c.organization, table.c.name)).fetchall()
-        return [_format_skill_name(org, name) for org, name in rows]
+            rows = conn.execute(stmt.order_by(table.c.organization, table.c.name)).fetchall()
+            return [_format_skill_name(org, name) for org, name in rows]
 
     name_col = table.c[spec.name_column]
     stmt = sa.select(name_col).where(table.c.workspace == target_workspace)
@@ -398,6 +417,9 @@ def move_resources(
         # literal list (--name), or None (move-all).  SQLAlchemy's in_()
         # handles lists and Select objects identically, so every subsequent
         # query uses the same one-branch pattern.
+        # For skills, tag matches are materialized up front because skill_tags
+        # is one of the child tables being moved; a subquery evaluated after
+        # skill_tags moves would return empty.
         if tags:
             tag_subq = _tag_names_subquery(spec, source_workspace, tags)
             if spec.model is SqlSkill:
@@ -410,7 +432,7 @@ def move_resources(
         elif names:
             matched = _resolve_names(conn, spec, source_workspace, names)
             if spec.model is SqlSkill:
-                name_filter = [_parse_skill_name(n) for n in matched]
+                name_filter = _parse_skill_identities(list(matched))
             else:
                 name_filter = list(matched)
         else:
@@ -435,6 +457,36 @@ def move_resources(
                 "workspace, then retry."
             )
 
+        if spec.model is SqlSkill:
+            skill_versions = get_workspace_table(conn, "skill_versions")
+            mlflow_v_stmt = sa.select(skill_versions.c.name).where(
+                skill_versions.c.workspace == source_workspace,
+                skill_versions.c.source_type == SkillSourceType.MLFLOW.value,
+            )
+            has_mlflow_version = False
+            if name_filter is not None:
+                for chunk in chunk_list(name_filter, _SKILL_ID_CHUNK_SIZE):
+                    chunk_stmt = mlflow_v_stmt.where(
+                        _skill_filter_condition(skill_versions, chunk)
+                    ).limit(1)
+                    if conn.execute(chunk_stmt).first() is not None:
+                        has_mlflow_version = True
+                        break
+            else:
+                has_mlflow_version = conn.execute(mlflow_v_stmt.limit(1)).first() is not None
+
+            if has_mlflow_version:
+                target_label = (
+                    "the default workspace"
+                    if target_workspace == DEFAULT_WORKSPACE_NAME
+                    else f"workspace {target_workspace!r}"
+                )
+                raise RuntimeError(
+                    "Move aborted: MLflow-backed skill versions would lose access to their "
+                    f"artifact content in {target_label}. Remove or re-register those "
+                    "versions before retrying."
+                )
+
         table = spec.table
         name_col = table.c[spec.name_column]
 
@@ -442,15 +494,25 @@ def move_resources(
             return stmt.where(col.in_(_nf)) if _nf is not None else stmt
 
         if spec.model is SqlSkill:
-            count_stmt = (
-                sa
-                .select(sa.func.count())
-                .select_from(table)
-                .where(table.c.workspace == source_workspace)
-            )
             if name_filter is not None:
-                count_stmt = count_stmt.where(_skill_filter_condition(table, name_filter))
-            row_count = conn.execute(count_stmt).scalar()
+                row_count = 0
+                count_stmt = (
+                    sa
+                    .select(sa.func.count())
+                    .select_from(table)
+                    .where(table.c.workspace == source_workspace)
+                )
+                for chunk in chunk_list(name_filter, _SKILL_ID_CHUNK_SIZE):
+                    row_count += conn.execute(
+                        count_stmt.where(_skill_filter_condition(table, chunk))
+                    ).scalar()
+            else:
+                row_count = conn.execute(
+                    sa
+                    .select(sa.func.count())
+                    .select_from(table)
+                    .where(table.c.workspace == source_workspace)
+                ).scalar()
         else:
             row_count = conn.execute(
                 _filtered(
@@ -491,15 +553,17 @@ def move_resources(
                 )
 
             if spec.model is SqlSkill:
-                table_upd = (
+                base_table_upd = (
                     table
                     .update()
                     .where(table.c.workspace == source_workspace)
                     .values(workspace=target_workspace)
                 )
                 if name_filter is not None:
-                    table_upd = table_upd.where(_skill_filter_condition(table, name_filter))
-                conn.execute(table_upd)
+                    for chunk in chunk_list(name_filter, _SKILL_ID_CHUNK_SIZE):
+                        conn.execute(base_table_upd.where(_skill_filter_condition(table, chunk)))
+                else:
+                    conn.execute(base_table_upd)
             else:
                 conn.execute(
                     _filtered(
@@ -523,7 +587,7 @@ def move_resources(
                     child_table_name = entry
                     col_name = spec.child_name_column
                 child = get_workspace_table(conn, child_table_name)
-                child_upd = (
+                base_child_upd = (
                     child
                     .update()
                     .where(child.c.workspace == source_workspace)
@@ -531,9 +595,13 @@ def move_resources(
                 )
                 if spec.model is SqlSkill:
                     if name_filter is not None:
-                        child_upd = child_upd.where(_skill_filter_condition(child, name_filter))
+                        for chunk in chunk_list(name_filter, _SKILL_ID_CHUNK_SIZE):
+                            conn.execute(
+                                base_child_upd.where(_skill_filter_condition(child, chunk))
+                            )
+                    else:
+                        conn.execute(base_child_upd)
                 else:
-                    child_upd = _filtered(child_upd, child.c[col_name])
-                conn.execute(child_upd)
+                    conn.execute(_filtered(base_child_upd, child.c[col_name]))
 
     return MoveResult(names=sorted(matched), row_count=row_count, retarget_root=retarget_root)

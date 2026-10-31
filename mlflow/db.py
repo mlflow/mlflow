@@ -322,7 +322,7 @@ def move_resources(
     registered_models, skills, evaluation_datasets, webhooks, jobs).
 
     Tag filtering (--tag) is supported for experiments, registered_models,
-    and skills only. When multiple --tag flags are given, only resources matching
+    mcp_servers, and skills only. When multiple --tag flags are given, only resources matching
     ALL tags are included (AND logic).
 
     \b

@@ -427,7 +427,7 @@ def test_move_skills_by_tag(tracking_store, workspace_store, engine):
             tracking_store.get_skill("skill-tagged-org", organization="acme")
 
 
-def test_move_skills_cascades_to_child_tables(tracking_store, workspace_store, engine):
+def test_move_skills_cascades_to_child_tables(tracking_store, workspace_store, db_uri):
     _create_workspace(workspace_store, "team-a")
     with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
         tracking_store.create_skill("cascade-skill", description="Standalone")
@@ -436,18 +436,19 @@ def test_move_skills_cascades_to_child_tables(tracking_store, workspace_store, e
         )
 
         tracking_store.create_skill_version(
-            "cascade-skill", source_type="git", source="https://example.com/repo.git"
+            "cascade-skill", source_type="git", source="https://example.com/repo.git", ref="v1"
         )
         tracking_store.create_skill_version(
             "cascade-skill",
-            source_type="mlflow",
-            source="mlflow-artifacts:/skills/cascade-skill/abc123token",
+            source_type="git",
+            source="https://example.com/repo.git",
+            ref="v2",
         )
         tracking_store.create_skill_version(
             "cascade-org-skill",
             organization="acme",
-            source_type="mlflow",
-            source="mlflow-artifacts:/skills/@acme/cascade-org-skill/def456token",
+            source_type="git",
+            source="https://example.com/org-repo.git",
         )
 
         tracking_store.set_skill_tag("cascade-skill", "purpose", "testing")
@@ -464,14 +465,20 @@ def test_move_skills_cascades_to_child_tables(tracking_store, workspace_store, e
         tracking_store.set_skill_alias("cascade-skill", "prod", 2)
         tracking_store.set_skill_alias("cascade-org-skill", "champion", 1, organization="acme")
 
-    result = move_resources(
-        engine,
-        workspace_store,
-        source_workspace=DEFAULT_WORKSPACE_NAME,
-        target_workspace="team-a",
-        resource_type="skills",
-        names=["cascade-skill", "@acme/cascade-org-skill"],
-    )
+    # Run on a fresh engine without the PRAGMA foreign_keys=ON listener to verify
+    # that explicit child-table update statements work when SQLite doesn't auto-cascade.
+    fresh_engine = sa.create_engine(db_uri)
+    try:
+        result = move_resources(
+            fresh_engine,
+            workspace_store,
+            source_workspace=DEFAULT_WORKSPACE_NAME,
+            target_workspace="team-a",
+            resource_type="skills",
+            names=["cascade-skill", "@acme/cascade-org-skill"],
+        )
+    finally:
+        fresh_engine.dispose()
 
     assert result.names == ["@acme/cascade-org-skill", "cascade-skill"]
     assert result.row_count == 2
@@ -484,11 +491,13 @@ def test_move_skills_cascades_to_child_tables(tracking_store, workspace_store, e
         v1 = tracking_store.get_skill_version("cascade-skill", 1)
         assert v1.source_type.value == "git"
         assert v1.source.url == "https://example.com/repo.git"
+        assert v1.source.ref == "v1"
         assert v1.tags == {"release": "canary"}
 
         v2 = tracking_store.get_skill_version("cascade-skill", 2)
-        assert v2.source_type.value == "mlflow"
-        assert v2.source.artifact_path == "mlflow-artifacts:/skills/cascade-skill/abc123token"
+        assert v2.source_type.value == "git"
+        assert v2.source.url == "https://example.com/repo.git"
+        assert v2.source.ref == "v2"
         assert v2.tags == {"release": "stable"}
         assert v2.aliases == ["prod"]
 
@@ -497,11 +506,8 @@ def test_move_skills_cascades_to_child_tables(tracking_store, workspace_store, e
         assert s2.aliases == {"champion": 1}
 
         s2_v1 = tracking_store.get_skill_version("cascade-org-skill", 1, organization="acme")
-        assert s2_v1.source_type.value == "mlflow"
-        assert (
-            s2_v1.source.artifact_path
-            == "mlflow-artifacts:/skills/@acme/cascade-org-skill/def456token"
-        )
+        assert s2_v1.source_type.value == "git"
+        assert s2_v1.source.url == "https://example.com/org-repo.git"
         assert s2_v1.tags == {"tier": "gold"}
         assert s2_v1.aliases == ["champion"]
 
@@ -510,6 +516,86 @@ def test_move_skills_cascades_to_child_tables(tracking_store, workspace_store, e
             tracking_store.get_skill("cascade-skill")
         with pytest.raises(MlflowException, match="not found"):
             tracking_store.get_skill("cascade-org-skill", organization="acme")
+
+
+@pytest.mark.parametrize("dry_run", [True, False])
+def test_move_skills_blocks_mlflow_backed_skills(tracking_store, workspace_store, engine, dry_run):
+    _create_workspace(workspace_store, "team-a")
+    with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+        tracking_store.create_skill("mlflow-skill")
+        tracking_store.create_skill_version(
+            "mlflow-skill",
+            source_type="mlflow",
+            source="mlflow-artifacts:/skills/mlflow-skill/token",
+        )
+        tracking_store.create_skill("git-skill")
+        tracking_store.create_skill_version(
+            "git-skill",
+            source_type="git",
+            source="https://example.com/git.git",
+        )
+
+    # Moving by name refuses when the skill has an MLflow-backed version
+    with pytest.raises(RuntimeError, match="MLflow-backed skill versions"):
+        move_resources(
+            engine,
+            workspace_store,
+            source_workspace=DEFAULT_WORKSPACE_NAME,
+            target_workspace="team-a",
+            resource_type="skills",
+            names=["mlflow-skill"],
+            dry_run=dry_run,
+        )
+
+    # Moving all refuses when any skill has an MLflow-backed version
+    with pytest.raises(RuntimeError, match="MLflow-backed skill versions"):
+        move_resources(
+            engine,
+            workspace_store,
+            source_workspace=DEFAULT_WORKSPACE_NAME,
+            target_workspace="team-a",
+            resource_type="skills",
+            dry_run=dry_run,
+        )
+
+    # Moving only git-backed skill succeeds
+    result = move_resources(
+        engine,
+        workspace_store,
+        source_workspace=DEFAULT_WORKSPACE_NAME,
+        target_workspace="team-a",
+        resource_type="skills",
+        names=["git-skill"],
+        dry_run=dry_run,
+    )
+    assert result.names == ["git-skill"]
+
+    with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+        assert tracking_store.get_skill("mlflow-skill") is not None
+        if not dry_run:
+            with pytest.raises(MlflowException, match="not found"):
+                tracking_store.get_skill("git-skill")
+
+
+@pytest.mark.parametrize(
+    ("bad_name", "match"),
+    [
+        ("@acme", r"Skill identities must be 'name' or '@organization/name'"),
+        ("@acme/", r"Skill name must not be empty"),
+        ("@acme/x/y", r"Invalid skill name"),
+    ],
+)
+def test_move_skills_invalid_name(workspace_store, engine, bad_name, match):
+    _create_workspace(workspace_store, "team-a")
+    with pytest.raises(MlflowException, match=match):
+        move_resources(
+            engine,
+            workspace_store,
+            source_workspace=DEFAULT_WORKSPACE_NAME,
+            target_workspace="team-a",
+            resource_type="skills",
+            names=[bad_name],
+        )
 
 
 def test_move_skills_conflict_detection(tracking_store, workspace_store, engine):
