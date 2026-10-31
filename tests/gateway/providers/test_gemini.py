@@ -2629,3 +2629,33 @@ def test_gemini_chunk_without_candidates_or_block_reason_has_no_choices(method, 
     result = getattr(GeminiAdapter, method)(resp, EndpointConfig(**config_fn()))
 
     assert result.choices == []
+
+
+def test_chat_to_model_keeps_assistant_text_with_tool_calls():
+    payload = {
+        "messages": [
+            {"role": "user", "content": "Weather in Paris?"},
+            {
+                "role": "assistant",
+                "content": "Let me check.",
+                "tool_calls": [
+                    {
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {"name": "get_weather", "arguments": '{"city": "Paris"}'},
+                    }
+                ],
+            },
+            {"role": "tool", "tool_call_id": "call_1", "content": "Sunny"},
+        ]
+    }
+
+    result = GeminiAdapter.chat_to_model(payload, EndpointConfig(**chat_config()))
+
+    assert result["contents"][1] == {
+        "role": "model",
+        "parts": [
+            {"text": "Let me check."},
+            {"functionCall": {"id": "call_1", "name": "get_weather", "args": {"city": "Paris"}}},
+        ],
+    }
