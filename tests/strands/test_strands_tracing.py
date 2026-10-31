@@ -51,10 +51,17 @@ tool = PythonAgentTool(
 
 
 class DummyModel(Model):
-    def __init__(self, response_text: str, in_tokens: int = 1, out_tokens: int = 1):
+    def __init__(
+        self,
+        response_text: str,
+        in_tokens: int = 1,
+        out_tokens: int = 1,
+        extra_usage: dict[str, int] | None = None,
+    ):
         self.response_text = response_text
         self.in_tokens = in_tokens
         self.out_tokens = out_tokens
+        self.extra_usage = extra_usage or {}
         self.config = {}
 
     def update_config(self, **model_config):
@@ -85,6 +92,7 @@ class DummyModel(Model):
                     "inputTokens": self.in_tokens,
                     "outputTokens": self.out_tokens,
                     "totalTokens": self.in_tokens + self.out_tokens,
+                    **self.extra_usage,
                 },
                 "metrics": {"latencyMs": 0},
             }
@@ -285,6 +293,27 @@ def test_multiple_agents_single_trace():
         "input_tokens": 1,
         "output_tokens": 1,
         "total_tokens": 2,
+    }
+
+
+def test_strands_autolog_chat_span_records_cache_tokens():
+    mlflow.strands.autolog()
+
+    model = DummyModel(
+        "hi", 10, 2, extra_usage={"cacheReadInputTokens": 5, "cacheWriteInputTokens": 3}
+    )
+    agent = Agent(model=model, name="agent")
+    agent("hello")
+
+    traces = get_traces()
+    assert len(traces) == 1
+    chat_span = next(span for span in traces[0].data.spans if span.span_type == SpanType.CHAT_MODEL)
+    assert chat_span.attributes[SpanAttributeKey.CHAT_USAGE] == {
+        "input_tokens": 10,
+        "output_tokens": 2,
+        "total_tokens": 12,
+        "cache_read_input_tokens": 5,
+        "cache_creation_input_tokens": 3,
     }
 
 

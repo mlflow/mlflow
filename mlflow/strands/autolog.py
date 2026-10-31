@@ -182,5 +182,9 @@ def _set_token_usage(mlflow_span: LiveSpan, span: OTelReadableSpan) -> None:
         usage[TokenUsageKey.OUTPUT_TOKENS] = v
     if (v := span.attributes.get("gen_ai.usage.total_tokens")) is not None:
         usage[TokenUsageKey.TOTAL_TOKENS] = v
+    if (v := span.attributes.get("gen_ai.usage.cache_read.input_tokens")) is not None:
+        usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = v
+    if (v := span.attributes.get("gen_ai.usage.cache_creation.input_tokens")) is not None:
+        usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = v
     if usage:
         mlflow_span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)

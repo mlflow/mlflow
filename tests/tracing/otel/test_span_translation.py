@@ -945,6 +945,37 @@ def test_translate_cost_with_model_provider(translator: OtelSchemaTranslator, mo
     }
 
 
+@pytest.mark.parametrize(
+    "type_attributes",
+    [
+        {"gen_ai.operation.name": "invoke_agent"},
+        {SpanAttributeKey.SPAN_TYPE: json.dumps(SpanType.AGENT)},
+    ],
+)
+def test_translate_skips_cost_for_agent_spans(type_attributes, mock_litellm_cost):
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span.to_dict.return_value = {
+        "attributes": {
+            **type_attributes,
+            "gen_ai.request.model": '"gpt-4o-mini"',
+            "gen_ai.usage.input_tokens": 10,
+            "gen_ai.usage.output_tokens": 20,
+        }
+    }
+
+    result = translate_span_when_storing(span)
+
+    attributes = result["attributes"]
+    assert json.loads(attributes[SpanAttributeKey.SPAN_TYPE]) == SpanType.AGENT
+    assert json.loads(attributes[SpanAttributeKey.CHAT_USAGE]) == {
+        "input_tokens": 10,
+        "output_tokens": 20,
+        "total_tokens": 30,
+    }
+    assert SpanAttributeKey.LLM_COST not in attributes
+
+
 def test_translate_preserves_client_computed_cost():
     cost = {"input_cost": 1.0, "output_cost": 2.0, "total_cost": 3.0}
     span = mock.Mock(spec=Span)

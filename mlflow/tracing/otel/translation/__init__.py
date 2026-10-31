@@ -124,9 +124,13 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
     ):
         attributes[SpanAttributeKey.MODEL_PROVIDER] = dump_span_attribute_value(model_provider)
 
-    # Calculate cost if both token usage and model are available
+    # Calculate cost if both token usage and model are available. Agent spans are skipped
+    # because their usage is rolled up over the agent run (possibly spanning several models
+    # and missing cache breakdowns), so the trace cost is aggregated from the LLM call spans.
+    span_type_raw = attributes.get(SpanAttributeKey.SPAN_TYPE)
     if (
         SpanAttributeKey.LLM_COST not in attributes
+        and (try_json_loads(span_type_raw) if span_type_raw else None) != SpanType.AGENT
         and SpanAttributeKey.CHAT_USAGE in attributes
         and SpanAttributeKey.MODEL in attributes
     ):
