@@ -304,14 +304,23 @@ jobs:
           echo "::stop-commands::$token"
           # Safe mode ignores PR-authored settings and skills; load the trusted skill explicitly.
           # shellcheck disable=SC2016 # Expanded by the agent shell.
-          timeout 30m setsid bash -c 'echo "$$" > "$RUNNER_TEMP/verify-agent.pgid"; exec claude \
-              --safe-mode --strict-mcp-config \
-              --model "$MODEL" --effort "$EFFORT" --session-id "$SESSION_ID" --max-budget-usd 5 \
-              --permission-mode auto --disallowed-tools "WebSearch,WebFetch" \
+          timeout 30m setsid bash -c '
+            echo "$$" > "$RUNNER_TEMP/verify-agent.pgid"
+            exec claude \
+              --safe-mode \
+              --strict-mcp-config \
+              --model "$MODEL" \
+              --effort "$EFFORT" \
+              --session-id "$SESSION_ID" \
+              --max-budget-usd 5 \
+              --permission-mode auto \
+              --disallowed-tools "WebSearch,WebFetch" \
               --append-system-prompt "$(cat "$RUNNER_TEMP/verify-context/SKILL.md")" \
-              --print --verbose --output-format stream-json \
-              "Verify the pull request and write the requested payload."' \
-            | timeout 31m "$GITHUB_WORKSPACE/trusted/.claude/scripts/stream.sh" || { echo "::$token::"; exit 1; }
+              --print \
+              --verbose \
+              --output-format stream-json \
+              "Verify the pull request and write the requested payload."
+          ' | timeout 31m "$GITHUB_WORKSPACE/trusted/.claude/scripts/stream.sh" || { echo "::$token::"; exit 1; }
           echo "::$token::"
       - name: Stop agent processes
         if: always()
