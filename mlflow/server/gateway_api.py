@@ -11,6 +11,7 @@ import io
 import json
 import logging
 import re
+import secrets
 import sys
 import time
 from collections.abc import AsyncIterable, Callable
@@ -59,6 +60,7 @@ from mlflow.gateway.guardrail_utils import (
 )
 from mlflow.gateway.guardrails import (
     _SANITIZE_BYPASS_HEADER,
+    _SANITIZE_BYPASS_TOKEN,
     GuardrailViolation,
     JudgeGuardrail,
 )
@@ -737,7 +739,12 @@ def _get_guardrails_and_auth(
 ) -> tuple[list[JudgeGuardrail], dict[str, str]]:
     """Load guardrails and extract auth headers, skipping guardrails for internal bypass calls."""
     headers = dict(request.headers)
-    bypass = headers.get(_SANITIZE_BYPASS_HEADER) == "1"
+    # Only the server's own internal sanitization calls may bypass guardrails;
+    # they authenticate with the per-deployment token instead of a guessable
+    # constant, so external clients cannot disable guardrails via this header.
+    bypass = secrets.compare_digest(
+        headers.get(_SANITIZE_BYPASS_HEADER, ""), _SANITIZE_BYPASS_TOKEN
+    )
     guardrails = [] if bypass else load_guardrails(store, endpoint_config, request)
     return guardrails, extract_auth_headers(headers)
 
