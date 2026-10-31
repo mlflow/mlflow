@@ -124,9 +124,21 @@ used as is, otherwise pass `--default-artifact-root` with the value the tracking
 started with and the `workspaces/<name>` suffix is appended.
 
 Only the experiment's `artifact_location` changes, in the same transaction as the move. Artifact
-objects are not copied or deleted, and stored run, logged model and trace URIs stay unchanged, so
-everything already logged keeps resolving at its current location while new runs land under the
-target workspace's artifact root.
+objects are not copied or deleted, and stored run, logged model and trace URIs stay unchanged.
+Historical artifacts keep resolving when those stored URIs are absolute locations, such as `s3://`,
+`gs://`, `file://`, or another direct artifact store URI.
+
+:::warning[Moving experiments with proxied artifacts]
+Experiments created with `--serve-artifacts` can store proxied `mlflow-artifacts:/...` locations.
+Those paths are resolved relative to the active workspace. For example, after moving an experiment
+from `default` to `team-a`, a historical `mlflow-artifacts:/1/<run_id>/artifacts` URI is served from
+`<artifacts-destination>/workspaces/team-a/1/<run_id>/artifacts`, while the existing object may still
+be under `<artifacts-destination>/1/<run_id>/artifacts`.
+
+Run `mlflow db move-resources ... --dry-run` before moving experiments. If it reports proxied
+artifact roots, relocate the listed paths under the server's `--artifacts-destination` so historical
+artifacts remain reachable from the target workspace.
+:::
 
 ## Client Workspace Selection (summary)
 
