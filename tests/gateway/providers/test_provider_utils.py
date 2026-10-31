@@ -6,6 +6,7 @@ import aiohttp
 import pytest
 from fastapi import HTTPException
 
+from mlflow.gateway.constants import MLFLOW_GATEWAY_AUTH_HEADER, MLFLOW_GATEWAY_CALLER_HEADER
 from mlflow.gateway.providers.utils import (
     SUPPORTED_ACCEPT_ENCODING,
     _aiohttp_post,
@@ -14,6 +15,7 @@ from mlflow.gateway.providers.utils import (
     send_proxy_request,
     send_stream_request,
 )
+from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
 from tests.gateway.tools import MockAsyncResponse, mock_http_client
 
@@ -80,6 +82,28 @@ async def test_aiohttp_post_strips_client_content_encoding():
             pass
         call_headers = mock_session_cls.call_args.kwargs["headers"]
         assert not any(k.lower() == "content-encoding" for k in call_headers)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "header_name",
+    [MLFLOW_GATEWAY_AUTH_HEADER, MLFLOW_GATEWAY_CALLER_HEADER, WORKSPACE_HEADER_NAME],
+)
+async def test_aiohttp_post_strips_mlflow_internal_headers(header_name):
+    # Passthrough and raw-proxy routes forward the inbound request headers upstream. The ASGI
+    # server lower-cases header names, so send the lower-cased form the code sees in production.
+    mock_client = mock_http_client(MockAsyncResponse({}))
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_session_cls:
+        async with _aiohttp_post(
+            headers={"Authorization": "Bearer key", header_name.lower(): "internal-value"},
+            base_url="https://api.example.com",
+            path="/v1/chat",
+            payload={"model": "x"},
+        ):
+            pass
+        call_headers = mock_session_cls.call_args.kwargs["headers"]
+        assert not any(k.lower() == header_name.lower() for k in call_headers)
+        assert call_headers.get("Authorization") == "Bearer key"
 
 
 @pytest.mark.asyncio
