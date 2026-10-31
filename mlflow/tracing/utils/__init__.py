@@ -128,18 +128,22 @@ def dump_span_attribute_value(value: Any) -> str:
     #   for the simplicity in deserialization process.
     try:
         return json.dumps(value, cls=TraceJSONEncoder, ensure_ascii=False)
-    except (ValueError, TypeError) as e:
+    except (ValueError, TypeError, RecursionError) as e:
         # `json.dumps` raises `ValueError: Circular reference detected` for self-referencing
         # objects (e.g. pydantic_ai's `run_context`) and `TypeError` for unsupported
         # structures such as dictionaries with non-serializable keys (e.g. `frozenset`).
-        # Fall back to a repr-based dump so the span attribute is still set and tracing
-        # doesn't crash the user's workflow.
+        # A deeply nested list/dict raises `RecursionError`; repr() can hit the same limit,
+        # so fall back to a type-only placeholder rather than letting the exception escape and
+        # skip the underlying span end.
         _logger.debug(
             "Failed to serialize span attribute value due to %s. Falling back to repr. ",
             type(e).__name__,
             exc_info=True,
         )
-        return json.dumps(repr(value), ensure_ascii=False)
+        try:
+            return json.dumps(repr(value), ensure_ascii=False)
+        except RecursionError:
+            return json.dumps(f"<unserializable {type(value).__name__}>", ensure_ascii=False)
 
 
 def try_json_loads(value: Any) -> Any:

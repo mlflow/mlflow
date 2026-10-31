@@ -1033,6 +1033,20 @@ def test_dump_span_attribute_value_handles_type_error():
     assert result == json.dumps(repr(value), ensure_ascii=False)
 
 
+def test_dump_span_attribute_value_handles_recursion_error():
+    value: list = []
+    for _ in range(2000):
+        value = [value]
+
+    with pytest.raises(RecursionError, match="maximum recursion depth"):
+        json.dumps(value)
+
+    result = dump_span_attribute_value(value)
+
+    # repr() hits the same recursion limit, so the fallback must be a type-only placeholder.
+    assert result == json.dumps("<unserializable list>", ensure_ascii=False)
+
+
 @pytest.mark.parametrize(
     ("model_name", "model_provider", "expected_provider"),
     [

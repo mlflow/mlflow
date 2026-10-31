@@ -1044,6 +1044,21 @@ def test_live_span_add_link():
         assert otel_span.links[0].context.span_id == 0xAABBCCDDEEFF0011
 
 
+def test_live_span_end_with_deeply_nested_attribute():
+    tracer = _get_tracer("test")
+    otel_span = tracer.start_span("test_span")
+    span = create_mlflow_span(otel_span, trace_id="tr-12345")
+
+    value: list = []
+    for _ in range(2000):
+        value = [value]
+
+    span.end(attributes={"deep": value})
+
+    assert span.end_time_ns is not None
+    assert otel_span.end_time is not None
+
+
 def test_add_link_after_end_does_not_store_link():
     from mlflow.entities.link import Link
 
