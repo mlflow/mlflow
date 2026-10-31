@@ -11,6 +11,8 @@ from typing import Any
 
 from mlflow import MlflowClient
 from mlflow.entities import Metric, Param, RunTag
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 
 try:
@@ -251,6 +253,18 @@ class MlflowStorage(BaseStorage):
         for run_id in run_ids:
             self._flush_batch(run_id)
 
+    def _search_all_runs(self, filter_string: str = ""):
+        # A single search_runs call returns at most one page of runs
+        return get_results_from_paginated_fn(
+            lambda max_results, page_token: self._mlflow_client.search_runs(
+                experiment_ids=[self._experiment_id],
+                filter_string=filter_string,
+                max_results=max_results,
+                page_token=page_token,
+            ),
+            SEARCH_MAX_RESULTS_DEFAULT,
+        )
+
     def _search_runs_by_name(self, run_name: str):
         filter_string = f"tags.mlflow.runName = '{run_name}'"
         return self._mlflow_client.search_runs(
@@ -361,7 +375,7 @@ class MlflowStorage(BaseStorage):
         # Flush all batches to ensure we have the latest data
         self.flush_all_batches()
 
-        runs = self._mlflow_client.search_runs(experiment_ids=[self._experiment_id])
+        runs = self._search_all_runs()
         studies = []
         for run in runs:
             # Trial runs share the experiment with study runs but have no study direction tag
@@ -669,10 +683,7 @@ class MlflowStorage(BaseStorage):
         # Flush all batches to ensure we have the latest data
         self.flush_all_batches()
 
-        runs = self._mlflow_client.search_runs(
-            experiment_ids=[self._experiment_id],
-            filter_string=f"tags.mlflow.parentRunId='{study_id}'",
-        )
+        runs = self._search_all_runs(f"tags.mlflow.parentRunId='{study_id}'")
         trials = [self.get_trial(run.info.run_id) for run in runs]
 
         frozen_trials: list[FrozenTrial] = [
@@ -684,8 +695,5 @@ class MlflowStorage(BaseStorage):
         # Flush all batches to ensure we have the latest data
         self.flush_all_batches()
 
-        runs = self._mlflow_client.search_runs(
-            experiment_ids=[self._experiment_id],
-            filter_string=f"tags.mlflow.parentRunId='{study_id}'",
-        )
+        runs = self._search_all_runs(f"tags.mlflow.parentRunId='{study_id}'")
         return len(runs)
