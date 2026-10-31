@@ -2599,6 +2599,10 @@
     "defaultMessage": "Delete traces",
     "description": "Title for the V4 traces bulk-delete confirmation modal"
   },
+  "6cZ0+T": {
+    "defaultMessage": "Saved as a new trace",
+    "description": "Title of the success banner shown after saving a playground run back as a new trace"
+  },
   "6cm996": {
     "defaultMessage": "The AI Gateway requires additional dependencies installed on the MLflow tracking server (not client machines):",
     "description": "AI Gateway setup guide > Step 1 description"
@@ -3214,6 +3218,10 @@
   "8Oqhz5": {
     "defaultMessage": "Copy failed — clipboard unavailable.",
     "description": "Error toast shown when copying a saved experiment view share link fails"
+  },
+  "8PONbF": {
+    "defaultMessage": "Tool result — {name}",
+    "description": "Header of the editable tool-result card on the playground page, shown when the model requested a tool call so the user can supply the tool's output"
   },
   "8Q36QS": {
     "defaultMessage": "Actions ({count})",
@@ -4035,6 +4043,10 @@
     "defaultMessage": "Killed",
     "description": "Run page > Overview > Run status cell > Value for killed state"
   },
+  "AvkKHF": {
+    "defaultMessage": "Failed to save as trace",
+    "description": "Title of the error banner shown when saving a playground run as a trace fails"
+  },
   "Aw8IHc": {
     "defaultMessage": "Evaluate individual traces for quality and correctness.",
     "description": "Hint for the scorer evaluation scope selection for traces"
@@ -4842,6 +4854,10 @@
   "DTu1X9": {
     "defaultMessage": "Permission denied",
     "description": "Title for Skill detail permission-denied state"
+  },
+  "DUP3v8": {
+    "defaultMessage": "Open span in Playground",
+    "description": "Accessible label and tooltip for opening the playground pre-filled with the selected span's input"
   },
   "DUnrWL": {
     "defaultMessage": "Run Name:",
@@ -7014,6 +7030,10 @@
   "KcGozs": {
     "defaultMessage": "Endpoint:",
     "description": "Endpoint selector label"
+  },
+  "KciYga": {
+    "defaultMessage": "Testing the input captured in span “{spanName}”. Edit the prompt or model and re-run.",
+    "description": "Body of the playground banner shown when opened from a specific span of a trace"
   },
   "KdsrPi": {
     "defaultMessage": "Assessments",
@@ -9483,6 +9503,10 @@
     "defaultMessage": "Evaluating traces: ON",
     "description": "Status label for active scorer"
   },
+  "SSfv3u": {
+    "defaultMessage": "Open in Playground",
+    "description": "Button on the trace UI that opens the MLflow playground pre-filled with the trace's input and prompt so the user can test different prompts"
+  },
   "SSwoap": {
     "defaultMessage": "Select a workspace to start experiments",
     "description": "Home page workspaces section subtitle"
@@ -9766,6 +9790,10 @@
   "TUBoJA": {
     "defaultMessage": "{runName} session turns",
     "description": "Trace block for one run in an expanded session comparison"
+  },
+  "TUMb+k": {
+    "defaultMessage": "Playground",
+    "description": "Visible label for opening the playground pre-filled with the trace's input"
   },
   "TWnsnV": {
     "defaultMessage": "Run Name",
@@ -11691,6 +11719,10 @@
     "defaultMessage": "Delete",
     "description": "Dropdown item label to delete a V2 evaluation dataset row"
   },
+  "ZaZ08Z": {
+    "defaultMessage": "Open in Playground",
+    "description": "Accessible label and tooltip for opening the playground pre-filled with the trace's input"
+  },
   "Zb1znQ": {
     "defaultMessage": "Clear demo data",
     "description": "Demo data deletion confirmation modal title"
@@ -12247,6 +12279,10 @@
     "defaultMessage": "Observed range {min}–{max}",
     "description": "Hover summary of the smallest and largest observed values for a high-cardinality numeric scorer"
   },
+  "bPuGlP": {
+    "defaultMessage": "Testing the input captured in this trace. Edit the prompt or model and re-run.",
+    "description": "Body of the playground banner shown when opened from a trace"
+  },
   "bQSJKh": {
     "defaultMessage": "Permission denied for {modelName} version {version}. Error: \"{errorMsg}\"",
     "description": "Permission denied error message on model version detail page"
@@ -12635,6 +12671,10 @@
     "defaultMessage": "{count, plural, one {# custom queue} other {# custom queues}}",
     "description": "Manage review questions: count of custom queues using the question being deleted"
   },
+  "cdOntB": {
+    "defaultMessage": "View original trace",
+    "description": "Link in the playground banner that navigates back to the trace the playground was opened from"
+  },
   "cfzQMh": {
     "defaultMessage": "baseline run",
     "description": "Placeholder text shown when no baseline run is selected for comparison"
@@ -12830,6 +12870,10 @@
   "dDbfnY": {
     "defaultMessage": "{count} {count, plural, one {hour} other {hours}}",
     "description": "Formatted trace archival retention in hours"
+  },
+  "dEEP6b": {
+    "defaultMessage": "Loaded from trace",
+    "description": "Title of the banner shown on the playground when it was opened from a trace via 'Open in Playground'"
   },
   "dEGUt+": {
     "defaultMessage": "Use this button to automatically detect quality issues in your traces using AI. This feature helps you identify problems like correctness, latency, and other quality concerns in your agent.",
@@ -14910,6 +14954,10 @@
   "j8+BJX": {
     "defaultMessage": "Metrics",
     "description": "Tooltip for the metric icon in the evaluation runs chart"
+  },
+  "jC9EcU": {
+    "defaultMessage": "Enter the tool result",
+    "description": "Placeholder for the tool-result textarea on the playground page"
   },
   "jClVwe": {
     "defaultMessage": "Point the OTLP exporter at this MLflow server by setting these environment variables. See the <a>OpenTelemetry export docs</a> for the full reference.",
@@ -18295,6 +18343,10 @@
     "defaultMessage": "Home",
     "description": "Sidebar link for home page"
   },
+  "uB34aM": {
+    "defaultMessage": "Save as trace",
+    "description": "Label for the playground button that saves the current run back as a new MLflow trace for side-by-side comparison"
+  },
   "uB7rmB": {
     "defaultMessage": "More actions",
     "description": "A label for the dropdown menu trigger on the logged model details page"
@@ -18698,6 +18750,10 @@
   "vWypK7": {
     "defaultMessage": "Source type",
     "description": "Label for the skill source type override"
+  },
+  "vY25W3": {
+    "defaultMessage": "View trace for side-by-side comparison",
+    "description": "Link in the playground success banner that opens the newly saved trace"
   },
   "vZJncW": {
     "defaultMessage": "This evaluation run did not produce any trace results.",

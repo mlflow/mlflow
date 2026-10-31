@@ -5725,6 +5725,56 @@ def test_otel_experiment_permission(fastapi_client, monkeypatch):
     assert response.status_code != 403
 
 
+def test_playground_log_trace_requires_authentication(fastapi_client, monkeypatch):
+    monkeypatch.delenv(MLFLOW_TRACKING_USERNAME.name, raising=False)
+    monkeypatch.delenv(MLFLOW_TRACKING_PASSWORD.name, raising=False)
+
+    response = requests.post(
+        url=fastapi_client.tracking_uri + "/gateway/mlflow/v1/playground/log-trace",
+        json={"experiment_id": "0"},
+    )
+    assert response.status_code == 401
+
+
+def test_playground_log_trace_experiment_permission(fastapi_client, monkeypatch):
+    user1, password1 = create_user(fastapi_client.tracking_uri)
+    user2, password2 = create_user(fastapi_client.tracking_uri)
+    with User(user1, password1, monkeypatch):
+        experiment_id = fastapi_client.create_experiment("playground_log_trace_permission_test")
+
+    def save_as_trace():
+        return requests.post(
+            url=fastapi_client.tracking_uri + "/gateway/mlflow/v1/playground/log-trace",
+            json={
+                "experiment_id": experiment_id,
+                "messages": [{"role": "user", "content": "Hi"}],
+                "response": {"role": "assistant", "content": "Hello!"},
+            },
+            auth=(user2, password2),
+        )
+
+    # READ does not allow creating a trace in the experiment
+    grant_role_permission(fastapi_client.tracking_uri, user2, "experiment", experiment_id, "READ")
+    assert save_as_trace().status_code == 403
+
+    # EDIT does, so the run is saved as a new trace
+    grant_role_permission(fastapi_client.tracking_uri, user2, "experiment", experiment_id, "EDIT")
+    response = save_as_trace()
+    assert response.status_code == 200
+    assert response.json()["trace_id"]
+
+
+def test_playground_log_trace_requires_experiment_id(fastapi_client):
+    username, password = create_user(fastapi_client.tracking_uri)
+
+    response = requests.post(
+        url=fastapi_client.tracking_uri + "/gateway/mlflow/v1/playground/log-trace",
+        json={"messages": [{"role": "user", "content": "Hi"}]},
+        auth=(username, password),
+    )
+    assert response.status_code == 400
+
+
 def test_otel_trace_ingestion_carries_the_trace_veto(fastapi_client, monkeypatch):
     # The OTLP handler persists the submitted spans, so `POST /v1/traces` is a trace create and
     # must refuse a `(trace, *, DENY)` holder exactly as StartTrace and StartTraceV3 do. Before

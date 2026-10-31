@@ -148,6 +148,36 @@ export const PromptInputPanel = ({ messages, onChange }: Props) => {
                 </Typography.Hint>
               )}
             </>
+          ) : message.role === 'tool' ? (
+            <>
+              <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography.Text
+                  css={{
+                    color: theme.colors.textSecondary,
+                    fontSize: theme.typography.fontSizeSm,
+                  }}
+                >
+                  <FormattedMessage
+                    defaultMessage="Tool result — {name}"
+                    description="Header of the editable tool-result card on the playground page, shown when the model requested a tool call so the user can supply the tool's output"
+                    values={{ name: message.toolName ?? 'tool' }}
+                  />
+                </Typography.Text>
+                {removeButton(index)}
+              </div>
+              <TextArea
+                componentId="mlflow.playground.prompt_input.tool_result"
+                value={message.content ?? ''}
+                onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
+                  updateMessage(index, { content: event.target.value })
+                }
+                autoSize={{ minRows: 2, maxRows: 8 }}
+                placeholder={intl.formatMessage({
+                  defaultMessage: 'Enter the tool result',
+                  description: 'Placeholder for the tool-result textarea on the playground page',
+                })}
+              />
+            </>
           ) : (
             <>
               <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
