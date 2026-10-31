@@ -33,6 +33,9 @@ def get_text_extensions():
         "md",
         "rst",
         "ipynb",
+        "jsonl",
+        "env",
+        ".env",
     ]
 
     if not IS_TRACING_SDK_ONLY:

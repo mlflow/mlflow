@@ -53,6 +53,7 @@ export const TEXT_EXTENSIONS = new Set([
   MLMODEL_FILE_NAME.toLowerCase(),
   'jsonnet',
   'ipynb',
+  'env',
 ]);
 export const MARKDOWN_EXTENSIONS = new Set(['md', 'markdown', 'mdx']);
 export const HTML_EXTENSIONS = new Set(['html']);
