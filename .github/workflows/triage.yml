@@ -495,7 +495,7 @@ jobs:
             echo 'PR closed, head changed, or base branch changed; no review will be posted.' >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          notice="> Automated behavior verification: [$HEAD_SHA]($RUN_URL)."
+          notice="> [Verification run]($RUN_URL)."
           if [ "$REVIEW_READY" = true ]; then
             jq --arg sha "$HEAD_SHA" --arg notice "$notice" '{
               commit_id: $sha, event: .event, body: ($notice + "\n\n" + .body), comments: .comments
@@ -512,6 +512,32 @@ jobs:
               echo 'No review or media was published. Local media paths are not GitHub links.'
               jq . "$RUNNER_TEMP/review.json" | jq -Rrs '"<pre>\(. | @html)</pre>"'
             } >> "$GITHUB_STEP_SUMMARY"
+          elif jq -e '.comments[]? | select(.subject_type == "file")' "$RUNNER_TEMP/review.json" > /dev/null; then
+            # The REST review API cannot add file comments, so attach them to a pending review.
+            jq 'del(.event) | .comments = [.comments[] | select(.subject_type != "file")]' \
+              "$RUNNER_TEMP/review.json" > "$RUNNER_TEMP/pending-review.json"
+            gh api "repos/$REPO/pulls/$PR_NUMBER/reviews" -X POST \
+              --input "$RUNNER_TEMP/pending-review.json" > "$RUNNER_TEMP/pending-result.json"
+            review_id=$(jq -er .id "$RUNNER_TEMP/pending-result.json")
+            review_node_id=$(jq -er .node_id "$RUNNER_TEMP/pending-result.json")
+            trap 'gh api "repos/$REPO/pulls/$PR_NUMBER/reviews/$review_id" -X DELETE > /dev/null || true' EXIT
+            # shellcheck disable=SC2016
+            query='mutation($review: ID!, $path: String!, $body: String!) { addPullRequestReviewThread(input: {pullRequestReviewId: $review, path: $path, body: $body, subjectType: FILE}) { thread { id } } }'
+            while IFS= read -r comment; do
+              jq -n --arg query "$query" --arg review "$review_node_id" --argjson comment "$comment" \
+                '{query: $query, variables: {review: $review, path: $comment.path, body: $comment.body}}' |
+                gh api graphql --input - |
+                jq -er '.data.addPullRequestReviewThread.thread.id' > /dev/null
+            done < <(jq -c '.comments[] | select(.subject_type == "file")' "$RUNNER_TEMP/review.json")
+            pr=$(gh api "repos/$REPO/pulls/$PR_NUMBER")
+            if ! jq -e --arg head "$HEAD_SHA" --arg base "$BASE_REF" \
+              '.state == "open" and .head.sha == $head and .base.ref == $base' <<< "$pr" > /dev/null; then
+              echo 'PR closed, head changed, or base branch changed; no review will be posted.' >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            jq '{event, body}' "$RUNNER_TEMP/review.json" |
+              gh api "repos/$REPO/pulls/$PR_NUMBER/reviews/$review_id/events" -X POST --input - --jq .html_url
+            trap - EXIT
           else
             gh api "repos/$REPO/pulls/$PR_NUMBER/reviews" -X POST \
               --input "$RUNNER_TEMP/review.json" --jq .html_url
