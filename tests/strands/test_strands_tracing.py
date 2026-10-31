@@ -302,11 +302,27 @@ def test_multiple_agents_single_trace():
     Version(importlib.metadata.version("strands-agents")) < Version("1.54.0"),
     reason="strands-agents < 1.54.0 does not emit semconv cache token attributes",
 )
-def test_strands_autolog_chat_span_records_cache_tokens():
+@pytest.mark.parametrize(
+    ("total_tokens", "expected_input_tokens"),
+    [
+        # Cache tokens already counted in inputTokens
+        (12, 10),
+        # Cache tokens reported separately (e.g. Bedrock); strands adds them to the input count
+        (20, 18),
+    ],
+)
+def test_strands_autolog_chat_span_records_cache_tokens(total_tokens, expected_input_tokens):
     mlflow.strands.autolog()
 
     model = DummyModel(
-        "hi", 10, 2, extra_usage={"cacheReadInputTokens": 5, "cacheWriteInputTokens": 3}
+        "hi",
+        10,
+        2,
+        extra_usage={
+            "totalTokens": total_tokens,
+            "cacheReadInputTokens": 5,
+            "cacheWriteInputTokens": 3,
+        },
     )
     agent = Agent(model=model, name="agent")
     agent("hello")
@@ -315,9 +331,9 @@ def test_strands_autolog_chat_span_records_cache_tokens():
     assert len(traces) == 1
     chat_span = next(span for span in traces[0].data.spans if span.span_type == SpanType.CHAT_MODEL)
     assert chat_span.attributes[SpanAttributeKey.CHAT_USAGE] == {
-        "input_tokens": 10,
+        "input_tokens": expected_input_tokens,
         "output_tokens": 2,
-        "total_tokens": 12,
+        "total_tokens": total_tokens,
         "cache_read_input_tokens": 5,
         "cache_creation_input_tokens": 3,
     }
