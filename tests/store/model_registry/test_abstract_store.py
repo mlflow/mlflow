@@ -10,12 +10,21 @@ from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry.model_version import ModelVersion
 from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.entities.model_registry.prompt_version import PromptVersion
+from mlflow.entities.model_registry.registered_model import RegisteredModel
+from mlflow.entities.model_registry.registered_model_tag import RegisteredModelTag
 from mlflow.entities.run import Run
 from mlflow.entities.run_data import RunData
 from mlflow.entities.run_info import RunInfo
 from mlflow.entities.run_tag import RunTag
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
+from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
+from mlflow.protos.databricks_pb2 import (
+    INTERNAL_ERROR,
+    PERMISSION_DENIED,
+    RESOURCE_DOES_NOT_EXIST,
+    TEMPORARILY_UNAVAILABLE,
+    ErrorCode,
+)
 from mlflow.store.model_registry.abstract_store import AbstractStore
 from mlflow.tracing.constant import TraceTagKey
 
@@ -738,3 +747,54 @@ def test_link_multiple_prompt_types_to_model(store, mock_tracking_store):
     assert len(tag_value) == 2
     for expected_prompt in expected_prompts:
         assert expected_prompt in tag_value
+
+
+def test_get_prompt_returns_prompt(store):
+    rm = RegisteredModel(
+        name="my_prompt",
+        tags=[RegisteredModelTag(IS_PROMPT_TAG_KEY, "true"), RegisteredModelTag("team", "a")],
+    )
+    with mock.patch.object(store, "get_registered_model", return_value=rm):
+        prompt = store.get_prompt("my_prompt")
+
+    assert prompt.name == "my_prompt"
+    assert prompt.tags == {"team": "a"}
+
+
+def test_get_prompt_returns_none_for_missing_prompt(store):
+    not_found = MlflowException(
+        "Registered Model with name=missing not found", error_code=RESOURCE_DOES_NOT_EXIST
+    )
+    with mock.patch.object(store, "get_registered_model", side_effect=not_found):
+        assert store.get_prompt("missing") is None
+
+
+def test_get_prompt_returns_none_for_registered_model_that_is_not_a_prompt(store):
+    rm = RegisteredModel(name="my_model", tags=[RegisteredModelTag("team", "a")])
+    with mock.patch.object(store, "get_registered_model", return_value=rm):
+        assert store.get_prompt("my_model") is None
+
+
+@pytest.mark.parametrize(
+    "error_code",
+    [
+        pytest.param(TEMPORARILY_UNAVAILABLE, id="temporarily_unavailable"),
+        pytest.param(INTERNAL_ERROR, id="internal_error"),
+        pytest.param(PERMISSION_DENIED, id="permission_denied"),
+    ],
+)
+def test_get_prompt_raises_when_registry_cannot_be_read(store, error_code):
+    read_failure = MlflowException("database is locked", error_code=error_code)
+    with mock.patch.object(store, "get_registered_model", side_effect=read_failure):
+        with pytest.raises(MlflowException, match="database is locked") as exc_info:
+            store.get_prompt("my_prompt")
+
+    assert exc_info.value.error_code == ErrorCode.Name(error_code)
+
+
+def test_get_prompt_raises_non_mlflow_errors(store):
+    with mock.patch.object(
+        store, "get_registered_model", side_effect=ConnectionError("connection refused")
+    ):
+        with pytest.raises(ConnectionError, match="connection refused"):
+            store.get_prompt("my_prompt")
