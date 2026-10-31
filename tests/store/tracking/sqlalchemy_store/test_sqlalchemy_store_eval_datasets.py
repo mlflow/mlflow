@@ -1,13 +1,19 @@
 import json
+import os
 import time
+import uuid
 from unittest import mock
 
 import pytest
+from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 
 from mlflow.entities.dataset_record import DatasetRecord
+from mlflow.entities.span import Span
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.tracking.dbmodels.models import SqlEvaluationDatasetRecord
+from mlflow.tracing.otel.translation import strip_otlp_double_encoding
+from mlflow.tracing.utils.otlp import _set_otel_proto_anyvalue
 from mlflow.utils import mlflow_tags
 
 from tests.store.tracking.sqlalchemy_store.conftest import (
@@ -1097,3 +1103,130 @@ def test_sql_dataset_record_wrapping_unwrapping():
 
     sql_record7.merge({"outputs": {"new": "dict"}})
     assert sql_record7.outputs == {DATASET_RECORD_WRAPPED_OUTPUT_KEY: {"new": "dict"}}
+
+
+@pytest.mark.parametrize("bad_inputs", [[1, 2, 3], "just a string", None])
+def test_upsert_dataset_records_rejects_non_dict_inputs(store, bad_inputs):
+    test_prefix = "test_upsert_rejects_non_dict_inputs_"
+    exp_ids = _create_experiments(store, [f"{test_prefix}exp"])
+    dataset = store.create_dataset(name=f"{test_prefix}dataset", experiment_ids=exp_ids)
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid 'inputs' type for record at index 0: expected a dict",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.upsert_dataset_records(dataset.dataset_id, [{"inputs": bad_inputs}])
+
+
+def test_upsert_dataset_records_error_does_not_echo_inputs(store):
+    test_prefix = "test_upsert_error_no_echo_"
+    exp_ids = _create_experiments(store, [f"{test_prefix}exp"])
+    dataset = store.create_dataset(name=f"{test_prefix}dataset", experiment_ids=exp_ids)
+
+    with pytest.raises(MlflowException, match="expected a dict") as exc_info:
+        store.upsert_dataset_records(dataset.dataset_id, [{"inputs": ["top-secret-value"]}])
+
+    assert "top-secret-value" not in exc_info.value.message
+
+
+SEMCONV_MESSAGES = [{"role": "user", "parts": [{"type": "text", "content": "hi"}]}]
+
+
+def _log_otlp_root_span(store, experiment_id, attributes, events=None):
+    proto_span = OTelProtoSpan()
+    proto_span.trace_id = uuid.uuid4().bytes
+    proto_span.span_id = os.urandom(8)
+    proto_span.name = "root"
+    proto_span.start_time_unix_nano = 1_000_000_000
+    proto_span.end_time_unix_nano = 2_000_000_000
+    for key, value in attributes.items():
+        attribute = proto_span.attributes.add()
+        attribute.key = key
+        _set_otel_proto_anyvalue(attribute.value, value)
+    for name, event_attributes in (events or {}).items():
+        event = proto_span.events.add()
+        event.name = name
+        event.time_unix_nano = 1_500_000_000
+        for key, value in event_attributes.items():
+            attribute = event.attributes.add()
+            attribute.key = key
+            _set_otel_proto_anyvalue(attribute.value, value)
+    span = Span.from_otel_proto(proto_span)
+    # Mirrors the server's OTLP ingestion in mlflow/server/otel_api.py
+    span._span._attributes = strip_otlp_double_encoding(span._span._attributes)
+    store.log_spans(experiment_id, [span])
+    return store.get_trace(span.trace_id)
+
+
+@pytest.mark.parametrize("messages_attribute", [json.dumps(SEMCONV_MESSAGES), SEMCONV_MESSAGES])
+def test_merge_otlp_genai_input_messages_trace_into_dataset(store, messages_attribute):
+    test_prefix = "test_merge_otlp_genai_messages_"
+    exp_ids = _create_experiments(store, [f"{test_prefix}exp"])
+    dataset = store.create_dataset(name=f"{test_prefix}dataset", experiment_ids=exp_ids)
+    trace = _log_otlp_root_span(store, exp_ids[0], {"gen_ai.input.messages": messages_attribute})
+
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
+        store.get_dataset(dataset.dataset_id).merge_records([trace])
+
+    records, _ = store._load_dataset_records(dataset.dataset_id)
+    assert [r.inputs for r in records] == [{"messages": SEMCONV_MESSAGES}]
+
+
+def test_merge_otlp_trace_with_deprecated_genai_message_events_is_rejected(store):
+    test_prefix = "test_merge_otlp_genai_events_"
+    exp_ids = _create_experiments(store, [f"{test_prefix}exp"])
+    dataset = store.create_dataset(name=f"{test_prefix}dataset", experiment_ids=exp_ids)
+    trace = _log_otlp_root_span(
+        store,
+        exp_ids[0],
+        {},
+        events={"gen_ai.user.message": {"content": json.dumps("hi")}},
+    )
+    assert trace.data._get_root_span().inputs == [{"role": "user", "content": "hi"}]
+
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
+        with pytest.raises(
+            MlflowException,
+            match="expected a dict, but got list",
+            check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+        ):
+            store.get_dataset(dataset.dataset_id).merge_records([trace])
+
+    records, _ = store._load_dataset_records(dataset.dataset_id)
+    assert records == []
+
+
+def test_merge_otlp_trace_with_openinference_input_value_is_rejected(store):
+    test_prefix = "test_merge_otlp_openinference_"
+    exp_ids = _create_experiments(store, [f"{test_prefix}exp"])
+    dataset = store.create_dataset(name=f"{test_prefix}dataset", experiment_ids=exp_ids)
+    openai_messages = [{"role": "user", "content": "hi"}]
+    trace = _log_otlp_root_span(
+        store,
+        exp_ids[0],
+        {
+            "gen_ai.input.messages": json.dumps(SEMCONV_MESSAGES),
+            "input.value": json.dumps(openai_messages),
+        },
+    )
+    root_span = trace.data._get_root_span()
+    assert root_span.inputs == openai_messages
+
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
+        with pytest.raises(
+            MlflowException,
+            match="expected a dict, but got list",
+            check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+        ):
+            store.get_dataset(dataset.dataset_id).merge_records([trace])
+
+    with pytest.raises(
+        MlflowException,
+        match="expected a dict, but got list",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.upsert_dataset_records(dataset.dataset_id, [{"inputs": root_span.inputs}])
+
+    records, _ = store._load_dataset_records(dataset.dataset_id)
+    assert records == []
