@@ -107,7 +107,8 @@ Three limits are worth knowing before relying on it:
   on the old or new name, for every caller including admins. An admin must
   update or remove those role grants first, then retry the rename and
   re-add the grants under the new name if they should still apply. Only
-  admins see which role grants blocked the rename. Wildcard (`*`) grants and
+  platform and workspace administrators see in the error which role grants
+  blocked the rename. Wildcard (`*`) grants and
   direct grants (see [Direct grants without a role](#direct-grants-without-a-role))
   do not block a rename; direct grants follow the model to its new name.
 

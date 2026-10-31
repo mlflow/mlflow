@@ -2417,7 +2417,7 @@ def _reject_rename_with_named_role_grants(name: str, new_name: str) -> None:
     if not grants:
         return
     details = ""
-    # Only callers who can manage roles may see the grants, and only they can act on them.
+    # Only callers who can manage roles can act on these grants, so only they get the details.
     user = store.get_user(authenticate_request().username)
     workspace = _request_auth_workspace()
     if user.is_admin or (workspace is not None and _is_workspace_admin(user.id, workspace)):
