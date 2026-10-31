@@ -51,6 +51,7 @@ MLflow supports several types of plugins, each addressing different integration 
 | **Artifact Repository**  | Custom artifact storage           | In-house blob storage, specialized file systems    |
 | **Model Registry Store** | Custom model registry backend     | Enterprise model catalogs, version control systems |
 | **Workspace Provider**   | Custom workspace metadata backend | Kubernetes namespaces                              |
+| **Job Store**            | Custom job store for a backend    | Database-specific job storage                      |
 
 ### **Authentication & Headers**
 
@@ -92,6 +93,7 @@ setup(
         "mlflow.project_backend": "my-backend=my_plugin.backend:MyBackend",
         "mlflow.deployments": "my-target=my_plugin.deployment",
         "mlflow.workspace_provider": "my-scheme=my_plugin.workspace:MyWorkspaceProvider",
+        "mlflow.job_store": "postgresql=my_plugin.jobs:MyJobStore",
         "mlflow.app": "my-app=my_plugin.app:create_app",
     },
 )
@@ -256,6 +258,24 @@ class MyWorkspaceProvider(AbstractStore):
 ```
 
 For full details on workspace provider architecture, discovery, and configuration, see the [Workspace Providers](/self-hosting/workspaces/workspace-providers) documentation.
+
+  </TabItem>
+  <TabItem value="job-store" label="Job Store">
+
+```python
+# my_plugin/jobs.py
+from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
+
+
+class MyJobStore(SqlAlchemyJobStore):
+    """Custom job store for scheme 'postgresql://'"""
+
+    def __init__(self, store_uri):
+        super().__init__(store_uri)
+        # Customize the job store, for example the database connection
+```
+
+The MLflow server and `mlflow gc` use the job store registered for the scheme of the backend store URI. A job store plugin replaces the built-in job store for its scheme. The job scheduler uses the SQLAlchemy session of the job store, so a job store plugin must subclass `SqlAlchemyJobStore`. With `--enable-workspaces`, the plugin must return a workspace-aware job store, for example a subclass of `WorkspaceAwareSqlAlchemyJobStore`.
 
   </TabItem>
 </Tabs>
