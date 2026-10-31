@@ -124,6 +124,13 @@ class RoleGrantRow(NamedTuple):
     permission: str
 
 
+class NamedRoleGrant(NamedTuple):
+    role_name: str
+    resource_type: str
+    resource_pattern: str
+    permission: str
+
+
 class SqlAlchemyStore:
     @classmethod
     def _get_active_workspace_name(cls) -> str:
@@ -655,6 +662,41 @@ class SqlAlchemyStore:
                 {SqlRolePermission.resource_pattern: new_pattern},
                 synchronize_session=False,
             )
+
+    def list_named_role_grants_for_resource(
+        self,
+        resource_types: Iterable[str],
+        resource_patterns: Iterable[str],
+    ) -> list[NamedRoleGrant]:
+        """
+        Return every exact-name grant held by an admin-created role in the active workspace
+        on any of ``resource_types`` x ``resource_patterns``. Synthetic per-user roles are
+        excluded.
+        """
+        resource_types = list(resource_types)
+        for resource_type in resource_types:
+            _validate_resource_type(resource_type)
+        resource_patterns = [p for p in resource_patterns if p != "*"]
+        if not resource_types or not resource_patterns:
+            return []
+        with self.ManagedSessionMaker() as session:
+            rows = (
+                session
+                .query(SqlRole.name, SqlRolePermission)
+                .join(SqlRolePermission, SqlRolePermission.role_id == SqlRole.id)
+                .filter(
+                    SqlRole.workspace == self._get_active_workspace_name(),
+                    SqlRolePermission.resource_type.in_(resource_types),
+                    SqlRolePermission.resource_pattern.in_(resource_patterns),
+                )
+                .order_by(SqlRole.name, SqlRolePermission.resource_pattern)
+                .all()
+            )
+            return [
+                NamedRoleGrant(name, rp.resource_type, rp.resource_pattern, rp.permission)
+                for (name, rp) in rows
+                if not self._is_synthetic_role_name(name)
+            ]
 
     # ---- Legacy per-resource CRUD (tombstones) ----
     #
