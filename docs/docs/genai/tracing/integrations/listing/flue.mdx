@@ -3,8 +3,10 @@ title: Tracing Flue
 description: Send Flue agent traces from Cloudflare Workers to MLflow through OpenTelemetry export to inspect model calls, tool executions, and token usage.
 sidebar_label: Flue
 keywords: [flue, cloudflare, agents, workers, tracing, mlflow, opentelemetry, typescript]
+image: /images/llms/tracing/flue/trace.png
 ---
 
+import ImageBox from "@site/src/components/ImageBox";
 import { OTelIntegrationCard } from "@site/src/components/TracingIntegrations/OTelIntegrationCard";
 
 # Tracing Flue
@@ -13,7 +15,11 @@ import { OTelIntegrationCard } from "@site/src/components/TracingIntegrations/OT
 
 <OTelIntegrationCard name="Flue" logoPath="/images/logos/flue-logo.svg" />
 
-This guide uses Flue 2.3 on Cloudflare Workers. For tracing agents built directly with the Cloudflare Agents SDK, see [Tracing Cloudflare Agents](/genai/tracing/integrations/listing/cloudflare-agents).
+<ImageBox src="/images/llms/tracing/flue/trace.png" alt="MLflow displaying a real Flue Calculator trace with model messages, multiply tool arguments and result, and token usage" />
+
+The trace above shows a real Flue 2.3 `Calculator` agent calling the local `llama3.2:1b` model, executing `multiply(17, 23)`, and answering `391`. The deployment example below uses Anthropic Claude Haiku 4.5; see [Local Development](#local-development) for the screenshot's trace capture and validation.
+
+For tracing agents built directly with the Cloudflare Agents SDK, see [Tracing Cloudflare Agents](/genai/tracing/integrations/listing/cloudflare-agents).
 
 ## What Gets Traced
 
@@ -196,7 +202,7 @@ Open your MLflow experiment and select the **Traces** tab. Expand the `invoke_ag
 
 Run `npm exec -- vite dev` to develop the Worker locally. For local model calls, set `ANTHROPIC_API_KEY` in a `.dev.vars` file as described in [Flue's Cloudflare deployment guide](https://flueframework.com/docs/ecosystem/deploy/cloudflare/#5-add-your-api-key). Native spans appear in Cloudflare's Local Explorer, but local development does not forward them to Cloudflare's hosted export destinations. The destination configuration above sends traces from deployed Workers.
 
-Local validation used a real Flue 2.3 `Calculator` agent with the `llama3.2:1b` model through Flue's [Ollama provider](https://flueframework.com/docs/guide/models/). The agent called `multiply(17, 23)` and answered `391`. Its native spans were read from Local Explorer and relayed to MLflow 3.17.2 as OTLP/HTTP JSON. MLflow recognized the agent, model, and tool spans, including messages, tool arguments and results, and token usage. Cloudflare's hosted delivery path was not exercised.
+The screenshot uses a real Flue 2.3 `Calculator` agent with the `llama3.2:1b` model connected through Flue's [custom-provider API](https://flueframework.com/docs/guide/models/). Its native spans were read from Local Explorer and relayed to MLflow 3.17.2 as OTLP/HTTP JSON, then imported unchanged into Databricks MLflow for the screenshot. MLflow recognized the agent, model, and tool spans, including messages, tool arguments and results, and token usage. Cloudflare's hosted delivery path was not exercised.
 
 For exporting traces directly from a Node.js Flue application, use [`@flue/opentelemetry`](https://flueframework.com/docs/ecosystem/tooling/opentelemetry/) with an OpenTelemetry SDK and an OTLP/HTTP trace exporter configured for MLflow's `/v1/traces` endpoint and `x-mlflow-experiment-id` header. See [Collect OpenTelemetry traces into MLflow](/genai/tracing/opentelemetry/ingest).
 
