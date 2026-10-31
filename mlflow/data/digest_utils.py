@@ -9,6 +9,27 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 MAX_ROWS = 10000
 
 
+def trimmed_dataframe(df):
+    """Returns a DataFrame with at most MAX_ROWS rows for digest computation.
+
+    For large DataFrames (i.e., those with more than MAX_ROWS rows),
+    samples rows from four evenly spaced regions to avoid relying
+    only on the first MAX_ROWS rows.
+    """
+    import pandas as pd
+
+    total_rows = len(df)
+    if total_rows <= MAX_ROWS:
+        return df
+    quadrant_size = total_rows // 4
+    sample_size = 2500
+    df1 = df.iloc[0:sample_size]
+    df2 = df.iloc[quadrant_size : quadrant_size + sample_size]
+    df3 = df.iloc[2 * quadrant_size : 2 * quadrant_size + sample_size]
+    df4 = df.iloc[3 * quadrant_size : 3 * quadrant_size + sample_size]
+    return pd.concat([df1, df2, df3, df4])
+
+
 def compute_pandas_digest(df) -> str:
     """Computes a digest for the given Pandas DataFrame.
 
@@ -22,7 +43,7 @@ def compute_pandas_digest(df) -> str:
     import pandas as pd
 
     # trim to max rows
-    trimmed_df = df.head(MAX_ROWS)
+    trimmed_df = trimmed_dataframe(df)
 
     # keep string and number columns, drop other column types
     if Version(pd.__version__) >= Version("2.1.0"):
