@@ -31,6 +31,7 @@ from mlflow.tracing.constant import (
     CostKey as CostKey,
 )
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
+from mlflow.utils.providers import _cost_per_token_from_custom_catalog
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 _logger = logging.getLogger(__name__)
@@ -362,6 +363,14 @@ def calculate_span_cost(span: LiveSpan) -> dict[str, float] | None:
 _SKIP_COST_PREFIXES = ("gateway:/", "endpoints:/")
 
 
+@lru_cache(maxsize=8)
+def _warn_model_catalog_error(uri: str) -> None:
+    _logger.warning(
+        f"Failed to read model prices from MLFLOW_MODEL_CATALOG_URI={uri!r}; using litellm prices.",
+        exc_info=True,
+    )
+
+
 def calculate_cost_by_model_and_token_usage(
     model_name: str | None, usage: dict[str, int] | None, model_provider: str | None = None
 ) -> dict[str, float] | None:
@@ -394,24 +403,6 @@ def calculate_cost_by_model_and_token_usage(
     if (above_1hr := usage.get(TokenUsageKey.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR)) is not None:
         builtin_cache_kwargs["cache_creation_input_tokens_above_1hr"] = above_1hr
 
-    result = None
-    # Only MLflow's builtin lookup reads MLFLOW_MODEL_CATALOG_URI, so when a catalog is set
-    # explicitly, price from it before litellm (which would otherwise shadow it, e.g. by
-    # reporting unknown ollama models as free). Fall back to litellm when it has no price.
-    if model_provider and MLFLOW_MODEL_CATALOG_URI.is_set() and MLFLOW_MODEL_CATALOG_URI.get():
-        from mlflow.utils.providers import cost_per_token as builtin_cost_per_token
-
-        try:
-            result = builtin_cost_per_token(
-                model=model_name,
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                custom_llm_provider=model_provider.lower(),
-                **builtin_cache_kwargs,
-            )
-        except Exception:
-            pass
-
     try:
         import litellm
         from litellm import cost_per_token
@@ -420,6 +411,22 @@ def calculate_cost_by_model_and_token_usage(
 
         litellm = None
         cache_kwargs = builtin_cache_kwargs
+
+    result = None
+    # litellm doesn't read MLFLOW_MODEL_CATALOG_URI and would otherwise shadow a catalog the user
+    # configured (e.g. by reporting unknown ollama models as free), so prices that catalog lists
+    # take precedence. Without litellm, the builtin lookup below already reads it.
+    if litellm is not None and model_provider:
+        try:
+            result = _cost_per_token_from_custom_catalog(
+                model=model_name,
+                provider=model_provider.lower(),
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                **builtin_cache_kwargs,
+            )
+        except Exception:
+            _warn_model_catalog_error(MLFLOW_MODEL_CATALOG_URI.get())
 
     if litellm is not None:
         original_suppress = getattr(litellm, "suppress_debug_info")
