@@ -5,6 +5,7 @@ import { renderWithDesignSystem, screen, waitFor } from '../../../common/utils/T
 import { setupServer } from '../../../common/utils/setup-msw';
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 import { QueryClient, QueryClientProvider } from '../../../common/utils/reactQueryHooks';
+import { setActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
 import type { Issue } from '../../components/run-page/hooks/useSearchIssuesQuery';
 import { IssueProposedFixSection } from './IssueProposedFixSection';
 
@@ -82,6 +83,19 @@ describe('IssueProposedFixSection', () => {
     renderSection();
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Copy' })).toBeEnabled());
+  });
+
+  test('names the active workspace for the CLI', async () => {
+    setActiveWorkspace('team-a');
+    try {
+      renderSection();
+
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Copy' })).toBeEnabled());
+      const prompt = screen.getByTestId('experiment-issue-proposed-fix').querySelector('pre')?.textContent ?? '';
+      expect(prompt).toContain('`MLFLOW_WORKSPACE` set to `team-a`');
+    } finally {
+      setActiveWorkspace(null);
+    }
   });
 
   test('resolves the issue URL against the document base, keeping a static prefix', async () => {

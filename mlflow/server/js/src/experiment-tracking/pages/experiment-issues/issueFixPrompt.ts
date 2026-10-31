@@ -1,3 +1,4 @@
+import { validateWorkspaceName } from '../../../workspaces/utils/WorkspaceUtils';
 import type { Issue } from '../../components/run-page/hooks/useSearchIssuesQuery';
 
 /** How many affected trace IDs the prompt lists before summarising the rest as a count. */
@@ -57,6 +58,11 @@ export interface IssueFixPromptOptions {
   totalTraceCount?: number;
   /** Whether more affected traces exist beyond `traceIds`, used when no total is known. */
   hasMoreTraces?: boolean;
+  /**
+   * The workspace the issue was opened in, when the server has workspaces. The prompt names it only
+   * then, since a workspace header sent to a server without workspaces is rejected.
+   */
+  workspace?: string | null;
 }
 
 /**
@@ -71,9 +77,13 @@ export const buildIssueFixPrompt = (
   experimentId: string,
   issue: Issue,
   issueUrl: string,
-  { traceIds, totalTraceCount, hasMoreTraces = false }: IssueFixPromptOptions,
+  { traceIds, totalTraceCount, hasMoreTraces = false, workspace }: IssueFixPromptOptions,
 ): string => {
   const categories = issue.categories ?? [];
+  // The active workspace comes from the URL, so a crafted link can set it to anything; only a name
+  // the server would accept is written into the prompt, outside the escaped block.
+  const workspaceSetup =
+    workspace && validateWorkspaceName(workspace).valid ? `, and \`MLFLOW_WORKSPACE\` set to \`${workspace}\`` : '';
 
   return `${FIX_PROMPT_INTRO}
 
@@ -91,7 +101,7 @@ ${issue.source_run_id ? `Detection run ID: ${issue.source_run_id}\n` : ''}${issu
     ...traceIdLines(traceIds, totalTraceCount, hasMoreTraces),
   ])}
 
-To read the issue's traces, use the MLflow CLI on this machine with \`MLFLOW_TRACKING_URI\` set to the issue URL's server (the part before \`#\`), and \`MLFLOW_WORKSPACE\` set to the URL's \`workspace\` parameter, or unset if the URL has none. \`mlflow traces search --experiment-id ${experimentId} --filter-string "issue.id = '${issue.issue_id}'"\` lists the traces the issue affects, 100 at a time (pass the next page token it prints as \`--page-token\` for more), and each of those traces carries an issue assessment named ${issue.issue_id} with the evidence. \`mlflow traces get --trace-id <ID> > trace.json\` prints a trace as JSON, worth redirecting because a trace can be large. The \`mlflow-trace-analysis\` and \`mlflow-trace-retrieval\` skills cover reading them.
+To read the issue's traces, use the MLflow CLI on this machine with \`MLFLOW_TRACKING_URI\` set to the issue URL's server (the part before \`#\`)${workspaceSetup}. \`mlflow traces search --experiment-id ${experimentId} --filter-string "issue.id = '${issue.issue_id}'"\` lists the traces the issue affects, 100 at a time (pass the next page token it prints as \`--page-token\` for more), and each of those traces carries an issue assessment named ${issue.issue_id} with the evidence. \`mlflow traces get --trace-id <ID> > trace.json\` prints a trace as JSON, worth redirecting because a trace can be large. The \`mlflow-trace-analysis\` and \`mlflow-trace-retrieval\` skills cover reading them.
 
 ${FIX_PROMPT_OUTRO}`;
 };

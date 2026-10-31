@@ -58,16 +58,15 @@ describe('buildIssueFixPrompt', () => {
     expect(prompt.match(/pull request/g)).toHaveLength(2);
   });
 
-  test('gives the issue URL first, so the CLI can use its server and workspace and a pull request can link it', () => {
+  test('gives the issue URL first, so the CLI can use its server and a pull request can link it', () => {
     const prompt = buildIssueFixPrompt('1', makeIssue(), ISSUE_URL, { traceIds: ['tr-1'] });
 
     expect(prompt).toContain(`\n\nIssue URL: ${ISSUE_URL}\nExperiment ID: 1\n`);
     expect(prompt).toContain(
-      "with `MLFLOW_TRACKING_URI` set to the issue URL's server (the part before `#`), and `MLFLOW_WORKSPACE` set to the URL's `workspace` parameter, or unset if the URL has none.",
+      "use the MLflow CLI on this machine with `MLFLOW_TRACKING_URI` set to the issue URL's server (the part before `#`). ",
     );
-    // A workspace left set from another server would still be sent, and a server without
-    // workspaces rejects any workspace header.
-    expect(prompt).not.toContain('if it has one');
+    // A server without workspaces rejects any workspace header, so with none active it goes unmentioned.
+    expect(prompt).not.toContain('MLFLOW_WORKSPACE');
     expect(prompt).toContain(
       'Finish by reporting the cause you found, the change you made, and the tests you ran and their results. If the developer then asks you to open a pull request, include the issue URL in its description.',
     );
@@ -142,6 +141,24 @@ describe('buildIssueFixPrompt', () => {
 
     expect(prompt).toContain('- tr-1');
     expect(prompt).not.toContain('which the search below lists');
+  });
+
+  test('names the active workspace for the CLI', () => {
+    const prompt = buildIssueFixPrompt('1', makeIssue(), ISSUE_URL, { traceIds: ['tr-1'], workspace: 'team-a' });
+
+    expect(prompt).toContain(
+      "with `MLFLOW_TRACKING_URI` set to the issue URL's server (the part before `#`), and `MLFLOW_WORKSPACE` set to `team-a`. ",
+    );
+  });
+
+  test('leaves out a workspace the server could not have, since the URL that set it can say anything', () => {
+    const prompt = buildIssueFixPrompt('1', makeIssue(), ISSUE_URL, {
+      traceIds: ['tr-1'],
+      workspace: 'x`; rm -rf ~ #',
+    });
+
+    expect(prompt).not.toContain('MLFLOW_WORKSPACE');
+    expect(prompt).not.toContain('rm -rf');
   });
 
   test("finds the issue's traces with the issue.id trace filter, a page at a time", () => {
