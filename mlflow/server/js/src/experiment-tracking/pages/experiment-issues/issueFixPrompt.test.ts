@@ -44,6 +44,32 @@ describe('buildIssueFixPrompt', () => {
     expect(prompt).toContain(ISSUE_URL);
   });
 
+  test("says the issue is in the developer's agent, not in MLflow, and who the coding agent is", () => {
+    const prompt = buildIssueFixPrompt('1', makeIssue(), ISSUE_URL, { traceIds: ['tr-1'] });
+
+    expect(prompt.split('\n')[0]).toBe(
+      "MLflow issue detection found a problem in the developer's agent, from traces that agent logged to an MLflow experiment. You are a coding agent working in the agent's repository. Find the cause of the issue below and carry the fix through end to end: don't stop at proposing a fix or describing one.",
+    );
+    expect(prompt).not.toContain('connected');
+    expect(prompt).toContain(
+      "Don't push or open a pull request until the developer has reviewed your change and asks you to.",
+    );
+    // Only that sentence and the closing ask mention a pull request, both on the developer's say-so.
+    expect(prompt.match(/pull request/g)).toHaveLength(2);
+  });
+
+  test('gives the issue URL first, so the CLI can use its server and workspace and a pull request can link it', () => {
+    const prompt = buildIssueFixPrompt('1', makeIssue(), ISSUE_URL, { traceIds: ['tr-1'] });
+
+    expect(prompt).toContain(`\n\nIssue URL: ${ISSUE_URL}\nExperiment ID: 1\n`);
+    expect(prompt).toContain(
+      "with `MLFLOW_TRACKING_URI` set to the issue URL's server (the part before `#`), and `MLFLOW_WORKSPACE` set to the URL's `workspace` parameter if it has one.",
+    );
+    expect(prompt).toContain(
+      'Finish by reporting the cause you found, the change you made, and the tests you ran and their results. If the developer then asks you to open a pull request, include the issue URL in its description.',
+    );
+  });
+
   test('escapes issue text so it cannot close the evidence block early', () => {
     // Everything in the block is model- or user-written, so a crafted description must not be
     // able to end the block and have the rest read as instructions.
@@ -120,7 +146,7 @@ describe('buildIssueFixPrompt', () => {
     const prompt = buildIssueFixPrompt('1', makeIssue(), ISSUE_URL, { traceIds: ['tr-1'] });
 
     expect(prompt).toContain('mlflow traces get --trace-id <ID> > trace.json');
-    expect(prompt).toContain('prints one as JSON');
+    expect(prompt).toContain('prints a trace as JSON');
   });
 
   test('summarises the trace list beyond the first ten', () => {
