@@ -148,19 +148,29 @@ class InMemoryBudgetTracker(BudgetTracker):
 
         return False, None
 
-    def backfill_spend(self, spend_by_policy: dict[str, float]) -> None:
+    def backfill_spend(self, spend_by_policy: dict[str, float]) -> list[BudgetWindow]:
         """Sync cumulative spend on windows from authoritative trace data.
 
         Uses max(current, db_value) so that in-process spend recorded since
         the last trace flush is never lost due to DB write lag.
+
+        Returns:
+            Windows whose limit this sync crossed for the first time.
         """
+        newly_exceeded: list[BudgetWindow] = []
+
         with self._lock:
             for budget_policy_id, spend in spend_by_policy.items():
                 window = self._windows.get(budget_policy_id)
                 if window is None:
                     continue
+                was_exceeded = window.exceeded
                 window.cumulative_spend = max(window.cumulative_spend, spend)
                 window.exceeded = window.cumulative_spend >= window.policy.budget_amount
+                if window.exceeded and not was_exceeded:
+                    newly_exceeded.append(window)
+
+        return newly_exceeded
 
     def get_all_windows(self) -> list[BudgetWindow]:
         with self._lock:
