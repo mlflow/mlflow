@@ -73,7 +73,7 @@ jobs:
       base: ${{ steps.pr.outputs.base }}
       base_ref: ${{ steps.pr.outputs.base_ref }}
     steps:
-      - name: Check maintainer and snapshot PR
+      - name: Check maintainer and PR author
         id: pr
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -94,6 +94,16 @@ jobs:
           mkdir -p "$RUNNER_TEMP/verify-context"
           gh api "repos/$REPO/pulls/$PR_NUMBER" > "$RUNNER_TEMP/pr.json"
           jq -e '.state == "open"' "$RUNNER_TEMP/pr.json" > /dev/null
+          author=$(jq -r '.user.login // empty' "$RUNNER_TEMP/pr.json")
+          if [ -z "$author" ]; then
+            echo 'The PR author is unavailable.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          author_permission=$(gh api "repos/$REPO/collaborators/$author/permission" --jq .permission)
+          if [[ "$author_permission" != admin && "$author_permission" != write ]]; then
+            echo 'The PR author does not have write access to the repository.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           head=$(jq -er '.head.sha | select(test("^[0-9a-f]{40}$"))' "$RUNNER_TEMP/pr.json")
           base=$(jq -er '.base.sha | select(test("^[0-9a-f]{40}$"))' "$RUNNER_TEMP/pr.json")
           base_ref=$(jq -er '.base.ref | strings | select(test("^[^\\r\\n]+$"))' "$RUNNER_TEMP/pr.json")
@@ -256,49 +266,15 @@ jobs:
           cat "$RUNNER_TEMP/verify-telemetry-proxy.log"
           echo '::error::Telemetry proxy did not become ready.'
           exit 1
-      - name: Prepare unprivileged agent
+      - name: Prepare agent context
         id: agent
         run: |
-          sudo useradd --system --user-group --no-create-home --home-dir /tmp/verify-home --shell /bin/bash verify-agent
-          sudo install -d -m 700 -o verify-agent -g verify-agent \
-            /tmp/verify-home /tmp/verify-out /tmp/verify-out/media /tmp/verify-out/work
-          cp -a pr /tmp/verify-work
-          sudo chown -R verify-agent:verify-agent /tmp/verify-work
-          mkdir -p /tmp/verify-context
+          mkdir -p /tmp/verify-home /tmp/verify-out/media /tmp/verify-out/work /tmp/verify-context
           cp "$RUNNER_TEMP/verify-context/"{pr.json,diff.patch,diff.annotated} /tmp/verify-context/
           cp trusted/.claude/skills/verify/{SKILL.md,payload.schema.yml} /tmp/verify-context/
           cp trusted/.claude/skills/verify/scripts/init.js /tmp/verify-context/
-          chmod 755 /tmp/verify-context
-          chmod 644 /tmp/verify-context/*
-          # Hide runner credentials and workflow command files from the agent account.
-          chmod 700 "$HOME"
           node_dir=$(dirname "$(command -v node)")
           echo "node_dir=$node_dir" >> "$GITHUB_OUTPUT"
-          proxy_pid=$(cat "$RUNNER_TEMP/verify-gateway-proxy.pid")
-          runner_pid=$(pgrep -x Runner.Worker | head -1)
-          [ -n "$runner_pid" ]
-          for pid in "$proxy_pid" "$runner_pid"; do
-            if sudo -u verify-agent cat "/proc/$pid/environ" > /dev/null 2>&1; then
-              echo '::error::Agent can read a credential-bearing process environment.'
-              exit 1
-            fi
-          done
-          if [ -f "$RUNNER_TEMP/verify-telemetry-proxy.pid" ]; then
-            telemetry_pid=$(cat "$RUNNER_TEMP/verify-telemetry-proxy.pid")
-            if ! kill -0 "$telemetry_pid" 2>/dev/null || \
-              sudo -u verify-agent cat "/proc/$telemetry_pid/environ" > /dev/null 2>&1 || \
-              ! sudo -u verify-agent curl --noproxy '*' -fsS http://127.0.0.1:8081/healthz > /dev/null; then
-              echo '::error::Telemetry proxy is not safely accessible to the agent.'
-              exit 1
-            fi
-          fi
-          if sudo -u verify-agent test -x "$RUNNER_TEMP" || \
-            sudo -u verify-agent test -r "$GITHUB_WORKSPACE/trusted/.claude/skills/verify/SKILL.md" || \
-            sudo -u verify-agent sudo -n true > /dev/null 2>&1 || \
-            sudo -u verify-agent test -w /var/run/docker.sock; then
-            echo '::error::Agent can access privileged runner resources.'
-            exit 1
-          fi
       - name: Verify PR behavior
         env:
           ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway-proxy.outputs.token }}
@@ -320,11 +296,12 @@ jobs:
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
           # Safe mode ignores PR-authored settings and skills; load the trusted skill explicitly.
-          # shellcheck disable=SC2016 # Expanded by the unprivileged shell.
-          timeout 30m sudo -u verify-agent env -i \
+          # shellcheck disable=SC2016 # Expanded by the agent shell.
+          timeout 30m setsid env -i \
             HOME=/tmp/verify-home \
             PATH="$NODE_DIR:/usr/local/bin:/usr/bin:/bin" \
             RUNNER_TEMP=/tmp \
+            PR_WORKSPACE="$GITHUB_WORKSPACE/pr" \
             CI=true \
             UV_INDEX_STRATEGY=unsafe-first-match \
             UV_EXCLUDE_NEWER=P7D \
@@ -348,7 +325,7 @@ jobs:
             OTEL_RESOURCE_ATTRIBUTES="$OTEL_RESOURCE_ATTRIBUTES" \
             AGENT_BROWSER_ARGS=--no-sandbox \
             AGENT_BROWSER_SCREENSHOT_DIR=/tmp/verify-out/media \
-            bash -c 'cd /tmp/verify-work && exec claude \
+            bash -c 'echo "$$" > /tmp/verify-agent.pgid; cd "$PR_WORKSPACE" && exec claude \
               --safe-mode --strict-mcp-config \
               --model "$MODEL" --effort "$EFFORT" --session-id "$SESSION_ID" --max-budget-usd 5 \
               --permission-mode auto --disallowed-tools "WebSearch,WebFetch" \
@@ -359,10 +336,16 @@ jobs:
           echo "::$token::"
       - name: Stop agent processes
         if: always()
-        run: sudo pkill -KILL -u verify-agent || true
+        run: |
+          if [ -s /tmp/verify-agent.pgid ]; then
+            pgid=$(cat /tmp/verify-agent.pgid)
+            if [[ "$pgid" =~ ^[1-9][0-9]*$ ]]; then
+              kill -KILL -- "-$pgid" 2>/dev/null || true
+            fi
+          fi
       - name: Stage verification report
         run: |
-          sudo python3 - "$RUNNER_TEMP/verify-out" <<'PY'
+          python3 - "$RUNNER_TEMP/verify-out" <<'PY'
           import os
           import shutil
           import stat
