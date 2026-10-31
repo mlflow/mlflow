@@ -4531,6 +4531,51 @@ def test_role_grant_on_mcp_server_gates_capabilities(
     assert perm.can_manage is expected_manage
 
 
+@pytest.mark.parametrize("prefix", ["/api", "/ajax-api"])
+@pytest.mark.parametrize(
+    ("suffix", "permission", "version_grant", "expected"),
+    [
+        ("/tags/k", READ.name, None, False),
+        ("/tags/k", EDIT.name, None, True),
+        ("/tags/k", MANAGE.name, None, True),
+        ("/tags/k", MANAGE.name, DENY.name, True),
+        ("/versions/1/tags/k", READ.name, None, False),
+        ("/versions/1/tags/k", EDIT.name, None, False),
+        ("/versions/1/tags/k", MANAGE.name, None, True),
+        ("", EDIT.name, None, False),
+        ("", MANAGE.name, None, True),
+        ("/aliases/prod", EDIT.name, None, False),
+        ("/aliases/prod", MANAGE.name, None, True),
+        ("/endpoints/ep-1", EDIT.name, None, False),
+        ("/endpoints/ep-1", MANAGE.name, None, True),
+    ],
+)
+def test_mcp_delete_permissions(
+    workspace_permission_setup,
+    monkeypatch,
+    prefix,
+    suffix,
+    permission,
+    version_grant,
+    expected,
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    auth_module._get_tracking_store()._mcp_server_workspaces["com.test/srv"] = "team-a"
+    _set_workspace_permission(store, username, USE.name)
+    rows = [("mcp_server", "com.test/srv", permission)]
+    if version_grant:
+        rows.append(("mcp_server_version", "*", version_grant))
+    _grant(store, username, "team-a", rows)
+
+    request = SimpleNamespace(method="DELETE", state=SimpleNamespace(), query_params={})
+    validator = auth_module._get_mcp_server_validator(
+        f"{prefix}/3.0/mlflow/mcp-servers/com.test/srv{suffix}"
+    )
+    assert asyncio.run(validator(username, request)) is expected
+
+
 @pytest.mark.parametrize(
     ("version_grant", "allowed"),
     [
