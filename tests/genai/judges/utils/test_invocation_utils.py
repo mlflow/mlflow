@@ -439,3 +439,54 @@ def test_structured_output_schema_injection(
 
     assert isinstance(result, TestSchema)
     assert result.outputs == "test result"
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        "[1, 2, 3]",  # valid JSON, but a list (not a mapping) -> TypeError on **response_dict
+        '"just a string"',  # valid JSON scalar -> TypeError on **response_dict
+        '{"inputs": "only one field"}',  # valid object, missing required field -> ValidationError
+    ],
+)
+def test_get_chat_completions_with_structured_output_malformed_json_raises_mlflow_exception(
+    response,
+):
+    # Regression: the litellm fallback built output_schema(**response_dict) outside the
+    # try and only caught json.JSONDecodeError, so a valid-but-non-object JSON response
+    # (list/scalar) raised a raw TypeError and a schema mismatch raised a raw
+    # pydantic.ValidationError. Both should be wrapped in MlflowException.
+    class FieldExtraction(BaseModel):
+        inputs: str = Field(description="The user's original request")
+        outputs: str = Field(description="The system's final response")
+
+    mock_output = InvokeOutput(
+        response=response,
+        request_id="req-1",
+        num_prompt_tokens=10,
+        num_completion_tokens=5,
+    )
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter.is_applicable",
+            return_value=False,
+        ),
+        mock.patch(
+            "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available",
+            return_value=True,
+        ),
+        mock.patch(
+            "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm_and_handle_tools",
+            return_value=mock_output,
+        ),
+        pytest.raises(MlflowException, match=r"does not match the expected schema"),
+    ):
+        get_chat_completions_with_structured_output(
+            model_uri="openai:/gpt-4",
+            messages=[
+                ChatMessage(role="system", content="Extract fields"),
+                ChatMessage(role="user", content="Find inputs and outputs"),
+            ],
+            output_schema=FieldExtraction,
+        )
