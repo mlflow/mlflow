@@ -159,24 +159,11 @@ jobs:
       - id: telemetry
         name: Mint telemetry token
         if: vars.NIGHTLY_MLFLOW_TRACE_LOCATION != ''
-        env:
-          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-          DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
-          DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
-        run: |
-          # The OTLP ingest endpoint rejects narrower scopes such as ai-gateway or mlflow. The proxy
-          # only forwards to the OTLP routes, so the agent can't use the token elsewhere.
-          response=$(curl -sS --max-time 15 \
-            -u "$DATABRICKS_CLIENT_ID:$DATABRICKS_CLIENT_SECRET" \
-            -d grant_type=client_credentials -d scope=all-apis \
-            "$DATABRICKS_HOST/oidc/v1/token")
-          token=$(jq -r '.access_token // empty' <<< "$response")
-          if [ -z "$token" ]; then
-            echo "::error::Telemetry token exchange failed: $(jq -r '.error_description // .error // "no access_token"' <<< "$response")"
-            exit 1
-          fi
-          echo "::add-mask::$token"
-          echo "token=$token" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/mint-telemetry-token
+        with:
+          host: ${{ secrets.DATABRICKS_HOST }}
+          client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
       - name: Start telemetry proxy
         if: steps.telemetry.outcome == 'success'
         env:
