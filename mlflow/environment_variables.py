@@ -1736,6 +1736,10 @@ MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY = _EnvironmentVariable(
 #: (default: ``None``)
 MLFLOW_TRACE_ARCHIVAL_CONFIG = _EnvironmentVariable("MLFLOW_TRACE_ARCHIVAL_CONFIG", str, None)
 
+#: Selects a server-side trace backend registered through ``mlflow.trace_backends``.
+#: When unset, the tracking store handles traces directly.
+MLFLOW_TRACE_BACKEND = _EnvironmentVariable("MLFLOW_TRACE_BACKEND", str, None)
+
 #: Enables opt-in SQL daily rollups for trace analytics. When ``true``, the query planner serves
 #: eligible daily aggregate requests from precomputed rollup tables, falling back to the raw path
 #: for any day that is not covered. When ``false`` (the default), all trace analytics queries use

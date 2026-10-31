@@ -7,7 +7,11 @@ import pytest
 from flask import Flask
 
 from mlflow.entities.workspace import Workspace, WorkspaceDeletionMode
+from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import get_endpoints
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+
+from tests.store.tracking.sqlalchemy_store.test_trace_backend_associations import MemoryTraceBackend
 
 
 @pytest.fixture(autouse=True)
@@ -443,6 +447,67 @@ def test_delete_workspace_endpoint(app, mock_workspace_store):
     mock_workspace_store.delete_workspace.assert_called_once_with(
         "team-e", mode=WorkspaceDeletionMode.RESTRICT
     )
+
+
+@pytest.mark.parametrize(
+    ("mode", "status"),
+    [
+        (WorkspaceDeletionMode.RESTRICT, 400),
+        (WorkspaceDeletionMode.SET_DEFAULT, 400),
+        (WorkspaceDeletionMode.CASCADE, 204),
+    ],
+)
+def test_backend_workspace_hooks_run_through_host(
+    app, mock_workspace_store, monkeypatch, db_uri, tmp_path, mode, status
+):
+    monkeypatch.setenv("MLFLOW_TRACE_BACKEND", "test")
+    backend = MemoryTraceBackend()
+    store = SqlAlchemyStore(db_uri, tmp_path.as_uri(), trace_backend=backend)
+    backend.traces["tr-orphan"] = ("team-e", mock.Mock())
+    try:
+        with mock.patch(
+            "mlflow.server.handlers._get_tracking_store", return_value=store
+        ) as get_store:
+            with app.test_client() as client:
+                response = client.delete(f"/api/3.0/mlflow/workspaces/team-e?mode={mode.value}")
+        get_store.assert_called_once()
+        assert response.status_code == status
+        if status == 204:
+            mock_workspace_store.delete_workspace.assert_called_once_with("team-e", mode=mode)
+            assert backend.traces == {}
+        else:
+            mock_workspace_store.delete_workspace.assert_not_called()
+            assert len(backend.traces) == 1
+    finally:
+        store._dispose_engine()
+
+
+def test_backend_workspace_cleanup_failure_is_logged_after_provider_success(
+    app, mock_workspace_store, monkeypatch, db_uri, tmp_path, caplog
+):
+    monkeypatch.setenv("MLFLOW_TRACE_BACKEND", "test")
+    backend = MemoryTraceBackend()
+    store = SqlAlchemyStore(db_uri, tmp_path.as_uri(), trace_backend=backend)
+    try:
+        with (
+            mock.patch(
+                "mlflow.server.handlers._get_tracking_store", return_value=store
+            ) as get_store,
+            mock.patch.object(
+                backend, "on_workspace_deleted", side_effect=MlflowException("cleanup failed")
+            ) as hook,
+        ):
+            with app.test_client() as client:
+                response = client.delete("/api/3.0/mlflow/workspaces/team-e?mode=CASCADE")
+        assert response.status_code == 204
+        get_store.assert_called_once()
+        hook.assert_called_once_with("team-e")
+        mock_workspace_store.delete_workspace.assert_called_once_with(
+            "team-e", mode=WorkspaceDeletionMode.CASCADE
+        )
+        assert "cleanup failed" in caplog.text
+    finally:
+        store._dispose_engine()
 
 
 def test_delete_default_workspace_rejected_by_validation(app, mock_workspace_store):
