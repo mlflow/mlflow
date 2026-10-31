@@ -63,8 +63,11 @@ describe('buildIssueFixPrompt', () => {
 
     expect(prompt).toContain(`\n\nIssue URL: ${ISSUE_URL}\nExperiment ID: 1\n`);
     expect(prompt).toContain(
-      "with `MLFLOW_TRACKING_URI` set to the issue URL's server (the part before `#`), and `MLFLOW_WORKSPACE` set to the URL's `workspace` parameter if it has one.",
+      "with `MLFLOW_TRACKING_URI` set to the issue URL's server (the part before `#`), and `MLFLOW_WORKSPACE` set to the URL's `workspace` parameter, or unset if the URL has none.",
     );
+    // A workspace left set from another server would still be sent, and a server without
+    // workspaces rejects any workspace header.
+    expect(prompt).not.toContain('if it has one');
     expect(prompt).toContain(
       'Finish by reporting the cause you found, the change you made, and the tests you ran and their results. If the developer then asks you to open a pull request, include the issue URL in its description.',
     );
