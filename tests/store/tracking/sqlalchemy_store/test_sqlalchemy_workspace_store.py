@@ -1070,6 +1070,25 @@ def test_artifact_operations_enforce_workspace_isolation(workspace_tracking_stor
             assert excinfo.value.error_code == "RESOURCE_DOES_NOT_EXIST"
 
 
+def test_log_spans_rejects_experiment_in_another_workspace(workspace_tracking_store):
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    span = create_test_span(trace_id=trace_id)
+
+    with WorkspaceContext("team-a"):
+        experiment_id = workspace_tracking_store.create_experiment("span-experiment-owner")
+
+    with WorkspaceContext("team-b"):
+        with pytest.raises(
+            MlflowException, match=f"No Experiment with id={experiment_id} exists"
+        ) as excinfo:
+            workspace_tracking_store.log_spans(experiment_id, [span])
+        assert excinfo.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+    with WorkspaceContext("team-a"):
+        with pytest.raises(MlflowException, match=f"Trace with ID '{trace_id}' not found"):
+            workspace_tracking_store.get_trace_info(trace_id)
+
+
 def test_get_trace_is_workspace_scoped(workspace_tracking_store):
     trace_id = f"tr-{uuid.uuid4().hex}"
     span = create_test_span(trace_id=trace_id)
