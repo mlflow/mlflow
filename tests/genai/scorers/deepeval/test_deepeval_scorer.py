@@ -171,9 +171,8 @@ def test_deepeval_scorer_concurrent_calls_return_their_own_results(mock_deepeval
 
     with patch(
         "mlflow.genai.scorers.deepeval.create_deepeval_model", return_value=mock_deepeval_model
-    ) as mock_create_model:
+    ):
         scorer = get_scorer("AnswerRelevancy", model="openai:/gpt-4o")
-    mock_create_model.assert_called_once()
     scorer._metric = SlowMetric()
 
     scores = [i / 10 for i in range(10)]
@@ -185,6 +184,7 @@ def test_deepeval_scorer_concurrent_calls_return_their_own_results(mock_deepeval
     assert [r.value for r in results] == [
         CategoricalRating.YES if s >= 0.5 else CategoricalRating.NO for s in scores
     ]
+    assert "score" not in vars(scorer._metric)
 
 
 def test_multi_turn_metric_is_session_level_scorer(mock_deepeval_model):

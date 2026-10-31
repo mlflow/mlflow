@@ -175,6 +175,8 @@ class DeepEvalScorer(Scorer):
 
             # DeepEval metrics store results on the instance, so measure a per-call copy to
             # keep concurrent calls (e.g., from mlflow.genai.evaluate) from overwriting each other.
+            # The copy is shallow on purpose, so calls share the judge model instead of each
+            # building a new one.
             metric = copy.copy(self._metric)
             metric.measure(test_case, _show_indicator=False)
 
