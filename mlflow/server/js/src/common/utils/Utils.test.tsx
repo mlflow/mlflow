@@ -994,6 +994,24 @@ test('renderNotebookSource renders plain text for dangerous workspaceUrl', () =>
   /* eslint-enable no-script-url */
 });
 
+test('getGitRepoUrl rejects a non-http(s) source', () => {
+  expect(Utils.getGitRepoUrl('git@github.com:mlflow/mlflow.git')).toEqual('https://github.com/mlflow/mlflow');
+
+  /* eslint-disable no-script-url */
+  expect(Utils.getGitRepoUrl('javascript:alert(document.domain)//git/a')).toBeNull();
+  /* eslint-enable no-script-url */
+});
+
+test('getGitCommitUrl rejects a non-http(s) source', () => {
+  expect(Utils.getGitCommitUrl('git@github.com:mlflow/mlflow.git', 'abc123')).toEqual(
+    'https://github.com/mlflow/mlflow/tree/abc123/',
+  );
+
+  /* eslint-disable no-script-url */
+  expect(Utils.getGitCommitUrl('javascript:alert(document.domain)//git/a', 'abc123')).toBeNull();
+  /* eslint-enable no-script-url */
+});
+
 describe('logErrorAndNotifyUser', () => {
   let mockNotificationsApi: { error: ReturnType<typeof jest.fn> };
 
