@@ -291,9 +291,8 @@ jobs:
         env:
           HOME: /tmp/verify-home
           ANTHROPIC_BASE_URL: http://localhost:8080/anthropic
-          ANTHROPIC_CUSTOM_HEADERS: |-
-            Authorization: Bearer ${{ steps.gateway-proxy.outputs.token }}
-            ${{ steps.gateway.outputs.custom-headers }}
+          ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway-proxy.outputs.token }}
+          ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
           ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5
           MODEL: ${{ inputs.model || 'databricks-claude-opus-5-5' }}
           EFFORT: ${{ inputs.effort || 'high' }}
@@ -321,12 +320,10 @@ jobs:
           fi
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
-          # Bare mode skips PR customizations; load only the trusted skill as a plugin.
-          # shellcheck disable=SC2016 # Expanded by the agent shell.
+          # shellcheck disable=SC2016 # Expanded by the child shell.
           timeout 30m setsid bash -c '
             echo "$$" > "$RUNNER_TEMP/verify-agent.pgid"
             exec claude \
-              --bare \
               --setting-sources "" \
               --plugin-dir "$RUNNER_TEMP/verify-plugin" \
               --strict-mcp-config \
@@ -453,6 +450,10 @@ jobs:
           payload=/tmp/verify-out/payload.json
           schema=.claude/skills/verify/payload.schema.yml
           uvx check-jsonschema@0.37.4 --schemafile "$schema" "$payload"
+          if ! jq -e 'all(.comments[]; (.start_line // 0) < .line)' "$payload" > /dev/null; then
+            echo '::error::Comment start_line must be before line.'
+            exit 1
+          fi
           node - "$payload" <<'JS'
           const fs = require("node:fs");
           const path = process.argv[2];
