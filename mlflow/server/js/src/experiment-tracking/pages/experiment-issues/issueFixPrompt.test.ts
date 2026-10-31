@@ -113,7 +113,7 @@ describe('buildIssueFixPrompt', () => {
       totalTraceCount: 8,
     });
 
-    expect(prompt).toContain('- ...and 2 more on the issue');
+    expect(prompt).toContain('- ...and 2 more, which the search below lists');
     // And the stated total agrees with what the prompt accounts for, rather than the stale 8.
     expect(prompt).toContain('Affected trace IDs (12 total):');
   });
@@ -128,7 +128,7 @@ describe('buildIssueFixPrompt', () => {
 
     expect(prompt).toContain('Affected trace IDs:');
     expect(prompt).not.toMatch(/Affected trace IDs \(\d+ total\)/);
-    expect(prompt).toContain('- ...and more not listed here');
+    expect(prompt).toContain('- ...and more, which the search below lists');
   });
 
   test('claims no more traces than it lists when the page is the whole issue', () => {
@@ -138,7 +138,17 @@ describe('buildIssueFixPrompt', () => {
     });
 
     expect(prompt).toContain('- tr-1');
-    expect(prompt).not.toContain('not listed here');
+    expect(prompt).not.toContain('which the search below lists');
+  });
+
+  test("finds the issue's traces with the issue.id trace filter, a page at a time", () => {
+    // The prompt lists only the first ten; the filter reads every reference the store holds now,
+    // including ones a later detection run added.
+    const prompt = buildIssueFixPrompt('1', makeIssue(), ISSUE_URL, { traceIds: ['tr-1'] });
+
+    expect(prompt).toContain(
+      `\`mlflow traces search --experiment-id 1 --filter-string "issue.id = 'iss-a'"\` lists the traces the issue affects, 100 at a time (pass the next page token it prints as \`--page-token\` for more), and each of those traces carries an issue assessment named iss-a with the evidence.`,
+    );
   });
 
   test('tells the agent to redirect the trace command rather than look for a file', () => {
@@ -160,7 +170,7 @@ describe('buildIssueFixPrompt', () => {
     expect(prompt).toContain('- tr-9');
     expect(prompt).not.toContain('- tr-10');
     // Counted against the issue's total, not the page that happened to be loaded.
-    expect(prompt).toContain('- ...and 30 more on the issue');
+    expect(prompt).toContain('- ...and 30 more, which the search below lists');
   });
 
   test('omits fields the issue does not carry', () => {
