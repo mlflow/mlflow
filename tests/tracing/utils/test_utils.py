@@ -41,6 +41,7 @@ from mlflow.tracing.utils import (
     parse_trace_id_v4,
     should_compute_cost_client_side,
 )
+from mlflow.utils.providers import _get_remote_cache
 from mlflow.utils.providers import cost_per_token as builtin_cost_per_token
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -965,6 +966,95 @@ def test_builtin_cost_uses_databricks_catalog_for_databricks_names_with_provider
     )
     assert result is not None
     assert result["total_cost"] > 0
+
+
+@pytest.fixture
+def custom_model_catalog(tmp_path, monkeypatch):
+    catalog = {
+        "schema_version": 1,
+        "models": {
+            "my-model": {
+                "mode": "chat",
+                "pricing": {"input_per_million_tokens": 10.0, "output_per_million_tokens": 10.0},
+            }
+        },
+    }
+    (tmp_path / "ollama.json").write_text(json.dumps(catalog))
+    monkeypatch.setenv("MLFLOW_MODEL_CATALOG_URI", tmp_path.as_uri())
+    _get_remote_cache().clear()
+    yield
+    _get_remote_cache().clear()
+
+
+@pytest.mark.usefixtures("custom_model_catalog")
+def test_explicit_model_catalog_takes_precedence_over_litellm(mock_litellm_cost):
+    if mock_litellm_cost is None:
+        pytest.skip("litellm is not installed")
+    usage = {"input_tokens": 1000, "output_tokens": 1000}
+    result = calculate_cost_by_model_and_token_usage("my-model", usage, model_provider="ollama")
+    assert result == {
+        "input_cost": pytest.approx(0.01),
+        "output_cost": pytest.approx(0.01),
+        "total_cost": pytest.approx(0.02),
+    }
+    mock_litellm_cost.assert_not_called()
+
+
+@pytest.mark.usefixtures("custom_model_catalog")
+def test_explicit_model_catalog_falls_back_to_litellm_when_model_missing(mock_litellm_cost):
+    if mock_litellm_cost is None:
+        pytest.skip("litellm is not installed")
+    usage = {"input_tokens": 10, "output_tokens": 5}
+    result = calculate_cost_by_model_and_token_usage("other-model", usage, model_provider="ollama")
+    assert result == {"input_cost": 10.0, "output_cost": 10.0, "total_cost": 20.0}
+    mock_litellm_cost.assert_called()
+
+
+@pytest.mark.usefixtures("custom_model_catalog")
+def test_explicit_model_catalog_not_used_without_provider(mock_litellm_cost):
+    if mock_litellm_cost is None:
+        pytest.skip("litellm is not installed")
+    usage = {"input_tokens": 10, "output_tokens": 5}
+    result = calculate_cost_by_model_and_token_usage("my-model", usage)
+    assert result == {"input_cost": 10.0, "output_cost": 10.0, "total_cost": 20.0}
+    mock_litellm_cost.assert_called()
+
+
+def test_litellm_used_when_model_catalog_not_set(mock_litellm_cost, monkeypatch):
+    if mock_litellm_cost is None:
+        pytest.skip("litellm is not installed")
+    monkeypatch.delenv("MLFLOW_MODEL_CATALOG_URI", raising=False)
+    with mock.patch("mlflow.utils.providers.cost_per_token") as builtin:
+        result = calculate_cost_by_model_and_token_usage(
+            "gpt-4o", {"input_tokens": 10, "output_tokens": 5}, model_provider="openai"
+        )
+    builtin.assert_not_called()
+    assert result == {"input_cost": 10.0, "output_cost": 10.0, "total_cost": 20.0}
+
+
+@pytest.mark.usefixtures("custom_model_catalog")
+def test_explicit_model_catalog_receives_1hr_cache_creation(mock_litellm_cost):
+    if mock_litellm_cost is None:
+        pytest.skip("litellm is not installed")
+    usage = {
+        "input_tokens": 1000,
+        "output_tokens": 500,
+        "cache_creation_input_tokens": 300,
+        "cache_creation_input_tokens_above_1hr": 100,
+    }
+    with mock.patch(
+        "mlflow.utils.providers.cost_per_token", wraps=builtin_cost_per_token
+    ) as builtin:
+        calculate_cost_by_model_and_token_usage("my-model", usage, model_provider="ollama")
+    builtin.assert_called_once_with(
+        model="my-model",
+        prompt_tokens=1000,
+        completion_tokens=500,
+        custom_llm_provider="ollama",
+        cache_creation_input_tokens=300,
+        cache_creation_input_tokens_above_1hr=100,
+    )
+    mock_litellm_cost.assert_not_called()
 
 
 @pytest.mark.parametrize("model_name", ["gateway:/my-endpoint", "endpoints:/my-endpoint"])

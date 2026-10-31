@@ -16,6 +16,7 @@ from opentelemetry import trace as trace_api
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
 
+from mlflow.environment_variables import MLFLOW_MODEL_CATALOG_URI
 from mlflow.exceptions import BAD_REQUEST, MlflowException, MlflowTracingException
 from mlflow.tracing.constant import (
     ASSESSMENT_ID_PREFIX,
@@ -387,6 +388,30 @@ def calculate_cost_by_model_and_token_usage(
     if (created := usage.get(TokenUsageKey.CACHE_CREATION_INPUT_TOKENS)) is not None:
         cache_kwargs["cache_creation_input_tokens"] = created
 
+    # The 1-hour cache-creation breakdown is only understood by MLflow's builtin cost_per_token;
+    # litellm's signature does not accept it, so only pass it to the builtin.
+    builtin_cache_kwargs = dict(cache_kwargs)
+    if (above_1hr := usage.get(TokenUsageKey.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR)) is not None:
+        builtin_cache_kwargs["cache_creation_input_tokens_above_1hr"] = above_1hr
+
+    result = None
+    # Only MLflow's builtin lookup reads MLFLOW_MODEL_CATALOG_URI, so when a catalog is set
+    # explicitly, price from it before litellm (which would otherwise shadow it, e.g. by
+    # reporting unknown ollama models as free). Fall back to litellm when it has no price.
+    if model_provider and MLFLOW_MODEL_CATALOG_URI.is_set() and MLFLOW_MODEL_CATALOG_URI.get():
+        from mlflow.utils.providers import cost_per_token as builtin_cost_per_token
+
+        try:
+            result = builtin_cost_per_token(
+                model=model_name,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                custom_llm_provider=model_provider.lower(),
+                **builtin_cache_kwargs,
+            )
+        except Exception:
+            pass
+
     try:
         import litellm
         from litellm import cost_per_token
@@ -394,15 +419,7 @@ def calculate_cost_by_model_and_token_usage(
         from mlflow.utils.providers import cost_per_token
 
         litellm = None
-
-    # The 1-hour cache-creation breakdown is only understood by MLflow's builtin cost_per_token;
-    # litellm's signature does not accept it, so only pass it when falling back to the builtin.
-    if (
-        litellm is None
-        and (above_1hr := usage.get(TokenUsageKey.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR))
-        is not None
-    ):
-        cache_kwargs["cache_creation_input_tokens_above_1hr"] = above_1hr
+        cache_kwargs = builtin_cache_kwargs
 
     if litellm is not None:
         original_suppress = getattr(litellm, "suppress_debug_info")
@@ -415,8 +432,7 @@ def calculate_cost_by_model_and_token_usage(
 
         # When provider is known, try it first — this is a fast single-provider lookup
         # and avoids the slower all-provider scan.
-        result = None
-        if model_provider:
+        if result is None and model_provider:
             try:
                 result = cost_per_token(
                     model=model_name,
