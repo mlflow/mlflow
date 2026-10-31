@@ -184,6 +184,23 @@ class OtelSchemaTranslator:
         """
         return self.get_attribute_value(attributes, self.OUTPUT_VALUE_KEYS)
 
+    def get_retrieval_documents(self, attributes: dict[str, Any]) -> Any:
+        """
+        Reassemble retrieved documents for a RETRIEVER span from convention-specific
+        attributes into the MLflow ``Document`` shape consumed by retrieval-grounded scorers.
+
+        Most conventions express a retriever's output only as a single ``output.value`` blob,
+        which is handled by ``get_output_value``; this hook is for conventions (e.g. OpenInference)
+        that emit the documents as separate indexed attributes. Returns ``None`` by default.
+
+        Args:
+            attributes: Dictionary of span attributes
+
+        Returns:
+            A JSON-serialized list of document dicts, or None if not applicable.
+        """
+        return None
+
     def get_tool_definitions(self, attributes: dict[str, Any]) -> Any:
         """
         Get tool definitions from OTEL attributes.
