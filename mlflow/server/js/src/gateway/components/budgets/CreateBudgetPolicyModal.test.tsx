@@ -3,22 +3,37 @@ import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen, waitFor } from '../../../common/utils/TestUtils.react18';
 import { CreateBudgetPolicyModal } from './CreateBudgetPolicyModal';
 import { useCreateBudgetPolicy } from '../../hooks/useCreateBudgetPolicy';
+import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
+import { getWorkspacesEnabledSync } from '../../../experiment-tracking/hooks/useServerInfo';
 
 jest.mock('../../hooks/useCreateBudgetPolicy');
+jest.mock('../../hooks/useEndpointsQuery');
 jest.mock('../../../experiment-tracking/hooks/useServerInfo', () => ({
-  getWorkspacesEnabledSync: () => false,
+  getWorkspacesEnabledSync: jest.fn(),
 }));
 
 const mockMutateAsync = jest.fn().mockReturnValue(Promise.resolve());
 
+const mockEndpoints = [
+  { endpoint_id: 'e-1', name: 'my-endpoint' },
+  { endpoint_id: 'e-2', name: 'other-endpoint' },
+];
+
 describe('CreateBudgetPolicyModal', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(getWorkspacesEnabledSync).mockReturnValue(false);
     jest.mocked(useCreateBudgetPolicy).mockReturnValue({
       mutateAsync: mockMutateAsync,
       isLoading: false,
       error: null,
       reset: jest.fn(),
+    } as any);
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: mockEndpoints,
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
     } as any);
   });
 
@@ -26,6 +41,7 @@ describe('CreateBudgetPolicyModal', () => {
     renderWithDesignSystem(<CreateBudgetPolicyModal open onClose={jest.fn()} />);
 
     expect(screen.getByText('Create Budget Policy')).toBeInTheDocument();
+    expect(screen.getByText('Applies to')).toBeInTheDocument();
     expect(screen.getByText('Budget amount (USD)')).toBeInTheDocument();
     expect(screen.getByText('Reset period')).toBeInTheDocument();
     expect(screen.getByText('On exceeded')).toBeInTheDocument();
@@ -67,6 +83,175 @@ describe('CreateBudgetPolicyModal', () => {
       budget_amount: 100,
       duration: { unit: 'MONTHS', value: 1 },
       target_scope: 'GLOBAL',
+      budget_action: 'REJECT',
+    });
+  });
+
+  test('defaults to all-endpoints scope without endpoint picker', () => {
+    renderWithDesignSystem(<CreateBudgetPolicyModal open onClose={jest.fn()} />);
+
+    expect(screen.getByText('Applies to')).toBeInTheDocument();
+    expect(screen.queryByText('Select an endpoint')).not.toBeInTheDocument();
+  });
+
+  test('creates a WORKSPACE policy for all endpoints and users when workspaces are enabled', async () => {
+    jest.mocked(getWorkspacesEnabledSync).mockReturnValue(true);
+
+    renderWithDesignSystem(<CreateBudgetPolicyModal open onClose={jest.fn()} />);
+
+    expect(screen.getByText('All endpoints and users in this workspace')).toBeInTheDocument();
+
+    await userEvent.type(screen.getByPlaceholderText('e.g., 100.00'), '50');
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    expect(mockMutateAsync).toHaveBeenCalledWith({
+      budget_unit: 'USD',
+      budget_amount: 50,
+      duration: { unit: 'MONTHS', value: 1 },
+      target_scope: 'WORKSPACE',
+      budget_action: 'REJECT',
+    });
+  });
+
+  test('gives the scope and endpoint selects accessible names', async () => {
+    renderWithDesignSystem(<CreateBudgetPolicyModal open onClose={jest.fn()} />);
+
+    await userEvent.click(screen.getAllByRole('combobox')[0]);
+    expect(screen.getByRole('listbox', { name: 'Applies to options' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('option', { name: 'Specific endpoint' }));
+
+    await userEvent.click(screen.getAllByRole('combobox')[1]);
+    expect(screen.getByRole('listbox', { name: 'Endpoint options' })).toBeInTheDocument();
+  });
+
+  test('requires an endpoint selection when scope is a specific endpoint', async () => {
+    renderWithDesignSystem(<CreateBudgetPolicyModal open onClose={jest.fn()} />);
+
+    const amountInput = screen.getByPlaceholderText('e.g., 100.00');
+    await userEvent.type(amountInput, '50');
+
+    const createButton = screen.getByRole('button', { name: 'Create' });
+    expect(createButton).not.toBeDisabled();
+
+    const [scopeSelect] = screen.getAllByRole('combobox');
+    await userEvent.click(scopeSelect);
+    await userEvent.click(screen.getByRole('option', { name: 'Specific endpoint' }));
+
+    // No endpoint chosen yet, so Create stays disabled.
+    expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+
+    const endpointSelect = screen.getAllByRole('combobox')[1];
+    await userEvent.click(endpointSelect);
+    await userEvent.click(screen.getByRole('option', { name: 'my-endpoint' }));
+
+    expect(screen.getByRole('button', { name: 'Create' })).not.toBeDisabled();
+  });
+
+  test('shows an empty-state placeholder when no endpoints exist', async () => {
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+
+    renderWithDesignSystem(<CreateBudgetPolicyModal open onClose={jest.fn()} />);
+
+    const [scopeSelect] = screen.getAllByRole('combobox');
+    await userEvent.click(scopeSelect);
+    await userEvent.click(screen.getByRole('option', { name: 'Specific endpoint' }));
+
+    expect(screen.getByText('No endpoints available')).toBeInTheDocument();
+    expect(screen.queryByText('Select an endpoint')).not.toBeInTheDocument();
+  });
+
+  test.each([
+    ['still loading', { data: [], isLoading: true, error: undefined }],
+    ['failed', { data: [], isLoading: false, error: new Error('nope') }],
+  ])('does not claim there are no endpoints when the request is %s', async (_label, endpointsQuery) => {
+    jest.mocked(useEndpointsQuery).mockReturnValue({ ...endpointsQuery, refetch: jest.fn() } as any);
+
+    renderWithDesignSystem(<CreateBudgetPolicyModal open onClose={jest.fn()} />);
+
+    const [scopeSelect] = screen.getAllByRole('combobox');
+    await userEvent.click(scopeSelect);
+    await userEvent.click(screen.getByRole('option', { name: 'Specific endpoint' }));
+
+    expect(screen.queryByText('No endpoints available')).not.toBeInTheDocument();
+    expect(screen.getByText('Select an endpoint')).toBeInTheDocument();
+  });
+
+  test('submits ENDPOINT payload with target_value', async () => {
+    const onClose = jest.fn();
+    const onSuccess = jest.fn();
+
+    renderWithDesignSystem(<CreateBudgetPolicyModal open onClose={onClose} onSuccess={onSuccess} />);
+
+    const amountInput = screen.getByPlaceholderText('e.g., 100.00');
+    await userEvent.type(amountInput, '25');
+
+    const [scopeSelect] = screen.getAllByRole('combobox');
+    await userEvent.click(scopeSelect);
+    await userEvent.click(screen.getByRole('option', { name: 'Specific endpoint' }));
+
+    const endpointSelect = screen.getAllByRole('combobox')[1];
+    await userEvent.click(endpointSelect);
+    await userEvent.click(screen.getByRole('option', { name: 'other-endpoint' }));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    expect(mockMutateAsync).toHaveBeenCalledWith({
+      budget_unit: 'USD',
+      budget_amount: 25,
+      duration: { unit: 'MONTHS', value: 1 },
+      target_scope: 'ENDPOINT',
+      target_value: 'e-2',
+      budget_action: 'REJECT',
+    });
+  });
+
+  test('requires a username when Specific user scope is selected', async () => {
+    renderWithDesignSystem(<CreateBudgetPolicyModal open onClose={jest.fn()} />);
+
+    const amountInput = screen.getByPlaceholderText('e.g., 100.00');
+    await userEvent.type(amountInput, '50');
+    expect(screen.getByRole('button', { name: 'Create' })).not.toBeDisabled();
+
+    // The scope select is the first combobox in the modal
+    const scopeSelect = screen.getAllByRole('combobox')[0];
+    await userEvent.click(scopeSelect);
+    await userEvent.click(screen.getByRole('option', { name: 'Specific user' }));
+
+    // No username entered yet, so Create stays disabled.
+    expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+
+    await userEvent.type(screen.getByPlaceholderText('Username, e.g., alice'), 'alice');
+    expect(screen.getByRole('button', { name: 'Create' })).not.toBeDisabled();
+  });
+
+  test('submits USER-scoped payload with username as target_value', async () => {
+    const onClose = jest.fn();
+    const onSuccess = jest.fn();
+
+    mockMutateAsync.mockReturnValue(Promise.resolve());
+
+    renderWithDesignSystem(<CreateBudgetPolicyModal open onClose={onClose} onSuccess={onSuccess} />);
+
+    await userEvent.type(screen.getByPlaceholderText('e.g., 100.00'), '25');
+
+    const scopeSelect = screen.getAllByRole('combobox')[0];
+    await userEvent.click(scopeSelect);
+    await userEvent.click(screen.getByRole('option', { name: 'Specific user' }));
+    await userEvent.type(screen.getByPlaceholderText('Username, e.g., alice'), '  alice  ');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    expect(mockMutateAsync).toHaveBeenCalledWith({
+      budget_unit: 'USD',
+      budget_amount: 25,
+      duration: { unit: 'MONTHS', value: 1 },
+      target_scope: 'USER',
+      target_value: 'alice',
       budget_action: 'REJECT',
     });
   });
