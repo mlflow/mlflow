@@ -408,7 +408,13 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> list["dspy.Example"]:
         judge_requires_trace = any(field.name == "trace" for field in judge_input_fields)
         judge_requires_inputs = any(field.name == "inputs" for field in judge_input_fields)
         judge_requires_outputs = any(field.name == "outputs" for field in judge_input_fields)
+        # The "expectations" field is optional for some judges (e.g. ToolCallCorrectness
+        # with should_exact_match=False), so a trace is only skipped when the field is
+        # marked as required.
         judge_requires_expectations = any(
+            field.name == "expectations" and field.required for field in judge_input_fields
+        )
+        judge_accepts_expectations = any(
             field.name == "expectations" for field in judge_input_fields
         )
 
@@ -476,7 +482,7 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> list["dspy.Example"]:
         if judge_requires_outputs:
             example_kwargs["outputs"] = response
             example_inputs.append("outputs")
-        if judge_requires_expectations:
+        if judge_accepts_expectations and expectations is not None:
             example_kwargs["expectations"] = expectations
             example_inputs.append("expectations")
 
