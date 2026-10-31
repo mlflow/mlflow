@@ -8759,6 +8759,7 @@ def _get_mcp_server_validator(
             return _mcp_server_version_not_denied(username, name)
         if request.method == "DELETE":
             if is_server_tag_delete:
+                # Server tags don't touch versions, so as with `POST /tags`, skip the version tier.
                 return True
             return _mcp_server_version_action_allowed(username, name, "delete")
         return True
