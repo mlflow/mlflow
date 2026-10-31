@@ -53,31 +53,12 @@ properties:
     maxItems: 10
     items:
       $ref: "#/$defs/comment"
-if:
-  properties:
-    comments:
-      contains:
-        $ref: "#/$defs/criticalComment"
-  required:
-    - comments
-then:
-  properties:
-    event:
-      const: COMMENT
 $defs:
   side:
     type: string
     enum:
       - LEFT
       - RIGHT
-  criticalComment:
-    type: object
-    properties:
-      body:
-        type: string
-        pattern: '^🔴 \*\*CRITICAL:\*\* '
-    required:
-      - body
   comment:
     type: object
     additionalProperties: false
@@ -95,8 +76,8 @@ $defs:
         pattern: \S
       body:
         description: >-
-          Start each significant behavioral finding with '🔴 **CRITICAL:** '. Evidence without a
-          finding needs no severity prefix.
+          Describe the trigger, expected and actual behavior, and consequence of a significant
+          behavioral finding, or show evidence relevant to the change.
         type: string
         minLength: 1
         maxLength: 3000
