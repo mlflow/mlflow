@@ -8674,6 +8674,11 @@ def _mcp_path_targets_a_version_as_subject(parts: list[str]) -> bool:
     return len(parts) > 2 and parts[2] == "versions"
 
 
+def _mcp_path_targets_a_server_tag(parts: list[str]) -> bool:
+    # `tags/<key>` on the server itself; version tags live under `versions/<v>/tags/<key>`.
+    return len(parts) > 3 and parts[2] == "tags"
+
+
 def _get_mcp_server_validator(
     path: str,
 ) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
@@ -8731,9 +8736,7 @@ def _get_mcp_server_validator(
             return _mcp_server_version_action_allowed(
                 username, name, _mcp_version_action(parts, request.method)
             )
-
-        is_server_tag_delete = request.method == "DELETE" and len(parts) >= 4 and parts[2] == "tags"
-
+        is_server_tag_delete = request.method == "DELETE" and _mcp_path_targets_a_server_tag(parts)
         perm = _get_mcp_server_permission(name, username)
         match request.method:
             case "GET":
