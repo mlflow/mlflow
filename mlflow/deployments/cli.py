@@ -7,7 +7,7 @@ import click
 from mlflow.deployments import interface
 from mlflow.mcp.decorator import mlflow_mcp
 from mlflow.utils import cli_args
-from mlflow.utils.proto_json_utils import NumpyEncoder, _get_jsonable_obj
+from mlflow.utils.proto_json_utils import NumpyEncoder, _get_jsonable_obj, parse_tf_serving_input
 
 
 def _user_args_to_dict(user_list):
@@ -312,7 +312,15 @@ def predictions_to_json(raw_predictions, output):
 @target_details
 @parse_input
 @parse_output
-def predict(target, name, input_path, output_path, endpoint):
+@click.option(
+    "--json-format",
+    type=click.Choice(["pandas", "tf-serving"]),
+    default="pandas",
+    show_default=True,
+    help="Format of the JSON input file. Use 'tf-serving' for tensor inputs serialized "
+    "under an 'inputs' or 'instances' key. The default reads the file as a pandas DataFrame.",
+)
+def predict(target, name, input_path, output_path, endpoint, json_format):
     """
     Predict the results for the deployed model for the given input(s)
     """
@@ -321,14 +329,18 @@ def predict(target, name, input_path, output_path, endpoint):
     if (name, endpoint).count(None) != 1:
         raise click.UsageError("Must specify exactly one of --name or --endpoint.")
 
-    df = pd.read_json(input_path)
+    if json_format == "tf-serving":
+        with open(input_path) as fp:
+            inputs = parse_tf_serving_input(json.load(fp))
+    else:
+        inputs = pd.read_json(input_path)
     client = interface.get_deploy_client(target)
 
     sig = signature(client.predict)
     if "endpoint" in sig.parameters:
-        result = client.predict(name, df, endpoint=endpoint)
+        result = client.predict(name, inputs, endpoint=endpoint)
     else:
-        result = client.predict(name, df)
+        result = client.predict(name, inputs)
     if output_path is not None:
         result.to_json(output_path)
     else:
