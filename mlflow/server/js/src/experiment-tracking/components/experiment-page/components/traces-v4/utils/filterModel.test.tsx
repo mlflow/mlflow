@@ -180,6 +180,35 @@ describe('compileFilterModel', () => {
       ).toEqual(["feedback.`my.judge score` = '5'"]);
     });
 
+    test.each([
+      [FilterOp.GREATER_THAN, '>'],
+      [FilterOp.GREATER_THAN_OR_EQUALS, '>='],
+      [FilterOp.LESS_THAN, '<'],
+      [FilterOp.LESS_THAN_OR_EQUALS, '<='],
+    ])('compiles a numeric feedback %s clause to an unquoted numeric literal', (operator, symbol) => {
+      expect(compileFilterModel([{ field: 'assessment', operator, value: '0.4', key: 'relevance' }])).toEqual([
+        `feedback.\`relevance\` ${symbol} 0.4`,
+      ]);
+    });
+
+    test('a numeric feedback comparison normalizes the typed value', () => {
+      expect(
+        compileFilterModel([
+          { field: 'assessment', operator: FilterOp.LESS_THAN, value: ' 0.30 ', key: 'score' },
+          { field: 'assessment', operator: FilterOp.GREATER_THAN_OR_EQUALS, value: '-2', key: 'score' },
+        ]),
+      ).toEqual(['feedback.`score` < 0.3', 'feedback.`score` >= -2']);
+    });
+
+    test('a feedback comparison with a non-numeric value is dropped', () => {
+      expect(
+        compileFilterModel([
+          { field: 'assessment', operator: FilterOp.GREATER_THAN, value: 'high', key: 'relevance' },
+          { field: 'assessment', operator: FilterOp.LESS_THAN, value: "0.4' OR 1=1", key: 'relevance' },
+        ]),
+      ).toEqual([]);
+    });
+
     test('an assessment clause with a blank key is dropped (incomplete)', () => {
       expect(compileFilterModel([{ field: 'assessment', operator: FilterOp.EQUALS, value: 'yes', key: '' }])).toEqual(
         [],
@@ -206,6 +235,23 @@ describe('compileFilterModel', () => {
       ).toEqual(["expectation.`my.expected score` = '5'"]);
     });
 
+    test.each([
+      [FilterOp.GREATER_THAN, '>'],
+      [FilterOp.GREATER_THAN_OR_EQUALS, '>='],
+      [FilterOp.LESS_THAN, '<'],
+      [FilterOp.LESS_THAN_OR_EQUALS, '<='],
+    ])('compiles a numeric expectation %s clause to an unquoted numeric literal', (operator, symbol) => {
+      expect(compileFilterModel([{ field: 'expectation', operator, value: '3', key: 'expected_score' }])).toEqual([
+        `expectation.\`expected_score\` ${symbol} 3`,
+      ]);
+    });
+
+    test('an expectation comparison with a non-numeric value is dropped', () => {
+      expect(
+        compileFilterModel([{ field: 'expectation', operator: FilterOp.GREATER_THAN, value: 'abc', key: 'expected' }]),
+      ).toEqual([]);
+    });
+
     test('an expectation clause with a blank key is dropped (incomplete)', () => {
       expect(compileFilterModel([{ field: 'expectation', operator: FilterOp.EQUALS, value: 'yes', key: '' }])).toEqual(
         [],
@@ -225,7 +271,14 @@ describe('useMlflowTraceFilterFields', () => {
     expect(assessmentFields[0]).toEqual({
       id: 'assessment',
       label: 'Feedback',
-      operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS],
+      operators: [
+        FilterOp.EQUALS,
+        FilterOp.NOT_EQUALS,
+        FilterOp.GREATER_THAN,
+        FilterOp.LESS_THAN,
+        FilterOp.GREATER_THAN_OR_EQUALS,
+        FilterOp.LESS_THAN_OR_EQUALS,
+      ],
       valueInput: 'text',
       requiresKey: true,
       keyInput: 'combobox',
@@ -254,7 +307,14 @@ describe('useMlflowTraceFilterFields', () => {
     expect(expectationFields[0]).toEqual({
       id: 'expectation',
       label: 'Expectation',
-      operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS],
+      operators: [
+        FilterOp.EQUALS,
+        FilterOp.NOT_EQUALS,
+        FilterOp.GREATER_THAN,
+        FilterOp.LESS_THAN,
+        FilterOp.GREATER_THAN_OR_EQUALS,
+        FilterOp.LESS_THAN_OR_EQUALS,
+      ],
       valueInput: 'text',
       requiresKey: true,
       keyInput: 'combobox',

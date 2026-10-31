@@ -225,15 +225,16 @@ export const useMlflowTraceFilterFields = (
         }),
       },
       // "Feedback" and "Expectation" fields: their keys are names (combobox suggesting the
-      // candidate names, freeform-typing allowed), free-text values, and equality-only because the
-      // managed V4 backend does not support null filters and their values are opaque.
+      // candidate names, freeform-typing allowed) and free-text values. They offer equality plus the
+      // numeric comparisons (which compile to unquoted numeric literals); null filters stay out of scope
+      // because the managed V4 backend does not support them.
       {
         id: 'assessment', // Stable for persisted filter models and v3 view compatibility.
         label: intl.formatMessage({
           defaultMessage: 'Feedback',
           description: 'Trace filter field: feedback assessment',
         }),
-        operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS],
+        operators: NUMERIC_OPERATORS,
         ...keyedValueInput('assessment'),
         requiresKey: true,
         keyInput: 'combobox',
@@ -249,7 +250,7 @@ export const useMlflowTraceFilterFields = (
           defaultMessage: 'Expectation',
           description: 'Trace filter field: expectation name',
         }),
-        operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS],
+        operators: NUMERIC_OPERATORS,
         ...keyedValueInput('expectation'),
         requiresKey: true,
         keyInput: 'combobox',
@@ -310,6 +311,23 @@ const tagFieldRef = (key: string): string =>
 const NO_NUMERIC_ASSESSMENT_KEYS: ReadonlySet<string> = new Set();
 
 const NUMERIC_LITERAL = /^-?\d+(\.\d+)?$/;
+
+const NUMERIC_COMPARISON_OPERATORS: ReadonlySet<FilterOp> = new Set([
+  FilterOp.GREATER_THAN,
+  FilterOp.GREATER_THAN_OR_EQUALS,
+  FilterOp.LESS_THAN,
+  FilterOp.LESS_THAN_OR_EQUALS,
+]);
+
+/**
+ * Compile a `>`, `>=`, `<` or `<=` feedback or expectation clause. The server compares these as numbers
+ * only when the value is an unquoted numeric literal, so a value that isn't a number returns
+ * `undefined` and the clause is dropped rather than emitted as a string comparison.
+ */
+const compileAssessmentComparisonClause = (fieldRef: string, operator: FilterOp, value: string): string | undefined => {
+  const trimmed = value.trim();
+  return NUMERIC_LITERAL.test(trimmed) ? `${fieldRef} ${operator} ${Number(trimmed)}` : undefined;
+};
 
 /**
  * Compile a feedback or expectation clause. The server compares `=`/`!=` against the stored value's
@@ -403,6 +421,9 @@ const compileClause = (
       // The key is the assessment name; `isClauseComplete` guarantees it's non-blank (requiresKey).
       // Compiles to a `feedback.\`<name>\`` clause (matching the shared `createMlflowSearchFilter`);
       // the name is backtick-escaped so dots/spaces survive.
+      if (NUMERIC_COMPARISON_OPERATORS.has(operator)) {
+        return compileAssessmentComparisonClause(`feedback.\`${key ?? ''}\``, operator, value);
+      }
       return enhanced
         ? compileAssessmentClause(
             `feedback.\`${key ?? ''}\``,
@@ -414,6 +435,9 @@ const compileClause = (
     case 'expectation':
       // The key is the expectation name; `isClauseComplete` guarantees it's non-blank (requiresKey).
       // Compiles to an `expectation.\`<name>\`` clause, matching the trace-search DSL.
+      if (NUMERIC_COMPARISON_OPERATORS.has(operator)) {
+        return compileAssessmentComparisonClause(`expectation.\`${key ?? ''}\``, operator, value);
+      }
       return enhanced
         ? compileAssessmentClause(
             `expectation.\`${key ?? ''}\``,
