@@ -1,97 +1,60 @@
-import type { PluginInput } from '@opencode-ai/plugin';
+import { createHarness, idle } from './support';
 
 jest.mock('@mlflow/core', () => ({ init: jest.fn() }));
 
-type InitMock = jest.MockedFunction<typeof import('@mlflow/core').init>;
-type PluginFactory = typeof import('../src').MLflowTracingPlugin;
-
 describe('OpenCode initialization failure', () => {
   const originalEnv = process.env;
-  let init: InitMock;
-  let MLflowTracingPlugin: PluginFactory;
+  let harness: ReturnType<typeof createHarness>;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     jest.resetModules();
-    init = (await import('@mlflow/core')).init as InitMock;
-    ({ MLflowTracingPlugin } = await import('../src'));
+    process.env = {
+      ...originalEnv,
+      MLFLOW_TRACKING_URI: 'databricks',
+      MLFLOW_EXPERIMENT_ID: '123',
+    };
+    harness = createHarness();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await harness.stop();
     process.env = originalEnv;
     jest.restoreAllMocks();
   });
 
-  it('warns once instead of silently dropping traces when the UC location is invalid', async () => {
-    process.env = {
-      ...originalEnv,
-      MLFLOW_TRACKING_URI: 'databricks',
-      MLFLOW_EXPERIMENT_ID: '123',
-      MLFLOW_TRACE_LOCATION: 'invalid',
-    };
-    init.mockImplementation(() => {
+  it('warns once and retries initialization when the UC location is invalid', async () => {
+    process.env.MLFLOW_TRACE_LOCATION = 'invalid';
+    const { init } = await import('@mlflow/core');
+    (init as jest.Mock).mockImplementation(() => {
       throw new Error('Invalid MLFLOW_TRACE_LOCATION: expected catalog.schema.table_prefix');
     });
     const warning = jest.spyOn(console, 'error').mockImplementation(() => {});
-    const messages = jest.fn();
-    const hooks = await MLflowTracingPlugin({
-      client: { session: { messages } },
-    } as unknown as PluginInput);
-    const idleEvent = {
-      event: { type: 'session.idle', properties: { sessionID: 'session-1' } },
-    } as Parameters<NonNullable<typeof hooks.event>>[0];
-
-    try {
-      await hooks.event!(idleEvent);
-      await hooks.event!(idleEvent);
-
-      expect(init).toHaveBeenCalledTimes(2);
-      expect(messages).not.toHaveBeenCalled();
-      expect(warning).toHaveBeenCalledTimes(1);
-      expect(warning).toHaveBeenCalledWith(
-        '[mlflow] OpenCode tracing is disabled: Invalid MLFLOW_TRACE_LOCATION: expected catalog.schema.table_prefix',
-      );
-    } finally {
-      warning.mockRestore();
-    }
+    await harness.start((await import('../src')).default);
+    await harness.send(idle());
+    await harness.send(idle());
+    expect(init).toHaveBeenCalledTimes(2);
+    expect(harness.context).not.toHaveBeenCalled();
+    expect(warning).toHaveBeenCalledTimes(1);
+    expect(warning).toHaveBeenCalledWith(
+      '[mlflow] OpenCode tracing is disabled: Invalid MLFLOW_TRACE_LOCATION: expected catalog.schema.table_prefix',
+    );
   });
 
-  it('retries after a transient initialization failure and resumes message handling', async () => {
-    process.env = {
-      ...originalEnv,
-      MLFLOW_TRACKING_URI: 'databricks',
-      MLFLOW_EXPERIMENT_ID: '123',
-    };
+  it('resumes message handling after a transient initialization failure', async () => {
     delete process.env.MLFLOW_TRACE_LOCATION;
-    init.mockImplementationOnce(() => {
+    const { init } = await import('@mlflow/core');
+    (init as jest.Mock).mockImplementationOnce(() => {
       throw new Error('temporary initialization failure');
     });
     const warning = jest.spyOn(console, 'error').mockImplementation(() => {});
-    const messages = jest.fn().mockResolvedValue({ data: [] });
-    const hooks = await MLflowTracingPlugin({
-      client: { session: { messages } },
-    } as unknown as PluginInput);
-    const idleEvent = {
-      event: { type: 'session.idle', properties: { sessionID: 'session-2' } },
-    } as Parameters<NonNullable<typeof hooks.event>>[0];
-
-    try {
-      await hooks.event!(idleEvent);
-      expect(init).toHaveBeenCalledTimes(1);
-      expect(messages).not.toHaveBeenCalled();
-
-      await hooks.event!(idleEvent);
-      expect(init).toHaveBeenCalledTimes(2);
-      expect(messages).toHaveBeenCalledTimes(1);
-
-      await hooks.event!(idleEvent);
-      expect(init).toHaveBeenCalledTimes(2);
-      expect(messages).toHaveBeenCalledTimes(2);
-      expect(warning).toHaveBeenCalledTimes(1);
-      expect(warning).toHaveBeenCalledWith(
-        '[mlflow] OpenCode tracing is disabled: temporary initialization failure',
-      );
-    } finally {
-      warning.mockRestore();
-    }
+    await harness.start((await import('../src')).default);
+    await harness.send(idle());
+    expect(init).toHaveBeenCalledTimes(1);
+    expect(harness.context).not.toHaveBeenCalled();
+    await harness.send(idle());
+    await harness.send(idle());
+    expect(init).toHaveBeenCalledTimes(2);
+    expect(harness.context).toHaveBeenCalledTimes(2);
+    expect(warning).toHaveBeenCalledTimes(1);
   });
 });
