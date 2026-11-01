@@ -214,35 +214,66 @@ export const getParentRunIdsToFetch = (runs: any) => {
 };
 
 /**
+ * Fetches the runs which are referenced as a parent by one of the runs of the given response and
+ * adds them to the response. The parents of the fetched runs are fetched as well, so that the
+ * whole chain of nested runs (e.g. grandparent -> parent -> child) ends up in the response and
+ * the runs can be rendered as a tree.
+ */
+const fetchMissingAncestors = async (searchRunsResponse: any, fetchRun: (runId: any) => Promise<any>) => {
+  // Runs may reference each other as parents, so we keep track of the runs we already requested
+  // in order to not request them twice and to not loop forever on a cycle of parent references.
+  const requestedRunIds = new Set<string>();
+  const getParentRunIdsToFetchNext = () =>
+    getParentRunIdsToFetch(searchRunsResponse.runs).filter((runId: any) => !requestedRunIds.has(runId));
+
+  let parentRunIdsToFetch: any[] = getParentRunIdsToFetchNext();
+
+  while (parentRunIdsToFetch.length > 0) {
+    parentRunIdsToFetch.forEach((runId: any) => requestedRunIds.add(runId));
+
+    const parentRuns = await Promise.all(
+      parentRunIdsToFetch.map((runId: any) =>
+        fetchRun(runId).catch((error) => {
+          if (error.getErrorCode() !== ErrorCodes.RESOURCE_DOES_NOT_EXIST) {
+            // NB: The parent run may have been deleted, in which case attempting to fetch the
+            // run fails with the `RESOURCE_DOES_NOT_EXIST` error code. Because this is
+            // expected behavior, we swallow such exceptions. We re-raise all other exceptions
+            // encountered when fetching parent runs because they are unexpected
+            throw error;
+          }
+          return undefined;
+        }),
+      ),
+    );
+
+    parentRuns.forEach((parentRun) => {
+      if (!parentRun) {
+        return;
+      }
+      searchRunsResponse.runs.push(parentRun);
+      // Additional parent runs should be always visible
+      // marked as those matching filter
+      if (searchRunsResponse.runsMatchingFilter) {
+        searchRunsResponse.runsMatchingFilter.push(parentRun);
+      }
+    });
+
+    // The fetched runs may be nested runs themselves, so their parents have to be fetched as well.
+    parentRunIdsToFetch = getParentRunIdsToFetchNext();
+  }
+
+  return searchRunsResponse;
+};
+
+/**
  * This function takes a response of runs and returns them along with their missing parents.
  * @deprecated Use fetchMissingParentsWithSearchRuns instead
  */
 export const fetchMissingParents = (searchRunsResponse: any) =>
   searchRunsResponse.runs && searchRunsResponse.runs.length
-    ? Promise.all(
-        getParentRunIdsToFetch(searchRunsResponse.runs).map((runId) =>
-          MlflowService.getRun({ run_id: runId })
-            .then((value) => {
-              searchRunsResponse.runs.push(value.run);
-              // Additional parent runs should be always visible
-              // marked as those matching filter
-              if (searchRunsResponse.runsMatchingFilter) {
-                searchRunsResponse.runsMatchingFilter.push(value.run);
-              }
-            })
-            .catch((error) => {
-              if (error.getErrorCode() !== ErrorCodes.RESOURCE_DOES_NOT_EXIST) {
-                // NB: The parent run may have been deleted, in which case attempting to fetch the
-                // run fails with the `RESOURCE_DOES_NOT_EXIST` error code. Because this is
-                // expected behavior, we swallow such exceptions. We re-raise all other exceptions
-                // encountered when fetching parent runs because they are unexpected
-                throw error;
-              }
-            }),
-        ),
-      ).then((_) => {
-        return searchRunsResponse;
-      })
+    ? fetchMissingAncestors(searchRunsResponse, (runId) =>
+        MlflowService.getRun({ run_id: runId }).then((value) => value.run),
+      )
     : searchRunsResponse;
 
 /**
@@ -251,37 +282,13 @@ export const fetchMissingParents = (searchRunsResponse: any) =>
  */
 export const fetchMissingParentsWithSearchRuns = (searchRunsResponse: any, experimentIds: any) =>
   searchRunsResponse.runs && searchRunsResponse.runs.length
-    ? Promise.all(
-        getParentRunIdsToFetch(searchRunsResponse.runs).map((parentRunId) =>
-          MlflowService.searchRuns({
-            experiment_ids: experimentIds,
-            filter: `run_id = '${parentRunId}'`,
-            max_results: 1,
-          })
-            .then((parentSearchRunsResponse) => {
-              const parentRun = parentSearchRunsResponse.runs?.[0];
-              if (parentRun) {
-                searchRunsResponse.runs.push(parentRun);
-                // Additional parent runs should be always visible
-                // marked as those matching filter
-                if (searchRunsResponse.runsMatchingFilter) {
-                  searchRunsResponse.runsMatchingFilter.push(parentRun);
-                }
-              }
-            })
-            .catch((error) => {
-              if (error.getErrorCode() !== ErrorCodes.RESOURCE_DOES_NOT_EXIST) {
-                // NB: The parent run may have been deleted, in which case attempting to fetch the
-                // run fails with the `RESOURCE_DOES_NOT_EXIST` error code. Because this is
-                // expected behavior, we swallow such exceptions. We re-raise all other exceptions
-                // encountered when fetching parent runs because they are unexpected
-                throw error;
-              }
-            }),
-        ),
-      ).then((_) => {
-        return searchRunsResponse;
-      })
+    ? fetchMissingAncestors(searchRunsResponse, (parentRunId) =>
+        MlflowService.searchRuns({
+          experiment_ids: experimentIds,
+          filter: `run_id = '${parentRunId}'`,
+          max_results: 1,
+        }).then((parentSearchRunsResponse) => parentSearchRunsResponse.runs?.[0]),
+      )
     : searchRunsResponse;
 
 /**
