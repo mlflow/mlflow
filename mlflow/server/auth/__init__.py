@@ -9070,6 +9070,11 @@ def _mcp_path_targets_a_version_as_subject(parts: list[str]) -> bool:
     return len(parts) > 2 and parts[2] == "versions"
 
 
+def _mcp_path_targets_a_server_tag(parts: list[str]) -> bool:
+    # `tags/<key>` on the server itself; version tags live under `versions/<v>/tags/<key>`.
+    return len(parts) > 3 and parts[2] == "tags"
+
+
 def _get_mcp_server_validator(
     path: str,
 ) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
@@ -9122,6 +9127,7 @@ def _get_mcp_server_validator(
             return _mcp_server_version_action_allowed(
                 username, name, _mcp_version_action(parts, request.method)
             )
+        is_server_tag_delete = request.method == "DELETE" and _mcp_path_targets_a_server_tag(parts)
         if server is None:
             perm = _get_mcp_server_permission(name, username)
         else:
@@ -9136,7 +9142,7 @@ def _get_mcp_server_validator(
             case "POST" | "PATCH":
                 allowed = perm.can_update
             case "DELETE":
-                allowed = perm.can_delete
+                allowed = perm.can_update if is_server_tag_delete else perm.can_delete
             case _:
                 return False
         if not allowed:
@@ -9153,6 +9159,9 @@ def _get_mcp_server_validator(
         ):
             return _mcp_server_version_not_denied(username, name)
         if request.method == "DELETE":
+            if is_server_tag_delete:
+                # Server tags don't touch versions, so as with `POST /tags`, skip the version tier.
+                return True
             if len(parts) == 2:
                 _require_stored_name_spelling(requested_name, name)
             return _mcp_server_version_action_allowed(username, name, "delete")
