@@ -111,6 +111,12 @@ Three limits are worth knowing before relying on it:
   blocked the rename. Wildcard (`*`) grants and
   direct grants (see [Direct grants without a role](#direct-grants-without-a-role))
   do not block a rename; direct grants follow the model to its new name.
+  Deleting a model or prompt is rejected the same way, for every caller
+  including admins, while a role has an exact-name grant other than `DENY`
+  on its name, because the grant would otherwise apply to the next model or
+  prompt created with that name. A leftover `DENY` only restricts that next
+  model, so it does not block a delete. Direct grants are removed with the
+  model and do not block a delete.
 
 ### Sub-resource tiers
 
