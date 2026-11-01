@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any
 from mlflow.entities.assessment import Feedback
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.constants import USE_CASE_BUILTIN_JUDGE
+from mlflow.genai.judges.model_api import ModelAPI, _parse_model_api, _select_model_api_mode
 from mlflow.genai.judges.prompts.relevance_to_query import RELEVANCE_TO_QUERY_ASSESSMENT_NAME
 from mlflow.genai.judges.structured_judge import _invoke_structured_builtin_judge
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model, invoke_judge_model
@@ -814,6 +815,7 @@ def meets_guidelines(
     name: str | None = None,
     model: str | None = None,
     extra_headers: dict[str, str] | None = None,
+    model_api: ModelAPI | str | None = None,
 ) -> Feedback:
     """
     LLM judge determines whether the given response meets the given guideline(s).
@@ -825,6 +827,8 @@ def meets_guidelines(
             the given guidelines.
         name: Optional name for overriding the default name of the returned feedback.
         model: {{ model }}
+        model_api: Model API to use. Set to ``"decisions"`` for a Databricks System One
+            model service. Direct ``typesafe:/`` models select Decisions automatically.
         extra_headers: Optional dictionary of additional HTTP headers to include in
             requests to the judge model (e.g. ``{"AI-Resource-Group": "default"}``
             for SAP AI Core). Default: ``None``.
@@ -861,6 +865,7 @@ def meets_guidelines(
     )
 
     model = model or get_default_model()
+    _select_model_api_mode(model, _parse_model_api(model_api))
 
     if model == "databricks":
         from databricks.agents.evals.judges import guidelines as guidelines_judge
@@ -886,6 +891,7 @@ def meets_guidelines(
                 "assessment_name": name or GUIDELINES_FEEDBACK_NAME,
                 "extra_headers": extra_headers,
             },
+            model_api=model_api,
         )
 
     return _sanitize_feedback(feedback)

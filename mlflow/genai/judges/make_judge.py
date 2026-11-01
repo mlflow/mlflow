@@ -194,8 +194,10 @@ def make_judge(
                         for OpenAI and other chat providers, TypeSafe's System One API for
                         ``typesafe:/`` models, and endpoint detection for ``gateway:/`` models.
                         ``ModelAPI.DECISIONS`` explicitly selects OpenAI's Decision API or
-                        TypeSafe's System One API, according to the provider. Decision models
-                        return probabilities but no rationale and do not support
+                        TypeSafe's System One API, according to the provider. Databricks System
+                        One model services use ``databricks:/<catalog>.<schema>.<model>`` with
+                        ``ModelAPI.DECISIONS`` and Databricks workspace authentication.
+                        Decision models return probabilities but no rationale and do not support
                         ``{{ trace }}`` tool calling. ``ModelAPI.CHAT_COMPLETIONS`` requires
                         the chat route. String values are also accepted.
 

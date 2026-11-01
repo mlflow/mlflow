@@ -688,7 +688,11 @@ class InstructionsJudge(Judge):
             )
 
         if self._model_api_mode is ModelAPI.DECISIONS:
-            if _is_typesafe_model(self._model) or _is_gateway_model(self._model):
+            if (
+                _is_typesafe_model(self._model)
+                or _is_gateway_model(self._model)
+                or self._model.startswith("databricks:/")
+            ):
                 try:
                     feedback = _invoke_typesafe_judge(
                         self._model,
