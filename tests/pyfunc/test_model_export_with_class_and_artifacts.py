@@ -1765,7 +1765,7 @@ def test_streamable_model_save_load(iris_data, tmp_path):
     assert list(stream_result) == ["test1", "test2"]
 
 
-def test_streamable_model_save_load(tmp_path):
+def test_streamable_model_save_load_from_code(tmp_path):
     pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
 
     mlflow.pyfunc.save_model(
