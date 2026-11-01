@@ -131,6 +131,13 @@ class NamedRoleGrant(NamedTuple):
     permission: str
 
 
+class PerUserGrant(NamedTuple):
+    username: str
+    resource_type: str
+    resource_pattern: str
+    permission: str
+
+
 class SqlAlchemyStore:
     @classmethod
     def _get_active_workspace_name(cls) -> str:
@@ -673,30 +680,73 @@ class SqlAlchemyStore:
         on any of ``resource_types`` x ``resource_patterns``. Synthetic per-user roles are
         excluded.
         """
+        with self.ManagedSessionMaker() as session:
+            return [
+                NamedRoleGrant(name, rp.resource_type, rp.resource_pattern, rp.permission)
+                for (name, rp) in self._exact_name_grant_rows(
+                    session, resource_types, resource_patterns
+                )
+                if not self._is_synthetic_role_name(name)
+            ]
+
+    def list_per_user_grants_for_resource(
+        self,
+        resource_types: Iterable[str],
+        resource_patterns: Iterable[str],
+    ) -> list[PerUserGrant]:
+        """
+        Return every exact-name grant held by a synthetic per-user role in the active workspace
+        on any of ``resource_types`` x ``resource_patterns``, keyed by the grantee's username.
+        """
+        with self.ManagedSessionMaker() as session:
+            rows = [
+                (self._user_id_from_synthetic_role_name(name), rp)
+                for (name, rp) in self._exact_name_grant_rows(
+                    session, resource_types, resource_patterns
+                )
+                if self._is_synthetic_role_name(name)
+            ]
+            if not rows:
+                return []
+            usernames = dict(
+                session
+                .query(SqlUser.id, SqlUser.username)
+                .filter(SqlUser.id.in_({user_id for (user_id, _) in rows}))
+                .all()
+            )
+            # A user deleted between the two queries no longer holds the grant.
+            return sorted(
+                PerUserGrant(
+                    usernames[user_id], rp.resource_type, rp.resource_pattern, rp.permission
+                )
+                for (user_id, rp) in rows
+                if user_id in usernames
+            )
+
+    def _exact_name_grant_rows(
+        self,
+        session,
+        resource_types: Iterable[str],
+        resource_patterns: Iterable[str],
+    ) -> list[tuple[str, SqlRolePermission]]:
         resource_types = list(resource_types)
         for resource_type in resource_types:
             _validate_resource_type(resource_type)
         resource_patterns = [p for p in resource_patterns if p != "*"]
         if not resource_types or not resource_patterns:
             return []
-        with self.ManagedSessionMaker() as session:
-            rows = (
-                session
-                .query(SqlRole.name, SqlRolePermission)
-                .join(SqlRolePermission, SqlRolePermission.role_id == SqlRole.id)
-                .filter(
-                    SqlRole.workspace == self._get_active_workspace_name(),
-                    SqlRolePermission.resource_type.in_(resource_types),
-                    SqlRolePermission.resource_pattern.in_(resource_patterns),
-                )
-                .order_by(SqlRole.name, SqlRolePermission.resource_pattern)
-                .all()
+        return (
+            session
+            .query(SqlRole.name, SqlRolePermission)
+            .join(SqlRolePermission, SqlRolePermission.role_id == SqlRole.id)
+            .filter(
+                SqlRole.workspace == self._get_active_workspace_name(),
+                SqlRolePermission.resource_type.in_(resource_types),
+                SqlRolePermission.resource_pattern.in_(resource_patterns),
             )
-            return [
-                NamedRoleGrant(name, rp.resource_type, rp.resource_pattern, rp.permission)
-                for (name, rp) in rows
-                if not self._is_synthetic_role_name(name)
-            ]
+            .order_by(SqlRole.name, SqlRolePermission.resource_pattern)
+            .all()
+        )
 
     # ---- Legacy per-resource CRUD (tombstones) ----
     #

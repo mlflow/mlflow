@@ -48,7 +48,7 @@ from mlflow.server.auth.routes import (
     UPDATE_ROLE_PERMISSION,
     UPLOAD_ARTIFACT,
 )
-from mlflow.server.auth.sqlalchemy_store import RoleGrantRow, SqlAlchemyStore
+from mlflow.server.auth.sqlalchemy_store import PerUserGrant, RoleGrantRow, SqlAlchemyStore
 from mlflow.server.handlers import _batch_get_trace_infos, _batch_get_traces
 from mlflow.store.tracking.dbmodels.models import SqlSkill
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as TrackingSqlAlchemyStore
@@ -2317,6 +2317,167 @@ def test_rename_rejected_when_named_role_grants_old_name_without_workspaces(
         with pytest.raises(MlflowException, match="An admin must update or remove") as exc_info:
             auth_module.validate_can_rename_registered_model()
     assert "readers" not in exc_info.value.message
+
+
+def _rename_model_xyz(caller: str, new_name: str = "renamed"):
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/rename",
+        method="POST",
+        json={"name": "model-xyz", "new_name": new_name},
+    ):
+        if caller == "admin":
+            auth_module.enforce_model_name_rules()
+        else:
+            assert auth_module.validate_can_rename_registered_model()
+
+
+@pytest.mark.parametrize("resource_type", ["registered_model", "prompt"])
+@pytest.mark.parametrize("grantee", ["bob", "alice"])
+@pytest.mark.parametrize("caller", ["user", "workspace_admin", "admin"])
+def test_rename_rejected_when_users_have_permissions_on_new_name(
+    workspace_permission_setup, resource_type, grantee, caller
+):
+    # Per-user grants follow a rename, so grants already on the new name would start applying
+    # to the renamed model, and alice's own would collide with the ones she has on model-xyz.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.create_user("bob", "supersecurepassword", is_admin=False)
+    # The fixture makes the caller a workspace admin of team-a.
+    if caller == "user":
+        _set_workspace_permission(store, username, USE.name)
+    elif caller == "admin":
+        store.update_user(username, is_admin=True)
+    store.grant_user_resource_permission(username, "registered_model", "*", MANAGE.name)
+    store.grant_user_permission(username, "registered_model", "model-xyz", MANAGE.name)
+    store.grant_user_resource_permission(grantee, resource_type, "renamed", READ.name)
+
+    with pytest.raises(MlflowException, match="An admin must remove these permissions") as exc_info:
+        _rename_model_xyz(caller)
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+    details = f"user '{grantee}' has {READ.name} on {resource_type} 'renamed'"
+    assert (details in exc_info.value.message) is (caller != "user")
+
+    store.revoke_user_resource_permission(grantee, resource_type, "renamed")
+    _rename_model_xyz(caller)
+
+
+def test_rename_allowed_with_per_user_grants_on_old_name_wildcard_or_other_workspace(
+    workspace_permission_setup,
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.create_user("bob", "supersecurepassword", is_admin=False)
+    store.grant_user_resource_permission(username, "registered_model", "*", MANAGE.name)
+    store.grant_user_permission(username, "registered_model", "model-xyz", MANAGE.name)
+    store.grant_user_resource_permission("bob", "registered_model", "model-xyz", READ.name)
+    store.grant_user_resource_permission("bob", "prompt", "*", READ.name)
+    with workspace_context.WorkspaceContext("team-b"):
+        store.grant_user_resource_permission("bob", "registered_model", "renamed", READ.name)
+
+    _rename_model_xyz("user")
+
+
+def test_rename_onto_existing_model_skips_per_user_grant_check(
+    workspace_permission_setup, monkeypatch
+):
+    # The registry rejects a rename onto an existing name, so its own grants don't matter here.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(
+        auth_module,
+        "_get_model_registry_store",
+        lambda: _RegistryStore({"model-xyz": "team-a", "renamed": "team-a"}),
+    )
+    store.grant_user_resource_permission(username, "registered_model", "*", MANAGE.name)
+    store.grant_user_permission(username, "registered_model", "renamed", MANAGE.name)
+
+    _rename_model_xyz("user")
+
+
+def test_case_only_rename_checks_per_user_grants_on_new_spelling(
+    workspace_permission_setup, monkeypatch
+):
+    # A case-insensitive registry finds the model itself under the new spelling, while the
+    # auth database keys grants on the exact spelling.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(
+        auth_module,
+        "_get_model_registry_store",
+        lambda: _CaseInsensitiveRegistryStore({"model-xyz": "team-a"}),
+    )
+    store.create_user("bob", "supersecurepassword", is_admin=False)
+    store.grant_user_resource_permission(username, "registered_model", "*", MANAGE.name)
+    store.grant_user_permission(username, "registered_model", "model-xyz", MANAGE.name)
+    store.grant_user_resource_permission("bob", "registered_model", "Model-Xyz", READ.name)
+
+    with pytest.raises(MlflowException, match="An admin must remove these permissions"):
+        _rename_model_xyz("user", new_name="Model-Xyz")
+
+    store.revoke_user_resource_permission("bob", "registered_model", "Model-Xyz")
+    _rename_model_xyz("user", new_name="Model-Xyz")
+
+
+@pytest.mark.parametrize("bob_has_grant", [True, False])
+def test_case_only_rename_checks_per_user_grants_on_case_insensitive_auth_db(
+    workspace_permission_setup, monkeypatch, bob_has_grant
+):
+    # A case-insensitive auth database returns the grants on every spelling for either name,
+    # but grants only apply to their exact spelling.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(
+        auth_module,
+        "_get_model_registry_store",
+        lambda: _CaseInsensitiveRegistryStore({"model-xyz": "team-a"}),
+    )
+    store.grant_user_resource_permission(username, "registered_model", "*", MANAGE.name)
+    grants = [PerUserGrant(username, "registered_model", "model-xyz", MANAGE.name)]
+    if bob_has_grant:
+        grants.append(PerUserGrant("bob", "registered_model", "Model-Xyz", READ.name))
+    monkeypatch.setattr(store, "list_per_user_grants_for_resource", lambda *_: grants)
+
+    if bob_has_grant:
+        with pytest.raises(MlflowException, match="An admin must remove these permissions"):
+            _rename_model_xyz("user", new_name="Model-Xyz")
+    else:
+        _rename_model_xyz("user", new_name="Model-Xyz")
+
+
+@pytest.mark.parametrize("new_name", ["", "  ", "model-xyz"])
+def test_per_user_grant_check_ignores_empty_or_unchanged_new_name(
+    workspace_permission_setup, monkeypatch, new_name
+):
+    # The handler reports a missing new_name, and renaming to the same name moves nothing.
+    def get_registered_model(name):
+        raise AssertionError(f"unexpected registry lookup for {name!r}")
+
+    monkeypatch.setattr(
+        auth_module,
+        "_get_model_registry_store",
+        lambda: SimpleNamespace(get_registered_model=get_registered_model),
+    )
+    store = workspace_permission_setup["store"]
+    store.grant_user_permission(
+        workspace_permission_setup["username"], "registered_model", "model-xyz", MANAGE.name
+    )
+    with auth_module.app.test_request_context("/"):
+        auth_module._reject_rename_onto_per_user_grants("model-xyz", new_name)
+
+
+def test_rename_rejected_when_users_have_permissions_on_new_name_without_workspaces(
+    workspace_permission_setup, monkeypatch
+):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.create_user("bob", "supersecurepassword", is_admin=False)
+    store.grant_user_resource_permission(username, "registered_model", "*", MANAGE.name)
+    store.grant_user_resource_permission("bob", "registered_model", "renamed", READ.name)
+
+    with pytest.raises(MlflowException, match="An admin must remove these permissions") as exc_info:
+        _rename_model_xyz("user")
+    assert "bob" not in exc_info.value.message
 
 
 def test_delete_can_manage_registered_model_permission_sweeps_prompt_namespace(
