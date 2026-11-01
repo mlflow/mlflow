@@ -118,6 +118,35 @@ def test_aggregate_usage_from_spans():
     }
 
 
+@pytest.mark.parametrize(
+    ("span_usage", "expected_total"),
+    [
+        ({TokenUsageKey.INPUT_TOKENS: 1000}, 1010),
+        ({TokenUsageKey.OUTPUT_TOKENS: 7}, 17),
+        ({TokenUsageKey.INPUT_TOKENS: 3, TokenUsageKey.OUTPUT_TOKENS: 4}, 17),
+        ({TokenUsageKey.INPUT_TOKENS: 0, TokenUsageKey.TOTAL_TOKENS: 0}, 10),
+    ],
+)
+def test_aggregate_usage_from_spans_derives_missing_total_tokens(span_usage, expected_total):
+    spans = [
+        LiveSpan(create_mock_otel_span("trace_id", span_id=i, name=f"span_{i}"), trace_id="tr-123")
+        for i in range(2)
+    ]
+    spans[0].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 4,
+            TokenUsageKey.OUTPUT_TOKENS: 6,
+            TokenUsageKey.TOTAL_TOKENS: 10,
+        },
+    )
+    spans[1].set_attribute(SpanAttributeKey.CHAT_USAGE, span_usage)
+
+    usage = aggregate_usage_from_spans(spans)
+    assert usage[TokenUsageKey.TOTAL_TOKENS] == expected_total
+    assert spans[1].get_attribute(SpanAttributeKey.CHAT_USAGE) == span_usage
+
+
 def test_aggregate_usage_from_spans_skips_descendant_usage():
     spans = [
         LiveSpan(create_mock_otel_span("trace_id", span_id=1, name="root"), trace_id="tr-123"),

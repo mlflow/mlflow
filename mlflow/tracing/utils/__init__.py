@@ -7,7 +7,7 @@ import logging
 import uuid
 from collections import defaultdict
 from contextlib import contextmanager
-from dataclasses import dataclass, fields, is_dataclass
+from dataclasses import dataclass, fields, is_dataclass, replace
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Generator
 
@@ -310,12 +310,28 @@ def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
     return aggregate_usage_from_span_nodes(_to_span_nodes(spans, SpanAttributeKey.CHAT_USAGE))
 
 
+def _with_total_tokens(usage: dict[str, Any]) -> dict[str, Any]:
+    # Spans such as embeddings may report only input tokens. Derive the missing total so
+    # those tokens still reach the trace-level total. An explicit total (including 0) is kept.
+    if TokenUsageKey.TOTAL_TOKENS in usage:
+        return usage
+    return {
+        **usage,
+        TokenUsageKey.TOTAL_TOKENS: usage.get(TokenUsageKey.INPUT_TOKENS, 0)
+        + usage.get(TokenUsageKey.OUTPUT_TOKENS, 0),
+    }
+
+
 def aggregate_usage_from_span_nodes(nodes: list[SpanAggregationNode]) -> dict[str, int] | None:
     """Aggregate token usage information from span nodes.
 
     Used by the tracking store, which rebuilds the span tree from stored rows instead of
     holding live spans in memory.
     """
+    nodes = [
+        replace(node, data=_with_total_tokens(node.data)) if node.data is not None else node
+        for node in nodes
+    ]
     return _aggregate_from_nodes(
         nodes,
         keys=[TokenUsageKey.INPUT_TOKENS, TokenUsageKey.OUTPUT_TOKENS, TokenUsageKey.TOTAL_TOKENS],
