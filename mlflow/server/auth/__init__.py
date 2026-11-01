@@ -9835,6 +9835,8 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
             finally:
                 workspace_context.clear_server_request_workspace()
         else:
+            # Registered model and prompt deletes are Flask routes, checked for admins in
+            # ``enforce_model_name_rules``; MCP server deletes only come through here.
             try:
                 if after_handler is _mcp_server_after_delete:
                     _require_mcp_server_delete_spelling(path)
