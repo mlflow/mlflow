@@ -445,9 +445,8 @@ class ArtifactRepository:
                 for path, error in failed_downloads.items()
             )
             error_codes = {
-                e.error_code
+                e.error_code if isinstance(e, MlflowException) else "INTERNAL_ERROR"
                 for e in failed_downloads.values()
-                if isinstance(e, MlflowException) and e.error_code != "INTERNAL_ERROR"
             }
             error_code = (
                 ErrorCode.Value(error_codes.pop()) if len(error_codes) == 1 else INTERNAL_ERROR
