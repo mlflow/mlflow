@@ -6421,7 +6421,11 @@ def test_invoke_scorer_submits_jobs(mock_tracking_store):
     )
     mock_tracking_store.batch_get_trace_infos.return_value = [trace1, trace2]
 
-    with mock.patch("mlflow.server.jobs.submit_job") as mock_submit:
+    # The auth plugin's authenticated user, not a Basic header, which an OIDC session lacks.
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit,
+        mock.patch("mlflow.server.handlers._get_request_username", return_value="alice"),
+    ):
         mock_job = mock.MagicMock()
         mock_job.job_id = "test-job-123"
         mock_submit.return_value = mock_job
@@ -6445,6 +6449,7 @@ def test_invoke_scorer_submits_jobs(mock_tracking_store):
         mock_tracking_store.batch_get_trace_infos.assert_called_once_with(["trace1", "trace2"])
         mock_submit.assert_called_once()
         assert mock_submit.call_args.kwargs["params"]["experiment_id"] == "exp-123"
+        assert mock_submit.call_args.kwargs["params"]["username"] == "alice"
 
 
 def test_invoke_scorer_deduplicates_trace_ids(mock_tracking_store):
@@ -10652,6 +10657,7 @@ def test_invoke_issue_detection_handler_success(monkeypatch):
         mock.patch("mlflow.start_run", return_value=mock_run),
         mock.patch("mlflow.set_tag"),
         mock.patch("mlflow.end_run"),
+        mock.patch("mlflow.server.handlers._get_request_username", return_value="alice"),
         app.test_client() as c,
     ):
         mock_store.return_value.search_runs.return_value = []
@@ -10672,6 +10678,7 @@ def test_invoke_issue_detection_handler_success(monkeypatch):
         assert call_kwargs["params"]["trace_ids"] == ["trace-1", "trace-2"]
         assert call_kwargs["params"]["categories"] == ["correctness", "safety"]
         assert call_kwargs["params"]["model"] == "openai:/gpt-4o"
+        assert call_kwargs["params"]["username"] == "alice"
         assert call_kwargs["extra_envs"] == {"OPENAI_API_KEY": "test-key"}
 
 
@@ -11775,11 +11782,12 @@ def test_invoke_genai_evaluate_handler_missing_required_fields(monkeypatch):
             mock_submit_job.assert_not_called()
 
 
-def test_invoke_genai_evaluate_handler_propagates_basic_auth_username(
+def test_invoke_genai_evaluate_handler_propagates_authenticated_username(
     monkeypatch, mock_tracking_store
 ):
-    """Username comes from HTTP Basic auth and feeds the job's gateway-auth
-    path so judge LLM calls are made *as* the user.
+    """The auth plugin's authenticated user feeds the job's gateway-auth path so judge LLM
+    calls are made *as* the user, whatever the credential: an OIDC browser session sends no
+    Basic Authorization header.
     """
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
 
@@ -11798,14 +11806,10 @@ def test_invoke_genai_evaluate_handler_propagates_basic_auth_username(
     with (
         mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job) as mock_submit_job,
         mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
+        mock.patch("mlflow.server.handlers._get_request_username", return_value="alice"),
         app.test_client() as c,
     ):
-        # Encoded form of "alice:hunter2"
-        resp = c.post(
-            "/ajax-api/3.0/mlflow/genai/evaluate/invoke",
-            json=request_json,
-            headers={"Authorization": "Basic YWxpY2U6aHVudGVyMg=="},
-        )
+        resp = c.post("/ajax-api/3.0/mlflow/genai/evaluate/invoke", json=request_json)
         assert resp.status_code == 200
         assert mock_submit_job.call_args.kwargs["params"]["username"] == "alice"
 

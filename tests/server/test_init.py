@@ -11,8 +11,10 @@ import pytest
 
 from mlflow import server
 from mlflow.environment_variables import (
+    _MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY,
     _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED,
     _MLFLOW_IN_JOB_EXECUTOR,
+    _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     _MLFLOW_SERVER_BOOT_ID,
     _MLFLOW_SERVER_TLS_LISTENER,
     _MLFLOW_SGI_NAME,
@@ -599,6 +601,39 @@ def test_mlflow_server_shuts_down_on_signal(sig: signal.Signals, tmp_path):
                 proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 proc.kill()
+
+
+@pytest.mark.parametrize(
+    ("app_name", "expects_token"),
+    # ``custom_app`` stands in for a third-party auth app such as mlflow-oidc-auth.
+    [("custom_app", True), ("basic-auth", True), (None, False)],
+)
+def test_run_server_generates_internal_gateway_token_for_any_auth_app(
+    mock_exec_cmd, monkeypatch, app_name, expects_token
+):
+    # Job subprocesses authenticate their gateway calls with this token, and a third-party auth
+    # app accepts it on gateway routes, so it has to exist whichever app the server runs.
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
+    monkeypatch.setenv(MLFLOW_FLASK_SERVER_SECRET_KEY.name, "my-secret-key")
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    with mock.patch("mlflow.server.auth.bootstrap_admin_user"):
+        server._run_server(
+            file_store_path="",
+            registry_store_uri="",
+            default_artifact_root="",
+            serve_artifacts="",
+            artifacts_only="",
+            artifacts_destination="",
+            host="",
+            port="",
+            app_name=app_name,
+        )
+    extra_env = mock_exec_cmd.call_args.kwargs["extra_env"]
+    assert (_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name in extra_env) is expects_token
+    # The delegation signing key stays basic-auth only.
+    assert (_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY.name in extra_env) is (
+        app_name == "basic-auth"
+    )
 
 
 def test_run_server_bootstraps_basic_auth_admin_before_spawning_workers(mock_exec_cmd, monkeypatch):
