@@ -11106,7 +11106,8 @@ def test_admin_mcp_server_delete_requires_stored_name_spelling(
         return SimpleNamespace(name="com.test/srv", workspace="team-a")
 
     monkeypatch.setattr(auth_module._get_tracking_store(), "get_mcp_server", get_mcp_server)
-    monkeypatch.setattr(auth_module.store, "delete_grants_for_resource", Mock())
+    delete_grants = Mock()
+    monkeypatch.setattr(auth_module.store, "delete_grants_for_resource", delete_grants)
     handler = Mock(return_value=PlainTextResponse("deleted"))
     app = FastAPI()
     app.delete("/api/3.0/mlflow/mcp-servers/{name:path}")(lambda name: handler())
@@ -11120,6 +11121,10 @@ def test_admin_mcp_server_delete_requires_stored_name_spelling(
         handler.assert_not_called()
     else:
         handler.assert_called_once()
+    if server_path == "com.test/srv":
+        delete_grants.assert_called_once_with("mcp_server", "com.test/srv", workspace_scoped=True)
+    else:
+        delete_grants.assert_not_called()
     if server_path.count("/") == 1:
         assert lookups == [(server_path, "team-a")]
     else:
