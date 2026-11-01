@@ -6,6 +6,8 @@ security implementations.
 """
 
 import fnmatch
+import ipaddress
+import re
 from urllib.parse import urlparse
 
 from mlflow.environment_variables import (
@@ -37,6 +39,8 @@ CORS_LOCALHOST_HOSTS = ["localhost", "127.0.0.1", "[::1]", "::1"]
 # Private IP range start values for 172.16.0.0/12
 PRIVATE_172_RANGE_START = 16
 PRIVATE_172_RANGE_END = 32
+
+_IPV4_PREFIX_GLOB = re.compile(r"(?:[0-9]+\.)+\*(?:\.(?:[0-9]+|\*))*(?::[0-9*]+)?")
 
 # Regex patterns for localhost origins
 LOCALHOST_ORIGIN_PATTERNS = [
@@ -154,6 +158,22 @@ def is_health_endpoint(path: str) -> bool:
     return any(path == _add_static_prefix(endpoint) for endpoint in HEALTH_ENDPOINTS)
 
 
+def _is_ipv4_host(host: str) -> bool:
+    try:
+        ipaddress.IPv4Address(host.partition(":")[0])
+    except ValueError:
+        return False
+    return True
+
+
+def _matches_host_pattern(host: str, pattern: str) -> bool:
+    if not fnmatch.fnmatch(host, pattern):
+        return False
+    # An IP-shaped pattern such as the default ``10.*`` or ``192.168.*:5000`` is meant to cover IP
+    # addresses, so it doesn't match host names that begin with the same digits.
+    return not _IPV4_PREFIX_GLOB.fullmatch(pattern) or _is_ipv4_host(host)
+
+
 def is_allowed_host_header(allowed_hosts: list[str], host: str) -> bool:
     """Validate if the host header matches allowed patterns."""
     if not host:
@@ -164,7 +184,7 @@ def is_allowed_host_header(allowed_hosts: list[str], host: str) -> bool:
         return True
 
     return any(
-        fnmatch.fnmatch(host, allowed) if "*" in allowed else host == allowed
+        _matches_host_pattern(host, allowed) if "*" in allowed else host == allowed
         for allowed in allowed_hosts
     )
 

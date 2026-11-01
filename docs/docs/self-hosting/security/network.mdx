@@ -59,6 +59,8 @@ mlflow server --allowed-hosts "*.company.com,192.168.*"
 mlflow server --allowed-hosts "*"
 ```
 
+A pattern made of an IPv4 address prefix and `*`, such as `192.168.*` or the default private-network entries, matches only IP addresses, not host names that begin with the same digits. To allow host names such as `192.168.1.5.nip.io`, add a pattern for them, for example `192.168.*.nip.io`.
+
 ### CORS Origins
 
 Specifies which web applications can make API requests from browsers:
