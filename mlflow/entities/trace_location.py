@@ -138,7 +138,6 @@ class UCSchemaLocation(TraceLocationBase):
         return uc_schema_location_from_proto(proto)
 
 
-@experimental(version="3.11.0")
 @dataclass
 class UnityCatalog(TraceLocationBase):
     """
