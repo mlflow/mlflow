@@ -6,7 +6,7 @@
 
 import { TokenUsageKey } from '@mlflow/core';
 
-import type { ContentBlock, TokenUsage } from './types.js';
+import type { ContentBlock, MessageContent, TokenUsage } from './types.js';
 
 // ============================================================================
 // Shared constants
@@ -58,6 +58,50 @@ export function extractContentAndTools(
   }
 
   return [textContent, toolUses];
+}
+
+/**
+ * Claude Code can emit several content-block records for one API response.
+ * Their usage counters describe the same response and must not be summed.
+ */
+export function mergeAssistantMessage(
+  previous: MessageContent,
+  current: MessageContent,
+): MessageContent {
+  const blocks = (content: MessageContent['content']): ContentBlock[] =>
+    typeof content === 'string'
+      ? [{ type: 'text', text: content }]
+      : Array.isArray(content)
+        ? content
+        : [];
+  const content = [...blocks(previous.content)];
+  for (const block of blocks(current.content)) {
+    const toolIndex =
+      block.type === 'tool_use'
+        ? content.findIndex((part) => part.type === 'tool_use' && part.id === block.id)
+        : -1;
+    if (toolIndex >= 0) {
+      content[toolIndex] = block;
+    } else if (!content.some((part) => JSON.stringify(part) === JSON.stringify(block))) {
+      content.push(block);
+    }
+  }
+
+  let usage = previous.usage ?? current.usage;
+  if (previous.usage && current.usage) {
+    usage = { ...previous.usage, ...current.usage };
+    for (const key of [
+      'input_tokens',
+      'output_tokens',
+      'cache_read_input_tokens',
+      'cache_creation_input_tokens',
+    ] as const) {
+      if (previous.usage[key] !== undefined || current.usage[key] !== undefined) {
+        usage[key] = Math.max(previous.usage[key] ?? 0, current.usage[key] ?? 0);
+      }
+    }
+  }
+  return { ...previous, ...current, model: current.model ?? previous.model, content, usage };
 }
 
 /**
