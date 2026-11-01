@@ -358,13 +358,92 @@ def test_fastapi_health_exempt_from_host_validation_with_static_prefix(
         ("localhost", True),
         ("[::1]", True),
         ("192.168.1.1:8080", True),
+        ("10.0.0.5:5000", True),
+        ("172.31.255.255:443", True),
         ("[::1]:8080", True),
         ("evil.com", False),
+        ("172.15.0.1", False),
+        ("172.32.0.1", False),
+        ("10.example.com", False),
+        ("10.example.com:5000", False),
+        ("192.168.example.com", False),
+        ("172.16.example.com:8080", False),
+        ("172.31.foo.bar", False),
+        ("10.1", False),
+        ("10.0.0.1.", False),
     ],
 )
 def test_host_validation(hostname, expected_valid):
     hosts = security.get_allowed_hosts()
     assert is_allowed_host_header(hosts, hostname) == expected_valid
+
+
+@pytest.mark.parametrize(
+    ("host_header", "expected_valid"),
+    [
+        ("192.168.1.5", True),
+        ("192.168.1.5:8080", True),
+        ("192.168.example.com", False),
+        ("192.168.example.com:8080", False),
+        ("team.company.com", True),
+        ("mlflow.internal:5000", True),
+        ("mlflow.internal:5001", False),
+    ],
+)
+def test_host_validation_with_configured_patterns(host_header, expected_valid):
+    allowed_hosts = ["192.168.*", "*.company.com", "mlflow.internal:5000"]
+    assert is_allowed_host_header(allowed_hosts, host_header) == expected_valid
+
+
+@pytest.mark.parametrize(
+    ("pattern", "host_header", "expected_valid"),
+    [
+        ("10.0.0.*:5000", "10.0.0.5:5000", True),
+        ("10.0.0.*:5000", "10.0.0.example.com:5000", False),
+        ("192.168.*:*", "192.168.example.com:8080", False),
+        ("192.168.*.*", "192.168.example.com", False),
+        ("192.168.*.nip.io", "192.168.1.5.nip.io", True),
+        ("10.*.svc.cluster.local", "10.mlflow.svc.cluster.local", True),
+    ],
+)
+def test_host_validation_ip_shaped_patterns(pattern, host_header, expected_valid):
+    assert is_allowed_host_header([pattern], host_header) == expected_valid
+
+
+@pytest.mark.parametrize(
+    ("host_header", "expected_status"),
+    [
+        ("10.0.0.5:5000", 200),
+        ("10.example.com:5000", 403),
+        ("192.168.example.com", 403),
+    ],
+)
+def test_flask_default_hosts_match_private_ranges_by_ip(test_app, host_header, expected_status):
+    security.init_security_middleware(test_app)
+
+    response = Client(test_app).get("/test", headers={"Host": host_header})
+    assert response.status_code == expected_status
+
+
+@pytest.mark.parametrize(
+    ("host_header", "expected_status"),
+    [
+        ("10.0.0.5:5000", 200),
+        ("10.example.com:5000", 403),
+        ("192.168.example.com", 403),
+    ],
+)
+def test_fastapi_default_hosts_match_private_ranges_by_ip(host_header, expected_status):
+    app = FastAPI()
+
+    @app.get("/test")
+    async def endpoint():
+        return {"ok": True}
+
+    init_fastapi_security(app)
+
+    response = TestClient(app).get("/test", headers={"Host": host_header})
+    assert response.status_code == expected_status
 
 
 @pytest.mark.parametrize(
