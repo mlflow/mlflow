@@ -6,6 +6,7 @@ import mlflow
 from mlflow.client import MlflowClient
 from mlflow.entities.run_status import RunStatus
 from mlflow.environment_variables import (
+    _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS,
     MLFLOW_SERVER_SCHEDULED_ISSUE_DETECTION_MAX_WORKERS,
 )
@@ -154,12 +155,21 @@ def invoke_issue_detection_job(
     run_id: str,
     model: str | None = None,
     instructions: str | None = None,
+    username: str | None = None,
 ):
     """
     Job function to run issue detection on traces.
 
     Note: Provider credentials should be passed via environment variables set by submit_job().
+    ``username`` is the user who started detection; gateway requests are authenticated as that
+    user with the server's internal gateway token.
     """
+    # Identifies the caller to the gateway for judge calls; tracking itself goes to the store.
+    if username is not None:
+        os.environ["MLFLOW_TRACKING_USERNAME"] = username
+        if internal_token := _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.get():
+            os.environ["MLFLOW_TRACKING_PASSWORD"] = internal_token
+
     return _detect_issues_into_run(
         MlflowClient(), experiment_id, trace_ids, categories, run_id, model, instructions
     )

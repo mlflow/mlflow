@@ -5875,6 +5875,7 @@ def _invoke_issue_detection_handler():
             "run_id": run_id,
             "model": model_name,
             "instructions": instructions,
+            "username": _get_request_username(),
         },
         extra_envs=credentials,
     )
@@ -6049,7 +6050,9 @@ def _invoke_genai_evaluate_handler():
     run = client.create_run(experiment_id=experiment_id, tags=tags)
     run_id = run.info.run_id
 
-    username = request.authorization.username if request.authorization else None
+    # The auth plugin's authenticated user, whatever the credential: an auth app's browser
+    # session has no Basic Authorization header to read a username from.
+    username = _get_request_username()
 
     try:
         job = submit_job(
@@ -8050,9 +8053,10 @@ def _invoke_scorer_handler():
     _validate_trace_ids_in_experiment(tracking_store, trace_ids, experiment_id)
     batches = get_trace_batches_for_scorer(trace_ids, scorer, tracking_store)
 
-    # Extract the authenticated username so that job subprocesses can make
-    # gateway requests authorised as the original user (not the admin).
-    username = request.authorization.username if request.authorization else None
+    # The auth plugin's authenticated user, so that job subprocesses can make gateway requests
+    # authorised as the original user (not the admin). An auth app's browser session has no Basic
+    # Authorization header to read a username from.
+    username = _get_request_username()
 
     jobs = []
     for batch_trace_ids in batches:
