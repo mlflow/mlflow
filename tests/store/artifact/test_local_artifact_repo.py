@@ -15,7 +15,7 @@ from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowT
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.tracing.otel.otel_archival import TRACE_ARCHIVAL_FILENAME, spans_to_traces_data_pb
 from mlflow.tracing.utils import build_otel_context
-from mlflow.utils.file_utils import TempDir
+from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 
 
 @pytest.fixture
@@ -487,6 +487,49 @@ def test_delete_artifacts_files(local_artifact_repo, tmp_path):
 
 def test_delete_artifacts_with_nonexistent_path_succeeds(local_artifact_repo):
     local_artifact_repo.delete_artifacts("nonexistent")
+
+
+@pytest.fixture
+def repo_with_outside_dir(tmp_path):
+    artifact_root = tmp_path / "artifacts"
+    artifact_root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "keep.txt").write_text("keep")
+    repo = LocalArtifactRepository(artifact_uri=path_to_local_file_uri(str(artifact_root)))
+    return repo, outside
+
+
+@pytest.mark.parametrize("artifact_path", ["../outside", "nested/../../outside"])
+def test_delete_artifacts_rejects_relative_path_outside_artifact_dir(
+    repo_with_outside_dir, artifact_path
+):
+    repo, outside = repo_with_outside_dir
+
+    with pytest.raises(MlflowException, match="Invalid path"):
+        repo.delete_artifacts(artifact_path)
+
+    assert (outside / "keep.txt").exists()
+
+
+def test_delete_artifacts_rejects_absolute_path_outside_artifact_dir(repo_with_outside_dir):
+    repo, outside = repo_with_outside_dir
+
+    with pytest.raises(MlflowException, match="Invalid path"):
+        repo.delete_artifacts(str(outside))
+
+    assert (outside / "keep.txt").exists()
+
+
+@pytest.mark.parametrize("file_path", ["file#1.txt", "dir with space/a.txt", "model..v2/a.txt"])
+def test_delete_artifacts_allows_unusual_names_inside_artifact_dir(local_artifact_repo, file_path):
+    artifact_file = pathlib.Path(local_artifact_repo.artifact_dir) / file_path
+    artifact_file.parent.mkdir(parents=True, exist_ok=True)
+    artifact_file.write_text("x")
+
+    local_artifact_repo.delete_artifacts(file_path)
+
+    assert not artifact_file.exists()
 
 
 def test_download_artifacts_invalid_remote_file_path(local_artifact_repo):
