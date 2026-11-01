@@ -118,6 +118,28 @@ async def test_aiohttp_post_never_follows_redirects():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("server_hostname", ["mlflow.example.com", None])
+async def test_aiohttp_post_passes_server_hostname_only_when_set(server_hostname):
+    mock_client = mock_http_client(MockAsyncResponse({}))
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        async with _aiohttp_post(
+            headers={},
+            base_url="https://127.0.0.1:5000",
+            path="/gateway/ep/mlflow/invocations",
+            payload={},
+            ssrf_protect=False,
+            server_hostname=server_hostname,
+        ):
+            pass
+
+    kwargs = mock_client.post.call_args.kwargs
+    if server_hostname is None:
+        assert "server_hostname" not in kwargs
+    else:
+        assert kwargs["server_hostname"] == server_hostname
+
+
+@pytest.mark.asyncio
 async def test_aiohttp_post_sets_read_bufsize_for_large_sse_lines():
     mock_client = mock_http_client(MockAsyncResponse({}))
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_session_cls:

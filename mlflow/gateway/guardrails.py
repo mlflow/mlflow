@@ -3,10 +3,14 @@ from __future__ import annotations
 import abc
 import asyncio
 import json
+import logging
+import urllib.parse
 from contextlib import nullcontext
 from typing import TYPE_CHECKING, Any
 
+import aiohttp
 from fastapi import HTTPException
+from packaging.version import Version
 
 import mlflow
 from mlflow.entities import SpanType
@@ -25,6 +29,8 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INVALID_STATE
 if TYPE_CHECKING:
     from mlflow.genai.scorers import Scorer
 
+_logger = logging.getLogger(__name__)
+
 # In practice scorers return bool or str (e.g. "yes"/"no"), but Feedback and
 # list[Feedback] are also supported for richer structured output.
 ScorerResult = bool | str | Feedback | list[Feedback]
@@ -34,8 +40,12 @@ ScorerResult = bool | str | Feedback | list[Feedback]
 _SANITIZE_BYPASS_HEADER = "X-MLflow-Guardrail-Bypass"
 _MAX_RATIONALE_LEN = 500
 
+# aiohttp's ``server_hostname`` request argument exists since 3.9.
+_AIOHTTP_VERSION = Version(aiohttp.__version__)
+
 # Only forward these headers to internal sanitization calls — forwarding all
-# incoming headers (e.g. Host, Content-Length) can cause failures.
+# incoming headers (e.g. Content-Length) can cause failures. The inbound Host is set
+# separately (see ``JudgeGuardrail._sanitize``).
 _ALLOWED_AUTH_HEADERS = frozenset({"authorization"})
 
 _SANITIZE_SYSTEM_PROMPT = """\
@@ -152,10 +162,13 @@ class JudgeGuardrail(Guardrail):
         stage: Whether this guardrail runs BEFORE or AFTER LLM invocation.
         action: Whether the guardrail validates (blocks) or sanitizes (modifies).
         name: Human-readable name for error messages.
-        action_llm_url: Full gateway invocations URL for the sanitization LLM.
-            Built by the caller from the endpoint name and server address.
+        action_llm_url: Base URL of this server for the sanitization call. ``_sanitize``
+            appends the action endpoint's invocations path.
         gateway_uri: URL at which this server reaches itself. ``gateway:/`` judge models
             are routed here, because inside the server the tracking URI is the backend store.
+        host_header: ``Host`` header of the request being guarded, sent on the sanitization
+            call so the server's Host allowlist and TLS certificate apply as they did to that
+            request.
     """
 
     def __init__(
@@ -167,6 +180,7 @@ class JudgeGuardrail(Guardrail):
         action_llm_url: str | None = None,
         action_endpoint_name: str | None = None,
         gateway_uri: str | None = None,
+        host_header: str | None = None,
     ) -> None:
         self.scorer = scorer
         self.stage = stage
@@ -175,6 +189,7 @@ class JudgeGuardrail(Guardrail):
         self.action_llm_url = action_llm_url
         self.action_endpoint_name = action_endpoint_name
         self.gateway_uri = gateway_uri
+        self.host_header = host_header
 
     def _invoke_judge(
         self,
@@ -228,6 +243,28 @@ class JudgeGuardrail(Guardrail):
             raw = str(result)
         return raw[:_MAX_RATIONALE_LEN]
 
+    def _tls_server_hostname(self, url: str) -> str | None:
+        # When the server terminates TLS itself, its certificate names the host clients connect
+        # to, not the server's own address, so verify it against the guarded request's host.
+        if not url.startswith("https://") or not self.host_header:
+            return None
+        if _AIOHTTP_VERSION < Version("3.9"):
+            raise GuardrailViolation(
+                self.name,
+                "Sanitization on a server that terminates TLS itself needs aiohttp>=3.9 (found "
+                f"{aiohttp.__version__}). Upgrade aiohttp, or terminate TLS in a proxy in front "
+                "of the server.",
+            )
+        try:
+            hostname = urllib.parse.urlsplit(f"//{self.host_header}").hostname
+            # ssl IDNA-encodes the name for the TLS check; reject one it can't encode here.
+            (hostname or "").encode("idna")
+        except ValueError as e:
+            raise GuardrailViolation(
+                self.name, "Sanitization could not use the request's host for the TLS check."
+            ) from e
+        return hostname
+
     async def _sanitize(
         self,
         payload: dict[str, Any],
@@ -238,18 +275,24 @@ class JudgeGuardrail(Guardrail):
     ) -> dict[str, Any]:
         """Send the full payload to the action endpoint LLM for rewriting.
 
-        Posts a chat request to ``action_llm_url`` which is the fully
-        resolved gateway invocations URL.
+        Posts a chat request to the action endpoint's invocations route on this server
+        (``action_llm_url`` plus the endpoint path).
 
         When ``payload_schema`` is provided the sanitization request includes a
         ``response_format`` constraint so the action LLM returns a JSON object
         that matches the schema.  Pass ``None`` (the default) for passthrough or
         request-side payloads where no schema constraint is needed.
         """
-        if not self.action_llm_url or not self.action_endpoint_name:
+        if not self.action_endpoint_name:
             raise GuardrailViolation(
                 self.name,
-                "Sanitization requires an action_llm_url but none was configured.",
+                "Sanitization requires an action endpoint but none was configured.",
+            )
+        if not self.action_llm_url:
+            raise GuardrailViolation(
+                self.name,
+                "Sanitization calls this server's own address, but the server reported no TCP "
+                "address (for example, it listens on a unix socket).",
             )
 
         url = self.action_llm_url
@@ -282,6 +325,9 @@ class JudgeGuardrail(Guardrail):
         )
         # Bypass guardrails on the sanitization call to prevent recursive loops.
         headers[_SANITIZE_BYPASS_HEADER] = "1"
+        if self.host_header:
+            headers["Host"] = self.host_header
+        server_hostname = self._tls_server_hostname(url)
 
         span_ctx = (
             mlflow.start_span(name="sanitization", span_type=SpanType.LLM)
@@ -297,11 +343,23 @@ class JudgeGuardrail(Guardrail):
                 # bound to localhost, so the upstream SSRF guard (meant for user-supplied
                 # provider hosts) must not apply here.
                 resp_json = await send_request(
-                    headers=headers, base_url=url, path=path, payload=body, ssrf_protect=False
+                    headers=headers,
+                    base_url=url,
+                    path=path,
+                    payload=body,
+                    ssrf_protect=False,
+                    server_hostname=server_hostname,
                 )
             except HTTPException as e:
                 raise GuardrailViolation(
                     self.name, f"Sanitization request failed: {e.detail}"
+                ) from e
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                _logger.warning(
+                    "Sanitization request for guardrail %r failed", self.name, exc_info=True
+                )
+                raise GuardrailViolation(
+                    self.name, "Sanitization request could not reach the action endpoint."
                 ) from e
 
             try:
@@ -427,8 +485,9 @@ class JudgeGuardrail(Guardrail):
     def from_entity(
         cls,
         entity: GatewayGuardrail,
-        server_url: str | None = None,
+        *,
         gateway_uri: str | None = None,
+        host_header: str | None = None,
     ) -> JudgeGuardrail:
         """Convert a ``GatewayGuardrail`` entity into a callable ``JudgeGuardrail``.
 
@@ -437,11 +496,10 @@ class JudgeGuardrail(Guardrail):
 
         Args:
             entity: A ``GatewayGuardrail`` entity containing a ``ScorerVersion``.
-            server_url: Base URL of the MLflow server (e.g. ``http://localhost:5000``).
-                Used to build the sanitization invocations URL from
-                ``entity.action_endpoint_name``.
             gateway_uri: URL at which this server reaches itself, used by ``gateway:/``
-                judge models.
+                judge models and, with ``entity.action_endpoint_name``, by sanitization.
+            host_header: ``Host`` header of the request being guarded, sent on the
+                sanitization call.
 
         Returns:
             A ``JudgeGuardrail`` ready to process requests/responses.
@@ -449,9 +507,7 @@ class JudgeGuardrail(Guardrail):
         from mlflow.genai.scorers import Scorer  # lazy: heavy transitive deps
         from mlflow.genai.scorers.base import _serialized_scorer_is_custom_code
 
-        action_llm_url = (
-            server_url.rstrip("/") if entity.action_endpoint_name and server_url else None
-        )
+        action_llm_url = gateway_uri if entity.action_endpoint_name else None
 
         # A guardrail runs its scorer in the server process. Custom scorers defined with the
         # @scorer decorator would execute their stored source here, so they are not supported as
@@ -467,4 +523,5 @@ class JudgeGuardrail(Guardrail):
             action_llm_url=action_llm_url,
             action_endpoint_name=entity.action_endpoint_name,
             gateway_uri=gateway_uri,
+            host_header=host_header,
         )
