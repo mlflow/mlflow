@@ -799,9 +799,14 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
                 f"datetime objects. Error: {e}"
             )
 
-    if t == DataType.datetime and (values.dtype == object or values.dtype == t.to_python()):
+    if t == DataType.datetime and (
+        values.dtype == object
+        or isinstance(values.dtype, pd.StringDtype)
+        or values.dtype == t.to_python()
+    ):
         # NB: Pyspark date columns get converted to object when converted to a pandas
         # DataFrame. To respect the original typing, we convert the column to datetime.
+        # pandas 3 infers columns of date strings as StringDtype rather than object.
         try:
             return values.astype(np.dtype("datetime64[ns]"), errors="raise")
         except ValueError as e:
