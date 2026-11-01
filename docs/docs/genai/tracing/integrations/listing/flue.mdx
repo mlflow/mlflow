@@ -19,21 +19,7 @@ import { OTelIntegrationCard } from "@site/src/components/TracingIntegrations/OT
 
 The trace above shows a real Flue 2.3 `Calculator` agent calling the local `llama3.2:1b` model, executing `multiply(17, 23)`, and answering `391`. The deployment example below uses Anthropic Claude Haiku 4.5; see [Local Development](#local-development) for the screenshot's trace capture and validation.
 
-For tracing agents built directly with the Cloudflare Agents SDK, see [Tracing Cloudflare Agents](/genai/tracing/integrations/listing/cloudflare-agents).
-
-## What Gets Traced
-
-- Agent invocations and delegated tasks
-- Model prompts, generated responses, and tool definitions
-- Tool calls, including their arguments and results
-- Input, output, and cache token usage when the model provider reports it
-- Workers requests, subrequests, and Durable Object storage operations
-
-Flue includes conversation and tool payloads by default. See [Control Recorded Content](#control-recorded-content) to disable payload capture.
-
 ## Step 1: Start the MLflow Tracking Server
-
-Use a current MLflow release with OTLP/HTTP JSON ingestion and a SQL-based backend store:
 
 ```bash
 pip install --upgrade mlflow
@@ -51,13 +37,7 @@ For deployed Workers, expose the server through an HTTPS endpoint using your [se
 
 ## Step 2: Create a Cloudflare OpenTelemetry Destination
 
-:::note
-
-Hosted delivery to MLflow was not tested for this guide. See [Local Development](#local-development) for the validation scope.
-
-:::
-
-In the Cloudflare dashboard, go to **Observability > Destinations**, select **Add destination**, and configure:
+In the Cloudflare dashboard, go to **Observability > Destinations**, select **Add destination**, and configure an [OpenTelemetry destination](https://developers.cloudflare.com/observability/export/opentelemetry/):
 
 | Setting          | Value                                          |
 | ---------------- | ---------------------------------------------- |
@@ -68,11 +48,7 @@ In the Cloudflare dashboard, go to **Observability > Destinations**, select **Ad
 
 Add any authentication headers required by your MLflow deployment, then save the destination. Cloudflare exports OTLP as JSON, which MLflow accepts at `/v1/traces`.
 
-See [Cloudflare's OpenTelemetry destination documentation](https://developers.cloudflare.com/observability/export/opentelemetry/) for destination configuration and delivery status.
-
 ## Step 3: Enable Workers Tracing
-
-Create the following Wrangler configuration for the `Calculator` agent in the next step:
 
 ```json title="wrangler.jsonc"
 {
@@ -122,8 +98,6 @@ export default defineConfig({
 });
 ```
 
-Create an agent with a multiplication tool:
-
 ```typescript title="src/agents/calculator.ts"
 "use agent";
 
@@ -144,8 +118,6 @@ export function Calculator() {
 }
 ```
 
-Mount the agent in your application:
-
 ```typescript title="src/app.ts"
 import { createAgentRouter } from "@flue/runtime/routing";
 import { Hono } from "hono";
@@ -157,11 +129,11 @@ app.route("/agents/calculator", createAgentRouter(Calculator));
 export default app;
 ```
 
-Flue installs native Cloudflare tracing automatically. It emits `invoke_agent`, `chat`, and `execute_tool` spans using OpenTelemetry GenAI attributes. The destination configured above forwards these spans to MLflow. See [Flue's observability guide](https://flueframework.com/docs/guide/observability/) for details.
+Flue's [native tracing](https://flueframework.com/docs/guide/observability/) emits `invoke_agent`, `chat`, and `execute_tool` spans with OpenTelemetry GenAI attributes. Conversation and tool payloads are recorded by default, along with token usage when the provider reports it.
 
 ### Control Recorded Content
 
-To record span timings, status, and token usage without conversation or tool payloads, add these imports and the instrumentation call at module scope in `src/app.ts`:
+To disable payload capture, replace the default tracing configuration at module scope in `src/app.ts`. Use a [content transform](https://flueframework.com/docs/guide/cloudflare-target/#createcloudflaretracing) to redact selected fields instead.
 
 ```typescript
 import { instrument } from "@flue/runtime";
@@ -170,22 +142,16 @@ import { createCloudflareTracing } from "@flue/runtime/cloudflare";
 instrument(createCloudflareTracing({ content: false }));
 ```
 
-This replaces the default tracing configuration. To redact selected fields instead, use the adapter's [content transform](https://flueframework.com/docs/guide/cloudflare-target/#createcloudflaretracing).
-
 ## Step 5: Deploy and View Traces
 
-Build the Worker, store the model provider key as a Worker secret, and deploy from the project root:
+Build the Worker, store the model provider key as a Worker secret, deploy, and send a request:
 
 ```bash
 npm exec -- vite build
 npm exec -- wrangler deploy --dry-run
 npm exec -- wrangler secret put ANTHROPIC_API_KEY
 npm exec -- wrangler deploy
-```
 
-Send a request to the deployed agent:
-
-```bash
 curl https://<your-worker-host>/agents/calculator/demo \
   --json '{"kind":"user","body":"What is 17 multiplied by 23?"}'
 ```
