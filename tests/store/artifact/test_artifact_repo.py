@@ -7,6 +7,7 @@ import pytest
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
     _is_object_key_within_path,
@@ -244,6 +245,37 @@ def test_download_artifacts_provides_failure_info(base_uri, download_arg, list_r
         err_msg = str(exc.value)
         assert _MODEL_FILE in err_msg
         assert _MOCK_ERROR in err_msg
+
+
+@pytest.mark.parametrize(
+    ("other_error", "expected_code"),
+    [
+        (RuntimeError("provider failure"), "INTERNAL_ERROR"),
+        (MlflowException("internal failure", INTERNAL_ERROR), "INTERNAL_ERROR"),
+        (MlflowException("also absent", RESOURCE_DOES_NOT_EXIST), "RESOURCE_DOES_NOT_EXIST"),
+    ],
+)
+def test_download_artifacts_preserves_mixed_failure_codes(tmp_path, other_error, expected_code):
+    repo = FailureArtifactRepositoryImpl("test")
+    try:
+        with (
+            mock.patch.object(repo, "_is_directory", return_value=True),
+            mock.patch.object(
+                repo,
+                "_iter_artifacts_recursive",
+                return_value=[FileInfo("first", False, 1), FileInfo("second", False, 1)],
+            ),
+            mock.patch.object(
+                repo,
+                "_download_file",
+                side_effect=[MlflowException("absent", RESOURCE_DOES_NOT_EXIST), other_error],
+            ),
+            pytest.raises(MlflowException, match="first") as raised,
+        ):
+            repo.download_artifacts("dir", dst_path=str(tmp_path))
+        assert raised.value.error_code == expected_code
+    finally:
+        repo.thread_pool.shutdown()
 
 
 @pytest.mark.parametrize("debug", [True, False])

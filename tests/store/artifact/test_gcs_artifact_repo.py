@@ -4,10 +4,13 @@ from unittest import mock
 
 import pytest
 import requests
+from google.api_core import exceptions as google_exceptions
 from google.auth.exceptions import DefaultCredentialsError
 from google.cloud.storage import client as gcs_client
 
+from mlflow.entities import FileInfo
 from mlflow.entities.multipart_upload import MultipartUploadPart
+from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository, GCSMPUArguments
 
@@ -219,6 +222,94 @@ def test_download_artifacts_calls_expected_gcs_client_methods(mock_client, tmp_p
     assert len(download_calls) == 1
     download_path_arg = download_calls[0][0][0]
     assert "test.txt" in download_path_arg
+
+
+@pytest.mark.parametrize(
+    ("error", "expected_code", "expected_status"),
+    [
+        (google_exceptions.NotFound("missing object"), "RESOURCE_DOES_NOT_EXIST", 404),
+        (google_exceptions.Forbidden("access denied"), "INTERNAL_ERROR", 500),
+        (google_exceptions.ServiceUnavailable("temporary outage"), "INTERNAL_ERROR", 500),
+    ],
+)
+def test_download_artifacts_preserves_missing_object_error(
+    mock_client, tmp_path, error, expected_code, expected_status
+):
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock_client)
+    mock_client.bucket.return_value.blob.return_value.download_to_filename.side_effect = error
+
+    with pytest.raises(MlflowException, match="missing.txt") as raised:
+        repo.download_artifacts("missing.txt", dst_path=str(tmp_path))
+
+    assert raised.value.error_code == expected_code
+    assert raised.value.get_http_status_code() == expected_status
+
+
+@pytest.mark.parametrize("listing_phase", ["pages", "blobs"])
+@pytest.mark.parametrize(
+    "error",
+    [
+        google_exceptions.NotFound("missing bucket"),
+        google_exceptions.Forbidden("access denied"),
+        google_exceptions.ServiceUnavailable("temporary outage"),
+    ],
+)
+def test_download_artifacts_preserves_listing_errors(mock_client, tmp_path, listing_phase, error):
+    results = mock_client.bucket.return_value.list_blobs.return_value
+    iterator = results.pages if listing_phase == "pages" else results
+    iterator.__iter__.side_effect = error
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock_client)
+    expected_type = (
+        MlflowException if isinstance(error, google_exceptions.NotFound) else type(error)
+    )
+
+    try:
+        with pytest.raises(expected_type) as raised:
+            repo.download_artifacts("missing.txt", dst_path=str(tmp_path))
+        if isinstance(error, google_exceptions.NotFound):
+            assert raised.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+            assert raised.value.get_http_status_code() == 404
+        else:
+            assert raised.value is error
+        mock_client.bucket.return_value.blob.assert_not_called()
+    finally:
+        repo.thread_pool.shutdown()
+
+
+@pytest.mark.parametrize(
+    ("other_error", "expected_code"),
+    [
+        (google_exceptions.NotFound("also absent"), "RESOURCE_DOES_NOT_EXIST"),
+        (google_exceptions.Forbidden("access denied"), "INTERNAL_ERROR"),
+        (google_exceptions.ServiceUnavailable("temporary outage"), "INTERNAL_ERROR"),
+    ],
+)
+def test_directory_download_preserves_mixed_errors(
+    mock_client, tmp_path, other_error, expected_code
+):
+    repo = GCSArtifactRepository("gs://test_bucket/root", client=mock_client)
+
+    def blob(path, **kwargs):
+        error = google_exceptions.NotFound("absent") if path.endswith("first") else other_error
+        result = mock.MagicMock()
+        result.download_to_filename.side_effect = error
+        return result
+
+    mock_client.bucket.return_value.blob.side_effect = blob
+    try:
+        with (
+            mock.patch.object(repo, "_is_directory", return_value=True),
+            mock.patch.object(
+                repo,
+                "_iter_artifacts_recursive",
+                return_value=[FileInfo("dir/first", False, 1), FileInfo("dir/second", False, 1)],
+            ),
+            pytest.raises(MlflowException, match="first") as raised,
+        ):
+            repo.download_artifacts("dir", dst_path=str(tmp_path))
+        assert raised.value.error_code == expected_code
+    finally:
+        repo.thread_pool.shutdown()
 
 
 def test_get_anonymous_bucket():

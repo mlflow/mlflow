@@ -8074,6 +8074,38 @@ def test_download_artifact_cleans_up_tmp_dir_when_download_fails(enable_serve_ar
     mock_tmp_dir_instance.cleanup.assert_called_once()
 
 
+@pytest.mark.parametrize("failure_phase", ["download", "pages", "blobs"])
+def test_download_artifact_returns_404_for_missing_gcs_blob(enable_serve_artifacts, failure_phase):
+    from google.api_core.exceptions import NotFound
+
+    from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
+
+    client = mock.MagicMock()
+    if failure_phase == "download":
+        client.bucket.return_value.blob.return_value.download_to_filename.side_effect = NotFound(
+            "missing object"
+        )
+    else:
+        results = client.bucket.return_value.list_blobs.return_value
+        iterator = results.pages if failure_phase == "pages" else results
+        iterator.__iter__.side_effect = NotFound("missing bucket")
+    artifact_repo = GCSArtifactRepository("gs://test_bucket/root", client=client)
+    try:
+        with (
+            app.test_request_context(method="GET"),
+            mock.patch(
+                "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
+                return_value=artifact_repo,
+            ),
+        ):
+            response = _download_artifact("missing.txt")
+    finally:
+        artifact_repo.thread_pool.shutdown()
+
+    assert response.status_code == 404
+    assert json.loads(response.get_data())["error_code"] == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
 def test_download_artifact_returns_404_for_missing_azure_blob(enable_serve_artifacts):
     ResourceNotFoundError = pytest.importorskip("azure.core.exceptions").ResourceNotFoundError
 
