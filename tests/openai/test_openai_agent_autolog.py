@@ -102,6 +102,7 @@ async def test_autolog_agent():
                     content=[
                         ResponseOutputText(
                             annotations=[],
+                            logprobs=[],
                             text="¡Hola! Estoy bien, gracias. ¿Y tú, cómo estás?",
                             type="output_text",
                         )
@@ -240,6 +241,7 @@ async def test_autolog_agent_with_manual_trace():
                     content=[
                         ResponseOutputText(
                             annotations=[],
+                            logprobs=[],
                             text="Nice joke",
                             type="output_text",
                         )
@@ -289,6 +291,7 @@ async def test_disable_enable_autolog():
                     content=[
                         ResponseOutputText(
                             annotations=[],
+                            logprobs=[],
                             text="Why is Peter Pan always flying?",
                             type="output_text",
                         )
@@ -350,6 +353,7 @@ def _make_streamed_response(text: str) -> Response:
                 content=[
                     ResponseOutputText(
                         annotations=[],
+                        logprobs=[],
                         text=text,
                         type="output_text",
                     )
