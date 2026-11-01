@@ -1,7 +1,7 @@
 import { isObject, omit } from 'lodash';
 
 import { useIntl } from '@databricks/i18n';
-import { getUser } from '../../global-settings/getUser';
+import { useUserIdentity } from '../../global-settings/getUser';
 import { useMutation, useQueryClient } from '../../query-client/queryClient';
 
 import { invalidateMlflowSearchTracesCache } from './invalidateMlflowSearchTracesCache';
@@ -31,6 +31,7 @@ export const useOverrideAssessment = ({
 }) => {
   const intl = useIntl();
   const queryClient = useQueryClient();
+  const { user, isResolved: isUserResolved } = useUserIdentity();
 
   const logCachedUpdateAction = useTraceCachedActions((state) => state.logAddedAssessment);
   const logCachedDeleteAction = useTraceCachedActions((state) => state.logRemovedAssessment);
@@ -46,12 +47,16 @@ export const useOverrideAssessment = ({
       value: { feedback: Feedback } | { expectation: Expectation };
       rationale?: string;
     }): Promise<CreateAssessmentV4Response | CreateAssessmentV3Response> => {
+      if (!isUserResolved) {
+        throw new Error('The current user could not be resolved.');
+      }
+
       const newAssessment: Assessment = {
         ...oldAssessment,
         ...value,
         rationale,
         source: {
-          source_id: getUser() ?? '',
+          source_id: user,
           source_type: 'HUMAN',
         },
         overrides: oldAssessment.assessment_id,

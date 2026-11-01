@@ -5,8 +5,10 @@ import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
 import { QueryClient, QueryClientProvider } from '../../query-client/queryClient';
+import { useUserIdentity } from '../../global-settings/getUser';
 
 import { AssessmentCreateForm } from './AssessmentCreateForm';
+import { useCreateAssessment } from '../hooks/useCreateAssessment';
 import type { Assessment } from '../ModelTrace.types';
 import { MOCK_ASSESSMENT, MOCK_EXPECTATION } from '../ModelTraceExplorer.test-utils';
 import { AssessmentSchemaContextProvider } from '../contexts/AssessmentSchemaContext';
@@ -20,6 +22,10 @@ jest.mock('../hooks/useCreateAssessment', () => ({
     createAssessmentMutation: jest.fn(),
     isLoading: false,
   })),
+}));
+
+jest.mock('../../global-settings/getUser', () => ({
+  useUserIdentity: jest.fn(() => ({ user: 'User', isResolved: true })),
 }));
 
 const TestWrapper = ({ children, assessments = [] }: { children: React.ReactNode; assessments?: Assessment[] }) => {
@@ -293,6 +299,33 @@ describe('AssessmentCreateForm', () => {
         expect(nameInput).toHaveValue('Relevance');
         expect(dataTypeSelect).toHaveTextContent('String');
       });
+    });
+
+    it('uses the authenticated username as the HUMAN source id', async () => {
+      const user = userEvent.setup();
+      const createAssessmentMutation = jest.fn();
+      jest.mocked(useUserIdentity).mockReturnValue({ user: 'alice', isResolved: true });
+      jest.mocked(useCreateAssessment).mockReturnValue({
+        createAssessmentMutation,
+        isLoading: false,
+      } as any);
+
+      render(
+        <TestWrapper>
+          <AssessmentCreateForm {...defaultProps} />
+        </TestWrapper>,
+      );
+
+      await user.type(screen.getByPlaceholderText('Enter a feedback name'), 'correctness');
+      await user.click(screen.getByRole('button', { name: 'Create' }));
+
+      expect(createAssessmentMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          assessment: expect.objectContaining({
+            source: { source_type: 'HUMAN', source_id: 'alice' },
+          }),
+        }),
+      );
     });
   });
 });

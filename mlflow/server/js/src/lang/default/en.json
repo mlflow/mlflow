@@ -5423,6 +5423,10 @@
     "defaultMessage": "Search",
     "description": "Submit search"
   },
+  "FgP1bC": {
+    "defaultMessage": "Earlier notes saved without a username",
+    "description": "Label for read-only notes that were saved before notes were attributed to the signed-in user"
+  },
   "Fggk2Q": {
     "defaultMessage": "Key:",
     "description": "Label for tag key in modal"
