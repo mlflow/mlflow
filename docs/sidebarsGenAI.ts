@@ -248,6 +248,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/flue',
+                  label: 'Flue',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/google-adk',
                   label: 'Google ADK',
                 },

@@ -273,6 +273,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Agent Frameworks (TypeScript)',
   },
   {
+    id: 'flue',
+    name: 'Flue',
+    logoPath: '/images/logos/flue-logo.svg',
+    link: '/genai/tracing/integrations/listing/flue',
+    category: 'Agent Frameworks (TypeScript)',
+  },
+  {
     id: 'spring-ai',
     name: 'Spring AI',
     logoPath: '/images/logos/spring-ai-logo.png',
