@@ -48,7 +48,7 @@ from mlflow.server.auth.routes import (
     UPDATE_ROLE_PERMISSION,
     UPLOAD_ARTIFACT,
 )
-from mlflow.server.auth.sqlalchemy_store import RoleGrantRow, SqlAlchemyStore
+from mlflow.server.auth.sqlalchemy_store import PerUserGrant, RoleGrantRow, SqlAlchemyStore
 from mlflow.server.handlers import _batch_get_trace_infos, _batch_get_traces
 from mlflow.store.tracking.dbmodels.models import SqlSkill
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as TrackingSqlAlchemyStore
@@ -2416,6 +2416,32 @@ def test_case_only_rename_checks_per_user_grants_on_new_spelling(
 
     store.revoke_user_resource_permission("bob", "registered_model", "Model-Xyz")
     _rename_model_xyz("user", new_name="Model-Xyz")
+
+
+@pytest.mark.parametrize("bob_has_grant", [True, False])
+def test_case_only_rename_checks_per_user_grants_on_case_insensitive_auth_db(
+    workspace_permission_setup, monkeypatch, bob_has_grant
+):
+    # A case-insensitive auth database returns the grants on every spelling for either name,
+    # but grants only apply to their exact spelling.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(
+        auth_module,
+        "_get_model_registry_store",
+        lambda: _CaseInsensitiveRegistryStore({"model-xyz": "team-a"}),
+    )
+    store.grant_user_resource_permission(username, "registered_model", "*", MANAGE.name)
+    grants = [PerUserGrant(username, "registered_model", "model-xyz", MANAGE.name)]
+    if bob_has_grant:
+        grants.append(PerUserGrant("bob", "registered_model", "Model-Xyz", READ.name))
+    monkeypatch.setattr(store, "list_per_user_grants_for_resource", lambda *_: grants)
+
+    if bob_has_grant:
+        with pytest.raises(MlflowException, match="An admin must remove these permissions"):
+            _rename_model_xyz("user", new_name="Model-Xyz")
+    else:
+        _rename_model_xyz("user", new_name="Model-Xyz")
 
 
 @pytest.mark.parametrize("new_name", ["", "  ", "model-xyz"])

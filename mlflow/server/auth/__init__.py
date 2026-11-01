@@ -2449,14 +2449,14 @@ def _reject_rename_onto_per_user_grants(name: str, new_name: str) -> None:
     existing = _fetch_or_none(_get_model_registry_store().get_registered_model, new_name)
     if existing is not None and existing.name != name:
         return
-    types = (RESOURCE_TYPE_REGISTERED_MODEL, RESOURCE_TYPE_PROMPT)
-    # A case-insensitive auth database matches the same grants for both spellings, and those
-    # already apply to the model.
-    already_applying = set(store.list_per_user_grants_for_resource(types, (name,)))
+    # A case-insensitive auth database also returns grants on other spellings. Grants match by
+    # exact spelling (``permissions.matches``), so only the old name's own grants move with it.
     grants = [
         g
-        for g in store.list_per_user_grants_for_resource(types, (new_name,))
-        if g not in already_applying
+        for g in store.list_per_user_grants_for_resource(
+            (RESOURCE_TYPE_REGISTERED_MODEL, RESOURCE_TYPE_PROMPT), (new_name,)
+        )
+        if g.resource_pattern != name
     ]
     if not grants:
         return
