@@ -401,6 +401,7 @@ def test_host_validation_with_configured_patterns(host_header, expected_valid):
         ("10.0.0.*:5000", "10.0.0.5:5000", True),
         ("10.0.0.*:5000", "10.0.0.example.com:5000", False),
         ("192.168.*:*", "192.168.example.com:8080", False),
+        ("192.168.*.*", "192.168.1.1", True),
         ("192.168.*.*", "192.168.example.com", False),
         ("192.168.*.nip.io", "192.168.1.5.nip.io", True),
         ("10.*.svc.cluster.local", "10.mlflow.svc.cluster.local", True),
