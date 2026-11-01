@@ -714,11 +714,13 @@ class SqlAlchemyStore:
                 .filter(SqlUser.id.in_({user_id for (user_id, _) in rows}))
                 .all()
             )
+            # A user deleted between the two queries no longer holds the grant.
             return sorted(
                 PerUserGrant(
                     usernames[user_id], rp.resource_type, rp.resource_pattern, rp.permission
                 )
                 for (user_id, rp) in rows
+                if user_id in usernames
             )
 
     def _exact_name_grant_rows(
