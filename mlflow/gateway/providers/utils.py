@@ -48,6 +48,7 @@ async def _aiohttp_post(
     payload: dict[str, Any],
     *,
     ssrf_protect: bool = True,
+    server_hostname: str | None = None,
 ):
     import aiohttp
     from fastapi import HTTPException
@@ -87,9 +88,10 @@ async def _aiohttp_post(
             timeout = aiohttp.ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get())
             # ClientSession.__aenter__ opens no connection; the resolver runs while
             # session.post(...).__aenter__ acquires one, which this try encloses.
+            post_kwargs = {"server_hostname": server_hostname} if server_hostname else {}
             try:
                 async with session.post(
-                    url, json=payload, timeout=timeout, allow_redirects=False
+                    url, json=payload, timeout=timeout, allow_redirects=False, **post_kwargs
                 ) as response:
                     yield response
             except GatewaySSRFProtectionError as e:
@@ -125,6 +127,7 @@ async def send_request(
     payload: dict[str, Any],
     *,
     ssrf_protect: bool = True,
+    server_hostname: str | None = None,
 ):
     """
     Send an HTTP request to a specific URL path with given headers and payload.
@@ -137,6 +140,9 @@ async def send_request(
         ssrf_protect: Whether to apply the gateway's upstream SSRF protection (see
             ``mlflow.gateway.ssrf``). Pass ``False`` only for calls whose target is not
             user-controlled, such as the server calling itself.
+        server_hostname: Host name to verify the TLS certificate against, for an HTTPS call
+            to an address the certificate does not name (such as the server calling its own
+            address). Requires aiohttp>=3.9.
 
     Returns:
         The server's response as a JSON object.
@@ -150,7 +156,12 @@ async def send_request(
     start = time.perf_counter()
     try:
         async with _aiohttp_post(
-            headers, base_url, path, payload, ssrf_protect=ssrf_protect
+            headers,
+            base_url,
+            path,
+            payload,
+            ssrf_protect=ssrf_protect,
+            server_hostname=server_hostname,
         ) as response:
             content_type = response.headers.get("Content-Type")
             if content_type and "application/json" in content_type:
