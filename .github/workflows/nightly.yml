@@ -258,6 +258,11 @@ jobs:
               --print --verbose --output-format stream-json \
               "/nightly /tmp/nightly-out \"$RUN_IDS\"" \
             | .claude/scripts/stream.sh "$RUNNER_TEMP/nightly-analysis/stream.jsonl"
+      - name: Reset worktree
+        if: always()
+        run: |
+          git reset --hard "$GITHUB_SHA"
+          git clean -ffdx
       - name: Stage analysis
         run: |
           umask 077
