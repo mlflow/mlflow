@@ -207,6 +207,10 @@ jobs:
             ]
             | .filesystem.denyWrite += [$trusted_analysis_dir]
           ' .claude/sandbox/srt.json > "$RUNNER_TEMP/nightly-srt.json"
+      # The checkout is writable inside the sandbox, so keep a copy the agent can't modify.
+      - id: redactor
+        name: Stage redactor
+        run: cp .claude/scripts/redact.py "$RUNNER_TEMP/redact.py"
       - name: Analyze failures in worktrees
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -257,12 +261,28 @@ jobs:
               --disallowed-tools WebSearch \
               --print --verbose --output-format stream-json \
               "/nightly /tmp/nightly-out \"$RUN_IDS\"" \
-            | .claude/scripts/stream.sh "$RUNNER_TEMP/nightly-analysis/stream.jsonl"
+            | .claude/scripts/stream.sh "$RUNNER_TEMP/nightly-stream.jsonl"
+      - name: Redact nightly stream
+        if: always() && steps.redactor.outcome == 'success'
+        env:
+          SECRETS_TO_REDACT: |
+            ${{ secrets.GITHUB_TOKEN }}
+            ${{ steps.gateway-proxy.outputs.token }}
+        run: |
+          if [ -f "$RUNNER_TEMP/nightly-stream.jsonl" ]; then
+            /usr/bin/python3 -I "$RUNNER_TEMP/redact.py" < "$RUNNER_TEMP/nightly-stream.jsonl" \
+              > "$RUNNER_TEMP/nightly-analysis/stream.jsonl"
+          fi
       - name: Stage analysis
+        env:
+          SECRETS_TO_REDACT: |
+            ${{ secrets.GITHUB_TOKEN }}
+            ${{ steps.gateway-proxy.outputs.token }}
         run: |
           umask 077
           srt --settings "$RUNNER_TEMP/nightly-srt.json" -- cat /tmp/nightly-out/analysis.json \
-            > "$RUNNER_TEMP/nightly-analysis/analysis.json"
+            | /usr/bin/python3 -I "$RUNNER_TEMP/redact.py" \
+              > "$RUNNER_TEMP/nightly-analysis/analysis.json"
       - name: Stop proxies
         if: always()
         run: |

@@ -850,6 +850,10 @@ jobs:
       - id: session
         name: Generate session ID
         run: echo "id=$(cat /proc/sys/kernel/random/uuid)" >> "$GITHUB_OUTPUT"
+      # The checkout is writable inside the sandbox, so keep a copy the agent can't modify.
+      - id: redactor
+        name: Stage redactor
+        run: cp .claude/scripts/redact.py "$RUNNER_TEMP/redact.py"
       - id: triage
         name: Triage issue
         env:
@@ -970,8 +974,22 @@ jobs:
           finally:
               os.close(report_fd)
           PY
+      - id: redact-report
+        name: Redact triage report
+        if: always() && steps.redactor.outcome == 'success'
+        env:
+          SECRETS_TO_REDACT: |
+            ${{ secrets.GITHUB_TOKEN }}
+            ${{ steps.gateway-proxy.outputs.token }}
+        run: |
+          for name in payload.json fix.patch; do
+           file="$RUNNER_TEMP/triage-out/$name"
+           [ -f "$file" ] || continue
+           /usr/bin/python3 -I "$RUNNER_TEMP/redact.py" < "$file" > "$file.redacted"
+           mv "$file.redacted" "$file"
+          done
       - name: Upload triage report for posting
-        if: always()
+        if: always() && steps.redact-report.outcome == 'success'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: triage-out-${{ github.run_id }}
