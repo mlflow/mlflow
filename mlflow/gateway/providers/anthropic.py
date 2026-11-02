@@ -1,7 +1,7 @@
 import json
 import logging
 import time
-from typing import Any, AsyncIterable
+from typing import Any, AsyncIterable, overload
 
 from mlflow.gateway.config import AnthropicConfig, EndpointConfig
 from mlflow.gateway.constants import (
@@ -56,6 +56,14 @@ def _to_anthropic_content_parts(content: list[Any]) -> list[dict[str, Any]]:
     return parts
 
 
+@overload
+def _normalize_anthropic_input_tokens(token_usage: dict[str, int]) -> dict[str, int]: ...
+
+
+@overload
+def _normalize_anthropic_input_tokens(token_usage: None) -> None: ...
+
+
 def _normalize_anthropic_input_tokens(
     token_usage: dict[str, int] | None,
 ) -> dict[str, int] | None:
@@ -99,11 +107,11 @@ def _extract_anthropic_passthrough_token_usage(result: dict[str, Any]) -> dict[s
 
 def _collect_anthropic_input_usage(source: dict[str, Any], usage: dict[str, int]) -> None:
     """Copy the input and cache token counts that `source` reports into `usage`."""
-    if (input_tokens := source.get("input_tokens")) is not None:
+    if isinstance(input_tokens := source.get("input_tokens"), int):
         usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
-    if (cached := source.get("cache_read_input_tokens")) is not None:
+    if isinstance(cached := source.get("cache_read_input_tokens"), int):
         usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
-    if (created := source.get("cache_creation_input_tokens")) is not None:
+    if isinstance(created := source.get("cache_creation_input_tokens"), int):
         usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
 
 
@@ -722,11 +730,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
                 metadata["model"] = resp["message"]["model"]
                 # Capture input_tokens and cache tokens from message_start
                 if message_usage := resp["message"].get("usage"):
-                    usage_data["input_tokens"] = message_usage.get("input_tokens")
-                    if (cached := message_usage.get("cache_read_input_tokens")) is not None:
-                        usage_data["cache_read_input_tokens"] = cached
-                    if (created := message_usage.get("cache_creation_input_tokens")) is not None:
-                        usage_data["cache_creation_input_tokens"] = created
+                    _collect_anthropic_input_usage(message_usage, usage_data)
                 continue
 
             if resp["type"] not in (
@@ -750,13 +754,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
                 # cache counts, which with server tools only arrive here
                 if delta_usage := resp.get("usage"):
                     usage_data["output_tokens"] = delta_usage.get("output_tokens")
-                    for key in (
-                        "input_tokens",
-                        "cache_read_input_tokens",
-                        "cache_creation_input_tokens",
-                    ):
-                        if (value := delta_usage.get(key)) is not None:
-                            usage_data[key] = value
+                    _collect_anthropic_input_usage(delta_usage, usage_data)
                 # Include accumulated usage in the response
                 resp["_usage_data"] = usage_data
                 yield AnthropicAdapter.model_to_chat_streaming(resp, self.config)
@@ -820,8 +818,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
     def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
         return _extract_anthropic_streaming_token_usage(chunk)
 
-    def _normalize_streaming_token_usage(self, token_usage: dict[str, int]) -> dict[str, int]:
-        return _normalize_anthropic_input_tokens(token_usage) or token_usage
+    _normalize_streaming_token_usage = staticmethod(_normalize_anthropic_input_tokens)
 
     async def _proxy(
         self,

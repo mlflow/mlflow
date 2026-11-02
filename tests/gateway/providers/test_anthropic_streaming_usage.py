@@ -7,6 +7,13 @@ from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.providers.bedrock import AmazonBedrockProvider
 from mlflow.gateway.providers.vertex_ai import VertexAIProvider
+from mlflow.gateway.schemas import chat
+
+INVALID_INPUT_USAGE = {
+    "input_tokens": "120",
+    "cache_read_input_tokens": 100.5,
+    "cache_creation_input_tokens": [],
+}
 
 
 @pytest.fixture(params=["anthropic", "amazon-bedrock", "vertex_ai"])
@@ -41,6 +48,7 @@ def provider(request):
         ([{"cache_read_input_tokens": 40}], 155, 40, 15),
         ([{"cache_creation_input_tokens": 30}], 155, 25, 30),
         ([{"cache_read_input_tokens": 40}, {"input_tokens": 120}], 175, 40, 15),
+        ([INVALID_INPUT_USAGE], 140, 25, 15),
         (
             [{"input_tokens": None, "cache_read_input_tokens": None}],
             140,
@@ -106,3 +114,59 @@ async def test_stream_passthrough_accumulates_raw_usage(
         "cache_read_input_tokens": expected_read,
         "cache_creation_input_tokens": expected_creation,
     })
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("provider", ["anthropic"], indirect=True)
+@pytest.mark.parametrize(
+    ("start_usage", "delta_usage", "expected_prompt"),
+    [
+        (
+            {"input_tokens": 100, "cache_read_input_tokens": 25, "cache_creation_input_tokens": 15},
+            INVALID_INPUT_USAGE,
+            140,
+        ),
+        (
+            INVALID_INPUT_USAGE,
+            {"input_tokens": 120},
+            120,
+        ),
+    ],
+)
+async def test_chat_stream_ignores_invalid_input_usage(
+    provider, start_usage, delta_usage, expected_prompt
+):
+    events = [
+        {
+            "type": "message_start",
+            "message": {
+                "id": "msg_test",
+                "model": provider.config.model.name,
+                "usage": start_usage,
+            },
+        },
+        {
+            "type": "message_delta",
+            "delta": {"stop_reason": "end_turn"},
+            "usage": {"output_tokens": 50, **delta_usage},
+        },
+    ]
+
+    async def stream():
+        for event in events:
+            yield f"data: {json.dumps(event)}\n\n".encode()
+
+    with mock.patch(
+        "mlflow.gateway.providers.anthropic.send_stream_request", return_value=stream()
+    ) as send_request:
+        chunks = [
+            chunk
+            async for chunk in provider._chat_stream(
+                chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}], stream=True)
+            )
+        ]
+
+    send_request.assert_called_once()
+    assert chunks[-1].usage.prompt_tokens == expected_prompt
+    assert chunks[-1].usage.completion_tokens == 50
+    assert chunks[-1].usage.total_tokens == expected_prompt + 50
