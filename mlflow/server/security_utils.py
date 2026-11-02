@@ -40,6 +40,8 @@ CORS_LOCALHOST_HOSTS = ["localhost", "127.0.0.1", "[::1]", "::1"]
 PRIVATE_172_RANGE_START = 16
 PRIVATE_172_RANGE_END = 32
 
+_PRIVATE_IPV6_PATTERNS = ("fc00:*", "fd00:*")
+
 _IPV4_PREFIX_GLOB = re.compile(r"(?:[0-9]+\.)+\*(?:\.(?:[0-9]+|\*))*(?::[0-9*]+)?")
 
 # Regex patterns for localhost origins
@@ -75,8 +77,7 @@ def get_private_ip_patterns() -> list[str]:
         "192.168.*",
         "10.*",
         *[f"172.{i}.*" for i in range(PRIVATE_172_RANGE_START, PRIVATE_172_RANGE_END)],
-        "fc00:*",
-        "fd00:*",
+        *_PRIVATE_IPV6_PATTERNS,
     ]
 
 
@@ -166,12 +167,26 @@ def _is_ipv4_host(host: str) -> bool:
     return True
 
 
+def _is_ipv6_host(host: str) -> bool:
+    try:
+        address = ipaddress.IPv6Address(host)
+    except ValueError:
+        return False
+    # ``IPv6Address`` accepts any text after ``%`` as a zone ID, such as ``fc00::1%evil.com``.
+    return address.scope_id is None
+
+
 def _matches_host_pattern(host: str, pattern: str) -> bool:
     if not fnmatch.fnmatch(host, pattern):
         return False
     # An IP-shaped pattern such as the default ``10.*`` or ``192.168.*:5000`` is meant to cover IP
     # addresses, so it doesn't match host names that begin with the same digits.
-    return not _IPV4_PREFIX_GLOB.fullmatch(pattern) or _is_ipv4_host(host)
+    if _IPV4_PREFIX_GLOB.fullmatch(pattern):
+        return _is_ipv4_host(host)
+    # Only the default IPv6 patterns get this check, since ``db:*`` names a host on any port.
+    if pattern in _PRIVATE_IPV6_PATTERNS:
+        return _is_ipv6_host(host)
+    return True
 
 
 def is_allowed_host_header(allowed_hosts: list[str], host: str) -> bool:

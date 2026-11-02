@@ -371,6 +371,11 @@ def test_fastapi_health_exempt_from_host_validation_with_static_prefix(
         ("172.31.foo.bar", False),
         ("10.1", False),
         ("10.0.0.1.", False),
+        ("fc00::1", True),
+        ("fd00:abcd::5", True),
+        ("fc00:evil.com", False),
+        ("fd00:evil.com:5000", False),
+        ("fc00::1%evil.com", False),
     ],
 )
 def test_host_validation(hostname, expected_valid):
@@ -400,11 +405,13 @@ def test_host_validation_with_configured_patterns(host_header, expected_valid):
     [
         ("10.0.0.*:5000", "10.0.0.5:5000", True),
         ("10.0.0.*:5000", "10.0.0.example.com:5000", False),
+        ("192.168.*:*", "192.168.1.1:8080", True),
         ("192.168.*:*", "192.168.example.com:8080", False),
         ("192.168.*.*", "192.168.1.1", True),
         ("192.168.*.*", "192.168.example.com", False),
         ("192.168.*.nip.io", "192.168.1.5.nip.io", True),
         ("10.*.svc.cluster.local", "10.mlflow.svc.cluster.local", True),
+        ("db:*", "db:5000", True),
     ],
 )
 def test_host_validation_ip_shaped_patterns(pattern, host_header, expected_valid):
@@ -417,6 +424,7 @@ def test_host_validation_ip_shaped_patterns(pattern, host_header, expected_valid
         ("10.0.0.5:5000", 200),
         ("10.example.com:5000", 403),
         ("192.168.example.com", 403),
+        ("fc00:evil.com", 403),
     ],
 )
 def test_flask_default_hosts_match_private_ranges_by_ip(test_app, host_header, expected_status):
@@ -432,6 +440,7 @@ def test_flask_default_hosts_match_private_ranges_by_ip(test_app, host_header, e
         ("10.0.0.5:5000", 200),
         ("10.example.com:5000", 403),
         ("192.168.example.com", 403),
+        ("fc00:evil.com", 403),
     ],
 )
 def test_fastapi_default_hosts_match_private_ranges_by_ip(host_header, expected_status):
