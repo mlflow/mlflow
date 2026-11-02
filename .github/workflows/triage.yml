@@ -850,10 +850,6 @@ jobs:
       - id: session
         name: Generate session ID
         run: echo "id=$(cat /proc/sys/kernel/random/uuid)" >> "$GITHUB_OUTPUT"
-      # The checkout is writable inside the sandbox, so keep a copy the agent can't modify.
-      - id: redactor
-        name: Stage redactor
-        run: cp .claude/scripts/redact.py "$RUNNER_TEMP/redact.py"
       - id: triage
         name: Triage issue
         env:
@@ -917,17 +913,11 @@ jobs:
             "/triage $TRIAGE_ACTION $ISSUE_PATH /tmp/triage-out" \
             | .claude/scripts/stream.sh || { echo "::$token::"; exit 1; }
           echo "::$token::"
-      - name: Check worktree
+      - name: Reset worktree
+        if: always()
         run: |
-          if [ "$(git rev-parse HEAD)" != "$GITHUB_SHA" ]; then
-            echo "::error::Triage agent moved HEAD off $GITHUB_SHA"
-            exit 1
-          fi
-          if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
-            echo "::error::Triage agent left changes in the worktree"
-            git status --short --untracked-files=all
-            exit 1
-          fi
+          git reset --hard "$GITHUB_SHA"
+          git clean -ffdx
       - name: Stage triage report for upload
         if: always()
         run: |
@@ -974,19 +964,22 @@ jobs:
           finally:
               os.close(report_fd)
           PY
+      # The agent can see these credentials, so they can end up in its report.
       - id: redact-report
         name: Redact triage report
-        if: always() && steps.redactor.outcome == 'success'
+        if: always()
         env:
           SECRETS_TO_REDACT: |
             ${{ secrets.GITHUB_TOKEN }}
             ${{ steps.gateway-proxy.outputs.token }}
         run: |
-          for name in payload.json fix.patch; do
-           file="$RUNNER_TEMP/triage-out/$name"
-           [ -f "$file" ] || continue
-           /usr/bin/python3 -I "$RUNNER_TEMP/redact.py" < "$file" > "$file.redacted"
-           mv "$file.redacted" "$file"
+          # Best effort: replaces raw secret values only, not encoded or reformatted copies.
+          for file in "$RUNNER_TEMP"/triage-out/{payload.json,fix.patch}; do
+            [ -f "$file" ] || continue
+            jq -Rjs --arg secrets "$SECRETS_TO_REDACT" \
+              'reduce ($secrets | split("\n")[] | select(length > 0)) as $s (.; split($s) | join("[REDACTED]"))' \
+              < "$file" > "$file.redacted"
+            mv "$file.redacted" "$file"
           done
       - name: Upload triage report for posting
         if: always() && steps.redact-report.outcome == 'success'

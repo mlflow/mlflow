@@ -108,9 +108,13 @@ Three limits are worth knowing before relying on it:
   update or remove those role grants first, then retry the rename and
   re-add the grants under the new name if they should still apply. Only
   platform and workspace administrators see in the error which role grants
-  blocked the rename. Wildcard (`*`) grants and
-  direct grants (see [Direct grants without a role](#direct-grants-without-a-role))
-  do not block a rename; direct grants follow the model to its new name.
+  blocked the rename. Wildcard (`*`) grants and direct grants on the old name
+  (see [Direct grants without a role](#direct-grants-without-a-role)) do not
+  block a rename; direct grants follow the model to its new name. The server
+  also rejects a rename onto a name that has no model or prompt yet while any
+  user has a direct grant on that name, since that grant would start applying
+  to the renamed model. An admin must revoke those direct grants first. Only
+  platform and workspace administrators see in the error which users hold them.
 
 ### Sub-resource tiers
 
