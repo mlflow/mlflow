@@ -30,7 +30,7 @@ _RESOURCE_GRANT_CASES = [
     for resource_type in sorted(_SKILL_REGISTRY_RESOURCE_TYPES)
     for permission in (READ, EDIT, MANAGE)
 ]
-from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
+from mlflow.server.auth.sqlalchemy_store import NamedRoleGrant, PerUserGrant, SqlAlchemyStore
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.helper_functions import random_str
@@ -818,9 +818,25 @@ def test_list_role_grants_for_user_in_workspace(store, user):
     store.assign_role_to_user(user.id, role.id)
 
     grants = store.list_role_grants_for_user_in_workspace(user.id, "ws1", "experiment")
-    # Should include specific experiment grant, wildcard experiment grant,
-    # and the workspace-wide grant. Should NOT include the registered_model grant.
-    assert sorted(grants) == sorted([("42", "EDIT"), ("*", "READ"), ("*", "USE")])
+    assert sorted(grants) == sorted([("42", "EDIT"), ("*", "READ")])
+
+
+@pytest.mark.parametrize("resource_type", sorted(VALID_RESOURCE_TYPES))
+@pytest.mark.parametrize("permission", [USE, MANAGE])
+def test_list_role_grants_workspace_tier_matches_resource_resolution(
+    store, user, resource_type, permission
+):
+    role = store.create_role(name="workspace-role", workspace="ws1")
+    store.add_role_permission(role.id, "workspace", "*", permission.name)
+    store.assign_role_to_user(user.id, role.id)
+
+    expected = (
+        [("*", permission.name)] if resource_type == "workspace" or permission == MANAGE else []
+    )
+    assert store.list_role_grants_for_user_in_workspace(user.id, "ws1", resource_type) == expected
+    assert store.get_role_permission_for_resource(user.id, resource_type, "42", "ws1") == (
+        permission if expected else None
+    )
 
 
 def test_list_role_grants_for_user_in_workspace_cross_workspace(store, user):
@@ -1250,3 +1266,34 @@ def test_get_role_permission_picks_highest(store, user, perms, expected):
 
     result = store.get_role_permission_for_resource(user.id, "experiment", "1", "ws1")
     assert result == expected
+
+
+def test_list_named_role_grants_for_resource_ignores_wildcard_and_per_user_grants(store, user):
+    role = store.create_role(name="readers", workspace=DEFAULT_WORKSPACE_NAME)
+    store.add_role_permission(role.id, "registered_model", "*", READ.name)
+    store.grant_user_permission(user.username, "registered_model", "renamed", MANAGE.name)
+    resource_types = ["registered_model", "prompt"]
+
+    # A model named "*" (created before wildcard names were rejected) can still be renamed.
+    assert store.list_named_role_grants_for_resource(resource_types, ["*", "renamed"]) == []
+
+    store.add_role_permission(role.id, "prompt", "renamed", DENY.name)
+    assert store.list_named_role_grants_for_resource(resource_types, ["*", "renamed"]) == [
+        NamedRoleGrant("readers", "prompt", "renamed", DENY.name)
+    ]
+
+
+def test_list_per_user_grants_for_resource_ignores_named_roles_and_wildcards(store, user, user2):
+    role = store.create_role(name="readers", workspace=DEFAULT_WORKSPACE_NAME)
+    store.add_role_permission(role.id, "registered_model", "renamed", DENY.name)
+    store.grant_user_permission(user.username, "registered_model", "*", READ.name)
+    resource_types = ["registered_model", "prompt"]
+
+    assert store.list_per_user_grants_for_resource(resource_types, ["*", "renamed"]) == []
+
+    store.grant_user_permission(user2.username, "prompt", "renamed", MANAGE.name)
+    store.grant_user_permission(user.username, "registered_model", "renamed", READ.name)
+    assert store.list_per_user_grants_for_resource(resource_types, ["*", "renamed"]) == sorted([
+        PerUserGrant(user.username, "registered_model", "renamed", READ.name),
+        PerUserGrant(user2.username, "prompt", "renamed", MANAGE.name),
+    ])

@@ -1,4 +1,5 @@
 import json
+from threading import Barrier, get_ident
 from unittest.mock import ANY, Mock, patch
 
 import crewai
@@ -18,6 +19,7 @@ from mlflow.crewai.autolog import (
     _set_sanitized_attribute,
     _set_span_attributes,
     patched_class_call,
+    patched_single_native_tool_call,
     patched_standalone_call,
 )
 from mlflow.entities.span import SpanType
@@ -262,12 +264,12 @@ def task_named(simple_agent_1):
     )
 
 
-def global_autolog():
+def global_autolog(log_traces=True):
     if IS_TRACING_SDK_ONLY:
         pytest.skip("Global autolog is not supported in tracing SDK")
 
     # Libraries used within tests or crewai library
-    mlflow.autolog(exclude_flavors=["openai", "litellm", "langchain"])
+    mlflow.autolog(log_traces=log_traces, exclude_flavors=["openai", "litellm", "langchain"])
     mlflow.utils.import_hooks.notify_module_loaded(crewai)
 
 
@@ -406,6 +408,111 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog, mock_lite
     assert token_usage[TokenUsageKey.OUTPUT_TOKENS] > 0
     assert TokenUsageKey.TOTAL_TOKENS in token_usage
     assert token_usage[TokenUsageKey.TOTAL_TOKENS] > 0
+
+
+@pytest.mark.skipif(
+    _CREWAI_VERSION < Version("1.15.29"),
+    reason="The replacement AgentExecutor was introduced in CrewAI 1.15.29",
+)
+@pytest.mark.parametrize("log_traces", [True, False])
+def test_kickoff_multiple_native_tool_calls(
+    tool_agent_1, task_1_with_tool, autolog, mock_litellm_cost, log_traces
+):
+    crew = Crew(agents=[tool_agent_1], tasks=[task_1_with_tool])
+    tool_calls = [
+        {
+            "id": f"call_{argument}",
+            "type": "function",
+            "function": {
+                "name": "test_tool",
+                "arguments": json.dumps({"argument": argument}),
+            },
+        }
+        for argument in ["a", "b"]
+    ]
+    barrier = Barrier(2, timeout=10)
+    worker_threads = []
+
+    def tool_result(argument):
+        worker_threads.append(get_ident())
+        barrier.wait()
+        return "Tool Answer"
+
+    with (
+        patch(
+            "litellm.completion",
+            side_effect=[create_sample_llm_response("", tool_calls), _simple_chat_completion()],
+        ),
+        patch.object(SampleTool, "_run", side_effect=tool_result) as run_tool,
+    ):
+        autolog(log_traces=log_traces)
+        result = crew.kickoff()
+
+    assert result.raw == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
+    assert sorted(call.kwargs["argument"] for call in run_tool.call_args_list) == ["a", "b"]
+    assert len(set(worker_threads)) == 2
+    assert get_ident() not in worker_threads
+    traces = get_traces()
+    if not log_traces:
+        assert traces == []
+        return
+
+    assert len(traces) == 1
+    spans = traces[0].data.spans
+    assert not any(span.name.startswith("AgentExecutor.") for span in spans)
+    agent_span = next(span for span in spans if span.span_type == SpanType.AGENT)
+    tool_spans = [span for span in spans if span.span_type == SpanType.TOOL]
+    assert len(tool_spans) == 2
+    assert sorted(span.inputs["tool_args"]["argument"] for span in tool_spans) == ["a", "b"]
+    for span in tool_spans:
+        assert span.name == "test_tool"
+        assert span.inputs["tool_name"] == "test_tool"
+        assert span.outputs == {"result": "Tool Answer"}
+        assert span.parent_id == agent_span.span_id
+
+
+@pytest.mark.parametrize("raises", [False, True])
+@pytest.mark.parametrize(
+    "tool_call",
+    [
+        {"function": {"name": "test_tool", "arguments": '{"argument": "a"}'}},
+        {"name": "test_tool", "arguments": '{"argument": "a"}'},
+        {"name": "test_tool", "input": {"argument": "a"}},
+        {
+            "function": {"name": "test_tool", "arguments": None},
+            "arguments": '{"argument": "a"}',
+        },
+        {
+            "function": {"name": "test_tool", "arguments": '{"argument": "a"}'},
+            "arguments": '{"argument": "b"}',
+            "input": {"argument": "c"},
+        },
+    ],
+)
+def test_single_native_tool_call_preserves_result_or_exception(raises, tool_call):
+    executor = Mock()
+    result = {"result": "Tool Answer", "original_tool": object()}
+    error = RuntimeError("tool failed")
+    original = Mock(side_effect=error if raises else None, return_value=result)
+    mlflow.crewai.autolog()
+
+    if raises:
+        with pytest.raises(RuntimeError, match="tool failed") as exc_info:
+            patched_single_native_tool_call(original, executor, tool_call)
+        assert exc_info.value is error
+    else:
+        assert patched_single_native_tool_call(original, executor, tool_call) is result
+    original.assert_called_once_with(executor, tool_call)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert len(traces[0].data.spans) == 1
+    span = traces[0].data.spans[0]
+    assert span.name == "test_tool"
+    assert span.span_type == SpanType.TOOL
+    assert span.inputs == {"tool_name": "test_tool", "tool_args": {"argument": "a"}}
+    assert span.outputs == (None if raises else {"result": "Tool Answer"})
+    assert span.status.status_code == ("ERROR" if raises else "OK")
 
 
 def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):

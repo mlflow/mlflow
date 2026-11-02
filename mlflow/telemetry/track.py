@@ -2,6 +2,8 @@ import functools
 import inspect
 import logging
 import time
+from asyncio import CancelledError as AsyncCancelledError
+from concurrent.futures import CancelledError as FutureCancelledError
 from typing import Any, Callable, ParamSpec, TypeVar
 
 from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
@@ -23,19 +25,24 @@ def record_usage_event(event: type[Event]) -> Callable[[Callable[P, R]], Callabl
             if is_telemetry_disabled() or _is_telemetry_disabled_for_event(event):
                 return func(*args, **kwargs)
 
-            success = True
+            status = Status.SUCCESS
             result = None
             start_time = time.time()
             try:
                 result = func(*args, **kwargs)
                 return result
-            except Exception:
-                success = False
+            except (KeyboardInterrupt, AsyncCancelledError, FutureCancelledError):
+                # Server job cancellation uses SIGKILL, so its event is recorded by the server
+                # accepting the cancellation instead of this worker.
+                status = Status.CANCELED
+                raise
+            except BaseException:
+                status = Status.FAILURE
                 raise
             finally:
                 try:
                     duration_ms = int((time.time() - start_time) * 1000)
-                    _add_telemetry_record(func, args, kwargs, success, duration_ms, event, result)
+                    _add_telemetry_record(func, args, kwargs, status, duration_ms, event, result)
                 except Exception as e:
                     _log_error(f"Failed to record telemetry event {event.name}: {e}")
 
@@ -48,7 +55,7 @@ def _add_telemetry_record(
     func: Callable[..., Any],
     args: tuple[Any, ...],
     kwargs: dict[str, Any],
-    success: bool,
+    status: Status,
     duration_ms: int,
     event: type[Event],
     result: Any,
@@ -69,7 +76,7 @@ def _add_telemetry_record(
                 event_name=event.name,
                 timestamp_ns=time.time_ns(),
                 params=record_params or None,
-                status=Status.SUCCESS if success else Status.FAILURE,
+                status=status,
                 duration_ms=duration_ms,
             )
             client.add_record(record)
@@ -82,8 +89,10 @@ def _record_event(
     params: dict[str, Any],
     *,
     success: bool = True,
-    duration_ms: int = 0,
+    duration_ms: int | None = 0,
+    status: Status | None = None,
 ) -> None:
+    """Record an event; an explicit status takes precedence over success."""
     try:
         if _is_telemetry_disabled_for_event(event):
             return
@@ -97,7 +106,9 @@ def _record_event(
                     event_name=event.name,
                     params=record_params or None,
                     timestamp_ns=time.time_ns(),
-                    status=Status.SUCCESS if success else Status.FAILURE,
+                    status=status
+                    if status is not None
+                    else (Status.SUCCESS if success else Status.FAILURE),
                     duration_ms=duration_ms,
                 )
             )

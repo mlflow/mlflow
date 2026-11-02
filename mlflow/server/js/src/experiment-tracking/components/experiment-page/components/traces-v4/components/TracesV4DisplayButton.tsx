@@ -109,7 +109,7 @@ export const TracesV4DisplayButton = ({
       <DropdownMenu.Trigger asChild>
         <Button
           componentId={`${COMPONENT_ID}.trigger`}
-          icon={<SlidersIcon css={{ color: theme.colors.textSecondary }} />}
+          icon={<SlidersIcon />}
           endIcon={<ChevronDownIcon />}
           // Names the button when its label collapses to icon-only.
           aria-label={intl.formatMessage({

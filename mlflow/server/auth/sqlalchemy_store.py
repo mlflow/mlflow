@@ -71,6 +71,7 @@ from mlflow.utils.validation import (
     MAX_ROLE_DESCRIPTION_LENGTH,
     MAX_ROLE_NAME_LENGTH,
     MAX_USERNAME_LENGTH,
+    _parse_experiment_id,
     _validate_password,
     _validate_text_field,
     _validate_username,
@@ -118,6 +119,20 @@ class RoleGrantRow(NamedTuple):
     should be a live SQLAlchemy instance.
     """
 
+    resource_type: str
+    resource_pattern: str
+    permission: str
+
+
+class NamedRoleGrant(NamedTuple):
+    role_name: str
+    resource_type: str
+    resource_pattern: str
+    permission: str
+
+
+class PerUserGrant(NamedTuple):
+    username: str
     resource_type: str
     resource_pattern: str
     permission: str
@@ -654,6 +669,84 @@ class SqlAlchemyStore:
                 {SqlRolePermission.resource_pattern: new_pattern},
                 synchronize_session=False,
             )
+
+    def list_named_role_grants_for_resource(
+        self,
+        resource_types: Iterable[str],
+        resource_patterns: Iterable[str],
+    ) -> list[NamedRoleGrant]:
+        """
+        Return every exact-name grant held by an admin-created role in the active workspace
+        on any of ``resource_types`` x ``resource_patterns``. Synthetic per-user roles are
+        excluded.
+        """
+        with self.ManagedSessionMaker() as session:
+            return [
+                NamedRoleGrant(name, rp.resource_type, rp.resource_pattern, rp.permission)
+                for (name, rp) in self._exact_name_grant_rows(
+                    session, resource_types, resource_patterns
+                )
+                if not self._is_synthetic_role_name(name)
+            ]
+
+    def list_per_user_grants_for_resource(
+        self,
+        resource_types: Iterable[str],
+        resource_patterns: Iterable[str],
+    ) -> list[PerUserGrant]:
+        """
+        Return every exact-name grant held by a synthetic per-user role in the active workspace
+        on any of ``resource_types`` x ``resource_patterns``, keyed by the grantee's username.
+        """
+        with self.ManagedSessionMaker() as session:
+            rows = [
+                (self._user_id_from_synthetic_role_name(name), rp)
+                for (name, rp) in self._exact_name_grant_rows(
+                    session, resource_types, resource_patterns
+                )
+                if self._is_synthetic_role_name(name)
+            ]
+            if not rows:
+                return []
+            usernames = dict(
+                session
+                .query(SqlUser.id, SqlUser.username)
+                .filter(SqlUser.id.in_({user_id for (user_id, _) in rows}))
+                .all()
+            )
+            # A user deleted between the two queries no longer holds the grant.
+            return sorted(
+                PerUserGrant(
+                    usernames[user_id], rp.resource_type, rp.resource_pattern, rp.permission
+                )
+                for (user_id, rp) in rows
+                if user_id in usernames
+            )
+
+    def _exact_name_grant_rows(
+        self,
+        session,
+        resource_types: Iterable[str],
+        resource_patterns: Iterable[str],
+    ) -> list[tuple[str, SqlRolePermission]]:
+        resource_types = list(resource_types)
+        for resource_type in resource_types:
+            _validate_resource_type(resource_type)
+        resource_patterns = [p for p in resource_patterns if p != "*"]
+        if not resource_types or not resource_patterns:
+            return []
+        return (
+            session
+            .query(SqlRole.name, SqlRolePermission)
+            .join(SqlRolePermission, SqlRolePermission.role_id == SqlRole.id)
+            .filter(
+                SqlRole.workspace == self._get_active_workspace_name(),
+                SqlRolePermission.resource_type.in_(resource_types),
+                SqlRolePermission.resource_pattern.in_(resource_patterns),
+            )
+            .order_by(SqlRole.name, SqlRolePermission.resource_pattern)
+            .all()
+        )
 
     # ---- Legacy per-resource CRUD (tombstones) ----
     #
@@ -1976,6 +2069,8 @@ class SqlAlchemyStore:
         permission: str,
     ) -> RolePermission:
         _validate_permission_for_resource_type(permission, resource_type)
+        if resource_type == RESOURCE_TYPE_EXPERIMENT and resource_pattern != "*":
+            resource_pattern = str(_parse_experiment_id(str(resource_pattern)))
         resource_pattern = self._validate_resource_pattern(resource_type, resource_pattern)
         _validate_resource_pattern(resource_pattern, resource_type)
         with self.ManagedSessionMaker(read_only=False) as session:
@@ -2308,16 +2403,12 @@ class SqlAlchemyStore:
         self, user_id: int, workspace: str, resource_type: str
     ) -> list[tuple[str, str]]:
         """
-        Return the user's **role-based** permission grants in ``workspace`` that apply
-        to resources of ``resource_type``. Direct per-resource grants (e.g. rows in
-        ``experiment_permissions``) are intentionally **not** included — callers that
-        need the full authorization picture fold them in separately (see
-        ``filter_experiment_ids``, which unions the result of this query with
-        ``list_experiment_permissions`` from the legacy table).
+        Return the user's role-based permission grants in ``workspace`` that apply
+        to resources of ``resource_type``.
 
-        Includes both grants on the specific resource_type and workspace-wide grants
-        (``resource_type='workspace'``, ``resource_pattern='*'``) since those apply to
-        every resource type.
+        Workspace-wide MANAGE applies to every resource type. Workspace USE applies
+        only to workspace queries, matching ``get_role_permission_for_resource``;
+        membership does not grant read access to every resource.
 
         Returns a list of ``(resource_pattern, permission)`` tuples.
         """
@@ -2336,6 +2427,7 @@ class SqlAlchemyStore:
                         and_(
                             SqlRolePermission.resource_type == RESOURCE_TYPE_WORKSPACE,
                             SqlRolePermission.resource_pattern == "*",
+                            SqlRolePermission.permission == MANAGE.name,
                         ),
                     ),
                 )

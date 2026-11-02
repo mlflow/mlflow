@@ -183,6 +183,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceTag,
     _input_to_dict,
 )
+from mlflow.store.tracking.file_store import _validate_new_trace_id
 from mlflow.store.tracking.gateway.sqlalchemy_mixin import SqlAlchemyGatewayStoreMixin
 from mlflow.store.tracking.mcp_server_registry.sqlalchemy_mixin import (
     SqlAlchemyMCPServerRegistryMixin,
@@ -3909,6 +3910,9 @@ class SqlAlchemyStore(
     # Below are Tracing APIs. We may refactor them to be in a separate class in the future.
     #######################################################################################
     def _get_trace_artifact_location_tag(self, experiment, trace_id: str) -> SqlTraceTag:
+        # Validate new trace ids before embedding them in the artifact location, like
+        # FileStore.start_trace does.
+        _validate_new_trace_id(trace_id)
         # Trace data is stored as file artifacts regardless of the tracking backend choice.
         # We use subdirectory "/traces" under the experiment's artifact location to isolate
         # them from run artifacts.
@@ -6207,9 +6211,14 @@ class SqlAlchemyStore(
             stored_usage_nodes: defaultdict[str, list[SpanAggregationNode]] = defaultdict(list)
             stored_cost_nodes: defaultdict[str, list[SpanAggregationNode]] = defaultdict(list)
             if recompute_trace_ids:
+                # Stream the rows: each one carries the full span content, so fetching them all at
+                # once holds the entire stored trace in memory on every call. On MySQL this makes
+                # the locking read unbuffered. It still locks each row as it is read, but the
+                # connection cannot run another statement until the result is drained, so the
+                # loop below must not query.
                 stored_span_rows = self._stored_span_rows_query(
                     session, sorted(recompute_trace_ids)
-                ).all()
+                ).yield_per(16)
                 for row_trace_id, row_span_id, row_parent_span_id, row_content in stored_span_rows:
                     # Phase 3 already upserted this batch's spans, so a span re-sent in this batch
                     # is read back here as well. Skip it, otherwise it would be counted twice: once

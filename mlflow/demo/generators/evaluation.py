@@ -26,6 +26,7 @@ from mlflow.entities.trace import Trace
 from mlflow.entities.view_type import ViewType
 from mlflow.genai.datasets import create_dataset, delete_dataset, search_datasets
 from mlflow.genai.scorers import scorer
+from mlflow.tracing.utils.search import traces_to_df
 
 _logger = logging.getLogger(__name__)
 
@@ -155,7 +156,7 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
     """
 
     name = DemoFeature.EVALUATION
-    version = 2
+    version = 3
 
     def generate(self) -> DemoResult:
         traces_generator = TracesDemoGenerator()
@@ -184,31 +185,34 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
         trace_level_traces = v1_non_session + v2_non_session
 
         # Create datasets
-        self._create_evaluation_dataset(
+        trace_level_dataset = self._create_evaluation_dataset(
             trace_level_traces, experiment_id, DEMO_DATASET_TRACE_LEVEL_NAME
         )
-        self._create_evaluation_dataset(
+        baseline_session_dataset = self._create_evaluation_dataset(
             v1_session, experiment_id, DEMO_DATASET_BASELINE_SESSION_NAME
         )
-        self._create_evaluation_dataset(
+        improved_session_dataset = self._create_evaluation_dataset(
             v2_session, experiment_id, DEMO_DATASET_IMPROVED_SESSION_NAME
         )
 
         # Create evaluation runs
         trace_level_run_id = self._create_evaluation_run(
             traces=trace_level_traces,
+            dataset=trace_level_dataset,
             experiment_id=experiment_id,
             run_name="trace-level-evaluation",
         )
 
         baseline_session_run_id = self._create_evaluation_run(
             traces=v1_session,
+            dataset=baseline_session_dataset,
             experiment_id=experiment_id,
             run_name="baseline-session-evaluation",
         )
 
         improved_session_run_id = self._create_evaluation_run(
             traces=v2_session,
+            dataset=improved_session_dataset,
             experiment_id=experiment_id,
             run_name="improved-session-evaluation",
         )
@@ -358,6 +362,7 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
     def _create_evaluation_run(
         self,
         traces: list[Trace],
+        dataset: EvaluationDataset,
         experiment_id: str,
         run_name: str,
     ) -> str:
@@ -390,9 +395,13 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
 
         mlflow.set_experiment(experiment_id=experiment_id)
 
+        # Score the curated traces themselves (evaluating the dataset would re-run them), but tag
+        # them with the dataset built from them so the run is linked to it instead of to an
+        # unnamed "dataset" input.
+        data = dataset._attach_identity(traces_to_df(traces))
         with _suppress_evaluation_output():
             result = mlflow.genai.evaluate(
-                data=traces,
+                data=data,
                 scorers=demo_scorers,
             )
 
