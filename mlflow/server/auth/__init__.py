@@ -2405,6 +2405,13 @@ def _enforce_rename_name_rules() -> None:
     request_message = _get_request_message(RenameRegisteredModel())
     _reject_wildcard_model_name(request_message.new_name)
     _reject_rename_with_named_role_grants(request_message.name, request_message.new_name)
+    _reject_rename_onto_per_user_grants(request_message.name, request_message.new_name)
+
+
+def _caller_can_manage_roles() -> bool:
+    user = store.get_user(authenticate_request().username)
+    workspace = _request_auth_workspace()
+    return user.is_admin or (workspace is not None and _is_workspace_admin(user.id, workspace))
 
 
 def _reject_rename_with_named_role_grants(name: str, new_name: str) -> None:
@@ -2418,9 +2425,7 @@ def _reject_rename_with_named_role_grants(name: str, new_name: str) -> None:
         return
     details = ""
     # Only callers who can manage roles can act on these grants, so only they get the details.
-    user = store.get_user(authenticate_request().username)
-    workspace = _request_auth_workspace()
-    if user.is_admin or (workspace is not None and _is_workspace_admin(user.id, workspace)):
+    if _caller_can_manage_roles():
         listed = ", ".join(
             f"role '{g.role_name}' has {g.permission} on {g.resource_type} '{g.resource_pattern}'"
             for g in grants
@@ -2430,6 +2435,42 @@ def _reject_rename_with_named_role_grants(name: str, new_name: str) -> None:
         f"Cannot rename '{name}' to '{new_name}' because role grants reference these names by "
         f"exact name{details}. Renaming would change which model or prompt those grants apply "
         "to. An admin must update or remove these role grants before the rename."
+    )
+
+
+def _reject_rename_onto_per_user_grants(name: str, new_name: str) -> None:
+    # A rename moves per-user grants from the old name to the new one. Grants already on the new
+    # name would start applying to the renamed model, and a user holding grants on both names
+    # would hit the unique constraint after the registry rename has committed. If another model
+    # or prompt already has the new name, the registry rejects the rename, so skip the check. A
+    # case-only rename on a case-insensitive registry finds the model itself, so it is checked.
+    if not new_name.strip() or new_name == name:
+        return
+    existing = _fetch_or_none(_get_model_registry_store().get_registered_model, new_name)
+    if existing is not None and existing.name != name:
+        return
+    # A case-insensitive auth database also returns grants on other spellings. Grants match by
+    # exact spelling (``permissions.matches``), so only the old name's own grants move with it.
+    grants = [
+        g
+        for g in store.list_per_user_grants_for_resource(
+            (RESOURCE_TYPE_REGISTERED_MODEL, RESOURCE_TYPE_PROMPT), (new_name,)
+        )
+        if g.resource_pattern != name
+    ]
+    if not grants:
+        return
+    details = ""
+    if _caller_can_manage_roles():
+        listed = ", ".join(
+            f"user '{g.username}' has {g.permission} on {g.resource_type} '{g.resource_pattern}'"
+            for g in grants
+        )
+        details = f" ({listed})"
+    raise MlflowException.invalid_parameter_value(
+        f"Cannot rename '{name}' to '{new_name}' because users already have permissions on "
+        f"'{new_name}'{details}. They would start applying to the renamed model or prompt. An "
+        "admin must remove these permissions before the rename."
     )
 
 
