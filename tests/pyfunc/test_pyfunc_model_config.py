@@ -179,9 +179,7 @@ def test_log_model_with_utf8_model_config(tmp_path, extension):
 def test_log_model_rejects_non_utf8_model_config(tmp_path, extension):
     config_path = tmp_path / f"invalid{extension}"
     invalid_content = (
-        b'{"system_prompt": "\xff"}'
-        if extension == ".json"
-        else b"system_prompt: \xff"
+        b'{"system_prompt": "\xff"}' if extension == ".json" else b"system_prompt: \xff"
     )
     config_path.write_bytes(invalid_content)
 
