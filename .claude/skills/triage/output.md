@@ -47,8 +47,7 @@ If any requirement is unmet, explain the findings in the comment without proposi
 
 Add regression tests when they add meaningful coverage. Place new regression tests next to
 the existing tests for that code, verify that they fail without the fix and pass with it,
-and run them together with the directly relevant existing tests, within the
-[runtime time budget](runtime.md#time-budget).
+and run them together with the directly relevant existing tests ([test rules](runtime.md#tests)).
 Before creating `fix.patch`:
 
 - Keep only the fix and any regression tests in the checkout.
