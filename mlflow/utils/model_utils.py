@@ -197,7 +197,8 @@ def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):
                 _copy_file_or_tree(src=code_path, dst=path, dst_dir=code_dir_subpath)
             except OSError as e:
                 # A common error is code-paths includes Databricks Notebook. We include it in error
-                # message when running in Databricks, but not in other envs tp avoid confusion.                example = ", such as Databricks Notebooks" if is_in_databricks_runtime() else ""
+                # message when running in Databricks, but not in other envs tp avoid confusion.
+                example = ", such as Databricks Notebooks" if is_in_databricks_runtime() else ""
                 raise MlflowException(
                     message=(
                         f"Failed to copy the specified code path '{code_path}' into the model "
@@ -396,7 +397,8 @@ def _get_overridden_pyfunc_model_config(
     """
 
     overrides = {}
-    if env_overrides := os.environ.get("MLFLOW_PYFUNC_INFERENCE_CONFIG"):        logger.debug(
+    if env_overrides := os.environ.get("MLFLOW_PYFUNC_INFERENCE_CONFIG"):
+        logger.debug(
             "Inference configuration is being loaded from ``MLFLOW_PYFUNC_INFERENCE_CONFIG``"
             " environ."
         )
