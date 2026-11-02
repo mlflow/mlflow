@@ -1014,11 +1014,6 @@ class Model:
                                 "Failed to load model config.",
                                 model_config,
                             )
-                    except UnicodeDecodeError as e:
-                        raise MlflowException(
-                            f"Model config file '{model_config}' must be UTF-8 encoded.",
-                            error_code=INVALID_PARAMETER_VALUE,
-                        ) from e
                     except Exception as e:
                         _logger.warning("Failed to load model config from %s: %s", model_config, e)
 
@@ -1355,11 +1350,6 @@ class Model:
                                     "Failed to load model config.",
                                     model_config,
                                 )
-                        except UnicodeDecodeError as e:
-                            raise MlflowException(
-                                f"Model config file '{model_config}' must be UTF-8 encoded.",
-                                error_code=INVALID_PARAMETER_VALUE,
-                            ) from e
                         except Exception as e:
                             _logger.warning(
                                 "Failed to load model config from %s: %s", model_config, e
