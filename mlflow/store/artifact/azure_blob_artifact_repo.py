@@ -103,8 +103,10 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         if parsed.scheme != "wasbs":
             raise MlflowException.invalid_parameter_value(f"Not a WASBS URI: {uri}")
 
+        # Azure storage account names are lowercase letters and digits; host names ignore case.
         match = re.fullmatch(
-            r"([^@]+)@([^.]+)\.(blob\.core\.(windows\.net|chinacloudapi\.cn|usgovcloudapi\.net))",
+            r"([^@]+)@([A-Za-z0-9]+)"
+            r"\.(blob\.core\.(windows\.net|chinacloudapi\.cn|usgovcloudapi\.net))",
             parsed.netloc,
         )
 
