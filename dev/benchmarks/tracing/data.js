@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793582057657,
+  "lastUpdate": 1793595895093,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "93098657+IgorShishkin12@users.noreply.github.com",
-            "name": "IgorShishkin12",
-            "username": "IgorShishkin12"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "948322ac3f7ed6983ebd37d5c2e65875ea98810e",
-          "message": "Add incremental mypy strict harness and type small mlflow.entities (#25309)\n\nSigned-off-by: IgorShishkin12 <qwertyshishkin@yandex.ru>",
-          "timestamp": "2026-08-27T05:39:06Z",
-          "tree_id": "6949fcbc60b29cb659122aa67abed2d41503704d",
-          "url": "https://github.com/mlflow/mlflow/commit/948322ac3f7ed6983ebd37d5c2e65875ea98810e"
-        },
-        "date": 1787809231298,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 42.47983640000115,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 6.243689981820146,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 5.386648291389535,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 6.205736474999431,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 5.718747537313585,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 9.079694199994037,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 5.830156499998888,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "31463517+B-Step62@users.noreply.github.com",
+            "name": "Yuki Watanabe",
+            "username": "B-Step62"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "49c2b6aaa6fcbe7dfa0ef049205b6249e7642836",
+          "message": "Support Databricks System One models in custom and Guidelines judges (#27345)\n\nSigned-off-by: Yuki Watanabe <yuki.watanabe@databricks.com>",
+          "timestamp": "2026-11-02T05:01:27Z",
+          "tree_id": "03896beedd7d986baa5446a24e79237facd3ab0a",
+          "url": "https://github.com/mlflow/mlflow/commit/49c2b6aaa6fcbe7dfa0ef049205b6249e7642836"
+        },
+        "date": 1793595892264,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 27.955473250001717,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 4.228919905262717,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 3.6699641557788136,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 3.6825773668342676,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 4.759143181816935,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 29.326681142858238,
             "unit": "ms"
           }
         ]
