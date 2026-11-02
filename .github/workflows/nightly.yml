@@ -142,15 +142,15 @@ jobs:
           GATEWAY_URL: ${{ steps.gateway.outputs.base-url }}
         run: |
           umask 077
-          proxy_token=$(openssl rand -hex 32)
-          echo "::add-mask::$proxy_token"
-          printf 'token=%s\n' "$proxy_token" >> "$GITHUB_OUTPUT"
-          printf '%s\n%s\n' "$GATEWAY_TOKEN" "$proxy_token" | env -u GATEWAY_TOKEN -u GH_TOKEN \
+          placeholder_token=$(openssl rand -hex 32)
+          echo "::add-mask::$placeholder_token"
+          printf 'placeholder-token=%s\n' "$placeholder_token" >> "$GITHUB_OUTPUT"
+          printf '%s\n%s\n' "$GATEWAY_TOKEN" "$placeholder_token" | env -u GATEWAY_TOKEN -u GH_TOKEN \
             GATEWAY_URL="$GATEWAY_URL" node .claude/sandbox/gateway-proxy.mjs \
             > "$RUNNER_TEMP/nightly-gateway-proxy.log" 2>&1 &
           proxy_pid=$!
           printf '%s\n' "$proxy_pid" > "$RUNNER_TEMP/nightly-gateway-proxy.pid"
-          unset GATEWAY_TOKEN proxy_token
+          unset GATEWAY_TOKEN placeholder_token
           curl --noproxy '*' --retry 30 --retry-connrefused --retry-delay 1 \
             -fsS http://127.0.0.1:8080/healthz > /dev/null
       # Claude Code exports OpenTelemetry traces and logs to MLflow through a local proxy that holds
@@ -212,7 +212,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUN_IDS: ${{ needs.resolve.outputs.run_ids }}
           ANTHROPIC_BASE_URL: http://localhost:8080/anthropic
-          ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway-proxy.outputs.token }}
+          # Placeholder the sandbox sends to the local gateway proxy; the proxy swaps in the real gateway token.
+          ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway-proxy.outputs.placeholder-token }}
           ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
           # The auto permission classifier requires this alias; investigators inherit the main model.
           ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5
