@@ -241,6 +241,33 @@ def test_index_for_dataset_tables(tmp_path, db_url):
         assert new_index_names.issubset(all_index_names)
 
 
+def test_skill_registry_indexes(tmp_path, db_url):
+    # SqlAlchemyStore() on the empty db_url runs all migrations to build the schema
+    # from scratch; then assert the resulting indexes match `expected` (names + exact
+    # column order -- column order is what makes an index useful). `expected` is
+    # hardcoded on purpose: it's an independent statement catch a bad change. The
+    # golden schema dumps carry no index DDL, so nothing else guards these.
+    SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
+    expected = {
+        "ix_skill_versions_latest_lookup": [
+            "workspace",
+            "organization",
+            "name",
+            "status",
+            "version",
+        ],
+        "ix_skill_versions_digest": ["workspace", "organization", "name", "digest"],
+    }
+    with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type = 'index'")
+        all_index_names = {r[0] for r in cursor.fetchall()}
+        assert set(expected).issubset(all_index_names)
+        for index_name, columns in expected.items():
+            cursor.execute(f"PRAGMA index_info('{index_name}')")
+            assert [row[2] for row in cursor.fetchall()] == columns
+
+
 def test_secrets_and_endpoints_tables(tmp_path, db_url):
     SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
     with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
@@ -504,6 +531,44 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
             "rollup_day": date(2026, 1, 1),
             "rollup_family": f"family_{seed}",
         },
+        "skills": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"skill_{seed}",
+            "created_at": seed,
+            "last_updated_at": seed,
+        },
+        "skill_versions": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"skill_{seed}",
+            "version": seed,
+            "status": "active",
+            "created_at": seed,
+            "last_updated_at": seed,
+        },
+        "skill_tags": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"skill_{seed}",
+            "key": f"tag_{seed}",
+            "value": f"value_{seed}",
+        },
+        "skill_version_tags": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"skill_{seed}",
+            "version": seed,
+            "key": f"vtag_{seed}",
+            "value": f"value_{seed}",
+        },
+        "skill_aliases": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"skill_{seed}",
+            "alias": f"alias_{seed}",
+            "version": seed,
+        },
     }
     if table_name not in base_values:
         raise AssertionError(f"Unexpected table: {table_name}")
@@ -555,6 +620,8 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
         ("endpoints", ("name",), "endpoints with the same name"),
         ("model_definitions", ("name",), "model definitions with the same name"),
         ("mcp_servers", ("name",), "MCP servers with the same name"),
+        # Skills key their conflict on (organization, name)
+        ("skills", ("organization", "name"), "skills with the same organization and name"),
     ],
 )
 def test_migrate_to_default_workspace_conflict(tmp_path, table_name, conflict_columns, description):
@@ -616,4 +683,55 @@ def test_migrate_to_default_workspace_moves_rows(tmp_path):
                 table.c.workspace != DEFAULT_WORKSPACE_NAME
             )
             assert conn.execute(stmt).scalar_one() == 0
+    engine.dispose()
+
+
+@pytest.mark.parametrize("dry_run", [True, False])
+def test_migrate_to_default_workspace_blocks_mlflow_backed_skills(db_uri, dry_run):
+    engine = sqlalchemy.create_engine(db_uri)
+    with engine.begin() as conn:
+        _insert_row(conn, "skills", "team-a", seed=1)
+        _insert_row(
+            conn,
+            "skill_versions",
+            "team-a",
+            seed=1,
+            overrides={
+                "source_type": "mlflow",
+                "source": "mlflow-artifacts:/skills/org_1/skill_1/content",
+            },
+        )
+
+    with pytest.raises(RuntimeError, match="MLflow-backed skill versions"):
+        migrate_to_default_workspace(engine, dry_run=dry_run)
+
+    with engine.begin() as conn:
+        skill_versions = sqlalchemy.Table(
+            "skill_versions", sqlalchemy.MetaData(), autoload_with=conn
+        )
+        assert conn.execute(sqlalchemy.select(skill_versions.c.workspace)).scalar_one() == "team-a"
+    engine.dispose()
+
+
+def test_migrate_to_default_workspace_allows_external_skill_sources(db_uri):
+    engine = sqlalchemy.create_engine(db_uri)
+    with engine.begin() as conn:
+        _insert_row(conn, "skills", "team-a", seed=1)
+        _insert_row(
+            conn,
+            "skill_versions",
+            "team-a",
+            seed=1,
+            overrides={"source_type": "git", "source": "https://example.com/skills.git"},
+        )
+
+    migrate_to_default_workspace(engine)
+
+    with engine.begin() as conn:
+        skill_versions = sqlalchemy.Table(
+            "skill_versions", sqlalchemy.MetaData(), autoload_with=conn
+        )
+        assert conn.execute(sqlalchemy.select(skill_versions.c.workspace)).scalar_one() == (
+            DEFAULT_WORKSPACE_NAME
+        )
     engine.dispose()

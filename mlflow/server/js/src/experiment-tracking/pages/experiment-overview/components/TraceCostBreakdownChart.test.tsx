@@ -1,4 +1,4 @@
-import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { screen, waitFor } from '@testing-library/react';
 import { renderWithIntl } from '../../../../common/utils/TestUtils.react18';
 import { TraceCostBreakdownChart } from './TraceCostBreakdownChart';
@@ -14,6 +14,20 @@ import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
 import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
+
+import { shouldEnableNewEvalRunsUi } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+
+// The tests below cover the plain cost format; the new eval runs UI's estimated format has its own test.
+jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('@mlflow/mlflow/src/common/utils/FeatureUtils')>(
+    '@mlflow/mlflow/src/common/utils/FeatureUtils',
+  ),
+  shouldEnableNewEvalRunsUi: jest.fn(() => false),
+}));
+
+afterEach(() => {
+  jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
+});
 
 // Helper to create a cost breakdown data point
 const createCostDataPoint = (modelName: string, totalCost: number) => ({
@@ -157,6 +171,17 @@ describe('TraceCostBreakdownChart', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Total Cost')).toBeInTheDocument();
+      });
+    });
+
+    it('marks the total cost as estimated with the new eval runs UI', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      setupTraceMetricsHandler(mockDataPoints);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('≈$0.10')).toBeInTheDocument();
       });
     });
 

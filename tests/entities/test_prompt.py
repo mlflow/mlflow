@@ -201,6 +201,22 @@ def test_prompt_with_model_config_dict():
     assert prompt_without_config.model_config is None
 
 
+def test_prompt_does_not_mutate_caller_tags():
+    tags = {"author": "alice"}
+    PromptVersion(
+        name="my_prompt",
+        version=1,
+        template="Hello, {{name}}!",
+        tags=tags,
+        model_config={"temperature": 0.7},
+    )
+    assert tags == {"author": "alice"}
+
+    prompt = PromptVersion(name="my_prompt", version=2, template="Hi!", tags=tags)
+    assert prompt.model_config is None
+    assert prompt.tags == {"author": "alice"}
+
+
 def test_prompt_with_model_config_instance():
     config = PromptModelConfig(model_name="gpt-5", temperature=0.7, max_tokens=1000)
     prompt = PromptVersion(

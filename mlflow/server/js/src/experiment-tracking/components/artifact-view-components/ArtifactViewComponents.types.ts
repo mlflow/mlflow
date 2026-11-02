@@ -1,6 +1,7 @@
-import type { KeyValueEntity } from '../../../common/types';
-
 export interface LoggedModelArtifactViewerProps {
+  /** Root URI used to select the direct or proxied presigned artifact flow. */
+  artifactRootUri?: string;
+
   /**
    * Artifact viewer can also work with logged models instead of runs.
    * Set this to `true` to enable the logged models mode.
@@ -17,8 +18,4 @@ export interface LoggedModelArtifactViewerProps {
    * This is used when the run does not have the artifacts but the related logged model does.
    */
   isFallbackToLoggedModelArtifacts?: boolean;
-
-  experimentId: string;
-
-  entityTags?: Partial<KeyValueEntity>[];
 }

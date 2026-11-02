@@ -15,7 +15,11 @@ from mlflow.environment_variables import (
     MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING, Scorer
+from mlflow.genai.scorers.base import (
+    SCORER_BACKEND_TRACKING,
+    Scorer,
+    _job_executor_scorer_context,
+)
 from mlflow.server.jobs import job
 from mlflow.store.tracking import MAX_TRACE_LINKS_PER_REQUEST
 
@@ -38,6 +42,7 @@ def invoke_genai_evaluate_job(
     writing all outputs (dataset input, assessments, aggregate metrics) into
     the pre-existing run identified by `run_id`.
     """
+    # Identifies the caller to the gateway for judge calls; tracking itself goes to the store.
     if username is not None:
         os.environ["MLFLOW_TRACKING_USERNAME"] = username
         if internal_token := _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.get():
@@ -49,7 +54,10 @@ def invoke_genai_evaluate_job(
         for i in range(0, len(trace_ids), MAX_TRACE_LINKS_PER_REQUEST):
             client.link_traces_to_run(trace_ids[i : i + MAX_TRACE_LINKS_PER_REQUEST], run_id)
         traces = client._tracing_client.batch_get_traces(trace_ids)
-        scorers = [Scorer.model_validate_json(s) for s in serialized_scorers]
+        # Reconstructing a custom scorer executes its code, which is permitted only in the
+        # executor (never in the tracking server process).
+        with _job_executor_scorer_context():
+            scorers = [Scorer.model_validate_json(s) for s in serialized_scorers]
         if scorer_versions is not None:
             if len(scorer_versions) != len(scorers):
                 raise MlflowException.invalid_parameter_value(

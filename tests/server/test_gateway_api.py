@@ -34,6 +34,7 @@ from mlflow.gateway.config import (
     OpenAIAPIType,
     OpenAIConfig,
     PortkeyConfig,
+    TypeSafeConfig,
     VertexAIConfig,
 )
 from mlflow.gateway.constants import MLFLOW_GATEWAY_DURATION_HEADER, MLFLOW_GATEWAY_OVERHEAD_HEADER
@@ -168,6 +169,42 @@ def test_build_endpoint_config_vertex_ai_reads_anthropic_betas_from_auth_config(
     config = _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
     assert isinstance(config.model.config, VertexAIConfig)
     assert config.model.config.vertex_anthropic_betas == expected
+
+
+def test_build_endpoint_config_typesafe_reads_api_base_from_auth_config():
+    model_config = GatewayModelConfig(
+        model_definition_id="md-test",
+        provider="typesafe",
+        model_name="jev-1.13.0",
+        secret_value={"api_key": "typesafe-test-key"},
+        auth_config={"api_base": "https://typesafe.example.com/v1"},
+    )
+    config = _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
+
+    assert isinstance(config.model.config, TypeSafeConfig)
+    assert config.model.config.typesafe_api_base == "https://typesafe.example.com/v1"
+
+
+@pytest.mark.parametrize(
+    ("auth_config", "expected_base"),
+    [
+        (None, "https://generativelanguage.googleapis.com/v1beta/models"),
+        ({}, "https://generativelanguage.googleapis.com/v1beta/models"),
+        (
+            {"api_base": "https://gemini.example.com/relay/v1"},
+            "https://gemini.example.com/relay/v1",
+        ),
+    ],
+)
+def test_build_endpoint_config_gemini_api_base(auth_config, expected_base):
+    model_config = _make_model_config("gemini", "gemini-2.0-flash")
+    model_config.auth_config = auth_config
+    config = _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
+
+    assert isinstance(config.model.config, GeminiConfig)
+    assert config.model.config.gemini_api_key == "sk-test"
+    assert config.model.config.gemini_api_base == expected_base
+    assert GeminiProvider(config).get_endpoint_url("llm/v1/chat").startswith(expected_base + "/")
 
 
 def test_create_provider_from_endpoint_name_openai(store: SqlAlchemyStore):
@@ -575,9 +612,12 @@ def _create_endpoint(store: SqlAlchemyStore, name: str, provider: str, auth_conf
     )
 
 
-def test_upstream_ssrf_protection_enabled_for_user_supplied_api_base(store: SqlAlchemyStore):
+@pytest.mark.parametrize("provider", ["openai", "gemini"])
+def test_upstream_ssrf_protection_enabled_for_user_supplied_api_base(
+    store: SqlAlchemyStore, provider: str
+):
     endpoint = _create_endpoint(
-        store, "custom-base", "openai", auth_config={"api_base": "https://llm.example.com/v1"}
+        store, "custom-base", provider, auth_config={"api_base": "https://llm.example.com/v1"}
     )
     assert upstream_ssrf_protection.get() is False
 
@@ -1281,9 +1321,9 @@ async def test_invocations_handler_streaming(store: SqlAlchemyStore):
         assert isinstance(response, StreamingResponse)
         assert response.media_type == "text/event-stream"
         # chat_stream is inside a lazy async generator; consume the body to trigger execution
-        async for _ in response.body_iterator:
-            pass
+        body = "".join([chunk async for chunk in response.body_iterator])
         assert mock_provider.chat_stream.called
+        assert body.endswith("data: [DONE]\n\n")
 
 
 def test_create_provider_from_endpoint_name_no_models(store: SqlAlchemyStore):
@@ -1617,9 +1657,9 @@ async def test_chat_completions_endpoint_streaming(store: SqlAlchemyStore):
         assert isinstance(response, StreamingResponse)
         assert response.media_type == "text/event-stream"
         # chat_stream is inside a lazy async generator; consume the body to trigger execution
-        async for _ in response.body_iterator:
-            pass
+        body = "".join([chunk async for chunk in response.body_iterator])
         assert mock_provider.chat_stream.called
+        assert body.endswith("data: [DONE]\n\n")
 
 
 @pytest.mark.asyncio
@@ -2296,6 +2336,67 @@ async def test_anthropic_passthrough_messages_streaming(store: SqlAlchemyStore):
         assert b"content_block_stop" in chunks[4]
         assert b"message_delta" in chunks[5]
         assert b"message_stop" in chunks[6]
+
+
+@pytest.mark.asyncio
+async def test_anthropic_passthrough_messages_streaming_error_is_a_named_event(
+    store: SqlAlchemyStore,
+):
+    secret = store.create_gateway_secret(
+        secret_name="anthropic-stream-error-key",
+        secret_value={"api_key": "sk-ant-test-error"},
+        provider="anthropic",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="anthropic-stream-error-model",
+        secret_id=secret.secret_id,
+        provider="anthropic",
+        model_name="claude-3-5-sonnet-20241022",
+    )
+    store.create_gateway_endpoint(
+        name="anthropic-stream-error-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    mock_request = create_mock_request()
+    mock_request.json = AsyncMock(
+        return_value={
+            "model": "anthropic-stream-error-endpoint",
+            "messages": [{"role": "user", "content": "Hello"}],
+            "max_tokens": 1024,
+            "stream": True,
+        }
+    )
+
+    async def failing_stream():
+        yield b'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_1","type":"message","role":"assistant","content":[],"model":"claude-3-5-sonnet-20241022","usage":{"input_tokens":10,"output_tokens":0}}}\n\n'  # noqa: E501
+        raise HTTPException(
+            status_code=429, detail="Number of requests has exceeded your rate limit"
+        )
+
+    with mock.patch(
+        "mlflow.gateway.providers.anthropic.send_stream_request", return_value=failing_stream()
+    ) as mock_send_stream:
+        response = await anthropic_passthrough_messages(mock_request)
+        chunks = [chunk async for chunk in response.body_iterator]
+
+    mock_send_stream.assert_called_once()
+    assert b"message_start" in chunks[0]
+    # The upstream error has to arrive as a named event or Anthropic clients drop it.
+    assert chunks[-1].startswith(b"event: error\ndata: ")
+    assert json.loads(chunks[-1].split(b"data: ", 1)[1]) == {
+        "type": "error",
+        "error": {
+            "type": "rate_limit_error",
+            "message": "Number of requests has exceeded your rate limit",
+        },
+    }
 
 
 # =============================================================================
@@ -3774,6 +3875,33 @@ async def test_real_db_pre_llm_guardrail_blocks(store: SqlAlchemyStore):
 
     assert not mock_chat.called
     assert blocking_scorer.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_real_db_custom_scorer_guardrail_fails_request(store: SqlAlchemyStore):
+    # A guardrail whose stored scorer is a custom @scorer cannot run in the server. The request
+    # must fail with a server error naming the guardrail, rather than reaching the provider
+    # without the guardrail.
+    endpoint = _setup_guardrail_endpoint(store, "real-ep-custom-scorer")
+    _setup_db_guardrail(store, "real-ep-custom-scorer", "BEFORE", "VALIDATION")
+
+    mock_request = _make_guardrail_mock_request({
+        "messages": [{"role": "user", "content": "hello"}]
+    })
+
+    with (
+        patch("mlflow.genai.scorers.base._serialized_scorer_is_custom_code", return_value=True),
+        patch(
+            "mlflow.gateway.providers.openai.OpenAIProvider.chat",
+            AsyncMock(),
+        ) as mock_chat,
+    ):
+        with pytest.raises(HTTPException, match="500") as exc_info:
+            await invocations(endpoint.name, mock_request)
+
+    assert exc_info.value.status_code == 500
+    assert "uses a custom scorer" in exc_info.value.detail["message"]
+    assert not mock_chat.called
 
 
 @pytest.mark.asyncio

@@ -335,6 +335,9 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
   const [remoteAccessAllowed, setRemoteAccessAllowed] = useState(false);
   const canUseAssistant = isLocalServer || remoteAccessAllowed;
+  // Reported by the server, which applies the same rule when it saves. False until the config
+  // loads, so server-wide inputs are never shown to a caller who may not change them.
+  const [canEditServerSettings, setCanEditServerSettings] = useState(false);
 
   // Whether the (possibly optimistically-picked) provider still needs an API key
   // before it can chat. Derived from discovery so a dropdown switch flips it
@@ -573,6 +576,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       const resolved = resolveSetupFromProviders(providersResponse);
       setSetupComplete(resolved.setupComplete);
       setRemoteAccessAllowed(config.remote_access_allowed ?? false);
+      setCanEditServerSettings(config.can_edit_server_settings ?? false);
       setProviders(providersResponse.providers);
       setGatewayVendorOptions(providersResponse.gateway_vendor_options ?? {});
       // Don't clobber an uncommitted optimistic pick with the resolved provider;
@@ -584,6 +588,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       // On error, assume setup is not complete
       setSetupComplete(false);
       setRemoteAccessAllowed(false);
+      setCanEditServerSettings(false);
       setProviders([]);
       setGatewayVendorOptions({});
       if (!pendingProviderSelectionRef.current) {
@@ -599,13 +604,16 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
   const selectProvider = useCallback(
     (selection: AssistantProviderSelection) => {
-      if (!isLocalServer) {
+      // Any client permitted to use the Assistant may switch providers: a permitted remote client
+      // persists the pick through the same config write the server accepts for it. A client that
+      // cannot use the Assistant has no picker, so this only guards stray programmatic calls.
+      if (!canUseAssistant) {
         return;
       }
       pendingProviderSelectionRef.current = selection;
       setActiveProvider(activeProviderFromSelection(selection, providers));
     },
-    [isLocalServer, providers],
+    [canUseAssistant, providers],
   );
 
   // Persist a pending optimistic provider pick to config before a turn streams,
@@ -1359,6 +1367,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     pendingPermission,
     pendingClientToolCall,
     canUseAssistant,
+    canEditServerSettings,
     tokenUsage,
     // Actions
     openPanel,
@@ -1406,6 +1415,7 @@ const disabledAssistantContext: AssistantAgentContextType = {
   pendingPermission: null,
   pendingClientToolCall: null,
   canUseAssistant: false,
+  canEditServerSettings: false,
   tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, cacheReadTokens: 0, costUsd: null },
   openPanel: () => {},
   closePanel: () => {},

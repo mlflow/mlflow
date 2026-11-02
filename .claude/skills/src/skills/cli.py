@@ -6,7 +6,6 @@ from skills.commands import (
     fetch_logs,
     load_rules,
     upload_media,
-    validate_review,
 )
 
 
@@ -19,7 +18,6 @@ def build_parser() -> argparse.ArgumentParser:
     fetch_logs.register(subparsers)
     load_rules.register(subparsers)
     upload_media.register(subparsers)
-    validate_review.register(subparsers)
 
     return parser
 

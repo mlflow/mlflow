@@ -1,8 +1,13 @@
+import importlib.metadata
 import json
 from collections.abc import AsyncIterator, Sequence
 from typing import Any
 
+import pytest
 from opentelemetry import trace as otel_trace
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+from packaging.version import Version
 from strands import Agent
 from strands.models.model import Model
 from strands.tools.tools import PythonAgentTool
@@ -48,10 +53,17 @@ tool = PythonAgentTool(
 
 
 class DummyModel(Model):
-    def __init__(self, response_text: str, in_tokens: int = 1, out_tokens: int = 1):
+    def __init__(
+        self,
+        response_text: str,
+        in_tokens: int = 1,
+        out_tokens: int = 1,
+        extra_usage: dict[str, int] | None = None,
+    ):
         self.response_text = response_text
         self.in_tokens = in_tokens
         self.out_tokens = out_tokens
+        self.extra_usage = extra_usage or {}
         self.config = {}
 
     def update_config(self, **model_config):
@@ -82,6 +94,7 @@ class DummyModel(Model):
                     "inputTokens": self.in_tokens,
                     "outputTokens": self.out_tokens,
                     "totalTokens": self.in_tokens + self.out_tokens,
+                    **self.extra_usage,
                 },
                 "metrics": {"latencyMs": 0},
             }
@@ -285,6 +298,47 @@ def test_multiple_agents_single_trace():
     }
 
 
+@pytest.mark.skipif(
+    Version(importlib.metadata.version("strands-agents")) < Version("1.54.0"),
+    reason="strands-agents < 1.54.0 does not emit semconv cache token attributes",
+)
+@pytest.mark.parametrize(
+    ("total_tokens", "expected_input_tokens"),
+    [
+        # Cache tokens already counted in inputTokens
+        (12, 10),
+        # Cache tokens reported separately (e.g. Bedrock); strands adds them to the input count
+        (20, 18),
+    ],
+)
+def test_strands_autolog_chat_span_records_cache_tokens(total_tokens, expected_input_tokens):
+    mlflow.strands.autolog()
+
+    model = DummyModel(
+        "hi",
+        10,
+        2,
+        extra_usage={
+            "totalTokens": total_tokens,
+            "cacheReadInputTokens": 5,
+            "cacheWriteInputTokens": 3,
+        },
+    )
+    agent = Agent(model=model, name="agent")
+    agent("hello")
+
+    traces = get_traces()
+    assert len(traces) == 1
+    chat_span = next(span for span in traces[0].data.spans if span.span_type == SpanType.CHAT_MODEL)
+    assert chat_span.attributes[SpanAttributeKey.CHAT_USAGE] == {
+        "input_tokens": expected_input_tokens,
+        "output_tokens": 2,
+        "total_tokens": total_tokens,
+        "cache_read_input_tokens": 5,
+        "cache_creation_input_tokens": 3,
+    }
+
+
 def test_autolog_disable_prevents_new_traces():
     mlflow.strands.autolog()
 
@@ -325,6 +379,38 @@ def test_strands_autolog_shared_provider_no_recursion(monkeypatch):
     assert len(traces) == 1
     spans = traces[0].data.spans
     agent_span = next(span for span in spans if span.span_type == SpanType.AGENT)
+    assert agent_span.inputs == [{"role": "user", "content": [{"text": "hello"}]}]
+    assert agent_span.outputs.strip() == "hi"
+
+
+@pytest.mark.parametrize("init_tracing_before_autolog", [False, True])
+def test_strands_autolog_shared_provider_exports_each_span_once(
+    monkeypatch, init_tracing_before_autolog
+):
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "false")
+
+    if init_tracing_before_autolog:
+        # Registers MLflow's span processor on the shared provider before Strands' processor.
+        with mlflow.start_span(name="warmup"):
+            pass
+
+    mlflow.strands.autolog()
+
+    # Every processor on the shared provider sees what MLflow's processor sees, so an
+    # in-memory exporter there records each span once per dispatch.
+    exporter = InMemorySpanExporter()
+    otel_trace.get_tracer_provider().add_span_processor(SimpleSpanProcessor(exporter))
+
+    agent = Agent(model=DummyModel("hi"), name="agent")
+    agent("hello")
+    with mlflow.start_span(name="manual"):
+        pass
+
+    span_ids = [span.context.span_id for span in exporter.get_finished_spans()]
+    assert len(span_ids) == len(set(span_ids))
+
+    agent_trace = next(t for t in get_traces() if t.data.spans[0].name == "invoke_agent agent")
+    agent_span = next(s for s in agent_trace.data.spans if s.span_type == SpanType.AGENT)
     assert agent_span.inputs == [{"role": "user", "content": [{"text": "hello"}]}]
     assert agent_span.outputs.strip() == "hi"
 

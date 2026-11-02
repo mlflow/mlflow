@@ -2,7 +2,6 @@ import type { TagProps } from '@databricks/design-system';
 import type {
   ConnectOptionKey,
   MCPAccessEndpoint,
-  MCPIcon,
   MCPServer,
   MCPRemoteTransportType,
   MCPTool,
@@ -12,24 +11,8 @@ import type {
 } from './types';
 import { MCPStatus, MCPServerAction } from './types';
 
-export const resolveIcon = (icons?: MCPIcon[], isDarkMode?: boolean): MCPIcon | undefined => {
-  if (!icons?.length) return undefined;
-  const preferred = isDarkMode ? 'dark' : 'light';
-  return icons.find((i) => i.theme === preferred) ?? icons.find((i) => !i.theme);
-};
-
-export const sanitizeHref = (url: string | undefined): string | undefined => {
-  if (!url) return undefined;
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-      return url;
-    }
-  } catch {
-    // malformed URL
-  }
-  return undefined;
-};
+export { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from '../common/hooks/useCursorPaginatedQuery';
+export { resolveIcon, sanitizeHref } from '../common/utils/registryIcons';
 
 export const STATUS_TAG_COLOR: Record<MCPStatus, TagProps['color']> = {
   [MCPStatus.DRAFT]: 'charcoal',
@@ -56,9 +39,6 @@ export const MCP_QUERY_KEYS = {
   SERVER_LATEST_VERSION: 'mcp_server_latest_version',
   SERVER_ENDPOINTS: 'mcp_server_endpoints',
 } as const;
-
-export const DEFAULT_PAGE_SIZE = 25;
-export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 export const resolveDisplayName = (server: { display_name?: string; name: string }): string => {
   return server.display_name || server.name;
@@ -105,6 +85,8 @@ export const findLatestEndpoint = (server: MCPServer): MCPAccessEndpoint | undef
     ? (server.access_endpoints ?? []).find((e) => e.resolved_version?.version === server.latest_version)
     : server.access_endpoints?.[0];
 
+export const formatStatusLabel = (status: MCPStatus) => status.charAt(0).toUpperCase() + status.slice(1);
+
 export const isServerDimmed = (server: MCPServer): boolean => server.status !== MCPStatus.ACTIVE;
 
 export const formatEndpointTarget = (endpoint: Pick<MCPAccessEndpoint, 'server_alias' | 'server_version'>): string =>
@@ -131,6 +113,27 @@ interface ServerJsonValidationResult {
   parsed?: ServerJSONPayload;
 }
 
+const isJsonObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/**
+ * Registry API responses wrap server.json in a `server` property together with
+ * registry metadata. Prefer a direct server.json when both formats are present.
+ */
+export const unwrapServerJson = (value: unknown): Record<string, unknown> | undefined => {
+  if (!isJsonObject(value)) return undefined;
+
+  if ('name' in value && 'version' in value) {
+    return value;
+  }
+
+  if ('server' in value) {
+    return isJsonObject(value['server']) ? value['server'] : undefined;
+  }
+
+  return value;
+};
+
 export const validateServerJson = (value: string): ServerJsonValidationResult => {
   const trimmed = value?.trim();
   if (!trimmed) {
@@ -144,11 +147,10 @@ export const validateServerJson = (value: string): ServerJsonValidationResult =>
     return { valid: false, error: 'Invalid JSON format in server configuration' };
   }
 
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+  const obj = unwrapServerJson(parsed);
+  if (!obj) {
     return { valid: false, error: 'Server configuration must be a JSON object' };
   }
-
-  const obj = parsed as Record<string, unknown>;
 
   if (!obj['name'] || typeof obj['name'] !== 'string') {
     return { valid: false, error: 'Server configuration must include a "name" field' };

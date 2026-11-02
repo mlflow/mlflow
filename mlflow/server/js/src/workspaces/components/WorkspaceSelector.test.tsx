@@ -223,6 +223,28 @@ describe('WorkspaceSelector', () => {
     expect(trigger).toBeInTheDocument();
   });
 
+  it.each(['/skills', '/skills/my-skill', '/skills/@acme/my-skill', '/skills/models', '/skills/@acme/prompts'])(
+    'stays in the Skills section when switching workspace from %s',
+    async (pathname) => {
+      fetchAPIMock.mockResolvedValue({ workspaces: [{ name: 'default' }, { name: 'team-a' }] });
+      useLocationMock.mockReturnValue({
+        pathname,
+        search: '?workspace=default',
+        hash: '',
+        state: null,
+        key: 'default',
+      });
+
+      renderWithProviders(<WorkspaceSelector />);
+
+      await userEvent.click(screen.getByRole('combobox'));
+      await userEvent.click(await screen.findByText('team-a'));
+
+      expect(mockNavigate).toHaveBeenCalledWith('/skills?workspace=team-a');
+      expect(getActiveWorkspace()).toBe('team-a');
+    },
+  );
+
   it('calls refetch when combobox is opened', async () => {
     let fetchCount = 0;
     fetchAPIMock.mockImplementation(() => {

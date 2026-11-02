@@ -47,6 +47,7 @@ export const WorkspaceSelector = () => {
 
   // Smart redirect - preserve navigation context
   const getNavigationSection = (pathname: string): string => {
+    if (pathname === '/skills' || pathname.startsWith('/skills/')) return '/skills';
     if (pathname.includes('/experiments')) return '/experiments';
     if (pathname.includes('/models')) return '/models';
     if (pathname.includes('/prompts')) return '/prompts';

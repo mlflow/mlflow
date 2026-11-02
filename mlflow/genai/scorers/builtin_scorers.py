@@ -79,7 +79,8 @@ from mlflow.genai.judges.prompts.user_frustration import (
     USER_FRUSTRATION_ASSESSMENT_NAME,
     USER_FRUSTRATION_PROMPT,
 )
-from mlflow.genai.judges.typesafe import _invoke_typesafe_judge, _is_typesafe_model
+from mlflow.genai.judges.structured_judge import _invoke_structured_builtin_judge
+from mlflow.genai.judges.typesafe import _is_typesafe_model
 from mlflow.genai.judges.utils import (
     CategoricalRating,
     get_chat_completions_with_structured_output,
@@ -344,6 +345,10 @@ class BuiltInScorer(Judge):
             description=self.description,
             aggregations=self.aggregations,
             is_session_level_scorer=self.is_session_level_scorer,
+            # Mirrors the value already inside `pydantic_model_data` so the top-level
+            # field stays consistent for consumers that read it; on deserialization
+            # the pydantic data wins.
+            session_level=self.session_level,
             mlflow_version=mlflow.__version__,
             serialization_version=_SERIALIZATION_VERSION,
             builtin_scorer_class=self.__class__.__name__,
@@ -355,8 +360,6 @@ class BuiltInScorer(Judge):
     @classmethod
     def model_validate(cls, obj: SerializedScorer | dict[str, Any]) -> "BuiltInScorer":
         """Override model_validate to handle builtin scorer deserialization."""
-        from mlflow.genai.scorers import builtin_scorers
-
         if isinstance(obj, SerializedScorer):
             serialized = obj
         else:
@@ -373,10 +376,9 @@ class BuiltInScorer(Judge):
                     f"Failed to parse serialized scorer data: {e}"
                 )
 
-        try:
-            scorer_class = getattr(builtin_scorers, serialized.builtin_scorer_class)
-        except AttributeError:
-            # error_code is INVALID_PARAMETER_VALUE but this is an attribute lookup failure
+        scorer_class = _get_builtin_scorer_class(serialized.builtin_scorer_class)
+        if scorer_class is None:
+            # error_class is kept from when this was a plain attribute lookup.
             raise MlflowException.invalid_parameter_value(
                 f"Unknown builtin scorer class: {serialized.builtin_scorer_class}",
                 error_class="ATTRIBUTE_NOT_FOUND",
@@ -525,25 +527,23 @@ class RetrievalRelevance(BuiltInScorer):
             )
         else:
             for i, chunk in enumerate(chunks):
-                if _is_typesafe_model(model):
-                    feedback = _invoke_typesafe_judge(
+                feedback = _invoke_structured_builtin_judge(
+                    model,
+                    chat_invoker=lambda chunk=chunk: invoke_judge_model(
                         model,
-                        instructions=RETRIEVAL_RELEVANCE_TYPESAFE_PROMPT_INSTRUCTIONS,
-                        state={"input": request, "doc": chunk["content"]},
-                        feedback_value_type=Literal["yes", "no"],
+                        get_prompt(request=request, context=chunk["content"]),
                         assessment_name=self.name,
                         inference_params=self.inference_params,
                         extra_headers=self.extra_headers,
-                    )
-                else:
-                    prompt = get_prompt(request=request, context=chunk["content"])
-                    feedback = invoke_judge_model(
-                        model,
-                        prompt,
-                        assessment_name=self.name,
-                        inference_params=self.inference_params,
-                        extra_headers=self.extra_headers,
-                    )
+                    ),
+                    decision_invoke_params={
+                        "instructions": RETRIEVAL_RELEVANCE_TYPESAFE_PROMPT_INSTRUCTIONS,
+                        "state": {"input": request, "doc": chunk["content"]},
+                        "assessment_name": self.name,
+                        "inference_params": self.inference_params,
+                        "extra_headers": self.extra_headers,
+                    },
+                )
                 sanitized_feedback = _sanitize_scorer_feedback(feedback)
                 sanitized_feedback.metadata = {
                     **(sanitized_feedback.metadata or {}),
@@ -2193,28 +2193,26 @@ class Equivalence(BuiltInScorer):
         model = self.model or get_default_model()
         assessment_name = self.name or EQUIVALENCE_FEEDBACK_NAME
 
-        if _is_typesafe_model(model):
-            feedback = _invoke_typesafe_judge(
+        feedback = _invoke_structured_builtin_judge(
+            model,
+            chat_invoker=lambda: invoke_judge_model(
                 model,
-                instructions=EQUIVALENCE_TYPESAFE_PROMPT_INSTRUCTIONS,
-                state={"output": actual_output, "expected_output": expected_output},
-                feedback_value_type=Literal["yes", "no"],
+                get_prompt(
+                    output=outputs_str,
+                    expected_output=expectations_str,
+                ),
                 assessment_name=assessment_name,
                 inference_params=self.inference_params,
                 extra_headers=self.extra_headers,
-            )
-        else:
-            prompt = get_prompt(
-                output=outputs_str,
-                expected_output=expectations_str,
-            )
-            feedback = invoke_judge_model(
-                model,
-                prompt,
-                assessment_name=assessment_name,
-                inference_params=self.inference_params,
-                extra_headers=self.extra_headers,
-            )
+            ),
+            decision_invoke_params={
+                "instructions": EQUIVALENCE_TYPESAFE_PROMPT_INSTRUCTIONS,
+                "state": {"output": actual_output, "expected_output": expected_output},
+                "assessment_name": assessment_name,
+                "inference_params": self.inference_params,
+                "extra_headers": self.extra_headers,
+            },
+        )
 
         return _sanitize_feedback(feedback)
 
@@ -3634,6 +3632,18 @@ class ResponseLength(BuiltInScorer):
             value=CategoricalRating.YES,
             rationale=f"Output length ({length} {self.unit}) is within bounds",
         )
+
+
+def _get_builtin_scorer_class(name: object) -> type[BuiltInScorer] | None:
+    """The concrete built-in scorer class named ``name``, or ``None``.
+
+    The module also holds imported helpers and abstract bases, so a plain ``getattr`` would
+    resolve names like ``invoke_judge_model`` that must never be called as a scorer.
+    """
+    if not isinstance(name, str):
+        return None
+    cls = globals().get(name)
+    return cls if cls in _get_all_concrete_builtin_scorers() else None
 
 
 def _get_all_concrete_builtin_scorers() -> list[type[BuiltInScorer]]:

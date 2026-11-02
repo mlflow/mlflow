@@ -220,6 +220,7 @@ const isCodeSnippetLanguage = (languageString: string): languageString is CodeSn
   // Casting the string to string literal so we can exhaust the union
   const typeCast = languageString as CodeSnippetLanguage;
   switch (typeCast) {
+    case 'bash':
     case 'go':
     case 'java':
     case 'javascript':

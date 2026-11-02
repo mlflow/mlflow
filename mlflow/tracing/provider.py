@@ -146,6 +146,11 @@ class _TracerProviderWrapper:
             return self._isolated_tracer_provider_once
         return self._global_provider_init_once
 
+    @property
+    def is_initialized(self) -> bool:
+        """Whether MLflow's tracer provider has been initialized for the current provider mode."""
+        return self.once.done
+
     def get(self) -> TracerProvider:
         if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
             return self._isolated_tracer_provider
@@ -592,6 +597,73 @@ def _get_tracer(module_name: str) -> trace.Tracer:
     Other simultaneous calls to this function will block until the initialization is done.
     """
     return provider.get_or_init_tracer(module_name)
+
+
+def _is_in_span_processor_chain(
+    processor: SpanProcessor, span_processor: SpanProcessor | None
+) -> bool:
+    """
+    Whether ``span_processor`` is a composite that already contains ``processor``.
+
+    With a shared tracer provider (``MLFLOW_USE_DEFAULT_TRACER_PROVIDER=false``), an autolog
+    span processor and MLflow's own processors sit in the same composite, which dispatches to
+    each of them. Forwarding to that composite from the autolog processor would make MLflow's
+    processors handle the span twice.
+    """
+    return processor in getattr(span_processor, "_span_processors", ())
+
+
+def _get_tracer_for_span_start(
+    processor: SpanProcessor, module_name: str
+) -> tuple[trace.Tracer, bool]:
+    """
+    Get MLflow's tracer for an autolog span processor's ``on_start``, and whether the processor
+    should forward the span to the tracer's span processor.
+
+    With a shared tracer provider, the composite dispatching ``on_start`` to ``processor`` also
+    dispatches to MLflow's processors, so forwarding would make them handle the span twice. The
+    exception is when this call to ``_get_tracer`` registers MLflow's processors: the composite's
+    in-progress dispatch won't reach a processor added mid-iteration, so the span still has to be
+    forwarded.
+    """
+    was_initialized = provider.is_initialized
+    tracer = _get_tracer(module_name)
+    span_processor = getattr(tracer, "span_processor", None)
+    should_forward = not (
+        was_initialized and _is_in_span_processor_chain(processor, span_processor)
+    )
+    return tracer, should_forward
+
+
+def _get_tracer_for_span_end(
+    processor: SpanProcessor, module_name: str
+) -> tuple[trace.Tracer, bool]:
+    """
+    Get MLflow's tracer for an autolog span processor's ``on_end``, and whether the processor
+    should forward the span to the tracer's span processor.
+
+    With a shared tracer provider, the composite dispatching ``on_end`` to ``processor`` goes on
+    to call MLflow's processors itself, so forwarding would export the span a second time.
+    """
+    tracer = _get_tracer(module_name)
+    span_processor = getattr(tracer, "span_processor", None)
+    return tracer, not _is_in_span_processor_chain(processor, span_processor)
+
+
+def _add_span_processor_first(tracer_provider: TracerProvider, processor: SpanProcessor) -> None:
+    """
+    Add ``processor`` so it runs before the provider's existing span processors, so an autolog
+    processor sets span attributes before MLflow's processors export the span.
+    """
+    tracer_provider.add_span_processor(processor)
+    active = tracer_provider._active_span_processor
+    # Reorder under the composite's lock, which add_span_processor also takes, so a processor
+    # added concurrently (e.g. MLflow's, registered lazily on another thread) isn't dropped.
+    with active._lock:
+        active._span_processors = (
+            processor,
+            *(p for p in active._span_processors if p is not processor),
+        )
 
 
 def _get_span_processor():

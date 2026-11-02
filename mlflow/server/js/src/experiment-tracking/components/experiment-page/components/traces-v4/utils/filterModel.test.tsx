@@ -1,8 +1,16 @@
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, jest, test } from '@jest/globals';
 import { renderHook } from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
 import { FilterOp, type FilterClause } from '@databricks/web-shared/traces-table';
 import { compileFilterModel, compileTagFilters, useMlflowTraceFilterFields } from './filterModel';
+
+// These tests cover the filter fields with the new eval runs UI off; filterModel.newEvalRunsUi.test.tsx covers it on.
+jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('@mlflow/mlflow/src/common/utils/FeatureUtils')>(
+    '@mlflow/mlflow/src/common/utils/FeatureUtils',
+  ),
+  shouldEnableNewEvalRunsUi: jest.fn(() => false),
+}));
 
 describe('compileFilterModel', () => {
   test('the empty model compiles to no clauses', () => {
@@ -209,14 +217,14 @@ describe('compileFilterModel', () => {
 describe('useMlflowTraceFilterFields', () => {
   const wrapper = ({ children }: { children: React.ReactNode }) => <IntlProvider locale="en">{children}</IntlProvider>;
 
-  test('offers one combobox "Assessment" field whose keyOptions are the assessment names', () => {
+  test('offers one combobox "Feedback" field whose keyOptions are the assessment names', () => {
     const { result } = renderHook(() => useMlflowTraceFilterFields(['relevance', 'safety']), { wrapper });
 
     const assessmentFields = result.current.filter((field) => field.id === 'assessment');
     expect(assessmentFields).toHaveLength(1);
     expect(assessmentFields[0]).toEqual({
       id: 'assessment',
-      label: 'Assessment',
+      label: 'Feedback',
       operators: [FilterOp.EQUALS, FilterOp.NOT_EQUALS],
       valueInput: 'text',
       requiresKey: true,
@@ -225,11 +233,11 @@ describe('useMlflowTraceFilterFields', () => {
         { value: 'relevance', label: 'relevance' },
         { value: 'safety', label: 'safety' },
       ],
-      keyPlaceholder: 'Assessment name',
+      keyPlaceholder: 'Feedback name',
     });
   });
 
-  test('still offers the "Assessment" field with empty keyOptions when no names are given', () => {
+  test('still offers the "Feedback" field with empty keyOptions when no names are given', () => {
     const { result } = renderHook(() => useMlflowTraceFilterFields(), { wrapper });
     const assessment = result.current.find((field) => field.id === 'assessment');
     expect(assessment?.keyInput).toBe('combobox');

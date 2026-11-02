@@ -13,7 +13,15 @@ from mlflow.entities import LoggedModelOutput
 
 _logger = logging.getLogger(__name__)
 
-EXCLUDE_LM_PARAMS = {"api_key", "api_base", "azure_ad_token", "client_secret", "azure_password"}
+EXCLUDE_LM_PARAMS = {
+    "api_key",
+    "api_base",
+    "azure_ad_token",
+    "client_secret",
+    "azure_password",
+    "extra_headers",
+    "headers",
+}
 
 
 def save_dspy_module_state(program, file_name: str = "model.json"):

@@ -1,5 +1,6 @@
 import sqlalchemy as sa
 
+from mlflow.entities.skill_source import SkillSourceType
 from mlflow.store.db.workspace_utils import (
     MODEL_CHILD_TABLES,
     OTHER_WORKSPACE_CHILD_TABLES,
@@ -39,6 +40,7 @@ _CONFLICT_SPECS = [
     ("endpoints", ("name",), "endpoints with the same name"),
     ("model_definitions", ("name",), "model definitions with the same name"),
     ("mcp_servers", ("name",), "MCP servers with the same name"),
+    ("skills", ("organization", "name"), "skills with the same organization and name"),
 ]
 
 
@@ -106,6 +108,23 @@ def migrate_to_default_workspace(
     When verbose is True, conflict lists are not truncated.
     """
     with engine.begin() as conn:
+        skill_versions = get_workspace_table(conn, "skill_versions")
+        mlflow_skill_version = (
+            sa
+            .select(skill_versions.c.name)
+            .where(
+                skill_versions.c.workspace != DEFAULT_WORKSPACE_NAME,
+                skill_versions.c.source_type == SkillSourceType.MLFLOW.value,
+            )
+            .limit(1)
+        )
+        if conn.execute(mlflow_skill_version).first():
+            raise RuntimeError(
+                "Move aborted: MLflow-backed skill versions would lose access to their "
+                "artifact content in the default workspace. Remove or re-register those "
+                "versions before retrying."
+            )
+
         for table_name, columns, description in _CONFLICT_SPECS:
             _assert_no_workspace_conflicts(
                 conn,

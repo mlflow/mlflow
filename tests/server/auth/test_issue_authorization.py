@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import flask
 
 import mlflow.server.auth as a
+from mlflow.protos.issues_pb2 import Issue as ProtoIssue
 
 
 def _run(monkeypatch, validator, body, *, can_update=False, can_read=False):
@@ -38,3 +39,11 @@ def test_issue_validators_deny_empty_body(monkeypatch):
     # No experiment_id to scope against -> fail closed rather than crash.
     assert _run(monkeypatch, a.validate_can_create_issue, "", can_update=True) is False
     assert _run(monkeypatch, a.validate_can_search_issues, "", can_read=True) is False
+
+
+def test_issue_run_provenance_is_redacted(monkeypatch):
+    monkeypatch.setattr(a, "_denied_sibling_tiers", lambda *_: {a.RESOURCE_TYPE_RUN})
+    issues = [ProtoIssue(source_run_id="run-1"), ProtoIssue()]
+    assert a._withhold_denied_issue_source_runs(issues, "u") is True
+    assert not issues[0].HasField("source_run_id")
+    assert not issues[1].HasField("source_run_id")

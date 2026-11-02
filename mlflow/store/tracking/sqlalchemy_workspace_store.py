@@ -47,6 +47,11 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlReviewQueueUser,
     SqlRun,
     SqlScorer,
+    SqlSkill,
+    SqlSkillAlias,
+    SqlSkillTag,
+    SqlSkillVersion,
+    SqlSkillVersionTag,
     SqlSpanCostDailyRollup,
     SqlTraceInfo,
     SqlTraceMetricDailyRollup,
@@ -179,6 +184,15 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
             SqlMCPServerVersionTag,
             SqlMCPServerAlias,
             SqlMCPAccessEndpoint,
+        ):
+            return query.filter(model.workspace == workspace)
+
+        if model in (
+            SqlSkill,
+            SqlSkillVersion,
+            SqlSkillTag,
+            SqlSkillVersionTag,
+            SqlSkillAlias,
         ):
             return query.filter(model.workspace == workspace)
 

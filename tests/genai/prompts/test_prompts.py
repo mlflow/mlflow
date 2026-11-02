@@ -517,6 +517,19 @@ def test_format_prompt_with_backslashes(
     assert result == expected
 
 
+def test_prompt_version_format_does_not_replace_placeholders_inside_values():
+    prompt = PromptVersion(
+        "chat",
+        1,
+        [{"role": "system", "content": "Docs: {{docs}}"}, {"role": "user", "content": "{{name}}"}],
+    )
+
+    assert prompt.format(docs="Jinja greets with 'Hello {{ name }}!'", name="Ada") == [
+        {"role": "system", "content": "Docs: Jinja greets with 'Hello {{ name }}!'"},
+        {"role": "user", "content": "Ada"},
+    ]
+
+
 def test_load_prompt_with_link_to_model_disabled():
     # Register a prompt
     mlflow.genai.register_prompt(name="test_prompt", template="Hello, {{name}}!")

@@ -30,10 +30,9 @@ const TracesTabStub = () => {
   return <div data-testid="traces-tab-stub">{location.search}</div>;
 };
 
-// Mock useLocalStorage to prevent guidance popovers from showing in tests
-jest.mock('@databricks/web-shared/hooks/useLocalStorage', () => ({
-  useLocalStorage: jest.fn(() => [true, jest.fn()]), // Return true to indicate guidance has been seen
-}));
+beforeEach(() => {
+  localStorage.setItem('mlflow.detectIssues.guidanceShown_v1', 'true');
+});
 
 // Mock useGetExperimentQuery
 const mockUseGetExperimentQuery = jest.fn();
@@ -72,7 +71,7 @@ describe('ExperimentGenAIOverviewPage', () => {
       },
     });
 
-  const defaultUrl = generatePath(RoutePaths.experimentPageTabOverview, {
+  const defaultUrl = generatePath(RoutePaths.experimentPageTabDashboard, {
     experimentId: testExperimentId,
     overviewTab: 'usage',
   });
@@ -85,7 +84,7 @@ describe('ExperimentGenAIOverviewPage', () => {
           <TestRouter
             history={history}
             routes={[
-              testRoute(<ExperimentGenAIOverviewPage />, RoutePaths.experimentPageTabOverview),
+              testRoute(<ExperimentGenAIOverviewPage />, RoutePaths.experimentPageTabDashboard),
               testRoute(<TracesTabStub />, RoutePaths.experimentPageTabTraces),
             ]}
             initialEntries={[initialUrl]}
@@ -454,7 +453,7 @@ describe('ExperimentGenAIOverviewPage', () => {
       // User has already selected a custom time range in URL
       const customStartTime = '2025-01-01T00:00:00.000Z';
       const customEndTime = '2025-01-07T23:59:59.999Z';
-      const urlWithParams = `/experiments/${testExperimentId}/overview/usage?startTimeLabel=LAST_24_HOURS`;
+      const urlWithParams = `/experiments/${testExperimentId}/dashboard/usage?startTimeLabel=LAST_24_HOURS`;
 
       renderComponent(urlWithParams);
 

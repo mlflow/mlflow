@@ -307,6 +307,18 @@ def get_time_bucket_expression(
     # Convert time_interval_seconds to milliseconds
     bucket_size_ms = time_interval_seconds * 1000
 
+    if db_type == db_types.POSTGRES and view_type == MetricViewType.SPANS:
+        timestamp_ns = SqlSpan.start_time_unix_nano
+        bucket_size_ns = time_interval_seconds * 1_000_000_000
+        # Avoid fractional NUMERIC division rounding across nanosecond boundaries.
+        # div truncates toward zero, so negative nonmultiples need one more bucket.
+        quotient = func.div(timestamp_ns, bucket_size_ns)
+        correction = case(
+            (and_(timestamp_ns < 0, func.mod(timestamp_ns, bucket_size_ns) != 0), 1),
+            else_=0,
+        )
+        return (quotient - correction) * bucket_size_ms
+
     if db_type == db_types.MSSQL:
         # MSSQL requires the exact same SQL text in SELECT, GROUP BY, and ORDER BY clauses.
         # We use literal_column to generate identical SQL text across all clauses.

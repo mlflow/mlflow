@@ -2,6 +2,7 @@ import functools
 import importlib.resources
 import json
 import logging
+import os
 import urllib.parse
 import urllib.request
 from collections.abc import Iterator
@@ -383,7 +384,57 @@ def cost_per_token(
     info = _lookup_model_info(model, custom_llm_provider)
     if info is None:
         return None
+    return _cost_from_model_info(
+        info,
+        prompt_tokens,
+        completion_tokens,
+        cache_read_input_tokens,
+        cache_creation_input_tokens,
+        cache_creation_input_tokens_above_1hr,
+    )
 
+
+def _cost_per_token_from_custom_catalog(
+    model: str,
+    provider: str,
+    prompt_tokens: int = 0,
+    completion_tokens: int = 0,
+    cache_read_input_tokens: int | None = None,
+    cache_creation_input_tokens: int | None = None,
+    cache_creation_input_tokens_above_1hr: int | None = None,
+) -> tuple[float, float] | None:
+    """Price a model only from a catalog the user configured with ``MLFLOW_MODEL_CATALOG_URI``.
+
+    Returns None when the URI is unset or left at its default, when the configured catalog has
+    no file for ``provider`` (the bundled catalog is not consulted), or when the model has no
+    listed price, so callers can fall back to another pricing source.
+    """
+    uri = MLFLOW_MODEL_CATALOG_URI.get()
+    if not uri or uri.rstrip("/") == MLFLOW_MODEL_CATALOG_URI.default:
+        return None
+    if not (models := _fetch_remote_provider(provider)):
+        return None
+    info = models.get(model.split("/", 1)[-1])
+    if info is None or not ({"input_cost_per_token", "output_cost_per_token"} & info.keys()):
+        return None
+    return _cost_from_model_info(
+        info,
+        prompt_tokens,
+        completion_tokens,
+        cache_read_input_tokens,
+        cache_creation_input_tokens,
+        cache_creation_input_tokens_above_1hr,
+    )
+
+
+def _cost_from_model_info(
+    info: ModelInfo,
+    prompt_tokens: int,
+    completion_tokens: int,
+    cache_read_input_tokens: int | None,
+    cache_creation_input_tokens: int | None,
+    cache_creation_input_tokens_above_1hr: int | None,
+) -> tuple[float, float]:
     input_cost_per_token = info.get("input_cost_per_token", 0.0)
     output_cost_per_token = info.get("output_cost_per_token", 0.0)
 
@@ -825,6 +876,12 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                     "secret": True,
                     "required": True,
                 },
+                {
+                    "name": "api_base",
+                    "description": "TypeSafe API Base URL (defaults to https://api.typesafe.ai/v1)",
+                    "secret": False,
+                    "required": False,
+                },
             ],
         },
     },
@@ -1118,3 +1175,33 @@ _CORE_PROVIDER_ENV_VARS = {
         "aws_session_token": "AWS_SESSION_TOKEN",  # Optional
     },
 }
+
+
+def provider_credential_env_vars(provider: str) -> list[str] | None:
+    """
+    The environment variables a core provider reads its credentials from.
+
+    Returns ``None`` for a provider MLflow has no direct support for, which is how a caller
+    distinguishes "no credential configured" from "not a provider we can configure at all".
+    Where a provider takes several variables, only the credential ones are returned: the api_key
+    of a key-based provider, or every variable of one authenticated by a set of them.
+    """
+    env_config = _CORE_PROVIDER_ENV_VARS.get(provider.lower())
+    if not env_config:
+        return None
+    if isinstance(env_config, dict):
+        return [env_config["api_key"]] if "api_key" in env_config else list(env_config.values())
+    return [env_config]
+
+
+def has_env_credentials(provider: str) -> bool:
+    """
+    Whether this server's own environment already carries a credential for ``provider``.
+
+    A server started with, say, ``OPENAI_API_KEY`` set needs no stored secret, so a client can
+    ask this before prompting for a key the server would not have used.
+    """
+    env_vars = provider_credential_env_vars(provider)
+    if not env_vars:
+        return False
+    return any(os.environ.get(env_var) for env_var in env_vars)

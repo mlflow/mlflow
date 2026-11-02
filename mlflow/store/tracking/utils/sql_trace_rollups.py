@@ -30,6 +30,7 @@ import logging
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
+from decimal import Decimal
 from enum import Enum
 from typing import Any
 
@@ -1052,6 +1053,9 @@ def merge_unbucketed_data_points(
             value = point.values[label]
             match aggregation.aggregation_type:
                 case AggregationType.COUNT | AggregationType.SUM:
+                    # PostgreSQL SUM(bigint) returns Decimal, while rollup sums are floats.
+                    if isinstance(value, Decimal):
+                        value = float(value)
                     accumulated[label] = accumulated.get(label, 0) + value
                 case AggregationType.MIN:
                     accumulated[label] = min(accumulated.get(label, value), value)

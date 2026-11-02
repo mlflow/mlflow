@@ -32,7 +32,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         if: github.event_name != 'pull_request'
         id: app-token
         with:
@@ -47,8 +47,6 @@ jobs:
           persist-credentials: true
           token: ${{ steps.app-token.outputs.token || github.token }}
       - uses: ./.github/actions/setup-python
-        with:
-          pin-micro-version: false
       - name: Run uv lock --upgrade
         run: |
           uv lock --upgrade 2>&1 | tee /tmp/uv-lock-output.txt
@@ -58,6 +56,8 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           PR_TITLE: "Update `uv.lock`"
+          # Log API requests to diagnose labels occasionally being applied twice
+          GH_DEBUG: api
         run: |
           if git diff --quiet uv.lock; then
             echo "No changes to uv.lock, exiting early"

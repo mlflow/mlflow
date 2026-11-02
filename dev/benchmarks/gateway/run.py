@@ -175,7 +175,18 @@ def _start_mlflow(
         cmd += ["--app-name", "basic-auth"]
     with (
         log_file.open("w") as f,
-        subprocess.Popen(cmd, cwd=SCRIPT_DIR, stdout=f, stderr=f, env=_subprocess_env()) as proc,
+        subprocess.Popen(
+            cmd,
+            cwd=SCRIPT_DIR,
+            stdout=f,
+            stderr=f,
+            env=_subprocess_env()
+            | {
+                # The benchmark's fake upstream uses HTTP on loopback.
+                "MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES": "http,https",
+                "MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS": "true",
+            },
+        ) as proc,
     ):
         _wait_for_port(port, label, log_file)
         try:

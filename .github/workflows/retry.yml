@@ -2,8 +2,8 @@ name: Retry
 
 on:
   schedule:
-    # Weekdays, 08:00–19:40 JST.
-    - cron: "*/20 8-19 * * 1-5"
+    # Run every 20 minutes.
+    - cron: "*/20 * * * *"
       timezone: Asia/Tokyo
   workflow_dispatch:
     inputs:

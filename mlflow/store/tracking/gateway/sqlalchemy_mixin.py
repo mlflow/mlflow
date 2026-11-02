@@ -1405,6 +1405,25 @@ class SqlAlchemyGatewayStoreMixin:
                 next_token = SearchUtils.create_page_token(offset + max_results)
             return PagedList(policies[:max_results], next_token)
 
+    def list_budget_policies_across_workspaces(self) -> list[GatewayBudgetPolicy]:
+        """Return every budget policy, ignoring the active workspace.
+
+        The budget tracker holds one process- or Redis-wide set of windows and decides
+        per request whether a policy applies, so it has to be refreshed from every
+        workspace's policies at once. ``list_budget_policies`` is workspace-scoped, and
+        refreshing from it makes each refresh treat the other workspaces' policies as
+        deleted. Server-internal: this is not exposed through the REST API, which stays
+        workspace-scoped.
+        """
+        with self.ManagedSessionMaker() as session:
+            return [
+                bp.to_mlflow_entity()
+                for bp in session
+                .query(SqlGatewayBudgetPolicy)
+                .order_by(SqlGatewayBudgetPolicy.budget_policy_id)
+                .all()
+            ]
+
     def sum_gateway_trace_cost(
         self,
         start_time_ms: int,
@@ -1465,9 +1484,20 @@ class SqlAlchemyGatewayStoreMixin:
         action_endpoint_id: str | None = None,
         created_by: str | None = None,
     ) -> GatewayGuardrail:
+        from mlflow.genai.scorers.base import _serialized_scorer_is_custom_code
+
         with self.ManagedSessionMaker(read_only=False) as session:
             # Ensure the scorer is valid and in the current workspace
-            self._get_scorer_version(session, scorer_id, scorer_version)
+            scorer_version_row = self._get_scorer_version(session, scorer_id, scorer_version)
+
+            # A guardrail runs its scorer in the server process, so custom scorers defined with the
+            # @scorer decorator (whose stored source would be executed there) are not allowed.
+            if _serialized_scorer_is_custom_code(scorer_version_row.serialized_scorer):
+                raise MlflowException(
+                    "Gateway guardrails do not support custom scorers defined with the @scorer "
+                    "decorator. Use a built-in scorer or a judge created with make_judge.",
+                    INVALID_PARAMETER_VALUE,
+                )
 
             guardrail_id = f"gr-{uuid.uuid4().hex}"
             current_time = get_current_time_millis()

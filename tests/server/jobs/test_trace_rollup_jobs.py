@@ -22,25 +22,7 @@ from mlflow.tracing.trace_rollup_service import (
     validate_and_resolve_sql_trace_rollup_schedule,
 )
 
-
-class _RecordingHuey:
-    def __init__(self):
-        self.tasks = {}
-        self.locks = {}
-
-    def periodic_task(self, validation):
-        def decorator(fn):
-            self.tasks[fn.__name__] = (validation, fn)
-            return fn
-
-        return decorator
-
-    def lock_task(self, lock_name):
-        def decorator(fn):
-            self.locks[fn.__name__] = lock_name
-            return fn
-
-        return decorator
+from tests.server.jobs.helpers import RecordingHuey
 
 
 def _stats():
@@ -86,7 +68,7 @@ def test_rollup_schedule_rejects_invalid_cron(monkeypatch, schedule):
 def test_register_periodic_tasks_includes_locked_rollup_scheduler(monkeypatch):
     monkeypatch.setenv(MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.name, "true")
     monkeypatch.delenv(MLFLOW_TRACE_ROLLUPS_SCHEDULE.name, raising=False)
-    huey = _RecordingHuey()
+    huey = RecordingHuey()
 
     register_periodic_tasks(huey)
 
@@ -134,7 +116,7 @@ def test_registered_periodic_services_share_tracking_store(monkeypatch):
         "mlflow.server.jobs.utils.initialize_periodic_tasks_tracking_store",
         Mock(return_value=tracking_store),
     )
-    huey = _RecordingHuey()
+    huey = RecordingHuey()
 
     register_periodic_tasks(huey)
     huey.tasks["trace_archival_scheduler"][1]()
@@ -158,7 +140,7 @@ def test_periodic_tasks_initialize_store_lazily_and_retry_after_failure(monkeypa
     monkeypatch.setattr(
         "mlflow.server.jobs.utils._get_trace_archival_scheduler_settings", Mock(return_value=None)
     )
-    huey = _RecordingHuey()
+    huey = RecordingHuey()
 
     register_periodic_tasks(huey)
 
@@ -176,7 +158,7 @@ def test_periodic_tasks_initialize_store_lazily_and_retry_after_failure(monkeypa
 def test_invalid_schedule_is_ignored_when_rollups_are_disabled(monkeypatch):
     monkeypatch.setenv(MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.name, "false")
     monkeypatch.setenv(MLFLOW_TRACE_ROLLUPS_SCHEDULE.name, "invalid")
-    huey = _RecordingHuey()
+    huey = RecordingHuey()
 
     register_periodic_tasks(huey)
 
@@ -190,7 +172,7 @@ def test_invalid_schedule_fails_registration_when_rollups_are_enabled(monkeypatc
     monkeypatch.setenv(MLFLOW_TRACE_ROLLUPS_SCHEDULE.name, "invalid")
 
     with pytest.raises(MlflowException, match="five-field UTC cron"):
-        register_periodic_tasks(_RecordingHuey())
+        register_periodic_tasks(RecordingHuey())
 
 
 @pytest.mark.parametrize(
@@ -205,7 +187,7 @@ def test_rollup_positive_integer_settings_are_validated_at_registration(
     monkeypatch.setenv(variable.name, value)
 
     with pytest.raises(MlflowException, match=variable.name):
-        register_periodic_tasks(_RecordingHuey())
+        register_periodic_tasks(RecordingHuey())
 
 
 def test_scheduler_noops_when_rollups_are_disabled(monkeypatch):

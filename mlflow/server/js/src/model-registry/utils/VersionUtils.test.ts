@@ -3,6 +3,9 @@ import { extractArtifactPathFromModelSource, extractLoggedModelIdFromModelSource
 
 describe('extractArtifactPathFromModelSource', () => {
   it('test extractArtifactPathFromModelSource', () => {
+    expect(extractArtifactPathFromModelSource('runs:/01bcd/model', '01bcd')).toBe('model');
+    expect(extractArtifactPathFromModelSource('runs:/01bcd', '01bcd')).toBe('');
+    expect(extractArtifactPathFromModelSource('runs:/01bcd/model', '01bce')).toBe(undefined);
     expect(extractArtifactPathFromModelSource('mlflow-artifacts:/0/01bcd/artifacts/xx/yy', '01bcd')).toBe('xx/yy');
     expect(extractArtifactPathFromModelSource('mlflow-artifacts:/0/01bcd/artifacts/artifacts/xx/yy', '01bcd')).toBe(
       'artifacts/xx/yy',

@@ -261,6 +261,52 @@ async def test_chat_stream():
 
 
 @pytest.mark.asyncio
+async def test_chat_stream_keeps_parallel_tool_call_indices():
+    def make_chunk(*tool_calls):
+        chunk = mock.MagicMock()
+        chunk.id = "chunk"
+        chunk.object = "chat.completion.chunk"
+        chunk.created = 1234567890
+        chunk.model = "gpt-4o"
+        chunk.usage = None
+        choice = mock.MagicMock()
+        choice.index = 0
+        choice.finish_reason = None
+        choice.delta = mock.MagicMock(spec=["role", "content", "tool_calls"])
+        choice.delta.role = None
+        choice.delta.content = None
+        choice.delta.tool_calls = [
+            mock.MagicMock(index=i, id=id_, type="function", function=mock.MagicMock())
+            for i, id_, _, _ in tool_calls
+        ]
+        for tc, (_, _, name, args) in zip(choice.delta.tool_calls, tool_calls):
+            tc.function.name = name
+            tc.function.arguments = args
+        chunk.choices = [choice]
+        return chunk
+
+    async def mock_stream():
+        yield make_chunk((0, "call_a", "get_weather", ""))
+        yield make_chunk((1, "call_b", "get_time", ""))
+        # A later chunk carries arguments for call 1 only.
+        yield make_chunk((1, None, None, '{"tz": "UTC"}'))
+        yield make_chunk((0, None, None, '{"city": "Baku"}'))
+
+    with mock.patch("litellm.acompletion", return_value=mock_stream()) as mock_acompletion:
+        provider = LiteLLMProvider(EndpointConfig(**chat_config()), enable_tracing=True)
+        payload = {"messages": [{"role": "user", "content": "Hi"}], "stream": True}
+        chunks = [c async for c in provider.chat_stream(chat.RequestPayload(**payload))]
+
+    mock_acompletion.assert_called_once()
+    calls = [tc for c in chunks for tc in c.choices[0].delta.tool_calls]
+    assert [tc.index for tc in calls] == [0, 1, 1, 0]
+    args = {}
+    for tc in calls:
+        args[tc.index] = args.get(tc.index, "") + (tc.function.arguments or "")
+    assert args == {0: '{"city": "Baku"}', 1: '{"tz": "UTC"}'}
+
+
+@pytest.mark.asyncio
 async def test_chat_stream_forwards_zero_token_usage():
     config = chat_config()
 
@@ -665,6 +711,28 @@ async def test_passthrough_openai_chat():
         assert result["id"] == "chatcmpl-test"
         assert result["object"] == "chat.completion"
         mock_completion.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_passthrough_openai_chat_streaming_ends_with_done():
+    config = chat_config()
+
+    async def mock_stream():
+        chunk = mock.MagicMock()
+        chunk.model_dump.return_value = {"id": "chatcmpl-test", "choices": []}
+        yield chunk
+
+    with mock.patch("litellm.acompletion", return_value=mock_stream()):
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        payload = {"messages": [{"role": "user", "content": "Hello"}], "stream": True}
+
+        result = await provider.passthrough(PassthroughAction.OPENAI_CHAT, payload, headers=None)
+
+        chunks = [chunk async for chunk in result]
+        assert chunks == [
+            b'data: {"id": "chatcmpl-test", "choices": []}\n\n',
+            b"data: [DONE]\n\n",
+        ]
 
 
 @pytest.mark.asyncio

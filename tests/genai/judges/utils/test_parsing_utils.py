@@ -104,6 +104,32 @@ This text should not be included"""
 @pytest.mark.parametrize(
     ("response", "expected"),
     [
+        ('```json {"result": "yes"}```', '{"result": "yes"}'),
+        ('```{"result": "yes"}```', '{"result": "yes"}'),
+        ('```json\n{"result": "yes"}```', '{"result": "yes"}'),
+        ('```json\n{\n  "result": "yes"\n}```', '{\n  "result": "yes"\n}'),
+        ('```json\n{"result": "yes"}```\nHope this helps', '{"result": "yes"}'),
+    ],
+)
+def test_strip_markdown_fence_on_same_line_as_content(response: str, expected: str):
+    assert _strip_markdown_code_blocks(response) == expected
+
+
+def test_strip_markdown_line_ending_with_backticks_inside_multiline_string():
+    # json.loads(strict=False) accepts a raw newline inside a string, so a line of the
+    # content can end with ``` without being the closing fence
+    content = """{
+  "rationale": "opens with ```python and closes with ```
+so it is formatted.",
+  "result": "yes"
+}"""
+    response = f"```json\n{content}\n```"
+    assert _strip_markdown_code_blocks(response) == content
+
+
+@pytest.mark.parametrize(
+    ("response", "expected"),
+    [
         (
             'Here is the result:\n```json\n{"result": "yes"}\n```',
             '{"result": "yes"}',

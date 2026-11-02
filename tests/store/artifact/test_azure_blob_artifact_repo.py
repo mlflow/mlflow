@@ -2,6 +2,7 @@ import base64
 import json
 import os
 import posixpath
+import urllib.parse
 from unittest import mock
 
 import pytest
@@ -449,6 +450,23 @@ def test_create_multipart_upload_with_account_key(mock_client):
     )
     assert generate_sas.call_args.kwargs["account_key"] == account_key
     mock_client.get_user_delegation_key.assert_not_called()
+
+
+def test_create_multipart_upload_block_ids_have_same_length(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    mock_client.url = "some-url"
+    mock_client.account_name = "some-account"
+    mock_client.credential.account_key = base64.b64encode(b"some-key").decode("utf-8")
+
+    with mock.patch("azure.storage.blob.generate_blob_sas", return_value="sas"):
+        create = repo.create_multipart_upload("local_file", num_parts=1000)
+
+    block_ids = [
+        urllib.parse.parse_qs(urllib.parse.urlparse(c.url).query)["blockid"][0]
+        for c in create.credentials
+    ]
+    assert len(set(block_ids)) == 1000
+    assert len({len(b) for b in block_ids}) == 1
 
 
 def test_create_multipart_upload_with_token_credential(mock_client):
