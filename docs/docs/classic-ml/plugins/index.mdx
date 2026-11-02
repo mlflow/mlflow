@@ -565,6 +565,16 @@ pip install mlflow-elasticsearchstore
 | **mlflow-crusoe**       | Crusoe          | `pip install mlflow-crusoe`       |
 | **mlflow-azureml**      | Azure ML        | Built-in with Azure ML            |
 | **oci-mlflow**          | Oracle Cloud    | `pip install oci-mlflow`          |
+| **[mlflow-triton-control](https://github.com/ai-lab-tech/mlflow-plugin)** | NVIDIA Triton via Triton Control | `pip install mlflow-triton-control` |
+
+The `mlflow-triton-control` plugin registers the `triton-control` deployment target
+for managing deployments through the Triton Control API. It also installs the matching
+[`mlflow-triton`](https://pypi.org/project/mlflow-triton/) core package, which provides
+logging wrappers for scikit-learn, PyTorch, and Hugging Face models and generates
+Triton model repository artifacts. For logging without the deployment integration,
+install `mlflow-triton` separately. See the
+[plugin documentation](https://github.com/ai-lab-tech/mlflow-plugin#readme) for setup,
+supported workflows, and limitations.
 
 **Example deployment usage:**
 
