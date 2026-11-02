@@ -124,7 +124,7 @@ class ModelConfig:
         if isinstance(self.config, dict):
             return self.config
 
-        with open(self.config) as file:
+        with open(self.config, encoding="utf-8") as file:
             try:
                 return yaml.safe_load(file)
             except yaml.YAMLError as e:
