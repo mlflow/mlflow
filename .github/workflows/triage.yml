@@ -710,6 +710,7 @@ jobs:
           client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
           client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
       - name: Start telemetry proxy
+        id: telemetry-proxy
         if: steps.telemetry.outcome == 'success'
         env:
           TELEMETRY_TOKEN: ${{ steps.telemetry.outputs.token }}
@@ -717,12 +718,15 @@ jobs:
           TRACE_LOCATION: ${{ vars.TRIAGE_MLFLOW_TRACE_LOCATION }}
           TELEMETRY_SOCKET: ${{ runner.temp }}/triage-telemetry.sock
         run: |
-          printf '%s\n' "$TELEMETRY_TOKEN" | env -u TELEMETRY_TOKEN \
+          placeholder_token=$(openssl rand -hex 32)
+          echo "::add-mask::$placeholder_token"
+          printf 'placeholder-token=%s\n' "$placeholder_token" >> "$GITHUB_OUTPUT"
+          printf '%s\n%s\n' "$TELEMETRY_TOKEN" "$placeholder_token" | env -u TELEMETRY_TOKEN \
             DATABRICKS_HOST="$DATABRICKS_HOST" TRACE_LOCATION="$TRACE_LOCATION" \
             TELEMETRY_SOCKET="$TELEMETRY_SOCKET" node .claude/sandbox/otel-proxy.mjs \
             > "$RUNNER_TEMP/triage-telemetry-proxy.log" 2>&1 &
           proxy_pid=$!
-          unset TELEMETRY_TOKEN
+          unset TELEMETRY_TOKEN placeholder_token
           printf '%s\n' "$proxy_pid" > "$RUNNER_TEMP/triage-telemetry-proxy.pid"
           for _ in $(seq 1 30); do
             if ! kill -0 "$proxy_pid" 2>/dev/null; then
@@ -876,6 +880,7 @@ jobs:
           OTEL_LOGS_EXPORTER: otlp
           OTEL_METRICS_EXPORTER: otlp
           OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+          OTEL_EXPORTER_OTLP_HEADERS: ${{ steps.telemetry.outcome == 'success' && format('Authorization={0} {1}', 'Bearer', steps.telemetry-proxy.outputs.placeholder-token) || '' }}
           OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://localhost:8081/v1/traces
           OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: http://localhost:8081/v1/logs
           OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: http://localhost:8081/v1/metrics
