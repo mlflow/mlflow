@@ -1785,11 +1785,14 @@ async def test_chat_stream_usage_takes_final_counts_from_message_delta():
         b'"cache_creation_input_tokens": 20, "output_tokens": 15}}\n'
     )
 
-    with mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)):
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
+    ) as mock_post:
         provider = AnthropicProvider(EndpointConfig(**chat_config()))
         response = provider.chat_stream(chat.RequestPayload(**chat_payload(stream=True)))
         chunks = [jsonable_encoder(chunk) async for chunk in response]
 
+    mock_post.assert_called_once()
     usage = chunks[-1]["usage"]
     # input_tokens (120) excludes the cache tokens: 120 + 100 + 20
     assert usage["prompt_tokens"] == 240
