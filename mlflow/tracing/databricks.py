@@ -8,12 +8,14 @@ from mlflow.utils.uri import is_databricks_uri
 def get_default_trace_catalog(schema_name: str = "default") -> str | None:
     """
     Return the Databricks workspace default catalog if traces can be stored in
-    ``<catalog>.<schema_name>``, otherwise ``None``.
+    ``<catalog>.<schema_name>``, otherwise ``None``. The workspace default catalog is the one
+    used when a query does not name a catalog (see `Manage the default catalog`_).
 
     The catalog is returned only if it is ISOLATED (reachable only from the workspaces it is
-    bound to, rather than from every workspace attached to the metastore) and the current user
-    has ``USE_CATALOG`` on it and ``USE_SCHEMA`` and ``CREATE_TABLE`` on the schema. ``None`` is
-    also returned if the catalog or schema does not exist or is not accessible.
+    bound to, rather than from every workspace attached to the metastore; see
+    `Workspace-catalog binding`_) and the current user has ``USE_CATALOG`` on it and
+    ``USE_SCHEMA`` and ``CREATE_TABLE`` on the schema. ``None`` is also returned if the catalog
+    or schema does not exist or is not accessible.
 
     Args:
         schema_name: The schema in the default catalog to store traces in.
@@ -26,6 +28,10 @@ def get_default_trace_catalog(schema_name: str = "default") -> str | None:
         mlflow.set_tracking_uri("databricks")
         if catalog := mlflow.tracing.get_default_trace_catalog():
             mlflow.set_experiment("my-genai-app", trace_location=UnityCatalog(catalog, "default"))
+
+    .. _Manage the default catalog: https://docs.databricks.com/aws/en/catalogs/default
+    .. _Workspace-catalog binding:
+        https://docs.databricks.com/aws/en/data-governance/unity-catalog/access-control/workspace-catalog-binding
     """
     from mlflow.tracking import get_tracking_uri
 
