@@ -59,6 +59,10 @@ async def _aiohttp_post(
         build_ssrf_guarded_connector,
     )
 
+    if server_hostname and ssrf_protect:
+        # Overriding the TLS host name is for self-calls, never for a user-controlled upstream.
+        raise ValueError("server_hostname can only be set when ssrf_protect is False.")
+
     # Drop any client Accept-Encoding (any casing) so we send only one value; otherwise
     # aiohttp may send both and upstream can respond with Brotli, which is not supported.
     # Also drop Content-Encoding, which describes the body the client sent, not the JSON
@@ -142,7 +146,7 @@ async def send_request(
             user-controlled, such as the server calling itself.
         server_hostname: Host name to verify the TLS certificate against, for an HTTPS call
             to an address the certificate does not name (such as the server calling its own
-            address). Requires aiohttp>=3.9.
+            address). Requires aiohttp>=3.9 and ``ssrf_protect=False``.
 
     Returns:
         The server's response as a JSON object.
