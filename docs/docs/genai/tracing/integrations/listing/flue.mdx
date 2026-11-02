@@ -11,11 +11,11 @@ import { OTelIntegrationCard } from "@site/src/components/TracingIntegrations/OT
 
 # Tracing Flue
 
-[Flue](https://flueframework.com/) is a TypeScript agent framework from the creators of Astro. On Cloudflare Workers, Flue automatically records agent, model, and tool spans. You can send these traces to [MLflow Tracing](/genai/tracing) through Cloudflare's OpenTelemetry export.
+[Flue](https://flueframework.com/) is a TypeScript agent framework. On Cloudflare Workers, Flue automatically records agent, model, and tool spans. You can send these traces to [MLflow Tracing](/genai/tracing) through Cloudflare's OpenTelemetry export.
 
 <OTelIntegrationCard name="Flue" logoPath="/images/logos/flue-logo.svg" />
 
-<ImageBox src="/images/llms/tracing/flue/trace.png" alt="MLflow displaying a real Flue Calculator trace with model messages, multiply tool arguments and result, and token usage" />
+<ImageBox src="/images/llms/tracing/flue/trace.png" alt="MLflow displaying a real Flue Calculator trace with model messages, multiply tool arguments and result, and token usage" caption="Captured via a local span relay. Cloudflare's hosted delivery was not tested; see Local Development below." />
 
 The trace above shows a real Flue 2.3 `Calculator` agent calling the local `llama3.2:1b` model, executing `multiply(17, 23)`, and answering `391`. The deployment example below uses Anthropic Claude Haiku 4.5; see [Local Development](#local-development) for the screenshot's trace capture and validation.
 
@@ -148,7 +148,7 @@ Build the Worker, store the model provider key as a Worker secret, deploy, and s
 
 ```bash
 npm exec -- vite build
-npm exec -- wrangler deploy --dry-run
+npm exec -- wrangler deploy --dry-run # Validate the bundle without deploying.
 npm exec -- wrangler secret put ANTHROPIC_API_KEY
 npm exec -- wrangler deploy
 
