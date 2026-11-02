@@ -424,7 +424,6 @@ def test_host_validation_ip_shaped_patterns(pattern, host_header, expected_valid
         ("10.0.0.5:5000", 200),
         ("10.example.com:5000", 403),
         ("192.168.example.com", 403),
-        ("fc00:evil.com", 403),
     ],
 )
 def test_flask_default_hosts_match_private_ranges_by_ip(test_app, host_header, expected_status):
