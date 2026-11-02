@@ -60,6 +60,7 @@ from mlflow.utils.annotations import deprecated, deprecated_parameter
 from mlflow.utils.thread_utils import map_with_context
 from mlflow.utils.uri import is_databricks_uri
 from mlflow.utils.validation import _validate_list_param
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 _logger = logging.getLogger(__name__)
 
@@ -881,6 +882,15 @@ def _resolve_uc_trace_id(trace_id: str) -> str:
     return construct_trace_id_v4(location, trace_id)
 
 
+def _maybe_hint_trace_reading_skill() -> None:
+    # `mlflow.agent` does not ship in the mlflow-tracing package.
+    if IS_TRACING_SDK_ONLY:
+        return
+    from mlflow.agent.hint import TRACE_READING_SKILL, maybe_hint_tracing_skill
+
+    maybe_hint_tracing_skill(TRACE_READING_SKILL)
+
+
 @deprecated_parameter("request_id", "trace_id")
 def get_trace(trace_id: str, silent: bool = False, flush: bool = False) -> Trace | None:
     """
@@ -914,6 +924,8 @@ def get_trace(trace_id: str, silent: bool = False, flush: bool = False) -> Trace
     Returns:
         A :py:class:`mlflow.entities.Trace` objects with the given request ID.
     """
+    _maybe_hint_trace_reading_skill()
+
     # Special handling for evaluation request ID.
     trace_id = _EVAL_REQUEST_ID_TO_TRACE_ID.get(trace_id) or trace_id
 
@@ -1153,6 +1165,7 @@ def search_traces(
         mlflow.search_traces(run_id=run.info.run_id, return_type="list")
 
     """
+    _maybe_hint_trace_reading_skill()
 
     if sql_warehouse_id is not None:
         warnings.warn(
