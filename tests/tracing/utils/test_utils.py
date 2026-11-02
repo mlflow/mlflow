@@ -1,12 +1,13 @@
 import json
 import logging
+import warnings
 from unittest import mock
 from unittest.mock import Mock, patch
 
 import litellm
 import pytest
 from opentelemetry import trace as trace_api
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 import mlflow
 from mlflow.entities import (
@@ -25,6 +26,7 @@ from mlflow.tracing.constant import (
     TokenUsageKey,
 )
 from mlflow.tracing.utils import (
+    TraceJSONEncoder,
     _calculate_percentile,
     _warn_model_catalog_error,
     aggregate_cost_from_spans,
@@ -1218,3 +1220,17 @@ def test_cost_calculation_uses_expected_provider(model_name, model_provider, exp
     cost_per_token.assert_called_once_with(**kwargs)
     assert result is not None
     assert result[CostKey.TOTAL_COST] > 0
+
+
+def test_trace_json_encoder_does_not_warn_on_pydantic_type_mismatch():
+    class Delta(BaseModel):
+        content: str | None = None
+
+    content = [{"type": "reasoning", "summary": [{"type": "summary_text", "text": "I"}]}]
+    delta = Delta.model_construct(content=content)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        result = json.dumps(delta, cls=TraceJSONEncoder)
+
+    assert json.loads(result) == {"content": content}

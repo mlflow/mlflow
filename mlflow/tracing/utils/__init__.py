@@ -76,7 +76,7 @@ class TraceJSONEncoder(json.JSONEncoder):
 
     def default(self, obj):
         if isinstance(obj, pydantic.BaseModel):
-            return obj.model_dump()
+            return obj.model_dump(warnings=False)
 
         # Some dataclass object defines __str__ method that doesn't return the full object
         # representation, so we use dict representation instead.
