@@ -34,6 +34,7 @@ from mlflow.models.evaluation.utils.trace import configure_autologging_for_evalu
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracing.constant import (
     AssessmentMetadataKey,
+    GenAiSemconvKey,
     SpanAttributeKey,
     TraceMetadataKey,
     TraceTagKey,
@@ -209,7 +210,22 @@ def _extract_tool_name_from_span(span: Span) -> str:
         call_data = inputs.get("call")
         if isinstance(call_data, dict) and "tool_name" in call_data:
             return call_data["tool_name"]
+    if isinstance(tool_name := span.attributes.get(GenAiSemconvKey.TOOL_NAME), str):
+        return tool_name
     return span.name
+
+
+# Google ADK adds this TOOL span when a model response calls several tools at once. It merges
+# the responses of its sibling tool spans and is not a tool call itself.
+_GOOGLE_ADK_MERGED_TOOL_NAME = "(merged tools)"
+
+
+def _search_tool_call_spans(trace: Trace) -> list[Span]:
+    return [
+        span
+        for span in trace.search_spans(span_type=SpanType.TOOL)
+        if span.attributes.get(GenAiSemconvKey.TOOL_NAME) != _GOOGLE_ADK_MERGED_TOOL_NAME
+    ]
 
 
 def extract_tools_called_from_trace(trace: Trace) -> list["FunctionCall"]:
@@ -235,7 +251,7 @@ def extract_tools_called_from_trace(trace: Trace) -> list["FunctionCall"]:
     from mlflow.genai.utils.type import FunctionCall
 
     tools_called = []
-    tool_spans = trace.search_spans(span_type=SpanType.TOOL)
+    tool_spans = _search_tool_call_spans(trace)
 
     for tool_span in sorted(tool_spans, key=lambda s: s.start_time_ns or 0):
         tool_info = FunctionCall(

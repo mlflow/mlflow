@@ -11,6 +11,8 @@ import {
   type SubmittedIssueDetectionJob,
 } from '../../components/experiment-page/components/traces-v3/IssueDetectionJobNotifications';
 import { SEARCH_ISSUES_QUERY_KEY } from '../../components/run-page/hooks/useSearchIssuesQuery';
+import { GET_ISSUE_QUERY_KEY } from '../../components/run-page/hooks/useGetIssueQuery';
+import { ISSUE_EVIDENCE_TRACES_QUERY_KEY } from './useIssueEvidenceTraces';
 import { JobStatus, isJobComplete, useFetchJobStatus } from '../../components/run-page/hooks/useFetchJobStatus';
 import {
   MLFLOW_ISSUE_DETECTION_JOB_ID_TAG,
@@ -56,6 +58,11 @@ export const useLatestIssueDetection = (experimentId: string) => {
         completedRuns.current.add(runId);
         queryClient.invalidateQueries([SEARCH_ISSUES_QUERY_KEY]);
         queryClient.invalidateQueries([LATEST_ISSUE_DETECTION_QUERY_KEY]);
+        // The list alone is not enough once a run can match its findings to an existing issue:
+        // that issue's row count grows while the open detail pane and its evidence stay cached,
+        // so the pane shows one affected trace next to a count of two.
+        queryClient.invalidateQueries([GET_ISSUE_QUERY_KEY]);
+        queryClient.invalidateQueries([ISSUE_EVIDENCE_TRACES_QUERY_KEY]);
       }
     },
     [queryClient],

@@ -150,7 +150,8 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                     SERVER_INFO_ENDPOINT,
                     exc_info=True,
                 )
-                self._server_capabilities = {}
+                # Don't cache transient failures (e.g. timeouts) so the next call retries.
+                return {}
 
             return self._server_capabilities
 
@@ -216,14 +217,18 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             file_infos.append(file_info)
 
         # The list_artifacts API expects us to return an empty list if the
-        # the path references a single file.
+        # the path references a single file. Some artifact stores list a file as itself, which
+        # looks the same as a directory holding one file with the same name (e.g. `0/0`), so
+        # check the parent listing to tell them apart.
         if (
             len(file_infos) == 1
             and not file_infos[0].is_dir
             and path is not None
             and file_infos[0].path == posixpath.join(path, os.path.basename(path))
         ):
-            return []
+            parent = posixpath.dirname(path) or None
+            if not any(f.is_dir and f.path == path for f in self.list_artifacts(parent)):
+                return []
 
         return sorted(file_infos, key=lambda f: f.path)
 
@@ -422,6 +427,8 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         )
         host_creds = get_default_host_creds(uri)
         params = {
+            # The server only needs the file name; it also tolerates the full local path that
+            # clients before 3.18 sent in this field.
             "path": os.path.basename(local_file),
             "num_parts": num_parts,
         }

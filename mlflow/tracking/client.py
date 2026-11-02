@@ -137,7 +137,7 @@ from mlflow.tracking._workspace.registry import UnsupportedWorkspaceStoreURIExce
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.multimedia import Image, compress_image_size, convert_to_pil_image
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
-from mlflow.utils import is_uuid, workspace_utils
+from mlflow.utils import get_results_from_paginated_fn, is_uuid, workspace_utils
 from mlflow.utils.annotations import deprecated, deprecated_parameter
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import (
@@ -3345,7 +3345,7 @@ class MlflowClient:
                 )
 
             step = step or 0
-            timestamp = timestamp or get_current_time_millis()
+            timestamp = timestamp if timestamp is not None else get_current_time_millis()
 
             # Sanitize key to use in filename (replace / with ~ to avoid subdirectories).
             # '#' was previously used here but is rejected by validate_path_is_safe(),
@@ -3501,6 +3501,8 @@ class MlflowClient:
             # for data like {"inputs": "What is MLflow?"}
             except ValueError:
                 data = pd.DataFrame([data])
+        else:
+            data = data.copy()
 
         # Check if the column is a `PIL.Image.Image` or `mlflow.Image` object
         # and save filepath
@@ -3684,7 +3686,25 @@ class MlflowClient:
             list_run_ids = ",".join(map(repr, run_ids))
             filter_string += f" and attributes.run_id IN ({list_run_ids})"
 
-        runs = mlflow.search_runs(experiment_ids=[experiment_id], filter_string=filter_string)
+        from mlflow.tracking.fluent import (
+            NUM_RUNS_PER_PAGE_PANDAS,
+            SEARCH_MAX_RESULTS_PANDAS,
+            _runs_to_pandas,
+        )
+
+        def pagination_wrapper_func(number_to_get, next_page_token):
+            return self.search_runs(
+                [experiment_id],
+                filter_string,
+                max_results=number_to_get,
+                page_token=next_page_token,
+            )
+
+        runs = _runs_to_pandas(
+            get_results_from_paginated_fn(
+                pagination_wrapper_func, NUM_RUNS_PER_PAGE_PANDAS, SEARCH_MAX_RESULTS_PANDAS
+            )
+        )
         if run_ids and len(run_ids) != len(runs):
             _logger.warning(
                 "Not all runs have the specified table artifact. Some runs will be skipped."

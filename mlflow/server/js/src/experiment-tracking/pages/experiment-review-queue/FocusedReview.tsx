@@ -520,7 +520,12 @@ export const FocusedReview = ({
             ) : showCustomView ? (
               trace ? (
                 <React.Suspense fallback={<TableSkeleton lines={8} />}>
-                  <LazyReviewQueueCustomViewRenderer modelTrace={trace} enableFeedback={canReview} />
+                  {/* Credited like the queue answers, and held while the reviewer identity resolves (isSettingStatus). */}
+                  <LazyReviewQueueCustomViewRenderer
+                    modelTrace={trace}
+                    enableFeedback={canReview && !isSettingStatus}
+                    feedbackSourceId={completedBy}
+                  />
                 </React.Suspense>
               ) : (
                 <Empty

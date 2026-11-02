@@ -810,6 +810,54 @@ def test_active_record_pattern_merge_records(experiments):
     assert docker_record["tags"]["difficulty"] == "medium"
 
 
+def test_merge_records_refreshes_logged_dataset_identity(experiments):
+    dataset = create_dataset(name="lineage_test", experiment_id=experiments[0])
+    dataset.merge_records([{"inputs": {"question": "2+2?"}, "expectations": {"answer": "4"}}])
+    dataset = get_dataset(dataset_id=dataset.dataset_id)
+    digest_before = dataset.digest
+
+    assert (
+        dataset.merge_records([{"inputs": {"question": "3+3?"}, "expectations": {"answer": "6"}}])
+        is dataset
+    )
+
+    fresh = get_dataset(dataset_id=dataset.dataset_id)
+    assert dataset.digest != digest_before
+    assert dataset.digest == fresh.digest
+    assert dataset.schema == fresh.schema
+    assert dataset.profile == fresh.profile
+    assert json.loads(dataset.profile)["num_records"] == 2
+    assert dataset.last_update_time == fresh.last_update_time
+
+    with mlflow.start_run(experiment_id=experiments[0]) as run:
+        mlflow.log_input(dataset, context="evaluation")
+
+    logged = mlflow.get_run(run.info.run_id).inputs.dataset_inputs[0].dataset
+    assert logged.digest == fresh.digest
+    assert json.loads(logged.profile)["num_records"] == 2
+
+
+def test_delete_records_refreshes_profile(experiments):
+    dataset = create_dataset(name="delete_profile_test", experiment_id=experiments[0])
+    dataset.merge_records([
+        {"inputs": {"question": "2+2?"}, "expectations": {"answer": "4"}},
+        {"inputs": {"question": "3+3?"}, "expectations": {"answer": "6"}},
+    ])
+    record_id = dataset.to_df()["dataset_record_id"].iloc[0]
+
+    assert dataset.delete_records([record_id]) == 1
+
+    fresh = get_dataset(dataset_id=dataset.dataset_id)
+    assert dataset.profile == fresh.profile
+    assert json.loads(dataset.profile)["num_records"] == 1
+
+    with mlflow.start_run(experiment_id=experiments[0]) as run:
+        mlflow.log_input(dataset, context="evaluation")
+
+    logged = mlflow.get_run(run.info.run_id).inputs.dataset_inputs[0].dataset
+    assert json.loads(logged.profile)["num_records"] == 1
+
+
 def test_dataset_with_dataframe_records(experiments):
     dataset = create_dataset(
         name="dataframe_test",

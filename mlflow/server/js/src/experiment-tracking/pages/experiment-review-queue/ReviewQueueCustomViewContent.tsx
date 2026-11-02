@@ -51,11 +51,13 @@ export const ReviewQueueCustomViewSelector = ({
 export interface ReviewQueueCustomViewRendererProps {
   modelTrace: ModelTrace;
   enableFeedback: boolean;
+  feedbackSourceId: string;
 }
 
 export const ReviewQueueCustomViewRenderer = ({
   modelTrace,
   enableFeedback,
+  feedbackSourceId,
 }: ReviewQueueCustomViewRendererProps): JSX.Element => {
   const queryClient = useQueryClient();
   // OSS has no optimistic assessment cache, so after a feedback write refetch what focused review reads.
@@ -71,7 +73,11 @@ export const ReviewQueueCustomViewRenderer = ({
       modelTraceInfo={modelTrace.info}
       invalidateTraceQuery={invalidateTraceQuery}
     >
-      <ModelTraceExplorerCustomViewRenderer modelTrace={modelTrace} enableFeedback={enableFeedback} />
+      <ModelTraceExplorerCustomViewRenderer
+        modelTrace={modelTrace}
+        enableFeedback={enableFeedback}
+        feedbackSourceId={feedbackSourceId}
+      />
     </ModelTraceExplorerUpdateTraceContextProvider>
   );
 };

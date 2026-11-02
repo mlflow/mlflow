@@ -34,6 +34,16 @@ describe('buildAssessmentColumnDefs', () => {
     expect(container.textContent).toContain('relevance');
   });
 
+  test('shows the source icon when the column has a single source', () => {
+    const defs = buildAssessmentColumnDefs([{ name: 'tone', type: 'categorical' as const, sourceType: 'HUMAN' }]);
+
+    const headerElement = defs[0].header as () => JSX.Element;
+    const { container } = rtlRender(headerElement());
+
+    expect(container.querySelector('[data-testid="trace-assessment-column-human-icon"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-testid="trace-assessment-column-icon"]')).not.toBeInTheDocument();
+  });
+
   test('assigns correct column sizes', () => {
     const columns = [{ name: 'test', type: 'categorical' as const }];
     const defs = buildAssessmentColumnDefs(columns);

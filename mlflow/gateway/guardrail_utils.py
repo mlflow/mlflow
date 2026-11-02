@@ -9,7 +9,7 @@ from fastapi import Request
 from mlflow.entities.gateway_guardrail import GuardrailStage
 from mlflow.gateway.guardrails import JudgeGuardrail, UnsupportedGuardrailScorerError
 from mlflow.gateway.schemas import chat
-from mlflow.server.asgi_utils import get_server_base_url
+from mlflow.server.asgi_utils import get_server_base_url, get_server_self_url
 from mlflow.types.chat import ChatCompletionResponse
 
 if TYPE_CHECKING:
@@ -31,6 +31,8 @@ def load_guardrails(
         return []
 
     server_url = get_server_base_url(request)
+    # Judge self-calls go to the server socket, not the client-supplied Host header.
+    gateway_uri = get_server_self_url(request)
     guardrails = []
     for config in configs:
         if config.guardrail is None:
@@ -38,7 +40,9 @@ def load_guardrails(
         try:
             resolved_scorer = store.resolve_endpoint_in_scorer(config.guardrail.scorer)
             guardrail = dataclasses.replace(config.guardrail, scorer=resolved_scorer)
-            guardrails.append(JudgeGuardrail.from_entity(guardrail, server_url))
+            guardrails.append(
+                JudgeGuardrail.from_entity(guardrail, server_url, gateway_uri=gateway_uri)
+            )
         except UnsupportedGuardrailScorerError:
             # A custom-scorer guardrail can never run in the server, so this is a lasting
             # configuration error rather than a transient load failure. Fail the request instead

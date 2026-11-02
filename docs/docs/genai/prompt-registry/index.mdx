@@ -170,7 +170,7 @@ Once you have multiple versions of a prompt, you can compare them to understand 
 
 ### 4. Load and Use the Prompt
 
-To use a prompt in your LLM application or AI agent, you can load it with the <APILink fn="mlflow.genai.load_prompt"/> API and fill in the variables using the <APILink fn="mlflow.entities.Prompt.format"/> method of the prompt object.
+To use a prompt in your LLM application or AI agent, you can load it with the <APILink fn="mlflow.genai.load_prompt"/> API and fill in the variables using the <APILink fn="mlflow.entities.model_registry.PromptVersion.format"/> method of the prompt object.
 
 ```python
 import mlflow
@@ -240,11 +240,11 @@ automatically.
 
 :::
 
-## Prompt Object
+## PromptVersion Object
 
-The `Prompt` object is the core entity in MLflow Prompt Registry. It represents a versioned template text that can contain variables for dynamic content.
+The <APILink fn="mlflow.entities.model_registry.PromptVersion">`PromptVersion`</APILink> object is what <APILink fn="mlflow.genai.register_prompt"/> and <APILink fn="mlflow.genai.load_prompt"/> return. It represents one version of a registered prompt: a template text that can contain variables for dynamic content. The `Prompt` entity, returned by <APILink fn="mlflow.genai.search_prompts"/>, is the prompt itself (name, description, and prompt-level tags) and groups its versions.
 
-Key attributes of a Prompt object:
+Key attributes of a `PromptVersion` object:
 
 - `Name`: A unique identifier for the prompt.
 - `Template`: The content of the prompt, which can be either:

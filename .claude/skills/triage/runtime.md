@@ -31,8 +31,7 @@ check elapsed time before starting another investigation or verification command
 You run unattended in a disposable sandbox on the MLflow checkout at the commit the workflow ran
 on (the current working directory).
 
-- **Network**: only the hosts in `network.allowedDomains` of `.claude/sandbox/srt.json` (the
-  sandbox settings) are reachable.
+- **Network**: see `$RUNNER_TEMP/triage-srt.json` for allowed hosts.
 - **Git history**: the checkout is shallow. `git log` and `git blame` stop at `HEAD` without
   erroring, so do not use them to date a change.
 - **Writable paths**: the checkout, `/tmp`, and package caches. Put scratch files under

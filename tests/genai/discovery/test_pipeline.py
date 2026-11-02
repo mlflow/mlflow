@@ -18,6 +18,7 @@ from mlflow.genai.discovery.entities import (
     _IdentifiedIssue,
     _TriageResult,
 )
+from mlflow.genai.discovery.matching import MatchOutcome
 from mlflow.genai.discovery.pipeline import (
     _annotate_issue_traces,
     _dedup_issues,
@@ -931,6 +932,237 @@ def test_discover_issues_tags_run_with_issue_detection_marker(make_trace):
     assert run.data.tags[MLFLOW_RUN_TYPE] == MLFLOW_RUN_TYPE_ISSUE_DETECTION
 
 
+def test_discover_issues_counts_only_the_issues_this_run_filed(make_trace):
+    traces = [make_trace() for _ in range(3)]
+    failing = traces[:2]
+    rationale_map = {trace.info.trace_id: "bad" for trace in failing}
+
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
+
+    # One finding filed by this run, one matched onto an issue an earlier run already reported.
+    filed = _make_issue(issue_id="filed-now", source_run_id=run_id)
+    refreshed = _make_issue(issue_id="already-reported", source_run_id="an-earlier-run")
+
+    with (
+        patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="0"),
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
+            return_value=_triage_eval(run_id),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=_TriageResult(failing, rationale_map, {}),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failure_labels",
+            return_value=(["label1", "label2"], [0, 1]),
+        ),
+        patch("mlflow.genai.discovery.pipeline.cluster_by_llm", return_value=[[0, 1]]),
+        patch(
+            "mlflow.genai.discovery.pipeline.summarize_cluster",
+            return_value=create_identified_issue(example_indices=[0, 1]),
+        ),
+        patch("mlflow.genai.discovery.pipeline.read_match_candidates", return_value=[refreshed]),
+        patch(
+            "mlflow.genai.discovery.pipeline.match_findings_to_existing_issues",
+            return_value=MatchOutcome(matched={0: refreshed.issue_id}, candidates_considered=1),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline._build_issues",
+            return_value=([filed, refreshed], {}),
+        ),
+        patch("mlflow.genai.discovery.pipeline._annotate_issue_traces"),
+    ):
+        result = discover_issues(traces=traces, run_id=run_id)
+
+    assert len(result.issues) == 2
+    assert result.new_issue_count == 1
+
+
+def test_discover_issues_reports_no_new_issues_when_none_were_filed(make_trace):
+    traces = [make_trace() for _ in range(3)]
+    failing = traces[:2]
+    rationale_map = {trace.info.trace_id: "bad" for trace in failing}
+
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
+
+    refreshed = _make_issue(issue_id="already-reported", source_run_id="an-earlier-run")
+
+    with (
+        patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="0"),
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
+            return_value=_triage_eval(run_id),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=_TriageResult(failing, rationale_map, {}),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failure_labels",
+            return_value=(["label1", "label2"], [0, 1]),
+        ),
+        patch("mlflow.genai.discovery.pipeline.cluster_by_llm", return_value=[[0, 1]]),
+        patch(
+            "mlflow.genai.discovery.pipeline.summarize_cluster",
+            return_value=create_identified_issue(example_indices=[0, 1]),
+        ),
+        patch("mlflow.genai.discovery.pipeline.read_match_candidates", return_value=[refreshed]),
+        patch(
+            "mlflow.genai.discovery.pipeline.match_findings_to_existing_issues",
+            return_value=MatchOutcome(matched={0: refreshed.issue_id}, candidates_considered=1),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline._build_issues",
+            return_value=([refreshed], {}),
+        ),
+        patch("mlflow.genai.discovery.pipeline._annotate_issue_traces"),
+    ):
+        result = discover_issues(traces=traces, run_id=run_id)
+
+    assert len(result.issues) == 1
+    assert result.new_issue_count == 0
+
+
+def test_an_issue_refreshed_by_the_run_that_filed_it_is_not_counted_as_new(make_trace):
+    """
+    `run_id` lets a second detection attach to the run that filed the candidates it is now
+    offered, so the run that filed an issue does not separate new from refreshed.
+    """
+    traces = [make_trace() for _ in range(3)]
+    failing = traces[:2]
+    rationale_map = {trace.info.trace_id: "bad" for trace in failing}
+
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
+
+    # Filed by an earlier detection against this same run.
+    already_filed = _make_issue(issue_id="filed-earlier", source_run_id=run_id)
+
+    with (
+        patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="0"),
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
+            return_value=_triage_eval(run_id),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=_TriageResult(failing, rationale_map, {}),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failure_labels",
+            return_value=(["label1", "label2"], [0, 1]),
+        ),
+        patch("mlflow.genai.discovery.pipeline.cluster_by_llm", return_value=[[0, 1]]),
+        patch(
+            "mlflow.genai.discovery.pipeline.summarize_cluster",
+            return_value=create_identified_issue(example_indices=[0, 1]),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.read_match_candidates",
+            return_value=[already_filed],
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.match_findings_to_existing_issues",
+            return_value=MatchOutcome(matched={0: already_filed.issue_id}, candidates_considered=1),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline._build_issues",
+            return_value=([already_filed], {}),
+        ),
+        patch("mlflow.genai.discovery.pipeline._annotate_issue_traces"),
+    ):
+        result = discover_issues(traces=traces, run_id=run_id)
+
+    assert len(result.issues) == 1
+    assert result.new_issue_count == 0
+
+
+def test_the_run_reads_running_until_its_issues_have_been_filed(make_trace):
+    """
+    Every consumer reads the run, not the pipeline, so a run that settles before its issues
+    exist reads as a detection that completed and found nothing.
+    """
+    traces = [make_trace() for _ in range(3)]
+    failing = traces[:2]
+    rationale_map = {trace.info.trace_id: "bad" for trace in failing}
+
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
+
+    status_when_filed = []
+
+    def _file_issue(*args, **kwargs):
+        status_when_filed.append(mlflow.get_run(run_id).info.status)
+        return _make_issue(name="slow_response")
+
+    with (
+        patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="0"),
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
+            return_value=_triage_eval(run_id),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=_TriageResult(failing, rationale_map, {}),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failure_labels",
+            return_value=(["label1", "label2"], [0, 1]),
+        ),
+        patch("mlflow.genai.discovery.pipeline.cluster_by_llm", return_value=[[0, 1]]),
+        patch(
+            "mlflow.genai.discovery.pipeline.summarize_cluster",
+            return_value=create_identified_issue(name="slow_response", example_indices=[0, 1]),
+        ),
+        patch("mlflow.genai.discovery.pipeline.read_match_candidates", return_value=[]),
+        patch("mlflow.tracing.client.TracingClient._create_issue", side_effect=_file_issue),
+        patch("mlflow.genai.discovery.pipeline._annotate_issue_traces"),
+    ):
+        result = discover_issues(traces=traces, run_id=run_id)
+
+    assert len(result.issues) == 1
+    assert status_when_filed == ["RUNNING"]
+    # Still settles once the pipeline is done, rather than being left dangling.
+    assert mlflow.get_run(run_id).info.status == "FINISHED"
+
+
+def test_a_run_whose_later_phase_raises_reads_failed(make_trace):
+    traces = [make_trace() for _ in range(3)]
+    failing = traces[:2]
+    rationale_map = {trace.info.trace_id: "bad" for trace in failing}
+
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
+
+    with (
+        patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="0"),
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
+            return_value=_triage_eval(run_id),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=_TriageResult(failing, rationale_map, {}),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline._cluster_and_identify",
+            side_effect=RuntimeError("clustering failed"),
+        ),
+        pytest.raises(RuntimeError, match="clustering failed"),
+    ):
+        discover_issues(traces=traces, run_id=run_id)
+
+    assert mlflow.get_run(run_id).info.status == "FAILED"
+
+
 def test_discover_issues_returns_total_cost_usd_field(make_trace):
     from mlflow.entities.assessment import Feedback
     from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
@@ -1534,3 +1766,62 @@ def test_a_reference_that_cannot_be_stored_at_all_is_given_up_on_quietly():
 
     # No evidence to drop, so there is nothing to retry: one attempt, no exception escaping.
     mock_log_issue.assert_called_once()
+
+
+def test_an_issue_of_unknown_severity_does_not_break_the_final_sort():
+    # Reported in review. An issue matched onto one already in the store carries that row's
+    # severity, and the column is nullable -- so one untyped row raised TypeError from this
+    # sort. It runs after every database write but before evidence annotation, so the run
+    # published its issues and then lost all of their trace annotations.
+    from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
+    from mlflow.genai.discovery.pipeline import _severity_sort_key
+
+    def _issue(issue_id, severity):
+        return Issue(
+            issue_id=issue_id,
+            experiment_id="1",
+            name=issue_id,
+            description="d",
+            status=IssueStatus.PENDING,
+            severity=severity,
+            created_timestamp=1,
+            last_updated_timestamp=1,
+        )
+
+    # Mixed types on purpose: a newly created issue carries the enum, a row read back from
+    # the store carries a plain string, and this list holds both after matching.
+    issues = [
+        _issue("unknown", None),
+        _issue("low", "low"),
+        _issue("high", IssueSeverity.HIGH),
+        _issue("medium", "medium"),
+    ]
+
+    issues.sort(key=_severity_sort_key, reverse=True)
+
+    # Ordered by severity, not alphabetically. Before the fix a plain string fell back to
+    # `str` comparison, which put "high" below "low" and the most severe issues last.
+    assert [issue.issue_id for issue in issues] == ["high", "medium", "low", "unknown"]
+
+
+def test_only_unknown_severities_still_sort():
+    from mlflow.entities.issue import Issue, IssueStatus
+    from mlflow.genai.discovery.pipeline import _severity_sort_key
+
+    issues = [
+        Issue(
+            issue_id=f"iss-{index}",
+            experiment_id="1",
+            name="n",
+            description="d",
+            status=IssueStatus.PENDING,
+            severity=None,
+            created_timestamp=1,
+            last_updated_timestamp=1,
+        )
+        for index in range(3)
+    ]
+
+    # Two unknowns compare against each other, which is where a naive sentinel would raise.
+    issues.sort(key=_severity_sort_key, reverse=True)
+    assert len(issues) == 3

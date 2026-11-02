@@ -2,7 +2,7 @@ name: "setup-gateway"
 description: "Mint a Databricks AI Gateway bearer and emit its base URLs as outputs"
 inputs:
   task:
-    description: "Names the automation spending the tokens, e.g. pr-review. Tags the requests for cost attribution."
+    description: "Names the automation spending the tokens, e.g. nightly. Tags the requests for cost attribution."
     required: true
   host:
     description: "Databricks workspace URL"

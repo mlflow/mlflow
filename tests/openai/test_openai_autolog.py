@@ -39,6 +39,7 @@ from tests.openai.mock_openai import (
     EMPTY_STREAM,
     ERROR_MID_STREAM,
     LIST_CONTENT,
+    TOOL_CALL_STREAM,
 )
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
 
@@ -776,6 +777,35 @@ async def test_chat_completions_streaming_with_list_content(client):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("include_usage", [True, False])
+async def test_chat_completions_streaming_with_tool_calls(client, include_usage):
+    mlflow.openai.autolog()
+    stream = client.chat.completions.create(
+        messages=[{"role": "user", "content": TOOL_CALL_STREAM}],
+        model="gpt-4o-mini",
+        stream=True,
+        stream_options={"include_usage": include_usage},
+    )
+
+    chunks = [chunk async for chunk in await stream] if client._is_async else list(stream)
+    assert len(chunks) == (6 if include_usage else 5)
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace.info.status == "OK"
+    span = trace.data.spans[0]
+    choice = span.outputs["choices"][0]
+    assert choice["finish_reason"] == "tool_calls"
+    assert choice["message"]["content"] is None
+    assert choice["message"]["tool_calls"] == [
+        {
+            "id": "call_1",
+            "type": "function",
+            "function": {"name": "get_weather", "arguments": '{"city": "Paris"}'},
+        }
+    ]
+
+
+@pytest.mark.asyncio
 async def test_completions_autolog(client):
     mlflow.openai.autolog()
 
@@ -1385,8 +1415,8 @@ def test_reconstruct_response_from_stream():
     from mlflow.openai.autolog import _reconstruct_response_from_stream
     from mlflow.types.responses_helpers import OutputItem
 
-    content1 = ResponseOutputText(annotations=[], text="Hello", type="output_text")
-    content2 = ResponseOutputText(annotations=[], text=" world", type="output_text")
+    content1 = ResponseOutputText(annotations=[], logprobs=[], text="Hello", type="output_text")
+    content2 = ResponseOutputText(annotations=[], logprobs=[], text=" world", type="output_text")
 
     message1 = ResponseOutputMessage(
         id="test-1", content=[content1], role="assistant", status="completed", type="message"

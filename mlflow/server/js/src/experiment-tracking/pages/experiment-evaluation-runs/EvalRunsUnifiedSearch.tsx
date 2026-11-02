@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 
-import { InfoFillIcon, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { InfoFillIcon, InfoPopover, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
 import { UnifiedSearch, type UnifiedSearchOption } from '../../components/UnifiedSearch';
-import { useIntl } from 'react-intl';
+import { RunsSearchTooltipContent } from '../../components/experiment-page/components/runs/RunsSearchTooltipContent';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 import type { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 import type { ExperimentRunsSelectorResult } from '../../components/experiment-page/utils/experimentRuns.selector';
@@ -116,9 +117,10 @@ const parseQuery = (query: string, fields: EvalRunsFilterFieldDef[]): ParsedQuer
   };
 };
 
+// Accepts every form shown in the search help (`RunsSearchTooltipContent`), e.g. `metric.` and `IN (...)`.
 const isSearchRunsExpression = (value: string) =>
-  /^(?:attributes|metrics|params|tags|dataset)\./i.test(value) &&
-  /\s(?:=|!=|>=|<=|>|<|LIKE|ILIKE|RLIKE|IS\s+(?:NOT\s+)?NULL)(?:\s|$)/i.test(value);
+  /^(?:attributes?|metrics?|params?|tags?|datasets?)\./i.test(value) &&
+  /\s(?:=|!=|>=|<=|>|<|(?:NOT\s+)?(?:LIKE|ILIKE|RLIKE|IN)|IS\s+(?:NOT\s+)?NULL)(?:\s|$|\()/i.test(value);
 
 const buildObservedExamples = (runs: RunEntity[], fields: EvalRunsFilterFieldDef[]): EvalRunsFilterClause[] => {
   const examples: EvalRunsFilterClause[] = [];
@@ -434,7 +436,12 @@ export const EvalRunsUnifiedSearch = ({
               description: 'Evaluation runs search input',
             })
       }
-      submitDisabled={!value.trim() || (!isAIMode && (parsed.status === 'field' || parsed.status === 'operator'))}
+      submitDisabled={
+        !value.trim() ||
+        (!isAIMode &&
+          (parsed.status === 'field' || parsed.status === 'operator') &&
+          !isSearchRunsExpression(value.trim()))
+      }
       onSubmit={submit}
       onChange={setValue}
       onClear={() => {
@@ -457,6 +464,22 @@ export const EvalRunsUnifiedSearch = ({
               <InfoFillIcon aria-label={requestErrorMessage} css={{ color: theme.colors.textValidationDanger }} />
             </Tooltip>
           ) : null}
+          {!isAIMode && (
+            <InfoPopover
+              ariaLabel={intl.formatMessage({
+                defaultMessage: 'Search syntax help',
+                description: 'Accessible label for the evaluation runs search syntax help',
+              })}
+              popoverProps={{ side: 'right' }}
+            >
+              <FormattedMessage
+                defaultMessage="Type part of a run name to search by name, or enter a filter expression."
+                description="Evaluation runs search help: the search box takes run names and filter expressions"
+              />
+              <br />
+              <RunsSearchTooltipContent />
+            </InfoPopover>
+          )}
           {suffix}
         </div>
       }
