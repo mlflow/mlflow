@@ -2,21 +2,20 @@
 
 ## 3.18.0 (2026-11-02)
 
-MLflow 3.18.0 includes several major features and improvements.
+MLflow 3.18.0 helps you reuse agent expertise, find regressions before shipping, and monitor quality in production.
+
+### Major New Features
+
+- **[Skill Registry](https://mlflow.org/docs/latest/genai/skill-registry/)**: Share your team's expertise across agents and projects with a central catalog of reusable skills. Discover existing skills and choose the version or alias to use in each agent. Experimental. (#26736, @mprahl)
+- **[Revamped Evaluation and Trace Comparisons for Finding Regressions](https://mlflow.org/docs/latest/genai/eval-monitor/)**: Find the regressions hidden behind aggregate scores before you ship an agent update. The redesigned comparison UI takes you from score changes to the inputs, conversations, and trace steps behind them. An [experimental Python API](https://mlflow.org/docs/latest/genai/eval-monitor/comparing-evaluation-runs/) adds statistical comparisons to help distinguish improvements from noise. (#26991, @joshuawong-db)
+- **[Automatic Issue Detection](https://mlflow.org/docs/latest/genai/eval-monitor/ai-insights/detect-issues/)**: Turn recurring agent failures into issues you can investigate and fix. The dedicated Issues tab groups related problems and links findings to trace evidence; schedule detection to keep checking new traffic. (#27193, @tanghaoji)
+- **[Online Evaluation](https://mlflow.org/docs/latest/genai/eval-monitor/automatic-evaluations/)**: Catch production quality regressions with custom code-based checks that automatically assess new traces and multi-turn conversations as they arrive. Code-based online evaluation is experimental and requires a self-hosted server configured with [job containers](https://mlflow.org/docs/latest/self-hosting/job-containers/). (#26689, @kriscon-db)
 
 ### Breaking Changes
 
 - [Tracking] Filter and sort `search_logged_models` metrics by the highest step, then latest timestamp, on SQL stores; apply `datasets` to both filtering and sorting (#27215, @agtzrubio)
 - [Model Registry] Stop adding `registered_model_meta` to `models:/` downloads; custom readers should use the URI or Model Registry (#27173, @sunilmehta-si)
 - [Tracking] Make MCP server version identity case-sensitive on MySQL and SQL Server; correct case-mismatched references before upgrading (#25920, @LobsterQBA)
-
-### Major New Features
-
-- **[Skill Registry](https://mlflow.org/docs/latest/genai/skill-registry/)**: Register, version, discover, and share agent skills from local, Git, OCI, and ZIP sources, with statuses and aliases. Experimental. (#26736, @mprahl)
-- **[Evaluation Run and Trace Comparisons](https://mlflow.org/docs/latest/genai/eval-monitor/)**: Use the redesigned evaluation UI by default, compare runs from aggregate metrics to individual inputs and sessions, inspect trace differences, and record pairwise preferences. (#26991, @joshuawong-db)
-- **[Actionable Issue Detection](https://mlflow.org/docs/latest/genai/eval-monitor/ai-insights/detect-issues/)**: On SQL-backed servers with AI Gateway, investigate experiment-wide findings with span-linked evidence and coding-agent fix prompts, and track ad hoc and scheduled detection runs. (#27193, @tanghaoji)
-- **[Statistical Evaluation Comparisons](https://mlflow.org/docs/latest/genai/eval-monitor/comparing-evaluation-runs/)**: Compare paired evaluation results with confidence intervals, significance tests, effect sizes, and an `assert_improved` gate for CI. Experimental. (#26396, @AbdulAliMamnun)
-- **[Automatic Evaluation with Code-Based Scorers](https://mlflow.org/docs/latest/self-hosting/job-containers/)**: Run registered `@scorer` functions on new traces and sessions in Docker job containers without network access. Requires a SQL backend, a local Docker daemon, and a single server replica. Experimental. (#26689, @kriscon-db)
 
 **Database upgrade:** Back up the SQL backend and plan a maintenance window. Stop MLflow servers and other writers, run `mlflow db upgrade <database-url>` with MLflow 3.18.0, and restart on the new version. The MCP version migration checks MySQL and SQL Server references for exact-case matches and stops before its own schema changes if correction is required. On case-insensitive databases, registry and MCP permissions now use stored resource names. Re-save differently cased grants under the stored spelling. Follow the [database upgrade guidance](https://mlflow.org/docs/latest/self-hosting/architecture/backend-store/).
 
@@ -46,6 +45,7 @@ MLflow 3.18.0 includes several major features and improvements.
 - [Evaluation / Tracing / UI] Detect cost anomalies and attach validated span-linked evidence to issue findings (#26919, @tanghaoji)
 - [Evaluation / Tracing / UI] Add GenAI journey overview (#26636, @B-Step62)
 - [Docs / Evaluation] Add an experimental `quality_criteria` parameter to `mlflow.genai.evaluate` (#26471, @joshuawong-db)
+- [Docs / Evaluation] Distinguish evaluation improvements from noise with the experimental `mlflow.genai.compare_evaluations` API, paired statistical tests, confidence intervals, and an `assert_improved` gate for CI (#26396, @AbdulAliMamnun)
 - [Docs / Tracking] Include allowed actions in Skill Registry responses (#26900, @bardenr)
 - [Tracing / UI] Add structured evidence on native Issue references and render it in the Issues tab (#26791, @tanghaoji)
 - [Docs / Evaluation / Prompts / Tracking / UI] Support presigned artifact flows in the UI (#26268, @NeriCarcasci)
