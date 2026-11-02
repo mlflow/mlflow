@@ -255,14 +255,16 @@ class JudgeGuardrail(Guardrail):
                 f"{aiohttp.__version__}). Upgrade aiohttp, or terminate TLS in a proxy in front "
                 "of the server.",
             )
+        unusable = "Sanitization could not use the request's host for the TLS check."
         try:
             hostname = urllib.parse.urlsplit(f"//{self.host_header}").hostname
             # ssl IDNA-encodes the name for the TLS check; reject one it can't encode here.
-            (hostname or "").encode("idna")
+            encoded = (hostname or "").encode("idna")
         except ValueError as e:
-            raise GuardrailViolation(
-                self.name, "Sanitization could not use the request's host for the TLS check."
-            ) from e
+            raise GuardrailViolation(self.name, unusable) from e
+        # ssl raises TypeError on a NUL byte; also cap the name at DNS's 253 characters.
+        if b"\x00" in encoded or len(encoded.removesuffix(b".")) > 253:
+            raise GuardrailViolation(self.name, unusable)
         return hostname
 
     async def _sanitize(

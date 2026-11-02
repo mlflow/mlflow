@@ -191,6 +191,10 @@ async def test_sanitization_without_endpoint_or_server_address_raises(
         await guard.process_request(_make_request())
 
 
+# A 253-character DNS name, the longest allowed.
+_LONGEST_HOST_NAME = ".".join(["a" * 63] * 3 + ["a" * 61])
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("action_llm_url", "host_header", "expected_server_hostname"),
@@ -198,6 +202,8 @@ async def test_sanitization_without_endpoint_or_server_address_raises(
         ("http://127.0.0.1:5000", "mlflow.example.com", None),
         ("https://127.0.0.1:5000", "mlflow.example.com:8443", "mlflow.example.com"),
         ("https://127.0.0.1:5000", None, None),
+        ("https://127.0.0.1:5000", _LONGEST_HOST_NAME, _LONGEST_HOST_NAME),
+        ("https://127.0.0.1:5000", f"{_LONGEST_HOST_NAME}.", f"{_LONGEST_HOST_NAME}."),
     ],
 )
 async def test_sanitization_sends_host_and_tls_server_hostname(
@@ -267,7 +273,15 @@ async def test_sanitization_request_error_raises_violation(error):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("host_header", ["10.[", f"10.{'a' * 64}.example.com"])
+@pytest.mark.parametrize(
+    "host_header",
+    [
+        "10.[",
+        f"10.{'a' * 64}.example.com",
+        "mlflow\x00.example.com",
+        f"{_LONGEST_HOST_NAME}a",
+    ],
+)
 async def test_sanitization_tls_rejects_unusable_host(host_header):
     scorer = _SimpleScorer(_feedback(value=False, rationale="issue"))
     guard = JudgeGuardrail(
