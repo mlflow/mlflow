@@ -916,7 +916,7 @@ jobs:
         if: always()
         run: |
           git reset --hard "$GITHUB_SHA"
-          git clean -fdq
+          git clean -fd
       - name: Stage triage report for upload
         if: always()
         run: |
