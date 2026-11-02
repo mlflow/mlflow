@@ -25,7 +25,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import EndpointType
+from mlflow.gateway.config import EndpointType, Provider
 from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
 from mlflow.gateway.provider_registry import is_supported_provider
 from mlflow.genai.judges.adapters.base_adapter import (
@@ -59,6 +59,7 @@ from mlflow.metrics.genai.model_utils import (
 )
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.tracing.constant import AssessmentMetadataKey
+from mlflow.utils.provider_filter import normalize_provider_name
 from mlflow.utils.workspace_context import get_request_workspace
 from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
@@ -364,7 +365,12 @@ class GatewayAdapter(BaseJudgeAdapter):
         # from the API response which enables JUDGE_COST tracking.
         # "endpoints" (Databricks model serving) uses score_model_on_payload and
         # does not support the provider-based request/response transformation.
-        if input_params.model_provider != "endpoints":
+        # Bedrock calls go through boto3 and have no endpoint URL for the loop, so
+        # judges without a trace use score_model_on_payload as well.
+        if input_params.model_provider != "endpoints" and not (
+            input_params.trace is None
+            and normalize_provider_name(input_params.model_provider) == Provider.BEDROCK
+        ):
             return self._invoke_with_tools(input_params)
 
         # "endpoints" provider: trace-based tool calling is not supported.

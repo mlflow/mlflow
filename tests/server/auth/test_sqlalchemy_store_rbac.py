@@ -30,7 +30,7 @@ _RESOURCE_GRANT_CASES = [
     for resource_type in sorted(_SKILL_REGISTRY_RESOURCE_TYPES)
     for permission in (READ, EDIT, MANAGE)
 ]
-from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
+from mlflow.server.auth.sqlalchemy_store import NamedRoleGrant, SqlAlchemyStore
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.helper_functions import random_str
@@ -1266,3 +1266,18 @@ def test_get_role_permission_picks_highest(store, user, perms, expected):
 
     result = store.get_role_permission_for_resource(user.id, "experiment", "1", "ws1")
     assert result == expected
+
+
+def test_list_named_role_grants_for_resource_ignores_wildcard_and_per_user_grants(store, user):
+    role = store.create_role(name="readers", workspace=DEFAULT_WORKSPACE_NAME)
+    store.add_role_permission(role.id, "registered_model", "*", READ.name)
+    store.grant_user_permission(user.username, "registered_model", "renamed", MANAGE.name)
+    resource_types = ["registered_model", "prompt"]
+
+    # A model named "*" (created before wildcard names were rejected) can still be renamed.
+    assert store.list_named_role_grants_for_resource(resource_types, ["*", "renamed"]) == []
+
+    store.add_role_permission(role.id, "prompt", "renamed", DENY.name)
+    assert store.list_named_role_grants_for_resource(resource_types, ["*", "renamed"]) == [
+        NamedRoleGrant("readers", "prompt", "renamed", DENY.name)
+    ]

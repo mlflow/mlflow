@@ -1,8 +1,6 @@
 import hashlib
 from typing import Any
 
-from packaging.version import Version
-
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
@@ -25,10 +23,16 @@ def compute_pandas_digest(df) -> str:
     trimmed_df = df.head(MAX_ROWS)
 
     # keep string and number columns, drop other column types
-    if Version(pd.__version__) >= Version("2.1.0"):
-        string_columns = trimmed_df.columns[(df.map(type) == str).all(0)]
-    else:
-        string_columns = trimmed_df.columns[(df.applymap(type) == str).all(0)]
+    # Check element types on an object array, since `df.map` keeps extension dtypes such as
+    # Arrow-backed strings on empty columns, and those don't support comparison against `str`.
+    # The first-element check skips the object conversion for most non-string columns.
+    string_columns = trimmed_df.columns[
+        [
+            all(type(x) is str for x in column.iloc[:1])
+            and all(type(x) is str for x in column.to_numpy(dtype=object))
+            for _, column in df.items()
+        ]
+    ]
     numeric_columns = trimmed_df.select_dtypes(include=[np.number]).columns
 
     desired_columns = string_columns.union(numeric_columns)

@@ -2395,10 +2395,42 @@ def _reject_wildcard_model_name(name: str) -> None:
 def validate_can_rename_registered_model() -> bool:
     if not _validate_can_update_registered_model_or_prompt():
         return False
+    _enforce_rename_name_rules()
+    return True
+
+
+def _enforce_rename_name_rules() -> None:
     if target := _registered_model_or_prompt_target():
         _require_stored_name_spelling(_get_request_param("name"), target[1])
-    _reject_wildcard_model_name(_get_request_message(RenameRegisteredModel()).new_name)
-    return True
+    request_message = _get_request_message(RenameRegisteredModel())
+    _reject_wildcard_model_name(request_message.new_name)
+    _reject_rename_with_named_role_grants(request_message.name, request_message.new_name)
+
+
+def _reject_rename_with_named_role_grants(name: str, new_name: str) -> None:
+    # Model and prompt grants are keyed by name, and a rename only rewrites per-user grants.
+    # An admin-created role's grant on the old name would stop applying (lifting a DENY), and
+    # one on the new name would start applying to the renamed model, so reject the rename.
+    grants = store.list_named_role_grants_for_resource(
+        (RESOURCE_TYPE_REGISTERED_MODEL, RESOURCE_TYPE_PROMPT), (name, new_name)
+    )
+    if not grants:
+        return
+    details = ""
+    # Only callers who can manage roles can act on these grants, so only they get the details.
+    user = store.get_user(authenticate_request().username)
+    workspace = _request_auth_workspace()
+    if user.is_admin or (workspace is not None and _is_workspace_admin(user.id, workspace)):
+        listed = ", ".join(
+            f"role '{g.role_name}' has {g.permission} on {g.resource_type} '{g.resource_pattern}'"
+            for g in grants
+        )
+        details = f" ({listed})"
+    raise MlflowException.invalid_parameter_value(
+        f"Cannot rename '{name}' to '{new_name}' because role grants reference these names by "
+        f"exact name{details}. Renaming would change which model or prompt those grants apply "
+        "to. An admin must update or remove these role grants before the rename."
+    )
 
 
 def _validate_can_delete_registered_model_or_prompt():
@@ -5026,13 +5058,16 @@ def enforce_review_queue_name_not_username():
         _reject_rename_review_queue_shadowing_user(queue, _parse_update_review_queue_request())
 
 
-def enforce_model_name_not_wildcard():
-    """Apply the validators' wildcard-name check to admins, who skip the validators."""
+def enforce_model_name_rules():
+    """Apply the validators' model-name checks to admins, who skip the validators."""
     validator = _find_validator(request)
     if validator is validate_can_create_registered_model:
         _reject_wildcard_model_name(_get_request_message(CreateRegisteredModel()).name)
     elif validator is validate_can_rename_registered_model:
-        _reject_wildcard_model_name(_get_request_message(RenameRegisteredModel()).new_name)
+        _enforce_rename_name_rules()
+    elif validator is validate_can_delete_registered_model_or_prompt_cascade:
+        if target := _registered_model_or_prompt_target():
+            _require_stored_name_spelling(_get_request_param("name"), target[1])
 
 
 def validate_can_remove_items_from_review_queue():
@@ -5505,6 +5540,14 @@ TRACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS = {
     if "<" in path and "/mlflow/traces/" in path
 }
 
+# Workspace endpoints with a path parameter (e.g. /mlflow/workspaces/<workspace_name>) need
+# regex matching for the same reason as the trace endpoints above.
+WORKSPACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS = {
+    (_re_compile_path(path), method): handler
+    for (path, method), handler in BEFORE_REQUEST_VALIDATORS.items()
+    if "<" in path and "/mlflow/workspaces/" in path
+}
+
 LOGGED_MODEL_BEFORE_REQUEST_HANDLERS = {
     CreateLoggedModel: validate_can_create_logged_model,
     # Request scoping authorizes experiment IDs; this gates only the
@@ -5936,6 +5979,18 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
     if validator := BEFORE_REQUEST_VALIDATORS.get((req.path, req.method)):
         return validator
 
+    # Unlike the families below, a miss here returns None rather than denying: mlflow-artifacts
+    # paths can contain "/mlflow/workspaces/" and must fall through to the artifact validators.
+    if "/mlflow/workspaces/" in req.path:
+        return next(
+            (
+                v
+                for (pat, method), v in WORKSPACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS.items()
+                if pat.fullmatch(req.path) and method == req.method
+            ),
+            None,
+        )
+
     # Whole /mlflow/datasets/ family; unknown paths under the prefix fail closed.
     if "/mlflow/datasets/" in req.path:
         validator = next(
@@ -6104,7 +6159,7 @@ def _before_request():
     # inside the validators).
     if sender_is_admin():
         enforce_review_queue_name_not_username()
-        enforce_model_name_not_wildcard()
+        enforce_model_name_rules()
         return
 
     # authorization
@@ -9149,6 +9204,17 @@ def _mcp_server_after_create(username: str, request: StarletteRequest) -> None:
         store.grant_user_permission(username, "mcp_server", name, MANAGE.name)
 
 
+def _require_mcp_server_delete_spelling(path: str) -> None:
+    # Admins skip validators, but ``_mcp_server_after_delete`` still sweeps grants by the
+    # requested name, so hold an admin delete to the stored spelling as the validator does.
+    parts = _mcp_server_suffix(path).split("/")
+    if len(parts) != 2:
+        return
+    requested_name = f"{parts[0]}/{parts[1]}"
+    if server := _fetch_or_none(_get_tracking_store().get_mcp_server, requested_name):
+        _require_stored_name_spelling(requested_name, server.name)
+
+
 def _mcp_server_after_delete(username: str, request: StarletteRequest) -> None:
     suffix = _mcp_server_suffix(get_routed_asgi_path(request))
     parts = suffix.split("/") if suffix else []
@@ -9769,7 +9835,15 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
             finally:
                 workspace_context.clear_server_request_workspace()
         else:
-            workspace_context.clear_server_request_workspace()
+            # Registered model and prompt deletes are Flask routes, checked for admins in
+            # ``enforce_model_name_rules``; MCP server deletes only come through here.
+            try:
+                if after_handler is _mcp_server_after_delete:
+                    _require_mcp_server_delete_spelling(path)
+            except MlflowException as e:
+                return PlainTextResponse(e.message, status_code=e.get_http_status_code())
+            finally:
+                workspace_context.clear_server_request_workspace()
 
         response = await call_next(request)
 

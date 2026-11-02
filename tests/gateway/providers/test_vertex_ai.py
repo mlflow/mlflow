@@ -355,6 +355,26 @@ async def test_chat_stream_tool_calling_omits_function_call_id():
     assert "id" not in _find_part(contents, "functionResponse")
 
 
+@pytest.mark.asyncio
+async def test_chat_stream_raises_on_in_band_error():
+    provider = _make_provider()
+    stream_resp = [
+        b'data: {"candidates": [{"content": {"parts": [{"text": "a"}]}}]}\n\n',
+        b'data: {"error": {"code": 500, "message": "Internal error", "status": "INTERNAL"}}\n\n',
+    ]
+    mock_client = mock_http_client(MockAsyncStreamingResponse(stream_resp))
+    payload = {"messages": [{"role": "user", "content": "Hi"}], "stream": True}
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        stream = provider.chat_stream(chat.RequestPayload(**payload))
+        first = await anext(stream)
+        with pytest.raises(
+            AIGatewayException, match="Vertex AI returned INTERNAL while streaming: Internal error"
+        ):
+            await anext(stream)
+    assert first.choices[0].delta.content == "a"
+
+
 def test_adapter_class_matches_the_active_delegate():
     # adapter_class must follow the delegate: Claude/MaaS models are formatted by their
     # own adapters (get_endpoint_url points at the delegate's endpoint), not the Gemini one.

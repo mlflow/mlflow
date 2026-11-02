@@ -14,6 +14,7 @@ from mlflow.gateway.providers.base import (
     _drop_client_auth_headers,
 )
 from mlflow.gateway.providers.utils import (
+    _error_detail,
     parse_base64_data_url,
     proxy_root_url,
     rename_payload_keys,
@@ -940,6 +941,16 @@ class GeminiProvider(BaseProvider):
 
         return self.adapter_class.model_to_completions(resp, self.config)
 
+    def _raise_for_stream_error(self, resp: dict[str, Any]) -> None:
+        # Gemini can report an error inside a stream that already returned 200. Raise it so the
+        # stream ends with an error instead of looking complete.
+        if error := resp.get("error"):
+            raise AIGatewayException(
+                status_code=502,
+                detail=f"{self.DISPLAY_NAME} returned {error.get('status')} while streaming: "
+                f"{_error_detail(resp)}",
+            )
+
     async def _completions_stream(
         self, payload: completions_schema.RequestPayload
     ) -> AsyncIterable[completions_schema.StreamResponsePayload]:
@@ -967,6 +978,7 @@ class GeminiProvider(BaseProvider):
             if data == "[DONE]":
                 break
             resp = json.loads(data)
+            self._raise_for_stream_error(resp)
             yield self.adapter_class.model_to_completions_streaming(resp, self.config)
 
     async def _chat(self, payload: chat_schema.RequestPayload) -> chat_schema.ResponsePayload:
@@ -1014,6 +1026,7 @@ class GeminiProvider(BaseProvider):
             if data == "[DONE]":
                 break
             resp = json.loads(data)
+            self._raise_for_stream_error(resp)
             yield self.adapter_class.model_to_chat_streaming(resp, self.config, tool_call_counts)
             for pos, cand in enumerate(resp.get("candidates", [])):
                 idx = cand.get("index", pos)

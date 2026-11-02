@@ -82,6 +82,73 @@ _ARMERIA_OK = "200 OK"
 _DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING = (
     "The 'retry_after_secs' parameter of DatabricksError is deprecated"
 )
+# Responses that show the server didn't process the request, so a write that isn't safe to repeat
+# can be sent again. MLflow's own server can return 503 after it commits a write, so 503 isn't one.
+_UNPROCESSED_REQUEST_RESPONSE_CODES = frozenset([408, 429])
+# `POST` APIs that are safe to send again even if the server already processed them, keyed by
+# response message name: reads and credential requests, and writes the server applies
+# idempotently. Other `POST` APIs are retried only when the request wasn't processed.
+_RETRY_SAFE_POST_RESPONSES = frozenset([
+    # Reads and credential requests
+    "mlflow.BatchGetTraceInfos.Response",
+    "mlflow.CalculateTraceFilterCorrelation.Response",
+    "mlflow.GetCredentialsForLoggedModelDownload.Response",
+    "mlflow.GetCredentialsForLoggedModelUpload.Response",
+    "mlflow.GetCredentialsForRead.Response",
+    "mlflow.GetCredentialsForWrite.Response",
+    "mlflow.GetLatestVersions.Response",
+    "mlflow.QueryTraceMetrics.Response",
+    "mlflow.SearchDatasets.Response",
+    "mlflow.SearchEvaluationDatasets.Response",
+    "mlflow.SearchExperiments.Response",
+    "mlflow.SearchLoggedModels.Response",
+    "mlflow.SearchPromptOptimizationJobs.Response",
+    "mlflow.SearchRuns.Response",
+    "mlflow.SearchTracesV3.Response",
+    "mlflow.databricks.SearchTraces.Response",
+    "mlflow.databricks.SearchTracesOperation",
+    "mlflow.filesystem.CreateDownloadUrlResponse",
+    "mlflow.filesystem.CreateUploadUrlResponse",
+    "mlflow.issues.SearchIssues.Response",
+    "mlflow.ucmodelregistry.GenerateTemporaryModelVersionCredentialsResponse",
+    "mlflow.unitycatalog.SearchPromptVersionsResponse",
+    "mlflow.unitycatalog.SearchPromptsResponse",
+    "mlflow.unitycatalog.TemporaryCredentials",
+    # Writes that the server deduplicates or applies as upserts
+    "mlflow.DeleteRun.Response",
+    "mlflow.LogBatch.Response",
+    "mlflow.LogMetric.Response",
+    "mlflow.LogParam.Response",
+    "mlflow.RestoreRun.Response",
+    "mlflow.SetExperimentTag.Response",
+    "mlflow.SetModelVersionTag.Response",
+    "mlflow.SetRegisteredModelAlias.Response",
+    "mlflow.SetRegisteredModelTag.Response",
+    "mlflow.SetTag.Response",
+    "mlflow.StartTraceV3.Response",
+    "mlflow.UpdateRun.Response",
+    "mlflow.ucmodelregistry.SetModelVersionTagResponse",
+    "mlflow.ucmodelregistry.SetRegisteredModelAliasResponse",
+    "mlflow.ucmodelregistry.SetRegisteredModelTagResponse",
+])
+
+
+def _non_idempotent_write_retry_kwargs(host_creds: "MlflowHostCreds") -> dict[str, object]:
+    """
+    Retry options for a write that would be repeated if it's sent again after the server processed
+    it: only failures that show the request wasn't processed are retried.
+    """
+    # Retries on the Databricks SDK path are left as they are: the SDK resends timed-out requests
+    # itself, and `_retry_databricks_sdk_call_with_exponential_backoff` retries 5xx responses.
+    if host_creds.use_databricks_sdk:
+        return {}
+    return {
+        "retry_codes": _UNPROCESSED_REQUEST_RESPONSE_CODES,
+        "retry_read_errors": False,
+        # A proxy can add `Retry-After` to a 413 or 503 sent after the write committed, which
+        # urllib3 would otherwise retry.
+        "retry_on_retry_after": False,
+    }
 
 
 def _should_include_workspace_header(endpoint: str) -> bool:
@@ -113,6 +180,8 @@ def http_request(
     raise_on_status=True,
     respect_retry_after_header=None,
     retry_timeout_seconds=None,
+    retry_read_errors=True,
+    retry_on_retry_after=True,
     **kwargs,
 ):
     """Makes an HTTP request with the specified method to the specified hostname/endpoint. Transient
@@ -139,6 +208,12 @@ def http_request(
         respect_retry_after_header: Whether to respect Retry-After header on status codes defined
             as Retry.RETRY_AFTER_STATUS_CODES or not.
         retry_timeout_seconds: Timeout for retries. Only effective when using Databricks SDK.
+        retry_read_errors: Whether to retry errors raised once the request may have reached the
+            server, such as a read timeout or a reset connection. Not used with the
+            Databricks SDK.
+        retry_on_retry_after: Whether to retry a 413, 429 or 503 response that has a
+            ``Retry-After`` header even when its status isn't in ``retry_codes``. Only applies when
+            ``respect_retry_after_header`` is true. Not used with the Databricks SDK.
         kwargs: Additional keyword arguments to pass to `requests.Session.request()`
 
     Returns:
@@ -307,6 +382,8 @@ def http_request(
             verify=host_creds.verify,
             timeout=timeout,
             respect_retry_after_header=respect_retry_after_header,
+            retry_read_errors=retry_read_errors,
+            retry_on_retry_after=retry_on_retry_after,
             **kwargs,
         )
     except requests.exceptions.Timeout as to:
@@ -669,6 +746,8 @@ def call_endpoint(
         call_kwargs["extra_headers"] = extra_headers
     if retry_timeout_seconds is not None:
         call_kwargs["retry_timeout_seconds"] = retry_timeout_seconds
+    if method == "POST" and response_proto.DESCRIPTOR.full_name not in _RETRY_SAFE_POST_RESPONSES:
+        call_kwargs |= _non_idempotent_write_retry_kwargs(host_creds)
     if method == "GET":
         call_kwargs["params"] = json_body
         response = http_request(**call_kwargs)

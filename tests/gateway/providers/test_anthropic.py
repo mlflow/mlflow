@@ -976,6 +976,26 @@ def _merge_tool_calls(chunks):
 
 
 @pytest.mark.asyncio
+async def test_chat_stream_raises_on_in_band_error():
+    resp = [
+        *chat_stream_response()[:3],
+        b"event: error\n",
+        b'data: {"type": "error", "error": {"type": "overloaded_error", '
+        b'"message": "Overloaded"}}\n',
+        b"\n",
+    ]
+    with mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)):
+        provider = AnthropicProvider(EndpointConfig(**chat_config()))
+        response = provider.chat_stream(chat.RequestPayload(**chat_payload(stream=True)))
+        with pytest.raises(
+            AIGatewayException,
+            match="Anthropic returned overloaded_error while streaming: Overloaded",
+        ) as exc_info:
+            [chunk async for chunk in response]
+    assert exc_info.value.status_code == 502
+
+
+@pytest.mark.asyncio
 async def test_chat_stream_parallel_tool_calls():
     chunks = await _stream_tool_calls([
         ("tool", "toolu_1", "get_weather", '{"city": "Paris"}'),
