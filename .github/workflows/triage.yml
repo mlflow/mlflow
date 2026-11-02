@@ -678,7 +678,6 @@ jobs:
           GATEWAY_TOKEN: ${{ steps.gateway.outputs.token }}
           GATEWAY_URL: ${{ steps.gateway.outputs.base-url }}
         run: |
-          umask 077
           placeholder_token=$(openssl rand -hex 32)
           echo "::add-mask::$placeholder_token"
           printf 'placeholder-token=%s\n' "$placeholder_token" >> "$GITHUB_OUTPUT"
@@ -718,7 +717,6 @@ jobs:
           TRACE_LOCATION: ${{ vars.TRIAGE_MLFLOW_TRACE_LOCATION }}
           TELEMETRY_SOCKET: ${{ runner.temp }}/triage-telemetry.sock
         run: |
-          umask 077
           printf '%s\n' "$TELEMETRY_TOKEN" | env -u TELEMETRY_TOKEN \
             DATABRICKS_HOST="$DATABRICKS_HOST" TRACE_LOCATION="$TRACE_LOCATION" \
             TELEMETRY_SOCKET="$TELEMETRY_SOCKET" node .claude/sandbox/otel-proxy.mjs \
