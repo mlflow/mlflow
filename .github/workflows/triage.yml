@@ -898,7 +898,7 @@ jobs:
           fi
           # Claude's native WebSearch is unavailable through the Databricks gateway.
           # WebFetch's domain safety check calls api.anthropic.com, which the triage sandbox cannot reach.
-          timeout 45m srt --settings "$RUNNER_TEMP/triage-srt.json" -- \
+          timeout --kill-after=10s 45m srt --settings "$RUNNER_TEMP/triage-srt.json" -- \
             "${relay[@]}" env -u NO_PROXY -u no_proxy claude \
             --model "$MODEL" \
             --session-id "$SESSION_ID" \

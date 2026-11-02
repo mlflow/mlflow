@@ -48,10 +48,8 @@ Only start the UI when you need it, for example to reproduce the bug or check a 
 browser. The first start installs the frontend dependencies and compiles, which takes a few
 minutes.
 
-Run each command below from the repository root as a background task: on your Bash tool, set
-`run_in_background: true` and `timeout: 2700000` (45 minutes).
-A background task is stopped when it reaches its timeout, and the default of 10 minutes is too
-short. Logs go to `$out_dir/work`.
+Run each command below from the repository root. It starts the server with `&` and records its
+PID. Logs go to `$out_dir/work`.
 
 1. Backend: the tracking server on port 5000, with its data kept out of the checkout. `--dev`
    reloads it when Python files change.
@@ -60,23 +58,35 @@ short. Logs go to `$out_dir/work`.
    mkdir -p $out_dir/work && uv run mlflow server --dev --host 127.0.0.1 --port 5000 \
      --backend-store-uri sqlite:///$out_dir/work/mlflow.db \
      --artifacts-destination $out_dir/work/artifacts \
-     > $out_dir/work/backend.log 2>&1
+     > $out_dir/work/backend.log 2>&1 &
+   echo $! > $out_dir/work/backend.pid
    ```
 
 2. Frontend: the React dev server on port 3000, which proxies API requests to the backend on
    port 5000 and hot-reloads code changes.
 
    ```bash
-   cd mlflow/server/js && \
+   (cd mlflow/server/js && \
      YARN_HTTP_PROXY="$HTTP_PROXY" YARN_HTTPS_PROXY="$HTTPS_PROXY" yarn install --immutable \
        > $out_dir/work/yarn-install.log 2>&1 && \
      NO_PROXY=localhost,127.0.0.1 no_proxy=localhost,127.0.0.1 PORT=3000 BROWSER=none CI=false \
-     yarn start > $out_dir/work/frontend.log 2>&1
+     yarn start > $out_dir/work/frontend.log 2>&1) &
+   echo $! > $out_dir/work/frontend.pid
    ```
 
-3. Before using the UI, wait until `curl --noproxy '*' http://localhost:5000/health` and
-   `curl --noproxy '*' http://localhost:3000/` both succeed. Seed data through the backend
-   (`MLFLOW_TRACKING_URI=http://localhost:5000`), and open the UI at `http://localhost:3000`.
+3. Before using the UI, poll until both servers are alive and ready:
+
+   ```bash
+   kill -0 "$(cat $out_dir/work/backend.pid)" &&
+     curl --noproxy "*" -fsS --max-time 2 http://localhost:5000/health >/dev/null &&
+     kill -0 "$(cat $out_dir/work/frontend.pid)" &&
+     curl --noproxy "*" -fsS --max-time 2 http://localhost:3000/ >/dev/null
+   ```
+
+   If a process exited, inspect its log and fix the cause instead of waiting. Seed data through
+   the backend (`MLFLOW_TRACKING_URI=http://localhost:5000`), and open the UI at
+   `http://localhost:3000`.
+
 4. Drive it with `agent-browser`: `open <url>` and `snapshot -i` to inspect the page, then
    interact with it to reproduce the reported behavior. Only navigate to local MLflow URLs
    and to `file://` pages you created under `$out_dir/work`.
