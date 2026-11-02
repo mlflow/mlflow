@@ -1,3 +1,5 @@
+# CHANGELOG
+
 ## 3.18.0 (2026-11-02)
 
 MLflow 3.18.0 includes several major features and improvements.
@@ -170,7 +172,7 @@ Bug fixes:
 - [Tracing] Parallelize archived trace payload deletion in `SqlAlchemyStore` (#26985, @its-amann)
 - [Models] Infer schemas for unnamed pandas Series with missing values instead of falling back to `AnyType` (#26998, @mlflow-app)
 - [Gateway] Preserve Anthropic refusal and context-window stop reasons in AI Gateway chat responses (#26995, @mlflow-app)
-- [Tracking] Fix: MCP tool discovery to try matching endpoints in order (#26948, @dbasunag)
+- [Tracking] Fix MCP tool discovery to try matching endpoints in order (#26948, @dbasunag)
 - [Docs / Evaluation / Model Registry / Tracking / UI] Fix presigned artifact transfer regressions (#26978, @mprahl)
 - [Tracing] Record the final response and token usage for incomplete or failed OpenAI Responses streams (#26818, @mlflow-app)
 - [Tracking] Apply permission grants to every spelling of an experiment ID (#26917, @kriscon-db)
@@ -186,7 +188,7 @@ Bug fixes:
 - [Tracking] Forward the output of local executor jobs to the server log (#26875, @kriscon-db)
 - [Evaluation] Say when a job container ran out of memory (#26871, @kriscon-db)
 - [Tracing] Preserve span link IDs during OTLP JSON ingestion in `otel_api.py` (#26940, @vatsalyd)
-- [Tracking] fix: Prefer MCP access endpoints over server.json remotes during tool refresh (#26719, @dbasunag)
+- [Tracking] Prefer MCP access endpoints over server.json remotes during tool refresh (#26719, @dbasunag)
 - [Tracking] Accept the `attributes.` prefix in `search_experiments` filter strings (#26923, @Blacksujit)
 - [Tracking] Prevent import-hook deadlocks during concurrent module imports (#26928, @mlflow-app)
 - [Tracking] Log async tag and param batches of the same run in submission order (#26804, @maharanay22)
@@ -275,8 +277,6 @@ Documentation updates:
 Small bug fixes and documentation updates:
 
 #27428, #27352, #27351, #27278, @B-Step62; #27421, #27414, #27413, #27412, #27410, #27404, #27403, #27402, #27400, #27398, #27397, #27367, #27365, #27360, #27333, #27330, #27328, #27327, #27325, #27320, #27306, #27305, #27289, #27279, #27277, #27276, #27265, #27254, #27232, #27211, #27224, #27223, #27222, #27217, #27218, #27197, #27198, #27187, #27184, #27182, #27180, #27163, #27144, #27136, #27114, #27111, #27109, #27108, #27107, #27106, #27104, #27097, #27091, #27090, #27089, #27084, #27083, #27081, #27079, #27078, #27077, #27058, #27050, #27047, #27045, #27033, #27032, #27020, #27024, #27023, #27016, #26962, #26951, #26938, #26931, #26932, #26930, #26891, #26881, #26876, #26870, #26865, #26862, #26861, #26843, #26832, #26830, #26825, #26820, #26772, #26776, #26763, #26760, #26752, #26750, #26737, #26735, #26728, #26727, #26725, #26666, #26688, #26686, #26683, #26679, #26678, #26673, #26662, #26658, #26653, #26650, #26649, #26629, #26628, #26620, #26623, #26603, #26602, #26599, #26592, #26583, #26565, #26562, #26553, #26552, #26472, #26540, #26511, #26528, #26522, #26515, #26513, #26505, #26506, #26501, #26500, #26492, #26490, #26487, #26488, #26486, #26479, #26466, #26465, #26469, @copilot-swe-agent; #27399, #27312, #27293, #27302, #27246, #27235, #27069, #26867, #26960, #25307, #26687, #26685, #26684, #26718, #26708, #25851, #25847, #26701, #25844, #25843, #25842, #25841, #26588, #26589, @kriscon-db; #27376, @erdogan-deniz; #27394, #27393, #27350, #27326, #27113, @mlflow-app; #27377, #26748, @dependabot; #27364, #27366, #27259, #27313, #27041, #27137, #27006, #27003, #27002, #26981, #27017, #26983, #26906, #26885, #26514, #26476, #26467, @tanghaoji; #27165, #27040, #27011, #27148, #26868, #26912, #27034, #27029, #26799, #26993, #26784, #26927, #26783, #26952, #26789, #26782, #26920, #26771, #26770, #26779, #26739, #26740, #26733, #26707, #26461, @joshuawong-db; #27298, @v0ropaev; #26894, @Aditya-kumar-yadav; #27296, @davanstrien; #26090, @dbasunag; #27105, @Sonica-B; #27149, @Avicennasis; #26634, #26613, @shaikn6; #27135, #27143, #27021, #27013, #26953, #26905, #26796, #26598, #26541, #26352, @harupy; #27159, @smoorjani; #26901, #27027, #26768, @mprahl; #26946, @nananosirova; #26929, @Blacksujit; #26860, @alleyxd; #26850, #26632, @aaronteo-db; #26694, @Dedalo314
-
-# CHANGELOG
 
 ## 3.17.2 (2026-10-20)
 
