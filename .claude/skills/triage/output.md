@@ -9,7 +9,18 @@ Prefer permalinks to file paths:
 
 Do not rename, comment on, label, or close the issue, and do not commit, push, or open a PR.
 A PR in the payload is a proposal; the workflow publishes it later, so do not claim it
-is already open. Stop after writing and validating the output.
+is already open.
+
+After writing and validating the output, restore the checkout to `HEAD`, then stop:
+
+```bash
+git reset -q --hard HEAD
+git clean -fdq
+git status --porcelain --untracked-files=all
+```
+
+The last command must print nothing. `fix.patch` and media under `$out_dir` are outside the
+checkout and survive this.
 
 ## Optional issue title
 
@@ -27,34 +38,43 @@ rename the issue yourself.
 Propose a pull request only when all of these hold:
 
 - The `PR_DISABLED` environment variable is not `true`.
-- The bug reproduces at the current checkout.
-- The fix is verified against the reproduction and relevant tests and leaves no design choice or trade-off unresolved.
-- Every changed file is under `mlflow/` or `tests/`.
+- The change leaves no design choice or trade-off unresolved.
+- Every changed file is within `TRIAGE_PATCH_PATH_ALLOWLIST`.
+  Each non-empty line is a permitted repository path; an empty list permits no changes.
 
-Also apply the PR eligibility rules in the selected action. If any requirement is unmet,
-explain the findings in the comment without proposing a PR.
+Also apply the PR eligibility and verification rules for the selected type and action.
+If any requirement is unmet, explain the findings in the comment without proposing a PR.
 
 Add regression tests when they add meaningful coverage. Place new regression tests next to
 the existing tests for that code, verify that they fail without the fix and pass with it,
 and run them together with the directly relevant existing tests, within the
 [runtime time budget](runtime.md#time-budget).
-Then leave only the fix and any regression tests changed in the checkout (revert anything else
-you edited there) and write the patch:
+Before creating `fix.patch`:
+
+- Keep only the fix and any regression tests in the checkout.
+- If the patch changes Python files, invoke the `python-style` skill and follow its guidance.
+- Run pre-commit on all changed files; fix and rerun failures.
+
+Write the patch:
 
 ```bash
-git add -N mlflow tests
-git diff HEAD -- mlflow tests > "$out_dir/fix.patch"
+mapfile -t paths < <(printf '%s\n' "$TRIAGE_PATCH_PATH_ALLOWLIST" | sed '/^$/d')
+[ "${#paths[@]}" -gt 0 ] || exit 1
+git add -N -- "${paths[@]}"
+git diff HEAD -- "${paths[@]}" > "$out_dir/fix.patch"
 git diff HEAD --stat
 ```
 
 The last command must list only the files in the patch. Then add `pull_request` to the payload
 using `pull_request` from the selected action's payload schema.
 
-For visible UI fixes, include a before/after comparison in the PR body.
+For visible UI changes, include a before/after comparison in the PR body.
 Stack screenshots vertically with **Before** above **After**, rather than
 side-by-side. Capture the broken behavior before applying the fix and the
 fixed behavior with the same data, page state, and viewport. Label the captures **Before**
 and **After**, save them under `$out_dir/media`, and cite their exact paths as described below.
+For a feature request, show the existing workflow or limitation before the change and the
+requested behavior after it.
 
 ## Media
 

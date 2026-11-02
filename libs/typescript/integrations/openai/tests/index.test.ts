@@ -173,6 +173,50 @@ describe('tracedOpenAI', () => {
       });
     });
 
+    it('should record refusals of streamed chat completions', async () => {
+      openAIMswServer.use(
+        http.post('https://api.openai.com/v1/chat/completions', () => {
+          return new HttpResponse(
+            [
+              'data: {"id":"chatcmpl-stream","object":"chat.completion.chunk","created":123,"model":"gpt-4","choices":[{"index":0,"delta":{"role":"assistant","content":null,"refusal":"I\'m sorry, "},"finish_reason":null}]}\n\n',
+              'data: {"id":"chatcmpl-stream","object":"chat.completion.chunk","created":123,"model":"gpt-4","choices":[{"index":0,"delta":{"refusal":"I can\'t help with that."},"finish_reason":"stop"}]}\n\n',
+              'data: [DONE]\n\n',
+            ].join(''),
+            { headers: { 'Content-Type': 'text/event-stream' } },
+          );
+        }),
+      );
+
+      const openai = new OpenAI({ apiKey: 'test-key' });
+      const wrappedOpenAI = tracedOpenAI(openai);
+
+      const stream = await wrappedOpenAI.chat.completions.create({
+        model: 'gpt-4',
+        messages: [{ role: 'user', content: 'Hello!' }],
+        stream: true,
+      });
+
+      for await (const _chunk of stream) {
+        // Drain the stream
+      }
+
+      const trace = await getLastActiveTrace();
+      const span = trace.data.spans[0];
+      expect(span.outputs).toEqual({
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: '',
+              refusal: "I'm sorry, I can't help with that.",
+            },
+            finish_reason: 'stop',
+          },
+        ],
+      });
+    });
+
     it('should end spans when streaming chat completions are terminated early', async () => {
       const openai = new OpenAI({ apiKey: 'test-key' });
       const wrappedOpenAI = tracedOpenAI(openai);

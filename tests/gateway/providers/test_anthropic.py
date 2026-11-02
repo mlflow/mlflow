@@ -229,7 +229,7 @@ async def test_completions_throws_with_unsupported_n():
     }
     with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
-    assert "'n' must be '1' for the Anthropic provider" in e.value.detail
+    assert e.value.detail == "'n' must be '1' for the Anthropic provider. Received value: '5'."
     assert e.value.status_code == 422
 
 
@@ -407,6 +407,16 @@ async def test_chat_with_max_completion_tokens():
         call_kwargs = mock_post.call_args[1]
         assert call_kwargs["json"]["max_tokens"] == 500
         assert "max_completion_tokens" not in call_kwargs["json"]
+
+
+@pytest.mark.asyncio
+async def test_chat_throws_with_unsupported_n():
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    payload = {"messages": [{"role": "user", "content": "Hello"}], "n": 3}
+    with pytest.raises(AIGatewayException, match=r".*") as e:
+        await provider.chat(chat.RequestPayload(**payload))
+    assert e.value.detail == "'n' must be '1' for the Anthropic provider. Received value: '3'."
+    assert e.value.status_code == 422
 
 
 def chat_function_calling_payload(stream: bool = False):
@@ -963,6 +973,26 @@ def _merge_tool_calls(chunks):
             call["name"] = call["name"] or tc.function.name
             call["arguments"] += tc.function.arguments or ""
     return calls
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_raises_on_in_band_error():
+    resp = [
+        *chat_stream_response()[:3],
+        b"event: error\n",
+        b'data: {"type": "error", "error": {"type": "overloaded_error", '
+        b'"message": "Overloaded"}}\n',
+        b"\n",
+    ]
+    with mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)):
+        provider = AnthropicProvider(EndpointConfig(**chat_config()))
+        response = provider.chat_stream(chat.RequestPayload(**chat_payload(stream=True)))
+        with pytest.raises(
+            AIGatewayException,
+            match="Anthropic returned overloaded_error while streaming: Overloaded",
+        ) as exc_info:
+            [chunk async for chunk in response]
+    assert exc_info.value.status_code == 502
 
 
 @pytest.mark.asyncio
@@ -1910,7 +1940,39 @@ def test_chat_finish_reason_tool_use_is_tool_calls():
 
 @pytest.mark.parametrize(
     ("stop_reason", "expected"),
-    [("tool_use", "tool_calls"), ("max_tokens", "length"), ("end_turn", "stop")],
+    [
+        ("end_turn", "stop"),
+        ("max_tokens", "length"),
+        ("model_context_window_exceeded", "length"),
+        ("refusal", "content_filter"),
+    ],
+)
+def test_chat_finish_reason(stop_reason, expected):
+    resp = {
+        "id": "msg_1",
+        "type": "message",
+        "role": "assistant",
+        "model": "claude-sonnet-5",
+        "content": [{"type": "text", "text": "hi"}],
+        "stop_reason": stop_reason,
+        "stop_sequence": None,
+        "usage": {"input_tokens": 1, "output_tokens": 1},
+    }
+
+    result = AnthropicAdapter.model_to_chat(resp, EndpointConfig(**chat_config()))
+
+    assert result.choices[0].finish_reason == expected
+
+
+@pytest.mark.parametrize(
+    ("stop_reason", "expected"),
+    [
+        ("tool_use", "tool_calls"),
+        ("max_tokens", "length"),
+        ("model_context_window_exceeded", "length"),
+        ("refusal", "content_filter"),
+        ("end_turn", "stop"),
+    ],
 )
 def test_chat_stream_finish_reason(stop_reason, expected):
     resp = {

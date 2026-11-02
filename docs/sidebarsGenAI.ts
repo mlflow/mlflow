@@ -233,6 +233,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/cloudflare-agents',
+                  label: 'Cloudflare Agents',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/crewai',
                   label: 'CrewAI',
                 },
@@ -240,6 +245,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/dspy',
                   label: 'DSPy',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/flue',
+                  label: 'Flue',
                 },
                 {
                   type: 'doc',
@@ -701,6 +711,11 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
+          id: 'eval-monitor/comparing-evaluation-runs',
+          label: 'Comparing Evaluation Runs',
+        },
+        {
+          type: 'doc',
           id: 'eval-monitor/automatic-evaluations/index',
           label: 'Automatic Evaluation',
         },
@@ -877,9 +892,9 @@ const sidebarsGenAI: SidebarsConfig = {
                   label: 'Tutorial: Develop code-based scorers',
                 },
                 {
-                  type: 'doc',
-                  id: 'eval-monitor/scorers/custom/job-containers',
+                  type: 'link',
                   label: 'Run in Job Containers (Experimental)',
+                  href: '/self-hosting/job-containers',
                 },
               ],
               collapsed: false,

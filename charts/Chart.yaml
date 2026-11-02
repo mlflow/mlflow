@@ -2,7 +2,7 @@ apiVersion: v2
 name: mlflow
 description: A production-ready Helm chart for deploying MLflow on Kubernetes
 type: application
-version: 3.17.1
-appVersion: "3.17.1"
+version: 3.17.2
+appVersion: "3.17.2"
 annotations:
   org.opencontainers.image.source: https://github.com/mlflow/mlflow

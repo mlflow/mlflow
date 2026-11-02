@@ -16,6 +16,17 @@ import { useOptionalCustomViewDefinition } from '../custom-view/CustomViewDefini
 const DEFAULT_VIEW_VALUE = 'default';
 const CUSTOM_VIEW_VALUE_PREFIX = 'custom:';
 
+export interface ModelTraceExplorerCustomViewSelectorProps {
+  value: ModelTraceExplorerDisplayMode;
+  onValueChange: (value: ModelTraceExplorerDisplayMode) => void;
+  onCreateCustomView?: () => void;
+  isCustomViewEnabled: boolean;
+  canCreateCustomView?: boolean;
+  size?: 'small';
+  compact?: boolean;
+  componentId?: string;
+}
+
 export const ModelTraceExplorerCustomViewSelector = ({
   value,
   onValueChange,
@@ -28,16 +39,7 @@ export const ModelTraceExplorerCustomViewSelector = ({
   // drawer). Each mount passes its own componentId so their interaction telemetry
   // stays distinguishable. Defaults to the review-modal id for backwards compatibility.
   componentId = 'mlflow.evaluations_review.modal.custom_view_selector',
-}: {
-  value: ModelTraceExplorerDisplayMode;
-  onValueChange: (value: ModelTraceExplorerDisplayMode) => void;
-  onCreateCustomView: () => void;
-  isCustomViewEnabled: boolean;
-  canCreateCustomView: boolean;
-  size?: 'small';
-  compact?: boolean;
-  componentId?: string;
-}): JSX.Element => {
+}: ModelTraceExplorerCustomViewSelectorProps): JSX.Element => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const customViewDefinition = useOptionalCustomViewDefinition();
@@ -128,7 +130,7 @@ export const ModelTraceExplorerCustomViewSelector = ({
                 </DropdownMenu.RadioItem>
               ))}
           </DropdownMenu.RadioGroup>
-          {canCreateCustomView && (
+          {canCreateCustomView && onCreateCustomView && (
             <>
               <DropdownMenu.Separator />
               <DropdownMenu.Item componentId={`${componentId}.create`} onClick={onCreateCustomView}>

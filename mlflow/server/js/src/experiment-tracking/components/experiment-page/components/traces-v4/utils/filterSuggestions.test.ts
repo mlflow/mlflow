@@ -100,8 +100,11 @@ describe('buildTraceFilterSuggestions', () => {
       'alice',
       'bob',
     ]);
-    // Invalid, session-level and internal assessments get no column, so they aren't suggested either.
-    expect(suggestions.assessmentNames.map(({ value }) => value)).toEqual(['quality', 'score']);
+    // Invalid and internal assessments aren't suggested; session-level feedback is, since it can be filtered on.
+    expect(suggestions.assessmentNames.map(({ value }) => value)).toEqual(['quality', 'score', 'session-quality']);
+    expect(getTraceFilterValueOptions(suggestions, 'assessment', 'session-quality')).toEqual([
+      { value: 'Pass', label: 'Pass' },
+    ]);
     expect(getTraceFilterValueOptions(suggestions, 'assessment', 'quality')).toEqual([
       { value: 'false', label: 'false' },
     ]);

@@ -461,4 +461,56 @@ describe('ExperimentEvaluationRunsPage.utils', () => {
       expect(result).toEqual([]);
     });
   });
+
+  describe('getGroupByRunsData with lineage keys', () => {
+    const scorersDigestTag = (digest: string, hashed = 2) => ({
+      key: 'mlflow.genaiEvaluate.scorersDigest',
+      value: JSON.stringify({ digest, hashed, total: 2 }),
+    });
+    const groupByTagKey = (groupByData: string): RunsGroupByConfig => ({
+      aggregateFunction: RunGroupingAggregateFunction.Average,
+      groupByKeys: [{ mode: RunGroupingMode.Tag, groupByData }],
+    });
+
+    it('groups runs by the scorers digest, and keeps partial digests out of complete groups', () => {
+      const runs = [
+        createMockRun({ runUuid: 'a', tags: [scorersDigestTag('sha256:same', 2)] }),
+        createMockRun({ runUuid: 'b', tags: [scorersDigestTag('sha256:same', 1)] }),
+        createMockRun({ runUuid: 'c', tags: [scorersDigestTag('sha256:other')] }),
+        createMockRun({ runUuid: 'd' }),
+      ];
+
+      const groups = getGroupByRunsData(runs, groupByTagKey('mlflow.genaiEvaluate.scorersDigest')).map(
+        (group) => group as ExperimentEvaluationRunsGroupData,
+      );
+
+      expect(groups.map((group) => [group.groupValues[0].value, group.subRuns.map((run) => run.info.runUuid)])).toEqual(
+        [
+          ['sha256:same', ['a']],
+          ['sha256:same partial:1/2', ['b']],
+          ['sha256:other', ['c']],
+          [null, ['d']],
+        ],
+      );
+    });
+
+    it('groups runs by the agent URI, else the agent function', () => {
+      const runs = [
+        createMockRun({ runUuid: 'a', tags: [{ key: 'mlflow.genaiEvaluate.agent.uri', value: 'endpoints:/agent' }] }),
+        createMockRun({ runUuid: 'b', tags: [{ key: 'mlflow.genaiEvaluate.agent.function', value: 'pkg.predict' }] }),
+        createMockRun({ runUuid: 'c', tags: [{ key: 'mlflow.genaiEvaluate.agent.uri', value: 'endpoints:/agent' }] }),
+      ];
+
+      const groups = getGroupByRunsData(runs, groupByTagKey('mlflow.genaiEvaluate.agent')).map(
+        (group) => group as ExperimentEvaluationRunsGroupData,
+      );
+
+      expect(groups.map((group) => [group.groupValues[0].value, group.subRuns.map((run) => run.info.runUuid)])).toEqual(
+        [
+          ['endpoints:/agent', ['a', 'c']],
+          ['pkg.predict', ['b']],
+        ],
+      );
+    });
+  });
 });

@@ -14,6 +14,7 @@ from mlflow.projects import ExecutionException, _project_spec
 from mlflow.projects.backend.local import _get_docker_command
 from mlflow.projects.docker import _get_docker_image_uri
 from mlflow.store.tracking import file_store
+from mlflow.utils.file_utils import path_to_local_sqlite_uri
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DOCKER_IMAGE_ID,
     MLFLOW_DOCKER_IMAGE_URI,
@@ -204,7 +205,9 @@ def test_docker_mount_local_artifact_uri(
 @pytest.mark.parametrize("dirname", ["a+b", "a%2Bb", "a#b"])
 def test_docker_sqlite_tracking_cmd_and_envs_preserves_literal_path(tmp_path, dirname):
     db_path = tmp_path / dirname / "mlflow.db"
-    cmds, envs = mlflow.projects.docker.get_docker_tracking_cmd_and_envs(f"sqlite:///{db_path}")
+    cmds, envs = mlflow.projects.docker.get_docker_tracking_cmd_and_envs(
+        path_to_local_sqlite_uri(db_path)
+    )
     assert cmds == ["-v", f"{db_path}:/mlflow/tmp/mlruns"]
     assert envs == {MLFLOW_TRACKING_URI.name: "sqlite:////mlflow/tmp/mlruns"}
 

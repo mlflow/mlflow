@@ -55,7 +55,9 @@ from mlflow.server.auth.permissions import (
     _validate_permission_for_resource_type,
     _validate_resource_pattern,
     _validate_resource_type,
+    canonical_resource_id,
     get_permission,
+    matches,
     max_permission,
 )
 from mlflow.store.db.utils import (
@@ -65,7 +67,15 @@ from mlflow.store.db.utils import (
 )
 from mlflow.utils import workspace_context
 from mlflow.utils.uri import extract_db_type_from_uri
-from mlflow.utils.validation import _validate_password, _validate_username
+from mlflow.utils.validation import (
+    MAX_ROLE_DESCRIPTION_LENGTH,
+    MAX_ROLE_NAME_LENGTH,
+    MAX_USERNAME_LENGTH,
+    _parse_experiment_id,
+    _validate_password,
+    _validate_text_field,
+    _validate_username,
+)
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 _logger = logging.getLogger(__name__)
@@ -109,6 +119,20 @@ class RoleGrantRow(NamedTuple):
     should be a live SQLAlchemy instance.
     """
 
+    resource_type: str
+    resource_pattern: str
+    permission: str
+
+
+class NamedRoleGrant(NamedTuple):
+    role_name: str
+    resource_type: str
+    resource_pattern: str
+    permission: str
+
+
+class PerUserGrant(NamedTuple):
+    username: str
     resource_type: str
     resource_pattern: str
     permission: str
@@ -163,6 +187,7 @@ class SqlAlchemyStore:
 
     def create_user(self, username: str, password: str, is_admin: bool = False) -> User:
         _validate_username(username)
+        _validate_text_field("Username", username, MAX_USERNAME_LENGTH)
         _validate_password(password)
         pwhash = generate_password_hash(password)
         with self.ManagedSessionMaker(read_only=False) as session:
@@ -173,7 +198,7 @@ class SqlAlchemyStore:
                 return user.to_mlflow_entity()
             except IntegrityError as e:
                 raise MlflowException(
-                    f"User (username={username}) already exists. Error: {e}",
+                    f"User (username={username}) already exists.",
                     RESOURCE_ALREADY_EXISTS,
                 ) from e
 
@@ -400,7 +425,7 @@ class SqlAlchemyStore:
         if resource_type in SKILL_REGISTRY_RESOURCE_TYPES and resource_pattern != "*":
             organization, name = _parse_skill_registry_resource_key(resource_pattern)
             return _format_skill_registry_resource_key(organization, name)
-        return resource_pattern
+        return canonical_resource_id(resource_type, resource_pattern)
 
     def grant_user_permissions(
         self,
@@ -645,6 +670,84 @@ class SqlAlchemyStore:
                 synchronize_session=False,
             )
 
+    def list_named_role_grants_for_resource(
+        self,
+        resource_types: Iterable[str],
+        resource_patterns: Iterable[str],
+    ) -> list[NamedRoleGrant]:
+        """
+        Return every exact-name grant held by an admin-created role in the active workspace
+        on any of ``resource_types`` x ``resource_patterns``. Synthetic per-user roles are
+        excluded.
+        """
+        with self.ManagedSessionMaker() as session:
+            return [
+                NamedRoleGrant(name, rp.resource_type, rp.resource_pattern, rp.permission)
+                for (name, rp) in self._exact_name_grant_rows(
+                    session, resource_types, resource_patterns
+                )
+                if not self._is_synthetic_role_name(name)
+            ]
+
+    def list_per_user_grants_for_resource(
+        self,
+        resource_types: Iterable[str],
+        resource_patterns: Iterable[str],
+    ) -> list[PerUserGrant]:
+        """
+        Return every exact-name grant held by a synthetic per-user role in the active workspace
+        on any of ``resource_types`` x ``resource_patterns``, keyed by the grantee's username.
+        """
+        with self.ManagedSessionMaker() as session:
+            rows = [
+                (self._user_id_from_synthetic_role_name(name), rp)
+                for (name, rp) in self._exact_name_grant_rows(
+                    session, resource_types, resource_patterns
+                )
+                if self._is_synthetic_role_name(name)
+            ]
+            if not rows:
+                return []
+            usernames = dict(
+                session
+                .query(SqlUser.id, SqlUser.username)
+                .filter(SqlUser.id.in_({user_id for (user_id, _) in rows}))
+                .all()
+            )
+            # A user deleted between the two queries no longer holds the grant.
+            return sorted(
+                PerUserGrant(
+                    usernames[user_id], rp.resource_type, rp.resource_pattern, rp.permission
+                )
+                for (user_id, rp) in rows
+                if user_id in usernames
+            )
+
+    def _exact_name_grant_rows(
+        self,
+        session,
+        resource_types: Iterable[str],
+        resource_patterns: Iterable[str],
+    ) -> list[tuple[str, SqlRolePermission]]:
+        resource_types = list(resource_types)
+        for resource_type in resource_types:
+            _validate_resource_type(resource_type)
+        resource_patterns = [p for p in resource_patterns if p != "*"]
+        if not resource_types or not resource_patterns:
+            return []
+        return (
+            session
+            .query(SqlRole.name, SqlRolePermission)
+            .join(SqlRolePermission, SqlRolePermission.role_id == SqlRole.id)
+            .filter(
+                SqlRole.workspace == self._get_active_workspace_name(),
+                SqlRolePermission.resource_type.in_(resource_types),
+                SqlRolePermission.resource_pattern.in_(resource_patterns),
+            )
+            .order_by(SqlRole.name, SqlRolePermission.resource_pattern)
+            .all()
+        )
+
     # ---- Legacy per-resource CRUD (tombstones) ----
     #
     # The methods below back the deprecated REST handlers in ``__init__.py``.
@@ -656,6 +759,7 @@ class SqlAlchemyStore:
         self, experiment_id: str, username: str, permission: str
     ) -> ExperimentPermission:
         _validate_permission_for_resource_type(permission, RESOURCE_TYPE_EXPERIMENT)
+        experiment_id = canonical_resource_id(RESOURCE_TYPE_EXPERIMENT, experiment_id)
         with self.ManagedSessionMaker(read_only=False) as session:
             user = self._get_user(session, username=username)
             workspace_name = self._get_active_workspace_name()
@@ -698,6 +802,7 @@ class SqlAlchemyStore:
     def _get_experiment_permission_row(
         self, session, experiment_id: str, username: str
     ) -> tuple[SqlUser, SqlRolePermission]:
+        experiment_id = canonical_resource_id(RESOURCE_TYPE_EXPERIMENT, experiment_id)
         user = self._get_user(session, username=username)
         workspace_name = self._get_active_workspace_name()
         role = (
@@ -1211,6 +1316,7 @@ class SqlAlchemyStore:
         # URL-encode the name component so the pattern ``<experiment_id>/<name>``
         # is unambiguous; the migration (``e5f6a7b8c9d0``) uses the same
         # encoding, so post-migration and live grants line up.
+        experiment_id = canonical_resource_id(RESOURCE_TYPE_EXPERIMENT, experiment_id)
         return f"{experiment_id}/{quote(scorer_name, safe='')}"
 
     def create_scorer_permission(
@@ -1813,6 +1919,8 @@ class SqlAlchemyStore:
         description: str | None = None,
     ) -> Role:
         self._reject_synthetic_role_name(name)
+        _validate_text_field("Role name", name, MAX_ROLE_NAME_LENGTH)
+        _validate_text_field("Role description", description, MAX_ROLE_DESCRIPTION_LENGTH)
         with self.ManagedSessionMaker(read_only=False) as session:
             try:
                 role = SqlRole(
@@ -1825,7 +1933,7 @@ class SqlAlchemyStore:
                 return role.to_mlflow_entity()
             except IntegrityError as e:
                 raise MlflowException(
-                    f"Role (name={name}, workspace={workspace}) already exists. Error: {e}",
+                    f"Role (name={name}, workspace={workspace}) already exists.",
                     RESOURCE_ALREADY_EXISTS,
                 ) from e
 
@@ -1901,6 +2009,8 @@ class SqlAlchemyStore:
     ) -> Role:
         if name is not None:
             self._reject_synthetic_role_name(name)
+        _validate_text_field("Role name", name, MAX_ROLE_NAME_LENGTH)
+        _validate_text_field("Role description", description, MAX_ROLE_DESCRIPTION_LENGTH)
         with self.ManagedSessionMaker(read_only=False) as session:
             role = self._get_role(session, role_id)
             if name is not None:
@@ -1959,6 +2069,8 @@ class SqlAlchemyStore:
         permission: str,
     ) -> RolePermission:
         _validate_permission_for_resource_type(permission, resource_type)
+        if resource_type == RESOURCE_TYPE_EXPERIMENT and resource_pattern != "*":
+            resource_pattern = str(_parse_experiment_id(str(resource_pattern)))
         resource_pattern = self._validate_resource_pattern(resource_type, resource_pattern)
         _validate_resource_pattern(resource_pattern, resource_type)
         with self.ManagedSessionMaker(read_only=False) as session:
@@ -1976,7 +2088,7 @@ class SqlAlchemyStore:
             except IntegrityError as e:
                 raise MlflowException(
                     f"Role permission (role_id={role_id}, resource_type={resource_type}, "
-                    f"resource_pattern={resource_pattern}) already exists. Error: {e}",
+                    f"resource_pattern={resource_pattern}) already exists.",
                     RESOURCE_ALREADY_EXISTS,
                 ) from e
 
@@ -2181,7 +2293,7 @@ class SqlAlchemyStore:
                     # Resource-type-specific permission.
                     if rp.resource_type != resource_type:
                         continue
-                    if rp.resource_pattern in ("*", resource_id):
+                    if matches(rp.resource_pattern, resource_type, resource_id):
                         # DENY is below every positive level, so folding it with
                         # ``max_permission`` would silently lift it to the positive grant
                         # beside it. Track it separately, as ``fold_grants_for_key`` does.
@@ -2291,16 +2403,12 @@ class SqlAlchemyStore:
         self, user_id: int, workspace: str, resource_type: str
     ) -> list[tuple[str, str]]:
         """
-        Return the user's **role-based** permission grants in ``workspace`` that apply
-        to resources of ``resource_type``. Direct per-resource grants (e.g. rows in
-        ``experiment_permissions``) are intentionally **not** included — callers that
-        need the full authorization picture fold them in separately (see
-        ``filter_experiment_ids``, which unions the result of this query with
-        ``list_experiment_permissions`` from the legacy table).
+        Return the user's role-based permission grants in ``workspace`` that apply
+        to resources of ``resource_type``.
 
-        Includes both grants on the specific resource_type and workspace-wide grants
-        (``resource_type='workspace'``, ``resource_pattern='*'``) since those apply to
-        every resource type.
+        Workspace-wide MANAGE applies to every resource type. Workspace USE applies
+        only to workspace queries, matching ``get_role_permission_for_resource``;
+        membership does not grant read access to every resource.
 
         Returns a list of ``(resource_pattern, permission)`` tuples.
         """
@@ -2319,6 +2427,7 @@ class SqlAlchemyStore:
                         and_(
                             SqlRolePermission.resource_type == RESOURCE_TYPE_WORKSPACE,
                             SqlRolePermission.resource_pattern == "*",
+                            SqlRolePermission.permission == MANAGE.name,
                         ),
                     ),
                 )

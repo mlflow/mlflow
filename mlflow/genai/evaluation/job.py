@@ -42,6 +42,7 @@ def invoke_genai_evaluate_job(
     writing all outputs (dataset input, assessments, aggregate metrics) into
     the pre-existing run identified by `run_id`.
     """
+    # Identifies the caller to the gateway for judge calls; tracking itself goes to the store.
     if username is not None:
         os.environ["MLFLOW_TRACKING_USERNAME"] = username
         if internal_token := _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.get():

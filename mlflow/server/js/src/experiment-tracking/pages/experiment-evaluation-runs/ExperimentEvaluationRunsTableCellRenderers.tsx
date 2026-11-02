@@ -21,38 +21,32 @@ import {
   SparkleIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  HoverCard,
 } from '@databricks/design-system';
 import type { CellContext, ColumnDef, HeaderContext } from '@tanstack/react-table';
 import { DatasetSourceTypes, DEFAULT_INLINE_DATASET_NAME, RunEntity } from '../../types';
-import { Link, useNavigate, useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { Link, useNavigate } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { useGetLoggedModelQuery } from '../../hooks/logged-models/useGetLoggedModelQuery';
 import Routes from '../../routes';
-import { getPreservedQueryString } from '../experiment-page-tabs/side-nav/utils';
 import { useSaveExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { useGetExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { RunColorPill } from '../../components/experiment-page/components/RunColorPill';
 import { TimeAgo } from '@databricks/web-shared/browse';
 import { parseEvalRunsTableKeyedColumnKey } from './ExperimentEvaluationRunsTable.utils';
-import { useMemo } from 'react';
+import { Fragment, useMemo } from 'react';
 import { FormattedMessage } from 'react-intl';
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
 import type { DatasetWithRunType } from '../../components/experiment-page/components/runs/ExperimentViewDatasetDrawer';
 import { isEvalRunsTableMeta } from './ExperimentEvaluationRunsTable.types';
+import { getEvaluationDatasetId } from '../eval-run-details/datasetLineage';
 import { EvalRunsTableKeyedColumnPrefix } from './ExperimentEvaluationRunsTable.constants';
 import { formatEvalRunsNumericValue } from './ExperimentEvaluationRunsNumberFormat';
 import { pinBaselineRows, toggleEvalRunRowSelection } from './evalRunsRowSelection';
 import { getEvalRunsGroupMetricMean } from './EvalRunsGroup.utils';
 import { useExperimentEvaluationRunsRowVisibility } from './hooks/useExperimentEvaluationRunsRowVisibility';
 import { RunPageTabName } from '../../constants';
-import {
-  shouldEnableImprovedEvalRunsComparison,
-  shouldShowEvalRunsIssuesPanel,
-} from '../../../common/utils/FeatureUtils';
-import {
-  MLFLOW_RUN_TYPE_TAG,
-  MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION,
-  MLFLOW_RUN_TYPE_VALUE_TEST,
-} from '../../constants';
+import { shouldEnableImprovedEvalRunsComparison } from '../../../common/utils/FeatureUtils';
+import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_TEST } from '../../constants';
 import { DatasetLink } from '../experiment-evaluation-datasets/DatasetLink';
 import { RunStatusIcon } from '../../components/RunStatusIcon';
 import { useIntl } from '@databricks/i18n';
@@ -115,7 +109,6 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
   const saveRunColor = useSaveExperimentRunColor();
   const getRunColor = useGetExperimentRunColor();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const intl = useIntl();
 
   if ('subRuns' in row.original) {
@@ -131,40 +124,15 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
   const hasExpandableRows = Boolean(evalMeta?.hasExpandableRows);
   const reserveChevronSlot = enableNewEvalRunsUi && hasExpandableRows && !row.getCanExpand();
   const tags = row.original.data?.tags ?? [];
-  const isIssueDetectionRun = tags.some(
-    (tag) => tag.key === MLFLOW_RUN_TYPE_TAG && tag.value === MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION,
-  );
-  const showIssuesPanelFlag = shouldShowEvalRunsIssuesPanel();
 
-  // New UI renders issue-detection run names as a real anchor so browser gestures (Cmd/Ctrl+click,
-  // middle-click, "copy link") work.
-  const issueDetectionRunLinkTo = (() => {
-    if (!enableNewEvalRunsUi || !isIssueDetectionRun || !showIssuesPanelFlag) {
-      return undefined;
-    }
-    const route = Routes.getIssueDetectionRunDetailsRoute(experimentId, runUuid);
-    const timeRangeSearch = getPreservedQueryString(searchParams.toString());
-    return timeRangeSearch ? `${route}${timeRangeSearch}` : route;
-  })();
-
-  // New UI opens other runs in the evaluation run details page, also as a real anchor.
-  const evalRunDetailsLinkTo =
-    enableNewEvalRunsUi && !issueDetectionRunLinkTo && !(isIssueDetectionRun && showIssuesPanelFlag)
-      ? Routes.getEvaluationRunDetailsRoute(experimentId, runUuid)
-      : undefined;
-  const runLinkTo = issueDetectionRunLinkTo ?? evalRunDetailsLinkTo;
+  // New UI renders run names as a real anchor so browser gestures (Cmd/Ctrl+click, middle-click,
+  // "copy link") work.
+  const runLinkTo = enableNewEvalRunsUi ? Routes.getEvaluationRunDetailsRoute(experimentId, runUuid) : undefined;
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // When flag is ON and clicking on an issue detection run, navigate to the issue detection run details page
-    if (isIssueDetectionRun && showIssuesPanelFlag) {
-      const route = Routes.getIssueDetectionRunDetailsRoute(experimentId, runUuid);
-      const timeRangeSearch = getPreservedQueryString(searchParams.toString());
-      navigate(timeRangeSearch ? `${route}${timeRangeSearch}` : route);
-      return;
-    }
-    if (evalRunDetailsLinkTo) {
-      navigate(evalRunDetailsLinkTo);
+    if (runLinkTo) {
+      navigate(runLinkTo);
       return;
     }
     // Otherwise follow old behavior - open the right-side panel
@@ -253,24 +221,10 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
           <RunStatusIcon status={status} />
         </div>
       ) : null}
-      {isIssueDetectionRun && showIssuesPanelFlag ? (
-        <Tooltip
-          content={
-            <FormattedMessage
-              defaultMessage="Issue detection run"
-              description="Tooltip for the AI icon indicating this is an issue detection run"
-            />
-          }
-          componentId="mlflow.eval-runs.issue-detection-run-icon-tooltip"
-        >
-          <SparkleIcon color="ai" css={{ flexShrink: 0, fontSize: 14, marginLeft: -1, marginRight: -1 }} />
-        </Tooltip>
-      ) : (
-        <RunColorPill
-          color={getRunColor(runUuid)}
-          onChangeColor={(colorValue) => saveRunColor({ runUuid, colorValue })}
-        />
-      )}
+      <RunColorPill
+        color={getRunColor(runUuid)}
+        onChangeColor={(colorValue) => saveRunColor({ runUuid, colorValue })}
+      />
       {enableNewEvalRunsUi ? (
         <TruncationTooltip componentId="mlflow.eval-runs.run-name-cell.truncation-tooltip">
           {runNameLink}
@@ -323,6 +277,91 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
             </Tooltip>
           </Link>
         </div>
+      )}
+    </div>
+  );
+};
+
+/** Hover card on the dataset pill with the new evaluation runs UI: name, digest and source type, plus a link to
+ * the evaluation dataset when the input was logged from one. */
+const DatasetHoverCardContent = ({
+  experimentId,
+  label,
+  isUnnamed,
+  dataset,
+}: {
+  experimentId?: string;
+  label: React.ReactNode;
+  isUnnamed: boolean;
+  dataset: { digest?: string | null; source?: string | null; sourceType?: string | null };
+}) => {
+  const { theme } = useDesignSystemTheme();
+  const datasetId = getEvaluationDatasetId(dataset.source);
+  const metadata = [
+    {
+      key: 'digest',
+      label: <FormattedMessage defaultMessage="Digest" description="Label for the digest in a dataset hover card" />,
+      value: dataset.digest || '-',
+    },
+    {
+      key: 'source_type',
+      label: (
+        <FormattedMessage
+          defaultMessage="Source type"
+          description="Label for the source type in a dataset hover card"
+        />
+      ),
+      value: dataset.sourceType || '-',
+    },
+  ];
+
+  return (
+    <div css={{ width: 280 }}>
+      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, marginBottom: theme.spacing.sm }}>
+        {isUnnamed ? (
+          <TableClockIcon css={{ flexShrink: 0, color: theme.colors.textSecondary }} />
+        ) : (
+          <DatabaseIcon css={{ flexShrink: 0, color: theme.colors.textSecondary }} />
+        )}
+        <Typography.Text bold css={{ overflowWrap: 'anywhere' }}>
+          {label}
+        </Typography.Text>
+      </div>
+      <div
+        css={{
+          display: 'grid',
+          gridTemplateColumns: 'max-content minmax(0, 1fr)',
+          columnGap: theme.spacing.lg,
+          rowGap: theme.spacing.xs,
+        }}
+      >
+        {metadata.map(({ key, label: metadataLabel, value }) => (
+          <Fragment key={key}>
+            <Typography.Text color="secondary">{metadataLabel}</Typography.Text>
+            <Typography.Text css={{ overflowWrap: 'anywhere' }}>{value}</Typography.Text>
+          </Fragment>
+        ))}
+      </div>
+      {datasetId && experimentId && (
+        <Link
+          componentId="mlflow.eval-runs.dataset-cell.hover-card.view-dataset"
+          to={Routes.getExperimentPageDatasetDetailRoute(experimentId, datasetId)}
+          target="_blank"
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: theme.spacing.xs,
+            marginTop: theme.spacing.sm,
+            paddingTop: theme.spacing.sm,
+            borderTop: `1px solid ${theme.colors.border}`,
+          }}
+        >
+          <FormattedMessage
+            defaultMessage="View dataset"
+            description="Link in the dataset hover card that opens the evaluation dataset"
+          />
+          <NewWindowIcon />
+        </Link>
       )}
     </div>
   );
@@ -411,46 +450,48 @@ export const DatasetCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
     </DatasetLink>
   );
 
-  // Always surface the source type alongside the name/label — for unnamed datasets it's the only
-  // identifying info, and for named ones it's still useful context.
-  const datasetTooltipContent = (
-    <>
-      <div>{datasetLabel}</div>
-      <div>
-        <FormattedMessage
-          defaultMessage="Dataset source type: {sourceType}"
-          description="Dataset cell tooltip row showing the dataset's source type"
-          values={{ sourceType: displayedDataset.sourceType || '-' }}
-        />
-      </div>
-    </>
+  const datasetTag = (
+    <Tag
+      componentId="mlflow.eval-runs.dataset-cell"
+      onClick={openDatasetDrawer}
+      id="dataset-cell"
+      css={{
+        maxWidth: '100%',
+        marginRight: 0,
+        ...(enableNewEvalRunsUi
+          ? {
+              backgroundColor: theme.colors.backgroundSecondary,
+              border: `1px solid ${theme.colors.border}`,
+              borderRadius: theme.borders.borderRadiusMd,
+            }
+          : {}),
+      }}
+    >
+      {tagContent}
+    </Tag>
   );
 
   return (
     <div>
-      <Tooltip
-        componentId="mlflow.eval-runs.dataset-cell-tooltip"
-        content={enableNewEvalRunsUi ? datasetTooltipContent : displayedDataset.name}
-      >
-        <Tag
-          componentId="mlflow.eval-runs.dataset-cell"
-          onClick={openDatasetDrawer}
-          id="dataset-cell"
-          css={{
-            maxWidth: '100%',
-            marginRight: 0,
-            ...(enableNewEvalRunsUi
-              ? {
-                  backgroundColor: theme.colors.backgroundSecondary,
-                  border: `1px solid ${theme.colors.border}`,
-                  borderRadius: theme.borders.borderRadiusMd,
-                }
-              : {}),
-          }}
-        >
-          {tagContent}
-        </Tag>
-      </Tooltip>
+      {enableNewEvalRunsUi ? (
+        // Always surface the source type and digest alongside the name/label: for unnamed datasets they're the
+        // only identifying info, and for named ones they're still useful context.
+        <HoverCard
+          trigger={datasetTag}
+          content={
+            <DatasetHoverCardContent
+              experimentId={run.info?.experimentId}
+              label={datasetLabel}
+              isUnnamed={isUnnamedDataset}
+              dataset={displayedDataset}
+            />
+          }
+        />
+      ) : (
+        <Tooltip componentId="mlflow.eval-runs.dataset-cell-tooltip" content={displayedDataset.name}>
+          {datasetTag}
+        </Tooltip>
+      )}
     </div>
   );
 };
@@ -549,31 +590,50 @@ export const KeyedValueCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
     }
     const displayValue = formatEvalRunsNumericValue(average);
     return (
-      <span css={{ display: 'inline-flex', alignItems: 'center' }}>
-        <FormattedMessage
-          defaultMessage="<label>avg</label> <value>{average}</value>"
-          description="Average metric value of a group of evaluation runs"
-          values={{
-            average: displayValue,
-            label: (chunks) => (
-              <Typography.Text
-                size="sm"
-                color="secondary"
-                css={{ marginRight: theme.spacing.xs, fontSize: theme.typography.fontSizeSm - 2 }}
-              >
-                {chunks}
-              </Typography.Text>
-            ),
-            value: (chunks) => <Typography.Text bold>{chunks}</Typography.Text>,
-          }}
-        />
-      </span>
+      <Tooltip componentId="mlflow.eval-runs.group-metric-average.tooltip" content={String(average)}>
+        <span css={{ display: 'inline-flex', alignItems: 'center' }}>
+          <FormattedMessage
+            defaultMessage="<label>avg</label> <value>{average}</value>"
+            description="Average metric value of a group of evaluation runs"
+            values={{
+              average: displayValue,
+              label: (chunks) => (
+                <Typography.Text
+                  size="sm"
+                  color="secondary"
+                  css={{ marginRight: theme.spacing.xs, fontSize: theme.typography.fontSizeSm - 2 }}
+                >
+                  {chunks}
+                </Typography.Text>
+              ),
+              value: (chunks) => <Typography.Text bold>{chunks}</Typography.Text>,
+            }}
+          />
+        </span>
+      </Tooltip>
     );
   }
 
   const displayValue = metricKey !== undefined && typeof value === 'number' ? formatEvalRunsNumericValue(value) : value;
 
-  return <span title={displayValue === undefined ? undefined : String(displayValue)}>{displayValue ?? '-'}</span>;
+  const valueText = (
+    <span css={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      {displayValue ?? '-'}
+    </span>
+  );
+  // The cell rounds metrics, so a rounded value always gets a tooltip with the full value.
+  if (value !== undefined && String(displayValue) !== String(value)) {
+    return (
+      <Tooltip componentId="mlflow.eval-runs.keyed-value-cell.tooltip" content={String(value)}>
+        {valueText}
+      </Tooltip>
+    );
+  }
+  return (
+    <TruncationTooltip componentId="mlflow.eval-runs.keyed-value-cell.truncation-tooltip">
+      {valueText}
+    </TruncationTooltip>
+  );
 };
 
 export const SortableHeaderCell = ({
@@ -720,16 +780,6 @@ export const TypeCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row }) => {
           <FormattedMessage
             defaultMessage="Test"
             description="Type pill text for a regression-test run in the evaluation runs table"
-          />
-        </Tag>
-      );
-    case MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION:
-      return (
-        <Tag componentId="mlflow.eval-runs.type-cell.issue-detection" color="indigo" css={pillCss}>
-          <SparkleIcon />
-          <FormattedMessage
-            defaultMessage="Issue detection"
-            description="Type pill text for an issue-detection run in the evaluation runs table"
           />
         </Tag>
       );

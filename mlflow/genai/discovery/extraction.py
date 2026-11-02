@@ -14,6 +14,7 @@ from mlflow.genai.discovery.constants import (
 )
 from mlflow.genai.discovery.entities import _ConversationAnalysis, _TriageResult
 from mlflow.genai.utils.llm_utils import _call_llm, _TokenCounter
+from mlflow.tracing.constant import TraceMetadataKey
 
 _logger = logging.getLogger(__name__)
 
@@ -146,26 +147,87 @@ def extract_span_errors(trace: Trace, max_length: int = 500) -> str:
     return "; ".join(errors)[:max_length]
 
 
-def extract_assessment_rationale(trace: Trace, scorer_name: str) -> str:
-    assessments = trace.search_assessments(scorer_name, type="feedback")
-    return next((a.rationale for a in assessments if a.rationale), "")
+def _is_session_scoped(assessment) -> bool:
+    """Whether an assessment applies to the whole conversation rather than one turn."""
+    metadata = getattr(assessment, "metadata", None) or {}
+    return TraceMetadataKey.TRACE_SESSION in metadata
+
+
+def extract_assessment_rationale(trace: Trace, scorer_name: str, *, session_scoped=None) -> str:
+    """
+    The most recent usable rationale among a trace's assessments for one scorer.
+
+    An assessment carrying an error is skipped: the scorer failed, so its rationale describes
+    that failure rather than the trace. The rationale is what is read rather than the value,
+    because a bare label such as ``"no"`` is ambiguous without the scorer's criterion.
+
+    The newest is taken rather than the first found, because re-evaluating a session leaves
+    several assessments from the same scorer on the same trace. Taking whichever came back
+    first let a superseded verdict -- including a passing one from before the regression --
+    describe the session that is being analyzed now.
+
+    Args:
+        trace: The trace to read.
+        scorer_name: The scorer whose assessments to read.
+        session_scoped: When True, return only conversation-scoped rationales; when False,
+            only per-turn ones. ``None`` reads both.
+    """
+    usable = [
+        assessment
+        for assessment in trace.search_assessments(scorer_name, type="feedback")
+        if getattr(assessment, "error", None) is None
+        and assessment.rationale
+        and (session_scoped is None or _is_session_scoped(assessment) == session_scoped)
+    ]
+    if not usable:
+        return ""
+    # An assessment with no recorded time sorts oldest: it cannot be shown to supersede one
+    # that is timestamped, and preferring it would reintroduce the arbitrary pick.
+    newest = max(usable, key=lambda assessment: getattr(assessment, "create_time_ms", None) or 0)
+    return newest.rationale
 
 
 def collect_session_rationales(
     traces: list[Trace],
     rationale_map: dict[str, str],
     scorer_name: str,
+    session_traces: list[Trace] | None = None,
 ) -> str:
-    """Combine triage rationales, human feedback, and span errors for a session.
+    """Combine triage rationales, feedback, and span errors for a session.
+
+    Conversation-scoped feedback -- an assessment whose metadata carries
+    ``mlflow.trace.session`` -- applies to the whole session, so it is collected once from
+    the session's first trace and labelled as such, rather than being attributed to whichever
+    turn happened to fail. Per-turn feedback stays attached to its own trace.
 
     Deduplicates identical text across traces and returns a semicolon-separated string.
+
+    Args:
+        traces: The failing traces whose per-turn signal is collected.
+        rationale_map: Trace ID to triage rationale.
+        scorer_name: The scorer whose feedback to read.
+        session_traces: Every trace in the session, in order. Session-scoped feedback is read
+            from its first trace, which may itself have passed triage. Defaults to ``traces``.
     """
     seen: set[str] = set()
     parts: list[str] = []
+
+    # Session-level first: it frames the turns that follow, and reading it from the session's
+    # own first trace means it is not missed when that turn passed triage.
+    if ordered_session := (session_traces if session_traces is not None else traces):
+        if session_feedback := extract_assessment_rationale(
+            ordered_session[0], scorer_name, session_scoped=True
+        ):
+            seen.add(session_feedback)
+            parts.append(f"[session feedback] {session_feedback}")
+
     for trace in traces:
         for text, prefix in [
             (rationale_map.get(trace.info.trace_id, ""), ""),
-            (extract_assessment_rationale(trace, scorer_name), "[human feedback] "),
+            (
+                extract_assessment_rationale(trace, scorer_name, session_scoped=False),
+                "[human feedback] ",
+            ),
             (extract_span_errors(trace), "[span errors] "),
         ]:
             if text and text not in seen:
@@ -269,6 +331,11 @@ def extract_failing_traces(
     considered failing if ANY scorer's most-recent Feedback has a falsy
     value, and rationales from all failing scorers are combined.
 
+    A scorer that errored says nothing about the trace: the judge failed, so the trace is
+    recorded as a scorer problem rather than classified. A scorer that returned no value
+    leaves the trace unclassified. Neither is a pass, and both are counted so a run cannot
+    report a clean scan over a sample it never judged.
+
     Args:
         scored_traces: Traces with scorer assessments attached.
         scorer_names: One or more scorer names to check for failures.
@@ -279,18 +346,33 @@ def extract_failing_traces(
     failing: list[Trace] = []
     rationale_map: dict[str, str] = {}
     categories_map: dict[str, list[str]] = {}
+    scorer_error_ids: list[str] = []
+    unclassified_ids: list[str] = []
+    scorer_errors: dict[str, str] = {}
 
     for trace in scored_traces:
         row_rationales: list[str] = []
         row_categories: list[str] = []
         is_failing = False
+        judged = False
+        errors: list[str] = []
         for scorer_name in scorer_names:
             assessments = trace.search_assessments(scorer_name, type="feedback")
             assessment = assessments[-1] if assessments else None
             if assessment is None:
                 continue
+            # An assessment error means the scorer or judge failed. Record it against the
+            # scorer and do not let it stand in for a verdict on the trace.
+            if getattr(assessment, "error", None) is not None:
+                error = assessment.error
+                message = getattr(error, "error_message", None) or str(error)
+                # Every failing scorer is recorded: knowing one of three failed says less
+                # than knowing which, and a run log is where that is read.
+                errors.append(f"{scorer_name}: {message}" if message else scorer_name)
+                continue
             if assessment.value is None:
                 continue
+            judged = True
             passed, cats = _parse_assessment_value(assessment.value)
             row_categories.extend(cats)
             if not passed:
@@ -298,12 +380,29 @@ def extract_failing_traces(
                 if assessment.rationale:
                     row_rationales.append(assessment.rationale)
 
+        trace_id = trace.info.trace_id
+        # A scorer error only counts as one when no other scorer reached a verdict; a trace
+        # judged by one scorer is classified even if another failed on it.
+        if not judged:
+            if errors:
+                scorer_error_ids.append(trace_id)
+                scorer_errors[trace_id] = "; ".join(errors)
+            else:
+                unclassified_ids.append(trace_id)
+            continue
+
         if not is_failing:
             continue
 
-        trace_id = trace.info.trace_id
         failing.append(trace)
         rationale_map[trace_id] = "; ".join(row_rationales)
         categories_map[trace_id] = list(dict.fromkeys(row_categories))
 
-    return _TriageResult(failing, rationale_map, categories_map)
+    return _TriageResult(
+        failing,
+        rationale_map,
+        categories_map,
+        scorer_error_trace_ids=scorer_error_ids,
+        unclassified_trace_ids=unclassified_ids,
+        scorer_errors=scorer_errors,
+    )

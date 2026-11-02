@@ -9,12 +9,15 @@ import { shouldEnableNewEvalRunsUi } from '../../../../common/utils/FeatureUtils
 // Maps experiment page route paths to enumerated tab names
 const ExperimentPageRoutePathToTabNameMap = map(
   {
-    [RoutePaths.experimentPageTabOverview]: ExperimentPageTabName.Overview,
+    [RoutePaths.experimentPageTabJourneyOverview]: ExperimentPageTabName.Overview,
+    [RoutePaths.experimentPageTabOverview]: ExperimentPageTabName.Dashboard,
+    [RoutePaths.experimentPageTabDashboard]: ExperimentPageTabName.Dashboard,
     [RoutePaths.experimentPageTabRuns]: ExperimentPageTabName.Runs,
     [RoutePaths.experimentPageTabTraces]: ExperimentPageTabName.Traces,
     [RoutePaths.experimentPageTabModels]: ExperimentPageTabName.Models,
     [RoutePaths.experimentPageTabEvaluationRuns]: ExperimentPageTabName.EvaluationRuns,
     [RoutePaths.experimentPageTabIssues]: ExperimentPageTabName.Issues,
+    [RoutePaths.experimentPageTabIssueDetectionRuns]: ExperimentPageTabName.Issues,
     [RoutePaths.experimentPageTabDatasets]: ExperimentPageTabName.Datasets,
     [RoutePaths.experimentPageTabDatasetDetail]: ExperimentPageTabName.Datasets,
     [RoutePaths.experimentPageTabChatSessions]: ExperimentPageTabName.ChatSessions,

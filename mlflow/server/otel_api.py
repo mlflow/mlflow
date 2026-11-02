@@ -29,7 +29,7 @@ from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
 
 from mlflow.entities.span import Span
 from mlflow.exceptions import MlflowException
-from mlflow.server.handlers import _get_tracking_store
+from mlflow.server.handlers import _HANDLER_BLOCKED_TRACE_TAGS, _get_tracking_store
 from mlflow.server.otlp_metrics import (
     INGESTION_ERRORS,
     REQUEST_DURATION,
@@ -39,6 +39,8 @@ from mlflow.server.otlp_metrics import (
 )
 from mlflow.telemetry.events import TraceSource, TracesReceivedByServerEvent
 from mlflow.telemetry.track import _record_event
+from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.otel.translation import strip_otlp_double_encoding
 from mlflow.tracing.utils import dump_span_attribute_value
 from mlflow.tracing.utils.otlp import (
     MLFLOW_EXPERIMENT_ID_HEADER,
@@ -95,9 +97,12 @@ def _convert_otlp_json_ids_to_base64(body: bytes) -> bytes:
     for resource_span in data.get("resourceSpans", []):
         for scope_span in resource_span.get("scopeSpans", []):
             for span in scope_span.get("spans", []):
-                for field in _OTLP_HEX_ID_FIELDS:
-                    if hex_val := span.get(field):
-                        span[field] = base64.b64encode(bytes.fromhex(hex_val)).decode("ascii")
+                for span_or_link in [span, *(span.get("links") or [])]:
+                    for field in _OTLP_HEX_ID_FIELDS:
+                        if hex_val := span_or_link.get(field):
+                            span_or_link[field] = base64.b64encode(bytes.fromhex(hex_val)).decode(
+                                "ascii"
+                            )
     return json.dumps(data).encode("utf-8")
 
 
@@ -212,6 +217,9 @@ async def export_traces(
                 for otel_proto_span in scope_span.spans:
                     try:
                         mlflow_span = Span.from_otel_proto(otel_proto_span, resource=resource)
+                        mlflow_span._span._attributes = strip_otlp_double_encoding(
+                            mlflow_span._span._attributes
+                        )
 
                         # Propagate service.name onto root spans so it's visible
                         # in the UI. Per the OTel resource spec, resource attrs
@@ -222,6 +230,12 @@ async def export_traces(
                             if resource_service_name:
                                 mlflow_span._span._attributes["service.name"] = (
                                     dump_span_attribute_value(resource_service_name)
+                                )
+                            # Root span "mlflow.traceTag.<key>" attributes become trace tags,
+                            # so drop the system-managed ones like the trace handlers do.
+                            for key in _HANDLER_BLOCKED_TRACE_TAGS:
+                                mlflow_span._span._attributes.pop(
+                                    SpanAttributeKey.TRACE_TAG_PREFIX + key, None
                                 )
 
                         all_spans.append(mlflow_span)

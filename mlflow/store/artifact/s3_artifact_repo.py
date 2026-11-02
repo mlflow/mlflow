@@ -26,6 +26,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
+    NOT_IMPLEMENTED,
     PERMISSION_DENIED,
     RESOURCE_DOES_NOT_EXIST,
     UNAUTHENTICATED,
@@ -109,6 +110,18 @@ def _normalize_sse_customer_args(upload_part_args):
             hashlib.md5(key_bytes, usedforsecurity=False).digest()
         ).decode("utf-8"),
     }
+
+
+def _reject_sse_customer_key_for_presigned_transfer(extra_args):
+    if extra_args and "SSECustomerKey" in extra_args:
+        _logger.error(
+            "Presigned S3 transfers cannot be used with SSECustomerKey in "
+            "MLFLOW_S3_UPLOAD_EXTRA_ARGS because they would disclose the key to clients. "
+            "Remove SSECustomerKey to use presigned transfers."
+        )
+        raise MlflowException(
+            "Presigned artifact transfers are unavailable.", error_code=NOT_IMPLEMENTED
+        )
 
 
 def _get_utcnow_timestamp():
@@ -567,9 +580,14 @@ class S3ArtifactRepository(
         (bucket, s3_root_path) = self.parse_s3_compliant_uri(self.artifact_uri)
         s3_full_path = posixpath.join(s3_root_path, remote_file_path)
         s3_client = self._get_s3_client()
-        download_kwargs = (
-            {"ExtraArgs": self._bucket_owner_params} if self._bucket_owner_params else {}
-        )
+        download_args = _normalize_sse_customer_args({
+            name: value
+            for name, value in (self.get_s3_file_upload_extra_args() or {}).items()
+            if name
+            in {"SSECustomerAlgorithm", "SSECustomerKey", "SSECustomerKeyMD5", "RequestPayer"}
+        })
+        download_args.update(self._bucket_owner_params)
+        download_kwargs = {"ExtraArgs": download_args} if download_args else {}
         s3_client.download_file(bucket, s3_full_path, local_path, **download_kwargs)
 
     def delete_artifacts(self, artifact_path=None):
@@ -622,14 +640,18 @@ class S3ArtifactRepository(
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
         dest_path = posixpath.join(dest_path, os.path.basename(local_file))
-        s3_client = self._get_s3_client()
         upload_extra_args = self._get_upload_extra_args(local_file)
+        _reject_sse_customer_key_for_presigned_transfer(upload_extra_args)
         if "ChecksumAlgorithm" in upload_extra_args:
-            raise MlflowException.invalid_parameter_value(
+            _logger.error(
                 "Presigned multipart uploads do not support ChecksumAlgorithm in "
                 "MLFLOW_S3_UPLOAD_EXTRA_ARGS. Remove this option or upload directly to S3 "
                 "with a client that computes and submits checksums for every part."
             )
+            raise MlflowException(
+                "Presigned artifact transfers are unavailable.", error_code=NOT_IMPLEMENTED
+            )
+        s3_client = self._get_s3_client()
         create_allowed_args = s3_client.meta.service_model.operation_model(
             "CreateMultipartUpload"
         ).input_shape.members
@@ -759,8 +781,6 @@ class S3ArtifactRepository(
         (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)
         dest_path = posixpath.join(dest_path, artifact_path)
 
-        s3_client = self._get_s3_client()
-
         content_type, _ = guess_type(artifact_path)
         if not content_type:
             content_type = "application/octet-stream"
@@ -777,9 +797,11 @@ class S3ArtifactRepository(
         # x-amz-server-side-encryption) would reject the presigned PUT with 403.
         # This matches the behavior of _upload_file() for direct S3 uploads.
         environ_extra_args = self.get_s3_file_upload_extra_args()
+        _reject_sse_customer_key_for_presigned_transfer(environ_extra_args)
         if environ_extra_args:
             params.update(environ_extra_args)
 
+        s3_client = self._get_s3_client()
         presigned_url = s3_client.generate_presigned_url(
             "put_object",
             Params=params,
@@ -815,13 +837,15 @@ class S3ArtifactRepository(
 
         (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)
         key = posixpath.join(dest_path, artifact_path) if artifact_path else dest_path
-        s3_client = self._get_s3_client()
+        upload_extra_args = self.get_s3_file_upload_extra_args() or {}
+        _reject_sse_customer_key_for_presigned_transfer(upload_extra_args)
         download_args = _normalize_sse_customer_args({
             name: value
-            for name, value in (self.get_s3_file_upload_extra_args() or {}).items()
+            for name, value in upload_extra_args.items()
             if name
             in {"SSECustomerAlgorithm", "SSECustomerKey", "SSECustomerKeyMD5", "RequestPayer"}
         })
+        s3_client = self._get_s3_client()
 
         try:
             head_response = s3_client.head_object(

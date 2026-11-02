@@ -1,19 +1,38 @@
 import { describe, test, expect, jest, beforeEach } from '@jest/globals';
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from 'react-intl';
 import { setupTestRouter, testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
 import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
 import { MlflowRunStatus } from '../../../graphql/__generated__/graphql';
-import EvalRunDetailsPage from './EvalRunDetailsPage';
+import EvalRunDetailsPage, { getEvalRunScores } from './EvalRunDetailsPage';
 import { useEvalRunProgress } from './useEvalRunProgress';
-import { ExperimentPageRevampProvider } from '../experiment-page-tabs/ExperimentPageRevampContext';
+import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
+import {
+  ExperimentPageRevampProvider,
+  useExperimentBreadcrumbPairwiseReviewAction,
+} from '../experiment-page-tabs/ExperimentPageRevampContext';
 
 jest.mock('../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
   shouldEnableNewEvalRunsUi: jest.fn(() => false),
 }));
 jest.mock('./useEvalRunProgress', () => ({ useEvalRunProgress: jest.fn() }));
+jest.mock('../../hooks/useExperimentQuery', () => ({ useGetExperimentQuery: jest.fn() }));
+jest.mock('../experiment-evaluation-runs/hooks/useEvalRunsBaseline', () => ({
+  ...jest.requireActual<typeof import('../experiment-evaluation-runs/hooks/useEvalRunsBaseline')>(
+    '../experiment-evaluation-runs/hooks/useEvalRunsBaseline',
+  ),
+  useGetEvalRunsBaseline: (runUuid?: string) => ({
+    data: runUuid
+      ? {
+          info: { runUuid, experimentId: '123', lifecycleStage: 'active', runName: 'Baseline run' },
+          data: { metrics: [{ key: 'safety/mean', value: 0.5 }], params: [], tags: [] },
+        }
+      : undefined,
+  }),
+}));
 jest.mock('../../components/evaluations/RunViewEvaluationsTab', () => ({
   RunViewEvaluationsTab: ({ runTags }: { runTags?: Record<string, unknown> }) => (
     <div data-testid="eval-results-table">run-tags:{runTags ? 'present' : 'absent'}</div>
@@ -23,10 +42,55 @@ jest.mock('../../components/evaluations/RunViewEvaluationsTab', () => ({
 jest.mock('./EvalRunTracesSidebar', () => ({
   EvalRunTracesSidebar: () => <div role="region" aria-label="Run sidebar" />,
 }));
+const mockStartReview = jest.fn();
+jest.mock('./EvalRunCompareView', () => {
+  const { useEffect: useMockEffect } = jest.requireActual<typeof import('react')>('react');
+  return {
+    EvalRunCompareView: ({
+      baselineRunUuid,
+      compareRunUuids,
+      onPairwiseReviewActionChange,
+    }: {
+      baselineRunUuid: string;
+      compareRunUuids: string[];
+      onPairwiseReviewActionChange?: (action: (() => void) | undefined) => void;
+    }) => {
+      useMockEffect(() => {
+        onPairwiseReviewActionChange?.(mockStartReview);
+        return () => onPairwiseReviewActionChange?.(undefined);
+      }, [onPairwiseReviewActionChange]);
+      return (
+        <div data-testid="eval-run-compare-view">
+          base:{baselineRunUuid} compare:{compareRunUuids.join(',')}
+        </div>
+      );
+    },
+  };
+});
+// Reads the breadcrumb's published "start pairwise review" action, as ExperimentPageBreadcrumbs does.
+const ReviewActionProbe = () => {
+  const action = useExperimentBreadcrumbPairwiseReviewAction();
+  return action ? (
+    <button type="button" onClick={action}>
+      Published review
+    </button>
+  ) : null;
+};
 jest.mock('./EvalRunTracesV4Table', () => ({
-  EvalRunTracesV4Table: ({ runUuid }: { runUuid: string }) => (
+  EvalRunTracesV4Table: ({
+    runUuid,
+    baselineRunUuid,
+    currentScores,
+    baselineScores,
+  }: {
+    runUuid: string;
+    baselineRunUuid?: string;
+    currentScores?: Record<string, number>;
+    baselineScores?: Record<string, number>;
+  }) => (
     <div role="table" aria-label="Evaluation run traces" data-testid="eval-results-v4">
-      run:{runUuid}
+      run:{runUuid} baseline:{baselineRunUuid ?? 'none'} currentSafety:{currentScores?.['safety'] ?? 'none'}{' '}
+      baselineSafety:{baselineScores?.['safety'] ?? 'none'}
     </div>
   ),
 }));
@@ -49,9 +113,15 @@ const baseProgress: Progress = {
   status: MlflowRunStatus.RUNNING,
   runName: 'my-eval-run',
   experiment: undefined,
+  runMetrics: [],
   runTags: {},
   isFinished: false,
 };
+
+const mockBaselineTag = (value?: string) =>
+  jest.mocked(useGetExperimentQuery).mockReturnValue({
+    data: value ? { tags: [{ key: 'mlflow.evaluation.baselineRunId', value }] } : undefined,
+  } as unknown as ReturnType<typeof useGetExperimentQuery>);
 
 describe('EvalRunDetailsPage', () => {
   const { history } = setupTestRouter();
@@ -59,6 +129,7 @@ describe('EvalRunDetailsPage', () => {
   beforeEach(() => {
     jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
     jest.mocked(useEvalRunProgress).mockReturnValue(baseProgress);
+    mockBaselineTag(undefined);
   });
 
   const renderAt = (entry: string, revampEnabled = false) => {
@@ -72,6 +143,7 @@ describe('EvalRunDetailsPage', () => {
                 testRoute(
                   <ExperimentPageRevampProvider enabled={revampEnabled}>
                     <EvalRunDetailsPage />
+                    <ReviewActionProbe />
                   </ExperimentPageRevampProvider>,
                   '/experiments/:experimentId/evaluation-runs/:runUuid/details',
                 ),
@@ -106,6 +178,34 @@ describe('EvalRunDetailsPage', () => {
     expect(screen.queryByTestId('eval-results-table')).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Overview' })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Traces' })).not.toBeInTheDocument();
+  });
+
+  test('opens the comparison of the path run against the compared runs in compare mode', async () => {
+    renderAt('/experiments/123/evaluation-runs/run-1/details?compare=true&compareFrom=runs&compareRuns=run-2,run-3');
+
+    expect(await screen.findByTestId('eval-run-compare-view')).toHaveTextContent('base:run-1 compare:run-2,run-3');
+    expect(screen.queryByTestId('eval-results-v4')).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Run sidebar' })).not.toBeInTheDocument();
+  });
+
+  test('publishes the compare view’s pairwise review action for the breadcrumb while comparing', async () => {
+    mockStartReview.mockClear();
+    renderAt('/experiments/123/evaluation-runs/run-1/details?compare=true&compareFrom=runs&compareRuns=run-2', true);
+    await userEvent.click(await screen.findByRole('button', { name: 'Published review' }));
+    expect(mockStartReview).toHaveBeenCalledTimes(1);
+  });
+
+  test('publishes no pairwise review action for a single run', async () => {
+    renderAt('/experiments/123/evaluation-runs/run-1/details', true);
+    expect(await screen.findByTestId('eval-results-v4')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Published review' })).not.toBeInTheDocument();
+  });
+
+  test('keeps the single-run view when compare mode is off', async () => {
+    renderAt('/experiments/123/evaluation-runs/run-1/details?compareRuns=run-2');
+
+    expect(await screen.findByTestId('eval-results-v4')).toHaveTextContent('run:run-1');
+    expect(screen.queryByTestId('eval-run-compare-view')).not.toBeInTheDocument();
   });
 
   test("renders the traces table inside the experiment's custom view provider", async () => {
@@ -172,6 +272,46 @@ describe('EvalRunDetailsPage', () => {
 
     expect(await screen.findByText(/Run ID missing-run does not exist/)).toBeInTheDocument();
     expect(screen.queryByTestId('eval-results-v4')).not.toBeInTheDocument();
+  });
+
+  test("passes the experiment's baseline run and both runs' saved scores to the traces table", async () => {
+    mockBaselineTag('baseline-1');
+    jest.mocked(useEvalRunProgress).mockReturnValue({
+      ...baseProgress,
+      // The run query's copy of the experiment can be stale; the experiment query's tag wins.
+      experiment: { tags: [{ key: 'mlflow.evaluation.baselineRunId', value: 'stale-1' }] } as Progress['experiment'],
+      runMetrics: [{ key: 'safety/mean', value: 0.583333 }],
+    });
+    renderAt('/experiments/123/evaluation-runs/run-1/details');
+
+    const table = await screen.findByTestId('eval-results-v4');
+    expect(table).toHaveTextContent('baseline:baseline-1');
+    expect(table).toHaveTextContent('currentSafety:0.583333');
+    expect(table).toHaveTextContent('baselineSafety:0.5');
+  });
+
+  test('shows no baseline on the baseline run itself', async () => {
+    mockBaselineTag('run-1');
+    jest
+      .mocked(useEvalRunProgress)
+      .mockReturnValue({ ...baseProgress, runMetrics: [{ key: 'safety/mean', value: 0.583333 }] });
+    renderAt('/experiments/123/evaluation-runs/run-1/details');
+
+    const table = await screen.findByTestId('eval-results-v4');
+    expect(table).toHaveTextContent('baseline:none');
+    expect(table).toHaveTextContent('currentSafety:0.583333');
+  });
+
+  test('keys saved scores by metric name and by scorer name for the default mean', () => {
+    expect(
+      getEvalRunScores([
+        { key: 'safety/mean', value: 0.5 },
+        { key: 'relevance/mean', value: 3 },
+        { key: 'relevance', value: 4 },
+        { key: 'not_a_number', value: Number.NaN },
+        { key: null, value: 1 },
+      ]),
+    ).toEqual({ 'safety/mean': 0.5, safety: 0.5, 'relevance/mean': 3, relevance: 4 });
   });
 
   test('shows an error instead of an empty run when the run fails to load', async () => {

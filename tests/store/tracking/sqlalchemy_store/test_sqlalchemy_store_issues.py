@@ -7,7 +7,12 @@ from unittest import mock
 import pytest
 
 from mlflow.entities import Issue, IssueSeverity, IssueStatus, TraceState
-from mlflow.entities.assessment import IssueReference
+from mlflow.entities.assessment import Feedback, IssueReference
+from mlflow.entities.issue_evidence import (
+    ISSUE_EVIDENCE_METADATA_KEY,
+    IssueEvidence,
+    IssueEvidenceStep,
+)
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.exceptions import MlflowException
@@ -1518,3 +1523,92 @@ def test_issue_keyset_ties_nulls_and_legacy_tokens(store, order_by):
         token = base64.b64encode(json.dumps(data).encode()).decode()
         with pytest.raises(MlflowException, match="page token"):
             store.search_issues(**options, max_results=1, page_token=token)
+
+
+def _trace(store, exp_id):
+    return store.start_trace(
+        TraceInfo(
+            trace_id=f"tr-{uuid.uuid4()}",
+            trace_location=TraceLocation.from_experiment_id(exp_id),
+            request_time=get_current_time_millis(),
+            execution_duration=100,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+            client_request_id=f"tr-{uuid.uuid4()}",
+            request_preview=None,
+            response_preview=None,
+        ),
+    )
+
+
+def test_evidence_metadata_round_trips_and_leaves_counts_and_search_intact(store):
+    exp_id = store.create_experiment("test")
+    issue = store.create_issue(
+        experiment_id=exp_id,
+        name="Empty retrieval",
+        description="The retriever returned nothing",
+        status=IssueStatus.PENDING,
+    )
+    with_evidence = _trace(store, exp_id)
+    rationale_only = _trace(store, exp_id)
+    unrelated = _trace(store, exp_id)
+
+    evidence = IssueEvidence(
+        summary="The agent answered from an empty context",
+        steps=[
+            IssueEvidenceStep(
+                span_id="span-1",
+                text="The retriever returned 0 documents",
+                highlights=["0 documents"],
+                highlight_tone="error",
+            )
+        ],
+        primary_span_id="span-1",
+    )
+    store.create_assessment(
+        IssueReference(
+            issue_id=issue.issue_id,
+            issue_name=issue.name,
+            trace_id=with_evidence.request_id,
+            rationale=evidence.summary,
+            span_id="span-1",
+            metadata={ISSUE_EVIDENCE_METADATA_KEY: evidence.to_metadata_value()},
+        )
+    )
+    # A reference written before structured evidence stays readable alongside the new one.
+    store.create_assessment(
+        IssueReference(
+            issue_id=issue.issue_id,
+            issue_name=issue.name,
+            trace_id=rationale_only.request_id,
+            rationale="Only a rationale",
+        )
+    )
+    # Feedback is a separate assessment type and is not an issue association.
+    store.create_assessment(
+        Feedback(name="quality", value=False, trace_id=unrelated.request_id, rationale="Unrelated")
+    )
+
+    (searched,) = store.search_issues(experiment_id=exp_id, include_trace_count=True)
+    assert searched.trace_count == 2
+
+    stored = {
+        assessment.trace_id: assessment
+        for assessment in store.get_trace_info(with_evidence.request_id).assessments
+    }
+    restored = IssueEvidence.from_assessment(stored[with_evidence.request_id])
+    assert restored.steps == evidence.steps
+    assert restored.primary_span_id == "span-1"
+
+    legacy_assessment = store.get_trace_info(rationale_only.request_id).assessments[0]
+    assert IssueEvidence.from_assessment(legacy_assessment) is None
+    assert legacy_assessment.rationale == "Only a rationale"
+
+    traces = store.search_traces(
+        experiment_ids=[exp_id], filter_string=f"issue.id = '{issue.issue_id}'"
+    )[0]
+    assert {trace.trace_id for trace in traces} == {
+        with_evidence.request_id,
+        rationale_only.request_id,
+    }

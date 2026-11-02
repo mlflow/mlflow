@@ -11,6 +11,7 @@ from sqlalchemy.pool.impl import QueuePool
 from mlflow.exceptions import MlflowException
 from mlflow.store.db import utils
 from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
+from mlflow.utils.file_utils import path_to_local_sqlite_uri
 from mlflow.utils.time import get_current_time_millis
 
 
@@ -183,6 +184,15 @@ def test_make_parent_dirs_if_sqlite(tmp_path: Path) -> None:
     assert not nested_path.parent.exists()
     utils._make_parent_dirs_if_sqlite(db_uri)
     assert nested_path.parent.exists()
+
+
+def test_create_sqlalchemy_engine_with_retry_creates_literal_sqlite_path(tmp_path: Path) -> None:
+    db_path = tmp_path / "a%2Bb" / "nested" / "mlflow.db"
+    engine = utils.create_sqlalchemy_engine_with_retry(path_to_local_sqlite_uri(db_path))
+    engine.dispose()
+
+    assert db_path.exists()
+    assert not (tmp_path / "a+b").exists()
 
 
 def test_make_parent_dirs_if_sqlite_skips_memory_db() -> None:

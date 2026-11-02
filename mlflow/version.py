@@ -2,7 +2,7 @@
 import importlib.metadata
 import re
 
-VERSION = "3.17.2.dev0"
+VERSION = "3.17.3.dev0"
 
 
 def is_release_version():
@@ -27,3 +27,9 @@ IS_TRACING_SDK_ONLY = not any(_is_package_installed(pkg) for pkg in ["mlflow", "
 IS_MLFLOW_SKINNY = _is_package_installed("mlflow-skinny") and not _is_package_installed("mlflow")
 
 IS_FULL_MLFLOW = _is_package_installed("mlflow")
+
+# A flag to indicate whether the flavor model logging APIs can be imported. They depend on
+# numpy and pandas, which mlflow-skinny and the tracing SDK don't require.
+HAS_MODEL_LOGGING_DEPS = not IS_TRACING_SDK_ONLY and all(
+    _is_package_installed(pkg) for pkg in ["numpy", "pandas"]
+)

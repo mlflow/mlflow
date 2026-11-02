@@ -64,6 +64,10 @@ const CATEGORY_LABELS: Record<IssueCategory, MessageDescriptor> = {
     defaultMessage: 'Safety',
     description: 'Experiment issues tab > Safety category filter option',
   }),
+  cost: defineMessage({
+    defaultMessage: 'Cost',
+    description: 'Experiment issues tab > Cost category filter option',
+  }),
 };
 
 const SORT_LABELS: Record<IssueSortKey, MessageDescriptor> = {

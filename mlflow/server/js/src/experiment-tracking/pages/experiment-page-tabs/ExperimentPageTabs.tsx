@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Button,
   GenericSkeleton,
@@ -43,6 +43,11 @@ import type { ExperimentEntity } from '../../types';
 import { ExperimentPageBreadcrumbs } from './ExperimentPageBreadcrumbs';
 import { ExperimentPageMainContent } from './ExperimentPageMainContent';
 import { ExperimentPageRevampProvider } from './ExperimentPageRevampContext';
+import {
+  ExperimentPageShellExperimentActions,
+  ExperimentPageShellExperimentDescription,
+} from './ExperimentPageShellExperimentActions';
+import { ExperimentPageLayoutProvider } from './ExperimentPageLayout';
 
 // Lazy so experiment tabs other than evaluation runs don't load the evaluation flow's modules.
 const RunEvaluationButton = React.lazy(() =>
@@ -81,6 +86,8 @@ const ExperimentPageTabsImpl = () => {
   useExperimentReduxStoreCompat(experiment);
 
   const { headerHidden } = useHeaderVisibility();
+  // Shared by the breadcrumb row's Edit experiment item and the description under it.
+  const [editingExperiment, setEditingExperiment] = useState(false);
 
   // For showstopper experiment fetch errors, we want it to hit the error boundary
   // so that the user can see the error message
@@ -134,6 +141,7 @@ const ExperimentPageTabsImpl = () => {
       : undefined) ??
     ExperimentKind.GENAI_DEVELOPMENT;
   const revampFlagEnabled = shouldEnableNewEvalRunsUi();
+  const [experimentPageLayoutContainer, setExperimentPageLayoutContainer] = useState<HTMLElement | null>(null);
   const showRevamp =
     Boolean(experiment && !inferringExperimentType) &&
     revampFlagEnabled &&
@@ -231,12 +239,20 @@ const ExperimentPageTabsImpl = () => {
     ) : undefined;
 
   const isEvaluationRunsListRoute = Boolean(matchPath(RoutePaths.experimentPageTabEvaluationRuns, pathname));
-  const pageActions = isEvaluationRunsListRoute ? (
-    <React.Suspense fallback={<GenericSkeleton css={{ width: 124, height: theme.general.heightSm }} loading />}>
-      <RunEvaluationButton experimentId={experimentId} isPageAction />
-    </React.Suspense>
-  ) : (
-    headerSavedViewsSlot
+  const pageActions = (
+    <ExperimentPageShellExperimentActions
+      experiment={experiment}
+      setEditing={setEditingExperiment}
+      pageAction={
+        isEvaluationRunsListRoute ? (
+          <React.Suspense fallback={<GenericSkeleton css={{ width: 124, height: theme.general.heightSm }} loading />}>
+            <RunEvaluationButton experimentId={experimentId} isPageAction />
+          </React.Suspense>
+        ) : (
+          headerSavedViewsSlot
+        )
+      }
+    />
   );
   // Review queue focus mode hides the page header; with the shell that is the breadcrumb row.
   const mainContent = showRevamp ? (
@@ -245,6 +261,16 @@ const ExperimentPageTabsImpl = () => {
         headerHidden ? undefined : <ExperimentPageBreadcrumbs experiment={experiment as unknown as ExperimentEntity} />
       }
       pageActions={headerHidden ? undefined : pageActions}
+      headerDescription={
+        headerHidden ? undefined : (
+          <ExperimentPageShellExperimentDescription
+            experiment={experiment}
+            editing={editingExperiment}
+            setEditing={setEditingExperiment}
+            onNoteUpdated={refetchExperiment}
+          />
+        )
+      }
     >
       {outletComponent}
     </ExperimentPageMainContent>
@@ -301,18 +327,24 @@ const ExperimentPageTabsImpl = () => {
       {revampFlagEnabled ? (
         // The shell has its own vertical padding, so the page keeps it only outside the shell. The wrapper
         // stays mounted either way, so switching in and out of the shell does not remount the page.
-        <div
-          css={{
-            display: 'flex',
-            flexDirection: 'column',
-            flex: 1,
-            minHeight: 0,
-            paddingTop: showRevamp ? 0 : theme.spacing.md,
-            paddingBottom: showRevamp ? 0 : theme.spacing.md,
-          }}
-        >
-          {pageContents}
-        </div>
+        // It is also the layout container the traces drawer is scoped to while the Assistant is open.
+        <ExperimentPageLayoutProvider value={experimentPageLayoutContainer}>
+          <div
+            ref={setExperimentPageLayoutContainer}
+            data-testid="experiment-page-layout"
+            data-experiment-page-layout="true"
+            css={{
+              display: 'flex',
+              flexDirection: 'column',
+              flex: 1,
+              minHeight: 0,
+              paddingTop: showRevamp ? 0 : theme.spacing.md,
+              paddingBottom: showRevamp ? 0 : theme.spacing.md,
+            }}
+          >
+            {pageContents}
+          </div>
+        </ExperimentPageLayoutProvider>
       ) : (
         pageContents
       )}

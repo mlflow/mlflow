@@ -160,3 +160,6 @@ const RunJudgeContextProvider = ({
     </ModelTraceExplorerRunJudgesContextProvider>
   );
 };
+
+/** Lets judges run on a whole session from its assessments pane, and refreshes the session when they finish. */
+export { RunJudgeContextProvider as SessionRunJudgesContextProvider };

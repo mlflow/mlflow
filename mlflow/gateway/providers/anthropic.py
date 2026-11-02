@@ -17,6 +17,7 @@ from mlflow.gateway.providers.base import (
     _drop_client_auth_headers,
 )
 from mlflow.gateway.providers.utils import (
+    _error_detail,
     parse_base64_data_url,
     proxy_root_url,
     rename_payload_keys,
@@ -202,10 +203,11 @@ class AnthropicAdapter(ProviderAdapter):
             )
         payload["max_tokens"] = max_tokens
 
-        if payload.pop("n", 1) != 1:
+        n = payload.pop("n", 1)
+        if n != 1:
             raise AIGatewayException(
                 status_code=422,
-                detail="'n' must be '1' for the Anthropic provider. Received value: '{n}'.",
+                detail=f"'n' must be '1' for the Anthropic provider. Received value: '{n}'.",
             )
 
         # Cohere uses `system` to set the system message
@@ -458,7 +460,12 @@ class AnthropicAdapter(ProviderAdapter):
 
     @classmethod
     def _to_finish_reason(cls, stop_reason):
-        return {"max_tokens": "length", "tool_use": "tool_calls"}.get(stop_reason, "stop")
+        return {
+            "max_tokens": "length",
+            "model_context_window_exceeded": "length",
+            "tool_use": "tool_calls",
+            "refusal": "content_filter",
+        }.get(stop_reason, "stop")
 
     @classmethod
     def chat_streaming_to_model(cls, payload, config):
@@ -714,6 +721,17 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
             # See https://docs.anthropic.com/claude/reference/messages-streaming
             resp = json.loads(content.decode("utf-8"))
+
+            # Anthropic can report an error, such as `overloaded_error`, inside a stream that
+            # already returned 200. Raise it so the stream ends with an error instead of
+            # looking complete.
+            if resp["type"] == "error":
+                raise AIGatewayException(
+                    status_code=502,
+                    detail=f"{self.DISPLAY_NAME} returned {resp.get('error', {}).get('type')} "
+                    "while streaming: "
+                    f"{_error_detail(resp)}",
+                )
 
             # response id and model are only present in `message_start`
             # Also extract input_tokens from message_start

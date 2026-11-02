@@ -63,6 +63,7 @@ from mlflow.genai.evaluation.rate_limiter import (
     RPSRateLimiter,
     call_with_retry,
     eval_retry_context,
+    scorer_rate_limit_context,
 )
 from mlflow.genai.evaluation.session_utils import (
     classify_scorers,
@@ -668,6 +669,7 @@ def run(
     scorers=None,
     run_id: str | None = None,
     dataset: Any | None = None,
+    extra_aggregations: dict[str, list[str]] | None = None,
 ) -> EvaluationResult:
     """
     Runs GenAI evaluation harness to the given dataset.
@@ -675,6 +677,9 @@ def run(
     Rate limiting is controlled via environment variables:
     - MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT: max predict_fn calls/second
     - MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT: max scorer calls/second
+    - ENABLE_RETRIEVAL_JUDGE_PER_REQUEST_RATE_LIMITING: Databricks
+      only; whether RetrievalRelevance with databricks-agents SDK is rate limited
+      based on scorer invocation or per-chunk requests.
     """
     eval_items = [EvalItem.from_dataset_row(row) for row in eval_df.to_dict(orient="records")]
     eval_start_time = int(time.time() * 1000)
@@ -770,7 +775,9 @@ def run(
     _log_scorer_failure_summary(scorer_stats)
 
     # Aggregate metrics and log to MLflow run
-    aggregated_metrics = compute_aggregated_metrics(eval_results, scorers=scorers)
+    aggregated_metrics = compute_aggregated_metrics(
+        eval_results, scorers=scorers, extra_aggregations=extra_aggregations
+    )
     mlflow.log_metrics(aggregated_metrics, dataset=dataset)
 
     try:
@@ -802,8 +809,23 @@ def run(
         if result.eval_item.trace is not None
     }
 
+    # If any predict_fn row produced no tagged eval trace, skip deleting untagged
+    # run traces so the failure is missing assessments rather than deleted traces.
+    missed_eval_trace = any(
+        result is not None
+        and result.eval_item.trace is None
+        and result.eval_item.error_message is None
+        for result in eval_results
+    )
+
     # Clean up noisy traces generated during evaluation
-    clean_up_extra_traces(traces, eval_start_time, experiment_id, input_trace_ids)
+    clean_up_extra_traces(
+        traces,
+        eval_start_time,
+        experiment_id,
+        input_trace_ids,
+        keep_untagged_run_traces=missed_eval_trace,
+    )
 
     # Carry each scorer's pass_if predicate so EvaluationResult.passed can decide
     # pass/fail for non-yes/no values. In-process only; not persisted.
@@ -853,6 +875,15 @@ def _run_predict(
                 )
 
         eval_item.trace = mlflow.get_trace(eval_request_id, silent=True)
+        if eval_item.trace is None and eval_item.error_message is None:
+            _logger.warning(
+                "Failed to log trace and assessments to MLflow: no trace tagged with "
+                "%s was found for this item (inputs=%s). A common cause is predict_fn "
+                "starting the agent on another thread; submit that work with "
+                "contextvars.copy_context().run.",
+                TraceTagKey.EVAL_REQUEST_ID,
+                eval_item.inputs,
+            )
     elif eval_item.trace is not None:
         if _should_clone_trace(eval_item.trace, run_id, experiment_id):
             try:
@@ -961,9 +992,10 @@ def _compute_eval_scores(
                     scorer_func
                 )
 
-            value = call_with_retry(
-                lambda: _invoke_scorer(scorer_func, eval_item), rate_limiter, max_retries
-            )
+            with scorer_rate_limit_context(scorer, rate_limiter) as invocation_limiter:
+                value = call_with_retry(
+                    lambda: _invoke_scorer(scorer_func, eval_item), invocation_limiter, max_retries
+                )
             feedbacks = standardize_scorer_value(scorer.name, value)
 
         except Exception as e:
