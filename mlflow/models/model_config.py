@@ -127,6 +127,11 @@ class ModelConfig:
         with open(self.config, encoding="utf-8") as file:
             try:
                 return yaml.safe_load(file)
+            except UnicodeDecodeError as e:
+                raise MlflowException(
+                    f"Config file '{self.config}' must be UTF-8 encoded.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                ) from e
             except yaml.YAMLError as e:
                 raise MlflowException(
                     f"Error parsing YAML file: {e}", error_code=INVALID_PARAMETER_VALUE
