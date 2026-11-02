@@ -259,7 +259,8 @@ jobs:
         if: always()
         run: |
           git reset --hard "$GITHUB_SHA"
-          git clean -fdq
+          git clean -fd
+          git status --porcelain --untracked-files=all
       - name: Stage analysis
         run: |
           srt --settings "$RUNNER_TEMP/nightly-srt.json" -- cat /tmp/nightly-out/analysis.json \
