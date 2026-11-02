@@ -775,6 +775,40 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
             ],
         },
     },
+    "sap": {
+        "oauth2_client_credentials": {
+            "display_name": "OAuth2 Client Credentials",
+            "description": "SAP AI Core (SAP Generative AI Hub) via OAuth2 client credentials",
+            "default": True,
+            "fields": [
+                {
+                    "name": "auth_url",
+                    "description": "OAuth2 token endpoint URL "
+                    "(e.g. https://<subdomain>.authentication.<region>.hana.ondemand.com)",
+                    "secret": False,
+                    "required": True,
+                },
+                {
+                    "name": "client_id",
+                    "description": "OAuth2 client ID",
+                    "secret": False,
+                    "required": True,
+                },
+                {
+                    "name": "client_secret",
+                    "description": "OAuth2 client secret",
+                    "secret": True,
+                    "required": True,
+                },
+                {
+                    "name": "api_base",
+                    "description": "SAP AI Core API URL",
+                    "secret": False,
+                    "required": True,
+                },
+            ],
+        },
+    },
     "sagemaker": {
         "access_keys": {
             "display_name": "Access Keys",
