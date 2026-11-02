@@ -197,8 +197,7 @@ class ModelInfo:
         The ``model_uri`` of the logged model in the format ``'runs:/<run_id>/<artifact_path>'``.
 
         :getter: Gets the uri path of the logged model from the uri `runs:/<run_id>` path
-            encapsulation
-        :type: str
+            encapsulation        :type: str
         """
         return self._model_uri
 
@@ -398,7 +397,6 @@ class ModelInfo:
         """
         return self._logged_model.name if self._logged_model else None
 
-
 class Model:
     """
     An MLflow Model that can support multiple model flavors. Provides APIs for implementing
@@ -597,8 +595,7 @@ class Model:
         return self._signature
 
     @signature.setter
-    def signature(self, value) -> None:
-        # signature cannot be set to `False`, which is used in `log_model` and `save_model` calls
+    def signature(self, value) -> None:        # signature cannot be set to `False`, which is used in `log_model` and `save_model` calls
         # to disable automatic signature inference
         if value is not False:
             self._signature = value
@@ -798,7 +795,6 @@ class Model:
 
             # Load the Model object from a local MLmodel file
             model1 = Model.load("~/path/to/my/MLmodel")
-
             # Load the Model object from a remote model directory
             model2 = Model.load("s3://mybucket/path/to/my/model")
         """
@@ -997,14 +993,13 @@ class Model:
                     client.link_prompt_version_to_run(run_id, prompt)
 
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
-
             # if the model_config kwarg is passed in, then log the model config as an params
             if model_config := kwargs.get("model_config"):
                 if isinstance(model_config, str):
                     try:
                         file_extension = os.path.splitext(model_config)[1].lower()
                         if file_extension == ".json":
-                            with open(model_config) as f:
+                            with open(model_config, encoding="utf-8") as f:
                                 model_config = json.load(f)
                         elif file_extension in [".yaml", ".yml"]:
                             model_config = _validate_and_get_model_config_from_file(model_config)
@@ -1197,8 +1192,7 @@ class Model:
                     eprint(f"🔗 View Logged Model at: {logged_model_url}")
 
             with _use_logged_model(model=model):
-                if run_id is not None:
-                    model_output = LoggedModelOutput(model.model_id, step=step)
+                if run_id is not None:                    model_output = LoggedModelOutput(model.model_id, step=step)
                     client.log_outputs(run_id=run_id, models=[model_output])
                     # Update in-memory active run outputs to keep cached state in sync
                     active_run = mlflow.active_run()
@@ -1334,7 +1328,7 @@ class Model:
                         try:
                             file_extension = os.path.splitext(model_config)[1].lower()
                             if file_extension == ".json":
-                                with open(model_config) as f:
+                                with open(model_config, encoding="utf-8") as f:
                                     model_config = json.load(f)
                             elif file_extension in [".yaml", ".yml"]:
                                 from mlflow.utils.model_utils import (
@@ -1397,7 +1391,6 @@ def _copy_model_metadata_for_uc_sharing(local_path: str, flavor) -> None:
     """
     Copy model metadata files to a sub-directory 'metadata',
     For Databricks Unity Catalog sharing use-cases.
-
     Args:
         local_path: Local path to the model directory.
         flavor: Flavor module to save the model with.
@@ -1598,7 +1591,6 @@ def _validate_langchain_model(model):
     from langchain_core.runnables.base import Runnable
 
     from mlflow.models.utils import _validate_and_get_model_code_path
-
     if isinstance(model, str):
         return _validate_and_get_model_code_path(model, None)
 
