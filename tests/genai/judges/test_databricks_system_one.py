@@ -152,8 +152,14 @@ def test_databricks_chat_routing_is_unchanged(model_api):
 @pytest.mark.parametrize(
     ("kwargs", "error"),
     [
-        ({"base_url": "https://example.com"}, "base_url"),
-        ({"extra_headers": {"Authorization": "Bearer token"}}, "extra_headers"),
+        (
+            {"base_url": "https://example.com"},
+            "System One judge models do not support base_url",
+        ),
+        (
+            {"extra_headers": {"Authorization": "Bearer token"}},
+            "System One judge models do not support extra_headers",
+        ),
         ({"inference_params": {"temperature": 0}}, "inference_params"),
         ({"feedback_value_type": str}, "bool or finite Literal"),
         ({"model": "databricks:/databricks-typesafeai-jev-1-14-0"}, "Unity Catalog"),

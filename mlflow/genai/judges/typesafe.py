@@ -165,7 +165,7 @@ def _validate_options(
         )
     if unsupported_options:
         raise MlflowException.invalid_parameter_value(
-            "TypeSafe judge models do not support " + ", ".join(unsupported_options) + "."
+            "System One judge models do not support " + ", ".join(unsupported_options) + "."
         )
     if base_url is not None:
         if not base_url.strip().strip("/"):

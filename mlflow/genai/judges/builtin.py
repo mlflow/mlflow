@@ -827,11 +827,11 @@ def meets_guidelines(
             the given guidelines.
         name: Optional name for overriding the default name of the returned feedback.
         model: {{ model }}
-        model_api: Model API to use. Set to ``"decisions"`` for a Databricks System One
-            model service. Direct ``typesafe:/`` models select Decisions automatically.
         extra_headers: Optional dictionary of additional HTTP headers to include in
             requests to the judge model (e.g. ``{"AI-Resource-Group": "default"}``
             for SAP AI Core). Default: ``None``.
+        model_api: Model API to use. Set to ``"decisions"`` for a Databricks System One
+            model service. Direct ``typesafe:/`` models select Decisions automatically.
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
