@@ -47,7 +47,13 @@ type EditWorkspaceFormData = {
   traceArchivalLocation: string;
 };
 
-const WorkspacesEmptyState = ({ onCreateWorkspace }: { onCreateWorkspace: () => void }) => {
+const WorkspacesEmptyState = ({
+  canCreate,
+  onCreateWorkspace,
+}: {
+  canCreate: boolean;
+  onCreateWorkspace: () => void;
+}) => {
   const { theme } = useDesignSystemTheme();
 
   return (
@@ -72,9 +78,11 @@ const WorkspacesEmptyState = ({ onCreateWorkspace }: { onCreateWorkspace: () => 
           description="Home page workspaces empty state description"
         />
       </Typography.Text>
-      <Button componentId="mlflow.home.workspaces.create" onClick={onCreateWorkspace}>
-        <FormattedMessage defaultMessage="Create workspace" description="Home page workspaces empty state CTA" />
-      </Button>
+      {canCreate && (
+        <Button componentId="mlflow.home.workspaces.create" onClick={onCreateWorkspace}>
+          <FormattedMessage defaultMessage="Create workspace" description="Home page workspaces empty state CTA" />
+        </Button>
+      )}
     </div>
   );
 };
@@ -494,7 +502,7 @@ export const WorkspacesHomeView = ({ onCreateWorkspace }: WorkspacesHomeViewProp
             />
           </Typography.Text>
         </div>
-        {!shouldShowEmptyState && (
+        {canEditWorkspaces && !shouldShowEmptyState && (
           <Button componentId="mlflow.home.workspaces.create_button" onClick={onCreateWorkspace}>
             <FormattedMessage defaultMessage="Create new workspace" description="Create workspace button" />
           </Button>
@@ -527,7 +535,7 @@ export const WorkspacesHomeView = ({ onCreateWorkspace }: WorkspacesHomeViewProp
             </div>
           </div>
         ) : shouldShowEmptyState ? (
-          <WorkspacesEmptyState onCreateWorkspace={onCreateWorkspace} />
+          <WorkspacesEmptyState canCreate={canEditWorkspaces} onCreateWorkspace={onCreateWorkspace} />
         ) : (
           <Table>
             <TableRow isHeader>
