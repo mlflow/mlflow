@@ -183,7 +183,17 @@ def test_parse_govcloud_wasbs_uri_invalid(uri, error_match):
 
 @pytest.mark.parametrize(
     "account",
-    ["localhost\\", "[::1]", "localhost:8080\\", "acct:443", "ac%2Fct", "ac-ct", "ac ct", "ac_ct"],
+    [
+        "localhost\\",
+        "[::1]",
+        "[acct",
+        "localhost:8080\\",
+        "acct:443",
+        "ac%2Fct",
+        "ac-ct",
+        "ac ct",
+        "ac_ct",
+    ],
 )
 @pytest.mark.parametrize(
     "suffix", ["blob.core.windows.net", "blob.core.chinacloudapi.cn", "blob.core.usgovcloudapi.net"]
