@@ -3182,6 +3182,33 @@
       },
       "last_updated_at": "2026-10-27"
     },
+    "gpt-6-astra-law": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 922000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 10.0,
+        "output_per_million_tokens": 50.0,
+        "cache_read_per_million_tokens": 1.0,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-02"
+    },
     "gpt-6-luna": {
       "mode": "chat",
       "context_window": {
@@ -3235,6 +3262,36 @@
         "response_schema": true
       },
       "last_updated_at": "2026-10-27"
+    },
+    "gpt-6-rosalind": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 922000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 15.0,
+        "output_per_million_tokens": 75.0,
+        "cache_read_per_million_tokens": 1.5,
+        "cache_write_per_million_tokens": 18.75,
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "cache_write_per_million_tokens": 37.5,
+            "cache_read_per_million_tokens": 3.0,
+            "input_per_million_tokens": 30.0,
+            "output_per_million_tokens": 112.5
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-02"
     },
     "gpt-6-sol": {
       "mode": "chat",
