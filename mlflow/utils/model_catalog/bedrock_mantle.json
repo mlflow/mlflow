@@ -365,7 +365,7 @@
     "openai.gpt-5.6-cyber": {
       "mode": "responses",
       "context_window": {
-        "max_input": 1050000,
+        "max_input": 922000,
         "max_output": 128000
       },
       "pricing": {
@@ -381,7 +381,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-02"
     },
     "openai.gpt-5.6-luna": {
       "mode": "responses",
