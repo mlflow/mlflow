@@ -69,7 +69,7 @@ jobs:
         run: |
           if [ -z "$RUN_IDS" ]; then
             # TODO: Add more nightly workflows.
-            workflow_files=(cross-version-tests.yml)
+            workflow_files=(cross-version-tests.yml test-requirements.yml)
             for workflow_file in "${workflow_files[@]}"; do
               run_id=$(gh api "repos/mlflow/mlflow/actions/workflows/$workflow_file/runs?event=schedule&status=completed&per_page=1" \
                 --jq '.workflow_runs[0] | select(.conclusion | IN("failure", "timed_out", "cancelled", "action_required", "startup_failure")) | .id')
