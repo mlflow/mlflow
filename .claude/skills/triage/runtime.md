@@ -77,8 +77,8 @@ Run each command below from the repository root. Logs go to `$out_dir/work`.
 
    ```bash
    kill -0 "$(cat $out_dir/work/backend.pid)" &&
-     curl --noproxy "*" -fsS --max-time 2 http://localhost:5000/health >/dev/null &&
-     kill -0 "$(cat $out_dir/work/frontend.pid)" &&
+     curl --noproxy "*" -fsS --max-time 2 http://localhost:5000/health >/dev/null
+   kill -0 "$(cat $out_dir/work/frontend.pid)" &&
      curl --noproxy "*" -fsS --max-time 2 http://localhost:3000/ >/dev/null
    ```
 
