@@ -4,6 +4,12 @@ description: Investigate supplied workflow runs and summarize failures by root c
 disable-model-invocation: true
 argument-hint: '<out_dir> "<run_ids>"'
 arguments: [out_dir, run_ids]
+hooks:
+  PreToolUse:
+    - matcher: Bash
+      hooks:
+        - type: command
+          command: '"$CLAUDE_PROJECT_DIR/.claude/hooks/cap-timeout.sh"'
 ---
 
 # Nightly
