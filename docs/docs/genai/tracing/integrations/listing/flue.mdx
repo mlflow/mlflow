@@ -37,6 +37,12 @@ For deployed Workers, expose the server through an HTTPS endpoint using your [se
 
 ## Step 2: Create a Cloudflare OpenTelemetry Destination
 
+:::note
+
+Hosted delivery to MLflow was not tested for this guide. See [Local Development](#local-development) for the validation scope.
+
+:::
+
 In the Cloudflare dashboard, go to **Observability > Destinations**, select **Add destination**, and configure an [OpenTelemetry destination](https://developers.cloudflare.com/observability/export/opentelemetry/):
 
 | Setting          | Value                                          |
@@ -70,9 +76,7 @@ Add any authentication headers required by your MLflow deployment, then save the
 }
 ```
 
-The destination name must match the one created in the dashboard. This example samples every request; adjust `head_sampling_rate` for your workload.
-
-Flue generates the Worker entry point and Durable Object bindings. Your Wrangler configuration supplies the migration for the generated `FlueCalculatorAgent` class. For an existing project, preserve its bindings and deployed migration history, and add the `observability` configuration. See [Flue's Cloudflare deployment guide](https://flueframework.com/docs/ecosystem/deploy/cloudflare/) for migration requirements.
+The destination name must match Step 2. This example samples every request; adjust `head_sampling_rate` for your workload. Flue generates the Worker entry point and Durable Object bindings; Wrangler supplies the migration for `FlueCalculatorAgent`. For an existing project, preserve its bindings and deployed migration history. See [Flue's Cloudflare deployment guide](https://flueframework.com/docs/ecosystem/deploy/cloudflare/) for migration requirements.
 
 ## Step 4: Create a Flue Agent
 
