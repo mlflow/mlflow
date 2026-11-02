@@ -1,12 +1,31 @@
+# Preview a branch: gh workflow run verify.yml --ref <branch> -F pr_number=<number>
+# Add -F dry_run=false to publish the review on the specified PR.
 name: Verify PR behavior
 
 on:
+  issue_comment:
+    types: [created]
   workflow_dispatch:
     inputs:
       pr_number:
         description: "Pull request number to verify"
         required: true
         type: number
+      model:
+        description: "AI Gateway Claude model"
+        required: false
+        type: choice
+        default: databricks-claude-sonnet-5-5
+        options:
+          - databricks-claude-opus-5-5
+          - databricks-claude-sonnet-5-5
+          - databricks-claude-haiku-5-5
+      effort:
+        description: "Reasoning effort"
+        required: false
+        type: choice
+        default: medium
+        options: [low, medium, high, xhigh, max]
       dry_run:
         description: "Preview without posting a review or uploading media"
         required: false
@@ -14,8 +33,19 @@ on:
         default: true
 
 concurrency:
-  group: verify-bootstrap-${{ github.run_id }}
+  # Queue verification per PR; give unrelated events unique groups so they don't delay it.
+  # Examples:
+  # - verify-12345: workflow dispatch or /verify on PR #12345
+  # - verify-ignored-123456789: unrelated event with run ID 123456789
+  group: >-
+    ${{ format('verify-{0}',
+      github.event_name == 'workflow_dispatch' && inputs.pr_number ||
+      github.event.issue.pull_request != null && github.event.issue.state == 'open' &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
+      startsWith(github.event.comment.body, '/verify') && github.event.issue.number ||
+      format('ignored-{0}', github.run_id)) }}
   cancel-in-progress: false
+  queue: max
 
 defaults:
   run:
@@ -25,8 +55,499 @@ permissions: {}
 cache-mode: none
 
 jobs:
-  placeholder:
+  gate:
+    if: >-
+      github.repository == 'mlflow/mlflow' && vars.VERIFY_DISABLED != 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.issue.pull_request != null && github.event.issue.state == 'open' &&
+        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
+        startsWith(github.event.comment.body, '/verify')))
     runs-on: ubuntu-slim
-    timeout-minutes: 1
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    outputs:
+      allowed: ${{ steps.pr.outputs.allowed }}
+      head: ${{ steps.pr.outputs.head }}
     steps:
-      - run: echo 'Placeholder for manual dispatch. The full verifier is being developed in PR #27338.'
+      - name: Check authorization and snapshot PR
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number || inputs.pr_number }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          COMMENT: ${{ github.event_name == 'workflow_dispatch' && '/verify' || github.event.comment.body }}
+        run: |
+          if ! [[ "$COMMENT" =~ ^/verify[[:space:]]*$ ]]; then
+            echo 'Not a /verify command.'
+            exit 0
+          fi
+          role=$(gh api "repos/$REPO/collaborators/$TRIGGERING_ACTOR/permission" --jq .role_name)
+          if [[ "$role" != admin && "$role" != maintain ]]; then
+            echo 'The triggering user does not have the admin or maintain role.'
+            exit 0
+          fi
+          query=$(cat <<'GRAPHQL'
+          query($owner: String!, $name: String!, $number: Int!) {
+            repository(owner: $owner, name: $name) {
+              pullRequest(number: $number) {
+                title body state headRefOid
+                author { login __typename }
+              }
+            }
+          }
+          GRAPHQL
+          )
+          gh api graphql \
+            -f owner="${REPO%/*}" -f name="${REPO#*/}" -F number="$PR_NUMBER" \
+            -f query="$query" --jq '.data.repository.pullRequest' > "$RUNNER_TEMP/pr.json"
+          jq -e '.state == "OPEN"' "$RUNNER_TEMP/pr.json" > /dev/null
+          author=$(jq -r '.author.login // ""' "$RUNNER_TEMP/pr.json")
+          author_type=$(jq -r '.author.__typename // ""' "$RUNNER_TEMP/pr.json")
+          if [[ "$author_type" == User ]]; then
+            permission=$(gh api "repos/$REPO/collaborators/$author/permission" --jq .permission)
+            if [[ "$permission" != admin && "$permission" != write ]]; then
+              echo 'The PR author does not have write access.' >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+          elif [[ "$author_type" != Bot || ( "$author" != copilot-swe-agent && "$author" != mlflow-app ) ]]; then
+            echo 'The PR author is not trusted.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          query=$(cat <<'GRAPHQL'
+          query($owner: String!, $name: String!, $number: Int!, $endCursor: String) {
+            repository(owner: $owner, name: $name) {
+              pullRequest(number: $number) {
+                reviewThreads(first: 100, after: $endCursor) {
+                  nodes {
+                    id path line originalLine diffSide isResolved isOutdated
+                    comments(first: 100) {
+                      totalCount
+                      nodes { author { login } body createdAt url }
+                    }
+                  }
+                  pageInfo { hasNextPage endCursor }
+                }
+              }
+            }
+          }
+          GRAPHQL
+          )
+          gh api graphql --paginate --slurp \
+            -f owner="${REPO%/*}" -f name="${REPO#*/}" -F number="$PR_NUMBER" \
+            -f query="$query" > "$RUNNER_TEMP/thread-pages.json"
+          jq '[.[].data.repository.pullRequest.reviewThreads.nodes[]]' \
+            "$RUNNER_TEMP/thread-pages.json" > "$RUNNER_TEMP/threads.json"
+          # A thread with over 100 comments needs its own pagination cursor.
+          query=$(cat <<'GRAPHQL'
+          query($id: ID!, $endCursor: String) {
+            node(id: $id) {
+              ... on PullRequestReviewThread {
+                comments(first: 100, after: $endCursor) {
+                  nodes { author { login } body createdAt url }
+                  pageInfo { hasNextPage endCursor }
+                }
+              }
+            }
+          }
+          GRAPHQL
+          )
+          while IFS= read -r thread; do
+            id=$(jq -r '.value.id' <<< "$thread")
+            index=$(jq '.key' <<< "$thread")
+            gh api graphql --paginate --slurp -f id="$id" -f query="$query" \
+              > "$RUNNER_TEMP/comment-pages.json"
+            jq --argjson index "$index" --slurpfile pages "$RUNNER_TEMP/comment-pages.json" \
+              '.[$index].comments.nodes = [$pages[0][].data.node.comments.nodes[]]' \
+              "$RUNNER_TEMP/threads.json" > "$RUNNER_TEMP/threads-next.json"
+            mv "$RUNNER_TEMP/threads-next.json" "$RUNNER_TEMP/threads.json"
+          done < <(jq -c 'to_entries[] | select(.value.comments.totalCount > 100)' "$RUNNER_TEMP/threads.json")
+          head=$(jq -er '.headRefOid | select(test("^[0-9a-f]{40}$"))' "$RUNNER_TEMP/pr.json")
+          jq --slurpfile threads "$RUNNER_TEMP/threads.json" '{
+            title,
+            body,
+            review_threads: [$threads[0][] | del(.id) | .comments |= .nodes]
+          }' "$RUNNER_TEMP/pr.json" > "$RUNNER_TEMP/pr_context.json"
+          {
+            echo "head=$head"
+            echo 'allowed=true'
+          } >> "$GITHUB_OUTPUT"
+      - name: Add run link to trigger comment
+        if: steps.pr.outputs.allowed == 'true' && github.event_name == 'issue_comment'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}?pr=${{ github.event.issue.number }}
+        run: |
+          marker="<!-- verify-run:$GITHUB_RUN_ID -->"
+          body=$(gh api "repos/$REPO/issues/comments/$COMMENT_ID" --jq .body)
+          if [[ "$body" != *"$marker"* ]]; then
+            body=$(printf '%s\n\n---\n\n[Verification run](%s) %s' "$body" "$RUN_URL" "$marker")
+            gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -f body="$body" > /dev/null
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.pr.outputs.allowed == 'true'
+        with:
+          name: verify-in-${{ github.run_id }}
+          path: ${{ runner.temp }}/pr_context.json
+          overwrite: true
+          if-no-files-found: error
+          retention-days: 1
+
+  verify:
+    needs: gate
+    if: needs.gate.outputs.allowed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    outputs:
+      tmp_dir: ${{ steps.tmp.outputs.path }}
+    permissions:
+      actions: read
+      contents: read
+      issues: read
+      pull-requests: read
+    steps:
+      - name: Authorize current attempt
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+        run: |
+          role=$(gh api "repos/$REPO/collaborators/$TRIGGERING_ACTOR/permission" --jq .role_name)
+          if [[ "$role" != admin && "$role" != maintain ]]; then
+            echo '::error::The triggering user must have the admin or maintain role.'
+            exit 1
+          fi
+      - name: Create temporary directory
+        id: tmp
+        run: |
+          tmp_dir=$(mktemp -d "$RUNNER_TEMP/verify.XXXXXX")
+          echo "path=$tmp_dir" >> "$GITHUB_OUTPUT"
+          echo "VERIFY_TMP_DIR=$tmp_dir" >> "$GITHUB_ENV"
+      # The workflow ref is the default branch for /verify and the selected ref for dispatch.
+      - parallel:
+          - name: Checkout trusted workflow files
+            id: trusted
+            uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            with:
+              ref: ${{ github.sha }}
+              path: trusted
+              persist-credentials: false
+          - name: Checkout PR merge
+            uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            with:
+              ref: refs/pull/${{ github.event.issue.number || inputs.pr_number }}/merge
+              path: pr
+              persist-credentials: false
+              fetch-depth: 2
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: verify-in-${{ github.run_id }}
+          path: ${{ env.VERIFY_TMP_DIR }}/in
+      - uses: ./trusted/.github/actions/setup-python
+      - uses: ./trusted/.github/actions/setup-node
+      - name: Prepare PR diff
+        env:
+          HEAD_SHA: ${{ needs.gate.outputs.head }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number || inputs.pr_number }}
+        working-directory: pr
+        run: |
+          if [ "$(git rev-parse HEAD^2)" != "$HEAD_SHA" ]; then
+            echo '::error::PR head changed before checkout; run /verify again.'
+            exit 1
+          fi
+          gh pr diff "$PR_NUMBER" --repo "$REPO" > "$VERIFY_TMP_DIR/in/diff.raw"
+          pr=$(gh api "repos/$REPO/pulls/$PR_NUMBER")
+          if ! jq -e --arg head "$HEAD_SHA" '.head.sha == $head' <<< "$pr" > /dev/null; then
+            echo '::error::PR head changed while fetching the diff; run /verify again.'
+            exit 1
+          fi
+          uv run --quiet --directory "$GITHUB_WORKSPACE/trusted/.claude/skills" --package skills skills annotate-diff \
+            < "$VERIFY_TMP_DIR/in/diff.raw" > "$VERIFY_TMP_DIR/in/diff.annotated"
+      - name: Install agent tools
+        run: |
+          trusted/.claude/scripts/install-claude.sh
+          trusted/.claude/scripts/install-agent-browser.sh
+          sudo apt-get update --error-on=any
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - id: gateway
+        uses: ./trusted/.github/actions/setup-gateway
+        with:
+          task: pr-verify
+          host: ${{ secrets.DATABRICKS_HOST }}
+          client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+      # The proxy holds the telemetry token and forwards only OTLP requests. Set the variable
+      # to the <catalog>.<schema>.<table_prefix> of a UC-linked experiment to enable export.
+      - id: telemetry
+        name: Mint telemetry token
+        if: vars.VERIFY_MLFLOW_TRACE_LOCATION != ''
+        uses: ./trusted/.github/actions/mint-telemetry-token
+        with:
+          host: ${{ secrets.DATABRICKS_HOST }}
+          client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+      - name: Start telemetry proxy
+        if: steps.telemetry.outcome == 'success'
+        env:
+          TELEMETRY_TOKEN: ${{ steps.telemetry.outputs.token }}
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          TRACE_LOCATION: ${{ vars.VERIFY_MLFLOW_TRACE_LOCATION }}
+        run: |
+          umask 077
+          printf '%s\n' "$TELEMETRY_TOKEN" | env -u TELEMETRY_TOKEN \
+            DATABRICKS_HOST="$DATABRICKS_HOST" TRACE_LOCATION="$TRACE_LOCATION" \
+            node trusted/.claude/sandbox/otel-proxy.mjs \
+            > "$RUNNER_TEMP/verify-telemetry-proxy.log" 2>&1 &
+          proxy_pid=$!
+          unset TELEMETRY_TOKEN
+          echo "$proxy_pid" > "$RUNNER_TEMP/verify-telemetry-proxy.pid"
+          for _ in $(seq 1 30); do
+            if ! kill -0 "$proxy_pid" 2>/dev/null; then
+              break
+            fi
+            if curl --noproxy '*' -fsS http://127.0.0.1:8081/healthz > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/verify-telemetry-proxy.log"
+          echo '::error::Telemetry proxy did not become ready.'
+          exit 1
+      - id: session
+        name: Generate session ID
+        run: echo "id=$(cat /proc/sys/kernel/random/uuid)" >> "$GITHUB_OUTPUT"
+      - name: Verify PR behavior
+        working-directory: trusted
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          ANTHROPIC_BASE_URL: ${{ steps.gateway.outputs.base-url }}/anthropic
+          ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway.outputs.token }}
+          ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
+          ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5
+          MODEL: ${{ inputs.model || 'databricks-claude-opus-5-5' }}
+          EFFORT: ${{ inputs.effort || 'medium' }}
+          SESSION_ID: ${{ steps.session.outputs.id }}
+          CLAUDE_CODE_ENABLE_TELEMETRY: ${{ steps.telemetry.outcome == 'success' && '1' || '0' }}
+          CLAUDE_CODE_ENHANCED_TELEMETRY_BETA: ${{ steps.telemetry.outcome == 'success' && '1' || '0' }}
+          OTEL_TRACES_EXPORTER: ${{ steps.telemetry.outcome == 'success' && 'otlp' || 'none' }}
+          OTEL_LOGS_EXPORTER: ${{ steps.telemetry.outcome == 'success' && 'otlp' || 'none' }}
+          OTEL_METRICS_EXPORTER: ${{ steps.telemetry.outcome == 'success' && 'otlp' || 'none' }}
+          OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+          OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://localhost:8081/v1/traces
+          OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: http://localhost:8081/v1/logs
+          OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: http://localhost:8081/v1/metrics
+          OTEL_LOG_USER_PROMPTS: "1"
+          OTEL_LOG_ASSISTANT_RESPONSES: "1"
+          OTEL_LOG_TOOL_DETAILS: "1"
+          OTEL_LOG_TOOL_CONTENT: "1"
+          OTEL_RESOURCE_ATTRIBUTES: github.pr_number=${{ github.event.issue.number || inputs.pr_number }},github.pr_url=${{ github.server_url }}/${{ github.repository }}/pull/${{ github.event.issue.number || inputs.pr_number }},github.run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          AGENT_BROWSER_ARGS: --no-sandbox
+          AGENT_BROWSER_SCREENSHOT_DIR: ${{ env.VERIFY_TMP_DIR }}/out/media
+        run: |
+          mkdir -p "$VERIFY_TMP_DIR/out/media" "$VERIFY_TMP_DIR/work"
+          if [ "$CLAUDE_CODE_ENABLE_TELEMETRY" = 1 ]; then
+            echo "MLflow telemetry session: \`$SESSION_ID\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          token=$(cat /proc/sys/kernel/random/uuid)
+          echo "::stop-commands::$token"
+          timeout 60m setsid bash -o pipefail -c '
+            echo "$$" > "$RUNNER_TEMP/verify-agent.pgid"
+            printf -v skill_inputs "\"%s\" \"%s\" \"%s\" \"%s\" \"%s\" \"%s\"" \
+              "$GITHUB_WORKSPACE/trusted" \
+              "$GITHUB_WORKSPACE/pr" \
+              "$VERIFY_TMP_DIR/in/pr_context.json" \
+              "$VERIFY_TMP_DIR/in/diff.raw" \
+              "$VERIFY_TMP_DIR/in/diff.annotated" \
+              "$VERIFY_TMP_DIR"
+            claude \
+              --model "$MODEL" \
+              --effort "$EFFORT" \
+              --session-id "$SESSION_ID" \
+              --max-budget-usd 5 \
+              --permission-mode auto \
+              --disallowed-tools "WebSearch,WebFetch" \
+              --print \
+              --verbose \
+              --output-format stream-json \
+              "/verify $skill_inputs" | "$GITHUB_WORKSPACE/trusted/.claude/scripts/stream.sh"
+          ' || { echo "::$token::"; exit 1; }
+          echo "::$token::"
+      - name: Stop agent processes
+        if: always()
+        run: |
+          if [ -s "$RUNNER_TEMP/verify-agent.pgid" ]; then
+            pgid=$(cat "$RUNNER_TEMP/verify-agent.pgid")
+            if [[ "$pgid" =~ ^[1-9][0-9]*$ ]]; then
+              kill -KILL -- "-$pgid" 2>/dev/null || true
+            fi
+          fi
+      - name: Reset trusted checkout
+        id: reset
+        if: always() && steps.trusted.outcome == 'success'
+        working-directory: trusted
+        env:
+          TRUSTED_SHA: ${{ github.sha }}
+        run: |
+          git reset --hard "$TRUSTED_SHA"
+          git clean -ffdx
+      - name: Collect redacted transcript
+        id: transcript
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.dry_run && steps.session.outcome == 'success' && steps.reset.outcome == 'success'
+        env:
+          SESSION_ID: ${{ steps.session.outputs.id }}
+          SECRETS_TO_REDACT: |
+            ${{ steps.gateway.outputs.token }}
+            ${{ secrets.GITHUB_TOKEN }}
+            ${{ secrets.DATABRICKS_HOST }}
+            ${{ secrets.DATABRICKS_CLIENT_ID }}
+        run: |
+          shopt -s nullglob globstar
+          transcripts=("${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/projects/*/"$SESSION_ID".jsonl)
+          test "${#transcripts[@]}" -eq 1
+          transcript="${transcripts[0]}"
+          project="${transcript%/*}"
+          sources=("$transcript" "${transcript%.jsonl}"/subagents/**/*.jsonl)
+          for source in "${sources[@]}"; do
+            target="$VERIFY_TMP_DIR/work/transcript/${source#"$project"/}"
+            mkdir -p "${target%/*}"
+            uv run --no-project python "$GITHUB_WORKSPACE/trusted/.claude/scripts/redact.py" \
+              < "$source" > "$target"
+          done
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always() && steps.transcript.outcome == 'success'
+        with:
+          name: verify-transcript-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.VERIFY_TMP_DIR }}/work/transcript/
+          if-no-files-found: error
+          retention-days: 1
+      - name: Validate inline comments
+        run: |
+          uv run --no-project python "$GITHUB_WORKSPACE/trusted/.claude/skills/verify/scripts/validate_comments.py" \
+            --payload "$VERIFY_TMP_DIR/out/payload.json" < "$VERIFY_TMP_DIR/in/diff.raw"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verify-out-${{ github.run_id }}
+          path: ${{ env.VERIFY_TMP_DIR }}/out/
+          overwrite: true
+          if-no-files-found: error
+          retention-days: 1
+      - name: Stop telemetry proxy
+        if: always() && steps.telemetry.outcome == 'success'
+        run: |
+          if [ -s "$RUNNER_TEMP/verify-telemetry-proxy.log" ]; then
+            cat "$RUNNER_TEMP/verify-telemetry-proxy.log"
+          fi
+          if [ -f "$RUNNER_TEMP/verify-telemetry-proxy.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/verify-telemetry-proxy.pid")" 2>/dev/null || true
+          fi
+
+  publish:
+    needs: [gate, verify]
+    if: always() && needs.gate.result == 'success' && needs.gate.outputs.allowed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    # Keep absolute media references from the verification payload valid on this runner.
+    env:
+      VERIFY_TMP_DIR: ${{ needs.verify.outputs.tmp_dir }}
+    steps:
+      - name: Authorize current attempt
+        id: authorize
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+        run: |
+          role=$(gh api "repos/$REPO/collaborators/$TRIGGERING_ACTOR/permission" --jq .role_name)
+          if [[ "$role" != admin && "$role" != maintain ]]; then
+            echo '::error::The triggering user must have the admin or maintain role.'
+            exit 1
+          fi
+      - name: Checkout trusted workflow files
+        if: needs.verify.result == 'success'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python
+        if: needs.verify.result == 'success'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: needs.verify.result == 'success'
+        with:
+          name: verify-out-${{ github.run_id }}
+          path: ${{ env.VERIFY_TMP_DIR }}/out
+      - name: Validate review
+        id: validate
+        if: needs.verify.result == 'success'
+        run: |
+          payload="$VERIFY_TMP_DIR/out/payload.json"
+          schema=.claude/skills/verify/payload.schema.yml
+          uvx check-jsonschema@0.37.4 --schemafile "$schema" "$payload"
+          jq -j '[.comments[].body] | join("\n\n")' "$payload" |
+            uv run --quiet --directory .claude/skills --package skills skills embed-media \
+              --check --dir "$VERIFY_TMP_DIR/out/media"
+      - name: Embed review media
+        id: embed
+        if: needs.verify.result == 'success' && (github.event_name != 'workflow_dispatch' || !inputs.dry_run)
+        env:
+          GH_TOKEN: ${{ secrets.UPLOAD_MEDIA_TOKEN }}
+          REPOSITORY_ID: ${{ github.repository_id }}
+        run: |
+          payload="$VERIFY_TMP_DIR/out/payload.json"
+          while IFS= read -r path; do
+            jq -j --argjson path "$path" 'getpath($path)' "$payload" |
+              uv run --quiet --directory .claude/skills --package skills skills embed-media \
+                --dir "$VERIFY_TMP_DIR/out/media" --repository-id "$REPOSITORY_ID" > "$RUNNER_TEMP/review-body"
+            jq --argjson path "$path" --rawfile body "$RUNNER_TEMP/review-body" 'setpath($path; $body)' \
+              "$payload" > "$RUNNER_TEMP/payload.json"
+            mv "$RUNNER_TEMP/payload.json" "$payload"
+          done < <(jq -c '.comments | keys[] | ["comments", ., "body"]' "$payload")
+      - name: Publish or preview review
+        if: always() && steps.authorize.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number || inputs.pr_number }}
+          HEAD_SHA: ${{ needs.gate.outputs.head }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+          REVIEW_READY: ${{ needs.verify.result == 'success' && steps.validate.outcome == 'success' && (github.event_name == 'workflow_dispatch' && inputs.dry_run || steps.embed.outcome == 'success') }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
+        run: |
+          pr=$(gh api "repos/$REPO/pulls/$PR_NUMBER")
+          if ! jq -e '.state == "open"' <<< "$pr" > /dev/null; then
+            echo 'PR closed; no review will be posted.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          notice="> [Verification run]($RUN_URL)."
+          if [ "$REVIEW_READY" = true ]; then
+            jq --arg sha "$HEAD_SHA" --arg notice "$notice" '{
+              commit_id: $sha, event: .event,
+              body: ($notice + "\n\n" + .body), comments: .comments
+            }' "$VERIFY_TMP_DIR/out/payload.json" > "$RUNNER_TEMP/review.json"
+          else
+            jq -n --arg sha "$HEAD_SHA" --arg notice "$notice" '{
+              commit_id: $sha, event: "COMMENT",
+              body: ($notice + "\n\nVerification did not complete. See the workflow run for details.")
+            }' > "$RUNNER_TEMP/review.json"
+          fi
+          if [ "$DRY_RUN" = true ]; then
+            {
+              echo '### Verification preview'
+              echo 'No review or media was published. Local media paths are not GitHub links.'
+              jq . "$RUNNER_TEMP/review.json" | jq -Rrs '"<pre>\(. | @html)</pre>"'
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            gh api "repos/$REPO/pulls/$PR_NUMBER/reviews" -X POST \
+              --input "$RUNNER_TEMP/review.json" --jq .html_url
+          fi
