@@ -17,6 +17,7 @@ _SUPPORTED_APIS = {
     "openai": frozenset({ModelAPI.CHAT_COMPLETIONS, ModelAPI.DECISIONS}),
     "typesafe": frozenset({ModelAPI.DECISIONS}),
     "gateway": frozenset({ModelAPI.CHAT_COMPLETIONS, ModelAPI.DECISIONS}),
+    "databricks": frozenset({ModelAPI.CHAT_COMPLETIONS, ModelAPI.DECISIONS}),
 }
 
 
@@ -31,6 +32,11 @@ def _parse_model_api(model_api: ModelAPI | str | None) -> ModelAPI:
 
 def _select_model_api_mode(model_uri: str, selected: ModelAPI) -> ModelAPI:
     """Select a dispatch mode, deferring Gateway DEFAULT routing until invocation."""
+    if model_uri == "databricks" and selected is ModelAPI.DECISIONS:
+        raise MlflowException.invalid_parameter_value(
+            "The default Databricks judge does not support model_api='decisions'. "
+            "Select a System One model service with databricks:/<catalog>.<schema>.<model>."
+        )
     provider = model_uri.partition(":/")[0]
     supported = _SUPPORTED_APIS.get(provider, frozenset({ModelAPI.CHAT_COMPLETIONS}))
     if selected is ModelAPI.DEFAULT:

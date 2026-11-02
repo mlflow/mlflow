@@ -4,6 +4,12 @@ description: Triage GitHub issues or handle maintainer follow-ups in a sandbox, 
 disable-model-invocation: true
 argument-hint: "<init|follow-up> <issue_path> <out_dir>"
 arguments: [action, issue_path, out_dir]
+hooks:
+  PreToolUse:
+    - matcher: Bash
+      hooks:
+        - type: command
+          command: '"$CLAUDE_PROJECT_DIR/.claude/hooks/cap-timeout.sh"'
 ---
 
 # Triage

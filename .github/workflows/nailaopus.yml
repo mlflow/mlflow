@@ -177,7 +177,13 @@ jobs:
           # open a new PR that updates this SHA to the latest mlflow/internal
           # main after reviewing the diff. We'll migrate to release tags once
           # the bump cadence is stable.
-          ref: 403537a07888857f7b0742099e965fdce65fb489
+          #
+          # The pinned revision also decides the model: this one reviews with
+          # Claude Sonnet 5.5 (`databricks-claude-sonnet-5-5` on the AI
+          # Gateway). The orchestrator names exact model versions, so a newer
+          # model doesn't get picked up on its own; moving to one takes an
+          # orchestrator change and another bump here.
+          ref: ca54cfb4d53b9f7271d948c6ff8ae8fcb3c1d47a
           sparse-checkout: |
             nailaopus
           path: internal

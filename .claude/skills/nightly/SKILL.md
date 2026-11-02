@@ -4,6 +4,12 @@ description: Investigate supplied workflow runs and summarize failures by root c
 disable-model-invocation: true
 argument-hint: '<out_dir> "<run_ids>"'
 arguments: [out_dir, run_ids]
+hooks:
+  PreToolUse:
+    - matcher: Bash
+      hooks:
+        - type: command
+          command: '"$CLAUDE_PROJECT_DIR/.claude/hooks/cap-timeout.sh"'
 ---
 
 # Nightly
@@ -77,7 +83,6 @@ these cached paths and the saved nightly inputs instead of fetching them again.
    their connection to the failure, commands, and outcomes.
 
 Make code changes only in these worktrees.
-Use a 30-minute budget, reserving the last five minutes to summarize and validate.
 A `new` verdict requires a reproduction or clear log evidence of the cause; use
 `uncertain` when evidence is insufficient or the investigation is incomplete. Before
 choosing `new`, check whether a later scheduled run passed the same jobs and whether a

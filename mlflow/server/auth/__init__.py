@@ -2405,6 +2405,16 @@ def _enforce_rename_name_rules() -> None:
     request_message = _get_request_message(RenameRegisteredModel())
     _reject_wildcard_model_name(request_message.new_name)
     _reject_rename_with_named_role_grants(request_message.name, request_message.new_name)
+    _reject_rename_onto_per_user_grants(request_message.name, request_message.new_name)
+
+
+def _caller_can_manage_roles() -> bool:
+    if sender_is_admin():
+        return True
+    workspace = _request_auth_workspace()
+    return workspace is not None and _is_workspace_admin(
+        store.get_user(authenticate_request().username).id, workspace
+    )
 
 
 def _reject_rename_with_named_role_grants(name: str, new_name: str) -> None:
@@ -2418,11 +2428,7 @@ def _reject_rename_with_named_role_grants(name: str, new_name: str) -> None:
         return
     details = ""
     # Only callers who can manage roles can act on these grants, so only they get the details.
-    workspace = _request_auth_workspace()
-    if sender_is_admin() or (
-        workspace is not None
-        and _is_workspace_admin(store.get_user(authenticate_request().username).id, workspace)
-    ):
+    if _caller_can_manage_roles():
         listed = ", ".join(
             f"role '{g.role_name}' has {g.permission} on {g.resource_type} '{g.resource_pattern}'"
             for g in grants
@@ -2432,6 +2438,42 @@ def _reject_rename_with_named_role_grants(name: str, new_name: str) -> None:
         f"Cannot rename '{name}' to '{new_name}' because role grants reference these names by "
         f"exact name{details}. Renaming would change which model or prompt those grants apply "
         "to. An admin must update or remove these role grants before the rename."
+    )
+
+
+def _reject_rename_onto_per_user_grants(name: str, new_name: str) -> None:
+    # A rename moves per-user grants from the old name to the new one. Grants already on the new
+    # name would start applying to the renamed model, and a user holding grants on both names
+    # would hit the unique constraint after the registry rename has committed. If another model
+    # or prompt already has the new name, the registry rejects the rename, so skip the check. A
+    # case-only rename on a case-insensitive registry finds the model itself, so it is checked.
+    if not new_name.strip() or new_name == name:
+        return
+    existing = _fetch_or_none(_get_model_registry_store().get_registered_model, new_name)
+    if existing is not None and existing.name != name:
+        return
+    # A case-insensitive auth database also returns grants on other spellings. Grants match by
+    # exact spelling (``permissions.matches``), so only the old name's own grants move with it.
+    grants = [
+        g
+        for g in store.list_per_user_grants_for_resource(
+            (RESOURCE_TYPE_REGISTERED_MODEL, RESOURCE_TYPE_PROMPT), (new_name,)
+        )
+        if g.resource_pattern != name
+    ]
+    if not grants:
+        return
+    details = ""
+    if _caller_can_manage_roles():
+        listed = ", ".join(
+            f"user '{g.username}' has {g.permission} on {g.resource_type} '{g.resource_pattern}'"
+            for g in grants
+        )
+        details = f" ({listed})"
+    raise MlflowException.invalid_parameter_value(
+        f"Cannot rename '{name}' to '{new_name}' because users already have permissions on "
+        f"'{new_name}'{details}. They would start applying to the renamed model or prompt. An "
+        "admin must remove these permissions before the rename."
     )
 
 
@@ -5067,6 +5109,9 @@ def enforce_model_name_rules():
         _reject_wildcard_model_name(_get_request_message(CreateRegisteredModel()).name)
     elif validator is validate_can_rename_registered_model:
         _enforce_rename_name_rules()
+    elif validator is validate_can_delete_registered_model_or_prompt_cascade:
+        if target := _registered_model_or_prompt_target():
+            _require_stored_name_spelling(_get_request_param("name"), target[1])
 
 
 def validate_can_remove_items_from_review_queue():
@@ -9203,6 +9248,17 @@ def _mcp_server_after_create(username: str, request: StarletteRequest) -> None:
         store.grant_user_permission(username, "mcp_server", name, MANAGE.name)
 
 
+def _require_mcp_server_delete_spelling(path: str) -> None:
+    # Admins skip validators, but ``_mcp_server_after_delete`` still sweeps grants by the
+    # requested name, so hold an admin delete to the stored spelling as the validator does.
+    parts = _mcp_server_suffix(path).split("/")
+    if len(parts) != 2:
+        return
+    requested_name = f"{parts[0]}/{parts[1]}"
+    if server := _fetch_or_none(_get_tracking_store().get_mcp_server, requested_name):
+        _require_stored_name_spelling(requested_name, server.name)
+
+
 def _mcp_server_after_delete(username: str, request: StarletteRequest) -> None:
     suffix = _mcp_server_suffix(get_routed_asgi_path(request))
     parts = suffix.split("/") if suffix else []
@@ -9823,7 +9879,15 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
             finally:
                 workspace_context.clear_server_request_workspace()
         else:
-            workspace_context.clear_server_request_workspace()
+            # Registered model and prompt deletes are Flask routes, checked for admins in
+            # ``enforce_model_name_rules``; MCP server deletes only come through here.
+            try:
+                if after_handler is _mcp_server_after_delete:
+                    _require_mcp_server_delete_spelling(path)
+            except MlflowException as e:
+                return PlainTextResponse(e.message, status_code=e.get_http_status_code())
+            finally:
+                workspace_context.clear_server_request_workspace()
 
         response = await call_next(request)
 

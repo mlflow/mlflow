@@ -11037,7 +11037,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 8000,
-        "max_output": 2048
+        "max_output": 8192
       },
       "pricing": {
         "input_per_million_tokens": 2.65,
@@ -11050,13 +11050,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-02"
     },
     "us-gov-west-1/meta.llama3-8b-instruct-v1:0": {
       "mode": "chat",
       "context_window": {
         "max_input": 8000,
-        "max_output": 2048
+        "max_output": 8192
       },
       "pricing": {
         "input_per_million_tokens": 0.3,
@@ -11069,7 +11069,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-02"
     },
     "us-gov-west-1/nvidia.nemotron-nano-12b-v2": {
       "mode": "chat",
