@@ -48,8 +48,7 @@ Only start the UI when you need it, for example to reproduce the bug or check a 
 browser. The first start installs the frontend dependencies and compiles, which takes a few
 minutes.
 
-Run each command below from the repository root. It starts the server with `&` and records its
-PID. Logs go to `$out_dir/work`.
+Run each command below from the repository root. Logs go to `$out_dir/work`.
 
 1. Backend: the tracking server on port 5000, with its data kept out of the checkout. `--dev`
    reloads it when Python files change.
