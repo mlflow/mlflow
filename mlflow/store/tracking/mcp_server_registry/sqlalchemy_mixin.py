@@ -26,6 +26,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_CONFLICT,
     RESOURCE_DOES_NOT_EXIST,
 )
+from mlflow.store.db.db_types import MYSQL
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.dbmodels.models import (
@@ -536,6 +537,11 @@ class SqlAlchemyMCPServerRegistryMixin:
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
             current_status = MCPStatus(sv.status)
+            if current_status is MCPStatus.DELETED:
+                raise MlflowException(
+                    f"MCP server version '{name}' version '{version}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
             _validate_status_transition(current_status, MCPStatus.DELETED)
             # Mark the version deleted before reading its aliases. The UPDATE takes the
             # version row lock that set_mcp_server_alias also takes, so an alias written
@@ -974,7 +980,7 @@ class SqlAlchemyMCPServerRegistryMixin:
 
     # --- Alias operations ---
 
-    _SET_ALIAS_RETRIES = 3
+    SET_MCP_SERVER_ALIAS_RETRIES = 3
 
     def set_mcp_server_alias(self, name: str, alias: str, version: str) -> None:
         if alias == "latest":
@@ -982,7 +988,7 @@ class SqlAlchemyMCPServerRegistryMixin:
                 "The alias name 'latest' is reserved for automatic resolution",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        for attempt in range(self._SET_ALIAS_RETRIES):
+        for attempt in range(self.SET_MCP_SERVER_ALIAS_RETRIES):
             try:
                 self._set_mcp_server_alias(name, alias, version)
                 return
@@ -993,15 +999,10 @@ class SqlAlchemyMCPServerRegistryMixin:
                 # sees the committed state and updates or recreates the alias.
                 if not isinstance(e.__cause__, (IntegrityError, StaleDataError)):
                     raise
-                if attempt == self._SET_ALIAS_RETRIES - 1:
+                if attempt == self.SET_MCP_SERVER_ALIAS_RETRIES - 1:
                     raise
 
     def _set_mcp_server_alias(self, name: str, alias: str, version: str) -> None:
-        deleted_version_error = MlflowException(
-            f"Cannot set alias '{alias}' to deleted MCP server version "
-            f"'{name}' version '{version}'",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
         with self.ManagedSessionMaker(read_only=False) as session:
             self._get_entity_or_raise(session, SqlMCPServer, {"name": name}, "MCPServer")
             sv = (
@@ -1019,7 +1020,11 @@ class SqlAlchemyMCPServerRegistryMixin:
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
             if sv.status == MCPStatus.DELETED.value:
-                raise deleted_version_error
+                raise MlflowException(
+                    f"Cannot set alias '{alias}' to deleted MCP server version "
+                    f"'{name}' version '{version}'",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
             # Take the version row lock before writing the alias. This serializes the alias
             # write with delete_mcp_server_version on databases with row locks, and starts the
             # write transaction on SQLite. A delete that committed in the meantime shows up
@@ -1038,7 +1043,10 @@ class SqlAlchemyMCPServerRegistryMixin:
                 )
             )
             if locked != 1:
-                raise deleted_version_error
+                raise MlflowException(
+                    f"MCP server version '{name}' version '{version}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
             existing = (
                 self
                 ._get_query(session, SqlMCPServerAlias)
@@ -1060,16 +1068,18 @@ class SqlAlchemyMCPServerRegistryMixin:
 
     def delete_mcp_server_alias(self, name: str, alias: str) -> None:
         with self.ManagedSessionMaker(read_only=False) as session:
-            alias_row = (
+            # Delete the alias row before its endpoints, in the same order as
+            # delete_mcp_server_version, so the two take the locks in the same order.
+            deleted = (
                 self
                 ._get_query(session, SqlMCPServerAlias)
                 .filter(
                     SqlMCPServerAlias.name == name,
                     SqlMCPServerAlias.alias == alias,
                 )
-                .one_or_none()
+                .delete(synchronize_session=False)
             )
-            if not alias_row:
+            if not deleted:
                 raise MlflowException(
                     f"Alias '{alias}' not found on MCP server '{name}'",
                     error_code=RESOURCE_DOES_NOT_EXIST,
@@ -1083,7 +1093,6 @@ class SqlAlchemyMCPServerRegistryMixin:
                 )
                 .delete(synchronize_session=False)
             )
-            session.delete(alias_row)
 
     # --- Trace linking ---
 

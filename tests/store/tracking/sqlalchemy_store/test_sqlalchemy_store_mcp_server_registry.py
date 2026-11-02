@@ -1316,6 +1316,14 @@ def test_delete_mcp_server_version_not_found_raises(store):
         store.delete_mcp_server_version("io.github.test/nonexistent", "1.0.0")
 
 
+def test_delete_mcp_server_version_already_deleted_raises_not_found(store):
+    store.create_mcp_server_version(_server_json("io.github.test/server", "1.0.0"))
+    store.delete_mcp_server_version("io.github.test/server", "1.0.0")
+    with pytest.raises(MlflowException, match="not found") as exc:
+        store.delete_mcp_server_version("io.github.test/server", "1.0.0")
+    assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
 # --- MCPAccessEndpoint CRUD ---
 
 
@@ -1635,7 +1643,7 @@ def test_concurrent_set_alias_and_delete_version_leave_no_alias_on_deleted_versi
         ],
     )
 
-    assert sorted(results) in (["INVALID_PARAMETER_VALUE", "SUCCESS"], ["SUCCESS", "SUCCESS"])
+    assert sorted(results) in (["RESOURCE_DOES_NOT_EXIST", "SUCCESS"], ["SUCCESS", "SUCCESS"])
     assert _get_version_status(store, name, "1.0.0") == MCPStatus.DELETED.value
     assert _get_alias_rows(store, name) == []
 
@@ -1700,7 +1708,15 @@ def test_concurrent_delete_mcp_server_version_returns_conflict(store):
     assert _get_version_status(store, name, "1.0.0") == MCPStatus.DELETED.value
 
 
-def test_set_mcp_server_alias_retries_integrity_error(store):
+@pytest.mark.parametrize(
+    "error",
+    [
+        sqlalchemy.exc.IntegrityError("forced alias conflict", None, None),
+        sqlalchemy.orm.exc.StaleDataError("forced stale alias row"),
+    ],
+    ids=["integrity_error", "stale_data_error"],
+)
+def test_set_mcp_server_alias_retries_write_conflict(store, error):
     name = "io.github.test/server"
     store.create_mcp_server_version(_server_json(name, "1.0.0"))
     flushes = 0
@@ -1709,7 +1725,7 @@ def test_set_mcp_server_alias_retries_integrity_error(store):
         nonlocal flushes
         flushes += 1
         if flushes == 1:
-            raise sqlalchemy.exc.IntegrityError("forced alias conflict", None, None)
+            raise error
 
     sqlalchemy.event.listen(sqlalchemy.orm.Session, "before_flush", fail_first_flush)
     try:
