@@ -66,3 +66,4 @@ tee "${1:-/dev/null}" \
         "${#total_gib}" $((used / 10)) $((used % 10)) "$total_gib" $((total % 10)) "$line"
     done
   }
+exit "${PIPESTATUS[1]}"
