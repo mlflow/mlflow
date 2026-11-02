@@ -1,5 +1,6 @@
 import ast
 import base64
+import functools
 import json
 import math
 import operator
@@ -45,6 +46,7 @@ if TYPE_CHECKING:
 _MSSQL_CASE_SENSITIVE_COLLATION = "Japanese_Bushu_Kakusu_100_CS_AS_KS_WS"
 
 
+@functools.lru_cache(maxsize=256)
 def _convert_like_pattern_to_regex(pattern: str, flags: int = 0):
     regex = re.escape(pattern)
     regex = regex.replace("%", ".*").replace("_", ".")
@@ -52,9 +54,9 @@ def _convert_like_pattern_to_regex(pattern: str, flags: int = 0):
     if not pattern.startswith("%"):
         regex = "^" + regex
     if not pattern.endswith("%"):
-        regex = regex + "$"
+        regex = regex + r"\Z"
 
-    return re.compile(regex, flags)
+    return re.compile(regex, flags | re.DOTALL)
 
 
 def _like(string, pattern):

@@ -1116,3 +1116,59 @@ def test_sql_expression_comparison_func_delegates_on_other_dialects(dialect, com
     expression_func = SearchUtils.get_sql_expression_comparison_func(comparator, dialect)
     column_func = SearchUtils.get_sql_comparison_func(comparator, dialect)
     assert expression_func(column, "act%").compare(column_func(column, "act%"))
+
+
+def test_filter_runs_like_and_ilike_multiline_and_trailing_newline():
+    run_multiline = Run(
+        run_info=RunInfo(
+            run_id="run_multiline",
+            experiment_id=0,
+            user_id="user",
+            status=RunStatus.to_string(RunStatus.FINISHED),
+            start_time=0,
+            end_time=1,
+            lifecycle_stage=LifecycleStage.ACTIVE,
+        ),
+        run_data=RunData(
+            tags=[RunTag("mlflow.note.content", "First line\nSecond line with keyword\nThird line")],
+            params=[Param("prompt", "a\nb")],
+            metrics=[],
+        ),
+    )
+    run_trailing_newline = Run(
+        run_info=RunInfo(
+            run_id="run_trailing_newline",
+            experiment_id=0,
+            user_id="user",
+            status=RunStatus.to_string(RunStatus.FINISHED),
+            start_time=0,
+            end_time=1,
+            lifecycle_stage=LifecycleStage.ACTIVE,
+        ),
+        run_data=RunData(
+            tags=[RunTag("env", "prod\n")],
+            params=[Param("prompt", "exact")],
+            metrics=[],
+        ),
+    )
+    runs = [run_multiline, run_trailing_newline]
+
+    # '%' and '_' wildcards should match across newlines just like SQL LIKE/ILIKE
+    assert [
+        r.info.run_id for r in SearchUtils.filter(runs, "tags.`mlflow.note.content` LIKE '%keyword%'")
+    ] == ["run_multiline"]
+    assert [
+        r.info.run_id
+        for r in SearchUtils.filter(runs, "tags.`mlflow.note.content` ILIKE '%SECOND LINE%'")
+    ] == ["run_multiline"]
+    assert [r.info.run_id for r in SearchUtils.filter(runs, "params.prompt LIKE 'a_b'")] == [
+        "run_multiline"
+    ]
+
+    # Patterns not ending in '%' should not falsely match values with a trailing newline
+    assert SearchUtils.filter(runs, "tags.env LIKE 'prod'") == []
+    assert SearchUtils.filter(runs, "tags.env ILIKE 'PROD'") == []
+    assert [r.info.run_id for r in SearchUtils.filter(runs, "tags.env LIKE 'prod%'")] == [
+        "run_trailing_newline"
+    ]
+
