@@ -25,6 +25,7 @@ from mlflow.genai.judges.base import Judge, JudgeField
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.constants import _AFFIRMATIVE_VALUES, _NEGATIVE_VALUES
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
+from mlflow.genai.judges.model_api import ModelAPI
 from mlflow.genai.judges.prompts.completeness import (
     COMPLETENESS_ASSESSMENT_NAME,
     COMPLETENESS_PROMPT,
@@ -1189,6 +1190,8 @@ class Guidelines(BuiltInScorer):
         name: The name of the scorer. Defaults to "guidelines".
         guidelines: A single guideline text or a list of guidelines.
         model: {{ model }}
+        model_api: Model API to use. Set to ``"decisions"`` for a Databricks System One
+            model service. Direct ``typesafe:/`` models select Decisions automatically.
 
     Example (direct usage):
 
@@ -1243,6 +1246,7 @@ class Guidelines(BuiltInScorer):
     name: str = "guidelines"
     guidelines: str | list[str]
     model: str | None = None
+    model_api: ModelAPI | None = None
     required_columns: set[str] = {"inputs", "outputs"}
     description: str = (
         "Evaluate whether the agent's response follows specific constraints or instructions "
@@ -1322,6 +1326,7 @@ class Guidelines(BuiltInScorer):
             name=self.name,
             model=self.model,
             extra_headers=self.extra_headers,
+            **({"model_api": self.model_api} if self.model_api is not None else {}),
         )
         sanitized = _sanitize_scorer_feedback(feedback)
         # Surface the guideline text in assessment metadata so the UI can show
@@ -1347,6 +1352,8 @@ class ExpectationsGuidelines(BuiltInScorer):
     Args:
         name: The name of the scorer. Defaults to "expectations_guidelines".
         model: {{ model }}
+        model_api: Model API to use. Set to ``"decisions"`` for a Databricks System One
+            model service. Direct ``typesafe:/`` models select Decisions automatically.
 
     Example:
 
@@ -1380,6 +1387,7 @@ class ExpectationsGuidelines(BuiltInScorer):
 
     name: str = "expectations_guidelines"
     model: str | None = None
+    model_api: ModelAPI | None = None
     required_columns: set[str] = {"inputs", "outputs"}
     description: str = (
         "Evaluate whether the agent's response follows specific constraints or instructions "
@@ -1488,6 +1496,7 @@ class ExpectationsGuidelines(BuiltInScorer):
             name=self.name,
             model=self.model,
             extra_headers=self.extra_headers,
+            **({"model_api": self.model_api} if self.model_api is not None else {}),
         )
         sanitized = _sanitize_scorer_feedback(feedback)
         # Surface the guideline text in assessment metadata so the UI can show

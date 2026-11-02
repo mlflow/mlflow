@@ -16,6 +16,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import SYSTEM_ONE_CHAT_ROUTE_REJECTION_DETAIL
 from mlflow.genai.judges.adapters.utils import ChatCompletionError
+from mlflow.genai.judges.model_api import ModelAPI, _parse_model_api, _select_model_api_mode
 from mlflow.genai.judges.typesafe import (
     _GATEWAY_PROVIDER,
     _GatewayEndpointNotSystemOne,
@@ -93,6 +94,7 @@ def _invoke_structured_builtin_judge(
     *,
     chat_invoker,
     decision_invoke_params: dict[str, Any],
+    model_api: ModelAPI | str | None = None,
 ) -> Feedback:
     """Route a built-in judge across TypeSafe-compatible and ordinary chat models.
 
@@ -100,10 +102,16 @@ def _invoke_structured_builtin_judge(
     the System One inputs (``instructions``/``state`` and friends) that mirror the direct
     ``typesafe:/`` branch each judge already defines. Direct ``typesafe:/`` goes straight to
     System One. ``gateway:/`` prefers chat and falls back to System One only on the specific
-    rejection (chat-first, so chat endpoints are unchanged). Every other model uses
-    ``chat_invoker`` unchanged.
+    rejection (chat-first, so chat endpoints are unchanged). An explicit ``model_api``
+    overrides automatic routing, including for Databricks System One model services.
     """
     params = {"feedback_value_type": Literal["yes", "no"], **decision_invoke_params}
+    if model_api is not None:
+        mode = _select_model_api_mode(model_uri, _parse_model_api(model_api))
+        if mode is ModelAPI.DECISIONS:
+            return _invoke_typesafe_judge(model_uri, **params)
+        if mode is ModelAPI.CHAT_COMPLETIONS:
+            return chat_invoker()
     if _is_typesafe_model(model_uri):
         return _invoke_typesafe_judge(model_uri, **params)
     if _is_gateway_model(model_uri):
