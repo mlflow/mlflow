@@ -8,6 +8,7 @@ export const MLFLOW_CLAUDE_TRACING_ENABLED = 'MLFLOW_CLAUDE_TRACING_ENABLED';
 export const MLFLOW_TRACKING_URI = 'MLFLOW_TRACKING_URI';
 export const MLFLOW_EXPERIMENT_ID = 'MLFLOW_EXPERIMENT_ID';
 export const MLFLOW_EXPERIMENT_NAME = 'MLFLOW_EXPERIMENT_NAME';
+export const MLFLOW_ENABLE_ASYNC_TRACE_LOGGING = 'MLFLOW_ENABLE_ASYNC_TRACE_LOGGING';
 /**
  * Optional Databricks Unity Catalog trace location, in
  * `catalog.schema.table_prefix` form. When set, Claude Code traces are routed
@@ -304,6 +305,8 @@ export async function ensureInitialized(): Promise<boolean> {
   if (!config.enabled) {
     return false;
   }
+
+  process.env[MLFLOW_ENABLE_ASYNC_TRACE_LOGGING] ??= 'true';
 
   if (!hasConfigValue(config.trackingUri)) {
     console.error('[mlflow] MLFLOW_TRACKING_URI is not set');

@@ -1,17 +1,25 @@
-import { describe, expect, it } from '@jest/globals';
+import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen } from '../../../common/utils/TestUtils.react18';
 import { StarterCodeCard } from './StarterCodeCard';
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
+import { QueryClient, QueryClientProvider } from '../../../common/utils/reactQueryHooks';
+import * as FetchUtils from '../../../common/utils/FetchUtils';
 
 const renderCard = (props: { endpointName: string; provider?: string }) =>
   renderWithDesignSystem(
     <MemoryRouter>
-      <StarterCodeCard {...props} />
+      <QueryClientProvider client={new QueryClient()}>
+        <StarterCodeCard {...props} />
+      </QueryClientProvider>
     </MemoryRouter>,
   );
 
 describe('StarterCodeCard', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('renders with MLflow Chat Completions as default', () => {
     renderCard({ endpointName: 'my-endpoint' });
     expect(screen.getByText('View starter code')).toBeInTheDocument();
@@ -54,6 +62,67 @@ describe('StarterCodeCard', () => {
   it('shows Gemini Generate Content tab for gemini provider', () => {
     renderCard({ endpointName: 'my-endpoint', provider: 'gemini' });
     expect(screen.getByText('Gemini Generate Content')).toBeInTheDocument();
+  });
+
+  it('shows only the System One API for TypeSafe endpoints', () => {
+    renderCard({ endpointName: 'jev-evaluator', provider: 'typesafe' });
+
+    expect(screen.getByText('TypeSafe System One')).toBeInTheDocument();
+    expect(screen.queryByText('MLflow Chat Completions')).not.toBeInTheDocument();
+    const code = document.querySelector('pre')?.textContent;
+    expect(code).toContain('/gateway/typesafe/v1/systemone');
+    expect(code).toContain('"model": "jev-evaluator"');
+    expect(code).toContain('"type": "noul"');
+    expect(code).not.toContain('messages');
+  });
+
+  it('updates the API when the endpoint provider changes', () => {
+    const { rerender } = renderWithDesignSystem(<StarterCodeCard endpointName="my-endpoint" provider="openai" />);
+    rerender(<StarterCodeCard endpointName="my-endpoint" provider="typesafe" />);
+
+    expect(screen.queryByText('MLflow Chat Completions')).not.toBeInTheDocument();
+    expect(document.querySelector('pre')?.textContent).toContain('/gateway/typesafe/v1/systemone');
+  });
+
+  it('shows Python code that reads the typed answer', async () => {
+    renderCard({ endpointName: 'jev-evaluator', provider: 'typesafe' });
+    await userEvent.click(screen.getByText('Python'));
+
+    const code = document.querySelector('pre')?.textContent;
+    expect(code).toContain('import requests');
+    expect(code).toContain('/gateway/typesafe/v1/systemone');
+    expect(code).toContain('response.raise_for_status()');
+    expect(code).toContain('response.json()["answers"]["evaluation"]');
+  });
+
+  it('sends a typed System One request and displays the probability', async () => {
+    const response = { answers: { evaluation: { type: 'noul', noul: 0.95 } } };
+    const fetchSpy = jest.spyOn(FetchUtils, 'fetchOrFail').mockResolvedValueOnce({
+      text: () => Promise.resolve(JSON.stringify(response)),
+    } as Response);
+    renderCard({ endpointName: 'jev-evaluator', provider: 'typesafe' });
+    await userEvent.click(screen.getByText('Try in Browser'));
+
+    const request = JSON.parse((screen.getAllByRole('textbox')[0] as HTMLTextAreaElement).value);
+    expect(request).toEqual({
+      model: 'jev-evaluator',
+      state: { inputs: { question: 'What is the capital of France?' }, outputs: 'Paris.' },
+      questions: {
+        evaluation: {
+          type: 'noul',
+          instructions: 'Does the answer correctly address the question?',
+          criteria: { true: 'The answer is correct and relevant.', false: 'The answer is incorrect or irrelevant.' },
+        },
+      },
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Send request' }));
+    expect(fetchSpy).toHaveBeenCalledWith(`${window.location.origin}/gateway/typesafe/v1/systemone`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    expect(await screen.findByDisplayValue(/"noul": 0.95/)).toHaveValue(JSON.stringify(response, null, 2));
   });
 
   it('switches to Python code when Python tab is clicked', async () => {

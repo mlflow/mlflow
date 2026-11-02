@@ -5,11 +5,11 @@
       "mode": "completion",
       "context_window": {
         "max_input": 4097,
-        "max_tokens": 4097
+        "max_output": 4097
       },
       "pricing": {
-        "input_per_million_tokens": 1.5,
-        "output_per_million_tokens": 2.0
+        "input_per_million_tokens": 1.65,
+        "output_per_million_tokens": 2.2
       },
       "capabilities": {
         "function_calling": false,
@@ -18,17 +18,17 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-35-turbo-instruct": {
       "mode": "completion",
       "context_window": {
         "max_input": 4097,
-        "max_tokens": 4097
+        "max_output": 4097
       },
       "pricing": {
-        "input_per_million_tokens": 1.5,
-        "output_per_million_tokens": 2.0
+        "input_per_million_tokens": 1.65,
+        "output_per_million_tokens": 2.2
       },
       "capabilities": {
         "function_calling": false,
@@ -37,17 +37,17 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-35-turbo-instruct-0914": {
       "mode": "completion",
       "context_window": {
         "max_input": 4097,
-        "max_tokens": 4097
+        "max_output": 4097
       },
       "pricing": {
-        "input_per_million_tokens": 1.5,
-        "output_per_million_tokens": 2.0
+        "input_per_million_tokens": 1.65,
+        "output_per_million_tokens": 2.2
       },
       "capabilities": {
         "function_calling": false,
@@ -56,7 +56,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     }
   }
 }

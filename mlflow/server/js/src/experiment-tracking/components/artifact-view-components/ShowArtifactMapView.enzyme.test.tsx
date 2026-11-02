@@ -99,4 +99,18 @@ describe('ShowArtifactMapView', () => {
     expect(instance.fetchArtifacts).toHaveBeenCalled();
     expect(instance.props.getArtifact).toHaveBeenCalled();
   });
+  test('clears a previous preview error when another artifact loads', async () => {
+    const getArtifact = jest
+      .fn<() => Promise<string>>()
+      .mockRejectedValueOnce(new Error('too large'))
+      .mockResolvedValueOnce(JSON.stringify({ type: 'FeatureCollection', features: [] }));
+    wrapper = shallow(<ShowArtifactMapView {...minimalProps} getArtifact={getArtifact} />);
+    await new Promise(setImmediate);
+    expect(wrapper.instance().state.error).toBeDefined();
+    wrapper.setProps({ path: 'valid.geojson' });
+    await new Promise(setImmediate);
+    expect(wrapper.instance().state.error).toBeUndefined();
+    expect(wrapper.instance().state.loading).toBe(false);
+    expect(wrapper.instance().state.features).toEqual({ type: 'FeatureCollection', features: [] });
+  });
 });

@@ -26,11 +26,8 @@ class OpenAIChatCompletionConverter(GenAiSemconvConverter):
             return None
         parts = []
         for m in messages:
-            if m.get("role") != "system":
-                continue
-            content = m.get("content")
-            if isinstance(content, str):
-                parts.append({"type": "text", "content": content})
+            if m.get("role") == "system":
+                parts.extend(_convert_content(m.get("content")))
         return parts or None
 
     def convert_outputs(self, outputs: dict[str, Any]) -> list[dict[str, Any]] | None:
@@ -122,7 +119,11 @@ class OpenAIResponsesConverter(GenAiSemconvConverter):
             return {
                 "role": "tool",
                 "parts": [
-                    {"type": "tool_call_response", "id": item["call_id"], "result": item["output"]}
+                    {
+                        "type": "tool_call_response",
+                        "id": item["call_id"],
+                        "response": item["output"],
+                    }
                 ],
             }
         else:
@@ -242,7 +243,7 @@ def _convert_tool_response(
     result = parts[0].get("content") if parts else None
     return {
         "role": role,
-        "parts": [{"type": "tool_call_response", "id": tool_call_id, "result": result}],
+        "parts": [{"type": "tool_call_response", "id": tool_call_id, "response": result}],
     }
 
 

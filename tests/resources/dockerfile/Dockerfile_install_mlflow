@@ -1,6 +1,12 @@
 # Build an image that can serve mlflow models.
 FROM python:${{ PYTHON_VERSION }}-slim
 
+# Fail fast on a stalled package mirror
+RUN printf '%s\n' \
+    'Acquire::http::Timeout "30";' \
+    'Acquire::https::Timeout "30";' \
+    'Acquire::Retries "3";' \
+    > /etc/apt/apt.conf.d/99-mlflow-timeouts
 RUN apt-get -y update && apt-get install -y --no-install-recommends nginx
 
 

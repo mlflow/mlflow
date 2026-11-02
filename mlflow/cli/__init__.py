@@ -22,6 +22,7 @@ from mlflow import ai_commands, projects, version
 from mlflow.entities import ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.environment_variables import (
+    MLFLOW_ARTIFACTS_PRESIGNED_ONLY,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
@@ -54,6 +55,7 @@ from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils.server_cli_utils import (
     artifacts_only_config_validation,
+    artifacts_presigned_config_validation,
     assert_server_workspace_env_unset,
     resolve_default_artifact_root,
 )
@@ -427,6 +429,17 @@ def _validate_static_prefix(ctx, param, value):
     "endpoints for uploading, downloading, and listing artifacts. "
     "Default: False",
 )
+@click.option(
+    "--artifacts-presigned-only",
+    envvar=MLFLOW_ARTIFACTS_PRESIGNED_ONLY.name,
+    is_flag=True,
+    default=False,
+    help=(
+        "Require direct-to-storage transfers for run and model artifacts using presigned URLs. "
+        "Trace attachments and artifact-backed trace data may still pass through the server. "
+        "Default: False"
+    ),
+)
 @cli_args.ARTIFACTS_DESTINATION
 @cli_args.HOST
 @cli_args.PORT
@@ -546,6 +559,7 @@ def server(
     default_artifact_root,
     serve_artifacts,
     artifacts_only,
+    artifacts_presigned_only,
     artifacts_destination,
     host,
     port,
@@ -635,6 +649,8 @@ def server(
         and ctx.get_parameter_source("enable_workspaces") != ParameterSource.COMMANDLINE
     ):
         enable_workspaces = MLFLOW_ENABLE_WORKSPACES.get()
+    if ctx and ctx.get_parameter_source("artifacts_presigned_only") != ParameterSource.COMMANDLINE:
+        artifacts_presigned_only = MLFLOW_ARTIFACTS_PRESIGNED_ONLY.get()
     assert_server_workspace_env_unset()
 
     if disable_security_middleware:
@@ -677,6 +693,11 @@ def server(
         enable_workspaces,
         workspace_store_uri=workspace_store_uri,
         trace_archival_config_path=str(trace_archival_config) if trace_archival_config else None,
+    )
+    artifacts_presigned_config_validation(
+        artifacts_presigned_only,
+        serve_artifacts=serve_artifacts,
+        artifacts_destination=artifacts_destination,
     )
     if trace_archival_config is not None:
         try:
@@ -768,6 +789,7 @@ def server(
             default_artifact_root=default_artifact_root,
             serve_artifacts=serve_artifacts,
             artifacts_only=artifacts_only,
+            artifacts_presigned_only=artifacts_presigned_only,
             artifacts_destination=artifacts_destination,
             host=host,
             port=port,
@@ -782,8 +804,8 @@ def server(
             secrets_cache_ttl=secrets_cache_ttl,
             secrets_cache_max_size=secrets_cache_max_size,
         )
-    except ShellCommandException:
-        eprint("Running the mlflow server failed. Please see the logs above for details.")
+    except ShellCommandException as e:
+        eprint(f"Running the mlflow server failed: {e} Please see the logs above for details.")
         sys.exit(1)
 
 
@@ -1066,8 +1088,9 @@ def _resolve_gc_workspaces(
     help="URI of the backend store from which to delete runs. Acceptable URIs are "
     "SQLAlchemy-compatible database connection strings "
     "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
-    "(e.g. 'file:///absolute/path/to/directory'). By default, data will be deleted "
-    "from the ./mlruns directory.",
+    "(e.g. 'file:///absolute/path/to/directory'). By default, runs are deleted from a "
+    "local SQLite database (sqlite:///mlflow.db), falling back to the ./mlruns directory "
+    "when an existing ./mlruns store is present.",
 )
 @click.option(
     "--artifacts-destination",

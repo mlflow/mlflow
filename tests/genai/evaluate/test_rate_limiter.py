@@ -494,8 +494,9 @@ def test_scorer_thread_sees_retry_flags_single():
 
     assert len(captured) == 1
     thread_name, litellm_disabled, http_disabled = captured[0]
+    # The scorer runs off the caller thread (default @scorer timeout runs it in its own
+    # timeout worker) and the retry flags propagate into whatever thread it runs in.
     assert thread_name != threading.current_thread().name
-    assert thread_name.startswith("MlflowGenAIEvalScorer")
     assert litellm_disabled is True
     assert http_disabled is True
 
@@ -506,7 +507,7 @@ def test_scorer_threads_see_retry_flags_under_concurrency():
     assert len(captured) == 5
     worker_threads = {name for name, _, _ in captured}
     assert len(worker_threads) > 1
-    assert all(name.startswith("MlflowGenAIEvalScorer") for name, _, _ in captured)
+    assert threading.current_thread().name not in worker_threads
     assert all(litellm and http for _, litellm, http in captured)
 
 

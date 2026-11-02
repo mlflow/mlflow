@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import base64
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI
@@ -8,6 +10,10 @@ from mlflow.exceptions import MlflowException
 from mlflow.tracking import get_tracking_uri
 from mlflow.utils.credentials import read_mlflow_creds
 from mlflow.utils.uri import append_to_uri_path, is_http_uri
+
+# Set while the MLflow server runs a judge in-process (e.g. a gateway guardrail), where the
+# tracking URI is the backend store (e.g. sqlite://) and cannot be used to reach the gateway.
+_server_gateway_uri: ContextVar[str | None] = ContextVar("_server_gateway_uri", default=None)
 
 
 @dataclass
@@ -91,7 +97,7 @@ def _resolve_gateway_uri() -> str:
     # tracking URI (e.g., http://127.0.0.1:5000) to workers, but _get_tracking_store()
     # overwrites MLFLOW_TRACKING_URI with the backend store URI (e.g., sqlite://).
     # Job workers set MLFLOW_GATEWAY_URI to preserve the HTTP URI for gateway calls.
-    gateway_uri = MLFLOW_GATEWAY_URI.get() or get_tracking_uri()
+    gateway_uri = MLFLOW_GATEWAY_URI.get() or _server_gateway_uri.get() or get_tracking_uri()
 
     if not is_http_uri(gateway_uri):
         raise MlflowException(
@@ -111,3 +117,13 @@ def _build_auth_headers() -> dict[str, str] | None:
         encoded = base64.b64encode(f"{creds.username}:{creds.password}".encode()).decode("ascii")
         return {"Authorization": f"Basic {encoded}"}
     return None
+
+
+@contextmanager
+def server_gateway_uri(uri: str | None):
+    """Route ``gateway:/`` model calls made in this context to the MLflow server at ``uri``."""
+    token = _server_gateway_uri.set(uri)
+    try:
+        yield
+    finally:
+        _server_gateway_uri.reset(token)

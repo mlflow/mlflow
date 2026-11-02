@@ -7,9 +7,10 @@ import atexit
 import enum
 import logging
 import threading
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from queue import Empty, Queue
-from typing import Callable
+from typing import Callable, Iterable
 
 from mlflow.entities.metric import Metric
 from mlflow.entities.param import Param
@@ -63,6 +64,8 @@ class AsyncLoggingQueue:
         self._queue = Queue()
         self._lock = threading.RLock()
         self._logging_func = logging_func
+        self._pending_batches_by_run: dict[str, deque[RunBatch]] = {}
+        self._pending_batches_lock = threading.Lock()
 
         self._stop_data_logging_thread_event = threading.Event()
         self._status = QueueStatus.IDLE
@@ -194,32 +197,83 @@ class AsyncLoggingQueue:
             # Ignore empty queue exception
             return
 
-        def logging_func(run_batch):
-            try:
-                self._logging_func(
-                    run_id=run_batch.run_id,
-                    metrics=run_batch.metrics,
-                    params=run_batch.params,
-                    tags=run_batch.tags,
-                )
-            except Exception as e:
-                _logger.error(f"Run Id {run_batch.run_id}: Failed to log run data: Exception: {e}")
-                run_batch.exception = e
-            finally:
-                run_batch.complete()
-
         for run_batch in run_batches:
+            self._submit_batch(run_batch)
+
+    def _submit_batch(self, run_batch: RunBatch) -> None:
+        """Submits a batch to the worker threadpool.
+
+        Tags are applied last write wins, so batches of the same run that carry params or tags
+        are logged one at a time in submission order, by at most one worker per run. Params take
+        the same path so that when two batches log conflicting values for the same param, it is
+        deterministic which one stores the value and which one raises. Metric-only batches don't
+        depend on the apply order because stores resolve the latest metric by step, timestamp
+        and value, so they go straight to the pool and are logged concurrently.
+        """
+        if not run_batch.params and not run_batch.tags:
             try:
-                self._batch_logging_worker_threadpool.submit(logging_func, run_batch)
+                self._batch_logging_worker_threadpool.submit(self._log_batch, run_batch)
             except Exception as e:
-                _logger.error(
-                    f"Failed to submit batch for logging: {e}. Usually this means you are not "
-                    "shutting down MLflow properly before exiting. Please make sure you are using "
-                    "context manager, e.g., `with mlflow.start_run():` or call `mlflow.end_run()`"
-                    "explicitly to terminate MLflow logging before exiting."
-                )
-                run_batch.exception = e
-                run_batch.complete()
+                self._fail_batches([run_batch], e)
+            return
+
+        with self._pending_batches_lock:
+            if (pending := self._pending_batches_by_run.get(run_batch.run_id)) is not None:
+                pending.append(run_batch)
+                return
+            self._pending_batches_by_run[run_batch.run_id] = deque([run_batch])
+
+        self._submit_pending_batches(run_batch.run_id)
+
+    def _submit_pending_batches(self, run_id: str) -> None:
+        try:
+            self._batch_logging_worker_threadpool.submit(self._log_pending_batches, run_id)
+        except Exception as e:
+            with self._pending_batches_lock:
+                failed_batches = self._pending_batches_by_run.pop(run_id, ())
+            self._fail_batches(failed_batches, e)
+
+    def _fail_batches(self, run_batches: Iterable[RunBatch], exception: Exception) -> None:
+        _logger.error(
+            f"Failed to submit batch for logging: {exception}. Usually this means you are not "
+            "shutting down MLflow properly before exiting. Please make sure you are using "
+            "context manager, e.g., `with mlflow.start_run():` or call `mlflow.end_run()`"
+            "explicitly to terminate MLflow logging before exiting."
+        )
+        for run_batch in run_batches:
+            run_batch.exception = exception
+            run_batch.complete()
+
+    def _log_pending_batches(self, run_id: str) -> None:
+        try:
+            while (run_batch := self._pop_pending_batch(run_id)) is not None:
+                self._log_batch(run_batch)
+        except BaseException:
+            # Hand the run's remaining batches to a new worker. Otherwise they stay queued with
+            # nothing draining them, and waiting on them (e.g. at shutdown) blocks forever.
+            self._submit_pending_batches(run_id)
+            raise
+
+    def _pop_pending_batch(self, run_id: str) -> RunBatch | None:
+        with self._pending_batches_lock:
+            if pending := self._pending_batches_by_run[run_id]:
+                return pending.popleft()
+            del self._pending_batches_by_run[run_id]
+            return None
+
+    def _log_batch(self, run_batch: RunBatch) -> None:
+        try:
+            self._logging_func(
+                run_id=run_batch.run_id,
+                metrics=run_batch.metrics,
+                params=run_batch.params,
+                tags=run_batch.tags,
+            )
+        except Exception as e:
+            _logger.error(f"Run Id {run_batch.run_id}: Failed to log run data: Exception: {e}")
+            run_batch.exception = e
+        finally:
+            run_batch.complete()
 
     def _wait_for_batch(self, batch: RunBatch) -> None:
         """Wait for the given batch to be processed by the logging thread.
@@ -247,6 +301,8 @@ class AsyncLoggingQueue:
         del state["_queue"]
         del state["_lock"]
         del state["_status"]
+        del state["_pending_batches_by_run"]
+        del state["_pending_batches_lock"]
 
         if "_run_data_logging_thread" in state:
             del state["_run_data_logging_thread"]
@@ -276,6 +332,8 @@ class AsyncLoggingQueue:
         self._queue = Queue()
         self._lock = threading.RLock()
         self._status = QueueStatus.IDLE
+        self._pending_batches_by_run = {}
+        self._pending_batches_lock = threading.Lock()
         self._batch_logging_thread = None
         self._batch_logging_worker_threadpool = None
         self._batch_status_check_threadpool = None

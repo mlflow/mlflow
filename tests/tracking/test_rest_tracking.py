@@ -90,17 +90,22 @@ from mlflow.tracing.utils import build_otel_context
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 from mlflow.utils.mlflow_tags import (
+    MLFLOW_ARTIFACT_LOCATION,
     MLFLOW_DATASET_CONTEXT,
     MLFLOW_GIT_COMMIT,
     MLFLOW_PARENT_RUN_ID,
     MLFLOW_PROJECT_ENTRY_POINT,
     MLFLOW_SOURCE_NAME,
     MLFLOW_SOURCE_TYPE,
+    MLFLOW_TRACE_ARCHIVAL_FAILURE,
+    MLFLOW_TRACE_ARCHIVE_LOCATION,
+    MLFLOW_TRACE_SPANS_LOCATION,
     MLFLOW_USER,
 )
 from mlflow.utils.os import is_windows
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.time import get_current_time_millis
+from mlflow.utils.uri import append_to_uri_path
 
 from tests.helper_functions import get_safe_port
 from tests.integration.utils import invoke_cli_runner
@@ -1663,7 +1668,7 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
         json={
             "name": name,
-            "source": "mlflow-artifacts:/models",
+            "source": "s3://bucket/models",
             "run_id": run.info.run_id,
         },
     )
@@ -1674,7 +1679,7 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
         json={
             "name": name,
-            "source": "mlflow-artifacts:/models/",
+            "source": "s3://bucket/models/",
             "run_id": run.info.run_id,
         },
     )
@@ -1685,7 +1690,7 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
         json={
             "name": name,
-            "source": "mlflow-artifacts:/models///",
+            "source": "s3://bucket/models///",
             "run_id": run.info.run_id,
         },
     )
@@ -1696,12 +1701,14 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
         json={
             "name": name,
-            "source": "mlflow-artifacts:/models/foo///bar",
+            "source": "s3://bucket/models/foo///bar",
             "run_id": run.info.run_id,
         },
     )
     assert response.status_code == 200
 
+    # A remote source on a host other than the server's own artifact storage is refused, since
+    # the server would connect to that host when serving the model version's artifacts.
     response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
         json={
@@ -1710,7 +1717,8 @@ def test_create_model_version_with_non_local_source(mlflow_client):
             "run_id": run.info.run_id,
         },
     )
-    assert response.status_code == 200
+    assert response.status_code == 400
+    assert "'source' cannot use the 'mlflow-artifacts' scheme" in response.json()["message"]
 
     # Multiple dots
     response = requests.post(
@@ -1721,7 +1729,8 @@ def test_create_model_version_with_non_local_source(mlflow_client):
             "run_id": run.info.run_id,
         },
     )
-    assert response.status_code == 200
+    assert response.status_code == 400
+    assert "'source' cannot use the 'mlflow-artifacts' scheme" in response.json()["message"]
 
     # Test that invalid remote uri's cannot be created
     response = requests.post(
@@ -1733,7 +1742,7 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         },
     )
     assert response.status_code == 400
-    assert "If supplying a source as an http, https," in response.json()["message"]
+    assert "'source' cannot use the 'mlflow-artifacts' scheme" in response.json()["message"]
 
     response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
@@ -1744,7 +1753,7 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         },
     )
     assert response.status_code == 400
-    assert "If supplying a source as an http, https," in response.json()["message"]
+    assert "'source' cannot use the 'http' scheme" in response.json()["message"]
 
     response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
@@ -1755,7 +1764,7 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         },
     )
     assert response.status_code == 400
-    assert "If supplying a source as an http, https," in response.json()["message"]
+    assert "'source' cannot use the 'https' scheme" in response.json()["message"]
 
     response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
@@ -1777,7 +1786,7 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         },
     )
     assert response.status_code == 400
-    assert "If supplying a source as an http, https," in response.json()["message"]
+    assert "'source' cannot use the 'ftp' scheme" in response.json()["message"]
 
     response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
@@ -1788,7 +1797,7 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         },
     )
     assert response.status_code == 400
-    assert "If supplying a source as an http, https," in response.json()["message"]
+    assert "'source' cannot use the 'mlflow-artifacts' scheme" in response.json()["message"]
 
     response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
@@ -1799,7 +1808,7 @@ def test_create_model_version_with_non_local_source(mlflow_client):
         },
     )
     assert response.status_code == 400
-    assert "If supplying a source as an http, https," in response.json()["message"]
+    assert "'source' cannot use the 'mlflow-artifacts' scheme" in response.json()["message"]
 
     response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
@@ -2343,7 +2352,7 @@ def test_upload_artifact_handler_rejects_invalid_requests(mlflow_client):
     response = requests.post(
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/upload-artifact", params={}
     )
-    assert_response(response, "Request must specify run_uuid.")
+    assert_response(response, "Request must specify run_id or run_uuid.")
 
     response = requests.post(
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/upload-artifact",
@@ -2409,6 +2418,47 @@ def test_upload_artifact_handler(mlflow_client):
     )
     assert response.status_code == 200
     assert response.text == "hello world"
+
+
+def test_upload_artifact_handler_uses_run_id_when_both_params_provided(mlflow_client):
+    # Auth checks `run_id` first, so the handler must write to the same run.
+    experiment_id = mlflow_client.create_experiment("upload_artifacts_test")
+    run1 = mlflow_client.create_run(experiment_id)
+    run2 = mlflow_client.create_run(experiment_id)
+
+    # Upload artifact with both run_id and run_uuid pointing to different runs.
+    # The artifact should go to run1 (the run_id, which is what auth validates).
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/upload-artifact",
+        params={
+            "run_id": run1.info.run_id,
+            "run_uuid": run2.info.run_id,
+            "path": "test.txt",
+        },
+        data="artifact for run1",
+    )
+    assert response.status_code == 200
+
+    # Verify artifact is in run1
+    response = requests.get(
+        f"{mlflow_client.tracking_uri}/get-artifact",
+        params={
+            "run_id": run1.info.run_id,
+            "path": "test.txt",
+        },
+    )
+    assert response.status_code == 200
+    assert response.text == "artifact for run1"
+
+    # Verify artifact is NOT in run2
+    response = requests.get(
+        f"{mlflow_client.tracking_uri}/get-artifact",
+        params={
+            "run_id": run2.info.run_id,
+            "path": "test.txt",
+        },
+    )
+    assert response.status_code == 404
 
 
 def test_graphql_handler(mlflow_client):
@@ -2534,7 +2584,7 @@ def test_get_run_and_experiment_graphql(mlflow_client):
     experiment_id = mlflow_client.create_experiment(name)
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
-    mlflow_client.create_model_version("GraphqlTest", "runs:/graphql_test/model", run_id)
+    mlflow_client.create_model_version("GraphqlTest", f"runs:/{run_id}/model", run_id)
     response = requests.post(
         f"{mlflow_client.tracking_uri}/graphql",
         json={
@@ -2844,6 +2894,38 @@ def test_delete_traces(mlflow_client):
     assert deleted_count == 1
     assert not _is_trace_exists(request_id_1)
     assert _is_trace_exists(request_id_2)
+
+
+def test_start_trace_drops_system_managed_tags(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("test_start_trace_drops_system_tags")
+    store = mlflow_client._tracking_client.store
+
+    trace_info = store.start_trace(
+        TraceInfo(
+            trace_id="tr-system-tags",
+            trace_location=TraceLocation.from_experiment_id(experiment_id),
+            request_time=1234,
+            state=TraceState.OK,
+            tags={
+                MLFLOW_ARTIFACT_LOCATION: "client-value",
+                MLFLOW_TRACE_SPANS_LOCATION: "client-value",
+                MLFLOW_TRACE_ARCHIVE_LOCATION: "client-value",
+                MLFLOW_TRACE_ARCHIVAL_FAILURE: "client-value",
+                "user.tag": "kept",
+            },
+        )
+    )
+
+    assert trace_info.tags["user.tag"] == "kept"
+    assert trace_info.tags[MLFLOW_ARTIFACT_LOCATION] == append_to_uri_path(
+        mlflow_client.get_experiment(experiment_id).artifact_location,
+        "traces",
+        "tr-system-tags",
+        "artifacts",
+    )
+    assert MLFLOW_TRACE_SPANS_LOCATION not in trace_info.tags
+    assert MLFLOW_TRACE_ARCHIVE_LOCATION not in trace_info.tags
+    assert MLFLOW_TRACE_ARCHIVAL_FAILURE not in trace_info.tags
 
 
 def test_calculate_trace_filter_correlation(mlflow_client, store_type):

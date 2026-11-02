@@ -12,7 +12,7 @@ from mlflow.entities.multipart_upload import (
     MultipartUploadCredential,
 )
 from mlflow.environment_variables import MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
@@ -99,22 +99,29 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
     @staticmethod
     def parse_wasbs_uri(uri):
         """Parse a wasbs:// URI, returning (container, storage_account, path, api_uri_suffix)."""
-        parsed = urllib.parse.urlparse(uri)
+        form_error = (
+            "WASBS URI must be of the form "
+            "<container>@<account>.blob.core.windows.net"
+            " or <container>@<account>.blob.core.chinacloudapi.cn"
+            " or <container>@<account>.blob.core.usgovcloudapi.net"
+        )
+        try:
+            parsed = urllib.parse.urlparse(uri)
+        except ValueError as e:
+            # `urlparse` raises ValueError for some malformed authorities (such as brackets).
+            raise MlflowException.invalid_parameter_value(form_error) from e
         if parsed.scheme != "wasbs":
             raise MlflowException.invalid_parameter_value(f"Not a WASBS URI: {uri}")
 
+        # Azure storage account names are lowercase letters and digits; host names ignore case.
         match = re.fullmatch(
-            r"([^@]+)@([^.]+)\.(blob\.core\.(windows\.net|chinacloudapi\.cn|usgovcloudapi\.net))",
+            r"([^@]+)@([A-Za-z0-9]+)"
+            r"\.(blob\.core\.(windows\.net|chinacloudapi\.cn|usgovcloudapi\.net))",
             parsed.netloc,
         )
 
         if match is None:
-            raise MlflowException.invalid_parameter_value(
-                "WASBS URI must be of the form "
-                "<container>@<account>.blob.core.windows.net"
-                " or <container>@<account>.blob.core.chinacloudapi.cn"
-                " or <container>@<account>.blob.core.usgovcloudapi.net"
-            )
+            raise MlflowException.invalid_parameter_value(form_error)
         container = match.group(1)
         storage_account = match.group(2)
         api_uri_suffix = match.group(3)
@@ -237,6 +244,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             raise MlflowException(f"No such file or directory: '{dest_path}'")
 
     def create_multipart_upload(self, local_file, num_parts=1, artifact_path=None):
+        from azure.core.exceptions import HttpResponseError
         from azure.storage.blob import BlobSasPermissions, generate_blob_sas
 
         (container, _, dest_path, _) = self.parse_wasbs_uri(self.artifact_uri)
@@ -247,17 +255,41 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         # Put Block: https://learn.microsoft.com/en-us/rest/api/storageservices/put-block?tabs=microsoft-entra-id
         # SDK: https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob.blobclient?view=azure-python#azure-storage-blob-blobclient-stage-block
         blob_url = posixpath.join(self.client.url, container, dest_path)
+        now = datetime.datetime.now(timezone.utc)
+        expiry = now + datetime.timedelta(hours=1)
+        sas_kwargs = {
+            "account_name": self.client.account_name,
+            "container_name": container,
+            "blob_name": dest_path,
+            "permission": BlobSasPermissions(read=True, write=True),
+            "expiry": expiry,
+        }
+        credential = self.client.credential
+        if account_key := getattr(credential, "account_key", None):
+            sas_kwargs["account_key"] = account_key
+        elif hasattr(credential, "get_token"):
+            start = now - datetime.timedelta(minutes=5)
+            try:
+                user_delegation_key = self.client.get_user_delegation_key(start, expiry)
+            except HttpResponseError as e:
+                if (
+                    e.status_code == 403
+                    and getattr(e, "error_code", None) == "AuthorizationPermissionMismatch"
+                ):
+                    raise _UnsupportedMultipartUploadException() from e
+                raise
+            sas_kwargs.update(user_delegation_key=user_delegation_key, start=start)
+        else:
+            raise _UnsupportedMultipartUploadException()
+
         sas_token = generate_blob_sas(
-            account_name=self.client.account_name,
-            container_name=container,
-            blob_name=dest_path,
-            account_key=self.client.credential.account_key,
-            permission=BlobSasPermissions(read=True, write=True),
-            expiry=datetime.datetime.now(timezone.utc) + datetime.timedelta(hours=1),
+            **sas_kwargs,
         )
         credentials = []
         for i in range(1, num_parts + 1):
-            block_id = f"mlflow_block_{i}"
+            # Azure requires all block IDs of a blob to have the same length. A blob can have at
+            # most 50,000 blocks, so 5 digits are enough.
+            block_id = f"mlflow_block_{i:05d}"
             # see https://github.com/Azure/azure-sdk-for-python/blob/18a66ef98c6f2153491489d3d7d2fe4a5849e4ac/sdk/storage/azure-storage-blob/azure/storage/blob/_blob_client.py#L2468
             safe_block_id = urllib.parse.quote(encode_base64(block_id), safe="")
             url = f"{blob_url}?comp=block&blockid={safe_block_id}&{sas_token}"

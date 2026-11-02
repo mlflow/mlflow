@@ -38,22 +38,6 @@ uv run dev/run_dev_server.py > "$LOG" 2>&1 &
 tail -f "$LOG"
 ```
 
-### Reviewing provider-gated UI without credentials
-
-Features gated on an external provider/credentials can be rendered without real
-keys, cost, or nondeterminism via credential-free stubs (see `dev/dev_stubs/`):
-
-```bash
-uv run dev/run_dev_server.py --stub-providers claude
-```
-
-- `claude` — a fake `claude` CLI on the dev server's PATH, so the MLflow
-  Assistant's Claude Code provider passes its auth probe and the chat panel
-  renders without `ANTHROPIC_API_KEY`.
-
-The stubs are dev/CI-only; the `ui-review` bot always passes `--stub-providers claude`
-so the Assistant is reviewable on any PR.
-
 ## Debugging
 
 For debugging errors, enable debug logging (must be set before importing mlflow):
@@ -115,20 +99,6 @@ uv run --with 'abc==1.2.3,xyz==4.5.6' pytest tests/test_version.py
 # Run tests with optional dependencies/extras
 uv run --with transformers pytest tests/transformers
 uv run --extra gateway pytest tests/gateway
-```
-
-### Code Quality
-
-```bash
-# Python linting and formatting with Ruff
-uv run ruff check . --fix         # Lint with auto-fix
-uv run ruff format .              # Format code
-
-# Custom MLflow linting with Clint
-uv run clint .                    # Run MLflow custom linter
-
-# Check for MLflow spelling typos
-uv run bash dev/mlflow-typo.sh .
 ```
 
 ### Special Testing
@@ -196,6 +166,10 @@ cost rather than adding to it, and since this repo squash-merges, they land as
 one commit that can't be reverted piece by piece and is hard to reason about
 later. When in doubt, split.
 
+### Stacked PRs
+
+Use [gh-stack](https://github.com/github/gh-stack) to manage stacked pull requests.
+
 ### Creating Pull Requests
 
 - Follow the instructions at the top of [the PR template](./.github/pull_request_template.md) carefully.
@@ -229,21 +203,22 @@ gh run watch
 The repository uses pre-commit for code quality. Install hooks with:
 
 ```bash
-uv run pre-commit install --install-hooks
-uv run pre-commit run install-bin -a -v
+uv run --only-group lint pre-commit install --install-hooks
+uv run --only-group lint pre-commit run install-bin -a -v
 ```
 
 Run pre-commit manually:
 
 ```bash
 # Run on all files
-uv run pre-commit run --all-files
+uv run --only-group lint pre-commit run --all-files
 
 # Run on specific files
-uv run pre-commit run --files path/to/file.py
+uv run --only-group lint pre-commit run --files path/to/file.py
 
 # Run a specific hook
-uv run pre-commit run ruff --all-files
+uv run --only-group lint pre-commit run ruff --all-files
 ```
 
-This runs Ruff, typos checker, and other tools automatically before commits.
+`--only-group lint` keeps uv from syncing the full `dev` environment just to run
+the hooks.

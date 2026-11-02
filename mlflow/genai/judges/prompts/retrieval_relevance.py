@@ -1,5 +1,14 @@
 from mlflow.genai.prompts.utils import format_prompt
 
+RETRIEVAL_RELEVANCE_TYPESAFE_PROMPT_INSTRUCTIONS = """\
+Consider the following question and document. You must determine whether the document provides information that is (fully or partially) relevant to the question. Do not focus on the correctness or completeness of the document. Do not make assumptions, approximations, or bring in external knowledge.
+
+<question>{{input}}</question>
+<document>{{doc}}</document>
+
+The result is "yes" if the document contains information that is relevant to the question, and "no" otherwise.\
+"""  # noqa: E501
+
 RETRIEVAL_RELEVANCE_PROMPT = """\
 Consider the following question and document. You must determine whether the document provides information that is (fully or partially) relevant to the question. Do not focus on the correctness or completeness of the document. Do not make assumptions, approximations, or bring in external knowledge.
 

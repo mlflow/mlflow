@@ -20,6 +20,7 @@ import base64
 import contextlib
 import json
 import os
+import secrets
 import shutil
 import subprocess
 import sys
@@ -174,7 +175,18 @@ def _start_mlflow(
         cmd += ["--app-name", "basic-auth"]
     with (
         log_file.open("w") as f,
-        subprocess.Popen(cmd, cwd=SCRIPT_DIR, stdout=f, stderr=f, env=_subprocess_env()) as proc,
+        subprocess.Popen(
+            cmd,
+            cwd=SCRIPT_DIR,
+            stdout=f,
+            stderr=f,
+            env=_subprocess_env()
+            | {
+                # The benchmark's fake upstream uses HTTP on loopback.
+                "MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES": "http,https",
+                "MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS": "true",
+            },
+        ) as proc,
     ):
         _wait_for_port(port, label, log_file)
         try:
@@ -475,6 +487,10 @@ def cmd_bench(args: argparse.Namespace) -> None:
     instances = args.instances
     mode = "1 instance" if instances == 1 else f"{instances} instances, nginx LB"
     creds = (args.auth_username, args.auth_password) if args.auth else None
+    if creds:
+        # Bootstraps the admin user of the spawned MLflow servers (MLflow ships no default).
+        os.environ["MLFLOW_AUTH_ADMIN_USERNAME"] = args.auth_username
+        os.environ["MLFLOW_AUTH_ADMIN_PASSWORD"] = args.auth_password
 
     if args.url:
         console.print(
@@ -506,6 +522,20 @@ def cmd_bench(args: argparse.Namespace) -> None:
         _check_docker()
 
     with tempfile.TemporaryDirectory(prefix="mlflow-bench-") as work_dir:
+        if creds:
+            # Keep the auth DB inside the per-run work dir. The packaged basic_auth.ini uses a
+            # relative sqlite path that would persist next to this script, so a later run with
+            # a freshly generated random password would fail to authenticate against the admin
+            # bootstrapped by an earlier run.
+            auth_ini = Path(work_dir) / "basic_auth.ini"
+            auth_ini.write_text(
+                "[mlflow]\n"
+                "default_permission = READ\n"
+                f"database_uri = sqlite:///{Path(work_dir) / 'basic_auth.db'}\n"
+                f"admin_username = {args.auth_username}\n"
+                "authorization_function = mlflow.server.auth:authenticate_request_basic_auth\n"
+            )
+            os.environ["MLFLOW_AUTH_CONFIG_PATH"] = str(auth_ini)
         port = args.port
         fake_port = args.fake_server_port
         instance_ports = [args.base_port + i for i in range(instances)]
@@ -780,8 +810,11 @@ def main() -> None:
     )
     parser.add_argument(
         "--auth-password",
-        default=os.environ.get("AUTH_PASSWORD", "password1234"),
-        help="Basic auth password (default: password1234, from basic_auth.ini)",
+        default=os.environ.get("AUTH_PASSWORD") or secrets.token_urlsafe(16),
+        help=(
+            "Basic auth password used to bootstrap the admin user of the benchmarked "
+            "server (default: a random value; MLflow ships no default admin password)"
+        ),
     )
 
     args = parser.parse_args()

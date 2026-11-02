@@ -73,6 +73,7 @@ async def test_completions():
                 },
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
 
@@ -205,6 +206,7 @@ async def test_embeddings():
             "http://127.0.0.1:2000/invocations",
             json={"inputs": ["test1", "test2"]},
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
 
@@ -291,6 +293,7 @@ async def test_chat():
                 "params": {"n": 1},
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
 

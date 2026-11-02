@@ -227,6 +227,7 @@ def _run_with_new_server(port: int | None, no_browser: bool, debug: bool, refres
     from mlflow.server import _run_server
     from mlflow.server.handlers import initialize_backend_stores
     from mlflow.utils import find_free_port, is_port_available
+    from mlflow.utils.process import ShellCommandException
 
     # Suppress noisy logs early (before any initialization) unless debug mode
     if not debug:
@@ -288,15 +289,18 @@ def _run_with_new_server(port: int | None, no_browser: bool, debug: bool, refres
     click.echo("Press Ctrl+C to stop the server.")
     click.echo()
 
-    _run_server(
-        file_store_path=backend_uri,
-        registry_store_uri=backend_uri,
-        default_artifact_root=artifact_uri,
-        serve_artifacts=True,
-        artifacts_only=False,
-        artifacts_destination=None,
-        host="127.0.0.1",
-        port=port,
-        workers=1,
-        uvicorn_opts="--log-level warning" if not debug else None,
-    )
+    try:
+        _run_server(
+            file_store_path=backend_uri,
+            registry_store_uri=backend_uri,
+            default_artifact_root=artifact_uri,
+            serve_artifacts=True,
+            artifacts_only=False,
+            artifacts_destination=None,
+            host="127.0.0.1",
+            port=port,
+            workers=1,
+            uvicorn_opts="--log-level warning" if not debug else None,
+        )
+    except ShellCommandException as e:
+        raise click.ClickException(f"The MLflow server failed: {e}") from e

@@ -139,7 +139,7 @@ def migrate(source: Path, target_uri: str, *, progress: bool = True) -> None:
                 _migrate_outputs_for_experiment(session, exp_dir, stats)
                 _migrate_traces_for_experiment(session, exp_dir, int(exp_id), stats)
                 session.flush()
-                _migrate_assessments_for_experiment(session, exp_dir, stats)
+                _migrate_assessments_for_experiment(session, exp_dir, int(exp_id), stats)
                 _migrate_logged_models_for_experiment(session, exp_dir, int(exp_id), stats)
                 session.flush()
                 session.expunge_all()

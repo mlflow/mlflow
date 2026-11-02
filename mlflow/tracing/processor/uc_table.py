@@ -85,7 +85,12 @@ class DatabricksUCTableSpanProcessor(BaseMlflowSpanProcessor):
 
     def on_end(self, span: OTelReadableSpan) -> None:
         if span._parent is None:
-            self._set_user_session_span_attributes(span)
+            try:
+                self._set_user_session_span_attributes(span)
+            except Exception as e:
+                _logger.debug(
+                    "Failed to set user and session attributes on root span: %s", e, exc_info=True
+                )
         super().on_end(span)
 
     def _set_user_session_span_attributes(self, root_span: OTelReadableSpan) -> None:

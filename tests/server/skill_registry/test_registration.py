@@ -1,0 +1,780 @@
+import gzip
+import io
+import re
+import tarfile
+import threading
+from dataclasses import replace
+from pathlib import Path
+from unittest import mock
+from urllib.parse import quote
+
+import pytest
+from flask import Flask
+
+from mlflow.entities.skill import SkillStatus
+from mlflow.entities.skill_source import GitSource, MlflowSource, OCISource, SkillSourceType
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_WORKSPACES,
+    MLFLOW_SKILL_CONTENT_MAX_DECOMPRESSED_SIZE,
+)
+from mlflow.exceptions import MlflowException
+from mlflow.genai.skill_content.digest import compute_tree_digest
+from mlflow.protos.databricks_pb2 import (
+    INTERNAL_ERROR,
+    NOT_IMPLEMENTED,
+    PERMISSION_DENIED,
+    RESOURCE_ALREADY_EXISTS,
+)
+from mlflow.server import handlers
+from mlflow.server.skill_registry import (
+    SkillVersionRegistration,
+    bulk_register_skill_versions,
+    register_skill_version,
+)
+from mlflow.server.skill_registry import registration as registration_module
+from mlflow.utils.workspace_context import WorkspaceContext
+
+from tests.server.skill_registry.conftest import (
+    SKILL_FILES,
+    skill_archive,
+    stored_files,
+    version_rows,
+)
+
+pytestmark = pytest.mark.notrackingurimock
+
+_DIGEST = "ab" * 32
+_UPLOAD = SkillVersionRegistration(name="reviewer", organization="acme")
+
+
+def _special_member(name, member_type, linkname=""):
+    member = tarfile.TarInfo(name)
+    member.type = member_type
+    member.linkname = linkname
+    return member
+
+
+def _tree_digest(root: Path, files=SKILL_FILES) -> str:
+    for name, data in files.items():
+        path = root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+    return compute_tree_digest(root)
+
+
+# --- upload flow ------------------------------------------------------------------------------
+
+
+def test_upload_stores_content_then_commits_a_complete_version(store, artifact_root, tmp_path):
+    version = register_skill_version(_UPLOAD, content=skill_archive(), multipart=True)
+
+    assert version.version == 1
+    assert version.status == SkillStatus.ACTIVE
+    assert version.source_type == SkillSourceType.MLFLOW
+    assert version.digest == _tree_digest(tmp_path / "expected")
+    assert isinstance(version.source, MlflowSource)
+    assert version.source.subpath is None
+    match = re.fullmatch(
+        r"mlflow-artifacts:/(skills/@acme/reviewer/[0-9a-f]{32})", version.source.artifact_path
+    )
+    assert match is not None
+    stored = artifact_root / match.group(1)
+    assert stored_files(stored) == sorted(SKILL_FILES)
+    assert (stored / "SKILL.md").read_bytes() == SKILL_FILES["SKILL.md"]
+    assert store.get_skill_version("reviewer", 1, organization="acme") == version
+
+
+def test_upload_confirms_a_matching_client_digest(store, artifact_root, tmp_path):
+    digest = _tree_digest(tmp_path / "expected")
+    registration = replace(_UPLOAD, digest=digest)
+
+    version = register_skill_version(registration, content=skill_archive(), multipart=True)
+
+    assert version.digest == digest
+
+
+def test_upload_rejects_a_client_digest_that_does_not_match_the_content(
+    store, artifact_root, tmp_path
+):
+    digest = _tree_digest(tmp_path / "expected")
+    registration = replace(_UPLOAD, digest=_DIGEST)
+
+    with pytest.raises(
+        MlflowException,
+        match=f"does not match the uploaded content: expected {digest}, got {_DIGEST}",
+    ) as exc:
+        register_skill_version(registration, content=skill_archive(), multipart=True)
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    assert stored_files(artifact_root) == []
+    assert version_rows(store) == 0
+
+
+def test_upload_without_organization_omits_the_segment(store, artifact_root):
+    version = register_skill_version(
+        SkillVersionRegistration(name="reviewer"), content=skill_archive(), multipart=True
+    )
+    assert re.fullmatch(
+        r"mlflow-artifacts:/skills/reviewer/[0-9a-f]{32}", version.source.artifact_path
+    )
+
+
+def test_upload_can_register_a_draft(store, artifact_root):
+    draft = SkillVersionRegistration(name="reviewer", status="draft")
+    version = register_skill_version(draft, content=skill_archive(), multipart=True)
+    assert version.status == SkillStatus.DRAFT
+    # A deliberately registered draft is a complete, retrievable version.
+    assert store.get_skill_version("reviewer", 1).status == SkillStatus.DRAFT
+
+
+def test_every_upload_gets_its_own_path_and_the_next_version(store, artifact_root):
+    versions = [
+        register_skill_version(_UPLOAD, content=skill_archive(), multipart=True) for _ in range(3)
+    ]
+    assert [v.version for v in versions] == [1, 2, 3]
+    assert len({v.source.artifact_path for v in versions}) == 3
+
+
+def test_upload_is_scoped_to_the_request_workspace(store, artifact_root, monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    with WorkspaceContext("team-a"):
+        with mock.patch.object(
+            store, "create_skill_version", wraps=store.create_skill_version
+        ) as create:
+            register_skill_version(_UPLOAD, content=skill_archive(), multipart=True)
+    create.assert_called_once()
+    # The recorded source stays workspace-relative, like any mlflow-artifacts URI a client
+    # sees; only the bytes live under the workspace's prefix.
+    source = create.call_args.kwargs["source"]
+    assert source.startswith("mlflow-artifacts:/skills/@acme/reviewer/")
+    relative = source.removeprefix("mlflow-artifacts:/")
+    assert stored_files(artifact_root / "workspaces" / "team-a" / relative) == sorted(SKILL_FILES)
+    assert not (artifact_root / relative).exists()
+
+
+@pytest.mark.parametrize("upload", [True, False])
+def test_registration_records_the_creator_on_the_version_and_a_new_parent(
+    store, artifact_root, upload
+):
+    fields = {} if upload else {"source": "https://example.com/r.git"}
+    registration = SkillVersionRegistration(name="reviewer", created_by="alice", **fields)
+    if upload:
+        version = register_skill_version(registration, content=skill_archive(), multipart=True)
+    else:
+        version = register_skill_version(registration)
+    assert version.created_by == "alice"
+    assert version.last_updated_by == "alice"
+    assert store.get_skill("reviewer").created_by == "alice"
+
+
+# --- body and source must agree ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("registration", "kwargs", "message"),
+    [
+        # JSON with a null source would create a content-less version.
+        (_UPLOAD, {"content": None, "multipart": False}, "requires a multipart/form-data body"),
+        # Multipart with the content part missing.
+        (_UPLOAD, {"content": None, "multipart": True}, "requires a multipart/form-data body"),
+        # Multipart that also names a remote source.
+        (
+            SkillVersionRegistration(name="reviewer", source="https://example.com/r.git"),
+            {"content": skill_archive(), "multipart": True},
+            "cannot also carry uploaded content",
+        ),
+        (
+            SkillVersionRegistration(name="reviewer", source="https://example.com/r.git"),
+            {"content": None, "multipart": True},
+            "must use an application/json body",
+        ),
+        # Fields that only make sense for a remote pointer.
+        (
+            SkillVersionRegistration(name="reviewer", subpath="skills/a"),
+            {"content": skill_archive(), "multipart": True},
+            "'subpath' does not apply to uploaded content",
+        ),
+        (
+            SkillVersionRegistration(name="reviewer", ref="main"),
+            {"content": skill_archive(), "multipart": True},
+            "'ref' does not apply to uploaded content",
+        ),
+        (
+            SkillVersionRegistration(name="reviewer", source_type="git"),
+            {"content": skill_archive(), "multipart": True},
+            "'source_type' does not apply to uploaded content",
+        ),
+    ],
+)
+def test_mismatched_body_and_source_are_rejected_without_a_version(
+    store, artifact_root, registration, kwargs, message
+):
+    with pytest.raises(MlflowException, match=message) as exc:
+        register_skill_version(registration, **kwargs)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    assert version_rows(store) == 0
+    assert stored_files(artifact_root) == []
+
+
+@pytest.mark.parametrize(
+    ("registration", "message"),
+    [
+        (SkillVersionRegistration(name=None), "'name' must be provided explicitly"),
+        (SkillVersionRegistration(name=""), "'name' must be provided explicitly"),
+        (SkillVersionRegistration(name="Bad_Name"), "Invalid skill name"),
+        (SkillVersionRegistration(name="reviewer", organization="../x"), "Invalid organization"),
+        (SkillVersionRegistration(name="reviewer", status="deleted"), "'active' or 'draft'"),
+        (SkillVersionRegistration(name="reviewer", status="deprecated"), "'active' or 'draft'"),
+        (SkillVersionRegistration(name="reviewer", digest="xyz"), "64 lowercase hex"),
+        (SkillVersionRegistration(name="reviewer", digest="AB" * 32), "64 lowercase hex"),
+        (SkillVersionRegistration(name="reviewer", source_type="mlflow"), "set by the server"),
+        (
+            SkillVersionRegistration(name="reviewer", source_type="unknown"),
+            "'source_type' does not apply to uploaded content",
+        ),
+    ],
+)
+def test_invalid_metadata_is_rejected_without_a_version(
+    store, artifact_root, registration, message
+):
+    with pytest.raises(MlflowException, match=message):
+        register_skill_version(registration, content=skill_archive(), multipart=True)
+    assert version_rows(store) == 0
+    assert stored_files(artifact_root) == []
+
+
+# --- malformed content ------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        (io.BytesIO(b""), "'content' part is empty"),
+        (io.BytesIO(b"this is not a gzip tar"), "not a readable tar archive"),
+        (skill_archive({}), "contains no files"),
+        (skill_archive({"../escape.txt": b"x"}), "unsafe path"),
+        (skill_archive({"/etc/passwd": b"x"}), "unsafe path"),
+        (
+            skill_archive(extra_members=[_special_member("link", tarfile.SYMTYPE, "SKILL.md")]),
+            "symbolic link|not a regular file",
+        ),
+        (
+            skill_archive(extra_members=[_special_member("hard", tarfile.LNKTYPE, "SKILL.md")]),
+            "hard link|not a regular file",
+        ),
+        (
+            skill_archive(extra_members=[_special_member("pipe", tarfile.FIFOTYPE)]),
+            "not a regular file|special",
+        ),
+    ],
+)
+def test_malformed_content_is_rejected_without_a_version(store, artifact_root, content, message):
+    with pytest.raises(MlflowException, match=message) as exc:
+        register_skill_version(_UPLOAD, content=content, multipart=True)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    assert version_rows(store) == 0
+    assert stored_files(artifact_root) == []
+
+
+def _stored_gzip(payload: bytes) -> bytes:
+    # compresslevel=0 emits stored DEFLATE blocks, so the bytes can be edited in place.
+    return gzip.compress(payload, compresslevel=0)
+
+
+def test_missing_gzip_trailer_is_rejected(store, artifact_root):
+    content = _stored_gzip(gzip.decompress(skill_archive().getvalue()))[:-8]
+    with pytest.raises(EOFError, match="end-of-stream marker"):
+        gzip.decompress(content)
+    with pytest.raises(MlflowException, match="not a readable tar archive") as exc:
+        register_skill_version(_UPLOAD, content=io.BytesIO(content), multipart=True)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    assert version_rows(store) == 0
+    assert stored_files(artifact_root) == []
+
+
+def test_tampered_gzip_payload_is_rejected(store, artifact_root):
+    # Change file bytes inside the stored block while keeping the original trailer: the tar
+    # still parses, but the CRC no longer matches, which is what the trailer check catches.
+    tar_bytes = gzip.decompress(skill_archive().getvalue())
+    content = bytearray(_stored_gzip(tar_bytes))
+    marker = SKILL_FILES["SKILL.md"]
+    index = content.find(marker)
+    assert index > 0
+    content[index] = ord("X")
+    with pytest.raises(gzip.BadGzipFile, match="CRC"):
+        gzip.decompress(bytes(content))
+    with pytest.raises(MlflowException, match="not a readable tar archive"):
+        register_skill_version(_UPLOAD, content=io.BytesIO(bytes(content)), multipart=True)
+    assert version_rows(store) == 0
+    assert stored_files(artifact_root) == []
+
+
+@pytest.mark.parametrize(
+    ("name", "message"),
+    [
+        ("%53KILL.md", "cannot be downloaded back"),
+        ("reference#1.md", "cannot be downloaded back"),
+        ("docs%2Fnotes.md", "cannot be downloaded back"),
+        ("a#b/SKILL.md", "cannot be downloaded back"),
+        # `?` never gets this far: the shared archive rules already refuse it as a name
+        # Windows cannot store, which is the same outcome.
+        ("what?.md", "Windows does not allow"),
+        ("q?/x.md", "Windows does not allow"),
+    ],
+)
+def test_names_that_cannot_be_downloaded_are_rejected(store, artifact_root, name, message):
+    files = {"SKILL.md": b"entry point", name: b"other"}
+    with pytest.raises(MlflowException, match=message) as exc:
+        register_skill_version(_UPLOAD, content=skill_archive(files), multipart=True)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    assert version_rows(store) == 0
+    assert stored_files(artifact_root) == []
+
+
+def test_accepted_names_download_their_own_bytes(store, artifact_root):
+    # Registration to download through the real artifact handler, for names that are unusual
+    # but survive the artifact API: spaces, unicode, plus signs, and nested directories.
+    files = {
+        "SKILL.md": b"entry point",
+        "notes with spaces.md": b"spaces",
+        "r\u00e9sum\u00e9.md": b"unicode",
+        "a+b.md": b"plus",
+        "scripts/run (1).py": b"nested",
+    }
+    version = register_skill_version(_UPLOAD, content=skill_archive(files), multipart=True)
+    path = version.source.artifact_path.removeprefix("mlflow-artifacts:/")
+    app = Flask(__name__)
+    prefix = "/api/2.0/mlflow-artifacts/artifacts"
+    app.add_url_rule(prefix + "/<path:artifact_path>", view_func=handlers._download_artifact)
+    with app.test_client() as client:
+        for name, expected in files.items():
+            response = client.get(f"{prefix}/{path}/{quote(name)}")
+            assert (name, response.status_code) == (name, 200)
+            assert response.data == expected
+
+
+def test_oversize_content_is_rejected_without_a_version(store, artifact_root, monkeypatch):
+    monkeypatch.setenv(MLFLOW_SKILL_CONTENT_MAX_DECOMPRESSED_SIZE.name, "1000")
+    big = skill_archive({"SKILL.md": b"x", "big.bin": b"\0" * 5000})
+    with pytest.raises(MlflowException, match="exceeds the skill content size limit"):
+        register_skill_version(_UPLOAD, content=big, multipart=True)
+    assert version_rows(store) == 0
+    assert stored_files(artifact_root) == []
+
+
+def test_upload_is_cut_off_on_the_wire(store, artifact_root, monkeypatch):
+    monkeypatch.setenv(MLFLOW_SKILL_CONTENT_MAX_DECOMPRESSED_SIZE.name, "1000")
+    monkeypatch.setattr(registration_module, "_UPLOAD_SIZE_SLACK", 0)
+    read_sizes = []
+
+    class Endless(io.RawIOBase):
+        def read(self, size=-1):
+            read_sizes.append(size)
+            return b"\x1f" * 600
+
+    with pytest.raises(MlflowException, match="exceeds the size limit of 1000 bytes"):
+        register_skill_version(_UPLOAD, content=Endless(), multipart=True)
+    # Two chunks are enough to pass the cap; the rest of the stream is never read.
+    assert len(read_sizes) == 2
+    assert version_rows(store) == 0
+
+
+# --- failure injection ------------------------------------------------------------------------
+
+
+def test_storage_failure_leaves_no_version_and_cleans_the_partial_write(store, artifact_root):
+    attempted = []
+
+    def fail_midway(local_dir, artifact_path):
+        attempted.append(artifact_path)
+        partial = artifact_root / artifact_path
+        partial.mkdir(parents=True)
+        (partial / "SKILL.md").write_bytes(b"partial")
+        raise OSError("disk full")
+
+    with mock.patch.object(
+        registration_module, "store_skill_tree", side_effect=fail_midway
+    ) as store_tree:
+        with pytest.raises(OSError, match="disk full"):
+            register_skill_version(_UPLOAD, content=skill_archive(), multipart=True)
+    store_tree.assert_called_once()
+    assert version_rows(store) == 0
+    assert stored_files(artifact_root) == []
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_skill_version("reviewer", 1, organization="acme")
+    assert len(attempted) == 1
+
+
+@pytest.mark.parametrize(
+    "error_code", [RESOURCE_ALREADY_EXISTS, PERMISSION_DENIED, NOT_IMPLEMENTED]
+)
+def test_definite_commit_rejection_reclaims_the_stored_content(store, artifact_root, error_code):
+    rejection = MlflowException("giving up", error_code=error_code)
+    with mock.patch.object(store, "create_skill_version", side_effect=rejection) as create:
+        with pytest.raises(MlflowException, match="giving up"):
+            register_skill_version(_UPLOAD, content=skill_archive(), multipart=True)
+    create.assert_called_once()
+    # The store reported that nothing was committed, so nothing can reference the bytes.
+    assert stored_files(artifact_root) == []
+    assert version_rows(store) == 0
+
+
+def test_ambiguous_commit_failure_keeps_residue_that_no_version_can_address(store, artifact_root):
+    # After an unknown failure the row may exist, so the content must not be deleted. The
+    # bytes that are left are an accepted leak: their path is never handed out again.
+    failure = MlflowException("connection dropped", error_code=INTERNAL_ERROR)
+    with mock.patch.object(store, "create_skill_version", side_effect=failure) as create:
+        with pytest.raises(MlflowException, match="connection dropped"):
+            register_skill_version(_UPLOAD, content=skill_archive(), multipart=True)
+    residue_source = create.call_args.kwargs["source"]
+    residue = residue_source.removeprefix("mlflow-artifacts:/")
+    assert stored_files(artifact_root / residue) == sorted(SKILL_FILES)
+    assert version_rows(store) == 0
+
+    version = register_skill_version(_UPLOAD, content=skill_archive(), multipart=True)
+
+    assert version.version == 1
+    assert version.source.artifact_path != residue_source
+    assert stored_files(artifact_root / residue) == sorted(SKILL_FILES)
+
+
+def test_version_collision_retries_without_rewriting_content(store, artifact_root):
+    # Occupy version 1 after the store computed MAX(version) but before it inserts.
+    original = store._persist_skill_version
+    calls = []
+
+    def collide_once(*args, **kwargs):
+        calls.append(kwargs["version"])
+        if len(calls) == 1:
+            raise MlflowException("taken", error_code=RESOURCE_ALREADY_EXISTS)
+        return original(*args, **kwargs)
+
+    with (
+        mock.patch.object(store, "_persist_skill_version", side_effect=collide_once) as persist,
+        mock.patch.object(
+            registration_module, "store_skill_tree", wraps=registration_module.store_skill_tree
+        ) as store_tree,
+    ):
+        version = register_skill_version(_UPLOAD, content=skill_archive(), multipart=True)
+    assert persist.call_count == 2
+    store_tree.assert_called_once()
+    assert version.version == 1
+    assert len(list((artifact_root / "skills" / "@acme" / "reviewer").iterdir())) == 1
+
+
+def test_concurrent_registrations_never_share_an_artifact_path(store, artifact_root):
+    workers = 8
+    all_storing = threading.Barrier(workers, timeout=30)
+    commit_lock = threading.Lock()
+    original_store_tree = registration_module.store_skill_tree
+    original_create = store.create_skill_version
+    paths = []
+    results = []
+    errors = []
+
+    def store_together(local_dir, artifact_path):
+        # Every worker has its path and is writing content at the same moment.
+        all_storing.wait()
+        paths.append(artifact_path)
+        original_store_tree(local_dir, artifact_path)
+
+    def commit_in_turn(**kwargs):
+        # SQLite serializes writers; version allocation under contention is the store's
+        # concern and has its own tests.
+        with commit_lock:
+            return original_create(**kwargs)
+
+    def work():
+        try:
+            results.append(register_skill_version(_UPLOAD, content=skill_archive(), multipart=True))
+        except Exception as e:
+            errors.append(e)
+
+    with (
+        mock.patch.object(
+            registration_module, "store_skill_tree", side_effect=store_together
+        ) as store_tree,
+        mock.patch.object(store, "create_skill_version", side_effect=commit_in_turn) as create,
+    ):
+        threads = [
+            threading.Thread(target=work, name=f"skill-registration-{i}") for i in range(workers)
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=60)
+    assert errors == []
+    assert store_tree.call_count == workers
+    assert create.call_count == workers
+    assert len(set(paths)) == workers
+    assert sorted(v.version for v in results) == list(range(1, workers + 1))
+    assert len({v.source.artifact_path for v in results}) == workers
+    for version in results:
+        relative = version.source.artifact_path.removeprefix("mlflow-artifacts:/")
+        assert stored_files(artifact_root / relative) == sorted(SKILL_FILES)
+
+
+# --- deployment mode --------------------------------------------------------------------------
+
+
+def test_upload_is_refused_when_the_server_does_not_serve_artifacts(store, no_artifact_serving):
+    with pytest.raises(MlflowException, match="does not serve artifacts") as exc:
+        register_skill_version(_UPLOAD, content=skill_archive(), multipart=True)
+    assert exc.value.error_code == "NOT_IMPLEMENTED"
+    assert exc.value.get_http_status_code() == 501
+    assert version_rows(store) == 0
+
+
+def test_remote_registration_does_not_need_artifact_serving(store, no_artifact_serving):
+    remote = SkillVersionRegistration(name="reviewer", source="https://example.com/r.git")
+    version = register_skill_version(remote)
+    assert version.source == GitSource(url="https://example.com/r.git")
+
+
+# --- remote pointers --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("fields", "expected_type", "expected_source"),
+    [
+        (
+            {"source": "https://example.com/r.git", "ref": "v1", "subpath": "skills/a/"},
+            SkillSourceType.GIT,
+            GitSource(url="https://example.com/r.git", ref="v1", subpath="skills/a"),
+        ),
+        (
+            {"source": "oci://ghcr.io/acme/skills:v1"},
+            SkillSourceType.OCI,
+            OCISource(image="ghcr.io/acme/skills:v1"),
+        ),
+        (
+            # No distinguishing shape, so the explicit type is what classifies it.
+            {"source": "https://example.com/acme/skills", "source_type": "git"},
+            SkillSourceType.GIT,
+            GitSource(url="https://example.com/acme/skills"),
+        ),
+        (
+            {"source": "oci://ghcr.io/acme/skills:v1", "source_type": "oci"},
+            SkillSourceType.OCI,
+            OCISource(image="ghcr.io/acme/skills:v1"),
+        ),
+        (
+            # The scheme is only a hint; a native reference with an explicit type is valid.
+            {"source": "ghcr.io/acme/skills:v1", "source_type": "oci"},
+            SkillSourceType.OCI,
+            OCISource(image="ghcr.io/acme/skills:v1"),
+        ),
+        (
+            {"source": "localhost:5000/skills:v1", "source_type": "oci", "subpath": "a"},
+            SkillSourceType.OCI,
+            OCISource(image="localhost:5000/skills:v1", subpath="a"),
+        ),
+    ],
+)
+def test_remote_registration(store, artifact_root, fields, expected_type, expected_source):
+    version = register_skill_version(SkillVersionRegistration(name="reviewer", **fields))
+    assert version.source_type == expected_type
+    assert version.source == expected_source
+    assert stored_files(artifact_root) == []
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "mlflow-artifacts:/skills/reviewer/" + "a" * 32,
+        "mlflow-artifacts:/skills/@acme/reviewer/" + "a" * 32,
+        "runs:/" + "b" * 32 + "/skill",
+        "models:/example/1",
+        " MLflow-Artifacts:/skills/reviewer/" + "a" * 32,
+    ],
+)
+@pytest.mark.parametrize("source_type", [None, "git", "oci", "zip"])
+def test_mlflow_locations_are_rejected_as_remote_sources(
+    store, no_artifact_serving, source, source_type
+):
+    # Whatever type the request claims, a location inside MLflow is never a client-supplied
+    # remote source: it would commit a version with no uploaded or validated content and, for
+    # a path shaped like an upload, one the server would later treat as owned.
+    registration = SkillVersionRegistration(
+        name="reviewer", organization="acme", source=source, source_type=source_type
+    )
+    with pytest.raises(MlflowException, match="names content inside MLflow") as exc:
+        register_skill_version(registration)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    assert version_rows(store) == 0
+
+
+@pytest.mark.parametrize(
+    ("fields", "message"),
+    [
+        ({"source": "https://example.com/acme/skills"}, "Cannot infer the source type"),
+        ({"source": "oci://ghcr.io/a/b:v1", "source_type": "git"}, "contradicts the 'oci' scheme"),
+        ({"source": "git://example.com/r", "source_type": "zip"}, "contradicts the 'git' scheme"),
+        ({"source": "https://example.com/a.zip", "source_type": "svn"}, "Unknown 'source_type'"),
+        ({"source": "https://example.com/a.zip", "ref": "main"}, "'ref' applies to Git"),
+        (
+            {"source": "https://example.com/a.zip", "source_type": "zip", "ref": "main"},
+            "'ref' applies to git sources only",
+        ),
+        (
+            {"source": "https://example.com/a.zip?X-Amz-Signature=presigned-secret"},
+            "credentials",
+        ),
+        # The server never treats a source as a path on its own filesystem.
+        ({"source": "/etc/skills/reviewer"}, "must be a remote git, oci, or zip location"),
+        (
+            {"source": "/etc/skills/reviewer", "source_type": "git"},
+            "must be a remote git, oci, or zip location",
+        ),
+        (
+            {"source": "./skills.zip", "source_type": "zip"},
+            "must be a remote git, oci, or zip location",
+        ),
+        # An oci type skips the path check but the reference itself is still validated.
+        ({"source": "/etc/skills/reviewer", "source_type": "oci"}, "OCI image reference"),
+        ({"source": "oci://ghcr.io/acme/skills:v1#x", "source_type": "oci"}, "invalid tag"),
+        ({"source": "oci://ghcr.io/Acme/skills:v1"}, "invalid repository component"),
+        ({"source": "./reviewer"}, "must be a remote git, oci, or zip location"),
+        ({"source": "C:\\skills\\reviewer"}, "must be a remote git, oci, or zip location"),
+        ({"source": "https://user:pw@example.com/a.zip"}, "publicly accessible"),
+        ({"source": "mlflow-artifacts:/skills/reviewer/x", "source_type": "mlflow"}, "set by the"),
+    ],
+)
+def test_invalid_remote_registration_is_rejected_without_a_version(store, fields, message):
+    with pytest.raises(MlflowException, match=message):
+        register_skill_version(SkillVersionRegistration(name="reviewer", **fields))
+    assert version_rows(store) == 0
+
+
+# --- bulk remote registration -----------------------------------------------------------------
+
+
+@pytest.mark.parametrize(("status", "existing_status"), [("active", "draft"), ("draft", "active")])
+def test_bulk_registration_normalizes_before_one_store_call(
+    store, no_artifact_serving, status, existing_status
+):
+    existing = register_skill_version(
+        SkillVersionRegistration(
+            name="editor",
+            organization="acme",
+            source="https://example.com/r.git",
+            ref="Main",
+            subpath="skills/Editor",
+            digest=_DIGEST,
+            created_by="original-author",
+            status=existing_status,
+        )
+    )
+    registrations = [
+        SkillVersionRegistration(
+            name="reviewer",
+            source=" https://example.com/r.git ",
+            ref="Main",
+            subpath="skills/Reviewer/",
+            digest="cd" * 32,
+            organization="acme",
+            created_by="importer",
+            status=status,
+        ),
+        SkillVersionRegistration(
+            name="editor",
+            source="https://example.com/r.git",
+            source_type="git",
+            ref="Main",
+            subpath="skills/Editor/",
+            digest=_DIGEST,
+            organization="acme",
+            created_by="importer",
+            status=status,
+        ),
+    ]
+    with mock.patch.object(store, "bulk_register_skills", wraps=store.bulk_register_skills) as bulk:
+        versions = bulk_register_skill_versions(registrations)
+
+    bulk.assert_called_once_with(
+        [
+            {
+                "name": name,
+                "source_type": "git",
+                "source": "https://example.com/r.git",
+                "ref": "Main",
+                "subpath": subpath,
+                "digest": digest,
+                "status": status,
+            }
+            for name, subpath, digest in (
+                ("reviewer", "skills/Reviewer", "cd" * 32),
+                ("editor", "skills/Editor", _DIGEST),
+            )
+        ],
+        organization="acme",
+        created_by="importer",
+        expected_parent_exists=None,
+    )
+    reviewer, editor = versions
+    assert reviewer.name == "reviewer"
+    assert reviewer.organization == "acme"
+    assert reviewer.created_by == "importer"
+    assert reviewer.status == status
+    assert reviewer.digest == "cd" * 32
+    assert reviewer.source == GitSource(
+        url="https://example.com/r.git", ref="Main", subpath="skills/Reviewer"
+    )
+    assert editor == existing
+    assert bulk_register_skill_versions(registrations) == versions
+    assert version_rows(store) == 2
+    assert registrations[0].source == " https://example.com/r.git "
+    assert registrations[0].subpath == "skills/Reviewer/"
+
+
+@pytest.mark.parametrize(
+    ("fields", "message"),
+    [
+        ({"name": None}, "'name' must be provided"),
+        ({"digest": "not-a-digest"}, "SHA-256 digest"),
+        ({"source": None}, "must be a remote"),
+        ({"source": "/etc/skills/reviewer"}, "must be a remote"),
+        ({"source": "mlflow-artifacts:/skills/reviewer/x"}, "names content inside MLflow"),
+        ({"source": "oci://ghcr.io/a/b:v1", "source_type": "git"}, "contradicts the 'oci' scheme"),
+        ({"subpath": "../reviewer"}, "Subpath"),
+        ({"organization": "other-org"}, "same organization and authenticated creator"),
+        ({"created_by": "other-author"}, "same organization and authenticated creator"),
+        ({"status": "draft"}, "requires the same status"),
+        ({"status": "deprecated"}, "can be registered as 'active' or 'draft'"),
+        ({"status": "deleted"}, "can be registered as 'active' or 'draft'"),
+    ],
+)
+def test_bulk_registration_validates_all_items_before_store_call(store, fields, message):
+    first = SkillVersionRegistration(
+        name="editor", source="https://example.com/r.git", digest=_DIGEST
+    )
+    second = replace(first, **{"name": "reviewer", **fields})
+    with mock.patch.object(store, "bulk_register_skills", wraps=store.bulk_register_skills) as bulk:
+        with pytest.raises(MlflowException, match=message):
+            bulk_register_skill_versions([first, second])
+    bulk.assert_not_called()
+    assert version_rows(store) == 0
+
+
+@pytest.mark.parametrize(
+    ("fields", "message"),
+    [
+        ({"digest": None}, "Git source and digest"),
+        ({"source_type": "zip", "source": "https://example.com/a.zip"}, "Git source and digest"),
+        ({"name": "editor"}, "Duplicate Skill name"),
+        ({"ref": "different"}, "same Git repository and ref"),
+    ],
+)
+def test_bulk_registration_preserves_store_batch_validation(store, fields, message):
+    first = SkillVersionRegistration(
+        name="editor", source="https://example.com/r.git", digest=_DIGEST
+    )
+    with pytest.raises(MlflowException, match=message):
+        bulk_register_skill_versions([first, replace(first, **{"name": "reviewer", **fields})])
+    assert version_rows(store) == 0
+
+
+def test_bulk_registration_rejects_empty_batch(store):
+    with pytest.raises(MlflowException, match="nonempty list"):
+        bulk_register_skill_versions([])
+    assert version_rows(store) == 0

@@ -120,8 +120,9 @@ def _convert_gemini_function_param_to_mlflow_function_param(
 
 
 def _json_schema_prop_to_param_property(prop: dict[str, object]) -> ParamProperty:
-    # ParamProperty has no `properties` field, so object-typed array items lose their
-    # sub-schema; this is acceptable for the current use case (tool definitions display).
+    # Nested `properties` and `required` are deliberately not converted here, so object-typed
+    # params and array items lose their sub-schema; this is acceptable for the current use
+    # case (tool definitions display).
     kwargs: dict[str, object] = {
         "type": prop.get("type"),
         "description": prop.get("description"),

@@ -71,9 +71,9 @@ class AssessmentSource(_MlflowObject):
     """
 
     source_type: str
-    source_id: str = "default"
+    source_id: str | None = "default"
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         # Perform the standardization on source_type after initialization
         self.source_type = AssessmentSourceType._standardize(self.source_type)
 
@@ -84,7 +84,7 @@ class AssessmentSource(_MlflowObject):
     def from_dictionary(cls, source_dict: dict[str, Any]) -> "AssessmentSource":
         return cls(**source_dict)
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoAssessmentSource:
         source = ProtoAssessmentSource()
         source.source_type = ProtoAssessmentSource.SourceType.Value(self.source_type)
         if self.source_id is not None:
@@ -92,7 +92,7 @@ class AssessmentSource(_MlflowObject):
         return source
 
     @classmethod
-    def from_proto(cls, proto):
+    def from_proto(cls, proto: ProtoAssessmentSource) -> "AssessmentSource":
         return AssessmentSource(
             source_type=AssessmentSourceType.from_proto(proto.source_type),
             source_id=proto.source_id or None,
@@ -157,7 +157,7 @@ class AssessmentSourceType:
     CODE = "CODE"
     _SOURCE_TYPES = [SOURCE_TYPE_UNSPECIFIED, LLM_JUDGE, HUMAN, CODE]
 
-    def __init__(self, source_type: str):
+    def __init__(self, source_type: str) -> None:
         self._source_type = AssessmentSourceType._parse(source_type)
 
     @staticmethod
@@ -182,7 +182,7 @@ class AssessmentSourceType:
             )
         return source_type
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self._source_type
 
     @staticmethod
@@ -190,5 +190,6 @@ class AssessmentSourceType:
         return str(AssessmentSourceType(source_type))
 
     @classmethod
-    def from_proto(cls, proto_source_type) -> str:
-        return ProtoAssessmentSource.SourceType.Name(proto_source_type)
+    def from_proto(cls, proto_source_type: int) -> str:
+        source_type_name: str = ProtoAssessmentSource.SourceType.Name(proto_source_type)
+        return source_type_name

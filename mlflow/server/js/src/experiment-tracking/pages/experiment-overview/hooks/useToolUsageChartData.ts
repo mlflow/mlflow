@@ -15,7 +15,7 @@ import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface ToolUsageDataPoint {
   timestamp: string;
-  [toolName: string]: string | number;
+  values: Record<string, number>;
 }
 
 export interface UseToolUsageChartDataResult {
@@ -89,12 +89,8 @@ export function useToolUsageChartData({ enabled = true }: { enabled?: boolean } 
       const toolCounts = dataByTimestamp.get(timestampMs);
       const dataPoint: ToolUsageDataPoint = {
         timestamp: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
+        values: Object.fromEntries(sortedToolNames.map((toolName) => [toolName, toolCounts?.get(toolName) || 0])),
       };
-
-      // Add count for each tool (0 if not present)
-      for (const toolName of sortedToolNames) {
-        dataPoint[toolName] = toolCounts?.get(toolName) || 0;
-      }
 
       return dataPoint;
     });

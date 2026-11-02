@@ -15,6 +15,8 @@ import traceback
 from contextlib import nullcontext
 
 from mlflow.environment_variables import MLFLOW_WORKSPACE
+from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR
+from mlflow.server.jobs import use_backend_store_for_tracking
 from mlflow.server.jobs.logging_utils import configure_logging_for_jobs
 from mlflow.server.jobs.progress import JobTracker, _set_job_tracker
 from mlflow.server.jobs.utils import (
@@ -23,9 +25,9 @@ from mlflow.server.jobs.utils import (
     MLFLOW_SERVER_JOB_PARAMS_ENV_VAR,
     MLFLOW_SERVER_JOB_RESULT_DUMP_PATH_ENV_VAR,
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_CLASSES_PATH_ENV_VAR,
-    JobResult,
     _exit_when_orphaned,
     _load_function,
+    _SubprocessJobResult,
 )
 from mlflow.telemetry.client import get_telemetry_client, set_telemetry_client
 from mlflow.utils.workspace_context import WorkspaceContext
@@ -73,8 +75,11 @@ def _main():
 
     try:
         with ctx:
+            # Jobs reach the backend store directly; a job container has none and keeps its URI.
+            if os.environ.get(BACKEND_STORE_URI_ENV_VAR):
+                use_backend_store_for_tracking()
             value = function(**params)
-        job_result = JobResult(
+        job_result = _SubprocessJobResult(
             succeeded=True,
             result=json.dumps(value),
         )
@@ -84,7 +89,7 @@ def _main():
             f"Job function {os.environ[MLFLOW_SERVER_JOB_FUNCTION_FULLNAME_ENV_VAR]} failed with "
             f"error:\n{traceback.format_exc()}"
         )
-        JobResult.from_error(e, transient_error_classes).dump(result_dump_path)
+        _SubprocessJobResult.from_error(e, transient_error_classes).dump(result_dump_path)
     finally:
         if job_id:
             _set_job_tracker(None)

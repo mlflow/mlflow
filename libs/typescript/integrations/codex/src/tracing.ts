@@ -46,6 +46,11 @@ import {
   readTranscript,
 } from './transcript.js';
 
+// Keep local: integrations are independent packages and must support older @mlflow/core floors.
+function getCurrentUser(): string {
+  return process.env.USER || process.env.USERNAME || '';
+}
+
 /**
  * Process a Codex notify hook payload and create an MLflow trace.
  *
@@ -94,7 +99,7 @@ export async function processNotify(payload: NotifyPayload): Promise<void> {
     name: 'codex_conversation',
     spanType: SpanType.AGENT,
     inputs: userPrompt,
-    attributes: { model },
+    attributes: { model, 'service.name': 'codex' },
     ...(rootStartNs != null ? { startTimeNs: rootStartNs } : {}),
   });
 
@@ -142,7 +147,7 @@ export async function processNotify(payload: NotifyPayload): Promise<void> {
       trace.info.traceMetadata = {
         ...trace.info.traceMetadata,
         [TraceMetadataKey.TRACE_SESSION]: sessionId,
-        [TraceMetadataKey.TRACE_USER]: process.env.USER ?? '',
+        [TraceMetadataKey.TRACE_USER]: getCurrentUser(),
       };
     }
   }

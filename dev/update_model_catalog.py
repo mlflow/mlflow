@@ -24,7 +24,15 @@ from typing import Any
 SCHEMA_VERSION = "1.0"
 
 # Modes that MLflow catalogs from LiteLLM
-_SUPPORTED_MODES = {"chat", "completion", "embedding", "image_generation", "video_generation"}
+_SUPPORTED_MODES = {
+    "chat",
+    "completion",
+    "embedding",
+    "image_generation",
+    "video_generation",
+    # OpenAI-style Responses API models (e.g. bedrock_mantle's openai.gpt-5.x family)
+    "responses",
+}
 
 # Providers that should be consolidated into a canonical name
 _PROVIDER_CONSOLIDATION = {
@@ -68,6 +76,11 @@ def _extract_base_pricing(info: dict[str, Any]) -> dict[str, Any]:
         pricing["cache_read_per_million_tokens"] = _to_per_million(v)
     if (v := info.get("cache_creation_input_token_cost")) is not None:
         pricing["cache_write_per_million_tokens"] = _to_per_million(v)
+    # 1-hour cache-creation price (Anthropic's extended-TTL cache), distinct from the
+    # default 5-minute cache-creation price above. Billing needs both to charge the
+    # correct rate based on the request's cache duration.
+    if (v := info.get("cache_creation_input_token_cost_above_1hr")) is not None:
+        pricing["cache_write_1hr_per_million_tokens"] = _to_per_million(v)
     return pricing
 
 

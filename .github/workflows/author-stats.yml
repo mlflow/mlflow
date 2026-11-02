@@ -1,0 +1,65 @@
+name: Author stats
+
+on:
+  issues:
+    types: [opened]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+cache-mode: none
+
+jobs:
+  set-fields:
+    if: >-
+      github.repository == 'mlflow/mlflow' &&
+      github.event.issue.user.type == 'User' &&
+      !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Set author stats fields
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          AUTHOR: ${{ github.event.issue.user.login }}
+          # Org issue field IDs (`gh api orgs/mlflow/issue-fields`).
+          REPOS_FIELD_ID: 49034796 # Author PR repos (30d)
+          PRS_FIELD_ID: 49036049 # Author PRs (30d)
+        run: |
+          read -r repos prs < <(
+            gh api graphql \
+              -f login="$AUTHOR" \
+              -f from="$(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)" \
+              -f to="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              -f query='
+                query($login: String!, $from: DateTime!, $to: DateTime!) {
+                  user(login: $login) {
+                    contributionsCollection(from: $from, to: $to) {
+                      pullRequestContributionsByRepository(maxRepositories: 100) {
+                        repository { owner { login } }
+                        contributions { totalCount }
+                      }
+                    }
+                  }
+                }' \
+              | jq -r --arg author "$AUTHOR" '
+                .data.user.contributionsCollection.pullRequestContributionsByRepository
+                | map(select((.repository.owner.login | ascii_downcase) != ($author | ascii_downcase)))
+                | "\(length) \(map(.contributions.totalCount) | add // 0)"'
+          )
+          # POST (not PUT) so other field values on the issue are kept.
+          jq -n \
+            --argjson repos_id "$REPOS_FIELD_ID" --argjson repos "$repos" \
+            --argjson prs_id "$PRS_FIELD_ID" --argjson prs "$prs" \
+            '{issue_field_values: [{field_id: $repos_id, value: $repos}, {field_id: $prs_id, value: $prs}]}' \
+            | gh api -X POST "repos/$REPO/issues/$ISSUE_NUMBER/issue-field-values" --input - > /dev/null

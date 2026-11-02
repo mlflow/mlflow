@@ -255,6 +255,28 @@ describe('useMCPServersListQuery', () => {
     expect(capturedFilter).toBe("tags.env = 'production'");
   });
 
+  it('passes a quoted entity prefix through to the server', async () => {
+    let capturedFilter: string | null = null;
+    mockServer.use(
+      rest.get(getAjaxUrl(BASE_URL), (req, res, ctx) => {
+        capturedFilter = req.url.searchParams.get('filter_string');
+        return res(ctx.json({ mcp_servers: [], next_page_token: undefined }));
+      }),
+    );
+
+    const filter = "`tags`.team = 'platform'";
+    const { result } = renderHook(
+      () => useMCPServersListQuery({ searchFilter: filter, filterActive: false, filterHasEndpoints: false }),
+      { wrapper: createWrapper() },
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(capturedFilter).toBe(filter);
+  });
+
   it('escapes ILIKE wildcards in plain text search', async () => {
     let capturedFilter: string | null = null;
     mockServer.use(

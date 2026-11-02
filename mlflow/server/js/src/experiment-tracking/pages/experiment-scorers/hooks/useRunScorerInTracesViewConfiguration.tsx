@@ -34,6 +34,7 @@ import { TEMPLATE_INSTRUCTIONS_MAP } from '../prompts';
 import { isEmpty } from 'lodash';
 import { useQueryClient } from '@databricks/web-shared/query-client';
 import { invalidateMlflowSearchTracesCache } from '../../../../shared/web-shared/model-trace-explorer/hooks/invalidateMlflowSearchTracesCache';
+import { formatJudgeModelError } from '../utils/judgeModelErrors';
 
 interface UseRunScorerInTracesViewConfigurationReturnType extends ModelTraceExplorerRunJudgeConfig {
   evaluateTraces: (scorer: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => void;
@@ -90,6 +91,7 @@ export const useRunScorerInTracesViewConfiguration = (
       subscribeToScorerFinished as ModelTraceExplorerRunJudgeConfig['subscribeToScorerFinished'],
     reset,
     scope,
+    formatErrorMessage: (errorMessage: string) => formatJudgeModelError({ message: errorMessage }),
   };
 };
 
@@ -445,13 +447,12 @@ const ScorerOption = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   return (
-    <div
-      role="checkbox"
-      aria-checked={selected}
-      css={{ cursor: 'pointer', height: 48, flexShrink: 0 }}
-      onClick={() => onClick(scorer)}
-    >
-      <Checkbox componentId="mlflow.experiment-scorers.traces-view-judge-llm" isChecked={selected}>
+    <div css={{ height: 48, flexShrink: 0 }}>
+      <Checkbox
+        componentId="mlflow.experiment-scorers.traces-view-judge-llm"
+        isChecked={selected}
+        onChange={() => onClick(scorer)}
+      >
         <div css={{ display: 'flex', flexDirection: 'column', marginLeft: theme.spacing.xs }}>
           <Typography.Text css={{ flex: 1 }}>{scorer.name}</Typography.Text>
           <Typography.Hint>
@@ -480,13 +481,12 @@ const TemplateOption = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   return (
-    <div
-      role="checkbox"
-      aria-checked={selected}
-      css={{ cursor: 'pointer', height: 48, flexShrink: 0 }}
-      onClick={() => onClick(template.value)}
-    >
-      <Checkbox componentId="mlflow.experiment-scorers.traces-view-judge-template" isChecked={selected}>
+    <div css={{ height: 48, flexShrink: 0 }}>
+      <Checkbox
+        componentId="mlflow.experiment-scorers.traces-view-judge-template"
+        isChecked={selected}
+        onChange={() => onClick(template.value)}
+      >
         <div css={{ display: 'flex', flexDirection: 'column', marginLeft: theme.spacing.xs }}>
           <Typography.Text css={{ flex: 1 }}>{template.label}</Typography.Text>
           <Typography.Hint>
@@ -605,7 +605,10 @@ const JudgesEvaluationStatusBanner = ({
                     defaultMessage: 'Judge "{label}" failed: {error}',
                     description: 'Banner message shown when a judge run fails',
                   },
-                  { label: evaluation.label, error: evaluation.error.message },
+                  {
+                    label: evaluation.label,
+                    error: formatJudgeModelError(evaluation.error) || evaluation.error.message,
+                  },
                 )}
               />
             </div>

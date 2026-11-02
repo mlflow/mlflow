@@ -16,6 +16,7 @@ describe('providerUtils', () => {
       expect(formatProviderName('vertex_ai')).toBe('Google Vertex AI');
       expect(formatProviderName('azure')).toBe('Azure OpenAI');
       expect(formatProviderName('databricks')).toBe('Databricks');
+      expect(formatProviderName('typesafe')).toBe('TypeSafe');
     });
 
     it('formats unknown providers with title case', () => {

@@ -64,6 +64,8 @@ Environment variables are convenient for one-off overrides, e.g. switching betwe
 MLFLOW_TRACKING_URI=databricks MLFLOW_EXPERIMENT_ID=123456789 codex "..."
 ```
 
+The root span records the OpenTelemetry `service.name` attribute as `codex`. Standard Git repository URL, commit, and branch metadata are collected automatically by `@mlflow/core` when Codex runs inside a Git repository.
+
 ## Documentation 📘
 
 Official documentation for MLflow Typescript SDK can be found [here](https://mlflow.org/docs/latest/genai/tracing/quickstart). For the full Codex CLI tracing guide including troubleshooting and OTLP support, see the [Codex CLI integration page](https://mlflow.org/docs/latest/genai/tracing/integrations/listing/codex).

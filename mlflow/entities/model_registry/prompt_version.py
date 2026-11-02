@@ -211,7 +211,7 @@ class PromptVersion(_ModelRegistryEntity):
         self._creation_time: int = creation_timestamp or 0
 
         # Initialize tags first
-        tags = tags or {}
+        tags = dict(tags or {})
 
         # Determine prompt type and set it
         if isinstance(template, list) and len(template) > 0:

@@ -76,6 +76,10 @@ Span types are a way to categorize spans within a trace. MLflow provides a set o
     | `"PARSER"`     | Represents a parsing operation, transforming text into a structured format.            |
     | `"RERANKER"`   | Represents a re-ranking operation, ordering the retrieved contexts based on relevance. |
     | `"MEMORY"`     | Represents a memory operation, such as persisting context in a long-term memory db.    |
+    | `"WORKFLOW"`   | Represents a broader multi-step workflow that groups related operations together, such as top-level pipeline execution. |
+    | `"TASK"`       | Represents a discrete unit of work within a larger workflow. |
+    | `"GUARDRAIL"`  | Represents a guardrail check, such as validating or filtering inputs/outputs against a safety or policy rule. |
+    | `"EVALUATOR"`  | Represents an evaluation operation, such as a judge scoring a response for quality or compliance. |
     | `"UNKNOWN"`    | A default span type that is used when no other span type is specified.                 |
   </TabItem>
   <TabItem value="usage" label="Setting Span Types">

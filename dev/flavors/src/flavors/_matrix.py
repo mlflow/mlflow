@@ -232,7 +232,7 @@ def get_python_version(
 
 
 def get_runs_on(runs_on: dict[str, str] | None, version: str) -> str:
-    return _get_spec_value(runs_on, version, "ubuntu-latest")
+    return _get_spec_value(runs_on, version, "ubuntu-24.04")
 
 
 def remove_comments(s: str) -> str:
@@ -497,10 +497,17 @@ async def expand_config(
             # Add tracing SDK test with the latest stable version
             if len(versions) > 0 and category == "autologging" and cfg.test_tracing_sdk:
                 version = max(versions)  # Test against the latest stable version
-                # Build install command for `version`, not the last loop iteration's version
+                # Resolve everything for `version`, not the last loop iteration's version
+                # (the minimum version is appended last, so its Python/Java/runner would
+                # otherwise leak into this job).
                 tracing_reqs = [f"{package_info.pip_release}=={version}"]
                 tracing_reqs.extend(get_matched_requirements(cfg.requirements or {}, str(version)))
                 tracing_install = make_pip_install_command(tracing_reqs)
+                tracing_python = get_python_version(
+                    cfg.python, package, str(version), package_info.repo
+                )
+                tracing_runs_on = get_runs_on(cfg.runs_on, str(version))
+                tracing_java = get_java_version(cfg.java, str(version))
                 matrix.add(
                     MatrixItem(
                         name=f"{name}-tracing",
@@ -513,11 +520,11 @@ async def expand_config(
                         run=run.replace("pytest", "pytest --import-mode=importlib"),
                         package=package_info.pip_release,
                         version=version,
-                        java=java,
+                        java=tracing_java,
                         supported=version <= cfg.maximum,
                         free_disk_space=free_disk_space,
-                        python=python,
-                        runs_on=runs_on,
+                        python=tracing_python,
+                        runs_on=tracing_runs_on,
                     )
                 )
 

@@ -10,16 +10,28 @@ import {
 
 // Mock the OTLP proto exporter (Jest can't load its dynamic http imports).
 const exporterCtors: { url?: string; headers?: Record<string, string> }[] = [];
+const exportedSpans: unknown[][] = [];
 jest.mock('@opentelemetry/exporter-trace-otlp-proto', () => ({
   OTLPTraceExporter: jest
     .fn()
     .mockImplementation((cfg: { url?: string; headers?: Record<string, string> }) => {
       exporterCtors.push(cfg);
       return {
-        export: (_spans: unknown[], cb: (r: { code: number }) => void) => cb({ code: 0 }),
+        export: (spans: unknown[], cb: (r: { code: number }) => void) => {
+          exportedSpans.push(spans);
+          cb({ code: 0 });
+        },
         shutdown: () => Promise.resolve(),
       };
     }),
+}));
+
+jest.mock('../../src/core/utils/environment', () => ({
+  resolveEnvironmentMetadata: () => ({
+    'mlflow.source.git.branch': 'main',
+    'mlflow.source.git.commit': 'abc123',
+    'mlflow.source.git.repoURL': 'https://github.com/mlflow/mlflow.git',
+  }),
 }));
 
 import { AuthProvider } from '../../src/auth';
@@ -29,7 +41,11 @@ import {
   DatabricksUCTableSpanProcessor,
 } from '../../src/exporters/uc_table';
 import { updateCurrentTrace } from '../../src/core/api';
-import { TraceMetadataKey, DATABRICKS_UC_TABLE_HEADER } from '../../src/core/constants';
+import {
+  DATABRICKS_UC_TABLE_HEADER,
+  SpanAttributeKey,
+  TraceMetadataKey,
+} from '../../src/core/constants';
 import { InMemoryTraceManager } from '../../src/core/trace_manager';
 import { TraceLocationType, isUcTraceLocation } from '../../src/core/entities/trace_location';
 
@@ -77,6 +93,7 @@ describe('DatabricksUCTableSpanProcessor + Exporter end-to-end', () => {
   beforeEach(() => {
     traceInfoCalls = [];
     exporterCtors.length = 0;
+    exportedSpans.length = 0;
     server.resetHandlers();
     server.use(
       http.post(
@@ -131,12 +148,21 @@ describe('DatabricksUCTableSpanProcessor + Exporter end-to-end', () => {
     context.with(otelTrace.setSpan(context.active(), span), () => {
       updateCurrentTrace({
         tags: { user_id: 'u1', family_id: 'f1', conversation_id: 'c1' },
+        sessionId: 'session-1',
+        user: 'user-1',
       });
     });
 
     const trace = mgr.getTrace(mlflowTraceId)!;
     expect(isUcTraceLocation(trace.info.traceLocation)).toBe(true);
     expect(trace.info.traceMetadata[TraceMetadataKey.SCHEMA_VERSION]).toBe('4');
+    expect(trace.info.traceMetadata).toMatchObject({
+      'mlflow.source.git.branch': 'main',
+      'mlflow.source.git.commit': 'abc123',
+      'mlflow.source.git.repoURL': 'https://github.com/mlflow/mlflow.git',
+      [TraceMetadataKey.TRACE_SESSION]: 'session-1',
+      [TraceMetadataKey.TRACE_USER]: 'user-1',
+    });
     expect(trace.info.tags).toMatchObject({
       user_id: 'u1',
       family_id: 'f1',
@@ -163,5 +189,10 @@ describe('DatabricksUCTableSpanProcessor + Exporter end-to-end', () => {
     expect(exporterCtors).toHaveLength(1);
     expect(exporterCtors[0].url).toBe(`${testHost}/api/2.0/otel/v1/traces`);
     expect(exporterCtors[0].headers?.[DATABRICKS_UC_TABLE_HEADER]).toBe('cat.sch.tbl_otel_spans');
+    const exportedRootSpan = exportedSpans[0][0] as OTelReadableSpan;
+    expect(exportedRootSpan.attributes).toMatchObject({
+      [SpanAttributeKey.SESSION_ID]: JSON.stringify('session-1'),
+      [SpanAttributeKey.USER_ID]: JSON.stringify('user-1'),
+    });
   });
 });

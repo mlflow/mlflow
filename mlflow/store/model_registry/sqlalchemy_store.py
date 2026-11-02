@@ -56,8 +56,8 @@ from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.validation import (
     _REGISTERED_MODEL_ALIAS_LATEST,
-    _validate_model_alias_name,
-    _validate_model_alias_name_reserved,
+    _validate_alias_name,
+    _validate_alias_name_reserved,
     _validate_model_name,
     _validate_model_renaming,
     _validate_model_version,
@@ -600,7 +600,7 @@ class SqlAlchemyStore(AbstractStore):
                     raise MlflowException(
                         f"Invalid attribute name: {key}", error_code=INVALID_PARAMETER_VALUE
                     )
-                if comparator not in ("=", "!=", "LIKE", "ILIKE"):
+                if comparator not in ("=", "!=", "LIKE", "ILIKE", "IN", "NOT IN"):
                     raise MlflowException(
                         f"Invalid comparator for attribute: {comparator}",
                         error_code=INVALID_PARAMETER_VALUE,
@@ -685,9 +685,19 @@ class SqlAlchemyStore(AbstractStore):
                             f"Invalid comparator for attribute {key}: {comparator}",
                             error_code=INVALID_PARAMETER_VALUE,
                         )
+                    if isinstance(value, float):
+                        raise MlflowException.invalid_parameter_value(
+                            f"Invalid value for numeric attribute '{key}': {value!r}"
+                        )
+                    try:
+                        value = int(value)
+                    except (TypeError, ValueError):
+                        raise MlflowException.invalid_parameter_value(
+                            f"Invalid value for numeric attribute '{key}': {value!r}"
+                        )
                 elif (
                     comparator not in SearchModelVersionUtils.VALID_STRING_ATTRIBUTE_COMPARATORS
-                    or (comparator == "IN" and key != "run_id")
+                    or (comparator in ("IN", "NOT IN") and key not in ("run_id", "name"))
                 ):
                     raise MlflowException(
                         f"Invalid comparator for attribute: {comparator}",
@@ -700,16 +710,7 @@ class SqlAlchemyStore(AbstractStore):
                 else:
                     key_name = key
                 attr = getattr(SqlModelVersion, key_name)
-                if comparator == "IN":
-                    # Note: Here the run_id values in databases contain only lower case letters,
-                    # so we already filter out comparison values containing upper case letters
-                    # in `SearchModelUtils._get_value`. This addresses MySQL IN clause case
-                    # in-sensitive issue.
-                    val_filter = attr.in_(value)
-                else:
-                    val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
-                        attr, value
-                    )
+                val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
                 attribute_filters.append(val_filter)
             elif type_ == "tag":
                 if comparator not in ("=", "!=", "LIKE", "ILIKE"):
@@ -1252,6 +1253,7 @@ class SqlAlchemyStore(AbstractStore):
         Returns:
             None
         """
+        version = _validate_model_version(version)
         # currently delete model version still keeps the tags associated with the version
         with self.ManagedSessionMaker(read_only=False) as session:
             updated_time = get_current_time_millis()
@@ -1519,8 +1521,8 @@ class SqlAlchemyStore(AbstractStore):
             None
         """
         _validate_model_name(name)
-        _validate_model_alias_name(alias)
-        _validate_model_alias_name_reserved(alias)
+        _validate_alias_name(alias)
+        _validate_alias_name_reserved(alias)
         version = _validate_model_version(version)
         with self.ManagedSessionMaker(read_only=False) as session:
             # check if model version exists
@@ -1546,7 +1548,7 @@ class SqlAlchemyStore(AbstractStore):
             None
         """
         _validate_model_name(name)
-        _validate_model_alias_name(alias)
+        _validate_alias_name(alias)
         with self.ManagedSessionMaker(read_only=False) as session:
             # check if registered model exists
             self._get_registered_model(session, name)
@@ -1566,11 +1568,13 @@ class SqlAlchemyStore(AbstractStore):
             A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         _validate_model_name(name)
-        _validate_model_alias_name(alias)
+        _validate_alias_name(alias)
 
         if alias.lower() == _REGISTERED_MODEL_ALIAS_LATEST:
             if versions := self.get_latest_versions(name):
-                return versions[0]
+                # `get_latest_versions` returns the latest version of each stage, so the
+                # highest version must be selected explicitly.
+                return max(versions, key=lambda mv: int(mv.version))
             else:
                 raise MlflowException(
                     f"Latest version not found for model {name}.", RESOURCE_DOES_NOT_EXIST

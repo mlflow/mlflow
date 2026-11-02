@@ -3,6 +3,10 @@ import type { Endpoint } from '../types';
 export const GATEWAY_MODEL_PREFIX = 'gateway:/';
 const DATABRICKS_MODEL_PREFIX = 'databricks:/';
 
+export const hasMixedTypeSafeProviders = (models: { provider: string }[]): boolean =>
+  models.some((model) => model.provider === 'typesafe') &&
+  models.some((model) => model.provider && model.provider !== 'typesafe');
+
 export enum ModelProvider {
   GATEWAY = 'gateway',
   DATABRICKS = 'databricks',

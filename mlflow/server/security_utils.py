@@ -6,6 +6,8 @@ security implementations.
 """
 
 import fnmatch
+import ipaddress
+import re
 from urllib.parse import urlparse
 
 from mlflow.environment_variables import (
@@ -37,6 +39,10 @@ CORS_LOCALHOST_HOSTS = ["localhost", "127.0.0.1", "[::1]", "::1"]
 # Private IP range start values for 172.16.0.0/12
 PRIVATE_172_RANGE_START = 16
 PRIVATE_172_RANGE_END = 32
+
+_PRIVATE_IPV6_PATTERNS = ("fc00:*", "fd00:*")
+
+_IPV4_PREFIX_GLOB = re.compile(r"(?:[0-9]+\.)+\*(?:\.(?:[0-9]+|\*))*(?::[0-9*]+)?")
 
 # Regex patterns for localhost origins
 LOCALHOST_ORIGIN_PATTERNS = [
@@ -71,8 +77,7 @@ def get_private_ip_patterns() -> list[str]:
         "192.168.*",
         "10.*",
         *[f"172.{i}.*" for i in range(PRIVATE_172_RANGE_START, PRIVATE_172_RANGE_END)],
-        "fc00:*",
-        "fd00:*",
+        *_PRIVATE_IPV6_PATTERNS,
     ]
 
 
@@ -141,6 +146,49 @@ def is_api_endpoint(path: str) -> bool:
     )
 
 
+def is_health_endpoint(path: str) -> bool:
+    """Check if a path is a health endpoint that is exempt from host validation."""
+    # Imported lazily to keep this shared module's own import graph light.
+    from mlflow.server.handlers import _add_static_prefix
+
+    # Health routes are registered via ``_add_static_prefix``, so under
+    # ``--static-prefix`` they exist only at e.g. ``/mlflow/health``; the bare path
+    # has no route behind it and would only 404. Match the registered form alone so
+    # the exemption is never wider than the routes that exist. ``_add_static_prefix``
+    # is the identity when no prefix is set.
+    return any(path == _add_static_prefix(endpoint) for endpoint in HEALTH_ENDPOINTS)
+
+
+def _is_ipv4_host(host: str) -> bool:
+    try:
+        ipaddress.IPv4Address(host.partition(":")[0])
+    except ValueError:
+        return False
+    return True
+
+
+def _is_ipv6_host(host: str) -> bool:
+    try:
+        address = ipaddress.IPv6Address(host)
+    except ValueError:
+        return False
+    # ``IPv6Address`` accepts any text after ``%`` as a zone ID, such as ``fc00::1%evil.com``.
+    return address.scope_id is None
+
+
+def _matches_host_pattern(host: str, pattern: str) -> bool:
+    if not fnmatch.fnmatch(host, pattern):
+        return False
+    # An IP-shaped pattern such as the default ``10.*`` or ``192.168.*:5000`` is meant to cover IP
+    # addresses, so it doesn't match host names that begin with the same digits.
+    if _IPV4_PREFIX_GLOB.fullmatch(pattern):
+        return _is_ipv4_host(host)
+    # Only the default IPv6 patterns get this check, since ``db:*`` names a host on any port.
+    if pattern in _PRIVATE_IPV6_PATTERNS:
+        return _is_ipv6_host(host)
+    return True
+
+
 def is_allowed_host_header(allowed_hosts: list[str], host: str) -> bool:
     """Validate if the host header matches allowed patterns."""
     if not host:
@@ -151,7 +199,7 @@ def is_allowed_host_header(allowed_hosts: list[str], host: str) -> bool:
         return True
 
     return any(
-        fnmatch.fnmatch(host, allowed) if "*" in allowed else host == allowed
+        _matches_host_pattern(host, allowed) if "*" in allowed else host == allowed
         for allowed in allowed_hosts
     )
 

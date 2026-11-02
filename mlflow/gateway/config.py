@@ -2,9 +2,11 @@ import json
 import logging
 import os
 import pathlib
+import re
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
+from urllib.parse import urlparse
 
 import pydantic
 import yaml
@@ -21,6 +23,7 @@ from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES,
     MLFLOW_GATEWAY_ROUTE_BASE,
     MLFLOW_QUERY_SUFFIX,
+    TYPESAFE_API_BASE_URL,
 )
 from mlflow.gateway.utils import (
     check_configuration_deprecated_fields,
@@ -66,6 +69,7 @@ class Provider(str, Enum):
     VERTEX_AI = "vertex_ai"
     PORTKEY = "portkey"
     SAP_AI_CORE = "sap-ai-core"
+    TYPESAFE = "typesafe"
 
     @classmethod
     def values(cls):
@@ -77,6 +81,15 @@ class TogetherAIConfig(ConfigModel):
 
     @field_validator("togetherai_api_key", mode="before")
     def validate_togetherai_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
+
+
+class TypeSafeConfig(ConfigModel):
+    typesafe_api_key: str
+    typesafe_api_base: str = TYPESAFE_API_BASE_URL
+
+    @field_validator("typesafe_api_key", mode="before")
+    def validate_typesafe_api_key(cls, value):
         return _resolve_api_key_from_input(value)
 
 
@@ -98,6 +111,7 @@ class GatewayRequestType(str, Enum):
     PASSTHROUGH_MODEL_OPENAI_RESPONSES = "passthrough/model/openai-responses"
     PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES = "passthrough/model/anthropic-messages"
     PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT = "passthrough/model/gemini-generateContent"
+    PASSTHROUGH_MODEL_TYPESAFE_SYSTEM_ONE = "passthrough/model/typesafe-systemone"
     RAW_PROXY = "proxy/raw"
 
 
@@ -214,10 +228,25 @@ class PaLMConfig(ConfigModel):
 
 class GeminiConfig(ConfigModel):
     gemini_api_key: str
+    gemini_api_base: str = "https://generativelanguage.googleapis.com/v1beta/models"
 
     @field_validator("gemini_api_key", mode="before")
     def validate_gemini_api_key(cls, value):
         return _resolve_api_key_from_input(value)
+
+    @field_validator("gemini_api_base")
+    def validate_gemini_api_base(cls, value):
+        path = urlparse(value).path.rstrip("/")
+        if path.endswith("/models") and not path.endswith((
+            "/v1/models",
+            "/v1beta/models",
+            "/v1alpha/models",
+        )):
+            raise ValueError(
+                "gemini_api_base ending in /models must include a supported API version "
+                "(/v1, /v1beta, or /v1alpha) immediately before /models."
+            )
+        return value
 
 
 class MlflowModelServingConfig(ConfigModel):
@@ -323,6 +352,28 @@ class VertexAIConfig(ConfigModel):
     vertex_project: str
     vertex_location: str | None = None
     vertex_credentials: str | None = None
+    # Client-supplied `anthropic-beta` values to forward to Claude models. None forwards the
+    # header unchanged, an empty list drops it, and a non-empty list keeps only those values.
+    vertex_anthropic_betas: list[str] | None = None
+
+    @field_validator("vertex_location")
+    def validate_vertex_location(cls, value):
+        # The location becomes part of the request host, so it must be a bare region name.
+        # An empty value falls back to the default location, like None.
+        if value and not re.fullmatch(r"[a-z0-9-]+", value):
+            raise ValueError(
+                "vertex_location must contain only lowercase letters, digits, and hyphens; "
+                f"got {value!r}"
+            )
+        return value
+
+    @field_validator("vertex_anthropic_betas", mode="before")
+    def validate_vertex_anthropic_betas(cls, value):
+        # The server API delivers auth_config values as strings, so accept the list as a
+        # comma-separated string too; "" drops the header.
+        if isinstance(value, str):
+            return [beta for beta in map(str.strip, value.split(",")) if beta]
+        return value
 
 
 class LiteLLMConfig(ConfigModel):

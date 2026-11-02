@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import {
   ensureInitialized,
   getEffectiveTracingConfig,
+  MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
   parseTraceLocation,
   resolveSettingsPath,
   writeTracingSettings,
@@ -49,6 +50,7 @@ describe('Claude Code tracing config', () => {
     delete process.env.MLFLOW_TRACKING_URI;
     delete process.env.MLFLOW_EXPERIMENT_ID;
     delete process.env.MLFLOW_EXPERIMENT_NAME;
+    delete process.env.MLFLOW_ENABLE_ASYNC_TRACE_LOGGING;
     delete process.env.MLFLOW_TRACE_LOCATION;
     delete process.env.MLFLOW_WORKSPACE;
     initMock.mockReset();
@@ -128,6 +130,38 @@ describe('Claude Code tracing config', () => {
       trackingUri: 'http://localhost:5000',
       experimentId: '123',
     });
+  });
+
+  it('enables async trace logging by default', async () => {
+    process.env.MLFLOW_CLAUDE_TRACING_ENABLED = 'true';
+    process.env.MLFLOW_TRACKING_URI = 'http://localhost:5000';
+    process.env.MLFLOW_EXPERIMENT_ID = '123';
+
+    await expect(ensureInitialized()).resolves.toBe(true);
+
+    expect(process.env[MLFLOW_ENABLE_ASYNC_TRACE_LOGGING]).toBe('true');
+  });
+
+  it('respects an explicit async trace logging opt-out', async () => {
+    process.env.MLFLOW_CLAUDE_TRACING_ENABLED = 'true';
+    process.env.MLFLOW_TRACKING_URI = 'http://localhost:5000';
+    process.env.MLFLOW_EXPERIMENT_ID = '123';
+    process.env[MLFLOW_ENABLE_ASYNC_TRACE_LOGGING] = 'false';
+
+    await expect(ensureInitialized()).resolves.toBe(true);
+
+    expect(process.env[MLFLOW_ENABLE_ASYNC_TRACE_LOGGING]).toBe('false');
+  });
+
+  it('preserves explicitly enabled async trace logging', async () => {
+    process.env.MLFLOW_CLAUDE_TRACING_ENABLED = 'true';
+    process.env.MLFLOW_TRACKING_URI = 'http://localhost:5000';
+    process.env.MLFLOW_EXPERIMENT_ID = '123';
+    process.env[MLFLOW_ENABLE_ASYNC_TRACE_LOGGING] = 'true';
+
+    await expect(ensureInitialized()).resolves.toBe(true);
+
+    expect(process.env[MLFLOW_ENABLE_ASYNC_TRACE_LOGGING]).toBe('true');
   });
 
   it('writes and reads workspace in tracing settings', () => {

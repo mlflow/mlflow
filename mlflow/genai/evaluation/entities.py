@@ -15,6 +15,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.constant import InputDatasetColumn, ResultDataFrameColumn
 from mlflow.genai.evaluation.context import get_context
 from mlflow.genai.evaluation.utils import is_none_or_nan
+from mlflow.genai.utils.trace_utils import extract_inputs_from_trace, extract_outputs_from_trace
 
 
 def _assertion_outcome(
@@ -111,12 +112,14 @@ class EvalItem:
             trace: The trace to create an EvalItem from.
 
         Returns:
-            An EvalItem with the trace set and request_id from the trace.
+            An EvalItem with the trace set, request_id from the trace, and the inputs and outputs
+            of the trace's root span, as ``mlflow.genai.evaluate`` takes them from a trace.
+            Unlike ``mlflow.genai.evaluate``, it does not take expectations from the trace.
         """
         return cls(
             request_id=trace.info.trace_id,
-            inputs=None,
-            outputs=None,
+            inputs=extract_inputs_from_trace(trace),
+            outputs=extract_outputs_from_trace(trace),
             expectations=None,
             trace=trace,
         )

@@ -14,6 +14,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetUnit,
     GatewayBudgetPolicy,
 )
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.gateway.budget import (
     calculate_existing_cost_for_windows,
     check_budget_limit,
@@ -25,7 +26,9 @@ from mlflow.gateway.budget_tracker import get_budget_tracker
 from mlflow.gateway.tracing_utils import maybe_traced_gateway_call
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.tracing.constant import CostKey, SpanAttributeKey
+from mlflow.tracking._tracking_service import utils as tracking_utils
 from mlflow.tracking.fluent import _get_experiment_id
+from mlflow.utils.workspace_context import WorkspaceContext
 
 _DELIVER_FUNC = "mlflow.gateway.budget.deliver_webhook"
 
@@ -77,7 +80,7 @@ _NO_TRACE_CONFIG = GatewayEndpointConfig(
 
 def _make_store(policies=None):
     store = MagicMock()
-    store.list_budget_policies.return_value = policies or []
+    store.list_budget_policies_across_workspaces.return_value = policies or []
     store.sum_gateway_trace_cost.return_value = 0.0
     return store
 
@@ -268,14 +271,51 @@ def test_fire_budget_exceeded_webhooks_with_workspace():
 
 def test_maybe_refresh_budget_policies():
     store = MagicMock()
-    store.list_budget_policies.return_value = [_make_policy()]
+    store.list_budget_policies_across_workspaces.return_value = [_make_policy()]
     store.sum_gateway_trace_cost.return_value = 0.0
 
     maybe_refresh_budget_policies(store)
 
-    store.list_budget_policies.assert_called_once()
+    store.list_budget_policies_across_workspaces.assert_called_once()
     tracker = get_budget_tracker()
     assert tracker._get_window_info("bp-test") is not None
+
+
+def test_maybe_refresh_keeps_other_workspaces_windows(tmp_path, db_uri, monkeypatch):
+    # A refresh is triggered by whichever workspace happens to send a request. It must not
+    # drop the windows belonging to the other workspaces.
+    # https://github.com/mlflow/mlflow/issues/26052
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    artifact_dir = tmp_path / "artifacts"
+    artifact_dir.mkdir()
+    store = tracking_utils._get_sqlalchemy_store(db_uri, artifact_dir.as_uri())
+
+    policy_ids = {}
+    for workspace in ("budget-refresh-a", "budget-refresh-b"):
+        with WorkspaceContext(workspace):
+            policy_ids[workspace] = store.create_budget_policy(
+                budget_unit=BudgetUnit.USD,
+                budget_amount=100.0,
+                duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+                target_scope=BudgetTargetScope.WORKSPACE,
+                budget_action=BudgetAction.REJECT,
+            ).budget_policy_id
+
+    tracker = get_budget_tracker()
+    with WorkspaceContext("budget-refresh-a"):
+        maybe_refresh_budget_policies(store)
+    tracker.record_cost(150.0, workspace="budget-refresh-a")
+    assert tracker.should_reject_request(workspace="budget-refresh-a")[0]
+
+    # The refresh interval elapses and the next request happens to come from the other
+    # workspace.
+    tracker.invalidate()
+    with WorkspaceContext("budget-refresh-b"):
+        maybe_refresh_budget_policies(store)
+
+    assert tracker._get_window_info(policy_ids["budget-refresh-b"]) is not None
+    assert tracker._get_window_info(policy_ids["budget-refresh-a"]) is not None
+    assert tracker.should_reject_request(workspace="budget-refresh-a")[0]
 
 
 def test_maybe_refresh_skips_when_not_needed():
@@ -284,7 +324,7 @@ def test_maybe_refresh_skips_when_not_needed():
 
     store = MagicMock()
     maybe_refresh_budget_policies(store)
-    store.list_budget_policies.assert_not_called()
+    store.list_budget_policies_across_workspaces.assert_not_called()
 
 
 # --- calculate_existing_cost_for_windows tests ---
@@ -340,7 +380,7 @@ def test_calculate_existing_cost_zero_spend_excluded():
 
 def test_refresh_triggers_backfill():
     store = MagicMock()
-    store.list_budget_policies.return_value = [_make_policy(budget_amount=100.0)]
+    store.list_budget_policies_across_workspaces.return_value = [_make_policy(budget_amount=100.0)]
     store.sum_gateway_trace_cost.return_value = 25.0
 
     maybe_refresh_budget_policies(store)
@@ -778,3 +818,138 @@ def test_endpoint_budget_overuse_fires_webhook_only_once():
 
 
 # --- per-user (USER scope) tests ---
+
+
+def test_check_budget_limit_user_scope():
+    policy = _make_policy(
+        budget_amount=100.0,
+        budget_action=BudgetAction.REJECT,
+        target_scope=BudgetTargetScope.USER,
+        target_value="alice",
+    )
+    store = _make_store(policies=[policy])
+
+    tracker = get_budget_tracker()
+    tracker.refresh_policies([policy])
+    tracker.record_cost(150.0, username="alice")
+
+    with pytest.raises(fastapi.HTTPException, match="Request rejected"):
+        check_budget_limit(store, _NO_TRACE_CONFIG, username="alice")
+
+    # A different user is not rejected by alice's budget.
+    check_budget_limit(store, _NO_TRACE_CONFIG, username="bob")
+    # Neither is an unauthenticated request.
+    check_budget_limit(store, _NO_TRACE_CONFIG, username=None)
+
+
+@pytest.mark.asyncio
+async def test_budget_on_complete_user_scope_records_for_matching_username():
+    policy = _make_policy(
+        budget_amount=100.0, target_scope=BudgetTargetScope.USER, target_value="alice"
+    )
+    store = _make_store(policies=[policy])
+
+    on_complete = make_budget_on_complete(store, workspace=None, username="alice")
+    await maybe_traced_call(_provider_with_cost, _make_endpoint_config(), on_complete)
+
+    window = get_budget_tracker()._get_window_info("bp-test")
+    assert window.cumulative_spend == pytest.approx(0.075)
+
+
+@pytest.mark.asyncio
+async def test_budget_on_complete_user_scope_ignores_other_username():
+    policy = _make_policy(
+        budget_amount=100.0, target_scope=BudgetTargetScope.USER, target_value="alice"
+    )
+    store = _make_store(policies=[policy])
+
+    on_complete = make_budget_on_complete(store, workspace=None, username="bob")
+    await maybe_traced_call(_provider_with_cost, _make_endpoint_config(), on_complete)
+
+    window = get_budget_tracker()._get_window_info("bp-test")
+    assert window.cumulative_spend == 0.0
+
+
+@pytest.mark.asyncio
+async def test_budget_on_complete_user_webhook_includes_username():
+    with patch(_DELIVER_FUNC) as mock_deliver:
+        policy = _make_policy(
+            budget_amount=0.05,
+            budget_action=BudgetAction.ALERT,
+            target_scope=BudgetTargetScope.USER,
+            target_value="alice",
+        )
+        store = _make_store(policies=[policy])
+
+        on_complete = make_budget_on_complete(store, workspace=None, username="alice")
+        await maybe_traced_call(_provider_with_cost, _make_endpoint_config(), on_complete)
+
+        mock_deliver.assert_called_once()
+        payload = mock_deliver.call_args.kwargs["payload"]
+        assert payload["target_scope"] == "USER"
+        assert payload["target_value"] == "alice"
+
+
+def test_calculate_existing_cost_user_scope_passes_username():
+    tracker = get_budget_tracker()
+    windows = tracker.refresh_policies([
+        _make_policy(target_scope=BudgetTargetScope.USER, target_value="alice", budget_amount=100.0)
+    ])
+
+    store = MagicMock()
+    store.sum_gateway_trace_cost.return_value = 30.0
+
+    existing_spend = calculate_existing_cost_for_windows(store, windows)
+    tracker.backfill_spend(existing_spend)
+
+    store.sum_gateway_trace_cost.assert_called_once()
+    assert store.sum_gateway_trace_cost.call_args.kwargs["username"] == "alice"
+    assert store.sum_gateway_trace_cost.call_args.kwargs["workspace"] is None
+    assert tracker._get_window_info("bp-test").cumulative_spend == 30.0
+
+
+def test_check_budget_limit_user_scope_zero_budget_rejects_first_request():
+    policy = _make_policy(
+        budget_amount=0.0,
+        budget_action=BudgetAction.REJECT,
+        target_scope=BudgetTargetScope.USER,
+        target_value="alice",
+    )
+    store = _make_store(policies=[policy])
+
+    # A $0 REJECT budget blocks alice with no spend recorded at all.
+    with pytest.raises(fastapi.HTTPException, match="Request rejected"):
+        check_budget_limit(store, _NO_TRACE_CONFIG, username="alice")
+    # Other users are still allowed.
+    check_budget_limit(store, _NO_TRACE_CONFIG, username="bob")
+
+
+@pytest.mark.asyncio
+async def test_user_budget_overshoots_crossing_request_then_rejects_next():
+    # A budget is enforced *before* each request and cost is recorded *after* the
+    # response completes (token usage is only known then). So the request that
+    # crosses the limit is allowed to finish (overshoot), and the *next* request
+    # from the same user is rejected.
+    policy = _make_policy(
+        budget_amount=0.05,
+        budget_action=BudgetAction.REJECT,
+        target_scope=BudgetTargetScope.USER,
+        target_value="alice",
+    )
+    store = _make_store(policies=[policy])
+
+    # Request 1: nothing spent yet → pre-request check passes → request completes,
+    # recording $0.075 (overshooting the $0.05 limit).
+    check_budget_limit(store, _NO_TRACE_CONFIG, username="alice")
+    on_complete = make_budget_on_complete(store, workspace=None, username="alice")
+    await maybe_traced_call(_provider_with_cost, _make_endpoint_config(), on_complete)
+
+    tracker = get_budget_tracker()
+    assert tracker._get_window_info("bp-test").cumulative_spend == pytest.approx(0.075)
+
+    # Request 2 from alice is now rejected.
+    with pytest.raises(fastapi.HTTPException, match="Request rejected"):
+        check_budget_limit(store, _NO_TRACE_CONFIG, username="alice")
+
+    # A different user is unaffected by alice's overspend.
+    check_budget_limit(store, _NO_TRACE_CONFIG, username="bob")

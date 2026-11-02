@@ -16,6 +16,17 @@ const ENV_KEYS = [
   'MLFLOW_TRACKING_AUTH',
 ] as const;
 
+const DATABRICKS_ENV_KEYS = [
+  'DATABRICKS_AUTH_TYPE',
+  'DATABRICKS_CLI_PATH',
+  'DATABRICKS_CLIENT_ID',
+  'DATABRICKS_CLIENT_SECRET',
+  'DATABRICKS_CONFIG_FILE',
+  'DATABRICKS_CONFIG_PROFILE',
+  'DATABRICKS_HOST',
+  'DATABRICKS_TOKEN',
+] as const;
+
 describe('createAuthProvider', () => {
   describe('OSS auth (createOssAuth)', () => {
     const savedEnv: Record<string, string | undefined> = {};
@@ -126,6 +137,78 @@ describe('createAuthProvider', () => {
       const provider = createAuthProvider({ trackingUri: 'http://localhost:5000' });
 
       expect(provider.getDatabricksToken()).toBeUndefined();
+    });
+  });
+
+  describe('Databricks auth', () => {
+    const savedEnv: Record<string, string | undefined> = {};
+    let tmpDir: string;
+
+    beforeEach(() => {
+      for (const key of DATABRICKS_ENV_KEYS) {
+        savedEnv[key] = process.env[key];
+        delete process.env[key];
+      }
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mlflow-databricks-auth-test-'));
+    });
+
+    afterEach(() => {
+      for (const key of DATABRICKS_ENV_KEYS) {
+        if (savedEnv[key] === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = savedEnv[key];
+        }
+      }
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('passes the tracking URI profile to Databricks CLI authentication', async () => {
+      const profile = 'test-profile';
+      const host = 'https://test-workspace.cloud.databricks.com';
+      const configPath = path.join(tmpDir, 'databrickscfg');
+      const cliPath = path.join(tmpDir, 'databricks');
+      const callsPath = path.join(tmpDir, 'cli-calls.jsonl');
+
+      fs.writeFileSync(
+        configPath,
+        `[${profile}]\nhost = ${host}\nauth_type = databricks-cli\n`,
+        'utf-8',
+      );
+      fs.writeFileSync(
+        cliPath,
+        `#!/usr/bin/env node
+const fs = require('node:fs');
+const args = process.argv.slice(2);
+fs.appendFileSync(${JSON.stringify(callsPath)}, JSON.stringify(args) + '\\n');
+if (args.length === 1 && args[0] === 'version') {
+  console.log('0.296.0');
+} else if (args.join(' ') === 'auth token --profile ${profile}') {
+  console.log(JSON.stringify({ access_token: 'profile-token', expiry: '2099-01-01T00:00:00Z' }));
+} else {
+  process.exitCode = 1;
+}
+`,
+        { encoding: 'utf-8', mode: 0o755 },
+      );
+      process.env.DATABRICKS_CLI_PATH = cliPath;
+
+      const provider = createAuthProvider({
+        trackingUri: `databricks://${profile}`,
+        databricksConfigPath: configPath,
+      });
+
+      expect(provider.getHost()).toBe(host);
+      await expect(provider.getHeadersProvider()()).resolves.toMatchObject({
+        authorization: 'Bearer profile-token',
+      });
+      const calls = fs
+        .readFileSync(callsPath, 'utf-8')
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line) as string[]);
+      expect(calls).toContainEqual(['auth', 'token', '--profile', profile]);
+      expect(calls).not.toContainEqual(['auth', 'token', '--host', host]);
     });
   });
 

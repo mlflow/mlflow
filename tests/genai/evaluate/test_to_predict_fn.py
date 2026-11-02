@@ -599,3 +599,21 @@ def test_to_predict_fn_copies_trace_when_experiment_differs(
         assert trace_info.trace_id != sample_rag_trace.info.trace_id
         mock_tracing_client._upload_trace_data.assert_called_once()
         mock_get_experiment_id.assert_called_once()
+
+
+def test_to_predict_fn_records_endpoint_uri(mock_deploy_client):
+    mock_deploy_client.get_endpoint.return_value = {"name": "support-agent"}
+
+    predict_fn = to_predict_fn("endpoints:/support-agent")
+
+    assert predict_fn._mlflow_agent_uri == "endpoints:/support-agent"
+
+
+def test_to_predict_fn_records_app_uri():
+    mock_workspace_client = mock.MagicMock()
+    mock_workspace_client.apps.get.return_value.url = "https://agent-app.databricksapps.com"
+
+    with mock.patch("databricks.sdk.WorkspaceClient", return_value=mock_workspace_client):
+        predict_fn = to_predict_fn("apps:/agent-app")
+
+    assert predict_fn._mlflow_agent_uri == "apps:/agent-app"

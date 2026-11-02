@@ -25,10 +25,49 @@ const getBaseUrl = (): string => {
   return 'http://localhost:5000';
 };
 
-type ApiVariant = 'chat-completions' | 'openai-responses' | 'anthropic-messages' | 'gemini-generate';
+type ApiVariant =
+  | 'chat-completions'
+  | 'openai-responses'
+  | 'anthropic-messages'
+  | 'gemini-generate'
+  | 'typesafe-systemone';
+
+const getTypeSafeRequest = (endpointName: string) => ({
+  model: endpointName,
+  state: {
+    inputs: { question: 'What is the capital of France?' },
+    outputs: 'Paris.',
+  },
+  questions: {
+    evaluation: {
+      type: 'noul',
+      instructions: 'Does the answer correctly address the question?',
+      criteria: { true: 'The answer is correct and relevant.', false: 'The answer is incorrect or irrelevant.' },
+    },
+  },
+});
 
 const getCodeExamples = (base: string, endpointName: string, variant: ApiVariant): { curl: string; python: string } => {
   switch (variant) {
+    case 'typesafe-systemone':
+      return {
+        curl: `# Evaluate an answer with Jev. The TypeSafe API key is configured on the endpoint.
+
+curl -X POST ${base}/gateway/typesafe/v1/systemone \\
+  -H "Content-Type: application/json" \\
+  -d '${getDefaultBody(endpointName, variant)}'`,
+        python: `# Evaluate an answer with Jev. The TypeSafe API key is configured on the endpoint.
+
+import requests
+
+response = requests.post(
+    "${base}/gateway/typesafe/v1/systemone",
+    json=${JSON.stringify(getTypeSafeRequest(endpointName), null, 4).replace(/\n/g, '\n    ')},
+    timeout=60,
+)
+response.raise_for_status()
+print(response.json()["answers"]["evaluation"])`,
+      };
     case 'chat-completions':
       return {
         curl: `${UNIFIED_COMMENT}
@@ -164,6 +203,8 @@ const getPassthroughForProvider = (provider: string | undefined): PassthroughInf
       return { variant: 'anthropic-messages', label: 'Anthropic Messages' };
     case 'gemini':
       return { variant: 'gemini-generate', label: 'Gemini Generate Content' };
+    case 'typesafe':
+      return { variant: 'typesafe-systemone', label: 'TypeSafe System One' };
     default:
       return null;
   }
@@ -179,6 +220,8 @@ const getRequestUrl = (base: string, endpointName: string, variant: ApiVariant):
       return `${base}/gateway/anthropic/v1/messages`;
     case 'gemini-generate':
       return `${base}/gateway/gemini/v1beta/models/${endpointName}:generateContent`;
+    case 'typesafe-systemone':
+      return `${base}/gateway/typesafe/v1/systemone`;
   }
 };
 
@@ -196,6 +239,8 @@ const getDefaultBody = (endpointName: string, variant: ApiVariant): string => {
       );
     case 'gemini-generate':
       return JSON.stringify({ contents: [{ parts: [{ text: 'How are you?' }] }] }, null, 2);
+    case 'typesafe-systemone':
+      return JSON.stringify(getTypeSafeRequest(endpointName), null, 2);
   }
 };
 
@@ -308,7 +353,7 @@ interface StarterCodeCardProps {
 
 export const StarterCodeCard = ({ endpointName, provider }: StarterCodeCardProps) => {
   const { theme } = useDesignSystemTheme();
-  const [activeApi, setActiveApi] = useState<ApiVariant>('chat-completions');
+  const [selectedApi, setSelectedApi] = useState<ApiVariant>('chat-completions');
   const [language, setLanguage] = useState<'curl' | 'python'>('curl');
   const [isTryItOpen, setIsTryItOpen] = useState(false);
   const [tryItResetKey, setTryItResetKey] = useState(0);
@@ -321,14 +366,15 @@ export const StarterCodeCard = ({ endpointName, provider }: StarterCodeCardProps
   const passthrough = useMemo(() => getPassthroughForProvider(provider), [provider]);
 
   const apiOptions = useMemo(() => {
-    const options: { value: ApiVariant; label: string }[] = [
-      { value: 'chat-completions', label: 'MLflow Chat Completions' },
-    ];
+    const options: { value: ApiVariant; label: string }[] =
+      provider === 'typesafe' ? [] : [{ value: 'chat-completions', label: 'MLflow Chat Completions' }];
     if (passthrough) {
       options.push({ value: passthrough.variant, label: passthrough.label });
     }
     return options;
-  }, [passthrough]);
+  }, [passthrough, provider]);
+
+  const activeApi = apiOptions.some((option) => option.value === selectedApi) ? selectedApi : apiOptions[0].value;
 
   const base = useMemo(() => getBaseUrl(), []);
   const examples = useMemo(() => getCodeExamples(base, endpointName, activeApi), [base, endpointName, activeApi]);
@@ -368,7 +414,7 @@ export const StarterCodeCard = ({ endpointName, provider }: StarterCodeCardProps
           name="starter-code-api"
           componentId="mlflow.gateway.edit-endpoint.starter-code.api"
           value={activeApi}
-          onChange={({ target: { value } }) => setActiveApi(value as ApiVariant)}
+          onChange={({ target: { value } }) => setSelectedApi(value as ApiVariant)}
         >
           {apiOptions.map((opt) => (
             <SegmentedControlButton key={opt.value} value={opt.value}>

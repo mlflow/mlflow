@@ -48,6 +48,8 @@ import { KeyValueViewer } from '../../custom-view/catalog-primitives/KeyValueVie
 import { Markdown } from '../../custom-view/catalog-primitives/Markdown';
 import { StatCard } from '../../custom-view/catalog-primitives/StatCard';
 import { Text } from '../../custom-view/catalog-primitives/Text';
+import { TraceAudio } from '../../custom-view/catalog-primitives/TraceAudio';
+import { TraceImage } from '../../custom-view/catalog-primitives/TraceImage';
 import type { AgentNode } from '../../custom-view/agent/buildAgentPrompt';
 import { validateAndPrepareMessages, validateTemplate } from '../../custom-view/agent/validateA2uiMessages';
 import { resolveTemplate } from '../../custom-view/resolveTemplate';
@@ -124,11 +126,18 @@ const CustomViewGeneratingSkeleton = () => {
  * trace-agnostic BOUND TEMPLATE once (via render_custom_view -> onSpec); cycling
  * traces re-binds it host-side with no further LLM call.
  */
+export interface ModelTraceExplorerCustomViewProps {
+  modelTraceInfo: ModelTrace['info'];
+  enableFeedback?: boolean;
+  // Who feedback written from the view is attributed to; defaults to `getUser()`.
+  feedbackSourceId?: string;
+}
+
 export const ModelTraceExplorerCustomView = ({
   modelTraceInfo,
-}: {
-  modelTraceInfo: ModelTrace['info'];
-}): JSX.Element => {
+  enableFeedback = true,
+  feedbackSourceId,
+}: ModelTraceExplorerCustomViewProps): JSX.Element => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
@@ -154,6 +163,8 @@ export const ModelTraceExplorerCustomView = ({
           Icon,
           StatCard,
           Markdown,
+          TraceImage,
+          TraceAudio,
           AssessmentBoard,
           AssessmentCard,
           KeyValueViewer,
@@ -223,6 +234,9 @@ export const ModelTraceExplorerCustomView = ({
   // `action.context` comes from an untrusted A2UI client action, so every field
   // is read defensively rather than asserted via a cast.
   const handleStageFeedback = (action: A2uiClientAction) => {
+    if (!enableFeedback) {
+      return;
+    }
     const context = action.context ?? {};
     const name = typeof context['name'] === 'string' && context['name'] ? context['name'] : undefined;
     if (!name) {
@@ -261,6 +275,9 @@ export const ModelTraceExplorerCustomView = ({
   // rating for the rationale to be logged with it. Rejects when nothing could
   // be submitted OR every attempt failed so the button can surface an error.
   const submitStagedFeedback = async (formId?: string): Promise<{ submitted: number }> => {
+    if (!enableFeedback) {
+      throw new Error('Feedback cannot be submitted in read-only mode.');
+    }
     const surfaceId = activeView ? surfaceIdForView(activeView) : undefined;
     const surfaceBuffer = surfaceId ? pendingFeedbackRef.current.get(surfaceId) : undefined;
     if (!surfaceId || !surfaceBuffer || surfaceBuffer.size === 0) {
@@ -293,7 +310,7 @@ export const ModelTraceExplorerCustomView = ({
           assessment: {
             assessment_name: entry.name,
             trace_id: traceId,
-            source: { source_type: 'HUMAN', source_id: getUser() ?? '' },
+            source: { source_type: 'HUMAN', source_id: feedbackSourceId ?? getUser() ?? '' },
             ...(entry.spanId ? { span_id: entry.spanId } : {}),
             ...feedbackValue,
             ...(hasRationale ? { rationale: entry.rationale } : {}),
@@ -800,7 +817,7 @@ export const ModelTraceExplorerCustomView = ({
   // mutable buffer ref.
   const hasStagedFeedback = useCallback(
     (formId?: string) => {
-      if (!surfaceId) {
+      if (!enableFeedback || !surfaceId) {
         return false;
       }
       const surfaceBuffer = pendingFeedbackRef.current.get(surfaceId);
@@ -818,7 +835,7 @@ export const ModelTraceExplorerCustomView = ({
       return false;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- pendingFeedbackVersion is the reactive signal for the mutable ref.
-    [surfaceId, pendingFeedbackVersion],
+    [enableFeedback, surfaceId, pendingFeedbackVersion],
   );
 
   // Returns the staged value/rationale for a feedback entry so a control can
@@ -865,7 +882,8 @@ export const ModelTraceExplorerCustomView = ({
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm, height: '100%', minHeight: 0 }}>
-      {activeView && (
+      {/* Every toolbar action needs persistence; read-only hosts would otherwise get an empty padded row. */}
+      {activeView && cv.canPersist && (
         <div
           css={{
             display: 'flex',
@@ -1155,8 +1173,9 @@ export const ModelTraceExplorerCustomView = ({
             {surface && (
               <FeedbackStatusProvider
                 value={{
-                  enabled: true,
+                  enabled: enableFeedback,
                   traceId,
+                  sourceId: feedbackSourceId,
                   hasStagedFeedback,
                   submitStagedFeedback,
                   getStagedFeedbackValue,

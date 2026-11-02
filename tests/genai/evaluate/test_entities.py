@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 
+import mlflow
 from mlflow.entities.dataset_record_source import DatasetRecordSource, DatasetRecordSourceType
 from mlflow.genai.evaluation.entities import EvalItem, EvaluationResult
 from mlflow.genai.judges import CategoricalRating
@@ -189,3 +190,29 @@ def test_sparse_columns_are_skipped():
     ])
     result = EvaluationResult(run_id="r1", metrics={}, result_df=df)
     assert result.passed, result.reason
+
+
+def test_eval_item_from_trace_takes_inputs_and_outputs_from_the_root_span():
+    with mlflow.start_span(name="root") as span:
+        span.set_inputs({"question": "q"})
+        span.set_outputs({"answer": "a"})
+    trace = mlflow.get_trace(span.trace_id)
+
+    eval_item = EvalItem.from_trace(trace)
+
+    assert eval_item.request_id == trace.info.trace_id
+    assert eval_item.inputs == {"question": "q"}
+    assert eval_item.outputs == {"answer": "a"}
+    assert eval_item.trace is trace
+
+
+def test_eval_item_from_trace_without_spans_has_no_inputs_or_outputs():
+    with mlflow.start_span(name="root") as span:
+        span.set_inputs({"question": "q"})
+    trace = mlflow.get_trace(span.trace_id)
+    trace.data.spans.clear()
+
+    eval_item = EvalItem.from_trace(trace)
+
+    assert eval_item.inputs is None
+    assert eval_item.outputs is None

@@ -1,7 +1,21 @@
 import { describe, it, expect } from '@jest/globals';
-import { generateCopyName } from './gatewayUtils';
+import { generateCopyName, hasMixedTypeSafeProviders } from './gatewayUtils';
 
 describe('gatewayUtils', () => {
+  describe('hasMixedTypeSafeProviders', () => {
+    it.each<[string[], boolean]>([
+      [[], false],
+      [['typesafe'], false],
+      [['typesafe', 'typesafe'], false],
+      [['typesafe', ''], false],
+      [['openai', 'anthropic'], false],
+      [['typesafe', 'openai'], true],
+      [['anthropic', 'typesafe'], true],
+    ])('checks provider compatibility for %j', (providers, expected) => {
+      expect(hasMixedTypeSafeProviders(providers.map((provider) => ({ provider })))).toBe(expected);
+    });
+  });
+
   describe('generateCopyName', () => {
     it('generates a basic copy name', () => {
       expect(generateCopyName('my-endpoint', [])).toBe('my-endpoint-copy-1');

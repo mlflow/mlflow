@@ -6,6 +6,7 @@ import pytest
 
 from mlflow.entities.dataset_record import DatasetRecord
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.tracking.dbmodels.models import SqlEvaluationDatasetRecord
 from mlflow.utils import mlflow_tags
 
@@ -263,6 +264,83 @@ def test_dataset_search_comprehensive(store):
 
     with pytest.raises(MlflowException, match="Invalid attribute key"):
         store.search_datasets(filter_string="invalid_field = 'value'")
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "expected_names"),
+    [
+        ("name IN ('dataset-a', 'dataset-c')", ["dataset-a", "dataset-c"]),
+        ("name IN ('dataset-a')", ["dataset-a"]),
+        ("name IN ('missing')", []),
+        (
+            "name IN ('dataset-a', 'dataset-c') AND tags.stage = 'validation'",
+            ["dataset-a"],
+        ),
+    ],
+)
+def test_dataset_search_name_in(store, filter_string, expected_names):
+    for name, stage in [
+        ("dataset-a", "validation"),
+        ("dataset-b", "validation"),
+        ("dataset-c", "training"),
+    ]:
+        store.create_dataset(name=name, tags={"stage": stage})
+
+    results = store.search_datasets(filter_string=filter_string, order_by=["name ASC"])
+    assert [dataset.name for dataset in results] == expected_names
+
+
+@pytest.mark.parametrize("comparator", ["=", "!=", "LIKE", "ILIKE"])
+@pytest.mark.parametrize("names", ["('dataset-a')", "('dataset-a', 'dataset-b')"])
+def test_dataset_search_name_list_requires_in(store, comparator, names):
+    with pytest.raises(
+        MlflowException,
+        match="List values for 'name' are only supported with the IN comparator",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.search_datasets(filter_string=f"name {comparator} {names}")
+
+
+def test_dataset_search_name_in_with_experiment_filter_and_pagination(store):
+    exp_a, exp_b = _create_experiments(store, ["exp-a", "exp-b"])
+    for name, experiment_id in [
+        ("dataset-a", exp_a),
+        ("dataset-b", exp_a),
+        ("dataset-c", exp_a),
+        ("dataset-d", exp_a),
+        ("dataset-e", exp_b),
+    ]:
+        store.create_dataset(name=name, experiment_ids=[experiment_id])
+
+    search_args = {
+        "experiment_ids": [exp_a],
+        "filter_string": "name IN ('dataset-a', 'dataset-c', 'dataset-d', 'dataset-e')",
+        "max_results": 2,
+        "order_by": ["name ASC"],
+    }
+    page1 = store.search_datasets(**search_args)
+    assert [dataset.name for dataset in page1] == ["dataset-a", "dataset-c"]
+    assert page1.token is not None
+
+    page2 = store.search_datasets(**search_args, page_token=page1.token)
+    assert [dataset.name for dataset in page2] == ["dataset-d"]
+    assert page2.token is None
+
+
+def test_dataset_search_rejects_non_integer_time_filter(store):
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid value for numeric attribute 'created_time': '1.5'",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.search_datasets(filter_string="created_time > 1.5")
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid comparator for numeric attribute: LIKE",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.search_datasets(filter_string="created_time LIKE 1")
 
 
 def test_dataset_schema_and_profile_computation(store):

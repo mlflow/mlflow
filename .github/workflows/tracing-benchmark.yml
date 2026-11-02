@@ -25,10 +25,11 @@ defaults:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   benchmark:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       # contents: write is required for the action to push to gh-pages on master.
@@ -69,7 +70,7 @@ jobs:
       # https://raw.githubusercontent.com/mlflow/mlflow/gh-pages/dev/benchmarks/tracing/data.js
       - name: Publish benchmark result
         if: github.event_name == 'push'
-        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
+        uses: benchmark-action/github-action-benchmark@4322e5726e6334590d251fc4f92bec0efafc45dc # v1.22.2
         with:
           name: MLflow Tracing Benchmark
           tool: customSmallerIsBetter

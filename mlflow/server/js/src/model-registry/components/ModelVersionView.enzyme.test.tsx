@@ -24,8 +24,15 @@ import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme'
 import { DesignSystemContainer } from '../../common/components/DesignSystemContainer';
 import { Services } from '../services';
 import { shouldShowModelsNextUI } from '../../common/utils/FeatureUtils';
+import { useGetLoggedModelQuery } from '../../experiment-tracking/hooks/logged-models/useGetLoggedModelQuery';
 
 jest.spyOn(Services, 'searchRegisteredModels').mockResolvedValue({});
+jest.mock('../../experiment-tracking/hooks/logged-models/useGetLoggedModelQuery', () => ({
+  ...jest.requireActual<typeof import('../../experiment-tracking/hooks/logged-models/useGetLoggedModelQuery')>(
+    '../../experiment-tracking/hooks/logged-models/useGetLoggedModelQuery',
+  ),
+  useGetLoggedModelQuery: jest.fn(),
+}));
 jest.mock('../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../common/utils/FeatureUtils')>('../../common/utils/FeatureUtils'),
   shouldShowModelsNextUI: jest.fn(),
@@ -244,5 +251,47 @@ describe('ModelVersionView', () => {
     expect(wrapper.find('[data-testid="descriptions-item-label"]').at(6).text()).toBe('Stage (deprecated)');
     const linkedRun = wrapper.find('[data-testid="copied-from-link"]').at(0);
     expect(linkedRun.html()).toContain(ModelRegistryRoutes.getModelVersionPageRoute('Model B', '2'));
+  });
+  test('should render source model description when registered from a logged model', () => {
+    jest.mocked(shouldShowModelsNextUI).mockImplementation(() => true);
+    const loggedModelId = 'm-1bc96c322a8441c7a5af8de3df2cc4ce';
+    const props = {
+      ...minimalProps,
+      modelVersion: mockModelVersionDetailed(
+        'Model A',
+        1,
+        Stages.NONE,
+        ModelVersionStatus.READY,
+        [],
+        undefined,
+        'b99a0fc567ae4d32994392c800c0b6ce',
+        'richard@example.com',
+        `models:/${loggedModelId}`,
+      ),
+    };
+    jest.mocked(useGetLoggedModelQuery).mockReturnValue({
+      data: { info: { model_id: loggedModelId, experiment_id: 'experiment_id', name: 'iris_model' } },
+      isLoading: false,
+      isFetching: false,
+      error: null,
+      refetch: jest.fn(),
+    } as ReturnType<typeof useGetLoggedModelQuery>);
+    wrapper = createComponentInstance(props);
+    const descriptionLabels = wrapper
+      .find('[data-testid="descriptions-item-label"]')
+      .hostNodes()
+      .map((label: any) => label.text());
+    expect(descriptionLabels).toContain('Source Run');
+    expect(descriptionLabels).toContain('Source Model');
+    const sourceModelItem = wrapper
+      .find('[data-testid="descriptions-item"]')
+      .hostNodes()
+      .filterWhere(
+        (item: any) => item.find('[data-testid="descriptions-item-label"]').hostNodes().text() === 'Source Model',
+      );
+    expect(sourceModelItem).toHaveLength(1);
+    expect(sourceModelItem.find('[data-testid="source-model-link"]').hostNodes().prop('href')).toContain(
+      TrackingRouters.getExperimentLoggedModelDetailsPageRoute('experiment_id', loggedModelId),
+    );
   });
 });

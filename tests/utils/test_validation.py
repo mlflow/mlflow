@@ -1,4 +1,6 @@
 import copy
+import json
+import re
 import socket
 import time
 from unittest.mock import patch
@@ -12,25 +14,31 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.utils.os import is_windows
 from mlflow.utils.validation import (
     MAX_TAG_VAL_LENGTH,
+    _find_destination_keys,
     _is_numeric,
     _parse_trace_archival_duration_config,
+    _validate_alias_name,
+    _validate_alias_name_reserved,
     _validate_batch_log_data,
     _validate_batch_log_limits,
     _validate_db_type_string,
     _validate_experiment_artifact_location,
     _validate_experiment_artifact_location_length,
     _validate_experiment_name,
+    _validate_gateway_api_base,
+    _validate_gateway_secret_auth_config,
+    _validate_gateway_secret_value,
+    _validate_icon_url,
     _validate_list_param,
-    _validate_mcp_icon_url,
     _validate_metric_name,
-    _validate_model_alias_name,
-    _validate_model_alias_name_reserved,
     _validate_model_name,
     _validate_model_renaming,
     _validate_param_name,
     _validate_public_https_url,
     _validate_run_id,
     _validate_tag_name,
+    _validate_text_field,
+    _validate_third_party_scorer_data,
     _validate_webhook_url,
     path_not_unique,
 )
@@ -58,6 +66,9 @@ BAD_METRIC_OR_PARAM_NAMES = [
     "\\",
     "./",
     "/./",
+    "\n",
+    "foo\n",
+    "\n\n",
 ]
 
 GOOD_ALIAS_NAMES = [
@@ -90,6 +101,8 @@ BAD_ALIAS_NAMES = [
     "a" * 256,
     None,
     "$dgs",
+    "\n",
+    "foo\n",
 ]
 
 
@@ -161,12 +174,8 @@ def test_validate_metric_name_good(metric_name):
 
 
 def _bad_parameter_pattern(name):
-    if name == "\\":
-        return r"Invalid value \"\\\\\" for parameter"  # Manually handle the backslash case
-    elif name == "*****":
-        return r"Invalid value \"\*\*\*\*\*\" for parameter"
-    else:
-        return f'Invalid value "{name}" for parameter'
+    # Messages use json.dumps(value); escape for pytest match regex.
+    return f"Invalid value {re.escape(json.dumps(name))} for parameter"
 
 
 @pytest.mark.parametrize("metric_name", BAD_METRIC_OR_PARAM_NAMES)
@@ -217,22 +226,42 @@ def test_validate_tag_name_bad(tag_name):
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        "\n",
+        "foo\n",
+        "\n\n",
+        "a\n",
+    ],
+)
+@pytest.mark.parametrize(
+    "validator",
+    [_validate_param_name, _validate_metric_name, _validate_tag_name],
+    ids=["param", "metric", "tag"],
+)
+def test_validate_name_rejects_trailing_newline(validator, name):
+    with pytest.raises(MlflowException, match=r"Invalid value") as e:
+        validator(name)
+    assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
 @pytest.mark.parametrize("alias_name", GOOD_ALIAS_NAMES)
-def test_validate_model_alias_name_good(alias_name):
-    _validate_model_alias_name(alias_name)
+def test_validate_alias_name_good(alias_name):
+    _validate_alias_name(alias_name)
 
 
 @pytest.mark.parametrize("alias_name", BAD_ALIAS_NAMES)
-def test_validate_model_alias_name_bad(alias_name):
+def test_validate_alias_name_bad(alias_name):
     with pytest.raises(MlflowException, match="alias name") as e:
-        _validate_model_alias_name(alias_name)
+        _validate_alias_name(alias_name)
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
 @pytest.mark.parametrize("alias_name", ["latest", "LATEST", "Latest", "v123", "V1"])
-def test_validate_model_alias_name_reserved(alias_name):
+def test_validate_alias_name_reserved(alias_name):
     with pytest.raises(MlflowException, match="reserved") as e:
-        _validate_model_alias_name_reserved(alias_name)
+        _validate_alias_name_reserved(alias_name)
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
@@ -255,7 +284,7 @@ def test_validate_run_id_good(run_id):
     _validate_run_id(run_id)
 
 
-@pytest.mark.parametrize("run_id", ["a/bc" * 8, "", "a" * 400, "*" * 5])
+@pytest.mark.parametrize("run_id", ["a/bc" * 8, "", "a" * 400, "*" * 5, "abc\n", "a" * 10 + "\n"])
 def test_validate_run_id_bad(run_id):
     with pytest.raises(MlflowException, match=_bad_parameter_pattern(run_id)) as e:
         _validate_run_id(run_id)
@@ -354,12 +383,14 @@ def test_validate_experiment_artifact_location_bad(location):
         _validate_experiment_artifact_location(location)
 
 
-@pytest.mark.parametrize("experiment_name", ["validstring", b"test byte string".decode("utf-8")])
+@pytest.mark.parametrize(
+    "experiment_name", ["validstring", " valid name ", b"test byte string".decode("utf-8")]
+)
 def test_validate_experiment_name_good(experiment_name):
     _validate_experiment_name(experiment_name)
 
 
-@pytest.mark.parametrize("experiment_name", ["", 12, 12.7, None, {}, []])
+@pytest.mark.parametrize("experiment_name", ["", " ", "\t\n", "\u2003", 12, 12.7, None, {}, []])
 def test_validate_experiment_name_bad(experiment_name):
     with pytest.raises(MlflowException, match="Invalid experiment name"):
         _validate_experiment_name(experiment_name)
@@ -498,6 +529,9 @@ def test_validate_webhook_url_rejects_invalid_input(url, expected_match):
         ("https://cgnat.internal/hook", "100.64.0.1"),
         ("https://ipv6-loopback.internal/hook", "::1"),
         ("https://ipv6-private.internal/hook", "fc00::1"),
+        ("https://nat64-metadata.internal/hook", "64:ff9b::169.254.169.254"),
+        ("https://ipv6-mapped-cgnat.internal/hook", "::ffff:100.64.0.1"),
+        ("https://6to4-private.internal/hook", "2002:a9fe:a9fe::"),
     ],
 )
 def test_validate_webhook_url_rejects_private_ips(url, resolved_ip):
@@ -690,25 +724,25 @@ def test_validate_public_https_url_rejects_if_any_resolved_address_is_private():
             _validate_public_https_url("https://internal.corp/icon.png", field_name="Icon URL")
 
 
-def test_validate_mcp_icon_url_allowlist_accepts_exact_match(monkeypatch):
+def test_validate_icon_url_allowlist_accepts_exact_match(monkeypatch):
     monkeypatch.setenv("MLFLOW_ICON_URL_ALLOWED_DOMAINS", "example.com")
     with patch(
         "mlflow.utils.validation.socket.getaddrinfo",
         side_effect=_mock_getaddrinfo_by_host({"example.com": "8.8.8.8"}),
     ):
-        _validate_mcp_icon_url("https://example.com/icon.png")
+        _validate_icon_url("https://example.com/icon.png")
 
 
-def test_validate_mcp_icon_url_allowlist_accepts_wildcard_match(monkeypatch):
+def test_validate_icon_url_allowlist_accepts_wildcard_match(monkeypatch):
     monkeypatch.setenv("MLFLOW_ICON_URL_ALLOWED_DOMAINS", "*.example.com")
     with patch(
         "mlflow.utils.validation.socket.getaddrinfo",
         side_effect=_mock_getaddrinfo_by_host({"cdn.example.com": "8.8.8.8"}),
     ):
-        _validate_mcp_icon_url("https://cdn.example.com/icon.png")
+        _validate_icon_url("https://cdn.example.com/icon.png")
 
 
-def test_validate_mcp_icon_url_allowlist_rejects_unlisted_host(monkeypatch):
+def test_validate_icon_url_allowlist_rejects_unlisted_host(monkeypatch):
     monkeypatch.setenv(
         "MLFLOW_ICON_URL_ALLOWED_DOMAINS",
         "assets.example.com,*.cdn.example.com",
@@ -718,49 +752,49 @@ def test_validate_mcp_icon_url_allowlist_rejects_unlisted_host(monkeypatch):
         side_effect=_mock_getaddrinfo_by_host({"evil.example.com": "8.8.8.8"}),
     ):
         with pytest.raises(MlflowException, match="not in the allowed domain list"):
-            _validate_mcp_icon_url("https://evil.example.com/icon.png")
+            _validate_icon_url("https://evil.example.com/icon.png")
 
 
-def test_validate_mcp_icon_url_allow_private_ips_accepts_localhost(monkeypatch):
+def test_validate_icon_url_allow_private_ips_accepts_localhost(monkeypatch):
     monkeypatch.setenv("MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS", "true")
-    _validate_mcp_icon_url("https://localhost/icon.png")
+    _validate_icon_url("https://localhost/icon.png")
 
 
-def test_validate_mcp_icon_url_allowed_schemes_accepts_public_http(monkeypatch):
+def test_validate_icon_url_allowed_schemes_accepts_public_http(monkeypatch):
     monkeypatch.setenv("MLFLOW_ICON_URL_ALLOWED_SCHEMES", "http,https")
     with patch(
         "mlflow.utils.validation.socket.getaddrinfo",
         side_effect=_mock_getaddrinfo("8.8.8.8"),
     ):
-        _validate_mcp_icon_url("http://example.com/icon.png")
+        _validate_icon_url("http://example.com/icon.png")
 
 
-def test_validate_mcp_icon_url_allow_private_ips_does_not_bypass_allowlist(monkeypatch):
+def test_validate_icon_url_allow_private_ips_does_not_bypass_allowlist(monkeypatch):
     monkeypatch.setenv("MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS", "true")
     monkeypatch.setenv("MLFLOW_ICON_URL_ALLOWED_DOMAINS", "assets.example.com")
     with pytest.raises(MlflowException, match="allowed domain list"):
-        _validate_mcp_icon_url("https://localhost/icon.png")
+        _validate_icon_url("https://localhost/icon.png")
 
 
-def test_validate_mcp_icon_url_allow_private_ips_and_allowlist_accepts_localhost(monkeypatch):
+def test_validate_icon_url_allow_private_ips_and_allowlist_accepts_localhost(monkeypatch):
     monkeypatch.setenv("MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS", "true")
     monkeypatch.setenv("MLFLOW_ICON_URL_ALLOWED_DOMAINS", "localhost")
-    _validate_mcp_icon_url("https://localhost/icon.png")
+    _validate_icon_url("https://localhost/icon.png")
 
 
-def test_validate_mcp_icon_url_allowed_schemes_keeps_basic_shape_checks(monkeypatch):
+def test_validate_icon_url_allowed_schemes_keeps_basic_shape_checks(monkeypatch):
     monkeypatch.setenv("MLFLOW_ICON_URL_ALLOWED_SCHEMES", "http,https")
     with pytest.raises(MlflowException, match="must not include embedded credentials"):
-        _validate_mcp_icon_url("http://user:pass@example.com/icon.png")
+        _validate_icon_url("http://user:pass@example.com/icon.png")
 
 
-def test_validate_mcp_icon_url_rejects_hostname_resolving_to_private_ip():
+def test_validate_icon_url_rejects_hostname_resolving_to_private_ip():
     with patch(
         "mlflow.utils.validation.socket.getaddrinfo",
         side_effect=_mock_getaddrinfo("10.0.0.1"),
     ):
         with pytest.raises(MlflowException, match="must not resolve to a non-public"):
-            _validate_mcp_icon_url("https://internal.corp/icon.png")
+            _validate_icon_url("https://internal.corp/icon.png")
 
 
 @pytest.mark.parametrize("invalid_name", ["my/model", "model:v1", "name/with:both"])
@@ -781,3 +815,373 @@ def test_validate_model_renaming_invalid_chars(invalid_name):
         check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
     ):
         _validate_model_renaming(invalid_name)
+
+
+@pytest.mark.parametrize(
+    "ipv6_transition_ip",
+    [
+        "64:ff9b::169.254.169.254",
+        "::ffff:100.64.0.1",
+        "2002:a9fe:a9fe::",
+    ],
+)
+def test_validate_public_https_url_rejects_ipv6_transition_addresses_with_private_ipv4(
+    ipv6_transition_ip: str,
+):
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        side_effect=_mock_getaddrinfo(ipv6_transition_ip),
+    ) as mock_getaddrinfo:
+        with pytest.raises(MlflowException, match="must not resolve to a non-public"):
+            _validate_public_https_url("https://example.com/icon.png", field_name="Icon URL")
+        mock_getaddrinfo.assert_called()
+
+
+@pytest.mark.parametrize(
+    "public_ipv6",
+    [
+        "2001:4860:4860::8888",
+        "::ffff:8.8.8.8",
+    ],
+)
+def test_validate_public_https_url_accepts_public_ipv6_addresses(public_ipv6: str):
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        side_effect=_mock_getaddrinfo(public_ipv6),
+    ) as mock_getaddrinfo:
+        _validate_public_https_url("https://example.com/icon.png", field_name="Icon URL")
+        mock_getaddrinfo.assert_called()
+
+
+# -- _validate_gateway_api_base / _validate_gateway_secret_auth_config tests --
+
+
+@pytest.mark.parametrize(
+    ("url", "expected_match"),
+    [
+        (123, "Gateway secret api_base must be a string"),
+        ("", "Gateway secret api_base cannot be empty"),
+        ("http://api.example.com/v1", "Invalid Gateway secret api_base scheme"),
+        ("file:///etc/passwd", "Invalid Gateway secret api_base scheme"),
+        ("gopher://example.com", "Invalid Gateway secret api_base scheme"),
+        ("https://", "Gateway secret api_base must include a hostname"),
+        ("https://user:pass@api.example.com/v1", "must not include embedded credentials"),
+    ],
+)
+def test_validate_gateway_api_base_rejects_invalid_input(url, expected_match):
+    with pytest.raises(MlflowException, match=expected_match) as exc:
+        _validate_gateway_api_base(url)
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.parametrize(
+    ("url", "resolved_ip"),
+    [
+        ("https://127.0.0.1/v1", "127.0.0.1"),
+        ("https://localhost:11434/v1", "127.0.0.1"),
+        ("https://[::1]/v1", "::1"),
+        ("https://internal.corp/v1", "10.0.0.1"),
+        ("https://internal.corp/v1", "192.168.1.1"),
+        ("https://169.254.169.254/latest/meta-data/", "169.254.169.254"),
+        ("https://metadata.internal/v1", "169.254.169.254"),
+        ("https://nat64-metadata.internal/v1", "64:ff9b::169.254.169.254"),
+    ],
+)
+def test_validate_gateway_api_base_rejects_private_ips(url, resolved_ip):
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        side_effect=_mock_getaddrinfo(resolved_ip),
+    ):
+        with pytest.raises(MlflowException, match="must not resolve to a non-public"):
+            _validate_gateway_api_base(url)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://2130706433/v1",
+        "https://127.1/v1",
+        "https://0177.0.0.1/v1",
+        "https://0/v1",
+        "https://127.000.000.001/v1",
+    ],
+)
+def test_validate_gateway_api_base_rejects_noncanonical_ip_literals(url):
+    # Legacy numeric spellings are parsed differently by getaddrinfo and by socket.connect
+    # (0177.0.0.1 is public 177.0.0.1 to the former and octal loopback to the latter), so
+    # they are refused outright rather than resolved.
+    with patch("mlflow.utils.validation.socket.getaddrinfo") as mock_getaddrinfo:
+        with pytest.raises(MlflowException, match="not a canonical IP address literal"):
+            _validate_gateway_api_base(url)
+    mock_getaddrinfo.assert_not_called()
+
+
+def test_validate_gateway_api_base_accepts_public_https_target():
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        side_effect=_mock_getaddrinfo("8.8.8.8"),
+    ):
+        _validate_gateway_api_base("https://my-resource.openai.azure.com")
+
+
+def test_validate_gateway_api_base_allowed_schemes_env_var(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES", "http,https")
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        side_effect=_mock_getaddrinfo("8.8.8.8"),
+    ):
+        _validate_gateway_api_base("http://api.example.com/v1")
+        # Non-HTTP schemes stay rejected even with http enabled.
+        with pytest.raises(MlflowException, match="Invalid Gateway secret api_base scheme"):
+            _validate_gateway_api_base("ftp://api.example.com/v1")
+
+
+def test_validate_gateway_api_base_allow_private_ips_env_var(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS", "true")
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        side_effect=_mock_getaddrinfo("127.0.0.1"),
+    ) as mock_getaddrinfo:
+        _validate_gateway_api_base("https://localhost:11434/v1")
+    mock_getaddrinfo.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "auth_config",
+    [
+        None,
+        {},
+        {"auth_mode": "api_key"},
+        {"api_base": ""},
+        {"api_base": "   "},
+    ],
+)
+def test_validate_gateway_secret_auth_config_skips_when_api_base_unset(auth_config):
+    with patch("mlflow.utils.validation.socket.getaddrinfo") as mock_getaddrinfo:
+        _validate_gateway_secret_auth_config(auth_config)
+    mock_getaddrinfo.assert_not_called()
+
+
+def test_validate_gateway_secret_auth_config_normalizes_api_base():
+    assert _validate_gateway_secret_auth_config(None) is None
+    assert _validate_gateway_secret_auth_config({}) is None
+    # Blank means "use the provider default", so the key is dropped rather than stored.
+    assert _validate_gateway_secret_auth_config({"auth_mode": "api_key", "api_base": "   "}) == {
+        "auth_mode": "api_key"
+    }
+    assert _validate_gateway_secret_auth_config({"api_base": ""}) == {}
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        side_effect=_mock_getaddrinfo("8.8.8.8"),
+    ):
+        assert _validate_gateway_secret_auth_config({
+            "api_base": " https://api.example.com/v1 "
+        }) == {"api_base": "https://api.example.com/v1"}
+
+
+@pytest.mark.parametrize("secret_value", [None, {}, {"api_key": "sk-x", "api_version": "1"}])
+def test_validate_gateway_secret_value_accepts_secret_keys(secret_value):
+    _validate_gateway_secret_value(secret_value)
+
+
+def test_validate_gateway_secret_value_rejects_api_base():
+    with pytest.raises(MlflowException, match="secret_value must not contain 'api_base'") as exc:
+        _validate_gateway_secret_value({"api_key": "sk-x", "api_base": "https://169.254.169.254/"})
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.parametrize("key", ["base_url", "model_list", "fallbacks", "custom_llm_provider"])
+def test_validate_gateway_secret_auth_config_rejects_litellm_destination_aliases(key):
+    # The LiteLLM provider spreads auth_config into litellm kwargs, where these keys steer the
+    # request past the api_base check.
+    with pytest.raises(MlflowException, match=f"auth_config must not contain '{key}'") as exc:
+        _validate_gateway_secret_auth_config({"api_key": "x", key: "http://169.254.169.254/"})
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.parametrize("key", ["base_url", "model_list", "fallbacks", "custom_llm_provider"])
+def test_validate_gateway_secret_value_rejects_litellm_destination_aliases(key):
+    with pytest.raises(MlflowException, match=f"secret_value must not contain '{key}'"):
+        _validate_gateway_secret_value({"api_key": "x", key: "http://169.254.169.254/"})
+
+
+def _trulens_scorer(kwargs):
+    return {
+        "name": "poc",
+        "third_party_scorer_data": {
+            "module": "mlflow.genai.scorers.trulens",
+            "class": "Coherence",
+            "metric_name": "Coherence",
+            "model": "openai:/gpt-4o",
+            "kwargs": kwargs,
+        },
+    }
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"api_base": "http://169.254.169.254/", "api_key": "canary"},
+        {"base_url": "http://169.254.169.254/"},
+        {"custom_llm_provider": "openai"},
+        # trulens' LiteLLM provider forwards `completion_kwargs` into every litellm call.
+        {"completion_kwargs": {"api_base": "http://169.254.169.254/"}},
+        # deepeval wrappers forward `model_kwargs` to the underlying model.
+        {"threshold": 0.5, "model_kwargs": {"base_url": "http://10.0.0.1/"}},
+        {"model_list": [{"litellm_params": {"api_base": "http://10.0.0.1/"}}]},
+    ],
+)
+def test_validate_third_party_scorer_data_rejects_destination_kwargs(kwargs):
+    with pytest.raises(
+        MlflowException, match="third_party_scorer_data.kwargs must not contain"
+    ) as exc:
+        _validate_third_party_scorer_data(_trulens_scorer(kwargs))
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.parametrize(
+    "serialized_scorer",
+    [
+        {
+            "name": "ensemble",
+            "ensemble_scorer_data": {
+                "ensemble_fn": "majority_vote",
+                "scorers": [
+                    {"name": "builtin", "builtin_scorer_class": "Safety"},
+                    _trulens_scorer({"api_base": "http://169.254.169.254/"}),
+                ],
+            },
+        },
+        {
+            "name": "nested-ensemble",
+            "ensemble_scorer_data": {
+                "ensemble_fn": "majority_vote",
+                "scorers": [
+                    {
+                        "name": "inner",
+                        "ensemble_scorer_data": {
+                            "ensemble_fn": "majority_vote",
+                            "scorers": [_trulens_scorer({"base_url": "http://10.0.0.1/"})],
+                        },
+                    }
+                ],
+            },
+        },
+        {
+            "name": "memalign",
+            "memory_augmented_judge_data": {
+                "base_judge": _trulens_scorer({"api_base": "http://169.254.169.254/"}),
+                "memories": [],
+            },
+        },
+    ],
+)
+def test_validate_third_party_scorer_data_rejects_wrapped_scorers(serialized_scorer):
+    with pytest.raises(MlflowException, match="third_party_scorer_data.kwargs must not contain"):
+        _validate_third_party_scorer_data(serialized_scorer)
+
+
+def test_validate_third_party_scorer_data_rejects_non_object_kwargs():
+    # `dict([["api_base", url]])` yields the same mapping as a JSON object, so the list shape
+    # must not slip past the key search.
+    with pytest.raises(MlflowException, match="kwargs must be a JSON object, got list") as exc:
+        _validate_third_party_scorer_data(
+            _trulens_scorer([["api_base", "http://169.254.169.254/"]])
+        )
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ([["api_base", "http://169.254.169.254/"]], {"api_base"}),
+        ([["base_url", "http://a/"], ["fallbacks", []]], {"base_url", "fallbacks"}),
+        ([["api_base", {"custom_llm_provider": "x"}]], {"api_base", "custom_llm_provider"}),
+        ([[1, 2], ["api_base"], ["api_base", "u", "extra"], "api_base"], set()),
+    ],
+)
+def test_find_destination_keys_handles_pair_lists_at_root(value, expected):
+    assert _find_destination_keys(value) == expected
+
+
+def test_validate_third_party_scorer_data_rejects_pair_list_in_nested_options():
+    with pytest.raises(MlflowException, match="must not contain 'api_base'"):
+        _validate_third_party_scorer_data(
+            _trulens_scorer({"completion_kwargs": [["api_base", "http://169.254.169.254/"]]})
+        )
+
+
+def test_validate_third_party_scorer_data_names_every_offending_key():
+    with pytest.raises(MlflowException, match="'api_base', 'base_url'"):
+        _validate_third_party_scorer_data(
+            _trulens_scorer({
+                "api_base": "http://a/",
+                "completion_kwargs": {"base_url": "http://b/"},
+            })
+        )
+
+
+@pytest.mark.parametrize(
+    "serialized_scorer",
+    [
+        _trulens_scorer({}),
+        _trulens_scorer(None),
+        _trulens_scorer({"threshold": 0.7, "temperature": 0.0}),
+        {"name": "builtin", "builtin_scorer_class": "Safety"},
+        {"name": "not-a-dict", "third_party_scorer_data": "x"},
+        {
+            "name": "ensemble",
+            "ensemble_scorer_data": {
+                "ensemble_fn": "majority_vote",
+                "scorers": [
+                    {"name": "builtin", "builtin_scorer_class": "Safety"},
+                    _trulens_scorer({"threshold": 0.7}),
+                ],
+            },
+        },
+        {"name": "pairs-of-numbers", "third_party_scorer_data": {"kwargs": {"x": [[1, 2]]}}},
+    ],
+)
+def test_validate_third_party_scorer_data_accepts_benign_payloads(serialized_scorer):
+    _validate_third_party_scorer_data(serialized_scorer)
+
+
+def test_validate_gateway_secret_auth_config_rejects_private_api_base():
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        side_effect=_mock_getaddrinfo("169.254.169.254"),
+    ):
+        with pytest.raises(MlflowException, match="must not resolve to a non-public"):
+            _validate_gateway_secret_auth_config({
+                "auth_mode": "api_key",
+                "api_base": "https://169.254.169.254/latest",
+            })
+
+
+def test_validate_gateway_secret_auth_config_accepts_public_api_base():
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        side_effect=_mock_getaddrinfo("8.8.8.8"),
+    ):
+        _validate_gateway_secret_auth_config({
+            "auth_mode": "api_key",
+            "api_base": "https://api.example.com/v1",
+        })
+
+
+@pytest.mark.parametrize("value", [None, "", "a" * 5])
+def test_validate_text_field_accepts_values_within_limit(value):
+    _validate_text_field("Field", value, 5)
+
+
+@pytest.mark.parametrize(
+    ("value", "match"),
+    [
+        ("a" * 6, "'Field' exceeds the maximum length of 5"),
+        ("a\x00b", "'Field' cannot contain NUL"),
+    ],
+)
+def test_validate_text_field_rejects_values_the_database_would_refuse(value, match):
+    with pytest.raises(MlflowException, match=match) as exc:
+        _validate_text_field("Field", value, 5)
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)

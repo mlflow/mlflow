@@ -1,4 +1,6 @@
 import { jest, describe, beforeEach, test, expect } from '@jest/globals';
+import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
+import { ArtifactPreviewTooLargeError } from '../../../common/utils/ArtifactUtils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem } from '../../../common/utils/TestUtils.react18';
@@ -16,6 +18,28 @@ const renderView = (props = {}) =>
 
 describe('ShowArtifactMarkdownView', () => {
   beforeEach(async () => jest.clearAllMocks());
+
+  test.each([
+    ['preview size', new ArtifactPreviewTooLargeError(), /Maximum file size for preview: 50 MiB/],
+    ['server mode', new ErrorWrapper({ artifacts_presigned_only: true }, 403), /Reload this page to continue/],
+    [
+      'artifact origin',
+      new ErrorWrapper({ external_artifact_service: true, message: 'Use a same-origin artifact service.' }, 403),
+      /Use a same-origin artifact service/,
+    ],
+    [
+      'artifact root',
+      new ErrorWrapper(
+        { invalid_artifact_root: true, message: 'The artifact root URI cannot be decoded safely.' },
+        400,
+      ),
+      /The artifact root URI cannot be decoded safely/,
+    ],
+  ])('shows actionable %s guidance', async (_name, error, guidance) => {
+    mockFetch.mockRejectedValue(error);
+    renderView();
+    expect(await screen.findByText(guidance as RegExp)).toBeInTheDocument();
+  });
 
   test('shows skeleton while loading', () => {
     mockFetch.mockReturnValue(new Promise(() => {}));

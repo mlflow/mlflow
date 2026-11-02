@@ -45,9 +45,199 @@ import {
   createTraceV4SerializedLocation,
   parseTraceV4SerializedLocation,
   getRootSpanTimeToFirstTokenMs,
+  tryDeserializeAttribute,
+  buildModelTraceComparisonForest,
+  getModelTraceTimelineRange,
+  pairModelTraceSpanTrees,
 } from './ModelTraceExplorer.utils';
 import { SPAN_ATTRIBUTE_TIME_TO_FIRST_TOKEN_MS_KEY } from '../constants';
 import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
+
+const createComparisonNode = (key: string, title: string, children: ModelTraceSpanNode[] = []): ModelTraceSpanNode => ({
+  key,
+  title,
+  children,
+  attributes: {},
+  start: 0,
+  end: 1,
+  type: ModelSpanType.CHAIN,
+  assessments: [],
+  traceId: 'test',
+});
+
+describe('buildModelTraceComparisonForest', () => {
+  it('keeps baseline order and appends candidate-only spans to the combined tree', () => {
+    const baselineShared = createComparisonNode('baseline-shared', 'shared');
+    const candidateShared = createComparisonNode('candidate-shared', 'shared');
+    const baselineRoot = createComparisonNode('baseline-root', 'root', [
+      baselineShared,
+      createComparisonNode('baseline-only', 'removed'),
+    ]);
+    const candidateRoot = createComparisonNode('candidate-root', 'root', [
+      candidateShared,
+      createComparisonNode('candidate-only', 'added'),
+    ]);
+
+    const result = buildModelTraceComparisonForest([baselineRoot], [candidateRoot]);
+
+    expect(result.topLevelNodes).toHaveLength(1);
+    expect(result.topLevelNodes[0].children?.map((node) => node.title)).toEqual(['shared', 'removed', 'added']);
+    expect(result.comparisonNodeMap['baseline-root']).toBe(candidateRoot);
+    expect(result.comparisonNodeMap['baseline-shared']).toBe(candidateShared);
+    expect(result.comparisonNodeRoleMap['baseline-only']).toBe('baseline');
+    expect(result.comparisonNodeRoleMap['candidate-only']).toBe('candidate');
+  });
+
+  it('remaps one-sided children to their displayed parent IDs', () => {
+    const baselineRoot = createComparisonNode('baseline-root', 'root');
+    const candidateOnlyChild = createComparisonNode('candidate-child', 'candidate-only');
+    const candidateOnlyGrandchild = createComparisonNode('candidate-grandchild', 'candidate-grandchild');
+    candidateOnlyChild.children = [candidateOnlyGrandchild];
+    const candidateRoot = createComparisonNode('candidate-root', 'root', [candidateOnlyChild]);
+
+    const result = buildModelTraceComparisonForest([baselineRoot], [candidateRoot]);
+    const displayedChild = result.topLevelNodes[0].children?.[0];
+
+    expect(displayedChild?.parentId).toBe('baseline-root');
+    expect(displayedChild?.children?.[0].parentId).toBe('candidate-child');
+    expect(result.topLevelNodes[0].parentId).toBeUndefined();
+  });
+
+  it.each([
+    {
+      description: 'candidate insertion between matching inputs',
+      baselineInputs: ['alpha', 'beta'],
+      candidateInputs: ['alpha', 'gamma', 'beta'],
+      expectedRows: ['alpha↔alpha', '—↔gamma', 'beta↔beta'],
+      expectedPairs: ['alpha↔alpha', 'beta↔beta'],
+    },
+    {
+      description: 'candidate removal between matching inputs',
+      baselineInputs: ['alpha', 'gamma', 'beta'],
+      candidateInputs: ['alpha', 'beta'],
+      expectedRows: ['alpha↔alpha', 'gamma↔—', 'beta↔beta'],
+      expectedPairs: ['alpha↔alpha', 'beta↔beta'],
+    },
+    {
+      description: 'changed inputs before a later matching input',
+      baselineInputs: ['gamma', 'beta'],
+      candidateInputs: ['alpha-timeout', 'alpha-success', 'beta'],
+      expectedRows: ['gamma↔alpha-timeout', '—↔alpha-success', 'beta↔beta'],
+      expectedPairs: ['gamma↔alpha-timeout', 'beta↔beta'],
+    },
+    {
+      description: 'reordered matching inputs',
+      baselineInputs: ['alpha', 'beta'],
+      candidateInputs: ['beta', 'alpha'],
+      expectedRows: ['—↔beta', 'alpha↔alpha', 'beta↔—'],
+      expectedPairs: ['alpha↔alpha'],
+    },
+    {
+      description: 'no matching inputs',
+      baselineInputs: ['gamma', 'delta'],
+      candidateInputs: ['alpha', 'beta', 'charlie'],
+      expectedRows: ['gamma↔alpha', 'delta↔beta', '—↔charlie'],
+      expectedPairs: ['gamma↔alpha', 'delta↔beta'],
+    },
+  ])(
+    'aligns repeated sibling spans with $description',
+    ({ baselineInputs, candidateInputs, expectedRows, expectedPairs }) => {
+      const baselineNodes = baselineInputs.map((inputs, index) => {
+        const node = createComparisonNode(`baseline-${index}`, 'search');
+        node.inputs = inputs;
+        return node;
+      });
+      const candidateNodes = candidateInputs.map((inputs, index) => {
+        const node = createComparisonNode(`candidate-${index}`, 'search');
+        node.inputs = inputs;
+        return node;
+      });
+
+      const forest = buildModelTraceComparisonForest(baselineNodes, candidateNodes);
+      const displayedRows = forest.topLevelNodes.map((displayNode) => {
+        const displayKey = String(displayNode.key);
+        if (forest.comparisonNodeRoleMap[displayKey] === 'candidate') {
+          return `—↔${String(displayNode.inputs)}`;
+        }
+        const candidateNode = forest.comparisonNodeMap[displayKey];
+        return `${String(displayNode.inputs)}↔${candidateNode ? String(candidateNode.inputs) : '—'}`;
+      });
+      expect(displayedRows).toEqual(expectedRows);
+
+      const baselineNodesByKey = Object.fromEntries(baselineNodes.map((node) => [String(node.key), node]));
+      const { baselineToCandidate } = pairModelTraceSpanTrees(baselineNodes, candidateNodes);
+      const pairs = Object.entries(baselineToCandidate).map(
+        ([baselineKey, candidateNode]) =>
+          `${String(baselineNodesByKey[baselineKey].inputs)}↔${String(candidateNode.inputs)}`,
+      );
+      expect(pairs).toEqual(expectedPairs);
+    },
+  );
+});
+
+describe('buildModelTraceComparisonForest at scale', () => {
+  const createLlmSiblings = (side: string, count: number) =>
+    Array.from({ length: count }, (_, index) => {
+      const node = createComparisonNode(`${side}-${index}`, 'llm');
+      node.inputs = {
+        messages: Array.from({ length: 20 }, (__, turn) => ({
+          role: 'user',
+          content: `turn ${turn} ${'x'.repeat(200)}`,
+        })),
+      };
+      return node;
+    });
+
+  it('aligns 1,000 same-name siblings with identical inputs on each side quickly', () => {
+    const start = performance.now();
+    const forest = buildModelTraceComparisonForest(
+      createLlmSiblings('baseline', 1000),
+      createLlmSiblings('candidate', 1000),
+    );
+
+    expect(performance.now() - start).toBeLessThan(2000);
+    expect(forest.topLevelNodes).toHaveLength(1000);
+    expect(forest.comparisonNodeMap['baseline-999'].key).toBe('candidate-999');
+  });
+
+  it('anchors inputs that differ only in key order', () => {
+    const baselineNode = createComparisonNode('baseline-0', 'search');
+    baselineNode.inputs = { query: 'alpha', limit: 5 };
+    const candidateInsert = createComparisonNode('candidate-0', 'search');
+    candidateInsert.inputs = { query: 'gamma' };
+    const candidateNode = createComparisonNode('candidate-1', 'search');
+    candidateNode.inputs = { limit: 5, query: 'alpha' };
+
+    const { baselineToCandidate } = pairModelTraceSpanTrees([baselineNode], [candidateInsert, candidateNode]);
+
+    expect(baselineToCandidate['baseline-0']).toBe(candidateNode);
+  });
+
+  it('pairs siblings by position when there are too many to align by inputs', () => {
+    const baselineNodes = createLlmSiblings('baseline', 1001);
+    const candidateNodes = createLlmSiblings('candidate', 1001);
+    candidateNodes[0].inputs = { query: 'inserted' };
+
+    const { baselineToCandidate } = pairModelTraceSpanTrees(baselineNodes, candidateNodes);
+
+    expect(baselineToCandidate['baseline-0'].key).toBe('candidate-0');
+    expect(baselineToCandidate['baseline-1000'].key).toBe('candidate-1000');
+  });
+});
+
+describe('getModelTraceTimelineRange', () => {
+  it('spans both sides of a comparison when the candidate runs longer', () => {
+    const baselineRoot = createComparisonNode('baseline-root', 'root');
+    const candidateRoot = { ...createComparisonNode('candidate-root', 'root'), start: 0, end: 5 };
+    const { topLevelNodes, comparisonNodeMap } = buildModelTraceComparisonForest([baselineRoot], [candidateRoot]);
+
+    expect(getModelTraceTimelineRange(topLevelNodes, comparisonNodeMap)).toEqual({
+      traceStartTime: 0,
+      traceEndTime: 5,
+    });
+    expect(getModelTraceTimelineRange([baselineRoot], {})).toEqual({ traceStartTime: 0, traceEndTime: 1 });
+  });
+});
 
 describe('parseTraceToTree', () => {
   it('should parse a trace into an MLflowSpanNode', () => {
@@ -417,6 +607,33 @@ describe('getMatchesFromSpan', () => {
 
     expect(getMatchesFromSpan(spanNode, 'no-match')).toHaveLength(0);
   });
+
+  it('finds matches in span link attributes', () => {
+    const spanNode: ModelTraceSpanNode = {
+      key: 'test',
+      title: 'test',
+      attributes: {},
+      links: [
+        {
+          trace_id: 'tr-linked',
+          span_id: 'linked-span',
+          attributes: { relationship: 'triggered_by' },
+        },
+      ],
+      start: 0,
+      end: 1,
+      type: ModelSpanType.UNKNOWN,
+      assessments: [],
+      traceId: 'test',
+    };
+
+    expect(getMatchesFromSpan(spanNode, 'relationship')).toEqual([
+      expect.objectContaining({ section: 'links', key: 'link-0-relationship', isKeyMatch: true }),
+    ]);
+    expect(getMatchesFromSpan(spanNode, 'triggered')).toEqual([
+      expect.objectContaining({ section: 'links', key: 'link-0-relationship', isKeyMatch: false }),
+    ]);
+  });
 });
 
 describe('normalizeConversation', () => {
@@ -625,6 +842,15 @@ describe('isModelTraceChatTool', () => {
 });
 
 describe('normalizeNewSpanData', () => {
+  it('preserves span links', () => {
+    const links = [{ trace_id: 'tr-linked', span_id: 'linked-span', attributes: { relationship: 'follows_from' } }];
+    const span = { ...MOCK_V3_SPANS[0], links };
+
+    const normalized = normalizeNewSpanData(span, 0, 0, [], {}, 'tr-current');
+
+    expect(normalized.links).toEqual(links);
+  });
+
   it('should process messages and tools if not contained in attributes', () => {
     const modifiedChatInput = {
       ...MOCK_CHAT_TOOL_CALL_SPAN,
@@ -642,6 +868,81 @@ describe('normalizeNewSpanData', () => {
     const messages = ([...inputMessages, outputMessage] as ModelTraceChatMessage[]).map(prettyPrintChatMessage);
     expect(normalized.chatMessages).toEqual(messages);
     expect(normalized.chatTools).toEqual(MOCK_OPENAI_CHAT_INPUT.tools);
+  });
+
+  it('orders a PydanticAI first turn with a system prompt and does not repeat the user prompt', () => {
+    const span = {
+      ...MOCK_CHAT_TOOL_CALL_SPAN,
+      name: 'Agent.run',
+      attributes: {
+        'mlflow.spanType': JSON.stringify('AGENT'),
+        'mlflow.spanInputs': JSON.stringify({ user_prompt: 'What is MLflow?' }),
+        'mlflow.spanOutputs': JSON.stringify({
+          output: 'A platform.',
+          _new_messages_serialized: [
+            {
+              kind: 'request',
+              parts: [
+                { part_kind: 'system-prompt', content: 'Be concise.' },
+                { part_kind: 'user-prompt', content: 'What is MLflow?' },
+              ],
+            },
+            { kind: 'response', parts: [{ part_kind: 'text', content: 'A platform.' }] },
+          ],
+        }),
+        'mlflow.message.format': JSON.stringify('pydantic_ai'),
+      },
+    };
+
+    const normalized = normalizeNewSpanData(span, 0, 0, [], {}, '');
+
+    expect(normalized.chatMessages?.map((message) => [message.role, message.content])).toEqual([
+      ['system', 'Be concise.'],
+      ['user', 'What is MLflow?'],
+      ['assistant', 'A platform.'],
+    ]);
+  });
+
+  it('keeps PydanticAI retry feedback in the conversation', () => {
+    const span = {
+      ...MOCK_CHAT_TOOL_CALL_SPAN,
+      name: 'Agent.run',
+      attributes: {
+        'mlflow.spanType': JSON.stringify('AGENT'),
+        'mlflow.spanInputs': JSON.stringify({ user_prompt: 'Give me JSON' }),
+        'mlflow.spanOutputs': JSON.stringify({
+          output: '{"ok": true}',
+          _new_messages_serialized: [
+            { kind: 'request', parts: [{ part_kind: 'user-prompt', content: 'Give me JSON' }] },
+            { kind: 'response', parts: [{ part_kind: 'text', content: 'not json' }] },
+            { kind: 'request', parts: [{ part_kind: 'retry-prompt', content: 'Output must be valid JSON' }] },
+            { kind: 'response', parts: [{ part_kind: 'text', content: '{"ok": true}' }] },
+          ],
+        }),
+        'mlflow.message.format': JSON.stringify('pydantic_ai'),
+      },
+    };
+
+    const normalized = normalizeNewSpanData(span, 0, 0, [], {}, '');
+
+    expect(normalized.chatMessages?.map((message) => message.role)).toEqual(['user', 'assistant', 'user', 'assistant']);
+    expect(normalized.chatMessages?.[2].content).toContain('Output must be valid JSON');
+  });
+
+  it('keeps a large int64-range numeric-string attribute as-is in the displayed attributes', () => {
+    // 2051281657916407550 is well beyond IEEE-754 double precision; JSON.parse would otherwise
+    // silently round it, corrupting the value shown on the Attributes tab.
+    const span = {
+      ...MOCK_CHAT_TOOL_CALL_SPAN,
+      attributes: {
+        ...MOCK_CHAT_TOOL_CALL_SPAN.attributes,
+        'custom.large_id': '2051281657916407550',
+      },
+    };
+
+    const normalized = normalizeNewSpanData(span, 0, 0, [], {}, '');
+
+    expect((normalized.attributes as Record<string, unknown>)?.['custom.large_id']).toBe('2051281657916407550');
   });
 
   it('should keep the valid tools from mlflow.chat.tools when some are malformed', () => {
@@ -1465,6 +1766,29 @@ describe('convertOtelAttributesToMap', () => {
     });
   });
 
+  it('should decode span links and their attributes', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+      links: [
+        {
+          trace_id: 'AQIDBAUGBwgJCgsMDQ4PEA==',
+          span_id: 'AQIDBAUGBwg=',
+          attributes: [{ key: 'relationship', value: { string_value: 'follows_from' } }],
+        },
+      ],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result.links).toEqual([
+      {
+        trace_id: 'tr-0102030405060708090a0b0c0d0e0f10',
+        span_id: '0102030405060708',
+        attributes: { relationship: 'follows_from' },
+      },
+    ]);
+  });
+
   // Regression: chat inputs/outputs (mlflow.spanInputs / mlflow.spanOutputs) arrive
   // as nested array_value/kvlist_value AnyValue structures. A scalar-only unwrap left
   // them raw, so normalizeConversation could not detect the {role, content} chat shape
@@ -1773,5 +2097,22 @@ describe('getRootSpanTimeToFirstTokenMs', () => {
   it('returns null when V4 array-shaped attributes do not contain the key', () => {
     const node = makeNode([{ key: 'some.other.key', value: { string_value: 'value' } }]);
     expect(getRootSpanTimeToFirstTokenMs(node)).toBeNull();
+  });
+});
+
+describe('tryDeserializeAttribute', () => {
+  it('keeps a large int64-range numeric string as-is instead of losing precision', () => {
+    // 2051281657916407550 and 2051281657916407549 differ only in the last digit, well within
+    // IEEE-754 double's rounding granularity at this magnitude (~512) — JSON.parse would
+    // otherwise silently collapse both to the same corrupted number, 2051281657916407600.
+    expect(tryDeserializeAttribute('2051281657916407550')).toBe('2051281657916407550');
+    expect(tryDeserializeAttribute('2051281657916407549')).toBe('2051281657916407549');
+  });
+
+  it('keeps an unsafe integer whose shortest representation matches its input text', () => {
+    // 1000000000000000100 parses to the double 1000000000000000128, but JS prints the shortest
+    // text that round-trips ('1000000000000000100'), so a re-stringify check would wrongly
+    // accept the corrupted number — only the safe-integer range check catches this.
+    expect(tryDeserializeAttribute('1000000000000000100')).toBe('1000000000000000100');
   });
 });

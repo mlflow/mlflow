@@ -1,9 +1,17 @@
 ---
 applyTo: "**"
-excludeAgent: ["coding-agent"]
+excludeAgent: "cloud-agent"
 ---
 
 # Code Review Instructions
+
+## Review Comment Format
+
+When you have a fix to recommend, use two short sections for the finding:
+
+**🐛 Issue:** State the trigger and concrete consequence that make the fix necessary.
+
+**🔧 Fix:** Start with the change you recommend, adding only the detail needed to implement it.
 
 ## Knowledge Cutoff
 
@@ -11,6 +19,10 @@ Your training data has a cutoff. Treat anything you don't recognize as **new, no
 
 - Model names (e.g., `gpt-5`)
 - GitHub runner types (e.g., `ubuntu-slim`)
+
+## Verify When It's Cheap
+
+Prefer verifying over reasoning whenever it's cheap. The repo is checked out and you can run whatever is installed. The review environment is configured in `.github/workflows/copilot-code-review.yml`. A quick command can confirm or kill a claim outright.
 
 ## Do NOT Comment On
 

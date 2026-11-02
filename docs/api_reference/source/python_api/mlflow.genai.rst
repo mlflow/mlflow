@@ -5,6 +5,7 @@ mlflow.genai
     :members:
     :undoc-members:
     :show-inheritance:
+    :exclude-members: Skill, SkillStatus, SkillVersion, SkillSourceType, GitSource, MlflowSource, OCISource, ZipSource
 
 .. automodule:: mlflow.genai.scorers
     :members:
@@ -54,6 +55,11 @@ mlflow.genai
     :show-inheritance:
 
 .. automodule:: mlflow.genai.review_queues
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+.. automodule:: mlflow.genai.databricks.review_queues
     :members:
     :undoc-members:
     :show-inheritance:

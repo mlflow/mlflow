@@ -1,20 +1,91 @@
 import json
 import logging
+import math
 import os
+import urllib.parse
 from dataclasses import dataclass
 from types import FunctionType
 from typing import Any, Callable, ParamSpec, TypeVar
 
 from mlflow.entities._job import Job as JobEntity
-from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_GATEWAY_URI
 from mlflow.exceptions import MlflowException
-from mlflow.server.handlers import _get_job_store
+from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR
+from mlflow.server.handlers import (
+    _get_job_store,
+    _get_servable_proxied_artifact_repo,
+    _is_servable_proxied_run_artifact_root,
+)
+from mlflow.store.artifact.artifact_repository_registry import _artifact_repository_registry
+from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
+from mlflow.telemetry.issue_detection import record_issue_detection_cancellation
+from mlflow.tracking._tracking_service.utils import get_tracking_uri, set_tracking_uri
 from mlflow.utils.environment import _PythonEnv
 
 _logger = logging.getLogger(__name__)
 
 P = ParamSpec("P")
 R = TypeVar("R")
+
+
+# The server's HTTP URI, kept when tracking is redirected to the store: a proxied artifact
+# location this server does not serve is still fetched over HTTP.
+_http_tracking_uri: str | None = None
+
+
+def _is_http_uri(uri: str | None) -> bool:
+    return bool(uri) and urllib.parse.urlparse(uri).scheme in ("http", "https")
+
+
+def _http_uri_for_artifacts(tracking_uri: str | None) -> str | None:
+    # A client built after the redirect passes the store URI, which cannot serve here.
+    if _is_http_uri(tracking_uri):
+        return tracking_uri
+    return _http_tracking_uri or tracking_uri or get_tracking_uri()
+
+
+def _proxied_artifact_repository(artifact_uri, tracking_uri=None, registry_uri=None):
+    """Resolve an ``mlflow-artifacts:/`` URI the way the server's own artifact routes do.
+
+    A location this server serves is read from ``--artifacts-destination`` directly; any other
+    stays on HTTP, where an auth-enabled server still rejects the job's request.
+    """
+    if _is_servable_proxied_run_artifact_root(artifact_uri):
+        return _get_servable_proxied_artifact_repo(artifact_uri)
+    return MlflowArtifactsRepository(
+        artifact_uri,
+        tracking_uri=_http_uri_for_artifacts(tracking_uri),
+        registry_uri=registry_uri,
+    )
+
+
+def use_backend_store_for_tracking() -> None:
+    """Point this process's tracking APIs at the backend store instead of the server's HTTP API.
+
+    A job cannot authenticate to the server (its only credential is gateway-only), so the job
+    subprocess entry calls this before running any job function. Proxied artifact locations are
+    redirected with it, since their default handler needs the HTTP tracking URI this gives up.
+    """
+    global _http_tracking_uri
+
+    store_uri = os.environ.get(BACKEND_STORE_URI_ENV_VAR)
+    if not store_uri:
+        raise MlflowException(
+            "Cannot point tracking at the backend store: "
+            f"{BACKEND_STORE_URI_ENV_VAR} is unset in this job's environment."
+        )
+
+    # Under the executor engine tracking is already the store URI; the gateway URI is the
+    # server's HTTP URI there.
+    if _http_tracking_uri is None:
+        _http_tracking_uri = next(
+            (uri for uri in (get_tracking_uri(), MLFLOW_GATEWAY_URI.get()) if _is_http_uri(uri)),
+            None,
+        )
+
+    # Not left to `_get_tracking_store()`, whose redirect runs only on the first resolution.
+    set_tracking_uri(store_uri)
+    _artifact_repository_registry.register("mlflow-artifacts", _proxied_artifact_repository)
 
 
 _SUPPORTED_JOB_FUNCTION_LIST = [
@@ -24,6 +95,7 @@ _SUPPORTED_JOB_FUNCTION_LIST = [
     "mlflow.genai.scorers.job.run_online_session_scorer_job",
     "mlflow.genai.optimize.job.optimize_prompts_job",
     "mlflow.genai.discovery.job.invoke_issue_detection_job",
+    "mlflow.genai.discovery.job.run_scheduled_issue_detection_job",
     "mlflow.genai.evaluation.job.invoke_genai_evaluate_job",
 ]
 
@@ -38,6 +110,7 @@ _ALLOWED_JOB_NAME_LIST = [
     "run_online_session_scorer",
     "optimize_prompts",
     "invoke_issue_detection",
+    "scheduled_issue_detection",
     "invoke_genai_evaluate",
 ]
 
@@ -67,6 +140,8 @@ class JobFunctionMetadata:
     transient_error_classes: list[type[Exception]] | None = None
     python_env: _PythonEnv | None = None
     exclusive: bool | list[str] = False
+    resource_requests: dict[str, str] | None = None
+    resource_limits: dict[str, str] | None = None
 
 
 def job(
@@ -76,6 +151,8 @@ def job(
     python_version: str | None = None,
     pip_requirements: list[str] | None = None,
     exclusive: bool | list[str] = False,
+    resource_requests: dict[str, str] | None = None,
+    resource_limits: dict[str, str] | None = None,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     The decorator for the custom job function for setting max parallel workers that
@@ -94,6 +171,8 @@ def job(
         exclusive: (optional) If True, only one instance of this job with the same params
             can run at a time. If a list of parameter names is provided, only those
             parameters are considered when determining exclusivity. Default is False.
+        resource_requests: (optional) Resource requests metadata for executor backends.
+        resource_limits: (optional) Resource limits metadata for executor backends.
     """
     from mlflow.utils import PYTHON_VERSION
     from mlflow.utils.requirements_utils import _parse_requirements
@@ -131,6 +210,8 @@ def job(
             transient_error_classes=transient_error_classes,
             python_env=python_env,
             exclusive=exclusive,
+            resource_requests=resource_requests,
+            resource_limits=resource_limits,
         )
         return fn
 
@@ -147,6 +228,30 @@ def _current_authenticated_user() -> str | None:
     if not has_request_context():
         return None
     return getattr(g, "mlflow_authenticated_user", None)
+
+
+def _resolve_exclusive_job_timeout(timeout: float | None) -> float:
+    """Return a positive, finite timeout for an exclusive job on the executor engine.
+
+    A caller-supplied positive, finite timeout is used as-is; otherwise the selected executor's
+    configured ``default_timeout`` is used. The result bounds both job execution and the
+    exclusivity lock's staleness, so they always agree.
+    """
+    from mlflow.environment_variables import MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND
+    from mlflow.server.jobs.executor_registry import get_executor_registry
+
+    if timeout is not None and math.isfinite(timeout) and timeout > 0:
+        return timeout
+
+    backend = MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()
+    default_timeout = get_executor_registry().get(backend).config.default_timeout
+    if not (default_timeout is not None and math.isfinite(default_timeout) and default_timeout > 0):
+        raise MlflowException.invalid_parameter_value(
+            "An exclusive job needs a positive, finite timeout, but none was given and the "
+            f"{backend!r} executor's configured default_timeout ({default_timeout!r}) is not "
+            "usable."
+        )
+    return default_timeout
 
 
 def submit_job(
@@ -187,11 +292,21 @@ def submit_job(
         The job entity. You can call `get_job` API by the job id to get
         the updated job entity.
     """
-    from mlflow.environment_variables import MLFLOW_SERVER_ENABLE_JOB_EXECUTION
+    from mlflow.environment_variables import (
+        MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS,
+        MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
+    )
+    from mlflow.genai.scorers.scorer_utils import (
+        params_contain_custom_scorer_code,
+        scorer_params_use_direct_provider_model,
+    )
+    from mlflow.server.jobs.executor_registry import get_executor_registry
+    from mlflow.server.jobs.router import select_executor_backend
     from mlflow.server.jobs.utils import (
         _check_requirements,
         _get_or_init_huey_instance,
         _validate_function_parameters,
+        get_job_execution_engine,
     )
 
     if not MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
@@ -233,16 +348,92 @@ def submit_job(
     # Validate that required parameters are provided
     _validate_function_parameters(function, params)
 
+    # Resolve (and validate) the engine before persisting the job, so a rejected
+    # submission never leaves a runnable PENDING row behind.
+    engine = get_job_execution_engine()
+    if engine == "executor" and extra_envs:
+        # The AbstractJobExecutor.submit_job contract has no extra_envs parameter, so
+        # honoring them would silently drop caller-supplied environment (e.g.
+        # invoke_issue_detection_job passes credentials). Fail loudly instead.
+        # TODO (follow-up, before Huey stops being the default): migrate the only production
+        # caller that uses extra_envs (issue detection) — e.g. pass secret_id/provider in the
+        # job params and resolve them in the executor — so this path is not needed.
+        raise MlflowException(
+            "extra_envs is not yet supported on the executor job-execution engine; "
+            "use the huey engine (unset MLFLOW_SERVER_JOB_EXECUTION_ENGINE) instead."
+        )
+
+    # Custom (@scorer decorator) scorers carry inline code that is executed on the server when
+    # the scorer runs. Gate them behind an explicit operator opt-in regardless of engine, since
+    # the code executes on both. This is a security control, so it is enforced at submission.
+    is_custom_scorer = params_contain_custom_scorer_code(fn_meta.name, params)
+    if is_custom_scorer and not MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS.get():
+        raise MlflowException.invalid_parameter_value(
+            "Custom scorers defined with the @scorer decorator are disabled on this server "
+            "because they execute arbitrary code. To run them, an operator must set the "
+            "environment variable 'MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS' to 'true'."
+        )
+
+    # Select the executor backend for this job so the executor engine (and crash recovery) can
+    # route it to the right backend. Only relevant to the executor engine; the default (Huey)
+    # engine does not use a backend, so it is left unset there.
+    executor_backend = None
+    if engine == "executor":
+        # The runner runs each job on the backend recorded here, so custom scorer jobs can be
+        # routed to a separate backend (MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND).
+        executor_backend = select_executor_backend(
+            is_custom_scorer=is_custom_scorer, job_name=fn_meta.name, params=params
+        )
+        # Remote executor backends are refused at startup today (see
+        # JobExecutorRegistry.validate_backends), so this check does not fire yet. It is kept as
+        # the model-resolution policy that becomes live once remote execution is supported: a
+        # remote executor gets only a Gateway-scoped token and no provider API keys, so it cannot
+        # resolve a direct-provider model URI unless it opts in via supports_direct_provider_models
+        # (e.g. it provisions provider creds another way). Reject such a scorer before it is
+        # persisted, checking the backend the job will actually run on.
+        executor = get_executor_registry().get(executor_backend)
+        if (
+            executor.remote_execution
+            and not executor.supports_direct_provider_models
+            and scorer_params_use_direct_provider_model(fn_meta.name, params)
+        ):
+            raise MlflowException.invalid_parameter_value(
+                "The executor backend runs jobs remotely and can only reach models through the "
+                "gateway, but this scorer references a direct-provider model. Use a gateway-backed "
+                "model URI (e.g. 'gateway:/', 'endpoints:/', or 'databricks:/') or a local "
+                "executor backend."
+            )
+
+    if engine == "executor" and fn_meta.exclusive:
+        # The executor engine deduplicates exclusive jobs with a database lock
+        # (mlflow.server.jobs.lock_manager) whose staleness is bounded by the job's timeout (plus a
+        # grace window), so an exclusive job must carry a positive, finite timeout. Callers are not
+        # required to pass one -- the production online-scoring jobs do not -- so fall back to the
+        # selected executor's configured default_timeout and persist the effective value, so
+        # lock expiry and execution use the same number. (The Huey engine uses its own in-process
+        # lock and does not need this.)
+        timeout = _resolve_exclusive_job_timeout(timeout)
+
     job_store = _get_job_store()
     serialized_params = json.dumps(params)
     # FastAPI callers pass creator explicitly (no flask.g there); Flask callers fall back to g.
+    # Resolve it before create_job so the creator is recorded on both engine paths.
     if creator is None:
         creator = _current_authenticated_user()
-    job = job_store.create_job(fn_meta.name, serialized_params, timeout, creator=creator)
+    job = job_store.create_job(
+        fn_meta.name, serialized_params, timeout, creator=creator, executor_backend=executor_backend
+    )
+
+    if engine == "executor":
+        # Executor engine: the job is persisted as PENDING and the executor runner loop
+        # (mlflow.server.jobs._executor_runner) claims and runs it. Nothing to enqueue here.
+        # Exclusive-job dedup is enforced there at claim time via a per-key database lock. The
+        # default Huey path is unchanged.
+        return job
+
+    # Huey engine (default): enqueue to the per-job Huey execution pool.
     # Only propagate workspace to subprocess when workspaces are enabled
     workspace = job.workspace if MLFLOW_ENABLE_WORKSPACES.get() else None
-
-    # enqueue job
     huey_instance = _get_or_init_huey_instance(fn_meta.name)
     huey_instance.submit_task(
         job.job_id,
@@ -289,4 +480,6 @@ def cancel_job(job_id: str) -> JobEntity:
         MlflowException: If job with the given ID is not found
     """
     job_store = _get_job_store()
-    return job_store.cancel_job(job_id)
+    job = job_store.cancel_job(job_id)
+    record_issue_detection_cancellation(job)
+    return job

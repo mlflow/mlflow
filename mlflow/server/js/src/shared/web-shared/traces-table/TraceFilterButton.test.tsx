@@ -66,6 +66,39 @@ describe('TraceFilterButton', () => {
     jest.clearAllMocks();
   });
 
+  test('keeps rejected drafts editable and applies a corrected value with consumer guidance', async () => {
+    const onChange = jest.fn();
+    renderButton({
+      fields: [{ id: 'input', label: 'Input', operators: [FilterOp.EQUALS], valueInput: 'text' }],
+      description: 'Match all conditions on one trace.',
+      validateFilters: (model) => (model.some(({ value }) => value === 'valid') ? undefined : 'Enter a valid value.'),
+      onChange,
+    });
+    await userEvent.click(screen.getByRole('button', { name: /Filters/ }));
+    expect(screen.getByText('Match all conditions on one trace.')).toBeVisible();
+    await userEvent.click(screen.getByRole('textbox', { name: /Filter value/ }));
+    await userEvent.paste('invalid');
+    await userEvent.click(screen.getByRole('button', { name: 'Apply filters' }));
+    expect(screen.getByText('Enter a valid value.')).toBeVisible();
+    expect(onChange).not.toHaveBeenCalled();
+    await userEvent.clear(screen.getByRole('textbox', { name: /Filter value/ }));
+    await userEvent.paste('valid');
+    await userEvent.click(screen.getByRole('button', { name: 'Apply filters' }));
+    expect(onChange).toHaveBeenCalledWith([{ field: 'input', operator: FilterOp.EQUALS, value: 'valid' }]);
+    expect(screen.queryByText('Enter a valid value.')).not.toBeInTheDocument();
+  });
+
+  test('discards validation errors when a rejected draft is dismissed', async () => {
+    renderButton({ validateFilters: () => 'Invalid draft' });
+    await userEvent.click(screen.getByRole('button', { name: /Filters/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Apply filters' }));
+    expect(screen.getByText('Invalid draft')).toBeVisible();
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(screen.getByRole('button', { name: /Filters/ }));
+    expect(await screen.findByRole('button', { name: 'Apply filters' })).toBeVisible();
+    expect(screen.queryByText('Invalid draft')).not.toBeInTheDocument();
+  });
+
   test('opens a popover with one blank clause seeded from the first field', async () => {
     renderButton();
     await userEvent.click(screen.getByRole('button', { name: /Filters/ }));

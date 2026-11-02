@@ -124,7 +124,7 @@ def test_export_to_otel_collector(otel_collector, monkeypatch, dual_export):
 
     from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
-    _, _, port = otel_collector
+    output_file, port = otel_collector
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", f"http://127.0.0.1:{port}/v1/traces")
 
     class TestModel:
@@ -175,7 +175,6 @@ def test_export_to_otel_collector(otel_collector, monkeypatch, dual_export):
         assert len(mlflow_traces) == 0
 
     # Wait for collector to receive spans, checking every second for up to 60 seconds
-    _, output_file, _ = otel_collector
     spans_found = False
     for _ in range(60):
         time.sleep(1)
@@ -208,7 +207,7 @@ def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
     """
     Test that dual export mode sends traces to both MLflow and OTLP collector.
     """
-    _, _, port = otel_collector
+    output_file, port = otel_collector
     monkeypatch.setenv(MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.name, "true")
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", f"http://127.0.0.1:{port}/v1/traces")
 
@@ -248,7 +247,6 @@ def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
     assert trace.info.tags["version"] == "1.0"
 
     # Wait for collector to receive spans, checking every second for up to 60 seconds
-    _, output_file, _ = otel_collector
     spans_found = False
     for _ in range(60):
         time.sleep(1)

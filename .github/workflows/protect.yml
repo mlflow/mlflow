@@ -5,37 +5,26 @@ name: Protect
 
 on:
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - labeled
-      - unlabeled
   merge_group:
     types:
       - checks_requested
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-  # Don't let unrelated label changes (e.g., component/release-note labels) cancel an
-  # in-flight polling run. Only `unprotect` label events restart it.
-  cancel-in-progress: >-
-    ${{
-      github.event.action != 'labeled' && github.event.action != 'unlabeled' ||
-      github.event.label.name == 'unprotect'
-    }}
+  cancel-in-progress: true
 
 defaults:
   run:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   protect:
     # Skip this job in a merge queue
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
       checks: read # to read check statuses
@@ -51,4 +40,4 @@ jobs:
           retries: 3
           script: |
             const script = require('./.github/workflows/protect.js');
-            await script({ github, context });
+            await script({ github, context, core });

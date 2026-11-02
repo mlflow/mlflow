@@ -24,6 +24,7 @@ import { InMemoryTraceManager } from '../core/trace_manager';
 import { constructTraceIdV4, parseTraceIdV4 } from '../core/utils/trace_id';
 import { aggregateUsageFromSpans, convertHrTimeToMs } from '../core/utils';
 import { executeOnSpanEndHooks, executeOnSpanStartHooks } from './span_processor_hooks';
+import { resolveEnvironmentMetadata } from '../core/utils/environment';
 
 /**
  * Span processor for Databricks Unity Catalog backed traces.
@@ -68,6 +69,7 @@ export class DatabricksUCTableSpanProcessor implements SpanProcessor {
       const traceId = constructTraceIdV4(locationString, otelTraceId);
 
       const traceMetadata: Record<string, string> = {
+        ...resolveEnvironmentMetadata(),
         [TraceMetadataKey.SCHEMA_VERSION]: '4',
       };
       const ctxMetadata = getConfiguredTraceMetadata();
@@ -127,6 +129,7 @@ export class DatabricksUCTableSpanProcessor implements SpanProcessor {
       return;
     }
 
+    this.setUserSessionSpanAttributes(trace.info, span);
     this.updateTraceInfo(trace.info, span);
 
     const allSpans = Array.from(trace.spanDict.values());
@@ -136,6 +139,33 @@ export class DatabricksUCTableSpanProcessor implements SpanProcessor {
     }
 
     this._exporter.export([span], (_) => {});
+  }
+
+  private setUserSessionSpanAttributes(traceInfo: TraceInfo, span: OTelReadableSpan): void {
+    const mlflowSpan = InMemoryTraceManager.getInstance().getSpan(
+      traceInfo.traceId,
+      span.spanContext().spanId,
+    );
+    if (!mlflowSpan) {
+      console.warn(`No MLflow span found for span ${span.name}. Skipping user/session attributes.`);
+      return;
+    }
+
+    const wasAllowingMutations = mlflowSpan.allowMutatingEndedSpan;
+    mlflowSpan.allowMutatingEndedSpan = true;
+    try {
+      for (const [metadataKey, attributeKey] of [
+        [TraceMetadataKey.TRACE_USER, SpanAttributeKey.USER_ID],
+        [TraceMetadataKey.TRACE_SESSION, SpanAttributeKey.SESSION_ID],
+      ]) {
+        const value = traceInfo.traceMetadata[metadataKey];
+        if (value != null) {
+          mlflowSpan.setAttribute(attributeKey, value);
+        }
+      }
+    } finally {
+      mlflowSpan.allowMutatingEndedSpan = wasAllowingMutations;
+    }
   }
 
   private updateTraceInfo(traceInfo: TraceInfo, span: OTelReadableSpan): void {

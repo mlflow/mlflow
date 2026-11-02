@@ -25,6 +25,6 @@ export async function runNotifyHook(rawPayload: string): Promise<void> {
 
     await processNotify(payload);
   } catch (err) {
-    console.error('[mlflow]', err);
+    console.error('[mlflow]', err instanceof Error ? (err.stack ?? err.message) : String(err));
   }
 }

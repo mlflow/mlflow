@@ -132,6 +132,30 @@ def test_on_end():
     mock_exporter.export.assert_called_once_with((otel_span,))
 
 
+def test_on_end_exports_root_span_when_user_session_enrichment_fails(caplog):
+    otel_span = create_mock_otel_span(trace_id="trace_id", span_id=1, parent_id=None)
+    mock_exporter = mock.MagicMock()
+    processor = DatabricksUCTableSpanProcessor(span_exporter=mock_exporter)
+
+    with mock.patch.object(
+        processor,
+        "_set_user_session_span_attributes",
+        side_effect=RuntimeError("enrichment failed"),
+    ) as mock_set_user_session_span_attributes:
+        with caplog.at_level("DEBUG", logger="mlflow.tracing.processor.uc_table"):
+            processor.on_end(otel_span)
+
+    mock_set_user_session_span_attributes.assert_called_once_with(otel_span)
+    mock_exporter.export.assert_called_once_with((otel_span,))
+    assert any(
+        record.levelname == "DEBUG"
+        and record.exc_info is not None
+        and "Failed to set user and session attributes" in record.getMessage()
+        and "enrichment failed" in record.getMessage()
+        for record in caplog.records
+    )
+
+
 def test_on_end_sets_user_session_span_attributes():
     trace_manager = InMemoryTraceManager.get_instance()
     with mock.patch.object(trace_manager, "pop_trace", return_value=None):

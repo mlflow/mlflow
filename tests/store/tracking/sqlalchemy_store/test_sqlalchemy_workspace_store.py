@@ -2,6 +2,7 @@ import json
 import math
 import time
 import uuid
+from datetime import date
 from pathlib import Path
 from unittest import mock
 
@@ -42,14 +43,30 @@ from mlflow.entities.gateway_budget_policy import (
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_metrics import AggregationType, MetricAggregation, MetricViewType
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.workspace import TraceArchivalConfig
-from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_TRACE_ARCHIVAL_CONFIG
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_WORKSPACES,
+    MLFLOW_SQL_TRACE_ROLLUPS_ENABLED,
+    MLFLOW_TRACE_ARCHIVAL_CONFIG,
+)
 from mlflow.exceptions import MlflowException
+from mlflow.genai import scorer as scorer_decorator
+from mlflow.store.db.trace_rollups import run_sql_trace_rollups
 from mlflow.store.tracking.dbmodels.models import (
+    SqlAssessmentDailyRollup,
     SqlEntityAssociation,
     SqlExperiment,
+    SqlSkill,
+    SqlSkillAlias,
+    SqlSkillTag,
+    SqlSkillVersion,
+    SqlSkillVersionTag,
+    SqlSpanCostDailyRollup,
     SqlTraceInfo,
+    SqlTraceMetricDailyRollup,
+    SqlTraceRollupRebuild,
     SqlTraceTag,
 )
 from mlflow.store.tracking.gateway.config_resolver import (
@@ -59,7 +76,7 @@ from mlflow.store.tracking.gateway.config_resolver import (
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
-from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
+from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey, TraceMetricKey
 from mlflow.tracing.utils import generate_request_id_v2
 from mlflow.tracking._tracking_service import utils as tracking_utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
@@ -139,6 +156,133 @@ def test_sqlalchemy_store_is_single_tenant_when_disabled(tmp_path, db_uri, monke
         assert store.supports_trace_archival is True
     finally:
         store._dispose_engine()
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        SqlTraceMetricDailyRollup,
+        SqlSpanCostDailyRollup,
+        SqlAssessmentDailyRollup,
+        SqlTraceRollupRebuild,
+    ],
+)
+def test_trace_rollup_models_are_workspace_scoped(workspace_tracking_store, model):
+    experiment_ids = {}
+    for workspace in ("team-a", "team-b"):
+        with WorkspaceContext(workspace):
+            experiment_ids[workspace] = int(
+                workspace_tracking_store.create_experiment(f"{workspace}-experiment")
+            )
+
+    def create_row(experiment_id):
+        values = {
+            "experiment_id": experiment_id,
+            "rollup_day": date(2026, 1, 1),
+        }
+        if model is SqlTraceRollupRebuild:
+            values["rollup_family"] = "trace_metrics"
+        else:
+            values.update(metric_name="total_tokens", grouping_set="global", sample_count=1)
+        return model(**values)
+
+    with workspace_tracking_store.ManagedSessionMaker(read_only=False) as session:
+        session.add_all(create_row(experiment_id) for experiment_id in experiment_ids.values())
+
+    for workspace in ("team-a", "team-b"):
+        with WorkspaceContext(workspace):
+            with workspace_tracking_store.ManagedSessionMaker() as session:
+                rows = workspace_tracking_store._get_query(session, model).all()
+                assert [row.experiment_id for row in rows] == [experiment_ids[workspace]]
+
+
+def test_trace_rollup_invalidation_is_workspace_scoped(workspace_tracking_store, monkeypatch):
+    monkeypatch.setenv(MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.name, "true")
+    experiment_ids = {}
+    for workspace in ("team-rollup-a", "team-rollup-b"):
+        with WorkspaceContext(workspace):
+            experiment_id = workspace_tracking_store.create_experiment(f"{workspace}-experiment")
+            experiment_ids[workspace] = int(experiment_id)
+            _create_trace(
+                workspace_tracking_store,
+                f"trace-{workspace}",
+                experiment_id,
+                request_time=1_700_000_000_000,
+            )
+
+    for workspace in ("team-rollup-a", "team-rollup-b"):
+        with WorkspaceContext(workspace):
+            with workspace_tracking_store.ManagedSessionMaker() as session:
+                entries = workspace_tracking_store._get_query(session, SqlTraceRollupRebuild).all()
+                assert {entry.experiment_id for entry in entries} == {experiment_ids[workspace]}
+                assert {entry.rollup_family for entry in entries} == {
+                    "trace_metric",
+                    "assessment",
+                }
+
+
+def test_query_trace_metrics_serves_rollups_only_for_active_workspace(
+    workspace_tracking_store, monkeypatch
+):
+    day_start_ms = 20_000 * 86_400_000
+    experiment_ids = {}
+    for workspace in ("team-query-a", "team-query-b"):
+        with WorkspaceContext(workspace):
+            experiment_id = workspace_tracking_store.create_experiment(f"{workspace}-experiment")
+            experiment_ids[workspace] = experiment_id
+            _create_trace(
+                workspace_tracking_store,
+                f"trace-{workspace}",
+                experiment_id,
+                request_time=day_start_ms + 1_000,
+                execution_duration=100,
+            )
+
+    run_sql_trace_rollups(
+        workspace_tracking_store.engine,
+        now_ms=day_start_ms + 10 * 86_400_000,
+    )
+
+    # Give each workspace's completed rollup a distinct value so the assertion proves both that
+    # the rollup path was used and that a requested experiment from another workspace was ignored.
+    expected_counts = {"team-query-a": 11, "team-query-b": 22}
+    with workspace_tracking_store.ManagedSessionMaker(read_only=False) as session:
+        for workspace, expected_count in expected_counts.items():
+            session.query(SqlTraceMetricDailyRollup).filter_by(
+                experiment_id=int(experiment_ids[workspace]),
+                metric_name=TraceMetricKey.TRACE_COUNT,
+                grouping_set="global",
+            ).update({"sample_count": expected_count})
+
+    monkeypatch.setenv(MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.name, "true")
+    all_experiment_ids = list(experiment_ids.values())
+    for workspace, expected_count in expected_counts.items():
+        with WorkspaceContext(workspace):
+            result = workspace_tracking_store.query_trace_metrics(
+                experiment_ids=all_experiment_ids,
+                view_type=MetricViewType.TRACES,
+                metric_name=TraceMetricKey.TRACE_COUNT,
+                aggregations=[MetricAggregation(AggregationType.COUNT)],
+                time_interval_seconds=86_400,
+                start_time_ms=day_start_ms,
+                end_time_ms=day_start_ms + 86_400_000 - 1,
+            )
+            assert len(result) == 1
+            assert result[0].values == {"COUNT": expected_count}
+
+            other_workspace = next(name for name in expected_counts if name != workspace)
+            assert (
+                workspace_tracking_store.query_trace_metrics(
+                    experiment_ids=[experiment_ids[other_workspace]],
+                    view_type=MetricViewType.TRACES,
+                    metric_name=TraceMetricKey.TRACE_COUNT,
+                    aggregations=[MetricAggregation(AggregationType.COUNT)],
+                    time_interval_seconds=86_400,
+                    start_time_ms=day_start_ms,
+                    end_time_ms=day_start_ms + 86_400_000 - 1,
+                )
+                == []
+            )
 
 
 def test_experiments_are_workspace_scoped(workspace_tracking_store):
@@ -338,6 +482,37 @@ def test_search_runs_datasets_in_clause_is_workspace_scoped(workspace_tracking_s
             run_view_type=ViewType.ACTIVE_ONLY,
         )
         assert result == []
+
+
+def test_search_evaluation_datasets_name_in_is_workspace_scoped(workspace_tracking_store):
+    datasets = {}
+    for workspace in ["team-a", "team-b"]:
+        with WorkspaceContext(workspace):
+            datasets[workspace] = workspace_tracking_store.create_dataset(name="shared-name")
+            workspace_tracking_store.create_dataset(name="other-name")
+
+    for workspace in ["team-a", "team-b"]:
+        with WorkspaceContext(workspace):
+            results = workspace_tracking_store.search_datasets(
+                filter_string="name IN ('shared-name', 'missing')", max_results=1
+            )
+            assert [dataset.dataset_id for dataset in results] == [datasets[workspace].dataset_id]
+            assert results.token is None
+
+
+@pytest.mark.parametrize("comparator", ["=", "!=", "LIKE", "ILIKE"])
+@pytest.mark.parametrize("names", ["('dataset-a')", "('dataset-a', 'dataset-b')"])
+def test_search_evaluation_datasets_name_list_requires_in(
+    workspace_tracking_store, comparator, names
+):
+    for workspace in ["team-a", "team-b"]:
+        with WorkspaceContext(workspace):
+            with pytest.raises(
+                MlflowException,
+                match="List values for 'name' are only supported with the IN comparator",
+                check=lambda e: e.error_code == "INVALID_PARAMETER_VALUE",
+            ):
+                workspace_tracking_store.search_datasets(filter_string=f"name {comparator} {names}")
 
 
 def test_search_datasets_public_api_is_workspace_scoped(workspace_tracking_store):
@@ -933,6 +1108,94 @@ async def test_log_spans_async_is_workspace_scoped(workspace_tracking_store):
         assert excinfo.value.error_code == "RESOURCE_DOES_NOT_EXIST"
 
 
+def test_batch_get_traces_is_workspace_scoped(workspace_tracking_store):
+    trace_id_a = f"tr-{uuid.uuid4().hex}"
+    trace_id_b = f"tr-{uuid.uuid4().hex}"
+
+    with WorkspaceContext("team-a"):
+        exp_a = workspace_tracking_store.create_experiment("batch-traces-exp-a")
+        workspace_tracking_store.log_spans(
+            exp_a, [create_test_span(trace_id=trace_id_a, span_id=201, trace_num=920001)]
+        )
+
+    with WorkspaceContext("team-b"):
+        exp_b = workspace_tracking_store.create_experiment("batch-traces-exp-b")
+        workspace_tracking_store.log_spans(
+            exp_b, [create_test_span(trace_id=trace_id_b, span_id=202, trace_num=920002)]
+        )
+
+        # `exp_a` belongs to a different workspace: it must be silently dropped rather
+        # than honored, so the cross-workspace trace doesn't leak into the response.
+        traces = workspace_tracking_store.batch_get_traces(
+            [trace_id_a, trace_id_b], experiment_ids=[exp_a, exp_b]
+        )
+        assert [t.info.trace_id for t in traces] == [trace_id_b]
+
+
+def test_batch_get_trace_infos_is_workspace_scoped(workspace_tracking_store):
+    trace_id_a = f"tr-{uuid.uuid4().hex}"
+    trace_id_b = f"tr-{uuid.uuid4().hex}"
+
+    with WorkspaceContext("team-a"):
+        exp_a = workspace_tracking_store.create_experiment("batch-trace-infos-exp-a")
+        workspace_tracking_store.log_spans(
+            exp_a, [create_test_span(trace_id=trace_id_a, span_id=203, trace_num=920003)]
+        )
+
+    with WorkspaceContext("team-b"):
+        exp_b = workspace_tracking_store.create_experiment("batch-trace-infos-exp-b")
+        workspace_tracking_store.log_spans(
+            exp_b, [create_test_span(trace_id=trace_id_b, span_id=204, trace_num=920004)]
+        )
+
+        trace_infos = workspace_tracking_store.batch_get_trace_infos(
+            [trace_id_a, trace_id_b], experiment_ids=[exp_a, exp_b]
+        )
+        assert [ti.trace_id for ti in trace_infos] == [trace_id_b]
+
+
+def test_batch_get_traces_is_workspace_scoped_with_chunking(workspace_tracking_store, monkeypatch):
+    """
+    Force both trace-ID and experiment-ID chunks to size 1. Every cross-product
+    query must retain the workspace scope applied by ``_trace_query``.
+    """
+    trace_id_a = f"tr-{uuid.uuid4().hex}"
+    trace_id_b = f"tr-{uuid.uuid4().hex}"
+
+    with WorkspaceContext("team-a"):
+        exp_a = workspace_tracking_store.create_experiment("batch-traces-chunk-exp-a")
+        workspace_tracking_store.log_spans(
+            exp_a, [create_test_span(trace_id=trace_id_a, span_id=205, trace_num=920005)]
+        )
+
+    with WorkspaceContext("team-b"):
+        exp_b = workspace_tracking_store.create_experiment("batch-traces-chunk-exp-b")
+        workspace_tracking_store.log_spans(
+            exp_b, [create_test_span(trace_id=trace_id_b, span_id=206, trace_num=920006)]
+        )
+
+        monkeypatch.setattr(SqlAlchemyStore, "_TRACE_BATCH_QUERY_ID_CHUNK_SIZE", 1)
+        traces = workspace_tracking_store.batch_get_traces(
+            [trace_id_a, trace_id_b], experiment_ids=[exp_a, exp_b]
+        )
+        assert [t.info.trace_id for t in traces] == [trace_id_b]
+
+
+def test_filter_active_experiment_ids_is_workspace_scoped_and_active(workspace_tracking_store):
+    with WorkspaceContext("team-a"):
+        exp_a = workspace_tracking_store.create_experiment("list-active-exp-a")
+
+    with WorkspaceContext("team-b"):
+        exp_b = workspace_tracking_store.create_experiment("list-active-exp-b")
+        deleted_exp = workspace_tracking_store.create_experiment("list-deleted-exp-b")
+        workspace_tracking_store.delete_experiment(deleted_exp)
+
+        # `exp_a` belongs to a different workspace and `deleted_exp` is not active:
+        # both must be silently dropped rather than honored.
+        result = workspace_tracking_store.filter_active_experiment_ids([exp_a, exp_b, deleted_exp])
+        assert result == [exp_b]
+
+
 def test_log_spans_locks_and_recomputes_token_usage_in_workspace(workspace_tracking_store):
     trace_id = f"tr-{uuid.uuid4().hex}"
 
@@ -1243,8 +1506,9 @@ def test_logged_model_operations_are_workspace_scoped(workspace_tracking_store):
     with WorkspaceContext("team-model-b"):
         workspace_tracking_store.create_experiment("exp-model-b")
 
-        with pytest.raises(MlflowException, match="not found"):
+        with pytest.raises(MlflowException, match="not found") as excinfo:
             workspace_tracking_store.get_logged_model(model_a.model_id)
+        assert excinfo.value.error_code == "RESOURCE_DOES_NOT_EXIST"
 
         with pytest.raises(MlflowException, match="not found"):
             workspace_tracking_store.delete_logged_model(model_a.model_id)
@@ -1266,6 +1530,40 @@ def test_logged_model_operations_are_workspace_scoped(workspace_tracking_store):
 
         with pytest.raises(MlflowException, match="not found"):
             workspace_tracking_store.delete_logged_model_tag(model_a.model_id, "key")
+
+
+def test_search_logged_models_latest_metric_filter_is_workspace_scoped(
+    workspace_tracking_store,
+):
+    exp_ids = {}
+    # The two workspaces log the same history in opposite order, so only "team-metric-b"
+    # has a latest loss below the threshold.
+    for workspace, losses in [("team-metric-a", [0.05, 5.0]), ("team-metric-b", [5.0, 0.05])]:
+        exp_id, run = _create_run(workspace_tracking_store, workspace, f"exp-{workspace}", "run")
+        exp_ids[workspace] = exp_id
+        with WorkspaceContext(workspace):
+            model = workspace_tracking_store.create_logged_model(exp_id, f"model-{workspace}")
+            workspace_tracking_store.log_batch(
+                run.info.run_id,
+                metrics=[
+                    Metric("loss", loss, 1000 + step, step, model_id=model.model_id)
+                    for step, loss in enumerate(losses)
+                ],
+                params=[],
+                tags=[],
+            )
+
+    for workspace, expected_names in [
+        ("team-metric-a", []),
+        ("team-metric-b", ["model-team-metric-b"]),
+    ]:
+        with WorkspaceContext(workspace):
+            models = workspace_tracking_store.search_logged_models(
+                experiment_ids=list(exp_ids.values()),
+                filter_string="metrics.loss < 0.1",
+                order_by=[{"field_name": "metrics.loss", "ascending": True}],
+            )
+        assert [m.name for m in models] == expected_names
 
 
 def test_trace_tag_operations_are_workspace_scoped(workspace_tracking_store):
@@ -1293,7 +1591,8 @@ def test_trace_tag_operations_are_workspace_scoped(workspace_tracking_store):
             workspace_tracking_store.delete_trace_tag(trace_id_a, "key")
 
 
-def test_search_traces_is_workspace_scoped(workspace_tracking_store):
+@pytest.mark.parametrize("order_by", [None, ["timestamp DESC"]])
+def test_search_traces_is_workspace_scoped(workspace_tracking_store, order_by):
     with WorkspaceContext("team-search-a"):
         exp_a = workspace_tracking_store.create_experiment("exp-search-a")
         trace_id_a = generate_request_id_v2()
@@ -1323,11 +1622,11 @@ def test_search_traces_is_workspace_scoped(workspace_tracking_store):
             )
 
         # Cross-workspace search returns nothing
-        results, _ = workspace_tracking_store.search_traces(locations=[exp_a])
+        results, _ = workspace_tracking_store.search_traces(locations=[exp_a], order_by=order_by)
         assert results == []
 
         # Same-workspace search works
-        results, _ = workspace_tracking_store.search_traces(locations=[exp_b])
+        results, _ = workspace_tracking_store.search_traces(locations=[exp_b], order_by=order_by)
         assert len(results) == 1
         assert results[0].trace_id == trace_id_b
 
@@ -1424,6 +1723,47 @@ def test_search_traces_with_assessment_numeric_filters_is_workspace_scoped(
             workspace_tracking_store.search_traces(
                 locations=[exp_b], filter_string='feedback.score > "high"'
             )
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "expected_trace_ids"),
+    [
+        ('feedback.session_quality = "good"', set()),
+        ("feedback.session_quality IS NOT NULL", set()),
+        ("feedback.session_quality IS NULL", {"trace-a"}),
+    ],
+)
+def test_search_traces_session_scoped_assessment_is_workspace_scoped(
+    workspace_tracking_store,
+    filter_string: str,
+    expected_trace_ids: set[str],
+):
+    session_metadata = {TraceMetadataKey.TRACE_SESSION: "shared-session"}
+    source = AssessmentSource(source_type="HUMAN", source_id="user@example.com")
+
+    with WorkspaceContext("team-session-search-a"):
+        exp_a = workspace_tracking_store.create_experiment("exp-session-search-a")
+        _create_trace(workspace_tracking_store, "trace-a", exp_a, trace_metadata=session_metadata)
+
+    with WorkspaceContext("team-session-search-b"):
+        exp_b = workspace_tracking_store.create_experiment("exp-session-search-b")
+        _create_trace(workspace_tracking_store, "trace-b", exp_b, trace_metadata=session_metadata)
+        workspace_tracking_store.create_assessment(
+            Feedback(
+                trace_id="trace-b",
+                name="session_quality",
+                value="good",
+                source=source,
+                metadata=session_metadata,
+            )
+        )
+
+    with WorkspaceContext("team-session-search-a"):
+        traces, _ = workspace_tracking_store.search_traces(
+            locations=[exp_a], filter_string=filter_string
+        )
+
+    assert {trace.trace_id for trace in traces} == expected_trace_ids
 
 
 def test_link_traces_to_run_is_workspace_scoped(workspace_tracking_store):
@@ -2009,6 +2349,58 @@ def test_budget_policies_are_workspace_scoped(gateway_workspace_store):
         assert policies[0].target_value == endpoint.endpoint_id
 
 
+def test_user_budget_policies_are_workspace_scoped_rows(gateway_workspace_store):
+    # USER-scoped policies match requests across workspaces at enforcement time, but
+    # the policy rows themselves live in the workspace that created them.
+    store = gateway_workspace_store
+    with WorkspaceContext("team-user-budget-a"):
+        policy_a = store.create_budget_policy(
+            budget_unit=BudgetUnit.USD,
+            budget_amount=25.0,
+            duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+            target_scope=BudgetTargetScope.USER,
+            budget_action=BudgetAction.REJECT,
+            target_value="alice",
+        )
+
+    with WorkspaceContext("team-user-budget-b"):
+        assert len(store.list_budget_policies()) == 0
+        with pytest.raises(MlflowException, match="not found"):
+            store.get_budget_policy(budget_policy_id=policy_a.budget_policy_id)
+
+    with WorkspaceContext("team-user-budget-a"):
+        policies = store.list_budget_policies()
+        assert [p.budget_policy_id for p in policies] == [policy_a.budget_policy_id]
+        assert policies[0].target_value == "alice"
+
+
+def test_list_budget_policies_across_workspaces_ignores_the_active_workspace(
+    gateway_workspace_store,
+):
+    # The budget tracker keeps one set of windows for the whole server, so it needs every
+    # workspace's policies. The REST-facing listing stays workspace-scoped.
+    store = gateway_workspace_store
+    created = {}
+    for workspace in ("team-all-budget-a", "team-all-budget-b"):
+        with WorkspaceContext(workspace):
+            created[workspace] = store.create_budget_policy(
+                budget_unit=BudgetUnit.USD,
+                budget_amount=100.0,
+                duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+                target_scope=BudgetTargetScope.WORKSPACE,
+                budget_action=BudgetAction.REJECT,
+            ).budget_policy_id
+
+    with WorkspaceContext("team-all-budget-a"):
+        assert [p.budget_policy_id for p in store.list_budget_policies()] == [
+            created["team-all-budget-a"]
+        ]
+        assert {p.budget_policy_id for p in store.list_budget_policies_across_workspaces()} == set(
+            created.values()
+        )
+        assert {p.workspace for p in store.list_budget_policies_across_workspaces()} == set(created)
+
+
 def test_model_definitions_are_workspace_scoped(gateway_workspace_store):
     with WorkspaceContext("team-def-a"):
         secret_a = gateway_workspace_store.create_gateway_secret(
@@ -2295,12 +2687,42 @@ def test_get_active_online_scorers_workspace_scoped(workspace_tracking_store):
         active_scorers = workspace_tracking_store.get_active_online_scorers()
         assert len(active_scorers) == 1
         assert active_scorers[0].name == "scorer-b"
+        assert active_scorers[0].scorer_version == 1
         assert active_scorers[0].online_config.experiment_id == exp_b
 
     with WorkspaceContext("team-active-a"):
         active_scorers = workspace_tracking_store.get_active_online_scorers()
         assert len(active_scorers) == 1
         assert active_scorers[0].name == "scorer-a"
+        assert active_scorers[0].scorer_version == 1
+        assert active_scorers[0].online_config.experiment_id == exp_a
+
+
+def test_upsert_online_scoring_config_custom_scorer_workspace_scoped(
+    workspace_tracking_store, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "docker")
+
+    @scorer_decorator
+    def output_length(outputs) -> int:
+        return len(str(outputs))
+
+    with WorkspaceContext("team-custom-a"):
+        exp_a = workspace_tracking_store.create_experiment("exp-custom-a")
+        workspace_tracking_store.register_scorer(
+            exp_a, "output_length", json.dumps(output_length.model_dump())
+        )
+        workspace_tracking_store.upsert_online_scoring_config(
+            experiment_id=exp_a, scorer_name="output_length", sample_rate=0.5
+        )
+
+    with WorkspaceContext("team-custom-b"):
+        assert workspace_tracking_store.get_active_online_scorers() == []
+
+    with WorkspaceContext("team-custom-a"):
+        active_scorers = workspace_tracking_store.get_active_online_scorers()
+        assert [s.name for s in active_scorers] == ["output_length"]
         assert active_scorers[0].online_config.experiment_id == exp_a
 
 
@@ -2991,3 +3413,142 @@ def test_review_queue_question_lock_holds_in_workspace_store(workspace_tracking_
             workspace_tracking_store.update_review_queue(queue.queue_id, schema_ids=[ls1.schema_id])
         updated = workspace_tracking_store.update_review_queue(queue.queue_id, users=["alice"])
         assert updated.users == ["alice"]
+
+
+@pytest.mark.parametrize(
+    "order_by", [None, ["name ASC"], ["status ASC", "severity DESC", "last_seen_timestamp DESC"]]
+)
+def test_extended_issue_fields_and_paging_are_workspace_scoped(workspace_tracking_store, order_by):
+    store = workspace_tracking_store
+    with WorkspaceContext("team-a"):
+        experiment_id = store.create_experiment("extended-issues")
+        for index in range(2):
+            store.create_issue(
+                experiment_id,
+                f"Issue {index}",
+                "",
+                issue_id=f"iss-team-a-{index}",
+                categories=["Cost", " COST "],
+                metadata={"private": "value"},
+            )
+        page = store.search_issues(
+            categories=[" cOsT "], include_total_count=True, max_results=1, order_by=order_by
+        )
+        assert page.total_count == 2
+        assert page.token
+        run = store.create_run(experiment_id, "user", 1, [], "run")
+    with WorkspaceContext("team-b"):
+        other_experiment = store.create_experiment("extended-issues")
+        assert store.search_issues(categories=["cost"], include_total_count=True).total_count == 0
+        with pytest.raises(MlflowException, match="not found"):
+            store.update_issue("iss-team-a-0", metadata={"private": "changed"}, categories=[])
+        with pytest.raises(MlflowException, match="page token"):
+            store.search_issues(
+                categories=["cost"],
+                order_by=order_by,
+                include_total_count=True,
+                max_results=1,
+                page_token=page.token,
+            )
+        with pytest.raises(MlflowException, match="not found"):
+            store.create_issue(
+                other_experiment, "Foreign source", "", source_run_id=run.info.run_id
+            )
+    with WorkspaceContext("team-a"):
+        assert store.get_issue("iss-team-a-0").metadata == {"private": "value"}
+        second = store.search_issues(
+            categories=["COST"],
+            include_total_count=True,
+            max_results=1,
+            page_token=page.token,
+            order_by=order_by,
+        )
+        assert second.total_count == 2
+        assert second[0].issue_id != page[0].issue_id
+
+
+def _seed_skill_registry_graph(session, workspace):
+    """One row in every skill-registry table, all belonging to *workspace*."""
+    session.add(SqlSkill(workspace=workspace, organization="acme", name="code-review"))
+    session.add(
+        SqlSkillVersion(
+            workspace=workspace,
+            organization="acme",
+            name="code-review",
+            version=1,
+            source_type="git",
+            source="s.git",
+        )
+    )
+    session.add(
+        SqlSkillTag(
+            workspace=workspace, organization="acme", name="code-review", key="k", value="v"
+        )
+    )
+    session.add(
+        SqlSkillVersionTag(
+            workspace=workspace,
+            organization="acme",
+            name="code-review",
+            version=1,
+            key="k",
+            value="v",
+        )
+    )
+    session.add(
+        SqlSkillAlias(
+            workspace=workspace, organization="acme", name="code-review", alias="prod", version=1
+        )
+    )
+
+
+@pytest.mark.parametrize(
+    ("model", "workspace_attribute"),
+    [
+        (SqlSkill, "workspace"),
+        (SqlSkillVersion, "workspace"),
+        (SqlSkillTag, "workspace"),
+        (SqlSkillVersionTag, "workspace"),
+        (SqlSkillAlias, "workspace"),
+    ],
+)
+def test_get_query_scopes_skill_registry_models_to_active_workspace(
+    workspace_tracking_store, model, workspace_attribute
+):
+    # Identical rows in two workspaces: a query that forgot to filter returns both.
+    with workspace_tracking_store.ManagedSessionMaker(read_only=False) as session:
+        _seed_skill_registry_graph(session, "team-a")
+        _seed_skill_registry_graph(session, "team-b")
+
+    for workspace in ("team-a", "team-b"):
+        with WorkspaceContext(workspace):
+            with workspace_tracking_store.ManagedSessionMaker() as session:
+                rows = workspace_tracking_store._get_query(session, model).all()
+                assert [getattr(row, workspace_attribute) for row in rows] == [workspace]
+
+
+# ---------------------------------------------------------------------------
+# MCP access endpoint workspace isolation
+# ---------------------------------------------------------------------------
+
+
+def _mcp_server_json(name: str, version: str) -> dict[str, str]:
+    return {"name": name, "version": version, "title": f"Test {name}"}
+
+
+@pytest.mark.parametrize("workspaces_enabled", [True], indirect=True)
+def test_search_mcp_access_endpoints_is_workspace_scoped(store):
+    name = "io.github.test/workspace-endpoints"
+    with WorkspaceContext("team-a"):
+        store.create_mcp_server_version(_mcp_server_json(name, "1.0.0"))
+        store.create_mcp_access_endpoint(name, "https://team-a.example.com", server_version="1.0.0")
+
+    with WorkspaceContext("team-b"):
+        store.create_mcp_server_version(_mcp_server_json(name, "1.0.0"))
+        endpoint = store.create_mcp_access_endpoint(
+            name, "https://team-b.example.com", server_version="1.0.0"
+        )
+        endpoints = store.search_mcp_access_endpoints(server_name=name)
+
+    assert [e.id for e in endpoints] == [endpoint.id]
+    assert [e.url for e in endpoints] == ["https://team-b.example.com"]

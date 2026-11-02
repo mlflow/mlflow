@@ -42,6 +42,7 @@ def test_create_user(store):
     ) as exception_context:
         _user_maker(store, username1, password1)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
+    assert exception_context.value.message == f"User (username={username1}) already exists."
 
     # slightly different name is ok
     username2 = username1 + "_2"
@@ -57,6 +58,19 @@ def test_create_user(store):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     with pytest.raises(MlflowException, match=r"Username cannot be empty") as exception_context:
         _user_maker(store, "", "")
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.parametrize(
+    ("username", "match"),
+    [
+        ("u" * 256, "'Username' exceeds the maximum length of 255"),
+        ("user\x00name", "'Username' cannot contain NUL"),
+    ],
+)
+def test_create_user_rejects_values_the_database_would_refuse(store, username, match):
+    with pytest.raises(MlflowException, match=match) as exception_context:
+        _user_maker(store, username, random_str())
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
@@ -134,6 +148,25 @@ def test_update_user(store):
     assert store.get_user(username1).is_admin
     store.update_user(username1, is_admin=False)
     assert not store.get_user(username1).is_admin
+
+
+def test_update_user_password_validation(store):
+    username = random_str()
+    password = random_str(size=20)
+    _user_maker(store, username, password)
+
+    with pytest.raises(
+        MlflowException, match=r"Password must be at least 12 characters"
+    ) as exception_context:
+        store.update_user(username, password="short")
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    # The rejected update must leave the stored password unchanged (validation runs before hashing).
+    assert store.authenticate_user(username, password)
+
+    new_password = "new-" + random_str(size=20)
+    store.update_user(username, password=new_password)
+    assert store.authenticate_user(username, new_password)
+    assert not store.authenticate_user(username, password)
 
 
 def test_delete_user(store):

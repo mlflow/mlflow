@@ -34,6 +34,7 @@ from mlflow.genai.judges.instructions_judge.constants import JUDGE_BASE_PROMPT
 from mlflow.genai.judges.utils import validate_judge_model
 from mlflow.genai.scorers.base import Scorer, ScorerKind, SerializedScorer
 from mlflow.genai.scorers.registry import _get_scorer_store
+from mlflow.genai.utils.trace_utils import _session_level_group
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils import build_otel_context
 from mlflow.types.llm import ChatMessage
@@ -718,6 +719,36 @@ def test_call_trace_based_judge_ignores_inputs_outputs(mock_trace, mock_invoke_j
     assert captured_args["trace"] == mock_trace
 
 
+def test_trace_based_gateway_judge_rejects_system_one_endpoint(mock_trace):
+    # A trace-based judge on a gateway System One (Jev) endpoint cannot run (Jev has no trace
+    # support). The chat attempt is rejected as System One; surface the clear trace-based
+    # message instead of the raw gateway rejection.
+    from mlflow.gateway.constants import SYSTEM_ONE_CHAT_ROUTE_REJECTION_DETAIL
+    from mlflow.genai.judges.adapters.utils import ChatCompletionError
+
+    cause = ChatCompletionError(
+        status_code=400,
+        message=json.dumps({"detail": SYSTEM_ONE_CHAT_ROUTE_REJECTION_DETAIL}),
+    )
+    rejection = MlflowException(f"Failed to invoke judge model: {cause.message}")
+    rejection.__cause__ = cause
+
+    judge = make_judge(
+        name="trace_judge",
+        instructions="Analyze this {{ trace }}",
+        model="gateway:/jev-endpoint",
+        feedback_value_type=bool,
+    )
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.instructions_judge.invoke_judge_model", side_effect=rejection
+        ),
+        pytest.raises(MlflowException, match="do not support trace-based evaluation"),
+    ):
+        judge(trace=mock_trace)
+
+
 def test_call_with_no_inputs_or_outputs():
     judge = make_judge(
         name="test_judge",
@@ -965,6 +996,40 @@ def test_prompt_formatting_with_all_reserved_variable_types(mock_invoke_judge_mo
     assert expected_inputs_json in user_msg.content
     assert expected_outputs_json in user_msg.content
     assert expected_expectations_json in user_msg.content
+
+
+def test_typesafe_invocation_preserves_raw_field_values(monkeypatch):
+    instructions = "Compare {{ outputs }} with {{ inputs }} and {{ expectations }}"
+    feedback_value_type = Literal["pass", "fail"]
+    judge = make_judge(
+        name="structured_judge",
+        instructions=instructions,
+        feedback_value_type=feedback_value_type,
+        model="typesafe:/jev-latest",
+    )
+    inputs = {"messages": [{"role": "user", "content": "hello"}]}
+    outputs = [{"answer": "hi"}, {"confidence": 0.9}]
+    expectations = {"allowed": ["hi", "hello"]}
+
+    invoke = mock.Mock(return_value=Feedback(name="structured_judge", value="pass"))
+    monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "_invoke_typesafe_judge", invoke)
+
+    judge(inputs=inputs, outputs=outputs, expectations=expectations)
+
+    invoke.assert_called_once()
+    args, kwargs = invoke.call_args
+    assert args == ("typesafe:/jev-latest",)
+    assert kwargs["instructions"] == instructions
+    assert kwargs["state"] == {
+        "inputs": inputs,
+        "outputs": outputs,
+        "expectations": expectations,
+    }
+    assert kwargs["state"]["inputs"] is inputs
+    assert kwargs["state"]["outputs"] is outputs
+    assert kwargs["state"]["expectations"] is expectations
+    assert kwargs["feedback_value_type"] == feedback_value_type
+    assert kwargs["assessment_name"] == "structured_judge"
 
 
 def test_output_format_instructions_added(mock_invoke_judge_model):
@@ -2945,6 +3010,59 @@ def test_make_judge_serialization_with_feedback_value_type():
     assert typing.get_args(restored_list._feedback_value_type) == (str,)
 
 
+def test_typesafe_model_round_trip_uses_instructions_judge_serialization():
+    judge = make_judge(
+        name="typesafe_judge",
+        instructions="Is {{ outputs }} correct?",
+        model="typesafe:/jev-latest",
+        feedback_value_type=Literal["yes", "no"],
+    )
+
+    serialized = judge.model_dump()
+    assert serialized["instructions_judge_pydantic_data"] == {
+        "instructions": "Is {{ outputs }} correct?",
+        "model": "typesafe:/jev-latest",
+        "feedback_value_type": {
+            "type": "string",
+            "enum": ["yes", "no"],
+            "title": "Result",
+        },
+    }
+    assert serialized["builtin_scorer_class"] is None
+    assert serialized["builtin_scorer_pydantic_data"] is None
+
+    restored = Scorer.model_validate(serialized)
+    restored_from_json = Scorer.model_validate_json(json.dumps(serialized))
+    for restored_judge in (restored, restored_from_json):
+        assert isinstance(restored_judge, InstructionsJudge)
+        assert restored_judge.model == "typesafe:/jev-latest"
+        assert restored_judge.instructions == "Is {{ outputs }} correct?"
+        assert typing.get_args(restored_judge.feedback_value_type) == ("yes", "no")
+
+
+@pytest.mark.parametrize(
+    ("feedback_value_type", "expected_values"),
+    [
+        (Literal["only"], ("only",)),
+        (Literal["pass", 0], ("pass", 0)),
+    ],
+)
+def test_literal_edge_cases_round_trip(feedback_value_type, expected_values):
+    judge = make_judge(
+        name="typesafe_judge",
+        instructions="Evaluate {{ outputs }}",
+        model="typesafe:/jev-latest",
+        feedback_value_type=feedback_value_type,
+    )
+
+    for restored in (
+        Scorer.model_validate(judge.model_dump()),
+        Scorer.model_validate_json(json.dumps(judge.model_dump())),
+    ):
+        assert typing.get_origin(restored.feedback_value_type) is Literal
+        assert typing.get_args(restored.feedback_value_type) == expected_values
+
+
 def test_judge_with_literal_type_serialization():
     literal_type = Literal["good", "bad"]
     judge = make_judge(
@@ -3362,6 +3480,28 @@ def test_validate_session_same_session():
 
     # Should not raise
     judge._validate_session([trace1, trace2])
+
+
+def test_validate_session_within_session_level_group():
+    judge = make_judge(
+        name="conversation_judge",
+        instructions="Evaluate {{ conversation }}",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
+    )
+
+    trip_2_ep_2 = create_trace_with_session("trace-1", '["trip-2","ep-2"]')
+    trip_2_ep_9 = create_trace_with_session("trace-2", '["trip-2","ep-9"]')
+    trip_3_ep_1 = create_trace_with_session("trace-3", '["trip-3","ep-1"]')
+
+    # Exact-ID comparison applies outside a level group.
+    with pytest.raises(MlflowException, match="must belong to the same session"):
+        judge._validate_session([trip_2_ep_2, trip_2_ep_9])
+
+    with _session_level_group('["trip-2"]'):
+        judge._validate_session([trip_2_ep_2, trip_2_ep_9])
+        with pytest.raises(MlflowException, match="Found 2 different session"):
+            judge._validate_session([trip_2_ep_2, trip_3_ep_1])
 
 
 def test_conversation_extraction_from_session(mock_invoke_judge_model):
@@ -4193,3 +4333,46 @@ def test_make_judge_preserves_non_ascii_in_template_variables():
     assert "\\u00e9" not in user_message
     assert "café résumé" in user_message
     assert "日本語テスト" in user_message
+
+
+# ==================== session_level tests ====================
+
+
+def test_make_judge_session_level_round_trip():
+    judge = make_judge(
+        name="conversation_judge",
+        instructions=("Evaluate whether the {{ conversation }} addresses the user's requests."),
+        feedback_value_type=Literal["yes", "no"],
+        session_level="episode",
+    )
+    assert judge.is_session_level_scorer is True
+    assert judge.session_level == "episode"
+
+    serialized = judge.model_dump()
+    assert serialized["session_level"] == "episode"
+
+    deserialized = Scorer.model_validate(serialized)
+    assert isinstance(deserialized, InstructionsJudge)
+    assert deserialized.session_level == "episode"
+    assert deserialized.is_session_level_scorer is True
+
+
+def test_make_judge_session_level_defaults_to_none():
+    judge = make_judge(
+        name="conversation_judge",
+        instructions="Evaluate the {{ conversation }}.",
+        feedback_value_type=str,
+    )
+    assert judge.session_level is None
+
+
+def test_make_judge_session_level_rejected_eagerly_on_single_turn_judge():
+    # A judge's level is only known once its template is parsed, so the check runs
+    # right after construction in make_judge rather than at evaluate time.
+    with pytest.raises(MlflowException, match="not a session-level scorer"):
+        make_judge(
+            name="single_turn_judge",
+            instructions="Rate {{ outputs }} from 1-5.",
+            feedback_value_type=int,
+            session_level="episode",
+        )

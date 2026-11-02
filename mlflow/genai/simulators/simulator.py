@@ -182,7 +182,7 @@ def _fetch_traces(all_trace_ids: list[list[str]]) -> list[list["Trace"]]:
     return all_traces
 
 
-@experimental(version="3.10.0")
+@experimental(version="3.10.0", skip=True)
 @dataclass(frozen=True)
 class SimulatorContext:
     """
@@ -222,7 +222,7 @@ class SimulatorContext:
 
 
 @format_docstring(_MODEL_API_DOC)
-@experimental(version="3.10.0")
+@experimental(version="3.10.0", skip=True)
 class BaseSimulatedUserAgent(ABC):
     """
     Abstract base class for simulated user agents.
@@ -292,7 +292,7 @@ class BaseSimulatedUserAgent(ABC):
 
 
 @format_docstring(_MODEL_API_DOC)
-@experimental(version="3.10.0")
+@experimental(version="3.10.0", skip=True)
 class SimulatedUserAgent(BaseSimulatedUserAgent):
     """
     An LLM-powered agent that simulates user behavior in conversations.
@@ -595,7 +595,7 @@ class ConversationSimulator:
             return self._source_dataset.name
         return "conversational_dataset"
 
-    @experimental(version="3.10.0")
+    @experimental(version="3.10.0", skip=True)
     @record_usage_event(SimulateConversationEvent)
     def simulate(self, predict_fn: Callable[..., dict[str, Any]]) -> list[list["Trace"]]:
         """
@@ -832,13 +832,18 @@ class ConversationSimulator:
             last_response=last_response,
         )
         messages = [ChatMessage(role="user", content=eval_prompt)]
+        # Claude Opus 4.7+ and Claude 5 models reject non-default sampling params with a 400,
+        # so let Anthropic models use their default temperature.
+        inference_params = (
+            None if self.user_model.startswith("anthropic:/") else {"temperature": 0.0}
+        )
 
         try:
             text_result = invoke_model_without_tracing(
                 model_uri=self.user_model,
                 messages=messages,
                 num_retries=3,
-                inference_params={"temperature": 0.0},
+                inference_params=inference_params,
                 response_format=GoalCheckResult,
             )
             result = GoalCheckResult.model_validate_json(text_result)
