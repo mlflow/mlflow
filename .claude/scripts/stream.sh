@@ -16,9 +16,10 @@ tee "${1:-/dev/null}" \
       elif .type == "tool_use" then
         (if .name == "Bash" and (.input | type == "object") then
           .input as $i
-          | (if $i | has("timeout") then {timeout: "\($i.timeout / 1000)s"} else {} end)
+          | ($i | if has("run_in_background") then {run_in_background} else {} end)
+            + (if $i | has("timeout") then {timeout: "\($i.timeout / 1000)s"} else {} end)
             + ($i | if has("description") then {description} else {} end)
-            + ($i | del(.timeout, .description))
+            + ($i | del(.run_in_background, .timeout, .description))
         else
           .input
         end) as $input
