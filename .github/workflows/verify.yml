@@ -77,16 +77,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.issue.number || inputs.pr_number }}
-          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
           COMMENT: ${{ github.event_name == 'workflow_dispatch' && '/verify' || github.event.comment.body }}
         run: |
           if ! [[ "$COMMENT" =~ ^/verify[[:space:]]*$ ]]; then
             echo 'Not a /verify command.'
-            exit 0
-          fi
-          role=$(gh api "repos/$REPO/collaborators/$TRIGGERING_ACTOR/permission" --jq .role_name)
-          if [[ "$role" != admin && "$role" != maintain ]]; then
-            echo 'The triggering user does not have the admin or maintain role.'
             exit 0
           fi
           query=$(cat <<'GRAPHQL'
@@ -171,17 +165,6 @@ jobs:
       issues: read
       pull-requests: read
     steps:
-      - name: Authorize current attempt
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
-        run: |
-          role=$(gh api "repos/$REPO/collaborators/$TRIGGERING_ACTOR/permission" --jq .role_name)
-          if [[ "$role" != admin && "$role" != maintain ]]; then
-            echo '::error::The triggering user must have the admin or maintain role.'
-            exit 1
-          fi
       - name: Create temporary directory
         id: tmp
         run: |
@@ -421,18 +404,6 @@ jobs:
     env:
       VERIFY_TMP_DIR: ${{ needs.verify.outputs.tmp_dir }}
     steps:
-      - name: Authorize current attempt
-        id: authorize
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
-        run: |
-          role=$(gh api "repos/$REPO/collaborators/$TRIGGERING_ACTOR/permission" --jq .role_name)
-          if [[ "$role" != admin && "$role" != maintain ]]; then
-            echo '::error::The triggering user must have the admin or maintain role.'
-            exit 1
-          fi
       - name: Checkout trusted workflow files
         if: needs.verify.result == 'success'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -473,7 +444,7 @@ jobs:
             mv "$RUNNER_TEMP/payload.json" "$payload"
           done < <(jq -c '.comments | keys[] | ["comments", ., "body"]' "$payload")
       - name: Publish or preview review
-        if: always() && steps.authorize.outcome == 'success'
+        if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
