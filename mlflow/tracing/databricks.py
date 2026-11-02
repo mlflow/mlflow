@@ -1,8 +1,10 @@
 from mlflow.exceptions import MlflowException
 from mlflow.utils import databricks_utils
+from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import is_databricks_uri
 
 
+@experimental(version="3.19.0")
 def get_default_trace_catalog(schema_name: str = "default") -> str | None:
     """
     Return the Databricks workspace default catalog if traces can be stored in
