@@ -33,7 +33,7 @@ from mlflow.protos.model_registry_pb2 import (
 )
 from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.utils.rest_utils import MlflowHostCreds
+from mlflow.utils.rest_utils import _UNPROCESSED_REQUEST_RESPONSE_CODES, MlflowHostCreds
 from mlflow.utils.server_info import SERVER_FEATURES_ENDPOINT, SERVER_INFO_ENDPOINT
 from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
@@ -88,13 +88,19 @@ def test_workspace_support_error_uses_store_neutral_uri_guidance(store):
     ]
 
 
-def _args(host_creds, endpoint, method, json_body):
+def _args(host_creds, endpoint, method, json_body, retries_unprocessed_only=False):
     res = {
         "host_creds": host_creds,
         "endpoint": f"/api/2.0/mlflow/{endpoint}",
         "method": method,
         "raise_on_status": False,
     }
+    if retries_unprocessed_only:
+        res |= {
+            "retry_codes": _UNPROCESSED_REQUEST_RESPONSE_CODES,
+            "retry_read_errors": False,
+            "retry_on_retry_after": False,
+        }
     if method == "GET":
         res["params"] = json.loads(json_body)
     else:
@@ -102,9 +108,13 @@ def _args(host_creds, endpoint, method, json_body):
     return res
 
 
-def _verify_requests(http_request, creds, endpoint, method, proto_message):
+def _verify_requests(
+    http_request, creds, endpoint, method, proto_message, retries_unprocessed_only=False
+):
     json_body = message_to_json(proto_message)
-    http_request.assert_any_call(**(_args(creds, endpoint, method, json_body)))
+    http_request.assert_any_call(
+        **_args(creds, endpoint, method, json_body, retries_unprocessed_only)
+    )
 
 
 def _verify_all_requests(http_request, creds, endpoints, proto_message):
@@ -130,6 +140,7 @@ def test_create_registered_model(store, creds):
         CreateRegisteredModel(
             name="model_1", tags=[tag.to_proto() for tag in tags], description=description
         ),
+        retries_unprocessed_only=True,
     )
 
 
@@ -144,6 +155,7 @@ def test_update_registered_model_name(store, creds):
         "registered-models/rename",
         "POST",
         RenameRegisteredModel(name=name, new_name=new_name),
+        retries_unprocessed_only=True,
     )
 
 
@@ -268,6 +280,7 @@ def test_create_model_version(store, creds):
         "model-versions/create",
         "POST",
         CreateModelVersion(name="model_1", source="path/to/source"),
+        retries_unprocessed_only=True,
     )
     # test optional fields
     run_id = uuid.uuid4().hex
@@ -299,6 +312,7 @@ def test_create_model_version(store, creds):
             tags=[tag.to_proto() for tag in tags],
             description=description,
         ),
+        retries_unprocessed_only=True,
     )
 
 
@@ -317,6 +331,7 @@ def test_transition_model_version_stage(store, creds):
         TransitionModelVersionStage(
             name=name, version=version, stage="prod", archive_existing_versions=True
         ),
+        retries_unprocessed_only=True,
     )
 
 

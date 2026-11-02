@@ -231,7 +231,10 @@ MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_TTL_SECONDS = _EnvironmentVariable(
 #: (default: ``/tmp/mlflow``)
 MLFLOW_DFS_TMP = _EnvironmentVariable("MLFLOW_DFS_TMP", str, "/tmp/mlflow")
 
-#: Specifies the maximum number of retries with exponential backoff for MLflow HTTP requests
+#: Specifies the maximum number of retries with exponential backoff for MLflow HTTP requests.
+#: ``POST`` requests to an MLflow tracking server that aren't safe to send twice, such as creating
+#: a run or a model version, are retried only when the request wasn't processed, for example on a
+#: connection error or a 408 or 429 response.
 #: (default: ``7``)
 MLFLOW_HTTP_REQUEST_MAX_RETRIES = _EnvironmentVariable(
     "MLFLOW_HTTP_REQUEST_MAX_RETRIES",
@@ -267,7 +270,9 @@ MLFLOW_DEPLOYMENT_CLIENT_HTTP_REQUEST_TIMEOUT = _EnvironmentVariable(
 )
 
 #: Specifies whether to respect Retry-After header on status codes defined as
-#: Retry.RETRY_AFTER_STATUS_CODES or not for MLflow HTTP request
+#: Retry.RETRY_AFTER_STATUS_CODES or not for MLflow HTTP request. For ``POST`` requests to an MLflow
+#: tracking server that aren't safe to send twice, the header only sets how long to wait before
+#: retrying a 408 or 429 response; it doesn't make a 413 or 503 response retried.
 #: (default: ``True``)
 MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER = _BooleanEnvironmentVariable(
     "MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER", True
@@ -1998,7 +2003,8 @@ _MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY = _EnvironmentVariable(
 
 #: Base URI to fetch the latest model catalog from. Each provider file is fetched
 #: as ``{uri}/{provider}.json``. Supports http(s):// and file:// schemes.
-#: Set to an empty string to disable remote fetch.
+#: Set to an empty string to disable remote fetch. When set to a non-default URI, prices that
+#: catalog lists take precedence over litellm's for trace cost and gateway budgets.
 #: (default: ``https://github.com/mlflow/mlflow/releases/download/model-catalog%2Flatest``)
 MLFLOW_MODEL_CATALOG_URI = _EnvironmentVariable(
     "MLFLOW_MODEL_CATALOG_URI",

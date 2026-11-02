@@ -15,6 +15,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.span import SpanType
 from mlflow.entities.trace_location import UCSchemaLocation
+from mlflow.environment_variables import MLFLOW_MODEL_CATALOG_URI
 from mlflow.exceptions import MlflowException
 from mlflow.tracing import set_span_chat_tools
 from mlflow.tracing.constant import (
@@ -25,6 +26,7 @@ from mlflow.tracing.constant import (
 )
 from mlflow.tracing.utils import (
     _calculate_percentile,
+    _warn_model_catalog_error,
     aggregate_cost_from_spans,
     aggregate_usage_from_spans,
     calculate_cost_by_model_and_token_usage,
@@ -41,6 +43,7 @@ from mlflow.tracing.utils import (
     parse_trace_id_v4,
     should_compute_cost_client_side,
 )
+from mlflow.utils.providers import _get_remote_cache
 from mlflow.utils.providers import cost_per_token as builtin_cost_per_token
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -965,6 +968,159 @@ def test_builtin_cost_uses_databricks_catalog_for_databricks_names_with_provider
     )
     assert result is not None
     assert result["total_cost"] > 0
+
+
+@pytest.fixture
+def custom_model_catalog(tmp_path, monkeypatch):
+    catalog = {
+        "schema_version": 1,
+        "models": {
+            "my-model": {
+                "mode": "chat",
+                "pricing": {
+                    "input_per_million_tokens": 10.0,
+                    "output_per_million_tokens": 10.0,
+                    "cache_write_per_million_tokens": 20.0,
+                    "cache_write_1hr_per_million_tokens": 40.0,
+                },
+            },
+            "free-model": {
+                "mode": "chat",
+                "pricing": {"input_per_million_tokens": 0.0, "output_per_million_tokens": 0.0},
+            },
+            "unpriced-model": {"mode": "chat"},
+        },
+    }
+    (tmp_path / "ollama.json").write_text(json.dumps(catalog))
+    monkeypatch.setenv("MLFLOW_MODEL_CATALOG_URI", tmp_path.as_uri())
+    _get_remote_cache().clear()
+    yield
+    _get_remote_cache().clear()
+
+
+@pytest.fixture
+def litellm_cost(mock_litellm_cost):
+    if mock_litellm_cost is None:
+        pytest.skip("litellm is not installed")
+    return mock_litellm_cost
+
+
+@pytest.mark.usefixtures("custom_model_catalog")
+@pytest.mark.parametrize(
+    ("model_name", "expected_cost"),
+    [("my-model", 0.01), ("ollama/my-model", 0.01), ("free-model", 0.0)],
+)
+def test_custom_model_catalog_price_takes_precedence_over_litellm(
+    litellm_cost, model_name, expected_cost
+):
+    usage = {"input_tokens": 1000, "output_tokens": 1000}
+    result = calculate_cost_by_model_and_token_usage(model_name, usage, model_provider="ollama")
+    assert result == {
+        "input_cost": pytest.approx(expected_cost),
+        "output_cost": pytest.approx(expected_cost),
+        "total_cost": pytest.approx(expected_cost * 2),
+    }
+    litellm_cost.assert_not_called()
+
+
+@pytest.mark.usefixtures("custom_model_catalog")
+@pytest.mark.parametrize(
+    ("model_name", "model_provider"),
+    [
+        # Not in the custom catalog
+        ("other-model", "ollama"),
+        # Listed without a price
+        ("unpriced-model", "ollama"),
+        # Provider has no file in the custom catalog; bundled prices are not used instead
+        ("gpt-4o", "openai"),
+    ],
+)
+def test_custom_model_catalog_falls_back_to_litellm(litellm_cost, model_name, model_provider):
+    usage = {"input_tokens": 10, "output_tokens": 5}
+    result = calculate_cost_by_model_and_token_usage(model_name, usage, model_provider)
+    assert result == {"input_cost": 10.0, "output_cost": 10.0, "total_cost": 20.0}
+    litellm_cost.assert_called_once_with(
+        model=model_name,
+        prompt_tokens=10,
+        completion_tokens=5,
+        custom_llm_provider=model_provider,
+    )
+
+
+@pytest.mark.usefixtures("custom_model_catalog")
+def test_custom_model_catalog_not_used_without_provider(litellm_cost):
+    usage = {"input_tokens": 10, "output_tokens": 5}
+    result = calculate_cost_by_model_and_token_usage("my-model", usage)
+    assert result == {"input_cost": 10.0, "output_cost": 10.0, "total_cost": 20.0}
+    litellm_cost.assert_called_once_with(model="my-model", prompt_tokens=10, completion_tokens=5)
+
+
+@pytest.mark.parametrize("uri", [None, "", MLFLOW_MODEL_CATALOG_URI.default])
+def test_litellm_used_when_model_catalog_not_customized(litellm_cost, monkeypatch, uri):
+    if uri is None:
+        monkeypatch.delenv("MLFLOW_MODEL_CATALOG_URI", raising=False)
+    else:
+        monkeypatch.setenv("MLFLOW_MODEL_CATALOG_URI", uri)
+    with mock.patch("mlflow.utils.providers._fetch_remote_provider") as fetch:
+        result = calculate_cost_by_model_and_token_usage(
+            "gpt-4o", {"input_tokens": 10, "output_tokens": 5}, model_provider="openai"
+        )
+    fetch.assert_not_called()
+    assert result == {"input_cost": 10.0, "output_cost": 10.0, "total_cost": 20.0}
+
+
+def test_invalid_model_catalog_uri_warns_once_and_uses_litellm(litellm_cost, monkeypatch):
+    monkeypatch.setenv("MLFLOW_MODEL_CATALOG_URI", "s3://bucket/catalog")
+    _get_remote_cache().clear()
+    _warn_model_catalog_error.cache_clear()
+    usage = {"input_tokens": 10, "output_tokens": 5}
+    with mock.patch("mlflow.tracing.utils._logger.warning") as warning:
+        results = [
+            calculate_cost_by_model_and_token_usage("my-model", usage, model_provider="ollama")
+            for _ in range(2)
+        ]
+    _warn_model_catalog_error.cache_clear()
+    assert results == [{"input_cost": 10.0, "output_cost": 10.0, "total_cost": 20.0}] * 2
+    warning.assert_called_once()
+    assert "s3://bucket/catalog" in warning.call_args[0][0]
+
+
+@pytest.mark.usefixtures("custom_model_catalog")
+def test_custom_model_catalog_prices_1hr_cache_creation(litellm_cost):
+    usage = {
+        "input_tokens": 1000,
+        "output_tokens": 500,
+        "cache_creation_input_tokens": 300,
+        "cache_creation_input_tokens_above_1hr": 100,
+    }
+    result = calculate_cost_by_model_and_token_usage("my-model", usage, model_provider="ollama")
+    # 700 regular input tokens at $10/M, 200 5-minute cache writes at $20/M, and 100 1-hour
+    # cache writes at $40/M.
+    assert result == {
+        "input_cost": pytest.approx(0.015),
+        "output_cost": pytest.approx(0.005),
+        "total_cost": pytest.approx(0.02),
+    }
+    litellm_cost.assert_not_called()
+
+
+@pytest.mark.usefixtures("custom_model_catalog")
+def test_custom_model_catalog_without_litellm_uses_builtin_once():
+    usage = {"input_tokens": 1000, "output_tokens": 1000}
+    with (
+        mock.patch.dict("sys.modules", {"litellm": None}),
+        mock.patch(
+            "mlflow.utils.providers.cost_per_token", wraps=builtin_cost_per_token
+        ) as builtin,
+    ):
+        result = calculate_cost_by_model_and_token_usage("my-model", usage, model_provider="ollama")
+    assert result["total_cost"] == pytest.approx(0.02)
+    builtin.assert_called_once_with(
+        model="my-model",
+        prompt_tokens=1000,
+        completion_tokens=1000,
+        custom_llm_provider="ollama",
+    )
 
 
 @pytest.mark.parametrize("model_name", ["gateway:/my-endpoint", "endpoints:/my-endpoint"])

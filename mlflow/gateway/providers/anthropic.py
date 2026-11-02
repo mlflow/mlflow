@@ -17,6 +17,7 @@ from mlflow.gateway.providers.base import (
     _drop_client_auth_headers,
 )
 from mlflow.gateway.providers.utils import (
+    _error_detail,
     parse_base64_data_url,
     proxy_root_url,
     rename_payload_keys,
@@ -711,6 +712,17 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
             # See https://docs.anthropic.com/claude/reference/messages-streaming
             resp = json.loads(content.decode("utf-8"))
+
+            # Anthropic can report an error, such as `overloaded_error`, inside a stream that
+            # already returned 200. Raise it so the stream ends with an error instead of
+            # looking complete.
+            if resp["type"] == "error":
+                raise AIGatewayException(
+                    status_code=502,
+                    detail=f"{self.DISPLAY_NAME} returned {resp.get('error', {}).get('type')} "
+                    "while streaming: "
+                    f"{_error_detail(resp)}",
+                )
 
             # response id and model are only present in `message_start`
             # Also extract input_tokens from message_start

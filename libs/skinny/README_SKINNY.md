@@ -231,6 +231,7 @@ MLflow supports all agent frameworks, LLM providers, tools, and programming lang
     <td align="center" width="110"><a href="https://mlflow.org/docs/latest/genai/tracing/integrations/listing/vercelai"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/vercel-logo.svg" height="40"><br><sub><b>Vercel AI SDK</b></sub></a></td>
     <td align="center" width="110"><a href="https://mlflow.org/docs/latest/genai/tracing/integrations/listing/mastra"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/mastra-logo.png" height="40"><br><sub><b>Mastra</b></sub></a></td>
     <td align="center" width="110"><a href="https://mlflow.org/docs/latest/genai/tracing/integrations/listing/voltagent"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/voltagent-logo.png" height="40"><br><sub><b>VoltAgent</b></sub></a></td>
+    <td align="center" width="110"><a href="https://mlflow.org/docs/latest/genai/tracing/integrations/listing/flue"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/flue-logo.svg" height="40"><br><sub><b>Flue</b></sub></a></td>
   </tr>
 </table>
 

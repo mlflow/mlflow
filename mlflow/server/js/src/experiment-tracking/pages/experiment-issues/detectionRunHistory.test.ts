@@ -212,16 +212,25 @@ describe('detectionRunDurationMs', () => {
   });
 
   test('measures a finished run end to end', () => {
-    expect(detectionRunDurationMs(row({ endedAtMs: START_MS + 5_000 }), START_MS + 900_000)).toBe(5_000);
+    expect(detectionRunDurationMs(row({ endedAtMs: START_MS + 5_000 }))).toBe(5_000);
   });
 
-  test('measures one still going against now', () => {
-    expect(detectionRunDurationMs(row({ status: 'RUNNING' }), START_MS + 7_000)).toBe(7_000);
+  test('does not time a run that is still going', () => {
+    expect(detectionRunDurationMs(row({ status: 'RUNNING' }))).toBeUndefined();
+  });
+
+  test('ignores the end time an unfinished run already carries', () => {
+    // `end_run(RUNNING)` in the submitting handler stamps one at creation, so measuring from it
+    // read `0s` for as long as the run went on.
+    expect(detectionRunDurationMs(row({ status: 'RUNNING', endedAtMs: START_MS }))).toBeUndefined();
+  });
+
+  test('does not time a settled run that recorded no end time', () => {
+    expect(detectionRunDurationMs(row({ status: 'FINISHED' }))).toBeUndefined();
   });
 
   test('never reads as negative', () => {
-    // Clock skew between the server that stamped the run and this browser would otherwise show a
-    // run that has not started yet as having run for minus two minutes.
-    expect(detectionRunDurationMs(row({ status: 'RUNNING' }), START_MS - 120_000)).toBe(0);
+    // An end time preceding its start would otherwise read as minus two minutes.
+    expect(detectionRunDurationMs(row({ endedAtMs: START_MS - 120_000 }))).toBe(0);
   });
 });

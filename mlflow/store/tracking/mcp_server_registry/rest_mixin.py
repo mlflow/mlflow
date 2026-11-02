@@ -13,7 +13,11 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET, MCPIcon
-from mlflow.utils.rest_utils import http_request, verify_rest_response
+from mlflow.utils.rest_utils import (
+    _non_idempotent_write_retry_kwargs,
+    http_request,
+    verify_rest_response,
+)
 
 _MCP_API_PREFIX = "/api/3.0/mlflow/mcp-servers"
 
@@ -40,15 +44,27 @@ class RestMCPServerRegistryMixin:
     registry endpoints use Pydantic/JSON.
     """
 
-    def _mcp_request(self, method: str, path: str, json=None, params=None):
+    def _mcp_request(self, method: str, path: str, json=None, params=None, retry_safe=False):
+        """
+        Args:
+            retry_safe: Whether a ``POST`` can be sent again after the server processed it. Other
+                ``POST`` requests are retried only when the server didn't process them.
+        """
         self._validate_workspace_support_if_specified()
         endpoint = f"{_MCP_API_PREFIX}{path}"
+        host_creds = self.get_host_creds()
+        retry_kwargs = (
+            _non_idempotent_write_retry_kwargs(host_creds)
+            if method == "POST" and not retry_safe
+            else {}
+        )
         response = http_request(
-            host_creds=self.get_host_creds(),
+            host_creds=host_creds,
             endpoint=endpoint,
             method=method,
             json=json,
             params=params,
+            **retry_kwargs,
         )
         verify_rest_response(response, endpoint)
         if not response.text:
@@ -340,7 +356,9 @@ class RestMCPServerRegistryMixin:
     # --- Tag operations ---
 
     def set_mcp_server_tag(self, name: str, key: str, value: str) -> None:
-        self._mcp_request("POST", f"{_server_path(name)}/tags", json={"key": key, "value": value})
+        self._mcp_request(
+            "POST", f"{_server_path(name)}/tags", json={"key": key, "value": value}, retry_safe=True
+        )
 
     def delete_mcp_server_tag(self, name: str, key: str) -> None:
         self._mcp_request("DELETE", f"{_server_path(name)}/tags/{_encode_path_param(key)}")
@@ -350,6 +368,7 @@ class RestMCPServerRegistryMixin:
             "POST",
             f"{_server_path(name)}/versions/{_encode_path_param(version)}/tags",
             json={"key": key, "value": value},
+            retry_safe=True,
         )
 
     def delete_mcp_server_version_tag(self, name: str, version: str, key: str) -> None:
@@ -363,7 +382,10 @@ class RestMCPServerRegistryMixin:
 
     def set_mcp_server_alias(self, name: str, alias: str, version: str) -> None:
         self._mcp_request(
-            "POST", f"{_server_path(name)}/aliases", json={"alias": alias, "version": version}
+            "POST",
+            f"{_server_path(name)}/aliases",
+            json={"alias": alias, "version": version},
+            retry_safe=True,
         )
 
     def delete_mcp_server_alias(self, name: str, alias: str) -> None:

@@ -8,6 +8,7 @@ from typing import Any, AsyncGenerator, Iterator, Literal
 from urllib.parse import urlparse
 
 from fastapi import HTTPException
+from pydantic import BaseModel
 
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI
 from mlflow.exceptions import MlflowException
@@ -364,6 +365,16 @@ def to_sse_chunk(data: str) -> str:
     return f"data: {data}\n\n"
 
 
+async def to_sse_stream(stream: AsyncGenerator[BaseModel, None]) -> AsyncGenerator[str, None]:
+    """
+    Serialize a stream of response chunks as SSE events, terminated by ``data: [DONE]`` as
+    OpenAI-compatible clients expect.
+    """
+    async for chunk in stream:
+        yield to_sse_chunk(chunk.model_dump_json())
+    yield to_sse_chunk("[DONE]")
+
+
 def to_sse_error_chunk(error: Exception) -> str:
     """Create an SSE-formatted error chunk."""
     error_data = {
@@ -474,7 +485,7 @@ async def make_streaming_response(resp):
 
     if isinstance(resp, AsyncGenerator):
         return StreamingResponse(
-            (to_sse_chunk(d.model_dump_json()) async for d in resp),
+            to_sse_stream(resp),
             media_type="text/event-stream",
         )
     else:

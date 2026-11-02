@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, test } from '@jest/globals';
 import { rest } from 'msw';
 import userEvent, { PointerEventsCheckLevel } from '@testing-library/user-event';
 
@@ -39,6 +39,12 @@ let gatewaySecrets: { secret_id: string; secret_name: string; provider: string }
 /** What the server reports about a credential of its own for the selected provider. */
 let envCredentialsAvailable: boolean | undefined;
 let createdSecrets: { secret_name: string; provider?: string; secret_value: Record<string, string> }[];
+/**
+ * Saves that have written their trace filters but not yet reached their last call. A save writes the
+ * trace filters, then the schedule, then syncs the dispatch state, so a test that stops waiting after
+ * an earlier step would let the rest land in the next test's tags.
+ */
+let savesInFlight: number;
 
 const server = setupServer(
   rest.get('*/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) =>
@@ -61,7 +67,16 @@ const server = setupServer(
     }
     const body = (await req.json()) as SavedTag;
     if (failWriteOfTag === body.key) {
+      // A failed trace filter write, like `saveFails`, ends the save before it is counted, since the
+      // save throws without writing anything more. A failed schedule write ends a counted save
+      // before its sync.
+      if (body.key === MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG) {
+        savesInFlight -= 1;
+      }
       return res(ctx.status(500), ctx.json({ message: 'nope' }));
+    }
+    if (body.key === MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG) {
+      savesInFlight += 1;
     }
     written.push({ key: body.key, value: body.value });
     experimentTags = [...experimentTags.filter(({ key }) => key !== body.key), { key: body.key, value: body.value }];
@@ -84,6 +99,7 @@ const server = setupServer(
   ),
   rest.post('*/ajax-api/3.0/mlflow/issues/schedule/state', (_req, res, ctx) => {
     scheduleStateSyncs += 1;
+    savesInFlight -= 1;
     if (syncFails) {
       return res(ctx.status(500), ctx.json({ message: 'nope' }));
     }
@@ -200,6 +216,7 @@ describe('ExperimentIssuesScheduleControl', () => {
     loadFails = false;
     experimentReads = 0;
     scheduleStateSyncs = 0;
+    savesInFlight = 0;
     syncedNextRunMs = null;
     syncFails = false;
     scheduledDetectionEnabled = true;
@@ -208,6 +225,24 @@ describe('ExperimentIssuesScheduleControl', () => {
     createdSecrets = [];
     // A credential of its own, so these tests stay about cadence and filters rather than keys.
     envCredentialsAvailable = true;
+  });
+
+  afterEach(async () => {
+    await waitFor(
+      () => {
+        // Below zero means a state sync arrived that no save started, so the counting above has fallen
+        // behind how a save works; fail on it rather than clamp it away.
+        if (savesInFlight !== 0) {
+          throw new Error(
+            savesInFlight > 0
+              ? `${savesInFlight} save(s) still in flight`
+              : `${-savesInFlight} state sync(s) arrived that no save started`,
+          );
+        }
+      },
+      // As long as `openModal` waits, for the same slow runners.
+      { timeout: 5000 },
+    );
   });
 
   test('labels the trigger "Schedule detection" when off and shows the cadence when scheduled', async () => {
