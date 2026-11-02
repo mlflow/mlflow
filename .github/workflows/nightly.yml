@@ -133,7 +133,7 @@ jobs:
       - name: Prepare sandbox paths
         run: |
           umask 077
-          mkdir -p "$RUNNER_TEMP/nightly-analysis" "$RUNNER_TEMP/nightly-raw" /tmp/nightly-out ~/.claude ~/.cache/uv ~/.npm
+          mkdir -p "$RUNNER_TEMP/nightly-analysis" /tmp/nightly-out ~/.claude ~/.cache/uv ~/.npm
           echo '{}' > ~/.claude.json
       - name: Start gateway proxy
         id: gateway-proxy
@@ -257,20 +257,14 @@ jobs:
               --disallowed-tools WebSearch \
               --print --verbose --output-format stream-json \
               "/nightly /tmp/nightly-out \"$RUN_IDS\"" \
-            | .claude/scripts/stream.sh "$RUNNER_TEMP/nightly-raw/stream.jsonl"
+            | .claude/scripts/stream.sh
       - name: Reset worktree
         if: always()
         run: |
           git reset --hard "$GITHUB_SHA"
           git clean -ffdx
+      # The agent can see these credentials, so they can end up in its analysis.
       - name: Stage analysis
-        run: |
-          umask 077
-          srt --settings "$RUNNER_TEMP/nightly-srt.json" -- cat /tmp/nightly-out/analysis.json \
-            > "$RUNNER_TEMP/nightly-raw/analysis.json"
-      # The agent can see these credentials, so they can end up in what it writes or prints.
-      - name: Redact analysis
-        if: always()
         env:
           SECRETS_TO_REDACT: |
             ${{ secrets.GITHUB_TOKEN }}
@@ -278,12 +272,10 @@ jobs:
         run: |
           umask 077
           # Best effort: replaces raw secret values only, not encoded or reformatted copies.
-          for file in "$RUNNER_TEMP"/nightly-raw/*; do
-            [ -f "$file" ] || continue
-            jq -Rjs --arg secrets "$SECRETS_TO_REDACT" \
+          srt --settings "$RUNNER_TEMP/nightly-srt.json" -- cat /tmp/nightly-out/analysis.json \
+            | jq -Rjs --arg secrets "$SECRETS_TO_REDACT" \
               'reduce ($secrets | split("\n")[] | select(length > 0)) as $s (.; split($s) | join("[REDACTED]"))' \
-              < "$file" > "$RUNNER_TEMP/nightly-analysis/${file##*/}"
-          done
+            > "$RUNNER_TEMP/nightly-analysis/analysis.json"
       - name: Stop proxies
         if: always()
         run: |
