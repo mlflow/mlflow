@@ -246,7 +246,7 @@ jobs:
           if [ -S "$TELEMETRY_SOCKET" ]; then
             relay=(bash -c 'socat TCP-LISTEN:8081,bind=127.0.0.1,fork,reuseaddr "UNIX-CONNECT:$0" & exec "$@"' "$TELEMETRY_SOCKET")
           fi
-          timeout --kill-after=10s 35m srt --settings "$RUNNER_TEMP/nightly-srt.json" -- \
+          timeout --kill-after=10s 30m srt --settings "$RUNNER_TEMP/nightly-srt.json" -- \
             "${relay[@]}" env -u NO_PROXY -u no_proxy claude \
               --model databricks-claude-sonnet-5-5 \
               --effort medium \
