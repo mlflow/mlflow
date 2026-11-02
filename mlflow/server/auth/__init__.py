@@ -2409,9 +2409,12 @@ def _enforce_rename_name_rules() -> None:
 
 
 def _caller_can_manage_roles() -> bool:
-    user = store.get_user(authenticate_request().username)
+    if sender_is_admin():
+        return True
     workspace = _request_auth_workspace()
-    return user.is_admin or (workspace is not None and _is_workspace_admin(user.id, workspace))
+    return workspace is not None and _is_workspace_admin(
+        store.get_user(authenticate_request().username).id, workspace
+    )
 
 
 def _reject_rename_with_named_role_grants(name: str, new_name: str) -> None:

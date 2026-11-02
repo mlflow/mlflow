@@ -2253,6 +2253,40 @@ def test_rename_rejected_when_named_role_grants_old_or_new_name(
     rename()
 
 
+@pytest.mark.parametrize("grant_type", ["named_role", "per_user"])
+def test_rename_rejection_details_honor_an_overridden_sender_is_admin(
+    workspace_permission_setup, monkeypatch, grant_type
+):
+    # A plugin may answer admin from outside the users table and reject a lookup of that name.
+    store = workspace_permission_setup["store"]
+    monkeypatch.setattr(
+        auth_module, "_get_model_registry_store", lambda: _RegistryStore({"model-xyz": "team-a"})
+    )
+    if grant_type == "named_role":
+        role = store.create_role(name="readers", workspace="team-a")
+        store.add_role_permission(role.id, "registered_model", "model-xyz", DENY.name)
+        expected_details = "role 'readers' has DENY"
+    else:
+        store.create_user("bob", "supersecurepassword", is_admin=False)
+        store.grant_user_resource_permission("bob", "registered_model", "renamed", READ.name)
+        expected_details = "user 'bob' has READ"
+    sender_is_admin = Mock(return_value=True)
+    monkeypatch.setattr(auth_module, "sender_is_admin", sender_is_admin)
+    get_user = Mock(side_effect=MlflowException("admin has no users row"))
+    monkeypatch.setattr(store, "get_user", get_user)
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/rename",
+        method="POST",
+        json={"name": "model-xyz", "new_name": "renamed"},
+    ):
+        with pytest.raises(MlflowException, match=expected_details) as exc_info:
+            auth_module.enforce_model_name_rules()
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+    sender_is_admin.assert_called_once()
+    get_user.assert_not_called()
+
+
 def test_rename_allowed_with_only_wildcard_named_role_grants_and_other_workspaces(
     workspace_permission_setup,
 ):
