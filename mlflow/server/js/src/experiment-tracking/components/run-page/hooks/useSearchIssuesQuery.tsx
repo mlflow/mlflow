@@ -87,9 +87,16 @@ export const useSearchIssuesQuery = ({
   };
 };
 
-/** The server defaults to 100 issues per page. Past the cap the overflow is simply not reported. */
+/**
+ * The dismissed set has to be complete: an ID missing from it reads as not dismissed, which is the
+ * bug the lookup exists to fix. So every page is drained rather than stopping at a fixed count.
+ *
+ * The page bound and the repeated-token check only guarantee termination. A server still handing
+ * back pages after this many, or handing back a token it already gave, is broken rather than large,
+ * and the throw leaves the caller hiding nothing.
+ */
 const SEARCH_ISSUE_IDS_PAGE_SIZE = 1000;
-const SEARCH_ISSUE_IDS_MAX_PAGES = 5;
+const SEARCH_ISSUE_IDS_MAX_PAGES = 100;
 
 /**
  * The IDs of an experiment's issues with the given status.
@@ -100,6 +107,7 @@ const SEARCH_ISSUE_IDS_MAX_PAGES = 5;
  */
 export const searchIssueIdsByStatus = async (experimentId: string, status: IssueStatus): Promise<string[]> => {
   const issueIds: string[] = [];
+  const seenPageTokens = new Set<string>();
   let pageToken: string | undefined;
 
   for (let page = 0; page < SEARCH_ISSUE_IDS_MAX_PAGES; page++) {
@@ -117,11 +125,17 @@ export const searchIssueIdsByStatus = async (experimentId: string, status: Issue
     })) as SearchIssuesResponse;
 
     issueIds.push(...(response.issues ?? []).map(({ issue_id }) => issue_id));
-    pageToken = response.next_page_token;
+
+    // The server sends an empty token on the last page.
+    pageToken = response.next_page_token || undefined;
     if (!pageToken) {
-      break;
+      return issueIds;
     }
+    if (seenPageTokens.has(pageToken)) {
+      throw new Error('Issue search returned a repeated page token');
+    }
+    seenPageTokens.add(pageToken);
   }
 
-  return issueIds;
+  throw new Error(`Issue search did not reach its last page within ${SEARCH_ISSUE_IDS_MAX_PAGES} pages`);
 };
