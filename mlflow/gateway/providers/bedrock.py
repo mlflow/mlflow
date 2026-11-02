@@ -884,7 +884,8 @@ class AmazonBedrockProvider(BaseProvider):
     def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
         return _extract_anthropic_streaming_token_usage(chunk)
 
-    _normalize_streaming_token_usage = staticmethod(_normalize_anthropic_input_tokens)
+    def _normalize_streaming_token_usage(self, token_usage: dict[str, int]) -> dict[str, int]:
+        return _normalize_anthropic_input_tokens(token_usage)
 
     async def _passthrough(
         self,

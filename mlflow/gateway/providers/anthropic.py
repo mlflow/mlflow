@@ -1,7 +1,7 @@
 import json
 import logging
 import time
-from typing import Any, AsyncIterable, overload
+from typing import Any, AsyncIterable
 
 from mlflow.gateway.config import AnthropicConfig, EndpointConfig
 from mlflow.gateway.constants import (
@@ -54,14 +54,6 @@ def _to_anthropic_content_parts(content: list[Any]) -> list[dict[str, Any]]:
         else:
             parts.append(part)
     return parts
-
-
-@overload
-def _normalize_anthropic_input_tokens(token_usage: dict[str, int]) -> dict[str, int]: ...
-
-
-@overload
-def _normalize_anthropic_input_tokens(token_usage: None) -> None: ...
 
 
 def _normalize_anthropic_input_tokens(
@@ -818,7 +810,8 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
     def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
         return _extract_anthropic_streaming_token_usage(chunk)
 
-    _normalize_streaming_token_usage = staticmethod(_normalize_anthropic_input_tokens)
+    def _normalize_streaming_token_usage(self, token_usage: dict[str, int]) -> dict[str, int]:
+        return _normalize_anthropic_input_tokens(token_usage)
 
     async def _proxy(
         self,
