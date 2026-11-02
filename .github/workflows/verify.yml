@@ -95,6 +95,14 @@ jobs:
               pullRequest(number: $number) {
                 title body state headRefOid
                 author { login __typename }
+                reviewThreads(last: 50) {
+                  nodes {
+                    path line originalLine diffSide isResolved isOutdated
+                    comments(last: 25) {
+                      nodes { author { login } body createdAt url }
+                    }
+                  }
+                }
               }
             }
           }
@@ -116,59 +124,11 @@ jobs:
             echo 'The PR author is not trusted.' >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          query=$(cat <<'GRAPHQL'
-          query($owner: String!, $name: String!, $number: Int!, $endCursor: String) {
-            repository(owner: $owner, name: $name) {
-              pullRequest(number: $number) {
-                reviewThreads(first: 100, after: $endCursor) {
-                  nodes {
-                    id path line originalLine diffSide isResolved isOutdated
-                    comments(first: 100) {
-                      totalCount
-                      nodes { author { login } body createdAt url }
-                    }
-                  }
-                  pageInfo { hasNextPage endCursor }
-                }
-              }
-            }
-          }
-          GRAPHQL
-          )
-          gh api graphql --paginate --slurp \
-            -f owner="${REPO%/*}" -f name="${REPO#*/}" -F number="$PR_NUMBER" \
-            -f query="$query" > "$RUNNER_TEMP/thread-pages.json"
-          jq '[.[].data.repository.pullRequest.reviewThreads.nodes[]]' \
-            "$RUNNER_TEMP/thread-pages.json" > "$RUNNER_TEMP/threads.json"
-          # A thread with over 100 comments needs its own pagination cursor.
-          query=$(cat <<'GRAPHQL'
-          query($id: ID!, $endCursor: String) {
-            node(id: $id) {
-              ... on PullRequestReviewThread {
-                comments(first: 100, after: $endCursor) {
-                  nodes { author { login } body createdAt url }
-                  pageInfo { hasNextPage endCursor }
-                }
-              }
-            }
-          }
-          GRAPHQL
-          )
-          while IFS= read -r thread; do
-            id=$(jq -r '.value.id' <<< "$thread")
-            index=$(jq '.key' <<< "$thread")
-            gh api graphql --paginate --slurp -f id="$id" -f query="$query" \
-              > "$RUNNER_TEMP/comment-pages.json"
-            jq --argjson index "$index" --slurpfile pages "$RUNNER_TEMP/comment-pages.json" \
-              '.[$index].comments.nodes = [$pages[0][].data.node.comments.nodes[]]' \
-              "$RUNNER_TEMP/threads.json" > "$RUNNER_TEMP/threads-next.json"
-            mv "$RUNNER_TEMP/threads-next.json" "$RUNNER_TEMP/threads.json"
-          done < <(jq -c 'to_entries[] | select(.value.comments.totalCount > 100)' "$RUNNER_TEMP/threads.json")
           head=$(jq -er '.headRefOid | select(test("^[0-9a-f]{40}$"))' "$RUNNER_TEMP/pr.json")
-          jq --slurpfile threads "$RUNNER_TEMP/threads.json" '{
+          jq '{
             title,
             body,
-            review_threads: [$threads[0][] | del(.id) | .comments |= .nodes]
+            review_threads: [.reviewThreads.nodes[] | .comments |= .nodes]
           }' "$RUNNER_TEMP/pr.json" > "$RUNNER_TEMP/pr_context.json"
           {
             echo "head=$head"
