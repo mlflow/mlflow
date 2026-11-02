@@ -261,7 +261,6 @@ jobs:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
           TRACE_LOCATION: ${{ vars.VERIFY_MLFLOW_TRACE_LOCATION }}
         run: |
-          umask 077
           printf '%s\n' "$TELEMETRY_TOKEN" | env -u TELEMETRY_TOKEN \
             DATABRICKS_HOST="$DATABRICKS_HOST" TRACE_LOCATION="$TRACE_LOCATION" \
             node trusted/.claude/sandbox/otel-proxy.mjs \
