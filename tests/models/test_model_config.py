@@ -94,7 +94,7 @@ def test_config_development_config_to_dict():
 
 def test_config_utf8_encoding(tmp_path):
     config_path = tmp_path / "utf8_config.yaml"
-    expected_prompt = "You’re a helpful assistant — reply in 日本語"
+    expected_prompt = "You\u2019re a helpful assistant — reply in 日本語"
     config_path.write_text(f'system_prompt: "{expected_prompt}"\n', encoding="utf-8")
 
     real_open = open
@@ -107,4 +107,3 @@ def test_config_utf8_encoding(tmp_path):
     with mock.patch("builtins.open", side_effect=cp1252_open):
         config = ModelConfig(development_config=str(config_path))
         assert config.get("system_prompt") == expected_prompt
-
