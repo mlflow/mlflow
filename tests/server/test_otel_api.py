@@ -21,6 +21,7 @@ from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.server.fastapi_app import add_fastapi_workspace_middleware, create_fastapi_app
 from mlflow.server.otel_api import otel_router
 from mlflow.store.tracking.abstract_store import AbstractStore
+from mlflow.store.tracking.abstract_trace_backend import AbstractTraceBackend
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH, _set_otel_proto_anyvalue
@@ -54,6 +55,25 @@ def _make_test_client():
     add_fastapi_workspace_middleware(app)
     app.include_router(otel_router)
     return TestClient(app)
+
+
+def test_otlp_ingestion_routes_to_trace_backend(monkeypatch, db_uri, tmp_path):
+    backend = mock.create_autospec(AbstractTraceBackend, instance=True)
+    backend.log_spans_async.return_value = []
+    store = SqlAlchemyStore(db_uri, tmp_path.as_uri(), trace_backend=backend)
+    monkeypatch.setattr("mlflow.server.otel_api._get_tracking_store", lambda: store)
+    response = _make_test_client().post(
+        OTLP_TRACES_PATH,
+        content=_build_otlp_payload(),
+        headers={"Content-Type": "application/x-protobuf", "X-MLflow-Experiment-Id": "42"},
+    )
+    assert response.status_code == 200
+    backend.log_spans_async.assert_awaited_once()
+    location, spans = backend.log_spans_async.call_args.args
+    assert location == "42"
+    assert len(spans) == 1
+    backend.set_tracking_store.assert_called_once_with(store)
+    store._dispose_engine()
 
 
 class _DummyTrackingStore:

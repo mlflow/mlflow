@@ -10,11 +10,14 @@ import threading
 import time
 import uuid
 from collections import defaultdict
+from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
-from functools import lru_cache, reduce
+from functools import lru_cache, reduce, wraps
 from pathlib import PurePath
-from typing import Any, Iterable, Literal, TypedDict, TypeVar
+from typing import Any, Concatenate, Iterable, Literal, ParamSpec, TypedDict, TypeVar
 from urllib.parse import urlparse
 
 import sqlalchemy
@@ -82,9 +85,11 @@ from mlflow.entities.trace_metrics import (
 )
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.entities.workspace import WorkspaceDeletionMode
 from mlflow.environment_variables import MLFLOW_TRACE_DELETE_MAX_WORKERS
 from mlflow.exceptions import (
     MlflowException,
+    MlflowNotImplementedException,
     MlflowTraceArchivalMalformedTrace,
     MlflowTracingException,
 )
@@ -140,8 +145,8 @@ from mlflow.store.tracking import (
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
+from mlflow.store.tracking.abstract_trace_backend import AbstractTraceBackend
 from mlflow.store.tracking.dbmodels.models import (
-    SqlAssessmentDailyRollup,
     SqlAssessments,
     SqlDataset,
     SqlEntityAssociation,
@@ -174,12 +179,9 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlScorer,
     SqlScorerVersion,
     SqlSpan,
-    SqlSpanCostDailyRollup,
     SqlTag,
     SqlTraceInfo,
     SqlTraceMetadata,
-    SqlTraceMetricDailyRollup,
-    SqlTraceRollupRebuild,
     SqlTraceTag,
     _input_to_dict,
 )
@@ -240,6 +242,10 @@ from mlflow.store.tracking.utils.trace_archival import (
     _TraceDeleteSelection,
     _TraceReadSnapshot,
     _TraceSpanSnapshot,
+)
+from mlflow.store.tracking.utils.trace_cleanup import (
+    delete_experiment_trace_dependencies,
+    delete_trace_associations,
 )
 from mlflow.telemetry.events import UpdateIssueEvent
 from mlflow.telemetry.track import record_usage_event
@@ -329,6 +335,7 @@ from mlflow.utils.validation import (
     _validate_trace_archival_location,
     _validate_trace_archival_retention_string,
     _validate_trace_tag,
+    validate_delete_traces_parameters,
 )
 from mlflow.utils.workspace_context import get_request_workspace
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
@@ -356,6 +363,24 @@ _DB_WRITE_MAX_DEADLOCK_RETRIES = 2
 sqlalchemy.orm.configure_mappers()
 
 _SPAN_SEARCH_TIMESTAMP_TOLERANCE_MS = 10_000
+
+
+_TraceParams = ParamSpec("_TraceParams")
+_TraceReturn = TypeVar("_TraceReturn")
+
+
+def _delegate_to_trace_backend(
+    method: Callable[Concatenate["SqlAlchemyStore", _TraceParams], _TraceReturn],
+) -> Callable[Concatenate["SqlAlchemyStore", _TraceParams], _TraceReturn]:
+    @wraps(method)
+    def wrapper(
+        self: "SqlAlchemyStore", *args: _TraceParams.args, **kwargs: _TraceParams.kwargs
+    ) -> _TraceReturn:
+        if (backend := self.trace_backend) is not None:
+            return getattr(backend, method.__name__)(*args, **kwargs)
+        return method(self, *args, **kwargs)
+
+    return wrapper
 
 
 class DatasetFilter(TypedDict, total=False):
@@ -414,7 +439,13 @@ class SqlAlchemyStore(
                     )
         return cls._engine_map[db_uri]
 
-    def __init__(self, db_uri, default_artifact_root, read_db_uri=None):
+    def __init__(
+        self,
+        db_uri,
+        default_artifact_root,
+        read_db_uri=None,
+        trace_backend: AbstractTraceBackend | None = None,
+    ):
         """
         Create a database backed store.
 
@@ -430,8 +461,12 @@ class SqlAlchemyStore(
                 read operations (e.g. search_runs, get_experiment) are routed to this URI
                 while write operations use ``db_uri``. If not provided, all operations
                 use ``db_uri``.
+            trace_backend: Optional independently constructed trace backend. Its tracking-store
+                context is bound after database and store initialization succeeds.
         """
-        super().__init__()
+        self._trace_backend: AbstractTraceBackend | None = None
+        self._trace_backend_disabled = ContextVar("mlflow_trace_backend_disabled", default=False)
+        super().__init__(trace_backend=trace_backend)
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
         self.artifact_root_uri = resolve_uri_if_local(default_artifact_root)
@@ -473,6 +508,30 @@ class SqlAlchemyStore(
         # when the artifact root is local but never actually used.
 
         self._initialize_store_state()
+        self._trace_backend = trace_backend
+        if trace_backend is not None:
+            trace_backend.set_tracking_store(self)
+
+    @staticmethod
+    def supports_trace_backends() -> bool:
+        return True
+
+    @property
+    def trace_backend(self) -> AbstractTraceBackend | None:
+        return None if self._trace_backend_disabled.get() else self._trace_backend
+
+    @contextmanager
+    def disable_trace_backend(self) -> Iterator[None]:
+        """Use native store operations in this store's current context without changing scope.
+
+        Nested blocks and exceptions restore the prior routing state. Async tasks and
+        ``asyncio.to_thread`` inherit context; do not spawn unrelated background work here.
+        """
+        token = self._trace_backend_disabled.set(True)
+        try:
+            yield
+        finally:
+            self._trace_backend_disabled.reset(token)
 
     @property
     def supports_workspaces(self) -> bool:
@@ -480,7 +539,35 @@ class SqlAlchemyStore(
 
     @property
     def supports_trace_archival(self) -> bool:
+        if (backend := self.trace_backend) is not None:
+            return backend.supports_trace_archival
         return True
+
+    async def log_spans_async(self, location: str, spans: list[Span]) -> list[Span]:
+        if (backend := self.trace_backend) is not None:
+            return await backend.log_spans_async(location, spans)
+        return await super().log_spans_async(location, spans)
+
+    @_delegate_to_trace_backend
+    def sum_gateway_trace_cost(
+        self,
+        start_time_ms: int,
+        end_time_ms: int,
+        workspace: str | None = None,
+        endpoint_id: str | None = None,
+        username: str | None = None,
+    ) -> float:
+        return super().sum_gateway_trace_cost(
+            start_time_ms, end_time_ms, workspace, endpoint_id, username
+        )
+
+    @_delegate_to_trace_backend
+    def get_online_trace_details(
+        self, trace_id: str, source_inference_table: str, source_databricks_request_id: str
+    ) -> str:
+        return super().get_online_trace_details(
+            trace_id, source_inference_table, source_databricks_request_id
+        )
 
     def _get_active_workspace(self) -> str:
         """
@@ -869,6 +956,16 @@ class SqlAlchemyStore(
         """
         Hook for subclasses to filter entity IDs (e.g., for workspaces).
         """
+        if entity_type == EntityAssociationType.TRACE and self.trace_backend is not None:
+            infos = []
+            for ids in chunk_list(list(entity_ids), 500):
+                infos.extend(self.batch_get_trace_infos(ids))
+            experiment_ids = self._filter_experiment_ids(
+                session, list({str(info.experiment_id) for info in infos})
+            )
+            allowed = {str(experiment_id) for experiment_id in experiment_ids}
+            found = {info.trace_id for info in infos if str(info.experiment_id) in allowed}
+            return [trace_id for trace_id in entity_ids if trace_id in found]
         return entity_ids
 
     def _filter_association_query(self, session, query, target_type, id_column):
@@ -967,6 +1064,12 @@ class SqlAlchemyStore(
             for run in runs:
                 self._mark_run_deleted(session, run)
             session.add(experiment)
+        try:
+            self.on_experiment_deleted(str(experiment_id))
+        except Exception:
+            _logger.exception(
+                "Trace backend hook failed after experiment deletion %s.", experiment_id
+            )
 
     def _hard_delete_experiment(self, experiment_id):
         """
@@ -979,20 +1082,48 @@ class SqlAlchemyStore(
                 session=session,
                 view_type=ViewType.DELETED_ONLY,
             )
-            # Rollup tables deliberately have no experiment foreign key. Remove their rows in the
-            # same transaction so backends that reuse integer experiment ids (notably SQLite)
-            # cannot expose aggregates or rebuild state from the deleted experiment.
-            experiment_id_int = _parse_experiment_id(experiment_id)
-            for model in (
-                SqlTraceRollupRebuild,
-                SqlTraceMetricDailyRollup,
-                SqlSpanCostDailyRollup,
-                SqlAssessmentDailyRollup,
-            ):
-                session.query(model).filter(model.experiment_id == experiment_id_int).delete(
-                    synchronize_session=False
-                )
+            delete_experiment_trace_dependencies(session, [_parse_experiment_id(experiment_id)])
             session.delete(experiment)
+        try:
+            self.on_experiment_permanently_deleted(str(experiment_id))
+        except Exception:
+            _logger.exception(
+                "Trace backend hook failed after permanent experiment deletion %s.", experiment_id
+            )
+
+    def on_run_deleted(self, run_id: str) -> None:
+        if self.trace_backend is not None:
+            self.trace_backend.on_run_deleted(run_id)
+
+    def on_run_permanently_deleted(self, run_id: str) -> None:
+        if self.trace_backend is not None:
+            self.trace_backend.on_run_permanently_deleted(run_id)
+
+    def on_experiment_deleted(self, experiment_id: str) -> None:
+        if self.trace_backend is not None:
+            self.trace_backend.on_experiment_deleted(experiment_id)
+
+    def on_experiment_permanently_deleted(self, experiment_id: str) -> None:
+        if self.trace_backend is not None:
+            self.trace_backend.on_experiment_permanently_deleted(experiment_id)
+
+    def before_workspace_deleted(self, workspace_name: str, mode: WorkspaceDeletionMode) -> None:
+        if self.trace_backend is not None:
+            if mode == WorkspaceDeletionMode.SET_DEFAULT:
+                raise MlflowException.invalid_parameter_value(
+                    "Workspace reassignment is not supported with a separate trace backend."
+                )
+            self.trace_backend.before_workspace_deleted(workspace_name, mode)
+
+    def on_workspace_deleted(self, workspace_name: str) -> None:
+        if self.trace_backend is not None:
+            self.trace_backend.on_workspace_deleted(workspace_name)
+
+    def on_traces_deleted(self, trace_ids: list[str]) -> None:
+        if trace_ids:
+            with self.ManagedSessionMaker(read_only=False) as session:
+                self._delete_review_queue_items_for_traces(session, trace_ids)
+                delete_trace_associations(session, trace_ids)
 
     def _mark_run_deleted(self, session, run):
         # Delete assessments associated with the run. The source run ID is stored
@@ -1348,6 +1479,10 @@ class SqlAlchemyStore(
         with self.ManagedSessionMaker(read_only=False) as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._mark_run_deleted(session, run)
+        try:
+            self.on_run_deleted(run_id)
+        except Exception:
+            _logger.exception("Trace backend hook failed after run deletion %s.", run_id)
 
     def _hard_delete_run(self, run_id):
         """
@@ -1359,6 +1494,11 @@ class SqlAlchemyStore(
             # for runs with large metric histories. Bulk deletes keep memory usage independent of
             # history size.
             self._get_run(run_uuid=run_id, session=session)
+            session.query(SqlEntityAssociation).filter(
+                SqlEntityAssociation.source_type == EntityAssociationType.TRACE,
+                SqlEntityAssociation.destination_type == EntityAssociationType.RUN,
+                SqlEntityAssociation.destination_id == run_id,
+            ).delete(synchronize_session=False)
             for model in _RUN_DELETE_CASCADE_MODELS:
                 session.query(model).filter(model.run_uuid == run_id).delete(
                     synchronize_session=False
@@ -1366,6 +1506,10 @@ class SqlAlchemyStore(
             session.query(SqlRun).filter(SqlRun.run_uuid == run_id).delete(
                 synchronize_session=False
             )
+        try:
+            self.on_run_permanently_deleted(run_id)
+        except Exception:
+            _logger.exception("Trace backend hook failed after permanent run deletion %s.", run_id)
 
     def _get_deleted_runs(self, older_than=0):
         """
@@ -3949,6 +4093,7 @@ class SqlAlchemyStore(
                 sleep_duration += random.uniform(0, 1)
                 time.sleep(sleep_duration)
 
+    @_delegate_to_trace_backend
     def start_trace(self, trace_info: "TraceInfo") -> TraceInfo:
         """
         Create a trace using the V3 API format with a complete Trace object.
@@ -4207,6 +4352,7 @@ class SqlAlchemyStore(
 
             return sql_trace_info.to_mlflow_entity()
 
+    @_delegate_to_trace_backend
     def get_trace_info(self, trace_id: str) -> TraceInfo:
         """
         Fetch the trace info for the given trace id.
@@ -4333,6 +4479,7 @@ class SqlAlchemyStore(
 
         return statement
 
+    @_delegate_to_trace_backend
     def search_traces(
         self,
         experiment_ids: list[str] | None = None,
@@ -4432,6 +4579,7 @@ class SqlAlchemyStore(
 
             return trace_infos, next_token
 
+    @_delegate_to_trace_backend
     def find_completed_sessions(
         self,
         experiment_id: str,
@@ -4711,6 +4859,7 @@ class SqlAlchemyStore(
                 INVALID_PARAMETER_VALUE,
             )
 
+    @_delegate_to_trace_backend
     def query_trace_metrics(
         self,
         experiment_ids: list[str],
@@ -4833,6 +4982,7 @@ class SqlAlchemyStore(
             # TODO: Implement pagination with page_token
             return PagedList(data_points, None)
 
+    @_delegate_to_trace_backend
     def set_trace_tag(self, trace_id: str, key: str, value: str):
         """
         Set a tag on the trace with the given trace_id.
@@ -4853,6 +5003,7 @@ class SqlAlchemyStore(
             else:
                 session.merge(SqlTraceTag(request_id=trace_id, key=key, value=value))
 
+    @_delegate_to_trace_backend
     def delete_trace_tag(self, trace_id: str, key: str):
         """
         Delete a tag on the trace with the given trace_id.
@@ -4884,7 +5035,8 @@ class SqlAlchemyStore(
                     RESOURCE_DOES_NOT_EXIST,
                 )
 
-    def _delete_traces(
+    @_delegate_to_trace_backend
+    def delete_traces(
         self,
         experiment_id: str,
         max_timestamp_millis: int | None = None,
@@ -4904,6 +5056,7 @@ class SqlAlchemyStore(
         Returns:
             The number of traces deleted.
         """
+        validate_delete_traces_parameters(max_timestamp_millis, max_traces, trace_ids)
         experiment_id_int = _parse_experiment_id(experiment_id)
         deleted_db_backed_count = 0
         selected_archived_traces: list[_TraceDeleteSelection] = []
@@ -4962,6 +5115,7 @@ class SqlAlchemyStore(
                     .delete(synchronize_session=False)
                 )
                 self._delete_review_queue_items_for_traces(session, db_backed_trace_ids)
+                delete_trace_associations(session, db_backed_trace_ids)
 
         if not selected_archived_traces:
             return deleted_db_backed_count
@@ -4984,6 +5138,7 @@ class SqlAlchemyStore(
                 .delete(synchronize_session=False)
             )
             self._delete_review_queue_items_for_traces(session, deleted_archived_trace_ids)
+            delete_trace_associations(session, deleted_archived_trace_ids)
         return deleted_db_backed_count + deleted_archived_count
 
     def _delete_review_queue_items_for_traces(self, session: Session, trace_ids: list[str]) -> None:
@@ -5001,10 +5156,12 @@ class SqlAlchemyStore(
 
         if not trace_ids:
             return
+        queues = self._get_query(session, SqlReviewQueue).with_entities(SqlReviewQueue.queue_id)
         (
             session
             .query(SqlReviewQueueItem)
             .filter(
+                SqlReviewQueueItem.queue_id.in_(queues),
                 SqlReviewQueueItem.item_type == ReviewItemType.TRACE.value,
                 SqlReviewQueueItem.item_id.in_(trace_ids),
             )
@@ -5102,7 +5259,7 @@ class SqlAlchemyStore(
         """
         Return archive-backed traces and their payload URIs for a delete pass.
 
-        `_delete_traces()` calls this while the selected `trace_info` rows are still locked so it
+        `delete_traces()` calls this while the selected `trace_info` rows are still locked so it
         can classify candidates consistently, delete DB-backed rows in the same transaction, and
         leave only archive-backed traces for the slower payload cleanup phase.
         """
@@ -5188,6 +5345,7 @@ class SqlAlchemyStore(
                 )
         return [trace_id for trace_id in deleted_trace_ids if trace_id is not None]
 
+    @_delegate_to_trace_backend
     def create_assessment(self, assessment: Assessment) -> Assessment:
         """
         Create a new assessment in the database.
@@ -5295,6 +5453,7 @@ class SqlAlchemyStore(
                     ) from e
                 return sql_assessment.to_mlflow_entity()
 
+    @_delegate_to_trace_backend
     def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
         """
         Fetch the assessment for the given trace_id and assessment_id.
@@ -5310,6 +5469,7 @@ class SqlAlchemyStore(
             sql_assessment = self._get_sql_assessment(session, trace_id, assessment_id)
             return sql_assessment.to_mlflow_entity()
 
+    @_delegate_to_trace_backend
     def update_assessment(
         self,
         trace_id: str,
@@ -5449,6 +5609,7 @@ class SqlAlchemyStore(
 
             return updated_assessment
 
+    @_delegate_to_trace_backend
     def delete_assessment(self, trace_id: str, assessment_id: str) -> None:
         """
         Delete an assessment from a trace.
@@ -5539,7 +5700,10 @@ class SqlAlchemyStore(
             )
 
         with self.ManagedSessionMaker(read_only=False) as session:
-            self._validate_run_accessible(session, run_id)
+            if self.trace_backend is not None:
+                self._get_run(session, run_id)
+            else:
+                self._validate_run_accessible(session, run_id)
 
             trace_ids = self._filter_entity_ids(
                 session, EntityAssociationType.TRACE, list(trace_ids)
@@ -5573,6 +5737,26 @@ class SqlAlchemyStore(
                 for trace_id in trace_ids_to_add
             )
 
+    def unlink_traces_from_run(self, trace_ids: list[str], run_id: str) -> None:
+        if not trace_ids:
+            return
+        with self.ManagedSessionMaker(read_only=False) as session:
+            self._get_run(session, run_id)
+            trace_ids = self._filter_entity_ids(
+                session, EntityAssociationType.TRACE, list(trace_ids)
+            )
+            (
+                session
+                .query(SqlEntityAssociation)
+                .filter(
+                    SqlEntityAssociation.source_type == EntityAssociationType.TRACE,
+                    SqlEntityAssociation.source_id.in_(trace_ids),
+                    SqlEntityAssociation.destination_type == EntityAssociationType.RUN,
+                    SqlEntityAssociation.destination_id == run_id,
+                )
+                .delete(synchronize_session=False)
+            )
+
     def link_prompts_to_trace(self, trace_id: str, prompt_versions: list[PromptVersion]) -> None:
         """
         Link multiple prompt versions to a trace by creating entity associations.
@@ -5585,14 +5769,19 @@ class SqlAlchemyStore(
             return
 
         with self.ManagedSessionMaker(read_only=False) as session:
-            trace_exists = (
-                self
-                ._trace_query(session)
-                .with_entities(SqlTraceInfo.request_id)
-                .filter(SqlTraceInfo.request_id == trace_id)
-                .first()
-            )
-            if trace_exists is None:
+            if self.trace_backend is not None:
+                trace_exists = bool(
+                    self._filter_entity_ids(session, EntityAssociationType.TRACE, [trace_id])
+                )
+            else:
+                trace_exists = (
+                    self
+                    ._trace_query(session)
+                    .with_entities(SqlTraceInfo.request_id)
+                    .filter(SqlTraceInfo.request_id == trace_id)
+                    .first()
+                )
+            if not trace_exists:
                 raise MlflowException(
                     f"Trace with ID '{trace_id}' not found.",
                     RESOURCE_DOES_NOT_EXIST,
@@ -5630,6 +5819,7 @@ class SqlAlchemyStore(
                 for prompt_id in prompt_ids_to_add
             )
 
+    @_delegate_to_trace_backend
     def calculate_trace_filter_correlation(
         self,
         experiment_ids: list[str],
@@ -5799,6 +5989,7 @@ class SqlAlchemyStore(
             joint_count=joint_count,
         )
 
+    @_delegate_to_trace_backend
     def log_spans(self, location: str, spans: list[Span], tracking_uri=None) -> list[Span]:
         """
         Log multiple span entities to the tracking store.
@@ -6506,6 +6697,7 @@ class SqlAlchemyStore(
                     return TraceState.OK.value
         return None
 
+    @_delegate_to_trace_backend
     def get_trace(self, trace_id: str, *, allow_partial: bool = False) -> Trace:
         if not allow_partial:
             for retry_count in range(3):
@@ -6624,6 +6816,7 @@ class SqlAlchemyStore(
         sql_trace_infos.sort(key=lambda sti: trace_id_order[sti.request_id])
         return sql_trace_infos
 
+    @_delegate_to_trace_backend
     def batch_get_traces(
         self,
         trace_ids: list[str],
@@ -6703,6 +6896,7 @@ class SqlAlchemyStore(
 
         return traces
 
+    @_delegate_to_trace_backend
     def batch_get_trace_infos(
         self,
         trace_ids: list[str],
@@ -6860,6 +7054,7 @@ class SqlAlchemyStore(
             missing_trace_ids=missing_trace_ids,
         )
 
+    @_delegate_to_trace_backend
     def archive_traces(
         self,
         *,
@@ -7774,7 +7969,14 @@ class SqlAlchemyStore(
             entity_ids = [entity_ids]
 
         with self.ManagedSessionMaker() as session:
-            entity_ids = self._filter_entity_ids(session, entity_type, entity_ids)
+            if (
+                self.trace_backend is not None
+                and entity_type == EntityAssociationType.PROMPT_VERSION
+                and target_type == EntityAssociationType.TRACE
+            ):
+                pass  # Registry-owned prompt identities are scoped through visible trace results.
+            else:
+                entity_ids = self._filter_entity_ids(session, entity_type, entity_ids)
             query = session.query(SqlEntityAssociation)
 
             if search_direction == "forward":
@@ -7782,9 +7984,6 @@ class SqlAlchemyStore(
                     SqlEntityAssociation.source_type == entity_type,
                     SqlEntityAssociation.source_id.in_(entity_ids),
                     SqlEntityAssociation.destination_type == target_type,
-                )
-                query = self._filter_association_query(
-                    session, query, target_type, SqlEntityAssociation.destination_id
                 )
                 order_field = SqlEntityAssociation.destination_id
                 result_field = "destination_id"
@@ -7794,11 +7993,23 @@ class SqlAlchemyStore(
                     SqlEntityAssociation.destination_id.in_(entity_ids),
                     SqlEntityAssociation.source_type == target_type,
                 )
-                query = self._filter_association_query(
-                    session, query, target_type, SqlEntityAssociation.source_id
-                )
                 order_field = SqlEntityAssociation.source_id
                 result_field = "source_id"
+
+            if target_type == EntityAssociationType.TRACE and self.trace_backend is not None:
+                first_association_time = func.min(SqlEntityAssociation.created_time)
+                return self._search_backend_trace_associations(
+                    session,
+                    query
+                    .with_entities(order_field.label(result_field))
+                    .group_by(order_field)
+                    .order_by(first_association_time, order_field),
+                    result_field,
+                    max_results,
+                    page_token,
+                )
+            else:
+                query = self._filter_association_query(session, query, target_type, order_field)
 
             offset = SearchUtils.parse_start_offset_from_page_token(page_token)
 
@@ -7818,6 +8029,33 @@ class SqlAlchemyStore(
 
             results = list(dict.fromkeys([getattr(assoc, result_field) for assoc in associations]))
             return PagedList(results, next_token)
+
+    def _search_backend_trace_associations(
+        self, session, query, result_field: str, max_results: int | None, page_token: str | None
+    ) -> PagedList[str]:
+        self._validate_max_results_param(max_results, allow_null=True)
+        offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+        results = []
+        next_offset = offset
+        while True:
+            rows = query.offset(offset).limit(500).all()
+            visible = set(
+                self._filter_entity_ids(
+                    session,
+                    EntityAssociationType.TRACE,
+                    list({getattr(row, result_field) for row in rows}),
+                )
+            )
+            for index, row in enumerate(rows):
+                trace_id = getattr(row, result_field)
+                if trace_id in visible:
+                    if max_results is not None and len(results) == max_results:
+                        return PagedList(results, SearchUtils.create_page_token(next_offset))
+                    results.append(trace_id)
+                    next_offset = offset + index + 1
+            if len(rows) < 500:
+                return PagedList(results, None)
+            offset += len(rows)
 
     def search_entities_by_source(
         self,
@@ -8542,6 +8780,11 @@ class SqlAlchemyStore(
         Returns:
             The created TraceInfo object.
         """
+        if self.trace_backend is not None:
+            raise MlflowNotImplementedException(
+                "Legacy V2 trace creation is not supported with a separate trace backend. "
+                "Use the V3 tracing API instead."
+            )
         trace_name = validate_trace_name(tags.get(TraceTagKey.TRACE_NAME))
         with self.ManagedSessionMaker(read_only=False) as session:
             experiment = self.get_experiment(experiment_id)
@@ -8608,6 +8851,11 @@ class SqlAlchemyStore(
         Returns:
             The updated TraceInfo object.
         """
+        if self.trace_backend is not None:
+            raise MlflowNotImplementedException(
+                "Legacy V2 trace updates are not supported with a separate trace backend. "
+                "Use the V3 tracing API instead."
+            )
         with self.ManagedSessionMaker(read_only=False) as session:
             sql_trace_info = self._get_sql_trace_info(session, request_id)
             trace_start_time_ms = sql_trace_info.timestamp_ms
@@ -8768,6 +9016,7 @@ class SqlAlchemyStore(
     # Issue Methods
     # ===================================================================================
 
+    @_delegate_to_trace_backend
     def create_issue(
         self,
         experiment_id: str,
@@ -8878,6 +9127,7 @@ class SqlAlchemyStore(
             # Return Issue entity
             return sql_issue.to_mlflow_entity()
 
+    @_delegate_to_trace_backend
     def get_issue(self, issue_id: str) -> Issue:
         """
         Get an issue by ID.
@@ -8900,6 +9150,7 @@ class SqlAlchemyStore(
 
             return sql_issue.to_mlflow_entity()
 
+    @_delegate_to_trace_backend
     @record_usage_event(UpdateIssueEvent)
     def update_issue(
         self,
@@ -9026,6 +9277,7 @@ class SqlAlchemyStore(
 
             return sql_issue.to_mlflow_entity()
 
+    @_delegate_to_trace_backend
     def search_issues(
         self,
         experiment_id: str | None = None,

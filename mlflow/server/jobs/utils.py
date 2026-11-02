@@ -31,6 +31,7 @@ from mlflow.environment_variables import (
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY,
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY,
     MLFLOW_SQL_TRACE_ROLLUPS_ENABLED,
+    MLFLOW_TRACE_BACKEND,
     MLFLOW_WORKSPACE,
 )
 from mlflow.exceptions import MlflowException
@@ -1055,6 +1056,7 @@ def initialize_periodic_tasks_tracking_store():
     tracking_store = _get_store(
         store_uri=backend_store_uri,
         artifact_uri=os.environ.get("MLFLOW_DEFAULT_ARTIFACT_ROOT"),
+        **({"trace_backend_kind": kind} if (kind := MLFLOW_TRACE_BACKEND.get()) else {}),
     )
     if MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.get() and getattr(tracking_store, "engine", None) is None:
         raise MlflowException.invalid_parameter_value(

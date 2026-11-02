@@ -41,7 +41,51 @@ from mlflow.utils.validation import (
     _validate_third_party_scorer_data,
     _validate_webhook_url,
     path_not_unique,
+    validate_delete_traces_parameters,
 )
+
+
+@pytest.mark.parametrize(
+    "parameters",
+    [
+        {"trace_ids": ["tr-123"]},
+        {"max_timestamp_millis": 0},
+        {"max_timestamp_millis": 100, "max_traces": 1},
+        {"max_timestamp_millis": 100, "trace_ids": []},
+    ],
+)
+def test_validate_delete_traces_parameters(parameters):
+    assert validate_delete_traces_parameters(**parameters) is None
+
+
+@pytest.mark.parametrize(
+    ("parameters", "message"),
+    [
+        ({}, "Either `max_timestamp_millis` or `trace_ids` must be specified"),
+        ({"trace_ids": []}, "Either `max_timestamp_millis` or `trace_ids` must be specified"),
+        (
+            {"max_timestamp_millis": 100, "trace_ids": ["tr-123"]},
+            "Only one of `max_timestamp_millis` and `trace_ids` can be specified",
+        ),
+        (
+            {"trace_ids": ["tr-123"], "max_traces": 1},
+            "`max_traces` can't be specified if `trace_ids` is specified",
+        ),
+        (
+            {"max_timestamp_millis": 100, "max_traces": 0},
+            "`max_traces` must be a positive integer, received 0",
+        ),
+        (
+            {"max_timestamp_millis": 100, "max_traces": -1},
+            "`max_traces` must be a positive integer, received -1",
+        ),
+    ],
+)
+def test_validate_delete_traces_parameters_rejects_invalid_criteria(parameters, message):
+    with pytest.raises(MlflowException, match=message) as error:
+        validate_delete_traces_parameters(**parameters)
+    assert error.value.error_code == "INVALID_PARAMETER_VALUE"
+
 
 GOOD_METRIC_OR_PARAM_NAMES = [
     "a",

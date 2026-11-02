@@ -5,6 +5,7 @@ firing exceeded-budget webhooks, and creating on_complete callbacks for budget r
 """
 
 import logging
+import threading
 
 from fastapi import HTTPException
 
@@ -28,6 +29,7 @@ from mlflow.webhooks.delivery import deliver_webhook
 from mlflow.webhooks.types import BudgetPolicyExceededPayload
 
 _logger = logging.getLogger(__name__)
+_BUDGET_REFRESH_LOCK = threading.Lock()
 
 
 def calculate_existing_cost_for_windows(
@@ -88,14 +90,17 @@ def calculate_existing_cost_for_windows(
 def maybe_refresh_budget_policies(store: SqlAlchemyStore) -> None:
     """Refresh budget policies from the database if stale."""
     tracker = get_budget_tracker()
-    if tracker.needs_refresh():
-        try:
-            policies = store.list_budget_policies_across_workspaces()
-            windows = tracker.refresh_policies(policies)
-            existing_spend = calculate_existing_cost_for_windows(store, windows)
-            tracker.backfill_spend(existing_spend)
-        except Exception:
-            _logger.debug("Failed to refresh budget policies", exc_info=True)
+    # Policy refresh marks the tracker fresh before backfill. Serialize checks so another
+    # request cannot use those windows until historical spend is loaded.
+    with _BUDGET_REFRESH_LOCK:
+        if tracker.needs_refresh():
+            try:
+                policies = store.list_budget_policies_across_workspaces()
+                windows = tracker.refresh_policies(policies)
+                existing_spend = calculate_existing_cost_for_windows(store, windows)
+                tracker.backfill_spend(existing_spend)
+            except Exception:
+                _logger.debug("Failed to refresh budget policies", exc_info=True)
 
 
 def _compute_cost_from_child_spans(trace_id: str) -> float:

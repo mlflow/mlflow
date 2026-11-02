@@ -964,6 +964,30 @@ def _validate_password(password) -> None:
         raise MlflowException.invalid_parameter_value("Password must be at least 12 characters.")
 
 
+def validate_delete_traces_parameters(
+    max_timestamp_millis: int | None = None,
+    max_traces: int | None = None,
+    trace_ids: list[str] | None = None,
+) -> None:
+    """Validate deletion criteria shared by trace backend implementations."""
+    if max_timestamp_millis is None and not trace_ids:
+        raise MlflowException.invalid_parameter_value(
+            "Either `max_timestamp_millis` or `trace_ids` must be specified.",
+        )
+    if max_timestamp_millis is not None and trace_ids:
+        raise MlflowException.invalid_parameter_value(
+            "Only one of `max_timestamp_millis` and `trace_ids` can be specified.",
+        )
+    if trace_ids and max_traces is not None:
+        raise MlflowException.invalid_parameter_value(
+            "`max_traces` can't be specified if `trace_ids` is specified.",
+        )
+    if max_traces is not None and max_traces <= 0:
+        raise MlflowException.invalid_parameter_value(
+            f"`max_traces` must be a positive integer, received {max_traces}.",
+        )
+
+
 def _validate_trace_tag(key, value):
     _validate_tag_name(key)
     key = _validate_length_limit("key", MAX_TRACE_TAG_KEY_LENGTH, key)

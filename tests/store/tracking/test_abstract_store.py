@@ -7,7 +7,9 @@ import pytest
 
 from mlflow.entities import Metric
 from mlflow.entities.metric import MetricWithRunId
+from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.abstract_store import AbstractStore
+from mlflow.store.tracking.abstract_trace_backend import AbstractTraceBackend
 
 
 class MockAbstractStore(AbstractStore, ABC):
@@ -41,6 +43,27 @@ def test_supports_workspaces_defaults_to_false(store):
 
 def test_supports_trace_archival_defaults_to_false(store):
     assert store.supports_trace_archival is False
+
+
+def test_base_constructor_rejects_backend_without_host_support():
+    backend = mock.create_autospec(AbstractTraceBackend, instance=True)
+    with patch.object(AbstractStore, "__abstractmethods__", set()):
+        with pytest.raises(MlflowException, match="does not support trace backends"):
+            AbstractStore(trace_backend=backend)
+    backend.set_tracking_store.assert_not_called()
+
+
+def test_base_constructor_accepts_supported_backend_without_binding_early():
+    class SupportingStore(AbstractStore):
+        @staticmethod
+        def supports_trace_backends():
+            return True
+
+    backend = mock.create_autospec(AbstractTraceBackend, instance=True)
+    with patch.object(SupportingStore, "__abstractmethods__", set()):
+        store = SupportingStore(trace_backend=backend)
+    assert store._async_logging_queue is not None
+    backend.set_tracking_store.assert_not_called()
 
 
 class _SyncOnlySpanStore(AbstractStore, ABC):

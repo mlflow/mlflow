@@ -79,10 +79,12 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
     Workspace-aware variant of the SQLAlchemy tracking store.
     """
 
-    def __init__(self, db_uri, default_artifact_root, read_db_uri=None):
+    def __init__(self, db_uri, default_artifact_root, read_db_uri=None, trace_backend=None):
         self._workspace_provider = None
         self._workspace_store_uri = workspace_utils.resolve_workspace_store_uri(tracking_uri=db_uri)
-        super().__init__(db_uri, default_artifact_root, read_db_uri=read_db_uri)
+        super().__init__(
+            db_uri, default_artifact_root, read_db_uri=read_db_uri, trace_backend=trace_backend
+        )
 
     def _get_query(self, session, model):
         query = super()._get_query(session, model)
@@ -304,6 +306,8 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
             return _rows_to_strings(rows)
 
         if entity_type == EntityAssociationType.TRACE:
+            if self.trace_backend is not None:
+                return super()._filter_entity_ids(session, entity_type, entity_ids)
             rows = (
                 session
                 .query(SqlTraceInfo.request_id)

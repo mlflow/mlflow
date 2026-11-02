@@ -47,6 +47,21 @@ You can configure a different backend store by passing the desired **tracking UR
 Continue to the next section for the supported format of tracking URLs.
 Also visit [this guidance](/self-hosting/architecture/tracking-server) for how to set up the backend store properly for your workflow.
 
+## Pluggable Trace Backends
+
+The tracking store handles traces by default. To use a separate trace backend without changing
+where other tracking data is stored, install its plugin and select its registered kind:
+
+```bash
+mlflow server --backend-store-uri postgresql://... --trace-backend my-traces
+# Alternatively, set MLFLOW_TRACE_BACKEND=my-traces on the server.
+```
+
+The CLI option takes precedence over `MLFLOW_TRACE_BACKEND`. Invalid backend configuration fails
+startup; unsupported trace operations return HTTP 501 rather than falling back to the tracking store.
+See [Trace Backend Plugins](/ml/plugins#trace-backend-plugins) for implementation, configuration,
+and compatibility requirements.
+
 ## Supported Store Types
 
 MLflow supports the following types of tracking URI for backend stores:
