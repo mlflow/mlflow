@@ -6,10 +6,10 @@ MLflow 3.18.0 helps you reuse agent expertise, find regressions before shipping,
 
 ### Major New Features
 
-- **[Skill Registry](https://mlflow.org/docs/latest/genai/skill-registry/)**: Share your team's expertise across agents and projects with a central catalog of reusable skills. Discover existing skills and choose the version or alias to use in each agent. Experimental. (#26736, @mprahl)
-- **[Revamped Evaluation and Trace Comparisons for Finding Regressions](https://mlflow.org/docs/latest/genai/eval-monitor/)**: Find the regressions hidden behind aggregate scores before you ship an agent update. The redesigned comparison UI takes you from score changes to the inputs, conversations, and trace steps behind them. An [experimental Python API](https://mlflow.org/docs/latest/genai/eval-monitor/comparing-evaluation-runs/) adds statistical comparisons to help distinguish improvements from noise. (#26991, @joshuawong-db)
-- **[Automatic Issue Detection](https://mlflow.org/docs/latest/genai/eval-monitor/ai-insights/detect-issues/)**: Turn recurring agent failures into issues you can investigate and fix. The dedicated Issues tab groups related problems and links findings to trace evidence; schedule detection to keep checking new traffic. (#27193, @tanghaoji)
-- **[Online Evaluation](https://mlflow.org/docs/latest/genai/eval-monitor/automatic-evaluations/)**: Catch production quality regressions with custom code-based checks that automatically assess new traces and multi-turn conversations as they arrive. Code-based online evaluation is experimental and requires a self-hosted server configured with [job containers](https://mlflow.org/docs/latest/self-hosting/job-containers/). (#26689, @kriscon-db)
+- **[Skill Registry](https://mlflow.org/docs/latest/genai/skill-registry/)**: Share your team's expertise across agents and projects with a central catalog of reusable skills. Discover existing skills and choose the version or alias to use in each agent. Experimental. (#26736, @mprahl; #26900, @bardenr; #27088, @Rohitkanithi)
+- **[Revamped Evaluation and Trace Comparisons for Finding Regressions](https://mlflow.org/docs/latest/genai/eval-monitor/)**: Find the regressions hidden behind aggregate scores before you ship an agent update. The redesigned comparison UI takes you from score changes to the inputs, conversations, and trace steps behind them. An [experimental Python API](https://mlflow.org/docs/latest/genai/eval-monitor/comparing-evaluation-runs/) adds statistical comparisons to help distinguish improvements from noise. (#26991, #26733, #26739, #26740, #26770, #26771, #26782, #26783, #26784, #26927, #26799, #26803, #26808, #26868, #26880, #26889, #26896, #27011, #27014, #27015, @joshuawong-db; #27332, @filip-urbanski; #26396, @AbdulAliMamnun)
+- **[Automatic Issue Detection](https://mlflow.org/docs/latest/genai/eval-monitor/ai-insights/detect-issues/)**: Turn recurring agent failures into issues you can investigate and fix. The dedicated Issues tab groups related problems and links findings to trace evidence; schedule detection to keep checking new traffic. (#27193, #26751, #26754, #26791, #26919, #26955, #26961, #26967, #27009, #27002, #27003, #27006, #27137, #27181, #27249, @tanghaoji; #27070, @B-Step62)
+- **[Online Evaluation](https://mlflow.org/docs/latest/genai/eval-monitor/automatic-evaluations/)**: Catch production quality regressions with custom code-based checks that automatically assess new traces and multi-turn conversations as they arrive. Code-based online evaluation is experimental and requires a self-hosted server configured with [job containers](https://mlflow.org/docs/latest/self-hosting/job-containers/). (#26689, #26430, #26684, #26685, #26687, @kriscon-db)
 
 ### Breaking Changes
 
@@ -22,41 +22,17 @@ MLflow 3.18.0 helps you reuse agent expertise, find regressions before shipping,
 ### Other Assorted Features & Improvements:
 
 - [Evaluation / Tracing] Remove expired experimental status from UnityCatalog trace locations and Google ADK scorer APIs (#27379, @mlflow-app)
-- [Tracking] Support moving skills between workspaces in `mlflow db move-resources` (#27088, @Rohitkanithi)
 - [Docs / Evaluation / Gateway] Support Databricks System One models in custom and Guidelines judges (#27345, @B-Step62)
-- [Evaluation / UI] Add rename action to evaluation runs table actions menu (#27332, @filip-urbanski)
-- [Server-infra / UI] View ad hoc and scheduled issue-detection run history with status and failure reasons (#27181, @tanghaoji)
-- [Evaluation / UI] Say how many detected issues are new in the completion notification (#27249, @tanghaoji)
-- [Docs / Tracing / Tracking] Add experimental issue-management fluent APIs to `mlflow.genai` (#27070, @B-Step62)
-- [Evaluation / UI] Compare evaluation runs session by session with turns and session-level aggregates (#26896, @joshuawong-db)
-- [Evaluation / UI] Compare evaluation runs input by input with aligned outputs, score changes, and outcome filters (#26889, @joshuawong-db)
-- [Evaluation / UI] Compare evaluation runs through aggregate metrics, usage, and rule-based insights (#26880, @joshuawong-db)
-- [Evaluation / UI] Add issue detection settings to the experiment Issues tab (#27009, @tanghaoji)
-- [Evaluation / Tracing] Match detection findings against the issues already reported (dedupe) (#26967, @tanghaoji)
-- [UI] Preserve existing evaluation features in the redesigned evaluation runs UI (#27014, @joshuawong-db)
-- [UI] Show the evaluation runs that use a dataset on its detail page (#27015, @joshuawong-db)
 - [Docs / Models] Refuse model-supplied code with `MLFLOW_ALLOW_MODEL_CODE_EXECUTION=false`; deprecate `MLFLOW_ALLOW_PICKLE_DESERIALIZATION` while preserving its pickle-only behavior (#27000, @joshuawong-db)
 - [UI] Add saved custom trace views to review queue focused review (#26913, @joshuawong-db)
 - [Build] Add opt-in CPU and memory autoscaling to the Helm chart (#26888, @DrTuup)
-- [Tracing / UI] Record pairwise trace preferences and optional reviewer comments (#26808, @joshuawong-db)
-- [Tracing / UI] Compare two traces through a merged span tree and per-span differences (#26803, @joshuawong-db)
-- [UI] Copy a coding-agent fix prompt with detected issue details and affected trace IDs (#26961, @tanghaoji)
-- [UI] Show detection progress and allow cancelling it from the Issues tab (#26955, @tanghaoji)
-- [Evaluation / Tracing / UI] Detect cost anomalies and attach validated span-linked evidence to issue findings (#26919, @tanghaoji)
 - [Evaluation / Tracing / UI] Add GenAI journey overview (#26636, @B-Step62)
 - [Docs / Evaluation] Add an experimental `quality_criteria` parameter to `mlflow.genai.evaluate` (#26471, @joshuawong-db)
-- [Docs / Evaluation] Distinguish evaluation improvements from noise with the experimental `mlflow.genai.compare_evaluations` API, paired statistical tests, confidence intervals, and an `assert_improved` gate for CI (#26396, @AbdulAliMamnun)
-- [Docs / Tracking] Include allowed actions in Skill Registry responses (#26900, @bardenr)
-- [Tracing / UI] Add structured evidence on native Issue references and render it in the Issues tab (#26791, @tanghaoji)
 - [Docs / Evaluation / Prompts / Tracking / UI] Support presigned artifact flows in the UI (#26268, @NeriCarcasci)
 - [Docs / Tracking] Add presigned-only artifact server mode (#25513, @NeriCarcasci)
-- [Tracing / UI] Add an experiment Issues tab with working detection (#26754, @tanghaoji)
-- [Tracing / Tracking] Extend SQL Issue APIs for experiment-wide search and triage (#26751, @tanghaoji)
-- [Docs / Evaluation] Document experimental Docker job-container setup, limits, and operation for automatic code-based scoring (#26691, @kriscon-db)
 - [Evaluation / Tracing] Allow offline session scorers to select a hierarchical session level with `session_level` (#26443, @alkispoly-db)
 - [Tracing] Allow `session_id` to be a list in `update_current_trace` and `tracing.context` to identify hierarchical sessions (#26413, @alkispoly-db)
 - [Tracing / UI] Add `TraceAudio` to custom trace views (#26452, @chris-chieu)
-- [Evaluation] Add an experimental Docker job executor for on-demand code-based scorer runs (#26430, @kriscon-db)
 - [Tracing / UI] Show OpenAI Decisions in the v2 trace viewer (#26577, @B-Step62)
 - [Tracing] Trace OpenAI Decisions calls in TypeScript (#26576, @B-Step62)
 - [Docs / Tracing / Tracking] Trace OpenAI Decisions calls in Python (#26575, @B-Step62)
@@ -272,11 +248,12 @@ Documentation updates:
 - [Docs] Refresh automatic issue detection documentation (#27297, @tanghaoji)
 - [Build / Docs] Document stacked PR guidance in `CLAUDE.md` (#26957, @copilot-swe-agent)
 - [Docs] Add Skill Registry user documentation (#26806, @bardenr)
+- [Docs / Evaluation] Document experimental Docker job-container setup, limits, and operation for automatic code-based scoring (#26691, @kriscon-db)
 - [Docs] Add hot-reload guidance for frontend fix verification (#26633, @copilot-swe-agent)
 
 Small bug fixes and documentation updates:
 
-#27428, #27352, #27351, #27278, @B-Step62; #27421, #27414, #27413, #27412, #27410, #27404, #27403, #27402, #27400, #27398, #27397, #27367, #27365, #27360, #27333, #27330, #27328, #27327, #27325, #27320, #27306, #27305, #27289, #27279, #27277, #27276, #27265, #27254, #27232, #27211, #27224, #27223, #27222, #27217, #27218, #27197, #27198, #27187, #27184, #27182, #27180, #27163, #27144, #27136, #27114, #27111, #27109, #27108, #27107, #27106, #27104, #27097, #27091, #27090, #27089, #27084, #27083, #27081, #27079, #27078, #27077, #27058, #27050, #27047, #27045, #27033, #27032, #27020, #27024, #27023, #27016, #26962, #26951, #26938, #26931, #26932, #26930, #26891, #26881, #26876, #26870, #26865, #26862, #26861, #26843, #26832, #26830, #26825, #26820, #26772, #26776, #26763, #26760, #26752, #26750, #26737, #26735, #26728, #26727, #26725, #26666, #26688, #26686, #26683, #26679, #26678, #26673, #26662, #26658, #26653, #26650, #26649, #26629, #26628, #26620, #26623, #26603, #26602, #26599, #26592, #26583, #26565, #26562, #26553, #26552, #26472, #26540, #26511, #26528, #26522, #26515, #26513, #26505, #26506, #26501, #26500, #26492, #26490, #26487, #26488, #26486, #26479, #26466, #26465, #26469, @copilot-swe-agent; #27399, #27312, #27293, #27302, #27246, #27235, #27069, #26867, #26960, #25307, #26687, #26685, #26684, #26718, #26708, #25851, #25847, #26701, #25844, #25843, #25842, #25841, #26588, #26589, @kriscon-db; #27376, @erdogan-deniz; #27394, #27393, #27350, #27326, #27113, @mlflow-app; #27377, #26748, @dependabot; #27364, #27366, #27259, #27313, #27041, #27137, #27006, #27003, #27002, #26981, #27017, #26983, #26906, #26885, #26514, #26476, #26467, @tanghaoji; #27165, #27040, #27011, #27148, #26868, #26912, #27034, #27029, #26799, #26993, #26784, #26927, #26783, #26952, #26789, #26782, #26920, #26771, #26770, #26779, #26739, #26740, #26733, #26707, #26461, @joshuawong-db; #27298, @v0ropaev; #26894, @Aditya-kumar-yadav; #27296, @davanstrien; #26090, @dbasunag; #27105, @Sonica-B; #27149, @Avicennasis; #26634, #26613, @shaikn6; #27135, #27143, #27021, #27013, #26953, #26905, #26796, #26598, #26541, #26352, @harupy; #27159, @smoorjani; #26901, #27027, #26768, @mprahl; #26946, @nananosirova; #26929, @Blacksujit; #26860, @alleyxd; #26850, #26632, @aaronteo-db; #26694, @Dedalo314
+#27428, #27352, #27351, #27278, @B-Step62; #27421, #27414, #27413, #27412, #27410, #27404, #27403, #27402, #27400, #27398, #27397, #27367, #27365, #27360, #27333, #27330, #27328, #27327, #27325, #27320, #27306, #27305, #27289, #27279, #27277, #27276, #27265, #27254, #27232, #27211, #27224, #27223, #27222, #27217, #27218, #27197, #27198, #27187, #27184, #27182, #27180, #27163, #27144, #27136, #27114, #27111, #27109, #27108, #27107, #27106, #27104, #27097, #27091, #27090, #27089, #27084, #27083, #27081, #27079, #27078, #27077, #27058, #27050, #27047, #27045, #27033, #27032, #27020, #27024, #27023, #27016, #26962, #26951, #26938, #26931, #26932, #26930, #26891, #26881, #26876, #26870, #26865, #26862, #26861, #26843, #26832, #26830, #26825, #26820, #26772, #26776, #26763, #26760, #26752, #26750, #26737, #26735, #26728, #26727, #26725, #26666, #26688, #26686, #26683, #26679, #26678, #26673, #26662, #26658, #26653, #26650, #26649, #26629, #26628, #26620, #26623, #26603, #26602, #26599, #26592, #26583, #26565, #26562, #26553, #26552, #26472, #26540, #26511, #26528, #26522, #26515, #26513, #26505, #26506, #26501, #26500, #26492, #26490, #26487, #26488, #26486, #26479, #26466, #26465, #26469, @copilot-swe-agent; #27399, #27312, #27293, #27302, #27246, #27235, #27069, #26867, #26960, #25307, #26718, #26708, #25851, #25847, #26701, #25844, #25843, #25842, #25841, #26588, #26589, @kriscon-db; #27376, @erdogan-deniz; #27394, #27393, #27350, #27326, #27113, @mlflow-app; #27377, #26748, @dependabot; #27364, #27366, #27259, #27313, #27041, #26981, #27017, #26983, #26906, #26885, #26514, #26476, #26467, @tanghaoji; #27165, #27040, #27148, #26912, #27034, #27029, #26993, #26952, #26789, #26920, #26779, #26707, #26461, @joshuawong-db; #27298, @v0ropaev; #26894, @Aditya-kumar-yadav; #27296, @davanstrien; #26090, @dbasunag; #27105, @Sonica-B; #27149, @Avicennasis; #26634, #26613, @shaikn6; #27135, #27143, #27021, #27013, #26953, #26905, #26796, #26598, #26541, #26352, @harupy; #27159, @smoorjani; #26901, #27027, #26768, @mprahl; #26946, @nananosirova; #26929, @Blacksujit; #26860, @alleyxd; #26850, #26632, @aaronteo-db; #26694, @Dedalo314
 
 ## 3.17.2 (2026-10-20)
 
