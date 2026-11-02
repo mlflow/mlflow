@@ -894,6 +894,50 @@ def test_aggregate_anthropic_messages_stream_chunks_cache_tokens():
     }
 
 
+def test_aggregate_anthropic_messages_stream_chunks_thinking():
+    chunks = [
+        _msg_start("msg_think", "claude-sonnet-4-5", input_tokens=12),
+        _sse({
+            "type": "content_block_start",
+            "index": 0,
+            "content_block": {"type": "thinking", "thinking": ""},
+        }),
+        _sse({
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"type": "thinking_delta", "thinking": "Let me "},
+        }),
+        _sse({
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"type": "thinking_delta", "thinking": "think."},
+        }),
+        _sse({
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"type": "signature_delta", "signature": "sig123"},
+        }),
+        _sse({"type": "content_block_stop", "index": 0}),
+        _sse({
+            "type": "content_block_start",
+            "index": 1,
+            "content_block": {"type": "redacted_thinking", "data": "encrypted"},
+        }),
+        _sse({"type": "content_block_stop", "index": 1}),
+        _text_block_start(2),
+        _text_delta(2, "Answer"),
+        _sse({"type": "content_block_stop", "index": 2}),
+        _msg_delta("end_turn", output_tokens=20),
+    ]
+    result = aggregate_anthropic_messages_stream_chunks(chunks)
+
+    assert result["content"] == [
+        {"type": "thinking", "thinking": "Let me think.", "signature": "sig123"},
+        {"type": "redacted_thinking", "data": "encrypted"},
+        {"type": "text", "text": "Answer"},
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Tests for aggregate_openai_responses_stream_chunks
 # ---------------------------------------------------------------------------

@@ -394,8 +394,8 @@ def aggregate_anthropic_messages_stream_chunks(
 
     Processes the following Anthropic streaming event types:
     - ``message_start``: extracts id, model, role, and input token usage
-    - ``content_block_start``: initialises text or tool_use content blocks
-    - ``content_block_delta``: appends text deltas and tool input JSON deltas
+    - ``content_block_start``: initialises text, tool_use, thinking and other content blocks
+    - ``content_block_delta``: appends text, tool input JSON, thinking and signature deltas
     - ``message_delta``: extracts stop_reason, stop_sequence, and output token usage
 
     Returns a dict matching the Anthropic Messages API non-streaming response shape::
@@ -457,8 +457,11 @@ def aggregate_anthropic_messages_stream_chunks(
                         "name": block.get("name"),
                         "_input_json": "",
                     }
-                else:
+                elif block_type == "text":
                     content_blocks[index] = {"type": "text", "text": block.get("text", "")}
+                else:
+                    # Keep other blocks (e.g. thinking, redacted_thinking) as returned.
+                    content_blocks[index] = dict(block)
             case {
                 "type": "content_block_delta",
                 "index": int(index),
@@ -474,6 +477,10 @@ def aggregate_anthropic_messages_stream_chunks(
                         block["_input_json"] = block.get("_input_json", "") + delta.get(
                             "partial_json", ""
                         )
+                    case "thinking_delta":
+                        block["thinking"] = block.get("thinking", "") + delta.get("thinking", "")
+                    case "signature_delta":
+                        block["signature"] = block.get("signature", "") + delta.get("signature", "")
             case {"type": "message_delta", "delta": dict(delta)}:
                 stop_reason = delta.get("stop_reason", stop_reason)
                 stop_sequence = delta.get("stop_sequence", stop_sequence)
