@@ -1,0 +1,120 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+title: PR Behavior Verification Review
+description: |
+  Write the review payload as a JSON object matching this schema. Do not request changes,
+  create a review, or approve the PR yourself. Avoid @-mentions.
+
+  Save screenshots or recordings in the supplied temporary directory's out/media folder.
+  When they support an issue or verification gap, cite their absolute paths in that inline
+  comment, for example:
+  ![Observed behavior](/absolute/path/to/out/media/observed.png)
+  Put video citations on their own lines. Do not upload media yourself.
+type: object
+additionalProperties: false
+required:
+  - event
+  - body
+  - comments
+allOf:
+  - if:
+      properties:
+        event:
+          const: APPROVE
+    then:
+      properties:
+        comments:
+          maxItems: 0
+properties:
+  event:
+    description: >-
+      Choose APPROVE only after directly verifying the PR's material behavior with no behavioral
+      problems. Choose COMMENT if you find behavioral problems or cannot verify important behavior.
+      Behavior covered only by unit or integration tests remains unverified.
+      Choosing COMMENT does not waive required runtime checks or recovery attempts.
+    type: string
+    enum:
+      - APPROVE
+      - COMMENT
+  body:
+    description: >-
+      Brief verification summary. Do not include media or repeat findings here.
+      Put findings and media in inline comments.
+    type: string
+    minLength: 1
+    maxLength: 500
+    pattern: \S
+  commit_id:
+    description: Optional PR head SHA.
+    type: string
+    pattern: ^[0-9a-f]{40}$
+  comments:
+    description: >-
+      Comment only on behavioral issues or verification gaps, with supporting evidence, on the most
+      relevant diff line. Do not add evidence-only comments; use an empty array when there are no
+      issues or gaps.
+      For issues outside the diff, use the most relevant diff line and identify the affected
+      location.
+    type: array
+    maxItems: 10
+    items:
+      $ref: "#/$defs/comment"
+$defs:
+  side:
+    type: string
+    enum:
+      - LEFT
+      - RIGHT
+  comment:
+    type: object
+    additionalProperties: false
+    required:
+      - path
+      - body
+      - line
+      - side
+    properties:
+      path:
+        description: Repository-relative path with a hunk in the PR diff.
+        type: string
+        minLength: 1
+        maxLength: 1024
+        pattern: \S
+      body:
+        description: |
+          For fixable findings, use this format, including a `suggestion` block when possible:
+
+          ````markdown
+          **🐛 Issue:** <Trigger, expected vs. actual behavior, and concrete consequence.>
+
+          **🔧 Fix:** <Recommended change.>
+
+          ```suggestion
+          <Replacement code>
+          ```
+          ````
+
+          For verification gaps, state what you tried and couldn't verify.
+          Use Mermaid when helpful. Prefer code permalinks over `<path>:<line>` references.
+        type: string
+        minLength: 1
+        maxLength: 3000
+        pattern: \S
+      line:
+        description: Last line of the comment, inside a diff hunk on the chosen side.
+        type: integer
+        minimum: 1
+      side:
+        description: RIGHT for added or context lines; LEFT for deleted or context lines.
+        $ref: "#/$defs/side"
+      start_line:
+        description: First line of a multi-line comment; must precede line in diff order, in the same hunk.
+        type: integer
+        minimum: 1
+      start_side:
+        description: Side of start_line in the same hunk as line.
+        $ref: "#/$defs/side"
+    dependentRequired:
+      start_line:
+        - start_side
+      start_side:
+        - start_line
