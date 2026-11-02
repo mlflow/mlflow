@@ -917,7 +917,11 @@ jobs:
         run: |
           git reset --hard "$GITHUB_SHA"
           git clean -fd
-          git status --porcelain --untracked-files=all
+          status=$(git status --porcelain --untracked-files=all)
+          if [ -n "$status" ]; then
+            printf '%s\n' "$status"
+            exit 1
+          fi
       - name: Stage triage report for upload
         if: always()
         run: |
