@@ -17,8 +17,9 @@ tee "${1:-/dev/null}" \
         (if .name == "Bash" and (.input | type == "object") then
           .input as $i
           | (if $i | has("timeout") then {timeout: "\($i.timeout / 1000)s"} else {} end)
+            + ($i | if has("run_in_background") then {run_in_background} else {} end)
             + ($i | if has("description") then {description} else {} end)
-            + ($i | del(.timeout, .description))
+            + ($i | del(.timeout, .run_in_background, .description))
         else
           .input
         end) as $input
