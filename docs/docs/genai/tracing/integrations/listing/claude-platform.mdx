@@ -39,44 +39,28 @@ MLflow captures the following information from Claude Platform traces:
 To also trace the Anthropic SDK calls in your own application, see [Tracing Anthropic](/genai/tracing/integrations/listing/anthropic).
 :::
 
+## Prerequisites
+
+- An MLflow server that the Claude API can reach at a public HTTPS URL on port 443, for example `https://mlflow.example.com`. The server needs a SQL-based [backend store](/self-hosting/architecture/backend-store), because OpenTelemetry ingestion doesn't support file-based stores. Add its public hostname to [`--allowed-hosts`](/self-hosting/security/network#allowed-hosts). See [Self-Hosting MLflow](/self-hosting) to set one up.
+- [Authentication](/self-hosting/security/basic-http-auth) enabled on the server, because anyone on the internet can reach it.
+- The admin role in your Claude Console organization, to add a destination.
+
 ## Getting Started
 
-<StepHeader number={1} title="Start the MLflow Tracking Server" />
-
-Start the MLflow Tracking Server with a SQL-based backend store:
-
-```bash
-mlflow server --backend-store-uri sqlite:///mlflow.db --port 5000
-```
-
-This example uses SQLite as the backend store. To use other types of SQL databases such as PostgreSQL, MySQL, and MSSQL, change the store URI as described in the [backend store documentation](/self-hosting/architecture/backend-store). OpenTelemetry ingestion is not supported with file-based backend stores.
-
-<StepHeader number={2} title="Make the Server Reachable from the Claude API" />
-
-The Claude API can't reach `localhost`. Expose the MLflow server at a public HTTPS URL on port 443, for example `https://mlflow.example.com`, with a reverse proxy or a tunnel. Then add that hostname to `--allowed-hosts`, together with the local hosts that you still use:
-
-```bash
-mlflow server --backend-store-uri sqlite:///mlflow.db --port 5000 --allowed-hosts "localhost:*,127.0.0.1:*,mlflow.example.com"
-```
-
-:::warning
-Enable [authentication](/self-hosting/security/basic-http-auth) before you expose the server. `--allowed-hosts` doesn't authenticate callers. See [Network Security](/self-hosting/security/network).
-:::
-
-<StepHeader number={3} title="Create an MLflow Experiment" />
+<StepHeader number={1} title="Create an MLflow Experiment" />
 
 Create an experiment on the server that receives the traces, and note its ID. Without `MLFLOW_TRACKING_URI`, the command creates the experiment in a local store instead:
 
 ```bash
-export MLFLOW_TRACKING_URI=http://localhost:5000
+export MLFLOW_TRACKING_URI=https://mlflow.example.com
+export MLFLOW_TRACKING_USERNAME=<username>
+export MLFLOW_TRACKING_PASSWORD=<password>
 mlflow experiments create --experiment-name "Claude Platform"
 ```
 
 You can also create the experiment from the MLflow UI or with <APILink fn="mlflow.create_experiment" />.
 
-<StepHeader number={4} title="Add a Destination in the Claude Console" />
-
-You need the admin role in your Claude Console organization to add a destination.
+<StepHeader number={2} title="Add a Destination in the Claude Console" />
 
 1. Open the [OpenTelemetry settings page](https://platform.claude.com/settings/telemetry-destinations) in the Claude Console and click **Add destination**.
 2. Configure the destination:
@@ -85,7 +69,7 @@ You need the admin role in your Claude Console organization to add a destination
    | --------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
    | **Provider**          | **Custom**                                                                                                                       |
    | **OTLP endpoint URL** | The public URL of your MLflow server, for example `https://mlflow.example.com`. Don't add `/v1/traces`, because the API adds it. |
-   | **Request headers**   | `x-mlflow-experiment-id` with the experiment ID from step 3.                                                                     |
+   | **Request headers**   | `x-mlflow-experiment-id` with the experiment ID from step 1, and `Authorization` with the credentials of your MLflow server.     |
    | **Content mode**      | **Full content**, to see prompts and responses in MLflow. With **Metadata only**, spans have timing, status, and token usage.    |
    | **Workspaces**        | The workspaces whose requests you want to trace.                                                                                 |
 
@@ -94,9 +78,9 @@ You need the admin role in your Claude Console organization to add a destination
 3. Click **Add destination**.
 4. In the destination's **More actions** menu, click **Test**. Check that an `anthropic.test` span arrives in your MLflow experiment.
 
-If your MLflow server has [authentication](/self-hosting/security/basic-http-auth) enabled, also add an `Authorization` header with your credentials. To add the destination with the Admin API instead of the Console, see [Set up OpenTelemetry with the Claude API](https://platform.claude.com/docs/en/manage-claude/opentelemetry/api#admin-api-and-cli).
+To add the destination with the Admin API instead of the Console, see [Set up OpenTelemetry with the Claude API](https://platform.claude.com/docs/en/manage-claude/opentelemetry/api#admin-api-and-cli).
 
-<StepHeader number={5} title="Send a Request" />
+<StepHeader number={3} title="Send a Request" />
 
 Send a request in a workspace that the destination covers. You can use the [Console playground](https://platform.claude.com/playground) or your application:
 
@@ -127,7 +111,7 @@ Start a session and send a message to it as described in [Get started with Claud
 </Tabs>
 </TabsWrapper>
 
-<StepHeader number={6} title="View Traces in the MLflow UI" />
+<StepHeader number={4} title="View Traces in the MLflow UI" />
 
 Open the MLflow UI at your MLflow server URL and navigate to the experiment. The spans can take about a minute to arrive. In the Claude Console, the **Delivery** column of the destination shows **Healthy** after a successful delivery.
 
