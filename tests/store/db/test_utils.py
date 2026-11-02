@@ -34,6 +34,20 @@ def test_create_sqlalchemy_engine_inject_pool_options(monkeypatch):
         )
 
 
+def test_create_sqlalchemy_engine_zero_pool_options(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_POOL_SIZE", "0")
+    monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW", "0")
+    monkeypatch.delenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", raising=False)
+    with mock.patch("sqlalchemy.create_engine") as mock_create_engine:
+        utils.create_sqlalchemy_engine("mydb://host:port/")
+        mock_create_engine.assert_called_once_with(
+            "mydb://host:port/",
+            pool_pre_ping=True,
+            pool_size=0,
+            max_overflow=0,
+        )
+
+
 def test_create_sqlalchemy_engine_null_pool(monkeypatch):
     monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", "NullPool")
     with mock.patch("sqlalchemy.create_engine") as mock_create_engine:
