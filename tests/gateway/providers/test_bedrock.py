@@ -23,6 +23,7 @@ from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import PassthroughAction
 from mlflow.gateway.providers.bedrock import AmazonBedrockModelProvider, AmazonBedrockProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
+from mlflow.gateway.ssrf import upstream_ssrf_protection
 
 from tests.gateway.providers.test_anthropic import (
     completions_response as anthropic_completions_response,
@@ -517,6 +518,25 @@ def test_bedrock_client_omits_endpoint_url_when_api_base_unset():
         ]
         assert runtime_calls, "bedrock-runtime client was never created"
         assert all("endpoint_url" not in call.kwargs for call in runtime_calls)
+
+
+def test_bedrock_role_client_keeps_sts_on_its_default_endpoint():
+    # api_base names the Bedrock runtime endpoint only; sending AssumeRole there would fail.
+    fixture = bedrock_model_provider_fixtures[0]
+    aws_config = {"aws_region": "us-east-1", "aws_role_arn": "test-aws-role-arn"}
+    api_base = "https://bedrock-runtime.example-vpce.amazonaws.com"
+
+    with mock.patch("boto3.Session") as mock_session:
+        mock_client = mock.MagicMock()
+        mock_session.return_value.client = mock_client
+
+        endpoint_config = _merge_model_and_aws_config(fixture["config"], aws_config)
+        endpoint_config["model"]["config"]["api_base"] = api_base
+        AmazonBedrockProvider(EndpointConfig(**endpoint_config)).get_bedrock_client()
+
+    clients = {call.kwargs["service_name"]: call.kwargs for call in mock_client.call_args_list}
+    assert "endpoint_url" not in clients["sts"]
+    assert clients["bedrock-runtime"]["endpoint_url"] == api_base
 
 
 @pytest.mark.asyncio
@@ -1249,6 +1269,120 @@ async def test_bedrock_anthropic_passthrough_posts_to_api_base():
 
     url = mock_client.post.call_args.args[0]
     assert url == f"{_VPCE_API_BASE}/model/{_CLAUDE_MODEL_ID}/invoke"
+
+
+@pytest.fixture
+def protected_request():
+    # Simulates a tracking-server request, where the middleware turns the upstream guard on.
+    token = upstream_ssrf_protection.set(True)
+    try:
+        yield
+    finally:
+        upstream_ssrf_protection.reset(token)
+
+
+def _addrinfo(*ips: str):
+    return [(None, None, None, None, (ip, 0)) for ip in ips]
+
+
+def _make_sigv4_provider(endpoint_type: str, model_name: str) -> AmazonBedrockProvider:
+    config = {
+        "name": "bedrock",
+        "endpoint_type": endpoint_type,
+        "model": {
+            "provider": "bedrock",
+            "name": model_name,
+            "config": {"aws_config": {"aws_region": "us-east-1"}, "api_base": _VPCE_API_BASE},
+        },
+    }
+    return AmazonBedrockProvider(EndpointConfig(**config))
+
+
+async def _call_chat(provider):
+    await provider.chat(chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}]))
+
+
+async def _call_chat_stream(provider):
+    payload = chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}])
+    async for _ in provider.chat_stream(payload):
+        pass
+
+
+async def _call_embeddings(provider):
+    await provider.embeddings(embeddings.RequestPayload(input="Hello"))
+
+
+async def _call_completions(provider):
+    await provider.completions(
+        completions.RequestPayload(prompt="How does a car work?", max_tokens=200)
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("endpoint_type", "model_name", "call"),
+    [
+        ("llm/v1/chat", _CLAUDE_MODEL_ID, _call_chat),
+        ("llm/v1/chat", _CLAUDE_MODEL_ID, _call_chat_stream),
+        ("llm/v1/embeddings", "amazon.titan-embed-text-v1", _call_embeddings),
+        ("llm/v1/completions", "anthropic.claude-v2", _call_completions),
+    ],
+)
+async def test_bedrock_boto3_paths_block_private_api_base_when_upstream_protection_is_on(
+    protected_request, endpoint_type, model_name, call
+):
+    # boto3 uses its own HTTP client, so the aiohttp connect-time guard never sees these
+    # requests; the provider must check the host itself before handing it to boto3.
+    provider = _make_sigv4_provider(endpoint_type, model_name)
+    with (
+        mock.patch.object(provider, "get_bedrock_client") as mock_get_client,
+        mock.patch(
+            "mlflow.gateway.ssrf._getaddrinfo", mock.AsyncMock(return_value=_addrinfo("10.0.0.1"))
+        ),
+    ):
+        with pytest.raises(HTTPException, match="not a public IP address") as exc:
+            await call(provider)
+
+    assert exc.value.status_code == 502
+    mock_get_client.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_bedrock_boto3_chat_reaches_public_api_base_when_upstream_protection_is_on(
+    protected_request,
+):
+    provider = _make_sigv4_provider("llm/v1/chat", _CLAUDE_MODEL_ID)
+    mock_client = mock.Mock()
+    mock_client.converse.return_value = _converse_response()
+    with (
+        mock.patch.object(provider, "get_bedrock_client", return_value=mock_client),
+        mock.patch(
+            "mlflow.gateway.ssrf._getaddrinfo", mock.AsyncMock(return_value=_addrinfo("8.8.8.8"))
+        ),
+    ):
+        await _call_chat(provider)
+
+    mock_client.converse.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_bedrock_boto3_chat_reaches_private_api_base_when_private_ips_allowed(
+    protected_request, monkeypatch
+):
+    # A PrivateLink endpoint resolves to a VPC address, which operators opt into explicitly.
+    monkeypatch.setenv("MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS", "true")
+    provider = _make_sigv4_provider("llm/v1/chat", _CLAUDE_MODEL_ID)
+    mock_client = mock.Mock()
+    mock_client.converse.return_value = _converse_response()
+    mock_getaddrinfo = mock.AsyncMock(return_value=_addrinfo("10.0.0.1"))
+    with (
+        mock.patch.object(provider, "get_bedrock_client", return_value=mock_client),
+        mock.patch("mlflow.gateway.ssrf._getaddrinfo", mock_getaddrinfo),
+    ):
+        await _call_chat(provider)
+
+    mock_client.converse.assert_called_once()
+    mock_getaddrinfo.assert_not_called()
 
 
 @pytest.mark.parametrize(

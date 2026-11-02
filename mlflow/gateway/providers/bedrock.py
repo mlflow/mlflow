@@ -597,6 +597,21 @@ class AmazonBedrockProvider(BaseProvider):
     def _get_token_auth_headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.bedrock_config.aws_config.aws_bearer_token}"}
 
+    async def _assert_public_boto3_upstream(self) -> None:
+        # boto3 dials ``api_base`` with its own HTTP client, so the aiohttp connect-time guard
+        # never sees these requests; check the host before handing work to boto3. This has to
+        # run here rather than in the executor: ``run_in_executor`` does not carry the
+        # request's ``upstream_ssrf_protection`` context into the worker thread.
+        from fastapi import HTTPException
+
+        from mlflow.gateway.ssrf import GatewaySSRFProtectionError, assert_public_upstream_host
+
+        if api_base := self.bedrock_config.api_base:
+            try:
+                await assert_public_upstream_host(api_base)
+            except GatewaySSRFProtectionError as e:
+                raise HTTPException(status_code=502, detail=str(e)) from e
+
     @staticmethod
     def _build_chat_usage(usage: dict[str, Any]) -> chat.ChatUsage:
         # With prompt caching, Converse reports `inputTokens` as the non-cached input only.
@@ -754,6 +769,7 @@ class AmazonBedrockProvider(BaseProvider):
         messages = payload_dict.pop("messages", [])
         kwargs = self._build_converse_kwargs(messages, payload_dict)
 
+        await self._assert_public_boto3_upstream()
         response = await asyncio.get_running_loop().run_in_executor(
             None, lambda: self.get_bedrock_client().converse(**kwargs)
         )
@@ -777,6 +793,8 @@ class AmazonBedrockProvider(BaseProvider):
 
         messages = payload_dict.pop("messages", [])
         kwargs = self._build_converse_kwargs(messages, payload_dict)
+
+        await self._assert_public_boto3_upstream()
 
         # Consume the synchronous boto3 EventStream in a thread to avoid
         # blocking the async event loop.
@@ -825,6 +843,7 @@ class AmazonBedrockProvider(BaseProvider):
         input_text = payload_dict.get("input", "")
         texts = input_text if isinstance(input_text, list) else [input_text]
 
+        await self._assert_public_boto3_upstream()
         embedding_data = []
         total_tokens = 0
 
@@ -871,6 +890,8 @@ class AmazonBedrockProvider(BaseProvider):
         self.check_for_model_field(payload)
         payload = jsonable_encoder(payload, exclude_none=True, exclude_defaults=True)
         payload = self.adapter_class.completions_to_model(payload, self.config)
+        # InvokeModel goes through boto3 for every auth mode, bearer token included.
+        await self._assert_public_boto3_upstream()
         response = self._request(payload)
         return self.adapter_class.model_to_completions(response, self.config)
 
