@@ -1708,10 +1708,9 @@ def test_anthropic_extract_streaming_token_usage_message_start_with_cached_token
         b'"cache_creation_input_tokens":15}}}\n'
     )
     result = provider._extract_streaming_token_usage(chunk)
-    # Anthropic's input_tokens (100) excludes cache tokens, so after normalization
-    # input_tokens = 100 + 25 + 15 = 140
+    # Cache tokens are added to input_tokens after the full stream is accumulated.
     assert result == {
-        "input_tokens": 140,
+        "input_tokens": 100,
         "cache_read_input_tokens": 25,
         "cache_creation_input_tokens": 15,
     }
@@ -1722,14 +1721,14 @@ def test_anthropic_extract_streaming_full_stream_with_cached_tokens():
     accumulated_usage = {}
 
     # message_start with input_tokens and cached tokens
-    # Anthropic's input_tokens (100) excludes cache, normalized to 100 + 25 = 125
+    # Keep input_tokens separate from cache counts until the full stream is accumulated.
     chunk1 = (
         b"event: message_start\n"
         b'data: {"type":"message_start","message":{"id":"msg_123",'
         b'"usage":{"input_tokens":100,"cache_read_input_tokens":25}}}\n'
     )
     accumulated_usage.update(provider._extract_streaming_token_usage(chunk1))
-    assert accumulated_usage == {"input_tokens": 125, "cache_read_input_tokens": 25}
+    assert accumulated_usage == {"input_tokens": 100, "cache_read_input_tokens": 25}
 
     # message_delta with output_tokens
     chunk2 = (
@@ -1739,7 +1738,7 @@ def test_anthropic_extract_streaming_full_stream_with_cached_tokens():
     )
     accumulated_usage.update(provider._extract_streaming_token_usage(chunk2))
     assert accumulated_usage == {
-        "input_tokens": 125,
+        "input_tokens": 100,
         "output_tokens": 50,
         "cache_read_input_tokens": 25,
     }
@@ -1765,9 +1764,9 @@ def test_anthropic_extract_streaming_token_usage_message_delta_final_counts():
     )
     accumulated_usage.update(provider._extract_streaming_token_usage(chunk2))
 
-    # input_tokens (120) excludes the cache tokens: 120 + 100 + 20
+    # Raw counts are merged before normalization adds the cache tokens.
     assert accumulated_usage == {
-        "input_tokens": 240,
+        "input_tokens": 120,
         "output_tokens": 50,
         "cache_read_input_tokens": 100,
         "cache_creation_input_tokens": 20,

@@ -117,8 +117,8 @@ def _extract_anthropic_streaming_token_usage(chunk: bytes) -> dict[str, int]:
       server tools it also carries the final input and cache token counts
 
     Returns:
-        A dictionary with token usage found in this chunk.
-        Total is calculated by the base class after accumulation.
+        A dictionary with raw token usage found in this chunk.
+        Normalization and total calculation happen after accumulation.
     """
     usage: dict[str, int] = {}
     for data in parse_sse_lines(chunk):
@@ -134,8 +134,7 @@ def _extract_anthropic_streaming_token_usage(chunk: bytes) -> dict[str, int]:
                 _collect_anthropic_input_usage(delta_usage, usage)
                 if isinstance(output_tokens := delta_usage.get("output_tokens"), int):
                     usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
-    # Anthropic's input_tokens excludes cache tokens; normalize to include them.
-    return _normalize_anthropic_input_tokens(usage) or usage
+    return usage
 
 
 class _UnsupportedSchemaError(Exception):
@@ -820,6 +819,9 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
     def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
         return _extract_anthropic_streaming_token_usage(chunk)
+
+    def _normalize_streaming_token_usage(self, token_usage: dict[str, int]) -> dict[str, int]:
+        return _normalize_anthropic_input_tokens(token_usage) or token_usage
 
     async def _proxy(
         self,
