@@ -4,10 +4,19 @@ import { renderWithDesignSystem, screen } from '../../../common/utils/TestUtils.
 import { BudgetsList } from './BudgetsList';
 import { useBudgetPoliciesQuery } from '../../hooks/useBudgetPoliciesQuery';
 import { useBudgetWindowsQuery } from '../../hooks/useBudgetWindowsQuery';
+import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
+import { getWorkspacesEnabledSync } from '../../../experiment-tracking/hooks/useServerInfo';
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 
 jest.mock('../../hooks/useBudgetPoliciesQuery');
 jest.mock('../../hooks/useBudgetWindowsQuery');
+jest.mock('../../hooks/useEndpointsQuery');
+jest.mock('../../../experiment-tracking/hooks/useServerInfo', () => ({
+  ...jest.requireActual<typeof import('../../../experiment-tracking/hooks/useServerInfo')>(
+    '../../../experiment-tracking/hooks/useServerInfo',
+  ),
+  getWorkspacesEnabledSync: jest.fn(),
+}));
 
 const now = Date.now() / 1000;
 
@@ -37,11 +46,18 @@ const mockPolicies = [
 describe('BudgetsList', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(getWorkspacesEnabledSync).mockReturnValue(false);
     jest.mocked(useBudgetWindowsQuery).mockReturnValue({
       data: {},
       isLoading: false,
       error: undefined,
     });
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: [{ endpoint_id: 'e-1', name: 'my-endpoint' }],
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
   });
 
   test('renders loading state', () => {
@@ -98,6 +114,142 @@ describe('BudgetsList', () => {
     expect(screen.getByText('Monthly')).toBeInTheDocument();
     expect(screen.getByText('Reject')).toBeInTheDocument();
     expect(screen.getByText('Alert')).toBeInTheDocument();
+    // GLOBAL and WORKSPACE policies both display as applying to everything.
+    expect(screen.getAllByText('All endpoints and users')).toHaveLength(2);
+  });
+
+  test('tells GLOBAL and WORKSPACE policies apart when workspaces are enabled', () => {
+    jest.mocked(getWorkspacesEnabledSync).mockReturnValue(true);
+    jest.mocked(useBudgetPoliciesQuery).mockReturnValue({
+      data: mockPolicies,
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <BudgetsList />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('All endpoints and users in all workspaces')).toBeInTheDocument();
+    expect(screen.getByText('All endpoints and users in this workspace')).toBeInTheDocument();
+  });
+
+  test('renders endpoint name for ENDPOINT-scoped policy', () => {
+    jest.mocked(useBudgetPoliciesQuery).mockReturnValue({
+      data: [
+        {
+          ...mockPolicies[0],
+          budget_policy_id: 'bp-ep',
+          target_scope: 'ENDPOINT' as const,
+          target_value: 'e-1',
+        },
+      ],
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <BudgetsList />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('my-endpoint')).toBeInTheDocument();
+    expect(screen.queryByText('All endpoints and users')).not.toBeInTheDocument();
+  });
+
+  test('marks an endpoint missing from the endpoint list as unavailable', async () => {
+    // The endpoint may have been deleted, or auth may have filtered it out of
+    // the list for this user, so the marker must not claim either one.
+    jest.mocked(useBudgetPoliciesQuery).mockReturnValue({
+      data: [
+        {
+          ...mockPolicies[0],
+          budget_policy_id: 'bp-ep',
+          target_scope: 'ENDPOINT' as const,
+          target_value: 'e-missing',
+        },
+      ],
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <BudgetsList />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('e-missing')).toBeInTheDocument();
+    await userEvent.hover(screen.getByText('Unavailable'));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      "This endpoint was deleted, or you don't have access to it. If it was deleted, edit the policy to choose another endpoint, or delete the policy.",
+    );
+  });
+
+  test.each([
+    ['still loading', { data: [], isLoading: true, error: undefined }],
+    ['failed', { data: [], isLoading: false, error: new Error('nope') }],
+  ])('does not mark an endpoint unavailable when the endpoints request is %s', (_label, endpointsQuery) => {
+    jest.mocked(useEndpointsQuery).mockReturnValue({ ...endpointsQuery, refetch: jest.fn() } as any);
+    jest.mocked(useBudgetPoliciesQuery).mockReturnValue({
+      data: [
+        {
+          ...mockPolicies[0],
+          budget_policy_id: 'bp-ep',
+          target_scope: 'ENDPOINT' as const,
+          target_value: 'e-1',
+        },
+      ],
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <BudgetsList />
+      </MemoryRouter>,
+    );
+
+    // 'e-1' is live; we just can't resolve its name yet.
+    expect(screen.getByText('e-1')).toBeInTheDocument();
+    expect(screen.queryByText('Unavailable')).not.toBeInTheDocument();
+  });
+
+  test('renders the applies-to column for user and non-user policies', () => {
+    jest.mocked(useBudgetPoliciesQuery).mockReturnValue({
+      data: [
+        mockPolicies[0],
+        {
+          ...mockPolicies[0],
+          budget_policy_id: 'bp-user',
+          target_scope: 'USER' as const,
+          target_value: 'alice',
+        },
+      ],
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <BudgetsList />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Applies to')).toBeInTheDocument();
+    // The GLOBAL policy applies to everyone; the USER policy shows its username
+    // behind a "User" tag so it can't be read as an endpoint name.
+    expect(screen.getByText('All endpoints and users')).toBeInTheDocument();
+    expect(screen.getByText('alice')).toBeInTheDocument();
+    expect(screen.getByText('User')).toBeInTheDocument();
   });
 
   test('renders window columns with spend data when available', () => {
