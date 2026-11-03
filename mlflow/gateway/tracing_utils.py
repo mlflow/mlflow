@@ -394,8 +394,8 @@ def aggregate_anthropic_messages_stream_chunks(
 
     Processes the following Anthropic streaming event types:
     - ``message_start``: extracts id, model, role, and input token usage
-    - ``content_block_start``: initialises text, thinking, redacted_thinking, or tool_use
-      content blocks
+    - ``content_block_start``: initialises text, thinking, redacted_thinking, tool_use, or server
+      tool (e.g. ``server_tool_use``, ``web_search_tool_result``) content blocks
     - ``content_block_delta``: appends text, thinking, signature, and tool input JSON deltas
     - ``message_delta``: extracts stop_reason, stop_sequence, and output token usage
 
@@ -494,8 +494,8 @@ def aggregate_anthropic_messages_stream_chunks(
     # Finalise content blocks: parse accumulated tool input JSON
     content: list[dict[str, Any]] = []
     for block in (content_blocks[i] for i in sorted(content_blocks)):
-        if block["type"] == "tool_use":
-            raw_json = block.pop("_input_json", "")
+        # tool_use and server tool blocks (e.g. server_tool_use) stream their input as JSON deltas.
+        if (raw_json := block.pop("_input_json", None)) is not None:
             try:
                 block["input"] = json.loads(raw_json) if raw_json else {}
             except json.JSONDecodeError:
