@@ -27,6 +27,7 @@ from mlflow.types.schema import (
     ParamSpec,
     Property,
     Schema,
+    SparkMLVector,
     TensorSpec,
     convert_dataclass_to_schema,
 )
@@ -2302,3 +2303,20 @@ def test_convert_dataclass_to_schema_invalid():
 def test_infer_schema_with_anytype(data, expected_schema):
     inferred_schema = _infer_schema(data)
     assert inferred_schema == expected_schema
+
+
+def test_object_schema_with_sparkml_vector_round_trips():
+    schema = Object(
+        properties=[
+            Property("vec", SparkMLVector(), required=True),
+            Property("label", DataType.string, required=False),
+        ]
+    )
+
+    restored = Object.from_json_dict(schema.to_dict())
+
+    vec = restored.properties[0]
+    assert vec.name == "vec"
+    assert isinstance(vec.type, SparkMLVector)
+    assert vec.required is True
+    assert restored.properties[1].name == "label"
