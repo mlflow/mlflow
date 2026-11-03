@@ -27,6 +27,7 @@ from mlflow.types.schema import (
     ParamSpec,
     Property,
     Schema,
+    SparkMLVector,
     TensorSpec,
     convert_dataclass_to_schema,
 )

@@ -250,7 +250,7 @@ class Property(BaseType):
         if dtype == ARRAY_TYPE:
             return cls(name=name, dtype=Array.from_json_dict(**dic), required=required)
         if dtype == SPARKML_VECTOR_TYPE:
-            return SparkMLVector()
+            return cls(name=name, dtype=SparkMLVector(), required=required)
         if dtype == OBJECT_TYPE:
             return cls(name=name, dtype=Object.from_json_dict(**dic), required=required)
         if dtype == MAP_TYPE:
