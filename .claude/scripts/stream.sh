@@ -38,6 +38,8 @@ tee "${1:-/dev/null}" \
         else
           "📥 tool_result (\($c | length) chars)"
         end
+    elif .type == "system" and .subtype == "background_tasks_changed" then
+      "⏳ Background tasks: \(.tasks | length)"
     elif .type == "system" and .subtype == "init" then
       "🚀 init: \(.model) (v\(.claude_code_version), session \(.session_id[0:8]))"
     elif .type == "result" then
