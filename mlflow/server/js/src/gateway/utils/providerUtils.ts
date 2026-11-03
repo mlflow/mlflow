@@ -15,7 +15,6 @@ export const COMMON_PROVIDERS = [
   'ollama',
   'together_ai',
   'typesafe',
-  'sap',
 ] as const;
 
 const PROVIDER_DISPLAY_NAMES = {
