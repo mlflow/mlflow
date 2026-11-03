@@ -1,7 +1,7 @@
-// Init script for every agent-browser session during triage: pass it with --init-script on the
+// Init script for agent-browser sessions: pass it with --init-script on the
 // `open` that starts the session.
 
-// Report the browser as online. The triage sandbox has no network interface other than
+// Report the browser as online. The sandbox has no network interface other than
 // loopback, so Chromium sets navigator.onLine to false, and React Query then pauses requests
 // that change data.
 Object.defineProperty(Navigator.prototype, "onLine", { get: () => true, configurable: true });
@@ -10,10 +10,10 @@ Object.defineProperty(Navigator.prototype, "onLine", { get: () => true, configur
 // of the page; caption() hides it.
 // Pass theme "dark" on dark pages to use a light caption.
 window.caption = (text, theme = "light", position = "top") => {
-  let el = document.getElementById("triage-caption");
+  let el = document.getElementById("browser-caption");
   if (!el) {
     el = document.createElement("div");
-    el.id = "triage-caption";
+    el.id = "browser-caption";
     el.style.cssText =
       "position:fixed;left:50%;transform:translateX(-50%);z-index:2147483647;" +
       "padding:10px 20px;border-radius:8px;backdrop-filter:blur(6px);" +

@@ -2407,6 +2407,16 @@ def _enforce_rename_name_rules() -> None:
     request_message = _get_request_message(RenameRegisteredModel())
     _reject_wildcard_model_name(request_message.new_name)
     _reject_rename_with_named_role_grants(request_message.name, request_message.new_name)
+    _reject_rename_onto_per_user_grants(request_message.name, request_message.new_name)
+
+
+def _caller_can_manage_roles() -> bool:
+    if sender_is_admin():
+        return True
+    workspace = _request_auth_workspace()
+    return workspace is not None and _is_workspace_admin(
+        store.get_user(authenticate_request().username).id, workspace
+    )
 
 
 def _reject_rename_with_named_role_grants(name: str, new_name: str) -> None:
@@ -2420,9 +2430,7 @@ def _reject_rename_with_named_role_grants(name: str, new_name: str) -> None:
         return
     details = ""
     # Only callers who can manage roles can act on these grants, so only they get the details.
-    user = store.get_user(authenticate_request().username)
-    workspace = _request_auth_workspace()
-    if user.is_admin or (workspace is not None and _is_workspace_admin(user.id, workspace)):
+    if _caller_can_manage_roles():
         listed = ", ".join(
             f"role '{g.role_name}' has {g.permission} on {g.resource_type} '{g.resource_pattern}'"
             for g in grants
@@ -2432,6 +2440,42 @@ def _reject_rename_with_named_role_grants(name: str, new_name: str) -> None:
         f"Cannot rename '{name}' to '{new_name}' because role grants reference these names by "
         f"exact name{details}. Renaming would change which model or prompt those grants apply "
         "to. An admin must update or remove these role grants before the rename."
+    )
+
+
+def _reject_rename_onto_per_user_grants(name: str, new_name: str) -> None:
+    # A rename moves per-user grants from the old name to the new one. Grants already on the new
+    # name would start applying to the renamed model, and a user holding grants on both names
+    # would hit the unique constraint after the registry rename has committed. If another model
+    # or prompt already has the new name, the registry rejects the rename, so skip the check. A
+    # case-only rename on a case-insensitive registry finds the model itself, so it is checked.
+    if not new_name.strip() or new_name == name:
+        return
+    existing = _fetch_or_none(_get_model_registry_store().get_registered_model, new_name)
+    if existing is not None and existing.name != name:
+        return
+    # A case-insensitive auth database also returns grants on other spellings. Grants match by
+    # exact spelling (``permissions.matches``), so only the old name's own grants move with it.
+    grants = [
+        g
+        for g in store.list_per_user_grants_for_resource(
+            (RESOURCE_TYPE_REGISTERED_MODEL, RESOURCE_TYPE_PROMPT), (new_name,)
+        )
+        if g.resource_pattern != name
+    ]
+    if not grants:
+        return
+    details = ""
+    if _caller_can_manage_roles():
+        listed = ", ".join(
+            f"user '{g.username}' has {g.permission} on {g.resource_type} '{g.resource_pattern}'"
+            for g in grants
+        )
+        details = f" ({listed})"
+    raise MlflowException.invalid_parameter_value(
+        f"Cannot rename '{name}' to '{new_name}' because users already have permissions on "
+        f"'{new_name}'{details}. They would start applying to the renamed model or prompt. An "
+        "admin must remove these permissions before the rename."
     )
 
 
@@ -8043,13 +8087,29 @@ def list_users():
     # caller is allowed to see, mirroring ``list_user_roles``:
     # - super admin / self → every role
     # - workspace admin → roles in workspaces they administer
-    users_with_roles = store.list_users_with_roles()
     requester = authenticate_request().username
     requester_user = store.get_user(requester)
     admin_workspaces: set[str] | None = (
         None
         if requester_user.is_admin
         else store.list_workspace_admin_workspaces(requester_user.id)
+    )
+    # Non-admins only see users who have a role in the requested workspace.
+    scope_to_workspace = MLFLOW_ENABLE_WORKSPACES.get() and not requester_user.is_admin
+    workspace = workspace_context.get_request_workspace() if scope_to_workspace else None
+    # Everyone is a member of the default workspace when it's opened to all users.
+    if (
+        workspace
+        and _user_inherits_default_workspace_grant(workspace)
+        and get_permission(auth_config.default_permission).can_use
+    ):
+        scope_to_workspace = False
+    # Workspace managers need the full roster to onboard users into their workspace.
+    if workspace and workspace in admin_workspaces:
+        scope_to_workspace = False
+    # Super admins can use every workspace; a missing workspace ("") matches no one else.
+    users_with_roles = store.list_users_with_roles(
+        workspace=(workspace or "") if scope_to_workspace else None, requester=requester
     )
     response_users = []
     for u, roles in users_with_roles:
@@ -9093,6 +9153,11 @@ def _mcp_path_targets_a_version_as_subject(parts: list[str]) -> bool:
     return len(parts) > 2 and parts[2] == "versions"
 
 
+def _mcp_path_targets_a_server_tag(parts: list[str]) -> bool:
+    # `tags/<key>` on the server itself; version tags live under `versions/<v>/tags/<key>`.
+    return len(parts) > 3 and parts[2] == "tags"
+
+
 def _get_mcp_server_validator(
     path: str,
 ) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
@@ -9145,6 +9210,7 @@ def _get_mcp_server_validator(
             return _mcp_server_version_action_allowed(
                 username, name, _mcp_version_action(parts, request.method)
             )
+        is_server_tag_delete = request.method == "DELETE" and _mcp_path_targets_a_server_tag(parts)
         if server is None:
             perm = _get_mcp_server_permission(name, username)
         else:
@@ -9159,7 +9225,7 @@ def _get_mcp_server_validator(
             case "POST" | "PATCH":
                 allowed = perm.can_update
             case "DELETE":
-                allowed = perm.can_delete
+                allowed = perm.can_update if is_server_tag_delete else perm.can_delete
             case _:
                 return False
         if not allowed:
@@ -9176,6 +9242,9 @@ def _get_mcp_server_validator(
         ):
             return _mcp_server_version_not_denied(username, name)
         if request.method == "DELETE":
+            if is_server_tag_delete:
+                # Server tags don't touch versions, so as with `POST /tags`, skip the version tier.
+                return True
             if len(parts) == 2:
                 _require_stored_name_spelling(requested_name, name)
             return _mcp_server_version_action_allowed(username, name, "delete")

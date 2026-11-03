@@ -1548,15 +1548,11 @@ class SqlAlchemyStore(
             return
 
         is_single_metric = len(metrics) == 1
-        seen: set[Metric] = set()
-        sanitized_metrics: list[tuple[Metric, float]] = []
+        seen: set[tuple[Any, ...]] = set()
+        sanitized_metrics: list[tuple[Metric, float | None]] = []
         for idx, metric in enumerate(metrics):
             if metric.model_id is None:
                 continue
-
-            if metric in seen:
-                continue
-            seen.add(metric)
 
             _validate_metric(
                 metric.key,
@@ -1565,8 +1561,25 @@ class SqlAlchemyStore(
                 metric.step,
                 path="" if is_single_metric else f"metrics[{idx}]",
             )
-            _, value = self.sanitize_metric_value(metric.value)
-            sanitized_metrics.append((metric, value))
+            # Key on a tuple rather than the ``Metric`` itself because NaN != NaN, so two
+            # identical NaN metrics would otherwise both be inserted and violate the primary key.
+            metric_id = (
+                metric.model_id,
+                metric.key,
+                metric.timestamp,
+                metric.step,
+                None if math.isnan(metric.value) else metric.value,
+                metric.dataset_name,
+                metric.dataset_digest,
+            )
+            if metric_id in seen:
+                continue
+            seen.add(metric_id)
+
+            is_nan, value = self.sanitize_metric_value(metric.value)
+            # ``logged_model_metrics`` has no ``is_nan`` column, so NaN is stored as NULL.
+            # NULL never satisfies a numeric comparison and is read back as NaN.
+            sanitized_metrics.append((metric, None if is_nan else value))
 
         if not sanitized_metrics:
             return
@@ -1609,9 +1622,14 @@ class SqlAlchemyStore(
                         )
                         .all()
                     )
-                    existing_metrics = {m.to_mlflow_entity() for m in existing_metrics}
+                    # Compare column values rather than ``Metric`` entities because NaN != NaN.
+                    # ``metric_value`` is included so that a conflicting value for an existing
+                    # primary key is still rejected.
+                    existing_metrics = {_logged_model_metric_id(m) for m in existing_metrics}
                     non_existing_metrics = [
-                        m for m in metric_instances if m.to_mlflow_entity() not in existing_metrics
+                        m
+                        for m in metric_instances
+                        if _logged_model_metric_id(m) not in existing_metrics
                     ]
                     session.add_all(non_existing_metrics)
 
@@ -3798,10 +3816,13 @@ class SqlAlchemyStore(
                     [] if datasets_filter is None else [datasets_filter],
                     experiment_ids=experiment_ids,
                 )
+                val_filter = comp_func(latest_metrics.c.metric_value, comp.value)
+                if comp.op == "!=":
+                    # NaN metrics are stored as NULL, and NULL != x is NULL rather than true.
+                    # Match them explicitly, as run metrics do.
+                    val_filter = sqlalchemy.or_(val_filter, latest_metrics.c.metric_value.is_(None))
                 non_attr_filters.append(
-                    select(latest_metrics.c.model_id)
-                    .where(comp_func(latest_metrics.c.metric_value, comp.value))
-                    .subquery()
+                    select(latest_metrics.c.model_id).where(val_filter).subquery()
                 )
             elif comp.entity.type == EntityType.PARAM:
                 non_attr_filters.append(
@@ -8656,22 +8677,39 @@ class SqlAlchemyStore(
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 
-            experiment_ids_str = [str(exp_id) for exp_id in experiment_ids]
+            # ``SqlExperiment.experiment_id`` is an INTEGER column but REST callers
+            # pass string IDs. psycopg2 sent them as untyped literals PostgreSQL
+            # would coerce; psycopg v3 binds them as typed VARCHAR and PostgreSQL
+            # rejects the comparison ("operator does not exist:
+            # integer = character varying"). Coerce with the same error contract
+            # as ``_get_experiment``/``list_scorers_across_experiments``.
+            try:
+                experiment_ids_int = [int(exp_id) for exp_id in experiment_ids]
+            except (ValueError, TypeError):
+                raise MlflowException(
+                    "Invalid experiment IDs: experiment IDs must be valid integers.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            # Canonical string form, derived from the coerced integers, so a
+            # non-canonical input id (e.g. "007", " 5 ", "+5") is compared
+            # consistently with the query above instead of against its raw form.
+            experiment_ids_canonical = [str(exp_id) for exp_id in experiment_ids_int]
 
             accessible_exp_ids = (
                 {
                     str(row[0])
                     for row in self
                     ._get_query(session, SqlExperiment)
-                    .filter(SqlExperiment.experiment_id.in_(experiment_ids_str))
+                    .filter(SqlExperiment.experiment_id.in_(experiment_ids_int))
                     .with_entities(SqlExperiment.experiment_id)
                     .all()
                 }
-                if experiment_ids_str
+                if experiment_ids_int
                 else set()
             )
 
-            for exp_id in experiment_ids_str:
+            for exp_id in experiment_ids_canonical:
                 if exp_id not in accessible_exp_ids:
                     raise MlflowException(
                         f"No Experiment with id={exp_id}",
@@ -8684,7 +8722,7 @@ class SqlAlchemyStore(
                 .filter(
                     SqlEntityAssociation.source_id == dataset_id,
                     SqlEntityAssociation.source_type == EntityAssociationType.EVALUATION_DATASET,
-                    SqlEntityAssociation.destination_id.in_(experiment_ids_str),
+                    SqlEntityAssociation.destination_id.in_(experiment_ids_canonical),
                     SqlEntityAssociation.destination_type == EntityAssociationType.EXPERIMENT,
                 )
                 .all()
@@ -8700,7 +8738,7 @@ class SqlAlchemyStore(
                     destination_id=exp_id,
                     destination_type=EntityAssociationType.EXPERIMENT,
                 )
-                for exp_id in experiment_ids_str
+                for exp_id in experiment_ids_canonical
                 if exp_id not in existing_exp_ids
             ]
 
@@ -10383,6 +10421,19 @@ class SqlAlchemyStore(
             return row.to_mlflow_entity()
 
 
+def _logged_model_metric_id(metric: SqlLoggedModelMetric) -> tuple[Any, ...]:
+    return (
+        metric.model_id,
+        metric.metric_name,
+        metric.metric_timestamp_ms,
+        metric.metric_step,
+        metric.run_id,
+        metric.metric_value,
+        metric.dataset_name,
+        metric.dataset_digest,
+    )
+
+
 def _get_logged_model_metric_datasets_filter(
     datasets: list[dict[str, Any]] | None,
 ) -> sqlalchemy.ColumnElement[bool] | None:
@@ -10442,7 +10493,9 @@ def _get_latest_logged_model_metrics_subquery(
                 order_by=[
                     SqlLoggedModelMetric.metric_step.desc(),
                     SqlLoggedModelMetric.metric_timestamp_ms.desc(),
-                    SqlLoggedModelMetric.metric_value.desc(),
+                    # NaN is stored as NULL. Rank it as 0, like run metrics do, so the result
+                    # doesn't depend on how the database orders NULLs.
+                    func.coalesce(SqlLoggedModelMetric.metric_value, 0).desc(),
                 ],
             )
             .label("row_num"),

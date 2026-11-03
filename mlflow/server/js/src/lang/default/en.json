@@ -31,6 +31,10 @@
     "defaultMessage": "Edit",
     "description": "Skill detail action that edits description and icons"
   },
+  "+5RdhF": {
+    "defaultMessage": "All endpoints and users in all workspaces",
+    "description": "Budget scope label covering every endpoint and user across every workspace"
+  },
   "+634bT": {
     "defaultMessage": "Feedback",
     "description": "Review question type: feedback"
@@ -134,6 +138,10 @@
   "+UM7um": {
     "defaultMessage": "Tool {number} parameters",
     "description": "Accessible label for an individual tool parameters JSON editor in the playground"
+  },
+  "+UY0M7": {
+    "defaultMessage": "Unavailable",
+    "description": "Tag marking a budget policy whose target endpoint is missing from the endpoint list"
   },
   "+VGmLL": {
     "defaultMessage": "Optional description",
@@ -582,6 +590,10 @@
   "/w5HDz": {
     "defaultMessage": "Create webhook",
     "description": "Create webhook modal title"
+  },
+  "/xdz9/": {
+    "defaultMessage": "Register one skill from a folder that directly contains SKILL.md. Clients fetch it with their own credentials.",
+    "description": "Guidance for registering a single externally hosted skill"
   },
   "/y0ZU4": {
     "defaultMessage": "Updated",
@@ -1059,6 +1071,10 @@
     "defaultMessage": "Back",
     "description": "Experiment issues tab > Schedule modal button that leaves the API key step"
   },
+  "1h2fd4": {
+    "defaultMessage": "Hide import command",
+    "description": "Collapse the skill repository import tip"
+  },
   "1hI96w": {
     "defaultMessage": "Showing only visible runs",
     "description": "Experiment page > compare runs > parallel chart > header > indicator for only visible runs shown"
@@ -1142,6 +1158,10 @@
   "1yIbZj": {
     "defaultMessage": "Presence penalty",
     "description": "Label for the presence-penalty input on the playground parameters panel"
+  },
+  "2+6H1o": {
+    "defaultMessage": "All endpoints and users",
+    "description": "Budget scope label covering every endpoint and user"
   },
   "2+EUFB": {
     "defaultMessage": "Cancel",
@@ -1802,10 +1822,6 @@
   "46xd2Z": {
     "defaultMessage": "Compare",
     "description": "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Compare config section"
-  },
-  "470t+y": {
-    "defaultMessage": "Registers {summary}",
-    "description": "Summary of what a skill location registers"
   },
   "47JmSp": {
     "defaultMessage": "Configure new model",
@@ -2887,10 +2903,6 @@
     "defaultMessage": "Display name and description could not be saved",
     "description": "Error notification when updating MCP server display name fails"
   },
-  "7NvyO+": {
-    "defaultMessage": "Registering every skill under this folder? Run this instead:",
-    "description": "Pointer from single-skill registration to importing every skill under a repository folder"
-  },
   "7O0x9Q": {
     "defaultMessage": "Create a custom judge function using the {decorator} decorator. All parameters ({inputs}, {outputs}, {expectations}, {trace}) are optional — include only the ones your logic needs. {link}",
     "description": "Step 1 description for defining judge function"
@@ -3030,6 +3042,10 @@
   "7pkOrA": {
     "defaultMessage": "Model",
     "description": "Summary model label"
+  },
+  "7qIHOl": {
+    "defaultMessage": "Select an endpoint",
+    "description": "Placeholder for budget policy endpoint selector"
   },
   "7rO5IT": {
     "defaultMessage": "Select reviewers",
@@ -3338,6 +3354,10 @@
   "8nOa5g": {
     "defaultMessage": "All",
     "description": "Experiment issues tab > Filter option that matches every value in a dimension"
+  },
+  "8of0GD": {
+    "defaultMessage": "Want to import multiple skills at once?",
+    "description": "Tip pointing from single-skill registration to the repository import command"
   },
   "8oh0iW": {
     "defaultMessage": "Clear filters",
@@ -3958,6 +3978,10 @@
   "AfYWI/": {
     "defaultMessage": "Tool call: {name}",
     "description": "Accessible label for an expandable assistant tool-call card"
+  },
+  "Ag8fYY": {
+    "defaultMessage": "All endpoints and users in this workspace",
+    "description": "Budget scope label covering every endpoint and user within the current workspace"
   },
   "AgXTXU": {
     "defaultMessage": "oldest first",
@@ -5303,6 +5327,10 @@
     "defaultMessage": "Type a value",
     "description": "Key-value tag editor modal > Value input placeholder"
   },
+  "FGnPTW": {
+    "defaultMessage": "Applies to",
+    "description": "Budget scope label"
+  },
   "FHJ1NN": {
     "defaultMessage": "Endpoint Name",
     "description": "Label for endpoint name input"
@@ -5390,6 +5418,10 @@
   "FbFEvH": {
     "defaultMessage": "Comparing {count} traces",
     "description": "Comparing traces title"
+  },
+  "FbhstH": {
+    "defaultMessage": "Applies to",
+    "description": "Budget scope column header"
   },
   "Fbx0Vd": {
     "defaultMessage": "Refresh evaluation runs",
@@ -5911,6 +5943,10 @@
     "defaultMessage": "Aliases:",
     "description": "MCP compare metadata aliases label"
   },
+  "HDs3Rm": {
+    "defaultMessage": "Specific endpoint",
+    "description": "Budget scope option limiting the policy to one endpoint"
+  },
   "HF6L/f": {
     "defaultMessage": "Monitor quality metrics from scorers",
     "description": "Empty state title for the quality tab in overview page"
@@ -6235,10 +6271,6 @@
     "defaultMessage": "Manage workspace {name}",
     "description": "Aria label on the gear icon for managing a workspace"
   },
-  "IAuo/5": {
-    "defaultMessage": "Display",
-    "description": "Display control in session migration illustration"
-  },
   "IAyAgH": {
     "defaultMessage": "Move up",
     "description": "Experiment page > compare runs tab > chart header > move up option"
@@ -6286,10 +6318,6 @@
   "IFJQom": {
     "defaultMessage": "{count, plural, one {# question} other {# questions}} selected",
     "description": "Create review queue: questions dropdown selected-count summary"
-  },
-  "IG9BAn": {
-    "defaultMessage": "GitHub links don't show where a branch name ends, so this assumes the branch is {ref}. If the branch name contains a slash, correct the branch and path under Advanced settings.",
-    "description": "Warning that a GitHub link's branch and path split is a guess"
   },
   "IHyeUr": {
     "defaultMessage": "Stage",
@@ -7179,10 +7207,6 @@
     "defaultMessage": "Transport type",
     "description": "Remote transport type label"
   },
-  "L5uIah": {
-    "defaultMessage": "Registering every skill in this repository? Run this instead:",
-    "description": "Pointer from single-skill registration to the repository import command"
-  },
   "L71uzj": {
     "defaultMessage": "Provider",
     "description": "Dimension toggle option for provider"
@@ -7514,10 +7538,6 @@
   "MHWark": {
     "defaultMessage": "Year",
     "description": "Time unit: year"
-  },
-  "MHhHib": {
-    "defaultMessage": "branch {ref}",
-    "description": "Git ref in the skill location summary"
   },
   "MJGFlf": {
     "defaultMessage": "Loading endpoints...",
@@ -8163,6 +8183,10 @@
     "defaultMessage": "+{count}",
     "description": "Compact suffix on the traces table tags column indicating how many additional tags are hidden in the preview"
   },
+  "OCBP3+": {
+    "defaultMessage": "Specific user",
+    "description": "Budget scope option limiting the policy to one user"
+  },
   "OCZ6Y6": {
     "defaultMessage": "Git branch",
     "description": "Column label for the git branch the trace was produced on"
@@ -8707,6 +8731,10 @@
     "defaultMessage": "Copy the prompt below to fix this issue with your coding agent.",
     "description": "Experiment issues tab > Issue detail > Fix this issue section > Explains what the prompt below is for"
   },
+  "PurQkQ": {
+    "defaultMessage": "Show import command",
+    "description": "Expand the skill repository import tip"
+  },
   "Pv88gx": {
     "defaultMessage": "Model",
     "description": "Column header for the model powering issue detection"
@@ -9103,6 +9131,10 @@
     "defaultMessage": "Search run names for “{text}”",
     "description": "Run a plain text evaluation run-name search"
   },
+  "RDXmoF": {
+    "defaultMessage": "The budget applies only to requests made by this authenticated user. Requires server authentication to be enabled.",
+    "description": "Helper text for per-user budget scope"
+  },
   "RDg+Pl": {
     "defaultMessage": "Time",
     "description": "Label for the time select dropdown for experiment runs view"
@@ -9242,6 +9274,10 @@
   "RgVN+O": {
     "defaultMessage": "View all",
     "description": "Home page news section view more link"
+  },
+  "RgW12o": {
+    "defaultMessage": "This endpoint was deleted, or you don't have access to it. If it was deleted, edit the policy to choose another endpoint, or delete the policy.",
+    "description": "Tooltip explaining that an endpoint-scoped budget policy points at an endpoint missing from the endpoint list"
   },
   "RhQhT4": {
     "defaultMessage": "Model",
@@ -9675,6 +9711,10 @@
     "defaultMessage": "Line Smoothness",
     "description": "Label for the smoothness slider for the graph plot for metrics"
   },
+  "T5zZ1W": {
+    "defaultMessage": "Username, e.g., alice",
+    "description": "Budget username placeholder"
+  },
   "T7O9h/": {
     "defaultMessage": "Search traces by id or input",
     "description": "Search input placeholder for matched traces in an evaluation-run comparison"
@@ -9774,6 +9814,10 @@
   "TUBoJA": {
     "defaultMessage": "{runName} session turns",
     "description": "Trace block for one run in an expanded session comparison"
+  },
+  "TULATU": {
+    "defaultMessage": "User",
+    "description": "Tag marking a per-user budget policy"
   },
   "TWnsnV": {
     "defaultMessage": "Run Name",
@@ -10155,6 +10199,10 @@
     "defaultMessage": "Status",
     "description": "Label for the status of a logged model on the logged model details page"
   },
+  "UgVp7H": {
+    "defaultMessage": "Endpoint",
+    "description": "Accessible label for the budget policy endpoint selector"
+  },
   "UhdPmo": {
     "defaultMessage": "Transition to",
     "description": "Text for transitioning a model version to a different stage under\n                 dropdown menu in model version page"
@@ -10382,6 +10430,10 @@
   "VN5B4N": {
     "defaultMessage": "General",
     "description": "Accordion section header for general settings"
+  },
+  "VNZMMs": {
+    "defaultMessage": "No endpoints available",
+    "description": "Placeholder for the budget policy endpoint selector when no endpoints exist"
   },
   "VOP7Y5": {
     "defaultMessage": "No guardrails match your search.",
@@ -10934,10 +10986,6 @@
   "WzOAWU": {
     "defaultMessage": "Duration",
     "description": "Trace filter field: execution time"
-  },
-  "Wzhsx4": {
-    "defaultMessage": "Click the \"Group by session\" button to see the session-level view.",
-    "description": "Instruction explaining how to access the session-level view in the Traces tab"
   },
   "X+Bggt": {
     "defaultMessage": "Analyze: {range}",
@@ -13079,10 +13127,6 @@
     "defaultMessage": "The SQL query timed out. Please retry, and if the problem persists, try selecting a larger SQL warehouse.",
     "description": "V4 traces > SQL warehouse timeout error description with CTA to select a larger warehouse"
   },
-  "e67EDw": {
-    "defaultMessage": "Content stays where it is. Clients fetch it with their own credentials.",
-    "description": "Explanation of pointer-only skill registration"
-  },
   "e6reUn": {
     "defaultMessage": "Failed",
     "description": "Label for upload failed state of a experiment logged model"
@@ -13834,6 +13878,10 @@
   "gIc8Lp": {
     "defaultMessage": "Stages have been deprecated in the new Model Registry UI. Learn how to migrate models <link>here</link>.",
     "description": "Tooltip content for the disabled stage metadata in model version page"
+  },
+  "gK/XFb": {
+    "defaultMessage": "Select \"Sessions\" in the Traces/Sessions switcher to see the session-level view.",
+    "description": "Instruction explaining how to access the session-level view in the Traces tab"
   },
   "gKb5eO": {
     "defaultMessage": "Minutes",
@@ -15590,6 +15638,10 @@
   "lNv2QR": {
     "defaultMessage": "Light",
     "description": "Light theme label"
+  },
+  "lOmKrC": {
+    "defaultMessage": "If your branch name contains '/', check the branch and path.",
+    "description": "Hint to verify the inferred branch and path of a GitHub folder URL"
   },
   "lOyzXr": {
     "defaultMessage": "Baseline",
@@ -18531,6 +18583,10 @@
     "defaultMessage": "Duration",
     "description": "Header for the traces table duration column"
   },
+  "uyWLgQ": {
+    "defaultMessage": "The endpoint this policy applies to ({endpointId}) was deleted, or you don't have access to it. Select another endpoint, or choose \"{allLabel}\".",
+    "description": "Validation error shown when a budget policy targets an endpoint that is missing from the endpoint list"
+  },
   "uydAT6": {
     "defaultMessage": "{start} – {end}",
     "description": "Selected date range in the issue activity chart"
@@ -18578,10 +18634,6 @@
   "v9fbSW": {
     "defaultMessage": "Delete",
     "description": "Bulk-delete button on the roles table (no rows selected)"
-  },
-  "vAsKGb": {
-    "defaultMessage": "path {subpath}",
-    "description": "Subpath in the skill location summary"
   },
   "vBKFgp": {
     "defaultMessage": "X axis",
