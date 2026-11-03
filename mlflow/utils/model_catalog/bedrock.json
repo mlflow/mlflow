@@ -1562,7 +1562,7 @@
     "ap-northeast-1/deepseek.v3.2": {
       "mode": "chat",
       "context_window": {
-        "max_input": 163840,
+        "max_input": 156000,
         "max_output": 8000
       },
       "pricing": {
@@ -1590,7 +1590,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-30"
+      "last_updated_at": "2026-11-03"
     },
     "ap-northeast-1/minimax.minimax-m2.1": {
       "mode": "chat",
@@ -1843,7 +1843,7 @@
     "ap-south-1/deepseek.v3.2": {
       "mode": "chat",
       "context_window": {
-        "max_input": 163840,
+        "max_input": 156000,
         "max_output": 8000
       },
       "pricing": {
@@ -1871,7 +1871,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-30"
+      "last_updated_at": "2026-11-03"
     },
     "ap-south-1/meta.llama3-70b-instruct-v1:0": {
       "mode": "chat",
@@ -2220,7 +2220,7 @@
     "ap-southeast-3/deepseek.v3.2": {
       "mode": "chat",
       "context_window": {
-        "max_input": 163840,
+        "max_input": 156000,
         "max_output": 8000
       },
       "pricing": {
@@ -2240,7 +2240,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-03"
     },
     "ap-southeast-3/minimax.minimax-m2.1": {
       "mode": "chat",
@@ -3991,7 +3991,7 @@
     "deepseek.v3.2": {
       "mode": "chat",
       "context_window": {
-        "max_input": 164000,
+        "max_input": 156000,
         "max_output": 8000
       },
       "pricing": {
@@ -4019,7 +4019,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-03"
     },
     "eu-central-1/1-month-commitment/anthropic.claude-instant-v1": {
       "mode": "chat",
@@ -4263,7 +4263,7 @@
     "eu-north-1/deepseek.v3.2": {
       "mode": "chat",
       "context_window": {
-        "max_input": 163840,
+        "max_input": 156000,
         "max_output": 8000
       },
       "pricing": {
@@ -4291,7 +4291,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-30"
+      "last_updated_at": "2026-11-03"
     },
     "eu-north-1/minimax.minimax-m2.1": {
       "mode": "chat",
@@ -8930,7 +8930,7 @@
     "sa-east-1/deepseek.v3.2": {
       "mode": "chat",
       "context_window": {
-        "max_input": 163840,
+        "max_input": 156000,
         "max_output": 8000
       },
       "pricing": {
@@ -8958,7 +8958,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-30"
+      "last_updated_at": "2026-11-03"
     },
     "sa-east-1/meta.llama3-70b-instruct-v1:0": {
       "mode": "chat",
@@ -9508,7 +9508,7 @@
     "us-east-1/deepseek.v3.2": {
       "mode": "chat",
       "context_window": {
-        "max_input": 163840,
+        "max_input": 156000,
         "max_output": 8000
       },
       "pricing": {
@@ -9536,7 +9536,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-30"
+      "last_updated_at": "2026-11-03"
     },
     "us-east-1/meta.llama3-70b-instruct-v1:0": {
       "mode": "chat",
@@ -9832,7 +9832,7 @@
     "us-east-2/deepseek.v3.2": {
       "mode": "chat",
       "context_window": {
-        "max_input": 163840,
+        "max_input": 156000,
         "max_output": 8000
       },
       "pricing": {
@@ -9860,7 +9860,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-30"
+      "last_updated_at": "2026-11-03"
     },
     "us-east-2/minimax.minimax-m2.1": {
       "mode": "chat",
@@ -11050,7 +11050,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-11-02"
+      "deprecation_date": "2027-03-30",
+      "last_updated_at": "2026-11-03"
     },
     "us-gov-west-1/meta.llama3-8b-instruct-v1:0": {
       "mode": "chat",
@@ -11069,7 +11070,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-11-02"
+      "deprecation_date": "2027-03-30",
+      "last_updated_at": "2026-11-03"
     },
     "us-gov-west-1/nvidia.nemotron-nano-12b-v2": {
       "mode": "chat",
@@ -11731,7 +11733,7 @@
     "us-west-2/deepseek.v3.2": {
       "mode": "chat",
       "context_window": {
-        "max_input": 163840,
+        "max_input": 156000,
         "max_output": 8000
       },
       "pricing": {
@@ -11759,7 +11761,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-30"
+      "last_updated_at": "2026-11-03"
     },
     "us-west-2/minimax.minimax-m2.1": {
       "mode": "chat",
