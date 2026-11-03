@@ -24,6 +24,7 @@ from mlflow.utils.validation import (
     _validate_db_type_string,
     _validate_experiment_artifact_location,
     _validate_experiment_artifact_location_length,
+    _validate_experiment_id,
     _validate_experiment_name,
     _validate_gateway_api_base,
     _validate_gateway_secret_auth_config,
@@ -1184,4 +1185,22 @@ def test_validate_text_field_accepts_values_within_limit(value):
 def test_validate_text_field_rejects_values_the_database_would_refuse(value, match):
     with pytest.raises(MlflowException, match=match) as exc:
         _validate_text_field("Field", value, 5)
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.parametrize(
+    ("validator", "value"),
+    [
+        (_validate_metric_name, 123),
+        (_validate_metric_name, b"bytes"),
+        (_validate_param_name, 123),
+        (_validate_tag_name, {"a"}),
+        (_validate_run_id, 123),
+        (_validate_experiment_id, 123),
+    ],
+)
+def test_validators_reject_non_string_values(validator, value):
+    with pytest.raises(MlflowException, match="Expects a string") as exc:
+        validator(value)
+
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)

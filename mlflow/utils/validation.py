@@ -131,7 +131,7 @@ def invalid_value(path, value, message=None):
     """
     Compose a standardized error message for invalid parameter values.
     """
-    formattedValue = json.dumps(value, sort_keys=True, separators=(",", ":"))
+    formattedValue = json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
 
     if message:
         return f"Invalid value {formattedValue} for parameter '{path}' supplied: {message}"
@@ -349,6 +349,12 @@ def path_not_unique(name):
 
 def _validate_metric_name(name, path="name"):
     """Check that `name` is a valid metric name and raise an exception if it isn't."""
+    if name is not None and not is_string_type(name):
+        raise MlflowException(
+            invalid_value(path, name, "Expects a string."),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     if name is None:
         raise MlflowException(
             invalid_value(path, name, f"Metric name cannot be None. {_MISSING_KEY_NAME_MESSAGE}"),
@@ -507,6 +513,12 @@ def _validate_param_keys_unique(params):
 
 def _validate_param_name(name, path="key"):
     """Check that `name` is a valid parameter name and raise an exception if it isn't."""
+    if name is not None and not is_string_type(name):
+        raise MlflowException(
+            invalid_value(path, name, "Expects a string."),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     if name is None:
         raise MlflowException(
             invalid_value(path, "", _MISSING_KEY_NAME_MESSAGE),
@@ -526,6 +538,12 @@ def _validate_param_name(name, path="key"):
 
 def _validate_tag_name(name, path="key"):
     """Check that `name` is a valid tag name and raise an exception if it isn't."""
+    if name is not None and not is_string_type(name):
+        raise MlflowException(
+            invalid_value(path, name, "Expects a string."),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     # Reuse param & metric check.
     if name is None:
         raise MlflowException(
@@ -577,12 +595,24 @@ def _validate_text_field(field: str, value: str | None, limit: int) -> None:
 
 def _validate_run_id(run_id, path="run_id"):
     """Check that `run_id` is a valid run ID and raise an exception if it isn't."""
+    if run_id is not None and not is_string_type(run_id):
+        raise MlflowException(
+            invalid_value(path, run_id, "Expects a string."),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     if _RUN_ID_REGEX.fullmatch(run_id) is None:
         raise MlflowException(invalid_value(path, run_id), error_code=INVALID_PARAMETER_VALUE)
 
 
 def _validate_experiment_id(exp_id):
     """Check that `experiment_id`is a valid string or None, raise an exception if it isn't."""
+    if exp_id is not None and not is_string_type(exp_id):
+        raise MlflowException(
+            invalid_value('experiment_id', exp_id, "Expects a string."),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     if exp_id is not None and _EXPERIMENT_ID_REGEX.fullmatch(exp_id) is None:
         raise MlflowException(
             f"Invalid experiment ID: '{exp_id}'", error_code=INVALID_PARAMETER_VALUE
