@@ -4306,6 +4306,36 @@ def test_search_logged_models_nan_metric(store: SqlAlchemyStore):
         assert search(order_by=order_by) == ["good", "diverged"]
 
 
+def test_search_logged_models_nan_latest_metric(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+
+    def create_run():
+        return store.create_run(
+            experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="run"
+        ).info.run_id
+
+    run_id = create_run()
+    nan_last = store.create_logged_model(experiment_id=exp_id, name="nan_last")
+    nan_first = store.create_logged_model(experiment_id=exp_id, name="nan_first")
+    tie = store.create_logged_model(experiment_id=exp_id, name="tie")
+    store.log_metric(run_id, Metric("loss", 0.05, 0, 0, model_id=nan_last.model_id))
+    store.log_metric(run_id, Metric("loss", float("nan"), 0, 1, model_id=nan_last.model_id))
+    store.log_metric(run_id, Metric("loss", float("nan"), 0, 0, model_id=nan_first.model_id))
+    store.log_metric(run_id, Metric("loss", 0.05, 0, 1, model_id=nan_first.model_id))
+    # At the same step and timestamp, NaN ranks as 0 like it does for run metrics, so it wins
+    # over a negative value on every database.
+    store.log_metric(run_id, Metric("loss", float("nan"), 0, 0, model_id=tie.model_id))
+    store.log_metric(create_run(), Metric("loss", -1.0, 0, 0, model_id=tie.model_id))
+
+    def search(filter_string):
+        models = store.search_logged_models(experiment_ids=[exp_id], filter_string=filter_string)
+        return sorted(m.name for m in models)
+
+    assert search("metrics.loss < 0.1") == ["nan_first"]
+    assert search("metrics.loss < 0") == []
+    assert search("metrics.loss != 0.05") == ["nan_last", "tie"]
+
+
 def test_log_batch_nan_logged_model_metric_duplicates(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     run_id = store.create_run(

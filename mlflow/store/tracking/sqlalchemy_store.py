@@ -10493,7 +10493,9 @@ def _get_latest_logged_model_metrics_subquery(
                 order_by=[
                     SqlLoggedModelMetric.metric_step.desc(),
                     SqlLoggedModelMetric.metric_timestamp_ms.desc(),
-                    SqlLoggedModelMetric.metric_value.desc(),
+                    # NaN is stored as NULL. Rank it as 0, like run metrics do, so the result
+                    # doesn't depend on how the database orders NULLs.
+                    func.coalesce(SqlLoggedModelMetric.metric_value, 0).desc(),
                 ],
             )
             .label("row_num"),
