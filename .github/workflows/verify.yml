@@ -221,6 +221,33 @@ jobs:
           host: ${{ secrets.DATABRICKS_HOST }}
           client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
           client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+      - name: Start gateway proxy
+        id: gateway-proxy
+        env:
+          GATEWAY_TOKEN: ${{ steps.gateway.outputs.token }}
+          GATEWAY_URL: ${{ steps.gateway.outputs.base-url }}
+        run: |
+          placeholder_token=$(openssl rand -hex 32)
+          echo "::add-mask::$placeholder_token"
+          printf 'placeholder-token=%s\n' "$placeholder_token" >> "$GITHUB_OUTPUT"
+          printf '%s\n%s\n' "$GATEWAY_TOKEN" "$placeholder_token" | env -u GATEWAY_TOKEN \
+            GATEWAY_URL="$GATEWAY_URL" node trusted/.claude/sandbox/gateway-proxy.mjs \
+            > "$RUNNER_TEMP/verify-gateway-proxy.log" 2>&1 &
+          proxy_pid=$!
+          unset GATEWAY_TOKEN placeholder_token
+          echo "$proxy_pid" > "$RUNNER_TEMP/verify-gateway-proxy.pid"
+          for _ in $(seq 1 30); do
+            if ! kill -0 "$proxy_pid" 2>/dev/null; then
+              break
+            fi
+            if curl --noproxy '*' -fsS http://127.0.0.1:8080/healthz > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/verify-gateway-proxy.log"
+          echo '::error::Gateway proxy did not become ready.'
+          exit 1
       # The proxy holds the telemetry token and forwards only OTLP requests. Set the variable
       # to the <catalog>.<schema>.<table_prefix> of a UC-linked experiment to enable export.
       - id: telemetry
@@ -269,8 +296,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          ANTHROPIC_BASE_URL: ${{ steps.gateway.outputs.base-url }}/anthropic
-          ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway.outputs.token }}
+          ANTHROPIC_BASE_URL: http://localhost:8080/anthropic
+          ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway-proxy.outputs.placeholder-token }}
           ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
           ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5
           MODEL: ${{ inputs.model || 'databricks-claude-opus-5-5' }}
@@ -350,6 +377,7 @@ jobs:
           SESSION_ID: ${{ steps.session.outputs.id }}
           SECRETS_TO_REDACT: |
             ${{ steps.gateway.outputs.token }}
+            ${{ steps.gateway-proxy.outputs.placeholder-token }}
             ${{ steps.telemetry-proxy.outputs.placeholder-token }}
             ${{ secrets.GITHUB_TOKEN }}
             ${{ secrets.DATABRICKS_HOST }}
@@ -385,15 +413,17 @@ jobs:
           overwrite: true
           if-no-files-found: error
           retention-days: 1
-      - name: Stop telemetry proxy
-        if: always() && steps.telemetry.outcome == 'success'
+      - name: Stop proxies
+        if: always()
         run: |
-          if [ -s "$RUNNER_TEMP/verify-telemetry-proxy.log" ]; then
-            cat "$RUNNER_TEMP/verify-telemetry-proxy.log"
-          fi
-          if [ -f "$RUNNER_TEMP/verify-telemetry-proxy.pid" ]; then
-            kill "$(cat "$RUNNER_TEMP/verify-telemetry-proxy.pid")" 2>/dev/null || true
-          fi
+          for proxy in gateway telemetry; do
+            if [ -s "$RUNNER_TEMP/verify-$proxy-proxy.log" ]; then
+              cat "$RUNNER_TEMP/verify-$proxy-proxy.log"
+            fi
+            if [ -f "$RUNNER_TEMP/verify-$proxy-proxy.pid" ]; then
+              kill "$(cat "$RUNNER_TEMP/verify-$proxy-proxy.pid")" 2>/dev/null || true
+            fi
+          done
 
   publish:
     needs: [gate, verify]
