@@ -1001,24 +1001,61 @@ jobs:
             --arg session "$SESSION_ID" --arg warehouse "$WAREHOUSE_ID" '{
               locations: [{type: "UC_TABLE_PREFIX", uc_table_prefix: {catalog_name: $catalog, schema_name: $schema, table_prefix: $prefix}}],
               filter: "metadata.`mlflow.trace.session` = '\''\($session)'\''",
-              max_results: 2,
+              max_results: 100,
               sql_warehouse_id: $warehouse
             }')
           # Spans can take a few minutes to be ingested after the agent exits.
           ids='[]'
-          for _ in $(seq 1 20); do
-            ids=$(curl -sS --fail-with-body --max-time 30 --oauth2-bearer "$TOKEN" \
-              -H "Content-Type: application/json" --data-binary "$search" \
-              "$DATABRICKS_HOST/api/4.0/mlflow/traces/search" | jq -c '[.trace_infos[]?.trace_id]') || ids='[]'
+          for attempt in $(seq 1 20); do
+            attempt_ids='[]'
+            page_token=''
+            search_failed=false
+            while :; do
+              request=$(jq -c --arg page_token "$page_token" \
+                'if $page_token == "" then . else . + {page_token: $page_token} end' <<< "$search")
+              response=$(curl -sS --fail-with-body --max-time 30 --oauth2-bearer "$TOKEN" \
+                -H "Content-Type: application/json" --data-binary "$request" \
+                "$DATABRICKS_HOST/api/4.0/mlflow/traces/search") || {
+                  search_failed=true
+                  break
+                }
+              page=$(jq -ce '
+                if type == "object"
+                  and ((.trace_infos // []) | type == "array")
+                  and ((.next_page_token == null) or (.next_page_token | type == "string"))
+                  and all((.trace_infos // [])[]; type == "object" and (.trace_id | type == "string"))
+                then {
+                  trace_ids: [(.trace_infos // [])[] | .trace_id],
+                  next_page_token: (.next_page_token // "")
+                }
+                else error("Unexpected trace search response")
+                end' <<< "$response") || {
+                  search_failed=true
+                  break
+                }
+              page_ids=$(jq -c '.trace_ids' <<< "$page")
+              attempt_ids=$(jq -cn --argjson ids "$attempt_ids" --argjson page_ids "$page_ids" '$ids + $page_ids')
+              page_token=$(jq -r '.next_page_token' <<< "$page")
+              [ -n "$page_token" ] || break
+            done
+            if [ "$search_failed" = true ]; then
+              if [ "$attempt" -eq 20 ]; then
+                echo "::error::Trace search for session $SESSION_ID did not complete after 20 attempts"
+                exit 1
+              fi
+              sleep 15
+              continue
+            fi
+            ids=$(jq -c 'unique' <<< "$attempt_ids")
             [ "$ids" != '[]' ] && break
-            sleep 15
+            if [ "$attempt" -lt 20 ]; then
+              sleep 15
+            fi
           done
-          # The agent can export its own spans with this session ID, so tag only an unambiguous match.
-          if [ "$(jq length <<< "$ids")" -ne 1 ]; then
-            echo "::warning::Expected one trace for session $SESSION_ID, found $ids"
+          if [ "$ids" = '[]' ]; then
+            echo "::warning::No traces found for session $SESSION_ID after 20 attempts"
             exit 0
           fi
-          trace_id=$(jq -r '.[0]' <<< "$ids")
           # The payload is agent output and unvalidated here, so keep only a well-formed verdict.
           payload=$(jq -c objects "$RUNNER_TEMP/triage-report/payload.json" 2>/dev/null) || payload='{}'
           tags=$(jq -nc --argjson p "${payload:-"{}"}" '{
@@ -1029,12 +1066,14 @@ jobs:
             "triage.verdict": (($p.verdict | strings | select(test("^[a-z-]+$"))) // ""),
             "triage.pr_created": ($p | has("pull_request") | tostring)
           } | with_entries(select(.value != ""))')
-          jq -c 'to_entries[]' <<< "$tags" | while read -r tag; do
-            curl -sS --fail-with-body --max-time 30 --oauth2-bearer "$TOKEN" -X PATCH \
-              -H "Content-Type: application/json" --data-binary "$tag" \
-              "$DATABRICKS_HOST/api/4.0/mlflow/traces/$TRACE_LOCATION/$trace_id/tags" > /dev/null
+          jq -r 'unique[]' <<< "$ids" | while IFS= read -r trace_id; do
+            jq -c 'to_entries[]' <<< "$tags" | while IFS= read -r tag; do
+              curl -sS --fail-with-body --max-time 30 --oauth2-bearer "$TOKEN" -X PATCH \
+                -H "Content-Type: application/json" --data-binary "$tag" \
+                "$DATABRICKS_HOST/api/4.0/mlflow/traces/$TRACE_LOCATION/$trace_id/tags" > /dev/null
+            done
+            echo "Tagged trace \`$trace_id\` with \`$tags\`" >> "$GITHUB_STEP_SUMMARY"
           done
-          echo "Tagged trace \`$trace_id\` with \`$tags\`" >> "$GITHUB_STEP_SUMMARY"
       - name: Stop gateway proxy
         if: always()
         run: |
