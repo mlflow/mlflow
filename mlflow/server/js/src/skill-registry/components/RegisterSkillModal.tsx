@@ -528,7 +528,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
                         id="mlflow.skill_registry.register_modal.location"
                         componentId="mlflow.skill_registry.register_modal.location"
                         aria-label={locationLabel}
-                        placeholder="https://github.com/redhat-ai/skills-developer.git"
+                        placeholder="https://github.com/mlflow/skills/tree/main/mlflow-trace-instrumentation"
                         value={form.location}
                         onChange={(event) => applyLocation(event.target.value)}
                         css={{ width: '100%' }}
