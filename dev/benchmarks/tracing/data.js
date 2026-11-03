@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793652382853,
+  "lastUpdate": 1793667802106,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "joshua.wong@databricks.com",
-            "name": "joshuawong-db",
-            "username": "joshuawong-db"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c70e477459a235783966af92ef6a981e098a24bc",
-          "message": "Add saved views to MLflow demo (#25392)\n\nSigned-off-by: Joshua Wong <joshua.wong@databricks.com>",
-          "timestamp": "2026-09-01T17:24:30+08:00",
-          "tree_id": "b80f770ad6d3f775c8c5d510fd1de0149b51750a",
-          "url": "https://github.com/mlflow/mlflow/commit/c70e477459a235783966af92ef6a981e098a24bc"
-        },
-        "date": 1788254748217,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 42.25471060000103,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 6.273531551724089,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 5.453213602739046,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 6.272675700854389,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 5.693993874999914,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 10.578464799996823,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.289472599995861,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dineshyadav.p03@gmail.com",
+            "name": "Dinesh Yadav",
+            "username": "dineshyadav03"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e1aa43668531fbd6f35604cf0f60af00231a05ab",
+          "message": "Fix `add_dataset_to_experiments` binding str `experiment_id` against INTEGER column on PostgreSQL (psycopg v3) (#25521)\n\nSigned-off-by: dineshyadav03 <dineshyadav.p03@gmail.com>\nCo-authored-by: Kris Concepcion <84737625+kriscon-db@users.noreply.github.com>",
+          "timestamp": "2026-11-03T00:59:37Z",
+          "tree_id": "4009634bb393ba18243be4e6da72ff9e7eebc92e",
+          "url": "https://github.com/mlflow/mlflow/commit/e1aa43668531fbd6f35604cf0f60af00231a05ab"
+        },
+        "date": 1793667798672,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 50.40405505000081,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 7.471085905659945,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.521954223140886,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.857267611569719,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 7.023942389381355,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 13.732712600003083,
             "unit": "ms"
           }
         ]
