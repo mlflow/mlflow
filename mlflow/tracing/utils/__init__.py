@@ -313,7 +313,7 @@ def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
 def _with_total_tokens(usage: dict[str, Any]) -> dict[str, Any]:
     # Spans such as embeddings may report only input tokens. Derive the missing total so
     # those tokens still reach the trace-level total. An explicit total (including 0) is kept.
-    if TokenUsageKey.TOTAL_TOKENS in usage:
+    if usage.get(TokenUsageKey.TOTAL_TOKENS) is not None:
         return usage
     return {
         **usage,

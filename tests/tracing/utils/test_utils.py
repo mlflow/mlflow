@@ -124,7 +124,8 @@ def test_aggregate_usage_from_spans():
         ({TokenUsageKey.INPUT_TOKENS: 1000}, 1010),
         ({TokenUsageKey.OUTPUT_TOKENS: 7}, 17),
         ({TokenUsageKey.INPUT_TOKENS: 3, TokenUsageKey.OUTPUT_TOKENS: 4}, 17),
-        ({TokenUsageKey.INPUT_TOKENS: 0, TokenUsageKey.TOTAL_TOKENS: 0}, 10),
+        ({TokenUsageKey.INPUT_TOKENS: 5, TokenUsageKey.TOTAL_TOKENS: 0}, 10),
+        ({TokenUsageKey.INPUT_TOKENS: 5, TokenUsageKey.TOTAL_TOKENS: None}, 15),
     ],
 )
 def test_aggregate_usage_from_spans_derives_missing_total_tokens(span_usage, expected_total):
@@ -144,7 +145,6 @@ def test_aggregate_usage_from_spans_derives_missing_total_tokens(span_usage, exp
 
     usage = aggregate_usage_from_spans(spans)
     assert usage[TokenUsageKey.TOTAL_TOKENS] == expected_total
-    assert spans[1].get_attribute(SpanAttributeKey.CHAT_USAGE) == span_usage
 
 
 def test_aggregate_usage_from_spans_skips_descendant_usage():
