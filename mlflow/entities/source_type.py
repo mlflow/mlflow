@@ -1,3 +1,7 @@
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+
+
 class SourceType:
     """Enum for originating source of a :py:class:`mlflow.entities.Run`."""
 
@@ -15,17 +19,19 @@ class SourceType:
     @staticmethod
     def from_string(status_str: str) -> int:
         if status_str not in SourceType._STRING_TO_SOURCETYPE:
-            raise Exception(
+            raise MlflowException(
                 f"Could not get run status corresponding to string {status_str}. Valid run "
                 f"status strings: {list(SourceType._STRING_TO_SOURCETYPE.keys())}"
+__E__,                 error_code=INVALID_PARAMETER_VALUE,
             )
         return SourceType._STRING_TO_SOURCETYPE[status_str]
 
     @staticmethod
     def to_string(status: int) -> str:
         if status not in SourceType.SOURCETYPE_TO_STRING:
-            raise Exception(
+            raise MlflowException(
                 f"Could not get string corresponding to run status {status}. Valid run "
                 f"statuses: {list(SourceType.SOURCETYPE_TO_STRING.keys())}"
+__E__,                 error_code=INVALID_PARAMETER_VALUE,
             )
         return SourceType.SOURCETYPE_TO_STRING[status]

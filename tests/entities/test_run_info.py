@@ -1,4 +1,7 @@
-from mlflow.entities import RunInfo
+import pytest
+
+from mlflow.entities import RunInfo, RunStatus
+from mlflow.exceptions import MlflowException
 
 
 def _check(
@@ -112,3 +115,20 @@ def test_searchable_attributes():
         "run_name",
         "run_id",
     }
+
+
+
+def test_a_missing_required_field_raises_the_named_mlflow_exception():
+    kwargs = {
+        "run_id": "run_id",
+        "experiment_id": "1",
+        "user_id": "user",
+        "status": RunStatus.RUNNING,
+        "start_time": 0,
+        "end_time": None,
+        "lifecycle_stage": "active",
+    }
+
+    for field in ["experiment_id", "user_id", "status", "start_time"]:
+        with pytest.raises(MlflowException, match=f"{field} cannot be None"):
+            RunInfo(**{**kwargs, field: None})

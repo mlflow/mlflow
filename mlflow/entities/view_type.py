@@ -1,4 +1,6 @@
+from mlflow.exceptions import MlflowException
 from mlflow.protos import service_pb2
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 
 class ViewType:
@@ -15,18 +17,20 @@ class ViewType:
     @classmethod
     def from_string(cls, view_str: str) -> int:
         if view_str not in cls._STRING_TO_VIEW:
-            raise Exception(
+            raise MlflowException(
                 f"Could not get valid view type corresponding to string {view_str}. "
                 f"Valid view types are {list(cls._STRING_TO_VIEW.keys())}"
+__E__,                 error_code=INVALID_PARAMETER_VALUE,
             )
         return cls._STRING_TO_VIEW[view_str]
 
     @classmethod
     def to_string(cls, view_type: int) -> str:
         if view_type not in cls._VIEW_TO_STRING:
-            raise Exception(
+            raise MlflowException(
                 f"Could not get valid view type corresponding to string {view_type}. "
                 f"Valid view types are {list(cls._VIEW_TO_STRING.keys())}"
+__E__,                 error_code=INVALID_PARAMETER_VALUE,
             )
         return cls._VIEW_TO_STRING[view_type]
 

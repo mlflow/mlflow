@@ -1,6 +1,8 @@
 import pytest
 
 from mlflow.entities import RunStatus
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 
 
 def test_all_status_covered():
@@ -47,3 +49,20 @@ def test_is_terminated():
     assert RunStatus.is_terminated(RunStatus.KILLED)
     assert not RunStatus.is_terminated(RunStatus.SCHEDULED)
     assert not RunStatus.is_terminated(RunStatus.RUNNING)
+
+
+
+def test_an_unknown_status_raises_the_named_mlflow_exception():
+    with pytest.raises(
+        MlflowException,
+        match="Could not get run status corresponding to string INVALID",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        RunStatus.from_string("INVALID")
+
+
+def test_an_unknown_status_code_raises_the_named_mlflow_exception():
+    with pytest.raises(
+        MlflowException, match="Could not get string corresponding to run status -1"
+    ):
+        RunStatus.to_string(-1)

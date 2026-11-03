@@ -1,3 +1,5 @@
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.service_pb2 import RunStatus as ProtoRunStatus
 
 
@@ -17,18 +19,20 @@ class RunStatus:
     @staticmethod
     def from_string(status_str: str) -> int:
         if status_str not in RunStatus._STRING_TO_STATUS:
-            raise Exception(
+            raise MlflowException(
                 f"Could not get run status corresponding to string {status_str}. Valid run "
                 f"status strings: {list(RunStatus._STRING_TO_STATUS.keys())}"
+__E__,                 error_code=INVALID_PARAMETER_VALUE,
             )
         return RunStatus._STRING_TO_STATUS[status_str]
 
     @staticmethod
     def to_string(status: int) -> str:
         if status not in RunStatus._STATUS_TO_STRING:
-            raise Exception(
+            raise MlflowException(
                 f"Could not get string corresponding to run status {status}. Valid run "
                 f"statuses: {list(RunStatus._STATUS_TO_STRING.keys())}"
+__E__,                 error_code=INVALID_PARAMETER_VALUE,
             )
         return RunStatus._STATUS_TO_STRING[status]
 
