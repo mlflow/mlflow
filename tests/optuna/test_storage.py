@@ -897,6 +897,30 @@ def test_get_n_trials(setup_storage):
         assert storage.get_n_trials(study_id) == 7
 
 
+@pytest.mark.parametrize(
+    ("states", "expected"),
+    [
+        (TrialState.COMPLETE, 1),
+        (TrialState.FAIL, 1),
+        (TrialState.RUNNING, 1),
+        ((TrialState.COMPLETE, TrialState.FAIL), 2),
+        ((), 0),
+        (None, 3),
+        (tuple(TrialState), 3),
+    ],
+)
+def test_get_n_trials_with_states(setup_storage, states, expected):
+    storage = setup_storage
+    study_id = storage.create_new_study([StudyDirection.MINIMIZE])
+    failed = storage.create_new_trial(study_id)
+    storage.set_trial_state_values(failed, TrialState.FAIL)
+    completed = storage.create_new_trial(study_id)
+    storage.set_trial_state_values(completed, TrialState.COMPLETE, [1.0])
+    storage.create_new_trial(study_id)
+
+    assert storage.get_n_trials(study_id, states) == expected
+
+
 def test_study_exists_method(setup_storage):
     storage = setup_storage
 
