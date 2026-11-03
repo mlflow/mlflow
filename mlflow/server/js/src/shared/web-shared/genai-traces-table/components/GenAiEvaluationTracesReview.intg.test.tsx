@@ -1,10 +1,11 @@
 import { jest, describe, beforeEach, afterEach, expect, it } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider, useIntl } from '@databricks/i18n';
-import { getUser } from '../../global-settings/getUser';
+import { getUser, useUserIdentity } from '../../global-settings/getUser';
 import type { ModelTrace } from '../../model-trace-explorer/ModelTrace.types';
 import type { UseQueryResult } from '../../query-client/queryClient';
 import { QueryClient, QueryClientProvider } from '../../query-client/queryClient';
@@ -103,11 +104,20 @@ describe('Evaluations review single eval - integration test', () => {
       );
     };
 
-    return render(
+    const renderResult = render(
       <IntlProvider locale="en">
         <TestComponent />
       </IntlProvider>,
     );
+    return {
+      ...renderResult,
+      rerender: () =>
+        renderResult.rerender(
+          <IntlProvider locale="en">
+            <TestComponent />
+          </IntlProvider>,
+        ),
+    };
   };
 
   const waitForViewToBeReady = () =>
@@ -136,5 +146,26 @@ describe('Evaluations review single eval - integration test', () => {
     expect(screen.getByText('Hello world')).toBeInTheDocument();
 
     expect(screen.getByText('Detailed assessments')).toBeInTheDocument();
+  });
+
+  it('discards pending assessments when the signed-in user changes', async () => {
+    const testTrace = createTestTrace({ requestId: 'request_0', request: 'Hello world', assessments: [] });
+
+    const { rerender } = renderTestComponent(testTrace);
+    await waitFor(() => expect(screen.getByText('Hello world')).toBeInTheDocument());
+
+    await userEvent.click(screen.getAllByRole('button', { name: 'Add assessment' })[0]);
+    await userEvent.click(screen.getByPlaceholderText('Select or type an assessment'));
+    await userEvent.paste('helpful');
+    // Moving focus out of the combobox commits the custom value.
+    await userEvent.click(screen.getByPlaceholderText('Add rationale (optional)'));
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    expect(screen.getByText('1 pending change')).toBeInTheDocument();
+
+    // The draft is stamped with the previous user's source ID, so it must not be saved by the new user.
+    jest.mocked(useUserIdentity).mockReturnValue({ user: 'other.user@mlflow.org', isResolved: true });
+    rerender();
+
+    expect(screen.queryByText('1 pending change')).not.toBeInTheDocument();
   });
 });

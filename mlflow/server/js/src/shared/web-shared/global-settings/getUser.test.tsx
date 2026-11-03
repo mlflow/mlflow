@@ -67,6 +67,8 @@ describe('useUserIdentity', () => {
     expect(result.current).toEqual({ user: '', isResolved: false });
     jest.advanceTimersByTime(2000);
     expect(refetch).toHaveBeenCalledTimes(1);
+    // Consumers share the query, so a retry joins a request that is already running instead of replacing it.
+    expect(refetch).toHaveBeenCalledWith({ cancelRefetch: false });
   });
 
   it('does not resolve the cached user while the identity is refetched', () => {

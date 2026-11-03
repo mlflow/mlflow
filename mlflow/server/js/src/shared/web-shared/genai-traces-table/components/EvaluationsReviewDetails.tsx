@@ -11,6 +11,7 @@ import { EvaluationsReviewInputSection } from './EvaluationsReviewInputSection';
 import { EvaluationsReviewResponseSection } from './EvaluationsReviewResponseSection';
 import { EvaluationsReviewRetrievalSection } from './EvaluationsReviewRetrievalSection';
 import { getEvaluationResultTitle } from './GenAiEvaluationTracesReview.utils';
+import { useUserIdentity } from '../../global-settings/getUser';
 import { usePendingAssessmentEntries } from '../hooks/usePendingAssessmentEntries';
 import type { AssessmentInfo, RunEvaluationResultAssessmentDraft, RunEvaluationTracesDataEntry } from '../types';
 
@@ -69,6 +70,14 @@ export const EvaluationsReviewDetails = ({
 
   const { pendingAssessments, draftEvaluationResult, upsertAssessment, resetPendingAssessments } =
     usePendingAssessmentEntries(evaluationResult);
+
+  // Pending drafts are stamped with the source ID of the user who made them, so discard them when the user changes.
+  const { user } = useUserIdentity();
+  const [pendingAssessmentsUser, setPendingAssessmentsUser] = useState(user);
+  if (user !== pendingAssessmentsUser) {
+    setPendingAssessmentsUser(user);
+    resetPendingAssessments();
+  }
 
   const hasPendingAssessments = pendingAssessments.length > 0;
 

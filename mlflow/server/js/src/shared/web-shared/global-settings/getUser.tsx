@@ -19,7 +19,9 @@ export const useUserIdentity = () => {
     if (!error || isAuthUnavailable) {
       return undefined;
     }
-    const timer = setTimeout(() => void refetch(), CURRENT_USER_RETRY_DELAY_MS);
+    // Every consumer schedules this retry for the same shared query. `cancelRefetch: false` lets them join one
+    // in-flight request instead of each one cancelling the previous request and starting its own.
+    const timer = setTimeout(() => void refetch({ cancelRefetch: false }), CURRENT_USER_RETRY_DELAY_MS);
     return () => clearTimeout(timer);
   }, [error, errorUpdatedAt, isAuthUnavailable, refetch]);
 

@@ -98,9 +98,12 @@ export const AssessmentEditForm = ({
   });
 
   const isLoading = isUpdating || isOverwriting;
+  // Ownership is checked when the form opens, but credentials can change while it is open. An expectation edit
+  // updates the original in place, so the confirmed user must still own it.
+  const canSave = isUserResolved && (isFeedback || user === assessment.source.source_id);
 
   const handleUpdate = useCallback(async () => {
-    if (isFeedback && !isUserResolved) {
+    if (!canSave) {
       return;
     }
 
@@ -145,10 +148,10 @@ export const AssessmentEditForm = ({
       });
     }
   }, [
+    canSave,
     dataType,
     value,
     isFeedback,
-    isUserResolved,
     user,
     assessment,
     rationale,
@@ -301,7 +304,7 @@ export const AssessmentEditForm = ({
           componentId="shared.model-trace-explorer.assessment-edit-save-button"
           onClick={handleUpdate}
           loading={isLoading}
-          disabled={isLoading || (isFeedback && !isUserResolved)}
+          disabled={isLoading || !canSave}
         >
           <FormattedMessage defaultMessage="Save" description="Button label for saving an edit to an assessment" />
         </Button>

@@ -49,13 +49,16 @@ export const AssessmentsPaneNotesSection = ({
 
   const [notesText, setNotesText] = useState(serverText);
   const [prevServerText, setPrevServerText] = useState(serverText);
+  const [prevUser, setPrevUser] = useState(user);
 
   // Sync from server when feedbacks prop updates (e.g. after save completes and
-  // query refetch delivers updated data). This is React's recommended pattern for
-  // adjusting state when props change without useEffect.
+  // query refetch delivers updated data). The draft belongs to one user, so it is also
+  // discarded when the user changes; otherwise it could be saved under the new user.
+  // This is React's recommended pattern for adjusting state when props change without useEffect.
   // See: https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
-  if (serverText !== prevServerText) {
+  if (serverText !== prevServerText || user !== prevUser) {
     setPrevServerText(serverText);
+    setPrevUser(user);
     setNotesText(serverText);
   }
 

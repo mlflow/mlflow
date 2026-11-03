@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
@@ -32,14 +33,15 @@ const note = (sourceId: string, value: string) =>
     feedback: { value },
   }) as FeedbackAssessment;
 
-const renderNotes = (feedbacks: FeedbackAssessment[]) =>
-  render(
-    <IntlProvider locale="en">
-      <DesignSystemProvider>
-        <AssessmentsPaneNotesSection traceId="tr-test" feedbacks={feedbacks} />
-      </DesignSystemProvider>
-    </IntlProvider>,
-  );
+const notesSection = (feedbacks: FeedbackAssessment[]) => (
+  <IntlProvider locale="en">
+    <DesignSystemProvider>
+      <AssessmentsPaneNotesSection traceId="tr-test" feedbacks={feedbacks} />
+    </DesignSystemProvider>
+  </IntlProvider>
+);
+
+const renderNotes = (feedbacks: FeedbackAssessment[]) => render(notesSection(feedbacks));
 
 describe('AssessmentsPaneNotesSection', () => {
   beforeEach(() => {
@@ -63,6 +65,17 @@ describe('AssessmentsPaneNotesSection', () => {
 
     expect(screen.queryByText('Earlier notes saved without a username')).not.toBeInTheDocument();
     expect(screen.getByRole('textbox')).toHaveValue('shared note');
+  });
+
+  it('discards the unsaved draft when the signed-in user changes', async () => {
+    jest.mocked(useUserIdentity).mockReturnValue({ user: 'alice', isResolved: true });
+    const { rerender } = renderNotes([]);
+    await userEvent.type(screen.getByRole('textbox'), 'draft from alice');
+
+    jest.mocked(useUserIdentity).mockReturnValue({ user: 'bob', isResolved: true });
+    rerender(notesSection([]));
+
+    expect(screen.getByRole('textbox')).toHaveValue('');
   });
 
   it('disables the notes input until the current user is known', () => {
