@@ -201,10 +201,12 @@ def test_gateway_discovery_config_budget_gating():
     assert vname("/ajax-api/3.0/mlflow/gateway/supported-models") == "_allow_authenticated"
     assert vname("/ajax-api/3.0/mlflow/gateway/provider-config") == "_allow_authenticated"
     assert vname("/ajax-api/3.0/mlflow/gateway/secrets/config") == "_allow_authenticated"
-    # Budget-policy reads are authenticated-open; writes are admin-only (matches #21120).
-    assert vname("/api/3.0/mlflow/gateway/budgets/get") == "_allow_authenticated"
-    assert vname("/api/3.0/mlflow/gateway/budgets/list") == "_allow_authenticated"
-    assert vname("/api/3.0/mlflow/gateway/budgets/windows") == "_allow_authenticated"
+    # Budget policies are workspace-scoped data: reads require visibility of the
+    # request workspace; writes are admin-only. #21120 made reads authenticated-open,
+    # but that predates workspaces scoping policies to a tenant.
+    assert vname("/api/3.0/mlflow/gateway/budgets/get") == "validate_can_view_request_workspace"
+    assert vname("/api/3.0/mlflow/gateway/budgets/list") == "validate_can_view_request_workspace"
+    assert vname("/api/3.0/mlflow/gateway/budgets/windows") == "validate_can_view_request_workspace"
     assert vname("/api/3.0/mlflow/gateway/budgets/create", "POST") == "sender_is_admin"
     assert vname("/api/3.0/mlflow/gateway/budgets/delete", "DELETE") == "sender_is_admin"
 

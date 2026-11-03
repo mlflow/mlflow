@@ -2852,6 +2852,40 @@ def validate_can_view_workspace() -> bool:
     return workspace_name in names
 
 
+def validate_can_view_request_workspace() -> bool:
+    """Gate tenant-scoped reads on the workspace the request itself targets.
+
+    Used by routes whose data is scoped by the request workspace (the
+    ``X-MLFLOW-WORKSPACE`` header) rather than a path parameter — e.g. gateway
+    budget policies and spend windows. A login alone must not let a caller pick
+    an arbitrary tenant: require the same workspace visibility that
+    ``validate_can_view_workspace`` enforces for the workspace-by-name GET.
+    """
+
+    if not MLFLOW_ENABLE_WORKSPACES.get():
+        # Without workspaces there is no tenancy: budget policies are
+        # server-global config, so the open-read behavior stands.
+        return True
+
+    username = authenticate_request().username
+    if username is None:
+        return False
+
+    # Resolved from the X-MLFLOW-WORKSPACE header before Flask validators run.
+    workspace_name = workspace_context.get_request_workspace()
+    if workspace_name is None:
+        return False
+
+    if auth_config.grant_default_workspace_access:
+        default_workspace, _ = get_default_workspace_optional(_get_workspace_store())
+        if default_workspace and workspace_name == default_workspace.name:
+            return True
+
+    names = set(store.list_accessible_workspace_names(username))
+
+    return workspace_name in names
+
+
 # Scorers
 def _scorer_version_not_denied() -> bool:
     experiment_id = _get_request_param("experiment_id")
@@ -5303,14 +5337,17 @@ BEFORE_REQUEST_HANDLERS = {
     GetGatewayModelDefinition: validate_can_read_gateway_model_definition,
     UpdateGatewayModelDefinition: validate_can_update_gateway_model_definition,
     DeleteGatewayModelDefinition: validate_can_delete_gateway_model_definition,
-    # Budget-policy writes are admin-only; reads (get/list/windows) stay open to any
-    # authenticated user, matching the behavior established in #21120.
+    # Budget-policy writes are admin-only; reads (get/list/windows) are scoped to
+    # the request workspace, so they require visibility of that workspace. #21120
+    # left reads open to any authenticated user, but that predates workspaces —
+    # once policies carry an owning workspace, a login alone must not select the
+    # tenant.
     CreateGatewayBudgetPolicy: sender_is_admin,
     UpdateGatewayBudgetPolicy: sender_is_admin,
     DeleteGatewayBudgetPolicy: sender_is_admin,
-    GetGatewayBudgetPolicy: _allow_authenticated,
-    ListGatewayBudgetPolicies: _allow_authenticated,
-    ListGatewayBudgetWindows: _allow_authenticated,
+    GetGatewayBudgetPolicy: validate_can_view_request_workspace,
+    ListGatewayBudgetPolicies: validate_can_view_request_workspace,
+    ListGatewayBudgetWindows: validate_can_view_request_workspace,
     # Standalone guardrail CRUD is admin-only; endpoint-attached routes gate on the endpoint.
     CreateGatewayGuardrail: sender_is_admin,
     GetGatewayGuardrail: sender_is_admin,
