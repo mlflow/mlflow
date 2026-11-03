@@ -539,7 +539,7 @@ const DetectionRunsContent = ({ experimentId }: { experimentId: string }) => {
                 <TableCell style={cellStyle('createdAt')} css={{ alignItems: 'center' }}>
                   <TimeAgo date={new Date(row.createdAtMs)} />
                 </TableCell>
-                <TableCell style={cellStyle('status')} css={{ alignItems: 'center' }}>
+                <TableCell style={cellStyle('status')} css={{ alignItems: 'center' }} wrapContent={false}>
                   <StatusCell status={row.status} error={row.status === 'FAILED' ? row.error : undefined} />
                 </TableCell>
                 <TableCell style={cellStyle('trigger')} css={{ alignItems: 'center' }}>
