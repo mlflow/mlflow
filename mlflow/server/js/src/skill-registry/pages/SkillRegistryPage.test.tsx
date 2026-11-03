@@ -524,8 +524,12 @@ describe('SkillRegistryPage', () => {
     ).toBeTruthy();
 
     await userEvent.click(screen.getByRole('radio', { name: /Upload a folder/ }));
-    expect(screen.getByText('Select the directory containing SKILL.md.')).toBeInTheDocument();
-    expect(screen.getByText('Up to 25 MB of files, unless your server sets a different limit.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Select a skill folder or a parent directory. Skills are discovered recursively.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Up to 25 MB of files per skill, unless your server sets a different limit.'),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText('Name')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Advanced settings (optional)' })).toBeInTheDocument();
     expect(document.querySelector('input[type="file"]')).toBeInTheDocument();
@@ -724,7 +728,7 @@ describe('SkillRegistryPage', () => {
 
     await openCreateSkillDialog();
     await userEvent.click(screen.getByRole('radio', { name: /Upload a folder/ }));
-    expect(await screen.findByText('Up to 64 B of files.')).toBeInTheDocument();
+    expect(await screen.findByText('Up to 64 B of files per skill.')).toBeInTheDocument();
 
     const manifest = folderFile('demo/SKILL.md', '---\nname: demo\n---\n');
     const readManifest = jest.spyOn(manifest, 'text');

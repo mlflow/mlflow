@@ -1,6 +1,13 @@
 import { describe, expect, it } from '@jest/globals';
 import { gunzipSync } from 'zlib';
-import { createSkillTar, findSkillManifest, gzip, packageSkillFolder, readSkillManifest } from './localSkillFolder';
+import {
+  createSkillTar,
+  discoverSkillFolders,
+  findSkillManifest,
+  gzip,
+  packageSkillFolder,
+  readSkillManifest,
+} from './localSkillFolder';
 
 const folderFile = (path: string, content = '# Skill\n') => {
   const file = new File([content], path.split('/').pop() ?? path);
@@ -41,6 +48,40 @@ const listTar = (tar: Buffer) => {
 };
 
 describe('localSkillFolder', () => {
+  it('discovers independent skills recursively, keeping nested manifests as supporting files', async () => {
+    const files = [
+      folderFile('repo/README.md'),
+      folderFile('repo/skills/a/references/nested/SKILL.md'),
+      folderFile('repo/skills/a/SKILL.md', '---\nname: alpha\n---\n'),
+      folderFile('repo/skills/a/scripts/run.py', 'print(1)\n'),
+      folderFile('repo/skills/ab/SKILL.md', '---\nname: beta\n---\n'),
+    ];
+    const choices = discoverSkillFolders(files);
+    expect(choices.map(({ path }) => path)).toEqual(['skills/a', 'skills/ab']);
+    expect(choices[0].files).toHaveLength(3);
+    expect(findSkillManifest(choices[0].files, choices[0].rootPath)).toBe(files[2]);
+    expect(
+      listTar(gunzipSync(await readBlob(await packageSkillFolder(choices[0].files, choices[0].rootPath)))),
+    ).toEqual({
+      'SKILL.md': '---\nname: alpha\n---\n',
+      'references/nested/SKILL.md': '# Skill\n',
+      'scripts/run.py': 'print(1)\n',
+    });
+  });
+
+  it('stops discovery at a skill in the selected root, and finds none without a manifest', () => {
+    expect(
+      discoverSkillFolders([folderFile('repo/nested/SKILL.md'), folderFile('repo/SKILL.md')]).map(({ path }) => path),
+    ).toEqual(['']);
+    expect(discoverSkillFolders([folderFile('repo/README.md')])).toEqual([]);
+  });
+
+  it('refuses to package files from a sibling with a similar prefix', async () => {
+    await expect(packageSkillFolder([folderFile('repo/ab/SKILL.md')], 'repo/a')).rejects.toThrow(
+      "Cannot package 'repo/ab/SKILL.md'.",
+    );
+  });
+
   it('reads the skill name and description from SKILL.md frontmatter', () => {
     expect(readSkillManifest('---\nname: code-review\ndescription: Reviews pull requests\n---\n# Skill\n')).toEqual({
       name: 'code-review',
