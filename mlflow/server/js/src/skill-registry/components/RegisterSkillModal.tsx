@@ -42,7 +42,7 @@ import {
 } from '../sourceLocation';
 import { buildRegistrationSnippets, formatSkillImportCli } from '../snippets';
 import { SkillStatus, type RegistryIcon, type SkillVersion } from '../types';
-import { formatSkillIdentity, formatSkillSourceLabel, formatSkillStatusLabel } from '../utils';
+import { formatSkillIdentity, formatSkillStatusLabel } from '../utils';
 import { PointerSourceFields } from './PointerSourceFields';
 import { UploadFolderField } from './UploadFolderField';
 
@@ -212,7 +212,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
   const ref = form.ref.trim();
   const subpath = form.subpath.trim();
 
-  const showRefSplitWarning =
+  const showRefSplitHint =
     effectiveSourceType === 'git' && Boolean(parsed?.refMayIncludePath) && !refTouched && !subpathTouched;
 
   // A ref only applies to Git; the field is hidden for other types, so a leftover value must not linger.
@@ -385,23 +385,6 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
     },
     repositoryUrl: isVersion ? undefined : parsed?.repositoryUrl,
   });
-  const locationSummary = parsed
-    ? [
-        `${formatSkillSourceLabel(effectiveSourceType)} ${parsed.source}`,
-        ref &&
-          intl.formatMessage(
-            { defaultMessage: 'branch {ref}', description: 'Git ref in the skill location summary' },
-            { ref },
-          ),
-        subpath &&
-          intl.formatMessage(
-            { defaultMessage: 'path {subpath}', description: 'Subpath in the skill location summary' },
-            { subpath },
-          ),
-      ]
-        .filter(Boolean)
-        .join(' · ')
-    : undefined;
   const apiLink = (
     <Button
       componentId="mlflow.skill_registry.register_modal.api_link"
@@ -513,12 +496,6 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
                     defaultMessage="Import from existing source, e.g. Git, OCI"
                     description="Skill registration option for a remote source pointer"
                   />
-                  <Typography.Text color="secondary">
-                    <FormattedMessage
-                      defaultMessage="Content stays where it is. Clients fetch it with their own credentials."
-                      description="Explanation of pointer-only skill registration"
-                    />
-                  </Typography.Text>
                   {mode === 'pointer' && (
                     <div css={{ width: '100%' }}>
                       <FormUI.Label htmlFor="mlflow.skill_registry.register_modal.location">
@@ -533,31 +510,15 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
                         onChange={(event) => applyLocation(event.target.value)}
                         css={{ width: '100%' }}
                       />
-                      {locationSummary && (
-                        <Typography.Hint css={{ display: 'block', marginTop: theme.spacing.xs }}>
-                          <FormattedMessage
-                            defaultMessage="Registers {summary}"
-                            description="Summary of what a skill location registers"
-                            values={{ summary: locationSummary }}
-                          />
-                        </Typography.Hint>
-                      )}
-                      {showRefSplitWarning && (
-                        <Typography.Hint css={{ display: 'block', marginTop: theme.spacing.xs }}>
-                          <FormattedMessage
-                            defaultMessage="GitHub links don't show where a branch name ends, so this assumes the branch is {ref}. If the branch name contains a slash, correct the branch and path under Advanced settings."
-                            description="Warning that a GitHub link's branch and path split is a guess"
-                            values={{ ref: <code>{ref}</code> }}
-                          />
-                        </Typography.Hint>
-                      )}
+                      <Typography.Hint css={{ display: 'block', marginTop: theme.spacing.xs }}>
+                        <FormattedMessage
+                          defaultMessage="Register one skill from a folder that directly contains SKILL.md. Clients fetch it with their own credentials."
+                          description="Guidance for registering a single externally hosted skill"
+                        />
+                      </Typography.Hint>
                       {snippets.repositoryImport && (
                         <div css={{ marginTop: theme.spacing.sm }}>
-                          <RepositoryImportHint
-                            format="cli"
-                            code={formatSkillImportCli(snippets.repositoryImport)}
-                            underFolder={Boolean(snippets.repositoryImport.subpath)}
-                          />
+                          <RepositoryImportHint format="cli" code={formatSkillImportCli(snippets.repositoryImport)} />
                         </div>
                       )}
                     </div>
@@ -671,6 +632,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
                     sourceType={effectiveSourceType}
                     refValue={form.ref}
                     subpath={form.subpath}
+                    showRefSplitHint={showRefSplitHint}
                     onSourceTypeChange={changeSourceType}
                     onRefChange={(value) => {
                       setRefTouched(true);
