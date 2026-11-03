@@ -157,20 +157,14 @@ jobs:
     if: needs.gate.outputs.allowed == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 75
-    outputs:
-      tmp_dir: ${{ steps.tmp.outputs.path }}
+    env:
+      VERIFY_TMP_DIR: /tmp/verify
     permissions:
       actions: read
       contents: read
       issues: read
       pull-requests: read
     steps:
-      - name: Create temporary directory
-        id: tmp
-        run: |
-          tmp_dir=$(mktemp -d "$RUNNER_TEMP/verify.XXXXXX")
-          echo "path=$tmp_dir" >> "$GITHUB_OUTPUT"
-          echo "VERIFY_TMP_DIR=$tmp_dir" >> "$GITHUB_ENV"
       # The workflow ref is the default branch for /verify and the selected ref for dispatch.
       - parallel:
           - name: Checkout trusted workflow files
@@ -411,7 +405,7 @@ jobs:
       pull-requests: write
     # Keep absolute media references from the verification payload valid on this runner.
     env:
-      VERIFY_TMP_DIR: ${{ needs.verify.outputs.tmp_dir }}
+      VERIFY_TMP_DIR: /tmp/verify
     steps:
       - name: Checkout trusted workflow files
         if: needs.verify.result == 'success'
