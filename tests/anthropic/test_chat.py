@@ -37,7 +37,7 @@ def test_convert_redacted_thinking_is_skipped():
 def test_convert_unknown_content_type_raises():
     message = {
         "role": "user",
-        "content": [{"type": "document", "source": {"type": "url", "url": "https://x/a.pdf"}}],
+        "content": [{"type": "not_a_real_block"}],
     }
-    with pytest.raises(MlflowException, match="Unknown content type: document"):
+    with pytest.raises(MlflowException, match="Unknown content type: not_a_real_block"):
         convert_message_to_mlflow_chat(message)

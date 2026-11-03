@@ -1965,6 +1965,30 @@ def test_chat_finish_reason(stop_reason, expected):
 
 
 @pytest.mark.parametrize(
+    ("content", "expected"),
+    [
+        ([{"type": "redacted_thinking", "data": "opaque"}, {"type": "text", "text": "hi"}], "hi"),
+        ([{"type": "redacted_thinking", "data": "opaque"}], None),
+    ],
+)
+def test_model_to_chat_skips_redacted_thinking(content, expected):
+    resp = {
+        "id": "msg_1",
+        "type": "message",
+        "role": "assistant",
+        "model": "claude-sonnet-5",
+        "content": content,
+        "stop_reason": "end_turn",
+        "stop_sequence": None,
+        "usage": {"input_tokens": 1, "output_tokens": 1},
+    }
+
+    result = AnthropicAdapter.model_to_chat(resp, EndpointConfig(**chat_config()))
+
+    assert result.choices[0].message.content == expected
+
+
+@pytest.mark.parametrize(
     ("stop_reason", "expected"),
     [
         ("tool_use", "tool_calls"),
