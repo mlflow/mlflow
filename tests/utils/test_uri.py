@@ -684,6 +684,8 @@ def test_is_valid_dbfs_uri(uri, result):
         ("dbfs:/path", "/dbfs/path"),
         ("dbfs:/path/a/b", "/dbfs/path/a/b"),
         ("dbfs:/dbfs/123/abc", "/dbfs/dbfs/123/abc"),
+        ("dbfs:/Volumes/catalog/schema/volume", "/Volumes/catalog/schema/volume"),
+        ("dbfs:/Volumes/catalog/schema/volume/file.txt", "/Volumes/catalog/schema/volume/file.txt"),
     ],
 )
 def test_dbfs_hdfs_uri_to_fuse_path(uri, result):

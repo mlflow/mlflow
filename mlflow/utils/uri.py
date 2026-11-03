@@ -434,6 +434,11 @@ def dbfs_hdfs_uri_to_fuse_path(dbfs_uri: str) -> str:
     """
     if _is_uc_volumes_path(dbfs_uri):
         return dbfs_uri  # UC Volumes paths do not need conversion
+    parsed_uri = urllib.parse.urlparse(dbfs_uri)
+    if parsed_uri.scheme == "dbfs" and _is_uc_volumes_path(parsed_uri.path):
+        # "dbfs:/Volumes/..." is a UC Volumes URI too (see `is_uc_volumes_uri`), and UC
+        # Volumes are mounted at "/Volumes", not under the "/dbfs" FUSE mount.
+        return parsed_uri.path
     if not is_valid_dbfs_uri(dbfs_uri) and dbfs_uri == posixpath.abspath(dbfs_uri):
         # Convert posixpaths (e.g. "/tmp/mlflow") to DBFS URIs by adding "dbfs:/" as a prefix
         dbfs_uri = "dbfs:" + dbfs_uri
