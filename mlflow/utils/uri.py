@@ -604,7 +604,7 @@ def _decode(url):
             return url
         url = parsed
 
-    raise ValueError("Failed to decode url")
+    raise MlflowException("Failed to decode url", error_code=INVALID_PARAMETER_VALUE)
 
 
 def strip_scheme(uri: str) -> str:
