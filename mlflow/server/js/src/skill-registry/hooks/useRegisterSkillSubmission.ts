@@ -83,6 +83,7 @@ export const useRegisterSkillSubmission = ({
   const submit = async (
     buildInput: () => Promise<RegisterSkillMutationInput | undefined>,
     presentation: SkillPresentation,
+    { closeOnSuccess = true }: { closeOnSuccess?: boolean } = {},
   ) => {
     if (submitting) return;
     setFailure(undefined);
@@ -159,8 +160,13 @@ export const useRegisterSkillSubmission = ({
     }
     await invalidate(version.name, version.organization);
     if (!isActive()) return;
-    close();
-    onRegistered(version);
+    if (closeOnSuccess) {
+      close();
+      onRegistered(version);
+    } else {
+      setSubmitting(false);
+    }
+    return version;
   };
 
   return {

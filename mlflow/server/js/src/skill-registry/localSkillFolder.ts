@@ -108,14 +108,58 @@ const strippedPath = (file: File, stripRoot: boolean) => {
 };
 
 // The upload has no subpath, so only a SKILL.md at the archive root makes a usable skill.
-export const findSkillManifest = (files: File[]) => {
+export const findSkillManifest = (files: File[], rootPath?: string) => {
+  if (rootPath !== undefined) {
+    return files.find((file) => relativePath(file) === `${rootPath ? `${rootPath}/` : ''}SKILL.md`);
+  }
   const stripRoot = sharesSingleRoot(files);
   return files.find((file) => strippedPath(file, stripRoot) === 'SKILL.md');
 };
 
-const archivePath = (file: File, stripRoot: boolean) => {
+export interface LocalSkillFolder {
+  /** Relative to the directory selected in the browser. */
+  path: string;
+  /** Includes the browser's selected-directory prefix, for locating and packaging the files. */
+  rootPath: string;
+  files: File[];
+}
+
+export type SkillManifestProblem = 'unreadable' | 'unparsable' | 'missing' | 'invalid';
+
+export interface LocalSkillChoice extends LocalSkillFolder {
+  manifest?: SkillManifestFields;
+  problem?: SkillManifestProblem;
+  exceededLimit: ExceededContentLimit;
+}
+
+/** Match SDK discovery: once a skill root is found, nested manifests belong to that skill. */
+export const discoverSkillFolders = (files: File[]): LocalSkillFolder[] => {
+  const roots = files
+    .map(relativePath)
+    .filter((path) => path === 'SKILL.md' || path.endsWith('/SKILL.md'))
+    .map((path) => path.slice(0, -'SKILL.md'.length).replace(/\/$/, ''))
+    .sort((a, b) => a.split('/').length - b.split('/').length || a.localeCompare(b));
+  const skillRoots: string[] = [];
+  for (const root of roots) {
+    if (!skillRoots.some((parent) => !parent || root === parent || root.startsWith(`${parent}/`))) {
+      skillRoots.push(root);
+    }
+  }
+  const stripRoot = sharesSingleRoot(files);
+  return skillRoots
+    .sort((a, b) => a.localeCompare(b))
+    .map((rootPath) => ({
+      rootPath,
+      path: stripRoot ? rootPath.split('/').slice(1).join('/') : rootPath,
+      files: files.filter((file) => !rootPath || relativePath(file).startsWith(`${rootPath}/`)),
+    }));
+};
+
+const archivePath = (file: File, stripRoot: boolean, rootPath?: string) => {
   const path = relativePath(file);
-  const stripped = strippedPath(file, stripRoot);
+  const prefix = rootPath ? `${rootPath}/` : '';
+  if (rootPath !== undefined && !path.startsWith(prefix)) throw new Error(`Cannot package '${path}'.`);
+  const stripped = rootPath === undefined ? strippedPath(file, stripRoot) : path.slice(prefix.length);
   if (!stripped || stripped.split('/').some((segment) => segment === '..' || segment === '.')) {
     throw new Error(`Cannot package '${path}'.`);
   }
@@ -197,11 +241,11 @@ const lazyPako = () => import('pako');
 // pako allocates a fresh ArrayBuffer; its typings only promise ArrayBufferLike, which Blob rejects.
 export const gzip = async (bytes: Uint8Array) => (await lazyPako()).gzip(bytes) as Uint8Array<ArrayBuffer>;
 
-export const packageSkillFolder = async (files: File[]) => {
+export const packageSkillFolder = async (files: File[], rootPath?: string) => {
   const stripRoot = sharesSingleRoot(files);
   const entries = await Promise.all(
     files.map(async (file) => ({
-      name: archivePath(file, stripRoot),
+      name: archivePath(file, stripRoot, rootPath),
       bytes: new Uint8Array(await file.arrayBuffer()),
     })),
   );

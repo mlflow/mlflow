@@ -111,6 +111,10 @@
     "defaultMessage": "{count, plural, one {# tool call} other {# tool calls}}",
     "description": "Count of tool calls the assistant made in a turn"
   },
+  "+IZNpX": {
+    "defaultMessage": "Create {count} skills",
+    "description": "Submit button for registering several local skills"
+  },
   "+IZP12": {
     "defaultMessage": "Not an issue",
     "description": "Experiment issue reject action"
@@ -751,6 +755,10 @@
     "defaultMessage": "A draft is passed over whenever any active version exists. A draft can always be reached by an explicit version pin or an alias.",
     "description": "Hint for the initial skill version status"
   },
+  "0VaumM": {
+    "defaultMessage": "Names and descriptions come from each SKILL.md. Organization, status, and tags apply to all selected skills.",
+    "description": "Hint for metadata applied to multiple local skill registrations"
+  },
   "0Vo7nu": {
     "defaultMessage": "There are not enough comparable scorer results to summarize these runs. Missing scores are not treated as zero.",
     "description": "Comparison insight fallback when selected runs have no comparable results"
@@ -1314,6 +1322,10 @@
   "2Us2jl": {
     "defaultMessage": "X axis",
     "description": "Label for X axis in Contour chart configurator in compare runs chart config modal"
+  },
+  "2WA9rp": {
+    "defaultMessage": "Choose one skill for this version.",
+    "description": "Instruction for selecting one discovered skill when creating a version"
   },
   "2WFEvy": {
     "defaultMessage": "Comparing traces from Runs",
@@ -2387,6 +2399,10 @@
     "defaultMessage": "Dataset",
     "description": "Dataset row in evaluation run configuration comparison"
   },
+  "5vCarT": {
+    "defaultMessage": "Up to 25 MB of files per skill, unless your server sets a different limit.",
+    "description": "Hint for the default size limit of an uploaded skill folder"
+  },
   "5wqwBZ": {
     "defaultMessage": "Thumbs down",
     "description": "Accessible label for the thumbs-down feedback button in a custom trace view"
@@ -3074,6 +3090,10 @@
   "7x6xu8": {
     "defaultMessage": "Create prompt",
     "description": "Label for the create prompt button on the registered prompts page"
+  },
+  "7xBLQY": {
+    "defaultMessage": "{completed} of {total} skills registered. Retry skips the completed skills.",
+    "description": "Progress after a local skill registration partially succeeds"
   },
   "7xHOUZ": {
     "defaultMessage": "Lowest value",
@@ -3810,10 +3830,6 @@
   "A7npjN": {
     "defaultMessage": "Failed",
     "description": "Fail status pill in the regression-test detail"
-  },
-  "A9zAcE": {
-    "defaultMessage": "This folder has no SKILL.md at its top level.",
-    "description": "Error when a selected skill folder has no SKILL.md"
   },
   "AAdQxU": {
     "defaultMessage": "Messages",
@@ -6255,10 +6271,6 @@
     "defaultMessage": "Search registered models",
     "description": "Placeholder text inside model search bar"
   },
-  "I4g8cH": {
-    "defaultMessage": "Select the directory containing SKILL.md.",
-    "description": "Hint for the skill directory picker"
-  },
   "I9bJ/T": {
     "defaultMessage": "Select All",
     "description": "Option to select all items in the item selector"
@@ -7138,6 +7150,10 @@
   "Kwz1fc": {
     "defaultMessage": "Artifacts",
     "description": "Label for the artifacts tab on the logged model details page"
+  },
+  "Kx4cBC": {
+    "defaultMessage": "Finding skills…",
+    "description": "Progress while reading discovered skill manifests"
   },
   "Kx6YYt": {
     "defaultMessage": "Mean",
@@ -10471,10 +10487,6 @@
     "defaultMessage": "Automatic evaluation is not available for judges that use expectations.",
     "description": "Hint text explaining why automatic evaluation is disabled for judges with expectations"
   },
-  "VTQzhu": {
-    "defaultMessage": "Up to {max} of files.",
-    "description": "Hint for the server's size limit of an uploaded skill folder"
-  },
   "VTT91L": {
     "defaultMessage": "No versions",
     "description": "Empty state when MCP server has no versions"
@@ -13271,10 +13283,6 @@
     "defaultMessage": "Last 7 days",
     "description": "Option for the start select dropdown to filter runs from the last 7 days"
   },
-  "eSDaY2": {
-    "defaultMessage": "Up to 25 MB of files, unless your server sets a different limit.",
-    "description": "Hint for the default size limit of an uploaded skill folder"
-  },
   "eSVff7": {
     "defaultMessage": "Span name",
     "description": "Trace filter field: span name"
@@ -13578,6 +13586,10 @@
   "fMxD0i": {
     "defaultMessage": "Admin",
     "description": "Tag content marking an admin role (single-tenant)"
+  },
+  "fNZ0MF": {
+    "defaultMessage": "No skills found. Select a folder containing SKILL.md or skill subfolders.",
+    "description": "Error when a selected skill folder has no SKILL.md"
   },
   "fRJE/2": {
     "defaultMessage": "Load a saved prompt to replace the current playground messages, and apply any settings stored with it.",
@@ -13886,6 +13898,10 @@
   "gIc8Lp": {
     "defaultMessage": "Stages have been deprecated in the new Model Registry UI. Learn how to migrate models <link>here</link>.",
     "description": "Tooltip content for the disabled stage metadata in model version page"
+  },
+  "gItqJR": {
+    "defaultMessage": "Select the skills to register. Each skill gets its own registry entry.",
+    "description": "Instruction for selecting discovered skills to register"
   },
   "gK/XFb": {
     "defaultMessage": "Select \"Sessions\" in the Traces/Sessions switcher to see the session-level view.",
@@ -14594,6 +14610,10 @@
   "i9OADf": {
     "defaultMessage": "Params",
     "description": "Experiment page > group by runs control > params section label"
+  },
+  "iAqnkj": {
+    "defaultMessage": "Up to {max} of files per skill.",
+    "description": "Hint for the server's size limit of an uploaded skill folder"
   },
   "iC2Owx": {
     "defaultMessage": "Stop sequences: {stopSequences}",
@@ -15739,6 +15759,10 @@
     "defaultMessage": "Admin",
     "description": "Users table admin header"
   },
+  "lk6SpP": {
+    "defaultMessage": "Discovered skills",
+    "description": "Label for skills found in a selected directory"
+  },
   "ll6dsG": {
     "defaultMessage": "This experiment has reached the maximum of {max} saved views. Delete a view before saving a new one.",
     "description": "Message shown in the save-view modal when the experiment has reached the saved-view limit"
@@ -16331,6 +16355,10 @@
     "defaultMessage": "Step",
     "description": "Radio button option to choose the step control option for the X-axis for metric graph on the experiment runs"
   },
+  "nQuwQg": {
+    "defaultMessage": "Selected skills have the same name in SKILL.md. Select only one skill for each name.",
+    "description": "Error when discovered skills would create duplicate registry entries"
+  },
   "nQvB5k": {
     "defaultMessage": "Configuration unavailable",
     "description": "Run metadata could not be fetched"
@@ -16362,6 +16390,10 @@
   "nXXG9S": {
     "defaultMessage": "Tool calls",
     "description": "Label for tool calls attached to an assistant chat message"
+  },
+  "nXhO4T": {
+    "defaultMessage": "Cannot register: invalid SKILL.md or folder exceeds the upload limit.",
+    "description": "Inline reason a discovered local skill cannot be selected"
   },
   "nXsSZ1": {
     "defaultMessage": "Add filter",
@@ -16406,6 +16438,10 @@
   "ng29fW": {
     "defaultMessage": "Change",
     "description": "Trace comparison metric column"
+  },
+  "ngMnh4": {
+    "defaultMessage": "Select a skill",
+    "description": "Placeholder when choosing a discovered local skill"
   },
   "nhqO2Z": {
     "defaultMessage": "Save",
@@ -16846,6 +16882,10 @@
   "p4QUFL": {
     "defaultMessage": "Copy link to trace",
     "description": "Tooltip for the copy link to trace button"
+  },
+  "p4VjBr": {
+    "defaultMessage": "Retry remaining",
+    "description": "Retry a partially completed local skill registration"
   },
   "p5raoI": {
     "defaultMessage": "Website:",
@@ -19303,6 +19343,10 @@
     "defaultMessage": "Removes this version from resolution, discovery and pull. Its number is never reused.",
     "description": "Tooltip for deleting a draft or deprecated skill version"
   },
+  "xAz7Bc": {
+    "defaultMessage": "Select a skill folder or a parent directory. Skills are discovered recursively.",
+    "description": "Hint for the skill directory picker"
+  },
   "xBAujd": {
     "defaultMessage": "Filters",
     "description": "Label for the traces table filter button"
@@ -19763,6 +19807,10 @@
     "defaultMessage": "Columns ({active}/{total})",
     "description": "Tooltip for the eval-runs columns button showing active vs total column counts"
   },
+  "yiZ4ib": {
+    "defaultMessage": "Organization (optional)",
+    "description": "Label for the organization shared by locally imported skills"
+  },
   "yjerKR": {
     "defaultMessage": "<link>Version {versionNumber}</link>",
     "description": "Link to model version in the model version table"
@@ -20022,6 +20070,10 @@
   "zWGmon": {
     "defaultMessage": "Positive infinity ({metricKey})",
     "description": "Label indicating positive infinity used as a hover text in a plot UI element"
+  },
+  "zWsA3u": {
+    "defaultMessage": "Registered",
+    "description": "Status of a successfully registered local skill in a partial batch"
   },
   "zYpqJP": {
     "defaultMessage": "Tool error: <highlight>invalid argument</highlight>",
