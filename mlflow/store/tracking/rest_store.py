@@ -162,6 +162,7 @@ from mlflow.store.tracking.mcp_server_registry.rest_mixin import RestMCPServerRe
 from mlflow.store.tracking.skill_registry.rest_mixin import RestSkillRegistryMixin
 from mlflow.store.workspace_rest_store_mixin import WorkspaceRestStoreMixin
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
+from mlflow.tracing.utils import generate_assessment_id
 from mlflow.tracing.utils.otlp import (
     MLFLOW_EXPERIMENT_ID_HEADER,
     OTLP_TRACES_PATH,
@@ -424,11 +425,23 @@ class RestStore(
         Returns:
             The returned TraceInfo object from the backend.
         """
+        return self._start_trace_v3(trace_info, assign_missing_assessment_ids=True)
+
+    def _start_trace_v3(
+        self, trace_info: TraceInfo, *, assign_missing_assessment_ids: bool
+    ) -> TraceInfo:
         # NB: The Databricks backend expects a Trace object, not a TraceInfo object, although
         # it doesn't use the data field at all. Trace data increases the payload size significantly,
         # so we create a Trace object with an empty data field here.
-        trace = Trace(info=trace_info, data=TraceData(spans=[]))
-        req_body = message_to_json(StartTraceV3(trace=trace.to_proto()))
+        trace_proto = Trace(info=trace_info, data=TraceData(spans=[])).to_proto()
+        if assign_missing_assessment_ids:
+            # Assessments logged during the trace don't have IDs yet. Assign them in the request,
+            # not on the caller's objects, so that if the request is retried after the server
+            # stored it, the server updates the same assessments instead of adding new ones.
+            for assessment in trace_proto.trace_info.assessments:
+                if not assessment.assessment_id:
+                    assessment.assessment_id = generate_assessment_id()
+        req_body = message_to_json(StartTraceV3(trace=trace_proto))
 
         try:
             response_proto = self._call_endpoint(
@@ -1728,6 +1741,9 @@ class RestStore(
                 page_token=page_token,
             )
         )
+        if experiment_ids == []:
+            # Protobuf omits empty repeated fields, but this required scope must stay explicit.
+            req_body = json.dumps({**json.loads(req_body), "experiment_ids": []})
         response_proto = self._call_endpoint(SearchLoggedModels, req_body)
         models = [LoggedModel.from_proto(x) for x in response_proto.models]
         return PagedList(models, response_proto.next_page_token or None)

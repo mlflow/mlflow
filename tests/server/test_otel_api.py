@@ -22,12 +22,14 @@ from mlflow.server.fastapi_app import add_fastapi_workspace_middleware, create_f
 from mlflow.server.otel_api import otel_router
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH, _set_otel_proto_anyvalue
 from mlflow.utils import workspace_context
+from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
 
-def _build_otlp_payload(resource_attrs=None):
+def _build_otlp_payload(resource_attrs=None, span_attrs=None):
     request = ExportTraceServiceRequest()
     resource_span = request.resource_spans.add()
     if resource_attrs:
@@ -39,6 +41,11 @@ def _build_otlp_payload(resource_attrs=None):
     span.trace_id = b"\x00" * 16
     span.span_id = b"\x01" * 8
     span.name = "span"
+    if span_attrs:
+        for key, value in span_attrs.items():
+            attr = span.attributes.add()
+            attr.key = key
+            _set_otel_proto_anyvalue(attr.value, value)
     return request.SerializeToString()
 
 
@@ -411,6 +418,49 @@ def test_otlp_resource_attributes_preserved(monkeypatch):
     assert res["service.name"] == "my-service"
     assert res["telemetry.sdk.language"] == "python"
     assert res["telemetry.sdk.name"] == "opentelemetry"
+
+
+def test_otlp_drops_system_managed_trace_tag_attributes(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+
+    class DummyTrackingStore(_DummyTrackingStore):
+        def __init__(self):
+            self.logged_spans = []
+
+        def log_spans(self, experiment_id, spans):
+            self.logged_spans.extend(spans)
+
+    tracking_store = DummyTrackingStore()
+    monkeypatch.setattr("mlflow.server.otel_api._get_tracking_store", lambda: tracking_store)
+
+    blocked_attrs = {
+        f"mlflow.traceTag.{key}": "client-value"
+        for key in [
+            MLFLOW_ARTIFACT_LOCATION,
+            TraceTagKey.SPANS_LOCATION,
+            TraceTagKey.ARCHIVE_LOCATION,
+            TraceTagKey.ARCHIVAL_FAILURE,
+        ]
+    }
+    response = _make_test_client().post(
+        OTLP_TRACES_PATH,
+        content=_build_otlp_payload(
+            span_attrs={**blocked_attrs, "mlflow.traceTag.user_tag": "kept"}
+        ),
+        headers={
+            "Content-Type": "application/x-protobuf",
+            "X-MLflow-Experiment-Id": "42",
+        },
+    )
+
+    assert response.status_code == 200
+    [span] = tracking_store.logged_spans
+    trace_tag_attrs = {
+        key: value
+        for key, value in span._span.attributes.items()
+        if key.startswith("mlflow.traceTag.")
+    }
+    assert trace_tag_attrs == {"mlflow.traceTag.user_tag": json.dumps("kept")}
 
 
 @pytest.mark.parametrize(

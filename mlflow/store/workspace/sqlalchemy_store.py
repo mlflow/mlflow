@@ -277,9 +277,9 @@ class SqlAlchemyStore(AbstractStore):
             _logger.info("Deleted workspace '%s' (mode=%s)", workspace_name, mode.value)
             if mode == WorkspaceDeletionMode.CASCADE:
                 _logger.info(
-                    "Run 'mlflow gc --backend-store-uri %s' to permanently clean up "
-                    "artifacts associated with deleted resources.",
-                    self._workspace_uri,
+                    # The store URI can embed database credentials, so it is not logged.
+                    "Run 'mlflow gc' against this server's backend store to permanently clean up "
+                    "artifacts associated with deleted resources."
                 )
         with self._artifact_root_cache_lock:
             self._artifact_root_cache.pop(workspace_name, None)

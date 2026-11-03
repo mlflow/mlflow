@@ -4,6 +4,16 @@ description: Investigate supplied workflow runs and summarize failures by root c
 disable-model-invocation: true
 argument-hint: '<out_dir> "<run_ids>"'
 arguments: [out_dir, run_ids]
+hooks:
+  PreToolUse:
+    - matcher: Bash
+      hooks:
+        - type: command
+          command: '"$CLAUDE_PROJECT_DIR/.claude/hooks/cap-timeout.sh"'
+  Stop:
+    - hooks:
+        - type: command
+          command: '"$CLAUDE_PROJECT_DIR/.claude/hooks/stop.sh"'
 ---
 
 # Nightly
@@ -77,7 +87,6 @@ these cached paths and the saved nightly inputs instead of fetching them again.
    their connection to the failure, commands, and outcomes.
 
 Make code changes only in these worktrees.
-Use a 30-minute budget, reserving the last five minutes to summarize and validate.
 A `new` verdict requires a reproduction or clear log evidence of the cause; use
 `uncertain` when evidence is insufficient or the investigation is incomplete. Before
 choosing `new`, check whether a later scheduled run passed the same jobs and whether a
@@ -87,7 +96,10 @@ closed issue covers the cause; if so, use `already_resolved` and cite it.
 
 Reconcile findings across groups and cover every non-transient failed job. Separate
 causes may share a job; several jobs may share one cause.
-Format `evidence` as Markdown.
+Format `evidence` as Markdown. Link code references as permalinks pinned to the run's
+head SHA, with line anchors (e.g.
+`https://github.com/mlflow/mlflow/blob/<head_sha>/mlflow/utils/server_info.py#L93-L104`),
+not bare `path:line` text, so readers can open the code the run executed.
 
 Write `$out_dir/analysis.json`, then validate it and fix any errors before finishing:
 

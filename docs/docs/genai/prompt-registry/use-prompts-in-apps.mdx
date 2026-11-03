@@ -3,6 +3,8 @@ title: Use Prompts in Apps
 description: Learn how to integrate prompts from the MLflow Prompt Registry into your applications and link them to MLflow Models for end-to-end lineage.
 ---
 
+import { APILink } from "@site/src/components/APILink";
+
 # Use Prompts in Apps
 
 Once you have created and versioned your prompts in the MLflow Prompt Registry, the next crucial step is to integrate them into your LLM applications and AI agents. This page guides you on how to load prompts, bind variables, handle versioning, and ensure complete lineage by linking prompt versions to your logged MLflow Models.
@@ -33,7 +35,7 @@ mlflow.genai.load_prompt(name_or_uri=f"prompts:/{prompt_name}@staging")
 
 ## Formatting Prompts with Variables
 
-Once you have loaded a prompt object (which is a `Prompt` instance), you can populate its template variables using the `prompt.format()` method. This method takes keyword arguments where the keys match the variable names in your prompt template (without the `{{ }}` braces).
+Once you have loaded a prompt object (which is a <APILink fn="mlflow.entities.model_registry.PromptVersion">`PromptVersion`</APILink> instance), you can populate its template variables using the `prompt.format()` method. This method takes keyword arguments where the keys match the variable names in your prompt template (without the `{{ }}` braces).
 
 ```python
 import mlflow
@@ -74,7 +76,7 @@ response = (
 
 ## Using Prompts with Other Frameworks (LangChain, LlamaIndex)
 
-MLflow prompts use the `{{variable}}` double-brace syntax for templating. Some other popular frameworks, like LangChain and LlamaIndex, often expect a single-brace syntax (e.g., `{variable}`). To facilitate seamless integration, the MLflow `Prompt` object provides the `prompt.to_single_brace_format()` method. This method returns the prompt template string converted to a single-brace format, ready to be used by these frameworks.
+MLflow prompts use the `{{variable}}` double-brace syntax for templating. Some other popular frameworks, like LangChain and LlamaIndex, often expect a single-brace syntax (e.g., `{variable}`). To facilitate seamless integration, the MLflow `PromptVersion` object provides the `prompt.to_single_brace_format()` method. This method returns the prompt template string converted to a single-brace format, ready to be used by these frameworks.
 
 ```python
 import mlflow

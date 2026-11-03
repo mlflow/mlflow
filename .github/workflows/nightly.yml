@@ -52,8 +52,44 @@ jobs:
             gh issue close "$issue_number" --repo mlflow/mlflow --reason 'not planned'
           done < "$RUNNER_TEMP/old-nightly-issues.txt"
 
-  analyze:
+  resolve:
     needs: prepare
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      actions: read
+    outputs:
+      run_ids: ${{ steps.runs.outputs.run_ids }}
+    steps:
+      - name: Resolve failed run IDs
+        id: runs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_IDS: ${{ inputs.run_ids }}
+        run: |
+          if [ -z "$RUN_IDS" ]; then
+            # TODO: Add more nightly workflows.
+            workflow_files=(cross-version-tests.yml test-requirements.yml)
+            for workflow_file in "${workflow_files[@]}"; do
+              run_id=$(gh api "repos/mlflow/mlflow/actions/workflows/$workflow_file/runs?event=schedule&status=completed&per_page=1" \
+                --jq '.workflow_runs[0] | select(.conclusion | IN("failure", "timed_out", "cancelled", "action_required", "startup_failure")) | .id')
+              RUN_IDS+=" $run_id"
+            done
+            if [ -z "${RUN_IDS// /}" ]; then
+              echo "No failed scheduled runs. Skipping analysis." | tee -a "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+          fi
+          run_ids=$(jq -ern --arg ids "$RUN_IDS" '
+            [$ids | splits("\\s+") | select(length > 0)] | unique
+            | if length > 0 and all(test("^[1-9][0-9]*$")) then join(" ")
+              else error("Expected one or more numeric workflow run IDs") end
+          ')
+          printf 'run_ids=%s\n' "$run_ids" >> "$GITHUB_OUTPUT"
+
+  analyze:
+    needs: resolve
+    if: needs.resolve.outputs.run_ids != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
@@ -63,27 +99,6 @@ jobs:
     outputs:
       analysis_artifact_id: ${{ steps.upload.outputs.artifact-id }}
     steps:
-      - name: Resolve run IDs
-        id: runs
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RUN_IDS: ${{ inputs.run_ids }}
-        run: |
-          if [ -z "$RUN_IDS" ]; then
-            # TODO: Add more nightly workflows.
-            workflow_files=(cross-version-tests.yml)
-            for workflow_file in "${workflow_files[@]}"; do
-              run_id=$(gh api "repos/mlflow/mlflow/actions/workflows/$workflow_file/runs?event=schedule&status=completed&per_page=1" \
-                --jq '.workflow_runs[0].id // empty')
-              RUN_IDS+=" $run_id"
-            done
-          fi
-          run_ids=$(jq -ern --arg ids "$RUN_IDS" '
-            [$ids | splits("\\s+") | select(length > 0)] | unique
-            | if length > 0 and all(test("^[1-9][0-9]*$")) then join(" ")
-              else error("Expected one or more numeric workflow run IDs") end
-          ')
-          printf 'run_ids=%s\n' "$run_ids" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
@@ -117,7 +132,6 @@ jobs:
           client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
       - name: Prepare sandbox paths
         run: |
-          umask 077
           mkdir -p "$RUNNER_TEMP/nightly-analysis" /tmp/nightly-out ~/.claude ~/.cache/uv ~/.npm
           echo '{}' > ~/.claude.json
       - name: Start gateway proxy
@@ -126,18 +140,59 @@ jobs:
           GATEWAY_TOKEN: ${{ steps.gateway.outputs.token }}
           GATEWAY_URL: ${{ steps.gateway.outputs.base-url }}
         run: |
-          umask 077
-          proxy_token=$(openssl rand -hex 32)
-          echo "::add-mask::$proxy_token"
-          printf 'token=%s\n' "$proxy_token" >> "$GITHUB_OUTPUT"
-          printf '%s\n%s\n' "$GATEWAY_TOKEN" "$proxy_token" | env -u GATEWAY_TOKEN -u GH_TOKEN \
+          placeholder_token=$(openssl rand -hex 32)
+          echo "::add-mask::$placeholder_token"
+          printf 'placeholder-token=%s\n' "$placeholder_token" >> "$GITHUB_OUTPUT"
+          printf '%s\n%s\n' "$GATEWAY_TOKEN" "$placeholder_token" | env -u GATEWAY_TOKEN -u GH_TOKEN \
             GATEWAY_URL="$GATEWAY_URL" node .claude/sandbox/gateway-proxy.mjs \
             > "$RUNNER_TEMP/nightly-gateway-proxy.log" 2>&1 &
           proxy_pid=$!
           printf '%s\n' "$proxy_pid" > "$RUNNER_TEMP/nightly-gateway-proxy.pid"
-          unset GATEWAY_TOKEN proxy_token
+          unset GATEWAY_TOKEN placeholder_token
           curl --noproxy '*' --retry 30 --retry-connrefused --retry-delay 1 \
             -fsS http://127.0.0.1:8080/healthz > /dev/null
+      # Claude Code exports OpenTelemetry traces and logs to MLflow through a local proxy that holds
+      # the token, like the gateway proxy. Disabled unless NIGHTLY_MLFLOW_TRACE_LOCATION is set to the
+      # <catalog>.<schema>.<table_prefix> of a UC-linked experiment.
+      - id: telemetry
+        name: Mint telemetry token
+        if: vars.NIGHTLY_MLFLOW_TRACE_LOCATION != ''
+        uses: ./.github/actions/mint-telemetry-token
+        with:
+          host: ${{ secrets.DATABRICKS_HOST }}
+          client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+      - name: Start telemetry proxy
+        id: telemetry-proxy
+        if: steps.telemetry.outcome == 'success'
+        env:
+          TELEMETRY_TOKEN: ${{ steps.telemetry.outputs.token }}
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          TRACE_LOCATION: ${{ vars.NIGHTLY_MLFLOW_TRACE_LOCATION }}
+          TELEMETRY_SOCKET: ${{ runner.temp }}/nightly-telemetry.sock
+        run: |
+          placeholder_token=$(openssl rand -hex 32)
+          echo "::add-mask::$placeholder_token"
+          printf 'placeholder-token=%s\n' "$placeholder_token" >> "$GITHUB_OUTPUT"
+          printf '%s\n%s\n' "$TELEMETRY_TOKEN" "$placeholder_token" | env -u TELEMETRY_TOKEN \
+            DATABRICKS_HOST="$DATABRICKS_HOST" TRACE_LOCATION="$TRACE_LOCATION" \
+            TELEMETRY_SOCKET="$TELEMETRY_SOCKET" node .claude/sandbox/otel-proxy.mjs \
+            > "$RUNNER_TEMP/nightly-telemetry-proxy.log" 2>&1 &
+          proxy_pid=$!
+          unset TELEMETRY_TOKEN placeholder_token
+          printf '%s\n' "$proxy_pid" > "$RUNNER_TEMP/nightly-telemetry-proxy.pid"
+          for _ in $(seq 1 30); do
+            if ! kill -0 "$proxy_pid" 2>/dev/null; then
+              break
+            fi
+            if [ -S "$TELEMETRY_SOCKET" ] && curl -fsS http://127.0.0.1:8081/healthz > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/nightly-telemetry-proxy.log"
+          echo "::error::Telemetry proxy did not become ready"
+          exit 1
       - name: Configure sandbox access
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -156,30 +211,48 @@ jobs:
       - name: Analyze failures in worktrees
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RUN_IDS: ${{ steps.runs.outputs.run_ids }}
+          RUN_IDS: ${{ needs.resolve.outputs.run_ids }}
           ANTHROPIC_BASE_URL: http://localhost:8080/anthropic
-          ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway-proxy.outputs.token }}
+          # Placeholder the sandbox sends to the local gateway proxy; the proxy swaps in the real gateway token.
+          ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway-proxy.outputs.placeholder-token }}
           ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
           # The auto permission classifier requires this alias; investigators inherit the main model.
           ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5
-          CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS: "1"
           CLAUDE_CODE_FORK_SUBAGENT: "0"
-          CLAUDE_CODE_ENABLE_TELEMETRY: "0"
-          CLAUDE_CODE_ENHANCED_TELEMETRY_BETA: "0"
-          OTEL_TRACES_EXPORTER: none
-          OTEL_LOGS_EXPORTER: none
-          OTEL_METRICS_EXPORTER: none
+          # OpenTelemetry export through the telemetry proxy. Spans need the enhanced telemetry beta;
+          # logs carry per-call cost and the final response; metrics carry session counters. The
+          # OTEL_LOG_* flags include prompt, response, and tool content, which are redacted by default.
+          CLAUDE_CODE_ENABLE_TELEMETRY: ${{ steps.telemetry.outcome == 'success' && '1' || '0' }}
+          CLAUDE_CODE_ENHANCED_TELEMETRY_BETA: ${{ steps.telemetry.outcome == 'success' && '1' || '0' }}
+          OTEL_TRACES_EXPORTER: ${{ steps.telemetry.outcome == 'success' && 'otlp' || 'none' }}
+          OTEL_LOGS_EXPORTER: ${{ steps.telemetry.outcome == 'success' && 'otlp' || 'none' }}
+          OTEL_METRICS_EXPORTER: ${{ steps.telemetry.outcome == 'success' && 'otlp' || 'none' }}
+          OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+          OTEL_EXPORTER_OTLP_HEADERS: ${{ steps.telemetry.outcome == 'success' && format('Authorization={0} {1}', 'Bearer', steps.telemetry-proxy.outputs.placeholder-token) || '' }}
+          OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://localhost:8081/v1/traces
+          OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: http://localhost:8081/v1/logs
+          OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: http://localhost:8081/v1/metrics
+          OTEL_LOG_USER_PROMPTS: "1"
+          OTEL_LOG_ASSISTANT_RESPONSES: "1"
+          OTEL_LOG_TOOL_DETAILS: "1"
+          OTEL_LOG_TOOL_CONTENT: "1"
+          OTEL_RESOURCE_ATTRIBUTES: github.run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TELEMETRY_SOCKET: ${{ runner.temp }}/nightly-telemetry.sock
           XDG_DATA_HOME: /tmp/nightly-xdg-data
           XDG_CONFIG_HOME: /tmp/nightly-xdg-config
           XDG_CACHE_HOME: /tmp/nightly-xdg-cache
         run: |
-          umask 077
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
           trap 'echo "::$token::"' EXIT
-          timeout --kill-after=10s 35m srt --settings "$RUNNER_TEMP/nightly-srt.json" -- \
-            env -u NO_PROXY -u no_proxy -u GITHUB_OUTPUT -u GITHUB_ENV -u GITHUB_PATH \
-              -u GITHUB_STATE -u GITHUB_STEP_SUMMARY claude \
+          # Claude Code's OTel exporter may connect to localhost:8081 directly rather than through
+          # srt's HTTP proxy, so relay that port inside the sandbox to the telemetry proxy's socket.
+          relay=()
+          if [ -S "$TELEMETRY_SOCKET" ]; then
+            relay=(bash -c 'socat TCP-LISTEN:8081,bind=127.0.0.1,fork,reuseaddr "UNIX-CONNECT:$0" & exec "$@"' "$TELEMETRY_SOCKET")
+          fi
+          timeout --kill-after=10s 30m srt --settings "$RUNNER_TEMP/nightly-srt.json" -- \
+            "${relay[@]}" env -u NO_PROXY -u no_proxy claude \
               --model databricks-claude-sonnet-5-5 \
               --effort medium \
               --permission-mode auto \
@@ -187,23 +260,34 @@ jobs:
               --print --verbose --output-format stream-json \
               "/nightly /tmp/nightly-out \"$RUN_IDS\"" \
             | .claude/scripts/stream.sh "$RUNNER_TEMP/nightly-analysis/stream.jsonl"
+      - name: Reset worktree
+        if: always()
+        run: |
+          git reset --hard "$GITHUB_SHA"
+          git clean -fd
+          status=$(git status --porcelain --untracked-files=all)
+          if [ -n "$status" ]; then
+            printf '%s\n' "$status"
+            exit 1
+          fi
       - name: Stage analysis
         run: |
-          umask 077
           srt --settings "$RUNNER_TEMP/nightly-srt.json" -- cat /tmp/nightly-out/analysis.json \
             > "$RUNNER_TEMP/nightly-analysis/analysis.json"
-      - name: Stop gateway proxy
+      - name: Stop proxies
         if: always()
         run: |
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
           trap 'echo "::$token::"' EXIT
-          if [ -f "$RUNNER_TEMP/nightly-gateway-proxy.pid" ]; then
-            kill "$(cat "$RUNNER_TEMP/nightly-gateway-proxy.pid")" 2>/dev/null || true
-          fi
-          if [ -s "$RUNNER_TEMP/nightly-gateway-proxy.log" ]; then
-            cat "$RUNNER_TEMP/nightly-gateway-proxy.log"
-          fi
+          for proxy in gateway telemetry; do
+            if [ -f "$RUNNER_TEMP/nightly-$proxy-proxy.pid" ]; then
+              kill "$(cat "$RUNNER_TEMP/nightly-$proxy-proxy.pid")" 2>/dev/null || true
+            fi
+            if [ -s "$RUNNER_TEMP/nightly-$proxy-proxy.log" ]; then
+              cat "$RUNNER_TEMP/nightly-$proxy-proxy.log"
+            fi
+          done
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         id: upload
         if: always()
@@ -215,7 +299,7 @@ jobs:
 
   publish:
     needs: analyze
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -234,7 +318,7 @@ jobs:
         run: |
           uvx check-jsonschema@0.37.4 \
             --schemafile .claude/skills/nightly/output.schema.yaml /tmp/nightly-analysis/analysis.json
-      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         id: app-token
         if: github.event_name == 'schedule' || !inputs.dry_run
         with:
@@ -247,6 +331,7 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
         run: |
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
@@ -259,4 +344,4 @@ jobs:
               --description 'Failures detected by scheduled CI jobs.' --force
           fi
           python .claude/skills/nightly/scripts/publish.py \
-            /tmp/nightly-analysis/analysis.json "${args[@]}"
+            /tmp/nightly-analysis/analysis.json --run-url "$RUN_URL" "${args[@]}"

@@ -179,6 +179,34 @@ def test_invoke_without_trace_uses_tool_calling_loop():
     assert result.feedback.value == "yes"
 
 
+@pytest.mark.parametrize(
+    "model_uri", ["bedrock:/anthropic.claude-v2", "amazon-bedrock:/anthropic.claude-v2"]
+)
+@pytest.mark.parametrize(
+    "prompt", ["test", [ChatMessage(role="user", content="test")]], ids=["str", "messages"]
+)
+def test_invoke_bedrock_without_trace_skips_tool_calling_loop(model_uri, prompt):
+    adapter = GatewayAdapter()
+    input_params = AdapterInvocationInput(
+        model_uri=model_uri,
+        prompt=prompt,
+        assessment_name="test_metric",
+    )
+
+    with (
+        mock.patch.object(adapter, "_invoke_and_handle_tools") as mock_tools,
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter._invoke_via_gateway",
+            return_value=json.dumps({"result": "yes", "rationale": "ok"}),
+        ) as mock_gateway,
+    ):
+        result = adapter.invoke(input_params)
+
+    mock_tools.assert_not_called()
+    mock_gateway.assert_called_once()
+    assert result.feedback.value == "yes"
+
+
 def test_invoke_parses_response_with_newlines_in_json_strings():
     adapter = GatewayAdapter()
     # Simulate LLM response with literal newlines inside JSON string values

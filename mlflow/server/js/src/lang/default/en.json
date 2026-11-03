@@ -31,6 +31,10 @@
     "defaultMessage": "Edit",
     "description": "Skill detail action that edits description and icons"
   },
+  "+5RdhF": {
+    "defaultMessage": "All endpoints and users in all workspaces",
+    "description": "Budget scope label covering every endpoint and user across every workspace"
+  },
   "+634bT": {
     "defaultMessage": "Feedback",
     "description": "Review question type: feedback"
@@ -134,6 +138,10 @@
   "+UM7um": {
     "defaultMessage": "Tool {number} parameters",
     "description": "Accessible label for an individual tool parameters JSON editor in the playground"
+  },
+  "+UY0M7": {
+    "defaultMessage": "Unavailable",
+    "description": "Tag marking a budget policy whose target endpoint is missing from the endpoint list"
   },
   "+VGmLL": {
     "defaultMessage": "Optional description",
@@ -306,6 +314,10 @@
   "/4Aok8": {
     "defaultMessage": "Run",
     "description": "Column header for the run name in the runs table on the logged model details page"
+  },
+  "/6QoXU": {
+    "defaultMessage": "Please select 1 run to rename",
+    "description": "Tooltip for disabled rename action in evaluation runs table actions"
   },
   "/7wdnF": {
     "defaultMessage": "Usage coverage",
@@ -578,6 +590,10 @@
   "/w5HDz": {
     "defaultMessage": "Create webhook",
     "description": "Create webhook modal title"
+  },
+  "/xdz9/": {
+    "defaultMessage": "Register one skill from a folder that directly contains SKILL.md. Clients fetch it with their own credentials.",
+    "description": "Guidance for registering a single externally hosted skill"
   },
   "/y0ZU4": {
     "defaultMessage": "Updated",
@@ -1047,9 +1063,17 @@
     "defaultMessage": "Version",
     "description": "Column title text for model version in model version table"
   },
+  "1fOEwn": {
+    "defaultMessage": "Runs appear here once you detect issues from the Issues tab, or once the schedule fires. The schedule next runs {when}.",
+    "description": "Experiment issues tab > Run history > Empty state body naming the first scheduled run"
+  },
   "1gnrjt": {
     "defaultMessage": "Back",
     "description": "Experiment issues tab > Schedule modal button that leaves the API key step"
+  },
+  "1h2fd4": {
+    "defaultMessage": "Hide import command",
+    "description": "Collapse the skill repository import tip"
   },
   "1hI96w": {
     "defaultMessage": "Showing only visible runs",
@@ -1107,10 +1131,6 @@
     "defaultMessage": "Show less",
     "description": "Link that collapses an expanded list when clicked"
   },
-  "1rqKJk": {
-    "defaultMessage": "View details",
-    "description": "Link to the issue detection run overview from the completion notification"
-  },
   "1rwkHf": {
     "defaultMessage": "Failed to load trace",
     "description": "Title shown in the V4 trace drawer when the trace fails to load"
@@ -1138,6 +1158,10 @@
   "1yIbZj": {
     "defaultMessage": "Presence penalty",
     "description": "Label for the presence-penalty input on the playground parameters panel"
+  },
+  "2+6H1o": {
+    "defaultMessage": "All endpoints and users",
+    "description": "Budget scope label covering every endpoint and user"
   },
   "2+EUFB": {
     "defaultMessage": "Cancel",
@@ -1483,6 +1507,10 @@
     "defaultMessage": "Please complete all required fields",
     "description": "Tooltip shown when submit button is disabled due to incomplete form"
   },
+  "2vufvT": {
+    "defaultMessage": "Retry",
+    "description": "Experiment issues tab > Run history > Action retrying a failed read"
+  },
   "2xFiOo": {
     "defaultMessage": "Git commit",
     "description": "Usage overview > metrics filter > git commit column option label"
@@ -1703,6 +1731,14 @@
     "defaultMessage": "Draft - This view has unsaved changes. Save it to keep them.",
     "description": "Info banner shown when the current custom trace view has unsaved changes"
   },
+  "3tpLHj": {
+    "defaultMessage": "View run history",
+    "description": "Experiment issues tab > Schedule modal link to this experiment's detection run history"
+  },
+  "3uyRen": {
+    "defaultMessage": "Issue detection run history",
+    "description": "Experiment issues tab > Accessible label for the toolbar button opening the run history"
+  },
   "3v2Y8K": {
     "defaultMessage": "AI Gateway",
     "description": "Shared label for AI Gateway used in sidebar and breadcrumbs"
@@ -1786,10 +1822,6 @@
   "46xd2Z": {
     "defaultMessage": "Compare",
     "description": "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Compare config section"
-  },
-  "470t+y": {
-    "defaultMessage": "Registers {summary}",
-    "description": "Summary of what a skill location registers"
   },
   "47JmSp": {
     "defaultMessage": "Configure new model",
@@ -2303,6 +2335,10 @@
     "defaultMessage": "Detailed assessments",
     "description": "Evaluation review > assessments > detailed assessments > title"
   },
+  "5kAHDh": {
+    "defaultMessage": "Schedule is off",
+    "description": "Experiment issues tab > Run history > Summary of a paused schedule"
+  },
   "5l4Xz/": {
     "defaultMessage": "Clear filters",
     "description": "Button that clears all evaluation runs search, filters, and time range"
@@ -2414,6 +2450,10 @@
   "65QLZO": {
     "defaultMessage": "No data found for trace ID: {traceId}",
     "description": "Body shown in the V4 trace drawer when a trace has no data"
+  },
+  "65nX7o": {
+    "defaultMessage": "Analyzed traces",
+    "description": "Experiment issues tab > Run history > Column header for how many traces a run analyzed"
   },
   "66SAEx": {
     "defaultMessage": "Swap baseline and candidate",
@@ -2863,10 +2903,6 @@
     "defaultMessage": "Display name and description could not be saved",
     "description": "Error notification when updating MCP server display name fails"
   },
-  "7NvyO+": {
-    "defaultMessage": "Registering every skill under this folder? Run this instead:",
-    "description": "Pointer from single-skill registration to importing every skill under a repository folder"
-  },
   "7O0x9Q": {
     "defaultMessage": "Create a custom judge function using the {decorator} decorator. All parameters ({inputs}, {outputs}, {expectations}, {trace}) are optional — include only the ones your logic needs. {link}",
     "description": "Step 1 description for defining judge function"
@@ -3006,6 +3042,10 @@
   "7pkOrA": {
     "defaultMessage": "Model",
     "description": "Summary model label"
+  },
+  "7qIHOl": {
+    "defaultMessage": "Select an endpoint",
+    "description": "Placeholder for budget policy endpoint selector"
   },
   "7rO5IT": {
     "defaultMessage": "Select reviewers",
@@ -3315,6 +3355,10 @@
     "defaultMessage": "All",
     "description": "Experiment issues tab > Filter option that matches every value in a dimension"
   },
+  "8of0GD": {
+    "defaultMessage": "Want to import multiple skills at once?",
+    "description": "Tip pointing from single-skill registration to the repository import command"
+  },
   "8oh0iW": {
     "defaultMessage": "Clear filters",
     "description": "Usage overview > clear metrics filters button"
@@ -3595,6 +3639,10 @@
     "defaultMessage": "Select parameter or metric",
     "description": "Placeholder text for parameter/metric selector in box plot comparison in MLflow"
   },
+  "9dh1iS": {
+    "defaultMessage": "Scheduled weekly on {weekday} at {time} ({zone})",
+    "description": "Experiment issues tab > Run history > Summary of a weekly schedule"
+  },
   "9e0bkg": {
     "defaultMessage": "Base",
     "description": "Small label shown inside the baseline run selector in eval-run comparison mode"
@@ -3614,6 +3662,10 @@
   "9gQk+t": {
     "defaultMessage": "Manage and version prompts using MLflow's Prompt Registry. <link>Learn more</link>",
     "description": "Subtitle for the empty state on the prompts list page"
+  },
+  "9hhQv6": {
+    "defaultMessage": "Issue detection run history",
+    "description": "Experiment issues tab > Run history > Page title"
   },
   "9i4YFp": {
     "defaultMessage": "No assertions recorded for this test.",
@@ -3722,6 +3774,10 @@
   "A/vYwt": {
     "defaultMessage": "Create MCP server",
     "description": "Button to create a new MCP server"
+  },
+  "A0GFGa": {
+    "defaultMessage": "Status",
+    "description": "Experiment issues tab > Run history > Column header for how a run ended"
   },
   "A0m0mR": {
     "defaultMessage": "You're viewing a shared view. Your changes won't be saved unless you override your own saved view.",
@@ -3922,6 +3978,10 @@
   "AfYWI/": {
     "defaultMessage": "Tool call: {name}",
     "description": "Accessible label for an expandable assistant tool-call card"
+  },
+  "Ag8fYY": {
+    "defaultMessage": "All endpoints and users in this workspace",
+    "description": "Budget scope label covering every endpoint and user within the current workspace"
   },
   "AgXTXU": {
     "defaultMessage": "oldest first",
@@ -4711,10 +4771,6 @@
     "defaultMessage": "An error occurred while rendering chat sessions.",
     "description": "Description for default error message in the MLflow experiment chat sessions page"
   },
-  "D9NBgY": {
-    "defaultMessage": "View progress",
-    "description": "Link to the issue detection run page from the job-started notification"
-  },
   "DAXO9O": {
     "defaultMessage": "{count, plural, one {# regression} other {# regressions}} for {column} in {run} compared with baseline",
     "description": "Explanation of a regression comparison filter"
@@ -5271,6 +5327,10 @@
     "defaultMessage": "Type a value",
     "description": "Key-value tag editor modal > Value input placeholder"
   },
+  "FGnPTW": {
+    "defaultMessage": "Applies to",
+    "description": "Budget scope label"
+  },
   "FHJ1NN": {
     "defaultMessage": "Endpoint Name",
     "description": "Label for endpoint name input"
@@ -5358,6 +5418,10 @@
   "FbFEvH": {
     "defaultMessage": "Comparing {count} traces",
     "description": "Comparing traces title"
+  },
+  "FbhstH": {
+    "defaultMessage": "Applies to",
+    "description": "Budget scope column header"
   },
   "Fbx0Vd": {
     "defaultMessage": "Refresh evaluation runs",
@@ -5519,6 +5583,10 @@
     "defaultMessage": "Persona",
     "description": "Column label for simulation persona"
   },
+  "G4t9vF": {
+    "defaultMessage": "Duration",
+    "description": "Experiment issues tab > Run history > Column header for how long a run took"
+  },
   "G4tB4L": {
     "defaultMessage": "Key",
     "description": "Aria label for a skill tag key"
@@ -5574,6 +5642,10 @@
   "GC9Wxs": {
     "defaultMessage": "Reset to defaults",
     "description": "Menu item that resets the traces table column visibility to defaults"
+  },
+  "GCLJQD": {
+    "defaultMessage": "View run history",
+    "description": "Experiment issues tab > Empty state link to the detection run history"
   },
   "GDenB3": {
     "defaultMessage": "Metrics",
@@ -5634,6 +5706,10 @@
   "GNXbJl": {
     "defaultMessage": "Created: {time}",
     "description": "Run creation time in the evaluation metric timeline tooltip"
+  },
+  "GP5P7w": {
+    "defaultMessage": "Trigger",
+    "description": "Experiment issues tab > Run history > Column header for what started a run"
   },
   "GPOTWh": {
     "defaultMessage": "Tools",
@@ -5866,6 +5942,10 @@
   "HCAsed": {
     "defaultMessage": "Aliases:",
     "description": "MCP compare metadata aliases label"
+  },
+  "HDs3Rm": {
+    "defaultMessage": "Specific endpoint",
+    "description": "Budget scope option limiting the policy to one endpoint"
   },
   "HF6L/f": {
     "defaultMessage": "Monitor quality metrics from scorers",
@@ -6107,6 +6187,10 @@
     "defaultMessage": "All",
     "description": "Evaluation review > sidebar list of evaluation results > filter control > option for filtering evaluation results with no filter"
   },
+  "HqeTC9": {
+    "defaultMessage": "Issue detection run history",
+    "description": "Experiment issues tab > Breadcrumb leaf for the detection runs an experiment has recorded"
+  },
   "HqjnLn": {
     "defaultMessage": "The delta with baseline run is {delta}{percent}.",
     "description": "Delta and optional percent difference in a comparison run summary"
@@ -6187,10 +6271,6 @@
     "defaultMessage": "Manage workspace {name}",
     "description": "Aria label on the gear icon for managing a workspace"
   },
-  "IAuo/5": {
-    "defaultMessage": "Display",
-    "description": "Display control in session migration illustration"
-  },
   "IAyAgH": {
     "defaultMessage": "Move up",
     "description": "Experiment page > compare runs tab > chart header > move up option"
@@ -6198,6 +6278,10 @@
   "IB0MR8": {
     "defaultMessage": "Description",
     "description": "Label for descriptions section on the logged models details page"
+  },
+  "IC//6u": {
+    "defaultMessage": "Next run {when}",
+    "description": "Experiment issues tab > Run history > When the schedule next fires, beside what it does"
   },
   "ICg2LX": {
     "defaultMessage": "Disable the new model stages",
@@ -6234,10 +6318,6 @@
   "IFJQom": {
     "defaultMessage": "{count, plural, one {# question} other {# questions}} selected",
     "description": "Create review queue: questions dropdown selected-count summary"
-  },
-  "IG9BAn": {
-    "defaultMessage": "GitHub links don't show where a branch name ends, so this assumes the branch is {ref}. If the branch name contains a slash, correct the branch and path under Advanced settings.",
-    "description": "Warning that a GitHub link's branch and path split is a guess"
   },
   "IHyeUr": {
     "defaultMessage": "Stage",
@@ -6554,6 +6634,10 @@
   "JM3sti": {
     "defaultMessage": "Auto-discover tools",
     "description": "MCP server auto-discover tools button"
+  },
+  "JMe3g3": {
+    "defaultMessage": "Window covered",
+    "description": "Experiment issues tab > Run history > Column header for the trace window a scheduled run covered"
   },
   "JNS471": {
     "defaultMessage": "No results. Try using a different keyword or adjusting your filters.",
@@ -7123,10 +7207,6 @@
     "defaultMessage": "Transport type",
     "description": "Remote transport type label"
   },
-  "L5uIah": {
-    "defaultMessage": "Registering every skill in this repository? Run this instead:",
-    "description": "Pointer from single-skill registration to the repository import command"
-  },
   "L71uzj": {
     "defaultMessage": "Provider",
     "description": "Dimension toggle option for provider"
@@ -7459,10 +7539,6 @@
     "defaultMessage": "Year",
     "description": "Time unit: year"
   },
-  "MHhHib": {
-    "defaultMessage": "branch {ref}",
-    "description": "Git ref in the skill location summary"
-  },
   "MJGFlf": {
     "defaultMessage": "Loading endpoints...",
     "description": "Loading endpoints message"
@@ -7686,10 +7762,6 @@
   "MylJBR": {
     "defaultMessage": "Custom category",
     "description": "Issue detection settings modal > Custom category field label"
-  },
-  "Myqag6": {
-    "defaultMessage": "View details",
-    "description": "Link to the issue detection run page from the failure notification"
   },
   "N/Svk+": {
     "defaultMessage": "Guidelines",
@@ -8111,6 +8183,10 @@
     "defaultMessage": "+{count}",
     "description": "Compact suffix on the traces table tags column indicating how many additional tags are hidden in the preview"
   },
+  "OCBP3+": {
+    "defaultMessage": "Specific user",
+    "description": "Budget scope option limiting the policy to one user"
+  },
   "OCZ6Y6": {
     "defaultMessage": "Git branch",
     "description": "Column label for the git branch the trace was produced on"
@@ -8267,6 +8343,10 @@
     "defaultMessage": "Expectations added for a trace",
     "description": "Description for expectations variable"
   },
+  "OeNC7r": {
+    "defaultMessage": "The detection runs this experiment has recorded could not be read. Nothing has been lost.",
+    "description": "Experiment issues tab > Run history > Body when the run history could not be read"
+  },
   "OePzrg": {
     "defaultMessage": "Only the most recent 100 versions are shown.",
     "description": "Hint when a registry entity has more versions than its detail page lists"
@@ -8374,6 +8454,10 @@
   "P/Uvf4": {
     "defaultMessage": "Classification",
     "description": "Label for experiments focused on classification modeling"
+  },
+  "P0+7As": {
+    "defaultMessage": "Could not load this experiment's run history",
+    "description": "Experiment issues tab > Run history > Title when the run history could not be read"
   },
   "P037Va": {
     "defaultMessage": "Passed",
@@ -8635,6 +8719,10 @@
     "defaultMessage": "Select endpoint",
     "description": "Placeholder for endpoint selector"
   },
+  "PuAOdF": {
+    "defaultMessage": "Found {newCount, plural, one {1 new issue} other {# new issues}} across {traceCount, plural, one {1 trace} other {# traces}}.",
+    "description": "Notification body shown when every issue an issue detection job found is newly reported"
+  },
   "PuXTcZ": {
     "defaultMessage": "Welcome to MLflow",
     "description": "Workspace landing page title"
@@ -8642,6 +8730,10 @@
   "PuoR9y": {
     "defaultMessage": "Copy the prompt below to fix this issue with your coding agent.",
     "description": "Experiment issues tab > Issue detail > Fix this issue section > Explains what the prompt below is for"
+  },
+  "PurQkQ": {
+    "defaultMessage": "Show import command",
+    "description": "Expand the skill repository import tip"
   },
   "Pv88gx": {
     "defaultMessage": "Model",
@@ -8790,6 +8882,10 @@
   "QLRaAz": {
     "defaultMessage": "Select all rows on this page",
     "description": "Aria label for the select-all checkbox in the V2 dataset records table header"
+  },
+  "QLY6UU": {
+    "defaultMessage": "Rename",
+    "description": "Rename evaluation runs action"
   },
   "QMCliz": {
     "defaultMessage": "Measure and compare LLM quality with built-in and custom scorers.",
@@ -9035,6 +9131,10 @@
     "defaultMessage": "Search run names for “{text}”",
     "description": "Run a plain text evaluation run-name search"
   },
+  "RDXmoF": {
+    "defaultMessage": "The budget applies only to requests made by this authenticated user. Requires server authentication to be enabled.",
+    "description": "Helper text for per-user budget scope"
+  },
   "RDg+Pl": {
     "defaultMessage": "Time",
     "description": "Label for the time select dropdown for experiment runs view"
@@ -9174,6 +9274,10 @@
   "RgVN+O": {
     "defaultMessage": "View all",
     "description": "Home page news section view more link"
+  },
+  "RgW12o": {
+    "defaultMessage": "This endpoint was deleted, or you don't have access to it. If it was deleted, edit the policy to choose another endpoint, or delete the policy.",
+    "description": "Tooltip explaining that an endpoint-scoped budget policy points at an endpoint missing from the endpoint list"
   },
   "RhQhT4": {
     "defaultMessage": "Model",
@@ -9334,6 +9438,10 @@
   "SAxj6I": {
     "defaultMessage": "Create budget policy",
     "description": "Gateway > Budgets page > Create budget policy button"
+  },
+  "SB5xKN": {
+    "defaultMessage": "Model",
+    "description": "Experiment issues tab > Run history > Column header for the model a run ran against"
   },
   "SBRP1X": {
     "defaultMessage": "Review real traces to surface failure modes and quality issues worth fixing.",
@@ -9603,6 +9711,10 @@
     "defaultMessage": "Line Smoothness",
     "description": "Label for the smoothness slider for the graph plot for metrics"
   },
+  "T5zZ1W": {
+    "defaultMessage": "Username, e.g., alice",
+    "description": "Budget username placeholder"
+  },
   "T7O9h/": {
     "defaultMessage": "Search traces by id or input",
     "description": "Search input placeholder for matched traces in an evaluation-run comparison"
@@ -9702,6 +9814,10 @@
   "TUBoJA": {
     "defaultMessage": "{runName} session turns",
     "description": "Trace block for one run in an expanded session comparison"
+  },
+  "TULATU": {
+    "defaultMessage": "User",
+    "description": "Tag marking a per-user budget policy"
   },
   "TWnsnV": {
     "defaultMessage": "Run Name",
@@ -10055,6 +10171,10 @@
     "defaultMessage": "Please select 2 runs to compare",
     "description": "Tooltip for disabled compare action in evaluation runs table actions"
   },
+  "UbA/Y5": {
+    "defaultMessage": "Scheduled",
+    "description": "Experiment issues tab > Run history > Trigger pill for a run the schedule fired"
+  },
   "UbXw8O": {
     "defaultMessage": "Expectations",
     "description": "Label for the expectations section in the assessments pane"
@@ -10078,6 +10198,10 @@
   "UgF7ax": {
     "defaultMessage": "Status",
     "description": "Label for the status of a logged model on the logged model details page"
+  },
+  "UgVp7H": {
+    "defaultMessage": "Endpoint",
+    "description": "Accessible label for the budget policy endpoint selector"
   },
   "UhdPmo": {
     "defaultMessage": "Transition to",
@@ -10178,6 +10302,10 @@
   "V+wWQJ": {
     "defaultMessage": "New icon URL",
     "description": "Registry icon editor label for the URL of an icon being added"
+  },
+  "V/DNS4": {
+    "defaultMessage": "Show more",
+    "description": "Experiment issues tab > Evidence section > Loads the next page of evidence cards"
   },
   "V/EeFG": {
     "defaultMessage": "Flag for review",
@@ -10302,6 +10430,10 @@
   "VN5B4N": {
     "defaultMessage": "General",
     "description": "Accordion section header for general settings"
+  },
+  "VNZMMs": {
+    "defaultMessage": "No endpoints available",
+    "description": "Placeholder for the budget policy endpoint selector when no endpoints exist"
   },
   "VOP7Y5": {
     "defaultMessage": "No guardrails match your search.",
@@ -10855,10 +10987,6 @@
     "defaultMessage": "Duration",
     "description": "Trace filter field: execution time"
   },
-  "Wzhsx4": {
-    "defaultMessage": "Click the \"Group by session\" button to see the session-level view.",
-    "description": "Instruction explaining how to access the session-level view in the Traces tab"
-  },
   "X+Bggt": {
     "defaultMessage": "Analyze: {range}",
     "description": "Context chip for selected issue activity"
@@ -10919,6 +11047,10 @@
     "defaultMessage": "Custom LLM-as-a-judge ({llmCount})",
     "description": "Label for the custom LLM-as-a-judge filter pill in the run evaluation modal"
   },
+  "X7xZvw": {
+    "defaultMessage": "Ad hoc",
+    "description": "Experiment issues tab > Run history > Trigger pill for a run somebody started by hand"
+  },
   "X8OaXU": {
     "defaultMessage": "Scheduled",
     "description": "Run page > Overview > Run status cell > Value for scheduled state"
@@ -10958,6 +11090,10 @@
   "XG8dcL": {
     "defaultMessage": "Key is required if value is present",
     "description": "Error message for required key in trace tag assignment modal"
+  },
+  "XGI2LK": {
+    "defaultMessage": "Runs appear here once you detect issues from the Issues tab, or once you turn on a schedule.",
+    "description": "Experiment issues tab > Run history > Empty state body with no schedule to name"
   },
   "XGfSst": {
     "defaultMessage": "Input",
@@ -11774,6 +11910,10 @@
   "a5iB3J": {
     "defaultMessage": "<strong>Run locally with {runner}</strong> {identifier}",
     "description": "Package row description showing runner and identifier"
+  },
+  "a5ojCQ": {
+    "defaultMessage": "Cost",
+    "description": "Experiment issues tab > Run history > Column header for what a run spent"
   },
   "a6aAez": {
     "defaultMessage": "Cleaning up workspace metadata…",
@@ -12855,6 +12995,10 @@
     "defaultMessage": "Permanently delete \"{name}\" and remove its traces from review? This cannot be undone.",
     "description": "Delete review queue: confirm body"
   },
+  "dgTFN1": {
+    "defaultMessage": "Created at",
+    "description": "Experiment issues tab > Run history > Column header for when a run started"
+  },
   "dgyN/J": {
     "defaultMessage": "Issue detection completed",
     "description": "Notification title shown when an issue detection job finishes successfully"
@@ -12983,10 +13127,6 @@
     "defaultMessage": "The SQL query timed out. Please retry, and if the problem persists, try selecting a larger SQL warehouse.",
     "description": "V4 traces > SQL warehouse timeout error description with CTA to select a larger warehouse"
   },
-  "e67EDw": {
-    "defaultMessage": "Content stays where it is. Clients fetch it with their own credentials.",
-    "description": "Explanation of pointer-only skill registration"
-  },
   "e6reUn": {
     "defaultMessage": "Failed",
     "description": "Label for upload failed state of a experiment logged model"
@@ -13090,6 +13230,10 @@
   "eMvjsA": {
     "defaultMessage": "Could not load traces for all selected runs. Retry to load the comparison.",
     "description": "Comparison cannot be shown when a run trace query fails"
+  },
+  "eNBbhn": {
+    "defaultMessage": "View details",
+    "description": "Link to the issue detection run history from the failure notification"
   },
   "eNHVjy": {
     "defaultMessage": "Name is required",
@@ -13734,6 +13878,10 @@
   "gIc8Lp": {
     "defaultMessage": "Stages have been deprecated in the new Model Registry UI. Learn how to migrate models <link>here</link>.",
     "description": "Tooltip content for the disabled stage metadata in model version page"
+  },
+  "gK/XFb": {
+    "defaultMessage": "Select \"Sessions\" in the Traces/Sessions switcher to see the session-level view.",
+    "description": "Instruction explaining how to access the session-level view in the Traces tab"
   },
   "gKb5eO": {
     "defaultMessage": "Minutes",
@@ -14863,6 +15011,10 @@
     "defaultMessage": "Knowledge retention",
     "description": "LLM template option"
   },
+  "jKlmnP": {
+    "defaultMessage": "Scheduled daily at {time} ({zone})",
+    "description": "Experiment issues tab > Run history > Summary of a daily schedule"
+  },
   "jMUqD1": {
     "defaultMessage": "Safety",
     "description": "Evaluation results > known type of evaluation result assessment > safety assessment. Used to indicate if the result is safe in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Safety: moderate\""
@@ -15014,6 +15166,10 @@
   "jo4LfR": {
     "defaultMessage": "Pending",
     "description": "Label for pending state of a experiment logged model"
+  },
+  "jodXeZ": {
+    "defaultMessage": "View details",
+    "description": "Link to the Issues tab from the completion notification"
   },
   "joh88n": {
     "defaultMessage": "{numValue} for run \"{runName}\"",
@@ -15483,6 +15639,10 @@
     "defaultMessage": "Light",
     "description": "Light theme label"
   },
+  "lOmKrC": {
+    "defaultMessage": "If your branch name contains '/', check the branch and path.",
+    "description": "Hint to verify the inferred branch and path of a GitHub folder URL"
+  },
   "lOyzXr": {
     "defaultMessage": "Baseline",
     "description": "Badge for the baseline run in evaluation comparison tables"
@@ -15502,6 +15662,10 @@
   "lS7kq2": {
     "defaultMessage": "Parameters",
     "description": "Section header for the parameters in a 'group by' selector"
+  },
+  "lSvPbL": {
+    "defaultMessage": "New issues",
+    "description": "Experiment issues tab > Run history > Column header for issues a run filed for the first time"
   },
   "lT1Joh": {
     "defaultMessage": "No metrics match the search filter",
@@ -17003,6 +17167,10 @@
     "defaultMessage": "You need another endpoint to use guardrails.",
     "description": "Guidance shown when no alternate endpoint exists for guardrail model selection"
   },
+  "qEwZJV": {
+    "defaultMessage": "Scheduled hourly",
+    "description": "Experiment issues tab > Run history > Summary of an hourly schedule"
+  },
   "qF4j6q": {
     "defaultMessage": "Off",
     "description": "Experiment issues tab > Scheduled detection option that disables automatic runs"
@@ -17399,6 +17567,10 @@
     "defaultMessage": "Relevant",
     "description": "Evaluation results > relevancy assessment > positive value label. Displayed if evaluation result is considered as irrelevant to the query."
   },
+  "rNvVH3": {
+    "defaultMessage": "No detection runs yet",
+    "description": "Experiment issues tab > Run history > Empty state title before the first detection run"
+  },
   "rONS3/": {
     "defaultMessage": "Select value",
     "description": "Usage overview > filter row > value dropdown placeholder"
@@ -17730,10 +17902,6 @@
   "sOQcFW": {
     "defaultMessage": "None",
     "description": "Label for the button disabling grouping in the logged model list page"
-  },
-  "sOhO4e": {
-    "defaultMessage": "Show {count} more",
-    "description": "Experiment issues tab > Evidence section > Loads the next page of evidence cards"
   },
   "sPjG+W": {
     "defaultMessage": "Assistant unavailable",
@@ -18415,6 +18583,10 @@
     "defaultMessage": "Duration",
     "description": "Header for the traces table duration column"
   },
+  "uyWLgQ": {
+    "defaultMessage": "The endpoint this policy applies to ({endpointId}) was deleted, or you don't have access to it. Select another endpoint, or choose \"{allLabel}\".",
+    "description": "Validation error shown when a budget policy targets an endpoint that is missing from the endpoint list"
+  },
   "uydAT6": {
     "defaultMessage": "{start} – {end}",
     "description": "Selected date range in the issue activity chart"
@@ -18463,10 +18635,6 @@
     "defaultMessage": "Delete",
     "description": "Bulk-delete button on the roles table (no rows selected)"
   },
-  "vAsKGb": {
-    "defaultMessage": "path {subpath}",
-    "description": "Subpath in the skill location summary"
-  },
   "vBKFgp": {
     "defaultMessage": "X axis",
     "description": "Label for X axis in scatter chart configurator in compare runs chart config modal"
@@ -18510,6 +18678,10 @@
   "vHgCMH": {
     "defaultMessage": "No evidence details were recorded for this trace.",
     "description": "Experiment issues tab > Legacy evidence step > Trace has no displayable details"
+  },
+  "vJSV78": {
+    "defaultMessage": "Issue detection run history",
+    "description": "Experiment issues tab > Tooltip on the toolbar button opening the detection run history"
   },
   "vK1v9d": {
     "defaultMessage": "datasets used",
@@ -18562,6 +18734,10 @@
   "vQe6Gb": {
     "defaultMessage": "Save the current column layout, filters, sort and charts as a named view, then share it by link.",
     "description": "Explanation shown in the save-and-share-view modal describing what a saved view captures"
+  },
+  "vRtGgJ": {
+    "defaultMessage": "{status, select, SCHEDULED {Scheduled} RUNNING {Running} FINISHED {Finished} FAILED {Failed} KILLED {Killed} other {Unknown}}",
+    "description": "Experiment issues tab > Run history > Status of one detection run"
   },
   "vSI23W": {
     "defaultMessage": "Provider cannot be changed. Create a new key if a different provider is needed.",
@@ -18858,6 +19034,10 @@
   "wOupuD": {
     "defaultMessage": "Expected facts for evaluation",
     "description": "Tooltip description for the Expected facts column in the traces table"
+  },
+  "wPAp5o": {
+    "defaultMessage": "Found {newCount, plural, =0 {no new issues} one {1 new issue} other {# new issues}} and refreshed {refreshedCount, plural, one {1 existing issue} other {# existing issues}} across {traceCount, plural, one {1 trace} other {# traces}}.",
+    "description": "Notification body shown when an issue detection job both filed new issues and re-found issues the experiment already carried"
   },
   "wQvMnu": {
     "defaultMessage": "Hide column",
@@ -19878,6 +20058,10 @@
   "zdYXP8": {
     "defaultMessage": "Parent run",
     "description": "Run page > Overview > Parent run"
+  },
+  "zdaFqs": {
+    "defaultMessage": "View progress",
+    "description": "Link to the issue detection run history from the job-started notification"
   },
   "zddMXX": {
     "defaultMessage": "+{count} more",

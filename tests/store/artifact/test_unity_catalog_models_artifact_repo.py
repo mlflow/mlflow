@@ -191,6 +191,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws(
             host_creds=ANY,
             endpoint=expected_endpoint,
             method="POST",
+            raise_on_status=False,
             json=expected_json,
             extra_headers=ANY,
         )
@@ -237,6 +238,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure(m
             host_creds=ANY,
             endpoint="/api/2.1/unity-catalog/temporary-model-version-credentials",
             method="POST",
+            raise_on_status=False,
             json={
                 "catalog_name": "catalog",
                 "schema_name": "schema",
@@ -293,6 +295,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_gcp(mon
             host_creds=ANY,
             endpoint="/api/2.1/unity-catalog/temporary-model-version-credentials",
             method="POST",
+            raise_on_status=False,
             json={
                 "catalog_name": "catalog",
                 "schema_name": "schema",
@@ -367,6 +370,7 @@ def test_uc_models_artifact_repo_list_artifacts_uses_temporary_creds(monkeypatch
             host_creds=ANY,
             endpoint="/api/2.1/unity-catalog/temporary-model-version-credentials",
             method="POST",
+            raise_on_status=False,
             json={
                 "catalog_name": "catalog",
                 "schema_name": "schema",

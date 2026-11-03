@@ -623,6 +623,8 @@ class LiteLLMProvider(BaseProvider):
             response = await litellm.acompletion(**kwargs, stream=True)
             async for chunk in response:
                 yield chunk
+            # Chunks are re-serialized from LiteLLM objects, so the upstream terminator is lost
+            yield b"data: [DONE]\n\n"
 
         return stream_generator()
 

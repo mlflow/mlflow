@@ -23,7 +23,10 @@ from mlflow.entities import (
 )
 from mlflow.entities.gateway_guardrail import GuardrailAction, GuardrailStage
 from mlflow.entities.trace_state import TraceState
-from mlflow.environment_variables import MLFLOW_GATEWAY_MAX_DECOMPRESSED_REQUEST_SIZE
+from mlflow.environment_variables import (
+    _MLFLOW_SERVER_TLS_LISTENER,
+    MLFLOW_GATEWAY_MAX_DECOMPRESSED_REQUEST_SIZE,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
     AmazonBedrockConfig,
@@ -1385,9 +1388,9 @@ async def test_invocations_handler_streaming(store: SqlAlchemyStore):
         assert isinstance(response, StreamingResponse)
         assert response.media_type == "text/event-stream"
         # chat_stream is inside a lazy async generator; consume the body to trigger execution
-        async for _ in response.body_iterator:
-            pass
+        body = "".join([chunk async for chunk in response.body_iterator])
         assert mock_provider.chat_stream.called
+        assert body.endswith("data: [DONE]\n\n")
 
 
 def test_create_provider_from_endpoint_name_no_models(store: SqlAlchemyStore):
@@ -1721,9 +1724,9 @@ async def test_chat_completions_endpoint_streaming(store: SqlAlchemyStore):
         assert isinstance(response, StreamingResponse)
         assert response.media_type == "text/event-stream"
         # chat_stream is inside a lazy async generator; consume the body to trigger execution
-        async for _ in response.body_iterator:
-            pass
+        body = "".join([chunk async for chunk in response.body_iterator])
         assert mock_provider.chat_stream.called
+        assert body.endswith("data: [DONE]\n\n")
 
 
 @pytest.mark.asyncio
@@ -2400,6 +2403,67 @@ async def test_anthropic_passthrough_messages_streaming(store: SqlAlchemyStore):
         assert b"content_block_stop" in chunks[4]
         assert b"message_delta" in chunks[5]
         assert b"message_stop" in chunks[6]
+
+
+@pytest.mark.asyncio
+async def test_anthropic_passthrough_messages_streaming_error_is_a_named_event(
+    store: SqlAlchemyStore,
+):
+    secret = store.create_gateway_secret(
+        secret_name="anthropic-stream-error-key",
+        secret_value={"api_key": "sk-ant-test-error"},
+        provider="anthropic",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="anthropic-stream-error-model",
+        secret_id=secret.secret_id,
+        provider="anthropic",
+        model_name="claude-3-5-sonnet-20241022",
+    )
+    store.create_gateway_endpoint(
+        name="anthropic-stream-error-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    mock_request = create_mock_request()
+    mock_request.json = AsyncMock(
+        return_value={
+            "model": "anthropic-stream-error-endpoint",
+            "messages": [{"role": "user", "content": "Hello"}],
+            "max_tokens": 1024,
+            "stream": True,
+        }
+    )
+
+    async def failing_stream():
+        yield b'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_1","type":"message","role":"assistant","content":[],"model":"claude-3-5-sonnet-20241022","usage":{"input_tokens":10,"output_tokens":0}}}\n\n'  # noqa: E501
+        raise HTTPException(
+            status_code=429, detail="Number of requests has exceeded your rate limit"
+        )
+
+    with mock.patch(
+        "mlflow.gateway.providers.anthropic.send_stream_request", return_value=failing_stream()
+    ) as mock_send_stream:
+        response = await anthropic_passthrough_messages(mock_request)
+        chunks = [chunk async for chunk in response.body_iterator]
+
+    mock_send_stream.assert_called_once()
+    assert b"message_start" in chunks[0]
+    # The upstream error has to arrive as a named event or Anthropic clients drop it.
+    assert chunks[-1].startswith(b"event: error\ndata: ")
+    assert json.loads(chunks[-1].split(b"data: ", 1)[1]) == {
+        "type": "error",
+        "error": {
+            "type": "rate_limit_error",
+            "message": "Number of requests has exceeded your rate limit",
+        },
+    }
 
 
 # =============================================================================
@@ -3715,7 +3779,7 @@ def _make_guardrail_mock_request(body: dict[str, Any], headers: dict[str, str] |
     req.state.user_id = None
     req.json = AsyncMock(return_value=body)
     req.headers = headers or {}
-    req.base_url = "http://localhost:5000/"
+    req.scope = {"server": ("127.0.0.1", 5000)}
     return req
 
 
@@ -3934,7 +3998,18 @@ async def test_real_db_post_llm_guardrail_blocks(store: SqlAlchemyStore):
 
 
 @pytest.mark.asyncio
-async def test_invocations_before_sanitize_rewrites_request(store: SqlAlchemyStore):
+@pytest.mark.parametrize(
+    ("tls_listener", "expected_base_url", "expected_server_hostname"),
+    [
+        (False, "http://127.0.0.1:5000", None),
+        (True, "https://127.0.0.1:5000", "mlflow.example.com"),
+    ],
+)
+async def test_invocations_before_sanitize_rewrites_request(
+    store: SqlAlchemyStore, monkeypatch, tls_listener, expected_base_url, expected_server_hostname
+):
+    if tls_listener:
+        monkeypatch.setenv(_MLFLOW_SERVER_TLS_LISTENER.name, "true")
     endpoint = _setup_guardrail_endpoint(store, "ep-sanitize-before")
     sanitizer = _setup_guardrail_endpoint(store, "ep-sanitizer")
     _setup_db_guardrail(
@@ -3943,9 +4018,13 @@ async def test_invocations_before_sanitize_rewrites_request(store: SqlAlchemySto
 
     sanitized_body = {"messages": [{"role": "user", "content": "cleaned input"}]}
     mock_response = _make_guardrail_chat_response("Response to cleaned input")
-    mock_request = _make_guardrail_mock_request({
-        "messages": [{"role": "user", "content": "bad input"}]
-    })
+    mock_request = _make_guardrail_mock_request(
+        {"messages": [{"role": "user", "content": "bad input"}]},
+        headers={"host": "mlflow.example.com"},
+    )
+    # The sanitization call goes to the server's own address, not the request's base URL, and
+    # carries the request's Host.
+    mock_request.base_url = "http://proxy.example/"
 
     failing_scorer = _SimpleScorer(passing=False)
     captured_payloads: list[Any] = []
@@ -3954,14 +4033,12 @@ async def test_invocations_before_sanitize_rewrites_request(store: SqlAlchemySto
         captured_payloads.append(payload)
         return mock_response
 
+    mock_send_request = AsyncMock(
+        return_value={"choices": [{"message": {"content": json.dumps(sanitized_body)}}]}
+    )
     with (
         patch("mlflow.genai.scorers.base.Scorer.model_validate", return_value=failing_scorer),
-        patch(
-            "mlflow.gateway.guardrails.send_request",
-            AsyncMock(
-                return_value={"choices": [{"message": {"content": json.dumps(sanitized_body)}}]}
-            ),
-        ),
+        patch("mlflow.gateway.guardrails.send_request", mock_send_request),
         patch("mlflow.gateway.providers.openai.OpenAIProvider.chat", side_effect=fake_chat),
     ):
         response = await invocations(endpoint.name, mock_request)
@@ -3969,6 +4046,11 @@ async def test_invocations_before_sanitize_rewrites_request(store: SqlAlchemySto
     assert response.choices[0].message.content == "Response to cleaned input"
     assert failing_scorer.call_count == 1
     assert captured_payloads[0].messages[0].content == "cleaned input"
+    kwargs = mock_send_request.call_args.kwargs
+    assert kwargs["base_url"] == expected_base_url
+    assert kwargs["path"] == f"gateway/{sanitizer.name}/mlflow/invocations"
+    assert kwargs["headers"]["Host"] == "mlflow.example.com"
+    assert kwargs["server_hostname"] == expected_server_hostname
 
 
 @pytest.mark.asyncio
@@ -4000,14 +4082,12 @@ async def test_invocations_after_sanitize_rewrites_response(store: SqlAlchemySto
 
     failing_scorer = _SimpleScorer(passing=False)
 
+    mock_send_request = AsyncMock(
+        return_value={"choices": [{"message": {"content": json.dumps(sanitized_response)}}]}
+    )
     with (
         patch("mlflow.genai.scorers.base.Scorer.model_validate", return_value=failing_scorer),
-        patch(
-            "mlflow.gateway.guardrails.send_request",
-            AsyncMock(
-                return_value={"choices": [{"message": {"content": json.dumps(sanitized_response)}}]}
-            ),
-        ),
+        patch("mlflow.gateway.guardrails.send_request", mock_send_request),
         patch(
             "mlflow.gateway.providers.openai.OpenAIProvider.chat",
             AsyncMock(return_value=mock_response),
@@ -4017,6 +4097,7 @@ async def test_invocations_after_sanitize_rewrites_response(store: SqlAlchemySto
 
     assert response.choices[0].message.content == "polite output"
     assert failing_scorer.call_count == 1
+    assert mock_send_request.call_args.kwargs["base_url"] == "http://127.0.0.1:5000"
 
 
 @pytest.mark.asyncio
@@ -4035,6 +4116,34 @@ async def test_invocations_sanitize_no_action_endpoint_blocks(store: SqlAlchemyS
     ):
         with pytest.raises(HTTPException, match="400"):
             await invocations(endpoint.name, mock_request)
+
+
+@pytest.mark.asyncio
+async def test_invocations_sanitize_without_server_address_blocks(store: SqlAlchemyStore):
+    # A server listening on a unix socket reports no address of its own to call.
+    endpoint = _setup_guardrail_endpoint(store, "ep-sanitize-uds")
+    sanitizer = _setup_guardrail_endpoint(store, "ep-sanitizer-uds")
+    _setup_db_guardrail(
+        store, "ep-sanitize-uds", "BEFORE", "SANITIZATION", action_endpoint_name=sanitizer.name
+    )
+
+    mock_request = _make_guardrail_mock_request({
+        "messages": [{"role": "user", "content": "bad input"}]
+    })
+    mock_request.scope = {}
+    failing_scorer = _SimpleScorer(passing=False)
+    mock_send_request = AsyncMock()
+
+    with (
+        patch("mlflow.genai.scorers.base.Scorer.model_validate", return_value=failing_scorer),
+        patch("mlflow.gateway.guardrails.send_request", mock_send_request),
+        patch("mlflow.gateway.providers.openai.OpenAIProvider.chat", AsyncMock()),
+    ):
+        with pytest.raises(HTTPException, match="reported no TCP address") as exc_info:
+            await invocations(endpoint.name, mock_request)
+
+    assert exc_info.value.status_code == 400
+    mock_send_request.assert_not_called()
 
 
 @pytest.mark.asyncio

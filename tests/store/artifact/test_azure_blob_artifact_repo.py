@@ -181,6 +181,35 @@ def test_parse_govcloud_wasbs_uri_invalid(uri, error_match):
         AzureBlobArtifactRepository.parse_wasbs_uri(uri)
 
 
+@pytest.mark.parametrize(
+    "account",
+    [
+        "localhost\\",
+        "[::1]",
+        "[acct",
+        "localhost:8080\\",
+        "acct:443",
+        "ac%2Fct",
+        "ac-ct",
+        "ac ct",
+        "ac_ct",
+    ],
+)
+@pytest.mark.parametrize(
+    "suffix", ["blob.core.windows.net", "blob.core.chinacloudapi.cn", "blob.core.usgovcloudapi.net"]
+)
+def test_parse_wasbs_uri_rejects_non_alphanumeric_account(account, suffix):
+    with pytest.raises(MlflowException, match="WASBS URI must be of the form"):
+        AzureBlobArtifactRepository.parse_wasbs_uri(f"wasbs://cont@{account}.{suffix}/path")
+
+
+@pytest.mark.parametrize("account", ["acct", "Acct01", "mystorageaccount123"])
+def test_parse_wasbs_uri_accepts_alphanumeric_account(account):
+    assert AzureBlobArtifactRepository.parse_wasbs_uri(
+        f"wasbs://cont@{account}.blob.core.windows.net/path"
+    ) == ("cont", account, "path", "blob.core.windows.net")
+
+
 def test_list_artifacts_empty(mock_client):
     repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
     mock_client.get_container_client().walk_blobs.return_value = MockBlobList([])

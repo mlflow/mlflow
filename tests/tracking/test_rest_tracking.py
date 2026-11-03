@@ -90,17 +90,22 @@ from mlflow.tracing.utils import build_otel_context
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 from mlflow.utils.mlflow_tags import (
+    MLFLOW_ARTIFACT_LOCATION,
     MLFLOW_DATASET_CONTEXT,
     MLFLOW_GIT_COMMIT,
     MLFLOW_PARENT_RUN_ID,
     MLFLOW_PROJECT_ENTRY_POINT,
     MLFLOW_SOURCE_NAME,
     MLFLOW_SOURCE_TYPE,
+    MLFLOW_TRACE_ARCHIVAL_FAILURE,
+    MLFLOW_TRACE_ARCHIVE_LOCATION,
+    MLFLOW_TRACE_SPANS_LOCATION,
     MLFLOW_USER,
 )
 from mlflow.utils.os import is_windows
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.time import get_current_time_millis
+from mlflow.utils.uri import append_to_uri_path
 
 from tests.helper_functions import get_safe_port
 from tests.integration.utils import invoke_cli_runner
@@ -2889,6 +2894,38 @@ def test_delete_traces(mlflow_client):
     assert deleted_count == 1
     assert not _is_trace_exists(request_id_1)
     assert _is_trace_exists(request_id_2)
+
+
+def test_start_trace_drops_system_managed_tags(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("test_start_trace_drops_system_tags")
+    store = mlflow_client._tracking_client.store
+
+    trace_info = store.start_trace(
+        TraceInfo(
+            trace_id="tr-system-tags",
+            trace_location=TraceLocation.from_experiment_id(experiment_id),
+            request_time=1234,
+            state=TraceState.OK,
+            tags={
+                MLFLOW_ARTIFACT_LOCATION: "client-value",
+                MLFLOW_TRACE_SPANS_LOCATION: "client-value",
+                MLFLOW_TRACE_ARCHIVE_LOCATION: "client-value",
+                MLFLOW_TRACE_ARCHIVAL_FAILURE: "client-value",
+                "user.tag": "kept",
+            },
+        )
+    )
+
+    assert trace_info.tags["user.tag"] == "kept"
+    assert trace_info.tags[MLFLOW_ARTIFACT_LOCATION] == append_to_uri_path(
+        mlflow_client.get_experiment(experiment_id).artifact_location,
+        "traces",
+        "tr-system-tags",
+        "artifacts",
+    )
+    assert MLFLOW_TRACE_SPANS_LOCATION not in trace_info.tags
+    assert MLFLOW_TRACE_ARCHIVE_LOCATION not in trace_info.tags
+    assert MLFLOW_TRACE_ARCHIVAL_FAILURE not in trace_info.tags
 
 
 def test_calculate_trace_filter_correlation(mlflow_client, store_type):

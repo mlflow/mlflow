@@ -268,7 +268,10 @@ def test_invalid_literal_feedback_value_type(feedback_value_type, message):
 @pytest.mark.parametrize(
     ("kwargs", "message"),
     [
-        ({"model_uri": "openai:/gpt-4"}, "Expected a typesafe:/ or gateway:/ model URI"),
+        (
+            {"model_uri": "openai:/gpt-4"},
+            "Expected a typesafe:/, gateway:/, or databricks:/ model URI",
+        ),
         ({"instructions": " "}, "instructions must be a non-empty string"),
         ({"instructions": "Evaluate {{ trace }}"}, "trace-based tool calling"),
         ({"state": []}, "state must be a dictionary"),

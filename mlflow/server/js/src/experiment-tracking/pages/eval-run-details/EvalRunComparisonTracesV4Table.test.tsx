@@ -97,6 +97,13 @@ const LocationSpy = () => {
   return null;
 };
 
+// This suite covers table behavior, not the loading placeholder, which renders a skeleton in every cell of a full page.
+// eslint-disable-next-line @databricks/no-restricted-jest-mock-modules
+jest.mock('@databricks/design-system', () => ({
+  ...jest.requireActual<typeof import('@databricks/design-system')>('@databricks/design-system'),
+  TableSkeleton: () => null,
+}));
+
 describe('EvalRunComparisonTracesV4Table', () => {
   const { history } = setupTestRouter();
 
