@@ -591,6 +591,10 @@
     "defaultMessage": "Create webhook",
     "description": "Create webhook modal title"
   },
+  "/xdz9/": {
+    "defaultMessage": "Register one skill from a folder that directly contains SKILL.md. Clients fetch it with their own credentials.",
+    "description": "Guidance for registering a single externally hosted skill"
+  },
   "/y0ZU4": {
     "defaultMessage": "Updated",
     "description": "Secret last updated label"
@@ -1066,6 +1070,10 @@
   "1gnrjt": {
     "defaultMessage": "Back",
     "description": "Experiment issues tab > Schedule modal button that leaves the API key step"
+  },
+  "1h2fd4": {
+    "defaultMessage": "Hide import command",
+    "description": "Collapse the skill repository import tip"
   },
   "1hI96w": {
     "defaultMessage": "Showing only visible runs",
@@ -1814,10 +1822,6 @@
   "46xd2Z": {
     "defaultMessage": "Compare",
     "description": "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Compare config section"
-  },
-  "470t+y": {
-    "defaultMessage": "Registers {summary}",
-    "description": "Summary of what a skill location registers"
   },
   "47JmSp": {
     "defaultMessage": "Configure new model",
@@ -2899,10 +2903,6 @@
     "defaultMessage": "Display name and description could not be saved",
     "description": "Error notification when updating MCP server display name fails"
   },
-  "7NvyO+": {
-    "defaultMessage": "Registering every skill under this folder? Run this instead:",
-    "description": "Pointer from single-skill registration to importing every skill under a repository folder"
-  },
   "7O0x9Q": {
     "defaultMessage": "Create a custom judge function using the {decorator} decorator. All parameters ({inputs}, {outputs}, {expectations}, {trace}) are optional — include only the ones your logic needs. {link}",
     "description": "Step 1 description for defining judge function"
@@ -3354,6 +3354,10 @@
   "8nOa5g": {
     "defaultMessage": "All",
     "description": "Experiment issues tab > Filter option that matches every value in a dimension"
+  },
+  "8of0GD": {
+    "defaultMessage": "Want to import multiple skills at once?",
+    "description": "Tip pointing from single-skill registration to the repository import command"
   },
   "8oh0iW": {
     "defaultMessage": "Clear filters",
@@ -6315,10 +6319,6 @@
     "defaultMessage": "{count, plural, one {# question} other {# questions}} selected",
     "description": "Create review queue: questions dropdown selected-count summary"
   },
-  "IG9BAn": {
-    "defaultMessage": "GitHub links don't show where a branch name ends, so this assumes the branch is {ref}. If the branch name contains a slash, correct the branch and path under Advanced settings.",
-    "description": "Warning that a GitHub link's branch and path split is a guess"
-  },
   "IHyeUr": {
     "defaultMessage": "Stage",
     "description": "Label name for stage metadata in model version page"
@@ -7207,10 +7207,6 @@
     "defaultMessage": "Transport type",
     "description": "Remote transport type label"
   },
-  "L5uIah": {
-    "defaultMessage": "Registering every skill in this repository? Run this instead:",
-    "description": "Pointer from single-skill registration to the repository import command"
-  },
   "L71uzj": {
     "defaultMessage": "Provider",
     "description": "Dimension toggle option for provider"
@@ -7542,10 +7538,6 @@
   "MHWark": {
     "defaultMessage": "Year",
     "description": "Time unit: year"
-  },
-  "MHhHib": {
-    "defaultMessage": "branch {ref}",
-    "description": "Git ref in the skill location summary"
   },
   "MJGFlf": {
     "defaultMessage": "Loading endpoints...",
@@ -8738,6 +8730,10 @@
   "PuoR9y": {
     "defaultMessage": "Copy the prompt below to fix this issue with your coding agent.",
     "description": "Experiment issues tab > Issue detail > Fix this issue section > Explains what the prompt below is for"
+  },
+  "PurQkQ": {
+    "defaultMessage": "Show import command",
+    "description": "Expand the skill repository import tip"
   },
   "Pv88gx": {
     "defaultMessage": "Model",
@@ -13131,10 +13127,6 @@
     "defaultMessage": "The SQL query timed out. Please retry, and if the problem persists, try selecting a larger SQL warehouse.",
     "description": "V4 traces > SQL warehouse timeout error description with CTA to select a larger warehouse"
   },
-  "e67EDw": {
-    "defaultMessage": "Content stays where it is. Clients fetch it with their own credentials.",
-    "description": "Explanation of pointer-only skill registration"
-  },
   "e6reUn": {
     "defaultMessage": "Failed",
     "description": "Label for upload failed state of a experiment logged model"
@@ -13714,6 +13706,10 @@
   "fq8v6G": {
     "defaultMessage": "Trace name",
     "description": "Column label for trace name"
+  },
+  "fqB9nu": {
+    "defaultMessage": "Documentation",
+    "description": "Link to skill registration documentation"
   },
   "fqdOQi": {
     "defaultMessage": "Tokens — input: {input}, output: {output}, total: {total}",
@@ -15646,6 +15642,10 @@
   "lNv2QR": {
     "defaultMessage": "Light",
     "description": "Light theme label"
+  },
+  "lOmKrC": {
+    "defaultMessage": "If your branch name contains '/', check the branch and path.",
+    "description": "Hint to verify the inferred branch and path of a GitHub folder URL"
   },
   "lOyzXr": {
     "defaultMessage": "Baseline",
@@ -18638,10 +18638,6 @@
   "v9fbSW": {
     "defaultMessage": "Delete",
     "description": "Bulk-delete button on the roles table (no rows selected)"
-  },
-  "vAsKGb": {
-    "defaultMessage": "path {subpath}",
-    "description": "Subpath in the skill location summary"
   },
   "vBKFgp": {
     "defaultMessage": "X axis",

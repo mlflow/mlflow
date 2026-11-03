@@ -16,6 +16,7 @@ export const PointerSourceFields = ({
   sourceType,
   refValue,
   subpath,
+  showRefSplitHint = false,
   onSourceTypeChange,
   onRefChange,
   onSubpathChange,
@@ -23,6 +24,7 @@ export const PointerSourceFields = ({
   sourceType?: SkillRegistrationSourceType;
   refValue: string;
   subpath: string;
+  showRefSplitHint?: boolean;
   onSourceTypeChange: (sourceType: SkillRegistrationSourceType) => void;
   onRefChange: (ref: string) => void;
   onSubpathChange: (subpath: string) => void;
@@ -77,7 +79,12 @@ export const PointerSourceFields = ({
               onChange={(event) => onRefChange(event.target.value)}
             />
             <Typography.Hint css={hintCss}>
-              {!ref ? (
+              {showRefSplitHint ? (
+                <FormattedMessage
+                  defaultMessage="If your branch name contains '/', check the branch and path."
+                  description="Hint to verify the inferred branch and path of a GitHub folder URL"
+                />
+              ) : !ref ? (
                 <FormattedMessage
                   defaultMessage="Defaults to the repository's default branch. A branch keeps moving, so pulls of this version get whatever it points to then. Use a tag or commit SHA to pin the content."
                   description="Hint for an empty skill git ref field"

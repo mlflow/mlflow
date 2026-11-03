@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  Alert,
   Button,
   SegmentedControlButton,
   SegmentedControlGroup,
@@ -18,42 +19,45 @@ import {
 } from '../snippets';
 import { CopyableSnippet, type SnippetFormat } from './CopyableSnippet';
 
-export const RepositoryImportHint = ({
-  code,
-  format,
-  underFolder,
-}: {
-  code: string;
-  format: SnippetFormat;
-  underFolder: boolean;
-}) => {
+export const RepositoryImportHint = ({ code, format }: { code: string; format: SnippetFormat }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-      <Typography.Text size="sm" color="secondary">
-        {underFolder ? (
-          <FormattedMessage
-            defaultMessage="Registering every skill under this folder? Run this instead:"
-            description="Pointer from single-skill registration to importing every skill under a repository folder"
-          />
-        ) : (
-          <FormattedMessage
-            defaultMessage="Registering every skill in this repository? Run this instead:"
-            description="Pointer from single-skill registration to the repository import command"
-          />
-        )}
-      </Typography.Text>
-      <CopyableSnippet
-        componentId="mlflow.skill_registry.register_modal.repository_import.copy"
-        code={code}
-        format={format}
-        copyLabel={intl.formatMessage({
-          defaultMessage: 'Copy repository import command',
-          description: 'Aria label for copying the skill repository import command',
-        })}
-      />
-    </div>
+    <Alert
+      componentId="mlflow.skill_registry.register_modal.repository_import.tip"
+      type="info"
+      role="note"
+      size="small"
+      closable={false}
+      collapsible
+      defaultExpanded={false}
+      expandToggleAriaLabel={intl.formatMessage({
+        defaultMessage: 'Show import command',
+        description: 'Expand the skill repository import tip',
+      })}
+      collapseToggleAriaLabel={intl.formatMessage({
+        defaultMessage: 'Hide import command',
+        description: 'Collapse the skill repository import tip',
+      })}
+      css={{ backgroundColor: theme.colors.backgroundSecondary, borderColor: theme.colors.border }}
+      message={
+        <FormattedMessage
+          defaultMessage="Want to import multiple skills at once?"
+          description="Tip pointing from single-skill registration to the repository import command"
+        />
+      }
+      description={
+        <CopyableSnippet
+          componentId="mlflow.skill_registry.register_modal.repository_import.copy"
+          code={code}
+          format={format}
+          copyLabel={intl.formatMessage({
+            defaultMessage: 'Copy repository import command',
+            description: 'Aria label for copying the skill repository import command',
+          })}
+        />
+      }
+    />
   );
 };
 
@@ -118,7 +122,6 @@ export const RegisterSkillApiView = ({
       {repositoryImport && (
         <RepositoryImportHint
           format={format}
-          underFolder={Boolean(repositoryImport.subpath)}
           code={format === 'cli' ? formatSkillImportCli(repositoryImport) : formatSkillImportPython(repositoryImport)}
         />
       )}
