@@ -1066,3 +1066,16 @@ def test_validate_path_within_directory_blocks_multi_level_dotdot_escape(tmp_pat
     assert not (base_dir / "a").exists()
     with pytest.raises(MlflowException, match="resolved path is outside the artifact directory"):
         validate_path_within_directory(str(base_dir), str(constructed_path))
+
+
+def test_validate_path_is_safe_deeply_encoded_path_raises_mlflow_exception():
+    # More than 10 levels of percent-encoding cannot be fully decoded, so the
+    # validator has to answer with the named error instead of a bare ValueError.
+    path = "%25"
+    for _ in range(12):
+        path = path.replace("%", "%25")
+
+    with pytest.raises(MlflowException, match="Failed to decode url") as exc:
+        validate_path_is_safe(path)
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
