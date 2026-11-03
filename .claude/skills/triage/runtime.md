@@ -89,7 +89,7 @@ Run each command below from the repository root. Logs go to `$out_dir/work`.
 4. Drive it with `agent-browser`: `open <url>` and `snapshot -i` to inspect the page, then
    interact with it to reproduce the reported behavior. Only navigate to local MLflow URLs
    and to `file://` pages you created under `$out_dir/work`.
-   Start every session with `--init-script .claude/skills/triage/scripts/init.js` on its first
+   Start every session with `--init-script .claude/scripts/browser-init.js` on its first
    `open`. It reports the browser as online: the sandbox browser otherwise reports
    `navigator.onLine === false`, and the UI never sends requests that change data (Create,
    Save, Delete).
