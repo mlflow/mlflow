@@ -10,7 +10,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { ReactComponent as ClaudeCodeLogo } from '../../common/static/logos/claude-code.svg';
-import { ReactComponent as CodexLogo } from '../../common/static/logos/codex-color.svg';
+import CodexLogo from '../../common/static/logos/codex-color.svg';
 import { ReactComponent as CursorLogo } from '../../common/static/logos/cursor.svg';
 import { ReactComponent as CopilotLogo } from '../../common/static/logos/github-copilot.svg';
 
@@ -26,7 +26,7 @@ const INSTALL_TARGET_ICONS = {
   cursor: CursorLogo,
   copilot: CopilotLogo,
   custom: FolderIcon,
-} satisfies Record<SkillInstallTargetId, ElementType>;
+} satisfies Record<SkillInstallTargetId, ElementType | string>;
 
 /**
  * The pull command for a skill, with a CLI/Python switch and the agent to install it for. Shown in the Use dialog
@@ -88,7 +88,11 @@ export const UseSkillInstructions = ({
               return (
                 <SimpleSelectOption key={target.id} value={target.id}>
                   <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.sm }}>
-                    <TargetIcon aria-hidden focusable="false" css={{ width: 16, height: 16, flexShrink: 0 }} />
+                    {typeof TargetIcon === 'string' ? (
+                      <img src={TargetIcon} alt="" aria-hidden css={{ width: 16, height: 16, flexShrink: 0 }} />
+                    ) : (
+                      <TargetIcon aria-hidden focusable="false" css={{ width: 16, height: 16, flexShrink: 0 }} />
+                    )}
                     <span>{target.label}</span>
                   </span>
                 </SimpleSelectOption>
