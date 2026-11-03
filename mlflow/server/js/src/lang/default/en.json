@@ -6235,10 +6235,6 @@
     "defaultMessage": "Manage workspace {name}",
     "description": "Aria label on the gear icon for managing a workspace"
   },
-  "IAuo/5": {
-    "defaultMessage": "Display",
-    "description": "Display control in session migration illustration"
-  },
   "IAyAgH": {
     "defaultMessage": "Move up",
     "description": "Experiment page > compare runs tab > chart header > move up option"
@@ -10935,10 +10931,6 @@
     "defaultMessage": "Duration",
     "description": "Trace filter field: execution time"
   },
-  "Wzhsx4": {
-    "defaultMessage": "Click the \"Group by session\" button to see the session-level view.",
-    "description": "Instruction explaining how to access the session-level view in the Traces tab"
-  },
   "X+Bggt": {
     "defaultMessage": "Analyze: {range}",
     "description": "Context chip for selected issue activity"
@@ -13834,6 +13826,10 @@
   "gIc8Lp": {
     "defaultMessage": "Stages have been deprecated in the new Model Registry UI. Learn how to migrate models <link>here</link>.",
     "description": "Tooltip content for the disabled stage metadata in model version page"
+  },
+  "gK/XFb": {
+    "defaultMessage": "Select \"Sessions\" in the Traces/Sessions switcher to see the session-level view.",
+    "description": "Instruction explaining how to access the session-level view in the Traces tab"
   },
   "gKb5eO": {
     "defaultMessage": "Minutes",
