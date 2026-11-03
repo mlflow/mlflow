@@ -1,8 +1,18 @@
 # File a PR from an upstream branch (not a fork) when changing this workflow or the files it
 # runs, so the change can be tested with `gh workflow run triage.yml --ref <branch>` before merging.
+# Sonnet/medium is the dispatch default for workflow smoke tests. Opus/medium matches
+# automatic issue runs:
+# `-f model=databricks-claude-opus-5-5 -f effort=medium`.
 name: Triage
 
 on:
+  # On issues.opened, triage is skipped by default for issues opened by repo admins, maintainers,
+  # and collaborators with write access (bots excluded). They can opt in with this issue-body comment:
+  # <!-- triage
+  # skip: false
+  # -->
+  # For other authors and bots, skip is always false. Dispatch and /triage follow-ups ignore this metadata.
+  # Nightly files issues as mlflow-app[bot] with `type: nightly`, which every run honors.
   issues:
     types: [opened]
   issue_comment:
@@ -21,10 +31,22 @@ on:
         description: "AI Gateway Claude model for the triage agent"
         required: false
         type: choice
-        default: databricks-claude-opus-5-5
+        default: databricks-claude-sonnet-5-5
         options:
           - databricks-claude-opus-5-5
           - databricks-claude-sonnet-5-5
+          - databricks-claude-haiku-5-5
+      effort:
+        description: "Reasoning effort for the triage agent"
+        required: false
+        type: choice
+        default: medium
+        options:
+          - low
+          - medium
+          - high
+          - xhigh
+          - max
       dry_run:
         description: "Preview triage without issue mutations"
         required: false
@@ -73,6 +95,9 @@ jobs:
       url: ${{ fromJSON(steps.issue.outputs.json).html_url }}
       author_association: ${{ fromJSON(steps.issue.outputs.json).author_association }}
       followup: ${{ steps.followup.outputs.json }}
+      skip: ${{ steps.followup.outputs.skip }}
+      frontmatter_type: ${{ steps.followup.outputs.type }}
+      patch_path_allowlist: ${{ steps.policy.outputs.patch_path_allowlist }}
       action: ${{ steps.followup.outputs.json != 'null' && 'follow-up' || 'init' }}
       dry_run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
       # Set the TRIAGE_PR_DISABLED repository Actions variable to "true" to stop opening pull requests.
@@ -112,6 +137,23 @@ jobs:
         run: |
           node .claude/skills/triage/scripts/utils.js prepare "$RUNNER_TEMP/issue.json" > "$RUNNER_TEMP/issue-context.json"
           echo "json=$(jq -c .followup "$RUNNER_TEMP/issue-context.json")" >> "$GITHUB_OUTPUT"
+          skip=$(jq -r '.triage_options.skip // false' "$RUNNER_TEMP/issue-context.json")
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+          echo "type=$(jq -r '.triage_options.type // ""' "$RUNNER_TEMP/issue-context.json")" >> "$GITHUB_OUTPUT"
+          if [ "$skip" = true ]; then
+            echo "Triage skipped: the trusted issue author opted out with \`skip: true\` frontmatter." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Resolve patch scope
+        id: policy
+        run: |
+          {
+            echo 'patch_path_allowlist<<EOF'
+            echo 'mlflow/'
+            echo 'tests/'
+            echo 'docs/'
+            echo 'libs/typescript/'
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
       - name: Clean issue content
         run: |
           context="$RUNNER_TEMP/issue-context.json"
@@ -172,6 +214,7 @@ jobs:
           echo "::$token::"
   security_gate:
     needs: issue
+    if: needs.issue.outputs.skip != 'true'
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
@@ -224,7 +267,12 @@ jobs:
         env:
           TITLE: ${{ needs.issue.outputs.title }}
           BODY: ${{ needs.issue.outputs.body }}
+          FRONTMATTER_TYPE: ${{ needs.issue.outputs.frontmatter_type }}
         run: |
+          if [ -n "$FRONTMATTER_TYPE" ]; then
+            echo "type=$FRONTMATTER_TYPE" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           title="${TITLE#"${TITLE%%[![:space:]]*}"}"
           case "${title^^}" in
             "[BUG]"* | "[UI-BUG]"* | "[SETUP-BUG]"* | "[FR]"* | "[DOC-FIX]"*) ;;
@@ -331,7 +379,9 @@ jobs:
             ui_bug) labels="bug,area/uiux"; type=bug ;;
             bug | setup_bug) labels="bug"; type=bug ;;
             feature_request) labels="enhancement" ;;
-            doc_fix) labels="bug,area/docs" ;;
+            doc_fix) labels="bug,area/docs"; type=bug ;;
+            # Nightly failures triage as bugs but keep only the labels Nightly applied.
+            nightly) labels=""; type=bug ;;
             *) type=unknown ;;
           esac
           echo "type=$type" >> "$GITHUB_OUTPUT"
@@ -344,6 +394,10 @@ jobs:
           fi
           if [ "$IS_FOLLOWUP" = true ]; then
             echo "Keeping existing labels for a maintainer follow-up."
+            exit 0
+          fi
+          if [ -z "$labels" ]; then
+            echo "Keeping the labels Nightly applied."
             exit 0
           fi
           if [ "$DRY_RUN" = true ]; then
@@ -518,7 +572,7 @@ jobs:
     needs: [issue, label, safety]
     if: >-
       needs.safety.outputs.decision == 'safe' &&
-      needs.label.outputs.type == 'bug'
+      contains(fromJSON('["bug", "feature_request"]'), needs.label.outputs.type)
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
@@ -551,9 +605,13 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
+      actions: read
       contents: read
+      issues: read
+      pull-requests: read
     cache-mode: read
     env:
+      TRIAGE_PATCH_PATH_ALLOWLIST: ${{ needs.issue.outputs.patch_path_allowlist }}
       AGENT_BROWSER_SOCKET_DIR: /tmp/triage-agent-browser
       XDG_DATA_HOME: /tmp/triage-xdg-data
       XDG_CONFIG_HOME: /tmp/triage-xdg-config
@@ -571,12 +629,26 @@ jobs:
       # https://github.com/actions/runner/issues/4789
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-node
-      # Install system packages and CLIs in parallel.
       - parallel:
+          - name: Warm pre-commit cache
+            run: |
+              uv run --only-group lint pre-commit install-hooks
+              uv run --no-sync pre-commit run install-bin --files .pre-commit-config.yaml
           - name: Install system packages
             run: |
-              sudo apt-get update
-              sudo apt-get install -y bubblewrap socat ripgrep ffmpeg
+              for attempt in 1 2 3; do
+                echo "apt-get update attempt $attempt/3"
+                if sudo timeout --kill-after=10s 1m apt-get update --error-on=any; then
+                  break
+                fi
+                if [ "$attempt" -eq 3 ]; then
+                  echo "::error::apt-get update failed after 3 attempts"
+                  exit 1
+                fi
+                echo "::warning::apt-get update failed or timed out; retrying in 5 seconds"
+                sleep 5
+              done
+              sudo apt-get install -y --no-install-recommends bubblewrap socat ripgrep ffmpeg
               if [ "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)" = 1 ]; then
                 sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
               fi
@@ -592,7 +664,7 @@ jobs:
       - name: Install sandbox runtime
         run: |
           export npm_config_before="$(date -u -d '7 days ago' +%Y-%m-%d)"
-          npm install -g @anthropic-ai/sandbox-runtime@0.0.77
+          npm install -g @anthropic-ai/sandbox-runtime@0.0.80
       - id: gateway
         uses: ./.github/actions/setup-gateway
         with:
@@ -601,16 +673,19 @@ jobs:
           client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
           client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
       - name: Start gateway proxy
+        id: gateway-proxy
         env:
           GATEWAY_TOKEN: ${{ steps.gateway.outputs.token }}
           GATEWAY_URL: ${{ steps.gateway.outputs.base-url }}
         run: |
-          umask 077
-          printf '%s\n' "$GATEWAY_TOKEN" | env -u GATEWAY_TOKEN \
+          placeholder_token=$(openssl rand -hex 32)
+          echo "::add-mask::$placeholder_token"
+          printf 'placeholder-token=%s\n' "$placeholder_token" >> "$GITHUB_OUTPUT"
+          printf '%s\n%s\n' "$GATEWAY_TOKEN" "$placeholder_token" | env -u GATEWAY_TOKEN \
             GATEWAY_URL="$GATEWAY_URL" node .claude/sandbox/gateway-proxy.mjs \
             > "$RUNNER_TEMP/triage-gateway-proxy.log" 2>&1 &
           proxy_pid=$!
-          unset GATEWAY_TOKEN
+          unset GATEWAY_TOKEN placeholder_token
           printf '%s\n' "$proxy_pid" > "$RUNNER_TEMP/triage-gateway-proxy.pid"
           for _ in $(seq 1 30); do
             if ! kill -0 "$proxy_pid" 2>/dev/null; then
@@ -629,25 +704,13 @@ jobs:
       - id: telemetry
         name: Mint telemetry token
         if: vars.TRIAGE_MLFLOW_TRACE_LOCATION != ''
-        env:
-          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-          DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
-          DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
-        run: |
-          # The OTLP ingest endpoint rejects narrower scopes such as ai-gateway or mlflow. The proxy
-          # only forwards to the two OTLP routes, so the agent can't use the token elsewhere.
-          response=$(curl -sS --max-time 15 \
-            -u "$DATABRICKS_CLIENT_ID:$DATABRICKS_CLIENT_SECRET" \
-            -d grant_type=client_credentials -d scope=all-apis \
-            "$DATABRICKS_HOST/oidc/v1/token")
-          token=$(jq -r '.access_token // empty' <<< "$response")
-          if [ -z "$token" ]; then
-            echo "::error::Telemetry token exchange failed: $(jq -r '.error_description // .error // "no access_token"' <<< "$response")"
-            exit 1
-          fi
-          echo "::add-mask::$token"
-          echo "token=$token" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/mint-telemetry-token
+        with:
+          host: ${{ secrets.DATABRICKS_HOST }}
+          client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
       - name: Start telemetry proxy
+        id: telemetry-proxy
         if: steps.telemetry.outcome == 'success'
         env:
           TELEMETRY_TOKEN: ${{ steps.telemetry.outputs.token }}
@@ -655,13 +718,15 @@ jobs:
           TRACE_LOCATION: ${{ vars.TRIAGE_MLFLOW_TRACE_LOCATION }}
           TELEMETRY_SOCKET: ${{ runner.temp }}/triage-telemetry.sock
         run: |
-          umask 077
-          printf '%s\n' "$TELEMETRY_TOKEN" | env -u TELEMETRY_TOKEN \
+          placeholder_token=$(openssl rand -hex 32)
+          echo "::add-mask::$placeholder_token"
+          printf 'placeholder-token=%s\n' "$placeholder_token" >> "$GITHUB_OUTPUT"
+          printf '%s\n%s\n' "$TELEMETRY_TOKEN" "$placeholder_token" | env -u TELEMETRY_TOKEN \
             DATABRICKS_HOST="$DATABRICKS_HOST" TRACE_LOCATION="$TRACE_LOCATION" \
             TELEMETRY_SOCKET="$TELEMETRY_SOCKET" node .claude/sandbox/otel-proxy.mjs \
             > "$RUNNER_TEMP/triage-telemetry-proxy.log" 2>&1 &
           proxy_pid=$!
-          unset TELEMETRY_TOKEN
+          unset TELEMETRY_TOKEN placeholder_token
           printf '%s\n' "$proxy_pid" > "$RUNNER_TEMP/triage-telemetry-proxy.pid"
           for _ in $(seq 1 30); do
             if ! kill -0 "$proxy_pid" 2>/dev/null; then
@@ -681,12 +746,37 @@ jobs:
           mkdir -p ~/.claude ~/.cache/uv ~/.npm
           # Claude Code rejects an empty config file.
           echo '{}' > ~/.claude.json
+          # srt mounts read-only placeholders over missing mandatory deny paths in the checkout.
+          # Git inside the sandbox lists them as untracked and `git clean` can't remove them, so
+          # exclude them. Mirrors DANGEROUS_FILES and getDangerousDirectories() in the pinned srt:
+          # https://github.com/anthropics/sandbox-runtime/blob/626a59671ee2be556d70a290a8036224be996193/src/sandbox/sandbox-utils.ts#L21-L50
+          # https://github.com/anthropics/sandbox-runtime/issues/740
+          for name in .gitconfig .gitmodules .bashrc .bash_profile .zshrc .zprofile .profile \
+            .ripgreprc .mcp.json .vscode .idea .claude/commands .claude/agents; do
+            [ -e "$name" ] || printf '/%s\n' "$name"
+          done >> .git/info/exclude
+      - name: Configure sandbox log access
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api meta > "$RUNNER_TEMP/triage-github-meta.json"
+          jq --exit-status --slurpfile meta "$RUNNER_TEMP/triage-github-meta.json" '
+            ($meta[0].domains.actions
+              | if type == "array" then . else error("Invalid Actions domains in GitHub /meta") end
+              | map(select(test("^productionresultssa[0-9]+\\.blob\\.core\\.windows\\.net$")))
+              | unique) as $domains
+            | if ($domains | length) == 0 then
+                error("GitHub /meta returned no Actions log-storage domains")
+              else
+                .network.allowedDomains += ($domains | map(. + ":443"))
+              end
+          ' .claude/sandbox/srt.json > "$RUNNER_TEMP/triage-srt.json"
       - name: Check sandbox restrictions
         run: |
           # .claude/sandbox/srt.json allows all Unix sockets because Linux SRT cannot allowlist
           # them by path and agent-browser needs one; denyRead hides the host service sockets.
           # Otherwise a sandbox that fails to start would pass every check below.
-          srt --settings .claude/sandbox/srt.json -- true
+          srt --settings "$RUNNER_TEMP/triage-srt.json" -- true
           # Verify the sandbox's PID namespace hides Runner.Worker, which holds
           # credentials referenced by this job.
           host_processes=$(ps -e -o comm=)
@@ -694,7 +784,7 @@ jobs:
             echo "::error::Runner.Worker was not found on the host"
             exit 1
           fi
-          srt --settings .claude/sandbox/srt.json -- bash -c '
+          srt --settings "$RUNNER_TEMP/triage-srt.json" -- bash -c '
             set -euo pipefail
             processes=$(ps -e -o comm=)
             if grep -Fxq "Runner.Worker" <<< "$processes"; then
@@ -732,7 +822,7 @@ jobs:
               exit 1
             fi
             TELEMETRY_SOCKET="$RUNNER_TEMP/triage-telemetry.sock" \
-              srt --settings .claude/sandbox/srt.json -- bash -c '
+              srt --settings "$RUNNER_TEMP/triage-srt.json" -- bash -c '
                 socat TCP-LISTEN:8081,bind=127.0.0.1,reuseaddr "UNIX-CONNECT:$TELEMETRY_SOCKET" &
                 for _ in $(seq 1 10); do
                   curl --noproxy "*" -fsS http://127.0.0.1:8081/healthz > /dev/null && exit 0
@@ -747,11 +837,17 @@ jobs:
             'curl -sf --unix-socket /var/run/docker.sock http://localhost/version' \
             'curl -sf --unix-socket /run/docker.sock http://localhost/version' \
             'ls /home/runner/work/_temp/_runner_file_commands | grep -q .'; do
-            if srt --settings .claude/sandbox/srt.json -- bash -c "$command"; then
+            if srt --settings "$RUNNER_TEMP/triage-srt.json" -- bash -c "$command"; then
               echo "::error::Sandbox allowed a forbidden operation"
               exit 1
             fi
           done
+      - name: Check pre-commit setup in sandbox
+        run: |
+          srt --settings "$RUNNER_TEMP/triage-srt.json" -- \
+            uv run --no-sync pre-commit run trailing-whitespace --files .pre-commit-config.yaml
+          srt --settings "$RUNNER_TEMP/triage-srt.json" -- \
+            uv run --no-sync pre-commit run install-bin --files .pre-commit-config.yaml
       # Fixed up front so the trace can be found by its session after the run.
       - id: session
         name: Generate session ID
@@ -759,18 +855,21 @@ jobs:
       - id: triage
         name: Triage issue
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANTHROPIC_BASE_URL: http://localhost:8080/anthropic
-          ANTHROPIC_AUTH_TOKEN: placeholder
+          # Placeholder the sandbox sends to the local gateway proxy; the proxy swaps in the real gateway token.
+          ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway-proxy.outputs.placeholder-token }}
           ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
           # Used by the auto mode classifier. The gateway rejects its requests for Sonnet 5.5.
           ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5
-          CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS: "1"
           AGENT_BROWSER_ARGS: --no-sandbox
           AGENT_BROWSER_SCREENSHOT_DIR: /tmp/triage-out/media
           MODEL: ${{ inputs.model || 'databricks-claude-opus-5-5' }}
+          EFFORT: ${{ inputs.effort || 'medium' }}
           SESSION_ID: ${{ steps.session.outputs.id }}
           ISSUE_PATH: ${{ runner.temp }}/issue-context/issue-context.json
           TRIAGE_ACTION: ${{ needs.issue.outputs.action }}
+          TRIAGE_TYPE: ${{ needs.label.outputs.type }}
           PR_DISABLED: ${{ needs.issue.outputs.pr_enabled != 'true' }}
           # OpenTelemetry export through the telemetry proxy. Spans need the enhanced telemetry beta;
           # logs carry per-call cost and the final response; metrics carry session counters. The OTEL_LOG_* flags include prompt,
@@ -781,6 +880,7 @@ jobs:
           OTEL_LOGS_EXPORTER: otlp
           OTEL_METRICS_EXPORTER: otlp
           OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+          OTEL_EXPORTER_OTLP_HEADERS: ${{ steps.telemetry.outcome == 'success' && format('Authorization={0} {1}', 'Bearer', steps.telemetry-proxy.outputs.placeholder-token) || '' }}
           OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://localhost:8081/v1/traces
           OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: http://localhost:8081/v1/logs
           OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: http://localhost:8081/v1/metrics
@@ -801,20 +901,32 @@ jobs:
           if [ -S "$TELEMETRY_SOCKET" ]; then
             relay=(bash -c 'socat TCP-LISTEN:8081,bind=127.0.0.1,fork,reuseaddr "UNIX-CONNECT:$0" & exec "$@"' "$TELEMETRY_SOCKET")
           fi
-          timeout 30m srt --settings .claude/sandbox/srt.json -- \
+          # Claude's native WebSearch is unavailable through the Databricks gateway.
+          # WebFetch's domain safety check calls api.anthropic.com, which the triage sandbox cannot reach.
+          timeout --kill-after=10s 30m srt --settings "$RUNNER_TEMP/triage-srt.json" -- \
             "${relay[@]}" env -u NO_PROXY -u no_proxy claude \
             --model "$MODEL" \
             --session-id "$SESSION_ID" \
-            --effort high \
+            --effort "$EFFORT" \
             --max-budget-usd 5 \
             --permission-mode auto \
-            --disallowed-tools WebSearch \
+            --disallowed-tools "WebSearch,WebFetch" \
             --print \
             --verbose \
             --output-format stream-json \
             "/triage $TRIAGE_ACTION $ISSUE_PATH /tmp/triage-out" \
             | .claude/scripts/stream.sh || { echo "::$token::"; exit 1; }
           echo "::$token::"
+      - name: Reset worktree
+        if: always()
+        run: |
+          git reset --hard "$GITHUB_SHA"
+          git clean -fd
+          status=$(git status --porcelain --untracked-files=all)
+          if [ -n "$status" ]; then
+            printf '%s\n' "$status"
+            exit 1
+          fi
       - name: Stage triage report for upload
         if: always()
         run: |
@@ -889,7 +1001,7 @@ jobs:
             --arg session "$SESSION_ID" --arg warehouse "$WAREHOUSE_ID" '{
               locations: [{type: "UC_TABLE_PREFIX", uc_table_prefix: {catalog_name: $catalog, schema_name: $schema, table_prefix: $prefix}}],
               filter: "metadata.`mlflow.trace.session` = '\''\($session)'\''",
-              max_results: 2,
+              max_results: 100,
               sql_warehouse_id: $warehouse
             }')
           # Spans can take a few minutes to be ingested after the agent exits.
@@ -901,28 +1013,29 @@ jobs:
             [ "$ids" != '[]' ] && break
             sleep 15
           done
-          # The agent can export its own spans with this session ID, so tag only an unambiguous match.
-          if [ "$(jq length <<< "$ids")" -ne 1 ]; then
-            echo "::warning::Expected one trace for session $SESSION_ID, found $ids"
+          if [ "$ids" = '[]' ]; then
+            echo "::warning::No traces found for session $SESSION_ID"
             exit 0
           fi
-          trace_id=$(jq -r '.[0]' <<< "$ids")
-          # The payload is agent output and unvalidated here, so keep only a well-formed label as the verdict.
+          # The payload is agent output and unvalidated here, so keep only a well-formed verdict.
           payload=$(jq -c objects "$RUNNER_TEMP/triage-report/payload.json" 2>/dev/null) || payload='{}'
           tags=$(jq -nc --argjson p "${payload:-"{}"}" '{
             "triage.action": env.ACTION,
             "triage.type": env.TYPE,
             "triage.status": env.STATUS,
             "triage.dry_run": env.DRY_RUN,
-            "triage.verdict": (($p.label | strings | select(test("^triage: [a-z-]+$")) | ltrimstr("triage: ")) // ""),
+            "triage.verdict": (($p.verdict | strings | select(test("^[a-z-]+$"))) // ""),
             "triage.pr_created": ($p | has("pull_request") | tostring)
           } | with_entries(select(.value != ""))')
-          jq -c 'to_entries[]' <<< "$tags" | while read -r tag; do
-            curl -sS --fail-with-body --max-time 30 --oauth2-bearer "$TOKEN" -X PATCH \
-              -H "Content-Type: application/json" --data-binary "$tag" \
-              "$DATABRICKS_HOST/api/4.0/mlflow/traces/$TRACE_LOCATION/$trace_id/tags" > /dev/null
+          jq -r '.[]' <<< "$ids" | while IFS= read -r trace_id; do
+            jq -c 'to_entries[]' <<< "$tags" | while IFS= read -r tag; do
+              curl -sS --fail-with-body --max-time 30 --oauth2-bearer "$TOKEN" -X PATCH \
+                -H "Content-Type: application/json" --data-binary "$tag" \
+                "$DATABRICKS_HOST/api/4.0/mlflow/traces/$TRACE_LOCATION/$trace_id/tags" > /dev/null
+            done
+            echo "Tagged trace $trace_id"
+            echo "Tagged trace \`$trace_id\` with \`$tags\`" >> "$GITHUB_STEP_SUMMARY"
           done
-          echo "Tagged trace \`$trace_id\` with \`$tags\`" >> "$GITHUB_STEP_SUMMARY"
       - name: Stop gateway proxy
         if: always()
         run: |
@@ -950,10 +1063,10 @@ jobs:
     permissions:
       issues: write
     env:
-      PAYLOAD_SCHEMA: .claude/skills/triage/bug/${{ needs.issue.outputs.action }}.schema.yml
+      PAYLOAD_SCHEMA: .claude/skills/triage/${{ needs.label.outputs.type }}/${{ needs.issue.outputs.action }}.schema.yml
       TRIAGE_NOTICE: |-
         > [!NOTE]
-        > [Automated triage](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}). Please verify the findings. Maintainers can comment `/triage <instructions>` to direct the agent (e.g. `/triage open a PR with the first option`).
+        > [Automated triage](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}). Please verify the findings. Maintainers can comment `/triage <instructions>` to direct the agent (e.g. `/triage open a PR with the first option`). See the [triage bot wiki](https://github.com/mlflow/mlflow/wiki/Issue-Triage-Bot) for how it works.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -970,6 +1083,18 @@ jobs:
         env:
           PAYLOAD_PATH: /tmp/triage-out/payload.json
         run: |
+          uvx check-jsonschema@0.37.4 \
+            --schemafile "$PAYLOAD_SCHEMA" "$PAYLOAD_PATH"
+      - name: Sanitize triage comment
+        if: needs.triage.result == 'success'
+        env:
+          PAYLOAD_PATH: /tmp/triage-out/payload.json
+        run: |
+          jq -j .comment "$PAYLOAD_PATH" |
+            node .claude/skills/triage/scripts/sanitize.js output > "$RUNNER_TEMP/sanitized-triage-comment.md"
+          jq --rawfile comment "$RUNNER_TEMP/sanitized-triage-comment.md" '.comment = $comment' \
+            "$PAYLOAD_PATH" > "$RUNNER_TEMP/sanitized-triage-payload.json"
+          mv "$RUNNER_TEMP/sanitized-triage-payload.json" "$PAYLOAD_PATH"
           uvx check-jsonschema@0.37.4 \
             --schemafile "$PAYLOAD_SCHEMA" "$PAYLOAD_PATH"
       - name: Validate triage media
@@ -1024,20 +1149,6 @@ jobs:
           jq --rawfile comment "$RUNNER_TEMP/triage-comment.md" '.comment = $comment' \
             "$PAYLOAD_PATH" > "$RUNNER_TEMP/triage-payload.json"
           mv "$RUNNER_TEMP/triage-payload.json" "$PAYLOAD_PATH"
-          uvx check-jsonschema@0.37.4 \
-            --schemafile "$PAYLOAD_SCHEMA" "$PAYLOAD_PATH"
-      - name: Sanitize triage comment
-        if: needs.triage.result == 'success'
-        env:
-          PAYLOAD_PATH: /tmp/triage-out/payload.json
-        run: |
-          jq -j .comment "$PAYLOAD_PATH" |
-            node .claude/skills/triage/scripts/sanitize.js output > "$RUNNER_TEMP/sanitized-triage-comment.md"
-          jq --rawfile comment "$RUNNER_TEMP/sanitized-triage-comment.md" '.comment = $comment' \
-            "$PAYLOAD_PATH" > "$RUNNER_TEMP/sanitized-triage-payload.json"
-          mv "$RUNNER_TEMP/sanitized-triage-payload.json" "$PAYLOAD_PATH"
-          uvx check-jsonschema@0.37.4 \
-            --schemafile "$PAYLOAD_SCHEMA" "$PAYLOAD_PATH"
       - name: Preview and update issue title
         if: needs.triage.result == 'success' && needs.issue.outputs.action == 'init'
         env:
@@ -1089,7 +1200,7 @@ jobs:
           PAYLOAD_PATH: /tmp/triage-out/payload.json
           SHOULD_POST: ${{ needs.issue.outputs.dry_run == 'false' }}
         run: |
-          triage_label=$(jq -r '.label // empty' "$PAYLOAD_PATH")
+          triage_label=$(jq -r '.verdict // empty | "triage: \(.)"' "$PAYLOAD_PATH")
           comment=$(jq -r --arg notice "$TRIAGE_NOTICE" \
             --arg marker "<!-- mlflow-triage-run:$GITHUB_RUN_ID -->" \
             '"\($marker)\n\n\($notice)\n\n\(.comment)"' "$PAYLOAD_PATH")
@@ -1104,7 +1215,7 @@ jobs:
             echo "$state"
             echo
             if [ -n "$triage_label" ]; then
-              jq -r '"Label: <code>\(.label | @html)</code>"' "$PAYLOAD_PATH"
+              jq -nr --arg triage_label "$triage_label" '"Label: <code>\($triage_label | @html)</code>"'
               echo
             fi
             jq -nr --arg comment "$comment" '"<pre>\($comment | @html)</pre>"'
@@ -1135,6 +1246,7 @@ jobs:
     # Dry runs validate proposals on any branch; live runs publish from the default branch only.
     if: >-
       needs.issue.outputs.pr_enabled == 'true' &&
+      (needs.label.outputs.type == 'bug' || needs.issue.outputs.action == 'follow-up') &&
       needs.triage.result == 'success' &&
       needs.post_triage.result == 'success' &&
       (needs.issue.outputs.dry_run == 'true' ||
@@ -1146,7 +1258,8 @@ jobs:
       issues: write
       pull-requests: read
     env:
-      PAYLOAD_SCHEMA: .claude/skills/triage/bug/${{ needs.issue.outputs.action }}.schema.yml
+      TRIAGE_PATCH_PATH_ALLOWLIST: ${{ needs.issue.outputs.patch_path_allowlist }}
+      PAYLOAD_SCHEMA: .claude/skills/triage/${{ needs.label.outputs.type }}/${{ needs.issue.outputs.action }}.schema.yml
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -1207,13 +1320,9 @@ jobs:
           OUT_DIR: /tmp/triage-out
         run: |
           git apply --index "$OUT_DIR/fix.patch"
+          mapfile -t paths < <(printf '%s\n' "$TRIAGE_PATCH_PATH_ALLOWLIST" | sed '/^$/d')
           # --no-renames lists both sides of a rename.
-          outside=$(git diff --cached --no-renames --name-only -- . ':!mlflow/' ':!tests/')
-          if [ -n "$outside" ]; then
-            echo "::error::fix.patch changes files outside mlflow/ and tests/:"
-            printf '%s\n' "$outside"
-            exit 1
-          fi
+          git diff --cached --no-renames --exit-code --name-only -- . "${paths[@]/#/:(exclude)}"
           if git diff --cached --quiet; then
             echo "::error::fix.patch changes no files"
             exit 1
@@ -1254,7 +1363,7 @@ jobs:
             # Context lines start with a space, which can still close a Markdown fence, so escape instead.
             jq -Rsr '"<pre>\(@html)</pre>"' "$OUT_DIR/fix.patch"
           } >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         id: app-token
         if: steps.check.outputs.proposed == 'true' && needs.issue.outputs.dry_run == 'false'
         with:

@@ -118,7 +118,7 @@ export const EvalRunTracesV4Table = ({
     refetchPage();
     refetchAssessmentSummaries();
   }, [refetchPage, refetchAssessmentSummaries]);
-  const actions = useTracesV4TraceActions(experimentId, page.traces, refetchTracesAndSummaries);
+  const actions = useTracesV4TraceActions(experimentId, page.traces, refetchTracesAndSummaries, notify);
 
   // Header summaries: the scorer's rate or value over the run, with a chart for pass/fail scores. A chart
   // click toggles a filter on that value.
@@ -388,6 +388,7 @@ export const EvalRunTracesV4Table = ({
     selectedTraceInfos,
     isGroupedBySession: controller.isGroupedBySession,
     onToggleSessionGrouping: url.setIsGroupedBySession,
+    showSessionViewSwitch: true,
   });
 
   const hasRows = page.traces.length > 0;
@@ -451,6 +452,7 @@ export const EvalRunTracesV4Table = ({
       inputRef: searchInputRef,
       resetKey: runUuid,
     }),
+    leftControls: toolbarSlots.sessionViewSwitch,
     rightControls: toolbarSlots.rightControls,
     bannerSlot: (
       <>

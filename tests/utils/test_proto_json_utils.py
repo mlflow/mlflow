@@ -1,21 +1,30 @@
 import base64
 import datetime
 import json
+from unittest import mock
 
 import numpy as np
 import pandas as pd
 import pytest
+from google.protobuf import descriptor_pb2, descriptor_pool
+from google.protobuf.any_pb2 import Any as ProtoAny
+from google.protobuf.descriptor_pb2 import MethodOptions
+from google.protobuf.json_format import MessageToDict
 from google.protobuf.text_format import Parse as ParseTextIntoProto
+from google.protobuf.wrappers_pb2 import Int64Value
 
 from mlflow.entities import Experiment, Metric
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import rpc
 from mlflow.protos.model_registry_pb2 import RegisteredModel as ProtoRegisteredModel
 from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
+from mlflow.protos.service_pb2 import GetTrace
 from mlflow.protos.service_pb2 import Metric as ProtoMetric
 from mlflow.types import ColSpec, DataType, Schema, TensorSpec
 from mlflow.types.schema import Array, Map, Object, Property
 from mlflow.types.utils import _infer_schema
+from mlflow.utils import proto_json_utils
 from mlflow.utils.proto_json_utils import (
     MlflowFailedTypeConversion,
     _CustomJsonEncoder,
@@ -29,6 +38,13 @@ from mlflow.utils.proto_json_utils import (
 )
 
 from tests.protos.test_message_pb2 import SampleMessage
+
+
+@pytest.fixture(params=[True, False])
+def use_int64_number_json_printer(request, monkeypatch):
+    monkeypatch.setattr(proto_json_utils, "_USE_INT64_NUMBER_JSON_PRINTER", request.param)
+    yield
+    assert proto_json_utils._USE_INT64_NUMBER_JSON_PRINTER is request.param
 
 
 @pytest.mark.parametrize(
@@ -60,7 +76,7 @@ def test_dump_input_data_dict_rejects_unsupported_value():
         dump_input_data({"x": [1, 2]})
 
 
-def test_message_to_json():
+def test_message_to_json(use_int64_number_json_printer):
     json_out = message_to_json(Experiment("123", "name", "arty", "active").to_proto())
     assert json.loads(json_out) == {
         "experiment_id": "123",
@@ -228,7 +244,6 @@ def test_message_to_json():
         },
         "[mlflow.ExtensionMessage.field_extended_int64]": "100",
     }
-
     json_with_int64_strings = json.loads(
         message_to_json(test_message, convert_int64_to_number=False)
     )
@@ -237,6 +252,146 @@ def test_message_to_json():
     new_test_message = SampleMessage()
     parse_dict(json_dict, new_test_message)
     assert new_test_message == test_message
+
+
+def test_message_to_json_preserves_special_protobuf_types(use_int64_number_json_printer):
+    assert json.loads(message_to_json(Int64Value(value=42))) == "42"
+    any_message = ProtoAny()
+    any_message.Pack(SampleMessage(field_int64=42))
+    assert json.loads(message_to_json(any_message)) == {
+        "@type": "type.googleapis.com/mlflow.SampleMessage",
+        "field_int64": "42",
+    }
+
+
+def test_message_to_json_preserves_int64_in_message_extension(use_int64_number_json_printer):
+    message = MethodOptions()
+    message.Extensions[rpc].rate_limit.max_burst = 42
+    assert json.loads(message_to_json(message)) == {
+        "[mlflow.rpc]": {"rate_limit": {"max_burst": "42"}}
+    }
+
+
+@pytest.fixture(scope="module")
+def repeated_int64_extension():
+    proto = descriptor_pb2.FileDescriptorProto()
+    proto.name = "test_repeated_int64_extension.proto"
+    proto.package = "mlflow"
+    proto.syntax = "proto2"
+    proto.dependency.append("test_message.proto")
+    field = proto.extension.add()
+    field.name = "field_extended_repeated_int64"
+    field.extendee = ".mlflow.SampleMessage"
+    field.number = 1002
+    field.label = descriptor_pb2.FieldDescriptorProto.LABEL_REPEATED
+    field.type = descriptor_pb2.FieldDescriptorProto.TYPE_INT64
+    descriptor = descriptor_pool.Default().AddSerializedFile(proto.SerializeToString())
+    return descriptor.extensions_by_name[field.name]
+
+
+@pytest.mark.parametrize("packed", [False, True])
+def test_message_to_json_preserves_repeated_int64_extension(
+    use_int64_number_json_printer, repeated_int64_extension, packed
+):
+    message = SampleMessage()
+    message.Extensions[repeated_int64_extension].extend([42, 2**53 + 1])
+    if packed:
+        any_message = ProtoAny()
+        any_message.Pack(message)
+        message = any_message
+    expected = MessageToDict(message, preserving_proto_field_name=True)
+    # The original merge converts unbracketed repeated extension keys to numbers,
+    # but leaves packed Any messages and bracketed extension keys unchanged.
+    if not packed and repeated_int64_extension.name in expected:
+        expected[repeated_int64_extension.name] = [42, 2**53 + 1]
+    assert json.loads(message_to_json(message)) == expected
+
+
+@pytest.mark.parametrize("value", [-(2**63), -(2**53 + 1), 2**53 + 1, 2**53 + 2, 2**63 - 1])
+def test_message_to_json_preserves_int64_numbers_at_precision_boundary(
+    value, use_int64_number_json_printer
+):
+    assert json.loads(message_to_json(SampleMessage(field_int64=value))) == {"field_int64": value}
+
+
+def test_message_to_json_complete_trace_int64_numbers(use_int64_number_json_printer):
+    response = GetTrace.Response()
+    span = response.trace.spans.add()
+    span.start_time_unix_nano = 1234567890123456789
+    span.end_time_unix_nano = 1234567890123456799
+    span.events.add().time_unix_nano = 1234567890123456790
+    attribute = span.attributes.add()
+    attribute.key = "count"
+    attribute.value.int_value = 42
+
+    assert json.loads(message_to_json(response, pretty=False)) == {
+        "trace": {
+            "spans": [
+                {
+                    "start_time_unix_nano": 1234567890123456789,
+                    "end_time_unix_nano": 1234567890123456799,
+                    "events": [{"time_unix_nano": 1234567890123456790}],
+                    "attributes": [{"key": "count", "value": {"int_value": 42}}],
+                }
+            ]
+        }
+    }
+
+
+@pytest.mark.parametrize(
+    "method",
+    ["__init__", "_MessageToJsonObject", "_RegularMessageToJsonObject", "_FieldToJsonObject"],
+)
+@pytest.mark.parametrize("error", [AttributeError("API removed"), TypeError("API changed")])
+def test_message_to_json_disables_optimized_printer_after_failure(
+    method, error, monkeypatch, caplog
+):
+    monkeypatch.setattr(proto_json_utils, "_USE_INT64_NUMBER_JSON_PRINTER", True)
+    message = SampleMessage(field_int64=2**53 + 1)
+    with mock.patch.object(
+        proto_json_utils._Int64NumberJsonPrinter, method, side_effect=error
+    ) as printer:
+        assert json.loads(message_to_json(message)) == {"field_int64": 2**53 + 1}
+        assert not proto_json_utils._USE_INT64_NUMBER_JSON_PRINTER
+        assert json.loads(message_to_json(message, pretty=False)) == {"field_int64": 2**53 + 1}
+        assert json.loads(message_to_json(message, convert_int64_to_number=False)) == {
+            "field_int64": str(2**53 + 1)
+        }
+        printer.assert_called_once()
+
+    records = [r for r in caplog.records if r.name == proto_json_utils.__name__]
+    assert len(records) == 1
+    assert records[0].levelname == "ERROR"
+    assert "Switching to public protobuf APIs for subsequent calls." in records[0].message
+    assert records[0].exc_info[1] is error
+
+
+def test_message_to_json_propagates_public_serialization_failure(monkeypatch):
+    monkeypatch.setattr(proto_json_utils, "_USE_INT64_NUMBER_JSON_PRINTER", False)
+    with mock.patch.object(
+        proto_json_utils, "MessageToDict", side_effect=ValueError("Invalid message")
+    ) as public_printer:
+        with pytest.raises(ValueError, match="Invalid message"):
+            message_to_json(SampleMessage())
+        public_printer.assert_called_once()
+
+
+def test_message_to_json_optimized_printer_skips_fallback(monkeypatch):
+    monkeypatch.setattr(proto_json_utils, "_USE_INT64_NUMBER_JSON_PRINTER", True)
+    with mock.patch.object(proto_json_utils, "MessageToDict") as public_printer:
+        assert json.loads(message_to_json(SampleMessage(field_int64=42))) == {"field_int64": 42}
+        assert proto_json_utils._USE_INT64_NUMBER_JSON_PRINTER
+        public_printer.assert_not_called()
+
+
+def test_message_to_json_int64_strings_skips_optimized_printer(monkeypatch):
+    monkeypatch.setattr(proto_json_utils, "_USE_INT64_NUMBER_JSON_PRINTER", True)
+    with mock.patch.object(proto_json_utils, "_Int64NumberJsonPrinter") as printer:
+        assert json.loads(
+            message_to_json(SampleMessage(field_int64=42), convert_int64_to_number=False)
+        ) == {"field_int64": "42"}
+        assert proto_json_utils._USE_INT64_NUMBER_JSON_PRINTER
+        printer.assert_not_called()
 
 
 def test_parse_dict():
@@ -636,6 +791,69 @@ def test_cast_df_types_according_to_schema_success(dataframe, schema, expected):
 def test_cast_df_types_according_to_schema_error_message(dataframe, schema, error_message):
     with pytest.raises(MlflowFailedTypeConversion, match=error_message):
         cast_df_types_according_to_schema(dataframe, schema)
+
+
+@pytest.mark.parametrize(
+    ("pandas_orient", "data"),
+    [
+        ("split", {"columns": ["foo"], "data": [[True], [None], [False]]}),
+        ("records", [{"foo": True}, {"foo": None}, {"foo": False}]),
+        ("records", [{"foo": True}, {}, {"foo": False}]),
+    ],
+)
+def test_dataframe_from_parsed_json_keeps_missing_booleans(pandas_orient, data):
+    schema = Schema([ColSpec(DataType.boolean, "foo", required=False)])
+    df = dataframe_from_parsed_json(data, pandas_orient, schema)
+    values = df["foo"].tolist()
+    assert values[0] is True
+    assert pd.isna(values[1])
+    assert values[2] is False
+
+
+@pytest.mark.parametrize(
+    ("data_type", "value", "expected"),
+    [
+        (DataType.boolean, True, True),
+        (DataType.string, "a", "a"),
+        (DataType.binary, "a", b"a"),
+    ],
+)
+@pytest.mark.parametrize("key", ["inputs", "instances"])
+def test_parse_tf_serving_input_keeps_missing_values(data_type, value, expected, key):
+    schema = Schema([ColSpec(data_type, "foo", required=False), ColSpec(DataType.long, "bar")])
+    data = (
+        {"foo": [value, None], "bar": [1, 2]}
+        if key == "inputs"
+        else [{"foo": value, "bar": 1}, {"foo": None, "bar": 2}]
+    )
+    result = parse_tf_serving_input({key: data}, schema)
+    assert result["foo"].tolist() == [expected, None]
+
+
+@pytest.mark.parametrize(
+    ("pandas_orient", "data"),
+    [
+        ("split", {"columns": ["foo"], "data": [[1.5], [None], [0]]}),
+        ("records", [{"foo": "true"}, {}, {"foo": False}]),
+    ],
+)
+def test_dataframe_from_parsed_json_converts_non_null_booleans_with_missing_values(
+    pandas_orient, data
+):
+    schema = Schema([ColSpec(DataType.boolean, "foo", required=False)])
+    df = dataframe_from_parsed_json(data, pandas_orient, schema)
+    values = df["foo"].tolist()
+    assert values[0] is True
+    assert pd.isna(values[1])
+    assert values[2] is False
+
+
+@pytest.mark.parametrize("data_type", [DataType.boolean, DataType.string, DataType.binary])
+def test_parse_tf_serving_input_rejects_nested_values_with_missing_values(data_type):
+    schema = Schema([ColSpec(data_type, "foo", required=False), ColSpec(DataType.long, "bar")])
+    data = {"foo": [["a"], None], "bar": [1, 2]}
+    with pytest.raises(MlflowException, match="setting an array element with a sequence"):
+        parse_tf_serving_input({"inputs": data}, schema)
 
 
 @pytest.mark.parametrize(

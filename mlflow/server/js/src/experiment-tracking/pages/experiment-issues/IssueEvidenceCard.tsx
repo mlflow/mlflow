@@ -314,13 +314,16 @@ const IssueEvidenceStep = ({
         backgroundColor: theme.colors.backgroundPrimary,
         border: `1px solid ${theme.colors.border}`,
         borderRadius: theme.borders.borderRadiusMd,
-        // The span keeps its name; "View span" appears at the row's end while the step is hovered or focused.
+        // The span keeps its name; "View span" appears at the row's end while the step is hovered,
+        // or while something in it holds a visible focus ring. `:focus-visible` rather than
+        // `:focus-within` for the same reason as the card's own "Open trace": a clicked button
+        // keeps focus, which left the action showing on a row the pointer had already left.
         '& .issue-evidence-step-action': {
           opacity: 0,
           pointerEvents: 'none',
           transition: `opacity ${theme.animation.transitionDuration}ms ease`,
         },
-        '&:hover .issue-evidence-step-action, &:focus-within .issue-evidence-step-action': {
+        '&:hover .issue-evidence-step-action, &:has(:focus-visible) .issue-evidence-step-action': {
           opacity: 1,
           pointerEvents: 'auto',
         },
@@ -519,8 +522,13 @@ export const IssueEvidenceCard = ({
         padding: theme.spacing.sm + theme.spacing.xs / 2,
         backgroundColor: theme.colors.backgroundSecondary,
         borderRadius: theme.borders.borderRadiusMd + theme.spacing.xs / 2,
+        // "Open trace" appears while the card is hovered, or while something in it holds a visible
+        // focus ring so a keyboard reader can reach the button. Gated on `:focus-visible` rather
+        // than `:focus-within`: expanding a card leaves the pointer's focus on its chevron, which
+        // under `:focus-within` pinned the button open on that card until the reader clicked
+        // elsewhere.
         '& .issue-evidence-trace-action': { display: 'none' },
-        '&:hover .issue-evidence-trace-action, &:focus-within .issue-evidence-trace-action': {
+        '&:hover .issue-evidence-trace-action, &:has(:focus-visible) .issue-evidence-trace-action': {
           display: 'inline-flex',
         },
       }}

@@ -447,13 +447,12 @@ const ScorerOption = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   return (
-    <div
-      role="checkbox"
-      aria-checked={selected}
-      css={{ cursor: 'pointer', height: 48, flexShrink: 0 }}
-      onClick={() => onClick(scorer)}
-    >
-      <Checkbox componentId="mlflow.experiment-scorers.traces-view-judge-llm" isChecked={selected}>
+    <div css={{ height: 48, flexShrink: 0 }}>
+      <Checkbox
+        componentId="mlflow.experiment-scorers.traces-view-judge-llm"
+        isChecked={selected}
+        onChange={() => onClick(scorer)}
+      >
         <div css={{ display: 'flex', flexDirection: 'column', marginLeft: theme.spacing.xs }}>
           <Typography.Text css={{ flex: 1 }}>{scorer.name}</Typography.Text>
           <Typography.Hint>
@@ -482,13 +481,12 @@ const TemplateOption = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   return (
-    <div
-      role="checkbox"
-      aria-checked={selected}
-      css={{ cursor: 'pointer', height: 48, flexShrink: 0 }}
-      onClick={() => onClick(template.value)}
-    >
-      <Checkbox componentId="mlflow.experiment-scorers.traces-view-judge-template" isChecked={selected}>
+    <div css={{ height: 48, flexShrink: 0 }}>
+      <Checkbox
+        componentId="mlflow.experiment-scorers.traces-view-judge-template"
+        isChecked={selected}
+        onChange={() => onClick(template.value)}
+      >
         <div css={{ display: 'flex', flexDirection: 'column', marginLeft: theme.spacing.xs }}>
           <Typography.Text css={{ flex: 1 }}>{template.label}</Typography.Text>
           <Typography.Hint>

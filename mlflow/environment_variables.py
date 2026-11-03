@@ -231,7 +231,10 @@ MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_TTL_SECONDS = _EnvironmentVariable(
 #: (default: ``/tmp/mlflow``)
 MLFLOW_DFS_TMP = _EnvironmentVariable("MLFLOW_DFS_TMP", str, "/tmp/mlflow")
 
-#: Specifies the maximum number of retries with exponential backoff for MLflow HTTP requests
+#: Specifies the maximum number of retries with exponential backoff for MLflow HTTP requests.
+#: ``POST`` requests to an MLflow tracking server that aren't safe to send twice, such as creating
+#: a run or a model version, are retried only when the request wasn't processed, for example on a
+#: connection error or a 408 or 429 response.
 #: (default: ``7``)
 MLFLOW_HTTP_REQUEST_MAX_RETRIES = _EnvironmentVariable(
     "MLFLOW_HTTP_REQUEST_MAX_RETRIES",
@@ -267,7 +270,9 @@ MLFLOW_DEPLOYMENT_CLIENT_HTTP_REQUEST_TIMEOUT = _EnvironmentVariable(
 )
 
 #: Specifies whether to respect Retry-After header on status codes defined as
-#: Retry.RETRY_AFTER_STATUS_CODES or not for MLflow HTTP request
+#: Retry.RETRY_AFTER_STATUS_CODES or not for MLflow HTTP request. For ``POST`` requests to an MLflow
+#: tracking server that aren't safe to send twice, the header only sets how long to wait before
+#: retrying a 408 or 429 response; it doesn't make a 413 or 503 response retried.
 #: (default: ``True``)
 MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER = _BooleanEnvironmentVariable(
     "MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER", True
@@ -950,10 +955,18 @@ MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT = _EnvironmentVariable(
     "MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", str, "auto"
 )
 
-#: Maximum scorer calls per second during mlflow.genai.evaluate. A token-bucket
-#: rate limiter throttles individual scorer invocations across all worker threads.
-#: Accepted values: a positive number (fixed rate) or ``0`` to disable.
+#: Shared scorer budget per second during mlflow.genai.evaluate. A token-bucket
+#: rate limiter throttles scorer invocations across all worker threads.
+#: Accepted values: ``auto`` (adaptive rate starting at 10 rps), a positive number
+#: (fixed rate), or ``0`` to disable. The token bucket allows a one-second burst.
 #: When unset, the scorer rate is auto-derived as predict_rate x num_scorers.
+#:
+#: [Databricks users only] With databricks-agents SDK installed, RetrievalRelevance
+#: consumes this budget per judge HTTP attempt including chunk retries, instead of
+#: once per scorer invocation. Set
+#: ``ENABLE_RETRIEVAL_JUDGE_PER_REQUEST_RATE_LIMITING=false`` to disable per-request limiting.
+#: Older SDKs retain per-scorer invocation limits.
+#: Other scorers always rate limit by per-scorer invocation.
 MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT = _EnvironmentVariable(
     "MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT", str, None
 )
@@ -1333,6 +1346,10 @@ MLFLOW_ENABLE_ASYNC_TRACE_LOGGING = _BooleanEnvironmentVariable(
 MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS = _EnvironmentVariable(
     "MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS", int, 10
 )
+
+#: Maximum number of worker threads for deleting archived trace payloads. Must be positive.
+#: (default: ``8``)
+MLFLOW_TRACE_DELETE_MAX_WORKERS = _EnvironmentVariable("MLFLOW_TRACE_DELETE_MAX_WORKERS", int, 8)
 
 #: Maximum number of export tasks to queue for async trace logging.
 #: When the queue is full, new export tasks will be dropped.
@@ -1759,6 +1776,16 @@ MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS = _EnvironmentVariable(
     "MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS", int, 10
 )
 
+#: Specifies the maximum number of scheduled issue-detection occurrences that run concurrently.
+#: One occurrence per experiment at a time, so this bounds how many experiments are analyzed at
+#: once. Separate from judge invocation, and lower by default, for the same reason online scoring
+#: is separate from it: this work is unattended and recurring, so it should not claim as much of
+#: the server as something a user is waiting on.
+#: (default: ``5``)
+MLFLOW_SERVER_SCHEDULED_ISSUE_DETECTION_MAX_WORKERS = _EnvironmentVariable(
+    "MLFLOW_SERVER_SCHEDULED_ISSUE_DETECTION_MAX_WORKERS", int, 5
+)
+
 #: Number of traces to batch into a single scorer invocation job.
 MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE = _EnvironmentVariable(
     "MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE", int, 100
@@ -1864,6 +1891,10 @@ MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS = _BooleanEnvironmentVariable(
 #: by users. (default: ``False``)
 _MLFLOW_IN_JOB_EXECUTOR = _BooleanEnvironmentVariable("_MLFLOW_IN_JOB_EXECUTOR", False)
 
+#: Internal job identity set by the server in worker subprocesses.
+_MLFLOW_SERVER_JOB_NAME = _EnvironmentVariable("_MLFLOW_SERVER_JOB_NAME", str, None)
+_MLFLOW_SERVER_JOB_ID = _EnvironmentVariable("_MLFLOW_SERVER_JOB_ID", str, None)
+
 #: Opt-in switch for the executor job-execution engine. Leave unset to use the default engine
 #: (currently the built-in Huey consumers); set to ``"executor"`` to route job execution through
 #: the ``AbstractJobExecutor`` framework (``LocalJobExecutor`` by default). It is intentionally
@@ -1917,9 +1948,21 @@ MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH = _BooleanEnvironmentVariable(
 _MLFLOW_ENABLE_UC_TRACE_UPSELL = _BooleanEnvironmentVariable("_MLFLOW_ENABLE_UC_TRACE_UPSELL", True)
 
 
-#: Specifies whether to allow unsafe pickle deserialization for loading model
+#: (Deprecated, use ``MLFLOW_ALLOW_MODEL_CODE_EXECUTION``) Specifies whether to allow unsafe
+#: pickle deserialization for loading model. Setting it to ``false`` refuses only pickle and
+#: cloudpickle models.
 MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
     "MLFLOW_ALLOW_PICKLE_DESERIALIZATION", True
+)
+
+#: Specifies whether to allow loading models that run code supplied by the model: pickle or
+#: cloudpickle artifacts, code directories logged with ``code_paths``, models from code, models
+#: on the Python path, Transformers custom code, LlamaIndex settings that name classes to
+#: construct, and all PyFunc models, because a PyFunc model names the Python module that loads
+#: it. Set it to ``false`` to refuse such models. Only set it to ``true`` for models you trust.
+#: (default: ``True``)
+MLFLOW_ALLOW_MODEL_CODE_EXECUTION = _BooleanEnvironmentVariable(
+    "MLFLOW_ALLOW_MODEL_CODE_EXECUTION", True
 )
 
 
@@ -1932,6 +1975,13 @@ MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
 _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN = _EnvironmentVariable(
     "_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", str, None
 )
+
+#: Internal env var set by ``mlflow server`` for its worker processes when uvicorn terminates TLS
+#: itself (``--uvicorn-opts`` with ``--ssl-keyfile``/``--ssl-certfile``), so that server
+#: self-calls (see ``mlflow.server.asgi_utils.get_server_self_url``) use HTTPS. Not set behind a
+#: TLS-terminating proxy, where the listener itself speaks plain HTTP.
+#: (default: ``False``)
+_MLFLOW_SERVER_TLS_LISTENER = _BooleanEnvironmentVariable("_MLFLOW_SERVER_TLS_LISTENER", False)
 
 # Short-lived, user-scoped credential the MLflow Assistant injects into a tool subprocess so the
 # tool's MLflow API calls authenticate as the session owner. It is an HMAC-signed value (see
@@ -1953,7 +2003,8 @@ _MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY = _EnvironmentVariable(
 
 #: Base URI to fetch the latest model catalog from. Each provider file is fetched
 #: as ``{uri}/{provider}.json``. Supports http(s):// and file:// schemes.
-#: Set to an empty string to disable remote fetch.
+#: Set to an empty string to disable remote fetch. When set to a non-default URI, prices that
+#: catalog lists take precedence over litellm's for trace cost and gateway budgets.
 #: (default: ``https://github.com/mlflow/mlflow/releases/download/model-catalog%2Flatest``)
 MLFLOW_MODEL_CATALOG_URI = _EnvironmentVariable(
     "MLFLOW_MODEL_CATALOG_URI",

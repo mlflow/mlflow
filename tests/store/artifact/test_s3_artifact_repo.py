@@ -505,13 +505,13 @@ def test_create_multipart_upload_rejects_unsupported_checksums_before_creating_u
     local_file = tmp_path / "artifact.bin"
     local_file.write_bytes(b"data")
     repo = S3ArtifactRepository("s3://bucket/root")
-    with mock.patch.object(repo, "_get_s3_client") as get_client:
-        with pytest.raises(MlflowException, match="do not support ChecksumAlgorithm") as exc:
-            repo.create_multipart_upload(str(local_file))
-    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
-    get_client.assert_called_once()
-    get_client.return_value.create_multipart_upload.assert_not_called()
-    get_client.return_value.generate_presigned_url.assert_not_called()
+    with (
+        mock.patch.object(repo, "_get_s3_client") as get_client,
+        pytest.raises(MlflowException, match="Presigned artifact transfers are unavailable") as exc,
+    ):
+        repo.create_multipart_upload(str(local_file))
+    assert exc.value.error_code == "NOT_IMPLEMENTED"
+    get_client.assert_not_called()
 
 
 def test_create_multipart_upload_preserves_content_metadata_and_encryption_headers(
@@ -560,94 +560,28 @@ def test_create_multipart_upload_preserves_content_metadata_and_encryption_heade
     assert response.credentials[0].headers == {}
 
 
-def test_create_multipart_upload_returns_required_sse_customer_headers(tmp_path, monkeypatch):
-    local_file = tmp_path / "artifact.bin"
-    local_file.write_bytes(b"content")
-    monkeypatch.setenv(
-        "MLFLOW_S3_UPLOAD_EXTRA_ARGS",
-        json.dumps({
-            "SSECustomerAlgorithm": "AES256",
-            "SSECustomerKey": "customer-key",
-            "SSECustomerKeyMD5": "customer-key-md5",
-        }),
-    )
-    repo = S3ArtifactRepository("s3://bucket/root")
-    s3_client = mock.Mock()
-    s3_client.meta.service_model.operation_model.return_value.input_shape.members = {
-        "ContentType",
-        "SSECustomerAlgorithm",
-        "SSECustomerKey",
-        "SSECustomerKeyMD5",
-    }
-    s3_client.create_multipart_upload.return_value = {"UploadId": "upload-id"}
-    s3_client.generate_presigned_url.return_value = "https://example.com/upload"
-
-    with mock.patch.object(repo, "_get_s3_client", return_value=s3_client):
-        response = repo.create_multipart_upload(str(local_file))
-
-    s3_client.generate_presigned_url.assert_called_once_with(
-        "upload_part",
-        Params={
-            "Bucket": "bucket",
-            "Key": "root/artifact.bin",
-            "PartNumber": 1,
-            "UploadId": "upload-id",
-            "SSECustomerAlgorithm": "AES256",
-            "SSECustomerKey": "customer-key",
-            "SSECustomerKeyMD5": "customer-key-md5",
-        },
-    )
-    assert response.credentials[0].headers == {
-        "x-amz-server-side-encryption-customer-algorithm": "AES256",
-        "x-amz-server-side-encryption-customer-key": "customer-key",
-        "x-amz-server-side-encryption-customer-key-MD5": "customer-key-md5",
-    }
-
-
-def test_create_multipart_upload_normalizes_sse_customer_key_for_part_signature(
-    tmp_path, monkeypatch
+@pytest.mark.parametrize(
+    "presigned_method",
+    ["create_multipart_upload", "create_presigned_upload_url", "get_download_presigned_url"],
+)
+def test_presigned_transfers_reject_sse_customer_key_before_s3_calls(
+    tmp_path, monkeypatch, presigned_method
 ):
-    local_file = tmp_path / "artifact.bin"
-    local_file.write_bytes(b"content")
     monkeypatch.setenv(
         "MLFLOW_S3_UPLOAD_EXTRA_ARGS",
-        json.dumps({
-            "SSECustomerAlgorithm": "AES256",
-            "SSECustomerKey": "customer-key",
-        }),
+        json.dumps({"SSECustomerAlgorithm": "AES256", "SSECustomerKey": "customer-key"}),
     )
+    local_file = tmp_path / "artifact.bin"
+    local_file.write_bytes(b"content")
     repo = S3ArtifactRepository("s3://bucket/root")
-    s3_client = mock.Mock()
-    s3_client.meta.service_model.operation_model.return_value.input_shape.members = {
-        "SSECustomerAlgorithm",
-        "SSECustomerKey",
-        "SSECustomerKeyMD5",
-    }
-    s3_client.create_multipart_upload.return_value = {"UploadId": "upload-id"}
-    s3_client.generate_presigned_url.return_value = "https://example.com/upload"
-
-    with mock.patch.object(repo, "_get_s3_client", return_value=s3_client):
-        response = repo.create_multipart_upload(str(local_file))
-
-    expected_key = "Y3VzdG9tZXIta2V5"
-    expected_md5 = "xUvIiqGwjknkCReLkVcZIw=="
-    s3_client.generate_presigned_url.assert_called_once_with(
-        "upload_part",
-        Params={
-            "Bucket": "bucket",
-            "Key": "root/artifact.bin",
-            "PartNumber": 1,
-            "UploadId": "upload-id",
-            "SSECustomerAlgorithm": "AES256",
-            "SSECustomerKey": expected_key,
-            "SSECustomerKeyMD5": expected_md5,
-        },
-    )
-    assert response.credentials[0].headers == {
-        "x-amz-server-side-encryption-customer-algorithm": "AES256",
-        "x-amz-server-side-encryption-customer-key": expected_key,
-        "x-amz-server-side-encryption-customer-key-MD5": expected_md5,
-    }
+    argument = str(local_file) if presigned_method == "create_multipart_upload" else local_file.name
+    with (
+        mock.patch.object(repo, "_get_s3_client") as get_client,
+        pytest.raises(MlflowException, match="Presigned artifact transfers are unavailable") as exc,
+    ):
+        getattr(repo, presigned_method)(argument)
+    assert exc.value.error_code == "NOT_IMPLEMENTED"
+    get_client.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -1285,7 +1219,7 @@ def test_gzip_multipart_presigned_download_preserves_stored_bytes(
 
 
 @pytest.mark.parametrize("encoded_key", [False, True])
-def test_sse_customer_multipart_upload_and_presigned_download(
+def test_sse_customer_artifact_repository_round_trip(
     s3_artifact_root, tmp_path, monkeypatch, encoded_key
 ):
     key = b"0123456789abcdef0123456789abcdef"
@@ -1299,38 +1233,36 @@ def test_sse_customer_multipart_upload_and_presigned_download(
     local_file = tmp_path / "encrypted.txt"
     content = b"encrypted artifact contents"
     local_file.write_bytes(content)
-    upload = repo.create_multipart_upload(str(local_file))
-    credential = upload.credentials[0]
-    uploaded = requests.put(credential.url, data=content, headers=credential.headers, timeout=10)
-    uploaded.raise_for_status()
-    repo.complete_multipart_upload(
+    repo.log_artifact(str(local_file))
+    with open(repo.download_artifacts(local_file.name), "rb") as downloaded:
+        assert downloaded.read() == content
+
+
+def test_sse_customer_download_preserves_expected_bucket_owner(tmp_path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", "123456789012")
+    monkeypatch.setenv(
+        "MLFLOW_S3_UPLOAD_EXTRA_ARGS",
+        json.dumps({"SSECustomerAlgorithm": "AES256", "SSECustomerKey": "customer-key"}),
+    )
+    repo = S3ArtifactRepository("s3://bucket/root")
+    client = mock.Mock()
+    local_file = tmp_path / "artifact.bin"
+
+    with mock.patch.object(repo, "_get_s3_client", return_value=client) as get_client:
+        repo._download_file("artifact.bin", str(local_file))
+
+    get_client.assert_called_once()
+    client.download_file.assert_called_once_with(
+        "bucket",
+        "root/artifact.bin",
         str(local_file),
-        upload.upload_id,
-        [MultipartUploadPart(part_number=1, etag=uploaded.headers["ETag"])],
+        ExtraArgs={
+            "ExpectedBucketOwner": "123456789012",
+            "SSECustomerAlgorithm": "AES256",
+            "SSECustomerKey": "Y3VzdG9tZXIta2V5",
+            "SSECustomerKeyMD5": "xUvIiqGwjknkCReLkVcZIw==",
+        },
     )
-    client = repo._get_s3_client()
-    with mock.patch.object(client, "head_object", wraps=client.head_object) as head:
-        download = repo.get_download_presigned_url(local_file.name)
-    bucket, root = repo.parse_s3_compliant_uri(repo.artifact_uri)
-    head.assert_called_once_with(
-        Bucket=bucket,
-        Key=f"{root}/{local_file.name}",
-        SSECustomerAlgorithm="AES256",
-        SSECustomerKey=normalized_key,
-        SSECustomerKeyMD5=key_md5,
-    )
-    assert download.headers == {
-        "x-amz-server-side-encryption-customer-algorithm": "AES256",
-        "x-amz-server-side-encryption-customer-key": normalized_key,
-        "x-amz-server-side-encryption-customer-key-MD5": key_md5,
-    }
-    query = urllib.parse.parse_qs(urllib.parse.urlparse(download.url).query)
-    signed_headers = set(query["X-Amz-SignedHeaders"][0].split(";"))
-    assert {name.lower() for name in download.headers} <= signed_headers
-    downloaded = requests.get(download.url, headers=download.headers, timeout=10)
-    downloaded.raise_for_status()
-    assert downloaded.content == content
-    assert download.file_size == len(content)
 
 
 def test_get_download_presigned_url_nested_path(s3_artifact_root, tmp_path):

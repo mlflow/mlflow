@@ -8,27 +8,39 @@ from unittest import mock
 
 import pytest
 
+import mlflow
+import mlflow.server.jobs
 import mlflow.store.jobs.sqlalchemy_store
+from mlflow.client import MlflowClient
 from mlflow.entities._job import Job, JobProgress, JobScopedPermission
 from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_ENV_ROOT,
+    MLFLOW_GATEWAY_URI,
     MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS,
     MLFLOW_WORKSPACE,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.job import invoke_scorer_job
 from mlflow.server import handlers
+from mlflow.server.constants import (
+    ARTIFACT_ROOT_ENV_VAR,
+    ARTIFACTS_DESTINATION_ENV_VAR,
+    BACKEND_STORE_URI_ENV_VAR,
+    SERVE_ARTIFACTS_ENV_VAR,
+)
 from mlflow.server.handlers import _get_job_store
 from mlflow.server.job_api import Job as JobApiResponse
 from mlflow.server.jobs import (
     TransientError,
     _job_runner,
+    _proxied_artifact_repository,
     cancel_job,
     get_job,
     job,
     submit_job,
+    use_backend_store_for_tracking,
 )
 from mlflow.server.jobs._job_subproc_entry import _main
 from mlflow.server.jobs.utils import (
@@ -45,7 +57,13 @@ from mlflow.server.jobs.utils import (
     _PreparedJobSetupCommand,
     _PreparedJobSubprocess,
     _start_huey_consumer_proc,
+    _SubprocessJobResult,
 )
+from mlflow.store.artifact.artifact_repository_registry import (
+    _artifact_repository_registry,
+    get_artifact_repository,
+)
+from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
 from mlflow.store.jobs.abstract_store import JobTerminalStateUpdateException, JobUpdateStatus
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.store.jobs.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyJobStore
@@ -85,6 +103,10 @@ def basic_job_fun(x, y, sleep_secs=0):
     if sleep_secs > 0:
         time.sleep(sleep_secs)
     return x + y
+
+
+def tracking_uri_job_fun():
+    return mlflow.get_tracking_uri()
 
 
 def test_job_runner_periodic_tasks_can_be_disabled(monkeypatch):
@@ -2336,3 +2358,166 @@ def test_remote_backend_rejects_direct_provider_scorer(monkeypatch, tmp_path):
                 submit_job(invoke_scorer_job, params)
         finally:
             shutdown_executor_registry()
+
+
+@pytest.fixture
+def store_backed_tracking(monkeypatch, tmp_path):
+    """The job runner's environment: tracking points at the server, the store is configured.
+
+    Yields the store URI and restores everything the redirect replaces process-wide.
+    """
+    store_uri = f"sqlite:///{tmp_path / 'backend-store.db'}"
+    monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, store_uri)
+    monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, str(tmp_path / "artifacts"))
+    monkeypatch.setattr(mlflow.server.jobs, "_http_tracking_uri", None)
+    previous = mlflow.get_tracking_uri()
+    try:
+        mlflow.set_tracking_uri("http://127.0.0.1:1")
+        yield store_uri
+    finally:
+        mlflow.set_tracking_uri(previous)
+        _artifact_repository_registry.register("mlflow-artifacts", MlflowArtifactsRepository)
+
+
+@pytest.fixture
+def separate_artifact_server(store_backed_tracking, monkeypatch, tmp_path):
+    """``--no-serve-artifacts``: proxied locations belong to another host, not the destination."""
+    destination = tmp_path / "not-ours"
+    destination.mkdir()
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, str(destination))
+    monkeypatch.delenv(SERVE_ARTIFACTS_ENV_VAR, raising=False)
+    # Host-addressed proxied locations need the server's allowlist.
+    monkeypatch.setenv("MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES", "mlflow-artifacts")
+    mlflow.set_tracking_uri("http://tracking-host:5000")
+    return destination
+
+
+def test_use_backend_store_for_tracking_points_away_from_the_server(store_backed_tracking):
+    assert mlflow.get_tracking_uri() == "http://127.0.0.1:1"
+    use_backend_store_for_tracking()
+    assert mlflow.get_tracking_uri() == store_backed_tracking
+
+
+def test_use_backend_store_for_tracking_requires_a_backend_store(
+    store_backed_tracking, monkeypatch
+):
+    monkeypatch.delenv(BACKEND_STORE_URI_ENV_VAR)
+    with pytest.raises(MlflowException, match=f"{BACKEND_STORE_URI_ENV_VAR} is unset"):
+        use_backend_store_for_tracking()
+    assert mlflow.get_tracking_uri() == "http://127.0.0.1:1"
+
+
+def test_use_backend_store_for_tracking_redirects_when_the_store_is_already_resolved(
+    store_backed_tracking, monkeypatch
+):
+    # `_get_tracking_store()` redirects only on the first resolution; this must not rely on it.
+    monkeypatch.setattr(handlers, "_tracking_store", mock.MagicMock())
+    use_backend_store_for_tracking()
+    assert mlflow.get_tracking_uri() == store_backed_tracking
+
+
+def test_use_backend_store_for_tracking_keeps_proxied_artifacts_reachable(
+    store_backed_tracking, monkeypatch, tmp_path
+):
+    destination = tmp_path / "artifacts-destination"
+    destination.mkdir()
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, str(destination))
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+    use_backend_store_for_tracking()
+
+    # The default handler needs an HTTP tracking URI, which the redirect gave up.
+    with pytest.raises(MlflowException, match="must be a valid http or https URI"):
+        MlflowArtifactsRepository("mlflow-artifacts:/7/run-1/artifacts")
+
+    repo = get_artifact_repository("mlflow-artifacts:/7/run-1/artifacts")
+    assert repo.artifact_dir == str(destination / "7/run-1/artifacts")
+
+
+def test_proxied_artifact_repository_without_a_destination_names_the_missing_setting(monkeypatch):
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+    monkeypatch.delenv(ARTIFACTS_DESTINATION_ENV_VAR, raising=False)
+    with pytest.raises(MlflowException, match="is unset"):
+        _proxied_artifact_repository("mlflow-artifacts:/7/run-1/artifacts")
+
+
+def test_use_backend_store_for_tracking_keeps_a_separate_artifact_server_on_http(
+    separate_artifact_server,
+):
+    use_backend_store_for_tracking()
+
+    repo = get_artifact_repository("mlflow-artifacts://artifact-host:6000/3/run-1/artifacts")
+
+    assert repo.artifact_uri.startswith("http://artifact-host:6000/")
+    assert "3/run-1/artifacts" in repo.artifact_uri
+    assert str(separate_artifact_server) not in repo.artifact_uri
+
+
+def test_use_backend_store_for_tracking_falls_back_to_the_gateway_uri_for_artifacts(
+    store_backed_tracking, separate_artifact_server, monkeypatch
+):
+    # The executor engine starts a job on the store URI, so the gateway URI is the HTTP one left.
+    monkeypatch.setenv(MLFLOW_GATEWAY_URI.name, "http://tracking-host:5000")
+    mlflow.set_tracking_uri(store_backed_tracking)
+    use_backend_store_for_tracking()
+
+    repo = get_artifact_repository("mlflow-artifacts:/3/run-1/artifacts")
+
+    assert repo.artifact_uri == (
+        "http://tracking-host:5000/api/2.0/mlflow-artifacts/artifacts/3/run-1/artifacts"
+    )
+
+
+def test_a_client_built_after_the_redirect_still_reaches_a_separate_artifact_server(
+    store_backed_tracking, separate_artifact_server
+):
+    # `TrackingServiceClient._get_artifact_repo` passes its own (store) tracking URI explicitly.
+    use_backend_store_for_tracking()
+    client = MlflowClient()
+    experiment_id = client.create_experiment(
+        "separate-artifacts", artifact_location="mlflow-artifacts://artifact-host:6000/9"
+    )
+    run = client.create_run(experiment_id)
+    assert client.tracking_uri == store_backed_tracking
+
+    repo = client._tracking_client._get_artifact_repo(run.info.run_id)
+    assert repo.artifact_uri.startswith("http://artifact-host:6000/")
+    assert str(separate_artifact_server) not in repo.artifact_uri
+
+
+def _run_subproc_entry(monkeypatch, tmp_path) -> _SubprocessJobResult:
+    result_path = tmp_path / "result.json"
+    transient_error_path = tmp_path / "transient_errors.txt"
+    transient_error_path.write_text("")
+    monkeypatch.setenv(
+        MLFLOW_SERVER_JOB_FUNCTION_FULLNAME_ENV_VAR,
+        "tests.server.jobs.test_jobs.tracking_uri_job_fun",
+    )
+    monkeypatch.setenv(MLFLOW_SERVER_JOB_PARAMS_ENV_VAR, json.dumps({}))
+    monkeypatch.setenv(MLFLOW_SERVER_JOB_RESULT_DUMP_PATH_ENV_VAR, str(result_path))
+    monkeypatch.setenv(
+        MLFLOW_SERVER_JOB_TRANSIENT_ERROR_CLASSES_PATH_ENV_VAR, str(transient_error_path)
+    )
+    with (
+        mock.patch("mlflow.server.jobs._job_subproc_entry.set_telemetry_client"),
+        mock.patch("mlflow.server.jobs._job_subproc_entry.get_telemetry_client", return_value=None),
+        mock.patch("mlflow.server.jobs._job_subproc_entry._exit_when_orphaned"),
+    ):
+        _main()
+    return _SubprocessJobResult.load(str(result_path))
+
+
+def test_subproc_entry_points_tracking_at_the_backend_store(
+    store_backed_tracking, monkeypatch, tmp_path
+):
+    result = _run_subproc_entry(monkeypatch, tmp_path)
+    assert result.succeeded, result.error
+    assert json.loads(result.result) == store_backed_tracking
+
+
+def test_subproc_entry_leaves_tracking_alone_without_a_backend_store(monkeypatch, tmp_path):
+    # A job container is handed no store.
+    monkeypatch.delenv(BACKEND_STORE_URI_ENV_VAR, raising=False)
+    previous = mlflow.get_tracking_uri()
+    result = _run_subproc_entry(monkeypatch, tmp_path)
+    assert result.succeeded, result.error
+    assert json.loads(result.result) == previous

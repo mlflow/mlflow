@@ -9,12 +9,27 @@ import {
 import { compact } from 'lodash';
 import { useContext, useMemo, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
-import { convertTraceInfoV3ToRunEvalEntry, GenAITracesTableContext } from '@databricks/web-shared/genai-traces-table';
+import {
+  createTraceV4LongIdentifier,
+  shouldEnableModelTraceComparisonV2,
+  type ModelTraceInfoV3,
+} from '@databricks/web-shared/model-trace-explorer';
+import {
+  convertTraceInfoV3ToRunEvalEntry,
+  doesTraceSupportV4API,
+  GenAITracesTableContext,
+} from '@databricks/web-shared/genai-traces-table';
 import { ToolbarCollapsibleLabel } from '@databricks/web-shared/traces-table';
 // Not re-exported from the genai-traces-table barrel — import from its module.
 import { GenAITraceComparisonModal } from '@databricks/web-shared/genai-traces-table/components/GenAITraceComparisonModal';
+import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { type TracesV4TraceActions } from '../hooks/useTracesV4TraceActions';
+import {
+  BASELINE_TRACE_ID_PARAM,
+  CANDIDATE_TRACE_ID_PARAM,
+  PAIRWISE_REVIEW_MODE_PARAM,
+  TRACE_ID_PARAM,
+} from '../hooks/useTracesV4UrlState';
 
 // The comparison drawer supports comparing 2–3 traces at once, matching `GenAITracesTableActions`.
 const MIN_COMPARE = 2;
@@ -59,6 +74,9 @@ export const TracesV4ActionsButton = ({
 }: TracesV4ActionsButtonProps) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
+  // The new eval runs UI compares exactly two traces in the trace drawer instead of the comparison modal.
+  const isComparisonV2Enabled = shouldEnableModelTraceComparisonV2();
+  const [, setSearchParams] = useSearchParams();
 
   // Match the shared GenAITracesTable menu: mute the group heading and indent its items so
   // "Use for evaluation" reads as a section label, not a disabled row.
@@ -75,6 +93,15 @@ export const TracesV4ActionsButton = ({
   // Run-judges takes bare trace ids; the dataset modal takes eval entries.
   const selectedTraceIds = useMemo(
     () => compact(selectedTraceInfos.map((trace) => trace.trace_id)),
+    [selectedTraceInfos],
+  );
+  const selectedComparisonTraceIds = useMemo(
+    () =>
+      compact(
+        selectedTraceInfos.map((trace) =>
+          doesTraceSupportV4API(trace) ? createTraceV4LongIdentifier(trace) : trace.trace_id,
+        ),
+      ),
     [selectedTraceInfos],
   );
   const selectedEntries = useMemo(
@@ -131,17 +158,21 @@ export const TracesV4ActionsButton = ({
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild>{trigger}</DropdownMenu.Trigger>
         <DropdownMenu.Content align="end">
-          <DropdownMenu.Item
-            componentId="mlflow.traces-v4.actions.compare"
-            onClick={() => setShowCompare(true)}
-            disabled={!canCompare}
-          >
-            <FormattedMessage
-              defaultMessage="Compare"
-              description="Bulk action that opens a side-by-side comparison of the selected traces"
-            />
-          </DropdownMenu.Item>
-          <DropdownMenu.Separator />
+          {!isComparisonV2Enabled && (
+            <>
+              <DropdownMenu.Item
+                componentId="mlflow.traces-v4.actions.compare"
+                onClick={() => setShowCompare(true)}
+                disabled={!canCompare}
+              >
+                <FormattedMessage
+                  defaultMessage="Compare"
+                  description="Bulk action that opens a side-by-side comparison of the selected traces"
+                />
+              </DropdownMenu.Item>
+              <DropdownMenu.Separator />
+            </>
+          )}
           <DropdownMenu.Group>
             <DropdownMenu.Label css={groupLabelStyles}>
               <FormattedMessage
@@ -213,6 +244,39 @@ export const TracesV4ActionsButton = ({
               <FormattedMessage defaultMessage="Delete" description="Bulk action that deletes the selected traces" />
             </DropdownMenu.Item>
           </DropdownMenu.Group>
+          {isComparisonV2Enabled && selectedComparisonTraceIds.length === 2 && (
+            <>
+              <DropdownMenu.Separator />
+              <DropdownMenu.Group>
+                <DropdownMenu.Label css={groupLabelStyles}>
+                  <FormattedMessage
+                    defaultMessage="Debug"
+                    description="Group label for trace debugging bulk actions in the V4 traces toolbar"
+                  />
+                </DropdownMenu.Label>
+                <DropdownMenu.Item
+                  componentId="mlflow.traces-v4.actions.compare"
+                  css={groupItemStyles}
+                  onClick={() => {
+                    const [baselineTraceId, candidateTraceId] = selectedComparisonTraceIds;
+                    setSearchParams((params) => {
+                      params.set(BASELINE_TRACE_ID_PARAM, baselineTraceId);
+                      params.set(CANDIDATE_TRACE_ID_PARAM, candidateTraceId);
+                      params.set(TRACE_ID_PARAM, candidateTraceId);
+                      params.delete(PAIRWISE_REVIEW_MODE_PARAM);
+                      params.delete('spanId');
+                      return params;
+                    });
+                  }}
+                >
+                  <FormattedMessage
+                    defaultMessage="Compare traces"
+                    description="Bulk action that compares exactly two selected traces in the trace drawer"
+                  />
+                </DropdownMenu.Item>
+              </DropdownMenu.Group>
+            </>
+          )}
         </DropdownMenu.Content>
       </DropdownMenu.Root>
       {showCompare && <GenAITraceComparisonModal traceIds={selectedTraceIds} onClose={() => setShowCompare(false)} />}

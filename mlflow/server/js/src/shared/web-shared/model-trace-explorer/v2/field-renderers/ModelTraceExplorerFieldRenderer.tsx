@@ -16,6 +16,144 @@ import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet'
 import { ModelTraceExplorerConversation } from '../right-pane/ModelTraceExplorerConversation';
 
 const MAX_ATTACHMENT_SEARCH_DEPTH = 10;
+const MAX_LINE_DIFF_MATRIX_CELLS = 4_000_000;
+
+interface UnifiedComparisonLine {
+  kind: 'unchanged' | 'removed' | 'added';
+  text: string;
+}
+
+const normalizeComparisonValue = (data: string | undefined): string | undefined => {
+  if (data === undefined) {
+    return undefined;
+  }
+  try {
+    const sortKeys = (value: unknown): unknown => {
+      if (Array.isArray(value)) {
+        return value.map(sortKeys);
+      }
+      if (value && typeof value === 'object') {
+        return Object.fromEntries(
+          Object.entries(value)
+            .sort(([left], [right]) => left.localeCompare(right))
+            .map(([key, nestedValue]) => [key, sortKeys(nestedValue)]),
+        );
+      }
+      return value;
+    };
+    return JSON.stringify(sortKeys(JSON.parse(data)), null, 2);
+  } catch {
+    return data;
+  }
+};
+
+export const areModelTraceComparisonValuesEqual = (first: string | undefined, second: string | undefined): boolean =>
+  normalizeComparisonValue(first) === normalizeComparisonValue(second);
+
+const getCoarseUnifiedComparisonLines = (
+  baselineLines: string[],
+  candidateLines: string[],
+): UnifiedComparisonLine[] => {
+  let prefixLength = 0;
+  while (
+    prefixLength < baselineLines.length &&
+    prefixLength < candidateLines.length &&
+    baselineLines[prefixLength] === candidateLines[prefixLength]
+  ) {
+    prefixLength += 1;
+  }
+  let suffixLength = 0;
+  while (
+    suffixLength < baselineLines.length - prefixLength &&
+    suffixLength < candidateLines.length - prefixLength &&
+    baselineLines[baselineLines.length - suffixLength - 1] === candidateLines[candidateLines.length - suffixLength - 1]
+  ) {
+    suffixLength += 1;
+  }
+  return [
+    ...baselineLines.slice(0, prefixLength).map((text) => ({ kind: 'unchanged' as const, text })),
+    ...baselineLines
+      .slice(prefixLength, baselineLines.length - suffixLength)
+      .map((text) => ({ kind: 'removed' as const, text })),
+    ...candidateLines
+      .slice(prefixLength, candidateLines.length - suffixLength)
+      .map((text) => ({ kind: 'added' as const, text })),
+    ...(suffixLength > 0
+      ? baselineLines.slice(baselineLines.length - suffixLength).map((text) => ({ kind: 'unchanged' as const, text }))
+      : []),
+  ];
+};
+
+const getUnifiedComparisonLines = (baseline: string | undefined, candidate: string | undefined) => {
+  const baselineLines = baseline?.split('\n') ?? [];
+  const candidateLines = candidate?.split('\n') ?? [];
+  if (baselineLines.length * candidateLines.length > MAX_LINE_DIFF_MATRIX_CELLS) {
+    return getCoarseUnifiedComparisonLines(baselineLines, candidateLines);
+  }
+
+  const rowLength = candidateLines.length + 1;
+  const commonLineCounts = new Uint32Array((baselineLines.length + 1) * rowLength);
+  for (let baselineIndex = baselineLines.length - 1; baselineIndex >= 0; baselineIndex -= 1) {
+    for (let candidateIndex = candidateLines.length - 1; candidateIndex >= 0; candidateIndex -= 1) {
+      const index = baselineIndex * rowLength + candidateIndex;
+      commonLineCounts[index] =
+        baselineLines[baselineIndex] === candidateLines[candidateIndex]
+          ? commonLineCounts[(baselineIndex + 1) * rowLength + candidateIndex + 1] + 1
+          : Math.max(
+              commonLineCounts[(baselineIndex + 1) * rowLength + candidateIndex],
+              commonLineCounts[baselineIndex * rowLength + candidateIndex + 1],
+            );
+    }
+  }
+
+  const lines: UnifiedComparisonLine[] = [];
+  let baselineIndex = 0;
+  let candidateIndex = 0;
+  while (baselineIndex < baselineLines.length && candidateIndex < candidateLines.length) {
+    if (baselineLines[baselineIndex] === candidateLines[candidateIndex]) {
+      lines.push({ kind: 'unchanged', text: baselineLines[baselineIndex] });
+      baselineIndex += 1;
+      candidateIndex += 1;
+    } else if (
+      commonLineCounts[(baselineIndex + 1) * rowLength + candidateIndex] >=
+      commonLineCounts[baselineIndex * rowLength + candidateIndex + 1]
+    ) {
+      lines.push({ kind: 'removed', text: baselineLines[baselineIndex] });
+      baselineIndex += 1;
+    } else {
+      lines.push({ kind: 'added', text: candidateLines[candidateIndex] });
+      candidateIndex += 1;
+    }
+  }
+  while (baselineIndex < baselineLines.length) {
+    lines.push({ kind: 'removed', text: baselineLines[baselineIndex] });
+    baselineIndex += 1;
+  }
+  while (candidateIndex < candidateLines.length) {
+    lines.push({ kind: 'added', text: candidateLines[candidateIndex] });
+    candidateIndex += 1;
+  }
+  return lines;
+};
+
+export interface ModelTraceComparisonLineCounts {
+  added: number;
+  removed: number;
+}
+
+export const getModelTraceComparisonLineCounts = (
+  baseline: string | undefined,
+  candidate: string | undefined,
+): ModelTraceComparisonLineCounts => {
+  const lines = getUnifiedComparisonLines(normalizeComparisonValue(baseline), normalizeComparisonValue(candidate));
+  return lines.reduce<ModelTraceComparisonLineCounts>(
+    (counts, line) => ({
+      added: counts.added + Number(line.kind === 'added'),
+      removed: counts.removed + Number(line.kind === 'removed'),
+    }),
+    { added: 0, removed: 0 },
+  );
+};
 
 /**
  * Recursively extract all attachment URIs from a parsed JSON value.
@@ -53,9 +191,12 @@ export const ModelTraceExplorerFieldRenderer = ({
   searchFilter,
   activeMatch,
   containsActiveMatch,
+  comparisonData,
+  comparisonRole,
+  comparisonEnabled = false,
 }: {
   title: string;
-  data: string;
+  data?: string;
   renderMode: 'default' | 'json' | 'text' | 'yaml';
   chatMessageFormat?: string;
   maxVisibleMessages?: number;
@@ -63,12 +204,15 @@ export const ModelTraceExplorerFieldRenderer = ({
   searchFilter?: string;
   activeMatch?: SearchMatch | null;
   containsActiveMatch?: boolean;
+  comparisonData?: string;
+  comparisonRole?: 'baseline' | 'candidate';
+  comparisonEnabled?: boolean;
 }): React.ReactElement | null => {
   const { theme } = useDesignSystemTheme();
   const [messagesExpanded, setMessagesExpanded] = useState(false);
   const parsedData = useMemo(() => {
     try {
-      return JSON.parse(data);
+      return data === undefined ? undefined : JSON.parse(data);
     } catch (e) {
       return data;
     }
@@ -77,6 +221,86 @@ export const ModelTraceExplorerFieldRenderer = ({
   useEffect(() => {
     setMessagesExpanded(false);
   }, [data]);
+
+  if (comparisonEnabled && comparisonRole) {
+    const baseline = normalizeComparisonValue(comparisonRole === 'baseline' ? data : comparisonData);
+    const candidate = normalizeComparisonValue(comparisonRole === 'candidate' ? data : comparisonData);
+    if (!areModelTraceComparisonValuesEqual(baseline, candidate)) {
+      const lines = getUnifiedComparisonLines(baseline, candidate);
+      return (
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+          {title && (
+            <Typography.Text bold color="secondary" size="sm">
+              {title}
+            </Typography.Text>
+          )}
+          <div
+            css={{
+              border: `1px solid ${theme.colors.border}`,
+              borderRadius: theme.borders.borderRadiusSm,
+              overflow: 'auto',
+              fontFamily: 'monospace',
+              fontSize: theme.typography.fontSizeSm,
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+            }}
+          >
+            {baseline === undefined && (
+              <div
+                css={{
+                  padding: theme.spacing.xs,
+                  backgroundColor: theme.colors.backgroundSecondary,
+                  color: theme.colors.textSecondary,
+                }}
+              >
+                <FormattedMessage
+                  defaultMessage="Baseline: missing"
+                  description="Label for an absent baseline value in a trace comparison diff"
+                />
+              </div>
+            )}
+            {candidate === undefined && (
+              <div
+                css={{
+                  padding: theme.spacing.xs,
+                  backgroundColor: theme.colors.backgroundSecondary,
+                  color: theme.colors.textSecondary,
+                }}
+              >
+                <FormattedMessage
+                  defaultMessage="Candidate: missing"
+                  description="Label for an absent candidate value in a trace comparison diff"
+                />
+              </div>
+            )}
+            {lines.map((line, index) => (
+              <div
+                key={`${line.kind}-${index}`}
+                css={{
+                  paddingInline: theme.spacing.xs,
+                  backgroundColor:
+                    line.kind === 'removed'
+                      ? theme.colors.backgroundValidationDanger
+                      : line.kind === 'added'
+                        ? theme.colors.backgroundValidationSuccess
+                        : 'transparent',
+                  color:
+                    line.kind === 'removed'
+                      ? theme.colors.textValidationDanger
+                      : line.kind === 'added'
+                        ? theme.colors.textValidationSuccess
+                        : theme.colors.textPrimary,
+                }}
+              >
+                {line.kind === 'removed' ? '− ' : line.kind === 'added' ? '+ ' : '  '}
+                {line.text || ' '}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+  }
 
   const dataIsScalar = isString(parsedData) || isNumber(parsedData) || isBoolean(parsedData);
   // wrap the value in an object with the title as key. this helps normalizeConversation
@@ -148,7 +372,7 @@ export const ModelTraceExplorerFieldRenderer = ({
     return (
       <ModelTraceExplorerCodeSnippet
         title={title}
-        data={data}
+        data={data ?? ''}
         initialRenderMode={CodeSnippetRenderMode.JSON}
         searchFilter={searchFilter}
         activeMatch={activeMatch}
@@ -161,7 +385,7 @@ export const ModelTraceExplorerFieldRenderer = ({
     return (
       <ModelTraceExplorerCodeSnippet
         title={title}
-        data={data}
+        data={data ?? ''}
         initialRenderMode={CodeSnippetRenderMode.TEXT}
         searchFilter={searchFilter}
         activeMatch={activeMatch}
@@ -174,7 +398,7 @@ export const ModelTraceExplorerFieldRenderer = ({
     return (
       <ModelTraceExplorerCodeSnippet
         title={title}
-        data={data}
+        data={data ?? ''}
         initialRenderMode={CodeSnippetRenderMode.YAML}
         searchFilter={searchFilter}
         activeMatch={activeMatch}
@@ -210,7 +434,7 @@ export const ModelTraceExplorerFieldRenderer = ({
   }
 
   // Check for attachment URIs embedded in complex JSON structures
-  if (containsAttachmentUri(data)) {
+  if (containsAttachmentUri(data ?? '')) {
     const attachments = findAttachmentUris(parsedData);
     if (attachments.length > 0) {
       return (
@@ -225,11 +449,17 @@ export const ModelTraceExplorerFieldRenderer = ({
               size={att.size}
             />
           ))}
-          <ModelTraceExplorerCodeSnippet title={title} data={data} initialRenderMode={CodeSnippetRenderMode.YAML} />
+          <ModelTraceExplorerCodeSnippet
+            title={title}
+            data={data ?? ''}
+            initialRenderMode={CodeSnippetRenderMode.YAML}
+          />
         </div>
       );
     }
   }
 
-  return <ModelTraceExplorerCodeSnippet title={title} data={data} initialRenderMode={CodeSnippetRenderMode.YAML} />;
+  return (
+    <ModelTraceExplorerCodeSnippet title={title} data={data ?? ''} initialRenderMode={CodeSnippetRenderMode.YAML} />
+  );
 };

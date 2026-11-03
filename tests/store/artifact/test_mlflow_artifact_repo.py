@@ -612,15 +612,55 @@ def test_auto_detected_multipart_upload_falls_back_on_normal_server(monkeypatch,
     mock_proxy_upload.assert_called_once()
 
 
-def test_presigned_only_multipart_upload_does_not_fallback(monkeypatch, tmp_path):
+def test_client_multipart_override_falls_back_on_501(monkeypatch, tmp_path):
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "true")
+    monkeypatch.setenv("MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE", "1")
+    repo = _make_multipart_repo()
+    local_file = tmp_path / "artifact.bin"
+    local_file.write_bytes(b"tiny")
+    unavailable_response = mock.Mock()
+    unavailable_response.status_code = 501
+    unavailable_response.json.return_value = {
+        "message": "Presigned artifact transfers are unavailable."
+    }
+
+    with (
+        mock.patch(
+            "mlflow.utils.server_info.http_request",
+            return_value=_mock_server_info_response(uploads=False),
+        ) as mock_server_info_request,
+        mock.patch.object(
+            repo,
+            "create_multipart_upload",
+            side_effect=HTTPError(response=unavailable_response),
+        ) as mock_create_multipart_upload,
+        mock.patch(
+            "mlflow.store.artifact.http_artifact_repo.http_request",
+            return_value=MockResponse({}, 200),
+        ) as mock_proxy_upload,
+    ):
+        repo.log_artifact(str(local_file))
+
+    mock_server_info_request.assert_called_once()
+    mock_create_multipart_upload.assert_called_once_with(str(local_file), 1, None)
+    mock_proxy_upload.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Multipart upload is not supported for the current artifact repository",
+        "Presigned artifact transfers are unavailable.",
+    ],
+)
+def test_presigned_only_multipart_upload_does_not_fallback(monkeypatch, tmp_path, message):
     monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", raising=False)
     repo = _make_multipart_repo()
     local_file = tmp_path / "artifact.bin"
     local_file.write_bytes(b"tiny")
     unsupported_response = mock.Mock()
-    unsupported_response.json.return_value = {
-        "message": "Multipart upload is not supported for the current artifact repository"
-    }
+    unsupported_response.status_code = 501
+    unsupported_response.json.return_value = {"message": message}
 
     with (
         mock.patch(

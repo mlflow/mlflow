@@ -40,11 +40,12 @@ from mlflow.assistant.providers.base import (
     assistant_sandbox_enabled,
     clear_config_cache,
 )
+from mlflow.assistant.providers.mlflow_gateway import set_server_url
 from mlflow.assistant.providers.tool_executor import is_remote_caller, set_remote_caller
 from mlflow.assistant.skill_installer import install_skills, list_installed_skills
 from mlflow.assistant.types import EventType
 from mlflow.environment_variables import MLFLOW_ENABLE_REMOTE_ASSISTANT
-from mlflow.server.asgi_utils import get_server_base_url
+from mlflow.server.asgi_utils import get_server_base_url, get_server_self_url
 from mlflow.server.assistant.gateway_permissions import ensure_assistant_gateway_use_permission
 from mlflow.server.assistant.identity import (
     BASIC_AUTH_CHALLENGE_HEADERS,
@@ -60,6 +61,7 @@ from mlflow.server.assistant.session import (
     terminate_session_process,
 )
 from mlflow.server.handlers import _add_static_prefix
+from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
 _logger = logging.getLogger(__name__)
 
@@ -656,6 +658,17 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
             yield Event.from_error(message).to_sse_event()
             return
         if provider.name == MlflowGatewayProvider.GATEWAY_PROVIDER_NAME:
+            # The provider calls the in-server gateway with the server's internal gateway token,
+            # so that call goes to the server's own address. The tracking URI above derives from
+            # the client's Host header, which a caller could point at a host they control. The
+            # call still presents this request's Host header, which the server's Host allowlist
+            # has already admitted, and its workspace header, so the gateway resolves the same
+            # workspace as this request.
+            set_server_url(
+                get_server_self_url(request),
+                host_header=request.headers.get("host"),
+                workspace_header=request.headers.get(WORKSPACE_HEADER_NAME),
+            )
             # The in-server gateway enforces a per-endpoint USE permission. The Assistant's
             # managed endpoints are created outside the HTTP route that would grant it, so
             # authorize this caller for them before the turn calls the gateway.

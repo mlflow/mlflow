@@ -18,6 +18,7 @@ import {
   ModelTraceExplorerPreferencesProvider,
   ModelTraceExplorerRunJudgesContextProvider,
   ModelTraceExplorerUpdateTraceContextProvider,
+  shouldEnableModelTraceComparisonV2,
   useUnifiedTraceTagsModal,
   type ModelTraceInfoV3,
 } from '@databricks/web-shared/model-trace-explorer';
@@ -34,8 +35,16 @@ import { useRegisterAssistantContext } from '@mlflow/mlflow/src/assistant';
 import { getChatSessionsFilter } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-chat-sessions/utils';
 // Not re-exported from the genai-traces-table barrel in OSS — import from its module.
 import { EvaluationsReviewDetailsHeader } from '@databricks/web-shared/genai-traces-table/components/EvaluationsReviewDetails';
+import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { useGetTrace } from '../hooks/useGetTrace';
 import type { TracesV4TraceActions } from '../hooks/useTracesV4TraceActions';
+import {
+  BASELINE_TRACE_ID_PARAM,
+  CANDIDATE_TRACE_ID_PARAM,
+  PAIRWISE_REVIEW_MODE_PARAM,
+  TRACE_ID_PARAM,
+} from '../hooks/useTracesV4UrlState';
+import { TracesV4PairwiseReviewContent } from './TracesV4PairwiseReviewContent';
 import { TracesV4SessionDrawerBody } from './TracesV4SessionDrawerContent';
 
 /** A session opened in the drawer: its conversation, or one of its traces with a way back. */
@@ -51,6 +60,21 @@ export interface TracesV4TraceDrawerSession {
   onNextSession?: () => void;
 }
 
+/** A run of the opened evaluation-comparison row; `traceId` is absent when the run has no trace for it. */
+export interface TracesV4DrawerComparisonRunOption {
+  runUuid: string;
+  runName: string;
+  traceId?: string;
+}
+
+/** Moves between matched comparison rows while keeping both compared traces in sync. */
+export interface TracesV4DrawerComparisonNavigation {
+  onPrevious?: () => void;
+  onNext?: () => void;
+  currentIndex: number;
+  totalCount: number;
+}
+
 export interface TracesV4TraceDrawerProps {
   /** Long id (`trace:/<catalog.schema>/<id>`) of the open trace, or undefined when the drawer is closed. */
   traceId?: string;
@@ -64,6 +88,10 @@ export interface TracesV4TraceDrawerProps {
   runJudgeConfiguration?: NonNullable<TracesV4TraceActions['runJudges']>['runJudgeConfiguration'];
   /** Opens the drawer on a session instead of a single trace. Omit for trace-only drawers. */
   session?: TracesV4TraceDrawerSession;
+  /** Runs represented by the opened evaluation-comparison row; enables picking each side's run. */
+  comparisonRunOptions?: TracesV4DrawerComparisonRunOption[];
+  /** Previous/next matched rows while comparing; without it, previous/next are off in comparison mode. */
+  comparisonNavigation?: TracesV4DrawerComparisonNavigation;
 }
 
 const SESSION_ID_PREVIEW_LENGTH = 8;
@@ -90,6 +118,8 @@ export const TracesV4TraceDrawer = ({
   onSelectTrace,
   runJudgeConfiguration,
   session,
+  comparisonRunOptions,
+  comparisonNavigation,
 }: TracesV4TraceDrawerProps) => {
   const { theme } = useDesignSystemTheme();
   // A session's turns in order (URL ids), reported by `SessionTurnsLoader` while one of its traces is open.
@@ -104,6 +134,33 @@ export const TracesV4TraceDrawer = ({
   // `useGetTrace` parses the `trace:/…` long id itself, so it also serves deep-links where the row
   // isn't on the current page. Passing the row's info lets it derive BatchGetTraces time hints.
   const { data: traceData, isLoading, error } = useGetTrace(traceId ?? '', undefined, currentInfo);
+
+  // With the new eval runs UI, `baselineTraceId` + `candidateTraceId` in the URL open the drawer as a
+  // comparison of the two traces; the open trace is one side and its counterpart is loaded alongside it.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const baselineTraceId = searchParams.get(BASELINE_TRACE_ID_PARAM) ?? undefined;
+  const candidateTraceId = searchParams.get(CANDIDATE_TRACE_ID_PARAM) ?? undefined;
+  const isComparisonMode = Boolean(
+    shouldEnableModelTraceComparisonV2() &&
+    baselineTraceId &&
+    candidateTraceId &&
+    (traceId === baselineTraceId || traceId === candidateTraceId),
+  );
+  const comparisonRole = isComparisonMode && traceId === baselineTraceId ? 'baseline' : 'candidate';
+  // Pairwise review shows both compared traces side by side; it only exists inside comparison mode.
+  const isPairwiseReviewMode = isComparisonMode && searchParams.get(PAIRWISE_REVIEW_MODE_PARAM) === 'true';
+  const counterpartTraceId = isComparisonMode
+    ? comparisonRole === 'baseline'
+      ? candidateTraceId
+      : baselineTraceId
+    : undefined;
+  const counterpartInfo = traces.find((trace) => idOf(trace) === counterpartTraceId);
+  // Disabled (no request) while `counterpartTraceId` is empty, i.e. outside comparison mode.
+  const {
+    data: counterpartTraceData,
+    isLoading: isCounterpartLoading,
+    error: counterpartError,
+  } = useGetTrace(counterpartTraceId ?? '', undefined, counterpartInfo);
 
   // "Edit" (key/value tags) reuses the shared unified tag modal. On save, refresh both the list rows
   // and the open drawer body so the new tags show without a manual reload.
@@ -156,13 +213,24 @@ export const TracesV4TraceDrawer = ({
   }
 
   // A trace opened from a session moves between the session's turns, as on the session page.
+  // Comparison mode moves between matched comparison rows when the caller provides them.
   const turnIndex = session && sessionTurnIds ? sessionTurnIds.indexOf(traceId) : -1;
-  const isPreviousAvailable = session ? turnIndex > 0 : currentIndex > 0;
-  const isNextAvailable = session
-    ? turnIndex >= 0 && sessionTurnIds !== undefined && turnIndex < sessionTurnIds.length - 1
-    : currentIndex >= 0 && currentIndex < traces.length - 1;
+  const isPreviousAvailable = isComparisonMode
+    ? Boolean(comparisonNavigation?.onPrevious)
+    : session
+      ? turnIndex > 0
+      : currentIndex > 0;
+  const isNextAvailable = isComparisonMode
+    ? Boolean(comparisonNavigation?.onNext)
+    : session
+      ? turnIndex >= 0 && sessionTurnIds !== undefined && turnIndex < sessionTurnIds.length - 1
+      : currentIndex >= 0 && currentIndex < traces.length - 1;
   const selectPreviousEval = () => {
     if (!isPreviousAvailable) {
+      return;
+    }
+    if (isComparisonMode) {
+      comparisonNavigation?.onPrevious?.();
       return;
     }
     if (session && sessionTurnIds) {
@@ -175,6 +243,10 @@ export const TracesV4TraceDrawer = ({
     if (!isNextAvailable) {
       return;
     }
+    if (isComparisonMode) {
+      comparisonNavigation?.onNext?.();
+      return;
+    }
     if (session && sessionTurnIds) {
       session.onViewTrace(sessionTurnIds[turnIndex + 1]);
     } else {
@@ -182,12 +254,101 @@ export const TracesV4TraceDrawer = ({
     }
   };
 
+  const handleSwapComparisonOrder = () => {
+    if (!baselineTraceId || !candidateTraceId) {
+      return;
+    }
+    setSearchParams((params) => {
+      params.set(BASELINE_TRACE_ID_PARAM, candidateTraceId);
+      params.set(CANDIDATE_TRACE_ID_PARAM, baselineTraceId);
+      params.set(TRACE_ID_PARAM, baselineTraceId);
+      params.delete('spanId');
+      return params;
+    });
+  };
+
+  const handleSelectBaselineTrace = (selectedTraceId: string) => {
+    if (!candidateTraceId || selectedTraceId === candidateTraceId) {
+      return;
+    }
+    setSearchParams((params) => {
+      params.set(BASELINE_TRACE_ID_PARAM, selectedTraceId);
+      params.set(TRACE_ID_PARAM, candidateTraceId);
+      params.delete('spanId');
+      return params;
+    });
+  };
+
+  const handleSelectCandidateTrace = (selectedTraceId: string) => {
+    if (!baselineTraceId || selectedTraceId === baselineTraceId) {
+      return;
+    }
+    setSearchParams((params) => {
+      params.set(CANDIDATE_TRACE_ID_PARAM, selectedTraceId);
+      params.set(TRACE_ID_PARAM, selectedTraceId);
+      params.delete('spanId');
+      return params;
+    });
+  };
+
+  const getStandaloneTraceUrl = (selectedTraceId: string) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set(TRACE_ID_PARAM, selectedTraceId);
+    url.searchParams.delete(BASELINE_TRACE_ID_PARAM);
+    url.searchParams.delete(CANDIDATE_TRACE_ID_PARAM);
+    url.searchParams.delete(PAIRWISE_REVIEW_MODE_PARAM);
+    url.searchParams.delete('spanId');
+    return url.toString();
+  };
+
+  const handleReviewModeChange = (isReviewMode: boolean) => {
+    setSearchParams((params) => {
+      if (isReviewMode) {
+        params.set(PAIRWISE_REVIEW_MODE_PARAM, 'true');
+      } else {
+        params.delete(PAIRWISE_REVIEW_MODE_PARAM);
+      }
+      return params;
+    });
+  };
+
   // The drawer renders its own skeleton while `isLoading`, so this only covers the settled states.
   const renderBody = () => {
     if (error) {
       return <TraceLoadError traceId={traceId} />;
     }
-    if (traceData) {
+    if (isComparisonMode && counterpartError) {
+      return <TraceLoadError traceId={counterpartTraceId ?? ''} />;
+    }
+    if (isPairwiseReviewMode && traceData && counterpartTraceData && baselineTraceId && candidateTraceId) {
+      const baselineTrace = comparisonRole === 'baseline' ? traceData : counterpartTraceData;
+      const candidateTrace = comparisonRole === 'candidate' ? traceData : counterpartTraceData;
+      return (
+        <div
+          css={{
+            height: '100%',
+            display: 'flex',
+            minHeight: 0,
+            marginLeft: -theme.spacing.lg,
+            marginRight: -theme.spacing.lg,
+          }}
+        >
+          <ModelTraceExplorerPreferencesProvider>
+            <TracesV4PairwiseReviewContent
+              key={`${baselineTraceId}:${candidateTraceId}`}
+              baselineTrace={baselineTrace}
+              baselineTraceId={baselineTraceId}
+              baselineRunName={comparisonRunOptions?.find((option) => option.traceId === baselineTraceId)?.runName}
+              candidateTrace={candidateTrace}
+              candidateTraceId={candidateTraceId}
+              candidateRunName={comparisonRunOptions?.find((option) => option.traceId === candidateTraceId)?.runName}
+              onEditTags={showTagAssignmentModal}
+            />
+          </ModelTraceExplorerPreferencesProvider>
+        </div>
+      );
+    }
+    if (traceData && (!isComparisonMode || counterpartTraceData)) {
       const explorer = (
         <div css={{ height: '100%', marginLeft: -theme.spacing.lg, marginRight: -theme.spacing.lg }}>
           <ModelTraceExplorerPreferencesProvider>
@@ -203,6 +364,8 @@ export const TracesV4TraceDrawer = ({
               <ModelTraceExplorer
                 modelTrace={traceData}
                 {...(session ? { collapseAssessmentPane: 'force-open' as const } : {})}
+                comparisonModelTrace={isComparisonMode ? counterpartTraceData : undefined}
+                comparisonRole={isComparisonMode ? comparisonRole : undefined}
               />
             </ModelTraceExplorerUpdateTraceContextProvider>
           </ModelTraceExplorerPreferencesProvider>
@@ -224,7 +387,7 @@ export const TracesV4TraceDrawer = ({
         </div>
       );
     }
-    return <TraceNoData traceId={traceId} />;
+    return <TraceNoData traceId={isComparisonMode ? (counterpartTraceId ?? '') : traceId} />;
   };
 
   const body = runJudgeConfiguration ? (
@@ -251,18 +414,71 @@ export const TracesV4TraceDrawer = ({
     return <Typography.Text bold>{traceId}</Typography.Text>;
   };
 
+  // In pairwise review, the position among the matched comparison rows sits between previous and next.
+  const navigationLabel =
+    isPairwiseReviewMode &&
+    comparisonNavigation &&
+    comparisonNavigation.currentIndex >= 0 &&
+    comparisonNavigation.totalCount > 0 ? (
+      <Tag componentId="mlflow.traces-v4.trace-context.comparison-position" color="default" css={{ margin: 0 }}>
+        <Typography.Text size="sm" color="secondary" css={{ whiteSpace: 'nowrap' }}>
+          <FormattedMessage
+            defaultMessage="Trace {traceNumber} of {traceCount}"
+            description="Current trace comparison position shown between pairwise review navigation buttons"
+            values={{
+              traceNumber: comparisonNavigation.currentIndex + 1,
+              traceCount: comparisonNavigation.totalCount,
+            }}
+          />
+        </Typography.Text>
+      </Tag>
+    ) : undefined;
+
   return (
     <>
       <ModelTraceExplorerDrawer
         handleClose={onClose}
+        navigationLabel={navigationLabel}
         selectPreviousEval={selectPreviousEval}
         selectNextEval={selectNextEval}
         isPreviousAvailable={isPreviousAvailable}
         isNextAvailable={isNextAvailable}
         renderModalTitle={renderModalTitle}
-        isLoading={isLoading}
+        isLoading={isLoading || (isComparisonMode && isCounterpartLoading)}
         experimentId={experimentId}
         traceInfo={currentInfo}
+        traceComparison={
+          isComparisonMode && baselineTraceId && candidateTraceId
+            ? {
+                baselineTraceId,
+                candidateTraceId,
+                baselineTraceUrl: getStandaloneTraceUrl(baselineTraceId),
+                candidateTraceUrl: getStandaloneTraceUrl(candidateTraceId),
+                onSwap: handleSwapComparisonOrder,
+                baselineTraceInfo:
+                  comparisonRole === 'baseline'
+                    ? isV3ModelTraceInfo(traceData?.info)
+                      ? traceData.info
+                      : undefined
+                    : isV3ModelTraceInfo(counterpartTraceData?.info)
+                      ? counterpartTraceData.info
+                      : undefined,
+                candidateTraceInfo:
+                  comparisonRole === 'candidate'
+                    ? isV3ModelTraceInfo(traceData?.info)
+                      ? traceData.info
+                      : undefined
+                    : isV3ModelTraceInfo(counterpartTraceData?.info)
+                      ? counterpartTraceData.info
+                      : undefined,
+                isReviewMode: isPairwiseReviewMode,
+                onReviewModeChange: handleReviewModeChange,
+                runOptions: comparisonRunOptions,
+                onSelectBaselineTrace: comparisonRunOptions ? handleSelectBaselineTrace : undefined,
+                onSelectCandidateTrace: comparisonRunOptions ? handleSelectCandidateTrace : undefined,
+              }
+            : undefined
+        }
       >
         {body}
       </ModelTraceExplorerDrawer>

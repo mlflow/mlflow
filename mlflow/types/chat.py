@@ -169,7 +169,7 @@ class ParamProperty(ParamType):
 
 
 class FunctionParams(BaseModel):
-    properties: dict[str, ParamProperty]
+    properties: dict[str, ParamProperty] = Field(default_factory=dict)
     type: Literal["object"] = "object"
     required: list[str] | None = None
     additionalProperties: bool | None = None

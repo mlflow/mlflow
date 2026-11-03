@@ -5,8 +5,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 32000,
-        "max_output": 8191,
-        "max_tokens": 8191
+        "max_output": 8191
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -19,14 +18,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "codestral-latest": {
       "mode": "chat",
       "context_window": {
         "max_input": 32000,
-        "max_output": 8191,
-        "max_tokens": 8191
+        "max_output": 8191
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -39,7 +37,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     }
   }
 }

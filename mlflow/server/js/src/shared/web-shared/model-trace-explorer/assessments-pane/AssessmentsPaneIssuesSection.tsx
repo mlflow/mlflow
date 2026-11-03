@@ -1,4 +1,5 @@
 import { Button, ChevronDownIcon, ChevronRightIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { getUniqueIssueReferenceAssessments } from '../IssueAssessmentUtils';
 import type { IssueReferenceAssessment } from '../ModelTrace.types';
 import { useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
@@ -75,8 +76,15 @@ export const AssessmentsPaneIssuesSection = ({
   issues: IssueReferenceAssessment[];
   selectedIssueId?: string;
 }) => {
+  // Deduped here, where the count below is rendered: every detection run leaves its own
+  // reference on a trace it flags, so taking them as they come showed a card per run and an
+  // "Issues (n)" that climbed with each rerun. Same selection the issue banner makes -- the
+  // newest valid reference per issue.
   const sortedIssues = useMemo(
-    () => issues.toSorted((left, right) => left.assessment_name.localeCompare(right.assessment_name)),
+    () =>
+      getUniqueIssueReferenceAssessments(issues).toSorted((left, right) =>
+        left.assessment_name.localeCompare(right.assessment_name),
+      ),
     [issues],
   );
 

@@ -87,6 +87,7 @@ export const CATEGORY_TAG_COLORS: Record<IssueCategory, TagColors> = {
   adherence: 'purple',
   relevance: 'turquoise',
   safety: 'lime',
+  cost: 'brown',
 };
 
 // Built-in categories have shared labels and definitions; any other value is rendered as a

@@ -154,6 +154,7 @@ from mlflow.protos.service_pb2 import (
 from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
+from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
@@ -163,6 +164,7 @@ from mlflow.tracking.request_header.default_request_header_provider import (
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
+    _UNPROCESSED_REQUEST_RESPONSE_CODES,
     _V3_ISSUES_REST_API_PATH_PREFIX,
     _V3_TRACE_REST_API_PATH_PREFIX,
     MlflowHostCreds,
@@ -280,15 +282,30 @@ def test_response_with_unknown_fields():
         assert experiments[0].name == "My experiment"
 
 
-def _args(host_creds, endpoint, method, json_body, use_v3=False, retry_timeout_seconds=None):
+def _args(
+    host_creds,
+    endpoint,
+    method,
+    json_body,
+    use_v3=False,
+    retry_timeout_seconds=None,
+    retries_unprocessed_only=False,
+):
     version = "3.0" if use_v3 else "2.0"
     res = {
         "host_creds": host_creds,
         "endpoint": f"/api/{version}/mlflow/{endpoint}",
         "method": method,
+        "raise_on_status": False,
     }
     if retry_timeout_seconds is not None:
         res["retry_timeout_seconds"] = retry_timeout_seconds
+    if retries_unprocessed_only:
+        res |= {
+            "retry_codes": _UNPROCESSED_REQUEST_RESPONSE_CODES,
+            "retry_read_errors": False,
+            "retry_on_retry_after": False,
+        }
     if method == "GET":
         res["params"] = json.loads(json_body)
     else:
@@ -297,7 +314,14 @@ def _args(host_creds, endpoint, method, json_body, use_v3=False, retry_timeout_s
 
 
 def _verify_requests(
-    http_request, host_creds, endpoint, method, json_body, use_v3=False, retry_timeout_seconds=None
+    http_request,
+    host_creds,
+    endpoint,
+    method,
+    json_body,
+    use_v3=False,
+    retry_timeout_seconds=None,
+    retries_unprocessed_only=False,
 ):
     """
     Verify HTTP requests in tests.
@@ -311,9 +335,19 @@ def _verify_requests(
         use_v3: If True, verify using /api/3.0/mlflow/ prefix instead of /api/2.0/mlflow/
                 This is used for trace-related endpoints that use the V3 API.
         retry_timeout_seconds: The retry timeout seconds to use for the request
+        retries_unprocessed_only: Whether the request is a write that is retried only when the
+            server didn't process it
     """
     http_request.assert_any_call(
-        **(_args(host_creds, endpoint, method, json_body, use_v3, retry_timeout_seconds))
+        **_args(
+            host_creds,
+            endpoint,
+            method,
+            json_body,
+            use_v3,
+            retry_timeout_seconds,
+            retries_unprocessed_only,
+        )
     )
 
 
@@ -355,7 +389,9 @@ def test_requestor():
                     ],
                 )
             )
-            expected_kwargs = _args(creds, "runs/create", "POST", cr_body)
+            expected_kwargs = _args(
+                creds, "runs/create", "POST", cr_body, retries_unprocessed_only=True
+            )
 
             assert mock_http.call_count == 1
             actual_kwargs = mock_http.call_args[1]
@@ -394,7 +430,9 @@ def test_requestor():
     with mock_http_request() as mock_http:
         store.delete_tag("some_uuid", "t1")
         body = message_to_json(DeleteTag(run_id="some_uuid", key="t1"))
-        _verify_requests(mock_http, creds, "runs/delete-tag", "POST", body)
+        _verify_requests(
+            mock_http, creds, "runs/delete-tag", "POST", body, retries_unprocessed_only=True
+        )
 
     with mock_http_request() as mock_http:
         store.log_metric("u2", Metric("m1", 0.87, 12345, 3))
@@ -426,7 +464,9 @@ def test_requestor():
         dataset_input = DatasetInput(dataset=dataset, tags=[tag])
         store.log_inputs("some_uuid", [dataset_input])
         body = message_to_json(LogInputs(run_id="some_uuid", datasets=[dataset_input.to_proto()]))
-        _verify_requests(mock_http, creds, "runs/log-inputs", "POST", body)
+        _verify_requests(
+            mock_http, creds, "runs/log-inputs", "POST", body, retries_unprocessed_only=True
+        )
 
     with mock_http_request() as mock_http:
         store.delete_run("u25")
@@ -448,6 +488,7 @@ def test_requestor():
             "experiments/delete",
             "POST",
             message_to_json(DeleteExperiment(experiment_id="0")),
+            retries_unprocessed_only=True,
         )
 
     with mock_http_request() as mock_http:
@@ -458,6 +499,7 @@ def test_requestor():
             "experiments/restore",
             "POST",
             message_to_json(RestoreExperiment(experiment_id="0")),
+            retries_unprocessed_only=True,
         )
 
     with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
@@ -491,7 +533,12 @@ def test_requestor():
         store.record_logged_model("run_id", m)
         expected_message = LogModel(run_id=run_id, model_json=json.dumps(m.get_tags_dict()))
         _verify_requests(
-            mock_http, creds, "runs/log-model", "POST", message_to_json(expected_message)
+            mock_http,
+            creds,
+            "runs/log-model",
+            "POST",
+            message_to_json(expected_message),
+            retries_unprocessed_only=True,
         )
 
     # if model has config, it should be removed from the model_json before sending to the server
@@ -516,6 +563,7 @@ def test_requestor():
             "runs/log-model",
             "POST",
             message_to_json(expected_message),
+            retries_unprocessed_only=True,
         )
 
     with mock_http_request() as mock_http:
@@ -753,7 +801,14 @@ def test_deprecated_start_trace_v2():
             request_metadata=metadata,
             tags=tags,
         )
-        _verify_requests(mock_http, creds, "traces", "POST", message_to_json(expected_request))
+        _verify_requests(
+            mock_http,
+            creds,
+            "traces",
+            "POST",
+            message_to_json(expected_request),
+            retries_unprocessed_only=True,
+        )
         assert isinstance(res, TraceInfoV2)
         assert res.request_id == request_id
         assert res.experiment_id == experiment_id
@@ -800,6 +855,42 @@ def test_start_trace(monkeypatch):
             use_v3=True,
             retry_timeout_seconds=1,
         )
+
+
+def test_start_trace_assigns_ids_to_assessments_without_one():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    shared = Feedback(name="new", value=True)
+    existing = Feedback(name="existing", value=True)
+    existing.assessment_id = "a-existing"
+
+    def trace_info(trace_id):
+        return TraceInfo(
+            trace_id=trace_id,
+            trace_location=TraceLocation.from_experiment_id("123"),
+            request_time=123,
+            execution_duration=10,
+            state=TraceState.OK,
+            assessments=[shared, existing],
+        )
+
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps({})
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        store.start_trace(trace_info("tr-1"))
+        store.start_trace(trace_info("tr-2"))
+
+    sent = [
+        call.kwargs["json"]["trace"]["trace_info"]["assessments"]
+        for call in mock_http.call_args_list
+    ]
+    assert all(assessments[0]["assessment_id"].startswith("a-") for assessments in sent)
+    # Each request gets its own ID, so an assessment object logged to several traces doesn't
+    # carry one trace's ID into another.
+    assert sent[0][0]["assessment_id"] != sent[1][0]["assessment_id"]
+    assert [assessments[1]["assessment_id"] for assessments in sent] == ["a-existing"] * 2
+    assert shared.assessment_id is None
 
 
 def test_deprecated_end_trace_v2():
@@ -1079,7 +1170,14 @@ def test_delete_traces(delete_traces_kwargs):
         if "request_ids" in call_kwargs:
             call_kwargs["trace_ids"] = call_kwargs.pop("request_ids")
         res = store.delete_traces(**call_kwargs)
-        _verify_requests(mock_http, creds, "traces/delete-traces", "POST", message_to_json(request))
+        _verify_requests(
+            mock_http,
+            creds,
+            "traces/delete-traces",
+            "POST",
+            message_to_json(request),
+            retries_unprocessed_only=True,
+        )
         assert res == 1
 
 
@@ -1191,6 +1289,7 @@ def test_log_assessment_feedback(is_databricks):
             "POST",
             message_to_json(request),
             use_v3=True,
+            retries_unprocessed_only=True,
         )
         assert isinstance(res, Feedback)
         assert res.assessment_id is not None
@@ -1246,6 +1345,7 @@ def test_log_assessment_expectation(is_databricks):
             "POST",
             message_to_json(request),
             use_v3=True,
+            retries_unprocessed_only=True,
         )
         assert isinstance(res, Expectation)
         assert res.assessment_id is not None
@@ -1634,6 +1734,40 @@ def test_batch_get_trace_infos_short_circuits_on_empty_experiment_ids():
 
         assert result == []
         mock_call.assert_not_called()
+
+
+@pytest.mark.parametrize("store_class", [RestStore, DatabricksTracingRestStore])
+@pytest.mark.parametrize("experiment_ids", [[], ["1"], ["1", "2"]])
+def test_search_logged_models_preserves_explicit_experiment_scope(store_class, experiment_ids):
+    creds = MlflowHostCreds("https://hello")
+    store = store_class(lambda: creds)
+    payload = {
+        "experiment_ids": experiment_ids,
+        "filter": "name != 'excluded'",
+        "datasets": [{"dataset_name": "eval", "dataset_digest": "digest"}],
+        "max_results": 2,
+        "order_by": [{"field_name": "name", "ascending": False}],
+        "page_token": "opaque-request-token",
+    }
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        return_value=mock.MagicMock(
+            status_code=200, text=json.dumps({"next_page_token": "opaque-response-token"})
+        ),
+    ) as http:
+        models = store.search_logged_models(
+            experiment_ids=experiment_ids,
+            filter_string=payload["filter"],
+            datasets=payload["datasets"],
+            max_results=payload["max_results"],
+            order_by=payload["order_by"],
+            page_token=payload["page_token"],
+        )
+
+    http.assert_called_once()
+    _verify_requests(http, creds, "logged-models/search", "POST", json.dumps(payload))
+    assert models == []
+    assert models.token == "opaque-response-token"
 
 
 def test_log_logged_model_params():
@@ -2296,7 +2430,8 @@ def test_evaluation_dataset_merge_records():
 
                 assert result is eval_dataset
 
-                assert mock_get.call_count == 1
+                # Once to read the existing schema, once to refresh metadata after the upsert
+                assert mock_get.call_count == 2
                 assert mock_call.call_count == 1
 
                 call_args = mock_call.call_args_list[0]
@@ -3336,6 +3471,7 @@ def test_link_prompts_to_trace():
             "traces/link-prompts",
             "POST",
             message_to_json(request),
+            retries_unprocessed_only=True,
         )
 
 
@@ -3356,7 +3492,15 @@ def test_create_gateway_secret():
                 provider="openai",
             )
         )
-        _verify_requests(mock_http, creds, "gateway/secrets/create", "POST", body, use_v3=True)
+        _verify_requests(
+            mock_http,
+            creds,
+            "gateway/secrets/create",
+            "POST",
+            body,
+            use_v3=True,
+            retries_unprocessed_only=True,
+        )
 
 
 def test_get_gateway_secret_info():
@@ -3386,7 +3530,15 @@ def test_update_gateway_secret():
                 auth_config={"region": "us-east-1"},
             )
         )
-        _verify_requests(mock_http, creds, "gateway/secrets/update", "POST", body, use_v3=True)
+        _verify_requests(
+            mock_http,
+            creds,
+            "gateway/secrets/update",
+            "POST",
+            body,
+            use_v3=True,
+            retries_unprocessed_only=True,
+        )
 
 
 def test_delete_gateway_secret():
@@ -3472,7 +3624,15 @@ def test_create_gateway_endpoint():
                 usage_tracking=True,
             )
         )
-        _verify_requests(mock_http, creds, "gateway/endpoints/create", "POST", body, use_v3=True)
+        _verify_requests(
+            mock_http,
+            creds,
+            "gateway/endpoints/create",
+            "POST",
+            body,
+            use_v3=True,
+            retries_unprocessed_only=True,
+        )
 
 
 def test_get_gateway_endpoint():
@@ -3565,7 +3725,15 @@ def test_update_gateway_endpoint():
                 ),
             )
         )
-        _verify_requests(mock_http, creds, "gateway/endpoints/update", "POST", body, use_v3=True)
+        _verify_requests(
+            mock_http,
+            creds,
+            "gateway/endpoints/update",
+            "POST",
+            body,
+            use_v3=True,
+            retries_unprocessed_only=True,
+        )
 
 
 def test_delete_gateway_endpoint():
@@ -3608,7 +3776,13 @@ def test_create_gateway_model_definition():
             )
         )
         _verify_requests(
-            mock_http, creds, "gateway/model-definitions/create", "POST", body, use_v3=True
+            mock_http,
+            creds,
+            "gateway/model-definitions/create",
+            "POST",
+            body,
+            use_v3=True,
+            retries_unprocessed_only=True,
         )
 
 
@@ -3654,7 +3828,13 @@ def test_update_gateway_model_definition():
             )
         )
         _verify_requests(
-            mock_http, creds, "gateway/model-definitions/update", "POST", body, use_v3=True
+            mock_http,
+            creds,
+            "gateway/model-definitions/update",
+            "POST",
+            body,
+            use_v3=True,
+            retries_unprocessed_only=True,
         )
 
 
@@ -3698,7 +3878,13 @@ def test_attach_model_to_gateway_endpoint():
             )
         )
         _verify_requests(
-            mock_http, creds, "gateway/endpoints/models/attach", "POST", body, use_v3=True
+            mock_http,
+            creds,
+            "gateway/endpoints/models/attach",
+            "POST",
+            body,
+            use_v3=True,
+            retries_unprocessed_only=True,
         )
 
 
@@ -3718,7 +3904,13 @@ def test_detach_model_from_gateway_endpoint():
             )
         )
         _verify_requests(
-            mock_http, creds, "gateway/endpoints/models/detach", "POST", body, use_v3=True
+            mock_http,
+            creds,
+            "gateway/endpoints/models/detach",
+            "POST",
+            body,
+            use_v3=True,
+            retries_unprocessed_only=True,
         )
 
 
@@ -3744,7 +3936,13 @@ def test_create_gateway_endpoint_binding():
             )
         )
         _verify_requests(
-            mock_http, creds, "gateway/endpoints/bindings/create", "POST", body, use_v3=True
+            mock_http,
+            creds,
+            "gateway/endpoints/bindings/create",
+            "POST",
+            body,
+            use_v3=True,
+            retries_unprocessed_only=True,
         )
 
 
@@ -3916,7 +4114,15 @@ def test_create_issue():
         "categories": ["hallucination", "tool_error"],
         "created_by": "test_user",
     })
-    _verify_requests(mock_http, creds, "issues", "POST", expected_request_json, use_v3=True)
+    _verify_requests(
+        mock_http,
+        creds,
+        "issues",
+        "POST",
+        expected_request_json,
+        use_v3=True,
+        retries_unprocessed_only=True,
+    )
 
     assert isinstance(issue, Issue)
     assert issue.issue_id == "issue-123"
