@@ -5681,7 +5681,7 @@ def validate_can_delete_dataset():
 
 
 def _experiment_ids_from_request(request_message) -> list[str]:
-    # Parse experiment_ids with the same proto and rules as the handler.
+    # Use the handler's request-source normalization; reject partial parses for authorization.
     message = _get_request_message(
         request_message,
         schema={"experiment_ids": [_assert_array, _assert_item_type_string]},
