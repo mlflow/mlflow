@@ -100,6 +100,7 @@ describe('WorkspacesHomeView', () => {
   });
 
   test('renders empty state when no workspaces', () => {
+    mockedIsAdmin.mockReturnValue(true);
     jest.mocked(useWorkspaces).mockReturnValue({
       workspaces: [],
       isLoading: false,
@@ -123,8 +124,23 @@ describe('WorkspacesHomeView', () => {
     });
 
     renderComponent();
-    expect(screen.getByText('Create your first workspace')).toBeInTheDocument();
+    expect(screen.getByText('No workspaces available')).toBeInTheDocument();
+    expect(screen.queryByText('Create your first workspace')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Create workspace' })).not.toBeInTheDocument();
+  });
+
+  test('shows create button in empty state when auth is unavailable', () => {
+    mockedIsAuthAvailable.mockReturnValue(false);
+    jest.mocked(useWorkspaces).mockReturnValue({
+      workspaces: [],
+      isLoading: false,
+      isError: false,
+      refetch: jest.fn() as (options: any) => Promise<any>,
+    });
+
+    renderComponent();
+    expect(screen.getByText('Create your first workspace')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create workspace' })).toBeInTheDocument();
   });
 
   test('calls onCreateWorkspace when create button clicked in empty state', async () => {

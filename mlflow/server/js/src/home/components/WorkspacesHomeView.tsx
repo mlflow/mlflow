@@ -67,16 +67,30 @@ const WorkspacesEmptyState = ({
       }}
     >
       <Typography.Title level={4} css={{ margin: 0 }}>
-        <FormattedMessage
-          defaultMessage="Create your first workspace"
-          description="Home page workspaces empty state title"
-        />
+        {canCreate ? (
+          <FormattedMessage
+            defaultMessage="Create your first workspace"
+            description="Home page workspaces empty state title"
+          />
+        ) : (
+          <FormattedMessage
+            defaultMessage="No workspaces available"
+            description="Home page workspaces empty state title for users who can't create workspaces"
+          />
+        )}
       </Typography.Title>
       <Typography.Text css={{ color: theme.colors.textSecondary }}>
-        <FormattedMessage
-          defaultMessage="Create a workspace to organize and logically isolate your experiments and models."
-          description="Home page workspaces empty state description"
-        />
+        {canCreate ? (
+          <FormattedMessage
+            defaultMessage="Create a workspace to organize and logically isolate your experiments and models."
+            description="Home page workspaces empty state description"
+          />
+        ) : (
+          <FormattedMessage
+            defaultMessage="You don't have access to any workspaces yet. Ask an administrator to create a workspace or grant you access."
+            description="Home page workspaces empty state description for users who can't create workspaces"
+          />
+        )}
       </Typography.Text>
       {canCreate && (
         <Button componentId="mlflow.home.workspaces.create" onClick={onCreateWorkspace}>
