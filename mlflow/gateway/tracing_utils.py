@@ -394,8 +394,9 @@ def aggregate_anthropic_messages_stream_chunks(
 
     Processes the following Anthropic streaming event types:
     - ``message_start``: extracts id, model, role, and input token usage
-    - ``content_block_start``: initialises text or tool_use content blocks
-    - ``content_block_delta``: appends text deltas and tool input JSON deltas
+    - ``content_block_start``: initialises text, thinking, redacted_thinking, or tool_use
+      content blocks
+    - ``content_block_delta``: appends text, thinking, signature, and tool input JSON deltas
     - ``message_delta``: extracts stop_reason, stop_sequence, and output token usage
 
     Returns a dict matching the Anthropic Messages API non-streaming response shape::
@@ -458,7 +459,9 @@ def aggregate_anthropic_messages_stream_chunks(
                         "_input_json": "",
                     }
                 else:
-                    content_blocks[index] = {"type": "text", "text": block.get("text", "")}
+                    # Copy the block as-is so text, thinking, and redacted_thinking blocks
+                    # keep their type and fields (e.g. redacted_thinking ``data``).
+                    content_blocks[index] = dict(block)
             case {
                 "type": "content_block_delta",
                 "index": int(index),
@@ -470,6 +473,10 @@ def aggregate_anthropic_messages_stream_chunks(
                 match delta.get("type"):
                     case "text_delta":
                         block["text"] = block.get("text", "") + delta.get("text", "")
+                    case "thinking_delta":
+                        block["thinking"] = block.get("thinking", "") + delta.get("thinking", "")
+                    case "signature_delta":
+                        block["signature"] = block.get("signature", "") + delta.get("signature", "")
                     case "input_json_delta":
                         block["_input_json"] = block.get("_input_json", "") + delta.get(
                             "partial_json", ""
