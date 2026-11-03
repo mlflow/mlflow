@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793711048676,
+  "lastUpdate": 1793731240331,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "97677340+CoralGarden52@users.noreply.github.com",
-            "name": "CoralGarden52",
-            "username": "CoralGarden52"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a79c7cb07e0f6915d935e14113b2d48c02f56804",
-          "message": "[BUGFIX] Preserve empty webhook fields in partial `update_webhook` calls (#25509)\n\nSigned-off-by: CoralGarden52 <2193436736@qq.com>",
-          "timestamp": "2026-09-02T02:04:41Z",
-          "tree_id": "61bb5c7beef52ea7b2e25674ad4c304c44fe34b3",
-          "url": "https://github.com/mlflow/mlflow/commit/a79c7cb07e0f6915d935e14113b2d48c02f56804"
-        },
-        "date": 1788314751953,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 32.75808330000132,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 4.81338476315853,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 4.162476749999685,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 4.792560662070071,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 5.126072481708204,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 4.6701498333305835,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 11.336635999998634,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "84737625+kriscon-db@users.noreply.github.com",
+            "name": "Kris Concepcion",
+            "username": "kriscon-db"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fc7636c94ded83d60130d10fc265c384bdd4d096",
+          "message": "Read `experiment_ids` like the handlers do in the basic-auth dataset validators (#27441)\n\nSigned-off-by: Kris Concepcion <kris.concepcion@databricks.com>\nSigned-off-by: B-Step62 <yuki.watanabe@databricks.com>\nCo-authored-by: Isaac <no-reply@databricks.com>\nCo-authored-by: B-Step62 <yuki.watanabe@databricks.com>",
+          "timestamp": "2026-11-03T10:39:16-08:00",
+          "tree_id": "dd373712996ab7ce1e476e6823220e01bf1c2953",
+          "url": "https://github.com/mlflow/mlflow/commit/fc7636c94ded83d60130d10fc265c384bdd4d096"
+        },
+        "date": 1793731237263,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 50.835852499999135,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 7.446289444441984,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.622602677419266,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.657540229507057,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 7.114092383927684,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 11.848498000000518,
             "unit": "ms"
           }
         ]
