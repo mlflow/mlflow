@@ -19,7 +19,6 @@ import { createEvalRunsTableKeyedColumnKey } from './ExperimentEvaluationRunsTab
 import type { ExperimentEvaluationRunsGroupData, RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
 import type { RunEntityWithChildren } from '../../types';
 import { RunGroupingMode } from '../../components/experiment-page/utils/experimentPage.row-types';
-import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION } from '../../constants';
 import Routes from '../../routes';
 import { TestRouter, testRoute } from '../../../common/utils/RoutingTestUtils';
 
@@ -457,23 +456,6 @@ describe('ExperimentEvaluationRunsTable run name cell', () => {
     expect(screen.getAllByRole('row')[0].style.zIndex).toBe('');
   });
 
-  test('flag on: issue-detection run names are real links to the issue-detection page', () => {
-    const run = makeRun('issue-run', {
-      data: {
-        params: [],
-        metrics: [],
-        tags: [{ key: MLFLOW_RUN_TYPE_TAG, value: MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION }],
-      },
-    } as Partial<RunEntityWithChildren>);
-
-    renderTable({ data: [run, makeRun('eval-run')], enableNewEvalRunsUi: true });
-
-    expect(screen.getByRole('link', { name: 'Run issue-run' })).toHaveAttribute(
-      'href',
-      Routes.getIssueDetectionRunDetailsRoute('exp-1', 'issue-run'),
-    );
-  });
-
   test('flag on: eval run names are real links to the evaluation run details page', () => {
     renderTable({ data: [makeRun('eval-run')], enableNewEvalRunsUi: true });
 
@@ -488,27 +470,6 @@ describe('ExperimentEvaluationRunsTable run name cell', () => {
 
     expect(screen.queryByRole('link', { name: 'Run eval-run' })).not.toBeInTheDocument();
     expect(screen.getByText('Run eval-run')).toBeInTheDocument();
-  });
-
-  test('flag on: issue-detection run links keep the time range query', () => {
-    const run = makeRun('issue-run', {
-      data: {
-        params: [],
-        metrics: [],
-        tags: [{ key: MLFLOW_RUN_TYPE_TAG, value: MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION }],
-      },
-    } as Partial<RunEntityWithChildren>);
-
-    renderTable({
-      data: [run],
-      enableNewEvalRunsUi: true,
-      initialEntries: ['/?startTimeLabel=CUSTOM&startTime=100&endTime=200&unrelated=1'],
-    });
-
-    expect(screen.getByRole('link', { name: 'Run issue-run' })).toHaveAttribute(
-      'href',
-      `${Routes.getIssueDetectionRunDetailsRoute('exp-1', 'issue-run')}?startTimeLabel=CUSTOM&startTime=100&endTime=200`,
-    );
   });
 
   test('flag on: clicking an eval run name opens the evaluation run details page', async () => {
@@ -536,21 +497,6 @@ describe('ExperimentEvaluationRunsTable run name cell', () => {
     await userEvent.click(screen.getByText('Run eval-run'));
 
     expect(setSelectedRunUuid).toHaveBeenCalledWith('eval-run');
-  });
-
-  test('flag off: issue-detection run names are not links', () => {
-    const run = makeRun('issue-run', {
-      data: {
-        params: [],
-        metrics: [],
-        tags: [{ key: MLFLOW_RUN_TYPE_TAG, value: MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION }],
-      },
-    } as Partial<RunEntityWithChildren>);
-
-    renderTable({ data: [run] });
-
-    expect(screen.queryByRole('link', { name: 'Run issue-run' })).not.toBeInTheDocument();
-    expect(screen.getByText('Run issue-run')).toBeInTheDocument();
   });
 
   test('flag on: the row checkbox has an accessible label', () => {

@@ -21,6 +21,8 @@ from typing import TYPE_CHECKING, Any, Callable, ContextManager
 
 from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import (
+    _MLFLOW_SERVER_JOB_ID,
+    _MLFLOW_SERVER_JOB_NAME,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_LOGGING_LEVEL,
     MLFLOW_SERVER_JOB_EXECUTION_ENGINE,
@@ -57,8 +59,8 @@ _logger = logging.getLogger(__name__)
 HUEY_PERIODIC_TASKS_INSTANCE_KEY = "periodic_tasks"
 
 # Environment variable names for job execution
-MLFLOW_SERVER_JOB_NAME_ENV_VAR = "_MLFLOW_SERVER_JOB_NAME"
-MLFLOW_SERVER_JOB_ID_ENV_VAR = "_MLFLOW_SERVER_JOB_ID"
+MLFLOW_SERVER_JOB_NAME_ENV_VAR = _MLFLOW_SERVER_JOB_NAME.name
+MLFLOW_SERVER_JOB_ID_ENV_VAR = _MLFLOW_SERVER_JOB_ID.name
 MLFLOW_SERVER_JOB_PARAMS_ENV_VAR = "_MLFLOW_SERVER_JOB_PARAMS"
 MLFLOW_SERVER_JOB_FUNCTION_FULLNAME_ENV_VAR = "_MLFLOW_SERVER_JOB_FUNCTION_FULLNAME"
 MLFLOW_SERVER_JOB_RESULT_DUMP_PATH_ENV_VAR = "_MLFLOW_SERVER_JOB_RESULT_DUMP_PATH"
@@ -1070,6 +1072,8 @@ def register_periodic_tasks(huey_instance) -> None:
     """
     from huey import crontab
 
+    from mlflow.genai.discovery.schedule import POLL_INTERVAL_MINUTES
+
     cached_tracking_store = None
 
     def get_tracking_store():
@@ -1150,7 +1154,11 @@ def register_periodic_tasks(huey_instance) -> None:
     # A schedule is dispatched at the first pass at or after its fire time, so an off-grid fire
     # time runs up to 15 minutes late. It covers the same window either way: the window's upper
     # bound is the fire time, not the dispatch time, so arriving late skips nothing.
-    @huey_instance.periodic_task(crontab(minute="*/15"))
+    #
+    # Read from the timing module rather than written here twice: the re-anchor arithmetic in
+    # ``reanchor_timing`` assumes the previous pass was one interval ago, so a crontab that said
+    # something else would quietly make it wrong.
+    @huey_instance.periodic_task(crontab(minute=f"*/{POLL_INTERVAL_MINUTES}"))
     # Prevent concurrent execution if a pass takes longer than the interval.
     @huey_instance.lock_task("issue-detection-scheduler-lock")
     def issue_detection_scheduler():

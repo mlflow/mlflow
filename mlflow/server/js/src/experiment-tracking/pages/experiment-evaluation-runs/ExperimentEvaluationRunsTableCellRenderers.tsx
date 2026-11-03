@@ -25,10 +25,9 @@ import {
 } from '@databricks/design-system';
 import type { CellContext, ColumnDef, HeaderContext } from '@tanstack/react-table';
 import { DatasetSourceTypes, DEFAULT_INLINE_DATASET_NAME, RunEntity } from '../../types';
-import { Link, useNavigate, useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { Link, useNavigate } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { useGetLoggedModelQuery } from '../../hooks/logged-models/useGetLoggedModelQuery';
 import Routes from '../../routes';
-import { getPreservedQueryString } from '../experiment-page-tabs/side-nav/utils';
 import { useSaveExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { useGetExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { RunColorPill } from '../../components/experiment-page/components/RunColorPill';
@@ -46,15 +45,8 @@ import { pinBaselineRows, toggleEvalRunRowSelection } from './evalRunsRowSelecti
 import { getEvalRunsGroupMetricMean } from './EvalRunsGroup.utils';
 import { useExperimentEvaluationRunsRowVisibility } from './hooks/useExperimentEvaluationRunsRowVisibility';
 import { RunPageTabName } from '../../constants';
-import {
-  shouldEnableImprovedEvalRunsComparison,
-  shouldShowEvalRunsIssuesPanel,
-} from '../../../common/utils/FeatureUtils';
-import {
-  MLFLOW_RUN_TYPE_TAG,
-  MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION,
-  MLFLOW_RUN_TYPE_VALUE_TEST,
-} from '../../constants';
+import { shouldEnableImprovedEvalRunsComparison } from '../../../common/utils/FeatureUtils';
+import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_TEST } from '../../constants';
 import { DatasetLink } from '../experiment-evaluation-datasets/DatasetLink';
 import { RunStatusIcon } from '../../components/RunStatusIcon';
 import { useIntl } from '@databricks/i18n';
@@ -117,7 +109,6 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
   const saveRunColor = useSaveExperimentRunColor();
   const getRunColor = useGetExperimentRunColor();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const intl = useIntl();
 
   if ('subRuns' in row.original) {
@@ -133,40 +124,15 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
   const hasExpandableRows = Boolean(evalMeta?.hasExpandableRows);
   const reserveChevronSlot = enableNewEvalRunsUi && hasExpandableRows && !row.getCanExpand();
   const tags = row.original.data?.tags ?? [];
-  const isIssueDetectionRun = tags.some(
-    (tag) => tag.key === MLFLOW_RUN_TYPE_TAG && tag.value === MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION,
-  );
-  const showIssuesPanelFlag = shouldShowEvalRunsIssuesPanel();
 
-  // New UI renders issue-detection run names as a real anchor so browser gestures (Cmd/Ctrl+click,
-  // middle-click, "copy link") work.
-  const issueDetectionRunLinkTo = (() => {
-    if (!enableNewEvalRunsUi || !isIssueDetectionRun || !showIssuesPanelFlag) {
-      return undefined;
-    }
-    const route = Routes.getIssueDetectionRunDetailsRoute(experimentId, runUuid);
-    const timeRangeSearch = getPreservedQueryString(searchParams.toString());
-    return timeRangeSearch ? `${route}${timeRangeSearch}` : route;
-  })();
-
-  // New UI opens other runs in the evaluation run details page, also as a real anchor.
-  const evalRunDetailsLinkTo =
-    enableNewEvalRunsUi && !issueDetectionRunLinkTo && !(isIssueDetectionRun && showIssuesPanelFlag)
-      ? Routes.getEvaluationRunDetailsRoute(experimentId, runUuid)
-      : undefined;
-  const runLinkTo = issueDetectionRunLinkTo ?? evalRunDetailsLinkTo;
+  // New UI renders run names as a real anchor so browser gestures (Cmd/Ctrl+click, middle-click,
+  // "copy link") work.
+  const runLinkTo = enableNewEvalRunsUi ? Routes.getEvaluationRunDetailsRoute(experimentId, runUuid) : undefined;
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // When flag is ON and clicking on an issue detection run, navigate to the issue detection run details page
-    if (isIssueDetectionRun && showIssuesPanelFlag) {
-      const route = Routes.getIssueDetectionRunDetailsRoute(experimentId, runUuid);
-      const timeRangeSearch = getPreservedQueryString(searchParams.toString());
-      navigate(timeRangeSearch ? `${route}${timeRangeSearch}` : route);
-      return;
-    }
-    if (evalRunDetailsLinkTo) {
-      navigate(evalRunDetailsLinkTo);
+    if (runLinkTo) {
+      navigate(runLinkTo);
       return;
     }
     // Otherwise follow old behavior - open the right-side panel
@@ -255,24 +221,10 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
           <RunStatusIcon status={status} />
         </div>
       ) : null}
-      {isIssueDetectionRun && showIssuesPanelFlag ? (
-        <Tooltip
-          content={
-            <FormattedMessage
-              defaultMessage="Issue detection run"
-              description="Tooltip for the AI icon indicating this is an issue detection run"
-            />
-          }
-          componentId="mlflow.eval-runs.issue-detection-run-icon-tooltip"
-        >
-          <SparkleIcon color="ai" css={{ flexShrink: 0, fontSize: 14, marginLeft: -1, marginRight: -1 }} />
-        </Tooltip>
-      ) : (
-        <RunColorPill
-          color={getRunColor(runUuid)}
-          onChangeColor={(colorValue) => saveRunColor({ runUuid, colorValue })}
-        />
-      )}
+      <RunColorPill
+        color={getRunColor(runUuid)}
+        onChangeColor={(colorValue) => saveRunColor({ runUuid, colorValue })}
+      />
       {enableNewEvalRunsUi ? (
         <TruncationTooltip componentId="mlflow.eval-runs.run-name-cell.truncation-tooltip">
           {runNameLink}
@@ -828,16 +780,6 @@ export const TypeCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row }) => {
           <FormattedMessage
             defaultMessage="Test"
             description="Type pill text for a regression-test run in the evaluation runs table"
-          />
-        </Tag>
-      );
-    case MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION:
-      return (
-        <Tag componentId="mlflow.eval-runs.type-cell.issue-detection" color="indigo" css={pillCss}>
-          <SparkleIcon />
-          <FormattedMessage
-            defaultMessage="Issue detection"
-            description="Type pill text for an issue-detection run in the evaluation runs table"
           />
         </Tag>
       );

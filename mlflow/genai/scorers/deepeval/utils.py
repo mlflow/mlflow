@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from mlflow.entities.span import SpanAttributeKey, SpanType
+from mlflow.entities.span import SpanAttributeKey
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.utils.trace_utils import (
     _extract_tool_name_from_span,
+    _search_tool_call_spans,
     _to_dict,
     extract_retrieval_context_from_trace,
     parse_inputs_to_str,
@@ -81,7 +82,7 @@ def _extract_tool_calls_from_trace(trace: Trace):
     if not trace:
         return None
 
-    tool_spans = trace.search_spans(span_type=SpanType.TOOL)
+    tool_spans = _search_tool_call_spans(trace)
     if not tool_spans:
         return None
 

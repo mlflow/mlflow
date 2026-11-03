@@ -62,7 +62,7 @@ jobs:
 
   core:
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 150
     permissions:
       contents: read
     cache-mode: read

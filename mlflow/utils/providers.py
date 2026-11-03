@@ -384,7 +384,57 @@ def cost_per_token(
     info = _lookup_model_info(model, custom_llm_provider)
     if info is None:
         return None
+    return _cost_from_model_info(
+        info,
+        prompt_tokens,
+        completion_tokens,
+        cache_read_input_tokens,
+        cache_creation_input_tokens,
+        cache_creation_input_tokens_above_1hr,
+    )
 
+
+def _cost_per_token_from_custom_catalog(
+    model: str,
+    provider: str,
+    prompt_tokens: int = 0,
+    completion_tokens: int = 0,
+    cache_read_input_tokens: int | None = None,
+    cache_creation_input_tokens: int | None = None,
+    cache_creation_input_tokens_above_1hr: int | None = None,
+) -> tuple[float, float] | None:
+    """Price a model only from a catalog the user configured with ``MLFLOW_MODEL_CATALOG_URI``.
+
+    Returns None when the URI is unset or left at its default, when the configured catalog has
+    no file for ``provider`` (the bundled catalog is not consulted), or when the model has no
+    listed price, so callers can fall back to another pricing source.
+    """
+    uri = MLFLOW_MODEL_CATALOG_URI.get()
+    if not uri or uri.rstrip("/") == MLFLOW_MODEL_CATALOG_URI.default:
+        return None
+    if not (models := _fetch_remote_provider(provider)):
+        return None
+    info = models.get(model.split("/", 1)[-1])
+    if info is None or not ({"input_cost_per_token", "output_cost_per_token"} & info.keys()):
+        return None
+    return _cost_from_model_info(
+        info,
+        prompt_tokens,
+        completion_tokens,
+        cache_read_input_tokens,
+        cache_creation_input_tokens,
+        cache_creation_input_tokens_above_1hr,
+    )
+
+
+def _cost_from_model_info(
+    info: ModelInfo,
+    prompt_tokens: int,
+    completion_tokens: int,
+    cache_read_input_tokens: int | None,
+    cache_creation_input_tokens: int | None,
+    cache_creation_input_tokens_above_1hr: int | None,
+) -> tuple[float, float]:
     input_cost_per_token = info.get("input_cost_per_token", 0.0)
     output_cost_per_token = info.get("output_cost_per_token", 0.0)
 

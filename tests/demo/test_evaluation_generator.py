@@ -1,9 +1,16 @@
+import json
+
 import pytest
 
 import mlflow
 from mlflow.demo.base import DEMO_EXPERIMENT_NAME, DemoFeature, DemoResult
 from mlflow.demo.data import ALL_DEMO_TRACES
-from mlflow.demo.generators.evaluation import EvaluationDemoGenerator
+from mlflow.demo.generators.evaluation import (
+    DEMO_DATASET_BASELINE_SESSION_NAME,
+    DEMO_DATASET_IMPROVED_SESSION_NAME,
+    DEMO_DATASET_TRACE_LEVEL_NAME,
+    EvaluationDemoGenerator,
+)
 from mlflow.demo.generators.traces import TracesDemoGenerator
 
 
@@ -22,7 +29,7 @@ def traces_generator():
 
 def test_generator_attributes(evaluation_generator):
     assert evaluation_generator.name == DemoFeature.EVALUATION
-    assert evaluation_generator.version == 2
+    assert evaluation_generator.version == 3
 
 
 def test_data_exists_false_when_no_experiment(evaluation_generator):
@@ -116,3 +123,33 @@ def test_is_generated_checks_version(evaluation_generator):
     EvaluationDemoGenerator.version = 99
     fresh_generator = EvaluationDemoGenerator()
     assert fresh_generator.is_generated() is False
+
+
+def test_demo_eval_runs_are_linked_to_their_datasets(evaluation_generator, traces_generator):
+    traces_generator.generate()
+    traces_generator.store_version()
+    experiment_id = mlflow.get_experiment_by_name(DEMO_EXPERIMENT_NAME).experiment_id
+    trace_count = len(mlflow.search_traces(locations=[experiment_id], return_type="list"))
+    evaluation_generator.generate()
+
+    client = mlflow.MlflowClient()
+    datasets = {
+        dataset.name: dataset.dataset_id
+        for dataset in mlflow.genai.datasets.search_datasets(experiment_ids=[experiment_id])
+    }
+    runs = client.search_runs([experiment_id], filter_string="params.demo = 'true'")
+    linked = {
+        dataset_input.dataset.name: json.loads(dataset_input.dataset.source)["dataset_id"]
+        for run in runs
+        for dataset_input in run.inputs.dataset_inputs
+    }
+    assert linked == {
+        name: datasets[name]
+        for name in [
+            DEMO_DATASET_TRACE_LEVEL_NAME,
+            DEMO_DATASET_BASELINE_SESSION_NAME,
+            DEMO_DATASET_IMPROVED_SESSION_NAME,
+        ]
+    }
+    # The curated traces are scored in place, not re-created.
+    assert len(mlflow.search_traces(locations=[experiment_id], return_type="list")) == trace_count

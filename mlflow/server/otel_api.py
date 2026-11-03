@@ -29,7 +29,7 @@ from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
 
 from mlflow.entities.span import Span
 from mlflow.exceptions import MlflowException
-from mlflow.server.handlers import _get_tracking_store
+from mlflow.server.handlers import _HANDLER_BLOCKED_TRACE_TAGS, _get_tracking_store
 from mlflow.server.otlp_metrics import (
     INGESTION_ERRORS,
     REQUEST_DURATION,
@@ -39,6 +39,7 @@ from mlflow.server.otlp_metrics import (
 )
 from mlflow.telemetry.events import TraceSource, TracesReceivedByServerEvent
 from mlflow.telemetry.track import _record_event
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.otel.translation import strip_otlp_double_encoding
 from mlflow.tracing.utils import dump_span_attribute_value
 from mlflow.tracing.utils.otlp import (
@@ -229,6 +230,12 @@ async def export_traces(
                             if resource_service_name:
                                 mlflow_span._span._attributes["service.name"] = (
                                     dump_span_attribute_value(resource_service_name)
+                                )
+                            # Root span "mlflow.traceTag.<key>" attributes become trace tags,
+                            # so drop the system-managed ones like the trace handlers do.
+                            for key in _HANDLER_BLOCKED_TRACE_TAGS:
+                                mlflow_span._span._attributes.pop(
+                                    SpanAttributeKey.TRACE_TAG_PREFIX + key, None
                                 )
 
                         all_spans.append(mlflow_span)

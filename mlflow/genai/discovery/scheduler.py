@@ -22,13 +22,16 @@ from mlflow.genai.discovery.checkpoint import (
     sample_window,
 )
 from mlflow.genai.discovery.schedule import (
+    POLL_INTERVAL_MS,
     DetectionSchedule,
     ScheduleModel,
+    adopt_timing,
     claim_first_occurrence,
     claim_occurrence,
     due_occurrence_ms,
     read_detection_schedule,
     read_detection_schedule_state,
+    reanchor_timing,
     write_detection_schedule_state,
 )
 from mlflow.genai.discovery.settings import read_detection_settings
@@ -166,9 +169,32 @@ def _dispatch_if_due(store: AbstractStore, experiment: Experiment, now_ms: int) 
         write_detection_schedule_state(
             store,
             experiment.experiment_id,
-            claim_first_occurrence(now_ms),
+            claim_first_occurrence(now_ms, schedule),
         )
         return
+    if state.timing != schedule.timing:
+        if state.timing is None:
+            # Dispatched before this server recorded timings. Written down without moving the
+            # anchor, so an upgrade does not delay anybody's next occurrence, and then treated
+            # as any other pass -- nothing about the schedule has actually changed.
+            state = adopt_timing(state, schedule)
+            write_detection_schedule_state(store, experiment.experiment_id, state)
+        else:
+            # The owner moved the schedule, and this pass is finding out afterwards. Anchored
+            # at the previous pass rather than at this instant: that pass saw the old timing, so
+            # the edit is no older than it, and anchoring here instead would step over an
+            # occurrence the edit placed in between -- 16:00 chosen at 15:55, noticed now.
+            # A save gets this exactly right on its own; see the schedule-state endpoint.
+            state = reanchor_timing(state, schedule, now_ms - POLL_INTERVAL_MS)
+            write_detection_schedule_state(store, experiment.experiment_id, state)
+            _logger.info(
+                "Issue detection schedule for experiment %s was retimed; its next occurrence is %s",
+                experiment.experiment_id,
+                state.next_fire_time_ms,
+            )
+    # Not returned after a re-anchor: an occurrence the edit placed between the previous pass and
+    # this one is due now, and dispatching it here is what makes "16:00, chosen at 15:55" run at
+    # 16:00 rather than tomorrow.
     fire_time_ms = due_occurrence_ms(schedule, state, now_ms)
     if fire_time_ms is None:
         return
@@ -191,7 +217,9 @@ def _dispatch_if_due(store: AbstractStore, experiment: Experiment, now_ms: int) 
     # it twice, and losing one costs nothing: the watermark only advances when a run finishes, so
     # the next occurrence's window still covers the traces this one would have analyzed.
     write_detection_schedule_state(
-        store, experiment.experiment_id, claim_occurrence(state, fire_time_ms, now_ms)
+        store,
+        experiment.experiment_id,
+        claim_occurrence(state, fire_time_ms, schedule, now_ms),
     )
     try:
         job_id = _submit_occurrence(store, experiment, schedule, fire_time_ms)

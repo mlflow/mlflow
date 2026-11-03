@@ -374,7 +374,6 @@ export const useTracesV4ToolbarSlots = ({
         name="mlflow.traces-v4.table-view"
         componentId="mlflow.traces-v4.table-view"
         value={isGroupedBySession ? 'sessions' : 'traces'}
-        newStyleFlagOverride
       >
         <SegmentedControlButton
           value="traces"

@@ -97,8 +97,7 @@ export const MlflowSidebarExperimentItems = ({
               if (item.tabName === ExperimentPageTabName.EvaluationRuns) {
                 return (
                   activeTabByRoute === ExperimentPageTabName.EvaluationRuns ||
-                  Boolean(matchPath(RoutePaths.runPageWithTab, pathname)) ||
-                  Boolean(matchPath(RoutePaths.experimentPageTabIssueDetectionRunDetailsWithTab, pathname))
+                  Boolean(matchPath(RoutePaths.runPageWithTab, pathname))
                 );
               }
               if (item.tabName === ExperimentPageTabName.Runs && workflowType === WorkflowType.MACHINE_LEARNING) {

@@ -189,14 +189,12 @@ def compact_logs(lines: Iterable[str]) -> str:
 
 
 PR_URL_PATTERN = re.compile(r"github\.com/([^/]+/[^/]+)/pull/(\d+)")
-# Job URLs may optionally embed an attempt segment (`/attempts/{n}`) before `/job/{id}`.
-# The job ID is unique across attempts so the attempt number isn't needed for lookup.
-JOB_URL_PATTERN = re.compile(
-    r"github\.com/([^/]+/[^/]+)/actions/runs/(\d+)(?:/attempts/\d+)?/job/(\d+)"
-)
+JOB_URL_PATTERN = re.compile(r"github\.com/([^/]+/[^/]+)/actions/runs/(\d+)/job/(\d+)(?=[?#]|$)")
 # Run URLs may optionally specify an attempt (`/attempts/{n}`); when omitted, GitHub's
 # default behavior is to return jobs from the latest attempt only.
-RUN_URL_PATTERN = re.compile(r"github\.com/([^/]+/[^/]+)/actions/runs/(\d+)(?:/attempts/(\d+))?")
+RUN_URL_PATTERN = re.compile(
+    r"github\.com/([^/]+/[^/]+)/actions/runs/(\d+)(?:/attempts/(\d+))?(?=[?#]|$)"
+)
 
 
 async def get_failed_jobs_from_pr(

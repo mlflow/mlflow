@@ -109,7 +109,6 @@ describe('ExperimentGenAIJourneyOverviewPage', () => {
           testRoute(<ExperimentGenAIJourneyOverviewPage />, RoutePaths.experimentPageTabJourneyOverview),
           testRoute(<CurrentTestLocation />, RoutePaths.experimentPageTabTraces),
           testRoute(<CurrentTestLocation />, RoutePaths.experimentPageTabIssues),
-          testRoute(<CurrentTestLocation />, RoutePaths.experimentPageTabIssueDetectionRunDetailsWithTab),
         ]}
         initialEntries={[
           generatePath(RoutePaths.experimentPageTabJourneyOverview, {
@@ -259,7 +258,7 @@ describe('ExperimentGenAIJourneyOverviewPage', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'View latest results' }));
     expect(await screen.findByRole('status', { name: 'Current test location' })).toHaveTextContent(
-      '/experiments/123/evaluation-runs/run-1/issues',
+      '/experiments/123/issues',
     );
     expect(screen.queryByText(/MLFLOW_ENABLE_AI_GATEWAY=true/)).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Learn more about enabling issue detection' })).not.toBeInTheDocument();

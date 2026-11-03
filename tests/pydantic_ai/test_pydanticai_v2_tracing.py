@@ -8,13 +8,14 @@ if Version(importlib.metadata.version("pydantic_ai")).major < 2:
     pytest.skip("Pydantic AI 2.x tracing tests", allow_module_level=True)
 
 from pydantic import BaseModel, ValidationError
-from pydantic_ai import Agent, ModelRetry
+from pydantic_ai import Agent, ModelRetry, RunContext
 from pydantic_ai.capabilities.instrumentation import Instrumentation
 from pydantic_ai.mcp import MCPToolset
 from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
 from pydantic_ai.models.function import FunctionModel
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import ToolDefinition
+from pydantic_ai.usage import RunUsage
 
 import mlflow
 import mlflow.pydantic_ai.autolog_v2
@@ -211,7 +212,7 @@ async def test_tool_validation_failure_is_traced(error_type):
 
     with pytest.raises(type(error)):
         await instrumentation.on_tool_validate_error(
-            None,
+            RunContext(deps=None, model=TestModel(), usage=RunUsage(), tool_name=call.tool_name),
             call=call,
             tool_def=tool_def,
             args=call.args,
