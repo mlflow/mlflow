@@ -728,7 +728,8 @@ def _validate_model_renaming(model_new_name: str) -> None:
 def _validate_model_version(model_version):
     try:
         return int(model_version)
-    except ValueError:
+    except (ValueError, TypeError):
+        # int() raises TypeError, not ValueError, for None, lists and mappings.
         raise MlflowException(
             not_integer_value("version", model_version), error_code=INVALID_PARAMETER_VALUE
         )

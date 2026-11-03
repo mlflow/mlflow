@@ -33,6 +33,7 @@ from mlflow.utils.validation import (
     _validate_metric_name,
     _validate_model_name,
     _validate_model_renaming,
+    _validate_model_version,
     _validate_param_name,
     _validate_public_https_url,
     _validate_run_id,
@@ -808,6 +809,22 @@ def test_validate_model_name_invalid_chars(invalid_name):
 
 
 @pytest.mark.parametrize("invalid_name", ["my/model", "model:v1", "name/with:both"])
+@pytest.mark.parametrize("invalid_version", [None, [], {}, "a.b", 1.5 + 0j])
+def test_validate_model_version_not_int_convertible(invalid_version):
+    # int() raises TypeError, not ValueError, for None, lists and mappings.
+    with pytest.raises(
+        MlflowException,
+        match="Could not convert version",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        _validate_model_version(invalid_version)
+
+
+def test_validate_model_version_accepts_int_like_values():
+    assert _validate_model_version(7) == 7
+    assert _validate_model_version("7") == 7
+
+
 def test_validate_model_renaming_invalid_chars(invalid_name):
     with pytest.raises(
         MlflowException,
