@@ -126,7 +126,7 @@ kill -0 "$(cat "$tmp_dir/work/frontend.pid")" &&
 Use `--input-mode human` on local MLflow URLs and initialize each session's first `open`:
 
 ```bash
-agent-browser --session verify --input-mode human --init-script "$trusted_checkout/.claude/skills/verify/scripts/init.js" open <url>
+agent-browser --session verify --input-mode human --init-script "$trusted_checkout/.claude/scripts/browser-init.js" open <url>
 ```
 
 ## Verify behavior
