@@ -4,9 +4,13 @@ import {
   TRACE_DRAWER_SESSION_ID_QUERY_PARAM,
   TRACE_DRAWER_VIEW_MODE_QUERY_PARAM,
 } from '@mlflow/mlflow/src/experiment-tracking/constants';
-import { BASELINE_TRACE_ID_PARAM, CANDIDATE_TRACE_ID_PARAM, PAIRWISE_REVIEW_MODE_PARAM } from './useTracesV4UrlState';
+import {
+  BASELINE_TRACE_ID_PARAM,
+  CANDIDATE_TRACE_ID_PARAM,
+  PAIRWISE_REVIEW_MODE_PARAM,
+  TRACE_ID_PARAM,
+} from './useTracesV4UrlState';
 
-const TRACE_ID_PARAM = 'traceId';
 const LEGACY_TRACE_ID_PARAM = 'selectedEvaluationId';
 const SPAN_ID_PARAM = 'spanId';
 const SESSION_VIEW_MODE = 'session';
