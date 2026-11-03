@@ -25,6 +25,43 @@ const fields = {
 };
 
 describe('parseSkillLocation', () => {
+  it.each([
+    ['https://github.com/mlflow/skills', null, null],
+    ['https://github.com/mlflow/skills/', null, null],
+    ['https://github.com/mlflow/skills?tab=readme-ov-file#readme', null, null],
+    ['https://github.com/mlflow/skills/tree/main/mlflow-trace-instrumentation', 'main', 'mlflow-trace-instrumentation'],
+    [
+      'https://github.com/mlflow/skills/tree/main/mlflow-trace-instrumentation/?plain=1',
+      'main',
+      'mlflow-trace-instrumentation',
+    ],
+    [
+      'https://github.com/mlflow/skills/blob/main/mlflow-trace-instrumentation/SKILL.md',
+      'main',
+      'mlflow-trace-instrumentation',
+    ],
+    [
+      'https://github.com/mlflow/skills/blob/main/mlflow-trace-instrumentation/SKILL.md?plain=1#L1',
+      'main',
+      'mlflow-trace-instrumentation',
+    ],
+  ])('detects GitHub source %s as Git without a .git suffix', (location, ref, subpath) => {
+    expect(parseSkillLocation(location ?? '')).toMatchObject({
+      sourceType: 'git',
+      source: 'https://github.com/mlflow/skills',
+      ref,
+      subpath,
+      suggestedName: subpath ?? 'skills',
+      suggestedOrganization: 'mlflow',
+      wholeRepository: !subpath,
+      repositoryUrl: 'https://github.com/mlflow/skills',
+    });
+    const built = buildExternalSkillVersionRequest({ ...fields, location: location ?? '', sourceTypeOverride: '' });
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.request).toMatchObject({ source_type: 'git', source: 'https://github.com/mlflow/skills' });
+  });
+
   it('derives a repository, ref, and folder from GitHub tree and blob links', () => {
     expect(
       parseSkillLocation(
