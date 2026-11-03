@@ -1033,6 +1033,7 @@ jobs:
                 -H "Content-Type: application/json" --data-binary "$tag" \
                 "$DATABRICKS_HOST/api/4.0/mlflow/traces/$TRACE_LOCATION/$trace_id/tags" > /dev/null
             done
+            echo "Tagged trace $trace_id"
             echo "Tagged trace \`$trace_id\` with \`$tags\`" >> "$GITHUB_STEP_SUMMARY"
           done
       - name: Stop gateway proxy
