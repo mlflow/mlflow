@@ -239,7 +239,7 @@ jobs:
             echo "Dry run: would close issue #$ISSUE_NUMBER as a possible security vulnerability." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          gh issue close "$ISSUE_NUMBER" --repo "$REPO" --comment "$(cat <<'EOF'
+          gh issue close "$ISSUE_NUMBER" --repo "$REPO" --reason "not planned" --comment "$(cat <<'EOF'
           This issue has been automatically closed because it appears to report a security vulnerability.
 
           Please report security vulnerabilities through [GitHub's private vulnerability reporting](https://github.com/mlflow/mlflow/security/advisories/new) instead. See our [Security Policy](https://github.com/mlflow/mlflow/blob/master/SECURITY.md) for more details.
