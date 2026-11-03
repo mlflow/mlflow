@@ -341,11 +341,14 @@ jobs:
         id: reset
         if: always() && steps.trusted.outcome == 'success'
         working-directory: trusted
-        env:
-          TRUSTED_SHA: ${{ github.sha }}
         run: |
-          git reset --hard "$TRUSTED_SHA"
-          git clean -ffdx
+          git reset --hard "$GITHUB_SHA"
+          git clean -fd
+          status=$(git status --porcelain --untracked-files=all)
+          if [ -n "$status" ]; then
+            printf '%s\n' "$status"
+            exit 1
+          fi
       - name: Collect redacted transcript
         id: transcript
         if: always() && github.event_name == 'workflow_dispatch' && inputs.dry_run && steps.session.outcome == 'success' && steps.reset.outcome == 'success'
