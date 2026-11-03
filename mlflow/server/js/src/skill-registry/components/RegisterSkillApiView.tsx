@@ -39,7 +39,7 @@ export const RepositoryImportHint = ({ code, format }: { code: string; format: S
         defaultMessage: 'Hide import command',
         description: 'Collapse the skill repository import tip',
       })}
-      css={{ backgroundColor: theme.colors.backgroundSecondary, borderColor: theme.colors.border }}
+      css={{ backgroundColor: theme.colors.backgroundSecondary }}
       message={
         <FormattedMessage
           defaultMessage="Want to import multiple skills at once?"
