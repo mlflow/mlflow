@@ -777,13 +777,13 @@ describe('SkillRegistryPage', () => {
       'https://github.com/acme/skills/tree/feature/review/skills/code-review',
     );
     const branchHint = "If your branch name contains '/', check the branch and path.";
-    expect(screen.queryByText(branchHint)).not.toBeInTheDocument();
+    expect(screen.queryByText(branchHint, { exact: false })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: /Advanced settings/ }));
-    expect(screen.getByText(branchHint)).toBeInTheDocument();
+    expect(screen.getByText(branchHint, { exact: false })).toBeInTheDocument();
     await userEvent.clear(screen.getByLabelText('Branch, tag or commit'));
     await userEvent.type(screen.getByLabelText('Branch, tag or commit'), 'feature/review');
-    expect(screen.queryByText(branchHint)).not.toBeInTheDocument();
+    expect(screen.queryByText(branchHint, { exact: false })).not.toBeInTheDocument();
   });
 
   it('ignores a name check that answers after the name changed', async () => {
