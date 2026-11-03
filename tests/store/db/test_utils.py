@@ -34,17 +34,29 @@ def test_create_sqlalchemy_engine_inject_pool_options(monkeypatch):
         )
 
 
-def test_create_sqlalchemy_engine_zero_pool_options(monkeypatch):
-    monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_POOL_SIZE", "0")
-    monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW", "0")
-    monkeypatch.delenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", raising=False)
+@pytest.mark.parametrize(
+    ("env", "expected"),
+    [
+        (
+            {"MLFLOW_SQLALCHEMYSTORE_POOL_SIZE": "1", "MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW": "0"},
+            {"pool_size": 1, "max_overflow": 0},
+        ),
+        ({"MLFLOW_SQLALCHEMYSTORE_POOL_SIZE": "0"}, {"pool_size": 0}),
+    ],
+)
+def test_create_sqlalchemy_engine_zero_pool_options(monkeypatch, env, expected):
+    for name in [
+        "MLFLOW_SQLALCHEMYSTORE_POOL_SIZE",
+        "MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW",
+        "MLFLOW_SQLALCHEMYSTORE_POOLCLASS",
+    ]:
+        monkeypatch.delenv(name, raising=False)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
     with mock.patch("sqlalchemy.create_engine") as mock_create_engine:
         utils.create_sqlalchemy_engine("mydb://host:port/")
         mock_create_engine.assert_called_once_with(
-            "mydb://host:port/",
-            pool_pre_ping=True,
-            pool_size=0,
-            max_overflow=0,
+            "mydb://host:port/", pool_pre_ping=True, **expected
         )
 
 
