@@ -5677,17 +5677,18 @@ def validate_can_delete_dataset():
     return bool(experiment_ids) and all(p.can_delete for p in permissions)
 
 
-def _experiment_ids_from_request():
-    # Read experiment_ids from JSON when present, else query args (like _get_request_param).
-    if request.is_json:
-        body = request.get_json(silent=True)
-        if isinstance(body, dict):
-            return list(body.get("experiment_ids", []))
-    return request.args.getlist("experiment_ids")
+def _experiment_ids_from_request(request_message) -> list[str]:
+    # Use the handler's request-source normalization; reject partial parses for authorization.
+    message = _get_request_message(
+        request_message,
+        schema={"experiment_ids": [_assert_array, _assert_item_type_string]},
+        raise_on_parse_error=True,
+    )
+    return list(message.experiment_ids)
 
 
 def validate_can_create_dataset():
-    experiment_ids = _experiment_ids_from_request()
+    experiment_ids = _experiment_ids_from_request(CreateDataset())
     username = authenticate_request().username
     return bool(experiment_ids) and all(
         _get_experiment_permission(eid, username).can_update for eid in experiment_ids
@@ -5697,7 +5698,7 @@ def validate_can_create_dataset():
 def validate_can_search_evaluation_datasets():
     # Require the caller to scope the search to experiment(s) they can read, so an
     # empty request cannot enumerate every dataset on the server.
-    experiment_ids = _experiment_ids_from_request()
+    experiment_ids = _experiment_ids_from_request(SearchEvaluationDatasets())
     username = authenticate_request().username
     return bool(experiment_ids) and all(
         _get_experiment_permission(eid, username).can_read for eid in experiment_ids
@@ -5710,7 +5711,7 @@ def validate_can_add_dataset_to_experiments():
     if not validate_can_update_dataset():
         return False
     username = authenticate_request().username
-    added = _experiment_ids_from_request()
+    added = _experiment_ids_from_request(AddDatasetToExperiments())
     return bool(added) and all(
         _get_experiment_permission(eid, username).can_update for eid in added
     )
