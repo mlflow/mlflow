@@ -13707,10 +13707,6 @@
     "defaultMessage": "Trace name",
     "description": "Column label for trace name"
   },
-  "fqB9nu": {
-    "defaultMessage": "Documentation",
-    "description": "Link to skill registration documentation"
-  },
   "fqdOQi": {
     "defaultMessage": "Tokens — input: {input}, output: {output}, total: {total}",
     "description": "Token usage footer rendered below each assistant reply on the playground page"

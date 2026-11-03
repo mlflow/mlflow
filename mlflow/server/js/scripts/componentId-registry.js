@@ -2316,7 +2316,6 @@ module.exports = {
   "mlflow.skill_registry.register_modal.back": "",
   "mlflow.skill_registry.register_modal.cancel": "",
   "mlflow.skill_registry.register_modal.description": "",
-  "mlflow.skill_registry.register_modal.docs": "",
   "mlflow.skill_registry.register_modal.error": "",
   "mlflow.skill_registry.register_modal.location": "",
   "mlflow.skill_registry.register_modal.mode": "",

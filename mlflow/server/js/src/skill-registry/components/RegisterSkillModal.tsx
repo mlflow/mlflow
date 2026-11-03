@@ -416,15 +416,7 @@ const RegisterSkillDialog = ({ onClose, skill, sourceVersion, onRegistered }: Re
       onCancel={submission.close}
       size="wide"
       footer={
-        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-          <Typography.Link
-            componentId="mlflow.skill_registry.register_modal.docs"
-            href="https://mlflow.org/docs/latest/genai/skill-registry/register-and-import-skills/"
-            openInNewTab
-            css={{ marginRight: 'auto' }}
-          >
-            <FormattedMessage defaultMessage="Documentation" description="Link to skill registration documentation" />
-          </Typography.Link>
+        <div css={{ display: 'flex', justifyContent: 'flex-end', gap: theme.spacing.sm }}>
           <Button componentId="mlflow.skill_registry.register_modal.cancel" onClick={submission.close}>
             <FormattedMessage defaultMessage="Cancel" description="Cancel skill registration" />
           </Button>
