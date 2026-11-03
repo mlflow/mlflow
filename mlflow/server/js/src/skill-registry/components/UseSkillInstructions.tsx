@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, type ElementType } from 'react';
 import {
+  FolderIcon,
   SegmentedControlButton,
   SegmentedControlGroup,
   SimpleSelect,
@@ -8,12 +9,24 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
+import { ReactComponent as ClaudeCodeLogo } from '../../common/static/logos/claude-code.svg';
+import { ReactComponent as CodexLogo } from '../../common/static/logos/codex-color.svg';
+import { ReactComponent as CursorLogo } from '../../common/static/logos/cursor.svg';
+import { ReactComponent as CopilotLogo } from '../../common/static/logos/github-copilot.svg';
 
 import type { Skill } from '../types';
 import { formatSkillUri, SKILL_INSTALL_TARGETS, type SkillInstallTargetId } from '../utils';
 import { useTrackingSnippetConnection } from '../../common/utils/trackingSnippetConnection';
 import { formatSkillPullCli, formatSkillPullPython } from '../snippets';
 import { CopyableSnippet, type SnippetFormat } from './CopyableSnippet';
+
+const INSTALL_TARGET_ICONS = {
+  'claude-code': ClaudeCodeLogo,
+  codex: CodexLogo,
+  cursor: CursorLogo,
+  copilot: CopilotLogo,
+  custom: FolderIcon,
+} satisfies Record<SkillInstallTargetId, ElementType>;
 
 /**
  * The pull command for a skill, with a CLI/Python switch and the agent to install it for. Shown in the Use dialog
@@ -58,6 +71,31 @@ export const UseSkillInstructions = ({
           flexWrap: 'wrap',
         }}
       >
+        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+          <Typography.Text>
+            <label htmlFor={`${componentId}.install_target`}>{installLabel}</label>
+          </Typography.Text>
+          <SimpleSelect
+            id={`${componentId}.install_target`}
+            componentId={`${componentId}.install_target`}
+            aria-label={installLabel}
+            value={targetId}
+            onChange={({ target }) => setTargetId(target.value as SkillInstallTargetId)}
+            css={{ width: 180, flex: '0 0 auto' }}
+          >
+            {SKILL_INSTALL_TARGETS.map((target) => {
+              const TargetIcon = INSTALL_TARGET_ICONS[target.id];
+              return (
+                <SimpleSelectOption key={target.id} value={target.id}>
+                  <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.sm }}>
+                    <TargetIcon aria-hidden focusable="false" css={{ width: 16, height: 16, flexShrink: 0 }} />
+                    <span>{target.label}</span>
+                  </span>
+                </SimpleSelectOption>
+              );
+            })}
+          </SimpleSelect>
+        </div>
         <SegmentedControlGroup
           name={`${componentId}.format`}
           componentId={`${componentId}.format`}
@@ -71,25 +109,6 @@ export const UseSkillInstructions = ({
             <FormattedMessage defaultMessage="Python" description="Python format of the skill pull instructions" />
           </SegmentedControlButton>
         </SegmentedControlGroup>
-        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-          <Typography.Text>
-            <label htmlFor={`${componentId}.install_target`}>{installLabel}</label>
-          </Typography.Text>
-          <SimpleSelect
-            id={`${componentId}.install_target`}
-            componentId={`${componentId}.install_target`}
-            aria-label={installLabel}
-            value={targetId}
-            onChange={({ target }) => setTargetId(target.value as SkillInstallTargetId)}
-            css={{ width: 180, flex: '0 0 auto' }}
-          >
-            {SKILL_INSTALL_TARGETS.map((target) => (
-              <SimpleSelectOption key={target.id} value={target.id}>
-                {target.label}
-              </SimpleSelectOption>
-            ))}
-          </SimpleSelect>
-        </div>
       </div>
       <CopyableSnippet
         componentId={`${componentId}.copy`}
