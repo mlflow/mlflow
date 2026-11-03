@@ -10,6 +10,10 @@ hooks:
       hooks:
         - type: command
           command: '"$CLAUDE_PROJECT_DIR/.claude/hooks/cap-timeout.sh"'
+  Stop:
+    - hooks:
+        - type: command
+          command: '"$CLAUDE_PROJECT_DIR/.claude/hooks/stop.sh"'
 ---
 
 # Triage
