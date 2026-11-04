@@ -2417,10 +2417,15 @@ def _caller_can_manage_roles() -> bool:
 def _list_named_role_grants_on_names(names: tuple[str, ...]) -> list[NamedRoleGrant]:
     # Model and prompt grants are keyed by name, and renames and deletes only rewrite or sweep
     # per-user grants, so an admin-created role's exact-name grant would be left pointing at
-    # whatever model or prompt holds the name next.
-    return store.list_named_role_grants_for_resource(
-        (RESOURCE_TYPE_REGISTERED_MODEL, RESOURCE_TYPE_PROMPT), names
-    )
+    # whatever model or prompt holds the name next. A case-insensitive auth database also returns
+    # grants on other spellings, but grants match by exact spelling (``permissions.matches``).
+    return [
+        g
+        for g in store.list_named_role_grants_for_resource(
+            (RESOURCE_TYPE_REGISTERED_MODEL, RESOURCE_TYPE_PROMPT), names
+        )
+        if g.resource_pattern in names
+    ]
 
 
 def _named_role_grants_error_details(grants: list[NamedRoleGrant]) -> str:
@@ -2453,14 +2458,20 @@ def _reject_delete_with_named_role_grants(name: str) -> None:
     grants = [
         g
         for g in _list_named_role_grants_on_names((name,))
-        if get_permission(g.permission).can_read
+        if not get_permission(g.permission).denied
     ]
     if grants:
+        # Removing the grants also removes any delete permission the caller got from them.
+        hint = (
+            ""
+            if _caller_can_manage_roles()
+            else " If these role grants are what let you delete it, ask an admin to delete it."
+        )
         raise MlflowException.invalid_parameter_value(
             f"Cannot delete '{name}' because role grants reference it by exact name"
             f"{_named_role_grants_error_details(grants)}. Those grants would apply to the next "
             "model or prompt created with this name. An admin must update or remove these role "
-            "grants before the delete."
+            f"grants before the delete.{hint}"
         )
 
 
