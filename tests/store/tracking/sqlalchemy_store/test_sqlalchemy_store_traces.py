@@ -29,6 +29,7 @@ from mlflow.entities import (
     ExperimentTag,
     Feedback,
     Link,
+    SpanType,
     ViewType,
     trace_location,
 )
@@ -5441,6 +5442,78 @@ def test_log_spans_cost_dedups_rollup_parent(store: SqlAlchemyStore, single_batc
         "output_cost": 0.01,
         "total_cost": 0.03,
     }
+
+
+def _price_per_token_by_model(model_name, token_usage, model_provider=None):
+    rate = {"gpt-4o": 10.0, "gpt-4o-mini": 1.0}[model_name]
+    input_cost = token_usage["input_tokens"] * rate
+    output_cost = token_usage["output_tokens"] * rate * 2
+    return {
+        "input_cost": input_cost,
+        "output_cost": output_cost,
+        "total_cost": input_cost + output_cost,
+    }
+
+
+@pytest.mark.parametrize("single_batch", [True, False])
+def test_log_spans_cost_skips_agent_rollup_and_sums_llm_children(
+    store: SqlAlchemyStore, single_batch: bool
+) -> None:
+    experiment_id = store.create_experiment(f"test_log_spans_cost_agent_rollup_{single_batch}")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    parent = create_test_span(
+        trace_id,
+        name="agent",
+        span_id=1,
+        parent_id=None,
+        span_type="AGENT",
+        attributes={
+            SpanAttributeKey.MODEL: "gpt-4o",
+            SpanAttributeKey.CHAT_USAGE: {
+                "input_tokens": 80,
+                "output_tokens": 10,
+                "total_tokens": 90,
+            },
+        },
+    )
+    children = [
+        create_test_span(
+            trace_id,
+            name=f"llm_{i}",
+            span_id=10 + i,
+            parent_id=1,
+            span_type="LLM",
+            attributes={
+                SpanAttributeKey.MODEL: "gpt-4o-mini",
+                SpanAttributeKey.CHAT_USAGE: {
+                    "input_tokens": 40,
+                    "output_tokens": 5,
+                    "total_tokens": 45,
+                },
+            },
+        )
+        for i in range(2)
+    ]
+
+    with mock.patch(
+        "mlflow.tracing.otel.translation.calculate_cost_by_model_and_token_usage",
+        side_effect=_price_per_token_by_model,
+    ):
+        if single_batch:
+            store.log_spans(experiment_id, [parent, *children])
+        else:
+            store.log_spans(experiment_id, children)
+            store.log_spans(experiment_id, [parent])
+
+    trace = store.batch_get_traces([trace_id])[0]
+    assert trace.info.cost == {
+        "input_cost": 80.0,
+        "output_cost": 20.0,
+        "total_cost": 100.0,
+    }
+    agent_span = next(span for span in trace.data.spans if span.span_type == SpanType.AGENT)
+    assert SpanAttributeKey.LLM_COST not in agent_span.attributes
 
 
 def test_log_spans_token_usage_deep_trace(store: SqlAlchemyStore) -> None:

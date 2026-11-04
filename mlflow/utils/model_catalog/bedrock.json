@@ -1157,6 +1157,12 @@
         "cache_read_per_million_tokens": 0.5,
         "cache_write_per_million_tokens": 6.25,
         "cache_write_1hr_per_million_tokens": 10.0,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 2.5,
+            "output_per_million_tokens": 12.5
+          }
+        },
         "tooling": {
           "search_context_per_query": {
             "search_context_size_high": 0.01,
@@ -1172,7 +1178,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-04"
     },
     "anthropic.claude-opus-5-5": {
       "mode": "chat",
@@ -1562,7 +1568,7 @@
     "ap-northeast-1/deepseek.v3.2": {
       "mode": "chat",
       "context_window": {
-        "max_input": 163840,
+        "max_input": 156000,
         "max_output": 8000
       },
       "pricing": {
@@ -1590,7 +1596,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-30"
+      "last_updated_at": "2026-11-03"
     },
     "ap-northeast-1/minimax.minimax-m2.1": {
       "mode": "chat",
@@ -1843,7 +1849,7 @@
     "ap-south-1/deepseek.v3.2": {
       "mode": "chat",
       "context_window": {
-        "max_input": 163840,
+        "max_input": 156000,
         "max_output": 8000
       },
       "pricing": {
@@ -1871,7 +1877,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-30"
+      "last_updated_at": "2026-11-03"
     },
     "ap-south-1/meta.llama3-70b-instruct-v1:0": {
       "mode": "chat",
@@ -2220,7 +2226,7 @@
     "ap-southeast-3/deepseek.v3.2": {
       "mode": "chat",
       "context_window": {
-        "max_input": 163840,
+        "max_input": 156000,
         "max_output": 8000
       },
       "pricing": {
@@ -2240,7 +2246,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-03"
     },
     "ap-southeast-3/minimax.minimax-m2.1": {
       "mode": "chat",
@@ -2704,7 +2710,13 @@
         "output_per_million_tokens": 27.5,
         "cache_read_per_million_tokens": 0.55,
         "cache_write_per_million_tokens": 6.875,
-        "cache_write_1hr_per_million_tokens": 11.0
+        "cache_write_1hr_per_million_tokens": 11.0,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 2.75,
+            "output_per_million_tokens": 13.75
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -2713,7 +2725,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-04"
     },
     "apac.anthropic.claude-opus-5-5": {
       "mode": "chat",
@@ -3051,6 +3063,12 @@
         "cache_read_per_million_tokens": 0.55,
         "cache_write_per_million_tokens": 6.875,
         "cache_write_1hr_per_million_tokens": 11.0,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 2.75,
+            "output_per_million_tokens": 13.75
+          }
+        },
         "tooling": {
           "search_context_per_query": {
             "search_context_size_high": 0.01,
@@ -3066,7 +3084,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-04"
     },
     "au.anthropic.claude-opus-5-5": {
       "mode": "chat",
@@ -3991,7 +4009,7 @@
     "deepseek.v3.2": {
       "mode": "chat",
       "context_window": {
-        "max_input": 164000,
+        "max_input": 156000,
         "max_output": 8000
       },
       "pricing": {
@@ -4019,7 +4037,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-03"
     },
     "eu-central-1/1-month-commitment/anthropic.claude-instant-v1": {
       "mode": "chat",
@@ -4263,7 +4281,7 @@
     "eu-north-1/deepseek.v3.2": {
       "mode": "chat",
       "context_window": {
-        "max_input": 163840,
+        "max_input": 156000,
         "max_output": 8000
       },
       "pricing": {
@@ -4291,7 +4309,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-30"
+      "last_updated_at": "2026-11-03"
     },
     "eu-north-1/minimax.minimax-m2.1": {
       "mode": "chat",
@@ -5535,6 +5553,12 @@
         "cache_read_per_million_tokens": 0.55,
         "cache_write_per_million_tokens": 6.875,
         "cache_write_1hr_per_million_tokens": 11.0,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 2.75,
+            "output_per_million_tokens": 13.75
+          }
+        },
         "tooling": {
           "search_context_per_query": {
             "search_context_size_high": 0.01,
@@ -5550,7 +5574,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-04"
     },
     "eu.anthropic.claude-opus-5-5": {
       "mode": "chat",
@@ -6212,6 +6236,12 @@
         "cache_read_per_million_tokens": 0.5,
         "cache_write_per_million_tokens": 6.25,
         "cache_write_1hr_per_million_tokens": 10.0,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 2.5,
+            "output_per_million_tokens": 12.5
+          }
+        },
         "tooling": {
           "search_context_per_query": {
             "search_context_size_high": 0.01,
@@ -6227,7 +6257,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-04"
     },
     "global.anthropic.claude-opus-5-5": {
       "mode": "chat",
@@ -7249,6 +7279,12 @@
         "cache_read_per_million_tokens": 0.55,
         "cache_write_per_million_tokens": 6.875,
         "cache_write_1hr_per_million_tokens": 11.0,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 2.75,
+            "output_per_million_tokens": 13.75
+          }
+        },
         "tooling": {
           "search_context_per_query": {
             "search_context_size_high": 0.01,
@@ -7264,7 +7300,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-04"
     },
     "jp.anthropic.claude-opus-5-5": {
       "mode": "chat",
@@ -8930,7 +8966,7 @@
     "sa-east-1/deepseek.v3.2": {
       "mode": "chat",
       "context_window": {
-        "max_input": 163840,
+        "max_input": 156000,
         "max_output": 8000
       },
       "pricing": {
@@ -8958,7 +8994,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-30"
+      "last_updated_at": "2026-11-03"
     },
     "sa-east-1/meta.llama3-70b-instruct-v1:0": {
       "mode": "chat",
@@ -9508,7 +9544,7 @@
     "us-east-1/deepseek.v3.2": {
       "mode": "chat",
       "context_window": {
-        "max_input": 163840,
+        "max_input": 156000,
         "max_output": 8000
       },
       "pricing": {
@@ -9536,7 +9572,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-30"
+      "last_updated_at": "2026-11-03"
     },
     "us-east-1/meta.llama3-70b-instruct-v1:0": {
       "mode": "chat",
@@ -9832,7 +9868,7 @@
     "us-east-2/deepseek.v3.2": {
       "mode": "chat",
       "context_window": {
-        "max_input": 163840,
+        "max_input": 156000,
         "max_output": 8000
       },
       "pricing": {
@@ -9860,7 +9896,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-30"
+      "last_updated_at": "2026-11-03"
     },
     "us-east-2/minimax.minimax-m2.1": {
       "mode": "chat",
@@ -10279,7 +10315,13 @@
         "output_per_million_tokens": 30.0,
         "cache_read_per_million_tokens": 0.6,
         "cache_write_per_million_tokens": 7.5,
-        "cache_write_1hr_per_million_tokens": 12.0
+        "cache_write_1hr_per_million_tokens": 12.0,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 3.0,
+            "output_per_million_tokens": 15.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -10288,7 +10330,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-04"
     },
     "us-gov-east-1/anthropic.claude-opus-5-5": {
       "mode": "chat",
@@ -10910,7 +10952,13 @@
         "output_per_million_tokens": 30.0,
         "cache_read_per_million_tokens": 0.6,
         "cache_write_per_million_tokens": 7.5,
-        "cache_write_1hr_per_million_tokens": 12.0
+        "cache_write_1hr_per_million_tokens": 12.0,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 3.0,
+            "output_per_million_tokens": 15.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -10919,7 +10967,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-04"
     },
     "us-gov-west-1/anthropic.claude-opus-5-5": {
       "mode": "chat",
@@ -11037,7 +11085,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 8000,
-        "max_output": 2048
+        "max_output": 8192
       },
       "pricing": {
         "input_per_million_tokens": 2.65,
@@ -11050,13 +11098,14 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2027-03-30",
+      "last_updated_at": "2026-11-03"
     },
     "us-gov-west-1/meta.llama3-8b-instruct-v1:0": {
       "mode": "chat",
       "context_window": {
         "max_input": 8000,
-        "max_output": 2048
+        "max_output": 8192
       },
       "pricing": {
         "input_per_million_tokens": 0.3,
@@ -11069,7 +11118,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2027-03-30",
+      "last_updated_at": "2026-11-03"
     },
     "us-gov-west-1/nvidia.nemotron-nano-12b-v2": {
       "mode": "chat",
@@ -11296,7 +11346,13 @@
         "output_per_million_tokens": 30.0,
         "cache_read_per_million_tokens": 0.6,
         "cache_write_per_million_tokens": 7.5,
-        "cache_write_1hr_per_million_tokens": 12.0
+        "cache_write_1hr_per_million_tokens": 12.0,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 3.0,
+            "output_per_million_tokens": 15.0
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -11305,7 +11361,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-04"
     },
     "us-gov.anthropic.claude-opus-5-5": {
       "mode": "chat",
@@ -11731,7 +11787,7 @@
     "us-west-2/deepseek.v3.2": {
       "mode": "chat",
       "context_window": {
-        "max_input": 163840,
+        "max_input": 156000,
         "max_output": 8000
       },
       "pricing": {
@@ -11759,7 +11815,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-30"
+      "last_updated_at": "2026-11-03"
     },
     "us-west-2/minimax.minimax-m2.1": {
       "mode": "chat",
@@ -12727,6 +12783,12 @@
         "cache_read_per_million_tokens": 0.55,
         "cache_write_per_million_tokens": 6.875,
         "cache_write_1hr_per_million_tokens": 11.0,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 2.75,
+            "output_per_million_tokens": 13.75
+          }
+        },
         "tooling": {
           "search_context_per_query": {
             "search_context_size_high": 0.01,
@@ -12742,7 +12804,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-04"
     },
     "us.anthropic.claude-opus-5-5": {
       "mode": "chat",

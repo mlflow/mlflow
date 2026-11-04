@@ -374,6 +374,7 @@ export const useTracesV4ToolbarSlots = ({
         name="mlflow.traces-v4.table-view"
         componentId="mlflow.traces-v4.table-view"
         value={isGroupedBySession ? 'sessions' : 'traces'}
+        newStyleFlagOverride
       >
         <SegmentedControlButton
           value="traces"
@@ -455,7 +456,7 @@ export const useTracesV4ToolbarSlots = ({
               componentId="mlflow.traces-v4.group-by-session"
               pressed={isGroupedBySession}
               onPressedChange={onToggleSessionGrouping}
-              icon={<SchemaIcon />}
+              icon={<SchemaIcon css={{ color: theme.colors.textSecondary }} />}
               // Icon-only ToggleButtons render borderless here; managed's `forceWithBorder` prop
               // doesn't exist in this design-system version, so restore the border manually.
               css={{

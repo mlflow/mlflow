@@ -288,6 +288,24 @@ def test_create_run_sets_name(store: SqlAlchemyStore):
         )
 
 
+@pytest.mark.parametrize("tag_value", ["", None])
+@pytest.mark.parametrize("run_name", [None, "", "test"])
+def test_create_run_with_empty_run_name_tag(store: SqlAlchemyStore, run_name, tag_value):
+    experiment_id = _create_experiments(store, "test_create_run_empty_run_name_tag")
+    run = store.create_run(
+        experiment_id=experiment_id,
+        user_id="user",
+        start_time=0,
+        run_name=run_name,
+        tags=[RunTag(mlflow_tags.MLFLOW_RUN_NAME, tag_value)],
+    )
+    run = store.get_run(run.info.run_id)
+    assert run.info.run_name
+    if run_name:
+        assert run.info.run_name == run_name
+    assert run.data.tags[mlflow_tags.MLFLOW_RUN_NAME] == run.info.run_name
+
+
 def test_get_run_with_name(store: SqlAlchemyStore):
     experiment_id = _create_experiments(store, "test_get_run")
     configs = _get_run_configs(experiment_id=experiment_id)
@@ -4278,6 +4296,99 @@ def test_search_logged_models_metric_filter_does_not_shrink_pages(store: SqlAlch
     # Every matching model is returned exactly once across the pages.
     assert sorted(actual_names) == sorted(expected_names)
     assert len(actual_names) == len(set(actual_names))
+
+
+def test_search_logged_models_nan_metric(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="run"
+    )
+    diverged = store.create_logged_model(experiment_id=exp_id, name="diverged")
+    good = store.create_logged_model(experiment_id=exp_id, name="good")
+    store.log_metric(
+        run.info.run_id, Metric("loss", float("nan"), 0, 0, model_id=diverged.model_id)
+    )
+    store.log_metric(run.info.run_id, Metric("loss", 0.05, 0, 0, model_id=good.model_id))
+
+    (metric,) = store.get_logged_model(diverged.model_id).metrics
+    assert math.isnan(metric.value)
+
+    def search(**kwargs):
+        return [m.name for m in store.search_logged_models(experiment_ids=[exp_id], **kwargs)]
+
+    assert search(filter_string="metrics.loss < 0.1") == ["good"]
+    assert search(filter_string="metrics.loss = 0") == []
+    assert search(filter_string="metrics.loss != 0.05") == ["diverged"]
+    for ascending in [True, False]:
+        order_by = [{"field_name": "metrics.loss", "ascending": ascending}]
+        assert search(order_by=order_by) == ["good", "diverged"]
+
+
+def test_search_logged_models_nan_latest_metric(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+
+    def create_run():
+        return store.create_run(
+            experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="run"
+        ).info.run_id
+
+    run_id = create_run()
+    nan_last = store.create_logged_model(experiment_id=exp_id, name="nan_last")
+    nan_first = store.create_logged_model(experiment_id=exp_id, name="nan_first")
+    tie = store.create_logged_model(experiment_id=exp_id, name="tie")
+    store.log_metric(run_id, Metric("loss", 0.05, 0, 0, model_id=nan_last.model_id))
+    store.log_metric(run_id, Metric("loss", float("nan"), 0, 1, model_id=nan_last.model_id))
+    store.log_metric(run_id, Metric("loss", float("nan"), 0, 0, model_id=nan_first.model_id))
+    store.log_metric(run_id, Metric("loss", 0.05, 0, 1, model_id=nan_first.model_id))
+    # At the same step and timestamp, NaN ranks as 0 like it does for run metrics, so it wins
+    # over a negative value on every database.
+    store.log_metric(run_id, Metric("loss", float("nan"), 0, 0, model_id=tie.model_id))
+    store.log_metric(create_run(), Metric("loss", -1.0, 0, 0, model_id=tie.model_id))
+
+    def search(filter_string):
+        models = store.search_logged_models(experiment_ids=[exp_id], filter_string=filter_string)
+        return sorted(m.name for m in models)
+
+    assert search("metrics.loss < 0.1") == ["nan_first"]
+    assert search("metrics.loss < 0") == []
+    assert search("metrics.loss != 0.05") == ["nan_last", "tie"]
+
+
+def test_log_batch_nan_logged_model_metric_duplicates(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run_id = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="run"
+    ).info.run_id
+    model_id = store.create_logged_model(experiment_id=exp_id, name="model").model_id
+
+    def nan_metric():
+        return Metric("loss", float("nan"), 100, 0, model_id=model_id)
+
+    store.log_batch(run_id, metrics=[nan_metric(), nan_metric()], params=[], tags=[])
+    store.log_batch(run_id, metrics=[nan_metric()], params=[], tags=[])
+    (metric,) = store.get_logged_model(model_id).metrics
+    assert math.isnan(metric.value)
+
+    # A different value for the same primary key is still rejected.
+    with pytest.raises(
+        MlflowException, match="UNIQUE constraint failed|duplicate key|Duplicate entry"
+    ):
+        store.log_batch(
+            run_id, metrics=[Metric("loss", 0.5, 100, 0, model_id=model_id)], params=[], tags=[]
+        )
+
+
+@pytest.mark.parametrize("value", [None, "abc"])
+def test_log_metric_invalid_value_with_model_id(store: SqlAlchemyStore, value):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run_id = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="run"
+    ).info.run_id
+    model_id = store.create_logged_model(experiment_id=exp_id, name="model").model_id
+
+    with pytest.raises(MlflowException, match="parameter 'value'") as e:
+        store.log_metric(run_id, Metric("loss", value, 0, 0, model_id=model_id))
+    assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
 def test_search_logged_models_eager_loads_tags_params_and_metrics(store: SqlAlchemyStore):

@@ -3200,7 +3200,7 @@
     "gemini-omni-1.1-flash-preview": {
       "mode": "chat",
       "context_window": {
-        "max_input": 57920,
+        "max_input": 131072,
         "max_output": 57920
       },
       "pricing": {
@@ -3219,13 +3219,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-04"
     },
     "gemini-omni-flash-preview": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1048576,
-        "max_output": 65535
+        "max_input": 131072,
+        "max_output": 57920
       },
       "pricing": {
         "input_per_million_tokens": 1.5,
@@ -3246,7 +3246,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2026-11-06",
+      "last_updated_at": "2026-11-04"
     },
     "gemini-robotics-er-1.5-preview": {
       "mode": "chat",
@@ -3305,13 +3306,6 @@
         "input_per_million_tokens": 1.0,
         "output_per_million_tokens": 5.0,
         "cache_read_per_million_tokens": 0.1,
-        "service_tiers": {
-          "batch": {
-            "input_per_million_tokens": 0.5,
-            "output_per_million_tokens": 2.5,
-            "cache_read_per_million_tokens": 0.05
-          }
-        },
         "modality": {
           "audio": {
             "input_per_million_tokens": 1.0
@@ -3332,7 +3326,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-04"
     },
     "gemma-4-26b-a4b-it": {
       "mode": "chat",

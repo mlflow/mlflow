@@ -1738,10 +1738,9 @@ def test_anthropic_extract_streaming_token_usage_message_start_with_cached_token
         b'"cache_creation_input_tokens":15}}}\n'
     )
     result = provider._extract_streaming_token_usage(chunk)
-    # Anthropic's input_tokens (100) excludes cache tokens, so after normalization
-    # input_tokens = 100 + 25 + 15 = 140
+    # Cache tokens are added to input_tokens after the full stream is accumulated.
     assert result == {
-        "input_tokens": 140,
+        "input_tokens": 100,
         "cache_read_input_tokens": 25,
         "cache_creation_input_tokens": 15,
     }
@@ -1752,14 +1751,14 @@ def test_anthropic_extract_streaming_full_stream_with_cached_tokens():
     accumulated_usage = {}
 
     # message_start with input_tokens and cached tokens
-    # Anthropic's input_tokens (100) excludes cache, normalized to 100 + 25 = 125
+    # Keep input_tokens separate from cache counts until the full stream is accumulated.
     chunk1 = (
         b"event: message_start\n"
         b'data: {"type":"message_start","message":{"id":"msg_123",'
         b'"usage":{"input_tokens":100,"cache_read_input_tokens":25}}}\n'
     )
     accumulated_usage.update(provider._extract_streaming_token_usage(chunk1))
-    assert accumulated_usage == {"input_tokens": 125, "cache_read_input_tokens": 25}
+    assert accumulated_usage == {"input_tokens": 100, "cache_read_input_tokens": 25}
 
     # message_delta with output_tokens
     chunk2 = (
@@ -1769,10 +1768,67 @@ def test_anthropic_extract_streaming_full_stream_with_cached_tokens():
     )
     accumulated_usage.update(provider._extract_streaming_token_usage(chunk2))
     assert accumulated_usage == {
-        "input_tokens": 125,
+        "input_tokens": 100,
         "output_tokens": 50,
         "cache_read_input_tokens": 25,
     }
+
+
+def test_anthropic_extract_streaming_token_usage_message_delta_final_counts():
+    # With server tools, message_delta carries the final cumulative input and cache counts
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    accumulated_usage = {}
+    chunk1 = (
+        b"event: message_start\n"
+        b'data: {"type":"message_start","message":{"id":"msg_123",'
+        b'"usage":{"input_tokens":10,"cache_read_input_tokens":0,'
+        b'"cache_creation_input_tokens":0,"output_tokens":1}}}\n'
+    )
+    accumulated_usage.update(provider._extract_streaming_token_usage(chunk1))
+
+    chunk2 = (
+        b"event: message_delta\n"
+        b'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},'
+        b'"usage":{"input_tokens":120,"cache_read_input_tokens":100,'
+        b'"cache_creation_input_tokens":20,"output_tokens":50}}\n'
+    )
+    accumulated_usage.update(provider._extract_streaming_token_usage(chunk2))
+
+    # Raw counts are merged before normalization adds the cache tokens.
+    assert accumulated_usage == {
+        "input_tokens": 120,
+        "output_tokens": 50,
+        "cache_read_input_tokens": 100,
+        "cache_creation_input_tokens": 20,
+    }
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_usage_takes_final_counts_from_message_delta():
+    resp = chat_stream_response()
+    delta_index = next(
+        i for i, line in enumerate(resp) if line.startswith(b'data: {"type": "message_delta"')
+    )
+    resp[delta_index] = (
+        b'data: {"type": "message_delta", "delta": {"stop_reason": "end_turn", '
+        b'"stop_sequence":null}, "usage":{"input_tokens": 120, "cache_read_input_tokens": 100, '
+        b'"cache_creation_input_tokens": 20, "output_tokens": 15}}\n'
+    )
+
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
+    ) as mock_post:
+        provider = AnthropicProvider(EndpointConfig(**chat_config()))
+        response = provider.chat_stream(chat.RequestPayload(**chat_payload(stream=True)))
+        chunks = [jsonable_encoder(chunk) async for chunk in response]
+
+    mock_post.assert_called_once()
+    usage = chunks[-1]["usage"]
+    # input_tokens (120) excludes the cache tokens: 120 + 100 + 20
+    assert usage["prompt_tokens"] == 240
+    assert usage["completion_tokens"] == 15
+    assert usage["total_tokens"] == 255
+    assert usage["prompt_tokens_details"]["cached_tokens"] == 100
 
 
 def test_anthropic_adapter_build_chat_usage_with_cached_tokens():
@@ -1906,6 +1962,30 @@ def test_chat_finish_reason(stop_reason, expected):
     result = AnthropicAdapter.model_to_chat(resp, EndpointConfig(**chat_config()))
 
     assert result.choices[0].finish_reason == expected
+
+
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    [
+        ([{"type": "redacted_thinking", "data": "opaque"}, {"type": "text", "text": "hi"}], "hi"),
+        ([{"type": "redacted_thinking", "data": "opaque"}], None),
+    ],
+)
+def test_model_to_chat_skips_redacted_thinking(content, expected):
+    resp = {
+        "id": "msg_1",
+        "type": "message",
+        "role": "assistant",
+        "model": "claude-sonnet-5",
+        "content": content,
+        "stop_reason": "end_turn",
+        "stop_sequence": None,
+        "usage": {"input_tokens": 1, "output_tokens": 1},
+    }
+
+    result = AnthropicAdapter.model_to_chat(resp, EndpointConfig(**chat_config()))
+
+    assert result.choices[0].message.content == expected
 
 
 @pytest.mark.parametrize(

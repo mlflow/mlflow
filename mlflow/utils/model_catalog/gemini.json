@@ -354,7 +354,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2026-12-01",
+      "last_updated_at": "2026-11-04"
     },
     "gemini-2.5-flash-image": {
       "mode": "image_generation",
@@ -368,13 +369,16 @@
         "cache_read_per_million_tokens": 0.03,
         "service_tiers": {
           "batch": {
-            "input_per_million_tokens": 0.15
+            "input_per_million_tokens": 0.15,
+            "output_per_million_tokens": 1.25
           },
           "flex": {
-            "input_per_million_tokens": 0.15
+            "input_per_million_tokens": 0.15,
+            "output_per_million_tokens": 1.25
           },
           "priority": {
-            "input_per_million_tokens": 0.54
+            "input_per_million_tokens": 0.54,
+            "output_per_million_tokens": 4.5
           }
         },
         "modality": {
@@ -401,7 +405,7 @@
         "response_schema": false
       },
       "deprecation_date": "2027-03-15",
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-02"
     },
     "gemini-2.5-flash-lite": {
       "mode": "chat",
@@ -674,7 +678,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2026-12-01",
+      "last_updated_at": "2026-11-04"
     },
     "gemini-2.5-pro-preview-tts": {
       "mode": "chat",
@@ -1304,7 +1309,7 @@
           "batch": {
             "input_per_million_tokens": 0.15,
             "output_per_million_tokens": 1.25,
-            "cache_read_per_million_tokens": 0.02
+            "cache_read_per_million_tokens": 0.015
           },
           "flex": {
             "input_per_million_tokens": 0.15,
@@ -1332,7 +1337,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-04"
     },
     "gemini-3.5-live-translate-preview": {
       "mode": "chat",
@@ -1538,7 +1543,12 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.15,
-        "output_per_million_tokens": 0
+        "output_per_million_tokens": 0,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.075
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -1548,7 +1558,7 @@
         "response_schema": false
       },
       "deprecation_date": "2028-05-14",
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-02"
     },
     "gemini-embedding-2": {
       "mode": "embedding",

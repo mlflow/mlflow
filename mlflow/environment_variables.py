@@ -2003,7 +2003,8 @@ _MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY = _EnvironmentVariable(
 
 #: Base URI to fetch the latest model catalog from. Each provider file is fetched
 #: as ``{uri}/{provider}.json``. Supports http(s):// and file:// schemes.
-#: Set to an empty string to disable remote fetch.
+#: Set to an empty string to disable remote fetch. When set to a non-default URI, prices that
+#: catalog lists take precedence over litellm's for trace cost and gateway budgets.
 #: (default: ``https://github.com/mlflow/mlflow/releases/download/model-catalog%2Flatest``)
 MLFLOW_MODEL_CATALOG_URI = _EnvironmentVariable(
     "MLFLOW_MODEL_CATALOG_URI",
