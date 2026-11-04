@@ -165,13 +165,223 @@ def test_adapter_placeholder_values_forwarded():
     assert result["placeholder_values"] == placeholder
 
 
-def test_adapter_none_content_becomes_empty_string():
+def test_adapter_none_content_becomes_empty_string_for_user():
+    config = _make_endpoint_config()
+    payload = {"messages": [{"role": "user", "content": None}]}
+    result = SapAiCoreAdapter.chat_to_model(payload, config)
+    template = result["config"]["modules"]["prompt_templating"]["prompt"]["template"]
+
+    assert template[0]["content"] == ""
+
+
+def test_adapter_assistant_none_content_omitted():
     config = _make_endpoint_config()
     payload = {"messages": [{"role": "assistant", "content": None}]}
     result = SapAiCoreAdapter.chat_to_model(payload, config)
     template = result["config"]["modules"]["prompt_templating"]["prompt"]["template"]
 
-    assert template[0]["content"] == ""
+    assert "content" not in template[0]
+
+
+def test_adapter_preserves_assistant_tool_calls():
+    config = _make_endpoint_config()
+    payload = {
+        "messages": [
+            {"role": "user", "content": "Judge this trace."},
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {"name": "get_trace_info", "arguments": "{}"},
+                    }
+                ],
+            },
+        ]
+    }
+    result = SapAiCoreAdapter.chat_to_model(payload, config)
+    template = result["config"]["modules"]["prompt_templating"]["prompt"]["template"]
+
+    assert len(template) == 2
+    assistant_msg = template[1]
+    assert assistant_msg["role"] == "assistant"
+    assert "content" not in assistant_msg
+    assert "tool_calls" in assistant_msg
+    assert len(assistant_msg["tool_calls"]) == 1
+    assert assistant_msg["tool_calls"][0]["id"] == "call_1"
+    assert assistant_msg["tool_calls"][0]["function"]["name"] == "get_trace_info"
+
+
+def test_adapter_preserves_tool_message_tool_call_id():
+    config = _make_endpoint_config()
+    payload = {
+        "messages": [
+            {
+                "role": "tool",
+                "content": '{"spans": 3}',
+                "tool_call_id": "call_1",
+                "name": "get_trace_info",
+            }
+        ]
+    }
+    result = SapAiCoreAdapter.chat_to_model(payload, config)
+    template = result["config"]["modules"]["prompt_templating"]["prompt"]["template"]
+
+    tool_msg = template[0]
+    assert tool_msg["role"] == "tool"
+    assert tool_msg["content"] == '{"spans": 3}'
+    assert tool_msg["tool_call_id"] == "call_1"
+    assert "name" not in tool_msg
+
+
+def test_adapter_tool_calls_full_round_trip():
+    config = _make_endpoint_config()
+    tools = [{"type": "function", "function": {"name": "get_trace_info", "parameters": {}}}]
+    payload = {
+        "messages": [
+            {"role": "user", "content": "Judge this trace."},
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {"name": "get_trace_info", "arguments": "{}"},
+                    }
+                ],
+            },
+            {
+                "role": "tool",
+                "content": '{"spans": 3}',
+                "tool_call_id": "call_1",
+                "name": "get_trace_info",
+            },
+        ],
+        "tools": tools,
+        "tool_choice": "auto",
+    }
+    result = SapAiCoreAdapter.chat_to_model(payload, config)
+    template = result["config"]["modules"]["prompt_templating"]["prompt"]["template"]
+    params = result["config"]["modules"]["prompt_templating"]["model"]["params"]
+
+    assert len(template) == 3
+
+    user_msg = template[0]
+    assert user_msg["role"] == "user"
+    assert user_msg["content"] == "Judge this trace."
+
+    assistant_msg = template[1]
+    assert assistant_msg["role"] == "assistant"
+    assert "content" not in assistant_msg
+    assert assistant_msg["tool_calls"][0]["id"] == "call_1"
+
+    tool_msg = template[2]
+    assert tool_msg["role"] == "tool"
+    assert tool_msg["tool_call_id"] == "call_1"
+    assert "name" not in tool_msg
+
+    assert params["tools"] == tools
+    assert params["tool_choice"] == "auto"
+
+
+def test_adapter_multiple_tool_calls():
+    config = _make_endpoint_config()
+    payload = {
+        "messages": [
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {"name": "get_trace_info", "arguments": "{}"},
+                    },
+                    {
+                        "id": "call_2",
+                        "type": "function",
+                        "function": {"name": "get_span_info", "arguments": '{"span_id": 1}'},
+                    },
+                ],
+            },
+            {
+                "role": "tool",
+                "content": '{"spans": 3}',
+                "tool_call_id": "call_1",
+                "name": "get_trace_info",
+            },
+            {
+                "role": "tool",
+                "content": '{"name": "main"}',
+                "tool_call_id": "call_2",
+                "name": "get_span_info",
+            },
+        ]
+    }
+    result = SapAiCoreAdapter.chat_to_model(payload, config)
+    template = result["config"]["modules"]["prompt_templating"]["prompt"]["template"]
+
+    assistant_msg = template[0]
+    assert len(assistant_msg["tool_calls"]) == 2
+    assert assistant_msg["tool_calls"][0]["id"] == "call_1"
+    assert assistant_msg["tool_calls"][1]["id"] == "call_2"
+
+    tool1 = template[1]
+    assert tool1["tool_call_id"] == "call_1"
+    tool2 = template[2]
+    assert tool2["tool_call_id"] == "call_2"
+
+
+def test_adapter_does_not_forward_unknown_fields():
+    config = _make_endpoint_config()
+    payload = {
+        "messages": [
+            {
+                "role": "assistant",
+                "content": "thinking...",
+                "tool_calls": None,
+                "unknown_field": "should_be_dropped",
+            },
+            {
+                "role": "tool",
+                "content": "result",
+                "tool_call_id": "call_1",
+                "name": "func",
+                "extra_key": "dropped",
+            },
+        ]
+    }
+    result = SapAiCoreAdapter.chat_to_model(payload, config)
+    template = result["config"]["modules"]["prompt_templating"]["prompt"]["template"]
+
+    assistant_msg = template[0]
+    assert "unknown_field" not in assistant_msg
+    assert "tool_calls" not in assistant_msg
+
+    tool_msg = template[1]
+    assert "name" not in tool_msg
+    assert "extra_key" not in tool_msg
+
+
+def test_adapter_forwards_assistant_refusal():
+    config = _make_endpoint_config()
+    payload = {
+        "messages": [
+            {
+                "role": "assistant",
+                "content": None,
+                "refusal": "I cannot help with that.",
+            }
+        ]
+    }
+    result = SapAiCoreAdapter.chat_to_model(payload, config)
+    template = result["config"]["modules"]["prompt_templating"]["prompt"]["template"]
+
+    assert template[0]["refusal"] == "I cannot help with that."
+    assert "content" not in template[0]
 
 
 # ---------------------------------------------------------------------------
@@ -214,6 +424,208 @@ def test_adapter_request_id_preserved():
     result = SapAiCoreAdapter.model_to_chat(_make_orch_response(), config)
 
     assert result.id == "chatcmpl-abc123"
+
+
+def test_adapter_decodes_response_tool_calls():
+    config = _make_endpoint_config()
+    inner = {
+        "id": "chatcmpl-toolcall",
+        "object": "chat.completion",
+        "created": 1783313910,
+        "model": "gpt-4o-mini",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "call_abc123",
+                            "type": "function",
+                            "function": {
+                                "name": "get_trace_info",
+                                "arguments": '{"trace_id": "tr-123"}',
+                            },
+                        }
+                    ],
+                },
+                "finish_reason": "tool_calls",
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
+    }
+    response = {
+        "request_id": "req-toolcall",
+        "intermediate_results": {},
+        "final_result": inner,
+    }
+    result = SapAiCoreAdapter.model_to_chat(response, config)
+
+    assert result.choices[0].message.content is None
+    assert result.choices[0].message.tool_calls is not None
+    assert len(result.choices[0].message.tool_calls) == 1
+    tc = result.choices[0].message.tool_calls[0]
+    assert tc.id == "call_abc123"
+    assert tc.function.name == "get_trace_info"
+    assert tc.function.arguments == '{"trace_id": "tr-123"}'
+    assert result.choices[0].finish_reason == "tool_calls"
+
+
+class _MockAsyncStreamingResponse:
+    def __init__(self, data: list[bytes], status: int = 200):
+        self.status = status
+        self.headers = {"Content-Type": "text/event-stream"}
+        self._content = data
+
+    def raise_for_status(self) -> None:
+        pass
+
+    async def _async_content(self):
+        for line in self._content:
+            yield line
+
+    @property
+    def content(self):
+        return self._async_content()
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, traceback):
+        pass
+
+
+class _MockHttpClient(mock.Mock):
+    def __init__(self, mock_response=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._mock_response = mock_response
+        self.post = mock.Mock(return_value=mock_response)
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        return
+
+
+@pytest.mark.asyncio
+async def test_adapter_streaming_tool_calls():
+    from mlflow.gateway.schemas import chat
+
+    provider = _make_provider()
+
+    chunk1 = (
+        b'data: {"id":"chatcmpl-stream1","object":"chat.completion.chunk","created":1783313910,'
+        b'"model":"gpt-4o-mini","choices":[{"index":0,"delta":{"role":"assistant","content":null,'
+        b'"tool_calls":[{"index":0,"id":"call_abc","type":"function",'
+        b'"function":{"name":"get_trace_info","arguments":""}}]},"finish_reason":null}]}\n\n'
+    )
+    chunk2 = (
+        b'data: {"id":"chatcmpl-stream1","object":"chat.completion.chunk","created":1783313910,'
+        b'"model":"gpt-4o-mini","choices":[{"index":0,"delta":{'
+        b'"tool_calls":[{"index":0,"function":{"arguments":"{\\"trace"}}]},"finish_reason":null}]}\n\n'
+    )
+    chunk3 = (
+        b'data: {"id":"chatcmpl-stream1","object":"chat.completion.chunk","created":1783313910,'
+        b'"model":"gpt-4o-mini","choices":[{"index":0,"delta":{'
+        b'"tool_calls":[{"index":0,"function":{"arguments":"_id\\": \\"tr-1\\"}"}}]},'
+        b'"finish_reason":null}]}\n\n'
+    )
+    chunk4 = (
+        b'data: {"id":"chatcmpl-stream1","object":"chat.completion.chunk","created":1783313910,'
+        b'"model":"gpt-4o-mini","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}],'
+        b'"usage":{"prompt_tokens":10,"completion_tokens":15,"total_tokens":25}}\n\n'
+    )
+    chunks = [chunk1, chunk2, chunk3, chunk4, b"data: [DONE]\n\n"]
+
+    mock_client = _MockHttpClient(mock_response=_MockAsyncStreamingResponse(chunks))
+
+    with (
+        mock.patch("aiohttp.ClientSession", return_value=mock_client),
+        mock.patch.dict(
+            "os.environ", {"MLFLOW_GENAI_JUDGE_BASE_URL": "http://sap-orch.local/v2/chat"}
+        ),
+    ):
+        payload = chat.RequestPayload(
+            messages=[{"role": "user", "content": "Get trace info"}],
+            tools=[
+                {
+                    "type": "function",
+                    "function": {"name": "get_trace_info", "parameters": {}},
+                }
+            ],
+        )
+        responses = [chunk async for chunk in provider.chat_stream(payload)]
+
+    assert len(responses) == 4
+
+    first_chunk = responses[0]
+    assert first_chunk.choices[0].delta.role == "assistant"
+    assert first_chunk.choices[0].delta.tool_calls is not None
+    assert len(first_chunk.choices[0].delta.tool_calls) == 1
+    tc = first_chunk.choices[0].delta.tool_calls[0]
+    assert tc.index == 0
+    assert tc.id == "call_abc"
+    assert tc.function.name == "get_trace_info"
+
+    last_chunk = responses[3]
+    assert last_chunk.choices[0].finish_reason == "tool_calls"
+    assert last_chunk.usage is not None
+    assert last_chunk.usage.prompt_tokens == 10
+    assert last_chunk.usage.completion_tokens == 15
+
+
+@pytest.mark.asyncio
+async def test_adapter_streaming_multiple_tool_calls():
+    from mlflow.gateway.schemas import chat
+
+    provider = _make_provider()
+
+    chunk1 = (
+        b'data: {"id":"chatcmpl-multi","object":"chat.completion.chunk","created":1783313910,'
+        b'"model":"gpt-4o-mini","choices":[{"index":0,"delta":{"role":"assistant",'
+        b'"tool_calls":[{"index":0,"id":"call_1","type":"function",'
+        b'"function":{"name":"get_trace_info","arguments":"{}"}},{"index":1,"id":"call_2",'
+        b'"type":"function","function":{"name":"get_span_info","arguments":"{}"}}]},'
+        b'"finish_reason":null}]}\n\n'
+    )
+    chunk2 = (
+        b'data: {"id":"chatcmpl-multi","object":"chat.completion.chunk","created":1783313910,'
+        b'"model":"gpt-4o-mini","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}\n\n'
+    )
+    chunks = [chunk1, chunk2, b"data: [DONE]\n\n"]
+
+    mock_client = _MockHttpClient(mock_response=_MockAsyncStreamingResponse(chunks))
+
+    with (
+        mock.patch("aiohttp.ClientSession", return_value=mock_client),
+        mock.patch.dict(
+            "os.environ", {"MLFLOW_GENAI_JUDGE_BASE_URL": "http://sap-orch.local/v2/chat"}
+        ),
+    ):
+        payload = chat.RequestPayload(
+            messages=[{"role": "user", "content": "Get trace and span info"}],
+        )
+        responses = [chunk async for chunk in provider.chat_stream(payload)]
+
+    assert len(responses) == 2
+
+    first_chunk = responses[0]
+    assert first_chunk.choices[0].delta.tool_calls is not None
+    assert len(first_chunk.choices[0].delta.tool_calls) == 2
+
+    tc1 = first_chunk.choices[0].delta.tool_calls[0]
+    assert tc1.index == 0
+    assert tc1.id == "call_1"
+    assert tc1.function.name == "get_trace_info"
+
+    tc2 = first_chunk.choices[0].delta.tool_calls[1]
+    assert tc2.index == 1
+    assert tc2.id == "call_2"
+    assert tc2.function.name == "get_span_info"
+
+    assert responses[1].choices[0].finish_reason == "tool_calls"
 
 
 # ---------------------------------------------------------------------------

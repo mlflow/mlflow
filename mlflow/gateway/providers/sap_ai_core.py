@@ -48,6 +48,33 @@ class SapAiCoreConfig(ConfigModel):
     """
 
 
+def _convert_message_for_sap(m: dict[str, Any]) -> dict[str, Any]:
+    """Convert an OpenAI-format message to SAP Orchestration v2 schema."""
+    role = m.get("role")
+
+    if role == "assistant":
+        converted: dict[str, Any] = {"role": "assistant"}
+        content = m.get("content")
+        if content is not None:
+            converted["content"] = content
+        if tool_calls := m.get("tool_calls"):
+            converted["tool_calls"] = tool_calls
+        if refusal := m.get("refusal"):
+            converted["refusal"] = refusal
+        if reasoning_content := m.get("reasoning_content"):
+            converted["reasoning_content"] = reasoning_content
+        return converted
+
+    if role == "tool":
+        return {
+            "role": "tool",
+            "tool_call_id": m.get("tool_call_id"),
+            "content": m.get("content") or "",
+        }
+
+    return {"role": role, "content": m.get("content") or ""}
+
+
 class SapAiCoreAdapter(ProviderAdapter):
     """Translates between MLflow's OpenAI-style payload and the AI Core
     Orchestration v2 request/response format.
@@ -81,11 +108,7 @@ class SapAiCoreAdapter(ProviderAdapter):
                 params[key] = payload[key]
 
         prompt_templating: dict[str, Any] = {
-            "prompt": {
-                "template": [
-                    {"role": m["role"], "content": m.get("content") or ""} for m in messages
-                ]
-            },
+            "prompt": {"template": [_convert_message_for_sap(m) for m in messages]},
             "model": {
                 "name": model_name,
                 **({"params": params} if params else {}),
@@ -107,6 +130,10 @@ class SapAiCoreAdapter(ProviderAdapter):
         # ``final_result`` is a standard OpenAI chat completion object.
         final = resp.get("final_result", resp)
         return OpenAICompatibleAdapter.model_to_chat(final, config)
+
+    @classmethod
+    def model_to_chat_streaming(cls, resp: dict[str, Any], config) -> chat.StreamResponsePayload:
+        return OpenAICompatibleAdapter.model_to_chat_streaming(resp, config)
 
     # ------------------------------------------------------------------ #
     # Required abstract stubs — not exercised via the judge path           #
