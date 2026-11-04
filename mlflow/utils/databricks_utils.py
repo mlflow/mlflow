@@ -998,7 +998,7 @@ _TRACE_CATALOG_REQUIRED_PRIVILEGES = {
 def get_default_trace_catalog(server_uri: str, schema_name: str = "default") -> str | None:
     """
     Return the workspace default catalog if the current user can store traces in
-    ``<catalog>.<schema_name>``, or ``None`` if it is unset, missing, inaccessible, not ISOLATED,
+    ``<catalog>.<schema_name>``, or ``None`` if it is unset, missing, inaccessible,
     or lacks privileges.
     """
     from databricks.sdk import WorkspaceClient
@@ -1012,15 +1012,8 @@ def get_default_trace_catalog(server_uri: str, schema_name: str = "default") -> 
 
 
 def _check_default_trace_catalog(w, schema_name: str) -> str | None:
-    from databricks.sdk.service.catalog import CatalogIsolationMode
-
     catalog_name = w.settings.default_namespace.get().namespace.value
     if not catalog_name:
-        return None
-    # An OPEN catalog is reachable from every workspace attached to the metastore, so traces
-    # written there would be visible well beyond this workspace. An ISOLATED one is reachable
-    # only from the workspaces it is explicitly bound to.
-    if w.catalogs.get(catalog_name).isolation_mode != CatalogIsolationMode.ISOLATED:
         return None
 
     user = w.current_user.me().user_name

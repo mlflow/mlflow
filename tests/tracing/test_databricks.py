@@ -3,8 +3,6 @@ from unittest import mock
 import pytest
 from databricks.sdk.errors import NotFound, PermissionDenied
 from databricks.sdk.service.catalog import (
-    CatalogInfo,
-    CatalogIsolationMode,
     EffectivePermissionsList,
     EffectivePrivilege,
     EffectivePrivilegeAssignment,
@@ -65,13 +63,11 @@ def test_set_databricks_monitoring_sql_warehouse_id_with_default_experiment_id()
 
 def _mock_workspace_client(
     catalog_name="main",
-    isolation_mode=CatalogIsolationMode.ISOLATED,
     catalog_privileges=("USE_CATALOG",),
     schema_privileges=("USE_SCHEMA", "CREATE_TABLE"),
 ):
     w = mock.MagicMock()
     w.settings.default_namespace.get.return_value.namespace.value = catalog_name
-    w.catalogs.get.return_value = CatalogInfo(name=catalog_name, isolation_mode=isolation_mode)
     w.current_user.me.return_value.user_name = "user@example.com"
     privileges = {"catalog": catalog_privileges, "schema": schema_privileges}
     w.grants.get_effective.side_effect = lambda securable_type, full_name, principal: (
@@ -132,7 +128,6 @@ def test_get_default_trace_catalog_accepts_all_privileges():
     "kwargs",
     [
         {"catalog_name": ""},
-        {"isolation_mode": CatalogIsolationMode.OPEN},
         {"catalog_privileges": ()},
         {"schema_privileges": ("USE_SCHEMA",)},
     ],
@@ -145,15 +140,11 @@ def test_get_default_trace_catalog_returns_none(kwargs):
 
 @pytest.mark.usefixtures("databricks_tracking_uri")
 @pytest.mark.parametrize(
-    ("service", "method", "error"),
-    [
-        ("catalogs", "get", PermissionDenied("no access to catalog")),
-        ("grants", "get_effective", NotFound("schema does not exist")),
-    ],
+    "error", [PermissionDenied("no access to catalog"), NotFound("schema does not exist")]
 )
-def test_get_default_trace_catalog_returns_none_on_lookup_errors(service, method, error):
+def test_get_default_trace_catalog_returns_none_on_lookup_errors(error):
     w = _mock_workspace_client()
-    getattr(getattr(w, service), method).side_effect = error
+    w.grants.get_effective.side_effect = error
     with mock.patch("databricks.sdk.WorkspaceClient", return_value=w):
         assert get_default_trace_catalog() is None
 
