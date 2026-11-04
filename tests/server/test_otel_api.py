@@ -380,6 +380,32 @@ def test_otlp_conversion_error(monkeypatch):
     assert "Cannot convert OpenTelemetry span" in response.json()["detail"]
 
 
+def test_otlp_missing_experiment_id_header_logs_warning(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    client = _make_test_client()
+
+    with mock.patch("mlflow.server.otel_api._logger.warning") as mock_warning:
+        response = client.post(
+            OTLP_TRACES_PATH,
+            content=_build_otlp_payload(),
+            headers={"Content-Type": "application/x-protobuf"},
+        )
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": [
+            {
+                "type": "missing",
+                "loc": ["header", "x-mlflow-experiment-id"],
+                "msg": "Field required",
+                "input": None,
+            }
+        ]
+    }
+    mock_warning.assert_called_once()
+    assert "x-mlflow-experiment-id" in mock_warning.call_args.args
+
+
 def test_otlp_resource_attributes_preserved(monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
 

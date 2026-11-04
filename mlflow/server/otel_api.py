@@ -17,6 +17,7 @@ import logging
 import time
 
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from google.protobuf.json_format import Error as ProtoJsonError
 from google.protobuf.json_format import MessageToDict
@@ -113,7 +114,8 @@ otel_router = APIRouter(prefix=OTLP_TRACES_PATH, tags=["OpenTelemetry"])
 @otel_router.post("", status_code=200)
 async def export_traces(
     request: Request,
-    x_mlflow_experiment_id: str = Header(..., alias=MLFLOW_EXPERIMENT_ID_HEADER),
+    # Declared optional so a missing header can be logged before rejecting the request.
+    x_mlflow_experiment_id: str | None = Header(default=None, alias=MLFLOW_EXPERIMENT_ID_HEADER),
     x_mlflow_run_id: str | None = Header(default=None, alias=MLFLOW_RUN_ID_HEADER),
     content_type: str | None = Header(default=None),
     content_encoding: str | None = Header(default=None),
@@ -149,6 +151,24 @@ async def export_traces(
     Raises:
         HTTPException: If the request is invalid or span logging fails
     """
+    if x_mlflow_experiment_id is None:
+        _logger.warning(
+            "Rejecting OTLP trace export request to %s: missing required '%s' header. "
+            "Set it on the exporter, e.g. "
+            "OTEL_EXPORTER_OTLP_TRACES_HEADERS=%s=<experiment id>.",
+            OTLP_TRACES_PATH,
+            MLFLOW_EXPERIMENT_ID_HEADER,
+            MLFLOW_EXPERIMENT_ID_HEADER,
+        )
+        raise RequestValidationError([
+            {
+                "type": "missing",
+                "loc": ("header", MLFLOW_EXPERIMENT_ID_HEADER),
+                "msg": "Field required",
+                "input": None,
+            }
+        ])
+
     start_time = time.perf_counter()
 
     try:
