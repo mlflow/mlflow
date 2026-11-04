@@ -13,7 +13,7 @@ test_that("user-agent header is set", {
   rest_config <- mlflow:::get_rest_config(config)
 
   expected_user_agent <- paste("mlflow-r-client", packageVersion("mlflow"), sep = "/")
-  expect_equal(rest_config$headers$`User-Agent`, expected_user_agent)
+  expect_equal(rest_config$headers[["User-Agent"]], expected_user_agent)
   expect_equal(rest_config$config, list())
 })
 
@@ -26,7 +26,7 @@ test_that("basic auth is used", {
 
   rest_config <- mlflow:::get_rest_config(config)
 
-  expect_equal(rest_config$headers$Authorization, "Basic aGVsbG86c2VjcmV0")
+  expect_equal(rest_config$headers[["Authorization"]], "Basic aGVsbG86c2VjcmV0")
 })
 
 test_that("token auth is used", {
@@ -38,7 +38,7 @@ test_that("token auth is used", {
 
   rest_config <- mlflow:::get_rest_config(config)
 
-  expect_equal(rest_config$headers$Authorization, "Bearer taken")
+  expect_equal(rest_config$headers[["Authorization"]], "Bearer taken")
 })
 
 test_that("insecure is used", {
