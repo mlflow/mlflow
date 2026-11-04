@@ -359,7 +359,6 @@ jobs:
             fi
           fi
       - name: Reset trusted checkout
-        id: reset
         if: always() && steps.trusted.outcome == 'success'
         working-directory: trusted
         run: |
@@ -370,38 +369,6 @@ jobs:
             printf '%s\n' "$status"
             exit 1
           fi
-      - name: Collect redacted transcript
-        id: transcript
-        if: always() && github.event_name == 'workflow_dispatch' && inputs.dry_run && steps.session.outcome == 'success' && steps.reset.outcome == 'success'
-        env:
-          SESSION_ID: ${{ steps.session.outputs.id }}
-          SECRETS_TO_REDACT: |
-            ${{ steps.gateway.outputs.token }}
-            ${{ steps.gateway-proxy.outputs.placeholder-token }}
-            ${{ steps.telemetry-proxy.outputs.placeholder-token }}
-            ${{ secrets.GITHUB_TOKEN }}
-            ${{ secrets.DATABRICKS_HOST }}
-            ${{ secrets.DATABRICKS_CLIENT_ID }}
-        run: |
-          shopt -s nullglob globstar
-          transcripts=("${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/projects/*/"$SESSION_ID".jsonl)
-          test "${#transcripts[@]}" -eq 1
-          transcript="${transcripts[0]}"
-          project="${transcript%/*}"
-          sources=("$transcript" "${transcript%.jsonl}"/subagents/**/*.jsonl)
-          for source in "${sources[@]}"; do
-            target="$VERIFY_TMP_DIR/work/transcript/${source#"$project"/}"
-            mkdir -p "${target%/*}"
-            uv run --no-project python "$GITHUB_WORKSPACE/trusted/.claude/scripts/redact.py" \
-              < "$source" > "$target"
-          done
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: always() && steps.transcript.outcome == 'success'
-        with:
-          name: verify-transcript-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ env.VERIFY_TMP_DIR }}/work/transcript/
-          if-no-files-found: error
-          retention-days: 1
       - name: Validate inline comments
         run: |
           uv run --no-project python "$GITHUB_WORKSPACE/trusted/.claude/skills/verify/scripts/validate_comments.py" \
