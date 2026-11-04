@@ -52,9 +52,13 @@ function getFilters({ searchFilter, tagsFilter }: Pick<ExperimentListQueryKey['1
     filters.push(tagFilterToSql(tagFilter));
   }
 
-  // Exclude gateway experiments server-side to ensure consistent page sizes
-  filters.push(`tags.\`${EXPERIMENT_IS_GATEWAY_TAG}\` IS NULL`);
+  // Note: we previously tried to exclude gateway experiments server-side with
+  // `tags.mlflow.experiment.isGateway IS NULL`, but IS NULL is not supported
+  // by all backends (e.g., Databricks). Filter client-side instead.
 
+  if (filters.length === 0) {
+    return undefined;
+  }
   return ['filter', filters.join(' AND ')];
 }
 
@@ -66,7 +70,7 @@ const queryFn = ({ queryKey }: QueryFunctionContext<ExperimentListQueryKey>) => 
 
   const data: (string[] | undefined)[] = [['max_results', String(pageSize)], ...orderBy];
 
-  // NOTE: undefined values are fine, they're filtered out by the request helpers inside `MlflowService`
+  // NOTE: undefined values are fine, they're filtered out by `getBigIntJson` inside `MlflowService`
   data.push(getFilters({ searchFilter, tagsFilter }));
 
   if (pageToken) {
@@ -134,8 +138,10 @@ export const useExperimentListQuery = ({
   const sortedExperiments = useMemo(() => {
     const experiments = queryResult.data?.experiments;
     if (!experiments) return undefined;
-    const demo = experiments.filter(isDemoExperiment);
-    const nonDemo = experiments.filter((e) => !isDemoExperiment(e));
+    // Filter out gateway experiments client-side (IS NULL not supported by all backends)
+    const nonGateway = experiments.filter((e) => !e.tags?.some((tag) => tag.key === EXPERIMENT_IS_GATEWAY_TAG));
+    const demo = nonGateway.filter(isDemoExperiment);
+    const nonDemo = nonGateway.filter((e) => !isDemoExperiment(e));
     return [...demo, ...nonDemo];
   }, [queryResult.data?.experiments]);
 
