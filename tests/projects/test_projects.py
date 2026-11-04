@@ -530,7 +530,9 @@ def test_credential_propagation(synchronous, monkeypatch):
         assert env["DATABRICKS_TOKEN"] == "mytoken"
 
 
-def test_get_or_create_conda_env_capture_output_mode(tmp_path):
+def test_get_or_create_conda_env_capture_output_mode(tmp_path, monkeypatch):
+    monkeypatch.delenv("PIP_CONSTRAINT", raising=False)
+    monkeypatch.delenv("UV_CONSTRAINT", raising=False)
     conda_yaml_file = tmp_path / "conda.yaml"
     conda_yaml_file.write_text(
         """
