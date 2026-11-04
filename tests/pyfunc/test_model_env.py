@@ -150,7 +150,7 @@ def test_prebuilt_env_python_runs(tmp_path, monkeypatch, env_manager, bundled_py
     restored_dir = tmp_path / "restored"
     extract_archive_to_dir(archive_path, restored_dir)
     python_path = restored_dir / "virtualenv_envs/mlflow-test/bin/python"
-    assert python_path.is_symlink() == bundled_python
+    assert python_path.resolve().is_relative_to(restored_dir)
     output = subprocess.check_output(
         [
             str(python_path),

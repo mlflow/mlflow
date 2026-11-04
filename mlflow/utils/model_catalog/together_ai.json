@@ -589,7 +589,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2026-11-04",
+      "last_updated_at": "2026-11-02"
     },
     "Qwen/Qwen3.8-Flash": {
       "mode": "chat",

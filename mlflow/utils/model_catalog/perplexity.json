@@ -54,7 +54,15 @@
       "pricing": {
         "input_per_million_tokens": 0.1,
         "output_per_million_tokens": 0.5,
-        "cache_read_per_million_tokens": 0.01
+        "cache_read_per_million_tokens": 0.01,
+        "long_context": [
+          {
+            "threshold_tokens": 100000,
+            "input_per_million_tokens": 0.5,
+            "output_per_million_tokens": 2.5,
+            "cache_read_per_million_tokens": 0.05
+          }
+        ]
       },
       "capabilities": {
         "function_calling": true,
@@ -63,7 +71,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-08"
+      "last_updated_at": "2026-11-04"
     },
     "anthropic/claude-opus-4-5": {
       "mode": "responses",
@@ -214,7 +222,7 @@
       "pricing": {
         "input_per_million_tokens": 2.0,
         "output_per_million_tokens": 10.0,
-        "cache_read_per_million_tokens": 0.2
+        "cache_read_per_million_tokens": 0.1
       },
       "capabilities": {
         "function_calling": true,
@@ -223,7 +231,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-29"
+      "last_updated_at": "2026-11-04"
     },
     "codellama-34b-instruct": {
       "mode": "chat",
@@ -431,6 +439,22 @@
         "response_schema": false
       },
       "last_updated_at": "2026-10-02"
+    },
+    "google/gemini-4-argon": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 0.1
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-04"
     },
     "llama-2-70b-chat": {
       "mode": "chat",
@@ -779,7 +803,15 @@
         "input_per_million_tokens": 10.0,
         "output_per_million_tokens": 50.0,
         "cache_read_per_million_tokens": 1.0,
-        "cache_write_per_million_tokens": 12.5
+        "cache_write_per_million_tokens": 12.5,
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "input_per_million_tokens": 20.0,
+            "output_per_million_tokens": 75.0,
+            "cache_read_per_million_tokens": 2.0
+          }
+        ]
       },
       "capabilities": {
         "function_calling": false,
@@ -788,7 +820,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-12"
+      "last_updated_at": "2026-11-04"
     },
     "openai/gpt-6-luna": {
       "mode": "responses",
@@ -1005,6 +1037,22 @@
         "response_schema": false
       },
       "last_updated_at": "2026-09-23"
+    },
+    "perplexity/nemotron-3.5-super-120b-a12b": {
+      "mode": "responses",
+      "pricing": {
+        "input_per_million_tokens": 0.2,
+        "output_per_million_tokens": 0.5,
+        "cache_read_per_million_tokens": 0.04
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-04"
     },
     "perplexity/sonar": {
       "mode": "responses",

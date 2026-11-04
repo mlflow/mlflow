@@ -149,10 +149,11 @@ export const AdminApi = {
   },
 
   // User CRUD (admin-only)
-  listUsers: () => {
+  listUsers: (workspace?: string) => {
     return fetchEndpoint({
       relativeUrl: 'ajax-api/2.0/mlflow/users/list',
       error: defaultErrorHandler,
+      ...workspaceHeader(workspace),
     }) as Promise<ListUsersResponse>;
   },
 
@@ -313,7 +314,7 @@ export const AdminApi = {
 // Override ``X-MLFLOW-WORKSPACE`` per request; ``fetchEndpoint`` merges
 // ``headerOptions`` after the defaults. ``!== undefined`` (not truthy) so a
 // bogus ``''`` surfaces as a 4xx instead of inheriting the session workspace.
-const workspaceHeader = (workspace?: string): { headerOptions?: Record<string, string> } =>
+export const workspaceHeader = (workspace?: string): { headerOptions?: Record<string, string> } =>
   workspace !== undefined ? { headerOptions: { 'X-MLFLOW-WORKSPACE': workspace } } : {};
 
 /** Shape of one scorer row from the generic ``ListScorers`` response. */
