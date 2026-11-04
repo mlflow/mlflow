@@ -1,3 +1,4 @@
+import os
 from unittest import mock
 
 import pytest
@@ -210,6 +211,37 @@ def test_invoke_issue_detection_job_with_endpoint():
         mock_discover_issues.assert_called_once()
         call_args = mock_discover_issues.call_args
         assert call_args.kwargs["model"] == "gateway:/my-endpoint"
+
+
+def test_invoke_issue_detection_job_propagates_username_for_gateway_auth(monkeypatch):
+    monkeypatch.delenv("MLFLOW_TRACKING_USERNAME", raising=False)
+    monkeypatch.delenv("MLFLOW_TRACKING_PASSWORD", raising=False)
+    monkeypatch.setenv("_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", "internal-token")
+    captured_env = {}
+
+    def _capture_env(*args, **kwargs):
+        captured_env["username"] = os.environ.get("MLFLOW_TRACKING_USERNAME")
+        captured_env["password"] = os.environ.get("MLFLOW_TRACKING_PASSWORD")
+        return mock.MagicMock(issues=[], total_traces_analyzed=1, total_cost_usd=0.0)
+
+    with (
+        mock.patch("mlflow.genai.discovery.job.MlflowClient") as mock_client_cls,
+        mock.patch(
+            "mlflow.genai.discovery.job.discover_issues", side_effect=_capture_env
+        ) as mock_discover_issues,
+    ):
+        invoke_issue_detection_job(
+            experiment_id="exp-123",
+            trace_ids=["trace-1"],
+            categories=["correctness"],
+            run_id="run-123",
+            model="gateway:/my-endpoint",
+            username="alice",
+        )
+
+    mock_client_cls.assert_called_once()
+    mock_discover_issues.assert_called_once()
+    assert captured_env == {"username": "alice", "password": "internal-token"}
 
 
 def test_invoke_issue_detection_job_batches_large_trace_list():
