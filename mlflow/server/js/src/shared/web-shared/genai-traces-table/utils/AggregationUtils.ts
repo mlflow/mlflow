@@ -74,6 +74,10 @@ function getCustomMetricNameAndAssessment(assessmentPath: string): { metricName:
 const PASS_FAIL_VALUES: string[] = [
   KnownEvaluationResultAssessmentStringValue.YES,
   KnownEvaluationResultAssessmentStringValue.NO,
+  'pass',
+  'PASS',
+  'fail',
+  'FAIL',
 ];
 /**
  * Computes global metadata for each of the assessments.
