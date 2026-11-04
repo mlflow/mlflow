@@ -306,6 +306,37 @@ def test_create_run_with_empty_run_name_tag(store: SqlAlchemyStore, run_name, ta
     assert run.data.tags[mlflow_tags.MLFLOW_RUN_NAME] == run.info.run_name
 
 
+def test_create_run_with_duplicate_tag_keys_keeps_last_value(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "test_create_run_duplicate_tags")
+    run_id = store.create_run(
+        experiment_id=experiment_id,
+        user_id="user",
+        start_time=0,
+        run_name="name",
+        tags=[RunTag("x", "1"), RunTag("y", "a"), RunTag("x", "2")],
+    ).info.run_id
+    run = store.get_run(run_id)
+    assert run.data.tags == {"x": "2", "y": "a", mlflow_tags.MLFLOW_RUN_NAME: "name"}
+
+
+def test_create_run_with_duplicate_run_name_tags_keeps_last_value(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "test_create_run_duplicate_run_name_tags")
+    run_id = store.create_run(
+        experiment_id=experiment_id,
+        user_id="user",
+        start_time=0,
+        run_name=None,
+        tags=[
+            RunTag(mlflow_tags.MLFLOW_RUN_NAME, "first"),
+            RunTag(mlflow_tags.MLFLOW_RUN_NAME, "second"),
+        ],
+    ).info.run_id
+    run = store.get_run(run_id)
+    assert run.info.run_name == "second"
+    assert run.data.tags == {mlflow_tags.MLFLOW_RUN_NAME: "second"}
+
+
+
 def test_get_run_with_name(store: SqlAlchemyStore):
     experiment_id = _create_experiments(store, "test_get_run")
     configs = _get_run_configs(experiment_id=experiment_id)
