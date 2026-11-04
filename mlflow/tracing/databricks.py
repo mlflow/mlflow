@@ -7,9 +7,9 @@ from mlflow.utils.uri import is_databricks_uri
 @experimental(version="3.19.0")
 def get_default_trace_catalog(schema_name: str = "default") -> str | None:
     """
-    Return the Databricks workspace default catalog if traces can be stored in
-    ``<catalog>.<schema_name>``, otherwise ``None``. The workspace default catalog is the one
-    used when a query does not name a catalog (see `Manage the default catalog`_).
+    Return the Databricks `workspace default catalog`_ if traces can be stored in
+    ``<catalog>.<schema_name>``, otherwise ``None``. A workspace admin sets this catalog, and
+    queries that don't specify a catalog use it.
 
     The catalog is returned only if the current user has ``USE_CATALOG`` on it and
     ``USE_SCHEMA`` and ``CREATE_TABLE`` on the schema. ``None`` is also returned if the catalog
@@ -27,7 +27,7 @@ def get_default_trace_catalog(schema_name: str = "default") -> str | None:
         if catalog := mlflow.tracing.get_default_trace_catalog():
             mlflow.set_experiment("my-genai-app", trace_location=UnityCatalog(catalog, "default"))
 
-    .. _Manage the default catalog: https://docs.databricks.com/aws/en/catalogs/default
+    .. _workspace default catalog: https://docs.databricks.com/aws/en/catalogs/default
     """
     from mlflow.tracking import get_tracking_uri
 
