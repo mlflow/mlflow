@@ -13,6 +13,7 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from werkzeug.exceptions import RequestedRangeNotSatisfiable
 
 import mlflow
+import mlflow.server
 from mlflow.entities import (
     Experiment,
     FallbackStrategy,
@@ -77,6 +78,7 @@ from mlflow.genai.review_queues.review_queues import (
     ReviewStatus,
 )
 from mlflow.genai.scorers import Completeness
+from mlflow.genai.scorers.base import _UnexecutedDecoratorScorer
 from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
@@ -6627,6 +6629,10 @@ def test_invoke_registered_decorator_scorer_checks_the_stored_payload(
         monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
     else:
         monkeypatch.delenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", raising=False)
+    # Whichever WSGI/ASGI server runs the app, the handler must not reconstruct the scorer's code.
+    monkeypatch.delenv("_MLFLOW_SERVER_BOOT_ID", raising=False)
+    monkeypatch.delenv("_MLFLOW_IN_JOB_EXECUTOR", raising=False)
+    monkeypatch.setattr(mlflow.server, "is_running_as_server", False)
     stored_scorer = json.dumps({
         "name": "s",
         "mlflow_version": mlflow.__version__,
@@ -6644,7 +6650,9 @@ def test_invoke_registered_decorator_scorer_checks_the_stored_payload(
     )
 
     with (
-        mock.patch("mlflow.genai.scorers.job.get_trace_batches_for_scorer", return_value=[]),
+        mock.patch(
+            "mlflow.genai.scorers.job.get_trace_batches_for_scorer", return_value=[]
+        ) as mock_batches,
         mock.patch("mlflow.server.jobs.submit_job"),
         app.test_client() as c,
     ):
@@ -6662,6 +6670,7 @@ def test_invoke_registered_decorator_scorer_checks_the_stored_payload(
 
     if custom_scorers_enabled:
         assert response.status_code == 200, response.get_json()
+        assert isinstance(mock_batches.call_args.args[1], _UnexecutedDecoratorScorer)
     else:
         assert response.status_code == 400
         assert "custom" in response.get_json()["message"].lower()
