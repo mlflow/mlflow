@@ -8,7 +8,9 @@ called server-side and never exposed to clients via MlflowClient.
 
 import json
 
+from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
@@ -195,6 +197,7 @@ def get_endpoint_config(
 
         kek_manager = KEKManager()
         model_configs = []
+        primary_models_without_key = []
 
         for sql_mapping in sql_endpoint.model_mappings:
             sql_model_def = store._get_entity_or_raise(
@@ -203,8 +206,12 @@ def get_endpoint_config(
                 {"model_definition_id": sql_mapping.model_definition_id},
                 "GatewayModelDefinition",
             )
+            linkage_type = sql_mapping.to_mlflow_entity().linkage_type
 
+            # Deleting a secret sets secret_id to NULL on the model definitions that used it.
             if sql_model_def.secret_id is None:
+                if linkage_type == GatewayModelLinkageType.PRIMARY:
+                    primary_models_without_key.append(sql_model_def.name)
                 continue
 
             sql_secret = store._get_entity_or_raise(
@@ -232,9 +239,25 @@ def get_endpoint_config(
                     if sql_secret.auth_config
                     else None,
                     weight=sql_mapping.weight,
-                    linkage_type=sql_mapping.to_mlflow_entity().linkage_type,
+                    linkage_type=linkage_type,
                     fallback_order=sql_mapping.fallback_order,
                 )
+            )
+
+        # Report the missing key here; otherwise _create_provider fails with the generic
+        # "has no PRIMARY models configured", although the PRIMARY models are still attached.
+        if primary_models_without_key and not any(
+            model.linkage_type == GatewayModelLinkageType.PRIMARY for model in model_configs
+        ):
+            noun = (
+                "model definition" if len(primary_models_without_key) == 1 else "model definitions"
+            )
+            names = ", ".join(f"'{name}'" for name in primary_models_without_key)
+            raise MlflowException(
+                f"Endpoint '{endpoint_name}' cannot serve requests: no API key (secret) is "
+                f"attached to its PRIMARY {noun} {names}, likely because the API key was "
+                f"deleted. Attach an API key to the {noun} to use this endpoint.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
             )
 
         endpoint_entity = sql_endpoint.to_mlflow_entity()
