@@ -22,6 +22,7 @@ from mlflow.store._unity_catalog.registry.uc_oss_rest_store import UnityCatalogO
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
 from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.rest_utils import _UNPROCESSED_REQUEST_RESPONSE_CODES
 
 from tests.helper_functions import mock_http_200
 from tests.store._unity_catalog.conftest import _REGISTRY_HOST_CREDS
@@ -42,15 +43,22 @@ def creds():
         yield
 
 
-def _args(endpoint, method, json_body, host_creds, extra_headers):
+def _args(endpoint, method, json_body, host_creds, extra_headers, retries_unprocessed_only=False):
     res = {
         "host_creds": host_creds,
         "endpoint": f"/api/2.1/unity-catalog/{endpoint}",
         "method": method,
+        "raise_on_status": False,
         "extra_headers": extra_headers,
     }
     if extra_headers is None:
         del res["extra_headers"]
+    if retries_unprocessed_only:
+        res |= {
+            "retry_codes": _UNPROCESSED_REQUEST_RESPONSE_CODES,
+            "retry_read_errors": False,
+            "retry_on_retry_after": False,
+        }
     if method == "GET":
         res["params"] = json.loads(json_body)
     else:
@@ -65,9 +73,12 @@ def _verify_requests(
     proto_message,
     host_creds=_REGISTRY_HOST_CREDS,
     extra_headers=None,
+    retries_unprocessed_only=False,
 ):
     json_body = message_to_json(proto_message)
-    call_args = _args(endpoint, method, json_body, host_creds, extra_headers)
+    call_args = _args(
+        endpoint, method, json_body, host_creds, extra_headers, retries_unprocessed_only
+    )
     http_request.assert_any_call(**call_args)
 
 
@@ -85,6 +96,7 @@ def test_create_registered_model(mock_http, store):
             schema_name="schema_1",
             comment=description,
         ),
+        retries_unprocessed_only=True,
     )
 
 

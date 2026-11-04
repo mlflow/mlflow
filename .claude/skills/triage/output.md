@@ -11,17 +11,6 @@ Do not rename, comment on, label, or close the issue, and do not commit, push, o
 A PR in the payload is a proposal; the workflow publishes it later, so do not claim it
 is already open.
 
-After writing and validating the output, restore the checkout to `HEAD`, then stop:
-
-```bash
-git reset -q --hard HEAD
-git clean -fdq
-git status --porcelain --untracked-files=all
-```
-
-The last command must print nothing. `fix.patch` and media under `$out_dir` are outside the
-checkout and survive this.
-
 ## Optional issue title
 
 During initial triage, suggest a concise, specific title only when the current title is
@@ -47,8 +36,7 @@ If any requirement is unmet, explain the findings in the comment without proposi
 
 Add regression tests when they add meaningful coverage. Place new regression tests next to
 the existing tests for that code, verify that they fail without the fix and pass with it,
-and run them together with the directly relevant existing tests, within the
-[runtime time budget](runtime.md#time-budget).
+and run them together with the directly relevant existing tests ([test rules](runtime.md#tests)).
 Before creating `fix.patch`:
 
 - Keep only the fix and any regression tests in the checkout.

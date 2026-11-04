@@ -37,15 +37,15 @@ export const EvalRunComparisonOverviewTab = (props: EvalRunComparisonOverviewTab
   const { theme } = useDesignSystemTheme();
   const { snapshot, configurationRuns, scorerRuns, noComparison, isLoading, failedRunUuids, refetch } =
     useEvalRunComparisonData(props);
-  const { openPanel, prefillPrompt, canUseAssistant } = useAssistant();
+  const { openPanel, sendMessageWhenReady, canUseAssistant } = useAssistant();
   const { experimentId } = props;
   const compareWithAssistant = useCallback(() => {
     if (!snapshot) {
       return;
     }
     openPanel();
-    prefillPrompt(buildEvalRunComparisonAssistantPrompt(experimentId, snapshot));
-  }, [experimentId, openPanel, prefillPrompt, snapshot]);
+    sendMessageWhenReady(buildEvalRunComparisonAssistantPrompt(experimentId, snapshot));
+  }, [experimentId, openPanel, sendMessageWhenReady, snapshot]);
   const loadingLabel = intl.formatMessage({
     defaultMessage: 'Loading comparison data',
     description: 'Accessible loading label while fetching evaluation comparison data',

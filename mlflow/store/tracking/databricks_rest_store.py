@@ -301,7 +301,8 @@ class DatabricksTracingRestStore(RestStore):
                 _logger.debug("MLflow experiment is not set for trace, cannot fallback to V3 API.")
                 raise
             _logger.debug(f"Falling back to V3 API due to {e!s}")
-        return super().start_trace(trace_info)
+        # The Databricks backend assigns assessment IDs itself.
+        return self._start_trace_v3(trace_info, assign_missing_assessment_ids=False)
 
     def _start_trace_v4(self, trace_info: TraceInfo) -> TraceInfo:
         location, otel_trace_id = parse_trace_id_v4(trace_info.trace_id)

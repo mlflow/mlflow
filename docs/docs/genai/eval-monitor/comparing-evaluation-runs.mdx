@@ -11,7 +11,7 @@ import { APILink } from "@site/src/components/APILink";
 `mlflow.genai.compare_evaluations` is experimental in MLflow 3.18.0. The API and behavior may change in future releases. Feedback is welcome in a [GitHub issue](https://github.com/mlflow/mlflow/issues/new/choose).
 :::
 
-<APILink fn="mlflow.genai.evaluate" /> reduces each scorer to an aggregate such as the mean. Comparing two runs by their means says nothing about noise: with LLM judges and evaluation sets of a few hundred rows, a 3-point gain is often within run-to-run variation.
+<APILink fn="mlflow.genai.evaluate" /> reduces each scorer to an aggregate such as the mean. Comparing two runs by their means says nothing about noise: with LLM judges and evaluation sets of a few hundred rows, a 3-point gain is often within run-to-run variation. To measure that variation per test case, see [Measure consistency with repeated runs](/genai/eval-monitor/running-evaluation/eval-examples#measure-consistency-with-repeated-runs).
 
 <APILink fn="mlflow.genai.compare_evaluations" /> answers "is the candidate better, and not by chance?" Because both runs evaluate the same dataset, it pairs their rows and tests the per-row differences, which has far more statistical power than comparing two independent means.
 

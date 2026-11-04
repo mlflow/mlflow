@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 import groq
 import pytest
+from groq.types import CreateEmbeddingResponse, Embedding
 from groq.types.audio.transcription import Transcription
 from groq.types.audio.translation import Translation
 from groq.types.chat import ChatCompletionMessageToolCall
@@ -12,6 +13,7 @@ from groq.types.chat.chat_completion import (
     Choice,
     CompletionUsage,
 )
+from groq.types.create_embedding_response import Usage as EmbeddingUsage
 
 import mlflow.groq
 from mlflow.entities.span import SpanType
@@ -411,3 +413,40 @@ def test_audio_translation_autolog():
     # No new trace should be created
     traces = get_traces()
     assert len(traces) == 1
+
+
+DUMMY_EMBEDDING_REQUEST = {
+    "input": "Test input",
+    "model": "nomic-embed-text-v1_5",
+}
+
+DUMMY_EMBEDDING_RESPONSE = CreateEmbeddingResponse(
+    data=[Embedding(embedding=[0.1, 0.2, 0.3], index=0, object="embedding")],
+    model="nomic-embed-text-v1_5",
+    object="list",
+    usage=EmbeddingUsage(prompt_tokens=7, total_tokens=7),
+)
+
+
+def test_embeddings_autolog():
+    mlflow.groq.autolog()
+    client = groq.Groq()
+
+    with patch("groq._client.Groq.post", return_value=DUMMY_EMBEDDING_RESPONSE) as mock_post:
+        client.embeddings.create(**DUMMY_EMBEDDING_REQUEST)
+    mock_post.assert_called_once()
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert len(traces[0].data.spans) == 1
+    span = traces[0].data.spans[0]
+    assert span.name == "Embeddings"
+    assert span.span_type == SpanType.EMBEDDING
+    assert span.inputs == DUMMY_EMBEDDING_REQUEST
+    assert span.outputs == DUMMY_EMBEDDING_RESPONSE.to_dict(exclude_unset=False)
+    assert span.model_name == "nomic-embed-text-v1_5"
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 7,
+        "total_tokens": 7,
+    }

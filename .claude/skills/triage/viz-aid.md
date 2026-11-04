@@ -2,7 +2,7 @@
 
 Add an explanatory diagram when the verdict is `triage: reproduced` or `triage: already-fixed`,
 unless screenshots or recordings already show the symptom. Make it after the reproduction and
-any fix are verified, and skip it if fewer than 10 minutes of the run remain.
+any fix are verified.
 
 1. **Takeaway:** Choose one finding the reader should understand. State it in a short,
    plain-language headline that makes sense without reading the issue.

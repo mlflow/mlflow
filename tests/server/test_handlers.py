@@ -154,6 +154,8 @@ from mlflow.protos.service_pb2 import (
     SetExperimentTag,
     SetTraceTag,
     SetTraceTagV3,
+    StartTrace,
+    StartTraceV3,
     TraceLocation,
     TraceTag,
     UpdateGatewaySecret,
@@ -164,6 +166,7 @@ from mlflow.protos.service_pb2 import (
 from mlflow.protos.service_pb2 import (
     GatewayModelLinkageType as ProtoGatewayModelLinkageType,
 )
+from mlflow.protos.service_pb2 import Trace as ProtoTrace
 from mlflow.protos.webhooks_pb2 import ListWebhooks
 from mlflow.server import (
     ARTIFACT_ROOT_ENV_VAR,
@@ -213,6 +216,7 @@ from mlflow.server.handlers import (
     _delete_workspace_handler,
     _deprecated_end_trace_v2,
     _deprecated_search_traces_v2,
+    _deprecated_start_trace_v2,
     _download_artifact,
     _get_ajax_path,
     _get_dataset_experiment_ids_handler,
@@ -264,6 +268,7 @@ from mlflow.server.handlers import (
     _set_review_queue_item_status,
     _set_trace_tag,
     _set_trace_tag_v3,
+    _start_trace_v3,
     _transition_stage,
     _update_gateway_secret,
     _update_issue,
@@ -4956,6 +4961,19 @@ def test_raw_request_has_field_get_query_string():
         assert _raw_request_has_field(experiment_ids_field) is False
 
 
+@pytest.mark.parametrize("experiment_ids", [None, "1"])
+def test_get_request_message_ignores_get_experiment_alias(experiment_ids):
+    query = {"trace_ids": "tr-1", "experimentIds": "2"}
+    if experiment_ids is not None:
+        query["experiment_ids"] = experiment_ids
+    with app.test_request_context(method="GET", query_string=query):
+        message = _get_request_message(BatchGetTraces())
+        assert list(message.experiment_ids) == ([] if experiment_ids is None else [experiment_ids])
+        assert _raw_request_has_field(message.DESCRIPTOR.fields_by_name["experiment_ids"]) is (
+            experiment_ids is not None
+        )
+
+
 def test_raw_request_has_field_post_json_body():
     experiment_ids_field = BatchGetTraceInfos.DESCRIPTOR.fields_by_name["experiment_ids"]
 
@@ -5751,6 +5769,61 @@ def test_deprecated_end_trace_v2_handler_drops_immutable_tags(
 
     assert response.status_code == 200
     assert mock_tracking_store.deprecated_end_trace_v2.call_args.kwargs["tags"] == {"user_tag": "v"}
+
+
+def test_start_trace_v3_handler_drops_immutable_tags(mock_get_request_message, mock_tracking_store):
+    trace_info = TraceInfo(
+        trace_id="tr-123",
+        trace_location=EntityTraceLocation.from_experiment_id("0"),
+        request_time=0,
+        state=TraceState.OK,
+        tags={
+            MLFLOW_ARTIFACT_LOCATION: "file:///tmp/other",
+            TraceTagKey.SPANS_LOCATION: "archive_repo",
+            TraceTagKey.ARCHIVE_LOCATION: "file:///tmp/archive",
+            TraceTagKey.ARCHIVAL_FAILURE: "failed",
+            "user_tag": "v",
+        },
+    )
+    mock_get_request_message.return_value = StartTraceV3(
+        trace=ProtoTrace(trace_info=trace_info.to_proto())
+    )
+    mock_tracking_store.start_trace.side_effect = lambda trace_info: trace_info
+
+    response = _start_trace_v3()
+
+    assert response.status_code == 200
+    assert mock_tracking_store.start_trace.call_args.args[0].tags == {"user_tag": "v"}
+
+
+def test_deprecated_start_trace_v2_handler_drops_immutable_tags(
+    mock_get_request_message, mock_tracking_store
+):
+    mock_get_request_message.return_value = StartTrace(
+        experiment_id="0",
+        timestamp_ms=0,
+        tags=[
+            TraceTag(key=MLFLOW_ARTIFACT_LOCATION, value="file:///tmp/other"),
+            TraceTag(key=TraceTagKey.SPANS_LOCATION, value="archive_repo"),
+            TraceTag(key=TraceTagKey.ARCHIVE_LOCATION, value="file:///tmp/archive"),
+            TraceTag(key=TraceTagKey.ARCHIVAL_FAILURE, value="failed"),
+            TraceTag(key="user_tag", value="v"),
+        ],
+    )
+    mock_tracking_store.deprecated_start_trace_v2.return_value = TraceInfoV2(
+        request_id="tr-123",
+        experiment_id="0",
+        timestamp_ms=0,
+        execution_time_ms=None,
+        status=TraceStatus.IN_PROGRESS,
+    )
+
+    response = _deprecated_start_trace_v2()
+
+    assert response.status_code == 200
+    assert mock_tracking_store.deprecated_start_trace_v2.call_args.kwargs["tags"] == {
+        "user_tag": "v"
+    }
 
 
 def test_link_prompts_to_trace_handler(mock_get_request_message, mock_tracking_store):

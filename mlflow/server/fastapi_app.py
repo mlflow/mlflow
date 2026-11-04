@@ -46,6 +46,7 @@ from mlflow.server.mcp_server_api import (
     get_mcp_server_api_route_prefixes,
     is_mcp_server_api_path,
     mcp_server_router,
+    scoped_mcp_search_limit_error,
 )
 from mlflow.server.mlflow_response import mlflow_exception_response
 from mlflow.server.otel_api import otel_router
@@ -220,6 +221,7 @@ def add_registry_exception_handlers(fastapi_app: FastAPI) -> None:
     async def registry_mlflow_exception_handler(request: Request, exc: MlflowException):
         path = get_routed_asgi_path(request)
         if is_mcp_server_api_path(path):
+            exc = scoped_mcp_search_limit_error(request, exc)
             return mlflow_exception_response(exc, handler_name="mcp_mlflow_exception_handler")
         if is_skill_registry_api_path(path):
             return mlflow_exception_response(exc, handler_name="skills_mlflow_exception_handler")

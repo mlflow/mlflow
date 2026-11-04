@@ -115,12 +115,13 @@ def mlflow_server(tmp_path_factory: pytest.TempPathFactory, cached_db: Path) -> 
             f"--port={port}",
             f"--backend-store-uri=sqlite:///{db_path}",
             f"--default-artifact-root={artifact_uri}",
+            "--workers=1",
         ],
         cwd=tmp_path,
         start_new_session=True,
     )
     try:
-        deadline = time.monotonic() + 60
+        deadline = time.monotonic() + 30
         while time.monotonic() < deadline:
             if process.poll() is not None:
                 pytest.fail(f"MLflow server exited with status {process.returncode}")
@@ -128,9 +129,10 @@ def mlflow_server(tmp_path_factory: pytest.TempPathFactory, cached_db: Path) -> 
                 if requests.get(f"{url}/health", timeout=1).ok:
                     break
             except requests.RequestException:
-                time.sleep(0.25)
+                pass
+            time.sleep(0.25)
         else:
-            pytest.fail("MLflow server did not become ready")
+            pytest.fail("MLflow server did not become ready within 30 seconds")
         yield url
     finally:
         if process.poll() is None:
