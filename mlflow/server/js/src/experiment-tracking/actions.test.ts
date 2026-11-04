@@ -487,6 +487,24 @@ const searchRunsPayloadTests = () => {
     const result = await searchRunsPayload({ shouldFetchParents: true });
     expect(result.runsMatchingFilter).toEqual(expect.arrayContaining([bParent]));
   });
+  it('should mark the fetched ancestor runs as correctly filtered ones', async () => {
+    // The runs tree shows the whole chain of nested runs, also when a filter is applied and
+    // only the child run matches the filter. The server returns the runs which match the
+    // filter together with their direct parents, but not the further ancestors, so the
+    // ancestors are fetched on the client. They do not match the filter either, but they
+    // still have to be visible, so they are marked as matching the filter like the other
+    // fetched parent runs.
+    jest.spyOn(MlflowService, 'searchRuns').mockImplementation(() => Promise.resolve({ runs: [a] } as any));
+    jest.spyOn(MlflowService, 'getRun').mockImplementation((data) =>
+      Promise.resolve({
+        run: data.run_id === 'aParent' ? aParentWithGrandParent : { info: { run_id: data.run_id } },
+      } as any),
+    );
+
+    const result = await searchRunsPayload({ shouldFetchParents: true, filter: "attributes.run_name = 'a'" });
+    expect(result.runs).toEqual([a, aParentWithGrandParent, grandParent]);
+    expect(result.runsMatchingFilter).toEqual([a, aParentWithGrandParent, grandParent]);
+  });
   it('throws proper error when received an invalid response', async () => {
     jest
       .spyOn(MlflowService, 'searchRuns')
