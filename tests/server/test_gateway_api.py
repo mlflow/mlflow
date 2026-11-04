@@ -239,6 +239,36 @@ def test_build_endpoint_config_gemini_api_base(auth_config, expected_base):
     assert GeminiProvider(config).get_endpoint_url("llm/v1/chat").startswith(expected_base + "/")
 
 
+def test_build_endpoint_config_sap():
+    model_config = GatewayModelConfig(
+        model_definition_id="md-test",
+        provider="sap",
+        model_name="gpt-4o-mini",
+        secret_value={"client_secret": "sap-client-secret"},
+        auth_config={
+            "client_id": "sap-client-id",
+            "auth_url": "https://auth.example.com",
+            "api_base": "https://api.example.com/v2",
+        },
+    )
+
+    with patch("mlflow.server.gateway_api._validate_gateway_api_base") as mock_validate:
+        config = _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
+
+    mock_validate.assert_called_once_with("https://auth.example.com")
+    assert config.model.provider == "litellm"
+    assert config.model.name == "gpt-4o-mini"
+    provider_config = config.model.config
+    assert isinstance(provider_config, LiteLLMConfig)
+    assert provider_config.litellm_provider == "sap"
+    assert json.loads(provider_config.litellm_auth_config["api_key"]) == {
+        "clientid": "sap-client-id",
+        "clientsecret": "sap-client-secret",
+        "url": "https://auth.example.com",
+        "serviceurls": {"AI_API_URL": "https://api.example.com/v2"},
+    }
+
+
 def test_create_provider_from_endpoint_name_openai(store: SqlAlchemyStore):
     # Create test data
     secret = store.create_gateway_secret(
