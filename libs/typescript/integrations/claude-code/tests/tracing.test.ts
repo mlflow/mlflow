@@ -75,7 +75,7 @@ jest.mock('@mlflow/core', () => {
         inputs: options.inputs ?? {},
         outputs: {},
         attributes: { ...(options.attributes ?? {}) },
-        startTimeNs: options.startTimeNs,
+        startTimeNs: options.startTimeNs ?? Date.now() * 1e6,
         endTimeNs: undefined as number | undefined,
         statusCode: undefined as string | undefined,
         exceptions: [] as Error[],
@@ -87,7 +87,7 @@ jest.mock('@mlflow/core', () => {
           span.outputs = outputs;
         }),
         end: jest.fn((opts?: { endTimeNs?: number }) => {
-          span.endTimeNs = opts?.endTimeNs;
+          span.endTimeNs = opts?.endTimeNs ?? Date.now() * 1e6;
         }),
         recordException: jest.fn((err: Error) => {
           span.exceptions.push(err);
@@ -849,6 +849,64 @@ describe.each([
 });
 
 describe('LiveTracingContext usage', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it.each([50, 8 * 60 * 60 * 1000])(
+    'keeps span timestamps consistent when the performance clock lags by %i ms',
+    async (clockOffsetMs) => {
+      const startTimeMs = Date.UTC(2026, 0, 1);
+      let elapsedMs = 0;
+      jest.spyOn(Date, 'now').mockImplementation(() => startTimeMs + elapsedMs);
+      jest.spyOn(performance, 'now').mockImplementation(() => elapsedMs);
+      jest.spyOn(performance, 'timeOrigin', 'get').mockReturnValue(startTimeMs - clockOffsetMs);
+
+      const context = new LiveTracingContext('Use the agent');
+      elapsedMs = 10;
+      context.onAssistantMessage({
+        type: 'assistant',
+        message: {
+          id: 'msg_agent',
+          role: 'assistant',
+          content: [{ type: 'tool_use', id: 'tool_1', name: 'Agent', input: {} }],
+        },
+      });
+      elapsedMs = 30;
+      context.onAssistantMessage({
+        type: 'assistant',
+        message: {
+          id: 'msg_agent',
+          role: 'assistant',
+          content: [{ type: 'text', text: 'Starting the agent.' }],
+        },
+      });
+      elapsedMs = 610;
+      context.onUserMessage({
+        type: 'user',
+        message: {
+          role: 'user',
+          content: [{ type: 'tool_result', tool_use_id: 'tool_1', content: 'Done' }],
+        },
+      });
+      await context.finalize();
+
+      for (const span of getSpans()) {
+        if (span.parentId) {
+          const parent = mockSpans[span.parentId];
+          expect(span.startTimeNs).toBeGreaterThanOrEqual(parent.startTimeNs!);
+          expect(span.endTimeNs).toBeLessThanOrEqual(parent.endTimeNs!);
+        }
+      }
+      const llm = getSpansByType('LLM')[0];
+      expect(llm.endTimeNs).toBe((startTimeMs + 30) * 1e6);
+      for (const name of ['tool_Agent', 'subagent_agent']) {
+        const span = getSpansByName(name)[0];
+        expect(span.endTimeNs! - span.startTimeNs!).toBe(600 * 1e6);
+      }
+    },
+  );
+
   it.each(['Skill', 'Task', 'Agent'])(
     'does not start %s or its subagent before the response that calls it',
     async (toolName) => {

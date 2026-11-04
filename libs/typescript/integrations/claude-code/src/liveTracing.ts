@@ -159,7 +159,7 @@ export class LiveTracingContext {
     const parentSpan = this.resolveParent(parentKey);
     const conversation = this.getConversation(parentKey);
     let pending = this.pendingLlmMessages.get(parentKey);
-    const timestampNs = (performance.timeOrigin + performance.now()) * 1e6;
+    const timestampNs = Date.now() * 1e6;
     if (pending && msg.message.id && pending.message.id === msg.message.id) {
       pending.message = mergeAssistantMessage(pending.message, msg.message);
       pending.conversationEntry.content = pending.message.content;
