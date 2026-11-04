@@ -6,6 +6,8 @@ import time
 from unittest import mock
 
 import pytest
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
+from opentelemetry.sdk.resources import Resource
 
 import mlflow
 from mlflow.entities import (
@@ -42,7 +44,7 @@ from mlflow.entities.assessment import (
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.model_registry import PromptVersion
-from mlflow.entities.span import LiveSpan
+from mlflow.entities.span import LiveSpan, Span
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
@@ -157,7 +159,12 @@ from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
+from mlflow.tracing.constant import (
+    MCP_SERVER_VERSION_ENCODING,
+    TRACE_SCHEMA_VERSION_KEY,
+    SpanAttributeKey,
+)
+from mlflow.tracing.otel.translation import strip_otlp_double_encoding
 from mlflow.tracking.request_header.default_request_header_provider import (
     DefaultRequestHeaderProvider,
 )
@@ -3164,6 +3171,56 @@ def _create_test_spans() -> list[LiveSpan]:
         end_time=2000000,
     )
     return [LiveSpan(otel_span, trace_id="tr-123")]
+
+
+def test_log_spans_preserves_raw_mcp_server_version():
+    otel_span = create_mock_otel_span(
+        trace_id=123,
+        span_id=1,
+        name="mcp_span",
+        start_time=1000000,
+        end_time=2000000,
+    )
+    otel_span._resource = Resource.get_empty()
+    span = LiveSpan(otel_span, trace_id="tr-123")
+    span.set_attribute(SpanAttributeKey.MCP_SERVER_NAME, "com.example/weather")
+    raw_version = '"1.0"'
+    span.set_attribute(SpanAttributeKey.MCP_SERVER_VERSION, raw_version)
+
+    otlp_requests = []
+
+    def mock_http_request(*, endpoint, **kwargs):
+        if endpoint == "/version":
+            return _create_mock_response(text="3.4.0")
+        otlp_requests.append(kwargs["data"])
+        return _create_mock_response()
+
+    store = RestStore(lambda: MlflowHostCreds("https://mcp-version-host"))
+    with mock.patch("mlflow.store.tracking.rest_store.http_request", side_effect=mock_http_request):
+        store.log_spans("exp-123", [span])
+
+    request = ExportTraceServiceRequest.FromString(otlp_requests[0])
+    resource = request.resource_spans[0].resource
+    mcp_version_is_raw = any(
+        attr.key == MCP_SERVER_VERSION_ENCODING and attr.value.string_value == "raw"
+        for attr in resource.attributes
+    )
+    assert mcp_version_is_raw
+
+    decoded_resource = type(resource)()
+    decoded_resource.CopyFrom(resource)
+    del decoded_resource.attributes[:]
+    decoded_resource.attributes.extend(
+        attr for attr in resource.attributes if attr.key != MCP_SERVER_VERSION_ENCODING
+    )
+    proto_span = request.resource_spans[0].scope_spans[0].spans[0]
+    decoded_span = Span.from_otel_proto(proto_span, resource=decoded_resource)
+    decoded_span._span._attributes = strip_otlp_double_encoding(
+        decoded_span._span._attributes,
+        mcp_version_is_raw=mcp_version_is_raw,
+    )
+
+    assert decoded_span.get_attribute(SpanAttributeKey.MCP_SERVER_VERSION) == raw_version
 
 
 # flaky: auto-detected from CI re-runs; see the weekly flaky-test report

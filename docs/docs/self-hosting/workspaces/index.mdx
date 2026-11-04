@@ -127,7 +127,7 @@ for workspace in workspaces:
 
 ## Workspace Resolution
 
-The active workspace is determined in the following order:
+For client operations, the active workspace is determined in the following order:
 
 1. Explicit `mlflow.set_workspace()` call
 2. `MLFLOW_WORKSPACE` environment variable
@@ -136,6 +136,10 @@ The active workspace is determined in the following order:
 If neither `mlflow.set_workspace()` nor `MLFLOW_WORKSPACE` is set, MLflow falls back to the provider
 default workspace (typically `default`). If no workspace can be resolved and the provider does not
 support a default workspace, API calls will return an error.
+
+On the server, the workspace resolved for the incoming request takes precedence over the server
+process's `MLFLOW_WORKSPACE` environment variable. When a request has no workspace, MLflow uses the
+default workspace rather than falling back to the server process's environment variable.
 
 ## Authentication and Permissions
 

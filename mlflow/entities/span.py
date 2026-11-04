@@ -3,6 +3,7 @@ import base64
 import copy
 import json
 import logging
+import threading
 from contextlib import nullcontext
 from functools import cached_property
 from typing import Any, NoReturn, Union
@@ -21,6 +22,9 @@ from opentelemetry.trace import StatusCode as OTelStatusCode
 
 import mlflow
 from mlflow.entities.link import Link
+from mlflow.entities.mcp_access_endpoint import MCPAccessEndpoint
+from mlflow.entities.mcp_server_ref import MCPServerRef
+from mlflow.entities.mcp_server_version import MCPServerVersion
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_log_level import SpanLogLevel
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
@@ -48,6 +52,8 @@ from mlflow.tracing.utils.otlp import (
     _set_otel_proto_anyvalue,
 )
 from mlflow.tracing.utils.processor import apply_span_processors
+from mlflow.utils.workspace_context import get_request_workspace
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 _logger = logging.getLogger(__name__)
 
@@ -791,6 +797,7 @@ class LiveSpan(Span):
         # and logs. As spans are logged, we incrementally add numeric suffixes (_1, _2, etc.) to
         # make each span uniquely identifiable within its trace
         self._original_name = otel_span.name
+        self._mcp_link_lock = threading.RLock()
 
     def __reduce__(self) -> NoReturn:
         raise TypeError(
@@ -1087,6 +1094,80 @@ class LiveSpan(Span):
         """Set a single attribute to the span."""
         self._attributes.set(key, value)
 
+    def link_mcp_server(
+        self,
+        server: MCPServerRef | MCPServerVersion | MCPAccessEndpoint,
+        *,
+        tool: str | None = None,
+        cache_ttl_seconds: float | None = None,
+    ) -> None:
+        """Link this span to one MCP server in the trace's workspace.
+
+        Args:
+            server: A server reference, concrete server version, or access endpoint. Aliases
+                and endpoints are resolved through the tracking server before setting attributes.
+                A name-only reference leaves the version unknown. Raw URLs are not accepted.
+            tool: Optional invoked tool name. Omit for discovery, resource, and prompt operations.
+            cache_ttl_seconds: Alias and endpoint cache lifetime in seconds. Defaults to
+                ``MLFLOW_MCP_SERVER_CACHE_TTL_SECONDS`` (60 seconds). Set to 0 to bypass caching.
+
+        Raises:
+            mlflow.exceptions.MlflowException: If resolution fails, an entity belongs to another
+                workspace, an endpoint's URL or transport changed, or a different server identity
+                is already linked to this span, or this span is no longer recording.
+
+        Example:
+            .. code-block:: python
+
+                from mlflow.entities import MCPServerRef
+
+                with mlflow.start_span("weather", span_type="TOOL") as span:
+                    span.link_mcp_server(
+                        MCPServerRef("com.example/weather", version="1.0.0"), tool="forecast"
+                    )
+        """
+        # These imports depend on LiveSpan and must be deferred to avoid import cycles.
+        from mlflow.tracing.trace_manager import InMemoryTraceManager
+        from mlflow.tracing.utils.mcp import resolve_mcp_server
+
+        if tool is not None and (
+            not isinstance(tool, str)
+            or not tool.strip()
+            or any(0xD800 <= ord(char) <= 0xDFFF for char in tool)
+        ):
+            raise MlflowException.invalid_parameter_value(
+                "MCP tool name must be a non-empty string without surrogates."
+            )
+        with InMemoryTraceManager.get_instance().get_trace(self.trace_id) as trace:
+            workspace = trace.workspace if trace is not None else get_request_workspace()
+            tracking_uri = trace.tracking_uri if trace is not None else None
+        resolved = resolve_mcp_server(
+            server=server,
+            tracking_uri=tracking_uri or mlflow.get_tracking_uri(),
+            workspace=workspace or DEFAULT_WORKSPACE_NAME,
+            cache_ttl_seconds=cache_ttl_seconds,
+        )
+        with self._mcp_link_lock:
+            if not self._is_recording():
+                raise MlflowException.invalid_parameter_value(
+                    "Cannot link an MCP server to a span that is no longer recording."
+                )
+            name = self.get_attribute(SpanAttributeKey.MCP_SERVER_NAME)
+            version = self.get_attribute(SpanAttributeKey.MCP_SERVER_VERSION)
+            if (name is not None or version is not None) and (name, version) != (
+                resolved.name,
+                resolved.version,
+            ):
+                raise MlflowException.invalid_parameter_value(
+                    "A span can be linked to only one MCP server identity."
+                )
+            attributes = {SpanAttributeKey.MCP_SERVER_NAME: resolved.name}
+            if resolved.version is not None:
+                attributes[SpanAttributeKey.MCP_SERVER_VERSION] = resolved.version
+            if tool is not None:
+                attributes[SpanAttributeKey.MCP_TOOL_NAME] = tool
+            self.set_attributes(attributes)
+
     def set_status(self, status: SpanStatusCode | str):
         """
         Set the status of the span.
@@ -1302,7 +1383,9 @@ class LiveSpan(Span):
             # Apply span processors
             apply_span_processors(self)
 
-            self._span.end(end_time=end_time_ns)
+            # Serialize the span's recording-state transition with MCP link updates.
+            with self._mcp_link_lock:
+                self._span.end(end_time=end_time_ns)
 
         except Exception as e:
             _logger.warning(
@@ -1605,6 +1688,15 @@ class NoOpSpan(Span):
         pass
 
     def set_attribute(self, key: str, value: Any):
+        pass
+
+    def link_mcp_server(
+        self,
+        server: MCPServerRef | MCPServerVersion | MCPAccessEndpoint,
+        *,
+        tool: str | None = None,
+        cache_ttl_seconds: float | None = None,
+    ) -> None:
         pass
 
     def set_description(self, description: str):
