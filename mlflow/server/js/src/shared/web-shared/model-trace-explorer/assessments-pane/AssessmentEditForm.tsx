@@ -12,7 +12,7 @@ import {
   FormUI,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import { useUserIdentity } from '../../global-settings/getUser';
+import { useOnUserIdentityChange, useUserIdentity } from '../../global-settings/getUser';
 
 import type { AssessmentFormInputDataType } from './AssessmentsPane.utils';
 import { getCreateAssessmentPayloadValue } from './AssessmentsPane.utils';
@@ -78,6 +78,7 @@ export const AssessmentEditForm = ({
   const defaultType = getDefaultType(initialValue, isFeedback);
   const defaultValue = getDefaultValue(initialValue);
   const { user, isResolved: isUserResolved } = useUserIdentity();
+  useOnUserIdentityChange(user, onCancel);
 
   const { theme } = useDesignSystemTheme();
   const [dataType, setDataType] = useState<AssessmentFormInputDataType>(defaultType);

@@ -32,7 +32,7 @@ import { ModelSpanType } from '../ModelTrace.types';
 import { isV3ModelTraceInfo } from '../ModelTraceExplorer.utils';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import type { CreateAssessmentPayload } from '../api';
-import { useUserIdentity } from '../../global-settings/getUser';
+import { useOnUserIdentityChange, useUserIdentity } from '../../global-settings/getUser';
 import { shouldUseTracesV4API } from '../FeatureUtils';
 import { useCreateAssessment } from '../hooks/useCreateAssessment';
 import { useTraceCachedActions } from '../hooks/useTraceCachedActions';
@@ -659,6 +659,21 @@ export const ModelTraceExplorerCustomView = ({
     feedbackResetVersionsRef.current.clear();
     bumpPendingFeedbackVersion();
   }, [traceId]);
+
+  useOnUserIdentityChange(user, () => {
+    for (const [surfaceId, surfaceBuffer] of pendingFeedbackRef.current) {
+      let resetVersions = feedbackResetVersionsRef.current.get(surfaceId);
+      if (!resetVersions) {
+        resetVersions = new Map();
+        feedbackResetVersionsRef.current.set(surfaceId, resetVersions);
+      }
+      for (const key of surfaceBuffer.keys()) {
+        resetVersions.set(key, (resetVersions.get(key) ?? 0) + 1);
+      }
+    }
+    pendingFeedbackRef.current.clear();
+    bumpPendingFeedbackVersion();
+  });
 
   // Rebuild the active view's surface whenever the active view, its template, or
   // the trace changes: re-bind the stored trace-agnostic template against the

@@ -1398,6 +1398,67 @@ describe('ModelTraceExplorerCustomView', () => {
       expect(second).toBeChecked();
     });
 
+    const renderSwitchableUserView = () => {
+      const queryClient = new QueryClient();
+      const views = [feedbackPrimitivesView];
+      const tree = () => (
+        <IntlProvider locale="en" messages={{}}>
+          <DesignSystemProvider>
+            <QueryClientProvider client={queryClient}>
+              <ModelTraceExplorerViewStateContext.Provider
+                value={{ nodeMap: feedbackNodeMap } as unknown as ModelTraceExplorerViewState}
+              >
+                <CustomViewDefinitionProvider views={views} isLoaded>
+                  <ModelTraceExplorerCustomView modelTraceInfo={modelTraceInfo} />
+                </CustomViewDefinitionProvider>
+              </ModelTraceExplorerViewStateContext.Provider>
+            </QueryClientProvider>
+          </DesignSystemProvider>
+        </IntlProvider>
+      );
+      const { rerender } = render(tree());
+      return {
+        switchUser: (user: string) => {
+          jest.mocked(useUserIdentity).mockReturnValue({ user, isResolved: true });
+          rerender(tree());
+        },
+      };
+    };
+
+    it('clears staged values when the signed-in user changes', async () => {
+      const posted = captureAssessmentPosts();
+      setBridge();
+      const { switchUser } = renderSwitchableUserView();
+      await selectView(/name-feedback-primitives/);
+
+      await userEvent.click(await screen.findByRole('radio', { name: 'Accurate' }));
+      const [, note] = screen.getAllByRole('textbox');
+      await userEvent.type(note, 'Typed by the previous user');
+      const submit = screen.getByRole('button', { name: 'Submit review' });
+      expect(submit).toBeEnabled();
+
+      switchUser('other-user@example.com');
+
+      await waitFor(() => expect(submit).toBeDisabled());
+      expect(screen.getByRole('radio', { name: 'Accurate' })).not.toBeChecked();
+      expect(note).toHaveValue('');
+      await userEvent.click(submit);
+      expect(posted).toHaveLength(0);
+    });
+
+    it('keeps staged values when the current user is first resolved', async () => {
+      jest.mocked(useUserIdentity).mockReturnValue({ user: '', isResolved: false });
+      setBridge();
+      const { switchUser } = renderSwitchableUserView();
+      await selectView(/name-feedback-primitives/);
+
+      await userEvent.click(await screen.findByRole('radio', { name: 'Accurate' }));
+      switchUser('test-user@example.com');
+
+      expect(screen.getByRole('radio', { name: 'Accurate' })).toBeChecked();
+      expect(screen.getByRole('button', { name: 'Submit review' })).toBeEnabled();
+    });
+
     it('clears staged values when the assistant replaces a view template', async () => {
       setBridge();
       renderWithViews([feedbackPrimitivesView], modelTraceInfo, true);

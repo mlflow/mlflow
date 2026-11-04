@@ -20,6 +20,7 @@ jest.setTimeout(120000); // This is quite expensive test
 
 // Mock necessary modules
 jest.mock('../../global-settings/getUser', () => ({
+  ...jest.requireActual<typeof import('../../global-settings/getUser')>('../../global-settings/getUser'),
   getUser: jest.fn(),
   useUserIdentity: jest.fn(() => ({ user: 'test.user@mlflow.org', isResolved: true })),
 }));
@@ -30,6 +31,7 @@ describe('Evaluations review single eval - integration test', () => {
   beforeEach(() => {
     // Mock user ID
     jest.mocked(getUser).mockImplementation(() => 'test.user@mlflow.org');
+    jest.mocked(useUserIdentity).mockReturnValue({ user: 'test.user@mlflow.org', isResolved: true });
 
     // Mocked returned timestamp
     jest.spyOn(Date, 'now').mockImplementation(() => 1000000);
@@ -167,5 +169,23 @@ describe('Evaluations review single eval - integration test', () => {
     rerender();
 
     expect(screen.queryByText('1 pending change')).not.toBeInTheDocument();
+  });
+
+  it('closes an open assessment form when the signed-in user changes', async () => {
+    const testTrace = createTestTrace({ requestId: 'request_0', request: 'Hello world', assessments: [] });
+
+    const { rerender } = renderTestComponent(testTrace);
+    await waitFor(() => expect(screen.getByText('Hello world')).toBeInTheDocument());
+
+    await userEvent.click(screen.getAllByRole('button', { name: 'Add assessment' })[0]);
+    await userEvent.click(screen.getByPlaceholderText('Select or type an assessment'));
+    await userEvent.paste('typed by the previous user');
+    expect(screen.getByRole('button', { name: 'Confirm' })).toBeInTheDocument();
+
+    jest.mocked(useUserIdentity).mockReturnValue({ user: 'other.user@mlflow.org', isResolved: true });
+    rerender();
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Confirm' })).not.toBeInTheDocument());
+    expect(screen.queryByPlaceholderText('Select or type an assessment')).not.toBeInTheDocument();
   });
 });

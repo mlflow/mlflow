@@ -11,6 +11,7 @@ import type { Assessment } from '../ModelTrace.types';
 import { MOCK_ASSESSMENT, MOCK_EXPECTATION } from '../ModelTraceExplorer.test-utils';
 
 jest.mock('../../global-settings/getUser', () => ({
+  ...jest.requireActual<typeof import('../../global-settings/getUser')>('../../global-settings/getUser'),
   getUser: () => 'User',
   useUserIdentity: jest.fn(),
 }));
@@ -72,5 +73,24 @@ describe('AssessmentEditForm', () => {
 
     expect(mockUpdateAssessmentMutation).not.toHaveBeenCalled();
     expect(mockOverrideAssessmentMutation).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes the form when the signed-in user changes', () => {
+    const onCancel = jest.fn();
+    const editForm = () => (
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <AssessmentEditForm assessment={fromAlice(MOCK_ASSESSMENT)} onCancel={onCancel} />
+        </DesignSystemProvider>
+      </IntlProvider>
+    );
+    jest.mocked(useUserIdentity).mockReturnValue({ user: 'alice', isResolved: true });
+    const { rerender } = render(editForm());
+    expect(onCancel).not.toHaveBeenCalled();
+
+    jest.mocked(useUserIdentity).mockReturnValue({ user: 'bob', isResolved: true });
+    rerender(editForm());
+
+    expect(onCancel).toHaveBeenCalledTimes(1);
   });
 });

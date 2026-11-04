@@ -25,6 +25,7 @@ jest.mock('../hooks/useCreateAssessment', () => ({
 }));
 
 jest.mock('../../global-settings/getUser', () => ({
+  ...jest.requireActual<typeof import('../../global-settings/getUser')>('../../global-settings/getUser'),
   useUserIdentity: jest.fn(() => ({ user: 'User', isResolved: true })),
 }));
 
@@ -299,6 +300,44 @@ describe('AssessmentCreateForm', () => {
         expect(nameInput).toHaveValue('Relevance');
         expect(dataTypeSelect).toHaveTextContent('String');
       });
+    });
+
+    it('closes the form when the signed-in user changes', async () => {
+      jest.mocked(useUserIdentity).mockReturnValue({ user: 'alice', isResolved: true });
+      const { rerender } = render(
+        <TestWrapper>
+          <AssessmentCreateForm {...defaultProps} />
+        </TestWrapper>,
+      );
+      await userEvent.type(screen.getByPlaceholderText('Enter a feedback name'), 'typed by alice');
+      expect(mockSetExpanded).not.toHaveBeenCalled();
+
+      jest.mocked(useUserIdentity).mockReturnValue({ user: 'bob', isResolved: true });
+      rerender(
+        <TestWrapper>
+          <AssessmentCreateForm {...defaultProps} />
+        </TestWrapper>,
+      );
+
+      expect(mockSetExpanded).toHaveBeenCalledWith(false);
+    });
+
+    it('keeps the form open when the current user is first resolved', () => {
+      jest.mocked(useUserIdentity).mockReturnValue({ user: '', isResolved: false });
+      const { rerender } = render(
+        <TestWrapper>
+          <AssessmentCreateForm {...defaultProps} />
+        </TestWrapper>,
+      );
+
+      jest.mocked(useUserIdentity).mockReturnValue({ user: 'alice', isResolved: true });
+      rerender(
+        <TestWrapper>
+          <AssessmentCreateForm {...defaultProps} />
+        </TestWrapper>,
+      );
+
+      expect(mockSetExpanded).not.toHaveBeenCalled();
     });
 
     it('uses the authenticated username as the HUMAN source id', async () => {

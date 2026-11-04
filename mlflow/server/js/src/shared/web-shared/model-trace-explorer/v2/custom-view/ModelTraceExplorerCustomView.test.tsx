@@ -25,6 +25,7 @@ import type { CreateAssessmentPayload } from '../../api';
 import type { ModelTrace } from '../ModelTrace.types';
 import { MOCK_TRACE, MOCK_V3_TRACE } from '../../ModelTraceExplorer.test-utils';
 import { setupServer } from '../../../test-utils/setup-msw';
+import { useUserIdentity } from '../../../global-settings/getUser';
 
 // Drive the component off the bridge's return value, without the module-level
 // Assistant registries the real bridge wires up.
@@ -264,6 +265,7 @@ describe('ModelTraceExplorerCustomView in a read-only host', () => {
 
   beforeEach(() => {
     setBridge();
+    jest.mocked(useUserIdentity).mockReturnValue({ user: 'test-user', isResolved: true });
   });
 
   it('does not stage or submit feedback when feedback is disabled by the host', async () => {
@@ -311,6 +313,57 @@ describe('ModelTraceExplorerCustomView in a read-only host', () => {
     await waitFor(() => expect(posted).toHaveLength(2));
 
     expect(posted.map((assessment) => assessment.source?.source_id)).toEqual(['reviewer-1', 'reviewer-1']);
+  });
+
+  const renderSwitchableUserHost = (feedbackSourceId?: string) => {
+    const queryClient = new QueryClient();
+    const views = [traceFormFeedbackView];
+    const tree = () => (
+      <IntlProvider locale="en" messages={{}}>
+        <DesignSystemProvider>
+          <QueryClientProvider client={queryClient}>
+            <CustomViewDefinitionProvider views={views} isLoaded>
+              <CustomViewTestHost traceInfo={modelTraceInfo} enableFeedback feedbackSourceId={feedbackSourceId} />
+            </CustomViewDefinitionProvider>
+          </QueryClientProvider>
+        </DesignSystemProvider>
+      </IntlProvider>
+    );
+    const { rerender } = render(tree());
+    return {
+      switchUser: (user: string) => {
+        jest.mocked(useUserIdentity).mockReturnValue({ user, isResolved: true });
+        rerender(tree());
+      },
+    };
+  };
+
+  it('clears staged feedback when the signed-in user changes', async () => {
+    const posted = captureAssessmentPosts();
+    const { switchUser } = renderSwitchableUserHost();
+    await selectView(/name-trace-form/);
+
+    await userEvent.click(await screen.findByRole('radio', { name: 'Trace good' }));
+    const submit = screen.getByRole('button', { name: 'Submit trace feedback' });
+    expect(submit).toBeEnabled();
+
+    switchUser('other-user');
+
+    await waitFor(() => expect(submit).toBeDisabled());
+    expect(screen.getByRole('radio', { name: 'Trace good' })).not.toBeChecked();
+    await userEvent.click(submit);
+    expect(posted).toHaveLength(0);
+  });
+
+  it('keeps staged feedback for a host-provided source when the signed-in user changes', async () => {
+    const { switchUser } = renderSwitchableUserHost('reviewer-1');
+    await selectView(/name-trace-form/);
+
+    await userEvent.click(await screen.findByRole('radio', { name: 'Trace good' }));
+    switchUser('other-user');
+
+    expect(screen.getByRole('radio', { name: 'Trace good' })).toBeChecked();
+    expect(screen.getByRole('button', { name: 'Submit trace feedback' })).toBeEnabled();
   });
 
   it('credits feedback to getUser() when the host provides no source', async () => {

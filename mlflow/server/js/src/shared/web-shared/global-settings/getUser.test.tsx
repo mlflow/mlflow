@@ -4,7 +4,7 @@ import { renderHook } from '@testing-library/react';
 import { GenericNetworkRequestError } from '@databricks/web-shared/errors';
 import { useCurrentUserQuery } from '@mlflow/mlflow/src/account/hooks';
 
-import { useUserIdentity } from './getUser';
+import { useOnUserIdentityChange, useUserIdentity } from './getUser';
 
 jest.mock('@mlflow/mlflow/src/account/hooks', () => ({
   useCurrentUserQuery: jest.fn(),
@@ -88,5 +88,21 @@ describe('useUserIdentity', () => {
     const { result } = renderHook(() => useUserIdentity());
 
     expect(result.current).toEqual({ user: 'alice', isResolved: false });
+  });
+});
+
+describe('useOnUserIdentityChange', () => {
+  it('runs only when a known user changes to a different user', () => {
+    const onChange = jest.fn();
+    const { rerender } = renderHook(({ user }) => useOnUserIdentityChange(user, onChange), {
+      initialProps: { user: '' },
+    });
+
+    rerender({ user: 'alice' });
+    rerender({ user: 'alice' });
+    expect(onChange).not.toHaveBeenCalled();
+
+    rerender({ user: 'bob' });
+    expect(onChange).toHaveBeenCalledTimes(1);
   });
 });

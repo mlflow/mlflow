@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { NetworkRequestError } from '@databricks/web-shared/errors';
 import { useCurrentUserQuery } from '@mlflow/mlflow/src/account/hooks';
@@ -31,4 +31,18 @@ export const useUserIdentity = () => {
   const isResolved = Boolean(user) && !isFetching && (!error || isAuthUnavailable);
 
   return { user, isResolved };
+};
+
+export const useOnUserIdentityChange = (user: string, onChange: () => void) => {
+  const previousUserRef = useRef(user);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  useEffect(() => {
+    const previousUser = previousUserRef.current;
+    previousUserRef.current = user;
+    if (previousUser && previousUser !== user) {
+      onChangeRef.current();
+    }
+  }, [user]);
 };

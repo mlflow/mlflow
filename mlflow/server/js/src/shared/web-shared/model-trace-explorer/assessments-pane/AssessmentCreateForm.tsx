@@ -10,7 +10,7 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import { useUserIdentity } from '../../global-settings/getUser';
+import { useOnUserIdentityChange, useUserIdentity } from '../../global-settings/getUser';
 
 import { AssessmentCreateNameTypeahead } from './AssessmentCreateNameTypeahead';
 import type { AssessmentFormInputDataType } from './AssessmentsPane.utils';
@@ -57,6 +57,7 @@ export const AssessmentCreateForm = forwardRef<HTMLDivElement, AssessmentCreateF
     const { theme } = useDesignSystemTheme();
     const { schemas } = useAssessmentSchemas();
     const { user, isResolved: isUserResolved } = useUserIdentity();
+    useOnUserIdentityChange(user, () => setExpanded(false));
 
     const [name, setName] = useState('');
     const [dataType, setDataType] = useState<AssessmentFormInputDataType>('boolean');

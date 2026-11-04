@@ -11,7 +11,7 @@ import { EvaluationsReviewInputSection } from './EvaluationsReviewInputSection';
 import { EvaluationsReviewResponseSection } from './EvaluationsReviewResponseSection';
 import { EvaluationsReviewRetrievalSection } from './EvaluationsReviewRetrievalSection';
 import { getEvaluationResultTitle } from './GenAiEvaluationTracesReview.utils';
-import { useUserIdentity } from '../../global-settings/getUser';
+import { useOnUserIdentityChange, useUserIdentity } from '../../global-settings/getUser';
 import { usePendingAssessmentEntries } from '../hooks/usePendingAssessmentEntries';
 import type { AssessmentInfo, RunEvaluationResultAssessmentDraft, RunEvaluationTracesDataEntry } from '../types';
 
@@ -71,18 +71,19 @@ export const EvaluationsReviewDetails = ({
   const { pendingAssessments, draftEvaluationResult, upsertAssessment, resetPendingAssessments } =
     usePendingAssessmentEntries(evaluationResult);
 
-  // Pending drafts are stamped with the source ID of the user who made them, so discard them when the user changes.
-  const { user } = useUserIdentity();
-  const [pendingAssessmentsUser, setPendingAssessmentsUser] = useState(user);
-  if (user !== pendingAssessmentsUser) {
-    setPendingAssessmentsUser(user);
-    resetPendingAssessments();
-  }
-
   const hasPendingAssessments = pendingAssessments.length > 0;
 
   // If user has already reviewed the evaluation, this flag allows to override the review and enable editing
   const [overridingExistingReview, setOverridingExistingReview] = useState(false);
+
+  // Pending drafts and open forms belong to the user who made them, so discard them when the user changes.
+  const { user } = useUserIdentity();
+  const [assessmentsSectionKey, setAssessmentsSectionKey] = useState(0);
+  useOnUserIdentityChange(user, () => {
+    resetPendingAssessments();
+    setOverridingExistingReview(false);
+    setAssessmentsSectionKey((key) => key + 1);
+  });
 
   const hasErrorCode = Boolean(evaluationResult.errorCode);
   const hasErrorMessage = Boolean(evaluationResult.errorMessage);
@@ -131,6 +132,7 @@ export const EvaluationsReviewDetails = ({
         compareToTraceQueryResult={compareToTraceQueryResult}
       />
       <EvaluationsReviewAssessmentsSection
+        key={assessmentsSectionKey}
         evaluationResult={draftEvaluationResult}
         otherEvaluationResult={otherEvaluationResult}
         onUpsertAssessment={upsertAssessment}
