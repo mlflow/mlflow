@@ -45,6 +45,8 @@ owns URL state, or knows product concepts.
   escape hatch — the visual is fixed on purpose.
 - **Filter builder.** `TraceFilterButton` is parameterized by `fields: FilterFieldDef[]` and owns the
   draft/apply UX + the neutral `TraceFilterModel` AST. Server-clause compilation is the consumer's.
+  Optional `description` and `validateFilters` let embedded consumers explain their matching semantics
+  and reject Apply while keeping the draft editable.
 - **Column persistence hooks** (`useTraceColumnVisibility`, `useTraceColumnSizing`) take a
   `storageKey` + `version` so the consumer controls the localStorage namespace and reset semantics.
 - **Optional seams degrade silently.** `getSessionHref`, `onFilterByTag`, and `getErrorDescription`

@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+import { afterEach, describe, it, expect, jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -6,6 +6,20 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
 
 import { ModelTraceExplorerCostHoverCard, isTraceCostType, type TraceCost } from './ModelTraceExplorerCostHoverCard';
+
+import { shouldEnableNewEvalRunsUi } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+
+// The tests below cover the plain cost format; the new eval runs UI's estimated format has its own test.
+jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('@mlflow/mlflow/src/common/utils/FeatureUtils')>(
+    '@mlflow/mlflow/src/common/utils/FeatureUtils',
+  ),
+  shouldEnableNewEvalRunsUi: jest.fn(() => false),
+}));
+
+afterEach(() => {
+  jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
+});
 
 const Wrapper = ({ children }: { children: React.ReactNode }) => (
   <IntlProvider locale="en">
@@ -64,6 +78,16 @@ describe('isTraceCostType', () => {
 });
 
 describe('ModelTraceExplorerCostHoverCard', () => {
+  it('marks the cost as estimated with the new eval runs UI', () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+    render(<ModelTraceExplorerCostHoverCard cost={{ input_cost: 0.001, output_cost: 0.002, total_cost: 0.003 }} />, {
+      wrapper: Wrapper,
+    });
+
+    expect(screen.getByText('≈$0.003')).toBeInTheDocument();
+    expect(screen.getByLabelText('Estimated cost: $0.003')).toBeInTheDocument();
+  });
+
   it('renders cost label and total cost', () => {
     const cost: TraceCost = {
       input_cost: 0.001,

@@ -11,18 +11,221 @@ from unittest import mock
 
 import pytest
 
+from mlflow.entities.mcp_access_endpoint import MCPAccessEndpoint
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPTool
+from mlflow.entities.mcp_server_version import MCPServerVersion
 from mlflow.exceptions import MlflowException
 from mlflow.genai.mcp_tool_discovery import (
     _CLIENT_TIMEOUT_SLACK_SECONDS,
     DEFAULT_MCP_TOOL_DISCOVER_TIMEOUT_SECONDS,
     _require_fastmcp,
     _run_coro_sync,
+    _select_access_endpoints,
     _tool_from_sdk,
     discover_mcp_tools,
+    discover_tools_for_version,
     resolve_tools_for_create,
 )
 from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET
+
+
+def _endpoint(endpoint_id: str, version: str, creation_timestamp: int | None = None):
+    return MCPAccessEndpoint(
+        id=endpoint_id,
+        server_name="io.github.test/server",
+        url=f"https://mcp.example.com/{endpoint_id}",
+        resolved_version=MCPServerVersion(
+            name="io.github.test/server", version=version, server_json={}
+        ),
+        creation_timestamp=creation_timestamp,
+    )
+
+
+def test_select_access_endpoints_uses_earliest_creation_timestamp_then_id():
+    endpoints = [
+        _endpoint("later", "1.0.0", creation_timestamp=2),
+        _endpoint("b", "1.0.0", creation_timestamp=1),
+        _endpoint("a", "1.0.0", creation_timestamp=1),
+        _endpoint("unknown-a", "1.0.0"),
+        _endpoint("unknown", "1.0.0"),
+        _endpoint("other", "2.0.0", creation_timestamp=0),
+        MCPAccessEndpoint(id="unresolved", server_name="io.github.test/server", url="https://x"),
+    ]
+
+    assert [endpoint.id for endpoint in _select_access_endpoints(endpoints, "1.0.0")] == [
+        "a",
+        "b",
+        "later",
+        "unknown",
+        "unknown-a",
+    ]
+
+
+@pytest.mark.parametrize("endpoints", [[], [_endpoint("other", "2.0.0")]])
+def test_select_access_endpoints_returns_empty_when_no_matches(endpoints):
+    assert _select_access_endpoints(endpoints, "1.0.0") == []
+
+
+def test_discover_tools_for_version_prefers_matching_access_endpoint_and_headers():
+    endpoint = _endpoint("endpoint", "1.0.0", creation_timestamp=1)
+    with mock.patch(
+        "mlflow.genai.mcp_tool_discovery.discover_mcp_tools", return_value=[MCPTool(name="tool")]
+    ) as mock_discover:
+        tools = discover_tools_for_version(
+            {"remotes": [{"url": "https://mcp.example.com/remote"}]},
+            "1.0.0",
+            [endpoint],
+            headers={"Authorization": "Bearer test"},
+        )
+
+    assert tools == [MCPTool(name="tool")]
+    mock_discover.assert_called_once_with(
+        url=endpoint.url,
+        transport_type=MCPRemoteTransportType.STREAMABLE_HTTP,
+        headers={"Authorization": "Bearer test"},
+        timeout=DEFAULT_MCP_TOOL_DISCOVER_TIMEOUT_SECONDS,
+    )
+
+
+@pytest.mark.parametrize("error_type", [MlflowException, RuntimeError])
+@pytest.mark.parametrize("expected_tools", [[], [MCPTool(name="tool")]])
+@pytest.mark.parametrize("failure_count", [0, 1, 2])
+def test_discover_tools_for_version_tries_endpoints_in_order(
+    error_type, expected_tools, failure_count
+):
+    endpoints = [
+        _endpoint("first", "1.0.0", creation_timestamp=1),
+        _endpoint("second", "1.0.0", creation_timestamp=2),
+        _endpoint("third", "1.0.0", creation_timestamp=3),
+    ]
+    endpoints[1].transport_type = MCPRemoteTransportType.SSE
+    headers = {"Authorization": "Bearer test"}
+    with mock.patch(
+        "mlflow.genai.mcp_tool_discovery.discover_mcp_tools",
+        side_effect=[error_type("unavailable") for _ in range(failure_count)] + [expected_tools],
+    ) as mock_discover:
+        tools = discover_tools_for_version(
+            {},
+            "1.0.0",
+            [_endpoint("other", "2.0.0", creation_timestamp=0), *endpoints[::-1]],
+            headers=headers,
+            timeout=2.0,
+        )
+
+    assert tools == expected_tools
+    assert mock_discover.call_args_list == [
+        mock.call(
+            url=endpoint.url,
+            transport_type=endpoint.transport_type,
+            headers=headers,
+            timeout=2.0,
+        )
+        for endpoint in endpoints[: failure_count + 1]
+    ]
+
+
+@pytest.mark.parametrize("error_type", [MlflowException, RuntimeError])
+def test_discover_tools_for_version_raises_when_all_endpoints_fail(error_type):
+    endpoints = [_endpoint("first", "1.0.0"), _endpoint("last", "1.0.0")]
+    errors = [error_type("first unavailable"), error_type("last unavailable")]
+    with (
+        mock.patch(
+            "mlflow.genai.mcp_tool_discovery.discover_mcp_tools",
+            side_effect=errors,
+        ) as mock_discover,
+        pytest.raises(
+            MlflowException,
+            match="access endpoint 'last'.*https://mcp.example.com/last.*last unavailable",
+        ) as exc_info,
+    ):
+        discover_tools_for_version(
+            {"remotes": [{"url": "https://mcp.example.com/remote"}]}, "1.0.0", endpoints
+        )
+
+    assert mock_discover.call_args_list == [
+        mock.call(
+            url=endpoint.url,
+            transport_type=endpoint.transport_type,
+            headers=None,
+            timeout=DEFAULT_MCP_TOOL_DISCOVER_TIMEOUT_SECONDS,
+        )
+        for endpoint in endpoints
+    ]
+    assert exc_info.value.__cause__ is errors[-1]
+
+
+def test_discover_tools_for_version_rejects_remote_fallback_when_endpoints_do_not_match():
+    with (
+        mock.patch("mlflow.genai.mcp_tool_discovery.discover_mcp_tools") as mock_discover,
+        pytest.raises(MlflowException, match="server_json.remotes will not be used"),
+    ):
+        discover_tools_for_version(
+            {"remotes": [{"url": "https://mcp.example.com/remote"}]},
+            "1.0.0",
+            [_endpoint("other", "2.0.0")],
+        )
+    mock_discover.assert_not_called()
+
+
+def test_discover_tools_for_version_wraps_runtime_error_from_endpoint():
+    endpoint = _endpoint("endpoint", "1.0.0")
+    with (
+        mock.patch(
+            "mlflow.genai.mcp_tool_discovery.discover_mcp_tools",
+            side_effect=RuntimeError("unavailable"),
+        ) as mock_discover,
+        pytest.raises(
+            MlflowException,
+            match="access endpoint 'endpoint'.*https://mcp.example.com/endpoint",
+        ),
+    ):
+        discover_tools_for_version({}, "1.0.0", [endpoint])
+    mock_discover.assert_called_once()
+
+
+def test_discover_tools_for_version_enriches_mlflow_exception_from_endpoint():
+    # When discover_mcp_tools raises a MlflowException that already embeds the
+    # endpoint URL (e.g. a timeout message), the outer wrapper must not add the
+    # URL again. The URL should appear exactly once in the final error message.
+    endpoint = _endpoint("endpoint", "1.0.0")
+    inner_msg = f"Timed out discovering MCP tools from {endpoint.url!r} after 10s"
+    with (
+        mock.patch(
+            "mlflow.genai.mcp_tool_discovery.discover_mcp_tools",
+            side_effect=MlflowException(inner_msg),
+        ) as mock_discover,
+        pytest.raises(MlflowException, match="access endpoint 'endpoint'") as exc_info,
+    ):
+        discover_tools_for_version({}, "1.0.0", [endpoint])
+    mock_discover.assert_called_once()
+    msg = str(exc_info.value)
+    assert "access endpoint 'endpoint'" in msg
+    assert inner_msg in msg
+    assert msg.count(endpoint.url) == 1
+
+
+def test_discover_tools_for_version_falls_back_to_remote_when_no_endpoints():
+    with mock.patch(
+        "mlflow.genai.mcp_tool_discovery.discover_mcp_tools",
+        return_value=[MCPTool(name="tool")],
+    ) as mock_discover:
+        tools = discover_tools_for_version(
+            {"remotes": [{"url": "https://mcp.example.com/remote"}]},
+            "1.0.0",
+            access_endpoints=None,
+        )
+    assert tools == [MCPTool(name="tool")]
+    mock_discover.assert_called_once_with(
+        url="https://mcp.example.com/remote",
+        transport_type=MCPRemoteTransportType.STREAMABLE_HTTP,
+        headers=None,
+        timeout=DEFAULT_MCP_TOOL_DISCOVER_TIMEOUT_SECONDS,
+    )
+
+
+def test_discover_tools_for_version_raises_when_no_endpoints_and_no_remote():
+    with pytest.raises(MlflowException, match="No usable MCP remote found"):
+        discover_tools_for_version({"remotes": []}, "1.0.0", access_endpoints=None)
 
 
 def test_tool_from_sdk_model_dump():
@@ -366,10 +569,12 @@ def test_resolve_tools_for_create_skips_discovery_when_env_disabled(monkeypatch)
     mock_discover.assert_not_called()
 
 
-def test_discover_mcp_tools_against_live_fastmcp_server():
+@pytest.fixture
+def live_fastmcp_server_url():
     # Optional e2e scrape (real fastmcp Client + transport + Tool shape); skips
     # when mlflow[mcp] / fastmcp is not installed.
     pytest.importorskip("fastmcp")
+    import uvicorn
     from fastmcp import FastMCP
 
     mcp = FastMCP(name="mlflow-discovery-it")
@@ -382,33 +587,58 @@ def test_discover_mcp_tools_against_live_fastmcp_server():
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
-
-    def _serve() -> None:
-        try:
-            mcp.run(
-                transport="streamable-http",
+        server = uvicorn.Server(
+            uvicorn.Config(
+                mcp.http_app(path="/mcp"),
                 host="127.0.0.1",
                 port=port,
-                path="/mcp",
+                lifespan="on",
+                ws="none",
+                timeout_graceful_shutdown=2,
             )
-        except TypeError:
-            mcp.run(transport="http", host="127.0.0.1", port=port, path="/mcp")
-
-    threading.Thread(target=_serve, name="fastmcp-discovery-it", daemon=True).start()
-    for _ in range(50):
+        )
+        thread = threading.Thread(
+            target=server.run,
+            kwargs={"sockets": [sock]},
+            name="fastmcp-discovery-it",
+            daemon=True,
+        )
+        thread.start()
         try:
-            with socket.create_connection(("127.0.0.1", port), timeout=0.2):
-                break
-        except OSError:
-            time.sleep(0.1)
-    else:
-        pytest.fail("FastMCP test server did not become ready")
+            deadline = time.monotonic() + 5
+            while not server.started:
+                if not thread.is_alive() or time.monotonic() >= deadline:
+                    pytest.fail("FastMCP test server did not become ready")
+                time.sleep(0.1)
+            yield f"http://127.0.0.1:{port}/mcp"
+        finally:
+            server.should_exit = True
+            thread.join(timeout=10)
+            assert not thread.is_alive()
 
-    tools = discover_mcp_tools(
-        url=f"http://127.0.0.1:{port}/mcp",
-        transport_type=MCPRemoteTransportType.STREAMABLE_HTTP,
-        timeout=10,
-    )
+
+@pytest.mark.parametrize("fail_first", [False, True])
+@pytest.mark.parametrize("running_loop", [False, True])
+def test_discover_mcp_tools_against_live_fastmcp_server(
+    live_fastmcp_server_url, fail_first, running_loop
+):
+    endpoint = _endpoint("live", "1.0.0", creation_timestamp=2)
+    endpoint.url = live_fastmcp_server_url
+    endpoints = [endpoint]
+    with socket.socket() as unavailable:
+        unavailable.bind(("127.0.0.1", 0))
+        if fail_first:
+            failed_endpoint = _endpoint("unavailable", "1.0.0", creation_timestamp=1)
+            failed_endpoint.url = f"http://127.0.0.1:{unavailable.getsockname()[1]}/mcp"
+            endpoints.append(failed_endpoint)
+
+        def discover():
+            return discover_tools_for_version({}, "1.0.0", endpoints, timeout=10)
+
+        async def discover_from_running_loop():
+            return discover()
+
+        tools = asyncio.run(discover_from_running_loop()) if running_loop else discover()
     assert len(tools) == 1
     assert tools[0].name == "echo"
     assert tools[0].description

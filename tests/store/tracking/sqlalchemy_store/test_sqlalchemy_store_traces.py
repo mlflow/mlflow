@@ -5,6 +5,7 @@ import random
 import re
 import threading
 import time
+import tracemalloc
 import uuid
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -28,6 +29,7 @@ from mlflow.entities import (
     ExperimentTag,
     Feedback,
     Link,
+    SpanType,
     ViewType,
     trace_location,
 )
@@ -39,6 +41,7 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.workspace import TraceArchivalConfig, Workspace
 from mlflow.environment_variables import (
     MLFLOW_TRACE_ARCHIVAL_CONFIG,
+    MLFLOW_TRACE_DELETE_MAX_WORKERS,
 )
 from mlflow.exceptions import (
     MlflowException,
@@ -64,6 +67,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceTag,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _TraceArchiveCandidate
+from mlflow.store.tracking.utils.trace_archival import _TraceDeleteSelection
 from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA,
@@ -78,12 +82,18 @@ from mlflow.tracing.constant import (
     TraceSizeStatsKey,
     TraceTagKey,
 )
+from mlflow.tracing.otel.otel_archival import TRACE_ARCHIVAL_FILENAME
 from mlflow.tracing.utils import TraceJSONEncoder, dump_span_attribute_value
 from mlflow.utils.file_utils import TempDir, local_file_uri_to_path
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import append_to_uri_path
-from mlflow.utils.workspace_context import WorkspaceContext
+from mlflow.utils.workspace_context import (
+    ServerWorkspaceContext,
+    WorkspaceContext,
+    get_request_workspace,
+    is_request_workspace_resolved,
+)
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME, WORKSPACES_DIR_NAME
 
 from tests.store.tracking.sqlalchemy_store.conftest import (
@@ -286,6 +296,95 @@ def test_start_trace(store: SqlAlchemyStore):
 
 
 @pytest.mark.parametrize(
+    "trace_id",
+    [
+        "",
+        "..",
+        ".",
+        "tr-seed/..",
+        "a/b",
+        "/tmp/escaped",
+        ".. ",
+        ". ",
+        "...",
+        " ..",
+        "%2e%2e",
+        "%2e%2e%2fx",
+        "tr-a?b",
+        "tr-a#b",
+        "..\t",
+    ],
+)
+def test_start_trace_rejects_trace_ids_that_are_not_single_path_components(
+    store: SqlAlchemyStore, trace_id: str
+):
+    experiment_id = store.create_experiment("test_experiment")
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        state=TraceState.OK,
+    )
+
+    with pytest.raises(MlflowException, match="parameter 'trace_id'") as exc_info:
+        store.start_trace(trace_info)
+
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_trace_info(trace_id)
+
+
+def test_start_trace_allows_custom_single_component_trace_ids(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_experiment")
+    trace_info = TraceInfo(
+        trace_id="tr-custom.id",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        state=TraceState.OK,
+    )
+
+    assert store.start_trace(trace_info).trace_id == "tr-custom.id"
+    assert store.get_trace_info("tr-custom.id").trace_id == "tr-custom.id"
+
+
+def test_log_spans_rejects_a_batch_with_an_invalid_new_trace_id(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_experiment")
+    spans = [
+        create_test_span("tr-valid", span_id=1, trace_num=1),
+        create_test_span("..", span_id=2, trace_num=2),
+    ]
+
+    with pytest.raises(MlflowException, match="parameter 'trace_id'") as exc_info:
+        store.log_spans(experiment_id, spans)
+
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_trace_info("tr-valid")
+
+
+@pytest.mark.parametrize("trace_id", ["%2e%2e", "tr-a?b", "tr-a#b"])
+def test_existing_traces_with_uri_special_characters_accept_spans_and_can_be_deleted(
+    store: SqlAlchemyStore, trace_id: str
+):
+    experiment_id = store.create_experiment("test_experiment")
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        state=TraceState.OK,
+    )
+    with mock.patch(
+        "mlflow.store.tracking.sqlalchemy_store._validate_new_trace_id"
+    ) as mock_validate:
+        store.start_trace(trace_info)
+    mock_validate.assert_called_once_with(trace_id)
+
+    store.log_spans(experiment_id, [create_test_span(trace_id)])
+
+    assert store.delete_traces(experiment_id, trace_ids=[trace_id]) == 1
+
+
+@pytest.mark.parametrize(
     ("tags", "trace_metadata", "limit"),
     [
         (
@@ -400,6 +499,9 @@ def store_with_traces(store):
             ["execution_time DESC", "timestamp ASC"],
             ["tr-3", "tr-4", "tr-0", "tr-2", "tr-1"],
         ),
+        # Order by end time (timestamp + execution_time)
+        (["end_time"], ["tr-1", "tr-2", "tr-0", "tr-3", "tr-4"]),
+        (["end_time_ms DESC"], ["tr-4", "tr-3", "tr-2", "tr-0", "tr-1"]),
         # Order by experiment ID
         (["experiment_id"], ["tr-4", "tr-3", "tr-2", "tr-1", "tr-0"]),
         # Order by status
@@ -437,6 +539,7 @@ def test_search_traces_order_by(store_with_traces, order_by, expected_ids):
         ("experiment_id", False),
         ("status", False),
         ("execution_time DESC", True),
+        ("end_time DESC", False),
         ("name", True),
         ("tag.nonexistent", True),
         ("run_id", True),
@@ -707,6 +810,36 @@ def test_search_traces_pagination(store_with_traces):
     traces, token = store_with_traces.search_traces(exps, max_results=2, page_token=token)
     assert [t.trace_id for t in traces] == ["tr-0"]
     assert token is None
+
+
+@pytest.mark.parametrize("page_size", [5, 2, 1])
+def test_search_traces_last_full_page_offers_no_token(store, page_size):
+    # A page that ends exactly on the last trace used to hand back a token anyway, because the
+    # token was issued whenever the page came back full. The page behind it was empty, so a UI
+    # that trusts the token -- as the Issues tab's evidence list does -- showed a "Show more"
+    # button that loaded nothing.
+    exp = store.create_experiment("exp-boundary")
+    total = 5
+    for index in range(total):
+        _create_trace(store, f"tr-{index}", exp, request_time=index)
+
+    seen = []
+    token = None
+    pages = 0
+    while True:
+        traces, token = store.search_traces([exp], max_results=page_size, page_token=token)
+        seen.extend(trace.trace_id for trace in traces)
+        pages += 1
+        if token is None:
+            break
+        # Every page a token promises has to contain something, or the promise was false.
+        assert traces, "a token was issued for an empty page"
+        assert pages <= total + 1, "pagination did not terminate"
+
+    assert len(seen) == total
+    # No empty trailing page: `total` divides evenly by each page size under test except 2, and
+    # the even cases are exactly the ones the old condition got wrong.
+    assert pages == -(-total // page_size)
 
 
 @pytest.mark.parametrize("order_by", [None, ["timestamp DESC"]])
@@ -3962,6 +4095,19 @@ async def test_log_spans(store: SqlAlchemyStore, is_async: bool):
         )
 
 
+@pytest.mark.parametrize("output", ["hello", '"quoted"', '{"a": 1}', "[1, 2]"])
+def test_log_spans_preserves_json_looking_string_outputs(store: SqlAlchemyStore, output: str):
+    experiment_id = store.create_experiment("test_json_looking_string_outputs")
+    trace_id = "tr-json-string-outputs"
+    span = create_test_span_with_content(trace_id, inputs=output, outputs=output)
+
+    store.log_spans(experiment_id, [span])
+
+    stored_span = store.get_trace(trace_id).data.spans[0]
+    assert stored_span.inputs == output
+    assert stored_span.outputs == output
+
+
 @pytest.mark.asyncio
 async def test_log_spans_async_offloads_to_worker_thread(store: SqlAlchemyStore):
     event_loop_ident = threading.get_ident()
@@ -5298,6 +5444,78 @@ def test_log_spans_cost_dedups_rollup_parent(store: SqlAlchemyStore, single_batc
     }
 
 
+def _price_per_token_by_model(model_name, token_usage, model_provider=None):
+    rate = {"gpt-4o": 10.0, "gpt-4o-mini": 1.0}[model_name]
+    input_cost = token_usage["input_tokens"] * rate
+    output_cost = token_usage["output_tokens"] * rate * 2
+    return {
+        "input_cost": input_cost,
+        "output_cost": output_cost,
+        "total_cost": input_cost + output_cost,
+    }
+
+
+@pytest.mark.parametrize("single_batch", [True, False])
+def test_log_spans_cost_skips_agent_rollup_and_sums_llm_children(
+    store: SqlAlchemyStore, single_batch: bool
+) -> None:
+    experiment_id = store.create_experiment(f"test_log_spans_cost_agent_rollup_{single_batch}")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    parent = create_test_span(
+        trace_id,
+        name="agent",
+        span_id=1,
+        parent_id=None,
+        span_type="AGENT",
+        attributes={
+            SpanAttributeKey.MODEL: "gpt-4o",
+            SpanAttributeKey.CHAT_USAGE: {
+                "input_tokens": 80,
+                "output_tokens": 10,
+                "total_tokens": 90,
+            },
+        },
+    )
+    children = [
+        create_test_span(
+            trace_id,
+            name=f"llm_{i}",
+            span_id=10 + i,
+            parent_id=1,
+            span_type="LLM",
+            attributes={
+                SpanAttributeKey.MODEL: "gpt-4o-mini",
+                SpanAttributeKey.CHAT_USAGE: {
+                    "input_tokens": 40,
+                    "output_tokens": 5,
+                    "total_tokens": 45,
+                },
+            },
+        )
+        for i in range(2)
+    ]
+
+    with mock.patch(
+        "mlflow.tracing.otel.translation.calculate_cost_by_model_and_token_usage",
+        side_effect=_price_per_token_by_model,
+    ):
+        if single_batch:
+            store.log_spans(experiment_id, [parent, *children])
+        else:
+            store.log_spans(experiment_id, children)
+            store.log_spans(experiment_id, [parent])
+
+    trace = store.batch_get_traces([trace_id])[0]
+    assert trace.info.cost == {
+        "input_cost": 80.0,
+        "output_cost": 20.0,
+        "total_cost": 100.0,
+    }
+    agent_span = next(span for span in trace.data.spans if span.span_type == SpanType.AGENT)
+    assert SpanAttributeKey.LLM_COST not in agent_span.attributes
+
+
 def test_log_spans_token_usage_deep_trace(store: SqlAlchemyStore) -> None:
     # A span chain deeper than Python's recursion limit (default 1000) must not blow up
     # the tree-aware aggregation (see #24344 for the client-side counterpart).
@@ -5638,6 +5856,52 @@ def test_log_spans_recompute_reads_only_locked_traces(store: SqlAlchemyStore) ->
 
     assert store.get_trace_info(preexisting_trace_id).token_usage["total_tokens"] == 300
     assert store.get_trace_info(new_trace_id).token_usage["total_tokens"] == 300
+
+
+def test_log_spans_recompute_does_not_hold_all_stored_spans(store: SqlAlchemyStore) -> None:
+    # The usage recompute reads every stored span of the trace, and each row carries the full
+    # span content. Adding one small span must not hold all of that content in memory at once.
+    experiment_id = store.create_experiment("test_log_spans_recompute_memory")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    num_stored = 128
+    payload = "x" * (64 * 1024)
+    usage = {"input_tokens": 10, "output_tokens": 1, "total_tokens": 11}
+
+    store.log_spans(experiment_id, [create_test_span(trace_id, name="agent", span_id=1)])
+    store.log_spans(
+        experiment_id,
+        [
+            create_test_span(
+                trace_id,
+                name=f"llm_{span_id}",
+                span_id=span_id,
+                parent_id=1,
+                attributes={SpanAttributeKey.INPUTS: payload, SpanAttributeKey.CHAT_USAGE: usage},
+            )
+            for span_id in range(2, num_stored + 2)
+        ],
+    )
+    new_span = create_test_span(
+        trace_id,
+        name="llm_new",
+        span_id=num_stored + 2,
+        parent_id=1,
+        attributes={SpanAttributeKey.CHAT_USAGE: usage},
+    )
+
+    tracemalloc.start()
+    try:
+        store.log_spans(experiment_id, [new_span])
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+
+    assert peak < num_stored * len(payload) / 2
+    assert store.get_trace_info(trace_id).token_usage == {
+        "input_tokens": 10 * (num_stored + 1),
+        "output_tokens": num_stored + 1,
+        "total_tokens": 11 * (num_stored + 1),
+    }
 
 
 def test_log_spans_does_not_overwrite_finalized_trace_info(store: SqlAlchemyStore) -> None:
@@ -6878,6 +7142,107 @@ def test_log_spans_then_start_trace_preserves_preview(store: SqlAlchemyStore):
     assert trace_info.response_preview is not None
     assert "Hello" in trace_info.request_preview
     assert "Hi" in trace_info.response_preview
+
+
+def test_start_trace_rejects_experiment_change(store: SqlAlchemyStore):
+    exp1 = store.create_experiment("exp1")
+    exp2 = store.create_experiment("exp2")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    span = create_test_span(
+        trace_id=trace_id,
+        name="test_span",
+        span_id=111,
+        status=trace_api.StatusCode.OK,
+        start_ns=1_000_000_000,
+        end_ns=2_000_000_000,
+    )
+    store.log_spans(exp1, [span])
+
+    trace_info_for_start = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp1),
+        request_time=1000,
+        execution_duration=1000,
+        state=TraceState.OK,
+        trace_metadata={},
+    )
+    store.start_trace(trace_info_for_start)
+
+    trace_info_same_exp = store.get_trace_info(trace_id)
+    assert trace_info_same_exp.experiment_id == exp1
+
+    trace_info_different_exp = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp2),
+        request_time=2000,
+        execution_duration=2000,
+        state=TraceState.OK,
+        trace_metadata={},
+    )
+    with pytest.raises(MlflowException, match="already exists in another experiment"):
+        store.start_trace(trace_info_different_exp)
+
+    trace_info_final = store.get_trace_info(trace_id)
+    assert trace_info_final.experiment_id == exp1
+
+
+def test_log_spans_rejects_trace_in_another_experiment(store: SqlAlchemyStore):
+    exp1 = store.create_experiment("log_spans_owner")
+    exp2 = store.create_experiment("log_spans_other")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    store.log_spans(exp1, [create_test_span(trace_id=trace_id, name="original", span_id=1)])
+
+    with pytest.raises(MlflowException, match="already exists in another experiment"):
+        store.log_spans(exp2, [create_test_span(trace_id=trace_id, name="injected", span_id=2)])
+
+    trace = store.get_trace(trace_id, allow_partial=True)
+    assert trace.info.experiment_id == exp1
+    assert [span.name for span in trace.data.spans] == ["original"]
+
+
+def test_start_trace_replaces_nul_in_preview(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_start_trace_nul_preview")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1000,
+        execution_duration=1000,
+        state=TraceState.OK,
+        request_preview="file contents: \x00",
+        response_preview="ok\x00",
+    )
+    store.start_trace(trace_info)
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.request_preview == "file contents: \ufffd"
+    assert trace_info.response_preview == "ok\ufffd"
+
+
+def test_log_spans_replaces_nul_in_preview(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_log_spans_nul_preview")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    span = create_test_span(
+        trace_id=trace_id,
+        name="llm_call",
+        span_id=111,
+        status=trace_api.StatusCode.OK,
+        start_ns=1_000_000_000,
+        end_ns=2_000_000_000,
+        trace_num=12345,
+        attributes={
+            "mlflow.spanInputs": {"messages": [{"role": "user", "content": "file contents: \x00"}]},
+            "mlflow.spanOutputs": {
+                "choices": [{"message": {"role": "assistant", "content": "ok\x00"}}]
+            },
+        },
+    )
+    store.log_spans(experiment_id, [span])
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.request_preview == "file contents: \ufffd"
+    assert trace_info.response_preview == "ok\ufffd"
 
 
 @pytest.mark.skipif(
@@ -10824,6 +11189,168 @@ def test_delete_traces_cleans_up_archived_payloads(store: SqlAlchemyStore):
 
         assert store.delete_traces(exp_id, trace_ids=[trace_id]) == 1
         assert not archive_payload_path.exists()
+
+
+@pytest.mark.parametrize("max_workers", [None, 1, 2, 20])
+def test_delete_traces_cleans_up_archived_payloads_concurrently(
+    store: SqlAlchemyStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, max_workers: int | None
+):
+    exp_id = store.create_experiment("archive-delete-concurrently")
+    trace_ids = [f"tr-concurrent-delete-{index}" for index in range(6)]
+    now_millis = 26 * 24 * 60 * 60 * 1000
+    request_time = now_millis - 2 * 24 * 60 * 60 * 1000
+    for index, trace_id in enumerate(trace_ids):
+        _create_trace(store, trace_id, exp_id, request_time=request_time)
+        store.log_spans(
+            exp_id,
+            [
+                create_test_span(
+                    trace_id,
+                    span_id=index + 1,
+                    start_ns=request_time * 1_000_000,
+                    end_ns=(request_time + 1_000) * 1_000_000,
+                )
+            ],
+        )
+    archive_root = tmp_path / "archive"
+    archive_root.mkdir()
+    assert _archive_traces(
+        store,
+        default_trace_archival_location=archive_root.as_uri(),
+        default_retention="1d",
+        now_millis=now_millis,
+    ) == len(trace_ids)
+
+    active_deletes = 0
+    peak_deletes = 0
+    worker_contexts = []
+    lock = threading.Lock()
+
+    def slow_delete(artifact_path):
+        nonlocal active_deletes, peak_deletes
+        with lock:
+            active_deletes += 1
+            peak_deletes = max(peak_deletes, active_deletes)
+            worker_contexts.append((get_request_workspace(), is_request_workspace_resolved()))
+        try:
+            time.sleep(0.05)
+        finally:
+            with lock:
+                active_deletes -= 1
+
+    cleanup_repo = mock.Mock(
+        spec=ArtifactRepository, delete_artifacts=mock.Mock(side_effect=slow_delete)
+    )
+    expected_workspace = get_request_workspace()
+    with (
+        monkeypatch.context() as patch,
+        ServerWorkspaceContext(expected_workspace),
+        mock.patch(
+            "mlflow.store.tracking.sqlalchemy_store.get_artifact_repository",
+            return_value=cleanup_repo,
+        ) as get_repo,
+    ):
+        patch.delenv("MLFLOW_WORKSPACE", raising=False)
+        patch.delenv(MLFLOW_TRACE_DELETE_MAX_WORKERS.name, raising=False)
+        if max_workers is not None:
+            patch.setenv(MLFLOW_TRACE_DELETE_MAX_WORKERS.name, str(max_workers))
+        assert store.delete_traces(exp_id, trace_ids=trace_ids) == len(trace_ids)
+        assert get_repo.call_count == len(trace_ids)
+
+    expected_limit = min(max_workers if max_workers is not None else 8, len(trace_ids))
+    assert 1 <= peak_deletes <= expected_limit
+    if expected_limit > 1:
+        assert peak_deletes > 1
+    assert active_deletes == 0
+    assert worker_contexts == [(expected_workspace, True)] * len(trace_ids)
+    cleanup_repo.delete_artifacts.assert_has_calls(
+        [mock.call(TRACE_ARCHIVAL_FILENAME)] * len(trace_ids)
+    )
+    with store.ManagedSessionMaker() as session:
+        assert session.query(SqlTraceInfo).filter_by(experiment_id=int(exp_id)).count() == 0
+
+
+@pytest.mark.parametrize(
+    ("trace_count", "max_workers", "expected_workers"),
+    [
+        (0, None, None),
+        (1, None, None),
+        (2, None, 2),
+        (12, None, 8),
+        (4, 1, 1),
+        (4, 2, 2),
+        (4, 20, 4),
+    ],
+)
+def test_delete_archived_trace_payloads_limits_workers(
+    store: SqlAlchemyStore,
+    monkeypatch: pytest.MonkeyPatch,
+    trace_count,
+    max_workers,
+    expected_workers,
+):
+    monkeypatch.delenv(MLFLOW_TRACE_DELETE_MAX_WORKERS.name, raising=False)
+    if max_workers is not None:
+        monkeypatch.setenv(MLFLOW_TRACE_DELETE_MAX_WORKERS.name, str(max_workers))
+    selections = [_TraceDeleteSelection(trace_id=f"tr-{index}") for index in range(trace_count)]
+    with mock.patch.object(
+        sqlalchemy_store_module, "ThreadPoolExecutor", wraps=ThreadPoolExecutor
+    ) as pool:
+        assert store._delete_archived_trace_payloads(selections) == [
+            selection.trace_id for selection in selections
+        ]
+    if expected_workers is None:
+        pool.assert_not_called()
+    else:
+        pool.assert_called_once()
+        assert pool.call_args.kwargs["max_workers"] == expected_workers
+
+
+def test_delete_archived_trace_payloads_keeps_order_and_continues_after_errors(
+    store: SqlAlchemyStore, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    monkeypatch.setenv(MLFLOW_TRACE_DELETE_MAX_WORKERS.name, "4")
+    fast_deleted = threading.Event()
+
+    def delete_slow(artifact_path):
+        assert fast_deleted.wait(timeout=5)
+
+    repositories = {
+        "file:///archive/slow": mock.Mock(delete_artifacts=mock.Mock(side_effect=delete_slow)),
+        "file:///archive/missing": mock.Mock(
+            delete_artifacts=mock.Mock(side_effect=FileNotFoundError("payload already deleted"))
+        ),
+        "file:///archive/failed": mock.Mock(
+            delete_artifacts=mock.Mock(side_effect=PermissionError("access denied"))
+        ),
+        "file:///archive/fast": mock.Mock(
+            delete_artifacts=mock.Mock(side_effect=lambda artifact_path: fast_deleted.set())
+        ),
+    }
+    selections = [
+        _TraceDeleteSelection(trace_id="tr-slow", archived_artifact_uri="file:///archive/slow"),
+        _TraceDeleteSelection(
+            trace_id="tr-missing", archived_artifact_uri="file:///archive/missing"
+        ),
+        _TraceDeleteSelection(trace_id="tr-failed", archived_artifact_uri="file:///archive/failed"),
+        _TraceDeleteSelection(trace_id="tr-fast", archived_artifact_uri="file:///archive/fast"),
+        _TraceDeleteSelection(trace_id="tr-no-payload"),
+    ]
+    with mock.patch(
+        "mlflow.store.tracking.sqlalchemy_store.get_artifact_repository",
+        side_effect=repositories.__getitem__,
+    ) as get_repo:
+        assert store._delete_archived_trace_payloads(selections) == [
+            "tr-slow",
+            "tr-missing",
+            "tr-fast",
+            "tr-no-payload",
+        ]
+    get_repo.assert_has_calls([mock.call(uri) for uri in repositories], any_order=True)
+    assert get_repo.call_count == len(repositories)
+    for repo in repositories.values():
+        repo.delete_artifacts.assert_called_once_with(TRACE_ARCHIVAL_FILENAME)
+    assert "Failed to clean up archived payload for trace tr-failed" in caplog.text
 
 
 def test_delete_traces_removes_db_backed_rows_before_archived_payload_cleanup(

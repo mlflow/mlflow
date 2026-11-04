@@ -104,3 +104,25 @@ def wait_job_finalize(job_id, timeout=60):
             return
         time.sleep(0.5)
     raise TimeoutError("The job is not finalized within the timeout.")
+
+
+class RecordingHuey:
+    """A stand-in for a huey instance that records the periodic tasks registered on it."""
+
+    def __init__(self):
+        self.tasks = {}
+        self.locks = {}
+
+    def periodic_task(self, validation):
+        def decorator(fn):
+            self.tasks[fn.__name__] = (validation, fn)
+            return fn
+
+        return decorator
+
+    def lock_task(self, lock_name):
+        def decorator(fn):
+            self.locks[fn.__name__] = lock_name
+            return fn
+
+        return decorator

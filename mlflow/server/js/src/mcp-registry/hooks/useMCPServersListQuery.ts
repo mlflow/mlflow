@@ -24,7 +24,7 @@ export const useMCPServersListQuery = ({
     extraQueryKeys: { filterActive, filterHasEndpoints },
     storageKey: 'mcp_registry.page_size',
     queryFn: ({ searchFilter: filter, pageToken, pageSize }) => {
-      const nameClause = buildSearchFilterClause(filter);
+      const nameClause = buildSearchFilterClause(filter, 'name', { allowQuotedFirstSegment: true });
       const clauses = [
         nameClause,
         filterActive ? STATUS_ACTIVE_FILTER : undefined,

@@ -34,6 +34,7 @@ from mlflow.genai.judges.instructions_judge.constants import JUDGE_BASE_PROMPT
 from mlflow.genai.judges.utils import validate_judge_model
 from mlflow.genai.scorers.base import Scorer, ScorerKind, SerializedScorer
 from mlflow.genai.scorers.registry import _get_scorer_store
+from mlflow.genai.utils.trace_utils import _session_level_group
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils import build_otel_context
 from mlflow.types.llm import ChatMessage
@@ -3481,6 +3482,28 @@ def test_validate_session_same_session():
     judge._validate_session([trace1, trace2])
 
 
+def test_validate_session_within_session_level_group():
+    judge = make_judge(
+        name="conversation_judge",
+        instructions="Evaluate {{ conversation }}",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
+    )
+
+    trip_2_ep_2 = create_trace_with_session("trace-1", '["trip-2","ep-2"]')
+    trip_2_ep_9 = create_trace_with_session("trace-2", '["trip-2","ep-9"]')
+    trip_3_ep_1 = create_trace_with_session("trace-3", '["trip-3","ep-1"]')
+
+    # Exact-ID comparison applies outside a level group.
+    with pytest.raises(MlflowException, match="must belong to the same session"):
+        judge._validate_session([trip_2_ep_2, trip_2_ep_9])
+
+    with _session_level_group('["trip-2"]'):
+        judge._validate_session([trip_2_ep_2, trip_2_ep_9])
+        with pytest.raises(MlflowException, match="Found 2 different session"):
+            judge._validate_session([trip_2_ep_2, trip_3_ep_1])
+
+
 def test_conversation_extraction_from_session(mock_invoke_judge_model):
     judge = make_judge(
         name="conversation_judge",
@@ -4310,3 +4333,46 @@ def test_make_judge_preserves_non_ascii_in_template_variables():
     assert "\\u00e9" not in user_message
     assert "café résumé" in user_message
     assert "日本語テスト" in user_message
+
+
+# ==================== session_level tests ====================
+
+
+def test_make_judge_session_level_round_trip():
+    judge = make_judge(
+        name="conversation_judge",
+        instructions=("Evaluate whether the {{ conversation }} addresses the user's requests."),
+        feedback_value_type=Literal["yes", "no"],
+        session_level="episode",
+    )
+    assert judge.is_session_level_scorer is True
+    assert judge.session_level == "episode"
+
+    serialized = judge.model_dump()
+    assert serialized["session_level"] == "episode"
+
+    deserialized = Scorer.model_validate(serialized)
+    assert isinstance(deserialized, InstructionsJudge)
+    assert deserialized.session_level == "episode"
+    assert deserialized.is_session_level_scorer is True
+
+
+def test_make_judge_session_level_defaults_to_none():
+    judge = make_judge(
+        name="conversation_judge",
+        instructions="Evaluate the {{ conversation }}.",
+        feedback_value_type=str,
+    )
+    assert judge.session_level is None
+
+
+def test_make_judge_session_level_rejected_eagerly_on_single_turn_judge():
+    # A judge's level is only known once its template is parsed, so the check runs
+    # right after construction in make_judge rather than at evaluate time.
+    with pytest.raises(MlflowException, match="not a session-level scorer"):
+        make_judge(
+            name="single_turn_judge",
+            instructions="Rate {{ outputs }} from 1-5.",
+            feedback_value_type=int,
+            session_level="episode",
+        )

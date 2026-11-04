@@ -8,6 +8,17 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 import { useRunJudgesOnTracesConfiguration } from './useRunScorerInTracesViewConfiguration';
 import type { ScorerEvaluation } from '../useEvaluateTracesAsync';
 
+jest.mock('./useGetScheduledScorers', () => ({
+  useGetScheduledScorers: () => ({
+    data: { scheduledScorers: [{ name: 'tone_judge', type: 'llm' }] },
+    isLoading: false,
+  }),
+}));
+
+jest.mock('../../../components/experiment-page/hooks/useExperimentIds', () => ({
+  useExperimentIds: () => ['exp-1'],
+}));
+
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false } },
 });
@@ -53,6 +64,29 @@ describe('useRunJudgesOnTracesConfiguration', () => {
 
     // The modal should now be visible (RunJudgesModal is a JSX element)
     expect(result.current.RunJudgesModal).toBeDefined();
+  });
+
+  it('selects a judge when its name is clicked', async () => {
+    const ModalTestComponent = () => {
+      const { showRunJudgesModal, RunJudgesModal } = useRunJudgesOnTracesConfiguration(
+        mockEvaluateTraces,
+        undefined,
+        undefined,
+      );
+      return (
+        <>
+          <button onClick={() => showRunJudgesModal(['trace-1'])}>open</button>
+          {RunJudgesModal}
+        </>
+      );
+    };
+    const user = userEvent.setup();
+    render(<ModalTestComponent />, { wrapper });
+
+    await user.click(screen.getByText('open'));
+    await user.click(await screen.findByText('tone_judge'));
+
+    expect(screen.getByRole('checkbox', { name: /tone_judge/ })).toBeChecked();
   });
 
   it('should return null JudgesStatusBanner when there are no evaluations', () => {

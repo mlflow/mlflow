@@ -5,8 +5,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 8192,
-        "max_output": 4096,
-        "max_tokens": 4096
+        "max_output": 4096
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -19,14 +18,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "BSC-LT/salamandra-7b-instruct-tools-16k": {
       "mode": "chat",
       "context_window": {
         "max_input": 16384,
-        "max_output": 4096,
-        "max_tokens": 4096
+        "max_output": 4096
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -39,14 +37,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "aisingapore/Gemma-SEA-LION-v4-27B-IT": {
       "mode": "chat",
       "context_window": {
         "max_input": 8192,
-        "max_output": 4096,
-        "max_tokens": 4096
+        "max_output": 4096
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -59,14 +56,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "aisingapore/Qwen-SEA-LION-v4-32B-IT": {
       "mode": "chat",
       "context_window": {
         "max_input": 32768,
-        "max_output": 4096,
-        "max_tokens": 4096
+        "max_output": 4096
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -79,14 +75,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "allenai/Olmo-3-32B-Think": {
       "mode": "chat",
       "context_window": {
         "max_input": 32768,
-        "max_output": 4096,
-        "max_tokens": 4096
+        "max_output": 4096
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -99,14 +94,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "allenai/Olmo-3-7B-Instruct": {
       "mode": "chat",
       "context_window": {
         "max_input": 32768,
-        "max_output": 4096,
-        "max_tokens": 4096
+        "max_output": 4096
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -119,14 +113,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "allenai/Olmo-3-7B-Think": {
       "mode": "chat",
       "context_window": {
         "max_input": 32768,
-        "max_output": 4096,
-        "max_tokens": 4096
+        "max_output": 4096
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -139,14 +132,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "swiss-ai/apertus-70b-instruct": {
       "mode": "chat",
       "context_window": {
         "max_input": 8192,
-        "max_output": 4096,
-        "max_tokens": 4096
+        "max_output": 4096
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -159,14 +151,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "swiss-ai/apertus-8b-instruct": {
       "mode": "chat",
       "context_window": {
         "max_input": 8192,
-        "max_output": 4096,
-        "max_tokens": 4096
+        "max_output": 4096
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -179,7 +170,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     }
   }
 }

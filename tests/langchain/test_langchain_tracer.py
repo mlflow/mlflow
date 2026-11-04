@@ -1,3 +1,4 @@
+import json
 import random
 import time
 import uuid
@@ -527,10 +528,10 @@ def test_tool_success():
     # StrOutputParser
     output_parser_span = spans[4]
     assert output_parser_span.span_type == "CHAIN"
-    assert output_parser_span.outputs == [
-        {"content": "You are a nice assistant.", "role": "system"},
-        {"content": "What up", "role": "user"},
-    ]
+    assert output_parser_span.outputs == json.dumps([
+        {"role": "system", "content": "You are a nice assistant."},
+        {"role": "user", "content": "What up"},
+    ])
 
     _validate_trace_json_serialization(trace)
 

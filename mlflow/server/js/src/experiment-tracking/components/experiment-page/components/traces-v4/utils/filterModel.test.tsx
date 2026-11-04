@@ -1,8 +1,16 @@
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, jest, test } from '@jest/globals';
 import { renderHook } from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
 import { FilterOp, type FilterClause } from '@databricks/web-shared/traces-table';
 import { compileFilterModel, compileTagFilters, useMlflowTraceFilterFields } from './filterModel';
+
+// These tests cover the filter fields with the new eval runs UI off; filterModel.newEvalRunsUi.test.tsx covers it on.
+jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('@mlflow/mlflow/src/common/utils/FeatureUtils')>(
+    '@mlflow/mlflow/src/common/utils/FeatureUtils',
+  ),
+  shouldEnableNewEvalRunsUi: jest.fn(() => false),
+}));
 
 describe('compileFilterModel', () => {
   test('the empty model compiles to no clauses', () => {

@@ -63,11 +63,12 @@ from mlflow.genai.evaluation.rate_limiter import (
     RPSRateLimiter,
     call_with_retry,
     eval_retry_context,
+    scorer_rate_limit_context,
 )
 from mlflow.genai.evaluation.session_utils import (
     classify_scorers,
     evaluate_session_level_scorers,
-    group_traces_by_session,
+    group_sessions_by_scorer_level,
 )
 from mlflow.genai.evaluation.telemetry import emit_metric_usage_event
 from mlflow.genai.evaluation.utils import (
@@ -88,6 +89,7 @@ from mlflow.genai.utils.trace_utils import (
     create_minimal_trace,
 )
 from mlflow.pyfunc.context import Context, set_prediction_context
+from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceTagKey
 from mlflow.tracing.utils.copy import copy_trace_to_experiment
 from mlflow.tracking.client import MlflowClient
@@ -388,8 +390,7 @@ class _ScoreSubmitter:
         self,
         eval_items: list[EvalItem],
         single_turn_scorers: list[Scorer],
-        multi_turn_scorers: list[Scorer],
-        session_groups: dict[str, list[EvalItem]],
+        session_buckets: list[tuple[dict[str, list[EvalItem]], list[Scorer]]],
         run_id: str | None,
         max_retries: int,
         rps: float | None,
@@ -401,10 +402,9 @@ class _ScoreSubmitter:
         Args:
             eval_items: Items to evaluate — indexed by position for score dispatch.
             single_turn_scorers: Scorers applied to each item individually.
-            multi_turn_scorers: Scorers applied to session groups after the
-                single-turn pipeline completes.
-            session_groups: Mapping of session_id to ordered list of eval items
-                for multi-turn scoring.
+            session_buckets: One (session_groups, scorers) pair per session_level,
+                where session_groups maps session key to ordered list of eval items
+                for multi-turn scoring with that bucket's scorers.
             run_id: MLflow run ID for trace/assessment logging.
             max_retries: Max 429-retry attempts per scorer call.
             rps: Requests-per-second for the scorer rate limiter, or None to disable.
@@ -414,8 +414,7 @@ class _ScoreSubmitter:
         """
         self._eval_items = eval_items
         self._single_turn_scorers = single_turn_scorers
-        self._multi_turn_scorers = multi_turn_scorers
-        self._session_groups = session_groups
+        self._session_buckets = session_buckets
         self._run_id = run_id
         self._max_retries = max_retries
         self._limiter = _make_rate_limiter(
@@ -486,36 +485,40 @@ class _ScoreSubmitter:
             self._times.append(time.monotonic() - start)
         return eval_result
 
-    def run_multi_turn(self, multi_turn_eval_results: dict[str, EvalResult], progress_bar) -> None:
-        if not self._multi_turn_scorers or not self._session_groups:
-            return
+    def run_multi_turn(
+        self, multi_turn_eval_results: dict[str, list[EvalResult]], progress_bar
+    ) -> None:
         futures = []
-        for session_id, session_items in self._session_groups.items():
-            # Session groups are built before prediction; a clone read-back miss can null an
-            # item's trace afterwards. Drop those items here since session scoring dereferences
-            # trace (e.g. get_first_trace_in_session reads trace.info.request_time), and skip
-            # sessions left with no scorable trace.
-            scorable_items = [item for item in session_items if item.trace is not None]
-            if not scorable_items:
-                _logger.warning(f"Skipping multi-turn session {session_id} with no traces.")
+        for session_groups, scorers in self._session_buckets:
+            if not scorers:
                 continue
-            futures.append(
-                self._pool.submit(
-                    self._timed_multi_turn_score,
-                    session_id=session_id,
-                    session_items=scorable_items,
-                    multi_turn_scorers=self._multi_turn_scorers,
-                    scorer_rate_limiter=self._limiter,
-                    max_retries=self._max_retries,
+            for session_id, session_items in session_groups.items():
+                # Session groups are built before prediction; a clone read-back miss can null an
+                # item's trace afterwards. Drop those items here since session scoring
+                # dereferences trace (e.g. get_first_trace_in_session reads
+                # trace.info.request_time), and skip sessions left with no scorable trace.
+                scorable_items = [item for item in session_items if item.trace is not None]
+                if not scorable_items:
+                    _logger.warning(f"Skipping multi-turn session {session_id} with no traces.")
+                    continue
+                futures.append(
+                    self._pool.submit(
+                        self._timed_multi_turn_score,
+                        session_id=session_id,
+                        session_items=scorable_items,
+                        multi_turn_scorers=scorers,
+                        scorer_rate_limiter=self._limiter,
+                        max_retries=self._max_retries,
+                    )
                 )
-            )
         for future in as_completed(futures):
             eval_result = future.result()
             if eval_result.eval_item.trace is None:
                 _logger.warning("Skipping multi-turn result with no trace.")
                 continue
             trace_id = eval_result.eval_item.trace.info.trace_id
-            multi_turn_eval_results[trace_id] = eval_result
+            # Level groups sharing an anchor trace must not overwrite each other.
+            multi_turn_eval_results.setdefault(trace_id, []).append(eval_result)
             if progress_bar:
                 progress_bar.update(1)
 
@@ -525,11 +528,10 @@ def _run_pipeline(
     eval_results: list[EvalResult | None],
     predict_fn: Callable[..., Any] | None,
     single_turn_scorers: list[Scorer],
-    multi_turn_scorers: list[Scorer],
-    session_groups: dict[str, list[EvalItem]],
+    session_buckets: list[tuple[dict[str, list[EvalItem]], list[Scorer]]],
     run_id: str | None,
     progress_bar,
-    multi_turn_eval_results: dict[str, EvalResult],
+    multi_turn_eval_results: dict[str, list[EvalResult]],
     experiment_id: str | None,
 ) -> tuple[list[float], list[float]]:
     """Run the predict→score pipeline and multi-turn scoring.
@@ -541,7 +543,8 @@ def _run_pipeline(
     _warmup_databricks_sdk()
 
     predict_rps, predict_adaptive = _parse_rate_limit(MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT.get())
-    num_scorers = len(single_turn_scorers) + len(multi_turn_scorers)
+    num_multi_turn_scorers = sum(len(scorers) for _, scorers in session_buckets)
+    num_scorers = len(single_turn_scorers) + num_multi_turn_scorers
     scorer_rps, scorer_adaptive = _get_scorer_rate_config(
         predict_rps, predict_adaptive, num_scorers
     )
@@ -564,8 +567,7 @@ def _run_pipeline(
     scorer_submitter = _ScoreSubmitter(
         eval_items,
         single_turn_scorers,
-        multi_turn_scorers,
-        session_groups,
+        session_buckets,
         run_id,
         max_retries,
         rps=scorer_rps,
@@ -667,6 +669,7 @@ def run(
     scorers=None,
     run_id: str | None = None,
     dataset: Any | None = None,
+    extra_aggregations: dict[str, list[str]] | None = None,
 ) -> EvaluationResult:
     """
     Runs GenAI evaluation harness to the given dataset.
@@ -674,6 +677,9 @@ def run(
     Rate limiting is controlled via environment variables:
     - MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT: max predict_fn calls/second
     - MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT: max scorer calls/second
+    - ENABLE_RETRIEVAL_JUDGE_PER_REQUEST_RATE_LIMITING: Databricks
+      only; whether RetrievalRelevance with databricks-agents SDK is rate limited
+      based on scorer invocation or per-chunk requests.
     """
     eval_items = [EvalItem.from_dataset_row(row) for row in eval_df.to_dict(orient="records")]
     eval_start_time = int(time.time() * 1000)
@@ -682,11 +688,15 @@ def run(
     experiment_id = mlflow.get_run(run_id).info.experiment_id
 
     single_turn_scorers, multi_turn_scorers = classify_scorers(scorers)
-    session_groups = group_traces_by_session(eval_items) if multi_turn_scorers else {}
+    session_buckets = (
+        group_sessions_by_scorer_level(eval_items, multi_turn_scorers, experiment_id)
+        if multi_turn_scorers
+        else []
+    )
     # Every eval item goes through the score pool (even with no single-turn
     # scorers, _run_score still logs expectations and tags), so each item
     # contributes one progress update.
-    total_tasks = len(eval_items) + len(session_groups)
+    total_tasks = len(eval_items) + sum(len(groups) for groups, _ in session_buckets)
 
     progress_bar = (
         tqdm(
@@ -700,7 +710,7 @@ def run(
     )
 
     eval_results = [None] * len(eval_items)
-    multi_turn_eval_results: dict[str, EvalResult] = {}
+    multi_turn_eval_results: dict[str, list[EvalResult]] = {}
     scorer_stats: dict[str, ScorerStat] = {}
     predict_times: list[float] = []
     score_times: list[float] = []
@@ -711,8 +721,7 @@ def run(
             eval_results=eval_results,
             predict_fn=predict_fn,
             single_turn_scorers=single_turn_scorers,
-            multi_turn_scorers=multi_turn_scorers,
-            session_groups=session_groups,
+            session_buckets=session_buckets,
             run_id=run_id,
             progress_bar=progress_bar,
             multi_turn_eval_results=multi_turn_eval_results,
@@ -737,8 +746,8 @@ def run(
         if result.eval_item.trace is None:
             continue
         trace_id = result.eval_item.trace.info.trace_id
-        if trace_id in multi_turn_eval_results:
-            result.assessments.extend(multi_turn_eval_results[trace_id].assessments)
+        for mt_result in multi_turn_eval_results.get(trace_id, []):
+            result.assessments.extend(mt_result.assessments)
 
     # Link traces to the run if the backend support it
     batch_link_traces_to_run(run_id=run_id, eval_results=eval_results)
@@ -758,18 +767,31 @@ def run(
     # Aggregate scorer stats from multi-turn results.
     # Use EvalResult.scorer_stats so that we count one invocation per scorer call/session
     # rather than one per emitted feedback assessment.
-    for mt_result in multi_turn_eval_results.values():
-        _merge_scorer_stats_dicts(scorer_stats, mt_result.scorer_stats)
+    for mt_results in multi_turn_eval_results.values():
+        for mt_result in mt_results:
+            _merge_scorer_stats_dicts(scorer_stats, mt_result.scorer_stats)
 
     # Check for scorer failures and log a summary warning
     _log_scorer_failure_summary(scorer_stats)
 
     # Aggregate metrics and log to MLflow run
-    aggregated_metrics = compute_aggregated_metrics(eval_results, scorers=scorers)
+    aggregated_metrics = compute_aggregated_metrics(
+        eval_results, scorers=scorers, extra_aggregations=extra_aggregations
+    )
     mlflow.log_metrics(aggregated_metrics, dataset=dataset)
 
     try:
-        emit_metric_usage_event(scorers, len(eval_items), len(session_groups), aggregated_metrics)
+        num_session_groups = sum(len(groups) for groups, _ in session_buckets)
+        session_count_by_scorer = {
+            id(scorer): len(groups) for groups, bucket in session_buckets for scorer in bucket
+        }
+        emit_metric_usage_event(
+            scorers,
+            len(eval_items),
+            num_session_groups,
+            aggregated_metrics,
+            session_count_by_scorer=session_count_by_scorer,
+        )
     except Exception as e:
         _logger.debug(f"Failed to emit metric usage event: {e}", exc_info=True)
 
@@ -787,8 +809,23 @@ def run(
         if result.eval_item.trace is not None
     }
 
+    # If any predict_fn row produced no tagged eval trace, skip deleting untagged
+    # run traces so the failure is missing assessments rather than deleted traces.
+    missed_eval_trace = any(
+        result is not None
+        and result.eval_item.trace is None
+        and result.eval_item.error_message is None
+        for result in eval_results
+    )
+
     # Clean up noisy traces generated during evaluation
-    clean_up_extra_traces(traces, eval_start_time, experiment_id, input_trace_ids)
+    clean_up_extra_traces(
+        traces,
+        eval_start_time,
+        experiment_id,
+        input_trace_ids,
+        keep_untagged_run_traces=missed_eval_trace,
+    )
 
     # Carry each scorer's pass_if predicate so EvaluationResult.passed can decide
     # pass/fail for non-yes/no values. In-process only; not persisted.
@@ -838,6 +875,15 @@ def _run_predict(
                 )
 
         eval_item.trace = mlflow.get_trace(eval_request_id, silent=True)
+        if eval_item.trace is None and eval_item.error_message is None:
+            _logger.warning(
+                "Failed to log trace and assessments to MLflow: no trace tagged with "
+                "%s was found for this item (inputs=%s). A common cause is predict_fn "
+                "starting the agent on another thread; submit that work with "
+                "contextvars.copy_context().run.",
+                TraceTagKey.EVAL_REQUEST_ID,
+                eval_item.inputs,
+            )
     elif eval_item.trace is not None:
         if _should_clone_trace(eval_item.trace, run_id, experiment_id):
             try:
@@ -889,6 +935,15 @@ def _run_score(
     tags = eval_item.tags if not is_none_or_nan(eval_item.tags) else {}
     validate_tags(tags)
 
+    if eval_item.trace is None:
+        # No trace to attach tags/assessments to (e.g. predict_fn raised before producing one).
+        # Surface the underlying error instead of failing on the missing trace.
+        _logger.warning(
+            "Skipping logging tags and assessments to MLflow because no trace is available"
+            + (f": {eval_item.error_message}" if eval_item.error_message else ".")
+        )
+        return eval_result
+
     for key in tags.keys() - IMMUTABLE_TAGS:
         try:
             mlflow.set_trace_tag(trace_id=eval_item.trace.info.trace_id, key=key, value=tags[key])
@@ -937,9 +992,10 @@ def _compute_eval_scores(
                     scorer_func
                 )
 
-            value = call_with_retry(
-                lambda: _invoke_scorer(scorer_func, eval_item), rate_limiter, max_retries
-            )
+            with scorer_rate_limit_context(scorer, rate_limiter) as invocation_limiter:
+                value = call_with_retry(
+                    lambda: _invoke_scorer(scorer_func, eval_item), invocation_limiter, max_retries
+                )
             feedbacks = standardize_scorer_value(scorer.name, value)
 
         except Exception as e:
@@ -1027,9 +1083,13 @@ def _log_assessments(
     run_id: str | None,
     trace: Trace,
     assessments: list[Assessment],
+    client: TracingClient | None = None,
 ) -> None:
     """
     Log assessments to a trace.
+
+    Uses ``client`` when given (for example one bound to a specific tracking store), otherwise the
+    active tracking URI.
     """
     for assessment in assessments:
         # Ensure that if we created a new trace, that the updated trace_id is reflected in
@@ -1047,7 +1107,10 @@ def _log_assessments(
         else:
             _logger.debug(f"No root span found for trace {trace.info.trace_id}")
 
-        mlflow.log_assessment(trace_id=assessment.trace_id, assessment=assessment)
+        if client is None:
+            mlflow.log_assessment(trace_id=assessment.trace_id, assessment=assessment)
+        else:
+            client.log_assessment(assessment.trace_id, assessment)
 
 
 def _refresh_eval_result_traces(eval_results: list[EvalResult]) -> None:

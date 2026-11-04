@@ -16,6 +16,7 @@ Example usage:
 
 from __future__ import annotations
 
+import copy
 import logging
 from typing import Any
 
@@ -57,6 +58,8 @@ class DeepEvalScorer(Scorer):
         model: {{ model }}
         model_kwargs: Parameters for the underlying LLM (e.g., temperature, max_tokens).
             Ignored for deterministic metrics.
+        session_level: Name of a session-hierarchy level to group traces by for
+            conversational metrics. See :py:class:`~mlflow.genai.scorers.Scorer`.
         metric_kwargs: Additional metric-specific parameters
     """
 
@@ -70,13 +73,14 @@ class DeepEvalScorer(Scorer):
         metric_name: str | None = None,
         model: str | None = None,
         model_kwargs: dict[str, Any] | None = None,
+        session_level: str | None = None,
         **metric_kwargs: Any,
     ):
         # Use class attribute if metric_name not provided
         if metric_name is None:
             metric_name = self.metric_name
 
-        super().__init__(name=metric_name)
+        super().__init__(name=metric_name, session_level=session_level)
 
         metric_class = get_metric_class(metric_name)
 
@@ -169,11 +173,16 @@ class DeepEvalScorer(Scorer):
                     trace=trace,
                 )
 
-            self._metric.measure(test_case, _show_indicator=False)
+            # DeepEval metrics store results on the instance, so measure a per-call copy to
+            # keep concurrent calls (e.g., from mlflow.genai.evaluate) from overwriting each other.
+            # The copy is shallow on purpose, so calls share the judge model instead of each
+            # building a new one.
+            metric = copy.copy(self._metric)
+            metric.measure(test_case, _show_indicator=False)
 
-            score = self._metric.score
-            reason = self._metric.reason
-            success = self._metric.is_successful()
+            score = metric.score
+            reason = metric.reason
+            success = metric.is_successful()
 
             return Feedback(
                 name=self.name,
@@ -182,7 +191,7 @@ class DeepEvalScorer(Scorer):
                 source=assessment_source,
                 metadata={
                     "score": score,
-                    "threshold": self._metric.threshold,
+                    "threshold": metric.threshold,
                     FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME,
                 },
             )

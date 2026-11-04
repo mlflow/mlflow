@@ -1238,7 +1238,11 @@ class ParamSpec:
 
     def to_dict(self) -> ParamSpecTypedDict:
         if self.shape is None:
-            if isinstance(self.dtype, DataType) and self.dtype.name == "datetime":
+            if (
+                isinstance(self.dtype, DataType)
+                and self.dtype.name == "datetime"
+                and self.default is not None
+            ):
                 default_value = self.default.isoformat()
             else:
                 default_value = self.default

@@ -870,12 +870,11 @@ def test_span_upsert_invalidates_old_and_new_cost_partitions(store: SqlAlchemySt
     assert _count(store, SqlTraceRollupRebuild, rollup_family=RollupFamily.SPAN_COST.value) == 0
 
 
-def test_trace_move_enqueues_old_and_new_partitions(store: SqlAlchemyStore):
-    old_exp_id = store.create_experiment(f"old-{uuid.uuid4()}")
-    new_exp_id = store.create_experiment(f"new-{uuid.uuid4()}")
-    trace_id = _new_trace(store, old_exp_id, DAY_A_MS)
+def test_trace_day_change_enqueues_old_and_new_partitions(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    trace_id = _new_trace(store, exp_id, DAY_A_MS)
     store.log_spans(
-        old_exp_id,
+        exp_id,
         [
             create_test_span(
                 trace_id=trace_id,
@@ -891,11 +890,11 @@ def test_trace_move_enqueues_old_and_new_partitions(store: SqlAlchemyStore):
     store.start_trace(
         TraceInfo(
             trace_id=trace_id,
-            trace_location=trace_location.TraceLocation.from_experiment_id(new_exp_id),
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
             request_time=DAY_B_MS,
             execution_duration=250,
             state=TraceStatus.OK,
-            tags={TraceTagKey.TRACE_NAME: "moved-trace"},
+            tags={TraceTagKey.TRACE_NAME: "updated-trace"},
         )
     )
 
@@ -905,12 +904,11 @@ def test_trace_move_enqueues_old_and_new_partitions(store: SqlAlchemyStore):
             for row in session.query(SqlTraceRollupRebuild)
         }
     assert queued == {
-        (int(old_exp_id), _day_of(DAY_A_MS), RollupFamily.TRACE_METRIC.value),
-        (int(old_exp_id), _day_of(DAY_A_MS), RollupFamily.ASSESSMENT.value),
-        (int(new_exp_id), _day_of(DAY_B_MS), RollupFamily.TRACE_METRIC.value),
-        (int(new_exp_id), _day_of(DAY_B_MS), RollupFamily.ASSESSMENT.value),
-        (int(old_exp_id), _day_of(DAY_A_MS), RollupFamily.SPAN_COST.value),
-        (int(new_exp_id), _day_of(DAY_A_MS), RollupFamily.SPAN_COST.value),
+        (int(exp_id), _day_of(DAY_A_MS), RollupFamily.TRACE_METRIC.value),
+        (int(exp_id), _day_of(DAY_A_MS), RollupFamily.ASSESSMENT.value),
+        (int(exp_id), _day_of(DAY_B_MS), RollupFamily.TRACE_METRIC.value),
+        (int(exp_id), _day_of(DAY_B_MS), RollupFamily.ASSESSMENT.value),
+        (int(exp_id), _day_of(DAY_A_MS), RollupFamily.SPAN_COST.value),
     }
 
 

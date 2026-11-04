@@ -714,6 +714,28 @@ async def test_passthrough_openai_chat():
 
 
 @pytest.mark.asyncio
+async def test_passthrough_openai_chat_streaming_ends_with_done():
+    config = chat_config()
+
+    async def mock_stream():
+        chunk = mock.MagicMock()
+        chunk.model_dump.return_value = {"id": "chatcmpl-test", "choices": []}
+        yield chunk
+
+    with mock.patch("litellm.acompletion", return_value=mock_stream()):
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        payload = {"messages": [{"role": "user", "content": "Hello"}], "stream": True}
+
+        result = await provider.passthrough(PassthroughAction.OPENAI_CHAT, payload, headers=None)
+
+        chunks = [chunk async for chunk in result]
+        assert chunks == [
+            b'data: {"id": "chatcmpl-test", "choices": []}\n\n',
+            b"data: [DONE]\n\n",
+        ]
+
+
+@pytest.mark.asyncio
 async def test_passthrough_openai_embeddings():
     config = embeddings_config()
     mock_response = mock.MagicMock()

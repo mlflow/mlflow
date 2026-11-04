@@ -5,17 +5,6 @@ import type { ThemeType } from '@databricks/design-system';
 import { KnownEvaluationResultAssessmentStringValue, withAlpha } from '../components/GenAiEvaluationTracesReview.utils';
 import type { AssessmentInfo, AssessmentValueType, RunEvaluationResultAssessment } from '../types';
 
-// Taken from figma: https://www.figma.com/design/2B1KMp9x624WrxaASrSv9B/Tiles-UX?node-id=3205-87588&t=1MwrDNNRIOSODm4D-0
-export const AGGREGATE_SCORE_CHANGE_BACKGROUND_COLORS = {
-  // Tag green
-  up: '#02B30214',
-  // Tag coral
-  down: '#F000400F',
-};
-
-// tagTextCoral
-export const AGGREGATE_SCORE_CHANGE_TEXT_COLOR = '#64172B';
-
 // From https://www.figma.com/design/HvkTlHxw4sKE77wDlRBDt2/Evaluation-UX?node-id=2996-40835&t=uqVDwh0gqqRJI3jS-0
 export const CURRENT_RUN_COLOR = '#077A9D';
 export const COMPARE_TO_RUN_COLOR = '#FFAB00';

@@ -643,6 +643,48 @@ def test_correctness():
     )
 
 
+@pytest.mark.parametrize("use_trace", [False, True])
+@pytest.mark.parametrize(
+    "model",
+    ["databricks", "openai:/gpt-4.1-mini", "anthropic:/claude-3-opus", "gemini:/gemini-2.5-flash"],
+)
+def test_correctness_with_multipart_response(use_trace, model):
+    inputs = {"question": "How do I configure retention?"}
+    outputs = {
+        "output": [
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": [
+                    {"type": "output_text", "text": "Open settings."},
+                    {"type": "output_text", "text": "\nSet retention to 30 days."},
+                    {"type": "output_text", "text": "\nSave the changes."},
+                ],
+            }
+        ]
+    }
+    kwargs = (
+        {"trace": create_simple_trace(inputs=inputs, outputs=outputs)}
+        if use_trace
+        else {"inputs": inputs, "outputs": outputs}
+    )
+
+    with patch("mlflow.genai.judges.is_correct") as mock_is_correct:
+        Correctness(model=model)(
+            **kwargs, expectations={"expected_facts": ["Retention is set to 30 days"]}
+        )
+
+    mock_is_correct.assert_called_once_with(
+        request="{'question': 'How do I configure retention?'}",
+        response="Open settings.\nSet retention to 30 days.\nSave the changes.",
+        expected_facts=["Retention is set to 30 days"],
+        expected_response=None,
+        name="correctness",
+        model=model,
+        extra_headers=None,
+    )
+
+
 def test_equivalence():
     # Test with default model
     scorer = Equivalence()

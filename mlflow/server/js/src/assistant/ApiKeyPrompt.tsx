@@ -7,6 +7,7 @@ import { useCallback, useState } from 'react';
 import { Button, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
+import { useAssistant } from './AssistantContext';
 import { updateConfig } from './AssistantService';
 import { GATEWAY_PROVIDER_ID } from './constants';
 import { SecretInput } from '../gateway/components/secrets/SecretInput';
@@ -37,6 +38,7 @@ export const ApiKeyPrompt = ({
   onSaved,
 }: ApiKeyPromptProps) => {
   const { theme } = useDesignSystemTheme();
+  const { isLocalServer, canEditServerSettings } = useAssistant();
   const [apiKey, setApiKey] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,19 +72,42 @@ export const ApiKeyPrompt = ({
     }
   }, [apiKey, gatewayVendor, providerId, providerModel, onSaved]);
 
+  const containerCss = {
+    border: `1px solid ${theme.colors.borderWarning}`,
+    borderRadius: theme.borders.borderRadiusMd,
+    backgroundColor: theme.colors.backgroundValidationWarning,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: theme.spacing.sm,
+  };
+
+  // API keys are stored as server-wide LLM connections, which this caller cannot add.
+  if (!canEditServerSettings) {
+    return (
+      <div css={containerCss}>
+        <Typography.Text>
+          {isLocalServer ? (
+            <FormattedMessage
+              defaultMessage="Only an administrator can add the {provider} API key on this server. Ask an administrator, or pick another provider below."
+              description="Inline assistant API key prompt shown to a non-admin user, who cannot add API keys"
+              values={{ provider: providerName }}
+            />
+          ) : (
+            <FormattedMessage
+              defaultMessage="The {provider} API key can only be added from the MLflow server host. Pick another provider below."
+              description="Inline assistant API key prompt shown to a remote user, who cannot add API keys"
+              values={{ provider: providerName }}
+            />
+          )}
+        </Typography.Text>
+      </div>
+    );
+  }
+
   return (
-    <div
-      css={{
-        border: `1px solid ${theme.colors.borderWarning}`,
-        borderRadius: theme.borders.borderRadiusMd,
-        backgroundColor: theme.colors.backgroundValidationWarning,
-        padding: theme.spacing.md,
-        marginBottom: theme.spacing.sm,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: theme.spacing.sm,
-      }}
-    >
+    <div css={containerCss}>
       <Typography.Text>
         <FormattedMessage
           defaultMessage="Add your {provider} API key to continue, or pick another provider below."

@@ -20,6 +20,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.store.db.db_types import MYSQL, SQLITE
 from mlflow.store.tracking.dbmodels.models import SqlAssessments, SqlSpan
+from mlflow.tracing.utils import generate_assessment_id
 from mlflow.utils.time import get_current_time_millis
 
 from tests.store.tracking.sqlalchemy_store.conftest import _create_trace, create_test_span
@@ -96,6 +97,26 @@ def test_create_and_get_assessment(store_and_trace_info):
     assert retrieved_expectation.span_id == "span-456"
     assert retrieved_expectation.trace_id == trace_info.request_id
     assert retrieved_expectation.valid
+
+
+def test_start_trace_sent_again_with_the_same_assessment_ids_stores_them_once(store):
+    exp_id = store.create_experiment("test")
+    feedback = Feedback(name="quality", value=True)
+    feedback.assessment_id = generate_assessment_id()
+    trace_info = TraceInfo(
+        trace_id=f"tr-{uuid.uuid4().hex}",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=0,
+        state=TraceState.OK,
+        assessments=[feedback],
+    )
+
+    store.start_trace(trace_info)
+    store.start_trace(trace_info)
+
+    stored = store.get_trace_info(trace_info.trace_id).assessments
+    assert [a.assessment_id for a in stored] == [feedback.assessment_id]
 
 
 def test_log_spans_syncs_assessment_trace_timestamp(store):
@@ -707,3 +728,39 @@ def test_create_assessment_constraint_violation_is_not_reported_as_missing_trace
     assert "not found" not in message
     assert "IntegrityError" not in message
     assert "INSERT INTO" not in message
+
+
+def test_start_trace_rejects_assessment_from_another_trace(store):
+    exp_id = store.create_experiment("assessment_owner")
+    _create_trace(store, "tr-victim", experiment_id=exp_id)
+    victim = store.create_assessment(
+        Feedback(
+            trace_id="tr-victim",
+            name="quality",
+            value="good",
+            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user1"),
+        )
+    )
+    _create_trace(store, "tr-other", experiment_id=exp_id)
+
+    stolen = Feedback(
+        trace_id="tr-other",
+        name="quality",
+        value="bad",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user2"),
+    )
+    stolen.assessment_id = victim.assessment_id
+    with pytest.raises(MlflowException, match="belongs to another trace"):
+        store.start_trace(
+            TraceInfo(
+                trace_id="tr-other",
+                trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+                request_time=get_current_time_millis(),
+                execution_duration=0,
+                state=TraceState.OK,
+                assessments=[stolen],
+            )
+        )
+
+    kept = store.get_assessment("tr-victim", victim.assessment_id)
+    assert kept.value == "good"

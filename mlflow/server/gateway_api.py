@@ -80,7 +80,7 @@ from mlflow.gateway.tracing_utils import (
     aggregate_openai_responses_stream_chunks,
     maybe_traced_gateway_call,
 )
-from mlflow.gateway.utils import safe_stream, to_sse_chunk, translate_http_exception
+from mlflow.gateway.utils import safe_stream, to_sse_stream, translate_http_exception
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.gateway.config_resolver import get_endpoint_config
@@ -432,9 +432,12 @@ def _build_endpoint_config(
             typesafe_config["typesafe_api_base"] = model_config.auth_config[_AuthConfigKey.API_BASE]
         provider_config = TypeSafeConfig(**typesafe_config)
     elif model_config.provider == Provider.GEMINI:
-        provider_config = GeminiConfig(
-            gemini_api_key=model_config.secret_value.get(_AuthConfigKey.API_KEY),
-        )
+        gemini_config = {
+            "gemini_api_key": model_config.secret_value.get(_AuthConfigKey.API_KEY),
+        }
+        if model_config.auth_config and _AuthConfigKey.API_BASE in model_config.auth_config:
+            gemini_config["gemini_api_base"] = model_config.auth_config[_AuthConfigKey.API_BASE]
+        provider_config = GeminiConfig(**gemini_config)
     elif model_config.provider in {
         Provider.GROQ,
         Provider.DEEPSEEK,
@@ -850,7 +853,7 @@ async def invocations(endpoint_name: str, request: Request):
                 ),
             )(payload)
             return StreamingResponse(
-                safe_stream(to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
+                safe_stream(to_sse_stream(stream)),
                 media_type="text/event-stream",
             )
         else:
@@ -1001,7 +1004,7 @@ async def chat_completions(request: Request):
             ),
         )(payload)
         return StreamingResponse(
-            safe_stream(to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
+            safe_stream(to_sse_stream(stream)),
             media_type="text/event-stream",
         )
     else:
@@ -1580,7 +1583,8 @@ async def anthropic_passthrough_messages(request: Request):
             message_format="anthropic",
         )
         return StreamingResponse(
-            safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
+            safe_stream(traced_stream(body), as_bytes=True, message_format="anthropic"),
+            media_type="text/event-stream",
         )
 
     async def _guarded_passthrough(body: dict[str, Any]) -> dict[str, Any]:

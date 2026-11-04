@@ -515,6 +515,34 @@ def test_schema_enforcement_single_unnamed_tensor_schema():
         pyfunc_model.predict(input_df)
 
 
+@pytest.mark.parametrize("named", [False, True])
+@pytest.mark.parametrize("index", [range(2), [10, 20], ["left", "right"], [0, 0]])
+@pytest.mark.parametrize(
+    ("values", "shape"),
+    [
+        ([1.0, 2.0], (-1,)),
+        ([1.0, 2.0], (-1, 1)),
+        ([[1.0, 2.0], [3.0, 4.0]], (-1, 2)),
+        ([np.array([1.0, 2.0]), np.array([3.0, 4.0])], (-1, 2)),
+    ],
+)
+def test_tensor_schema_enforcement_dataframe_row_index(named, index, values, shape):
+    df = pd.DataFrame({"x": values}, index=index)
+    original = df.copy(deep=True)
+    model = Model()
+    model.signature = ModelSignature(
+        inputs=Schema([TensorSpec(np.dtype("float64"), shape, "x" if named else None)])
+    )
+    pyfunc_model = PyFuncModel(model_meta=model, model_impl=TestModel())
+
+    result = pyfunc_model.predict(df)
+    if named:
+        result = result["x"]
+    np.testing.assert_array_equal(result, np.array(values).reshape(shape))
+    assert result.dtype == np.dtype("float64")
+    pd.testing.assert_frame_equal(df, original)
+
+
 def test_schema_enforcement_named_tensor_schema_1d():
     m = Model()
     input_schema = Schema([
@@ -2800,6 +2828,28 @@ def test_loaded_pyfunc_model_preserves_nondefault_dataframe_index(tmp_path, name
     )
 
     pd.testing.assert_frame_equal(mlflow.pyfunc.load_model(model_path).predict(df), df)
+
+
+def test_loaded_pyfunc_model_preserves_datetime_lists(tmp_path):
+    class CalendarModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return [value.year for value in model_input.iloc[0]["dates"]]
+
+    data = pd.DataFrame({"dates": [[datetime.datetime(2025, 1, 2), datetime.datetime(2025, 1, 3)]]})
+    model = CalendarModel()
+    signature = infer_signature(data)
+    assert signature.inputs == Schema([ColSpec(Array(DataType.datetime), name="dates")])
+    assert model.predict(None, data) == [2025, 2025]
+
+    model_path = tmp_path / "model"
+    mlflow.pyfunc.save_model(
+        path=model_path,
+        python_model=model,
+        signature=signature,
+        pip_requirements=[],
+    )
+
+    assert mlflow.pyfunc.load_model(model_path).predict(data) == [2025, 2025]
 
 
 @pytest.mark.parametrize(

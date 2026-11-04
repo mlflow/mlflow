@@ -10,14 +10,16 @@ import {
   useSearchMlflowTraces,
 } from '@databricks/web-shared/genai-traces-table';
 
-import { useParams, useLocation } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { useParams, useLocation, useNavigate } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { shouldEnableNewEvalRunsUi } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import invariant from 'invariant';
 import { useGetExperimentQuery } from '../../../hooks/useExperimentQuery';
-import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useRef, useState, useEffect, useLayoutEffect } from 'react';
 import { ExperimentSingleChatSessionScoreResults } from './ExperimentSingleChatSessionScoreResults';
 import { TracesV3Toolbar } from '../../../components/experiment-page/components/traces-v3/TracesV3Toolbar';
 import type { ModelTrace, ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import {
+  createTraceV4LongIdentifier,
   getModelTraceId,
   isEvaluatingTracesInDetailsViewEnabled,
   isV3ModelTraceInfo,
@@ -41,8 +43,13 @@ import {
   ExperimentSingleChatConversation,
   ExperimentSingleChatConversationSkeleton,
 } from './ExperimentSingleChatConversation';
-import { GenericSkeleton, useDesignSystemTheme } from '@databricks/design-system';
-import { SELECTED_TRACE_ID_QUERY_PARAM } from '../../../constants';
+import { GenericSkeleton, Spinner, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  SELECTED_TRACE_ID_QUERY_PARAM,
+  TRACE_DRAWER_SESSION_ID_QUERY_PARAM,
+  TRACE_DRAWER_VIEW_MODE_QUERY_PARAM,
+} from '../../../constants';
+import Routes from '../../../routes';
 import { useExperimentSingleChatMetrics } from './useExperimentSingleChatMetrics';
 import { ExperimentSingleChatSessionMetrics } from './ExperimentSingleChatSessionMetrics';
 import { useRegisterAssistantContext } from '@mlflow/mlflow/src/assistant';
@@ -277,9 +284,68 @@ const ExperimentSingleChatSessionPageImpl = () => {
   );
 };
 
+/** The trace to open with the session: the linked one if it belongs to it, otherwise the first turn. */
+export const findSessionRedirectTrace = (traceInfos: ModelTraceInfoV3[], selectedTraceId: string | null) =>
+  traceInfos.find(
+    (traceInfo) =>
+      traceInfo.trace_id === selectedTraceId ||
+      (doesTraceSupportV4API(traceInfo) && createTraceV4LongIdentifier(traceInfo) === selectedTraceId),
+  ) ?? [...traceInfos].sort((left, right) => Date.parse(left.request_time) - Date.parse(right.request_time))[0];
+
+/**
+ * With the new evaluation runs UI, a session opens in the Traces tab's drawer, grouped by session, so
+ * this route sends the link there and keeps the parameters it came with.
+ */
+const ExperimentSingleChatSessionRedirect = () => {
+  const { experimentId, sessionId } = useParams();
+  const { search, hash } = useLocation();
+  const navigate = useNavigate();
+
+  invariant(experimentId, 'Experiment ID must be defined');
+  invariant(sessionId, 'Session ID must be defined');
+
+  const selectedTraceId = useMemo(() => new URLSearchParams(search).get(SELECTED_TRACE_ID_QUERY_PARAM), [search]);
+  const locations = useMemo(() => [createTraceLocationForExperiment(experimentId)], [experimentId]);
+  const filters = useMemo(() => getChatSessionsFilter({ sessionId }), [sessionId]);
+  const { data: traceInfos, isLoading } = useSearchMlflowTraces({ locations, filters });
+
+  useLayoutEffect(() => {
+    if (isLoading || traceInfos === undefined) {
+      return;
+    }
+    const selectedTrace = findSessionRedirectTrace(traceInfos, selectedTraceId);
+    const searchParams = new URLSearchParams(search);
+    searchParams.delete(SELECTED_TRACE_ID_QUERY_PARAM);
+    searchParams.set('groupBy', 'session');
+    searchParams.set('startTimeLabel', 'ALL');
+    searchParams.set(TRACE_DRAWER_VIEW_MODE_QUERY_PARAM, 'session');
+    searchParams.set(TRACE_DRAWER_SESSION_ID_QUERY_PARAM, sessionId);
+    if (selectedTrace) {
+      searchParams.set(
+        'traceId',
+        doesTraceSupportV4API(selectedTrace) ? createTraceV4LongIdentifier(selectedTrace) : selectedTrace.trace_id,
+      );
+    } else {
+      searchParams.delete('traceId');
+    }
+    navigate(`${Routes.getExperimentPageTracesTabRoute(experimentId)}?${searchParams.toString()}${hash}`, {
+      replace: true,
+    });
+  }, [experimentId, hash, isLoading, navigate, search, selectedTraceId, sessionId, traceInfos]);
+
+  return (
+    <div css={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+      <Spinner />
+    </div>
+  );
+};
+
+const ExperimentSingleChatSessionPageEntrypoint = () =>
+  shouldEnableNewEvalRunsUi() ? <ExperimentSingleChatSessionRedirect /> : <ExperimentSingleChatSessionPageImpl />;
+
 const ExperimentSingleChatSessionPage = withErrorBoundary(
   ErrorUtils.mlflowServices.CHAT_SESSIONS,
-  ExperimentSingleChatSessionPageImpl,
+  ExperimentSingleChatSessionPageEntrypoint,
   <FormattedMessage
     defaultMessage="An error occurred while rendering the chat session."
     description="Generic error message for uncaught errors when rendering a single chat session in MLflow experiment page"
