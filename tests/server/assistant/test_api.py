@@ -1323,12 +1323,19 @@ def test_stream_gateway_provider_forwards_caller_credentials_without_gateway_tok
             return False
 
     with (
-        patch("mlflow.server.assistant.api.list_providers", return_value=[provider]),
-        patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider),
-        patch("mlflow.server.assistant.api._is_localhost", return_value=True),
-        patch("mlflow.server.assistant.api.resolve_authenticated_username", return_value="alice"),
-        patch("mlflow.server.assistant.api.ensure_assistant_gateway_use_permission"),
-        patch.object(MlflowGatewayProvider, "list_models", return_value=["chat-endpoint"]),
+        patch(
+            "mlflow.server.assistant.api._get_selected_provider", return_value=provider
+        ) as get_selected_provider,
+        patch("mlflow.server.assistant.api._is_localhost", return_value=True) as is_localhost,
+        patch(
+            "mlflow.server.assistant.api.resolve_authenticated_username", return_value="alice"
+        ) as resolve_username,
+        patch(
+            "mlflow.server.assistant.api.ensure_assistant_gateway_use_permission"
+        ) as ensure_permission,
+        patch.object(
+            MlflowGatewayProvider, "list_models", return_value=["chat-endpoint"]
+        ) as list_models,
         patch(
             "aiohttp.ClientSession.post",
             new=lambda self, url, **kwargs: _FakePost(url, kwargs),
@@ -1341,6 +1348,11 @@ def test_stream_gateway_provider_forwards_caller_credentials_without_gateway_tok
             headers={"Authorization": "Bearer user-token", "Cookie": "session=abc"},
         )
 
+    get_selected_provider.assert_called()
+    is_localhost.assert_called()
+    resolve_username.assert_called()
+    ensure_permission.assert_called_once_with("alice")
+    list_models.assert_called_once_with(None, None)
     assert response.status_code == 200
     ((url, headers),) = calls
     assert url == "http://127.0.0.1:5000/gateway/mlflow/v1/chat/completions"
