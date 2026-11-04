@@ -96,7 +96,7 @@ from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.types.chat import ChatCompletionRequest
 from mlflow.utils.provider_filter import is_provider_allowed, normalize_provider_name
-from mlflow.utils.validation import GATEWAY_DESTINATION_KEYS, _validate_gateway_api_base
+from mlflow.utils.validation import GATEWAY_DESTINATION_KEYS
 from mlflow.utils.workspace_context import get_request_workspace
 
 _logger = logging.getLogger(__name__)
@@ -460,7 +460,6 @@ def _build_endpoint_config(
     elif model_config.provider == "sap":
         auth_config = model_config.auth_config or {}
         auth_url = auth_config.get("auth_url")
-        _validate_gateway_api_base(auth_url)
         service_key = json.dumps({
             "clientid": auth_config.get("client_id"),
             "clientsecret": model_config.secret_value.get("client_secret"),
