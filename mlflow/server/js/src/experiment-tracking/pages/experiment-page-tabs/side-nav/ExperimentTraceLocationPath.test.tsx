@@ -1,5 +1,6 @@
 import { describe, jest, test, expect } from '@jest/globals';
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
+import { render } from '@databricks/web-shared/test-utils/render';
 import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';

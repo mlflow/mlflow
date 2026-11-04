@@ -94,8 +94,7 @@ const renderSearch = (props: SearchHarnessProps = {}) =>
   });
 
 const searchBox = () => screen.getByRole('combobox');
-// Du Bois names the input's clear icon `close-circle`.
-const clearButton = () => screen.getByRole('button', { name: 'close-circle' });
+const clearButton = () => screen.getByRole('button', { name: 'Clear' });
 // This rc-select version exposes only its active neighborhood as ARIA options.
 // eslint-disable-next-line testing-library/no-node-access -- rc-select only exposes the active neighborhood through ARIA.
 const visibleOptions = () => Array.from(document.querySelectorAll('[class*="-select-item-option"][aria-label]'));

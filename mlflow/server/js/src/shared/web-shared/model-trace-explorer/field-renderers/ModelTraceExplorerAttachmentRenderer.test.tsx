@@ -40,7 +40,8 @@ describe('ModelTraceExplorerAttachmentRenderer', () => {
         contentType="image/png"
       />,
     );
-    expect(screen.getByRole('heading', { hidden: true })).toBeInTheDocument(); // LegacySkeleton renders as heading
+    expect(screen.getAllByRole('presentation', { hidden: true }).length).toBeGreaterThan(0);
+    expect(screen.queryByText('Test')).not.toBeInTheDocument();
   });
 
   it('renders an image for image content types', () => {

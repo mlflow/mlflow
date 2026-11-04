@@ -238,7 +238,7 @@ describe('ExperimentGenAIJourneyOverviewPage', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Detect issues' }));
 
     expect(screen.queryByRole('dialog', { name: 'Detect Issues' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'loading' })).toHaveAttribute('loading', 'true');
+    expect(screen.getByRole('button', { name: 'loading' })).toHaveAttribute('aria-disabled', 'true');
   });
 
   test('keeps completed results when issue detection is unavailable', async () => {

@@ -3,7 +3,7 @@ import { Link } from '../../common/utils/RoutingUtils';
 import Routes from '../routes';
 import { IconButton } from '../../common/components/IconButton';
 import Utils from '../../common/utils/Utils';
-import { LegacyPopover } from '@databricks/design-system';
+import { Popover } from '@databricks/design-system';
 import { type RunItem } from '../types';
 
 type Props = {
@@ -63,21 +63,28 @@ export class RunLinksPopover extends React.Component<Props> {
   render() {
     const { visible, x, y, handleVisibleChange } = this.props;
     return (
-      <LegacyPopover
-        content={this.renderContent()}
-        title={this.renderTitle()}
-        placement="left"
-        visible={visible}
-        onVisibleChange={handleVisibleChange}
+      <Popover.Root
+        open={visible}
+        onOpenChange={handleVisibleChange}
+        componentId="mlflow.experiment_tracking.run_links_popover"
       >
-        <div
-          style={{
-            left: x,
-            top: y,
-            position: 'absolute',
-          }}
-        />
-      </LegacyPopover>
+        <Popover.Anchor asChild>
+          <div
+            style={{
+              left: x,
+              top: y,
+              position: 'absolute',
+              pointerEvents: 'none',
+            }}
+          />
+        </Popover.Anchor>
+        <Popover.Content side="left">
+          <div>
+            {this.renderTitle()}
+            {this.renderContent()}
+          </div>
+        </Popover.Content>
+      </Popover.Root>
     );
   }
 }

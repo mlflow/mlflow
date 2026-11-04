@@ -1,12 +1,12 @@
 import React from 'react';
-import { LegacySkeleton } from '@databricks/design-system';
+import { ContentSkeleton } from '@databricks/design-system';
 import { SectionErrorBoundary } from '../../../common/components/error-boundaries/SectionErrorBoundary';
 
 const ShowArtifactMarkdownView = React.lazy(() => import('./ShowArtifactMarkdownView'));
 
 export const LazyShowArtifactMarkdownView = (props: React.ComponentProps<typeof ShowArtifactMarkdownView>) => (
   <SectionErrorBoundary>
-    <React.Suspense fallback={<LegacySkeleton active />}>
+    <React.Suspense fallback={<ContentSkeleton />}>
       <ShowArtifactMarkdownView {...props} />
     </React.Suspense>
   </SectionErrorBoundary>

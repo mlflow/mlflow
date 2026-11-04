@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { LegacySkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import { ContentSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { useDocumentTitle } from '@databricks/web-shared/routing';
 
 import ErrorModal from './experiment-tracking/components/modals/ErrorModal';
@@ -114,7 +114,7 @@ const MlflowRootLayout = ({
                   overflowX: 'auto',
                 }}
               >
-                <React.Suspense fallback={<LegacySkeleton />}>
+                <React.Suspense fallback={<ContentSkeleton />}>
                   <Outlet />
                 </React.Suspense>
                 {DEV_USER_SWITCHER_ENABLED && (
@@ -271,11 +271,11 @@ export const MlflowRouter = () => {
 
   // Show loading skeleton while determining if workspaces are enabled
   if (featuresLoading || !hashRouter) {
-    return <LegacySkeleton />;
+    return <ContentSkeleton />;
   }
 
   return (
-    <React.Suspense fallback={<LegacySkeleton />}>
+    <React.Suspense fallback={<ContentSkeleton />}>
       <RouterProvider router={hashRouter} />
     </React.Suspense>
   );

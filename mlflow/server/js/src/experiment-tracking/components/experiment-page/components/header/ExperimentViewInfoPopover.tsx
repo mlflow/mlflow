@@ -30,7 +30,7 @@ export const ExperimentViewInfoPopover = ({ experiment }: { experiment: Experime
         <div style={{ whiteSpace: 'nowrap' }}>
           <FormattedMessage defaultMessage="Path" description="Label for displaying the current experiment path" />:{' '}
           {experiment.name + ' '}
-          <ExperimentViewCopyTitle experiment={experiment} size="md" />
+          <ExperimentViewCopyTitle experiment={experiment} />
         </div>
         <div style={{ whiteSpace: 'nowrap' }}>
           <FormattedMessage

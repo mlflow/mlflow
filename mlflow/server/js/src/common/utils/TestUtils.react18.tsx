@@ -5,6 +5,7 @@ import { IntlProvider } from 'react-intl';
 import userEvent from '@testing-library/user-event';
 import { DEFAULT_LOCALE } from '../../i18n/loadMessages';
 import { DesignSystemProvider } from '@databricks/design-system';
+import { peelDesignSystemScopeWrappers } from '@databricks/web-shared/test-utils/render';
 
 const defaultIntlProviderProps = {
   locale: DEFAULT_LOCALE,
@@ -19,7 +20,8 @@ export function renderWithDesignSystem(ui: React.ReactElement, renderOptions = {
     </IntlProvider>
   );
 
-  return render(ui, { wrapper, ...renderOptions });
+  const result = render(ui, { wrapper, ...renderOptions });
+  return { ...result, container: peelDesignSystemScopeWrappers(result.container) };
 }
 
 export function renderWithIntl(ui: React.ReactElement, renderOptions = {}, providerProps = {}): RenderResult {
@@ -31,7 +33,8 @@ export function renderWithIntl(ui: React.ReactElement, renderOptions = {}, provi
     <IntlProvider {...mergedProviderProps}>{children}</IntlProvider>
   );
 
-  return render(ui, { wrapper, ...renderOptions });
+  const result = render(ui, { wrapper, ...renderOptions });
+  return { ...result, container: peelDesignSystemScopeWrappers(result.container) };
 }
 /**
  * userEvent.type() can be quite slow, let's use userEvent.paste()

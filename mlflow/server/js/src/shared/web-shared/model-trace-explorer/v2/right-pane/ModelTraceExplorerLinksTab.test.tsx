@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
+import { render } from '@databricks/web-shared/test-utils/render';
 import { HashRouter } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 

@@ -5,7 +5,7 @@ import {
   Input,
   Popover,
   SearchIcon,
-  Tree,
+  LegacyTree,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
@@ -43,7 +43,7 @@ const GROUP_KEY_PARAMS = makeCanonicalSortKey(GROUP_KEY, COLUMN_TYPES.PARAMS);
 const GROUP_KEY_METRICS = makeCanonicalSortKey(GROUP_KEY, COLUMN_TYPES.METRICS);
 const GROUP_KEY_TAGS = makeCanonicalSortKey(GROUP_KEY, COLUMN_TYPES.TAGS);
 
-// Tree row height from design-system Tree. The previous selector capped the list
+// Tree row height from design-system LegacyTree. The previous selector capped the list
 // at 15 rows and otherwise shrink-wrapped, so a one-result search stayed short.
 const TREE_ROW_HEIGHT = 32;
 const MAX_VISIBLE_TREE_ROWS = 15;
@@ -423,7 +423,7 @@ export const ExperimentViewRunsColumnSelector = React.memo(
               : {}),
           }}
         >
-          <Tree
+          <LegacyTree
             data-testid="column-selector-tree"
             mode="checkable"
             dangerouslySetAntdProps={{

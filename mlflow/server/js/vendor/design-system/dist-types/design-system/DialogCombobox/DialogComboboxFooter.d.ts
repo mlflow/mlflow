@@ -1,2 +1,0 @@
-export declare const DialogComboboxFooter: ({ children, ...restProps }: import("react").HTMLAttributes<HTMLDivElement>) => import("@emotion/react/jsx-runtime").JSX.Element;
-//# sourceMappingURL=DialogComboboxFooter.d.ts.map

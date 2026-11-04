@@ -16,7 +16,7 @@ import { DesignSystemContainer } from './common/components/DesignSystemContainer
 import { QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { createMlflowQueryClient } from '@mlflow/mlflow/src/shared/web-shared/query-client/createMlflowQueryClient';
 import { createApolloClient } from './graphql/client';
-import { LegacySkeleton } from '@databricks/design-system';
+import { ContentSkeleton } from '@databricks/design-system';
 // eslint-disable-next-line no-useless-rename
 import { MlflowRouter as MlflowRouter } from './MlflowRouter';
 import { useMLflowDarkTheme } from './common/hooks/useMLflowDarkTheme';
@@ -44,7 +44,7 @@ export function MLFlowRoot() {
   if (!intl) {
     return (
       <DesignSystemContainer>
-        <LegacySkeleton />
+        <ContentSkeleton />
       </DesignSystemContainer>
     );
   }

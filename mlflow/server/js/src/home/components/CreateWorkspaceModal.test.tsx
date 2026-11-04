@@ -297,6 +297,8 @@ describe('CreateWorkspaceModal', () => {
 
     await userEvent.keyboard('{Enter}');
 
-    expect(nameInput).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockOnSuccess).toHaveBeenCalledWith('test-workspace');
+    });
   });
 });

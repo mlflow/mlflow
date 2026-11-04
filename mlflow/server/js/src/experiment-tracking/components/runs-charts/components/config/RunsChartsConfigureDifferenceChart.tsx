@@ -1,11 +1,4 @@
-import {
-  Checkbox,
-  Input,
-  Switch,
-  useDesignSystemTheme,
-  InfoSmallIcon,
-  LegacyInfoTooltip,
-} from '@databricks/design-system';
+import { Checkbox, Input, Switch, useDesignSystemTheme, InfoSmallIcon, InfoTooltip } from '@databricks/design-system';
 import type { RunsChartsCardConfig, RunsChartsDifferenceCardConfig } from '../../runs-charts.types';
 import { DISABLED_GROUP_WHEN_GROUPBY, DifferenceCardConfigCompareGroup } from '../../runs-charts.types';
 import { RunsChartsConfigureField } from './RunsChartsConfigure.common';
@@ -101,8 +94,9 @@ export const RunsChartsConfigureDifferenceChart = ({
                   {group}
                 </Checkbox>
                 {groupedCondition && (
-                  <LegacyInfoTooltip
-                    title={
+                  <InfoTooltip
+                    componentId="mlflow.runs-charts.difference-chart.disable-grouped-runs-tooltip"
+                    content={
                       <FormattedMessage
                         defaultMessage="Disable grouped runs to compare"
                         description="Experiment tracking > components > runs-charts > RunsChartsConfigureDifferenceCharts > disable grouped runs info message"

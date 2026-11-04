@@ -95,12 +95,12 @@ describe('TracesV4TraceDrawer sessions', () => {
     expect(await screen.findByText('2 turns', {}, { timeout: 10000 })).toBeInTheDocument();
     expect(searchFilters[0]).toContain(SESSION_ID);
 
-    // One "View full trace" action per turn, oldest first.
-    const viewTraceButtons = await screen.findAllByRole('button', { name: 'View full trace' });
-    expect(viewTraceButtons).toHaveLength(2);
-    await userEvent.click(viewTraceButtons[0]);
+    // Each turn has a "View full trace" action, shown only while that turn is active (hovered).
+    await userEvent.click(await screen.findByRole('button', { name: 'View full trace' }));
     expect(session.onViewTrace).toHaveBeenLastCalledWith('tr-turn-1');
-    await userEvent.click(viewTraceButtons[1]);
+    // The navigation pane and the conversation both label each turn; hovering either selects it.
+    await userEvent.hover(screen.getAllByText('Turn 2')[0]);
+    await userEvent.click(screen.getByRole('button', { name: 'View full trace' }));
     expect(session.onViewTrace).toHaveBeenLastCalledWith('tr-turn-2');
   });
 

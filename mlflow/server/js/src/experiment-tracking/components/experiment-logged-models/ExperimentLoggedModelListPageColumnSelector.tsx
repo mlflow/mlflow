@@ -1,5 +1,5 @@
 import type { TreeDataNode } from '@databricks/design-system';
-import { Button, ColumnsIcon, DropdownMenu, Tree, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, ColumnsIcon, DropdownMenu, LegacyTree, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import { compact } from 'lodash';
@@ -121,7 +121,7 @@ export const ExperimentLoggedModelListPageColumnSelector = ({
     };
   }, [columnDefs, intl]);
 
-  const treeCheckChangeHandler: React.ComponentProps<typeof Tree>['onCheck'] = (checkedKeys) => {
+  const treeCheckChangeHandler: React.ComponentProps<typeof LegacyTree>['onCheck'] = (checkedKeys) => {
     // Extract key data conforming to unusual antd API
     const keys = 'checked' in checkedKeys ? checkedKeys.checked : checkedKeys;
 
@@ -153,7 +153,7 @@ export const ExperimentLoggedModelListPageColumnSelector = ({
         )}
       </DropdownMenu.Trigger>
       <DropdownMenu.Content css={{ maxHeight: 500, paddingRight: 32 }}>
-        <Tree
+        <LegacyTree
           treeData={treeData}
           mode="checkable"
           showLine

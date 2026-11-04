@@ -207,12 +207,7 @@ const IconRow = ({
           <ThemeSelectOptions />
         </SimpleSelect>
         <Tooltip content={removeLabel} componentId={`${componentId}.remove.tooltip`}>
-          <Button
-            componentId={`${componentId}.remove`}
-            aria-label={removeLabel}
-            onClick={() => onRemove(index)}
-            dangerouslySetAntdProps={{ danger: true }}
-          >
+          <Button componentId={`${componentId}.remove`} aria-label={removeLabel} onClick={() => onRemove(index)} danger>
             <CloseIcon />
           </Button>
         </Tooltip>

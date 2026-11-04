@@ -1,4 +1,4 @@
-import { CopyIcon, Typography } from '@databricks/design-system';
+import { CopyActionButton } from '@databricks/web-shared/copy';
 import { useIntl } from 'react-intl';
 import type { ExperimentEntity } from '../../../../types';
 
@@ -10,24 +10,13 @@ export const ExperimentViewCopyExperimentId = ({ experiment }: { experiment: Exp
   const intl = useIntl();
 
   return (
-    <Typography.Text
-      size="md"
-      dangerouslySetAntdProps={{
-        copyable: {
-          text: experiment.experimentId,
-          icon: <CopyIcon />,
-          tooltips: [
-            intl.formatMessage({
-              defaultMessage: 'Copy experiment id',
-              description: 'Copy tooltip to copy experiment id from experiment runs table header',
-            }),
-            intl.formatMessage({
-              defaultMessage: 'Experiment id copied',
-              description: 'Tooltip displayed after experiment id was successfully copied to clipboard',
-            }),
-          ],
-        },
-      }}
+    <CopyActionButton
+      componentId="mlflow.experiment.header.copy-experiment-id"
+      copyText={experiment.experimentId}
+      copyTooltip={intl.formatMessage({
+        defaultMessage: 'Copy experiment id',
+        description: 'Copy tooltip to copy experiment id from experiment runs table header',
+      })}
     />
   );
 };

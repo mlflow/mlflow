@@ -1,5 +1,6 @@
 import { afterEach, describe, it, expect, jest } from '@jest/globals';
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
+import { render } from '@databricks/web-shared/test-utils/render';
 import userEvent from '@testing-library/user-event';
 
 import { DesignSystemProvider } from '@databricks/design-system';

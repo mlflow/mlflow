@@ -7,6 +7,7 @@ import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { CreateModelButton } from './CreateModelButton';
 import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import userEvent from '@testing-library/user-event';
+import { isLinkButton } from '@databricks/design-system/test-utils/rtl/buttonVariants';
 
 const minimalProps = {};
 
@@ -29,7 +30,7 @@ describe('CreateModelButton', () => {
   });
 
   test('should render button type link correctly', () => {
-    const { container } = renderWithIntl(
+    renderWithIntl(
       <Provider store={minimalStore}>
         <MemoryRouter>
           <CreateModelButton buttonType="link" />
@@ -37,7 +38,7 @@ describe('CreateModelButton', () => {
       </Provider>,
     );
 
-    expect(container.querySelector('.ant-btn-link')).toBeInTheDocument();
+    expect(isLinkButton(screen.getByTestId(buttonDataTestId))).toBe(true);
   });
 
   test('should hide modal by default', () => {

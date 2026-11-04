@@ -2299,10 +2299,6 @@
     "defaultMessage": "Custom view",
     "description": "Selected trace explorer custom view mode label"
   },
-  "5aZ7nE": {
-    "defaultMessage": "Artifact location copied",
-    "description": "Tooltip displayed after experiment artifact location was successfully copied to clipboard"
-  },
   "5ad3UB": {
     "defaultMessage": "Loading scorer results",
     "description": "Loading label for a comparison scorer cell"
@@ -6594,10 +6590,6 @@
   "JBt+0g": {
     "defaultMessage": "Aliases:",
     "description": "MCP server version detail aliases label"
-  },
-  "JCboZ7": {
-    "defaultMessage": "Path copied",
-    "description": "Tooltip displayed after experiment path was successfully copied to clipboard"
   },
   "JChRnq": {
     "defaultMessage": "Last 24 hours",
@@ -17195,10 +17187,6 @@
     "defaultMessage": "Manage",
     "description": "Sidebar account dropdown item linking to admin pages"
   },
-  "qH2cN+": {
-    "defaultMessage": "Experiment id copied",
-    "description": "Tooltip displayed after experiment id was successfully copied to clipboard"
-  },
   "qHqhov": {
     "defaultMessage": "Select as baseline version",
     "description": "Label for selecting baseline MCP server version in the comparison view"
@@ -17482,10 +17470,6 @@
   "r7aGM3": {
     "defaultMessage": "Save",
     "description": "Save button in unified trace tag assignment modal"
-  },
-  "r7bY37": {
-    "defaultMessage": "Dataset id copied",
-    "description": "Tooltip displayed after dataset id was successfully copied to clipboard"
   },
   "r7ziwW": {
     "defaultMessage": "What this skill does and when to use it.",

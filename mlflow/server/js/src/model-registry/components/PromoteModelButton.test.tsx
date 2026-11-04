@@ -88,9 +88,10 @@ describe('PromoteModelButton', () => {
     await user.click(buttonElement);
     const cancelButtonElement = screen.getByRole('button', { name: 'Cancel' });
     await user.click(cancelButtonElement);
-    const modalElement = screen.getByText(/Copy your MLflow models/);
-    expect(modalElement).toBeInTheDocument();
-    expect(modalElement).not.toBeVisible();
+    // With Radix modals, the modal is completely removed from the DOM when closed
+    await waitFor(() => {
+      expect(screen.queryByText(/Copy your MLflow models/)).not.toBeInTheDocument();
+    });
   });
 
   it('should invoke expected APIs for copy model version flow', async () => {

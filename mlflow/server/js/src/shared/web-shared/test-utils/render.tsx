@@ -49,22 +49,7 @@ export function render(
     ...options,
     wrapper: composeWrappers([options.wrapper, enableEmotionCSS ? undefined : NoopCssCacheProvider]),
   });
-  // `DesignSystemProvider` (supplied by the component-under-test or its test wrapper) renders a
-  // layout-neutral (`display: contents`) scope wrapper around its children, and nested providers
-  // (notebook theme, notifications, …) legitimately stack more. Descend through every consecutive
-  // scope wrapper so `container` lands on the innermost one — the element that holds the component's
-  // own output — keeping child-scoped queries and emptiness assertions (`toBeEmptyDOMElement()`,
-  // `container.firstChild`) reading exactly what they did before the wrapper existed. Keyed on the
-  // wrapper testid, so it only ever walks DSP scope wrappers; when no wrapper is present (a render
-  // with no `DesignSystemProvider`), `container` is returned unchanged.
-  let container = result.container;
-  while (
-    container.childNodes.length === 1 &&
-    container.firstChild instanceof HTMLElement &&
-    container.firstChild.dataset['testid'] === DS_OVERRIDE_TOKENS_WRAPPER_TESTID
-  ) {
-    container = container.firstChild;
-  }
+  const container = peelDesignSystemScopeWrappers(result.container);
   return {
     ...result,
     container,
@@ -80,6 +65,27 @@ export function render(
             return template.content;
           })(),
   };
+}
+
+/**
+ * Returns the element holding the rendered component's own output. `DesignSystemProvider` (supplied by
+ * the component-under-test or its test wrapper) renders a layout-neutral (`display: contents`) scope
+ * wrapper around its children, and nested providers (notebook theme, notifications, …) legitimately
+ * stack more. Descending through every consecutive scope wrapper keeps child-scoped queries and
+ * emptiness assertions (`toBeEmptyDOMElement()`, `container.firstChild`) reading exactly what they did
+ * before the wrapper existed. Keyed on the wrapper testid, so it only ever walks DSP scope wrappers;
+ * a render with no `DesignSystemProvider` gets its container back unchanged.
+ */
+export function peelDesignSystemScopeWrappers(container: HTMLElement): HTMLElement {
+  let innermostContainer = container;
+  while (
+    innermostContainer.childNodes.length === 1 &&
+    innermostContainer.firstChild instanceof HTMLElement &&
+    innermostContainer.firstChild.dataset['testid'] === DS_OVERRIDE_TOKENS_WRAPPER_TESTID
+  ) {
+    innermostContainer = innermostContainer.firstChild;
+  }
+  return innermostContainer;
 }
 
 /**

@@ -5,7 +5,7 @@ import {
   OverflowIcon,
   Typography,
   useDesignSystemTheme,
-  LegacyInfoTooltip,
+  InfoTooltip,
   FullscreenIcon,
   Switch,
   Spinner,
@@ -192,7 +192,11 @@ const RunsChartCardWrapperRaw = ({
               {title}
             </Typography.Title>
             {subtitle && <span css={styles.subtitle(theme)}>{subtitle}</span>}
-            {tooltip && <LegacyInfoTooltip css={{ verticalAlign: 'middle' }} title={tooltip} />}
+            {tooltip && (
+              <span css={{ verticalAlign: 'middle' }}>
+                <InfoTooltip componentId="mlflow.runs-charts.chart-card.title-tooltip" content={tooltip} />
+              </span>
+            )}
           </div>
         )}
         {isRefreshing && (

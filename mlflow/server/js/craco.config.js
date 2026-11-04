@@ -326,7 +326,8 @@ module.exports = function () {
         jestConfig.moduleFileExtensions.push('mjs');
         // Remove when this issue is resolved: https://github.com/gsoft-inc/craco/issues/393
         jestConfig.transform = {
-          '\\.[jt]sx?$': ['babel-jest', { configFile: './jest.babel.config.js' }],
+          // Include .cjs/.mjs so dependencies shipping them (e.g. react-aria) get the static class block transform.
+          '\\.[cm]?[jt]sx?$': ['babel-jest', { configFile: './jest.babel.config.js' }],
           ...jestConfig.transform,
         };
         jestConfig.transformIgnorePatterns = ['\\.pnp\\.[^\\/]+$', createIgnorePatternForESM()];
@@ -353,6 +354,7 @@ module.exports = function () {
             '<rootDir>/node_modules/@a2ui/web_core/src/v0_9/basic_catalog/index.js',
           '^@a2ui/web_core/v0_9$': '<rootDir>/node_modules/@a2ui/web_core/src/v0_9/index.js',
           '^@a2ui/react/v0_9$': '<rootDir>/node_modules/@a2ui/react/v0_9/index.cjs',
+          '^@radix-ui/primitive/is-development$': '<rootDir>/__mocks__/radixPrimitiveIsDevelopment.ts',
         };
 
         jestConfig.moduleNameMapper = moduleNameMapper;

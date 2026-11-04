@@ -30,7 +30,7 @@
     "@ag-grid-community/react": "^27.2.1",
     "@apollo/client": "^3.6.9",
     "@craco/craco": "7.0.0-alpha.0",
-    "@databricks/design-system": "file:./vendor/design-system",
+    "@databricks/design-system": "2.0.17",
     "@dnd-kit/core": "^6.0.8",
     "@dnd-kit/modifiers": "^6.0.1",
     "@dnd-kit/sortable": "^7.0.2",

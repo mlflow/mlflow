@@ -5,20 +5,20 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   Button,
   ChevronDownIcon,
-  Typography,
-  useDesignSystemTheme,
+  ContentSkeleton,
   DialogCombobox,
   DialogComboboxContent,
-  SegmentedControlGroup,
-  SegmentedControlButton,
   DialogComboboxCustomButtonTriggerWrapper,
-  XCircleFillIcon,
-  TableFilterLayout,
-  LegacySkeleton,
   FilterIcon,
-  Tooltip,
+  SegmentedControlButton,
+  SegmentedControlGroup,
   Spinner,
+  TableFilterLayout,
+  Tooltip,
+  Typography,
+  useDesignSystemTheme,
   WarningIcon,
+  XCircleFillIcon,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
@@ -320,7 +320,7 @@ function GenAiTracesTableImpl({
   const totalEvaluationResults = currentEvaluationResults.length;
 
   if (compareToRunLoading) {
-    return <LegacySkeleton />;
+    return <ContentSkeleton />;
   }
 
   return (

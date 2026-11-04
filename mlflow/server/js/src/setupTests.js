@@ -2,6 +2,7 @@
 import { configure } from 'enzyme';
 import Adapter from '@wojtekmaj/enzyme-adapter-react-17';
 import { cacheComputedStylesUntilDomChanges } from './common/utils/cacheComputedStyles';
+import { setDesignSystemFlags } from '@databricks/design-system/flags';
 
 const setupMockFetch = () => {
   // eslint-disable-next-line import/no-extraneous-dependencies, no-unreachable
@@ -25,6 +26,11 @@ global.clearImmediate = (id) => {
 };
 
 cacheComputedStylesUntilDomChanges();
+
+// Under Jest, design system feature flags otherwise resolve to Databricks-internal test defaults, which
+// differ from what the published package ships (e.g. native vs. AntD Input). Overriding nothing makes
+// every flag resolve to its published value, so tests render the components users get.
+setDesignSystemFlags({});
 
 // Ant Design's icons re-inject their stylesheet from an effect in every icon that mounts, and
 // finding the node already there means scanning every `<style>` in `document.head`. See

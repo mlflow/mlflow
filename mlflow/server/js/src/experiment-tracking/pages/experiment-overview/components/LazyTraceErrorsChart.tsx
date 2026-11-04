@@ -1,5 +1,5 @@
 import React from 'react';
-import { LegacySkeleton } from '@databricks/design-system';
+import { ContentSkeleton } from '@databricks/design-system';
 
 const TraceErrorsChart = React.lazy(() =>
   import('./TraceErrorsChart').then((module) => ({ default: module.TraceErrorsChart })),
@@ -10,7 +10,7 @@ interface LazyTraceErrorsChartProps {
 }
 
 export const LazyTraceErrorsChart: React.FC<LazyTraceErrorsChartProps> = ({ enableTraceNavigation }) => (
-  <React.Suspense fallback={<LegacySkeleton active />}>
+  <React.Suspense fallback={<ContentSkeleton />}>
     <TraceErrorsChart enableTraceNavigation={enableTraceNavigation} />
   </React.Suspense>
 );

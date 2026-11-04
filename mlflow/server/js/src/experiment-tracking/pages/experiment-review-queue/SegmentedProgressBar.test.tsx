@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { render } from '@testing-library/react';
+import { render } from '@databricks/web-shared/test-utils/render';
 import React from 'react';
 
 import { DesignSystemProvider } from '@databricks/design-system';

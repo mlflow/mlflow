@@ -1,4 +1,4 @@
-import { LegacySkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import { ContentSkeleton, TitleSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { useEffect, useState } from 'react';
 import { ErrorCodes } from '../../../common/constants';
 import { getExperimentApi } from '../../actions';
@@ -198,7 +198,7 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
 
   if (!isViewInitialized) {
     // In the new view state model, wait for search facets to initialize
-    return <LegacySkeleton />;
+    return <ContentSkeleton />;
   }
 
   invariant(searchFacets, 'searchFacets should be initialized at this point');
@@ -299,7 +299,7 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
     <ExperimentPageUIStateContextProvider setUIState={setUIState}>
       <div css={styles.experimentViewWrapper}>
         {isLoading ? (
-          <LegacySkeleton title paragraph={false} active />
+          <TitleSkeleton />
         ) : showHeader ? (
           <>
             {isComparingExperiments ? (

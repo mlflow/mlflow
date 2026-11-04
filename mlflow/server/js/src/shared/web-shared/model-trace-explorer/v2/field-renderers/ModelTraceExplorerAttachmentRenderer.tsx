@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
 
 import {
+  ContentSkeleton,
   DesignSystemEventProviderAnalyticsEventTypes,
   DesignSystemEventProviderComponentTypes,
-  LegacySkeleton,
   Modal,
   Typography,
   useDesignSystemEventComponentCallbacks,
@@ -60,7 +60,7 @@ export const ModelTraceExplorerAttachmentRenderer = ({
   }
 
   if (isLoading) {
-    return <LegacySkeleton />;
+    return <ContentSkeleton />;
   }
 
   const exceedsRenderLimit = exceedsRenderSizeLimit(contentType, contentLength);
@@ -103,7 +103,7 @@ export const ModelTraceExplorerAttachmentRenderer = ({
   }
 
   if (!objectUrl) {
-    return <LegacySkeleton />;
+    return <ContentSkeleton />;
   }
 
   if (contentType.startsWith('image/')) {

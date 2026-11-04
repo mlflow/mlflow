@@ -1,4 +1,4 @@
-import { LegacySkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import { useDesignSystemTheme } from '@databricks/design-system';
 import type { KeyValueEntity } from '../../../common/types';
 import ArtifactPage from '../ArtifactPage';
 import { useMediaQuery } from '@databricks/web-shared/hooks';

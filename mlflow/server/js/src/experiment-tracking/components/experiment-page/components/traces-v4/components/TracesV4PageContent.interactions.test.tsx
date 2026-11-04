@@ -577,8 +577,9 @@ describe('TracesV4PageContent (interactions)', () => {
 
   describe('Display popover: row height', () => {
     // Standard and Tall keep the same row padding; their row height differs by the density minHeight
-    // floor and preview line clamp.
-    const STANDARD_ROW_PADDING = '6px';
+    // floor and preview line clamp. The design system sets row padding to its default-size table token,
+    // which jsdom can't resolve to a length.
+    const STANDARD_ROW_PADDING = 'var(--db-table-row-padding-vertical)';
     const STANDARD_ROW_MIN_HEIGHT = '48px';
     const TALL_ROW_MIN_HEIGHT = '128px';
     const firstTraceRow = () => screen.getByRole('row', { name: /Open trace tr-000 — input/ });

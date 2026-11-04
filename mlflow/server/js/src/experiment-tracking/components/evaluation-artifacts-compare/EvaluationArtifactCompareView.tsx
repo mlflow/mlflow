@@ -1,4 +1,5 @@
 import {
+  ContentSkeleton,
   CopyIcon,
   DialogCombobox,
   DialogComboboxContent,
@@ -10,7 +11,6 @@ import {
   InfoSmallIcon,
   Input,
   SearchIcon,
-  LegacySkeleton,
   Spinner,
   ToggleButton,
   Tooltip,
@@ -411,7 +411,7 @@ const EvaluationArtifactCompareViewImpl = ({
           </Tooltip>
         </div>
         {isLoading ? (
-          <LegacySkeleton />
+          <ContentSkeleton />
         ) : (
           <>
             <div

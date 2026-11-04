@@ -1,5 +1,6 @@
 import { describe, jest, beforeEach, it, expect } from '@jest/globals';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { render } from '@databricks/web-shared/test-utils/render';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 

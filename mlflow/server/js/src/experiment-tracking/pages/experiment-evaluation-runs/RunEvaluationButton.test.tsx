@@ -633,10 +633,10 @@ describe('RunEvaluationButton', () => {
         '[data-component-id="mlflow.eval-runs.start-run-modal.footer.ok"]',
       );
       expect(okButton).not.toBeNull();
-      // The design-system Button reflects `loading` via the btn-loading class / loading attr
+      // The design-system Button exposes `loading` as aria-disabled with a "loading" spinner label
       // (it does not set the DOM disabled attribute), and swallows clicks while loading.
-      expect(okButton?.className).toContain('btn-loading');
-      expect(okButton).toHaveAttribute('loading', 'true');
+      expect(okButton).toHaveAttribute('aria-disabled', 'true');
+      expect(okButton).toHaveAccessibleName('loading');
       await user.click(okButton as HTMLButtonElement);
       expect(mockInvokeMutate).not.toHaveBeenCalled();
 

@@ -1,4 +1,4 @@
-import { PageWrapper, LegacySkeleton } from '@databricks/design-system';
+import { ContentSkeleton, PageWrapper } from '@databricks/design-system';
 import { useEffect, useState } from 'react';
 import { connect, useDispatch } from 'react-redux';
 import { useParams, useNavigate } from '../../common/utils/RoutingUtils';
@@ -53,7 +53,7 @@ const DirectRunPageImpl = (props: any) => {
   // If the run is loading, display skeleton
   return (
     <PageWrapper>
-      <LegacySkeleton />
+      <ContentSkeleton />
     </PageWrapper>
   );
 };

@@ -1,11 +1,4 @@
-import {
-  DangerIcon,
-  Empty,
-  LegacySkeleton,
-  ParagraphSkeleton,
-  TitleSkeleton,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { DangerIcon, Empty, ParagraphSkeleton, TitleSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { useSelector } from 'react-redux';
 import invariant from 'invariant';
 import React, { useMemo, useState } from 'react';

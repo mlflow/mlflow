@@ -9,7 +9,7 @@ import {
 import Utils from '../../../common/utils/Utils';
 import { GetExperimentsContextProvider } from './contexts/GetExperimentsContext';
 import { ExperimentView } from './ExperimentView';
-import { LegacySkeleton, PageWrapper, useDesignSystemTheme } from '@databricks/design-system';
+import { ContentSkeleton, PageWrapper, useDesignSystemTheme } from '@databricks/design-system';
 import { useNavigateToExperimentPageTab } from './hooks/useNavigateToExperimentPageTab';
 import { useExperimentIds } from './hooks/useExperimentIds';
 
@@ -49,7 +49,7 @@ const ExperimentPage = () => {
   });
 
   if (isAutoNavigatingToTab) {
-    return <LegacySkeleton />;
+    return <ContentSkeleton />;
   }
   if (isAutoNavigateEnabled) {
     return null;

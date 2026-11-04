@@ -228,8 +228,7 @@ describe('TracesV4PageContent', () => {
     await waitFor(() => expect(new URLSearchParams(env.lastSearch).get('q')).toBe('hello'));
 
     // Clicking the input's clear (X) affordance commits the empty search right away (no Enter needed).
-    // Du Bois Input renders the X with the accessible name `close-circle` (matches the datasets-v2 tests).
-    await user.click(screen.getByLabelText('close-circle'));
+    await user.click(screen.getByLabelText('Clear'));
     await waitFor(() => expect(new URLSearchParams(env.lastSearch).get('q')).toBeNull());
   });
 

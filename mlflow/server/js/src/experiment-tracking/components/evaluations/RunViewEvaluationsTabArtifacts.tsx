@@ -1,5 +1,5 @@
 import { isNil } from 'lodash';
-import { Empty, LegacySkeleton } from '@databricks/design-system';
+import { ContentSkeleton, Empty } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { type KeyValueEntity } from '../../../common/types';
 import { useDesignSystemTheme } from '@databricks/design-system';
@@ -67,7 +67,7 @@ export const RunViewEvaluationsTabArtifacts = ({
 
   if (compareToRunLoading) {
     // TODO: Implement proper skeleton for this page
-    return <LegacySkeleton />;
+    return <ContentSkeleton />;
   }
 
   const initialSelectedColumns = (allColumns: TracesTableColumn[]) => {
