@@ -335,7 +335,7 @@
     "daybreak-red-latest": {
       "mode": "chat",
       "context_window": {
-        "max_input": 400000,
+        "max_input": 272000,
         "max_output": 128000
       },
       "pricing": {
@@ -360,7 +360,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-05"
     },
     "gpt-3.5-turbo": {
       "mode": "chat",
@@ -2943,7 +2943,7 @@
     "gpt-5.6-cyber": {
       "mode": "chat",
       "context_window": {
-        "max_input": 400000,
+        "max_input": 272000,
         "max_output": 128000
       },
       "pricing": {
@@ -2968,7 +2968,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-05"
     },
     "gpt-5.6-luna": {
       "mode": "chat",
@@ -3647,7 +3647,7 @@
     "gpt-daybreak-red-latest": {
       "mode": "responses",
       "context_window": {
-        "max_input": 400000,
+        "max_input": 272000,
         "max_output": 128000
       },
       "pricing": {
@@ -3672,7 +3672,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-05"
     },
     "gpt-image-1": {
       "mode": "image_generation",
