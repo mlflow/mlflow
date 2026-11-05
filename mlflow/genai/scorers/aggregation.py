@@ -42,9 +42,11 @@ def compute_aggregated_metrics(
     """
     # Collect assessment values in a flat dictionary
     assessment_values: dict[str, list[float]] = collections.defaultdict(list)
+    error_counts: collections.Counter[str] = collections.Counter()
     for eval_result in eval_results:
         for assessment in eval_result.assessments:
             if isinstance(assessment, Feedback):
+                error_counts[assessment.name] += assessment.error is not None
                 value = _cast_assessment_value_to_float(assessment)
                 if value is not None:  # Exclude None from aggregation
                     assessment_values[assessment.name].append(value)
@@ -77,6 +79,11 @@ def compute_aggregated_metrics(
         # Each aggregation should be logged as a separate metric
         for agg_name, agg_value in aggregation_results.items():
             result[f"{name}/{agg_name}"] = agg_value
+
+    # Log the error count for every feedback name, including 0, so runs can be compared.
+    # A custom aggregation that is also named "error_count" takes precedence.
+    for name, count in error_counts.items():
+        result.setdefault(f"{name}/error_count", count)
 
     return result
 
