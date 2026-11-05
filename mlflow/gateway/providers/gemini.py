@@ -438,7 +438,6 @@ class GeminiAdapter(ProviderAdapter):
             if key
             not in {
                 "promptTokenCount",
-                "toolUsePromptTokenCount",
                 "candidatesTokenCount",
                 "totalTokenCount",
                 "cachedContentTokenCount",

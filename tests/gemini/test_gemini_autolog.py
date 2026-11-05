@@ -669,6 +669,7 @@ def test_generate_content_thoughts_tokens(is_async, mock_litellm_cost):
     [
         ({"prompt_token_count": 10, "tool_use_prompt_token_count": 500}, 510),
         ({"prompt_token_count": 10}, 10),
+        ({"tool_use_prompt_token_count": 500}, 500),
     ],
 )
 def test_generate_content_tool_use_prompt_tokens(

@@ -2415,8 +2415,11 @@ def test_gemini_adapter_prompt_tokens_include_tool_use(endpoint, counts, expecte
     assert response.usage.prompt_tokens == expected
     assert response.usage.completion_tokens == 20
     assert response.usage.total_tokens == usage_metadata["totalTokenCount"]
-    if endpoint != "completions":
-        assert "toolUsePromptTokenCount" not in response.usage.model_dump()
+    if endpoint != "completions" and "toolUsePromptTokenCount" in counts:
+        assert (
+            response.usage.model_dump()["toolUsePromptTokenCount"]
+            == counts["toolUsePromptTokenCount"]
+        )
 
 
 @pytest.mark.parametrize("streaming", [False, True])
