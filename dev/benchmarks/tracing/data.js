@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793882238983,
+  "lastUpdate": 1793886747003,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "85829459+shivamAmrutia@users.noreply.github.com",
-            "name": "shivam",
-            "username": "shivamAmrutia"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b485d45ef392b68e6e958aa29cc49a4c2c25c584",
-          "message": "Avoid re-serializing unmodified LazySpan JSON on get-trace-artifact. (#24569)\n\nSigned-off-by: shivamAmrutia <amrutiashivam@gmail.com>\nCo-authored-by: Aaron Teo <atwkdeveloper@gmail.com>\nCo-authored-by: Claude Fable 5.1 <noreply@anthropic.com>",
-          "timestamp": "2026-09-07T13:25:15+08:00",
-          "tree_id": "d3591753553c4c65df75dbdae4a67b6d4e89449c",
-          "url": "https://github.com/mlflow/mlflow/commit/b485d45ef392b68e6e958aa29cc49a4c2c25c584"
-        },
-        "date": 1788758796342,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 43.507485550001945,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 6.26988879999999,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 5.456403546665835,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 6.282990135593846,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 5.75753265384505,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 9.91829099999677,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 2.961338666667738,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fei76161@gmail.com",
+            "name": "Chen Yufeiyang",
+            "username": "feiiiiii5"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e4cebb4c956094b0ccedb57a2a49b23b5cf660c1",
+          "message": "Handle bare string blocks in LangChain list message content (#27361)\n\nSigned-off-by: fei <204683769+feiiiiii5@users.noreply.github.com>",
+          "timestamp": "2026-11-05T13:48:56Z",
+          "tree_id": "ab4a660d1e3aa6f9baae36490595639e02fac593",
+          "url": "https://github.com/mlflow/mlflow/commit/e4cebb4c956094b0ccedb57a2a49b23b5cf660c1"
+        },
+        "date": 1793886743649,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 37.284766249999635,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.413729380951176,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.376222627737217,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 5.442156900708521,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.791212101266584,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 6.866613200000415,
             "unit": "ms"
           }
         ]
