@@ -27,15 +27,12 @@ on:
         description: "Optional follow-up instructions, e.g. implement the first option"
         required: false
         type: string
+      # Supported models: https://docs.databricks.com/aws/en/machine-learning/foundation-model-apis/supported-models
       model:
-        description: "AI Gateway Claude model for the triage agent"
+        description: "AI Gateway Claude model for the triage agent, e.g. databricks-claude-opus-5-5"
         required: false
-        type: choice
+        type: string
         default: databricks-claude-sonnet-5-5
-        options:
-          - databricks-claude-opus-5-5
-          - databricks-claude-sonnet-5-5
-          - databricks-claude-haiku-5-5
       effort:
         description: "Reasoning effort for the triage agent"
         required: false
@@ -111,16 +108,6 @@ jobs:
           MODEL: ${{ inputs.model || vars.TRIAGE_MODEL || 'databricks-claude-opus-5-5' }}
           EFFORT: ${{ inputs.effort || vars.TRIAGE_EFFORT || 'high' }}
         run: |
-          case "$MODEL" in
-            databricks-claude-opus-5-5 | \
-            databricks-claude-sonnet-5-5 | \
-            databricks-claude-haiku-5-5)
-              ;;
-            *)
-              echo "::error::Unsupported model '$MODEL'; check TRIAGE_MODEL."
-              exit 1
-              ;;
-          esac
           case "$EFFORT" in
             low | medium | high | xhigh | max) ;;
             *)
