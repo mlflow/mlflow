@@ -81,11 +81,7 @@ class SapAiCoreAdapter(ProviderAdapter):
                 params[key] = payload[key]
 
         prompt_templating: dict[str, Any] = {
-            "prompt": {
-                "template": [
-                    {"role": m["role"], "content": m.get("content") or ""} for m in messages
-                ]
-            },
+            "prompt": {"template": [{**m, "content": m.get("content") or ""} for m in messages]},
             "model": {
                 "name": model_name,
                 **({"params": params} if params else {}),
