@@ -1037,7 +1037,7 @@ jobs:
             exit 0
           fi
           # The payload is agent output and unvalidated here, so keep only a well-formed verdict.
-          payload=$(jq -c objects "$RUNNER_TEMP/triage-out/payload.json" 2>/dev/null) || payload='{}'
+          payload=$(jq -c objects "$RUNNER_TEMP/triage-report/payload.json" 2>/dev/null) || payload='{}'
           tags=$(jq -nc --argjson p "${payload:-"{}"}" '{
             "triage.action": env.ACTION,
             "triage.type": env.TYPE,
