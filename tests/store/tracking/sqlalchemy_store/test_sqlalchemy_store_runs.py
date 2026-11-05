@@ -288,6 +288,24 @@ def test_create_run_sets_name(store: SqlAlchemyStore):
         )
 
 
+@pytest.mark.parametrize("tag_value", ["", None])
+@pytest.mark.parametrize("run_name", [None, "", "test"])
+def test_create_run_with_empty_run_name_tag(store: SqlAlchemyStore, run_name, tag_value):
+    experiment_id = _create_experiments(store, "test_create_run_empty_run_name_tag")
+    run = store.create_run(
+        experiment_id=experiment_id,
+        user_id="user",
+        start_time=0,
+        run_name=run_name,
+        tags=[RunTag(mlflow_tags.MLFLOW_RUN_NAME, tag_value)],
+    )
+    run = store.get_run(run.info.run_id)
+    assert run.info.run_name
+    if run_name:
+        assert run.info.run_name == run_name
+    assert run.data.tags[mlflow_tags.MLFLOW_RUN_NAME] == run.info.run_name
+
+
 def test_get_run_with_name(store: SqlAlchemyStore):
     experiment_id = _create_experiments(store, "test_get_run")
     configs = _get_run_configs(experiment_id=experiment_id)

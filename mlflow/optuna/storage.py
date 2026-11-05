@@ -680,7 +680,9 @@ class MlflowStorage(BaseStorage):
         ]
         return frozen_trials
 
-    def get_n_trials(self, study_id, states=None) -> int:
+    def get_n_trials(
+        self, study_id, states: Container[TrialState] | TrialState | None = None
+    ) -> int:
         # Flush all batches to ensure we have the latest data
         self.flush_all_batches()
 
@@ -688,4 +690,8 @@ class MlflowStorage(BaseStorage):
             experiment_ids=[self._experiment_id],
             filter_string=f"tags.mlflow.parentRunId='{study_id}'",
         )
-        return len(runs)
+        if states is None:
+            return len(runs)
+        if isinstance(states, TrialState):
+            states = (states,)
+        return sum(mlflow_optuna_status_map[run.info.status] in states for run in runs)

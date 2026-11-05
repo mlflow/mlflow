@@ -11147,6 +11147,10 @@
     "defaultMessage": "Learn more",
     "description": "Link text in column header tooltip that opens documentation in a new tab"
   },
+  "XSDjEY": {
+    "defaultMessage": "You don't have access to any workspaces yet. Ask an administrator to create a workspace or grant you access.",
+    "description": "Home page workspaces empty state description for users who can't create workspaces"
+  },
   "XUSSA9": {
     "defaultMessage": "Sort",
     "description": "Display menu item opening the traces table sort submenu"
@@ -19214,6 +19218,10 @@
   "wx0s66": {
     "defaultMessage": "Select a provider and model to configure API key",
     "description": "Message when no provider selected for API key form"
+  },
+  "wxkZxq": {
+    "defaultMessage": "No workspaces available",
+    "description": "Home page workspaces empty state title for users who can't create workspaces"
   },
   "wxlu/9": {
     "defaultMessage": "Jump to linked span",
