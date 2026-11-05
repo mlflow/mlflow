@@ -2,9 +2,10 @@ from unittest import mock
 
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import EndpointConfig
+from mlflow.gateway.config import EndpointConfig, LiteLLMConfig
 from mlflow.gateway.providers.base import PassthroughAction
 from mlflow.gateway.providers.litellm import LiteLLMAdapter, LiteLLMProvider
 from mlflow.gateway.schemas import chat, embeddings
@@ -113,6 +114,23 @@ def mock_litellm_embeddings_response():
     response.usage.total_tokens = 5
 
     return response
+
+
+@pytest.mark.parametrize("key", ["aws_region_name", "vertex_location"])
+def test_litellm_config_accepts_region_names(key):
+    config = LiteLLMConfig(litellm_provider="sagemaker", litellm_auth_config={key: "us-east-1"})
+    assert config.litellm_auth_config[key] == "us-east-1"
+
+
+@pytest.mark.parametrize("key", ["aws_region_name", "vertex_location"])
+@pytest.mark.parametrize("value", ["evil.example", "evil.example/#", "US-EAST-1", 1])
+def test_litellm_config_rejects_non_region_names(key, value):
+    with pytest.raises(ValidationError, match=f"{key} must contain only") as exc:
+        LiteLLMConfig(
+            litellm_provider="sagemaker",
+            litellm_auth_config={key: value, "aws_secret_access_key": "TOPSECRET"},
+        )
+    assert "TOPSECRET" not in str(exc.value)
 
 
 def test_litellm_not_installed():
@@ -1146,6 +1164,8 @@ def chat_config_with_base_url_alias():
         ("model_list", [{"model_name": "m", "litellm_params": {"api_base": "http://10.0.0.1/"}}]),
         ("fallbacks", [{"model": "m", "api_base": "http://10.0.0.1/"}]),
         ("custom_llm_provider", "ollama"),
+        ("aws_bedrock_runtime_endpoint", "http://127.0.0.1:11434"),
+        ("aws_sts_endpoint", "http://127.0.0.1:11434"),
     ],
 )
 @pytest.mark.asyncio
