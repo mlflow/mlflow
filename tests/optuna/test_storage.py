@@ -328,6 +328,15 @@ def test_get_study_id_from_name_and_get_study_name_from_id(setup_storage):
         storage.get_study_name_from_id(study_id + "1")
 
 
+@pytest.mark.parametrize("study_name", ["alice's-tuning", '"alice"-tuning'])
+def test_get_study_id_from_name_with_quotes(setup_storage, study_name):
+    storage = setup_storage
+    study_id = storage.create_new_study(directions=[StudyDirection.MINIMIZE], study_name=study_name)
+
+    assert storage.get_study_id_from_name(study_name) == study_id
+    assert storage.get_study_id_by_name_if_exists(study_name) == study_id
+
+
 def test_set_and_get_study_directions(setup_storage):
     storage = setup_storage
     for target in [
