@@ -1,7 +1,7 @@
 const fs = require("fs");
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const CUTOFF_DAYS = 180;
-const EXCLUDED_LABELS = new Set(["security"]);
+const EXCLUDED_LABELS = new Set(["security", "enhancement"]);
 
 const SEARCH_QUERY = `
   query($searchQuery: String!, $cursor: String) {
@@ -169,7 +169,7 @@ module.exports = async ({ context, github }) => {
   const cutoffDate = new Date(cutoffTime).toISOString().slice(0, 10);
   // Label and reaction exclusions live in the search query so every result
   // page holds only eligible issues.
-  const searchQuery = `repo:${owner}/${repo} is:issue is:open created:<${cutoffDate} -label:security reactions:0`;
+  const searchQuery = `repo:${owner}/${repo} is:issue is:open created:<${cutoffDate} -label:security -label:enhancement reactions:0`;
   const linkedPullRequestUrls = new Map();
   const closedIssueNumbers = [];
   const closedPullRequestNumbers = [];
