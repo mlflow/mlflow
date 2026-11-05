@@ -5476,7 +5476,7 @@ def _review_queue_max_results_validator(x):
 def _get_request_username():
     """The authenticated request user, stamped on ``flask.g`` by the auth
     plugin's before-request hook. ``None`` when no auth plugin is active (a
-    no-auth server), where queue ownership is meaningless.
+    no-auth server).
     """
     return getattr(g, "mlflow_authenticated_user", None)
 

@@ -214,8 +214,9 @@ def test_invoke_issue_detection_job_with_endpoint():
 
 
 def test_invoke_issue_detection_job_propagates_username_for_gateway_auth(monkeypatch):
-    monkeypatch.delenv("MLFLOW_TRACKING_USERNAME", raising=False)
-    monkeypatch.delenv("MLFLOW_TRACKING_PASSWORD", raising=False)
+    # setenv (not delenv) so monkeypatch restores both after the job overwrites os.environ
+    monkeypatch.setenv("MLFLOW_TRACKING_USERNAME", "")
+    monkeypatch.setenv("MLFLOW_TRACKING_PASSWORD", "")
     monkeypatch.setenv("_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", "internal-token")
     captured_env = {}
 
@@ -242,6 +243,30 @@ def test_invoke_issue_detection_job_propagates_username_for_gateway_auth(monkeyp
     mock_client_cls.assert_called_once()
     mock_discover_issues.assert_called_once()
     assert captured_env == {"username": "alice", "password": "internal-token"}
+
+
+def test_invoke_issue_detection_job_skips_username_propagation_when_none(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACKING_USERNAME", "unchanged")
+    monkeypatch.setenv("MLFLOW_TRACKING_PASSWORD", "unchanged")
+    monkeypatch.setenv("_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", "internal-token")
+
+    with (
+        mock.patch("mlflow.genai.discovery.job.MlflowClient"),
+        mock.patch("mlflow.genai.discovery.job.discover_issues") as mock_discover_issues,
+    ):
+        mock_discover_issues.return_value = mock.MagicMock(
+            issues=[], total_traces_analyzed=1, total_cost_usd=0.0
+        )
+        invoke_issue_detection_job(
+            experiment_id="exp-123",
+            trace_ids=["trace-1"],
+            categories=["correctness"],
+            run_id="run-123",
+            model="gateway:/my-endpoint",
+        )
+
+    assert os.environ["MLFLOW_TRACKING_USERNAME"] == "unchanged"
+    assert os.environ["MLFLOW_TRACKING_PASSWORD"] == "unchanged"
 
 
 def test_invoke_issue_detection_job_batches_large_trace_list():

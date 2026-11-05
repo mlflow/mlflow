@@ -6421,7 +6421,10 @@ def test_invoke_scorer_submits_jobs(mock_tracking_store):
     )
     mock_tracking_store.batch_get_trace_infos.return_value = [trace1, trace2]
 
-    with mock.patch("mlflow.server.jobs.submit_job") as mock_submit:
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit,
+        mock.patch("mlflow.server.handlers._get_request_username", return_value="alice"),
+    ):
         mock_job = mock.MagicMock()
         mock_job.job_id = "test-job-123"
         mock_submit.return_value = mock_job
@@ -6445,6 +6448,7 @@ def test_invoke_scorer_submits_jobs(mock_tracking_store):
         mock_tracking_store.batch_get_trace_infos.assert_called_once_with(["trace1", "trace2"])
         mock_submit.assert_called_once()
         assert mock_submit.call_args.kwargs["params"]["experiment_id"] == "exp-123"
+        assert mock_submit.call_args.kwargs["params"]["username"] == "alice"
 
 
 def test_invoke_scorer_deduplicates_trace_ids(mock_tracking_store):
@@ -11359,7 +11363,7 @@ def test_invoke_genai_evaluate_handler_success(monkeypatch, mock_tracking_store)
         assert submit_kwargs["params"]["scorer_versions"] == [None, None]
         assert submit_kwargs["params"]["experiment_id"] == "exp-123"
         assert submit_kwargs["params"]["run_id"] == "run-genai-1"
-        # No basic auth on the test client -> no username propagated.
+        # No auth plugin stamps an authenticated user here, so no username is propagated.
         assert submit_kwargs["params"]["username"] is None
 
         mock_client.set_tag.assert_called_once_with(
@@ -11780,9 +11784,8 @@ def test_invoke_genai_evaluate_handler_missing_required_fields(monkeypatch):
 def test_invoke_genai_evaluate_handler_propagates_authenticated_username(
     monkeypatch, mock_tracking_store
 ):
-    """Username comes from the auth plugin's authenticated user (not the Basic
-    Authorization header, which OIDC sessions lack) and feeds the job's
-    gateway-auth path so judge LLM calls are made *as* the user.
+    """Username comes from the auth plugin's authenticated user and feeds the
+    job's gateway-auth path so judge LLM calls are made *as* the user.
     """
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
 
