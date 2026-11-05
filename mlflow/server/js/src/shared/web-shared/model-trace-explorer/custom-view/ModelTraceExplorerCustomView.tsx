@@ -49,6 +49,8 @@ import { Markdown } from './catalog-primitives/Markdown';
 import { RadioGroup } from './catalog-primitives/RadioGroup';
 import { StatCard } from './catalog-primitives/StatCard';
 import { Text } from './catalog-primitives/Text';
+import { TraceAudio } from './catalog-primitives/TraceAudio';
+import { TraceImage } from './catalog-primitives/TraceImage';
 import { FeedbackStatusProvider } from './FeedbackStatusContext';
 import type { AgentNode } from './agent/buildAgentPrompt';
 import { validateAndPrepareMessages, validateTemplate } from './agent/validateA2uiMessages';
@@ -191,6 +193,8 @@ export const ModelTraceExplorerCustomView = ({
           Icon,
           StatCard,
           Markdown,
+          TraceImage,
+          TraceAudio,
           AssessmentBoard,
           AssessmentCard,
           KeyValueViewer,

@@ -2,6 +2,7 @@ import hashlib
 import json
 import time
 from typing import Any, AsyncIterable
+from urllib.parse import parse_qsl, urlparse, urlunparse
 
 from mlflow.gateway.config import EndpointConfig, GeminiConfig
 from mlflow.gateway.exceptions import AIGatewayException
@@ -13,7 +14,9 @@ from mlflow.gateway.providers.base import (
     _drop_client_auth_headers,
 )
 from mlflow.gateway.providers.utils import (
+    _error_detail,
     parse_base64_data_url,
+    proxy_root_url,
     rename_payload_keys,
     send_proxy_request,
     send_request,
@@ -30,6 +33,7 @@ from mlflow.gateway.schemas import (
 )
 from mlflow.gateway.utils import handle_incomplete_chunks, strip_sse_prefix
 from mlflow.types.chat import Function, ToolCall
+from mlflow.utils.uri import append_to_uri_path, append_to_uri_query_params
 
 GENERATION_CONFIG_KEY_MAPPING = {
     "stop": "stopSequences",
@@ -51,6 +55,14 @@ GENERATION_CONFIGS = [
     "frequencyPenalty",
     "presencePenalty",
 ]
+
+
+def _get_completion_tokens(usage_metadata: dict[str, Any]) -> int | None:
+    completion_tokens = usage_metadata.get("candidatesTokenCount")
+    # Gemini bills thinking tokens at the output token rate.
+    if (thoughts_tokens := usage_metadata.get("thoughtsTokenCount")) is not None:
+        completion_tokens = (completion_tokens or 0) + thoughts_tokens
+    return completion_tokens
 
 
 def _to_gemini_parts(content: Any) -> list[dict[str, Any]]:
@@ -95,7 +107,27 @@ def _tool_result_to_response(content: Any) -> dict[str, Any]:
     return parsed if isinstance(parsed, dict) else {"result": parsed}
 
 
+# Gemini finish reasons that mean the output was withheld by a safety or policy filter.
+# https://ai.google.dev/api/generate-content#FinishReason
+_CONTENT_FILTER_FINISH_REASONS = frozenset({
+    "SAFETY",
+    "RECITATION",
+    "BLOCKLIST",
+    "PROHIBITED_CONTENT",
+    "SPII",
+    "IMAGE_SAFETY",
+    "IMAGE_PROHIBITED_CONTENT",
+    "IMAGE_RECITATION",
+    "ESCALATION",
+})
+
+
 class GeminiAdapter(ProviderAdapter):
+    @staticmethod
+    def _join_text_parts(parts):
+        """Concatenate the text of every part; Gemini may split one reply across parts."""
+        return "".join(part.get("text") or "" for part in parts or [])
+
     @classmethod
     def _normalize_finish_reason(cls, finish_reason):
         """Normalize Gemini finish reasons to OpenAI format (lowercase)."""
@@ -103,7 +135,16 @@ class GeminiAdapter(ProviderAdapter):
             return finish_reason
         if finish_reason == "MAX_TOKENS":
             return "length"
+        if finish_reason in _CONTENT_FILTER_FINISH_REASONS:
+            return "content_filter"
         return finish_reason.lower()
+
+    @staticmethod
+    def _is_prompt_blocked(resp) -> bool:
+        """A blocked prompt comes back with ``promptFeedback.blockReason`` and no candidates."""
+        return not resp.get("candidates") and bool(
+            resp.get("promptFeedback", {}).get("blockReason")
+        )
 
     @classmethod
     def chat_to_model(cls, payload, config):
@@ -197,7 +238,15 @@ class GeminiAdapter(ProviderAdapter):
                     system_message = {"parts": []}
                 system_message["parts"].append({"text": message["content"]})
             elif role == "tool":
-                call_id = message["tool_call_id"]
+                call_id = message.get("tool_call_id")
+                if call_id not in call_id_to_function_name_map:
+                    raise AIGatewayException(
+                        status_code=422,
+                        detail=(
+                            f"Invalid tool message: tool_call_id={call_id} does not match "
+                            "any tool call in a preceding assistant message."
+                        ),
+                    )
                 function_response = {
                     "functionResponse": {
                         "id": call_id,
@@ -254,11 +303,14 @@ class GeminiAdapter(ProviderAdapter):
                     )
 
                 tool_function = tool["function"]
-                function_declarations.append({
-                    "name": tool_function["name"],
-                    "description": tool_function["description"],
-                    "parametersJsonSchema": tool_function["parameters"],
-                })
+                # `description` and `parameters` are optional in both OpenAI tool
+                # definitions and Gemini function declarations.
+                function_declaration = {"name": tool_function["name"]}
+                if description := tool_function.get("description"):
+                    function_declaration["description"] = description
+                if parameters := tool_function.get("parameters"):
+                    function_declaration["parametersJsonSchema"] = parameters
+                function_declarations.append(function_declaration)
 
             gemini_payload["tools"] = [{"functionDeclarations": function_declarations}]
 
@@ -346,6 +398,9 @@ class GeminiAdapter(ProviderAdapter):
                     )
                 )
         content = "".join(text_parts) or None
+        # Gemini reports STOP for a turn that ends in a function call.
+        if tool_calls and finish_reason == "stop":
+            finish_reason = "tool_calls"
         if stream:
             return chat_schema.StreamChoice(
                 index=choice_idx,
@@ -387,7 +442,7 @@ class GeminiAdapter(ProviderAdapter):
         return chat_schema.ChatUsage(
             **extra,
             prompt_tokens=usage_metadata.get("promptTokenCount"),
-            completion_tokens=usage_metadata.get("candidatesTokenCount"),
+            completion_tokens=_get_completion_tokens(usage_metadata),
             total_tokens=usage_metadata.get("totalTokenCount"),
             prompt_tokens_details=prompt_tokens_details,
         )
@@ -420,25 +475,37 @@ class GeminiAdapter(ProviderAdapter):
         for idx, candidate in enumerate(resp.get("candidates", [])):
             finish_reason = cls._normalize_finish_reason(candidate.get("finishReason", "stop"))
 
-            if parts := candidate.get("content", {}).get("parts", None):
-                if any(part.get("functionCall") for part in parts):
-                    choices.append(
-                        GeminiAdapter._convert_function_call_to_openai_choice(
-                            parts, finish_reason, idx, False
-                        )
+            parts = candidate.get("content", {}).get("parts")
+            if parts and any(part.get("functionCall") for part in parts):
+                choices.append(
+                    GeminiAdapter._convert_function_call_to_openai_choice(
+                        parts, finish_reason, idx, False
                     )
+                )
+            elif (
+                content := GeminiAdapter._join_text_parts(parts)
+            ) or finish_reason == "content_filter":
+                # A filtered candidate may have no parts or only empty-text parts; keep it so
+                # clients see why it ended.
+                choices.append(
+                    chat_schema.Choice(
+                        index=idx,
+                        message=chat_schema.ResponseMessage(
+                            role="assistant",
+                            content=content or None,
+                        ),
+                        finish_reason=finish_reason,
+                    )
+                )
 
-                elif content := parts[0].get("text"):
-                    choices.append(
-                        chat_schema.Choice(
-                            index=idx,
-                            message=chat_schema.ResponseMessage(
-                                role="assistant",
-                                content=content,
-                            ),
-                            finish_reason=finish_reason,
-                        )
-                    )
+        if cls._is_prompt_blocked(resp):
+            choices.append(
+                chat_schema.Choice(
+                    index=0,
+                    message=chat_schema.ResponseMessage(role="assistant", content=None),
+                    finish_reason="content_filter",
+                )
+            )
 
         usage_metadata = resp.get("usageMetadata", {})
 
@@ -495,7 +562,11 @@ class GeminiAdapter(ProviderAdapter):
                     )
                     continue
 
-            delta_text = parts[0].get("text", "") if parts else ""
+            delta_text = GeminiAdapter._join_text_parts(parts)
+            # Gemini ends a tool-call stream with a STOP chunk that carries no functionCall,
+            # so the calls seen in earlier chunks decide the finish reason.
+            if finish_reason == "stop" and (tool_call_offsets or {}).get(idx, 0):
+                finish_reason = "tool_calls"
             choices.append(
                 chat_schema.StreamChoice(
                     index=idx,
@@ -504,6 +575,14 @@ class GeminiAdapter(ProviderAdapter):
                         role="assistant",
                         content=delta_text,
                     ),
+                )
+            )
+        if cls._is_prompt_blocked(resp):
+            choices.append(
+                chat_schema.StreamChoice(
+                    index=0,
+                    finish_reason="content_filter",
+                    delta=chat_schema.StreamDelta(role="assistant", content=""),
                 )
             )
         current_time = int(time.time())
@@ -571,11 +650,10 @@ class GeminiAdapter(ProviderAdapter):
         for idx, candidate in enumerate(resp.get("candidates", [])):
             text = ""
             if parts := candidate.get("content", {}).get("parts", None):
-                text = parts[0].get("text", None)
-            if not text:
-                continue
-
+                text = cls._join_text_parts(parts)
             finish_reason = cls._normalize_finish_reason(candidate.get("finishReason", "stop"))
+            if not text and finish_reason != "content_filter":
+                continue
 
             choices.append(
                 completions_schema.Choice(
@@ -583,6 +661,11 @@ class GeminiAdapter(ProviderAdapter):
                     text=text,
                     finish_reason=finish_reason,
                 )
+            )
+
+        if cls._is_prompt_blocked(resp):
+            choices.append(
+                completions_schema.Choice(index=0, text="", finish_reason="content_filter")
             )
 
         usage_metadata = resp.get("usageMetadata", {})
@@ -594,7 +677,7 @@ class GeminiAdapter(ProviderAdapter):
             choices=choices,
             usage=completions_schema.CompletionsUsage(
                 prompt_tokens=usage_metadata.get("promptTokenCount", None),
-                completion_tokens=usage_metadata.get("candidatesTokenCount", None),
+                completion_tokens=_get_completion_tokens(usage_metadata),
                 total_tokens=usage_metadata.get("totalTokenCount", None),
             ),
         )
@@ -625,13 +708,17 @@ class GeminiAdapter(ProviderAdapter):
         choices = []
         for idx, cand in enumerate(resp.get("candidates", [])):
             parts = cand.get("content", {}).get("parts", [])
-            delta_text = parts[0].get("text", "") if parts else ""
+            delta_text = cls._join_text_parts(parts)
             choices.append(
                 completions_schema.StreamChoice(
                     index=idx,
                     finish_reason=cls._normalize_finish_reason(cand.get("finishReason")),
                     text=delta_text,
                 )
+            )
+        if cls._is_prompt_blocked(resp):
+            choices.append(
+                completions_schema.StreamChoice(index=0, finish_reason="content_filter", text="")
             )
         current_time = int(time.time())
 
@@ -788,7 +875,13 @@ class GeminiProvider(BaseProvider):
 
     @property
     def base_url(self):
-        return "https://generativelanguage.googleapis.com/v1beta/models"
+        # Accept an API origin, a versioned API root, or a full models base.
+        parsed = urlparse(self.gemini_config.gemini_api_base)
+        path = parsed.path.rstrip("/")
+        versions = ("/v1", "/v1beta", "/v1alpha")
+        if not path.endswith(tuple(f"{version}/models" for version in versions)):
+            path += "/models" if path.endswith(versions) else "/v1beta/models"
+        return urlunparse(parsed._replace(path=path))
 
     @property
     def adapter_class(self):
@@ -797,9 +890,9 @@ class GeminiProvider(BaseProvider):
     def get_endpoint_url(self, route_type: str) -> str:
         model_name = self.config.model.name
         if route_type in ("llm/v1/chat", "llm/v1/completions"):
-            return f"{self.base_url}/{model_name}:generateContent"
+            return append_to_uri_path(self.base_url, f"{model_name}:generateContent")
         elif route_type == "llm/v1/embeddings":
-            return f"{self.base_url}/{model_name}:embedContent"
+            return append_to_uri_path(self.base_url, f"{model_name}:embedContent")
         raise ValueError(f"Invalid route type {route_type}")
 
     async def _request(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -851,6 +944,16 @@ class GeminiProvider(BaseProvider):
 
         return self.adapter_class.model_to_completions(resp, self.config)
 
+    def _raise_for_stream_error(self, resp: dict[str, Any]) -> None:
+        # Gemini can report an error inside a stream that already returned 200. Raise it so the
+        # stream ends with an error instead of looking complete.
+        if error := resp.get("error"):
+            raise AIGatewayException(
+                status_code=502,
+                detail=f"{self.DISPLAY_NAME} returned {error.get('status')} while streaming: "
+                f"{_error_detail(resp)}",
+            )
+
     async def _completions_stream(
         self, payload: completions_schema.RequestPayload
     ) -> AsyncIterable[completions_schema.StreamResponsePayload]:
@@ -860,11 +963,14 @@ class GeminiProvider(BaseProvider):
         self.check_for_model_field(body)
 
         model_payload = self.adapter_class.completions_to_model(body, self.config)
-        path = f"{self.config.model.name}:streamGenerateContent?alt=sse"
+        path = f"{self.config.model.name}:streamGenerateContent"
 
         # Documentation: https://ai.google.dev/api/generate-content#method:-models.streamgeneratecontent
         sse = send_stream_request(
-            headers=self.headers, base_url=self.base_url, path=path, payload=model_payload
+            headers=self.headers,
+            base_url=append_to_uri_query_params(self.base_url, ("alt", "sse")),
+            path=path,
+            payload=model_payload,
         )
 
         async for raw in handle_incomplete_chunks(sse):
@@ -875,6 +981,7 @@ class GeminiProvider(BaseProvider):
             if data == "[DONE]":
                 break
             resp = json.loads(data)
+            self._raise_for_stream_error(resp)
             yield self.adapter_class.model_to_completions_streaming(resp, self.config)
 
     async def _chat(self, payload: chat_schema.RequestPayload) -> chat_schema.ResponsePayload:
@@ -906,8 +1013,8 @@ class GeminiProvider(BaseProvider):
         # Documentation: https://ai.google.dev/api/generate-content#method:-models.streamgeneratecontent
         sse = send_stream_request(
             headers=self.headers,
-            base_url=self.base_url,
-            path=f"{self.config.model.name}:streamGenerateContent?alt=sse",
+            base_url=append_to_uri_query_params(self.base_url, ("alt", "sse")),
+            path=f"{self.config.model.name}:streamGenerateContent",
             payload=body,
         )
 
@@ -922,6 +1029,7 @@ class GeminiProvider(BaseProvider):
             if data == "[DONE]":
                 break
             resp = json.loads(data)
+            self._raise_for_stream_error(resp)
             yield self.adapter_class.model_to_chat_streaming(resp, self.config, tool_call_counts)
             for pos, cand in enumerate(resp.get("candidates", [])):
                 idx = cand.get("index", pos)
@@ -945,7 +1053,16 @@ class GeminiProvider(BaseProvider):
             }
         }
         """
-        usage_metadata = result.get("usageMetadata")
+        return self._extract_gemini_token_usage(result.get("usageMetadata"))
+
+    def _extract_gemini_token_usage(
+        self, usage_metadata: dict[str, Any] | None
+    ) -> dict[str, int] | None:
+        if usage_metadata:
+            usage_metadata = {
+                **usage_metadata,
+                "candidatesTokenCount": _get_completion_tokens(usage_metadata),
+            }
         return self._extract_token_usage_from_dict(
             usage_metadata,
             "promptTokenCount",
@@ -983,13 +1100,7 @@ class GeminiProvider(BaseProvider):
 
                 # Extract usageMetadata if present
                 usage_metadata = data.get("usageMetadata")
-                if token_usage := self._extract_token_usage_from_dict(
-                    usage_metadata,
-                    "promptTokenCount",
-                    "candidatesTokenCount",
-                    "totalTokenCount",
-                    cache_read_key="cachedContentTokenCount",
-                ):
+                if token_usage := self._extract_gemini_token_usage(usage_metadata):
                     return token_usage
 
         except (json.JSONDecodeError, UnicodeDecodeError):
@@ -1003,10 +1114,16 @@ class GeminiProvider(BaseProvider):
         payload: dict[str, Any],
         headers: dict[str, str] | None = None,
     ) -> dict[str, Any] | AsyncIterable[Any]:
-        # base_url includes /v1beta/models; the caller's path already starts with
-        # v1beta/models/..., so use the bare origin to avoid double-prefixing.
-        api_origin = "https://generativelanguage.googleapis.com"
-        gen = send_proxy_request(self._get_headers(None, headers), api_origin, path, payload)
+        # Strip the models and version suffixes, retaining any relay path prefix.
+        # Raw proxy callers already supply the full versioned API path.
+        api_root = proxy_root_url(proxy_root_url(self.base_url))
+        if urlparse(api_root).query:
+            parsed_path = urlparse(path)
+            api_root = append_to_uri_query_params(
+                api_root, *parse_qsl(parsed_path.query, keep_blank_values=True)
+            )
+            path = urlunparse(parsed_path._replace(query=""))
+        gen = send_proxy_request(self._get_headers(None, headers), api_root, path, payload)
         meta = await gen.__anext__()
         if meta["is_streaming"]:
             return gen
@@ -1028,9 +1145,10 @@ class GeminiProvider(BaseProvider):
         is_streaming = action == PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT
 
         if is_streaming:
+            provider_path = provider_path.removesuffix("?alt=sse")
             stream = send_stream_request(
                 headers=request_headers,
-                base_url=self.base_url,
+                base_url=append_to_uri_query_params(self.base_url, ("alt", "sse")),
                 path=provider_path,
                 payload=payload,
             )

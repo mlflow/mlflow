@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, AsyncGenerator, Callable, Literal
 
-from mlflow.assistant.config import AssistantConfig, ProviderConfig
+from mlflow.assistant.config import AssistantConfig, ProviderConfig, get_config_user
 from mlflow.assistant.types import Event
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_ASSISTANT_SANDBOX,
@@ -32,17 +32,24 @@ def assistant_sandbox_enabled() -> bool:
     return MLFLOW_ENABLE_REMOTE_ASSISTANT.get() and shutil.which("docker") is not None
 
 
-@lru_cache(maxsize=10)
-def load_config(name: str) -> ProviderConfig:
-    cfg = AssistantConfig.load()
+@lru_cache(maxsize=32)
+def _load_config_cached(name: str, user: str | None) -> ProviderConfig:
+    # Load for the EXPLICIT user (not the request ContextVar), so the cache key and the loaded
+    # data derive from the same ``user`` and cannot diverge (which would serve one user's provider
+    # config under another user's key).
+    cfg = AssistantConfig.load_for_user(user)
     if not cfg or name not in cfg.providers:
         raise RuntimeError(f"Provider configuration not found for {name}")
     return cfg.providers[name]
 
 
+def load_config(name: str) -> ProviderConfig:
+    return _load_config_cached(name, get_config_user())
+
+
 def clear_config_cache() -> None:
     """Clear the config cache to pick up config changes."""
-    load_config.cache_clear()
+    _load_config_cached.cache_clear()
 
 
 def load_config_or_default(name: str) -> ProviderConfig:

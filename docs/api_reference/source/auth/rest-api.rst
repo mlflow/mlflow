@@ -845,6 +845,46 @@ Response Structure
 
 ===========================
 
+.. _skill-registry-allowed-actions:
+
+Skill Registry Response Permissions
+===================================
+
+When authentication is enabled, parent skill responses include an optional
+``allowed_actions`` field for non-admin users. This array of strings contains the
+actions the current user can perform on that skill in its workspace.
+
+The field is included in responses from these endpoints. Paths are relative to
+``/api/3.0/mlflow/skills``.
+
+.. list-table::
+    :header-rows: 1
+
+    * - Method
+      - Path
+      - Field location
+    * - ``POST``
+      - Base path
+      - Parent skill object
+    * - ``GET``
+      - Base path
+      - Each parent skill object in ``skills``
+    * - ``GET``, ``PATCH``
+      - ``/{name}`` or ``/@{organization}/{name}``
+      - Parent skill object
+
+Possible values are ``USE``, ``UPDATE``, ``DELETE``, and ``MANAGE``. For example,
+a user with ``EDIT`` permission receives ``"allowed_actions": ["USE", "UPDATE"]``.
+A user with ``READ`` permission receives ``"allowed_actions": []``. Read access
+is implicit in a successful response; there is no ``READ`` action in this array.
+
+The field is omitted for admins and when authentication is disabled. An omitted
+field is different from an empty array: an empty array indicates read-only access.
+Skill version responses do not include this field. The server continues to enforce
+permissions on each request.
+
+===========================
+
 .. _auth-rest-struct:
 
 Data Structures

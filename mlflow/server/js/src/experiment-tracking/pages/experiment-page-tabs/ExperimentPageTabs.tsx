@@ -1,5 +1,11 @@
-import React, { useEffect, useMemo } from 'react';
-import { Button, PageWrapper, ParagraphSkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  Button,
+  GenericSkeleton,
+  PageWrapper,
+  ParagraphSkeleton,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { PredefinedError } from '@databricks/web-shared/errors';
 import invariant from 'invariant';
 import { useNavigate, useParams, Outlet, useLocation, matchPath } from '../../../common/utils/RoutingUtils';
@@ -10,6 +16,7 @@ import { coerceToEnum } from '@databricks/web-shared/utils';
 import { ExperimentKind, ExperimentPageTabName, MLFLOW_EXPERIMENT_TRACE_STORAGE_UC_SCHEMA_TAG } from '../../constants';
 import {
   shouldEnableExperimentOverviewTab,
+  shouldEnableNewEvalRunsUi,
   shouldEnableWorkflowBasedNavigation,
 } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import {
@@ -21,7 +28,7 @@ import {
 import { useIsFileStore } from '../../hooks/useServerInfo';
 import { useUpdateExperimentKind } from '../../components/experiment-page/hooks/useUpdateExperimentKind';
 import { ExperimentViewHeaderKindSelector } from '../../components/experiment-page/components/header/ExperimentViewHeaderKindSelector';
-import { useExperimentKind } from '../../utils/ExperimentKindUtils';
+import { isGenAIExperimentKind, useExperimentKind } from '../../utils/ExperimentKindUtils';
 import { useInferExperimentKind } from '../../components/experiment-page/hooks/useInferExperimentKind';
 import { ExperimentViewInferredKindModal } from '../../components/experiment-page/components/header/ExperimentViewInferredKindModal';
 import Routes, { RoutePaths } from '../../routes';
@@ -33,6 +40,21 @@ import { HeaderVisibilityProvider, useHeaderVisibility } from './ExperimentPageH
 import { ExperimentViewSavedViewsButton } from '../../components/experiment-page/components/header/ExperimentViewSavedViewsButton';
 import { SharedViewActionsBridgeProvider } from '../../components/experiment-page/hooks/useSharedViewActionsBridge';
 import type { ExperimentEntity } from '../../types';
+import { ExperimentPageBreadcrumbs } from './ExperimentPageBreadcrumbs';
+import { ExperimentPageMainContent } from './ExperimentPageMainContent';
+import { ExperimentPageRevampProvider } from './ExperimentPageRevampContext';
+import {
+  ExperimentPageShellExperimentActions,
+  ExperimentPageShellExperimentDescription,
+} from './ExperimentPageShellExperimentActions';
+import { ExperimentPageLayoutProvider } from './ExperimentPageLayout';
+
+// Lazy so experiment tabs other than evaluation runs don't load the evaluation flow's modules.
+const RunEvaluationButton = React.lazy(() =>
+  import('../experiment-evaluation-runs/RunEvaluationButton').then((module) => ({
+    default: module.RunEvaluationButton,
+  })),
+);
 
 const ExperimentPageTabsImpl = () => {
   const { experimentId, tabName } = useParams();
@@ -64,6 +86,8 @@ const ExperimentPageTabsImpl = () => {
   useExperimentReduxStoreCompat(experiment);
 
   const { headerHidden } = useHeaderVisibility();
+  // Shared by the breadcrumb row's Edit experiment item and the description under it.
+  const [editingExperiment, setEditingExperiment] = useState(false);
 
   // For showstopper experiment fetch errors, we want it to hit the error boundary
   // so that the user can see the error message
@@ -109,6 +133,19 @@ const ExperimentPageTabsImpl = () => {
     updateExperimentKind,
     hasV4Location,
   });
+
+  const displayExperimentKind =
+    (experimentKind && experimentKind !== ExperimentKind.NO_INFERRED_TYPE ? experimentKind : undefined) ??
+    (inferredExperimentKind && inferredExperimentKind !== ExperimentKind.NO_INFERRED_TYPE
+      ? inferredExperimentKind
+      : undefined) ??
+    ExperimentKind.GENAI_DEVELOPMENT;
+  const revampFlagEnabled = shouldEnableNewEvalRunsUi();
+  const [experimentPageLayoutContainer, setExperimentPageLayoutContainer] = useState<HTMLElement | null>(null);
+  const showRevamp =
+    Boolean(experiment && !inferringExperimentType) &&
+    revampFlagEnabled &&
+    isGenAIExperimentKind(displayExperimentKind);
 
   // Check if the user landed on the experiment page without a specific tab (sub-route)...
   const { pathname } = useLocation();
@@ -201,11 +238,51 @@ const ExperimentPageTabsImpl = () => {
       <ExperimentViewSavedViewsButton experiment={experiment as unknown as ExperimentEntity} />
     ) : undefined;
 
-  return (
+  const isEvaluationRunsListRoute = Boolean(matchPath(RoutePaths.experimentPageTabEvaluationRuns, pathname));
+  const pageActions = (
+    <ExperimentPageShellExperimentActions
+      experiment={experiment}
+      setEditing={setEditingExperiment}
+      pageAction={
+        isEvaluationRunsListRoute ? (
+          <React.Suspense fallback={<GenericSkeleton css={{ width: 124, height: theme.general.heightSm }} loading />}>
+            <RunEvaluationButton experimentId={experimentId} isPageAction />
+          </React.Suspense>
+        ) : (
+          headerSavedViewsSlot
+        )
+      }
+    />
+  );
+  // Review queue focus mode hides the page header; with the shell that is the breadcrumb row.
+  const mainContent = showRevamp ? (
+    <ExperimentPageMainContent
+      breadcrumbs={
+        headerHidden ? undefined : <ExperimentPageBreadcrumbs experiment={experiment as unknown as ExperimentEntity} />
+      }
+      pageActions={headerHidden ? undefined : pageActions}
+      headerDescription={
+        headerHidden ? undefined : (
+          <ExperimentPageShellExperimentDescription
+            experiment={experiment}
+            editing={editingExperiment}
+            setEditing={setEditingExperiment}
+            onNoteUpdated={refetchExperiment}
+          />
+        )
+      }
+    >
+      {outletComponent}
+    </ExperimentPageMainContent>
+  ) : (
+    <div css={contentWrapperCss}>{outletComponent}</div>
+  );
+
+  const pageContents = (
     // Bridges the runs shared-view Override/Discard actions (published from ExperimentView, rendered
     // via the outlet below) up to the header Views dropdown, which lives above the outlet.
     <SharedViewActionsBridgeProvider>
-      {!headerHidden && (
+      {!headerHidden && !showRevamp && (
         <ExperimentPageHeaderWithDescription
           experiment={experiment}
           loading={loadingExperiment || inferringExperimentType}
@@ -237,12 +314,41 @@ const ExperimentPageTabsImpl = () => {
               activeTab={activeTab}
             />
           )}
-          <div css={contentWrapperCss}>{outletComponent}</div>
+          {mainContent}
         </div>
       ) : (
-        <div css={contentWrapperCss}>{outletComponent}</div>
+        mainContent
       )}
     </SharedViewActionsBridgeProvider>
+  );
+
+  return (
+    <ExperimentPageRevampProvider enabled={showRevamp}>
+      {revampFlagEnabled ? (
+        // The shell has its own vertical padding, so the page keeps it only outside the shell. The wrapper
+        // stays mounted either way, so switching in and out of the shell does not remount the page.
+        // It is also the layout container the traces drawer is scoped to while the Assistant is open.
+        <ExperimentPageLayoutProvider value={experimentPageLayoutContainer}>
+          <div
+            ref={setExperimentPageLayoutContainer}
+            data-testid="experiment-page-layout"
+            data-experiment-page-layout="true"
+            css={{
+              display: 'flex',
+              flexDirection: 'column',
+              flex: 1,
+              minHeight: 0,
+              paddingTop: showRevamp ? 0 : theme.spacing.md,
+              paddingBottom: showRevamp ? 0 : theme.spacing.md,
+            }}
+          >
+            {pageContents}
+          </div>
+        </ExperimentPageLayoutProvider>
+      ) : (
+        pageContents
+      )}
+    </ExperimentPageRevampProvider>
   );
 };
 
@@ -257,7 +363,9 @@ const ExperimentPageTabs = () => {
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          padding: theme.spacing.md,
+          ...(shouldEnableNewEvalRunsUi()
+            ? { paddingLeft: theme.spacing.md, paddingRight: theme.spacing.md }
+            : { padding: theme.spacing.md }),
           height: '100%',
         }}
       >

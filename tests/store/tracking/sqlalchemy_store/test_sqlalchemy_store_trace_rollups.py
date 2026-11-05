@@ -10,6 +10,7 @@
 import logging
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal
 
 import pytest
 from sqlalchemy import event
@@ -18,7 +19,12 @@ from sqlalchemy.orm import Session
 
 from mlflow.entities import AssessmentSource, AssessmentSourceType, Feedback, trace_location
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_metrics import AggregationType, MetricAggregation, MetricViewType
+from mlflow.entities.trace_metrics import (
+    AggregationType,
+    MetricAggregation,
+    MetricDataPoint,
+    MetricViewType,
+)
 from mlflow.entities.trace_state import TraceState
 from mlflow.environment_variables import MLFLOW_SQL_TRACE_ROLLUPS_ENABLED
 from mlflow.store.tracking.dbmodels.models import (
@@ -34,10 +40,12 @@ from mlflow.store.tracking.utils.sql_trace_rollups import (
     MAX_ROLLUP_DAYS,
     GroupingSet,
     RollupFamily,
+    RollupReadPlan,
     _build_sql_grouped_span_cost_query,
     _protect_rebuild_queue_read,
     compute_covered_day_starts,
     configure_rollup_read_snapshot,
+    merge_unbucketed_data_points,
     resolve_rollup_read,
     rollup_read_is_current,
     serve_rollup_read,
@@ -989,6 +997,63 @@ def test_unbucketed_avg_uses_sum_and_count_contributions(store: SqlAlchemyStore,
         end=DAY_B_START + 10_000,
         time_interval=None,
     )
+
+
+def _unbucketed_trace_plan(aggregation_type):
+    return RollupReadPlan(
+        family=RollupFamily.TRACE_METRIC,
+        metric_name=TraceMetricKey.INPUT_TOKENS,
+        grouping_set=GroupingSet.GLOBAL,
+        dimensions=[],
+        aggregations=[MetricAggregation(aggregation_type=aggregation_type)],
+        bucketed=False,
+        experiment_id=1,
+        covered_day_starts_ms=[DAY_A_START],
+        raw_ranges=[(DAY_B_START, DAY_B_START + 10_000)],
+        uses_percentiles=False,
+    )
+
+
+@pytest.mark.parametrize("aggregation_type", [AggregationType.SUM, AggregationType.AVG])
+@pytest.mark.parametrize("raw_sum", [0, 30])
+@pytest.mark.parametrize(
+    ("rollup_type", "raw_type"), [(float, Decimal), (Decimal, float), (Decimal, Decimal)]
+)
+def test_unbucketed_merge_accepts_decimal_sums(aggregation_type, raw_sum, rollup_type, raw_type):
+    plan = _unbucketed_trace_plan(aggregation_type)
+    rollup_point = MetricDataPoint(
+        metric_name=plan.metric_name,
+        dimensions={},
+        values={"SUM": rollup_type(120), "COUNT": 3},
+    )
+    raw_point = MetricDataPoint(
+        metric_name=plan.metric_name,
+        dimensions={},
+        values={"SUM": raw_type(raw_sum), "COUNT": 1},
+    )
+
+    result = merge_unbucketed_data_points(plan, [rollup_point], [raw_point], max_results=100)
+
+    expected = 120 + raw_sum
+    if aggregation_type == AggregationType.AVG:
+        expected /= 4
+    assert result == [
+        MetricDataPoint(
+            metric_name=plan.metric_name, dimensions={}, values={str(aggregation_type): expected}
+        )
+    ]
+
+
+def test_unbucketed_merge_preserves_large_integer_counts():
+    plan = _unbucketed_trace_plan(AggregationType.COUNT)
+    count = 2**53 + 1
+    rollup_point = MetricDataPoint(plan.metric_name, {}, {"COUNT": count})
+    raw_point = MetricDataPoint(plan.metric_name, {}, {"COUNT": 2})
+
+    result = merge_unbucketed_data_points(plan, [rollup_point], [raw_point], max_results=100)
+
+    assert result[0].values["COUNT"] == count + 2
+    assert isinstance(result[0].values["COUNT"], int)
 
 
 def test_min_max_merge_rollup_and_raw_contributions(store: SqlAlchemyStore, monkeypatch):

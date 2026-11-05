@@ -136,13 +136,6 @@ export const popoverTriggerStyles = (theme: ThemeType) => ({
   '&:hover': { color: theme.colors.textPrimary },
 });
 
-export const selectedRowIndicatorStyles = (theme: ThemeType) => ({
-  width: theme.spacing.md * 2,
-  display: 'flex',
-  alignItems: 'center',
-  paddingRight: theme.spacing.sm,
-});
-
 export const inlineFlexRowStyles = (theme: ThemeType) => ({
   display: 'inline-flex',
   alignItems: 'center',
@@ -233,13 +226,6 @@ export const flexRowWrapStyles = (theme: ThemeType) => ({
   flexWrap: 'wrap' as const,
 });
 
-export const spaceBetweenRowStyles = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  width: '100%',
-};
-
 export const monoFontStyles = {
   fontFamily: 'monospace',
 };
@@ -255,13 +241,3 @@ export const blockLabelStyles = (theme: ThemeType) => ({
 
 export const hiddenRowStyle = (hidden: boolean | undefined): React.CSSProperties | undefined =>
   hidden ? { opacity: 0.5 } : undefined;
-
-export const previewRowStyles = (theme: ThemeType) => ({
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing.md,
-  padding: theme.spacing.md,
-  backgroundColor: theme.colors.backgroundSecondary,
-  border: `1px solid ${theme.colors.border}`,
-  borderRadius: theme.general.borderRadiusBase,
-});

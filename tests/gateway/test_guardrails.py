@@ -1,15 +1,25 @@
+import asyncio
 import json
 import uuid
 from typing import Any
 from unittest import mock
 
+import aiohttp
 import pytest
+from packaging.version import Version
 
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.gateway_guardrail import GuardrailAction, GuardrailStage
-from mlflow.gateway.guardrails import GuardrailViolation, JudgeGuardrail
+from mlflow.exceptions import MlflowException
+from mlflow.gateway.guardrails import (
+    GuardrailViolation,
+    JudgeGuardrail,
+    UnsupportedGuardrailScorerError,
+)
+from mlflow.genai.judges import ModelAPI, make_judge
+from mlflow.genai.utils.gateway_utils import _resolve_gateway_uri
 from mlflow.tracing.client import TracingClient
 from mlflow.types.chat import ChatCompletionResponse
 
@@ -158,11 +168,138 @@ async def test_after_sanitization_rewrites_response():
 
 
 @pytest.mark.asyncio
-async def test_sanitization_without_endpoint_raises():
+@pytest.mark.parametrize(
+    ("action_llm_url", "action_endpoint_name", "match"),
+    [
+        ("http://127.0.0.1:5000", None, "requires an action endpoint"),
+        (None, "ep-sanitizer", "reported no TCP address"),
+    ],
+)
+async def test_sanitization_without_endpoint_or_server_address_raises(
+    action_llm_url, action_endpoint_name, match
+):
     scorer = _SimpleScorer(_feedback(value=False, rationale="issue found"))
-    guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.SANITIZATION, "test")
-    with pytest.raises(GuardrailViolation, match="action_llm_url"):
+    guard = JudgeGuardrail(
+        scorer,
+        GuardrailStage.BEFORE,
+        GuardrailAction.SANITIZATION,
+        "test",
+        action_llm_url=action_llm_url,
+        action_endpoint_name=action_endpoint_name,
+    )
+    with pytest.raises(GuardrailViolation, match=match):
         await guard.process_request(_make_request())
+
+
+# A 253-character DNS name, the longest allowed.
+_LONGEST_HOST_NAME = ".".join(["a" * 63] * 3 + ["a" * 61])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("action_llm_url", "host_header", "expected_server_hostname"),
+    [
+        ("http://127.0.0.1:5000", "mlflow.example.com", None),
+        ("https://127.0.0.1:5000", "mlflow.example.com:8443", "mlflow.example.com"),
+        ("https://127.0.0.1:5000", None, None),
+        ("https://127.0.0.1:5000", _LONGEST_HOST_NAME, _LONGEST_HOST_NAME),
+        ("https://127.0.0.1:5000", f"{_LONGEST_HOST_NAME}.", f"{_LONGEST_HOST_NAME}."),
+    ],
+)
+async def test_sanitization_sends_host_and_tls_server_hostname(
+    action_llm_url, host_header, expected_server_hostname
+):
+    scorer = _SimpleScorer(_feedback(value=False, rationale="contains PII"))
+    guard = JudgeGuardrail(
+        scorer,
+        GuardrailStage.BEFORE,
+        GuardrailAction.SANITIZATION,
+        "test",
+        action_llm_url=action_llm_url,
+        action_endpoint_name="ep-sanitizer",
+        host_header=host_header,
+    )
+    send = _send_request_returning(_make_request("cleaned"))
+    with mock.patch("mlflow.gateway.guardrails.send_request", send):
+        await guard.process_request(_make_request("raw"))
+
+    kwargs = send.call_args.kwargs
+    assert kwargs["base_url"] == action_llm_url
+    assert kwargs["server_hostname"] == expected_server_hostname
+    assert kwargs["headers"].get("Host") == host_header
+
+
+@pytest.mark.asyncio
+async def test_sanitization_tls_requires_aiohttp_server_hostname_support(monkeypatch):
+    monkeypatch.setattr("mlflow.gateway.guardrails._AIOHTTP_VERSION", Version("3.8.6"))
+    scorer = _SimpleScorer(_feedback(value=False, rationale="contains PII"))
+    guard = JudgeGuardrail(
+        scorer,
+        GuardrailStage.BEFORE,
+        GuardrailAction.SANITIZATION,
+        "test",
+        action_llm_url="https://127.0.0.1:5000",
+        action_endpoint_name="ep-sanitizer",
+        host_header="mlflow.example.com",
+    )
+    with pytest.raises(GuardrailViolation, match=r"needs aiohttp>=3\.9"):
+        await guard.process_request(_make_request())
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error",
+    [
+        aiohttp.ClientConnectionError("Cannot connect to host 127.0.0.1:5000"),
+        asyncio.TimeoutError(),
+    ],
+)
+async def test_sanitization_request_error_raises_violation(error):
+    scorer = _SimpleScorer(_feedback(value=False, rationale="issue"))
+    guard = JudgeGuardrail(
+        scorer,
+        GuardrailStage.BEFORE,
+        GuardrailAction.SANITIZATION,
+        "test",
+        action_llm_url="http://127.0.0.1:5000",
+        action_endpoint_name="ep-sanitizer",
+    )
+    with (
+        mock.patch("mlflow.gateway.guardrails.send_request", side_effect=error),
+        pytest.raises(GuardrailViolation, match="could not reach the action endpoint") as exc_info,
+    ):
+        await guard.process_request(_make_request())
+    assert "127.0.0.1" not in exc_info.value.message
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "host_header",
+    [
+        "10.[",
+        f"10.{'a' * 64}.example.com",
+        "mlflow\x00.example.com",
+        f"{_LONGEST_HOST_NAME}a",
+    ],
+)
+async def test_sanitization_tls_rejects_unusable_host(host_header):
+    scorer = _SimpleScorer(_feedback(value=False, rationale="issue"))
+    guard = JudgeGuardrail(
+        scorer,
+        GuardrailStage.BEFORE,
+        GuardrailAction.SANITIZATION,
+        "test",
+        action_llm_url="https://127.0.0.1:5000",
+        action_endpoint_name="ep-sanitizer",
+        host_header=host_header,
+    )
+    send = _send_request_returning(_make_request("cleaned"))
+    with (
+        mock.patch("mlflow.gateway.guardrails.send_request", send),
+        pytest.raises(GuardrailViolation, match="could not use the request's host"),
+    ):
+        await guard.process_request(_make_request())
+    send.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -452,7 +589,7 @@ async def test_empty_choices_response():
 
 @pytest.mark.asyncio
 async def test_from_entity():
-    mock_serialized_scorer = mock.MagicMock()
+    mock_serialized_scorer = {"name": "safety-guard"}
     mock_scorer_version = mock.MagicMock()
     mock_scorer_version.serialized_scorer = mock_serialized_scorer
 
@@ -481,7 +618,7 @@ async def test_from_entity():
 
 
 def test_from_entity_with_action_endpoint():
-    mock_serialized_scorer = mock.MagicMock()
+    mock_serialized_scorer = {"name": "sanitizer-guard"}
     mock_scorer_version = mock.MagicMock()
     mock_scorer_version.serialized_scorer = mock_serialized_scorer
 
@@ -496,41 +633,117 @@ def test_from_entity_with_action_endpoint():
         "mlflow.genai.scorers.Scorer.model_validate",
         return_value=_SimpleScorer(_feedback(value=True)),
     ):
-        guard = JudgeGuardrail.from_entity(entity, server_url="http://localhost:5000")
+        guard = JudgeGuardrail.from_entity(
+            entity, gateway_uri="http://127.0.0.1:5000", host_header="mlflow.example.com"
+        )
 
-    assert guard.action_llm_url == "http://localhost:5000"
+    assert guard.action_llm_url == "http://127.0.0.1:5000"
     assert guard.action_endpoint_name == "my-ep"
+    assert guard.host_header == "mlflow.example.com"
 
 
-def test_from_entity_rewrites_gateway_model_uri():
-    """gateway:/ model URIs are kept as gateway:/ but given an explicit base_url so
-    _get_provider_instance can skip _resolve_gateway_uri(), which fails when
-    MLFLOW_TRACKING_URI is the backend store URI (e.g. sqlite://) inside the server process.
-    """
-    from mlflow.genai.judges.instructions_judge import InstructionsJudge
-
-    mock_instructions_judge = mock.MagicMock(spec=InstructionsJudge)
-    mock_instructions_judge.model = "gateway:/my-judge-ep"
-    mock_instructions_judge.name = "my-judge"
-    mock_instructions_judge._instructions = "Is this safe? {{ inputs }}"
-    mock_instructions_judge._feedback_value_type = None
-    mock_instructions_judge._inference_params = None
-
+def test_from_entity_rejects_custom_code_scorer():
     entity = mock.MagicMock()
-    entity.scorer.serialized_scorer = {}
+    entity.scorer.serialized_scorer = {
+        "name": "custom",
+        "call_source": "return True",
+        "call_signature": "(outputs)",
+        "original_func_name": "custom",
+    }
+    entity.stage = GuardrailStage.BEFORE
+    entity.action = GuardrailAction.VALIDATION
+
+    with pytest.raises(UnsupportedGuardrailScorerError, match="gateway guardrails do not support"):
+        JudgeGuardrail.from_entity(entity)
+
+
+def _judge_entity(judge):
+    entity = mock.MagicMock()
+    entity.scorer.serialized_scorer = json.loads(json.dumps(judge.model_dump()))
     entity.name = "safety-guard"
     entity.stage = GuardrailStage.BEFORE
     entity.action = GuardrailAction.VALIDATION
     entity.action_endpoint_name = None
+    return entity
+
+
+@pytest.fixture
+def in_server_tracking_uri(monkeypatch):
+    # Inside the server process, the tracking URI is the backend store, not an HTTP URL.
+    monkeypatch.delenv("MLFLOW_GATEWAY_URI", raising=False)
+    with mock.patch(
+        "mlflow.genai.utils.gateway_utils.get_tracking_uri", return_value="sqlite:///mlflow.db"
+    ):
+        yield
+
+
+def test_from_entity_keeps_gateway_judge_as_registered():
+    judge = make_judge(
+        name="jev",
+        instructions="Is {{ inputs }} safe?",
+        model="gateway:/jev",
+        model_api="decisions",
+        feedback_value_type=bool,
+    )
+
+    guard = JudgeGuardrail.from_entity(
+        _judge_entity(judge),
+        gateway_uri="http://127.0.0.1:5000",
+    )
+
+    assert guard.scorer.model == "gateway:/jev"
+    assert guard.scorer.model_api == ModelAPI.DECISIONS
+    assert guard.scorer._base_url is None
+
+
+def test_gateway_decisions_judge_calls_system_one_on_server(in_server_tracking_uri):
+    judge = make_judge(
+        name="jev",
+        instructions="Is {{ inputs }} safe?",
+        model="gateway:/jev",
+        model_api="decisions",
+        feedback_value_type=bool,
+    )
+    guard = JudgeGuardrail.from_entity(_judge_entity(judge), gateway_uri="http://127.0.0.1:5000")
+    response = mock.Mock(status_code=200)
+    response.json.return_value = {
+        "model": "jev-1.14.0",
+        "answers": {"evaluation": {"type": "noul", "noul": 0.9}},
+    }
 
     with mock.patch(
-        "mlflow.genai.scorers.Scorer.model_validate", return_value=mock_instructions_judge
-    ):
-        guard = JudgeGuardrail.from_entity(entity, server_url="http://localhost:5000")
+        "mlflow.genai.judges.typesafe.http_request", return_value=response
+    ) as http_request:
+        result = guard._invoke_judge(inputs=_make_request())
 
-    assert isinstance(guard.scorer, InstructionsJudge)
-    assert guard.scorer.model == "gateway:/my-judge-ep"
-    assert guard.scorer._base_url == "http://localhost:5000/gateway/mlflow/v1/chat/completions"
+    assert result.value is True
+    http_request.assert_called_once()
+    assert http_request.call_args.kwargs["host_creds"].host == "http://127.0.0.1:5000"
+    assert http_request.call_args.kwargs["endpoint"] == "/gateway/typesafe/v1/systemone"
+
+
+def test_gateway_chat_judge_resolves_server_on_server(in_server_tracking_uri):
+    judge = make_judge(
+        name="safe",
+        instructions="Is {{ inputs }} safe?",
+        model="gateway:/chat-judge",
+        feedback_value_type=bool,
+    )
+    guard = JudgeGuardrail.from_entity(_judge_entity(judge), gateway_uri="http://127.0.0.1:5000")
+
+    def invoke_chat(**kwargs):
+        assert kwargs["base_url"] is None
+        assert _resolve_gateway_uri() == "http://127.0.0.1:5000"
+        return Feedback(name="safe", value=True)
+
+    with mock.patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model", side_effect=invoke_chat
+    ):
+        result = guard._invoke_judge(inputs=_make_request())
+
+    assert result.value is True
+    with pytest.raises(MlflowException, match="Gateway provider requires an HTTP"):
+        _resolve_gateway_uri()
 
 
 def test_from_entity_does_not_rewrite_non_gateway_model_uri():
@@ -553,7 +766,7 @@ def test_from_entity_does_not_rewrite_non_gateway_model_uri():
     with mock.patch(
         "mlflow.genai.scorers.Scorer.model_validate", return_value=mock_instructions_judge
     ):
-        guard = JudgeGuardrail.from_entity(entity, server_url="http://localhost:5000")
+        guard = JudgeGuardrail.from_entity(entity, gateway_uri="http://127.0.0.1:5000")
 
     assert guard.scorer is mock_instructions_judge
 

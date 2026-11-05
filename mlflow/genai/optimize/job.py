@@ -12,8 +12,8 @@ from mlflow.genai.optimize.optimizers import (
     MetaPromptOptimizer,
 )
 from mlflow.genai.prompts import load_prompt
-from mlflow.genai.scorers import builtin_scorers
 from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.builtin_scorers import _get_builtin_scorer_class
 from mlflow.genai.scorers.registry import get_scorer
 from mlflow.protos.prompt_optimization_pb2 import (
     OPTIMIZER_TYPE_GEPA,
@@ -176,7 +176,7 @@ def _load_scorers(scorer_names: list[str], experiment_id: str) -> list[Scorer]:
 
     scorers = []
     for name in scorer_names:
-        scorer_class = getattr(builtin_scorers, name, None)
+        scorer_class = _get_builtin_scorer_class(name)
         if scorer_class is not None:
             try:
                 scorer = scorer_class()

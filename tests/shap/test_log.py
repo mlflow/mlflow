@@ -527,6 +527,6 @@ def test_load_disallows_pickle_deserialization(shap_model, tmp_path, monkeypatch
     model_path = str(tmp_path.joinpath("shap_model"))
     mlflow.shap.save_explainer(shap_model, model_path, serialize_model_using_mlflow=False)
 
-    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
-    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_MODEL_CODE_EXECUTION"):
         load_fn(model_path)

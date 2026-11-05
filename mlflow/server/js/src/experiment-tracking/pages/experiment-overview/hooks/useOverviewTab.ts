@@ -26,7 +26,7 @@ export const useOverviewTab = () => {
 
   const setActiveTab = useCallback(
     (tab: OverviewTab) => {
-      const path = generatePath(RoutePaths.experimentPageTabOverview, {
+      const path = generatePath(RoutePaths.experimentPageTabDashboard, {
         experimentId: experimentId || '',
         overviewTab: tab,
       });

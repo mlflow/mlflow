@@ -16,7 +16,10 @@ from mlflow.assistant.custom_view import (
     is_custom_view_request,
     parse_custom_view_response,
 )
-from mlflow.assistant.providers._subprocess_stream import SubprocessLineStream
+from mlflow.assistant.providers._subprocess_stream import (
+    SubprocessLineStream,
+    assistant_subprocess_env,
+)
 from mlflow.assistant.providers.base import (
     AssistantProvider,
     CLINotInstalledError,
@@ -25,6 +28,7 @@ from mlflow.assistant.providers.base import (
     load_config_or_default,
 )
 from mlflow.assistant.providers.prompts import ASSISTANT_SYSTEM_PROMPT
+from mlflow.assistant.providers.tool_executor import is_remote_caller
 from mlflow.assistant.types import Event, Message, TextBlock
 from mlflow.server.assistant.session import (
     clear_container_id,
@@ -40,17 +44,25 @@ _logger = logging.getLogger(__name__)
 
 _CODEX_BINARY = "codex"
 
+
+def _codex_sandbox_mode() -> str:
+    # A restricted caller (a remote user, or a non-admin on a sandboxed auth server) is capped at
+    # the restricted profile: codex runs confined to the workspace rather than with full host
+    # access, even inside the assistant's sandbox container. Other callers keep full access.
+    return "workspace-write" if is_remote_caller() else "danger-full-access"
+
+
 # In the sandbox, if codex cannot reach the API it streams "Reconnecting..." error events
 # continuously (it never gives up on its own), so the container's no-output idle-timeout never
 # fires. Bail if only connection errors arrive, with no progress, for this long.
 _CODEX_NO_PROGRESS_TIMEOUT = 60.0
 
 # Environment variables forwarded into the sandbox so the Codex CLI can authenticate. Host secrets
-# outside this allowlist are intentionally NOT passed through. Codex authenticates via
-# OPENAI_API_KEY or an interactive ``codex login`` whose credentials live in the per-session HOME;
-# OPENAI_BASE_URL lets an operator point at a custom endpoint, and the proxy vars cover outbound
-# proxy configuration.
+# outside this allowlist are intentionally NOT passed through. Codex authenticates with an API key
+# (CODEX_API_KEY, or OPENAI_API_KEY passed under that name); OPENAI_BASE_URL lets an operator point
+# at a custom endpoint, and the proxy vars cover outbound proxy configuration.
 _SANDBOX_AUTH_ENV_PASSTHROUGH = (
+    "CODEX_API_KEY",
     "OPENAI_API_KEY",
     "OPENAI_BASE_URL",
     "HTTP_PROXY",
@@ -81,9 +93,11 @@ class CodexProvider(AssistantProvider):
 
     @property
     def allows_remote_access(self) -> bool:
-        # In local mode the CLI runs on the host, so it must stay localhost-only. In sandbox mode
-        # it runs isolated in a container, so it can safely serve remote clients.
-        return assistant_sandbox_enabled()
+        # Local-only. The Codex CLI authenticates with host-side credentials (an interactive login
+        # or an API key on the server) that belong to the operator, not the remote caller. Even
+        # when sandboxed there is no per-user credential to run it as, so it must never serve
+        # remote clients; only the Gateway provider does.
+        return False
 
     def is_available(self) -> bool:
         # In sandbox mode the CLI runs inside the operator-provided image, not on the host, so
@@ -125,6 +139,7 @@ class CodexProvider(AssistantProvider):
                 input=b"say hi",
                 capture_output=True,
                 timeout=30,
+                env=assistant_subprocess_env(),
             )
 
             if result.returncode == 0:
@@ -139,7 +154,7 @@ class CodexProvider(AssistantProvider):
                 or "unauthorized" in stderr
                 or "api key" in stderr
             ):
-                error_msg = "Not authenticated. Please set OPENAI_API_KEY or run: codex login"
+                error_msg = "Not authenticated. Please set CODEX_API_KEY or run: codex login"
             else:
                 error_msg = (
                     result.stderr.decode("utf-8", errors="replace").strip()
@@ -209,7 +224,7 @@ class CodexProvider(AssistantProvider):
             "exec",
             "--json",
             "--sandbox",
-            "danger-full-access",
+            _codex_sandbox_mode(),
             "--skip-git-repo-check",
         ]
 
@@ -242,7 +257,7 @@ class CodexProvider(AssistantProvider):
             process = SubprocessLineStream(
                 cmd,
                 cwd=cwd,
-                env={**os.environ, "MLFLOW_TRACKING_URI": tracking_uri},
+                env=assistant_subprocess_env(MLFLOW_TRACKING_URI=tracking_uri),
                 input_bytes=user_message.encode("utf-8"),
             )
 
@@ -402,7 +417,7 @@ class CodexProvider(AssistantProvider):
             "exec",
             "--json",
             "--sandbox",
-            "danger-full-access",
+            _codex_sandbox_mode(),
             "--skip-git-repo-check",
         ]
         input_files: dict[str, str] = {}
@@ -427,8 +442,13 @@ class CodexProvider(AssistantProvider):
                 # OPENAI_BASE_URL is an endpoint the CLI connects to from inside the container, so
                 # a loopback value must be rewritten to reach the host; other vars pass through.
                 env[var] = to_container_host_uri(value) if var == "OPENAI_BASE_URL" else value
+        # `codex exec` reads its API key from CODEX_API_KEY and ignores OPENAI_API_KEY (verified
+        # with Codex CLI 0.164.0). The per-session HOME starts empty, with no `codex login` to fall
+        # back on, so pass OPENAI_API_KEY under that name too when CODEX_API_KEY is not set.
+        if "CODEX_API_KEY" not in env and "OPENAI_API_KEY" in env:
+            env["CODEX_API_KEY"] = env["OPENAI_API_KEY"]
 
-        # Persist Codex's HOME (login credentials and session/thread state) across turns of the
+        # Persist Codex's HOME (its session and thread state) across turns of the
         # same session so multi-turn conversations resume correctly.
         home_dir = get_session_sandbox_home(mlflow_session_id) if mlflow_session_id else None
 

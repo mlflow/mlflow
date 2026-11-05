@@ -5556,7 +5556,7 @@ Export Traces
 
 Export trace spans to MLflow via the OpenTelemetry protocol.
 
-This endpoint accepts OTLP/HTTP protobuf trace export requests.
+This endpoint accepts OTLP/HTTP protobuf and JSON trace export requests.
 Protobuf format reference: https://opentelemetry.io/docs/specs/otlp/#binary-protobuf-encoding
 
 Note: All spans in the batch are persisted in a single log_spans() call. If that
@@ -6053,6 +6053,8 @@ Successful Response
 | creation_timestamp     | ``INTEGER`` OR ``NULL``                                    |                         |
 +------------------------+------------------------------------------------------------+-------------------------+
 | last_updated_timestamp | ``INTEGER`` OR ``NULL``                                    |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| allowed_actions        | An array of ``STRING``                                     |                         |
 +------------------------+------------------------------------------------------------+-------------------------+
 
 .. _fastapiGETapi30mlflowmcpservers:
@@ -7189,6 +7191,8 @@ Successful Response
 +------------------------+------------------------------------------------------------+-------------------------+
 | last_updated_timestamp | ``INTEGER`` OR ``NULL``                                    |                         |
 +------------------------+------------------------------------------------------------+-------------------------+
+| allowed_actions        | An array of ``STRING``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
 
 .. _fastapiPATCHapi30mlflowmcpserversname:
 
@@ -7261,6 +7265,8 @@ Successful Response
 | creation_timestamp     | ``INTEGER`` OR ``NULL``                                    |                         |
 +------------------------+------------------------------------------------------------+-------------------------+
 | last_updated_timestamp | ``INTEGER`` OR ``NULL``                                    |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| allowed_actions        | An array of ``STRING``                                     |                         |
 +------------------------+------------------------------------------------------------+-------------------------+
 
 .. _fastapiDELETEapi30mlflowmcpserversname:
@@ -11609,6 +11615,8 @@ MCP Server Response
 | creation_timestamp     | ``INTEGER`` OR ``NULL``                                    |                         |
 +------------------------+------------------------------------------------------------+-------------------------+
 | last_updated_timestamp | ``INTEGER`` OR ``NULL``                                    |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| allowed_actions        | An array of ``STRING``                                     |                         |
 +------------------------+------------------------------------------------------------+-------------------------+
 
 .. _fastapiMCPServerVersionResponse:

@@ -74,3 +74,54 @@ describe('RolePermissionForm — permission picker filtering', () => {
     expect(screen.getByRole('radio', { name: /^All prompts$/ })).toBeInTheDocument();
   });
 });
+
+describe('RolePermissionForm — wildcard-only resource types', () => {
+  // The backend TYPE grain map gives a sub-resource tier PatternKind.WILDCARD
+  // alone, so a grant can never name one row. The picker must not offer a scope
+  // the backend would reject.
+  it.each([
+    ['run', 'Run'],
+    ['trace', 'Trace'],
+    ['assessment', 'Assessment'],
+    ['logged_model', 'Logged model'],
+    ['review_queue', 'Review queue'],
+    ['registered_model_version', 'Model version'],
+    ['prompt_version', 'Prompt version'],
+    ['scorer_version', 'Scorer version'],
+    ['mcp_server_version', 'MCP server version'],
+  ])('disables the specific-resource scope for %s', (resourceType, label) => {
+    renderWithDesignSystem(
+      <RolePermissionForm
+        value={{ ...ROLE_PERMISSION_DRAFT_DEFAULT, resourceType, scope: 'all' }}
+        onChange={() => {}}
+      />,
+    );
+    expect(screen.getByRole('radio', { name: new RegExp(`^Specific ${label.toLowerCase()}$`) })).toBeDisabled();
+    expect(screen.getByRole('radio', { name: new RegExp(`^All ${label.toLowerCase()}s$`) })).toBeEnabled();
+  });
+
+  it('leaves the specific scope selectable for an id-capable type', () => {
+    renderWithDesignSystem(
+      <RolePermissionForm
+        value={{ ...ROLE_PERMISSION_DRAFT_DEFAULT, resourceType: 'experiment', scope: 'all' }}
+        onChange={() => {}}
+      />,
+    );
+    expect(screen.getByRole('radio', { name: /^Specific experiment$/ })).toBeEnabled();
+  });
+
+  it('offers every wildcard-only tier in the type dropdown', async () => {
+    renderWithDesignSystem(<RolePermissionForm value={ROLE_PERMISSION_DRAFT_DEFAULT} onChange={() => {}} />);
+    await userEvent.click(document.getElementById('admin-role-permission-form-resource-type')!);
+    for (const label of ['Run', 'Trace', 'Assessment', 'Logged model', 'Review queue']) {
+      expect(await screen.findByRole('option', { name: label })).toBeInTheDocument();
+    }
+  });
+
+  it('offers DENY last in the permission dropdown', async () => {
+    renderWithDesignSystem(<RolePermissionForm value={ROLE_PERMISSION_DRAFT_DEFAULT} onChange={() => {}} />);
+    await userEvent.click(document.getElementById('admin-role-permission-form-level')!);
+    const options = await screen.findAllByRole('option');
+    expect(options.map((o) => o.textContent)).toEqual(['READ', 'EDIT', 'MANAGE', 'DENY']);
+  });
+});

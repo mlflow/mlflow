@@ -705,7 +705,36 @@ describe('AssistantProvider setup state from provider discovery', () => {
     });
   });
 
-  test('ignores provider selection on remote clients because config updates are local-only', async () => {
+  test.each([true, false])('takes whether server-wide settings are editable from the config (%s)', async (canEdit) => {
+    mockGetConfig.mockResolvedValue({ providers: {}, projects: {}, can_edit_server_settings: canEdit });
+
+    const result = await renderAndWaitForConfig();
+
+    expect(result.current.canEditServerSettings).toBe(canEdit);
+  });
+
+  test('cannot edit server-wide settings when the server does not report it', async () => {
+    mockGetConfig.mockResolvedValue({ providers: {}, projects: {} });
+
+    const result = await renderAndWaitForConfig();
+
+    expect(result.current.canEditServerSettings).toBe(false);
+  });
+
+  test('stops allowing server-wide edits when a config refresh fails', async () => {
+    mockGetConfig.mockResolvedValue({ providers: {}, projects: {}, can_edit_server_settings: true });
+    const result = await renderAndWaitForConfig();
+    expect(result.current.canEditServerSettings).toBe(true);
+
+    mockGetConfig.mockRejectedValue(new Error('boom'));
+    await act(async () => {
+      await result.current.refreshConfig();
+    });
+
+    expect(result.current.canEditServerSettings).toBe(false);
+  });
+
+  test('allows provider selection on a permitted remote client', async () => {
     Object.defineProperty(window, 'location', {
       value: { ...originalLocation, hostname: 'remote.example.com' },
       writable: true,
@@ -731,8 +760,11 @@ describe('AssistantProvider setup state from provider discovery', () => {
       });
     });
 
+    // A remote client the server permits (remote_access_allowed) can switch providers: the pick
+    // applies optimistically and is persisted through the config write on the next turn (the
+    // server accepts that write), so it is no longer a no-op the way a plain non-local client is.
     expect(result.current.isLocalServer).toBe(false);
-    expect(result.current.activeProvider?.name).toBe('claude_code');
+    expect(result.current.activeProvider?.name).toBe('mlflow_gateway');
     expect(mockUpdateConfig).not.toHaveBeenCalled();
   });
 

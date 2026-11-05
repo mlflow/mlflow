@@ -121,6 +121,8 @@ def test_mlflow_2_x_comp(tmp_path: Path) -> None:
             f"--python={py_ver}",
             # Use mlflow 2.x
             "--with=mlflow<3.0",
+            # MLflow 2.x imports `FallbackAsyncAdaptedQueuePool`, which SQLAlchemy 2.1 removed
+            "--with=sqlalchemy<2.1",
             # Pin numpy and sklearn versions to ensure the model can be loaded
             f"--with=numpy=={np.__version__}",
             f"--with=scikit-learn=={sklearn.__version__}",

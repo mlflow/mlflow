@@ -14,6 +14,7 @@ LIST_CONTENT = "LIST_CONTENT"
 AZURE_ANNOTATIONS = "AZURE_ANNOTATIONS"
 EMPTY_STREAM = "EMPTY_STREAM"
 ERROR_MID_STREAM = "ERROR_MID_STREAM"
+TOOL_CALL_STREAM = "TOOL_CALL_STREAM"
 
 app = fastapi.FastAPI()
 
@@ -158,6 +159,47 @@ async def chat_response_stream(include_usage: bool = False):
     yield _make_chat_stream_chunk(" world", include_usage=include_usage)
 
 
+def _make_chat_stream_delta_chunk(delta, finish_reason=None):
+    return {
+        "id": "chatcmpl-123",
+        "object": "chat.completion.chunk",
+        "created": 1677652288,
+        "model": "gpt-4o-mini",
+        "system_fingerprint": "fp_44709d6fcb",
+        "choices": [
+            {
+                "index": 0,
+                "delta": delta,
+                "finish_reason": finish_reason,
+            }
+        ],
+        "usage": None,
+    }
+
+
+async def chat_response_stream_with_tool_calls(include_usage: bool = False):
+    yield _make_chat_stream_delta_chunk({"role": "assistant", "content": None})
+    yield _make_chat_stream_delta_chunk({
+        "tool_calls": [
+            {
+                "index": 0,
+                "id": "call_1",
+                "type": "function",
+                "function": {"name": "get_weather", "arguments": ""},
+            }
+        ]
+    })
+    yield _make_chat_stream_delta_chunk({
+        "tool_calls": [{"index": 0, "function": {"arguments": '{"city": '}}]
+    })
+    yield _make_chat_stream_delta_chunk({
+        "tool_calls": [{"index": 0, "function": {"arguments": '"Paris"}'}}]
+    })
+    yield _make_chat_stream_delta_chunk({}, finish_reason="tool_calls")
+    if include_usage:
+        yield _make_chat_stream_usage_chunk()
+
+
 async def chat_response_stream_empty_choices():
     yield _make_chat_stream_chunk_empty_choices()
     yield _make_chat_stream_chunk("Hello")
@@ -202,6 +244,13 @@ async def chat(payload: ChatCompletionRequest):
             content = (
                 f"data: {json.dumps(d)}\n\n"
                 async for d in chat_response_stream_with_azure_annotations(
+                    include_usage=(payload.stream_options or {}).get("include_usage", False)
+                )
+            )
+        elif TOOL_CALL_STREAM == payload.messages[0].content:
+            content = (
+                f"data: {json.dumps(d)}\n\n"
+                async for d in chat_response_stream_with_tool_calls(
                     include_usage=(payload.stream_options or {}).get("include_usage", False)
                 )
             )

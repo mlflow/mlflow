@@ -21,7 +21,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 
 import type { MCPAccessEndpoint, MCPServer, MCPServerVersion } from '../types';
 import { MCPStatus } from '../types';
-import { STATUS_TAG_COLOR, STATUS_TRANSITIONS, sanitizeHref } from '../utils';
+import { formatStatusLabel, STATUS_TAG_COLOR, STATUS_TRANSITIONS, sanitizeHref } from '../utils';
 import { useServerState } from '../hooks/useServerState';
 import { deriveClientName } from '../installInstructions';
 import { AccessEndpointsSubsection } from './AccessEndpointsSubsection';
@@ -432,5 +432,3 @@ export const MCPServerVersionDetail = ({
     </div>
   );
 };
-
-const formatStatusLabel = (status: MCPStatus) => status.charAt(0).toUpperCase() + status.slice(1);

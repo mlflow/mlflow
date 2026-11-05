@@ -7,16 +7,20 @@ keywords: [typesafe ai, system one, tracing, mlflow, evaluation, llm]
 ---
 
 import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 import StepHeader from "@site/src/components/StepHeader";
 import ServerSetup from "@site/src/content/setup_server_slim.mdx";
 
 # Tracing TypeSafe AI
 
 [MLflow Tracing](/genai/tracing) provides automatic tracing for
-[TypeSafe AI System One](https://docs.typesafe.ai/concepts/system-one). Calling
+[TypeSafe AI System One](https://docs.typesafe.ai/concepts/system-one). In Python, calling
 
 <APILink fn="mlflow.typesafe.autolog" /> instruments `system_one` on both the synchronous and
-asynchronous TypeSafe AI clients.
+asynchronous TypeSafe AI clients. In JavaScript and TypeScript, `tracedTypeSafe()` returns a traced
+client that instruments `systemOne`.
 
 Each System One trace captures:
 
@@ -27,15 +31,30 @@ Each System One trace captures:
 - The TypeSafe request ID when available
 
 MLflow excludes the SDK's dedicated API-key, header, retry, and timeout options. Because `state`,
-`questions`, and `extra_body` are traced, do not place secrets in those request-body fields.
+`questions`, and additional request-body fields are traced, do not place secrets in them.
 
 ## Getting Started
 
 <StepHeader number={1} title="Install Dependencies" />
 
+<TabsWrapper>
+<Tabs>
+  <TabItem value="python" label="Python" default>
+
 ```bash
 pip install mlflow typesafe-sdk
 ```
+
+  </TabItem>
+  <TabItem value="typescript" label="JS / TS">
+
+```bash
+npm install @mlflow/core @mlflow/typesafe @typesafe-ai/sdk
+```
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>
 
 <StepHeader number={2} title="Start MLflow Server" />
 
@@ -43,7 +62,11 @@ pip install mlflow typesafe-sdk
 
 <StepHeader number={3} title="Enable Tracing and Make API Calls" />
 
-Set `TYPESAFE_API_KEY`, enable autologging, and use the TypeSafe AI SDK as usual:
+Set `TYPESAFE_API_KEY`, enable tracing, and use the TypeSafe AI SDK as usual:
+
+<TabsWrapper>
+<Tabs>
+  <TabItem value="python" label="Python" default>
 
 ```python
 from typesafe_sdk import Noul, TypeSafeClient
@@ -68,6 +91,37 @@ with TypeSafeClient() as client:
 print(result.nouls["relevance"].noul)
 ```
 
+  </TabItem>
+  <TabItem value="typescript" label="JS / TS">
+
+```typescript
+import * as mlflow from "@mlflow/core";
+import { TypeSafeClient, noul } from "@typesafe-ai/sdk";
+import { tracedTypeSafe } from "@mlflow/typesafe";
+
+mlflow.init({
+  trackingUri: "http://localhost:5000",
+  experimentId: "<experiment-id>",
+});
+
+const client = tracedTypeSafe(new TypeSafeClient());
+const result = await client.systemOne({
+  state: {
+    question: "What is MLflow?",
+    answer: "A platform for managing the machine learning lifecycle.",
+  },
+  questions: {
+    relevance: noul("Is the answer relevant to the question?"),
+  },
+});
+
+console.log(result.answers.relevance.noul);
+```
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>
+
 <StepHeader number={4} title="View Traces in MLflow UI" />
 
 Open the MLflow UI at `http://localhost:5000` (or your MLflow server URL) and select the
@@ -75,15 +129,19 @@ experiment's **Traces** tab.
 
 ## Supported APIs
 
-| API          | Sync | Async | Streaming |
-| :----------- | :--: | :---: | :-------: |
-| `system_one` |  ✅  |  ✅   |     -     |
+| SDK     | API          | Support                              | Streaming |
+| :------ | :----------- | :----------------------------------- | :-------: |
+| Python  | `system_one` | Synchronous and asynchronous clients |     -     |
+| JS / TS | `systemOne`  | Native `APIPromise`                  |     -     |
 
-Synchronous calls use `TypeSafeClient.system_one`; asynchronous calls use
-`AsyncTypeSafeClient.system_one`. The SDK does not provide a streaming System One API.
-Other SDK operations, such as `models.list()`, are not traced.
+Python synchronous calls use `TypeSafeClient.system_one`; asynchronous calls use
+`AsyncTypeSafeClient.system_one`. JavaScript and TypeScript calls use `TypeSafeClient.systemOne`.
+Neither SDK provides a streaming System One API. Other operations, such as `models.list()`, are not
+traced.
 
 ## Disable Auto-Tracing
 
-Disable TypeSafe AI tracing with `mlflow.typesafe.autolog(disable=True)` or disable all MLflow
-autologging integrations with `mlflow.autolog(disable=True)`.
+In Python, disable TypeSafe AI tracing with `mlflow.typesafe.autolog(disable=True)` or disable all
+MLflow autologging integrations with `mlflow.autolog(disable=True)`. In JavaScript and TypeScript,
+`tracedTypeSafe()` does not mutate the original client, so calls made through that original client
+remain untraced.

@@ -22,6 +22,7 @@ describe('ShowArtifactTableView', () => {
     minimalProps = {
       path: 'fakePath.csv',
       runUuid: 'fakeUuid',
+      artifactRootUri: 'mlflow-artifacts:/1/fakeUuid/artifacts',
     };
     // Mock the `getArtifact` function to avoid spurious network errors
     // during testing
@@ -102,6 +103,27 @@ describe('ShowArtifactTableView', () => {
       const csvPreviewValues = rowTextNodes.map((c: any) => c.text());
       const flatData = data.flatMap((d) => [d.a, d.b]);
       expect(csvPreviewValues).toEqual(flatData);
+      done();
+    });
+  });
+
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('should render boolean values in CSV file', (done) => {
+    const fileContents = 'name,enabled\nalpha,true\nbeta,false\n';
+
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve(fileContents);
+    });
+    const props = { ...minimalProps, getArtifact };
+    wrapper = mountWithIntl(<ShowArtifactTableView {...props} />);
+    setImmediate(() => {
+      wrapper.update();
+      const rowTextNodes = wrapper
+        .find('tbody')
+        .findWhere((n: any) => n.name() === 'tr' && n.prop('aria-hidden') !== 'true')
+        .children();
+      const csvPreviewValues = rowTextNodes.map((c: any) => c.text());
+      expect(csvPreviewValues).toEqual(['alpha', 'true', 'beta', 'false']);
       done();
     });
   });

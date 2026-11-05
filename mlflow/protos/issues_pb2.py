@@ -19,7 +19,7 @@ if Version(google.protobuf.__version__).major >= 5:
   from . import databricks_pb2 as databricks__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0cissues.proto\x12\rmlflow.issues\x1a\x10\x64\x61tabricks.proto\"\x99\x02\n\x05Issue\x12\x10\n\x08issue_id\x18\x01 \x01(\t\x12\x15\n\rexperiment_id\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x04 \x01(\t\x12\x0e\n\x06status\x18\x05 \x01(\t\x12\x10\n\x08severity\x18\x06 \x01(\t\x12\x13\n\x0broot_causes\x18\x07 \x03(\t\x12\x15\n\rsource_run_id\x18\x08 \x01(\t\x12\x19\n\x11\x63reated_timestamp\x18\t \x01(\x03\x12\x1e\n\x16last_updated_timestamp\x18\n \x01(\x03\x12\x12\n\ncreated_by\x18\x0b \x01(\t\x12\x12\n\ncategories\x18\x0c \x03(\t\x12\x13\n\x0btrace_count\x18\r \x01(\x05\"\x80\x02\n\x0b\x43reateIssue\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0b\x64\x65scription\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0e\n\x06status\x18\x04 \x01(\t\x12\x10\n\x08severity\x18\x05 \x01(\t\x12\x13\n\x0broot_causes\x18\x06 \x03(\t\x12\x15\n\rsource_run_id\x18\x07 \x01(\t\x12\x12\n\ncreated_by\x18\x08 \x01(\t\x12\x12\n\ncategories\x18\t \x03(\t\x1a/\n\x08Response\x12#\n\x05issue\x18\x01 \x01(\x0b\x32\x14.mlflow.issues.Issue\"\x9b\x01\n\x0bUpdateIssue\x12\x16\n\x08issue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t\x12\x0e\n\x06status\x18\x04 \x01(\t\x12\x10\n\x08severity\x18\x05 \x01(\t\x1a/\n\x08Response\x12#\n\x05issue\x18\x01 \x01(\x0b\x32\x14.mlflow.issues.Issue\"S\n\x08GetIssue\x12\x16\n\x08issue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a/\n\x08Response\x12#\n\x05issue\x18\x01 \x01(\x0b\x32\x14.mlflow.issues.Issue\"\xcd\x01\n\x0cSearchIssues\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x12\x15\n\rfilter_string\x18\x02 \x01(\t\x12\x13\n\x0bmax_results\x18\x03 \x01(\x05\x12\x12\n\npage_token\x18\x04 \x01(\t\x12\x1b\n\x13include_trace_count\x18\x05 \x01(\x08\x1aI\n\x08Response\x12$\n\x06issues\x18\x01 \x03(\x0b\x32\x14.mlflow.issues.Issue\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\tB\x19\n\x14org.mlflow.api.proto\x90\x01\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0cissues.proto\x12\rmlflow.issues\x1a\x10\x64\x61tabricks.proto\"\xba\x03\n\x05Issue\x12\x10\n\x08issue_id\x18\x01 \x01(\t\x12\x15\n\rexperiment_id\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x04 \x01(\t\x12\x0e\n\x06status\x18\x05 \x01(\t\x12\x10\n\x08severity\x18\x06 \x01(\t\x12\x17\n\x0broot_causes\x18\x07 \x03(\tB\x02\x18\x01\x12\x15\n\rsource_run_id\x18\x08 \x01(\t\x12\x19\n\x11\x63reated_timestamp\x18\t \x01(\x03\x12\x1e\n\x16last_updated_timestamp\x18\n \x01(\x03\x12\x12\n\ncreated_by\x18\x0b \x01(\t\x12\x12\n\ncategories\x18\x0c \x03(\t\x12\x13\n\x0btrace_count\x18\r \x01(\x05\x12\x1b\n\x13last_seen_timestamp\x18\x0e \x01(\x03\x12\x17\n\x0flast_updated_by\x18\x0f \x01(\t\x12\x34\n\x08metadata\x18\x10 \x03(\x0b\x32\".mlflow.issues.Issue.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xa0\x03\n\x0b\x43reateIssue\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0b\x64\x65scription\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0e\n\x06status\x18\x04 \x01(\t\x12\x10\n\x08severity\x18\x05 \x01(\t\x12\x17\n\x0broot_causes\x18\x06 \x03(\tB\x02\x18\x01\x12\x15\n\rsource_run_id\x18\x07 \x01(\t\x12\x12\n\ncreated_by\x18\x08 \x01(\t\x12\x12\n\ncategories\x18\t \x03(\t\x12\x10\n\x08issue_id\x18\n \x01(\t\x12\x1b\n\x13last_seen_timestamp\x18\x0b \x01(\x03\x12:\n\x08metadata\x18\x0c \x03(\x0b\x32(.mlflow.issues.CreateIssue.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a/\n\x08Response\x12#\n\x05issue\x18\x01 \x01(\x0b\x32\x14.mlflow.issues.Issue\"\xf0\x02\n\x0bUpdateIssue\x12\x16\n\x08issue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t\x12\x0e\n\x06status\x18\x04 \x01(\t\x12\x10\n\x08severity\x18\x05 \x01(\t\x12\x12\n\ncategories\x18\x06 \x03(\t\x12\x1b\n\x13last_seen_timestamp\x18\x07 \x01(\x03\x12\x17\n\x0flast_updated_by\x18\x08 \x01(\t\x12:\n\x08metadata\x18\t \x03(\x0b\x32(.mlflow.issues.UpdateIssue.MetadataEntry\x12\x1c\n\x14\x64\x65lete_metadata_keys\x18\n \x03(\t\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a/\n\x08Response\x12#\n\x05issue\x18\x01 \x01(\x0b\x32\x14.mlflow.issues.Issue\"S\n\x08GetIssue\x12\x16\n\x08issue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a/\n\x08Response\x12#\n\x05issue\x18\x01 \x01(\x0b\x32\x14.mlflow.issues.Issue\"\xe7\x02\n\x0cSearchIssues\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x12\x15\n\rfilter_string\x18\x02 \x01(\t\x12\x13\n\x0bmax_results\x18\x03 \x01(\x05\x12\x12\n\npage_token\x18\x04 \x01(\t\x12\x1b\n\x13include_trace_count\x18\x05 \x01(\x08\x12\x0c\n\x04name\x18\x06 \x01(\t\x12\x10\n\x08statuses\x18\x07 \x03(\t\x12\x12\n\nseverities\x18\x08 \x03(\t\x12\x12\n\ncategories\x18\t \x03(\t\x12\x10\n\x08order_by\x18\n \x03(\t\x12\x1b\n\x13include_total_count\x18\x0b \x01(\x08\x12\x0c\n\x04view\x18\x0c \x01(\t\x1a^\n\x08Response\x12$\n\x06issues\x18\x01 \x03(\x0b\x32\x14.mlflow.issues.Issue\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\x12\x13\n\x0btotal_count\x18\x03 \x01(\x03\x42\x19\n\x14org.mlflow.api.proto\x90\x01\x01')
 
   _globals = globals()
   _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -27,34 +27,50 @@ if Version(google.protobuf.__version__).major >= 5:
   if not _descriptor._USE_C_DESCRIPTORS:
     _globals['DESCRIPTOR']._loaded_options = None
     _globals['DESCRIPTOR']._serialized_options = b'\n\024org.mlflow.api.proto\220\001\001'
+    _globals['_ISSUE_METADATAENTRY']._loaded_options = None
+    _globals['_ISSUE_METADATAENTRY']._serialized_options = b'8\001'
+    _globals['_ISSUE'].fields_by_name['root_causes']._loaded_options = None
+    _globals['_ISSUE'].fields_by_name['root_causes']._serialized_options = b'\030\001'
+    _globals['_CREATEISSUE_METADATAENTRY']._loaded_options = None
+    _globals['_CREATEISSUE_METADATAENTRY']._serialized_options = b'8\001'
     _globals['_CREATEISSUE'].fields_by_name['experiment_id']._loaded_options = None
     _globals['_CREATEISSUE'].fields_by_name['experiment_id']._serialized_options = b'\370\206\031\001'
     _globals['_CREATEISSUE'].fields_by_name['name']._loaded_options = None
     _globals['_CREATEISSUE'].fields_by_name['name']._serialized_options = b'\370\206\031\001'
     _globals['_CREATEISSUE'].fields_by_name['description']._loaded_options = None
     _globals['_CREATEISSUE'].fields_by_name['description']._serialized_options = b'\370\206\031\001'
+    _globals['_CREATEISSUE'].fields_by_name['root_causes']._loaded_options = None
+    _globals['_CREATEISSUE'].fields_by_name['root_causes']._serialized_options = b'\030\001'
+    _globals['_UPDATEISSUE_METADATAENTRY']._loaded_options = None
+    _globals['_UPDATEISSUE_METADATAENTRY']._serialized_options = b'8\001'
     _globals['_UPDATEISSUE'].fields_by_name['issue_id']._loaded_options = None
     _globals['_UPDATEISSUE'].fields_by_name['issue_id']._serialized_options = b'\370\206\031\001'
     _globals['_GETISSUE'].fields_by_name['issue_id']._loaded_options = None
     _globals['_GETISSUE'].fields_by_name['issue_id']._serialized_options = b'\370\206\031\001'
     _globals['_ISSUE']._serialized_start=50
-    _globals['_ISSUE']._serialized_end=331
-    _globals['_CREATEISSUE']._serialized_start=334
-    _globals['_CREATEISSUE']._serialized_end=590
-    _globals['_CREATEISSUE_RESPONSE']._serialized_start=543
-    _globals['_CREATEISSUE_RESPONSE']._serialized_end=590
-    _globals['_UPDATEISSUE']._serialized_start=593
-    _globals['_UPDATEISSUE']._serialized_end=748
-    _globals['_UPDATEISSUE_RESPONSE']._serialized_start=543
-    _globals['_UPDATEISSUE_RESPONSE']._serialized_end=590
-    _globals['_GETISSUE']._serialized_start=750
-    _globals['_GETISSUE']._serialized_end=833
-    _globals['_GETISSUE_RESPONSE']._serialized_start=543
-    _globals['_GETISSUE_RESPONSE']._serialized_end=590
-    _globals['_SEARCHISSUES']._serialized_start=836
-    _globals['_SEARCHISSUES']._serialized_end=1041
-    _globals['_SEARCHISSUES_RESPONSE']._serialized_start=968
-    _globals['_SEARCHISSUES_RESPONSE']._serialized_end=1041
+    _globals['_ISSUE']._serialized_end=492
+    _globals['_ISSUE_METADATAENTRY']._serialized_start=445
+    _globals['_ISSUE_METADATAENTRY']._serialized_end=492
+    _globals['_CREATEISSUE']._serialized_start=495
+    _globals['_CREATEISSUE']._serialized_end=911
+    _globals['_CREATEISSUE_METADATAENTRY']._serialized_start=445
+    _globals['_CREATEISSUE_METADATAENTRY']._serialized_end=492
+    _globals['_CREATEISSUE_RESPONSE']._serialized_start=864
+    _globals['_CREATEISSUE_RESPONSE']._serialized_end=911
+    _globals['_UPDATEISSUE']._serialized_start=914
+    _globals['_UPDATEISSUE']._serialized_end=1282
+    _globals['_UPDATEISSUE_METADATAENTRY']._serialized_start=445
+    _globals['_UPDATEISSUE_METADATAENTRY']._serialized_end=492
+    _globals['_UPDATEISSUE_RESPONSE']._serialized_start=864
+    _globals['_UPDATEISSUE_RESPONSE']._serialized_end=911
+    _globals['_GETISSUE']._serialized_start=1284
+    _globals['_GETISSUE']._serialized_end=1367
+    _globals['_GETISSUE_RESPONSE']._serialized_start=864
+    _globals['_GETISSUE_RESPONSE']._serialized_end=911
+    _globals['_SEARCHISSUES']._serialized_start=1370
+    _globals['_SEARCHISSUES']._serialized_end=1729
+    _globals['_SEARCHISSUES_RESPONSE']._serialized_start=1635
+    _globals['_SEARCHISSUES_RESPONSE']._serialized_end=1729
   # @@protoc_insertion_point(module_scope)
 
 else:
@@ -75,27 +91,45 @@ else:
   from . import databricks_pb2 as databricks__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0cissues.proto\x12\rmlflow.issues\x1a\x10\x64\x61tabricks.proto\"\x99\x02\n\x05Issue\x12\x10\n\x08issue_id\x18\x01 \x01(\t\x12\x15\n\rexperiment_id\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x04 \x01(\t\x12\x0e\n\x06status\x18\x05 \x01(\t\x12\x10\n\x08severity\x18\x06 \x01(\t\x12\x13\n\x0broot_causes\x18\x07 \x03(\t\x12\x15\n\rsource_run_id\x18\x08 \x01(\t\x12\x19\n\x11\x63reated_timestamp\x18\t \x01(\x03\x12\x1e\n\x16last_updated_timestamp\x18\n \x01(\x03\x12\x12\n\ncreated_by\x18\x0b \x01(\t\x12\x12\n\ncategories\x18\x0c \x03(\t\x12\x13\n\x0btrace_count\x18\r \x01(\x05\"\x80\x02\n\x0b\x43reateIssue\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0b\x64\x65scription\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0e\n\x06status\x18\x04 \x01(\t\x12\x10\n\x08severity\x18\x05 \x01(\t\x12\x13\n\x0broot_causes\x18\x06 \x03(\t\x12\x15\n\rsource_run_id\x18\x07 \x01(\t\x12\x12\n\ncreated_by\x18\x08 \x01(\t\x12\x12\n\ncategories\x18\t \x03(\t\x1a/\n\x08Response\x12#\n\x05issue\x18\x01 \x01(\x0b\x32\x14.mlflow.issues.Issue\"\x9b\x01\n\x0bUpdateIssue\x12\x16\n\x08issue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t\x12\x0e\n\x06status\x18\x04 \x01(\t\x12\x10\n\x08severity\x18\x05 \x01(\t\x1a/\n\x08Response\x12#\n\x05issue\x18\x01 \x01(\x0b\x32\x14.mlflow.issues.Issue\"S\n\x08GetIssue\x12\x16\n\x08issue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a/\n\x08Response\x12#\n\x05issue\x18\x01 \x01(\x0b\x32\x14.mlflow.issues.Issue\"\xcd\x01\n\x0cSearchIssues\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x12\x15\n\rfilter_string\x18\x02 \x01(\t\x12\x13\n\x0bmax_results\x18\x03 \x01(\x05\x12\x12\n\npage_token\x18\x04 \x01(\t\x12\x1b\n\x13include_trace_count\x18\x05 \x01(\x08\x1aI\n\x08Response\x12$\n\x06issues\x18\x01 \x03(\x0b\x32\x14.mlflow.issues.Issue\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\tB\x19\n\x14org.mlflow.api.proto\x90\x01\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0cissues.proto\x12\rmlflow.issues\x1a\x10\x64\x61tabricks.proto\"\xba\x03\n\x05Issue\x12\x10\n\x08issue_id\x18\x01 \x01(\t\x12\x15\n\rexperiment_id\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x04 \x01(\t\x12\x0e\n\x06status\x18\x05 \x01(\t\x12\x10\n\x08severity\x18\x06 \x01(\t\x12\x17\n\x0broot_causes\x18\x07 \x03(\tB\x02\x18\x01\x12\x15\n\rsource_run_id\x18\x08 \x01(\t\x12\x19\n\x11\x63reated_timestamp\x18\t \x01(\x03\x12\x1e\n\x16last_updated_timestamp\x18\n \x01(\x03\x12\x12\n\ncreated_by\x18\x0b \x01(\t\x12\x12\n\ncategories\x18\x0c \x03(\t\x12\x13\n\x0btrace_count\x18\r \x01(\x05\x12\x1b\n\x13last_seen_timestamp\x18\x0e \x01(\x03\x12\x17\n\x0flast_updated_by\x18\x0f \x01(\t\x12\x34\n\x08metadata\x18\x10 \x03(\x0b\x32\".mlflow.issues.Issue.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xa0\x03\n\x0b\x43reateIssue\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0b\x64\x65scription\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0e\n\x06status\x18\x04 \x01(\t\x12\x10\n\x08severity\x18\x05 \x01(\t\x12\x17\n\x0broot_causes\x18\x06 \x03(\tB\x02\x18\x01\x12\x15\n\rsource_run_id\x18\x07 \x01(\t\x12\x12\n\ncreated_by\x18\x08 \x01(\t\x12\x12\n\ncategories\x18\t \x03(\t\x12\x10\n\x08issue_id\x18\n \x01(\t\x12\x1b\n\x13last_seen_timestamp\x18\x0b \x01(\x03\x12:\n\x08metadata\x18\x0c \x03(\x0b\x32(.mlflow.issues.CreateIssue.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a/\n\x08Response\x12#\n\x05issue\x18\x01 \x01(\x0b\x32\x14.mlflow.issues.Issue\"\xf0\x02\n\x0bUpdateIssue\x12\x16\n\x08issue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t\x12\x0e\n\x06status\x18\x04 \x01(\t\x12\x10\n\x08severity\x18\x05 \x01(\t\x12\x12\n\ncategories\x18\x06 \x03(\t\x12\x1b\n\x13last_seen_timestamp\x18\x07 \x01(\x03\x12\x17\n\x0flast_updated_by\x18\x08 \x01(\t\x12:\n\x08metadata\x18\t \x03(\x0b\x32(.mlflow.issues.UpdateIssue.MetadataEntry\x12\x1c\n\x14\x64\x65lete_metadata_keys\x18\n \x03(\t\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a/\n\x08Response\x12#\n\x05issue\x18\x01 \x01(\x0b\x32\x14.mlflow.issues.Issue\"S\n\x08GetIssue\x12\x16\n\x08issue_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a/\n\x08Response\x12#\n\x05issue\x18\x01 \x01(\x0b\x32\x14.mlflow.issues.Issue\"\xe7\x02\n\x0cSearchIssues\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x12\x15\n\rfilter_string\x18\x02 \x01(\t\x12\x13\n\x0bmax_results\x18\x03 \x01(\x05\x12\x12\n\npage_token\x18\x04 \x01(\t\x12\x1b\n\x13include_trace_count\x18\x05 \x01(\x08\x12\x0c\n\x04name\x18\x06 \x01(\t\x12\x10\n\x08statuses\x18\x07 \x03(\t\x12\x12\n\nseverities\x18\x08 \x03(\t\x12\x12\n\ncategories\x18\t \x03(\t\x12\x10\n\x08order_by\x18\n \x03(\t\x12\x1b\n\x13include_total_count\x18\x0b \x01(\x08\x12\x0c\n\x04view\x18\x0c \x01(\t\x1a^\n\x08Response\x12$\n\x06issues\x18\x01 \x03(\x0b\x32\x14.mlflow.issues.Issue\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\x12\x13\n\x0btotal_count\x18\x03 \x01(\x03\x42\x19\n\x14org.mlflow.api.proto\x90\x01\x01')
 
 
 
   _ISSUE = DESCRIPTOR.message_types_by_name['Issue']
+  _ISSUE_METADATAENTRY = _ISSUE.nested_types_by_name['MetadataEntry']
   _CREATEISSUE = DESCRIPTOR.message_types_by_name['CreateIssue']
+  _CREATEISSUE_METADATAENTRY = _CREATEISSUE.nested_types_by_name['MetadataEntry']
   _CREATEISSUE_RESPONSE = _CREATEISSUE.nested_types_by_name['Response']
   _UPDATEISSUE = DESCRIPTOR.message_types_by_name['UpdateIssue']
+  _UPDATEISSUE_METADATAENTRY = _UPDATEISSUE.nested_types_by_name['MetadataEntry']
   _UPDATEISSUE_RESPONSE = _UPDATEISSUE.nested_types_by_name['Response']
   _GETISSUE = DESCRIPTOR.message_types_by_name['GetIssue']
   _GETISSUE_RESPONSE = _GETISSUE.nested_types_by_name['Response']
   _SEARCHISSUES = DESCRIPTOR.message_types_by_name['SearchIssues']
   _SEARCHISSUES_RESPONSE = _SEARCHISSUES.nested_types_by_name['Response']
   Issue = _reflection.GeneratedProtocolMessageType('Issue', (_message.Message,), {
+
+    'MetadataEntry' : _reflection.GeneratedProtocolMessageType('MetadataEntry', (_message.Message,), {
+      'DESCRIPTOR' : _ISSUE_METADATAENTRY,
+      '__module__' : 'issues_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.issues.Issue.MetadataEntry)
+      })
+    ,
     'DESCRIPTOR' : _ISSUE,
     '__module__' : 'issues_pb2'
     # @@protoc_insertion_point(class_scope:mlflow.issues.Issue)
     })
   _sym_db.RegisterMessage(Issue)
+  _sym_db.RegisterMessage(Issue.MetadataEntry)
 
   CreateIssue = _reflection.GeneratedProtocolMessageType('CreateIssue', (_message.Message,), {
+
+    'MetadataEntry' : _reflection.GeneratedProtocolMessageType('MetadataEntry', (_message.Message,), {
+      'DESCRIPTOR' : _CREATEISSUE_METADATAENTRY,
+      '__module__' : 'issues_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.issues.CreateIssue.MetadataEntry)
+      })
+    ,
 
     'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
       'DESCRIPTOR' : _CREATEISSUE_RESPONSE,
@@ -108,9 +142,17 @@ else:
     # @@protoc_insertion_point(class_scope:mlflow.issues.CreateIssue)
     })
   _sym_db.RegisterMessage(CreateIssue)
+  _sym_db.RegisterMessage(CreateIssue.MetadataEntry)
   _sym_db.RegisterMessage(CreateIssue.Response)
 
   UpdateIssue = _reflection.GeneratedProtocolMessageType('UpdateIssue', (_message.Message,), {
+
+    'MetadataEntry' : _reflection.GeneratedProtocolMessageType('MetadataEntry', (_message.Message,), {
+      'DESCRIPTOR' : _UPDATEISSUE_METADATAENTRY,
+      '__module__' : 'issues_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.issues.UpdateIssue.MetadataEntry)
+      })
+    ,
 
     'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
       'DESCRIPTOR' : _UPDATEISSUE_RESPONSE,
@@ -123,6 +165,7 @@ else:
     # @@protoc_insertion_point(class_scope:mlflow.issues.UpdateIssue)
     })
   _sym_db.RegisterMessage(UpdateIssue)
+  _sym_db.RegisterMessage(UpdateIssue.MetadataEntry)
   _sym_db.RegisterMessage(UpdateIssue.Response)
 
   GetIssue = _reflection.GeneratedProtocolMessageType('GetIssue', (_message.Message,), {
@@ -159,33 +202,49 @@ else:
 
     DESCRIPTOR._options = None
     DESCRIPTOR._serialized_options = b'\n\024org.mlflow.api.proto\220\001\001'
+    _ISSUE_METADATAENTRY._options = None
+    _ISSUE_METADATAENTRY._serialized_options = b'8\001'
+    _ISSUE.fields_by_name['root_causes']._options = None
+    _ISSUE.fields_by_name['root_causes']._serialized_options = b'\030\001'
+    _CREATEISSUE_METADATAENTRY._options = None
+    _CREATEISSUE_METADATAENTRY._serialized_options = b'8\001'
     _CREATEISSUE.fields_by_name['experiment_id']._options = None
     _CREATEISSUE.fields_by_name['experiment_id']._serialized_options = b'\370\206\031\001'
     _CREATEISSUE.fields_by_name['name']._options = None
     _CREATEISSUE.fields_by_name['name']._serialized_options = b'\370\206\031\001'
     _CREATEISSUE.fields_by_name['description']._options = None
     _CREATEISSUE.fields_by_name['description']._serialized_options = b'\370\206\031\001'
+    _CREATEISSUE.fields_by_name['root_causes']._options = None
+    _CREATEISSUE.fields_by_name['root_causes']._serialized_options = b'\030\001'
+    _UPDATEISSUE_METADATAENTRY._options = None
+    _UPDATEISSUE_METADATAENTRY._serialized_options = b'8\001'
     _UPDATEISSUE.fields_by_name['issue_id']._options = None
     _UPDATEISSUE.fields_by_name['issue_id']._serialized_options = b'\370\206\031\001'
     _GETISSUE.fields_by_name['issue_id']._options = None
     _GETISSUE.fields_by_name['issue_id']._serialized_options = b'\370\206\031\001'
     _ISSUE._serialized_start=50
-    _ISSUE._serialized_end=331
-    _CREATEISSUE._serialized_start=334
-    _CREATEISSUE._serialized_end=590
-    _CREATEISSUE_RESPONSE._serialized_start=543
-    _CREATEISSUE_RESPONSE._serialized_end=590
-    _UPDATEISSUE._serialized_start=593
-    _UPDATEISSUE._serialized_end=748
-    _UPDATEISSUE_RESPONSE._serialized_start=543
-    _UPDATEISSUE_RESPONSE._serialized_end=590
-    _GETISSUE._serialized_start=750
-    _GETISSUE._serialized_end=833
-    _GETISSUE_RESPONSE._serialized_start=543
-    _GETISSUE_RESPONSE._serialized_end=590
-    _SEARCHISSUES._serialized_start=836
-    _SEARCHISSUES._serialized_end=1041
-    _SEARCHISSUES_RESPONSE._serialized_start=968
-    _SEARCHISSUES_RESPONSE._serialized_end=1041
+    _ISSUE._serialized_end=492
+    _ISSUE_METADATAENTRY._serialized_start=445
+    _ISSUE_METADATAENTRY._serialized_end=492
+    _CREATEISSUE._serialized_start=495
+    _CREATEISSUE._serialized_end=911
+    _CREATEISSUE_METADATAENTRY._serialized_start=445
+    _CREATEISSUE_METADATAENTRY._serialized_end=492
+    _CREATEISSUE_RESPONSE._serialized_start=864
+    _CREATEISSUE_RESPONSE._serialized_end=911
+    _UPDATEISSUE._serialized_start=914
+    _UPDATEISSUE._serialized_end=1282
+    _UPDATEISSUE_METADATAENTRY._serialized_start=445
+    _UPDATEISSUE_METADATAENTRY._serialized_end=492
+    _UPDATEISSUE_RESPONSE._serialized_start=864
+    _UPDATEISSUE_RESPONSE._serialized_end=911
+    _GETISSUE._serialized_start=1284
+    _GETISSUE._serialized_end=1367
+    _GETISSUE_RESPONSE._serialized_start=864
+    _GETISSUE_RESPONSE._serialized_end=911
+    _SEARCHISSUES._serialized_start=1370
+    _SEARCHISSUES._serialized_end=1729
+    _SEARCHISSUES_RESPONSE._serialized_start=1635
+    _SEARCHISSUES_RESPONSE._serialized_end=1729
   # @@protoc_insertion_point(module_scope)
 

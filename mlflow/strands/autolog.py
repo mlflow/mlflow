@@ -24,7 +24,12 @@ from opentelemetry.trace import (
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan, create_mlflow_span
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
-from mlflow.tracing.provider import _get_tracer
+from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
+from mlflow.tracing.provider import (
+    _add_span_processor_first,
+    _get_tracer_for_span_end,
+    _get_tracer_for_span_start,
+)
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     _bypass_attribute_guard,
@@ -33,6 +38,8 @@ from mlflow.tracing.utils import (
 )
 
 _logger = logging.getLogger(__name__)
+
+_GENAI_TRANSLATOR = GenAiTranslator()
 
 
 class StrandsSpanProcessor(SimpleSpanProcessor):
@@ -48,8 +55,8 @@ class StrandsSpanProcessor(SimpleSpanProcessor):
             return
         self._processing_local.in_on_start = True
         try:
-            tracer = _get_tracer(__name__)
-            if isinstance(tracer, NoOpTracer):
+            tracer, should_forward = _get_tracer_for_span_start(self, __name__)
+            if isinstance(tracer, NoOpTracer) or not should_forward:
                 return
 
             tracer.span_processor.on_start(span, parent_context)
@@ -81,8 +88,9 @@ class StrandsSpanProcessor(SimpleSpanProcessor):
                 if provider := span.attributes.get("gen_ai.system"):
                     mlflow_span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
                 _set_token_usage(mlflow_span, span)
-            tracer = _get_tracer(__name__)
-            tracer.span_processor.on_end(span)
+            tracer, should_forward = _get_tracer_for_span_end(self, __name__)
+            if should_forward:
+                tracer.span_processor.on_end(span)
         finally:
             self._processing_local.in_on_end = False
 
@@ -99,7 +107,7 @@ def setup_strands_tracing():
             isinstance(p, StrandsSpanProcessor)
             for p in provider._active_span_processor._span_processors
         ):
-            provider.add_span_processor(processor)
+            _add_span_processor_first(provider, processor)
 
 
 def teardown_strands_tracing():
@@ -177,5 +185,11 @@ def _set_token_usage(mlflow_span: LiveSpan, span: OTelReadableSpan) -> None:
         usage[TokenUsageKey.OUTPUT_TOKENS] = v
     if (v := span.attributes.get("gen_ai.usage.total_tokens")) is not None:
         usage[TokenUsageKey.TOTAL_TOKENS] = v
+    # Only the semconv cache keys (strands >= 1.54) are read. Older versions emit underscore
+    # keys next to an input count that may exclude cache, which would underprice the span.
+    if (v := _GENAI_TRANSLATOR.get_cache_read_input_tokens(span.attributes)) is not None:
+        usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = v
+    if (v := _GENAI_TRANSLATOR.get_cache_creation_input_tokens(span.attributes)) is not None:
+        usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = v
     if usage:
         mlflow_span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)

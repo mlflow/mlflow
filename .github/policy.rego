@@ -320,7 +320,7 @@ deny_github_script_without_retries contains msg if {
 deny_scheduled_workflow_without_repo_check contains msg if {
 	input["true"].schedule
 	not any_job_has_repo_check(input.jobs)
-	msg := "Scheduled workflows must have at least one job with 'if: github.repository == ...' condition"
+	msg := "Scheduled workflows must have at least one job with github.repository == 'mlflow/mlflow' in its 'if' condition"
 }
 
 deny_push_without_branches contains msg if {
@@ -419,6 +419,9 @@ step_entries(inp) := entries if {
 
 jobs_without_timeout(jobs) := {job_id |
 	some job_id, job in jobs
+
+	# Reusable workflow callers cannot set timeout-minutes; check the called jobs instead.
+	not job.uses
 	not job["timeout-minutes"]
 }
 
@@ -465,7 +468,7 @@ any_job_has_repo_check(jobs) if {
 }
 
 job_has_repo_check(job) if {
-	regex.match(`github\.repository\s*==\s*'mlflow/`, job["if"])
+	regex.match(`github\.repository\s*==\s*'mlflow/mlflow'`, job["if"])
 }
 
 deny_secrets_in_top_level_env contains msg if {

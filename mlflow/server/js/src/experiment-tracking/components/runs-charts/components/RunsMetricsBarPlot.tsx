@@ -345,22 +345,22 @@ export const RunsMetricsBarPlot = React.memo(
     }, [runsData, isMultiMetric, metricKeys]);
 
     useEffect(() => {
-      // Prepare layout and data traces to export
-      const layoutToExport = {
+      // Prepare layout to export. Keep run UUIDs as Y axis categories so runs sharing
+      // a name stay separate bars, but label the ticks with run names.
+      const [{ y: ids, names }] = plotData;
+      const layoutToExport: Partial<Layout> = {
         ...layout,
         yaxis: {
           ...layout.yaxis,
           showticklabels: true,
           automargin: true,
+          tickmode: 'array',
+          tickvals: ids as string[],
+          ticktext: names,
         },
       };
 
-      const dataToExport = plotData.map((trace) => ({
-        ...trace,
-        // In exported image, use names for Y axes
-        y: (trace as BarTraceData).names,
-      }));
-      onSetDownloadHandler?.(createChartImageDownloadHandler(dataToExport, layoutToExport));
+      onSetDownloadHandler?.(createChartImageDownloadHandler(plotData, layoutToExport));
     }, [layout, onSetDownloadHandler, plotData]);
 
     const chart = (

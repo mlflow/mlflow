@@ -24,6 +24,7 @@ from pydantic import PrivateAttr
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace import Trace
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
@@ -110,11 +111,19 @@ class TruLensScorer(Scorer):
             score, reasons = feedback_method(**args)
 
             rationale = format_rationale(reasons)
-            value = CategoricalRating.YES if score >= self._threshold else CategoricalRating.NO
+            if score < 0:
+                value = None
+                error = MlflowException(
+                    f"TruLens metric {self.name} returned an unparsable judge score: {score}"
+                )
+            else:
+                value = CategoricalRating.YES if score >= self._threshold else CategoricalRating.NO
+                error = None
 
             return Feedback(
                 name=self.name,
                 value=value,
+                error=error,
                 rationale=rationale,
                 source=assessment_source,
                 metadata={

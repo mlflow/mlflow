@@ -365,7 +365,7 @@ def append_to_uri_query_params(uri, *query_params: tuple[str, Any]) -> str:
             be a 2-element tuple. For example, ``("key", "value")``.
     """
     parsed_uri = urllib.parse.urlparse(uri)
-    parsed_query = urllib.parse.parse_qsl(parsed_uri.query)
+    parsed_query = urllib.parse.parse_qsl(parsed_uri.query, keep_blank_values=True)
     new_parsed_query = parsed_query + list(query_params)
     new_query = urllib.parse.urlencode(new_parsed_query)
     new_parsed_uri = parsed_uri._replace(query=new_query)

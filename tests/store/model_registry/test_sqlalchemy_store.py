@@ -1566,6 +1566,17 @@ def test_search_registered_model_pagination(store):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
+@pytest.mark.parametrize("max_results", [0, -1])
+def test_search_registered_models_rejects_non_positive_max_results(store, max_results):
+    _rm_maker(store, "RM-A")
+    _rm_maker(store, "RM-B")
+    with pytest.raises(
+        MlflowException, match=r"Invalid value for max_results\. It must be a positive integer"
+    ) as exception_context:
+        store.search_registered_models(max_results=max_results)
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
 def test_search_registered_model_order_by(store):
     rms = []
     # explicitly mock the creation_timestamps because timestamps seem to be unstable in Windows
@@ -1939,6 +1950,34 @@ def test_get_model_version_by_alias(store):
     _setup_and_test_aliases(store, model_name)
     mv = store.get_model_version_by_alias(model_name, "test_alias")
     assert mv.aliases == ["test_alias"]
+
+
+def test_get_model_version_by_alias_latest_picks_highest_version(store):
+    model_name = "GetModelVersionByAliasLatest_TestMod"
+    store.create_registered_model(model_name)
+    for _ in range(4):
+        store.create_model_version(model_name, "path/to/source", uuid.uuid4().hex)
+    # `get_latest_versions` returns the latest version of each stage, keyed by the
+    # stage of the lowest version that reached it, so the highest version is neither
+    # the first nor the last element here.
+    store.transition_model_version_stage(model_name, "1", "Archived", False)
+    store.transition_model_version_stage(model_name, "2", "Production", False)
+    store.transition_model_version_stage(model_name, "3", "Staging", False)
+    store.transition_model_version_stage(model_name, "4", "Production", False)
+
+    mv = store.get_model_version_by_alias(model_name, "latest")
+    assert int(mv.version) == 4
+
+
+def test_get_model_version_by_alias_latest_after_promoting_older_version(store):
+    model_name = "GetModelVersionByAliasLatestPromoteOlder_TestMod"
+    store.create_registered_model(model_name)
+    for _ in range(3):
+        store.create_model_version(model_name, "path/to/source", uuid.uuid4().hex)
+    store.transition_model_version_stage(model_name, "1", "Production", False)
+
+    mv = store.get_model_version_by_alias(model_name, "latest")
+    assert int(mv.version) == 3
 
 
 @pytest.mark.parametrize("version", [2, "2"])

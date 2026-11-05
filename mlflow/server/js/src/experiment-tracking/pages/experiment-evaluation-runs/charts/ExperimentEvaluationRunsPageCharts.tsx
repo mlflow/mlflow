@@ -25,7 +25,8 @@ import { useExperimentEvaluationRunsChartsUIState } from '../hooks/useExperiment
 import { useMemoDeep } from '../../../../common/hooks/useMemoDeep';
 import { RunsChartsConfigureModal } from '../../../components/runs-charts/components/RunsChartsConfigureModal';
 import { RunsChartsTooltipBody } from '../../../components/runs-charts/components/RunsChartsTooltipBody';
-import { TableSkeleton } from '@databricks/design-system';
+import { TableSkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import { shouldEnableNewEvalRunsUi } from '../../../../common/utils/FeatureUtils';
 import { useGetExperimentRunColor } from '../../../components/experiment-page/hooks/useExperimentRunColor';
 import { useExperimentEvaluationRunsRowVisibility } from '../hooks/useExperimentEvaluationRunsRowVisibility';
 
@@ -45,6 +46,7 @@ const ExperimentEvaluationRunsPageChartsImpl = ({
   runs?: RunEntity[];
   chartUIState: ExperimentEvaluationRunsChartsUIConfiguration;
 }) => {
+  const { theme } = useDesignSystemTheme();
   const getRunColor = useGetExperimentRunColor();
   const { isRowHidden } = useExperimentEvaluationRunsRowVisibility();
 
@@ -86,10 +88,16 @@ const ExperimentEvaluationRunsPageChartsImpl = ({
     [],
   );
 
-  const contextValue = useMemo(() => ({ runs: chartData }), [chartData]);
+  const enableNewEvalRunsUi = shouldEnableNewEvalRunsUi();
+  const contextValue = useMemo(
+    () => ({ runs: chartData, ...(enableNewEvalRunsUi ? { compactRunDescription: true } : {}) }),
+    [chartData, enableNewEvalRunsUi],
+  );
 
   return (
-    <div>
+    // Inset the chart content from both pane edges so "Add chart" clears the scrollbar and the
+    // section-header chevron clears the left edge.
+    <div {...(enableNewEvalRunsUi ? { css: { paddingLeft: theme.spacing.md, paddingRight: theme.spacing.md } } : {})}>
       <RunsChartsTooltipWrapper contextData={contextValue} component={RunsChartsTooltipBody}>
         <RunsChartsDraggableCardsGridContextProvider visibleChartCards={chartUIState.compareRunCharts}>
           <RunsChartsSectionAccordion

@@ -338,3 +338,89 @@ def test_reap_stale_sandbox_homes_no_base_dir(monkeypatch, tmp_path):
 
     monkeypatch.setattr(session_module, "SESSION_DIR", tmp_path / "nonexistent")
     assert session_module.reap_stale_sandbox_homes() == 0
+
+
+def _age(path, seconds):
+    old = time.time() - seconds
+    os.utime(path, (old, old))
+
+
+def test_load_refuses_and_deletes_an_expired_session(monkeypatch, tmp_path):
+    import mlflow.server.assistant.session as session_module
+
+    monkeypatch.setattr(session_module, "SESSION_DIR", tmp_path)
+    SessionManager.save(_VALID_SID, Session(owner="alice"))
+    session_file = SessionManager.get_session_file(_VALID_SID)
+    _age(session_file, session_module._SESSION_MAX_AGE_SECONDS + 60)
+
+    assert SessionManager.load(_VALID_SID) is None
+    assert not session_file.exists()
+
+
+def test_load_keeps_a_recent_session(monkeypatch, tmp_path):
+    import mlflow.server.assistant.session as session_module
+
+    monkeypatch.setattr(session_module, "SESSION_DIR", tmp_path)
+    SessionManager.save(_VALID_SID, Session(owner="alice"))
+    _age(SessionManager.get_session_file(_VALID_SID), session_module._SESSION_MAX_AGE_SECONDS - 60)
+
+    assert SessionManager.load(_VALID_SID).owner == "alice"
+
+
+def test_reap_stale_sessions_removes_only_expired_session_files(monkeypatch, tmp_path):
+    import mlflow.server.assistant.session as session_module
+
+    monkeypatch.setattr(session_module, "SESSION_DIR", tmp_path)
+    old_sid = str(uuid.uuid4())
+    new_sid = str(uuid.uuid4())
+    SessionManager.save(old_sid, Session())
+    SessionManager.save(new_sid, Session())
+    _age(SessionManager.get_session_file(old_sid), session_module._SESSION_MAX_AGE_SECONDS + 60)
+    session_module.save_container_id(old_sid, "cid-old")
+    session_module.save_container_id(new_sid, "cid-new")
+
+    assert session_module.reap_stale_sessions() == 1
+    assert not SessionManager.get_session_file(old_sid).exists()
+    assert not session_module.get_container_file(old_sid).exists()
+    assert SessionManager.get_session_file(new_sid).exists()
+    assert session_module.get_container_id(new_sid) == "cid-new"
+
+
+def test_reap_stale_sessions_without_a_session_dir(monkeypatch, tmp_path):
+    import mlflow.server.assistant.session as session_module
+
+    monkeypatch.setattr(session_module, "SESSION_DIR", tmp_path / "missing")
+    assert session_module.reap_stale_sessions() == 0
+
+
+def test_expired_session_takes_its_sandbox_home_and_tracking_files_with_it(monkeypatch, tmp_path):
+    import mlflow.server.assistant.session as session_module
+
+    monkeypatch.setattr(session_module, "SESSION_DIR", tmp_path)
+    SessionManager.save(_VALID_SID, Session(owner="alice"))
+    home = session_module.get_session_sandbox_home(_VALID_SID)
+    (home / "transcript").write_text("old conversation")
+    session_module.save_container_id(_VALID_SID, "cid-1")
+    session_module.save_process_pid(_VALID_SID, 12345)
+    _age(SessionManager.get_session_file(_VALID_SID), session_module._SESSION_MAX_AGE_SECONDS + 60)
+
+    assert SessionManager.load(_VALID_SID) is None
+    assert not home.exists()
+    assert not session_module.get_container_file(_VALID_SID).exists()
+    assert not session_module.get_process_file(_VALID_SID).exists()
+
+
+def test_reaping_a_sandbox_home_does_not_extend_its_session(monkeypatch, tmp_path):
+    import mlflow.server.assistant.session as session_module
+
+    monkeypatch.setattr(session_module, "SESSION_DIR", tmp_path)
+    SessionManager.save(_VALID_SID, Session(provider_session_id="cli-1"))
+    session_file = SessionManager.get_session_file(_VALID_SID)
+    home = session_module.get_session_sandbox_home(_VALID_SID)
+    _age(home, session_module._SANDBOX_HOME_MAX_AGE_SECONDS + 60)
+    _age(session_file, 3600)
+    before = session_file.stat().st_mtime
+
+    assert session_module.reap_stale_sandbox_homes() == 1
+    assert SessionManager.load(_VALID_SID).provider_session_id is None
+    assert session_file.stat().st_mtime == before

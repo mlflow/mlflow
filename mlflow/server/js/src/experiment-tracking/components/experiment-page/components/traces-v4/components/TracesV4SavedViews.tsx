@@ -824,7 +824,7 @@ export const TracesV4SavedViewsButton = ({
         <DropdownMenu.Trigger asChild>
           <Button
             componentId="mlflow.traces-v4.saved_views.trigger"
-            icon={<LayerIcon />}
+            icon={<LayerIcon css={{ color: theme.colors.textSecondary }} />}
             endIcon={<ChevronDownIcon />}
             data-testid="trace-v4-saved-views-trigger"
             // Names the button when its label collapses to icon-only.

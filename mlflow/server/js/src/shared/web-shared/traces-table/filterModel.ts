@@ -19,10 +19,10 @@ export enum FilterOp {
   RLIKE = 'RLIKE',
 }
 
-/** How a clause's value input renders: a fixed single-select, a numeric input, or free text. */
-export type FilterValueInputKind = 'select' | 'number' | 'text';
+/** How a clause's value input renders: a fixed select, searchable/freeform combobox, numeric input, or free text. */
+export type FilterValueInputKind = 'select' | 'combobox' | 'number' | 'text';
 
-/** One selectable option for a `'select'`-kind value input. `label` is already localized. */
+/** One selectable option for a `'select'`- or `'combobox'`-kind value input. `label` is already localized. */
 export interface FilterFieldSelectOption {
   value: string;
   label: string;
@@ -40,10 +40,16 @@ export interface FilterFieldDef {
   /** Operators offered for this field. The first entry is the default when the field is selected. */
   operators: FilterOp[];
   valueInput: FilterValueInputKind;
-  /** Options for a `'select'` value input; ignored otherwise. */
+  /** Options for a `'select'` or `'combobox'` value input; ignored otherwise. */
   options?: FilterFieldSelectOption[];
   /**
-   * Localized placeholder for a `'text'`/`'number'` value input, letting a field surface a required
+   * Computes options for a `'select'` or `'combobox'` value input from its current key and operator. Use this
+   * when the values depend on a user-supplied tag, metadata, or assessment key. When omitted, the
+   * static `options` list is used.
+   */
+  getValueOptions?: (key: string, operator?: FilterOp) => FilterFieldSelectOption[];
+  /**
+   * Localized placeholder for a `'text'`/`'number'`/`'combobox'` value input, letting a field surface a required
    * unit or format hint (e.g. "Time in milliseconds" for a duration). Consumer-localized like
    * `label`; falls back to a generic "Value" when omitted. Ignored for a `'select'` input.
    */

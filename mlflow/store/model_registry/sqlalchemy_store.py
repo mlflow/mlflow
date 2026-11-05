@@ -56,8 +56,8 @@ from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.validation import (
     _REGISTERED_MODEL_ALIAS_LATEST,
-    _validate_model_alias_name,
-    _validate_model_alias_name_reserved,
+    _validate_alias_name,
+    _validate_alias_name_reserved,
     _validate_model_name,
     _validate_model_renaming,
     _validate_model_version,
@@ -545,6 +545,13 @@ class SqlAlchemyStore(AbstractStore):
             that satisfy the search expressions. The pagination token for the next page can be
             obtained via the ``token`` attribute of the object.
         """
+        if max_results < 1:
+            raise MlflowException(
+                "Invalid value for max_results. It must be a positive integer,"
+                f" but got {max_results}",
+                INVALID_PARAMETER_VALUE,
+            )
+
         if max_results > SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD:
             raise MlflowException(
                 "Invalid value for request parameter max_results. It must be at most "
@@ -1521,8 +1528,8 @@ class SqlAlchemyStore(AbstractStore):
             None
         """
         _validate_model_name(name)
-        _validate_model_alias_name(alias)
-        _validate_model_alias_name_reserved(alias)
+        _validate_alias_name(alias)
+        _validate_alias_name_reserved(alias)
         version = _validate_model_version(version)
         with self.ManagedSessionMaker(read_only=False) as session:
             # check if model version exists
@@ -1548,7 +1555,7 @@ class SqlAlchemyStore(AbstractStore):
             None
         """
         _validate_model_name(name)
-        _validate_model_alias_name(alias)
+        _validate_alias_name(alias)
         with self.ManagedSessionMaker(read_only=False) as session:
             # check if registered model exists
             self._get_registered_model(session, name)
@@ -1568,11 +1575,13 @@ class SqlAlchemyStore(AbstractStore):
             A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         _validate_model_name(name)
-        _validate_model_alias_name(alias)
+        _validate_alias_name(alias)
 
         if alias.lower() == _REGISTERED_MODEL_ALIAS_LATEST:
             if versions := self.get_latest_versions(name):
-                return versions[0]
+                # `get_latest_versions` returns the latest version of each stage, so the
+                # highest version must be selected explicitly.
+                return max(versions, key=lambda mv: int(mv.version))
             else:
                 raise MlflowException(
                     f"Latest version not found for model {name}.", RESOURCE_DOES_NOT_EXIST

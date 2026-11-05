@@ -823,6 +823,62 @@ def test_validation_model_comparison_relative_threshold_should_pass(
     )
 
 
+@pytest.mark.parametrize(
+    ("greater_is_better", "min_relative_change", "baseline", "candidate", "should_pass"),
+    [
+        # An R2 score below 0: a worse candidate must fail and a perfect one must pass.
+        (True, 0.05, -1.8, -5.0, False),
+        (True, 0.05, -1.8, 1.0, True),
+        # Negative baselines, 10% gate: candidates 50%, 20% and 5% better than the baseline
+        # (measured against its magnitude), then 5%, 20% and 50% worse.
+        (True, 0.1, -2.0, -1.0, True),
+        (True, 0.1, -2.0, -1.6, True),
+        (True, 0.1, -2.0, -1.9, False),
+        (True, 0.1, -2.0, -2.1, False),
+        (True, 0.1, -2.0, -2.4, False),
+        (True, 0.1, -2.0, -3.0, False),
+        (False, 0.1, -2.0, -3.0, True),
+        (False, 0.1, -2.0, -2.4, True),
+        (False, 0.1, -2.0, -2.1, False),
+        (False, 0.1, -2.0, -1.9, False),
+        (False, 0.1, -2.0, -1.6, False),
+        (False, 0.1, -2.0, -1.0, False),
+        # Positive baselines keep their existing behavior.
+        (True, 0.1, 2.0, 3.0, True),
+        (True, 0.1, 2.0, 2.4, True),
+        (True, 0.1, 2.0, 2.1, False),
+        (True, 0.1, 2.0, 1.9, False),
+        (True, 0.1, 2.0, 1.6, False),
+        (True, 0.1, 2.0, 1.0, False),
+        (False, 0.1, 2.0, 1.0, True),
+        (False, 0.1, 2.0, 1.6, True),
+        (False, 0.1, 2.0, 1.9, False),
+        (False, 0.1, 2.0, 2.1, False),
+        (False, 0.1, 2.0, 2.4, False),
+        (False, 0.1, 2.0, 3.0, False),
+    ],
+)
+def test_validation_relative_threshold_uses_baseline_magnitude(
+    greater_is_better, min_relative_change, baseline, candidate, should_pass
+):
+    kwargs = {
+        "validation_thresholds": {
+            "metric": MetricThreshold(
+                min_relative_change=min_relative_change, greater_is_better=greater_is_better
+            )
+        },
+        "candidate_result": EvaluationResult(metrics={"metric": candidate}, artifacts={}),
+        "baseline_result": EvaluationResult(metrics={"metric": baseline}, artifacts={}),
+    }
+    if should_pass:
+        mlflow.validate_evaluation_results(**kwargs)
+    else:
+        with pytest.raises(
+            ModelValidationFailedException, match="minimum relative change check failed"
+        ):
+            mlflow.validate_evaluation_results(**kwargs)
+
+
 @pytest.fixture
 def multi_thresholds_test_spec(request):
     """

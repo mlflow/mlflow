@@ -16,6 +16,7 @@ import {
   buildRemoteConnectOptionKey,
   isServerDimmed,
   getServerPermissions,
+  unwrapServerJson,
 } from './utils';
 import { MCPStatus, TransportType } from './types';
 import { createMockMCPServer, createMockAccessEndpoint } from './test-utils';
@@ -152,12 +153,41 @@ describe('validateServerJson', () => {
     expect(result.parsed).toEqual({ name: 'io.github.test/server', version: '1.0.0' });
   });
 
+  it('unwraps a registry response and excludes registry metadata', () => {
+    const result = validateServerJson(`{
+      "server": {"name": "io.github.test/server", "version": "1.0.0", "title": "Test Server"},
+      "_meta": {"io.modelcontextprotocol.registry/official": {"status": "active"}}
+    }`);
+
+    expect(result.valid).toBe(true);
+    expect(result.parsed).toEqual({
+      name: 'io.github.test/server',
+      version: '1.0.0',
+      title: 'Test Server',
+    });
+  });
+
   it('preserves extra fields in parsed output', () => {
     const input = '{"name": "test", "version": "1.0.0", "title": "My Server", "packages": []}';
     const result = validateServerJson(input);
     expect(result.valid).toBe(true);
     expect(result.parsed?.title).toBe('My Server');
     expect(result.parsed?.packages).toEqual([]);
+  });
+});
+
+describe('unwrapServerJson', () => {
+  it('prefers a wrapped server definition when the outer object is incomplete', () => {
+    expect(
+      unwrapServerJson({
+        name: 'registry-response-name',
+        server: { name: 'io.github.test/server', version: '1.0.0' },
+      }),
+    ).toEqual({ name: 'io.github.test/server', version: '1.0.0' });
+  });
+
+  it('rejects an incomplete configuration with a non-object server property', () => {
+    expect(unwrapServerJson({ server: 'not-a-server-definition' })).toBeUndefined();
   });
 });
 

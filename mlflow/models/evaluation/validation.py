@@ -32,14 +32,19 @@ class MetricThreshold:
               to pass the validation.
 
         min_relative_change: (Optional) A floating point number between 0 and 1 representing
-            the minimum relative change (in percentage of
+            the minimum relative change (in percentage of the magnitude of the
             baseline model metric value) for candidate model
             to pass the comparison with the baseline model.
 
             - If greater is better for the metric, metric value has to be
-              >= baseline model metric value * (1 + min_relative_change)
+              >= baseline + min_relative_change * abs(baseline), where baseline is the
+              baseline model metric value
             - Otherwise, metric value has to be
-              <= baseline model metric value * (1 - min_relative_change)
+              <= baseline - min_relative_change * abs(baseline)
+            - For a positive baseline this is the same as baseline * (1 + min_relative_change)
+              and baseline * (1 - min_relative_change). Using the magnitude keeps the check
+              pointing the right way when the baseline is negative, for example an R2 score
+              below 0.
             - Note that if the baseline model metric value is equal to 0, the
               threshold falls back performing a simple verification that the
               candidate metric value is better than the baseline metric value,
@@ -406,16 +411,18 @@ def _validate(
                 )
                 continue
             # metric comparison relative change fails
-            # - if (metric_value - baseline) / baseline < min_relative_change for greater is better
-            # - if (baseline - metric_value) / baseline < min_relative_change for lower is better
+            # - greater is better: if (metric_value - baseline) / |baseline| < min_relative_change
+            # - lower is better: if (baseline - metric_value) / |baseline| < min_relative_change
+            # Dividing by the magnitude keeps the sign of the change meaningful when the baseline
+            # metric value is negative; dividing by the signed value reverses the comparison.
             if metric_threshold.greater_is_better:
-                relative_change = (
-                    candidate_metric_value - baseline_metric_value
-                ) / baseline_metric_value
+                relative_change = (candidate_metric_value - baseline_metric_value) / abs(
+                    baseline_metric_value
+                )
             else:
-                relative_change = (
-                    baseline_metric_value - candidate_metric_value
-                ) / baseline_metric_value
+                relative_change = (baseline_metric_value - candidate_metric_value) / abs(
+                    baseline_metric_value
+                )
             validation_result.min_relative_change_failed = (
                 relative_change < metric_threshold.min_relative_change
             )
