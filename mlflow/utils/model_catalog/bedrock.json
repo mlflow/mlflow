@@ -10506,6 +10506,43 @@
       },
       "last_updated_at": "2026-10-27"
     },
+    "us-gov-east-1/moonshotai.kimi-k3": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 868928,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 3.96,
+        "output_per_million_tokens": 19.8,
+        "cache_read_per_million_tokens": 0.396,
+        "cache_write_per_million_tokens": 4.95,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.98,
+            "output_per_million_tokens": 9.9
+          },
+          "flex": {
+            "input_per_million_tokens": 1.98,
+            "output_per_million_tokens": 9.9,
+            "cache_read_per_million_tokens": 0.198
+          },
+          "priority": {
+            "input_per_million_tokens": 6.93,
+            "output_per_million_tokens": 34.65,
+            "cache_read_per_million_tokens": 0.693
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-05"
+    },
     "us-gov-east-1/nvidia.nemotron-nano-12b-v2": {
       "mode": "chat",
       "context_window": {
@@ -11263,6 +11300,43 @@
       },
       "deprecation_date": "2027-03-30",
       "last_updated_at": "2026-11-03"
+    },
+    "us-gov-west-1/moonshotai.kimi-k3": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 868928,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 3.96,
+        "output_per_million_tokens": 19.8,
+        "cache_read_per_million_tokens": 0.396,
+        "cache_write_per_million_tokens": 4.95,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.98,
+            "output_per_million_tokens": 9.9
+          },
+          "flex": {
+            "input_per_million_tokens": 1.98,
+            "output_per_million_tokens": 9.9,
+            "cache_read_per_million_tokens": 0.198
+          },
+          "priority": {
+            "input_per_million_tokens": 6.93,
+            "output_per_million_tokens": 34.65,
+            "cache_read_per_million_tokens": 0.693
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-05"
     },
     "us-gov-west-1/nvidia.nemotron-nano-12b-v2": {
       "mode": "chat",
