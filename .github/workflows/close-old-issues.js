@@ -97,7 +97,8 @@ async function getClosingPullRequests(github, owner, repo, issue) {
       (event) =>
         event.willCloseTarget &&
         event.source?.__typename === "PullRequest" &&
-        event.source?.state === "OPEN"
+        event.source?.state === "OPEN" &&
+        event.source.url.startsWith(`https://github.com/${owner}/${repo}/pull/`)
     )
     .map((event) => event.source);
 }
@@ -167,9 +168,10 @@ module.exports = async ({ context, github }) => {
 
   const cutoffTime = Date.now() - CUTOFF_DAYS * MS_PER_DAY;
   const cutoffDate = new Date(cutoffTime).toISOString().slice(0, 10);
-  // Label and reaction exclusions live in the search query so every result
-  // page holds only eligible issues.
-  const searchQuery = `repo:${owner}/${repo} is:issue is:open created:<${cutoffDate} -label:security -label:enhancement reactions:0`;
+  // Label and reaction exclusions live in the search query so result pages are
+  // not dominated by ineligible issues; isEligible re-checks before closing.
+  const excludedLabelTerms = [...EXCLUDED_LABELS].map((label) => `-label:${label}`).join(" ");
+  const searchQuery = `repo:${owner}/${repo} is:issue is:open created:<${cutoffDate} ${excludedLabelTerms} reactions:0`;
   const linkedPullRequestUrls = new Map();
   const closedIssueNumbers = [];
   const closedPullRequestNumbers = [];
@@ -240,6 +242,7 @@ module.exports = async ({ context, github }) => {
         pull_number: pullRequestNumber,
         state: "closed",
       });
+      closedPullRequestNumbers.push(pullRequestNumber);
       await github.rest.issues.createComment({
         owner,
         repo,
@@ -253,7 +256,6 @@ module.exports = async ({ context, github }) => {
           urls.length > 1 ? "s" : ""
         }.`
       );
-      closedPullRequestNumbers.push(pullRequestNumber);
     }
 
     for (const issue of eligibleIssues) {
@@ -263,12 +265,6 @@ module.exports = async ({ context, github }) => {
         continue;
       }
 
-      await github.rest.issues.createComment({
-        owner,
-        repo,
-        issue_number: issue.number,
-        body: issueMessage,
-      });
       await github.rest.issues.update({
         owner,
         repo,
@@ -277,6 +273,12 @@ module.exports = async ({ context, github }) => {
         state_reason: "not_planned",
       });
       closedIssueNumbers.push(issue.number);
+      await github.rest.issues.createComment({
+        owner,
+        repo,
+        issue_number: issue.number,
+        body: issueMessage,
+      });
       console.log(`Closed issue #${issue.number}.`);
     }
   } catch (error) {
