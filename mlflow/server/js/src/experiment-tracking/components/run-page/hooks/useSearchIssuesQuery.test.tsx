@@ -39,6 +39,8 @@ describe('searchIssueIdsByStatus', () => {
         statuses: ['rejected'],
         include_trace_count: false,
         view: 'basic',
+        // The Databricks issues backend rejects anything larger.
+        max_results: 100,
       },
     });
     // No token to send on the first page.
@@ -89,8 +91,20 @@ describe('searchIssueIdsByStatus', () => {
       () => Promise.resolve(page('endless', 1, `token-${served++}`)) as ReturnType<typeof fetchAPI>,
     );
 
-    await expect(searchIssueIdsByStatus('experiment-1', 'rejected')).rejects.toThrow('within 100 pages');
-    expect(mockFetchAPI).toHaveBeenCalledTimes(100);
+    await expect(searchIssueIdsByStatus('experiment-1', 'rejected')).rejects.toThrow('within 1000 pages');
+    expect(mockFetchAPI).toHaveBeenCalledTimes(1000);
+  });
+
+  test("passes the caller's abort signal to every page request", async () => {
+    const controller = new AbortController();
+    givenPages([page('page1', 1, 'token-1'), page('page2', 1, '')]);
+
+    await searchIssueIdsByStatus('experiment-1', 'rejected', controller.signal);
+
+    expect(mockFetchAPI).toHaveBeenCalledTimes(2);
+    for (const [, options] of mockFetchAPI.mock.calls) {
+      expect((options as any)?.signal).toBe(controller.signal);
+    }
   });
 
   test('treats a page carrying no issues as the end when the token is empty', async () => {

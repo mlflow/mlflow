@@ -5,9 +5,10 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
 import { searchIssueIdsByStatus } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useSearchIssuesQuery';
 
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
 
 import { IssuesCell } from './IssuesCell';
+import { ModelTraceExplorerContextProvider } from '../../model-trace-explorer/ModelTraceExplorerContext';
 import { QueryClient, QueryClientProvider } from '../../query-client/queryClient';
 
 jest.mock('@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useSearchIssuesQuery', () => ({
@@ -24,17 +25,16 @@ const givenDismissedIssueIds = (issueIds: string[]) => mockSearchIssueIdsByStatu
 
 type CellIssue = { id: string; name: string };
 
-/** The table is mounted under an experiment route, which the dismissed-issue lookup reads. */
+/** The host names the experiment whose dismissed issues the column filters by. */
 const renderCells = (cells: React.ReactNode) =>
   render(
     <IntlProvider locale="en">
       <DesignSystemProvider>
         <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-          <MemoryRouter initialEntries={['/experiments/experiment-1/traces']}>
-            <Routes>
-              <Route path="/experiments/:experimentId/*" element={cells} />
-            </Routes>
-          </MemoryRouter>
+          <ModelTraceExplorerContextProvider experimentId="experiment-1">
+            {/* The tags navigate to the Issues tab on click, which is what needs the router. */}
+            <MemoryRouter>{cells}</MemoryRouter>
+          </ModelTraceExplorerContextProvider>
         </QueryClientProvider>
       </DesignSystemProvider>
     </IntlProvider>,
@@ -82,7 +82,7 @@ describe('IssuesCell', () => {
 
     await waitFor(() => expect(screen.queryByText('Not really a bug')).not.toBeInTheDocument());
     expect(screen.getByText('Fixed since')).toBeInTheDocument();
-    expect(mockSearchIssueIdsByStatus).toHaveBeenCalledWith('experiment-1', 'rejected');
+    expect(mockSearchIssueIdsByStatus).toHaveBeenCalledWith('experiment-1', 'rejected', expect.any(AbortSignal));
   });
 
   it('falls back to the empty cell when every issue was dismissed', async () => {

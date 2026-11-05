@@ -4,10 +4,9 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
 
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
-
 import { searchIssueIdsByStatus } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useSearchIssuesQuery';
 
+import { ModelTraceExplorerContextProvider } from '../ModelTraceExplorerContext';
 import { QueryClient, QueryClientProvider } from '../../query-client/queryClient';
 import { AssessmentsPaneIssuesSection } from './AssessmentsPaneIssuesSection';
 import type { IssueReferenceAssessment } from '../ModelTrace.types';
@@ -42,13 +41,11 @@ const renderSection = (issues: IssueReferenceAssessment[]) =>
   render(
     <DesignSystemProvider>
       <IntlProvider locale="en">
-        {/* The section looks up the experiment's dismissed issues, which it reads off the route. */}
+        {/* The host names the experiment whose dismissed issues the section filters by. */}
         <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-          <MemoryRouter initialEntries={['/experiments/experiment-1/traces']}>
-            <Routes>
-              <Route path="/experiments/:experimentId/*" element={<AssessmentsPaneIssuesSection issues={issues} />} />
-            </Routes>
-          </MemoryRouter>
+          <ModelTraceExplorerContextProvider experimentId="experiment-1">
+            <AssessmentsPaneIssuesSection issues={issues} />
+          </ModelTraceExplorerContextProvider>
         </QueryClientProvider>
       </IntlProvider>
     </DesignSystemProvider>,
@@ -118,7 +115,9 @@ describe('AssessmentsPaneIssuesSection', () => {
       givenDismissedIssueIds([]);
       renderSection([reference({ assessment_id: 'a-latency' })]);
 
-      await waitFor(() => expect(mockSearchIssueIdsByStatus).toHaveBeenCalledWith('experiment-1', 'rejected'));
+      await waitFor(() =>
+        expect(mockSearchIssueIdsByStatus).toHaveBeenCalledWith('experiment-1', 'rejected', expect.any(AbortSignal)),
+      );
       expect(screen.getByText('High latency')).toBeInTheDocument();
     });
   });

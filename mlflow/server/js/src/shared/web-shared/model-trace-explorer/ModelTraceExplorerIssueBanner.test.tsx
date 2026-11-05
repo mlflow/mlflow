@@ -13,8 +13,12 @@ import {
 } from './ModelTrace.types';
 import { ModelTraceExplorerIssueEvidence, ModelTraceExplorerIssueIndicator } from './ModelTraceExplorerIssueBanner';
 import { QueryClient, QueryClientProvider } from '../query-client/queryClient';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { searchIssueIdsByStatus } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useSearchIssuesQuery';
+import { ModelTraceExplorerContextProvider } from './ModelTraceExplorerContext';
+import { MemoryRouter } from 'react-router-dom';
+import {
+  SEARCH_ISSUES_QUERY_KEY,
+  searchIssueIdsByStatus,
+} from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useSearchIssuesQuery';
 
 jest.mock('@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useSearchIssuesQuery', () => ({
   ...jest.requireActual<
@@ -79,19 +83,20 @@ const makeSpan = (assessments: Assessment[]): ModelTraceSpanNode => ({
 });
 
 /**
- * The explorer is mounted under an experiment route, which is where the dismissed-issue lookup
- * reads the experiment from, and the query string carries the issue the reader followed here.
+ * The host says which experiment it is showing and which issue the reader selected. The router is
+ * here only for the cards' links to the Issues tab; the dismissed-issue lookup does not read it.
  */
-const renderInProviders = (children: React.ReactNode, route = '/experiments/experiment-1/traces') =>
+const renderInProviders = (
+  children: React.ReactNode,
+  { experimentId = 'experiment-1', selectedIssueId }: { experimentId?: string; selectedIssueId?: string } = {},
+) =>
   render(
     <IntlProvider locale="en">
       <DesignSystemProvider>
         <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-          <MemoryRouter initialEntries={[route]}>
-            <Routes>
-              <Route path="/experiments/:experimentId/*" element={children} />
-            </Routes>
-          </MemoryRouter>
+          <ModelTraceExplorerContextProvider experimentId={experimentId} selectedIssueId={selectedIssueId}>
+            <MemoryRouter>{children}</MemoryRouter>
+          </ModelTraceExplorerContextProvider>
         </QueryClientProvider>
       </DesignSystemProvider>
     </IntlProvider>,
@@ -208,10 +213,10 @@ describe('issues dismissed as not an issue', () => {
     issue: { issue_name: 'Genuinely slow' },
   };
 
-  const renderEvidence = (assessments: Assessment[], route?: string) =>
+  const renderEvidence = (assessments: Assessment[], options?: { experimentId?: string; selectedIssueId?: string }) =>
     renderInProviders(
       <ModelTraceExplorerIssueEvidence activeSpan={makeSpan(assessments)} experimentId="experiment-1" />,
-      route,
+      options,
     );
 
   it('drops a dismissed issue from the cards and keeps the rest', async () => {
@@ -227,15 +232,38 @@ describe('issues dismissed as not an issue', () => {
     givenDismissedIssueIds([]);
     renderEvidence([kept]);
 
-    await waitFor(() => expect(mockSearchIssueIdsByStatus).toHaveBeenCalledWith('experiment-1', 'rejected'));
+    await waitFor(() =>
+      expect(mockSearchIssueIdsByStatus).toHaveBeenCalledWith('experiment-1', 'rejected', expect.any(AbortSignal)),
+    );
     expect(screen.getByText('Genuinely slow')).toBeInTheDocument();
   });
 
-  it('keeps a dismissed issue that the reader navigated to', async () => {
-    // Both are dismissed, so the one that was not followed here disappearing is what proves the
-    // lookup had already answered.
+  it('filters with no router at all, on the experiment the host named', async () => {
+    // The drawer is embedded outside experiment routes too, and the host still knows its
+    // experiment, so the lookup has to happen there as well. The span tag is asserted on rather
+    // than the cards because the cards link to the Issues tab, and a link is what needs a router.
+    givenDismissedIssueIds(['iss-dismissed']);
+    render(
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+            <ModelTraceExplorerContextProvider experimentId="experiment-1">
+              <ModelTraceExplorerIssueIndicator span={makeSpan([dismissed, kept])} />
+            </ModelTraceExplorerContextProvider>
+          </QueryClientProvider>
+        </DesignSystemProvider>
+      </IntlProvider>,
+    );
+
+    expect(await screen.findByLabelText('Issue detected: Genuinely slow')).toHaveTextContent('1');
+    expect(mockSearchIssueIdsByStatus).toHaveBeenCalledWith('experiment-1', 'rejected', expect.any(AbortSignal));
+  });
+
+  it('keeps the issue the host selected, dismissed or not', async () => {
+    // Both are dismissed, so the one that was not selected disappearing is what proves the lookup
+    // had already answered.
     givenDismissedIssueIds(['iss-dismissed', 'iss-kept']);
-    renderEvidence([dismissed, kept], '/experiments/experiment-1/issues?selectedIssueId=iss-dismissed');
+    renderEvidence([dismissed, kept], { selectedIssueId: 'iss-dismissed' });
 
     await waitFor(() => expect(screen.queryByText('Genuinely slow')).not.toBeInTheDocument());
     expect(screen.getByText('Not really a bug')).toBeInTheDocument();
@@ -249,15 +277,18 @@ describe('issues dismissed as not an issue', () => {
     expect(screen.getByText('Not really a bug')).toBeInTheDocument();
   });
 
-  it('keeps a dismissed issue when it is not on an experiment route', async () => {
+  it('keeps every issue when no host supplied an experiment', async () => {
     givenDismissedIssueIds(['iss-dismissed']);
     render(
       <IntlProvider locale="en">
         <DesignSystemProvider>
           <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-            <MemoryRouter initialEntries={['/']}>
-              <ModelTraceExplorerIssueEvidence activeSpan={makeSpan([dismissed])} experimentId="experiment-1" />
-            </MemoryRouter>
+            {/* No experimentId: nothing to look up, so nothing is hidden. */}
+            <ModelTraceExplorerContextProvider>
+              <MemoryRouter>
+                <ModelTraceExplorerIssueEvidence activeSpan={makeSpan([dismissed])} experimentId="experiment-1" />
+              </MemoryRouter>
+            </ModelTraceExplorerContextProvider>
           </QueryClientProvider>
         </DesignSystemProvider>
       </IntlProvider>,
@@ -265,6 +296,33 @@ describe('issues dismissed as not an issue', () => {
 
     expect(await screen.findByText('Not really a bug')).toBeInTheDocument();
     expect(mockSearchIssueIdsByStatus).not.toHaveBeenCalled();
+  });
+
+  it('stops hiding when a refetch fails, rather than serving the stale set', async () => {
+    // Reopening an issue invalidates the lookup. React Query keeps the last successful set when
+    // the refetch fails, so without the error check the reopened issue would stay hidden.
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    mockSearchIssueIdsByStatus.mockResolvedValueOnce(['iss-dismissed']);
+    render(
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <QueryClientProvider client={queryClient}>
+            <ModelTraceExplorerContextProvider experimentId="experiment-1">
+              <MemoryRouter>
+                <ModelTraceExplorerIssueEvidence activeSpan={makeSpan([dismissed])} experimentId="experiment-1" />
+              </MemoryRouter>
+            </ModelTraceExplorerContextProvider>
+          </QueryClientProvider>
+        </DesignSystemProvider>
+      </IntlProvider>,
+    );
+
+    await waitFor(() => expect(screen.queryByText('Not really a bug')).not.toBeInTheDocument());
+
+    mockSearchIssueIdsByStatus.mockRejectedValue(new Error('issues API unavailable'));
+    await queryClient.invalidateQueries([SEARCH_ISSUES_QUERY_KEY]);
+
+    expect(await screen.findByText('Not really a bug')).toBeInTheDocument();
   });
 
   it('stops counting a dismissed issue on the span tree', async () => {

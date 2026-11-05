@@ -6,14 +6,13 @@ import {
 
 import { useQuery } from '../../query-client/queryClient';
 
-import { useSafeSelectedIssueId } from './useSafeSelectedIssueId';
 import {
   getUniqueIssueReferenceAssessments,
   getUniqueIssueReferences,
   type TraceIssueReference,
 } from '../IssueAssessmentUtils';
+import { useModelTraceExplorerContext } from '../ModelTraceExplorerContext';
 import type { Assessment, IssueReferenceAssessment } from '../ModelTrace.types';
-import { useParams } from '../RoutingUtils';
 
 /** The status the Issues tab labels "Not an issue". `resolved` is not dismissed: it did happen. */
 const DISMISSED_ISSUE_STATUS: IssueStatus = 'rejected';
@@ -26,29 +25,35 @@ const NO_DISMISSED_ISSUE_IDS: ReadonlySet<string> = new Set();
 /**
  * Every issue in the experiment that someone dismissed, by ID.
  *
- * One request per experiment, not one per issue on screen: the span tree, the span's cards, the
- * assessments pane and the traces table share this entry, so a table page naming forty issues reads
- * once. A trace referencing no issue asks for nothing.
+ * One cached paginated lookup per experiment, not one request per issue on screen: the span tree,
+ * the span's cards, the assessments pane and the traces table share this entry, so a table page
+ * naming forty issues reads the experiment once (a large dismissed set still takes several pages to
+ * assemble). A trace referencing no issue asks for nothing.
  *
  * Keyed under `SEARCH_ISSUES_QUERY_KEY` so that triaging an issue invalidates this alongside the
  * Issues tab's own reads.
  *
- * The experiment comes from the route, as it does elsewhere in this package. Off an experiment
- * route there is nothing to look up, so nothing is hidden -- the same outcome as a lookup that
- * fails, since failing to reach the issues API is not evidence that anyone dismissed anything.
+ * The experiment comes from the host's context rather than the route, because the drawer and the
+ * table are embedded outside experiment routes too. Where no host supplies one there is nothing to
+ * look up, so nothing is hidden -- the same outcome as a lookup that fails.
+ *
+ * A failed lookup hides nothing, in either direction: `isError` is checked as well as `data`,
+ * because React Query keeps the last successful set when a refetch fails, and serving that set
+ * after triage invalidated it would go on hiding an issue someone had just reopened.
  */
 const useDismissedIssueIds = (enabled: boolean): ReadonlySet<string> => {
-  const { experimentId } = useParams();
-  const { data } = useQuery({
+  const { experimentId } = useModelTraceExplorerContext();
+  const { data, isError } = useQuery({
     queryKey: [SEARCH_ISSUES_QUERY_KEY, 'dismissed', experimentId],
-    queryFn: async () => new Set(await searchIssueIdsByStatus(experimentId ?? '', DISMISSED_ISSUE_STATUS)),
+    queryFn: async ({ signal }) =>
+      new Set(await searchIssueIdsByStatus(experimentId ?? '', DISMISSED_ISSUE_STATUS, signal)),
     enabled: enabled && Boolean(experimentId),
     refetchOnWindowFocus: false,
     staleTime: DISMISSED_ISSUE_IDS_STALE_TIME_MS,
     retry: false,
   });
 
-  return data ?? NO_DISMISSED_ISSUE_IDS;
+  return isError ? NO_DISMISSED_ISSUE_IDS : (data ?? NO_DISMISSED_ISSUE_IDS);
 };
 
 /**
@@ -58,12 +63,12 @@ const useDismissedIssueIds = (enabled: boolean): ReadonlySet<string> => {
  * the reference detection wrote -- and the status lives on the issue rather than on the reference,
  * so it has to be read separately.
  *
- * An issue named in the URL is kept even when dismissed: arriving from that issue's own page is how
- * a reader reviews the evidence behind it. Issues also show until the dismissed set arrives rather
- * than being withheld until it does, so a trace whose issues are all open is never held back.
+ * The issue the host has selected is kept even when dismissed: arriving from that issue's own page
+ * is how a reader reviews the evidence behind it. Issues also show until the dismissed set arrives
+ * rather than being withheld until it does, so a trace whose issues are all open is never held back.
  */
 export const useVisibleIssueIds = (issueIds: string[]): ReadonlySet<string> => {
-  const selectedIssueId = useSafeSelectedIssueId();
+  const { selectedIssueId } = useModelTraceExplorerContext();
   const dismissedIssueIds = useDismissedIssueIds(issueIds.length > 0);
 
   return new Set(issueIds.filter((issueId) => issueId === selectedIssueId || !dismissedIssueIds.has(issueId)));

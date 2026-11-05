@@ -42,9 +42,12 @@ const LazyExperimentCustomViewProvider = React.lazy(() =>
  */
 export const IssueTraceDrawerProviders = ({
   experimentId,
+  selectedIssueId,
   children,
 }: {
   experimentId: string;
+  /** The issue the reader is looking at, so its evidence stays visible even once dismissed. */
+  selectedIssueId?: string;
   children: ReactNode;
 }) => {
   const content = shouldEnableModelTraceExplorerCustomTraceView() ? (
@@ -63,6 +66,8 @@ export const IssueTraceDrawerProviders = ({
         renderExportTracesToDatasetsModal={ExportTracesToDatasetModal}
         renderAddToReviewQueueDropdown={AddToReviewQueueDropdown}
         DrawerComponent={AssistantAwareDrawer}
+        experimentId={experimentId}
+        selectedIssueId={selectedIssueId}
       >
         {content}
       </ModelTraceExplorerContextProvider>
