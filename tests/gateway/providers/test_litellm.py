@@ -1282,18 +1282,26 @@ async def test_chat_folds_public_base_url_alias_into_api_base_when_upstream_prot
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        (
+            "model_list",
+            [{"model_name": "m", "litellm_params": {"api_base": "http://10.0.0.1/"}}],
+        ),
+        ("aws_bedrock_runtime_endpoint", "http://10.0.0.1/"),
+        ("aws_sts_endpoint", "http://10.0.0.1/"),
+    ],
+)
 async def test_chat_rejects_stored_destination_keys_when_upstream_protection_is_on(
-    protected_request,
+    protected_request, key, value
 ):
     config = chat_config()
-    config["model"]["config"]["litellm_auth_config"] = {
-        "api_key": "test-key",
-        "model_list": [{"model_name": "m", "litellm_params": {"api_base": "http://10.0.0.1/"}}],
-    }
+    config["model"]["config"]["litellm_auth_config"] = {"api_key": "test-key", key: value}
     with mock.patch("litellm.acompletion") as mock_completion:
         provider = LiteLLMProvider(EndpointConfig(**config))
         payload = {"messages": [{"role": "user", "content": TEST_MESSAGE}]}
-        with pytest.raises(HTTPException, match="secret sets 'model_list'") as exc:
+        with pytest.raises(HTTPException, match=f"secret sets '{key}'") as exc:
             await provider.chat(chat.RequestPayload(**payload))
 
     assert exc.value.status_code == 502
