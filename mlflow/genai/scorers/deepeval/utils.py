@@ -88,11 +88,19 @@ def _extract_tool_calls_from_trace(trace: Trace):
     return [
         DeepEvalToolCall(
             name=_extract_tool_name_from_span(span),
-            input_parameters=span.attributes.get(SpanAttributeKey.INPUTS),
+            input_parameters=_normalize_tool_inputs(span.attributes.get(SpanAttributeKey.INPUTS)),
             output=span.attributes.get(SpanAttributeKey.OUTPUTS),
         )
         for span in tool_spans
     ]
+
+
+def _normalize_tool_inputs(inputs: Any) -> dict[str, Any] | None:
+    # DeepEval's ToolCall.input_parameters only accepts a dict, but tool spans can record
+    # non-dict inputs (e.g. a plain string from LangChain's tool.invoke("...")).
+    if inputs is None or isinstance(inputs, dict):
+        return inputs
+    return {"input": inputs}
 
 
 def _dict_to_kv_list(d: dict[str, Any]) -> list[str]:
