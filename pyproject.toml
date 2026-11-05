@@ -88,6 +88,7 @@ extras = [
   "google-cloud-storage>=1.30.0",
   "azureml-core>=1.2.0",
   "pysftp",
+  "paramiko<4",
   "kubernetes",
   "prometheus-flask-exporter",
 ]

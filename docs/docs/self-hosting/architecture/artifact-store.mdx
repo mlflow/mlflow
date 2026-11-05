@@ -214,7 +214,7 @@ You should configure the client to be able to log in to the SFTP server without 
 
 The format `sftp://user:pass@host/` is supported for logging in. However, for safety reasons this is not recommended.
 
-When using this store, `pysftp` must be installed on both the server and the client. Run `pip install pysftp` to install the required package.
+When using this store, `pysftp` and `paramiko<4` must be installed on both the server and the client. Run `pip install pysftp "paramiko<4"` to install the required packages.
 
 ### NFS
 
