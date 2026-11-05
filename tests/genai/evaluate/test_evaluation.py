@@ -2334,6 +2334,8 @@ def test_evaluate_logs_scorer_failure_summary():
 
         # Evaluation should complete without raising an exception
         assert "working_scorer/mean" in result.metrics
+        assert result.metrics["failing_scorer/error_count"] == 2
+        assert "working_scorer/error_count" not in result.metrics
 
         # Verify warning was logged with failure summary
         warning_calls = [call.args[0] for call in mock_warning.call_args_list]
@@ -2345,6 +2347,26 @@ def test_evaluate_logs_scorer_failure_summary():
         warning_message = failure_warnings[0]
         assert "'failing_scorer': 2/2 failed" in warning_message
         assert "Check individual trace assessments for detailed error messages" in warning_message
+
+
+def test_evaluate_counts_multi_feedback_scorer_errors_under_scorer_name():
+    @scorer
+    def multi(inputs, outputs):
+        if inputs["question"] == "fail":
+            raise ValueError("judge timeout")
+        return [Feedback(name="clarity", value=True), Feedback(name="safety", value=True)]
+
+    data = [
+        {"inputs": {"question": question}, "outputs": "answer"}
+        for question in ["What is MLflow?", "What is Python?", "fail"]
+    ]
+
+    result = mlflow.genai.evaluate(data=data, scorers=[multi])
+
+    # The failed row is one error for the scorer, not a count per feedback name.
+    assert {
+        name: value for name, value in result.metrics.items() if name.endswith("/error_count")
+    } == {"multi/error_count": 1}
 
 
 def test_evaluate_no_warning_when_all_scorers_succeed():
@@ -2455,6 +2477,12 @@ def test_evaluate_logs_scorer_failure_summary_with_mixed_scorers():
 
         assert "always_pass/mean" in result.metrics
         assert "working_session_scorer/mean" in result.metrics
+        # The error count matches the failure summary: rows for single-turn scorers,
+        # sessions for session-level ones.
+        assert result.metrics["failing_single_turn/error_count"] == 4
+        assert result.metrics["failing_session_scorer/error_count"] == 2
+        assert "always_pass/error_count" not in result.metrics
+        assert "working_session_scorer/error_count" not in result.metrics
 
         warning_calls = [call.args[0] for call in mock_warning.call_args_list]
         failure_warnings = [

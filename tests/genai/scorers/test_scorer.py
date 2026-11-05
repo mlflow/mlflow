@@ -309,8 +309,13 @@ def test_scorer_returns_feedback_with_error(sample_data, is_in_databricks):
         scorers=[dummy_scorer],
     )
 
-    # Scorer should not be in result when it returns an error
-    assert all("dummy_scorer" not in metric for metric in results.metrics.keys())
+    # The scorer returns an error on every row, so it has no mean, only an error count
+    # under the scorer's name.
+    assert {
+        name: value
+        for name, value in results.metrics.items()
+        if "dummy_scorer" in name or "feedback_with_error" in name
+    } == {"dummy_scorer/error_count": len(sample_data)}
 
 
 @pytest.mark.parametrize(

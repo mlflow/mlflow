@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from mlflow.entities.assessment import Feedback
-from mlflow.genai.evaluation.entities import EvalItem, EvalResult
+from mlflow.genai.evaluation.entities import EvalItem, EvalResult, ScorerStat
 from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.scorers.aggregation import (
     _cast_assessment_value_to_float,
@@ -168,9 +168,6 @@ def test_compute_aggregated_metrics_includes_extra_aggregations():
         "explicit/max": pytest.approx(0.8),
         "explicit/p90": pytest.approx(0.74),
         "already_computed/mean": pytest.approx(0.5),
-        "default/error_count": 0,
-        "explicit/error_count": 0,
-        "already_computed/error_count": 0,
     }
     # The scorer's own aggregations are not mutated.
     assert scorers[1].aggregations == ["max"]
@@ -197,87 +194,62 @@ def test_compute_aggregated_metrics_matches_scorer_name_containing_slash():
         "team/latency/mean": pytest.approx(2.0),
         "team/latency/max": pytest.approx(3.0),
         "judges/correctness/min": pytest.approx(1.0),
-        "team/latency/error_count": 0,
-        "judges/correctness/error_count": 0,
     }
 
 
-def test_compute_aggregated_metrics_counts_scorer_errors():
+@pytest.mark.parametrize(
+    ("values", "expected"),
+    [
+        # Some rows fail: the mean covers the scored rows, the count covers the failed ones.
+        ([1.0, 0.0, None], {"scorer/mean": pytest.approx(0.5), "scorer/error_count": 1}),
+        # No row fails: no count is logged.
+        ([1.0, 0.0], {"scorer/mean": pytest.approx(0.5)}),
+        # Every row fails: only the count is logged.
+        ([None, None, None], {"scorer/error_count": 3}),
+    ],
+)
+def test_compute_aggregated_metrics_logs_scorer_error_count(values, expected):
     scorer = Scorer(name="scorer")
-    eval_results = [
-        EvalResult(eval_item=_EVAL_ITEM, assessments=[Feedback(name="scorer", value=1.0)]),
-        EvalResult(eval_item=_EVAL_ITEM, assessments=[Feedback(name="scorer", value=0.0)]),
-        EvalResult(
-            eval_item=_EVAL_ITEM,
-            assessments=[Feedback(name="scorer", error=Exception("judge timeout"))],
-        ),
-    ]
-
-    result = compute_aggregated_metrics(eval_results, [scorer])
-
-    assert result == {"scorer/mean": pytest.approx(0.5), "scorer/error_count": 1}
-
-
-def test_compute_aggregated_metrics_logs_zero_error_count_without_errors():
-    scorer = Scorer(name="scorer")
-    eval_results = [
-        EvalResult(eval_item=_EVAL_ITEM, assessments=[Feedback(name="scorer", value=1.0)]),
-    ]
-
-    result = compute_aggregated_metrics(eval_results, [scorer])
-
-    assert result == {"scorer/mean": pytest.approx(1.0), "scorer/error_count": 0}
-
-
-def test_compute_aggregated_metrics_logs_error_count_when_every_row_fails():
-    scorer = Scorer(name="scorer")
-    eval_results = [
-        EvalResult(
-            eval_item=_EVAL_ITEM,
-            assessments=[Feedback(name="scorer", error=Exception("judge timeout"))],
-        )
-        for _ in range(3)
-    ]
-
-    result = compute_aggregated_metrics(eval_results, [scorer])
-
-    assert result == {"scorer/error_count": 3}
-
-
-def test_compute_aggregated_metrics_counts_errors_per_feedback_name():
-    scorer = Scorer(name="multi")
     eval_results = [
         EvalResult(
             eval_item=_EVAL_ITEM,
             assessments=[
-                Feedback(name="multi/clarity", value=1.0),
-                Feedback(name="multi/safety", error=Exception("judge timeout")),
+                Feedback(name="scorer", value=value)
+                if value is not None
+                else Feedback(name="scorer", error=Exception("judge timeout"))
             ],
-        ),
+        )
+        for value in values
     ]
+    scorer_stats = {"scorer": ScorerStat(failure_count=values.count(None), total_count=len(values))}
 
-    result = compute_aggregated_metrics(eval_results, [scorer])
+    result = compute_aggregated_metrics(eval_results, [scorer], scorer_stats=scorer_stats)
 
-    assert result == {
-        "multi/clarity/mean": pytest.approx(1.0),
-        "multi/clarity/error_count": 0,
-        "multi/safety/error_count": 1,
-    }
+    assert result == expected
 
 
-def test_compute_aggregated_metrics_keeps_value_of_feedback_with_error():
-    scorer = Scorer(name="scorer")
+def test_compute_aggregated_metrics_counts_errors_per_scorer_not_per_feedback_name():
+    # A scorer that returns several feedbacks records a failure under its own name.
+    scorer = Scorer(name="multi")
     eval_results = [
-        EvalResult(eval_item=_EVAL_ITEM, assessments=[Feedback(name="scorer", value=1.0)]),
         EvalResult(
             eval_item=_EVAL_ITEM,
-            assessments=[Feedback(name="scorer", value=0.0, error=Exception("partial"))],
+            assessments=[Feedback(name="clarity", value=1.0), Feedback(name="safety", value=0.0)],
+        ),
+        EvalResult(
+            eval_item=_EVAL_ITEM,
+            assessments=[Feedback(name="multi", error=Exception("judge timeout"))],
         ),
     ]
+    scorer_stats = {"multi": ScorerStat(failure_count=1, total_count=2)}
 
-    result = compute_aggregated_metrics(eval_results, [scorer])
+    result = compute_aggregated_metrics(eval_results, [scorer], scorer_stats=scorer_stats)
 
-    assert result == {"scorer/mean": pytest.approx(0.5), "scorer/error_count": 1}
+    assert result == {
+        "clarity/mean": pytest.approx(1.0),
+        "safety/mean": pytest.approx(0.0),
+        "multi/error_count": 1,
+    }
 
 
 def test_compute_aggregated_metrics_custom_error_count_aggregation_wins():
@@ -292,20 +264,8 @@ def test_compute_aggregated_metrics_custom_error_count_aggregation_wins():
             assessments=[Feedback(name="scorer", error=Exception("judge timeout"))],
         ),
     ]
+    scorer_stats = {"scorer": ScorerStat(failure_count=1, total_count=2)}
 
-    result = compute_aggregated_metrics(eval_results, [scorer])
+    result = compute_aggregated_metrics(eval_results, [scorer], scorer_stats=scorer_stats)
 
     assert result == {"scorer/error_count": 42.0}
-
-
-def test_compute_aggregated_metrics_logs_error_count_for_non_numeric_feedback():
-    scorer = Scorer(name="label")
-    eval_results = [
-        EvalResult(eval_item=_EVAL_ITEM, assessments=[Feedback(name="label", value="looks fine")]),
-    ]
-
-    with mock.patch("mlflow.agent.hint.maybe_warn_agent"):
-        result = compute_aggregated_metrics(eval_results, [scorer])
-
-    # A non-numeric value has no mean, but the error count still shows the scorer ran.
-    assert result == {"label/error_count": 0}

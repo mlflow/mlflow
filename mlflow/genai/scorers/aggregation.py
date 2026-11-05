@@ -6,7 +6,7 @@ import logging
 import numpy as np
 
 from mlflow.entities.assessment import Feedback
-from mlflow.genai.evaluation.entities import EvalResult
+from mlflow.genai.evaluation.entities import EvalResult, ScorerStat
 from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.scorers.base import AggregationFunc, Scorer
 
@@ -27,6 +27,7 @@ def compute_aggregated_metrics(
     eval_results: list[EvalResult],
     scorers: list[Scorer],
     extra_aggregations: dict[str, list[str]] | None = None,
+    scorer_stats: dict[str, ScorerStat] | None = None,
 ) -> dict[str, float]:
     """
     Generates the aggregated per-run metrics from the evaluation result for each row.
@@ -36,17 +37,17 @@ def compute_aggregated_metrics(
         scorers: List of scorers
         extra_aggregations: Aggregations to compute by scorer name, on top of the scorer's own
             ``aggregations``.
+        scorer_stats: Invocation stats by scorer name. Logged as ``<scorer>/error_count`` for
+            scorers that failed at least once.
 
     Returns:
         Dictionary of aggregated metrics (metric name -> aggregated value)
     """
     # Collect assessment values in a flat dictionary
     assessment_values: dict[str, list[float]] = collections.defaultdict(list)
-    error_counts: collections.Counter[str] = collections.Counter()
     for eval_result in eval_results:
         for assessment in eval_result.assessments:
             if isinstance(assessment, Feedback):
-                error_counts[assessment.name] += assessment.error is not None
                 value = _cast_assessment_value_to_float(assessment)
                 if value is not None:  # Exclude None from aggregation
                     assessment_values[assessment.name].append(value)
@@ -80,10 +81,11 @@ def compute_aggregated_metrics(
         for agg_name, agg_value in aggregation_results.items():
             result[f"{name}/{agg_name}"] = agg_value
 
-    # Log the error count for every feedback name, including 0, so runs can be compared.
-    # A custom aggregation that is also named "error_count" takes precedence.
-    for name, count in error_counts.items():
-        result.setdefault(f"{name}/error_count", count)
+    # Count failures per scorer invocation (a row, or a session for session-level scorers), the
+    # same count as the failure summary. A custom aggregation named "error_count" takes precedence.
+    for name, stat in (scorer_stats or {}).items():
+        if stat.has_failures:
+            result.setdefault(f"{name}/error_count", stat.failure_count)
 
     return result
 
