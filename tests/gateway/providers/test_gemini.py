@@ -2390,6 +2390,65 @@ def test_gemini_passthrough_token_usage_includes_thoughts(streaming, include_tot
     assert response["usageMetadata"] == original_usage_metadata
 
 
+@pytest.mark.parametrize("endpoint", ["chat", "chat_streaming", "completions"])
+@pytest.mark.parametrize(
+    ("counts", "expected"),
+    [
+        ({"promptTokenCount": 10, "toolUsePromptTokenCount": 500}, 510),
+        ({"promptTokenCount": 10, "toolUsePromptTokenCount": 0}, 10),
+        ({"promptTokenCount": 10}, 10),
+        ({"toolUsePromptTokenCount": 500}, 500),
+        ({"promptTokenCount": None, "toolUsePromptTokenCount": 500}, 500),
+        ({"promptTokenCount": 10, "toolUsePromptTokenCount": None}, 10),
+        ({}, None),
+    ],
+)
+def test_gemini_adapter_prompt_tokens_include_tool_use(endpoint, counts, expected):
+    config = EndpointConfig(
+        **(completions_config() if endpoint == "completions" else chat_config())
+    )
+    usage_metadata = {"candidatesTokenCount": 20, "totalTokenCount": (expected or 0) + 20, **counts}
+    response = getattr(GeminiAdapter, f"model_to_{endpoint}")(
+        {"usageMetadata": usage_metadata}, config
+    )
+
+    assert response.usage.prompt_tokens == expected
+    assert response.usage.completion_tokens == 20
+    assert response.usage.total_tokens == usage_metadata["totalTokenCount"]
+    if endpoint != "completions":
+        assert "toolUsePromptTokenCount" not in response.usage.model_dump()
+
+
+@pytest.mark.parametrize("streaming", [False, True])
+@pytest.mark.parametrize("include_tool_use", [False, True])
+def test_gemini_passthrough_token_usage_includes_tool_use(streaming, include_tool_use):
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    usage_metadata = {"promptTokenCount": 10, "candidatesTokenCount": 20}
+    input_tokens = 10
+    if include_tool_use:
+        usage_metadata["toolUsePromptTokenCount"] = 500
+        input_tokens += 500
+    usage_metadata["totalTokenCount"] = input_tokens + 20
+    original_usage_metadata = usage_metadata.copy()
+    response = {"usageMetadata": usage_metadata}
+
+    if streaming:
+        token_usage = provider._extract_streaming_token_usage(
+            f"data: {json.dumps(response)}\n".encode()
+        )
+    else:
+        token_usage = provider._extract_passthrough_token_usage(
+            PassthroughAction.GEMINI_GENERATE_CONTENT, response
+        )
+
+    assert token_usage == {
+        "input_tokens": input_tokens,
+        "output_tokens": 20,
+        "total_tokens": input_tokens + 20,
+    }
+    assert response["usageMetadata"] == original_usage_metadata
+
+
 def test_chat_to_model_translates_multimodal_image_content():
     # A user message with OpenAI-format multimodal content (text + an image_url base64
     # data URL) must be translated to Gemini inlineData parts; the gateway path is how

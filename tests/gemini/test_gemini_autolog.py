@@ -664,6 +664,50 @@ def test_generate_content_thoughts_tokens(is_async, mock_litellm_cost):
     }
 
 
+@pytest.mark.parametrize(
+    ("usage_metadata", "expected_input_tokens"),
+    [
+        ({"prompt_token_count": 10, "tool_use_prompt_token_count": 500}, 510),
+        ({"prompt_token_count": 10}, 10),
+    ],
+)
+def test_generate_content_tool_use_prompt_tokens(
+    is_async, mock_litellm_cost, usage_metadata, expected_input_tokens
+):
+    response = _generate_content_response(
+        _CONTENT,
+        {
+            **usage_metadata,
+            "candidates_token_count": 20,
+            "total_token_count": expected_input_tokens + 20,
+        },
+    )
+
+    if is_async:
+
+        async def _generate_content(self, model, contents, config):
+            return response
+
+    else:
+
+        def _generate_content(self, model, contents, config):
+            return response
+
+    cls = "AsyncModels" if is_async else "Models"
+    with patch(f"google.genai.models.{cls}._generate_content", new=_generate_content):
+        mlflow.gemini.autolog()
+        _call_generate_content(is_async, "test content")
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: expected_input_tokens,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: expected_input_tokens + 20,
+    }
+
+
 def test_tracing_headers_injected_in_config(is_async):
     captured_config = {}
 

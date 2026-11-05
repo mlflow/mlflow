@@ -57,6 +57,15 @@ GENERATION_CONFIGS = [
 ]
 
 
+def _get_prompt_tokens(usage_metadata: dict[str, Any]) -> int | None:
+    prompt_tokens = usage_metadata.get("promptTokenCount")
+    # Content fetched by built-in tools (e.g. Google Search, URL context) is billed as input
+    # but reported separately from promptTokenCount.
+    if (tool_use_prompt_tokens := usage_metadata.get("toolUsePromptTokenCount")) is not None:
+        prompt_tokens = (prompt_tokens or 0) + tool_use_prompt_tokens
+    return prompt_tokens
+
+
 def _get_completion_tokens(usage_metadata: dict[str, Any]) -> int | None:
     completion_tokens = usage_metadata.get("candidatesTokenCount")
     # Gemini bills thinking tokens at the output token rate.
@@ -429,6 +438,7 @@ class GeminiAdapter(ProviderAdapter):
             if key
             not in {
                 "promptTokenCount",
+                "toolUsePromptTokenCount",
                 "candidatesTokenCount",
                 "totalTokenCount",
                 "cachedContentTokenCount",
@@ -441,7 +451,7 @@ class GeminiAdapter(ProviderAdapter):
             )
         return chat_schema.ChatUsage(
             **extra,
-            prompt_tokens=usage_metadata.get("promptTokenCount"),
+            prompt_tokens=_get_prompt_tokens(usage_metadata),
             completion_tokens=_get_completion_tokens(usage_metadata),
             total_tokens=usage_metadata.get("totalTokenCount"),
             prompt_tokens_details=prompt_tokens_details,
@@ -676,7 +686,7 @@ class GeminiAdapter(ProviderAdapter):
             model=config.model.name,
             choices=choices,
             usage=completions_schema.CompletionsUsage(
-                prompt_tokens=usage_metadata.get("promptTokenCount", None),
+                prompt_tokens=_get_prompt_tokens(usage_metadata),
                 completion_tokens=_get_completion_tokens(usage_metadata),
                 total_tokens=usage_metadata.get("totalTokenCount", None),
             ),
@@ -1061,6 +1071,7 @@ class GeminiProvider(BaseProvider):
         if usage_metadata:
             usage_metadata = {
                 **usage_metadata,
+                "promptTokenCount": _get_prompt_tokens(usage_metadata),
                 "candidatesTokenCount": _get_completion_tokens(usage_metadata),
             }
         return self._extract_token_usage_from_dict(
