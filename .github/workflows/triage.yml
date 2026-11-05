@@ -108,6 +108,8 @@ jobs:
           MODEL: ${{ inputs.model || vars.TRIAGE_MODEL || 'databricks-claude-opus-5-5' }}
           EFFORT: ${{ inputs.effort || vars.TRIAGE_EFFORT || 'high' }}
         run: |
+          # $GITHUB_OUTPUT is line-based; a newline in the model could inject another output.
+          [[ "$MODEL" != *$'\n'* ]] || { echo "::error::Model must be a single line."; exit 1; }
           case "$EFFORT" in
             low | medium | high | xhigh | max) ;;
             *)
