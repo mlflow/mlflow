@@ -2355,6 +2355,70 @@ def test_gemini_adapter_completion_tokens_include_thoughts(endpoint, counts, exp
         assert response.usage.model_dump()["thoughtsTokenCount"] == counts["thoughtsTokenCount"]
 
 
+@pytest.mark.parametrize("endpoint", ["chat", "chat_streaming", "completions"])
+@pytest.mark.parametrize(
+    ("counts", "expected"),
+    [
+        # Live gemini-3.5-flash-lite response with the URL context tool
+        ({"promptTokenCount": 27, "toolUsePromptTokenCount": 2420}, 2447),
+        ({"promptTokenCount": 27, "toolUsePromptTokenCount": 0}, 27),
+        ({"promptTokenCount": 27}, 27),
+        ({"promptTokenCount": 27, "toolUsePromptTokenCount": None}, 27),
+        ({"toolUsePromptTokenCount": 2420}, 2420),
+        ({"promptTokenCount": None, "toolUsePromptTokenCount": 2420}, 2420),
+        ({"promptTokenCount": 0, "toolUsePromptTokenCount": 2420}, 2420),
+        ({}, None),
+    ],
+)
+def test_gemini_adapter_prompt_tokens_include_tool_use(endpoint, counts, expected):
+    config = EndpointConfig(
+        **(completions_config() if endpoint == "completions" else chat_config())
+    )
+    usage_metadata = {
+        "candidatesTokenCount": 73,
+        "totalTokenCount": (expected or 0) + 73,
+        **counts,
+    }
+    response = getattr(GeminiAdapter, f"model_to_{endpoint}")(
+        {"usageMetadata": usage_metadata}, config
+    )
+
+    assert response.usage.prompt_tokens == expected
+    assert response.usage.completion_tokens == 73
+    assert response.usage.total_tokens == usage_metadata["totalTokenCount"]
+    if endpoint != "completions" and counts.get("toolUsePromptTokenCount") is not None:
+        assert (
+            response.usage.model_dump()["toolUsePromptTokenCount"]
+            == counts["toolUsePromptTokenCount"]
+        )
+
+
+@pytest.mark.parametrize("streaming", [False, True])
+def test_gemini_passthrough_token_usage_includes_tool_use(streaming):
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    # Live gemini-3.5-flash-lite response with the URL context tool
+    usage_metadata = {
+        "promptTokenCount": 27,
+        "toolUsePromptTokenCount": 2420,
+        "candidatesTokenCount": 77,
+        "totalTokenCount": 2524,
+    }
+    original_usage_metadata = usage_metadata.copy()
+    response = {"usageMetadata": usage_metadata}
+
+    if streaming:
+        token_usage = provider._extract_streaming_token_usage(
+            f"data: {json.dumps(response)}\n".encode()
+        )
+    else:
+        token_usage = provider._extract_passthrough_token_usage(
+            PassthroughAction.GEMINI_GENERATE_CONTENT, response
+        )
+
+    assert token_usage == {"input_tokens": 2447, "output_tokens": 77, "total_tokens": 2524}
+    assert response["usageMetadata"] == original_usage_metadata
+
+
 @pytest.mark.parametrize("streaming", [False, True])
 @pytest.mark.parametrize("include_total", [False, True])
 @pytest.mark.parametrize("counts", [{"candidatesTokenCount": 2}, {}])
