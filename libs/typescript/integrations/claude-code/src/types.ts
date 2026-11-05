@@ -58,6 +58,7 @@ export interface MessageContent {
   id?: string;
   model?: string;
   usage?: TokenUsage;
+  stop_reason?: string | null;
 }
 
 // ============================================================================
@@ -78,6 +79,7 @@ export interface TranscriptEntry {
   content?: string;
   agentId?: string;
   isCompactSummary?: boolean;
+  promptId?: string;
 }
 
 export interface ToolUseResultInfo {
@@ -102,6 +104,10 @@ export interface ProgressData {
 export interface StopHookInput {
   session_id: string;
   transcript_path: string;
+  /** Text of the turn's final assistant message; present in recent Claude Code versions */
+  last_assistant_message?: string;
+  /** Id of the prompt that started the turn; matches `promptId` on its user entry */
+  prompt_id?: string;
 }
 
 // ============================================================================
