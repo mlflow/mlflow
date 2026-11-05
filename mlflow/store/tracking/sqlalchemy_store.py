@@ -1088,7 +1088,8 @@ class SqlAlchemyStore(
                 run_id,
                 SqlAlchemyStore.ARTIFACTS_FOLDER_NAME,
             )
-            tags = tags.copy() if tags else []
+            # Keep the last value for duplicate tag keys; each key is one row in the tags table.
+            tags = list({tag.key: tag for tag in tags or []}.values())
             run_name_tag = _get_run_name_from_tags(tags)
             if run_name and run_name_tag and (run_name != run_name_tag):
                 raise MlflowException(

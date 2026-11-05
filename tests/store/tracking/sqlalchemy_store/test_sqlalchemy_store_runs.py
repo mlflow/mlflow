@@ -306,6 +306,54 @@ def test_create_run_with_empty_run_name_tag(store: SqlAlchemyStore, run_name, ta
     assert run.data.tags[mlflow_tags.MLFLOW_RUN_NAME] == run.info.run_name
 
 
+def test_create_run_with_duplicate_tag_keys_keeps_last_value(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "test_create_run_duplicate_tags")
+    run_id = store.create_run(
+        experiment_id=experiment_id,
+        user_id="user",
+        start_time=0,
+        run_name="name",
+        tags=[RunTag("x", "1"), RunTag("y", "a"), RunTag("x", "2")],
+    ).info.run_id
+    run = store.get_run(run_id)
+    assert run.data.tags == {"x": "2", "y": "a", mlflow_tags.MLFLOW_RUN_NAME: "name"}
+
+
+@pytest.mark.parametrize("last_value", ["second", ""])
+def test_create_run_with_duplicate_run_name_tags(store: SqlAlchemyStore, last_value):
+    experiment_id = _create_experiments(store, "test_create_run_duplicate_run_name_tags")
+    run_id = store.create_run(
+        experiment_id=experiment_id,
+        user_id="user",
+        start_time=0,
+        run_name=None,
+        tags=[
+            RunTag(mlflow_tags.MLFLOW_RUN_NAME, "first"),
+            RunTag(mlflow_tags.MLFLOW_RUN_NAME, last_value),
+        ],
+    ).info.run_id
+    run = store.get_run(run_id)
+    if last_value:
+        assert run.info.run_name == last_value
+    else:
+        # An empty last value gets a generated name, as for a single empty tag
+        assert run.info.run_name not in ("", "first")
+    assert run.data.tags == {mlflow_tags.MLFLOW_RUN_NAME: run.info.run_name}
+
+
+def test_create_run_checks_run_name_against_last_duplicate_run_name_tag(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "test_create_run_run_name_vs_duplicate_tags")
+    tags = [
+        RunTag(mlflow_tags.MLFLOW_RUN_NAME, "first"),
+        RunTag(mlflow_tags.MLFLOW_RUN_NAME, "second"),
+    ]
+    run = store.create_run(experiment_id, "user", 0, tags, "second")
+    assert store.get_run(run.info.run_id).info.run_name == "second"
+
+    with pytest.raises(MlflowException, match="Both 'run_name' argument and 'mlflow.runName' tag"):
+        store.create_run(experiment_id, "user", 0, tags, "first")
+
+
 def test_get_run_with_name(store: SqlAlchemyStore):
     experiment_id = _create_experiments(store, "test_get_run")
     configs = _get_run_configs(experiment_id=experiment_id)
