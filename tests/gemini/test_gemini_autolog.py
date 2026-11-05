@@ -709,6 +709,14 @@ def test_generate_content_tool_use_prompt_tokens(
         TokenUsageKey.TOTAL_TOKENS: expected_input_tokens + 73,
     }
 
+    if not IS_TRACING_SDK_ONLY:
+        # input tokens * 1.0 + output tokens * 2.0
+        assert span.llm_cost == {
+            "input_cost": float(expected_input_tokens),
+            "output_cost": 146.0,
+            "total_cost": expected_input_tokens + 146.0,
+        }
+
 
 def test_tracing_headers_injected_in_config(is_async):
     captured_config = {}
