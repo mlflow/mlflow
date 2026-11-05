@@ -1519,25 +1519,22 @@ def _disable_if_gateway_disabled(func):
     return wrapper
 
 
+def _workspace_not_supported(message: str) -> MlflowException:
+    return MlflowException(message, FEATURE_DISABLED)
+
+
 def _disable_if_workspaces_disabled(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         if not MLFLOW_ENABLE_WORKSPACES.get():
-            return Response(
-                (
-                    f"Endpoint: {request.url_rule} disabled because the server is running "
-                    "without workspaces support. To enable workspace, run "
-                    "`mlflow server` with `--enable-workspaces`"
-                ),
-                503,
+            raise _workspace_not_supported(
+                f"Endpoint: {request.url_rule} disabled because the server is running "
+                "without workspaces support. To enable workspace, run "
+                "`mlflow server` with `--enable-workspaces`"
             )
         return func(*args, **kwargs)
 
     return wrapper
-
-
-def _workspace_not_supported(message: str) -> MlflowException:
-    return MlflowException(message, FEATURE_DISABLED)
 
 
 def _validate_artifact_uri_scheme(uri: str, field_name: str) -> None:
