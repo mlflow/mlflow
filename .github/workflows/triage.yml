@@ -1,7 +1,7 @@
 # File a PR from an upstream branch (not a fork) when changing this workflow or the files it
 # runs, so the change can be tested with `gh workflow run triage.yml --ref <branch>` before merging.
 # Sonnet/medium is the dispatch default for workflow smoke tests. Opus/high matches
-# automatic issue runs:
+# automatic issue runs unless the TRIAGE_MODEL or TRIAGE_EFFORT repository variables override them:
 # `-f model=databricks-claude-opus-5-5 -f effort=high`.
 name: Triage
 
@@ -27,15 +27,12 @@ on:
         description: "Optional follow-up instructions, e.g. implement the first option"
         required: false
         type: string
+      # Supported models: https://docs.databricks.com/aws/en/machine-learning/foundation-model-apis/supported-models
       model:
-        description: "AI Gateway Claude model for the triage agent"
+        description: "AI Gateway Claude model for the triage agent, e.g. databricks-claude-opus-5-5"
         required: false
-        type: choice
+        type: string
         default: databricks-claude-sonnet-5-5
-        options:
-          - databricks-claude-opus-5-5
-          - databricks-claude-sonnet-5-5
-          - databricks-claude-haiku-5-5
       effort:
         description: "Reasoning effort for the triage agent"
         required: false
@@ -98,11 +95,31 @@ jobs:
       skip: ${{ steps.followup.outputs.skip }}
       frontmatter_type: ${{ steps.followup.outputs.type }}
       patch_path_allowlist: ${{ steps.policy.outputs.patch_path_allowlist }}
+      model: ${{ steps.agent.outputs.model }}
+      effort: ${{ steps.agent.outputs.effort }}
       action: ${{ steps.followup.outputs.json != 'null' && 'follow-up' || 'init' }}
       dry_run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
       # Set the TRIAGE_PR_DISABLED repository Actions variable to "true" to stop opening pull requests.
       pr_enabled: ${{ vars.TRIAGE_PR_DISABLED != 'true' }}
     steps:
+      - name: Resolve agent model and effort
+        id: agent
+        env:
+          MODEL: ${{ inputs.model || vars.TRIAGE_MODEL || 'databricks-claude-opus-5-5' }}
+          EFFORT: ${{ inputs.effort || vars.TRIAGE_EFFORT || 'high' }}
+        run: |
+          # $GITHUB_OUTPUT is line-based; a newline in the model could inject another output.
+          [[ "$MODEL" != *$'\n'* ]] || { echo "::error::Model must be a single line."; exit 1; }
+          case "$EFFORT" in
+            low | medium | high | xhigh | max) ;;
+            *)
+              echo "::error::Invalid effort '$EFFORT'. Check the TRIAGE_EFFORT repository variable."
+              exit 1
+              ;;
+          esac
+          echo "model=$MODEL" >> "$GITHUB_OUTPUT"
+          echo "effort=$EFFORT" >> "$GITHUB_OUTPUT"
+          echo "Agent model: \`$MODEL\`, effort: \`$EFFORT\`" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
@@ -864,8 +881,8 @@ jobs:
           ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5
           AGENT_BROWSER_ARGS: --no-sandbox
           AGENT_BROWSER_SCREENSHOT_DIR: /tmp/triage-out/media
-          MODEL: ${{ inputs.model || 'databricks-claude-opus-5-5' }}
-          EFFORT: ${{ inputs.effort || 'high' }}
+          MODEL: ${{ needs.issue.outputs.model }}
+          EFFORT: ${{ needs.issue.outputs.effort }}
           SESSION_ID: ${{ steps.session.outputs.id }}
           ISSUE_PATH: ${{ runner.temp }}/issue-context/issue-context.json
           TRIAGE_ACTION: ${{ needs.issue.outputs.action }}
@@ -995,6 +1012,8 @@ jobs:
           TYPE: ${{ needs.label.outputs.type }}
           STATUS: ${{ steps.triage.outcome }}
           DRY_RUN: ${{ needs.issue.outputs.dry_run }}
+          MODEL: ${{ needs.issue.outputs.model }}
+          EFFORT: ${{ needs.issue.outputs.effort }}
         run: |
           IFS=. read -r catalog schema prefix <<< "$TRACE_LOCATION"
           search=$(jq -nc --arg catalog "$catalog" --arg schema "$schema" --arg prefix "$prefix" \
@@ -1018,12 +1037,14 @@ jobs:
             exit 0
           fi
           # The payload is agent output and unvalidated here, so keep only a well-formed verdict.
-          payload=$(jq -c objects "$RUNNER_TEMP/triage-report/payload.json" 2>/dev/null) || payload='{}'
+          payload=$(jq -c objects "$RUNNER_TEMP/triage-out/payload.json" 2>/dev/null) || payload='{}'
           tags=$(jq -nc --argjson p "${payload:-"{}"}" '{
             "triage.action": env.ACTION,
             "triage.type": env.TYPE,
             "triage.status": env.STATUS,
             "triage.dry_run": env.DRY_RUN,
+            "triage.model": env.MODEL,
+            "triage.effort": env.EFFORT,
             "triage.verdict": (($p.verdict | strings | select(test("^[a-z-]+$"))) // ""),
             "triage.pr_created": ($p | has("pull_request") | tostring)
           } | with_entries(select(.value != ""))')
