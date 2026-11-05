@@ -116,20 +116,44 @@ def mock_litellm_embeddings_response():
     return response
 
 
-@pytest.mark.parametrize("key", ["aws_region_name", "vertex_location"])
+@pytest.mark.parametrize("key", ["aws_region_name", "vertex_location", "vertex_ai_location"])
 def test_litellm_config_accepts_region_names(key):
     config = LiteLLMConfig(litellm_provider="sagemaker", litellm_auth_config={key: "us-east-1"})
     assert config.litellm_auth_config[key] == "us-east-1"
 
 
-@pytest.mark.parametrize("key", ["aws_region_name", "vertex_location"])
-@pytest.mark.parametrize("value", ["evil.example", "evil.example/#", "US-EAST-1", 1])
+@pytest.mark.parametrize("key", ["aws_region_name", "vertex_location", "vertex_ai_location"])
+@pytest.mark.parametrize("value", ["evil.example", "evil.example/#", "US-EAST-1", 1, 0, False, []])
 def test_litellm_config_rejects_non_region_names(key, value):
     with pytest.raises(ValidationError, match=f"{key} must contain only") as exc:
         LiteLLMConfig(
             litellm_provider="sagemaker",
             litellm_auth_config={key: value, "aws_secret_access_key": "TOPSECRET"},
         )
+    assert "TOPSECRET" not in str(exc.value)
+    if isinstance(value, str):
+        assert value not in str(exc.value)
+
+
+@pytest.mark.parametrize("key", ["aws_region_name", "vertex_location", "vertex_ai_location"])
+def test_endpoint_config_hides_litellm_secrets_in_region_errors(key):
+    config = {
+        "name": "chat",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "litellm",
+            "name": "sagemaker/my-endpoint",
+            "config": {
+                "litellm_provider": "sagemaker",
+                "litellm_auth_config": {
+                    key: "evil.example/#",
+                    "aws_secret_access_key": "TOPSECRET",
+                },
+            },
+        },
+    }
+    with pytest.raises(ValidationError, match=f"{key} must contain only") as exc:
+        EndpointConfig(**config)
     assert "TOPSECRET" not in str(exc.value)
 
 
@@ -1166,6 +1190,10 @@ def chat_config_with_base_url_alias():
         ("custom_llm_provider", "ollama"),
         ("aws_bedrock_runtime_endpoint", "http://127.0.0.1:11434"),
         ("aws_sts_endpoint", "http://127.0.0.1:11434"),
+        ("aws_region_name", "evil.example/invocations?x="),
+        ("vertex_location", "evil.example/#"),
+        ("vertex_ai_location", "evil.example/#"),
+        ("aws_region_name", "us-east-1"),
     ],
 )
 @pytest.mark.asyncio

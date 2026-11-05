@@ -288,8 +288,6 @@ class AWSBearerToken(AWSBaseConfig):
 
 
 class AmazonBedrockConfig(ConfigModel):
-    model_config = ConfigDict(hide_input_in_errors=True)
-
     # order here is important, at least for pydantic<2
     aws_config: AWSBearerToken | AWSRole | AWSIdAndKey | AWSBaseConfig
 
@@ -379,9 +377,6 @@ class VertexAIConfig(ConfigModel):
 
 
 class LiteLLMConfig(ConfigModel):
-    # Validation errors would otherwise echo the merged auth config, secrets included.
-    model_config = ConfigDict(hide_input_in_errors=True)
-
     litellm_provider: str | None = None
     litellm_auth_config: dict[str, Any] | None = None
 
@@ -397,8 +392,9 @@ class LiteLLMConfig(ConfigModel):
         auth_config = dict(auth_config)
 
         # LiteLLM builds request hosts from these, e.g. ``runtime.sagemaker.{aws_region_name}``.
+        # The values aren't echoed, since this map also holds the secret's values.
         for key in sorted(GATEWAY_REGION_KEYS & set(auth_config)):
-            _validate_region_name(auth_config[key], key)
+            _validate_region_name(auth_config[key], key, show_value=False)
 
         # Remove MLflow-specific auth_mode as it's not supported by LiteLLM
         auth_config.pop(_AuthConfigKey.AUTH_MODE, None)

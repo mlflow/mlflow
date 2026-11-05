@@ -1204,12 +1204,15 @@ _GATEWAY_SECRET_VALUE_RESERVED_KEYS = GATEWAY_DESTINATION_KEYS
 # Keys whose value becomes part of a provider's request host, such as
 # ``bedrock-runtime.{aws_region_name}.amazonaws.com``. The native providers and LiteLLM both build
 # hosts this way, so each value must be a bare region name.
-GATEWAY_REGION_KEYS = frozenset({"aws_region_name", "vertex_location"})
+# ``vertex_ai_location`` is litellm's alias for ``vertex_location``.
+GATEWAY_REGION_KEYS = frozenset({"aws_region_name", "vertex_location", "vertex_ai_location"})
 
 
 def _validate_region_name(value: Any, field_name: str, *, show_value: bool = True) -> Any:
-    """Raise ``ValueError`` unless ``value`` is empty or a bare region name like ``us-east-1``."""
-    if value and not (isinstance(value, str) and re.fullmatch(r"[a-z0-9-]+", value)):
+    """Raise ``ValueError`` unless ``value`` is unset or a bare region name like ``us-east-1``."""
+    if value is None or value == "":
+        return value
+    if not (isinstance(value, str) and re.fullmatch(r"[a-z0-9-]+", value)):
         got = f"; got {value!r}" if show_value else ""
         raise ValueError(
             f"{field_name} must contain only lowercase letters, digits, and hyphens{got}"

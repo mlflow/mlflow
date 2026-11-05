@@ -436,6 +436,23 @@ def test_bedrock_config_rejects_invalid_aws_region(credentials, region):
         AmazonBedrockConfig(aws_config={**credentials, "aws_region": region})
 
 
+def test_endpoint_config_hides_bedrock_secrets_in_region_errors():
+    config = {
+        "name": "claude",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "bedrock",
+            "name": "anthropic.claude-3-haiku",
+            "config": {
+                "aws_config": {"aws_region": "evil.example/#", "aws_bearer_token": "TOPSECRET"}
+            },
+        },
+    }
+    with pytest.raises(ValidationError, match="aws_region must contain only") as exc:
+        EndpointConfig(**config)
+    assert "TOPSECRET" not in str(exc.value)
+
+
 def _merge_model_and_aws_config(config, aws_config):
     return {
         **config,

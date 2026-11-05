@@ -990,15 +990,17 @@ def test_validate_gateway_secret_value_rejects_api_base():
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-@pytest.mark.parametrize("key", ["aws_region_name", "vertex_location"])
+@pytest.mark.parametrize("key", ["aws_region_name", "vertex_location", "vertex_ai_location"])
 @pytest.mark.parametrize("value", ["", "us-east-1", "europe-west4", "us-isob-east-1"])
 def test_validate_gateway_secret_region_keys_accept_region_names(key, value):
     assert _validate_gateway_secret_auth_config({key: value}) == {key: value}
     _validate_gateway_secret_value({key: value})
 
 
-@pytest.mark.parametrize("key", ["aws_region_name", "vertex_location"])
-@pytest.mark.parametrize("value", ["evil.example", "evil.example/#", "US-EAST-1", "us-east-1\n", 1])
+@pytest.mark.parametrize("key", ["aws_region_name", "vertex_location", "vertex_ai_location"])
+@pytest.mark.parametrize(
+    "value", ["evil.example", "evil.example/#", "US-EAST-1", "us-east-1\n", 1, 0, False, [], {}]
+)
 def test_validate_gateway_secret_region_keys_reject_non_region_names(key, value):
     with pytest.raises(MlflowException, match=f"auth_config '{key}' must contain only") as exc:
         _validate_gateway_secret_auth_config({key: value})
