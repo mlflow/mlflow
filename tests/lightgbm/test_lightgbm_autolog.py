@@ -300,6 +300,29 @@ def test_lgb_autolog_logs_metrics_with_validation_data(bst_params, train_set):
     assert {m.key: m.value for m in logged_model.metrics} == data.metrics
 
 
+def test_lgb_autolog_does_not_mutate_callbacks_across_runs(bst_params, train_set):
+    mlflow.lightgbm.autolog()
+    callbacks = [lgb.log_evaluation(period=0)]
+    original_callbacks = list(callbacks)
+    run_ids = []
+    for _ in range(2):
+        with mlflow.start_run() as run:
+            lgb.train(
+                bst_params,
+                train_set,
+                num_boost_round=5,
+                valid_sets=[train_set],
+                valid_names=["train"],
+                callbacks=callbacks,
+            )
+        run_ids.append(run.info.run_id)
+
+    assert callbacks == original_callbacks
+    client = MlflowClient()
+    for run_id in run_ids:
+        assert len(client.get_metric_history(run_id, "train-multi_logloss")) == 5
+
+
 def test_lgb_autolog_logs_metrics_with_multi_validation_data(bst_params, train_set):
     mlflow.lightgbm.autolog()
     evals_result = {}
