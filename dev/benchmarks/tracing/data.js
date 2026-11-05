@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793880386673,
+  "lastUpdate": 1793882093976,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "108891350+Yash-Chindam@users.noreply.github.com",
-            "name": "Yash-Chindam",
-            "username": "Yash-Chindam"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4f488cd2d24ad0b9f70ec619f158dbb659d3a623",
-          "message": "fix(gateway): apply Vertex Anthropic request fields in `adapter_class` so judges work (#25556)\n\nSigned-off-by: Yash-Chindam <yash.chindam@gmail.com>\nSigned-off-by: Aaron Teo <atwkdeveloper@gmail.com>\nCo-authored-by: Aaron Teo <atwkdeveloper@gmail.com>",
-          "timestamp": "2026-09-07T00:22:02+08:00",
-          "tree_id": "b8df3f11625bf4a9116c2e67a97d9767521600a3",
-          "url": "https://github.com/mlflow/mlflow/commit/4f488cd2d24ad0b9f70ec619f158dbb659d3a623"
-        },
-        "date": 1788711798543,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 42.81064150001157,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 6.2498354166583185,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 5.4130896118359235,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 6.2119097821794025,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 5.701815294573791,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 9.83237119999103,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 6.924569200003816,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "144015565+v0ropaev@users.noreply.github.com",
+            "name": "Dmitry Voropaev",
+            "username": "v0ropaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c2212654623d47aac8b0f97ac2efa92e9f6c4b12",
+          "message": "Convert image content parts in `to_chat_completions_input` instead of raising `KeyError` (#27308)\n\nSigned-off-by: Dmitry Voropaev <dy.voropaev@gmail.com>",
+          "timestamp": "2026-11-05T12:31:10Z",
+          "tree_id": "91e41a0068f9297d39f77cc81f0defcc307df327",
+          "url": "https://github.com/mlflow/mlflow/commit/c2212654623d47aac8b0f97ac2efa92e9f6c4b12"
+        },
+        "date": 1793882089382,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 73.55922985000092,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 4.6565960238062925,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 3.9200034635424137,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 3.9548680468755038,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 4.362541906432092,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 14.790337200003023,
             "unit": "ms"
           }
         ]
