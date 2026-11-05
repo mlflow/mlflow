@@ -1098,6 +1098,8 @@ class SqlAlchemyStore(
                 )
             run_name = run_name or run_name_tag or _generate_random_name()
             if not run_name_tag:
+                # Drop an empty `mlflow.runName` tag to avoid a duplicate tag primary key
+                tags = [tag for tag in tags if tag.key != MLFLOW_RUN_NAME]
                 tags.append(RunTag(key=MLFLOW_RUN_NAME, value=run_name))
             run = SqlRun(
                 name=run_name,
