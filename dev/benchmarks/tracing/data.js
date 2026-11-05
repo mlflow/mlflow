@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793857720148,
+  "lastUpdate": 1793859688005,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "84737625+kriscon-db@users.noreply.github.com",
-            "name": "Kris Concepcion",
-            "username": "kriscon-db"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4b9f183c162d9431a9a9a2b9b6698b0bd7a624dd",
-          "message": "Pin googleapis-common-protos<1.75.1 for TensorFlow cross-version tests (#25557)\n\nSigned-off-by: Kris Concepcion <kris.concepcion@databricks.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
-          "timestamp": "2026-09-03T22:14:26-04:00",
-          "tree_id": "912eae8bf4507ba9b65c2ac0c24aa54ae4ed08c8",
-          "url": "https://github.com/mlflow/mlflow/commit/4b9f183c162d9431a9a9a2b9b6698b0bd7a624dd"
-        },
-        "date": 1788488142209,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 32.85721014999865,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 6.5138400285730675,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 4.509815122807365,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 5.209375435714086,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 4.74381826451584,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 23.03104649999928,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.317718399997375,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "maharanay@gmail.com",
+            "name": "Maha Rana Yadavalli",
+            "username": "maharanay22"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "95e38cf8c6495f068dc79945c9936bc6fce4adb0",
+          "message": "Handle tools without `description` or `parameters` in Anthropic and Gemini gateway adapters (#26538)\n\nSigned-off-by: Maha Yadavalli <271375718+maharanay22@users.noreply.github.com>\nCo-authored-by: Maha Yadavalli <271375718+maharanay22@users.noreply.github.com>",
+          "timestamp": "2026-11-05T06:17:35Z",
+          "tree_id": "aaed0c81a9a5f15d7cf160c5db10a6d46198435b",
+          "url": "https://github.com/mlflow/mlflow/commit/95e38cf8c6495f068dc79945c9936bc6fce4adb0"
+        },
+        "date": 1793859684648,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 67.42587810000273,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 4.64545238749956,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 4.08675262176175,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 3.9899368032786486,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 4.348515736841659,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 3.5795931999984987,
             "unit": "ms"
           }
         ]
