@@ -127,6 +127,53 @@ def test_runs_artifact_repo_tracking_uri_passed_as_keyword():
         mock_get_artifact_uri.assert_called_once()
 
 
+def test_download_artifacts_chains_run_repo_error():
+    """
+    When the run's artifact repository fails, the MlflowException raised by
+    `download_artifacts` must be chained to the original error instead of
+    reporting it as a wrong path (https://github.com/mlflow/mlflow/issues/26197).
+    """
+    artifact_location = "s3://blah_bucket/"
+    experiment_id = mlflow.create_experiment("expr_chain", artifact_location)
+    with mlflow.start_run(experiment_id=experiment_id):
+        run_id = mlflow.active_run().info.run_id
+    runs_repo = RunsArtifactRepository(f"runs:/{run_id}")
+    run_error = RuntimeError("storage boom")
+    runs_repo.repo = Mock()
+    runs_repo.repo.download_artifacts.side_effect = run_error
+    with pytest.raises(
+        MlflowException, match="Failed to download artifacts from path 'model'"
+    ) as exc_info:
+        runs_repo.download_artifacts("model")
+    assert exc_info.value.__cause__ is run_error
+    assert exc_info.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
+def test_download_artifacts_chains_run_repo_error_not_model_error():
+    """
+    When both the run and the logged-model repositories fail, the chained
+    cause must be the run repository's error (https://github.com/mlflow/mlflow/issues/26197).
+    """
+    artifact_location = "s3://blah_bucket/"
+    experiment_id = mlflow.create_experiment("expr_chain_model", artifact_location)
+    with mlflow.start_run(experiment_id=experiment_id):
+        run_id = mlflow.active_run().info.run_id
+    runs_repo = RunsArtifactRepository(f"runs:/{run_id}")
+    run_error = RuntimeError("storage boom")
+    runs_repo.repo = Mock()
+    runs_repo.repo.download_artifacts.side_effect = run_error
+    with (
+        mock.patch.object(
+            runs_repo, "_download_model_artifacts", side_effect=RuntimeError("model boom")
+        ),
+        pytest.raises(
+            MlflowException, match="Failed to download artifacts from path 'model'"
+        ) as exc_info,
+    ):
+        runs_repo.download_artifacts("model")
+    assert exc_info.value.__cause__ is run_error
+
+
 def test_get_logged_model_artifact_repo_uses_models_uri():
     with (
         mock.patch(
