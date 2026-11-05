@@ -405,8 +405,24 @@ def _end_span_on_success(
             _finish_stream()
             return close_result
 
-        result._iterator = _stream_output_logging_hook(result._iterator)
+        # `ChatCompletionStream.close()` (the `chat.completions.stream()` helper) closes the
+        # underlying HTTP response directly instead of calling `Stream.close()`. The SDK also
+        # closes the response while iterating (e.g. before re-raising a mid-stream error), so
+        # only finish here when the close comes from outside the iteration.
+        original_response_close = result.response.close
+        logging_iterator = _stream_output_logging_hook(result._iterator)
+
+        @functools.wraps(original_response_close)
+        def _response_close():
+            try:
+                return original_response_close()
+            finally:
+                if not logging_iterator.gi_running:
+                    _finish_stream()
+
+        result._iterator = logging_iterator
         result.close = _close
+        result.response.close = _response_close
     elif isinstance(result, AsyncStream):
 
         async def _stream_output_logging_hook(stream: AsyncIterator) -> AsyncIterator:
@@ -433,8 +449,23 @@ def _end_span_on_success(
             _finish_stream()
             return close_result
 
-        result._iterator = _stream_output_logging_hook(result._iterator)
+        # `AsyncChatCompletionStream.close()` (the `chat.completions.stream()` helper) closes
+        # the underlying HTTP response directly instead of calling `AsyncStream.close()`. See
+        # the sync branch above for why the close is ignored while iterating.
+        original_response_aclose = result.response.aclose
+        logging_iterator = _stream_output_logging_hook(result._iterator)
+
+        @functools.wraps(original_response_aclose)
+        async def _response_aclose():
+            try:
+                return await original_response_aclose()
+            finally:
+                if not logging_iterator.ag_running:
+                    _finish_stream()
+
+        result._iterator = logging_iterator
         result.close = _close
+        result.response.aclose = _response_aclose
     else:
         try:
             set_span_chat_attributes(span, inputs, result)

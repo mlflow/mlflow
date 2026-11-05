@@ -592,6 +592,33 @@ async def test_completions_streaming_close(client, use_context_manager, num_chun
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("num_chunks", [0, 1])
+async def test_chat_completions_stream_helper_early_exit(client, num_chunks):
+    mlflow.openai.autolog()
+    stream_manager = client.chat.completions.stream(
+        messages=[{"role": "user", "content": "test"}], model="gpt-4o-mini"
+    )
+    if client._is_async:
+        async with stream_manager as stream:
+            for _ in range(num_chunks):
+                await anext(stream)
+    else:
+        with stream_manager as stream:
+            for _ in range(num_chunks):
+                next(stream)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    span = traces[0].data.spans[0]
+    assert len(span.events) == num_chunks
+    if num_chunks == 0:
+        assert span.outputs is None
+    else:
+        assert span.outputs["choices"][0]["message"]["content"] == "Hello"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("error_type", [RuntimeError, asyncio.CancelledError])
 async def test_chat_completions_streaming_close_error(client, error_type):
     mlflow.openai.autolog()
