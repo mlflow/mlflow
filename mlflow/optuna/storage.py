@@ -252,7 +252,9 @@ class MlflowStorage(BaseStorage):
             self._flush_batch(run_id)
 
     def _search_runs_by_name(self, run_name: str):
-        filter_string = f"tags.mlflow.runName = '{run_name}'"
+        # The filter grammar has no escape sequence, so quote with `"` when the name has a `'`.
+        quote = '"' if "'" in run_name else "'"
+        filter_string = f"tags.mlflow.runName = {quote}{run_name}{quote}"
         return self._mlflow_client.search_runs(
             experiment_ids=[self._experiment_id],
             filter_string=filter_string,
