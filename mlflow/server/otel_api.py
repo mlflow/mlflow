@@ -15,6 +15,8 @@ import base64
 import json
 import logging
 import time
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
@@ -110,6 +112,24 @@ def _convert_otlp_json_ids_to_base64(body: bytes) -> bytes:
 otel_router = APIRouter(prefix=OTLP_TRACES_PATH, tags=["OpenTelemetry"])
 
 
+def log_missing_experiment_id_header() -> None:
+    # OTel exporters don't print response bodies, so without this the server logs only the
+    # access line for a rejected export.
+    _logger.warning(
+        "Rejecting OTLP trace export request to %s: missing or empty required '%s' header. "
+        "Set it on the exporter, e.g. OTEL_EXPORTER_OTLP_TRACES_HEADERS=%s=<experiment id>.",
+        OTLP_TRACES_PATH,
+        MLFLOW_EXPERIMENT_ID_HEADER,
+        MLFLOW_EXPERIMENT_ID_HEADER,
+    )
+
+
+def is_missing_experiment_id_header_error(path: str, errors: Sequence[Mapping[str, Any]]) -> bool:
+    return path.rstrip("/").endswith(OTLP_TRACES_PATH) and any(
+        tuple(error.get("loc", ())) == ("header", MLFLOW_EXPERIMENT_ID_HEADER) for error in errors
+    )
+
+
 @otel_router.post("", status_code=200)
 async def export_traces(
     request: Request,
@@ -149,6 +169,13 @@ async def export_traces(
     Raises:
         HTTPException: If the request is invalid or span logging fails
     """
+    if not x_mlflow_experiment_id.strip():
+        log_missing_experiment_id_header()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"The '{MLFLOW_EXPERIMENT_ID_HEADER}' header must not be empty.",
+        )
+
     start_time = time.perf_counter()
 
     try:
