@@ -415,10 +415,14 @@ def _end_span_on_success(
         @functools.wraps(original_response_close)
         def _response_close():
             try:
-                return original_response_close()
-            finally:
+                close_result = original_response_close()
+            except BaseException as e:
                 if not logging_iterator.gi_running:
-                    _finish_stream()
+                    _finish_stream(e)
+                raise
+            if not logging_iterator.gi_running:
+                _finish_stream()
+            return close_result
 
         result._iterator = logging_iterator
         result.close = _close
@@ -458,10 +462,14 @@ def _end_span_on_success(
         @functools.wraps(original_response_aclose)
         async def _response_aclose():
             try:
-                return await original_response_aclose()
-            finally:
+                close_result = await original_response_aclose()
+            except BaseException as e:
                 if not logging_iterator.ag_running:
-                    _finish_stream()
+                    _finish_stream(e)
+                raise
+            if not logging_iterator.ag_running:
+                _finish_stream()
+            return close_result
 
         result._iterator = logging_iterator
         result.close = _close
