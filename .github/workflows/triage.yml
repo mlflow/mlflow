@@ -1012,6 +1012,8 @@ jobs:
           TYPE: ${{ needs.label.outputs.type }}
           STATUS: ${{ steps.triage.outcome }}
           DRY_RUN: ${{ needs.issue.outputs.dry_run }}
+          MODEL: ${{ needs.issue.outputs.model }}
+          EFFORT: ${{ needs.issue.outputs.effort }}
         run: |
           IFS=. read -r catalog schema prefix <<< "$TRACE_LOCATION"
           search=$(jq -nc --arg catalog "$catalog" --arg schema "$schema" --arg prefix "$prefix" \
@@ -1041,6 +1043,8 @@ jobs:
             "triage.type": env.TYPE,
             "triage.status": env.STATUS,
             "triage.dry_run": env.DRY_RUN,
+            "triage.model": env.MODEL,
+            "triage.effort": env.EFFORT,
             "triage.verdict": (($p.verdict | strings | select(test("^[a-z-]+$"))) // ""),
             "triage.pr_created": ($p | has("pull_request") | tostring)
           } | with_entries(select(.value != ""))')
