@@ -1305,6 +1305,42 @@
       },
       "last_updated_at": "2026-11-05"
     },
+    "us-gov-east-1/xai.grok-4.7": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 524288,
+        "max_output": 524288
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.64,
+        "output_per_million_tokens": 7.92,
+        "cache_read_per_million_tokens": 0.66,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.32,
+            "output_per_million_tokens": 3.96
+          },
+          "flex": {
+            "input_per_million_tokens": 1.32,
+            "output_per_million_tokens": 3.96,
+            "cache_read_per_million_tokens": 0.33
+          },
+          "priority": {
+            "input_per_million_tokens": 4.62,
+            "output_per_million_tokens": 13.86,
+            "cache_read_per_million_tokens": 1.155
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-05"
+    },
     "us-gov-west-1/anthropic.claude-haiku-5-5": {
       "mode": "chat",
       "context_window": {
@@ -1870,6 +1906,42 @@
       },
       "last_updated_at": "2026-11-05"
     },
+    "us-gov-west-1/xai.grok-4.7": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 524288,
+        "max_output": 524288
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.64,
+        "output_per_million_tokens": 7.92,
+        "cache_read_per_million_tokens": 0.66,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.32,
+            "output_per_million_tokens": 3.96
+          },
+          "flex": {
+            "input_per_million_tokens": 1.32,
+            "output_per_million_tokens": 3.96,
+            "cache_read_per_million_tokens": 0.33
+          },
+          "priority": {
+            "input_per_million_tokens": 4.62,
+            "output_per_million_tokens": 13.86,
+            "cache_read_per_million_tokens": 1.155
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-05"
+    },
     "xai.grok-4.3": {
       "mode": "chat",
       "context_window": {
@@ -1938,6 +2010,42 @@
         "response_schema": true
       },
       "last_updated_at": "2026-10-27"
+    },
+    "xai.grok-4.7": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 524288,
+        "max_output": 524288
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.2,
+        "output_per_million_tokens": 6.6,
+        "cache_read_per_million_tokens": 0.55,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.1,
+            "output_per_million_tokens": 3.3
+          },
+          "flex": {
+            "input_per_million_tokens": 1.1,
+            "output_per_million_tokens": 3.3,
+            "cache_read_per_million_tokens": 0.275
+          },
+          "priority": {
+            "input_per_million_tokens": 3.85,
+            "output_per_million_tokens": 11.55,
+            "cache_read_per_million_tokens": 0.9625
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-05"
     }
   }
 }
