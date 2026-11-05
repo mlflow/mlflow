@@ -592,6 +592,33 @@ async def test_completions_streaming_close(client, use_context_manager, num_chun
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("num_chunks", [0, 1])
+async def test_chat_completions_stream_helper_early_exit(client, num_chunks):
+    mlflow.openai.autolog()
+    stream_manager = client.chat.completions.stream(
+        messages=[{"role": "user", "content": "test"}], model="gpt-4o-mini"
+    )
+    if client._is_async:
+        async with stream_manager as stream:
+            for _ in range(num_chunks):
+                await anext(stream)
+    else:
+        with stream_manager as stream:
+            for _ in range(num_chunks):
+                next(stream)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    span = traces[0].data.spans[0]
+    assert len(span.events) == num_chunks
+    if num_chunks == 0:
+        assert span.outputs is None
+    else:
+        assert span.outputs["choices"][0]["message"]["content"] == "Hello"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("error_type", [RuntimeError, asyncio.CancelledError])
 async def test_chat_completions_streaming_close_error(client, error_type):
     mlflow.openai.autolog()
@@ -643,6 +670,61 @@ async def test_chat_completions_streaming_iterator_close(client):
     span = traces[0].data.spans[0]
     assert [event.name for event in span.events] == ["mlflow.chunk.item.0"]
     assert span.outputs["choices"][0]["message"]["content"] == "Hello"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("use_helper", [False, True], ids=["create", "stream-helper"])
+@pytest.mark.parametrize("num_chunks", [0, 1])
+@pytest.mark.parametrize("error_type", [RuntimeError, asyncio.CancelledError])
+async def test_chat_completions_transport_close_error(client, use_helper, num_chunks, error_type):
+    mlflow.openai.autolog()
+    inputs = {"messages": [{"role": "user", "content": "test"}], "model": "gpt-4o-mini"}
+    stream_manager = (
+        client.chat.completions.stream(**inputs)
+        if use_helper
+        else client.chat.completions.create(**inputs, stream=True)
+    )
+    error = error_type("Transport close failed")
+
+    if client._is_async:
+        if not use_helper:
+            stream_manager = await stream_manager
+        async with stream_manager as stream:
+            for _ in range(num_chunks):
+                await anext(stream)
+            response = stream._response if use_helper else stream.response
+            transport_close = response.stream.aclose
+            try:
+                with mock.patch.object(response.stream, "aclose", side_effect=error) as close:
+                    with pytest.raises(error_type) as exc:
+                        await stream.close()
+                    close.assert_awaited_once_with()
+            finally:
+                await transport_close()
+    else:
+        with stream_manager as stream:
+            for _ in range(num_chunks):
+                next(stream)
+            response = stream._response if use_helper else stream.response
+            transport_close = response.stream.close
+            try:
+                with mock.patch.object(response.stream, "close", side_effect=error) as close:
+                    with pytest.raises(error_type) as exc:
+                        stream.close()
+                    close.assert_called_once_with()
+            finally:
+                transport_close()
+
+    assert exc.value is error
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "ERROR"
+    span = traces[0].data.spans[0]
+    assert span.status.status_code == "ERROR"
+    assert len(span.events) == num_chunks + 1
+    assert span.events[-1].name == "exception"
+    assert span.events[-1].attributes["exception.type"] == error_type.__name__
+    assert span.events[-1].attributes["exception.message"] == "Transport close failed"
 
 
 @pytest.mark.asyncio
