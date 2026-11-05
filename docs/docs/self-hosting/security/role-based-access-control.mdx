@@ -115,6 +115,14 @@ Three limits are worth knowing before relying on it:
   user has a direct grant on that name, since that grant would start applying
   to the renamed model. An admin must revoke those direct grants first. Only
   platform and workspace administrators see in the error which users hold them.
+  Deleting a model or prompt is rejected the same way, for every caller
+  including admins, while a role has an exact-name grant other than `DENY`
+  on its name, because the grant would otherwise apply to the next model or
+  prompt created with that name. A leftover `DENY` only restricts that next
+  model, so it does not block a delete. Direct grants are removed with the
+  model and do not block a delete. If a user's only permission to delete the
+  model or prompt comes from such a role grant, removing the grant also removes
+  that permission, so ask a platform or workspace administrator to delete it.
 
 ### Sub-resource tiers
 

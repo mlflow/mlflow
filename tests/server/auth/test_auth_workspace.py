@@ -51,7 +51,12 @@ from mlflow.server.auth.routes import (
     UPDATE_ROLE_PERMISSION,
     UPLOAD_ARTIFACT,
 )
-from mlflow.server.auth.sqlalchemy_store import PerUserGrant, RoleGrantRow, SqlAlchemyStore
+from mlflow.server.auth.sqlalchemy_store import (
+    NamedRoleGrant,
+    PerUserGrant,
+    RoleGrantRow,
+    SqlAlchemyStore,
+)
 from mlflow.server.handlers import _batch_get_trace_infos, _batch_get_traces
 from mlflow.store.tracking.dbmodels.models import SqlSkill
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as TrackingSqlAlchemyStore
@@ -2386,6 +2391,162 @@ def test_rename_rejected_when_named_role_grants_old_name_without_workspaces(
     ):
         with pytest.raises(MlflowException, match="An admin must update or remove") as exc_info:
             auth_module.validate_can_rename_registered_model()
+    assert "readers" not in exc_info.value.message
+
+
+def _delete_registered_model(name, caller):
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/delete", method="DELETE", json={"name": name}
+    ):
+        if caller == "admin":
+            auth_module.enforce_model_name_rules()
+        else:
+            assert auth_module.validate_can_delete_registered_model_or_prompt_cascade()
+
+
+@pytest.mark.parametrize(
+    ("resource_type", "permission", "prompts"),
+    [
+        ("registered_model", READ.name, set()),
+        ("registered_model", MANAGE.name, set()),
+        ("prompt", EDIT.name, {"model-xyz"}),
+        # A grant in the other namespace applies once the name is reused for a prompt.
+        ("prompt", READ.name, set()),
+    ],
+)
+@pytest.mark.parametrize("caller", ["user", "workspace_admin", "admin"])
+def test_delete_rejected_when_named_role_grants_name(
+    workspace_permission_setup, monkeypatch, resource_type, permission, prompts, caller
+):
+    # Named-role grants are not swept on delete, so they would apply to the next model created
+    # under the name.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(
+        auth_module,
+        "_get_model_registry_store",
+        lambda: _RegistryStore({"model-xyz": "team-a"}, prompts),
+    )
+    # The fixture makes the caller a workspace admin of team-a.
+    if caller == "user":
+        _set_workspace_permission(store, username, USE.name)
+    elif caller == "admin":
+        store.update_user(username, is_admin=True)
+    entity_type = "prompt" if prompts else "registered_model"
+    store.grant_user_resource_permission(username, entity_type, "*", MANAGE.name)
+    role = store.create_role(name="readers", workspace="team-a")
+    store.add_role_permission(role.id, resource_type, "*", READ.name)
+    exact_grant = store.add_role_permission(role.id, resource_type, "model-xyz", permission)
+
+    with pytest.raises(MlflowException, match="An admin must update or remove") as exc_info:
+        _delete_registered_model("model-xyz", caller)
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+    # Only callers who can manage roles see which roles hold the grants.
+    shown = caller != "user"
+    details = f"role 'readers' has {permission} on {resource_type} 'model-xyz'"
+    assert (details in exc_info.value.message) is shown
+    assert ("readers" in exc_info.value.message) is shown
+    assert ("ask an admin to delete it" in exc_info.value.message) is not shown
+
+    # Once an admin removes the exact-name grant, the delete goes through.
+    store.remove_role_permission(exact_grant.id)
+    _delete_registered_model("model-xyz", caller)
+
+
+@pytest.mark.parametrize("caller", ["user", "admin"])
+def test_delete_allowed_with_only_deny_wildcard_or_other_workspace_named_role_grants(
+    workspace_permission_setup, caller
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    if caller == "admin":
+        store.update_user(username, is_admin=True)
+    store.grant_user_resource_permission(username, "registered_model", "*", MANAGE.name)
+    # Direct grants live on the per-user role and are swept with the model, so they don't block.
+    store.grant_user_permission(username, "registered_model", "model-xyz", MANAGE.name)
+    role = store.create_role(name="readers", workspace="team-a")
+    store.add_role_permission(role.id, "registered_model", "*", READ.name)
+    store.add_role_permission(role.id, "registered_model", "other-model", READ.name)
+    # A leftover DENY only fails closed for the next model with the name.
+    store.add_role_permission(role.id, "registered_model", "model-xyz", DENY.name)
+    store.add_role_permission(role.id, "prompt", "model-xyz", DENY.name)
+    other = store.create_role(name="readers", workspace="team-b")
+    store.add_role_permission(other.id, "registered_model", "model-xyz", READ.name)
+
+    _delete_registered_model("model-xyz", caller)
+
+
+def test_delete_without_permission_is_denied_before_the_named_role_grant_check(
+    workspace_permission_setup,
+):
+    # A caller who can't delete gets a plain denial, not the role-grant error.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    role = store.create_role(name="readers", workspace="team-a")
+    store.add_role_permission(role.id, "registered_model", "model-xyz", READ.name)
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/registered-models/delete", method="DELETE", json={"name": "model-xyz"}
+    ):
+        assert auth_module.validate_can_delete_registered_model_or_prompt_cascade() is False
+
+
+@pytest.mark.parametrize("operation", ["delete", "rename"])
+@pytest.mark.parametrize("caller", ["user", "admin"])
+def test_named_role_grant_on_another_spelling_does_not_block(
+    workspace_permission_setup, monkeypatch, operation, caller
+):
+    # A case-insensitive auth database returns grants on every spelling of the name, but grants
+    # only apply to their exact spelling.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    if caller == "user":
+        _set_workspace_permission(store, username, USE.name)
+        store.grant_user_resource_permission(username, "registered_model", "*", MANAGE.name)
+    else:
+        store.update_user(username, is_admin=True)
+    other_spelling = NamedRoleGrant("readers", "registered_model", "Model-Xyz", READ.name)
+    exact = NamedRoleGrant("readers", "registered_model", "model-xyz", READ.name)
+
+    def run():
+        if operation == "delete":
+            _delete_registered_model("model-xyz", caller)
+        else:
+            _rename_model_xyz(caller)
+
+    monkeypatch.setattr(store, "list_named_role_grants_for_resource", lambda *_: [other_spelling])
+    run()
+
+    monkeypatch.setattr(
+        store, "list_named_role_grants_for_resource", lambda *_: [other_spelling, exact]
+    )
+    with pytest.raises(MlflowException, match="An admin must update or remove"):
+        run()
+
+
+def test_admin_delete_of_missing_model_skips_named_role_grant_check(workspace_permission_setup):
+    # The handler returns the not-found error; a role grant on the name is no reason to fail first.
+    store = workspace_permission_setup["store"]
+    store.update_user(workspace_permission_setup["username"], is_admin=True)
+    role = store.create_role(name="readers", workspace="team-a")
+    store.add_role_permission(role.id, "registered_model", "missing-model", READ.name)
+
+    _delete_registered_model("missing-model", "admin")
+
+
+def test_delete_rejected_when_named_role_grants_name_without_workspaces(
+    workspace_permission_setup, monkeypatch
+):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    store.grant_user_resource_permission(username, "registered_model", "*", MANAGE.name)
+    role = store.create_role(name="readers", workspace=DEFAULT_WORKSPACE_NAME)
+    store.add_role_permission(role.id, "registered_model", "model-xyz", READ.name)
+
+    with pytest.raises(MlflowException, match="An admin must update or remove") as exc_info:
+        _delete_registered_model("model-xyz", "user")
     assert "readers" not in exc_info.value.message
 
 
