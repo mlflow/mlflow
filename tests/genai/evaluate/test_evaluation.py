@@ -59,6 +59,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.mlflow_tags import (
     MLFLOW_GENAI_EVALUATE_QUALITY_CRITERIA as QUALITY_CRITERIA_TAG,
 )
+from mlflow.utils.validation import MAX_ENTITY_KEY_LENGTH
 
 from tests.helper_functions import get_safe_port
 from tests.tracing.helper import (
@@ -2367,6 +2368,50 @@ def test_evaluate_counts_multi_feedback_scorer_errors_under_scorer_name():
     assert {
         name: value for name, value in result.metrics.items() if name.endswith("/error_count")
     } == {"multi/error_count": 1}
+
+
+@pytest.mark.parametrize(
+    ("name", "feedback_name", "expect_count"),
+    [
+        pytest.param(
+            "s" * (MAX_ENTITY_KEY_LENGTH - len("/error_count")),
+            None,
+            True,
+            id="max-length",
+        ),
+        pytest.param(
+            "s" * (MAX_ENTITY_KEY_LENGTH - len("/mean")),
+            None,
+            False,
+            id="count-too-long",
+        ),
+        pytest.param("judge?", "clarity", False, id="invalid-character"),
+        pytest.param("team//judge", "clarity", False, id="noncanonical-path"),
+    ],
+)
+def test_evaluate_preserves_valid_metrics_when_scorer_error_count_key_is_invalid(
+    name, feedback_name, expect_count
+):
+    @scorer(name=name)
+    def flaky(outputs):
+        if outputs == "bad":
+            raise ValueError("judge timeout")
+        return Feedback(name=feedback_name, value=True) if feedback_name else True
+
+    @scorer
+    def healthy(outputs):
+        return True
+
+    result = mlflow.genai.evaluate(
+        data=[{"inputs": {"x": output}, "outputs": output} for output in ("good", "bad")],
+        scorers=[flaky, healthy],
+    )
+
+    expected = {f"{feedback_name or name}/mean": 1.0, "healthy/mean": 1.0}
+    if expect_count:
+        expected[f"{name}/error_count"] = 1
+    assert result.metrics == expected
+    assert mlflow.get_run(result.run_id).data.metrics == expected
 
 
 def test_evaluate_no_warning_when_all_scorers_succeed():

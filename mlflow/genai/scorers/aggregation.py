@@ -9,6 +9,11 @@ from mlflow.entities.assessment import Feedback
 from mlflow.genai.evaluation.entities import EvalResult, ScorerStat
 from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.scorers.base import AggregationFunc, Scorer
+from mlflow.utils.validation import (
+    MAX_ENTITY_KEY_LENGTH,
+    path_not_unique,
+    validate_param_and_metric_name,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -84,8 +89,17 @@ def compute_aggregated_metrics(
     # Count failures per scorer invocation (a row, or a session for session-level scorers), the
     # same count as the failure summary. A custom aggregation named "error_count" takes precedence.
     for name, stat in (scorer_stats or {}).items():
-        if stat.has_failures:
-            result.setdefault(f"{name}/error_count", stat.failure_count)
+        if not stat.has_failures:
+            continue
+        key = f"{name}/error_count"
+        if (
+            len(key) > MAX_ENTITY_KEY_LENGTH
+            or not validate_param_and_metric_name(key)
+            or path_not_unique(key)
+        ):
+            _logger.warning("Skipping scorer error count with invalid metric key %r.", key)
+            continue
+        result.setdefault(key, stat.failure_count)
 
     return result
 
