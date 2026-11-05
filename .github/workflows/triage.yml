@@ -111,10 +111,16 @@ jobs:
           MODEL: ${{ inputs.model || vars.TRIAGE_MODEL || 'databricks-claude-opus-5-5' }}
           EFFORT: ${{ inputs.effort || vars.TRIAGE_EFFORT || 'high' }}
         run: |
-          if [[ ! "$MODEL" =~ ^databricks-claude-[a-z0-9-]+$ ]]; then
-            echo "::error::Invalid model '$MODEL'. Check the TRIAGE_MODEL repository variable."
-            exit 1
-          fi
+          case "$MODEL" in
+            databricks-claude-opus-5-5 | \
+            databricks-claude-sonnet-5-5 | \
+            databricks-claude-haiku-5-5)
+              ;;
+            *)
+              echo "::error::Unsupported model '$MODEL'; check TRIAGE_MODEL."
+              exit 1
+              ;;
+          esac
           case "$EFFORT" in
             low | medium | high | xhigh | max) ;;
             *)
