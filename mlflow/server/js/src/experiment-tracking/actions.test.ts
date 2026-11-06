@@ -54,6 +54,20 @@ const b = {
 const aParent = { info: { run_id: 'aParent' } };
 const bParent = { info: { run_id: 'bParent' } };
 
+// A parent run which is itself a nested run, i.e. it references a grandparent run.
+const aParentWithGrandParent = {
+  info: { run_id: 'aParent' },
+  data: {
+    tags: [
+      {
+        key: getParentRunTagName(),
+        value: 'grandParent',
+      },
+    ],
+  },
+};
+const grandParent = { info: { run_id: 'grandParent' } };
+
 // When fetching missing parent runs, the filter string is expected to be in the form:
 // "run_id = 'parent_run_id'"
 const FETCH_PARENT_FILTER_PREFIX = 'run_id = ';
@@ -137,6 +151,101 @@ describe('fetchMissingParents', () => {
       expect(runs).toEqual({ runs: [a, b, aParent] });
     });
   });
+  it('should fetch the ancestors of the fetched parent runs as well', async () => {
+    // A parent run may itself be a nested run, in which case its own parent (the grandparent
+    // run) has to be fetched as well, otherwise the runs cannot be rendered as a tree.
+    jest.spyOn(MlflowService, 'getRun').mockImplementation(
+      (data) =>
+        Promise.resolve({
+          run: data.run_id === 'aParent' ? aParentWithGrandParent : { info: { run_id: data.run_id } },
+        }) as any,
+    );
+
+    const res = { runs: [a] };
+    const runs: any = await fetchMissingParents(res);
+    expect(runs.runs).toEqual([a, aParentWithGrandParent, grandParent]);
+  });
+
+  it('should not fetch the same ancestor twice', async () => {
+    jest.spyOn(MlflowService, 'getRun').mockImplementation(
+      (data) =>
+        Promise.resolve({
+          run: data.run_id === 'aParent' ? aParentWithGrandParent : { info: { run_id: data.run_id } },
+        }) as any,
+    );
+
+    // Both runs reference the same parent, which itself references a grandparent.
+    const res = { runs: [a, { info: { run_id: 'a2' }, data: { tags: a.data.tags } }] };
+    const runs: any = await fetchMissingParents(res);
+    expect(runs.runs).toEqual([
+      a,
+      { info: { run_id: 'a2' }, data: { tags: a.data.tags } },
+      aParentWithGrandParent,
+      grandParent,
+    ]);
+    expect(MlflowService.getRun).toHaveBeenCalledTimes(2);
+  });
+
+  it('should stop fetching ancestors when an ancestor run has been deleted', async () => {
+    const mockParentRunDeletedError = {
+      getErrorCode() {
+        return 'RESOURCE_DOES_NOT_EXIST';
+      },
+    };
+
+    jest.spyOn(MlflowService, 'getRun').mockImplementation((data) => {
+      if (data.run_id === 'grandParent') {
+        return Promise.reject(mockParentRunDeletedError);
+      }
+      return Promise.resolve({
+        run: data.run_id === 'aParent' ? aParentWithGrandParent : { info: { run_id: data.run_id } },
+      }) as any;
+    });
+
+    const res = { runs: [a] };
+    const runs: any = await fetchMissingParents(res);
+    expect(runs.runs).toEqual([a, aParentWithGrandParent]);
+  });
+
+  it('should stop fetching ancestors when the parent references form a cycle', async () => {
+    // A run may reference a run which references it back. The traversal has to terminate
+    // instead of fetching the same runs over and over again.
+    const aWithParentB = {
+      info: { run_id: 'a' },
+      data: {
+        tags: [
+          {
+            key: getParentRunTagName(),
+            value: 'b',
+          },
+        ],
+      },
+    };
+    const bWithParentA = {
+      info: { run_id: 'b' },
+      data: {
+        tags: [
+          {
+            key: getParentRunTagName(),
+            value: 'a',
+          },
+        ],
+      },
+    };
+
+    jest.spyOn(MlflowService, 'getRun').mockImplementation(
+      (data) =>
+        Promise.resolve({
+          run: data.run_id === 'b' ? bWithParentA : { info: { run_id: data.run_id } },
+        }) as any,
+    );
+
+    const res = { runs: [aWithParentB] };
+    const runs: any = await fetchMissingParents(res);
+    expect(runs.runs).toEqual([aWithParentB, bWithParentA]);
+    expect(MlflowService.getRun).toHaveBeenCalledTimes(1);
+  });
+
   it('should throw for unexpected exceptions encountered during run resolution', async () => {
     const mockUnexpectedGetRunError = {
       getErrorCode() {
@@ -215,6 +324,24 @@ describe('fetchMissingParentsWithSearchRuns', () => {
 
     const res = { runs: [a, b] };
     await expect(fetchMissingParentsWithSearchRuns(res, 'mock_id')).rejects.toEqual(mockUnexpectedGetRunError);
+  });
+
+  it('should fetch the ancestors of the fetched parent runs as well', async () => {
+    // A parent run may itself be a nested run, in which case its own parent (the grandparent
+    // run) has to be fetched as well, otherwise the runs cannot be rendered as a tree.
+    jest.spyOn(MlflowService, 'searchRuns').mockImplementation(({ filter }) => {
+      if (filter?.includes(FETCH_PARENT_FILTER_PREFIX)) {
+        const parentRunId = getParentRunIdFromFilter(filter);
+        return Promise.resolve({
+          runs: [parentRunId === 'aParent' ? aParentWithGrandParent : { info: { run_id: parentRunId } }],
+        } as any);
+      }
+      return Promise.resolve({ runs: [a, b, aParent] } as any);
+    });
+
+    const res = { runs: [a] };
+    const runs: any = await fetchMissingParentsWithSearchRuns(res, 'mock_id');
+    expect(runs.runs).toEqual([a, aParentWithGrandParent, grandParent]);
   });
 });
 
@@ -359,6 +486,24 @@ const searchRunsPayloadTests = () => {
   it('should mark additionally fetched parent runs as correctly filtered ones', async () => {
     const result = await searchRunsPayload({ shouldFetchParents: true });
     expect(result.runsMatchingFilter).toEqual(expect.arrayContaining([bParent]));
+  });
+  it('should mark the fetched ancestor runs as correctly filtered ones', async () => {
+    // The runs tree shows the whole chain of nested runs, also when a filter is applied and
+    // only the child run matches the filter. The server returns the runs which match the
+    // filter together with their direct parents, but not the further ancestors, so the
+    // ancestors are fetched on the client. They do not match the filter either, but they
+    // still have to be visible, so they are marked as matching the filter like the other
+    // fetched parent runs.
+    jest.spyOn(MlflowService, 'searchRuns').mockImplementation(() => Promise.resolve({ runs: [a] } as any));
+    jest.spyOn(MlflowService, 'getRun').mockImplementation((data) =>
+      Promise.resolve({
+        run: data.run_id === 'aParent' ? aParentWithGrandParent : { info: { run_id: data.run_id } },
+      } as any),
+    );
+
+    const result = await searchRunsPayload({ shouldFetchParents: true, filter: "attributes.run_name = 'a'" });
+    expect(result.runs).toEqual([a, aParentWithGrandParent, grandParent]);
+    expect(result.runsMatchingFilter).toEqual([a, aParentWithGrandParent, grandParent]);
   });
   it('throws proper error when received an invalid response', async () => {
     jest
