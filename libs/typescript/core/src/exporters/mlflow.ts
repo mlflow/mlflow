@@ -24,7 +24,7 @@ import { getConfig } from '../core/config';
 import { MlflowClient } from '../clients';
 import { executeOnSpanEndHooks, executeOnSpanStartHooks } from './span_processor_hooks';
 import { resolveEnvironmentMetadata } from '../core/utils/environment';
-
+import { serializeSpansToOtlpBytes } from './otlp';
 /**
  * Generate a MLflow-compatible trace ID for the given span.
  * @param span The span to generate the trace ID for
@@ -214,6 +214,9 @@ export class MlflowSpanExporter implements SpanExporter {
    * Export a complete trace to the MLflow backend
    * Step 1: Create trace metadata via StartTraceV3 endpoint
    * Step 2: Upload trace data (spans) via artifact repository pattern
+   * Step 3: Send OTLP spans to the span-ingestion endpoint so they land in the
+   * spans table that powers DB-backed metrics (best-effort, mirrors the WAL
+   * daemon's sendOtlpSpans)
    */
   private async exportTraceToBackend(trace: Trace): Promise<void> {
     try {
@@ -221,6 +224,22 @@ export class MlflowSpanExporter implements SpanExporter {
       const traceInfo = await this._client.createTrace(trace.info);
       // Step 2: Upload trace data (spans) to artifact storage
       await this._client.uploadTraceData(traceInfo, trace.data);
+
+      // Step 3: Persist spans to the tracking-store DB for cost/token metrics.
+      // Best-effort: the trace is already durably exported via the artifact, so
+      // an ingestion failure must not fail the export (same semantics as the
+      // WAL daemon).
+      const otlpBytes = serializeSpansToOtlpBytes(trace.data.spans.map((s) => s._span));
+      if (otlpBytes) {
+        try {
+          await this._client.exportOtlpSpans(getConfig().experimentId, otlpBytes);
+        } catch (err) {
+          console.warn(
+            `Failed to send OTLP spans for trace ${trace.info.traceId} to the tracking store; ` +
+              `spans remain in the trace artifact only: ${err}`,
+          );
+        }
+      }
     } catch (error) {
       console.error(`Failed to export trace ${trace.info.traceId}:`, error);
       throw error;
