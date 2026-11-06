@@ -722,6 +722,7 @@ const TracesV3LogsImpl = React.memo(
         renderAddToReviewQueueDropdown={renderCustomAddToReviewQueueDropdown}
         DrawerComponent={AssistantAwareDrawer}
         drawerWidth={drawerWidth}
+        experimentId={singleExperimentId}
       >
         <GenAITracesTableProvider
           experimentId={singleExperimentId}

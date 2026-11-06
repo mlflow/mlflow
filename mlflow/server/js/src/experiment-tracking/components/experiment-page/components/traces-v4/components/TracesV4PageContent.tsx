@@ -847,6 +847,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     <TracesV4TableSurface
       providerProps={{
         modelTraceExplorer: {
+          experimentId,
           renderExportTracesToDatasetsModal: actions.renderExportTracesToDatasetsModal,
           renderAddToReviewQueueDropdown: actions.AddToReviewQueueDropdown,
           DrawerComponent: isNewEvalRunsUi ? ResponsiveTraceDrawer : AssistantAwareDrawer,
