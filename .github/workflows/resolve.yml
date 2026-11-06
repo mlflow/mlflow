@@ -1,6 +1,9 @@
+# Preview with: gh workflow run resolve.yml --ref <branch> -F pr_number=<number> -F review_id=<id>
 name: Resolve PR review feedback
 
 on:
+  pull_request_review:
+    types: [submitted]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -15,25 +18,11 @@ on:
         description: Preview the patch, replies, and thread closures
         type: boolean
         default: true
-      model:
-        description: "AI Gateway Claude model for the resolve agent, e.g. databricks-claude-sonnet-5-5"
-        required: false
-        type: string
-      effort:
-        description: "Reasoning effort for the resolve agent"
-        required: false
-        type: choice
-        default: high
-        options:
-          - low
-          - medium
-          - high
-          - xhigh
-          - max
 
 concurrency:
-  group: resolve-bootstrap-${{ github.run_id }}
+  group: resolve-${{ github.event.pull_request.number || inputs.pr_number }}
   cancel-in-progress: false
+  queue: max
 
 defaults:
   run:
@@ -42,9 +31,225 @@ defaults:
 permissions: {}
 cache-mode: none
 
+env:
+  GH_REPO: ${{ github.repository }}
+  PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+  REVIEW_ID: ${{ github.event.review.id || inputs.review_id }}
+  DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+  DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+  TRUSTED_REF: ${{ github.event.pull_request.base.sha || github.sha }}
+  CONTEXT_PATH: /tmp/resolve-context/context.json
+  OUT_DIR: /tmp/resolve-out
+  SCRIPT: .claude/skills/resolve/scripts/workflow.py
+
 jobs:
-  placeholder:
+  gate:
+    if: >-
+      github.repository == 'mlflow/mlflow' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.pull_request.user.login == 'mlflow-app[bot]' &&
+        github.event.pull_request.user.type == 'Bot' &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.event.pull_request.base.ref == github.event.repository.default_branch &&
+        github.event.pull_request.state == 'open' && !github.event.pull_request.draft))
     runs-on: ubuntu-slim
-    timeout-minutes: 1
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      head_sha: ${{ steps.context.outputs.head_sha }}
     steps:
-      - run: echo 'Placeholder for manual dispatch. Run with --ref <branch> to execute the branch version of this workflow.'
+      - name: Check dispatch ref
+        if: github.event_name == 'workflow_dispatch' && !inputs.dry_run
+        env:
+          EXPECTED_REF: refs/heads/${{ github.event.repository.default_branch }}
+        run: test "$GITHUB_REF" = "$EXPECTED_REF"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TRUSTED_REF }}
+          persist-credentials: false
+          sparse-checkout: .claude/skills/resolve
+      - name: Collect review context
+        id: context
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p "$(dirname "$CONTEXT_PATH")"
+          python3 "$SCRIPT" collect
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.context.outputs.head_sha != ''
+        with:
+          name: resolve-context-${{ github.run_id }}
+          path: ${{ env.CONTEXT_PATH }}
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 3
+
+  resolve:
+    needs: gate
+    if: needs.gate.outputs.head_sha != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      actions: read
+      contents: read
+      issues: read
+      pull-requests: read
+    steps:
+      - name: Checkout trusted workflow files
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TRUSTED_REF }}
+          path: trusted
+          persist-credentials: false
+      - name: Checkout PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.gate.outputs.head_sha }}
+          path: pr
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: resolve-context-${{ github.run_id }}
+          path: /tmp/resolve-context
+      - uses: ./trusted/.github/actions/setup-python
+      - uses: ./trusted/.github/actions/setup-node
+      - name: Install agent tools
+        working-directory: trusted
+        run: |
+          .claude/scripts/install-claude.sh
+          .claude/scripts/install-agent-browser.sh
+          sudo apt-get update --error-on=any
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - id: gateway
+        uses: ./trusted/.github/actions/setup-gateway
+        with:
+          task: pr-resolve
+          host: ${{ secrets.DATABRICKS_HOST }}
+          client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+      - name: Address review feedback
+        working-directory: trusted
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GATEWAY_TOKEN: ${{ steps.gateway.outputs.token }}
+          GATEWAY_URL: ${{ steps.gateway.outputs.base-url }}
+          ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
+          ANTHROPIC_BASE_URL: http://localhost:8080/anthropic
+          ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5
+          AGENT_BROWSER_ARGS: --no-sandbox
+        run: |
+          placeholder=$(openssl rand -hex 32)
+          echo "::add-mask::$placeholder"
+          printf '%s\n%s\n' "$GATEWAY_TOKEN" "$placeholder" | env -u GATEWAY_TOKEN -u GH_TOKEN \
+            node .claude/sandbox/gateway-proxy.mjs > "$RUNNER_TEMP/resolve-proxy.log" 2>&1 &
+          proxy_pid=$!
+          unset GATEWAY_TOKEN
+          trap 'kill "$proxy_pid" 2>/dev/null || true' EXIT
+          curl --noproxy '*' --fail --silent --show-error --retry 10 --retry-connrefused \
+            --retry-delay 1 --max-time 5 http://127.0.0.1:8080/healthz
+
+          export ANTHROPIC_AUTH_TOKEN="$placeholder"
+          mkdir -p "$OUT_DIR/media"
+          printf -v prompt '/resolve "%s" "%s" "%s"' "$GITHUB_WORKSPACE/pr" "$CONTEXT_PATH" "$OUT_DIR"
+          token=$(cat /proc/sys/kernel/random/uuid)
+          echo "::stop-commands::$token"
+          timeout --kill-after=10s 30m setsid bash -o pipefail -c '
+            echo "$$" > "$RUNNER_TEMP/resolve-agent.pgid"
+            claude \
+              --model databricks-claude-sonnet-5-5 \
+              --effort medium \
+              --max-budget-usd 5 \
+              --permission-mode auto \
+              --disallowed-tools "WebSearch,WebFetch" \
+              --print \
+              --verbose \
+              --output-format stream-json \
+              "$1" | .claude/scripts/stream.sh
+          ' bash "$prompt" || { echo "::$token::"; exit 1; }
+          echo "::$token::"
+      - name: Stop agent processes
+        if: always()
+        run: |
+          if [[ -s "$RUNNER_TEMP/resolve-agent.pgid" ]]; then
+            pgid=$(cat "$RUNNER_TEMP/resolve-agent.pgid")
+            if [[ "$pgid" =~ ^[1-9][0-9]*$ ]]; then
+              kill -KILL -- "-$pgid" 2>/dev/null || true
+            fi
+          fi
+      - name: Validate agent output before upload
+        working-directory: trusted
+        run: |
+          git reset --hard "$TRUSTED_REF"
+          git clean -fd
+          python "$SCRIPT" validate
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: resolve-output-${{ github.run_id }}
+          path: |
+            ${{ env.OUT_DIR }}/payload.json
+            ${{ env.OUT_DIR }}/fix.patch
+            ${{ env.OUT_DIR }}/media/*
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 3
+
+  publish:
+    needs: [gate, resolve]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout trusted workflow files
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TRUSTED_REF }}
+          path: trusted
+          persist-credentials: false
+      - name: Checkout PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.gate.outputs.head_sha }}
+          path: pr
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: resolve-context-${{ github.run_id }}
+          path: /tmp/resolve-context
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: resolve-output-${{ github.run_id }}
+          path: ${{ env.OUT_DIR }}
+      - uses: ./trusted/.github/actions/setup-python
+      - name: Validate resolution
+        working-directory: trusted
+        env:
+          PR_CHECKOUT: ${{ github.workspace }}/pr
+        run: python "$SCRIPT" validate
+      - name: Embed reply media
+        if: env.DRY_RUN == 'false'
+        working-directory: trusted
+        env:
+          GH_TOKEN: ${{ secrets.UPLOAD_MEDIA_TOKEN }}
+          REPOSITORY_ID: ${{ github.repository_id }}
+        run: python "$SCRIPT" embed
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        if: env.DRY_RUN == 'false'
+        id: app-token
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: mlflow
+          repositories: mlflow
+          permission-contents: write
+          permission-pull-requests: write
+      - name: Publish or preview resolution
+        working-directory: trusted
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_CHECKOUT: ${{ github.workspace }}/pr
+          GIT_TERMINAL_PROMPT: "0"
+        run: python "$SCRIPT" publish

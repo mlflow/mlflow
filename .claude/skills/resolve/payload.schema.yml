@@ -1,0 +1,32 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+title: Review resolution payload
+type: object
+additionalProperties: false
+required: [responses]
+properties:
+  responses:
+    type: object
+    minProperties: 1
+    propertyNames:
+      pattern: "^(review|PRRT_[A-Za-z0-9_-]+)$"
+    additionalProperties:
+      type: object
+      additionalProperties: false
+      required: [status, body]
+      properties:
+        status:
+          description: >
+            Use resolved when the patch addresses the feedback, answered when a substantive
+            reply suffices, or blocked when the item needs human input.
+          enum: [resolved, answered, blocked]
+        body:
+          description: >
+            Use one or two sentences in Markdown. For resolved feedback, summarize the fix
+            and any relevant verification. For answered feedback, cite the supporting code
+            or behavior. For blocked feedback, explain what human input is needed. Use
+            Markdown image syntax for screenshots and put video links on their own lines.
+            Use absolute local paths under the media output directory for both.
+          type: string
+          minLength: 1
+          maxLength: 500
+          pattern: '\S'
