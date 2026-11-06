@@ -130,6 +130,39 @@ jobs:
           host: ${{ secrets.DATABRICKS_HOST }}
           client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
           client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+      # Claude Code exports OpenTelemetry traces and logs to MLflow through a local proxy that holds
+      # the token, like the gateway proxy. Disabled unless RESOLVE_MLFLOW_TRACE_LOCATION is set to the
+      # <catalog>.<schema>.<table_prefix> of a UC-linked experiment.
+      - id: telemetry
+        name: Mint telemetry token
+        if: vars.RESOLVE_MLFLOW_TRACE_LOCATION != ''
+        uses: ./trusted/.github/actions/mint-telemetry-token
+        with:
+          host: ${{ secrets.DATABRICKS_HOST }}
+          client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+      - name: Start telemetry proxy
+        id: telemetry-proxy
+        if: steps.telemetry.outcome == 'success'
+        working-directory: trusted
+        env:
+          TELEMETRY_TOKEN: ${{ steps.telemetry.outputs.token }}
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          TRACE_LOCATION: ${{ vars.RESOLVE_MLFLOW_TRACE_LOCATION }}
+        run: |
+          placeholder=$(openssl rand -hex 32)
+          echo "::add-mask::$placeholder"
+          printf 'placeholder-token=%s\n' "$placeholder" >> "$GITHUB_OUTPUT"
+          printf '%s\n%s\n' "$TELEMETRY_TOKEN" "$placeholder" | env -u TELEMETRY_TOKEN \
+            node .claude/sandbox/otel-proxy.mjs > "$RUNNER_TEMP/resolve-telemetry-proxy.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/resolve-telemetry-proxy.pid"
+          unset TELEMETRY_TOKEN placeholder
+          if ! curl --noproxy '*' --fail --silent --show-error --retry 30 --retry-connrefused \
+            --retry-delay 1 --max-time 5 http://127.0.0.1:8081/healthz > /dev/null; then
+            cat "$RUNNER_TEMP/resolve-telemetry-proxy.log"
+            echo "::error::Telemetry proxy did not become ready"
+            exit 1
+          fi
       - name: Address review feedback
         working-directory: trusted
         env:
@@ -140,6 +173,23 @@ jobs:
           ANTHROPIC_BASE_URL: http://localhost:8080/anthropic
           ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5
           AGENT_BROWSER_ARGS: --no-sandbox
+          # OpenTelemetry export through the telemetry proxy. Spans need the enhanced telemetry beta;
+          # OTEL_LOG_* flags include prompt, response, and tool content, which are redacted by default.
+          CLAUDE_CODE_ENABLE_TELEMETRY: ${{ steps.telemetry.outcome == 'success' && '1' || '0' }}
+          CLAUDE_CODE_ENHANCED_TELEMETRY_BETA: ${{ steps.telemetry.outcome == 'success' && '1' || '0' }}
+          OTEL_TRACES_EXPORTER: ${{ steps.telemetry.outcome == 'success' && 'otlp' || 'none' }}
+          OTEL_LOGS_EXPORTER: ${{ steps.telemetry.outcome == 'success' && 'otlp' || 'none' }}
+          OTEL_METRICS_EXPORTER: ${{ steps.telemetry.outcome == 'success' && 'otlp' || 'none' }}
+          OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+          OTEL_EXPORTER_OTLP_HEADERS: ${{ steps.telemetry.outcome == 'success' && format('Authorization={0} {1}', 'Bearer', steps.telemetry-proxy.outputs.placeholder-token) || '' }}
+          OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://localhost:8081/v1/traces
+          OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: http://localhost:8081/v1/logs
+          OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: http://localhost:8081/v1/metrics
+          OTEL_LOG_USER_PROMPTS: "1"
+          OTEL_LOG_ASSISTANT_RESPONSES: "1"
+          OTEL_LOG_TOOL_DETAILS: "1"
+          OTEL_LOG_TOOL_CONTENT: "1"
+          OTEL_RESOURCE_ATTRIBUTES: github.run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           placeholder=$(openssl rand -hex 32)
           echo "::add-mask::$placeholder"
@@ -178,6 +228,9 @@ jobs:
             if [[ "$pgid" =~ ^[1-9][0-9]*$ ]]; then
               kill -KILL -- "-$pgid" 2>/dev/null || true
             fi
+          fi
+          if [[ -f "$RUNNER_TEMP/resolve-telemetry-proxy.pid" ]]; then
+            kill "$(cat "$RUNNER_TEMP/resolve-telemetry-proxy.pid")" 2>/dev/null || true
           fi
       - name: Validate agent output before upload
         working-directory: trusted
