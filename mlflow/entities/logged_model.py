@@ -189,7 +189,7 @@ class LoggedModel(_MlflowObject):
         del model_dict["model_uri"]
         return model_dict
 
-    def to_proto(self) -> pb2.LoggedModel:
+    def to_proto(self, *, include_metrics: bool = True) -> pb2.LoggedModel:
         return pb2.LoggedModel(
             info=pb2.LoggedModelInfo(
                 experiment_id=self.experiment_id,
@@ -206,7 +206,9 @@ class LoggedModel(_MlflowObject):
             ),
             data=pb2.LoggedModelData(
                 params=[pb2.LoggedModelParameter(key=k, value=v) for (k, v) in self.params.items()],
-                metrics=[m.to_proto() for m in self.metrics] if self.metrics else [],
+                metrics=[m.to_proto() for m in self.metrics]
+                if include_metrics and self.metrics
+                else [],
             ),
         )
 
