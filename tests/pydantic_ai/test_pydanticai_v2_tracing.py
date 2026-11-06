@@ -181,12 +181,15 @@ def test_model_request_span_records_model_attributes():
     assert model_span.attributes[SpanAttributeKey.MESSAGE_FORMAT] == "pydantic_ai"
 
 
-def test_model_request_span_records_processed_history():
+@pytest.mark.parametrize("fail", [False, True])
+def test_model_request_span_records_processed_history(fail):
     mlflow.pydantic_ai.autolog()
     received = []
 
     def model_function(messages, info):
         received.append(messages)
+        if fail:
+            raise RuntimeError("model failed")
         return ModelResponse(parts=[TextPart("hello")])
 
     def compact(messages):
@@ -196,10 +199,15 @@ def test_model_request_span_records_processed_history():
         ]
 
     agent = Agent(FunctionModel(model_function), capabilities=[ProcessHistory(compact)])
-    agent.run_sync("original")
+    if fail:
+        with pytest.raises(RuntimeError, match="model failed"):
+            agent.run_sync("original")
+    else:
+        agent.run_sync("original")
 
     assert received[0][0].parts[0].content == "processed"
     model_span = next(span for span in get_traces()[0].data.spans if span.span_type == SpanType.LLM)
+    assert model_span.status.status_code == ("ERROR" if fail else "OK")
     [message] = model_span.inputs["messages"]
     assert message["parts"][0]["content"] == "processed"
 
