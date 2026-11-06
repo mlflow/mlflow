@@ -262,28 +262,16 @@ jobs:
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
           trap 'echo "::$token::"' EXIT
-          timeout --kill-after=10s 30m setsid bash -o pipefail -c '
-            echo "$$" > "/tmp/resolve-agent.pgid"
-            claude \
-              --model "$MODEL" \
-              --effort "$EFFORT" \
-              --max-budget-usd 5 \
-              --permission-mode auto \
-              --disallowed-tools "WebSearch,WebFetch" \
-              --print \
-              --verbose \
-              --output-format stream-json \
-              "$1" | .claude/scripts/stream.sh
-          ' bash "$prompt"
-      - name: Stop agent processes
-        if: always()
-        run: |
-          if [[ -s "/tmp/resolve-agent.pgid" ]]; then
-            pgid=$(cat "/tmp/resolve-agent.pgid")
-            if [[ "$pgid" =~ ^[1-9][0-9]*$ ]]; then
-              kill -KILL -- "-$pgid" 2>/dev/null || true
-            fi
-          fi
+          timeout --kill-after=10s 30m claude \
+            --model "$MODEL" \
+            --effort "$EFFORT" \
+            --max-budget-usd 5 \
+            --permission-mode auto \
+            --disallowed-tools "WebSearch,WebFetch" \
+            --print \
+            --verbose \
+            --output-format stream-json \
+            "$prompt" | .claude/scripts/stream.sh
       - name: Stop proxies
         if: always()
         run: |
