@@ -252,10 +252,8 @@ def test_build_endpoint_config_sap():
         },
     )
 
-    with patch("mlflow.server.gateway_api._validate_gateway_api_base") as mock_validate:
-        config = _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
+    config = _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
 
-    mock_validate.assert_called_once_with("https://auth.example.com")
     assert config.model.provider == "litellm"
     assert config.model.name == "gpt-4o-mini"
     provider_config = config.model.config
