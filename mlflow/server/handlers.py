@@ -1527,25 +1527,22 @@ def _disable_if_gateway_disabled(func):
     return wrapper
 
 
+def _workspace_not_supported(message: str) -> MlflowException:
+    return MlflowException(message, FEATURE_DISABLED)
+
+
 def _disable_if_workspaces_disabled(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         if not MLFLOW_ENABLE_WORKSPACES.get():
-            return Response(
-                (
-                    f"Endpoint: {request.url_rule} disabled because the server is running "
-                    "without workspaces support. To enable workspace, run "
-                    "`mlflow server` with `--enable-workspaces`"
-                ),
-                503,
+            raise _workspace_not_supported(
+                f"Endpoint: {request.url_rule} disabled because the server is running "
+                "without workspaces support. To enable workspace, run "
+                "`mlflow server` with `--enable-workspaces`"
             )
         return func(*args, **kwargs)
 
     return wrapper
-
-
-def _workspace_not_supported(message: str) -> MlflowException:
-    return MlflowException(message, FEATURE_DISABLED)
 
 
 def _validate_artifact_uri_scheme(uri: str, field_name: str) -> None:
@@ -5485,7 +5482,7 @@ def _review_queue_max_results_validator(x):
 def _get_request_username():
     """The authenticated request user, stamped on ``flask.g`` by the auth
     plugin's before-request hook. ``None`` when no auth plugin is active (a
-    no-auth server), where queue ownership is meaningless.
+    no-auth server).
     """
     return getattr(g, "mlflow_authenticated_user", None)
 
@@ -5884,6 +5881,7 @@ def _invoke_issue_detection_handler():
             "run_id": run_id,
             "model": model_name,
             "instructions": instructions,
+            "username": _get_request_username(),
         },
         extra_envs=credentials,
     )
@@ -6058,7 +6056,7 @@ def _invoke_genai_evaluate_handler():
     run = client.create_run(experiment_id=experiment_id, tags=tags)
     run_id = run.info.run_id
 
-    username = request.authorization.username if request.authorization else None
+    username = _get_request_username()
 
     try:
         job = submit_job(
@@ -8061,7 +8059,7 @@ def _invoke_scorer_handler():
 
     # Extract the authenticated username so that job subprocesses can make
     # gateway requests authorised as the original user (not the admin).
-    username = request.authorization.username if request.authorization else None
+    username = _get_request_username()
 
     jobs = []
     for batch_trace_ids in batches:

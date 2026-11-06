@@ -288,6 +288,72 @@ def test_create_run_sets_name(store: SqlAlchemyStore):
         )
 
 
+@pytest.mark.parametrize("tag_value", ["", None])
+@pytest.mark.parametrize("run_name", [None, "", "test"])
+def test_create_run_with_empty_run_name_tag(store: SqlAlchemyStore, run_name, tag_value):
+    experiment_id = _create_experiments(store, "test_create_run_empty_run_name_tag")
+    run = store.create_run(
+        experiment_id=experiment_id,
+        user_id="user",
+        start_time=0,
+        run_name=run_name,
+        tags=[RunTag(mlflow_tags.MLFLOW_RUN_NAME, tag_value)],
+    )
+    run = store.get_run(run.info.run_id)
+    assert run.info.run_name
+    if run_name:
+        assert run.info.run_name == run_name
+    assert run.data.tags[mlflow_tags.MLFLOW_RUN_NAME] == run.info.run_name
+
+
+def test_create_run_with_duplicate_tag_keys_keeps_last_value(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "test_create_run_duplicate_tags")
+    run_id = store.create_run(
+        experiment_id=experiment_id,
+        user_id="user",
+        start_time=0,
+        run_name="name",
+        tags=[RunTag("x", "1"), RunTag("y", "a"), RunTag("x", "2")],
+    ).info.run_id
+    run = store.get_run(run_id)
+    assert run.data.tags == {"x": "2", "y": "a", mlflow_tags.MLFLOW_RUN_NAME: "name"}
+
+
+@pytest.mark.parametrize("last_value", ["second", ""])
+def test_create_run_with_duplicate_run_name_tags(store: SqlAlchemyStore, last_value):
+    experiment_id = _create_experiments(store, "test_create_run_duplicate_run_name_tags")
+    run_id = store.create_run(
+        experiment_id=experiment_id,
+        user_id="user",
+        start_time=0,
+        run_name=None,
+        tags=[
+            RunTag(mlflow_tags.MLFLOW_RUN_NAME, "first"),
+            RunTag(mlflow_tags.MLFLOW_RUN_NAME, last_value),
+        ],
+    ).info.run_id
+    run = store.get_run(run_id)
+    if last_value:
+        assert run.info.run_name == last_value
+    else:
+        # An empty last value gets a generated name, as for a single empty tag
+        assert run.info.run_name not in ("", "first")
+    assert run.data.tags == {mlflow_tags.MLFLOW_RUN_NAME: run.info.run_name}
+
+
+def test_create_run_checks_run_name_against_last_duplicate_run_name_tag(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "test_create_run_run_name_vs_duplicate_tags")
+    tags = [
+        RunTag(mlflow_tags.MLFLOW_RUN_NAME, "first"),
+        RunTag(mlflow_tags.MLFLOW_RUN_NAME, "second"),
+    ]
+    run = store.create_run(experiment_id, "user", 0, tags, "second")
+    assert store.get_run(run.info.run_id).info.run_name == "second"
+
+    with pytest.raises(MlflowException, match="Both 'run_name' argument and 'mlflow.runName' tag"):
+        store.create_run(experiment_id, "user", 0, tags, "first")
+
+
 def test_get_run_with_name(store: SqlAlchemyStore):
     experiment_id = _create_experiments(store, "test_get_run")
     configs = _get_run_configs(experiment_id=experiment_id)
@@ -2368,6 +2434,51 @@ def test_log_batch(store: SqlAlchemyStore):
     metric_histories = sum((store.get_metric_history(run_id, key) for key in run.data.metrics), [])
     metrics = [(m.key, m.value, m.timestamp, m.step) for m in metric_histories]
     assert set(metrics) == {("m1", 0.87, 12345, 0), ("m2", 0.49, 12345, 1)}
+
+
+@pytest.mark.parametrize("fail_metrics", [False, True])
+def test_log_batch_releases_validation_connection(store: SqlAlchemyStore, fail_metrics):
+    run_id = _run_factory(store).info.run_id
+    active_connections = 0
+    peak_connections = 0
+
+    def checkout(*_args):
+        nonlocal active_connections, peak_connections
+        active_connections += 1
+        peak_connections = max(peak_connections, active_connections)
+
+    def checkin(*_args):
+        nonlocal active_connections
+        active_connections -= 1
+
+    sqlalchemy.event.listen(store.engine, "checkout", checkout)
+    sqlalchemy.event.listen(store.engine, "checkin", checkin)
+    try:
+        with contextlib.ExitStack() as stack:
+            if fail_metrics:
+                stack.enter_context(
+                    mock.patch.object(
+                        store, "_log_metrics", side_effect=RuntimeError("write failed")
+                    )
+                )
+                stack.enter_context(pytest.raises(MlflowException, match="write failed"))
+            store.log_batch(
+                run_id,
+                metrics=[Metric("metric", 1.0, 1, 1)],
+                params=[Param("parameter", "value")],
+                tags=[RunTag("tag", "value")],
+            )
+    finally:
+        sqlalchemy.event.remove(store.engine, "checkout", checkout)
+        sqlalchemy.event.remove(store.engine, "checkin", checkin)
+
+    assert active_connections == 0
+    assert peak_connections == 1
+    run = store.get_run(run_id)
+    assert run.data.params == {"parameter": "value"}
+    if not fail_metrics:
+        assert run.data.metrics == {"metric": 1.0}
+        assert run.data.tags["tag"] == "value"
 
 
 def test_log_batch_limits(store: SqlAlchemyStore):

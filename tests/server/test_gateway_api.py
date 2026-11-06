@@ -9,6 +9,7 @@ import pytest
 import zstandard
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
+from pydantic import ValidationError
 from starlette.testclient import TestClient
 
 import mlflow
@@ -137,6 +138,34 @@ def test_build_endpoint_config_allows_provider_in_allowed_list(monkeypatch):
     )
     assert config.name == "test-ep"
     assert isinstance(config.model.config, OpenAIConfig)
+
+
+@pytest.mark.parametrize(
+    ("provider", "auth_config"),
+    [
+        ("bedrock", {"auth_mode": "api_key"}),
+        ("bedrock", {"auth_mode": "access_keys"}),
+        ("bedrock", {"auth_mode": "iam_role", "aws_role_name": "role"}),
+        ("bedrock", {"auth_mode": "default_chain"}),
+        ("sagemaker", {"auth_mode": "access_keys"}),
+        ("bedrock_converse", {"auth_mode": "api_key"}),
+    ],
+)
+def test_build_endpoint_config_rejects_non_region_aws_region_name(provider, auth_config):
+    model_config = GatewayModelConfig(
+        model_definition_id="md-test",
+        provider=provider,
+        model_name="model",
+        secret_value={
+            "api_key": "TOPSECRET-KEY",
+            "aws_access_key_id": "a",
+            "aws_secret_access_key": "TOPSECRET-SECRET",
+        },
+        auth_config={**auth_config, "aws_region_name": "evil.example/#"},
+    )
+    with pytest.raises(ValidationError, match="must contain only lowercase") as exc:
+        _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
+    assert "TOPSECRET" not in str(exc.value)
 
 
 def test_build_endpoint_config_allows_provider_when_no_filter():

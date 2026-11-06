@@ -990,7 +990,36 @@ def test_validate_gateway_secret_value_rejects_api_base():
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-@pytest.mark.parametrize("key", ["base_url", "model_list", "fallbacks", "custom_llm_provider"])
+@pytest.mark.parametrize("key", ["aws_region_name", "vertex_location", "vertex_ai_location"])
+@pytest.mark.parametrize("value", ["", "us-east-1", "europe-west4", "us-isob-east-1"])
+def test_validate_gateway_secret_region_keys_accept_region_names(key, value):
+    assert _validate_gateway_secret_auth_config({key: value}) == {key: value}
+    _validate_gateway_secret_value({key: value})
+
+
+@pytest.mark.parametrize("key", ["aws_region_name", "vertex_location", "vertex_ai_location"])
+@pytest.mark.parametrize(
+    "value", ["evil.example", "evil.example/#", "US-EAST-1", "us-east-1\n", 1, 0, False, [], {}]
+)
+def test_validate_gateway_secret_region_keys_reject_non_region_names(key, value):
+    with pytest.raises(MlflowException, match=f"auth_config '{key}' must contain only") as exc:
+        _validate_gateway_secret_auth_config({key: value})
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    with pytest.raises(MlflowException, match=f"secret_value '{key}' must contain only"):
+        _validate_gateway_secret_value({key: value})
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "base_url",
+        "model_list",
+        "fallbacks",
+        "custom_llm_provider",
+        "aws_bedrock_runtime_endpoint",
+        "aws_sts_endpoint",
+    ],
+)
 def test_validate_gateway_secret_auth_config_rejects_litellm_destination_aliases(key):
     # The LiteLLM provider spreads auth_config into litellm kwargs, where these keys steer the
     # request past the api_base check.
@@ -999,7 +1028,17 @@ def test_validate_gateway_secret_auth_config_rejects_litellm_destination_aliases
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-@pytest.mark.parametrize("key", ["base_url", "model_list", "fallbacks", "custom_llm_provider"])
+@pytest.mark.parametrize(
+    "key",
+    [
+        "base_url",
+        "model_list",
+        "fallbacks",
+        "custom_llm_provider",
+        "aws_bedrock_runtime_endpoint",
+        "aws_sts_endpoint",
+    ],
+)
 def test_validate_gateway_secret_value_rejects_litellm_destination_aliases(key):
     with pytest.raises(MlflowException, match=f"secret_value must not contain '{key}'"):
         _validate_gateway_secret_value({"api_key": "x", key: "http://169.254.169.254/"})

@@ -6,6 +6,7 @@ import pytest
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.protos.databricks_pb2 import (
     ENDPOINT_NOT_FOUND,
+    FEATURE_DISABLED,
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
@@ -40,6 +41,7 @@ def test_get_http_status_code():
     assert MlflowException("test", error_code=INVALID_PARAMETER_VALUE).get_http_status_code() == 400
     assert MlflowException("test", error_code=INTERNAL_ERROR).get_http_status_code() == 500
     assert MlflowException("test", error_code=RESOURCE_ALREADY_EXISTS).get_http_status_code() == 400
+    assert MlflowException("test", error_code=FEATURE_DISABLED).get_http_status_code() == 400
 
 
 def test_invalid_parameter_value():

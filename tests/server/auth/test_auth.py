@@ -8965,6 +8965,109 @@ def test_evaluation_dataset_and_issue_apis_require_experiment_permission(client)
     )
 
 
+_DATASETS_SEARCH = "/api/3.0/mlflow/datasets/search"
+_DATASETS_CREATE = "/api/3.0/mlflow/datasets/create"
+
+
+def _send_json(base, method, path, auth, data, params=None):
+    return requests.request(
+        method,
+        f"{base}{path}",
+        params=params,
+        data=data,
+        headers={"Content-Type": "application/json"},
+        auth=auth,
+    )
+
+
+def _double_encode(body):
+    return json.dumps(json.dumps(body))
+
+
+def _create_experiment(base, auth, name):
+    body = json.dumps({"name": name})
+    response = _send_json(base, "POST", "/api/2.0/mlflow/experiments/create", auth, body)
+    assert response.status_code == 200
+    return response.json()["experiment_id"]
+
+
+def _create_dataset(base, auth, name, experiment_id):
+    body = json.dumps({"name": name, "experiment_ids": [experiment_id]})
+    response = _send_json(base, "POST", _DATASETS_CREATE, auth, body)
+    assert response.status_code == 200
+    return response.json()["dataset"]["dataset_id"]
+
+
+def _dataset_names(base, auth, experiment_id):
+    params = {"experiment_ids": experiment_id}
+    response = _send_json(base, "GET", _DATASETS_SEARCH, auth, None, params)
+    assert response.status_code == 200
+    return {d["name"] for d in response.json().get("datasets", [])}
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_dataset_validators_read_experiment_ids_like_the_handlers(client):
+    base = client.tracking_uri
+    alice = create_user(base)
+    bob = create_user(base)
+    alice_exp = _create_experiment(base, alice, "alice-exp")
+    bob_exp = _create_experiment(base, bob, "bob-exp")
+    _create_dataset(base, alice, "alice-ds", alice_exp)
+    bob_ds = _create_dataset(base, bob, "bob-ds", bob_exp)
+
+    # Requests bob isn't authorized for.
+    bob_query = {"experiment_ids": bob_exp}
+    alice_ids = {"experiment_ids": [alice_exp]}
+    for method, path, data, params in [
+        ("POST", _DATASETS_SEARCH, _double_encode({}), bob_query),
+        ("POST", _DATASETS_SEARCH, _double_encode(alice_ids), bob_query),
+        ("GET", _DATASETS_SEARCH, json.dumps({"experiment_ids": [bob_exp]}), {"max_results": 100}),
+        ("POST", _DATASETS_CREATE, _double_encode({"name": "new-ds", **alice_ids}), bob_query),
+        (
+            "POST",
+            f"/api/3.0/mlflow/datasets/{bob_ds}/add-experiments",
+            _double_encode(alice_ids),
+            bob_query,
+        ),
+    ]:
+        response = _send_json(base, method, path, bob, data, params)
+        assert response.status_code == 403, (method, path, data, params)
+
+    assert _dataset_names(base, alice, alice_exp) == {"alice-ds"}
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_dataset_apis_accept_double_encoded_bodies(client):
+    base = client.tracking_uri
+    bob = create_user(base)
+    bob_exp = _create_experiment(base, bob, "bob-exp")
+    second_exp = _create_experiment(base, bob, "bob-exp-2")
+    bob_ids = {"experiment_ids": [bob_exp]}
+
+    response = _send_json(
+        base, "POST", _DATASETS_CREATE, bob, _double_encode({"name": "bob-ds", **bob_ids})
+    )
+    assert response.status_code == 200
+    dataset_id = response.json()["dataset"]["dataset_id"]
+
+    response = _send_json(base, "POST", _DATASETS_SEARCH, bob, _double_encode(bob_ids))
+    assert response.status_code == 200
+    assert {d["name"] for d in response.json()["datasets"]} == {"bob-ds"}
+
+    add_path = f"/api/3.0/mlflow/datasets/{dataset_id}/add-experiments"
+    add_body = _double_encode({"experiment_ids": [second_exp]})
+    assert _send_json(base, "POST", add_path, bob, add_body).status_code == 200
+    assert _dataset_names(base, bob, second_exp) == {"bob-ds"}
+
+
 @pytest.mark.parametrize(
     "client",
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],

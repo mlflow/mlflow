@@ -30,6 +30,8 @@ class ConfigModel(
     BaseModel,
     # Ignore extra fields for pydantic config models, since they are unused
     extra="ignore",
+    # Config models hold credentials, so validation errors must not echo their input
+    hide_input_in_errors=True,
 ):
     """
     A pydantic model representing Gateway configuration data, such as an OpenAI completions

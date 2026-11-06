@@ -1182,20 +1182,52 @@ def _validate_gateway_api_base(url: str) -> None:
 # LiteLLM keyword arguments that choose where a request is sent. The LiteLLM provider spreads
 # a secret's ``auth_config`` into litellm kwargs, so each of these is as sensitive as
 # ``api_base``: ``base_url`` is litellm's alias for ``api_base``, ``model_list`` and
-# ``fallbacks`` carry per-deployment ``api_base`` values, and ``custom_llm_provider`` swaps
-# the provider and with it the default endpoint.
+# ``fallbacks`` carry per-deployment ``api_base`` values, ``custom_llm_provider`` swaps
+# the provider and with it the default endpoint, and the ``aws_*_endpoint`` options override
+# the AWS endpoints litellm would otherwise derive from the region.
 GATEWAY_DESTINATION_KEYS = frozenset({
     "api_base",
     "base_url",
     "model_list",
     "fallbacks",
     "custom_llm_provider",
+    "aws_bedrock_runtime_endpoint",
+    "aws_sts_endpoint",
 })
 # ``api_base`` is the one validated way to choose the upstream, so the aliases are rejected in
 # ``auth_config`` and nothing egress-controlling may hide in the encrypted, unvalidated
 # ``secret_value`` map.
 _GATEWAY_AUTH_CONFIG_RESERVED_KEYS = GATEWAY_DESTINATION_KEYS - {"api_base"}
 _GATEWAY_SECRET_VALUE_RESERVED_KEYS = GATEWAY_DESTINATION_KEYS
+
+
+# Keys whose value becomes part of a provider's request host, such as
+# ``bedrock-runtime.{aws_region_name}.amazonaws.com``. The native providers and LiteLLM both build
+# hosts this way, so each value must be a bare region name.
+# ``vertex_ai_location`` is litellm's alias for ``vertex_location``.
+GATEWAY_REGION_KEYS = frozenset({"aws_region_name", "vertex_location", "vertex_ai_location"})
+
+
+def _validate_region_name(value: Any, field_name: str, *, show_value: bool = True) -> Any:
+    """Raise ``ValueError`` unless ``value`` is unset or a bare region name like ``us-east-1``."""
+    if value is None or value == "":
+        return value
+    if not (isinstance(value, str) and re.fullmatch(r"[a-z0-9-]+", value)):
+        got = f"; got {value!r}" if show_value else ""
+        raise ValueError(
+            f"{field_name} must contain only lowercase letters, digits, and hyphens{got}"
+        )
+    return value
+
+
+def _validate_gateway_region_keys(
+    config: dict[str, Any] | None, source: str, *, show_value: bool = True
+) -> None:
+    for key in sorted(GATEWAY_REGION_KEYS & set(config or {})):
+        try:
+            _validate_region_name(config[key], f"{source} {key!r}", show_value=show_value)
+        except ValueError as e:
+            raise MlflowException.invalid_parameter_value(str(e)) from None
 
 
 def _validate_gateway_secret_auth_config(
@@ -1215,6 +1247,7 @@ def _validate_gateway_secret_auth_config(
             "options choose where the gateway sends requests. Set the upstream with "
             "'api_base', which is validated."
         )
+    _validate_gateway_region_keys(normalized, "auth_config")
     api_base = normalized.get("api_base")
     if isinstance(api_base, str):
         api_base = api_base.strip()
@@ -1236,6 +1269,9 @@ def _validate_gateway_secret_value(secret_value: dict[str, Any] | None) -> None:
             "choose where the gateway sends requests. Set the upstream with 'api_base' in "
             "auth_config, where it is validated."
         )
+    # The LiteLLM provider merges secret_value into its kwargs too. Values aren't echoed, since
+    # they sit next to secrets.
+    _validate_gateway_region_keys(secret_value, "secret_value", show_value=False)
 
 
 def _find_destination_keys(value: Any) -> set[str]:
