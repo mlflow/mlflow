@@ -5,45 +5,58 @@ MLflow tracing plugin for [OpenCode](https://opencode.ai).
 This plugin automatically traces OpenCode conversations to MLflow, capturing:
 
 - User prompts and assistant responses
-- LLM calls with token usage
+- LLM calls with token usage and cost
 - Tool invocations and results
 - Session metadata
+
+Version 1.x requires OpenCode V2. For OpenCode V1, pin `@mlflow/opencode@0.4`.
+When 1.x is loaded on OpenCode V1, it does not trace and prints a message that
+tells you to pin `0.4`.
 
 ## Installation
 
 ```bash
-npm install @mlflow/opencode
+opencode plugin add @mlflow/opencode
 ```
 
 ## Usage
 
-1. Add to your `opencode.json`:
+1. Configure the plugin in your `opencode.json`:
 
 ```json
 {
-  "plugin": ["@mlflow/opencode"]
+  "plugins": [
+    {
+      "package": "@mlflow/opencode",
+      "options": {
+        "trackingUri": "http://localhost:5000",
+        "experimentId": "123"
+      }
+    }
+  ]
 }
 ```
 
-2. Set environment variables:
+You can also set `MLFLOW_TRACKING_URI` and `MLFLOW_EXPERIMENT_ID` instead of
+the options. The OpenCode server process must have these variables. If the
+OpenCode background service is already running, restart it
+(`opencode service restart`) from a shell that has them.
 
-```bash
-export MLFLOW_TRACKING_URI=http://localhost:5000
-export MLFLOW_EXPERIMENT_ID=123
-```
-
-3. Run OpenCode normally - traces are created automatically when sessions become idle.
+2. Run OpenCode normally - a trace is created when each session run ends, also
+   when it fails or is interrupted.
 
 ## Configuration
 
-The plugin is configured via environment variables:
+| Option         | Environment variable    | Required | Description                                                |
+| -------------- | ----------------------- | -------- | ---------------------------------------------------------- |
+| `trackingUri`  | `MLFLOW_TRACKING_URI`   | Yes      | MLflow tracking server URI (e.g., `http://localhost:5000`) |
+| `experimentId` | `MLFLOW_EXPERIMENT_ID`  | Yes      | MLflow experiment ID                                       |
+|                | `MLFLOW_TRACE_LOCATION` | For UC   | Existing `catalog.schema.table_prefix` trace location      |
+| `debug`        | `MLFLOW_OPENCODE_DEBUG` | No       | Set to `true` to enable debug logging                      |
 
-| Variable                | Required | Description                                                |
-| ----------------------- | -------- | ---------------------------------------------------------- |
-| `MLFLOW_TRACKING_URI`   | Yes      | MLflow tracking server URI (e.g., `http://localhost:5000`) |
-| `MLFLOW_EXPERIMENT_ID`  | Yes      | MLflow experiment ID                                       |
-| `MLFLOW_TRACE_LOCATION` | For UC   | Existing `catalog.schema.table_prefix` trace location      |
-| `MLFLOW_OPENCODE_DEBUG` | No       | Set to `true` to enable debug logging                      |
+Plugin options take precedence over environment variables. Set credentials
+only as environment variables, for example `MLFLOW_TRACKING_USERNAME` and
+`MLFLOW_TRACKING_PASSWORD`, or `MLFLOW_TRACKING_TOKEN`.
 
 For a Databricks experiment backed by Unity Catalog, set `MLFLOW_TRACE_LOCATION`
 alongside the required variables:
@@ -58,6 +71,13 @@ The UC trace location must already exist. Without this setting (or with an empty
 value), the SDK uses the experiment-backed path, and traces will not appear in
 the UC table. A non-empty invalid location stops tracing and prints a warning
 instead of silently falling back.
+
+## Token Usage and Cost
+
+Token usage includes cache reads and writes in `input_tokens`, and reasoning
+tokens in `output_tokens`. Cost comes from the cost that OpenCode reports for
+each model call. The plugin splits it into input and output cost with the
+model's prices from OpenCode.
 
 ## Viewing Traces
 

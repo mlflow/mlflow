@@ -1,6 +1,6 @@
 {
   "name": "@mlflow/opencode",
-  "version": "0.4.0",
+  "version": "1.0.0",
   "description": "OpenCode integration package for MLflow Tracing",
   "repository": {
     "type": "git",
@@ -25,12 +25,23 @@
     "javascript",
     "typescript"
   ],
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/v1.js",
+  "types": "dist/v1.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/v1.d.ts",
+      "import": "./dist/v1.js"
+    },
+    "./server": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm run build",
-    "test": "jest",
+    "test": "jest --config jest.config.cjs",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
     "format": "prettier --write .",
@@ -39,11 +50,7 @@
   "dependencies": {
     "@mlflow/core": "^0.4.0"
   },
-  "peerDependencies": {
-    "@opencode-ai/plugin": "^1.0.0"
-  },
   "devDependencies": {
-    "@opencode-ai/plugin": "^1.1.25",
     "@types/jest": "^29.5.3",
     "jest": "^29.6.2",
     "ts-jest": "^29.1.1",
