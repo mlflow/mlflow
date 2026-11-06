@@ -132,8 +132,6 @@ jobs:
           host: ${{ secrets.DATABRICKS_HOST }}
           client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
           client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
-      # The proxies start in their own steps so the agent's process tree never holds the real
-      # tokens; the agent only sees placeholders.
       - name: Start gateway proxy
         id: gateway-proxy
         working-directory: trusted
