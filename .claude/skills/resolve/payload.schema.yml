@@ -23,9 +23,13 @@ properties:
           description: >
             Use one or two sentences in Markdown. For resolved feedback, summarize the fix
             and any relevant verification. For answered feedback, cite the supporting code
-            or behavior. For blocked feedback, explain what human input is needed. Use
-            Markdown image syntax for screenshots and put video links on their own lines.
-            Use absolute local paths under the media output directory for both.
+            or behavior. For blocked feedback, explain what human input is needed. Cite
+            each screenshot or recording as a Markdown image whose path is the file's
+            absolute path in `$out_dir/media`, such as
+            `![Run list after the fix](/abs/path/to/out_dir/media/runs.png)`. Put a
+            recording's citation, such as `![Repro](/abs/path/to/out_dir/media/repro.mp4)`,
+            on a line by itself so GitHub shows a video player; a recording cited
+            mid-sentence shows as a plain link.
           type: string
           minLength: 1
           maxLength: 500
