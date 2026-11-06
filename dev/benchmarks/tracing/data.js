@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793933713893,
+  "lastUpdate": 1793947281924,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "joshua.wong@databricks.com",
-            "name": "joshuawong-db",
-            "username": "joshuawong-db"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "071f9b49c338f0762ed8e9755da3b896d42626d4",
-          "message": "Fix MLflow Assistant CLI providers on Windows with >1 server worker (#24418)",
-          "timestamp": "2026-09-08T14:23:24+08:00",
-          "tree_id": "422deddf203ab8fbca8c06ff8a3846033e8fa49e",
-          "url": "https://github.com/mlflow/mlflow/commit/071f9b49c338f0762ed8e9755da3b896d42626d4"
-        },
-        "date": 1788848680189,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 38.73014344998751,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 6.1701534193543335,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 5.3459201148653674,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 6.162448974784539,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 5.608288328358467,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 7.862030800015417,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 3.817730800000163,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "76001552+joelrobin18@users.noreply.github.com",
+            "name": "Joel Robin P",
+            "username": "joelrobin18"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1e6d98ec697287a16f115e2def61c2df99f3ba0f",
+          "message": "Fix gateway missing API key error (#27483)\n\nSigned-off-by: Joel Robin P <joelrobin1818@gmail.com>",
+          "timestamp": "2026-11-06T06:38:14Z",
+          "tree_id": "e90a45020b1865bffb9c6401921f85b5cfd56192",
+          "url": "https://github.com/mlflow/mlflow/commit/1e6d98ec697287a16f115e2def61c2df99f3ba0f"
+        },
+        "date": 1793947278808,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 24.13184650000062,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 3.5451583592234903,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 3.025682304878213,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 3.0258190778690603,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 3.3839144977378117,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 2.7398835714273724,
             "unit": "ms"
           }
         ]
