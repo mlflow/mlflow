@@ -175,8 +175,13 @@ def hdfs_system(scheme, host, port):
 
 def _resolve_connection_params(artifact_uri):
     parsed = urllib.parse.urlparse(artifact_uri)
+    port = parsed.port
+    host = parsed.netloc.rsplit("@", 1)[-1]
+    if port is not None:
+        host = host.rsplit(":", 1)[0]
+    host = host.removeprefix("[").removesuffix("]") or None
 
-    return parsed.scheme, parsed.hostname, parsed.port, parsed.path
+    return parsed.scheme, host, port, parsed.path
 
 
 def _resolve_base_path(path, artifact_path):
