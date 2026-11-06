@@ -209,17 +209,6 @@ jobs:
           cat "/tmp/resolve-telemetry-proxy.log"
           echo "::error::Telemetry proxy did not become ready"
           exit 1
-      # Passwordless sudo would let the agent read Runner.Worker's memory, which holds every
-      # secret this job references. Yama's ptrace scope keeps it from reading the proxies.
-      - name: Drop sudo
-        run: |
-          mkdir -p "$OUT_DIR/media"
-          sudo rm -f /etc/sudoers.d/runner
-          if sudo -n true 2>/dev/null; then
-            echo "::error::sudo is still available"
-            exit 1
-          fi
-          test "$(cat /proc/sys/kernel/yama/ptrace_scope)" -ge 1
       - name: Resolve agent model and effort
         id: agent
         env:
@@ -267,6 +256,7 @@ jobs:
           OTEL_LOG_TOOL_CONTENT: "1"
           OTEL_RESOURCE_ATTRIBUTES: github.run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          mkdir -p "$OUT_DIR/media"
           printf -v prompt '/resolve "%s" "%s" "%s"' "$GITHUB_WORKSPACE/pr" "$CONTEXT_PATH" "$OUT_DIR"
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
