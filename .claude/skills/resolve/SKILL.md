@@ -33,26 +33,21 @@ $out_dir/
 
 You start in the trusted checkout. `$pr_checkout` is a disposable checkout of the
 PR head. `$out_dir` is a fresh absolute path outside both checkouts. `$review_context` mirrors
-the PR's Conversation tab: a chronological `timeline` of comments and reviews, with each inline
-thread under the review that started it. Address the review with `review_id`: its body and
-every thread containing a comment with that `review_id`, wherever the thread appears.
-`resolved` and `outdated` give each thread's current state on GitHub. Everything else is
-context.
+the PR's Conversation tab as a chronological `timeline`, with each thread under the review that
+started it. Address the review with `review_id`: its body and every thread that has a comment
+from it. Everything else is context.
 
 ```json
 {
   "head_sha": "<sha>",
-  "head_ref": "<branch>",
   "review_id": 123,
   "timeline": [
+    { "type": "comment", "author": "<login>", "body": "<comment>" },
     {
       "type": "review",
-      "id": 100,
-      "author": "<login>",
-      "state": "COMMENTED",
-      "created_at": "<timestamp>",
+      "id": 123,
+      "state": "CHANGES_REQUESTED",
       "body": "<summary, or empty>",
-      "url": "<url>",
       "threads": [
         {
           "id": "PRRT_...",
@@ -60,36 +55,10 @@ context.
           "line": 42,
           "resolved": false,
           "outdated": false,
-          "diff_hunk": "@@ -40,3 +40,4 @@ ...",
-          "comments": [
-            {
-              "id": 456,
-              "author": "<login>",
-              "created_at": "<timestamp>",
-              "body": "<comment>",
-              "review_id": 100
-            },
-            {
-              "id": 789,
-              "author": "<login>",
-              "created_at": "<timestamp>",
-              "body": "<reply>",
-              "review_id": 123
-            }
-          ]
+          "diff_hunk": "<hunk>",
+          "comments": [{ "author": "<login>", "body": "<comment>", "review_id": 123 }]
         }
       ]
-    },
-    { "type": "comment", "author": "<login>", "created_at": "<timestamp>", "body": "<comment>" },
-    {
-      "type": "review",
-      "id": 123,
-      "author": "<login>",
-      "state": "CHANGES_REQUESTED",
-      "created_at": "<timestamp>",
-      "body": "<summary, or empty>",
-      "url": "<url>",
-      "threads": []
     }
   ]
 }
