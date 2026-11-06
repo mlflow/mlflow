@@ -415,3 +415,5 @@ class GenAiSemconvKey:
     TOOL_CALL_ARGUMENTS = "gen_ai.tool.call.arguments"
     TOOL_CALL_RESULT = "gen_ai.tool.call.result"
     AGENT_NAME = "gen_ai.agent.name"
+    DATA_SOURCE_ID = "gen_ai.data_source.id"
+    WORKFLOW_NAME = "gen_ai.workflow.name"

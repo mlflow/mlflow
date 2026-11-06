@@ -33,6 +33,8 @@ class GenAiTranslator(OtelSchemaTranslator):
         "execute_tool": SpanType.TOOL,
         "generate_content": SpanType.LLM,
         "invoke_agent": SpanType.AGENT,
+        "invoke_workflow": SpanType.WORKFLOW,
+        "retrieval": SpanType.RETRIEVER,
         "text_completion": SpanType.LLM,
         "response": SpanType.LLM,
     }
