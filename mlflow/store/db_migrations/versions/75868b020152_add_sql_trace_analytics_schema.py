@@ -82,8 +82,8 @@ def _drop_dimension_attributes():
         with op.batch_alter_table("spans") as batch_op:
             batch_op.drop_column("duration_ns")
             batch_op.drop_column("dimension_attributes")
-            batch_op.drop_constraint("fk_spans_trace_id", type_="foreignkey")
-            batch_op.drop_constraint("fk_spans_experiment_id", type_="foreignkey")
+            batch_op.drop_constraint("fk_spans_trace_id", type_="foreignkey", if_exists=True)
+            batch_op.drop_constraint("fk_spans_experiment_id", type_="foreignkey", if_exists=True)
             batch_op.create_foreign_key(
                 "fk_spans_experiment_id",
                 "experiments",
