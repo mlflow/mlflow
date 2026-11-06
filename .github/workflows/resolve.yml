@@ -1,7 +1,7 @@
 # Preview with: gh workflow run resolve.yml --ref <branch> -F pr_number=<number> -F review_id=<id>
 # Opus/high is the default for review runs unless the RESOLVE_MODEL or RESOLVE_EFFORT repository
 # variables override them; previews can pick another, e.g. `-f model=databricks-claude-sonnet-5-5`.
-name: Resolve PR review feedback
+name: Resolve feedback
 
 on:
   pull_request_review:
