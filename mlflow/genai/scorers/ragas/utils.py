@@ -201,9 +201,9 @@ def map_trace_to_ragas_messages(
     if include_tool_calls:
         if tools_called := extract_tools_called_from_trace(trace):
             tool_calls.extend(
-                ToolCall(name=tool.name, args=tool.arguments)
+                ToolCall(name=tool.name, args=tool.arguments or {})
                 for tool in tools_called
-                if tool.name and tool.arguments
+                if tool.name
             )
 
     if outputs := resolve_outputs_from_trace(None, trace):
@@ -236,11 +236,7 @@ def extract_reference_tool_calls_from_expectations(
     if not function_calls:
         return []
 
-    return [
-        ToolCall(name=fc.name, args=fc.arguments)
-        for fc in function_calls
-        if fc.name and fc.arguments
-    ]
+    return [ToolCall(name=fc.name, args=fc.arguments or {}) for fc in function_calls if fc.name]
 
 
 def create_mlflow_error_message_from_ragas_param(error_msg: str, metric_name: str) -> str:

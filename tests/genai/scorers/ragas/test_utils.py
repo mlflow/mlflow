@@ -216,7 +216,11 @@ def test_map_scorer_inputs_agentic_with_expectations(expectations, assertion_fn)
             ],
         ),
         ({"expected_tool_calls": [{"arguments": {"x": 1}}]}, []),
-        ({"expected_tool_calls": [{"name": "tool1"}]}, []),
+        ({"expected_tool_calls": [{"name": "tool1"}]}, [ToolCall(name="tool1", args={})]),
+        (
+            {"expected_tool_calls": [{"name": "get_time", "arguments": {}}]},
+            [ToolCall(name="get_time", args={})],
+        ),
     ],
 )
 def test_extract_reference_tool_calls_from_expectations(expectations, expected_result):
@@ -236,6 +240,20 @@ def test_map_trace_to_ragas_messages_with_tool_call(sample_trace):
     assert isinstance(messages[1], AIMessage)
     assert len(messages[1].tool_calls) == 1
     assert messages[1].tool_calls[0].name == "tool"
+
+
+def test_map_trace_to_ragas_messages_keeps_tool_call_without_arguments():
+    with mlflow.start_span(name="root", span_type=SpanType.AGENT) as root:
+        root.set_inputs({"messages": [{"role": "user", "content": "What time is it?"}]})
+        with mlflow.start_span(name="get_time", span_type=SpanType.TOOL) as t:
+            t.set_inputs({})
+            t.set_outputs("12:00")
+        root.set_outputs("It is 12:00.")
+    trace = mlflow.get_trace(root.trace_id)
+
+    messages = map_trace_to_ragas_messages(trace)
+
+    assert messages[1].tool_calls == [ToolCall(name="get_time", args={})]
 
 
 def test_map_session_to_ragas_messages_multi_turn(sample_trace):
