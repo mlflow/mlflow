@@ -245,6 +245,16 @@ def _infer_scalar_datatype(data) -> DataType:
     )
 
 
+def _is_rectangular_list_of_scalar_lists(data: Any) -> bool:
+    return (
+        isinstance(data, list)
+        and len(data) > 0
+        and all(isinstance(row, list) and len(row) == len(data[0]) for row in data)
+        and len(data[0]) > 0
+        and all(np.isscalar(v) for row in data for v in row)
+    )
+
+
 def _infer_schema(data: Any) -> Schema:
     """
     Infer an MLflow schema from a dataset.
@@ -404,6 +414,10 @@ def _infer_schema(data: Any) -> Schema:
             )
             for field in data.schema.fields
         ])
+    elif _is_rectangular_list_of_scalar_lists(data):
+        # List[List[DataType]] with equal-length inner lists, e.g. [[1, 2], [3, 4]]
+        # Enforcement converts this with pd.DataFrame(data), i.e. one column per position
+        return _infer_schema(pd.DataFrame(data))
     elif isinstance(data, list):
         # Assume list as a single column
         # List[DataType]
