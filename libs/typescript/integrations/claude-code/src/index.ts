@@ -1,4 +1,6 @@
 export { processTranscript } from './tracing.js';
+export type { TranscriptTraceOptions } from './tracing.js';
+export { isBackgroundSubagent, processSubagentTranscript } from './subagentTracing.js';
 export {
   isTracingEnabled,
   ensureInitialized,
@@ -16,4 +18,5 @@ export type {
   ThinkingBlock,
   TokenUsage,
   StopHookInput,
+  SubagentStopHookInput,
 } from './types.js';

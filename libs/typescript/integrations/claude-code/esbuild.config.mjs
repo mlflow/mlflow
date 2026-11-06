@@ -15,6 +15,7 @@ const external = ['node:*', '@mlflow/core/package.json', '@mlflow/core/bundle/da
 
 for (const [entryPoint, outfile] of [
   ['dist/hooks/stop.js', 'bundle/stop.cjs'],
+  ['dist/hooks/subagentStop.js', 'bundle/subagentStop.cjs'],
   ['dist/cli.js', 'bundle/cli.cjs'],
 ]) {
   await build({
