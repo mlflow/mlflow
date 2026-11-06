@@ -62,7 +62,8 @@ def eligible(pr: dict[str, Any], repo: str) -> bool:
         and pr["user"]["type"] == "Bot"
         and (pr["head"]["repo"] or {}).get("full_name") == repo
         and pr["base"]["ref"] == os.environ["DEFAULT_BRANCH"]
-        and pr["head"]["ref"] != pr["base"]["ref"]
+        # Other bot PRs, such as lockfile updates, auto-merge without a maintainer approval.
+        and pr["head"]["ref"].startswith("triage/")
     )
 
 
@@ -283,7 +284,7 @@ def embed(out_dir: Path) -> None:
     payload = out_dir / "payload.json"
     result = json.loads(payload.read_text())
     for response in result["responses"].values():
-        if response["status"] != "blocked" and str(out_dir / "media") in response["body"]:
+        if str(out_dir / "media") in response["body"]:
             response["body"] = command(
                 *media_command(out_dir / "media"),
                 "--repository-id",
@@ -398,10 +399,10 @@ def publish(repo: str, number: str, review_id: str, context_path: Path, out_dir:
     roots = {thread["id"]: thread["comments"][0]["id"] for thread in all_threads(context)}
     blocked = False
     for key, response in responses.items():
+        # Blocked replies tell the reviewer what input is needed; their threads stay open.
         if response["status"] == "blocked":
             blocked = True
             summary(f"<p>Blocked {html.escape(key)}: {html.escape(response['body'])}</p>")
-            continue
         note = marker(current["author"], review_id, key)
         resolved = response["status"] == "resolved"
         if note not in posted:

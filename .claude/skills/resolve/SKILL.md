@@ -4,6 +4,16 @@ description: Address a submitted pull request review in a disposable checkout an
 argument-hint: "<pr_checkout> <review_context> <out_dir>"
 arguments: [pr_checkout, review_context, out_dir]
 disable-model-invocation: true
+hooks:
+  PreToolUse:
+    - matcher: Bash
+      hooks:
+        - type: command
+          command: '"$CLAUDE_PROJECT_DIR/.claude/hooks/cap-timeout.sh"'
+  Stop:
+    - hooks:
+        - type: command
+          command: '"$CLAUDE_PROJECT_DIR/.claude/hooks/stop.sh"'
 ---
 
 # Resolve PR feedback

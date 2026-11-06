@@ -49,6 +49,8 @@ jobs:
       (github.event_name == 'workflow_dispatch' ||
        (github.event.pull_request.user.login == 'mlflow-app[bot]' &&
         github.event.pull_request.user.type == 'Bot' &&
+        github.event.review.user.login != 'mlflow-app[bot]' &&
+        startsWith(github.event.pull_request.head.ref, 'triage/') &&
         github.event.pull_request.head.repo.full_name == github.repository &&
         github.event.pull_request.base.ref == github.event.repository.default_branch &&
         github.event.pull_request.state == 'open' && !github.event.pull_request.draft))
@@ -96,6 +98,13 @@ jobs:
       contents: read
       issues: read
       pull-requests: read
+    env:
+      AGENT_BROWSER_SOCKET_DIR: /tmp/resolve-agent-browser
+      XDG_DATA_HOME: /tmp/resolve-xdg-data
+      XDG_CONFIG_HOME: /tmp/resolve-xdg-config
+      XDG_CACHE_HOME: /tmp/resolve-xdg-cache
+      SRT_SETTINGS: ${{ runner.temp }}/resolve-srt.json
+      TELEMETRY_SOCKET: ${{ runner.temp }}/resolve-telemetry.sock
     steps:
       - name: Checkout trusted workflow files
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -118,10 +127,15 @@ jobs:
       - name: Install agent tools
         working-directory: trusted
         run: |
+          sudo apt-get update --error-on=any
+          sudo apt-get install -y --no-install-recommends bubblewrap socat ripgrep ffmpeg
+          if [ "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)" = 1 ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
           .claude/scripts/install-claude.sh
           .claude/scripts/install-agent-browser.sh
-          sudo apt-get update --error-on=any
-          sudo apt-get install -y --no-install-recommends ffmpeg
+          export npm_config_before="$(date -u -d '7 days ago' +%Y-%m-%d)"
+          npm install -g @anthropic-ai/sandbox-runtime@0.0.80
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - id: gateway
         uses: ./trusted/.github/actions/setup-gateway
@@ -130,6 +144,24 @@ jobs:
           host: ${{ secrets.DATABRICKS_HOST }}
           client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
           client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+      # The proxies hold the real tokens outside the sandbox; the agent only sees placeholders.
+      - name: Start gateway proxy
+        id: gateway-proxy
+        working-directory: trusted
+        env:
+          GATEWAY_TOKEN: ${{ steps.gateway.outputs.token }}
+          GATEWAY_URL: ${{ steps.gateway.outputs.base-url }}
+        run: |
+          placeholder_token=$(openssl rand -hex 32)
+          echo "::add-mask::$placeholder_token"
+          printf 'placeholder-token=%s\n' "$placeholder_token" >> "$GITHUB_OUTPUT"
+          printf '%s\n%s\n' "$GATEWAY_TOKEN" "$placeholder_token" | env -u GATEWAY_TOKEN \
+            GATEWAY_URL="$GATEWAY_URL" node .claude/sandbox/gateway-proxy.mjs \
+            > "$RUNNER_TEMP/resolve-gateway-proxy.log" 2>&1 &
+          printf '%s\n' "$!" > "$RUNNER_TEMP/resolve-gateway-proxy.pid"
+          unset GATEWAY_TOKEN placeholder_token
+          curl --noproxy '*' --retry 30 --retry-connrefused --retry-delay 1 \
+            -fsS http://127.0.0.1:8080/healthz > /dev/null
       # Claude Code exports OpenTelemetry traces and logs to MLflow through a local proxy that holds
       # the token, like the gateway proxy. Disabled unless RESOLVE_MLFLOW_TRACE_LOCATION is set to the
       # <catalog>.<schema>.<table_prefix> of a UC-linked experiment.
@@ -150,27 +182,103 @@ jobs:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
           TRACE_LOCATION: ${{ vars.RESOLVE_MLFLOW_TRACE_LOCATION }}
         run: |
-          placeholder=$(openssl rand -hex 32)
-          echo "::add-mask::$placeholder"
-          printf 'placeholder-token=%s\n' "$placeholder" >> "$GITHUB_OUTPUT"
-          printf '%s\n%s\n' "$TELEMETRY_TOKEN" "$placeholder" | env -u TELEMETRY_TOKEN \
-            node .claude/sandbox/otel-proxy.mjs > "$RUNNER_TEMP/resolve-telemetry-proxy.log" 2>&1 &
-          echo "$!" > "$RUNNER_TEMP/resolve-telemetry-proxy.pid"
-          unset TELEMETRY_TOKEN placeholder
-          if ! curl --noproxy '*' --fail --silent --show-error --retry 30 --retry-connrefused \
-            --retry-delay 1 --max-time 5 http://127.0.0.1:8081/healthz > /dev/null; then
-            cat "$RUNNER_TEMP/resolve-telemetry-proxy.log"
-            echo "::error::Telemetry proxy did not become ready"
+          placeholder_token=$(openssl rand -hex 32)
+          echo "::add-mask::$placeholder_token"
+          printf 'placeholder-token=%s\n' "$placeholder_token" >> "$GITHUB_OUTPUT"
+          printf '%s\n%s\n' "$TELEMETRY_TOKEN" "$placeholder_token" | env -u TELEMETRY_TOKEN \
+            DATABRICKS_HOST="$DATABRICKS_HOST" TRACE_LOCATION="$TRACE_LOCATION" \
+            TELEMETRY_SOCKET="$TELEMETRY_SOCKET" node .claude/sandbox/otel-proxy.mjs \
+            > "$RUNNER_TEMP/resolve-telemetry-proxy.log" 2>&1 &
+          proxy_pid=$!
+          unset TELEMETRY_TOKEN placeholder_token
+          printf '%s\n' "$proxy_pid" > "$RUNNER_TEMP/resolve-telemetry-proxy.pid"
+          for _ in $(seq 1 30); do
+            if ! kill -0 "$proxy_pid" 2>/dev/null; then
+              break
+            fi
+            if [ -S "$TELEMETRY_SOCKET" ] && curl -fsS http://127.0.0.1:8081/healthz > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/resolve-telemetry-proxy.log"
+          echo "::error::Telemetry proxy did not become ready"
+          exit 1
+      - name: Configure sandbox
+        working-directory: trusted
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_CHECKOUT: ${{ github.workspace }}/pr
+        run: |
+          # srt skips write rules for paths that don't exist yet.
+          mkdir -p ~/.claude ~/.cache/uv ~/.npm "$OUT_DIR/media"
+          # Claude Code rejects an empty config file.
+          echo '{}' > ~/.claude.json
+          # srt mounts read-only placeholders over missing mandatory deny paths in writable
+          # checkouts; keep them out of `git diff` and `git status`. See the same step in triage.yml.
+          for checkout in . "$PR_CHECKOUT"; do
+            for name in .gitconfig .gitmodules .bashrc .bash_profile .zshrc .zprofile .profile \
+              .ripgreprc .mcp.json .vscode .idea .claude/commands .claude/agents; do
+              [ -e "$checkout/$name" ] || printf '/%s\n' "$name"
+            done >> "$checkout/.git/info/exclude"
+          done
+          # The agent edits the PR checkout and follows GitHub's signed log-storage redirects for CI runs.
+          gh api meta > "$RUNNER_TEMP/resolve-github-meta.json"
+          jq --exit-status --arg pr "$PR_CHECKOUT" \
+            --slurpfile meta "$RUNNER_TEMP/resolve-github-meta.json" '
+            ($meta[0].domains.actions
+              | map(select(test("^productionresultssa[0-9]+\\.blob\\.core\\.windows\\.net$")))
+              | unique) as $domains
+            | if ($domains | length) == 0 then
+                error("GitHub /meta returned no Actions log-storage domains")
+              else
+                .network.allowedDomains += ($domains | map(. + ":443"))
+                | .filesystem.allowWrite += [$pr]
+              end
+          ' .claude/sandbox/srt.json > "$SRT_SETTINGS"
+      - name: Check sandbox restrictions
+        working-directory: trusted
+        run: |
+          srt --settings "$SRT_SETTINGS" -- true
+          # The sandbox's PID namespace must hide Runner.Worker and the proxies, which hold
+          # credentials referenced by this job.
+          if ! ps -e -o comm= | grep -Fxq 'Runner.Worker'; then
+            echo "::error::Runner.Worker was not found on the host"
             exit 1
           fi
+          srt --settings "$SRT_SETTINGS" -- bash -c '
+            set -euo pipefail
+            if ps -e -o comm= | grep -Fxq "Runner.Worker"; then
+              echo "Runner.Worker is visible inside the sandbox" >&2
+              exit 1
+            fi
+          '
+          proxy_pid=$(cat "$RUNNER_TEMP/resolve-gateway-proxy.pid")
+          if grep -azq '^GATEWAY_TOKEN=' "/proc/$proxy_pid/environ"; then
+            echo "::error::Gateway proxy inherited GATEWAY_TOKEN"
+            exit 1
+          elif [ "$?" -ne 1 ]; then
+            echo "::error::Could not check gateway proxy environment"
+            exit 1
+          fi
+          # srt masks a denied directory with an empty one, so check for visible entries.
+          for command in \
+            'curl -sf https://example.com' \
+            'curl -sf --unix-socket /var/run/docker.sock http://localhost/version' \
+            'ls /home/runner/work/_temp/_runner_file_commands | grep -q .'; do
+            if srt --settings "$SRT_SETTINGS" -- bash -c "$command"; then
+              echo "::error::Sandbox allowed a forbidden operation"
+              exit 1
+            fi
+          done
       - name: Address review feedback
         working-directory: trusted
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GATEWAY_TOKEN: ${{ steps.gateway.outputs.token }}
-          GATEWAY_URL: ${{ steps.gateway.outputs.base-url }}
-          ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
           ANTHROPIC_BASE_URL: http://localhost:8080/anthropic
+          # Placeholder the sandbox sends to the local gateway proxy; the proxy swaps in the real gateway token.
+          ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway-proxy.outputs.placeholder-token }}
+          ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
           ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5
           AGENT_BROWSER_ARGS: --no-sandbox
           # OpenTelemetry export through the telemetry proxy. Spans need the enhanced telemetry beta;
@@ -191,24 +299,17 @@ jobs:
           OTEL_LOG_TOOL_CONTENT: "1"
           OTEL_RESOURCE_ATTRIBUTES: github.run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          placeholder=$(openssl rand -hex 32)
-          echo "::add-mask::$placeholder"
-          printf '%s\n%s\n' "$GATEWAY_TOKEN" "$placeholder" | env -u GATEWAY_TOKEN -u GH_TOKEN \
-            node .claude/sandbox/gateway-proxy.mjs > "$RUNNER_TEMP/resolve-proxy.log" 2>&1 &
-          proxy_pid=$!
-          unset GATEWAY_TOKEN
-          trap 'kill "$proxy_pid" 2>/dev/null || true' EXIT
-          curl --noproxy '*' --fail --silent --show-error --retry 10 --retry-connrefused \
-            --retry-delay 1 --max-time 5 http://127.0.0.1:8080/healthz
-
-          export ANTHROPIC_AUTH_TOKEN="$placeholder"
-          mkdir -p "$OUT_DIR/media"
-          printf -v prompt '/resolve "%s" "%s" "%s"' "$GITHUB_WORKSPACE/pr" "$CONTEXT_PATH" "$OUT_DIR"
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
-          timeout --kill-after=10s 30m setsid bash -o pipefail -c '
-            echo "$$" > "$RUNNER_TEMP/resolve-agent.pgid"
-            claude \
+          trap 'echo "::$token::"' EXIT
+          # Claude Code's OTel exporter may connect to localhost:8081 directly rather than through
+          # srt's HTTP proxy, so relay that port inside the sandbox to the telemetry proxy's socket.
+          relay=()
+          if [ -S "$TELEMETRY_SOCKET" ]; then
+            relay=(bash -c 'socat TCP-LISTEN:8081,bind=127.0.0.1,fork,reuseaddr "UNIX-CONNECT:$0" & exec "$@"' "$TELEMETRY_SOCKET")
+          fi
+          timeout --kill-after=10s 30m srt --settings "$SRT_SETTINGS" -- \
+            "${relay[@]}" env -u NO_PROXY -u no_proxy claude \
               --model databricks-claude-sonnet-5-5 \
               --effort medium \
               --max-budget-usd 5 \
@@ -217,34 +318,64 @@ jobs:
               --print \
               --verbose \
               --output-format stream-json \
-              "$1" | .claude/scripts/stream.sh
-          ' bash "$prompt" || { echo "::$token::"; exit 1; }
-          echo "::$token::"
-      - name: Stop agent processes
+              "/resolve \"$GITHUB_WORKSPACE/pr\" \"$CONTEXT_PATH\" \"$OUT_DIR\"" \
+            | .claude/scripts/stream.sh
+      - name: Stop proxies
         if: always()
         run: |
-          if [[ -s "$RUNNER_TEMP/resolve-agent.pgid" ]]; then
-            pgid=$(cat "$RUNNER_TEMP/resolve-agent.pgid")
-            if [[ "$pgid" =~ ^[1-9][0-9]*$ ]]; then
-              kill -KILL -- "-$pgid" 2>/dev/null || true
+          for proxy in gateway telemetry; do
+            if [ -f "$RUNNER_TEMP/resolve-$proxy-proxy.pid" ]; then
+              kill "$(cat "$RUNNER_TEMP/resolve-$proxy-proxy.pid")" 2>/dev/null || true
             fi
-          fi
-          if [[ -f "$RUNNER_TEMP/resolve-telemetry-proxy.pid" ]]; then
-            kill "$(cat "$RUNNER_TEMP/resolve-telemetry-proxy.pid")" 2>/dev/null || true
-          fi
-      - name: Validate agent output before upload
-        working-directory: trusted
+          done
+      # The agent could plant symlinks in its output directory, and the trusted checkout and
+      # Python's working directory are writable from the sandbox. Copy only regular files, with
+      # an isolated interpreter, before anything outside the sandbox reads them. The publish job
+      # validates the copies on a fresh runner.
+      - name: Stage agent output for upload
+        working-directory: ${{ runner.temp }}
         run: |
-          git reset --hard "$TRUSTED_REF"
-          git clean -fd
-          python "$SCRIPT" validate
+          python -I - <<'PY'
+          import os
+          import shutil
+          import stat
+          from pathlib import Path
+
+          stage = Path(os.environ["RUNNER_TEMP"]) / "resolve-out"
+          stage.mkdir(mode=0o700)
+          flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
+
+
+          def copy_regular(directory_fd, name, destination):
+              fd = os.open(name, flags, dir_fd=directory_fd)
+              with os.fdopen(fd, "rb") as source:
+                  if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
+                      raise ValueError(f"{name} is not a regular file")
+                  with destination.open("xb") as target:
+                      shutil.copyfileobj(source, target)
+
+
+          out_fd = os.open(os.environ["OUT_DIR"], flags | os.O_DIRECTORY)
+          try:
+              copy_regular(out_fd, "payload.json", stage / "payload.json")
+              try:
+                  copy_regular(out_fd, "fix.patch", stage / "fix.patch")
+              except FileNotFoundError:
+                  pass
+              media_fd = os.open("media", flags | os.O_DIRECTORY, dir_fd=out_fd)
+              try:
+                  (stage / "media").mkdir()
+                  for name in os.listdir(media_fd):
+                      copy_regular(media_fd, name, stage / "media" / name)
+              finally:
+                  os.close(media_fd)
+          finally:
+              os.close(out_fd)
+          PY
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: resolve-output-${{ github.run_id }}
-          path: |
-            ${{ env.OUT_DIR }}/payload.json
-            ${{ env.OUT_DIR }}/fix.patch
-            ${{ env.OUT_DIR }}/media/*
+          path: ${{ runner.temp }}/resolve-out
           if-no-files-found: error
           overwrite: true
           retention-days: 3
