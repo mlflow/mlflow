@@ -930,6 +930,19 @@ def test_get_n_trials_with_states(setup_storage, states, expected):
     assert storage.get_n_trials(study_id, states) == expected
 
 
+@pytest.mark.parametrize("states", [None, (TrialState.COMPLETE,)])
+def test_get_all_trials_ordered_by_trial_number(setup_storage, states):
+    storage = setup_storage
+    study_id = storage.create_new_study([StudyDirection.MINIMIZE])
+    for i in range(3):
+        trial_id = storage.create_new_trial(study_id)
+        storage.set_trial_state_values(trial_id, TrialState.COMPLETE, [float(i)])
+
+    trials = storage.get_all_trials(study_id, states=states)
+    assert [t.number for t in trials] == [0, 1, 2]
+    assert [t.value for t in trials] == [0.0, 1.0, 2.0]
+
+
 def test_study_exists_method(setup_storage):
     storage = setup_storage
 
