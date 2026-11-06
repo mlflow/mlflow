@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, jest } from '@jest/globals';
 import { screen } from '@testing-library/react';
 import { renderWithIntl } from '../../../../common/utils/TestUtils.react18';
 import { TraceAssessmentChart, type TraceAssessmentChartProps } from './TraceAssessmentChart';
@@ -6,6 +6,18 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import { OverviewChartProvider } from '../OverviewChartContext';
 import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
 import type { AssessmentChartDataPoint, DistributionChartDataPoint } from '../hooks/useAssessmentChartsSectionData';
+
+jest.mock('recharts', () => {
+  const baseMock = jest.requireActual<typeof import('../../../../../__mocks__/recharts')>(
+    '../../../../../__mocks__/recharts',
+  );
+  return {
+    ...baseMock,
+    Tooltip: ({ content }: { content?: unknown }) => (
+      <div data-testid="tooltip" data-content-type={typeof content} />
+    ),
+  };
+});
 
 describe('TraceAssessmentChart', () => {
   const testAssessmentName = 'Correctness';
@@ -238,6 +250,17 @@ describe('TraceAssessmentChart', () => {
 
       expect(screen.getByTestId('bar-chart')).toBeInTheDocument();
       expect(screen.queryByTestId('line-chart')).not.toBeInTheDocument();
+    });
+
+    it('should pass distribution tooltip content as a render function', () => {
+      renderComponent({
+        distributionChartData: createDistributionData([
+          { name: 'pass', count: 10 },
+          { name: 'fail', count: 5 },
+        ]),
+      });
+
+      expect(screen.getByTestId('tooltip')).toHaveAttribute('data-content-type', 'function');
     });
 
     it('should display "Total aggregate scores" label for bar chart', () => {
