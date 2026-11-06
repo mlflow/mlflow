@@ -1,6 +1,6 @@
 ---
 name: resolve
-description: Address a submitted pull request review in a disposable checkout and prepare a patch, replies, and supporting media.
+description: Address a submitted pull request review and prepare a patch, replies, and supporting media.
 argument-hint: "<pr_checkout> <review_context> <out_dir>"
 arguments: [pr_checkout, review_context, out_dir]
 disable-model-invocation: true
@@ -31,7 +31,7 @@ $out_dir/
 └── media/                      # Screenshots and recordings
 ```
 
-You start in the trusted checkout. `$pr_checkout` is a disposable checkout of the
+You start in the trusted checkout. `$pr_checkout` is a checkout of the
 PR head. `$out_dir` is a fresh absolute path outside both checkouts. `$review_context` mirrors
 the PR's Conversation tab: a chronological `timeline` of comments and reviews, with each inline
 thread under the review that started it. Address the review with `review_id`: its body and
