@@ -15,7 +15,7 @@ ADMIN_USERNAME = auth_config.admin_username
 ADMIN_PASSWORD = "test-admin-password"
 
 
-def write_isolated_auth_config(tmp_path: Path) -> Path:
+def write_isolated_auth_config(tmp_path: Path, default_permission: str = "READ") -> Path:
     """Write a basic_auth.ini under ``tmp_path`` whose ``database_uri`` points
     at an SQLite file inside the same dir, and return the config path.
 
@@ -30,7 +30,7 @@ def write_isolated_auth_config(tmp_path: Path) -> Path:
     db_path = tmp_path / "basic_auth.db"
     config_path.write_text(
         "[mlflow]\n"
-        "default_permission = READ\n"
+        f"default_permission = {default_permission}\n"
         f"database_uri = sqlite:///{db_path}\n"
         f"admin_username = {ADMIN_USERNAME}\n"
         f"admin_password = {ADMIN_PASSWORD}\n"

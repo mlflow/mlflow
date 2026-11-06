@@ -59,6 +59,12 @@ def isolated_credentials(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(empty / "config"))
     monkeypatch.setenv("NETRC", str(empty / "netrc"))
     monkeypatch.delenv("REGISTRY_AUTH_FILE", raising=False)
+    # Keep editor askpass helpers and system credential helpers away from the private-repo cases.
+    monkeypatch.delenv("GIT_ASKPASS", raising=False)
+    monkeypatch.delenv("SSH_ASKPASS", raising=False)
+    monkeypatch.setenv("GIT_TERMINAL_PROMPT", "0")
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", os.devnull)
 
 
 @pytest.fixture
@@ -195,6 +201,10 @@ def make_source(request):
             case "oci":
                 host = request.getfixturevalue("oci_registry")
                 return OCISource(image=f"oci://{host}/skills/demo:v1", subpath=subpath)
+            case "oci-without-scheme":
+                # How the registry stores and returns an OCI image: without the `oci://` scheme.
+                host = request.getfixturevalue("oci_registry")
+                return OCISource(image=f"{host}/skills/demo:v1", subpath=subpath)
             case "zip":
                 base_url, _ = request.getfixturevalue("zip_server")
                 return ZipSource(url=f"{base_url}/skills.zip", subpath=subpath)
@@ -233,7 +243,7 @@ def _assert_no_staging_left(parent):
     assert not [p for p in parent.iterdir() if p.name.startswith(".mlflow-skill-pull-")]
 
 
-@pytest.mark.parametrize("kind", SOURCE_KINDS)
+@pytest.mark.parametrize("kind", [*SOURCE_KINDS, "oci-without-scheme"])
 @pytest.mark.parametrize("subpath", [None, SUBPATH])
 def test_pull_every_source_type_honors_persisted_subpath(
     kind, subpath, make_source, skill_tree, tmp_path
@@ -327,7 +337,7 @@ def test_deleted_version_is_not_pulled(tmp_path):
     assert not (tmp_path / "out").exists()
 
 
-@pytest.mark.parametrize("kind", ["git", "oci", "zip"])
+@pytest.mark.parametrize("kind", ["git", "oci", "oci-wrong-credentials", "zip"])
 @pytest.mark.parametrize("initially_empty_dir", [False, True])
 def test_authentication_failures_leave_destination_as_found(
     kind, initially_empty_dir, make_source, zip_server, tmp_path, monkeypatch
@@ -340,6 +350,14 @@ def test_authentication_failures_leave_destination_as_found(
         case "oci":
             source = make_source("oci")
             monkeypatch.setenv("DOCKER_CONFIG", str(tmp_path / "no-credentials" / "docker"))
+        case "oci-wrong-credentials":
+            source = make_source("oci")
+            host = source.image.removeprefix("oci://").split("/")[0]
+            docker = tmp_path / "wrong-login"
+            docker.mkdir()
+            auth = base64.b64encode(b"user:wrong-secret").decode()
+            (docker / "config.json").write_text(json.dumps({"auths": {host: {"auth": auth}}}))
+            monkeypatch.setenv("DOCKER_CONFIG", str(docker))
         case "zip":
             source = ZipSource(url=f"{base_url}/private/skills.zip")
     destination = tmp_path / "out"
@@ -387,6 +405,7 @@ def test_unavailable_sources_preserve_the_underlying_error(
         pull_skill_version(_version(source), tmp_path / "out")
 
     assert detail in exc.value.message
+    assert "secret" not in exc.value.message
     assert exc.value.error_code == error_code
     assert not os.path.lexists(tmp_path / "out")
 

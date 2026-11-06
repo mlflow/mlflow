@@ -1,16 +1,13 @@
 # Cross-dialect (Docker matrix) tests for the RFC-0008 skill registry schema: they run
-# against every backend in the MLflow DB test matrix (SQLite, PostgreSQL, MySQL, MSSQL)
-# and prove cascade behavior at the SQL
-# layer rather than through application checks. The store layer does not exist yet, so
-# these operate directly on the ORM models.
+# against every backend in the MLflow DB test matrix (SQLite, PostgreSQL, MySQL, MSSQL).
+# They work on the ORM models and the migration rather than the store: key widths, the
+# ORM's cascade on delete, and downgrading and re-upgrading the migration. The database's
+# own cascade, without the ORM, is checked in
+# tests/store/tracking/sqlalchemy_store/test_sqlalchemy_store_skill_registry_constraints.py,
+# and the store's behavior on every engine in tests/store/tracking/sqlalchemy_store. The
+# database CI job runs both.
 #
-# Several tests here intentionally mirror SQLite-only tests in
-# tests/store/tracking/test_skill_registry_dbmodels.py: those give fast feedback in the
-# normal test suite, while these re-prove the same guarantees on every engine, where
-# constraint enforcement (foreign keys, primary keys) and text sort order can differ
-# between databases. Each such test names its counterpart.
-#
-# NOTE: all tests here deliberately share one database, unlike the SQLite twin file, where
+# NOTE: all tests here deliberately share one database, unlike the store tests, where
 # each test can create and discard its own database cheaply. So keep every test to its own
 # data: give skills names unique to the test that creates them, and filter
 # queries by those names rather than relying on a bare `.all()`. Also remember that
@@ -23,6 +20,7 @@ from pathlib import Path
 import pytest
 import sqlalchemy as sa
 from alembic import command
+from alembic.script import ScriptDirectory
 from sqlalchemy.orm import Session
 
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
@@ -71,10 +69,10 @@ def _seed_skill(session, *, organization, name, version=1):
 
 
 def test_db_backend_cascade_delete_skill(store):
-    # Cross-dialect twin of test_cascade_delete_skill_removes_children.
     # Deletes through the ORM (not raw DB constraints), so relationship
-    # `cascade="all, delete-orphan"` removes the children.
-    # test_db_backend_cascade_is_enforced_by_the_database is the database-level proof.
+    # `cascade="all, delete-orphan"` removes the children. The database-level proof is
+    # test_database_cascades_skill_deletion_to_all_children in
+    # tests/store/tracking/sqlalchemy_store/test_sqlalchemy_store_skill_registry_constraints.py.
     with session_scope(store) as session:
         _seed_skill(session, organization="acme", name="cascade-skill")
         session.add(SqlSkillTag(organization="acme", name="cascade-skill", key="k", value="v"))
@@ -96,39 +94,43 @@ def test_db_backend_cascade_delete_skill(store):
             assert remaining == 0
 
 
-def test_db_backend_cascade_is_enforced_by_the_database(store):
-    # Same as test_db_backend_cascade_delete_skill, but relies on the raw
-    # `ON DELETE CASCADE` rule.
+def _widest(model, column, fill):
+    return fill * getattr(model, column).type.length
+
+
+def test_db_backend_keys_accept_values_at_their_declared_maximum(store):
+    # https://github.com/mlflow/rfcs/pull/47 sized every composite key to fit each engine's
+    # index limit. MySQL enforces that when the migration creates the index, but SQL Server
+    # only warns then, and rejects a row once its key actually exceeds 900 bytes. So insert
+    # every table's key columns at their declared maximum and read them back unchanged,
+    # which also catches a column silently truncating a value. Widths come from the models,
+    # so widening a column later is covered too.
+    workspace = _widest(SqlSkill, "workspace", "w")
+    organization = _widest(SqlSkill, "organization", "o")
+    skill = _widest(SqlSkill, "name", "s")
+    tag_key = _widest(SqlSkillTag, "key", "k")
+    alias = _widest(SqlSkillAlias, "alias", "a")
+    digest = _widest(SqlSkillVersion, "digest", "f")
+
+    skill_key = {"workspace": workspace, "organization": organization, "name": skill}
     with session_scope(store) as session:
-        _seed_skill(session, organization="acme", name="raw-cascade-skill")
-        session.add(SqlSkillTag(organization="acme", name="raw-cascade-skill", key="k", value="v"))
+        session.add(SqlSkill(**skill_key))
         session.add(
-            SqlSkillVersionTag(
-                organization="acme", name="raw-cascade-skill", version=1, key="k", value="v"
+            SqlSkillVersion(
+                **skill_key, version=1, source_type="git", source="s.git", digest=digest
             )
         )
-        session.add(
-            SqlSkillAlias(organization="acme", name="raw-cascade-skill", alias="prod", version=1)
-        )
-    # Deleting the parent skill must take every child row with it.
-    with session_scope(store) as session:
-        session.execute(
-            sa.delete(SqlSkill).where(
-                SqlSkill.workspace == "default",
-                SqlSkill.organization == "acme",
-                SqlSkill.name == "raw-cascade-skill",
-            )
-        )
+        session.add(SqlSkillTag(**skill_key, key=tag_key, value="v"))
+        session.add(SqlSkillVersionTag(**skill_key, version=1, key=tag_key, value="v"))
+        session.add(SqlSkillAlias(**skill_key, alias=alias, version=1))
 
     with session_scope(store, commit=False) as session:
-        for model in (SqlSkillVersion, SqlSkillTag, SqlSkillVersionTag, SqlSkillAlias):
-            assert (
-                session
-                .query(model)
-                .filter_by(organization="acme", name="raw-cascade-skill")
-                .count()
-                == 0
-            )
+        assert session.get(SqlSkill, (workspace, organization, skill)) is not None
+        stored = session.get(SqlSkillVersion, (workspace, organization, skill, 1))
+        assert stored.digest == digest
+        assert session.get(SqlSkillTag, (workspace, organization, skill, tag_key)) is not None
+        assert session.get(SqlSkillVersionTag, (workspace, organization, skill, 1, tag_key))
+        assert session.get(SqlSkillAlias, (workspace, organization, skill, alias)) is not None
 
 
 _SKILL_REGISTRY_TABLES = frozenset({
@@ -140,17 +142,22 @@ _SKILL_REGISTRY_TABLES = frozenset({
 })
 
 
+def _skill_registry_migration_parent(config):
+    # Read from the migration rather than hardcoded, so the downgrade undoes only this
+    # migration even after other migrations are added beneath it.
+    return ScriptDirectory.from_config(config).get_revision("e7d1f4b2a9c6").down_revision
+
+
 def test_db_backend_migration_downgrade_and_reupgrade(store):
-    # Cross-dialect twin of test_migration_downgrade_and_reupgrade. FK-aware drop
-    # ordering is stricter on MySQL/MSSQL than on SQLite, so this re-proves a clean
-    # downgrade on the full matrix. The store fixture leaves the DB at head; downgrade
+    # FK-aware drop ordering is stricter on MySQL/MSSQL than on SQLite, so this proves a
+    # clean downgrade on the full matrix. The store fixture leaves the DB at head; downgrade
     # drops this migration's tables, and the finally restores head so the other
     # tests/db tests still see the full schema.
     url = MLFLOW_TRACKING_URI.get()
     config = _get_alembic_config(url)
     assert _SKILL_REGISTRY_TABLES <= set(sa.inspect(store.engine).get_table_names())
     try:
-        command.downgrade(config, "b7e2c1a4d9f3")
+        command.downgrade(config, _skill_registry_migration_parent(config))
         assert _SKILL_REGISTRY_TABLES.isdisjoint(set(sa.inspect(store.engine).get_table_names()))
     finally:
         command.upgrade(config, "head")
