@@ -5,7 +5,7 @@ import pytest
 from google import genai
 
 import mlflow
-from mlflow.gemini.genai_semconv_converter import _convert_part
+from mlflow.gemini.genai_semconv_converter import GeminiConverter, _convert_part
 from mlflow.tracing.constant import GenAiSemconvKey
 
 from tests.gemini.test_gemini_autolog import (
@@ -159,4 +159,81 @@ def test_autolog_with_tool_calls(capture_otel_export):
     ],
 )
 def test_convert_part_multimodal(part, expected):
+    assert _convert_part(part) == expected
+
+
+def test_reasoning_export_preserves_candidates_and_signature():
+    attrs = GeminiConverter().translate(
+        None,
+        {
+            "candidates": [
+                {
+                    "content": {
+                        "role": "model",
+                        "parts": [
+                            {
+                                "text": "I will compare the choices.",
+                                "thought": True,
+                                "thought_signature": b"signature",
+                            },
+                            {"text": "The first choice is best.", "thought": False},
+                        ],
+                    }
+                },
+                {"content": {"role": "model", "parts": [{"text": "The second choice is best."}]}},
+            ]
+        },
+    )
+    assert json.loads(attrs[GenAiSemconvKey.OUTPUT_MESSAGES]) == [
+        {
+            "role": "assistant",
+            "parts": [
+                {
+                    "type": "reasoning",
+                    "content": "I will compare the choices.",
+                    "thought_signature": "c2lnbmF0dXJl",
+                },
+                {"type": "text", "content": "The first choice is best."},
+            ],
+        },
+        {"role": "assistant", "parts": [{"type": "text", "content": "The second choice is best."}]},
+    ]
+
+
+@pytest.mark.parametrize(
+    ("part", "expected"),
+    [
+        (
+            {"inline_data": {"mime_type": "application/pdf", "data": b"%PDF"}},
+            {
+                "type": "blob",
+                "modality": "document",
+                "mime_type": "application/pdf",
+                "content": "JVBERg==",
+            },
+        ),
+        (
+            {"file_data": {"mime_type": "application/pdf", "file_uri": "gs://bucket/report.pdf"}},
+            {
+                "type": "uri",
+                "modality": "document",
+                "mime_type": "application/pdf",
+                "uri": "gs://bucket/report.pdf",
+            },
+        ),
+        (
+            {"inline_data": {"mime_type": "video/mp4", "data": "dmlkZW8="}},
+            {"type": "blob", "modality": "video", "mime_type": "video/mp4", "content": "dmlkZW8="},
+        ),
+        (
+            {"type": "custom_media", "source": {"uri": "https://example.com/media"}},
+            {"type": "custom_media", "source": {"uri": "https://example.com/media"}},
+        ),
+        (
+            {"thought_signature": "encrypted"},
+            {"type": "unknown", "thought_signature": "encrypted"},
+        ),
+    ],
+)
+def test_preserve_documents_video_and_generic_parts(part, expected):
     assert _convert_part(part) == expected

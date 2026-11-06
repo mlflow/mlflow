@@ -7,7 +7,7 @@ import boto3
 import pytest
 
 import mlflow
-from mlflow.bedrock.genai_semconv_converter import _convert_image
+from mlflow.bedrock.genai_semconv_converter import BedrockConverseConverter, _convert_image
 from mlflow.tracing.constant import GenAiSemconvKey
 
 from tests.tracing.helper import capture_otel_export, reset_autolog_state  # noqa: F401
@@ -254,3 +254,125 @@ def test_autolog_with_image(capture_otel_export):
 )
 def test_convert_image(image, expected):
     assert _convert_image(image) == expected
+
+
+def test_reasoning_and_redacted_content_export():
+    content = [
+        {"reasoningContent": {"reasoningText": {"text": "I will compare.", "signature": "signed"}}},
+        {"reasoningContent": {"redactedContent": b"encrypted"}},
+        {"text": "The first choice is best."},
+    ]
+    attrs = BedrockConverseConverter().translate(
+        {"messages": [{"role": "assistant", "content": content}]},
+        {"output": {"message": {"role": "assistant", "content": content}}},
+    )
+    expected = [
+        {
+            "role": "assistant",
+            "parts": [
+                {"type": "reasoning", "content": "I will compare.", "signature": "signed"},
+                {"type": "reasoningContent", "redactedContent": "ZW5jcnlwdGVk"},
+                {"type": "text", "content": "The first choice is best."},
+            ],
+        }
+    ]
+    assert json.loads(attrs[GenAiSemconvKey.INPUT_MESSAGES]) == expected
+    assert json.loads(attrs[GenAiSemconvKey.OUTPUT_MESSAGES]) == expected
+
+
+@pytest.mark.parametrize(
+    ("block", "expected"),
+    [
+        (
+            {
+                "document": {
+                    "name": "Report",
+                    "format": "pdf",
+                    "citations": {"enabled": True},
+                    "source": {"bytes": b"%PDF"},
+                }
+            },
+            {
+                "type": "blob",
+                "modality": "document",
+                "mime_type": "application/pdf",
+                "content": "JVBERg==",
+                "name": "Report",
+                "citations": {"enabled": True},
+            },
+        ),
+        (
+            {"video": {"format": "mp4", "source": {"bytes": b"video"}}},
+            {"type": "blob", "modality": "video", "mime_type": "video/mp4", "content": "dmlkZW8="},
+        ),
+        (
+            {"video": {"format": "mp4", "source": {"s3Location": {"uri": "s3://bucket/vid.mp4"}}}},
+            {
+                "type": "uri",
+                "modality": "video",
+                "mime_type": "video/mp4",
+                "uri": "s3://bucket/vid.mp4",
+            },
+        ),
+        (
+            {"image": {"format": "jpeg", "source": {"s3Location": {"uri": "s3://bucket/img.jpg"}}}},
+            {
+                "type": "uri",
+                "modality": "image",
+                "mime_type": "image/jpeg",
+                "uri": "s3://bucket/img.jpg",
+            },
+        ),
+        (
+            {"document": {"name": "Notes", "source": {"text": "The notes."}}},
+            {"type": "document", "name": "Notes", "source": {"text": "The notes."}},
+        ),
+        (
+            {"customMedia": {"location": "s3://bucket/media", "format": "custom"}},
+            {
+                "type": "customMedia",
+                "customMedia": {"location": "s3://bucket/media", "format": "custom"},
+            },
+        ),
+    ],
+)
+def test_document_video_and_generic_content_export(block, expected):
+    attrs = BedrockConverseConverter().translate(
+        {"messages": [{"role": "user", "content": [{"text": "Inspect this."}, block]}]}, None
+    )
+    assert json.loads(attrs[GenAiSemconvKey.INPUT_MESSAGES]) == [
+        {"role": "user", "parts": [{"type": "text", "content": "Inspect this."}, expected]}
+    ]
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        [{"image": {"format": "png", "source": {"bytes": b"image"}}}],
+        [{"document": {"format": "pdf", "name": "Report", "source": {"bytes": b"%PDF"}}}],
+        [
+            {"text": "Here is the clip."},
+            {"video": {"format": "mp4", "source": {"bytes": b"video"}}},
+        ],
+        [{"customResult": {"location": "s3://bucket/result"}}],
+    ],
+)
+def test_preserve_tool_result_media(content):
+    attrs = BedrockConverseConverter().translate(
+        {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [{"toolResult": {"toolUseId": "tool-1", "content": content}}],
+                }
+            ]
+        },
+        None,
+    )
+    response = json.loads(attrs[GenAiSemconvKey.INPUT_MESSAGES])[0]["parts"][0]
+    assert response["type"] == "tool_call_response"
+    assert response["id"] == "tool-1"
+    expected = json.loads(
+        json.dumps(content, default=lambda value: base64.b64encode(value).decode("utf-8"))
+    )
+    assert response["response"] == expected
