@@ -33,6 +33,8 @@ except ImportError:
 
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.utils.otlp import (
+    _get_otlp_metrics_endpoint,
+    _get_otlp_traces_endpoint,
     decompress_otlp_body,
     get_otlp_exporter,
     should_use_otlp_exporter,
@@ -110,6 +112,62 @@ def test_get_otlp_exporter_invalid_protocol(monkeypatch):
 
     with pytest.raises(MlflowException, match="Unsupported OTLP protocol"):
         get_otlp_exporter()
+
+
+@pytest.mark.parametrize(
+    ("base_endpoint", "protocol", "expected_traces", "expected_metrics"),
+    [
+        ("localhost:4317", None, "localhost:4317", "localhost:4317"),
+        ("localhost:4317", "grpc", "localhost:4317", "localhost:4317"),
+        ("http://collector:4317", "grpc", "http://collector:4317", "http://collector:4317"),
+        (
+            "http://collector:4318/",
+            "http/protobuf",
+            "http://collector:4318/v1/traces",
+            "http://collector:4318/v1/metrics",
+        ),
+    ],
+)
+def test_otlp_base_endpoint_appends_signal_path_only_for_http(
+    base_endpoint, protocol, expected_traces, expected_metrics, monkeypatch
+):
+    for var in [
+        "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+        "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
+        "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL",
+        "OTEL_EXPORTER_OTLP_METRICS_PROTOCOL",
+        "OTEL_EXPORTER_OTLP_PROTOCOL",
+    ]:
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", base_endpoint)
+    if protocol:
+        monkeypatch.setenv("OTEL_EXPORTER_OTLP_PROTOCOL", protocol)
+
+    assert _get_otlp_traces_endpoint() == expected_traces
+    assert _get_otlp_metrics_endpoint() == expected_metrics
+
+
+def test_otlp_base_endpoint_uses_signal_specific_protocol(monkeypatch):
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", raising=False)
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", raising=False)
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector:4317")
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "grpc")
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", "http/protobuf")
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_METRICS_PROTOCOL", "grpc")
+
+    assert _get_otlp_traces_endpoint() == "http://collector:4317/v1/traces"
+    assert _get_otlp_metrics_endpoint() == "http://collector:4317"
+
+
+def test_get_otlp_exporter_grpc_with_schemeless_base_endpoint(monkeypatch):
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", raising=False)
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", raising=False)
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_PROTOCOL", raising=False)
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4317")
+
+    exporter = get_otlp_exporter()
+    assert isinstance(exporter, GrpcExporter)
+    assert exporter._endpoint == "localhost:4317"
 
 
 # flaky: auto-detected from CI re-runs; see the weekly flaky-test report
