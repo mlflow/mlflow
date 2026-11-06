@@ -460,9 +460,9 @@ def main() -> None:
         case ["embed"]:
             embed(out_dir)
         case [operation] if operation in {"collect", "publish"}:
-            repo, number, review_id = (
-                os.environ[key] for key in ("GH_REPO", "PR_NUMBER", "REVIEW_ID")
-            )
+            repo = os.environ["GH_REPO"]
+            number = os.environ["PR_NUMBER"]
+            review_id = os.environ["REVIEW_ID"]
             if repo != "mlflow/mlflow" or not number.isdecimal() or not review_id.isdecimal():
                 raise ValueError("Expected an MLflow PR and numeric review ID")
             if operation == "collect":
