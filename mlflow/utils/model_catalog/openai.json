@@ -2798,7 +2798,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-16"
+      "deprecation_date": "2027-02-01",
+      "last_updated_at": "2026-11-06"
     },
     "gpt-5.5-pro": {
       "mode": "responses",
@@ -3212,6 +3213,27 @@
         "response_schema": true
       },
       "last_updated_at": "2026-11-02"
+    },
+    "gpt-6-cyber": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 922000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 20.0,
+        "output_per_million_tokens": 100.0,
+        "cache_read_per_million_tokens": 2.0,
+        "cache_write_per_million_tokens": 25.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-06"
     },
     "gpt-6-luna": {
       "mode": "chat",
