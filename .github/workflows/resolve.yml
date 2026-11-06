@@ -209,7 +209,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANTHROPIC_BASE_URL: http://localhost:8080/anthropic
-          # Placeholder the agent sends to the local gateway proxy; the proxy swaps in the real gateway token.
           ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway-proxy.outputs.placeholder-token }}
           ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
           ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5
