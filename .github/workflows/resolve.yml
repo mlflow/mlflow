@@ -144,8 +144,8 @@ jobs:
           printf 'placeholder-token=%s\n' "$placeholder_token" >> "$GITHUB_OUTPUT"
           printf '%s\n%s\n' "$GATEWAY_TOKEN" "$placeholder_token" | env -u GATEWAY_TOKEN \
             GATEWAY_URL="$GATEWAY_URL" node .claude/sandbox/gateway-proxy.mjs \
-            > "$RUNNER_TEMP/resolve-gateway-proxy.log" 2>&1 &
-          printf '%s\n' "$!" > "$RUNNER_TEMP/resolve-gateway-proxy.pid"
+            > "/tmp/resolve-gateway-proxy.log" 2>&1 &
+          printf '%s\n' "$!" > "/tmp/resolve-gateway-proxy.pid"
           unset GATEWAY_TOKEN placeholder_token
           curl --noproxy '*' --retry 30 --retry-connrefused --retry-delay 1 \
             -fsS http://127.0.0.1:8080/healthz > /dev/null
@@ -175,10 +175,10 @@ jobs:
           printf '%s\n%s\n' "$TELEMETRY_TOKEN" "$placeholder_token" | env -u TELEMETRY_TOKEN \
             DATABRICKS_HOST="$DATABRICKS_HOST" TRACE_LOCATION="$TRACE_LOCATION" \
             node .claude/sandbox/otel-proxy.mjs \
-            > "$RUNNER_TEMP/resolve-telemetry-proxy.log" 2>&1 &
+            > "/tmp/resolve-telemetry-proxy.log" 2>&1 &
           proxy_pid=$!
           unset TELEMETRY_TOKEN placeholder_token
-          printf '%s\n' "$proxy_pid" > "$RUNNER_TEMP/resolve-telemetry-proxy.pid"
+          printf '%s\n' "$proxy_pid" > "/tmp/resolve-telemetry-proxy.pid"
           for _ in $(seq 1 30); do
             if ! kill -0 "$proxy_pid" 2>/dev/null; then
               break
@@ -188,7 +188,7 @@ jobs:
             fi
             sleep 2
           done
-          cat "$RUNNER_TEMP/resolve-telemetry-proxy.log"
+          cat "/tmp/resolve-telemetry-proxy.log"
           echo "::error::Telemetry proxy did not become ready"
           exit 1
       # Passwordless sudo would let the agent read Runner.Worker's memory, which holds every
@@ -234,7 +234,7 @@ jobs:
           echo "::stop-commands::$token"
           trap 'echo "::$token::"' EXIT
           timeout --kill-after=10s 30m setsid bash -o pipefail -c '
-            echo "$$" > "$RUNNER_TEMP/resolve-agent.pgid"
+            echo "$$" > "/tmp/resolve-agent.pgid"
             claude \
               --model databricks-claude-sonnet-5-5 \
               --effort medium \
@@ -249,8 +249,8 @@ jobs:
       - name: Stop agent processes
         if: always()
         run: |
-          if [[ -s "$RUNNER_TEMP/resolve-agent.pgid" ]]; then
-            pgid=$(cat "$RUNNER_TEMP/resolve-agent.pgid")
+          if [[ -s "/tmp/resolve-agent.pgid" ]]; then
+            pgid=$(cat "/tmp/resolve-agent.pgid")
             if [[ "$pgid" =~ ^[1-9][0-9]*$ ]]; then
               kill -KILL -- "-$pgid" 2>/dev/null || true
             fi
@@ -259,15 +259,15 @@ jobs:
         if: always()
         run: |
           for proxy in gateway telemetry; do
-            if [ -f "$RUNNER_TEMP/resolve-$proxy-proxy.pid" ]; then
-              kill "$(cat "$RUNNER_TEMP/resolve-$proxy-proxy.pid")" 2>/dev/null || true
+            if [ -f "/tmp/resolve-$proxy-proxy.pid" ]; then
+              kill "$(cat "/tmp/resolve-$proxy-proxy.pid")" 2>/dev/null || true
             fi
           done
       # The agent could plant symlinks in its output directory or modules in the trusted checkout.
       # Copy only regular files, with an isolated interpreter. The publish job validates the copies
       # on a fresh runner.
       - name: Stage agent output for upload
-        working-directory: ${{ runner.temp }}
+        working-directory: /tmp
         run: |
           python -I - <<'PY'
           import os
@@ -275,7 +275,7 @@ jobs:
           import stat
           from pathlib import Path
 
-          stage = Path(os.environ["RUNNER_TEMP"]) / "resolve-out"
+          stage = Path("/tmp/resolve-staged")
           stage.mkdir(mode=0o700)
           flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
 
@@ -309,7 +309,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: resolve-output-${{ github.run_id }}
-          path: ${{ runner.temp }}/resolve-out
+          path: /tmp/resolve-staged
           if-no-files-found: error
           overwrite: true
           retention-days: 3
