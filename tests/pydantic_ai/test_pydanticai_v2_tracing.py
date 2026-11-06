@@ -206,7 +206,7 @@ def test_model_request_span_records_processed_history(fail: bool):
         agent.run_sync("original")
 
     assert received[0][0].parts[0].content == "processed"
-    model_span = next(span for span in get_traces()[0].data.spans if span.span_type == SpanType.LLM)
+    model_span = next(s for s in get_traces()[0].data.spans if s.span_type == SpanType.LLM)
     assert model_span.status.status_code == ("ERROR" if fail else "OK")
     [message] = model_span.inputs["messages"]
     assert message["parts"][0]["content"] == "processed"
