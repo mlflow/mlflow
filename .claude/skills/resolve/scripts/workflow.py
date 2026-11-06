@@ -384,8 +384,6 @@ def publish(repo: str, number: str, review_id: str, context_path: Path, out_dir:
     head = pr["head"]["sha"]
     if tree:
         head = update_branch(repo, review_id, context, head, tree)
-        if api(endpoint)["head"]["sha"] != head:
-            raise ValueError("PR head changed before posting replies")
     elif head != context["head_sha"]:
         raise ValueError("PR head changed before publication")
 
