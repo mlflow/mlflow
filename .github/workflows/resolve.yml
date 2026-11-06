@@ -84,7 +84,8 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && !inputs.dry_run
         env:
           EXPECTED_REF: refs/heads/${{ github.event.repository.default_branch }}
-        run: test "$GITHUB_REF" = "$EXPECTED_REF"
+        run: |
+          test "$GITHUB_REF" = "$EXPECTED_REF"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.TRUSTED_REF }}
@@ -364,14 +365,16 @@ jobs:
         working-directory: trusted
         env:
           PR_CHECKOUT: ${{ github.workspace }}/pr
-        run: python "$SCRIPT" validate
+        run: |
+          python "$SCRIPT" validate
       - name: Embed reply media
         if: env.DRY_RUN == 'false'
         working-directory: trusted
         env:
           GH_TOKEN: ${{ secrets.UPLOAD_MEDIA_TOKEN }}
           REPOSITORY_ID: ${{ github.repository_id }}
-        run: python "$SCRIPT" embed
+        run: |
+          python "$SCRIPT" embed
       - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         if: env.DRY_RUN == 'false'
         id: app-token
@@ -388,4 +391,5 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_CHECKOUT: ${{ github.workspace }}/pr
           GIT_TERMINAL_PROMPT: "0"
-        run: python "$SCRIPT" publish
+        run: |
+          python "$SCRIPT" publish
