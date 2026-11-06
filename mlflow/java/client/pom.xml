@@ -14,8 +14,19 @@
   <name>MLflow Tracking API</name>
   <url>http://mlflow.org</url>
   <properties>
+    <guava.version>33.7.2-jre</guava.version>
     <mlflow.shade.packageName>org.mlflow_project</mlflow.shade.packageName>
   </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.google.guava</groupId>
+        <artifactId>guava</artifactId>
+        <version>${guava.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
 
   <dependencies>
     <dependency>
@@ -108,6 +119,7 @@
               <include>com.google.protobuf:protobuf-java-util</include>
               <include>org.apache.httpcomponents:httpclient</include>
               <include>com.google.guava:guava</include>
+              <include>com.google.guava:failureaccess</include>
               <include>com.google.code.gson:gson</include>
               <include>commons-codec:commons-codec</include>
               <include>commons-io:commons-io</include>
