@@ -4181,20 +4181,23 @@ def test_gateway_budget_policy_reads_are_workspace_scoped(fastapi_workspace_clie
             auth=admin_auth,
         ).raise_for_status()
 
-    response = requests.post(
-        url=tracking_uri + "/api/3.0/mlflow/gateway/budgets/create",
-        json={
-            "budget_unit": "USD",
-            "budget_amount": 5000.0,
-            "duration": {"unit": "DAYS", "value": 30},
-            "target_scope": "WORKSPACE",
-            "budget_action": "REJECT",
-        },
-        headers={"X-MLFLOW-WORKSPACE": "team-b"},
-        auth=admin_auth,
-    )
-    response.raise_for_status()
-    budget_policy_id = response.json()["budget_policy"]["budget_policy_id"]
+    budget_policy_ids = {}
+    for workspace in ("team-a", "team-b"):
+        response = requests.post(
+            url=tracking_uri + "/api/3.0/mlflow/gateway/budgets/create",
+            json={
+                "budget_unit": "USD",
+                "budget_amount": 5000.0,
+                "duration": {"unit": "DAYS", "value": 30},
+                "target_scope": "WORKSPACE",
+                "budget_action": "REJECT",
+            },
+            headers={"X-MLFLOW-WORKSPACE": workspace},
+            auth=admin_auth,
+        )
+        response.raise_for_status()
+        budget_policy_ids[workspace] = response.json()["budget_policy"]["budget_policy_id"]
+    budget_policy_id = budget_policy_ids["team-b"]
 
     # Membership of team-a only; the user holds no grant in team-b.
     grant_role_permission(tracking_uri, username, "experiment", "*", "READ", workspace="team-a")
@@ -4223,14 +4226,32 @@ def test_gateway_budget_policy_reads_are_workspace_scoped(fastapi_workspace_clie
     assert response.status_code == 403
 
     # Reads scoped to the caller's own workspace keep working.
+    own_policy_id = budget_policy_ids["team-a"]
+    member_auth = (username, password)
+    member_headers = {"X-MLFLOW-WORKSPACE": "team-a"}
     response = requests.get(
-        url=tracking_uri + "/api/3.0/mlflow/gateway/budgets/list",
-        auth=(username, password),
-        headers={"X-MLFLOW-WORKSPACE": "team-a"},
+        url=tracking_uri + "/api/3.0/mlflow/gateway/budgets/get",
+        params={"budget_policy_id": own_policy_id},
+        auth=member_auth,
+        headers=member_headers,
     )
     assert response.status_code == 200
-    # Proto-JSON omits empty repeated fields, so an empty list serializes as no key.
-    assert not response.json().get("budget_policies")
+    assert response.json()["budget_policy"]["budget_policy_id"] == own_policy_id
+
+    response = requests.get(
+        url=tracking_uri + "/api/3.0/mlflow/gateway/budgets/list",
+        auth=member_auth,
+        headers=member_headers,
+    )
+    assert response.status_code == 200
+    assert [p["budget_policy_id"] for p in response.json()["budget_policies"]] == [own_policy_id]
+
+    response = requests.get(
+        url=tracking_uri + "/api/3.0/mlflow/gateway/budgets/windows",
+        auth=member_auth,
+        headers=member_headers,
+    )
+    assert response.status_code == 200
 
     # Admins are unaffected.
     response = requests.get(

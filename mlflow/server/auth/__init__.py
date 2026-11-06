@@ -2829,61 +2829,37 @@ def validate_can_create_skill(username: str, organization: str = "", name: str =
     )
 
 
+def _can_view_workspace(username: str | None, workspace_name: str | None) -> bool:
+    if username is None or workspace_name is None:
+        return False
+    if _user_inherits_default_workspace_grant(workspace_name):
+        return True
+    return workspace_name in store.list_accessible_workspace_names(username)
+
+
 def validate_can_view_workspace() -> bool:
     if not MLFLOW_ENABLE_WORKSPACES.get():
         return True
 
     username = authenticate_request().username
-
     workspace_name = request.view_args.get("workspace_name") if request.view_args else None
-    if workspace_name is None:
-        return False
-
-    if username is None:
-        return False
-
-    if auth_config.grant_default_workspace_access:
-        default_workspace, _ = get_default_workspace_optional(_get_workspace_store())
-        if default_workspace and workspace_name == default_workspace.name:
-            return True
-
-    names = set(store.list_accessible_workspace_names(username))
-
-    return workspace_name in names
+    return _can_view_workspace(username, workspace_name)
 
 
 def validate_can_view_request_workspace() -> bool:
-    """Gate tenant-scoped reads on the workspace the request itself targets.
-
-    Used by routes whose data is scoped by the request workspace (the
-    ``X-MLFLOW-WORKSPACE`` header) rather than a path parameter — e.g. gateway
-    budget policies and spend windows. A login alone must not let a caller pick
-    an arbitrary tenant: require the same workspace visibility that
-    ``validate_can_view_workspace`` enforces for the workspace-by-name GET.
     """
-
+    Like ``validate_can_view_workspace``, but for routes whose data is scoped by the
+    request workspace (the ``X-MLFLOW-WORKSPACE`` header) instead of a path parameter,
+    such as gateway budget policies and spend windows.
+    """
     if not MLFLOW_ENABLE_WORKSPACES.get():
-        # Without workspaces there is no tenancy: budget policies are
-        # server-global config, so the open-read behavior stands.
+        # Without workspaces, budget policies are server-global, so reads stay open.
         return True
 
     username = authenticate_request().username
-    if username is None:
-        return False
-
     # Resolved from the X-MLFLOW-WORKSPACE header before Flask validators run.
     workspace_name = workspace_context.get_request_workspace()
-    if workspace_name is None:
-        return False
-
-    if auth_config.grant_default_workspace_access:
-        default_workspace, _ = get_default_workspace_optional(_get_workspace_store())
-        if default_workspace and workspace_name == default_workspace.name:
-            return True
-
-    names = set(store.list_accessible_workspace_names(username))
-
-    return workspace_name in names
+    return _can_view_workspace(username, workspace_name)
 
 
 # Scorers
@@ -5337,11 +5313,8 @@ BEFORE_REQUEST_HANDLERS = {
     GetGatewayModelDefinition: validate_can_read_gateway_model_definition,
     UpdateGatewayModelDefinition: validate_can_update_gateway_model_definition,
     DeleteGatewayModelDefinition: validate_can_delete_gateway_model_definition,
-    # Budget-policy writes are admin-only; reads (get/list/windows) are scoped to
-    # the request workspace, so they require visibility of that workspace. #21120
-    # left reads open to any authenticated user, but that predates workspaces —
-    # once policies carry an owning workspace, a login alone must not select the
-    # tenant.
+    # Budget-policy writes are admin-only; reads (get/list/windows) require visibility
+    # of the request workspace.
     CreateGatewayBudgetPolicy: sender_is_admin,
     UpdateGatewayBudgetPolicy: sender_is_admin,
     DeleteGatewayBudgetPolicy: sender_is_admin,

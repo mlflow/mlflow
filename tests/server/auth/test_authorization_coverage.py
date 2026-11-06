@@ -191,7 +191,7 @@ def test_jobs_owner_check(monkeypatch):
     assert a.validate_is_job_owner() is False
 
 
-def test_gateway_discovery_config_budget_gating():
+def test_gateway_discovery_config_gating():
     def vname(path, method="GET"):
         v = a._find_validator(_Req(path, method))
         return v.__name__ if v is not None else None
@@ -201,14 +201,23 @@ def test_gateway_discovery_config_budget_gating():
     assert vname("/ajax-api/3.0/mlflow/gateway/supported-models") == "_allow_authenticated"
     assert vname("/ajax-api/3.0/mlflow/gateway/provider-config") == "_allow_authenticated"
     assert vname("/ajax-api/3.0/mlflow/gateway/secrets/config") == "_allow_authenticated"
-    # Budget policies are workspace-scoped data: reads require visibility of the
-    # request workspace; writes are admin-only. #21120 made reads authenticated-open,
-    # but that predates workspaces scoping policies to a tenant.
-    assert vname("/api/3.0/mlflow/gateway/budgets/get") == "validate_can_view_request_workspace"
-    assert vname("/api/3.0/mlflow/gateway/budgets/list") == "validate_can_view_request_workspace"
-    assert vname("/api/3.0/mlflow/gateway/budgets/windows") == "validate_can_view_request_workspace"
-    assert vname("/api/3.0/mlflow/gateway/budgets/create", "POST") == "sender_is_admin"
-    assert vname("/api/3.0/mlflow/gateway/budgets/delete", "DELETE") == "sender_is_admin"
+
+
+# Budget-policy writes are admin-only; reads require visibility of the request workspace.
+@pytest.mark.parametrize("prefix", ["/api/3.0", "/ajax-api/3.0"])
+@pytest.mark.parametrize(
+    ("route", "method", "expected"),
+    [
+        ("budgets/get", "GET", a.validate_can_view_request_workspace),
+        ("budgets/list", "GET", a.validate_can_view_request_workspace),
+        ("budgets/windows", "GET", a.validate_can_view_request_workspace),
+        ("budgets/create", "POST", a.sender_is_admin),
+        ("budgets/update", "POST", a.sender_is_admin),
+        ("budgets/delete", "DELETE", a.sender_is_admin),
+    ],
+)
+def test_gateway_budget_policy_routes_resolve_validator(prefix, route, method, expected):
+    assert a._find_validator(_Req(f"{prefix}/mlflow/gateway/{route}", method)) is expected
 
 
 def test_create_gateway_secret_requires_workspace_create_validator():
