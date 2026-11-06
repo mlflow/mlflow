@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793973559749,
+  "lastUpdate": 1793974819258,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "1058075+hpenedones@users.noreply.github.com",
-            "name": "Hugo Penedones",
-            "username": "hpenedones"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4da1f3f64725852c437d2094d2b02ca8ebb0406d",
-          "message": "Fix the documented default `--backend-store-uri` for `mlflow gc` (#25583)\n\nSigned-off-by: Hugo Penedones <1058075+hpenedones@users.noreply.github.com>\nCo-authored-by: Claude Opus 5 <noreply@anthropic.com>\nCo-authored-by: Kris Concepcion <84737625+kriscon-db@users.noreply.github.com>",
-          "timestamp": "2026-09-08T21:08:01-04:00",
-          "tree_id": "3fe0dbcf9da4ed6cee17362072130e41b06bdf6a",
-          "url": "https://github.com/mlflow/mlflow/commit/4da1f3f64725852c437d2094d2b02ca8ebb0406d"
-        },
-        "date": 1788916153531,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 32.005238799996505,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 4.7786227124980485,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 4.111760552083806,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 4.758928364239429,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 5.032676125750357,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 5.8406283333169995,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 2.958876285715308,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "191841109+mlflow-app[bot]@users.noreply.github.com",
+            "name": "mlflow-app[bot]",
+            "username": "mlflow-app[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f5dd2ef7ecbcb8a0b7ad75614568e1e61b8bb131",
+          "message": "Return Optuna trials ordered by trial number in `MlflowStorage.get_all_trials` (#27540)\n\nSigned-off-by: mlflow-app[bot] <191841109+mlflow-app[bot]@users.noreply.github.com>\nCo-authored-by: mlflow-app[bot] <191841109+mlflow-app[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-06T14:16:37Z",
+          "tree_id": "e9146f0d6733e0acd37af2f0ba46c37dc416828c",
+          "url": "https://github.com/mlflow/mlflow/commit/f5dd2ef7ecbcb8a0b7ad75614568e1e61b8bb131"
+        },
+        "date": 1793974815762,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 29.55886674999988,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 4.553123741175949,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 3.8966913350783763,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 3.917634468086046,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 4.301472152047271,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 3.56752480000182,
             "unit": "ms"
           }
         ]
