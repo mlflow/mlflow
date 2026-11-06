@@ -36,10 +36,12 @@ from mlflow.data.numpy_dataset import from_numpy
 from mlflow.data.pandas_dataset import from_pandas
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.input_tag import InputTag
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.sklearn import _SklearnTrainingSession
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -653,6 +655,7 @@ def autolog(
     silent=False,
     registered_model_name=None,
     extra_tags=None,
+    max_features_to_plot=None,
 ):
     """
     Enables (or disables) and configures autologging from LightGBM to MLflow. Logs the following:
@@ -702,6 +705,8 @@ def autolog(
             new model version of the registered model with this name.
             The registered model is created if it does not already exist.
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+        max_features_to_plot: If specified, only the top ``max_features_to_plot`` most important
+            features will be plotted. If ``None``, all features are plotted.
 
     .. code-block:: python
         :caption: Example
@@ -769,6 +774,16 @@ def autolog(
     import lightgbm
     import numpy as np
 
+    if max_features_to_plot is not None and (
+        isinstance(max_features_to_plot, bool)
+        or not isinstance(max_features_to_plot, int)
+        or max_features_to_plot <= 0
+    ):
+        raise MlflowException(
+            f"`max_features_to_plot` must be a positive integer, but got {max_features_to_plot}",
+            INVALID_PARAMETER_VALUE,
+        )
+
     # Patching this function so we can get a copy of the data given to Dataset.__init__
     #   to use as an input example and for inferring the model signature.
     #   (there is no way to get the data back from a Dataset object once it is consumed by train)
@@ -813,6 +828,11 @@ def autolog(
             indices = np.argsort(importance)
             features = np.array(features)[indices]
             importance = importance[indices]
+
+            if max_features_to_plot is not None and max_features_to_plot > 0:
+                features = features[-max_features_to_plot:]
+                importance = importance[-max_features_to_plot:]
+
             num_features = len(features)
 
             # If num_features > 10, increase the figure height to prevent the plot
