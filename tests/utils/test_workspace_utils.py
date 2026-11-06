@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 
+import pytest
+
 from mlflow.environment_variables import MLFLOW_WORKSPACE
 from mlflow.utils.workspace_context import (
     ServerWorkspaceContext,
@@ -53,3 +55,22 @@ def test_server_workspace_context_does_not_touch_env(monkeypatch):
         assert MLFLOW_WORKSPACE.get_raw() == "env-workspace"
 
     assert MLFLOW_WORKSPACE.get_raw() == "env-workspace"
+
+
+@pytest.mark.parametrize("workspace", [None, "ctx-workspace"])
+def test_server_workspace_context_overrides_env_and_restores_outer_context(workspace, monkeypatch):
+    monkeypatch.setenv(MLFLOW_WORKSPACE.name, "env-workspace")
+    with ServerWorkspaceContext("outer-workspace"):
+        with ServerWorkspaceContext(workspace):
+            assert get_request_workspace() == workspace
+            assert MLFLOW_WORKSPACE.get_raw() == "env-workspace"
+        assert get_request_workspace() == "outer-workspace"
+    assert get_request_workspace() == "env-workspace"
+
+
+def test_entity_workspace_respects_explicit_absence(monkeypatch):
+    monkeypatch.setenv(MLFLOW_WORKSPACE.name, "env-workspace")
+    with ServerWorkspaceContext(None):
+        assert resolve_entity_workspace_name(None) == DEFAULT_WORKSPACE_NAME
+        assert MLFLOW_WORKSPACE.get_raw() == "env-workspace"
+    assert resolve_entity_workspace_name(None) == "env-workspace"

@@ -97,6 +97,104 @@ mlflow.genai.delete_mcp_access_endpoint(
 )
 ```
 
+## Link Traces to MCP Servers
+
+Call `span.link_mcp_server()` to record which registered MCP server an operation uses. Pass an
+`MCPServerRef`, an `MCPServerVersion`, or an `MCPAccessEndpoint`:
+
+```python
+import mlflow
+from mlflow.entities import MCPServerRef
+
+with mlflow.start_span("weather.forecast", span_type="TOOL") as span:
+    span.link_mcp_server(MCPServerRef("com.example/weather", version="1.0.0"), tool="forecast")
+    # Invoke the MCP tool here.
+
+# Resolve an alias to a concrete version when the span is annotated.
+with mlflow.start_span("weather.discover") as span:
+    span.link_mcp_server(MCPServerRef("com.example/weather", alias="production"))
+
+# A name-only reference leaves the version unknown; it does not resolve "latest".
+with mlflow.start_span("weather.resources") as span:
+    span.link_mcp_server(MCPServerRef("com.example/weather"))
+```
+
+`version` and `alias` are mutually exclusive. Version strings are preserved exactly, including
+surrounding whitespace.
+For a version object returned by
+`mlflow.genai.get_mcp_server_version()`, pass the object directly; no lookup is needed:
+
+```python
+version = mlflow.genai.get_mcp_server_version("com.example/weather", "1.0.0")
+with mlflow.start_span("weather.forecast", span_type="TOOL") as span:
+    span.link_mcp_server(version, tool="forecast")
+```
+
+You can also pass an access endpoint obtained from the registry:
+
+```python
+endpoint = mlflow.genai.get_mcp_access_endpoint(
+    server_name="com.example/weather", endpoint_id="ae-weather"
+)
+with mlflow.start_span("weather.forecast", span_type="TOOL") as span:
+    span.link_mcp_server(endpoint, tool="forecast")
+```
+
+On a cache miss or expiry, the SDK reloads the endpoint by ID and uses its refreshed
+`resolved_version`. An existing unresolved endpoint produces a name-only link. A missing
+endpoint, or a change to its URL or transport, fails the call. Reload the endpoint after a
+URL or transport change. The registry target describes the intended server identity; it does
+not verify which version the remote server actually serves. Raw URLs are not accepted.
+
+The method sets `mlflow.mcp.server.name`, optionally `mlflow.mcp.server.version`, and optionally
+`mlflow.mcp.tool.name` on the span. Supply `tool` only for an invoked tool; omit it for
+discovery, resource, and prompt operations. These attributes travel through normal trace
+export; the method makes no separate request to create a link. A span can hold one server
+identity, consisting of the server name and its optional version. After the first link, using a
+different name or version raises an error, including adding a version to a name-only link.
+
+MLflow exporters mark raw MCP version strings automatically. If you send OTLP directly to an
+MLflow server, add the resource attribute `mlflow.mcp.server.version.encoding` with value `raw`
+to the `ResourceSpans` that contains those spans. In Python, use the public
+`mlflow.tracing.MCP_SERVER_VERSION_ENCODING` constant when creating the OTel resource:
+
+```python
+import mlflow
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+
+provider = TracerProvider(
+    resource=Resource.create({mlflow.tracing.MCP_SERVER_VERSION_ENCODING: "raw"})
+)
+```
+
+The marker applies to every span in that resource group. Keep spans with legacy JSON-encoded MCP
+versions in a separate resource group.
+
+Resolution uses the tracking server and workspace captured when the trace started. Version
+and endpoint objects from another workspace are rejected. Alias lookup failures also raise an error, and failed
+calls leave the span attributes unchanged. Stored traces retain the concrete version observed
+when linked, even if an alias is later retargeted.
+
+### Resolution Cache
+
+Alias and access endpoint lookups use a shared process-local cache, isolated by tracking server
+and workspace. `MLFLOW_MCP_SERVER_CACHE_TTL_SECONDS` sets the cache lifetime in seconds and
+defaults to `60`. Override it for a call with `cache_ttl_seconds`; set it to `0` to bypass the
+cache:
+
+```python
+with mlflow.start_span("weather.forecast", span_type="TOOL") as span:
+    span.link_mcp_server(
+        MCPServerRef("com.example/weather", alias="production"),
+        tool="forecast",
+        cache_ttl_seconds=0,
+    )
+```
+
+Name-only references and concrete versions do not need registry lookups. Manually linking a
+span does not require an MCP client framework or the `mcp` extra.
+
 ## Connection Instructions
 
 The MLflow UI generates ready-to-use connection instructions for registered MCP servers. Click the **Connect** button on any server card to see instructions for:

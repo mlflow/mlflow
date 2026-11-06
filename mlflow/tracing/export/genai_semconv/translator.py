@@ -21,6 +21,12 @@ from mlflow.tracing.utils import get_otel_attribute
 
 _logger = logging.getLogger(__name__)
 
+_PRESERVED_MLFLOW_ATTRIBUTES = {
+    SpanAttributeKey.MCP_SERVER_NAME,
+    SpanAttributeKey.MCP_SERVER_VERSION,
+    SpanAttributeKey.MCP_TOOL_NAME,
+}
+
 # Span type → GenAI operation name mapping.
 # https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/
 _SPAN_TYPE_TO_OPERATION: dict[str, str] = {
@@ -84,13 +90,12 @@ def translate_span_to_genai(span: ReadableSpan) -> ReadableSpan:
                 chat_tools if isinstance(chat_tools, str) else json.dumps(chat_tools)
             )
 
-    # Merge: Keep non-mlflow.* attrs (but preserve mlflow.traceTag.* so user tags survive
-    # OTLP export even in GenAI semconv mode), then overlay GenAI attrs.
+    # Preserve user tags and MCP coordinates, which have no GenAI equivalents.
     prefix = SpanAttributeKey.TRACE_TAG_PREFIX
     merged_attrs = {
         k: v
         for k, v in original_attrs.items()
-        if not k.startswith("mlflow.") or k.startswith(prefix)
+        if not k.startswith("mlflow.") or k.startswith(prefix) or k in _PRESERVED_MLFLOW_ATTRIBUTES
     }
     merged_attrs.update(genai_attrs)
 
@@ -231,7 +236,7 @@ def _create_passthrough_span(span: ReadableSpan, original_attrs: dict[str, Any])
     cleaned_attrs = {
         k: v
         for k, v in original_attrs.items()
-        if not k.startswith("mlflow.") or k.startswith(prefix)
+        if not k.startswith("mlflow.") or k.startswith(prefix) or k in _PRESERVED_MLFLOW_ATTRIBUTES
     }
     return _build_readable_span(span, name=span.name, attributes=cleaned_attrs, kind=span.kind)
 

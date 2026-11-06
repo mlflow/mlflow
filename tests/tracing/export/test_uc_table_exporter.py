@@ -3,9 +3,11 @@ from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
 import pytest
+from opentelemetry.sdk.trace import TracerProvider
 
 import mlflow
-from mlflow.entities.span import Span
+from mlflow.entities.span import LiveSpan, Span
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
 from mlflow.tracing.processor.base_mlflow import (
     BaseMlflowSpanProcessor,
@@ -57,6 +59,56 @@ def test_export_spans_to_uc_table(is_async, monkeypatch):
     assert len(args[0][1]) == 1
     assert isinstance(args[0][1][0], Span)
     assert args[0][1][0].to_dict() == span.to_dict()
+
+
+@pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
+@pytest.mark.parametrize("native_otel", [False, True], ids=["mlflow", "otel"])
+@pytest.mark.parametrize(
+    "version", [None, "1", "true", "null", "[]", "{}", '"quoted"', "1.0.0", 1, True, 1.5]
+)
+def test_export_spans_preserves_mcp_version(version, native_otel, is_async, monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", "1")
+    with TracerProvider().get_tracer(__name__).start_as_current_span("mcp") as otel_span:
+        span = LiveSpan(otel_span, trace_id=f"tr-{otel_span.context.trace_id:032x}")
+        span.set_attribute(SpanAttributeKey.MCP_SERVER_NAME, "com.example/weather")
+        span.set_attribute("payload", {"key": 1})
+        if version is not None:
+            target = otel_span if native_otel else span
+            target.set_attribute(SpanAttributeKey.MCP_SERVER_VERSION, version)
+    original_attributes = dict(otel_span.attributes)
+    exporter = DatabricksUCTableSpanExporter()
+    exporter._client = mock.Mock()
+    try:
+        with mock.patch(
+            "mlflow.tracing.export.uc_table.get_active_spans_table_name",
+            return_value="catalog.schema.spans",
+        ) as get_table:
+            exporter._export_spans_incrementally([otel_span])
+            get_table.assert_called_once()
+    finally:
+        exporter.flush(terminate=True)
+
+    exporter._client.log_spans.assert_called_once()
+    location, exported_spans = exporter._client.log_spans.call_args.args
+    assert location == "catalog.schema.spans"
+    assert len(exported_spans) == 1
+    exported = exported_spans[0]
+    proto = exported.to_otel_proto()
+    if isinstance(version, str):
+        attribute = next(
+            attr for attr in proto.attributes if attr.key == SpanAttributeKey.MCP_SERVER_VERSION
+        )
+        assert attribute.value.WhichOneof("value") == "string_value"
+        assert attribute.value.string_value == version
+    for restored in [exported, Span.from_dict(exported.to_dict()), Span.from_otel_proto(proto)]:
+        actual = restored.get_attribute(SpanAttributeKey.MCP_SERVER_VERSION)
+        assert actual == version
+        assert type(actual) is type(version)
+        assert restored.get_attribute(SpanAttributeKey.MCP_SERVER_NAME) == "com.example/weather"
+        assert restored.get_attribute("payload") == {"key": 1}
+    assert dict(otel_span.attributes) == original_attributes
+    assert span.get_attribute(SpanAttributeKey.MCP_SERVER_VERSION) == version
 
 
 def test_log_trace_no_upload_data_for_uc_schema():

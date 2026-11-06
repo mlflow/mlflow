@@ -12,6 +12,7 @@ from opentelemetry.sdk.trace.export import SpanExporter
 from mlflow.environment_variables import MLFLOW_ENABLE_OTLP_EXPORTER, MLFLOW_TRACKING_TOKEN
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.tracing.constant import MCP_SERVER_VERSION_ENCODING, SpanAttributeKey
 from mlflow.utils.credentials import read_mlflow_creds
 
 # Constants for OpenTelemetry integration
@@ -283,3 +284,20 @@ def resource_to_otel_proto(resource: OTelResource | None) -> OTelProtoResource:
             attr.key = key
             _set_otel_proto_anyvalue(attr.value, value)
     return otel_resource
+
+
+def _mark_mcp_server_version_as_raw(resource: OTelProtoResource, spans: list[Any]) -> None:
+    """Mark the shared OTLP resource when MLflow spans contain raw MCP version strings."""
+    if not any(
+        isinstance(span.get_attribute(SpanAttributeKey.MCP_SERVER_VERSION), str) for span in spans
+    ):
+        return
+
+    for attr in resource.attributes:
+        if attr.key == MCP_SERVER_VERSION_ENCODING:
+            attr.value.string_value = "raw"
+            return
+
+    attr = resource.attributes.add()
+    attr.key = MCP_SERVER_VERSION_ENCODING
+    attr.value.string_value = "raw"

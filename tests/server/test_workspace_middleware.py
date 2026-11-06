@@ -54,6 +54,18 @@ def test_flask_workspace_middleware_sets_context(flask_workspace_app, monkeypatc
     assert workspace_context.get_request_workspace() is None
 
 
+def test_flask_workspace_middleware_clears_context_when_disabled(flask_workspace_app, monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    monkeypatch.setenv("MLFLOW_WORKSPACE", "client-workspace")
+
+    response = flask_workspace_app.test_client().get("/ping")
+
+    assert response.status_code == 200
+    assert response.data == b"none"
+    assert not workspace_context.is_request_workspace_resolved()
+    assert workspace_context.get_request_workspace() == "client-workspace"
+
+
 def test_flask_workspace_middleware_requires_header(flask_workspace_app, monkeypatch):
     class DefaultlessWorkspaceStore:
         def get_default_workspace(self):

@@ -40,6 +40,7 @@ if TYPE_CHECKING:
 from mlflow.entities.metric import MetricWithRunId
 from mlflow.entities.trace import Span, Trace
 from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_mcp_server_link import MCPServerSpanObservation, TraceMCPServerLink
 from mlflow.entities.workspace import TraceArchivalConfig
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
@@ -362,6 +363,21 @@ class AbstractStore(SkillRegistryMixin, MCPServerRegistryMixin, GatewayStoreMixi
             The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
         """
         raise NotImplementedError
+
+    def upsert_span_mcp_server_links(
+        self, trace_id: str, links: list[MCPServerSpanObservation]
+    ) -> None:
+        """Atomically insert or update observations for an existing, accessible trace.
+
+        The workspace is derived from the trace. Observations do not require stored spans
+        or matching registry entries. Repeated keys update the observed version, including
+        an unknown (None) version, while preserving the original creation timestamp.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_mcp_servers_for_trace(self, trace_id: str) -> list[TraceMCPServerLink]:
+        """Return distinct server and optional version summaries for an accessible trace."""
+        raise NotImplementedError(self.__class__.__name__)
 
     def get_trace(self, trace_id: str, *, allow_partial: bool = False) -> Trace:
         """
