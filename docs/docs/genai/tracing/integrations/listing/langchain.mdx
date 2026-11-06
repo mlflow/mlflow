@@ -42,6 +42,13 @@ LangChain.js tracing is supported via the OpenTelemetry ingestion. See the [Gett
 </Tabs>
 </TabsWrapper>
 
+## Prerequisites
+
+- Python 3.9 or higher
+- An OpenAI API key (or another supported LLM provider)
+- A running MLflow tracking server (local or remote)
+- Basic familiarity with LangChain
+
 ## Getting Started
 
 MLflow support tracing for LangChain in both Python and TypeScript/JavaScript. Please select the appropriate tab below to get started.
@@ -106,6 +113,14 @@ Visit `http://localhost:5000` (or your custom MLflow tracking server URL) to vie
 
   </TabItem>
   <TabItem value="typescript-v1" label="JS / TS (v1)">
+
+### What you should see
+
+After invoking the chain, open the MLflow UI. You should see a new trace containing:
+
+- A parent span for the overall chain
+- Nested spans for the prompt and the LLM call
+- Inputs, outputs, and latency for each step  
 
 ### 1. Start MLflow
 
