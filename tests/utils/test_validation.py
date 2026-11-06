@@ -1197,6 +1197,17 @@ def test_validate_gateway_secret_auth_config_rejects_private_api_base():
             })
 
 
+def test_validate_gateway_secret_auth_config_rejects_private_auth_url():
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        side_effect=_mock_getaddrinfo("10.0.0.1"),
+    ):
+        with pytest.raises(MlflowException, match="must not resolve to a non-public"):
+            _validate_gateway_secret_auth_config({
+                "auth_url": "https://auth.internal/oauth/token",
+            })
+
+
 def test_validate_gateway_secret_auth_config_accepts_public_api_base():
     with patch(
         "mlflow.utils.validation.socket.getaddrinfo",
