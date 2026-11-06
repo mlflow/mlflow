@@ -5,8 +5,11 @@ import inspect
 import json
 import re
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
+from flask import Flask, g
+from werkzeug.datastructures import Authorization
 
 from mlflow.server import auth as a
 from mlflow.server.handlers import get_endpoints
@@ -350,11 +353,64 @@ def test_metric_history_bulk_interval_rest_prefix_is_gated():
 
 
 def test_demo_routes_gating():
-    # generate is authenticated-open; delete hard-deletes the shared demo -> admin-only.
     gen = a._find_validator(_Req("/ajax-api/3.0/mlflow/demo/generate", "POST"))
     dele = a._find_validator(_Req("/ajax-api/3.0/mlflow/demo/delete", "POST"))
-    assert gen is a._allow_authenticated
+    assert gen is a._user_can_create_in_workspace
     assert dele is a.sender_is_admin
+
+
+def test_demo_generation_request_scope_preserves_existing_data():
+    with a.app.test_request_context(a.DEMO_GENERATE, method="POST"):
+        a.REQUEST_SCOPE_HANDLERS[(a.DEMO_GENERATE, "POST")]()
+
+        assert g.mlflow_demo_refresh_allowed is False
+
+
+@pytest.mark.parametrize(
+    ("is_admin", "can_create", "status_code", "refresh_allowed"),
+    [
+        (False, True, 200, False),
+        (True, False, 200, True),
+        (False, False, 403, True),
+    ],
+)
+def test_demo_generation_before_request(
+    monkeypatch, is_admin, can_create, status_code, refresh_allowed
+):
+    authenticate = Mock(return_value=Authorization("basic", {"username": "user"}))
+    admin_check = Mock(return_value=is_admin)
+    create_check = Mock(return_value=can_create)
+    scope = Mock(wraps=a.REQUEST_SCOPE_HANDLERS[(a.DEMO_GENERATE, "POST")])
+    handler = Mock(return_value="ok")
+    monkeypatch.setattr(a, "authenticate_request", authenticate)
+    monkeypatch.setattr(a, "sender_is_admin", admin_check)
+    monkeypatch.setattr(a, "_can_create_in_workspace", create_check)
+    monkeypatch.setitem(a.REQUEST_SCOPE_HANDLERS, (a.DEMO_GENERATE, "POST"), scope)
+    app = Flask(__name__)
+    app.before_request(a._before_request)
+    app.add_url_rule(a.DEMO_GENERATE, "demo", lambda: handler(), methods=["POST"])
+
+    with app.test_request_context(a.DEMO_GENERATE, method="POST"):
+        response = app.full_dispatch_request()
+
+        assert response.status_code == status_code
+        assert getattr(g, "mlflow_demo_refresh_allowed", True) is refresh_allowed
+        if not is_admin and can_create:
+            scope.assert_called_once_with()
+        else:
+            scope.assert_not_called()
+            assert "mlflow_demo_refresh_allowed" not in g
+
+    authenticate.assert_called_with()
+    admin_check.assert_called_once_with()
+    if is_admin:
+        create_check.assert_not_called()
+    else:
+        create_check.assert_called_once_with("user")
+    if status_code == 200:
+        handler.assert_called_once_with()
+    else:
+        handler.assert_not_called()
 
 
 def _graphql_schema_field_names():

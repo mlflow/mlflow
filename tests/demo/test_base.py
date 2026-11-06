@@ -114,12 +114,13 @@ def test_is_generated_false_when_version_mismatch(stub_generator):
     assert stub_generator.is_generated() is False
 
 
-def test_is_generated_calls_delete_demo_on_version_mismatch(stub_generator):
+@pytest.mark.parametrize("stored_version", [None, 1, 2])
+def test_is_generated_does_not_delete_data(stub_generator, stored_version):
     stub_generator.data_exists_value = True
-    stub_generator.stored_version_value = 1
+    stub_generator.stored_version_value = stored_version
     stub_generator.version = 2
     stub_generator.is_generated()
-    assert stub_generator.delete_demo_called is True
+    assert stub_generator.delete_demo_called is False
 
 
 def test_is_generated_no_delete_when_no_data(stub_generator):

@@ -1,4 +1,5 @@
 import json
+from unittest import mock
 
 import pytest
 
@@ -30,6 +31,25 @@ def traces_generator():
 def test_generator_attributes(evaluation_generator):
     assert evaluation_generator.name == DemoFeature.EVALUATION
     assert evaluation_generator.version == 3
+
+
+def test_generate_delegates_trace_dependency_to_shared_orchestration(evaluation_generator):
+    with (
+        mock.patch(
+            "mlflow.demo.generate_all_demos",
+            side_effect=RuntimeError("Stop before evaluation"),
+        ) as generate_all,
+        mock.patch.object(
+            TracesDemoGenerator,
+            "generate",
+            side_effect=AssertionError("Trace generation must use shared orchestration"),
+        ) as generate_traces,
+        pytest.raises(RuntimeError, match="Stop before evaluation"),
+    ):
+        evaluation_generator.generate()
+
+    generate_all.assert_called_once_with(features=[DemoFeature.TRACES])
+    generate_traces.assert_not_called()
 
 
 def test_data_exists_false_when_no_experiment(evaluation_generator):

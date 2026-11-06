@@ -3048,7 +3048,7 @@ def sender_is_admin():
 
 
 def _allow_authenticated():
-    # For routes open to any logged-in user (no tenant-scoped data): discovery, demo.
+    # For routes open to any logged-in user with no tenant-scoped data, such as discovery.
     return True
 
 
@@ -3825,6 +3825,12 @@ def _scope_logged_model_query() -> None:
     _set_request_field(message, "experiment_ids", scoped_ids)
 
 
+def _scope_demo_generation() -> None:
+    # Admins bypass request scoping. Other users can create demos, but refresh must honor
+    # the same privilege boundary as the explicit demo-delete endpoint.
+    g.mlflow_demo_refresh_allowed = False
+
+
 REQUEST_SCOPE_FUNCTIONS = {
     SearchExperiments: _scope_experiment_search_query,
     BatchGetTraces: _scope_batch_trace_query,
@@ -3838,6 +3844,7 @@ REQUEST_SCOPE_HANDLERS = {
     for method in methods
     if scoper in REQUEST_SCOPE_FUNCTIONS.values()
 }
+REQUEST_SCOPE_HANDLERS[(DEMO_GENERATE, "POST")] = _scope_demo_generation
 
 
 def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
@@ -5583,8 +5590,8 @@ BEFORE_REQUEST_VALIDATORS.update({
     # Issue detection may also consume a gateway secret -> additionally require USE on it.
     (INVOKE_ISSUE_DETECTION, "POST"): validate_can_invoke_issue_detection,
     (INVOKE_GENAI_EVALUATE, "POST"): validate_can_invoke_genai_evaluate,
-    # Demo: generate is open to any authenticated user; delete is admin-only.
-    (DEMO_GENERATE, "POST"): _allow_authenticated,
+    # Demo creation follows workspace permissions; destructive refresh and delete are admin-only.
+    (DEMO_GENERATE, "POST"): _user_can_create_in_workspace,
     (DEMO_DELETE, "POST"): sender_is_admin,
     # Discovery + config back the gateway UI for any signed-in user: static capability
     # lists and provider/secret setup shapes, with no tenant-scoped secret material.
