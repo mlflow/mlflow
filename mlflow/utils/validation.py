@@ -1248,6 +1248,8 @@ def _validate_gateway_secret_auth_config(
             "'api_base', which is validated."
         )
     _validate_gateway_region_keys(normalized, "auth_config")
+    if auth_url := normalized.get("auth_url"):
+        _validate_gateway_api_base(auth_url)
     api_base = normalized.get("api_base")
     if isinstance(api_base, str):
         api_base = api_base.strip()
