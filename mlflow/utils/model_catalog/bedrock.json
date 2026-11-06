@@ -11898,6 +11898,42 @@
       },
       "last_updated_at": "2026-10-27"
     },
+    "us-gov.xai.grok-4.7": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 524288,
+        "max_output": 524288
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.64,
+        "output_per_million_tokens": 7.92,
+        "cache_read_per_million_tokens": 0.66,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.32,
+            "output_per_million_tokens": 3.96
+          },
+          "flex": {
+            "input_per_million_tokens": 1.32,
+            "output_per_million_tokens": 3.96,
+            "cache_read_per_million_tokens": 0.33
+          },
+          "priority": {
+            "input_per_million_tokens": 4.62,
+            "output_per_million_tokens": 13.86,
+            "cache_read_per_million_tokens": 1.155
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-06"
+    },
     "us-west-1/meta.llama3-70b-instruct-v1:0": {
       "mode": "chat",
       "context_window": {
