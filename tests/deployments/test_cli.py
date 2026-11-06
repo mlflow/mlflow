@@ -5,7 +5,7 @@ from unittest import mock
 import pytest
 from click.testing import CliRunner
 
-from mlflow.deployments import cli
+from mlflow.deployments import PredictionsResponse, cli
 from mlflow.exceptions import MlflowException
 
 f_model_uri = "fake_model_uri"
@@ -112,6 +112,122 @@ def test_predict(tmp_path):
     )
     with open(temp_output_file_path) as f:
         assert json.load(f) == {"predictions": [1, 2, 3]}
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"inputs": [[1, 2], [3, 4]]},
+        {"instances": [[1, 2], [3, 4]]},
+        {"inputs": [[[1, 2], [3, 4]]]},
+        {"inputs": {"features": [[1, 2], [3, 4]], "weights": [0.5, 1.0]}},
+        {"instances": [{"features": [1, 2]}, {"features": [3, 4]}]},
+    ],
+)
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny Client does not support tensor prediction due to the numpy dependency",
+)
+@pytest.mark.parametrize(
+    ("use_endpoint", "legacy_client"), [(False, False), (True, False), (False, True)]
+)
+def test_predict_tensor_input(tmp_path, payload, use_endpoint, legacy_client):
+    import numpy as np
+
+    input_path = tmp_path / "input.json"
+    input_path.write_text(json.dumps(payload))
+    client = mock.Mock()
+    client.predict = mock.create_autospec(
+        (lambda deployment_name, inputs: None)
+        if legacy_client
+        else (lambda deployment_name, inputs, endpoint=None: None),
+        return_value=PredictionsResponse({"predictions": [1, 2, 3]}),
+    )
+    with mock.patch.object(cli.interface, "get_deploy_client", return_value=client) as get_client:
+        result = runner.invoke(
+            cli.predict,
+            [
+                "--target",
+                f_target,
+                "--endpoint" if use_endpoint else "--name",
+                f_name,
+                "--input-path",
+                input_path,
+                "--json-format",
+                "tf-serving",
+            ],
+        )
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout) == {"predictions": [1, 2, 3]}
+    get_client.assert_called_once_with(f_target)
+    client.predict.assert_called_once()
+    name, inputs = client.predict.call_args.args
+    assert name == (None if use_endpoint else f_name)
+    expected_kwargs = {} if legacy_client else {"endpoint": f_name if use_endpoint else None}
+    assert client.predict.call_args.kwargs == expected_kwargs
+    if isinstance(inputs, dict):
+        expected = payload.get("inputs") or {"features": [[1, 2], [3, 4]]}
+        assert inputs.keys() == expected.keys()
+        for key, value in expected.items():
+            assert isinstance(inputs[key], np.ndarray)
+            np.testing.assert_array_equal(inputs[key], value)
+    else:
+        assert isinstance(inputs, np.ndarray)
+        np.testing.assert_array_equal(inputs, next(iter(payload.values())))
+
+
+@pytest.mark.parametrize("payload", [{}, {"inputs": [1], "instances": [1]}, {"other": [1]}])
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny Client does not support predict due to the pandas dependency",
+)
+def test_predict_invalid_tensor_input(tmp_path, payload):
+    input_path = tmp_path / "input.json"
+    input_path.write_text(json.dumps(payload))
+    with mock.patch.object(cli.interface, "get_deploy_client") as get_client:
+        result = runner.invoke(
+            cli.predict,
+            [
+                "--target",
+                f_target,
+                "--name",
+                f_name,
+                "--input-path",
+                input_path,
+                "--json-format",
+                "tf-serving",
+            ],
+        )
+    assert result.exit_code != 0
+    assert isinstance(result.exception, MlflowException)
+    assert 'One of "instances" and "inputs" must be specified' in str(result.exception)
+    get_client.assert_not_called()
+
+
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny Client does not support predict due to the pandas dependency",
+)
+def test_predict_pandas_input_named_inputs(tmp_path):
+    import pandas as pd
+
+    input_path = tmp_path / "input.json"
+    input_path.write_text('{"inputs": [1, 2]}')
+    client = mock.Mock()
+    client.predict.return_value = PredictionsResponse({"predictions": [1, 2]})
+    with mock.patch.object(cli.interface, "get_deploy_client", return_value=client) as get_client:
+        result = runner.invoke(
+            cli.predict, ["--target", f_target, "--name", f_name, "--input-path", input_path]
+        )
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout) == {"predictions": [1, 2]}
+    get_client.assert_called_once_with(f_target)
+    client.predict.assert_called_once()
+    name, inputs = client.predict.call_args.args
+    assert name == f_name
+    pd.testing.assert_frame_equal(inputs, pd.DataFrame({"inputs": [1, 2]}))
 
 
 def test_target_help():
