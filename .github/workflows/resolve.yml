@@ -1,4 +1,6 @@
 # Preview with: gh workflow run resolve.yml --ref <branch> -F pr_number=<number> -F review_id=<id>
+# Opus/high is the default for review runs unless the RESOLVE_MODEL or RESOLVE_EFFORT repository
+# variables override them; previews can pick another, e.g. `-f model=databricks-claude-sonnet-5-5`.
 name: Resolve PR review feedback
 
 on:
@@ -18,6 +20,22 @@ on:
         description: Preview the patch, replies, and thread closures
         type: boolean
         default: true
+      # Supported models: https://docs.databricks.com/aws/en/machine-learning/foundation-model-apis/supported-models
+      model:
+        description: "AI Gateway Claude model for the resolve agent, e.g. databricks-claude-sonnet-5-5"
+        required: false
+        type: string
+      effort:
+        description: "Reasoning effort for the resolve agent"
+        required: false
+        type: choice
+        default: high
+        options:
+          - low
+          - medium
+          - high
+          - xhigh
+          - max
 
 concurrency:
   group: resolve-${{ github.event.pull_request.number || inputs.pr_number }}
@@ -202,9 +220,29 @@ jobs:
             exit 1
           fi
           test "$(cat /proc/sys/kernel/yama/ptrace_scope)" -ge 1
+      - name: Resolve agent model and effort
+        id: agent
+        env:
+          MODEL: ${{ inputs.model || vars.RESOLVE_MODEL || 'databricks-claude-opus-5-5' }}
+          EFFORT: ${{ inputs.effort || vars.RESOLVE_EFFORT || 'high' }}
+        run: |
+          # $GITHUB_OUTPUT is line-based; a newline in the model could inject another output.
+          [[ "$MODEL" != *$'\n'* ]] || { echo "::error::Model must be a single line."; exit 1; }
+          case "$EFFORT" in
+            low | medium | high | xhigh | max) ;;
+            *)
+              echo "::error::Invalid effort '$EFFORT'. Check the RESOLVE_EFFORT repository variable."
+              exit 1
+              ;;
+          esac
+          echo "model=$MODEL" >> "$GITHUB_OUTPUT"
+          echo "effort=$EFFORT" >> "$GITHUB_OUTPUT"
+          echo "Agent model: \`$MODEL\`, effort: \`$EFFORT\`" >> "$GITHUB_STEP_SUMMARY"
       - name: Address review feedback
         working-directory: trusted
         env:
+          MODEL: ${{ steps.agent.outputs.model }}
+          EFFORT: ${{ steps.agent.outputs.effort }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANTHROPIC_BASE_URL: http://localhost:8080/anthropic
           ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway-proxy.outputs.placeholder-token }}
@@ -236,8 +274,8 @@ jobs:
           timeout --kill-after=10s 30m setsid bash -o pipefail -c '
             echo "$$" > "/tmp/resolve-agent.pgid"
             claude \
-              --model databricks-claude-sonnet-5-5 \
-              --effort high \
+              --model "$MODEL" \
+              --effort "$EFFORT" \
               --max-budget-usd 5 \
               --permission-mode auto \
               --disallowed-tools "WebSearch,WebFetch" \
