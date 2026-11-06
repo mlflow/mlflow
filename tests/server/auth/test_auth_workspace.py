@@ -1120,6 +1120,53 @@ def test_validate_can_view_workspace_allows_default_autogrant(monkeypatch):
         assert not auth_module.validate_can_view_workspace()
 
 
+@pytest.mark.parametrize(
+    ("grant_default_workspace_access", "workspace", "expected"),
+    [
+        (True, "team-default", True),
+        (True, "other-team", False),
+        (False, "team-default", False),
+        (False, "team-a", True),
+        (True, "team-a", True),
+    ],
+)
+def test_validate_can_view_request_workspace(
+    monkeypatch, grant_default_workspace_access, workspace, expected
+):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    auth = SimpleNamespace(username="alice")
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: auth)
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(
+            grant_default_workspace_access=grant_default_workspace_access,
+            default_permission=READ.name,
+        ),
+        raising=False,
+    )
+    monkeypatch.setattr(auth_module, "_get_workspace_store", lambda: None, raising=False)
+    monkeypatch.setattr(
+        auth_module,
+        "get_default_workspace_optional",
+        lambda *args, **kwargs: (SimpleNamespace(name="team-default"), True),
+        raising=False,
+    )
+
+    class DummyStore:
+        def list_accessible_workspace_names(self, username):
+            return ["team-a"]
+
+    monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
+
+    with (
+        auth_module.app.test_request_context("/api/3.0/mlflow/gateway/budgets/list", method="GET"),
+        workspace_context.WorkspaceContext(workspace),
+    ):
+        assert auth_module.validate_can_view_request_workspace() is expected
+
+
 def test_experiment_validators_allow_manage_permission(workspace_permission_setup):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]

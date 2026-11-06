@@ -2870,27 +2870,37 @@ def validate_can_create_skill(username: str, organization: str = "", name: str =
     )
 
 
+def _can_view_workspace(username: str | None, workspace_name: str | None) -> bool:
+    if username is None or workspace_name is None:
+        return False
+    if _user_inherits_default_workspace_grant(workspace_name):
+        return True
+    return workspace_name in store.list_accessible_workspace_names(username)
+
+
 def validate_can_view_workspace() -> bool:
     if not MLFLOW_ENABLE_WORKSPACES.get():
         return True
 
     username = authenticate_request().username
-
     workspace_name = request.view_args.get("workspace_name") if request.view_args else None
-    if workspace_name is None:
-        return False
+    return _can_view_workspace(username, workspace_name)
 
-    if username is None:
-        return False
 
-    if auth_config.grant_default_workspace_access:
-        default_workspace, _ = get_default_workspace_optional(_get_workspace_store())
-        if default_workspace and workspace_name == default_workspace.name:
-            return True
+def validate_can_view_request_workspace() -> bool:
+    """
+    Like ``validate_can_view_workspace``, but for routes whose data is scoped by the
+    request workspace (the ``X-MLFLOW-WORKSPACE`` header) instead of a path parameter,
+    such as gateway budget policies and spend windows.
+    """
+    if not MLFLOW_ENABLE_WORKSPACES.get():
+        # Without workspaces, budget policies are server-global, so reads stay open.
+        return True
 
-    names = set(store.list_accessible_workspace_names(username))
-
-    return workspace_name in names
+    username = authenticate_request().username
+    # Resolved from the X-MLFLOW-WORKSPACE header before Flask validators run.
+    workspace_name = workspace_context.get_request_workspace()
+    return _can_view_workspace(username, workspace_name)
 
 
 # Scorers
@@ -5345,14 +5355,14 @@ BEFORE_REQUEST_HANDLERS = {
     GetGatewayModelDefinition: validate_can_read_gateway_model_definition,
     UpdateGatewayModelDefinition: validate_can_update_gateway_model_definition,
     DeleteGatewayModelDefinition: validate_can_delete_gateway_model_definition,
-    # Budget-policy writes are admin-only; reads (get/list/windows) stay open to any
-    # authenticated user, matching the behavior established in #21120.
+    # Budget-policy writes are admin-only; reads (get/list/windows) require visibility
+    # of the request workspace.
     CreateGatewayBudgetPolicy: sender_is_admin,
     UpdateGatewayBudgetPolicy: sender_is_admin,
     DeleteGatewayBudgetPolicy: sender_is_admin,
-    GetGatewayBudgetPolicy: _allow_authenticated,
-    ListGatewayBudgetPolicies: _allow_authenticated,
-    ListGatewayBudgetWindows: _allow_authenticated,
+    GetGatewayBudgetPolicy: validate_can_view_request_workspace,
+    ListGatewayBudgetPolicies: validate_can_view_request_workspace,
+    ListGatewayBudgetWindows: validate_can_view_request_workspace,
     # Standalone guardrail CRUD is admin-only; endpoint-attached routes gate on the endpoint.
     CreateGatewayGuardrail: sender_is_admin,
     GetGatewayGuardrail: sender_is_admin,

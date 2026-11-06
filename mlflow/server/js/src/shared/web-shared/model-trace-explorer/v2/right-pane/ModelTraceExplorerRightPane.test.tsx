@@ -13,15 +13,19 @@ import { ModelSpanType } from '../ModelTrace.types';
 import { getDefaultActiveTab, normalizeNewSpanData } from '../ModelTraceExplorer.utils';
 import { mockSpans, MOCK_RETRIEVER_SPAN, MOCK_CHAT_SPAN } from '../../ModelTraceExplorer.test-utils';
 import { ModelTraceExplorerPreferencesProvider } from '../ModelTraceExplorerPreferencesContext';
+import { QueryClient, QueryClientProvider } from '../../../query-client/queryClient';
 
 const DEFAULT_SPAN: ModelTraceSpan = mockSpans[0];
 
 const Wrapper = ({ children }: { children: React.ReactNode }) => (
   <IntlProvider locale="en">
     <DesignSystemProvider>
-      <ModelTraceExplorerPreferencesProvider initialRenderMode="default">
-        {children}
-      </ModelTraceExplorerPreferencesProvider>
+      {/* The span view's issue cards read each issue's status to drop dismissed ones. */}
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <ModelTraceExplorerPreferencesProvider initialRenderMode="default">
+          {children}
+        </ModelTraceExplorerPreferencesProvider>
+      </QueryClientProvider>
     </DesignSystemProvider>
   </IntlProvider>
 );

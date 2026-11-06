@@ -680,7 +680,9 @@ class MlflowStorage(BaseStorage):
         frozen_trials: list[FrozenTrial] = [
             trial for trial in trials if states is None or trial.state in states
         ]
-        return frozen_trials
+        # Optuna requires trials to be ordered by trial number, but search_runs returns
+        # the newest runs first.
+        return sorted(frozen_trials, key=lambda trial: trial.number)
 
     def get_n_trials(
         self, study_id, states: Container[TrialState] | TrialState | None = None
