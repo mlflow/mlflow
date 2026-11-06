@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793947281924,
+  "lastUpdate": 1793948451234,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "joshua.wong@databricks.com",
-            "name": "joshuawong-db",
-            "username": "joshuawong-db"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "dad4fdefd3f36d026cdf69fb135e8c60e3ac49c4",
-          "message": "Fix Assistant Bash execution on Windows selector loops (#25687)",
-          "timestamp": "2026-09-08T14:30:14+08:00",
-          "tree_id": "a0c892170d60b5c305c228bb93fff97a20a2579d",
-          "url": "https://github.com/mlflow/mlflow/commit/dad4fdefd3f36d026cdf69fb135e8c60e3ac49c4"
-        },
-        "date": 1788849096416,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 44.161300799998315,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 6.402474366666648,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 5.516521816327126,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 6.355954948275509,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 5.819375314960156,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 11.348802200004116,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 2.7398835714273724,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "69462478+YannikKoe@users.noreply.github.com",
+            "name": "Yannik",
+            "username": "YannikKoe"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "cbbb2aa757913e2a68e081d397b80d20bff8a60b",
+          "message": "Add SAP AI Core UI to the AI Gateway via LiteLLM (#27395)\n\nSigned-off-by: Yannik Koesling <yannik.koesling@gmail.com>\nSigned-off-by: Joshua Wong <joshua.wong@databricks.com>\nCo-authored-by: Joshua Wong <joshua.wong@databricks.com>\nCo-authored-by: Isaac <no-reply@databricks.com>",
+          "timestamp": "2026-11-06T06:56:57Z",
+          "tree_id": "aa9def58d0b4f61dfa4acfd547f93c8402d952c4",
+          "url": "https://github.com/mlflow/mlflow/commit/cbbb2aa757913e2a68e081d397b80d20bff8a60b"
+        },
+        "date": 1793948447644,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 35.58943955000089,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 4.769420646341663,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 4.1875285212766515,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 4.036969061110954,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 4.3793834853804,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 3.986928999995598,
             "unit": "ms"
           }
         ]
