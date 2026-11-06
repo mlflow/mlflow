@@ -1,0 +1,50 @@
+name: Resolve PR review feedback
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number
+        type: number
+        required: true
+      review_id:
+        description: ID of the submitted review
+        type: number
+        required: true
+      dry_run:
+        description: Preview the patch, replies, and thread closures
+        type: boolean
+        default: true
+      model:
+        description: "AI Gateway Claude model for the resolve agent, e.g. databricks-claude-sonnet-5-5"
+        required: false
+        type: string
+      effort:
+        description: "Reasoning effort for the resolve agent"
+        required: false
+        type: choice
+        default: high
+        options:
+          - low
+          - medium
+          - high
+          - xhigh
+          - max
+
+concurrency:
+  group: resolve-bootstrap-${{ github.run_id }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+cache-mode: none
+
+jobs:
+  placeholder:
+    runs-on: ubuntu-slim
+    timeout-minutes: 1
+    steps:
+      - run: echo 'Placeholder for manual dispatch. Run with --ref <branch> to execute the branch version of this workflow.'
