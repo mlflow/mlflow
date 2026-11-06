@@ -2038,6 +2038,7 @@ mlflow.tensorflow.log_model
 mlflow.tensorflow.save_model
 mlflow.test
 mlflow.trace
+mlflow.tracing.MCP_SERVER_VERSION_ENCODING
 mlflow.tracing.attachments.Attachment
 mlflow.tracing.attachments.Attachment.from_file
 mlflow.tracing.attachments.Attachment.parse_ref

@@ -853,7 +853,7 @@ CREATE TABLE span_mcp_server_links (
 	trace_id VARCHAR(50) NOT NULL,
 	span_id VARCHAR(50) NOT NULL,
 	mcp_workspace VARCHAR(63) NOT NULL,
-	mcp_name VARCHAR(256) NOT NULL,
+	mcp_name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CS_AS" NOT NULL,
 	mcp_version NVARCHAR(512),
 	created_at BIGINT NOT NULL,
 	CONSTRAINT span_mcp_server_links_pk PRIMARY KEY (trace_id, span_id, mcp_workspace, mcp_name),

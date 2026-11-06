@@ -218,7 +218,9 @@ async def export_traces(
                 for attr in resource.attributes
             )
             if resource_mcp_version_is_raw:
-                # Keep transport encoding metadata out of the stored resource identity.
+                # This resource-scoped marker applies to every span in ResourceSpans, so
+                # their MCP version values must all use raw encoding. Older receivers ignore
+                # the marker and use the legacy JSON-decoding heuristic.
                 decoded_resource = type(resource)()
                 decoded_resource.CopyFrom(resource)
                 del decoded_resource.attributes[:]

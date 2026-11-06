@@ -214,7 +214,7 @@ TRACE_SCHEMA_VERSION = 3
 # Databricks model serving to be careful when modifying it.
 TRACE_SCHEMA_VERSION_KEY = "mlflow.trace_schema.version"
 
-# OTLP metadata distinguishing raw MCP versions from legacy JSON encoding.
+# Public OTLP resource attribute distinguishing raw MCP versions from legacy JSON encoding.
 MCP_SERVER_VERSION_ENCODING = "mlflow.mcp.server.version.encoding"
 
 

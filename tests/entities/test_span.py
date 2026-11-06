@@ -331,6 +331,41 @@ def test_create_non_live_span():
         span.set_inputs({"input": 1})
 
 
+@pytest.mark.parametrize("version", ["1", "true", "null", '"quoted"', "1.0.0"])
+def test_create_non_live_span_preserves_raw_mcp_version(version):
+    trace_id = "tr-mcp-version"
+    attributes = {
+        SpanAttributeKey.REQUEST_ID: json.dumps(trace_id),
+        SpanAttributeKey.MCP_SERVER_NAME: "com.example/weather",
+        SpanAttributeKey.MCP_SERVER_VERSION: version,
+    }
+    readable_span = OTelReadableSpan(
+        name="mcp",
+        context=build_otel_context(12345, 222),
+        attributes=attributes,
+        start_time=99999,
+        end_time=100000,
+        status=OTelStatus(OTelStatusCode.OK),
+    )
+    original_attributes = dict(readable_span.attributes)
+
+    span = create_mlflow_span(readable_span, trace_id)
+
+    assert isinstance(span, Span)
+    assert span.get_attribute(SpanAttributeKey.MCP_SERVER_NAME) == "com.example/weather"
+    assert span.get_attribute(SpanAttributeKey.MCP_SERVER_VERSION) == version
+    assert dict(readable_span.attributes) == original_attributes
+
+    restored_spans = [
+        span,
+        Span.from_dict(span.to_dict()),
+        Span.from_otel_proto(span.to_otel_proto()),
+    ]
+    for restored in restored_spans:
+        assert restored.get_attribute(SpanAttributeKey.MCP_SERVER_NAME) == "com.example/weather"
+        assert restored.get_attribute(SpanAttributeKey.MCP_SERVER_VERSION) == version
+
+
 def test_create_noop_span():
     trace_id = "tr-12345"
 

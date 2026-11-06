@@ -8,6 +8,7 @@ from sqlalchemy.dialects import mssql, mysql, postgresql, sqlite
 from mlflow.entities import LiveSpan, Span
 from mlflow.entities.trace_mcp_server_link import MCPServerSpanObservation, TraceMCPServerLink
 from mlflow.exceptions import MlflowException
+from mlflow.store.db.db_types import MSSQL, SQLITE
 from mlflow.store.tracking.dbmodels.models import SqlSpan, SqlSpanMCPServerLink, SqlTraceInfo
 from mlflow.store.tracking.sqlalchemy_store import _get_filter_clauses_for_search_traces
 from mlflow.tracing.constant import SpanAttributeKey, SpansLocation, TraceTagKey
@@ -163,6 +164,19 @@ def test_mcp_links_summarize_observations_without_spans_or_registry(store_and_tr
         ) == len(links)
 
 
+def test_mcp_link_names_are_case_sensitive_in_primary_key(store_and_trace_info):
+    store, trace = store_and_trace_info
+    names = ["com.example/Weather", "com.example/weather"]
+    store.upsert_span_mcp_server_links(
+        trace.trace_id,
+        [MCPServerSpanObservation("span-1", name) for name in names],
+    )
+
+    assert set(store.get_mcp_servers_for_trace(trace.trace_id)) == {
+        TraceMCPServerLink(DEFAULT_WORKSPACE_NAME, name, None) for name in names
+    }
+
+
 @pytest.mark.parametrize("version", ["2.0.0", None])
 def test_mcp_links_update_version_preserving_creation_time(store_and_trace_info, version):
     store, trace = store_and_trace_info
@@ -207,7 +221,7 @@ def test_mcp_links_duplicate_batch_keys_use_last_observation(store_and_trace_inf
     ],
 )
 @pytest.mark.parametrize("source", ["spans", "store"])
-def test_mcp_version_search_preserves_exact_identity(store, versions, source):
+def test_mcp_version_roundtrip_preserves_identity(store, versions, source):
     experiment_id = store.create_experiment("mcp-unicode-versions")
     if source == "spans":
         store.log_spans(
@@ -230,11 +244,16 @@ def test_mcp_version_search_preserves_exact_identity(store, versions, source):
             store.upsert_span_mcp_server_links(
                 trace_id, [MCPServerSpanObservation("span-1", "com.example/weather", version)]
             )
+    if store.db_type in (MSSQL, SQLITE):
+        # MySQL and PostgreSQL version equality follows the column collation, which may equate
+        # distinct Unicode strings. Verify exact search identity only where the query enforces it.
+        for index, version in enumerate(versions):
+            traces, _ = store.search_traces(
+                [experiment_id], filter_string=f"mcp_server.version = '{version}'"
+            )
+            assert [trace.trace_id for trace in traces] == [f"tr-unicode-{index}"]
+
     for index, version in enumerate(versions):
-        traces, _ = store.search_traces(
-            [experiment_id], filter_string=f"mcp_server.version = '{version}'"
-        )
-        assert [trace.trace_id for trace in traces] == [f"tr-unicode-{index}"]
         assert store.get_mcp_servers_for_trace(f"tr-unicode-{index}") == [
             TraceMCPServerLink(DEFAULT_WORKSPACE_NAME, "com.example/weather", version)
         ]

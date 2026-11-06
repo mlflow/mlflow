@@ -153,6 +153,24 @@ export; the method makes no separate request to create a link. A span can hold o
 identity, consisting of the server name and its optional version. After the first link, using a
 different name or version raises an error, including adding a version to a name-only link.
 
+MLflow exporters mark raw MCP version strings automatically. If you send OTLP directly to an
+MLflow server, add the resource attribute `mlflow.mcp.server.version.encoding` with value `raw`
+to the `ResourceSpans` that contains those spans. In Python, use the public
+`mlflow.tracing.MCP_SERVER_VERSION_ENCODING` constant when creating the OTel resource:
+
+```python
+import mlflow
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+
+provider = TracerProvider(
+    resource=Resource.create({mlflow.tracing.MCP_SERVER_VERSION_ENCODING: "raw"})
+)
+```
+
+The marker applies to every span in that resource group. Keep spans with legacy JSON-encoded MCP
+versions in a separate resource group.
+
 Resolution uses the tracking server and workspace captured when the trace started. Version
 and endpoint objects from another workspace are rejected. Alias lookup failures also raise an error, and failed
 calls leave the span attributes unchanged. Stored traces retain the concrete version observed

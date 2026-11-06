@@ -131,7 +131,7 @@ def create_mlflow_span(
         return LiveSpan(otel_span, trace_id, span_type)
 
     if isinstance(otel_span, OTelReadableSpan):
-        return Span(otel_span)
+        return Span._from_otel_span(otel_span)
 
     raise MlflowException(
         "The `otel_span` argument must be an instance of one of valid "

@@ -11,7 +11,7 @@ from opentelemetry.sdk.resources import Resource as _OTelResource
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 from mlflow.entities import ViewType, trace_location
-from mlflow.entities.span import Span, create_mlflow_span
+from mlflow.entities.span import Span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.workspace import Workspace
@@ -332,7 +332,9 @@ def create_test_span(
         status=trace_api.Status(status, status_desc),
         resource=_OTelResource.get_empty(),
     )
-    span = create_mlflow_span(otel_span, trace_id, span_type)
+    # This helper builds stored-format spans with JSON-encoded attributes. The factory treats
+    # MCP attributes on ReadableSpan as raw OTel values, so wrap this fixture directly.
+    span = Span(otel_span)
     if links:
         span._links = list(links)
     return span
