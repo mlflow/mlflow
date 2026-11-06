@@ -237,7 +237,7 @@ jobs:
             echo "$$" > "/tmp/resolve-agent.pgid"
             claude \
               --model databricks-claude-sonnet-5-5 \
-              --effort medium \
+              --effort high \
               --max-budget-usd 5 \
               --permission-mode auto \
               --disallowed-tools "WebSearch,WebFetch" \
