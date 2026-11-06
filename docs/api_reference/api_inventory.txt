@@ -887,6 +887,7 @@ mlflow.gateway.base_models.ConfigModel
 mlflow.gateway.config.AI21LabsConfig
 mlflow.gateway.config.AI21LabsConfig.validate_ai21labs_api_key
 mlflow.gateway.config.AWSBaseConfig
+mlflow.gateway.config.AWSBaseConfig.validate_aws_region
 mlflow.gateway.config.AWSBearerToken
 mlflow.gateway.config.AWSIdAndKey
 mlflow.gateway.config.AWSRole
@@ -2045,6 +2046,7 @@ mlflow.tracing.disable_notebook_display
 mlflow.tracing.enable
 mlflow.tracing.enable_notebook_display
 mlflow.tracing.get_bridged_tracer_provider
+mlflow.tracing.get_default_trace_location
 mlflow.tracing.get_tracing_context_headers_for_http_request
 mlflow.tracing.reset
 mlflow.tracing.set_databricks_monitoring_sql_warehouse_id

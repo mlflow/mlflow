@@ -150,7 +150,8 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                     SERVER_INFO_ENDPOINT,
                     exc_info=True,
                 )
-                self._server_capabilities = {}
+                # Don't cache transient failures (e.g. timeouts) so the next call retries.
+                return {}
 
             return self._server_capabilities
 
@@ -426,6 +427,8 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         )
         host_creds = get_default_host_creds(uri)
         params = {
+            # The server only needs the file name; it also tolerates the full local path that
+            # clients before 3.18 sent in this field.
             "path": os.path.basename(local_file),
             "num_parts": num_parts,
         }

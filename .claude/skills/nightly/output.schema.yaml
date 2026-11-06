@@ -37,6 +37,7 @@ $defs:
             description: insufficient evidence or an incomplete investigation.
       summary:
         type: string
+        description: Markdown. Wrap code identifiers (e.g., file paths, test IDs, functions) in backticks.
         minLength: 1
         maxLength: 1000
       jobs:
@@ -47,10 +48,12 @@ $defs:
           $ref: "#/$defs/job"
       evidence:
         type: string
+        description: Markdown. Wrap code identifiers (e.g., file paths, test IDs, functions) in backticks.
         minLength: 1
         maxLength: 2000
       title:
         type: string
+        description: Wrap code identifiers (e.g., file paths, test IDs, functions) in backticks.
         minLength: 1
         maxLength: 200
         pattern: '^[^\r\n]+$'

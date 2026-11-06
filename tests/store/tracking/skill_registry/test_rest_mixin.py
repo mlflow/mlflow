@@ -43,7 +43,7 @@ from mlflow.store.tracking.skill_registry.abstract_mixin import SkillRegistryMix
 from mlflow.store.tracking.skill_registry.rest_mixin import RestSkillRegistryMixin, _skill_path
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils.rest_utils import MlflowHostCreds
+from mlflow.utils.rest_utils import _UNPROCESSED_REQUEST_RESPONSE_CODES, MlflowHostCreds
 from mlflow.utils.validation import (
     _MAX_BULK_REGISTER_SKILLS,
     MAX_MODEL_REGISTRY_TAG_KEY_LENGTH,
@@ -438,6 +438,76 @@ def test_skill_request_preserves_server_errors(store, status_code, error_code):
     )
 
 
+@pytest.mark.parametrize(
+    ("method", "retry_safe", "expected_retry_options"),
+    [
+        (
+            "POST",
+            False,
+            {
+                "retry_codes": _UNPROCESSED_REQUEST_RESPONSE_CODES,
+                "retry_read_errors": False,
+                "retry_on_retry_after": False,
+            },
+        ),
+        ("POST", True, {}),
+        ("GET", False, {}),
+    ],
+)
+def test_skill_request_retries_post_writes_only_when_unprocessed(
+    store, method, retry_safe, expected_retry_options
+):
+    response = mock.Mock(status_code=200, text="")
+    with mock.patch(
+        "mlflow.store.tracking.skill_registry.rest_mixin.http_request", return_value=response
+    ) as request:
+        store._skill_request(method, "/my-resource", retry_safe=retry_safe)
+
+    retry_options = {
+        key: value
+        for key, value in request.call_args.kwargs.items()
+        if key in {"retry_codes", "retry_read_errors", "retry_on_retry_after"}
+    }
+    assert retry_options == expected_retry_options
+
+
+class _StopRequest(Exception):
+    pass
+
+
+@pytest.mark.parametrize(
+    ("method", "kwargs", "retry_safe"),
+    [
+        ("create_skill", {"name": "review"}, False),
+        ("create_skill_version", {"name": "review", "source": "https://example.com/r.git"}, False),
+        ("bulk_register_skills", {"skill_definitions": [{"name": "review"}]}, False),
+        ("set_skill_tag", {"name": "review", "key": "k", "value": "v"}, True),
+        ("set_skill_version_tag", {"name": "review", "version": 1, "key": "k", "value": "v"}, True),
+        ("set_skill_alias", {"name": "review", "alias": "prod", "version": 1}, True),
+    ],
+)
+def test_skill_post_writes_mark_only_upserts_retry_safe(store, method, kwargs, retry_safe):
+    with (
+        mock.patch.object(
+            store, "_skill_request", side_effect=_StopRequest("request sent")
+        ) as request,
+        pytest.raises(_StopRequest, match="request sent"),
+    ):
+        getattr(store, method)(**kwargs)
+
+    assert request.call_args.args[0] == "POST"
+    assert request.call_args.kwargs.get("retry_safe", False) is retry_safe
+
+
+def _without_retry_options(kwargs):
+    # Retry options only apply to a real HTTP session.
+    return {
+        k: v
+        for k, v in kwargs.items()
+        if k not in {"retry_codes", "retry_read_errors", "retry_on_retry_after"}
+    }
+
+
 @pytest.fixture
 def registry_client(store, tmp_path, db_uri):
     db_store = SqlAlchemyStore(db_uri, (tmp_path / "artifacts").as_uri())
@@ -451,7 +521,7 @@ def registry_client(store, tmp_path, db_uri):
         mock.patch(
             "mlflow.store.tracking.skill_registry.rest_mixin.http_request",
             side_effect=lambda host_creds, endpoint, method, **kwargs: http_client.request(
-                method, endpoint, **kwargs
+                method, endpoint, **_without_retry_options(kwargs)
             ),
         ),
         mock.patch(

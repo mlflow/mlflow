@@ -183,6 +183,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceTag,
     _input_to_dict,
 )
+from mlflow.store.tracking.file_store import _validate_new_trace_id
 from mlflow.store.tracking.gateway.sqlalchemy_mixin import SqlAlchemyGatewayStoreMixin
 from mlflow.store.tracking.mcp_server_registry.sqlalchemy_mixin import (
     SqlAlchemyMCPServerRegistryMixin,
@@ -1087,7 +1088,8 @@ class SqlAlchemyStore(
                 run_id,
                 SqlAlchemyStore.ARTIFACTS_FOLDER_NAME,
             )
-            tags = tags.copy() if tags else []
+            # Keep the last value for duplicate tag keys; each key is one row in the tags table.
+            tags = list({tag.key: tag for tag in tags or []}.values())
             run_name_tag = _get_run_name_from_tags(tags)
             if run_name and run_name_tag and (run_name != run_name_tag):
                 raise MlflowException(
@@ -1097,6 +1099,8 @@ class SqlAlchemyStore(
                 )
             run_name = run_name or run_name_tag or _generate_random_name()
             if not run_name_tag:
+                # Drop an empty `mlflow.runName` tag to avoid a duplicate tag primary key
+                tags = [tag for tag in tags if tag.key != MLFLOW_RUN_NAME]
                 tags.append(RunTag(key=MLFLOW_RUN_NAME, value=run_name))
             run = SqlRun(
                 name=run_name,
@@ -1547,15 +1551,11 @@ class SqlAlchemyStore(
             return
 
         is_single_metric = len(metrics) == 1
-        seen: set[Metric] = set()
-        sanitized_metrics: list[tuple[Metric, float]] = []
+        seen: set[tuple[Any, ...]] = set()
+        sanitized_metrics: list[tuple[Metric, float | None]] = []
         for idx, metric in enumerate(metrics):
             if metric.model_id is None:
                 continue
-
-            if metric in seen:
-                continue
-            seen.add(metric)
 
             _validate_metric(
                 metric.key,
@@ -1564,8 +1564,25 @@ class SqlAlchemyStore(
                 metric.step,
                 path="" if is_single_metric else f"metrics[{idx}]",
             )
-            _, value = self.sanitize_metric_value(metric.value)
-            sanitized_metrics.append((metric, value))
+            # Key on a tuple rather than the ``Metric`` itself because NaN != NaN, so two
+            # identical NaN metrics would otherwise both be inserted and violate the primary key.
+            metric_id = (
+                metric.model_id,
+                metric.key,
+                metric.timestamp,
+                metric.step,
+                None if math.isnan(metric.value) else metric.value,
+                metric.dataset_name,
+                metric.dataset_digest,
+            )
+            if metric_id in seen:
+                continue
+            seen.add(metric_id)
+
+            is_nan, value = self.sanitize_metric_value(metric.value)
+            # ``logged_model_metrics`` has no ``is_nan`` column, so NaN is stored as NULL.
+            # NULL never satisfies a numeric comparison and is read back as NaN.
+            sanitized_metrics.append((metric, None if is_nan else value))
 
         if not sanitized_metrics:
             return
@@ -1608,9 +1625,14 @@ class SqlAlchemyStore(
                         )
                         .all()
                     )
-                    existing_metrics = {m.to_mlflow_entity() for m in existing_metrics}
+                    # Compare column values rather than ``Metric`` entities because NaN != NaN.
+                    # ``metric_value`` is included so that a conflicting value for an existing
+                    # primary key is still rejected.
+                    existing_metrics = {_logged_model_metric_id(m) for m in existing_metrics}
                     non_existing_metrics = [
-                        m for m in metric_instances if m.to_mlflow_entity() not in existing_metrics
+                        m
+                        for m in metric_instances
+                        if _logged_model_metric_id(m) not in existing_metrics
                     ]
                     session.add_all(non_existing_metrics)
 
@@ -2433,15 +2455,17 @@ class SqlAlchemyStore(
         with self.ManagedSessionMaker(read_only=False) as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
-            try:
-                self._log_params(run_id, params)
-                self._log_metrics(run_id, metrics)
-                self._log_model_metrics(run_id, metrics, experiment_id=run.experiment_id)
-                self._set_tags(run_id, tags)
-            except MlflowException as e:
-                raise e
-            except Exception as e:
-                raise MlflowException(e, INTERNAL_ERROR)
+            experiment_id = run.experiment_id
+        # Each helper owns its transaction, so release the validation connection first.
+        try:
+            self._log_params(run_id, params)
+            self._log_metrics(run_id, metrics)
+            self._log_model_metrics(run_id, metrics, experiment_id=experiment_id)
+            self._set_tags(run_id, tags)
+        except MlflowException as e:
+            raise e
+        except Exception as e:
+            raise MlflowException(e, INTERNAL_ERROR)
 
     def record_logged_model(self, run_id, mlflow_model):
         from mlflow.models import Model
@@ -3686,8 +3710,11 @@ class SqlAlchemyStore(
         models: sqlalchemy.orm.Query,
         session: sqlalchemy.orm.Session,
         order_by: list[dict[str, Any]] | None = None,
+        experiment_ids: list[int] | None = None,
+        datasets: list[dict[str, Any]] | None = None,
     ) -> sqlalchemy.orm.Query:
         order_by_clauses = []
+        datasets_filter = _get_logged_model_metric_datasets_filter(datasets)
         has_creation_timestamp = False
         has_model_id = False
         for ob in order_by or []:
@@ -3722,41 +3749,15 @@ class SqlAlchemyStore(
                     f"Invalid order by field name: {field_name}. Only metrics are supported."
                 )
 
-            # Sub query to get the latest metrics value for each (model_id, metric_name) pair
-            dataset_filter = []
+            dataset_filter = [] if datasets_filter is None else [datasets_filter]
             if dataset_name := ob.get("dataset_name"):
                 dataset_filter.append(SqlLoggedModelMetric.dataset_name == dataset_name)
             if dataset_digest := ob.get("dataset_digest"):
                 dataset_filter.append(SqlLoggedModelMetric.dataset_digest == dataset_digest)
 
-            subquery = (
-                session
-                .query(
-                    SqlLoggedModelMetric.model_id,
-                    SqlLoggedModelMetric.metric_value,
-                    func
-                    .row_number()
-                    .over(
-                        partition_by=[
-                            SqlLoggedModelMetric.model_id,
-                            SqlLoggedModelMetric.metric_name,
-                        ],
-                        order_by=[
-                            SqlLoggedModelMetric.metric_timestamp_ms.desc(),
-                            SqlLoggedModelMetric.metric_step.desc(),
-                            SqlLoggedModelMetric.run_id.asc(),
-                        ],
-                    )
-                    .label("row_num"),
-                )
-                .filter(
-                    SqlLoggedModelMetric.metric_name == name,
-                    *dataset_filter,
-                )
-                .subquery()
+            subquery = _get_latest_logged_model_metrics_subquery(
+                session, name, dataset_filter, experiment_ids=experiment_ids
             )
-            subquery = select(subquery.c).where(subquery.c.row_num == 1).subquery()
-
             models = models.outerjoin(subquery)
             # Why not use `nulls_last`? Because it's not supported by all dialects (e.g., MySQL)
             order_by_clauses.extend([
@@ -3783,19 +3784,12 @@ class SqlAlchemyStore(
         from mlflow.utils.search_logged_model_utils import EntityType, parse_filter_string
 
         comparisons = parse_filter_string(filter_string)
+        experiment_ids = _parse_experiment_ids(experiment_ids)
         dialect = self._get_dialect()
         attr_filters: list[sqlalchemy.BinaryExpression] = []
         non_attr_filters: list[sqlalchemy.BinaryExpression] = []
 
-        dataset_filters = []
-        if datasets:
-            for dataset in datasets:
-                dataset_filter = SqlLoggedModelMetric.dataset_name == dataset["dataset_name"]
-                if "dataset_digest" in dataset:
-                    dataset_filter = dataset_filter & (
-                        SqlLoggedModelMetric.dataset_digest == dataset["dataset_digest"]
-                    )
-                dataset_filters.append(dataset_filter)
+        datasets_filter = _get_logged_model_metric_datasets_filter(datasets)
 
         has_metric_filters = False
         for comp in comparisons:
@@ -3818,23 +3812,22 @@ class SqlAlchemyStore(
                 attr_filters.append(comp_func(getattr(SqlLoggedModel, comp.entity.key), value))
             elif comp.entity.type == EntityType.METRIC:
                 has_metric_filters = True
-                metric_filters = [
-                    SqlLoggedModelMetric.metric_name == comp.entity.key,
-                    comp_func(SqlLoggedModelMetric.metric_value, comp.value),
-                ]
-                if dataset_filters:
-                    metric_filters.append(sqlalchemy.or_(*dataset_filters))
-                # Select distinct model IDs rather than whole metric rows. A model
-                # can log the same metric at several steps, runs or datasets, and
-                # joining those rows would duplicate the model before OFFSET/LIMIT
-                # is applied, so a page could hold fewer models than requested and
-                # pagination could stop while matches remain.
+                # Compare against the same latest value that `order_by` uses rather than
+                # against every logged step. The subquery has one row per model, so joining
+                # it cannot duplicate a model before OFFSET/LIMIT is applied.
+                latest_metrics = _get_latest_logged_model_metrics_subquery(
+                    session,
+                    comp.entity.key,
+                    [] if datasets_filter is None else [datasets_filter],
+                    experiment_ids=experiment_ids,
+                )
+                val_filter = comp_func(latest_metrics.c.metric_value, comp.value)
+                if comp.op == "!=":
+                    # NaN metrics are stored as NULL, and NULL != x is NULL rather than true.
+                    # Match them explicitly, as run metrics do.
+                    val_filter = sqlalchemy.or_(val_filter, latest_metrics.c.metric_value.is_(None))
                 non_attr_filters.append(
-                    session
-                    .query(SqlLoggedModelMetric.model_id)
-                    .filter(*metric_filters)
-                    .distinct()
-                    .subquery()
+                    select(latest_metrics.c.model_id).where(val_filter).subquery()
                 )
             elif comp.entity.type == EntityType.PARAM:
                 non_attr_filters.append(
@@ -3862,17 +3855,16 @@ class SqlAlchemyStore(
 
         # If there are dataset filters but no metric filters,
         # filter for models that have any metrics on the datasets
-        if dataset_filters and not has_metric_filters:
+        if datasets_filter is not None and not has_metric_filters:
             subquery = (
                 session
                 .query(SqlLoggedModelMetric.model_id)
-                .filter(sqlalchemy.or_(*dataset_filters))
+                .filter(datasets_filter)
                 .distinct()
                 .subquery()
             )
             models = models.join(subquery)
 
-        experiment_ids = _parse_experiment_ids(experiment_ids)
         return models.filter(
             SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED,
             SqlLoggedModel.experiment_id.in_(experiment_ids),
@@ -3906,7 +3898,13 @@ class SqlAlchemyStore(
             models = self._apply_filter_string_datasets_search_logged_models(
                 models, session, experiment_ids, filter_string, datasets
             )
-            models = self._apply_order_by_search_logged_models(models, session, order_by)
+            models = self._apply_order_by_search_logged_models(
+                models,
+                session,
+                order_by,
+                experiment_ids=_parse_experiment_ids(experiment_ids),
+                datasets=datasets,
+            )
             models = (
                 models
                 .options(
@@ -3938,6 +3936,9 @@ class SqlAlchemyStore(
     # Below are Tracing APIs. We may refactor them to be in a separate class in the future.
     #######################################################################################
     def _get_trace_artifact_location_tag(self, experiment, trace_id: str) -> SqlTraceTag:
+        # Validate new trace ids before embedding them in the artifact location, like
+        # FileStore.start_trace does.
+        _validate_new_trace_id(trace_id)
         # Trace data is stored as file artifacts regardless of the tracking backend choice.
         # We use subdirectory "/traces" under the experiment's artifact location to isolate
         # them from run artifacts.
@@ -4436,13 +4437,20 @@ class SqlAlchemyStore(
             if location_filter is not None:
                 stmt = stmt.filter(location_filter)
 
-            stmt = stmt.order_by(*parsed_orderby).offset(offset).limit(max_results)
+            # One row past the page, so the token is issued only when something actually follows
+            # it. Reading exactly `max_results` cannot tell a full page with more behind it from
+            # one that ends on the boundary, and every other paginated search in this store
+            # already looks ahead this way.
+            stmt = stmt.order_by(*parsed_orderby).offset(offset).limit(max_results + 1)
 
             trace_rows = stmt.all()
-            trace_infos = _build_trace_infos_from_rows(session, trace_rows)
+            has_more = len(trace_rows) > max_results
+            # Built after trimming: the look-ahead row is only ever counted, and building its
+            # trace info would read its tags, assessments and request metadata for nothing.
+            trace_infos = _build_trace_infos_from_rows(session, trace_rows[:max_results])
 
             # Compute next search token
-            if max_results == len(trace_infos):
+            if has_more:
                 final_offset = offset + max_results
                 next_token = SearchTraceUtils.create_page_token(final_offset)
             else:
@@ -6229,9 +6237,14 @@ class SqlAlchemyStore(
             stored_usage_nodes: defaultdict[str, list[SpanAggregationNode]] = defaultdict(list)
             stored_cost_nodes: defaultdict[str, list[SpanAggregationNode]] = defaultdict(list)
             if recompute_trace_ids:
+                # Stream the rows: each one carries the full span content, so fetching them all at
+                # once holds the entire stored trace in memory on every call. On MySQL this makes
+                # the locking read unbuffered. It still locks each row as it is read, but the
+                # connection cannot run another statement until the result is drained, so the
+                # loop below must not query.
                 stored_span_rows = self._stored_span_rows_query(
                     session, sorted(recompute_trace_ids)
-                ).all()
+                ).yield_per(16)
                 for row_trace_id, row_span_id, row_parent_span_id, row_content in stored_span_rows:
                     # Phase 3 already upserted this batch's spans, so a span re-sent in this batch
                     # is read back here as well. Skip it, otherwise it would be counted twice: once
@@ -8669,22 +8682,39 @@ class SqlAlchemyStore(
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 
-            experiment_ids_str = [str(exp_id) for exp_id in experiment_ids]
+            # ``SqlExperiment.experiment_id`` is an INTEGER column but REST callers
+            # pass string IDs. psycopg2 sent them as untyped literals PostgreSQL
+            # would coerce; psycopg v3 binds them as typed VARCHAR and PostgreSQL
+            # rejects the comparison ("operator does not exist:
+            # integer = character varying"). Coerce with the same error contract
+            # as ``_get_experiment``/``list_scorers_across_experiments``.
+            try:
+                experiment_ids_int = [int(exp_id) for exp_id in experiment_ids]
+            except (ValueError, TypeError):
+                raise MlflowException(
+                    "Invalid experiment IDs: experiment IDs must be valid integers.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            # Canonical string form, derived from the coerced integers, so a
+            # non-canonical input id (e.g. "007", " 5 ", "+5") is compared
+            # consistently with the query above instead of against its raw form.
+            experiment_ids_canonical = [str(exp_id) for exp_id in experiment_ids_int]
 
             accessible_exp_ids = (
                 {
                     str(row[0])
                     for row in self
                     ._get_query(session, SqlExperiment)
-                    .filter(SqlExperiment.experiment_id.in_(experiment_ids_str))
+                    .filter(SqlExperiment.experiment_id.in_(experiment_ids_int))
                     .with_entities(SqlExperiment.experiment_id)
                     .all()
                 }
-                if experiment_ids_str
+                if experiment_ids_int
                 else set()
             )
 
-            for exp_id in experiment_ids_str:
+            for exp_id in experiment_ids_canonical:
                 if exp_id not in accessible_exp_ids:
                     raise MlflowException(
                         f"No Experiment with id={exp_id}",
@@ -8697,7 +8727,7 @@ class SqlAlchemyStore(
                 .filter(
                     SqlEntityAssociation.source_id == dataset_id,
                     SqlEntityAssociation.source_type == EntityAssociationType.EVALUATION_DATASET,
-                    SqlEntityAssociation.destination_id.in_(experiment_ids_str),
+                    SqlEntityAssociation.destination_id.in_(experiment_ids_canonical),
                     SqlEntityAssociation.destination_type == EntityAssociationType.EXPERIMENT,
                 )
                 .all()
@@ -8713,7 +8743,7 @@ class SqlAlchemyStore(
                     destination_id=exp_id,
                     destination_type=EntityAssociationType.EXPERIMENT,
                 )
-                for exp_id in experiment_ids_str
+                for exp_id in experiment_ids_canonical
                 if exp_id not in existing_exp_ids
             ]
 
@@ -10394,6 +10424,91 @@ class SqlAlchemyStore(
                 row.completed_time_ms = now_ms
             session.flush()
             return row.to_mlflow_entity()
+
+
+def _logged_model_metric_id(metric: SqlLoggedModelMetric) -> tuple[Any, ...]:
+    return (
+        metric.model_id,
+        metric.metric_name,
+        metric.metric_timestamp_ms,
+        metric.metric_step,
+        metric.run_id,
+        metric.metric_value,
+        metric.dataset_name,
+        metric.dataset_digest,
+    )
+
+
+def _get_logged_model_metric_datasets_filter(
+    datasets: list[dict[str, Any]] | None,
+) -> sqlalchemy.ColumnElement[bool] | None:
+    """
+    Returns a filter matching logged model metrics on any of ``datasets``, or None if no
+    datasets are given.
+    """
+    if not datasets:
+        return None
+    dataset_filters = []
+    for dataset in datasets:
+        dataset_filter = SqlLoggedModelMetric.dataset_name == dataset["dataset_name"]
+        if "dataset_digest" in dataset:
+            dataset_filter = dataset_filter & (
+                SqlLoggedModelMetric.dataset_digest == dataset["dataset_digest"]
+            )
+        dataset_filters.append(dataset_filter)
+    return sqlalchemy.or_(*dataset_filters)
+
+
+def _get_latest_logged_model_metrics_subquery(
+    session: sqlalchemy.orm.Session,
+    metric_name: str,
+    filters: list[sqlalchemy.ColumnElement[bool]],
+    experiment_ids: list[int] | None = None,
+) -> sqlalchemy.Subquery:
+    """
+    Returns a subquery with the latest ``(model_id, metric_value)`` row of ``metric_name`` per
+    logged model. ``filters`` (e.g. dataset filters) are applied before the latest row is
+    picked.
+
+    The latest row is the one with the highest step, then timestamp, then value, which is how
+    run metrics and ``FileStore`` pick the latest value. If ``experiment_ids`` is given, only
+    metrics of logged models in those experiments are ranked.
+    """
+    if experiment_ids is not None:
+        # Scope by the model's experiment rather than `SqlLoggedModelMetric.experiment_id`,
+        # which is the experiment of the run that logged the metric and can differ from the
+        # model's (e.g. an evaluation run in another experiment).
+        filters = [
+            *filters,
+            SqlLoggedModelMetric.model_id.in_(
+                select(SqlLoggedModel.model_id).where(
+                    SqlLoggedModel.experiment_id.in_(experiment_ids)
+                )
+            ),
+        ]
+    ranked = (
+        session
+        .query(
+            SqlLoggedModelMetric.model_id,
+            SqlLoggedModelMetric.metric_value,
+            func
+            .row_number()
+            .over(
+                partition_by=[SqlLoggedModelMetric.model_id, SqlLoggedModelMetric.metric_name],
+                order_by=[
+                    SqlLoggedModelMetric.metric_step.desc(),
+                    SqlLoggedModelMetric.metric_timestamp_ms.desc(),
+                    # NaN is stored as NULL. Rank it as 0, like run metrics do, so the result
+                    # doesn't depend on how the database orders NULLs.
+                    func.coalesce(SqlLoggedModelMetric.metric_value, 0).desc(),
+                ],
+            )
+            .label("row_num"),
+        )
+        .filter(SqlLoggedModelMetric.metric_name == metric_name, *filters)
+        .subquery()
+    )
+    return select(ranked.c).where(ranked.c.row_num == 1).subquery()
 
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):

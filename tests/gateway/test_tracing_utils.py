@@ -830,6 +830,94 @@ def test_aggregate_anthropic_messages_stream_chunks_multiple_chunks_per_sse():
     assert result["usage"] == {"input_tokens": 5, "output_tokens": 2}
 
 
+def test_aggregate_anthropic_messages_stream_chunks_thinking():
+    chunks = [
+        _msg_start("msg_think", "claude-sonnet-4-5", input_tokens=12),
+        _sse({
+            "type": "content_block_start",
+            "index": 0,
+            "content_block": {"type": "thinking", "thinking": ""},
+        }),
+        _sse({
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"type": "thinking_delta", "thinking": "Let me "},
+        }),
+        _sse({
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"type": "thinking_delta", "thinking": "think."},
+        }),
+        _sse({
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"type": "signature_delta", "signature": "sig"},
+        }),
+        _sse({"type": "content_block_stop", "index": 0}),
+        _sse({
+            "type": "content_block_start",
+            "index": 1,
+            "content_block": {"type": "redacted_thinking", "data": "encrypted"},
+        }),
+        _sse({"type": "content_block_stop", "index": 1}),
+        _text_block_start(2),
+        _text_delta(2, "Answer"),
+        _sse({"type": "content_block_stop", "index": 2}),
+        _msg_delta("end_turn", output_tokens=20),
+    ]
+    result = aggregate_anthropic_messages_stream_chunks(chunks)
+
+    assert result["content"] == [
+        {"type": "thinking", "thinking": "Let me think.", "signature": "sig"},
+        {"type": "redacted_thinking", "data": "encrypted"},
+        {"type": "text", "text": "Answer"},
+    ]
+
+
+def test_aggregate_anthropic_messages_stream_chunks_server_tool_use():
+    chunks = [
+        _msg_start("msg_srv", "claude-sonnet-4-5"),
+        _sse({
+            "type": "content_block_start",
+            "index": 0,
+            "content_block": {
+                "type": "server_tool_use",
+                "id": "srvtoolu_1",
+                "name": "web_search",
+                "input": {},
+            },
+        }),
+        _sse({
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"type": "input_json_delta", "partial_json": '{"query": "q"}'},
+        }),
+        _sse({"type": "content_block_stop", "index": 0}),
+        _sse({
+            "type": "content_block_start",
+            "index": 1,
+            "content_block": {
+                "type": "web_search_tool_result",
+                "tool_use_id": "srvtoolu_1",
+                "content": [],
+            },
+        }),
+        _sse({"type": "content_block_stop", "index": 1}),
+        _msg_delta("end_turn", output_tokens=5),
+    ]
+    result = aggregate_anthropic_messages_stream_chunks(chunks)
+
+    assert result["content"] == [
+        {
+            "type": "server_tool_use",
+            "id": "srvtoolu_1",
+            "name": "web_search",
+            "input": {"query": "q"},
+        },
+        {"type": "web_search_tool_result", "tool_use_id": "srvtoolu_1", "content": []},
+    ]
+
+
 @pytest.mark.parametrize(
     ("raw_json", "expected_input"),
     [

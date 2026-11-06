@@ -1,3 +1,5 @@
+import subprocess
+import sys
 import threading
 from typing import Any
 
@@ -145,3 +147,23 @@ def test_server_info_is_public_when_basic_auth_is_on(monkeypatch):
                 response = client.get(f"{prefix}{path}")
                 assert response.status_code == 200
                 assert "authorization" not in {name.lower() for name in response.request.headers}
+
+
+def test_server_info_api_imports_outside_event_loop():
+    # anyio < 4.2 raises when a CapacityLimiter is created outside an event loop.
+    code = """
+import asyncio
+
+import anyio
+
+_original = anyio.CapacityLimiter.__new__
+
+def _new(cls, *args, **kwargs):
+    asyncio.get_running_loop()
+    return _original(cls, *args, **kwargs)
+
+anyio.CapacityLimiter.__new__ = _new
+
+import mlflow.server.fastapi_app
+"""
+    subprocess.check_call([sys.executable, "-c", code])
