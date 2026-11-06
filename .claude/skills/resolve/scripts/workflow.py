@@ -342,7 +342,7 @@ def update_branch(repo: str, review_id: str, context: dict[str, Any], head: str,
         "credential.helper=!gh auth git-credential",
         "push",
         f"--force-with-lease={ref}:{base}",
-        f"https://github.com/{repo}.git",
+        f"{os.environ['GITHUB_SERVER_URL']}/{repo}.git",
         f"HEAD:{ref}",
     )
     return git("rev-parse", "HEAD")
@@ -408,7 +408,7 @@ def publish(repo: str, number: str, review_id: str, context_path: Path, out_dir:
         if note not in posted:
             body = response["body"]
             if resolved:
-                body += f"\n\n[Fix commit](https://github.com/{repo}/commit/{head})."
+                body += f"\n\n[Fix commit]({os.environ['GITHUB_SERVER_URL']}/{repo}/commit/{head})."
             if key == "review":
                 url = current["url"]
                 body = f"In response to [this review]({url})\n\n{body}\n\n{note}"
