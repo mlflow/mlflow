@@ -182,7 +182,7 @@ def test_model_request_span_records_model_attributes():
 
 
 @pytest.mark.parametrize("fail", [False, True])
-def test_model_request_span_records_processed_history(fail):
+def test_model_request_span_records_processed_history(fail: bool):
     mlflow.pydantic_ai.autolog()
     received = []
 
