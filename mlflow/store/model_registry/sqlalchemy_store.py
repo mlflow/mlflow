@@ -1222,6 +1222,7 @@ class SqlAlchemyStore(AbstractStore):
             )
             raise MlflowException(msg_tpl.format(stage, DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS))
 
+        version = _validate_model_version(version)
         with self.ManagedSessionMaker(read_only=False) as session:
             last_updated_time = get_current_time_millis()
 
