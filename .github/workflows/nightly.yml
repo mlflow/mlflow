@@ -43,17 +43,21 @@ jobs:
       run_ids: ${{ steps.runs.outputs.run_ids }}
     steps:
       - parallel:
-          - name: Close old nightly issues
-            if: github.event_name == 'schedule' || !inputs.dry_run
+          - name: Close or preview old nightly issues
             env:
               GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
             run: |
               cutoff=$(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ)
               gh api --paginate 'repos/mlflow/mlflow/issues?state=open&labels=nightly&per_page=100' \
                 --jq ".[] | select(has(\"pull_request\") | not) | select(.created_at <= \"$cutoff\") | .number" \
                 > "$RUNNER_TEMP/old-nightly-issues.txt"
               while IFS= read -r issue_number; do
-                gh issue close "$issue_number" --repo mlflow/mlflow --reason 'not planned'
+                if [ "$DRY_RUN" = true ]; then
+                  echo "Would close https://github.com/mlflow/mlflow/issues/$issue_number"
+                else
+                  gh issue close "$issue_number" --repo mlflow/mlflow --reason 'not planned'
+                fi
               done < "$RUNNER_TEMP/old-nightly-issues.txt"
           - name: Resolve failed run IDs
             id: runs
