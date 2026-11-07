@@ -79,12 +79,20 @@ jobs:
               exit 1
             fi
             numbers=$(printf '%s' "$PR_NUMBERS" | tr -d '[:space:]' | tr ',' '\n' | sort -u)
-            candidates=$(while IFS= read -r number; do
-              gh pr view "$number" --repo "$GH_REPO" \
-                --json number,headRefOid,state,isDraft,mergeable \
-                --jq 'select(.state == "OPEN" and (.isDraft | not) and .mergeable != "CONFLICTING") |
-                  [.number, .headRefOid] | @tsv' || exit 1
-            done <<< "$numbers")
+            query='query($owner: String!, $name: String!) {
+              repository(owner: $owner, name: $name) {'
+            while IFS= read -r number; do
+              query+="pr_$number: pullRequest(number: $number) {
+                number headRefOid state isDraft mergeable
+              }"
+            done <<< "$numbers"
+            query+='}}'
+            candidates=$(gh api graphql \
+              -f owner="${GH_REPO%/*}" -f name="${GH_REPO#*/}" \
+              -f query="$query" \
+              --jq '.data.repository[] |
+                select(.state == "OPEN" and (.isDraft | not) and .mergeable != "CONFLICTING") |
+                [.number, .headRefOid] | @tsv')
           fi
 
           args=()
