@@ -1246,7 +1246,7 @@ async def test_passthrough_rejects_destination_override_in_request_payload():
     mock_completion.assert_not_called()
 
 
-@pytest.mark.parametrize("operation", ["chat", "embeddings", "passthrough"])
+@pytest.mark.parametrize("operation", ["chat", "chat_stream", "embeddings", "passthrough"])
 @pytest.mark.parametrize("key", ["aws_profile_name", "vertex_credentials"])
 @pytest.mark.asyncio
 async def test_provider_rejects_credential_overrides(operation, key):
@@ -1261,6 +1261,12 @@ async def test_provider_rejects_credential_overrides(operation, key):
         extra = {key: "caller-credential-source"}
         if operation == "embeddings":
             call = provider.embeddings(embeddings.RequestPayload(input="hello", **extra))
+        elif operation == "chat_stream":
+            call = anext(
+                provider.chat_stream(
+                    chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}], **extra)
+                )
+            )
         elif operation == "passthrough":
             call = provider.passthrough(
                 PassthroughAction.OPENAI_CHAT,
