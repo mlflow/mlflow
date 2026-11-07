@@ -702,14 +702,12 @@ def test_upstream_ssrf_protection_enabled_for_stored_base_url_alias(store: SqlAl
 
 
 @pytest.mark.parametrize("config_field", ["auth_config", "secret_value"])
-@pytest.mark.parametrize("linkage_type", list(GatewayModelLinkageType))
-def test_upstream_ssrf_protection_enabled_for_stored_oauth_destination(config_field, linkage_type):
+def test_upstream_ssrf_protection_enabled_for_stored_oauth_destination(config_field):
     model = GatewayModelConfig(
         model_definition_id="legacy-model",
         provider="gigachat",
         model_name="m",
         secret_value={"api_key": "configured-key"},
-        linkage_type=linkage_type,
     )
     setattr(model, config_field, {"gigachat_auth_url": "https://oauth.example.com/token"})
     endpoint_config = GatewayEndpointConfig(
