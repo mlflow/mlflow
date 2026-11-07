@@ -1,12 +1,16 @@
 import argparse
+import hashlib
+import html
 import json
 import os
 import re
 import subprocess
 import sys
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 
 FAILED_CONCLUSIONS = {"FAILURE", "TIMED_OUT", "STARTUP_FAILURE"}
@@ -278,6 +282,7 @@ def build_candidate(pr: dict[str, Any], runs: list[dict[str, Any]]) -> dict[str,
     return {
         "number": pr["number"],
         "sha": pr["headRefOid"],
+        "mergeable": pr["mergeable"],
         "failed_runs": list(failed_runs.values()),
     }
 
@@ -291,23 +296,30 @@ def parse_max_retries(value: str) -> int:
 def select_candidates(prs: list[dict[str, Any]], max_retries: int) -> list[dict[str, Any]]:
     eligible = []
     for pr in prs:
-        if pr["state"] != "OPEN" or pr["isDraft"] or pr["mergeable"] == "CONFLICTING":
+        if pr["state"] != "OPEN" or pr["isDraft"]:
             continue
         rollup = pr["statusCheckRollup"]
-        if rollup is None:
+        if rollup is None and pr["mergeable"] != "CONFLICTING":
             sys.stderr.write(f"Skipping PR #{pr['number']}: check status is unavailable.\n")
             continue
         eligible.append(pr)
 
-    connections = [check_connection(pr["statusCheckRollup"]) for pr in eligible]
+    checked = [pr for pr in eligible if pr["statusCheckRollup"] is not None]
+    connections = [check_connection(pr["statusCheckRollup"]) for pr in checked]
+    checks_by_number = dict(
+        zip([pr["number"] for pr in checked], fetch_connections(connections), strict=True)
+    )
     candidates = []
-    for pr, checks in zip(eligible, fetch_connections(connections), strict=True):
-        runs = latest_workflow_runs(checks)
+    for pr in eligible:
+        runs = latest_workflow_runs(checks_by_number.get(pr["number"], []))
+        conflicting = pr["mergeable"] == "CONFLICTING"
         if pending := unfinished_jobs(runs):
             sys.stderr.write(
                 f"Skipping PR #{pr['number']}: unfinished jobs: {', '.join(pending)}\n"
             )
-            continue
+            if not conflicting:
+                continue
+            runs = []
         pending_suites = [
             item["run"]["workflow"]["resourcePath"].rsplit("/", 1)[-1]
             for item in runs
@@ -317,7 +329,9 @@ def select_candidates(prs: list[dict[str, Any]], max_retries: int) -> list[dict[
             sys.stderr.write(
                 f"Skipping PR #{pr['number']}: unfinished workflows: {', '.join(pending_suites)}\n"
             )
-            continue
+            if not conflicting:
+                continue
+            runs = []
         candidate = build_candidate(pr, runs)
         if any(
             run["run_attempt"] is None or run["run_attempt"] - 1 >= max_retries
@@ -327,7 +341,9 @@ def select_candidates(prs: list[dict[str, Any]], max_retries: int) -> list[dict[
                 f"Skipping PR #{pr['number']}: a failed run has exhausted its retry budget "
                 "or has no attempt count.\n"
             )
-            continue
+            if not conflicting:
+                continue
+            candidate["failed_runs"] = []
         candidate["failed_runs"] = [
             run for run in candidate["failed_runs"] if run["workflow"] not in EXCLUDED_WORKFLOWS
         ]
@@ -350,15 +366,408 @@ def discover(args: argparse.Namespace) -> int:
     return 0
 
 
+def command(*args: str | Path, input: str | None = None) -> str:
+    return subprocess.check_output(args, input=input, text=True, stderr=subprocess.PIPE)
+
+
+def rest(endpoint: str) -> Any:
+    return json.loads(command("gh", "api", endpoint))
+
+
+def git(*args: str | Path, input: str | None = None) -> str:
+    return command(
+        "git",
+        "-C",
+        os.environ["PR_CHECKOUT"],
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "core.fsmonitor=false",
+        "-c",
+        "user.name=mlflow-app[bot]",
+        "-c",
+        "user.email=191841109+mlflow-app[bot]@users.noreply.github.com",
+        *args,
+        input=input,
+    ).strip()
+
+
+def summary(message: str) -> None:
+    if path := os.environ.get("GITHUB_STEP_SUMMARY"):
+        with Path(path).open("a") as stream:
+            stream.write(message + "\n")
+    else:
+        sys.stderr.write(message + "\n")
+
+
+def outputs(**values: str) -> None:
+    if path := os.environ.get("GITHUB_OUTPUT"):
+        with Path(path).open("a") as stream:
+            for key, value in values.items():
+                stream.write(f"{key}={value}\n")
+
+
+def context_file() -> Path:
+    return Path(os.environ["CONTEXT_PATH"])
+
+
+def output_dir() -> Path:
+    return Path(os.environ["OUT_DIR"])
+
+
+def context_key(context: dict[str, Any]) -> str:
+    identity = {
+        "number": context["number"],
+        "sha": context["sha"],
+        "base": context["base"],
+        "failed_runs": sorted([
+            (run["run_id"], run["run_attempt"]) for run in context["failed_runs"]
+        ]),
+    }
+    return hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
+
+
+def result_name(context: dict[str, Any]) -> str:
+    return f"repair-result-{context['number']}-{context['key']}"
+
+
+def clean_checkout(context: dict[str, Any]) -> None:
+    if git("rev-parse", "HEAD") != context["sha"] or git("status", "--porcelain"):
+        raise ValueError("PR checkout must be clean and match the captured head")
+
+
+def prepare_merge(context: dict[str, Any]) -> dict[str, Any]:
+    clean_checkout(context)
+    if context["head_repo"] != REPO:
+        return {"status": "fork", "conflicted_paths": []}
+    base = context["base"]["sha"]
+    git("fetch", "origin", base)
+    try:
+        git("merge-base", "--is-ancestor", base, "HEAD")
+    except subprocess.CalledProcessError as error:
+        if error.returncode != 1:
+            raise
+    else:
+        return {"status": "up-to-date", "conflicted_paths": []}
+    try:
+        git("merge", "--no-commit", "--no-ff", base)
+    except subprocess.CalledProcessError:
+        conflicts = git("diff", "--name-only", "--diff-filter=U", "-z").split("\0")
+        conflicts = [path for path in conflicts if path]
+        if not conflicts:
+            raise
+        return {"status": "conflicting", "conflicted_paths": conflicts}
+    return {"status": "clean", "conflicted_paths": []}
+
+
+def prepare(args: argparse.Namespace) -> int:
+    candidate = json.loads(os.environ["CANDIDATE"])
+    pr = rest(f"repos/{REPO}/pulls/{candidate['number']}")
+    if pr["state"] != "open" or pr["draft"] or pr["head"]["sha"] != candidate["sha"]:
+        raise ValueError("PR changed since discovery")
+    context = dict(
+        candidate,
+        head_ref=pr["head"]["ref"],
+        head_repo=(pr["head"]["repo"] or {}).get("full_name"),
+        base={"ref": pr["base"]["ref"], "sha": pr["base"]["sha"]},
+    )
+    context["key"] = context_key(context)
+    directory = context_file().parent
+    directory.mkdir(parents=True, exist_ok=True)
+    output_dir().mkdir(parents=True, exist_ok=True)
+    previous = rest(f"repos/{REPO}/actions/artifacts?name={result_name(context)}&per_page=100")
+    handled = any(not artifact["expired"] for artifact in previous["artifacts"])
+    context["merge"] = prepare_merge(context)
+    rounds = git(
+        "log",
+        "--first-parent",
+        "--format=%B",
+        "--grep=^Repair-Context:",
+        f"{context['base']['sha']}..HEAD",
+    ).count("Repair-Context:")
+    needs_agent = (
+        not handled
+        and rounds < 3
+        and (
+            context["merge"]["status"] == "conflicting"
+            or (
+                context["merge"]["status"] in {"up-to-date", "fork"}
+                and bool(context["failed_runs"])
+            )
+        )
+    )
+    context["agent_used"] = needs_agent
+    if needs_agent:
+        logs = directory / "logs"
+        logs.mkdir()
+        for run in context["failed_runs"]:
+            for job in run["job_runs"]:
+                job_id = int(job["id"])
+                path = logs / f"{job_id}.log"
+                try:
+                    content = command("gh", "api", f"repos/{REPO}/actions/jobs/{job_id}/logs")
+                except subprocess.CalledProcessError as error:
+                    content = f"Could not fetch job log: {error.stderr or error}\n"
+                path.write_text(content[-200_000:])
+                job["log_path"] = str(path)
+    else:
+        sync = not handled and rounds < 3 and context["merge"]["status"] == "clean"
+        payload = {
+            "summary": "Sync the base." if sync else "No new repair action is needed.",
+            "actions": [{"type": "sync-base"}] if sync else [],
+        }
+        (output_dir() / "payload.json").write_text(json.dumps(payload))
+    context_file().write_text(json.dumps(context))
+    outputs(
+        needs_agent=str(needs_agent).lower(),
+        context_hash=hashlib.sha256(context_file().read_bytes()).hexdigest(),
+    )
+    return 0
+
+
+def unique_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result = dict(pairs)
+    if len(result) != len(pairs):
+        raise ValueError("Duplicate payload key")
+    return result
+
+
+def load_plan(context: dict[str, Any], directory: Path) -> dict[str, Any]:
+    path = directory / "payload.json"
+    patch = directory / "fix.patch"
+    if directory.is_symlink() or path.is_symlink() or not path.is_file():
+        raise ValueError("Expected a regular payload file")
+    if path.stat().st_size > 1024 * 1024:
+        raise ValueError("Payload exceeds 1 MB")
+    payload: dict[str, Any] = json.loads(path.read_text(), object_pairs_hook=unique_keys)
+    actions = payload["actions"]
+    kinds = [action["type"] for action in actions]
+    if len(kinds) != len(set(kinds)) or set(kinds) - {"rerun", "sync-base", "patch"}:
+        raise ValueError("Duplicate or unsupported action")
+    if "rerun" in kinds and len(kinds) != 1:
+        raise ValueError("Reruns cannot accompany a head-changing action")
+    if "sync-base" in kinds:
+        if kinds[0] != "sync-base" or context["merge"]["status"] not in {"clean", "conflicting"}:
+            raise ValueError("Base sync must be first and needed")
+        if context["merge"]["status"] == "conflicting" and "patch" not in kinds:
+            raise ValueError("A conflicting base sync requires a resolution patch")
+    elif "patch" in kinds and context["merge"]["status"] in {"clean", "conflicting"}:
+        raise ValueError("Patch must include the prepared base sync")
+    if any(kind in {"sync-base", "patch"} for kind in kinds) and context["head_repo"] != REPO:
+        raise ValueError("Cannot publish changes to a fork")
+    allowed = {run["run_id"] for run in context["failed_runs"]}
+    for action in actions:
+        if action["type"] == "rerun" and not set(action["run_ids"]) <= allowed:
+            raise ValueError("Rerun IDs must belong to the captured failed runs")
+    if patch.is_symlink() or (patch.exists() and not patch.is_file()):
+        raise ValueError("Expected a regular patch file")
+    if patch.exists() != ("patch" in kinds):
+        raise ValueError("Patch file must match the action plan")
+    if patch.exists() and patch.stat().st_size > 20 * 1024 * 1024:
+        raise ValueError("Patch exceeds 20 MB")
+    return payload
+
+
+def apply_fix(patch: Path) -> None:
+    git("apply", "--index", "--whitespace=error", "--", patch)
+    paths = git("diff", "--cached", "--name-only", "--no-renames", "-z").split("\0")[:-1]
+    if not paths:
+        raise ValueError("Patch is empty")
+    staged = git("ls-files", "--stage", "-z", "--", *paths).split("\0")[:-1]
+    if any(not entry.startswith(("100644 ", "100755 ")) for entry in staged):
+        raise ValueError("Patch contains a symlink or submodule")
+
+
+def validate(args: argparse.Namespace) -> int:
+    if expected := os.environ.get("EXPECTED_CONTEXT_HASH"):
+        if hashlib.sha256(context_file().read_bytes()).hexdigest() != expected:
+            raise ValueError("Captured context changed during repair")
+    context = json.loads(context_file().read_text())
+    if context["key"] != context_key(context):
+        raise ValueError("Context identity changed")
+    command(
+        "uvx",
+        "check-jsonschema@0.37.4",
+        "--schemafile",
+        Path(__file__).parents[1] / "payload.schema.yml",
+        output_dir() / "payload.json",
+    )
+    payload = load_plan(context, output_dir())
+    if os.environ.get("REUSE_CHECKOUT") == "true":
+        if git("rev-parse", "HEAD") != context["sha"]:
+            raise ValueError("Agent changed the PR head")
+        # The patch is outside this disposable checkout; rebuild its final tree from the payload.
+        git("reset", "--hard", context["sha"])
+        git("clean", "-fdx")
+    clean_checkout(context)
+    kinds = [action["type"] for action in payload["actions"]]
+    if "patch" in kinds:
+        apply_fix(output_dir() / "fix.patch")
+    elif "sync-base" in kinds:
+        git("fetch", "origin", context["base"]["sha"])
+        git("merge", "--no-commit", "--no-ff", context["base"]["sha"])
+    outputs(has_actions=str(bool(kinds)).lower(), context_key=context["key"])
+    return 0
+
+
+def live_pr(context: dict[str, Any]) -> dict[str, Any]:
+    pr: dict[str, Any] = rest(f"repos/{REPO}/pulls/{context['number']}")
+    if (
+        pr["state"] != "open"
+        or pr["draft"]
+        or pr["head"]["ref"] != context["head_ref"]
+        or (pr["head"]["repo"] or {}).get("full_name") != context["head_repo"]
+        or pr["base"]["ref"] != context["base"]["ref"]
+        or pr["base"]["sha"] != context["base"]["sha"]
+    ):
+        raise ValueError("PR identity or base changed before publication")
+    return pr
+
+
+def publish_tree(context: dict[str, Any], sync: bool) -> None:
+    tree = git("write-tree")
+    parents = [context["sha"]] + ([context["base"]["sha"]] if sync else [])
+    marker = f"Repair-Context: {context['key']}"
+    current = live_pr(context)["head"]["sha"]
+    if current != context["sha"]:
+        previous = rest(f"repos/{REPO}/git/commits/{current}")
+        if (
+            marker in previous["message"].splitlines()
+            and [parent["sha"] for parent in previous["parents"]] == parents
+            and previous["tree"]["sha"] == tree
+        ):
+            summary(f"Repair already published as `{current}`.")
+            return
+        raise ValueError("PR head changed before publication")
+    message = (
+        f"Repair PR #{context['number']}\n\n{marker}\n\n"
+        "Signed-off-by: mlflow-app[bot] <191841109+mlflow-app[bot]@users.noreply.github.com>\n"
+    )
+    parent_args = [value for parent in parents for value in ("-p", parent)]
+    commit = git("commit-tree", tree, *parent_args, input=message)
+    ref = f"refs/heads/{context['head_ref']}"
+    git(
+        "-c",
+        "credential.helper=",
+        "-c",
+        "credential.helper=!gh auth git-credential",
+        "push",
+        f"--force-with-lease={ref}:{context['sha']}",
+        f"https://github.com/{REPO}.git",
+        f"{commit}:{ref}",
+    )
+    summary(f"Published repair commit `{commit}`.")
+
+
+def rerun_action(context: dict[str, Any], action: dict[str, Any], dry_run: bool) -> None:
+    if live_pr(context)["head"]["sha"] != context["sha"]:
+        raise ValueError("PR head changed before reruns")
+    runs = [run for run in context["failed_runs"] if run["run_id"] in action["run_ids"]]
+    for run in runs:
+        current = rest(f"repos/{REPO}/actions/runs/{run['run_id']}")
+        if (
+            current["head_sha"] != context["sha"]
+            or current["run_attempt"] != run["run_attempt"]
+            or current["status"] != "completed"
+            or current["conclusion"].upper() not in FAILED_CONCLUSIONS
+        ):
+            raise ValueError("Workflow run changed before rerun submission")
+
+    def submit(run: dict[str, Any]) -> None:
+        if dry_run:
+            summary(f"Would rerun failed jobs for {run['workflow']}: {run['url']}")
+        else:
+            command("gh", "run", "rerun", str(run["run_id"]), "--repo", REPO, "--failed")
+
+    failed = False
+    ordinary = [run for run in runs if run["workflow"] != "protect.yml"]
+    with ThreadPoolExecutor(max_workers=max(1, min(8, len(ordinary)))) as pool:
+        futures = [pool.submit(submit, run) for run in ordinary]
+        for future in futures:
+            try:
+                future.result()
+            except subprocess.CalledProcessError as error:
+                sys.stderr.write((error.stderr or str(error)) + "\n")
+                failed = True
+    for run in runs:
+        if run["workflow"] == "protect.yml":
+            try:
+                submit(run)
+            except subprocess.CalledProcessError as error:
+                sys.stderr.write((error.stderr or str(error)) + "\n")
+                failed = True
+    if failed:
+        raise ValueError("One or more rerun submissions failed")
+
+
+def sync_base_action(context: dict[str, Any], patch_follows: bool, dry_run: bool) -> None:
+    if dry_run:
+        summary(f"Would sync base `{context['base']['sha']}` into PR #{context['number']}.")
+    elif not patch_follows:
+        publish_tree(context, sync=True)
+
+
+def patch_action(context: dict[str, Any], sync: bool, dry_run: bool) -> None:
+    if dry_run:
+        patch = (output_dir() / "fix.patch").read_text(errors="replace")
+        summary(f"### Patch preview\n<pre>{html.escape(patch[:60_000])}</pre>")
+    else:
+        publish_tree(context, sync=sync)
+
+
+def execute(args: argparse.Namespace) -> int:
+    if args.command != "publish":
+        validate(args)
+    context = json.loads(context_file().read_text())
+    payload = load_plan(context, output_dir())
+    dry_run = os.environ.get("DRY_RUN", "true") == "true"
+    kinds = [action["type"] for action in payload["actions"]]
+    if args.command != "publish" and kinds != [args.command]:
+        raise ValueError(
+            "Action subcommand must match the validated plan; use publish for a combined plan"
+        )
+    summary(f"### Repair PR #{context['number']}\n{html.escape(payload['summary'])}")
+    for action in payload["actions"]:
+        match action["type"]:
+            case "rerun":
+                rerun_action(context, action, dry_run)
+            case "sync-base":
+                sync_base_action(context, "patch" in kinds, dry_run)
+            case "patch":
+                patch_action(context, "sync-base" in kinds, dry_run)
+    result = Path(os.environ.get("RESULT_DIR", "/tmp/repair-result"))
+    result.mkdir(parents=True, exist_ok=True)
+    (result / "result.json").write_text(
+        json.dumps({"context_key": context["key"], "payload": payload})
+    )
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Repair workflow commands")
     commands = parser.add_subparsers(dest="command", required=True)
     discovery = commands.add_parser("discover", help="Select PRs without unfinished CI jobs")
     discovery.add_argument("--prs", default=os.environ.get("PR_NUMBERS", ""))
     discovery.set_defaults(func=discover)
+    for name, callback in {
+        "prepare": prepare,
+        "validate": validate,
+        "publish": execute,
+        "rerun": execute,
+        "sync-base": execute,
+        "patch": execute,
+    }.items():
+        commands.add_parser(name).set_defaults(func=callback)
     args = parser.parse_args()
     handler: Callable[[argparse.Namespace], int] = args.func
-    return handler(args)
+    try:
+        return handler(args)
+    except subprocess.CalledProcessError as error:
+        sys.stderr.write((error.stderr or str(error)) + "\n")
+        return 1
+    except (RuntimeError, ValueError, KeyError, TypeError, OSError) as error:
+        sys.stderr.write(f"Repair failed: {error}\n")
+        return 1
 
 
 if __name__ == "__main__":
