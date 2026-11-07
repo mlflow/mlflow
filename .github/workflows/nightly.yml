@@ -37,59 +37,54 @@ jobs:
     runs-on: ubuntu-slim
     timeout-minutes: 10
     permissions:
-      issues: write
-    steps:
-      - name: Close old nightly issues
-        if: github.event_name == 'schedule' || !inputs.dry_run
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          cutoff=$(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ)
-          gh api --paginate 'repos/mlflow/mlflow/issues?state=open&labels=nightly&per_page=100' \
-            --jq ".[] | select(has(\"pull_request\") | not) | select(.created_at <= \"$cutoff\") | .number" \
-            > "$RUNNER_TEMP/old-nightly-issues.txt"
-          while IFS= read -r issue_number; do
-            gh issue close "$issue_number" --repo mlflow/mlflow --reason 'not planned'
-          done < "$RUNNER_TEMP/old-nightly-issues.txt"
-
-  resolve:
-    needs: prepare
-    runs-on: ubuntu-slim
-    timeout-minutes: 5
-    permissions:
       actions: read
+      issues: write
     outputs:
       run_ids: ${{ steps.runs.outputs.run_ids }}
     steps:
-      - name: Resolve failed run IDs
-        id: runs
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RUN_IDS: ${{ inputs.run_ids }}
-        run: |
-          if [ -z "$RUN_IDS" ]; then
-            # TODO: Add more nightly workflows.
-            workflow_files=(cross-version-tests.yml test-requirements.yml)
-            for workflow_file in "${workflow_files[@]}"; do
-              run_id=$(gh api "repos/mlflow/mlflow/actions/workflows/$workflow_file/runs?event=schedule&status=completed&per_page=1" \
-                --jq '.workflow_runs[0] | select(.conclusion | IN("failure", "timed_out", "cancelled", "action_required", "startup_failure")) | .id')
-              RUN_IDS+=" $run_id"
-            done
-            if [ -z "${RUN_IDS// /}" ]; then
-              echo "No failed scheduled runs. Skipping analysis." | tee -a "$GITHUB_STEP_SUMMARY"
-              exit 0
-            fi
-          fi
-          run_ids=$(jq -ern --arg ids "$RUN_IDS" '
-            [$ids | splits("\\s+") | select(length > 0)] | unique
-            | if length > 0 and all(test("^[1-9][0-9]*$")) then join(" ")
-              else error("Expected one or more numeric workflow run IDs") end
-          ')
-          printf 'run_ids=%s\n' "$run_ids" >> "$GITHUB_OUTPUT"
+      - parallel:
+          - name: Close old nightly issues
+            if: github.event_name == 'schedule' || !inputs.dry_run
+            env:
+              GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            run: |
+              cutoff=$(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ)
+              gh api --paginate 'repos/mlflow/mlflow/issues?state=open&labels=nightly&per_page=100' \
+                --jq ".[] | select(has(\"pull_request\") | not) | select(.created_at <= \"$cutoff\") | .number" \
+                > "$RUNNER_TEMP/old-nightly-issues.txt"
+              while IFS= read -r issue_number; do
+                gh issue close "$issue_number" --repo mlflow/mlflow --reason 'not planned'
+              done < "$RUNNER_TEMP/old-nightly-issues.txt"
+          - name: Resolve failed run IDs
+            id: runs
+            timeout-minutes: 5
+            env:
+              GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              RUN_IDS: ${{ inputs.run_ids }}
+            run: |
+              if [ -z "$RUN_IDS" ]; then
+                # TODO: Add more nightly workflows.
+                workflow_files=(cross-version-tests.yml test-requirements.yml)
+                for workflow_file in "${workflow_files[@]}"; do
+                  run_id=$(gh api "repos/mlflow/mlflow/actions/workflows/$workflow_file/runs?event=schedule&status=completed&per_page=1" \
+                    --jq '.workflow_runs[0] | select(.conclusion | IN("failure", "timed_out", "cancelled", "action_required", "startup_failure")) | .id')
+                  RUN_IDS+=" $run_id"
+                done
+                if [ -z "${RUN_IDS// /}" ]; then
+                  echo "No failed scheduled runs. Skipping analysis." | tee -a "$GITHUB_STEP_SUMMARY"
+                  exit 0
+                fi
+              fi
+              run_ids=$(jq -ern --arg ids "$RUN_IDS" '
+                [$ids | splits("\\s+") | select(length > 0)] | unique
+                | if length > 0 and all(test("^[1-9][0-9]*$")) then join(" ")
+                  else error("Expected one or more numeric workflow run IDs") end
+              ')
+              printf 'run_ids=%s\n' "$run_ids" >> "$GITHUB_OUTPUT"
 
   analyze:
-    needs: resolve
-    if: needs.resolve.outputs.run_ids != ''
+    needs: prepare
+    if: needs.prepare.outputs.run_ids != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
@@ -211,7 +206,7 @@ jobs:
       - name: Analyze failures in worktrees
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RUN_IDS: ${{ needs.resolve.outputs.run_ids }}
+          RUN_IDS: ${{ needs.prepare.outputs.run_ids }}
           ANTHROPIC_BASE_URL: http://localhost:8080/anthropic
           # Placeholder the sandbox sends to the local gateway proxy; the proxy swaps in the real gateway token.
           ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway-proxy.outputs.placeholder-token }}
