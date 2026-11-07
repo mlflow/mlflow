@@ -76,7 +76,7 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-  agent:
+  repair:
     name: "PR #${{ matrix.pr.number }}"
     needs: discover
     if: needs.discover.outputs.candidates != '' && needs.discover.outputs.candidates != '[]'
@@ -245,9 +245,9 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
-  rerun:
+  publish:
     name: "Publish PR #${{ matrix.pr.number }}"
-    needs: [discover, agent]
+    needs: [discover, repair]
     if: >-
       always() && !cancelled() && needs.discover.result == 'success'
       && needs.discover.outputs.candidates != '' && needs.discover.outputs.candidates != '[]'
