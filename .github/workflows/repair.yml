@@ -29,13 +29,15 @@ permissions: {}
 cache-mode: none
 
 jobs:
-  rerun:
+  discover:
     if: github.repository == 'mlflow/mlflow'
     runs-on: ubuntu-slim
     timeout-minutes: 15
     permissions:
       pull-requests: read # to find candidate PRs
-      actions: write # to rerun workflows
+      actions: read # to read workflow run metadata
+    outputs:
+      candidates: ${{ steps.discover.outputs.candidates }}
     steps:
       - name: Fetch repair script
         run: |
@@ -44,16 +46,37 @@ jobs:
             "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$GITHUB_SHA/.claude/skills/repair/scripts/cli.py" \
             -o "$RUNNER_TEMP/cli.py"
 
-      - name: rerun
+      - name: Discover candidate PRs
+        id: discover
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAX_RETRIES: "3"
+          PR_NUMBERS: ${{ inputs.pr_numbers }}
+        run: |
+          candidates=$(python3 "$RUNNER_TEMP/cli.py" discover | jq -c '.[:10]')
+          echo "candidates=$candidates" >> "$GITHUB_OUTPUT"
+
+  rerun:
+    name: "PR #${{ matrix.pr.number }}"
+    needs: discover
+    if: needs.discover.outputs.candidates != '' && needs.discover.outputs.candidates != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        pr: ${{ fromJSON(needs.discover.outputs.candidates) }}
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    permissions:
+      actions: write # to rerun workflows
+    steps:
+      - name: Rerun failed jobs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          MAX_RETRIES: "3"
-          PR_NUMBERS: ${{ inputs.pr_numbers }}
+          CANDIDATE: ${{ toJSON(matrix.pr) }}
           DRY_RUN: ${{ inputs.dry_run || false }}
         run: |
-          candidate_json=$(python3 "$RUNNER_TEMP/cli.py" discover)
-          candidates=$(jq -c '.[]' <<< "$candidate_json")
+          candidate=$CANDIDATE
           rerun() {
             local id=$1 workflow=$2 url=$3
             if [[ "$DRY_RUN" == true ]]; then
@@ -67,31 +90,28 @@ jobs:
           }
 
           result=0
-          while IFS= read -r candidate; do
-            [[ -n "$candidate" ]] || continue
-            number=$(jq -r '.number' <<< "$candidate")
-            echo "::group::https://github.com/$GH_REPO/pull/$number"
-            rows=$(jq -r '.failed_runs[]
-              | [.run_id, .workflow, .url] | @tsv' <<< "$candidate")
-            pids=()
-            protect=()
-            while IFS=$'\t' read -r id workflow url; do
-              [[ -n "$id" ]] || continue
-              if [[ "$workflow" == protect.yml ]]; then
-                protect=("$id" "$workflow" "$url")
-              else
-                rerun "$id" "$workflow" "$url" &
-                pids+=("$!")
-              fi
-            done <<< "$rows"
-            for pid in "${pids[@]}"; do
-              if ! wait "$pid"; then
-                result=1
-              fi
-            done
-            if [[ ${#protect[@]} -gt 0 ]] && ! rerun "${protect[@]}"; then
+          number=$(jq -r '.number' <<< "$candidate")
+          echo "::group::https://github.com/$GH_REPO/pull/$number"
+          rows=$(jq -r '.failed_runs[]
+            | [.run_id, .workflow, .url] | @tsv' <<< "$candidate")
+          pids=()
+          protect=()
+          while IFS=$'\t' read -r id workflow url; do
+            [[ -n "$id" ]] || continue
+            if [[ "$workflow" == protect.yml ]]; then
+              protect=("$id" "$workflow" "$url")
+            else
+              rerun "$id" "$workflow" "$url" &
+              pids+=("$!")
+            fi
+          done <<< "$rows"
+          for pid in "${pids[@]}"; do
+            if ! wait "$pid"; then
               result=1
             fi
-            echo "::endgroup::"
-          done <<< "$candidates"
+          done
+          if [[ ${#protect[@]} -gt 0 ]] && ! rerun "${protect[@]}"; then
+            result=1
+          fi
+          echo "::endgroup::"
           exit "$result"
