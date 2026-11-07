@@ -35,6 +35,7 @@ jobs:
     timeout-minutes: 15
     permissions:
       pull-requests: read # to find candidate PRs
+      actions: read # to read workflow run metadata
     outputs:
       candidates: ${{ steps.discover.outputs.candidates }}
     steps:
