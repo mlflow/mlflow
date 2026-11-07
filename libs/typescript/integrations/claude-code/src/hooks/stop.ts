@@ -12,7 +12,10 @@ async function main(): Promise<void> {
     if (!(await ensureInitialized())) {
       return;
     }
-    await processTranscript(input.transcript_path, input.session_id);
+    await processTranscript(input.transcript_path, input.session_id, {
+      lastAssistantMessage: input.last_assistant_message,
+      promptId: input.prompt_id,
+    });
   } catch (err) {
     console.error('[mlflow]', err);
   }
