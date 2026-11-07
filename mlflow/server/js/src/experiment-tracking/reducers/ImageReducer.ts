@@ -83,9 +83,18 @@ export const imagesByRunUuid = (
               if (!file.path) {
                 return acc;
               }
-              const { imageKey, step, timestamp, fileKey, extension, isCompressed } = parseImageFile(
-                file.path.slice((MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH + '/').length),
-              );
+              let parsedImage: ReturnType<typeof parseImageFile>;
+              try {
+                parsedImage = parseImageFile(file.path.slice((MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH + '/').length));
+              } catch (e) {
+                if (e instanceof ImagePathParseError) {
+                  // eslint-disable-next-line no-console
+                  console.warn(`Skipping malformed logged image file "${e.filename}": ${e.message}`);
+                  return acc;
+                }
+                throw e;
+              }
+              const { imageKey, step, timestamp, fileKey, extension, isCompressed } = parsedImage;
 
               // Double check extension of image files
               if (extension === IMAGE_FILE_EXTENSION || extension === IMAGE_COMPRESSED_FILE_EXTENSION) {
