@@ -225,63 +225,18 @@ jobs:
               kill "$(cat "$RUNNER_TEMP/repair-$proxy-proxy.pid")" 2>/dev/null || true
             fi
           done
-      - name: Save prepared candidate
-        env:
-          CANDIDATE: ${{ toJSON(matrix.pr) }}
-        run: |
-          mkdir -p "$RUNNER_TEMP/repair-output"
-          printf '%s\n' "$CANDIDATE" > "$RUNNER_TEMP/repair-output/context.json"
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        if: env.DRY_RUN != 'true' && toJSON(matrix.pr.failed_runs) != '[]'
+        id: app-token
         with:
-          name: repair-output-${{ github.run_attempt }}-${{ matrix.pr.number }}
-          path: ${{ runner.temp }}/repair-output
-          if-no-files-found: error
-          retention-days: 3
-
-  publish:
-    name: "Publish PR #${{ matrix.pr.number }}"
-    needs: [discover, repair]
-    if: >-
-      always() && !cancelled() && needs.discover.result == 'success'
-      && needs.discover.outputs.candidates != '' && needs.discover.outputs.candidates != '[]'
-    strategy:
-      fail-fast: false
-      matrix:
-        pr: ${{ fromJSON(needs.discover.outputs.candidates) }}
-    runs-on: ubuntu-slim
-    timeout-minutes: 15
-    permissions:
-      actions: write
-    steps:
-      - name: Check prepared candidate
-        id: prepared
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ matrix.pr.number }}
-        run: |
-          attempt=$(gh api --paginate --slurp \
-            "repos/$GH_REPO/actions/runs/$GITHUB_RUN_ID/jobs?filter=all&per_page=100" \
-            | jq -r --arg name "PR #$PR_NUMBER" \
-              '[.[].jobs[] | select(.name == $name)] | max_by(.id)
-               | select(.conclusion == "success") | .run_attempt // empty')
-          ready=false
-          if [[ -n "$attempt" ]]; then
-            artifact_name="repair-output-$attempt-$PR_NUMBER"
-            ready=$(gh api --paginate --slurp \
-              "repos/$GH_REPO/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=100" \
-              | jq --arg name "$artifact_name" \
-                '[.[].artifacts[]] | any(.name == $name and .expired == false)')
-            if [[ "$ready" != true ]]; then
-              echo "::error::Successful repair job has no prepared artifact."
-              exit 1
-            fi
-            echo "artifact_name=$artifact_name" >> "$GITHUB_OUTPUT"
-          fi
-          echo "ready=$ready" >> "$GITHUB_OUTPUT"
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: mlflow
+          repositories: mlflow
+          permission-actions: write
       - name: Rerun failed jobs
-        if: steps.prepared.outputs.ready == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           CANDIDATE: ${{ toJSON(matrix.pr) }}
           DRY_RUN: ${{ inputs.dry_run || false }}
