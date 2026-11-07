@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { ROOT_CONTEXT, SpanKind } from '@opentelemetry/api';
+import { ROOT_CONTEXT, SpanKind, TraceFlags, trace as otelTrace } from '@opentelemetry/api';
 import { ExportResult, ExportResultCode } from '@opentelemetry/core';
 import {
   BasicTracerProvider,
@@ -475,6 +475,44 @@ describe('wal/exporter', () => {
     expect(decoded.includes(Buffer.from('tool-call'))).toBe(true);
     // The JSON trace data is retained alongside the OTLP bytes (artifact fallback).
     expect((record.traceData as { spans: unknown[] }).spans).toHaveLength(1);
+  });
+
+  it('serializes a remote parent as a span link instead of a parent', async () => {
+    const serializeSpy = jest.spyOn(ProtobufTraceSerializer, 'serializeRequest');
+    const submit = jest.fn<Promise<void>, [WalRecord]>().mockResolvedValue(undefined);
+    const exporter = new MlflowWalSpanExporter({ submit });
+
+    const remoteParent = {
+      traceId: '0af7651916cd43dd8448eb211c80319c',
+      spanId: 'b7ad6b7169203331',
+      traceFlags: TraceFlags.SAMPLED,
+      isRemote: true,
+    };
+    const remoteCtx = otelTrace.setSpanContext(ROOT_CONTEXT, remoteParent);
+    const otelSpan = new BasicTracerProvider()
+      .getTracer('wal-exporter-test')
+      .startSpan('remote-parent-root', {}, remoteCtx) as OTelSpan;
+    otelSpan.setAttribute(SpanAttributeKey.TRACE_ID, JSON.stringify('tr-remote'));
+    otelSpan.end();
+    const trace = makeTrace('tr-remote');
+    trace.data.spans.push(new MlflowSpan(otelSpan));
+    popTraceSpy.mockReturnValue(trace);
+
+    try {
+      const { callback, promise } = captureExportResult();
+      exporter.export([otelSpan as unknown as OTelReadableSpan], callback);
+
+      expect((await promise).code).toBe(ExportResultCode.SUCCESS);
+      await exporter.forceFlush();
+
+      const [serializedSpan] = serializeSpy.mock.calls[0][0];
+      expect(serializedSpan.parentSpanContext).toBeUndefined();
+      expect(serializedSpan.links).toEqual([{ context: remoteParent }]);
+      expect(otelSpan.parentSpanContext?.spanId).toBe('b7ad6b7169203331');
+      expect(typeof submit.mock.calls[0][0].otlpSpans).toBe('string');
+    } finally {
+      serializeSpy.mockRestore();
+    }
   });
 
   it('omits otlpSpans when the trace has no spans', async () => {

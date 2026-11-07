@@ -212,12 +212,13 @@ describe('DatabricksUCTableSpanProcessor + Exporter end-to-end', () => {
       new DatabricksUCTableSpanExporter(client),
       location,
     );
-    const remoteCtx = otelTrace.setSpanContext(ROOT_CONTEXT, {
+    const remoteParent = {
       traceId: '0af7651916cd43dd8448eb211c80319c',
       spanId: 'b7ad6b7169203331',
       traceFlags: TraceFlags.SAMPLED,
       isRemote: true,
-    });
+    };
+    const remoteCtx = otelTrace.setSpanContext(ROOT_CONTEXT, remoteParent);
     const tracer = new BasicTracerProvider().getTracer('uc-test');
     const span = tracer.startSpan('remote-parent-root', {}, remoteCtx) as OTelSpan;
 
@@ -231,6 +232,8 @@ describe('DatabricksUCTableSpanProcessor + Exporter end-to-end', () => {
       'trace:/cat.sch.tbl/0af7651916cd43dd8448eb211c80319c',
     );
     const exportedRootSpan = exportedSpans[0][0] as OTelReadableSpan;
-    expect(exportedRootSpan.parentSpanContext?.spanId).toBe('b7ad6b7169203331');
+    expect(exportedRootSpan.parentSpanContext).toBeUndefined();
+    expect(exportedRootSpan.links).toEqual([{ context: remoteParent }]);
+    expect(span.parentSpanContext?.spanId).toBe('b7ad6b7169203331');
   });
 });

@@ -4,7 +4,7 @@ import { ReadableSpan as OTelReadableSpan, SpanExporter } from '@opentelemetry/s
 import { ProtobufTraceSerializer } from '@opentelemetry/otlp-transformer';
 import { getConfig, MLflowTracingConfig } from '../../core/config';
 import { InMemoryTraceManager } from '../../core/trace_manager';
-import { isRootSpan } from '../../core/utils';
+import { isRootSpan, withoutRemoteParent } from '../../core/utils';
 import { ipcRequestByteLength, MAX_REQUEST_BYTES, submitRecord } from './ipc';
 import { WalRecord } from './types';
 
@@ -57,7 +57,7 @@ function serializeSpansToOtlpBase64(spans: OTelReadableSpan[]): string | undefin
   }
   try {
     const bytes = ProtobufTraceSerializer.serializeRequest(
-      serializable.map(spanWithDecodedAttributes),
+      serializable.map((s) => spanWithDecodedAttributes(withoutRemoteParent(s))),
     );
     if (!bytes || bytes.length === 0) {
       return undefined;
