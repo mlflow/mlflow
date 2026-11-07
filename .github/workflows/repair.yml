@@ -37,14 +37,12 @@ jobs:
       pull-requests: read # to find candidate PRs
       actions: write # to rerun workflows
     steps:
-      - name: Fetch repair scripts
+      - name: Fetch repair script
         run: |
-          for script in .claude/skills/repair/scripts/cli.py .github/workflows/retry.sh; do
-            curl -fsSL --retry 3 --connect-timeout 10 --max-time 30 \
-              --write-out 'curl: %{time_total}s\n' \
-              "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$GITHUB_SHA/$script" \
-              -o "$RUNNER_TEMP/${script##*/}"
-          done
+          curl -fsSL --retry 3 --connect-timeout 10 --max-time 30 \
+            --write-out 'curl: %{time_total}s\n' \
+            "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$GITHUB_SHA/.claude/skills/repair/scripts/cli.py" \
+            -o "$RUNNER_TEMP/cli.py"
 
       - name: rerun
         env:
@@ -55,18 +53,43 @@ jobs:
           DRY_RUN: ${{ inputs.dry_run || false }}
         run: |
           candidate_json=$(python3 "$RUNNER_TEMP/cli.py" discover)
-          candidates=$(jq -r '.[] | [.number, .sha] | @tsv' <<< "$candidate_json")
-
-          args=()
-          if [[ "$DRY_RUN" == true ]]; then
-            args+=(--dry-run)
-          fi
+          candidates=$(jq -c '.[]' <<< "$candidate_json")
+          rerun() {
+            local id=$1 workflow=$2 url=$3
+            if [[ "$DRY_RUN" == true ]]; then
+              echo "Would rerun failed jobs for $workflow: $url"
+              return 0
+            fi
+            if ! gh run rerun "$id" --repo "$GH_REPO" --failed; then
+              return 1
+            fi
+            echo "::notice title=Rerun failed jobs::$workflow: $url"
+          }
 
           result=0
-          while IFS=$'\t' read -r number sha; do
-            [[ -n "$number" ]] || continue
+          while IFS= read -r candidate; do
+            [[ -n "$candidate" ]] || continue
+            number=$(jq -r '.number' <<< "$candidate")
             echo "::group::https://github.com/$GH_REPO/pull/$number"
-            if ! bash "$RUNNER_TEMP/retry.sh" "${args[@]}" "$GH_REPO" "$sha"; then
+            rows=$(jq -r '.failed_runs[]
+              | [.run_id, .workflow, .url] | @tsv' <<< "$candidate")
+            pids=()
+            protect=()
+            while IFS=$'\t' read -r id workflow url; do
+              [[ -n "$id" ]] || continue
+              if [[ "$workflow" == protect.yml ]]; then
+                protect=("$id" "$workflow" "$url")
+              else
+                rerun "$id" "$workflow" "$url" &
+                pids+=("$!")
+              fi
+            done <<< "$rows"
+            for pid in "${pids[@]}"; do
+              if ! wait "$pid"; then
+                result=1
+              fi
+            done
+            if [[ ${#protect[@]} -gt 0 ]] && ! rerun "${protect[@]}"; then
               result=1
             fi
             echo "::endgroup::"
