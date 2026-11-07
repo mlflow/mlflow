@@ -30,7 +30,10 @@ from mlflow.utils.file_utils import (
     get_or_create_tmp_dir,
     path_to_local_file_uri,
 )
-from mlflow.utils.model_utils import _get_all_flavor_configurations
+from mlflow.utils.model_utils import (
+    _check_model_code_loading_allowed,
+    _get_all_flavor_configurations,
+)
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
 from mlflow.utils.os import is_windows
 from mlflow.utils.process import ShellCommandException, cache_return_value_per_process
@@ -114,6 +117,7 @@ class PyFuncBackend(FlavorBackend):
     def prepare_env(
         self, model_uri, capture_output=False, pip_requirements_override=None, extra_envs=None
     ):
+        _check_model_code_loading_allowed("PyFunc model environments")
         if self._environment is not None:
             return self._environment
 
