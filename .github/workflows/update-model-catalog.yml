@@ -145,7 +145,7 @@ jobs:
             echo "Existing open PR #$existing_pr found for branch $branch — skipping PR creation."
             gh pr edit "$existing_pr" \
               --remove-reviewer TomeHirata \
-              --add-label auto-rerun \
+              --add-label auto-repair \
               --add-label team-review
             echo "number=$existing_pr" >> "$GITHUB_OUTPUT"
             echo "is_new_pr=false" >> "$GITHUB_OUTPUT"
@@ -153,7 +153,7 @@ jobs:
             pr_url=$(gh pr create \
               --title "Update model catalog from upstream sources" \
               --body "Daily refresh of model pricing and context window data from LiteLLM, transformed to MLflow-native schema." \
-              --label auto-rerun \
+              --label auto-repair \
               --label team-review)
             echo "number=${pr_url##*/}" >> "$GITHUB_OUTPUT"
             echo "is_new_pr=true" >> "$GITHUB_OUTPUT"
