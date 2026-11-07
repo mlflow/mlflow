@@ -776,7 +776,10 @@ def run(
 
     # Aggregate metrics and log to MLflow run
     aggregated_metrics = compute_aggregated_metrics(
-        eval_results, scorers=scorers, extra_aggregations=extra_aggregations
+        eval_results,
+        scorers=scorers,
+        extra_aggregations=extra_aggregations,
+        scorer_stats=scorer_stats,
     )
     mlflow.log_metrics(aggregated_metrics, dataset=dataset)
 
