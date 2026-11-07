@@ -216,7 +216,7 @@ def test_map_scorer_inputs_agentic_with_expectations(expectations, assertion_fn)
             ],
         ),
         ({"expected_tool_calls": [{"arguments": {"x": 1}}]}, []),
-        ({"expected_tool_calls": [{"name": "tool1"}]}, [ToolCall(name="tool1", args={})]),
+        ({"expected_tool_calls": [{"name": "tool1"}]}, []),
         (
             {"expected_tool_calls": [{"name": "get_time", "arguments": {}}]},
             [ToolCall(name="get_time", args={})],

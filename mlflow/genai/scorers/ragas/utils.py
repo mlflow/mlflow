@@ -236,7 +236,11 @@ def extract_reference_tool_calls_from_expectations(
     if not function_calls:
         return []
 
-    return [ToolCall(name=fc.name, args=fc.arguments or {}) for fc in function_calls if fc.name]
+    return [
+        ToolCall(name=fc.name, args=fc.arguments)
+        for fc in function_calls
+        if fc.name and fc.arguments is not None
+    ]
 
 
 def create_mlflow_error_message_from_ragas_param(error_msg: str, metric_name: str) -> str:
