@@ -456,7 +456,7 @@ export const useTracesV4ToolbarSlots = ({
               componentId="mlflow.traces-v4.group-by-session"
               pressed={isGroupedBySession}
               onPressedChange={onToggleSessionGrouping}
-              icon={<SchemaIcon />}
+              icon={<SchemaIcon css={{ color: theme.colors.textSecondary }} />}
               // Icon-only ToggleButtons render borderless here; managed's `forceWithBorder` prop
               // doesn't exist in this design-system version, so restore the border manually.
               css={{

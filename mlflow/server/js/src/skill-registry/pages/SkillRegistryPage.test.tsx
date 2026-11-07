@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -538,10 +538,11 @@ describe('SkillRegistryPage', () => {
     );
     expect(screen.getByLabelText('Name')).toHaveValue('@acme/network-policy-architect');
     expect(screen.getByText(/Filled in from the source/)).toBeInTheDocument();
-    expect(
-      screen.getByText('Registers Git https://github.com/acme/skills · branch main · path network-policy-architect'),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Registering every skill under this folder? Run this instead:')).toBeInTheDocument();
+    expect(screen.queryByText(/^Registers Git /)).not.toBeInTheDocument();
+    const importTip = screen.getByRole('note');
+    expect(within(importTip).getByText('Want to import multiple skills at once?')).toBeInTheDocument();
+    expect(within(importTip).queryByRole('button', { name: 'Copy repository import command' })).not.toBeInTheDocument();
+    await userEvent.click(within(importTip).getByRole('button', { name: 'Show import command' }));
     expect(document.body.textContent).toContain("--subpath 'network-policy-architect'");
     await userEvent.click(screen.getByRole('button', { name: /create through API/ }));
     const snippet = document.body.textContent ?? '';
@@ -767,7 +768,7 @@ describe('SkillRegistryPage', () => {
     expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
   });
 
-  it('warns that a GitHub link may split a branch name containing a slash', async () => {
+  it('shows the branch split hint beside the advanced branch field until it is edited', async () => {
     renderPage();
 
     await openCreateSkillDialog();
@@ -775,12 +776,14 @@ describe('SkillRegistryPage', () => {
       screen.getByLabelText('Location'),
       'https://github.com/acme/skills/tree/feature/review/skills/code-review',
     );
-    expect(screen.getByText(/GitHub links don't show where a branch name ends/)).toBeInTheDocument();
+    const branchHint = "If your branch name contains '/', check the branch and path.";
+    expect(screen.queryByText(branchHint, { exact: false })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: /Advanced settings/ }));
+    expect(screen.getByText(branchHint, { exact: false })).toBeInTheDocument();
     await userEvent.clear(screen.getByLabelText('Branch, tag or commit'));
     await userEvent.type(screen.getByLabelText('Branch, tag or commit'), 'feature/review');
-    expect(screen.queryByText(/GitHub links don't show where a branch name ends/)).not.toBeInTheDocument();
+    expect(screen.queryByText(branchHint, { exact: false })).not.toBeInTheDocument();
   });
 
   it('ignores a name check that answers after the name changed', async () => {
@@ -839,8 +842,10 @@ describe('SkillRegistryPage', () => {
     await openCreateSkillDialog();
     await userEvent.type(screen.getByLabelText('Location'), 'https://github.com/redhat-ai/skills-developer');
 
-    expect(screen.getByText('Registers Git https://github.com/redhat-ai/skills-developer')).toBeInTheDocument();
-    expect(screen.getByText('Registering every skill in this repository? Run this instead:')).toBeInTheDocument();
+    expect(screen.queryByText(/^Registers Git /)).not.toBeInTheDocument();
+    const importTip = screen.getByRole('note');
+    expect(within(importTip).getByText('Want to import multiple skills at once?')).toBeInTheDocument();
+    await userEvent.click(within(importTip).getByRole('button', { name: 'Show import command' }));
     expect(document.body.textContent).toContain(
       "mlflow skills import --source 'https://github.com/redhat-ai/skills-developer'",
     );
@@ -849,6 +854,7 @@ describe('SkillRegistryPage', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /create through API/ }));
     await userEvent.click(screen.getByText('Python'));
+    await userEvent.click(screen.getByRole('button', { name: 'Show import command' }));
     expect(document.body.textContent).toContain('mlflow.genai.import_skills(');
     expect(document.body.textContent).toContain('organization="redhat-ai"');
   });

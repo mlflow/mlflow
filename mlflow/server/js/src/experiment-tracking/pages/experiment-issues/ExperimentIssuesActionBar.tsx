@@ -1,6 +1,8 @@
-import { Input, SearchIcon, useDesignSystemTheme } from '@databricks/design-system';
-import { useIntl } from 'react-intl';
+import { Button, HistoryIcon, Input, SearchIcon, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { DetectIssuesButton } from '@databricks/web-shared/genai-traces-table/components/DetectIssuesButton';
+import { useNavigate } from '../../../common/utils/RoutingUtils';
+import Routes from '../../routes';
 import { CancelIssueDetectionButton } from './CancelIssueDetectionButton';
 import { IssueDetectionSettingsControl } from './IssueDetectionSettingsControl';
 import { ExperimentIssuesScheduleControl } from './ExperimentIssuesScheduleControl';
@@ -49,6 +51,7 @@ export const ExperimentIssuesActionBar = ({
 }: ExperimentIssuesActionBarProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const navigate = useNavigate();
   return (
     <div
       role="toolbar"
@@ -81,6 +84,28 @@ export const ExperimentIssuesActionBar = ({
       </div>
       <ExperimentIssuesFilterControl controls={controls} align="start" />
       <div css={{ flex: 1 }} />
+      {/* Leads the detection group on the right, but outside its `detectionEnabled` gate: this
+          reads the runs an experiment has already recorded, which outlive whatever made them
+          possible. A tooltip because the icon alone does not say which history it means. */}
+      <Tooltip
+        componentId={`${COMPONENT_ID}.run-history.tooltip`}
+        content={
+          <FormattedMessage
+            defaultMessage="Issue detection run history"
+            description="Experiment issues tab > Tooltip on the toolbar button opening the detection run history"
+          />
+        }
+      >
+        <Button
+          componentId={`${COMPONENT_ID}.run-history`}
+          icon={<HistoryIcon />}
+          aria-label={intl.formatMessage({
+            defaultMessage: 'Issue detection run history',
+            description: 'Experiment issues tab > Accessible label for the toolbar button opening the run history',
+          })}
+          onClick={() => navigate(Routes.getIssueDetectionRunsRoute(experimentId))}
+        />
+      </Tooltip>
       {detectionEnabled && (
         <>
           <IssueDetectionSettingsControl experimentId={experimentId} />

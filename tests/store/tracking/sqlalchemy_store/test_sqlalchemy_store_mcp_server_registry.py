@@ -5,6 +5,7 @@ import pytest
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPStatus, MCPTool
 from mlflow.entities.mcp_server_version import ConnectOptionSettings
 from mlflow.exceptions import MlflowException
+from mlflow.store.tracking.dbmodels.models import SqlMCPAccessEndpoint
 from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET
 
 pytestmark = pytest.mark.notrackingurimock
@@ -208,6 +209,18 @@ def test_search_mcp_servers_access_endpoints_include_resolved_versions(store):
     assert len(server.access_endpoints) == 1
     assert server.access_endpoints[0].resolved_version is not None
     assert server.access_endpoints[0].resolved_version.version == "1.0.0"
+
+
+def test_access_endpoint_to_mlflow_entity_without_eager_join_has_no_resolved_version(store):
+    store.create_mcp_server_version(
+        _server_json("io.github.test/server", "1.0.0"), status=MCPStatus.ACTIVE
+    )
+    endpoint = store.create_mcp_access_endpoint(
+        "io.github.test/server", "https://direct.example.com", server_version="1.0.0"
+    )
+    with store.ManagedSessionMaker() as session:
+        row = session.query(SqlMCPAccessEndpoint).filter_by(id=endpoint.id).one()
+        assert row.to_mlflow_entity().resolved_version is None
 
 
 def test_search_mcp_servers_empty(store):

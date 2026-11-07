@@ -27,8 +27,7 @@ import subprocess
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
-
-from typing_extensions import Self
+from typing import Self
 
 from clint.utils import get_repo_root
 

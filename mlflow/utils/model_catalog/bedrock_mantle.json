@@ -365,14 +365,21 @@
     "openai.gpt-5.6-cyber": {
       "mode": "responses",
       "context_window": {
-        "max_input": 1050000,
+        "max_input": 922000,
         "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 13.75,
         "output_per_million_tokens": 82.5,
         "cache_read_per_million_tokens": 1.375,
-        "cache_write_per_million_tokens": 17.1875
+        "cache_write_per_million_tokens": 17.1875,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.012,
+            "search_context_size_low": 0.012,
+            "search_context_size_medium": 0.012
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -381,7 +388,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-03"
     },
     "openai.gpt-5.6-luna": {
       "mode": "responses",
@@ -513,7 +520,14 @@
             "cache_read_per_million_tokens": 2.2,
             "output_per_million_tokens": 82.5
           }
-        ]
+        ],
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.012,
+            "search_context_size_low": 0.012,
+            "search_context_size_medium": 0.012
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -522,7 +536,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-28"
+      "last_updated_at": "2026-11-03"
     },
     "openai.gpt-6-luna": {
       "mode": "responses",
@@ -543,7 +557,14 @@
             "cache_read_per_million_tokens": 0.022,
             "output_per_million_tokens": 0.825
           }
-        ]
+        ],
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.012,
+            "search_context_size_low": 0.012,
+            "search_context_size_medium": 0.012
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -552,7 +573,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-28"
+      "last_updated_at": "2026-11-03"
     },
     "openai.gpt-6-sol": {
       "mode": "responses",
@@ -573,7 +594,14 @@
             "cache_read_per_million_tokens": 0.44,
             "output_per_million_tokens": 16.5
           }
-        ]
+        ],
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.012,
+            "search_context_size_low": 0.012,
+            "search_context_size_medium": 0.012
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -582,7 +610,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-28"
+      "last_updated_at": "2026-11-03"
     },
     "openai.gpt-6.1-sol": {
       "mode": "responses",
@@ -603,7 +631,14 @@
             "input_per_million_tokens": 4.4,
             "output_per_million_tokens": 16.5
           }
-        ]
+        ],
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.012,
+            "search_context_size_low": 0.012,
+            "search_context_size_medium": 0.012
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -612,7 +647,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-03"
     },
     "openai.gpt-6.1-terra": {
       "mode": "responses",
@@ -633,7 +668,14 @@
             "input_per_million_tokens": 2.2,
             "output_per_million_tokens": 8.25
           }
-        ]
+        ],
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.012,
+            "search_context_size_low": 0.012,
+            "search_context_size_medium": 0.012
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -642,7 +684,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-28"
+      "last_updated_at": "2026-11-03"
     },
     "openai.gpt-daybreak-blue-5.6-sol": {
       "mode": "responses",
@@ -663,7 +705,14 @@
             "cache_read_per_million_tokens": 0.88,
             "output_per_million_tokens": 33.0
           }
-        ]
+        ],
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.012,
+            "search_context_size_low": 0.012,
+            "search_context_size_medium": 0.012
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -672,7 +721,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-03"
     },
     "openai.gpt-oss-120b": {
       "mode": "chat",
@@ -1006,6 +1055,138 @@
       },
       "last_updated_at": "2026-10-27"
     },
+    "us-gov-east-1/nvidia.nemotron-nano-12b-v2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.24,
+        "output_per_million_tokens": 0.72,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.12,
+            "output_per_million_tokens": 0.36
+          },
+          "flex": {
+            "input_per_million_tokens": 0.12,
+            "output_per_million_tokens": 0.36
+          },
+          "priority": {
+            "input_per_million_tokens": 0.42,
+            "output_per_million_tokens": 1.26
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-05"
+    },
+    "us-gov-east-1/nvidia.nemotron-nano-3-30b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.072,
+        "output_per_million_tokens": 0.288,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.036,
+            "output_per_million_tokens": 0.144
+          },
+          "flex": {
+            "input_per_million_tokens": 0.036,
+            "output_per_million_tokens": 0.144
+          },
+          "priority": {
+            "input_per_million_tokens": 0.132,
+            "output_per_million_tokens": 0.504
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-05"
+    },
+    "us-gov-east-1/nvidia.nemotron-nano-9b-v2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.072,
+        "output_per_million_tokens": 0.276,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.036,
+            "output_per_million_tokens": 0.144
+          },
+          "flex": {
+            "input_per_million_tokens": 0.036,
+            "output_per_million_tokens": 0.144
+          },
+          "priority": {
+            "input_per_million_tokens": 0.132,
+            "output_per_million_tokens": 0.48
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-05"
+    },
+    "us-gov-east-1/nvidia.nemotron-super-3-120b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 256000,
+        "max_output": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.18,
+        "output_per_million_tokens": 0.78,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.09,
+            "output_per_million_tokens": 0.39
+          },
+          "flex": {
+            "input_per_million_tokens": 0.09,
+            "output_per_million_tokens": 0.39
+          },
+          "priority": {
+            "input_per_million_tokens": 0.315,
+            "output_per_million_tokens": 1.365
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-05"
+    },
     "us-gov-east-1/openai.gpt-5.4": {
       "mode": "responses",
       "context_window": {
@@ -1034,7 +1215,21 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.18,
-        "output_per_million_tokens": 0.72
+        "output_per_million_tokens": 0.72,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.09,
+            "output_per_million_tokens": 0.36
+          },
+          "flex": {
+            "input_per_million_tokens": 0.09,
+            "output_per_million_tokens": 0.36
+          },
+          "priority": {
+            "input_per_million_tokens": 0.315,
+            "output_per_million_tokens": 1.26
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1043,7 +1238,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-05"
     },
     "us-gov-east-1/openai.gpt-oss-20b": {
       "mode": "chat",
@@ -1053,7 +1248,21 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.084,
-        "output_per_million_tokens": 0.36
+        "output_per_million_tokens": 0.36,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.042,
+            "output_per_million_tokens": 0.18
+          },
+          "flex": {
+            "input_per_million_tokens": 0.042,
+            "output_per_million_tokens": 0.18
+          },
+          "priority": {
+            "input_per_million_tokens": 0.147,
+            "output_per_million_tokens": 0.63
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1062,7 +1271,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-05"
     },
     "us-gov-east-1/xai.grok-4.6": {
       "mode": "chat",
@@ -1073,7 +1282,19 @@
       "pricing": {
         "input_per_million_tokens": 2.64,
         "output_per_million_tokens": 7.92,
-        "cache_read_per_million_tokens": 0.66
+        "cache_read_per_million_tokens": 0.66,
+        "service_tiers": {
+          "flex": {
+            "input_per_million_tokens": 1.32,
+            "output_per_million_tokens": 3.96,
+            "cache_read_per_million_tokens": 0.33
+          },
+          "priority": {
+            "input_per_million_tokens": 4.62,
+            "output_per_million_tokens": 13.86,
+            "cache_read_per_million_tokens": 1.155
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1082,7 +1303,43 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-05"
+    },
+    "us-gov-east-1/xai.grok-4.7": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 524288,
+        "max_output": 524288
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.64,
+        "output_per_million_tokens": 7.92,
+        "cache_read_per_million_tokens": 0.66,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.32,
+            "output_per_million_tokens": 3.96
+          },
+          "flex": {
+            "input_per_million_tokens": 1.32,
+            "output_per_million_tokens": 3.96,
+            "cache_read_per_million_tokens": 0.33
+          },
+          "priority": {
+            "input_per_million_tokens": 4.62,
+            "output_per_million_tokens": 13.86,
+            "cache_read_per_million_tokens": 1.155
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-05"
     },
     "us-gov-west-1/anthropic.claude-haiku-5-5": {
       "mode": "chat",
@@ -1167,7 +1424,21 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.156,
-        "output_per_million_tokens": 0.48
+        "output_per_million_tokens": 0.48,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.078,
+            "output_per_million_tokens": 0.24
+          },
+          "flex": {
+            "input_per_million_tokens": 0.078,
+            "output_per_million_tokens": 0.24
+          },
+          "priority": {
+            "input_per_million_tokens": 0.273,
+            "output_per_million_tokens": 0.84
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1176,7 +1447,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-05"
     },
     "us-gov-west-1/google.gemma-4-31b": {
       "mode": "chat",
@@ -1186,7 +1457,21 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.168,
-        "output_per_million_tokens": 0.48
+        "output_per_million_tokens": 0.48,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.084,
+            "output_per_million_tokens": 0.24
+          },
+          "flex": {
+            "input_per_million_tokens": 0.084,
+            "output_per_million_tokens": 0.24
+          },
+          "priority": {
+            "input_per_million_tokens": 0.294,
+            "output_per_million_tokens": 0.84
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1195,7 +1480,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-05"
     },
     "us-gov-west-1/google.gemma-4-e2b": {
       "mode": "chat",
@@ -1205,7 +1490,20 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.048,
-        "output_per_million_tokens": 0.096
+        "output_per_million_tokens": 0.096,
+        "service_tiers": {
+          "batch": {
+            "output_per_million_tokens": 0.048
+          },
+          "flex": {
+            "input_per_million_tokens": 0.024,
+            "output_per_million_tokens": 0.048
+          },
+          "priority": {
+            "input_per_million_tokens": 0.084,
+            "output_per_million_tokens": 0.168
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1214,7 +1512,139 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-05"
+    },
+    "us-gov-west-1/nvidia.nemotron-nano-12b-v2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.24,
+        "output_per_million_tokens": 0.72,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.12,
+            "output_per_million_tokens": 0.36
+          },
+          "flex": {
+            "input_per_million_tokens": 0.12,
+            "output_per_million_tokens": 0.36
+          },
+          "priority": {
+            "input_per_million_tokens": 0.42,
+            "output_per_million_tokens": 1.26
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-05"
+    },
+    "us-gov-west-1/nvidia.nemotron-nano-3-30b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.072,
+        "output_per_million_tokens": 0.288,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.036,
+            "output_per_million_tokens": 0.144
+          },
+          "flex": {
+            "input_per_million_tokens": 0.036,
+            "output_per_million_tokens": 0.144
+          },
+          "priority": {
+            "input_per_million_tokens": 0.132,
+            "output_per_million_tokens": 0.504
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-05"
+    },
+    "us-gov-west-1/nvidia.nemotron-nano-9b-v2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.072,
+        "output_per_million_tokens": 0.276,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.036,
+            "output_per_million_tokens": 0.144
+          },
+          "flex": {
+            "input_per_million_tokens": 0.036,
+            "output_per_million_tokens": 0.144
+          },
+          "priority": {
+            "input_per_million_tokens": 0.132,
+            "output_per_million_tokens": 0.48
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-05"
+    },
+    "us-gov-west-1/nvidia.nemotron-super-3-120b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 256000,
+        "max_output": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.18,
+        "output_per_million_tokens": 0.78,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.09,
+            "output_per_million_tokens": 0.39
+          },
+          "flex": {
+            "input_per_million_tokens": 0.09,
+            "output_per_million_tokens": 0.39
+          },
+          "priority": {
+            "input_per_million_tokens": 0.315,
+            "output_per_million_tokens": 1.365
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-05"
     },
     "us-gov-west-1/openai.gpt-5.4": {
       "mode": "responses",
@@ -1223,9 +1653,16 @@
         "max_output": 128000
       },
       "pricing": {
-        "input_per_million_tokens": 3.375,
-        "output_per_million_tokens": 20.25,
-        "cache_read_per_million_tokens": 0.3375
+        "input_per_million_tokens": 3.3,
+        "output_per_million_tokens": 19.8,
+        "cache_read_per_million_tokens": 0.33,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.0144,
+            "search_context_size_low": 0.0144,
+            "search_context_size_medium": 0.0144
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1234,7 +1671,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-28"
+      "last_updated_at": "2026-11-05"
     },
     "us-gov-west-1/openai.gpt-5.6-luna": {
       "mode": "responses",
@@ -1243,19 +1680,38 @@
         "max_output": 128000
       },
       "pricing": {
-        "input_per_million_tokens": 0.27,
-        "output_per_million_tokens": 1.62,
-        "cache_read_per_million_tokens": 0.027,
-        "cache_write_per_million_tokens": 0.3375,
+        "input_per_million_tokens": 0.264,
+        "output_per_million_tokens": 1.584,
+        "cache_read_per_million_tokens": 0.0264,
+        "cache_write_per_million_tokens": 0.33,
+        "service_tiers": {
+          "flex": {
+            "input_per_million_tokens": 0.132,
+            "output_per_million_tokens": 0.792,
+            "cache_read_per_million_tokens": 0.0132
+          },
+          "priority": {
+            "input_per_million_tokens": 0.528,
+            "output_per_million_tokens": 3.168,
+            "cache_read_per_million_tokens": 0.0528
+          }
+        },
         "long_context": [
           {
             "threshold_tokens": 272000,
-            "input_per_million_tokens": 0.54,
-            "cache_write_per_million_tokens": 0.675,
-            "cache_read_per_million_tokens": 0.054,
-            "output_per_million_tokens": 2.43
+            "input_per_million_tokens": 0.528,
+            "cache_write_per_million_tokens": 0.66,
+            "cache_read_per_million_tokens": 0.0528,
+            "output_per_million_tokens": 2.376
           }
-        ]
+        ],
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.0144,
+            "search_context_size_low": 0.0144,
+            "search_context_size_medium": 0.0144
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1264,7 +1720,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-28"
+      "last_updated_at": "2026-11-05"
     },
     "us-gov-west-1/openai.gpt-5.6-terra": {
       "mode": "responses",
@@ -1273,19 +1729,38 @@
         "max_output": 128000
       },
       "pricing": {
-        "input_per_million_tokens": 2.7,
-        "output_per_million_tokens": 16.2,
-        "cache_read_per_million_tokens": 0.27,
-        "cache_write_per_million_tokens": 3.375,
+        "input_per_million_tokens": 2.64,
+        "output_per_million_tokens": 15.84,
+        "cache_read_per_million_tokens": 0.264,
+        "cache_write_per_million_tokens": 3.3,
+        "service_tiers": {
+          "flex": {
+            "input_per_million_tokens": 1.32,
+            "output_per_million_tokens": 7.92,
+            "cache_read_per_million_tokens": 0.132
+          },
+          "priority": {
+            "input_per_million_tokens": 5.28,
+            "output_per_million_tokens": 31.68,
+            "cache_read_per_million_tokens": 0.528
+          }
+        },
         "long_context": [
           {
             "threshold_tokens": 272000,
-            "input_per_million_tokens": 5.4,
-            "cache_write_per_million_tokens": 6.75,
-            "cache_read_per_million_tokens": 0.54,
-            "output_per_million_tokens": 24.3
+            "input_per_million_tokens": 5.28,
+            "cache_write_per_million_tokens": 6.6,
+            "cache_read_per_million_tokens": 0.528,
+            "output_per_million_tokens": 23.76
           }
-        ]
+        ],
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.0144,
+            "search_context_size_low": 0.0144,
+            "search_context_size_medium": 0.0144
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1294,7 +1769,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-28"
+      "last_updated_at": "2026-11-05"
     },
     "us-gov-west-1/openai.gpt-oss-120b": {
       "mode": "chat",
@@ -1304,7 +1779,21 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.18,
-        "output_per_million_tokens": 0.72
+        "output_per_million_tokens": 0.72,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.09,
+            "output_per_million_tokens": 0.36
+          },
+          "flex": {
+            "input_per_million_tokens": 0.09,
+            "output_per_million_tokens": 0.36
+          },
+          "priority": {
+            "input_per_million_tokens": 0.315,
+            "output_per_million_tokens": 1.26
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1313,7 +1802,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-05"
     },
     "us-gov-west-1/openai.gpt-oss-20b": {
       "mode": "chat",
@@ -1323,7 +1812,21 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.084,
-        "output_per_million_tokens": 0.36
+        "output_per_million_tokens": 0.36,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.042,
+            "output_per_million_tokens": 0.18
+          },
+          "flex": {
+            "input_per_million_tokens": 0.042,
+            "output_per_million_tokens": 0.18
+          },
+          "priority": {
+            "input_per_million_tokens": 0.147,
+            "output_per_million_tokens": 0.63
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1332,7 +1835,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-05"
     },
     "us-gov-west-1/xai.grok-4.3": {
       "mode": "chat",
@@ -1343,7 +1846,24 @@
       "pricing": {
         "input_per_million_tokens": 1.5,
         "output_per_million_tokens": 3.0,
-        "cache_read_per_million_tokens": 0.24
+        "cache_read_per_million_tokens": 0.24,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.75,
+            "output_per_million_tokens": 1.5,
+            "cache_read_per_million_tokens": 0.12
+          },
+          "flex": {
+            "input_per_million_tokens": 0.75,
+            "output_per_million_tokens": 1.5,
+            "cache_read_per_million_tokens": 0.12
+          },
+          "priority": {
+            "input_per_million_tokens": 2.625,
+            "output_per_million_tokens": 5.25,
+            "cache_read_per_million_tokens": 0.42
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1352,7 +1872,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-05"
     },
     "us-gov-west-1/xai.grok-4.6": {
       "mode": "chat",
@@ -1363,7 +1883,19 @@
       "pricing": {
         "input_per_million_tokens": 2.64,
         "output_per_million_tokens": 7.92,
-        "cache_read_per_million_tokens": 0.66
+        "cache_read_per_million_tokens": 0.66,
+        "service_tiers": {
+          "flex": {
+            "input_per_million_tokens": 1.32,
+            "output_per_million_tokens": 3.96,
+            "cache_read_per_million_tokens": 0.33
+          },
+          "priority": {
+            "input_per_million_tokens": 4.62,
+            "output_per_million_tokens": 13.86,
+            "cache_read_per_million_tokens": 1.155
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1372,7 +1904,43 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-05"
+    },
+    "us-gov-west-1/xai.grok-4.7": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 524288,
+        "max_output": 524288
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.64,
+        "output_per_million_tokens": 7.92,
+        "cache_read_per_million_tokens": 0.66,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.32,
+            "output_per_million_tokens": 3.96
+          },
+          "flex": {
+            "input_per_million_tokens": 1.32,
+            "output_per_million_tokens": 3.96,
+            "cache_read_per_million_tokens": 0.33
+          },
+          "priority": {
+            "input_per_million_tokens": 4.62,
+            "output_per_million_tokens": 13.86,
+            "cache_read_per_million_tokens": 1.155
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-05"
     },
     "xai.grok-4.3": {
       "mode": "chat",
@@ -1442,6 +2010,42 @@
         "response_schema": true
       },
       "last_updated_at": "2026-10-27"
+    },
+    "xai.grok-4.7": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 524288,
+        "max_output": 524288
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.2,
+        "output_per_million_tokens": 6.6,
+        "cache_read_per_million_tokens": 0.55,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.1,
+            "output_per_million_tokens": 3.3
+          },
+          "flex": {
+            "input_per_million_tokens": 1.1,
+            "output_per_million_tokens": 3.3,
+            "cache_read_per_million_tokens": 0.275
+          },
+          "priority": {
+            "input_per_million_tokens": 3.85,
+            "output_per_million_tokens": 11.55,
+            "cache_read_per_million_tokens": 0.9625
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-05"
     }
   }
 }

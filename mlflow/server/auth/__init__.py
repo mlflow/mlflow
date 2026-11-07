@@ -426,8 +426,8 @@ from mlflow.server.auth.routes import (
     UPDATE_USER_PASSWORD,
     UPLOAD_ARTIFACT,
 )
+from mlflow.server.auth.sqlalchemy_store import NamedRoleGrant, SqlAlchemyStore
 from mlflow.server.auth.sqlalchemy_store import RoleGrantRow as RoleGrantRow
-from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.fastapi_app import create_fastapi_app
 from mlflow.server.gateway_api import list_models as _list_gateway_models_endpoint
 from mlflow.server.handlers import (
@@ -1547,18 +1547,23 @@ def _get_permission_from_prompt_optimization_job_id() -> Permission:
     )
 
 
-def _get_registered_model_permission(name: str) -> Permission:
-    username = authenticate_request().username
+def _registry_name_permission(username: str, resource_type: str, name: str) -> Permission:
+    # Under a case-insensitive collation (MySQL's default), a case variant of a name fetches the
+    # stored row, while grants are keyed on the stored spelling. One fetch gives both that
+    # spelling and the workspace.
+    rm = _fetch_or_none(_get_model_registry_store().get_registered_model, name) if name else None
     return _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="registered_model",
-            resource_key=name,
-            workspace_lookup_id=name,
-            workspace_fetcher=_get_model_registry_store().get_registered_model,
-            workspace_label="registered model",
-        ),
+        _role_permission_for_known_workspace(
+            username,
+            resource_type,
+            rm.name if rm is not None else name,
+            getattr(rm, "workspace", None),
+        )
     )
+
+
+def _get_registered_model_permission(name: str) -> Permission:
+    return _registry_name_permission(authenticate_request().username, "registered_model", name)
 
 
 def _get_permission_from_registered_model_name() -> Permission:
@@ -1570,17 +1575,8 @@ def _get_permission_from_prompt_name() -> Permission:
     # on the same name does not satisfy a prompt request, and vice versa.
     # Workspace resolution reuses the registry's ``get_registered_model``
     # (returns both shapes).
-    name = _get_request_param("name")
-    username = authenticate_request().username
-    return _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="prompt",
-            resource_key=name,
-            workspace_lookup_id=name,
-            workspace_fetcher=_get_model_registry_store().get_registered_model,
-            workspace_label="prompt",
-        ),
+    return _registry_name_permission(
+        authenticate_request().username, "prompt", _get_request_param("name")
     )
 
 
@@ -1591,7 +1587,7 @@ def _get_registered_model_or_prompt_permission(name: str) -> Permission:
     resource_type = "prompt" if rm._is_prompt() else "registered_model"
     workspace_name = getattr(rm, "workspace", None)
     return _get_role_permission_or_default(
-        _role_permission_for_known_workspace(username, resource_type, name, workspace_name)
+        _role_permission_for_known_workspace(username, resource_type, rm.name, workspace_name)
     )
 
 
@@ -1720,7 +1716,12 @@ def _source_prompt_requirements(prompt_uri: str) -> "list[Requirement] | None":
         # rather than authorize a prompt the auth layer could not identify.
         return None
     return [
-        *(Requirement(RESOURCE_TYPE_PROMPT, name, ACTION_NOT_DENIED) for name in names),
+        *(
+            Requirement(
+                RESOURCE_TYPE_PROMPT, _stored_registered_model_name(name), ACTION_NOT_DENIED
+            )
+            for name in names
+        ),
         Requirement(RESOURCE_TYPE_PROMPT_VERSION, "*", ACTION_NOT_DENIED),
     ]
 
@@ -2092,6 +2093,24 @@ def validate_can_read_run():
     return _authorize_run("read")
 
 
+def _require_stored_name_spelling(requested_name: str, stored_name: str) -> None:
+    # Renames and deletes sweep grants by the requested name after the handler runs, when the row
+    # can no longer be fetched. A case variant would miss the grants on the stored spelling and
+    # leave them for whatever is created under that name next.
+    if requested_name != stored_name:
+        raise MlflowException.invalid_parameter_value(
+            f"Use the exact name {stored_name!r} to rename or delete it, not {requested_name!r}."
+        )
+
+
+def _stored_registered_model_name(name: str) -> str:
+    # See ``_registry_name_permission``: grants are keyed on the stored spelling of the name.
+    if not name:
+        return name
+    rm = _fetch_or_none(_get_model_registry_store().get_registered_model, name)
+    return rm.name if rm is not None else name
+
+
 def _fetch_or_none(fetch: "Callable[[str], Any]", resource_id: str) -> Any | None:
     # None when the resource does not exist; any other store failure is re-raised, because
     # reporting an outage as "permission denied" sends operators after the wrong fault.
@@ -2376,8 +2395,123 @@ def _reject_wildcard_model_name(name: str) -> None:
 def validate_can_rename_registered_model() -> bool:
     if not _validate_can_update_registered_model_or_prompt():
         return False
-    _reject_wildcard_model_name(_get_request_message(RenameRegisteredModel()).new_name)
+    _enforce_rename_name_rules()
     return True
+
+
+def _enforce_rename_name_rules() -> None:
+    if target := _registered_model_or_prompt_target():
+        _require_stored_name_spelling(_get_request_param("name"), target[1])
+    request_message = _get_request_message(RenameRegisteredModel())
+    _reject_wildcard_model_name(request_message.new_name)
+    _reject_rename_with_named_role_grants(request_message.name, request_message.new_name)
+    _reject_rename_onto_per_user_grants(request_message.name, request_message.new_name)
+
+
+def _caller_can_manage_roles() -> bool:
+    if sender_is_admin():
+        return True
+    workspace = _request_auth_workspace()
+    return workspace is not None and _is_workspace_admin(
+        store.get_user(authenticate_request().username).id, workspace
+    )
+
+
+def _list_named_role_grants_on_names(names: tuple[str, ...]) -> list[NamedRoleGrant]:
+    # Model and prompt grants are keyed by name, and renames and deletes only rewrite or sweep
+    # per-user grants, so an admin-created role's exact-name grant would be left pointing at
+    # whatever model or prompt holds the name next. A case-insensitive auth database also returns
+    # grants on other spellings, but grants match by exact spelling (``permissions.matches``).
+    return [
+        g
+        for g in store.list_named_role_grants_for_resource(
+            (RESOURCE_TYPE_REGISTERED_MODEL, RESOURCE_TYPE_PROMPT), names
+        )
+        if g.resource_pattern in names
+    ]
+
+
+def _named_role_grants_error_details(grants: list[NamedRoleGrant]) -> str:
+    # Only callers who can manage roles can act on these grants, so only they get the details.
+    if not _caller_can_manage_roles():
+        return ""
+    listed = ", ".join(
+        f"role '{g.role_name}' has {g.permission} on {g.resource_type} '{g.resource_pattern}'"
+        for g in grants
+    )
+    return f" ({listed})"
+
+
+def _reject_rename_with_named_role_grants(name: str, new_name: str) -> None:
+    # A grant on the old name would stop applying (lifting a DENY), and one on the new name
+    # would start applying to the renamed model.
+    if grants := _list_named_role_grants_on_names((name, new_name)):
+        raise MlflowException.invalid_parameter_value(
+            f"Cannot rename '{name}' to '{new_name}' because role grants reference these names "
+            f"by exact name{_named_role_grants_error_details(grants)}. Renaming would change "
+            "which model or prompt those grants apply to. An admin must update or remove these "
+            "role grants before the rename."
+        )
+
+
+def _reject_delete_with_named_role_grants(name: str) -> None:
+    # A grant that allows access would outlive the deleted model and apply to the next one
+    # created with the name. Unlike rename, delete moves no model out from under a grant, so a
+    # leftover DENY only fails closed and does not block.
+    grants = [
+        g
+        for g in _list_named_role_grants_on_names((name,))
+        if not get_permission(g.permission).denied
+    ]
+    if grants:
+        # Removing the grants also removes any delete permission the caller got from them.
+        hint = (
+            ""
+            if _caller_can_manage_roles()
+            else " If these role grants are what let you delete it, ask an admin to delete it."
+        )
+        raise MlflowException.invalid_parameter_value(
+            f"Cannot delete '{name}' because role grants reference it by exact name"
+            f"{_named_role_grants_error_details(grants)}. Those grants would apply to the next "
+            "model or prompt created with this name. An admin must update or remove these role "
+            f"grants before the delete.{hint}"
+        )
+
+
+def _reject_rename_onto_per_user_grants(name: str, new_name: str) -> None:
+    # A rename moves per-user grants from the old name to the new one. Grants already on the new
+    # name would start applying to the renamed model, and a user holding grants on both names
+    # would hit the unique constraint after the registry rename has committed. If another model
+    # or prompt already has the new name, the registry rejects the rename, so skip the check. A
+    # case-only rename on a case-insensitive registry finds the model itself, so it is checked.
+    if not new_name.strip() or new_name == name:
+        return
+    existing = _fetch_or_none(_get_model_registry_store().get_registered_model, new_name)
+    if existing is not None and existing.name != name:
+        return
+    # A case-insensitive auth database also returns grants on other spellings. Grants match by
+    # exact spelling (``permissions.matches``), so only the old name's own grants move with it.
+    grants = [
+        g
+        for g in store.list_per_user_grants_for_resource(
+            (RESOURCE_TYPE_REGISTERED_MODEL, RESOURCE_TYPE_PROMPT), (new_name,)
+        )
+        if g.resource_pattern != name
+    ]
+    if not grants:
+        return
+    details = ""
+    if _caller_can_manage_roles():
+        listed = ", ".join(
+            f"user '{g.username}' has {g.permission} on {g.resource_type} '{g.resource_pattern}'"
+            for g in grants
+        )
+        details = f" ({listed})"
+    raise MlflowException.invalid_parameter_value(
+        f"Cannot rename '{name}' to '{new_name}' because users already have permissions on "
+        f"'{new_name}'{details}. They would start applying to the renamed model or prompt. An "
+        "admin must remove these permissions before the rename."
+    )
 
 
 def _validate_can_delete_registered_model_or_prompt():
@@ -2446,14 +2580,19 @@ def validate_can_delete_registered_model_or_prompt_cascade():
         else RESOURCE_TYPE_REGISTERED_MODEL_VERSION
     )
     container = (container_type, name)
-    return authorize(
+    if not authorize(
         authenticate_request().username,
         container,
         [
             Requirement(container_type, name, "delete"),
             Requirement(version_type, "*", "delete", fallback_if_no_grant=(container,)),
         ],
-    )
+    ):
+        return False
+    # Checked after authorization so the error cannot reveal the stored name to a denied caller.
+    _require_stored_name_spelling(_get_request_param("name"), name)
+    _reject_delete_with_named_role_grants(name)
+    return True
 
 
 def _filter_selects_attribute(
@@ -2576,7 +2715,7 @@ def _registered_model_or_prompt_target() -> "tuple[str, str] | None":
     rm = _fetch_or_none(_get_model_registry_store().get_registered_model, name)
     if rm is None:
         return None
-    return (RESOURCE_TYPE_PROMPT if rm._is_prompt() else RESOURCE_TYPE_REGISTERED_MODEL), name
+    return (RESOURCE_TYPE_PROMPT if rm._is_prompt() else RESOURCE_TYPE_REGISTERED_MODEL), rm.name
 
 
 def _authorize_create_version(target: "tuple[str, str]") -> bool:
@@ -2731,27 +2870,37 @@ def validate_can_create_skill(username: str, organization: str = "", name: str =
     )
 
 
+def _can_view_workspace(username: str | None, workspace_name: str | None) -> bool:
+    if username is None or workspace_name is None:
+        return False
+    if _user_inherits_default_workspace_grant(workspace_name):
+        return True
+    return workspace_name in store.list_accessible_workspace_names(username)
+
+
 def validate_can_view_workspace() -> bool:
     if not MLFLOW_ENABLE_WORKSPACES.get():
         return True
 
     username = authenticate_request().username
-
     workspace_name = request.view_args.get("workspace_name") if request.view_args else None
-    if workspace_name is None:
-        return False
+    return _can_view_workspace(username, workspace_name)
 
-    if username is None:
-        return False
 
-    if auth_config.grant_default_workspace_access:
-        default_workspace, _ = get_default_workspace_optional(_get_workspace_store())
-        if default_workspace and workspace_name == default_workspace.name:
-            return True
+def validate_can_view_request_workspace() -> bool:
+    """
+    Like ``validate_can_view_workspace``, but for routes whose data is scoped by the
+    request workspace (the ``X-MLFLOW-WORKSPACE`` header) instead of a path parameter,
+    such as gateway budget policies and spend windows.
+    """
+    if not MLFLOW_ENABLE_WORKSPACES.get():
+        # Without workspaces, budget policies are server-global, so reads stay open.
+        return True
 
-    names = set(store.list_accessible_workspace_names(username))
-
-    return workspace_name in names
+    username = authenticate_request().username
+    # Resolved from the X-MLFLOW-WORKSPACE header before Flask validators run.
+    workspace_name = workspace_context.get_request_workspace()
+    return _can_view_workspace(username, workspace_name)
 
 
 # Scorers
@@ -4186,17 +4335,7 @@ def _get_permission_from_model_version() -> Permission:
             "Request must specify name parameter",
             INVALID_PARAMETER_VALUE,
         )
-    username = authenticate_request().username
-    return _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="registered_model",
-            resource_key=name,
-            workspace_lookup_id=name,
-            workspace_fetcher=_get_model_registry_store().get_registered_model,
-            workspace_label="registered model",
-        ),
-    )
+    return _get_registered_model_permission(name)
 
 
 def validate_can_read_model_version_artifact():
@@ -5011,13 +5150,17 @@ def enforce_review_queue_name_not_username():
         _reject_rename_review_queue_shadowing_user(queue, _parse_update_review_queue_request())
 
 
-def enforce_model_name_not_wildcard():
-    """Apply the validators' wildcard-name check to admins, who skip the validators."""
+def enforce_model_name_rules():
+    """Apply the validators' model-name checks to admins, who skip the validators."""
     validator = _find_validator(request)
     if validator is validate_can_create_registered_model:
         _reject_wildcard_model_name(_get_request_message(CreateRegisteredModel()).name)
     elif validator is validate_can_rename_registered_model:
-        _reject_wildcard_model_name(_get_request_message(RenameRegisteredModel()).new_name)
+        _enforce_rename_name_rules()
+    elif validator is validate_can_delete_registered_model_or_prompt_cascade:
+        if target := _registered_model_or_prompt_target():
+            _require_stored_name_spelling(_get_request_param("name"), target[1])
+            _reject_delete_with_named_role_grants(target[1])
 
 
 def validate_can_remove_items_from_review_queue():
@@ -5212,14 +5355,14 @@ BEFORE_REQUEST_HANDLERS = {
     GetGatewayModelDefinition: validate_can_read_gateway_model_definition,
     UpdateGatewayModelDefinition: validate_can_update_gateway_model_definition,
     DeleteGatewayModelDefinition: validate_can_delete_gateway_model_definition,
-    # Budget-policy writes are admin-only; reads (get/list/windows) stay open to any
-    # authenticated user, matching the behavior established in #21120.
+    # Budget-policy writes are admin-only; reads (get/list/windows) require visibility
+    # of the request workspace.
     CreateGatewayBudgetPolicy: sender_is_admin,
     UpdateGatewayBudgetPolicy: sender_is_admin,
     DeleteGatewayBudgetPolicy: sender_is_admin,
-    GetGatewayBudgetPolicy: _allow_authenticated,
-    ListGatewayBudgetPolicies: _allow_authenticated,
-    ListGatewayBudgetWindows: _allow_authenticated,
+    GetGatewayBudgetPolicy: validate_can_view_request_workspace,
+    ListGatewayBudgetPolicies: validate_can_view_request_workspace,
+    ListGatewayBudgetWindows: validate_can_view_request_workspace,
     # Standalone guardrail CRUD is admin-only; endpoint-attached routes gate on the endpoint.
     CreateGatewayGuardrail: sender_is_admin,
     GetGatewayGuardrail: sender_is_admin,
@@ -5490,6 +5633,14 @@ TRACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS = {
     if "<" in path and "/mlflow/traces/" in path
 }
 
+# Workspace endpoints with a path parameter (e.g. /mlflow/workspaces/<workspace_name>) need
+# regex matching for the same reason as the trace endpoints above.
+WORKSPACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS = {
+    (_re_compile_path(path), method): handler
+    for (path, method), handler in BEFORE_REQUEST_VALIDATORS.items()
+    if "<" in path and "/mlflow/workspaces/" in path
+}
+
 LOGGED_MODEL_BEFORE_REQUEST_HANDLERS = {
     CreateLoggedModel: validate_can_create_logged_model,
     # Request scoping authorizes experiment IDs; this gates only the
@@ -5578,17 +5729,18 @@ def validate_can_delete_dataset():
     return bool(experiment_ids) and all(p.can_delete for p in permissions)
 
 
-def _experiment_ids_from_request():
-    # Read experiment_ids from JSON when present, else query args (like _get_request_param).
-    if request.is_json:
-        body = request.get_json(silent=True)
-        if isinstance(body, dict):
-            return list(body.get("experiment_ids", []))
-    return request.args.getlist("experiment_ids")
+def _experiment_ids_from_request(request_message) -> list[str]:
+    # Use the handler's request-source normalization; reject partial parses for authorization.
+    message = _get_request_message(
+        request_message,
+        schema={"experiment_ids": [_assert_array, _assert_item_type_string]},
+        raise_on_parse_error=True,
+    )
+    return list(message.experiment_ids)
 
 
 def validate_can_create_dataset():
-    experiment_ids = _experiment_ids_from_request()
+    experiment_ids = _experiment_ids_from_request(CreateDataset())
     username = authenticate_request().username
     return bool(experiment_ids) and all(
         _get_experiment_permission(eid, username).can_update for eid in experiment_ids
@@ -5598,7 +5750,7 @@ def validate_can_create_dataset():
 def validate_can_search_evaluation_datasets():
     # Require the caller to scope the search to experiment(s) they can read, so an
     # empty request cannot enumerate every dataset on the server.
-    experiment_ids = _experiment_ids_from_request()
+    experiment_ids = _experiment_ids_from_request(SearchEvaluationDatasets())
     username = authenticate_request().username
     return bool(experiment_ids) and all(
         _get_experiment_permission(eid, username).can_read for eid in experiment_ids
@@ -5611,7 +5763,7 @@ def validate_can_add_dataset_to_experiments():
     if not validate_can_update_dataset():
         return False
     username = authenticate_request().username
-    added = _experiment_ids_from_request()
+    added = _experiment_ids_from_request(AddDatasetToExperiments())
     return bool(added) and all(
         _get_experiment_permission(eid, username).can_update for eid in added
     )
@@ -5921,6 +6073,18 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
     if validator := BEFORE_REQUEST_VALIDATORS.get((req.path, req.method)):
         return validator
 
+    # Unlike the families below, a miss here returns None rather than denying: mlflow-artifacts
+    # paths can contain "/mlflow/workspaces/" and must fall through to the artifact validators.
+    if "/mlflow/workspaces/" in req.path:
+        return next(
+            (
+                v
+                for (pat, method), v in WORKSPACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS.items()
+                if pat.fullmatch(req.path) and method == req.method
+            ),
+            None,
+        )
+
     # Whole /mlflow/datasets/ family; unknown paths under the prefix fail closed.
     if "/mlflow/datasets/" in req.path:
         validator = next(
@@ -6089,7 +6253,7 @@ def _before_request():
     # inside the validators).
     if sender_is_admin():
         enforce_review_queue_name_not_username()
-        enforce_model_name_not_wildcard()
+        enforce_model_name_rules()
         return
 
     # authorization
@@ -7950,13 +8114,29 @@ def list_users():
     # caller is allowed to see, mirroring ``list_user_roles``:
     # - super admin / self → every role
     # - workspace admin → roles in workspaces they administer
-    users_with_roles = store.list_users_with_roles()
     requester = authenticate_request().username
     requester_user = store.get_user(requester)
     admin_workspaces: set[str] | None = (
         None
         if requester_user.is_admin
         else store.list_workspace_admin_workspaces(requester_user.id)
+    )
+    # Non-admins only see users who have a role in the requested workspace.
+    scope_to_workspace = MLFLOW_ENABLE_WORKSPACES.get() and not requester_user.is_admin
+    workspace = workspace_context.get_request_workspace() if scope_to_workspace else None
+    # Everyone is a member of the default workspace when it's opened to all users.
+    if (
+        workspace
+        and _user_inherits_default_workspace_grant(workspace)
+        and get_permission(auth_config.default_permission).can_use
+    ):
+        scope_to_workspace = False
+    # Workspace managers need the full roster to onboard users into their workspace.
+    if workspace and workspace in admin_workspaces:
+        scope_to_workspace = False
+    # Super admins can use every workspace; a missing workspace ("") matches no one else.
+    users_with_roles = store.list_users_with_roles(
+        workspace=(workspace or "") if scope_to_workspace else None, requester=requester
     )
     response_users = []
     for u, roles in users_with_roles:
@@ -8217,16 +8397,7 @@ def _graphql_get_permission_for_run(run_id: str, username: str) -> Permission:
 
 
 def _graphql_get_permission_for_model(model_name: str, username: str) -> Permission:
-    return _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="registered_model",
-            resource_key=model_name,
-            workspace_lookup_id=model_name,
-            workspace_fetcher=_get_model_registry_store().get_registered_model,
-            workspace_label="registered model",
-        ),
-    )
+    return _registry_name_permission(username, "registered_model", model_name)
 
 
 def _graphql_can_read_experiment(experiment_id: str, username: str) -> bool:
@@ -9034,6 +9205,11 @@ def _mcp_path_targets_a_version_as_subject(parts: list[str]) -> bool:
     return len(parts) > 2 and parts[2] == "versions"
 
 
+def _mcp_path_targets_a_server_tag(parts: list[str]) -> bool:
+    # `tags/<key>` on the server itself; version tags live under `versions/<v>/tags/<key>`.
+    return len(parts) > 3 and parts[2] == "tags"
+
+
 def _get_mcp_server_validator(
     path: str,
 ) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
@@ -9058,23 +9234,18 @@ def _get_mcp_server_validator(
         return root_validator
 
     # Server name is namespace/slug (first two path segments).
-    name = f"{parts[0]}/{parts[1]}"
-
-    def _server_exists() -> bool:
-        try:
-            _get_tracking_store().get_mcp_server(name)
-            return True
-        except MlflowException as e:
-            if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-                return False
-            raise
+    requested_name = f"{parts[0]}/{parts[1]}"
 
     async def validator(username: str, request: StarletteRequest) -> bool:
+        # Under a case-insensitive collation, a case variant of the name fetches the stored
+        # server, while grants are keyed on the stored spelling. Judge the request against that.
+        server = _fetch_or_none(_get_tracking_store().get_mcp_server, requested_name)
+        name = server.name if server is not None else requested_name
         if request.method == "POST" and _is_mcp_server_version_create_path(parts):
             request.state.mcp_server_can_update_existing_recheck = lambda: (
                 _get_mcp_server_permission(name, username).can_update
             )
-            parent_missing = not _server_exists()
+            parent_missing = server is None
             request.state.mcp_server_parent_auto_created = parent_missing
             if parent_missing:
                 return validate_can_create_mcp_server(username) and _mcp_auto_create_not_denied(
@@ -9091,14 +9262,22 @@ def _get_mcp_server_validator(
             return _mcp_server_version_action_allowed(
                 username, name, _mcp_version_action(parts, request.method)
             )
-        perm = _get_mcp_server_permission(name, username)
+        is_server_tag_delete = request.method == "DELETE" and _mcp_path_targets_a_server_tag(parts)
+        if server is None:
+            perm = _get_mcp_server_permission(name, username)
+        else:
+            perm = _get_role_permission_or_default(
+                _role_permission_for_known_workspace(
+                    username, "mcp_server", server.name, server.workspace
+                )
+            )
         match request.method:
             case "GET":
                 allowed = perm.can_read
             case "POST" | "PATCH":
                 allowed = perm.can_update
             case "DELETE":
-                allowed = perm.can_delete
+                allowed = perm.can_update if is_server_tag_delete else perm.can_delete
             case _:
                 return False
         if not allowed:
@@ -9115,6 +9294,11 @@ def _get_mcp_server_validator(
         ):
             return _mcp_server_version_not_denied(username, name)
         if request.method == "DELETE":
+            if is_server_tag_delete:
+                # Server tags don't touch versions, so as with `POST /tags`, skip the version tier.
+                return True
+            if len(parts) == 2:
+                _require_stored_name_spelling(requested_name, name)
             return _mcp_server_version_action_allowed(username, name, "delete")
         return True
 
@@ -9162,6 +9346,17 @@ def _mcp_server_after_create(username: str, request: StarletteRequest) -> None:
         return
     if name:
         store.grant_user_permission(username, "mcp_server", name, MANAGE.name)
+
+
+def _require_mcp_server_delete_spelling(path: str) -> None:
+    # Admins skip validators, but ``_mcp_server_after_delete`` still sweeps grants by the
+    # requested name, so hold an admin delete to the stored spelling as the validator does.
+    parts = _mcp_server_suffix(path).split("/")
+    if len(parts) != 2:
+        return
+    requested_name = f"{parts[0]}/{parts[1]}"
+    if server := _fetch_or_none(_get_tracking_store().get_mcp_server, requested_name):
+        _require_stored_name_spelling(requested_name, server.name)
 
 
 def _mcp_server_after_delete(username: str, request: StarletteRequest) -> None:
@@ -9784,7 +9979,15 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
             finally:
                 workspace_context.clear_server_request_workspace()
         else:
-            workspace_context.clear_server_request_workspace()
+            # Registered model and prompt deletes are Flask routes, checked for admins in
+            # ``enforce_model_name_rules``; MCP server deletes only come through here.
+            try:
+                if after_handler is _mcp_server_after_delete:
+                    _require_mcp_server_delete_spelling(path)
+            except MlflowException as e:
+                return PlainTextResponse(e.message, status_code=e.get_http_status_code())
+            finally:
+                workspace_context.clear_server_request_workspace()
 
         response = await call_next(request)
 

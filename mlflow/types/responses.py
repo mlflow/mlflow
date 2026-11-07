@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from mlflow.exceptions import MlflowException
 from mlflow.types.agent import ChatContext
 from mlflow.types.responses_helpers import (
     BaseRequestPayload,
@@ -322,6 +323,21 @@ def create_mcp_approval_response_item(
     }
 
 
+def _content_part_to_cc(part: dict[str, Any]) -> dict[str, Any]:
+    match part:
+        case {"text": str(text)}:
+            return {"type": "text", "text": text}
+        case {"type": "input_image", "image_url": str(url)}:
+            image_url = {"url": url}
+            if detail := part.get("detail"):
+                image_url["detail"] = detail
+            return {"type": "image_url", "image_url": image_url}
+    raise MlflowException.invalid_parameter_value(
+        f"Cannot convert a Responses content part of type {part.get('type')!r} "
+        "to the Chat Completions format."
+    )
+
+
 def responses_to_cc(message: dict[str, Any]) -> list[dict[str, Any]]:
     """Convert from a Responses API output item to a list of ChatCompletion messages."""
     msg_type = message.get("type")
@@ -343,9 +359,12 @@ def responses_to_cc(message: dict[str, Any]) -> list[dict[str, Any]]:
             }
         ]
     elif msg_type == "message" and isinstance(message.get("content"), list):
-        return [
-            {"role": message["role"], "content": content["text"]} for content in message["content"]
-        ]
+        parts = message["content"]
+        if all("text" in part for part in parts):
+            return [{"role": message["role"], "content": part["text"]} for part in parts]
+        # Non-text parts such as images can't be flattened to a string, so keep them as one
+        # message with Chat Completions content parts.
+        return [{"role": message["role"], "content": [_content_part_to_cc(p) for p in parts]}]
     elif msg_type == "reasoning":
         return [{"role": "assistant", "content": json.dumps(message["summary"])}]
     elif msg_type == "function_call_output":

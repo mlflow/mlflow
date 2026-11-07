@@ -85,7 +85,7 @@ from mlflow.gateway.tracing_utils import (
     aggregate_openai_responses_stream_chunks,
     maybe_traced_gateway_call,
 )
-from mlflow.gateway.utils import safe_stream, to_sse_chunk, translate_http_exception
+from mlflow.gateway.utils import safe_stream, to_sse_stream, translate_http_exception
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.gateway.config_resolver import get_endpoint_config
@@ -462,6 +462,20 @@ def _build_endpoint_config(
             portkey_config=model_config.secret_value.get("portkey_config"),
             provider_api_key=model_config.secret_value.get("provider_api_key"),
         )
+    elif model_config.provider == "sap":
+        auth_config = model_config.auth_config or {}
+        auth_url = auth_config.get("auth_url")
+        service_key = json.dumps({
+            "clientid": auth_config.get("client_id"),
+            "clientsecret": model_config.secret_value.get("client_secret"),
+            "url": auth_url,
+            "serviceurls": {"AI_API_URL": auth_config.get(_AuthConfigKey.API_BASE)},
+        })
+        provider_config = LiteLLMConfig(
+            litellm_provider="sap",
+            litellm_auth_config={"api_key": service_key},
+        )
+        model_config.provider = Provider.LITELLM
     elif normalize_provider_name(model_config.provider) == Provider.DATABRICKS:
         from mlflow.gateway.providers.databricks import DatabricksConfig
 
@@ -858,7 +872,7 @@ async def invocations(endpoint_name: str, request: Request):
                 ),
             )(payload)
             return StreamingResponse(
-                safe_stream(to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
+                safe_stream(to_sse_stream(stream)),
                 media_type="text/event-stream",
             )
         else:
@@ -1009,7 +1023,7 @@ async def chat_completions(request: Request):
             ),
         )(payload)
         return StreamingResponse(
-            safe_stream(to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
+            safe_stream(to_sse_stream(stream)),
             media_type="text/event-stream",
         )
     else:
@@ -1762,7 +1776,8 @@ async def anthropic_passthrough_messages(request: Request):
             message_format="anthropic",
         )
         return StreamingResponse(
-            safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
+            safe_stream(traced_stream(body), as_bytes=True, message_format="anthropic"),
+            media_type="text/event-stream",
         )
 
     async def _guarded_passthrough(body: dict[str, Any]) -> dict[str, Any]:

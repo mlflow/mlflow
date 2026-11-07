@@ -362,6 +362,7 @@ const PlaygroundPage = () => {
             ...(hasToolCalls && { tool_calls: namedToolCalls }),
             ...(response_format && { contentIsJson: true }),
             usage: response.usage,
+            isModelReply: true,
           };
           if (!hasToolCalls) {
             // Final response — append it plus a fresh user composer for the next turn.

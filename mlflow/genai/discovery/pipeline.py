@@ -940,223 +940,230 @@ def discover_issues(
     )
 
     update_status_details({"stage": "Identifying issues from traces..."})
+    # Open for the whole pipeline, not just the triage evaluation: leaving this block terminates
+    # the run, and every consumer reads the run to decide whether a detection has finished. The
+    # phases below would otherwise file their issues against a run that already read FINISHED.
     with mlflow.start_run(run_id=run_id, tags={MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_ISSUE_DETECTION}):
         triage_eval = mlflow.genai.evaluate(
             data=triage_traces,
             scorers=scorers,
         )
 
-    # Re-fetch traces with scorer assessments attached.
-    scored_traces = triage_traces
-    try:
-        fetched = [mlflow.get_trace(t.info.trace_id) for t in triage_traces]
-        fetched = [f for f in fetched if f is not None]
-        if len(fetched) == len(triage_traces):
-            scored_traces = fetched
-        else:
-            _logger.debug(
-                "Could not re-fetch %d/%d traces, using originals",
-                len(triage_traces) - len(fetched),
+        # Re-fetch traces with scorer assessments attached.
+        scored_traces = triage_traces
+        try:
+            fetched = [mlflow.get_trace(t.info.trace_id) for t in triage_traces]
+            fetched = [f for f in fetched if f is not None]
+            if len(fetched) == len(triage_traces):
+                scored_traces = fetched
+            else:
+                _logger.debug(
+                    "Could not re-fetch %d/%d traces, using originals",
+                    len(triage_traces) - len(fetched),
+                    len(triage_traces),
+                )
+            # Aggregate judge costs from Phase 1 evaluation assessments.
+            for trace in scored_traces:
+                for assessment in trace.info.assessments or []:
+                    meta = getattr(assessment, "metadata", None) or {}
+                    if meta.get(AssessmentMetadataKey.SOURCE_RUN_ID) != triage_eval.run_id:
+                        continue
+                    if cost := meta.get(AssessmentMetadataKey.JUDGE_COST):
+                        token_counter.add_cost(float(cost))
+                    if input_tok := meta.get(AssessmentMetadataKey.JUDGE_INPUT_TOKENS):
+                        token_counter.input_tokens += int(input_tok)
+                    if output_tok := meta.get(AssessmentMetadataKey.JUDGE_OUTPUT_TOKENS):
+                        token_counter.output_tokens += int(output_tok)
+        except Exception:
+            _logger.debug("Failed to fetch scored traces", exc_info=True)
+
+        scorer_names = [s.name for s in scorers]
+        triage = extract_failing_traces(scored_traces, scorer_names)
+
+        # Cost is judged across the sample, because it is the one category a per-trace judge
+        # cannot reach. This is the traced application's spend; the detector's own is owned by
+        # `token_counter`.
+        cost_anomalies = (
+            analyze_cost_anomalies(scored_traces) if CATEGORY_COST in categories else []
+        )
+
+        # Keyed on the real trace ID: an anomaly only ever carries one, because a trace whose ID
+        # could not be read was excluded while grouping.
+        cost_findings = _merge_cost_findings(
+            triage, cost_anomalies, _lookup_by_trace_id(scored_traces)
+        )
+        if cost_findings:
+            _logger.info(
+                "%d traces were flagged for cost alone, as outliers against their own peers",
+                cost_findings,
+            )
+
+        if triage.scorer_error_trace_ids:
+            # The messages are included because the count alone does not say whether this was a
+            # rate limit, a bad key or a malformed trace -- and that is the difference between
+            # rerunning the detection and fixing something first. Bounded so one broken scorer
+            # cannot flood the run's log with the same line.
+            sampled = "; ".join(
+                f"{trace_id}: {triage.scorer_errors[trace_id]}"
+                for trace_id in triage.scorer_error_trace_ids[:3]
+                if trace_id in triage.scorer_errors
+            )
+            _logger.warning(
+                "%d/%d traces could not be judged because their scorer errored, so they are "
+                "excluded from trace-quality classification rather than counted as passing%s",
+                len(triage.scorer_error_trace_ids),
+                len(triage_traces),
+                f". First errors -- {sampled}" if sampled else "",
+            )
+        if triage.unclassified_trace_ids:
+            _logger.warning(
+                "%d/%d traces were left unclassified because their scorer returned no value, so "
+                "neither pass nor fail was established and they support no conclusion either way",
+                len(triage.unclassified_trace_ids),
                 len(triage_traces),
             )
-        # Aggregate judge costs from Phase 1 evaluation assessments.
-        for trace in scored_traces:
-            for assessment in trace.info.assessments or []:
-                meta = getattr(assessment, "metadata", None) or {}
-                if meta.get(AssessmentMetadataKey.SOURCE_RUN_ID) != triage_eval.run_id:
-                    continue
-                if cost := meta.get(AssessmentMetadataKey.JUDGE_COST):
-                    token_counter.add_cost(float(cost))
-                if input_tok := meta.get(AssessmentMetadataKey.JUDGE_INPUT_TOKENS):
-                    token_counter.input_tokens += int(input_tok)
-                if output_tok := meta.get(AssessmentMetadataKey.JUDGE_OUTPUT_TOKENS):
-                    token_counter.output_tokens += int(output_tok)
-    except Exception:
-        _logger.debug("Failed to fetch scored traces", exc_info=True)
-
-    scorer_names = [s.name for s in scorers]
-    triage = extract_failing_traces(scored_traces, scorer_names)
-
-    # Cost is judged across the sample, because it is the one category a per-trace judge
-    # cannot reach. This is the traced application's spend; the detector's own is owned by
-    # `token_counter`.
-    cost_anomalies = analyze_cost_anomalies(scored_traces) if CATEGORY_COST in categories else []
-
-    # Keyed on the real trace ID: an anomaly only ever carries one, because a trace whose ID
-    # could not be read was excluded while grouping.
-    cost_findings = _merge_cost_findings(triage, cost_anomalies, _lookup_by_trace_id(scored_traces))
-    if cost_findings:
         _logger.info(
-            "%d traces were flagged for cost alone, as outliers against their own peers",
-            cost_findings,
-        )
-
-    if triage.scorer_error_trace_ids:
-        # The messages are included because the count alone does not say whether this was a
-        # rate limit, a bad key or a malformed trace -- and that is the difference between
-        # rerunning the detection and fixing something first. Bounded so one broken scorer
-        # cannot flood the run's log with the same line.
-        sampled = "; ".join(
-            f"{trace_id}: {triage.scorer_errors[trace_id]}"
-            for trace_id in triage.scorer_error_trace_ids[:3]
-            if trace_id in triage.scorer_errors
-        )
-        _logger.warning(
-            "%d/%d traces could not be judged because their scorer errored, so they are "
-            "excluded from trace-quality classification rather than counted as passing%s",
-            len(triage.scorer_error_trace_ids),
-            len(triage_traces),
-            f". First errors -- {sampled}" if sampled else "",
-        )
-    if triage.unclassified_trace_ids:
-        _logger.warning(
-            "%d/%d traces were left unclassified because their scorer returned no value, so "
-            "neither pass nor fail was established and they support no conclusion either way",
-            len(triage.unclassified_trace_ids),
+            "Triage complete: %d/%d traces unsatisfactory",
+            len(triage.failing_traces),
             len(triage_traces),
         )
-    _logger.info(
-        "Triage complete: %d/%d traces unsatisfactory",
-        len(triage.failing_traces),
-        len(triage_traces),
-    )
 
-    if not triage.failing_traces:
-        return DiscoverIssuesResult(
-            issues=[],
+        if not triage.failing_traces:
+            return DiscoverIssuesResult(
+                issues=[],
+                triage_run_id=triage_eval.run_id,
+                summary=build_summary([], len(triage_traces)),
+                total_traces_analyzed=len(triage_traces),
+                total_cost_usd=token_counter.cost_usd,
+            )
+
+        # ---- Phase 2: Build analyses ----
+        update_status_details({"stage": "Analyzing results..."})
+        analyses, session_groups = _build_analyses(
+            scored_traces,
+            triage.rationale_map,
+            triage.categories_map,
+            scorer_name,
+            categories=categories,
+        )
+
+        # ---- Phase 3: Cluster & identify ----
+        update_status_details({"stage": "Clustering issues..."})
+        identified = _cluster_and_identify(
+            analyses,
+            model,
+            max_issues,
+            categories=categories,
+            token_counter=token_counter,
+            instructions=instructions,
+        )
+
+        if not identified:
+            return DiscoverIssuesResult(
+                issues=[],
+                triage_run_id=triage_eval.run_id,
+                summary=build_summary([], len(triage_traces)),
+                total_traces_analyzed=len(triage_traces),
+                total_cost_usd=token_counter.cost_usd,
+            )
+
+        # ---- Phase 4: Match against what is already reported, then build issues & annotate ----
+        update_status_details({"stage": "Checking already-reported issues..."})
+        # Read before publishing, and fail rather than publish against an unread list: treating a
+        # failed read as "nothing reported yet" would file a duplicate of every known issue.
+        candidates = read_match_candidates(exp_id)
+        match_outcome = match_findings_to_existing_issues(
+            identified, candidates, model=model, token_counter=token_counter
+        )
+        if match_outcome.already_reported:
+            _logger.info(
+                "%d of %d findings were already reported, out of %d issues considered",
+                match_outcome.already_reported,
+                len(identified),
+                match_outcome.candidates_considered,
+            )
+
+        update_status_details({"stage": "Annotating issues..."})
+        issues, issue_trace_ids = _build_issues(
+            identified, analyses, exp_id, triage_eval.run_id, match_outcome
+        )
+        # An ID that was not offered as a candidate can only be one this call filed: matching
+        # never maps a finding onto an issue it was not shown. Counted this way because a lost
+        # match is filed as new, and because `run_id` can be reused across detections.
+        offered = {candidate.issue_id for candidate in candidates}
+        new_issue_count = sum(1 for issue in issues if issue.issue_id not in offered)
+
+        trace_to_session: dict[str, str] = {}
+        for session_id, traces_in_session in session_groups.items():
+            for trace in traces_in_session:
+                trace_to_session[trace.info.trace_id] = session_id
+
+        trace_lookup = {trace.info.trace_id: trace for trace in scored_traces}
+        session_first_trace: dict[str, str] | None = None
+        if use_conversation:
+            session_first_trace = {
+                session_id: traces_in_session[0].info.trace_id
+                for session_id, traces_in_session in session_groups.items()
+            }
+        _annotate_issue_traces(
+            issues,
+            issue_trace_ids,
+            triage.rationale_map,
+            trace_lookup,
+            model,
+            categories=categories,
+            trace_to_session=trace_to_session if use_conversation else None,
+            session_first_trace=session_first_trace,
+            token_counter=token_counter,
+        )
+
+        update_status_details({"stage": "Generating summary..."})
+        summary = build_summary(issues, len(triage_traces))
+        _logger.info("Done. Found %d issues across %d traces.", len(issues), len(triage_traces))
+
+        result = DiscoverIssuesResult(
+            issues=issues,
             triage_run_id=triage_eval.run_id,
-            summary=build_summary([], len(triage_traces)),
+            summary=summary,
             total_traces_analyzed=len(triage_traces),
             total_cost_usd=token_counter.cost_usd,
+            new_issue_count=new_issue_count,
         )
 
-    # ---- Phase 2: Build analyses ----
-    update_status_details({"stage": "Analyzing results..."})
-    analyses, session_groups = _build_analyses(
-        scored_traces,
-        triage.rationale_map,
-        triage.categories_map,
-        scorer_name,
-        categories=categories,
-    )
+        # Log artifacts to the triage run
+        issues_data = [
+            {
+                "issue_id": issue.issue_id,
+                "name": issue.name,
+                "description": issue.description,
+                "root_causes": issue.root_causes,
+                "severity": issue.severity,
+                "status": issue.status,
+            }
+            for issue in issues
+        ]
+        elapsed_seconds = round(time.time() - pipeline_start, 1)
 
-    # ---- Phase 3: Cluster & identify ----
-    update_status_details({"stage": "Clustering issues..."})
-    identified = _cluster_and_identify(
-        analyses,
-        model,
-        max_issues,
-        categories=categories,
-        token_counter=token_counter,
-        instructions=instructions,
-    )
-
-    if not identified:
-        return DiscoverIssuesResult(
-            issues=[],
-            triage_run_id=triage_eval.run_id,
-            summary=build_summary([], len(triage_traces)),
-            total_traces_analyzed=len(triage_traces),
-            total_cost_usd=token_counter.cost_usd,
-        )
-
-    # ---- Phase 4: Match against what is already reported, then build issues & annotate ----
-    update_status_details({"stage": "Checking already-reported issues..."})
-    # Read before publishing, and fail rather than publish against an unread list: treating a
-    # failed read as "nothing reported yet" would file a duplicate of every known issue.
-    candidates = read_match_candidates(exp_id)
-    match_outcome = match_findings_to_existing_issues(
-        identified, candidates, model=model, token_counter=token_counter
-    )
-    if match_outcome.already_reported:
-        _logger.info(
-            "%d of %d findings were already reported, out of %d issues considered",
-            match_outcome.already_reported,
-            len(identified),
-            match_outcome.candidates_considered,
-        )
-
-    update_status_details({"stage": "Annotating issues..."})
-    issues, issue_trace_ids = _build_issues(
-        identified, analyses, exp_id, triage_eval.run_id, match_outcome
-    )
-    # An ID that was not offered as a candidate can only be one this call filed: matching never
-    # maps a finding onto an issue it was not shown. Counted this way because a lost match is
-    # filed as new, and because `run_id` can be reused across detections.
-    offered = {candidate.issue_id for candidate in candidates}
-    new_issue_count = sum(1 for issue in issues if issue.issue_id not in offered)
-
-    trace_to_session: dict[str, str] = {}
-    for session_id, traces_in_session in session_groups.items():
-        for trace in traces_in_session:
-            trace_to_session[trace.info.trace_id] = session_id
-
-    trace_lookup = {trace.info.trace_id: trace for trace in scored_traces}
-    session_first_trace: dict[str, str] | None = None
-    if use_conversation:
-        session_first_trace = {
-            session_id: traces_in_session[0].info.trace_id
-            for session_id, traces_in_session in session_groups.items()
+        metadata = {
+            "total_traces_analyzed": len(triage_traces),
+            "num_issues": len(issues),
+            "model": model,
+            "scorer_names": scorer_names,
+            "triage_run_id": triage_eval.run_id,
+            "max_issues": max_issues,
+            "experiment_id": exp_id,
+            "filter_string": filter_string,
+            "elapsed_seconds": elapsed_seconds,
+            **token_counter.to_dict(),
         }
-    _annotate_issue_traces(
-        issues,
-        issue_trace_ids,
-        triage.rationale_map,
-        trace_lookup,
-        model,
-        categories=categories,
-        trace_to_session=trace_to_session if use_conversation else None,
-        session_first_trace=session_first_trace,
-        token_counter=token_counter,
-    )
 
-    update_status_details({"stage": "Generating summary..."})
-    summary = build_summary(issues, len(triage_traces))
-    _logger.info("Done. Found %d issues across %d traces.", len(issues), len(triage_traces))
+        log_discovery_artifacts(
+            triage_eval.run_id,
+            {
+                "summary.md": summary,
+                "issues.json": json.dumps(issues_data, indent=2),
+                "metadata.json": json.dumps(metadata, indent=2),
+            },
+        )
 
-    result = DiscoverIssuesResult(
-        issues=issues,
-        triage_run_id=triage_eval.run_id,
-        summary=summary,
-        total_traces_analyzed=len(triage_traces),
-        total_cost_usd=token_counter.cost_usd,
-        new_issue_count=new_issue_count,
-    )
-
-    # Log artifacts to the triage run
-    issues_data = [
-        {
-            "issue_id": issue.issue_id,
-            "name": issue.name,
-            "description": issue.description,
-            "root_causes": issue.root_causes,
-            "severity": issue.severity,
-            "status": issue.status,
-        }
-        for issue in issues
-    ]
-    elapsed_seconds = round(time.time() - pipeline_start, 1)
-
-    metadata = {
-        "total_traces_analyzed": len(triage_traces),
-        "num_issues": len(issues),
-        "model": model,
-        "scorer_names": scorer_names,
-        "triage_run_id": triage_eval.run_id,
-        "max_issues": max_issues,
-        "experiment_id": exp_id,
-        "filter_string": filter_string,
-        "elapsed_seconds": elapsed_seconds,
-        **token_counter.to_dict(),
-    }
-
-    log_discovery_artifacts(
-        triage_eval.run_id,
-        {
-            "summary.md": summary,
-            "issues.json": json.dumps(issues_data, indent=2),
-            "metadata.json": json.dumps(metadata, indent=2),
-        },
-    )
-
-    return result
+        return result

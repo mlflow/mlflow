@@ -4169,6 +4169,100 @@ def test_gateway_budget_policy_admin_only(client, monkeypatch):
         response.raise_for_status()
 
 
+def test_gateway_budget_policy_reads_are_workspace_scoped(fastapi_workspace_client):
+    tracking_uri = fastapi_workspace_client.tracking_uri
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+    username, password = create_user(tracking_uri)
+
+    for workspace in ("team-a", "team-b"):
+        requests.post(
+            url=tracking_uri + "/api/3.0/mlflow/workspaces",
+            json={"name": workspace},
+            auth=admin_auth,
+        ).raise_for_status()
+
+    budget_policy_ids = {}
+    for workspace in ("team-a", "team-b"):
+        response = requests.post(
+            url=tracking_uri + "/api/3.0/mlflow/gateway/budgets/create",
+            json={
+                "budget_unit": "USD",
+                "budget_amount": 5000.0,
+                "duration": {"unit": "DAYS", "value": 30},
+                "target_scope": "WORKSPACE",
+                "budget_action": "REJECT",
+            },
+            headers={"X-MLFLOW-WORKSPACE": workspace},
+            auth=admin_auth,
+        )
+        response.raise_for_status()
+        budget_policy_ids[workspace] = response.json()["budget_policy"]["budget_policy_id"]
+    budget_policy_id = budget_policy_ids["team-b"]
+
+    # Membership of team-a only; the user holds no grant in team-b.
+    grant_role_permission(tracking_uri, username, "experiment", "*", "READ", workspace="team-a")
+
+    # Budget reads are scoped by the request workspace, which the client controls,
+    # so a login alone must not let a caller select another tenant's policies or
+    # spend windows.
+    for path, params in (
+        ("/api/3.0/mlflow/gateway/budgets/list", None),
+        ("/api/3.0/mlflow/gateway/budgets/windows", None),
+        ("/api/3.0/mlflow/gateway/budgets/get", {"budget_policy_id": budget_policy_id}),
+    ):
+        response = requests.get(
+            url=tracking_uri + path,
+            params=params,
+            auth=(username, password),
+            headers={"X-MLFLOW-WORKSPACE": "team-b"},
+        )
+        assert response.status_code == 403
+
+    # No header resolves to the default workspace, where the user also holds no grant.
+    response = requests.get(
+        url=tracking_uri + "/api/3.0/mlflow/gateway/budgets/list",
+        auth=(username, password),
+    )
+    assert response.status_code == 403
+
+    # Reads scoped to the caller's own workspace keep working.
+    own_policy_id = budget_policy_ids["team-a"]
+    member_auth = (username, password)
+    member_headers = {"X-MLFLOW-WORKSPACE": "team-a"}
+    response = requests.get(
+        url=tracking_uri + "/api/3.0/mlflow/gateway/budgets/get",
+        params={"budget_policy_id": own_policy_id},
+        auth=member_auth,
+        headers=member_headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["budget_policy"]["budget_policy_id"] == own_policy_id
+
+    response = requests.get(
+        url=tracking_uri + "/api/3.0/mlflow/gateway/budgets/list",
+        auth=member_auth,
+        headers=member_headers,
+    )
+    assert response.status_code == 200
+    assert [p["budget_policy_id"] for p in response.json()["budget_policies"]] == [own_policy_id]
+
+    response = requests.get(
+        url=tracking_uri + "/api/3.0/mlflow/gateway/budgets/windows",
+        auth=member_auth,
+        headers=member_headers,
+    )
+    assert response.status_code == 200
+
+    # Admins are unaffected.
+    response = requests.get(
+        url=tracking_uri + "/api/3.0/mlflow/gateway/budgets/list",
+        headers={"X-MLFLOW-WORKSPACE": "team-b"},
+        auth=admin_auth,
+    )
+    assert response.status_code == 200
+    assert [p["budget_policy_id"] for p in response.json()["budget_policies"]] == [budget_policy_id]
+
+
 def test_gateway_ajax_routes_permissions(client, monkeypatch):
     username, password = create_user(client.tracking_uri)
 
@@ -9015,6 +9109,109 @@ def test_evaluation_dataset_and_issue_apis_require_experiment_permission(client)
     )
 
 
+_DATASETS_SEARCH = "/api/3.0/mlflow/datasets/search"
+_DATASETS_CREATE = "/api/3.0/mlflow/datasets/create"
+
+
+def _send_json(base, method, path, auth, data, params=None):
+    return requests.request(
+        method,
+        f"{base}{path}",
+        params=params,
+        data=data,
+        headers={"Content-Type": "application/json"},
+        auth=auth,
+    )
+
+
+def _double_encode(body):
+    return json.dumps(json.dumps(body))
+
+
+def _create_experiment(base, auth, name):
+    body = json.dumps({"name": name})
+    response = _send_json(base, "POST", "/api/2.0/mlflow/experiments/create", auth, body)
+    assert response.status_code == 200
+    return response.json()["experiment_id"]
+
+
+def _create_dataset(base, auth, name, experiment_id):
+    body = json.dumps({"name": name, "experiment_ids": [experiment_id]})
+    response = _send_json(base, "POST", _DATASETS_CREATE, auth, body)
+    assert response.status_code == 200
+    return response.json()["dataset"]["dataset_id"]
+
+
+def _dataset_names(base, auth, experiment_id):
+    params = {"experiment_ids": experiment_id}
+    response = _send_json(base, "GET", _DATASETS_SEARCH, auth, None, params)
+    assert response.status_code == 200
+    return {d["name"] for d in response.json().get("datasets", [])}
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_dataset_validators_read_experiment_ids_like_the_handlers(client):
+    base = client.tracking_uri
+    alice = create_user(base)
+    bob = create_user(base)
+    alice_exp = _create_experiment(base, alice, "alice-exp")
+    bob_exp = _create_experiment(base, bob, "bob-exp")
+    _create_dataset(base, alice, "alice-ds", alice_exp)
+    bob_ds = _create_dataset(base, bob, "bob-ds", bob_exp)
+
+    # Requests bob isn't authorized for.
+    bob_query = {"experiment_ids": bob_exp}
+    alice_ids = {"experiment_ids": [alice_exp]}
+    for method, path, data, params in [
+        ("POST", _DATASETS_SEARCH, _double_encode({}), bob_query),
+        ("POST", _DATASETS_SEARCH, _double_encode(alice_ids), bob_query),
+        ("GET", _DATASETS_SEARCH, json.dumps({"experiment_ids": [bob_exp]}), {"max_results": 100}),
+        ("POST", _DATASETS_CREATE, _double_encode({"name": "new-ds", **alice_ids}), bob_query),
+        (
+            "POST",
+            f"/api/3.0/mlflow/datasets/{bob_ds}/add-experiments",
+            _double_encode(alice_ids),
+            bob_query,
+        ),
+    ]:
+        response = _send_json(base, method, path, bob, data, params)
+        assert response.status_code == 403, (method, path, data, params)
+
+    assert _dataset_names(base, alice, alice_exp) == {"alice-ds"}
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_dataset_apis_accept_double_encoded_bodies(client):
+    base = client.tracking_uri
+    bob = create_user(base)
+    bob_exp = _create_experiment(base, bob, "bob-exp")
+    second_exp = _create_experiment(base, bob, "bob-exp-2")
+    bob_ids = {"experiment_ids": [bob_exp]}
+
+    response = _send_json(
+        base, "POST", _DATASETS_CREATE, bob, _double_encode({"name": "bob-ds", **bob_ids})
+    )
+    assert response.status_code == 200
+    dataset_id = response.json()["dataset"]["dataset_id"]
+
+    response = _send_json(base, "POST", _DATASETS_SEARCH, bob, _double_encode(bob_ids))
+    assert response.status_code == 200
+    assert {d["name"] for d in response.json()["datasets"]} == {"bob-ds"}
+
+    add_path = f"/api/3.0/mlflow/datasets/{dataset_id}/add-experiments"
+    add_body = _double_encode({"experiment_ids": [second_exp]})
+    assert _send_json(base, "POST", add_path, bob, add_body).status_code == 200
+    assert _dataset_names(base, bob, second_exp) == {"bob-ds"}
+
+
 @pytest.mark.parametrize(
     "client",
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
@@ -9558,7 +9755,7 @@ def test_delete_scorer_version_is_gated_on_the_version_tier(client, monkeypatch)
     assert vetoed.status_code == 403
 
 
-def test_source_prompt_requirements_resolves_the_name_like_load_prompt():
+def test_source_prompt_requirements_resolves_the_name_like_load_prompt(monkeypatch):
     """The gate must name the prompt `load_prompt` will actually load.
 
     `_parse_model_uri` takes the name as everything before the LAST `@`, so splitting at the
@@ -9568,6 +9765,19 @@ def test_source_prompt_requirements_resolves_the_name_like_load_prompt():
     gate delegates to the parser rather than re-deriving the name.
     """
     from mlflow.store.artifact.utils.models import _parse_model_uri
+
+    # No prompt is stored, so each name is required as parsed. Without this the lookup hits the
+    # process-wide registry store, which may point at a database an earlier test removed.
+    class FakeRegistryStore:
+        def __init__(self):
+            self.asked_for = []
+
+        def get_registered_model(self, name):
+            self.asked_for.append(name)
+            raise MlflowException(f"Registered Model {name!r} not found", RESOURCE_DOES_NOT_EXIST)
+
+    fake = FakeRegistryStore()
+    monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: fake)
 
     def gated_names(uri):
         requirements = auth_module._source_prompt_requirements(uri)
@@ -9609,6 +9819,7 @@ def test_source_prompt_requirements_resolves_the_name_like_load_prompt():
 
     # An absent source prompt adds no requirement at all.
     assert gated_names("") == "NO_REQUIREMENT"
+    assert "my@weird" in fake.asked_for
 
 
 def test_optimizer_gateway_endpoint_requirement_is_keyed_by_id(monkeypatch):
