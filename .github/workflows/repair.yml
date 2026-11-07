@@ -37,12 +37,14 @@ jobs:
       pull-requests: read # to find candidate PRs
       actions: write # to rerun workflows
     steps:
-      - name: Fetch rerun script
+      - name: Fetch repair scripts
         run: |
-          curl -fsSL --retry 3 --connect-timeout 10 --max-time 30 \
-            --write-out 'curl: %{time_total}s\n' \
-            "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$GITHUB_SHA/.github/workflows/retry.sh" \
-            -o "$RUNNER_TEMP/retry.sh"
+          for script in .claude/skills/repair/scripts/cli.py .github/workflows/retry.sh; do
+            curl -fsSL --retry 3 --connect-timeout 10 --max-time 30 \
+              --write-out 'curl: %{time_total}s\n' \
+              "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$GITHUB_SHA/$script" \
+              -o "$RUNNER_TEMP/${script##*/}"
+          done
 
       - name: rerun
         env:
@@ -52,48 +54,8 @@ jobs:
           PR_NUMBERS: ${{ inputs.pr_numbers }}
           DRY_RUN: ${{ inputs.dry_run || false }}
         run: |
-          if [[ -z "${PR_NUMBERS//[[:space:]]/}" ]]; then
-            cutoff=$(jq -nr 'now - 3 * 24 * 60 * 60 | strftime("%Y-%m-%dT%H:%M:%SZ")')
-            candidates=$(gh api graphql --paginate \
-              -f search="repo:$GH_REPO is:pr is:open draft:false label:auto-repair created:>=$cutoff" \
-              -f query='
-                query($search: String!, $endCursor: String) {
-                  search(query: $search, type: ISSUE, first: 100, after: $endCursor) {
-                    nodes {
-                      ... on PullRequest {
-                        number
-                        mergeable
-                        headRefOid
-                      }
-                    }
-                    pageInfo { hasNextPage endCursor }
-                  }
-                }' \
-              --jq '.data.search.nodes[] |
-                select(.mergeable != "CONFLICTING") |
-                [.number, .headRefOid] | @tsv')
-          else
-            pattern='^[[:space:]]*[1-9][0-9]*([[:space:]]*,[[:space:]]*[1-9][0-9]*)*[[:space:]]*$'
-            if [[ ! "$PR_NUMBERS" =~ $pattern ]]; then
-              echo "::error::pr_numbers must be a comma-separated list of positive PR numbers."
-              exit 1
-            fi
-            numbers=$(printf '%s' "$PR_NUMBERS" | tr -d '[:space:]' | tr ',' '\n' | sort -u)
-            query='query($owner: String!, $name: String!) {
-              repository(owner: $owner, name: $name) {'
-            while IFS= read -r number; do
-              query+="pr_$number: pullRequest(number: $number) {
-                number headRefOid state isDraft mergeable
-              }"
-            done <<< "$numbers"
-            query+='}}'
-            candidates=$(gh api graphql \
-              -f owner="${GH_REPO%/*}" -f name="${GH_REPO#*/}" \
-              -f query="$query" \
-              --jq '.data.repository[] |
-                select(.state == "OPEN" and (.isDraft | not) and .mergeable != "CONFLICTING") |
-                [.number, .headRefOid] | @tsv')
-          fi
+          candidate_json=$(python3 "$RUNNER_TEMP/cli.py" discover)
+          candidates=$(jq -r '.[] | [.number, .sha] | @tsv' <<< "$candidate_json")
 
           args=()
           if [[ "$DRY_RUN" == true ]]; then
