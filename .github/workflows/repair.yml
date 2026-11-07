@@ -12,6 +12,14 @@ on:
         type: string
         required: false
         default: ""
+      model:
+        description: AI Gateway Claude model
+        type: string
+      effort:
+        description: Claude reasoning effort
+        type: choice
+        default: high
+        options: [low, medium, high, xhigh, max]
       dry_run:
         description: Print eligible reruns without submitting them
         type: boolean
@@ -27,6 +35,11 @@ defaults:
 
 permissions: {}
 cache-mode: none
+
+env:
+  GH_REPO: ${{ github.repository }}
+  DRY_RUN: ${{ inputs.dry_run || false }}
+  TRUSTED_REF: ${{ github.sha }}
 
 jobs:
   discover:
@@ -56,7 +69,7 @@ jobs:
           candidates=$(python3 "$RUNNER_TEMP/cli.py" discover | jq -c '.[:10]')
           echo "candidates=$candidates" >> "$GITHUB_OUTPUT"
 
-  rerun:
+  agent:
     name: "PR #${{ matrix.pr.number }}"
     needs: discover
     if: needs.discover.outputs.candidates != '' && needs.discover.outputs.candidates != '[]'
@@ -64,12 +77,193 @@ jobs:
       fail-fast: false
       matrix:
         pr: ${{ fromJSON(needs.discover.outputs.candidates) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      actions: read
+      contents: read
+      issues: read
+      pull-requests: read
+    steps:
+      - parallel:
+          - name: Checkout trusted workflow files
+            uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            with:
+              ref: ${{ env.TRUSTED_REF }}
+              path: trusted
+              persist-credentials: false
+          - name: Checkout PR head
+            uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            with:
+              ref: ${{ matrix.pr.sha }}
+              path: pr
+              persist-credentials: false
+      - uses: ./trusted/.github/actions/setup-python
+      - uses: ./trusted/.github/actions/setup-node
+      - name: Install Claude Code
+        working-directory: trusted
+        run: |
+          .claude/scripts/install-claude.sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - id: gateway
+        uses: ./trusted/.github/actions/setup-gateway
+        with:
+          task: pr-repair
+          host: ${{ secrets.DATABRICKS_HOST }}
+          client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+      - name: Start gateway proxy
+        id: gateway-proxy
+        working-directory: trusted
+        env:
+          GATEWAY_TOKEN: ${{ steps.gateway.outputs.token }}
+          GATEWAY_URL: ${{ steps.gateway.outputs.base-url }}
+        run: |
+          placeholder_token=$(openssl rand -hex 32)
+          echo "::add-mask::$placeholder_token"
+          printf 'placeholder-token=%s\n' "$placeholder_token" >> "$GITHUB_OUTPUT"
+          printf '%s\n%s\n' "$GATEWAY_TOKEN" "$placeholder_token" | env -u GATEWAY_TOKEN \
+            GATEWAY_URL="$GATEWAY_URL" node .claude/sandbox/gateway-proxy.mjs \
+            > "$RUNNER_TEMP/repair-gateway-proxy.log" 2>&1 &
+          printf '%s\n' "$!" > "$RUNNER_TEMP/repair-gateway-proxy.pid"
+          unset GATEWAY_TOKEN placeholder_token
+          curl --noproxy '*' --retry 30 --retry-connrefused --retry-delay 1 \
+            -fsS http://127.0.0.1:8080/healthz > /dev/null
+      # Claude Code exports OpenTelemetry traces and logs to MLflow through a local proxy that holds
+      # the token, like the gateway proxy. Disabled unless REPAIR_MLFLOW_TRACE_LOCATION is set to the
+      # <catalog>.<schema>.<table_prefix> of a UC-linked experiment.
+      - id: telemetry
+        name: Mint telemetry token
+        if: vars.REPAIR_MLFLOW_TRACE_LOCATION != ''
+        uses: ./trusted/.github/actions/mint-telemetry-token
+        with:
+          host: ${{ secrets.DATABRICKS_HOST }}
+          client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+      - name: Start telemetry proxy
+        id: telemetry-proxy
+        if: steps.telemetry.outcome == 'success'
+        working-directory: trusted
+        env:
+          TELEMETRY_TOKEN: ${{ steps.telemetry.outputs.token }}
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          TRACE_LOCATION: ${{ vars.REPAIR_MLFLOW_TRACE_LOCATION }}
+        run: |
+          placeholder_token=$(openssl rand -hex 32)
+          echo "::add-mask::$placeholder_token"
+          printf 'placeholder-token=%s\n' "$placeholder_token" >> "$GITHUB_OUTPUT"
+          printf '%s\n%s\n' "$TELEMETRY_TOKEN" "$placeholder_token" | env -u TELEMETRY_TOKEN \
+            DATABRICKS_HOST="$DATABRICKS_HOST" TRACE_LOCATION="$TRACE_LOCATION" \
+            node .claude/sandbox/otel-proxy.mjs \
+            > "$RUNNER_TEMP/repair-telemetry-proxy.log" 2>&1 &
+          proxy_pid=$!
+          unset TELEMETRY_TOKEN placeholder_token
+          printf '%s\n' "$proxy_pid" > "$RUNNER_TEMP/repair-telemetry-proxy.pid"
+          for _ in $(seq 1 30); do
+            if ! kill -0 "$proxy_pid" 2>/dev/null; then
+              break
+            fi
+            if curl -fsS http://127.0.0.1:8081/healthz > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/repair-telemetry-proxy.log"
+          echo "::error::Telemetry proxy did not become ready"
+          exit 1
+      - name: Resolve agent model and effort
+        id: agent
+        env:
+          MODEL: ${{ inputs.model || vars.REPAIR_MODEL || 'databricks-claude-sonnet-5-5' }}
+          EFFORT: ${{ inputs.effort || vars.REPAIR_EFFORT || 'high' }}
+        run: |
+          # $GITHUB_OUTPUT is line-based; a newline in the model could inject another output.
+          [[ "$MODEL" != *$'\n'* ]] || { echo "::error::Model must be a single line."; exit 1; }
+          case "$EFFORT" in
+            low | medium | high | xhigh | max) ;;
+            *)
+              echo "::error::Invalid effort '$EFFORT'. Check the REPAIR_EFFORT repository variable."
+              exit 1
+              ;;
+          esac
+          echo "model=$MODEL" >> "$GITHUB_OUTPUT"
+          echo "effort=$EFFORT" >> "$GITHUB_OUTPUT"
+          echo "Agent model: \`$MODEL\`, effort: \`$EFFORT\`" >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify agent runtime
+        working-directory: trusted
+        env:
+          MODEL: ${{ steps.agent.outputs.model }}
+          EFFORT: ${{ steps.agent.outputs.effort }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_BASE_URL: http://localhost:8080/anthropic
+          ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway-proxy.outputs.placeholder-token }}
+          ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
+          ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5
+          # OpenTelemetry export through the telemetry proxy. Spans need the enhanced telemetry beta;
+          # OTEL_LOG_* flags include prompt, response, and tool content, which are redacted by default.
+          CLAUDE_CODE_ENABLE_TELEMETRY: ${{ steps.telemetry.outcome == 'success' && '1' || '0' }}
+          CLAUDE_CODE_ENHANCED_TELEMETRY_BETA: ${{ steps.telemetry.outcome == 'success' && '1' || '0' }}
+          OTEL_TRACES_EXPORTER: ${{ steps.telemetry.outcome == 'success' && 'otlp' || 'none' }}
+          OTEL_LOGS_EXPORTER: ${{ steps.telemetry.outcome == 'success' && 'otlp' || 'none' }}
+          OTEL_METRICS_EXPORTER: ${{ steps.telemetry.outcome == 'success' && 'otlp' || 'none' }}
+          OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+          OTEL_EXPORTER_OTLP_HEADERS: ${{ steps.telemetry.outcome == 'success' && format('Authorization={0} {1}', 'Bearer', steps.telemetry-proxy.outputs.placeholder-token) || '' }}
+          OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://localhost:8081/v1/traces
+          OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: http://localhost:8081/v1/logs
+          OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: http://localhost:8081/v1/metrics
+          OTEL_LOG_USER_PROMPTS: "1"
+          OTEL_LOG_ASSISTANT_RESPONSES: "1"
+          OTEL_LOG_TOOL_DETAILS: "1"
+          OTEL_LOG_TOOL_CONTENT: "1"
+          OTEL_RESOURCE_ATTRIBUTES: github.run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: claude --version
+      - name: Stop proxies
+        if: always()
+        run: |
+          for proxy in gateway telemetry; do
+            if [ -f "$RUNNER_TEMP/repair-$proxy-proxy.pid" ]; then
+              kill "$(cat "$RUNNER_TEMP/repair-$proxy-proxy.pid")" 2>/dev/null || true
+            fi
+          done
+      - name: Save prepared candidate
+        env:
+          CANDIDATE: ${{ toJSON(matrix.pr) }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/repair-output"
+          printf '%s\n' "$CANDIDATE" > "$RUNNER_TEMP/repair-output/context.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: repair-output-${{ github.run_attempt }}-${{ matrix.pr.number }}
+          path: ${{ runner.temp }}/repair-output
+          if-no-files-found: error
+          retention-days: 3
+
+  rerun:
+    name: "Publish PR #${{ matrix.pr.number }}"
+    needs: [discover, agent]
+    if: >-
+      always() && !cancelled() && needs.discover.result == 'success'
+      && needs.discover.outputs.candidates != '' && needs.discover.outputs.candidates != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        pr: ${{ fromJSON(needs.discover.outputs.candidates) }}
     runs-on: ubuntu-slim
     timeout-minutes: 15
     permissions:
-      actions: write # to rerun workflows
+      actions: write
     steps:
+      - name: Check prepared candidate
+        id: prepared
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARTIFACT_NAME: repair-output-${{ github.run_attempt }}-${{ matrix.pr.number }}
+        run: |
+          ready=$(gh api "repos/$GH_REPO/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=100" \
+            --jq ".artifacts | any(.name == \"$ARTIFACT_NAME\" and .expired == false)")
+          echo "ready=$ready" >> "$GITHUB_OUTPUT"
       - name: Rerun failed jobs
+        if: steps.prepared.outputs.ready == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
