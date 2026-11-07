@@ -11410,9 +11410,19 @@ def test_parse_artifact_auth_target_workspace_prefix_ignores_case(prefix):
     ],
 )
 @pytest.mark.parametrize("action", ["read", "update", "manage"])
-def test_artifact_proxy_rejects_windows_aliases(path, action, monkeypatch):
+@pytest.mark.parametrize(
+    "root",
+    [
+        "./mlartifacts",
+        "C:\\mlartifacts",
+        "\\\\server\\share",
+        "//server/share",
+        "file:///C:/mlartifacts",
+    ],
+)
+def test_artifact_proxy_rejects_windows_aliases(path, action, root, monkeypatch):
     monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
-    monkeypatch.setenv("_MLFLOW_SERVER_ARTIFACT_DESTINATION", "./mlartifacts")
+    monkeypatch.setenv("_MLFLOW_SERVER_ARTIFACT_DESTINATION", root)
     target = auth_module._parse_artifact_auth_target(path)
     assert target.invalid
     assert auth_module._permission_for_artifact_target(target, "alice") is NO_PERMISSIONS

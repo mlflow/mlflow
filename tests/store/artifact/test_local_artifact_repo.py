@@ -59,6 +59,16 @@ def test_local_artifact_operations_reject_windows_aliases(
         getattr(local_artifact_repo, operation)(path)
 
 
+@pytest.mark.parametrize("name", ["file:stream", "file.txt.", "FILE~1"])
+def test_local_artifact_rejected_upload_leaves_no_directory(
+    local_artifact_repo, local_artifact_root, monkeypatch, name
+):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    with pytest.raises(MlflowException, match="Invalid path"):
+        local_artifact_repo.log_artifact_from_stream(io.BytesIO(b"x"), name, artifact_path="newdir")
+    assert not (pathlib.Path(local_artifact_root) / "newdir").exists()
+
+
 def test_list_artifacts(local_artifact_repo, local_artifact_root):
     assert len(local_artifact_repo.list_artifacts()) == 0
 

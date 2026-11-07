@@ -97,8 +97,8 @@ class LocalArtifactRepository(ArtifactRepository, StreamUploadMixin):
     def _get_destination_artifact_path(
         self, artifact_file_name: str, artifact_path: str | None = None
     ) -> tuple[str, str]:
-        artifact_dir = self._get_or_create_artifact_dir(artifact_path)
         _verify_artifact_file_name(artifact_file_name)
+        artifact_dir = self._get_or_create_artifact_dir(artifact_path)
         destination_file_path = os.path.join(artifact_dir, os.path.basename(artifact_file_name))
         validate_path_within_directory(self.artifact_dir, destination_file_path)
         return artifact_dir, destination_file_path
