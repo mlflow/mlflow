@@ -13,7 +13,6 @@ from mlflow.gateway.utils import parse_sse_lines
 from mlflow.tracing.constant import TokenUsageKey
 from mlflow.utils.validation import GATEWAY_DESTINATION_KEYS, GATEWAY_REGION_KEYS
 
-
 # Credential selectors can take precedence over configured keys or select credentials from
 # the server's filesystem. They belong to endpoint configuration, never inference payloads.
 _LITELLM_CREDENTIAL_KEYS = frozenset({

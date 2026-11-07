@@ -1246,6 +1246,38 @@ async def test_passthrough_rejects_destination_override_in_request_payload():
     mock_completion.assert_not_called()
 
 
+@pytest.mark.parametrize("operation", ["chat", "embeddings", "passthrough"])
+@pytest.mark.parametrize("key", ["aws_profile_name", "vertex_credentials"])
+@pytest.mark.asyncio
+async def test_provider_rejects_credential_overrides(operation, key):
+    config = chat_config()
+    if operation == "embeddings":
+        config["endpoint_type"] = "llm/v1/embeddings"
+    with (
+        mock.patch("litellm.acompletion") as completion,
+        mock.patch("litellm.aembedding") as embedding,
+    ):
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        extra = {key: "caller-credential-source"}
+        if operation == "embeddings":
+            call = provider.embeddings(embeddings.RequestPayload(input="hello", **extra))
+        elif operation == "passthrough":
+            call = provider.passthrough(
+                PassthroughAction.OPENAI_CHAT,
+                {"messages": [{"role": "user", "content": "Hello"}], **extra},
+                headers=None,
+            )
+        else:
+            call = provider.chat(
+                chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}], **extra)
+            )
+        with pytest.raises(HTTPException, match=f"The request must not set '{key}'") as exc:
+            await call
+    assert exc.value.status_code == 400
+    completion.assert_not_called()
+    embedding.assert_not_called()
+
+
 @pytest.mark.asyncio
 async def test_chat_blocks_private_base_url_alias_when_upstream_protection_is_on(
     protected_request,
