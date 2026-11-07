@@ -1,0 +1,43 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+title: Repair payload
+type: object
+additionalProperties: false
+required: [summary, actions]
+properties:
+  summary:
+    type: string
+    minLength: 1
+    maxLength: 500
+    pattern: '\S'
+  actions:
+    type: array
+    maxItems: 2
+    items:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [type, run_ids]
+          properties:
+            type:
+              const: rerun
+            run_ids:
+              type: array
+              minItems: 1
+              uniqueItems: true
+              items:
+                type: integer
+                minimum: 1
+        - type: object
+          additionalProperties: false
+          required: [type]
+          properties:
+            type:
+              const: sync-base
+        - type: object
+          additionalProperties: false
+          required: [type, path]
+          properties:
+            type:
+              const: patch
+            path:
+              const: fix.patch
