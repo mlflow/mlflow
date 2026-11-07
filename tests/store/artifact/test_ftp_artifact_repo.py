@@ -225,6 +225,64 @@ def test_log_artifact_multiple_calls(ftp_mock, tmp_path):
     assert ftp_mock.storbinary.call_args_list[0][0][0] == "STOR test2.txt"
 
 
+@pytest.mark.parametrize("artifact_dir", ["/", "", "/some/protected/dir", "relative/dir"])
+def test_mkdir_raises_instead_of_recursing_when_directory_cannot_be_created(ftp_mock, artifact_dir):
+    # Regression test for https://github.com/mlflow/mlflow/issues/2677:
+    # persistently rejected CWD/MKD commands must surface the FTP error instead
+    # of recursing until the Python stack overflows.
+    ftp_mock.cwd.side_effect = ftplib.error_perm("550 Permission denied")
+    ftp_mock.mkd.side_effect = ftplib.error_perm("550 Permission denied")
+
+    with pytest.raises(ftplib.error_perm, match="550 Permission denied"):
+        FTPArtifactRepository._mkdir(ftp_mock, artifact_dir)
+
+    # Calls must stay bounded by the number of path components; unbounded
+    # recursion would issue well over a thousand mock calls before RecursionError.
+    assert ftp_mock.mkd.call_count < 25
+    assert ftp_mock.cwd.call_count < 25
+
+
+def test_mkdir_surfaces_ftp_error_when_parent_exists_but_target_creation_is_forbidden(ftp_mock):
+    def cwd_side_effect(path):
+        if path == "/parent":
+            return None
+        raise ftplib.error_perm("550 Failed to change directory.")
+
+    ftp_mock.cwd.side_effect = cwd_side_effect
+    ftp_mock.mkd.side_effect = ftplib.error_perm("550 Permission denied")
+
+    with pytest.raises(ftplib.error_perm, match="550 Permission denied"):
+        FTPArtifactRepository._mkdir(ftp_mock, "/parent/child")
+
+    # Only the leaf directory is retried once; recursion must not repeat the
+    # failing leaf call after the parent has been ensured.
+    assert [call.args[0] for call in ftp_mock.mkd.call_args_list] == [
+        "/parent/child",
+        "/parent/child",
+    ]
+
+
+def test_log_artifact_surfaces_mkdir_error_without_stack_overflow(ftp_mock, tmp_path):
+    repo = FTPArtifactRepository("ftp://test_ftp/some/path")
+
+    repo.get_ftp_client = MagicMock()
+    call_mock = MagicMock(return_value=ftp_mock)
+    repo.get_ftp_client.return_value = MagicMock(__enter__=call_mock)
+
+    data_dir = tmp_path.joinpath("data")
+    data_dir.mkdir()
+    local_file = data_dir.joinpath("test.txt")
+    local_file.write_text("hello world!")
+
+    ftp_mock.cwd.side_effect = ftplib.error_perm("550 Permission denied")
+    ftp_mock.mkd.side_effect = ftplib.error_perm("550 Permission denied")
+
+    with pytest.raises(ftplib.error_perm, match="550 Permission denied"):
+        repo.log_artifact(str(local_file))
+
+    ftp_mock.storbinary.assert_not_called()
+
+
 def __posixpath_parents(pathname, root):
     parents = [posixpath.dirname(pathname)]
     root = posixpath.normpath(root)

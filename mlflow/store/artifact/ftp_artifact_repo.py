@@ -58,8 +58,25 @@ class FTPArtifactRepository(ArtifactRepository):
                 ftp.mkd(artifact_dir)
         except ftplib.error_perm:
             head, _ = posixpath.split(artifact_dir)
+            # `posixpath.split` stops making progress at the root ("/") or for an
+            # empty/relative path. Recursing with the unchanged path caused
+            # unbounded recursion (a stack overflow) when the FTP server kept
+            # rejecting CWD/MKD, e.g. for a permission-limited or chrooted
+            # account (https://github.com/mlflow/mlflow/issues/2677).
+            if not head or head == artifact_dir:
+                raise
+            # Create the parent directory first, then retry the target once.
             FTPArtifactRepository._mkdir(ftp, head)
-            FTPArtifactRepository._mkdir(ftp, artifact_dir)
+            try:
+                if not FTPArtifactRepository._is_dir(ftp, artifact_dir):
+                    ftp.mkd(artifact_dir)
+            except ftplib.error_perm:
+                # The parent exists but the target still cannot be created;
+                # recursing again would never terminate. Surface the original
+                # FTP error instead of overflowing the stack.
+                if FTPArtifactRepository._is_dir(ftp, artifact_dir):
+                    return
+                raise
 
     @staticmethod
     def _size(ftp, full_file_path):
