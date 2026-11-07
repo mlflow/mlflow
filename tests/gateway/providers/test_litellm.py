@@ -1,3 +1,4 @@
+import asyncio
 from unittest import mock
 
 import pytest
@@ -10,6 +11,10 @@ from mlflow.gateway.providers.base import PassthroughAction
 from mlflow.gateway.providers.litellm import LiteLLMAdapter, LiteLLMProvider
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.ssrf import upstream_ssrf_protection
+from mlflow.utils.validation import (
+    _validate_gateway_secret_auth_config,
+    _validate_gateway_secret_value,
+)
 
 TEST_MESSAGE = "This is a test"
 
@@ -1322,3 +1327,87 @@ async def test_chat_passes_stored_base_url_through_when_upstream_protection_is_o
         await provider.chat(chat.RequestPayload(**payload))
 
     assert mock_completion.call_args[1]["base_url"] == "https://custom-api.example.com"
+
+
+def _prepare_litellm_kwargs(payload, auth_config, protected):
+    # The kwargs policy only needs configuration, not the optional transport runtime.
+    provider = LiteLLMProvider.__new__(LiteLLMProvider)
+    provider.litellm_config = LiteLLMConfig(litellm_auth_config=auth_config)
+    token = upstream_ssrf_protection.set(protected)
+    try:
+        return asyncio.run(provider._prepare_litellm_kwargs(payload))
+    finally:
+        upstream_ssrf_protection.reset(token)
+
+
+@pytest.mark.parametrize("protected", [False, True])
+@pytest.mark.parametrize("value", ["caller-value", None])
+@pytest.mark.parametrize(
+    "key",
+    [
+        "aws_access_key_id",
+        "aws_secret_access_key",
+        "aws_session_token",
+        "aws_session_name",
+        "aws_profile_name",
+        "aws_role_name",
+        "aws_web_identity_token",
+        "aws_external_id",
+        "aws_session_tags",
+        "vertex_credentials",
+        "vertex_ai_credentials",
+    ],
+)
+def test_credential_request_guard(key, value, protected):
+    with pytest.raises(HTTPException, match=f"The request must not set '{key}'") as exc:
+        _prepare_litellm_kwargs({key: value}, {key: "configured-value"}, protected)
+    assert exc.value.status_code == 400
+    assert "caller-value" not in exc.value.detail
+    assert "configured-value" not in exc.value.detail
+
+
+@pytest.mark.parametrize("protected", [False, True])
+@pytest.mark.parametrize(
+    ("payload", "auth_config"),
+    [
+        (
+            {"aws_profile_name": "caller-profile"},
+            {"aws_access_key_id": "configured-key", "aws_secret_access_key": "configured-secret"},
+        ),
+        ({"vertex_credentials": "caller-credentials"}, {"vertex_ai_credentials": "configured"}),
+        ({"vertex_ai_credentials": "caller-credentials"}, {"vertex_credentials": "configured"}),
+    ],
+)
+def test_credential_selector_guard_precedes_configuration_merge(payload, auth_config, protected):
+    with pytest.raises(HTTPException, match="provider credentials are fixed") as exc:
+        _prepare_litellm_kwargs(payload, auth_config, protected)
+    assert exc.value.status_code == 400
+
+
+@pytest.mark.parametrize("protected", [False, True])
+@pytest.mark.parametrize(
+    "auth_config",
+    [
+        {"aws_access_key_id": "configured-key", "aws_secret_access_key": "configured-secret"},
+        {"aws_session_token": "configured-token"},
+        {"aws_profile_name": "configured-profile"},
+        {"aws_role_name": "configured-role", "aws_session_name": "configured-session"},
+        {"aws_web_identity_token": "configured-token", "aws_external_id": "configured-id"},
+        {"aws_session_tags": [{"Key": "team", "Value": "configured-team"}]},
+        {"vertex_credentials": "configured-credentials"},
+        {"vertex_ai_credentials": "configured-credentials"},
+    ],
+)
+def test_credential_guard_preserves_stored_configuration(auth_config, protected):
+    assert _validate_gateway_secret_auth_config(auth_config) == auth_config
+    _validate_gateway_secret_value(auth_config)
+    payload = {"messages": [], "temperature": 0.5, "top_k": 2}
+    assert _prepare_litellm_kwargs(payload, auth_config, protected) == payload | auth_config
+    assert payload == {"messages": [], "temperature": 0.5, "top_k": 2}
+
+
+def test_credential_request_guard_with_private_upstream_opt_out(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS", "true")
+    with pytest.raises(HTTPException, match="The request must not set 'aws_profile_name'") as exc:
+        _prepare_litellm_kwargs({"aws_profile_name": "caller-profile"}, None, protected=True)
+    assert exc.value.status_code == 400
