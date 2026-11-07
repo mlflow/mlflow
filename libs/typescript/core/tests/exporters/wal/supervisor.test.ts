@@ -94,6 +94,43 @@ describe('wal/supervisor', () => {
       const resolved = resolveDaemonEntry();
       expect(resolved.endsWith(join('bundle', 'daemon.cjs'))).toBe(true);
     });
+
+    it('prefers a sibling daemon.cjs next to the executing file (plugin bundle layout)', () => {
+      // Regression for #26833: a plugin-marketplace install ships only
+      // `bundle/*.cjs` with no node_modules, so the @mlflow/core lookup
+      // cannot work — the copied sibling must win.
+      delete process.env.MLFLOW_TRACE_DAEMON_EXECUTABLE;
+      jest.isolateModules(() => {
+        jest.doMock('node:fs', () => ({ existsSync: jest.fn(() => true) }));
+        jest.doMock('node:module', () => ({
+          createRequire: () => ({
+            resolve: () => {
+              throw new Error("Cannot find module '@mlflow/core/package.json'");
+            },
+          }),
+        }));
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { resolveDaemonEntry: isolated } = require('../../../src/exporters/wal/supervisor');
+        expect(isolated()).toBe(
+          join(__dirname, '..', '..', '..', 'src', 'exporters', 'wal', 'daemon.cjs'),
+        );
+      });
+    });
+
+    it('falls back to the @mlflow/core lookup when no sibling exists', () => {
+      delete process.env.MLFLOW_TRACE_DAEMON_EXECUTABLE;
+      jest.isolateModules(() => {
+        jest.doMock('node:fs', () => ({ existsSync: jest.fn(() => false) }));
+        const resolve = jest.fn(() => join('x', 'node_modules', '@mlflow', 'core', 'package.json'));
+        jest.doMock('node:module', () => ({ createRequire: () => ({ resolve }) }));
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { resolveDaemonEntry: isolated } = require('../../../src/exporters/wal/supervisor');
+        expect(isolated()).toBe(
+          join('x', 'node_modules', '@mlflow', 'core', 'bundle', 'daemon.cjs'),
+        );
+        expect(resolve).toHaveBeenCalledWith('@mlflow/core/package.json');
+      });
+    });
   });
 
   describe('ensureDaemon', () => {

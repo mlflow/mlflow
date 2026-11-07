@@ -4,6 +4,7 @@
  */
 
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { createConnection } from 'node:net';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
@@ -61,12 +62,21 @@ export function isDaemonAlive(): Promise<boolean> {
  * Precedence:
  *   1. `MLFLOW_TRACE_DAEMON_EXECUTABLE` env var — used by tests and
  *      advanced operators who want to override the bundled daemon.
- *   2. The bundled daemon at `<@mlflow/core install dir>/bundle/daemon.cjs`.
+ *   2. A `daemon.cjs` sitting directly next to this module's runtime
+ *      file. Plugin bundles (e.g. `@mlflow/claude-code`) copy the
+ *      daemon into their own `bundle/` directory so installs without a
+ *      node_modules tree — Claude Code marketplace/plugin-cache layout,
+ *      see #26833 — can still spawn it.
+ *   3. The bundled daemon at `<@mlflow/core install dir>/bundle/daemon.cjs`.
  */
 export function resolveDaemonEntry(): string {
   const override = process.env.MLFLOW_TRACE_DAEMON_EXECUTABLE;
   if (override !== undefined && override !== '') {
     return override;
+  }
+  const sibling = join(dirname(__filename), 'daemon.cjs');
+  if (existsSync(sibling)) {
+    return sibling;
   }
   // DO NOT collapse this into a plain string literal. esbuild
   // evaluates `require.resolve(literal)` at build time and bakes the
@@ -78,8 +88,12 @@ export function resolveDaemonEntry(): string {
   // runtime against the user's own node_modules.
   //
   // This defense lives in the supervisor (not in consumers' esbuild
-  // configs) because every plugin-marketplace consumer must bundle
-  // @mlflow/core into their hook to ship as a self-contained file.
+  // configs) because plugin-marketplace consumers bundle @mlflow/core
+  // into their hook to ship as a self-contained file. Those consumers
+  // should also copy `bundle/daemon.cjs` next to their bundle (see the
+  // @mlflow/claude-code esbuild config) so the sibling lookup above
+  // succeeds; this package.json fallback keeps plain `npm install`
+  // consumers (SDK usage, dist/ layout) working.
   const pkgJsonModule = '@mlflow' + '/core' + '/package.json';
   const requireFromHere = createRequire(__filename);
   const pkgJsonPath = requireFromHere.resolve(pkgJsonModule);
