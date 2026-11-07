@@ -1,6 +1,12 @@
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
-import { context, SpanKind, ROOT_CONTEXT, trace as otelTrace } from '@opentelemetry/api';
+import {
+  context,
+  SpanKind,
+  ROOT_CONTEXT,
+  TraceFlags,
+  trace as otelTrace,
+} from '@opentelemetry/api';
 import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
 import {
   BasicTracerProvider,
@@ -194,5 +200,37 @@ describe('DatabricksUCTableSpanProcessor + Exporter end-to-end', () => {
       [SpanAttributeKey.SESSION_ID]: JSON.stringify('session-1'),
       [SpanAttributeKey.USER_ID]: JSON.stringify('user-1'),
     });
+  });
+
+  it('exports a trace whose root span has a remote parent', async () => {
+    const client = new MlflowClient({
+      trackingUri: 'databricks',
+      authProvider: mockAuthProvider,
+    });
+    const location = { catalogName: 'cat', schemaName: 'sch', tablePrefix: 'tbl' };
+    const processor = new DatabricksUCTableSpanProcessor(
+      new DatabricksUCTableSpanExporter(client),
+      location,
+    );
+    const remoteCtx = otelTrace.setSpanContext(ROOT_CONTEXT, {
+      traceId: '0af7651916cd43dd8448eb211c80319c',
+      spanId: 'b7ad6b7169203331',
+      traceFlags: TraceFlags.SAMPLED,
+      isRemote: true,
+    });
+    const tracer = new BasicTracerProvider().getTracer('uc-test');
+    const span = tracer.startSpan('remote-parent-root', {}, remoteCtx) as OTelSpan;
+
+    processor.onStart(span, remoteCtx);
+    span.end();
+    processor.onEnd(span as unknown as OTelReadableSpan);
+    await processor.forceFlush();
+
+    expect(traceInfoCalls).toHaveLength(1);
+    expect(traceInfoCalls[0].body.trace_id).toBe(
+      'trace:/cat.sch.tbl/0af7651916cd43dd8448eb211c80319c',
+    );
+    const exportedRootSpan = exportedSpans[0][0] as OTelReadableSpan;
+    expect(exportedRootSpan.parentSpanContext?.spanId).toBe('b7ad6b7169203331');
   });
 });

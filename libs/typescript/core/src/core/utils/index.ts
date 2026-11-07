@@ -1,7 +1,16 @@
-import type { HrTime } from '@opentelemetry/api';
+import type { HrTime, SpanContext } from '@opentelemetry/api';
 import { Span } from '../entities/span';
 import { SpanAttributeKey } from '../constants';
 import { TokenUsage } from '../entities/trace_info';
+
+/**
+ * Whether the span is the root of this process's part of the trace. A span whose parent is
+ * remote (e.g. propagated through an incoming `traceparent` header) starts a new MLflow trace.
+ */
+export function isRootSpan(span: { parentSpanContext?: SpanContext }): boolean {
+  const parent = span.parentSpanContext;
+  return !parent?.spanId || parent.isRemote === true;
+}
 
 /**
  * OpenTelemetry Typescript SDK uses a unique timestamp format `HrTime` to represent

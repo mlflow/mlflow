@@ -168,6 +168,26 @@ describe('wal/exporter', () => {
     expect(record.id.length).toBeGreaterThan(0);
   });
 
+  it('submits a record for a root span with a remote parent', async () => {
+    const submit = jest.fn<Promise<void>, [WalRecord]>().mockResolvedValue(undefined);
+    const exporter = new MlflowWalSpanExporter({ submit });
+
+    popTraceSpy.mockReturnValue(makeTrace('tr-abc'));
+    const span = {
+      ...makeSpan({ traceId: 'otel-1', rootSpan: true }),
+      parentSpanContext: { spanId: 'remote-parent-id', isRemote: true },
+    } as unknown as OTelReadableSpan;
+
+    const { callback, promise } = captureExportResult();
+    exporter.export([span], callback);
+
+    expect((await promise).code).toBe(ExportResultCode.SUCCESS);
+    await exporter.forceFlush();
+
+    expect(popTraceSpy).toHaveBeenCalledWith('otel-1');
+    expect(submit).toHaveBeenCalledTimes(1);
+  });
+
   it('skips non-root spans without invoking the submitter', async () => {
     const submit = jest.fn<Promise<void>, [WalRecord]>().mockResolvedValue(undefined);
     const exporter = new MlflowWalSpanExporter({ submit });

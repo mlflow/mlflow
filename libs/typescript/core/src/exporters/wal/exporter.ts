@@ -4,6 +4,7 @@ import { ReadableSpan as OTelReadableSpan, SpanExporter } from '@opentelemetry/s
 import { ProtobufTraceSerializer } from '@opentelemetry/otlp-transformer';
 import { getConfig, MLflowTracingConfig } from '../../core/config';
 import { InMemoryTraceManager } from '../../core/trace_manager';
+import { isRootSpan } from '../../core/utils';
 import { ipcRequestByteLength, MAX_REQUEST_BYTES, submitRecord } from './ipc';
 import { WalRecord } from './types';
 
@@ -115,7 +116,7 @@ export class MlflowWalSpanExporter implements SpanExporter {
     }
 
     for (const span of spans) {
-      if (span.parentSpanContext?.spanId) {
+      if (!isRootSpan(span)) {
         continue;
       }
 
