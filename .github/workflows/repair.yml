@@ -1,4 +1,4 @@
-name: Retry
+name: Repair
 
 on:
   schedule:
@@ -48,7 +48,7 @@ jobs:
         run: |
           cutoff=$(jq -nr 'now - 3 * 24 * 60 * 60 | strftime("%Y-%m-%dT%H:%M:%SZ")')
           candidates=$(gh api graphql --paginate \
-            -f search="repo:$GH_REPO is:pr is:open draft:false label:auto-rerun created:>=$cutoff" \
+            -f search="repo:$GH_REPO is:pr is:open draft:false label:auto-repair created:>=$cutoff" \
             -f query='
               query($search: String!, $endCursor: String) {
                 search(query: $search, type: ISSUE, first: 100, after: $endCursor) {
