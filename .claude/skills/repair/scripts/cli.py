@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 FAILED_CONCLUSIONS = {"FAILURE", "TIMED_OUT", "STARTUP_FAILURE"}
+PATCH_ACTIONS = {"fix-ci", "resolve-conflicts"}
 EXCLUDED_WORKFLOWS = {"rerun.yml", "repair.yml"}
 CONNECTION_BATCH_SIZE = 20
 REPO = "mlflow/mlflow"
@@ -377,6 +378,7 @@ def rest(endpoint: str) -> Any:
 def git(*args: str | Path, input: str | None = None) -> str:
     return command(
         "git",
+        "--no-replace-objects",
         "-C",
         os.environ["PR_CHECKOUT"],
         "-c",
@@ -497,6 +499,8 @@ def prepare(args: argparse.Namespace) -> int:
         )
     )
     context["agent_used"] = needs_agent
+    config = Path(os.environ["PR_CHECKOUT"]) / ".git/config"
+    context["git_config_hash"] = hashlib.sha256(config.read_bytes()).hexdigest()
     if needs_agent:
         logs = directory / "logs"
         logs.mkdir()
@@ -542,18 +546,27 @@ def load_plan(context: dict[str, Any], directory: Path) -> dict[str, Any]:
     payload: dict[str, Any] = json.loads(path.read_text(), object_pairs_hook=unique_keys)
     actions = payload["actions"]
     kinds = [action["type"] for action in actions]
-    if len(kinds) != len(set(kinds)) or set(kinds) - {"rerun", "sync-base", "patch"}:
+    if len(kinds) != len(set(kinds)) or set(kinds) - ({"rerun", "sync-base"} | PATCH_ACTIONS):
         raise ValueError("Duplicate or unsupported action")
     if "rerun" in kinds and len(kinds) != 1:
         raise ValueError("Reruns cannot accompany a head-changing action")
+    patch_kinds = set(kinds) & PATCH_ACTIONS
+    if len(patch_kinds) > 1:
+        raise ValueError("Use one patch action for the final tree")
+    if "resolve-conflicts" in kinds and (
+        "sync-base" not in kinds or context["merge"]["status"] != "conflicting"
+    ):
+        raise ValueError("Conflict resolution requires a conflicting base sync")
+    if "fix-ci" in kinds and context["merge"]["status"] == "conflicting":
+        raise ValueError("Use resolve-conflicts for a conflicting merge")
     if "sync-base" in kinds:
         if kinds[0] != "sync-base" or context["merge"]["status"] not in {"clean", "conflicting"}:
             raise ValueError("Base sync must be first and needed")
-        if context["merge"]["status"] == "conflicting" and "patch" not in kinds:
+        if context["merge"]["status"] == "conflicting" and "resolve-conflicts" not in kinds:
             raise ValueError("A conflicting base sync requires a resolution patch")
-    elif "patch" in kinds and context["merge"]["status"] in {"clean", "conflicting"}:
+    elif patch_kinds and context["merge"]["status"] in {"clean", "conflicting"}:
         raise ValueError("Patch must include the prepared base sync")
-    if any(kind in {"sync-base", "patch"} for kind in kinds) and context["head_repo"] != REPO:
+    if bool(set(kinds) & ({"sync-base"} | PATCH_ACTIONS)) and context["head_repo"] != REPO:
         raise ValueError("Cannot publish changes to a fork")
     allowed = {run["run_id"] for run in context["failed_runs"]}
     for action in actions:
@@ -561,7 +574,7 @@ def load_plan(context: dict[str, Any], directory: Path) -> dict[str, Any]:
             raise ValueError("Rerun IDs must belong to the captured failed runs")
     if patch.is_symlink() or (patch.exists() and not patch.is_file()):
         raise ValueError("Expected a regular patch file")
-    if patch.exists() != ("patch" in kinds):
+    if patch.exists() != bool(patch_kinds):
         raise ValueError("Patch file must match the action plan")
     if patch.exists() and patch.stat().st_size > 20 * 1024 * 1024:
         raise ValueError("Patch exceeds 20 MB")
@@ -594,6 +607,24 @@ def validate(args: argparse.Namespace) -> int:
     )
     payload = load_plan(context, output_dir())
     if os.environ.get("REUSE_CHECKOUT") == "true":
+        git_dir = Path(os.environ["PR_CHECKOUT"]) / ".git"
+        config = git_dir / "config"
+        if (
+            git_dir.is_symlink()
+            or not git_dir.is_dir()
+            or config.is_symlink()
+            or hashlib.sha256(config.read_bytes()).hexdigest() != context["git_config_hash"]
+        ):
+            raise ValueError("Agent changed the Git configuration")
+        for name in (
+            "config.worktree",
+            "info/grafts",
+            "info/attributes",
+            "objects/info/alternates",
+        ):
+            location = git_dir / name
+            if location.exists() or location.is_symlink():
+                raise ValueError(f"Unsupported agent Git metadata: {name}")
         if git("rev-parse", "HEAD") != context["sha"]:
             raise ValueError("Agent changed the PR head")
         # The patch is outside this disposable checkout; rebuild its final tree from the payload.
@@ -601,8 +632,10 @@ def validate(args: argparse.Namespace) -> int:
         git("clean", "-fdx")
     clean_checkout(context)
     kinds = [action["type"] for action in payload["actions"]]
-    if "patch" in kinds:
-        apply_fix(output_dir() / "fix.patch")
+    if set(kinds) & PATCH_ACTIONS:
+        patch = output_dir() / "fix.patch"
+        if not ("resolve-conflicts" in kinds and patch.stat().st_size == 0):
+            apply_fix(patch)
     elif "sync-base" in kinds:
         git("fetch", "origin", context["base"]["sha"])
         git("merge", "--no-commit", "--no-ff", context["base"]["sha"])
@@ -707,7 +740,7 @@ def sync_base_action(context: dict[str, Any], patch_follows: bool, dry_run: bool
         publish_tree(context, sync=True)
 
 
-def patch_action(context: dict[str, Any], sync: bool, dry_run: bool) -> None:
+def publish_patch(context: dict[str, Any], sync: bool, dry_run: bool) -> None:
     if dry_run:
         patch = (output_dir() / "fix.patch").read_text(errors="replace")
         summary(f"### Patch preview\n<pre>{html.escape(patch[:60_000])}</pre>")
@@ -722,19 +755,17 @@ def execute(args: argparse.Namespace) -> int:
     payload = load_plan(context, output_dir())
     dry_run = os.environ.get("DRY_RUN", "true") == "true"
     kinds = [action["type"] for action in payload["actions"]]
-    if args.command != "publish" and kinds != [args.command]:
-        raise ValueError(
-            "Action subcommand must match the validated plan; use publish for a combined plan"
-        )
+    if args.command != "publish" and (not kinds or kinds[-1] != args.command):
+        raise ValueError("Action subcommand must match the final action in the validated plan")
     summary(f"### Repair PR #{context['number']}\n{html.escape(payload['summary'])}")
     for action in payload["actions"]:
         match action["type"]:
             case "rerun":
                 rerun_action(context, action, dry_run)
             case "sync-base":
-                sync_base_action(context, "patch" in kinds, dry_run)
-            case "patch":
-                patch_action(context, "sync-base" in kinds, dry_run)
+                sync_base_action(context, bool(set(kinds) & PATCH_ACTIONS), dry_run)
+            case "fix-ci" | "resolve-conflicts":
+                publish_patch(context, "sync-base" in kinds, dry_run)
     result = Path(os.environ.get("RESULT_DIR", "/tmp/repair-result"))
     result.mkdir(parents=True, exist_ok=True)
     (result / "result.json").write_text(
@@ -755,7 +786,8 @@ def main() -> int:
         "publish": execute,
         "rerun": execute,
         "sync-base": execute,
-        "patch": execute,
+        "fix-ci": execute,
+        "resolve-conflicts": execute,
     }.items():
         commands.add_parser(name).set_defaults(func=callback)
     args = parser.parse_args()

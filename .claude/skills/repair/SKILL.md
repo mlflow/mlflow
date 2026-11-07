@@ -36,16 +36,19 @@ Write `$out_dir/payload.json` following [the payload schema](payload.schema.yml)
 - `rerun`: use captured failed workflow run IDs for transient failures. One action can include
   multiple runs; the executor handles Protect-last ordering.
 - `sync-base`: include the captured base merge when `merge.status` is `clean` or `conflicting`.
-- `patch`: write `$out_dir/fix.patch` and use `{"type":"patch","path":"fix.patch"}` for code
-  fixes or conflict resolutions. Include `sync-base` first when the patch incorporates a base merge.
+- `fix-ci`: write `$out_dir/fix.patch` for a CI code fix. Include `sync-base` first if
+  the patch incorporates a clean base merge.
+- `resolve-conflicts`: write `$out_dir/fix.patch` for the fully resolved tree, including any
+  needed CI fixes, and include `sync-base` first. Use this instead of `fix-ci` when there are
+  conflicts. The patch may be empty if retaining the PR tree resolves all conflicts.
 - Use `actions: []` when no useful action can be taken, and explain why in `summary`.
 
 Do not combine reruns with a base sync or patch: changing the head triggers fresh CI.
 
-For a patch, resolve every conflict, use `git add -N` for new files, and generate the complete
+For either patch action, resolve every conflict, use `git add -N` for new files, and generate the complete
 final tree diff against the original context `sha` using `git diff HEAD --binary`. Include the
 base changes when resolving a merge. The publisher recreates the resulting tree and records
-both captured parents. Do not write a patch if the plan has no patch action.
+both captured parents. Do not write a patch unless the plan includes `fix-ci` or `resolve-conflicts`.
 
 Keep `summary` to one or two sentences describing the decision and checks actually run.
 Validate the payload schema before finishing:

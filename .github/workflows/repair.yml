@@ -118,6 +118,47 @@ jobs:
       - uses: ./trusted/.github/actions/setup-python
       - uses: ./trusted/.github/actions/setup-node
         if: steps.prepare.outputs.needs_agent == 'true'
+      - name: Install sandbox runtime
+        if: steps.prepare.outputs.needs_agent == 'true'
+        run: |
+          sudo apt-get update --error-on=any
+          sudo apt-get install -y --no-install-recommends bubblewrap socat ripgrep
+          if [ "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)" = 1 ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+          export npm_config_before="$(date -u -d '7 days ago' +%Y-%m-%d)"
+          npm install -g @anthropic-ai/sandbox-runtime@0.0.80
+      - name: Configure repair sandbox
+        if: steps.prepare.outputs.needs_agent == 'true'
+        working-directory: trusted
+        env:
+          PR_CHECKOUT: ${{ github.workspace }}/pr
+        run: |
+          mkdir -p ~/.claude ~/.npm /tmp/repair-agent-cache
+          echo '{}' > ~/.claude.json
+          for name in .gitconfig .gitmodules .bashrc .bash_profile .zshrc .zprofile .profile \
+            .ripgreprc .mcp.json .vscode .idea .claude/commands .claude/agents; do
+            [ -e "$PR_CHECKOUT/$name" ] || printf '/%s\n' "$name"
+          done >> "$PR_CHECKOUT/.git/info/exclude"
+          jq --arg pr "$PR_CHECKOUT" --arg trusted "$PWD" \
+            --arg context "$(dirname "$CONTEXT_PATH")" --arg runner "$RUNNER_TEMP" '
+            .filesystem.allowWrite = [$pr, "/tmp", "~/.claude", "~/.claude.json", "~/.npm"]
+            | .filesystem.denyWrite += [$trusted, $context, $runner, "~/.cache/uv"]
+          ' .claude/sandbox/srt.json > "$RUNNER_TEMP/repair-srt.json"
+          srt --settings "$RUNNER_TEMP/repair-srt.json" -- true
+          if srt --settings "$RUNNER_TEMP/repair-srt.json" -- \
+            touch "$PWD/.repair-sandbox-probe"; then
+            echo "::error::Sandbox allowed changes to trusted workflow files."
+            exit 1
+          fi
+          srt --settings "$RUNNER_TEMP/repair-srt.json" -- bash -c '
+            set -euo pipefail
+            processes=$(ps -e -o comm=)
+            if grep -Fxq "Runner.Worker" <<< "$processes"; then
+              echo "Runner.Worker is visible inside the sandbox" >&2
+              exit 1
+            fi
+          '
       - name: Install Claude Code
         if: steps.prepare.outputs.needs_agent == 'true'
         working-directory: trusted
@@ -169,13 +210,14 @@ jobs:
           TELEMETRY_TOKEN: ${{ steps.telemetry.outputs.token }}
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
           TRACE_LOCATION: ${{ vars.REPAIR_MLFLOW_TRACE_LOCATION }}
+          TELEMETRY_SOCKET: ${{ runner.temp }}/repair-telemetry.sock
         run: |
           placeholder_token=$(openssl rand -hex 32)
           echo "::add-mask::$placeholder_token"
           printf 'placeholder-token=%s\n' "$placeholder_token" >> "$GITHUB_OUTPUT"
           printf '%s\n%s\n' "$TELEMETRY_TOKEN" "$placeholder_token" | env -u TELEMETRY_TOKEN \
             DATABRICKS_HOST="$DATABRICKS_HOST" TRACE_LOCATION="$TRACE_LOCATION" \
-            node .claude/sandbox/otel-proxy.mjs \
+            TELEMETRY_SOCKET="$TELEMETRY_SOCKET" node .claude/sandbox/otel-proxy.mjs \
             > "$RUNNER_TEMP/repair-telemetry-proxy.log" 2>&1 &
           proxy_pid=$!
           unset TELEMETRY_TOKEN placeholder_token
@@ -184,7 +226,7 @@ jobs:
             if ! kill -0 "$proxy_pid" 2>/dev/null; then
               break
             fi
-            if curl -fsS http://127.0.0.1:8081/healthz > /dev/null; then
+            if [ -S "$TELEMETRY_SOCKET" ] && curl -fsS http://127.0.0.1:8081/healthz > /dev/null; then
               exit 0
             fi
             sleep 2
@@ -215,6 +257,8 @@ jobs:
         if: steps.prepare.outputs.needs_agent == 'true'
         working-directory: trusted
         env:
+          UV_CACHE_DIR: /tmp/repair-agent-cache
+          TELEMETRY_SOCKET: ${{ runner.temp }}/repair-telemetry.sock
           MODEL: ${{ steps.agent.outputs.model }}
           EFFORT: ${{ steps.agent.outputs.effort }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -244,7 +288,12 @@ jobs:
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
           trap 'echo "::$token::"' EXIT
-          timeout --kill-after=10s 30m claude \
+          relay=()
+          if [ -S "$TELEMETRY_SOCKET" ]; then
+            relay=(bash -c 'socat TCP-LISTEN:8081,bind=127.0.0.1,fork,reuseaddr "UNIX-CONNECT:$0" & exec "$@"' "$TELEMETRY_SOCKET")
+          fi
+          timeout --kill-after=10s 30m srt --settings "$RUNNER_TEMP/repair-srt.json" -- \
+            "${relay[@]}" env -u NO_PROXY -u no_proxy claude \
             --model "$MODEL" --effort "$EFFORT" --max-budget-usd 5 \
             --permission-mode auto --disallowed-tools "WebSearch,WebFetch" \
             --print --verbose --output-format stream-json \
@@ -275,6 +324,7 @@ jobs:
           repositories: mlflow
           permission-actions: write
           permission-contents: write
+          permission-workflows: write
           permission-pull-requests: write
       - name: Publish or preview repair
         id: publish
