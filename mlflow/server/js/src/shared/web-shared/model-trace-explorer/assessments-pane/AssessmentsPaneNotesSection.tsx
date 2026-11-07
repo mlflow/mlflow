@@ -13,7 +13,7 @@ import { FormattedMessage } from '@databricks/i18n';
 
 import type { FeedbackAssessment } from '../ModelTrace.types';
 import type { CreateAssessmentPayload, UpdateAssessmentPayload } from '../api';
-import { getUser } from '../../global-settings/getUser';
+import { getUser, useUserIdentity } from '../../global-settings/getUser';
 import { useCreateAssessment } from '../hooks/useCreateAssessment';
 import { useUpdateAssessment } from '../hooks/useUpdateAssessment';
 
@@ -27,24 +27,38 @@ export const AssessmentsPaneNotesSection = ({
   feedbacks: FeedbackAssessment[];
 }) => {
   const { theme } = useDesignSystemTheme();
-  const user = getUser() ?? '';
+  const { user, isResolved: isUserResolved } = useUserIdentity();
 
   const existingNotes = useMemo(
     () => feedbacks.find((f) => f.assessment_name === NOTES_ASSESSMENT_NAME && f.source.source_id === user),
     [feedbacks, user],
   );
 
+  // Before notes were saved under the signed-in username, every note used the `User` placeholder. Signed-in users
+  // see that note read-only so it is not hidden, and their own note stays separate.
+  const legacyNotes = useMemo(
+    () =>
+      user && user !== getUser()
+        ? feedbacks.find((f) => f.assessment_name === NOTES_ASSESSMENT_NAME && f.source.source_id === getUser())
+        : undefined,
+    [feedbacks, user],
+  );
+  const legacyNotesText = typeof legacyNotes?.feedback?.value === 'string' ? legacyNotes.feedback.value : '';
+
   const serverText = typeof existingNotes?.feedback?.value === 'string' ? existingNotes.feedback.value : '';
 
   const [notesText, setNotesText] = useState(serverText);
   const [prevServerText, setPrevServerText] = useState(serverText);
+  const [prevUser, setPrevUser] = useState(user);
 
   // Sync from server when feedbacks prop updates (e.g. after save completes and
-  // query refetch delivers updated data). This is React's recommended pattern for
-  // adjusting state when props change without useEffect.
+  // query refetch delivers updated data). The draft belongs to one user, so it is also
+  // discarded when the user changes; otherwise it could be saved under the new user.
+  // This is React's recommended pattern for adjusting state when props change without useEffect.
   // See: https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
-  if (serverText !== prevServerText) {
+  if (serverText !== prevServerText || user !== prevUser) {
     setPrevServerText(serverText);
+    setPrevUser(user);
     setNotesText(serverText);
   }
 
@@ -57,7 +71,7 @@ export const AssessmentsPaneNotesSection = ({
   const isDirty = notesText !== serverText;
 
   const handleSave = () => {
-    if (!isDirty) return;
+    if (!isDirty || !isUserResolved) return;
     if (existingNotes) {
       const payload: UpdateAssessmentPayload = {
         assessment: { feedback: { value: notesText } },
@@ -105,16 +119,27 @@ export const AssessmentsPaneNotesSection = ({
           icon={<CheckIcon />}
           onClick={handleSave}
           loading={isLoading}
-          disabled={!isDirty || isLoading}
+          disabled={!isDirty || isLoading || !isUserResolved}
         >
           <FormattedMessage defaultMessage="Save" description="Button to save notes assessment" />
         </Button>
       </div>
+      {legacyNotesText && (
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+          <Typography.Text color="secondary" size="sm">
+            <FormattedMessage
+              defaultMessage="Earlier notes saved without a username"
+              description="Label for read-only notes that were saved before notes were attributed to the signed-in user"
+            />
+          </Typography.Text>
+          <Typography.Text css={{ whiteSpace: 'pre-wrap' }}>{legacyNotesText}</Typography.Text>
+        </div>
+      )}
       <Input.TextArea
         componentId="shared.model-trace-explorer.assessment-notes-input"
         value={notesText}
         autoSize={{ minRows: 3, maxRows: 10 }}
-        disabled={isLoading}
+        disabled={isLoading || !user}
         onKeyDown={(e) => e.stopPropagation()}
         onChange={(e) => setNotesText(e.target.value)}
       />
