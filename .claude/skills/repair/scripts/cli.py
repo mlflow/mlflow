@@ -507,10 +507,6 @@ def prepare(args: argparse.Namespace) -> int:
     ).count("Repair-Context:")
     if rounds >= 3:
         raise ValueError("PR reached the limit of 3 automatic repair commits")
-    worktree_config = Path(os.environ["PR_CHECKOUT"]) / ".git/config.worktree"
-    # SRT protects this path even when checkout did not create it.
-    if not worktree_config.exists() and not worktree_config.is_symlink():
-        worktree_config.touch()
     context["git_metadata"] = git_metadata()
     logs = directory / "logs"
     logs.mkdir()

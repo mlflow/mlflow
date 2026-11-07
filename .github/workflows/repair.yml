@@ -44,8 +44,6 @@ env:
   OUT_DIR: /tmp/repair-out
   RESULT_DIR: /tmp/repair-result
   SCRIPT: .claude/skills/repair/scripts/cli.py
-  REPAIR_GIT_INDEX: /tmp/repair-agent-index
-  REPAIR_GIT_OBJECTS: /tmp/repair-agent-objects
 
 jobs:
   discover:
@@ -119,48 +117,6 @@ jobs:
         run: python3 "trusted/$SCRIPT" prepare
       - uses: ./trusted/.github/actions/setup-python
       - uses: ./trusted/.github/actions/setup-node
-      - name: Install sandbox runtime
-        run: |
-          sudo apt-get update --error-on=any
-          sudo apt-get install -y --no-install-recommends bubblewrap socat ripgrep
-          if [ "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)" = 1 ]; then
-            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-          fi
-          export npm_config_before="$(date -u -d '7 days ago' +%Y-%m-%d)"
-          npm install -g @anthropic-ai/sandbox-runtime@0.0.80
-      - name: Configure repair sandbox
-        working-directory: trusted
-        env:
-          PR_CHECKOUT: ${{ github.workspace }}/pr
-        run: |
-          mkdir -p ~/.claude ~/.npm /tmp/repair-agent-cache "$REPAIR_GIT_OBJECTS" "$RESULT_DIR"
-          cp "$PR_CHECKOUT/.git/index" "$REPAIR_GIT_INDEX"
-          echo '{}' > ~/.claude.json
-          for name in .gitconfig .gitmodules .bashrc .bash_profile .zshrc .zprofile .profile \
-            .ripgreprc .mcp.json .vscode .idea .claude/commands .claude/agents; do
-            [ -e "$PR_CHECKOUT/$name" ] || printf '/%s\n' "$name"
-          done >> "$PR_CHECKOUT/.git/info/exclude"
-          jq --arg pr "$PR_CHECKOUT" --arg trusted "$PWD" \
-            --arg context "$(dirname "$CONTEXT_PATH")" --arg runner "$RUNNER_TEMP" --arg result "$RESULT_DIR" '
-            .filesystem.allowWrite = [$pr, "/tmp", "~/.claude", "~/.claude.json", "~/.npm"]
-            | .filesystem.denyWrite += [$trusted, $context, $runner, $result, ($pr + "/.git"), "~/.cache/uv"]
-          ' .claude/sandbox/srt.json > "$RUNNER_TEMP/repair-srt.json"
-          srt --settings "$RUNNER_TEMP/repair-srt.json" -- true
-          for directory in "$PWD" "$PR_CHECKOUT/.git" "$RESULT_DIR"; do
-            if srt --settings "$RUNNER_TEMP/repair-srt.json" -- \
-              touch "$directory/.repair-sandbox-probe"; then
-              echo "::error::Sandbox allowed writes to protected directory: $directory"
-              exit 1
-            fi
-          done
-          srt --settings "$RUNNER_TEMP/repair-srt.json" -- bash -c '
-            set -euo pipefail
-            processes=$(ps -e -o comm=)
-            if grep -Fxq "Runner.Worker" <<< "$processes"; then
-              echo "Runner.Worker is visible inside the sandbox" >&2
-              exit 1
-            fi
-          '
       - name: Install Claude Code
         working-directory: trusted
         run: |
@@ -209,14 +165,13 @@ jobs:
           TELEMETRY_TOKEN: ${{ steps.telemetry.outputs.token }}
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
           TRACE_LOCATION: ${{ vars.REPAIR_MLFLOW_TRACE_LOCATION }}
-          TELEMETRY_SOCKET: ${{ runner.temp }}/repair-telemetry.sock
         run: |
           placeholder_token=$(openssl rand -hex 32)
           echo "::add-mask::$placeholder_token"
           printf 'placeholder-token=%s\n' "$placeholder_token" >> "$GITHUB_OUTPUT"
           printf '%s\n%s\n' "$TELEMETRY_TOKEN" "$placeholder_token" | env -u TELEMETRY_TOKEN \
             DATABRICKS_HOST="$DATABRICKS_HOST" TRACE_LOCATION="$TRACE_LOCATION" \
-            TELEMETRY_SOCKET="$TELEMETRY_SOCKET" node .claude/sandbox/otel-proxy.mjs \
+            node .claude/sandbox/otel-proxy.mjs \
             > "$RUNNER_TEMP/repair-telemetry-proxy.log" 2>&1 &
           proxy_pid=$!
           unset TELEMETRY_TOKEN placeholder_token
@@ -225,7 +180,7 @@ jobs:
             if ! kill -0 "$proxy_pid" 2>/dev/null; then
               break
             fi
-            if [ -S "$TELEMETRY_SOCKET" ] && curl -fsS http://127.0.0.1:8081/healthz > /dev/null; then
+            if curl -fsS http://127.0.0.1:8081/healthz > /dev/null; then
               exit 0
             fi
             sleep 2
@@ -254,12 +209,6 @@ jobs:
       - name: Repair PR
         working-directory: trusted
         env:
-          REPAIR_GIT_ALTERNATES: ${{ github.workspace }}/pr/.git/objects
-          UV_CACHE_DIR: /tmp/repair-agent-cache
-          UV_TOOL_DIR: /tmp/repair-agent-tools
-          UV_TOOL_BIN_DIR: /tmp/repair-agent-bin
-          UV_PYTHON_INSTALL_DIR: /tmp/repair-agent-python
-          TELEMETRY_SOCKET: ${{ runner.temp }}/repair-telemetry.sock
           MODEL: ${{ steps.agent.outputs.model }}
           EFFORT: ${{ steps.agent.outputs.effort }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -289,16 +238,7 @@ jobs:
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
           trap 'echo "::$token::"' EXIT
-          relay=()
-          if [ -S "$TELEMETRY_SOCKET" ]; then
-            relay=(bash -c 'socat TCP-LISTEN:8081,bind=127.0.0.1,fork,reuseaddr "UNIX-CONNECT:$0" & exec "$@"' "$TELEMETRY_SOCKET")
-          fi
-          timeout --kill-after=10s 30m srt --settings "$RUNNER_TEMP/repair-srt.json" -- \
-            "${relay[@]}" env -u NO_PROXY -u no_proxy claude \
-            --model "$MODEL" --effort "$EFFORT" --max-budget-usd 5 \
-            --permission-mode auto --disallowed-tools "WebSearch,WebFetch" \
-            --print --verbose --output-format stream-json \
-            "$prompt" | .claude/scripts/stream.sh
+          timeout --kill-after=10s 30m claude --model "$MODEL" --effort "$EFFORT" --max-budget-usd 5 --permission-mode auto --disallowed-tools "WebSearch,WebFetch" --print --verbose --output-format stream-json "$prompt" | .claude/scripts/stream.sh
       - name: Stop proxies
         if: always()
         run: |
@@ -339,7 +279,7 @@ jobs:
         if: steps.publish.outcome == 'success' && env.DRY_RUN != 'true'
         with:
           name: repair-result-${{ matrix.pr.number }}-${{ steps.validate.outputs.context_key }}
-          path: ${{ env.RESULT_DIR }}
+          path: ${{ env.RESULT_DIR }}/result.json
           if-no-files-found: error
           overwrite: true
           retention-days: 3
