@@ -230,6 +230,27 @@ def test_search_model_versions_version_number_filter_binds_integers(psycopg3_reg
         assert [mv.version for mv in results] == [version.version]
 
 
+def test_transition_model_version_stage_archive_existing_binds_integers(psycopg3_registry_store):
+    # https://github.com/mlflow/mlflow/issues/24592
+    with WorkspaceContext("team-a"):
+        name = f"model-{uuid.uuid4().hex}"
+        psycopg3_registry_store.create_registered_model(name)
+        mv1 = psycopg3_registry_store.create_model_version(name, "source")
+        mv2 = psycopg3_registry_store.create_model_version(name, "source")
+
+        psycopg3_registry_store.transition_model_version_stage(
+            name, str(mv1.version), "Production", archive_existing_versions=False
+        )
+        psycopg3_registry_store.transition_model_version_stage(
+            name, str(mv2.version), "Production", archive_existing_versions=True
+        )
+
+        archived = psycopg3_registry_store.get_model_version(name, mv1.version)
+        promoted = psycopg3_registry_store.get_model_version(name, mv2.version)
+        assert archived.current_stage == "Archived"
+        assert promoted.current_stage == "Production"
+
+
 def test_search_experiments_filter_respects_workspace_boundary(tmp_path, monkeypatch, db_uri):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
 
