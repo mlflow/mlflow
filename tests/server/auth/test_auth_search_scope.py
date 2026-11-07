@@ -14,9 +14,11 @@ from starlette.testclient import TestClient
 from werkzeug.datastructures import Authorization
 
 from mlflow.entities import ViewType
+from mlflow.entities.model_registry.registered_model_tag import RegisteredModelTag
 from mlflow.exceptions import MlflowException, RestException
+from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, TEMPORARILY_UNAVAILABLE
-from mlflow.protos.model_registry_pb2 import SearchModelVersions
+from mlflow.protos.model_registry_pb2 import SearchModelVersions, SearchRegisteredModels
 from mlflow.protos.service_pb2 import (
     BatchGetTraceInfos,
     BatchGetTraces,
@@ -24,7 +26,11 @@ from mlflow.protos.service_pb2 import (
     SearchLoggedModels,
 )
 from mlflow.server import auth, handlers
-from mlflow.server._request_keys import SCOPED_EXPERIMENT_FILTER, SCOPED_EXPERIMENT_IDS
+from mlflow.server._request_keys import (
+    SCOPED_EXPERIMENT_FILTER,
+    SCOPED_EXPERIMENT_IDS,
+    SCOPED_REGISTERED_MODEL_FILTER,
+)
 from mlflow.server.auth.db.models import SqlRolePermission
 from mlflow.server.auth.permissions import DENY, MANAGE, NO_PERMISSIONS, READ, USE
 from mlflow.server.auth.routes import ADD_ROLE_PERMISSION, AJAX_ADD_ROLE_PERMISSION
@@ -305,13 +311,6 @@ def large_scope_search_setup(tmp_path, db_uri, monkeypatch, request):
     ("collection", "handler", "resource_type", "response_key", "method"),
     [
         (
-            "registered-models",
-            handlers._search_registered_models,
-            "registered_model",
-            "registered_models",
-            "GET",
-        ),
-        (
             "model-versions",
             handlers._search_model_versions,
             "registered_model",
@@ -402,12 +401,12 @@ def test_authenticated_registry_search_with_large_scope(
     )
 
 
-@pytest.mark.parametrize("scope_size", [2, 3400])
 @pytest.mark.parametrize("caller_filter", ["", "name LIKE '%model%'"])
 @pytest.mark.parametrize("prefix", ["/api", "/ajax-api"])
-def test_authenticated_registered_model_search_refills_with_large_scope(
-    large_scope_search_setup, limit_sqlite_variables, scope_size, caller_filter, prefix
+def test_authenticated_registered_model_search_paginates_scoped_results(
+    large_scope_search_setup, limit_sqlite_variables, caller_filter, prefix
 ):
+    scope_size = 2
     auth_store, _, registry, role, username, password = large_scope_search_setup
     hidden_names = ["a-hidden-model-0", "a-hidden-model-1"]
     visible_names = ["b-visible-model-0", "b-visible-model-1", "b-visible-model-2"]
@@ -2061,6 +2060,71 @@ def test_scoped_search_reports_backend_limits_without_retry(
         assert len(statements[0][1]) > 999
 
 
+@pytest.mark.parametrize("grant", ["named", "wildcard-deny"])
+@pytest.mark.parametrize("limit", ["parameters", "parser"])
+def test_registered_model_search_reports_backend_limits_without_retry(
+    large_scope_search_setup, monkeypatch, grant, limit
+):
+    auth_store, _, registry, role, username, password = large_scope_search_setup
+    values = [f"scope-{index}" for index in range(3400 if limit == "parser" else 500)]
+    if grant == "wildcard-deny":
+        auth_store.add_role_permission(role.id, "registered_model", "*", READ.name)
+    with auth_store.ManagedSessionMaker(read_only=False) as session:
+        session.add_all([
+            SqlRolePermission(
+                role_id=role.id,
+                resource_type="registered_model",
+                resource_pattern=value,
+                permission=DENY.name if grant == "wildcard-deny" else READ.name,
+            )
+            for value in values
+        ])
+    caller_filter = f"name IN ({', '.join(repr(value) for value in values[:500])})"
+    statements = []
+
+    def guard_parameters(conn, cursor, statement, parameters, context, executemany):
+        if not executemany and len(parameters) > 999:
+            statements.append((statement, parameters))
+            # Simulate a historical SQLite budget on Python versions without setlimit().
+            raise OperationalError(
+                statement, parameters, sqlite3.OperationalError("too many SQL variables")
+            )
+
+    if limit == "parameters":
+        event.listen(registry.engine, "before_cursor_execute", guard_parameters)
+    search = Mock(wraps=registry.search_registered_models)
+    monkeypatch.setattr(registry, "search_registered_models", search)
+    app = Flask(__name__)
+    app.before_request(auth._before_request)
+    app.after_request(auth._after_request)
+    path = "/api/2.0/mlflow/registered-models/search"
+    app.add_url_rule(path, view_func=handlers._search_registered_models, methods=["GET"])
+    headers = {
+        "Authorization": Authorization(
+            "basic", {"username": username, "password": password}
+        ).to_header()
+    }
+    try:
+        response = app.test_client().get(
+            path, query_string={"filter": caller_filter, "max_results": 1}, headers=headers
+        )
+    finally:
+        if limit == "parameters":
+            event.remove(registry.engine, "before_cursor_execute", guard_parameters)
+
+    body = response.json
+    assert response.status_code == 400
+    assert body["error_code"] == "INVALID_PARAMETER_VALUE"
+    assert "authorization scope exceeds a backend limit" in body["message"]
+    assert values[0] not in body["message"]
+    search.assert_called_once()
+    effective_filter = search.call_args.kwargs["filter_string"]
+    assert effective_filter.startswith(f"{caller_filter} AND ")
+    assert ("NOT IN" in effective_filter) == (grant == "wildcard-deny")
+    if limit == "parameters":
+        assert len(statements) == 1
+
+
 @pytest.mark.parametrize("prefix", ["/api", "/ajax-api"])
 @pytest.mark.parametrize("infos", [False, True])
 @pytest.mark.parametrize("valid_grant", [False, True])
@@ -2435,6 +2499,7 @@ def test_run_search_experiment_deny_applies_to_numeric_aliases(
     denied = tracking.create_experiment("denied")
     visible_run = tracking.create_run(readable, username, 0, [], "visible")
     tracking.create_run(denied, username, 0, [], "hidden")
+    auth_store.add_role_permission(role.id, "experiment", readable, READ.name)
     auth_store.add_role_permission(role.id, "experiment", denied, DENY.name)
     requested_ids = [
         {
@@ -2579,3 +2644,194 @@ def test_request_scopes_resolve_large_grant_sets_with_linear_work(
     fold.assert_called()
     search.assert_called_once()
     assert sum(scanned) < 12 * grant_count
+
+
+@pytest.mark.parametrize("workspace_permission", [USE, MANAGE])
+def test_search_matches_point_read_for_workspace_grant(
+    large_scope_search_setup, workspace_permission
+):
+    auth_store, tracking, registry, role, username, password = large_scope_search_setup
+    auth_store.add_role_permission(role.id, "workspace", "*", workspace_permission.name)
+    experiment_id = tracking.create_experiment("other-experiment")
+    run_id = tracking.create_run(experiment_id, "other-user", 0, [], "other-run").info.run_id
+    registry.create_registered_model("other-model")
+    registry.create_model_version("other-model", source="/model", run_id=None)
+
+    app = Flask(__name__)
+    app.before_request(auth._before_request)
+    app.after_request(auth._after_request)
+    for path, handler, method in [
+        ("/api/2.0/mlflow/registered-models/get", handlers._get_registered_model, "GET"),
+        ("/api/2.0/mlflow/registered-models/search", handlers._search_registered_models, "GET"),
+        ("/api/2.0/mlflow/model-versions/search", handlers._search_model_versions, "GET"),
+        ("/api/2.0/mlflow/experiments/get", handlers._get_experiment, "GET"),
+        ("/api/2.0/mlflow/experiments/search", handlers._search_experiments, "POST"),
+        ("/api/2.0/mlflow/runs/search", handlers._search_runs, "POST"),
+    ]:
+        app.add_url_rule(path, view_func=handler, methods=[method])
+    headers = {
+        "Authorization": Authorization(
+            "basic", {"username": username, "password": password}
+        ).to_header()
+    }
+    client = app.test_client()
+
+    # Only a workspace admin grant reaches rows it holds no grant on, for point reads and search.
+    readable = workspace_permission is MANAGE
+    model = client.get(
+        "/api/2.0/mlflow/registered-models/get",
+        query_string={"name": "other-model"},
+        headers=headers,
+    )
+    experiment = client.get(
+        "/api/2.0/mlflow/experiments/get",
+        query_string={"experiment_id": experiment_id},
+        headers=headers,
+    )
+    assert model.status_code == experiment.status_code == (200 if readable else 403)
+
+    models = client.get("/api/2.0/mlflow/registered-models/search", headers=headers)
+    versions = client.get("/api/2.0/mlflow/model-versions/search", headers=headers)
+    experiments = client.post(
+        "/api/2.0/mlflow/experiments/search", json={"max_results": 100}, headers=headers
+    )
+    runs = client.post(
+        "/api/2.0/mlflow/runs/search", json={"experiment_ids": [experiment_id]}, headers=headers
+    )
+    assert models.status_code == versions.status_code == 200
+    assert experiments.status_code == runs.status_code == 200
+    assert [row["name"] for row in models.json.get("registered_models", [])] == (
+        ["other-model"] if readable else []
+    )
+    assert [row["name"] for row in versions.json.get("model_versions", [])] == (
+        ["other-model"] if readable else []
+    )
+    assert (
+        experiment_id in [row["experiment_id"] for row in experiments.json.get("experiments", [])]
+    ) == readable
+    assert [row["info"]["run_id"] for row in runs.json.get("runs", [])] == (
+        [run_id] if readable else []
+    )
+
+
+_PROMPT_FILTER = "tags.`mlflow.prompt.is_prompt` = 'true'"
+
+
+@pytest.mark.parametrize(
+    ("caller_filter", "resource_type"),
+    [
+        (None, "registered_model"),
+        ("name LIKE 'visible%'", "registered_model"),
+        ("tags.`mlflow.prompt.is_prompt` = 'false'", "registered_model"),
+        (_PROMPT_FILTER, "prompt"),
+        ("tags.`mlflow.prompt.is_prompt` != 'false'", "prompt"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("comparator", "resource_ids", "scope_filter"),
+    [
+        ("IN", {"a", "it's"}, "name IN ('a', \"it's\")"),
+        ("NOT IN", {"x"}, "name NOT IN ('x')"),
+        ("IN", {""}, "name = '' AND name != ''"),
+        ("NOT IN", set(), None),
+        (None, set(), None),
+    ],
+)
+def test_registered_model_auth_populates_request_filter(
+    monkeypatch, caller_filter, resource_type, comparator, resource_ids, scope_filter
+):
+    read_scope = Mock(
+        return_value=SimpleNamespace(comparator=comparator, resource_ids=resource_ids)
+    )
+    search = Mock(return_value=PagedList([], token=None))
+    monkeypatch.setattr(
+        auth, "authenticate_request", Mock(return_value=SimpleNamespace(username="reader"))
+    )
+    monkeypatch.setattr(auth, "_get_resource_read_scope_for_user", read_scope)
+    monkeypatch.setattr(
+        handlers,
+        "_get_model_registry_store",
+        lambda: SimpleNamespace(search_registered_models=search),
+    )
+    payload = {"max_results": 3} if caller_filter is None else {"filter": caller_filter}
+    app = Flask(__name__)
+    with app.test_request_context(method="GET", query_string=payload):
+        auth._scope_registered_model_search_query()
+        expected = (
+            f"{caller_filter} AND {scope_filter}"
+            if caller_filter and scope_filter
+            else scope_filter or caller_filter or ""
+        )
+        assert handlers._get_request_message(SearchRegisteredModels()).filter == expected
+        assert getattr(g, SCOPED_REGISTERED_MODEL_FILTER, None) == (
+            expected if scope_filter else None
+        )
+        handlers._search_registered_models()
+    assert search.call_args.kwargs["filter_string"] == expected
+    read_scope.assert_called_once_with("reader", resource_type)
+
+
+@pytest.mark.parametrize("comparator", ["LIKE", "ILIKE"])
+def test_registered_model_search_leaves_prompt_tag_patterns_to_response_filter(
+    monkeypatch, comparator
+):
+    read_scope = Mock()
+    monkeypatch.setattr(auth, "_get_resource_read_scope_for_user", read_scope)
+    caller_filter = f"tags.`{IS_PROMPT_TAG_KEY}` {comparator} 'tr%'"
+    app = Flask(__name__)
+    with app.test_request_context(method="GET", query_string={"filter": caller_filter}):
+        auth._scope_registered_model_search_query()
+        assert handlers._get_request_message(SearchRegisteredModels()).filter == caller_filter
+        assert getattr(g, SCOPED_REGISTERED_MODEL_FILTER, None) is None
+    read_scope.assert_not_called()
+
+
+def test_registered_model_search_scopes_models_and_prompts_before_search(
+    large_scope_search_setup, monkeypatch
+):
+    auth_store, _, registry, role, username, password = large_scope_search_setup
+    prompt_tag = [RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")]
+    for index in range(20):
+        registry.create_registered_model(f"model-{index:02d}")
+        registry.create_registered_model(f"prompt-{index:02d}", tags=prompt_tag)
+    # Grants on one type must not leak rows of the other type that share the name.
+    registry.create_registered_model("shared-name", tags=prompt_tag)
+    odd_name = 'it\'s "a" \\ model'
+    registry.create_registered_model(odd_name)
+    for resource_type, name in [
+        ("registered_model", "model-05"),
+        ("registered_model", "model-15"),
+        ("registered_model", "shared-name"),
+        ("registered_model", odd_name),
+        ("prompt", "prompt-07"),
+        ("prompt", "model-10"),
+    ]:
+        auth_store.add_role_permission(role.id, resource_type, name, READ.name)
+    search = Mock(wraps=registry.search_registered_models)
+    monkeypatch.setattr(registry, "search_registered_models", search)
+
+    app = Flask(__name__)
+    app.before_request(auth._before_request)
+    app.after_request(auth._after_request)
+    path = "/api/2.0/mlflow/registered-models/search"
+    app.add_url_rule(path, view_func=handlers._search_registered_models, methods=["GET"])
+    headers = {
+        "Authorization": Authorization(
+            "basic", {"username": username, "password": password}
+        ).to_header()
+    }
+    client = app.test_client()
+
+    def names(caller_filter):
+        search.reset_mock()
+        response = client.get(
+            path, query_string={"filter": caller_filter, "max_results": 3}, headers=headers
+        )
+        assert response.status_code == 200
+        # The store already returns only readable rows, so no refill query is needed.
+        search.assert_called_once()
+        return sorted(row["name"] for row in response.json.get("registered_models", []))
+
+    assert names("") == sorted(["model-05", "model-15", odd_name])
+    assert names(_PROMPT_FILTER) == ["prompt-07"]
+    assert names(f"{_PROMPT_FILTER} AND name LIKE 'model-%'") == []
