@@ -1343,6 +1343,53 @@ def test_no_permissions_blocks_create(workspace_permission_setup):
         assert not auth_module.validate_can_create_skill(username)
 
 
+@pytest.mark.parametrize(
+    ("permission", "allowed"), [(USE, True), (MANAGE, True), (NO_PERMISSIONS, False)]
+)
+def test_demo_generate_requires_workspace_create_grant(
+    workspace_permission_setup, permission, allowed
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, permission.name)
+
+    with auth_module.app.test_request_context(auth_module.DEMO_GENERATE, method="POST"):
+        validator = auth_module._find_validator(request)
+
+        assert validator() is allowed
+
+
+@pytest.mark.parametrize("resource_type", ["experiment", "prompt"])
+def test_demo_generate_resource_grant_does_not_allow_workspace_creation(
+    workspace_permission_setup, resource_type
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    _grant(store, username, "team-a", [(resource_type, "*", MANAGE.name)])
+
+    with auth_module.app.test_request_context(auth_module.DEMO_GENERATE, method="POST"):
+        validator = auth_module._find_validator(request)
+
+        assert not validator()
+
+
+@pytest.mark.parametrize("permission", [USE, MANAGE])
+def test_demo_generate_workspace_grant_does_not_apply_to_other_workspaces(
+    workspace_permission_setup, permission
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, permission.name)
+
+    with auth_module.app.test_request_context(auth_module.DEMO_GENERATE, method="POST"):
+        validator = auth_module._find_validator(request)
+        assert validator()
+
+        with workspace_context.WorkspaceContext("team-b"):
+            assert not validator()
+
+
 def test_gateway_secret_create_requires_workspace_create_grant(workspace_permission_setup):
     # Gateway secret creation crosses the same workspace create boundary as
     # experiments and registered models (GHSA-4449-4cjp-ffp5).

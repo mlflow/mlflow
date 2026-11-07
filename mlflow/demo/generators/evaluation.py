@@ -20,7 +20,7 @@ from mlflow.demo.base import (
     DemoResult,
 )
 from mlflow.demo.data import EXPECTED_ANSWERS
-from mlflow.demo.generators.traces import DEMO_TRACE_TYPE_TAG, DEMO_VERSION_TAG, TracesDemoGenerator
+from mlflow.demo.generators.traces import DEMO_TRACE_TYPE_TAG, DEMO_VERSION_TAG
 from mlflow.entities.assessment import AssessmentSource, Expectation, Feedback
 from mlflow.entities.trace import Trace
 from mlflow.entities.view_type import ViewType
@@ -159,10 +159,10 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
     version = 3
 
     def generate(self) -> DemoResult:
-        traces_generator = TracesDemoGenerator()
-        if not traces_generator.is_generated():
-            traces_generator.generate()
-            traces_generator.store_version()
+        # The demo package imports this generator while registering its generators.
+        from mlflow.demo import generate_all_demos
+
+        generate_all_demos(features=[DemoFeature.TRACES])
 
         experiment = mlflow.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
         experiment_id = experiment.experiment_id

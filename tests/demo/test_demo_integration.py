@@ -167,8 +167,7 @@ def test_version_mismatch_triggers_cleanup_and_regeneration(client, traces_gener
 
     assert traces_generator.is_generated() is False
 
-    result = traces_generator.generate()
-    traces_generator.store_version()
+    [result] = generate_all_demos(features=[traces_generator.name])
 
     assert len(result.entity_ids) == original_entity_count
     assert traces_generator.is_generated() is True
