@@ -40,6 +40,10 @@ env:
   GH_REPO: ${{ github.repository }}
   DRY_RUN: ${{ inputs.dry_run || false }}
   TRUSTED_REF: ${{ github.sha }}
+  CONTEXT_PATH: /tmp/repair-context/context.json
+  OUT_DIR: /tmp/repair-out
+  RESULT_DIR: /tmp/repair-result
+  SCRIPT: .claude/skills/repair/scripts/cli.py
 
 jobs:
   discover:
@@ -52,6 +56,11 @@ jobs:
     outputs:
       candidates: ${{ steps.discover.outputs.candidates }}
     steps:
+      - name: Check dispatch ref
+        if: github.event_name == 'workflow_dispatch' && !inputs.dry_run
+        env:
+          EXPECTED_REF: refs/heads/${{ github.event.repository.default_branch }}
+        run: test "$GITHUB_REF" = "$EXPECTED_REF"
       - name: Fetch repair script
         run: |
           curl -fsSL --retry 3 --connect-timeout 10 --max-time 30 \
@@ -97,7 +106,15 @@ jobs:
             with:
               ref: ${{ matrix.pr.sha }}
               path: pr
+              fetch-depth: 0
               persist-credentials: false
+      - name: Prepare repair context
+        id: prepare
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CANDIDATE: ${{ toJSON(matrix.pr) }}
+          PR_CHECKOUT: ${{ github.workspace }}/pr
+        run: python3 "trusted/$SCRIPT" prepare
       - uses: ./trusted/.github/actions/setup-python
       - uses: ./trusted/.github/actions/setup-node
       - name: Install Claude Code
@@ -189,7 +206,7 @@ jobs:
           echo "model=$MODEL" >> "$GITHUB_OUTPUT"
           echo "effort=$EFFORT" >> "$GITHUB_OUTPUT"
           echo "Agent model: \`$MODEL\`, effort: \`$EFFORT\`" >> "$GITHUB_STEP_SUMMARY"
-      - name: Verify agent runtime
+      - name: Repair PR
         working-directory: trusted
         env:
           MODEL: ${{ steps.agent.outputs.model }}
@@ -216,7 +233,12 @@ jobs:
           OTEL_LOG_TOOL_DETAILS: "1"
           OTEL_LOG_TOOL_CONTENT: "1"
           OTEL_RESOURCE_ATTRIBUTES: github.run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: claude --version
+        run: |
+          printf -v prompt '/repair "%s" "%s" "%s"' "$GITHUB_WORKSPACE/pr" "$CONTEXT_PATH" "$OUT_DIR"
+          token=$(cat /proc/sys/kernel/random/uuid)
+          echo "::stop-commands::$token"
+          trap 'echo "::$token::"' EXIT
+          timeout --kill-after=10s 30m claude --model "$MODEL" --effort "$EFFORT" --max-budget-usd 5 --permission-mode auto --disallowed-tools "WebSearch,WebFetch" --print --verbose --output-format stream-json "$prompt" | .claude/scripts/stream.sh
       - name: Stop proxies
         if: always()
         run: |
@@ -225,8 +247,16 @@ jobs:
               kill "$(cat "$RUNNER_TEMP/repair-$proxy-proxy.pid")" 2>/dev/null || true
             fi
           done
+      - name: Validate repair plan
+        id: validate
+        working-directory: trusted
+        env:
+          PR_CHECKOUT: ${{ github.workspace }}/pr
+          REUSE_CHECKOUT: "true"
+          EXPECTED_CONTEXT_HASH: ${{ steps.prepare.outputs.context_hash }}
+        run: python "$SCRIPT" validate
       - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
-        if: env.DRY_RUN != 'true' && toJSON(matrix.pr.failed_runs) != '[]'
+        if: steps.validate.outputs.has_actions == 'true' && env.DRY_RUN != 'true'
         id: app-token
         with:
           client-id: ${{ secrets.APP_CLIENT_ID }}
@@ -234,49 +264,22 @@ jobs:
           owner: mlflow
           repositories: mlflow
           permission-actions: write
-      - name: Rerun failed jobs
+          permission-contents: write
+          permission-workflows: ${{ steps.validate.outputs.workflow_changes == 'true' && 'write' || '' }}
+          permission-pull-requests: write
+      - name: Publish or preview repair
+        id: publish
+        working-directory: trusted
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          CANDIDATE: ${{ toJSON(matrix.pr) }}
-          DRY_RUN: ${{ inputs.dry_run || false }}
-        run: |
-          candidate=$CANDIDATE
-          rerun() {
-            local id=$1 workflow=$2 url=$3
-            if [[ "$DRY_RUN" == true ]]; then
-              echo "Would rerun failed jobs for $workflow: $url"
-              return 0
-            fi
-            if ! gh run rerun "$id" --repo "$GH_REPO" --failed; then
-              return 1
-            fi
-            echo "::notice title=Rerun failed jobs::$workflow: $url"
-          }
-
-          result=0
-          number=$(jq -r '.number' <<< "$candidate")
-          echo "::group::https://github.com/$GH_REPO/pull/$number"
-          rows=$(jq -r '.failed_runs[]
-            | [.run_id, .workflow, .url] | @tsv' <<< "$candidate")
-          pids=()
-          protect=()
-          while IFS=$'\t' read -r id workflow url; do
-            [[ -n "$id" ]] || continue
-            if [[ "$workflow" == protect.yml ]]; then
-              protect=("$id" "$workflow" "$url")
-            else
-              rerun "$id" "$workflow" "$url" &
-              pids+=("$!")
-            fi
-          done <<< "$rows"
-          for pid in "${pids[@]}"; do
-            if ! wait "$pid"; then
-              result=1
-            fi
-          done
-          if [[ ${#protect[@]} -gt 0 ]] && ! rerun "${protect[@]}"; then
-            result=1
-          fi
-          echo "::endgroup::"
-          exit "$result"
+          PR_CHECKOUT: ${{ github.workspace }}/pr
+          GIT_TERMINAL_PROMPT: "0"
+        run: python "$SCRIPT" publish
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.publish.outcome == 'success' && env.DRY_RUN != 'true'
+        with:
+          name: repair-result-${{ matrix.pr.number }}-${{ steps.validate.outputs.context_key }}
+          path: ${{ env.RESULT_DIR }}/result.json
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 3
