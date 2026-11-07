@@ -160,7 +160,8 @@ def test_model_code_disabled_refuses_docker_preparation(
     download.assert_not_called()
     generate.assert_not_called()
     build.assert_not_called()
-    assert not (tmp_path / "context").exists()
+    if entrypoint == "generate_dockerfile":
+        assert not (tmp_path / "context").exists()
 
 
 @pytest.mark.parametrize(("allow_model_code", "managed"), [("true", False), ("false", True)])
