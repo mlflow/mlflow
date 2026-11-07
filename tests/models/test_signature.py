@@ -384,3 +384,49 @@ def test_infer_signature_for_pydantic_objects_error():
         r"input example with Pydantic objects",
     ):
         infer_signature([m])
+
+
+@pytest.mark.parametrize(
+    ("example_data", "predict_fn", "expected_inputs", "expected_outputs"),
+    [
+        (
+            ["hello", "world"],
+            lambda x: [s.upper() for s in x],
+            Schema([ColSpec(DataType.string)]),
+            Schema([ColSpec(DataType.string)]),
+        ),
+        (
+            [1, 2, 3],
+            lambda x: [val * 10 for val in x],
+            Schema([ColSpec(DataType.long)]),
+            Schema([ColSpec(DataType.long)]),
+        ),
+        (
+            {"query": "test query"},
+            lambda x: x["query"].upper(),
+            Schema([ColSpec(DataType.string, name="query")]),
+            Schema([ColSpec(DataType.string)]),
+        ),
+        (
+            "single string",
+            lambda x: x.upper(),
+            Schema([ColSpec(DataType.string)]),
+            Schema([ColSpec(DataType.string)]),
+        ),
+    ],
+)
+def test_infer_signature_from_input_example_native_types(
+    example_data, predict_fn, expected_inputs, expected_outputs
+):
+    from mlflow.models.signature import _infer_signature_from_input_example
+    from mlflow.models.utils import _Example
+
+    class NativeModel:
+        def predict(self, model_input, params=None):
+            return predict_fn(model_input)
+
+    example = _Example(example_data)
+    signature = _infer_signature_from_input_example(example, NativeModel())
+    assert signature is not None
+    assert signature.inputs == expected_inputs
+    assert signature.outputs == expected_outputs
