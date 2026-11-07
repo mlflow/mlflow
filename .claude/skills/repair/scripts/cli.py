@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 FAILED_CONCLUSIONS = {"FAILURE", "TIMED_OUT", "STARTUP_FAILURE"}
+EXCLUDED_WORKFLOWS = {"rerun.yml", "repair.yml"}
 CONNECTION_BATCH_SIZE = 20
 REPO = "mlflow/mlflow"
 
@@ -23,6 +24,8 @@ CHECK_FIELDS = """
     detailsUrl
     permalink
     checkSuite {
+      status
+      conclusion
       app { slug }
       workflowRun {
         databaseId
@@ -229,32 +232,61 @@ def unfinished_jobs(runs: list[dict[str, Any]]) -> list[str]:
     ]
 
 
-def failed_job_context(check: dict[str, Any], run: dict[str, Any]) -> dict[str, Any]:
+def failed_job_context(check: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": check["databaseId"],
         "name": check["name"],
+        "status": check["status"],
         "conclusion": check["conclusion"],
         "url": check["detailsUrl"] or check["permalink"],
-        "workflow": run["workflow"]["resourcePath"],
-        "run_id": run["databaseId"],
-        "run_attempt": run["runAttempt"],
     }
 
 
 def build_candidate(pr: dict[str, Any], runs: list[dict[str, Any]]) -> dict[str, Any]:
+    failed_runs: dict[int, dict[str, Any]] = {}
+    for item in runs:
+        job_runs = [
+            failed_job_context(check)
+            for check in item["checks"]
+            if check["conclusion"] in FAILED_CONCLUSIONS
+        ]
+        if not job_runs:
+            continue
+        suite = item["checks"][0]["checkSuite"]
+        run = item["run"]
+        run_id: int = run["databaseId"]
+        attempt: int | None = run.get("runAttempt")
+        group = failed_runs.setdefault(
+            run_id,
+            {
+                "run_id": run_id,
+                "workflow": run["workflow"]["resourcePath"].rsplit("/", 1)[-1],
+                "status": suite["status"],
+                "conclusion": suite["conclusion"],
+                "run_attempt": attempt,
+                "url": (
+                    f"https://github.com/{REPO}/actions/runs/{run_id}/attempts/{attempt}"
+                    if attempt is not None
+                    else None
+                ),
+                "job_runs": [],
+            },
+        )
+        group["job_runs"].extend(job_runs)
     return {
         "number": pr["number"],
         "sha": pr["headRefOid"],
-        "failed_jobs": [
-            failed_job_context(check, item["run"])
-            for item in runs
-            for check in item["checks"]
-            if check["conclusion"] in FAILED_CONCLUSIONS
-        ],
+        "failed_runs": list(failed_runs.values()),
     }
 
 
-def select_candidates(prs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def parse_max_retries(value: str) -> int:
+    if re.fullmatch(r"0|[1-9][0-9]*", value) is None:
+        raise ValueError("MAX_RETRIES must be a non-negative integer")
+    return int(value)
+
+
+def select_candidates(prs: list[dict[str, Any]], max_retries: int) -> list[dict[str, Any]]:
     eligible = []
     for pr in prs:
         if pr["state"] != "OPEN" or pr["isDraft"] or pr["mergeable"] == "CONFLICTING":
@@ -274,14 +306,28 @@ def select_candidates(prs: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 f"Skipping PR #{pr['number']}: unfinished jobs: {', '.join(pending)}\n"
             )
             continue
-        candidates.append(build_candidate(pr, runs))
+        candidate = build_candidate(pr, runs)
+        if any(
+            run["run_attempt"] is None or run["run_attempt"] - 1 >= max_retries
+            for run in candidate["failed_runs"]
+        ):
+            sys.stderr.write(
+                f"Skipping PR #{pr['number']}: a failed run has exhausted its retry budget "
+                "or has no attempt count.\n"
+            )
+            continue
+        candidate["failed_runs"] = [
+            run for run in candidate["failed_runs"] if run["workflow"] not in EXCLUDED_WORKFLOWS
+        ]
+        candidates.append(candidate)
     return candidates
 
 
 def discover(args: argparse.Namespace) -> int:
     try:
+        max_retries = parse_max_retries(os.environ.get("MAX_RETRIES") or "3")
         prs = fetch_prs(REPO, parse_numbers(args.prs))
-        candidates = select_candidates(prs)
+        candidates = select_candidates(prs, max_retries)
     except subprocess.CalledProcessError as error:
         sys.stderr.write((error.stderr or str(error)) + "\n")
         return 1
