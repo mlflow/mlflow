@@ -30,6 +30,11 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
+    AmazonBedrockConfig,
+    AWSBaseConfig,
+    AWSBearerToken,
+    AWSIdAndKey,
+    AWSRole,
     EndpointType,
     GatewayRequestType,
     GeminiConfig,
@@ -215,6 +220,65 @@ def test_build_endpoint_config_typesafe_reads_api_base_from_auth_config():
 
     assert isinstance(config.model.config, TypeSafeConfig)
     assert config.model.config.typesafe_api_base == "https://typesafe.example.com/v1"
+
+
+@pytest.mark.parametrize(
+    ("secret_value", "auth_config", "expected_aws_config"),
+    [
+        (
+            {"api_key": "bedrock-api-key"},
+            {"auth_mode": "api_key", "aws_region_name": "us-east-1"},
+            AWSBearerToken,
+        ),
+        (
+            {"aws_access_key_id": "key-id", "aws_secret_access_key": "secret"},
+            {"auth_mode": "access_keys", "aws_region_name": "us-east-1"},
+            AWSIdAndKey,
+        ),
+        (
+            {},
+            {
+                "auth_mode": "iam_role",
+                "aws_role_name": "arn:aws:iam::123456789012:role/bedrock",
+                "aws_region_name": "us-east-1",
+            },
+            AWSRole,
+        ),
+        ({}, {"auth_mode": "default_chain", "aws_region_name": "us-east-1"}, AWSBaseConfig),
+    ],
+)
+def test_build_endpoint_config_bedrock_reads_api_base_from_auth_config(
+    secret_value, auth_config, expected_aws_config
+):
+    model_config = GatewayModelConfig(
+        model_definition_id="md-test",
+        provider="bedrock",
+        model_name="anthropic.claude-v2",
+        secret_value=secret_value,
+        auth_config={
+            **auth_config,
+            "api_base": "https://bedrock-runtime.example-vpce.amazonaws.com",
+        },
+    )
+    config = _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
+    assert isinstance(config.model.config, AmazonBedrockConfig)
+    # Exact type: every AWS config subclasses AWSBaseConfig, so isinstance would not catch a
+    # branch building the wrong one.
+    assert type(config.model.config.aws_config) is expected_aws_config
+    assert config.model.config.api_base == "https://bedrock-runtime.example-vpce.amazonaws.com"
+
+
+def test_build_endpoint_config_bedrock_api_base_defaults_to_none():
+    model_config = GatewayModelConfig(
+        model_definition_id="md-test",
+        provider="bedrock",
+        model_name="anthropic.claude-v2",
+        secret_value={"api_key": "bedrock-api-key"},
+        auth_config={"auth_mode": "api_key", "aws_region_name": "us-east-1"},
+    )
+    config = _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
+    assert isinstance(config.model.config, AmazonBedrockConfig)
+    assert config.model.config.api_base is None
 
 
 @pytest.mark.parametrize(
