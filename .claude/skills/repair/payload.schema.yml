@@ -38,6 +38,14 @@ properties:
           required: [type, path]
           properties:
             type:
-              const: patch
+              const: fix-ci
+            path:
+              const: fix.patch
+        - type: object
+          additionalProperties: false
+          required: [type, path]
+          properties:
+            type:
+              const: resolve-conflicts
             path:
               const: fix.patch
