@@ -1,12 +1,62 @@
 import os
+import sys
 from unittest import mock
 
 import pytest
 import yaml
 
+from mlflow.environment_variables import MLFLOW_ALLOW_MODEL_CODE_EXECUTION
 from mlflow.exceptions import MlflowException
 from mlflow.models.container import _install_model_dependencies_to_env
 from mlflow.utils import env_manager as em
+
+
+@pytest.mark.parametrize("env_manager", [em.LOCAL, em.CONDA, em.VIRTUALENV])
+def test_model_code_disabled_refuses_container_dependencies(monkeypatch, tmp_path, env_manager):
+    monkeypatch.setenv(MLFLOW_ALLOW_MODEL_CODE_EXECUTION.name, "false")
+    with (
+        mock.patch(
+            "mlflow.utils.model_utils._is_in_databricks_managed_environment", return_value=False
+        ) as managed_environment,
+        mock.patch("mlflow.models.container.Model.load") as load,
+        mock.patch(
+            "mlflow.models.container.Popen",
+            side_effect=AssertionError("Dependency installation must not run"),
+        ) as popen,
+        mock.patch(
+            "mlflow.models.container._get_or_create_virtualenv",
+            side_effect=AssertionError("Environment creation must not run"),
+        ) as virtualenv,
+    ):
+        with pytest.raises(MlflowException, match=MLFLOW_ALLOW_MODEL_CODE_EXECUTION.name):
+            _install_model_dependencies_to_env(str(tmp_path), env_manager)
+
+    managed_environment.assert_called_once_with()
+    load.assert_not_called()
+    popen.assert_not_called()
+    virtualenv.assert_not_called()
+
+
+@pytest.mark.parametrize(("allow_model_code", "managed"), [("true", False), ("false", True)])
+def test_allowed_container_dependencies(monkeypatch, tmp_path, allow_model_code, managed):
+    monkeypatch.setenv(MLFLOW_ALLOW_MODEL_CODE_EXECUTION.name, allow_model_code)
+    _create_model_artifact(tmp_path, dependencies=["example-package==1.0"])
+    with (
+        mock.patch(
+            "mlflow.utils.model_utils._is_in_databricks_managed_environment", return_value=managed
+        ) as managed_environment,
+        mock.patch(
+            "mlflow.models.container.Popen", **{"return_value.wait.return_value": 0}
+        ) as popen,
+    ):
+        assert _install_model_dependencies_to_env(str(tmp_path), em.LOCAL) == []
+
+    if allow_model_code == "false":
+        managed_environment.assert_called_once_with()
+    else:
+        managed_environment.assert_not_called()
+    popen.assert_called_once_with([sys.executable, "-m", "pip", "install", "example-package==1.0"])
+    popen.return_value.wait.assert_called_once_with()
 
 
 def _create_model_artifact(model_path, dependencies, build_dependencies=None):
