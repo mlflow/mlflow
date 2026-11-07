@@ -44,6 +44,8 @@ env:
   OUT_DIR: /tmp/repair-out
   RESULT_DIR: /tmp/repair-result
   SCRIPT: .claude/skills/repair/scripts/cli.py
+  REPAIR_GIT_INDEX: /tmp/repair-agent-index
+  REPAIR_GIT_OBJECTS: /tmp/repair-agent-objects
 
 jobs:
   discover:
@@ -131,23 +133,26 @@ jobs:
         env:
           PR_CHECKOUT: ${{ github.workspace }}/pr
         run: |
-          mkdir -p ~/.claude ~/.npm /tmp/repair-agent-cache
+          mkdir -p ~/.claude ~/.npm /tmp/repair-agent-cache "$REPAIR_GIT_OBJECTS" "$RESULT_DIR"
+          cp "$PR_CHECKOUT/.git/index" "$REPAIR_GIT_INDEX"
           echo '{}' > ~/.claude.json
           for name in .gitconfig .gitmodules .bashrc .bash_profile .zshrc .zprofile .profile \
             .ripgreprc .mcp.json .vscode .idea .claude/commands .claude/agents; do
             [ -e "$PR_CHECKOUT/$name" ] || printf '/%s\n' "$name"
           done >> "$PR_CHECKOUT/.git/info/exclude"
           jq --arg pr "$PR_CHECKOUT" --arg trusted "$PWD" \
-            --arg context "$(dirname "$CONTEXT_PATH")" --arg runner "$RUNNER_TEMP" '
+            --arg context "$(dirname "$CONTEXT_PATH")" --arg runner "$RUNNER_TEMP" --arg result "$RESULT_DIR" '
             .filesystem.allowWrite = [$pr, "/tmp", "~/.claude", "~/.claude.json", "~/.npm"]
-            | .filesystem.denyWrite += [$trusted, $context, $runner, "~/.cache/uv"]
+            | .filesystem.denyWrite += [$trusted, $context, $runner, $result, ($pr + "/.git"), "~/.cache/uv"]
           ' .claude/sandbox/srt.json > "$RUNNER_TEMP/repair-srt.json"
           srt --settings "$RUNNER_TEMP/repair-srt.json" -- true
-          if srt --settings "$RUNNER_TEMP/repair-srt.json" -- \
-            touch "$PWD/.repair-sandbox-probe"; then
-            echo "::error::Sandbox allowed changes to trusted workflow files."
-            exit 1
-          fi
+          for directory in "$PWD" "$PR_CHECKOUT/.git" "$RESULT_DIR"; do
+            if srt --settings "$RUNNER_TEMP/repair-srt.json" -- \
+              touch "$directory/.repair-sandbox-probe"; then
+              echo "::error::Sandbox allowed writes to protected directory: $directory"
+              exit 1
+            fi
+          done
           srt --settings "$RUNNER_TEMP/repair-srt.json" -- bash -c '
             set -euo pipefail
             processes=$(ps -e -o comm=)
@@ -249,6 +254,7 @@ jobs:
       - name: Repair PR
         working-directory: trusted
         env:
+          REPAIR_GIT_ALTERNATES: ${{ github.workspace }}/pr/.git/objects
           UV_CACHE_DIR: /tmp/repair-agent-cache
           UV_TOOL_DIR: /tmp/repair-agent-tools
           UV_TOOL_BIN_DIR: /tmp/repair-agent-bin

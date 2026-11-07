@@ -464,6 +464,7 @@ def git_metadata() -> dict[str, str | None]:
         raise ValueError("Expected a regular Git directory")
     result: dict[str, str | None] = {}
     for name in (
+        "commondir",
         "config",
         "config.worktree",
         "info/grafts",
@@ -760,7 +761,11 @@ def execute(args: argparse.Namespace) -> int:
             case "fix-ci" | "resolve-conflicts":
                 publish_patch(context, "sync-base" in kinds, dry_run)
     result = Path(os.environ.get("RESULT_DIR", "/tmp/repair-result"))
+    if result.is_symlink() or (result.exists() and not result.is_dir()):
+        raise ValueError("Expected a regular result directory")
     result.mkdir(parents=True, exist_ok=True)
+    if (result / "result.json").is_symlink():
+        raise ValueError("Expected a regular result file")
     (result / "result.json").write_text(
         json.dumps({"context_key": context["key"], "payload": payload})
     )
