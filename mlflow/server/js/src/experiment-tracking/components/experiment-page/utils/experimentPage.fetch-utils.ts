@@ -1,13 +1,9 @@
-import { chunk, isEqual } from 'lodash';
+import { camelCase, chunk, isEqual } from 'lodash';
+import type { SingleRunData } from './experimentPage.row-utils';
 import { AnyAction } from 'redux';
 import type { searchModelVersionsApi } from '../../../../model-registry/actions';
 import { MAX_RUNS_IN_SEARCH_MODEL_VERSIONS_FILTER } from '../../../../model-registry/constants';
-import {
-  ATTRIBUTE_COLUMN_SORT_KEY,
-  DEFAULT_LIFECYCLE_FILTER,
-  DEFAULT_MODEL_VERSION_FILTER,
-  DEFAULT_START_TIME,
-} from '../../../constants';
+import { DEFAULT_LIFECYCLE_FILTER, DEFAULT_MODEL_VERSION_FILTER, DEFAULT_START_TIME } from '../../../constants';
 import { ViewType } from '../../../sdk/MlflowEnums';
 import { LIFECYCLE_FILTER } from '../../../types';
 import type { KeyValueEntity } from '../../../../common/types';
@@ -122,11 +118,48 @@ const createFilterExpression = (
 /**
  * If this function returns true, the ExperimentView should nest children underneath their parents
  * and fetch all root level parents of visible runs. If this function returns false, the views will
- * not nest children or fetch any additional parents. Will always return true if the orderByKey is
- * 'attributes.start_time'
+ * not nest children or fetch any additional parents. Will always return true if any orderByKey is set,
+ * so parent runs are ordered by the selected key while children stay nested underneath them.
  */
-const shouldNestChildrenAndFetchParents = ({ orderByKey, searchFilter }: ExperimentPageSearchFacetsState) =>
-  (!orderByKey && !searchFilter) || orderByKey === ATTRIBUTE_COLUMN_SORT_KEY.DATE;
+export const shouldNestChildrenAndFetchParents = ({
+  orderByKey,
+  searchFilter,
+}: Pick<ExperimentPageSearchFacetsState, 'orderByKey' | 'searchFilter'>) => Boolean(orderByKey) || !searchFilter;
+
+export const sortRunsForNesting = <T extends SingleRunData>(
+  runs: T[],
+  { orderByKey, orderByAsc }: Pick<ExperimentPageSearchFacetsState, 'orderByKey' | 'orderByAsc'>,
+): T[] => {
+  const match = /^(attributes|metrics|params|tags)\.(?:`(.*)`|([^`]+))$/.exec(orderByKey);
+  if (!match) return runs;
+  const [, entity, quotedKey, unquotedKey] = match;
+  const key = quotedKey ?? unquotedKey;
+  const getValue = (run: T) => {
+    switch (entity) {
+      case 'attributes':
+        return run.runInfo[camelCase(key) as keyof SingleRunData['runInfo']];
+      case 'tags':
+        return run.tags?.[key]?.value;
+      case 'metrics':
+        return run.metrics?.find((metric) => metric.key === key)?.value;
+      case 'params':
+        return run.params?.find((param) => param.key === key)?.value;
+      default:
+        return undefined;
+    }
+  };
+
+  // Parents fetched separately are appended after the ordered search results.
+  return [...runs].sort((a, b) => {
+    const aValue = getValue(a);
+    const bValue = getValue(b);
+    const aMissing = aValue == null || Number.isNaN(aValue);
+    const bMissing = bValue == null || Number.isNaN(bValue);
+    if (aMissing || bMissing) return Number(aMissing) - Number(bMissing);
+    if (aValue === bValue) return 0;
+    return (aValue > bValue ? 1 : -1) * (orderByAsc ? 1 : -1);
+  });
+};
 
 /**
  *

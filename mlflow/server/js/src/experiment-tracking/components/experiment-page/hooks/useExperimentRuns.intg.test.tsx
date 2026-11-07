@@ -349,8 +349,8 @@ describe('useExperimentRuns - integration test', () => {
         pageToken: undefined,
         runViewType: 'ACTIVE_ONLY',
         runsPinned: ['run_2'],
-        // Not sorted by creation date -> hierarchy is disabled -> no need to fetch parents
-        shouldFetchParents: false,
+        // Hierarchy is kept for every sort key -> parents need to be fetched
+        shouldFetchParents: true,
       }),
     );
 

@@ -14,6 +14,7 @@ import { rest } from 'msw';
 import userEvent from '@testing-library/user-event';
 import { useFetchedRunsNotification } from '../../hooks/useFetchedRunsNotification';
 import { useExperimentRunRows } from '../../utils/experimentPage.row-utils';
+import type { RunRowType } from '../../utils/experimentPage.row-types';
 import { DesignSystemProvider } from '@databricks/design-system';
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
@@ -147,6 +148,63 @@ describe('ExperimentViewRuns', () => {
           runsPinned: ['experiment123456789_run1'],
           nestChildren: true,
         }),
+      );
+    });
+  });
+
+  test('[contract] should nest children when sorting by a key other than creation date', async () => {
+    renderTestComponent({
+      searchFacetsState: { ...createExperimentPageSearchFacetsState(), orderByKey: 'tags.`mlflow.user`' },
+    });
+
+    await waitFor(() => {
+      expect(useExperimentRunRows).toHaveBeenCalledWith(expect.objectContaining({ nestChildren: true }));
+    });
+  });
+
+  test.each([true, false])('orders fetched parents before nesting (ascending: %s)', async (orderByAsc) => {
+    // The search returns matching children and a root, then appends their excluded parent.
+    const names = orderByAsc ? ['a', 'c', 'm', 'b'] : ['m', 'c', 'a', 'b'];
+    renderTestComponent({
+      searchFacetsState: {
+        ...createExperimentPageSearchFacetsState(),
+        searchFilter: 'metrics.accuracy > 0',
+        orderByKey: 'tags.`mlflow.runName`',
+        orderByAsc,
+      },
+      uiState: { ...createExperimentPageUIState(), runsExpanded: { b: true } },
+      runsData: {
+        ...defaultProps.runsData,
+        runInfos: names.map((name) => ({ ...defaultProps.runsData.runInfos[0], runUuid: name, runName: name })),
+        tagsList: names.map((name) => ({
+          'mlflow.runName': { key: 'mlflow.runName', value: name },
+          ...(['a', 'c'].includes(name) ? { 'mlflow.parentRunId': { key: 'mlflow.parentRunId', value: 'b' } } : {}),
+        })),
+        paramsList: names.map(() => []),
+        metricsList: names.map(() => []),
+        datasetsList: names.map(() => []),
+        // fetchMissingParents also marks fetched parents as matching so they remain visible.
+        runUuidsMatchingFilter: ['a', 'c', 'm', 'b'],
+      },
+    });
+
+    await waitFor(() => {
+      const results = jest.mocked(useExperimentRunRows).mock.results;
+      const rows = results[results.length - 1]?.value as RunRowType[];
+      expect(rows?.map((row) => [row.runUuid, row.runDateAndNestInfo?.level])).toEqual(
+        orderByAsc
+          ? [
+              ['b', 0],
+              ['a', 1],
+              ['c', 1],
+              ['m', 0],
+            ]
+          : [
+              ['m', 0],
+              ['b', 0],
+              ['c', 1],
+              ['a', 1],
+            ],
       );
     });
   });

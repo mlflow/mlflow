@@ -15,9 +15,10 @@ import { ExperimentViewRunsControls } from './ExperimentViewRunsControls';
 import { ExperimentViewRunsTable } from './ExperimentViewRunsTable';
 import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import Utils from '../../../../../common/utils/Utils';
-import { ATTRIBUTE_COLUMN_SORT_KEY, MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH } from '../../../../constants';
+import { MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH } from '../../../../constants';
 import type { RunRowType } from '../../utils/experimentPage.row-types';
 import { useExperimentRunRows } from '../../utils/experimentPage.row-utils';
+import { shouldNestChildrenAndFetchParents, sortRunsForNesting } from '../../utils/experimentPage.fetch-utils';
 import { useFetchedRunsNotification } from '../../hooks/useFetchedRunsNotification';
 import type { DatasetWithRunType } from './ExperimentViewDatasetDrawer';
 import { ExperimentViewDatasetDrawer } from './ExperimentViewDatasetDrawer';
@@ -135,7 +136,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
     [datasetsList, metricsList, paramsList, runInfos, tagsList, inputsOutputsList],
   );
 
-  const { orderByKey, searchFilter } = searchFacetsState;
+  const { orderByKey, orderByAsc, searchFilter } = searchFacetsState;
   // In new view state model, runs state is in the uiState instead of the searchFacetsState.
   const { runsPinned, runsExpanded, runsHidden, runListHidden } = uiState;
 
@@ -150,9 +151,14 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
     updateViewState({ columnSelectorVisible: true });
   }, [updateViewState]);
 
-  const shouldNestChildrenAndFetchParents = useMemo(
-    () => (!orderByKey && !searchFilter) || orderByKey === ATTRIBUTE_COLUMN_SORT_KEY.DATE,
+  const nestChildren = useMemo(
+    () => shouldNestChildrenAndFetchParents({ orderByKey, searchFilter }),
     [orderByKey, searchFilter],
+  );
+
+  const sortedRunData = useMemo(
+    () => (nestChildren && !uiState.groupBy ? sortRunsForNesting(runData, { orderByKey, orderByAsc }) : runData),
+    [runData, nestChildren, uiState.groupBy, orderByKey, orderByAsc],
   );
 
   // Value used a reference for the "date" column
@@ -200,9 +206,9 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
     modelVersionsByRunUuid,
     runsExpanded,
     tagKeyList: filteredTagKeys,
-    nestChildren: shouldNestChildrenAndFetchParents,
+    nestChildren,
     referenceTime,
-    runData,
+    runData: sortedRunData,
     runUuidsMatchingFilter,
     runsPinned,
     runsHidden,
