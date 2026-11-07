@@ -11412,6 +11412,7 @@ def test_parse_artifact_auth_target_workspace_prefix_ignores_case(prefix):
 @pytest.mark.parametrize("action", ["read", "update", "manage"])
 def test_artifact_proxy_rejects_windows_aliases(path, action, monkeypatch):
     monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    monkeypatch.setenv("_MLFLOW_SERVER_ARTIFACT_DESTINATION", "./mlartifacts")
     target = auth_module._parse_artifact_auth_target(path)
     assert target.invalid
     assert auth_module._permission_for_artifact_target(target, "alice") is NO_PERMISSIONS
@@ -11428,6 +11429,18 @@ def test_artifact_proxy_rejects_windows_aliases(path, action, monkeypatch):
     assert not auth_module._authorize_fastapi_artifact_proxy(
         "/api/2.0/mlflow-artifacts/artifacts", "alice", path, "read"
     )
+
+
+@pytest.mark.parametrize("root", ["s3://bucket", "gs://bucket", "wasbs://container@account"])
+@pytest.mark.parametrize("name", ["folder.", "folder ", "FOLDER~1", "file:stream"])
+def test_artifact_proxy_preserves_remote_names_on_windows(root, name, monkeypatch):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    monkeypatch.setenv("_MLFLOW_SERVER_ARTIFACT_DESTINATION", root)
+    target = auth_module._parse_artifact_auth_target(f"workspaces/team-a/17/artifacts/{name}")
+    assert not target.invalid
+    assert target.workspace == "team-a"
+    assert target.experiment_id == "17"
+    assert target.relative_path == f"17/artifacts/{name}"
 
 
 @pytest.mark.parametrize("prefix", ["workspaces", "WORKSPACES"])

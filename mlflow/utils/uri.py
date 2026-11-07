@@ -506,7 +506,9 @@ def validate_path_is_safe(path, *, validate_windows_aliases: bool = False):
         not contain .. to navigate to parent dir in path
         not be an absolute path
 
-    Set ``validate_windows_aliases`` for server authorization and local filesystem access.
+    Set ``validate_windows_aliases`` for local filesystem access and its server authorization.
+    On Windows it also rejects components ending in dots or spaces, DOS short-name spellings
+    containing ``~N``, and alternate data stream syntax containing ``:``.
     Remote artifact names may be valid POSIX or object-store paths even on a Windows client.
     """
     from mlflow.utils.file_utils import local_file_uri_to_path
@@ -520,6 +522,9 @@ def validate_path_is_safe(path, *, validate_windows_aliases: bool = False):
     if "#" in path:
         raise exc
 
+    if validate_windows_aliases:
+        _validate_windows_path_aliases(path)
+
     if is_file_uri(path):
         path = local_file_uri_to_path(path)
     if (
@@ -531,25 +536,23 @@ def validate_path_is_safe(path, *, validate_windows_aliases: bool = False):
     ):
         raise exc
 
+    return path
+
+
+def _validate_windows_path_aliases(path: str) -> None:
     # Win32 strips trailing dots/spaces and resolves DOS short names and stream syntax. Reject
     # ambiguous spellings before authorization, which cannot distinguish short names from literal
     # names without the repository's filesystem. Preserve POSIX and ordinary Windows tilde names.
-    if (
-        validate_windows_aliases
-        and is_windows()
-        and any(
-            component != "."
-            and (
-                component.endswith((" ", "."))
-                or ":" in component
-                or re.search(r"~[0-9]+(?:\.|$)", component)
-            )
-            for component in path.split("/")
+    if is_windows() and any(
+        component != "."
+        and (
+            component.endswith((" ", "."))
+            or ":" in component
+            or re.search(r"~[0-9]+(?:\.|$)", component)
         )
+        for component in path.replace("\\", "/").split("/")
     ):
-        raise exc
-
-    return path
+        raise MlflowException("Invalid path", error_code=INVALID_PARAMETER_VALUE)
 
 
 def validate_path_within_directory(base_dir: str, constructed_path: str) -> str:

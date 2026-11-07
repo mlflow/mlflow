@@ -1860,7 +1860,7 @@ def _delete_workspace_handler(workspace_name: str):
 def get_artifact_handler():
     run_id = request.args.get("run_id") or request.args.get("run_uuid")
     path = request.args["path"]
-    path = validate_path_is_safe(path, validate_windows_aliases=True)
+    path = validate_path_is_safe(path)
     run = _get_tracking_store().get_run(run_id)
 
     if _is_servable_proxied_run_artifact_root(run.info.artifact_uri):
@@ -2351,7 +2351,7 @@ def list_artifacts_impl(request_message):
     response_message = ListArtifacts.Response()
     if request_message.HasField("path"):
         path = request_message.path
-        path = validate_path_is_safe(path, validate_windows_aliases=True)
+        path = validate_path_is_safe(path)
     else:
         path = None
     run_id = request_message.run_id or request_message.run_uuid
@@ -2767,7 +2767,7 @@ def upload_artifact_handler():
             message="Request must specify path.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    path = validate_path_is_safe(path, validate_windows_aliases=True)
+    path = validate_path_is_safe(path)
 
     if request.content_length and request.content_length > 10 * 1024 * 1024:
         raise MlflowException(
@@ -3559,7 +3559,7 @@ def get_model_version_artifact_handler():
     name = request.args.get("name")
     version = request.args.get("version")
     path = request.args["path"]
-    path = validate_path_is_safe(path, validate_windows_aliases=True)
+    path = validate_path_is_safe(path)
     artifact_uri = _get_model_registry_store().get_model_version_download_uri(name, version)
     if request.args.get("presigned") == "true" and RunsArtifactRepository.is_runs_uri(artifact_uri):
         run_id, source_path = RunsArtifactRepository.parse_runs_uri(artifact_uri)
@@ -3567,7 +3567,7 @@ def get_model_version_artifact_handler():
             raise MlflowException.invalid_parameter_value(
                 "Run artifact sources cannot include a host."
             )
-        source_path = validate_path_is_safe(source_path or "", validate_windows_aliases=True)
+        source_path = validate_path_is_safe(source_path or "")
         # Use the workspace-scoped store directly: model-version READ is sufficient,
         # even when the caller cannot read the source run through the tracking API.
         run_root = _get_tracking_store().get_run(run_id).info.artifact_uri
@@ -4094,7 +4094,7 @@ def _download_artifact(artifact_path):
     A request handler for `GET /mlflow-artifacts/artifacts/<artifact_path>` to download an artifact
     from `artifact_path` (a relative path from the root artifact directory).
     """
-    artifact_path = validate_path_is_safe(artifact_path, validate_windows_aliases=True)
+    artifact_path = validate_path_is_safe(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
 
@@ -4128,7 +4128,7 @@ def _upload_artifact(artifact_path):
     A request handler for `PUT /mlflow-artifacts/artifacts/<artifact_path>` to upload an artifact
     to `artifact_path` (a relative path from the root artifact directory).
     """
-    artifact_path = validate_path_is_safe(artifact_path, validate_windows_aliases=True)
+    artifact_path = validate_path_is_safe(artifact_path)
     _reject_skill_artifact_mutation(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
     head, tail = posixpath.split(artifact_path)
@@ -4155,11 +4155,7 @@ def _list_artifacts_mlflow_artifacts():
     (a relative path from the root artifact directory).
     """
     request_message = _get_request_message(ListArtifactsMlflowArtifacts())
-    path = (
-        validate_path_is_safe(request_message.path, validate_windows_aliases=True)
-        if request_message.HasField("path")
-        else None
-    )
+    path = validate_path_is_safe(request_message.path) if request_message.HasField("path") else None
     path = _get_workspace_scoped_repo_path_if_enabled(path)
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     files = []
@@ -4181,7 +4177,7 @@ def _delete_artifact_mlflow_artifacts(artifact_path):
     A request handler for `DELETE /mlflow-artifacts/artifacts?path=<value>` to delete artifacts in
     `path` (a relative path from the root artifact directory).
     """
-    artifact_path = validate_path_is_safe(artifact_path, validate_windows_aliases=True)
+    artifact_path = validate_path_is_safe(artifact_path)
     _reject_skill_artifact_mutation(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
     _get_request_message(DeleteArtifact())
@@ -4294,7 +4290,7 @@ def _create_presigned_upload_url():
             "Exactly one of run_id and model_id must be provided.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    path = validate_path_is_safe(request_message.path, validate_windows_aliases=True)
+    path = validate_path_is_safe(request_message.path)
     expiration = request_message.expiration if request_message.HasField("expiration") else 900
 
     if run_id:
@@ -4339,7 +4335,7 @@ def _create_presigned_download_url():
         },
     )
     run_id = request_message.run_id
-    path = validate_path_is_safe(request_message.path, validate_windows_aliases=True)
+    path = validate_path_is_safe(request_message.path)
     expiration = (
         request_message.expiration
         if request_message.HasField("expiration")
@@ -4390,7 +4386,7 @@ def _get_multipart_upload_file_name(path: str) -> str:
     # separator for the validator), so check the final name too.
     file_name = ntpath.basename(path)
     if file_name:
-        file_name = ntpath.basename(validate_path_is_safe(file_name, validate_windows_aliases=True))
+        file_name = ntpath.basename(validate_path_is_safe(file_name))
     if file_name in ("", ".", ".."):
         raise MlflowException("Invalid path", error_code=INVALID_PARAMETER_VALUE)
     return file_name
@@ -4403,7 +4399,7 @@ def _create_multipart_upload_artifact(artifact_path):
     A request handler for `POST /mlflow-artifacts/mpu/create` to create a multipart upload
     to `artifact_path` (a relative path from the root artifact directory).
     """
-    artifact_path = validate_path_is_safe(artifact_path, validate_windows_aliases=True)
+    artifact_path = validate_path_is_safe(artifact_path)
     _reject_skill_artifact_mutation(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
 
@@ -4439,7 +4435,7 @@ def _complete_multipart_upload_artifact(artifact_path):
     A request handler for `POST /mlflow-artifacts/mpu/complete` to complete a multipart upload
     to `artifact_path` (a relative path from the root artifact directory).
     """
-    artifact_path = validate_path_is_safe(artifact_path, validate_windows_aliases=True)
+    artifact_path = validate_path_is_safe(artifact_path)
     _reject_skill_artifact_mutation(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
 
@@ -4475,7 +4471,7 @@ def _abort_multipart_upload_artifact(artifact_path):
     A request handler for `POST /mlflow-artifacts/mpu/abort` to abort a multipart upload
     to `artifact_path` (a relative path from the root artifact directory).
     """
-    artifact_path = validate_path_is_safe(artifact_path, validate_windows_aliases=True)
+    artifact_path = validate_path_is_safe(artifact_path)
     _reject_skill_artifact_mutation(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
 
@@ -4508,7 +4504,7 @@ def _get_presigned_download_url(artifact_path):
     A request handler for `GET /mlflow-artifacts/presigned/<artifact_path>` to get
     a presigned URL for downloading an artifact directly from cloud storage.
     """
-    artifact_path = validate_path_is_safe(artifact_path, validate_windows_aliases=True)
+    artifact_path = validate_path_is_safe(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
 
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
@@ -4922,7 +4918,7 @@ def get_trace_artifact_handler() -> Response:
     store = _get_tracking_store()
 
     if path:
-        path = validate_path_is_safe(path, validate_windows_aliases=True)
+        path = validate_path_is_safe(path)
         _validate_attachment_path(path)
         trace_info = store.get_trace_info(request_id)
         if trace_info is None:
@@ -6239,7 +6235,7 @@ def get_logged_model_artifact_handler(model_id: str):
             'Request must include the "artifact_file_path" query parameter.',
             error_code=BAD_REQUEST,
         )
-    validate_path_is_safe(artifact_file_path, validate_windows_aliases=True)
+    validate_path_is_safe(artifact_file_path)
 
     logged_model: LoggedModel = _get_tracking_store().get_logged_model(model_id)
     if _is_servable_proxied_run_artifact_root(logged_model.artifact_location):
@@ -6434,9 +6430,7 @@ def _list_logged_model_artifacts(model_id: str):
         schema={"artifact_directory_path": [_assert_string]},
     )
     if request_message.HasField("artifact_directory_path"):
-        artifact_path = validate_path_is_safe(
-            request_message.artifact_directory_path, validate_windows_aliases=True
-        )
+        artifact_path = validate_path_is_safe(request_message.artifact_directory_path)
     else:
         artifact_path = None
 

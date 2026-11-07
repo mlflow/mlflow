@@ -81,7 +81,7 @@ async def download_artifact(artifact_path: str):
         )
 
     try:
-        artifact_path = validate_path_is_safe(artifact_path, validate_windows_aliases=True)
+        artifact_path = validate_path_is_safe(artifact_path)
         artifact_path = _get_workspace_scoped_path(artifact_path)
         artifact_repo = _get_artifact_repo()
 
@@ -162,7 +162,7 @@ async def upload_artifact(artifact_path: str, request: Request):
         )
 
     try:
-        artifact_path = validate_path_is_safe(artifact_path, validate_windows_aliases=True)
+        artifact_path = validate_path_is_safe(artifact_path)
         if is_skill_upload_namespace(artifact_path):
             raise HTTPException(
                 status_code=403,

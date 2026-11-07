@@ -47,6 +47,18 @@ def test_local_artifact_reads_reject_windows_aliases(
     resolve.assert_not_called()
 
 
+@pytest.mark.parametrize(
+    "path", ["folder.", "folder ", "FOLDER~1", "file:stream", "folder.\\file.txt"]
+)
+@pytest.mark.parametrize("operation", ["list_artifacts", "delete_artifacts"])
+def test_local_artifact_operations_reject_windows_aliases(
+    local_artifact_repo, monkeypatch, path, operation
+):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    with pytest.raises(MlflowException, match="Invalid path"):
+        getattr(local_artifact_repo, operation)(path)
+
+
 def test_list_artifacts(local_artifact_repo, local_artifact_root):
     assert len(local_artifact_repo.list_artifacts()) == 0
 

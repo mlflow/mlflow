@@ -827,6 +827,8 @@ def test_validate_path_is_safe_windows_good(path, monkeypatch):
         "folder/AB12CD~2.TXT",
         "folder/AB12CD%7e2.TXT",
         "folder/file:stream",
+        "file:stream",
+        "file%3astream",
         "folder:stream/file.txt",
         ".../...//",
     ],
