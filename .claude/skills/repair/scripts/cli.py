@@ -245,6 +245,9 @@ def failed_job_context(check: dict[str, Any]) -> dict[str, Any]:
 def build_candidate(pr: dict[str, Any], runs: list[dict[str, Any]]) -> dict[str, Any]:
     failed_runs: dict[int, dict[str, Any]] = {}
     for item in runs:
+        suite = item["checks"][0]["checkSuite"]
+        if suite["conclusion"] not in FAILED_CONCLUSIONS:
+            continue
         job_runs = [
             failed_job_context(check)
             for check in item["checks"]
@@ -252,7 +255,6 @@ def build_candidate(pr: dict[str, Any], runs: list[dict[str, Any]]) -> dict[str,
         ]
         if not job_runs:
             continue
-        suite = item["checks"][0]["checkSuite"]
         run = item["run"]
         run_id: int = run["databaseId"]
         attempt: int | None = run.get("runAttempt")
@@ -304,6 +306,16 @@ def select_candidates(prs: list[dict[str, Any]], max_retries: int) -> list[dict[
         if pending := unfinished_jobs(runs):
             sys.stderr.write(
                 f"Skipping PR #{pr['number']}: unfinished jobs: {', '.join(pending)}\n"
+            )
+            continue
+        pending_suites = [
+            item["run"]["workflow"]["resourcePath"].rsplit("/", 1)[-1]
+            for item in runs
+            if item["checks"][0]["checkSuite"]["status"] != "COMPLETED"
+        ]
+        if pending_suites:
+            sys.stderr.write(
+                f"Skipping PR #{pr['number']}: unfinished workflows: {', '.join(pending_suites)}\n"
             )
             continue
         candidate = build_candidate(pr, runs)
