@@ -41,7 +41,10 @@ jobs:
       github.event.issue.pull_request != null &&
       startsWith(github.event.comment.body, '/review') &&
       contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.comment.author_association) &&
-      contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.issue.author_association)
+      (
+        contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.issue.author_association) ||
+        (github.event.issue.user.login == 'mlflow-app[bot]' && github.event.issue.user.type == 'Bot')
+      )
     steps:
       - name: Check user permission
         env:
@@ -56,6 +59,10 @@ jobs:
             local type=$2
             if [ "$user" = "Copilot" ] && [ "$type" = "Bot" ]; then
               echo "Allowing Copilot bot: $user"
+              return 0
+            fi
+            if [ "$user" = "mlflow-app[bot]" ] && [ "$type" = "Bot" ]; then
+              echo "Allowing mlflow-app bot: $user"
               return 0
             fi
             local role
