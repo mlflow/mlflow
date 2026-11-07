@@ -910,7 +910,13 @@ def _enforce_param_datatype(value: Any, dtype: DataType):
 
     if dtype == DataType.datetime:
         try:
-            datetime_value = np.datetime64(value).item()
+            datetime64_value = np.datetime64(value)
+            # `.item()` returns an int for units finer than microseconds (e.g. the
+            # `datetime64[ns]` values produced by pandas), so truncate them to microseconds,
+            # the finest resolution `datetime.datetime` supports.
+            if np.datetime_data(datetime64_value.dtype)[0] in ("ns", "ps", "fs", "as"):
+                datetime64_value = datetime64_value.astype("datetime64[us]")
+            datetime_value = datetime64_value.item()
             if isinstance(datetime_value, int):
                 raise MlflowException.invalid_parameter_value(
                     f"Failed to convert value to `{dtype}`. "
