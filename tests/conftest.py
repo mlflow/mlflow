@@ -838,7 +838,7 @@ def remote_backend_for_tracing_sdk_test():
         ]
         # Install the backend dependencies before starting the server so that the
         # installation time doesn't count against the server's startup window below.
-        subprocess.run([*uv_run, "python", "-c", "pass"], cwd=temp_dir, check=True)
+        subprocess.check_call([*uv_run, "python", "-c", "pass"], cwd=temp_dir)
         with subprocess.Popen(
             [*uv_run, "mlflow", "server", "--port", str(port)],
             cwd=temp_dir,
