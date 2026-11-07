@@ -518,15 +518,13 @@ def prepare(args: argparse.Namespace) -> int:
     directory.mkdir(parents=True, exist_ok=True)
     output_dir().mkdir(parents=True, exist_ok=True)
     context["merge"] = prepare_merge(context)
-    rounds = git(
+    context["repair_commits"] = git(
         "log",
         "--first-parent",
         "--format=%B",
         "--grep=^Repair-Context:",
         f"{context['base']['sha']}..HEAD",
     ).count("Repair-Context:")
-    if rounds >= 3:
-        raise ValueError("PR reached the limit of 3 automatic repair commits")
     context["git_metadata"] = git_metadata()
     logs = directory / "logs"
     logs.mkdir()
@@ -568,6 +566,8 @@ def load_plan(context: dict[str, Any], directory: Path) -> dict[str, Any]:
         raise ValueError("Duplicate or unsupported action")
     if "rerun" in kinds and len(kinds) != 1:
         raise ValueError("Reruns cannot accompany a head-changing action")
+    if (set(kinds) & ({"sync-base"} | PATCH_ACTIONS)) and context["repair_commits"] >= 3:
+        raise ValueError("PR reached the limit of 3 automatic repair commits")
     patch_kinds = set(kinds) & PATCH_ACTIONS
     if len(patch_kinds) > 1:
         raise ValueError("Use one patch action for the final tree")
