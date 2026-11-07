@@ -117,7 +117,7 @@ class PyFuncBackend(FlavorBackend):
     def prepare_env(
         self, model_uri, capture_output=False, pip_requirements_override=None, extra_envs=None
     ):
-        _check_model_code_loading_allowed("PyFunc model environments")
+        _check_model_code_loading_allowed("a PyFunc model")
         if self._environment is not None:
             return self._environment
 
@@ -402,6 +402,8 @@ class PyFuncBackend(FlavorBackend):
         mlflow_home=None,
         base_image=None,
     ):
+        if model_uri:
+            _check_model_code_loading_allowed("a PyFunc model")
         os.makedirs(output_dir, exist_ok=True)
         _logger.debug("Created all folders in path", extra={"output_directory": output_dir})
 

@@ -133,3 +133,55 @@ def test_allowed_cached_model_environment(monkeypatch, allow_model_code, managed
     else:
         managed_environment.assert_not_called()
     download.assert_not_called()
+
+
+@pytest.mark.parametrize("entrypoint", ["generate_dockerfile", "build_image"])
+@pytest.mark.parametrize("env_manager", [em.LOCAL, em.VIRTUALENV, em.CONDA])
+def test_model_code_disabled_refuses_docker_preparation(
+    monkeypatch, tmp_path, entrypoint, env_manager
+):
+    monkeypatch.setenv(MLFLOW_ALLOW_MODEL_CODE_EXECUTION.name, "false")
+    backend = PyFuncBackend({ENV: {"conda": "conda.yaml"}}, env_manager=env_manager)
+    kwargs = (
+        {"output_dir": str(tmp_path / "context")}
+        if entrypoint == "generate_dockerfile"
+        else {"image_name": "test-model"}
+    )
+    with (
+        mock.patch(
+            "mlflow.utils.model_utils._is_in_databricks_managed_environment", return_value=False
+        ),
+        mock.patch("mlflow.pyfunc.backend._download_artifact_from_uri") as download,
+        mock.patch("mlflow.pyfunc.backend.docker_utils.generate_dockerfile") as generate,
+        mock.patch("mlflow.pyfunc.backend.docker_utils.build_image_from_context") as build,
+    ):
+        with pytest.raises(MlflowException, match=MLFLOW_ALLOW_MODEL_CODE_EXECUTION.name):
+            getattr(backend, entrypoint)("model", **kwargs)
+    download.assert_not_called()
+    generate.assert_not_called()
+    build.assert_not_called()
+    assert not (tmp_path / "context").exists()
+
+
+@pytest.mark.parametrize(("allow_model_code", "managed"), [("true", False), ("false", True)])
+def test_allowed_model_docker_preparation(monkeypatch, tmp_path, allow_model_code, managed):
+    monkeypatch.setenv(MLFLOW_ALLOW_MODEL_CODE_EXECUTION.name, allow_model_code)
+    backend = PyFuncBackend({}, env_manager=em.LOCAL)
+    with (
+        mock.patch(
+            "mlflow.utils.model_utils._is_in_databricks_managed_environment", return_value=managed
+        ),
+        mock.patch("mlflow.pyfunc.backend._download_artifact_from_uri", return_value=str(tmp_path)),
+        mock.patch.object(backend, "_model_installation_steps", return_value="install-model"),
+        mock.patch("mlflow.pyfunc.backend.docker_utils.generate_dockerfile") as generate,
+    ):
+        backend.generate_dockerfile("model", str(tmp_path / "context"), base_image="python:3.12")
+    assert generate.call_args.kwargs["model_install_steps"] == "install-model"
+
+
+def test_model_code_disabled_allows_dockerfile_without_model(monkeypatch, tmp_path):
+    monkeypatch.setenv(MLFLOW_ALLOW_MODEL_CODE_EXECUTION.name, "false")
+    backend = PyFuncBackend({}, env_manager=em.VIRTUALENV)
+    with mock.patch("mlflow.pyfunc.backend.docker_utils.generate_dockerfile") as generate:
+        backend.generate_dockerfile(None, str(tmp_path / "context"))
+    assert generate.call_args.kwargs["model_install_steps"] == ""

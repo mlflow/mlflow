@@ -118,7 +118,7 @@ def _install_model_dependencies_to_env(model_path, env_manager) -> list[str]:
         Empty list if local environment, otherwise a list of bash commands to activate the
         virtualenv or conda environment.
     """
-    _check_model_code_loading_allowed("PyFunc model dependencies")
+    _check_model_code_loading_allowed("a PyFunc model")
     model_config_path = os.path.join(model_path, MLMODEL_FILE_NAME)
     model = Model.load(model_config_path)
 
