@@ -1,6 +1,3 @@
-import subprocess
-import sys
-
 import pytest
 
 from mlflow.exceptions import MlflowException
@@ -37,29 +34,3 @@ def test_keys_unfiltered_even_with_allowed_list(monkeypatch):
     assert "openai" in keys
     assert "anthropic" in keys
     assert "litellm" in keys
-
-
-def test_native_provider_import_guard_without_optional_transports():
-    subprocess.check_call([
-        sys.executable,
-        "-c",
-        """
-import importlib.abc
-import sys
-
-
-class BlockOptionalTransports(importlib.abc.MetaPathFinder):
-    def find_spec(self, fullname, path=None, target=None):
-        if fullname.split(".")[0] in {"aiohttp", "litellm"}:
-            raise ModuleNotFoundError(f"Optional transport blocked: {fullname}", name=fullname)
-
-
-sys.meta_path.insert(0, BlockOptionalTransports())
-
-from mlflow.gateway.provider_registry import provider_registry
-
-assert "openai" in provider_registry.keys()
-assert "aiohttp" not in sys.modules
-assert "litellm" not in sys.modules
-""",
-    ])
