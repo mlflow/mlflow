@@ -24,7 +24,11 @@ from mlflow.utils.file_utils import (
     relative_path_to_artifact_path,
     shutil_copytree_without_file_permissions,
 )
-from mlflow.utils.uri import validate_path_is_safe, validate_path_within_directory
+from mlflow.utils.uri import (
+    _validate_windows_path_aliases,
+    validate_path_is_safe,
+    validate_path_within_directory,
+)
 
 _TEMP_ARTIFACT_PREFIX = ".artifact.uploading."
 _UMASK_LOCK = threading.Lock()
@@ -42,6 +46,7 @@ def _set_default_file_mode(file_path: str) -> None:
 
 
 def _verify_artifact_file_name(artifact_file_name: str) -> None:
+    _validate_windows_path_aliases(os.path.basename(artifact_file_name))
     if os.path.basename(artifact_file_name).startswith(_TEMP_ARTIFACT_PREFIX):
         raise MlflowException.invalid_parameter_value(
             f"Invalid artifact file name: '{artifact_file_name}'. "
@@ -63,7 +68,7 @@ class LocalArtifactRepository(ArtifactRepository, StreamUploadMixin):
         return self._artifact_dir
 
     def get_local_path(self, artifact_path: str) -> str:
-        artifact_path = validate_path_is_safe(artifact_path)
+        artifact_path = validate_path_is_safe(artifact_path, validate_windows_aliases=True)
         local_artifact_path = os.path.join(self.artifact_dir, os.path.normpath(artifact_path))
         validate_path_within_directory(self.artifact_dir, local_artifact_path)
         if not os.path.exists(local_artifact_path):
@@ -78,6 +83,7 @@ class LocalArtifactRepository(ArtifactRepository, StreamUploadMixin):
         # NOTE: The artifact_path is expected to be in posix format.
         # Posix paths work fine on windows but just in case we normalize it here.
         if artifact_path:
+            _validate_windows_path_aliases(artifact_path)
             artifact_path = os.path.normpath(artifact_path)
 
         artifact_dir = (
@@ -91,8 +97,8 @@ class LocalArtifactRepository(ArtifactRepository, StreamUploadMixin):
     def _get_destination_artifact_path(
         self, artifact_file_name: str, artifact_path: str | None = None
     ) -> tuple[str, str]:
-        artifact_dir = self._get_or_create_artifact_dir(artifact_path)
         _verify_artifact_file_name(artifact_file_name)
+        artifact_dir = self._get_or_create_artifact_dir(artifact_path)
         destination_file_path = os.path.join(artifact_dir, os.path.basename(artifact_file_name))
         validate_path_within_directory(self.artifact_dir, destination_file_path)
         return artifact_dir, destination_file_path
@@ -248,6 +254,7 @@ class LocalArtifactRepository(ArtifactRepository, StreamUploadMixin):
 
     def list_artifacts(self, path=None):
         if path:
+            _validate_windows_path_aliases(path)
             path = os.path.normpath(path)
         list_dir = os.path.join(self.artifact_dir, path) if path else self.artifact_dir
         validate_path_within_directory(self.artifact_dir, list_dir)
@@ -265,7 +272,7 @@ class LocalArtifactRepository(ArtifactRepository, StreamUploadMixin):
             return []
 
     def _download_file(self, remote_file_path, local_path):
-        remote_file_path = validate_path_is_safe(remote_file_path)
+        remote_file_path = validate_path_is_safe(remote_file_path, validate_windows_aliases=True)
         remote_file_path = os.path.join(self.artifact_dir, os.path.normpath(remote_file_path))
         validate_path_within_directory(self.artifact_dir, remote_file_path)
         if not os.path.exists(remote_file_path):
@@ -276,6 +283,8 @@ class LocalArtifactRepository(ArtifactRepository, StreamUploadMixin):
         shutil.copy2(remote_file_path, local_path)
 
     def delete_artifacts(self, artifact_path=None):
+        if artifact_path:
+            _validate_windows_path_aliases(artifact_path)
         artifact_path = local_file_uri_to_path(
             os.path.join(self._artifact_dir, artifact_path) if artifact_path else self._artifact_dir
         )

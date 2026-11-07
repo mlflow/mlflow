@@ -792,16 +792,67 @@ def test_validate_path_is_safe_good(path):
     validate_path_is_safe(path)
 
 
-@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
 @pytest.mark.parametrize(
     "path",
     [
-        # relative path from current directory of C: drive
+        "",
+        ".",
+        "./path/to/file.txt",
+        "path/./to/file.txt",
+        "path with spaces/to/file.v2.txt",
+        "path/to/.hidden",
+        "path/to/model~draft.txt",
+        "path/to/model.txt~",
+        "path/to/model~1draft.txt",
+    ],
+)
+def test_validate_path_is_safe_windows_good(path, monkeypatch):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    assert validate_path_is_safe(path, validate_windows_aliases=True) == path
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "folder.",
+        "folder /file.txt",
+        "folder.../file.txt",
+        "folder/file.txt.",
+        "folder/file.txt ",
+        "folder/file.txt. ",
+        "folder%2e/file.txt",
+        "folder%20/file.txt",
+        "FOLDER~1",
+        "folder~123/file.txt",
+        "folder/AB12CD~2.TXT",
+        "folder/AB12CD%7e2.TXT",
+        "folder/file:stream",
+        "file:stream",
+        "file%3astream",
+        "folder:stream/file.txt",
         ".../...//",
     ],
 )
-def test_validate_path_is_safe_windows_good(path):
-    validate_path_is_safe(path)
+def test_validate_path_is_safe_rejects_windows_aliases(path, monkeypatch):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    with pytest.raises(MlflowException, match="Invalid path") as exc:
+        validate_path_is_safe(path, validate_windows_aliases=True)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "folder./file.txt",
+        "folder /file.txt",
+        "folder/file.txt.",
+        "FOLDER~1/file.txt",
+        "folder/file:stream",
+    ],
+)
+def test_validate_path_is_safe_preserves_posix_names(path, monkeypatch):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: False)
+    assert validate_path_is_safe(path, validate_windows_aliases=True) == path
 
 
 @pytest.mark.skipif(is_windows(), reason="This test does not pass on Windows")

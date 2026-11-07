@@ -30,6 +30,45 @@ def local_artifact_repo(local_artifact_root):
     return LocalArtifactRepository(artifact_uri=path_to_local_file_uri(local_artifact_root))
 
 
+@pytest.mark.parametrize("path", ["folder./file.txt", "folder /file.txt", "FOLDER~1/file.txt"])
+@pytest.mark.parametrize("operation", ["get_local_path", "_download_file"])
+def test_local_artifact_reads_reject_windows_aliases(
+    local_artifact_repo, monkeypatch, path, operation
+):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    args = (path,) if operation == "get_local_path" else (path, "unused")
+    with mock.patch(
+        "mlflow.store.artifact.local_artifact_repo.validate_path_within_directory",
+        side_effect=AssertionError("Filesystem resolution must not run"),
+    ) as resolve:
+        with pytest.raises(MlflowException, match="Invalid path"):
+            getattr(local_artifact_repo, operation)(*args)
+
+    resolve.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "path", ["folder.", "folder ", "FOLDER~1", "file:stream", "folder.\\file.txt"]
+)
+@pytest.mark.parametrize("operation", ["list_artifacts", "delete_artifacts"])
+def test_local_artifact_operations_reject_windows_aliases(
+    local_artifact_repo, monkeypatch, path, operation
+):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    with pytest.raises(MlflowException, match="Invalid path"):
+        getattr(local_artifact_repo, operation)(path)
+
+
+@pytest.mark.parametrize("name", ["file:stream", "file.txt.", "FILE~1"])
+def test_local_artifact_rejected_upload_leaves_no_directory(
+    local_artifact_repo, local_artifact_root, monkeypatch, name
+):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    with pytest.raises(MlflowException, match="Invalid path"):
+        local_artifact_repo.log_artifact_from_stream(io.BytesIO(b"x"), name, artifact_path="newdir")
+    assert not (pathlib.Path(local_artifact_root) / "newdir").exists()
+
+
 def test_list_artifacts(local_artifact_repo, local_artifact_root):
     assert len(local_artifact_repo.list_artifacts()) == 0
 
