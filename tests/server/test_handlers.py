@@ -141,6 +141,7 @@ from mlflow.protos.service_pb2 import (
     EndTrace,
     GatewayEndpoint,
     GetGatewayEndpoint,
+    GetMetricHistory,
     GetScorer,
     GetTrace,
     LinkPromptsToTrace,
@@ -227,6 +228,7 @@ from mlflow.server.handlers import (
     _get_gateway_endpoint,
     _get_issue,
     _get_latest_versions,
+    _get_metric_history,
     _get_model_version,
     _get_model_version_by_alias,
     _get_model_version_download_uri,
@@ -310,7 +312,7 @@ from mlflow.store.model_registry import (
 )
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore as RegistryStore
-from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS
+from mlflow.store.tracking import GET_METRIC_HISTORY_MAX_RESULTS, MAX_RESULTS_QUERY_TRACE_METRICS
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.telemetry.schemas import Record, Status
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
@@ -1068,6 +1070,25 @@ def test_set_experiment_tag_counts_empty_custom_view_tags(
 
     assert response.status_code == 400
     mock_tracking_store.set_experiment_tag.assert_not_called()
+
+
+def test_get_metric_history_bounds_omitted_and_oversized_max_results(
+    mock_get_request_message, mock_tracking_store
+):
+    mock_tracking_store.get_metric_history.return_value = PagedList([], "next-token")
+
+    mock_get_request_message.return_value = GetMetricHistory(run_id="r1", metric_key="loss")
+    response = _get_metric_history()
+    _, kwargs = mock_tracking_store.get_metric_history.call_args
+    assert kwargs["max_results"] == GET_METRIC_HISTORY_MAX_RESULTS
+    assert json.loads(response.get_data())["next_page_token"] == "next-token"
+
+    mock_get_request_message.return_value = GetMetricHistory(
+        run_id="r1", metric_key="loss", max_results=GET_METRIC_HISTORY_MAX_RESULTS * 10
+    )
+    _get_metric_history()
+    _, kwargs = mock_tracking_store.get_metric_history.call_args
+    assert kwargs["max_results"] == GET_METRIC_HISTORY_MAX_RESULTS
 
 
 def test_search_runs_default_view_type(mock_get_request_message, mock_tracking_store):

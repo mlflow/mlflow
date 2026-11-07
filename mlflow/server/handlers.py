@@ -382,6 +382,7 @@ from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
 from mlflow.store.tracking import (
+    GET_METRIC_HISTORY_MAX_RESULTS,
     MAX_RESULTS_QUERY_TRACE_METRICS,
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_MAX_RESULTS_THRESHOLD,
@@ -2426,10 +2427,13 @@ def _get_metric_history():
     # check would treat requests without `max_results` as `max_results=0`: the store queries
     # one row beyond the requested page size (LIMIT 1), concludes more results exist,
     # truncates the page to zero metrics, and emits a token for `offset + 0` that points back
-    # at the same position forever. Use HasField to keep requests without `max_results` on the
-    # documented non-paginated path, and reject explicit non-positive page sizes.
-    max_results = request_message.max_results if request_message.HasField("max_results") else None
-    if max_results is not None and max_results <= 0:
+    # at the same position forever. Use HasField to tell an omitted `max_results` (bounded to
+    # the default page size) from an explicit one, and reject explicit non-positive page sizes.
+    if request_message.HasField("max_results"):
+        max_results = request_message.max_results
+    else:
+        max_results = GET_METRIC_HISTORY_MAX_RESULTS
+    if max_results <= 0:
         raise MlflowException(
             f"Invalid value {max_results} for parameter 'max_results' supplied. "
             "It must be a positive integer.",
@@ -2439,7 +2443,7 @@ def _get_metric_history():
     metric_entities = _get_tracking_store().get_metric_history(
         run_id,
         request_message.metric_key,
-        max_results=max_results,
+        max_results=min(max_results, GET_METRIC_HISTORY_MAX_RESULTS),
         page_token=request_message.page_token or None,
     )
     response_message.metrics.extend([m.to_proto() for m in metric_entities])
