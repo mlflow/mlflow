@@ -117,9 +117,7 @@ jobs:
         run: python3 "trusted/$SCRIPT" prepare
       - uses: ./trusted/.github/actions/setup-python
       - uses: ./trusted/.github/actions/setup-node
-        if: steps.prepare.outputs.needs_agent == 'true'
       - name: Install sandbox runtime
-        if: steps.prepare.outputs.needs_agent == 'true'
         run: |
           sudo apt-get update --error-on=any
           sudo apt-get install -y --no-install-recommends bubblewrap socat ripgrep
@@ -129,7 +127,6 @@ jobs:
           export npm_config_before="$(date -u -d '7 days ago' +%Y-%m-%d)"
           npm install -g @anthropic-ai/sandbox-runtime@0.0.80
       - name: Configure repair sandbox
-        if: steps.prepare.outputs.needs_agent == 'true'
         working-directory: trusted
         env:
           PR_CHECKOUT: ${{ github.workspace }}/pr
@@ -160,13 +157,11 @@ jobs:
             fi
           '
       - name: Install Claude Code
-        if: steps.prepare.outputs.needs_agent == 'true'
         working-directory: trusted
         run: |
           .claude/scripts/install-claude.sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - id: gateway
-        if: steps.prepare.outputs.needs_agent == 'true'
         uses: ./trusted/.github/actions/setup-gateway
         with:
           task: pr-repair
@@ -174,7 +169,6 @@ jobs:
           client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
           client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
       - name: Start gateway proxy
-        if: steps.prepare.outputs.needs_agent == 'true'
         id: gateway-proxy
         working-directory: trusted
         env:
@@ -196,7 +190,7 @@ jobs:
       # <catalog>.<schema>.<table_prefix> of a UC-linked experiment.
       - id: telemetry
         name: Mint telemetry token
-        if: steps.prepare.outputs.needs_agent == 'true' && (vars.REPAIR_MLFLOW_TRACE_LOCATION != '')
+        if: vars.REPAIR_MLFLOW_TRACE_LOCATION != ''
         uses: ./trusted/.github/actions/mint-telemetry-token
         with:
           host: ${{ secrets.DATABRICKS_HOST }}
@@ -204,7 +198,7 @@ jobs:
           client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
       - name: Start telemetry proxy
         id: telemetry-proxy
-        if: steps.prepare.outputs.needs_agent == 'true' && (steps.telemetry.outcome == 'success')
+        if: steps.telemetry.outcome == 'success'
         working-directory: trusted
         env:
           TELEMETRY_TOKEN: ${{ steps.telemetry.outputs.token }}
@@ -235,7 +229,6 @@ jobs:
           echo "::error::Telemetry proxy did not become ready"
           exit 1
       - name: Resolve agent model and effort
-        if: steps.prepare.outputs.needs_agent == 'true'
         id: agent
         env:
           MODEL: ${{ inputs.model || vars.REPAIR_MODEL || 'databricks-claude-sonnet-5-5' }}
@@ -254,10 +247,12 @@ jobs:
           echo "effort=$EFFORT" >> "$GITHUB_OUTPUT"
           echo "Agent model: \`$MODEL\`, effort: \`$EFFORT\`" >> "$GITHUB_STEP_SUMMARY"
       - name: Repair PR
-        if: steps.prepare.outputs.needs_agent == 'true'
         working-directory: trusted
         env:
           UV_CACHE_DIR: /tmp/repair-agent-cache
+          UV_TOOL_DIR: /tmp/repair-agent-tools
+          UV_TOOL_BIN_DIR: /tmp/repair-agent-bin
+          UV_PYTHON_INSTALL_DIR: /tmp/repair-agent-python
           TELEMETRY_SOCKET: ${{ runner.temp }}/repair-telemetry.sock
           MODEL: ${{ steps.agent.outputs.model }}
           EFFORT: ${{ steps.agent.outputs.effort }}
@@ -324,7 +319,7 @@ jobs:
           repositories: mlflow
           permission-actions: write
           permission-contents: write
-          permission-workflows: write
+          permission-workflows: ${{ steps.validate.outputs.workflow_changes == 'true' && 'write' || '' }}
           permission-pull-requests: write
       - name: Publish or preview repair
         id: publish

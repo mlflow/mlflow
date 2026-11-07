@@ -429,10 +429,6 @@ def context_key(context: dict[str, Any]) -> str:
     return hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
 
 
-def result_name(context: dict[str, Any]) -> str:
-    return f"repair-result-{context['number']}-{context['key']}"
-
-
 def clean_checkout(context: dict[str, Any]) -> None:
     if git("rev-parse", "HEAD") != context["sha"] or git("status", "--porcelain"):
         raise ValueError("PR checkout must be clean and match the captured head")
@@ -462,6 +458,29 @@ def prepare_merge(context: dict[str, Any]) -> dict[str, Any]:
     return {"status": "clean", "conflicted_paths": []}
 
 
+def git_metadata() -> dict[str, str | None]:
+    directory = Path(os.environ["PR_CHECKOUT"]) / ".git"
+    if directory.is_symlink() or not directory.is_dir():
+        raise ValueError("Expected a regular Git directory")
+    result: dict[str, str | None] = {}
+    for name in (
+        "config",
+        "config.worktree",
+        "info/grafts",
+        "info/attributes",
+        "objects/info/alternates",
+    ):
+        path = directory / name
+        if path.is_symlink() or any(
+            parent.is_symlink() for parent in path.parents if directory in parent.parents
+        ):
+            raise ValueError("Unexpected symlink in Git metadata")
+        if path.exists() and not path.is_file():
+            raise ValueError("Expected regular Git configuration files")
+        result[name] = hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
+    return result
+
+
 def prepare(args: argparse.Namespace) -> int:
     candidate = json.loads(os.environ["CANDIDATE"])
     pr = rest(f"repos/{REPO}/pulls/{candidate['number']}")
@@ -477,8 +496,6 @@ def prepare(args: argparse.Namespace) -> int:
     directory = context_file().parent
     directory.mkdir(parents=True, exist_ok=True)
     output_dir().mkdir(parents=True, exist_ok=True)
-    previous = rest(f"repos/{REPO}/actions/artifacts?name={result_name(context)}&per_page=100")
-    handled = any(not artifact["expired"] for artifact in previous["artifacts"])
     context["merge"] = prepare_merge(context)
     rounds = git(
         "log",
@@ -487,43 +504,27 @@ def prepare(args: argparse.Namespace) -> int:
         "--grep=^Repair-Context:",
         f"{context['base']['sha']}..HEAD",
     ).count("Repair-Context:")
-    needs_agent = (
-        not handled
-        and rounds < 3
-        and (
-            context["merge"]["status"] == "conflicting"
-            or (
-                context["merge"]["status"] in {"up-to-date", "fork"}
-                and bool(context["failed_runs"])
-            )
-        )
-    )
-    context["agent_used"] = needs_agent
-    config = Path(os.environ["PR_CHECKOUT"]) / ".git/config"
-    context["git_config_hash"] = hashlib.sha256(config.read_bytes()).hexdigest()
-    if needs_agent:
-        logs = directory / "logs"
-        logs.mkdir()
-        for run in context["failed_runs"]:
-            for job in run["job_runs"]:
-                job_id = int(job["id"])
-                path = logs / f"{job_id}.log"
-                try:
-                    content = command("gh", "api", f"repos/{REPO}/actions/jobs/{job_id}/logs")
-                except subprocess.CalledProcessError as error:
-                    content = f"Could not fetch job log: {error.stderr or error}\n"
-                path.write_text(content[-200_000:])
-                job["log_path"] = str(path)
-    else:
-        sync = not handled and rounds < 3 and context["merge"]["status"] == "clean"
-        payload = {
-            "summary": "Sync the base." if sync else "No new repair action is needed.",
-            "actions": [{"type": "sync-base"}] if sync else [],
-        }
-        (output_dir() / "payload.json").write_text(json.dumps(payload))
+    if rounds >= 3:
+        raise ValueError("PR reached the limit of 3 automatic repair commits")
+    worktree_config = Path(os.environ["PR_CHECKOUT"]) / ".git/config.worktree"
+    # SRT protects this path even when checkout did not create it.
+    if not worktree_config.exists() and not worktree_config.is_symlink():
+        worktree_config.touch()
+    context["git_metadata"] = git_metadata()
+    logs = directory / "logs"
+    logs.mkdir()
+    for run in context["failed_runs"]:
+        for job in run["job_runs"]:
+            job_id = int(job["id"])
+            path = logs / f"{job_id}.log"
+            try:
+                content = command("gh", "api", f"repos/{REPO}/actions/jobs/{job_id}/logs")
+            except subprocess.CalledProcessError as error:
+                content = f"Could not fetch job log: {error.stderr or error}\n"
+            path.write_text(content[-200_000:])
+            job["log_path"] = str(path)
     context_file().write_text(json.dumps(context))
     outputs(
-        needs_agent=str(needs_agent).lower(),
         context_hash=hashlib.sha256(context_file().read_bytes()).hexdigest(),
     )
     return 0
@@ -607,24 +608,8 @@ def validate(args: argparse.Namespace) -> int:
     )
     payload = load_plan(context, output_dir())
     if os.environ.get("REUSE_CHECKOUT") == "true":
-        git_dir = Path(os.environ["PR_CHECKOUT"]) / ".git"
-        config = git_dir / "config"
-        if (
-            git_dir.is_symlink()
-            or not git_dir.is_dir()
-            or config.is_symlink()
-            or hashlib.sha256(config.read_bytes()).hexdigest() != context["git_config_hash"]
-        ):
+        if git_metadata() != context["git_metadata"]:
             raise ValueError("Agent changed the Git configuration")
-        for name in (
-            "config.worktree",
-            "info/grafts",
-            "info/attributes",
-            "objects/info/alternates",
-        ):
-            location = git_dir / name
-            if location.exists() or location.is_symlink():
-                raise ValueError(f"Unsupported agent Git metadata: {name}")
         if git("rev-parse", "HEAD") != context["sha"]:
             raise ValueError("Agent changed the PR head")
         # The patch is outside this disposable checkout; rebuild its final tree from the payload.
@@ -639,7 +624,15 @@ def validate(args: argparse.Namespace) -> int:
     elif "sync-base" in kinds:
         git("fetch", "origin", context["base"]["sha"])
         git("merge", "--no-commit", "--no-ff", context["base"]["sha"])
-    outputs(has_actions=str(bool(kinds)).lower(), context_key=context["key"])
+    workflow_changes = any(
+        name.startswith(".github/workflows/")
+        for name in git("diff", "--cached", "--name-only", "--no-renames", "-z").split("\0")
+    )
+    outputs(
+        has_actions=str(bool(kinds)).lower(),
+        context_key=context["key"],
+        workflow_changes=str(workflow_changes).lower(),
+    )
     return 0
 
 
