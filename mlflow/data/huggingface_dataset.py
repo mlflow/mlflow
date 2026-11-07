@@ -68,7 +68,7 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
                 batch_size=_MAX_ROWS_FOR_DIGEST_COMPUTATION_AND_SCHEMA_INFERENCE, batched=True
             )
         )
-        return compute_pandas_digest(df)
+        return compute_pandas_digest(df, num_rows=len(self._ds))
 
     def to_dict(self) -> dict[str, str]:
         """Create config dictionary for the dataset.
