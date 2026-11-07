@@ -45,10 +45,20 @@ Write `$out_dir/payload.json` following [the payload schema](payload.schema.yml)
 
 Do not combine reruns with a base sync or patch: changing the head triggers fresh CI.
 
-For either patch action, resolve every conflict, use `git add -N` for new files, and generate the complete
-final tree diff against the original context `sha` using `git diff HEAD --binary`. Include the
-base changes when resolving a merge. The publisher recreates the resulting tree and records
-both captured parents. Do not write a patch unless the plan includes `fix-ci` or `resolve-conflicts`.
+The checkout's `.git` directory is read-only. For Git commands that update the PR index or
+prepare its patch, use the supplied private index and object directory. Keep these Git variables
+scoped to PR Git commands, so test repositories and the trusted checkout use their own metadata:
+
+```bash
+env GIT_INDEX_FILE="$REPAIR_GIT_INDEX" GIT_OBJECT_DIRECTORY="$REPAIR_GIT_OBJECTS" \
+  GIT_ALTERNATE_OBJECT_DIRECTORIES="$REPAIR_GIT_ALTERNATES" \
+  git -C "$pr_checkout" diff HEAD --binary > "$out_dir/fix.patch"
+```
+
+Resolve every conflict. For new files, use the same environment prefix with `git add -N`
+before generating the patch. Include the complete final tree diff against the original context
+`sha`, including base changes. The publisher recreates that tree and records both captured
+parents. Do not write a patch unless the plan includes `fix-ci` or `resolve-conflicts`.
 
 Keep `summary` to one or two sentences describing the decision and checks actually run.
 Validate the payload schema before finishing:
