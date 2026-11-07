@@ -257,10 +257,26 @@ jobs:
         id: prepared
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ARTIFACT_NAME: repair-output-${{ github.run_attempt }}-${{ matrix.pr.number }}
+          PR_NUMBER: ${{ matrix.pr.number }}
         run: |
-          ready=$(gh api "repos/$GH_REPO/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=100" \
-            --jq ".artifacts | any(.name == \"$ARTIFACT_NAME\" and .expired == false)")
+          attempt=$(gh api --paginate --slurp \
+            "repos/$GH_REPO/actions/runs/$GITHUB_RUN_ID/jobs?filter=all&per_page=100" \
+            | jq -r --arg name "PR #$PR_NUMBER" \
+              '[.[].jobs[] | select(.name == $name)] | max_by(.id)
+               | select(.conclusion == "success") | .run_attempt // empty')
+          ready=false
+          if [[ -n "$attempt" ]]; then
+            artifact_name="repair-output-$attempt-$PR_NUMBER"
+            ready=$(gh api --paginate --slurp \
+              "repos/$GH_REPO/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=100" \
+              | jq --arg name "$artifact_name" \
+                '[.[].artifacts[]] | any(.name == $name and .expired == false)')
+            if [[ "$ready" != true ]]; then
+              echo "::error::Successful repair job has no prepared artifact."
+              exit 1
+            fi
+            echo "artifact_name=$artifact_name" >> "$GITHUB_OUTPUT"
+          fi
           echo "ready=$ready" >> "$GITHUB_OUTPUT"
       - name: Rerun failed jobs
         if: steps.prepared.outputs.ready == 'true'
