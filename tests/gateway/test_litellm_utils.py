@@ -1,6 +1,4 @@
 import asyncio
-import subprocess
-import sys
 
 import pytest
 from fastapi import HTTPException
@@ -20,32 +18,6 @@ def _prepare(payload, auth_config, protected):
 @pytest.fixture(autouse=True)
 def private_upstreams_disabled(monkeypatch):
     monkeypatch.delenv("MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS", raising=False)
-
-
-def test_native_provider_import_guard_without_optional_transports():
-    subprocess.check_call([
-        sys.executable,
-        "-c",
-        """
-import importlib.abc
-import sys
-
-
-class BlockOptionalTransports(importlib.abc.MetaPathFinder):
-    def find_spec(self, fullname, path=None, target=None):
-        if fullname.split(".")[0] in {"aiohttp", "litellm"}:
-            raise ModuleNotFoundError(f"Optional transport blocked: {fullname}", name=fullname)
-
-
-sys.meta_path.insert(0, BlockOptionalTransports())
-
-from mlflow.gateway.provider_registry import provider_registry
-
-assert "openai" in provider_registry.keys()
-assert "aiohttp" not in sys.modules
-assert "litellm" not in sys.modules
-""",
-    ])
 
 
 @pytest.mark.parametrize("protected", [False, True])

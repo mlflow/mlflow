@@ -701,6 +701,27 @@ def test_upstream_ssrf_protection_enabled_for_stored_base_url_alias(store: SqlAl
     assert upstream_ssrf_protection.get() is True
 
 
+@pytest.mark.parametrize("config_field", ["auth_config", "secret_value"])
+@pytest.mark.parametrize("linkage_type", list(GatewayModelLinkageType))
+def test_upstream_ssrf_protection_enabled_for_stored_oauth_destination(config_field, linkage_type):
+    model = GatewayModelConfig(
+        model_definition_id="legacy-model",
+        provider="gigachat",
+        model_name="m",
+        secret_value={"api_key": "configured-key"},
+        linkage_type=linkage_type,
+    )
+    setattr(model, config_field, {"gigachat_auth_url": "https://oauth.example.com/token"})
+    endpoint_config = GatewayEndpointConfig(
+        endpoint_id="legacy-endpoint", endpoint_name="legacy-endpoint", models=[model]
+    )
+    assert upstream_ssrf_protection.get() is False
+
+    _enable_upstream_ssrf_protection(endpoint_config)
+
+    assert upstream_ssrf_protection.get() is True
+
+
 def test_upstream_ssrf_protection_not_enabled_for_provider_default_on_typed_routes(
     store: SqlAlchemyStore,
 ):

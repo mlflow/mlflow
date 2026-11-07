@@ -1190,6 +1190,7 @@ def chat_config_with_base_url_alias():
         ("custom_llm_provider", "ollama"),
         ("aws_bedrock_runtime_endpoint", "http://127.0.0.1:11434"),
         ("aws_sts_endpoint", "http://127.0.0.1:11434"),
+        ("gigachat_auth_url", "https://oauth.example.com/token"),
         ("aws_region_name", "evil.example/invocations?x="),
         ("vertex_location", "evil.example/#"),
         ("vertex_ai_location", "evil.example/#"),
@@ -1291,6 +1292,7 @@ async def test_chat_folds_public_base_url_alias_into_api_base_when_upstream_prot
         ),
         ("aws_bedrock_runtime_endpoint", "http://10.0.0.1/"),
         ("aws_sts_endpoint", "http://10.0.0.1/"),
+        ("gigachat_auth_url", "https://oauth.example.com/token"),
     ],
 )
 async def test_chat_rejects_stored_destination_keys_when_upstream_protection_is_on(

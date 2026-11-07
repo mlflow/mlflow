@@ -6,7 +6,11 @@ from mlflow.utils.validation import GATEWAY_DESTINATION_KEYS, GATEWAY_REGION_KEY
 async def prepare_litellm_kwargs(
     payload: dict[str, Any], auth_config: dict[str, Any] | None
 ) -> dict[str, Any]:
-    """Validate caller-controlled options before merging the endpoint's configuration."""
+    """Apply destination policy to LiteLLM, which bypasses the shared HTTP transport.
+
+    Requests cannot choose destinations. Stored aliases are rejected when the request's
+    upstream protection is armed; standalone operator-owned configuration stays supported.
+    """
     from fastapi import HTTPException
 
     from mlflow.gateway.ssrf import (
