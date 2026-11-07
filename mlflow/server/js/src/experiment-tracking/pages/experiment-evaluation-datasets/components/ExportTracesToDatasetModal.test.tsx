@@ -102,7 +102,7 @@ describe('ExportTracesToDatasetModal', () => {
     );
 
     await user.click(screen.getAllByRole('checkbox')[0]);
-    await user.click(screen.getByRole('button', { name: 'Export' }));
+    await user.click(screen.getByRole('button', { name: 'Add to dataset' }));
 
     await waitFor(() => {
       expect(refetch).toHaveBeenCalledWith({ throwOnError: true });
@@ -149,7 +149,7 @@ describe('ExportTracesToDatasetModal', () => {
     );
 
     await user.click(screen.getAllByRole('checkbox')[0]);
-    await user.click(screen.getByRole('button', { name: 'Export' }));
+    await user.click(screen.getByRole('button', { name: 'Add to dataset' }));
 
     await waitFor(() => {
       expect(refetch).toHaveBeenCalledWith({ throwOnError: true });
@@ -161,7 +161,7 @@ describe('ExportTracesToDatasetModal', () => {
     errorSpy.mockRestore();
   });
 
-  test('waits for in-flight upserts before showing an error and re-enabling Export', async () => {
+  test('waits for in-flight upserts before showing an error and re-enabling the confirm button', async () => {
     const user = userEvent.setup();
     const errorSpy = jest.spyOn(Utils, 'displayGlobalErrorNotification').mockImplementation(() => {});
     let resolveSlowUpsert: (value: { insertedCount: number; updatedCount: number }) => void = () => {};
@@ -203,8 +203,9 @@ describe('ExportTracesToDatasetModal', () => {
       />,
     );
 
+    // Header select-all: both datasets are selected, so the confirm button is pluralized.
     await user.click(screen.getAllByRole('checkbox')[0]);
-    await user.click(screen.getByRole('button', { name: 'Export' }));
+    await user.click(screen.getByRole('button', { name: 'Add to 2 datasets' }));
 
     await waitFor(() => {
       expect(upsertAsync).toHaveBeenCalledTimes(2);

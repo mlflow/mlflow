@@ -1,6 +1,7 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { EndpointSelector } from '../../../components/EndpointSelector';
 import type { ChatMessage, PlaygroundParams, PlaygroundTool, ResponseFormatType, ToolChoice } from '../types';
+import { AddToDatasetButton } from './AddToDatasetButton';
 import { ParametersButton } from './ParametersButton';
 import { RegistryButton } from './RegistryButton';
 import { SaveToRegistryButton } from './SaveToRegistryButton';
@@ -28,6 +29,8 @@ interface Props {
   onOpenRegistry: () => void;
   onOpenSave: () => void;
   saveDisabled?: boolean;
+  onOpenAddToDataset: () => void;
+  addToDatasetDisabled?: boolean;
 }
 
 export const PlaygroundTopBar = ({
@@ -52,6 +55,8 @@ export const PlaygroundTopBar = ({
   onOpenRegistry,
   onOpenSave,
   saveDisabled,
+  onOpenAddToDataset,
+  addToDatasetDisabled,
 }: Props) => {
   const { theme } = useDesignSystemTheme();
 
@@ -89,6 +94,7 @@ export const PlaygroundTopBar = ({
       <VariablesButton messages={messages} value={variables} onChange={onVariablesChange} />
       <RegistryButton onOpen={onOpenRegistry} />
       <SaveToRegistryButton onOpen={onOpenSave} disabled={saveDisabled} />
+      <AddToDatasetButton onOpen={onOpenAddToDataset} disabled={addToDatasetDisabled} />
     </div>
   );
 };
