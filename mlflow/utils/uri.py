@@ -497,7 +497,7 @@ def join_paths(*paths: str) -> str:
 _OS_ALT_SEPS = [sep for sep in [os.sep, os.path.altsep] if sep is not None and sep != "/"]
 
 
-def validate_path_is_safe(path):
+def validate_path_is_safe(path, *, validate_windows_aliases: bool = False):
     """
     Validates that the specified path is safe to join with a trusted prefix. This is a security
     measure to prevent path traversal attacks.
@@ -505,6 +505,9 @@ def validate_path_is_safe(path):
         not contain separators other than '/'
         not contain .. to navigate to parent dir in path
         not be an absolute path
+
+    Set ``validate_windows_aliases`` for server authorization and local filesystem access.
+    Remote artifact names may be valid POSIX or object-store paths even on a Windows client.
     """
     from mlflow.utils.file_utils import local_file_uri_to_path
 
@@ -525,6 +528,24 @@ def validate_path_is_safe(path):
         or pathlib.PureWindowsPath(path).is_absolute()
         or pathlib.PurePosixPath(path).is_absolute()
         or (is_windows() and len(path) >= 2 and path[1] == ":")
+    ):
+        raise exc
+
+    # Win32 strips trailing dots/spaces and resolves DOS short names and stream syntax. Reject
+    # ambiguous spellings before authorization, which cannot distinguish short names from literal
+    # names without the repository's filesystem. Preserve POSIX and ordinary Windows tilde names.
+    if (
+        validate_windows_aliases
+        and is_windows()
+        and any(
+            component != "."
+            and (
+                component.endswith((" ", "."))
+                or ":" in component
+                or re.search(r"~[0-9]+(?:\.|$)", component)
+            )
+            for component in path.split("/")
+        )
     ):
         raise exc
 

@@ -1261,7 +1261,7 @@ def _artifact_proxy_child_types(artifact_path: str, *, recursive: bool) -> "tupl
 
 def _canonical_artifact_proxy_path(artifact_path: str) -> "str | None":
     try:
-        return validate_path_is_safe(artifact_path)
+        return validate_path_is_safe(artifact_path, validate_windows_aliases=True)
     except MlflowException:
         return None
 

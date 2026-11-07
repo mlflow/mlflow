@@ -11398,6 +11398,38 @@ def test_parse_artifact_auth_target_workspace_prefix_ignores_case(prefix):
     assert target.relative_path == "17/models/m-1/model.pkl"
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        "workspaces.",
+        "workspaces./team-a/17/file.txt",
+        "workspaces%20/team-a/17/file.txt",
+        "WORKSP~1/team-a/17/file.txt",
+        "workspaces/team-a./17/file.txt",
+        "workspaces/team-a/17/models./m-1/file.txt",
+    ],
+)
+@pytest.mark.parametrize("action", ["read", "update", "manage"])
+def test_artifact_proxy_rejects_windows_aliases(path, action, monkeypatch):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    target = auth_module._parse_artifact_auth_target(path)
+    assert target.invalid
+    assert auth_module._permission_for_artifact_target(target, "alice") is NO_PERMISSIONS
+
+    permission = Mock(return_value=MANAGE)
+    assert not auth_module._authorize_artifact_proxy_resolved(
+        auth_module._artifact_proxy_child(path, action), "alice", action, permission
+    )
+    permission.assert_not_called()
+
+    assert not auth_module._authorize_fastapi_artifact_proxy(
+        f"/api/2.0/mlflow-artifacts/artifacts/{path}", "alice", None, action
+    )
+    assert not auth_module._authorize_fastapi_artifact_proxy(
+        "/api/2.0/mlflow-artifacts/artifacts", "alice", path, "read"
+    )
+
+
 @pytest.mark.parametrize("prefix", ["workspaces", "WORKSPACES"])
 def test_experiment_id_from_canonical_proxy_path_workspace_prefix_ignores_case(prefix):
     # ``filter_list_artifacts_proxy`` passes the full path, so the experiment-root listing filter

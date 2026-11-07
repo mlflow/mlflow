@@ -30,6 +30,23 @@ def local_artifact_repo(local_artifact_root):
     return LocalArtifactRepository(artifact_uri=path_to_local_file_uri(local_artifact_root))
 
 
+@pytest.mark.parametrize("path", ["folder./file.txt", "folder /file.txt", "FOLDER~1/file.txt"])
+@pytest.mark.parametrize("operation", ["get_local_path", "_download_file"])
+def test_local_artifact_reads_reject_windows_aliases(
+    local_artifact_repo, monkeypatch, path, operation
+):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    args = (path,) if operation == "get_local_path" else (path, "unused")
+    with mock.patch(
+        "mlflow.store.artifact.local_artifact_repo.validate_path_within_directory",
+        side_effect=AssertionError("Filesystem resolution must not run"),
+    ) as resolve:
+        with pytest.raises(MlflowException, match="Invalid path"):
+            getattr(local_artifact_repo, operation)(*args)
+
+    resolve.assert_not_called()
+
+
 def test_list_artifacts(local_artifact_repo, local_artifact_root):
     assert len(local_artifact_repo.list_artifacts()) == 0
 

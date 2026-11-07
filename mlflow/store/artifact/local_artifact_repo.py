@@ -63,7 +63,7 @@ class LocalArtifactRepository(ArtifactRepository, StreamUploadMixin):
         return self._artifact_dir
 
     def get_local_path(self, artifact_path: str) -> str:
-        artifact_path = validate_path_is_safe(artifact_path)
+        artifact_path = validate_path_is_safe(artifact_path, validate_windows_aliases=True)
         local_artifact_path = os.path.join(self.artifact_dir, os.path.normpath(artifact_path))
         validate_path_within_directory(self.artifact_dir, local_artifact_path)
         if not os.path.exists(local_artifact_path):
@@ -265,7 +265,7 @@ class LocalArtifactRepository(ArtifactRepository, StreamUploadMixin):
             return []
 
     def _download_file(self, remote_file_path, local_path):
-        remote_file_path = validate_path_is_safe(remote_file_path)
+        remote_file_path = validate_path_is_safe(remote_file_path, validate_windows_aliases=True)
         remote_file_path = os.path.join(self.artifact_dir, os.path.normpath(remote_file_path))
         validate_path_within_directory(self.artifact_dir, remote_file_path)
         if not os.path.exists(remote_file_path):
