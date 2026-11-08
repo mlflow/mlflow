@@ -258,33 +258,36 @@ def _check_version_consistency(all_action_refs: list[ActionRef]) -> Iterator[str
 
 def _get_node(node: yaml.Node | None, *keys: str) -> yaml.Node | None:
     for key in keys:
-        if not isinstance(node, yaml.MappingNode):
-            return None
-        node = next((value for k, value in node.value if k.value == key), None)
+        match node:
+            case yaml.MappingNode(value=items):
+                node = next((value for k, value in items if k.value == key), None)
+            case _:
+                return None
     return node
 
 
 def _iter_steps(node: yaml.Node | None) -> Iterator[yaml.Node]:
-    if isinstance(node, yaml.SequenceNode):
-        for step in node.value:
-            yield step
-            yield from _iter_steps(_get_node(step, "parallel"))
+    match node:
+        case yaml.SequenceNode(value=steps):
+            for step in steps:
+                yield step
+                yield from _iter_steps(_get_node(step, "parallel"))
 
 
 def _check_run_style(path: Path) -> Iterator[str]:
     root = yaml.compose(path.read_text(encoding="utf-8"), Loader=yaml.CSafeLoader)
     steps_nodes = [_get_node(root, "runs", "steps")]
-    if isinstance(jobs := _get_node(root, "jobs"), yaml.MappingNode):
-        steps_nodes.extend(_get_node(job, "steps") for _, job in jobs.value)
+    match _get_node(root, "jobs"):
+        case yaml.MappingNode(value=jobs):
+            steps_nodes.extend(_get_node(job, "steps") for _, job in jobs)
 
     for steps in steps_nodes:
         for step in _iter_steps(steps):
-            run = _get_node(step, "run")
-            if isinstance(run, yaml.ScalarNode) and run.style != "|":
-                yield (
-                    f"{path}:{run.start_mark.line + 1}: "
-                    "'run' must use a literal block scalar (run: |)"
-                )
+            match _get_node(step, "run"):
+                case yaml.ScalarNode(style=style, start_mark=mark) if style != "|":
+                    yield (
+                        f"{path}:{mark.line + 1}: 'run' must use a literal block scalar (run: |)"
+                    )
 
 
 def main() -> int:
