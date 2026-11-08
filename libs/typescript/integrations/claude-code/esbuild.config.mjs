@@ -1,5 +1,7 @@
 import { build } from 'esbuild';
 import { chmodSync, copyFileSync, existsSync, mkdirSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
 
 const banner = { js: '#!/usr/bin/env node' };
 
@@ -8,9 +10,14 @@ const banner = { js: '#!/usr/bin/env node' };
 // `@mlflow/core` through node_modules. Marketplace/plugin-cache installs
 // ship only `bundle/*.cjs` with no node_modules, so the daemon must ride
 // along: copy the byte-identical bundle that @mlflow/core ships.
-// (Workspace build order guarantees core is built first: see
-// `build:subpackages` in the libs/typescript root package.json.)
-const daemonSource = '../../core/bundle/daemon.cjs';
+//
+// Resolve the source through the package entry point (rather than a
+// cwd-relative workspace path) so the copied daemon always matches the
+// exact @mlflow/core the hook was built against. The workspace build
+// order still guarantees core is built first: see `build:subpackages`
+// in the libs/typescript root package.json.
+const corePkg = createRequire(import.meta.url).resolve('@mlflow/core/package.json');
+const daemonSource = join(dirname(corePkg), 'bundle', 'daemon.cjs');
 if (!existsSync(daemonSource)) {
   throw new Error(`missing ${daemonSource}; build @mlflow/core first (npm run build:core)`);
 }
