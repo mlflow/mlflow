@@ -114,12 +114,6 @@ jobs:
               ref: ${{ matrix.pr.sha }}
               path: pr
               persist-credentials: false
-      - name: Prepare repair context
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CANDIDATE: ${{ toJSON(matrix.pr) }}
-        run: |
-          python3 "trusted/$SCRIPT" prepare
       - uses: ./trusted/.github/actions/setup-python
       - uses: ./trusted/.github/actions/setup-node
       - name: Install Claude Code
@@ -214,6 +208,7 @@ jobs:
       - name: Repair PR
         working-directory: trusted
         env:
+          CANDIDATE: ${{ toJSON(matrix.pr) }}
           MODEL: ${{ steps.agent.outputs.model }}
           EFFORT: ${{ steps.agent.outputs.effort }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -239,6 +234,8 @@ jobs:
           OTEL_LOG_TOOL_CONTENT: "1"
           OTEL_RESOURCE_ATTRIBUTES: github.run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          mkdir -p "$(dirname "$CONTEXT_PATH")" "$OUT_DIR"
+          printf '%s\n' "$CANDIDATE" > "$CONTEXT_PATH"
           printf -v prompt '/repair "%s" "%s" "%s"' "$GITHUB_WORKSPACE/pr" "$CONTEXT_PATH" "$OUT_DIR"
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"

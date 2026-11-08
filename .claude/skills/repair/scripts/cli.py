@@ -402,16 +402,6 @@ def check_pr(context: dict[str, Any]) -> None:
         raise ValueError("PR changed since discovery")
 
 
-def prepare(args: argparse.Namespace) -> int:
-    context = json.loads(os.environ["CANDIDATE"])
-    check_pr(context)
-    path = Path(os.environ["CONTEXT_PATH"])
-    path.parent.mkdir(parents=True, exist_ok=True)
-    Path(os.environ["OUT_DIR"]).mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(context))
-    return 0
-
-
 def unique_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     result = dict(pairs)
     if len(result) != len(pairs):
@@ -514,7 +504,6 @@ def main() -> int:
     discovery.add_argument("--prs", default=os.environ.get("PR_NUMBERS", ""))
     discovery.set_defaults(func=discover)
     for name, callback in {
-        "prepare": prepare,
         "validate": validate,
         "execute": execute,
     }.items():
