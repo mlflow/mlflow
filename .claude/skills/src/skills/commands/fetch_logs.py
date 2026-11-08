@@ -9,7 +9,6 @@ import re
 import sys
 import tempfile
 import time
-from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -24,12 +23,13 @@ class JobLogs:
     workflow_name: str
     job_name: str
     job_url: str
-    failed_step: str | None
+    failed_steps: list[str]
     raw_log_path: Path
-    failed_step_log_path: Path | None
-    package_versions_path: Path | None
+    failed_step_lines: list[tuple[int, int]]
+    pytest_summary_lines: list[tuple[int, int]]
+    package_versions_lines: list[tuple[int, int]]
+    snapshot_changes_lines: list[tuple[int, int]]
     conclusion: str | None
-    snapshot_changes_path: Path | None = None
 
 
 def log(msg: str) -> None:
@@ -37,6 +37,15 @@ def log(msg: str) -> None:
 
 
 TIMESTAMP_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z ?")
+ANSI_PATTERN = re.compile(r"\x1b\[[0-9;:]*m")
+PYTEST_SECTION_PATTERN = re.compile(r"^={6,} (.+?) ={6,}$")
+
+
+def strip_log_colors(log_path: Path) -> None:
+    raw = log_path.read_text(encoding="utf-8", errors="replace")
+    cleaned = ANSI_PATTERN.sub("", raw)
+    if cleaned != raw:
+        log_path.write_text(cleaned, encoding="utf-8")
 
 
 def to_seconds(ts: str) -> str:
@@ -61,6 +70,7 @@ async def download_raw_log(client: GitHubClient, job: Job) -> Path:
     """Download the full raw log to the cache dir, or return cached path if present."""
     log_path = LOG_CACHE_DIR / str(job.run_id) / f"{job.id}.log"
     if log_path.exists():
+        strip_log_colors(log_path)
         log(f"Using cached raw log at {log_path}")
         return log_path
     log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -72,33 +82,36 @@ async def download_raw_log(client: GitHubClient, job: Job) -> Path:
         with tmp_path.open("wb") as f:
             async for chunk in response.content.iter_chunked(64 * 1024):
                 f.write(chunk)
+    strip_log_colors(tmp_path)
     tmp_path.rename(log_path)
     log(f"Saved raw log to {log_path}")
     return log_path
 
 
-def iter_step_lines(log_path: Path, failed_step: JobStep) -> Iterator[str]:
-    """Yield lines from the saved log file filtered to the failed step's time range."""
+def step_line_range(log_path: Path, failed_step: JobStep) -> tuple[int, int] | None:
+    """Find the inclusive, 1-based range for a failed step in the saved log."""
     if not failed_step.started_at or not failed_step.completed_at:
-        raise ValueError("Failed step missing timestamps")
+        return None
 
     # ISO 8601 timestamps are lexicographically sortable, so we can compare as strings
     start_secs = to_seconds(failed_step.started_at)
     end_secs = to_seconds(failed_step.completed_at)
     in_range = False
+    start_line = None
+    end_line = None
 
     with log_path.open("r", encoding="utf-8", errors="replace") as f:
-        for line in f:
-            line = line.rstrip("\r\n")
+        for line_number, line in enumerate(f, 1):
             if TIMESTAMP_PATTERN.match(line):
                 ts_secs = to_seconds(line)
                 if ts_secs > end_secs:
-                    return  # Past end time, stop reading
+                    break
                 in_range = ts_secs >= start_secs
-                # Use partition so a bare-timestamp line (no trailing content) yields ""
-                _, _, line = line.partition(" ")
             if in_range:
-                yield line
+                if start_line is None:
+                    start_line = line_number
+                end_line = line_number
+    return (start_line, end_line) if start_line is not None and end_line is not None else None
 
 
 PACKAGE_VERSIONS_BEGIN_MARKER = ">>> package versions"
@@ -107,85 +120,43 @@ SNAPSHOT_CHANGES_BEGIN_MARKER = ">>> snapshot changes"
 SNAPSHOT_CHANGES_END_MARKER = "<<< snapshot changes"
 
 
-def extract_package_versions(log_path: Path) -> Path | None:
-    """Save the show-versions action's package list block next to the raw log."""
-    return extract_log_block(
-        log_path,
-        PACKAGE_VERSIONS_BEGIN_MARKER,
-        PACKAGE_VERSIONS_END_MARKER,
-        "package versions",
-        ".package-versions.txt",
-    )
-
-
-def extract_snapshot_changes(log_path: Path) -> Path | None:
-    return extract_log_block(
-        log_path,
-        SNAPSHOT_CHANGES_BEGIN_MARKER,
-        SNAPSHOT_CHANGES_END_MARKER,
-        "snapshot changes",
-        ".snapshot-changes.txt",
-    )
-
-
-def extract_log_block(
-    log_path: Path, begin_marker: str, end_marker: str, label: str, suffix: str
-) -> Path | None:
-    out_path = log_path.with_suffix(suffix)
-    if out_path.exists():
-        log(f"Using cached {label} at {out_path}")
-        return out_path
-
-    captured: list[str] = []
-    capturing = False
-    terminated = False
+def log_block_ranges(log_path: Path, begin_marker: str, end_marker: str) -> list[tuple[int, int]]:
+    ranges = []
+    start_line = None
     with log_path.open("r", encoding="utf-8", errors="replace") as f:
-        for line in f:
-            line = line.rstrip("\r\n")
-            content = TIMESTAMP_PATTERN.sub("", line)
-            if not capturing:
-                if content == begin_marker:
-                    capturing = True
-                continue
-            if content == end_marker:
-                terminated = True
-                break
-            captured.append(content)
-
-    if not terminated or not captured:
-        return None
-    with out_path.open("w", encoding="utf-8") as f:
-        f.write("\n".join(captured) + "\n")
-    log(f"Saved {label} to {out_path}")
-    return out_path
+        for line_number, line in enumerate(f, 1):
+            content = TIMESTAMP_PATTERN.sub("", line.rstrip("\r\n"))
+            if content == begin_marker:
+                start_line = line_number + 1
+            elif content == end_marker and start_line is not None:
+                if start_line < line_number:
+                    ranges.append((start_line, line_number - 1))
+                start_line = None
+    return ranges
 
 
-ANSI_PATTERN = re.compile(r"\x1b\[[0-9;]*m")
-PYTEST_SECTION_PATTERN = re.compile(r"^={6,} (.+?) ={6,}$")
-
-# Pytest sections to skip (not useful for failure analysis)
-PYTEST_SKIP_SECTIONS = {
-    "test session starts",
-    "warnings summary",
-    "per-file durations",
-    "remaining threads",
-}
-
-
-def compact_logs(lines: Iterable[str]) -> str:
-    """Clean logs: strip timestamps, ANSI colors, and filter noisy pytest sections."""
-    result: list[str] = []
-    skip_section = False
-
-    for line in lines:
-        line = ANSI_PATTERN.sub("", line)
-        if match := PYTEST_SECTION_PATTERN.match(line.strip()):
-            section_name = match.group(1).strip().lower()
-            skip_section = any(name in section_name for name in PYTEST_SKIP_SECTIONS)
-        if not skip_section:
-            result.append(line)
-
-    return "\n".join(result)
+def pytest_summary_ranges(log_path: Path) -> list[tuple[int, int]]:
+    ranges = []
+    start_line = None
+    line_number = 0
+    with log_path.open("r", encoding="utf-8", errors="replace") as f:
+        for line_number, line in enumerate(f, 1):
+            content = TIMESTAMP_PATTERN.sub("", line.rstrip("\r\n")).strip()
+            if match := PYTEST_SECTION_PATTERN.match(content):
+                section = match.group(1).strip()
+                is_result = re.search(r"\b\d+ .+ in ", section) is not None
+                if start_line is not None:
+                    # Include the final result banner, but not the next section's header.
+                    end_line = line_number if is_result else line_number - 1
+                    ranges.append((start_line, end_line))
+                    start_line = None
+                elif is_result:
+                    ranges.append((line_number, line_number))
+                if section == "short test summary info":
+                    start_line = line_number
+    if start_line is not None:
+        ranges.append((start_line, line_number))
+    return ranges
 
 
 PR_URL_PATTERN = re.compile(r"github\.com/([^/]+/[^/]+)/pull/(\d+)")
@@ -256,38 +227,30 @@ async def resolve_urls(client: GitHubClient, urls: list[str]) -> list[Job]:
     return jobs
 
 
-def extract_failed_step_log(raw_log_path: Path, failed_step: JobStep) -> Path:
-    out_path = raw_log_path.with_suffix(".failed-step.log")
-    if out_path.exists():
-        log(f"Using cached failed-step log at {out_path}")
-        return out_path
-    cleaned = compact_logs(iter_step_lines(raw_log_path, failed_step))
-    out_path.write_text(cleaned, encoding="utf-8")
-    log(f"Saved failed-step log to {out_path}")
-    return out_path
-
-
 async def fetch_single_job_logs(client: GitHubClient, job: Job) -> JobLogs:
     log(f"Fetching logs for '{job.workflow_name} / {job.name}'")
     raw_log_path = await download_raw_log(client, job)
-    package_versions_path = extract_package_versions(raw_log_path)
-    snapshot_changes_path = extract_snapshot_changes(raw_log_path)
-
-    failed_step = next((s for s in job.steps if s.conclusion == "failure"), None)
-    failed_step_log_path = (
-        extract_failed_step_log(raw_log_path, failed_step) if failed_step else None
-    )
+    failed_steps = [s for s in job.steps if s.conclusion == "failure"]
 
     return JobLogs(
         workflow_name=job.workflow_name,
         job_name=job.name,
         job_url=job.html_url,
-        failed_step=failed_step.name if failed_step else None,
+        failed_steps=[s.name for s in failed_steps],
         raw_log_path=raw_log_path,
-        failed_step_log_path=failed_step_log_path,
-        package_versions_path=package_versions_path,
+        failed_step_lines=[
+            line_range
+            for step in failed_steps
+            if (line_range := step_line_range(raw_log_path, step)) is not None
+        ],
+        pytest_summary_lines=pytest_summary_ranges(raw_log_path),
+        package_versions_lines=log_block_ranges(
+            raw_log_path, PACKAGE_VERSIONS_BEGIN_MARKER, PACKAGE_VERSIONS_END_MARKER
+        ),
+        snapshot_changes_lines=log_block_ranges(
+            raw_log_path, SNAPSHOT_CHANGES_BEGIN_MARKER, SNAPSHOT_CHANGES_END_MARKER
+        ),
         conclusion=job.conclusion,
-        snapshot_changes_path=snapshot_changes_path,
     )
 
 
@@ -296,17 +259,19 @@ def format_job_output(job: JobLogs) -> str:
         f"## {job.workflow_name} / {job.job_name}",
         f"URL: {job.job_url}",
     ]
-    if job.failed_step:
-        parts.append(f"Failed step: {job.failed_step}")
+    if job.failed_steps:
+        parts.append(f"Failed steps: {', '.join(job.failed_steps)}")
     else:
         parts.append(f"Conclusion: {job.conclusion} (no failed step recorded)")
     parts.append(f"Raw log: {job.raw_log_path}")
-    if job.failed_step_log_path:
-        parts.append(f"Failed step log: {job.failed_step_log_path}")
-    if job.package_versions_path:
-        parts.append(f"Package versions: {job.package_versions_path}")
-    if job.snapshot_changes_path:
-        parts.append(f"Snapshot changes: {job.snapshot_changes_path}")
+    for label, ranges in [
+        ("Failed step lines", job.failed_step_lines),
+        ("Pytest summary lines", job.pytest_summary_lines),
+        ("Package versions lines", job.package_versions_lines),
+        ("Snapshot changes lines", job.snapshot_changes_lines),
+    ]:
+        if ranges:
+            parts.append(f"{label}: {', '.join(f'{start}-{end}' for start, end in ranges)}")
     return "\n".join(parts)
 
 
