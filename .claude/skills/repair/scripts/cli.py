@@ -485,18 +485,15 @@ def main() -> int:
     discovery = commands.add_parser("discover", help="Select PRs without unfinished CI jobs")
     discovery.add_argument("--prs", default=os.environ.get("PR_NUMBERS", ""))
     discovery.set_defaults(func=discover)
-    plan_args = argparse.ArgumentParser(add_help=False)
-    plan_args.add_argument("--payload", dest="payload_path", type=Path, required=True)
-    plan_args.add_argument("--context", dest="context_path", type=Path, required=True)
-    for name, callback in {"validate": validate, "execute": execute}.items():
-        subcommand = commands.add_parser(
-            name, parents=[plan_args], help=f"{name.capitalize()} a repair payload"
-        )
-        if name == "execute":
-            subcommand.add_argument(
-                "--dry-run", action=argparse.BooleanOptionalAction, default=True
-            )
-        subcommand.set_defaults(func=callback)
+    validation = commands.add_parser("validate", help="Validate a repair payload")
+    validation.add_argument("--payload", dest="payload_path", type=Path, required=True)
+    validation.add_argument("--context", dest="context_path", type=Path, required=True)
+    validation.set_defaults(func=validate)
+    execution = commands.add_parser("execute", help="Execute a repair payload")
+    execution.add_argument("--payload", dest="payload_path", type=Path, required=True)
+    execution.add_argument("--context", dest="context_path", type=Path, required=True)
+    execution.add_argument("--dry-run", action=argparse.BooleanOptionalAction, default=True)
+    execution.set_defaults(func=execute)
     args = parser.parse_args()
     handler: Callable[[argparse.Namespace], int] = args.func
     try:
