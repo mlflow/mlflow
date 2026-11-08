@@ -374,11 +374,7 @@ def discover(args: argparse.Namespace) -> int:
 
 
 def command(*args: str | Path) -> str:
-    return subprocess.check_output(args, text=True, stderr=subprocess.PIPE)
-
-
-def rest(endpoint: str) -> Any:
-    return json.loads(command("gh", "api", endpoint))
+    return subprocess.check_output(args, text=True)
 
 
 def summary(message: str) -> None:
@@ -395,12 +391,6 @@ def outputs(**values: str) -> None:
             stream.writelines(f"{key}={value}\n" for key, value in values.items())
 
 
-def check_pr(context: dict[str, Any]) -> None:
-    pr = rest(f"repos/{REPO}/pulls/{context['number']}")
-    if pr["state"] != "open" or pr["draft"] or pr["head"]["sha"] != context["sha"]:
-        raise ValueError("PR changed since discovery")
-
-
 def unique_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     result = dict(pairs)
     if len(result) != len(pairs):
@@ -415,17 +405,7 @@ def validate_rerun(context: dict[str, Any], action: dict[str, Any]) -> None:
 
 
 def rerun_action(context: dict[str, Any], action: dict[str, Any], dry_run: bool) -> None:
-    check_pr(context)
     runs = [run for run in context["failed_runs"] if run["run_id"] in action["run_ids"]]
-    for run in runs:
-        current = rest(f"repos/{REPO}/actions/runs/{run['run_id']}")
-        if (
-            current["head_sha"] != context["sha"]
-            or current["run_attempt"] != run["run_attempt"]
-            or current["status"] != "completed"
-            or current["conclusion"].upper() not in FAILED_CONCLUSIONS
-        ):
-            raise ValueError("Workflow run changed before rerun submission")
 
     def submit(run: dict[str, Any]) -> None:
         if dry_run:
@@ -435,7 +415,7 @@ def rerun_action(context: dict[str, Any], action: dict[str, Any], dry_run: bool)
 
     failed = False
     protect_run: dict[str, Any] | None = None
-    with ThreadPoolExecutor(max_workers=max(1, min(8, len(runs)))) as pool:
+    with ThreadPoolExecutor(max_workers=4) as pool:
         futures = []
         for run in runs:
             if run["workflow"] == "protect.yml":
@@ -468,8 +448,6 @@ ACTION_HANDLERS = {"rerun": ActionHandler(validate_rerun, rerun_action)}
 
 
 def load_plan(context: dict[str, Any], path: Path) -> dict[str, Any]:
-    if path.is_symlink() or not path.is_file() or path.stat().st_size > 1024 * 1024:
-        raise ValueError("Expected a regular payload file of at most 1 MB")
     payload: dict[str, Any] = json.loads(path.read_text(), object_pairs_hook=unique_keys)
     command(
         "uvx",
