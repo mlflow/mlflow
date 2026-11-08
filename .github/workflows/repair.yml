@@ -241,7 +241,16 @@ jobs:
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
           trap 'echo "::$token::"' EXIT
-          timeout --kill-after=10s 30m claude --model "$MODEL" --effort "$EFFORT" --max-budget-usd 5 --permission-mode auto --disallowed-tools "WebSearch,WebFetch" --print --verbose --output-format stream-json "$prompt" | .claude/scripts/stream.sh
+          timeout --kill-after=10s 30m claude \
+            --model "$MODEL" \
+            --effort "$EFFORT" \
+            --max-budget-usd 5 \
+            --permission-mode auto \
+            --disallowed-tools "WebSearch,WebFetch" \
+            --print \
+            --verbose \
+            --output-format stream-json \
+            "$prompt" | .claude/scripts/stream.sh
       - name: Stop proxies
         if: always()
         run: |
