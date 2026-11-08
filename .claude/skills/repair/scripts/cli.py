@@ -425,6 +425,7 @@ def rerun_action(context: dict[str, Any], action: dict[str, Any], dry_run: bool)
             except subprocess.CalledProcessError as error:
                 sys.stderr.write((error.stderr or str(error)) + "\n")
                 failed = True
+    # Submit Protect last so it sees the new attempts instead of the previous failures.
     if protect_run is not None:
         try:
             submit(protect_run)
