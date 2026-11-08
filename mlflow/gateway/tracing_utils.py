@@ -321,6 +321,7 @@ def aggregate_chat_stream_chunks(chunks: list[StreamResponsePayload]) -> dict[st
                     "content_parts": [],
                     "tool_calls": [],
                     "current_tool_call_by_index": {},
+                    "tool_calls_by_id": {},
                     "finish_reason": None,
                 },
             )
@@ -332,16 +333,20 @@ def aggregate_chat_stream_chunks(chunks: list[StreamResponsePayload]) -> dict[st
             if choice.finish_reason:
                 state["finish_reason"] = choice.finish_reason
             if delta.tool_calls:
+                calls_by_id = state["tool_calls_by_id"]
+                current_call_by_index = state["current_tool_call_by_index"]
                 for tc_delta in delta.tool_calls:
-                    tc = state["current_tool_call_by_index"].get(tc_delta.index)
                     # Some OpenAI-compatible providers (e.g. Gemini) send parallel tool calls
-                    # with the same index, so a new id at a known index starts a new call.
+                    # with the same index, so a known id resumes its call and a new id at a
+                    # known index starts a new one.
+                    tc = calls_by_id.get(tc_delta.id) or current_call_by_index.get(tc_delta.index)
                     if tc is None or (tc_delta.id and tc["id"] and tc_delta.id != tc["id"]):
                         tc = {"id": None, "type": "function", "name": "", "arguments": ""}
                         state["tool_calls"].append(tc)
-                        state["current_tool_call_by_index"][tc_delta.index] = tc
+                    current_call_by_index[tc_delta.index] = tc
                     if tc_delta.id:
                         tc["id"] = tc_delta.id
+                        calls_by_id[tc_delta.id] = tc
                     if tc_delta.type:
                         tc["type"] = tc_delta.type
                     if tc_delta.function:
