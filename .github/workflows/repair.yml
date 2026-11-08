@@ -97,6 +97,7 @@ jobs:
     concurrency:
       group: repair-pr-${{ matrix.pr.number }}
       cancel-in-progress: false
+      queue: max
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
