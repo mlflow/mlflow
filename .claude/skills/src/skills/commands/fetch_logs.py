@@ -38,7 +38,7 @@ def log(msg: str) -> None:
 
 TIMESTAMP_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z ?")
 ANSI_PATTERN = re.compile(r"\x1b\[[0-9;:]*m")
-PYTEST_SECTION_PATTERN = re.compile(r"^={6,} (.+?) ={6,}$")
+PYTEST_SECTION_PATTERN = re.compile(r"^=+ (.+?) =+$")
 
 
 def strip_log_colors(log_path: Path) -> None:
@@ -144,7 +144,7 @@ def pytest_summary_ranges(log_path: Path) -> list[tuple[int, int]]:
             content = TIMESTAMP_PATTERN.sub("", line.rstrip("\r\n")).strip()
             if match := PYTEST_SECTION_PATTERN.match(content):
                 section = match.group(1).strip()
-                is_result = re.search(r"\b\d+ .+ in ", section) is not None
+                is_result = re.search(r"\b(?:\d+ .+|no tests ran) in ", section) is not None
                 if start_line is not None:
                     # Include the final result banner, but not the next section's header.
                     end_line = line_number if is_result else line_number - 1

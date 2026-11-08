@@ -207,7 +207,19 @@ def test_log_block_ranges(tmp_path: Path, text: str, expected: list[tuple[int, i
         ("", []),
         ("====== test session starts ======\nnoise\n", []),
         ("====== 42 passed in 12.34s ======\ncleanup\n", [(1, 1)]),
+        ("====== no tests ran in 0.01s ======\ncleanup\n", [(1, 1)]),
+        (
+            "= 1 failed, 2 passed, 3 skipped, 4 xfailed, 5 xpassed, 6 warnings in 1.00s =\n"
+            "cleanup\n",
+            [(1, 1)],
+        ),
         ("====== short test summary info ======\nFAILED test\n", [(1, 2)]),
+        (
+            "====== short test summary info ======\nFAILED test\n"
+            "= 1 failed, 2 passed, 3 skipped, 4 xfailed, 5 xpassed, 6 warnings in 1.00s =\n"
+            "cleanup\n",
+            [(1, 3)],
+        ),
         (
             "====== short test summary info ======\nFAILED first\n"
             "====== 1 failed in 1s ======\nnoise\n"
