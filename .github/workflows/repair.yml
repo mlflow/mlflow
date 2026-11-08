@@ -86,7 +86,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   repair:
-    name: "PR #${{ matrix.pr.number }}"
+    name: "pr-${{ matrix.pr.number }}"
     needs: discover
     if: needs.discover.outputs.candidates != '' && needs.discover.outputs.candidates != '[]'
     strategy:

@@ -1,5 +1,4 @@
 import argparse
-import html
 import json
 import os
 import re
@@ -472,7 +471,9 @@ def validate(args: argparse.Namespace) -> int:
 def execute(args: argparse.Namespace) -> int:
     context = json.loads(args.context_path.read_text())
     payload = load_plan(context, args.payload_path)
-    write_step_summary(f"### Repair PR #{context['number']}\n{html.escape(payload['summary'])}")
+    write_step_summary(
+        f"### Repair PR #{context['number']}\n\n```json\n{json.dumps(payload, indent=2)}\n```"
+    )
     for action in payload["actions"]:
         ACTION_HANDLERS[action["type"]].execute(context, action, args.dry_run)
     return 0
