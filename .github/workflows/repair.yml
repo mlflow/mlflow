@@ -55,6 +55,13 @@ jobs:
         run: |
           candidates=$(python3 "$RUNNER_TEMP/cli.py" discover | jq -c '.[:10]')
           echo "candidates=$candidates" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Repair candidates"
+            echo
+            echo '```json'
+            jq . <<< "$candidates"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
   rerun:
     name: "PR #${{ matrix.pr.number }}"
