@@ -47,9 +47,10 @@ Use `actions: []` when no supported action would help or the evidence is insuffi
 Explain the decision in `summary`.
 
 Keep `summary` to one or two sentences describing the diagnosis and proposed actions.
-Validate the payload schema before finishing:
+Validate the payload from the trusted checkout before finishing:
 
 ```bash
-uvx check-jsonschema@0.37.4 \
-  --schemafile .claude/skills/repair/payload.schema.yml "$out_dir/payload.json"
+CANDIDATE="$(cat "$context_path")" \
+OUT_DIR="$out_dir" \
+python .claude/skills/repair/scripts/cli.py validate
 ```
