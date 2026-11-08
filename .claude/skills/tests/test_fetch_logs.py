@@ -81,7 +81,6 @@ async def test_fetch_single_job_logs(tmp_path: Path, job: Job) -> None:
     assert format_job_output(logs) == (
         "## Cross-version tests / Python 3.11\n"
         "URL: https://github.com/mlflow/mlflow/actions/runs/123/job/456\n"
-        "Failed steps: Run tests, Run additional tests\n"
         f"Raw log: {raw_log_path}\n"
         "Failed step lines: 8-11, 13-15\n"
         "Pytest summary lines: 9-11, 13-15\n"
@@ -119,8 +118,8 @@ async def test_download_raw_log_strips_colors_across_chunks(tmp_path: Path, job:
 @pytest.mark.parametrize(
     ("failed_steps", "expected"),
     [
-        (False, "Conclusion: failure (no failed step recorded)"),
-        (True, "Failed steps: Run tests, Run additional tests"),
+        (False, "Conclusion: failure (no failed step recorded)\n"),
+        (True, ""),
     ],
 )
 @pytest.mark.asyncio
@@ -145,7 +144,7 @@ async def test_fetch_single_job_logs_without_sections(
     assert format_job_output(logs) == (
         "## Cross-version tests / Python 3.11\n"
         "URL: https://github.com/mlflow/mlflow/actions/runs/123/job/456\n"
-        f"{expected}\n"
+        f"{expected}"
         f"Raw log: {raw_log_path}"
     )
 

@@ -23,7 +23,7 @@ class JobLogs:
     workflow_name: str
     job_name: str
     job_url: str
-    failed_steps: list[str]
+    has_failed_steps: bool
     raw_log_path: Path
     failed_step_lines: list[tuple[int, int]]
     pytest_summary_lines: list[tuple[int, int]]
@@ -236,7 +236,7 @@ async def fetch_single_job_logs(client: GitHubClient, job: Job) -> JobLogs:
         workflow_name=job.workflow_name,
         job_name=job.name,
         job_url=job.html_url,
-        failed_steps=[s.name for s in failed_steps],
+        has_failed_steps=bool(failed_steps),
         raw_log_path=raw_log_path,
         failed_step_lines=[
             line_range
@@ -259,9 +259,7 @@ def format_job_output(job: JobLogs) -> str:
         f"## {job.workflow_name} / {job.job_name}",
         f"URL: {job.job_url}",
     ]
-    if job.failed_steps:
-        parts.append(f"Failed steps: {', '.join(job.failed_steps)}")
-    else:
+    if not job.has_failed_steps:
         parts.append(f"Conclusion: {job.conclusion} (no failed step recorded)")
     parts.append(f"Raw log: {job.raw_log_path}")
     for label, ranges in [

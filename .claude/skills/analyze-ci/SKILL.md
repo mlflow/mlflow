@@ -30,7 +30,6 @@ If no URLs are listed above, ask for a job, run, or PR URL and stop. `fetch-logs
    ```text
    ## Cross-version tests / Python 3.11
    URL: https://github.com/mlflow/mlflow/actions/runs/123/job/456
-   Failed steps: Run tests, Run additional tests
    Raw log: /tmp/fetch-logs/123/456.log
    Failed step lines: 850-1620, 1800-2100
    Pytest summary lines: 1580-1618, 2060-2098
@@ -53,14 +52,13 @@ If no URLs are listed above, ask for a job, run, or PR URL and stop. `fetch-logs
 
    - `## <workflow name> / <job name>`
    - `URL: <job_url>`
-   - `Failed steps: <step names separated by commas>` (if present)
    - `Raw log: <raw_log_path>`
    - `Failed step lines: <ranges>` (if present)
    - `Pytest summary lines: <ranges>` (if present)
    - `Package versions lines: <ranges>` (if present)
    - `Snapshot changes lines: <ranges>` (if present)
 
-   Preserve the `Raw log:` path and all reported ranges verbatim from step 1 so downstream agents can inspect the same evidence. If no failed step is recorded, preserve the `Conclusion:` field instead of `Failed steps:`.
+   Preserve the `Raw log:` path and all reported ranges verbatim from step 1 so downstream agents can inspect the same evidence. If no failed step is recorded, preserve the `Conclusion:` field too.
 
 ## Invocation examples
 
