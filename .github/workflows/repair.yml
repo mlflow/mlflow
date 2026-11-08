@@ -94,6 +94,9 @@ jobs:
   repair:
     needs: discover
     if: needs.discover.outputs.is_empty == 'false'
+    concurrency:
+      group: repair-pr-${{ matrix.pr.number }}
+      cancel-in-progress: false
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
@@ -215,7 +218,27 @@ jobs:
           echo "model=$MODEL" >> "$GITHUB_OUTPUT"
           echo "effort=$EFFORT" >> "$GITHUB_OUTPUT"
           echo "Agent model: \`$MODEL\`, effort: \`$EFFORT\`" >> "$GITHUB_STEP_SUMMARY"
+      # Keep comment-write access out of the agent's read-only token.
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        id: ledger-token
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: mlflow
+          repositories: mlflow
+          permission-pull-requests: write
+      - name: Reserve repair invocation
+        id: reserve
+        working-directory: trusted
+        env:
+          GH_TOKEN: ${{ steps.ledger-token.outputs.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python "$SCRIPT" reserve \
+            --context "$CONTEXT_PATH" \
+            --run-url "$RUN_URL"
       - name: Repair PR
+        if: steps.reserve.outputs.reserved == 'true'
         working-directory: trusted
         env:
           MODEL: ${{ steps.agent.outputs.model }}
@@ -270,6 +293,7 @@ jobs:
             fi
           done
       - name: Validate repair plan
+        if: steps.reserve.outputs.reserved == 'true'
         id: validate
         working-directory: trusted
         run: |
@@ -286,6 +310,7 @@ jobs:
           repositories: mlflow
           permission-actions: write
       - name: Execute or preview repair plan
+        if: steps.reserve.outputs.reserved == 'true'
         working-directory: trusted
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
