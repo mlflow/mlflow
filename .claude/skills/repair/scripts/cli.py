@@ -409,18 +409,6 @@ def prepare(args: argparse.Namespace) -> int:
     path = Path(os.environ["CONTEXT_PATH"])
     path.parent.mkdir(parents=True, exist_ok=True)
     Path(os.environ["OUT_DIR"]).mkdir(parents=True, exist_ok=True)
-    logs = path.parent / "logs"
-    logs.mkdir()
-    for run in context["failed_runs"]:
-        for job in run["job_runs"]:
-            job_id = int(job["id"])
-            log_path = logs / f"{job_id}.log"
-            try:
-                content = command("gh", "api", f"repos/{REPO}/actions/jobs/{job_id}/logs")
-            except subprocess.CalledProcessError as error:
-                content = f"Could not fetch job log: {error.stderr or error}\n"
-            log_path.write_text(content[-200_000:])
-            job["log_path"] = str(log_path)
     path.write_text(json.dumps(context))
     outputs(context_hash=hashlib.sha256(path.read_bytes()).hexdigest())
     return 0
