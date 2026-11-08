@@ -11,7 +11,7 @@ properties:
     pattern: '\S'
   actions:
     type: array
-    maxItems: 2
+    maxItems: 1
     items:
       oneOf:
         - type: object
@@ -27,25 +27,3 @@ properties:
               items:
                 type: integer
                 minimum: 1
-        - type: object
-          additionalProperties: false
-          required: [type]
-          properties:
-            type:
-              const: sync-base
-        - type: object
-          additionalProperties: false
-          required: [type, path]
-          properties:
-            type:
-              const: fix-ci
-            path:
-              const: fix.patch
-        - type: object
-          additionalProperties: false
-          required: [type, path]
-          properties:
-            type:
-              const: resolve-conflicts
-            path:
-              const: fix.patch

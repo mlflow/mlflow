@@ -42,7 +42,6 @@ env:
   TRUSTED_REF: ${{ github.sha }}
   CONTEXT_PATH: /tmp/repair-context/context.json
   OUT_DIR: /tmp/repair-out
-  RESULT_DIR: /tmp/repair-result
   SCRIPT: .claude/skills/repair/scripts/cli.py
 
 jobs:
@@ -113,14 +112,12 @@ jobs:
             with:
               ref: ${{ matrix.pr.sha }}
               path: pr
-              fetch-depth: 0
               persist-credentials: false
       - name: Prepare repair context
         id: prepare
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CANDIDATE: ${{ toJSON(matrix.pr) }}
-          PR_CHECKOUT: ${{ github.workspace }}/pr
         run: python3 "trusted/$SCRIPT" prepare
       - uses: ./trusted/.github/actions/setup-python
       - uses: ./trusted/.github/actions/setup-node
@@ -258,8 +255,6 @@ jobs:
         id: validate
         working-directory: trusted
         env:
-          PR_CHECKOUT: ${{ github.workspace }}/pr
-          REUSE_CHECKOUT: "true"
           EXPECTED_CONTEXT_HASH: ${{ steps.prepare.outputs.context_hash }}
         run: python "$SCRIPT" validate
       - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
@@ -271,22 +266,9 @@ jobs:
           owner: mlflow
           repositories: mlflow
           permission-actions: write
-          permission-contents: write
-          permission-workflows: ${{ steps.validate.outputs.workflow_changes == 'true' && 'write' || '' }}
-          permission-pull-requests: write
-      - name: Publish or preview repair
-        id: publish
+      - name: Execute or preview repair plan
         working-directory: trusted
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
-          PR_CHECKOUT: ${{ github.workspace }}/pr
-          GIT_TERMINAL_PROMPT: "0"
-        run: python "$SCRIPT" publish
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: steps.publish.outcome == 'success' && env.DRY_RUN != 'true'
-        with:
-          name: repair-result-${{ matrix.pr.number }}-${{ steps.validate.outputs.context_key }}
-          path: ${{ env.RESULT_DIR }}/result.json
-          if-no-files-found: error
-          overwrite: true
-          retention-days: 3
+          EXPECTED_CONTEXT_HASH: ${{ steps.prepare.outputs.context_hash }}
+        run: python "$SCRIPT" execute
