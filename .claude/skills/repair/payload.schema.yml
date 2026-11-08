@@ -15,6 +15,9 @@ properties:
     items:
       oneOf:
         - type: object
+          description: >-
+            Rerun failed jobs for captured workflow runs with transient failures.
+            One action can include multiple runs.
           additionalProperties: false
           required: [type, run_ids]
           properties:
