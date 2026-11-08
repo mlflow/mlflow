@@ -434,22 +434,26 @@ def rerun_action(context: dict[str, Any], action: dict[str, Any], dry_run: bool)
             command("gh", "run", "rerun", str(run["run_id"]), "--repo", REPO, "--failed")
 
     failed = False
-    ordinary = [run for run in runs if run["workflow"] != "protect.yml"]
-    with ThreadPoolExecutor(max_workers=max(1, min(8, len(ordinary)))) as pool:
-        futures = [pool.submit(submit, run) for run in ordinary]
+    protect_run: dict[str, Any] | None = None
+    with ThreadPoolExecutor(max_workers=max(1, min(8, len(runs)))) as pool:
+        futures = []
+        for run in runs:
+            if run["workflow"] == "protect.yml":
+                protect_run = run
+            else:
+                futures.append(pool.submit(submit, run))
         for future in futures:
             try:
                 future.result()
             except subprocess.CalledProcessError as error:
                 sys.stderr.write((error.stderr or str(error)) + "\n")
                 failed = True
-    for run in runs:
-        if run["workflow"] == "protect.yml":
-            try:
-                submit(run)
-            except subprocess.CalledProcessError as error:
-                sys.stderr.write((error.stderr or str(error)) + "\n")
-                failed = True
+    if protect_run is not None:
+        try:
+            submit(protect_run)
+        except subprocess.CalledProcessError as error:
+            sys.stderr.write((error.stderr or str(error)) + "\n")
+            failed = True
     if failed:
         raise ValueError("One or more rerun submissions failed")
 
