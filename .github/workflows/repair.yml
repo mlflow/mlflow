@@ -59,7 +59,8 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && !inputs.dry_run
         env:
           EXPECTED_REF: refs/heads/${{ github.event.repository.default_branch }}
-        run: test "$GITHUB_REF" = "$EXPECTED_REF"
+        run: |
+          test "$GITHUB_REF" = "$EXPECTED_REF"
       - name: Fetch repair script
         run: |
           curl -fsSL --retry 3 --connect-timeout 10 --max-time 30 \
@@ -117,7 +118,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CANDIDATE: ${{ toJSON(matrix.pr) }}
-        run: python3 "trusted/$SCRIPT" prepare
+        run: |
+          python3 "trusted/$SCRIPT" prepare
       - uses: ./trusted/.github/actions/setup-python
       - uses: ./trusted/.github/actions/setup-node
       - name: Install Claude Code
@@ -264,7 +266,8 @@ jobs:
         working-directory: trusted
         env:
           CANDIDATE: ${{ toJSON(matrix.pr) }}
-        run: python "$SCRIPT" validate
+        run: |
+          python "$SCRIPT" validate
       - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         if: steps.validate.outputs.has_actions == 'true' && env.DRY_RUN != 'true'
         id: app-token
@@ -279,4 +282,5 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
           CANDIDATE: ${{ toJSON(matrix.pr) }}
-        run: python "$SCRIPT" execute
+        run: |
+          python "$SCRIPT" execute
