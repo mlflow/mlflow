@@ -633,6 +633,36 @@ def test_delete_mcp_server_cascades_to_endpoints(store):
     assert len(result) == 0
 
 
+def test_delete_mcp_server_locks_versions_before_deleting_aliases_and_endpoints(store):
+    name = "io.github.test/server1"
+    _setup_server(store, name, versions=("1.0.0", "2.0.0"), aliases={"stable": "1.0.0"})
+    store.create_mcp_access_endpoint(name, "https://direct.example.com", server_version="2.0.0")
+    store.create_mcp_access_endpoint(name, "https://alias.example.com", server_alias="stable")
+    writes = []
+
+    def record_write(conn, cursor, statement, parameters, context, executemany):
+        words = statement.split()
+        if words[0].upper() == "UPDATE":
+            writes.append(("UPDATE", words[1].strip('"`[]').lower()))
+        elif words[0].upper() == "DELETE":
+            writes.append(("DELETE", words[2].strip('"`[]').lower()))
+
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", record_write)
+    try:
+        store.delete_mcp_server(name)
+    finally:
+        sqlalchemy.event.remove(store.engine, "before_cursor_execute", record_write)
+
+    tables = [table for _, table in writes]
+    assert writes[0] == ("UPDATE", "mcp_server_versions")
+    assert tables.index("mcp_server_aliases") < tables.index("mcp_access_endpoints")
+    assert tables.index("mcp_access_endpoints") < tables.index("mcp_servers")
+    assert _get_alias_rows(store, name) == []
+    with store.ManagedSessionMaker() as session:
+        assert session.query(SqlMCPAccessEndpoint).filter_by(server_name=name).count() == 0
+        assert session.query(SqlMCPServerVersion).filter_by(name=name).count() == 0
+
+
 def test_delete_mcp_server_with_active_version_raises(store):
     store.create_mcp_server_version(
         _server_json("io.github.test/delete-active-server", "1.0.0"),
@@ -1248,6 +1278,26 @@ def test_update_mcp_server_version_deleted_raises(store):
     assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
 
 
+def test_update_mcp_server_version_to_deleted_cleans_up_aliases_and_endpoints(store):
+    name = "io.github.test/server"
+    _setup_server(store, name, versions=("1.0.0", "2.0.0"))
+    store.set_mcp_server_alias(name, "stable", "1.0.0")
+    store.set_mcp_server_alias(name, "next", "2.0.0")
+    store.create_mcp_access_endpoint(name, "https://direct.example.com", server_version="1.0.0")
+    store.create_mcp_access_endpoint(name, "https://alias.example.com", server_alias="stable")
+    store.create_mcp_access_endpoint(name, "https://next.example.com", server_alias="next")
+
+    sv = store.update_mcp_server_version(name, "1.0.0", status=MCPStatus.DELETED)
+
+    assert sv.status == MCPStatus.DELETED
+    assert _get_version_status(store, name, "1.0.0") == MCPStatus.DELETED.value
+    assert _get_alias_rows(store, name) == [("next", "2.0.0")]
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_mcp_server_version_by_alias(name, "stable")
+    endpoints = store.search_mcp_access_endpoints(server_name=name)
+    assert [endpoint.url for endpoint in endpoints] == ["https://next.example.com"]
+
+
 def test_create_mcp_server_version_with_connect_options(store):
     sv = store.create_mcp_server_version(
         _server_json(),
@@ -1721,6 +1771,56 @@ def test_concurrent_delete_mcp_server_version_returns_conflict(store):
     )
 
     assert sorted(results) == ["RESOURCE_CONFLICT", "SUCCESS"]
+    assert _get_version_status(store, name, "1.0.0") == MCPStatus.DELETED.value
+
+
+def test_concurrent_update_and_delete_mcp_server_version_returns_conflict(store):
+    name = "io.github.test/server"
+    store.create_mcp_server_version(_server_json(name, "1.0.0"))
+
+    results = _run_after_concurrent_version_reads(
+        store,
+        [
+            lambda: store.update_mcp_server_version(name, "1.0.0", status=MCPStatus.ACTIVE),
+            lambda: store.delete_mcp_server_version(name, "1.0.0"),
+        ],
+    )
+
+    # Whichever write lands second sees the status it validated has changed, so the
+    # update can never move a deleted version back to ACTIVE.
+    assert sorted(results) == ["RESOURCE_CONFLICT", "SUCCESS"]
+    expected_status = MCPStatus.ACTIVE if results[0] == "SUCCESS" else MCPStatus.DELETED
+    assert _get_version_status(store, name, "1.0.0") == expected_status.value
+
+
+def test_update_mcp_server_version_status_conflict_does_not_overwrite_delete(store):
+    name = "io.github.test/server"
+    store.create_mcp_server_version(_server_json(name, "1.0.0"))
+    update_thread_id = threading.get_ident()
+    deleted = False
+
+    def delete_before_status_write(conn, cursor, statement, parameters, context, executemany):
+        # Delete the version from another thread after update_mcp_server_version has read
+        # and validated its status, right before the update writes the new status.
+        nonlocal deleted
+        if (
+            not deleted
+            and threading.get_ident() == update_thread_id
+            and statement.lstrip().upper().startswith("UPDATE MCP_SERVER_VERSIONS")
+        ):
+            deleted = True
+            thread = threading.Thread(target=store.delete_mcp_server_version, args=(name, "1.0.0"))
+            thread.start()
+            thread.join(timeout=30)
+
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", delete_before_status_write)
+    try:
+        with pytest.raises(MlflowException, match="changed while being updated") as exc:
+            store.update_mcp_server_version(name, "1.0.0", status=MCPStatus.ACTIVE)
+    finally:
+        sqlalchemy.event.remove(store.engine, "before_cursor_execute", delete_before_status_write)
+
+    assert exc.value.error_code == "RESOURCE_CONFLICT"
     assert _get_version_status(store, name, "1.0.0") == MCPStatus.DELETED.value
 
 

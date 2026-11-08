@@ -252,6 +252,23 @@ class SqlAlchemyMCPServerRegistryMixin:
     def delete_mcp_server(self, name: str) -> None:
         with self.ManagedSessionMaker(read_only=False) as session:
             server = self._get_entity_or_raise(session, SqlMCPServer, {"name": name}, "MCPServer")
+            # Lock the server's version rows before touching aliases or endpoints, so this
+            # takes locks in the same order as the version and alias write paths: versions,
+            # then aliases, then endpoints. Left to the ORM cascade, the delete would remove
+            # endpoints, then aliases, then versions, and could deadlock against them. The
+            # no-op UPDATE takes the row locks on every backend and starts the write
+            # transaction on SQLite.
+            (
+                self
+                ._get_query(session, SqlMCPServerVersion)
+                .filter(SqlMCPServerVersion.name == name)
+                .update(
+                    {SqlMCPServerVersion.status: SqlMCPServerVersion.status},
+                    synchronize_session=False,
+                )
+            )
+            # A locking read, so MySQL's REPEATABLE READ sees the current status rather than
+            # the snapshot taken by the read above.
             active_version = (
                 self
                 ._get_query(session, SqlMCPServerVersion)
@@ -259,6 +276,7 @@ class SqlAlchemyMCPServerRegistryMixin:
                     SqlMCPServerVersion.name == name,
                     SqlMCPServerVersion.status == MCPStatus.ACTIVE.value,
                 )
+                .with_for_update()
                 .first()
             )
             if active_version is not None:
@@ -267,6 +285,18 @@ class SqlAlchemyMCPServerRegistryMixin:
                     f"('{active_version.version}'). Delete or deactivate the active version first.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
+            (
+                self
+                ._get_query(session, SqlMCPServerAlias)
+                .filter(SqlMCPServerAlias.name == name)
+                .delete(synchronize_session=False)
+            )
+            (
+                self
+                ._get_query(session, SqlMCPAccessEndpoint)
+                .filter(SqlMCPAccessEndpoint.server_name == name)
+                .delete(synchronize_session=False)
+            )
             session.delete(server)
 
     # --- MCPServerVersion operations ---
@@ -500,9 +530,39 @@ class SqlAlchemyMCPServerRegistryMixin:
                 raise MlflowException.invalid_parameter_value(
                     "status cannot be null; omit the field to leave it unchanged"
                 )
+            now = get_current_time_millis()
             if status is not NOT_SET:
-                _validate_status_transition(MCPStatus(sv.status), status)
-                sv.status = status.value
+                current_status = MCPStatus(sv.status)
+                _validate_status_transition(current_status, status)
+                # Write the status only if it is still the one validated above, so a
+                # concurrent delete or status change is never overwritten. This also takes
+                # the version row lock before any alias or endpoint is touched.
+                updated = (
+                    self
+                    ._get_query(session, SqlMCPServerVersion)
+                    .filter(
+                        SqlMCPServerVersion.name == name,
+                        SqlMCPServerVersion.version == version,
+                        SqlMCPServerVersion.status == current_status.value,
+                    )
+                    .update(
+                        {
+                            SqlMCPServerVersion.status: status.value,
+                            SqlMCPServerVersion.last_updated_by: last_updated_by,
+                            SqlMCPServerVersion.last_updated_at: now,
+                        },
+                        synchronize_session=False,
+                    )
+                )
+                if updated != 1:
+                    raise MlflowException(
+                        f"MCP server version '{name}' version '{version}' changed while being "
+                        "updated; retry the operation",
+                        error_code=RESOURCE_CONFLICT,
+                    )
+                session.expire(sv, ["status", "last_updated_by", "last_updated_at"])
+                if status is MCPStatus.DELETED:
+                    self._delete_mcp_server_version_aliases_and_endpoints(session, name, version)
             if tools is not NOT_SET:
                 sv.tools = None if tools is None else [t.to_dict() for t in tools]
             if connect_options is not NOT_SET:
@@ -513,12 +573,66 @@ class SqlAlchemyMCPServerRegistryMixin:
                 )
 
             sv.last_updated_by = last_updated_by
-            sv.last_updated_at = get_current_time_millis()
+            sv.last_updated_at = now
             session.add(sv)
             session.flush()
             if status is not NOT_SET:
                 self._delete_latest_alias_endpoints_if_unresolvable(session, name)
             return sv.to_mlflow_entity()
+
+    def _delete_mcp_server_version_aliases_and_endpoints(
+        self, session, name: str, version: str
+    ) -> None:
+        """Delete a version's aliases, their endpoints, and endpoints bound to the version.
+
+        The caller must already have moved the version to DELETED with a conditional UPDATE,
+        which holds the version row lock, so the locks here are taken in the same order as
+        every other write path: versions, then aliases, then endpoints.
+        """
+        alias_query = self._get_query(session, SqlMCPServerAlias).filter(
+            SqlMCPServerAlias.name == name,
+            SqlMCPServerAlias.version == version,
+        )
+        if self.db_type == MYSQL:
+            # Under InnoDB's REPEATABLE READ a plain SELECT is served from the snapshot
+            # taken at the caller's first read, which predates the row lock. A locking read
+            # sees aliases committed by a set_mcp_server_alias call we waited for.
+            alias_query = alias_query.with_for_update()
+        alias_names = [row.alias for row in alias_query.with_entities(SqlMCPServerAlias.alias)]
+        # A concurrent set_mcp_server_alias may have retargeted one of these aliases to
+        # another version since the read above. Only delete an alias, and its endpoints,
+        # if it still points at this version.
+        deleted_alias_names = [
+            alias_name
+            for alias_name in alias_names
+            if self
+            ._get_query(session, SqlMCPServerAlias)
+            .filter(
+                SqlMCPServerAlias.name == name,
+                SqlMCPServerAlias.alias == alias_name,
+                SqlMCPServerAlias.version == version,
+            )
+            .delete(synchronize_session=False)
+        ]
+        if deleted_alias_names:
+            (
+                self
+                ._get_query(session, SqlMCPAccessEndpoint)
+                .filter(
+                    SqlMCPAccessEndpoint.server_name == name,
+                    SqlMCPAccessEndpoint.server_alias.in_(deleted_alias_names),
+                )
+                .delete(synchronize_session=False)
+            )
+        (
+            self
+            ._get_query(session, SqlMCPAccessEndpoint)
+            .filter(
+                SqlMCPAccessEndpoint.server_name == name,
+                SqlMCPAccessEndpoint.server_version == version,
+            )
+            .delete(synchronize_session=False)
+        )
 
     def delete_mcp_server_version(self, name: str, version: str) -> None:
         with self.ManagedSessionMaker(read_only=False) as session:
@@ -570,50 +684,7 @@ class SqlAlchemyMCPServerRegistryMixin:
                     error_code=RESOURCE_CONFLICT,
                 )
             session.expire(sv, ["status", "last_updated_at"])
-            alias_query = self._get_query(session, SqlMCPServerAlias).filter(
-                SqlMCPServerAlias.name == name,
-                SqlMCPServerAlias.version == version,
-            )
-            if self.db_type == MYSQL:
-                # Under InnoDB's REPEATABLE READ a plain SELECT is served from the snapshot
-                # taken at the first read above, which predates the row lock. A locking read
-                # sees aliases committed by a set_mcp_server_alias call we waited for.
-                alias_query = alias_query.with_for_update()
-            alias_names = [row.alias for row in alias_query.with_entities(SqlMCPServerAlias.alias)]
-            # A concurrent set_mcp_server_alias may have retargeted one of these aliases to
-            # another version since the read above. Only delete an alias, and its endpoints,
-            # if it still points at this version.
-            deleted_alias_names = [
-                alias_name
-                for alias_name in alias_names
-                if self
-                ._get_query(session, SqlMCPServerAlias)
-                .filter(
-                    SqlMCPServerAlias.name == name,
-                    SqlMCPServerAlias.alias == alias_name,
-                    SqlMCPServerAlias.version == version,
-                )
-                .delete(synchronize_session=False)
-            ]
-            if deleted_alias_names:
-                (
-                    self
-                    ._get_query(session, SqlMCPAccessEndpoint)
-                    .filter(
-                        SqlMCPAccessEndpoint.server_name == name,
-                        SqlMCPAccessEndpoint.server_alias.in_(deleted_alias_names),
-                    )
-                    .delete(synchronize_session=False)
-                )
-            (
-                self
-                ._get_query(session, SqlMCPAccessEndpoint)
-                .filter(
-                    SqlMCPAccessEndpoint.server_name == name,
-                    SqlMCPAccessEndpoint.server_version == version,
-                )
-                .delete(synchronize_session=False)
-            )
+            self._delete_mcp_server_version_aliases_and_endpoints(session, name, version)
             session.flush()
             self._delete_latest_alias_endpoints_if_unresolvable(session, name)
 
