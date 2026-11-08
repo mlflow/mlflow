@@ -1,5 +1,4 @@
 import argparse
-import hashlib
 import html
 import json
 import os
@@ -410,7 +409,6 @@ def prepare(args: argparse.Namespace) -> int:
     path.parent.mkdir(parents=True, exist_ok=True)
     Path(os.environ["OUT_DIR"]).mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(context))
-    outputs(context_hash=hashlib.sha256(path.read_bytes()).hexdigest())
     return 0
 
 
@@ -477,10 +475,7 @@ ACTION_HANDLERS = {"rerun": ActionHandler(validate_rerun, rerun_action)}
 
 
 def load_plan() -> tuple[dict[str, Any], dict[str, Any]]:
-    raw = Path(os.environ["CONTEXT_PATH"]).read_bytes()
-    if hashlib.sha256(raw).hexdigest() != os.environ["EXPECTED_CONTEXT_HASH"]:
-        raise ValueError("Captured context changed during repair")
-    context = json.loads(raw)
+    context = json.loads(os.environ["CANDIDATE"])
     path = Path(os.environ["OUT_DIR"]) / "payload.json"
     if path.is_symlink() or not path.is_file() or path.stat().st_size > 1024 * 1024:
         raise ValueError("Expected a regular payload file of at most 1 MB")

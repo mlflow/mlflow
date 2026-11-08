@@ -114,7 +114,6 @@ jobs:
               path: pr
               persist-credentials: false
       - name: Prepare repair context
-        id: prepare
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CANDIDATE: ${{ toJSON(matrix.pr) }}
@@ -255,7 +254,7 @@ jobs:
         id: validate
         working-directory: trusted
         env:
-          EXPECTED_CONTEXT_HASH: ${{ steps.prepare.outputs.context_hash }}
+          CANDIDATE: ${{ toJSON(matrix.pr) }}
         run: python "$SCRIPT" validate
       - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         if: steps.validate.outputs.has_actions == 'true' && env.DRY_RUN != 'true'
@@ -270,5 +269,5 @@ jobs:
         working-directory: trusted
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
-          EXPECTED_CONTEXT_HASH: ${{ steps.prepare.outputs.context_hash }}
+          CANDIDATE: ${{ toJSON(matrix.pr) }}
         run: python "$SCRIPT" execute
