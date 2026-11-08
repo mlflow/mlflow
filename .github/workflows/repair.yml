@@ -54,7 +54,7 @@ jobs:
       actions: read # to read workflow run metadata
     outputs:
       matrix: ${{ steps.discover.outputs.matrix }}
-      is_matrix_empty: ${{ steps.discover.outputs.is_matrix_empty }}
+      is_empty: ${{ steps.discover.outputs.is_empty }}
     steps:
       - name: Check dispatch ref
         if: github.event_name == 'workflow_dispatch' && !inputs.dry_run
@@ -78,11 +78,11 @@ jobs:
         run: |
           candidates=$(python3 "$RUNNER_TEMP/cli.py" discover | jq -c '.[:10]')
           matrix=$(jq -c '{
-            job_name: map("pr-\(.number)"),
-            include: map({job_name: "pr-\(.number)", pr: .})
+            name: map("pr-\(.number)"),
+            include: map({name: "pr-\(.number)", pr: .})
           }' <<< "$candidates")
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
-          echo "is_matrix_empty=$(jq 'length == 0' <<< "$candidates")" >> "$GITHUB_OUTPUT"
+          echo "is_empty=$(jq 'length == 0' <<< "$candidates")" >> "$GITHUB_OUTPUT"
           {
             echo "### Repair candidates"
             echo
@@ -93,7 +93,7 @@ jobs:
 
   repair:
     needs: discover
-    if: needs.discover.outputs.is_matrix_empty == 'false'
+    if: needs.discover.outputs.is_empty == 'false'
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
