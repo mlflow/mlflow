@@ -101,7 +101,10 @@ describe('wal/supervisor', () => {
       // cannot work — the copied sibling must win.
       delete process.env.MLFLOW_TRACE_DAEMON_EXECUTABLE;
       jest.isolateModules(() => {
-        jest.doMock('node:fs', () => ({ existsSync: jest.fn(() => true) }));
+        jest.doMock('node:fs', () => ({
+          ...jest.requireActual<typeof import('node:fs')>('node:fs'),
+          existsSync: jest.fn(() => true),
+        }));
         jest.doMock('node:module', () => ({
           createRequire: () => ({
             resolve: () => {
@@ -109,8 +112,9 @@ describe('wal/supervisor', () => {
             },
           }),
         }));
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const { resolveDaemonEntry: isolated } = require('../../../src/exporters/wal/supervisor');
+        const { resolveDaemonEntry: isolated } =
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          require('../../../src/exporters/wal/supervisor') as typeof import('../../../src/exporters/wal/supervisor');
         expect(isolated()).toBe(
           join(__dirname, '..', '..', '..', 'src', 'exporters', 'wal', 'daemon.cjs'),
         );
@@ -120,11 +124,15 @@ describe('wal/supervisor', () => {
     it('falls back to the @mlflow/core lookup when no sibling exists', () => {
       delete process.env.MLFLOW_TRACE_DAEMON_EXECUTABLE;
       jest.isolateModules(() => {
-        jest.doMock('node:fs', () => ({ existsSync: jest.fn(() => false) }));
+        jest.doMock('node:fs', () => ({
+          ...jest.requireActual<typeof import('node:fs')>('node:fs'),
+          existsSync: jest.fn(() => false),
+        }));
         const resolve = jest.fn(() => join('x', 'node_modules', '@mlflow', 'core', 'package.json'));
         jest.doMock('node:module', () => ({ createRequire: () => ({ resolve }) }));
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const { resolveDaemonEntry: isolated } = require('../../../src/exporters/wal/supervisor');
+        const { resolveDaemonEntry: isolated } =
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          require('../../../src/exporters/wal/supervisor') as typeof import('../../../src/exporters/wal/supervisor');
         expect(isolated()).toBe(
           join('x', 'node_modules', '@mlflow', 'core', 'bundle', 'daemon.cjs'),
         );
