@@ -400,9 +400,15 @@ def rerun_action(context: dict[str, Any], action: dict[str, Any], dry_run: bool)
         if dry_run:
             summary(f"Would rerun failed jobs for {run['workflow']}: {run['url']}")
         else:
-            subprocess.check_output(
-                ["gh", "run", "rerun", str(run["run_id"]), "--repo", REPO, "--failed"], text=True
-            )
+            subprocess.check_call([
+                "gh",
+                "run",
+                "rerun",
+                str(run["run_id"]),
+                "--repo",
+                REPO,
+                "--failed",
+            ])
 
     failed = False
     protect_run: dict[str, Any] | None = None
