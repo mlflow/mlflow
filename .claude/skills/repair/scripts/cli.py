@@ -14,28 +14,40 @@ EXCLUDED_WORKFLOWS = {"rerun.yml", "repair.yml"}
 CONNECTION_BATCH_SIZE = 20
 REPO = "mlflow/mlflow"
 
-CHECK_FIELDS = """
+STEP_FIELDS = """
+  name
+  number
+  status
+  conclusion
+"""
+# Limit the first step page to keep nested PR/check/step searches below GitHub's node limit.
+CHECK_FIELDS = f"""
   __typename
-  ... on CheckRun {
+  ... on CheckRun {{
+    id
     databaseId
     name
     status
     conclusion
     detailsUrl
     permalink
-    checkSuite {
+    steps(first: 20) {{
+      nodes {{ {STEP_FIELDS} }}
+      pageInfo {{ hasNextPage endCursor }}
+    }}
+    checkSuite {{
       status
       conclusion
-      app { slug }
-      workflowRun {
+      app {{ slug }}
+      workflowRun {{
         databaseId
         createdAt
         event
         runAttempt
-        workflow { resourcePath }
-      }
-    }
-  }
+        workflow {{ resourcePath }}
+      }}
+    }}
+  }}
 """
 CONTEXT_FIELDS = f"""
   nodes {{ {CHECK_FIELDS} }}
@@ -233,12 +245,20 @@ def unfinished_jobs(runs: list[dict[str, Any]]) -> list[str]:
 
 
 def failed_job_context(check: dict[str, Any]) -> dict[str, Any]:
+    steps = (
+        fetch_connections([
+            Connection(check["id"], "CheckRun", "steps", STEP_FIELDS, check["steps"])
+        ])[0]
+        if check["steps"] is not None
+        else []
+    )
     return {
         "id": check["databaseId"],
         "name": check["name"],
         "status": check["status"],
         "conclusion": check["conclusion"],
         "url": check["detailsUrl"] or check["permalink"],
+        "failed_steps": [step for step in steps if step["conclusion"] in FAILED_CONCLUSIONS],
     }
 
 
