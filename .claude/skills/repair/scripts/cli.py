@@ -243,14 +243,14 @@ def read_ledger(pr: dict[str, Any]) -> tuple[str | None, dict[str, Any]]:
             for comment in comments
             if comment["author"] is not None
             and comment["author"]["__typename"] == "Bot"
-            and comment["body"].startswith(LEDGER_MARKER)
+            and LEDGER_MARKER in comment["body"]
         ),
         None,
     )
     if comment is None:
         return None, {}
-    body = comment["body"].removeprefix(LEDGER_MARKER).strip()
-    return comment["id"], json.loads(body.removeprefix("```json\n").removesuffix("\n```"))
+    body = comment["body"].split("```json", 1)[1].split("```", 1)[0]
+    return comment["id"], json.loads(body)
 
 
 def context_hash(context: dict[str, Any]) -> str:
@@ -267,9 +267,9 @@ def context_hash(context: dict[str, Any]) -> str:
 
 def skip_reason(context: dict[str, Any], ledger: dict[str, Any]) -> str | None:
     if entry := ledger.get(context_hash(context)):
-        return f"context already attempted: {entry['run_url']}"
+        return f"context already processed: {entry['run_url']}"
     if len(ledger) >= PR_BUDGET:
-        return f"PR budget exhausted ({PR_BUDGET} invocations)"
+        return f"PR budget exhausted ({PR_BUDGET} successful runs)"
     return None
 
 
@@ -448,14 +448,12 @@ def write_step_outputs(**values: str) -> None:
             stream.writelines(f"{k}={v}\n" for k, v in values.items())
 
 
-def reserve(args: argparse.Namespace) -> int:
-    context = json.loads(args.context_path.read_text())
-    # Re-read under the per-PR job lock: discovery may have preceded another repair.
-    pr = graphql(
+def fetch_pr_comments(number: int) -> dict[str, Any]:
+    pr: dict[str, Any] = graphql(
         f"""
         query {{
           repository(owner: "mlflow", name: "mlflow") {{
-            pullRequest(number: {context["number"]}) {{
+            pullRequest(number: {number}) {{
               id
               comments(first: 10) {{ {COMMENTS_FIELDS} }}
             }}
@@ -463,12 +461,24 @@ def reserve(args: argparse.Namespace) -> int:
         }}
         """,
     )["repository"]["pullRequest"]
-    comment_id, ledger = read_ledger(pr)
-    if reason := skip_reason(context, ledger):
+    return pr
+
+
+def check_budget(args: argparse.Namespace) -> int:
+    context = json.loads(args.context_path.read_text())
+    # Re-read under the per-PR job lock: discovery may have preceded another repair.
+    _, ledger = read_ledger(fetch_pr_comments(context["number"]))
+    reason = skip_reason(context, ledger)
+    if reason is not None:
         write_step_summary(f"Skipping PR #{context['number']}: {reason}")
-        write_step_outputs(reserved="false")
-        return 0
-    # Failed and dry-run invocations consume budget too.
+    write_step_outputs(eligible=str(reason is None).lower())
+    return 0
+
+
+def record(args: argparse.Namespace) -> int:
+    context = json.loads(args.context_path.read_text())
+    pr = fetch_pr_comments(context["number"])
+    comment_id, ledger = read_ledger(pr)
     ledger[context_hash(context)] = {"run_url": args.run_url}
     body = f"{LEDGER_MARKER}\n```json\n{json.dumps(ledger, indent=2)}\n```"
     if comment_id is None:
@@ -503,8 +513,7 @@ def reserve(args: argparse.Namespace) -> int:
         """,
         id=comment_id,
     )
-    write_step_summary(f"Repair invocation {len(ledger)}/{PR_BUDGET}: {args.run_url}")
-    write_step_outputs(reserved="true")
+    write_step_summary(f"Successful repair {len(ledger)}/{PR_BUDGET}: {args.run_url}")
     return 0
 
 
@@ -607,10 +616,13 @@ def main() -> int:
     discovery = commands.add_parser("discover", help="Select PRs without unfinished CI jobs")
     discovery.add_argument("--prs", default=os.environ.get("PR_NUMBERS", ""))
     discovery.set_defaults(func=discover)
-    reservation = commands.add_parser("reserve", help="Record a repair invocation in the PR ledger")
-    reservation.add_argument("--context", dest="context_path", type=Path, required=True)
-    reservation.add_argument("--run-url", required=True)
-    reservation.set_defaults(func=reserve)
+    budget = commands.add_parser("check-budget", help="Check the PR ledger before repairing")
+    budget.add_argument("--context", dest="context_path", type=Path, required=True)
+    budget.set_defaults(func=check_budget)
+    recording = commands.add_parser("record", help="Record a successful repair in the PR ledger")
+    recording.add_argument("--context", dest="context_path", type=Path, required=True)
+    recording.add_argument("--run-url", required=True)
+    recording.set_defaults(func=record)
     validation = commands.add_parser("validate", help="Validate a repair payload")
     validation.add_argument("--payload", dest="payload_path", type=Path, required=True)
     validation.add_argument("--context", dest="context_path", type=Path, required=True)

@@ -219,27 +219,15 @@ jobs:
           echo "model=$MODEL" >> "$GITHUB_OUTPUT"
           echo "effort=$EFFORT" >> "$GITHUB_OUTPUT"
           echo "Agent model: \`$MODEL\`, effort: \`$EFFORT\`" >> "$GITHUB_STEP_SUMMARY"
-      # Keep comment-write access out of the agent's read-only token.
-      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
-        id: ledger-token
-        with:
-          client-id: ${{ secrets.APP_CLIENT_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          owner: mlflow
-          repositories: mlflow
-          permission-pull-requests: write
-      - name: Reserve repair invocation
-        id: reserve
+      - name: Check repair budget
+        id: budget
         working-directory: trusted
         env:
-          GH_TOKEN: ${{ steps.ledger-token.outputs.token }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python "$SCRIPT" reserve \
-            --context "$CONTEXT_PATH" \
-            --run-url "$RUN_URL"
+          python "$SCRIPT" check-budget --context "$CONTEXT_PATH"
       - name: Repair PR
-        if: steps.reserve.outputs.reserved == 'true'
+        if: steps.budget.outputs.eligible == 'true'
         working-directory: trusted
         env:
           MODEL: ${{ steps.agent.outputs.model }}
@@ -294,7 +282,7 @@ jobs:
             fi
           done
       - name: Validate repair plan
-        if: steps.reserve.outputs.reserved == 'true'
+        if: steps.budget.outputs.eligible == 'true'
         id: validate
         working-directory: trusted
         run: |
@@ -311,7 +299,8 @@ jobs:
           repositories: mlflow
           permission-actions: write
       - name: Execute or preview repair plan
-        if: steps.reserve.outputs.reserved == 'true'
+        if: steps.budget.outputs.eligible == 'true'
+        id: execute
         working-directory: trusted
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -321,3 +310,22 @@ jobs:
             --payload "$OUT_DIR/payload.json" \
             --context "$CONTEXT_PATH" \
             "$DRY_RUN_FLAG"
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        if: steps.execute.outcome == 'success'
+        id: ledger-token
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: mlflow
+          repositories: mlflow
+          permission-pull-requests: write
+      - name: Record successful repair
+        if: steps.execute.outcome == 'success'
+        working-directory: trusted
+        env:
+          GH_TOKEN: ${{ steps.ledger-token.outputs.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python "$SCRIPT" record \
+            --context "$CONTEXT_PATH" \
+            --run-url "$RUN_URL"
