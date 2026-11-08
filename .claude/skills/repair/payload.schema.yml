@@ -5,11 +5,14 @@ additionalProperties: false
 required: [summary, actions]
 properties:
   summary:
+    description: Diagnosis and rationale for the proposed actions in one or two sentences.
     type: string
     minLength: 1
     maxLength: 500
     pattern: '\S'
   actions:
+    description: >-
+      Leave empty when no supported action would help or the evidence is insufficient.
     type: array
     maxItems: 1
     items:

@@ -39,14 +39,9 @@ with the captured `failed_runs[].url` URLs to fetch and analyze failure logs. Th
 include the captured run attempts.
 Do not change files in either checkout, create commits, or execute repair actions yourself.
 
-Read [the payload schema](payload.schema.yml) for supported actions and their requirements.
-Write `$out_dir/payload.json` with actions that address the diagnosis, based on the captured
-context and available evidence.
+Write `$out_dir/payload.json` following [the payload schema](payload.schema.yml).
+Base the plan on the captured context and available evidence.
 
-Use `actions: []` when no supported action would help or the evidence is insufficient.
-Explain the decision in `summary`.
-
-Keep `summary` to one or two sentences describing the diagnosis and proposed actions.
 Validate the payload from the trusted checkout before finishing:
 
 ```bash
