@@ -373,7 +373,7 @@ def discover(args: argparse.Namespace) -> int:
     return 0
 
 
-def summary(message: str) -> None:
+def write_step_summary(message: str) -> None:
     if path := os.environ.get("GITHUB_STEP_SUMMARY"):
         with Path(path).open("a") as stream:
             stream.write(message + "\n")
@@ -381,7 +381,7 @@ def summary(message: str) -> None:
         sys.stderr.write(message + "\n")
 
 
-def outputs(**values: str) -> None:
+def write_step_outputs(**values: str) -> None:
     if path := os.environ.get("GITHUB_OUTPUT"):
         with Path(path).open("a") as stream:
             stream.writelines(f"{key}={value}\n" for key, value in values.items())
@@ -398,7 +398,7 @@ def rerun_action(context: dict[str, Any], action: dict[str, Any], dry_run: bool)
 
     def submit(run: dict[str, Any]) -> None:
         if dry_run:
-            summary(f"Would rerun failed jobs for {run['workflow']}: {run['url']}")
+            write_step_summary(f"Would rerun failed jobs for {run['workflow']}: {run['url']}")
         else:
             subprocess.check_call([
                 "gh",
@@ -466,7 +466,7 @@ def validate(args: argparse.Namespace) -> int:
         args.context_path.read_text() if args.context_path else os.environ["CANDIDATE"]
     )
     payload = load_plan(context, args.payload_path)
-    outputs(has_actions=str(bool(payload["actions"])).lower())
+    write_step_outputs(has_actions=str(bool(payload["actions"])).lower())
     return 0
 
 
@@ -474,7 +474,7 @@ def execute(args: argparse.Namespace) -> int:
     context = json.loads(os.environ["CANDIDATE"])
     payload = load_plan(context, Path(os.environ["OUT_DIR"]) / "payload.json")
     dry_run = os.environ.get("DRY_RUN", "true") == "true"
-    summary(f"### Repair PR #{context['number']}\n{html.escape(payload['summary'])}")
+    write_step_summary(f"### Repair PR #{context['number']}\n{html.escape(payload['summary'])}")
     for action in payload["actions"]:
         ACTION_HANDLERS[action["type"]].execute(context, action, dry_run)
     return 0
