@@ -53,7 +53,8 @@ jobs:
       - uses: ./.github/actions/setup-node
 
       - name: Fetch and transform model catalog
-        run: uv run python dev/update_model_catalog.py
+        run: |
+          uv run python dev/update_model_catalog.py
 
       - name: Regenerate claude-code pricing snapshot
         working-directory: libs/typescript
@@ -192,4 +193,5 @@ jobs:
       - name: Publish to GitHub Releases
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bash dev/publish_model_catalog.sh
+        run: |
+          bash dev/publish_model_catalog.sh

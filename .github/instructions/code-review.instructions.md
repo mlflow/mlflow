@@ -19,8 +19,11 @@ When recommending a concrete code change, include a unified diff that mirrors th
 <summary>Suggested patch</summary>
 
 ```diff
-- old code
-+ new code
+diff --git a/example.py b/example.py
+@@ -1,2 +1,2 @@
+ def greet(name: str) -> str:
+-    return f"Hello, {name}"
++    return f"Hello, {name}!"
 ```
 
 </details>

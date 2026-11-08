@@ -1,4 +1,6 @@
 name: Nightly
+# Scheduled runs use the NIGHTLY_MODEL and NIGHTLY_EFFORT repository variables; manual runs can
+# override them. Manual effort defaults to medium, while scheduled runs use NIGHTLY_EFFORT or the fallback.
 
 on:
   schedule:
@@ -15,6 +17,21 @@ on:
         description: "Space-separated workflow run IDs; empty uses the latest scheduled runs"
         required: false
         type: string
+      model:
+        description: "AI Gateway Claude model for the nightly agent, e.g. databricks-claude-sonnet-5-5"
+        required: false
+        type: string
+      effort:
+        description: "Reasoning effort for the nightly agent"
+        required: false
+        type: choice
+        default: medium
+        options:
+          - low
+          - medium
+          - high
+          - xhigh
+          - max
 
 concurrency:
   group: nightly
@@ -98,6 +115,24 @@ jobs:
     outputs:
       analysis_artifact_id: ${{ steps.upload.outputs.artifact-id }}
     steps:
+      - name: Resolve agent model and effort
+        id: agent
+        env:
+          MODEL: ${{ inputs.model || vars.NIGHTLY_MODEL || 'databricks-claude-sonnet-5-5' }}
+          EFFORT: ${{ inputs.effort || vars.NIGHTLY_EFFORT || 'medium' }}
+        run: |
+          # $GITHUB_OUTPUT is line-based; a newline in the model could inject another output.
+          [[ "$MODEL" != *$'\n'* ]] || { echo "::error::Model must be a single line."; exit 1; }
+          case "$EFFORT" in
+            low | medium | high | xhigh | max) ;;
+            *)
+              echo "::error::Invalid effort '$EFFORT'. Check the NIGHTLY_EFFORT repository variable."
+              exit 1
+              ;;
+          esac
+          echo "model=$MODEL" >> "$GITHUB_OUTPUT"
+          echo "effort=$EFFORT" >> "$GITHUB_OUTPUT"
+          echo "Agent model: \`$MODEL\`, effort: \`$EFFORT\`" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
@@ -121,7 +156,8 @@ jobs:
               export npm_config_before="$(date -u -d '7 days ago' +%Y-%m-%d)"
               npm install -g @anthropic-ai/sandbox-runtime@0.0.80
           - name: Install skill dependencies
-            run: uv sync --package skills
+            run: |
+              uv sync --package skills
       - uses: ./.github/actions/setup-gateway
         id: gateway
         with:
@@ -209,6 +245,8 @@ jobs:
           ' .claude/sandbox/srt.json > "$RUNNER_TEMP/nightly-srt.json"
       - name: Analyze failures in worktrees
         env:
+          MODEL: ${{ steps.agent.outputs.model }}
+          EFFORT: ${{ steps.agent.outputs.effort }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUN_IDS: ${{ needs.prepare.outputs.run_ids }}
           ANTHROPIC_BASE_URL: http://localhost:8080/anthropic
@@ -252,8 +290,8 @@ jobs:
           fi
           timeout --kill-after=10s 30m srt --settings "$RUNNER_TEMP/nightly-srt.json" -- \
             "${relay[@]}" env -u NO_PROXY -u no_proxy claude \
-              --model databricks-claude-sonnet-5-5 \
-              --effort medium \
+              --model "$MODEL" \
+              --effort "$EFFORT" \
               --permission-mode auto \
               --disallowed-tools WebSearch \
               --print --verbose --output-format stream-json \
