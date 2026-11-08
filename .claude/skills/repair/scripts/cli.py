@@ -384,7 +384,7 @@ def write_step_summary(message: str) -> None:
 def write_step_outputs(**values: str) -> None:
     if path := os.environ.get("GITHUB_OUTPUT"):
         with Path(path).open("a") as stream:
-            stream.writelines(f"{key}={value}\n" for key, value in values.items())
+            stream.writelines(f"{k}={v}\n" for k, v in values.items())
 
 
 def validate_rerun(context: dict[str, Any], action: dict[str, Any]) -> None:
