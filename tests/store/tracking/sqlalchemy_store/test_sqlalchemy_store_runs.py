@@ -4471,6 +4471,68 @@ def test_log_batch_nan_logged_model_metric_duplicates(store: SqlAlchemyStore):
         )
 
 
+def test_log_batch_logged_model_metric_duplicates_across_key_batches(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run_id = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="run"
+    ).info.run_id
+    model_id = store.create_logged_model(experiment_id=exp_id, name="model").model_id
+    metrics = [Metric(f"m{i:03d}", 1.0, 100, 0, model_id=model_id) for i in range(150)]
+
+    # The existing metric's key falls in the second chunk of the dedup lookup.
+    store.log_batch(run_id, metrics=[metrics[120]], params=[], tags=[])
+    store.log_batch(run_id, metrics=metrics, params=[], tags=[])
+
+    assert len(store.get_logged_model(model_id).metrics) == 150
+
+
+def test_log_batch_logged_model_metrics_committed_during_dedup(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run_id = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="run"
+    ).info.run_id
+    model_id = store.create_logged_model(experiment_id=exp_id, name="model").model_id
+    existing = Metric("loss", 0.5, 100, 0, model_id=model_id)
+    concurrent = [
+        Metric("val_loss", 0.4, 100, 0, model_id=model_id),
+        Metric("val_acc", 0.9, 100, 0, model_id=model_id),
+    ]
+    store.log_batch(run_id, metrics=[existing], params=[], tags=[])
+
+    injected = False
+
+    def commit_concurrently_after_dedup_query(state):
+        nonlocal injected
+        is_dedup_query = state.is_select and any(
+            d.get("entity") is models.SqlLoggedModelMetric
+            for d in state.statement.column_descriptions
+        )
+        if injected or not is_dedup_query:
+            return None
+        injected = True
+        result = state.invoke_statement().freeze()
+        store._log_model_metrics(run_id, concurrent, experiment_id=exp_id)
+        return result()
+
+    sqlalchemy.event.listen(
+        sqlalchemy.orm.Session, "do_orm_execute", commit_concurrently_after_dedup_query
+    )
+    try:
+        store._log_model_metrics(run_id, [existing, *concurrent], experiment_id=exp_id)
+    finally:
+        sqlalchemy.event.remove(
+            sqlalchemy.orm.Session, "do_orm_execute", commit_concurrently_after_dedup_query
+        )
+
+    assert injected
+    metrics = store.get_logged_model(model_id).metrics
+    assert sorted((m.key, m.value) for m in metrics) == [
+        ("loss", 0.5),
+        ("val_acc", 0.9),
+        ("val_loss", 0.4),
+    ]
+
+
 @pytest.mark.parametrize("value", [None, "abc"])
 def test_log_metric_invalid_value_with_model_id(store: SqlAlchemyStore, value):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")

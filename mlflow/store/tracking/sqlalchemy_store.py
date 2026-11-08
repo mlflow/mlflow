@@ -347,6 +347,10 @@ _METRIC_DEDUP_CHUNK_SIZE = 100
 # Deterministic key ordering is the primary defense; this bounded retry is the safety net.
 _DB_WRITE_MAX_DEADLOCK_RETRIES = 2
 
+# Max insert attempts in _log_model_metrics when rows that already exist (or are committed
+# concurrently) violate the primary key.
+_LOGGED_MODEL_METRIC_MAX_INSERT_ATTEMPTS = 3
+
 # For each database table, fetch its columns and define an appropriate attribute for each column
 # on the table's associated object representation (Mapper). This is necessary to ensure that
 # columns defined via backreference are available as Mapper instance attributes (e.g.,
@@ -1604,37 +1608,42 @@ class SqlAlchemyStore(
                 for metric, value in sanitized_metrics
             ]
 
-            try:
-                session.add_all(metric_instances)
-                session.commit()
-            except sqlalchemy.exc.IntegrityError:
-                # Primary key can be violated if it is tried to log a metric with same value,
-                # timestamp, step, and key within the same run.
-                session.rollback()
-                metric_keys = [m.metric_name for m in metric_instances]
-                metric_key_batches = (
-                    metric_keys[i : i + 100] for i in range(0, len(metric_keys), 100)
-                )
-                for batch in metric_key_batches:
-                    existing_metrics = (
+            # Primary key can be violated if it is tried to log a metric with same value,
+            # timestamp, step, and key within the same run. Rows committed concurrently between
+            # the existence query and the commit (e.g. by async logging) can violate it again,
+            # so the dedup is retried a bounded number of times.
+            for attempt in range(_LOGGED_MODEL_METRIC_MAX_INSERT_ATTEMPTS):
+                try:
+                    session.add_all(metric_instances)
+                    session.commit()
+                    return
+                except sqlalchemy.exc.IntegrityError:
+                    session.rollback()
+                    if attempt == _LOGGED_MODEL_METRIC_MAX_INSERT_ATTEMPTS - 1:
+                        raise
+                existing_metrics = set()
+                metric_keys = list(dict.fromkeys(m.metric_name for m in metric_instances))
+                for i in range(0, len(metric_keys), 100):
+                    rows = (
                         session
                         .query(SqlLoggedModelMetric)
                         .filter(
                             SqlLoggedModelMetric.run_id == run_id,
-                            SqlLoggedModelMetric.metric_name.in_(batch),
+                            SqlLoggedModelMetric.metric_name.in_(metric_keys[i : i + 100]),
                         )
                         .all()
                     )
                     # Compare column values rather than ``Metric`` entities because NaN != NaN.
                     # ``metric_value`` is included so that a conflicting value for an existing
                     # primary key is still rejected.
-                    existing_metrics = {_logged_model_metric_id(m) for m in existing_metrics}
-                    non_existing_metrics = [
-                        m
-                        for m in metric_instances
-                        if _logged_model_metric_id(m) not in existing_metrics
-                    ]
-                    session.add_all(non_existing_metrics)
+                    existing_metrics.update(_logged_model_metric_id(m) for m in rows)
+                metric_instances = [
+                    m
+                    for m in metric_instances
+                    if _logged_model_metric_id(m) not in existing_metrics
+                ]
+                if not metric_instances:
+                    return
 
     def _update_latest_metrics_if_necessary(self, logged_metrics, session):
         def _compare_metrics(metric_a, metric_b):
