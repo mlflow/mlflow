@@ -391,13 +391,6 @@ def outputs(**values: str) -> None:
             stream.writelines(f"{key}={value}\n" for key, value in values.items())
 
 
-def unique_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
-    result = dict(pairs)
-    if len(result) != len(pairs):
-        raise ValueError("Duplicate payload key")
-    return result
-
-
 def validate_rerun(context: dict[str, Any], action: dict[str, Any]) -> None:
     allowed = {run["run_id"] for run in context["failed_runs"]}
     if not set(action["run_ids"]) <= allowed:
@@ -448,7 +441,7 @@ ACTION_HANDLERS = {"rerun": ActionHandler(validate_rerun, rerun_action)}
 
 
 def load_plan(context: dict[str, Any], path: Path) -> dict[str, Any]:
-    payload: dict[str, Any] = json.loads(path.read_text(), object_pairs_hook=unique_keys)
+    payload: dict[str, Any] = json.loads(path.read_text())
     command(
         "uvx",
         "check-jsonschema@0.37.4",
