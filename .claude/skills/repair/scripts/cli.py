@@ -17,7 +17,7 @@ EXCLUDED_WORKFLOWS = {"rerun.yml", "repair.yml"}
 CONNECTION_BATCH_SIZE = 20
 REPO = "mlflow/mlflow"
 PR_BUDGET = 5
-LEDGER_MARKER = "<!-- mlflow-repair-ledger -->"
+LEDGER_MARKER = "<!-- repair-ledger -->"
 
 COMMENT_FIELDS = """
   id
