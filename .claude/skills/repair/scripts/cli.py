@@ -373,10 +373,6 @@ def discover(args: argparse.Namespace) -> int:
     return 0
 
 
-def command(*args: str | Path) -> str:
-    return subprocess.check_output(args, text=True)
-
-
 def summary(message: str) -> None:
     if path := os.environ.get("GITHUB_STEP_SUMMARY"):
         with Path(path).open("a") as stream:
@@ -404,7 +400,9 @@ def rerun_action(context: dict[str, Any], action: dict[str, Any], dry_run: bool)
         if dry_run:
             summary(f"Would rerun failed jobs for {run['workflow']}: {run['url']}")
         else:
-            command("gh", "run", "rerun", str(run["run_id"]), "--repo", REPO, "--failed")
+            subprocess.check_output(
+                ["gh", "run", "rerun", str(run["run_id"]), "--repo", REPO, "--failed"], text=True
+            )
 
     failed = False
     protect_run: dict[str, Any] | None = None
@@ -442,12 +440,15 @@ ACTION_HANDLERS = {"rerun": ActionHandler(validate_rerun, rerun_action)}
 
 def load_plan(context: dict[str, Any], path: Path) -> dict[str, Any]:
     payload: dict[str, Any] = json.loads(path.read_text())
-    command(
-        "uvx",
-        "check-jsonschema@0.37.4",
-        "--schemafile",
-        Path(__file__).parents[1] / "payload.schema.yml",
-        path,
+    subprocess.check_output(
+        [
+            "uvx",
+            "check-jsonschema@0.37.4",
+            "--schemafile",
+            Path(__file__).parents[1] / "payload.schema.yml",
+            path,
+        ],
+        text=True,
     )
     for action in payload["actions"]:
         ACTION_HANDLERS[action["type"]].validate(context, action)
