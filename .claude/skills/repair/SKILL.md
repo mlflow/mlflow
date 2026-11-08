@@ -45,6 +45,8 @@ Base the plan on the captured context and available evidence.
 Validate the payload from the trusted checkout before finishing:
 
 ```bash
-python .claude/skills/repair/scripts/cli.py validate "$out_dir/payload.json" \
-  --context "$context_path"
+python .claude/skills/repair/scripts/cli.py \
+  --payload "$out_dir/payload.json" \
+  --context "$context_path" \
+  validate
 ```

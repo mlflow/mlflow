@@ -265,8 +265,10 @@ jobs:
         id: validate
         working-directory: trusted
         run: |
-          python "$SCRIPT" validate "$OUT_DIR/payload.json" \
-            --context "$CONTEXT_PATH"
+          python "$SCRIPT" \
+            --payload "$OUT_DIR/payload.json" \
+            --context "$CONTEXT_PATH" \
+            validate
       - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         if: steps.validate.outputs.has_actions == 'true' && env.DRY_RUN != 'true'
         id: app-token
@@ -280,6 +282,10 @@ jobs:
         working-directory: trusted
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
+          DRY_RUN_FLAG: ${{ env.DRY_RUN == 'true' && '--dry-run' || '--no-dry-run' }}
         run: |
-          python "$SCRIPT" execute "$OUT_DIR/payload.json" \
-            --context "$CONTEXT_PATH"
+          python "$SCRIPT" \
+            --payload "$OUT_DIR/payload.json" \
+            --context "$CONTEXT_PATH" \
+            "$DRY_RUN_FLAG" \
+            execute
