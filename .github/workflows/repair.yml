@@ -53,7 +53,8 @@ jobs:
       pull-requests: read # to find candidate PRs
       actions: read # to read workflow run metadata
     outputs:
-      candidates: ${{ steps.discover.outputs.candidates }}
+      matrix: ${{ steps.discover.outputs.matrix }}
+      is_matrix_empty: ${{ steps.discover.outputs.is_matrix_empty }}
     steps:
       - name: Check dispatch ref
         if: github.event_name == 'workflow_dispatch' && !inputs.dry_run
@@ -76,7 +77,12 @@ jobs:
           PR_NUMBERS: ${{ inputs.pr_numbers }}
         run: |
           candidates=$(python3 "$RUNNER_TEMP/cli.py" discover | jq -c '.[:10]')
-          echo "candidates=$candidates" >> "$GITHUB_OUTPUT"
+          matrix=$(jq -c '{
+            job_name: map("pr-\(.number)"),
+            include: map({job_name: "pr-\(.number)", pr: .})
+          }' <<< "$candidates")
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "is_matrix_empty=$(jq 'length == 0' <<< "$candidates")" >> "$GITHUB_OUTPUT"
           {
             echo "### Repair candidates"
             echo
@@ -86,13 +92,11 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   repair:
-    name: "pr-${{ matrix.pr.number }}"
     needs: discover
-    if: needs.discover.outputs.candidates != '' && needs.discover.outputs.candidates != '[]'
+    if: needs.discover.outputs.is_matrix_empty == 'false'
     strategy:
       fail-fast: false
-      matrix:
-        pr: ${{ fromJSON(needs.discover.outputs.candidates) }}
+      matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
