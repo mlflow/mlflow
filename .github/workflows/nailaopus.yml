@@ -89,7 +89,8 @@ jobs:
         id: ctx
         env:
           ISSUE_PR: ${{ github.event.issue.number }}
-        run: echo "pr=$ISSUE_PR" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "pr=$ISSUE_PR" >> "$GITHUB_OUTPUT"
 
       - name: Generate App installation token (multi-repo)
         id: app_token

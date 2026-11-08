@@ -46,10 +46,12 @@ jobs:
           persist-credentials: false
 
       - name: Lint
-        run: helm lint charts/ --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db"
+        run: |
+          helm lint charts/ --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db"
 
       - name: Render templates
-        run: helm template mlflow charts/ --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db"
+        run: |
+          helm template mlflow charts/ --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db"
 
       - name: Render Service port
         run: |
@@ -273,7 +275,8 @@ jobs:
             docker/
 
       - name: Load image into Kind
-        run: kind load docker-image mlflow:ci --name chart-testing
+        run: |
+          kind load docker-image mlflow:ci --name chart-testing
 
       - name: Generate TLS certificate
         if: matrix.tls == true
@@ -307,4 +310,5 @@ jobs:
 
       - name: Print container logs
         if: always()
-        run: kubectl logs -l app.kubernetes.io/name=mlflow --tail=-1
+        run: |
+          kubectl logs -l app.kubernetes.io/name=mlflow --tail=-1

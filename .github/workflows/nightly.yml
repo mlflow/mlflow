@@ -156,7 +156,8 @@ jobs:
               export npm_config_before="$(date -u -d '7 days ago' +%Y-%m-%d)"
               npm install -g @anthropic-ai/sandbox-runtime@0.0.80
           - name: Install skill dependencies
-            run: uv sync --package skills
+            run: |
+              uv sync --package skills
       - uses: ./.github/actions/setup-gateway
         id: gateway
         with:
