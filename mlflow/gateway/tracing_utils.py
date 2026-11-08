@@ -319,7 +319,8 @@ def aggregate_chat_stream_chunks(chunks: list[StreamResponsePayload]) -> dict[st
                 {
                     "role": None,
                     "content_parts": [],
-                    "tool_calls_by_index": {},
+                    "tool_calls": [],
+                    "current_tool_call_by_index": {},
                     "finish_reason": None,
                 },
             )
@@ -332,10 +333,13 @@ def aggregate_chat_stream_chunks(chunks: list[StreamResponsePayload]) -> dict[st
                 state["finish_reason"] = choice.finish_reason
             if delta.tool_calls:
                 for tc_delta in delta.tool_calls:
-                    tc = state["tool_calls_by_index"].setdefault(
-                        tc_delta.index,
-                        {"id": None, "type": "function", "name": "", "arguments": ""},
-                    )
+                    tc = state["current_tool_call_by_index"].get(tc_delta.index)
+                    # Some OpenAI-compatible providers (e.g. Gemini) send parallel tool calls
+                    # with the same index, so a new id at a known index starts a new call.
+                    if tc is None or (tc_delta.id and tc["id"] and tc_delta.id != tc["id"]):
+                        tc = {"id": None, "type": "function", "name": "", "arguments": ""}
+                        state["tool_calls"].append(tc)
+                        state["current_tool_call_by_index"][tc_delta.index] = tc
                     if tc_delta.id:
                         tc["id"] = tc_delta.id
                     if tc_delta.type:
@@ -352,14 +356,14 @@ def aggregate_chat_stream_chunks(chunks: list[StreamResponsePayload]) -> dict[st
             "role": state["role"] or "assistant",
             "content": "".join(state["content_parts"]) or None,
         }
-        if state["tool_calls_by_index"]:
+        if state["tool_calls"]:
             message["tool_calls"] = [
                 {
                     "id": tc["id"],
                     "type": tc["type"],
                     "function": {"name": tc["name"], "arguments": tc["arguments"]},
                 }
-                for tc in state["tool_calls_by_index"].values()
+                for tc in state["tool_calls"]
             ]
         aggregated_choices.append({
             "index": choice_index,

@@ -167,6 +167,50 @@ def test_reduce_chat_stream_chunks_aggregates_tool_calls():
     assert tool_calls[0]["function"]["arguments"] == '{"location": "SF"}'
 
 
+def test_reduce_chat_stream_chunks_parallel_tool_calls_with_same_index():
+    # Gemini's OpenAI-compatible endpoint sends parallel tool calls with index 0 and distinct ids
+    chunks = [
+        _make_chunk(
+            tool_calls=[
+                ToolCallDelta(
+                    index=0,
+                    id="call_a",
+                    type="function",
+                    function=Function(name="get_weather", arguments='{"city": '),
+                ),
+            ],
+        ),
+        _make_chunk(
+            tool_calls=[ToolCallDelta(index=0, function=Function(arguments='"Paris"}'))],
+        ),
+        _make_chunk(
+            tool_calls=[
+                ToolCallDelta(
+                    index=0,
+                    id="call_b",
+                    type="function",
+                    function=Function(name="get_time", arguments='{"tz": "CET"}'),
+                ),
+            ],
+        ),
+        _make_chunk(finish_reason="tool_calls"),
+    ]
+    result = aggregate_chat_stream_chunks(chunks)
+
+    assert result["choices"][0]["message"]["tool_calls"] == [
+        {
+            "id": "call_a",
+            "type": "function",
+            "function": {"name": "get_weather", "arguments": '{"city": "Paris"}'},
+        },
+        {
+            "id": "call_b",
+            "type": "function",
+            "function": {"name": "get_time", "arguments": '{"tz": "CET"}'},
+        },
+    ]
+
+
 def test_reduce_chat_stream_chunks_derives_role_from_delta():
     chunks = [
         _make_chunk(role="developer", content="Hello"),
