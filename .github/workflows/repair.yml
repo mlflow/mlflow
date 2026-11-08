@@ -1,0 +1,124 @@
+name: Repair
+
+on:
+  schedule:
+    # Run every 20 minutes.
+    - cron: "*/20 * * * *"
+      timezone: Asia/Tokyo
+  workflow_dispatch:
+    inputs:
+      pr_numbers:
+        description: "Comma-separated PR numbers; leave empty to search"
+        type: string
+        required: false
+        default: ""
+      dry_run:
+        description: Print eligible reruns without submitting them
+        type: boolean
+        default: true
+
+concurrency:
+  group: ${{ github.workflow_ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+cache-mode: none
+
+jobs:
+  discover:
+    if: github.repository == 'mlflow/mlflow'
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    permissions:
+      pull-requests: read # to find candidate PRs
+      actions: read # to read workflow run metadata
+    outputs:
+      candidates: ${{ steps.discover.outputs.candidates }}
+    steps:
+      - name: Fetch repair script
+        run: |
+          curl -fsSL --retry 3 --connect-timeout 10 --max-time 30 \
+            --write-out 'curl: %{time_total}s\n' \
+            "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$GITHUB_SHA/.claude/skills/repair/scripts/cli.py" \
+            -o "$RUNNER_TEMP/cli.py"
+
+      - name: Discover candidate PRs
+        id: discover
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAX_RETRIES: "3"
+          PR_NUMBERS: ${{ inputs.pr_numbers }}
+        run: |
+          candidates=$(python3 "$RUNNER_TEMP/cli.py" discover | jq -c '.[:10]')
+          echo "candidates=$candidates" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Repair candidates"
+            echo
+            echo '```json'
+            jq . <<< "$candidates"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  rerun:
+    name: "PR #${{ matrix.pr.number }}"
+    needs: discover
+    if: needs.discover.outputs.candidates != '' && needs.discover.outputs.candidates != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        pr: ${{ fromJSON(needs.discover.outputs.candidates) }}
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    permissions:
+      actions: write # to rerun workflows
+    steps:
+      - name: Rerun failed jobs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          CANDIDATE: ${{ toJSON(matrix.pr) }}
+          DRY_RUN: ${{ inputs.dry_run || false }}
+        run: |
+          candidate=$CANDIDATE
+          rerun() {
+            local id=$1 workflow=$2 url=$3
+            if [[ "$DRY_RUN" == true ]]; then
+              echo "Would rerun failed jobs for $workflow: $url"
+              return 0
+            fi
+            if ! gh run rerun "$id" --repo "$GH_REPO" --failed; then
+              return 1
+            fi
+            echo "::notice title=Rerun failed jobs::$workflow: $url"
+          }
+
+          result=0
+          number=$(jq -r '.number' <<< "$candidate")
+          echo "::group::https://github.com/$GH_REPO/pull/$number"
+          rows=$(jq -r '.failed_runs[]
+            | [.run_id, .workflow, .url] | @tsv' <<< "$candidate")
+          pids=()
+          protect=()
+          while IFS=$'\t' read -r id workflow url; do
+            [[ -n "$id" ]] || continue
+            if [[ "$workflow" == protect.yml ]]; then
+              protect=("$id" "$workflow" "$url")
+            else
+              rerun "$id" "$workflow" "$url" &
+              pids+=("$!")
+            fi
+          done <<< "$rows"
+          for pid in "${pids[@]}"; do
+            if ! wait "$pid"; then
+              result=1
+            fi
+          done
+          if [[ ${#protect[@]} -gt 0 ]] && ! rerun "${protect[@]}"; then
+            result=1
+          fi
+          echo "::endgroup::"
+          exit "$result"

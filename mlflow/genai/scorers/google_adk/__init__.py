@@ -58,7 +58,6 @@ _DEFAULT_JUDGE_MODEL = "gemini-2.5-flash"
 _DEFAULT_JUDGE_SAMPLES = 5
 
 
-@experimental(version="3.11.0")
 class GoogleADKScorer(Scorer):
     """
     Base class for Google ADK evaluator scorers.
@@ -104,7 +103,6 @@ class GoogleADKScorer(Scorer):
         )
 
 
-@experimental(version="3.11.0")
 class ToolTrajectory(GoogleADKScorer):
     """
     Evaluates agent tool call trajectories against expected tool calls.
@@ -208,7 +206,6 @@ class ToolTrajectory(GoogleADKScorer):
             )
 
 
-@experimental(version="3.11.0")
 class ResponseMatch(GoogleADKScorer):
     """
     Evaluates response similarity using ROUGE-1 scoring.
@@ -680,7 +677,6 @@ def _create_rouge_evaluator(threshold: float):
     return RougeEvaluator(eval_metric=eval_metric)
 
 
-@experimental(version="3.11.0")
 def get_scorer(
     metric_name: str,
     **kwargs: Any,

@@ -18,8 +18,12 @@ from mlflow.entities import Workspace
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
-from mlflow.server.fastapi_app import add_fastapi_workspace_middleware, create_fastapi_app
-from mlflow.server.otel_api import otel_router
+from mlflow.server.fastapi_app import (
+    add_fastapi_workspace_middleware,
+    add_registry_exception_handlers,
+    create_fastapi_app,
+)
+from mlflow.server.otel_api import is_missing_experiment_id_header_error, otel_router
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.constant import TraceTagKey
@@ -232,6 +236,27 @@ def test_otlp_endpoint_without_default_workspace_raises_error(monkeypatch):
     assert "Active workspace is required" in response.json()["message"]
 
 
+def test_otlp_endpoint_rejects_workspace_header_when_workspaces_disabled(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    client = _make_test_client()
+    with mock.patch("mlflow.server.workspace_helpers._logger.warning") as mock_warning:
+        response = client.post(
+            OTLP_TRACES_PATH,
+            content=_build_otlp_payload(),
+            headers={
+                "Content-Type": "application/x-protobuf",
+                "X-MLflow-Experiment-Id": "42",
+                WORKSPACE_HEADER_NAME: "team-a",
+            },
+        )
+
+    assert response.status_code == 400
+    assert response.json()["error_code"] == "FEATURE_DISABLED"
+    mock_warning.assert_called_once()
+    assert WORKSPACE_HEADER_NAME in mock_warning.call_args.args
+    assert "workspaces are not enabled" in response.json()["message"]
+
+
 def test_otlp_endpoint_run_linking_error_is_logged(monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
     logged_messages = []
@@ -378,6 +403,83 @@ def test_otlp_conversion_error(monkeypatch):
     )
     assert response.status_code == 422
     assert "Cannot convert OpenTelemetry span" in response.json()["detail"]
+
+
+def test_otlp_missing_experiment_id_header_logs_warning(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    # The server's own RequestValidationError handler logs the warning.
+    app = FastAPI()
+    add_registry_exception_handlers(app)
+    app.include_router(otel_router)
+    client = TestClient(app)
+
+    with mock.patch("mlflow.server.otel_api._logger.warning") as mock_warning:
+        response = client.post(
+            OTLP_TRACES_PATH,
+            content=_build_otlp_payload(),
+            headers={"Content-Type": "application/x-protobuf"},
+        )
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": [
+            {
+                "type": "missing",
+                "loc": ["header", "x-mlflow-experiment-id"],
+                "msg": "Field required",
+                "input": None,
+            }
+        ]
+    }
+    mock_warning.assert_called_once()
+    assert "x-mlflow-experiment-id" in mock_warning.call_args.args
+
+
+@pytest.mark.parametrize("value", ["", "   "])
+def test_otlp_empty_experiment_id_header_is_rejected(monkeypatch, value):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    tracking_store = mock.Mock()
+    monkeypatch.setattr("mlflow.server.otel_api._get_tracking_store", lambda: tracking_store)
+    client = _make_test_client()
+
+    with mock.patch("mlflow.server.otel_api._logger.warning") as mock_warning:
+        response = client.post(
+            OTLP_TRACES_PATH,
+            content=_build_otlp_payload(),
+            headers={"Content-Type": "application/x-protobuf", "X-MLflow-Experiment-Id": value},
+        )
+
+    assert response.status_code == 400
+    assert "must not be empty" in response.json()["detail"]
+    mock_warning.assert_called_once()
+    tracking_store.log_spans_async.assert_not_called()
+
+
+_MISSING_EXPERIMENT_HEADER = {"loc": ("header", "x-mlflow-experiment-id")}
+
+
+@pytest.mark.parametrize(
+    ("path", "errors", "expected"),
+    [
+        ("/v1/traces", [_MISSING_EXPERIMENT_HEADER], True),
+        ("/v1/traces/", [_MISSING_EXPERIMENT_HEADER], True),
+        ("/prefix/v1/traces", [_MISSING_EXPERIMENT_HEADER], True),
+        ("/v1/traces", [{"loc": ["header", "x-mlflow-experiment-id"]}], True),
+        ("/v1/traces", [{"loc": ("header", "content-type")}], False),
+        ("/v1/traces", [], False),
+        ("/ajax-api/3.0/mlflow/traces", [_MISSING_EXPERIMENT_HEADER], False),
+    ],
+)
+def test_is_missing_experiment_id_header_error(path, errors, expected):
+    assert is_missing_experiment_id_header_error(path, errors) is expected
+
+
+def test_otlp_experiment_id_header_is_required_in_openapi_schema():
+    app = FastAPI()
+    app.include_router(otel_router)
+    parameters = app.openapi()["paths"][OTLP_TRACES_PATH]["post"]["parameters"]
+    (header,) = [p for p in parameters if p["name"] == "x-mlflow-experiment-id"]
+    assert header["required"] is True
 
 
 def test_otlp_resource_attributes_preserved(monkeypatch):

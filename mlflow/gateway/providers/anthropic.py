@@ -98,17 +98,28 @@ def _extract_anthropic_passthrough_token_usage(result: dict[str, Any]) -> dict[s
     return _normalize_anthropic_input_tokens(token_usage)
 
 
+def _collect_anthropic_input_usage(source: dict[str, Any], usage: dict[str, int]) -> None:
+    """Copy the input and cache token counts that `source` reports into `usage`."""
+    if isinstance(input_tokens := source.get("input_tokens"), int):
+        usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
+    if isinstance(cached := source.get("cache_read_input_tokens"), int):
+        usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
+    if isinstance(created := source.get("cache_creation_input_tokens"), int):
+        usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
+
+
 def _extract_anthropic_streaming_token_usage(chunk: bytes) -> dict[str, int]:
     """
     Extract token usage from an Anthropic Messages streaming chunk.
 
     Anthropic streaming format:
     - message_start event: {"message": {"usage": {"input_tokens": X, ...}}}
-    - message_delta event: {"usage": {"output_tokens": Y}}
+    - message_delta event: {"usage": {"output_tokens": Y}}; the usage is cumulative, and with
+      server tools it also carries the final input and cache token counts
 
     Returns:
-        A dictionary with token usage found in this chunk.
-        Total is calculated by the base class after accumulation.
+        A dictionary with raw token usage found in this chunk.
+        Normalization and total calculation happen after accumulation.
     """
     usage: dict[str, int] = {}
     for data in parse_sse_lines(chunk):
@@ -117,16 +128,14 @@ def _extract_anthropic_streaming_token_usage(chunk: bytes) -> dict[str, int]:
                 "type": "message_start",
                 "message": {"usage": dict(msg_usage)},
             }:
-                if (input_tokens := msg_usage.get("input_tokens")) is not None:
-                    usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
-                if (cached := msg_usage.get("cache_read_input_tokens")) is not None:
-                    usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
-                if (created := msg_usage.get("cache_creation_input_tokens")) is not None:
-                    usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
-            case {"type": "message_delta", "usage": {"output_tokens": int(output_tokens)}}:
-                usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
-    # Anthropic's input_tokens excludes cache tokens; normalize to include them.
-    return _normalize_anthropic_input_tokens(usage) or usage
+                _collect_anthropic_input_usage(msg_usage, usage)
+            case {"type": "message_delta", "usage": dict(delta_usage)}:
+                # The usage of message_delta is cumulative and replaces the one from
+                # message_start: with server tools it holds the final input and cache counts.
+                _collect_anthropic_input_usage(delta_usage, usage)
+                if isinstance(output_tokens := delta_usage.get("output_tokens"), int):
+                    usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
+    return usage
 
 
 class _UnsupportedSchemaError(Exception):
@@ -268,11 +277,16 @@ class AnthropicAdapter(ProviderAdapter):
                     )
 
                 tool_function = tool["function"]
-                converted_tools.append({
+                # `description` and `parameters` are optional in OpenAI tool definitions,
+                # but Anthropic requires `input_schema`, so default to a no-argument schema.
+                converted_tool = {
                     "name": tool_function["name"],
-                    "description": tool_function["description"],
-                    "input_schema": tool_function["parameters"],
-                })
+                    "input_schema": tool_function.get("parameters")
+                    or {"type": "object", "properties": {}},
+                }
+                if description := tool_function.get("description"):
+                    converted_tool["description"] = description
+                converted_tools.append(converted_tool)
 
             payload["tools"] = converted_tools
 
@@ -731,11 +745,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
                 metadata["model"] = resp["message"]["model"]
                 # Capture input_tokens and cache tokens from message_start
                 if message_usage := resp["message"].get("usage"):
-                    usage_data["input_tokens"] = message_usage.get("input_tokens")
-                    if (cached := message_usage.get("cache_read_input_tokens")) is not None:
-                        usage_data["cache_read_input_tokens"] = cached
-                    if (created := message_usage.get("cache_creation_input_tokens")) is not None:
-                        usage_data["cache_creation_input_tokens"] = created
+                    _collect_anthropic_input_usage(message_usage, usage_data)
                 continue
 
             if resp["type"] not in (
@@ -755,9 +765,11 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
             resp.update(metadata)
             if resp["type"] == "message_delta":
-                # Capture output_tokens from message_delta
+                # message_delta usage is cumulative: take output_tokens, and the final input and
+                # cache counts, which with server tools only arrive here
                 if delta_usage := resp.get("usage"):
                     usage_data["output_tokens"] = delta_usage.get("output_tokens")
+                    _collect_anthropic_input_usage(delta_usage, usage_data)
                 # Include accumulated usage in the response
                 resp["_usage_data"] = usage_data
                 yield AnthropicAdapter.model_to_chat_streaming(resp, self.config)
@@ -820,6 +832,9 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
     def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
         return _extract_anthropic_streaming_token_usage(chunk)
+
+    def _normalize_streaming_token_usage(self, token_usage: dict[str, int]) -> dict[str, int]:
+        return _normalize_anthropic_input_tokens(token_usage)
 
     async def _proxy(
         self,

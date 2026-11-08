@@ -284,7 +284,7 @@
     "deepseek-ai/DeepSeek-V3.1": {
       "mode": "chat",
       "context_window": {
-        "max_input": 161000,
+        "max_input": 128000,
         "max_output": 128000
       },
       "pricing": {
@@ -298,7 +298,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-02"
     },
     "deepseek-ai/DeepSeek-V4-Flash": {
       "mode": "chat",
@@ -502,7 +502,7 @@
     "meta-llama/Llama-3.1-8B-Instruct": {
       "mode": "chat",
       "context_window": {
-        "max_input": 131000,
+        "max_input": 128000,
         "max_output": 128000
       },
       "pricing": {
@@ -516,7 +516,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-02"
     },
     "meta-llama/Llama-3.3-70B-Instruct": {
       "mode": "chat",

@@ -2,9 +2,10 @@ from unittest import mock
 
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import EndpointConfig
+from mlflow.gateway.config import EndpointConfig, LiteLLMConfig
 from mlflow.gateway.providers.base import PassthroughAction
 from mlflow.gateway.providers.litellm import LiteLLMAdapter, LiteLLMProvider
 from mlflow.gateway.schemas import chat, embeddings
@@ -113,6 +114,47 @@ def mock_litellm_embeddings_response():
     response.usage.total_tokens = 5
 
     return response
+
+
+@pytest.mark.parametrize("key", ["aws_region_name", "vertex_location", "vertex_ai_location"])
+def test_litellm_config_accepts_region_names(key):
+    config = LiteLLMConfig(litellm_provider="sagemaker", litellm_auth_config={key: "us-east-1"})
+    assert config.litellm_auth_config[key] == "us-east-1"
+
+
+@pytest.mark.parametrize("key", ["aws_region_name", "vertex_location", "vertex_ai_location"])
+@pytest.mark.parametrize("value", ["evil.example", "evil.example/#", "US-EAST-1", 1, 0, False, []])
+def test_litellm_config_rejects_non_region_names(key, value):
+    with pytest.raises(ValidationError, match=f"{key} must contain only") as exc:
+        LiteLLMConfig(
+            litellm_provider="sagemaker",
+            litellm_auth_config={key: value, "aws_secret_access_key": "TOPSECRET"},
+        )
+    assert "TOPSECRET" not in str(exc.value)
+    if isinstance(value, str):
+        assert value not in str(exc.value)
+
+
+@pytest.mark.parametrize("key", ["aws_region_name", "vertex_location", "vertex_ai_location"])
+def test_endpoint_config_hides_litellm_secrets_in_region_errors(key):
+    config = {
+        "name": "chat",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "litellm",
+            "name": "sagemaker/my-endpoint",
+            "config": {
+                "litellm_provider": "sagemaker",
+                "litellm_auth_config": {
+                    key: "evil.example/#",
+                    "aws_secret_access_key": "TOPSECRET",
+                },
+            },
+        },
+    }
+    with pytest.raises(ValidationError, match=f"{key} must contain only") as exc:
+        EndpointConfig(**config)
+    assert "TOPSECRET" not in str(exc.value)
 
 
 def test_litellm_not_installed():
@@ -1146,6 +1188,12 @@ def chat_config_with_base_url_alias():
         ("model_list", [{"model_name": "m", "litellm_params": {"api_base": "http://10.0.0.1/"}}]),
         ("fallbacks", [{"model": "m", "api_base": "http://10.0.0.1/"}]),
         ("custom_llm_provider", "ollama"),
+        ("aws_bedrock_runtime_endpoint", "http://127.0.0.1:11434"),
+        ("aws_sts_endpoint", "http://127.0.0.1:11434"),
+        ("aws_region_name", "evil.example/invocations?x="),
+        ("vertex_location", "evil.example/#"),
+        ("vertex_ai_location", "evil.example/#"),
+        ("aws_region_name", "us-east-1"),
     ],
 )
 @pytest.mark.asyncio
@@ -1234,18 +1282,26 @@ async def test_chat_folds_public_base_url_alias_into_api_base_when_upstream_prot
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        (
+            "model_list",
+            [{"model_name": "m", "litellm_params": {"api_base": "http://10.0.0.1/"}}],
+        ),
+        ("aws_bedrock_runtime_endpoint", "http://10.0.0.1/"),
+        ("aws_sts_endpoint", "http://10.0.0.1/"),
+    ],
+)
 async def test_chat_rejects_stored_destination_keys_when_upstream_protection_is_on(
-    protected_request,
+    protected_request, key, value
 ):
     config = chat_config()
-    config["model"]["config"]["litellm_auth_config"] = {
-        "api_key": "test-key",
-        "model_list": [{"model_name": "m", "litellm_params": {"api_base": "http://10.0.0.1/"}}],
-    }
+    config["model"]["config"]["litellm_auth_config"] = {"api_key": "test-key", key: value}
     with mock.patch("litellm.acompletion") as mock_completion:
         provider = LiteLLMProvider(EndpointConfig(**config))
         payload = {"messages": [{"role": "user", "content": TEST_MESSAGE}]}
-        with pytest.raises(HTTPException, match="secret sets 'model_list'") as exc:
+        with pytest.raises(HTTPException, match=f"secret sets '{key}'") as exc:
             await provider.chat(chat.RequestPayload(**payload))
 
     assert exc.value.status_code == 502

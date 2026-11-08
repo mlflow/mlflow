@@ -1566,6 +1566,17 @@ def test_search_registered_model_pagination(store):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
+@pytest.mark.parametrize("max_results", [0, -1])
+def test_search_registered_models_rejects_non_positive_max_results(store, max_results):
+    _rm_maker(store, "RM-A")
+    _rm_maker(store, "RM-B")
+    with pytest.raises(
+        MlflowException, match=r"Invalid value for max_results\. It must be a positive integer"
+    ) as exception_context:
+        store.search_registered_models(max_results=max_results)
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
 def test_search_registered_model_order_by(store):
     rms = []
     # explicitly mock the creation_timestamps because timestamps seem to be unstable in Windows

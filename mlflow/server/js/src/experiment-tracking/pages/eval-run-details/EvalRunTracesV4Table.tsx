@@ -491,6 +491,7 @@ export const EvalRunTracesV4Table = ({
 
   const providerProps: TracesV4TableSurfaceProviderProps = {
     modelTraceExplorer: {
+      experimentId,
       renderExportTracesToDatasetsModal: actions.renderExportTracesToDatasetsModal,
       renderAddToReviewQueueDropdown: actions.AddToReviewQueueDropdown,
       DrawerComponent: AssistantAwareDrawer,
