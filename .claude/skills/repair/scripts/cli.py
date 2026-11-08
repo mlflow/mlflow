@@ -464,9 +464,7 @@ class ActionHandler:
 ACTION_HANDLERS = {"rerun": ActionHandler(validate_rerun, rerun_action)}
 
 
-def load_plan() -> tuple[dict[str, Any], dict[str, Any]]:
-    context = json.loads(os.environ["CANDIDATE"])
-    path = Path(os.environ["OUT_DIR"]) / "payload.json"
+def load_plan(context: dict[str, Any], path: Path) -> dict[str, Any]:
     if path.is_symlink() or not path.is_file() or path.stat().st_size > 1024 * 1024:
         raise ValueError("Expected a regular payload file of at most 1 MB")
     payload: dict[str, Any] = json.loads(path.read_text(), object_pairs_hook=unique_keys)
@@ -479,17 +477,21 @@ def load_plan() -> tuple[dict[str, Any], dict[str, Any]]:
     )
     for action in payload["actions"]:
         ACTION_HANDLERS[action["type"]].validate(context, action)
-    return context, payload
+    return payload
 
 
 def validate(args: argparse.Namespace) -> int:
-    _, payload = load_plan()
+    context = json.loads(
+        args.context_path.read_text() if args.context_path else os.environ["CANDIDATE"]
+    )
+    payload = load_plan(context, args.payload_path)
     outputs(has_actions=str(bool(payload["actions"])).lower())
     return 0
 
 
 def execute(args: argparse.Namespace) -> int:
-    context, payload = load_plan()
+    context = json.loads(os.environ["CANDIDATE"])
+    payload = load_plan(context, Path(os.environ["OUT_DIR"]) / "payload.json")
     dry_run = os.environ.get("DRY_RUN", "true") == "true"
     summary(f"### Repair PR #{context['number']}\n{html.escape(payload['summary'])}")
     for action in payload["actions"]:
@@ -503,11 +505,11 @@ def main() -> int:
     discovery = commands.add_parser("discover", help="Select PRs without unfinished CI jobs")
     discovery.add_argument("--prs", default=os.environ.get("PR_NUMBERS", ""))
     discovery.set_defaults(func=discover)
-    for name, callback in {
-        "validate": validate,
-        "execute": execute,
-    }.items():
-        commands.add_parser(name).set_defaults(func=callback)
+    validation = commands.add_parser("validate", help="Validate a repair payload")
+    validation.add_argument("payload_path", type=Path)
+    validation.add_argument("--context", dest="context_path", type=Path)
+    validation.set_defaults(func=validate)
+    commands.add_parser("execute").set_defaults(func=execute)
     args = parser.parse_args()
     handler: Callable[[argparse.Namespace], int] = args.func
     try:

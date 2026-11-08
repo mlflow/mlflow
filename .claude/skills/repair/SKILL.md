@@ -50,7 +50,6 @@ Keep `summary` to one or two sentences describing the diagnosis and proposed act
 Validate the payload from the trusted checkout before finishing:
 
 ```bash
-CANDIDATE="$(cat "$context_path")" \
-OUT_DIR="$out_dir" \
-python .claude/skills/repair/scripts/cli.py validate
+python .claude/skills/repair/scripts/cli.py validate "$out_dir/payload.json" \
+  --context "$context_path"
 ```
