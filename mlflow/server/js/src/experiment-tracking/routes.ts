@@ -2,6 +2,9 @@ import { createMLflowRoutePath, generatePath } from '../common/utils/RoutingUtil
 import { type ExperimentPageTabName, ExperimentPageTabName as TabName } from './constants';
 import { OverviewTab } from './pages/experiment-overview/hooks/useOverviewTab';
 
+// Shared by the links that open the playground and the playground page that reads it.
+export const PLAYGROUND_ENDPOINT_QUERY_PARAM = 'endpoint';
+
 /**
  * Page identifiers for MLflow experiment tracking pages.
  * Keys should correspond to route paths.
@@ -243,6 +246,15 @@ class Routes {
 
   static getExperimentPageDatasetDetailRoute(experimentId: string, datasetId: string) {
     return generatePath(RoutePaths.experimentPageTabDatasetDetail, { experimentId, datasetId });
+  }
+
+  static getExperimentPagePlaygroundRoute(experimentId: string, { endpointName }: { endpointName?: string } = {}) {
+    const path = generatePath(RoutePaths.experimentPageTabPlayground, { experimentId });
+    if (!endpointName) {
+      return path;
+    }
+    const params = new URLSearchParams({ [PLAYGROUND_ENDPOINT_QUERY_PARAM]: endpointName });
+    return `${path}?${params.toString()}`;
   }
 
   static getExperimentLoggedModelDetailsPage(experimentId: string, loggedModelId: string) {

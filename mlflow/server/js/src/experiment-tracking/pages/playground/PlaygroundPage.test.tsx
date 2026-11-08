@@ -81,14 +81,17 @@ jest.mock('../../components/EndpointSelector', () => ({
   ),
 }));
 
-const renderPlayground = () => {
+const renderPlayground = (initialEntry = '/') => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(<PlaygroundPage />, {
     wrapper: ({ children }) => (
       <IntlProvider locale="en">
         <DesignSystemProvider>
           <QueryClientProvider client={queryClient}>
-            <TestRouter routes={[testRoute(<>{children}</>, '/'), testRoute(<div />, '*')]} initialEntries={['/']} />
+            <TestRouter
+              routes={[testRoute(<>{children}</>, '/'), testRoute(<div />, '*')]}
+              initialEntries={[initialEntry]}
+            />
           </QueryClientProvider>
         </DesignSystemProvider>
       </IntlProvider>
@@ -126,6 +129,23 @@ describe('PlaygroundPage', () => {
     expect(screen.getByRole('button', { name: /submit/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /clear conversation/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /load prompt/i })).toBeInTheDocument();
+  });
+
+  it('preselects the endpoint named in the URL and submits against it', async () => {
+    const chatCompletionSpy = jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [{ index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+    });
+
+    renderPlayground('/?endpoint=my-endpoint');
+
+    expect(await screen.findByTestId('endpoint-selector-test-input')).toHaveValue('my-endpoint');
+
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Hello there');
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(chatCompletionSpy).toHaveBeenCalledWith(expect.objectContaining({ model: 'my-endpoint' }));
+    });
   });
 
   it('keeps Submit disabled until both an endpoint and a non-empty message are present', async () => {

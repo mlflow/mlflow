@@ -2783,6 +2783,10 @@
     "defaultMessage": "Evaluate",
     "description": "Experiment page > new run modal > \"evaluate\" button label"
   },
+  "73Wa60": {
+    "defaultMessage": "Try in Playground",
+    "description": "Gateway > Endpoint details > Button that opens the playground with this endpoint selected"
+  },
   "73n+mN": {
     "defaultMessage": "Create Guardrail",
     "description": "Create guardrail button"
@@ -19678,6 +19682,10 @@
   "yMpYfi": {
     "defaultMessage": "Levels",
     "description": "Label for decision score levels"
+  },
+  "yN68H2": {
+    "defaultMessage": "Enable Usage Tracking in the Overview tab to try this endpoint in the Playground",
+    "description": "Tooltip on the disabled \"Try in Playground\" button explaining that usage tracking must be enabled first"
   },
   "yNAZYE": {
     "defaultMessage": "Retry",
