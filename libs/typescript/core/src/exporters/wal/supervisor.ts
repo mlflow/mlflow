@@ -63,10 +63,13 @@ export function isDaemonAlive(): Promise<boolean> {
  *   1. `MLFLOW_TRACE_DAEMON_EXECUTABLE` env var — used by tests and
  *      advanced operators who want to override the bundled daemon.
  *   2. A `daemon.cjs` sitting directly next to this module's runtime
- *      file. Plugin bundles (e.g. `@mlflow/claude-code`) copy the
+ *      file. This relies on `__filename`, so it only works for CJS
+ *      bundles (e.g. `@mlflow/claude-code`). Plugin bundles copy the
  *      daemon into their own `bundle/` directory so installs without a
  *      node_modules tree — Claude Code marketplace/plugin-cache layout,
- *      see #26833 — can still spawn it.
+ *      see #26833 — can still spawn it. ESM bundles (e.g. `codex`,
+ *      `qwen-code`) don't define `__filename`, so copying the daemon
+ *      next to them is not sufficient on its own.
  *   3. The bundled daemon at `<@mlflow/core install dir>/bundle/daemon.cjs`.
  */
 export function resolveDaemonEntry(): string {
@@ -89,11 +92,13 @@ export function resolveDaemonEntry(): string {
   //
   // This defense lives in the supervisor (not in consumers' esbuild
   // configs) because plugin-marketplace consumers bundle @mlflow/core
-  // into their hook to ship as a self-contained file. Those consumers
-  // should also copy `bundle/daemon.cjs` next to their bundle (see the
-  // @mlflow/claude-code esbuild config) so the sibling lookup above
-  // succeeds; this package.json fallback keeps plain `npm install`
-  // consumers (SDK usage, dist/ layout) working.
+  // into their hook to ship as a self-contained file. CJS consumers
+  // (e.g. @mlflow/claude-code) should also copy `bundle/daemon.cjs`
+  // next to their bundle so the sibling lookup above succeeds; ESM
+  // consumers can't use that lookup because `__filename` is undefined,
+  // so they still need the package.json fallback (or an env override).
+  // This package.json fallback keeps plain `npm install` consumers
+  // (SDK usage, dist/ layout) working.
   const pkgJsonModule = '@mlflow' + '/core' + '/package.json';
   const requireFromHere = createRequire(__filename);
   const pkgJsonPath = requireFromHere.resolve(pkgJsonModule);
