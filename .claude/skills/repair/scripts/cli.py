@@ -411,7 +411,11 @@ def select_candidates(prs: list[dict[str, Any]], max_retries: int) -> list[dict[
         candidate["failed_runs"] = [
             run for run in candidate["failed_runs"] if run["workflow"] not in EXCLUDED_WORKFLOWS
         ]
-        _, ledger = read_ledger(pr)
+        try:
+            _, ledger = read_ledger(pr)
+        except (ValueError, IndexError) as error:
+            sys.stderr.write(f"Skipping PR #{pr['number']}: invalid repair ledger: {error}\n")
+            continue
         if reason := skip_reason(candidate, ledger):
             sys.stderr.write(f"Skipping PR #{pr['number']}: {reason}\n")
             continue
