@@ -462,9 +462,7 @@ def load_plan(context: dict[str, Any], path: Path) -> dict[str, Any]:
 
 
 def validate(args: argparse.Namespace) -> int:
-    context = json.loads(
-        args.context_path.read_text() if args.context_path else os.environ["CANDIDATE"]
-    )
+    context = json.loads(args.context_path.read_text())
     payload = load_plan(context, args.payload_path)
     write_step_outputs(has_actions=str(bool(payload["actions"])).lower())
     return 0
@@ -488,7 +486,7 @@ def main() -> int:
     discovery.set_defaults(func=discover)
     validation = commands.add_parser("validate", help="Validate a repair payload")
     validation.add_argument("payload_path", type=Path)
-    validation.add_argument("--context", dest="context_path", type=Path)
+    validation.add_argument("--context", dest="context_path", type=Path, required=True)
     validation.set_defaults(func=validate)
     commands.add_parser("execute").set_defaults(func=execute)
     args = parser.parse_args()
