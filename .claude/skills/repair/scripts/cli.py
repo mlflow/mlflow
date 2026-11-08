@@ -392,8 +392,7 @@ def summary(message: str) -> None:
 def outputs(**values: str) -> None:
     if path := os.environ.get("GITHUB_OUTPUT"):
         with Path(path).open("a") as stream:
-            for key, value in values.items():
-                stream.write(f"{key}={value}\n")
+            stream.writelines(f"{key}={value}\n" for key, value in values.items())
 
 
 def check_pr(context: dict[str, Any]) -> None:
