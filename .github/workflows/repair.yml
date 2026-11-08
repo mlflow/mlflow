@@ -101,6 +101,12 @@ jobs:
       issues: read
       pull-requests: read
     steps:
+      - name: Write repair context
+        env:
+          CANDIDATE: ${{ toJSON(matrix.pr) }}
+        run: |
+          mkdir -p "$(dirname "$CONTEXT_PATH")" "$OUT_DIR"
+          printf '%s\n' "$CANDIDATE" > "$CONTEXT_PATH"
       - parallel:
           - name: Checkout trusted workflow files
             uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -208,7 +214,6 @@ jobs:
       - name: Repair PR
         working-directory: trusted
         env:
-          CANDIDATE: ${{ toJSON(matrix.pr) }}
           MODEL: ${{ steps.agent.outputs.model }}
           EFFORT: ${{ steps.agent.outputs.effort }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -234,8 +239,6 @@ jobs:
           OTEL_LOG_TOOL_CONTENT: "1"
           OTEL_RESOURCE_ATTRIBUTES: github.run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          mkdir -p "$(dirname "$CONTEXT_PATH")" "$OUT_DIR"
-          printf '%s\n' "$CANDIDATE" > "$CONTEXT_PATH"
           printf -v prompt '/repair "%s" "%s" "%s"' "$GITHUB_WORKSPACE/pr" "$CONTEXT_PATH" "$OUT_DIR"
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
@@ -261,11 +264,9 @@ jobs:
       - name: Validate repair plan
         id: validate
         working-directory: trusted
-        env:
-          CANDIDATE: ${{ toJSON(matrix.pr) }}
         run: |
           python "$SCRIPT" validate "$OUT_DIR/payload.json" \
-            --context <(printf '%s\n' "$CANDIDATE")
+            --context "$CONTEXT_PATH"
       - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         if: steps.validate.outputs.has_actions == 'true' && env.DRY_RUN != 'true'
         id: app-token
@@ -279,6 +280,6 @@ jobs:
         working-directory: trusted
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
-          CANDIDATE: ${{ toJSON(matrix.pr) }}
         run: |
-          python "$SCRIPT" execute
+          python "$SCRIPT" execute "$OUT_DIR/payload.json" \
+            --context "$CONTEXT_PATH"

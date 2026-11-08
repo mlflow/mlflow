@@ -470,8 +470,8 @@ def validate(args: argparse.Namespace) -> int:
 
 
 def execute(args: argparse.Namespace) -> int:
-    context = json.loads(os.environ["CANDIDATE"])
-    payload = load_plan(context, Path(os.environ["OUT_DIR"]) / "payload.json")
+    context = json.loads(args.context_path.read_text())
+    payload = load_plan(context, args.payload_path)
     dry_run = os.environ.get("DRY_RUN", "true") == "true"
     write_step_summary(f"### Repair PR #{context['number']}\n{html.escape(payload['summary'])}")
     for action in payload["actions"]:
@@ -485,11 +485,11 @@ def main() -> int:
     discovery = commands.add_parser("discover", help="Select PRs without unfinished CI jobs")
     discovery.add_argument("--prs", default=os.environ.get("PR_NUMBERS", ""))
     discovery.set_defaults(func=discover)
-    validation = commands.add_parser("validate", help="Validate a repair payload")
-    validation.add_argument("payload_path", type=Path)
-    validation.add_argument("--context", dest="context_path", type=Path, required=True)
-    validation.set_defaults(func=validate)
-    commands.add_parser("execute").set_defaults(func=execute)
+    for name, callback in {"validate": validate, "execute": execute}.items():
+        subcommand = commands.add_parser(name, help=f"{name.capitalize()} a repair payload")
+        subcommand.add_argument("payload_path", type=Path)
+        subcommand.add_argument("--context", dest="context_path", type=Path, required=True)
+        subcommand.set_defaults(func=callback)
     args = parser.parse_args()
     handler: Callable[[argparse.Namespace], int] = args.func
     try:
