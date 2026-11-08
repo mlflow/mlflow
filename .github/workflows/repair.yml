@@ -223,7 +223,8 @@ jobs:
           OTEL_LOG_TOOL_DETAILS: "1"
           OTEL_LOG_TOOL_CONTENT: "1"
           OTEL_RESOURCE_ATTRIBUTES: github.run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: claude --version
+        run: |
+          claude --version
       - name: Stop proxies
         if: always()
         run: |
