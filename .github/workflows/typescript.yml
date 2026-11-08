@@ -59,7 +59,8 @@ jobs:
           node-version: ${{ matrix.node-version }}
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
 
       - name: Check package-lock.json is up-to-date
         run: |
@@ -70,19 +71,24 @@ jobs:
           }
 
       - name: Run format check
-        run: npm run format:check
+        run: |
+          npm run format:check
 
       - name: Run linting
-        run: npm run lint
+        run: |
+          npm run lint
 
       - name: Run build
-        run: npm run build
+        run: |
+          npm run build
 
       - name: Run core tests
-        run: npm run test:core
+        run: |
+          npm run test:core
 
       - name: Run tests for integrations
-        run: npm run test:integrations
+        run: |
+          npm run test:integrations
 
   # Guards against the mlflow#24167 class of bug: an integration importing an
   # @mlflow/* symbol that exists in the workspace source but not in the published
@@ -108,6 +114,8 @@ jobs:
         with:
           node-version: 24
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
       - name: Check integrations against published @mlflow/* floors
-        run: bash scripts/check-min-mlflow-deps.sh
+        run: |
+          bash scripts/check-min-mlflow-deps.sh
