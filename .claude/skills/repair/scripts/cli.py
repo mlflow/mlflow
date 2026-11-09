@@ -641,7 +641,8 @@ def validate_push(context: dict[str, Any], action: dict[str, Any]) -> None:
 
 def push_action(context: dict[str, Any], action: dict[str, Any], dry_run: bool) -> None:
     pr_url = f"https://github.com/{REPO}/pull/{context['number']}"
-    remote = f"{os.environ.get('GITHUB_SERVER_URL', 'https://github.com')}/{REPO}.git"
+    server_url = os.environ.get("GITHUB_SERVER_URL", "https://github.com")
+    remote = f"{server_url}/{REPO}.git"
     head_ref = f"refs/heads/{context['head_ref']}"
     base_ref = f"refs/heads/{context['base_ref']}"
     head_sha = context["head_sha"]
