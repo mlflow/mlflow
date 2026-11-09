@@ -140,11 +140,15 @@ jobs:
       - name: Install agent tools
         working-directory: trusted
         run: |
-          sudo apt-get update --error-on=any
-          sudo apt-get install -y --no-install-recommends ffmpeg
           .claude/scripts/install-claude.sh
           .claude/scripts/install-agent-browser.sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Install FFmpeg
+        working-directory: trusted
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          .claude/scripts/install-ffmpeg.sh
       - id: gateway
         uses: ./trusted/.github/actions/setup-gateway
         with:

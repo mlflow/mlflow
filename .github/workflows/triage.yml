@@ -666,10 +666,16 @@ jobs:
                 echo "::warning::apt-get update failed or timed out; retrying in 5 seconds"
                 sleep 5
               done
-              sudo apt-get install -y --no-install-recommends bubblewrap socat ripgrep ffmpeg
+              sudo apt-get install -y --no-install-recommends bubblewrap socat ripgrep
               if [ "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)" = 1 ]; then
                 sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
               fi
+          - name: Install FFmpeg
+            env:
+              GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            run: |
+              .claude/scripts/install-ffmpeg.sh
+              echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           - name: Install Claude Code
             run: |
               .claude/scripts/install-claude.sh
