@@ -5,18 +5,20 @@ import os
 import re
 import subprocess
 import sys
-import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any
 
 FAILED_CONCLUSIONS = {"FAILURE", "TIMED_OUT", "STARTUP_FAILURE"}
 EXCLUDED_WORKFLOWS = {"rerun.yml", "repair.yml"}
 CONNECTION_BATCH_SIZE = 20
 REPO = "mlflow/mlflow"
+APP = "mlflow-app[bot]"
+APP_EMAIL = f"191841109+{APP}@users.noreply.github.com"
 PR_BUDGET = 5
 HISTORY_MARKER = "<!-- repair-history -->"
 
@@ -620,48 +622,90 @@ class ActionHandler:
 
 
 def validate_push(context: dict[str, Any], action: dict[str, Any]) -> None:
-    behind_by = subprocess.check_output(
-        [
-            "gh",
-            "api",
-            f"repos/{REPO}/compare/{context['base_ref']}...{context['head_sha']}",
-            "--jq",
-            ".behind_by",
-        ],
-        text=True,
-    ).strip()
-    if behind_by == "0":
-        raise ValueError(f"The PR is already up to date with {context['base_ref']}")
-
-
-def fetch_head_sha(number: int) -> str:
-    return subprocess.check_output(
-        ["gh", "api", f"repos/{REPO}/pulls/{number}", "--jq", ".head.sha"], text=True
-    ).strip()
+    pr = json.loads(
+        subprocess.check_output(["gh", "api", f"repos/{REPO}/pulls/{context['number']}"], text=True)
+    )
+    head = pr["head"]
+    if (head["repo"] or {}).get("full_name") != REPO:
+        raise ValueError(f"Repair can only push to PR branches in {REPO}")
+    if (
+        pr["state"] != "open"
+        or pr["draft"]
+        or head["ref"] != context["head_ref"]
+        or head["sha"] != context["head_sha"]
+        or pr["base"]["ref"] != context["base_ref"]
+    ):
+        raise ValueError("The PR changed since discovery")
 
 
 def push_action(context: dict[str, Any], action: dict[str, Any], dry_run: bool) -> None:
     pr_url = f"https://github.com/{REPO}/pull/{context['number']}"
-    if dry_run:
-        write_step_summary(f"Would merge the base branch into {pr_url}")
-        return
-    # expected_head_sha rejects the update if the PR moved after the context was captured.
-    subprocess.check_call([
-        "gh",
-        "api",
-        "--method",
-        "PUT",
-        f"repos/{REPO}/pulls/{context['number']}/update-branch",
-        "-f",
-        f"expected_head_sha={context['head_sha']}",
-    ])
-    # The update is asynchronous: GitHub accepts the request and pushes the merge later.
-    for _ in range(20):
-        time.sleep(3)
-        if fetch_head_sha(context["number"]) != context["head_sha"]:
-            break
-    else:
-        raise RuntimeError("The PR head did not move within 60s")
+    remote = f"{os.environ.get('GITHUB_SERVER_URL', 'https://github.com')}/{REPO}.git"
+    head_ref = f"refs/heads/{context['head_ref']}"
+    base_ref = f"refs/heads/{context['base_ref']}"
+    head_sha = context["head_sha"]
+    with TemporaryDirectory() as directory:
+
+        def git(*args: str) -> str:
+            return subprocess.check_output(
+                [
+                    "git",
+                    "-c",
+                    "core.hooksPath=/dev/null",
+                    "-c",
+                    "credential.helper=",
+                    "-c",
+                    "credential.helper=!gh auth git-credential",
+                    *args,
+                ],
+                cwd=directory,
+                text=True,
+            ).strip()
+
+        git("init", "--bare", "--quiet")
+        git("remote", "add", "origin", remote)
+        git(
+            "fetch",
+            "--no-tags",
+            "--filter=blob:none",
+            "origin",
+            f"{head_ref}:refs/repair/head",
+            f"{base_ref}:refs/repair/base",
+        )
+        if git("rev-parse", "refs/repair/head") != head_sha:
+            raise ValueError("The PR head changed before the merge")
+        base_sha = git("rev-parse", "refs/repair/base")
+        if git("merge-base", head_sha, base_sha) == base_sha:
+            raise ValueError(f"The PR is already up to date with {context['base_ref']}")
+        # Merge in a bare repository so PR files never enter the trusted working tree.
+        try:
+            tree = git("merge-tree", "--write-tree", head_sha, base_sha)
+        except subprocess.CalledProcessError as error:
+            if error.returncode == 1:
+                raise ValueError("The base branch cannot be merged cleanly") from error
+            raise
+
+        if dry_run:
+            write_step_summary(f"Would merge {base_ref} at {base_sha} into {pr_url}")
+            return
+        commit = git(
+            "-c",
+            f"user.name={APP}",
+            "-c",
+            f"user.email={APP_EMAIL}",
+            "commit-tree",
+            tree,
+            "-p",
+            head_sha,
+            "-p",
+            base_sha,
+            "-m",
+            f"Merge {context['base_ref']} into {context['head_ref']}",
+            "-m",
+            f"Signed-off-by: {APP} <{APP_EMAIL}>",
+        )
+        git("push", f"--force-with-lease={head_ref}:{head_sha}", "origin", f"{commit}:{head_ref}")
+        write_step_summary(f"Merged {base_ref} into {pr_url} at {commit}")
 
 
 ACTION_HANDLERS = {
