@@ -46,8 +46,8 @@
         "max_output": 8192
       },
       "pricing": {
-        "input_per_million_tokens": 500.0,
-        "output_per_million_tokens": 2000.0
+        "input_per_million_tokens": 1.8,
+        "output_per_million_tokens": 1.8
       },
       "capabilities": {
         "function_calling": false,
@@ -56,7 +56,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-09"
     },
     "google/flan-t5-xl-3b": {
       "mode": "chat",
