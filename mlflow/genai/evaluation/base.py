@@ -504,6 +504,7 @@ def _run_harness(
             extra_aggregations=get_extra_aggregations(quality_criteria_rules),
         )
         warn_on_unmeasured_quality_criteria(quality_criteria_rules, result.metrics)
+        result.quality_criteria = quality_criteria_rules
 
     try:
         display_evaluation_output(run_id)
