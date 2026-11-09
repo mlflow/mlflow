@@ -264,7 +264,15 @@ export const EditEndpointFormRenderer = ({
             onNameUpdate={onNameUpdate}
             isSubmitting={isSubmitting}
           />
-          {endpoint && <TryInPlaygroundButton endpointName={endpoint.name} experimentId={experimentId} />}
+          {endpoint &&
+            !endpoint.model_mappings.some(
+              ({ model_definition }) =>
+                model_definition?.provider === 'typesafe' ||
+                (model_definition?.provider === 'openrouter' &&
+                  /^~?typesafe\/jev-(?:latest|\d+(?:\.\d+)*)$/.test(model_definition.model_name)),
+            ) && (
+              <TryInPlaygroundButton endpointName={endpoint.name} experimentId={experimentId} />
+            )}
         </div>
       </div>
 
