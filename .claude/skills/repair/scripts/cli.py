@@ -496,10 +496,14 @@ def record(args: argparse.Namespace) -> int:
         recorded_at = entry.get("recorded_at", "").removesuffix("+00:00").replace("T", " ")
         rows.append(f"| {recorded_at or '—'} | [View run]({entry['run_url']}) |")
     table = "\n".join(rows)
+    workflow = "`repair.yml`"
+    if workflow_sha := os.environ.get("GITHUB_WORKFLOW_SHA"):
+        workflow_url = f"https://github.com/{REPO}/blob/{workflow_sha}/.github/workflows/repair.yml"
+        workflow = f"[{workflow}]({workflow_url})"
     body = (
         f"{HISTORY_MARKER}\n\n"
         "### Repair history\n\n"
-        "`repair.yml` records successful live runs here and checks this history to skip repeat "
+        f"{workflow} records successful live runs here and checks this history to skip repeat "
         "contexts and enforce the per-PR limit.\n\n"
         f"{table}\n\n"
         "<details>\n<summary>History data</summary>\n\n"
