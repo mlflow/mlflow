@@ -37,6 +37,51 @@ export OTEL_EXPORTER_OTLP_TRACES_PROTOCOL="http/protobuf"
 export OTEL_EXPORTER_OTLP_TRACES_HEADERS="api_key=12345"
 ```
 
+### Dynamic Credentials
+
+`OTEL_EXPORTER_OTLP_TRACES_HEADERS` is read once when the exporter is created, so it cannot carry short-lived credentials, such as OAuth or Microsoft Entra ID bearer tokens, in a long-running process. For backends that require refreshable credentials, use the OpenTelemetry credential provider hook, which requires `opentelemetry-exporter-otlp-proto-http` or `opentelemetry-exporter-otlp-proto-grpc` 1.37.0 or later. MLflow still applies its own span processing, such as [GenAI semantic convention](#genai-semantic-convention-format) translation, before export.
+
+A credential provider is a function registered under the `opentelemetry_otlp_credential_provider` entry point group of an installed package. For `http/protobuf` export, it returns a `requests.Session`, which can attach a fresh token to every export request:
+
+```python
+# my_package/otlp_auth.py
+import requests
+
+
+def get_access_token() -> str:
+    # Return a valid access token from your identity provider's SDK, which is responsible
+    # for caching and refreshing it. For example, with Microsoft Entra ID:
+    # DefaultAzureCredential().get_token("https://monitor.azure.com/.default").token
+    ...
+
+
+class BearerTokenSession(requests.Session):
+    def request(self, method, url, **kwargs):
+        headers = dict(kwargs.pop("headers", None) or {})
+        headers["Authorization"] = f"Bearer {get_access_token()}"
+        return super().request(method, url, headers=headers, **kwargs)
+
+
+def bearer_token_session() -> requests.Session:
+    return BearerTokenSession()
+```
+
+```toml
+# pyproject.toml of the package that contains my_package
+[project.entry-points.opentelemetry_otlp_credential_provider]
+bearer_token = "my_package.otlp_auth:bearer_token_session"
+```
+
+After installing the package, select the provider by its entry point name:
+
+```bash
+export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="https://<your-endpoint>/v1/traces"
+export OTEL_EXPORTER_OTLP_TRACES_PROTOCOL="http/protobuf"
+export OTEL_PYTHON_EXPORTER_OTLP_HTTP_TRACES_CREDENTIAL_PROVIDER="bearer_token"
+```
+
+For `grpc` export, the provider must return a `grpc.ChannelCredentials` instead, for example `grpc.composite_channel_credentials(grpc.ssl_channel_credentials(), grpc.metadata_call_credentials(...))`, which attaches a token to each call. Select it with `OTEL_PYTHON_EXPORTER_OTLP_GRPC_CREDENTIAL_PROVIDER` and use a secure (`https`) endpoint, because credential providers are ignored for insecure connections.
+
 ## Integrated Observability Platforms
 
 Click on the following icons to learn more about how to set up OpenTelemetry exporter for your specific observability platform:
