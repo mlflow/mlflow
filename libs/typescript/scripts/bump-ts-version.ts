@@ -71,14 +71,6 @@ function bumpVersion(version: string): void {
     }
   }
 
-  for (const packageName of PLUGIN_MANIFEST_PACKAGES) {
-    const manifestPath = join(tsRoot, 'integrations', packageName, PLUGIN_MANIFEST_RELPATH);
-    if (!existsSync(manifestPath)) {
-      console.error(`Error: ${manifestPath} does not exist`);
-      process.exit(1);
-    }
-  }
-
   // Validate version format (semver with optional prerelease)
   // Matches: X.Y.Z or X.Y.Z-rc.0 or X.Y.Z-beta.1 etc.
   const semverPattern = /^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?$/;
@@ -154,6 +146,10 @@ function preparePluginManifestUpdate(
 ): PluginManifestUpdate | null {
   const manifestPath = join(tsRoot, 'integrations', packageName, PLUGIN_MANIFEST_RELPATH);
   if (!existsSync(manifestPath)) {
+    if (PLUGIN_MANIFEST_PACKAGES.includes(packageName)) {
+      console.error(`Error: ${manifestPath} does not exist`);
+      process.exit(1);
+    }
     return null;
   }
 

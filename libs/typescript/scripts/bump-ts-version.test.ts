@@ -98,6 +98,23 @@ describe('bump-ts-version', () => {
     expect(readJson(join(root, 'core', 'package.json')).version).toBe('0.5.0');
   });
 
+  it('rewrites a copy of the real claude-code manifest', () => {
+    const realManifest = readFileSync(
+      join(TS_ROOT, 'integrations', 'claude-code', MANIFEST_RELPATH),
+      'utf-8',
+    );
+    const manifestPath = join(root, 'integrations', 'claude-code', MANIFEST_RELPATH);
+    writeFileSync(manifestPath, realManifest);
+
+    const result = runBump(root, '0.5.0');
+
+    expect(result.status).toBe(0);
+    expect(readFileSync(manifestPath, 'utf-8')).toBe(
+      realManifest.replace(/"version": "[^"]*"/, '"version": "0.5.0"'),
+    );
+    expect(readJson(manifestPath).version).toBe('0.5.0');
+  });
+
   it('bumps a plugin manifest in any integration that ships one', () => {
     const codexManifest = join(root, 'integrations', 'codex', MANIFEST_RELPATH);
     writeFileSync(codexManifest, MANIFEST.replace('mlflow-tracing', 'codex-tracing'));
