@@ -619,18 +619,17 @@ class ActionHandler:
 
 
 def validate_push(context: dict[str, Any], action: dict[str, Any]) -> None:
-    # ahead_by counts base branch commits that the PR head doesn't have.
-    behind = subprocess.check_output(
+    behind_by = subprocess.check_output(
         [
             "gh",
             "api",
-            f"repos/{REPO}/compare/{context['head_sha']}...{context['base_ref']}",
+            f"repos/{REPO}/compare/{context['base_ref']}...{context['head_sha']}",
             "--jq",
-            ".ahead_by",
+            ".behind_by",
         ],
         text=True,
     ).strip()
-    if behind == "0":
+    if behind_by == "0":
         raise ValueError(f"The PR is already up to date with {context['base_ref']}")
 
 
