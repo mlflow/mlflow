@@ -157,7 +157,7 @@ def fetch_prs(repository: str, numbers: list[str]) -> list[dict[str, Any]]:
         return prs
 
     cutoff = (datetime.now(timezone.utc) - timedelta(days=3)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    search = f"repo:{repository} is:pr is:open draft:false label:auto-repair created:>={cutoff}"
+    search = f"repo:{repository} is:pr is:open draft:false label:auto-repair updated:>={cutoff}"
     cursor = None
     seen: set[str] = set()
     while True:
