@@ -257,3 +257,17 @@ def test_eval_item_from_trace_without_spans_has_no_inputs_or_outputs():
 
     assert eval_item.inputs is None
     assert eval_item.outputs is None
+
+
+def test_rows_without_scorer_values_fail_closed():
+    df = pd.DataFrame([{"trace_id": "t1", "assessments": []}])
+    result = EvaluationResult(run_id="r1", metrics={}, result_df=df)
+    assert not result.passed
+    assert "cannot be checked" in result.reason
+
+
+def test_all_scorer_cells_empty_fail_closed():
+    df = pd.DataFrame([{"scorer_a/value": None}, {"scorer_a/value": float("nan")}])
+    result = EvaluationResult(run_id="r1", metrics={}, result_df=df)
+    assert not result.passed
+    assert "cannot be checked" in result.reason

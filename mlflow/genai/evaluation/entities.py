@@ -319,14 +319,16 @@ class EvaluationResult:
         return failures
 
     def _row_failures(self) -> list[str]:
-        if self.result_df is None:
+        if self.result_df is None or self.result_df.empty:
             return []
 
+        no_evidence = "no scorer produced a value for any row, so the run cannot be checked"
         value_cols = [c for c in self.result_df.columns if c.endswith("/value")]
         if not value_cols:
-            return []
+            return [no_evidence]
 
         failures: list[str] = []
+        checked = 0
         for _, row in self.result_df.iterrows():
             for col in value_cols:
                 scorer_name = col.removesuffix("/value")
@@ -336,6 +338,7 @@ class EvaluationResult:
                 # Skip cells a scorer did not produce for this row.
                 if error_msg is None and is_none_or_nan(value):
                     continue
+                checked += 1
                 rationale = row.get(f"{scorer_name}/rationale")
                 rationale = None if is_none_or_nan(rationale) else rationale
                 passed, detail = _assertion_outcome(
@@ -343,6 +346,8 @@ class EvaluationResult:
                 )
                 if not passed:
                     failures.append(f"{scorer_name}: {detail}" if detail else scorer_name)
+        if checked == 0:
+            return [no_evidence]
         return failures
 
     # For backwards compatibility
