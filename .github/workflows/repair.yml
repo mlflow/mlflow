@@ -125,7 +125,7 @@ jobs:
           - name: Checkout PR head
             uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
             with:
-              ref: ${{ matrix.pr.sha }}
+              ref: ${{ matrix.pr.head_sha }}
               path: pr
               persist-credentials: false
       - uses: ./trusted/.github/actions/setup-python
@@ -297,7 +297,8 @@ jobs:
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           owner: mlflow
           repositories: mlflow
-          permission-actions: write
+          permission-actions: ${{ steps.validate.outputs.action_type == 'rerun' && 'write' || '' }}
+          permission-pull-requests: ${{ steps.validate.outputs.action_type == 'push' && 'write' || '' }}
       - name: Execute or preview repair plan
         if: steps.budget.outputs.eligible == 'true'
         id: execute

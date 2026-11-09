@@ -5,6 +5,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -71,7 +72,10 @@ CONTEXT_FIELDS = f"""
 PR_FIELDS = f"""
   id
   number
+  headRefName
   headRefOid
+  baseRefName
+  baseRefOid
   state
   isDraft
   mergeable
@@ -359,7 +363,10 @@ def build_candidate(pr: dict[str, Any], runs: list[dict[str, Any]]) -> dict[str,
         group["job_runs"].extend(job_runs)
     return {
         "number": pr["number"],
-        "sha": pr["headRefOid"],
+        "head_ref": pr["headRefName"],
+        "head_sha": pr["headRefOid"],
+        "base_ref": pr["baseRefName"],
+        "base_sha": pr["baseRefOid"],
         "failed_runs": list(failed_runs.values()),
     }
 
@@ -487,7 +494,7 @@ def record(args: argparse.Namespace) -> int:
     comment_id, history = read_history(pr)
     history[context_hash(context)] = {
         "run_url": args.run_url,
-        "head_sha": context["sha"],
+        "head_sha": context["head_sha"],
         "recorded_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
     rows = ["| Recorded (UTC) | PR head | Workflow run |", "| --- | --- | --- |"]
@@ -611,7 +618,35 @@ class ActionHandler:
     execute: Callable[[dict[str, Any], dict[str, Any], bool], None]
 
 
-ACTION_HANDLERS = {"rerun": ActionHandler(validate_rerun, rerun_action)}
+def validate_push(context: dict[str, Any], action: dict[str, Any]) -> None:
+    pass
+
+
+def fetch_head_sha(number: int) -> str:
+    return subprocess.check_output(
+        ["gh", "api", f"repos/{REPO}/pulls/{number}", "--jq", ".head.sha"], text=True
+    ).strip()
+
+
+def push_action(context: dict[str, Any], action: dict[str, Any], dry_run: bool) -> None:
+    pr_url = f"https://github.com/{REPO}/pull/{context['number']}"
+    if dry_run:
+        write_step_summary(f"Would merge the base branch into {pr_url}")
+        return
+    subprocess.check_call(["gh", "pr", "update-branch", str(context["number"]), "--repo", REPO])
+    # The update is asynchronous: GitHub accepts the request and pushes the merge later.
+    for _ in range(20):
+        time.sleep(3)
+        if fetch_head_sha(context["number"]) != context["head_sha"]:
+            break
+    else:
+        raise RuntimeError("The PR head did not move within 60s")
+
+
+ACTION_HANDLERS = {
+    "rerun": ActionHandler(validate_rerun, rerun_action),
+    "push": ActionHandler(validate_push, push_action),
+}
 
 
 def load_plan(context: dict[str, Any], path: Path) -> dict[str, Any]:
