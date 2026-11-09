@@ -19,6 +19,18 @@ from mlflow.genai.evaluation.utils import is_none_or_nan
 from mlflow.genai.utils.trace_utils import extract_inputs_from_trace, extract_outputs_from_trace
 
 
+def _is_missing(value) -> bool:
+    """True for None/NaN of any numeric type and ``pd.NA``; False for arrays and other values."""
+    import pandas as pd
+
+    if value is None:
+        return True
+    try:
+        return bool(pd.isna(value))
+    except (TypeError, ValueError):
+        return False
+
+
 def _assertion_outcome(
     value: Any,
     error_msg: str | None,
@@ -322,27 +334,39 @@ class EvaluationResult:
         if self.result_df is None:
             return []
 
+        no_evidence = "no scorer produced a value for any row, so the run cannot be checked"
+        if self.result_df.empty:
+            return [no_evidence]
         value_cols = [c for c in self.result_df.columns if c.endswith("/value")]
         if not value_cols:
-            return []
+            return [no_evidence]
 
         failures: list[str] = []
+        checked = dict.fromkeys(value_cols, 0)
         for _, row in self.result_df.iterrows():
             for col in value_cols:
                 scorer_name = col.removesuffix("/value")
                 value = row.get(col)
                 error_msg = row.get(f"{scorer_name}/error_message")
-                error_msg = None if is_none_or_nan(error_msg) else error_msg
+                error_msg = None if _is_missing(error_msg) else error_msg
                 # Skip cells a scorer did not produce for this row.
-                if error_msg is None and is_none_or_nan(value):
+                if error_msg is None and _is_missing(value):
                     continue
+                checked[col] += 1
                 rationale = row.get(f"{scorer_name}/rationale")
-                rationale = None if is_none_or_nan(rationale) else rationale
+                rationale = None if _is_missing(rationale) else rationale
                 passed, detail = _assertion_outcome(
                     value, error_msg, rationale, self.pass_criteria.get(scorer_name)
                 )
                 if not passed:
                     failures.append(f"{scorer_name}: {detail}" if detail else scorer_name)
+        if not any(checked.values()):
+            return [no_evidence]
+        failures.extend(
+            f"{col.removesuffix('/value')}: produced no value for any row"
+            for col, n in checked.items()
+            if n == 0
+        )
         return failures
 
     # For backwards compatibility
