@@ -633,7 +633,16 @@ def push_action(context: dict[str, Any], action: dict[str, Any], dry_run: bool) 
     if dry_run:
         write_step_summary(f"Would merge the base branch into {pr_url}")
         return
-    subprocess.check_call(["gh", "pr", "update-branch", str(context["number"]), "--repo", REPO])
+    # expected_head_sha rejects the update if the PR moved after the context was captured.
+    subprocess.check_call([
+        "gh",
+        "api",
+        "--method",
+        "PUT",
+        f"repos/{REPO}/pulls/{context['number']}/update-branch",
+        "-f",
+        f"expected_head_sha={context['head_sha']}",
+    ])
     # The update is asynchronous: GitHub accepts the request and pushes the merge later.
     for _ in range(20):
         time.sleep(3)
