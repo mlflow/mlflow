@@ -85,6 +85,7 @@ test.each([
     expect(result.current.genai.observability?.map(({ tabName }) => tabName)).toEqual([
       ExperimentPageTabName.Traces,
       ...(enabled && storeType === 'SqlStore' ? [ExperimentPageTabName.Issues] : []),
+      ExperimentPageTabName.Dashboard,
       ExperimentPageTabName.ChatSessions,
     ]);
     expect(

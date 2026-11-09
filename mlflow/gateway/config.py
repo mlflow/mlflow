@@ -32,6 +32,7 @@ from mlflow.gateway.utils import (
     is_valid_mosiacml_chat_model,
     normalize_databricks_base_url,
 )
+from mlflow.utils.validation import GATEWAY_REGION_KEYS, _validate_region_name
 
 _logger = logging.getLogger(__name__)
 
@@ -261,7 +262,14 @@ class HuggingFaceTextGenerationInferenceConfig(ConfigModel):
 
 
 class AWSBaseConfig(pydantic.BaseModel):
+    # Validation errors would otherwise echo the credentials next to the invalid field.
+    model_config = ConfigDict(hide_input_in_errors=True)
+
     aws_region: str | None = None
+
+    @field_validator("aws_region")
+    def validate_aws_region(cls, value):
+        return _validate_region_name(value, "aws_region")
 
 
 class AWSRole(AWSBaseConfig):
@@ -355,6 +363,10 @@ class VertexAIConfig(ConfigModel):
     # header unchanged, an empty list drops it, and a non-empty list keeps only those values.
     vertex_anthropic_betas: list[str] | None = None
 
+    @field_validator("vertex_location")
+    def validate_vertex_location(cls, value):
+        return _validate_region_name(value, "vertex_location")
+
     @field_validator("vertex_anthropic_betas", mode="before")
     def validate_vertex_anthropic_betas(cls, value):
         # The server API delivers auth_config values as strings, so accept the list as a
@@ -378,6 +390,11 @@ class LiteLLMConfig(ConfigModel):
             return values
 
         auth_config = dict(auth_config)
+
+        # LiteLLM builds request hosts from these, e.g. ``runtime.sagemaker.{aws_region_name}``.
+        # The values aren't echoed, since this map also holds the secret's values.
+        for key in sorted(GATEWAY_REGION_KEYS & set(auth_config)):
+            _validate_region_name(auth_config[key], key, show_value=False)
 
         # Remove MLflow-specific auth_mode as it's not supported by LiteLLM
         auth_config.pop(_AuthConfigKey.AUTH_MODE, None)

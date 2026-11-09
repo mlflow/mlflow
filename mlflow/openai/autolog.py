@@ -405,8 +405,28 @@ def _end_span_on_success(
             _finish_stream()
             return close_result
 
-        result._iterator = _stream_output_logging_hook(result._iterator)
+        # `ChatCompletionStream.close()` (the `chat.completions.stream()` helper) closes the
+        # underlying HTTP response directly instead of calling `Stream.close()`. The SDK also
+        # closes the response while iterating (e.g. before re-raising a mid-stream error), so
+        # only finish here when the close comes from outside the iteration.
+        original_response_close = result.response.close
+        logging_iterator = _stream_output_logging_hook(result._iterator)
+
+        @functools.wraps(original_response_close)
+        def _response_close():
+            try:
+                close_result = original_response_close()
+            except BaseException as e:
+                if not logging_iterator.gi_running:
+                    _finish_stream(e)
+                raise
+            if not logging_iterator.gi_running:
+                _finish_stream()
+            return close_result
+
+        result._iterator = logging_iterator
         result.close = _close
+        result.response.close = _response_close
     elif isinstance(result, AsyncStream):
 
         async def _stream_output_logging_hook(stream: AsyncIterator) -> AsyncIterator:
@@ -433,8 +453,27 @@ def _end_span_on_success(
             _finish_stream()
             return close_result
 
-        result._iterator = _stream_output_logging_hook(result._iterator)
+        # `AsyncChatCompletionStream.close()` (the `chat.completions.stream()` helper) closes
+        # the underlying HTTP response directly instead of calling `AsyncStream.close()`. See
+        # the sync branch above for why the close is ignored while iterating.
+        original_response_aclose = result.response.aclose
+        logging_iterator = _stream_output_logging_hook(result._iterator)
+
+        @functools.wraps(original_response_aclose)
+        async def _response_aclose():
+            try:
+                close_result = await original_response_aclose()
+            except BaseException as e:
+                if not logging_iterator.ag_running:
+                    _finish_stream(e)
+                raise
+            if not logging_iterator.ag_running:
+                _finish_stream()
+            return close_result
+
+        result._iterator = logging_iterator
         result.close = _close
+        result.response.aclose = _response_aclose
     else:
         try:
             set_span_chat_attributes(span, inputs, result)
@@ -529,16 +568,36 @@ def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
             return "".join(text_parts)
         return content
 
+    tool_calls: list[dict[str, Any]] = []
+    finish_reason = "stop"
+    for chunk in chunks:
+        if not chunk.choices:
+            continue
+        chunk_choice = chunk.choices[0]
+        if chunk_choice.finish_reason:
+            finish_reason = chunk_choice.finish_reason
+        for tool_call_delta in getattr(chunk_choice.delta, "tool_calls", None) or []:
+            while tool_call_delta.index >= len(tool_calls):
+                tool_calls.append({
+                    "id": "",
+                    "type": "function",
+                    "function": {"name": "", "arguments": ""},
+                })
+            tool_call = tool_calls[tool_call_delta.index]
+            if tool_call_delta.id:
+                tool_call["id"] = tool_call_delta.id
+            if function := tool_call_delta.function:
+                tool_call["function"]["name"] += function.name or ""
+                tool_call["function"]["arguments"] += function.arguments or ""
+
+    content = "".join(map(_extract_content, chunks))
     message = ChatCompletionMessage(
-        role="assistant", content="".join(map(_extract_content, chunks))
+        role="assistant",
+        content=None if tool_calls and not content else content,
+        tool_calls=tool_calls or None,
     )
 
-    # Extract metadata from the last chunk
     last_chunk = chunks[-1]
-    finish_reason = "stop"
-    if choices := getattr(last_chunk, "choices", None):
-        if chunk_choice := choices[0]:
-            finish_reason = getattr(chunk_choice, "finish_reason") or finish_reason
 
     choice = Choice(index=0, message=message, finish_reason=finish_reason)
 

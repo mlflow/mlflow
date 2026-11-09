@@ -5,8 +5,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 1000000,
-        "max_output": 375000,
-        "max_tokens": 375000
+        "max_output": 375000
       },
       "pricing": {
         "input_per_million_tokens": 0.15,
@@ -20,14 +19,13 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-15"
+      "last_updated_at": "2026-10-27"
     },
     "GLM-5.2": {
       "mode": "chat",
       "context_window": {
         "max_input": 1048576,
-        "max_output": 131072,
-        "max_tokens": 131072
+        "max_output": 131072
       },
       "pricing": {
         "input_per_million_tokens": 0.61,
@@ -41,14 +39,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-10-27"
     },
     "GLM-5.3": {
       "mode": "chat",
       "context_window": {
         "max_input": 1000000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "pricing": {
         "input_per_million_tokens": 0.98,
@@ -62,14 +59,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-15"
+      "last_updated_at": "2026-10-27"
     },
     "Kimi-K3": {
       "mode": "chat",
       "context_window": {
         "max_input": 1000000,
-        "max_output": 1000000,
-        "max_tokens": 1000000
+        "max_output": 1000000
       },
       "pricing": {
         "input_per_million_tokens": 2.83,
@@ -83,14 +79,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-15"
+      "last_updated_at": "2026-10-27"
     },
     "Qwen3.8-Max": {
       "mode": "chat",
       "context_window": {
         "max_input": 1000000,
-        "max_output": 131072,
-        "max_tokens": 131072
+        "max_output": 131072
       },
       "pricing": {
         "input_per_million_tokens": 1.65,
@@ -104,7 +99,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-10-27"
     }
   }
 }

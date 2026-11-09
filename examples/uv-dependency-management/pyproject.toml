@@ -2,7 +2,7 @@
 name = "uv-dependency-management-example"
 version = "0.1.0"
 description = "Example showing MLflow uv dependency management"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = ["mlflow", "scikit-learn", "numpy"]
 
 [project.optional-dependencies]

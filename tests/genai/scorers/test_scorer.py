@@ -8,11 +8,13 @@ from collections import defaultdict
 from dataclasses import asdict
 from unittest.mock import call, patch
 
+import flask
 import numpy as np
 import pandas as pd
 import pytest
 
 import mlflow
+import mlflow.server
 from mlflow.entities import Assessment, AssessmentSource, AssessmentSourceType, Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.environment_variables import _MLFLOW_IN_JOB_EXECUTOR
@@ -609,6 +611,25 @@ def test_server_process_detected_for_direct_app_launch(monkeypatch):
     assert _is_tracking_server_process() is True
     loaded = Scorer.model_validate(_decorator_serialized())
     assert isinstance(loaded, _UnexecutedDecoratorScorer)
+
+
+def test_server_request_detected_under_any_wsgi_or_asgi_server(monkeypatch):
+    # A server run by a WSGI/ASGI server that `is_running_as_server` doesn't recognize has no boot
+    # id and no recognized server module, but code handling a request is still server code.
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    monkeypatch.delenv("_MLFLOW_SERVER_BOOT_ID", raising=False)
+    monkeypatch.delenv("_MLFLOW_IN_JOB_EXECUTOR", raising=False)
+    monkeypatch.setattr(mlflow.server, "is_running_as_server", False)
+
+    with mlflow.server.app.test_request_context():
+        assert _is_tracking_server_process() is True
+        loaded = Scorer.model_validate(_decorator_serialized())
+        assert isinstance(loaded, _UnexecutedDecoratorScorer)
+
+    assert _is_tracking_server_process() is False
+    # A request handled by another Flask app in the same process is not an MLflow server request.
+    with flask.Flask("other").test_request_context():
+        assert _is_tracking_server_process() is False
 
 
 def test_reconstruct_decorator_scorer_blocked_in_server_process(monkeypatch):

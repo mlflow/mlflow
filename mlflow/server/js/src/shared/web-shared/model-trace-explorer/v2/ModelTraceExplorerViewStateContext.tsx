@@ -1,7 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
-import type { ModelTrace, ModelTraceExplorerTab, ModelTraceExplorerView, ModelTraceSpanNode } from './ModelTrace.types';
+import type {
+  ModelTrace,
+  ModelTraceComparisonRole,
+  ModelTraceExplorerTab,
+  ModelTraceExplorerView,
+  ModelTraceSpanNode,
+} from './ModelTrace.types';
 import {
+  buildModelTraceComparisonForest,
   getDefaultActiveTab,
   parseModelTraceToTreeWithMultipleRoots,
   searchTreeBySpanId,
@@ -14,6 +21,9 @@ type PaneSizeRatios = {
   detailsPane: number;
   graphPane: number;
 };
+
+const EMPTY_COMPARISON_NODE_MAP: Record<string, ModelTraceSpanNode> = {};
+const EMPTY_COMPARISON_NODE_ROLE_MAP: Record<string, ModelTraceComparisonRole> = {};
 
 // Default ratios of pane sizes in the model trace explorer.
 const getDefaultPaneSizeRatios = (): PaneSizeRatios => ({
@@ -45,6 +55,7 @@ export type ModelTraceExplorerViewState = {
   updatePaneSizeRatios: (sizes: Partial<PaneSizeRatios>) => void;
   getPaneSizeRatios: () => PaneSizeRatios;
   readOnly?: boolean;
+  hideAssessments: boolean;
   // NB: There can be multiple top-level spans in the trace when it is in-progress. They are not
   // root spans, but used as a tentative roots until the trace is complete.
   topLevelNodes: ModelTraceSpanNode[];
@@ -52,6 +63,12 @@ export type ModelTraceExplorerViewState = {
   highlightAssessment: (assessmentId: string) => void;
   refreshTrace?: () => Promise<void>;
   isRefreshingTrace?: boolean;
+  comparisonRole?: ModelTraceComparisonRole;
+  comparisonNodeMap: Record<string, ModelTraceSpanNode>;
+  comparisonNodeRoleMap: Record<string, ModelTraceComparisonRole>;
+  selectedComparisonNode?: ModelTraceSpanNode;
+  selectedNodeComparisonRole?: ModelTraceComparisonRole;
+  selectedSpanIdOnRenderDisplayId?: string;
 };
 
 export const ModelTraceExplorerViewStateContext: React.Context<ModelTraceExplorerViewState> =
@@ -75,11 +92,18 @@ export const ModelTraceExplorerViewStateContext: React.Context<ModelTraceExplore
     updatePaneSizeRatios: () => {},
     getPaneSizeRatios: () => getDefaultPaneSizeRatios(),
     readOnly: false,
+    hideAssessments: false,
     topLevelNodes: [],
     subscribeToHighlightEvent: () => () => {},
     highlightAssessment: () => {},
     refreshTrace: undefined,
     isRefreshingTrace: false,
+    comparisonRole: undefined,
+    comparisonNodeMap: {},
+    comparisonNodeRoleMap: {},
+    selectedComparisonNode: undefined,
+    selectedNodeComparisonRole: undefined,
+    selectedSpanIdOnRenderDisplayId: undefined,
   });
 
 export const useModelTraceExplorerViewState = (): ModelTraceExplorerViewState => {
@@ -97,11 +121,14 @@ export const ModelTraceExplorerViewStateProvider = ({
   isTraceInitialLoading = false,
   children,
   readOnly = false,
+  hideAssessments = false,
   // Seeds the initial tree-vs-timeline toggle; the AI Gateway opts into timeline (true).
   // All other callers omit this prop and keep the default tree view (false).
   initialShowTimelineTreeGantt = false,
   refreshTrace,
   isRefreshingTrace = false,
+  comparisonModelTrace,
+  comparisonRole,
 }: {
   modelTrace: ModelTrace;
   selectedSpanIdOnRender?: string;
@@ -110,16 +137,41 @@ export const ModelTraceExplorerViewStateProvider = ({
   initialAssessmentsPaneCollapsed?: boolean | 'force-open';
   isTraceInitialLoading?: boolean;
   readOnly?: boolean;
+  hideAssessments?: boolean;
   initialShowTimelineTreeGantt?: boolean;
   refreshTrace?: () => Promise<void>;
   isRefreshingTrace?: boolean;
+  comparisonModelTrace?: ModelTrace;
+  comparisonRole?: ModelTraceComparisonRole;
 }): JSX.Element => {
-  const topLevelNodes = useMemo(() => parseModelTraceToTreeWithMultipleRoots(modelTrace), [modelTrace]);
+  const modelTopLevelNodes = useMemo(() => parseModelTraceToTreeWithMultipleRoots(modelTrace), [modelTrace]);
+  const comparisonTopLevelNodes = useMemo(
+    () => (comparisonModelTrace ? parseModelTraceToTreeWithMultipleRoots(comparisonModelTrace) : []),
+    [comparisonModelTrace],
+  );
+  // A comparison merges the baseline and candidate span trees into one tree of paired spans.
+  const comparisonForest = useMemo(() => {
+    if (!comparisonRole || !comparisonModelTrace) {
+      return undefined;
+    }
+    const baselineNodes = comparisonRole === 'baseline' ? modelTopLevelNodes : comparisonTopLevelNodes;
+    const candidateNodes = comparisonRole === 'candidate' ? modelTopLevelNodes : comparisonTopLevelNodes;
+    return buildModelTraceComparisonForest(baselineNodes, candidateNodes);
+  }, [comparisonModelTrace, comparisonRole, comparisonTopLevelNodes, modelTopLevelNodes]);
+  const topLevelNodes = comparisonForest?.topLevelNodes ?? modelTopLevelNodes;
   const rootNode = topLevelNodes.length === 1 ? topLevelNodes[0] : null;
+  const comparisonNodeMap = comparisonForest?.comparisonNodeMap ?? EMPTY_COMPARISON_NODE_MAP;
+  const comparisonNodeRoleMap = comparisonForest?.comparisonNodeRoleMap ?? EMPTY_COMPARISON_NODE_ROLE_MAP;
 
   const nodeMap = useMemo(() => getTimelineTreeNodesMap(topLevelNodes), [topLevelNodes]);
-  const selectedSpanOnRender = searchTreeBySpanId(rootNode, selectedSpanIdOnRender);
+  const selectedSpanOnRender =
+    searchTreeBySpanId(rootNode, selectedSpanIdOnRender) ??
+    (comparisonForest && selectedSpanIdOnRender
+      ? (comparisonForest.sourceNodeToDisplayNodeMap[`baseline:${selectedSpanIdOnRender}`] ??
+        comparisonForest.sourceNodeToDisplayNodeMap[`candidate:${selectedSpanIdOnRender}`])
+      : undefined);
   const defaultSelectedNode = selectedSpanOnRender ?? rootNode ?? undefined;
+  const selectedSpanIdOnRenderDisplayId = selectedSpanOnRender ? String(selectedSpanOnRender.key) : undefined;
   const hasAssessments = (defaultSelectedNode?.assessments?.length ?? 0) > 0;
 
   const preferences = useModelTraceExplorerPreferences();
@@ -141,6 +193,8 @@ export const ModelTraceExplorerViewStateProvider = ({
   const [activeView, setActiveView] = useState<ModelTraceExplorerView>('detail');
 
   const [selectedNode, setSelectedNode] = useState<ModelTraceSpanNode | undefined>(defaultSelectedNode);
+  const selectedComparisonNode = selectedNode ? comparisonNodeMap[String(selectedNode.key)] : undefined;
+  const selectedNodeComparisonRole = selectedNode ? comparisonNodeRoleMap[String(selectedNode.key)] : undefined;
   const defaultActiveTab = getDefaultActiveTab(selectedNode);
   const [activeTab, setActiveTab] = useState<ModelTraceExplorerTab>(defaultActiveTab);
   const [showGraph, setShowGraph] = useState(false);
@@ -228,11 +282,18 @@ export const ModelTraceExplorerViewStateProvider = ({
       updatePaneSizeRatios,
       getPaneSizeRatios,
       readOnly,
+      hideAssessments,
       topLevelNodes,
       subscribeToHighlightEvent,
       highlightAssessment,
       refreshTrace,
       isRefreshingTrace,
+      comparisonRole,
+      comparisonNodeMap,
+      comparisonNodeRoleMap,
+      selectedComparisonNode,
+      selectedNodeComparisonRole,
+      selectedSpanIdOnRenderDisplayId,
     }),
     [
       activeView,
@@ -251,9 +312,16 @@ export const ModelTraceExplorerViewStateProvider = ({
       updatePaneSizeRatios,
       getPaneSizeRatios,
       readOnly,
+      hideAssessments,
       topLevelNodes,
       refreshTrace,
       isRefreshingTrace,
+      comparisonRole,
+      comparisonNodeMap,
+      comparisonNodeRoleMap,
+      selectedComparisonNode,
+      selectedNodeComparisonRole,
+      selectedSpanIdOnRenderDisplayId,
       subscribeToHighlightEvent,
       highlightAssessment,
     ],

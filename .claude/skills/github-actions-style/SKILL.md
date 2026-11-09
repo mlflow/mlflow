@@ -287,3 +287,23 @@ use for the secret never holds it.
 
 The same holds for a secret that comes straight from `secrets.*`: put it in the
 consuming step's `env:` block rather than exporting it job-wide.
+
+## Run Independent Steps in Parallel
+
+Group independent steps under
+[`parallel`](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idstepsparallel)
+to overlap their execution and reduce elapsed job time. The job waits for all
+steps in the group to finish before continuing. For example, install JavaScript
+and Python dependencies concurrently:
+
+```yaml
+- parallel:
+    - run: |
+        npm ci
+    - run: |
+        uv sync
+```
+
+Complete shared prerequisites before the group. Only group steps that do not
+depend on each other's outputs or side effects, and avoid concurrent writes to
+the same files or package-manager state. Keep dependent work sequential.

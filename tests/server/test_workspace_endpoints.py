@@ -63,6 +63,29 @@ def test_list_workspaces_endpoint(app, mock_workspace_store):
     mock_workspace_store.list_workspaces.assert_called_once_with()
 
 
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("get", "/api/3.0/mlflow/workspaces"),
+        ("post", "/api/3.0/mlflow/workspaces"),
+        ("get", "/api/3.0/mlflow/workspaces/team-a"),
+        ("patch", "/api/3.0/mlflow/workspaces/team-a"),
+        ("delete", "/api/3.0/mlflow/workspaces/team-a"),
+    ],
+)
+def test_workspace_endpoints_reject_requests_when_workspaces_disabled(
+    app, mock_workspace_store, monkeypatch, method, path
+):
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "false")
+    with app.test_client() as client:
+        response = getattr(client, method)(path)
+
+    assert response.status_code == 400
+    assert response.get_json()["error_code"] == "FEATURE_DISABLED"
+    assert "without workspaces support" in response.get_json()["message"]
+    assert mock_workspace_store.mock_calls == []
+
+
 def test_create_workspace_endpoint(app, mock_workspace_store, mock_tracking_store):
     created = Workspace(
         name="team-b",

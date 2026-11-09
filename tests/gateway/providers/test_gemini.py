@@ -1396,6 +1396,28 @@ def chat_stream_response_incomplete():
     ]
 
 
+@pytest.mark.asyncio
+async def test_gemini_chat_stream_raises_on_in_band_error():
+    resp = [
+        *chat_stream_response()[:2],
+        b'data: {"error": {"code": 500, "message": "Internal error", "status": "INTERNAL"}}\n',
+        b"\n",
+    ]
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    payload = {"messages": [{"role": "user", "content": "Tell me a joke"}]}
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        stream = provider.chat_stream(chat.RequestPayload(**payload))
+        first = await anext(stream)
+        with pytest.raises(
+            AIGatewayException, match="Gemini returned INTERNAL while streaming: Internal error"
+        ) as exc_info:
+            await anext(stream)
+    assert first.choices[0].delta.content == "a"
+    assert exc_info.value.status_code == 502
+
+
 @pytest.mark.parametrize("resp", [chat_stream_response(), chat_stream_response_incomplete()])
 @pytest.mark.asyncio
 async def test_gemini_chat_stream(resp, api_base):
@@ -1656,6 +1678,28 @@ def completions_stream_response_incomplete():
         b'"created":1,"model":"test"}\n\n',
         b"data: [DONE]\n",
     ]
+
+
+@pytest.mark.asyncio
+async def test_gemini_completions_stream_raises_on_in_band_error():
+    resp = [
+        *completions_stream_response()[:2],
+        b'data: {"error": {"code": 500, "message": "Internal error", "status": "INTERNAL"}}\n',
+        b"\n",
+    ]
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+    provider = GeminiProvider(EndpointConfig(**completions_config()))
+    payload = {"prompt": "Recite the song jhony jhony yes papa"}
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        stream = provider.completions_stream(completions.RequestPayload(**payload))
+        first = await anext(stream)
+        with pytest.raises(
+            AIGatewayException, match="Gemini returned INTERNAL while streaming: Internal error"
+        ) as exc_info:
+            await anext(stream)
+    assert first.choices[0].text == "a"
+    assert exc_info.value.status_code == 502
 
 
 @pytest.mark.parametrize(
@@ -2311,6 +2355,70 @@ def test_gemini_adapter_completion_tokens_include_thoughts(endpoint, counts, exp
         assert response.usage.model_dump()["thoughtsTokenCount"] == counts["thoughtsTokenCount"]
 
 
+@pytest.mark.parametrize("endpoint", ["chat", "chat_streaming", "completions"])
+@pytest.mark.parametrize(
+    ("counts", "expected"),
+    [
+        # Live gemini-3.5-flash-lite response with the URL context tool
+        ({"promptTokenCount": 27, "toolUsePromptTokenCount": 2420}, 2447),
+        ({"promptTokenCount": 27, "toolUsePromptTokenCount": 0}, 27),
+        ({"promptTokenCount": 27}, 27),
+        ({"promptTokenCount": 27, "toolUsePromptTokenCount": None}, 27),
+        ({"toolUsePromptTokenCount": 2420}, 2420),
+        ({"promptTokenCount": None, "toolUsePromptTokenCount": 2420}, 2420),
+        ({"promptTokenCount": 0, "toolUsePromptTokenCount": 2420}, 2420),
+        ({}, None),
+    ],
+)
+def test_gemini_adapter_prompt_tokens_include_tool_use(endpoint, counts, expected):
+    config = EndpointConfig(
+        **(completions_config() if endpoint == "completions" else chat_config())
+    )
+    usage_metadata = {
+        "candidatesTokenCount": 73,
+        "totalTokenCount": (expected or 0) + 73,
+        **counts,
+    }
+    response = getattr(GeminiAdapter, f"model_to_{endpoint}")(
+        {"usageMetadata": usage_metadata}, config
+    )
+
+    assert response.usage.prompt_tokens == expected
+    assert response.usage.completion_tokens == 73
+    assert response.usage.total_tokens == usage_metadata["totalTokenCount"]
+    if endpoint != "completions" and counts.get("toolUsePromptTokenCount") is not None:
+        assert (
+            response.usage.model_dump()["toolUsePromptTokenCount"]
+            == counts["toolUsePromptTokenCount"]
+        )
+
+
+@pytest.mark.parametrize("streaming", [False, True])
+def test_gemini_passthrough_token_usage_includes_tool_use(streaming):
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    # Live gemini-3.5-flash-lite response with the URL context tool
+    usage_metadata = {
+        "promptTokenCount": 27,
+        "toolUsePromptTokenCount": 2420,
+        "candidatesTokenCount": 77,
+        "totalTokenCount": 2524,
+    }
+    original_usage_metadata = usage_metadata.copy()
+    response = {"usageMetadata": usage_metadata}
+
+    if streaming:
+        token_usage = provider._extract_streaming_token_usage(
+            f"data: {json.dumps(response)}\n".encode()
+        )
+    else:
+        token_usage = provider._extract_passthrough_token_usage(
+            PassthroughAction.GEMINI_GENERATE_CONTENT, response
+        )
+
+    assert token_usage == {"input_tokens": 2447, "output_tokens": 77, "total_tokens": 2524}
+    assert response["usageMetadata"] == original_usage_metadata
+
+
 @pytest.mark.parametrize("streaming", [False, True])
 @pytest.mark.parametrize("include_total", [False, True])
 @pytest.mark.parametrize("counts", [{"candidatesTokenCount": 2}, {}])
@@ -2385,6 +2493,45 @@ def test_chat_to_model_string_content_unchanged():
     result = GeminiAdapter.chat_to_model(payload, EndpointConfig(**chat_config()))
 
     assert result["contents"] == [{"role": "user", "parts": [{"text": "just text"}]}]
+
+
+_TOOL_PARAMS = {"type": "object", "properties": {"city": {"type": "string"}}}
+
+
+@pytest.mark.parametrize(
+    ("function", "expected_declaration"),
+    [
+        (
+            {"name": "get_weather", "parameters": _TOOL_PARAMS},
+            {"name": "get_weather", "parametersJsonSchema": _TOOL_PARAMS},
+        ),
+        (
+            {"name": "get_time", "description": "Get the time"},
+            {"name": "get_time", "description": "Get the time"},
+        ),
+        ({"name": "get_time"}, {"name": "get_time"}),
+        (
+            {"name": "get_weather", "description": "Get weather", "parameters": _TOOL_PARAMS},
+            {
+                "name": "get_weather",
+                "description": "Get weather",
+                "parametersJsonSchema": _TOOL_PARAMS,
+            },
+        ),
+    ],
+    ids=["no-description", "no-parameters", "name-only", "all-fields"],
+)
+def test_chat_to_model_tool_optional_fields(function, expected_declaration):
+    payload = chat.RequestPayload(
+        messages=[{"role": "user", "content": "hi"}],
+        tools=[{"type": "function", "function": function}],
+    )
+
+    result = GeminiAdapter.chat_to_model(
+        jsonable_encoder(payload, exclude_none=True), EndpointConfig(**chat_config())
+    )
+
+    assert result["tools"] == [{"functionDeclarations": [expected_declaration]}]
 
 
 def test_chat_to_model_unknown_content_part_passed_through():
@@ -2521,3 +2668,111 @@ def test_gemini_multiple_text_parts_are_joined(method, config_fn, get_text):
     resp = _mixed_parts_response([{"text": "Hello, "}, {"text": "world."}])
 
     assert get_text(getattr(GeminiAdapter, method)(resp, config)) == "Hello, world."
+
+
+_ALL_CONVERTERS = [
+    ("model_to_chat", chat_config),
+    ("model_to_chat_streaming", chat_config),
+    ("model_to_completions", completions_config),
+    ("model_to_completions_streaming", completions_config),
+]
+
+
+@pytest.mark.parametrize(
+    "gemini_reason",
+    [
+        "SAFETY",
+        "RECITATION",
+        "BLOCKLIST",
+        "PROHIBITED_CONTENT",
+        "SPII",
+        "IMAGE_SAFETY",
+        "IMAGE_PROHIBITED_CONTENT",
+        "IMAGE_RECITATION",
+        "ESCALATION",
+    ],
+)
+@pytest.mark.parametrize(("method", "config_fn"), _ALL_CONVERTERS)
+def test_gemini_filtered_candidate_is_content_filter(method, config_fn, gemini_reason):
+    # Gemini omits `content` for a candidate its filters blocked.
+    resp = {
+        "candidates": [{"finishReason": gemini_reason, "index": 0}],
+        "usageMetadata": {"promptTokenCount": 3, "totalTokenCount": 3},
+    }
+
+    result = getattr(GeminiAdapter, method)(resp, EndpointConfig(**config_fn()))
+
+    assert [(c.index, c.finish_reason) for c in result.choices] == [(0, "content_filter")]
+
+
+@pytest.mark.parametrize(("method", "config_fn"), _ALL_CONVERTERS)
+def test_gemini_filtered_candidate_with_empty_text_part_is_content_filter(method, config_fn):
+    resp = {
+        "candidates": [
+            {"content": {"role": "model", "parts": [{"text": ""}]}, "finishReason": "SAFETY"}
+        ],
+        "usageMetadata": {"promptTokenCount": 3, "totalTokenCount": 3},
+    }
+
+    result = getattr(GeminiAdapter, method)(resp, EndpointConfig(**config_fn()))
+
+    assert [(c.index, c.finish_reason) for c in result.choices] == [(0, "content_filter")]
+
+
+def test_gemini_filtered_candidate_with_empty_text_part_chat_message_has_no_content():
+    resp = {
+        "candidates": [
+            {"content": {"role": "model", "parts": [{"text": ""}]}, "finishReason": "SAFETY"}
+        ]
+    }
+
+    result = GeminiAdapter.model_to_chat(resp, EndpointConfig(**chat_config()))
+
+    assert result.choices[0].message.content is None
+
+
+def test_gemini_filtered_candidate_chat_message_has_no_content():
+    resp = {"candidates": [{"finishReason": "SAFETY", "index": 0}]}
+
+    result = GeminiAdapter.model_to_chat(resp, EndpointConfig(**chat_config()))
+
+    assert result.choices[0].message.role == "assistant"
+    assert result.choices[0].message.content is None
+
+
+def test_gemini_partially_filtered_candidate_keeps_text():
+    resp = {
+        "candidates": [
+            {
+                "content": {"role": "model", "parts": [{"text": "Once upon"}]},
+                "finishReason": "RECITATION",
+                "index": 0,
+            }
+        ]
+    }
+
+    result = GeminiAdapter.model_to_chat(resp, EndpointConfig(**chat_config()))
+
+    assert result.choices[0].message.content == "Once upon"
+    assert result.choices[0].finish_reason == "content_filter"
+
+
+@pytest.mark.parametrize(("method", "config_fn"), _ALL_CONVERTERS)
+def test_gemini_blocked_prompt_returns_content_filter_choice(method, config_fn):
+    resp = {
+        "promptFeedback": {"blockReason": "SAFETY"},
+        "usageMetadata": {"promptTokenCount": 3, "totalTokenCount": 3},
+    }
+
+    result = getattr(GeminiAdapter, method)(resp, EndpointConfig(**config_fn()))
+
+    assert [(c.index, c.finish_reason) for c in result.choices] == [(0, "content_filter")]
+
+
+@pytest.mark.parametrize(("method", "config_fn"), _ALL_CONVERTERS)
+def test_gemini_chunk_without_candidates_or_block_reason_has_no_choices(method, config_fn):
+    resp = {"usageMetadata": {"promptTokenCount": 3, "totalTokenCount": 3}}
+
+    result = getattr(GeminiAdapter, method)(resp, EndpointConfig(**config_fn()))
+
+    assert result.choices == []

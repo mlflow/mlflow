@@ -42,6 +42,7 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
+    _check_model_code_loading_allowed,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_copy_file_to_directory,
@@ -502,8 +503,6 @@ def _load_llama_model(path, flavor_conf):
     """Load the LlamaIndex index/engine/workflow from either model code or serialized index."""
     from llama_index.core import StorageContext, load_index_from_storage
 
-    _add_code_from_conf_to_system_path(path, flavor_conf)
-
     # Handle model-from-code
     pyfunc_flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=pyfunc.FLAVOR_NAME)
     if model_code_path := pyfunc_flavor_conf.get(MODEL_CODE_PATH):
@@ -554,6 +553,10 @@ def load_model(model_uri, dst_path=None):
     mlflow_model = Model.load(local_model_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
 
+    # Runs before the settings are deserialized, because that imports classes named by the model.
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
+    if mlflow_model.flavors.get(pyfunc.FLAVOR_NAME, {}).get(MODEL_CODE_PATH):
+        _check_model_code_loading_allowed("a model from code")
     settings_path = os.path.join(local_model_path, _SETTINGS_FILE)
     # NB: Settings is a singleton and can be loaded via llama_index.core.Settings
     deserialize_settings(settings_path)

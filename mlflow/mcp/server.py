@@ -4,7 +4,7 @@ import os
 from typing import TYPE_CHECKING, Any, Callable
 
 import click
-from click.types import BOOL, FLOAT, INT, STRING, UUID
+from click.types import FLOAT, INT, STRING, UUID
 
 import mlflow.deployments.cli as deployments_cli
 import mlflow.experiments
@@ -39,7 +39,8 @@ def param_type_to_json_schema_type(pt: click.ParamType) -> str:
     """
     if pt is STRING:
         return "string"
-    if pt is BOOL:
+    # In click >= 8.3, flag options get their own `BoolParamType` instance instead of `BOOL`
+    if isinstance(pt, click.types.BoolParamType):
         return "boolean"
     if pt is INT:
         return "integer"
@@ -122,6 +123,12 @@ def fn_wrapper(command: click.Command) -> Callable[..., str]:
                     kwargs[param.name] = tuple(
                         param.type.convert(value, param, None) for value in kwargs[param.name]
                     )
+                # MCP clients may send booleans as strings such as "false", which are truthy
+                elif (
+                    isinstance(param.type, click.types.BoolParamType)
+                    and kwargs.get(param.name) is not None
+                ):
+                    kwargs[param.name] = param.type.convert(kwargs[param.name], param, None)
 
             command.callback(**kwargs)  # type: ignore[misc]
         return string_io.getvalue().strip()

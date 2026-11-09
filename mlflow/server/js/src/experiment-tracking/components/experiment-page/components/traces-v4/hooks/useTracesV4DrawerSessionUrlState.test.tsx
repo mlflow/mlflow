@@ -80,4 +80,13 @@ describe('useTracesV4DrawerSessionUrlState', () => {
     act(() => result.current.selectTrace('tr-9'));
     expect(params()).toEqual({ traceId: 'tr-9' });
   });
+
+  test('closing the drawer also leaves a trace comparison and its pairwise review', async () => {
+    const { result } = await mountHook(
+      '/p?q=hello&traceId=tr-1&baselineTraceId=tr-1&candidateTraceId=tr-2&pairwiseReview=true',
+    );
+
+    act(() => result.current.closeDrawer());
+    expect(params()).toEqual({ q: 'hello' });
+  });
 });

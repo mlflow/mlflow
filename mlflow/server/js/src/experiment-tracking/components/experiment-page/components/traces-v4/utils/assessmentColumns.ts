@@ -42,6 +42,10 @@ const isDisplayableSessionAssessment = (assessment: Assessment): boolean =>
   assessment.assessment_name !== NOTES_ASSESSMENT_NAME &&
   assessment.assessment_name !== INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE;
 
+/** Whether a session-level assessment is worth a column; `isAssessmentColumnEligible` is its trace-level twin. */
+export const isSessionAssessmentColumnEligible = (assessment: Assessment): boolean =>
+  isDisplayableSessionAssessment(assessment);
+
 /** Names of the displayable session-level assessments on these traces. */
 export const getSessionAssessmentNames = (traces: ModelTraceInfoV3[]): Set<string> => {
   const names = new Set<string>();
@@ -166,6 +170,30 @@ export const pickCellAssessment = (trace: ModelTraceInfoV3, name: string): Asses
     }
     return best && (best.create_time ?? '') >= (assessment.create_time ?? '') ? best : assessment;
   }, undefined);
+
+/**
+ * The source type shared by every assessment a column's cells show (judge, human or code), or undefined when
+ * the sources differ or the column has no source. Session columns pick the session's assessment, like their cells.
+ */
+export const getAssessmentColumnSourceType = (
+  traces: ModelTraceInfoV3[],
+  name: string,
+  { isSessionAssessment = false }: { isSessionAssessment?: boolean } = {},
+): string | undefined => {
+  let sourceType: string | undefined;
+  for (const trace of traces) {
+    const assessment = isSessionAssessment ? pickSessionCellAssessment([trace], name) : pickCellAssessment(trace, name);
+    if (!assessment) {
+      continue;
+    }
+    const current = assessment.source?.source_type;
+    if (current === undefined || (sourceType !== undefined && current !== sourceType)) {
+      return undefined;
+    }
+    sourceType = current;
+  }
+  return sourceType;
+};
 
 /**
  * Feedback that filters and filter suggestions can match: trace- and session-level, like the columns of the

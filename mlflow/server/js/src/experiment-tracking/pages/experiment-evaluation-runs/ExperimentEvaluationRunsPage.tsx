@@ -5,7 +5,8 @@ import { useExperimentEvaluationRunsData } from '../../components/experiment-pag
 import { ExperimentEvaluationRunsPageWrapper } from './ExperimentEvaluationRunsPageWrapper';
 import { ExperimentEvaluationRunsTable } from './ExperimentEvaluationRunsTable';
 import type { OnChangeFn, RowSelectionState } from '@tanstack/react-table';
-import { useParams, useSearchParams } from '../../../common/utils/RoutingUtils';
+import { useNavigate, useParams, useSearchParams } from '../../../common/utils/RoutingUtils';
+import Routes from '../../routes';
 import {
   Button,
   CalendarRangeIcon,
@@ -134,6 +135,7 @@ const ExperimentEvaluationRunsPageImpl = ({ baseline }: { baseline?: EvalRunsBas
   const [selectedRunUuid, setSelectedRunUuid] = useSelectedRunUuid();
   const [compareToRunUuid, setCompareToRunUuid] = useCompareToRunUuid();
   const [, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [evalRunsSorting, setEvalRunsSorting] = useEvalRunsSorting(enableNewEvalRunsUi);
 
   invariant(experimentId, 'Experiment ID must be defined');
@@ -175,6 +177,7 @@ const ExperimentEvaluationRunsPageImpl = ({ baseline }: { baseline?: EvalRunsBas
     experimentId,
     enabled: true,
     filter: filterString,
+    excludeIssueDetectionRuns: true,
   });
 
   // The filtered query cannot report the unfiltered total, so keep a first-page unfiltered query
@@ -470,6 +473,21 @@ const ExperimentEvaluationRunsPageImpl = ({ baseline }: { baseline?: EvalRunsBas
     [setSearchParams],
   );
 
+  // New-compare path: instead of the in-page split view, navigate to the eval-run detail page in
+  // compare mode (baseline = first selected run, the rest carried as a query param).
+  const handleCompareNavigate = useCallback(
+    (runUuids: string[]) => {
+      if (runUuids.length < 2) {
+        return;
+      }
+      const [baseline, ...rest] = runUuids;
+      navigate(
+        `${Routes.getEvaluationRunDetailsRoute(experimentId, baseline)}?compare=true&compareFrom=runs&compareRuns=${rest.join(',')}`,
+      );
+    },
+    [experimentId, navigate],
+  );
+
   const renderActiveTab = (selectedRunUuid: string) => {
     if (viewMode === ExperimentEvaluationRunsPageMode.CHARTS) {
       return <ExperimentEvaluationRunsPageCharts runs={flatRuns} experimentId={experimentId} />;
@@ -555,7 +573,7 @@ const ExperimentEvaluationRunsPageImpl = ({ baseline }: { baseline?: EvalRunsBas
         filters={filters}
         setDatePreset={setDatePreset}
         setClauses={setClauses}
-        excludeIssueDetectionRuns={false}
+        excludeIssueDetectionRuns
         filterButtonRef={filterButtonRef}
         groupByConfig={groupBy}
         setGroupByConfig={setGroupBy}
@@ -567,6 +585,8 @@ const ExperimentEvaluationRunsPageImpl = ({ baseline }: { baseline?: EvalRunsBas
         selectedRunUuid={selectedRunUuid}
         compareToRunUuid={compareToRunUuid}
         setIsComparisonMode={setIsComparisonMode}
+        enableNRunComparison
+        onCompareNavigate={handleCompareNavigate}
         onFilterChartToSelectedRuns={
           isNewEvalRunsChartMounted ? () => setFilterChartToSelectedRuns((current) => !current) : undefined
         }

@@ -14,7 +14,6 @@ from urllib.parse import urlparse
 from packaging.version import Version
 
 from mlflow.utils.logging_utils import eprint
-from mlflow.utils.request_utils import augmented_raise_for_status
 
 if TYPE_CHECKING:
     from pyspark.sql.connect.session import SparkSession as SparkConnectSession
@@ -37,7 +36,7 @@ from mlflow.legacy_databricks_cli.configure.provider import (
 )
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils._spark_utils import _get_active_spark_session
-from mlflow.utils.rest_utils import MlflowHostCreds, http_request
+from mlflow.utils.rest_utils import MlflowHostCreds, http_request, verify_rest_response
 from mlflow.utils.uri import (
     _DATABRICKS_UNITY_CATALOG_SCHEME,
     get_db_info_from_uri,
@@ -989,6 +988,52 @@ def get_databricks_workspace_client_config(server_uri: str, scopes: list[str] | 
     return WorkspaceClient(**kwargs).config
 
 
+_TRACE_CATALOG_REQUIRED_PRIVILEGES = {
+    "catalog": {"USE_CATALOG"},
+    "schema": {"USE_SCHEMA", "CREATE_TABLE"},
+}
+
+
+def get_default_trace_catalog(server_uri: str, schema_name: str = "default") -> str | None:
+    """
+    Return the workspace default catalog if the current user can store traces in
+    ``<catalog>.<schema_name>``, or ``None`` if it is unset, missing, inaccessible,
+    or lacks privileges.
+    """
+    from databricks.sdk import WorkspaceClient
+    from databricks.sdk.errors import NotFound, PermissionDenied
+
+    w = WorkspaceClient(config=get_databricks_workspace_client_config(server_uri))
+    try:
+        return _check_default_trace_catalog(w, schema_name)
+    except (NotFound, PermissionDenied):
+        return None
+
+
+def _check_default_trace_catalog(w, schema_name: str) -> str | None:
+    catalog_name = w.settings.default_namespace.get().namespace.value
+    if not catalog_name:
+        return None
+
+    user = w.current_user.me().user_name
+    for securable_type, full_name in [
+        ("catalog", catalog_name),
+        ("schema", f"{catalog_name}.{schema_name}"),
+    ]:
+        effective = w.grants.get_effective(securable_type, full_name, principal=user)
+        granted = {
+            p.privilege.value
+            for a in effective.privilege_assignments or []
+            for p in a.privileges or []
+            if p.privilege
+        }
+        if "ALL_PRIVILEGES" not in granted and not (
+            _TRACE_CATALOG_REQUIRED_PRIVILEGES[securable_type] <= granted
+        ):
+            return None
+    return catalog_name
+
+
 @_use_repl_context_if_available("mlflowGitRepoUrl")
 def get_git_repo_url():
     try:
@@ -1627,9 +1672,10 @@ def get_databricks_local_temp_dir():
 
 
 def stage_model_for_databricks_model_serving(model_name: str, model_version: str):
+    endpoint = "/api/2.0/serving-endpoints:stageDeployment"
     response = http_request(
         host_creds=get_databricks_host_creds(),
-        endpoint="/api/2.0/serving-endpoints:stageDeployment",
+        endpoint=endpoint,
         method="POST",
         raise_on_status=False,
         json={
@@ -1637,7 +1683,8 @@ def stage_model_for_databricks_model_serving(model_name: str, model_version: str
             "model_version": model_version,
         },
     )
-    augmented_raise_for_status(response)
+    # Raises RestException so callers can act on the server's error_code.
+    verify_rest_response(response, endpoint)
 
 
 P = ParamSpec("P")

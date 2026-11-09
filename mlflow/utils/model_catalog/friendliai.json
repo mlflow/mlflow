@@ -5,8 +5,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 196608,
-        "max_output": 196608,
-        "max_tokens": 196608
+        "max_output": 196608
       },
       "pricing": {
         "input_per_million_tokens": 0.3,
@@ -20,14 +19,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-14"
+      "last_updated_at": "2026-10-27"
     },
     "deepseek-ai/DeepSeek-V3.2": {
       "mode": "chat",
       "context_window": {
         "max_input": 163840,
-        "max_output": 163840,
-        "max_tokens": 163840
+        "max_output": 163840
       },
       "pricing": {
         "input_per_million_tokens": 0.5,
@@ -41,14 +39,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-14"
+      "last_updated_at": "2026-10-27"
     },
     "google/gemma-4-31B-it": {
       "mode": "chat",
       "context_window": {
         "max_input": 262144,
-        "max_output": 262144,
-        "max_tokens": 262144
+        "max_output": 262144
       },
       "pricing": {
         "input_per_million_tokens": 0.14,
@@ -61,7 +58,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-14"
+      "last_updated_at": "2026-10-27"
     },
     "meta-llama-3.1-70b-instruct": {
       "mode": "chat",
@@ -107,8 +104,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 202752,
-        "max_output": 202752,
-        "max_tokens": 202752
+        "max_output": 202752
       },
       "pricing": {
         "input_per_million_tokens": 1.4,
@@ -122,14 +118,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-14"
+      "last_updated_at": "2026-10-27"
     },
     "zai-org/GLM-5.2": {
       "mode": "chat",
       "context_window": {
         "max_input": 1048576,
-        "max_output": 1048576,
-        "max_tokens": 1048576
+        "max_output": 1048576
       },
       "pricing": {
         "input_per_million_tokens": 1.4,
@@ -143,14 +138,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-14"
+      "last_updated_at": "2026-10-27"
     },
     "zai-org/GLM-5.3": {
       "mode": "chat",
       "context_window": {
         "max_input": 1048576,
-        "max_output": 1048576,
-        "max_tokens": 1048576
+        "max_output": 1048576
       },
       "pricing": {
         "input_per_million_tokens": 1.26,
@@ -164,14 +158,13 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-02"
+      "last_updated_at": "2026-10-27"
     },
     "zai-org/GLM-5.3-Flash": {
       "mode": "chat",
       "context_window": {
         "max_input": 1048576,
-        "max_output": 1048576,
-        "max_tokens": 1048576
+        "max_output": 1048576
       },
       "pricing": {
         "input_per_million_tokens": 0.15,
@@ -185,7 +178,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-02"
+      "last_updated_at": "2026-10-27"
     }
   }
 }

@@ -1,5 +1,8 @@
+import json
+
 import pytest
 from fastapi import HTTPException
+from pydantic import BaseModel
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.exceptions import AIGatewayException
@@ -12,12 +15,14 @@ from mlflow.gateway.utils import (
     get_gateway_uri,
     handle_incomplete_chunks,
     is_valid_endpoint_name,
+    make_streaming_response,
     parse_sse_lines,
     resolve_route_url,
     safe_stream,
     set_gateway_uri,
     stream_sse_data,
     to_sse_error_chunk,
+    to_sse_stream,
     translate_http_exception,
 )
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -420,6 +425,61 @@ async def test_safe_stream_as_bytes():
     assert b'"type": "ValueError"' in results[1]
 
 
+@pytest.mark.parametrize(
+    ("error", "error_type", "message"),
+    [
+        (
+            HTTPException(status_code=400, detail="thinking.type.enabled is not supported"),
+            "invalid_request_error",
+            "thinking.type.enabled is not supported",
+        ),
+        (
+            HTTPException(status_code=429, detail="rate limit exceeded"),
+            "rate_limit_error",
+            "rate limit exceeded",
+        ),
+        (
+            AIGatewayException(status_code=529, detail="upstream overloaded"),
+            "overloaded_error",
+            "upstream overloaded",
+        ),
+        (RuntimeError("Stream failed"), "api_error", "Stream failed"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_safe_stream_anthropic_error_chunk_is_a_named_event(error, error_type, message):
+    async def mock_stream():
+        yield "chunk1"
+        raise error
+
+    results = [chunk async for chunk in safe_stream(mock_stream(), message_format="anthropic")]
+    assert results[0] == "chunk1"
+    # Anthropic clients dispatch on the SSE event name and drop an event they cannot name, so
+    # an unnamed chunk never reaches them.
+    event_line, data_line = results[1].rstrip("\n").split("\n")
+    assert event_line == "event: error"
+    assert json.loads(data_line.removeprefix("data: ")) == {
+        "type": "error",
+        "error": {"type": error_type, "message": message},
+    }
+
+
+@pytest.mark.asyncio
+async def test_safe_stream_anthropic_error_chunk_as_bytes():
+    async def mock_stream():
+        yield b"chunk1"
+        raise AIGatewayException(status_code=500, detail="upstream failed")
+
+    results = [
+        chunk
+        async for chunk in safe_stream(mock_stream(), as_bytes=True, message_format="anthropic")
+    ]
+    assert results[0] == b"chunk1"
+    assert results[1].startswith(b"event: error\ndata: ")
+    assert b'"type": "api_error"' in results[1]
+    assert b'"message": "upstream failed"' in results[1]
+
+
 @pytest.mark.asyncio
 async def test_safe_stream_no_exception():
     async def mock_stream():
@@ -428,3 +488,43 @@ async def test_safe_stream_no_exception():
 
     results = [chunk async for chunk in safe_stream(mock_stream())]
     assert results == ["data1", "data2"]
+
+
+class _Chunk(BaseModel):
+    content: str
+
+
+@pytest.mark.asyncio
+async def test_to_sse_stream_ends_with_done():
+    async def mock_stream():
+        yield _Chunk(content="Hello")
+        yield _Chunk(content=" world")
+
+    results = [chunk async for chunk in to_sse_stream(mock_stream())]
+    assert results == [
+        'data: {"content":"Hello"}\n\n',
+        'data: {"content":" world"}\n\n',
+        "data: [DONE]\n\n",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_to_sse_stream_omits_done_when_stream_fails():
+    async def mock_stream():
+        yield _Chunk(content="Hello")
+        raise RuntimeError("Stream failed")
+
+    results = [chunk async for chunk in safe_stream(to_sse_stream(mock_stream()))]
+    assert len(results) == 2
+    assert results[0] == 'data: {"content":"Hello"}\n\n'
+    assert '"message": "Stream failed"' in results[1]
+
+
+@pytest.mark.asyncio
+async def test_make_streaming_response_ends_with_done():
+    async def mock_stream():
+        yield _Chunk(content="Hello")
+
+    response = await make_streaming_response(mock_stream())
+    body = [chunk async for chunk in response.body_iterator]
+    assert body == ['data: {"content":"Hello"}\n\n', "data: [DONE]\n\n"]

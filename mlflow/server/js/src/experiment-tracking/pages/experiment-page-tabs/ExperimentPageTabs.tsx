@@ -47,6 +47,7 @@ import {
   ExperimentPageShellExperimentActions,
   ExperimentPageShellExperimentDescription,
 } from './ExperimentPageShellExperimentActions';
+import { ExperimentPageLayoutProvider } from './ExperimentPageLayout';
 
 // Lazy so experiment tabs other than evaluation runs don't load the evaluation flow's modules.
 const RunEvaluationButton = React.lazy(() =>
@@ -140,6 +141,7 @@ const ExperimentPageTabsImpl = () => {
       : undefined) ??
     ExperimentKind.GENAI_DEVELOPMENT;
   const revampFlagEnabled = shouldEnableNewEvalRunsUi();
+  const [experimentPageLayoutContainer, setExperimentPageLayoutContainer] = useState<HTMLElement | null>(null);
   const showRevamp =
     Boolean(experiment && !inferringExperimentType) &&
     revampFlagEnabled &&
@@ -325,18 +327,24 @@ const ExperimentPageTabsImpl = () => {
       {revampFlagEnabled ? (
         // The shell has its own vertical padding, so the page keeps it only outside the shell. The wrapper
         // stays mounted either way, so switching in and out of the shell does not remount the page.
-        <div
-          css={{
-            display: 'flex',
-            flexDirection: 'column',
-            flex: 1,
-            minHeight: 0,
-            paddingTop: showRevamp ? 0 : theme.spacing.md,
-            paddingBottom: showRevamp ? 0 : theme.spacing.md,
-          }}
-        >
-          {pageContents}
-        </div>
+        // It is also the layout container the traces drawer is scoped to while the Assistant is open.
+        <ExperimentPageLayoutProvider value={experimentPageLayoutContainer}>
+          <div
+            ref={setExperimentPageLayoutContainer}
+            data-testid="experiment-page-layout"
+            data-experiment-page-layout="true"
+            css={{
+              display: 'flex',
+              flexDirection: 'column',
+              flex: 1,
+              minHeight: 0,
+              paddingTop: showRevamp ? 0 : theme.spacing.md,
+              paddingBottom: showRevamp ? 0 : theme.spacing.md,
+            }}
+          >
+            {pageContents}
+          </div>
+        </ExperimentPageLayoutProvider>
       ) : (
         pageContents
       )}

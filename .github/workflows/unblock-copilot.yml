@@ -1,0 +1,46 @@
+name: Unblock Copilot
+
+on:
+  schedule:
+    - cron: "7-59/10 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+cache-mode: none
+
+jobs:
+  unblock:
+    if: github.repository == 'mlflow/mlflow'
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Unblock workflows held after Copilot reviews
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          since=$(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%SZ)
+          run_ids=$(gh api --method GET --paginate \
+            "repos/$REPO/actions/runs" \
+            -f actor=Copilot \
+            -f status=action_required \
+            -f event=pull_request_review \
+            -f "created=>=$since" \
+            -f per_page=100 \
+            --jq '.workflow_runs[] | select(.run_attempt == 1) | .id')
+          while IFS= read -r run_id; do
+            if [ -n "$run_id" ]; then
+              echo "Unblocking run $run_id"
+              gh run rerun "$run_id" --repo "$REPO"
+            fi
+          done <<< "$run_ids"

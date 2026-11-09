@@ -2,6 +2,7 @@ import type { QueryFunctionContext } from '../../query-client/queryClient';
 import { useQuery } from '../../query-client/queryClient';
 
 import { getAjaxUrl, makeRequest } from '../utils/FetchUtils';
+import { isIssueDetectionRun } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/hooks/useExperimentEvaluationRunsData';
 
 type UseExperimentRunsForTraceComparisonQueryKey = ['EXPERIMENT_RUNS_FOR_TRACE_COMPARISON', { experimentId: string }];
 
@@ -15,6 +16,10 @@ type RawSearchRunsResponse = {
     info?: {
       run_uuid?: string;
       run_name?: string;
+      start_time?: number | string | null;
+    };
+    data?: {
+      tags?: Array<{ key: string; value: string }>;
     };
   }[];
 };
@@ -31,7 +36,21 @@ const queryFn = async ({
 /**
  * Fetches the runs for the given experiment, used for the "compare to" dropdown in the eval page.
  */
-export const useGenAiExperimentRunsForComparison = (experimentId: string | undefined, disabled = false) => {
+export const useGenAiExperimentRunsForComparison = (
+  experimentId: string | undefined,
+  disabled = false,
+): {
+  requestError: Error | null;
+  isLoading: boolean;
+  isFetching: boolean;
+  runInfos:
+    | {
+        runUuid: string | undefined;
+        runName: string | undefined;
+        startTime?: number;
+      }[]
+    | undefined;
+} => {
   const { data, error, isLoading, isFetching } = useQuery<
     RawSearchRunsResponse,
     Error,
@@ -44,10 +63,20 @@ export const useGenAiExperimentRunsForComparison = (experimentId: string | undef
     staleTime: Infinity,
   });
 
-  const runInfos = data?.runs?.map((run) => ({
-    runUuid: run.info?.run_uuid,
-    runName: run.info?.run_name,
-  }));
+  const runInfos = data?.runs
+    ?.filter((run) => !isIssueDetectionRun(run))
+    .map((run) => {
+      const startTime = run.info?.start_time;
+      const parsedStartTime =
+        startTime === undefined || startTime === null || (typeof startTime === 'string' && startTime.trim() === '')
+          ? undefined
+          : Number(startTime);
+      return {
+        runUuid: run.info?.run_uuid,
+        runName: run.info?.run_name,
+        startTime: parsedStartTime !== undefined && Number.isFinite(parsedStartTime) ? parsedStartTime : undefined,
+      };
+    });
 
   return {
     requestError: error,

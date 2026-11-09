@@ -824,23 +824,23 @@ def remote_backend_for_tracing_sdk_test():
     # Start a remote backend to test mlflow-tracing package integration.
     with tempfile.TemporaryDirectory() as temp_dir:
         mlflow_root = os.path.dirname(os.path.dirname(__file__))
+        uv_run = [
+            "uv",
+            "run",
+            "--no-dev",
+            "--directory",
+            # Install from the dev version
+            mlflow_root,
+            "--with",
+            "setuptools<82",  # setuptools 82+ removed pkg_resources
+            "--with",
+            "litellm",  # Required for computing cost of LLM calls
+        ]
+        # Install the backend dependencies before starting the server so that the
+        # installation time doesn't count against the server's startup window below.
+        subprocess.check_call([*uv_run, "python", "-c", "pass"], cwd=temp_dir)
         with subprocess.Popen(
-            [
-                "uv",
-                "run",
-                "--no-dev",
-                "--directory",
-                # Install from the dev version
-                mlflow_root,
-                "--with",
-                "setuptools<82",  # setuptools 82+ removed pkg_resources
-                "--with",
-                "litellm",  # Required for computing cost of LLM calls
-                "mlflow",
-                "server",
-                "--port",
-                str(port),
-            ],
+            [*uv_run, "mlflow", "server", "--port", str(port)],
             cwd=temp_dir,
         ) as process:
             print("Starting mlflow server on port 5000")  # noqa: T201
@@ -1117,7 +1117,7 @@ def clean_up_envs():
         from mlflow.utils.virtualenv import _get_mlflow_virtualenv_root
 
         shutil.rmtree(_get_mlflow_virtualenv_root(), ignore_errors=True)
-        if not is_windows():
+        if not is_windows() and shutil.which("conda"):
             conda_info = json.loads(subprocess.check_output(["conda", "info", "--json"], text=True))
             root_prefix = conda_info["root_prefix"]
             regex = re.compile(r"mlflow-\w{32,}")
@@ -1416,3 +1416,41 @@ def mock_litellm_cost():
 
     with mock.patch("litellm.cost_per_token", side_effect=calculate_cost, create=True) as mock_cost:
         yield mock_cost
+
+
+@pytest.fixture
+def limit_sqlite_variables(request):
+    def limit_engine(engine):
+        from sqlalchemy import event
+
+        if engine.dialect.name != "sqlite":
+            pytest.skip("SQLite parameter-limit regression")
+
+        def checkout(dbapi_connection, connection_record, connection_proxy):
+            if hasattr(dbapi_connection, "setlimit"):
+                connection_record.info["previous_variable_limit"] = dbapi_connection.setlimit(
+                    sqlite3.SQLITE_LIMIT_VARIABLE_NUMBER, 999
+                )
+
+        def checkin(dbapi_connection, connection_record):
+            previous = connection_record.info.pop("previous_variable_limit", None)
+            if previous is not None and dbapi_connection is not None:
+                dbapi_connection.setlimit(sqlite3.SQLITE_LIMIT_VARIABLE_NUMBER, previous)
+
+        def check_parameters(conn, cursor, statement, parameters, context, executemany):
+            # Python 3.10 lacks setlimit; still verify every executed statement's budget.
+            if not executemany:
+                assert len(parameters) <= 999
+
+        listeners = [
+            ("checkout", checkout),
+            ("checkin", checkin),
+            ("before_cursor_execute", check_parameters),
+        ]
+        for name, listener in listeners:
+            event.listen(engine, name, listener)
+            request.addfinalizer(
+                lambda name=name, listener=listener: event.remove(engine, name, listener)
+            )
+
+    return limit_engine

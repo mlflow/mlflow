@@ -16,7 +16,7 @@ from pathlib import Path
 
 _logger = logging.getLogger("mlflow.server")
 
-from flask import Flask, Response, send_from_directory
+from flask import Flask, Response, current_app, has_request_context, send_from_directory
 from packaging.version import Version
 
 from mlflow.environment_variables import (
@@ -25,6 +25,7 @@ from mlflow.environment_variables import (
     _MLFLOW_IN_JOB_EXECUTOR,
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     _MLFLOW_SERVER_BOOT_ID,
+    _MLFLOW_SERVER_TLS_LISTENER,
     _MLFLOW_SGI_NAME,
     MLFLOW_ARTIFACTS_PRESIGNED_ONLY,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
@@ -79,6 +80,13 @@ REL_STATIC_DIR = "js/build"
 app = Flask(__name__, static_folder=REL_STATIC_DIR)
 _flask_version = get_installed_version("flask")
 IS_FLASK_V1 = _flask_version is not None and _flask_version < Version("2.0")
+
+
+def _is_serving_request() -> bool:
+    # Code running in this app's request context is server code, whichever WSGI/ASGI server runs
+    # the app.
+    return has_request_context() and current_app._get_current_object() is app
+
 
 is_running_as_server = (
     "gunicorn" in sys.modules
@@ -333,6 +341,19 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers, app_name):
 
 
 _UVICORN_LOG_CONFIG = Path(__file__).parent / "uvicorn_log_config.yaml"
+
+
+def _uvicorn_opts_enable_tls(uvicorn_opts: str | None) -> bool:
+    """Whether ``--uvicorn-opts`` makes uvicorn terminate TLS itself.
+
+    Uvicorn serves HTTPS as soon as either ``--ssl-keyfile`` or ``--ssl-certfile`` is given.
+    """
+    opts = shlex.split(uvicorn_opts) if uvicorn_opts else []
+    return any(
+        opt == flag or opt.startswith(f"{flag}=")
+        for opt in opts
+        for flag in ("--ssl-keyfile", "--ssl-certfile")
+    )
 
 
 def _build_uvicorn_command(
@@ -634,6 +655,14 @@ def _run_server(
             if os.path.exists("/dev/shm")
             else tempfile.mkdtemp()
         )
+
+    # Whether server self-calls (e.g. the Assistant's gateway provider) must speak HTTPS to the
+    # listener; see mlflow.server.asgi_utils.get_server_self_url. Written for every launch this
+    # command owns, so a value inherited from the environment (a parent server that terminates
+    # TLS) cannot make a child server without TLS call itself over HTTPS.
+    env_map[_MLFLOW_SERVER_TLS_LISTENER.name] = (
+        "true" if using_uvicorn and _uvicorn_opts_enable_tls(uvicorn_opts) else "false"
+    )
 
     server_proc = _exec_cmd(
         full_command,

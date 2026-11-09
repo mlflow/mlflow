@@ -37,6 +37,7 @@ from mlflow.utils.validation import (
     _validate_public_https_url,
     _validate_run_id,
     _validate_tag_name,
+    _validate_text_field,
     _validate_third_party_scorer_data,
     _validate_webhook_url,
     path_not_unique,
@@ -989,7 +990,36 @@ def test_validate_gateway_secret_value_rejects_api_base():
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-@pytest.mark.parametrize("key", ["base_url", "model_list", "fallbacks", "custom_llm_provider"])
+@pytest.mark.parametrize("key", ["aws_region_name", "vertex_location", "vertex_ai_location"])
+@pytest.mark.parametrize("value", ["", "us-east-1", "europe-west4", "us-isob-east-1"])
+def test_validate_gateway_secret_region_keys_accept_region_names(key, value):
+    assert _validate_gateway_secret_auth_config({key: value}) == {key: value}
+    _validate_gateway_secret_value({key: value})
+
+
+@pytest.mark.parametrize("key", ["aws_region_name", "vertex_location", "vertex_ai_location"])
+@pytest.mark.parametrize(
+    "value", ["evil.example", "evil.example/#", "US-EAST-1", "us-east-1\n", 1, 0, False, [], {}]
+)
+def test_validate_gateway_secret_region_keys_reject_non_region_names(key, value):
+    with pytest.raises(MlflowException, match=f"auth_config '{key}' must contain only") as exc:
+        _validate_gateway_secret_auth_config({key: value})
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    with pytest.raises(MlflowException, match=f"secret_value '{key}' must contain only"):
+        _validate_gateway_secret_value({key: value})
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "base_url",
+        "model_list",
+        "fallbacks",
+        "custom_llm_provider",
+        "aws_bedrock_runtime_endpoint",
+        "aws_sts_endpoint",
+    ],
+)
 def test_validate_gateway_secret_auth_config_rejects_litellm_destination_aliases(key):
     # The LiteLLM provider spreads auth_config into litellm kwargs, where these keys steer the
     # request past the api_base check.
@@ -998,7 +1028,17 @@ def test_validate_gateway_secret_auth_config_rejects_litellm_destination_aliases
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-@pytest.mark.parametrize("key", ["base_url", "model_list", "fallbacks", "custom_llm_provider"])
+@pytest.mark.parametrize(
+    "key",
+    [
+        "base_url",
+        "model_list",
+        "fallbacks",
+        "custom_llm_provider",
+        "aws_bedrock_runtime_endpoint",
+        "aws_sts_endpoint",
+    ],
+)
 def test_validate_gateway_secret_value_rejects_litellm_destination_aliases(key):
     with pytest.raises(MlflowException, match=f"secret_value must not contain '{key}'"):
         _validate_gateway_secret_value({"api_key": "x", key: "http://169.254.169.254/"})
@@ -1157,6 +1197,17 @@ def test_validate_gateway_secret_auth_config_rejects_private_api_base():
             })
 
 
+def test_validate_gateway_secret_auth_config_rejects_private_auth_url():
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        side_effect=_mock_getaddrinfo("10.0.0.1"),
+    ):
+        with pytest.raises(MlflowException, match="must not resolve to a non-public"):
+            _validate_gateway_secret_auth_config({
+                "auth_url": "https://auth.internal/oauth/token",
+            })
+
+
 def test_validate_gateway_secret_auth_config_accepts_public_api_base():
     with patch(
         "mlflow.utils.validation.socket.getaddrinfo",
@@ -1166,3 +1217,21 @@ def test_validate_gateway_secret_auth_config_accepts_public_api_base():
             "auth_mode": "api_key",
             "api_base": "https://api.example.com/v1",
         })
+
+
+@pytest.mark.parametrize("value", [None, "", "a" * 5])
+def test_validate_text_field_accepts_values_within_limit(value):
+    _validate_text_field("Field", value, 5)
+
+
+@pytest.mark.parametrize(
+    ("value", "match"),
+    [
+        ("a" * 6, "'Field' exceeds the maximum length of 5"),
+        ("a\x00b", "'Field' cannot contain NUL"),
+    ],
+)
+def test_validate_text_field_rejects_values_the_database_would_refuse(value, match):
+    with pytest.raises(MlflowException, match=match) as exc:
+        _validate_text_field("Field", value, 5)
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)

@@ -14,12 +14,15 @@ from mlflow.genai.evaluation.comparison.utils import (
     _pair_rows,
     _warn_unpaired_rows,
 )
+from mlflow.telemetry.events import CompareEvaluationsEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
 
 @experimental(version="3.18.0")
+@record_usage_event(CompareEvaluationsEvent)
 def compare_evaluations(
     candidate_run_id: str,
     baseline_run_id: str,

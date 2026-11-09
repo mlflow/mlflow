@@ -3,8 +3,10 @@
 from types import SimpleNamespace
 
 import flask
+import pytest
 
 import mlflow.server.auth as a
+from mlflow.exceptions import MlflowException
 
 
 class _Req:
@@ -82,7 +84,7 @@ def _run_add(monkeypatch, current, added, perms):
         lambda: SimpleNamespace(get_dataset_experiment_ids=lambda did: current),
     )
     monkeypatch.setattr(a, "_get_experiment_permission", lambda eid, user: perms[eid])
-    with flask.Flask(__name__).test_request_context(json={"experiment_ids": added}):
+    with flask.Flask(__name__).test_request_context(method="POST", json={"experiment_ids": added}):
         return a.validate_can_add_dataset_to_experiments()
 
 
@@ -93,3 +95,17 @@ def test_add_to_experiments_requires_update_on_current_and_added(monkeypatch):
     assert _run_add(monkeypatch, ["A"], ["B"], {"A": _perm(update=True), "B": _perm()}) is False
     # can't modify a dataset whose current experiment you don't control
     assert _run_add(monkeypatch, ["A"], ["B"], {"A": _perm(), "B": _perm(update=True)}) is False
+
+
+@pytest.mark.parametrize("key", ["experiment_ids", "experimentIds"])
+def test_experiment_ids_from_request_reads_both_field_spellings(key):
+    with flask.Flask(__name__).test_request_context(method="POST", json={key: ["A", "B"]}):
+        assert a._experiment_ids_from_request(a.CreateDataset()) == ["A", "B"]
+
+
+def test_experiment_ids_from_request_rejects_non_string_items():
+    with flask.Flask(__name__).test_request_context(
+        method="POST", json={"experiment_ids": ["A", 5]}
+    ):
+        with pytest.raises(MlflowException, match="experiment_ids"):
+            a._experiment_ids_from_request(a.CreateDataset())

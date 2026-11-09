@@ -95,6 +95,7 @@ const ContextProviders = ({
       <ModelTraceExplorerContextProvider
         renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
         DrawerComponent={DrawerComponent}
+        experimentId={experimentId}
       >
         <ModelTraceExplorerUpdateTraceContextProvider invalidateTraceQuery={invalidateTraceQuery}>
           {content}

@@ -57,12 +57,14 @@ from mlflow.genai.evaluation.entities import (
     EvaluationResult,
     ScorerStat,
 )
+from mlflow.genai.evaluation.quality_criteria import QualityCriteriaRule
 from mlflow.genai.evaluation.rate_limiter import (
     NoOpRateLimiter,
     RateLimiter,
     RPSRateLimiter,
     call_with_retry,
     eval_retry_context,
+    scorer_rate_limit_context,
 )
 from mlflow.genai.evaluation.session_utils import (
     classify_scorers,
@@ -669,6 +671,7 @@ def run(
     run_id: str | None = None,
     dataset: Any | None = None,
     extra_aggregations: dict[str, list[str]] | None = None,
+    quality_criteria: list[QualityCriteriaRule] | None = None,
 ) -> EvaluationResult:
     """
     Runs GenAI evaluation harness to the given dataset.
@@ -676,6 +679,9 @@ def run(
     Rate limiting is controlled via environment variables:
     - MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT: max predict_fn calls/second
     - MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT: max scorer calls/second
+    - ENABLE_RETRIEVAL_JUDGE_PER_REQUEST_RATE_LIMITING: Databricks
+      only; whether RetrievalRelevance with databricks-agents SDK is rate limited
+      based on scorer invocation or per-chunk requests.
     """
     eval_items = [EvalItem.from_dataset_row(row) for row in eval_df.to_dict(orient="records")]
     eval_start_time = int(time.time() * 1000)
@@ -836,6 +842,7 @@ def run(
         result_df=construct_eval_result_df(run_id, traces, eval_results),
         metrics=aggregated_metrics,
         pass_criteria=pass_criteria,
+        quality_criteria=quality_criteria or [],
     )
 
 
@@ -988,9 +995,10 @@ def _compute_eval_scores(
                     scorer_func
                 )
 
-            value = call_with_retry(
-                lambda: _invoke_scorer(scorer_func, eval_item), rate_limiter, max_retries
-            )
+            with scorer_rate_limit_context(scorer, rate_limiter) as invocation_limiter:
+                value = call_with_retry(
+                    lambda: _invoke_scorer(scorer_func, eval_item), invocation_limiter, max_retries
+                )
             feedbacks = standardize_scorer_value(scorer.name, value)
 
         except Exception as e:

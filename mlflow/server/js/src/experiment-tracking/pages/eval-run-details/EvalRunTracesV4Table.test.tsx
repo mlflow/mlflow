@@ -59,6 +59,13 @@ const LocationSpy = () => {
   return null;
 };
 
+// This suite covers table behavior, not the loading placeholder, which renders a skeleton in every cell of a full page.
+// eslint-disable-next-line @databricks/no-restricted-jest-mock-modules
+jest.mock('@databricks/design-system', () => ({
+  ...jest.requireActual<typeof import('@databricks/design-system')>('@databricks/design-system'),
+  TableSkeleton: () => null,
+}));
+
 describe('EvalRunTracesV4Table', () => {
   const { history } = setupTestRouter();
 
@@ -356,6 +363,17 @@ describe('EvalRunTracesV4Table', () => {
       expect(within(attachmentRow).getByText('complete-yes')).toBeInTheDocument();
       const otherRow = (await findTraceRow('tr-turn-2')).closest('[role="row"]') as HTMLElement;
       expect(within(otherRow).queryByText('complete-yes')).not.toBeInTheDocument();
+    });
+
+    test('switches between traces and sessions with the Traces/Sessions switch', async () => {
+      state.traces = [sessionTurn('tr-turn-2'), sessionTurn('tr-turn-1', [sessionJudge])];
+      renderTable();
+
+      expect(await screen.findByRole('radio', { name: 'Traces' })).toBeChecked();
+      expect(screen.queryByRole('button', { name: 'Group traces by session' })).not.toBeInTheDocument();
+      await userEvent.click(screen.getByRole('radio', { name: 'Sessions' }));
+      await waitFor(() => expect(new URLSearchParams(lastSearch).get('groupBy')).toBe('session'));
+      expect(screen.getByRole('radio', { name: 'Sessions' })).toBeChecked();
     });
 
     test('grouped: shows session feedback once, on the session row', async () => {

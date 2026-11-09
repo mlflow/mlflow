@@ -1,22 +1,35 @@
 import { useMemo } from 'react';
 
 import { HoverCard, Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
-import { FormattedMessage } from '@databricks/i18n';
+import { FormattedMessage, useIntl } from '@databricks/i18n';
 
 import type { ModelTraceSpanNode, SpanCostInfo } from '../ModelTrace.types';
-import { formatCostUSD } from '../../CostUtils';
+import { formatCostUSD, formatEstimatedCostUSD } from '../../CostUtils';
+import { estimatedCostMessages } from '../../EstimatedCostValue';
+import { shouldEnableNewEvalRunsUi } from '../../../../../common/utils/FeatureUtils';
 
 const SpanCostHoverCard = ({ cost }: { cost: SpanCostInfo }) => {
   const { theme } = useDesignSystemTheme();
 
-  const totalCost = useMemo(() => formatCostUSD(cost.total_cost), [cost.total_cost]);
+  const intl = useIntl();
+  // The new eval runs UI marks pricing-table costs as estimated (≈ prefix and an explanation).
+  const isNewEvalRunsUi = shouldEnableNewEvalRunsUi();
+  const totalCost = useMemo(
+    () => (isNewEvalRunsUi ? formatEstimatedCostUSD(cost.total_cost) : formatCostUSD(cost.total_cost)),
+    [cost.total_cost, isNewEvalRunsUi],
+  );
   const inputCost = useMemo(() => formatCostUSD(cost.input_cost), [cost.input_cost]);
   const outputCost = useMemo(() => formatCostUSD(cost.output_cost), [cost.output_cost]);
+  // aria-label announces the plain dollar amount so screen readers say "Estimated cost: $X" rather than the ≈ glyph.
+  const estimatedAriaLabel = isNewEvalRunsUi
+    ? intl.formatMessage(estimatedCostMessages.ariaLabel, { cost: formatCostUSD(cost.total_cost) })
+    : undefined;
 
   return (
     <HoverCard
       trigger={
         <div
+          aria-label={estimatedAriaLabel}
           css={{
             display: 'flex',
             alignItems: 'center',
@@ -101,6 +114,11 @@ const SpanCostHoverCard = ({ cost }: { cost: SpanCostInfo }) => {
               </Tag>
             </div>
           </div>
+          {isNewEvalRunsUi && (
+            <Typography.Text color="secondary" size="sm">
+              <FormattedMessage {...estimatedCostMessages.tooltip} />
+            </Typography.Text>
+          )}
         </div>
       }
       side="bottom"

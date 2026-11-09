@@ -10,6 +10,7 @@ import pytest
 from aiohttp import ClientTimeout
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
+from pydantic import ValidationError
 
 from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.config import (
@@ -380,6 +381,78 @@ bedrock_aws_configs = [
 ]
 
 
+@pytest.mark.parametrize(
+    "region",
+    [
+        "",
+        "us-east-1",
+        "eu-west-1",
+        "ap-southeast-5",
+        "us-gov-west-1",
+        "cn-north-1",
+        "us-iso-east-1",
+        "us-isob-east-1",
+        "eu-isoe-west-1",
+        "us-isof-south-1",
+        "eusc-de-east-1",
+    ],
+)
+def test_aws_region_valid(region):
+    config = AWSBaseConfig(aws_region=region)
+    assert config.aws_region == region
+
+
+_INVALID_AWS_REGIONS = [
+    "evil.example",
+    "evil.example#",
+    "evil.example/#",
+    "x.evil.example?",
+    "https://example.com",
+    "example/path",
+    "region@host",
+    "US-EAST-1",
+    "us-east-1\n",
+]
+
+
+@pytest.mark.parametrize("region", _INVALID_AWS_REGIONS)
+def test_aws_region_invalid(region):
+    with pytest.raises(ValidationError, match="aws_region"):
+        AWSBaseConfig(aws_region=region)
+
+
+@pytest.mark.parametrize("region", _INVALID_AWS_REGIONS)
+@pytest.mark.parametrize(
+    "credentials",
+    [
+        {"aws_bearer_token": "bedrock-api-key"},
+        {"aws_access_key_id": "test-access-key-id", "aws_secret_access_key": "test-secret"},
+        {"aws_role_arn": "test-aws-role-arn"},
+        {},
+    ],
+)
+def test_bedrock_config_rejects_invalid_aws_region(credentials, region):
+    with pytest.raises(ValidationError, match="aws_region"):
+        AmazonBedrockConfig(aws_config={**credentials, "aws_region": region})
+
+
+def test_endpoint_config_hides_bedrock_secrets_in_region_errors():
+    config = {
+        "name": "claude",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "bedrock",
+            "name": "anthropic.claude-3-haiku",
+            "config": {
+                "aws_config": {"aws_region": "evil.example/#", "aws_bearer_token": "TOPSECRET"}
+            },
+        },
+    }
+    with pytest.raises(ValidationError, match="aws_region must contain only") as exc:
+        EndpointConfig(**config)
+    assert "TOPSECRET" not in str(exc.value)
+
+
 def _merge_model_and_aws_config(config, aws_config):
     return {
         **config,
@@ -714,6 +787,51 @@ async def test_bedrock_converse_chat_stream_cache_tokens():
 
     _assert_cache_usage(chunks[-1]["usage"])
     mock_client.converse_stream.assert_called_once()
+
+
+_STOP_REASON_CASES = [
+    ("end_turn", "stop"),
+    ("tool_use", "tool_calls"),
+    ("max_tokens", "length"),
+    ("model_context_window_exceeded", "length"),
+    ("content_filtered", "content_filter"),
+    ("guardrail_intervened", "content_filter"),
+]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("stop_reason", "expected"), _STOP_REASON_CASES)
+async def test_bedrock_converse_chat_finish_reason(stop_reason, expected):
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    response = _converse_response()
+    response["stopReason"] = stop_reason
+    mock_client.converse.return_value = response
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}])
+        result = jsonable_encoder(await provider.chat(payload))
+
+    assert result["choices"][0]["finish_reason"] == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("stop_reason", "expected"), _STOP_REASON_CASES)
+async def test_bedrock_converse_chat_stream_finish_reason(stop_reason, expected):
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    mock_client.converse_stream.return_value = {
+        "stream": iter([
+            {"contentBlockDelta": {"delta": {"text": "Hello"}}},
+            {"messageStop": {"stopReason": stop_reason}},
+        ])
+    }
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}])
+        chunks = [jsonable_encoder(chunk) async for chunk in provider.chat_stream(payload)]
+
+    assert chunks[-1]["choices"][0]["finish_reason"] == expected
 
 
 def _tool_stream_events(*blocks):

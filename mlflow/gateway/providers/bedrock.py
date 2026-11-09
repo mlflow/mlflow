@@ -22,6 +22,7 @@ from mlflow.gateway.providers.anthropic import (
     AnthropicAdapter,
     _extract_anthropic_passthrough_token_usage,
     _extract_anthropic_streaming_token_usage,
+    _normalize_anthropic_input_tokens,
 )
 from mlflow.gateway.providers.base import (
     BaseProvider,
@@ -645,9 +646,9 @@ class AmazonBedrockProvider(BaseProvider):
         match stop_reason:
             case "tool_use":
                 return "tool_calls"
-            case "max_tokens":
+            case "max_tokens" | "model_context_window_exceeded":
                 return "length"
-            case "content_filtered":
+            case "content_filtered" | "guardrail_intervened":
                 return "content_filter"
             case _:
                 return "stop"
@@ -882,6 +883,9 @@ class AmazonBedrockProvider(BaseProvider):
 
     def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
         return _extract_anthropic_streaming_token_usage(chunk)
+
+    def _normalize_streaming_token_usage(self, token_usage: dict[str, int]) -> dict[str, int]:
+        return _normalize_anthropic_input_tokens(token_usage)
 
     async def _passthrough(
         self,

@@ -11,22 +11,29 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
+from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 from prometheus_client import REGISTRY
 
 from mlflow.entities import Workspace
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
-from mlflow.server.fastapi_app import add_fastapi_workspace_middleware, create_fastapi_app
-from mlflow.server.otel_api import otel_router
+from mlflow.server.fastapi_app import (
+    add_fastapi_workspace_middleware,
+    add_registry_exception_handlers,
+    create_fastapi_app,
+)
+from mlflow.server.otel_api import is_missing_experiment_id_header_error, otel_router
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH, _set_otel_proto_anyvalue
 from mlflow.utils import workspace_context
+from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
 
-def _build_otlp_payload(resource_attrs=None):
+def _build_otlp_payload(resource_attrs=None, span_attrs=None):
     request = ExportTraceServiceRequest()
     resource_span = request.resource_spans.add()
     if resource_attrs:
@@ -38,6 +45,11 @@ def _build_otlp_payload(resource_attrs=None):
     span.trace_id = b"\x00" * 16
     span.span_id = b"\x01" * 8
     span.name = "span"
+    if span_attrs:
+        for key, value in span_attrs.items():
+            attr = span.attributes.add()
+            attr.key = key
+            _set_otel_proto_anyvalue(attr.value, value)
     return request.SerializeToString()
 
 
@@ -224,6 +236,27 @@ def test_otlp_endpoint_without_default_workspace_raises_error(monkeypatch):
     assert "Active workspace is required" in response.json()["message"]
 
 
+def test_otlp_endpoint_rejects_workspace_header_when_workspaces_disabled(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    client = _make_test_client()
+    with mock.patch("mlflow.server.workspace_helpers._logger.warning") as mock_warning:
+        response = client.post(
+            OTLP_TRACES_PATH,
+            content=_build_otlp_payload(),
+            headers={
+                "Content-Type": "application/x-protobuf",
+                "X-MLflow-Experiment-Id": "42",
+                WORKSPACE_HEADER_NAME: "team-a",
+            },
+        )
+
+    assert response.status_code == 400
+    assert response.json()["error_code"] == "FEATURE_DISABLED"
+    mock_warning.assert_called_once()
+    assert WORKSPACE_HEADER_NAME in mock_warning.call_args.args
+    assert "workspaces are not enabled" in response.json()["message"]
+
+
 def test_otlp_endpoint_run_linking_error_is_logged(monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
     logged_messages = []
@@ -372,6 +405,83 @@ def test_otlp_conversion_error(monkeypatch):
     assert "Cannot convert OpenTelemetry span" in response.json()["detail"]
 
 
+def test_otlp_missing_experiment_id_header_logs_warning(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    # The server's own RequestValidationError handler logs the warning.
+    app = FastAPI()
+    add_registry_exception_handlers(app)
+    app.include_router(otel_router)
+    client = TestClient(app)
+
+    with mock.patch("mlflow.server.otel_api._logger.warning") as mock_warning:
+        response = client.post(
+            OTLP_TRACES_PATH,
+            content=_build_otlp_payload(),
+            headers={"Content-Type": "application/x-protobuf"},
+        )
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": [
+            {
+                "type": "missing",
+                "loc": ["header", "x-mlflow-experiment-id"],
+                "msg": "Field required",
+                "input": None,
+            }
+        ]
+    }
+    mock_warning.assert_called_once()
+    assert "x-mlflow-experiment-id" in mock_warning.call_args.args
+
+
+@pytest.mark.parametrize("value", ["", "   "])
+def test_otlp_empty_experiment_id_header_is_rejected(monkeypatch, value):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    tracking_store = mock.Mock()
+    monkeypatch.setattr("mlflow.server.otel_api._get_tracking_store", lambda: tracking_store)
+    client = _make_test_client()
+
+    with mock.patch("mlflow.server.otel_api._logger.warning") as mock_warning:
+        response = client.post(
+            OTLP_TRACES_PATH,
+            content=_build_otlp_payload(),
+            headers={"Content-Type": "application/x-protobuf", "X-MLflow-Experiment-Id": value},
+        )
+
+    assert response.status_code == 400
+    assert "must not be empty" in response.json()["detail"]
+    mock_warning.assert_called_once()
+    tracking_store.log_spans_async.assert_not_called()
+
+
+_MISSING_EXPERIMENT_HEADER = {"loc": ("header", "x-mlflow-experiment-id")}
+
+
+@pytest.mark.parametrize(
+    ("path", "errors", "expected"),
+    [
+        ("/v1/traces", [_MISSING_EXPERIMENT_HEADER], True),
+        ("/v1/traces/", [_MISSING_EXPERIMENT_HEADER], True),
+        ("/prefix/v1/traces", [_MISSING_EXPERIMENT_HEADER], True),
+        ("/v1/traces", [{"loc": ["header", "x-mlflow-experiment-id"]}], True),
+        ("/v1/traces", [{"loc": ("header", "content-type")}], False),
+        ("/v1/traces", [], False),
+        ("/ajax-api/3.0/mlflow/traces", [_MISSING_EXPERIMENT_HEADER], False),
+    ],
+)
+def test_is_missing_experiment_id_header_error(path, errors, expected):
+    assert is_missing_experiment_id_header_error(path, errors) is expected
+
+
+def test_otlp_experiment_id_header_is_required_in_openapi_schema():
+    app = FastAPI()
+    app.include_router(otel_router)
+    parameters = app.openapi()["paths"][OTLP_TRACES_PATH]["post"]["parameters"]
+    (header,) = [p for p in parameters if p["name"] == "x-mlflow-experiment-id"]
+    assert header["required"] is True
+
+
 def test_otlp_resource_attributes_preserved(monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
 
@@ -410,6 +520,86 @@ def test_otlp_resource_attributes_preserved(monkeypatch):
     assert res["service.name"] == "my-service"
     assert res["telemetry.sdk.language"] == "python"
     assert res["telemetry.sdk.name"] == "opentelemetry"
+
+
+def test_otlp_drops_system_managed_trace_tag_attributes(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+
+    class DummyTrackingStore(_DummyTrackingStore):
+        def __init__(self):
+            self.logged_spans = []
+
+        def log_spans(self, experiment_id, spans):
+            self.logged_spans.extend(spans)
+
+    tracking_store = DummyTrackingStore()
+    monkeypatch.setattr("mlflow.server.otel_api._get_tracking_store", lambda: tracking_store)
+
+    blocked_attrs = {
+        f"mlflow.traceTag.{key}": "client-value"
+        for key in [
+            MLFLOW_ARTIFACT_LOCATION,
+            TraceTagKey.SPANS_LOCATION,
+            TraceTagKey.ARCHIVE_LOCATION,
+            TraceTagKey.ARCHIVAL_FAILURE,
+        ]
+    }
+    response = _make_test_client().post(
+        OTLP_TRACES_PATH,
+        content=_build_otlp_payload(
+            span_attrs={**blocked_attrs, "mlflow.traceTag.user_tag": "kept"}
+        ),
+        headers={
+            "Content-Type": "application/x-protobuf",
+            "X-MLflow-Experiment-Id": "42",
+        },
+    )
+
+    assert response.status_code == 200
+    [span] = tracking_store.logged_spans
+    trace_tag_attrs = {
+        key: value
+        for key, value in span._span.attributes.items()
+        if key.startswith("mlflow.traceTag.")
+    }
+    assert trace_tag_attrs == {"mlflow.traceTag.user_tag": json.dumps("kept")}
+
+
+@pytest.mark.parametrize(
+    ("key", "sent_value", "expected"),
+    [
+        # MLflow's OTel exporter sends values already JSON-encoded, so a str output stays a str
+        ("mlflow.spanOutputs", json.dumps('{"a": 1}'), '{"a": 1}'),
+        # Raw JSON strings from third-party clients are parsed into structured values
+        ("custom.attr", '{"a": 1}', {"a": 1}),
+        ("custom.attr", "[1, 2]", [1, 2]),
+        ("custom.attr", "hello", "hello"),
+    ],
+)
+def test_otlp_json_string_attributes(monkeypatch, db_uri, tmp_path, key, sent_value, expected):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    store = SqlAlchemyStore(db_uri, tmp_path.as_uri())
+    experiment_id = store.create_experiment("otlp-json-string-attributes")
+    monkeypatch.setattr("mlflow.server.otel_api._get_tracking_store", lambda: store)
+
+    trace_id = "0af7651916cd43dd8448eb211c80319c"
+    span = {
+        "traceId": trace_id,
+        "spanId": "b7ad6b7169203331",
+        "name": "span",
+        "startTimeUnixNano": "1000000000",
+        "endTimeUnixNano": "2000000000",
+        "attributes": [{"key": key, "value": {"stringValue": sent_value}}],
+    }
+    response = _make_test_client().post(
+        OTLP_TRACES_PATH,
+        content=json.dumps({"resourceSpans": [{"scopeSpans": [{"spans": [span]}]}]}),
+        headers={"Content-Type": "application/json", "X-MLflow-Experiment-Id": experiment_id},
+    )
+
+    assert response.status_code == 200
+    stored_span = store.get_trace(f"tr-{trace_id}").data.spans[0]
+    assert stored_span.get_attribute(key) == expected
 
 
 @pytest.mark.parametrize("content_type", ["application/json", "application/json; charset=utf-8"])
@@ -848,3 +1038,50 @@ def test_otlp_response_encoding_matches_request(
     assert resp.status_code == 200
     assert resp.headers["content-type"] == expected_media_type
     assert resp.content == expected_body
+
+
+def test_otlp_span_kind_preserved_in_batch_get(monkeypatch, tmp_path, db_uri):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    store = SqlAlchemyStore(db_uri, tmp_path.joinpath("artifacts").as_uri())
+    monkeypatch.setattr("mlflow.server.handlers._tracking_store", store)
+
+    trace_id = bytes.fromhex("0af7651916cd43dd8448eb211c80319c")
+    request = ExportTraceServiceRequest()
+    scope_spans = request.resource_spans.add().scope_spans.add()
+    server_span = scope_spans.spans.add(
+        trace_id=trace_id,
+        span_id=bytes.fromhex("b7ad6b7169203331"),
+        name="server-request",
+        kind=OTelProtoSpan.SPAN_KIND_SERVER,
+        start_time_unix_nano=1_000_000_000,
+        end_time_unix_nano=4_000_000_000,
+    )
+    scope_spans.spans.add(
+        trace_id=trace_id,
+        span_id=bytes.fromhex("53995c3f42cd8ad8"),
+        parent_span_id=server_span.span_id,
+        name="outgoing-call",
+        kind=OTelProtoSpan.SPAN_KIND_CLIENT,
+        start_time_unix_nano=2_000_000_000,
+        end_time_unix_nano=3_000_000_000,
+    )
+
+    # The full server app only accepts localhost Host headers by default.
+    client = TestClient(create_fastapi_app(), base_url="http://localhost")
+    response = client.post(
+        OTLP_TRACES_PATH,
+        content=request.SerializeToString(),
+        headers={"Content-Type": "application/x-protobuf", "X-MLflow-Experiment-Id": "0"},
+    )
+    assert response.status_code == 200
+
+    response = client.get(
+        "/api/3.0/mlflow/traces/batchGet",
+        params={"trace_ids": f"tr-{trace_id.hex()}"},
+    )
+    assert response.status_code == 200
+    spans = response.json()["traces"][0]["spans"]
+    assert {span["name"]: span.get("kind") for span in spans} == {
+        "server-request": "SPAN_KIND_SERVER",
+        "outgoing-call": "SPAN_KIND_CLIENT",
+    }
