@@ -3,7 +3,9 @@
  *
  * Updates the version of the core package and every published integration
  * package, and rewrites each integration's `@mlflow/core` constraint (declared
- * in either `dependencies` or `peerDependencies`) to match.
+ * in either `dependencies` or `peerDependencies`) to match. Integrations that
+ * ship a Claude Code plugin manifest (`.claude-plugin/plugin.json`) get its
+ * `version` field bumped too.
  */
 
 import { readFileSync, writeFileSync, existsSync } from 'fs';
@@ -23,6 +25,18 @@ const INTEGRATION_PACKAGES = [
   'qwen-code',
   'typesafe',
 ];
+
+// Integrations that must ship a Claude Code plugin manifest. Claude Code derives
+// an installed plugin's version from the manifest's `version` field, so if it
+// lags behind `package.json`, marketplace installs never pick up a new npm
+// release. Every integration that has a manifest is bumped; the ones listed here
+// additionally fail the bump if the manifest is missing.
+const PLUGIN_MANIFEST_PACKAGES = ['claude-code'];
+const PLUGIN_MANIFEST_RELPATH = join('.claude-plugin', 'plugin.json');
+
+interface PluginManifest {
+  version?: unknown;
+}
 
 interface PackageJson {
   name: string;
@@ -47,6 +61,14 @@ function bumpVersion(version: string): void {
     const packagePath = join(tsRoot, 'integrations', packageName, 'package.json');
     if (!existsSync(packagePath)) {
       console.error(`Error: ${packagePath} does not exist`);
+      process.exit(1);
+    }
+  }
+
+  for (const packageName of PLUGIN_MANIFEST_PACKAGES) {
+    const manifestPath = join(tsRoot, 'integrations', packageName, PLUGIN_MANIFEST_RELPATH);
+    if (!existsSync(manifestPath)) {
+      console.error(`Error: ${manifestPath} does not exist`);
       process.exit(1);
     }
   }
@@ -97,9 +119,37 @@ function bumpVersion(version: string): void {
     }
 
     writeFileSync(packagePath, JSON.stringify(packageJson, null, 2) + '\n', 'utf-8');
+
+    const manifestPath = join(tsRoot, 'integrations', packageName, PLUGIN_MANIFEST_RELPATH);
+    if (existsSync(manifestPath)) {
+      bumpPluginManifest(manifestPath, packageName, version);
+    }
   }
 
   console.log(`\n✅ Successfully bumped TypeScript library versions to ${version}`);
+}
+
+function bumpPluginManifest(manifestPath: string, packageName: string, version: string): void {
+  console.log(`Updating integrations/${packageName}/${PLUGIN_MANIFEST_RELPATH}...`);
+  const manifestText = readFileSync(manifestPath, 'utf-8');
+  const oldVersion = (JSON.parse(manifestText) as PluginManifest).version;
+  if (typeof oldVersion !== 'string') {
+    console.error(`Error: ${manifestPath} has no string 'version' field`);
+    process.exit(1);
+  }
+
+  // Rewrite the field in place rather than re-serializing the whole file:
+  // prettier formats plugin.json with its `json` parser (unlike package.json),
+  // which keeps short arrays on one line, so a JSON.stringify round-trip would
+  // fail `npm run format:check`.
+  const updatedText = manifestText.replace(/^(\s*"version":\s*")[^"]*(")/m, `$1${version}$2`);
+  if ((JSON.parse(updatedText) as PluginManifest).version !== version) {
+    console.error(`Error: Failed to rewrite 'version' in ${manifestPath}`);
+    process.exit(1);
+  }
+
+  writeFileSync(manifestPath, updatedText, 'utf-8');
+  console.log(`  ✓ Updated version: ${oldVersion} → ${version}`);
 }
 
 function main(): void {
