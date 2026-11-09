@@ -72,13 +72,15 @@ def bearer_token_session() -> requests.Session:
 bearer_token = "my_package.otlp_auth:bearer_token_session"
 ```
 
-After installing the package, select the provider by its entry point name:
+After installing the package (for a notebook or script, a minimal local package installed with `pip install -e .` is enough), select the provider by its entry point name:
 
 ```bash
 export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="https://<your-endpoint>/v1/traces"
 export OTEL_EXPORTER_OTLP_TRACES_PROTOCOL="http/protobuf"
 export OTEL_PYTHON_EXPORTER_OTLP_HTTP_TRACES_CREDENTIAL_PROVIDER="bearer_token"
 ```
+
+The generic `OTEL_PYTHON_EXPORTER_OTLP_HTTP_CREDENTIAL_PROVIDER` applies to all HTTP OTLP exporters, including the metrics exporter described in [Metrics Export](#metrics-export).
 
 For `grpc` export, the provider must return a `grpc.ChannelCredentials` instead, for example `grpc.composite_channel_credentials(grpc.ssl_channel_credentials(), grpc.metadata_call_credentials(...))`, which attaches a token to each call. Select it with `OTEL_PYTHON_EXPORTER_OTLP_GRPC_CREDENTIAL_PROVIDER` and use a secure (`https`) endpoint, because credential providers are ignored for insecure connections.
 
