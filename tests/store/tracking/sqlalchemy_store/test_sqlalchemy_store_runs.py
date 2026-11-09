@@ -4,6 +4,7 @@ import math
 import re
 import time
 import uuid
+import warnings
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest import mock
@@ -4531,6 +4532,45 @@ def test_log_batch_logged_model_metrics_committed_during_dedup(store: SqlAlchemy
         ("val_acc", 0.9),
         ("val_loss", 0.4),
     ]
+
+
+def test_log_batch_logged_model_metric_conflict_fails_without_retry(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run_id = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="run"
+    ).info.run_id
+    model_id = store.create_logged_model(experiment_id=exp_id, name="model").model_id
+    store.log_batch(
+        run_id, metrics=[Metric("loss", 0.5, 100, 0, model_id=model_id)], params=[], tags=[]
+    )
+
+    statements = []
+
+    def capture_statement(_conn, _cursor, statement, _parameters, _context, _executemany):
+        statements.append(statement.lower())
+
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", capture_statement)
+    try:
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            with pytest.raises(
+                MlflowException, match="UNIQUE constraint failed|duplicate key|Duplicate entry"
+            ):
+                store.log_batch(
+                    run_id,
+                    metrics=[Metric("loss", 0.7, 100, 0, model_id=model_id)],
+                    params=[],
+                    tags=[],
+                )
+    finally:
+        sqlalchemy.event.remove(store.engine, "before_cursor_execute", capture_statement)
+
+    # The dedup lookup matches no stored row, so the insert is not retried.
+    inserts = [s for s in statements if s.lstrip().startswith("insert into logged_model_metrics")]
+    assert len(inserts) == 1
+    # The lookup selects columns, so no entity enters the identity map and conflicts with the
+    # instance being inserted.
+    assert not [w for w in caught if issubclass(w.category, sqlalchemy.exc.SAWarning)]
 
 
 @pytest.mark.parametrize("value", [None, "abc"])

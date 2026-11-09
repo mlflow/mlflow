@@ -1621,29 +1621,22 @@ class SqlAlchemyStore(
                     session.rollback()
                     if attempt == _LOGGED_MODEL_METRIC_MAX_INSERT_ATTEMPTS - 1:
                         raise
-                existing_metrics = set()
-                metric_keys = list(dict.fromkeys(m.metric_name for m in metric_instances))
-                for i in range(0, len(metric_keys), 100):
-                    rows = (
-                        session
-                        .query(SqlLoggedModelMetric)
-                        .filter(
-                            SqlLoggedModelMetric.run_id == run_id,
-                            SqlLoggedModelMetric.metric_name.in_(metric_keys[i : i + 100]),
-                        )
-                        .all()
+                    existing_metrics = _get_existing_logged_model_metric_ids(
+                        session, run_id, metric_instances
                     )
-                    # Compare column values rather than ``Metric`` entities because NaN != NaN.
-                    # ``metric_value`` is included so that a conflicting value for an existing
-                    # primary key is still rejected.
-                    existing_metrics.update(_logged_model_metric_id(m) for m in rows)
-                metric_instances = [
-                    m
-                    for m in metric_instances
-                    if _logged_model_metric_id(m) not in existing_metrics
-                ]
-                if not metric_instances:
-                    return
+                    remaining = [
+                        m
+                        for m in metric_instances
+                        if _logged_model_metric_id(m) not in existing_metrics
+                    ]
+                    if not remaining:
+                        return
+                    if len(remaining) == len(metric_instances):
+                        # No row in the batch matches a stored one, so the violation is not a
+                        # duplicate (e.g. a different value for an existing primary key) and
+                        # retrying would fail the same way.
+                        raise
+                    metric_instances = remaining
 
     def _update_latest_metrics_if_necessary(self, logged_metrics, session):
         def _compare_metrics(metric_a, metric_b):
@@ -10435,7 +10428,9 @@ class SqlAlchemyStore(
             return row.to_mlflow_entity()
 
 
-def _logged_model_metric_id(metric: SqlLoggedModelMetric) -> tuple[Any, ...]:
+def _logged_model_metric_id(
+    metric: SqlLoggedModelMetric | sqlalchemy.Row[Any],
+) -> tuple[Any, ...]:
     return (
         metric.model_id,
         metric.metric_name,
@@ -10446,6 +10441,44 @@ def _logged_model_metric_id(metric: SqlLoggedModelMetric) -> tuple[Any, ...]:
         metric.dataset_name,
         metric.dataset_digest,
     )
+
+
+def _get_existing_logged_model_metric_ids(
+    session: Session, run_id: str, metric_instances: list[SqlLoggedModelMetric]
+) -> set[tuple[Any, ...]]:
+    """
+    Returns the identities (see ``_logged_model_metric_id``) of the ``logged_model_metrics`` rows
+    already stored for the keys in ``metric_instances``.
+
+    Columns are selected rather than entities so that the rows are not loaded into the session's
+    identity map, where they would conflict with the batch's instances when those are re-added.
+    """
+    existing: set[tuple[Any, ...]] = set()
+    metric_keys = list(dict.fromkeys(m.metric_name for m in metric_instances))
+    for i in range(0, len(metric_keys), 100):
+        rows = (
+            session
+            .query(
+                SqlLoggedModelMetric.model_id,
+                SqlLoggedModelMetric.metric_name,
+                SqlLoggedModelMetric.metric_timestamp_ms,
+                SqlLoggedModelMetric.metric_step,
+                SqlLoggedModelMetric.run_id,
+                SqlLoggedModelMetric.metric_value,
+                SqlLoggedModelMetric.dataset_name,
+                SqlLoggedModelMetric.dataset_digest,
+            )
+            .filter(
+                SqlLoggedModelMetric.run_id == run_id,
+                SqlLoggedModelMetric.metric_name.in_(metric_keys[i : i + 100]),
+            )
+            .all()
+        )
+        # Compare column values rather than ``Metric`` entities because NaN != NaN.
+        # ``metric_value`` is included so that a conflicting value for an existing primary key
+        # is still rejected.
+        existing.update(_logged_model_metric_id(row) for row in rows)
+    return existing
 
 
 def _get_logged_model_metric_datasets_filter(
