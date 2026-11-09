@@ -363,6 +363,10 @@ class OnlineSessionScoringProcessor:
         Args:
             tasks: List of SessionScoringTask objects containing sessions and their scorers.
         """
+        # Import here, in the calling thread before the pool starts, so the harness's optional
+        # dependency imports (e.g. litellm) never run concurrently in worker threads.
+        import mlflow.genai.evaluation.harness  # noqa: F401
+
         with ThreadPoolExecutor(
             max_workers=MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS.get(),
             thread_name_prefix="SessionScoring",
