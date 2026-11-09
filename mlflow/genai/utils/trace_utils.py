@@ -1049,7 +1049,7 @@ def construct_eval_result_df(
         trace_id_column = df.pop("trace_id")
         return pd.concat([trace_id_column, assessments, df], axis=1)
     except Exception as e:
-        _logger.debug(f"Failed to construct eval result DataFrame: {e}", exc_info=True)
+        _logger.warning(f"Failed to construct eval result DataFrame: {e}", exc_info=True)
 
 
 def _get_assessment_values(assessments: list[dict[str, Any]], run_id: str) -> dict[str, Any]:

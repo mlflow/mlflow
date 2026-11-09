@@ -588,6 +588,43 @@ def test_evaluate_errored_scorer_fails_not_silently_passes(server_config):
     assert "kaboom" in result.reason
 
 
+@pytest.mark.parametrize("unscored_value", [None, float("nan")])
+def test_evaluate_without_any_scored_value_does_not_pass(server_config, unscored_value):
+    @scorer
+    def unparseable_judge(outputs):
+        return unscored_value
+
+    result = mlflow.genai.evaluate(
+        data=[
+            {"inputs": {"q": "2+2?"}, "outputs": "5"},
+            {"inputs": {"q": "capital of France?"}, "outputs": "Berlin"},
+        ],
+        scorers=[unparseable_judge],
+    )
+    assert not result.passed
+    assert result.reason
+
+
+def test_evaluate_nan_score_on_one_row_does_not_hide_failures(server_config):
+    @scorer
+    def is_correct(outputs):
+        return outputs in ("4", "Paris")
+
+    @scorer(pass_if=lambda v: v >= 0.5)
+    def similarity(outputs):
+        return float("nan") if outputs == "Paris" else 0.1
+
+    result = mlflow.genai.evaluate(
+        data=[
+            {"inputs": {"q": "2+2?"}, "outputs": "5"},
+            {"inputs": {"q": "capital of France?"}, "outputs": "Paris"},
+        ],
+        scorers=[is_correct, similarity],
+    )
+    assert result.metrics["is_correct/mean"] == 0.5
+    assert not result.passed
+
+
 def test_evaluate_reason_includes_scorer_rationale(server_config):
     @scorer
     def judged(outputs):
