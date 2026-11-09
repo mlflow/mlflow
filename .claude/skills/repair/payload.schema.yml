@@ -18,8 +18,9 @@ properties:
       - type: "null"
       - type: object
         description: >-
-          Rerun failed jobs for captured workflow runs with transient failures.
-          One action can include multiple runs.
+          Rerun failed jobs for captured workflow runs with transient failures, such as network
+          errors or flaky tests. A rerun tests the same commit again. One action can include
+          multiple runs.
         additionalProperties: false
         required: [type, run_ids]
         properties:
@@ -32,3 +33,22 @@ properties:
             items:
               type: integer
               minimum: 1
+      - type: object
+        description: Push a commit to the PR branch. Pushing starts a new CI run.
+        additionalProperties: false
+        required: [type, merge_base]
+        properties:
+          type:
+            const: push
+          merge_base:
+            description: |-
+              Merge the latest base branch (`base_ref` in the context) into the PR branch. Use
+              when:
+
+              - The failures are unrelated to the PR's changes and a base branch commit newer than
+                the PR's base (`base_sha` in the context) fixes them. List those commits with:
+                ```
+                gh api repos/mlflow/mlflow/compare/<base_sha>...<base_ref> \
+                  --jq '.commits[] | "\(.sha) \(.commit.message | split("\n")[0])"'
+                ```
+            const: true
