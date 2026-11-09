@@ -5,8 +5,10 @@ import re
 import subprocess
 import sys
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 
 FAILED_CONCLUSIONS = {"FAILURE", "TIMED_OUT", "STARTUP_FAILURE"}
@@ -370,15 +372,138 @@ def discover(args: argparse.Namespace) -> int:
     return 0
 
 
+def write_step_summary(message: str) -> None:
+    if path := os.environ.get("GITHUB_STEP_SUMMARY"):
+        with Path(path).open("a") as stream:
+            stream.write(message + "\n")
+    else:
+        sys.stderr.write(message + "\n")
+
+
+def write_step_outputs(**values: str) -> None:
+    if path := os.environ.get("GITHUB_OUTPUT"):
+        with Path(path).open("a") as stream:
+            stream.writelines(f"{k}={v}\n" for k, v in values.items())
+
+
+def validate_rerun(context: dict[str, Any], action: dict[str, Any]) -> None:
+    allowed = {run["run_id"] for run in context["failed_runs"]}
+    if not set(action["run_ids"]) <= allowed:
+        raise ValueError("Rerun IDs must belong to the captured failed runs")
+
+
+def rerun_action(context: dict[str, Any], action: dict[str, Any], dry_run: bool) -> None:
+    runs = [run for run in context["failed_runs"] if run["run_id"] in action["run_ids"]]
+
+    def submit(run: dict[str, Any]) -> None:
+        if dry_run:
+            write_step_summary(f"Would rerun failed jobs for {run['workflow']}: {run['url']}")
+        else:
+            subprocess.check_call([
+                "gh",
+                "run",
+                "rerun",
+                str(run["run_id"]),
+                "--repo",
+                REPO,
+                "--failed",
+            ])
+
+    failed = False
+    protect_run: dict[str, Any] | None = None
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        futures = []
+        for run in runs:
+            if run["workflow"] == "protect.yml":
+                protect_run = run
+            else:
+                futures.append(pool.submit(submit, run))
+        for future in futures:
+            try:
+                future.result()
+            except subprocess.CalledProcessError as error:
+                sys.stderr.write((error.stderr or str(error)) + "\n")
+                failed = True
+    # Submit Protect last so it sees the new attempts instead of the previous failures.
+    if protect_run is not None:
+        try:
+            submit(protect_run)
+        except subprocess.CalledProcessError as error:
+            sys.stderr.write((error.stderr or str(error)) + "\n")
+            failed = True
+    if failed:
+        raise ValueError("One or more rerun submissions failed")
+
+
+@dataclass(frozen=True)
+class ActionHandler:
+    validate: Callable[[dict[str, Any], dict[str, Any]], None]
+    execute: Callable[[dict[str, Any], dict[str, Any], bool], None]
+
+
+ACTION_HANDLERS = {"rerun": ActionHandler(validate_rerun, rerun_action)}
+
+
+def load_plan(context: dict[str, Any], path: Path) -> dict[str, Any]:
+    payload: dict[str, Any] = json.loads(path.read_text())
+    subprocess.check_output(
+        [
+            "uvx",
+            "check-jsonschema@0.37.4",
+            "--schemafile",
+            Path(__file__).parents[1] / "payload.schema.yml",
+            path,
+        ],
+        text=True,
+    )
+    for action in payload["actions"]:
+        ACTION_HANDLERS[action["type"]].validate(context, action)
+    return payload
+
+
+def validate(args: argparse.Namespace) -> int:
+    context = json.loads(args.context_path.read_text())
+    payload = load_plan(context, args.payload_path)
+    write_step_outputs(has_actions=str(bool(payload["actions"])).lower())
+    return 0
+
+
+def execute(args: argparse.Namespace) -> int:
+    context = json.loads(args.context_path.read_text())
+    payload = load_plan(context, args.payload_path)
+    write_step_summary(
+        f"### Repair PR #{context['number']}\n\n```json\n{json.dumps(payload, indent=2)}\n```"
+    )
+    for action in payload["actions"]:
+        ACTION_HANDLERS[action["type"]].execute(context, action, args.dry_run)
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Repair workflow commands")
     commands = parser.add_subparsers(dest="command", required=True)
     discovery = commands.add_parser("discover", help="Select PRs without unfinished CI jobs")
     discovery.add_argument("--prs", default=os.environ.get("PR_NUMBERS", ""))
     discovery.set_defaults(func=discover)
+    validation = commands.add_parser("validate", help="Validate a repair payload")
+    validation.add_argument("--payload", dest="payload_path", type=Path, required=True)
+    validation.add_argument("--context", dest="context_path", type=Path, required=True)
+    validation.set_defaults(func=validate)
+    execution = commands.add_parser("execute", help="Execute a repair payload")
+    execution.add_argument("--payload", dest="payload_path", type=Path, required=True)
+    execution.add_argument("--context", dest="context_path", type=Path, required=True)
+    execution.add_argument("--dry-run", action=argparse.BooleanOptionalAction, default=True)
+    execution.set_defaults(func=execute)
     args = parser.parse_args()
     handler: Callable[[argparse.Namespace], int] = args.func
-    return handler(args)
+    try:
+        return handler(args)
+    except subprocess.CalledProcessError as error:
+        sys.stderr.write((error.stderr or str(error)) + "\n")
+        return 1
+    except (RuntimeError, ValueError, KeyError, TypeError, OSError) as error:
+        sys.stderr.write(f"Repair failed: {error}\n")
+        return 1
 
 
 if __name__ == "__main__":
