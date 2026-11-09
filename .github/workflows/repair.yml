@@ -299,6 +299,7 @@ jobs:
           repositories: mlflow
           permission-actions: ${{ steps.validate.outputs.action_type == 'rerun' && 'write' || '' }}
           permission-pull-requests: ${{ steps.validate.outputs.action_type == 'push' && 'write' || '' }}
+          permission-contents: ${{ steps.validate.outputs.action_type == 'push' && 'write' || '' }}
       - name: Execute or preview repair plan
         if: steps.budget.outputs.eligible == 'true'
         id: execute
