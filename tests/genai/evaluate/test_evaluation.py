@@ -623,6 +623,9 @@ def test_evaluate_nan_score_on_one_row_does_not_hide_failures(server_config):
     )
     assert result.metrics["is_correct/mean"] == 0.5
     assert not result.passed
+    assert result.result_df is not None
+    assert "is_correct" in result.reason
+    assert "NaN" in result.reason
 
 
 def test_evaluate_reason_includes_scorer_rationale(server_config):
