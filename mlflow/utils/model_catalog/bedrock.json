@@ -6510,6 +6510,39 @@
       },
       "last_updated_at": "2026-10-27"
     },
+    "global.moonshotai.kimi-k3.1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 868928,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 4.0,
+        "output_per_million_tokens": 20.0,
+        "cache_read_per_million_tokens": 0.2,
+        "cache_write_per_million_tokens": 5.0,
+        "service_tiers": {
+          "flex": {
+            "input_per_million_tokens": 2.0,
+            "output_per_million_tokens": 10.0,
+            "cache_read_per_million_tokens": 0.1
+          },
+          "priority": {
+            "input_per_million_tokens": 7.0,
+            "output_per_million_tokens": 35.0,
+            "cache_read_per_million_tokens": 0.35
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-09"
+    },
     "global.openai.gpt-5.4": {
       "mode": "chat",
       "context_window": {
@@ -7085,6 +7118,39 @@
         "response_schema": true
       },
       "last_updated_at": "2026-10-27"
+    },
+    "in.moonshotai.kimi-k3.1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 868928,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 4.4,
+        "output_per_million_tokens": 22.0,
+        "cache_read_per_million_tokens": 0.22,
+        "cache_write_per_million_tokens": 5.5,
+        "service_tiers": {
+          "flex": {
+            "input_per_million_tokens": 2.2,
+            "output_per_million_tokens": 11.0,
+            "cache_read_per_million_tokens": 0.11
+          },
+          "priority": {
+            "input_per_million_tokens": 7.7,
+            "output_per_million_tokens": 38.5,
+            "cache_read_per_million_tokens": 0.385
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-09"
     },
     "invoke/anthropic.claude-3-5-sonnet-20240620-v1:0": {
       "mode": "chat",
@@ -8402,6 +8468,39 @@
         "response_schema": true
       },
       "last_updated_at": "2026-10-27"
+    },
+    "moonshotai.kimi-k3.1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 868928,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 4.4,
+        "output_per_million_tokens": 22.0,
+        "cache_read_per_million_tokens": 0.22,
+        "cache_write_per_million_tokens": 5.5,
+        "service_tiers": {
+          "flex": {
+            "input_per_million_tokens": 2.2,
+            "output_per_million_tokens": 11.0,
+            "cache_read_per_million_tokens": 0.11
+          },
+          "priority": {
+            "input_per_million_tokens": 7.7,
+            "output_per_million_tokens": 38.5,
+            "cache_read_per_million_tokens": 0.385
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-09"
     },
     "nvidia.nemotron-nano-12b-v2": {
       "mode": "chat",
@@ -13695,6 +13794,39 @@
         "response_schema": true
       },
       "last_updated_at": "2026-10-27"
+    },
+    "us.moonshotai.kimi-k3.1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 868928,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 4.4,
+        "output_per_million_tokens": 22.0,
+        "cache_read_per_million_tokens": 0.22,
+        "cache_write_per_million_tokens": 5.5,
+        "service_tiers": {
+          "flex": {
+            "input_per_million_tokens": 2.2,
+            "output_per_million_tokens": 11.0,
+            "cache_read_per_million_tokens": 0.11
+          },
+          "priority": {
+            "input_per_million_tokens": 7.7,
+            "output_per_million_tokens": 38.5,
+            "cache_read_per_million_tokens": 0.385
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-09"
     },
     "us.openai.gpt-5.4": {
       "mode": "chat",
