@@ -116,7 +116,7 @@ def patched_fit(original, self, *args, **kwargs):
                 early_stop_callback = callback
                 _log_early_stop_params(early_stop_callback, client, run_id)
                 break
-        kwargs["callbacks"].append(mlflow_callback)
+        kwargs["callbacks"] = [*callbacks, mlflow_callback]
     else:
         kwargs["callbacks"] = [mlflow_callback]
     client.flush(synchronous=False)
