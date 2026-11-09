@@ -490,7 +490,7 @@ def record(args: argparse.Namespace) -> int:
         f"{HISTORY_MARKER}\n\n"
         "### Repair history\n\n"
         "`repair.yml` records successful live runs here and checks this history to skip repeat "
-        "contexts and cap each PR at five successful runs.\n\n"
+        "contexts and enforce the per-PR limit.\n\n"
         f"```json\n{json.dumps(history, indent=2)}\n```"
     )
     if comment_id is None:
