@@ -11,8 +11,7 @@
     "build:subpackages": "npm run build:core && npm run build:integrations",
     "build:core": "cd core && npm run build",
     "build:integrations": "npm run -C integrations/openai build && npm run -C integrations/anthropic build && npm run -C integrations/gemini build && npm run -C integrations/opencode build && npm run -C integrations/vercel build && npm run -C integrations/codex build && npm run -C integrations/qwen-code build && npm run -C integrations/claude-code build && npm run -C integrations/openclaw build && npm run -C integrations/typesafe build",
-    "test": "npm run test:scripts && npm run test:core && npm run test:integrations",
-    "test:scripts": "jest --config jest.config.cjs",
+    "test": "npm run test:core && npm run test:integrations",
     "test:core": "cd core && npm run test",
     "test:integrations": "npm run test:openai && npm run test:anthropic && npm run test:gemini && npm run test:opencode && npm run test:vercel && npm run test:codex && npm run test:qwen-code && npm run test:claude-code && npm run test:openclaw && npm run test:typesafe",
     "test:openai": "npm run -C integrations/openai test",
@@ -33,12 +32,6 @@
     "bump-version": "tsx scripts/bump-ts-version.ts"
   },
   "devDependencies": {
-    "@types/jest": "^29.5.3",
-    "@types/node": "^20.4.5",
-    "jest": "^29.6.2",
-    "ts-jest": "^29.1.1",
-    "tsx": "^4.7.0",
-    "typedoc": "^0.28.0",
-    "typescript": "^5.8.3"
+    "typedoc": "^0.28.0"
   }
 }
