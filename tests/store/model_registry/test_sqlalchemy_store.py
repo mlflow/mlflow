@@ -1102,6 +1102,18 @@ def test_search_model_versions_order_by_errors(store):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
+def test_search_models_and_versions_reject_duplicate_order_by_as_invalid_parameter(store):
+    match = "`order_by` contains duplicate fields"
+
+    with pytest.raises(MlflowException, match=match) as e:
+        store.search_registered_models(order_by=["name", "name DESC"])
+    assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    with pytest.raises(MlflowException, match=match) as e:
+        store.search_model_versions(order_by=["version_number", "version_number DESC"])
+    assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
 def test_search_model_versions_pagination(store):
     def search_versions(filter_string, page_token=None, max_results=10):
         result = store.search_model_versions(

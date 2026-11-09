@@ -10732,7 +10732,10 @@ def _get_orderby_clauses(order_by_list, session):
             select_clauses.append(order_value)
 
             if (key_type, key) in observed_order_by_clauses:
-                raise MlflowException(f"`order_by` contains duplicate fields: {order_by_list}")
+                raise MlflowException(
+                    f"`order_by` contains duplicate fields: {order_by_list}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
             observed_order_by_clauses.add((key_type, key))
 
             if ascending:
@@ -10990,7 +10993,10 @@ def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
         select_clauses.append(order_value)
 
         if (key_type, key) in observed_order_by_clauses:
-            raise MlflowException(f"`order_by` contains duplicate fields: {order_by_list}")
+            raise MlflowException(
+                f"`order_by` contains duplicate fields: {order_by_list}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         observed_order_by_clauses.add((key_type, key))
         clauses.append(order_value if ascending else order_value.desc())
 
