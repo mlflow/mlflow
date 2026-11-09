@@ -18,7 +18,8 @@ EXCLUDED_WORKFLOWS = {"rerun.yml", "repair.yml"}
 CONNECTION_BATCH_SIZE = 20
 REPO = "mlflow/mlflow"
 APP = "mlflow-app[bot]"
-APP_EMAIL = f"191841109+{APP}@users.noreply.github.com"
+APP_BOT_ID = 191841109
+APP_EMAIL = f"{APP_BOT_ID}+{APP}@users.noreply.github.com"
 PR_BUDGET = 5
 HISTORY_MARKER = "<!-- repair-history -->"
 
