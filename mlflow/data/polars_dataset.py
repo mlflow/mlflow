@@ -4,6 +4,7 @@ from functools import cached_property
 from inspect import isclass
 from typing import Any, Final, TypedDict
 
+import numpy as np
 import polars as pl
 from packaging.version import Version
 
@@ -15,6 +16,7 @@ from polars.datatypes.classes import DataTypeClass as PolarsDataTypeClass
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
+from mlflow.data.digest_utils import MAX_ROWS, get_normalized_md5_digest
 from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.exceptions import MlflowException
@@ -25,10 +27,19 @@ _logger = logging.getLogger(__name__)
 
 
 def hash_polars_df(df: pl.DataFrame) -> str:
-    # probably not the best way to hash, also see:
-    # https://github.com/pola-rs/polars/issues/9743
-    # https://stackoverflow.com/q/76678160
-    return str(df.hash_rows().sum())
+    """Compute a digest for a Polars DataFrame.
+
+    The digest covers the row hashes of the first ``MAX_ROWS`` rows (sorted, so
+    the row order does not matter), the total number of rows and the column
+    names. Renaming a column or adding rows therefore changes the digest, while
+    reordering rows does not. Row hashes come from ``DataFrame.hash_rows`` and
+    can change between Polars versions; see
+    https://github.com/pola-rs/polars/issues/9743.
+    """
+    row_hashes = np.sort(df.head(MAX_ROWS).hash_rows().to_numpy())
+    return get_normalized_md5_digest(
+        [row_hashes, np.int64(df.height)] + [str(column).encode() for column in df.columns]
+    )
 
 
 ColSpecType = DataType | Array | Object | str
