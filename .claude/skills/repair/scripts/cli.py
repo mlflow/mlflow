@@ -485,13 +485,26 @@ def record(args: argparse.Namespace) -> int:
     context = json.loads(args.context_path.read_text())
     pr = fetch_pr_comments(context["number"])
     comment_id, history = read_history(pr)
-    history[context_hash(context)] = {"run_url": args.run_url}
+    history[context_hash(context)] = {
+        "run_url": args.run_url,
+        "recorded_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
+    rows = ["| Recorded (UTC) | Workflow run |", "| --- | --- |"]
+    for entry in sorted(
+        history.values(), key=lambda entry: entry.get("recorded_at", ""), reverse=True
+    ):
+        recorded_at = entry.get("recorded_at", "").removesuffix("+00:00").replace("T", " ")
+        rows.append(f"| {recorded_at or '—'} | [View run]({entry['run_url']}) |")
+    table = "\n".join(rows)
     body = (
         f"{HISTORY_MARKER}\n\n"
         "### Repair history\n\n"
         "`repair.yml` records successful live runs here and checks this history to skip repeat "
         "contexts and enforce the per-PR limit.\n\n"
-        f"```json\n{json.dumps(history, indent=2)}\n```"
+        f"{table}\n\n"
+        "<details>\n<summary>History data</summary>\n\n"
+        f"```json\n{json.dumps(history, indent=2)}\n```\n\n"
+        "</details>"
     )
     if args.dry_run:
         write_step_summary(body)
