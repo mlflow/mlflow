@@ -131,6 +131,11 @@ from mlflow.store._unity_catalog.registry.utils import (
     proto_info_to_mlflow_prompt_info,
     proto_to_mlflow_prompt,
 )
+from mlflow.store._unity_catalog.registry.volume_weights import (
+    get_volume_artifacts_path,
+    start_volume_weights_copy,
+    wait_for_volume_weights_copy,
+)
 from mlflow.store.artifact.databricks_sdk_models_artifact_repo import (
     DatabricksSDKModelsArtifactRepository,
 )
@@ -1009,6 +1014,8 @@ class UcModelRegistryStore(BaseRestStore):
             if not bypass_signature_validation:
                 self._validate_model_signature(local_model_dir)
             self._download_model_weights_if_not_saved(local_model_dir)
+            # Rejects a malformed volume path before the version is created.
+            get_volume_artifacts_path(_load_model(local_model_dir))
             feature_deps = get_feature_dependencies(local_model_dir)
             other_model_deps = (
                 [] if model_id_cleared else get_model_version_dependencies(local_model_dir)
@@ -1067,9 +1074,30 @@ class UcModelRegistryStore(BaseRestStore):
         ).model_version
 
         store = self._get_artifact_repo(model_version, full_name)
-        store.log_artifacts(local_dir=local_model_dir, artifact_path="")
+        self._upload_model_version_files(
+            full_name=full_name,
+            version=model_version.version,
+            store=store,
+            local_model_dir=local_model_dir,
+        )
         finalized_mv = self._finalize_model_version(name=full_name, version=model_version.version)
         return model_version_from_uc_proto(finalized_mv)
+
+    def _upload_model_version_files(self, *, full_name, version, store, local_model_dir):
+        """Upload the model's files to a PENDING_REGISTRATION version so it can be finalized.
+
+        A model whose weights are in a Unity Catalog volume (``volume_artifacts_path`` in its
+        metadata) has Databricks copy them into the version; this returns once that copy is done.
+        """
+        if get_volume_artifacts_path(_load_model(local_model_dir)) is None:
+            store.log_artifacts(local_dir=local_model_dir, artifact_path="")
+            return
+        version = str(version)
+        host_creds = self.get_host_creds()
+        # Starting the copy first lets it run while the model's own files upload.
+        status = start_volume_weights_copy(full_name, version, host_creds)
+        store.log_artifacts(local_dir=local_model_dir, artifact_path="")
+        wait_for_volume_weights_copy(full_name, version, status, host_creds)
 
     def create_model_version(
         self,
