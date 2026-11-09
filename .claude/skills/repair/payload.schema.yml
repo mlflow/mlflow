@@ -2,7 +2,7 @@ $schema: https://json-schema.org/draft/2020-12/schema
 title: Repair payload
 type: object
 additionalProperties: false
-required: [summary, actions]
+required: [summary, action]
 properties:
   summary:
     description: Diagnosis and rationale for the proposed actions in one or two sentences.
@@ -10,26 +10,25 @@ properties:
     minLength: 1
     maxLength: 500
     pattern: '\S'
-  actions:
+  action:
     description: >-
-      Leave empty when no supported action would help or the evidence is insufficient.
-    type: array
-    maxItems: 1
-    items:
-      oneOf:
-        - type: object
-          description: >-
-            Rerun failed jobs for captured workflow runs with transient failures.
-            One action can include multiple runs.
-          additionalProperties: false
-          required: [type, run_ids]
-          properties:
-            type:
-              const: rerun
-            run_ids:
-              type: array
-              minItems: 1
-              uniqueItems: true
-              items:
-                type: integer
-                minimum: 1
+      The one action to take. Use null when no supported action would help or the evidence is
+      insufficient.
+    oneOf:
+      - type: "null"
+      - type: object
+        description: >-
+          Rerun failed jobs for captured workflow runs with transient failures.
+          One action can include multiple runs.
+        additionalProperties: false
+        required: [type, run_ids]
+        properties:
+          type:
+            const: rerun
+          run_ids:
+            type: array
+            minItems: 1
+            uniqueItems: true
+            items:
+              type: integer
+              minimum: 1
