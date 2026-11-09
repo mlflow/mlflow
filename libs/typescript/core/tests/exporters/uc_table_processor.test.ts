@@ -154,6 +154,12 @@ describe('DatabricksUCTableSpanProcessor + Exporter end-to-end', () => {
     });
 
     const trace = mgr.getTrace(mlflowTraceId)!;
+    trace.spanDict.get(span.spanContext().spanId)!.setAttributes({
+      [SpanAttributeKey.SPAN_TYPE]: 'AGENT',
+      [SpanAttributeKey.INPUTS]: { prompt: 'Check the skill' },
+      [SpanAttributeKey.OUTPUTS]: { result: 'Done' },
+      [SpanAttributeKey.TOKEN_USAGE]: { input_tokens: 10, output_tokens: 2 },
+    });
     expect(isUcTraceLocation(trace.info.traceLocation)).toBe(true);
     expect(trace.info.traceMetadata[TraceMetadataKey.SCHEMA_VERSION]).toBe('4');
     expect(trace.info.traceMetadata).toMatchObject({
@@ -191,8 +197,14 @@ describe('DatabricksUCTableSpanProcessor + Exporter end-to-end', () => {
     expect(exporterCtors[0].headers?.[DATABRICKS_UC_TABLE_HEADER]).toBe('cat.sch.tbl_otel_spans');
     const exportedRootSpan = exportedSpans[0][0] as OTelReadableSpan;
     expect(exportedRootSpan.attributes).toMatchObject({
-      [SpanAttributeKey.SESSION_ID]: JSON.stringify('session-1'),
-      [SpanAttributeKey.USER_ID]: JSON.stringify('user-1'),
+      [SpanAttributeKey.SESSION_ID]: 'session-1',
+      [SpanAttributeKey.USER_ID]: 'user-1',
+      [SpanAttributeKey.SPAN_TYPE]: 'AGENT',
+      [SpanAttributeKey.INPUTS]: { prompt: 'Check the skill' },
+      [SpanAttributeKey.OUTPUTS]: { result: 'Done' },
+      [SpanAttributeKey.TOKEN_USAGE]: { input_tokens: 10, output_tokens: 2 },
     });
+    expect(exportedRootSpan.spanContext()).toEqual(span.spanContext());
+    expect(span.attributes[SpanAttributeKey.SPAN_TYPE]).toBe(JSON.stringify('AGENT'));
   });
 });
