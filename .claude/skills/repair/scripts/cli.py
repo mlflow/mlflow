@@ -17,8 +17,6 @@ FAILED_CONCLUSIONS = {"FAILURE", "TIMED_OUT", "STARTUP_FAILURE"}
 EXCLUDED_WORKFLOWS = {"rerun.yml", "repair.yml"}
 CONNECTION_BATCH_SIZE = 20
 REPO = "mlflow/mlflow"
-APP = "mlflow-app[bot]"
-APP_EMAIL = f"191841109+{APP}@users.noreply.github.com"
 PR_BUDGET = 5
 HISTORY_MARKER = "<!-- repair-history -->"
 
@@ -688,11 +686,17 @@ def push_action(context: dict[str, Any], action: dict[str, Any], dry_run: bool) 
         if dry_run:
             write_step_summary(f"Would merge {base_ref} at {base_sha} into {pr_url}")
             return
+        app_slug = os.environ["APP_SLUG"]
+        bot_name = f"{app_slug}[bot]"
+        bot_id = subprocess.check_output(
+            ["gh", "api", f"/users/{app_slug}%5Bbot%5D", "--jq", ".id"], text=True
+        ).strip()
+        bot_email = f"{bot_id}+{bot_name}@users.noreply.github.com"
         commit = git(
             "-c",
-            f"user.name={APP}",
+            f"user.name={bot_name}",
             "-c",
-            f"user.email={APP_EMAIL}",
+            f"user.email={bot_email}",
             "commit-tree",
             tree,
             "-p",
@@ -702,7 +706,7 @@ def push_action(context: dict[str, Any], action: dict[str, Any], dry_run: bool) 
             "-m",
             f"Merge {context['base_ref']} into {context['head_ref']}",
             "-m",
-            f"Signed-off-by: {APP} <{APP_EMAIL}>",
+            f"Signed-off-by: {bot_name} <{bot_email}>",
         )
         git("push", f"--force-with-lease={head_ref}:{head_sha}", "origin", f"{commit}:{head_ref}")
         write_step_summary(f"Merged {base_ref} into {pr_url} at {commit}")
