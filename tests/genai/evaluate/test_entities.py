@@ -1,9 +1,11 @@
 import numpy as np
 import pandas as pd
+import pytest
 
 import mlflow
 from mlflow.entities.dataset_record_source import DatasetRecordSource, DatasetRecordSourceType
 from mlflow.genai.evaluation.entities import EvalItem, EvaluationResult
+from mlflow.genai.evaluation.quality_criteria import QualityCriteriaRule
 from mlflow.genai.judges import CategoricalRating
 
 
@@ -190,6 +192,45 @@ def test_sparse_columns_are_skipped():
     ])
     result = EvaluationResult(run_id="r1", metrics={}, result_df=df)
     assert result.passed, result.reason
+
+
+@pytest.mark.parametrize(
+    ("metrics", "expected_reason"),
+    [
+        ({"latency/p90": 1.5}, ""),
+        ({"latency/p90": 2.0}, ""),
+        ({"latency/p90": 4.35}, "quality criteria latency/p90 <= 2: got 4.35"),
+        ({"latency/p90": 2.0000004}, "quality criteria latency/p90 <= 2: got 2.0000004"),
+        ({}, "quality criteria latency/p90 <= 2: this evaluation produced no such metric"),
+    ],
+)
+def test_quality_criteria_gate_passed(metrics, expected_reason):
+    df = pd.DataFrame([{"latency/value": 1.0}, {"latency/value": 4.5}])
+    result = EvaluationResult(
+        run_id="r1",
+        metrics=metrics,
+        result_df=df,
+        pass_criteria={"latency": lambda v: v <= 5},
+        quality_criteria=[QualityCriteriaRule("latency", "p90", "<=", 2.0)],
+    )
+    assert result.passed is (expected_reason == "")
+    assert result.reason == expected_reason
+
+
+def test_quality_criteria_failures_are_listed_with_row_failures():
+    df = pd.DataFrame([{"correctness/value": False}])
+    result = EvaluationResult(
+        run_id="r1",
+        metrics={"correctness/mean": 0.0},
+        result_df=None,
+        quality_criteria=[QualityCriteriaRule("correctness", "mean", ">=", 0.9)],
+    )
+    assert result.reason == "quality criteria correctness/mean >= 0.9: got 0"
+
+    result.result_df = df
+    assert not result.passed
+    assert result.reason.startswith("2 assertions failed:")
+    assert "quality criteria correctness/mean >= 0.9: got 0" in result.reason
 
 
 def test_eval_item_from_trace_takes_inputs_and_outputs_from_the_root_span():

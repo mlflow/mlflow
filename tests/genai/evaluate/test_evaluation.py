@@ -434,6 +434,29 @@ def test_evaluate_passed_respects_scorer_pass_if(server_config):
     assert "confidence" in failing.reason
 
 
+@pytest.mark.parametrize(
+    ("quality_criteria", "expected_reason"),
+    [
+        ("`latency/p90` <= 5", ""),
+        ("`latency/p90` <= 2", "quality criteria latency/p90 <= 2: got 4.35"),
+    ],
+)
+def test_evaluate_passed_checks_quality_criteria(quality_criteria, expected_reason):
+    @scorer(pass_if=lambda v: v <= 5)
+    def latency(inputs) -> float:
+        return [1.0, 1.0, 4.0, 4.5][int(inputs["q"])]
+
+    result = mlflow.genai.evaluate(
+        data=[{"inputs": {"q": str(i)}, "outputs": "x"} for i in range(4)],
+        scorers=[latency],
+        quality_criteria=quality_criteria,
+    )
+
+    assert result.metrics["latency/p90"] == pytest.approx(4.35)
+    assert result.passed is (expected_reason == "")
+    assert result.reason == expected_reason
+
+
 def test_evaluate_logs_quality_criteria_run_tag(server_config):
     @scorer
     def is_good(outputs) -> bool:
