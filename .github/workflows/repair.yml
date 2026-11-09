@@ -360,6 +360,7 @@ jobs:
           permission-actions: ${{ steps.validate.outputs.action_type == 'rerun' && 'write' || '' }}
           permission-pull-requests: ${{ steps.validate.outputs.action_type == 'push' && 'read' || '' }}
           permission-contents: ${{ steps.validate.outputs.action_type == 'push' && 'write' || '' }}
+          permission-workflows: ${{ steps.validate.outputs.action_type == 'push' && 'write' || '' }}
       - name: Execute or preview repair plan
         if: steps.validate.outcome == 'success'
         id: execute
