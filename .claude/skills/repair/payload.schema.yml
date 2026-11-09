@@ -2,10 +2,10 @@ $schema: https://json-schema.org/draft/2020-12/schema
 title: Repair payload
 type: object
 additionalProperties: false
-required: [summary, action]
+required: [rationale, action]
 properties:
-  summary:
-    description: Diagnosis and rationale for the proposed actions in one or two sentences.
+  rationale:
+    description: Diagnosis and the reason for the chosen action, or for taking none, in one or two sentences.
     type: string
     minLength: 1
     maxLength: 500
