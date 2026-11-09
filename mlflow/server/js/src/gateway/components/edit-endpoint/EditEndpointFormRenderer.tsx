@@ -270,9 +270,7 @@ export const EditEndpointFormRenderer = ({
                 model_definition?.provider === 'typesafe' ||
                 (model_definition?.provider === 'openrouter' &&
                   /^~?typesafe\/jev-(?:latest|\d+(?:\.\d+)*)$/.test(model_definition.model_name)),
-            ) && (
-              <TryInPlaygroundButton endpointName={endpoint.name} experimentId={experimentId} />
-            )}
+            ) && <TryInPlaygroundButton endpointName={endpoint.name} experimentId={experimentId} />}
         </div>
       </div>
 
