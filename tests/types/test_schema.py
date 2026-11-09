@@ -1066,6 +1066,47 @@ def test_infer_param_schema():
     )
 
 
+def test_infer_param_schema_empty_arrays():
+    empty_params = {
+        "empty_list": [],
+        "empty_obj_arr": np.array([], dtype=object),
+        "empty_int_arr": np.array([], dtype=np.int32),
+        "empty_long_arr": np.array([], dtype=np.int64),
+        "empty_float_arr": np.array([], dtype=np.float32),
+        "empty_double_arr": np.array([], dtype=float),
+        "empty_bool_arr": np.array([], dtype=bool),
+        "empty_str_arr": np.array([], dtype=str),
+        "empty_datetime_arr": np.array([], dtype="datetime64[ns]"),
+    }
+    expected_schema = ParamSchema([
+        ParamSpec("empty_list", DataType.string, [], (-1,)),
+        ParamSpec("empty_obj_arr", DataType.string, [], (-1,)),
+        ParamSpec("empty_int_arr", DataType.integer, [], (-1,)),
+        ParamSpec("empty_long_arr", DataType.long, [], (-1,)),
+        ParamSpec("empty_float_arr", DataType.float, [], (-1,)),
+        ParamSpec("empty_double_arr", DataType.double, [], (-1,)),
+        ParamSpec("empty_bool_arr", DataType.boolean, [], (-1,)),
+        ParamSpec("empty_str_arr", DataType.string, [], (-1,)),
+        ParamSpec("empty_datetime_arr", DataType.datetime, [], (-1,)),
+    ])
+    inferred = _infer_param_schema(empty_params)
+    assert inferred == expected_schema
+
+    spec_map = {spec.name: spec for spec in inferred}
+    for spec_name, sample_val in [
+        ("empty_list", ["a", "b"]),
+        ("empty_obj_arr", ["x", "y"]),
+        ("empty_int_arr", [1, 2]),
+        ("empty_long_arr", [100, 200]),
+        ("empty_float_arr", [1.5, 2.5]),
+        ("empty_double_arr", [1.0, 2.0]),
+        ("empty_bool_arr", [True, False]),
+        ("empty_str_arr", ["foo", "bar"]),
+        ("empty_datetime_arr", [np.datetime64("2023-01-01")]),
+    ]:
+        assert ParamSpec.validate_param_spec(sample_val, spec_map[spec_name]) is not None
+
+
 def test_param_schema_for_dicts():
     data = {
         "config": {
