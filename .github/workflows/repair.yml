@@ -290,7 +290,7 @@ jobs:
             --payload "$OUT_DIR/payload.json" \
             --context "$CONTEXT_PATH"
       - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
-        if: steps.validate.outputs.has_actions == 'true' && env.DRY_RUN != 'true'
+        if: steps.validate.outputs.action_type != '' && env.DRY_RUN != 'true'
         id: app-token
         with:
           client-id: ${{ secrets.APP_CLIENT_ID }}

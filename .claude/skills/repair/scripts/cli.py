@@ -623,7 +623,7 @@ def load_plan(context: dict[str, Any], path: Path) -> dict[str, Any]:
         ],
         text=True,
     )
-    for action in payload["actions"]:
+    if (action := payload["action"]) is not None:
         ACTION_HANDLERS[action["type"]].validate(context, action)
     return payload
 
@@ -631,7 +631,8 @@ def load_plan(context: dict[str, Any], path: Path) -> dict[str, Any]:
 def validate(args: argparse.Namespace) -> int:
     context = json.loads(args.context_path.read_text())
     payload = load_plan(context, args.payload_path)
-    write_step_outputs(has_actions=str(bool(payload["actions"])).lower())
+    action = payload["action"]
+    write_step_outputs(action_type=action["type"] if action is not None else "")
     return 0
 
 
@@ -641,7 +642,7 @@ def execute(args: argparse.Namespace) -> int:
     write_step_summary(
         f"### Repair PR #{context['number']}\n\n```json\n{json.dumps(payload, indent=2)}\n```"
     )
-    for action in payload["actions"]:
+    if (action := payload["action"]) is not None:
         ACTION_HANDLERS[action["type"]].execute(context, action, args.dry_run)
     return 0
 
