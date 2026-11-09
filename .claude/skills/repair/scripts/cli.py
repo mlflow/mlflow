@@ -17,7 +17,7 @@ EXCLUDED_WORKFLOWS = {"rerun.yml", "repair.yml"}
 CONNECTION_BATCH_SIZE = 20
 REPO = "mlflow/mlflow"
 PR_BUDGET = 5
-LEDGER_MARKER = "<!-- repair-ledger -->"
+HISTORY_MARKER = "<!-- repair-history -->"
 
 COMMENT_FIELDS = """
   id
@@ -232,7 +232,7 @@ def fetch_checks(rollup: dict[str, Any]) -> list[dict[str, Any]]:
     return fetch_connections([check_connection(rollup)])[0]
 
 
-def read_ledger(pr: dict[str, Any]) -> tuple[str | None, dict[str, Any]]:
+def read_history(pr: dict[str, Any]) -> tuple[str | None, dict[str, Any]]:
     comments = fetch_connections(
         [Connection(pr["id"], "PullRequest", "comments", COMMENT_FIELDS, pr["comments"])],
         page_size=10,
@@ -243,7 +243,9 @@ def read_ledger(pr: dict[str, Any]) -> tuple[str | None, dict[str, Any]]:
             for comment in comments
             if comment["author"] is not None
             and comment["author"]["__typename"] == "Bot"
-            and LEDGER_MARKER in comment["body"]
+            and any(
+                marker in comment["body"] for marker in (HISTORY_MARKER, "<!-- repair-ledger -->")
+            )
         ),
         None,
     )
@@ -265,10 +267,10 @@ def context_hash(context: dict[str, Any]) -> str:
     return hashlib.sha256(json.dumps(context, sort_keys=True).encode()).hexdigest()
 
 
-def skip_reason(context: dict[str, Any], ledger: dict[str, Any]) -> str | None:
-    if entry := ledger.get(context_hash(context)):
+def skip_reason(context: dict[str, Any], history: dict[str, Any]) -> str | None:
+    if entry := history.get(context_hash(context)):
         return f"context already processed: {entry['run_url']}"
-    if len(ledger) >= PR_BUDGET:
+    if len(history) >= PR_BUDGET:
         return f"PR budget exhausted ({PR_BUDGET} successful runs)"
     return None
 
@@ -412,11 +414,11 @@ def select_candidates(prs: list[dict[str, Any]], max_retries: int) -> list[dict[
             run for run in candidate["failed_runs"] if run["workflow"] not in EXCLUDED_WORKFLOWS
         ]
         try:
-            _, ledger = read_ledger(pr)
+            _, history = read_history(pr)
         except (ValueError, IndexError) as error:
-            sys.stderr.write(f"Skipping PR #{pr['number']}: invalid repair ledger: {error}\n")
+            sys.stderr.write(f"Skipping PR #{pr['number']}: invalid repair history: {error}\n")
             continue
-        if reason := skip_reason(candidate, ledger):
+        if reason := skip_reason(candidate, history):
             sys.stderr.write(f"Skipping PR #{pr['number']}: {reason}\n")
             continue
         candidates.append(candidate)
@@ -471,8 +473,8 @@ def fetch_pr_comments(number: int) -> dict[str, Any]:
 def check_budget(args: argparse.Namespace) -> int:
     context = json.loads(args.context_path.read_text())
     # Re-read under the per-PR job lock: discovery may have preceded another repair.
-    _, ledger = read_ledger(fetch_pr_comments(context["number"]))
-    reason = skip_reason(context, ledger)
+    _, history = read_history(fetch_pr_comments(context["number"]))
+    reason = skip_reason(context, history)
     if reason is not None:
         write_step_summary(f"Skipping PR #{context['number']}: {reason}")
     write_step_outputs(eligible=str(reason is None).lower())
@@ -482,9 +484,15 @@ def check_budget(args: argparse.Namespace) -> int:
 def record(args: argparse.Namespace) -> int:
     context = json.loads(args.context_path.read_text())
     pr = fetch_pr_comments(context["number"])
-    comment_id, ledger = read_ledger(pr)
-    ledger[context_hash(context)] = {"run_url": args.run_url}
-    body = f"{LEDGER_MARKER}\n```json\n{json.dumps(ledger, indent=2)}\n```"
+    comment_id, history = read_history(pr)
+    history[context_hash(context)] = {"run_url": args.run_url}
+    body = (
+        f"{HISTORY_MARKER}\n\n"
+        "### Repair history\n\n"
+        "`repair.yml` records successful live runs here and checks this history to skip repeat "
+        "contexts and cap each PR at five successful runs.\n\n"
+        f"```json\n{json.dumps(history, indent=2)}\n```"
+    )
     if comment_id is None:
         comment_id = graphql(
             """
@@ -517,7 +525,7 @@ def record(args: argparse.Namespace) -> int:
         """,
         id=comment_id,
     )
-    write_step_summary(f"Successful repair {len(ledger)}/{PR_BUDGET}: {args.run_url}")
+    write_step_summary(f"Successful repair {len(history)}/{PR_BUDGET}: {args.run_url}")
     return 0
 
 
@@ -620,10 +628,10 @@ def main() -> int:
     discovery = commands.add_parser("discover", help="Select PRs without unfinished CI jobs")
     discovery.add_argument("--prs", default=os.environ.get("PR_NUMBERS", ""))
     discovery.set_defaults(func=discover)
-    budget = commands.add_parser("check-budget", help="Check the PR ledger before repairing")
+    budget = commands.add_parser("check-budget", help="Check the PR history before repairing")
     budget.add_argument("--context", dest="context_path", type=Path, required=True)
     budget.set_defaults(func=check_budget)
-    recording = commands.add_parser("record", help="Record a successful repair in the PR ledger")
+    recording = commands.add_parser("record", help="Record a successful repair in the PR history")
     recording.add_argument("--context", dest="context_path", type=Path, required=True)
     recording.add_argument("--run-url", required=True)
     recording.set_defaults(func=record)

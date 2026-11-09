@@ -312,7 +312,7 @@ jobs:
             "$DRY_RUN_FLAG"
       - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         if: steps.execute.outcome == 'success' && env.DRY_RUN != 'true'
-        id: ledger-token
+        id: history-token
         with:
           client-id: ${{ secrets.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
@@ -323,7 +323,7 @@ jobs:
         if: steps.execute.outcome == 'success' && env.DRY_RUN != 'true'
         working-directory: trusted
         env:
-          GH_TOKEN: ${{ steps.ledger-token.outputs.token }}
+          GH_TOKEN: ${{ steps.history-token.outputs.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           python "$SCRIPT" record \
