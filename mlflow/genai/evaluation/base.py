@@ -309,8 +309,10 @@ def evaluate(
             ``min``, ``max``, ``mean``, ``median``, ``variance``, or ``p90``. ``OR`` isn't
             supported, and each metric can have only one condition. Each scorer name
             must match exactly one scorer in ``scorers``. The run counts as passing only when
-            every condition holds. The criteria are recorded on the evaluation run; they
-            don't change how rows are scored.
+            every condition holds: a condition that doesn't hold, or whose metric this
+            evaluation didn't produce, makes ``result.passed`` ``False`` and is named in
+            ``result.reason``, alongside any row that failed its scorer. The criteria are
+            recorded on the evaluation run; they don't change how rows are scored.
 
             .. code-block:: python
 
@@ -502,9 +504,9 @@ def _run_harness(
             run_id=run_id,
             dataset=mlflow_dataset if is_managed_dataset or dataset_entity is not None else None,
             extra_aggregations=get_extra_aggregations(quality_criteria_rules),
+            quality_criteria=quality_criteria_rules,
         )
         warn_on_unmeasured_quality_criteria(quality_criteria_rules, result.metrics)
-        result.quality_criteria = quality_criteria_rules
 
     try:
         display_evaluation_output(run_id)

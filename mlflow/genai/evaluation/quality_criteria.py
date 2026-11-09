@@ -45,11 +45,11 @@ class QualityCriteriaRule:
         Returns:
             None when the condition holds, else why it doesn't.
         """
-        condition = f"{self.metric_key} {self.comparator} {self.threshold:g}"
+        condition = f"{self.metric_key} {self.comparator} {_format_number(self.threshold)}"
         if (value := metrics.get(self.metric_key)) is None:
             return f"quality criteria {condition}: this evaluation produced no such metric"
         met = value >= self.threshold if self.comparator == ">=" else value <= self.threshold
-        return None if met else f"quality criteria {condition}: got {value:g}"
+        return None if met else f"quality criteria {condition}: got {_format_number(value)}"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -146,6 +146,12 @@ def _invalid_syntax(quality_criteria: str, pos: int) -> MlflowException:
         f"Expected conditions joined by AND, such as {_EXAMPLE!r}. Wrap names that contain "
         "spaces or symbols in backticks."
     )
+
+
+def _format_number(value: float) -> str:
+    # NB: `repr` is the shortest round-trip form, so a value just under the threshold isn't
+    # rounded onto it the way `:g` would be. `float` drops a NumPy scalar's `np.float64(...)`.
+    return repr(float(value)).removesuffix(".0")
 
 
 def get_extra_aggregations(rules: list[QualityCriteriaRule]) -> dict[str, list[str]]:

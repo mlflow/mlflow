@@ -200,6 +200,7 @@ def test_sparse_columns_are_skipped():
         ({"latency/p90": 1.5}, ""),
         ({"latency/p90": 2.0}, ""),
         ({"latency/p90": 4.35}, "quality criteria latency/p90 <= 2: got 4.35"),
+        ({"latency/p90": 2.0000004}, "quality criteria latency/p90 <= 2: got 2.0000004"),
         ({}, "quality criteria latency/p90 <= 2: this evaluation produced no such metric"),
     ],
 )
