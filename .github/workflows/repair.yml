@@ -293,6 +293,7 @@ jobs:
         if: steps.validate.outcome == 'success'
         with:
           name: repair-plan-${{ matrix.pr.number }}
+          overwrite: true
           path: ${{ env.OUT_DIR }}
           if-no-files-found: error
           retention-days: 7
