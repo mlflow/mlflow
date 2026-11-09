@@ -1,4 +1,5 @@
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -15,6 +16,18 @@ FAILED_CONCLUSIONS = {"FAILURE", "TIMED_OUT", "STARTUP_FAILURE"}
 EXCLUDED_WORKFLOWS = {"rerun.yml", "repair.yml"}
 CONNECTION_BATCH_SIZE = 20
 REPO = "mlflow/mlflow"
+PR_BUDGET = 5
+HISTORY_MARKER = "<!-- repair-history -->"
+
+COMMENT_FIELDS = """
+  id
+  body
+  author { __typename }
+"""
+COMMENTS_FIELDS = f"""
+  nodes {{ {COMMENT_FIELDS} }}
+  pageInfo {{ hasNextPage endCursor }}
+"""
 
 STEP_FIELDS = """
   name
@@ -56,11 +69,13 @@ CONTEXT_FIELDS = f"""
   pageInfo {{ hasNextPage endCursor }}
 """
 PR_FIELDS = f"""
+  id
   number
   headRefOid
   state
   isDraft
   mergeable
+  comments(first: 10) {{ {COMMENTS_FIELDS} }}
   statusCheckRollup {{
     id
     contexts(first: 100) {{ {CONTEXT_FIELDS} }}
@@ -152,7 +167,9 @@ def fetch_prs(repository: str, numbers: list[str]) -> list[dict[str, Any]]:
         seen.add(cursor)
 
 
-def fetch_connections(connections: list[Connection]) -> list[list[dict[str, Any]]]:
+def fetch_connections(
+    connections: list[Connection], page_size: int = 100
+) -> list[list[dict[str, Any]]]:
     results: list[list[dict[str, Any]]] = [
         list(connection.first_page["nodes"]) for connection in connections
     ]
@@ -176,7 +193,7 @@ def fetch_connections(connections: list[Connection]) -> list[list[dict[str, Any]
             selections.append(f"""
               connection_{index}: node(id: $id_{index}) {{
                 ... on {connection.node_type} {{
-                  {connection.name}(first: 100, after: $cursor_{index}) {{
+                  {connection.name}(first: {page_size}, after: $cursor_{index}) {{
                     nodes {{ {connection.fields} }}
                     pageInfo {{ hasNextPage endCursor }}
                   }}
@@ -213,6 +230,49 @@ def check_connection(rollup: dict[str, Any]) -> Connection:
 
 def fetch_checks(rollup: dict[str, Any]) -> list[dict[str, Any]]:
     return fetch_connections([check_connection(rollup)])[0]
+
+
+def read_history(pr: dict[str, Any]) -> tuple[str | None, dict[str, Any]]:
+    comments = fetch_connections(
+        [Connection(pr["id"], "PullRequest", "comments", COMMENT_FIELDS, pr["comments"])],
+        page_size=10,
+    )[0]
+    comment = next(
+        (
+            comment
+            for comment in comments
+            if comment["author"] is not None
+            and comment["author"]["__typename"] == "Bot"
+            and any(
+                marker in comment["body"] for marker in (HISTORY_MARKER, "<!-- repair-ledger -->")
+            )
+        ),
+        None,
+    )
+    if comment is None:
+        return None, {}
+    body = comment["body"].split("```json", 1)[1].split("```", 1)[0]
+    return comment["id"], json.loads(body)
+
+
+def context_hash(context: dict[str, Any]) -> str:
+    runs = []
+    for run in context["failed_runs"]:
+        jobs = [
+            {**job, "failed_steps": sorted(job["failed_steps"], key=lambda step: step["number"])}
+            for job in run["job_runs"]
+        ]
+        runs.append({**run, "job_runs": sorted(jobs, key=lambda job: job["id"])})
+    context = {**context, "failed_runs": sorted(runs, key=lambda run: run["run_id"])}
+    return hashlib.sha256(json.dumps(context, sort_keys=True).encode()).hexdigest()
+
+
+def skip_reason(context: dict[str, Any], history: dict[str, Any]) -> str | None:
+    if entry := history.get(context_hash(context)):
+        return f"context already processed: {entry['run_url']}"
+    if len(history) >= PR_BUDGET:
+        return f"PR budget exhausted ({PR_BUDGET} successful runs)"
+    return None
 
 
 def latest_workflow_runs(checks: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -353,6 +413,14 @@ def select_candidates(prs: list[dict[str, Any]], max_retries: int) -> list[dict[
         candidate["failed_runs"] = [
             run for run in candidate["failed_runs"] if run["workflow"] not in EXCLUDED_WORKFLOWS
         ]
+        try:
+            _, history = read_history(pr)
+        except (ValueError, IndexError) as error:
+            sys.stderr.write(f"Skipping PR #{pr['number']}: invalid repair history: {error}\n")
+            continue
+        if reason := skip_reason(candidate, history):
+            sys.stderr.write(f"Skipping PR #{pr['number']}: {reason}\n")
+            continue
         candidates.append(candidate)
     return candidates
 
@@ -384,6 +452,105 @@ def write_step_outputs(**values: str) -> None:
     if path := os.environ.get("GITHUB_OUTPUT"):
         with Path(path).open("a") as stream:
             stream.writelines(f"{k}={v}\n" for k, v in values.items())
+
+
+def fetch_pr_comments(number: int) -> dict[str, Any]:
+    pr: dict[str, Any] = graphql(
+        f"""
+        query {{
+          repository(owner: "mlflow", name: "mlflow") {{
+            pullRequest(number: {number}) {{
+              id
+              comments(first: 10) {{ {COMMENTS_FIELDS} }}
+            }}
+          }}
+        }}
+        """,
+    )["repository"]["pullRequest"]
+    return pr
+
+
+def check_budget(args: argparse.Namespace) -> int:
+    context = json.loads(args.context_path.read_text())
+    # Re-read under the per-PR job lock: discovery may have preceded another repair.
+    _, history = read_history(fetch_pr_comments(context["number"]))
+    reason = skip_reason(context, history)
+    if reason is not None:
+        write_step_summary(f"Skipping PR #{context['number']}: {reason}")
+    write_step_outputs(eligible=str(reason is None).lower())
+    return 0
+
+
+def record(args: argparse.Namespace) -> int:
+    context = json.loads(args.context_path.read_text())
+    pr = fetch_pr_comments(context["number"])
+    comment_id, history = read_history(pr)
+    history[context_hash(context)] = {
+        "run_url": args.run_url,
+        "head_sha": context["sha"],
+        "recorded_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
+    rows = ["| Recorded (UTC) | PR head | Workflow run |", "| --- | --- | --- |"]
+    for entry in sorted(
+        history.values(), key=lambda entry: entry.get("recorded_at", ""), reverse=True
+    ):
+        recorded_at = entry.get("recorded_at", "").removesuffix("+00:00").replace("T", " ")
+        head_link = "—"
+        if head_sha := entry.get("head_sha"):
+            head_link = f"[`{head_sha[:7]}`](https://github.com/{REPO}/commit/{head_sha})"
+        rows.append(f"| {recorded_at or '—'} | {head_link} | [View run]({entry['run_url']}) |")
+    table = "\n".join(rows)
+    workflow = "`repair.yml`"
+    if workflow_sha := os.environ.get("GITHUB_WORKFLOW_SHA"):
+        workflow_url = f"https://github.com/{REPO}/blob/{workflow_sha}/.github/workflows/repair.yml"
+        workflow = f"[{workflow}]({workflow_url})"
+    body = (
+        f"{HISTORY_MARKER}\n\n"
+        "### Repair history\n\n"
+        f"{workflow} records successful live runs here and checks this history to skip repeat "
+        "contexts and enforce the per-PR limit.\n\n"
+        f"{table}\n\n"
+        "<details>\n<summary>History data</summary>\n\n"
+        f"```json\n{json.dumps(history, indent=2)}\n```\n\n"
+        "</details>"
+    )
+    if args.dry_run:
+        write_step_summary(body)
+        return 0
+    if comment_id is None:
+        comment_id = graphql(
+            """
+            mutation($id: ID!, $body: String!) {
+              addComment(input: {subjectId: $id, body: $body}) {
+                commentEdge { node { id } }
+              }
+            }
+            """,
+            id=pr["id"],
+            body=body,
+        )["addComment"]["commentEdge"]["node"]["id"]
+    else:
+        graphql(
+            """
+            mutation($id: ID!, $body: String!) {
+              updateIssueComment(input: {id: $id, body: $body}) { issueComment { id } }
+            }
+            """,
+            id=comment_id,
+            body=body,
+        )
+    graphql(
+        """
+        mutation($id: ID!) {
+          minimizeComment(input: {subjectId: $id, classifier: OFF_TOPIC}) {
+            minimizedComment { isMinimized }
+          }
+        }
+        """,
+        id=comment_id,
+    )
+    write_step_summary(f"Successful repair {len(history)}/{PR_BUDGET}: {args.run_url}")
+    return 0
 
 
 def validate_rerun(context: dict[str, Any], action: dict[str, Any]) -> None:
@@ -485,6 +652,14 @@ def main() -> int:
     discovery = commands.add_parser("discover", help="Select PRs without unfinished CI jobs")
     discovery.add_argument("--prs", default=os.environ.get("PR_NUMBERS", ""))
     discovery.set_defaults(func=discover)
+    budget = commands.add_parser("check-budget", help="Check the PR history before repairing")
+    budget.add_argument("--context", dest="context_path", type=Path, required=True)
+    budget.set_defaults(func=check_budget)
+    recording = commands.add_parser("record", help="Record a successful repair in the PR history")
+    recording.add_argument("--context", dest="context_path", type=Path, required=True)
+    recording.add_argument("--run-url", required=True)
+    recording.add_argument("--dry-run", action=argparse.BooleanOptionalAction, default=False)
+    recording.set_defaults(func=record)
     validation = commands.add_parser("validate", help="Validate a repair payload")
     validation.add_argument("--payload", dest="payload_path", type=Path, required=True)
     validation.add_argument("--context", dest="context_path", type=Path, required=True)

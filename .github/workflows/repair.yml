@@ -94,6 +94,10 @@ jobs:
   repair:
     needs: discover
     if: needs.discover.outputs.is_empty == 'false'
+    concurrency:
+      group: repair-pr-${{ matrix.pr.number }}
+      cancel-in-progress: false
+      queue: max
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
@@ -215,7 +219,15 @@ jobs:
           echo "model=$MODEL" >> "$GITHUB_OUTPUT"
           echo "effort=$EFFORT" >> "$GITHUB_OUTPUT"
           echo "Agent model: \`$MODEL\`, effort: \`$EFFORT\`" >> "$GITHUB_STEP_SUMMARY"
+      - name: Check repair budget
+        id: budget
+        working-directory: trusted
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python "$SCRIPT" check-budget --context "$CONTEXT_PATH"
       - name: Repair PR
+        if: steps.budget.outputs.eligible == 'true'
         working-directory: trusted
         env:
           MODEL: ${{ steps.agent.outputs.model }}
@@ -270,6 +282,7 @@ jobs:
             fi
           done
       - name: Validate repair plan
+        if: steps.budget.outputs.eligible == 'true'
         id: validate
         working-directory: trusted
         run: |
@@ -286,6 +299,8 @@ jobs:
           repositories: mlflow
           permission-actions: write
       - name: Execute or preview repair plan
+        if: steps.budget.outputs.eligible == 'true'
+        id: execute
         working-directory: trusted
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
@@ -294,4 +309,25 @@ jobs:
           python "$SCRIPT" execute \
             --payload "$OUT_DIR/payload.json" \
             --context "$CONTEXT_PATH" \
+            "$DRY_RUN_FLAG"
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        if: steps.execute.outcome == 'success' && env.DRY_RUN != 'true'
+        id: history-token
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: mlflow
+          repositories: mlflow
+          permission-pull-requests: write
+      - name: Record or preview repair history
+        if: steps.execute.outcome == 'success'
+        working-directory: trusted
+        env:
+          GH_TOKEN: ${{ steps.history-token.outputs.token || secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          DRY_RUN_FLAG: ${{ env.DRY_RUN == 'true' && '--dry-run' || '--no-dry-run' }}
+        run: |
+          python "$SCRIPT" record \
+            --context "$CONTEXT_PATH" \
+            --run-url "$RUN_URL" \
             "$DRY_RUN_FLAG"
