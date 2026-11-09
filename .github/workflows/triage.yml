@@ -1418,7 +1418,8 @@ jobs:
           pr_url=$(gh pr create --repo "$REPO" \
             --base "$BASE" --head "$branch" \
             --title "$(cat "$RUNNER_TEMP/pr-title.txt")" \
-            --body-file "$RUNNER_TEMP/pr-body.md")
+            --body-file "$RUNNER_TEMP/pr-body.md" \
+            --label auto-repair)
           echo "Opened $pr_url" >> "$GITHUB_STEP_SUMMARY"
           echo "number=${pr_url##*/}" >> "$GITHUB_OUTPUT"
       - name: Request autoformat
