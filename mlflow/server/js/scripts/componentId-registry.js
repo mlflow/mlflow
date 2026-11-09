@@ -645,6 +645,7 @@ module.exports = {
   "mlflow.charts.tool_performance_summary": "",
   "mlflow.charts.tool_usage": "",
   "mlflow.charts.tool_usage.tool_selector": "",
+  "mlflow.charts.top_users_table": "",
   "mlflow.charts.trace_cost_breakdown": "",
   "mlflow.charts.trace_cost_breakdown.dimension": "",
   "mlflow.charts.trace_errors": "",

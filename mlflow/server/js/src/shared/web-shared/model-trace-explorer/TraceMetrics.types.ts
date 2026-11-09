@@ -77,6 +77,10 @@ export enum TraceDimensionKey {
   TRACE_NAME = 'trace_name',
   /** Trace status dimension (OK, ERROR) */
   TRACE_STATUS = 'trace_status',
+  /** Trace user dimension (`mlflow.trace.user` metadata) */
+  TRACE_USER = 'trace_user',
+  /** Trace session dimension (`mlflow.trace.session` metadata) */
+  TRACE_SESSION = 'trace_session',
 }
 
 /**

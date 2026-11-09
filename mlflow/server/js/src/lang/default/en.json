@@ -3895,6 +3895,10 @@
     "defaultMessage": "Dataset",
     "description": "Eval-runs chart tooltip: label for the run's dataset name"
   },
+  "AK9scO": {
+    "defaultMessage": "Tokens",
+    "description": "Top users table > column header for total tokens"
+  },
   "AM8DuO": {
     "defaultMessage": "Failed",
     "description": "Run page > Overview > Run status cell > Value for failed state"
@@ -3926,6 +3930,10 @@
   "ARYSl7": {
     "defaultMessage": "Last 30 days",
     "description": "Date range preset in the evaluation runs filters"
+  },
+  "AS+vDW": {
+    "defaultMessage": "Latency (AVG)",
+    "description": "Top users table > column header for average latency"
   },
   "AVeqtn": {
     "defaultMessage": "Enter default artifact root URI",
@@ -5898,6 +5906,10 @@
   "H/o0P2": {
     "defaultMessage": "Zoom out",
     "description": "Tooltip for the button that zooms out of the graph"
+  },
+  "H0WBuT": {
+    "defaultMessage": "Top Users",
+    "description": "Title for the top users table"
   },
   "H0gTxe": {
     "defaultMessage": "Select a Provider",
@@ -7927,6 +7939,10 @@
     "defaultMessage": "Clear filters",
     "description": "Button to clear filters in the tags filter popover for experiments page search by tags"
   },
+  "NQ2Tja": {
+    "defaultMessage": "Errors",
+    "description": "Top users table > column header for error rate"
+  },
   "NQWaCA": {
     "defaultMessage": "Select or type a run ID",
     "description": "Run filter accepts a suggested run ID or a typed one"
@@ -8538,6 +8554,10 @@
   "PIPzZY": {
     "defaultMessage": "General",
     "description": "Sidebar link: Settings > General"
+  },
+  "PIsf2Z": {
+    "defaultMessage": "Cost",
+    "description": "Top users table > column header for total cost"
   },
   "PJNUxu": {
     "defaultMessage": "Run judges",
@@ -9578,6 +9598,10 @@
   "SbMdmm": {
     "defaultMessage": "{spanName} was called",
     "description": "Label for an intermediate node in the trace explorer summary view, indicating that a span/function was called in the course of execution."
+  },
+  "Scn1VT": {
+    "defaultMessage": "Sessions",
+    "description": "Top users table > column header for session count"
   },
   "Sd7sQi": {
     "defaultMessage": "Traces are only available for experiment-scoped prompts.",
@@ -18395,6 +18419,10 @@
     "defaultMessage": "Max value",
     "description": "Numeric max value input"
   },
+  "uH9sZi": {
+    "defaultMessage": "Traces",
+    "description": "Top users table > column header for trace count"
+  },
   "uHzRht": {
     "defaultMessage": "Total aggregate scores",
     "description": "Label for assessment score distribution chart"
@@ -18910,6 +18938,10 @@
   "w39cZ4": {
     "defaultMessage": "Show first 10",
     "description": "Menu option for showing only 10 first runs in the experiment view runs compare mode"
+  },
+  "w3enjk": {
+    "defaultMessage": "User",
+    "description": "Top users table > column header for user"
   },
   "w48V74": {
     "defaultMessage": "Trace breakdown",

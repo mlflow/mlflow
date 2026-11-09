@@ -269,6 +269,9 @@ class TraceMetricDimensionKey:
 
     TRACE_NAME = "trace_name"
     TRACE_STATUS = "trace_status"
+    # Backed by the `mlflow.trace.user` / `mlflow.trace.session` trace metadata
+    TRACE_USER = "trace_user"
+    TRACE_SESSION = "trace_session"
 
 
 class SpanMetricKey:
