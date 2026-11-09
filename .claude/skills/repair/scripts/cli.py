@@ -487,14 +487,18 @@ def record(args: argparse.Namespace) -> int:
     comment_id, history = read_history(pr)
     history[context_hash(context)] = {
         "run_url": args.run_url,
+        "head_sha": context["sha"],
         "recorded_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
-    rows = ["| Recorded (UTC) | Workflow run |", "| --- | --- |"]
+    rows = ["| Recorded (UTC) | PR head | Workflow run |", "| --- | --- | --- |"]
     for entry in sorted(
         history.values(), key=lambda entry: entry.get("recorded_at", ""), reverse=True
     ):
         recorded_at = entry.get("recorded_at", "").removesuffix("+00:00").replace("T", " ")
-        rows.append(f"| {recorded_at or '—'} | [View run]({entry['run_url']}) |")
+        head_link = "—"
+        if head_sha := entry.get("head_sha"):
+            head_link = f"[`{head_sha[:7]}`](https://github.com/{REPO}/commit/{head_sha})"
+        rows.append(f"| {recorded_at or '—'} | {head_link} | [View run]({entry['run_url']}) |")
     table = "\n".join(rows)
     workflow = "`repair.yml`"
     if workflow_sha := os.environ.get("GITHUB_WORKFLOW_SHA"):
