@@ -130,12 +130,12 @@
       },
       "capabilities": {
         "function_calling": true,
-        "vision": false,
+        "vision": true,
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-29"
+      "last_updated_at": "2026-11-06"
     },
     "devstral-2512": {
       "mode": "chat",
@@ -848,7 +848,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2027-04-30",
+      "last_updated_at": "2026-11-09"
     },
     "mistral-large-3": {
       "mode": "chat",
@@ -1091,7 +1092,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2027-04-30",
+      "last_updated_at": "2026-11-09"
     },
     "mistral-medium-3.5": {
       "mode": "chat",

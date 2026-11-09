@@ -328,6 +328,15 @@ def test_get_study_id_from_name_and_get_study_name_from_id(setup_storage):
         storage.get_study_name_from_id(study_id + "1")
 
 
+@pytest.mark.parametrize("study_name", ["alice's-tuning", '"alice"-tuning'])
+def test_get_study_id_from_name_with_quotes(setup_storage, study_name):
+    storage = setup_storage
+    study_id = storage.create_new_study(directions=[StudyDirection.MINIMIZE], study_name=study_name)
+
+    assert storage.get_study_id_from_name(study_name) == study_id
+    assert storage.get_study_id_by_name_if_exists(study_name) == study_id
+
+
 def test_set_and_get_study_directions(setup_storage):
     storage = setup_storage
     for target in [
@@ -919,6 +928,19 @@ def test_get_n_trials_with_states(setup_storage, states, expected):
     storage.create_new_trial(study_id)
 
     assert storage.get_n_trials(study_id, states) == expected
+
+
+@pytest.mark.parametrize("states", [None, (TrialState.COMPLETE,)])
+def test_get_all_trials_ordered_by_trial_number(setup_storage, states):
+    storage = setup_storage
+    study_id = storage.create_new_study([StudyDirection.MINIMIZE])
+    for i in range(3):
+        trial_id = storage.create_new_trial(study_id)
+        storage.set_trial_state_values(trial_id, TrialState.COMPLETE, [float(i)])
+
+    trials = storage.get_all_trials(study_id, states=states)
+    assert [t.number for t in trials] == [0, 1, 2]
+    assert [t.value for t in trials] == [0.0, 1.0, 2.0]
 
 
 def test_study_exists_method(setup_storage):

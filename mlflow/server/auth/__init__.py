@@ -426,8 +426,8 @@ from mlflow.server.auth.routes import (
     UPDATE_USER_PASSWORD,
     UPLOAD_ARTIFACT,
 )
+from mlflow.server.auth.sqlalchemy_store import NamedRoleGrant, SqlAlchemyStore
 from mlflow.server.auth.sqlalchemy_store import RoleGrantRow as RoleGrantRow
-from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.fastapi_app import create_fastapi_app
 from mlflow.server.gateway_api import list_models as _list_gateway_models_endpoint
 from mlflow.server.handlers import (
@@ -2417,28 +2417,65 @@ def _caller_can_manage_roles() -> bool:
     )
 
 
-def _reject_rename_with_named_role_grants(name: str, new_name: str) -> None:
-    # Model and prompt grants are keyed by name, and a rename only rewrites per-user grants.
-    # An admin-created role's grant on the old name would stop applying (lifting a DENY), and
-    # one on the new name would start applying to the renamed model, so reject the rename.
-    grants = store.list_named_role_grants_for_resource(
-        (RESOURCE_TYPE_REGISTERED_MODEL, RESOURCE_TYPE_PROMPT), (name, new_name)
-    )
-    if not grants:
-        return
-    details = ""
-    # Only callers who can manage roles can act on these grants, so only they get the details.
-    if _caller_can_manage_roles():
-        listed = ", ".join(
-            f"role '{g.role_name}' has {g.permission} on {g.resource_type} '{g.resource_pattern}'"
-            for g in grants
+def _list_named_role_grants_on_names(names: tuple[str, ...]) -> list[NamedRoleGrant]:
+    # Model and prompt grants are keyed by name, and renames and deletes only rewrite or sweep
+    # per-user grants, so an admin-created role's exact-name grant would be left pointing at
+    # whatever model or prompt holds the name next. A case-insensitive auth database also returns
+    # grants on other spellings, but grants match by exact spelling (``permissions.matches``).
+    return [
+        g
+        for g in store.list_named_role_grants_for_resource(
+            (RESOURCE_TYPE_REGISTERED_MODEL, RESOURCE_TYPE_PROMPT), names
         )
-        details = f" ({listed})"
-    raise MlflowException.invalid_parameter_value(
-        f"Cannot rename '{name}' to '{new_name}' because role grants reference these names by "
-        f"exact name{details}. Renaming would change which model or prompt those grants apply "
-        "to. An admin must update or remove these role grants before the rename."
+        if g.resource_pattern in names
+    ]
+
+
+def _named_role_grants_error_details(grants: list[NamedRoleGrant]) -> str:
+    # Only callers who can manage roles can act on these grants, so only they get the details.
+    if not _caller_can_manage_roles():
+        return ""
+    listed = ", ".join(
+        f"role '{g.role_name}' has {g.permission} on {g.resource_type} '{g.resource_pattern}'"
+        for g in grants
     )
+    return f" ({listed})"
+
+
+def _reject_rename_with_named_role_grants(name: str, new_name: str) -> None:
+    # A grant on the old name would stop applying (lifting a DENY), and one on the new name
+    # would start applying to the renamed model.
+    if grants := _list_named_role_grants_on_names((name, new_name)):
+        raise MlflowException.invalid_parameter_value(
+            f"Cannot rename '{name}' to '{new_name}' because role grants reference these names "
+            f"by exact name{_named_role_grants_error_details(grants)}. Renaming would change "
+            "which model or prompt those grants apply to. An admin must update or remove these "
+            "role grants before the rename."
+        )
+
+
+def _reject_delete_with_named_role_grants(name: str) -> None:
+    # A grant that allows access would outlive the deleted model and apply to the next one
+    # created with the name. Unlike rename, delete moves no model out from under a grant, so a
+    # leftover DENY only fails closed and does not block.
+    grants = [
+        g
+        for g in _list_named_role_grants_on_names((name,))
+        if not get_permission(g.permission).denied
+    ]
+    if grants:
+        # Removing the grants also removes any delete permission the caller got from them.
+        hint = (
+            ""
+            if _caller_can_manage_roles()
+            else " If these role grants are what let you delete it, ask an admin to delete it."
+        )
+        raise MlflowException.invalid_parameter_value(
+            f"Cannot delete '{name}' because role grants reference it by exact name"
+            f"{_named_role_grants_error_details(grants)}. Those grants would apply to the next "
+            "model or prompt created with this name. An admin must update or remove these role "
+            f"grants before the delete.{hint}"
+        )
 
 
 def _reject_rename_onto_per_user_grants(name: str, new_name: str) -> None:
@@ -2554,6 +2591,7 @@ def validate_can_delete_registered_model_or_prompt_cascade():
         return False
     # Checked after authorization so the error cannot reveal the stored name to a denied caller.
     _require_stored_name_spelling(_get_request_param("name"), name)
+    _reject_delete_with_named_role_grants(name)
     return True
 
 
@@ -2832,27 +2870,37 @@ def validate_can_create_skill(username: str, organization: str = "", name: str =
     )
 
 
+def _can_view_workspace(username: str | None, workspace_name: str | None) -> bool:
+    if username is None or workspace_name is None:
+        return False
+    if _user_inherits_default_workspace_grant(workspace_name):
+        return True
+    return workspace_name in store.list_accessible_workspace_names(username)
+
+
 def validate_can_view_workspace() -> bool:
     if not MLFLOW_ENABLE_WORKSPACES.get():
         return True
 
     username = authenticate_request().username
-
     workspace_name = request.view_args.get("workspace_name") if request.view_args else None
-    if workspace_name is None:
-        return False
+    return _can_view_workspace(username, workspace_name)
 
-    if username is None:
-        return False
 
-    if auth_config.grant_default_workspace_access:
-        default_workspace, _ = get_default_workspace_optional(_get_workspace_store())
-        if default_workspace and workspace_name == default_workspace.name:
-            return True
+def validate_can_view_request_workspace() -> bool:
+    """
+    Like ``validate_can_view_workspace``, but for routes whose data is scoped by the
+    request workspace (the ``X-MLFLOW-WORKSPACE`` header) instead of a path parameter,
+    such as gateway budget policies and spend windows.
+    """
+    if not MLFLOW_ENABLE_WORKSPACES.get():
+        # Without workspaces, budget policies are server-global, so reads stay open.
+        return True
 
-    names = set(store.list_accessible_workspace_names(username))
-
-    return workspace_name in names
+    username = authenticate_request().username
+    # Resolved from the X-MLFLOW-WORKSPACE header before Flask validators run.
+    workspace_name = workspace_context.get_request_workspace()
+    return _can_view_workspace(username, workspace_name)
 
 
 # Scorers
@@ -5112,6 +5160,7 @@ def enforce_model_name_rules():
     elif validator is validate_can_delete_registered_model_or_prompt_cascade:
         if target := _registered_model_or_prompt_target():
             _require_stored_name_spelling(_get_request_param("name"), target[1])
+            _reject_delete_with_named_role_grants(target[1])
 
 
 def validate_can_remove_items_from_review_queue():
@@ -5306,14 +5355,14 @@ BEFORE_REQUEST_HANDLERS = {
     GetGatewayModelDefinition: validate_can_read_gateway_model_definition,
     UpdateGatewayModelDefinition: validate_can_update_gateway_model_definition,
     DeleteGatewayModelDefinition: validate_can_delete_gateway_model_definition,
-    # Budget-policy writes are admin-only; reads (get/list/windows) stay open to any
-    # authenticated user, matching the behavior established in #21120.
+    # Budget-policy writes are admin-only; reads (get/list/windows) require visibility
+    # of the request workspace.
     CreateGatewayBudgetPolicy: sender_is_admin,
     UpdateGatewayBudgetPolicy: sender_is_admin,
     DeleteGatewayBudgetPolicy: sender_is_admin,
-    GetGatewayBudgetPolicy: _allow_authenticated,
-    ListGatewayBudgetPolicies: _allow_authenticated,
-    ListGatewayBudgetWindows: _allow_authenticated,
+    GetGatewayBudgetPolicy: validate_can_view_request_workspace,
+    ListGatewayBudgetPolicies: validate_can_view_request_workspace,
+    ListGatewayBudgetWindows: validate_can_view_request_workspace,
     # Standalone guardrail CRUD is admin-only; endpoint-attached routes gate on the endpoint.
     CreateGatewayGuardrail: sender_is_admin,
     GetGatewayGuardrail: sender_is_admin,

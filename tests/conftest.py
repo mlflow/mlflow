@@ -824,23 +824,23 @@ def remote_backend_for_tracing_sdk_test():
     # Start a remote backend to test mlflow-tracing package integration.
     with tempfile.TemporaryDirectory() as temp_dir:
         mlflow_root = os.path.dirname(os.path.dirname(__file__))
+        uv_run = [
+            "uv",
+            "run",
+            "--no-dev",
+            "--directory",
+            # Install from the dev version
+            mlflow_root,
+            "--with",
+            "setuptools<82",  # setuptools 82+ removed pkg_resources
+            "--with",
+            "litellm",  # Required for computing cost of LLM calls
+        ]
+        # Install the backend dependencies before starting the server so that the
+        # installation time doesn't count against the server's startup window below.
+        subprocess.check_call([*uv_run, "python", "-c", "pass"], cwd=temp_dir)
         with subprocess.Popen(
-            [
-                "uv",
-                "run",
-                "--no-dev",
-                "--directory",
-                # Install from the dev version
-                mlflow_root,
-                "--with",
-                "setuptools<82",  # setuptools 82+ removed pkg_resources
-                "--with",
-                "litellm",  # Required for computing cost of LLM calls
-                "mlflow",
-                "server",
-                "--port",
-                str(port),
-            ],
+            [*uv_run, "mlflow", "server", "--port", str(port)],
             cwd=temp_dir,
         ) as process:
             print("Starting mlflow server on port 5000")  # noqa: T201

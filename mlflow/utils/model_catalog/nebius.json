@@ -940,6 +940,22 @@
       },
       "last_updated_at": "2026-11-04"
     },
+    "moonshotai/Kimi-K3.1-Pro": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 0.2
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-06"
+    },
     "nvidia/Cosmos3-Super-Reasoner": {
       "mode": "chat",
       "context_window": {

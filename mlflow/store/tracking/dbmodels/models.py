@@ -4703,7 +4703,7 @@ class SqlMCPAccessEndpoint(Base):
 
     # Populated via contains_eager in _endpoint_query_with_version, which
     # resolves through both direct server_version and alias paths.
-    # Never auto-loaded (noload) — only filled by explicit JOIN.
+    # Never lazy-loaded (raise) — only filled by explicit JOIN.
     resolved_version_rel = relationship(
         "SqlMCPServerVersion",
         primaryjoin=lambda: sa.and_(
@@ -4713,7 +4713,7 @@ class SqlMCPAccessEndpoint(Base):
         ),
         foreign_keys=[workspace, server_name, server_version],
         viewonly=True,
-        lazy="noload",
+        lazy="raise",
     )
 
     __table_args__ = (
@@ -4735,7 +4735,8 @@ class SqlMCPAccessEndpoint(Base):
 
     def to_mlflow_entity(self):
         resolved = None
-        if self.resolved_version_rel:
+        # Endpoints loaded without contains_eager leave the relationship unloaded.
+        if "resolved_version_rel" not in sa.inspect(self).unloaded and self.resolved_version_rel:
             resolved = self.resolved_version_rel.to_mlflow_entity()
         return MCPAccessEndpoint(
             id=self.id,

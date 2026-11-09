@@ -57,6 +57,15 @@ GENERATION_CONFIGS = [
 ]
 
 
+def _get_prompt_tokens(usage_metadata: dict[str, Any]) -> int | None:
+    prompt_tokens = usage_metadata.get("promptTokenCount")
+    # Content fetched by built-in tools (Google Search, URL context) is part of the input but
+    # reported separately from the prompt tokens.
+    if (tool_use_tokens := usage_metadata.get("toolUsePromptTokenCount")) is not None:
+        prompt_tokens = (prompt_tokens or 0) + tool_use_tokens
+    return prompt_tokens
+
+
 def _get_completion_tokens(usage_metadata: dict[str, Any]) -> int | None:
     completion_tokens = usage_metadata.get("candidatesTokenCount")
     # Gemini bills thinking tokens at the output token rate.
@@ -303,11 +312,14 @@ class GeminiAdapter(ProviderAdapter):
                     )
 
                 tool_function = tool["function"]
-                function_declarations.append({
-                    "name": tool_function["name"],
-                    "description": tool_function["description"],
-                    "parametersJsonSchema": tool_function["parameters"],
-                })
+                # `description` and `parameters` are optional in both OpenAI tool
+                # definitions and Gemini function declarations.
+                function_declaration = {"name": tool_function["name"]}
+                if description := tool_function.get("description"):
+                    function_declaration["description"] = description
+                if parameters := tool_function.get("parameters"):
+                    function_declaration["parametersJsonSchema"] = parameters
+                function_declarations.append(function_declaration)
 
             gemini_payload["tools"] = [{"functionDeclarations": function_declarations}]
 
@@ -438,7 +450,7 @@ class GeminiAdapter(ProviderAdapter):
             )
         return chat_schema.ChatUsage(
             **extra,
-            prompt_tokens=usage_metadata.get("promptTokenCount"),
+            prompt_tokens=_get_prompt_tokens(usage_metadata),
             completion_tokens=_get_completion_tokens(usage_metadata),
             total_tokens=usage_metadata.get("totalTokenCount"),
             prompt_tokens_details=prompt_tokens_details,
@@ -673,7 +685,7 @@ class GeminiAdapter(ProviderAdapter):
             model=config.model.name,
             choices=choices,
             usage=completions_schema.CompletionsUsage(
-                prompt_tokens=usage_metadata.get("promptTokenCount", None),
+                prompt_tokens=_get_prompt_tokens(usage_metadata),
                 completion_tokens=_get_completion_tokens(usage_metadata),
                 total_tokens=usage_metadata.get("totalTokenCount", None),
             ),
@@ -1058,6 +1070,7 @@ class GeminiProvider(BaseProvider):
         if usage_metadata:
             usage_metadata = {
                 **usage_metadata,
+                "promptTokenCount": _get_prompt_tokens(usage_metadata),
                 "candidatesTokenCount": _get_completion_tokens(usage_metadata),
             }
         return self._extract_token_usage_from_dict(

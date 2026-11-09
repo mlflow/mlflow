@@ -1,4 +1,6 @@
 name: Nightly
+# Scheduled runs use the NIGHTLY_MODEL and NIGHTLY_EFFORT repository variables; manual runs can
+# override them. Manual effort defaults to medium, while scheduled runs use NIGHTLY_EFFORT or the fallback.
 
 on:
   schedule:
@@ -15,6 +17,21 @@ on:
         description: "Space-separated workflow run IDs; empty uses the latest scheduled runs"
         required: false
         type: string
+      model:
+        description: "AI Gateway Claude model for the nightly agent, e.g. databricks-claude-sonnet-5-5"
+        required: false
+        type: string
+      effort:
+        description: "Reasoning effort for the nightly agent"
+        required: false
+        type: choice
+        default: medium
+        options:
+          - low
+          - medium
+          - high
+          - xhigh
+          - max
 
 concurrency:
   group: nightly
@@ -37,59 +54,58 @@ jobs:
     runs-on: ubuntu-slim
     timeout-minutes: 10
     permissions:
-      issues: write
-    steps:
-      - name: Close old nightly issues
-        if: github.event_name == 'schedule' || !inputs.dry_run
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          cutoff=$(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ)
-          gh api --paginate 'repos/mlflow/mlflow/issues?state=open&labels=nightly&per_page=100' \
-            --jq ".[] | select(has(\"pull_request\") | not) | select(.created_at <= \"$cutoff\") | .number" \
-            > "$RUNNER_TEMP/old-nightly-issues.txt"
-          while IFS= read -r issue_number; do
-            gh issue close "$issue_number" --repo mlflow/mlflow --reason 'not planned'
-          done < "$RUNNER_TEMP/old-nightly-issues.txt"
-
-  resolve:
-    needs: prepare
-    runs-on: ubuntu-slim
-    timeout-minutes: 5
-    permissions:
       actions: read
+      issues: write
     outputs:
       run_ids: ${{ steps.runs.outputs.run_ids }}
     steps:
-      - name: Resolve failed run IDs
-        id: runs
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RUN_IDS: ${{ inputs.run_ids }}
-        run: |
-          if [ -z "$RUN_IDS" ]; then
-            # TODO: Add more nightly workflows.
-            workflow_files=(cross-version-tests.yml test-requirements.yml)
-            for workflow_file in "${workflow_files[@]}"; do
-              run_id=$(gh api "repos/mlflow/mlflow/actions/workflows/$workflow_file/runs?event=schedule&status=completed&per_page=1" \
-                --jq '.workflow_runs[0] | select(.conclusion | IN("failure", "timed_out", "cancelled", "action_required", "startup_failure")) | .id')
-              RUN_IDS+=" $run_id"
-            done
-            if [ -z "${RUN_IDS// /}" ]; then
-              echo "No failed scheduled runs. Skipping analysis." | tee -a "$GITHUB_STEP_SUMMARY"
-              exit 0
-            fi
-          fi
-          run_ids=$(jq -ern --arg ids "$RUN_IDS" '
-            [$ids | splits("\\s+") | select(length > 0)] | unique
-            | if length > 0 and all(test("^[1-9][0-9]*$")) then join(" ")
-              else error("Expected one or more numeric workflow run IDs") end
-          ')
-          printf 'run_ids=%s\n' "$run_ids" >> "$GITHUB_OUTPUT"
+      - parallel:
+          - name: Close or preview old nightly issues
+            env:
+              GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+            run: |
+              cutoff=$(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ)
+              gh api --paginate 'repos/mlflow/mlflow/issues?state=open&labels=nightly&per_page=100' \
+                --jq ".[] | select(has(\"pull_request\") | not) | select(.created_at <= \"$cutoff\") | .number" \
+                > "$RUNNER_TEMP/old-nightly-issues.txt"
+              while IFS= read -r issue_number; do
+                if [ "$DRY_RUN" = true ]; then
+                  echo "Would close https://github.com/mlflow/mlflow/issues/$issue_number"
+                else
+                  gh issue close "$issue_number" --repo mlflow/mlflow --reason 'not planned'
+                fi
+              done < "$RUNNER_TEMP/old-nightly-issues.txt"
+          - name: Resolve failed run IDs
+            id: runs
+            timeout-minutes: 5
+            env:
+              GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              RUN_IDS: ${{ inputs.run_ids }}
+            run: |
+              if [ -z "$RUN_IDS" ]; then
+                # TODO: Add more nightly workflows.
+                workflow_files=(cross-version-tests.yml test-requirements.yml)
+                for workflow_file in "${workflow_files[@]}"; do
+                  run_id=$(gh api "repos/mlflow/mlflow/actions/workflows/$workflow_file/runs?event=schedule&status=completed&per_page=1" \
+                    --jq '.workflow_runs[0] | select(.conclusion | IN("failure", "timed_out", "cancelled", "action_required", "startup_failure")) | .id')
+                  RUN_IDS+=" $run_id"
+                done
+                if [ -z "${RUN_IDS// /}" ]; then
+                  echo "No failed scheduled runs. Skipping analysis." | tee -a "$GITHUB_STEP_SUMMARY"
+                  exit 0
+                fi
+              fi
+              run_ids=$(jq -ern --arg ids "$RUN_IDS" '
+                [$ids | splits("\\s+") | select(length > 0)] | unique
+                | if length > 0 and all(test("^[1-9][0-9]*$")) then join(" ")
+                  else error("Expected one or more numeric workflow run IDs") end
+              ')
+              printf 'run_ids=%s\n' "$run_ids" >> "$GITHUB_OUTPUT"
 
   analyze:
-    needs: resolve
-    if: needs.resolve.outputs.run_ids != ''
+    needs: prepare
+    if: needs.prepare.outputs.run_ids != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
@@ -99,6 +115,24 @@ jobs:
     outputs:
       analysis_artifact_id: ${{ steps.upload.outputs.artifact-id }}
     steps:
+      - name: Resolve agent model and effort
+        id: agent
+        env:
+          MODEL: ${{ inputs.model || vars.NIGHTLY_MODEL || 'databricks-claude-sonnet-5-5' }}
+          EFFORT: ${{ inputs.effort || vars.NIGHTLY_EFFORT || 'medium' }}
+        run: |
+          # $GITHUB_OUTPUT is line-based; a newline in the model could inject another output.
+          [[ "$MODEL" != *$'\n'* ]] || { echo "::error::Model must be a single line."; exit 1; }
+          case "$EFFORT" in
+            low | medium | high | xhigh | max) ;;
+            *)
+              echo "::error::Invalid effort '$EFFORT'. Check the NIGHTLY_EFFORT repository variable."
+              exit 1
+              ;;
+          esac
+          echo "model=$MODEL" >> "$GITHUB_OUTPUT"
+          echo "effort=$EFFORT" >> "$GITHUB_OUTPUT"
+          echo "Agent model: \`$MODEL\`, effort: \`$EFFORT\`" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
@@ -122,7 +156,8 @@ jobs:
               export npm_config_before="$(date -u -d '7 days ago' +%Y-%m-%d)"
               npm install -g @anthropic-ai/sandbox-runtime@0.0.80
           - name: Install skill dependencies
-            run: uv sync --package skills
+            run: |
+              uv sync --package skills
       - uses: ./.github/actions/setup-gateway
         id: gateway
         with:
@@ -210,8 +245,10 @@ jobs:
           ' .claude/sandbox/srt.json > "$RUNNER_TEMP/nightly-srt.json"
       - name: Analyze failures in worktrees
         env:
+          MODEL: ${{ steps.agent.outputs.model }}
+          EFFORT: ${{ steps.agent.outputs.effort }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RUN_IDS: ${{ needs.resolve.outputs.run_ids }}
+          RUN_IDS: ${{ needs.prepare.outputs.run_ids }}
           ANTHROPIC_BASE_URL: http://localhost:8080/anthropic
           # Placeholder the sandbox sends to the local gateway proxy; the proxy swaps in the real gateway token.
           ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway-proxy.outputs.placeholder-token }}
@@ -253,8 +290,8 @@ jobs:
           fi
           timeout --kill-after=10s 30m srt --settings "$RUNNER_TEMP/nightly-srt.json" -- \
             "${relay[@]}" env -u NO_PROXY -u no_proxy claude \
-              --model databricks-claude-sonnet-5-5 \
-              --effort medium \
+              --model "$MODEL" \
+              --effort "$EFFORT" \
               --permission-mode auto \
               --disallowed-tools WebSearch \
               --print --verbose --output-format stream-json \
@@ -318,6 +355,13 @@ jobs:
         run: |
           uvx check-jsonschema@0.37.4 \
             --schemafile .claude/skills/nightly/output.schema.yaml /tmp/nightly-analysis/analysis.json
+      - name: Show analysis in run summary
+        run: |
+          {
+            printf '## Nightly analysis\n\n```json\n'
+            jq . /tmp/nightly-analysis/analysis.json
+            printf '```\n'
+          } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         id: app-token
         if: github.event_name == 'schedule' || !inputs.dry_run

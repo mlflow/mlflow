@@ -64,7 +64,7 @@ _MIME_TO_AUDIO_FORMAT: dict[str, str] = {
 
 
 def _normalize_content(
-    content: str | list[dict[str, Any]],
+    content: str | list[str | dict[str, Any]],
 ) -> str | list[dict[str, Any]]:
     """
     Normalize multi-modal content blocks from LangChain's format to MLflow's expected format.
@@ -86,6 +86,13 @@ def _normalize_content(
     normalized = []
     for block in content:
         match block:
+            case str(text):
+                # LangChain allows bare strings in list content (see
+                # ``BaseMessage.content`` and ``content_blocks``). Empty strings are
+                # dropped so a tool-call message such as ``["", {"type": "tool_use", ...}]``
+                # still normalizes to no content and becomes ``None`` below.
+                if text:
+                    normalized.append({"type": "text", "text": text})
             case {
                 "type": "audio",
                 "source_type": "base64",
@@ -144,7 +151,9 @@ def convert_lc_message_to_chat_message(lc_message: BaseMessage) -> ChatMessage:
             content = lc_message.content
             # For Anthropic model tool calls are returned twice so we need to filter them out
             if isinstance(content, list):
-                content = [c for c in content if c["type"] != "tool_use"]
+                content = [
+                    c for c in content if not (isinstance(c, dict) and c.get("type") == "tool_use")
+                ]
             content = _normalize_content(content)
             return ChatMessage(
                 role="assistant",

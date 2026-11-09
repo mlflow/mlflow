@@ -441,6 +441,10 @@ const ExperimentIssuesPage = () => {
   const { experimentId } = useParams<{ experimentId: string }>();
   const workspace = useActiveWorkspace();
   const server = useServerInfo();
+  // Read here rather than in the content below, because the providers that carry it to the trace
+  // drawer are mounted above that content.
+  const [pageParams] = useSearchParams();
+  const selectedIssueId = pageParams.get(SELECTED_ISSUE_ID_PARAM) ?? undefined;
   if (server.isLoading) return <TableSkeleton lines={5} />;
   if (!shouldEnableExperimentIssuesTab()) return <PageNotFoundView />;
   if (server.isError || server.data?.store_type === undefined || server.data.store_type === '') {
@@ -473,7 +477,7 @@ const ExperimentIssuesPage = () => {
   }
   if (!experimentId) return null;
   return (
-    <IssueTraceDrawerProviders experimentId={experimentId}>
+    <IssueTraceDrawerProviders experimentId={experimentId} selectedIssueId={selectedIssueId}>
       <ExperimentIssuesContent key={`${workspace}:${experimentId}`} experimentId={experimentId} />
     </IssueTraceDrawerProviders>
   );

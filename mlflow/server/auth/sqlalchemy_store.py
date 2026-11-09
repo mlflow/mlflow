@@ -687,7 +687,8 @@ class SqlAlchemyStore:
         """
         Return every exact-name grant held by an admin-created role in the active workspace
         on any of ``resource_types`` x ``resource_patterns``. Synthetic per-user roles are
-        excluded.
+        excluded. A case-insensitive database also returns grants on other spellings of the
+        patterns, so callers that need the exact names filter the result.
         """
         with self.ManagedSessionMaker() as session:
             return [
