@@ -493,6 +493,9 @@ def record(args: argparse.Namespace) -> int:
         "contexts and enforce the per-PR limit.\n\n"
         f"```json\n{json.dumps(history, indent=2)}\n```"
     )
+    if args.dry_run:
+        write_step_summary(body)
+        return 0
     if comment_id is None:
         comment_id = graphql(
             """
@@ -634,6 +637,7 @@ def main() -> int:
     recording = commands.add_parser("record", help="Record a successful repair in the PR history")
     recording.add_argument("--context", dest="context_path", type=Path, required=True)
     recording.add_argument("--run-url", required=True)
+    recording.add_argument("--dry-run", action=argparse.BooleanOptionalAction, default=False)
     recording.set_defaults(func=record)
     validation = commands.add_parser("validate", help="Validate a repair payload")
     validation.add_argument("--payload", dest="payload_path", type=Path, required=True)

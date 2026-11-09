@@ -319,13 +319,15 @@ jobs:
           owner: mlflow
           repositories: mlflow
           permission-pull-requests: write
-      - name: Record successful repair
-        if: steps.execute.outcome == 'success' && env.DRY_RUN != 'true'
+      - name: Record or preview repair history
+        if: steps.execute.outcome == 'success'
         working-directory: trusted
         env:
-          GH_TOKEN: ${{ steps.history-token.outputs.token }}
+          GH_TOKEN: ${{ steps.history-token.outputs.token || secrets.GITHUB_TOKEN }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          DRY_RUN_FLAG: ${{ env.DRY_RUN == 'true' && '--dry-run' || '--no-dry-run' }}
         run: |
           python "$SCRIPT" record \
             --context "$CONTEXT_PATH" \
-            --run-url "$RUN_URL"
+            --run-url "$RUN_URL" \
+            "$DRY_RUN_FLAG"
