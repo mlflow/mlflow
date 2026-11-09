@@ -497,7 +497,10 @@ def record(args: argparse.Namespace) -> int:
         recorded_at = entry.get("recorded_at", "").removesuffix("+00:00").replace("T", " ")
         head_link = "—"
         if head_sha := entry.get("head_sha"):
-            head_link = f"[`{head_sha[:7]}`](https://github.com/{REPO}/commit/{head_sha})"
+            head_link = (
+                f"[`{head_sha[:7]}`](https://github.com/{REPO}/pull/{context['number']}"
+                f"/commits/{head_sha})"
+            )
         rows.append(f"| {recorded_at or '—'} | {head_link} | [View run]({entry['run_url']}) |")
     table = "\n".join(rows)
     workflow = "`repair.yml`"
