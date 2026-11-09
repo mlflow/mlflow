@@ -82,6 +82,10 @@ jobs:
         run: |
           npm run build
 
+      - name: Run script tests
+        run: |
+          npm run test:scripts
+
       - name: Run core tests
         run: |
           npm run test:core
