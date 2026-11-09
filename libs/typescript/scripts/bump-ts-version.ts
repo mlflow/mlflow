@@ -38,6 +38,12 @@ interface PluginManifest {
   version?: unknown;
 }
 
+interface PluginManifestUpdate {
+  manifestPath: string;
+  oldVersion: string;
+  updatedText: string;
+}
+
 interface PackageJson {
   name: string;
   version: string;
@@ -83,6 +89,16 @@ function bumpVersion(version: string): void {
     process.exit(1);
   }
 
+  // Read and validate every plugin manifest before writing anything, so a bad
+  // manifest cannot leave the tree half-bumped.
+  const manifestUpdates = new Map<string, PluginManifestUpdate>();
+  for (const packageName of INTEGRATION_PACKAGES) {
+    const update = preparePluginManifestUpdate(tsRoot, packageName, version);
+    if (update) {
+      manifestUpdates.set(packageName, update);
+    }
+  }
+
   // Update core package.json
   console.log(`Updating core/package.json...`);
   const corePackageText = readFileSync(corePackagePath, 'utf-8');
@@ -120,17 +136,27 @@ function bumpVersion(version: string): void {
 
     writeFileSync(packagePath, JSON.stringify(packageJson, null, 2) + '\n', 'utf-8');
 
-    const manifestPath = join(tsRoot, 'integrations', packageName, PLUGIN_MANIFEST_RELPATH);
-    if (existsSync(manifestPath)) {
-      bumpPluginManifest(manifestPath, packageName, version);
+    const manifestUpdate = manifestUpdates.get(packageName);
+    if (manifestUpdate) {
+      console.log(`Updating integrations/${packageName}/${PLUGIN_MANIFEST_RELPATH}...`);
+      writeFileSync(manifestUpdate.manifestPath, manifestUpdate.updatedText, 'utf-8');
+      console.log(`  ✓ Updated version: ${manifestUpdate.oldVersion} → ${version}`);
     }
   }
 
   console.log(`\n✅ Successfully bumped TypeScript library versions to ${version}`);
 }
 
-function bumpPluginManifest(manifestPath: string, packageName: string, version: string): void {
-  console.log(`Updating integrations/${packageName}/${PLUGIN_MANIFEST_RELPATH}...`);
+function preparePluginManifestUpdate(
+  tsRoot: string,
+  packageName: string,
+  version: string,
+): PluginManifestUpdate | null {
+  const manifestPath = join(tsRoot, 'integrations', packageName, PLUGIN_MANIFEST_RELPATH);
+  if (!existsSync(manifestPath)) {
+    return null;
+  }
+
   const manifestText = readFileSync(manifestPath, 'utf-8');
   const oldVersion = (JSON.parse(manifestText) as PluginManifest).version;
   if (typeof oldVersion !== 'string') {
@@ -148,8 +174,7 @@ function bumpPluginManifest(manifestPath: string, packageName: string, version: 
     process.exit(1);
   }
 
-  writeFileSync(manifestPath, updatedText, 'utf-8');
-  console.log(`  ✓ Updated version: ${oldVersion} → ${version}`);
+  return { manifestPath, oldVersion, updatedText };
 }
 
 function main(): void {
