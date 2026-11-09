@@ -367,7 +367,6 @@ jobs:
         working-directory: trusted
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
-          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
           DRY_RUN_FLAG: ${{ env.DRY_RUN == 'true' && '--dry-run' || '--no-dry-run' }}
         run: |
           python "$SCRIPT" execute \
