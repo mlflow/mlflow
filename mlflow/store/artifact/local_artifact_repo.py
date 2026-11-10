@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 import shutil
 import tempfile
@@ -24,6 +25,7 @@ from mlflow.utils.file_utils import (
     relative_path_to_artifact_path,
     shutil_copytree_without_file_permissions,
 )
+from mlflow.utils.os import is_windows
 from mlflow.utils.uri import (
     _validate_windows_path_aliases,
     _windows_path_alias_rule,
@@ -33,6 +35,7 @@ from mlflow.utils.uri import (
 
 _TEMP_ARTIFACT_PREFIX = ".artifact.uploading."
 _UMASK_LOCK = threading.Lock()
+_logger = logging.getLogger(__name__)
 
 
 def _set_default_file_mode(file_path: str) -> None:
@@ -231,6 +234,10 @@ class LocalArtifactRepository(ArtifactRepository, StreamUploadMixin):
         return os.path.isdir(list_dir)
 
     def log_artifacts(self, local_dir, artifact_path=None):
+        if is_windows():
+            for _, dirnames, filenames in os.walk(local_dir):
+                for name in dirnames + filenames:
+                    _validate_windows_path_aliases(name)
         artifact_dir = self._get_or_create_artifact_dir(artifact_path)
         shutil_copytree_without_file_permissions(local_dir, artifact_dir)
 
@@ -263,14 +270,19 @@ class LocalArtifactRepository(ArtifactRepository, StreamUploadMixin):
             artifact_files = list_all(list_dir, full_path=True)
             # Entries that get_local_path rejects on Windows are hidden so the listing only
             # advertises artifacts that can be read back.
-            infos = [
-                get_file_info(
-                    f, relative_path_to_artifact_path(os.path.relpath(f, self.artifact_dir))
+            infos = []
+            for f in artifact_files:
+                name = os.path.basename(f)
+                if name.startswith(_TEMP_ARTIFACT_PREFIX):
+                    continue
+                if rule := _windows_path_alias_rule(name):
+                    _logger.warning("Skipping artifact %r because its name %s on Windows.", f, rule)
+                    continue
+                infos.append(
+                    get_file_info(
+                        f, relative_path_to_artifact_path(os.path.relpath(f, self.artifact_dir))
+                    )
                 )
-                for f in artifact_files
-                if not os.path.basename(f).startswith(_TEMP_ARTIFACT_PREFIX)
-                and _windows_path_alias_rule(os.path.basename(f)) is None
-            ]
             return sorted(infos, key=lambda f: f.path)
         else:
             return []
