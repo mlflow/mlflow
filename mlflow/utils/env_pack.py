@@ -1,3 +1,4 @@
+import os
 import shutil
 import subprocess
 import sys
@@ -77,11 +78,21 @@ def _tar(root_path: Path, tar_path: Path) -> tarfile.TarFile:
     wheels_info.json.
     """
 
+    root = Path(root_path).resolve()
+
     def exclude(tarinfo: tarfile.TarInfo):
         name = tarinfo.name
         base = Path(name).name
         if "__pycache__" in name or base.endswith(".pyc") or base == "wheels_info.json":
             return None
+        # Store directory symlinks that stay inside the root as symlinks. Otherwise a venv's
+        # lib64 -> lib stores site-packages twice. Turning the entry into a symlink also stops
+        # tarfile from recursing into it. Names are relative to arcname ".".
+        if tarinfo.isdir() and name != ".":
+            link = Path(root_path) / name
+            if link.is_symlink() and link.resolve().is_relative_to(root):
+                tarinfo.type = tarfile.SYMTYPE
+                tarinfo.linkname = os.path.relpath(link.resolve(), link.parent.resolve())
         return tarinfo
 
     # Pull in symlinks
