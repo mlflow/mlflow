@@ -238,6 +238,17 @@ def _raise_unsupported_method(method, message=None):
     raise MlflowException(" ".join(messages))
 
 
+def _get_volume_artifacts_path(local_model_dir):
+    # Imported here for the same circular-import reason as in _load_model.
+    from mlflow.models.model import MLMODEL_FILE_NAME
+
+    # A directory without an MLmodel file has no volume weights; the checks that need an MLmodel
+    # file reject it themselves.
+    if not os.path.exists(os.path.join(local_model_dir, MLMODEL_FILE_NAME)):
+        return None
+    return get_volume_artifacts_path(_load_model(local_model_dir))
+
+
 def _load_model(local_model_dir):
     # Import Model here instead of in the top level, to avoid circular import; the
     # mlflow.models.model module imports from MLflow tracking, which triggers an import of
@@ -1015,7 +1026,7 @@ class UcModelRegistryStore(BaseRestStore):
                 self._validate_model_signature(local_model_dir)
             self._download_model_weights_if_not_saved(local_model_dir)
             # Rejects a malformed volume path before the version is created.
-            get_volume_artifacts_path(_load_model(local_model_dir))
+            _get_volume_artifacts_path(local_model_dir)
             feature_deps = get_feature_dependencies(local_model_dir)
             other_model_deps = (
                 [] if model_id_cleared else get_model_version_dependencies(local_model_dir)
@@ -1089,7 +1100,7 @@ class UcModelRegistryStore(BaseRestStore):
         A model whose weights are in a Unity Catalog volume (``volume_artifacts_path`` in its
         metadata) has Databricks copy them into the version; this returns once that copy is done.
         """
-        if get_volume_artifacts_path(_load_model(local_model_dir)) is None:
+        if _get_volume_artifacts_path(local_model_dir) is None:
             store.log_artifacts(local_dir=local_model_dir, artifact_path="")
             return
         version = str(version)

@@ -21,6 +21,7 @@ from mlflow.utils.databricks_utils import (
     _NoDbutilsError,
     check_databricks_secret_scope_access,
     get_databricks_host_creds,
+    get_databricks_model_serving_staging_status,
     get_databricks_runtime_major_minor_version,
     get_databricks_runtime_version,
     get_databricks_workspace_client_config,
@@ -1531,3 +1532,69 @@ def test_stage_model_for_databricks_model_serving_raises_rest_exception_with_err
         stage_model_for_databricks_model_serving(model_name="main.default.m", model_version="1")
 
     assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+def test_stage_model_for_databricks_model_serving_returns_the_response_body():
+    response = mock.Mock(status_code=200, text=json.dumps({"status": {"state": "IN_PROGRESS"}}))
+    response.json.return_value = {"status": {"state": "IN_PROGRESS"}}
+    host_creds = mock.Mock()
+    with mock.patch(
+        "mlflow.utils.databricks_utils.http_request", return_value=response
+    ) as request_mock:
+        body = stage_model_for_databricks_model_serving(
+            model_name="main.default.m", model_version="1", host_creds=host_creds
+        )
+
+    assert body == {"status": {"state": "IN_PROGRESS"}}
+    assert request_mock.call_args.kwargs["host_creds"] is host_creds
+
+
+def test_stage_model_for_databricks_model_serving_returns_empty_for_an_empty_body():
+    response = mock.Mock(status_code=200, text="")
+    with (
+        mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+        mock.patch("mlflow.utils.databricks_utils.http_request", return_value=response),
+    ):
+        assert (
+            stage_model_for_databricks_model_serving(model_name="main.default.m", model_version="1")
+            == {}
+        )
+
+
+def test_get_databricks_model_serving_staging_status_returns_the_status():
+    status = {"state": "SUCCEEDED", "model_artifact": {"state": "SUCCEEDED"}}
+    response = mock.Mock(status_code=200, text=json.dumps({"status": status}))
+    response.json.return_value = {"status": status}
+    with (
+        mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+        mock.patch(
+            "mlflow.utils.databricks_utils.http_request", return_value=response
+        ) as request_mock,
+    ):
+        assert (
+            get_databricks_model_serving_staging_status(
+                model_name="main.default.m", model_version="1"
+            )
+            == status
+        )
+
+    assert request_mock.call_args.kwargs["endpoint"] == (
+        "/api/2.0/serving-endpoints:checkModelDeploymentStagingStatus"
+    )
+    assert request_mock.call_args.kwargs["json"] == {
+        "model": "main.default.m",
+        "model_version": "1",
+    }
+
+
+def test_get_databricks_model_serving_staging_status_raises_rest_exception():
+    response = mock.Mock(
+        status_code=403,
+        text=json.dumps({"error_code": "FEATURE_DISABLED", "message": "Not enabled."}),
+    )
+    with (
+        mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+        mock.patch("mlflow.utils.databricks_utils.http_request", return_value=response),
+        pytest.raises(RestException, match="Not enabled."),
+    ):
+        get_databricks_model_serving_staging_status(model_name="main.default.m", model_version="1")

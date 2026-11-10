@@ -1810,6 +1810,91 @@ def test_create_model_version_local_model_path(store, local_model_dir):
         )
 
 
+def _set_volume_artifacts_path(model_dir, path):
+    mlmodel_path = model_dir.joinpath(MLMODEL_FILE_NAME)
+    mlmodel = yaml.safe_load(mlmodel_path.read_text())
+    mlmodel["metadata"] = {"volume_artifacts_path": path}
+    mlmodel_path.write_text(yaml.dump(mlmodel))
+
+
+def _create_model_version_recording_steps(store, local_model_dir, steps=None):
+    """Registers ``local_model_dir`` with REST calls and uploads mocked; returns the steps taken."""
+    model_name = "model_1"
+    version = "1"
+    source = "s3://model/version/source"
+    steps = [] if steps is None else steps
+    request = get_request_mock(
+        name=model_name,
+        version=version,
+        temp_credentials=TemporaryCredentials(
+            aws_temp_credentials=AwsCredentials(
+                access_key_id="fake-key", secret_access_key="secret-key", session_token="token"
+            )
+        ),
+        storage_location="s3://blah",
+        source=source,
+    )
+
+    def recording_request(*args, **kwargs):
+        endpoint = kwargs.get("endpoint", args[1] if len(args) > 1 else "")
+        if endpoint.endswith("/model-versions/create"):
+            steps.append("create")
+        elif endpoint.endswith("/model-versions/finalize"):
+            steps.append("finalize")
+        return request(*args, **kwargs)
+
+    mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
+    mock_artifact_repo.log_artifacts.side_effect = lambda **_: steps.append("upload")
+    rest_store = "mlflow.store._unity_catalog.registry.rest_store"
+    with (
+        mock.patch("mlflow.utils.rest_utils.http_request", side_effect=recording_request),
+        mock.patch(
+            "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository",
+            return_value=mock_artifact_repo,
+        ),
+        mock.patch(
+            f"{rest_store}.start_volume_weights_copy",
+            side_effect=lambda *_: steps.append("stage") or {"state": "IN_PROGRESS"},
+        ) as start_copy,
+        mock.patch(
+            f"{rest_store}.wait_for_volume_weights_copy",
+            side_effect=lambda *_: steps.append("wait"),
+        ) as wait_copy,
+    ):
+        store.create_model_version(name=model_name, source=source, local_model_path=local_model_dir)
+    return steps, start_copy, wait_copy
+
+
+def test_create_model_version_with_volume_weights_finalizes_after_the_copy(store, local_model_dir):
+    _set_volume_artifacts_path(local_model_dir, "/Volumes/main/default/weights/qwen")
+
+    steps, start_copy, wait_copy = _create_model_version_recording_steps(store, local_model_dir)
+
+    assert steps == ["create", "stage", "upload", "wait", "finalize"]
+    start_copy.assert_called_once_with("model_1", "1", ANY)
+    wait_copy.assert_called_once_with("model_1", "1", {"state": "IN_PROGRESS"}, ANY)
+
+
+def test_create_model_version_without_volume_weights_does_not_stage(store, local_model_dir):
+    steps, start_copy, wait_copy = _create_model_version_recording_steps(store, local_model_dir)
+
+    assert steps == ["create", "upload", "finalize"]
+    start_copy.assert_not_called()
+    wait_copy.assert_not_called()
+
+
+def test_create_model_version_rejects_a_malformed_volume_path_before_creating(
+    store, local_model_dir
+):
+    _set_volume_artifacts_path(local_model_dir, "/dbfs/weights/qwen")
+    steps = []
+
+    with pytest.raises(MlflowException, match="must be a Unity Catalog volume path"):
+        _create_model_version_recording_steps(store, local_model_dir, steps)
+
+    assert steps == []
+
+
 def test_create_model_version_doesnt_redownload_model_from_local_dir(store, local_model_dir):
     access_key_id = "fake-key"
     secret_access_key = "secret-key"
