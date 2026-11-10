@@ -410,9 +410,9 @@
         "max_output": 1048576
       },
       "pricing": {
-        "input_per_million_tokens": 0.13,
-        "output_per_million_tokens": 0.65,
-        "cache_read_per_million_tokens": 0.002
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 1.2,
+        "cache_read_per_million_tokens": 0.006
       },
       "capabilities": {
         "function_calling": false,
@@ -421,7 +421,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-11-09"
+      "last_updated_at": "2026-11-10"
     },
     "google/gemma-4-26B-A4B-it": {
       "mode": "chat",
