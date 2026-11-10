@@ -1,3 +1,4 @@
+import functools
 import json
 import logging
 from dataclasses import asdict
@@ -12,6 +13,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.constants import GatewayCaller
 from mlflow.genai.judges.base import Judge, JudgeField
 from mlflow.genai.judges.constants import (
     _RATIONALE_FIELD_DESCRIPTION,
@@ -46,6 +48,7 @@ from mlflow.genai.scorers.base import (
     ScorerKind,
     SerializedScorer,
 )
+from mlflow.genai.utils.gateway_utils import gateway_caller
 from mlflow.genai.utils.trace_utils import (
     resolve_conversation_from_session,
     resolve_expectations_from_session,
@@ -67,6 +70,17 @@ EXPECTATIONS_FIELD = JudgeField(
     name="expectations", description="Expected outcomes or ground truth"
 )
 TRACE_FIELD = JudgeField(name="trace", description="Trace to evaluate")
+
+
+def _attribute_gateway_calls(call):
+    """Run a judge call inside the gateway attribution of the feature that owns the judge."""
+
+    @functools.wraps(call)
+    def wrapper(self, *args, **kwargs):
+        with gateway_caller(self._gateway_caller):
+            return call(self, *args, **kwargs)
+
+    return wrapper
 
 
 class InstructionsJudge(Judge):
@@ -103,6 +117,9 @@ class InstructionsJudge(Judge):
     _include_timing_in_conversation: bool = PrivateAttr(default=False)
     _model_api: ModelAPI = PrivateAttr(default=ModelAPI.DEFAULT)
     _model_api_mode: ModelAPI = PrivateAttr(default=ModelAPI.CHAT_COMPLETIONS)
+    # Set by built-in features that run their own judge (e.g. issue detection's triage judge), so
+    # its gateway usage is attributed to the feature instead of to judges.
+    _gateway_caller: GatewayCaller | None = PrivateAttr(default=None)
 
     def __init__(
         self,
@@ -509,6 +526,7 @@ class InstructionsJudge(Judge):
         except Exception:
             return str(value)
 
+    @_attribute_gateway_calls
     def __call__(
         self,
         *,
