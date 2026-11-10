@@ -443,7 +443,7 @@ def discover(args: argparse.Namespace) -> int:
     except (RuntimeError, ValueError, KeyError, TypeError) as error:
         sys.stderr.write(f"Could not select Repair PRs: {error}\n")
         return 1
-    sys.stdout.write(json.dumps(candidates) + "\n")
+    args.out_path.write_text(json.dumps(candidates) + "\n")
     return 0
 
 
@@ -711,6 +711,7 @@ def main() -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     discovery = commands.add_parser("discover", help="Select PRs without unfinished CI jobs")
     discovery.add_argument("--prs", default=os.environ.get("PR_NUMBERS", ""))
+    discovery.add_argument("--out-path", type=Path, required=True)
     discovery.set_defaults(func=discover)
     budget = commands.add_parser("check-budget", help="Check the PR history before repairing")
     budget.add_argument("--context", dest="context_path", type=Path, required=True)
