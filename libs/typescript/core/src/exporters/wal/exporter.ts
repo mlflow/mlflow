@@ -63,7 +63,10 @@ export class MlflowWalSpanExporter implements SpanExporter {
 
       traceManager.lastActiveTraceId = trace.info.traceId;
 
-      const otlpSpans = serializeSpansToOtlpBase64(trace.data.spans.map((s) => s._span));
+      const otlpSpans = serializeSpansToOtlpBase64(
+        trace.data.spans.map((s) => s._span),
+        cfg.trackingUri,
+      );
 
       const record: WalRecord = {
         id: randomUUID(),

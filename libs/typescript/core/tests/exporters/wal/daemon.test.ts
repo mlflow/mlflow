@@ -354,6 +354,23 @@ describe('wal/daemon', () => {
       expect(exportOtlpSpans).not.toHaveBeenCalled();
     });
 
+    it('skips span logging for Databricks tracking URIs', async () => {
+      const exportOtlpSpans = jest.fn();
+      const client = makeClient({ exportOtlpSpans });
+
+      const record = makeRecord({
+        id: 'row-databricks',
+        trackingUri: 'databricks',
+        otlpSpans: Buffer.from([0x0a, 0x01]).toString('base64'),
+      });
+      await uploadOne(record, client, new BatchingWriter());
+
+      expect(exportOtlpSpans).not.toHaveBeenCalled();
+
+      const pending = await readPending();
+      expect(pending.find((r) => r.id === 'row-databricks')).toBeUndefined();
+    });
+
     it('tombstones the record even when span logging fails (non-fatal)', async () => {
       const exportOtlpSpans = jest.fn().mockRejectedValue(new Error('501 not supported'));
       const createTrace = jest.fn().mockImplementation((info: TraceInfo) => Promise.resolve(info));

@@ -457,6 +457,38 @@ describe('wal/exporter', () => {
     expect((record.traceData as { spans: unknown[] }).spans).toHaveLength(1);
   });
 
+  it('omits otlpSpans for Databricks tracking URIs', async () => {
+    const originalDatabricksHost = process.env.DATABRICKS_HOST;
+    process.env.DATABRICKS_HOST = 'https://example.cloud.databricks.com';
+    init({ trackingUri: 'databricks', experimentId: 'exp-test' });
+    try {
+      const submit = jest.fn<Promise<void>, [WalRecord]>().mockResolvedValue(undefined);
+      const exporter = new MlflowWalSpanExporter({ submit });
+
+      popTraceSpy.mockReturnValue(makeTraceWithSpans('tr-databricks'));
+      const span = makeSpan({ traceId: 'otel-1', rootSpan: true });
+
+      const { callback, promise } = captureExportResult();
+      exporter.export([span], callback);
+
+      expect((await promise).code).toBe(ExportResultCode.SUCCESS);
+      await exporter.forceFlush();
+
+      const record = submit.mock.calls[0][0];
+      expect(record.trackingUri).toBe('databricks');
+      expect(record.otlpSpans).toBeUndefined();
+      // The JSON trace data is still retained as the artifact fallback.
+      expect((record.traceData as { spans: unknown[] }).spans).toHaveLength(1);
+    } finally {
+      init({ trackingUri: 'http://localhost:5000', experimentId: 'exp-test' });
+      if (originalDatabricksHost === undefined) {
+        delete process.env.DATABRICKS_HOST;
+      } else {
+        process.env.DATABRICKS_HOST = originalDatabricksHost;
+      }
+    }
+  });
+
   it('omits otlpSpans when the trace has no spans', async () => {
     const submit = jest.fn<Promise<void>, [WalRecord]>().mockResolvedValue(undefined);
     const exporter = new MlflowWalSpanExporter({ submit });
