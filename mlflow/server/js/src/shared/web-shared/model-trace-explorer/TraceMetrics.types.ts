@@ -77,6 +77,8 @@ export enum TraceDimensionKey {
   TRACE_NAME = 'trace_name',
   /** Trace status dimension (OK, ERROR) */
   TRACE_STATUS = 'trace_status',
+  /** Caller of an AI Gateway request (traces without one are left out) */
+  GATEWAY_CALLER = 'gateway_caller',
 }
 
 /**
@@ -99,6 +101,9 @@ export const createTraceMetadataFilter = (metadataKey: string, value: string): s
 
 /** Metadata key for the authenticated user's ID stored in gateway traces. */
 export const AUTH_USER_ID_METADATA_KEY = 'mlflow.auth.userId';
+
+/** Metadata key for the caller (e.g. a built-in MLflow feature) stored in gateway traces. */
+export const GATEWAY_CALLER_METADATA_KEY = 'mlflow.gateway.caller';
 
 /**
  * Keys for metrics on assessments view type.
@@ -247,6 +252,8 @@ export enum SpanDimensionKey {
   MODEL_NAME = 'span_model_name',
   /** Model provider dimension */
   MODEL_PROVIDER = 'span_model_provider',
+  /** Caller of the AI Gateway request the span belongs to */
+  GATEWAY_CALLER = 'gateway_caller',
 }
 
 /**
