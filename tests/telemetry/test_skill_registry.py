@@ -207,6 +207,7 @@ def test_register_workflow(telemetry, mock_requests, skill_store, skill_director
             skill_directory, resolve_source_type(source)
         )
         version = skills.register_skill(source=source, organization="private-org")
+        fetch.assert_called_once_with(source)
     assert (
         skill_store.get_skill_version("review", version.version, organization="private-org")
         == version
@@ -238,6 +239,16 @@ def test_import_workflow(telemetry, mock_requests, skill_store, skill_directory)
         )
         first = skills.import_skills(source=source, skill_names=["review"])
         second = skills.import_skills(source=source, skill_names=["review"])
+        assert (
+            fetch.call_args_list
+            == [
+                mock.call(
+                    source,
+                    max_bytes=skills.get_max_decompressed_size() * skills._MAX_BULK_REGISTER_SKILLS,
+                )
+            ]
+            * 2
+        )
     assert first == second
     assert (
         _skill_events(telemetry, mock_requests)
@@ -278,6 +289,7 @@ def test_pull_workflow(telemetry, mock_requests, tmp_path, failure):
                 skills.pull("skills:/review@private-alias", destination=target)
         else:
             assert skills.pull("skills:/review@private-alias", destination=target) == str(target)
+        resolve.assert_called_once_with("skills:/review@private-alias")
         download.assert_called_once_with(resolve.return_value, target)
     validate_telemetry_record(
         telemetry,
