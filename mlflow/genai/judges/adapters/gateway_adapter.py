@@ -19,7 +19,7 @@ from mlflow.utils.providers import _lookup_model_info
 if TYPE_CHECKING:
     from mlflow.entities.trace import Trace
     from mlflow.gateway.providers.base import BaseProvider
-    from mlflow.types.llm import ChatMessage
+    from mlflow.types.llm import ChatMessage, ToolCall
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
@@ -83,6 +83,15 @@ class InvokeOutput:
     num_completion_tokens: int | None
 
 
+@dataclass
+class ParsedResponse:
+    message: "ChatMessage"
+    # Keys: "prompt_tokens" and "completion_tokens"
+    usage: dict[str, Any]
+    # Maps tool call IDs to Gemini thought signatures
+    thought_signatures: dict[str, str]
+
+
 # ---------------------------------------------------------------------------
 # MLflow Gateway provider (lightweight provider-like object)
 # ---------------------------------------------------------------------------
@@ -93,20 +102,32 @@ class InvokeOutput:
 # ---------------------------------------------------------------------------
 
 
-def _message_to_dict(msg: "ChatMessage") -> dict[str, Any]:
-    """Serialize a ChatMessage to OpenAI message format, omitting None fields."""
+def _tool_call_to_dict(
+    tool_call: "ToolCall", thought_signatures: dict[str, str] | None
+) -> dict[str, Any]:
+    d: dict[str, Any] = {
+        "id": tool_call.id,
+        "type": tool_call.type,
+        "function": {"name": tool_call.function.name, "arguments": tool_call.function.arguments},
+    }
+    if thought_signatures and (sig := thought_signatures.get(tool_call.id)):
+        d["thought_signature"] = sig
+    return d
+
+
+def _message_to_dict(
+    msg: "ChatMessage", thought_signatures: dict[str, str] | None = None
+) -> dict[str, Any]:
+    """Serialize a ChatMessage to OpenAI message format, omitting None fields.
+
+    ``thought_signatures`` maps tool call IDs to the Gemini thought signatures that must be
+    echoed back with those tool calls. ``mlflow.types.llm.ToolCall`` has no field for them.
+    """
     d: dict[str, Any] = {"role": msg.role}
     if msg.content is not None:
         d["content"] = msg.content
     if msg.tool_calls is not None:
-        d["tool_calls"] = [
-            {
-                "id": tc.id,
-                "type": tc.type,
-                "function": {"name": tc.function.name, "arguments": tc.function.arguments},
-            }
-            for tc in msg.tool_calls
-        ]
+        d["tool_calls"] = [_tool_call_to_dict(tc, thought_signatures) for tc in msg.tool_calls]
     if msg.tool_call_id is not None:
         d["tool_call_id"] = msg.tool_call_id
     if msg.name is not None:
@@ -133,10 +154,11 @@ def _build_request(
     response_format: type[pydantic.BaseModel] | None,
     include_response_format: bool,
     inference_params: dict[str, Any] | None,
+    thought_signatures: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Build an OpenAI-format chat completions request payload."""
     payload: dict[str, Any] = {
-        "messages": [_message_to_dict(msg) for msg in messages],
+        "messages": [_message_to_dict(msg, thought_signatures) for msg in messages],
     }
 
     if tools:
@@ -195,15 +217,12 @@ def _should_proactively_prune(
 def _parse_response_message(
     response_data: dict[str, Any],
     provider: "BaseProvider",
-) -> tuple["ChatMessage", dict[str, Any]]:
+) -> ParsedResponse:
     """Parse the assistant message and usage from a chat completions response.
 
     Uses the provider's adapter to transform the raw response into a
-    normalized format, then extracts the assistant message and usage metadata.
-
-    Returns:
-        Tuple of (ChatMessage, usage_dict) where usage_dict has
-        "prompt_tokens" and "completion_tokens" keys.
+    normalized format, then extracts the assistant message, usage metadata,
+    and any tool call thought signatures.
     """
     # Lazy import: mlflow.types.llm → mlflow.types.schema → numpy, which breaks
     # the skinny client. Must stay inside the function.
@@ -221,6 +240,7 @@ def _parse_response_message(
         content = content or None
 
     tool_calls_raw = None
+    thought_signatures = {}
     if resp_msg.tool_calls:
         # Convert gateway ToolCall objects back to dicts for ChatMessage auto-conversion
         tool_calls_raw = [
@@ -234,6 +254,11 @@ def _parse_response_message(
             }
             for tc in resp_msg.tool_calls
         ]
+        thought_signatures = {
+            tc.id: sig
+            for tc in resp_msg.tool_calls
+            if (sig := getattr(tc, "thought_signature", None))
+        }
 
     # ChatMessage requires content when tool_calls is absent
     if content is None and not tool_calls_raw:
@@ -246,13 +271,14 @@ def _parse_response_message(
             "completion_tokens": getattr(chat_response.usage, "completion_tokens", None),
         }
 
-    return (
-        ChatMessage(
+    return ParsedResponse(
+        message=ChatMessage(
             role=resp_msg.role,
             content=content,
             tool_calls=tool_calls_raw,
         ),
-        usage,
+        usage=usage,
+        thought_signatures=thought_signatures,
     )
 
 
@@ -567,6 +593,7 @@ class GatewayAdapter(BaseJudgeAdapter):
         iteration_count = 0
         total_prompt_tokens: int | None = None
         total_completion_tokens: int | None = None
+        thought_signatures: dict[str, str] = {}
 
         while True:
             iteration_count += 1
@@ -580,6 +607,7 @@ class GatewayAdapter(BaseJudgeAdapter):
                     response_format=response_format,
                     include_response_format=include_response_format,
                     inference_params=inference_params,
+                    thought_signatures=thought_signatures,
                 )
 
                 # Use the provider adapter to transform the request
@@ -635,7 +663,10 @@ class GatewayAdapter(BaseJudgeAdapter):
                     ) from e
 
                 # Use the provider adapter to normalize the response
-                message, usage = _parse_response_message(response_data, provider_instance)
+                parsed = _parse_response_message(response_data, provider_instance)
+                message = parsed.message
+                usage = parsed.usage
+                thought_signatures.update(parsed.thought_signatures)
 
                 if (prompt_tokens := usage.get("prompt_tokens")) is not None:
                     total_prompt_tokens = (total_prompt_tokens or 0) + prompt_tokens

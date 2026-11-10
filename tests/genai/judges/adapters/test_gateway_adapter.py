@@ -497,7 +497,7 @@ def test_build_request_response_format_is_strict():
 
 def test_parse_response_basic():
     resp = _chat_response("Hello!")
-    msg, usage = _parse_response_message(resp, provider=_mock_provider())
+    msg = _parse_response_message(resp, provider=_mock_provider()).message
     assert isinstance(msg, ChatMessage)
     assert msg.role == "assistant"
     assert msg.content == "Hello!"
@@ -509,7 +509,7 @@ def test_parse_response_with_tool_calls():
         {"id": "call_1", "type": "function", "function": {"name": "test", "arguments": "{}"}}
     ]
     resp = _chat_response(None, tool_calls=tool_calls)
-    msg, usage = _parse_response_message(resp, provider=_mock_provider())
+    msg = _parse_response_message(resp, provider=_mock_provider()).message
     assert msg.content is None
     assert len(msg.tool_calls) == 1
     assert msg.tool_calls[0].id == "call_1"
@@ -550,7 +550,7 @@ def test_parse_anthropic_response_with_tool_calls(monkeypatch):
         "usage": {"input_tokens": 50, "output_tokens": 30},
     }
 
-    msg, usage = _parse_response_message(anthropic_response, provider)
+    msg = _parse_response_message(anthropic_response, provider).message
     assert msg.role == "assistant"
     assert msg.content == "Let me check that."
     assert len(msg.tool_calls) == 1
@@ -572,7 +572,7 @@ def test_parse_anthropic_response_text_only(monkeypatch):
         "usage": {"input_tokens": 10, "output_tokens": 20},
     }
 
-    msg, usage = _parse_response_message(anthropic_response, provider)
+    msg = _parse_response_message(anthropic_response, provider).message
     assert msg.role == "assistant"
     assert msg.tool_calls is None
     parsed = json.loads(msg.content)
@@ -787,6 +787,74 @@ def test_tool_calling_loop(mock_trace):
     assert mock_send.call_count == 2
     mock_process.assert_called_once()
     assert json.loads(output.response) == {"result": "yes", "rationale": "Trace looks good"}
+
+
+def test_tool_calling_loop_echoes_gemini_thought_signature(mock_trace, monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    tool_call_response = {
+        "candidates": [
+            {
+                "content": {
+                    "role": "model",
+                    "parts": [
+                        {
+                            "functionCall": {"id": "call_1", "name": "get_trace_info", "args": {}},
+                            "thoughtSignature": "sig_1",
+                        }
+                    ],
+                },
+                "finishReason": "STOP",
+            }
+        ],
+        "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 5},
+    }
+    final_response = {
+        "candidates": [
+            {
+                "content": {
+                    "role": "model",
+                    "parts": [{"text": json.dumps({"result": "yes", "rationale": "ok"})}],
+                },
+                "finishReason": "STOP",
+            }
+        ],
+        "usageMetadata": {"promptTokenCount": 20, "candidatesTokenCount": 5},
+    }
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
+            side_effect=[tool_call_response, final_response],
+        ) as mock_send,
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter._process_tool_calls",
+            return_value=[
+                ChatMessage(
+                    role="tool",
+                    content='{"trace_id": "test-trace"}',
+                    tool_call_id="call_1",
+                    name="get_trace_info",
+                )
+            ],
+        ),
+    ):
+        output = GatewayAdapter()._invoke_and_handle_tools(
+            provider="gemini",
+            model_name="gemini-3-flash",
+            messages=[ChatMessage(role="user", content="evaluate this")],
+            trace=mock_trace,
+            num_retries=0,
+        )
+
+    assert json.loads(output.response) == {"result": "yes", "rationale": "ok"}
+    second_payload = mock_send.call_args_list[1].kwargs["payload"]
+    model_turn = next(c for c in second_payload["contents"] if c["role"] == "model")
+    assert model_turn["parts"] == [
+        {
+            "functionCall": {"id": "call_1", "name": "get_trace_info", "args": {}},
+            "thoughtSignature": "sig_1",
+        }
+    ]
 
 
 def test_token_counts_accumulated_across_iterations(mock_trace):
