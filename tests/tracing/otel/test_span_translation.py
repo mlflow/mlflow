@@ -567,6 +567,28 @@ def test_translate_openinference_retrieval_sparse_indices_preserve_order():
     assert [d["page_content"] for d in docs] == ["first", "third"]
 
 
+@pytest.mark.parametrize(
+    "content",
+    [
+        '{"endpoint": "/api/v1/users", "method": "GET"}',
+        '[{"endpoint": "/api/v1/users", "method": "GET"}]',
+    ],
+)
+@pytest.mark.parametrize("document_id", [json.dumps("7"), json.dumps(7)])
+def test_translate_openinference_retrieval_keeps_json_looking_content_as_text(content, document_id):
+    span = _openinference_retriever_span({
+        "retrieval.documents.0.document.content": content,
+        "retrieval.documents.0.document.id": document_id,
+        "retrieval.documents.0.document.metadata": '{"source": "api-docs"}',
+    })
+
+    result = translate_span_when_storing(span)
+
+    assert json.loads(result["attributes"][SpanAttributeKey.OUTPUTS]) == [
+        {"page_content": content, "id": "7", "metadata": {"source": "api-docs"}},
+    ]
+
+
 def test_translate_non_retriever_openinference_still_uses_output_value():
     # A non-retriever OpenInference span must be unaffected: output.value still wins.
     span = mock.Mock(spec=Span)

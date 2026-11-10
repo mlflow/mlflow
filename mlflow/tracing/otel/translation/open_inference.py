@@ -78,7 +78,7 @@ class OpenInferenceTranslator(OtelSchemaTranslator):
             if match := self._RETRIEVAL_DOCUMENT_ATTRIBUTE.match(key):
                 index = int(match.group(1))
                 field = match.group(2)
-                documents_by_index.setdefault(index, {})[field] = self._try_decode_if_json(value)
+                documents_by_index.setdefault(index, {})[field] = value
 
         if not documents_by_index:
             return None
@@ -86,25 +86,40 @@ class OpenInferenceTranslator(OtelSchemaTranslator):
         documents = []
         for index in sorted(documents_by_index):
             fields = documents_by_index[index]
-            content = fields.get("content")
-            if not isinstance(content, str):
-                # ``document.content`` is spec'd as a plain string; coerce defensively so a
-                # non-string never reaches the scorers that string-join the context.
-                content = "" if content is None else str(content)
-            metadata = self._coerce_document_metadata(fields.get("metadata"))
-            if (score := fields.get("score")) is not None:
+            # Retrieved content can itself be JSON text; preserve it as a string.
+            content = self._decode_string_attribute(fields.get("content")) or ""
+            metadata = self._coerce_document_metadata(
+                self._try_decode_if_json(fields.get("metadata"))
+            )
+            if (score := self._try_decode_if_json(fields.get("score"))) is not None:
                 # MLflow's Document has no score field; preserve it under metadata. The dedicated
                 # ``document.score`` attribute is authoritative and wins over any metadata["score"].
                 metadata = {**metadata, "score": score}
             documents.append({
                 "page_content": content,
-                "id": fields.get("id"),
+                "id": self._decode_string_attribute(fields.get("id")),
                 "metadata": metadata,
             })
         # Use MLflow's canonical span-attribute serializer (TraceJSONEncoder) rather than a raw
         # ``json.dumps``: ``document.metadata`` may carry non-JSON-native values, and this keeps
         # serialization consistent with how every other OUTPUTS attribute is stored and read back.
         return dump_span_attribute_value(documents)
+
+    @staticmethod
+    def _decode_string_attribute(value: Any) -> str | None:
+        # Undo the JSON encoding MLflow applies to string attributes ('"abc"' -> 'abc') without
+        # parsing the text itself: '{"a": 1}' stays '{"a": 1}'.
+        if value is None:
+            return None
+        if isinstance(value, str):
+            try:
+                decoded = json.loads(value)
+            except json.JSONDecodeError:
+                return value
+            if decoded is None:
+                return None
+            return decoded if isinstance(decoded, str) else value
+        return str(value)
 
     @staticmethod
     def _coerce_document_metadata(value: Any) -> dict[str, Any]:
