@@ -74,6 +74,7 @@ from mlflow.tracking.request_auth.assistant_delegation_request_auth_provider imp
     ASSISTANT_DELEGATION_HEADER,
 )
 from mlflow.utils import workspace_context
+from mlflow.utils.mlflow_tags import MLFLOW_ISSUE_DETECTION_SCHEDULE
 from mlflow.utils.os import is_windows
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -9285,6 +9286,120 @@ def test_issue_detection_invoke_requires_use_permission_on_secret(client):
         url, json={**payload, "experiment_id": owner_exp_id}, auth=(owner, owner_pw)
     )
     assert resp.status_code != 403
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_issue_detection_schedule_requires_use_permission_on_secret(client):
+    # A detection schedule is an experiment tag naming a gateway secret, which the dispatcher
+    # decrypts into the job environment whenever the schedule fires. Nobody is making a request
+    # at that point, so the tag write is where the secret boundary has to hold: UPDATE on the
+    # caller's own experiment must not be enough to bind someone else's secret to it. Same
+    # class as GHSA-2m86-c5q7-rxgr, reached through the schedule instead of issues/invoke.
+    base = client.tracking_uri
+    owner, owner_pw = create_user(base)
+    attacker, attacker_pw = create_user(base)
+
+    resp = requests.post(
+        f"{base}/api/3.0/mlflow/gateway/secrets/create",
+        json={
+            "secret_name": "owner-openai-key",
+            "secret_value": {"api_key": "sk-owner"},
+            "provider": "openai",
+        },
+        auth=(owner, owner_pw),
+    )
+    resp.raise_for_status()
+    secret_id = resp.json()["secret"]["secret_id"]
+
+    def create_experiment(name, auth, tags=None):
+        return requests.post(
+            f"{base}/api/2.0/mlflow/experiments/create",
+            json={"name": name} | ({"tags": tags} if tags else {}),
+            auth=auth,
+        )
+
+    def schedule(model, **overrides):
+        return json.dumps(
+            {"version": 1, "cadence": "daily", "timezone": "UTC", "paused": False, "model": model}
+            | overrides
+        )
+
+    def set_tag(value, auth, experiment_id, key=MLFLOW_ISSUE_DETECTION_SCHEDULE):
+        return requests.post(
+            f"{base}/api/2.0/mlflow/experiments/set-experiment-tag",
+            json={"experiment_id": experiment_id, "key": key, "value": value},
+            auth=auth,
+        )
+
+    def stored_tags(experiment_id, auth):
+        resp = requests.get(
+            f"{base}/api/2.0/mlflow/experiments/get",
+            params={"experiment_id": experiment_id},
+            auth=auth,
+        )
+        resp.raise_for_status()
+        return {tag["key"]: tag["value"] for tag in resp.json()["experiment"].get("tags", [])}
+
+    attacker_auth = (attacker, attacker_pw)
+    attacker_exp_id = create_experiment("attacker-exp", attacker_auth).json()["experiment_id"]
+    direct = {"provider": "openai", "model": "gpt-4o"}
+    with_owner_secret = schedule(direct | {"secretId": secret_id})
+
+    # UPDATE on the experiment alone: denied at the secret boundary, and nothing is stored for
+    # the dispatcher to find.
+    assert set_tag(with_owner_secret, attacker_auth, attacker_exp_id).status_code == 403
+    assert MLFLOW_ISSUE_DETECTION_SCHEDULE not in stored_tags(attacker_exp_id, attacker_auth)
+
+    # A paused schedule binds the secret just the same.
+    paused = schedule(direct | {"secretId": secret_id}, paused=True)
+    assert set_tag(paused, attacker_auth, attacker_exp_id).status_code == 403
+
+    # Creating an experiment that already carries the schedule is the same write.
+    resp = create_experiment(
+        "attacker-exp-born-scheduled",
+        attacker_auth,
+        tags=[{"key": MLFLOW_ISSUE_DETECTION_SCHEDULE, "value": with_owner_secret}],
+    )
+    assert resp.status_code == 403
+
+    # READ on the secret only exposes masked metadata; consuming it still requires USE.
+    grant_role_permission(base, attacker, "gateway_secret", secret_id, "READ")
+    assert set_tag(with_owner_secret, attacker_auth, attacker_exp_id).status_code == 403
+
+    # Unknown secret id: fail closed rather than surface a permission oracle.
+    unknown = schedule(direct | {"secretId": "s-does-not-exist"})
+    assert set_tag(unknown, attacker_auth, attacker_exp_id).status_code == 403
+
+    # A schedule that names no secret, and any other tag, stay ordinary tag writes.
+    assert set_tag(schedule(direct), attacker_auth, attacker_exp_id).status_code == 200
+    assert (
+        set_tag(schedule({"endpointName": "ep"}), attacker_auth, attacker_exp_id).status_code == 200
+    )
+    assert (
+        set_tag(with_owner_secret, attacker_auth, attacker_exp_id, key="notes").status_code == 200
+    )
+
+    # With USE the schedule can be saved either way.
+    grant_role_permission(base, attacker, "gateway_secret", secret_id, "USE")
+    assert set_tag(with_owner_secret, attacker_auth, attacker_exp_id).status_code == 200
+    assert (
+        stored_tags(attacker_exp_id, attacker_auth)[MLFLOW_ISSUE_DETECTION_SCHEDULE]
+        == with_owner_secret
+    )
+    resp = create_experiment(
+        "attacker-exp-born-scheduled",
+        attacker_auth,
+        tags=[{"key": MLFLOW_ISSUE_DETECTION_SCHEDULE, "value": with_owner_secret}],
+    )
+    assert resp.status_code == 200
+
+    # The secret owner (MANAGE) schedules against their own experiment.
+    owner_exp_id = create_experiment("owner-exp", (owner, owner_pw)).json()["experiment_id"]
+    assert set_tag(with_owner_secret, (owner, owner_pw), owner_exp_id).status_code == 200
 
 
 @pytest.mark.parametrize(

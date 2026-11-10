@@ -163,6 +163,17 @@ class ScheduleModel:
             return f"gateway:/{self.endpoint_name}"
         return f"{self.provider.lower()}:/{self.model}"
 
+    @property
+    def credential_secret_id(self) -> str:
+        """
+        The stored secret a run with this model decrypts, or ``""`` when it decrypts none.
+
+        The one definition of that, because two sides have to agree on it: the dispatcher, which
+        does the decrypting, and the server's authorization of whoever writes the schedule, which
+        is the only point at which anyone can be asked whether they may use the secret.
+        """
+        return "" if self.endpoint_name else self.secret_id
+
     def to_dict(self) -> dict[str, str]:
         if self.endpoint_name:
             return {"endpointName": self.endpoint_name}
@@ -515,6 +526,22 @@ def parse_detection_schedule(
         fire_time=_parse_fire_time(parsed.get("fireTime")),
         weekday=_parse_weekday(parsed.get("weekday")),
     )
+
+
+def scheduled_detection_secret_id(raw_value: str | None) -> str:
+    """
+    The stored secret a schedule tag value would have the dispatcher decrypt, or ``""``.
+
+    Reads the value with the dispatcher's own parser rather than looking for a ``secretId`` key,
+    so a value is judged by what it will do when it fires: one the dispatcher would not run names
+    no secret, and one it would run names exactly the secret it would decrypt. A paused schedule
+    still names its secret: what a caller is asked about is binding the credential to the
+    schedule, not any one occurrence.
+    """
+    schedule = parse_detection_schedule(raw_value)
+    if schedule is None or schedule.model is None:
+        return ""
+    return schedule.model.credential_secret_id
 
 
 def parse_detection_schedule_state(raw_value: str | None) -> DetectionScheduleState | None:

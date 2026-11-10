@@ -33,6 +33,7 @@ from mlflow.genai.discovery.schedule import (
     read_detection_schedule_state,
     reanchor_timing,
     scheduled_detection_available,
+    scheduled_detection_secret_id,
     write_detection_schedule,
     write_detection_schedule_state,
 )
@@ -1014,6 +1015,49 @@ def test_an_endpoint_selection_stores_no_secret_id():
     # An AI Gateway endpoint carries its own credential server-side, so there is nothing to name.
     model = ScheduleModel(endpoint_name="prod-gateway", secret_id="s-ignored")
     assert model.to_dict() == {"endpointName": "prod-gateway"}
+    assert model.credential_secret_id == ""
+
+
+def _schedule_tag(model: object, **overrides: object) -> str:
+    return json.dumps(
+        {
+            "version": SCHEDULE_VERSION,
+            "cadence": "daily",
+            "timezone": "UTC",
+            "paused": False,
+            "model": model,
+        }
+        | overrides
+    )
+
+
+_DIRECT_WITH_SECRET = {"provider": "openai", "model": "gpt-5", "secretId": "s-abc"}
+
+
+@pytest.mark.parametrize(
+    ("raw_value", "expected_secret_id"),
+    [
+        (_schedule_tag(_DIRECT_WITH_SECRET), "s-abc"),
+        # Pausing stops the occurrences, not the binding: the secret is still the one named.
+        (_schedule_tag(_DIRECT_WITH_SECRET, paused=True), "s-abc"),
+        (_schedule_tag({"provider": "openai", "model": "gpt-5"}), ""),
+        # An endpoint wins over a provider in the parser, so the dispatcher decrypts nothing.
+        (_schedule_tag(_DIRECT_WITH_SECRET | {"endpointName": "prod-gateway"}), ""),
+        (_schedule_tag(None), ""),
+        # Values the dispatcher never runs name no secret.
+        (_schedule_tag(_DIRECT_WITH_SECRET, version=SCHEDULE_VERSION + 1), ""),
+        (_schedule_tag(_DIRECT_WITH_SECRET, cadence="fortnightly"), ""),
+        ("not json", ""),
+        ("", ""),
+        (None, ""),
+    ],
+)
+def test_the_secret_a_stored_schedule_would_decrypt(raw_value, expected_secret_id):
+    assert scheduled_detection_secret_id(raw_value) == expected_secret_id
+    # The same answer the dispatcher acts on, read from the same parse.
+    schedule = parse_detection_schedule(raw_value)
+    acted_on = schedule.model.credential_secret_id if schedule and schedule.model else ""
+    assert acted_on == expected_secret_id
 
 
 def test_a_model_naming_neither_an_endpoint_nor_a_provider_and_model_is_rejected():

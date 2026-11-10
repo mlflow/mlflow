@@ -118,11 +118,11 @@ def _provider_credentials(store: AbstractStore, model: ScheduleModel | None) -> 
     """
     from mlflow.genai.discovery.job import _fetch_provider_credentials
 
-    if model is None or model.endpoint_name or not model.provider or not model.secret_id:
+    if model is None or not model.provider or not (secret_id := model.credential_secret_id):
         return {}
     if not hasattr(store, "_get_decrypted_secret"):
         return {}
-    return _fetch_provider_credentials(store, model.provider.lower(), model.secret_id)
+    return _fetch_provider_credentials(store, model.provider.lower(), secret_id)
 
 
 def _submit_occurrence(
