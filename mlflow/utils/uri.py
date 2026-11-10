@@ -33,7 +33,9 @@ def redact_uri_credentials(uri: str | None) -> str | None:
         parsed = urllib.parse.urlparse(uri)
     except ValueError:
         return "<redacted URI>"
-    if not parsed.netloc and not (parsed.params or parsed.query or parsed.fragment):
+    if not parsed.netloc and not (
+        parsed.params or parsed.query or parsed.fragment or ";" in parsed.path
+    ):
         return uri
     # Unescaped delimiters in userinfo can make credentials look like a path or query.
     if parsed.netloc and any("@" in part for part in parsed[2:]):
@@ -41,7 +43,9 @@ def redact_uri_credentials(uri: str | None) -> str | None:
     netloc = parsed.netloc
     if "@" in netloc:
         netloc = f"***@{netloc.rsplit('@', 1)[1]}"
-    return parsed._replace(netloc=netloc, params="", query="", fragment="").geturl()
+    return parsed._replace(
+        netloc=netloc, path=parsed.path.split(";", 1)[0], params="", query="", fragment=""
+    ).geturl()
 
 
 def is_local_uri(uri, is_tracking_or_registry_uri=True):
