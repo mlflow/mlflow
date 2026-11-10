@@ -197,7 +197,6 @@ def _tool_call_delta(index, id=None, name=None, arguments=None):
             ],
             id="distinct_indexes_interleaved",
         ),
-        # Gemini's OpenAI-compatible endpoint reuses the same index for parallel tool calls
         pytest.param(
             [
                 [_tool_call_delta(0, "call_a", "get_weather", '{"city": ')],
@@ -251,6 +250,43 @@ def test_reduce_chat_stream_chunks_parallel_tool_calls(tool_call_chunks):
             "id": "call_b",
             "type": "function",
             "function": {"name": "get_time", "arguments": '{"tz": "CET"}'},
+        },
+    ]
+
+
+def test_reduce_chat_stream_chunks_same_id_distinct_indexes():
+    chunks = [
+        _make_chunk(
+            tool_calls=[_tool_call_delta(0, "call_md5", "get_weather", '{"city": "Paris"}')]
+        ),
+        _make_chunk(
+            tool_calls=[_tool_call_delta(1, "call_md5", "get_weather", '{"city": "Paris"}')]
+        ),
+        _make_chunk(finish_reason="tool_calls"),
+    ]
+    result = aggregate_chat_stream_chunks(chunks)
+
+    expected_call = {
+        "id": "call_md5",
+        "type": "function",
+        "function": {"name": "get_weather", "arguments": '{"city": "Paris"}'},
+    }
+    assert result["choices"][0]["message"]["tool_calls"] == [expected_call, expected_call]
+
+
+def test_reduce_chat_stream_chunks_new_id_without_name_continues_call():
+    chunks = [
+        _make_chunk(tool_calls=[_tool_call_delta(0, "call_1", "get_weather", '{"city": ')]),
+        _make_chunk(tool_calls=[_tool_call_delta(0, "call_2", arguments='"Paris"}')]),
+        _make_chunk(finish_reason="tool_calls"),
+    ]
+    result = aggregate_chat_stream_chunks(chunks)
+
+    assert result["choices"][0]["message"]["tool_calls"] == [
+        {
+            "id": "call_2",
+            "type": "function",
+            "function": {"name": "get_weather", "arguments": '{"city": "Paris"}'},
         },
     ]
 
