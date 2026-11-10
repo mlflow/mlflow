@@ -812,6 +812,30 @@ def test_validate_path_is_safe_windows_good(path, monkeypatch):
 
 
 @pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        ("folder.", "folder."),
+        ("folder /file.txt", "folder /file.txt"),
+        ("FOLDER~1/file.txt", "FOLDER~1/file.txt"),
+        ("folder/file:stream", "folder/file:stream"),
+        ("file:stream", "stream"),
+        (".../...//", ".../...//"),
+    ],
+)
+def test_validate_path_is_safe_windows_aliases_disabled(path, expected, monkeypatch):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    assert validate_path_is_safe(path) == expected
+    assert validate_path_is_safe(path, validate_windows_aliases=False) == expected
+
+
+@pytest.mark.parametrize("path", ["../file.txt", "folder/../file.txt"])
+def test_validate_path_is_safe_windows_parent_component_error(path, monkeypatch):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    with pytest.raises(MlflowException, match="^Invalid path$"):
+        validate_path_is_safe(path, validate_windows_aliases=True)
+
+
+@pytest.mark.parametrize(
     "path",
     [
         "folder.",

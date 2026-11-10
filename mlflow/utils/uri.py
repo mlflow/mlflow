@@ -509,6 +509,7 @@ def validate_path_is_safe(path, *, validate_windows_aliases: bool = False):
     Set ``validate_windows_aliases`` for local filesystem access and its server authorization.
     On Windows it also rejects components ending in dots or spaces, DOS short-name spellings
     containing ``~N``, and alternate data stream syntax containing ``:``.
+    Alias validation applies to raw artifact paths, including ``file:`` spellings.
     Remote artifact names may be valid POSIX or object-store paths even on a Windows client.
     """
     from mlflow.utils.file_utils import local_file_uri_to_path
@@ -543,7 +544,7 @@ def _windows_path_alias_rule(component: str) -> str | None:
     # Win32 strips trailing dots/spaces and resolves DOS short names and stream syntax. Reject
     # ambiguous spellings before authorization, which cannot distinguish short names from literal
     # names without the repository's filesystem. Preserve POSIX and ordinary Windows tilde names.
-    if component == "." or not is_windows():
+    if component in {".", ".."} or not is_windows():
         return None
     if component.endswith((" ", ".")):
         return "ends with a dot or space"
