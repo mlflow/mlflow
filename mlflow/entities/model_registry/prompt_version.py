@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import copy
 import json
 import re
-from typing import Any
+from typing import Any, Callable
 
 from pydantic import BaseModel, Field, ValidationError
 
@@ -29,9 +30,31 @@ def _is_jinja2_template(template: str | list[dict[str, Any]]) -> bool:
     """Check if template uses Jinja2 control flow syntax ({% %})."""
     if isinstance(template, str):
         return "{%" in template and "%}" in template
-    return any(
-        "{%" in msg.get("content", "") and "%}" in msg.get("content", "") for msg in template
-    )
+    return any(_is_jinja2_template(json.dumps(msg.get("content"))) for msg in template)
+
+
+def _format_content(content: Any, format_fn: Callable[[str], str]) -> Any:
+    # Content can be a string, a list of content parts (e.g. text and image_url), or None.
+    if isinstance(content, str):
+        return format_fn(content)
+    if isinstance(content, list):
+        return [_format_content(part, format_fn) for part in content]
+    if isinstance(content, dict):
+        return {key: _format_content(value, format_fn) for key, value in content.items()}
+    return content
+
+
+def _format_chat_messages(
+    messages: list[dict[str, Any]], format_fn: Callable[[str], str]
+) -> list[dict[str, Any]]:
+    formatted = []
+    for message in messages:
+        # Keep every other field (e.g. tool_calls, tool_call_id) and only format the content.
+        new_message = copy.deepcopy(message)
+        if "content" in new_message:
+            new_message["content"] = _format_content(new_message["content"], format_fn)
+        formatted.append(new_message)
+    return formatted
 
 
 class PromptModelConfig(BaseModel):
@@ -527,13 +550,9 @@ class PromptVersion(_ModelRegistryEntity):
                 return tmpl.render(**kwargs)
             else:
                 # Jinja2 rendering for chat prompts
-                return [
-                    {
-                        "role": message["role"],
-                        "content": env.from_string(message.get("content", "")).render(**kwargs),
-                    }
-                    for message in self.template
-                ]
+                return _format_chat_messages(
+                    self.template, lambda text: env.from_string(text).render(**kwargs)
+                )
 
         # Double-brace template formatting (native MLflow format)
         if self.is_text_prompt:
@@ -541,13 +560,9 @@ class PromptVersion(_ModelRegistryEntity):
         else:
             # For chat prompts, we need to handle JSON properly
             # Instead of working with JSON strings, work with the Python objects directly
-            template = [
-                {
-                    "role": message["role"],
-                    "content": format_prompt(message.get("content"), **kwargs),
-                }
-                for message in self.template
-            ]
+            template = _format_chat_messages(
+                self.template, lambda text: format_prompt(text, **kwargs)
+            )
 
         input_keys = set(kwargs.keys())
         if missing_keys := self.variables - input_keys:

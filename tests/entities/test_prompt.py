@@ -133,6 +133,119 @@ def test_prompt_format_chat_backslash_escape(style: str, question: str, expected
     assert result == expected
 
 
+_TOOL_CALL = {
+    "id": "call_1",
+    "type": "function",
+    "function": {"name": "weather", "arguments": "{}"},
+}
+
+
+@pytest.mark.parametrize(
+    ("template", "expected"),
+    [
+        # Content parts
+        (
+            [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Describe {{thing}}"},
+                        {"type": "image_url", "image_url": {"url": "{{picture}}"}},
+                    ],
+                }
+            ],
+            [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Describe this chart"},
+                        {"type": "image_url", "image_url": {"url": "https://example.com/a.png"}},
+                    ],
+                }
+            ],
+        ),
+        # None content and tool calls
+        (
+            [
+                {"role": "user", "content": "Describe {{thing}}"},
+                {"role": "assistant", "content": None, "tool_calls": [_TOOL_CALL]},
+            ],
+            [
+                {"role": "user", "content": "Describe this chart"},
+                {"role": "assistant", "content": None, "tool_calls": [_TOOL_CALL]},
+            ],
+        ),
+        # Missing content
+        (
+            [
+                {"role": "user", "content": "Describe {{thing}}"},
+                {"role": "assistant", "tool_calls": [_TOOL_CALL]},
+            ],
+            [
+                {"role": "user", "content": "Describe this chart"},
+                {"role": "assistant", "tool_calls": [_TOOL_CALL]},
+            ],
+        ),
+        # Tool fields alongside string content
+        (
+            [
+                {"role": "assistant", "content": "Checking {{thing}}", "tool_calls": [_TOOL_CALL]},
+                {"role": "tool", "content": "{{picture}}", "tool_call_id": "call_1"},
+            ],
+            [
+                {"role": "assistant", "content": "Checking this chart", "tool_calls": [_TOOL_CALL]},
+                {"role": "tool", "content": "https://example.com/a.png", "tool_call_id": "call_1"},
+            ],
+        ),
+    ],
+)
+def test_prompt_format_chat_non_string_content_and_tool_fields(template, expected):
+    prompt = PromptVersion(name="test", version=1, template=template)
+
+    result = prompt.format(thing="this chart", picture="https://example.com/a.png")
+
+    assert result == expected
+
+
+def test_prompt_format_chat_jinja_non_string_content_and_tool_fields():
+    prompt = PromptVersion(
+        name="test",
+        version=1,
+        template=[
+            {"role": "user", "content": "{% if city %}Weather in {{ city }}{% endif %}"},
+            {"role": "user", "content": [{"type": "text", "text": "Hi {{ city }}"}]},
+            {"role": "assistant", "content": None, "tool_calls": [_TOOL_CALL]},
+            {"role": "tool", "content": "22 C", "tool_call_id": "call_1"},
+        ],
+    )
+
+    result = prompt.format(city="Patna")
+
+    assert result == [
+        {"role": "user", "content": "Weather in Patna"},
+        {"role": "user", "content": [{"type": "text", "text": "Hi Patna"}]},
+        {"role": "assistant", "content": None, "tool_calls": [_TOOL_CALL]},
+        {"role": "tool", "content": "22 C", "tool_call_id": "call_1"},
+    ]
+
+
+def test_prompt_format_chat_jinja_detected_in_content_parts():
+    prompt = PromptVersion(
+        name="test",
+        version=1,
+        template=[
+            {
+                "role": "user",
+                "content": [{"type": "text", "text": "{% for x in items %}{{ x }}{% endfor %}"}],
+            }
+        ],
+    )
+
+    assert prompt.format(items=["a", "b"]) == [
+        {"role": "user", "content": [{"type": "text", "text": "ab"}]}
+    ]
+
+
 def test_prompt_from_model_version():
     model_config_json = json.dumps({"model_name": "gpt-5", "temperature": 0.7, "max_tokens": 1000})
     model_version = ModelVersion(
