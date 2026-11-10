@@ -25,6 +25,20 @@ _DATABRICKS_UNITY_CATALOG_SCHEME = "databricks-uc"
 _OSS_UNITY_CATALOG_SCHEME = "uc"
 
 
+def redact_uri_credentials(uri: str | None) -> str | None:
+    """Redact URI userinfo before including a configured URI in an error message."""
+    if not uri:
+        return uri
+    try:
+        parsed = urllib.parse.urlparse(uri)
+    except ValueError:
+        return "<redacted URI>"
+    if "@" not in parsed.netloc:
+        return uri
+    host = parsed.netloc.rsplit("@", 1)[1]
+    return parsed._replace(netloc=f"***@{host}").geturl()
+
+
 def is_local_uri(uri, is_tracking_or_registry_uri=True):
     """Returns true if the specified URI is a local file path (/foo or file:/foo).
 
