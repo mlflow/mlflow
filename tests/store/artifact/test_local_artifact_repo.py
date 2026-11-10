@@ -31,6 +31,26 @@ def local_artifact_repo(local_artifact_root):
     return LocalArtifactRepository(artifact_uri=path_to_local_file_uri(local_artifact_root))
 
 
+@pytest.mark.parametrize(
+    ("windows", "path"), [(True, "folder/model.txt"), (False, "folder./model:stream")]
+)
+def test_local_artifact_roundtrip_preserves_platform_names(
+    local_artifact_repo, tmp_path_factory, monkeypatch, windows, path
+):
+    if not windows and os.name == "nt":
+        pytest.skip("POSIX names require a POSIX filesystem.")
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: windows)
+    monkeypatch.setattr("mlflow.store.artifact.local_artifact_repo.is_windows", lambda: windows)
+    source = tmp_path_factory.mktemp("source")
+    folder, name = path.rsplit("/", 1)
+    (source / name).write_text("x")
+    local_artifact_repo.log_artifacts(str(source), artifact_path=folder)
+    assert [f.path for f in local_artifact_repo.list_artifacts(folder)] == [path]
+    assert pathlib.Path(local_artifact_repo.download_artifacts(path)).read_text() == "x"
+    local_artifact_repo.delete_artifacts(folder)
+    assert local_artifact_repo.list_artifacts() == []
+
+
 @pytest.mark.parametrize("path", ["folder./file.txt", "folder /file.txt", "FOLDER~1/file.txt"])
 @pytest.mark.parametrize("operation", ["get_local_path", "_download_file"])
 def test_local_artifact_reads_reject_windows_aliases(
