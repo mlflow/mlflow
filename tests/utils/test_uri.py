@@ -812,20 +812,31 @@ def test_validate_path_is_safe_windows_good(path, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    ("path", "expected"),
+    "path",
     [
-        ("folder.", "folder."),
-        ("folder /file.txt", "folder /file.txt"),
-        ("FOLDER~1/file.txt", "FOLDER~1/file.txt"),
-        ("folder/file:stream", "folder/file:stream"),
-        ("file:stream", "stream"),
-        (".../...//", ".../...//"),
+        "folder.",
+        "folder /file.txt",
+        "FOLDER~1/file.txt",
+        "folder/file:stream",
+        ".../...//",
     ],
 )
-def test_validate_path_is_safe_windows_aliases_disabled(path, expected, monkeypatch):
+def test_validate_path_is_safe_windows_aliases_disabled(path, monkeypatch):
     monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
-    assert validate_path_is_safe(path) == expected
-    assert validate_path_is_safe(path, validate_windows_aliases=False) == expected
+    assert validate_path_is_safe(path) == path
+    assert validate_path_is_safe(path, validate_windows_aliases=False) == path
+
+
+@pytest.mark.parametrize("kwargs", [{}, {"validate_windows_aliases": False}])
+def test_validate_path_is_safe_file_uri_conversion_with_aliases_disabled(kwargs, monkeypatch):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    # Python versions differ in whether a relative file: URI normalizes to an absolute path.
+    monkeypatch.setattr("mlflow.utils.file_utils.local_file_uri_to_path", lambda _: "stream")
+    assert validate_path_is_safe("file:stream", **kwargs) == "stream"
+
+    monkeypatch.setattr("mlflow.utils.file_utils.local_file_uri_to_path", lambda _: "/stream")
+    with pytest.raises(MlflowException, match="^Invalid path$"):
+        validate_path_is_safe("file:stream", **kwargs)
 
 
 @pytest.mark.parametrize("path", ["../file.txt", "folder/../file.txt"])
