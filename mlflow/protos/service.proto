@@ -1488,6 +1488,42 @@ service MlflowService {
     };
   }
 
+  // Get an issue detection run.
+  rpc getIssueDetectionRun(mlflow.issues.GetIssueDetectionRun) returns (mlflow.issues.GetIssueDetectionRun.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/issues/detection-runs/{run_id}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get an issue detection run"
+    };
+  }
+
+  // Cancel an issue detection run.
+  rpc cancelIssueDetectionRun(mlflow.issues.CancelIssueDetectionRun) returns (mlflow.issues.CancelIssueDetectionRun.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/issues/detection-runs/{run_id}/cancel"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Cancel an issue detection run"
+    };
+  }
+
   // =============================================================================
   // Label Schema RPCs
   // =============================================================================

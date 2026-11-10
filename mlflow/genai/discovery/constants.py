@@ -9,6 +9,10 @@ DEFAULT_TRIAGE_SAMPLE_SIZE = 100
 # Fetch N * sample_size traces so random sampling has enough diversity
 SAMPLE_POOL_MULTIPLIER = 5
 SAMPLE_RANDOM_SEED = 42
+
+# The names of the issue detection jobs: an ad hoc run, and a scheduled occurrence.
+INVOKE_ISSUE_DETECTION_JOB_NAME = "invoke_issue_detection"
+SCHEDULED_ISSUE_DETECTION_JOB_NAME = "scheduled_issue_detection"
 # LLM calls are non-deterministic; retry on transient API/rate-limit errors
 NUM_RETRIES = 5
 # Upper bound on generated tokens per LLM call (covers long cluster summaries)
