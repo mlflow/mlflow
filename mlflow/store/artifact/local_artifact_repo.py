@@ -299,6 +299,8 @@ class LocalArtifactRepository(ArtifactRepository, StreamUploadMixin):
         shutil.copy2(remote_file_path, local_path)
 
     def delete_artifacts(self, artifact_path=None):
+        # All operations reject ambiguous Windows names, including deletion of existing entries.
+        # Deleting a safely named containing directory also removes all its legacy entries.
         if artifact_path:
             _validate_windows_path_aliases(artifact_path)
         artifact_path = local_file_uri_to_path(
