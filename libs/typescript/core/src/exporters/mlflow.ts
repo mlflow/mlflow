@@ -19,7 +19,7 @@ import {
   TRACE_SCHEMA_VERSION,
   TraceMetadataKey,
 } from '../core/constants';
-import { convertHrTimeToMs, aggregateUsageFromSpans } from '../core/utils';
+import { convertHrTimeToMs, aggregateUsageFromSpans, isRootSpan } from '../core/utils';
 import { getConfig } from '../core/config';
 import { MlflowClient } from '../clients';
 import { executeOnSpanEndHooks, executeOnSpanStartHooks } from './span_processor_hooks';
@@ -52,7 +52,7 @@ export class MlflowSpanProcessor implements SpanProcessor {
     let traceId: string;
     const experimentId = getConfig().experimentId;
 
-    if (!span.parentSpanContext?.spanId) {
+    if (isRootSpan(span)) {
       // This is a root span
       traceId = generateTraceId(span);
 
@@ -111,7 +111,7 @@ export class MlflowSpanProcessor implements SpanProcessor {
     executeOnSpanEndHooks(span);
 
     // Only trigger trace export for root span completion
-    if (span.parentSpanContext?.spanId) {
+    if (!isRootSpan(span)) {
       return;
     }
 
@@ -188,7 +188,7 @@ export class MlflowSpanExporter implements SpanExporter {
   export(spans: OTelReadableSpan[], _resultCallback: (result: ExportResult) => void): void {
     for (const span of spans) {
       // Only export root spans
-      if (span.parentSpanContext?.spanId) {
+      if (!isRootSpan(span)) {
         continue;
       }
 
