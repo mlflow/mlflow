@@ -270,7 +270,12 @@ class PromptVersion(_ModelRegistryEntity):
         # Store the tags dict
         self._tags: dict[str, str] = tags
 
-        template_text = template if isinstance(template, str) else json.dumps(template)
+        # Only content is formatted for chat prompts, so ignore other fields like tool_calls.
+        template_text = (
+            template
+            if isinstance(template, str)
+            else json.dumps([message.get("content") for message in template])
+        )
         self._variables = set(PROMPT_TEMPLATE_VARIABLE_PATTERN.findall(template_text))
         self._last_updated_timestamp: int | None = last_updated_timestamp
         self._description: str | None = commit_message

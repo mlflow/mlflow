@@ -207,6 +207,25 @@ def test_prompt_format_chat_non_string_content_and_tool_fields(template, expecte
     assert result == expected
 
 
+def test_prompt_format_chat_ignores_placeholders_in_tool_calls():
+    tool_call = {
+        "id": "call_1",
+        "type": "function",
+        "function": {"name": "get_weather", "arguments": '{"city": "{{city}}"}'},
+    }
+    template = [
+        {"role": "user", "content": "Describe {{thing}}"},
+        {"role": "assistant", "content": None, "tool_calls": [tool_call]},
+    ]
+    prompt = PromptVersion(name="test", version=1, template=template)
+
+    assert prompt.variables == {"thing"}
+    assert prompt.format(thing="this chart") == [
+        {"role": "user", "content": "Describe this chart"},
+        {"role": "assistant", "content": None, "tool_calls": [tool_call]},
+    ]
+
+
 def test_prompt_format_chat_jinja_non_string_content_and_tool_fields():
     prompt = PromptVersion(
         name="test",
