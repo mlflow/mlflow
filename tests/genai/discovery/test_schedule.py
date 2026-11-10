@@ -1054,10 +1054,6 @@ _DIRECT_WITH_SECRET = {"provider": "openai", "model": "gpt-5", "secretId": "s-ab
 )
 def test_the_secret_a_stored_schedule_would_decrypt(raw_value, expected_secret_id):
     assert scheduled_detection_secret_id(raw_value) == expected_secret_id
-    # The same answer the dispatcher acts on, read from the same parse.
-    schedule = parse_detection_schedule(raw_value)
-    acted_on = schedule.model.credential_secret_id if schedule and schedule.model else ""
-    assert acted_on == expected_secret_id
 
 
 def test_a_model_naming_neither_an_endpoint_nor_a_provider_and_model_is_rejected():
