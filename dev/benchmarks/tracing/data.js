@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794343540749,
+  "lastUpdate": 1794348251896,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "james.fletcher@databricks.com",
-            "name": "James Fletcher",
-            "username": "james-fletcher-db"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "02178c744985c05d7eb82e398a12830c38f05ffb",
-          "message": "Fix S3 multipart upload encryption arguments (#25772)\n\nSigned-off-by: James Fletcher <james.fletcher@databricks.com>",
-          "timestamp": "2026-09-11T11:24:41-07:00",
-          "tree_id": "fbfb1e43e68aee03baa87fd4bb4a65fbac190deb",
-          "url": "https://github.com/mlflow/mlflow/commit/02178c744985c05d7eb82e398a12830c38f05ffb"
-        },
-        "date": 1789151170906,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 40.82177585000153,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 6.041143703126028,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 5.232469432258592,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 6.093632806723304,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 6.257132901514929,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 7.814859999999157,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.125161799999091,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "anesabdelmalek.cherif@insat.ucar.tn",
+            "name": "CHERIF ANES ABD EL MALEK",
+            "username": "anascherif"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f01802b00f7bb61545e1c4b1a4a525fac0bd65c0",
+          "message": "Capture 1-hour cache-creation tokens in Claude Code tracing (#27642)\n\nSigned-off-by: anascherif <anesabdelmalek.cherif@insat.ucar.tn>",
+          "timestamp": "2026-11-10T22:00:46Z",
+          "tree_id": "46c5a3e3d19f31419a5316749ab9aba26e1e3417",
+          "url": "https://github.com/mlflow/mlflow/commit/f01802b00f7bb61545e1c4b1a4a525fac0bd65c0"
+        },
+        "date": 1794348249129,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 39.51515419999936,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.820715224136831,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.832045915254231,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 5.809458522727168,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.251347756097502,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 6.40639080000085,
             "unit": "ms"
           }
         ]
