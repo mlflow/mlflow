@@ -349,6 +349,12 @@ def _assistant_delegation_env() -> dict[str, str]:
     }
 
 
+def _assistant_workspace_env() -> dict[str, str]:
+    from mlflow.utils.workspace_context import get_request_workspace
+
+    return {"MLFLOW_WORKSPACE": workspace} if (workspace := get_request_workspace()) else {}
+
+
 async def _execute_bash_on_host(
     command: str,
     cwd: Path | None,
@@ -363,6 +369,7 @@ async def _execute_bash_on_host(
         env["MLFLOW_TRACKING_URI"] = tracking_uri
     # Attribute the tool's MLflow API calls to the session owner (no-op on a no-auth server).
     env.update(_assistant_delegation_env())
+    env.update(_assistant_workspace_env())
 
     try:
         if full_access:
@@ -439,6 +446,7 @@ async def _execute_bash_in_sandbox(
     # The delegation credential is user-scoped and short-lived, so unlike host secrets it is safe
     # (and necessary) to forward into the sandbox so the tool's MLflow calls run as the caller.
     env.update(_assistant_delegation_env())
+    env.update(_assistant_workspace_env())
 
     try:
         # run_in_sandbox uses the blocking docker-py client, so run it off the event loop.
