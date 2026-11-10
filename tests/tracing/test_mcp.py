@@ -14,7 +14,6 @@ import requests
 import mlflow
 from mlflow.entities import MCPAccessEndpoint, MCPServerRef, MCPServerVersion, NoOpSpan, TraceData
 from mlflow.entities.mcp_server import MCPRemoteTransportType
-from mlflow.entities.trace_mcp_server_link import TraceMCPServerLink
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.constant import SpanAttributeKey, TraceTagKey
@@ -87,16 +86,17 @@ def registry_store():
 @pytest.mark.parametrize("tool", [None, "forecast"])
 def test_link_direct_identity_without_lookup(server, version, tool):
     with mock.patch("mlflow.tracing.utils.mcp._get_store") as client:
-        with mlflow.start_span("mcp") as span:
-            span.link_mcp_server(server, tool=tool)
-            expected = {SpanAttributeKey.MCP_SERVER_NAME: NAME}
-            if version is not None:
-                expected[SpanAttributeKey.MCP_SERVER_VERSION] = version
-            if tool is not None:
-                expected[SpanAttributeKey.MCP_TOOL_NAME] = tool
-            assert {
-                k: v for k, v in span.attributes.items() if k.startswith("mlflow.mcp.")
-            } == expected
+        with ServerWorkspaceContext("default"):
+            with mlflow.start_span("mcp") as span:
+                span.link_mcp_server(server, tool=tool)
+                expected = {SpanAttributeKey.MCP_SERVER_NAME: NAME}
+                if version is not None:
+                    expected[SpanAttributeKey.MCP_SERVER_VERSION] = version
+                if tool is not None:
+                    expected[SpanAttributeKey.MCP_TOOL_NAME] = tool
+                assert {
+                    k: v for k, v in span.attributes.items() if k.startswith("mlflow.mcp.")
+                } == expected
         client.assert_not_called()
 
 
@@ -120,23 +120,25 @@ def test_link_mcp_server_rejects_ended_span():
     ],
 )
 def test_conflicting_identity_does_not_change_attributes(second):
-    with mlflow.start_span("mcp") as span:
-        span.link_mcp_server(_version(), tool="forecast")
-        before = span.attributes.copy()
-        with pytest.raises(MlflowException, match="only one MCP server identity"):
-            span.link_mcp_server(second, tool="different")
-        assert span.attributes == before
+    with ServerWorkspaceContext("default"):
+        with mlflow.start_span("mcp") as span:
+            span.link_mcp_server(_version(), tool="forecast")
+            before = span.attributes.copy()
+            with pytest.raises(MlflowException, match="only one MCP server identity"):
+                span.link_mcp_server(second, tool="different")
+            assert span.attributes == before
 
 
 def test_repeat_identity_and_existing_otel_attributes():
-    with mlflow.start_span("mcp") as span:
-        span._span.set_attribute(SpanAttributeKey.MCP_SERVER_NAME, NAME)
-        span._span.set_attribute(SpanAttributeKey.MCP_SERVER_VERSION, "1.0.0")
-        span.link_mcp_server(MCPServerRef(NAME, version="1.0.0"), tool="forecast")
-        span.link_mcp_server(_version())
-        assert span.get_attribute(SpanAttributeKey.MCP_TOOL_NAME) == "forecast"
-        with pytest.raises(MlflowException, match="only one MCP server identity"):
-            span.link_mcp_server(MCPServerRef(NAME))
+    with ServerWorkspaceContext("default"):
+        with mlflow.start_span("mcp") as span:
+            span._span.set_attribute(SpanAttributeKey.MCP_SERVER_NAME, NAME)
+            span._span.set_attribute(SpanAttributeKey.MCP_SERVER_VERSION, "1.0.0")
+            span.link_mcp_server(MCPServerRef(NAME, version="1.0.0"), tool="forecast")
+            span.link_mcp_server(_version())
+            assert span.get_attribute(SpanAttributeKey.MCP_TOOL_NAME) == "forecast"
+            with pytest.raises(MlflowException, match="only one MCP server identity"):
+                span.link_mcp_server(MCPServerRef(NAME))
 
 
 @pytest.mark.parametrize("version", ["1", "1.0", "true", "null", "[]", "{}"])
@@ -327,7 +329,9 @@ def test_reloaded_endpoint_refreshes_incompatible_cached_endpoint(changed, regis
 def test_resolution_through_rest_store(
     workspace, supports_workspaces, include_workspace, endpoint, monkeypatch
 ):
-    expected_workspace = workspace or "default"
+    expected_workspace = (
+        "team-default" if workspace is None and include_workspace else workspace or "default"
+    )
     store = RestStore(lambda: MlflowHostCreds(URI))
     store._workspace_support = supports_workspaces
     version = {"name": NAME, "version": "1", "server_json": {}}
@@ -371,9 +375,10 @@ def test_resolution_through_rest_store(
             "GET",
             f"{URI}/api/3.0/mlflow/mcp-servers/com.example%2Fweather/{suffix}",
         )
-        assert kwargs["headers"].get(WORKSPACE_HEADER_NAME) == (
-            expected_workspace if supports_workspaces else None
-        )
+        expected_header_workspace = workspace
+        if workspace == "default" and not supports_workspaces:
+            expected_header_workspace = None
+        assert kwargs["headers"].get(WORKSPACE_HEADER_NAME) == expected_header_workspace
 
 
 @pytest.mark.parametrize("server", [_version(workspace="other"), _endpoint(workspace="other")])
@@ -390,7 +395,12 @@ def test_span_rejects_entity_from_current_workspace_when_trace_workspace_differs
     endpoint, trace_workspace
 ):
     server = _endpoint(workspace="different") if endpoint else _version(workspace="different")
-    with mock.patch("mlflow.tracing.utils.mcp._get_store") as get_store:
+    store = mock.MagicMock(supports_workspaces=True)
+    store.get_mcp_access_endpoint.return_value = _endpoint(
+        id=server.id if endpoint else "ae-weather", workspace="trace-default"
+    )
+    store.get_mcp_server_version.return_value = _version(workspace="trace-default")
+    with mock.patch("mlflow.tracing.utils.mcp._get_store", return_value=store) as get_store:
         with ServerWorkspaceContext(trace_workspace):
             with mlflow.start_span("mcp") as span:
                 before = span.attributes.copy()
@@ -398,40 +408,83 @@ def test_span_rejects_entity_from_current_workspace_when_trace_workspace_differs
                     with pytest.raises(MlflowException, match="does not match trace workspace"):
                         span.link_mcp_server(server, tool="forecast")
                 assert span.attributes == before
-        get_store.assert_not_called()
+        if trace_workspace is None:
+            get_store.assert_called_once()
+            if endpoint:
+                store.get_mcp_access_endpoint.assert_called_once_with(
+                    server_name=NAME, endpoint_id=server.id
+                )
+            else:
+                store.get_mcp_server_version.assert_called_once_with(
+                    name=server.name, version=server.version
+                )
+        else:
+            get_store.assert_not_called()
+
+
+def test_span_resolves_concrete_version_in_implicit_default_workspace():
+    store = mock.MagicMock(supports_workspaces=True)
+
+    def lookup(name, version):
+        assert get_request_workspace() is None
+        return _version(version=version, workspace="team-default", name=name)
+
+    store.get_mcp_server_version.side_effect = lookup
+    with mock.patch("mlflow.tracing.utils.mcp._get_store", return_value=store) as get_store:
+        with ServerWorkspaceContext(None):
+            with mlflow.start_span("mcp") as span:
+                span.link_mcp_server(_version(workspace="team-default"))
+                assert span.get_attribute(SpanAttributeKey.MCP_SERVER_NAME) == NAME
+                assert span.get_attribute(SpanAttributeKey.MCP_SERVER_VERSION) == "1.0.0"
+        get_store.assert_called_once_with(store_uri=mlflow.get_tracking_uri())
+        store.get_mcp_server_version.assert_called_once_with(name=NAME, version="1.0.0")
 
 
 def test_child_span_does_not_inherit_version_or_tool():
-    with mlflow.start_span("parent") as parent:
-        parent.link_mcp_server(_version(), tool="forecast")
-        with mlflow.start_span("discovery") as child:
-            child.link_mcp_server(MCPServerRef(NAME))
-            assert child.get_attribute(SpanAttributeKey.MCP_SERVER_NAME) == NAME
-            assert SpanAttributeKey.MCP_SERVER_VERSION not in child.attributes
-            assert SpanAttributeKey.MCP_TOOL_NAME not in child.attributes
+    with ServerWorkspaceContext("default"):
+        with mlflow.start_span("parent") as parent:
+            parent.link_mcp_server(_version(), tool="forecast")
+            with mlflow.start_span("discovery") as child:
+                child.link_mcp_server(MCPServerRef(NAME))
+                assert child.get_attribute(SpanAttributeKey.MCP_SERVER_NAME) == NAME
+                assert SpanAttributeKey.MCP_SERVER_VERSION not in child.attributes
+                assert SpanAttributeKey.MCP_TOOL_NAME not in child.attributes
 
 
+@pytest.mark.parametrize("endpoint", [False, True])
 @pytest.mark.parametrize("trace_workspace", [None, "trace-workspace"])
-def test_resolution_uses_captured_trace_workspace(trace_workspace, monkeypatch, registry_store):
-    expected = trace_workspace or "default"
+def test_resolution_uses_captured_trace_workspace(
+    endpoint, trace_workspace, monkeypatch, registry_store
+):
+    resolved_workspace = trace_workspace or "team-default"
 
-    def lookup(name, alias):
-        assert get_request_workspace() == expected
-        return _version(workspace=expected)
+    def lookup(**_kwargs):
+        assert get_request_workspace() == trace_workspace
+        version = _version(workspace=resolved_workspace)
+        if endpoint:
+            return _endpoint(
+                workspace=resolved_workspace,
+                resolved_version=version,
+            )
+        return version
+
+    server = (
+        _endpoint(workspace=resolved_workspace) if endpoint else MCPServerRef(NAME, alias="prod")
+    )
+    lookup_method = "get_mcp_access_endpoint" if endpoint else "get_mcp_server_version_by_alias"
 
     with (
-        mock.patch.object(
-            registry_store, "get_mcp_server_version_by_alias", side_effect=lookup
-        ) as lookup_mock,
+        mock.patch.object(registry_store, lookup_method, side_effect=lookup) as lookup_mock,
         monkeypatch.context() as workspace_env,
     ):
         with ServerWorkspaceContext(trace_workspace):
             with mlflow.start_span("mcp") as span:
                 with ServerWorkspaceContext("different"):
                     workspace_env.setenv("MLFLOW_WORKSPACE", "different")
-                    span.link_mcp_server(MCPServerRef(NAME, alias="prod"))
+                    span.link_mcp_server(server)
+                    span.link_mcp_server(server)
                     assert get_request_workspace() == "different"
-        lookup_mock.assert_called_once_with(name=NAME, alias="prod")
+        assert lookup_mock.call_count == (2 if trace_workspace is None else 1)
 
 
 @pytest.mark.parametrize("endpoint", [False, True])
@@ -697,16 +750,17 @@ def test_failed_cache_refresh_preserves_span_and_historical_identity(failure, re
         mock.patch("mlflow.tracing.utils.mcp.monotonic", side_effect=lambda: now) as clock,
         mock.patch.object(registry_store, method, side_effect=[initial, refreshed]) as lookup,
     ):
-        with mlflow.start_span("first") as first:
-            first.link_mcp_server(server, tool="forecast")
-        with mlflow.start_span("second") as second:
-            second.link_mcp_server(server, tool="forecast")
-            lookup.assert_called_once()
-            before = second.attributes.copy()
-            now += 60
-            with pytest.raises(MlflowException, match=error):
-                second.link_mcp_server(server, tool="different")
-            assert second.attributes == before
+        with ServerWorkspaceContext("default"):
+            with mlflow.start_span("first") as first:
+                first.link_mcp_server(server, tool="forecast")
+            with mlflow.start_span("second") as second:
+                second.link_mcp_server(server, tool="forecast")
+                lookup.assert_called_once()
+                before = second.attributes.copy()
+                now += 60
+                with pytest.raises(MlflowException, match=error):
+                    second.link_mcp_server(server, tool="different")
+                assert second.attributes == before
         assert first.get_attribute(SpanAttributeKey.MCP_SERVER_VERSION) == "1.0.0"
         assert lookup.call_count == 2
         clock.assert_called()
@@ -759,6 +813,10 @@ def test_cache_isolated_by_tracking_uri_workspace_and_lookup_key(endpoint, regis
 )
 @pytest.mark.parametrize("annotation", ["link", "mlflow", "otel"])
 def test_exported_attributes_create_backend_link(async_logging_enabled, version, annotation):
+    from tests.store.tracking.sqlalchemy_store.mcp_test_utils import (
+        get_mcp_server_links_for_test,
+    )
+
     with mlflow.start_span("mcp", span_type="TOOL") as span:
         if annotation == "link":
             span.link_mcp_server(MCPServerRef(NAME, version=version), tool="forecast")
@@ -773,9 +831,8 @@ def test_exported_attributes_create_backend_link(async_logging_enabled, version,
     assert trace.data.spans[0].get_attribute(SpanAttributeKey.MCP_SERVER_NAME) == NAME
     assert trace.data.spans[0].get_attribute(SpanAttributeKey.MCP_SERVER_VERSION) == version
     assert trace.data.spans[0].get_attribute(SpanAttributeKey.MCP_TOOL_NAME) == "forecast"
-    assert mlflow.MlflowClient()._tracking_client.store.get_mcp_servers_for_trace(
-        span.trace_id
-    ) == [TraceMCPServerLink("default", NAME, version)]
+    store = mlflow.MlflowClient()._tracking_client.store
+    assert get_mcp_server_links_for_test(store, span.trace_id) == [("default", NAME, version)]
 
 
 @pytest.mark.parametrize("version", [None, "1", "true", "null"])
@@ -841,6 +898,10 @@ def test_artifact_export_fallback_preserves_mcp_attributes(
 def test_resolution_stays_with_trace_tracking_server(
     endpoint, child, async_logging_enabled, monkeypatch
 ):
+    from tests.store.tracking.sqlalchemy_store.mcp_test_utils import (
+        get_mcp_server_links_for_test,
+    )
+
     tracking_uri = mlflow.get_tracking_uri()
     with monkeypatch.context() as mp:
         mp.setattr("mlflow.tracking._tracking_service.utils._tracking_uri", None)
@@ -874,9 +935,7 @@ def test_resolution_stays_with_trace_tracking_server(
                 get_store.assert_called_once_with(store_uri=tracking_uri)
                 getattr(other_store, method).assert_not_called()
         mlflow.flush_trace_async_logging()
-        assert store.get_mcp_servers_for_trace(span.trace_id) == [
-            TraceMCPServerLink("default", NAME, "1.0.0")
-        ]
+        assert get_mcp_server_links_for_test(store, span.trace_id) == [("default", NAME, "1.0.0")]
 
 
 @skip_when_testing_trace_sdk
@@ -885,6 +944,10 @@ def test_resolution_stays_with_trace_tracking_server(
 def test_link_export_preserves_captured_default_workspace(
     workspace, batch, async_logging_enabled, monkeypatch
 ):
+    from tests.store.tracking.sqlalchemy_store.mcp_test_utils import (
+        get_mcp_server_links_for_test,
+    )
+
     monkeypatch.setenv("MLFLOW_USE_BATCH_SPAN_PROCESSOR", str(batch))
     with ServerWorkspaceContext(workspace):
         span = mlflow.start_span_no_context("mcp")
@@ -916,14 +979,18 @@ def test_link_export_preserves_captured_default_workspace(
         log.assert_called_once()
         start.assert_called_once()
     assert observed_workspaces == [workspace, workspace]
-    assert exporter._client.store.get_mcp_servers_for_trace(span.trace_id) == [
-        TraceMCPServerLink("default", NAME, None)
+    assert get_mcp_server_links_for_test(exporter._client.store, span.trace_id) == [
+        ("default", NAME, None)
     ]
 
 
 @skip_when_testing_trace_sdk
 @pytest.mark.parametrize("workspace", ["default", "team-a"])
 def test_registry_resolution_and_historical_links(workspace, monkeypatch):
+    from tests.store.tracking.sqlalchemy_store.mcp_test_utils import (
+        get_mcp_server_links_for_test,
+    )
+
     monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "true")
     client = mlflow.MlflowClient()
     if workspace != "default":
@@ -947,12 +1014,8 @@ def test_registry_resolution_and_historical_links(workspace, monkeypatch):
         with mlflow.start_span("second") as second:
             second.link_mcp_server(endpoint, cache_ttl_seconds=0)
         mlflow.flush_trace_async_logging()
-        assert store.get_mcp_servers_for_trace(first.trace_id) == [
-            TraceMCPServerLink(workspace, NAME, "1.0.0")
-        ]
-        assert store.get_mcp_servers_for_trace(second.trace_id) == [
-            TraceMCPServerLink(workspace, NAME, "2.0.0")
-        ]
+        assert get_mcp_server_links_for_test(store, first.trace_id) == [(workspace, NAME, "1.0.0")]
+        assert get_mcp_server_links_for_test(store, second.trace_id) == [(workspace, NAME, "2.0.0")]
         assert (
             mlflow
             .get_trace(first.trace_id)

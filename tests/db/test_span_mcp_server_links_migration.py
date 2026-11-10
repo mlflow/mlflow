@@ -87,6 +87,23 @@ def test_schema(engine):
     assert foreign_key["options"]["ondelete"] == "CASCADE"
 
 
+@pytest.mark.parametrize(
+    ("dialect", "expected_collation"),
+    [
+        (mysql.dialect(), "utf8mb4_bin"),
+        (mssql.dialect(), "SQL_Latin1_General_CP1_CS_AS"),
+    ],
+)
+def test_mcp_name_column_is_case_sensitive(dialect, expected_collation):
+    for column_type in [
+        SqlSpanMCPServerLink.mcp_name.type,
+        MIGRATION.MCP_SERVER_NAME_STRING,
+    ]:
+        name_type = column_type.dialect_impl(dialect)
+        assert name_type.length == 256
+        assert name_type.collation == expected_collation
+
+
 def test_observations_without_span_or_registry_entry(engine):
     table = SqlSpanMCPServerLink.__table__
     rows = [

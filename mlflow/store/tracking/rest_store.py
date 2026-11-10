@@ -165,7 +165,6 @@ from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.utils.otlp import (
     MLFLOW_EXPERIMENT_ID_HEADER,
     OTLP_TRACES_PATH,
-    _mark_mcp_server_version_as_raw,
     resource_to_otel_proto,
 )
 from mlflow.utils.databricks_utils import databricks_api_disabled
@@ -2571,7 +2570,6 @@ class RestStore(
         resource_spans = request.resource_spans.add()
         resource = getattr(spans[0]._span, "resource", None)
         resource_spans.resource.CopyFrom(resource_to_otel_proto(resource))
-        _mark_mcp_server_version_as_raw(resource_spans.resource, spans)
         scope_spans = resource_spans.scope_spans.add()
         scope_spans.spans.extend(span.to_otel_proto() for span in spans)
 

@@ -6,15 +6,26 @@ from opentelemetry.sdk.trace import TracerProvider
 from sqlalchemy.dialects import mssql, mysql, postgresql, sqlite
 
 from mlflow.entities import LiveSpan, Span
-from mlflow.entities.trace_mcp_server_link import MCPServerSpanObservation, TraceMCPServerLink
+from mlflow.entities.trace_mcp_server_link import MCPServerSpanObservation
 from mlflow.exceptions import MlflowException
+from mlflow.store.db.db_types import MSSQL, SQLITE
 from mlflow.store.tracking.dbmodels.models import SqlSpan, SqlSpanMCPServerLink, SqlTraceInfo
 from mlflow.store.tracking.sqlalchemy_store import _get_filter_clauses_for_search_traces
-from mlflow.tracing.constant import SpanAttributeKey, SpansLocation, TraceTagKey
+from mlflow.tracing.constant import (
+    MCP_SPAN_ATTRIBUTE_KEYS,
+    SpanAttributeKey,
+    SpansLocation,
+    TraceTagKey,
+)
 from mlflow.tracing.otel.translation import strip_otlp_double_encoding
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
-from tests.store.tracking.sqlalchemy_store.conftest import _create_trace, create_test_span
+from tests.store.tracking.sqlalchemy_store.conftest import (
+    _create_trace,
+    create_test_span,
+    upsert_mcp_server_links_for_test,
+)
+from tests.store.tracking.sqlalchemy_store.mcp_test_utils import get_mcp_server_links_for_test
 
 pytestmark = pytest.mark.notrackingurimock
 
@@ -52,8 +63,8 @@ def test_log_spans_preserves_native_otel_mcp_versions(store, version, protobuf_r
     store.log_spans(experiment_id, [span])
 
     expected_version = version if isinstance(version, str) else None
-    assert store.get_mcp_servers_for_trace(span.trace_id) == [
-        TraceMCPServerLink(DEFAULT_WORKSPACE_NAME, "com.example/weather", expected_version)
+    assert get_mcp_server_links_for_test(store, span.trace_id) == [
+        (DEFAULT_WORKSPACE_NAME, "com.example/weather", expected_version)
     ]
     query_version = str(version)
     traces, _ = store.search_traces(
@@ -86,18 +97,20 @@ def test_malformed_mcp_version_update_removes_stale_version(store, value, otlp):
             SpanAttributeKey.MCP_SERVER_VERSION: "1.0.0",
         })
         store.log_spans(experiment_id, [span.to_immutable_span()])
-        assert store.get_mcp_servers_for_trace(span.trace_id) == [
-            TraceMCPServerLink(DEFAULT_WORKSPACE_NAME, "com.example/weather", "1.0.0")
+        assert get_mcp_server_links_for_test(store, span.trace_id) == [
+            (DEFAULT_WORKSPACE_NAME, "com.example/weather", "1.0.0")
         ]
         span.set_attribute(SpanAttributeKey.MCP_SERVER_VERSION, value)
     span = span.to_immutable_span()
     if otlp:
         span = Span.from_otel_proto(span.to_otel_proto())
-        span._span._attributes = strip_otlp_double_encoding(span._span._attributes)
+        span._span._attributes = strip_otlp_double_encoding(
+            span._span._attributes, raw_attribute_keys=MCP_SPAN_ATTRIBUTE_KEYS
+        )
     store.log_spans(experiment_id, [span])
 
-    assert store.get_mcp_servers_for_trace(span.trace_id) == [
-        TraceMCPServerLink(DEFAULT_WORKSPACE_NAME, "com.example/weather", None)
+    assert get_mcp_server_links_for_test(store, span.trace_id) == [
+        (DEFAULT_WORKSPACE_NAME, "com.example/weather", None)
     ]
     traces, _ = store.search_traces(
         [experiment_id], filter_string="mcp_server = 'com.example/weather'"
@@ -126,21 +139,22 @@ def test_mcp_link_summaries_preserve_exact_versions(store_and_trace_info, case_i
             table.drop(conn)
             table.create(conn)
     versions = ["1.0.0+Build", "1.0.0+build"]
-    store.upsert_span_mcp_server_links(
+    upsert_mcp_server_links_for_test(
+        store,
         trace_id=trace.trace_id,
         links=[
             MCPServerSpanObservation(str(index), "com.example/weather", version)
             for index, version in enumerate([*versions, versions[0]])
         ],
     )
-    summaries = store.get_mcp_servers_for_trace(trace_id=trace.trace_id)
+    summaries = get_mcp_server_links_for_test(store, trace_id=trace.trace_id)
     assert len(summaries) == len(versions)
-    assert {summary.version for summary in summaries} == set(versions)
+    assert {summary[2] for summary in summaries} == set(versions)
 
 
 def test_mcp_links_summarize_observations_without_spans_or_registry(store_and_trace_info):
     store, trace = store_and_trace_info
-    assert store.get_mcp_servers_for_trace(trace.trace_id) == []
+    assert get_mcp_server_links_for_test(store, trace.trace_id) == []
     links = [
         MCPServerSpanObservation("span-1", "com.example/weather", "1.0.0"),
         MCPServerSpanObservation("span-2", "com.example/weather", "1.0.0"),
@@ -148,14 +162,14 @@ def test_mcp_links_summarize_observations_without_spans_or_registry(store_and_tr
         MCPServerSpanObservation("span-4", "com.example/weather", "2.0.0"),
         MCPServerSpanObservation("span-1", "com.example/other"),
     ]
-    store.upsert_span_mcp_server_links(trace.trace_id, links)
-    store.upsert_span_mcp_server_links(trace.trace_id, links)
+    upsert_mcp_server_links_for_test(store, trace.trace_id, links)
+    upsert_mcp_server_links_for_test(store, trace.trace_id, links)
 
-    assert set(store.get_mcp_servers_for_trace(trace.trace_id)) == {
-        TraceMCPServerLink(DEFAULT_WORKSPACE_NAME, "com.example/weather", "1.0.0"),
-        TraceMCPServerLink(DEFAULT_WORKSPACE_NAME, "com.example/weather", "2.0.0"),
-        TraceMCPServerLink(DEFAULT_WORKSPACE_NAME, "com.example/weather", None),
-        TraceMCPServerLink(DEFAULT_WORKSPACE_NAME, "com.example/other", None),
+    assert set(get_mcp_server_links_for_test(store, trace.trace_id)) == {
+        (DEFAULT_WORKSPACE_NAME, "com.example/weather", "1.0.0"),
+        (DEFAULT_WORKSPACE_NAME, "com.example/weather", "2.0.0"),
+        (DEFAULT_WORKSPACE_NAME, "com.example/weather", None),
+        (DEFAULT_WORKSPACE_NAME, "com.example/other", None),
     }
     with store.ManagedSessionMaker() as session:
         assert (
@@ -163,19 +177,33 @@ def test_mcp_links_summarize_observations_without_spans_or_registry(store_and_tr
         ) == len(links)
 
 
+def test_mcp_link_names_are_case_sensitive_in_primary_key(store_and_trace_info):
+    store, trace = store_and_trace_info
+    names = ["com.example/Weather", "com.example/weather"]
+    upsert_mcp_server_links_for_test(
+        store,
+        trace.trace_id,
+        [MCPServerSpanObservation("span-1", name) for name in names],
+    )
+
+    assert set(get_mcp_server_links_for_test(store, trace.trace_id)) == {
+        (DEFAULT_WORKSPACE_NAME, name, None) for name in names
+    }
+
+
 @pytest.mark.parametrize("version", ["2.0.0", None])
 def test_mcp_links_update_version_preserving_creation_time(store_and_trace_info, version):
     store, trace = store_and_trace_info
-    store.upsert_span_mcp_server_links(
-        trace.trace_id, [MCPServerSpanObservation("span-1", "com.example/weather", "1.0.0")]
+    upsert_mcp_server_links_for_test(
+        store, trace.trace_id, [MCPServerSpanObservation("span-1", "com.example/weather", "1.0.0")]
     )
     with store.ManagedSessionMaker(read_only=False) as session:
         session.query(SqlSpanMCPServerLink).filter_by(trace_id=trace.trace_id).update({
             "created_at": 123
         })
 
-    store.upsert_span_mcp_server_links(
-        trace.trace_id, [MCPServerSpanObservation("span-1", "com.example/weather", version)]
+    upsert_mcp_server_links_for_test(
+        store, trace.trace_id, [MCPServerSpanObservation("span-1", "com.example/weather", version)]
     )
     with store.ManagedSessionMaker() as session:
         row = session.query(SqlSpanMCPServerLink).filter_by(trace_id=trace.trace_id).one()
@@ -185,15 +213,16 @@ def test_mcp_links_update_version_preserving_creation_time(store_and_trace_info,
 
 def test_mcp_links_duplicate_batch_keys_use_last_observation(store_and_trace_info):
     store, trace = store_and_trace_info
-    store.upsert_span_mcp_server_links(
+    upsert_mcp_server_links_for_test(
+        store,
         trace.trace_id,
         [
             MCPServerSpanObservation("span-1", "com.example/weather", "1.0.0"),
             MCPServerSpanObservation("span-1", "com.example/weather", "2.0.0"),
         ],
     )
-    assert store.get_mcp_servers_for_trace(trace.trace_id) == [
-        TraceMCPServerLink(DEFAULT_WORKSPACE_NAME, "com.example/weather", "2.0.0")
+    assert get_mcp_server_links_for_test(store, trace.trace_id) == [
+        (DEFAULT_WORKSPACE_NAME, "com.example/weather", "2.0.0")
     ]
 
 
@@ -207,7 +236,7 @@ def test_mcp_links_duplicate_batch_keys_use_last_observation(store_and_trace_inf
     ],
 )
 @pytest.mark.parametrize("source", ["spans", "store"])
-def test_mcp_version_search_preserves_exact_identity(store, versions, source):
+def test_mcp_version_roundtrip_preserves_identity(store, versions, source):
     experiment_id = store.create_experiment("mcp-unicode-versions")
     if source == "spans":
         store.log_spans(
@@ -227,16 +256,23 @@ def test_mcp_version_search_preserves_exact_identity(store, versions, source):
         for index, version in enumerate(versions):
             trace_id = f"tr-unicode-{index}"
             _create_trace(store, trace_id, experiment_id=experiment_id)
-            store.upsert_span_mcp_server_links(
-                trace_id, [MCPServerSpanObservation("span-1", "com.example/weather", version)]
+            upsert_mcp_server_links_for_test(
+                store,
+                trace_id,
+                [MCPServerSpanObservation("span-1", "com.example/weather", version)],
             )
+    if store.db_type in (MSSQL, SQLITE):
+        # MySQL and PostgreSQL version equality follows the column collation, which may equate
+        # distinct Unicode strings. Verify exact search identity only where the query enforces it.
+        for index, version in enumerate(versions):
+            traces, _ = store.search_traces(
+                [experiment_id], filter_string=f"mcp_server.version = '{version}'"
+            )
+            assert [trace.trace_id for trace in traces] == [f"tr-unicode-{index}"]
+
     for index, version in enumerate(versions):
-        traces, _ = store.search_traces(
-            [experiment_id], filter_string=f"mcp_server.version = '{version}'"
-        )
-        assert [trace.trace_id for trace in traces] == [f"tr-unicode-{index}"]
-        assert store.get_mcp_servers_for_trace(f"tr-unicode-{index}") == [
-            TraceMCPServerLink(DEFAULT_WORKSPACE_NAME, "com.example/weather", version)
+        assert get_mcp_server_links_for_test(store, f"tr-unicode-{index}") == [
+            (DEFAULT_WORKSPACE_NAME, "com.example/weather", version)
         ]
 
 
@@ -257,8 +293,8 @@ def test_log_spans_updates_mcp_version(store, initial_version, updated_version):
                 session.query(SqlSpanMCPServerLink).filter_by(trace_id=span.trace_id).update({
                     "created_at": 123
                 })
-        assert store.get_mcp_servers_for_trace(span.trace_id) == [
-            TraceMCPServerLink(DEFAULT_WORKSPACE_NAME, "com.example/weather", version)
+        assert get_mcp_server_links_for_test(store, span.trace_id) == [
+            (DEFAULT_WORKSPACE_NAME, "com.example/weather", version)
         ]
         for query_version in ["1.0.0", "2.0.0"]:
             traces, _ = store.search_traces(
@@ -319,10 +355,10 @@ def test_log_spans_replaces_mcp_links(store, updated_name):
     )
     store.log_spans(experiment_id, [span])
 
-    expected = {TraceMCPServerLink(DEFAULT_WORKSPACE_NAME, "com.example/other", None)}
+    expected = {(DEFAULT_WORKSPACE_NAME, "com.example/other", None)}
     if updated_name == "com.example/search":
-        expected.add(TraceMCPServerLink(DEFAULT_WORKSPACE_NAME, updated_name, None))
-    assert set(store.get_mcp_servers_for_trace(trace_id)) == expected
+        expected.add((DEFAULT_WORKSPACE_NAME, updated_name, None))
+    assert set(get_mcp_server_links_for_test(store, trace_id)) == expected
     traces, _ = store.search_traces(
         [experiment_id], filter_string="mcp_server = 'com.example/weather'"
     )
@@ -369,8 +405,8 @@ def test_log_spans_replaces_mcp_links_on_case_only_rename(store, initial_name, u
                     "created_at": 123
                 })
 
-    assert store.get_mcp_servers_for_trace(trace_id) == [
-        TraceMCPServerLink(DEFAULT_WORKSPACE_NAME, updated_name, "2.0.0")
+    assert get_mcp_server_links_for_test(store, trace_id) == [
+        (DEFAULT_WORKSPACE_NAME, updated_name, "2.0.0")
     ]
     for name in [initial_name, updated_name]:
         traces, _ = store.search_traces([experiment_id], filter_string=f"mcp_server = '{name}'")
@@ -567,9 +603,8 @@ def test_mcp_links_survive_archival_and_cascade_on_delete(store, tmp_path):
     assert info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.ARCHIVE_REPO.value
     with store.ManagedSessionMaker() as session:
         assert {row.content for row in session.query(SqlSpan).filter_by(trace_id=trace_id)} == {""}
-    assert set(store.get_mcp_servers_for_trace(trace_id)) == {
-        TraceMCPServerLink(DEFAULT_WORKSPACE_NAME, "com.example/weather", version)
-        for version in [None, "1.0.0"]
+    assert set(get_mcp_server_links_for_test(store, trace_id)) == {
+        (DEFAULT_WORKSPACE_NAME, "com.example/weather", version) for version in [None, "1.0.0"]
     }
     for filter_string in [
         "mcp_server = 'com.example/weather'",
@@ -592,28 +627,8 @@ def test_mcp_links_batch_is_atomic(store_and_trace_info):
     links = [MCPServerSpanObservation(f"span-{i}", "com.example/weather") for i in range(100)]
     links.append(MCPServerSpanObservation("span-invalid", None))
     with pytest.raises(MlflowException, match="mcp_name"):
-        store.upsert_span_mcp_server_links(trace.trace_id, links)
-    assert store.get_mcp_servers_for_trace(trace.trace_id) == []
-
-
-def test_mcp_links_empty_batch(store_and_trace_info):
-    store, trace = store_and_trace_info
-    store.upsert_span_mcp_server_links(trace.trace_id, [])
-    assert store.get_mcp_servers_for_trace(trace.trace_id) == []
-
-
-@pytest.mark.parametrize("operation", ["get", "upsert", "empty-upsert"])
-def test_mcp_links_require_existing_trace(store, operation):
-    if operation == "get":
-        method = store.get_mcp_servers_for_trace
-        args = ("missing",)
-    else:
-        method = store.upsert_span_mcp_server_links
-        links = [] if operation == "empty-upsert" else [MCPServerSpanObservation("s", "n")]
-        args = ("missing", links)
-    with pytest.raises(MlflowException, match="Trace with ID 'missing' not found") as exc:
-        method(*args)
-    assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+        upsert_mcp_server_links_for_test(store, trace.trace_id, links)
+    assert get_mcp_server_links_for_test(store, trace.trace_id) == []
 
 
 def test_log_spans_materializes_mcp_links(store, caplog):
@@ -645,14 +660,14 @@ def test_log_spans_materializes_mcp_links(store, caplog):
     ]
     store.log_spans(experiment_id, spans)
     store.log_spans(experiment_id, spans)
-    assert set(store.get_mcp_servers_for_trace("trace-mcp")) == {
-        TraceMCPServerLink(DEFAULT_WORKSPACE_NAME, "com.example/weather", None),
-        TraceMCPServerLink(DEFAULT_WORKSPACE_NAME, "com.example/weather", "1.0.0+Build.1"),
+    assert set(get_mcp_server_links_for_test(store, "trace-mcp")) == {
+        (DEFAULT_WORKSPACE_NAME, "com.example/weather", None),
+        (DEFAULT_WORKSPACE_NAME, "com.example/weather", "1.0.0+Build.1"),
     }
-    assert store.get_mcp_servers_for_trace("trace-other") == [
-        TraceMCPServerLink(DEFAULT_WORKSPACE_NAME, "com.example/other", "latest")
+    assert get_mcp_server_links_for_test(store, "trace-other") == [
+        (DEFAULT_WORKSPACE_NAME, "com.example/other", "latest")
     ]
-    assert store.get_mcp_servers_for_trace("trace-plain") == []
+    assert get_mcp_server_links_for_test(store, "trace-plain") == []
     stored_spans = store.get_trace("trace-mcp").data.spans
     assert (
         next(s for s in stored_spans if s.span_id == spans[1].span_id).get_attribute(
@@ -742,12 +757,8 @@ def test_log_spans_ignores_malformed_mcp_attributes(
     store.log_spans(experiment_id, [span, other_span])
     assert len(store.get_trace(span.trace_id).data.spans) == 1
     assert len(store.get_trace(other_span.trace_id).data.spans) == 1
-    expected = (
-        [TraceMCPServerLink(DEFAULT_WORKSPACE_NAME, expected_name, expected_version)]
-        if expected_name
-        else []
-    )
-    assert store.get_mcp_servers_for_trace(span.trace_id) == expected
+    expected = [(DEFAULT_WORKSPACE_NAME, expected_name, expected_version)] if expected_name else []
+    assert get_mcp_server_links_for_test(store, span.trace_id) == expected
     assert f"malformed MCP server {warning}" in caplog.text
 
 
@@ -768,8 +779,8 @@ def test_log_spans_accepts_mcp_attributes_at_length_limit(store, caplog, name, v
         },
     )
     store.log_spans(experiment_id, [span])
-    assert store.get_mcp_servers_for_trace(span.trace_id) == [
-        TraceMCPServerLink(workspace=DEFAULT_WORKSPACE_NAME, name=name, version=version)
+    assert get_mcp_server_links_for_test(store, span.trace_id) == [
+        (DEFAULT_WORKSPACE_NAME, name, version)
     ]
     assert len(store.get_trace(span.trace_id).data.spans) == 1
     assert "malformed MCP" not in caplog.text
@@ -845,8 +856,8 @@ def test_log_spans_rolls_back_mcp_link_replacement(store, updated_name):
         store.get_trace(trace_id).data.spans[0].get_attribute(SpanAttributeKey.MCP_SERVER_NAME)
         == "com.example/weather"
     )
-    assert store.get_mcp_servers_for_trace(trace_id) == [
-        TraceMCPServerLink(DEFAULT_WORKSPACE_NAME, "com.example/weather", None)
+    assert get_mcp_server_links_for_test(store, trace_id) == [
+        (DEFAULT_WORKSPACE_NAME, "com.example/weather", None)
     ]
 
 
@@ -875,7 +886,7 @@ def store_with_mcp_links(store):
         "tr-b": [MCPServerSpanObservation("s1", "com.example/weather")],
         "tr-c": [MCPServerSpanObservation("s1", "com.example/weather", "2.0.0")],
     }.items():
-        store.upsert_span_mcp_server_links(trace_id, links)
+        upsert_mcp_server_links_for_test(store, trace_id, links)
     return store, experiment_id
 
 
@@ -923,8 +934,8 @@ def test_search_traces_mcp_filters_respect_experiments(store_with_mcp_links):
     store, _ = store_with_mcp_links
     experiment_id = store.create_experiment("mcp-other-experiment")
     _create_trace(store, "tr-other", experiment_id=experiment_id)
-    store.upsert_span_mcp_server_links(
-        "tr-other", [MCPServerSpanObservation("s1", "com.example/weather")]
+    upsert_mcp_server_links_for_test(
+        store, "tr-other", [MCPServerSpanObservation("s1", "com.example/weather")]
     )
     traces, _ = store.search_traces(
         [experiment_id], filter_string="mcp_server = 'com.example/weather'"

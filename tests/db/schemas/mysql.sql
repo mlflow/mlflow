@@ -861,7 +861,7 @@ CREATE TABLE span_mcp_server_links (
 	trace_id VARCHAR(50) NOT NULL,
 	span_id VARCHAR(50) NOT NULL,
 	mcp_workspace VARCHAR(63) NOT NULL,
-	mcp_name VARCHAR(256) NOT NULL,
+	mcp_name VARCHAR(256) COLLATE utf8mb4_bin NOT NULL,
 	mcp_version VARCHAR(256),
 	created_at BIGINT NOT NULL,
 	PRIMARY KEY (trace_id, span_id, mcp_workspace, mcp_name),

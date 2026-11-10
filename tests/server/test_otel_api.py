@@ -20,7 +20,6 @@ from opentelemetry.sdk.trace.export import SpanExportResult
 from prometheus_client import REGISTRY
 
 from mlflow.entities import Workspace
-from mlflow.entities.trace_mcp_server_link import TraceMCPServerLink
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
@@ -30,11 +29,13 @@ from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.dbmodels.models import SqlSpanMCPServerLink
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
-from mlflow.tracing.constant import MCP_SERVER_VERSION_ENCODING
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH, _set_otel_proto_anyvalue
 from mlflow.utils import workspace_context
 from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
+
+from tests.store.tracking.sqlalchemy_store.mcp_test_utils import get_mcp_server_links_for_test
 
 
 def _build_otlp_payload(resource_attrs=None):
@@ -383,8 +384,7 @@ def test_otlp_conversion_error(monkeypatch):
     assert "Cannot convert OpenTelemetry span" in response.json()["detail"]
 
 
-@pytest.mark.parametrize("raw_mcp_version", [False, True])
-def test_otlp_resource_attributes_preserved(monkeypatch, raw_mcp_version):
+def test_otlp_resource_attributes_preserved(monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
 
     class DummyTrackingStore(_DummyTrackingStore):
@@ -408,12 +408,7 @@ def test_otlp_resource_attributes_preserved(monkeypatch, raw_mcp_version):
     }
     response = client.post(
         OTLP_TRACES_PATH,
-        content=_build_otlp_payload(
-            resource_attrs={
-                **resource_attrs,
-                **({MCP_SERVER_VERSION_ENCODING: "raw"} if raw_mcp_version else {}),
-            }
-        ),
+        content=_build_otlp_payload(resource_attrs=resource_attrs),
         headers={
             "Content-Type": "application/x-protobuf",
             "X-MLflow-Experiment-Id": "42",
@@ -439,8 +434,11 @@ def test_otlp_resource_attributes_preserved(monkeypatch, raw_mcp_version):
         ("custom.attr", '{"a": 1}', {"a": 1}),
         ("custom.attr", "[1, 2]", [1, 2]),
         ("custom.attr", "hello", "hello"),
-        ("mlflow.mcp.server.version", "[]", []),
-        ("mlflow.mcp.server.version", '"quoted"', "quoted"),
+        ("mlflow.mcp.server.name", '"quoted"', '"quoted"'),
+        ("mlflow.mcp.server.version", "[]", "[]"),
+        ("mlflow.mcp.server.version", '"quoted"', '"quoted"'),
+        ("mlflow.mcp.tool.name", "[]", "[]"),
+        ("mlflow.mcp.tool.name", '"quoted"', '"quoted"'),
     ],
 )
 def test_otlp_json_string_attributes(monkeypatch, db_uri, tmp_path, key, sent_value, expected):
@@ -470,23 +468,11 @@ def test_otlp_json_string_attributes(monkeypatch, db_uri, tmp_path, key, sent_va
 
 
 @pytest.mark.parametrize("content_type", ["application/json", "application/x-protobuf"])
-@pytest.mark.parametrize("name_encoding", ["raw", "json"])
 @pytest.mark.parametrize(
-    ("version_encoding", "version"),
-    [
-        (encoding, version)
-        for encoding in ("raw", "json", "raw_resource")
-        for version in (None, "1.0.0", "1", "true", "null", "发布🧪")
-    ]
-    + [
-        (encoding, version)
-        for encoding in ("json", "raw_resource")
-        for version in ("[]", "{}", '"quoted"', ' "padded" ')
-    ],
+    "version",
+    [None, "1.0.0", "1", "true", "null", "发布🧪", "[]", "{}", '"quoted"', ' "padded" '],
 )
-def test_otlp_materializes_mcp_links(
-    monkeypatch, db_uri, tmp_path, content_type, name_encoding, version_encoding, version
-):
+def test_otlp_materializes_mcp_links(monkeypatch, db_uri, tmp_path, content_type, version):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
     store = WorkspaceAwareSqlAlchemyStore(db_uri, tmp_path.as_uri())
     with workspace_context.WorkspaceContext("team-a"):
@@ -498,30 +484,23 @@ def test_otlp_materializes_mcp_links(
     )
     trace_id = "0af7651916cd43dd8448eb211c80319c"
     name = "com.example/weather"
+    tool_name = '"forecast"'
     attributes = [
         {
             "key": "mlflow.mcp.server.name",
-            "value": {"stringValue": json.dumps(name) if name_encoding == "json" else name},
+            "value": {"stringValue": name},
         },
+        {"key": "mlflow.mcp.tool.name", "value": {"stringValue": tool_name}},
         {"key": "mlflow.mcp.server.workspace", "value": {"stringValue": "untrusted"}},
     ]
     if version is not None:
         attributes.append({
             "key": "mlflow.mcp.server.version",
-            "value": {
-                "stringValue": json.dumps(version) if version_encoding == "json" else version
-            },
+            "value": {"stringValue": version},
         })
     payload = {
         "resourceSpans": [
             {
-                "resource": {
-                    "attributes": (
-                        [{"key": MCP_SERVER_VERSION_ENCODING, "value": {"stringValue": "raw"}}]
-                        if version_encoding == "raw_resource"
-                        else []
-                    )
-                },
                 "scopeSpans": [
                     {
                         "spans": [
@@ -561,12 +540,13 @@ def test_otlp_materializes_mcp_links(
         )
         assert response.status_code == 200
     with workspace_context.WorkspaceContext("team-a"):
-        assert store.get_mcp_servers_for_trace(f"tr-{trace_id}") == [
-            TraceMCPServerLink("team-a", "com.example/weather", version)
+        assert get_mcp_server_links_for_test(store, f"tr-{trace_id}") == [
+            ("team-a", "com.example/weather", version)
         ]
         stored_spans = store.get_trace(f"tr-{trace_id}").data.spans
         assert len(stored_spans) == 1
-        assert stored_spans[0].get_attribute("mlflow.mcp.server.version") == version
+        assert stored_spans[0].get_attribute(SpanAttributeKey.MCP_SERVER_VERSION) == version
+        assert stored_spans[0].get_attribute(SpanAttributeKey.MCP_TOOL_NAME) == tool_name
         if version is not None:
             traces, _ = store.search_traces(
                 [experiment_id],
@@ -575,13 +555,13 @@ def test_otlp_materializes_mcp_links(
             assert [trace.trace_id for trace in traces] == [f"tr-{trace_id}"]
     with workspace_context.WorkspaceContext("team-b"):
         with pytest.raises(MlflowException, match="not found"):
-            store.get_mcp_servers_for_trace(f"tr-{trace_id}")
+            store.get_trace(f"tr-{trace_id}")
 
 
 @pytest.mark.parametrize("content_type", ["application/json", "application/x-protobuf"])
 @pytest.mark.parametrize("workspaces_enabled", [False, True])
 @pytest.mark.parametrize("version", ["[]", '"quoted"', ' "padded" '])
-def test_otlp_mixed_legacy_and_raw_mcp_export(
+def test_otlp_export_roundtrip_preserves_raw_mcp_strings(
     monkeypatch, db_uri, tmp_path, content_type, workspaces_enabled, version
 ):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, str(workspaces_enabled))
@@ -591,7 +571,7 @@ def test_otlp_mixed_legacy_and_raw_mcp_export(
     store_class = WorkspaceAwareSqlAlchemyStore if workspaces_enabled else SqlAlchemyStore
     store = store_class(db_uri, tmp_path.as_uri())
     with workspace_context.ServerWorkspaceContext(workspace):
-        experiment_id = store.create_experiment("otlp-mixed-mcp-codecs")
+        experiment_id = store.create_experiment("otlp-raw-mcp-strings")
     monkeypatch.setattr("mlflow.server.otel_api._get_tracking_store", lambda: store)
     monkeypatch.setattr(
         "mlflow.server.fastapi_app.resolve_workspace_for_request_if_enabled",
@@ -601,30 +581,22 @@ def test_otlp_mixed_legacy_and_raw_mcp_export(
     exporter = mock.Mock(export=mock.Mock(return_value=SpanExportResult.SUCCESS))
     provider = TracerProvider(resource=resource)
     provider.add_span_processor(OtelSpanProcessor(span_exporter=exporter, export_metrics=False))
-    legacy_provider = TracerProvider(resource=resource)
+    tool_name = '"forecast"'
     try:
-        with provider.get_tracer("mcp-client", "1.0").start_as_current_span("raw") as raw_span:
+        with provider.get_tracer("mcp-client", "1.0").start_as_current_span("mcp") as raw_span:
             raw_span.set_attributes({
                 "mlflow.mcp.server.name": "com.example/weather",
                 "mlflow.mcp.server.version": version,
-                "custom.attr": "[]",
-            })
-        with legacy_provider.get_tracer("mcp-client", "1.0").start_as_current_span(
-            "legacy"
-        ) as legacy_span:
-            legacy_span.set_attributes({
-                "mlflow.mcp.server.name": "com.example/weather",
-                "mlflow.mcp.server.version": json.dumps(version),
+                "mlflow.mcp.tool.name": tool_name,
                 "custom.attr": "[]",
             })
         assert provider.force_flush()
     finally:
         provider.shutdown()
-        legacy_provider.shutdown()
     exporter.export.assert_called_once()
     exporter.shutdown.assert_called_once()
-    request = encode_spans([*exporter.export.call_args.args[0], legacy_span])
-    assert sum(len(resource_span.scope_spans) for resource_span in request.resource_spans) == 2
+    request = encode_spans(exporter.export.call_args.args[0])
+    assert sum(len(resource_span.scope_spans) for resource_span in request.resource_spans) == 1
     if content_type == "application/json":
         payload = MessageToDict(request)
         for resource_spans in payload["resourceSpans"]:
@@ -641,15 +613,14 @@ def test_otlp_mixed_legacy_and_raw_mcp_export(
     response = _make_test_client().post(OTLP_TRACES_PATH, content=content, headers=headers)
     assert response.status_code == 200
     with workspace_context.ServerWorkspaceContext(workspace):
-        for span in (raw_span, legacy_span):
-            trace_id = f"tr-{span.context.trace_id:032x}"
-            assert store.get_mcp_servers_for_trace(trace_id) == [
-                TraceMCPServerLink(workspace or "default", "com.example/weather", version)
-            ]
-            stored = store.get_trace(trace_id).data.spans[0]
-            assert stored.get_attribute("mlflow.mcp.server.version") == version
-            assert stored.get_attribute("custom.attr") == []
-            assert MCP_SERVER_VERSION_ENCODING not in stored.attributes
+        trace_id = f"tr-{raw_span.context.trace_id:032x}"
+        assert get_mcp_server_links_for_test(store, trace_id) == [
+            (workspace or "default", "com.example/weather", version)
+        ]
+        stored = store.get_trace(trace_id).data.spans[0]
+        assert stored.get_attribute(SpanAttributeKey.MCP_SERVER_VERSION) == version
+        assert stored.get_attribute(SpanAttributeKey.MCP_TOOL_NAME) == tool_name
+        assert stored.get_attribute("custom.attr") == []
 
 
 def _mcp_span(trace_id, span_id, server_name=None, version=None):
@@ -710,8 +681,8 @@ def test_otlp_reexport_replaces_mcp_links(
         spans = store.get_trace(trace_id).data.spans
         assert len(spans) == 1
         assert spans[0].get_attribute("mlflow.mcp.server.name") == updated_name
-        assert store.get_mcp_servers_for_trace(trace_id) == (
-            [TraceMCPServerLink("team-a", updated_name, None)] if updated_name else []
+        assert get_mcp_server_links_for_test(store, trace_id) == (
+            [("team-a", updated_name, None)] if updated_name else []
         )
         traces, _ = store.search_traces(
             [experiment_id], filter_string="mcp_server = 'com.example/weather'"
@@ -799,11 +770,11 @@ def test_otlp_malformed_mcp_attributes_preserve_batch(
     with workspace_context.WorkspaceContext("team-a"):
         for trace_id in [f"tr-{index:032x}" for index in [1, 2]]:
             assert len(store.get_trace(trace_id).data.spans) == 1
-        assert store.get_mcp_servers_for_trace(f"tr-{1:032x}") == (
-            [TraceMCPServerLink("team-a", expected_name, None)] if expected_name else []
+        assert get_mcp_server_links_for_test(store, f"tr-{1:032x}") == (
+            [("team-a", expected_name, None)] if expected_name else []
         )
-        assert store.get_mcp_servers_for_trace(f"tr-{2:032x}") == [
-            TraceMCPServerLink("team-a", "com.example/other", "2.0.0")
+        assert get_mcp_server_links_for_test(store, f"tr-{2:032x}") == [
+            ("team-a", "com.example/other", "2.0.0")
         ]
     assert f"malformed MCP server {warning}" in caplog.text
 

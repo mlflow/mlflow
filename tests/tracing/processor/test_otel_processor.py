@@ -10,7 +10,7 @@ from opentelemetry.sdk.trace.export import SpanExportResult
 from mlflow.entities import LiveSpan, Span
 from mlflow.entities.trace_info import TraceInfo, TraceLocation, TraceState
 from mlflow.tracing.constant import (
-    MCP_SERVER_VERSION_ENCODING,
+    MCP_SPAN_ATTRIBUTE_KEYS,
     TRACE_SCHEMA_VERSION_KEY,
     SpanAttributeKey,
 )
@@ -200,11 +200,8 @@ def test_export_preserves_mcp_attributes(
     assert exported_scope.schema_url == original_scope.schema_url
     assert exported_scope is original_scope
     original_resource_attributes = dict(otel_span.resource.attributes)
-    expected_resource_attributes = original_resource_attributes.copy()
-    if isinstance(version, str):
-        expected_resource_attributes[MCP_SERVER_VERSION_ENCODING] = "raw"
+    expected_resource_attributes = original_resource_attributes
     assert dict(exported_spans[0].resource.attributes) == expected_resource_attributes
-    assert MCP_SERVER_VERSION_ENCODING not in original_resource_attributes
     assert exported_spans[0].attributes[SpanAttributeKey.MCP_SERVER_NAME] == "com.example/weather"
     if version is not None:
         assert exported_spans[0].attributes[SpanAttributeKey.MCP_SERVER_VERSION] == version
@@ -226,7 +223,7 @@ def test_export_preserves_mcp_attributes(
     received = Span.from_otel_proto(proto)
     received._span._attributes = strip_otlp_double_encoding(
         received._span._attributes,
-        mcp_version_is_raw=resource_attributes.get(MCP_SERVER_VERSION_ENCODING) == "raw",
+        raw_attribute_keys=MCP_SPAN_ATTRIBUTE_KEYS,
     )
     assert received.get_attribute(SpanAttributeKey.MCP_SERVER_NAME) == "com.example/weather"
     assert received.get_attribute(SpanAttributeKey.MCP_SERVER_VERSION) == version
@@ -299,6 +296,7 @@ def test_mcp_export_preserves_dropped_attribute_count(
             SpanAttributeKey.MCP_SERVER_NAME: "com.example/weather",
             SpanAttributeKey.MCP_SERVER_VERSION: '"quoted"',
         },
+        {SpanAttributeKey.MCP_TOOL_NAME: '"forecast"'},
     ],
 )
 def test_mcp_export_without_scope_attributes(has_scope, dual_export, mcp_attributes, monkeypatch):
@@ -332,7 +330,5 @@ def test_mcp_export_without_scope_attributes(has_scope, dual_export, mcp_attribu
     assert exported.instrumentation_scope is scope
     assert exported.resource.schema_url == resource.schema_url
     expected_resource_attributes = {"custom": "keep"}
-    if SpanAttributeKey.MCP_SERVER_VERSION in mcp_attributes:
-        expected_resource_attributes[MCP_SERVER_VERSION_ENCODING] = "raw"
     assert dict(exported.resource.attributes) == expected_resource_attributes
     assert dict(resource.attributes) == {"custom": "keep"}

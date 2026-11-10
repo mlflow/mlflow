@@ -31,7 +31,11 @@ from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracing.attachments import Attachment
-from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
+from mlflow.tracing.constant import (
+    MCP_SPAN_ATTRIBUTE_KEYS,
+    TRACE_REQUEST_ID_PREFIX,
+    SpanAttributeKey,
+)
 from mlflow.tracing.utils import (
     build_otel_context,
     construct_trace_id_v4,
@@ -53,11 +57,8 @@ from mlflow.tracing.utils.otlp import (
 )
 from mlflow.tracing.utils.processor import apply_span_processors
 from mlflow.utils.workspace_context import get_request_workspace
-from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 _logger = logging.getLogger(__name__)
-
-_RAW_MCP_ATTRIBUTES = (SpanAttributeKey.MCP_SERVER_NAME, SpanAttributeKey.MCP_SERVER_VERSION)
 
 
 def _normalize_link_trace_id(link_trace_id: str, source_trace_id: str | None) -> str | None:
@@ -131,7 +132,7 @@ def create_mlflow_span(
         return LiveSpan(otel_span, trace_id, span_type)
 
     if isinstance(otel_span, OTelReadableSpan):
-        return Span(otel_span)
+        return Span._from_otel_span(otel_span)
 
     raise MlflowException(
         "The `otel_span` argument must be an instance of one of valid "
@@ -171,8 +172,8 @@ class Span:
 
     @classmethod
     def _from_otel_span(cls, otel_span: OTelReadableSpan) -> "Span":
-        """Wrap an OTel span whose MCP server coordinates have not yet been JSON-encoded."""
-        if any(key in otel_span.attributes for key in _RAW_MCP_ATTRIBUTES):
+        """Wrap an OTel span whose MCP attributes have not yet been JSON-encoded."""
+        if any(key in otel_span.attributes for key in MCP_SPAN_ATTRIBUTE_KEYS):
             attributes = _LiveSpanAttributesRegistry(otel_span).get_serialized()
             otel_span = copy.copy(otel_span)
             otel_span._attributes = attributes
@@ -1106,7 +1107,9 @@ class LiveSpan(Span):
         Args:
             server: A server reference, concrete server version, or access endpoint. Aliases
                 and endpoints are resolved through the tracking server before setting attributes.
-                A name-only reference leaves the version unknown. Raw URLs are not accepted.
+                A name-only reference leaves the version unknown. Concrete versions are checked
+                against the selected default workspace when the trace workspace was not captured.
+                Raw URLs are not accepted.
             tool: Optional invoked tool name. Omit for discovery, resource, and prompt operations.
             cache_ttl_seconds: Alias and endpoint cache lifetime in seconds. Defaults to
                 ``MLFLOW_MCP_SERVER_CACHE_TTL_SECONDS`` (60 seconds). Set to 0 to bypass caching.
@@ -1144,7 +1147,7 @@ class LiveSpan(Span):
         resolved = resolve_mcp_server(
             server=server,
             tracking_uri=tracking_uri or mlflow.get_tracking_uri(),
-            workspace=workspace or DEFAULT_WORKSPACE_NAME,
+            workspace=workspace,
             cache_ttl_seconds=cache_ttl_seconds,
         )
         with self._mcp_link_lock:
@@ -1776,14 +1779,14 @@ class _SpanAttributesRegistry:
 
 
 class _LiveSpanAttributesRegistry(_SpanAttributesRegistry):
-    # Keep coordinates raw on OTel spans and JSON-encode them when serializing for storage.
+    # Keep MCP attributes raw on OTel spans and JSON-encode them when serializing for storage.
     def get(self, key: str):
-        if key in _RAW_MCP_ATTRIBUTES:
+        if key in MCP_SPAN_ATTRIBUTE_KEYS:
             return self._span.attributes.get(key)
         return super().get(key)
 
     def set(self, key: str, value: Any):
-        if key not in _RAW_MCP_ATTRIBUTES:
+        if key not in MCP_SPAN_ATTRIBUTE_KEYS:
             return super().set(key, value)
         if value is not None and isinstance(value, (str, bool, int, float)):
             self._span.set_attribute(key, value)
@@ -1803,7 +1806,7 @@ class _LiveSpanAttributesRegistry(_SpanAttributesRegistry):
 
     def get_serialized(self) -> dict[str, Any]:
         attributes = super().get_serialized()
-        for key in _RAW_MCP_ATTRIBUTES:
+        for key in MCP_SPAN_ATTRIBUTE_KEYS:
             if key in attributes:
                 attributes[key] = _serialize_span_attribute(key, attributes[key])
         return attributes

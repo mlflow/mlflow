@@ -153,6 +153,23 @@ export; the method makes no separate request to create a link. A span can hold o
 identity, consisting of the server name and its optional version. After the first link, using a
 different name or version raises an error, including adding a version to a name-only link.
 
+MLflow exporters send MCP name, version, and tool attributes as literal OTLP strings. If you send
+OTLP directly to an MLflow server, send their exact values as strings without JSON encoding. For
+example, a version whose literal value is `[]` must be sent as the string `[]`:
+
+```python
+from opentelemetry import trace
+
+tracer = trace.get_tracer(__name__)
+with tracer.start_as_current_span("weather.forecast") as span:
+    span.set_attribute("mlflow.mcp.server.name", "com.example/weather")
+    span.set_attribute("mlflow.mcp.server.version", "[]")
+    span.set_attribute("mlflow.mcp.tool.name", "forecast")
+```
+
+No resource-level encoding marker is required. MLflow applies its internal attribute serialization
+after receiving these strings.
+
 Resolution uses the tracking server and workspace captured when the trace started. Version
 and endpoint objects from another workspace are rejected. Alias lookup failures also raise an error, and failed
 calls leave the span attributes unchanged. Stored traces retain the concrete version observed

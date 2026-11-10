@@ -160,7 +160,7 @@ from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestSto
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import (
-    MCP_SERVER_VERSION_ENCODING,
+    MCP_SPAN_ATTRIBUTE_KEYS,
     TRACE_SCHEMA_VERSION_KEY,
     SpanAttributeKey,
 )
@@ -3173,7 +3173,7 @@ def _create_test_spans() -> list[LiveSpan]:
     return [LiveSpan(otel_span, trace_id="tr-123")]
 
 
-def test_log_spans_preserves_raw_mcp_server_version():
+def test_log_spans_preserves_raw_mcp_attributes():
     otel_span = create_mock_otel_span(
         trace_id=123,
         span_id=1,
@@ -3185,7 +3185,9 @@ def test_log_spans_preserves_raw_mcp_server_version():
     span = LiveSpan(otel_span, trace_id="tr-123")
     span.set_attribute(SpanAttributeKey.MCP_SERVER_NAME, "com.example/weather")
     raw_version = '"1.0"'
+    raw_tool_name = "[]"
     span.set_attribute(SpanAttributeKey.MCP_SERVER_VERSION, raw_version)
+    span.set_attribute(SpanAttributeKey.MCP_TOOL_NAME, raw_tool_name)
 
     otlp_requests = []
 
@@ -3201,26 +3203,16 @@ def test_log_spans_preserves_raw_mcp_server_version():
 
     request = ExportTraceServiceRequest.FromString(otlp_requests[0])
     resource = request.resource_spans[0].resource
-    mcp_version_is_raw = any(
-        attr.key == MCP_SERVER_VERSION_ENCODING and attr.value.string_value == "raw"
-        for attr in resource.attributes
-    )
-    assert mcp_version_is_raw
-
-    decoded_resource = type(resource)()
-    decoded_resource.CopyFrom(resource)
-    del decoded_resource.attributes[:]
-    decoded_resource.attributes.extend(
-        attr for attr in resource.attributes if attr.key != MCP_SERVER_VERSION_ENCODING
-    )
+    assert not resource.attributes
     proto_span = request.resource_spans[0].scope_spans[0].spans[0]
-    decoded_span = Span.from_otel_proto(proto_span, resource=decoded_resource)
+    decoded_span = Span.from_otel_proto(proto_span, resource=resource)
     decoded_span._span._attributes = strip_otlp_double_encoding(
         decoded_span._span._attributes,
-        mcp_version_is_raw=mcp_version_is_raw,
+        raw_attribute_keys=MCP_SPAN_ATTRIBUTE_KEYS,
     )
 
     assert decoded_span.get_attribute(SpanAttributeKey.MCP_SERVER_VERSION) == raw_version
+    assert decoded_span.get_attribute(SpanAttributeKey.MCP_TOOL_NAME) == raw_tool_name
 
 
 # flaky: auto-detected from CI re-runs; see the weekly flaky-test report

@@ -933,13 +933,22 @@ class SqlTraceInfo(Base):
         )
 
 
+# MCP server names are case-sensitive identities, while MySQL and SQL Server commonly default to
+# case-insensitive collations.
+MCP_SERVER_LINK_NAME_STRING = (
+    String(256)
+    .with_variant(MYSQL_VARCHAR(256, collation="utf8mb4_bin"), "mysql")
+    .with_variant(MSSQL_VARCHAR(256, collation="SQL_Latin1_General_CP1_CS_AS"), "mssql")
+)
+
+
 class SqlSpanMCPServerLink(Base):
     __tablename__ = "span_mcp_server_links"
 
     trace_id = Column(String(50), nullable=False)
     span_id = Column(String(50), nullable=False)
     mcp_workspace = Column(String(63), nullable=False)
-    mcp_name = Column(String(256), nullable=False)
+    mcp_name = Column(MCP_SERVER_LINK_NAME_STRING, nullable=False)
     # A supplementary character takes two UTF-16 code units in SQL Server's NVARCHAR.
     mcp_version = Column(String(256).with_variant(NVARCHAR(512), "mssql"), nullable=True)
     created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)

@@ -160,6 +160,14 @@ class SpanAttributeKey:
     TRACE_TAG_PREFIX = "mlflow.traceTag."
 
 
+# MCP span attributes are literal strings in OTLP and JSON-serialized only for MLflow storage.
+MCP_SPAN_ATTRIBUTE_KEYS = frozenset({
+    SpanAttributeKey.MCP_SERVER_NAME,
+    SpanAttributeKey.MCP_SERVER_VERSION,
+    SpanAttributeKey.MCP_TOOL_NAME,
+})
+
+
 class TraceExperimentTagKey:
     ARCHIVAL_RETENTION = "mlflow.trace.archivalRetention"
     ARCHIVE_NOW = "mlflow.trace.archiveNow"
@@ -213,10 +221,6 @@ TRACE_SCHEMA_VERSION = 3
 # Key for the trace schema version in the trace. This key is also used in
 # Databricks model serving to be careful when modifying it.
 TRACE_SCHEMA_VERSION_KEY = "mlflow.trace_schema.version"
-
-# OTLP metadata distinguishing raw MCP versions from legacy JSON encoding.
-MCP_SERVER_VERSION_ENCODING = "mlflow.mcp.server.version.encoding"
-
 
 STREAM_CHUNK_EVENT_NAME_FORMAT = "mlflow.chunk.item.{index}"
 STREAM_CHUNK_EVENT_VALUE_KEY = "mlflow.chunk.value"

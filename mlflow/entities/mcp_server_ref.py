@@ -5,7 +5,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 
 
-@experimental(version="3.15.0")
+@experimental(version="3.19.0")
 @dataclass(frozen=True)
 class MCPServerRef:
     """

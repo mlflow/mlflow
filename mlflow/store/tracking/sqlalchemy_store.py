@@ -76,7 +76,7 @@ from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Span
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_location import TraceLocation
-from mlflow.entities.trace_mcp_server_link import MCPServerSpanObservation, TraceMCPServerLink
+from mlflow.entities.trace_mcp_server_link import MCPServerSpanObservation
 from mlflow.entities.trace_metrics import (
     MetricAggregation,
     MetricDataPoint,
@@ -4231,16 +4231,6 @@ class SqlAlchemyStore(
                 )
             return _build_trace_infos_from_rows(session, [trace_row])[0]
 
-    def upsert_span_mcp_server_links(
-        self, trace_id: str, links: list[MCPServerSpanObservation]
-    ) -> None:
-        with self.ManagedSessionMaker(read_only=False) as session:
-            trace = self._get_sql_trace_info(session=session, trace_id=trace_id)
-            if links:
-                self._upsert_span_mcp_server_links(
-                    session, trace.experiment.workspace, {trace.request_id: links}
-                )
-
     @staticmethod
     def _upsert_span_mcp_server_links(
         session: Session,
@@ -4311,30 +4301,6 @@ class SqlAlchemyStore(
                 .query(SqlSpanMCPServerLink)
                 .filter(or_(*batch))
                 .delete(synchronize_session=False)
-            )
-
-    def get_mcp_servers_for_trace(self, trace_id: str) -> list[TraceMCPServerLink]:
-        with self.ManagedSessionMaker() as session:
-            trace = self._get_sql_trace_info(session=session, trace_id=trace_id)
-            rows = (
-                session
-                .query(
-                    SqlSpanMCPServerLink.mcp_workspace,
-                    SqlSpanMCPServerLink.mcp_name,
-                    SqlSpanMCPServerLink.mcp_version,
-                )
-                .filter(
-                    SqlSpanMCPServerLink.trace_id == trace_id,
-                    SqlSpanMCPServerLink.mcp_workspace == trace.experiment.workspace,
-                )
-                .all()
-            )
-            # SQL DISTINCT follows database collation and can merge different version strings.
-            return list(
-                dict.fromkeys(
-                    TraceMCPServerLink(workspace=workspace, name=name, version=version)
-                    for workspace, name, version in rows
-                )
             )
 
     def _get_sql_trace_info(

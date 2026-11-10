@@ -9,7 +9,7 @@ import sqlalchemy as sa
 from mlflow.entities import ExperimentTag, TraceInfo
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.trace_location import TraceLocation
-from mlflow.entities.trace_mcp_server_link import MCPServerSpanObservation, TraceMCPServerLink
+from mlflow.entities.trace_mcp_server_link import MCPServerSpanObservation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.workspace import Workspace, WorkspaceDeletionMode
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
@@ -36,7 +36,11 @@ from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
-from tests.store.tracking.sqlalchemy_store.conftest import _create_trace
+from tests.store.tracking.sqlalchemy_store.conftest import (
+    _create_trace,
+    upsert_mcp_server_links_for_test,
+)
+from tests.store.tracking.sqlalchemy_store.mcp_test_utils import get_mcp_server_links_for_test
 
 
 @pytest.fixture(autouse=True)
@@ -141,7 +145,8 @@ def test_workspace_relocation_preserves_mcp_links(
             experiments[name] = experiment_id
             tracking_store.set_experiment_tag(experiment_id, ExperimentTag("move", name))
             _create_trace(tracking_store, name, experiment_id=experiment_id)
-            tracking_store.upsert_span_mcp_server_links(
+            upsert_mcp_server_links_for_test(
+                tracking_store,
                 trace_id=name,
                 links=[
                     MCPServerSpanObservation("span-1", "com.example/weather", "1.0.0"),
@@ -186,10 +191,14 @@ def test_workspace_relocation_preserves_mcp_links(
             target if moved else (DEFAULT_WORKSPACE_NAME if name == "resident" else "team-a")
         )
         with WorkspaceContext(workspace):
-            assert set(tracking_store.get_mcp_servers_for_trace(trace_id=name)) == {
-                TraceMCPServerLink(workspace=workspace, name="com.example/weather", version=version)
-                for version in ["1.0.0", None]
+            expected_links = {
+                (workspace, "com.example/weather", version) for version in ["1.0.0", None]
             }
+            if name == "selected":
+                expected_links.add(("foreign", "com.example/foreign", None))
+            assert (
+                set(get_mcp_server_links_for_test(tracking_store, trace_id=name)) == expected_links
+            )
             traces, _ = tracking_store.search_traces(
                 [experiment_id],
                 filter_string="mcp_server = 'com.example/weather' AND mcp_server.version = '1.0.0'",
@@ -215,7 +224,8 @@ def test_workspace_relocation_rolls_back_mcp_links(
     with WorkspaceContext("team-a"):
         experiment_id = tracking_store.create_experiment("rollback")
         _create_trace(tracking_store, "rollback", experiment_id=experiment_id)
-        tracking_store.upsert_span_mcp_server_links(
+        upsert_mcp_server_links_for_test(
+            tracking_store,
             trace_id="rollback",
             links=[MCPServerSpanObservation("span-1", "com.example/weather", "1.0.0")],
         )
@@ -252,8 +262,8 @@ def test_workspace_relocation_rolls_back_mcp_links(
 
     with WorkspaceContext("team-a"):
         assert tracking_store.get_experiment(experiment_id).workspace == "team-a"
-        assert tracking_store.get_mcp_servers_for_trace(trace_id="rollback") == [
-            TraceMCPServerLink(workspace="team-a", name="com.example/weather", version="1.0.0")
+        assert get_mcp_server_links_for_test(tracking_store, trace_id="rollback") == [
+            ("team-a", "com.example/weather", "1.0.0")
         ]
     assert workspace_store.get_workspace("team-a").name == "team-a"
 

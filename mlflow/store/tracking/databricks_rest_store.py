@@ -76,7 +76,6 @@ from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.utils import parse_trace_id_v4
 from mlflow.tracing.utils.otlp import (
     OTLP_TRACES_PATH,
-    _mark_mcp_server_version_as_raw,
     resource_to_otel_proto,
 )
 from mlflow.utils.databricks_tracing_utils import (
@@ -728,7 +727,6 @@ class DatabricksTracingRestStore(RestStore):
         resource_spans = request.resource_spans.add()
         resource = getattr(spans[0]._span, "resource", None)
         resource_spans.resource.CopyFrom(resource_to_otel_proto(resource))
-        _mark_mcp_server_version_as_raw(resource_spans.resource, spans)
         scope_spans = resource_spans.scope_spans.add()
         scope_spans.spans.extend(span.to_otel_proto() for span in spans)
 
