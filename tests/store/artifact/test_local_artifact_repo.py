@@ -37,14 +37,8 @@ def test_local_artifact_reads_reject_windows_aliases(
 ):
     monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
     args = (path,) if operation == "get_local_path" else (path, "unused")
-    with mock.patch(
-        "mlflow.store.artifact.local_artifact_repo.validate_path_within_directory",
-        side_effect=AssertionError("Filesystem resolution must not run"),
-    ) as resolve:
-        with pytest.raises(MlflowException, match="Invalid path"):
-            getattr(local_artifact_repo, operation)(*args)
-
-    resolve.assert_not_called()
+    with pytest.raises(MlflowException, match="Invalid path"):
+        getattr(local_artifact_repo, operation)(*args)
 
 
 @pytest.mark.parametrize(

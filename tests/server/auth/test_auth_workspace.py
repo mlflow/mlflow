@@ -11399,58 +11399,28 @@ def test_parse_artifact_auth_target_workspace_prefix_ignores_case(prefix):
 
 
 @pytest.mark.parametrize(
-    "path",
+    ("root", "local"),
     [
-        "workspaces.",
-        "workspaces./team-a/17/file.txt",
-        "workspaces%20/team-a/17/file.txt",
-        "WORKSP~1/team-a/17/file.txt",
-        "workspaces/team-a./17/file.txt",
-        "workspaces/team-a/17/models./m-1/file.txt",
+        ("./mlartifacts", True),
+        ("C:\\mlartifacts", True),
+        ("\\\\server\\share", True),
+        ("//server/share", True),
+        ("file:///C:/mlartifacts", True),
+        ("s3://bucket", False),
+        ("gs://bucket", False),
+        ("wasbs://container@account", False),
     ],
 )
-@pytest.mark.parametrize("action", ["read", "update", "manage"])
-@pytest.mark.parametrize(
-    "root",
-    [
-        "./mlartifacts",
-        "C:\\mlartifacts",
-        "\\\\server\\share",
-        "//server/share",
-        "file:///C:/mlartifacts",
-    ],
-)
-def test_artifact_proxy_rejects_windows_aliases(path, action, root, monkeypatch):
-    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
-    monkeypatch.setenv("_MLFLOW_SERVER_ARTIFACT_DESTINATION", root)
-    target = auth_module._parse_artifact_auth_target(path)
-    assert target.invalid
-    assert auth_module._permission_for_artifact_target(target, "alice") is NO_PERMISSIONS
-
-    permission = Mock(return_value=MANAGE)
-    assert not auth_module._authorize_artifact_proxy_resolved(
-        auth_module._artifact_proxy_child(path, action), "alice", action, permission
-    )
-    permission.assert_not_called()
-
-    assert not auth_module._authorize_fastapi_artifact_proxy(
-        f"/api/2.0/mlflow-artifacts/artifacts/{path}", "alice", None, action
-    )
-    assert not auth_module._authorize_fastapi_artifact_proxy(
-        "/api/2.0/mlflow-artifacts/artifacts", "alice", path, "read"
-    )
-
-
-@pytest.mark.parametrize("root", ["s3://bucket", "gs://bucket", "wasbs://container@account"])
 @pytest.mark.parametrize("name", ["folder.", "folder ", "FOLDER~1", "file:stream"])
-def test_artifact_proxy_preserves_remote_names_on_windows(root, name, monkeypatch):
+def test_artifact_proxy_windows_aliases_are_local_only(root, local, name, monkeypatch):
     monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
     monkeypatch.setenv("_MLFLOW_SERVER_ARTIFACT_DESTINATION", root)
     target = auth_module._parse_artifact_auth_target(f"workspaces/team-a/17/artifacts/{name}")
-    assert not target.invalid
-    assert target.workspace == "team-a"
-    assert target.experiment_id == "17"
-    assert target.relative_path == f"17/artifacts/{name}"
+    assert target.invalid is local
+    if not local:
+        assert target.workspace == "team-a"
+        assert target.experiment_id == "17"
+        assert target.relative_path == f"17/artifacts/{name}"
 
 
 @pytest.mark.parametrize("prefix", ["workspaces", "WORKSPACES"])

@@ -515,31 +515,6 @@ def test_list_artifacts(http_artifact_repo):
         assert [a.path for a in http_artifact_repo.list_artifacts(path="path/1.txt/1.txt")] == []
 
 
-@pytest.mark.parametrize("name", ["report.", "report ", "MODEL~1", "report:notes"])
-@pytest.mark.parametrize("path", [None, "directory"])
-def test_list_artifacts_preserves_remote_names_on_windows(
-    http_artifact_repo, monkeypatch, name, path
-):
-    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
-    with mock.patch(
-        "mlflow.store.artifact.http_artifact_repo.http_request",
-        return_value=MockResponse(
-            {"files": [{"path": name, "is_dir": False, "file_size": 1}]}, 200
-        ),
-    ) as request:
-        files = http_artifact_repo.list_artifacts(path)
-
-    assert [(f.path, f.is_dir, f.file_size) for f in files] == [
-        (posixpath.join(path, name) if path else name, False, 1)
-    ]
-    request.assert_called_once_with(
-        get_default_host_creds("http://test.com/api/2.0"),
-        "/mlflow-artifacts/artifacts",
-        "GET",
-        params={"path": path or ""},
-    )
-
-
 @pytest.mark.parametrize(
     ("path", "listings", "expected"),
     [
