@@ -76,7 +76,8 @@ jobs:
           MAX_RETRIES: "3"
           PR_NUMBERS: ${{ inputs.pr_numbers }}
         run: |
-          candidates=$(python3 "$RUNNER_TEMP/cli.py" discover | jq -c '.[:10]')
+          python3 "$RUNNER_TEMP/cli.py" discover --out-path "$RUNNER_TEMP/candidates.json"
+          candidates=$(jq -c '.[:10]' "$RUNNER_TEMP/candidates.json")
           matrix=$(jq -c '{
             name: map("pr-\(.number)"),
             include: map({name: "pr-\(.number)", pr: .})
