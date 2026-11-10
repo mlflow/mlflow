@@ -173,3 +173,44 @@ message SearchIssues {
     optional int64 total_count = 3;
   }
 }
+
+// An issue detection run: one analysis of an experiment's traces that files what it finds as
+// issues.
+message IssueDetectionRun {
+  // ID of the run. Issues the run creates carry it as their source_run_id.
+  optional string run_id = 1;
+
+  // Experiment ID.
+  optional string experiment_id = 2;
+
+  // One of "pending", "running", "succeeded", "failed" or "canceled".
+  optional string status = 3;
+
+  // Start time of the run, in milliseconds since the epoch.
+  optional int64 start_time = 4;
+
+  // End time of the run, in milliseconds since the epoch. Unset until the run ends.
+  optional int64 end_time = 5;
+
+  // Why the run failed. Unset unless the status is "failed".
+  optional string error_message = 6;
+}
+
+// Request to start an issue detection run over an experiment's traces.
+message DetectIssues {
+  // Experiment ID.
+  optional string experiment_id = 1 [(validate_required) = true];
+
+  // Restricts the run to traces matching this filter, in the search_traces filter syntax. When
+  // unset, the run analyzes the experiment's most recent traces.
+  optional string filter_string = 2;
+
+  // The model the run analyzes traces with, as "<provider>:/<model>" or "gateway:/<endpoint>".
+  // When unset, the run uses the model saved in the experiment's issue detection schedule.
+  optional string model = 3;
+
+  message Response {
+    // The run, which has not started analyzing yet.
+    optional IssueDetectionRun issue_detection_run = 1;
+  }
+}

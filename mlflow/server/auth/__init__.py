@@ -78,6 +78,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.protos.issues_pb2 import (
     CreateIssue,
+    DetectIssues,
     GetIssue,
     SearchIssues,
     UpdateIssue,
@@ -5879,6 +5880,35 @@ def validate_can_search_issues():
     return _run_tier_not_denied_in_workspace(username)
 
 
+def validate_can_detect_issues():
+    """
+    Detection creates a run in the request's experiment, so this requires what creating a run
+    does. Without an explicit ``model``, the run uses the model saved in the experiment's detection
+    schedule, and when that names a stored gateway secret the caller also needs USE on it, as
+    ``validate_can_invoke_issue_detection`` requires for a secret named in the request.
+    """
+    from mlflow.genai.discovery.schedule import read_detection_schedule
+
+    message = _get_request_message(DetectIssues())
+    if not message.experiment_id:
+        return False
+    if not _authorize_create_in_experiment(message.experiment_id, RESOURCE_TYPE_RUN):
+        return False
+    if message.model:
+        return True
+    try:
+        experiment = _get_tracking_store().get_experiment(message.experiment_id)
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return False
+        raise
+    schedule = read_detection_schedule(experiment)
+    secret_id = schedule.model.secret_id if schedule is not None and schedule.model else ""
+    if not secret_id:
+        return True
+    return _get_gateway_secret_permission(secret_id).can_use
+
+
 ISSUE_BEFORE_REQUEST_HANDLERS = {
     GetIssue: validate_can_read_issue,
     UpdateIssue: validate_can_update_issue,
@@ -5901,6 +5931,7 @@ ISSUE_BEFORE_REQUEST_VALIDATORS = {
 ISSUE_EXACT_BEFORE_REQUEST_HANDLERS = {
     CreateIssue: validate_can_create_issue,
     SearchIssues: validate_can_search_issues,
+    DetectIssues: validate_can_detect_issues,
 }
 
 

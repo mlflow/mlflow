@@ -47,3 +47,85 @@ def test_issue_run_provenance_is_redacted(monkeypatch):
     assert a._withhold_denied_issue_source_runs(issues, "u") is True
     assert not issues[0].HasField("source_run_id")
     assert not issues[1].HasField("source_run_id")
+
+
+def _run_detect_issues(monkeypatch, body, *, can_create=True, schedule_json=None, can_use=False):
+    from mlflow.exceptions import MlflowException
+    from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+    from mlflow.utils.mlflow_tags import MLFLOW_ISSUE_DETECTION_SCHEDULE
+
+    secret_checks = []
+    monkeypatch.setattr(a, "_authorize_create_in_experiment", lambda eid, created: can_create)
+
+    def get_experiment(experiment_id):
+        if experiment_id == "missing":
+            raise MlflowException("no such experiment", error_code=RESOURCE_DOES_NOT_EXIST)
+        tags = {MLFLOW_ISSUE_DETECTION_SCHEDULE: schedule_json} if schedule_json else {}
+        return SimpleNamespace(experiment_id=experiment_id, tags=tags)
+
+    monkeypatch.setattr(
+        a, "_get_tracking_store", lambda: SimpleNamespace(get_experiment=get_experiment)
+    )
+
+    def secret_permission(secret_id):
+        secret_checks.append(secret_id)
+        return SimpleNamespace(can_use=can_use)
+
+    monkeypatch.setattr(a, "_get_gateway_secret_permission", secret_permission)
+    app = flask.Flask(__name__)
+    with app.test_request_context(data=json.dumps(body), content_type="application/json"):
+        return a.validate_can_detect_issues(), secret_checks
+
+
+def _schedule_json(model):
+    from mlflow.genai.discovery.schedule import DetectionCadence, DetectionSchedule
+
+    return DetectionSchedule(cadence=DetectionCadence.DAILY, model=model).to_json()
+
+
+def test_detect_issues_requires_creating_a_run_in_the_experiment(monkeypatch):
+    body = {"experiment_id": "e1", "model": "gateway:/e"}
+    assert _run_detect_issues(monkeypatch, body, can_create=True) == (True, [])
+    assert _run_detect_issues(monkeypatch, body, can_create=False) == (False, [])
+    assert _run_detect_issues(monkeypatch, {}, can_create=True) == (False, [])
+
+
+def test_detect_issues_requires_use_on_the_schedule_secret(monkeypatch):
+    # Without `model` the run uses the schedule's saved model, and a direct provider selection
+    # runs on the stored secret it names, which requires USE on that secret.
+    from mlflow.genai.discovery.schedule import ScheduleModel
+
+    schedule = _schedule_json(ScheduleModel(provider="openai", model="gpt-5", secret_id="s-1"))
+    body = {"experiment_id": "e1"}
+    assert _run_detect_issues(monkeypatch, body, schedule_json=schedule, can_use=False) == (
+        False,
+        ["s-1"],
+    )
+    assert _run_detect_issues(monkeypatch, body, schedule_json=schedule, can_use=True) == (
+        True,
+        ["s-1"],
+    )
+
+
+def test_detect_issues_skips_the_secret_check_when_none_is_used(monkeypatch):
+    from mlflow.genai.discovery.schedule import ScheduleModel
+
+    endpoint_schedule = _schedule_json(ScheduleModel(endpoint_name="saved-endpoint"))
+    secret_schedule = _schedule_json(
+        ScheduleModel(provider="openai", model="gpt-5", secret_id="s-1")
+    )
+    # A gateway endpoint carries its own credential, and no schedule leaves the handler to reject.
+    assert _run_detect_issues(
+        monkeypatch, {"experiment_id": "e1"}, schedule_json=endpoint_schedule
+    ) == (True, [])
+    assert _run_detect_issues(monkeypatch, {"experiment_id": "e1"}) == (True, [])
+    # An explicit model replaces the schedule's, so its secret is never used.
+    assert _run_detect_issues(
+        monkeypatch,
+        {"experiment_id": "e1", "model": "openai:/gpt-5"},
+        schedule_json=secret_schedule,
+    ) == (True, [])
+
+
+def test_detect_issues_denies_a_missing_experiment(monkeypatch):
+    assert _run_detect_issues(monkeypatch, {"experiment_id": "missing"}) == (False, [])

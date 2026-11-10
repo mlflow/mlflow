@@ -70,6 +70,7 @@ from mlflow.exceptions import (
     MlflowTracingException,
 )
 from mlflow.gateway.budget_tracker.in_memory import InMemoryBudgetTracker
+from mlflow.genai.discovery.schedule import DetectionCadence, DetectionSchedule, ScheduleModel
 from mlflow.genai.review_queues import ReviewQueueType
 from mlflow.genai.review_queues.review_queues import (
     ReviewItemType,
@@ -316,7 +317,14 @@ from mlflow.telemetry.schemas import Record, Status
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import SpansLocation, TraceTagKey
 from mlflow.tracing.utils import build_otel_context
-from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION, MLFLOW_CUSTOM_VIEW_TAG_PREFIX
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_ARTIFACT_LOCATION,
+    MLFLOW_CUSTOM_VIEW_TAG_PREFIX,
+    MLFLOW_ISSUE_DETECTION_PRIORITIES,
+    MLFLOW_ISSUE_DETECTION_SCHEDULE,
+    MLFLOW_RUN_TYPE,
+    MLFLOW_RUN_TYPE_ISSUE_DETECTION,
+)
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds
 from mlflow.utils.server_info import (
@@ -11313,6 +11321,306 @@ def test_invoke_issue_detection_handler_unknown_provider_fails_fast(monkeypatch)
         assert resp.status_code == 400
         assert "Unsupported provider 'unknown'" in resp.get_json()["message"]
         mock_submit_job.assert_not_called()
+
+
+def _make_detect_issues_job(job_id: str = "job-detect-1") -> JobEntity:
+    return JobEntity(
+        job_id=job_id,
+        creation_time=1234567890000,
+        job_name="detect_issues",
+        params='{"experiment_id": "exp-123"}',
+        timeout=None,
+        status=JobStatus.PENDING,
+        result=None,
+        retry_count=0,
+        last_update_time=1234567890000,
+        status_details=None,
+    )
+
+
+def _detection_experiment(tags=None):
+    experiment = mock.MagicMock()
+    experiment.experiment_id = "exp-123"
+    experiment.tags = tags or {}
+    return experiment
+
+
+def _detection_schedule_tags(model: ScheduleModel) -> dict[str, str]:
+    schedule = DetectionSchedule(cadence=DetectionCadence.DAILY, model=model)
+    return {MLFLOW_ISSUE_DETECTION_SCHEDULE: schedule.to_json()}
+
+
+@pytest.fixture
+def detect_issues_client():
+    mock_run = mock.MagicMock()
+    mock_run.info.run_id = "run-detect-1"
+    mock_run.info.start_time = 1700000000000
+    client = mock.MagicMock()
+    client.create_run.return_value = mock_run
+    with mock.patch("mlflow.server.handlers.MlflowClient", return_value=client):
+        yield client
+
+
+def test_detect_issues_handler_starts_a_run(monkeypatch, mock_tracking_store, detect_issues_client):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    monkeypatch.setenv("OPENAI_API_KEY", "server-key")
+    mock_tracking_store.get_experiment.return_value = _detection_experiment({
+        MLFLOW_ISSUE_DETECTION_PRIORITIES: json.dumps({
+            "categories": {"correctness": True, "safety": True, "latency": False},
+            "instructions": "Focus on refunds.",
+        })
+    })
+
+    with (
+        mock.patch(
+            "mlflow.server.jobs.submit_job", return_value=_make_detect_issues_job()
+        ) as mock_submit_job,
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/api/3.0/mlflow/issues/detect",
+            json={
+                "experiment_id": "exp-123",
+                "filter_string": "trace.status = 'ERROR'",
+                "model": "openai:/gpt-5-mini",
+            },
+        )
+
+    assert resp.status_code == 200
+    assert resp.get_json() == {
+        "issue_detection_run": {
+            "run_id": "run-detect-1",
+            "experiment_id": "exp-123",
+            "status": "pending",
+            "start_time": 1700000000000,
+        }
+    }
+    detect_issues_client.create_run.assert_called_once_with(
+        experiment_id="exp-123",
+        tags={
+            MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_ISSUE_DETECTION,
+            "categories": "correctness,safety",
+            "model": "openai:/gpt-5-mini",
+        },
+    )
+    submit_kwargs = mock_submit_job.call_args.kwargs
+    assert submit_kwargs["params"] == {
+        "experiment_id": "exp-123",
+        "run_id": "run-detect-1",
+        "categories": ["correctness", "safety"],
+        "model": "openai:/gpt-5-mini",
+        "filter_string": "trace.status = 'ERROR'",
+        "instructions": "Focus on refunds.",
+        "username": None,
+    }
+    # The server's own key is read from its environment by the job; nothing is passed along.
+    assert submit_kwargs["extra_envs"] is None
+    detect_issues_client.set_tag.assert_called_once_with(
+        "run-detect-1", "mlflow.issueDetection.jobId", "job-detect-1"
+    )
+    detect_issues_client.set_terminated.assert_not_called()
+
+
+def test_detect_issues_handler_runs_a_gateway_model_without_a_server_key(
+    monkeypatch, mock_tracking_store, detect_issues_client
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    mock_tracking_store.get_experiment.return_value = _detection_experiment()
+
+    with (
+        mock.patch(
+            "mlflow.server.jobs.submit_job", return_value=_make_detect_issues_job()
+        ) as mock_submit_job,
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/api/3.0/mlflow/issues/detect",
+            json={"experiment_id": "exp-123", "model": "gateway:/my-endpoint"},
+        )
+
+    assert resp.status_code == 200
+    tags = detect_issues_client.create_run.call_args.kwargs["tags"]
+    assert tags["model"] == "gateway:/my-endpoint"
+    assert tags["endpoint_name"] == "my-endpoint"
+    submit_kwargs = mock_submit_job.call_args.kwargs
+    assert submit_kwargs["params"]["model"] == "gateway:/my-endpoint"
+    # An unset filter reaches the job as None, which then samples the newest traces.
+    assert submit_kwargs["params"]["filter_string"] is None
+    assert submit_kwargs["extra_envs"] is None
+
+
+def test_detect_issues_handler_uses_the_schedule_model_and_its_secret(
+    monkeypatch, mock_tracking_store, detect_issues_client
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    mock_tracking_store.get_experiment.return_value = _detection_experiment(
+        _detection_schedule_tags(
+            ScheduleModel(provider="openai", model="gpt-5", secret_id="secret-1")
+        )
+    )
+
+    with (
+        mock.patch(
+            "mlflow.genai.discovery.job._fetch_provider_credentials",
+            return_value={"OPENAI_API_KEY": "stored-key"},
+        ) as mock_fetch_creds,
+        mock.patch(
+            "mlflow.server.jobs.submit_job", return_value=_make_detect_issues_job()
+        ) as mock_submit_job,
+        app.test_client() as c,
+    ):
+        resp = c.post("/api/3.0/mlflow/issues/detect", json={"experiment_id": "exp-123"})
+
+    assert resp.status_code == 200
+    mock_fetch_creds.assert_called_once_with(mock_tracking_store, "openai", "secret-1")
+    submit_kwargs = mock_submit_job.call_args.kwargs
+    assert submit_kwargs["params"]["model"] == "openai:/gpt-5"
+    assert submit_kwargs["extra_envs"] == {"OPENAI_API_KEY": "stored-key"}
+
+
+def test_detect_issues_handler_uses_the_schedule_gateway_endpoint(
+    monkeypatch, mock_tracking_store, detect_issues_client
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    mock_tracking_store.get_experiment.return_value = _detection_experiment(
+        _detection_schedule_tags(ScheduleModel(endpoint_name="saved-endpoint"))
+    )
+
+    with (
+        mock.patch(
+            "mlflow.server.jobs.submit_job", return_value=_make_detect_issues_job()
+        ) as mock_submit_job,
+        app.test_client() as c,
+    ):
+        resp = c.post("/api/3.0/mlflow/issues/detect", json={"experiment_id": "exp-123"})
+
+    assert resp.status_code == 200
+    assert mock_submit_job.call_args.kwargs["params"]["model"] == "gateway:/saved-endpoint"
+    assert mock_submit_job.call_args.kwargs["extra_envs"] is None
+
+
+@pytest.mark.parametrize(
+    ("body", "env", "tags", "error_code", "message"),
+    [
+        pytest.param(
+            {"experiment_id": "exp-123"},
+            {},
+            {},
+            "INVALID_PARAMETER_VALUE",
+            "save a model in the experiment's issue detection schedule",
+            id="no_model_and_no_saved_model",
+        ),
+        pytest.param(
+            {"experiment_id": "exp-123", "model": "openai:/gpt-5-mini"},
+            {},
+            {},
+            "INVALID_PARAMETER_VALUE",
+            "No API key available for provider 'openai'",
+            id="no_server_key",
+        ),
+        pytest.param(
+            {"experiment_id": "exp-123", "model": "gpt-5-mini"},
+            {},
+            {},
+            "INVALID_PARAMETER_VALUE",
+            "Malformed model uri",
+            id="malformed_model",
+        ),
+        pytest.param(
+            {"experiment_id": "exp-123", "model": "gateway:/e", "filter_string": "status ="},
+            {},
+            {},
+            "INVALID_PARAMETER_VALUE",
+            "",
+            id="malformed_filter",
+        ),
+        pytest.param(
+            {"experiment_id": "exp-123", "model": "gateway:/e"},
+            {"MLFLOW_SERVER_ENABLE_JOB_EXECUTION": "false"},
+            {},
+            "FEATURE_DISABLED",
+            "MLFLOW_SERVER_ENABLE_JOB_EXECUTION",
+            id="job_execution_disabled",
+        ),
+    ],
+)
+def test_detect_issues_handler_rejects_before_creating_a_run(
+    monkeypatch, mock_tracking_store, detect_issues_client, body, env, tags, error_code, message
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    for key, value in env.items():
+        monkeypatch.setenv(key, value)
+    mock_tracking_store.get_experiment.return_value = _detection_experiment(tags)
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
+        app.test_client() as c,
+    ):
+        resp = c.post("/api/3.0/mlflow/issues/detect", json=body)
+
+    assert resp.status_code == 400
+    assert resp.get_json()["error_code"] == error_code
+    assert message in resp.get_json()["message"]
+    detect_issues_client.create_run.assert_not_called()
+    mock_submit_job.assert_not_called()
+
+
+def test_detect_issues_handler_rejects_a_second_concurrent_run(
+    monkeypatch, mock_tracking_store, detect_issues_client
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    mock_tracking_store.get_experiment.return_value = _detection_experiment()
+    in_flight = mock.MagicMock()
+    in_flight.info.run_id = "run-in-flight"
+    mock_tracking_store.search_runs.return_value = [in_flight]
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/api/3.0/mlflow/issues/detect",
+            json={"experiment_id": "exp-123", "model": "gateway:/e"},
+        )
+
+    assert resp.get_json()["error_code"] == "RESOURCE_ALREADY_EXISTS"
+    assert "run-in-flight" in resp.get_json()["message"]
+    detect_issues_client.create_run.assert_not_called()
+    mock_submit_job.assert_not_called()
+
+
+def test_detect_issues_handler_fails_the_run_when_submission_fails(
+    monkeypatch, mock_tracking_store, detect_issues_client
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    mock_tracking_store.get_experiment.return_value = _detection_experiment()
+
+    with (
+        mock.patch(
+            "mlflow.server.jobs.submit_job",
+            side_effect=MlflowException("queue unavailable", error_code=INTERNAL_ERROR),
+        ),
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/api/3.0/mlflow/issues/detect",
+            json={"experiment_id": "exp-123", "model": "gateway:/e"},
+        )
+
+    assert resp.get_json()["error_code"] == "INTERNAL_ERROR"
+    # Otherwise a RUNNING run with no job would block detection until it timed out.
+    detect_issues_client.set_terminated.assert_called_once_with("run-detect-1", "FAILED")
+
+
+def test_detect_issues_handler_requires_an_experiment_id(mock_tracking_store, detect_issues_client):
+    with app.test_client() as c:
+        resp = c.post("/api/3.0/mlflow/issues/detect", json={"model": "gateway:/e"})
+
+    assert resp.status_code == 400
+    assert resp.get_json()["error_code"] == "INVALID_PARAMETER_VALUE"
+    detect_issues_client.create_run.assert_not_called()
 
 
 def _make_genai_evaluate_job(job_id: str = "job-genai-1") -> JobEntity:

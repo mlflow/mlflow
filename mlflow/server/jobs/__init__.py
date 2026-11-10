@@ -96,6 +96,7 @@ _SUPPORTED_JOB_FUNCTION_LIST = [
     "mlflow.genai.optimize.job.optimize_prompts_job",
     "mlflow.genai.discovery.job.invoke_issue_detection_job",
     "mlflow.genai.discovery.job.run_scheduled_issue_detection_job",
+    "mlflow.genai.discovery.job.detect_issues_job",
     "mlflow.genai.evaluation.job.invoke_genai_evaluate_job",
 ]
 
@@ -111,6 +112,7 @@ _ALLOWED_JOB_NAME_LIST = [
     "optimize_prompts",
     "invoke_issue_detection",
     "scheduled_issue_detection",
+    "detect_issues",
     "invoke_genai_evaluate",
 ]
 

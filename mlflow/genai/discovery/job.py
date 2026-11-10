@@ -137,14 +137,19 @@ def _detect_issues_into_run(
             "total_cost_usd": result.total_cost_usd,
         }
     except Exception as error:
-        # Recorded before the status so a run that reads as FAILED already carries its reason,
-        # and best-effort so a store that refuses the tag cannot swallow the original failure.
-        try:
-            client.set_tag(run_id, MLFLOW_ISSUE_DETECTION_ERROR, _describe_failure(error))
-        except Exception:
-            _logger.warning("Could not record why detection run %s failed", run_id, exc_info=True)
-        client.set_terminated(run_id, RunStatus.to_string(RunStatus.FAILED))
+        _record_failure(client, run_id, error)
         raise
+
+
+def _record_failure(client: MlflowClient, run_id: str, error: BaseException) -> None:
+    """Finish a detection run as FAILED, with why."""
+    # Recorded before the status so a run that reads as FAILED already carries its reason,
+    # and best-effort so a store that refuses the tag cannot swallow the original failure.
+    try:
+        client.set_tag(run_id, MLFLOW_ISSUE_DETECTION_ERROR, _describe_failure(error))
+    except Exception:
+        _logger.warning("Could not record why detection run %s failed", run_id, exc_info=True)
+    client.set_terminated(run_id, RunStatus.to_string(RunStatus.FAILED))
 
 
 @job(name="invoke_issue_detection", max_workers=MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS.get())
@@ -162,14 +167,66 @@ def invoke_issue_detection_job(
 
     Note: Provider credentials should be passed via environment variables set by submit_job().
     """
-    # Identifies the caller to the gateway for judge calls on a `gateway:/` model.
+    _identify_to_gateway(username)
+    return _detect_issues_into_run(
+        MlflowClient(), experiment_id, trace_ids, categories, run_id, model, instructions
+    )
+
+
+def _identify_to_gateway(username: str | None) -> None:
+    """Identify the caller to the gateway for judge calls on a ``gateway:/`` model."""
     if username is not None:
         os.environ["MLFLOW_TRACKING_USERNAME"] = username
         if internal_token := _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.get():
             os.environ["MLFLOW_TRACKING_PASSWORD"] = internal_token
 
+
+@job(name="detect_issues", max_workers=MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS.get())
+def detect_issues_job(
+    experiment_id: str,
+    run_id: str,
+    categories: list[str],
+    model: str,
+    filter_string: str | None = None,
+    instructions: str | None = None,
+    username: str | None = None,
+) -> dict[str, Any]:
+    """
+    Run issue detection over the traces matching ``filter_string``, for the DetectIssues API.
+
+    Unlike the manual path, which is handed the traces a user selected, this samples its own --
+    the same way and up to the same size a scheduled occurrence does -- so a filter matching a
+    large share of the experiment cannot make one run analyze an unbounded number of traces.
+    Sampling happens here rather than in the request because it reads whole traces.
+
+    Note: Provider credentials should be passed via environment variables set by submit_job().
+    """
+    _identify_to_gateway(username)
+    client = MlflowClient()
+    try:
+        traces = sample_traces(
+            MAX_SCHEDULED_SESSION_SAMPLE_SIZE,
+            search_kwargs={"experiment_ids": [experiment_id], "filter_string": filter_string},
+        )
+    except Exception as error:
+        _record_failure(client, run_id, error)
+        raise
+    client.set_tag(run_id, "total_traces", str(len(traces)))
+    if not traces:
+        # Nothing matched, so there is nothing to analyze: finish the run over zero traces
+        # rather than failing it, as a scheduled occurrence over a quiet window does.
+        client.set_tag(run_id, "total_cost_usd", 0.0)
+        client.set_tag(run_id, "total_traces_analyzed", 0)
+        client.set_terminated(run_id, RunStatus.to_string(RunStatus.FINISHED))
+        return {"total_traces_analyzed": 0, "total_cost_usd": 0.0}
     return _detect_issues_into_run(
-        MlflowClient(), experiment_id, trace_ids, categories, run_id, model, instructions
+        client,
+        experiment_id,
+        [trace.info.trace_id for trace in traces],
+        categories,
+        run_id,
+        model,
+        instructions,
     )
 
 

@@ -95,6 +95,7 @@ from mlflow.environment_variables import (
     MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS,
+    MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
     MLFLOW_SERVER_INFO_TRACKING_AUTH,
 )
 from mlflow.exceptions import (
@@ -143,7 +144,9 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.protos.issues_pb2 import (
     CreateIssue,
+    DetectIssues,
     GetIssue,
+    IssueDetectionRun,
     SearchIssues,
     UpdateIssue,
 )
@@ -5810,20 +5813,7 @@ def _invoke_issue_detection_handler():
 
     # Fail fast when no credential source exists, instead of submitting a job doomed to fail
     if not endpoint_name and not secret_id:
-        from mlflow.utils.providers import has_env_credentials, provider_credential_env_vars
-
-        env_vars = provider_credential_env_vars(provider_name)
-        if not env_vars:
-            raise MlflowException.invalid_parameter_value(
-                f"Unsupported provider '{provider}'. Choose a supported provider or "
-                "AI Gateway endpoint."
-            )
-        if not has_env_credentials(provider_name):
-            env_var_hint = env_vars[0] if len(env_vars) == 1 else f"one of {', '.join(env_vars)}"
-            raise MlflowException.invalid_parameter_value(
-                f"No API key available for provider '{provider}'. Save an API key in "
-                f"AI Gateway, or set {env_var_hint} on the MLflow server."
-            )
+        _require_server_provider_credentials(provider)
 
     store = _get_tracking_store()
     _validate_trace_ids_in_experiment(store, trace_ids, experiment_id)
@@ -5881,6 +5871,162 @@ def _invoke_issue_detection_handler():
     mlflow.end_run(RunStatus.to_string(RunStatus.RUNNING))
 
     return jsonify({"job_id": job.job_id, "run_id": run_id})
+
+
+def _require_server_provider_credentials(provider: str) -> None:
+    """
+    Fail unless the MLflow server holds an API key for ``provider`` in its environment.
+
+    For a detection run with no stored secret and no gateway endpoint, the server's own
+    environment is the only credential source; checking it up front fails the request instead
+    of submitting a job doomed to fail.
+    """
+    from mlflow.utils.providers import has_env_credentials, provider_credential_env_vars
+
+    provider_name = provider.lower()
+    env_vars = provider_credential_env_vars(provider_name)
+    if not env_vars:
+        raise MlflowException.invalid_parameter_value(
+            f"Unsupported provider '{provider}'. Choose a supported provider or "
+            "AI Gateway endpoint."
+        )
+    if not has_env_credentials(provider_name):
+        env_var_hint = env_vars[0] if len(env_vars) == 1 else f"one of {', '.join(env_vars)}"
+        raise MlflowException.invalid_parameter_value(
+            f"No API key available for provider '{provider}'. Save an API key in "
+            f"AI Gateway, or set {env_var_hint} on the MLflow server."
+        )
+
+
+def _resolve_issue_detection_model(
+    store, experiment, model: str | None
+) -> tuple[str, dict[str, str] | None]:
+    """
+    The model URI a DetectIssues run analyzes with, and the credentials its job needs.
+
+    An explicit ``model`` runs on the server's own keys or, for ``gateway:/<endpoint>``, on the
+    endpoint's. Without one, the run uses the model saved in the experiment's detection schedule,
+    including the stored secret a direct provider selection records, so a caller can run
+    detection the way the experiment is configured. The auth plugin requires USE on that secret.
+    """
+    from mlflow.genai.discovery.job import _fetch_provider_credentials
+    from mlflow.genai.discovery.schedule import read_detection_schedule
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
+
+    if model:
+        provider, _ = _parse_model_uri(model)
+        if provider != "gateway":
+            _require_server_provider_credentials(provider)
+        return model, None
+
+    schedule = read_detection_schedule(experiment)
+    saved = schedule.model if schedule is not None else None
+    if saved is None:
+        raise MlflowException.invalid_parameter_value(
+            "Specify `model`, or save a model in the experiment's issue detection schedule."
+        )
+    if saved.endpoint_name:
+        return saved.to_model_uri(), None
+    if saved.secret_id:
+        credentials = _fetch_provider_credentials(store, saved.provider.lower(), saved.secret_id)
+        return saved.to_model_uri(), credentials
+    _require_server_provider_credentials(saved.provider)
+    return saved.to_model_uri(), None
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _detect_issues():
+    """
+    A request handler for `POST /mlflow/issues/detect` to start an issue detection run.
+
+    The public counterpart of the Issues tab's ``issues/invoke``: rather than a list of traces the
+    caller picked, it takes a trace filter and lets the run sample the matching traces, and it
+    analyzes them with the categories and instructions saved on the experiment.
+    """
+    from mlflow.genai.discovery.job import detect_issues_job
+    from mlflow.genai.discovery.settings import read_detection_settings
+    from mlflow.genai.discovery.utils import in_flight_detection_run
+    from mlflow.server.jobs import submit_job
+    from mlflow.utils.search_utils import SearchTraceUtils
+
+    request_message = _get_request_message(
+        DetectIssues(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "filter_string": [_assert_string],
+            "model": [_assert_string],
+        },
+    )
+    experiment_id = request_message.experiment_id
+    filter_string = request_message.filter_string or None
+    if filter_string:
+        # Parsed here so a malformed filter fails the request rather than the run.
+        SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
+    # Checked before the run exists: submit_job refuses too, but only after the run would have
+    # been created, leaving a RUNNING detection run that blocks the experiment until it times out.
+    if not MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
+        raise MlflowException(
+            "Issue detection needs job execution, which is disabled on this MLflow server. Set "
+            f"the environment variable '{MLFLOW_SERVER_ENABLE_JOB_EXECUTION.name}' to 'true' to "
+            "enable it.",
+            error_code=FEATURE_DISABLED,
+        )
+
+    store = _get_tracking_store()
+    experiment = store.get_experiment(experiment_id)
+    model, credentials = _resolve_issue_detection_model(
+        store, experiment, request_message.model or None
+    )
+    if in_flight_run_id := in_flight_detection_run(store, experiment_id):
+        raise MlflowException(
+            "Issue detection is already running for this experiment "
+            f"(run {in_flight_run_id}). Wait for it to finish, or cancel it, before starting "
+            "another.",
+            error_code=RESOURCE_ALREADY_EXISTS,
+        )
+
+    settings = read_detection_settings(experiment)
+    tags = {
+        MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_ISSUE_DETECTION,
+        "categories": ",".join(settings.categories),
+        "model": model,
+    }
+    if model.startswith("gateway:/"):
+        tags["endpoint_name"] = model.removeprefix("gateway:/")
+    client = MlflowClient()
+    run = client.create_run(experiment_id=experiment_id, tags=tags)
+    run_id = run.info.run_id
+    try:
+        job = submit_job(
+            function=detect_issues_job,
+            params={
+                "experiment_id": experiment_id,
+                "run_id": run_id,
+                "categories": list(settings.categories),
+                "model": model,
+                "filter_string": filter_string,
+                "instructions": settings.instructions,
+                "username": _get_request_username(),
+            },
+            extra_envs=credentials,
+        )
+        client.set_tag(run_id, MLFLOW_ISSUE_DETECTION_JOB_ID, job.job_id)
+    except Exception:
+        # A run left RUNNING with no job would block detection for this experiment until it
+        # timed out.
+        client.set_terminated(run_id, RunStatus.to_string(RunStatus.FAILED))
+        raise
+
+    response_message = DetectIssues.Response(
+        issue_detection_run=IssueDetectionRun(
+            run_id=run_id,
+            experiment_id=experiment_id,
+            status="pending",
+            start_time=run.info.start_time,
+        )
+    )
+    return _wrap_response(response_message)
 
 
 def _sync_issue_detection_schedule_state_handler():
@@ -9131,6 +9277,7 @@ HANDLERS = {
     CreateIssue: _create_issue,
     UpdateIssue: _update_issue,
     GetIssue: _get_issue,
+    DetectIssues: _detect_issues,
     SearchIssues: _search_issues,
     # Label Schema APIs
     CreateLabelSchema: _create_label_schema,
