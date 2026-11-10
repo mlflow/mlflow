@@ -226,6 +226,42 @@ def test_prompt_format_chat_ignores_placeholders_in_tool_calls():
     ]
 
 
+def test_prompt_format_chat_content_parts_partial():
+    template = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Describe {{thing}}"},
+                {"type": "image_url", "image_url": {"url": "{{picture}}"}},
+            ],
+        }
+    ]
+    prompt = PromptVersion(name="test", version=1, template=template)
+
+    partial = prompt.format(thing="this chart", allow_partial=True)
+
+    assert isinstance(partial, PromptVersion)
+    assert partial.template == [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Describe this chart"},
+                {"type": "image_url", "image_url": {"url": "{{picture}}"}},
+            ],
+        }
+    ]
+    assert partial.variables == {"picture"}
+    assert partial.format(picture="https://example.com/a.png") == [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Describe this chart"},
+                {"type": "image_url", "image_url": {"url": "https://example.com/a.png"}},
+            ],
+        }
+    ]
+
+
 def test_prompt_format_chat_jinja_non_string_content_and_tool_fields():
     prompt = PromptVersion(
         name="test",

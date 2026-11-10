@@ -391,6 +391,7 @@ class PromptVersion(_ModelRegistryEntity):
         """
         Return a list of variables in the template text.
         The value must be enclosed in double curly braces, e.g. {{variable}}.
+        For chat prompts, only variables in each message's ``content`` are reported.
         """
         return self._variables
 
@@ -484,7 +485,9 @@ class PromptVersion(_ModelRegistryEntity):
         """
         Format the template with the given keyword arguments.
         By default, it raises an error if there are missing variables. To format
-        the prompt partially, set `allow_partial=True`.
+        the prompt partially, set `allow_partial=True`. For chat prompts, only each
+        message's ``content`` is formatted; other fields such as ``tool_calls`` are
+        returned unchanged, including any placeholders they contain.
 
         Example:
 
