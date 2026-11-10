@@ -14,11 +14,8 @@ from mlflow.store._unity_catalog.registry.volume_weights import (
 _MODULE = "mlflow.store._unity_catalog.registry.volume_weights"
 
 
-def _status(model_state, failure_reason=None):
-    status = {"state": model_state, "model_artifact": {"state": model_state}}
-    if failure_reason:
-        status["failure_reason"] = failure_reason
-    return status
+def _status(model_state):
+    return {"state": model_state, "model_artifact": {"state": model_state}}
 
 
 @pytest.fixture
@@ -67,12 +64,13 @@ def test_get_volume_artifacts_path_rejects_a_path_outside_a_volume(path):
     assert e.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
-def test_start_volume_weights_copy_returns_the_staging_status(stage):
-    stage.return_value = {"status": _status("IN_PROGRESS")}
+def test_start_volume_weights_copy_returns_the_status_polled_after_staging(stage, poll):
+    poll.return_value = _status("IN_PROGRESS")
     host_creds = object()
 
     assert start_volume_weights_copy("c.s.m", "3", host_creds) == _status("IN_PROGRESS")
     stage.assert_called_once_with("c.s.m", "3", host_creds=host_creds)
+    poll.assert_called_once_with("c.s.m", "3", host_creds=host_creds)
 
 
 def test_start_volume_weights_copy_raises_with_the_server_reason_and_code(stage):
@@ -92,10 +90,26 @@ def test_start_volume_weights_copy_maps_an_unknown_server_code_to_internal_error
     assert e.value.error_code == "INTERNAL_ERROR"
 
 
-def test_start_volume_weights_copy_raises_when_the_server_reports_no_status(stage):
-    stage.return_value = {}
+@pytest.mark.parametrize(
+    "poll_outcome",
+    [{}, RestException({"error_code": "FEATURE_DISABLED", "message": "not enabled"})],
+)
+def test_start_volume_weights_copy_raises_when_the_workspace_reports_no_status(
+    stage, poll, poll_outcome
+):
+    if isinstance(poll_outcome, Exception):
+        poll.side_effect = poll_outcome
+    else:
+        poll.return_value = poll_outcome
     with pytest.raises(MlflowException, match="doesn't report when Databricks finishes copying"):
         start_volume_weights_copy("c.s.m", "3", None)
+
+
+def test_start_volume_weights_copy_propagates_other_status_errors(stage, poll):
+    poll.side_effect = RestException({"error_code": "PERMISSION_DENIED", "message": "denied"})
+    with pytest.raises(MlflowException, match="denied") as e:
+        start_volume_weights_copy("c.s.m", "3", None)
+    assert e.value.error_code == "PERMISSION_DENIED"
 
 
 def test_wait_returns_once_the_model_weights_are_copied(stage, poll, no_sleep):
@@ -120,22 +134,21 @@ def test_wait_ignores_the_environment_artifact(stage, poll):
 
 @pytest.mark.parametrize("failed_state", ["FAILED", "NOT_STAGED"])
 def test_wait_starts_a_failed_copy_again(stage, poll, failed_state):
-    stage.return_value = {"status": _status("IN_PROGRESS")}
-    poll.return_value = _status("SUCCEEDED")
+    poll.side_effect = [_status("IN_PROGRESS"), _status("SUCCEEDED")]
 
     wait_for_volume_weights_copy("c.s.m", "3", _status(failed_state), None)
 
     stage.assert_called_once_with("c.s.m", "3", host_creds=None)
 
 
-def test_wait_raises_with_the_reason_once_restarts_are_exhausted(stage, poll):
-    stage.return_value = {"status": _status("FAILED", "requirements_invalid")}
+def test_wait_raises_once_restarts_are_exhausted(stage, poll):
+    poll.return_value = _status("FAILED")
 
-    with pytest.raises(MlflowException, match=r"into the model version \(requirements_invalid\)"):
-        wait_for_volume_weights_copy("c.s.m", "3", _status("FAILED", "requirements_invalid"), None)
+    with pytest.raises(MlflowException, match="into the model version. Check that the volume"):
+        wait_for_volume_weights_copy("c.s.m", "3", _status("FAILED"), None)
 
     assert stage.call_count == volume_weights._MAX_COPY_RESTARTS
-    poll.assert_not_called()
+    assert poll.call_count == volume_weights._MAX_COPY_RESTARTS
 
 
 def test_wait_raises_when_the_copy_outlasts_the_timeout(stage, poll, monkeypatch):

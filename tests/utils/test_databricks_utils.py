@@ -1534,31 +1534,17 @@ def test_stage_model_for_databricks_model_serving_raises_rest_exception_with_err
     assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
-def test_stage_model_for_databricks_model_serving_returns_the_response_body():
-    response = mock.Mock(status_code=200, text=json.dumps({"status": {"state": "IN_PROGRESS"}}))
-    response.json.return_value = {"status": {"state": "IN_PROGRESS"}}
+def test_stage_model_for_databricks_model_serving_uses_the_given_host_creds():
+    response = mock.Mock(status_code=200, text="")
     host_creds = mock.Mock()
     with mock.patch(
         "mlflow.utils.databricks_utils.http_request", return_value=response
     ) as request_mock:
-        body = stage_model_for_databricks_model_serving(
+        stage_model_for_databricks_model_serving(
             model_name="main.default.m", model_version="1", host_creds=host_creds
         )
 
-    assert body == {"status": {"state": "IN_PROGRESS"}}
     assert request_mock.call_args.kwargs["host_creds"] is host_creds
-
-
-def test_stage_model_for_databricks_model_serving_returns_empty_for_an_empty_body():
-    response = mock.Mock(status_code=200, text="")
-    with (
-        mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
-        mock.patch("mlflow.utils.databricks_utils.http_request", return_value=response),
-    ):
-        assert (
-            stage_model_for_databricks_model_serving(model_name="main.default.m", model_version="1")
-            == {}
-        )
 
 
 def test_get_databricks_model_serving_staging_status_returns_the_status():

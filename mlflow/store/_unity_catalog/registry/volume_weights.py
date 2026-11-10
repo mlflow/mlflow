@@ -65,7 +65,7 @@ def start_volume_weights_copy(name: str, version: str, host_creds) -> dict[str, 
     the copy's staging status.
     """
     try:
-        response = stage_model_for_databricks_model_serving(name, version, host_creds=host_creds)
+        stage_model_for_databricks_model_serving(name, version, host_creds=host_creds)
     except MlflowException as e:
         raise MlflowException(
             f"Databricks couldn't copy the weights of model '{name}' version {version} from its "
@@ -73,8 +73,13 @@ def start_volume_weights_copy(name: str, version: str, host_creds) -> dict[str, 
             "anyway, log it again with its weights in the model's own files.",
             error_code=_error_code_value(e.error_code),
         ) from e
-    status = response.get("status")
-    if status is None:
+    try:
+        status = get_databricks_model_serving_staging_status(name, version, host_creds=host_creds)
+    except MlflowException as e:
+        if e.error_code != "FEATURE_DISABLED":
+            raise
+        status = None
+    if not status:
         raise MlflowException(
             f"This workspace doesn't report when Databricks finishes copying the weights of model "
             f"'{name}' version {version} from its Unity Catalog volume, so the version can't be "
@@ -108,13 +113,11 @@ def wait_for_volume_weights_copy(
             return
         if state in (_STATE_FAILED, _STATE_NOT_STAGED):
             if restarts == _MAX_COPY_RESTARTS:
-                reason = status.get("failure_reason")
                 raise MlflowException(
                     f"Databricks couldn't copy the weights of model '{name}' version {version} "
-                    "from its Unity Catalog volume into the model version"
-                    + (f" ({reason})" if reason else "")
-                    + ". Check that the volume path in the model's metadata exists and that you "
-                    "can read it, then register the model again."
+                    "from its Unity Catalog volume into the model version. Check that the volume "
+                    "path in the model's metadata exists and that you can read it, then register "
+                    "the model again."
                 )
             restarts += 1
             _logger.warning(
