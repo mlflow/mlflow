@@ -3757,6 +3757,26 @@ def test_alternate_run_creation_paths_carry_the_run_veto(
         assert getattr(auth_module, validator)() is not run_denied
 
 
+@pytest.mark.parametrize("trace_denied", [True, False])
+def test_detect_issues_carries_the_trace_veto(
+    workspace_permission_setup, monkeypatch, trace_denied
+):
+    """Detection's job reads the experiment's traces from the store, so a trace DENY refuses it."""
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    _set_workspace_permission(store, username, USE.name)
+    rows = [("experiment", "*", EDIT.name)]
+    if trace_denied:
+        rows.append(("trace", "*", DENY.name))
+    _grant(store, username, "team-a", rows)
+    body = {"experiment_id": "exp-2", "model": "gateway:/e"}
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/issues/detect", method="POST", json=body
+    ):
+        assert auth_module.validate_can_detect_issues() is not trace_denied
+
+
 @pytest.mark.parametrize(
     ("grant", "created", "allowed"),
     [

@@ -5884,14 +5884,18 @@ def validate_can_search_issues():
 def validate_can_detect_issues():
     """
     Detection creates a run in the request's experiment, so this requires what creating a run
-    does. Without an explicit ``model``, the run uses the model saved in the experiment's detection
-    schedule, and when that names a stored gateway secret the caller also needs USE on it, as
+    does. Its job then searches and reads the experiment's traces with ``filter_string`` straight
+    from the store, so it also requires what searching them with that filter does. Without an
+    explicit ``model``, the run uses the model saved in the experiment's detection schedule, and
+    when that names a stored gateway secret the caller also needs USE on it, as
     ``validate_can_invoke_issue_detection`` requires for a secret named in the request.
     """
     message = _get_request_message(DetectIssues())
     if not message.experiment_id:
         return False
     if not _authorize_create_in_experiment(message.experiment_id, RESOURCE_TYPE_RUN):
+        return False
+    if not _authorize_trace_search([message.experiment_id], message.filter_string):
         return False
     if message.model:
         return True

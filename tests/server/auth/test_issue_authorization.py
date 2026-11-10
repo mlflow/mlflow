@@ -53,9 +53,25 @@ def test_issue_run_provenance_is_redacted(monkeypatch):
     assert not issues[1].HasField("source_run_id")
 
 
-def _run_detect_issues(monkeypatch, body, *, can_create=True, schedule_json=None, can_use=False):
+def _run_detect_issues(
+    monkeypatch,
+    body,
+    *,
+    can_create=True,
+    can_search=True,
+    schedule_json=None,
+    can_use=False,
+    searches=None,
+):
     secret_checks = []
     monkeypatch.setattr(a, "_authorize_create_in_experiment", lambda eid, created: can_create)
+
+    def authorize_trace_search(experiment_ids, *filter_strings):
+        if searches is not None:
+            searches.append((experiment_ids, filter_strings))
+        return can_search
+
+    monkeypatch.setattr(a, "_authorize_trace_search", authorize_trace_search)
 
     def get_experiment(experiment_id):
         if experiment_id == "missing":
@@ -86,6 +102,16 @@ def test_detect_issues_requires_creating_a_run_in_the_experiment(monkeypatch):
     assert _run_detect_issues(monkeypatch, body, can_create=True) == (True, [])
     assert _run_detect_issues(monkeypatch, body, can_create=False) == (False, [])
     assert _run_detect_issues(monkeypatch, {}, can_create=True) == (False, [])
+
+
+def test_detect_issues_requires_searching_the_experiments_traces(monkeypatch):
+    # The job searches and reads the traces straight from the store, so the request is held to
+    # what a trace search with the same filter requires.
+    body = {"experiment_id": "e1", "model": "gateway:/e", "filter_string": "tags.env = 'prod'"}
+    searches = []
+    assert _run_detect_issues(monkeypatch, body, searches=searches) == (True, [])
+    assert searches == [(["e1"], ("tags.env = 'prod'",))]
+    assert _run_detect_issues(monkeypatch, body, can_search=False) == (False, [])
 
 
 def test_detect_issues_requires_use_on_the_schedule_secret(monkeypatch):
