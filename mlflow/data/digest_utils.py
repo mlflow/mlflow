@@ -73,6 +73,7 @@ def compute_numpy_digest(features, targets=None) -> str:
 
     def hash_dict_of_arrays(array_dict):
         for key in sorted(array_dict.keys()):
+            hashable_elements.append(str(key).encode())
             hash_array(array_dict[key])
 
     for item in [features, targets]:

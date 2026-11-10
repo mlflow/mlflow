@@ -2253,7 +2253,7 @@
         "max_output": 262144
       },
       "pricing": {
-        "input_per_million_tokens": 0.085,
+        "input_per_million_tokens": 0.075,
         "output_per_million_tokens": 0.4
       },
       "capabilities": {
@@ -2263,7 +2263,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-10"
     },
     "nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B": {
       "mode": "chat",
