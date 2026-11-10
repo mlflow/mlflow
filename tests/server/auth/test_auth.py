@@ -32,6 +32,7 @@ from mlflow.environment_variables import (
     MLFLOW_WORKSPACE_STORE_URI,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.genai.discovery.schedule import DetectionCadence, DetectionSchedule, ScheduleModel
 from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     UNAUTHENTICATED,
@@ -74,6 +75,7 @@ from mlflow.tracking.request_auth.assistant_delegation_request_auth_provider imp
     ASSISTANT_DELEGATION_HEADER,
 )
 from mlflow.utils import workspace_context
+from mlflow.utils.mlflow_tags import MLFLOW_ISSUE_DETECTION_SCHEDULE
 from mlflow.utils.os import is_windows
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -9297,9 +9299,6 @@ def test_detect_issues_requires_use_permission_on_the_schedule_secret(client):
     # schedule, decrypting the stored secret it names into the job environment. That requires
     # USE on the secret, as issues/invoke requires for a secret named in the request: EDIT on a
     # shared experiment whose owner saved their own key in its schedule is not enough.
-    from mlflow.genai.discovery.schedule import DetectionCadence, DetectionSchedule, ScheduleModel
-    from mlflow.utils.mlflow_tags import MLFLOW_ISSUE_DETECTION_SCHEDULE
-
     base = client.tracking_uri
     owner, owner_pw = create_user(base)
     collaborator, collaborator_pw = create_user(base)

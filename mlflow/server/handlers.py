@@ -112,7 +112,8 @@ from mlflow.gateway.budget import maybe_refresh_budget_policies
 from mlflow.gateway.budget_tracker import get_budget_tracker
 from mlflow.gateway.constants import GATEWAY_DISABLED_MESSAGE
 from mlflow.gateway.utils import is_valid_endpoint_name
-from mlflow.genai.discovery.schedule import scheduled_detection_available
+from mlflow.genai.discovery.schedule import read_detection_schedule, scheduled_detection_available
+from mlflow.genai.discovery.settings import read_detection_settings
 from mlflow.genai.label_schemas.label_schemas import LabelSchemaType, _input_from_proto
 from mlflow.genai.review_queues import ReviewItemType, ReviewQueueType, ReviewStatus
 from mlflow.genai.review_queues.validation import validate_item_ids_for_attach
@@ -123,6 +124,7 @@ from mlflow.genai.scorers.scorer_utils import (
     find_custom_scorer_without_source,
 )
 from mlflow.genai.skill_content.archive import MAX_ARCHIVE_ENTRIES, get_max_decompressed_size
+from mlflow.metrics.genai.model_utils import _parse_model_uri as _parse_llm_model_uri
 from mlflow.models import Model
 from mlflow.prompt.constants import (
     _PROMPT_SOURCE_PLACEHOLDERS,
@@ -437,7 +439,10 @@ from mlflow.utils.providers import (
     get_all_providers,
     get_models,
     get_provider_config_response,
+    has_env_credentials,
+    provider_credential_env_vars,
 )
+from mlflow.utils.search_utils import SearchTraceUtils
 from mlflow.utils.server_info import (
     SERVER_INFO_ARTIFACT_SERVING_ENABLED,
     SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY,
@@ -5881,8 +5886,6 @@ def _require_server_provider_credentials(provider: str) -> None:
     environment is the only credential source; checking it up front fails the request instead
     of submitting a job doomed to fail.
     """
-    from mlflow.utils.providers import has_env_credentials, provider_credential_env_vars
-
     provider_name = provider.lower()
     env_vars = provider_credential_env_vars(provider_name)
     if not env_vars:
@@ -5910,11 +5913,9 @@ def _resolve_issue_detection_model(
     detection the way the experiment is configured. The auth plugin requires USE on that secret.
     """
     from mlflow.genai.discovery.job import _fetch_provider_credentials
-    from mlflow.genai.discovery.schedule import read_detection_schedule
-    from mlflow.metrics.genai.model_utils import _parse_model_uri
 
     if model:
-        provider, _ = _parse_model_uri(model)
+        provider, _ = _parse_llm_model_uri(model)
         if provider != "gateway":
             _require_server_provider_credentials(provider)
         return model, None
@@ -5945,10 +5946,8 @@ def _detect_issues():
     analyzes them with the categories and instructions saved on the experiment.
     """
     from mlflow.genai.discovery.job import detect_issues_job
-    from mlflow.genai.discovery.settings import read_detection_settings
     from mlflow.genai.discovery.utils import in_flight_detection_run
     from mlflow.server.jobs import submit_job
-    from mlflow.utils.search_utils import SearchTraceUtils
 
     request_message = _get_request_message(
         DetectIssues(),

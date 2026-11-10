@@ -6,7 +6,11 @@ from types import SimpleNamespace
 import flask
 
 import mlflow.server.auth as a
+from mlflow.exceptions import MlflowException
+from mlflow.genai.discovery.schedule import DetectionCadence, DetectionSchedule, ScheduleModel
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.issues_pb2 import Issue as ProtoIssue
+from mlflow.utils.mlflow_tags import MLFLOW_ISSUE_DETECTION_SCHEDULE
 
 
 def _run(monkeypatch, validator, body, *, can_update=False, can_read=False):
@@ -50,10 +54,6 @@ def test_issue_run_provenance_is_redacted(monkeypatch):
 
 
 def _run_detect_issues(monkeypatch, body, *, can_create=True, schedule_json=None, can_use=False):
-    from mlflow.exceptions import MlflowException
-    from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
-    from mlflow.utils.mlflow_tags import MLFLOW_ISSUE_DETECTION_SCHEDULE
-
     secret_checks = []
     monkeypatch.setattr(a, "_authorize_create_in_experiment", lambda eid, created: can_create)
 
@@ -78,8 +78,6 @@ def _run_detect_issues(monkeypatch, body, *, can_create=True, schedule_json=None
 
 
 def _schedule_json(model):
-    from mlflow.genai.discovery.schedule import DetectionCadence, DetectionSchedule
-
     return DetectionSchedule(cadence=DetectionCadence.DAILY, model=model).to_json()
 
 
@@ -93,8 +91,6 @@ def test_detect_issues_requires_creating_a_run_in_the_experiment(monkeypatch):
 def test_detect_issues_requires_use_on_the_schedule_secret(monkeypatch):
     # Without `model` the run uses the schedule's saved model, and a direct provider selection
     # runs on the stored secret it names, which requires USE on that secret.
-    from mlflow.genai.discovery.schedule import ScheduleModel
-
     schedule = _schedule_json(ScheduleModel(provider="openai", model="gpt-5", secret_id="s-1"))
     body = {"experiment_id": "e1"}
     assert _run_detect_issues(monkeypatch, body, schedule_json=schedule, can_use=False) == (
@@ -108,8 +104,6 @@ def test_detect_issues_requires_use_on_the_schedule_secret(monkeypatch):
 
 
 def test_detect_issues_skips_the_secret_check_when_none_is_used(monkeypatch):
-    from mlflow.genai.discovery.schedule import ScheduleModel
-
     endpoint_schedule = _schedule_json(ScheduleModel(endpoint_name="saved-endpoint"))
     secret_schedule = _schedule_json(
         ScheduleModel(provider="openai", model="gpt-5", secret_id="s-1")

@@ -67,6 +67,7 @@ from mlflow.environment_variables import (
     MLFLOW_RBAC_SEED_DEFAULT_ROLES,
     MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH,
 )
+from mlflow.genai.discovery.schedule import read_detection_schedule
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -5887,8 +5888,6 @@ def validate_can_detect_issues():
     schedule, and when that names a stored gateway secret the caller also needs USE on it, as
     ``validate_can_invoke_issue_detection`` requires for a secret named in the request.
     """
-    from mlflow.genai.discovery.schedule import read_detection_schedule
-
     message = _get_request_message(DetectIssues())
     if not message.experiment_id:
         return False
