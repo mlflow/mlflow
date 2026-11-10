@@ -202,12 +202,17 @@ message DetectIssues {
   optional string experiment_id = 1 [(validate_required) = true];
 
   // Restricts the run to traces matching this filter, in the search_traces filter syntax. When
-  // unset, the run analyzes the experiment's most recent traces.
+  // neither this nor trace_ids is set, the run analyzes the experiment's most recent traces.
+  // Cannot be combined with trace_ids.
   optional string filter_string = 2;
 
   // The model the run analyzes traces with, as "<provider>:/<model>" or "gateway:/<endpoint>".
   // When unset, the run uses the model saved in the experiment's issue detection schedule.
   optional string model = 3;
+
+  // The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
+  // filter_string.
+  repeated string trace_ids = 4;
 
   message Response {
     // The run, which has not started analyzing yet.

@@ -5941,11 +5941,11 @@ def _detect_issues():
     """
     A request handler for `POST /mlflow/issues/detect` to start an issue detection run.
 
-    The public counterpart of the Issues tab's ``issues/invoke``: rather than a list of traces the
-    caller picked, it takes a trace filter and lets the run sample the matching traces, and it
-    analyzes them with the categories and instructions saved on the experiment.
+    The public counterpart of the Issues tab's ``issues/invoke``. It takes either the traces the
+    caller picked or a trace filter whose matching traces the run samples, and it analyzes them
+    with the categories and instructions saved on the experiment.
     """
-    from mlflow.genai.discovery.job import detect_issues_job
+    from mlflow.genai.discovery.job import invoke_issue_detection_job
     from mlflow.genai.discovery.utils import in_flight_detection_run
     from mlflow.server.jobs import submit_job
 
@@ -5955,10 +5955,17 @@ def _detect_issues():
             "experiment_id": [_assert_required, _assert_string],
             "filter_string": [_assert_string],
             "model": [_assert_string],
+            "trace_ids": [_assert_array, _assert_item_type_string],
         },
     )
     experiment_id = request_message.experiment_id
     filter_string = request_message.filter_string or None
+    # Deduplicated while preserving order so a repeated trace is not fetched or analyzed twice.
+    trace_ids = list(dict.fromkeys(request_message.trace_ids))
+    if filter_string and trace_ids:
+        raise MlflowException.invalid_parameter_value(
+            "Set at most one of `filter_string` and `trace_ids`."
+        )
     if filter_string:
         # Parsed here so a malformed filter fails the request rather than the run.
         SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
@@ -5974,6 +5981,8 @@ def _detect_issues():
 
     store = _get_tracking_store()
     experiment = store.get_experiment(experiment_id)
+    if trace_ids:
+        _validate_trace_ids_in_experiment(store, trace_ids, experiment_id)
     model, credentials = _resolve_issue_detection_model(
         store, experiment, request_message.model or None
     )
@@ -5993,20 +6002,25 @@ def _detect_issues():
     }
     if model.startswith("gateway:/"):
         tags["endpoint_name"] = model.removeprefix("gateway:/")
+    if trace_ids:
+        # A sampled run records its count once the job has sampled.
+        tags["total_traces"] = str(len(trace_ids))
     client = MlflowClient()
     run = client.create_run(experiment_id=experiment_id, tags=tags)
     run_id = run.info.run_id
     try:
         job = submit_job(
-            function=detect_issues_job,
+            function=invoke_issue_detection_job,
             params={
                 "experiment_id": experiment_id,
-                "run_id": run_id,
+                # None, rather than empty, has the job sample the traces matching the filter.
+                "trace_ids": trace_ids or None,
                 "categories": list(settings.categories),
+                "run_id": run_id,
                 "model": model,
-                "filter_string": filter_string,
                 "instructions": settings.instructions,
                 "username": _get_request_username(),
+                "filter_string": filter_string,
             },
             extra_envs=credentials,
         )

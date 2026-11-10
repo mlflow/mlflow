@@ -5885,7 +5885,8 @@ def validate_can_detect_issues():
     """
     Detection creates a run in the request's experiment, so this requires what creating a run
     does. Its job then searches and reads the experiment's traces with ``filter_string`` straight
-    from the store, so it also requires what searching them with that filter does. Without an
+    from the store, so it also requires what searching them with that filter does. That covers
+    ``trace_ids`` too, since the handler rejects a trace outside the experiment. Without an
     explicit ``model``, the run uses the model saved in the experiment's detection schedule, and
     when that names a stored gateway secret the caller also needs USE on it, as
     ``validate_can_invoke_issue_detection`` requires for a secret named in the request.

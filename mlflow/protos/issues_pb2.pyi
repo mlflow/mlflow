@@ -552,26 +552,35 @@ class DetectIssues(_message.Message):
     EXPERIMENT_ID_FIELD_NUMBER: _builtins.int
     FILTER_STRING_FIELD_NUMBER: _builtins.int
     MODEL_FIELD_NUMBER: _builtins.int
+    TRACE_IDS_FIELD_NUMBER: _builtins.int
     experiment_id: _builtins.str
     """Experiment ID."""
     filter_string: _builtins.str
     """Restricts the run to traces matching this filter, in the search_traces filter syntax. When
-    unset, the run analyzes the experiment's most recent traces.
+    neither this nor trace_ids is set, the run analyzes the experiment's most recent traces.
+    Cannot be combined with trace_ids.
     """
     model: _builtins.str
     """The model the run analyzes traces with, as "<provider>:/<model>" or "gateway:/<endpoint>".
     When unset, the run uses the model saved in the experiment's issue detection schedule.
     """
+    @_builtins.property
+    def trace_ids(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
+        """The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
+        filter_string.
+        """
+
     def __init__(
         self,
         *,
         experiment_id: _builtins.str | None = ...,
         filter_string: _builtins.str | None = ...,
         model: _builtins.str | None = ...,
+        trace_ids: _abc.Iterable[_builtins.str] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["experiment_id", b"experiment_id", "filter_string", b"filter_string", "model", b"model"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["experiment_id", b"experiment_id", "filter_string", b"filter_string", "model", b"model"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["experiment_id", b"experiment_id", "filter_string", b"filter_string", "model", b"model", "trace_ids", b"trace_ids"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

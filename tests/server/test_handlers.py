@@ -70,6 +70,7 @@ from mlflow.exceptions import (
     MlflowTracingException,
 )
 from mlflow.gateway.budget_tracker.in_memory import InMemoryBudgetTracker
+from mlflow.genai.discovery.job import invoke_issue_detection_job
 from mlflow.genai.discovery.schedule import DetectionCadence, DetectionSchedule, ScheduleModel
 from mlflow.genai.review_queues import ReviewQueueType
 from mlflow.genai.review_queues.review_queues import (
@@ -11327,7 +11328,7 @@ def _make_detect_issues_job(job_id: str = "job-detect-1") -> JobEntity:
     return JobEntity(
         job_id=job_id,
         creation_time=1234567890000,
-        job_name="detect_issues",
+        job_name="invoke_issue_detection",
         params='{"experiment_id": "exp-123"}',
         timeout=None,
         status=JobStatus.PENDING,
@@ -11404,14 +11405,17 @@ def test_detect_issues_handler_starts_a_run(monkeypatch, mock_tracking_store, de
         },
     )
     submit_kwargs = mock_submit_job.call_args.kwargs
+    assert submit_kwargs["function"] is invoke_issue_detection_job
     assert submit_kwargs["params"] == {
         "experiment_id": "exp-123",
-        "run_id": "run-detect-1",
+        # None has the job sample the traces matching the filter.
+        "trace_ids": None,
         "categories": ["correctness", "safety"],
+        "run_id": "run-detect-1",
         "model": "openai:/gpt-5-mini",
-        "filter_string": "trace.status = 'ERROR'",
         "instructions": "Focus on refunds.",
         "username": None,
+        "filter_string": "trace.status = 'ERROR'",
     }
     # The server's own key is read from its environment by the job; nothing is passed along.
     assert submit_kwargs["extra_envs"] is None
@@ -11500,9 +11504,93 @@ def test_detect_issues_handler_uses_the_schedule_gateway_endpoint(
     assert mock_submit_job.call_args.kwargs["extra_envs"] is None
 
 
+def _trace_info_in(trace_id: str, experiment_id: str) -> TraceInfo:
+    return TraceInfo(
+        trace_id=trace_id,
+        trace_location=EntityTraceLocation.from_experiment_id(experiment_id),
+        request_time=1234567890,
+        state=TraceState.OK,
+    )
+
+
+def test_detect_issues_handler_analyzes_the_given_traces(
+    monkeypatch, mock_tracking_store, detect_issues_client
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    mock_tracking_store.get_experiment.return_value = _detection_experiment()
+    mock_tracking_store.batch_get_trace_infos.return_value = [
+        _trace_info_in("trace-1", "exp-123"),
+        _trace_info_in("trace-2", "exp-123"),
+    ]
+
+    with (
+        mock.patch(
+            "mlflow.server.jobs.submit_job", return_value=_make_detect_issues_job()
+        ) as mock_submit_job,
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/api/3.0/mlflow/issues/detect",
+            json={
+                "experiment_id": "exp-123",
+                "model": "gateway:/e",
+                "trace_ids": ["trace-1", "trace-2", "trace-1"],
+            },
+        )
+
+    assert resp.status_code == 200
+    mock_tracking_store.batch_get_trace_infos.assert_called_once_with(["trace-1", "trace-2"])
+    assert detect_issues_client.create_run.call_args.kwargs["tags"]["total_traces"] == "2"
+    params = mock_submit_job.call_args.kwargs["params"]
+    assert params["trace_ids"] == ["trace-1", "trace-2"]
+    assert params["filter_string"] is None
+
+
+def test_detect_issues_handler_rejects_traces_from_another_experiment(
+    monkeypatch, mock_tracking_store, detect_issues_client
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    mock_tracking_store.get_experiment.return_value = _detection_experiment()
+    mock_tracking_store.batch_get_trace_infos.return_value = [
+        _trace_info_in("trace-1", "exp-123"),
+        _trace_info_in("trace-2", "exp-999"),
+    ]
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/api/3.0/mlflow/issues/detect",
+            json={
+                "experiment_id": "exp-123",
+                "model": "gateway:/e",
+                "trace_ids": ["trace-1", "trace-2"],
+            },
+        )
+
+    assert resp.status_code == 403
+    assert resp.get_json()["error_code"] == "PERMISSION_DENIED"
+    detect_issues_client.create_run.assert_not_called()
+    mock_submit_job.assert_not_called()
+
+
 @pytest.mark.parametrize(
     ("body", "env", "tags", "error_code", "message"),
     [
+        pytest.param(
+            {
+                "experiment_id": "exp-123",
+                "model": "gateway:/e",
+                "filter_string": "trace.status = 'ERROR'",
+                "trace_ids": ["trace-1"],
+            },
+            {},
+            {},
+            "INVALID_PARAMETER_VALUE",
+            "Set at most one of `filter_string` and `trace_ids`",
+            id="filter_and_trace_ids",
+        ),
         pytest.param(
             {"experiment_id": "exp-123"},
             {},

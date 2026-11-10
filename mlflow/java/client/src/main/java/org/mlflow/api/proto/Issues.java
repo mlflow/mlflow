@@ -18500,7 +18500,8 @@ public final class Issues {
     /**
      * <pre>
      * Restricts the run to traces matching this filter, in the search_traces filter syntax. When
-     * unset, the run analyzes the experiment's most recent traces.
+     * neither this nor trace_ids is set, the run analyzes the experiment's most recent traces.
+     * Cannot be combined with trace_ids.
      * </pre>
      *
      * <code>optional string filter_string = 2;</code>
@@ -18510,7 +18511,8 @@ public final class Issues {
     /**
      * <pre>
      * Restricts the run to traces matching this filter, in the search_traces filter syntax. When
-     * unset, the run analyzes the experiment's most recent traces.
+     * neither this nor trace_ids is set, the run analyzes the experiment's most recent traces.
+     * Cannot be combined with trace_ids.
      * </pre>
      *
      * <code>optional string filter_string = 2;</code>
@@ -18520,7 +18522,8 @@ public final class Issues {
     /**
      * <pre>
      * Restricts the run to traces matching this filter, in the search_traces filter syntax. When
-     * unset, the run analyzes the experiment's most recent traces.
+     * neither this nor trace_ids is set, the run analyzes the experiment's most recent traces.
+     * Cannot be combined with trace_ids.
      * </pre>
      *
      * <code>optional string filter_string = 2;</code>
@@ -18560,6 +18563,51 @@ public final class Issues {
      */
     com.google.protobuf.ByteString
         getModelBytes();
+
+    /**
+     * <pre>
+     * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
+     * filter_string.
+     * </pre>
+     *
+     * <code>repeated string trace_ids = 4;</code>
+     * @return A list containing the traceIds.
+     */
+    java.util.List<java.lang.String>
+        getTraceIdsList();
+    /**
+     * <pre>
+     * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
+     * filter_string.
+     * </pre>
+     *
+     * <code>repeated string trace_ids = 4;</code>
+     * @return The count of traceIds.
+     */
+    int getTraceIdsCount();
+    /**
+     * <pre>
+     * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
+     * filter_string.
+     * </pre>
+     *
+     * <code>repeated string trace_ids = 4;</code>
+     * @param index The index of the element to return.
+     * @return The traceIds at the given index.
+     */
+    java.lang.String getTraceIds(int index);
+    /**
+     * <pre>
+     * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
+     * filter_string.
+     * </pre>
+     *
+     * <code>repeated string trace_ids = 4;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the traceIds at the given index.
+     */
+    com.google.protobuf.ByteString
+        getTraceIdsBytes(int index);
   }
   /**
    * <pre>
@@ -18581,6 +18629,7 @@ public final class Issues {
       experimentId_ = "";
       filterString_ = "";
       model_ = "";
+      traceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
     }
 
     @java.lang.Override
@@ -18632,6 +18681,15 @@ public final class Issues {
               model_ = bs;
               break;
             }
+            case 34: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              if (!((mutable_bitField0_ & 0x00000008) != 0)) {
+                traceIds_ = new com.google.protobuf.LazyStringArrayList();
+                mutable_bitField0_ |= 0x00000008;
+              }
+              traceIds_.add(bs);
+              break;
+            }
             default: {
               if (!parseUnknownField(
                   input, unknownFields, extensionRegistry, tag)) {
@@ -18647,6 +18705,9 @@ public final class Issues {
         throw new com.google.protobuf.InvalidProtocolBufferException(
             e).setUnfinishedMessage(this);
       } finally {
+        if (((mutable_bitField0_ & 0x00000008) != 0)) {
+          traceIds_ = traceIds_.getUnmodifiableView();
+        }
         this.unknownFields = unknownFields.build();
         makeExtensionsImmutable();
       }
@@ -19422,7 +19483,8 @@ public final class Issues {
     /**
      * <pre>
      * Restricts the run to traces matching this filter, in the search_traces filter syntax. When
-     * unset, the run analyzes the experiment's most recent traces.
+     * neither this nor trace_ids is set, the run analyzes the experiment's most recent traces.
+     * Cannot be combined with trace_ids.
      * </pre>
      *
      * <code>optional string filter_string = 2;</code>
@@ -19435,7 +19497,8 @@ public final class Issues {
     /**
      * <pre>
      * Restricts the run to traces matching this filter, in the search_traces filter syntax. When
-     * unset, the run analyzes the experiment's most recent traces.
+     * neither this nor trace_ids is set, the run analyzes the experiment's most recent traces.
+     * Cannot be combined with trace_ids.
      * </pre>
      *
      * <code>optional string filter_string = 2;</code>
@@ -19459,7 +19522,8 @@ public final class Issues {
     /**
      * <pre>
      * Restricts the run to traces matching this filter, in the search_traces filter syntax. When
-     * unset, the run analyzes the experiment's most recent traces.
+     * neither this nor trace_ids is set, the run analyzes the experiment's most recent traces.
+     * Cannot be combined with trace_ids.
      * </pre>
      *
      * <code>optional string filter_string = 2;</code>
@@ -19543,6 +19607,61 @@ public final class Issues {
       }
     }
 
+    public static final int TRACE_IDS_FIELD_NUMBER = 4;
+    private com.google.protobuf.LazyStringList traceIds_;
+    /**
+     * <pre>
+     * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
+     * filter_string.
+     * </pre>
+     *
+     * <code>repeated string trace_ids = 4;</code>
+     * @return A list containing the traceIds.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getTraceIdsList() {
+      return traceIds_;
+    }
+    /**
+     * <pre>
+     * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
+     * filter_string.
+     * </pre>
+     *
+     * <code>repeated string trace_ids = 4;</code>
+     * @return The count of traceIds.
+     */
+    public int getTraceIdsCount() {
+      return traceIds_.size();
+    }
+    /**
+     * <pre>
+     * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
+     * filter_string.
+     * </pre>
+     *
+     * <code>repeated string trace_ids = 4;</code>
+     * @param index The index of the element to return.
+     * @return The traceIds at the given index.
+     */
+    public java.lang.String getTraceIds(int index) {
+      return traceIds_.get(index);
+    }
+    /**
+     * <pre>
+     * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
+     * filter_string.
+     * </pre>
+     *
+     * <code>repeated string trace_ids = 4;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the traceIds at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getTraceIdsBytes(int index) {
+      return traceIds_.getByteString(index);
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -19566,6 +19685,9 @@ public final class Issues {
       if (((bitField0_ & 0x00000004) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 3, model_);
       }
+      for (int i = 0; i < traceIds_.size(); i++) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, traceIds_.getRaw(i));
+      }
       unknownFields.writeTo(output);
     }
 
@@ -19583,6 +19705,14 @@ public final class Issues {
       }
       if (((bitField0_ & 0x00000004) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, model_);
+      }
+      {
+        int dataSize = 0;
+        for (int i = 0; i < traceIds_.size(); i++) {
+          dataSize += computeStringSizeNoTag(traceIds_.getRaw(i));
+        }
+        size += dataSize;
+        size += 1 * getTraceIdsList().size();
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -19614,6 +19744,8 @@ public final class Issues {
         if (!getModel()
             .equals(other.getModel())) return false;
       }
+      if (!getTraceIdsList()
+          .equals(other.getTraceIdsList())) return false;
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -19636,6 +19768,10 @@ public final class Issues {
       if (hasModel()) {
         hash = (37 * hash) + MODEL_FIELD_NUMBER;
         hash = (53 * hash) + getModel().hashCode();
+      }
+      if (getTraceIdsCount() > 0) {
+        hash = (37 * hash) + TRACE_IDS_FIELD_NUMBER;
+        hash = (53 * hash) + getTraceIdsList().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -19780,6 +19916,8 @@ public final class Issues {
         bitField0_ = (bitField0_ & ~0x00000002);
         model_ = "";
         bitField0_ = (bitField0_ & ~0x00000004);
+        traceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000008);
         return this;
       }
 
@@ -19820,6 +19958,11 @@ public final class Issues {
           to_bitField0_ |= 0x00000004;
         }
         result.model_ = model_;
+        if (((bitField0_ & 0x00000008) != 0)) {
+          traceIds_ = traceIds_.getUnmodifiableView();
+          bitField0_ = (bitField0_ & ~0x00000008);
+        }
+        result.traceIds_ = traceIds_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -19882,6 +20025,16 @@ public final class Issues {
         if (other.hasModel()) {
           bitField0_ |= 0x00000004;
           model_ = other.model_;
+          onChanged();
+        }
+        if (!other.traceIds_.isEmpty()) {
+          if (traceIds_.isEmpty()) {
+            traceIds_ = other.traceIds_;
+            bitField0_ = (bitField0_ & ~0x00000008);
+          } else {
+            ensureTraceIdsIsMutable();
+            traceIds_.addAll(other.traceIds_);
+          }
           onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
@@ -20026,7 +20179,8 @@ public final class Issues {
       /**
        * <pre>
        * Restricts the run to traces matching this filter, in the search_traces filter syntax. When
-       * unset, the run analyzes the experiment's most recent traces.
+       * neither this nor trace_ids is set, the run analyzes the experiment's most recent traces.
+       * Cannot be combined with trace_ids.
        * </pre>
        *
        * <code>optional string filter_string = 2;</code>
@@ -20038,7 +20192,8 @@ public final class Issues {
       /**
        * <pre>
        * Restricts the run to traces matching this filter, in the search_traces filter syntax. When
-       * unset, the run analyzes the experiment's most recent traces.
+       * neither this nor trace_ids is set, the run analyzes the experiment's most recent traces.
+       * Cannot be combined with trace_ids.
        * </pre>
        *
        * <code>optional string filter_string = 2;</code>
@@ -20061,7 +20216,8 @@ public final class Issues {
       /**
        * <pre>
        * Restricts the run to traces matching this filter, in the search_traces filter syntax. When
-       * unset, the run analyzes the experiment's most recent traces.
+       * neither this nor trace_ids is set, the run analyzes the experiment's most recent traces.
+       * Cannot be combined with trace_ids.
        * </pre>
        *
        * <code>optional string filter_string = 2;</code>
@@ -20083,7 +20239,8 @@ public final class Issues {
       /**
        * <pre>
        * Restricts the run to traces matching this filter, in the search_traces filter syntax. When
-       * unset, the run analyzes the experiment's most recent traces.
+       * neither this nor trace_ids is set, the run analyzes the experiment's most recent traces.
+       * Cannot be combined with trace_ids.
        * </pre>
        *
        * <code>optional string filter_string = 2;</code>
@@ -20103,7 +20260,8 @@ public final class Issues {
       /**
        * <pre>
        * Restricts the run to traces matching this filter, in the search_traces filter syntax. When
-       * unset, the run analyzes the experiment's most recent traces.
+       * neither this nor trace_ids is set, the run analyzes the experiment's most recent traces.
+       * Cannot be combined with trace_ids.
        * </pre>
        *
        * <code>optional string filter_string = 2;</code>
@@ -20118,7 +20276,8 @@ public final class Issues {
       /**
        * <pre>
        * Restricts the run to traces matching this filter, in the search_traces filter syntax. When
-       * unset, the run analyzes the experiment's most recent traces.
+       * neither this nor trace_ids is set, the run analyzes the experiment's most recent traces.
+       * Cannot be combined with trace_ids.
        * </pre>
        *
        * <code>optional string filter_string = 2;</code>
@@ -20246,6 +20405,160 @@ public final class Issues {
   }
   bitField0_ |= 0x00000004;
         model_ = value;
+        onChanged();
+        return this;
+      }
+
+      private com.google.protobuf.LazyStringList traceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      private void ensureTraceIdsIsMutable() {
+        if (!((bitField0_ & 0x00000008) != 0)) {
+          traceIds_ = new com.google.protobuf.LazyStringArrayList(traceIds_);
+          bitField0_ |= 0x00000008;
+         }
+      }
+      /**
+       * <pre>
+       * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
+       * filter_string.
+       * </pre>
+       *
+       * <code>repeated string trace_ids = 4;</code>
+       * @return A list containing the traceIds.
+       */
+      public com.google.protobuf.ProtocolStringList
+          getTraceIdsList() {
+        return traceIds_.getUnmodifiableView();
+      }
+      /**
+       * <pre>
+       * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
+       * filter_string.
+       * </pre>
+       *
+       * <code>repeated string trace_ids = 4;</code>
+       * @return The count of traceIds.
+       */
+      public int getTraceIdsCount() {
+        return traceIds_.size();
+      }
+      /**
+       * <pre>
+       * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
+       * filter_string.
+       * </pre>
+       *
+       * <code>repeated string trace_ids = 4;</code>
+       * @param index The index of the element to return.
+       * @return The traceIds at the given index.
+       */
+      public java.lang.String getTraceIds(int index) {
+        return traceIds_.get(index);
+      }
+      /**
+       * <pre>
+       * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
+       * filter_string.
+       * </pre>
+       *
+       * <code>repeated string trace_ids = 4;</code>
+       * @param index The index of the value to return.
+       * @return The bytes of the traceIds at the given index.
+       */
+      public com.google.protobuf.ByteString
+          getTraceIdsBytes(int index) {
+        return traceIds_.getByteString(index);
+      }
+      /**
+       * <pre>
+       * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
+       * filter_string.
+       * </pre>
+       *
+       * <code>repeated string trace_ids = 4;</code>
+       * @param index The index to set the value at.
+       * @param value The traceIds to set.
+       * @return This builder for chaining.
+       */
+      public Builder setTraceIds(
+          int index, java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureTraceIdsIsMutable();
+        traceIds_.set(index, value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
+       * filter_string.
+       * </pre>
+       *
+       * <code>repeated string trace_ids = 4;</code>
+       * @param value The traceIds to add.
+       * @return This builder for chaining.
+       */
+      public Builder addTraceIds(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureTraceIdsIsMutable();
+        traceIds_.add(value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
+       * filter_string.
+       * </pre>
+       *
+       * <code>repeated string trace_ids = 4;</code>
+       * @param values The traceIds to add.
+       * @return This builder for chaining.
+       */
+      public Builder addAllTraceIds(
+          java.lang.Iterable<java.lang.String> values) {
+        ensureTraceIdsIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, traceIds_);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
+       * filter_string.
+       * </pre>
+       *
+       * <code>repeated string trace_ids = 4;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearTraceIds() {
+        traceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000008);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
+       * filter_string.
+       * </pre>
+       *
+       * <code>repeated string trace_ids = 4;</code>
+       * @param value The bytes of the traceIds to add.
+       * @return This builder for chaining.
+       */
+      public Builder addTraceIdsBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureTraceIdsIsMutable();
+        traceIds_.add(value);
         onChanged();
         return this;
       }
@@ -20432,12 +20745,12 @@ public final class Issues {
       "unt\030\003 \001(\003\"\207\001\n\021IssueDetectionRun\022\016\n\006run_i" +
       "d\030\001 \001(\t\022\025\n\rexperiment_id\030\002 \001(\t\022\016\n\006status" +
       "\030\003 \001(\t\022\022\n\nstart_time\030\004 \001(\003\022\020\n\010end_time\030\005" +
-      " \001(\003\022\025\n\rerror_message\030\006 \001(\t\"\234\001\n\014DetectIs" +
+      " \001(\003\022\025\n\rerror_message\030\006 \001(\t\"\257\001\n\014DetectIs" +
       "sues\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\025\n\rfil" +
-      "ter_string\030\002 \001(\t\022\r\n\005model\030\003 \001(\t\032I\n\010Respo" +
-      "nse\022=\n\023issue_detection_run\030\001 \001(\0132 .mlflo" +
-      "w.issues.IssueDetectionRunB\031\n\024org.mlflow" +
-      ".api.proto\220\001\001"
+      "ter_string\030\002 \001(\t\022\r\n\005model\030\003 \001(\t\022\021\n\ttrace" +
+      "_ids\030\004 \003(\t\032I\n\010Response\022=\n\023issue_detectio" +
+      "n_run\030\001 \001(\0132 .mlflow.issues.IssueDetecti" +
+      "onRunB\031\n\024org.mlflow.api.proto\220\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -20527,7 +20840,7 @@ public final class Issues {
     internal_static_mlflow_issues_DetectIssues_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_issues_DetectIssues_descriptor,
-        new java.lang.String[] { "ExperimentId", "FilterString", "Model", });
+        new java.lang.String[] { "ExperimentId", "FilterString", "Model", "TraceIds", });
     internal_static_mlflow_issues_DetectIssues_Response_descriptor =
       internal_static_mlflow_issues_DetectIssues_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_issues_DetectIssues_Response_fieldAccessorTable = new

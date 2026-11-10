@@ -8,7 +8,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.discovery.checkpoint import MAX_SCHEDULED_SESSION_SAMPLE_SIZE
 from mlflow.genai.discovery.job import (
     _fetch_provider_credentials,
-    detect_issues_job,
     invoke_issue_detection_job,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_ISSUE_DETECTION_ERROR
@@ -368,11 +367,7 @@ def _trace(trace_id):
     return trace
 
 
-def test_detect_issues_job_has_metadata():
-    assert detect_issues_job._job_fn_metadata.name == "detect_issues"
-
-
-def test_detect_issues_job_samples_the_filtered_traces_and_analyzes_them():
+def test_invoke_issue_detection_job_without_trace_ids_samples_the_filtered_traces():
     mock_client = mock.MagicMock()
     traces = [_trace("trace-1"), _trace("trace-2")]
     mock_client._tracing_client.batch_get_traces.return_value = traces
@@ -392,8 +387,9 @@ def test_detect_issues_job_samples_the_filtered_traces_and_analyzes_them():
             "mlflow.genai.discovery.job.discover_issues", return_value=mock_result
         ) as mock_discover_issues,
     ):
-        result = detect_issues_job(
+        result = invoke_issue_detection_job(
             experiment_id="exp-123",
+            trace_ids=None,
             run_id="run-123",
             categories=["correctness"],
             model="openai:/gpt-5-mini",
@@ -416,7 +412,7 @@ def test_detect_issues_job_samples_the_filtered_traces_and_analyzes_them():
     assert result["issues"] == 1
 
 
-def test_detect_issues_job_finishes_without_analyzing_when_nothing_matches():
+def test_invoke_issue_detection_job_finishes_without_analyzing_when_nothing_matches():
     mock_client = mock.MagicMock()
 
     with (
@@ -424,8 +420,9 @@ def test_detect_issues_job_finishes_without_analyzing_when_nothing_matches():
         mock.patch("mlflow.genai.discovery.job.sample_traces", return_value=[]),
         mock.patch("mlflow.genai.discovery.job.discover_issues") as mock_discover_issues,
     ):
-        result = detect_issues_job(
+        result = invoke_issue_detection_job(
             experiment_id="exp-123",
+            trace_ids=None,
             run_id="run-123",
             categories=["correctness"],
             model="gateway:/e",
@@ -442,7 +439,7 @@ def test_detect_issues_job_finishes_without_analyzing_when_nothing_matches():
     assert result == {"total_traces_analyzed": 0, "total_cost_usd": 0.0}
 
 
-def test_detect_issues_job_fails_the_run_when_sampling_fails():
+def test_invoke_issue_detection_job_fails_the_run_when_sampling_fails():
     mock_client = mock.MagicMock()
 
     with (
@@ -453,8 +450,9 @@ def test_detect_issues_job_fails_the_run_when_sampling_fails():
         ),
         pytest.raises(MlflowException, match="store unavailable"),
     ):
-        detect_issues_job(
+        invoke_issue_detection_job(
             experiment_id="exp-123",
+            trace_ids=None,
             run_id="run-123",
             categories=["correctness"],
             model="gateway:/e",
@@ -466,25 +464,3 @@ def test_detect_issues_job_fails_the_run_when_sampling_fails():
     mock_client.set_terminated.assert_called_once_with(
         "run-123", RunStatus.to_string(RunStatus.FAILED)
     )
-
-
-def test_detect_issues_job_propagates_username_for_gateway_auth(monkeypatch):
-    # setenv (not delenv) so monkeypatch restores both after the job overwrites os.environ
-    monkeypatch.setenv("MLFLOW_TRACKING_USERNAME", "")
-    monkeypatch.setenv("MLFLOW_TRACKING_PASSWORD", "")
-    monkeypatch.setenv("_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", "internal-token")
-
-    with (
-        mock.patch("mlflow.genai.discovery.job.MlflowClient"),
-        mock.patch("mlflow.genai.discovery.job.sample_traces", return_value=[]),
-    ):
-        detect_issues_job(
-            experiment_id="exp-123",
-            run_id="run-123",
-            categories=["correctness"],
-            model="gateway:/e",
-            username="alice",
-        )
-
-    assert os.environ["MLFLOW_TRACKING_USERNAME"] == "alice"
-    assert os.environ["MLFLOW_TRACKING_PASSWORD"] == "internal-token"
