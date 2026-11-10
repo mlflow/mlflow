@@ -836,7 +836,7 @@ def test_tool_calling_loop_echoes_gemini_thought_signature(mock_trace, monkeypat
                     name="get_trace_info",
                 )
             ],
-        ),
+        ) as mock_process,
     ):
         output = GatewayAdapter()._invoke_and_handle_tools(
             provider="gemini",
@@ -846,6 +846,7 @@ def test_tool_calling_loop_echoes_gemini_thought_signature(mock_trace, monkeypat
             num_retries=0,
         )
 
+    mock_process.assert_called_once_with(tool_calls=mock.ANY, trace=mock_trace)
     assert json.loads(output.response) == {"result": "yes", "rationale": "ok"}
     second_payload = mock_send.call_args_list[1].kwargs["payload"]
     model_turn = next(c for c in second_payload["contents"] if c["role"] == "model")
@@ -854,6 +855,82 @@ def test_tool_calling_loop_echoes_gemini_thought_signature(mock_trace, monkeypat
             "functionCall": {"id": "call_1", "name": "get_trace_info", "args": {}},
             "thoughtSignature": "sig_1",
         }
+    ]
+
+
+def test_tool_calling_loop_preserves_gemini_signatures_for_repeated_id_less_calls(
+    mock_trace, monkeypatch
+):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+
+    def tool_call_response(sig):
+        return {
+            "candidates": [
+                {
+                    "content": {
+                        "role": "model",
+                        "parts": [
+                            {
+                                "functionCall": {"name": "get_trace_info", "args": {}},
+                                "thoughtSignature": sig,
+                            }
+                        ],
+                    },
+                    "finishReason": "STOP",
+                }
+            ],
+            "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 5},
+        }
+
+    final_response = {
+        "candidates": [
+            {
+                "content": {
+                    "role": "model",
+                    "parts": [{"text": json.dumps({"result": "yes", "rationale": "ok"})}],
+                },
+                "finishReason": "STOP",
+            }
+        ],
+        "usageMetadata": {"promptTokenCount": 20, "candidatesTokenCount": 5},
+    }
+
+    def process_tool_calls(tool_calls, trace):
+        return [
+            ChatMessage(
+                role="tool",
+                content='{"trace_id": "test-trace"}',
+                tool_call_id=tc.id,
+                name=tc.function.name,
+            )
+            for tc in tool_calls
+        ]
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
+            side_effect=[tool_call_response("sig_1"), tool_call_response("sig_2"), final_response],
+        ) as mock_send,
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter._process_tool_calls",
+            side_effect=process_tool_calls,
+        ) as mock_process,
+    ):
+        output = GatewayAdapter()._invoke_and_handle_tools(
+            provider="gemini",
+            model_name="gemini-3-flash",
+            messages=[ChatMessage(role="user", content="evaluate this")],
+            trace=mock_trace,
+            num_retries=0,
+        )
+
+    assert mock_process.call_count == 2
+    assert json.loads(output.response) == {"result": "yes", "rationale": "ok"}
+    third_payload = mock_send.call_args_list[2].kwargs["payload"]
+    model_turns = [c for c in third_payload["contents"] if c["role"] == "model"]
+    assert [part["thoughtSignature"] for turn in model_turns for part in turn["parts"]] == [
+        "sig_1",
+        "sig_2",
     ]
 
 
