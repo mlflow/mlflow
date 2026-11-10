@@ -1,6 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import util from 'util';
 import {
   createAuthProvider,
   createKubernetesAuth,
@@ -26,6 +27,8 @@ const DATABRICKS_ENV_KEYS = [
   'DATABRICKS_HOST',
   'DATABRICKS_TOKEN',
 ] as const;
+
+const UNRELATED_ENV_KEY = 'MLFLOW_TEST_UNRELATED_SECRET';
 
 describe('createAuthProvider', () => {
   describe('OSS auth (createOssAuth)', () => {
@@ -160,6 +163,7 @@ describe('createAuthProvider', () => {
           process.env[key] = savedEnv[key];
         }
       }
+      delete process.env[UNRELATED_ENV_KEY];
       fs.rmSync(tmpDir, { recursive: true, force: true });
     });
 
@@ -209,6 +213,45 @@ if (args.length === 1 && args[0] === 'version') {
         .map((line) => JSON.parse(line) as string[]);
       expect(calls).toContainEqual(['auth', 'token', '--profile', profile]);
       expect(calls).not.toContainEqual(['auth', 'token', '--host', host]);
+    });
+
+    it.each([
+      [
+        'conflicting auth methods',
+        {
+          DATABRICKS_TOKEN: 'canary-pat',
+          DATABRICKS_CLIENT_ID: 'canary-client-id',
+          DATABRICKS_CLIENT_SECRET: 'canary-client-secret',
+        },
+      ],
+      [
+        'an unreachable host',
+        {
+          DATABRICKS_CLIENT_ID: 'canary-client-id',
+          DATABRICKS_CLIENT_SECRET: 'canary-client-secret',
+        },
+      ],
+    ])('does not expose credentials or env vars when auth fails with %s', async (_, env) => {
+      Object.assign(process.env, env, {
+        DATABRICKS_HOST: 'https://127.0.0.1:1',
+        [UNRELATED_ENV_KEY]: 'canary-unrelated-secret',
+      });
+
+      const provider = createAuthProvider({
+        trackingUri: 'databricks',
+        databricksConfigPath: path.join(tmpDir, 'databrickscfg'),
+      });
+      const error: unknown = await provider
+        .getHeadersProvider()()
+        .catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toContain('client_secret=***');
+      // `console.error(error)` prints what `util.inspect` returns, own properties included.
+      const printed = util.inspect(error, { depth: Infinity, showHidden: true });
+      expect(printed).not.toContain('canary-client-secret');
+      expect(printed).not.toContain('canary-pat');
+      expect(printed).not.toContain('canary-unrelated-secret');
     });
   });
 
