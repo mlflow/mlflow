@@ -1038,13 +1038,11 @@ _DIRECT_WITH_SECRET = {"provider": "openai", "model": "gpt-5", "secretId": "s-ab
     ("raw_value", "expected_secret_id"),
     [
         (_schedule_tag(_DIRECT_WITH_SECRET), "s-abc"),
-        # Pausing stops the occurrences, not the binding: the secret is still the one named.
         (_schedule_tag(_DIRECT_WITH_SECRET, paused=True), "s-abc"),
         (_schedule_tag({"provider": "openai", "model": "gpt-5"}), ""),
-        # An endpoint wins over a provider in the parser, so the dispatcher decrypts nothing.
         (_schedule_tag(_DIRECT_WITH_SECRET | {"endpointName": "prod-gateway"}), ""),
         (_schedule_tag(None), ""),
-        # Values the dispatcher never runs name no secret.
+        # Values the dispatcher never runs.
         (_schedule_tag(_DIRECT_WITH_SECRET, version=SCHEDULE_VERSION + 1), ""),
         (_schedule_tag(_DIRECT_WITH_SECRET, cadence="fortnightly"), ""),
         ("not json", ""),

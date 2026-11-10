@@ -822,8 +822,7 @@ def test_only_a_direct_selection_has_its_secret_decrypted(store):
     direct = ScheduleModel(provider="openai", model="gpt-5.6-sol", secret_id=secret.secret_id)
     assert _provider_credentials(store, direct) == {"OPENAI_API_KEY": "sk-chosen"}
 
-    # An endpoint carries its own credential, so a secret id riding along with one is not read.
-    # The stored tag cannot express this pairing; a model built in code can.
+    # An endpoint carries its own credential, so a secret id alongside it is ignored.
     endpoint = ScheduleModel(endpoint_name="prod-gateway", secret_id=secret.secret_id)
     with mock.patch.object(store, "_get_decrypted_secret") as decrypt:
         assert _provider_credentials(store, endpoint) == {}

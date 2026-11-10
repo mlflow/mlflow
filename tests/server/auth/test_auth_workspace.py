@@ -3367,10 +3367,10 @@ def test_cross_workspace_gateway_secret_access_denied(workspace_permission_setup
         ({"provider": "openai", "model": "gpt-4o", "secretId": "secret-1"}, None, False),
         ({"provider": "openai", "model": "gpt-4o", "secretId": "secret-1"}, READ.name, False),
         ({"provider": "openai", "model": "gpt-4o", "secretId": "secret-1"}, USE.name, True),
-        # Granted by id in this workspace, but the secret lives in another one.
+        # The grant is in this workspace; the secret is in another.
         ({"provider": "openai", "model": "gpt-4o", "secretId": "secret-other-ws"}, USE.name, False),
         ({"provider": "openai", "model": "gpt-4o", "secretId": "secret-gone"}, USE.name, False),
-        # Nothing for the dispatcher to decrypt, so experiment UPDATE decides alone.
+        # No secret to decrypt.
         ({"provider": "openai", "model": "gpt-4o"}, None, True),
         ({"endpointName": "endpoint-1", "secretId": "secret-1"}, None, True),
     ],
@@ -3387,9 +3387,6 @@ def test_cross_workspace_gateway_secret_access_denied(workspace_permission_setup
 def test_issue_detection_schedule_tag_requires_use_on_the_secret_it_names(
     workspace_permission_setup, monkeypatch, model, secret_grant, allowed
 ):
-    """A schedule tag binds a gateway secret the dispatcher later decrypts with no request to
-    authorize, so both routes that can store the tag ask for USE on that secret.
-    """
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
@@ -3414,7 +3411,7 @@ def test_issue_detection_schedule_tag_requires_use_on_the_secret_it_names(
         "/api/2.0/mlflow/experiments/create", method="POST", json={"name": "x", "tags": [tag]}
     ):
         assert auth_module.validate_can_create_experiment() is allowed
-    # The same value under any other key binds nothing.
+    # Other tag keys are not checked.
     with auth_module.app.test_request_context(
         "/api/2.0/mlflow/experiments/set-experiment-tag",
         method="POST",

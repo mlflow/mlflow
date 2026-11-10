@@ -108,33 +108,29 @@ def test_gateway_secret_selector_inert_routes_still_drop_the_field():
         )
 
 
-# Everything that turns a stored gateway secret into plaintext, from the crypto primitive up.
+# Functions that decrypt a stored gateway secret.
 _SECRET_DECRYPTION_FUNCTIONS = frozenset({
     "_decrypt_secret",
     "_get_decrypted_secret",
     "_fetch_provider_credentials",
 })
 
-# Every function in ``mlflow/`` that may reference one of them, with the validators that check
-# the caller's permission on the secret before that function can be reached with an id a client
-# chose. Empty for a layer that only passes a secret along: what calls it is listed here too, and
-# carries the checks.
+# Every function in ``mlflow/`` allowed to reference one, with the validators that check the
+# caller's permission on the secret. Empty for a pass-through layer, whose callers are listed too.
 _SECRET_DECRYPTION_CALL_SITES = {
     ("mlflow/store/tracking/sqlalchemy_store.py", "<module>"): (),
     ("mlflow/store/tracking/sqlalchemy_store.py", "_get_decrypted_secret"): (),
     ("mlflow/genai/discovery/job.py", "_fetch_provider_credentials"): (),
-    # A ``secret_id`` in the request body.
+    # ``secret_id`` from the request body.
     ("mlflow/server/handlers.py", "_invoke_issue_detection_handler"): (
         "validate_can_invoke_issue_detection",
     ),
-    # A ``secretId`` in the schedule tag, decrypted later with no request to authorize, so the
-    # check is on the routes that can store the tag.
+    # ``secretId`` from the schedule tag, checked on the routes that store the tag.
     ("mlflow/genai/discovery/scheduler.py", "_provider_credentials"): (
         "validate_can_set_experiment_tag",
         "validate_can_create_experiment",
     ),
-    # The gateway decrypts the secret a model definition binds, never one the caller names:
-    # binding it takes USE on the secret, and invoking takes USE on the endpoint.
+    # The gateway decrypts the secret a model definition binds, not one the caller names.
     ("mlflow/store/tracking/gateway/config_resolver.py", "<module>"): (),
     ("mlflow/store/tracking/gateway/config_resolver.py", "get_resource_endpoint_configs"): (
         "validate_can_create_gateway_model_definition",
@@ -173,7 +169,7 @@ class _SecretDecryptionReferences(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Constant(self, node):
-        # ``getattr(store, "_get_decrypted_secret")`` reaches it just as well.
+        # e.g. ``getattr(store, "_get_decrypted_secret")``
         if isinstance(node.value, str):
             self._record(node.value)
 
@@ -195,7 +191,7 @@ def _secret_decryption_references():
                 continue
             path = Path(directory, filename)
             source = path.read_text(encoding="utf-8")
-            # Parsing every module would cost seconds; only a handful mention these names at all.
+            # Only parse the few files that mention one of the names.
             if not any(name in source for name in _SECRET_DECRYPTION_FUNCTIONS):
                 continue
             references = _SecretDecryptionReferences()
@@ -207,13 +203,9 @@ def _secret_decryption_references():
 
 
 def test_secret_decryption_call_sites_are_all_accounted_for():
-    """A gateway secret is decrypted by id, with no user attached, so nothing at the point of
-    decryption can tell whether the id came from someone allowed to use that secret. Each path
-    that reaches it has to check that itself, and twice one did not: ``issues/invoke`` took a
-    ``secret_id`` from the request, and the issue-detection schedule took one from a tag.
-
-    So a new reference to a decryption function fails here until it is listed with the check that
-    covers it. This cannot prove the check is right; it makes sure the question gets asked.
+    """A gateway secret is decrypted by id with no user attached, so each path that reaches
+    decryption must check the caller itself. A new reference fails here until it is listed with
+    the check that covers it.
     """
     call_sites, renamed = _secret_decryption_references()
 

@@ -2033,20 +2033,10 @@ def validate_can_update_experiment():
 
 
 def _can_use_secret_named_by_experiment_tag(key: str, value: str) -> bool:
-    """Whether the caller may store ``value`` under experiment tag ``key``, as far as a gateway
-    secret the tag binds is concerned.
+    """USE on the gateway secret an issue-detection schedule tag names, if it names one.
 
-    An issue-detection schedule is an ordinary experiment tag, and it may name a gateway secret.
-    When the schedule fires, the dispatcher decrypts that secret into the job environment with no
-    request, and so no caller, to authorize against. The write is therefore the only point at
-    which anyone can be asked, and it asks what invoking detection by hand asks
-    (``validate_can_invoke_issue_detection``): USE on the secret. Without it, UPDATE on any
-    experiment -- the caller's own included -- would be enough to run detection on a key somebody
-    else saved, given its id.
-
-    Every write of a schedule naming a secret is checked, including one that leaves the secret as
-    it was: the cadence and the model travel in the same tag, so an unchanged secret is still a
-    new decision about how often it is used and on what.
+    The dispatcher decrypts that secret later with no request to authorize, so the tag write is
+    the only place the caller can be checked.
     """
     if key != MLFLOW_ISSUE_DETECTION_SCHEDULE:
         return True
@@ -2058,7 +2048,6 @@ def _can_use_secret_named_by_experiment_tag(key: str, value: str) -> bool:
 def validate_can_set_experiment_tag():
     if not _get_permission_from_experiment_id().can_update:
         return False
-    # Parsed as the handler parses it, so the tag checked here is the tag that gets stored.
     msg = _get_request_message(SetExperimentTag())
     return _can_use_secret_named_by_experiment_tag(msg.key, msg.value)
 
@@ -2860,11 +2849,8 @@ def validate_can_create_experiment() -> bool:
     ):
         return False
     if not has_request_context():
-        # No body, so no tags to store (a non-HTTP caller).
         return True
-    # An experiment can be created already carrying a schedule, which binds a secret exactly as
-    # setting the tag afterwards does. Every tag is checked rather than only the one that would
-    # win a duplicate key, so the answer does not depend on how a store folds them.
+    # An experiment can be created already carrying a schedule tag.
     msg = _get_request_message(CreateExperiment())
     return all(_can_use_secret_named_by_experiment_tag(tag.key, tag.value) for tag in msg.tags)
 

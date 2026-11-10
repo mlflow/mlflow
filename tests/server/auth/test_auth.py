@@ -9294,11 +9294,8 @@ def test_issue_detection_invoke_requires_use_permission_on_secret(client):
     indirect=True,
 )
 def test_issue_detection_schedule_requires_use_permission_on_secret(client):
-    # A detection schedule is an experiment tag naming a gateway secret, which the dispatcher
-    # decrypts into the job environment whenever the schedule fires. Nobody is making a request
-    # at that point, so the tag write is where the secret boundary has to hold: UPDATE on the
-    # caller's own experiment must not be enough to bind someone else's secret to it. Same
-    # class as GHSA-2m86-c5q7-rxgr, reached through the schedule instead of issues/invoke.
+    # The schedule tag names a gateway secret the dispatcher decrypts later, so writing it must
+    # require USE on that secret (same class as GHSA-2m86-c5q7-rxgr).
     base = client.tracking_uri
     owner, owner_pw = create_user(base)
     attacker, attacker_pw = create_user(base)
@@ -9349,16 +9346,15 @@ def test_issue_detection_schedule_requires_use_permission_on_secret(client):
     direct = {"provider": "openai", "model": "gpt-4o"}
     with_owner_secret = schedule(direct | {"secretId": secret_id})
 
-    # UPDATE on the experiment alone: denied at the secret boundary, and nothing is stored for
-    # the dispatcher to find.
+    # UPDATE on the experiment alone is not enough, and nothing is stored.
     assert set_tag(with_owner_secret, attacker_auth, attacker_exp_id).status_code == 403
     assert MLFLOW_ISSUE_DETECTION_SCHEDULE not in stored_tags(attacker_exp_id, attacker_auth)
 
-    # A paused schedule binds the secret just the same.
+    # Same for a paused schedule.
     paused = schedule(direct | {"secretId": secret_id}, paused=True)
     assert set_tag(paused, attacker_auth, attacker_exp_id).status_code == 403
 
-    # Creating an experiment that already carries the schedule is the same write.
+    # Same when the experiment is created with the tag.
     resp = create_experiment(
         "attacker-exp-born-scheduled",
         attacker_auth,
@@ -9366,15 +9362,15 @@ def test_issue_detection_schedule_requires_use_permission_on_secret(client):
     )
     assert resp.status_code == 403
 
-    # READ on the secret only exposes masked metadata; consuming it still requires USE.
+    # READ on the secret is not enough.
     grant_role_permission(base, attacker, "gateway_secret", secret_id, "READ")
     assert set_tag(with_owner_secret, attacker_auth, attacker_exp_id).status_code == 403
 
-    # Unknown secret id: fail closed rather than surface a permission oracle.
+    # An unknown secret id fails closed.
     unknown = schedule(direct | {"secretId": "s-does-not-exist"})
     assert set_tag(unknown, attacker_auth, attacker_exp_id).status_code == 403
 
-    # A schedule that names no secret, and any other tag, stay ordinary tag writes.
+    # No secret named, or another tag key: an ordinary tag write.
     assert set_tag(schedule(direct), attacker_auth, attacker_exp_id).status_code == 200
     assert (
         set_tag(schedule({"endpointName": "ep"}), attacker_auth, attacker_exp_id).status_code == 200
@@ -9383,7 +9379,7 @@ def test_issue_detection_schedule_requires_use_permission_on_secret(client):
         set_tag(with_owner_secret, attacker_auth, attacker_exp_id, key="notes").status_code == 200
     )
 
-    # With USE the schedule can be saved either way.
+    # USE on the secret allows both routes.
     grant_role_permission(base, attacker, "gateway_secret", secret_id, "USE")
     assert set_tag(with_owner_secret, attacker_auth, attacker_exp_id).status_code == 200
     assert (
@@ -9397,7 +9393,7 @@ def test_issue_detection_schedule_requires_use_permission_on_secret(client):
     )
     assert resp.status_code == 200
 
-    # The secret owner (MANAGE) schedules against their own experiment.
+    # The secret's owner can schedule on their own experiment.
     owner_exp_id = create_experiment("owner-exp", (owner, owner_pw)).json()["experiment_id"]
     assert set_tag(with_owner_secret, (owner, owner_pw), owner_exp_id).status_code == 200
 
