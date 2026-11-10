@@ -1220,6 +1220,44 @@ def test_dump_span_attribute_value_handles_type_error():
     assert result == json.dumps(repr(value), ensure_ascii=False)
 
 
+def test_dump_span_attribute_value_serializes_numpy_arrays_in_full():
+    np = pytest.importorskip("numpy")
+    long_array = np.arange(5000)
+    embeddings = np.random.default_rng(0).random((2, 1536), dtype=np.float32)
+
+    loaded = json.loads(dump_span_attribute_value({"ids": long_array, "embeddings": embeddings}))
+
+    assert loaded == {"ids": long_array.tolist(), "embeddings": embeddings.tolist()}
+
+
+def test_dump_span_attribute_value_serializes_numpy_scalars_as_json_values():
+    np = pytest.importorskip("numpy")
+    value = {
+        "float32": np.float32(0.5),
+        "int64": np.int64(7),
+        "bool": np.bool_(True),
+        "nan": np.float32("nan"),
+    }
+
+    result = dump_span_attribute_value(value)
+
+    assert result == json.dumps({"float32": 0.5, "int64": 7, "bool": True, "nan": float("nan")})
+
+
+def test_trace_decorator_records_numpy_outputs():
+    np = pytest.importorskip("numpy")
+
+    @mlflow.trace
+    def embed(n):
+        return {"vector": np.arange(n, dtype=np.float32), "score": np.float32(0.25)}
+
+    embed(np.int64(1500))
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
+    assert trace.data.spans[0].inputs == {"n": 1500}
+    assert trace.data.spans[0].outputs == {"vector": [float(i) for i in range(1500)], "score": 0.25}
+
+
 @pytest.mark.parametrize(
     ("model_name", "model_provider", "expected_provider"),
     [

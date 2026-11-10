@@ -92,6 +92,10 @@ class TraceJSONEncoder(json.JSONEncoder):
             except Exception:
                 pass
 
+        # Detect NumPy arrays and scalars without importing numpy, which mlflow-skinny lacks.
+        if type(obj).__module__ == "numpy" and hasattr(obj, "tolist"):
+            return obj.tolist()
+
         # Some object has dangerous side effect in __str__ method, so we use class name instead.
         if not self._is_safe_to_encode_str(obj):
             return type(obj)
