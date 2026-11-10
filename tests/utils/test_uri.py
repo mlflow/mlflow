@@ -883,6 +883,7 @@ def test_validate_path_is_safe_preserves_posix_names(path, monkeypatch):
     ("path", "component", "rule"),
     [
         ("folder/file.txt.", "file.txt.", "ends with a dot or space"),
+        (r"folder.\file.txt", "folder.", "ends with a dot or space"),
         ("run:1.txt", "run:1.txt", "alternate data stream"),
         ("models/x~1.csv", "x~1.csv", "DOS short-name"),
     ],
