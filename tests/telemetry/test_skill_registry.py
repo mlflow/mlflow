@@ -112,14 +112,13 @@ def telemetry(mock_telemetry_client):
 
 
 @pytest.fixture(params=[False, True], ids=["default-store", "workspace-store"])
-def skill_store(request, monkeypatch, tmp_path):
+def skill_store(request, monkeypatch, tmp_path, db_uri):
     monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", str(request.param).lower())
-    uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
     store_cls = WorkspaceAwareSqlAlchemyStore if request.param else SqlAlchemyStore
     with WorkspaceContext("default"):
-        store = store_cls(uri, tmp_path.as_uri())
+        store = store_cls(db_uri, tmp_path.as_uri())
         with mock.patch(
-            "mlflow.genai.skills.MlflowClient", return_value=MlflowClient(tracking_uri=uri)
+            "mlflow.genai.skills.MlflowClient", return_value=MlflowClient(tracking_uri=db_uri)
         ):
             yield store
 
