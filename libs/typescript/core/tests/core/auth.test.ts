@@ -2,6 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import util from 'util';
+import { Config } from '@databricks/sdk-experimental';
 import {
   createAuthProvider,
   createKubernetesAuth,
@@ -252,6 +253,28 @@ if (args.length === 1 && args[0] === 'version') {
       expect(printed).not.toContain('canary-client-secret');
       expect(printed).not.toContain('canary-pat');
       expect(printed).not.toContain('canary-unrelated-secret');
+    });
+
+    it('does not propagate a non-Error value thrown by the Databricks SDK', async () => {
+      const spy = jest
+        .spyOn(Config.prototype, 'ensureResolved')
+        .mockRejectedValue({ config: { clientSecret: 'canary-client-secret' } });
+      try {
+        process.env.DATABRICKS_HOST = 'https://127.0.0.1:1';
+        const provider = createAuthProvider({
+          trackingUri: 'databricks',
+          databricksConfigPath: path.join(tmpDir, 'databrickscfg'),
+        });
+        const error: unknown = await provider
+          .getHeadersProvider()()
+          .catch((e: unknown) => e);
+
+        expect(error).toBeInstanceOf(Error);
+        const printed = util.inspect(error, { depth: Infinity, showHidden: true });
+        expect(printed).not.toContain('canary-client-secret');
+      } finally {
+        spy.mockRestore();
+      }
     });
   });
 
